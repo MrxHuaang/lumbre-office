@@ -1,5 +1,5 @@
-import { bubble, characterShadow, drawCafeItem, FEET_Y, FRAME, FRAMES, isDrinkArt, SHEET_DIRECTIONS, steamPuff } from "@hyvento/map/art";
-import type { Direction, PresenceStatus } from "@hyvento/shared";
+import { bubble, characterShadow, drawCafeItem, FEET_Y, FRAME, FRAMES, heldEffect, puff, SHEET_DIRECTIONS } from "@hyvento/map/art";
+import { heldParts, type Direction, type PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt, STATUS_HEX } from "@/lib/cozy";
@@ -13,15 +13,35 @@ const VIDEO_SIZE = 30;
 const HEAD = 30;
 const SPEAKING_COLOR = "#5ea247";
 /**
- * Dónde va lo que lleva en la mano, según hacia dónde mira: desplazamiento horizontal desde el centro y
- * si queda delante del cuerpo (de frente) o detrás (de espaldas, asomado al costado).
+ * Dónde va lo que lleva en cada mano, según hacia dónde mira: desplazamiento horizontal desde el centro
+ * y si queda delante del cuerpo (de frente) o detrás (de espaldas, asomado al costado). La segunda mano
+ * solo se usa con los combos (un tinto y un cigarro).
  */
-const HAND: Record<Direction, { dx: number; front: boolean }> = {
-  down: { dx: 4, front: true },
-  right: { dx: -5, front: true },
-  left: { dx: 7, front: false },
-  up: { dx: -7, front: false },
+const HANDS: Record<Direction, [{ dx: number; front: boolean }, { dx: number; front: boolean }]> = {
+  down: [
+    { dx: 4, front: true },
+    { dx: -5, front: true },
+  ],
+  right: [
+    { dx: -5, front: true },
+    { dx: 4, front: true },
+  ],
+  left: [
+    { dx: 7, front: false },
+    { dx: -7, front: false },
+  ],
+  up: [
+    { dx: -7, front: false },
+    { dx: 7, front: false },
+  ],
 };
+
+/** Algo en una mano: su sprite y, si echa vapor o humo, la bocanada animada. */
+interface HeldPart {
+  image: Phaser.GameObjects.Image;
+  hand: 0 | 1;
+  puff?: { image: Phaser.GameObjects.Image; from: [number, number]; rise: number; tween: Phaser.Tweens.Tween };
+}
 
 export const STATUS_COLORS = Object.fromEntries(
   Object.entries(STATUS_HEX).map(([k, v]) => [k, hexToInt(v)]),
@@ -50,8 +70,8 @@ export class Avatar {
   private readonly statusDot: Phaser.GameObjects.Arc;
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
-  /** Lo que lleva en la mano (pedido en la cafetería) y el vapor si es una bebida. */
-  private held?: { id: string; image: Phaser.GameObjects.Image; steam?: Phaser.GameObjects.Image; tween?: Phaser.Tweens.Tween };
+  /** Lo que lleva en las manos (pedido en la cafetería). */
+  private held?: { id: string; parts: HeldPart[] };
   private bubbleTimer?: Phaser.Time.TimerEvent;
   private video?: { track: Track; el: HTMLVideoElement; wrap: HTMLDivElement; dom: Phaser.GameObjects.DOMElement };
   private speaking = false;
@@ -119,8 +139,10 @@ export class Avatar {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
-    this.held?.image.setVisible(!hidden);
-    this.held?.steam?.setVisible(!hidden);
+    for (const part of this.held?.parts ?? []) {
+      part.image.setVisible(!hidden);
+      part.puff?.image.setVisible(!hidden);
+    }
     this.speakingRing.setVisible(!hidden && this.speaking && !this.video);
     this.bubble?.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
@@ -186,41 +208,52 @@ export class Avatar {
     this.layout();
   }
 
-  /** Pone en la mano un producto de la cafetería (id del menú) o lo quita con "". */
+  /** Pone en las manos lo pedido en la cafetería (id del menú) o lo quita con "". */
   setHeld(id: string) {
     if ((this.held?.id ?? "") === id) return;
     this.clearHeld();
-    if (!id) return;
-    const key = `mano-${id}`;
-    ensureTexture(this.scene, key, () => drawCafeItem(id));
-    const image = this.scene.add.image(0, 0, key).setOrigin(0.5, 1).setVisible(!this.hidden);
-    this.held = { id, image };
-    if (isDrinkArt(id)) {
-      ensureTexture(this.scene, "vapor", () => steamPuff());
-      const steam = this.scene.add.image(0, 0, "vapor").setOrigin(0.5, 1).setVisible(!this.hidden);
-      // El vapor sube y se desvanece; `steamRise` lo desplaza desde la boca de la taza (ver layout).
-      const tween = this.scene.tweens.addCounter({
-        from: 0,
-        to: 1,
-        duration: 1400,
-        repeat: -1,
-        repeatDelay: 500,
-        onUpdate: (t) => {
-          const v = t.getValue() ?? 0;
-          steam.setData("rise", v * 5).setAlpha(1 - v);
-          this.layout();
-        },
-      });
-      this.held = { id, image, steam, tween };
-    }
+    const parts = heldParts(id);
+    if (parts.length === 0) return;
+    this.held = { id, parts: parts.map((art, i) => this.makeHeldPart(art, i === 0 ? 0 : 1)) };
     this.layout();
   }
 
+  private makeHeldPart(art: string, hand: 0 | 1): HeldPart {
+    const key = `mano-${art}`;
+    ensureTexture(this.scene, key, () => drawCafeItem(art));
+    const part: HeldPart = { image: this.scene.add.image(0, 0, key).setOrigin(0.5, 1).setVisible(!this.hidden), hand };
+    const effect = heldEffect(art);
+    if (effect) {
+      const smoke = effect.fx === "smoke";
+      const puffKey = smoke ? "humo" : "vapor";
+      ensureTexture(this.scene, puffKey, () => puff(effect.fx));
+      const image = this.scene.add.image(0, 0, puffKey).setOrigin(0.5, 1).setVisible(!this.hidden);
+      // Sube y se desvanece; el humo es más lento y sube más que el vapor.
+      const tween = this.scene.tweens.addCounter({
+        from: 0,
+        to: 1,
+        duration: smoke ? 2000 : 1400,
+        repeat: -1,
+        repeatDelay: smoke ? 900 : 500,
+        delay: hand * 700,
+        onUpdate: (t) => {
+          const v = t.getValue() ?? 0;
+          if (part.puff) part.puff.rise = v * (smoke ? 7 : 5);
+          image.setAlpha(1 - v);
+          this.layout();
+        },
+      });
+      part.puff = { image, from: effect.from, rise: 0, tween };
+    }
+    return part;
+  }
+
   private clearHeld() {
-    if (!this.held) return;
-    this.held.tween?.remove();
-    this.held.image.destroy();
-    this.held.steam?.destroy();
+    for (const part of this.held?.parts ?? []) {
+      part.puff?.tween.remove();
+      part.puff?.image.destroy();
+      part.image.destroy();
+    }
     this.held = undefined;
   }
 
@@ -340,13 +373,20 @@ export class Avatar {
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);
     if (this.held) {
-      const hand = HAND[this.seated ?? this.dir];
+      const hands = HANDS[this.seated ?? this.dir];
       // Sentado, las manos quedan 3 px más abajo (sobre las piernas).
       const bottom = y + 1 - (this.seated ? 2 : 5);
-      const hd = depth + (hand.front ? 0.55 : 0.47);
-      this.held.image.setPosition(x + hand.dx, bottom).setDepth(hd);
-      const rise = (this.held.steam?.getData("rise") as number | undefined) ?? 0;
-      this.held.steam?.setPosition(x + hand.dx, bottom - this.held.image.height - rise).setDepth(hd);
+      for (const part of this.held.parts) {
+        const hand = hands[part.hand];
+        const hx = x + hand.dx;
+        const hd = depth + (hand.front ? 0.55 : 0.47);
+        part.image.setPosition(hx, bottom).setDepth(hd);
+        if (part.puff) {
+          const left = hx - part.image.width / 2;
+          const top = bottom - part.image.height;
+          part.puff.image.setPosition(left + part.puff.from[0] + 0.5, top + part.puff.from[1] - part.puff.rise).setDepth(hd);
+        }
+      }
     }
     // Con cámara, el nombre va sobre la burbuja de video. Los textos van por encima de todo.
     const head = HEAD - (this.seated ? 3 : 0);
