@@ -6,11 +6,11 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: cada persona con
 
 | Fase | Estado |
 |---|---|
-| 0. Base (monorepo, CI, esquema Prisma, docker-compose, login con Google por invitación) | ✅ — falta migrar la DB (requiere Docker) |
+| 0. Base (monorepo, CI, esquema Prisma, docker-compose, login con Google por invitación) | ✅ |
 | 1. Oficina multijugador (mapa, movimiento, chat por proximidad y global) | ✅ |
 | 2. Oficinas personales (asignación, placas, cerrar/tocar la puerta, notas, estado y chat persistidos) | ✅ |
 | 3. Video/voz por proximidad (LiveKit): suscripción selectiva, permisos en el SFU, pantalla compartida | ✅ |
-| Despliegue | ⏳ |
+| Despliegue | ✅ |
 
 > Las funciones de agentes de IA se retiraron del proyecto; su código quedó archivado en la rama `archivo/agentes-ia`.
 
