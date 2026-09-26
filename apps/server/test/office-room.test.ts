@@ -255,11 +255,11 @@ describe("OfficeRoom: chat y estado", () => {
 });
 
 describe("OfficeRoom: sentarse", () => {
-  // Silla oeste de la mesa 1 de la cafetería (11, 6): mira hacia la mesa (+x). Se llega por detrás (10, 6).
-  const seat = { x: c(11), y: c(6) };
+  // Silla oeste de la mesa 1 de la cafetería (11, 5): mira hacia la mesa (+x). Se llega por detrás (10, 5).
+  const seat = { x: c(11), y: c(5) };
   const toSeat = async (client: Parameters<typeof walkToTile>[0], room: Parameters<typeof walkToTile>[1]) => {
     await goToArea(client, room, "planta-baja");
-    await walkToTile(client, room, 10, 6);
+    await walkToTile(client, room, 10, 5);
   };
 
   it("se sienta en una silla cercana y queda mirando hacia la mesa", async () => {
@@ -289,7 +289,7 @@ describe("OfficeRoom: sentarse", () => {
 
     await toSeat(alice, room);
     alice.send(MSG.move, { ...seat, dir: "right", moving: false, seated: true });
-    await walkToTile(bob, room, 10, 5);
+    await walkToTile(bob, room, 10, 4);
     bob.send(MSG.move, { ...seat, dir: "right", moving: false, seated: true });
     await room.waitForNextPatch();
     await tick();
@@ -301,27 +301,27 @@ describe("OfficeRoom: sentarse", () => {
   it("se sienta en el sofá y se levanta en el tile libre de al lado", async () => {
     const { room, alice } = await setup();
     const me = () => room.state.players.get(alice.sessionId)!;
-    // Sofá de la cafetería (14..15, 15) mirando hacia arriba; detrás queda (14, 16).
+    // Sofá de la tienda (9, 14..15) mirando hacia la derecha; detrás está la pared y al lado queda (9, 13).
     await goToArea(alice, room, "planta-baja");
-    await walkToTile(alice, room, 14, 16);
-    alice.send(MSG.move, { x: c(14), y: c(15), dir: "down", moving: false, seated: true });
+    await walkToTile(alice, room, 9, 13);
+    alice.send(MSG.move, { x: c(9), y: c(14), dir: "down", moving: false, seated: true });
     await room.waitForNextPatch();
     await tick();
     expect(me().seated).toBe(true);
-    expect(me().dir).toBe("up");
+    expect(me().dir).toBe("right");
 
-    alice.send(MSG.move, { x: c(14), y: c(16), dir: "down", moving: false, seated: false });
+    alice.send(MSG.move, { x: c(9), y: c(13), dir: "down", moving: false, seated: false });
     await room.waitForNextPatch();
     await tick();
     expect(me().seated).toBe(false);
-    expect(me().y).toBe(c(16));
+    expect(me().y).toBe(c(13));
   });
 
   it("no se puede usar un portal estando sentado", async () => {
     const { room, alice } = await setup();
     await goToArea(alice, room, "planta-baja");
-    await walkToTile(alice, room, 14, 16);
-    alice.send(MSG.move, { x: c(14), y: c(15), dir: "up", moving: false, seated: true });
+    await walkToTile(alice, room, 9, 13);
+    alice.send(MSG.move, { x: c(9), y: c(14), dir: "up", moving: false, seated: true });
     alice.send(MSG.travel, { portal: "planta-baja-salida" });
     await room.waitForNextPatch();
     await tick();

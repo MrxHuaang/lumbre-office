@@ -31,7 +31,7 @@ const useLabelOf = () => {
   return (p: string) => placeLabel(p, (id) => zoneNames[id]);
 };
 
-/** Fichas de arriba a la izquierda: marca, puntos, dónde estás, a quién oyes, estado, noche y menú. */
+/** Fichas de arriba a la izquierda: marca, puntos, dónde estás, a quién oyes, estado, mochila, noche y menú. */
 export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout }: HudProps) {
   const zone = useOfficeStore((s) => s.zone);
   const players = useOfficeStore((s) => s.players);
@@ -43,6 +43,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
   const place = useOfficeStore((s) => s.place);
   const night = useOfficeStore((s) => s.night);
   const setNight = useOfficeStore((s) => s.setNight);
+  const openPanel = useOfficeStore((s) => s.openPanel);
   const labelOf = useLabelOf();
 
   return (
@@ -88,6 +89,15 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
           Mi oficina
         </button>
       )}
+
+      <button
+        onClick={() => openPanel("backpack", false)}
+        className="cozy-btn h-[34px] w-[34px] p-0"
+        title="Mochila: tus muebles guardados"
+        aria-label="Mochila"
+      >
+        <PixelIcon name="bag" size={16} color="var(--color-cozy-wood)" />
+      </button>
 
       <button
         onClick={() => setNight(!night)}
