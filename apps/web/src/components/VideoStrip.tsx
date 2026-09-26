@@ -26,7 +26,7 @@ export function VideoStrip() {
   if (tiles.length === 0) return null;
 
   return (
-    <div className="pointer-events-none absolute top-16 left-1/2 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-2 overflow-x-auto pb-1">
+    <div className="pointer-events-none absolute top-20 left-1/2 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-3 overflow-x-auto p-1 pb-2 md:max-w-[calc(100%-38rem)]">
       {tiles.map((t) => (
         <ScreenTile key={t.identity ?? "me"} identity={t.identity} name={t.name} />
       ))}
@@ -40,15 +40,15 @@ function ScreenTile({ identity, name }: { identity: string | null; name: string 
   return (
     <button
       onClick={() => setFocused({ identity, source: "screen" })}
-      className="group pointer-events-auto relative h-[96px] w-[170px] shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 border-line bg-black shadow-lg hover:border-accent"
+      className="group riso-press pointer-events-auto relative h-[96px] w-[170px] shrink-0 cursor-zoom-in overflow-hidden border-2 border-riso-navy bg-riso-navy transition-[transform,box-shadow] duration-100 hover:[--riso-shadow:var(--color-riso-pink)]"
       title="Ver en grande"
     >
-      {track ? <VideoView track={track} contain /> : <span className="text-xs text-muted">Cargando…</span>}
-      <span className="absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded bg-ink/80 px-1.5 py-0.5 text-[11px]">
-        📺 {name}
+      {track ? <VideoView track={track} contain /> : <span className="text-xs text-riso-paper">Cargando…</span>}
+      <span className="absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate border-[1.5px] border-riso-navy bg-riso-paper px-1.5 py-0.5 text-[11px] font-semibold">
+        {name}
       </span>
-      <span className="absolute top-1 right-1 rounded bg-ink/80 px-1.5 py-0.5 text-[10px] opacity-0 transition group-hover:opacity-100">
-        Ampliar ⤢
+      <span className="absolute top-1 right-1 border-[1.5px] border-riso-navy bg-riso-yellow px-1.5 py-0.5 text-[10px] font-semibold opacity-0 transition group-hover:opacity-100">
+        Ampliar
       </span>
     </button>
   );
@@ -109,22 +109,22 @@ export function ScreenFocus() {
   const isScreen = focused.source === "screen";
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col bg-ink/95 p-3 sm:p-4" role="dialog" aria-label={isScreen ? "Pantalla compartida" : "Cámara"}>
-      <div className="mb-2 flex items-center gap-2 text-sm">
-        <span className="flex-1 truncate">
-          {isScreen ? `📺 ${focused.identity ? `${name} está compartiendo su pantalla` : "Tu pantalla"}` : `🎥 ${name}`}
+    <div className="absolute inset-0 z-30 flex flex-col bg-riso-navy/95 p-3 text-riso-paper sm:p-4" role="dialog" aria-label={isScreen ? "Pantalla compartida" : "Cámara"}>
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="font-display flex-1 truncate text-[17px]">
+          {isScreen ? (focused.identity ? `${name} está compartiendo su pantalla` : "Tu pantalla") : name}
         </span>
         <button
           onClick={() => void boxRef.current?.requestFullscreen?.()}
-          className="rounded-lg border border-line px-3 py-1 hover:border-muted"
+          className="riso-pill riso-press px-3.5 py-1.5 [--riso-shadow:var(--color-riso-pink)]"
         >
           Pantalla completa
         </button>
-        <button onClick={() => setFocused(null)} className="rounded-lg border border-line px-3 py-1 hover:border-muted">
+        <button onClick={() => setFocused(null)} className="riso-pill riso-press bg-riso-yellow px-3.5 py-1.5 [--riso-shadow:var(--color-riso-pink)]">
           Cerrar (Esc)
         </button>
       </div>
-      <div ref={boxRef} className="min-h-0 flex-1 overflow-hidden rounded-xl bg-black">
+      <div ref={boxRef} className="min-h-0 flex-1 overflow-hidden border-2 border-riso-paper bg-black">
         <VideoView track={track} contain={isScreen} mirror={!isScreen && focused.identity === null} />
       </div>
     </div>

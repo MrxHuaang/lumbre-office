@@ -4,16 +4,14 @@ import type { ChatScope } from "@hyvento/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { sendChat } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { nameInk, RISO } from "@/lib/riso";
 
-const NAME_COLORS = ["#ffd166", "#7bdff2", "#f497da", "#9ef01a", "#ffb4a2", "#b8b8ff", "#80ffdb"];
-const colorFor = (id: string) => NAME_COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % NAME_COLORS.length];
 const time = (ts: number) => new Date(ts).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
 
 export function ChatPanel() {
   const messages = useOfficeStore((s) => s.messages);
   const scope = useOfficeStore((s) => s.chatScope);
   const open = useOfficeStore((s) => s.chatOpen);
-  const unread = useOfficeStore((s) => s.unread);
   const zone = useOfficeStore((s) => s.zone);
   const sessionId = useOfficeStore((s) => s.sessionId);
   const { setChatScope, setChatOpen, setTyping } = useOfficeStore.getState();
@@ -49,64 +47,59 @@ export function ChatPanel() {
         ? `Mensaje para ${zone.name}`
         : "Mensaje para quienes están cerca";
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setChatOpen(true)}
-        className="absolute right-3 bottom-3 flex items-center gap-2 rounded-xl border border-line bg-panel/90 px-3 py-2 text-sm backdrop-blur hover:border-muted"
-      >
-        Chat
-        {unread > 0 && (
-          <span className="rounded-full bg-accent px-1.5 text-xs font-bold text-accent-ink">{unread}</span>
-        )}
-      </button>
-    );
-  }
+  // Cerrado: se abre desde la barra de llamada (botón "Chat") o con Enter.
+  if (!open) return null;
 
   return (
-    <section className="absolute right-3 bottom-3 flex h-[min(420px,calc(100%-5rem))] w-[min(340px,calc(100%-1.5rem))] flex-col overflow-hidden rounded-2xl border border-line bg-panel/92 shadow-2xl backdrop-blur">
-      <header className="flex items-center gap-1 border-b border-line p-2">
-        {(["proximity", "global"] as ChatScope[]).map((s) => (
-          <button
-            key={s}
-            onClick={() => setChatScope(s)}
-            className={`rounded-lg px-3 py-1 text-xs font-medium ${
-              s === scope ? "bg-panel-2 text-text" : "text-muted hover:text-text"
-            }`}
-          >
-            {s === "proximity" ? (zone?.isolated ? zone.name : "Cerca") : "Global"}
-          </button>
-        ))}
-        <button
-          onClick={() => setChatOpen(false)}
-          aria-label="Cerrar chat"
-          className="ml-auto rounded-lg px-2 py-1 text-muted hover:text-text"
-        >
-          ✕
+    <section
+      className="riso-panel absolute bottom-24 left-3 z-10 flex h-[min(380px,calc(100%-13rem))] w-[min(330px,calc(100%-1.5rem))] flex-col"
+      style={{ "--riso-shadow": RISO.pink } as React.CSSProperties}
+    >
+      <header className="flex items-center gap-2 border-b-2 border-riso-navy px-3.5 py-2.5">
+        <span className="font-display text-[15px]">Chat</span>
+        <div className="ml-1 flex gap-1" role="tablist" aria-label="Canal">
+          {(["proximity", "global"] as ChatScope[]).map((s) => (
+            <button
+              key={s}
+              role="tab"
+              aria-selected={s === scope}
+              onClick={() => setChatScope(s)}
+              className={`max-w-28 truncate rounded-full border-[1.5px] border-riso-navy px-2.5 py-0.5 text-[11px] font-semibold ${
+                s === scope ? "bg-riso-navy text-riso-paper" : "hover:bg-riso-yellow"
+              }`}
+            >
+              {s === "proximity" ? (zone?.isolated ? zone.name : "Cerca") : "Global"}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => setChatOpen(false)} className="ml-auto text-[13px] underline-offset-2 hover:underline">
+          cerrar
         </button>
       </header>
 
-      <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto p-3 text-sm">
+      <div ref={listRef} className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-3.5 py-3">
         {visible.length === 0 && (
-          <p className="pt-8 text-center text-xs text-muted">
+          <p className="pt-8 text-center text-xs text-riso-muted">
             {scope === "global"
               ? "Nadie ha escrito en el canal global todavía."
               : "Acércate a alguien (o entra a una sala) y escribe."}
           </p>
         )}
         {visible.map((m) => (
-          <div key={m.id}>
-            <span className="font-semibold" style={{ color: m.fromId === sessionId ? "#ffe08a" : colorFor(m.fromId) }}>
-              {m.fromId === sessionId ? "Tú" : m.fromName}
+          <div key={m.id} className="flex flex-col gap-0.5">
+            <span className="text-[11px] font-semibold">
+              <span style={{ color: m.fromId === sessionId ? RISO.navy : nameInk(m.fromId) }}>
+                {m.fromId === sessionId ? "Tú" : m.fromName}
+              </span>
+              <span className="ml-2 font-normal text-riso-muted">{time(m.ts)}</span>
             </span>
-            <span className="ml-2 text-[10px] text-muted">{time(m.ts)}</span>
-            <p className="break-words text-text/90">{m.text}</p>
+            <p className="text-[13px] leading-snug break-words">{m.text}</p>
           </div>
         ))}
       </div>
 
       <form
-        className="border-t border-line p-2"
+        className="flex border-t-2 border-riso-navy"
         onSubmit={(e) => {
           e.preventDefault();
           const t = text.trim();
@@ -126,8 +119,15 @@ export function ChatPanel() {
             if (e.key === "Escape") inputRef.current?.blur();
           }}
           placeholder={placeholder}
-          className="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-accent"
+          className="min-w-0 flex-1 bg-riso-cream px-3.5 py-3 text-[13px] outline-none placeholder:text-riso-placeholder"
         />
+        <button
+          type="submit"
+          disabled={!text.trim()}
+          className="border-l-2 border-riso-navy bg-riso-pink px-4 text-[13px] font-semibold disabled:opacity-60"
+        >
+          Enviar
+        </button>
       </form>
     </section>
   );

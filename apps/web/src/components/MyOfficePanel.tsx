@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { sendOfficeLock } from "@/game/network";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
+import { RISO } from "@/lib/riso";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -12,6 +13,8 @@ export function MyOfficePanel() {
   const myOffice = useOfficeStore(useShallow(selectMyOffice));
   const zoneId = useOfficeStore((s) => s.zone?.id);
   const setTyping = useOfficeStore((s) => s.setTyping);
+  // En el celular no caben el chat y este panel a la vez: el chat abierto tiene prioridad.
+  const chatOpen = useOfficeStore((s) => s.chatOpen);
   const inside = Boolean(myOffice && zoneId === myOffice.zoneId);
 
   const [notes, setNotes] = useState<string | null>(null);
@@ -45,27 +48,31 @@ export function MyOfficePanel() {
   };
 
   return (
-    <section className="absolute bottom-3 left-3 w-[min(300px,calc(100%-1.5rem))] rounded-2xl border border-line bg-panel/92 p-3 shadow-2xl backdrop-blur">
-      <header className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-semibold tracking-[0.18em] text-accent uppercase">Tu oficina</p>
-          <p className="text-sm font-semibold">{myOffice.name}</p>
+    <section
+      className={`riso-panel absolute right-3 bottom-24 z-10 w-[min(300px,calc(100%-1.5rem))] xl:bottom-14 ${chatOpen ? "max-md:hidden" : ""}`}
+      style={{ "--riso-shadow": RISO.blue } as React.CSSProperties}
+    >
+      <header className="flex items-center justify-between gap-2 border-b-2 border-riso-navy px-3.5 py-2.5">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold tracking-[0.14em] text-riso-blue uppercase">Tu oficina</p>
+          <p className="font-display truncate text-[15px]">{myOffice.name}</p>
         </div>
         <button
           onClick={() => sendOfficeLock(!myOffice.locked)}
           aria-pressed={myOffice.locked}
-          className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-            myOffice.locked ? "bg-[#ffb4a2]/15 text-[#ffb4a2]" : "bg-panel-2 text-text hover:bg-line"
-          }`}
+          className={`riso-pill riso-press shrink-0 px-3 py-1.5 text-xs ${myOffice.locked ? "bg-riso-pink" : ""}`}
           title={myOffice.locked ? "Nadie puede entrar sin tocar la puerta" : "Cualquiera puede entrar"}
         >
-          {myOffice.locked ? "🔒 Cerrada" : "🔓 Abierta"}
+          <LockIcon open={!myOffice.locked} />
+          {myOffice.locked ? "Cerrada" : "Abierta"}
         </button>
       </header>
-      <label className="mt-3 block">
-        <span className="flex justify-between text-xs text-muted">
+      <label className="block px-3.5 pt-2.5 pb-3.5">
+        <span className="flex justify-between text-[11px] font-semibold tracking-[0.12em] uppercase">
           Notas
-          <span>{save === "saving" ? "Guardando…" : save === "saved" ? "Guardado" : save === "error" ? "Error al guardar" : ""}</span>
+          <span className="font-normal tracking-normal text-riso-muted normal-case">
+            {save === "saving" ? "Guardando…" : save === "saved" ? "Guardado" : save === "error" ? "Error al guardar" : ""}
+          </span>
         </span>
         <textarea
           value={notes ?? ""}
@@ -76,9 +83,18 @@ export function MyOfficePanel() {
           maxLength={5000}
           rows={4}
           placeholder="Pendientes, links, ideas…"
-          className="mt-1 w-full resize-none rounded-lg border border-line bg-ink px-3 py-2 text-sm outline-none focus:border-accent"
+          className="riso-input mt-1.5 w-full resize-none px-3 py-2 text-[13px]"
         />
       </label>
     </section>
+  );
+}
+
+function LockIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d={open ? "M8 11V7a4 4 0 0 1 7.5-2" : "M8 11V7a4 4 0 0 1 8 0v4"} />
+    </svg>
   );
 }

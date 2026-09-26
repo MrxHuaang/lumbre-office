@@ -30,6 +30,7 @@ import { media, useMediaStore } from "./media";
 import { getRoom, onMoveCorrection, onRoom, sendMove, type OfficeRoom, type RemotePlayer } from "./network";
 import { canEnterOffice, selectMyUserId, useOfficeStore, type OfficeView } from "./store";
 import { getStateCallbacks } from "colyseus.js";
+import { RISO, risoFontFamily } from "@/lib/riso";
 
 const TILE_LAYERS = ["floor", "walls", "furniture"] as const;
 const MIN_ZOOM = 1;
@@ -91,7 +92,6 @@ export class OfficeScene extends Phaser.Scene {
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, tilemap.widthInPixels, tilemap.heightInPixels);
-    cam.setBackgroundColor("#161824");
     cam.setZoom(this.defaultZoom());
     cam.setRoundPixels(true);
 
@@ -400,8 +400,7 @@ export class OfficeScene extends Phaser.Scene {
         height: "50px",
         objectFit: "contain",
         background: "#000",
-        border: "2px solid #4a4a5a",
-        borderRadius: "3px",
+        border: `2px solid ${RISO.navy}`,
         cursor: "zoom-in",
         display: "block",
       } satisfies Partial<CSSStyleDeclaration>);
@@ -452,10 +451,11 @@ export class OfficeScene extends Phaser.Scene {
       const door = officeDoor(this.officeMap, zone);
       const plate = this.add
         .text(door.x, door.y - this.officeMap.tileSize / 2 + 1, "", {
-          fontFamily: "ui-sans-serif, system-ui, sans-serif",
+          fontFamily: risoFontFamily(),
+          fontStyle: "600",
           fontSize: "10px",
-          color: "#f4efe3",
-          backgroundColor: "rgba(22,24,36,0.88)",
+          color: RISO.navy,
+          backgroundColor: RISO.paper,
           padding: { x: 5, y: 2 },
           resolution: 3,
         })
@@ -469,8 +469,10 @@ export class OfficeScene extends Phaser.Scene {
     for (const [zoneId, plate] of this.nameplates) {
       const office = offices[zoneId];
       const owner = office?.ownerName;
+      // Placa de la puerta: amarilla con dueño, rosa si está cerrada, papel si está libre.
       plate.setText(owner ? `${office.locked ? "🔒 " : ""}${owner}` : "Libre");
-      plate.setColor(office?.locked ? "#ffb4a2" : owner ? "#ffe08a" : "#8a8fa3");
+      plate.setColor(owner ? RISO.navy : RISO.muted);
+      plate.setBackgroundColor(office?.locked ? RISO.pink : owner ? RISO.yellow : RISO.paper);
     }
     this.updateDoorPrompt();
   }

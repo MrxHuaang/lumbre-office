@@ -1,6 +1,7 @@
 import type { Direction, PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
+import { hexToInt, RISO, risoFontFamily, STATUS_HEX } from "@/lib/riso";
 
 const FRAMES_PER_ROW = 3;
 const ROW: Record<Direction, number> = { down: 0, left: 1, right: 2, up: 3 };
@@ -9,14 +10,13 @@ const FEET_ORIGIN_Y = 30 / 32;
 const BUBBLE_MS = 4500;
 /** Diámetro (px de mundo) de la burbuja de cámara que reemplaza al personaje. */
 const VIDEO_SIZE = 46;
-const SPEAKING_COLOR = "#3ddc84";
+const SPEAKING_COLOR = RISO.green;
+const NAVY = hexToInt(RISO.navy);
+const PAPER = hexToInt(RISO.paper);
 
-export const STATUS_COLORS: Record<PresenceStatus, number> = {
-  available: 0x3ddc84,
-  busy: 0xffb020,
-  dnd: 0xff4d5e,
-  away: 0x8a8fa3,
-};
+export const STATUS_COLORS = Object.fromEntries(
+  Object.entries(STATUS_HEX).map(([k, v]) => [k, hexToInt(v)]),
+) as Record<PresenceStatus, number>;
 
 /** Registra las animaciones de caminata de un spritesheet de personaje (idempotente). */
 export function ensureAnimations(scene: Phaser.Scene, key: string) {
@@ -37,6 +37,9 @@ export function ensureAnimations(scene: Phaser.Scene, key: string) {
 export class Avatar {
   readonly sprite: Phaser.GameObjects.Sprite;
   private readonly label: Phaser.GameObjects.Text;
+  /** Ficha de papel detrás del nombre (y su sombra rosa si soy yo). */
+  private readonly labelBox: Phaser.GameObjects.Rectangle;
+  private readonly labelShadow: Phaser.GameObjects.Rectangle;
   private readonly statusDot: Phaser.GameObjects.Arc;
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
@@ -63,17 +66,25 @@ export class Avatar {
     this.targetY = y;
     this.sprite = scene.add.sprite(x, y, textureKey, 0).setOrigin(0.5, FEET_ORIGIN_Y);
     this.label = scene.add
-      .text(x, y, name, {
-        fontFamily: "ui-sans-serif, system-ui, sans-serif",
-        fontSize: "11px",
-        color: isLocal ? "#ffe08a" : "#ffffff",
-        backgroundColor: "rgba(15,17,26,0.72)",
-        padding: { x: 4, y: 1 },
+      .text(x, y, isLocal ? `${name} (tú)` : name, {
+        fontFamily: risoFontFamily(),
+        fontStyle: "600",
+        fontSize: "10px",
+        color: isLocal ? RISO.paper : RISO.navy,
+        padding: { x: 5, y: 2 },
         resolution: 3,
       })
       .setOrigin(0.5, 1);
-    this.statusDot = scene.add.circle(x, y, 3, STATUS_COLORS.available).setStrokeStyle(1, 0x0f111a);
-    this.speakingRing = scene.add.ellipse(x, y, 26, 10).setStrokeStyle(2, 0x3ddc84, 0.95).setVisible(false);
+    this.labelShadow = scene.add
+      .rectangle(x, y, this.label.width, this.label.height, hexToInt(RISO.pink))
+      .setOrigin(0.5, 1)
+      .setVisible(isLocal);
+    this.labelBox = scene.add
+      .rectangle(x, y, this.label.width, this.label.height, isLocal ? NAVY : PAPER)
+      .setStrokeStyle(1, NAVY)
+      .setOrigin(0.5, 1);
+    this.statusDot = scene.add.circle(x, y, 3, STATUS_COLORS.available).setStrokeStyle(1, NAVY);
+    this.speakingRing = scene.add.ellipse(x, y, 26, 10).setStrokeStyle(2, hexToInt(SPEAKING_COLOR), 0.95).setVisible(false);
     this.layout();
   }
 
@@ -99,7 +110,7 @@ export class Avatar {
   setSpeaking(speaking: boolean) {
     this.speaking = speaking;
     this.speakingRing.setVisible(speaking && !this.video);
-    if (this.video) this.video.wrap.style.borderColor = speaking ? SPEAKING_COLOR : "#1b1b24";
+    if (this.video) this.video.wrap.style.borderColor = speaking ? SPEAKING_COLOR : RISO.navy;
   }
 
   /**
@@ -117,9 +128,9 @@ export class Avatar {
       height: `${VIDEO_SIZE}px`,
       borderRadius: "50%",
       overflow: "hidden",
-      border: `2px solid ${this.speaking ? SPEAKING_COLOR : "#1b1b24"}`,
-      background: "#0f111a",
-      boxShadow: "0 2px 6px rgba(0,0,0,.45)",
+      border: `2px solid ${this.speaking ? SPEAKING_COLOR : RISO.navy}`,
+      background: RISO.navy,
+      boxShadow: `2px 2px 0 ${RISO.navy}`,
       cursor: opts.onClick ? "zoom-in" : "default",
     } satisfies Partial<CSSStyleDeclaration>);
     const el = document.createElement("video");
@@ -182,21 +193,26 @@ export class Avatar {
     this.bubbleTimer?.remove();
     const shown = text.length > 80 ? `${text.slice(0, 77)}…` : text;
     const content = this.scene.add.text(0, 0, shown, {
-      fontFamily: "ui-sans-serif, system-ui, sans-serif",
-      fontSize: "11px",
-      color: "#1b1b24",
+      fontFamily: risoFontFamily(),
+      fontSize: "10px",
+      color: RISO.navy,
       wordWrap: { width: 150 },
       resolution: 3,
     });
     content.setOrigin(0.5, 1);
     const w = content.width + 12;
     const h = content.height + 8;
+    // Globo de papel con borde de tinta y sombra sólida, como las fichas de la UI.
     const bg = this.scene.add.graphics();
-    bg.fillStyle(0xffffff, 0.96);
-    bg.lineStyle(1, 0x1b1b24, 1);
-    bg.fillRoundedRect(-w / 2, -h - 4, w, h, 5);
-    bg.strokeRoundedRect(-w / 2, -h - 4, w, h, 5);
+    bg.fillStyle(NAVY, 1);
+    bg.fillRect(-w / 2 + 2, -h - 2, w, h);
+    bg.fillStyle(PAPER, 1);
+    bg.lineStyle(1, NAVY, 1);
+    bg.fillRect(-w / 2, -h - 4, w, h);
+    bg.strokeRect(-w / 2, -h - 4, w, h);
     bg.fillTriangle(-4, -4.5, 4, -4.5, 0, 1);
+    bg.lineBetween(-4, -4, 0, 1);
+    bg.lineBetween(4, -4, 0, 1);
     content.setPosition(0, -8);
     this.bubble = this.scene.add.container(0, 0, [bg, content]);
     this.layout();
@@ -212,6 +228,8 @@ export class Avatar {
     this.bubble?.destroy();
     this.sprite.destroy();
     this.label.destroy();
+    this.labelBox.destroy();
+    this.labelShadow.destroy();
     this.statusDot.destroy();
     this.speakingRing.destroy();
   }
@@ -224,6 +242,8 @@ export class Avatar {
     const top = this.video ? VIDEO_SIZE + 6 : 30;
     this.video?.dom.setPosition(x, y + 2);
     this.label.setPosition(x + 4, y - top).setDepth(100_000 + y);
+    this.labelBox.setPosition(x + 4, y - top).setDepth(100_000 + y - 0.1);
+    this.labelShadow.setPosition(x + 6, y - top + 2).setDepth(100_000 + y - 0.2);
     this.statusDot.setPosition(x + 4 - this.label.width / 2 - 5, y - top - this.label.height / 2).setDepth(100_001 + y);
     this.bubble?.setPosition(x, y - top - this.label.height).setDepth(200_000 + y);
   }

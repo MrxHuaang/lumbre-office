@@ -2,6 +2,7 @@
 
 import { respondKnock, sendKnock } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { RISO } from "@/lib/riso";
 
 /** Frente a la puerta de una oficina cerrada: ofrecer tocar. */
 export function DoorPrompt() {
@@ -12,14 +13,14 @@ export function DoorPrompt() {
   const waiting = pending === zoneId;
 
   return (
-    <div className="absolute bottom-20 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-panel/95 px-4 py-2.5 text-sm shadow-xl backdrop-blur">
+    <div className="riso-panel absolute bottom-24 left-1/2 z-10 flex w-max max-md:top-1/2 max-md:bottom-auto max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 px-4 py-2.5 text-[13px]">
       <span>
-        🔒 La oficina de <strong>{office.ownerName}</strong> está cerrada
+        La oficina de <strong>{office.ownerName}</strong> está cerrada
       </span>
       <button
         onClick={() => sendKnock(zoneId)}
         disabled={waiting}
-        className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink disabled:opacity-60"
+        className="riso-pill riso-press bg-riso-pink px-3.5 py-1.5 text-xs"
       >
         {waiting ? "Esperando respuesta…" : "Tocar la puerta"}
       </button>
@@ -32,23 +33,25 @@ export function KnockRequests() {
   const requests = useOfficeStore((s) => s.knockRequests);
   if (requests.length === 0) return null;
   return (
-    <div className="absolute top-[172px] left-1/2 z-10 flex w-[min(360px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-2">
+    <div className="absolute top-1/3 left-1/2 z-20 flex w-[min(360px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-3">
       {requests.map((r) => (
-        <div key={r.requestId} role="alert" className="rounded-xl border border-accent/40 bg-panel/95 p-3 shadow-xl backdrop-blur">
-          <p className="text-sm">
-            🚪 <strong>{r.fromName}</strong> toca la puerta de tu oficina
+        <div
+          key={r.requestId}
+          role="alert"
+          className="riso-panel p-3.5"
+          style={{ "--riso-shadow": RISO.pink } as React.CSSProperties}
+        >
+          <p className="text-[13px]">
+            <strong>{r.fromName}</strong> toca la puerta de tu oficina
           </p>
-          <div className="mt-2 flex gap-2">
+          <div className="mt-3 flex items-center gap-3">
             <button
               onClick={() => respondKnock(r.requestId, true)}
-              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink"
+              className="riso-pill riso-press bg-riso-pink px-3.5 py-1.5 text-xs"
             >
               Dejar pasar
             </button>
-            <button
-              onClick={() => respondKnock(r.requestId, false)}
-              className="rounded-lg border border-line px-3 py-1.5 text-xs"
-            >
+            <button onClick={() => respondKnock(r.requestId, false)} className="text-xs underline underline-offset-2">
               Ahora no
             </button>
           </div>
@@ -58,10 +61,11 @@ export function KnockRequests() {
   );
 }
 
+/** Color de la sombra de cada aviso según su tono. */
 const TONE: Record<string, string> = {
-  info: "border-line",
-  success: "border-emerald-400/40",
-  warning: "border-amber-400/40",
+  info: RISO.blue,
+  success: RISO.green,
+  warning: RISO.orange,
 };
 
 export function Notices() {
@@ -69,11 +73,12 @@ export function Notices() {
   const dismiss = useOfficeStore((s) => s.dismissNotice);
   if (notices.length === 0) return null;
   return (
-    <div className="pointer-events-none absolute top-16 right-3 flex w-[min(320px,calc(100%-1.5rem))] flex-col gap-2" aria-live="polite">
+    <div className="flex w-full flex-col gap-3" aria-live="polite">
       {notices.map((n) => (
         <div
           key={n.id}
-          className={`pointer-events-auto flex items-center gap-2 rounded-xl border bg-panel/95 px-3 py-2 text-sm shadow-xl backdrop-blur ${TONE[n.tone]}`}
+          className="riso-panel pointer-events-auto flex items-center gap-2.5 px-3.5 py-2.5 text-[13px]"
+          style={{ "--riso-shadow": TONE[n.tone] ?? RISO.navy } as React.CSSProperties}
         >
           <span className="flex-1">{n.text}</span>
           {n.action && (
@@ -82,12 +87,12 @@ export function Notices() {
                 n.action!.run();
                 dismiss(n.id);
               }}
-              className="rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-ink"
+              className="riso-pill riso-press shrink-0 bg-riso-yellow px-3 py-1 text-xs"
             >
               {n.action.label}
             </button>
           )}
-          <button onClick={() => dismiss(n.id)} aria-label="Cerrar aviso" className="text-muted hover:text-text">
+          <button onClick={() => dismiss(n.id)} aria-label="Cerrar aviso" className="shrink-0 px-1 text-riso-muted hover:text-riso-navy">
             ✕
           </button>
         </div>

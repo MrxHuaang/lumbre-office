@@ -39,7 +39,8 @@ export function createGame(parent: HTMLElement) {
     parent,
     pixelArt: true,
     roundPixels: true,
-    backgroundColor: "#161824",
+    // Transparente: alrededor del mapa se ve el papel con semitono del contenedor.
+    transparent: true,
     scale: { mode: Phaser.Scale.RESIZE, width: parent.clientWidth, height: parent.clientHeight },
     input: { keyboard: true, mouse: { preventDefaultWheel: false } },
     disableContextMenu: true,

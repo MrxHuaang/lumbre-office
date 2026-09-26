@@ -10,6 +10,23 @@
   --color-accent: #ffe08a;
   --color-accent-ink: #2a2110;
   --color-lab: #5ee1e6;
+
+  /* Estilo RISO (UI dentro de la oficina): papel, tinta azul marino y tintas de risografía. */
+  --color-riso-paper: #f3eee3;
+  --color-riso-cream: #fffdf7;
+  --color-riso-navy: #1f2a44;
+  --color-riso-muted: #5b6480;
+  --color-riso-placeholder: #6d7590;
+  --color-riso-pink: #ff48b0;
+  --color-riso-pink-deep: #c21f78;
+  --color-riso-blue: #0078bf;
+  --color-riso-yellow: #ffe800;
+  --color-riso-green: #00a95c;
+  --color-riso-orange: #ff6c2f;
+  --color-riso-violet: #765ba7;
+
+  /* Fuentes cargadas con next/font (variables --riso-* en <html>). */
+  --font-plex: var(--riso-plex), ui-monospace, monospace;
 }
 
 html,
@@ -35,4 +52,88 @@ body {
 }
 .avatar-walk {
   animation: walk-down 0.45s steps(3) infinite;
+}
+
+/* ---------- Estilo RISO ---------- */
+
+/* Titulares: Archivo ancho y pesado. */
+@utility font-display {
+  font-family: var(--riso-archivo), ui-sans-serif, sans-serif;
+  font-weight: 800;
+  font-stretch: 115%;
+  letter-spacing: -0.01em;
+}
+
+@layer components {
+  /* Superficie de papel con borde de tinta y sombra sólida (nunca difuminada). */
+  .riso-panel {
+    background: var(--color-riso-paper);
+    border: 2px solid var(--color-riso-navy);
+    box-shadow: 4px 4px 0 var(--riso-shadow, var(--color-riso-navy));
+  }
+  .riso-chip {
+    background: var(--color-riso-paper);
+    border: 2px solid var(--color-riso-navy);
+    box-shadow: 3px 3px 0 var(--color-riso-navy);
+  }
+
+  /* Botón píldora; con `riso-press` se "hunde" en su sombra al hacer clic. */
+  .riso-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 2px solid var(--color-riso-navy);
+    border-radius: 999px;
+    background: var(--color-riso-paper);
+    color: var(--color-riso-navy);
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.2;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    transition:
+      transform 0.12s,
+      box-shadow 0.12s,
+      background-color 0.12s;
+  }
+  .riso-pill:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  .riso-press {
+    box-shadow: 3px 3px 0 var(--riso-shadow, var(--color-riso-navy));
+  }
+  .riso-press:not(:disabled):hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--riso-shadow, var(--color-riso-navy));
+  }
+  .riso-press:not(:disabled):active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--riso-shadow, var(--color-riso-navy));
+  }
+
+  .riso-input {
+    font-family: var(--font-plex);
+    color: var(--color-riso-navy);
+    background: var(--color-riso-cream);
+    border: 2px solid var(--color-riso-navy);
+    border-radius: 0;
+    outline: none;
+    box-shadow: 3px 3px 0 var(--color-riso-blue);
+    transition: box-shadow 0.12s;
+  }
+  .riso-input:focus {
+    box-shadow: 3px 3px 0 var(--color-riso-pink);
+  }
+  .riso-input::placeholder {
+    color: var(--color-riso-placeholder);
+  }
+
+  /* Fondo alrededor del mapa: semitono azul sobre papel. */
+  .riso-halftone {
+    background:
+      radial-gradient(circle, rgb(0 120 191 / 0.28) 1px, transparent 1.3px) 0 0 / 22px 22px,
+      var(--color-riso-paper);
+  }
 }

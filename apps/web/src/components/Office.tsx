@@ -5,8 +5,9 @@ import { logout } from "@/app/actions";
 import { media } from "@/game/media";
 import { connect, disconnect } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { waitForRisoFont } from "@/lib/riso";
 import { ChatPanel } from "./ChatPanel";
-import { Hud } from "./Hud";
+import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
@@ -93,6 +94,7 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
         if (cancelled || !gameRef.current) return;
         await waitForVisible();
         await waitForSize(gameRef.current);
+        await waitForRisoFont();
         if (cancelled || !gameRef.current) return;
         game = createGame(gameRef.current);
         game.events.once("ready", () => sessionStorageSafe.remove(RELOAD_FLAG));
@@ -114,45 +116,48 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
   }, [attempt]);
 
   return (
-    <main className="relative h-full w-full overflow-hidden">
+    <main className="riso-halftone relative h-full w-full overflow-hidden font-plex text-riso-navy">
       <div ref={gameRef} className="absolute inset-0" />
       {connection === "connected" || connection === "reconnecting" ? (
         <>
           <Hud isAdmin={isAdmin} onEditProfile={onEditProfile} onLogout={onExit} />
+          <div className="pointer-events-none absolute top-3 right-3 z-10 flex w-[min(270px,calc(100%-1.5rem))] flex-col items-end gap-3 max-md:w-44">
+            <PeoplePanel />
+            <Notices />
+          </div>
           <ChatPanel />
           <MyOfficePanel />
           <DoorPrompt />
           <KnockRequests />
-          <Notices />
           <MediaControls />
+          <ControlsHint />
           <VideoStrip />
           <ScreenFocus />
         </>
       ) : null}
 
       {connection === "reconnecting" && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-amber-500/90 px-3 py-1 text-xs font-medium text-black">
+        <div className="riso-chip absolute top-16 left-1/2 z-20 -translate-x-1/2 bg-riso-yellow px-3.5 py-1.5 text-xs font-semibold">
           Reconectando…
         </div>
       )}
 
       {(connection === "connecting" || connection === "idle") && (
         <Overlay>
-          <p className="text-sm text-muted">Entrando a la oficina…</p>
+          <Overprint text="Entrando…" />
+          <p className="mt-4 text-[13px] text-riso-muted">Preparando la oficina</p>
         </Overlay>
       )}
 
       {connection === "error" && (
         <Overlay>
-          <p className="max-w-sm text-center text-sm">{error ?? "Algo salió mal."}</p>
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={() => setAttempt((n) => n + 1)}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink"
-            >
+          <Overprint text="Uy." />
+          <p className="mt-5 max-w-sm text-center text-[15px] leading-relaxed">{error ?? "Algo salió mal."}</p>
+          <div className="mt-6 flex items-center gap-4">
+            <button onClick={() => setAttempt((n) => n + 1)} className="riso-pill riso-press bg-riso-pink px-5 py-3 text-[15px]">
               Reintentar
             </button>
-            <button onClick={onExit} className="rounded-lg border border-line px-4 py-2 text-sm">
+            <button onClick={onExit} className="text-[14px] underline underline-offset-2">
               Cerrar sesión
             </button>
           </div>
@@ -162,8 +167,27 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
   );
 }
 
+/** Recordatorio de controles (abajo a la derecha, solo en pantallas anchas). */
+function ControlsHint() {
+  return (
+    <div className="absolute right-3 bottom-4 hidden border-[1.5px] border-riso-navy bg-riso-paper px-2.5 py-1.5 text-xs text-riso-muted xl:block">
+      WASD / flechas · clic para caminar · Enter para chatear
+    </div>
+  );
+}
+
+/** Titular con dos tintas superpuestas (la técnica de impresión RISO). */
+function Overprint({ text }: { text: string }) {
+  return (
+    <p className="font-display relative text-6xl leading-none font-black tracking-tight [font-stretch:125%]">
+      <span className="absolute top-[3px] left-1 text-riso-blue mix-blend-multiply">{text}</span>
+      <span className="relative text-riso-pink mix-blend-multiply">{text}</span>
+    </p>
+  );
+}
+
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-ink/85 p-4">{children}</div>
+    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-riso-paper/90 p-4">{children}</div>
   );
 }

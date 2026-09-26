@@ -3,20 +3,22 @@
 import { media, useMediaStore } from "@/game/media";
 import { useOfficeStore } from "@/game/store";
 
+/** Barra de llamada (abajo al centro): micrófono, cámara, pantalla y chat. */
 export function MediaControls() {
   const status = useMediaStore((s) => s.status);
   const mic = useMediaStore((s) => s.mic);
   const cam = useMediaStore((s) => s.cam);
   const screen = useMediaStore((s) => s.screen);
-  const hearingCount = useMediaStore((s) => Object.keys(s.hearing).length);
-  const zone = useOfficeStore((s) => s.zone);
+  const chatOpen = useOfficeStore((s) => s.chatOpen);
+  const unread = useOfficeStore((s) => s.unread);
+  const setChatOpen = useOfficeStore((s) => s.setChatOpen);
   const ready = status === "connected";
-  const people = `${hearingCount} ${hearingCount === 1 ? "persona" : "personas"}`;
 
   return (
-    <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-2xl border border-line bg-panel/92 p-1.5 shadow-2xl backdrop-blur">
+    <div className="riso-panel absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full p-2 text-riso-navy">
       <ControlButton
         label={mic ? "Silenciar micrófono" : "Activar micrófono"}
+        text={mic ? "Mic on" : "Mic off"}
         active={mic}
         disabled={!ready}
         onClick={() => void media.toggleMic()}
@@ -25,6 +27,7 @@ export function MediaControls() {
       </ControlButton>
       <ControlButton
         label={cam ? "Apagar cámara" : "Encender cámara"}
+        text={cam ? "Cam on" : "Cam off"}
         active={cam}
         disabled={!ready}
         onClick={() => void media.toggleCam()}
@@ -33,23 +36,29 @@ export function MediaControls() {
       </ControlButton>
       <ControlButton
         label={screen ? "Dejar de compartir" : "Compartir pantalla"}
+        text={screen ? "Compartiendo" : "Pantalla"}
         active={screen}
+        activeClass="bg-riso-pink"
         disabled={!ready}
         onClick={() => void media.toggleScreen()}
       >
         <ScreenIcon />
       </ControlButton>
-      <span className="px-2 text-xs text-muted" title={zone?.isolated ? `En ${zone.name} se oye a todos los que están adentro, sin importar la distancia` : "Personas que te pueden oír y ver"}>
-        {status === "connecting"
-          ? "Conectando audio…"
-          : status === "unavailable"
-            ? "Audio/video no disponible"
-            : zone?.isolated
-              ? `En ${zone.name} · ${hearingCount === 0 ? "solo tú" : people}`
-              : hearingCount === 0
-                ? "Nadie cerca"
-                : `${people} cerca`}
-      </span>
+      <ControlButton
+        label={chatOpen ? "Cerrar chat" : "Abrir chat (Enter)"}
+        text="Chat"
+        active={chatOpen}
+        activeClass="bg-riso-yellow"
+        disabled={false}
+        onClick={() => setChatOpen(!chatOpen)}
+      >
+        <ChatIcon />
+        {unread > 0 && !chatOpen && (
+          <span className="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-riso-navy bg-riso-pink px-1 text-[11px] leading-none">
+            {unread}
+          </span>
+        )}
+      </ControlButton>
     </div>
   );
 }
@@ -57,13 +66,17 @@ export function MediaControls() {
 function ControlButton({
   children,
   label,
+  text,
   active,
+  activeClass = "bg-riso-green",
   disabled,
   onClick,
 }: {
   children: React.ReactNode;
   label: string;
+  text: string;
   active: boolean;
+  activeClass?: string;
   disabled: boolean;
   onClick: () => void;
 }) {
@@ -74,16 +87,15 @@ function ControlButton({
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={`flex h-9 w-9 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40 ${
-        active ? "bg-accent text-accent-ink" : "bg-panel-2 text-text hover:bg-line"
-      }`}
+      className={`riso-pill relative px-3 sm:px-4 ${active ? activeClass : ""}`}
     >
       {children}
+      <span className="hidden sm:inline">{text}</span>
     </button>
   );
 }
 
-const svg = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+const svg = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
 function MicIcon() {
   return (
@@ -112,6 +124,13 @@ function CamOffIcon() {
   return (
     <svg {...svg}>
       <path d="M16 16v1a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2m4 0h5a1 1 0 0 1 1 1v3l6-3v10M3 3l18 18" />
+    </svg>
+  );
+}
+function ChatIcon() {
+  return (
+    <svg {...svg}>
+      <path d="M4 5h16v11H9l-5 4z" />
     </svg>
   );
 }
