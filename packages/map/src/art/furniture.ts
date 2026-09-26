@@ -23,6 +23,8 @@ import { cushion, leg, shadowSpace, shadowUnder, volume, type Variant } from "./
 import { drawOutdoor, hasOutdoor } from "./outdoor";
 import { SHOP } from "./shop";
 import { CASINO_DRAW } from "./casino";
+import { CINEMA_DRAW } from "./cinema";
+import { CLUB_DRAW } from "./club";
 
 export type { Variant } from "./kit";
 
@@ -203,22 +205,24 @@ function armchair(variant: Variant): Sprite {
 }
 
 /** Brazo de sofá: tapa acolchada más clara y costura a media altura. */
-const sofaArm = (y: number): Box => ({
+const sofaArm = (y: number, f: Ramp = C.fabric): Box => ({
   x: 0,
   y,
   z: 2,
   w: 16,
   d: 4,
   h: 13,
-  top: (u, v, fw, fh) => at(C.fabric, u < 1 || u >= fw - 1 || v < 1 || v >= fh - 1 ? 3 : 4),
-  left: (_u, v, _fw, fh) => at(C.fabric, v >= fh - 1 ? 3 : Math.floor(v) === 6 ? 1 : 2),
-  right: (_u, v, _fw, fh) => at(C.fabric, v >= fh - 1 ? 2 : Math.floor(v) === 6 ? 0 : 1),
+  top: (u, v, fw, fh) => at(f, u < 1 || u >= fw - 1 || v < 1 || v >= fh - 1 ? 3 : 4),
+  left: (_u, v, _fw, fh) => at(f, v >= fh - 1 ? 3 : Math.floor(v) === 6 ? 1 : 2),
+  right: (_u, v, _fw, fh) => at(f, v >= fh - 1 ? 2 : Math.floor(v) === 6 ? 0 : 1),
 });
 
-/** Sofá de dos cuerpos: el respaldo va entre los brazos y todo se apoya en patas. */
-function sofa(variant: Variant): Sprite {
+/**
+ * Sofá de dos cuerpos: el respaldo va entre los brazos y todo se apoya en patas. `f` es la tela y
+ * `pillowR` el cojín (el de terciopelo del sótano es violeta con cojín dorado y patas doradas).
+ */
+function sofa(variant: Variant, f: Ramp = C.fabric, pillowR: Ramp = C.mustard, legR: Ramp = C.woodDark): Sprite {
   const back = variant === "back";
-  const f = C.fabric;
   const restX = back ? 11 : 0;
   const backCushX = back ? 7 : 5;
   const seatX = back ? 0 : 8;
@@ -236,11 +240,11 @@ function sofa(variant: Variant): Sprite {
   };
   const backCush = [cushion(backCushX, 5, 8, 4, 11, 10, f), cushion(backCushX, 16, 8, 4, 11, 10, f)];
   const seat = [cushion(seatX, 5, 8, 8, 11, 3, f), cushion(seatX, 16, 8, 8, 11, 3, f)];
-  const pillow = cushion(back ? 3 : 9, 21, 11, 4, 6, 6, C.mustard);
-  const backLegs = [leg(1, 1, 2), leg(13, 1, 2)];
-  const frontLegs = [leg(1, 29, 2), leg(13, 29, 2)];
+  const pillow = cushion(back ? 3 : 9, 21, 11, 4, 6, 6, pillowR);
+  const backLegs = [leg(1, 1, 2, legR), leg(13, 1, 2, legR)];
+  const frontLegs = [leg(1, 29, 2, legR), leg(13, 29, 2, legR)];
   const middle = back ? [base, ...seat, pillow, ...backCush, rest] : [rest, base, ...backCush, ...seat, pillow];
-  return renderSprite([...backLegs, sofaArm(0), ...middle, frontLegs[0]!, sofaArm(28), frontLegs[1]!], {
+  return renderSprite([...backLegs, sofaArm(0, f), ...middle, frontLegs[0]!, sofaArm(28, f), frontLegs[1]!], {
     outline: OUT,
     under: shadowUnder(0, 0, 16, 32),
   });
@@ -673,7 +677,8 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   chair,
   stool,
   armchair,
-  sofa,
+  sofa: (v) => sofa(v),
+  "lounge-sofa": (v) => sofa(v, C.violet, C.gold, C.gold),
   bench,
   bookshelf,
   plant,
@@ -692,6 +697,8 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...DECOR,
   ...SHOP,
   ...CASINO_DRAW,
+  ...CLUB_DRAW,
+  ...CINEMA_DRAW,
 };
 
 const cache = new Map<string, Sprite>();
