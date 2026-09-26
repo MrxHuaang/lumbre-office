@@ -12,6 +12,12 @@ import { useOfficeStore } from "./store";
 
 export type MediaStatus = "off" | "connecting" | "connected" | "unavailable";
 
+/** Vista ampliada: cámara o pantalla de alguien (identity = null → la propia). */
+export interface Focus {
+  identity: string | null;
+  source: "camera" | "screen";
+}
+
 export interface MediaParticipant {
   identity: string;
   name: string;
@@ -33,10 +39,9 @@ interface MediaStore {
   speaking: string[];
   /** Sube cuando cambian los tracks suscritos, para re-renderizar los videos. */
   trackVersion: number;
-  /** Pantalla compartida ampliada (identidad). */
-  focused: string | null;
+  focused: Focus | null;
   setHearing: (h: Record<string, number>) => void;
-  setFocused: (identity: string | null) => void;
+  setFocused: (focus: Focus | null) => void;
 }
 
 export const useMediaStore = create<MediaStore>((set) => ({
@@ -48,7 +53,7 @@ export const useMediaStore = create<MediaStore>((set) => ({
   participants: {},
   speaking: [],
   trackVersion: 0,
-  focused: null,
+  focused: null as Focus | null,
   setHearing: (hearing) => {
     set({ hearing });
     media.applyHearing(hearing);
@@ -211,9 +216,17 @@ class MediaManager {
         this.applyTo(p, useMediaStore.getState().hearing);
       })
       .on(RoomEvent.ParticipantDisconnected, sync)
-      .on(RoomEvent.TrackPublished, (_pub, p) => {
+      .on(RoomEvent.TrackPublished, (pub, p) => {
         sync();
         this.applyTo(p, useMediaStore.getState().hearing);
+        // Avisar a quienes lo oyen que empezó a compartir pantalla.
+        if (pub.source === Track.Source.ScreenShare && useMediaStore.getState().hearing[p.identity] !== undefined) {
+          const identity = p.identity;
+          useOfficeStore.getState().notify(`${p.name || "Alguien"} está compartiendo su pantalla`, "info", {
+            label: "Ver",
+            run: () => useMediaStore.getState().setFocused({ identity, source: "screen" }),
+          });
+        }
       })
       .on(RoomEvent.TrackUnpublished, sync)
       .on(RoomEvent.TrackMuted, sync)

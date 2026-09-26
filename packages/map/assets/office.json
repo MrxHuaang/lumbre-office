@@ -11,7 +11,7 @@
  "tileheight": 32,
  "compressionlevel": -1,
  "nextlayerid": 6,
- "nextobjectid": 28,
+ "nextobjectid": 29,
  "layers": [
   {
    "id": 1,
@@ -2804,10 +2804,10 @@
     0,
     0,
     0,
-    17,
-    17,
-    17,
     0,
+    17,
+    17,
+    17,
     10,
     0,
     0,
@@ -4042,6 +4042,25 @@
      "visible": true,
      "point": true,
      "properties": []
+    },
+    {
+     "id": 28,
+     "name": "Pantalla de la sala",
+     "type": "screen",
+     "x": 1072,
+     "y": 48,
+     "width": 0,
+     "height": 0,
+     "rotation": 0,
+     "visible": true,
+     "point": true,
+     "properties": [
+      {
+       "name": "zone",
+       "type": "string",
+       "value": "meeting-main"
+      }
+     ]
     }
    ]
   }

@@ -71,13 +71,26 @@ export function Notices() {
   return (
     <div className="pointer-events-none absolute top-16 right-3 flex w-[min(320px,calc(100%-1.5rem))] flex-col gap-2" aria-live="polite">
       {notices.map((n) => (
-        <button
+        <div
           key={n.id}
-          onClick={() => dismiss(n.id)}
-          className={`pointer-events-auto rounded-xl border bg-panel/95 px-3 py-2 text-left text-sm shadow-xl backdrop-blur ${TONE[n.tone]}`}
+          className={`pointer-events-auto flex items-center gap-2 rounded-xl border bg-panel/95 px-3 py-2 text-sm shadow-xl backdrop-blur ${TONE[n.tone]}`}
         >
-          {n.text}
-        </button>
+          <span className="flex-1">{n.text}</span>
+          {n.action && (
+            <button
+              onClick={() => {
+                n.action!.run();
+                dismiss(n.id);
+              }}
+              className="rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-ink"
+            >
+              {n.action.label}
+            </button>
+          )}
+          <button onClick={() => dismiss(n.id)} aria-label="Cerrar aviso" className="text-muted hover:text-text">
+            ✕
+          </button>
+        </div>
       ))}
     </div>
   );

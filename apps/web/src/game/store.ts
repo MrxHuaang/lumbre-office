@@ -46,6 +46,7 @@ export interface Notice {
   id: number;
   text: string;
   tone: "info" | "success" | "warning";
+  action?: { label: string; run: () => void };
 }
 
 type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error";
@@ -95,7 +96,7 @@ interface OfficeStore {
   addKnockRequest: (r: KnockRequest) => void;
   removeKnockRequest: (requestId: string) => void;
   handleKnockResult: (r: KnockResult) => void;
-  notify: (text: string, tone?: Notice["tone"]) => void;
+  notify: (text: string, tone?: Notice["tone"], action?: Notice["action"]) => void;
   dismissNotice: (id: number) => void;
   walkToZone: (zoneId: string) => void;
   reset: () => void;
@@ -180,10 +181,10 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     const { text, tone } = KNOCK_TEXT[r.outcome](r.ownerName || "La persona");
     get().notify(text, tone);
   },
-  notify: (text, tone = "info") => {
+  notify: (text, tone = "info", action) => {
     const id = ++noticeId;
-    set((s) => ({ notices: [...s.notices.slice(-3), { id, text, tone }] }));
-    setTimeout(() => get().dismissNotice(id), NOTICE_MS);
+    set((s) => ({ notices: [...s.notices.slice(-3), { id, text, tone, action }] }));
+    setTimeout(() => get().dismissNotice(id), action ? NOTICE_MS * 2 : NOTICE_MS);
   },
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),

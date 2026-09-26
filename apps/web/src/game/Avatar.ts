@@ -1,4 +1,5 @@
 import type { Direction, PresenceStatus } from "@hyvento/shared";
+import type { Track } from "livekit-client";
 import Phaser from "phaser";
 
 const FRAMES_PER_ROW = 3;
@@ -6,6 +7,9 @@ const ROW: Record<Direction, number> = { down: 0, left: 1, right: 2, up: 3 };
 /** Origen vertical del sprite: los pies están en el píxel ~29 de 32. */
 const FEET_ORIGIN_Y = 30 / 32;
 const BUBBLE_MS = 4500;
+/** Diámetro (px de mundo) de la burbuja de cámara que reemplaza al personaje. */
+const VIDEO_SIZE = 46;
+const SPEAKING_COLOR = "#3ddc84";
 
 export const STATUS_COLORS: Record<PresenceStatus, number> = {
   available: 0x3ddc84,
@@ -37,6 +41,8 @@ export class Avatar {
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
   private bubbleTimer?: Phaser.Time.TimerEvent;
+  private video?: { track: Track; el: HTMLVideoElement; wrap: HTMLDivElement; dom: Phaser.GameObjects.DOMElement };
+  private speaking = false;
   private dir: Direction = "down";
   private moving = false;
 
@@ -91,7 +97,60 @@ export class Avatar {
   }
 
   setSpeaking(speaking: boolean) {
-    this.speakingRing.setVisible(speaking);
+    this.speaking = speaking;
+    this.speakingRing.setVisible(speaking && !this.video);
+    if (this.video) this.video.wrap.style.borderColor = speaking ? SPEAKING_COLOR : "#1b1b24";
+  }
+
+  /**
+   * Reemplaza el personaje por la cámara de la persona (o vuelve al personaje con `null`).
+   * Se dibuja como elemento DOM de Phaser: sigue la cámara del juego y escala con el zoom.
+   */
+  setVideo(track: Track | null, opts: { mirror?: boolean; onClick?: () => void } = {}) {
+    if (this.video?.track === track) return;
+    this.clearVideo();
+    if (!track) return;
+
+    const wrap = document.createElement("div");
+    Object.assign(wrap.style, {
+      width: `${VIDEO_SIZE}px`,
+      height: `${VIDEO_SIZE}px`,
+      borderRadius: "50%",
+      overflow: "hidden",
+      border: `2px solid ${this.speaking ? SPEAKING_COLOR : "#1b1b24"}`,
+      background: "#0f111a",
+      boxShadow: "0 2px 6px rgba(0,0,0,.45)",
+      cursor: opts.onClick ? "zoom-in" : "default",
+    } satisfies Partial<CSSStyleDeclaration>);
+    const el = document.createElement("video");
+    el.muted = true;
+    el.playsInline = true;
+    el.autoplay = true;
+    Object.assign(el.style, {
+      width: "100%",
+      height: "100%",
+      objectFit: "cover",
+      transform: opts.mirror ? "scaleX(-1)" : "",
+    } satisfies Partial<CSSStyleDeclaration>);
+    wrap.appendChild(el);
+    if (opts.onClick) wrap.addEventListener("click", opts.onClick);
+    track.attach(el);
+
+    const dom = this.scene.add.dom(this.sprite.x, this.sprite.y, wrap).setOrigin(0.5, 1);
+    this.video = { track, el, wrap, dom };
+    this.sprite.setVisible(false);
+    this.speakingRing.setVisible(false);
+    this.layout();
+  }
+
+  private clearVideo() {
+    if (!this.video) return;
+    this.video.track.detach(this.video.el);
+    this.video.dom.destroy();
+    this.video = undefined;
+    this.sprite.setVisible(true);
+    this.speakingRing.setVisible(this.speaking);
+    this.layout();
   }
 
   setMotion(dir: Direction, moving: boolean) {
@@ -148,6 +207,7 @@ export class Avatar {
   }
 
   destroy() {
+    this.clearVideo();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
     this.sprite.destroy();
@@ -160,8 +220,11 @@ export class Avatar {
     const { x, y } = this.sprite;
     this.sprite.setDepth(y);
     this.speakingRing.setPosition(x, y - 1).setDepth(y - 1);
-    this.label.setPosition(x + 4, y - 30).setDepth(100_000 + y);
-    this.statusDot.setPosition(x + 4 - this.label.width / 2 - 5, y - 30 - this.label.height / 2).setDepth(100_001 + y);
-    this.bubble?.setPosition(x, y - 30 - this.label.height).setDepth(200_000 + y);
+    // Con cámara, el nombre va sobre la burbuja de video.
+    const top = this.video ? VIDEO_SIZE + 6 : 30;
+    this.video?.dom.setPosition(x, y + 2);
+    this.label.setPosition(x + 4, y - top).setDepth(100_000 + y);
+    this.statusDot.setPosition(x + 4 - this.label.width / 2 - 5, y - top - this.label.height / 2).setDepth(100_001 + y);
+    this.bubble?.setPosition(x, y - top - this.label.height).setDepth(200_000 + y);
   }
 }

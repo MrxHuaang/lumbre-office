@@ -1,6 +1,7 @@
 "use client";
 
 import { media, useMediaStore } from "@/game/media";
+import { useOfficeStore } from "@/game/store";
 
 export function MediaControls() {
   const status = useMediaStore((s) => s.status);
@@ -8,7 +9,9 @@ export function MediaControls() {
   const cam = useMediaStore((s) => s.cam);
   const screen = useMediaStore((s) => s.screen);
   const hearingCount = useMediaStore((s) => Object.keys(s.hearing).length);
+  const zone = useOfficeStore((s) => s.zone);
   const ready = status === "connected";
+  const people = `${hearingCount} ${hearingCount === 1 ? "persona" : "personas"}`;
 
   return (
     <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-2xl border border-line bg-panel/92 p-1.5 shadow-2xl backdrop-blur">
@@ -36,14 +39,16 @@ export function MediaControls() {
       >
         <ScreenIcon />
       </ControlButton>
-      <span className="px-2 text-xs text-muted" title="Personas que te pueden oír y ver">
+      <span className="px-2 text-xs text-muted" title={zone?.isolated ? `En ${zone.name} se oye a todos los que están adentro, sin importar la distancia` : "Personas que te pueden oír y ver"}>
         {status === "connecting"
           ? "Conectando audio…"
           : status === "unavailable"
             ? "Audio/video no disponible"
-            : hearingCount === 0
-              ? "Nadie cerca"
-              : `${hearingCount} ${hearingCount === 1 ? "persona cerca" : "personas cerca"}`}
+            : zone?.isolated
+              ? `En ${zone.name} · ${hearingCount === 0 ? "solo tú" : people}`
+              : hearingCount === 0
+                ? "Nadie cerca"
+                : `${people} cerca`}
       </span>
     </div>
   );

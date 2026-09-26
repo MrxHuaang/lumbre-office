@@ -7,7 +7,7 @@ export * from "./pathfinding";
 export const COLLISION_LAYERS = ["walls", "furniture"] as const;
 
 export type ZoneType = "office" | "meeting" | "lab" | "lounge";
-export type PointType = "spawn" | "seat" | "agent_desk" | "visitor_spot" | "task_board";
+export type PointType = "spawn" | "seat" | "agent_desk" | "visitor_spot" | "task_board" | "screen";
 
 export interface Zone {
   id: string;

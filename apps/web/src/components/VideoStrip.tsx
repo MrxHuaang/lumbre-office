@@ -2,84 +2,53 @@
 
 import { Track } from "livekit-client";
 import { useEffect, useRef } from "react";
-import { media, useMediaStore } from "@/game/media";
-import { selectMyUserId, useOfficeStore } from "@/game/store";
+import { media, useMediaStore, type Focus } from "@/game/media";
 
-type VideoSource = Track.Source.Camera | Track.Source.ScreenShare;
-
-/** Tira superior con las personas que oyes (y tu propia cámara/pantalla). */
+/**
+ * Pantallas compartidas de quienes oyes (y la tuya). Las cámaras se ven sobre los avatares.
+ * Clic en una miniatura → vista grande.
+ */
 export function VideoStrip() {
   const hearing = useMediaStore((s) => s.hearing);
   const participants = useMediaStore((s) => s.participants);
-  const speaking = useMediaStore((s) => s.speaking);
-  const cam = useMediaStore((s) => s.cam);
   const screen = useMediaStore((s) => s.screen);
-  const mic = useMediaStore((s) => s.mic);
-  const myId = useOfficeStore(selectMyUserId);
   useMediaStore((s) => s.trackVersion); // re-render cuando cambian los tracks
 
-  const heard = Object.entries(hearing)
-    .filter(([id]) => participants[id])
-    .sort(([, a], [, b]) => b - a)
-    .map(([id]) => participants[id]!);
+  const presenters = Object.keys(hearing)
+    .map((id) => participants[id])
+    .filter((p) => p?.screen)
+    .map((p) => ({ identity: p!.identity, name: p!.name }));
 
-  const tiles: React.ReactNode[] = [];
-  if (cam) tiles.push(<Tile key="me-cam" identity={null} source={Track.Source.Camera} name="Tú" mic={mic} speaking={!!myId && speaking.includes(myId)} />);
-  if (screen) tiles.push(<Tile key="me-screen" identity={null} source={Track.Source.ScreenShare} name="Tu pantalla" mic screen />);
-  for (const p of heard) {
-    tiles.push(
-      <Tile key={`${p.identity}-cam`} identity={p.identity} source={Track.Source.Camera} name={p.name} mic={p.mic} speaking={speaking.includes(p.identity)} />,
-    );
-    if (p.screen) {
-      tiles.push(<Tile key={`${p.identity}-screen`} identity={p.identity} source={Track.Source.ScreenShare} name={`${p.name} · pantalla`} mic screen />);
-    }
-  }
+  const tiles = [
+    ...(screen ? [{ identity: null, name: "Tu pantalla" }] : []),
+    ...presenters,
+  ];
   if (tiles.length === 0) return null;
 
   return (
     <div className="pointer-events-none absolute top-16 left-1/2 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-2 overflow-x-auto pb-1">
-      {tiles}
+      {tiles.map((t) => (
+        <ScreenTile key={t.identity ?? "me"} identity={t.identity} name={t.name} />
+      ))}
     </div>
   );
 }
 
-function Tile({
-  identity,
-  source,
-  name,
-  mic,
-  speaking = false,
-  screen = false,
-}: {
-  identity: string | null;
-  source: VideoSource;
-  name: string;
-  mic: boolean;
-  speaking?: boolean;
-  screen?: boolean;
-}) {
+function ScreenTile({ identity, name }: { identity: string | null; name: string }) {
   const setFocused = useMediaStore((s) => s.setFocused);
-  const track = media.videoTrack(identity, source);
+  const track = media.videoTrack(identity, Track.Source.ScreenShare);
   return (
     <button
-      onClick={() => screen && identity && setFocused(identity)}
-      className={`pointer-events-auto relative h-[90px] w-[150px] shrink-0 overflow-hidden rounded-xl border-2 bg-panel shadow-lg ${
-        speaking ? "border-[#3ddc84]" : "border-line"
-      } ${screen && identity ? "cursor-zoom-in" : "cursor-default"}`}
-      title={screen && identity ? "Ampliar pantalla" : name}
+      onClick={() => setFocused({ identity, source: "screen" })}
+      className="group pointer-events-auto relative h-[96px] w-[170px] shrink-0 cursor-zoom-in overflow-hidden rounded-xl border-2 border-line bg-black shadow-lg hover:border-accent"
+      title="Ver en grande"
     >
-      {track ? (
-        <VideoView track={track} mirror={identity === null && source === Track.Source.Camera} contain={screen} />
-      ) : (
-        <div className="flex h-full items-center justify-center">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-panel-2 text-lg font-semibold">
-            {name.charAt(0).toUpperCase()}
-          </span>
-        </div>
-      )}
-      <span className="absolute bottom-1 left-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 truncate rounded bg-ink/75 px-1.5 py-0.5 text-[11px]">
-        {!mic && !screen && <span aria-label="micrófono apagado">🔇</span>}
-        {name}
+      {track ? <VideoView track={track} contain /> : <span className="text-xs text-muted">Cargando…</span>}
+      <span className="absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded bg-ink/80 px-1.5 py-0.5 text-[11px]">
+        📺 {name}
+      </span>
+      <span className="absolute top-1 right-1 rounded bg-ink/80 px-1.5 py-0.5 text-[10px] opacity-0 transition group-hover:opacity-100">
+        Ampliar ⤢
       </span>
     </button>
   );
@@ -101,43 +70,62 @@ function VideoView({ track, mirror = false, contain = false }: { track: Track; m
       muted
       playsInline
       autoPlay
-      className={`h-full w-full ${contain ? "object-contain bg-black" : "object-cover"} ${mirror ? "-scale-x-100" : ""}`}
+      className={`h-full w-full ${contain ? "bg-black object-contain" : "object-cover"} ${mirror ? "-scale-x-100" : ""}`}
     />
   );
 }
 
-/** Pantalla compartida ampliada. */
+const sourceOf = (f: Focus) => (f.source === "screen" ? Track.Source.ScreenShare : Track.Source.Camera);
+
+/** Vista grande de una cámara o pantalla compartida (Esc para cerrar, botón de pantalla completa). */
 export function ScreenFocus() {
   const focused = useMediaStore((s) => s.focused);
   const setFocused = useMediaStore((s) => s.setFocused);
-  const participant = useMediaStore((s) => (s.focused ? s.participants[s.focused] : undefined));
-  const heard = useMediaStore((s) => (s.focused ? s.hearing[s.focused] !== undefined : false));
+  const participants = useMediaStore((s) => s.participants);
+  const hearing = useMediaStore((s) => s.hearing);
   useMediaStore((s) => s.trackVersion);
+  const boxRef = useRef<HTMLDivElement>(null);
 
-  // Si deja de compartir o se aleja, cerrar.
+  const track = focused ? media.videoTrack(focused.identity, sourceOf(focused)) : undefined;
+  const name = focused?.identity ? (participants[focused.identity]?.name ?? "Alguien") : "Tú";
+  const stillAvailable =
+    !!focused && !!track && (focused.identity === null || hearing[focused.identity] !== undefined);
+
+  // Si deja de compartir, apaga la cámara o se aleja, cerrar.
   useEffect(() => {
-    if (focused && (!participant?.screen || !heard)) setFocused(null);
-  }, [focused, participant?.screen, heard, setFocused]);
+    if (focused && !stillAvailable) setFocused(null);
+  }, [focused, stillAvailable, setFocused]);
 
   useEffect(() => {
     if (!focused) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFocused(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !document.fullscreenElement) setFocused(null);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [focused, setFocused]);
 
-  const track = focused ? media.videoTrack(focused, Track.Source.ScreenShare) : undefined;
   if (!focused || !track) return null;
+  const isScreen = focused.source === "screen";
+
   return (
-    <div className="absolute inset-0 z-20 flex flex-col bg-ink/95 p-4" role="dialog" aria-label="Pantalla compartida">
-      <div className="mb-2 flex items-center justify-between text-sm">
-        <span>{participant?.name} está compartiendo su pantalla</span>
-        <button onClick={() => setFocused(null)} className="rounded-lg border border-line px-3 py-1">
+    <div className="absolute inset-0 z-20 flex flex-col bg-ink/95 p-3 sm:p-4" role="dialog" aria-label={isScreen ? "Pantalla compartida" : "Cámara"}>
+      <div className="mb-2 flex items-center gap-2 text-sm">
+        <span className="flex-1 truncate">
+          {isScreen ? `📺 ${focused.identity ? `${name} está compartiendo su pantalla` : "Tu pantalla"}` : `🎥 ${name}`}
+        </span>
+        <button
+          onClick={() => void boxRef.current?.requestFullscreen?.()}
+          className="rounded-lg border border-line px-3 py-1 hover:border-muted"
+        >
+          Pantalla completa
+        </button>
+        <button onClick={() => setFocused(null)} className="rounded-lg border border-line px-3 py-1 hover:border-muted">
           Cerrar (Esc)
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-black">
-        <VideoView track={track} contain />
+      <div ref={boxRef} className="min-h-0 flex-1 overflow-hidden rounded-xl bg-black">
+        <VideoView track={track} contain={isScreen} mirror={!isScreen && focused.identity === null} />
       </div>
     </div>
   );

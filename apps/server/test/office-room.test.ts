@@ -5,7 +5,7 @@ import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { c, tick, token, walkTo } from "./helpers";
+import { c, TILE, tick, token, walkPath, walkTo } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -174,6 +174,25 @@ describe("OfficeRoom: chat y estado", () => {
     await room.waitForNextPatch();
     await tick();
     expect(bobGot).toHaveLength(0);
+  });
+
+  it("dentro de una sala se oye a todos aunque estén lejos (sin proximidad)", async () => {
+    const { room, alice, bob } = await setup();
+    const bobGot = collectChat(bob);
+    // Esquinas opuestas de la sala de reuniones: ~9 tiles de distancia (> radio de 5 tiles).
+    await walkTo(alice, room, c(33), room.state.players.get(alice.sessionId)!.y);
+    await walkPath(alice, room, [[33, 10], [30, 10], [30, 3]]);
+    await walkTo(bob, room, c(34), room.state.players.get(bob.sessionId)!.y);
+    await walkPath(bob, room, [[34, 10], [37, 10], [37, 9]]);
+    const a = room.state.players.get(alice.sessionId)!;
+    const b = room.state.players.get(bob.sessionId)!;
+    expect([a.zoneId, b.zoneId]).toEqual(["meeting-main", "meeting-main"]);
+    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(5 * TILE);
+
+    alice.send(MSG.chatSend, { text: "¿me oyes desde allá?", scope: "proximity" });
+    await room.waitForNextPatch();
+    await tick();
+    expect(bobGot.map((m) => m.text)).toEqual(["¿me oyes desde allá?"]);
   });
 
   it("limita la tasa de mensajes de chat", async () => {

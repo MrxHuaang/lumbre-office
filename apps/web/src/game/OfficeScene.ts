@@ -6,6 +6,7 @@ import {
   officeDoor,
   parseOfficeMap,
   placeAt,
+  pointsOfType,
   zoneAt,
   zoneCenterTile,
   type OfficeMap,
@@ -22,9 +23,10 @@ import {
   type MoveMessage,
   type Positioned,
 } from "@hyvento/shared";
+import { Track } from "livekit-client";
 import Phaser from "phaser";
 import { Avatar } from "./Avatar";
-import { useMediaStore } from "./media";
+import { media, useMediaStore } from "./media";
 import { getRoom, onMoveCorrection, onRoom, sendMove, type OfficeRoom, type RemotePlayer } from "./network";
 import { canEnterOffice, selectMyUserId, useOfficeStore, type OfficeView } from "./store";
 import { getStateCallbacks } from "colyseus.js";
@@ -60,6 +62,8 @@ export class OfficeScene extends Phaser.Scene {
   private zonesById = new Map<string, Zone>();
   /** sessionId → userId de cada avatar (para cruzar con LiveKit, que usa userId). */
   private userOfSession = new Map<string, string>();
+  /** Pantallas de presentación en la pared (punto "screen" del mapa) → video que muestran. */
+  private screens = new Map<number, { identity: string | null; track: Track; el: HTMLVideoElement; dom: Phaser.GameObjects.DOMElement }>();
 
   constructor() {
     super("office");
@@ -107,6 +111,10 @@ export class OfficeScene extends Phaser.Scene {
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
+        if (m.trackVersion !== prev.trackVersion || m.cam !== prev.cam || m.screen !== prev.screen || m.hearing !== prev.hearing || m.participants !== prev.participants) {
+          this.syncVideos();
+          this.syncScreens();
+        }
       }),
       useOfficeStore.subscribe((s, prev) => {
         if (s.offices !== prev.offices) this.updateNameplates(s.offices);
@@ -118,6 +126,11 @@ export class OfficeScene extends Phaser.Scene {
     // muerta seguiría suscrita a la sala siguiente y rompería sus callbacks de estado.
     const cleanup = () => {
       this.disposed = true;
+      for (const s of this.screens.values()) {
+        s.track.detach(s.el);
+        s.dom.destroy();
+      }
+      this.screens.clear();
       this.unbindRoom();
       this.cleanups.forEach((fn) => fn());
       this.cleanups = [];
@@ -182,6 +195,7 @@ export class OfficeScene extends Phaser.Scene {
 
     const p$ = $(player);
     p$.listen("status", (status) => avatar.setStatus(status));
+    this.syncVideos();
     if (isLocal) {
       this.local = avatar;
       this.cameras.main.startFollow(avatar.sprite, true, 0.15, 0.15);
@@ -323,6 +337,81 @@ export class OfficeScene extends Phaser.Scene {
       next.size !== Object.keys(current).length ||
       [...next].some(([id, v]) => current[id] === undefined || Math.abs(current[id]! - v) > 0.05);
     if (changed) useMediaStore.getState().setHearing(Object.fromEntries(next));
+    // Alguien pudo entrar/salir de la sala: revisar las pantallas de presentación.
+    this.syncScreens();
+  }
+
+  /** Cámara en lugar del personaje: para mí si la tengo encendida, y para quienes oigo con cámara. */
+  private syncVideos() {
+    const m = useMediaStore.getState();
+    for (const [sessionId, avatar] of this.avatars) {
+      const isLocal = sessionId === this.localId;
+      const userId = this.userOfSession.get(sessionId) ?? "";
+      const track = isLocal
+        ? m.cam
+          ? media.videoTrack(null, Track.Source.Camera)
+          : undefined
+        : m.hearing[userId] !== undefined
+          ? media.videoTrack(userId, Track.Source.Camera)
+          : undefined;
+      avatar.setVideo(track ?? null, {
+        mirror: isLocal,
+        onClick: () => useMediaStore.getState().setFocused({ identity: isLocal ? null : userId, source: "camera" }),
+      });
+    }
+  }
+
+  /**
+   * Pantalla de presentaciones de la sala: muestra la pantalla compartida de alguien que esté
+   * dentro de esa sala. Solo quienes lo oyen tienen el track, así que desde afuera no se ve.
+   */
+  private syncScreens() {
+    const room = getRoom();
+    const m = useMediaStore.getState();
+    const myZone = this.local ? (zoneAt(this.officeMap, this.local.x, this.local.y)?.id ?? null) : null;
+    for (const point of pointsOfType(this.officeMap, "screen")) {
+      let presenter: { identity: string | null; track: Track } | null = null;
+      if (m.screen && myZone === point.zone) {
+        const t = media.videoTrack(null, Track.Source.ScreenShare);
+        if (t) presenter = { identity: null, track: t };
+      }
+      room?.state.players.forEach((p, sessionId) => {
+        if (presenter || sessionId === this.localId || p.zoneId !== point.zone || !m.participants[p.userId]?.screen) return;
+        const t = media.videoTrack(p.userId, Track.Source.ScreenShare);
+        if (t) presenter = { identity: p.userId, track: t };
+      });
+
+      const current = this.screens.get(point.id);
+      if (current && current.track === (presenter as { track: Track } | null)?.track) continue;
+      if (current) {
+        current.track.detach(current.el);
+        current.dom.destroy();
+        this.screens.delete(point.id);
+      }
+      if (!presenter) continue;
+      const { identity, track } = presenter as { identity: string | null; track: Track };
+
+      const el = document.createElement("video");
+      el.muted = true;
+      el.playsInline = true;
+      el.autoplay = true;
+      Object.assign(el.style, {
+        width: "84px",
+        height: "50px",
+        objectFit: "contain",
+        background: "#000",
+        border: "2px solid #4a4a5a",
+        borderRadius: "3px",
+        cursor: "zoom-in",
+        display: "block",
+      } satisfies Partial<CSSStyleDeclaration>);
+      el.title = "Ver presentación en grande";
+      el.addEventListener("click", () => useMediaStore.getState().setFocused({ identity, source: "screen" }));
+      track.attach(el);
+      // La pizarra ocupa 2 tiles: centrar la pantalla entre ambos.
+      const dom = this.add.dom(point.x + this.officeMap.tileSize / 2, point.y - 2, el).setOrigin(0.5, 0.5);
+      this.screens.set(point.id, { identity, track, el, dom });
+    }
   }
 
   private updateSpeaking(speaking: string[]) {

@@ -15,6 +15,7 @@ describe("parseOfficeMap", () => {
     expect(pointsOfType(map, "seat")).toHaveLength(6);
     expect(pointsOfType(map, "agent_desk")).toHaveLength(6);
     expect(pointsOfType(map, "visitor_spot")).toHaveLength(6);
+    expect(pointsOfType(map, "screen").map((s) => s.zone)).toEqual(["meeting-main"]);
   });
 
   it("marca muros y muebles como bloqueados y los suelos/sillas como libres", () => {
@@ -25,8 +26,8 @@ describe("parseOfficeMap", () => {
     expect(isBlockedTile(map, -1, 5)).toBe(true); // fuera del mapa
   });
 
-  it("todos los puntos de interés son transitables", () => {
-    for (const p of map.points) expect(isBlockedTile(map, p.tileX, p.tileY), p.name).toBe(false);
+  it("todos los puntos de interés son transitables (salvo las pantallas, que van en la pared)", () => {
+    for (const p of map.points.filter((p) => p.type !== "screen")) expect(isBlockedTile(map, p.tileX, p.tileY), p.name).toBe(false);
   });
 });
 

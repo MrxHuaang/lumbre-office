@@ -140,7 +140,7 @@ for (const [x, y] of [
 // Zona común: sofás, café, hot desks, plantas
 fill(furniture, 23, 17, 26, 17, T.SOFA);
 fill(furniture, 23, 22, 26, 22, T.SOFA);
-fill(furniture, 34, 12, 36, 12, T.COFFEE);
+fill(furniture, 35, 12, 37, 12, T.COFFEE); // deja libre la puerta de la sala (x=33..34)
 for (const x of [31, 35]) {
   put(furniture, x, 18, T.DESK_PC);
   put(furniture, x + 1, 18, T.DESK);
@@ -215,6 +215,8 @@ const points: TiledObject[] = [
     pointObj(`visitante desk-${i + 1}`, "visitor_spot", x + 2, y + 1, [p("ref", "string", `desk-${i + 1}`)]),
   ]),
   pointObj("Tablero de tareas", "task_board", 13, 17),
+  // Pantalla de presentaciones: la pizarra de la pared norte de la sala (x=33..34, y=1).
+  pointObj("Pantalla de la sala", "screen", 33, 1, [p("zone", "string", "meeting-main")]),
 ];
 
 const tileLayer = (id: number, name: string, data: number[]) => ({
