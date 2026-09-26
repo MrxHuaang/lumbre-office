@@ -44,7 +44,9 @@ La web queda en http://localhost:3000 y el servidor de juego en `ws://localhost:
 
 ## 4. Entrar a tu oficina local
 
-**Sin Google (lo más rápido):**
+**Sin Google (lo más rápido):** abre http://localhost:3000, escribe tu nombre en "Entrar de prueba (solo en tu máquina)", deja marcado "administrador" si quieres usar /admin, y listo. Para probar con varias personas, abre otra ventana en incógnito con otro nombre.
+
+También se puede por consola:
 
 ```bash
 pnpm --filter @hyvento/web dev:session "Tu Nombre" --admin
@@ -83,5 +85,5 @@ Recarga y entras. Para probar con varias personas, repite con otro nombre en otr
 
 - **"Can't reach database server at localhost:5432"**: Docker Desktop está cerrado. Ábrelo y corre `pnpm infra:up`.
 - **Cambié un nivel o un mueble y el servidor de juego se cayó**: `tsx` lo reinicia solo al guardar; si guardaste a medias, vuelve a guardar y recarga la página.
-- **Te rebota al login**: la cookie de `dev:session` venció o se borró la base; genera otra.
+- **Te rebota al login**: la sesión de prueba venció (dura un día) o se borró la base; vuelve a "Entrar de prueba".
 - **Errores de tipos en `.next/types`** por páginas que ya no existen: borra la carpeta `apps/web/.next/types` y vuelve a correr `pnpm typecheck`.
