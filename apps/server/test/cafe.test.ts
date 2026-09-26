@@ -1,18 +1,17 @@
-import { boot, type ColyseusTestServer } from "@colyseus/testing";
+import type { ColyseusTestServer } from "@colyseus/testing";
 import { CAFE, MSG, ROOM_NAME, cafeItem, type CafeOrderResult } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { goToArea, tick, token, walkToTile } from "./helpers";
+import { bootServer, goToArea, tick, token, walkToTile } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
 
 beforeAll(async () => {
   repo = new MemoryRepository();
-  colyseus = await boot(createGameServer({ repo }));
+  colyseus = await bootServer(repo);
 });
 afterAll(async () => {
   await colyseus.shutdown();
@@ -80,11 +79,11 @@ describe("cafetería", () => {
   });
 
   it("lo que llevas en la mano se acaba solo", async () => {
-    OfficeRoom.heldMs = 150;
+    OfficeRoom.heldMs = 600;
     const { order, me, room } = await setup(20);
     await order("torta");
     expect(me().held).toBe("torta");
-    await tick(250);
+    await tick(700);
     await room.waitForNextPatch();
     expect(me().held).toBe("");
   });

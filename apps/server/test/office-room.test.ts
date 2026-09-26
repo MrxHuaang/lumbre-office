@@ -1,18 +1,17 @@
-import { boot, type ColyseusTestServer } from "@colyseus/testing";
+import type { ColyseusTestServer } from "@colyseus/testing";
 import { CLOSE_CODE, MSG, ROOM_NAME, signGameToken, type ChatEvent, type MoveCorrection } from "@hyvento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { c, goToArea, intoOffice, SECRET, TILE, tick, toOfficeDoor, token, walkTo, walkToTile } from "./helpers";
+import { bootServer, c, goToArea, intoOffice, SECRET, tick, TILE, token, toOfficeDoor, walkTo, walkToTile } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
 
 beforeAll(async () => {
   repo = new MemoryRepository();
-  colyseus = await boot(createGameServer({ repo }));
+  colyseus = await bootServer(repo);
 });
 afterAll(async () => {
   await colyseus.shutdown();
