@@ -193,6 +193,15 @@ describe("buildParams", () => {
     expect(Array.isArray(p.system) && p.system[0]).toMatchObject({ cache_control: { type: "ephemeral" } });
   });
 
+  it("Sonnet 5: pensamiento adaptativo y effort, sin respaldo del servidor", () => {
+    const p = buildParams({ ...agent, model: "claude-sonnet-5" }, "Juanjo", [{ role: "user", content: "hola" }]);
+    expect(p.model).toBe("claude-sonnet-5");
+    expect(p.thinking).toEqual({ type: "adaptive" });
+    expect(p.output_config).toEqual({ effort: "medium" });
+    expect(p.fallbacks).toBeUndefined();
+    expect(p.betas).toBeUndefined();
+  });
+
   it("Haiku 4.5: sin pensamiento adaptativo ni respaldo (no los admite)", () => {
     const p = buildParams({ ...agent, model: "claude-haiku-4-5", tools: [] }, "Juanjo", [{ role: "user", content: "hola" }]);
     expect(p.thinking).toBeUndefined();

@@ -17,6 +17,7 @@ for (const preset of AGENT_PRESETS) {
       name: preset.name,
       role: preset.role,
       systemPrompt: preset.systemPrompt,
+      model: preset.model,
       tools: preset.tools,
       effort: preset.effort,
       sprite: preset.sprite,

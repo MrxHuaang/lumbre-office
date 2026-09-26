@@ -90,6 +90,8 @@ export interface AgentPreset {
   role: string;
   sprite: string;
   deskId: string;
+  /** Modelo de Claude (ver apps/agents/src/models.ts). */
+  model: string;
   tools: AgentTool[];
   effort: "low" | "medium" | "high" | "xhigh" | "max";
   systemPrompt: string;
@@ -102,6 +104,8 @@ export const AGENT_PRESETS: AgentPreset[] = [
     role: "Asistente general",
     sprite: "bot-amber",
     deskId: "desk-1",
+    // Sonnet 5 durante el desarrollo (menos de la mitad del costo de Opus 5); se puede cambiar por agente.
+    model: "claude-sonnet-5",
     tools: ["web_search", "web_fetch"],
     effort: "medium",
     systemPrompt: `Eres Nova, la asistente general de la oficina virtual del equipo Hyvento.
