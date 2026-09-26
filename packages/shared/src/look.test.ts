@@ -8,7 +8,7 @@ describe("normalizeLook", () => {
     const old = Look.parse({ ...base, hairStyle: "bun", accessories: ["glasses", "beard", "cap", "scarf"] });
     const full = normalizeLook(old);
     expect(full).toMatchObject({ face: "glasses", facialHair: "beard", head: "cap", neck: "scarf", back: "none" });
-    expect(full).toMatchObject({ eyes: LOOK_DEFAULTS.eyes, top: "tshirt", bottom: "pants", shoes: "sneakers", blush: true });
+    expect(full).toMatchObject({ eyes: LOOK_DEFAULTS.eyes, top: "longsleeve", bottom: "pants", shoes: "sneakers", blush: true });
   });
 
   it("lo elegido en un lugar gana sobre el formato viejo", () => {

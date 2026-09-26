@@ -280,7 +280,8 @@ describe("ropa del chibi: cuello y espalda", () => {
   });
 
   it("el pelo cae por encima del morral, la capa y el collar con cualquier peinado, aunque sea del color de la ropa o del acento", () => {
-    for (const hairStyle of HAIR_STYLES) {
+    // "bald" no tiene pelo que pueda quedar debajo.
+    for (const hairStyle of HAIR_STYLES.filter((h) => h !== "bald")) {
       // Qué píxeles son pelo: los que cambian al cambiar solo su color.
       const [a, b] = [sheets({ ...base, hairStyle, hair: "#d4a017" }), sheets({ ...base, hairStyle, hair: "#35a0d0" })];
       const hairPixels = a.map((sheet, k) => changedPixels(sheet, b[k]!));
@@ -323,7 +324,7 @@ describe("ropa del chibi: dibujo", () => {
   it("lo que viene por defecto se dibuja igual que si se eligiera", () => {
     // Guarda de los tests de arriba: sin cambios, ninguna vista cambia.
     expect(changedViews(base, base)).toEqual([]);
-    const explicit: CharacterStyle = { ...base, top: "tshirt", pattern: "solid", bottom: "pants", shoes: "sneakers", neck: "none", back: "none" };
+    const explicit: CharacterStyle = { ...base, top: "longsleeve", pattern: "solid", bottom: "pants", shoes: "sneakers", neck: "none", back: "none" };
     expect(changedViews(base, explicit)).toEqual([]);
   });
 

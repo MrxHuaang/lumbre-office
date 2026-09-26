@@ -68,8 +68,8 @@ describe("personajes chibi", () => {
   });
 
   it("cada prenda usa los colores que el editor deja elegir para ella", () => {
-    // Tiene que coincidir con el editor (apps/web: CharacterEditor y ACCENT_ACCESSORIES / ACCENT_OUTFITS de
-    // look-palette): con vestido no hay selector de pantalón y el de acento nombra lo que lo usa.
+    // Formato viejo de accesorios: los que usan el color de acento (el editor nuevo nombra todo lo que lo
+    // usa con accentUsers de look-palette).
     const accentAccessories: Accessory[] = ["cap", "headphones", "beanie", "scarf"];
     const noAccent: CharacterStyle[] = [
       { ...base, accessories: [] },

@@ -156,7 +156,8 @@ export const LOOK_DEFAULTS = {
   facialHair: "none",
   freckles: false,
   blush: true,
-  top: "tshirt",
+  // Manga larga: así se veían los personajes antes de la camiseta de manga corta (nadie cambia sin querer).
+  top: "longsleeve",
   pattern: "solid",
   bottom: "pants",
   shoes: "sneakers",
