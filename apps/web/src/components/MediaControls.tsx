@@ -2,8 +2,9 @@
 
 import { media, useMediaStore } from "@/game/media";
 import { useOfficeStore } from "@/game/store";
+import { PixelIcon, type PixelIconName } from "./Cozy";
 
-/** Barra de llamada (abajo al centro): micrófono, cámara, pantalla y chat. */
+/** Barra de herramientas (abajo al centro, estilo Stardew): micrófono, cámara, pantalla y chat. */
 export function MediaControls() {
   const status = useMediaStore((s) => s.status);
   const mic = useMediaStore((s) => s.mic);
@@ -15,70 +16,70 @@ export function MediaControls() {
   const ready = status === "connected";
 
   return (
-    <div className="riso-panel absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full p-2 text-riso-navy">
-      <ControlButton
+    <div className="cozy-panel absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 p-2.5">
+      <Slot
+        n={1}
+        icon="mic"
+        off={!mic}
         label={mic ? "Silenciar micrófono" : "Activar micrófono"}
-        text={mic ? "Mic on" : "Mic off"}
+        text={mic ? "Mic" : "Mic off"}
         active={mic}
         disabled={!ready}
         onClick={() => void media.toggleMic()}
-      >
-        {mic ? <MicIcon /> : <MicOffIcon />}
-      </ControlButton>
-      <ControlButton
+      />
+      <Slot
+        n={2}
+        icon="cam"
+        off={!cam}
         label={cam ? "Apagar cámara" : "Encender cámara"}
-        text={cam ? "Cam on" : "Cam off"}
+        text={cam ? "Cámara" : "Cam off"}
         active={cam}
         disabled={!ready}
         onClick={() => void media.toggleCam()}
-      >
-        {cam ? <CamIcon /> : <CamOffIcon />}
-      </ControlButton>
-      <ControlButton
+      />
+      <Slot
+        n={3}
+        icon="screen"
         label={screen ? "Dejar de compartir" : "Compartir pantalla"}
         text={screen ? "Compartiendo" : "Pantalla"}
         active={screen}
-        activeClass="bg-riso-pink"
         disabled={!ready}
         onClick={() => void media.toggleScreen()}
-      >
-        <ScreenIcon />
-      </ControlButton>
-      <ControlButton
+      />
+      <Slot
+        n={4}
+        icon="chat"
         label={chatOpen ? "Cerrar chat" : "Abrir chat (Enter)"}
         text="Chat"
         active={chatOpen}
-        activeClass="bg-riso-yellow"
         disabled={false}
         onClick={() => setChatOpen(!chatOpen)}
-      >
-        <ChatIcon />
-        {unread > 0 && !chatOpen && (
-          <span className="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-riso-navy bg-riso-pink px-1 text-[11px] leading-none">
-            {unread}
-          </span>
-        )}
-      </ControlButton>
+        badge={!chatOpen && unread > 0 ? unread : undefined}
+      />
     </div>
   );
 }
 
-function ControlButton({
-  children,
+function Slot({
+  n,
+  icon,
+  off = false,
   label,
   text,
   active,
-  activeClass = "bg-riso-green",
   disabled,
   onClick,
+  badge,
 }: {
-  children: React.ReactNode;
+  n: number;
+  icon: PixelIconName;
+  off?: boolean;
   label: string;
   text: string;
   active: boolean;
-  activeClass?: string;
   disabled: boolean;
   onClick: () => void;
+  badge?: number;
 }) {
   return (
     <button
@@ -87,58 +88,16 @@ function ControlButton({
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={`riso-pill relative px-3 sm:px-4 ${active ? activeClass : ""}`}
+      className="cozy-btn relative h-[58px] w-[62px] flex-col gap-1 p-1 text-[12px] max-sm:h-12 max-sm:w-12"
     >
-      {children}
-      <span className="hidden sm:inline">{text}</span>
+      <span className="absolute top-0.5 left-1 text-[10px] text-cozy-ink-soft">{n}</span>
+      <PixelIcon name={icon} off={off} size={22} />
+      <span className="max-w-full truncate max-sm:hidden">{text}</span>
+      {badge !== undefined && (
+        <span className="absolute -top-2.5 -right-2.5 grid h-5 min-w-5 place-items-center border-2 border-cozy-red-deep bg-cozy-red px-1 text-[11px] leading-none text-cozy-paper-light">
+          {badge}
+        </span>
+      )}
     </button>
-  );
-}
-
-const svg = { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.25, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-
-function MicIcon() {
-  return (
-    <svg {...svg}>
-      <rect x="9" y="3" width="6" height="11" rx="3" />
-      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-    </svg>
-  );
-}
-function MicOffIcon() {
-  return (
-    <svg {...svg}>
-      <path d="M15 9.3V6a3 3 0 0 0-5.7-1.3M9 9v2a3 3 0 0 0 5 2.2M5 11a7 7 0 0 0 11.9 5M19 11c0 .7-.1 1.4-.3 2M12 18v3M3 3l18 18" />
-    </svg>
-  );
-}
-function CamIcon() {
-  return (
-    <svg {...svg}>
-      <rect x="2" y="6" width="14" height="12" rx="2" />
-      <path d="m16 10 6-3v10l-6-3" />
-    </svg>
-  );
-}
-function CamOffIcon() {
-  return (
-    <svg {...svg}>
-      <path d="M16 16v1a1 1 0 0 1-1 1H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2m4 0h5a1 1 0 0 1 1 1v3l6-3v10M3 3l18 18" />
-    </svg>
-  );
-}
-function ChatIcon() {
-  return (
-    <svg {...svg}>
-      <path d="M4 5h16v11H9l-5 4z" />
-    </svg>
-  );
-}
-function ScreenIcon() {
-  return (
-    <svg {...svg}>
-      <rect x="2" y="4" width="20" height="13" rx="2" />
-      <path d="M8 21h8M12 17v4" />
-    </svg>
   );
 }

@@ -2,8 +2,7 @@
 
 import { respondKnock, sendKnock } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
-import { RISO } from "@/lib/riso";
-import { PowerIcon } from "./pc/icons";
+import { PixelIcon } from "./Cozy";
 
 /** Frente a la puerta de una oficina cerrada: ofrecer tocar. */
 export function DoorPrompt() {
@@ -14,15 +13,12 @@ export function DoorPrompt() {
   const waiting = pending === zoneId;
 
   return (
-    <div className="riso-panel absolute bottom-24 left-1/2 z-10 flex w-max max-md:top-1/2 max-md:bottom-auto max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 px-4 py-2.5 text-[13px]">
+    <div className="cozy-panel absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 px-5 py-3 text-[14px] max-md:top-1/2 max-md:bottom-auto">
+      <PixelIcon name="lock" size={16} color="var(--color-cozy-wood)" />
       <span>
         La oficina de <strong>{office.ownerName}</strong> está cerrada
       </span>
-      <button
-        onClick={() => sendKnock(zoneId)}
-        disabled={waiting}
-        className="riso-pill riso-press bg-riso-pink px-3.5 py-1.5 text-xs"
-      >
+      <button onClick={() => sendKnock(zoneId)} disabled={waiting} className="cozy-btn cozy-btn-primary">
         {waiting ? "Esperando respuesta…" : "Tocar la puerta"}
       </button>
     </div>
@@ -36,23 +32,15 @@ export function KnockRequests() {
   return (
     <div className="absolute top-1/3 left-1/2 z-20 flex w-[min(360px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-3">
       {requests.map((r) => (
-        <div
-          key={r.requestId}
-          role="alert"
-          className="riso-panel p-3.5"
-          style={{ "--riso-shadow": RISO.pink } as React.CSSProperties}
-        >
-          <p className="text-[13px]">
+        <div key={r.requestId} role="alert" className="cozy-panel px-5 py-4">
+          <p className="text-[15px]">
             <strong>{r.fromName}</strong> toca la puerta de tu oficina
           </p>
           <div className="mt-3 flex items-center gap-3">
-            <button
-              onClick={() => respondKnock(r.requestId, true)}
-              className="riso-pill riso-press bg-riso-pink px-3.5 py-1.5 text-xs"
-            >
+            <button onClick={() => respondKnock(r.requestId, true)} className="cozy-btn cozy-btn-primary">
               Dejar pasar
             </button>
-            <button onClick={() => respondKnock(r.requestId, false)} className="text-xs underline underline-offset-2">
+            <button onClick={() => respondKnock(r.requestId, false)} className="cozy-btn">
               Ahora no
             </button>
           </div>
@@ -62,11 +50,11 @@ export function KnockRequests() {
   );
 }
 
-/** Color de la sombra de cada aviso según su tono. */
+/** Color del punto de cada aviso según su tono. */
 const TONE: Record<string, string> = {
-  info: RISO.blue,
-  success: RISO.green,
-  warning: RISO.orange,
+  info: "var(--color-cozy-sky)",
+  success: "#5ea247",
+  warning: "var(--color-cozy-wood-light)",
 };
 
 export function Notices() {
@@ -76,11 +64,8 @@ export function Notices() {
   return (
     <div className="flex w-full flex-col gap-3" aria-live="polite">
       {notices.map((n) => (
-        <div
-          key={n.id}
-          className="riso-panel pointer-events-auto flex items-center gap-2.5 px-3.5 py-2.5 text-[13px]"
-          style={{ "--riso-shadow": TONE[n.tone] ?? RISO.navy } as React.CSSProperties}
-        >
+        <div key={n.id} className="cozy-panel pointer-events-auto flex items-center gap-2.5 px-4 py-3 text-[14px]">
+          <span className="h-2.5 w-2.5 shrink-0 border-2 border-cozy-frame" style={{ background: TONE[n.tone] ?? TONE.info }} />
           <span className="flex-1">{n.text}</span>
           {n.action && (
             <button
@@ -88,13 +73,13 @@ export function Notices() {
                 n.action!.run();
                 dismiss(n.id);
               }}
-              className="riso-pill riso-press shrink-0 bg-riso-yellow px-3 py-1 text-xs"
+              className="cozy-btn shrink-0 px-2.5 py-1 text-[13px]"
             >
               {n.action.label}
             </button>
           )}
-          <button onClick={() => dismiss(n.id)} aria-label="Cerrar aviso" className="shrink-0 px-1 text-riso-muted hover:text-riso-navy">
-            ✕
+          <button onClick={() => dismiss(n.id)} aria-label="Cerrar aviso" className="shrink-0 p-1 text-cozy-ink-soft hover:text-cozy-ink">
+            <PixelIcon name="close" size={10} />
           </button>
         </div>
       ))}
@@ -117,16 +102,16 @@ export function SeatPrompt() {
 
   return (
     <div
-      className={`absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 ${pcButton ? "" : "pointer-events-none max-md:hidden"}`}
+      className={`absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 ${pcButton ? "" : "pointer-events-none max-md:hidden"}`}
     >
       {pcButton && (
-        <button type="button" onClick={() => setPcOn(true)} className="riso-pill riso-press bg-riso-green px-3.5 py-1.5 text-xs">
-          <PowerIcon size={13} />
+        <button type="button" onClick={() => setPcOn(true)} className="cozy-btn cozy-btn-primary">
+          <PixelIcon name="power" size={14} />
           Encender PC
         </button>
       )}
-      <div className="riso-chip flex items-center gap-2 px-3 py-1.5 text-xs font-semibold max-md:hidden">
-        <kbd className="rounded-[3px] border-[1.5px] border-riso-navy bg-riso-yellow px-1.5 font-plex text-[11px]">E</kbd>
+      <div className="cozy-chip flex items-center gap-2 px-3 py-1.5 text-[13px] max-md:hidden">
+        <kbd className="cozy-kbd">E</kbd>
         {prompt === "sit" ? "sentarte" : "levantarte (o muévete)"}
       </div>
     </div>

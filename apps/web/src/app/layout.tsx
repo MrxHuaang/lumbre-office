@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
-import { Archivo, IBM_Plex_Mono } from "next/font/google";
+import { Pixelify_Sans } from "next/font/google";
 import "./globals.css";
 
-// Tipografías del estilo RISO de la oficina: Archivo (titulares, ancho variable) e IBM Plex Mono (UI).
-const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--riso-archivo" });
-const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "600"], variable: "--riso-plex" });
+// Estilo cozy de la cabaña: Pixelify Sans (pixel-art) en toda la oficina.
+const pixelify = Pixelify_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-cozy" });
 
 export const metadata: Metadata = {
   title: "Hyvento Office",
-  description: "Oficina virtual del equipo Hyvento",
+  description: "La cabaña virtual del equipo Hyvento",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${archivo.variable} ${plexMono.variable}`}>
+    <html lang="es" className={pixelify.variable}>
       <body className="antialiased">{children}</body>
     </html>
   );

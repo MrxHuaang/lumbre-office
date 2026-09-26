@@ -40,14 +40,12 @@ function ScreenTile({ identity, name }: { identity: string | null; name: string 
   return (
     <button
       onClick={() => setFocused({ identity, source: "screen" })}
-      className="group riso-press pointer-events-auto relative h-[96px] w-[170px] shrink-0 cursor-zoom-in overflow-hidden border-2 border-riso-navy bg-riso-navy transition-[transform,box-shadow] duration-100 hover:[--riso-shadow:var(--color-riso-pink)]"
+      className="group cozy-panel pointer-events-auto relative h-[100px] w-[176px] shrink-0 cursor-zoom-in overflow-hidden bg-cozy-frame p-[5px]"
       title="Ver en grande"
     >
-      {track ? <VideoView track={track} contain /> : <span className="text-xs text-riso-paper">Cargando…</span>}
-      <span className="absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate border-[1.5px] border-riso-navy bg-riso-paper px-1.5 py-0.5 text-[11px] font-semibold">
-        {name}
-      </span>
-      <span className="absolute top-1 right-1 border-[1.5px] border-riso-navy bg-riso-yellow px-1.5 py-0.5 text-[10px] font-semibold opacity-0 transition group-hover:opacity-100">
+      {track ? <VideoView track={track} contain /> : <span className="text-[12px] text-cozy-paper-light">Cargando…</span>}
+      <span className="cozy-chip absolute bottom-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate px-1.5 py-0.5 text-[12px]">{name}</span>
+      <span className="cozy-chip absolute top-1.5 right-1.5 px-1.5 py-0.5 text-[11px] opacity-0 transition group-hover:opacity-100">
         Ampliar
       </span>
     </button>
@@ -109,22 +107,19 @@ export function ScreenFocus() {
   const isScreen = focused.source === "screen";
 
   return (
-    <div className="absolute inset-0 z-30 flex flex-col bg-riso-navy/95 p-3 text-riso-paper sm:p-4" role="dialog" aria-label={isScreen ? "Pantalla compartida" : "Cámara"}>
+    <div className="cozy-void absolute inset-0 z-30 flex flex-col p-3 text-cozy-paper-light sm:p-4" role="dialog" aria-label={isScreen ? "Pantalla compartida" : "Cámara"}>
       <div className="mb-3 flex items-center gap-2.5">
-        <span className="font-display flex-1 truncate text-[17px]">
+        <span className="flex-1 truncate text-[19px] font-semibold">
           {isScreen ? (focused.identity ? `${name} está compartiendo su pantalla` : "Tu pantalla") : name}
         </span>
-        <button
-          onClick={() => void boxRef.current?.requestFullscreen?.()}
-          className="riso-pill riso-press px-3.5 py-1.5 [--riso-shadow:var(--color-riso-pink)]"
-        >
+        <button onClick={() => void boxRef.current?.requestFullscreen?.()} className="cozy-btn">
           Pantalla completa
         </button>
-        <button onClick={() => setFocused(null)} className="riso-pill riso-press bg-riso-yellow px-3.5 py-1.5 [--riso-shadow:var(--color-riso-pink)]">
+        <button onClick={() => setFocused(null)} className="cozy-btn">
           Cerrar (Esc)
         </button>
       </div>
-      <div ref={boxRef} className="min-h-0 flex-1 overflow-hidden border-2 border-riso-paper bg-black">
+      <div ref={boxRef} className="cozy-panel min-h-0 flex-1 overflow-hidden bg-cozy-frame p-[6px]">
         <VideoView track={track} contain={isScreen} mirror={!isScreen && focused.identity === null} />
       </div>
     </div>

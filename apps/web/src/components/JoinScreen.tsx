@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import type { Profile } from "@/game/store";
-import { RISO } from "@/lib/riso";
 import { CharacterEditor, type Appearance } from "./CharacterEditor";
-import { Overprint, RisoLogo } from "./Riso";
+import { CozyTitle, PixelIcon } from "./Cozy";
 
 interface JoinScreenProps {
   initial: Profile | null;
@@ -30,11 +29,11 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
       <button
         type="submit"
         disabled={!trimmed || saving}
-        className="riso-cta border-2 border-riso-navy bg-riso-pink text-riso-navy"
+        className="cozy-btn cozy-btn-primary px-6 py-3.5 text-[17px]"
       >
-        {saving ? "Guardando…" : firstTime ? "Entrar a la oficina →" : "Guardar y entrar →"}
+        {saving ? "Guardando…" : firstTime ? "Entrar a la cabaña" : "Guardar y entrar"}
       </button>
-      <button type="button" onClick={onBack} className="p-[18px] text-sm underline underline-offset-2">
+      <button type="button" onClick={onBack} className="cozy-btn px-6 py-3.5 text-[17px]">
         Volver
       </button>
     </div>
@@ -42,32 +41,28 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
 
   return (
     <form
-      className="riso-grain flex min-h-full flex-col gap-9 px-6 py-8 sm:px-10 md:px-14 md:py-10"
+      className="cozy-void flex min-h-full flex-col gap-9 px-6 py-8 font-pixel text-cozy-ink sm:px-10 md:px-14 md:py-10"
       onSubmit={(e) => {
         e.preventDefault();
         if (trimmed && !saving) onJoin({ name: trimmed, ...appearance });
       }}
     >
       <header className="flex items-center justify-between gap-4">
-        <RisoLogo dots={false} />
-        <span className="text-[13px] text-riso-muted">{firstTime ? "Paso 2 de 2" : "Tu perfil"}</span>
+        <div className="cozy-panel flex items-center gap-2 px-3.5 py-2">
+          <PixelIcon name="cabin" size={18} color="var(--color-cozy-wood)" />
+          <span className="text-[18px] leading-none font-semibold">Hyvento</span>
+        </div>
+        <span className="cozy-chip px-3 py-1.5 text-[14px]">{firstTime ? "Paso 2 de 2" : "Tu perfil"}</span>
       </header>
 
       <div className="grid flex-1 items-center gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] md:gap-14">
         <div className="flex flex-col gap-7">
           <div className="flex flex-col gap-4">
-            <Overprint
-              as="h1"
-              lines={firstTime ? ["Elige tu", "tinta"] : ["Tu", "perfil"]}
-              back={RISO.pink}
-              front={RISO.blue}
-              offset={[4, 3]}
-              className="text-[clamp(48px,6vw,96px)] leading-[0.88] tracking-[-0.03em]"
-            />
-            <p className="text-[15px]">Elige cómo te verán tus compañeros.</p>
+            <CozyTitle className="text-[clamp(44px,5.5vw,84px)] leading-[0.95]">{firstTime ? "Tu personaje" : "Tu perfil"}</CozyTitle>
+            <p className="text-[17px] text-cozy-paper-dark">Elige cómo te verán tus compañeros en la cabaña.</p>
           </div>
 
-          <label className="flex flex-col gap-2 text-xs font-semibold tracking-[0.12em] uppercase">
+          <label className="flex flex-col gap-2 text-[15px] font-semibold text-cozy-paper-light">
             Tu nombre
             <input
               autoFocus
@@ -75,16 +70,12 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
               maxLength={24}
               onChange={(e) => setName(e.target.value)}
               placeholder="¿Cómo te llaman?"
-              className="riso-input px-4 py-3.5 text-xl font-normal tracking-normal normal-case"
+              className="cozy-input px-4 py-3 text-xl font-normal"
             />
           </label>
 
           {error && (
-            <p
-              role="alert"
-              className="riso-panel px-4 py-3 text-sm"
-              style={{ "--riso-shadow": RISO.pink } as React.CSSProperties}
-            >
+            <p role="alert" className="cozy-panel px-5 py-3 text-[15px] text-cozy-red-deep">
               {error}
             </p>
           )}
@@ -92,7 +83,7 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
           <div className="max-md:hidden">{actions}</div>
         </div>
 
-        <fieldset className="min-w-0 self-start">
+        <fieldset className="cozy-panel min-w-0 self-start p-5">
           <legend className="sr-only">Personaje</legend>
           <CharacterEditor value={appearance} onChange={setAppearance} />
         </fieldset>

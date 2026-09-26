@@ -1,0 +1,68 @@
+// Piezas del estilo cozy: iconos pixel, títulos y la pantalla de carga/error.
+import type { CSSProperties, ReactNode } from "react";
+
+// Iconos de 8x8 dibujados a mano ("#" = píxel).
+const ICONS = {
+  mic: ["...##...", "..####..", "..####..", "..####..", ".#.##.#.", ".#....#.", "..####..", "...##..."],
+  cam: ["........", "#####...", "#####.##", "########", "########", "#####.##", "#####...", "........"],
+  screen: ["########", "#......#", "#......#", "#......#", "########", "...##...", "..####..", "........"],
+  chat: [".######.", "#......#", "#.#.#.##", "#......#", ".######.", "..#.....", ".#......", "........"],
+  home: ["...##...", "..####..", ".######.", "########", ".#....#.", ".#.##.#.", ".#.##.#.", ".######."],
+  lock: ["..####..", ".#....#.", ".#....#.", "########", "###..###", "###..###", "########", "########"],
+  unlock: ["..####..", ".#....#.", "......#.", "########", "###..###", "###..###", "########", "########"],
+  menu: ["........", "########", "........", "########", "........", "########", "........", "........"],
+  chevron: ["........", "........", "#......#", ".#....#.", "..#..#..", "...##...", "........", "........"],
+  power: ["...##...", ".#.##.#.", "#..##..#", "#......#", "#......#", "#......#", ".#....#.", "..####.."],
+  moon: ["...###..", "..##....", ".##.....", ".##.....", ".##.....", ".##.....", "..##....", "...###.."],
+  sun: ["...#....", "#..#..#.", ".#####..", "##...##.", ".#...#..", ".#####..", "#..#..#.", "...#...."],
+  close: ["#......#", ".#....#.", "..#..#..", "...##...", "...##...", "..#..#..", ".#....#.", "#......#"],
+  cabin: ["...##...", "..####..", ".######.", "########", ".##..##.", ".##..##.", ".######.", "........"],
+  coin: ["..####..", ".##..##.", "##.##.##", "##.##.##", "##.##.##", "##.##.##", ".##..##.", "..####.."],
+  mail: ["........", "########", "##....##", "#.#..#.#", "#..##..#", "#......#", "########", "........"],
+  board: ["########", "#.##.#.#", "#......#", "#.#.##.#", "#......#", "########", ".#....#.", ".#....#."],
+  star: ["...##...", "...##...", "########", ".######.", "..####..", ".##..##.", ".#....#.", "........"],
+  trophy: ["########", "#.####.#", "#.####.#", ".######.", "..####..", "...##...", "..####..", ".######."],
+} as const;
+
+export type PixelIconName = keyof typeof ICONS;
+
+/** Icono pixel; con `off` lleva una raya roja (micrófono o cámara apagados). */
+export function PixelIcon({
+  name,
+  size = 20,
+  color = "currentColor",
+  off = false,
+  className,
+}: {
+  name: PixelIconName;
+  size?: number;
+  color?: string;
+  off?: boolean;
+  className?: string;
+}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 8 8" shapeRendering="crispEdges" aria-hidden className={className}>
+      {ICONS[name].flatMap((row, y) =>
+        [...row].map((ch, x) => (ch === "#" ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill={color} /> : null)),
+      )}
+      {off && [0, 1, 2, 3, 4, 5, 6, 7].map((i) => <rect key={`off-${i}`} x={i} y={i} width={1} height={1} fill="var(--color-cozy-red)" />)}
+    </svg>
+  );
+}
+
+/** Titular grande en pixel con sombra de madera (pantallas de carga, ingreso y login). */
+export function CozyTitle({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+  return (
+    <h1
+      className={`font-pixel font-semibold text-cozy-paper-light ${className}`}
+      style={{ textShadow: "3px 3px 0 var(--color-cozy-wood), 6px 6px 0 var(--color-cozy-frame)", ...style }}
+    >
+      {children}
+    </h1>
+  );
+}
+
+/** Capa a pantalla completa sobre la noche de afuera (cargando, error). */
+export function CozyOverlay({ children }: { children: ReactNode }) {
+  return <div className="cozy-void absolute inset-0 z-40 flex flex-col items-center justify-center p-4">{children}</div>;
+}

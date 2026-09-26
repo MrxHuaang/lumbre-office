@@ -11,7 +11,6 @@ import {
 } from "@hyvento/shared";
 import { useRef, useState } from "react";
 import { ACCESSORY_LABEL, HAIR_COLORS, HAIR_STYLE_LABEL, INK_COLORS, presetLook, SKIN_TONES } from "@/lib/look-palette";
-import { RISO } from "@/lib/riso";
 import { CharacterSprite } from "./CharacterSprite";
 
 /** Personaje de alguien: uno fijo (`avatar`) o uno personalizado (`look`). */
@@ -20,15 +19,6 @@ export interface Appearance {
   look: Look | null;
 }
 
-/** Tinta de la tarjeta de cada personaje fijo (semitono + disco). */
-const AVATAR_INK: Record<HumanAvatar, string> = {
-  ada: RISO.pink,
-  bruno: RISO.blue,
-  carla: RISO.yellow,
-  dario: RISO.green,
-  eva: RISO.orange,
-  fede: RISO.violet,
-};
 
 const TURN: Direction[] = ["down", "left", "up", "right"];
 
@@ -69,43 +59,32 @@ function Tab({ selected, onClick, children }: { selected: boolean; onClick: () =
       role="tab"
       aria-selected={selected}
       onClick={onClick}
-      className={`riso-pill px-4 py-2 ${selected ? "bg-riso-navy text-riso-paper" : "hover:bg-riso-yellow"}`}
+      className="cozy-btn px-4 py-2"
     >
       {children}
     </button>
   );
 }
 
-/** Los seis personajes fijos, cada uno con su tinta. */
+/** Los seis personajes fijos, parados sobre un tile de pasto. */
 function PresetGrid({ selected, onSelect }: { selected: HumanAvatar; onSelect: (a: HumanAvatar) => void }) {
   return (
     <div className="grid grid-cols-3 gap-3 sm:gap-[18px]">
       {HUMAN_AVATARS.map((a) => {
         const isSelected = a === selected;
-        const ink = AVATAR_INK[a];
         return (
           <button
             key={a}
             type="button"
             aria-pressed={isSelected}
             onClick={() => onSelect(a)}
-            className="flex aspect-[1/1.1] cursor-pointer flex-col overflow-hidden border-2 border-riso-navy bg-riso-cream p-0 transition-[transform,box-shadow] duration-[120ms]"
-            style={{
-              boxShadow: isSelected ? `6px 6px 0 ${RISO.navy}` : "none",
-              transform: isSelected ? "translate(-3px, -3px)" : "none",
-            }}
+            className="cozy-btn flex aspect-[1/1.1] flex-col gap-0 overflow-hidden p-1"
           >
-            <span
-              className="relative grid flex-1 place-items-center"
-              style={{ background: `radial-gradient(circle, ${ink} 2px, transparent 2.4px) 0 0 / 9px 9px` }}
-            >
-              <span className="absolute aspect-square w-[62%] rounded-full opacity-90 mix-blend-multiply" style={{ background: ink }} />
-              <CharacterSprite avatar={a} className="relative w-[46%]" />
+            <span className="relative grid w-full flex-1 place-items-center bg-[#5d9c46]">
+              <span className="absolute bottom-[18%] h-[10%] w-[40%] rounded-[50%] bg-[#2f6036]" />
+              <CharacterSprite avatar={a} dir="right" className="relative w-[62%]" />
             </span>
-            <span className="flex items-center justify-between border-t-2 border-riso-navy px-3 py-2.5 text-[13px] font-semibold">
-              <span className="capitalize">{a}</span>
-              <span aria-hidden>{isSelected ? "●" : "○"}</span>
-            </span>
+            <span className="w-full px-2 py-1.5 text-center text-[14px] capitalize">{a}</span>
           </button>
         );
       })}
@@ -123,25 +102,15 @@ function LookEditor({ look, avatar, onChange }: { look: Look; avatar: HumanAvata
   return (
     <div className="grid gap-6 sm:grid-cols-[minmax(0,200px)_minmax(0,1fr)]">
       {/* Vista previa: el personaje caminando, con botones para girarlo. */}
-      <div className="flex flex-col self-start border-2 border-riso-navy bg-riso-cream max-sm:mx-auto max-sm:w-44 sm:sticky sm:top-4">
-        <div
-          className="relative grid aspect-square place-items-center"
-          style={{ background: `radial-gradient(circle, ${look.shirt} 2px, transparent 2.4px) 0 0 / 9px 9px` }}
-        >
-          <span
-            className="absolute aspect-square w-[66%] rounded-full opacity-90 mix-blend-multiply"
-            style={{ background: look.shirt }}
-          />
-          <CharacterSprite avatar={avatar} look={look} dir={dir} walking className="relative w-[58%]" />
+      <div className="cozy-panel flex flex-col self-start p-2 max-sm:mx-auto max-sm:w-44 sm:sticky sm:top-4">
+        <div className="relative grid aspect-square place-items-center bg-[#5d9c46]">
+          <span className="absolute bottom-[16%] h-[9%] w-[34%] rounded-[50%] bg-[#2f6036]" />
+          <CharacterSprite avatar={avatar} look={look} dir={dir} walking className="relative w-[70%]" />
         </div>
-        <div className="flex items-center justify-between gap-2 border-t-2 border-riso-navy px-3 py-2 text-[13px] font-semibold max-sm:justify-center">
+        <div className="flex items-center justify-between gap-2 px-1 pt-2 text-[14px] max-sm:justify-center">
           <span className="max-sm:hidden">Vista previa</span>
-          <button
-            type="button"
-            onClick={() => setDir(TURN[(TURN.indexOf(dir) + 1) % TURN.length]!)}
-            className="underline underline-offset-2"
-          >
-            Girar ↻
+          <button type="button" onClick={() => setDir(TURN[(TURN.indexOf(dir) + 1) % TURN.length]!)} className="cozy-btn px-2.5 py-1 text-[13px]">
+            Girar
           </button>
         </div>
       </div>
@@ -159,9 +128,9 @@ function LookEditor({ look, avatar, onChange }: { look: Look; avatar: HumanAvata
                   const base = presetLook(a);
                   onChange({ ...look, skin: base.skin, hair: base.hair, shirt: base.shirt, pants: base.pants });
                 }}
-                className="border-[1.5px] border-riso-navy bg-riso-cream p-0.5 hover:bg-riso-yellow"
+                className="cozy-btn p-0.5"
               >
-                <CharacterSprite avatar={a} className="w-7" />
+                <CharacterSprite avatar={a} dir="right" className="w-8" />
               </button>
             ))}
           </div>
@@ -212,7 +181,7 @@ function LookEditor({ look, avatar, onChange }: { look: Look; avatar: HumanAvata
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-[11px] font-semibold tracking-[0.12em] uppercase">{label}</span>
+      <span className="text-[14px] font-semibold text-cozy-ink-soft">{label}</span>
       {children}
     </div>
   );
@@ -237,9 +206,7 @@ function Chips<T extends string>({
             type="button"
             aria-pressed={on}
             onClick={() => onToggle(o.id)}
-            className={`rounded-full border-[1.5px] border-riso-navy px-3 py-1 text-xs font-semibold ${
-              on ? "bg-riso-navy text-riso-paper" : "bg-riso-cream hover:bg-riso-yellow"
-            }`}
+            className="cozy-btn px-3 py-1 text-[13px]"
           >
             {o.label}
           </button>
@@ -262,21 +229,21 @@ function Swatches({ colors, value, onChange }: { colors: string[]; value: string
           aria-label={c}
           aria-pressed={c.toLowerCase() === current}
           onClick={() => onChange(c)}
-          className="h-7 w-7 border-2 border-riso-navy transition-[transform,box-shadow] duration-100"
+          className="h-7 w-7 border-2 border-cozy-frame"
           style={{
             background: c,
-            boxShadow: c.toLowerCase() === current ? `3px 3px 0 ${RISO.navy}` : "none",
-            transform: c.toLowerCase() === current ? "translate(-1.5px, -1.5px)" : "none",
+            outline: c.toLowerCase() === current ? "3px solid var(--color-cozy-red)" : "none",
+            outlineOffset: 1,
           }}
         />
       ))}
       <label
         title="Otro color"
-        className="relative grid h-7 w-7 cursor-pointer place-items-center border-2 border-dashed border-riso-navy text-sm font-semibold transition-[transform,box-shadow] duration-100"
+        className="relative grid h-7 w-7 cursor-pointer place-items-center border-2 border-dashed border-cozy-frame text-sm font-semibold"
         style={
           inPalette
-            ? { background: RISO.cream }
-            : { background: value, borderStyle: "solid", boxShadow: `3px 3px 0 ${RISO.navy}`, transform: "translate(-1.5px, -1.5px)" }
+            ? { background: "var(--color-cozy-paper-light)" }
+            : { background: value, borderStyle: "solid", outline: "3px solid var(--color-cozy-red)", outlineOffset: 1 }
         }
       >
         {inPalette && "+"}
