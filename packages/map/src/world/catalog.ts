@@ -52,7 +52,7 @@ export const CATALOG = {
   "rug-stripes": { name: "Alfombra de rayas", size: [2, 3], solid: false, flat: true },
   "bookshelf-low": { name: "Estantería baja", size: [1, 2] },
   globe: { name: "Globo terráqueo", size: [1, 1] },
-  beanbag: { name: "Puf", size: [1, 1], seats: [[0, 0]] },
+  beanbag: { name: "Puf", size: [1, 1], seats: [[0, 0]], hasBack: true },
   "lamp-mushroom": { name: "Lámpara hongo", size: [1, 1], light: { at: [8, 8, 14], color: "#ff9ad0", radius: 36 } },
   easel: { name: "Caballete", size: [1, 1] },
   bonsai: { name: "Bonsái", size: [1, 1] },
@@ -60,7 +60,7 @@ export const CATALOG = {
   guitar: { name: "Guitarra", size: [1, 1] },
   "cat-bed": { name: "Cama con gato", size: [1, 1] },
   "tv-retro": { name: "Tele con consola", size: [1, 1], hasBack: true },
-  aquarium: { name: "Pecera", size: [1, 2], light: { at: [8, 16, 14], color: "#7fd4ff", radius: 40 } },
+  aquarium: { name: "Pecera", size: [1, 2], light: { at: [8, 16, 18], color: "#7fd4ff", radius: 40 } },
   piano: { name: "Piano", size: [1, 2], hasBack: true },
   // La tienda de la planta baja (no se venden).
   "shop-counter": { name: "Mostrador", size: [1, 2] },

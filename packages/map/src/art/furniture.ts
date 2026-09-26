@@ -1,53 +1,29 @@
 // Dibujo de cada mueble del catálogo en coordenadas locales de arte (tile = 16), mirando hacia +x
 // ("front") o hacia -x ("back"). Las orientaciones "down"/"up" son el espejo horizontal de estas.
-import { BOOKS, C, OUT, SHADOW, mix } from "./palette";
+import { BOOKS, C, OUT, mix } from "./palette";
 import {
   L,
   alpha,
   at,
   bayer,
   flat,
-  floorDiamond,
   hex,
   noise,
   renderSprite,
   solidBox,
   type Box,
-  type PixelCanvas,
-  type Project,
   type Ramp,
   type RGBA,
   type Shader,
   type Sprite,
 } from "./pixel";
 import { catalogItem } from "../world/catalog";
+import { DECOR } from "./decor";
+import { cushion, leg, shadowUnder, volume, type Variant } from "./kit";
 import { drawOutdoor, hasOutdoor } from "./outdoor";
+import { SHOP } from "./shop";
 
-export type Variant = "front" | "back";
-
-const shadowUnder =
-  (x: number, y: number, w: number, d: number) =>
-  (c: PixelCanvas, p: Project) =>
-    floorDiamond(c, p, x - 1, y - 1, w + 3, d + 3, alpha(SHADOW, 0.3));
-
-/** Caja invisible: solo reserva espacio en el lienzo (hojas, vapor, llamas). */
-const volume = (x: number, y: number, z: number, w: number, d: number, h: number): Box => ({ x, y, z, w, d, h });
-
-/** Cojín: bordes con ribete y la cara superior con un leve tramado. */
-const cushion = (x: number, y: number, z: number, w: number, d: number, h: number, r: Ramp): Box => ({
-  x,
-  y,
-  z,
-  w,
-  d,
-  h,
-  top: (u, v, fw, fh) =>
-    at(r, u < 1 || v < 1 || u >= fw - 1 || v >= fh - 1 ? 3 : 4 - (bayer(Math.floor(u), Math.floor(v)) < 0.1 ? 1 : 0)),
-  left: (_u, v, _fw, fh) => at(r, v >= fh - 1 ? 3 : 2),
-  right: (_u, v, _fw, fh) => at(r, v >= fh - 1 ? 2 : 1),
-});
-
-const leg = (x: number, y: number, h: number, r: Ramp = C.woodDark) => solidBox({ x, y, z: 0, w: 2, d: 2, h }, r, 3);
+export type { Variant } from "./kit";
 
 // ---------- Oficina ----------
 
@@ -711,6 +687,8 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   "rug-2x3": () => rug(2, 3, C.green, C.cream),
   "stairs-up": stairsUp,
   stairwell,
+  ...DECOR,
+  ...SHOP,
 };
 
 const cache = new Map<string, Sprite>();
@@ -730,7 +708,15 @@ export function drawFurniture(type: string, variant: Variant = "front", night = 
   return s;
 }
 
-/** Mueble del catálogo que todavía no tiene dibujo: una caja rosada de su tamaño (se nota a propósito). */
+/** Si el tipo tiene dibujo propio (si no, sale la caja rosada provisoria). */
+export function hasDrawing(type: string): boolean {
+  return type in DRAW || hasOutdoor(type);
+}
+
+/**
+ * Red de seguridad para un mueble del catálogo que todavía no tiene dibujo: una caja rosada de su
+ * tamaño (se nota a propósito). El test del arte exige que ningún tipo del catálogo caiga aquí.
+ */
 function placeholder(type: string): Sprite {
   const [w, d] = catalogItem(type).size;
   return renderSprite([solidBox({ x: 1, y: 1, z: 0, w: w * 16 - 2, d: d * 16 - 2, h: 12 }, C.rug, 3)], {
