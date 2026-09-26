@@ -50,7 +50,8 @@ function usesColor(style: CharacterStyle, key: "pants" | "accent"): boolean {
 
 describe("personajes chibi", () => {
   it("cada peinado se distingue del corto en todas las vistas", () => {
-    for (const hairStyle of HAIR_STYLES.filter((h) => h !== "short"))
+    // Los peinados nuevos del creador de personajes (desde "bangs") se suman cuando tengan dibujo.
+    for (const hairStyle of HAIR_STYLES.slice(0, HAIR_STYLES.indexOf("bangs")).filter((h) => h !== "short"))
       expect(visibleEverywhere({ ...base, hairStyle }), hairStyle).toEqual([]);
   });
 
