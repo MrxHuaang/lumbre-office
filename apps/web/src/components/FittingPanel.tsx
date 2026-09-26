@@ -61,7 +61,7 @@ export function FittingPanel({
         <p className="text-[14px] leading-snug text-cozy-ink-soft">
           Pruébate peinados, accesorios y conjuntos: mira cómo te quedan en la vista previa y guarda el look que más te guste.
         </p>
-        <CharacterEditor value={appearance} onChange={setAppearance} />
+        <CharacterEditor value={appearance} onChange={setAppearance} wardrobe />
       </div>
 
       {/* Acciones siempre a la vista, aunque el editor sea largo. */}

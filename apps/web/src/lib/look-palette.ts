@@ -20,6 +20,13 @@ export const INK_COLORS = [
   "#f7ebc8",
 ];
 
+/**
+ * Lo que se elige al entrar y desde "Mi personaje". El resto (y los conjuntos) se estrena en el
+ * probador de la tienda, que es el vestidor; es todo gratis.
+ */
+export const BASIC_HAIR_STYLES: readonly HairStyle[] = ["short", "long", "curly", "buzz", "bun"];
+export const BASIC_ACCESSORIES: readonly Accessory[] = ["glasses", "cap", "headphones", "beard"];
+
 export const HAIR_STYLE_LABEL: Record<HairStyle, string> = {
   short: "Corto",
   long: "Largo",
