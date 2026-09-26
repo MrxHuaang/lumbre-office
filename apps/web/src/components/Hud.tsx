@@ -1,6 +1,7 @@
 "use client";
 
 import { PRESENCE_STATUSES, type PresenceStatus } from "@hyvento/shared";
+import Link from "next/link";
 import { useState } from "react";
 import { sendStatus } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
@@ -106,9 +107,9 @@ export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
 function MenuItem({ children, onClick, href }: { children: React.ReactNode; onClick?: () => void; href?: string }) {
   const cls = "block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-panel-2";
   return href ? (
-    <a href={href} className={cls}>
+    <Link href={href} className={cls}>
       {children}
-    </a>
+    </Link>
   ) : (
     <button onClick={onClick} className={cls}>
       {children}

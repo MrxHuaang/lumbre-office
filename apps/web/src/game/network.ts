@@ -37,6 +37,20 @@ let room: OfficeRoom | null = null;
 const correctionListeners = new Set<(c: MoveCorrection) => void>();
 const roomListeners = new Set<(r: OfficeRoom) => void>();
 
+// Al cerrar/recargar la pestaña, salir "con consentimiento" para que el avatar desaparezca
+// al instante en vez de quedar esperando una reconexión.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    const current = room;
+    room = null;
+    void current?.leave(true).catch(() => undefined);
+  });
+  // Si el navegador la restaura desde el bfcache (botón atrás), la conexión ya se cerró: recargar.
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) window.location.reload();
+  });
+}
+
 export function getRoom() {
   return room;
 }

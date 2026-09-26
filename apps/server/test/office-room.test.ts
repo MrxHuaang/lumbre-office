@@ -107,6 +107,21 @@ describe("OfficeRoom", () => {
     expect(room.state.players.get(alice.sessionId)!.x).toBe(before.x);
   });
 
+  it("al recargar la página no queda un avatar duplicado esperando reconexión", async () => {
+    const { room, alice } = await setup();
+    // Cierre sin consentimiento (como una recarga o navegación completa): el servidor guarda la sesión.
+    await alice.leave(false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect([...room.state.players.values()].filter((p) => p.userId === "u-alice")).toHaveLength(1);
+
+    // Vuelve a entrar con una sesión nueva: la anterior se descarta de inmediato, sin esperar 15 s.
+    const alice2 = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
+    await room.waitForNextPatch();
+    await new Promise((r) => setTimeout(r, 50));
+    const alices = [...room.state.players.entries()].filter(([, p]) => p.userId === "u-alice");
+    expect(alices.map(([id]) => id)).toEqual([alice2.sessionId]);
+  });
+
   it("el chat global llega a todos", async () => {
     const { room, alice, bob } = await setup();
     const bobGot = collectChat(bob);

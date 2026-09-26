@@ -15,7 +15,7 @@ import {
   type MoveCorrection,
   type Positioned,
 } from "@hyvento/shared";
-import { Room, ServerError, type Client } from "colyseus";
+import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
 import { OfficeState, Player } from "../state";
 
@@ -44,6 +44,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private map!: OfficeMap;
   private zonesById = new Map<string, Zone>();
   private globalHistory: ChatEvent[] = [];
+  private pendingReconnections = new Map<string, Deferred<Client>>();
 
   onCreate() {
     this.map = getMap();
@@ -70,13 +71,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   onJoin(client: Client<UserData>, _options: unknown, auth: GameTokenClaims) {
-    // Una sola presencia por persona: la pestaña nueva reemplaza a la anterior.
-    for (const other of this.clients) {
-      if (other.sessionId !== client.sessionId && this.state.players.get(other.sessionId)?.userId === auth.sub) {
-        this.state.players.delete(other.sessionId);
-        other.leave(CLOSE_CODE.replaced);
-      }
-    }
+    this.removeOtherPresences(auth.sub, client.sessionId);
 
     const spawn = spawnPoint(this.map);
     const pos = this.freeSpotNear(spawn.x, spawn.y + this.map.tileSize / 2 - 2);
@@ -98,14 +93,36 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!consented && player) {
       player.moving = false;
+      const reconnection = this.allowReconnection(client, RECONNECT_SECONDS);
+      this.pendingReconnections.set(client.sessionId, reconnection);
       try {
-        await this.allowReconnection(client, RECONNECT_SECONDS);
+        await reconnection;
         return;
       } catch {
-        // no volvió a tiempo
+        // no volvió a tiempo, o entró con una sesión nueva (ver removeOtherPresences)
+      } finally {
+        this.pendingReconnections.delete(client.sessionId);
       }
     }
     this.state.players.delete(client.sessionId);
+  }
+
+  /**
+   * Una sola presencia por persona. Al entrar con una sesión nueva:
+   * - una pestaña activa anterior se cierra con CLOSE_CODE.replaced;
+   * - una sesión esperando reconexión (p. ej. tras recargar la página) se descarta de inmediato.
+   */
+  private removeOtherPresences(userId: string, keepSessionId: string) {
+    for (const [sessionId, p] of this.state.players.entries()) {
+      if (sessionId === keepSessionId || p.userId !== userId) continue;
+      this.state.players.delete(sessionId);
+      const pending = this.pendingReconnections.get(sessionId);
+      if (pending) {
+        pending.reject(new Error("reemplazada por una sesión nueva"));
+        continue;
+      }
+      this.clients.getById(sessionId)?.leave(CLOSE_CODE.replaced);
+    }
   }
 
   private handleMove(client: Client<UserData>, raw: unknown) {
