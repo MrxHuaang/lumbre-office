@@ -9,20 +9,32 @@ function gameServerHttpUrl(): string | null {
   return ws ? ws.replace(/^ws/, "http").replace(/\/$/, "") : null;
 }
 
-/** Avisa al servidor de juego que cambiaron dueños o nombres de oficinas (para actualizar placas en vivo). */
-export async function publishOfficesChanged() {
+/** POST autenticado al servidor de juego; si está dormido o caído, solo se registra el error. */
+async function notifyGameServer(route: string, what: string, body?: unknown) {
   const base = gameServerHttpUrl();
   const secret = process.env.GAME_TOKEN_SECRET;
   if (!base || !secret) return;
   try {
-    const res = await fetch(`${base}${INTERNAL_ROUTES.officesChanged}`, {
+    const res = await fetch(`${base}${route}`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${secret}` },
+      headers: { Authorization: `Bearer ${secret}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) console.error(`El servidor de juego respondió ${res.status} al aviso de oficinas`);
+    if (!res.ok) console.error(`El servidor de juego respondió ${res.status} al aviso de ${what}`);
   } catch (err) {
-    // Si el servidor está dormido o caído, las placas se actualizan cuando vuelva a cargar las oficinas.
-    console.error("No se pudo avisar del cambio de oficinas:", err instanceof Error ? err.message : err);
+    console.error(`No se pudo avisar del cambio de ${what}:`, err instanceof Error ? err.message : err);
   }
+}
+
+/** Avisa al servidor de juego que cambiaron dueños o nombres de oficinas (para actualizar placas en vivo). */
+export async function publishOfficesChanged() {
+  // Si el servidor no responde, las placas se actualizan cuando vuelva a cargar las oficinas.
+  await notifyGameServer(INTERNAL_ROUTES.officesChanged, "oficinas");
+}
+
+/** Avisa al servidor de juego que cambió el saldo de alguien (para el contador del HUD en vivo). */
+export async function publishPointsChanged(userId: string) {
+  // Si el servidor no responde, el saldo se lee de la base la próxima vez que esa persona entre.
+  await notifyGameServer(INTERNAL_ROUTES.pointsChanged, "puntos", { userId });
 }

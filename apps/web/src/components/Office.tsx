@@ -1,12 +1,13 @@
 "use client";
 
+import { ACTIVITY_PING_MS } from "@hyvento/shared";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
 import { media } from "@/game/media";
-import { connect, disconnect } from "@/game/network";
+import { connect, disconnect, sendActivity } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
-import { RISO, waitForRisoFont } from "@/lib/riso";
+import { waitForCozyFont } from "@/lib/cozy";
 import { AdminDialog } from "./AdminDialog";
 import { ChatPanel } from "./ChatPanel";
 import { Hud, PeoplePanel } from "./Hud";
@@ -14,8 +15,9 @@ import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
+import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { ProfileDialog } from "./ProfileDialog";
-import { Overprint } from "./Riso";
+import { CozyOverlay, CozyTitle } from "./Cozy";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
@@ -59,7 +61,7 @@ function handleGameLoadError(err: unknown) {
     window.location.reload();
     return;
   }
-  useOfficeStore.getState().setConnection("error", "No se pudo cargar el mapa de la oficina. Recarga la página.");
+  useOfficeStore.getState().setConnection("error", "No se pudo cargar la cabaña. Recarga la página.");
 }
 
 async function fetchGameToken(): Promise<string> {
@@ -69,7 +71,7 @@ async function fetchGameToken(): Promise<string> {
     throw new Error("Sesión expirada");
   }
   const body = (await res.json().catch(() => null)) as { token?: string; error?: string } | null;
-  if (!res.ok || !body?.token) throw new Error(body?.error ?? "No se pudo obtener el acceso a la oficina");
+  if (!res.ok || !body?.token) throw new Error(body?.error ?? "No se pudo obtener el acceso a la cabaña");
   return body.token;
 }
 
@@ -97,7 +99,25 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   }, [pcOn, atComputer, setPcOn]);
   // Al salir de la oficina el PC queda apagado.
   useEffect(() => () => useOfficeStore.getState().setPcOn(false), []);
+  const panel = useOfficeStore((s) => s.panel);
+  const closePanel = useOfficeStore((s) => s.closePanel);
   const connection = useOfficeStore((s) => s.connection);
+
+  // Actividad real (mouse, teclado): cuenta para los puntos de presencia. Como mucho un aviso por minuto.
+  useEffect(() => {
+    let last = 0;
+    const onActivity = () => {
+      const now = Date.now();
+      if (now - last < ACTIVITY_PING_MS) return;
+      last = now;
+      sendActivity();
+    };
+    const events = ["pointerdown", "pointermove", "keydown", "wheel"] as const;
+    for (const e of events) window.addEventListener(e, onActivity, { passive: true });
+    return () => {
+      for (const e of events) window.removeEventListener(e, onActivity);
+    };
+  }, []);
   const error = useOfficeStore((s) => s.error);
   const onExit = () => void logout();
 
@@ -122,7 +142,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
         if (cancelled || !gameRef.current) return;
         await waitForVisible();
         await waitForSize(gameRef.current);
-        await waitForRisoFont();
+        await waitForCozyFont();
         if (cancelled || !gameRef.current) return;
         game = createGame(gameRef.current);
         game.events.once("ready", () => sessionStorageSafe.remove(RELOAD_FLAG));
@@ -144,7 +164,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   }, [attempt]);
 
   return (
-    <main className="riso-halftone relative h-full w-full overflow-hidden font-plex text-riso-navy">
+    <main className="cozy-void relative h-full w-full overflow-hidden font-pixel text-cozy-ink">
       <div ref={gameRef} className="absolute inset-0" />
       {connection === "connected" || connection === "reconnecting" ? (
         <>
@@ -163,6 +183,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <MyOfficePanel />
           <DoorPrompt />
           <SeatPrompt />
+          <InteractPrompt />
           <KnockRequests />
           <MediaControls />
           <ControlsHint />
@@ -173,35 +194,37 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <ProfileDialog profile={profile} withName={dialog === "profile"} onClose={closeDialog} onSaved={onProfileChange} />
           )}
           {dialog === "admin" && <AdminDialog onClose={closeDialog} />}
+          {panel?.kind === "mailbox" && <MailboxPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "board" && <BoardPanel onClose={closePanel} />}
         </>
       ) : null}
 
       {connection === "reconnecting" && (
-        <div className="riso-chip absolute top-16 left-1/2 z-20 -translate-x-1/2 bg-riso-yellow px-3.5 py-1.5 text-xs font-semibold">
-          Reconectando…
-        </div>
+        <div className="cozy-chip absolute top-16 left-1/2 z-20 -translate-x-1/2 px-3.5 py-1.5 text-[13px]">Reconectando…</div>
       )}
 
       {(connection === "connecting" || connection === "idle") && (
-        <Overlay>
-          <Title text="Entrando…" />
-          <p className="mt-4 text-[13px] text-riso-muted">Preparando la oficina</p>
-        </Overlay>
+        <CozyOverlay>
+          <CozyTitle className="text-6xl">Entrando…</CozyTitle>
+          <p className="mt-5 text-[15px] text-cozy-paper-dark">Abriendo la cabaña</p>
+        </CozyOverlay>
       )}
 
       {connection === "error" && (
-        <Overlay>
-          <Title text="Uy." />
-          <p className="mt-5 max-w-sm text-center text-[15px] leading-relaxed">{error ?? "Algo salió mal."}</p>
-          <div className="mt-6 flex items-center gap-4">
-            <button onClick={() => setAttempt((n) => n + 1)} className="riso-pill riso-press bg-riso-pink px-5 py-3 text-[15px]">
-              Reintentar
-            </button>
-            <button onClick={onExit} className="text-[14px] underline underline-offset-2">
-              Cerrar sesión
-            </button>
+        <CozyOverlay>
+          <div className="cozy-panel flex max-w-md flex-col items-center px-8 py-7 text-center">
+            <p className="text-[26px] font-semibold">Uy.</p>
+            <p className="mt-3 text-[15px] leading-relaxed">{error ?? "Algo salió mal."}</p>
+            <div className="mt-6 flex items-center gap-3">
+              <button onClick={() => setAttempt((n) => n + 1)} className="cozy-btn cozy-btn-primary px-5 py-2.5 text-[15px]">
+                Reintentar
+              </button>
+              <button onClick={onExit} className="cozy-btn px-5 py-2.5 text-[15px]">
+                Cerrar sesión
+              </button>
+            </div>
           </div>
-        </Overlay>
+        </CozyOverlay>
       )}
     </main>
   );
@@ -210,18 +233,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
 /** Recordatorio de controles (abajo a la derecha, solo en pantallas anchas). */
 function ControlsHint() {
   return (
-    <div className="absolute right-3 bottom-4 hidden border-[1.5px] border-riso-navy bg-riso-paper px-2.5 py-1.5 text-xs text-riso-muted xl:block">
+    <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
       WASD / flechas · clic para caminar · E para sentarte · Enter para chatear
     </div>
-  );
-}
-
-function Title({ text }: { text: string }) {
-  return <Overprint lines={[text]} back={RISO.blue} front={RISO.pink} offset={[4, 3]} className="text-6xl leading-none tracking-tight" />;
-}
-
-function Overlay({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-riso-paper/90 p-4">{children}</div>
   );
 }
