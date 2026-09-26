@@ -75,6 +75,8 @@ export function Desktop({
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [startOpen, setStartOpen] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  /** Menú contextual (clic derecho) de un ícono del escritorio, en coordenadas del escritorio. */
+  const [iconMenu, setIconMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const zTop = useRef(1);
   const now = useNow();
 
@@ -97,6 +99,21 @@ export function Desktop({
     window.addEventListener("pointerdown", close);
     return () => window.removeEventListener("pointerdown", close);
   }, [startOpen]);
+
+  // El menú contextual se cierra con un clic fuera o con Esc, como en Windows.
+  useEffect(() => {
+    if (!iconMenu) return;
+    const close = (e: PointerEvent) => {
+      if (!(e.target as HTMLElement).closest("[data-ctx]")) setIconMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setIconMenu(null);
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [iconMenu]);
 
   const top = windows.filter((w) => !w.minimized).sort((a, b) => b.z - a.z)[0]?.app ?? null;
 
@@ -129,6 +146,47 @@ export function Desktop({
   const soon = (label: string) =>
     setDialog({ title: label, message: `${label} llegará en una próxima versión del PC.`, resolve: () => undefined });
 
+  const emptyTrash = async () => {
+    setIconMenu(null);
+    const n = notes.trashed.length;
+    const ok = await confirm({
+      title: "Vaciar la papelera",
+      message: `Se borrarán para siempre ${n} ${n === 1 ? "página" : "páginas"}. No se puede deshacer.`,
+      confirmLabel: "Vaciar",
+    });
+    if (ok) await notes.emptyTrash();
+  };
+
+  const trashProperties = () => {
+    setIconMenu(null);
+    const trashedIds = new Set(notes.trashed.map((n) => n.id));
+    const items = notes.trashed.filter((n) => !n.parentId || !trashedIds.has(n.parentId)).length;
+    const total = notes.trashed.length;
+    setDialog({
+      title: "Propiedades de la papelera",
+      message:
+        total === 0
+          ? "La papelera está vacía."
+          : `Contiene ${items} ${items === 1 ? "elemento" : "elementos"} (${total} ${total === 1 ? "página" : "páginas"} contando subpáginas). Las notas se quedan aquí hasta que vacíes la papelera.`,
+      resolve: () => undefined,
+    });
+  };
+
+  /** Abrir el menú contextual de un ícono en (clientX, clientY), sin salirse del escritorio. */
+  const openIconMenu = (id: string, clientX: number, clientY: number) => {
+    const rect = areaRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setSelectedIcon(id);
+    setStartOpen(false);
+    const MENU_W = 208;
+    const MENU_H = 150;
+    setIconMenu({
+      id,
+      x: Math.max(4, Math.min(clientX - rect.left, rect.width - MENU_W - 4)),
+      y: Math.max(4, Math.min(clientY - rect.top, rect.height - MENU_H - 4)),
+    });
+  };
+
   const icons: { id: string; label: string; icon: React.ReactNode; onOpen: () => void; disabled?: boolean }[] = [
     { id: "notes", label: "Notas", icon: <NotesIcon />, onOpen: () => open("notes") },
     { id: "trash", label: "Papelera", icon: <TrashIcon full={notes.trashed.length > 0} />, onOpen: () => open("trash") },
@@ -152,6 +210,7 @@ export function Desktop({
         ref={areaRef}
         className="relative min-h-0 flex-1 overflow-hidden bg-riso-paper"
         onPointerDown={(e) => e.target === e.currentTarget && setSelectedIcon(null)}
+        onContextMenu={(e) => e.preventDefault()}
       >
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           <div
@@ -174,7 +233,19 @@ export function Desktop({
                 if ((e.nativeEvent as PointerEvent).pointerType === "touch") ic.onOpen();
               }}
               onDoubleClick={ic.onOpen}
-              onKeyDown={(e) => e.key === "Enter" && ic.onOpen()}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                openIconMenu(ic.id, e.clientX, e.clientY);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") ic.onOpen();
+                // Tecla de menú o Shift+F10: el menú contextual desde el teclado.
+                if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+                  e.preventDefault();
+                  const r = e.currentTarget.getBoundingClientRect();
+                  openIconMenu(ic.id, r.left + r.width / 2, r.top + r.height / 2);
+                }
+              }}
               title={ic.disabled ? "Próximamente" : `Abrir ${ic.label}`}
               className={`flex w-[96px] flex-col items-center gap-1 p-1.5 ${ic.disabled ? "opacity-45" : ""}`}
             >
@@ -189,6 +260,39 @@ export function Desktop({
             </button>
           ))}
         </div>
+
+        {iconMenu &&
+          (() => {
+            const ic = icons.find((i) => i.id === iconMenu.id);
+            if (!ic) return null;
+            const run = (fn: () => void) => () => {
+              setIconMenu(null);
+              fn();
+            };
+            return (
+              <div
+                data-ctx
+                role="menu"
+                aria-label={`Opciones de ${ic.label}`}
+                className="riso-panel absolute z-[1500] w-52 py-1 text-[13px]"
+                style={{ left: iconMenu.x, top: iconMenu.y }}
+              >
+                <CtxItem onClick={run(ic.onOpen)} bold disabled={ic.disabled}>
+                  Abrir
+                </CtxItem>
+                {ic.disabled && <p className="px-3 py-1 text-[11px] text-riso-muted">Próximamente</p>}
+                {ic.id === "trash" && (
+                  <>
+                    <CtxItem onClick={() => void emptyTrash()} disabled={notes.trashed.length === 0} icon={<TrashIcon size={16} full={false} />}>
+                      Vaciar papelera
+                    </CtxItem>
+                    <hr className="my-1 border-t border-dashed border-riso-navy/35" />
+                    <CtxItem onClick={trashProperties}>Propiedades</CtxItem>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
         {windows.map((w) => {
           const info = APPS[w.app];
@@ -344,5 +448,34 @@ export function Desktop({
         )}
       </div>
     </div>
+  );
+}
+
+function CtxItem({
+  onClick,
+  disabled = false,
+  bold = false,
+  icon,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  bold?: boolean;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-riso-yellow disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent ${
+        bold ? "font-semibold" : ""
+      }`}
+    >
+      <span className="grid w-4 shrink-0 place-items-center">{icon}</span>
+      {children}
+    </button>
   );
 }
