@@ -7,10 +7,16 @@ type Legend = Record<string, RGBA>;
 
 const CUP: Legend = { w: hex("#f4ecdc"), W: hex("#cbbba2") };
 
-/** Cada producto: filas de caracteres ("." = vacío, "o" = contorno) y los colores de sus letras. */
-const ITEMS: Record<string, { rows: string[]; colors: Legend; drink: boolean }> = {
+/** Vapor (bebidas calientes) o humo (el cigarro) que sale del producto en la mano. */
+export type HeldEffect = "steam" | "smoke";
+
+/**
+ * Cada producto: filas de caracteres ("." = vacío, "o" = contorno), los colores de sus letras y, si echa
+ * vapor o humo, desde qué píxel sale (`from`, relativo a la esquina de arriba a la izquierda).
+ */
+const ITEMS: Record<string, { rows: string[]; colors: Legend; fx?: HeldEffect; from?: [number, number] }> = {
   tinto: {
-    drink: true,
+    fx: "steam",
     rows: [
       ".ooooo.", //
       ".occco.",
@@ -23,7 +29,8 @@ const ITEMS: Record<string, { rows: string[]; colors: Legend; drink: boolean }> 
     colors: { ...CUP, c: hex("#3b1f14") },
   },
   "cafe-leche": {
-    drink: true,
+    fx: "steam",
+    from: [2, 0],
     rows: [
       "oooooo..", //
       "offfFo..",
@@ -36,7 +43,7 @@ const ITEMS: Record<string, { rows: string[]; colors: Legend; drink: boolean }> 
     colors: { f: hex("#f2d9b0"), F: hex("#c9955e"), m: hex("#d0694a"), M: hex("#9c4632") },
   },
   aromatica: {
-    drink: true,
+    fx: "steam",
     rows: [
       "oooooo", //
       "ohaaao",
@@ -48,7 +55,8 @@ const ITEMS: Record<string, { rows: string[]; colors: Legend; drink: boolean }> 
     colors: { a: hex("#e8894a"), A: hex("#c9552f"), r: hex("#8cc653"), h: alpha(hex("#fff6dc"), 0.85) },
   },
   chocolate: {
-    drink: true,
+    fx: "steam",
+    from: [2, 0],
     rows: [
       "oooooo...", //
       "okkkko...",
@@ -62,7 +70,6 @@ const ITEMS: Record<string, { rows: string[]; colors: Legend; drink: boolean }> 
     colors: { ...CUP, k: hex("#6b3a22"), y: hex("#f6e3a0"), Y: hex("#e0c270") },
   },
   pandebono: {
-    drink: false,
     rows: [
       "..oooo..", //
       ".obBbbo.",
@@ -75,7 +82,6 @@ const ITEMS: Record<string, { rows: string[]; colors: Legend; drink: boolean }> 
     colors: { b: hex("#ecc070"), B: hex("#f8e0a0"), d: hex("#c98a3a"), D: hex("#b87a30") },
   },
   bunuelo: {
-    drink: false,
     rows: [
       "..oooo..", //
       ".obBbbo.",
@@ -88,7 +94,6 @@ const ITEMS: Record<string, { rows: string[]; colors: Legend; drink: boolean }> 
     colors: { b: hex("#d99a45"), B: hex("#f0c476"), d: hex("#b0702a"), D: hex("#8c5520") },
   },
   torta: {
-    drink: false,
     rows: [
       "...r...", //
       ".ooroo.",
@@ -110,13 +115,39 @@ const ITEMS: Record<string, { rows: string[]; colors: Legend; drink: boolean }> 
       P: hex("#cbbba2"),
     },
   },
+  cigarro: {
+    fx: "smoke",
+    from: [5, 0],
+    rows: [
+      "oooooo", //
+      "ofwwwe",
+      "oooooo",
+    ],
+    colors: { f: hex("#d9923e"), w: hex("#f4ecdc"), e: hex("#ff7a2a") },
+  },
+  "coca-cola": {
+    rows: [
+      ".ooo.", //
+      "ossso",
+      "orrRo",
+      "owwro",
+      "orwwo",
+      "orrRo",
+      "ossso",
+      ".ooo.",
+    ],
+    colors: { s: hex("#c9c9d0"), r: hex("#d42a2a"), R: hex("#9c1c1c"), w: hex("#f4ecdc") },
+  },
 };
 
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 
-/** ¿Echa vapor? (las bebidas calientes) */
-export function isDrinkArt(id: string): boolean {
-  return ITEMS[id]?.drink ?? false;
+/** Vapor o humo del producto y el píxel del que sale (por defecto, el centro de arriba). */
+export function heldEffect(id: string): { fx: HeldEffect; from: [number, number] } | null {
+  const item = ITEMS[id];
+  if (!item?.fx) return null;
+  const w = Math.max(...item.rows.map((r) => r.length));
+  return { fx: item.fx, from: item.from ?? [Math.floor(w / 2), 0] };
 }
 
 /** Sprite de un producto (sin escalar). Un id desconocido devuelve un lienzo vacío de 1x1. */
@@ -135,13 +166,14 @@ export function drawCafeItem(id: string): PixelCanvas {
   return c;
 }
 
-/** Bocanada de vapor (se anima en el juego subiendo y desvaneciéndose). */
-export function steamPuff(): PixelCanvas {
+/** Bocanada de vapor (blanca) o de humo (gris): se anima en el juego subiendo y desvaneciéndose. */
+export function puff(fx: HeldEffect = "steam"): PixelCanvas {
   const c = new PixelCanvas(3, 4);
-  const s = alpha(hex("#fff8e8"), 0.8);
+  const color = fx === "smoke" ? hex("#b8b0bc") : hex("#fff8e8");
+  const s = alpha(color, 0.8);
   c.set(1, 0, s);
   c.set(0, 1, s);
   c.set(1, 2, s);
-  c.set(2, 3, alpha(hex("#fff8e8"), 0.5));
+  c.set(2, 3, alpha(color, 0.5));
   return c;
 }
