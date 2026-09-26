@@ -7,6 +7,7 @@ import { CabinShowcase } from "../CabinShowcase";
 import { CharacterSprite } from "../CharacterSprite";
 import { PixelIcon } from "../Cozy";
 import { CalendarApp, NotesApp, TrashApp, useNow, type Confirm } from "./apps";
+import { BrowserApp } from "./BrowserApp";
 import {
   BrowserIcon,
   CalendarIcon,
@@ -25,14 +26,14 @@ import { PomodoroApp, PomodoroTaskbarClock } from "./PomodoroApp";
 import type { NotesStore } from "./useNotes";
 import { Window, type WindowBox } from "./Window";
 
-type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper";
+type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper" | "browser";
 
 interface AppInfo {
   title: string;
   ink: string;
   inkText?: string;
   size: { w: number; h: number };
-  /** Minimizada sigue montada (oculta): no se pierde la partida. */
+  /** Minimizada sigue montada (oculta): no se pierde la partida ni se corta la música. */
   keepAlive?: boolean;
 }
 
@@ -42,11 +43,11 @@ const APPS: Record<AppId, AppInfo> = {
   calendar: { title: "Calendario", ink: COZY.green, size: { w: 340, h: 420 } },
   pomodoro: { title: "Enfoque", ink: COZY.red, inkText: COZY.paperLight, size: { w: 340, h: 450 } },
   minesweeper: { title: "Buscaminas", ink: COZY.woodLight, size: { w: 440, h: 540 }, keepAlive: true },
+  browser: { title: "Favoritos", ink: COZY.sky, inkText: COZY.paperLight, size: { w: 820, h: 540 }, keepAlive: true },
 };
 
 /** Apps que aún no existen: se ven en el escritorio para mostrar hacia dónde va el PC. */
 const FUTURE = [
-  { id: "browser", label: "Navegador", Icon: BrowserIcon },
   { id: "music", label: "Música", Icon: MusicIcon },
   { id: "board", label: "Pizarra", Icon: WhiteboardIcon },
   { id: "mail", label: "Mensajes", Icon: MailIcon },
@@ -207,6 +208,7 @@ export function Desktop({
     { id: "calendar", label: "Calendario", icon: <CalendarIcon />, onOpen: () => open("calendar") },
     { id: "pomodoro", label: "Enfoque", icon: <TomatoIcon />, onOpen: () => open("pomodoro") },
     { id: "minesweeper", label: "Buscaminas", icon: <MineIcon />, onOpen: () => open("minesweeper") },
+    { id: "browser", label: "Favoritos", icon: <BrowserIcon />, onOpen: () => open("browser") },
     ...FUTURE.map((f) => ({ id: f.id, label: f.label, icon: <f.Icon />, onOpen: () => soon(f.label), disabled: true })),
   ];
 
@@ -222,6 +224,8 @@ export function Desktop({
         return <TomatoIcon size={size} />;
       case "minesweeper":
         return <MineIcon size={size} />;
+      case "browser":
+        return <BrowserIcon size={size} />;
     }
   };
 
@@ -338,6 +342,7 @@ export function Desktop({
               {w.app === "calendar" && <CalendarApp />}
               {w.app === "pomodoro" && <PomodoroApp />}
               {w.app === "minesweeper" && <MinesweeperApp />}
+              {w.app === "browser" && <BrowserApp active={top === "browser"} />}
             </Window>
           );
           // `contents` no cambia el acomodo de la ventana; `none` la esconde sin desmontarla.

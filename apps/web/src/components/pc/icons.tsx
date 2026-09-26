@@ -51,11 +51,19 @@ export function CalendarIcon({ size }: { size?: number }) {
   );
 }
 
+/** Navegador de favoritos: el globo con una estrellita. */
 export function BrowserIcon({ size }: { size?: number }) {
   return (
     <Icon size={size}>
-      <circle cx="16" cy="16" r="11" fill={COZY.sky} stroke={INK} strokeWidth="2" />
-      <path d="M5 16h22M16 5c-5 6-5 16 0 22M16 5c5 6 5 16 0 22" stroke={COZY.paper} strokeWidth="1.5" fill="none" />
+      <circle cx="15" cy="15" r="11" fill={COZY.sky} stroke={INK} strokeWidth="2" />
+      <path d="M4 15h22M15 4c-5 6-5 16 0 22M15 4c5 6 5 16 0 22" stroke={COZY.paper} strokeWidth="1.5" fill="none" />
+      <path
+        d="M24 17.5l1.7 4.2 4.5.3-3.5 2.9 1.1 4.4-3.8-2.5-3.8 2.5 1.1-4.4-3.5-2.9 4.5-.3z"
+        fill={COZY.gold}
+        stroke={INK}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
     </Icon>
   );
 }
