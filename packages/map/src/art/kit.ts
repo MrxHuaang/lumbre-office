@@ -21,6 +21,12 @@ export const roundShadow =
 /** Caja invisible: solo reserva espacio en el lienzo (hojas, vapor, llamas). */
 export const volume = (x: number, y: number, z: number, w: number, d: number, h: number): Box => ({ x, y, z, w, d, h });
 
+/**
+ * Reserva en el lienzo el rombo de `shadowUnder(x, y, w, d)`. renderSprite mide el lienzo solo con
+ * las cajas: en un mueble delgado (perchero, guitarra) la sombra quedaría cortada en seco.
+ */
+export const shadowSpace = (x: number, y: number, w: number, d: number): Box => volume(x - 1, y - 1, 0, w + 3, d + 3, 0);
+
 /** Cojín: bordes con ribete y la cara superior con un leve tramado. */
 export const cushion = (x: number, y: number, z: number, w: number, d: number, h: number, r: Ramp): Box => ({
   x,

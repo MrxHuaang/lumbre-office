@@ -19,7 +19,7 @@ import {
 } from "./pixel";
 import { catalogItem } from "../world/catalog";
 import { DECOR } from "./decor";
-import { cushion, leg, shadowUnder, volume, type Variant } from "./kit";
+import { cushion, leg, shadowSpace, shadowUnder, volume, type Variant } from "./kit";
 import { drawOutdoor, hasOutdoor } from "./outdoor";
 import { SHOP } from "./shop";
 
@@ -372,6 +372,7 @@ function cafeTable(): Sprite {
       { x: 1, y: 4, z: 11, w: 14, d: 8, h: 2, top: topShade, left: flat(at(C.cream, 2)), right: flat(at(C.cream, 3)) },
       { x: 4, y: 1, z: 11, w: 8, d: 14, h: 2, top: topShade, left: flat(at(C.cream, 2)), right: flat(at(C.cream, 3)) },
       solidBox({ x: 7, y: 7, z: 13, w: 2, d: 2, h: 4 }, C.sky, 3),
+      shadowSpace(1, 1, 14, 14),
     ],
     {
       outline: OUT,

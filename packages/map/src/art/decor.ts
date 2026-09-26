@@ -19,7 +19,7 @@ import {
   type Shader,
   type Sprite,
 } from "./pixel";
-import { blob, leg, roundShadow, roundTone, shadowUnder, slant, volume, type Variant } from "./kit";
+import { blob, leg, roundShadow, roundTone, shadowSpace, shadowUnder, slant, volume, type Variant } from "./kit";
 
 /** Rampas propias de estos muebles (lo demás sale de la paleta común). */
 const LILAC = ramp("#2e2140", "#4a3466", "#6a4d8c", "#8c6fb0", "#b597d0", "#dcc4ea");
@@ -395,6 +395,7 @@ function coatRack(): Sprite {
       ...slant([7.6, 13.6, 0], [7.8, 12.8, 4], 1, C.metal, 3),
       ...slant([7.8, 12.8, 4], [8, 10.2, 19], 2.4, C.fabric, 3),
       ...slant([8, 10.2, 19], [8, 9.8, 22], 1, C.woodDark, 4),
+      shadowSpace(2, 2, 12, 12),
     ],
     {
       outline: OUT,
@@ -686,6 +687,7 @@ function easel(): Sprite {
       // Repisa con pinceles y el sujetador de arriba.
       solidBox({ x: 8.4, y: 1, z: 11.5, w: 3, d: 14, h: 1.5 }, C.wood, 3),
       solidBox({ x: 7, y: 7, z: 27.5, w: 2.5, d: 2, h: 2 }, C.wood, 3),
+      shadowSpace(2, 2, 11, 12),
     ],
     {
       outline: OUT,
@@ -835,6 +837,7 @@ function guitar(): Sprite {
       // Brazos del soporte que sostienen la caja.
       solidBox({ x: 8.8, y: 3.5, z: 0.8, w: 1.5, d: 0.8, h: 2.5 }, stand, 2),
       solidBox({ x: 8.8, y: 11.7, z: 0.8, w: 1.5, d: 0.8, h: 2.5 }, stand, 2),
+      shadowSpace(3, 3, 9, 10),
     ],
     { outline: OUT, under: shadowUnder(3, 3, 9, 10, 0.25) },
   );
@@ -1181,7 +1184,7 @@ function piano(variant: Variant): Sprite {
   ];
   const keysSide = [cheek(1), post(2.5), keyboard, post(27.5), cheek(29.8)];
   const parts = back ? [...keysSide, stand, body, ...top] : [body, stand, ...keysSide, ...top];
-  return renderSprite(parts, {
+  return renderSprite([...parts, shadowSpace(1, 1, 14, 30)], {
     outline: OUT,
     under: shadowUnder(1, 1, 14, 30),
     extra: (c, p) => {
