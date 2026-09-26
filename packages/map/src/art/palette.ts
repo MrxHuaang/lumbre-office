@@ -32,6 +32,11 @@ export const C = {
   roof: ramp("#3a1a1c", "#5e2a28", "#8a3a30", "#b0503a", "#cf7550", "#e89c70"),
   fire: ramp("#7a1f0e", "#c2401a", "#ee7a22", "#fbb23c", "#fde38a"),
   white: ramp("#8a8a96", "#b4b4be", "#d8d8de", "#f0f0f2", "#ffffff"),
+  // Sótano: el cine (azul noche) y el club (violeta y neón).
+  navy: ramp("#101530", "#1a2248", "#263262", "#34447c", "#4a5c98", "#7084b8"),
+  violet: ramp("#1e1030", "#34194f", "#4f2672", "#6e3a96", "#9459ba", "#c08ae0"),
+  neon: ramp("#5a0f4a", "#9c1a78", "#e0359f", "#ff5fd2", "#ff9ae6", "#ffe0f6"),
+  cyan: ramp("#0c3a4a", "#12627a", "#1a95ad", "#3fd0dd", "#8ef0f0", "#dafffb"),
 };
 
 export const BOOKS: RGBA[] = [

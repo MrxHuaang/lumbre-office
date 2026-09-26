@@ -12,8 +12,8 @@ export interface Rect {
 }
 
 export type ZoneType = "office" | "meeting" | "table" | "common";
-export type FloorKind = "wood" | "carpet" | "tiles" | "stone" | "grass" | "path" | "doormat" | "casino";
-export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine";
+export type FloorKind = "wood" | "carpet" | "tiles" | "stone" | "grass" | "path" | "doormat" | "casino" | "dance" | "cinema";
+export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet";
 
 export interface ZoneDef {
   id: string;
@@ -46,7 +46,7 @@ export interface DoorDef {
   width?: number;
 }
 
-export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard";
+export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "poster";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -55,6 +55,8 @@ export interface WallFeature {
   x: number;
   y: number;
   width?: number;
+  /** Texto del letrero de neón (mayúsculas, sin tildes). */
+  text?: string;
 }
 
 /** Un mueble u objeto: `type` es una clave del catálogo; (x, y) es la esquina mínima que ocupa. */

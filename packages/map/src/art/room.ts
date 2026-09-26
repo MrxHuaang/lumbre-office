@@ -24,8 +24,8 @@ export const LOW_WALL_H = 10;
 const WALL_T = 4;
 const SLAB = 5;
 
-const WALLPAPER: Record<WallpaperKind, Ramp> = { sage: C.sage, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug };
-const CARPET: Record<WallpaperKind, Ramp> = { sage: C.green, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug };
+const WALLPAPER: Record<WallpaperKind, Ramp> = { sage: C.sage, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug, navy: C.navy, violet: C.violet };
+const CARPET: Record<WallpaperKind, Ramp> = { sage: C.green, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug, navy: C.navy, violet: C.violet };
 
 // ---------- Pisos ----------
 
@@ -62,6 +62,33 @@ function casinoCarpet(X: number, Y: number): RGBA {
   if ((u === 8 || u === 7) && (v === 8 || v === 7)) return at(C.gold, 3);
   const cell = (Math.floor((x + y) / 16) + Math.floor((x - y + 1600) / 16)) % 2;
   return at(C.rug, bayer(x, y) < 0.18 ? cell : cell + 1);
+}
+
+/** Pista de baile del club: baldosas de colores (unas "encendidas") con juntas oscuras. */
+function danceFloor(X: number, Y: number): RGBA {
+  const cx = Math.floor(X / 8);
+  const cy = Math.floor(Y / 8);
+  const u = X - cx * 8;
+  const v = Y - cy * 8;
+  if (u < 1 || v < 1) return at(C.violet, 0);
+  const ramps = [C.neon, C.violet, C.cyan, C.violet];
+  const r = ramps[(((cx + cy * 3) % ramps.length) + ramps.length) % ramps.length]!;
+  const lit = noise(cx, cy, 29) < 0.35;
+  // Brillo en la esquina de cada baldosa, como vidrio.
+  if (u < 2.5 && v < 2.5) return at(r, lit ? 5 : 3);
+  return at(r, lit ? 4 : bayer(Math.floor(X), Math.floor(Y)) < 0.2 ? 1 : 2);
+}
+
+/** Alfombra de cine: azul noche con un rombito dorado y rojo repetido (distinta de la del casino). */
+function cinemaCarpet(X: number, Y: number): RGBA {
+  const x = Math.floor(X);
+  const y = Math.floor(Y);
+  const u = ((x % 12) + 12) % 12;
+  const v = ((y % 12) + 12) % 12;
+  const d = Math.abs(u - 6) + Math.abs(v - 6);
+  if (d === 2) return at(C.gold, 3);
+  if (d < 2) return at(C.curtain, 2);
+  return at(C.navy, bayer(x, y) < 0.15 ? 1 : 2);
 }
 
 function grass(X: number, Y: number): RGBA {
@@ -116,6 +143,10 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return doormat(X, Y);
     case "casino":
       return casinoCarpet(X, Y);
+    case "dance":
+      return danceFloor(X, Y);
+    case "cinema":
+      return cinemaCarpet(X, Y);
   }
 }
 
@@ -156,6 +187,119 @@ function windowAt(u: number, hv: number, u0: number, u1: number, day: boolean): 
   const t = (hv - 24) / 20;
   if (Math.abs(u - u0 - 6 - (hv - 24) * 0.6) < 1.2 || Math.abs(u - mid - 5 - (hv - 24) * 0.6) < 0.8) return at(C.sky, 4);
   return at(C.sky, 1 + t * 3 + (bayer(Math.floor(u), Math.floor(hv)) - 0.5));
+}
+
+// Letras de 3x5 para los letreros de neón: cinco filas de arriba abajo.
+const GLYPHS: Record<string, string> = {
+  A: ".#. #.# ### #.# #.#",
+  B: "##. #.# ##. #.# ##.",
+  C: ".## #.. #.. #.. .##",
+  D: "##. #.# #.# #.# ##.",
+  E: "### #.. ##. #.. ###",
+  F: "### #.. ##. #.. #..",
+  G: ".## #.. #.# #.# .##",
+  H: "#.# #.# ### #.# #.#",
+  I: "### .#. .#. .#. ###",
+  J: "..# ..# ..# #.# .#.",
+  K: "#.# #.# ##. #.# #.#",
+  L: "#.. #.. #.. #.. ###",
+  M: "#.# ### ### #.# #.#",
+  N: "##. #.# #.# #.# #.#",
+  O: ".#. #.# #.# #.# .#.",
+  P: "##. #.# ##. #.. #..",
+  R: "##. #.# ##. #.# #.#",
+  S: ".## #.. .#. ..# ##.",
+  T: "### .#. .#. .#. .#.",
+  U: "#.# #.# #.# #.# ###",
+  V: "#.# #.# #.# #.# .#.",
+  X: "#.# #.# .#. #.# #.#",
+  Y: "#.# #.# .#. .#. .#.",
+  "7": "### ..# .#. .#. .#.",
+};
+
+/** ¿La letra `ch` tiene prendido el píxel (gx, gy)? (gx 0..2, gy 0..4 de arriba abajo). */
+function glyphOn(ch: string, gx: number, gy: number): boolean {
+  return GLYPHS[ch]?.split(" ")[gy]?.[gx] === "#";
+}
+
+/** Letrero de neón: tablero oscuro con letras de tubo rosado (3x5 a escala 2) y su halo, centradas. */
+function neonAt(text: string, u: number, hv: number, u1: number): RGBA | null {
+  const s = 2;
+  const tw = text.length * 4 * s - s;
+  const x0 = Math.floor((u1 - tw) / 2);
+  const top = 46;
+  const bottom = top - 5 * s;
+  if (!inRect(u, hv, 2, bottom - 5, u1 - 2, top + 4)) return null;
+  const lit = (x: number, y: number) => {
+    // (x, y) en píxeles del letrero; y crece hacia abajo desde `top`.
+    const k = Math.floor((x - x0) / (4 * s));
+    if (x < x0 || k >= text.length || y < 0 || y >= 5 * s) return false;
+    const gx = Math.floor((x - x0 - k * 4 * s) / s);
+    return gx < 3 && glyphOn(text[k]!, gx, Math.floor(y / s));
+  };
+  const x = Math.floor(u);
+  const y = Math.floor(top - hv);
+  if (lit(x, y)) return at(C.neon, (x + y) % 5 === 0 ? 5 : 4);
+  if (lit(x - 1, y) || lit(x + 1, y) || lit(x, y - 1) || lit(x, y + 1)) return at(C.neon, 1);
+  if (u < 3 || u >= u1 - 3 || hv < bottom - 4 || hv >= top + 3) return at(C.metal, 1);
+  return at(C.violet, 0);
+}
+
+/** Pantalla de cine con telón rojo a los lados y arriba; muestra un atardecer (la "película"). */
+function cinemaScreenAt(u: number, hv: number, u1: number): RGBA | null {
+  const cur = 9;
+  if (!inRect(u, hv, 0, 8, u1, WALL_H - 3)) return null;
+  // Cenefa arriba, festoneada y con un ribete dorado.
+  const scallop = 2 * Math.abs(Math.sin((u / 8) * Math.PI));
+  if (hv >= 47 - scallop) {
+    if (hv < 48 - scallop) return at(C.gold, 4);
+    const f = Math.floor(u) % 4;
+    return at(C.curtain, f === 0 ? 1 : f === 3 ? 3 : 2);
+  }
+  // Telones laterales con pliegues y el borde de abajo dorado.
+  const side = u < cur ? u : u >= u1 - cur ? u1 - 1 - u : -1;
+  if (side >= 0) {
+    if (hv < 10) return at(C.gold, 3);
+    const f = Math.floor(u) % 3;
+    return at(C.curtain, side > cur - 2 ? 1 : f === 0 ? 1 : f === 1 ? 3 : 2);
+  }
+  // Marco negro alrededor de la tela.
+  if (hv < 12 || hv >= 45 || u < cur + 2 || u >= u1 - cur - 2) return at(C.metal, 0);
+  const x = u - cur - 2;
+  const w = u1 - (cur + 2) * 2;
+  // y crece hacia abajo desde el borde de arriba de la tela.
+  const y = 44 - hv;
+  const horizon = 20;
+  const ridge = horizon - 4 - 4 * Math.sin(x * 0.09) - 3 * Math.sin(x * 0.23 + 1);
+  const sun = Math.hypot(x - w * 0.62, y - horizon + 1);
+  if (y >= horizon) {
+    // Lago: reflejo del sol en rayas.
+    const ref = Math.abs(x - w * 0.62) < 6 - (y - horizon) * 0.4 && Math.floor(y) % 2 === 0;
+    return ref ? at(C.gold, 4) : at(C.navy, y > horizon + 5 ? 2 : 3);
+  }
+  if (y >= ridge) return at(C.violet, y < ridge + 2 ? 2 : 1);
+  if (sun < 5) return at(C.gold, sun < 3 ? 5 : 4);
+  const band = y / horizon + (bayer(Math.floor(x), Math.floor(y)) - 0.5) * 0.12;
+  return band < 0.3 ? at(C.navy, 4) : band < 0.55 ? at(C.violet, 4) : band < 0.75 ? at(C.neon, 3) : at(C.fire, 3);
+}
+
+const POSTER_BG = [C.rug, C.navy, C.green, C.violet];
+
+/** Afiche de película enmarcado: fondo de color, una figura y el título en una franja. */
+function posterAt(f: WallFeature, u: number, hv: number, u1: number): RGBA | null {
+  if (!inRect(u, hv, 2, 18, u1 - 2, 50)) return null;
+  if (u < 3 || u >= u1 - 3 || hv < 19 || hv >= 49) return at(C.gold, hv >= 49 || u >= u1 - 3 ? 4 : 2);
+  const seed = f.x * 7 + f.y * 13;
+  const bg = POSTER_BG[seed % POSTER_BG.length]!;
+  const mid = u1 / 2;
+  // Título abajo (rayitas claras) y estrellitas arriba.
+  if (hv < 25) return hv >= 21 && hv < 23 && u > 5 && u < u1 - 5 && Math.floor(u) % 3 !== 0 ? at(C.cream, 5) : at(bg, 0);
+  if (hv >= 45 && Math.floor(u) % 3 === 1) return at(C.gold, 5);
+  const shape = seed % 3;
+  if (shape === 0 && Math.hypot(u - mid, hv - 35) < 6) return at(C.gold, Math.hypot(u - mid - 1.5, hv - 36.5) < 3 ? 5 : 4);
+  if (shape === 1 && Math.abs(u - mid) < (44 - hv) * 0.5 && hv > 28) return at(C.cream, hv > 40 ? 5 : 4);
+  if (shape === 2 && (Math.hypot(u - mid, hv - 39) < 3 || (Math.abs(u - mid) < 3.5 - (hv - 28) * 0.1 && hv >= 28 && hv < 36))) return at(C.fire, 3);
+  return at(bg, 2 + (bayer(Math.floor(u), Math.floor(hv)) < 0.2 ? 1 : 0));
 }
 
 function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | null {
@@ -220,6 +364,12 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
       if ((Math.abs(dx) < 0.8 && dy > 0 && dy < 3.5) || (Math.abs(dy) < 0.6 && dx > 0 && dx < 2.8)) return OUT;
       return at(C.cream, 4);
     }
+    case "neon":
+      return neonAt(f.text ?? "", u, hv, u1);
+    case "cinema-screen":
+      return cinemaScreenAt(u, hv, u1);
+    case "poster":
+      return posterAt(f, u, hv, u1);
   }
 }
 
