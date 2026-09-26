@@ -15,7 +15,9 @@ La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, co
 | Cabaña 2. Economía: puntos por presencia y reuniones, buzón con racha diaria, tablón de misiones y ranking semanal | ✅ |
 | Cabaña 3a. Cafetería: menú en la barra pagado con puntos, lo pedido se lleva en la mano | ✅ |
 | Cabaña 3b. Tienda de muebles con inventario, ropa nueva gratis y vestidor | ✅ |
-| Cabaña 3c–5. Decoración de oficinas, casino, regalos e intercambios (ver el plan) | Pendiente |
+| Cabaña 3c. Editor de oficina en vivo | ✅ |
+| Cabaña 4. Casino en el sótano: ruleta, blackjack, caja con límite diario (configurable en /admin) y ranking | ✅ |
+| Cabaña 5. Regalos, intercambios, huerto, pesca, arcade y cine (ver el plan) | Pendiente |
 
 > Las funciones de agentes de IA se retiraron del proyecto; su código quedó archivado en la rama `archivo/agentes-ia`.
 

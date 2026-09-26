@@ -73,7 +73,11 @@ Misiones: cualquiera publica; otra persona la toma, la entrega y quien la public
    - 3a ✅ **Cafetería**: menú en la barra (tinto, café con leche, aromática, chocolate con queso, Coca-Cola, pandebono, buñuelo, torta de tres leches, cigarro y los combos "Desayuno": tinto o Coca-Cola con cigarro; 3 a 12 puntos). Lo pedido se lleva en la mano 30 min (los combos, uno en cada mano) y todos lo ven. Solo decorativo. Gastar puntos (`PURCHASE`) nunca deja el saldo en negativo.
    - 3b ✅ **Tienda, vestidor e inventario**: la planta baja queda con la cafetería al norte y la tienda al sur (mostrador, estantes, percheros y probador). La tienda vende 27 muebles (18 nuevos; con los de la tienda son 22 dibujos nuevos, todos por código); lo comprado va a la mochila (HUD). La ropa es **toda gratis**: peinados, accesorios y conjuntos nuevos, y el probador es un vestidor.
    - 3c **Editor de oficina**: poner, mover, rotar y quitar muebles de la mochila en tu oficina, y cambiar piso y papel tapiz; lo valida el servidor y se ve en vivo.
-4. **Casino**: ruleta, blackjack, caja, límite en `/admin`.
+4. ✅ **Casino** (sótano, se baja por la escalera del recibidor):
+   - **Ruleta europea** con rondas compartidas (20 s para apostar, gira y paga); plenos, columnas, docenas, rojo/negro, par/impar y mitades.
+   - **Blackjack** de 5 asientos (las banquetas de la mesa), sabot de 6 mazos, crupier automático que se planta en 17, blackjack 3:2, doblar; sin seguro ni división.
+   - **Caja**: saldo, cómo vas hoy, el límite y el ranking semanal por ganancia neta. **Límite diario de pérdidas** configurable en `/admin` (150 por defecto; cuenta las apuestas abiertas), y se puede cerrar el casino.
+   - Tragamonedas de adorno y un **escenario con tubo** (E para bailar).
 5. **Social y ocio**: regalos, intercambios, huerto, pesca, arcade, sala de cine.
 
 Las fases 2 a 5 traen migraciones de base de datos: se avisan en cada PR y el dueño las aplica en Neon antes de mezclar.
