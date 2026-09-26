@@ -1,4 +1,4 @@
-// Esquema de Hyvento Office: usuarios, invitaciones, oficinas personales y chat.
+// Esquema de Hyvento Office: usuarios, invitaciones, oficinas personales, chat, notas y puntos.
 
 generator client {
   provider = "prisma-client-js"
@@ -44,13 +44,25 @@ model User {
    * Completó el onboarding (eligió nombre visible y avatar).
    */
   onboardedAt   DateTime?
+  /**
+   * Saldo de puntos (la suma de sus PointTransaction; se actualiza en la misma transacción).
+   */
+  points        Int            @default(0)
+  /**
+   * Días seguidos reclamando la recompensa del buzón, y cuándo fue el último reclamo.
+   */
+  streak        Int            @default(0)
+  lastDailyAt   DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  office       Office?
-  chatMessages ChatMessage[]
-  notes        Note[]
-  invitesSent  Invite[]      @relation("InvitedBy")
+  office          Office?
+  chatMessages    ChatMessage[]
+  notes           Note[]
+  invitesSent     Invite[]           @relation("InvitedBy")
+  pointMoves      PointTransaction[]
+  missionsCreated Mission[]          @relation("MissionCreator")
+  missionsTaken   Mission[]          @relation("MissionAssignee")
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -71,16 +83,18 @@ model Invite {
 }
 
 /**
- * Oficina personal: una zona `office-<slot>` del mapa asignada a un usuario.
+ * Oficina personal: una zona `office-<slot>` del piso 2 de la cabaña asignada a un usuario.
  */
 model Office {
   id       String  @id @default(cuid())
-  zoneId   String  @unique // p. ej. "office-2" (zoneId en Tiled)
+  zoneId   String  @unique // p. ej. "office-2" (id de la zona en packages/map)
   name     String
   ownerId  String? @unique
   owner    User?   @relation(fields: [ownerId], references: [id])
   isLocked Boolean @default(false) // cerrada: hay que tocar la puerta
-  /** Obsoleto: las notas pasaron a Note (se conserva mientras conviven versiones). */
+  /**
+   * Obsoleto: las notas pasaron a Note (se conserva mientras conviven versiones).
+   */
   notes    String  @default("")
 }
 
@@ -98,11 +112,17 @@ model Note {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String    @default("")
-  /** Texto plano de la nota (para buscar y para la vista previa en la lista). */
+  /**
+   * Texto plano de la nota (para buscar y para la vista previa en la lista).
+   */
   body      String    @default("")
-  /** Documento del editor (bloques, formato, tablas…). null = nota antigua: se arma desde `body`. */
+  /**
+   * Documento del editor (bloques, formato, tablas…). null = nota antigua: se arma desde `body`.
+   */
   content   Json?
-  /** Subpágina de otra nota (null = en la raíz). Borrar la madre borra sus subpáginas. */
+  /**
+   * Subpágina de otra nota (null = en la raíz). Borrar la madre borra sus subpáginas.
+   */
   parentId  String?
   parent    Note?     @relation("NoteTree", fields: [parentId], references: [id], onDelete: Cascade)
   children  Note[]    @relation("NoteTree")
@@ -125,6 +145,64 @@ model ChatMessage {
   createdAt DateTime  @default(now())
 
   @@index([scope, createdAt])
+}
+
+// ---------- Puntos (fase 2) ----------
+
+enum PointReason {
+  PRESENCE
+  MEETING
+  DAILY
+  MISSION
+  ADMIN
+}
+
+/**
+ * Libro de puntos: cada movimiento (ganar o gastar). El saldo de User.points es la suma.
+ */
+model PointTransaction {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    PointReason
+  /**
+   * Referencia a lo que lo originó (p. ej. el id de una misión).
+   */
+  refId     String?
+  createdAt DateTime    @default(now())
+
+  @@index([userId, reason, createdAt])
+  @@index([createdAt])
+}
+
+enum MissionStatus {
+  OPEN
+  TAKEN
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+/**
+ * Misión del tablón: alguien la crea con una recompensa, otra persona la toma y la entrega, y quien la
+ * creó (o un admin) la aprueba y se pagan los puntos.
+ */
+model Mission {
+  id          String        @id @default(cuid())
+  title       String
+  description String        @default("")
+  reward      Int
+  status      MissionStatus @default(OPEN)
+  createdById String
+  createdBy   User          @relation("MissionCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assigneeId  String?
+  assignee    User?         @relation("MissionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  completedAt DateTime?
+
+  @@index([status, createdAt])
 }
 
 // ---------- Auth.js ----------

@@ -17,7 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.0"
+    "@prisma/client": "^6.19.0",
+    "@hyvento/shared": "workspace:*"
   },
   "devDependencies": {
     "prisma": "^6.19.0",
