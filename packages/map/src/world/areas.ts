@@ -97,7 +97,14 @@ function cafeTable(n: number, x: number, y: number): { furniture: Placement[]; z
   };
 }
 
-const tables = [cafeTable(1, 12, 6), cafeTable(2, 17, 6), cafeTable(3, 12, 11), cafeTable(4, 17, 11)];
+// La cafetería (mitad norte, y 0..9) y la tienda (mitad sur, y 10..16) comparten el ala este. Del
+// recibidor se entra a la tienda y de ahí, por la puerta del medio, a la cafetería.
+const CAFE = { x: 9, y: 0, w: 12, h: 10 };
+const SHOP = { x: 9, y: 10, w: 12, h: 7 };
+
+// Dos filas de mesas con un pasillo delante de la barra (y = 3) y otro al medio (x 14..15) que lleva a la
+// puerta de la tienda.
+const tables = [cafeTable(1, 12, 5), cafeTable(2, 17, 5), cafeTable(3, 12, 8), cafeTable(4, 17, 8)];
 
 const plantaBaja: AreaDef = {
   id: "planta-baja",
@@ -106,12 +113,14 @@ const plantaBaja: AreaDef = {
   height: 18,
   rooms: [
     { id: "reuniones", rect: { x: 0, y: 0, w: 9, h: 8 }, floor: "carpet", wallpaper: "blue" },
-    { id: "cafeteria", rect: { x: 9, y: 0, w: 12, h: 17 }, floor: "tiles", wallpaper: "cream" },
+    { id: "cafeteria", rect: CAFE, floor: "tiles", wallpaper: "cream" },
+    { id: "tienda", rect: SHOP, floor: "carpet", wallpaper: "rose" },
     { id: "recibidor", rect: { x: 0, y: 8, w: 9, h: 9 }, floor: "wood", wallpaper: "sage" },
   ],
   doors: [
     { edge: "h", x: 4, y: 8, width: 2 },
     { edge: "v", x: 9, y: 12, width: 2 },
+    { edge: "h", x: 14, y: SHOP.y, width: 2 },
     { edge: "h", x: 4, y: 17, width: 2 },
   ],
   thresholds: [
@@ -127,7 +136,8 @@ const plantaBaja: AreaDef = {
       isolated: true,
       door: { x: 4, y: 8 },
     },
-    { id: "cafeteria", name: "Cafetería", type: "common", rect: { x: 9, y: 0, w: 12, h: 17 }, isolated: false },
+    { id: "cafeteria", name: "Cafetería", type: "common", rect: CAFE, isolated: false },
+    { id: "tienda", name: "Tienda", type: "common", rect: SHOP, isolated: false },
     { id: "recibidor", name: "Recibidor", type: "common", rect: { x: 0, y: 8, w: 9, h: 10 }, isolated: false },
     ...tables.map((t) => t.zone),
   ],
@@ -170,11 +180,19 @@ const plantaBaja: AreaDef = {
     place("armchair", 18, 2, "up"),
     place("armchair", 19, 2, "up"),
     ...tables.flatMap((t) => t.furniture),
-    place("sofa", 14, 15, "up"),
-    place("coffee-table", 14, 14),
     place("plant", 20, 4),
+    // Tienda: estante y mostrador junto a la puerta del recibidor, la ropa y el probador al fondo, y un
+    // sofá para esperar a quien se está probando algo.
+    place("display-shelf", 9, 10, "down"),
+    place("shop-counter", 11, 10, "down"),
+    place("plant", 13, 10),
+    place("clothes-rack", 17, 10, "down"),
+    place("fitting-booth", 19, 10, "down"),
+    place("clothes-rack", 17, 13, "right"),
+    place("sofa", 9, 14, "right"),
+    place("rug-round", 10, 14),
+    place("lamp", 9, 16),
     place("plant", 20, 16),
-    place("plant", 9, 16),
     // Recibidor: escalera al piso 2 y alfombra de bienvenida.
     place("stairs-up", 0, 9),
     place("rug-2x3", 3, 14, "down"),
@@ -206,6 +224,9 @@ const plantaBaja: AreaDef = {
     // Frente a la cafetera y a la vitrina, entre los taburetes: ahí se pide.
     { type: "cafe_counter", name: "Barra", x: 11, y: 2 },
     { type: "cafe_counter", name: "Barra", x: 13, y: 2 },
+    // Frente al mostrador (comprar) y a la cortina del probador (probarse ropa).
+    { type: "shop_counter", name: "Mostrador", x: 11, y: 11 },
+    { type: "fitting_room", name: "Probador", x: 19, y: 12 },
   ],
 };
 

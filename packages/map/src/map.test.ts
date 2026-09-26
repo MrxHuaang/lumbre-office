@@ -16,6 +16,7 @@ import {
   seatAtPoint,
   seatStandSpot,
   spawnPoint,
+  wallAbove,
   wallBetween,
   zoneAt,
   type OfficeMap,
@@ -44,7 +45,7 @@ describe("mundo", () => {
     const ids = allZones(world).map((z) => z.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toEqual(
-      expect.arrayContaining(["office-1", "office-4", "meeting-main", "mesa-1", "mesa-4", "cafeteria", "recibidor", "jardin"]),
+      expect.arrayContaining(["office-1", "office-4", "meeting-main", "mesa-1", "mesa-4", "cafeteria", "tienda", "recibidor", "jardin"]),
     );
     expect(ids).not.toContain("coworking");
   });
@@ -176,21 +177,35 @@ describe("asientos", () => {
 
   it("las sillas de las mesas miran hacia la mesa", () => {
     const facing = (x: number, y: number) => plantaBaja.seats.get(y * plantaBaja.width + x)?.facing;
-    expect(facing(11, 6)).toBe("right");
-    expect(facing(13, 6)).toBe("left");
-    expect(facing(12, 5)).toBe("down");
-    expect(facing(12, 7)).toBe("up");
+    expect(facing(11, 5)).toBe("right");
+    expect(facing(13, 5)).toBe("left");
+    expect(facing(12, 4)).toBe("down");
+    expect(facing(12, 6)).toBe("up");
   });
 });
 
 describe("lugares y zonas", () => {
   it("las mesas de la cafetería son burbujas de audio y se muestran como lugar", () => {
     const x = center(plantaBaja, 11);
-    const y = center(plantaBaja, 6);
+    const y = center(plantaBaja, 5);
     expect(zoneAt(plantaBaja, x, y)?.id).toBe("mesa-1");
     expect(zoneAt(plantaBaja, x, y)?.isolated).toBe(true);
     expect(placeAt(plantaBaja, x, y)).toBe("mesa-1");
-    expect(placeAt(plantaBaja, center(plantaBaja, 15), center(plantaBaja, 14))).toBe("cafeteria");
+    expect(placeAt(plantaBaja, center(plantaBaja, 15), center(plantaBaja, 3))).toBe("cafeteria");
+    expect(placeAt(plantaBaja, center(plantaBaja, 15), center(plantaBaja, 14))).toBe("tienda");
+  });
+
+  it("las cuatro mesas siguen aisladas, dentro de la cafetería y se llega a cada una desde la entrada", () => {
+    const cafe = plantaBaja.zones.find((z) => z.id === "cafeteria")!;
+    const mesas = plantaBaja.zones.filter((z) => z.type === "table");
+    expect(mesas.map((z) => z.id)).toEqual(["mesa-1", "mesa-2", "mesa-3", "mesa-4"]);
+    for (const mesa of mesas) {
+      expect(mesa.isolated, mesa.id).toBe(true);
+      expect(mesa.x >= cafe.x && mesa.y >= cafe.y, mesa.id).toBe(true);
+      expect(mesa.x + mesa.width <= cafe.x + cafe.width && mesa.y + mesa.height <= cafe.y + cafe.height, mesa.id).toBe(true);
+      const seats = [...plantaBaja.seats.values()].filter((s) => zoneAt(plantaBaja, s.x, s.y)?.id === mesa.id);
+      expect(seats, mesa.id).toHaveLength(4);
+    }
   });
 
   it("placeLabel", () => {
@@ -208,6 +223,45 @@ describe("lugares y zonas", () => {
 });
 
 describe("tienda", () => {
+  const entrada = { x: 4, y: 15 }; // donde se llega desde el jardín
+  const tile = (p: { tileX: number; tileY: number }) => ({ x: p.tileX, y: p.tileY });
+
+  it("el mostrador y el probador están dentro de la tienda y se llega caminando desde la entrada", () => {
+    for (const type of ["shop_counter", "fitting_room"]) {
+      const points = pointsOfType(plantaBaja, type);
+      expect(points, type).toHaveLength(1);
+      const p = points[0]!;
+      expect(zoneAt(plantaBaja, p.x, p.y)?.id, type).toBe("tienda");
+      expect(isBlockedTile(plantaBaja, p.tileX, p.tileY), type).toBe(false);
+      expect(findPath(plantaBaja, entrada, tile(p)), type).not.toBeNull();
+    }
+  });
+
+  it("cada punto queda junto a su mueble (mostrador y probador)", () => {
+    const near = (type: string, furniture: string) => {
+      const p = pointsOfType(plantaBaja, type)[0]!;
+      return plantaBaja.furniture.some(
+        (f) => f.type === furniture && p.tileX >= f.x - 1 && p.tileX <= f.x + f.w && p.tileY >= f.y - 1 && p.tileY <= f.y + f.d,
+      );
+    };
+    expect(near("shop_counter", "shop-counter")).toBe(true);
+    expect(near("fitting_room", "fitting-booth")).toBe(true);
+  });
+
+  it("la tienda y la cafetería se separan con una pared baja y una puerta", () => {
+    const shop = plantaBaja.zones.find((z) => z.id === "tienda")!;
+    const y = shop.y / plantaBaja.tileSize; // primera fila de la tienda
+    const walls = Array.from({ length: shop.width / plantaBaja.tileSize }, (_, i) => wallAbove(plantaBaja, 9 + i, y));
+    expect(walls.filter((w) => w === 0).length).toBe(2);
+    expect(walls.every((w) => w === 0 || w === 1)).toBe(true);
+    // Del recibidor se entra a la tienda por la puerta de siempre (x = 9, y = 12).
+    expect(wallBetween(plantaBaja, 8, 12, 9, 12)).toBe(false);
+    expect(zoneAt(plantaBaja, center(plantaBaja, 9), center(plantaBaja, 12))?.id).toBe("tienda");
+    // Y de la tienda a la barra de la cafetería.
+    const barra = pointsOfType(plantaBaja, "cafe_counter")[0]!;
+    expect(findPath(plantaBaja, entrada, tile(barra))).not.toBeNull();
+  });
+
   it("cada mueble a la venta existe en el catálogo", async () => {
     const { SHOP_FURNITURE } = await import("@hyvento/shared");
     const { CATALOG } = await import("./world/catalog");
