@@ -1,6 +1,6 @@
 # Hyvento Office — guía para Claude Code
 
-Oficina virtual 2D (pixel-art) para el equipo Hyvento: mapa multijugador, chat y video por proximidad, oficinas personales, sillas, personajes personalizables y un PC con "Hyvento OS" (notas estilo Notion). Ver `README.md` para el estado y el despliegue, y `ONBOARDING.md` para preparar el entorno.
+La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, multijugador, con chat y video por proximidad, oficinas personales, sillas, personajes personalizables y un PC con "Hyvento OS" (notas estilo Notion). Ver `README.md` para el estado y el despliegue, `ONBOARDING.md` para preparar el entorno y `docs/plan-cabana.md` para el plan de salas y fases.
 
 ## Idioma y estilo
 
@@ -8,12 +8,14 @@ Oficina virtual 2D (pixel-art) para el equipo Hyvento: mapa multijugador, chat y
 - Commits en formato convencional en español: `feat: …`, `fix: …`, `chore: …`, `refactor: …`, con un cuerpo breve si hace falta.
 - **Nunca** agregar `Co-Authored-By` ni atribución a Claude/IA en commits o PRs.
 - No agregar funciones que dependan de APIs de IA de pago: se retiraron a propósito (el código viejo está en la rama `archivo/agentes-ia`).
+- Todo el arte se genera **por código** (no se compran ni se agregan assets de imagen).
 
 ## Flujo de trabajo
 
 - `main` se despliega solo a producción (Vercel y Render). El dueño del repo (Juan José, `poethy`) hace push directo a `main`; **las demás personas trabajan en una rama y abren un PR**.
 - Antes de subir: `pnpm typecheck` y `pnpm test` (el CI corre lo mismo en cada PR).
-- Si el cambio se ve en el navegador, probarlo con el servidor de desarrollo (`.claude/launch.json` → `hyvento-dev`). Las pantallas de la oficina piden sesión: para revisar solo la UI sirve una página temporal en `apps/web/src/app/zz-*` con datos falsos, que **se borra antes del commit** (y también `apps/web/.next/types`).
+- Si el cambio se ve en el navegador, probarlo con el servidor de desarrollo (`.claude/launch.json` → `hyvento-dev`). Las pantallas de la cabaña piden sesión: para revisar solo la UI sirve una página temporal en `apps/web/src/app/zz-*` con datos falsos, que **se borra antes del commit** (y también `apps/web/.next/types`).
+- Para revisar el arte de un nivel sin abrir el juego: `pnpm --filter @hyvento/map render <nivel> salida.png [noche]` (niveles: `jardin`, `planta-baja`, `piso-2`).
 
 ## Migraciones de base de datos (importante)
 
@@ -26,30 +28,37 @@ Oficina virtual 2D (pixel-art) para el equipo Hyvento: mapa multijugador, chat y
 
 | Carpeta | Qué hay |
 |---|---|
-| `apps/web` | Next.js 15 + Phaser 3 + React (Tailwind 4, zustand). Login, perfil, oficina, `/admin`, API (`src/app/api`). |
-| `apps/web/src/game` | Escena de Phaser (`OfficeScene.ts`), avatares, red (Colyseus), medios (LiveKit), store (zustand). |
+| `apps/web` | Next.js 15 + Phaser 3 + React (Tailwind 4, zustand). Login, perfil, cabaña, `/admin`, API (`src/app/api`). |
+| `apps/web/src/game` | Escena de Phaser (`OfficeScene.ts`), render de niveles (`iso/view.ts`), avatares chibi, red (Colyseus), medios (LiveKit), store (zustand). |
+| `apps/web/src/components` | HUD cozy (`Hud`, `ChatPanel`, `MediaControls`…), primitivas (`Cozy.tsx`: `PixelIcon`, `CozyTitle`) y el editor de personaje. |
 | `apps/web/src/components/pc` | Hyvento OS: monitor, escritorio, ventanas, apps (Notas, Papelera, Calendario) y el editor TipTap (`editor/`). Se carga recién al prender el PC. |
-| `apps/server` | Servidor de juego Colyseus: estado autoritativo, valida movimiento, asientos, oficinas cerradas y toques de puerta. |
-| `packages/shared` | Protocolo (zod), token de juego, `Look` (personaje) y reglas de proximidad. |
-| `packages/map` | Mapa Tiled, zonas, colisión, A*, asientos; dibujo de tiles y personajes por código. |
-| `packages/db` | Prisma + Postgres (Neon en producción). |
+| `apps/server` | Servidor de juego Colyseus: estado autoritativo, valida movimiento, paredes, asientos, portales, oficinas cerradas y toques de puerta. |
+| `packages/shared` | Protocolo (zod), token de juego, `Look` (personaje), reglas de proximidad y de puntos (`points.ts`). |
+| `packages/map` | El mundo (`src/world`: niveles, catálogo de muebles, constructor), colisión, A* y el motor pixel (`src/art`, solo lo usa el navegador). |
+| `packages/db` | Prisma + Postgres (Neon en producción) y `awardPoints` (movimientos de puntos). |
 
 ## Cosas a saber
 
-- **Mapa y assets**: `packages/map/assets/office.json` y los PNG se generan con `pnpm map:generate` (desde `scripts/generate.ts` y `scripts/tiles.ts`). Regenerar **sobrescribe** `office.json`. Propiedades de tiles: `collides` (bloquea el paso), `seat` (`up`/`down`, se puede sentar) y `computer` (escritorio con PC). La web copia los assets a `public/assets` al arrancar `pnpm dev`: después de regenerar, reiniciar el dev.
-- **Personajes**: se dibujan en `packages/map/src/character.ts`, que corre en Node (los seis personajes fijos) y en el navegador (los personalizados). Los seis fijos deben seguir **idénticos píxel a píxel**: después de cambiar el dibujo, `pnpm map:generate` no debería modificar sus PNG.
-- **Estilo RISO**: tokens `--color-riso-*` y clases `riso-panel`, `riso-chip`, `riso-pill`, `riso-press`, `riso-input`, `riso-cta`, `riso-grain` en `apps/web/src/app/globals.css`. Fuentes Archivo (titulares, `font-display`) e IBM Plex Mono (`font-plex`) con next/font. Sombras sólidas, nunca difuminadas. Los colores para Phaser salen de `src/lib/riso.ts`.
-- **Validación en el servidor**: toda regla de juego (moverse, sentarse, entrar a una oficina) se valida en `apps/server`; el cliente solo la anticipa. Si se agrega una regla, va en los dos lados y con test en `apps/server/test`.
+- **El mundo está definido en código**: los niveles en `packages/map/src/world/areas.ts` (habitaciones, puertas, zonas, muebles, portales, cosas colgadas en las paredes) y los muebles en `world/catalog.ts` (tamaño, colisión, asientos, PC, luz). `getWorld()` los construye; servidor y cliente usan lo mismo.
+- **Coordenadas**: el juego usa píxeles de mundo con tiles de 32 (servidor, proximidad, velocidad). El arte usa tiles de 16 (`arte = mundo / 2`, `WORLD_TO_ART`). La vista isométrica es solo proyección en el cliente (`iso/view.ts`).
+- **Paredes**: son bordes delgados entre tiles (`wallH`/`wallV`). Las del fondo del edificio (norte y oeste) son altas y llevan ventanas y cuadros; las interiores y las del frente son bajas, para ver todas las salas a la vez. La colisión (`canStandAt`) no deja que los pies crucen un borde con pared y el servidor valida el tramo con `canWalkBetween`.
+- **Muebles orientados**: se dibujan mirando a `right` (+x) y, si hace falta, de espaldas (`left`). `down`/`up` son el espejo horizontal (truco isométrico). Un mueble nuevo necesita entrada en el catálogo y dibujo en `src/art/furniture.ts` (o `outdoor.ts`).
+- **Niveles y portales**: cada jugador tiene `area`. La proximidad solo cuenta dentro del mismo nivel. Para cambiar de nivel el cliente pisa un portal y manda `MSG.travel`; el servidor valida que esté cerca y responde con una corrección que trae el `area` nuevo.
+- **Personajes**: chibis dibujados en el navegador (`src/art/chibi.ts`) desde el `Look`; los seis personajes fijos son presets (`HUMANS`). Hoja de caminata 3x4 (`down`, `left`, `right`, `up`) y hoja de sentado de 4 frames.
+- **Estilo cozy**: tokens `--color-cozy-*` y clases `cozy-panel`, `cozy-chip`, `cozy-btn` (`cozy-btn-primary`, `cozy-btn-danger`; con `data-on`/`aria-pressed` lleva el recuadro rojo de selección), `cozy-input`, `cozy-kbd`, `cozy-void`, `cozy-scroll` en `apps/web/src/app/globals.css`. Fuente Pixelify Sans (`font-pixel`). Sombras sólidas, esquinas rectas. Colores para Phaser en `src/lib/cozy.ts`. El PC (Hyvento OS) también es cozy.
+- **Validación en el servidor**: toda regla de juego (moverse, sentarse, cambiar de nivel, entrar a una oficina) se valida en `apps/server`; el cliente solo la anticipa. Si se agrega una regla, va en los dos lados y con test en `apps/server/test` (los helpers calculan rutas con el A* del mundo).
+- **Puntos**: las reglas (cuánto da cada cosa, topes diarios, racha, día de Bogotá) están en `packages/shared/src/points.ts`. El saldo solo cambia con `awardPoints`/`awardPointsTx` de `packages/db`: escriben el movimiento en `PointTransaction`, aplican el tope diario y actualizan `User.points` (caché del saldo). El servidor de juego da los de presencia y reuniones (cada 5 min, solo si hubo actividad y no estás "Ausente"); la web da los del buzón y las misiones y avisa al servidor con `publishPointsChanged` (ruta interna `points-changed`) para refrescar el contador.
+- **Objetos interactivos**: el buzón y el tablón del jardín son puntos del mapa (`mailbox`, `task_board`); al acercarse aparece "E" y se abre su panel (`components/PointsPanels.tsx`). Uno nuevo se agrega en `INTERACTABLES` de `OfficeScene.ts`.
 - **Notas**: privadas por persona (API en `apps/web/src/app/api/notes`, siempre filtrando por `userId`). El documento del editor va en `Note.content` (JSON de TipTap) y el texto plano en `body` para buscar.
 - **Login local sin Google**: `pnpm --filter @hyvento/web dev:session "Nombre" [--office office-2] [--admin]` crea un usuario de prueba y da la cookie de sesión (solo contra la base local).
 
 ## Comandos
 
 ```bash
-pnpm dev                          # web :3000 + servidor de juego :2567
-pnpm typecheck && pnpm test       # lo mismo que corre el CI
-pnpm infra:up                     # Postgres y LiveKit en Docker
-pnpm --filter @hyvento/db migrate # aplicar/crear migraciones en la base local
-pnpm map:generate                 # regenerar mapa, tileset y personajes
-pnpm --filter @hyvento/web build  # build de producción (como Vercel)
+pnpm dev                                   # web :3000 + servidor de juego :2567
+pnpm typecheck && pnpm test                # lo mismo que corre el CI
+pnpm infra:up                              # Postgres y LiveKit en Docker
+pnpm --filter @hyvento/db migrate          # aplicar/crear migraciones en la base local
+pnpm --filter @hyvento/map render jardin   # dibujar un nivel a PNG para revisar el arte
+pnpm --filter @hyvento/web build           # build de producción (como Vercel)
 ```

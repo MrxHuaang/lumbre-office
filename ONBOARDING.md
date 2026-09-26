@@ -75,13 +75,13 @@ Recarga y entras. Para probar con varias personas, repite con otro nombre en otr
 - `apps/web`: la web (Next.js + Phaser + React). Pantallas, API y la escena del juego (`src/game`).
 - `apps/web/src/components/pc`: el PC de la oficina (Hyvento OS, notas, papelera, calendario).
 - `apps/server`: servidor de juego (Colyseus), que valida todo lo que pasa en la oficina.
-- `packages/map`: mapa, tiles, asientos y dibujo de personajes.
+- `packages/map`: el mundo (niveles, muebles, portales) en `src/world` y el motor pixel que dibuja la cabaña y los personajes en `src/art`.
 - `packages/shared`: protocolo entre cliente y servidor.
 - `packages/db`: esquema de Prisma y migraciones.
 
 ## 7. Problemas comunes
 
 - **"Can't reach database server at localhost:5432"**: Docker Desktop está cerrado. Ábrelo y corre `pnpm infra:up`.
-- **El mapa o los personajes no se actualizan** después de `pnpm map:generate`: reinicia `pnpm dev` (los assets se copian al arrancar).
+- **Cambié un nivel o un mueble y el servidor de juego se cayó**: `tsx` lo reinicia solo al guardar; si guardaste a medias, vuelve a guardar y recarga la página.
 - **Te rebota al login**: la cookie de `dev:session` venció o se borró la base; genera otra.
 - **Errores de tipos en `.next/types`** por páginas que ya no existen: borra la carpeta `apps/web/.next/types` y vuelve a correr `pnpm typecheck`.

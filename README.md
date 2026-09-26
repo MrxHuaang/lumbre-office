@@ -1,6 +1,6 @@
 # Hyvento Office
 
-Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: cada persona con su oficina, chat y video por proximidad, salas privadas y pantalla compartida.
+La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, con oficina propia para cada persona, chat y video por proximidad, salas privadas y pantalla compartida. Todo el arte se genera por código. El plan de salas y fases está en [`docs/plan-cabana.md`](docs/plan-cabana.md).
 
 ## Estado
 
@@ -11,13 +11,16 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: cada persona con
 | 2. Oficinas personales (asignación, placas, cerrar/tocar la puerta, notas, estado y chat persistidos) | ✅ |
 | 3. Video/voz por proximidad (LiveKit): suscripción selectiva, permisos en el SFU, pantalla compartida | ✅ |
 | Despliegue | ✅ |
+| Cabaña 1. Isométrico: jardín, planta baja y piso 2 con portales, motor pixel propio, chibis, HUD cozy | ✅ |
+| Cabaña 2. Economía: puntos por presencia y reuniones, buzón con racha diaria, tablón de misiones y ranking semanal | ✅ |
+| Cabaña 3–5. Cafetería y tienda, decoración, casino, regalos e intercambios (ver el plan) | Pendiente |
 
 > Las funciones de agentes de IA se retiraron del proyecto; su código quedó archivado en la rama `archivo/agentes-ia`.
 
 ## Stack
-- **apps/web**: Next.js 15 + Phaser 3 (mapa, avatares) + UI React (Tailwind 4, zustand)
+- **apps/web**: Next.js 15 + Phaser 3 (render isométrico, avatares) + UI React (Tailwind 4, zustand)
 - **apps/server**: Colyseus 0.16 (estado multijugador autoritativo)
-- **packages/map**: mapa Tiled, zonas, colisión y A* compartidos cliente/servidor
+- **packages/map**: el mundo definido en código (niveles, muebles, zonas, portales), colisión, A* y el motor pixel que dibuja todo
 - **packages/shared**: protocolo (zod) y reglas de proximidad
 - **packages/db**: Prisma + Postgres
 
@@ -38,15 +41,16 @@ pnpm --filter @hyvento/web dev:session "Tester Uno" [--office office-2] [--admin
 ```
 Pega el valor impreso en la consola del navegador de otra ventana/perfil: `document.cookie = "authjs.session-token=<valor>; path=/"` y recarga.
 
-### Mapa y assets
-Los assets placeholder (tileset, mapa y personajes) se generan por código:
+### La cabaña y el arte
+El mundo está definido en código en `packages/map/src/world` (no hay editor externo):
+- `areas.ts`: los niveles (`jardin`, `planta-baja`, `piso-2`) con sus habitaciones, puertas, zonas, muebles, portales y lo que cuelga de las paredes.
+- `catalog.ts`: cada mueble (tamaño, si bloquea, asientos, PC, luz de noche).
+- `build.ts`: arma la grilla de colisión, las paredes de borde (altas al fondo, bajas adentro), los asientos y las zonas.
+
+El arte lo dibuja el motor pixel de `packages/map/src/art` (rampas de color, cajas isométricas con shaders por cara, contornos y luces). Para ver un nivel sin abrir el juego:
 ```bash
-pnpm map:generate   # ⚠️ sobrescribe packages/map/assets/office.json
+pnpm --filter @hyvento/map render planta-baja salida.png        # o "noche" como tercer argumento
 ```
-El mapa `packages/map/assets/office.json` es un mapa de [Tiled](https://www.mapeditor.org) editable. Capas:
-- `floor`, `walls`, `furniture`: tiles; los tiles con la propiedad `collides` bloquean el paso (en `walls`/`furniture`).
-- `zones`: rectángulos con `type` (`office`, `meeting`, `coworking`, `lounge`) y propiedades `zoneId`, `isolated`, `slot`.
-- `points`: `spawn`, `seat` (sala de reuniones), `task_board`, `screen` (pantalla de presentaciones).
 
 ### Login con Google
 1. [Google Cloud Console](https://console.cloud.google.com) → crea un proyecto (p. ej. "Hyvento Office").
