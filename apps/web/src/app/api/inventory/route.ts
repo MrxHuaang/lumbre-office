@@ -2,7 +2,7 @@ import { listInventory, prisma } from "@hyvento/db";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 
-/** La mochila: muebles guardados (sin poner) y ropa comprada. */
+/** La mochila: muebles guardados (sin poner). La ropa es gratis y no pasa por aquí. */
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });

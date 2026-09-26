@@ -205,6 +205,14 @@ describe("lugares y zonas", () => {
       expect(mesa.x + mesa.width <= cafe.x + cafe.width && mesa.y + mesa.height <= cafe.y + cafe.height, mesa.id).toBe(true);
       const seats = [...plantaBaja.seats.values()].filter((s) => zoneAt(plantaBaja, s.x, s.y)?.id === mesa.id);
       expect(seats, mesa.id).toHaveLength(4);
+      // Se entra a la burbuja caminando: algún tile libre de la zona (las esquinas) se alcanza con A*.
+      const ts = plantaBaja.tileSize;
+      const libres: { x: number; y: number }[] = [];
+      for (let ty = mesa.y / ts; ty < (mesa.y + mesa.height) / ts; ty++)
+        for (let tx = mesa.x / ts; tx < (mesa.x + mesa.width) / ts; tx++)
+          if (!isBlockedTile(plantaBaja, tx, ty)) libres.push({ x: tx, y: ty });
+      expect(libres.length, mesa.id).toBeGreaterThan(0);
+      expect(libres.some((t) => findPath(plantaBaja, { x: 4, y: 15 }, t) !== null), mesa.id).toBe(true);
     }
   });
 

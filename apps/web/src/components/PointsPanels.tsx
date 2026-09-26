@@ -19,9 +19,13 @@ const REASON_LABEL: Record<PointReason, string> = {
 
 /** Nombre de un movimiento: las compras dicen qué se compró ("Cafetería · Tinto", "Tienda · Planta"). */
 function moveLabel(m: { reason: PointReason; refId: string | null }) {
-  const [kind, id] = (m.refId ?? "").split(":");
-  if (m.reason === "PURCHASE" && kind === "cafe") return `Cafetería · ${cafeItem(id ?? "")?.name ?? "pedido"}`;
-  if (m.reason === "PURCHASE" && kind === "shop") return `Tienda · ${shopItem(id ?? "")?.name ?? "compra"}`;
+  // Solo el primer ":" separa: los ids de la tienda también pueden llevarlo ("shop:acc:scarf").
+  const ref = m.refId ?? "";
+  const i = ref.indexOf(":");
+  const kind = i < 0 ? ref : ref.slice(0, i);
+  const id = i < 0 ? "" : ref.slice(i + 1);
+  if (m.reason === "PURCHASE" && kind === "cafe") return `Cafetería · ${cafeItem(id)?.name ?? "pedido"}`;
+  if (m.reason === "PURCHASE" && kind === "shop") return `Tienda · ${shopItem(id)?.name ?? "compra"}`;
   return REASON_LABEL[m.reason];
 }
 

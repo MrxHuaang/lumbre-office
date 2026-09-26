@@ -1,5 +1,5 @@
-// La compra en la tienda (la usa POST /api/shop/buy). Solo depende de la base, así se puede probar
-// dentro de una transacción que se deshace al final.
+import "server-only";
+// La compra en la tienda (la usa POST /api/shop/buy).
 import { addInventoryTx, listInventory, spendPointsTx, type Prisma } from "@hyvento/db";
 import { SHOP_FURNITURE, shopRefId, type InventoryEntry, type ShopItem } from "@hyvento/shared";
 

@@ -56,7 +56,7 @@ export function ShopPanel({ atObject, onClose }: { atObject: boolean; onClose: (
       setInventory(r.inventory);
       setBalance(r.balance);
       setQuantities((q) => ({ ...q, [item.id]: 1 }));
-      notify(`Compraste ${quantity > 1 ? `${quantity} × ` : ""}${item.name}. Quedó en tu mochila.`, "success");
+      notify(`Compraste ${quantity > 1 ? `${quantity} × ` : ""}${item.name}. ${quantity > 1 ? "Quedaron" : "Quedó"} en tu mochila.`, "success");
     } catch (e) {
       setError((e as Error).message);
     } finally {
