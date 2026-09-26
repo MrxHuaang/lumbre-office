@@ -9,6 +9,8 @@ import {
   LOOK_SHOES,
   LOOK_SKINS,
   normalizeLook,
+  PATTERNS,
+  TOPS,
   type BackItem,
   type Bottom,
   type EyeStyle,
@@ -101,7 +103,8 @@ export const HEAD_LABEL: Record<HeadItem, string> = {
   beanie: "Gorro de lana",
   "straw-hat": "Sombrero de paja",
   headphones: "Audífonos",
-  bow: "Moño",
+  // "Moño" ya es un peinado.
+  bow: "Lazo",
   crown: "Corona",
   flower: "Flor",
   bandana: "Pañoleta",
@@ -132,11 +135,25 @@ export const OUTFIT_LABEL: Record<Outfit, string> = {
   apron: "Delantal",
 };
 
-/** Lo que se pinta con el color de acento (nombre corto, para el título del selector de color). */
-const ACCENT_HEAD: Partial<Record<HeadItem, string>> = { cap: "gorra", beanie: "gorro", headphones: "audífonos", bandana: "pañoleta" };
-const ACCENT_NECK: Partial<Record<NeckItem, string>> = { scarf: "bufanda" };
-const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "morral", cape: "capa" };
-const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "chaqueta" };
+/**
+ * Lo que se pinta con el color de acento, con su artículo (para el título del selector y la ayuda). Tiene
+ * que coincidir con el dibujo del chibi (packages/map/src/art/chibi: head.ts, gear.ts y clothes.ts).
+ */
+const ACCENT_HEAD: Partial<Record<HeadItem, string>> = {
+  cap: "la gorra",
+  beanie: "el gorro",
+  headphones: "los audífonos",
+  bow: "el lazo",
+  bandana: "la pañoleta",
+};
+const ACCENT_NECK: Partial<Record<NeckItem, string>> = {
+  scarf: "la bufanda",
+  tie: "la corbata",
+  bowtie: "el corbatín",
+  necklace: "el collar",
+};
+const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta" };
+const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "el morral", cape: "la capa" };
 
 /** Lo que lleva puesto y usa el color de acento, en el orden de la cabeza a la espalda. */
 export function accentUsers(look: FullLook): string[] {
@@ -145,20 +162,58 @@ export function accentUsers(look: FullLook): string[] {
   );
 }
 
-/** Lo que usa el color secundario de la parte de arriba (`top2`). */
+/** Ayuda del color de acento cuando no hay nada puesto que lo use: todo lo que lo usa (sale de los mismos mapas). */
+export const ACCENT_HINT = `Lo usan ${joinEs([ACCENT_HEAD, ACCENT_NECK, ACCENT_OUTFIT, ACCENT_BACK].flatMap((m) => Object.values(m)))}.`;
+
+/** Detalles de cada parte de arriba con el color secundario. */
+const TOP2_TOP: Partial<Record<Top, string[]>> = {
+  hoodie: ["la capucha"],
+  "shirt-tie": ["la corbata"],
+  sweater: ["el cuello", "los puños"],
+  polo: ["el cuello", "los puños"],
+};
+
+/**
+ * Lo que usa el color secundario de la parte de arriba (`top2`), con su artículo: el patrón y los detalles
+ * de la parte de arriba. El vestido tapa la capucha, la corbata y el cuello (las mangas siguen a la vista)
+ * y la chaqueta tapa los puños con sus mangas.
+ */
 export function top2Users(look: FullLook): string[] {
   const parts: string[] = [];
-  if (look.pattern === "stripes") parts.push("rayas");
-  if (look.pattern === "dots") parts.push("puntos");
-  if (look.top === "hoodie") parts.push("capucha");
-  if (look.top === "shirt-tie") parts.push("corbata");
+  if (look.pattern === "stripes") parts.push("las rayas");
+  if (look.pattern === "dots") parts.push("los puntos");
+  for (const part of TOP2_TOP[look.top] ?? []) {
+    if (look.outfit === "dress" && part !== "los puños") continue;
+    if (look.outfit === "jacket" && part === "los puños") continue;
+    parts.push(part);
+  }
   return parts;
 }
 
-/** "A", "A y B", "A, B y C". */
-export function joinEs(parts: string[]): string {
+/** Ayuda del color secundario cuando no se ve: qué estampado o parte de arriba lo mostraría con lo demás puesto. */
+export function top2Hint(look: FullLook): string {
+  const patterns = PATTERNS.filter((pattern) => top2Users({ ...look, pattern }).length > 0).map((p) => PATTERN_LABEL[p].toLowerCase());
+  const tops = TOPS.filter((top) => top2Users({ ...look, top, pattern: "solid" }).length > 0).map((t) => TOP_LABEL[t].toLowerCase());
+  return `Se ve con ${joinEs(patterns, "o")}${tops.length ? `, o con ${joinEs(tops, "o")}` : ""}.`;
+}
+
+/** Ayuda del color de ojos cuando no se ve (los ojos cerrados son solo pestaña; las gafas de sol los tapan). */
+export function eyeColorHint(look: FullLook): string | undefined {
+  if (look.eyes === "happy" || look.eyes === "closed") return "No se ve con estos ojos.";
+  if (look.face === "sunglasses") return "Las gafas de sol lo tapan.";
+  return undefined;
+}
+
+/** "Color de la gorra", "Color del cuello y los puños"… */
+export function colorTitle(parts: string[]): string {
+  const joined = joinEs(parts);
+  return joined.startsWith("el ") ? `Color del ${joined.slice(3)}` : `Color de ${joined}`;
+}
+
+/** "A", "A y B", "A, B y C" (o con "o"). */
+export function joinEs(parts: string[], last: "y" | "o" = "y"): string {
   if (parts.length <= 1) return parts[0] ?? "";
-  return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
+  return `${parts.slice(0, -1).join(", ")} ${last} ${parts.at(-1)}`;
 }
 
 /** Un look completo en el formato nuevo: los lugares explícitos, `accessories: []` y sin conjunto si no hay. */

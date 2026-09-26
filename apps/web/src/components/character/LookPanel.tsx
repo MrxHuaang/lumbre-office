@@ -23,10 +23,13 @@ import {
 } from "@hyvento/shared";
 import { memo } from "react";
 import {
+  ACCENT_HINT,
   accentUsers,
   BACK_LABEL,
   BOTTOM_LABEL,
+  colorTitle,
   EYE_COLORS,
+  eyeColorHint,
   EYE_LABEL,
   FACE_LABEL,
   FACIAL_HAIR_LABEL,
@@ -34,7 +37,6 @@ import {
   HAIR_STYLE_LABEL,
   HEAD_LABEL,
   INK_COLORS,
-  joinEs,
   lookFromFull,
   NECK_LABEL,
   OUTFIT_LABEL,
@@ -43,6 +45,7 @@ import {
   SHOE_COLORS,
   SHOES_LABEL,
   SKIN_TONES,
+  top2Hint,
   top2Users,
   TOP_LABEL,
 } from "@/lib/look-palette";
@@ -107,7 +110,7 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
                 onPick={(e) => act.set("eyes", e)}
               />
             </Section>
-            <Section title="Color de ojos">
+            <Section title="Color de ojos" hint={eyeColorHint(full)}>
               <Swatches label="Color de ojos" colors={EYE_COLORS} value={full.eyeColor} onChange={act.color("eyeColor")} />
             </Section>
           </Group>
@@ -177,10 +180,7 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
             <Section title={dress ? "Color del vestido" : "Color principal"}>
               <Swatches label="Color principal" colors={INK_COLORS} value={full.shirt} onChange={act.color("shirt")} />
             </Section>
-            <Section
-              title={second.length ? `Color de ${joinEs(second)}` : "Segundo color"}
-              hint={second.length ? undefined : "Se ve con rayas, puntos, capucha o corbata."}
-            >
+            <Section title={second.length ? colorTitle(second) : "Segundo color"} hint={second.length ? undefined : top2Hint(full)}>
               <Swatches label="Segundo color" colors={INK_COLORS} value={full.top2} onChange={act.color("top2")} />
             </Section>
           </Group>
@@ -267,14 +267,7 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
             </Section>
           </Group>
           <Group>
-            <Section
-              title={accent.length ? `Color de ${joinEs(accent)}` : "Color de acento"}
-              hint={
-                accent.length
-                  ? undefined
-                  : "Lo usan la gorra, el gorro, los audífonos, la pañoleta, la bufanda, la capa, el morral y la chaqueta."
-              }
-            >
+            <Section title={accent.length ? colorTitle(accent) : "Color de acento"} hint={accent.length ? undefined : ACCENT_HINT}>
               <Swatches label="Color de acento" colors={INK_COLORS} value={full.accent} onChange={act.color("accent")} />
             </Section>
           </Group>
