@@ -1,6 +1,6 @@
 import type { Direction, PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 
 const FRAMES_PER_ROW = 3;
 const ROW: Record<Direction, number> = { down: 0, left: 1, right: 2, up: 3 };
@@ -39,6 +39,7 @@ export class Avatar {
   private readonly label: Phaser.GameObjects.Text;
   private readonly statusDot: Phaser.GameObjects.Arc;
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
+  private badge?: Phaser.GameObjects.Text;
   private bubble?: Phaser.GameObjects.Container;
   private bubbleTimer?: Phaser.Time.TimerEvent;
   private video?: { track: Track; el: HTMLVideoElement; wrap: HTMLDivElement; dom: Phaser.GameObjects.DOMElement };
@@ -57,6 +58,7 @@ export class Avatar {
     x: number,
     y: number,
     isLocal: boolean,
+    opts: { labelColor?: string } = {},
   ) {
     ensureAnimations(scene, textureKey);
     this.targetX = x;
@@ -66,7 +68,7 @@ export class Avatar {
       .text(x, y, name, {
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
         fontSize: "11px",
-        color: isLocal ? "#ffe08a" : "#ffffff",
+        color: opts.labelColor ?? (isLocal ? "#ffe08a" : "#ffffff"),
         backgroundColor: "rgba(15,17,26,0.72)",
         padding: { x: 4, y: 1 },
         resolution: 3,
@@ -94,6 +96,35 @@ export class Avatar {
 
   setStatus(status: PresenceStatus) {
     this.statusDot.setFillStyle(STATUS_COLORS[status] ?? STATUS_COLORS.available);
+  }
+
+  /** Ícono de actividad sobre el nombre (agentes: 💭 🔍 ⌨️ ⚠️). Vacío = ocultar. */
+  setBadge(text: string, tooltip?: string) {
+    if (!text) {
+      this.badge?.destroy();
+      this.badge = undefined;
+      return;
+    }
+    if (!this.badge) {
+      this.badge = this.scene.add
+        .text(0, 0, text, { fontSize: "15px", resolution: 3, padding: { x: 1, y: 1 } })
+        .setOrigin(0.5, 1);
+    }
+    this.badge.setText(text);
+    this.badge.setName(tooltip ?? "");
+    this.layout();
+  }
+
+  /** Hace clic-able al personaje (agentes). */
+  onClick(handler: () => void) {
+    this.sprite.setInteractive({ useHandCursor: true, pixelPerfect: false });
+    this.sprite.on(
+      "pointerdown",
+      (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+        event.stopPropagation(); // que no dispare el clic-para-caminar de la escena
+        handler();
+      },
+    );
   }
 
   setSpeaking(speaking: boolean) {
@@ -214,6 +245,7 @@ export class Avatar {
     this.label.destroy();
     this.statusDot.destroy();
     this.speakingRing.destroy();
+    this.badge?.destroy();
   }
 
   private layout() {
@@ -225,6 +257,8 @@ export class Avatar {
     this.video?.dom.setPosition(x, y + 2);
     this.label.setPosition(x + 4, y - top).setDepth(100_000 + y);
     this.statusDot.setPosition(x + 4 - this.label.width / 2 - 5, y - top - this.label.height / 2).setDepth(100_001 + y);
-    this.bubble?.setPosition(x, y - top - this.label.height).setDepth(200_000 + y);
+    this.badge?.setPosition(x, y - top - this.label.height - 1).setDepth(100_002 + y);
+    const bubbleY = y - top - this.label.height - (this.badge ? this.badge.height : 0);
+    this.bubble?.setPosition(x, bubbleY).setDepth(200_000 + y);
   }
 }

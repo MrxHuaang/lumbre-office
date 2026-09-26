@@ -5,6 +5,7 @@ import { logout } from "@/app/actions";
 import { media } from "@/game/media";
 import { connect, disconnect } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { AgentPanel } from "./AgentPanel";
 import { ChatPanel } from "./ChatPanel";
 import { Hud } from "./Hud";
 import { MediaControls } from "./MediaControls";
@@ -29,6 +30,7 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
   const connection = useOfficeStore((s) => s.connection);
   const error = useOfficeStore((s) => s.error);
   const onExit = () => void logout();
+  const agentOpen = useOfficeStore((s) => s.openAgentId !== null);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +69,7 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
       {connection === "connected" || connection === "reconnecting" ? (
         <>
           <Hud isAdmin={isAdmin} onEditProfile={onEditProfile} onLogout={onExit} />
-          <ChatPanel />
+          {agentOpen ? <AgentPanel /> : <ChatPanel />}
           <MyOfficePanel />
           <DoorPrompt />
           <KnockRequests />

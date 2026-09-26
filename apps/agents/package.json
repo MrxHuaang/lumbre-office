@@ -1,5 +1,5 @@
 {
-  "name": "@hyvento/server",
+  "name": "@hyvento/agents",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,18 +10,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@colyseus/schema": "^3.0.0",
-    "@colyseus/ws-transport": "^0.16.0",
+    "@anthropic-ai/sdk": "^0.128.0",
     "@hyvento/db": "workspace:*",
-    "@hyvento/map": "workspace:*",
     "@hyvento/shared": "workspace:*",
     "bullmq": "^5.81.5",
-    "colyseus": "^0.16.0",
     "ioredis": "^5.11.1"
   },
   "devDependencies": {
-    "@colyseus/testing": "^0.16.0",
-    "colyseus.js": "^0.16.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"

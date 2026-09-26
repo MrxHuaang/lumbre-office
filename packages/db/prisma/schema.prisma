@@ -45,6 +45,7 @@ model User {
 
   office       Office?
   chatMessages ChatMessage[]
+  agentChats   AgentChat[]
   tasks        Task[]
   invitesSent  Invite[]      @relation("InvitedBy")
 
@@ -151,6 +152,22 @@ model AgentDefinition {
   subTasks     SubTask[]
   messagesFrom AgentMessage[] @relation("MessageFrom")
   runLogs      AgentRunLog[]
+  chats        AgentChat[]
+}
+
+/** Conversación directa persona ↔ agente (Fase 4). Un hilo por (agente, persona). */
+model AgentChat {
+  id        String          @id @default(cuid())
+  agentId   String
+  agent     AgentDefinition @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String // "user" | "assistant"
+  content   String
+  runId     String?
+  createdAt DateTime        @default(now())
+
+  @@index([agentId, userId, createdAt])
 }
 
 enum TaskStatus {
@@ -244,8 +261,8 @@ model Artifact {
  */
 model AgentRunLog {
   id        String          @id @default(cuid())
-  taskId    String
-  task      Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId    String?
+  task      Task?           @relation(fields: [taskId], references: [id], onDelete: Cascade)
   agentId   String
   agent     AgentDefinition @relation(fields: [agentId], references: [id])
   runId     String

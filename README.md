@@ -10,7 +10,8 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: oficinas persona
 | 1. Oficina multijugador (mapa, movimiento, chat por proximidad y global) | ✅ |
 | 2. Oficinas personales (asignación, placas, cerrar/tocar la puerta, notas, estado y chat persistidos) | ✅ |
 | 3. Video/voz por proximidad (LiveKit): suscripción selectiva, permisos en el SFU, pantalla compartida | ✅ |
-| 4–6. Agentes de IA | ⏳ |
+| 4. Primer agente (Nova): worker con Claude, cola BullMQ, NPC en el laboratorio, chat privado en streaming con búsqueda web | ✅ |
+| 5–6. Equipo de agentes, editor y rol Developer | ⏳ |
 | 7. Despliegue | ⏳ |
 
 ## Stack
@@ -19,7 +20,7 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: oficinas persona
 - **packages/map**: mapa Tiled, zonas, colisión y A* compartidos cliente/servidor
 - **packages/shared**: protocolo (zod) y reglas de proximidad
 - **packages/db**: Prisma + Postgres
-- **apps/agents** (Fase 4): worker de agentes (Claude API + BullMQ)
+- **apps/agents**: worker de agentes (Claude API en streaming + BullMQ)
 
 ## Requisitos
 - Node 22+ y pnpm 10 (`npm i -g pnpm@10`)
@@ -64,4 +65,7 @@ En el primer ingreso cada persona elige su nombre visible y avatar.
 cp .env.example .env
 pnpm infra:up       # Postgres, Redis y LiveKit (dev) con Docker
 pnpm --filter @hyvento/db migrate
+pnpm db:seed        # crea los agentes predefinidos (Nova)
 ```
+
+`pnpm dev` levanta la web, el servidor de juego y el worker de agentes. Para que los agentes respondan, pon tu `ANTHROPIC_API_KEY` en `.env`.

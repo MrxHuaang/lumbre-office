@@ -1,6 +1,7 @@
-import { canStandAt, placeAt, spawnPoint, zoneAt, type OfficeMap, type Zone } from "@hyvento/map";
+import { canStandAt, placeAt, pointsOfType, spawnPoint, zoneAt, type OfficeMap, type Zone } from "@hyvento/map";
 import { loadOfficeMap } from "@hyvento/map/node";
 import {
+  AgentAskMessage,
   canHear,
   ChatSendMessage,
   CLOSE_CODE,
@@ -15,6 +16,10 @@ import {
   PLAYER_SPEED,
   StatusMessage,
   verifyGameToken,
+  type AgentAck,
+  type AgentEvent,
+  type AgentSay,
+  type AgentStreamMessage,
   type ChatEvent,
   type GameTokenClaims,
   type KnockOutcome,
@@ -25,8 +30,8 @@ import {
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
-import type { GameRepository, OfficeRecord } from "../repo/types";
-import { OfficeInfo, OfficeState, Player } from "../state";
+import type { AgentQueue, GameRepository, OfficeRecord } from "../repo/types";
+import { AgentInfo, OfficeInfo, OfficeState, Player } from "../state";
 
 interface UserData {
   lastMoveAt: number;
@@ -44,6 +49,9 @@ interface PendingKnock {
 const CHAT_HISTORY_SIZE = 50;
 const CHAT_RATE = { max: 5, windowMs: 5_000 };
 const RECONNECT_SECONDS = 15;
+/** Si el worker nunca responde, liberar la conversación para poder volver a preguntar. */
+const AGENT_RUN_TIMEOUT_MS = 3 * 60_000;
+const AGENT_SAY_CHARS = 90;
 
 function gameTokenSecret() {
   const secret = process.env.GAME_TOKEN_SECRET;
@@ -59,9 +67,20 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static repo: GameRepository;
   /** Salas vivas, para propagar cambios externos (p. ej. reasignación de oficinas). */
   static readonly instances = new Set<OfficeRoom>();
+  /** Cola del worker de agentes, inyectada por `createGameServer`. */
+  static agentQueue: AgentQueue;
 
   static async reloadOfficesEverywhere() {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadOffices()));
+  }
+
+  static async reloadAgentsEverywhere() {
+    await Promise.all([...OfficeRoom.instances].map((r) => r.reloadAgents()));
+  }
+
+  /** Evento del worker de agentes (llega por Redis). */
+  static handleAgentEvent(event: AgentEvent) {
+    for (const room of OfficeRoom.instances) room.applyAgentEvent(event);
   }
 
   maxClients = 64;
@@ -73,6 +92,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private pendingReconnections = new Map<string, Deferred<Client>>();
   private pendingKnocks = new Map<string, PendingKnock>();
   private lastKnockAt = new Map<string, number>(); // `${userId}:${zoneId}` → ts
+  /** Conversaciones en curso: `${userId}:${agentId}` → runId. */
+  private activeRuns = new Map<string, { runId: string; timer: { clear(): void } }>();
 
   private get repo() {
     return OfficeRoom.repo;
@@ -90,10 +111,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
+    this.onMessage(MSG.agentAsk, (client, raw) => void this.handleAgentAsk(client, raw));
 
     const officeZones = this.map.zones.filter((z) => z.type === "office");
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
     await this.reloadOffices();
+    await this.reloadAgents();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
   }
 
@@ -276,6 +299,103 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!office) return;
     const i = office.guests.indexOf(player.userId);
     if (i >= 0) office.guests.splice(i, 1);
+  }
+
+  // ---------- Agentes ----------
+
+  /** Ubica a cada agente activo en su escritorio del laboratorio (punto "agent_desk"). */
+  async reloadAgents() {
+    const records = await this.repo.listAgents();
+    const desks = pointsOfType(this.map, "agent_desk");
+    const used = new Set<string>();
+    const seen = new Set<string>();
+    for (const r of records) {
+      const desk =
+        desks.find((d) => d.ref === r.deskId && !used.has(d.ref ?? "")) ?? desks.find((d) => !used.has(d.ref ?? ""));
+      if (!desk) continue; // sin escritorio libre: no se muestra
+      used.add(desk.ref ?? "");
+      seen.add(r.id);
+      let agent = this.state.agents.get(r.id);
+      if (!agent) {
+        agent = new AgentInfo();
+        agent.id = r.id;
+        this.state.agents.set(r.id, agent);
+      }
+      agent.name = r.name;
+      agent.role = r.role;
+      agent.sprite = r.sprite;
+      agent.x = desk.x;
+      agent.y = desk.y + this.map.tileSize / 4;
+      agent.dir = "up"; // mirando al computador
+      agent.zoneId = zoneAt(this.map, agent.x, agent.y)?.id ?? "";
+    }
+    for (const id of [...this.state.agents.keys()]) if (!seen.has(id)) this.state.agents.delete(id);
+  }
+
+  private async handleAgentAsk(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = AgentAskMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const { agentId, text } = parsed.data;
+    const ack = (a: AgentAck) => client.send(MSG.agentAck, a);
+    const agent = this.state.agents.get(agentId);
+    if (!agent) return ack({ agentId, runId: null, error: "Ese agente no está en la oficina." });
+
+    const key = `${player.userId}:${agentId}`;
+    if (this.activeRuns.has(key)) {
+      return ack({ agentId, runId: null, error: `${agent.name} todavía está respondiendo tu mensaje anterior.` });
+    }
+    const runId = randomUUID();
+    const timer = this.clock.setTimeout(() => this.activeRuns.delete(key), AGENT_RUN_TIMEOUT_MS);
+    this.activeRuns.set(key, { runId, timer });
+    try {
+      await OfficeRoom.agentQueue.enqueue({ kind: "chat", runId, agentId, userId: player.userId, userName: player.name, message: text });
+    } catch (err) {
+      console.error("No se pudo encolar la pregunta al agente:", err);
+      timer.clear();
+      this.activeRuns.delete(key);
+      return ack({ agentId, runId: null, error: "El servicio de agentes no está disponible ahora." });
+    }
+    ack({ agentId, runId });
+  }
+
+  private applyAgentEvent(event: AgentEvent) {
+    const agent = this.state.agents.get(event.agentId);
+    if (!agent) return;
+    if (event.type === "agent.status") {
+      agent.status = event.status;
+      agent.detail = event.detail ?? "";
+      return;
+    }
+
+    // Texto de la respuesta: solo a quien preguntó (todas sus sesiones en esta sala).
+    const targets = this.clients.filter((c) => this.state.players.get(c.sessionId)?.userId === event.userId);
+    const done = event.type === "agent.reply";
+    const msg: AgentStreamMessage = {
+      agentId: event.agentId,
+      runId: event.runId,
+      seq: event.seq,
+      text: event.text,
+      done,
+      error: done ? event.error : undefined,
+    };
+    for (const c of targets) c.send(MSG.agentStream, msg);
+
+    if (done) {
+      const key = `${event.userId}:${event.agentId}`;
+      const active = this.activeRuns.get(key);
+      if (active?.runId === event.runId) {
+        active.timer.clear();
+        this.activeRuns.delete(key);
+      }
+      // Globo sobre el agente, también solo para quien preguntó (la conversación es privada).
+      const plain = event.text.replace(/\*\*Fuentes\*\*[\s\S]*$/, "").replace(/[*_#`>]/g, "").trim();
+      const say: AgentSay = {
+        agentId: event.agentId,
+        text: plain.length > AGENT_SAY_CHARS ? `${plain.slice(0, AGENT_SAY_CHARS - 1)}…` : plain,
+      };
+      for (const c of targets) c.send(MSG.agentSay, say);
+    }
   }
 
   // ---------- Movimiento, chat y estado ----------

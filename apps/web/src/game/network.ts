@@ -2,6 +2,10 @@ import {
   CLOSE_CODE,
   MSG,
   ROOM_NAME,
+  type AgentAck,
+  type AgentSay,
+  type AgentStatus,
+  type AgentStreamMessage,
   type ChatEvent,
   type ChatScope,
   type JoinOptions,
@@ -35,9 +39,23 @@ export interface RemoteOffice {
   locked: boolean;
   guests: string[];
 }
+export interface RemoteAgent {
+  id: string;
+  name: string;
+  role: string;
+  sprite: string;
+  x: number;
+  y: number;
+  dir: MoveMessage["dir"];
+  moving: boolean;
+  status: AgentStatus;
+  detail: string;
+  zoneId: string;
+}
 export interface OfficeStateView {
   players: Map<string, RemotePlayer>;
   offices: Map<string, RemoteOffice>;
+  agents: Map<string, RemoteAgent>;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -136,6 +154,18 @@ export function sendKnock(zoneId: string) {
   room?.send(MSG.knock, { zoneId });
 }
 
+const agentSayListeners = new Set<(s: AgentSay) => void>();
+export function onAgentSay(cb: (s: AgentSay) => void) {
+  agentSayListeners.add(cb);
+  return () => agentSayListeners.delete(cb);
+}
+
+/** Pregunta a un agente. La respuesta llega por `agent:stream` al store. */
+export function sendAgentAsk(agentId: string, text: string) {
+  useOfficeStore.getState().addAgentUserMessage(agentId, text);
+  room?.send(MSG.agentAsk, { agentId, text });
+}
+
 export function respondKnock(requestId: string, accept: boolean) {
   useOfficeStore.getState().removeKnockRequest(requestId);
   room?.send(MSG.knockRespond, { requestId, accept });
@@ -185,8 +215,29 @@ function attach(r: OfficeRoom) {
   });
   $(r.state).offices.onRemove((_office, zoneId) => useOfficeStore.getState().removeOffice(zoneId));
 
+  $(r.state).agents.onAdd((agent, id) => {
+    const sync = () =>
+      useOfficeStore.getState().upsertAgent({
+        id,
+        name: agent.name,
+        role: agent.role,
+        sprite: agent.sprite,
+        status: agent.status,
+        detail: agent.detail,
+      });
+    sync();
+    $(agent).listen("status", sync);
+    $(agent).listen("detail", sync);
+    $(agent).listen("name", sync);
+    $(agent).listen("role", sync);
+  });
+  $(r.state).agents.onRemove((_a, id) => useOfficeStore.getState().removeAgent(id));
+
   r.onMessage(MSG.chatHistory, (history: ChatEvent[]) => useOfficeStore.getState().addMessages(history));
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
+  r.onMessage(MSG.agentAck, (ack: AgentAck) => useOfficeStore.getState().handleAgentAck(ack));
+  r.onMessage(MSG.agentStream, (m: AgentStreamMessage) => useOfficeStore.getState().handleAgentStream(m));
+  r.onMessage(MSG.agentSay, (s: AgentSay) => agentSayListeners.forEach((cb) => cb(s)));
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));

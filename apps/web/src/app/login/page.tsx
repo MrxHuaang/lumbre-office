@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { loginWithGoogle } from "../actions";
 
 const ERRORS: Record<string, string> = {
@@ -8,8 +8,9 @@ const ERRORS: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const session = await auth();
-  if (session?.user) redirect("/");
+  // Ojo: no basta con que exista la cookie de sesión; el usuario debe existir en la base.
+  // Si se borró (p. ej. un admin lo eliminó), mostrar el login en vez de rebotar a "/" en bucle.
+  if (await getCurrentUser()) redirect("/");
   const { error } = await searchParams;
   const message = error ? (ERRORS[error] ?? "No se pudo iniciar sesión. Intenta de nuevo.") : null;
 

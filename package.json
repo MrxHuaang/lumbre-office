@@ -3,13 +3,14 @@
   "private": true,
   "packageManager": "pnpm@10.34.5",
   "scripts": {
-    "dev": "turbo run dev --filter=@hyvento/web --filter=@hyvento/server",
+    "dev": "turbo run dev --filter=@hyvento/web --filter=@hyvento/server --filter=@hyvento/agents",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "map:generate": "pnpm --filter @hyvento/map generate",
     "infra:up": "docker compose up -d",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "db:seed": "pnpm --filter @hyvento/db seed"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

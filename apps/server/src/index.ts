@@ -15,7 +15,7 @@ for (const key of ["GAME_TOKEN_SECRET", "DATABASE_URL"]) {
   }
 }
 
-const { REDIS_CHANNEL } = await import("@hyvento/shared");
+const { AGENT_QUEUE, AgentEvent, REDIS_CHANNEL } = await import("@hyvento/shared");
 const { createGameServer } = await import("./app");
 const { PrismaRepository } = await import("./repo/prisma");
 const { OfficeRoom } = await import("./rooms/OfficeRoom");
@@ -27,24 +27,46 @@ const repo = new PrismaRepository();
 const officeZones = loadOfficeMap().zones.filter((z) => z.type === "office");
 await repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
 
+if (!process.env.REDIS_URL) {
+  console.error("❌ Falta REDIS_URL (Redis es necesario para la cola de agentes y los eventos).");
+  process.exit(1);
+}
+const { Queue } = await import("bullmq");
+const { Redis } = await import("ioredis");
+const redisUrl = process.env.REDIS_URL;
+
+// Cola del worker de agentes: los trabajos se borran al terminar (el historial queda en Postgres).
+const queue = new Queue(AGENT_QUEUE, { connection: new Redis(redisUrl, { maxRetriesPerRequest: null }) });
+const agentQueue = {
+  enqueue: async (job: { runId: string }) => {
+    await queue.add("chat", job, { jobId: job.runId, removeOnComplete: true, removeOnFail: 100 });
+  },
+};
+
 const port = Number(process.env.GAME_SERVER_PORT ?? 2567);
-const server = createGameServer({ repo });
+const server = createGameServer({ repo, agentQueue });
 await server.listen(port);
 console.log(`🏢 Servidor de juego escuchando en ws://localhost:${port}`);
 
-// La web avisa por Redis cuando cambian dueños/nombres de oficinas.
-if (process.env.REDIS_URL) {
-  const { Redis } = await import("ioredis");
-  const sub = new Redis(process.env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: null });
-  sub.on("error", (err) => console.error("Redis:", err.message));
-  sub.on("message", (channel) => {
-    if (channel === REDIS_CHANNEL.officesChanged) {
-      OfficeRoom.reloadOfficesEverywhere().catch((err) => console.error("reloadOffices", err));
+// Redis: cambios de oficinas/agentes (desde la web) y eventos de los agentes (desde el worker).
+const sub = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: null });
+sub.on("error", (err) => console.error("Redis:", err.message));
+sub.on("message", (channel, message) => {
+  if (channel === REDIS_CHANNEL.officesChanged) {
+    OfficeRoom.reloadOfficesEverywhere().catch((err) => console.error("reloadOffices", err));
+  } else if (channel === REDIS_CHANNEL.agentsChanged) {
+    OfficeRoom.reloadAgentsEverywhere().catch((err) => console.error("reloadAgents", err));
+  } else if (channel === REDIS_CHANNEL.agentEvents) {
+    let data: unknown;
+    try {
+      data = JSON.parse(message);
+    } catch {
+      return;
     }
-  });
-  await sub.connect();
-  await sub.subscribe(REDIS_CHANNEL.officesChanged);
-  console.log("📡 Suscrito a cambios de oficinas en Redis");
-} else {
-  console.warn("⚠️ Sin REDIS_URL: los cambios de oficinas hechos en /admin se verán al reiniciar el servidor.");
-}
+    const parsed = AgentEvent.safeParse(data);
+    if (parsed.success) OfficeRoom.handleAgentEvent(parsed.data);
+  }
+});
+await sub.connect();
+await sub.subscribe(REDIS_CHANNEL.officesChanged, REDIS_CHANNEL.agentsChanged, REDIS_CHANNEL.agentEvents);
+console.log("📡 Suscrito a oficinas, agentes y eventos de agentes en Redis");

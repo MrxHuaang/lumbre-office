@@ -108,7 +108,13 @@ export const KNOCK_TIMEOUT_MS = 30_000;
 export const KNOCK_COOLDOWN_MS = 8_000;
 
 /** Canal de Redis: la web avisa al servidor de juego que cambiaron las oficinas (dueños, nombres). */
-export const REDIS_CHANNEL = { officesChanged: "hyvento:offices-changed" } as const;
+export const REDIS_CHANNEL = {
+  officesChanged: "hyvento:offices-changed",
+  /** Eventos de los agentes (worker → servidor de juego). */
+  agentEvents: "hyvento:agent-events",
+  /** Cambió la configuración de los agentes (editor) → recargar NPCs. */
+  agentsChanged: "hyvento:agents-changed",
+} as const;
 
 /** Nombres de mensajes Colyseus. */
 export const MSG = {
@@ -123,4 +129,8 @@ export const MSG = {
   knockRequest: "office:knock:request",
   knockRespond: "office:knock:respond",
   knockResult: "office:knock:result",
+  agentAsk: "agent:ask",
+  agentAck: "agent:ack",
+  agentStream: "agent:stream",
+  agentSay: "agent:say",
 } as const;

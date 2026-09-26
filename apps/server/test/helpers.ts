@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { MSG, signGameToken, type GameTokenClaims } from "@hyvento/shared";
+import { MSG, signGameToken, type AgentChatJob, type GameTokenClaims } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import type { OfficeState } from "../src/state";
 
@@ -49,3 +49,13 @@ export const OUTSIDE_OFFICE_4: [number, number][] = [
   [24, 13],
   [24, 10],
 ];
+
+/** Cola de agentes simulada: guarda los trabajos encolados. */
+export class FakeAgentQueue {
+  jobs: AgentChatJob[] = [];
+  fail = false;
+  async enqueue(job: AgentChatJob) {
+    if (this.fail) throw new Error("cola caída");
+    this.jobs.push(job);
+  }
+}

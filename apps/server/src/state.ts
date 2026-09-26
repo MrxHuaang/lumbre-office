@@ -28,7 +28,25 @@ export class OfficeInfo extends Schema {
   @type(["string"]) guests = new ArraySchema<string>();
 }
 
+/** Agente de IA visible en la oficina (NPC). */
+export class AgentInfo extends Schema {
+  @type("string") id = "";
+  @type("string") name = "";
+  @type("string") role = "";
+  @type("string") sprite = "bot-blue";
+  /** Posición de los pies, en px (en la Fase 5 caminan; ahora, su escritorio). */
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") dir = "down";
+  @type("boolean") moving = false;
+  /** idle | thinking | searching | writing | error */
+  @type("string") status = "idle";
+  @type("string") detail = "";
+  @type("string") zoneId = "";
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
+  @type({ map: AgentInfo }) agents = new MapSchema<AgentInfo>();
 }
