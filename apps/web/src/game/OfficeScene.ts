@@ -13,10 +13,19 @@ import {
   type TiledMap,
   type TilePos,
 } from "@hyvento/map";
-import { HUMAN_AVATARS, MOVE_SEND_HZ, PLAYER_SPEED, type Direction, type MoveMessage } from "@hyvento/shared";
+import {
+  hearing,
+  HUMAN_AVATARS,
+  MOVE_SEND_HZ,
+  PLAYER_SPEED,
+  type Direction,
+  type MoveMessage,
+  type Positioned,
+} from "@hyvento/shared";
 import Phaser from "phaser";
 import { Avatar } from "./Avatar";
-import { onMoveCorrection, onRoom, sendMove, type OfficeRoom, type RemotePlayer } from "./network";
+import { useMediaStore } from "./media";
+import { getRoom, onMoveCorrection, onRoom, sendMove, type OfficeRoom, type RemotePlayer } from "./network";
 import { canEnterOffice, selectMyUserId, useOfficeStore, type OfficeView } from "./store";
 import { getStateCallbacks } from "colyseus.js";
 
@@ -25,6 +34,8 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 /** Distancia (px) a la puerta de una oficina cerrada para ofrecer "tocar". */
 const DOOR_PROMPT_RADIUS = 44;
+/** Cada cuánto se recalcula a quién se oye (audio/video por proximidad). */
+const HEARING_INTERVAL_MS = 250;
 
 type Keys = Record<"W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT", Phaser.Input.Keyboard.Key>;
 
@@ -45,6 +56,10 @@ export class OfficeScene extends Phaser.Scene {
   private roomDetach: (() => void)[] = [];
   /** La escena fue destruida: ignorar cualquier evento tardío de la sala. */
   private disposed = false;
+  private hearingElapsed = 0;
+  private zonesById = new Map<string, Zone>();
+  /** sessionId → userId de cada avatar (para cruzar con LiveKit, que usa userId). */
+  private userOfSession = new Map<string, string>();
 
   constructor() {
     super("office");
@@ -66,6 +81,7 @@ export class OfficeScene extends Phaser.Scene {
 
     this.officeMap = parseOfficeMap(this.cache.tilemap.get("office").data as TiledMap);
     this.officeZones = this.officeMap.zones.filter((z) => z.type === "office");
+    for (const z of this.officeMap.zones) this.zonesById.set(z.id, z);
     useOfficeStore.getState().setZoneNames(Object.fromEntries(this.officeMap.zones.map((z) => [z.id, z.name])));
     this.createNameplates();
 
@@ -89,6 +105,9 @@ export class OfficeScene extends Phaser.Scene {
         this.local?.setPosition(c.x, c.y);
       }),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
+      useMediaStore.subscribe((m, prev) => {
+        if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
+      }),
       useOfficeStore.subscribe((s, prev) => {
         if (s.offices !== prev.offices) this.updateNameplates(s.offices);
         if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
@@ -109,6 +128,11 @@ export class OfficeScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     this.updateLocal(delta);
+    this.hearingElapsed += delta;
+    if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
+      this.hearingElapsed = 0;
+      this.updateHearing();
+    }
     for (const [id, avatar] of this.avatars) if (id !== this.localId) avatar.interpolate(delta);
   }
 
@@ -136,6 +160,7 @@ export class OfficeScene extends Phaser.Scene {
         if (!alive()) return;
         this.avatars.get(sessionId)?.destroy();
         this.avatars.delete(sessionId);
+        this.userOfSession.delete(sessionId);
       }),
     );
   }
@@ -148,6 +173,7 @@ export class OfficeScene extends Phaser.Scene {
   private addAvatar(sessionId: string, player: RemotePlayer, $: ReturnType<typeof getStateCallbacks>) {
     this.avatars.get(sessionId)?.destroy();
     const isLocal = sessionId === this.localId;
+    this.userOfSession.set(sessionId, player.userId);
     const texture = (HUMAN_AVATARS as readonly string[]).includes(player.avatar) ? player.avatar : "ada";
     const avatar = new Avatar(this, texture, player.name, player.x, player.y, isLocal);
     avatar.setStatus(player.status);
@@ -272,6 +298,38 @@ export class OfficeScene extends Phaser.Scene {
     this.path = [];
     this.pathMarker?.destroy();
     this.pathMarker = undefined;
+  }
+
+  // ---------- Audio/video por proximidad ----------
+
+  private positioned(x: number, y: number, zoneId: string | null): Positioned {
+    const zone = zoneId ? this.zonesById.get(zoneId) : undefined;
+    return { x, y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false };
+  }
+
+  private updateHearing() {
+    const room = getRoom();
+    if (!room || !this.local) return;
+    const me = this.positioned(this.local.x, this.local.y, zoneAt(this.officeMap, this.local.x, this.local.y)?.id ?? null);
+    const others = new Map<string, Positioned>();
+    room.state.players.forEach((p, sessionId) => {
+      if (sessionId !== this.localId && p.userId) others.set(p.userId, this.positioned(p.x, p.y, p.zoneId || null));
+    });
+
+    const current = useMediaStore.getState().hearing;
+    const next = hearing(me, others, new Set(Object.keys(current)));
+    // Solo publicar si cambió quién se oye o algún volumen cambió de forma perceptible.
+    const changed =
+      next.size !== Object.keys(current).length ||
+      [...next].some(([id, v]) => current[id] === undefined || Math.abs(current[id]! - v) > 0.05);
+    if (changed) useMediaStore.getState().setHearing(Object.fromEntries(next));
+  }
+
+  private updateSpeaking(speaking: string[]) {
+    const set = new Set(speaking);
+    for (const [sessionId, avatar] of this.avatars) {
+      avatar.setSpeaking(set.has(this.userOfSession.get(sessionId) ?? ""));
+    }
   }
 
   /** Colisión del mapa + oficinas cerradas a las que no tengo acceso (misma regla que el servidor). */

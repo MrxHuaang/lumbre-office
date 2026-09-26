@@ -21,3 +21,35 @@ export function canHear(a: Positioned, b: Positioned, radius = PROXIMITY_RADIUS)
   const dy = a.y - b.y;
   return dx * dx + dy * dy <= radius * radius;
 }
+
+/** Margen extra (px) para dejar de oír a alguien: evita que el audio parpadee en el borde del radio. */
+export const HEARING_HYSTERESIS = 24;
+/** Volumen mínimo en el borde del radio (zonas abiertas). */
+const MIN_VOLUME = 0.15;
+
+/**
+ * Calcula a quién oye `me` y con qué volumen (0–1), para el audio/video por proximidad.
+ * - En zonas aisladas (oficina, sala): todos los de la misma zona, a volumen completo.
+ * - En zonas abiertas: dentro del radio, con volumen decreciente; quien ya se oía se sigue oyendo
+ *   hasta `radius + HEARING_HYSTERESIS`.
+ */
+export function hearing(
+  me: Positioned,
+  others: Map<string, Positioned>,
+  previous: ReadonlySet<string> = new Set(),
+  radius = PROXIMITY_RADIUS,
+): Map<string, number> {
+  const result = new Map<string, number>();
+  for (const [id, other] of others) {
+    if (me.zoneIsolated || other.zoneIsolated) {
+      if (canHear(me, other, radius)) result.set(id, 1);
+      continue;
+    }
+    const limit = previous.has(id) ? radius + HEARING_HYSTERESIS : radius;
+    const d = Math.hypot(me.x - other.x, me.y - other.y);
+    if (d > limit) continue;
+    const t = Math.min(1, d / radius);
+    result.set(id, Math.max(MIN_VOLUME, 1 - t * t * (1 - MIN_VOLUME)));
+  }
+  return result;
+}

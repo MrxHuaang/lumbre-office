@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
+import { media } from "@/game/media";
 import { connect, disconnect } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 import { ChatPanel } from "./ChatPanel";
 import { Hud } from "./Hud";
+import { MediaControls } from "./MediaControls";
+import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices } from "./OfficeOverlays";
 
@@ -46,11 +49,14 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
       const { createGame } = await import("@/game/createGame"); // Phaser necesita `window`
       if (cancelled || !gameRef.current) return;
       game = createGame(gameRef.current);
+      // Audio/video: opcional; si LiveKit no está disponible la oficina funciona igual.
+      void media.connect();
     })();
 
     return () => {
       cancelled = true;
       game?.destroy(true);
+      void media.disconnect();
       void disconnect();
     };
   }, [attempt]);
@@ -66,9 +72,9 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
           <DoorPrompt />
           <KnockRequests />
           <Notices />
-          <p className="pointer-events-none absolute bottom-3 left-1/2 hidden -translate-x-1/2 rounded-full bg-ink/70 px-3 py-1 text-xs text-muted xl:block">
-            WASD o flechas para caminar · clic para ir a un lugar · Enter para chatear
-          </p>
+          <MediaControls />
+          <VideoStrip />
+          <ScreenFocus />
         </>
       ) : null}
 

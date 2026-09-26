@@ -34,6 +34,7 @@ export class Avatar {
   readonly sprite: Phaser.GameObjects.Sprite;
   private readonly label: Phaser.GameObjects.Text;
   private readonly statusDot: Phaser.GameObjects.Arc;
+  private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
   private bubbleTimer?: Phaser.Time.TimerEvent;
   private dir: Direction = "down";
@@ -66,6 +67,7 @@ export class Avatar {
       })
       .setOrigin(0.5, 1);
     this.statusDot = scene.add.circle(x, y, 3, STATUS_COLORS.available).setStrokeStyle(1, 0x0f111a);
+    this.speakingRing = scene.add.ellipse(x, y, 26, 10).setStrokeStyle(2, 0x3ddc84, 0.95).setVisible(false);
     this.layout();
   }
 
@@ -86,6 +88,10 @@ export class Avatar {
 
   setStatus(status: PresenceStatus) {
     this.statusDot.setFillStyle(STATUS_COLORS[status] ?? STATUS_COLORS.available);
+  }
+
+  setSpeaking(speaking: boolean) {
+    this.speakingRing.setVisible(speaking);
   }
 
   setMotion(dir: Direction, moving: boolean) {
@@ -147,11 +153,13 @@ export class Avatar {
     this.sprite.destroy();
     this.label.destroy();
     this.statusDot.destroy();
+    this.speakingRing.destroy();
   }
 
   private layout() {
     const { x, y } = this.sprite;
     this.sprite.setDepth(y);
+    this.speakingRing.setPosition(x, y - 1).setDepth(y - 1);
     this.label.setPosition(x + 4, y - 30).setDepth(100_000 + y);
     this.statusDot.setPosition(x + 4 - this.label.width / 2 - 5, y - 30 - this.label.height / 2).setDepth(100_001 + y);
     this.bubble?.setPosition(x, y - 30 - this.label.height).setDepth(200_000 + y);

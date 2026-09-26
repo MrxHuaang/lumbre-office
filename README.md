@@ -8,8 +8,8 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: oficinas persona
 |---|---|
 | 0. Base (monorepo, CI, esquema Prisma, docker-compose, login con Google por invitación) | ✅ — falta migrar la DB (requiere Docker) |
 | 1. Oficina multijugador (mapa, movimiento, chat por proximidad y global) | ✅ |
-| 2. Oficinas personales (asignación, tocar la puerta, estados persistidos) | ⏳ aislamiento de chat por zona ya funciona |
-| 3. Video/voz por proximidad (LiveKit) | ⏳ |
+| 2. Oficinas personales (asignación, placas, cerrar/tocar la puerta, notas, estado y chat persistidos) | ✅ |
+| 3. Video/voz por proximidad (LiveKit): suscripción selectiva, permisos en el SFU, pantalla compartida | ✅ |
 | 4–6. Agentes de IA | ⏳ |
 | 7. Despliegue | ⏳ |
 
@@ -32,7 +32,11 @@ pnpm dev            # web en http://localhost:3000 + servidor de juego en ws://l
 pnpm test           # tests de mapa, proximidad y sala
 pnpm typecheck
 ```
-Para probar multijugador abre dos pestañas (o una ventana privada) con nombres distintos.
+Para probar con varias personas sin Google (solo contra la base local):
+```bash
+pnpm --filter @hyvento/web dev:session "Tester Uno" [--office office-2] [--admin]
+```
+Pega el valor impreso en la consola del navegador de otra ventana/perfil: `document.cookie = "authjs.session-token=<valor>; path=/"` y recarga.
 
 ### Mapa y assets
 Los assets placeholder (tileset, mapa y personajes) se generan por código:

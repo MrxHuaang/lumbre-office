@@ -12,7 +12,7 @@ export function DoorPrompt() {
   const waiting = pending === zoneId;
 
   return (
-    <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-panel/95 px-4 py-2.5 text-sm shadow-xl backdrop-blur">
+    <div className="absolute bottom-20 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-panel/95 px-4 py-2.5 text-sm shadow-xl backdrop-blur">
       <span>
         🔒 La oficina de <strong>{office.ownerName}</strong> está cerrada
       </span>
@@ -32,7 +32,7 @@ export function KnockRequests() {
   const requests = useOfficeStore((s) => s.knockRequests);
   if (requests.length === 0) return null;
   return (
-    <div className="absolute top-16 left-1/2 flex w-[min(360px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-2">
+    <div className="absolute top-[172px] left-1/2 z-10 flex w-[min(360px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-2">
       {requests.map((r) => (
         <div key={r.requestId} role="alert" className="rounded-xl border border-accent/40 bg-panel/95 p-3 shadow-xl backdrop-blur">
           <p className="text-sm">
