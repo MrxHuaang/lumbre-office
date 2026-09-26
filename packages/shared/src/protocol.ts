@@ -133,6 +133,9 @@ export const MSG = {
   travel: "travel",
   activity: "activity",
   pointsAwarded: "points:awarded",
+  /** Pedir en la barra de la cafetería (`CafeOrderMessage`) y su respuesta (`CafeOrderResult`). */
+  cafeOrder: "cafe:order",
+  cafeResult: "cafe:result",
   chatSend: "chat:send",
   chatEvent: "chat:event",
   chatHistory: "chat:history",

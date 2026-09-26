@@ -155,6 +155,8 @@ enum PointReason {
   DAILY
   MISSION
   ADMIN
+  /// Gasto (monto negativo): compras en la cafetería y, más adelante, la tienda.
+  PURCHASE
 }
 
 /**

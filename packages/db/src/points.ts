@@ -1,5 +1,5 @@
 // Movimientos de puntos: la única forma de cambiar un saldo. La usan el servidor de juego (presencia,
-// reuniones) y la web (buzón, misiones), así el tope diario y el libro quedan iguales en todos lados.
+// reuniones, cafetería) y la web (buzón, misiones), así el tope diario y el libro quedan iguales en todos lados.
 import { DAILY_CAPS, dayStart, type PointReason } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
@@ -39,7 +39,34 @@ export async function awardPointsTx(tx: Prisma.TransactionClient, input: AwardIn
   return { awarded: amount, balance: user.points };
 }
 
-/** Suma (o resta, con monto negativo) puntos a alguien respetando el tope diario de su motivo. */
+/** Suma puntos a alguien respetando el tope diario de su motivo (para gastar: `spendPoints`). */
 export function awardPoints(client: PrismaClient, input: AwardInput): Promise<AwardResult> {
   return client.$transaction((tx) => awardPointsTx(tx, input));
+}
+
+export interface SpendInput {
+  userId: string;
+  /** Cuánto cuesta (positivo); en el libro queda como monto negativo. */
+  amount: number;
+  reason: PointReason;
+  refId?: string;
+  now?: number;
+}
+
+/**
+ * Gasta puntos solo si alcanzan: el descuento es un update condicional (`points >= amount`), así dos
+ * compras al mismo tiempo nunca dejan el saldo en negativo. `ok: false` = no alcanzó (no se cobra nada).
+ */
+export async function spendPointsTx(tx: Prisma.TransactionClient, input: SpendInput): Promise<{ ok: boolean; balance: number }> {
+  const { userId, amount, reason, refId } = input;
+  if (!Number.isInteger(amount) || amount <= 0) throw new Error(`Monto inválido: ${amount}`);
+  const charged = await tx.user.updateMany({ where: { id: userId, points: { gte: amount } }, data: { points: { decrement: amount } } });
+  const user = await tx.user.findUnique({ where: { id: userId }, select: { points: true } });
+  if (charged.count === 0) return { ok: false, balance: user?.points ?? 0 };
+  await tx.pointTransaction.create({ data: { userId, amount: -amount, reason, refId, createdAt: new Date(input.now ?? Date.now()) } });
+  return { ok: true, balance: user!.points };
+}
+
+export function spendPoints(client: PrismaClient, input: SpendInput): Promise<{ ok: boolean; balance: number }> {
+  return client.$transaction((tx) => spendPointsTx(tx, input));
 }

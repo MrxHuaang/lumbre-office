@@ -2,8 +2,8 @@
 // servidor de juego, la web y la base de datos, para que las reglas estén en un solo lugar.
 import { z } from "zod";
 
-/** Motivo de un movimiento de puntos (mismo nombre que el enum PointReason de Prisma). */
-export const POINT_REASONS = ["PRESENCE", "MEETING", "DAILY", "MISSION", "ADMIN"] as const;
+/** Motivo de un movimiento de puntos (mismo nombre que el enum PointReason de Prisma). `PURCHASE` es un gasto (monto negativo). */
+export const POINT_REASONS = ["PRESENCE", "MEETING", "DAILY", "MISSION", "ADMIN", "PURCHASE"] as const;
 export type PointReason = (typeof POINT_REASONS)[number];
 
 export const POINTS = {
@@ -35,6 +35,7 @@ export const DAILY_CAPS: Record<PointReason, number | null> = {
   DAILY: null,
   MISSION: null,
   ADMIN: null,
+  PURCHASE: null,
 };
 
 // El equipo está en Colombia (UTC-5, sin horario de verano): los días cambian a la medianoche de Bogotá.
