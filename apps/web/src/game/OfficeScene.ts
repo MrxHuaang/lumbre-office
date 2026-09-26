@@ -1,5 +1,6 @@
 import {
   allZones,
+  BLACKJACK_SEATS,
   applyDecorEdit,
   buildArea,
   canStandAt,
@@ -665,9 +666,15 @@ export class OfficeScene extends Phaser.Scene {
     this.seat = seat;
     avatar.setPosition(seat.x, seat.y);
     avatar.setMotion(seat.facing, false);
+    if (this.isBlackjackSeat(seat)) useOfficeStore.getState().openPanel("blackjack", true);
     avatar.setSeated(seat.facing);
     this.updateZone();
     this.sendPosition(seat.facing, false);
+  }
+
+/** ¿Es una de las banquetas de la mesa de blackjack del sótano? */
+  private isBlackjackSeat(seat: Seat): boolean {
+    return this.map.id === "sotano" && BLACKJACK_SEATS.some((b) => b.x === seat.tileX && b.y === seat.tileY);
   }
 
   private standUp() {
@@ -675,6 +682,7 @@ export class OfficeScene extends Phaser.Scene {
     const seat = this.seat;
     if (!avatar || !seat) return;
     const spot = seatStandSpot(this.map, seat);
+    if (this.isBlackjackSeat(seat) && useOfficeStore.getState().panel?.kind === "blackjack") useOfficeStore.getState().closePanel();
     this.seat = null;
     avatar.setSeated(null);
     avatar.setPosition(spot.x, spot.y);

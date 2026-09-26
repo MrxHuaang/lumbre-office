@@ -10,6 +10,8 @@ import {
   type CasinoResult,
   type ChatEvent,
   type ChatScope,
+  type BlackjackAction,
+  type BlackjackSettled,
   type RouletteBetSpec,
   type RouletteSettled,
   type Direction,
@@ -79,10 +81,29 @@ export interface RemoteRoulette {
   history: number[];
   bets: RouletteBetView[];
 }
+export interface RemoteBlackjackSeat {
+  userId: string;
+  name: string;
+  bet: number;
+  cards: number[];
+  status: string;
+  doubled: boolean;
+  outcome: string;
+  payout: number;
+}
+export interface RemoteBlackjack {
+  phase: "waiting" | "betting" | "playing" | "dealer" | "result";
+  round: number;
+  endsAt: number;
+  turn: number;
+  dealer: number[];
+  seats: RemoteBlackjackSeat[];
+}
 export interface OfficeStateView {
   players: Map<string, RemotePlayer>;
   offices: Map<string, RemoteOffice>;
   roulette: RemoteRoulette;
+  blackjack: RemoteBlackjack;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -139,6 +160,14 @@ export function sendEmote(emote: EmoteId) {
 /** Apostar en la ruleta (el servidor valida que estés junto a la mesa y cobra). */
 export function sendRouletteBet(bet: RouletteBetSpec, amount: number) {
   room?.send(MSG.rouletteBet, { bet, amount });
+}
+
+/** Blackjack: apostar en tu asiento o jugar tu turno. */
+export function sendBlackjackBet(amount: number) {
+  room?.send(MSG.blackjackBet, { amount });
+}
+export function sendBlackjackAction(action: BlackjackAction) {
+  room?.send(MSG.blackjackAction, { action });
 }
 
 /** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
@@ -368,6 +397,48 @@ function attach(r: OfficeRoom) {
     rl$.history.onAdd(syncRoulette);
     rl$.history.onRemove(syncRoulette);
     syncRoulette();
+  });
+  // Blackjack: igual que la ruleta, más las cartas de cada asiento y del crupier.
+  const syncBlackjack = () => {
+    const bj = r.state.blackjack;
+    if (!bj) return;
+    useCasinoStore.getState().setBlackjack({
+      phase: bj.phase,
+      round: bj.round,
+      endsAt: bj.endsAt,
+      turn: bj.turn,
+      dealer: [...bj.dealer],
+      seats: [...bj.seats].map((s) => ({
+        userId: s.userId,
+        name: s.name,
+        bet: s.bet,
+        cards: [...s.cards],
+        status: s.status,
+        doubled: s.doubled,
+        outcome: s.outcome,
+        payout: s.payout,
+      })),
+    });
+  };
+  $(r.state).listen("blackjack", (table) => {
+    if (!table) return;
+    const bj$ = $(table);
+    bj$.onChange(syncBlackjack);
+    bj$.dealer.onAdd(syncBlackjack);
+    bj$.dealer.onRemove(syncBlackjack);
+    bj$.seats.onAdd((seat) => {
+      const s$ = $(seat);
+      s$.onChange(syncBlackjack);
+      s$.cards.onAdd(syncBlackjack);
+      s$.cards.onRemove(syncBlackjack);
+      syncBlackjack();
+    });
+    syncBlackjack();
+  });
+  r.onMessage(MSG.blackjackSettled, (s: BlackjackSettled) => {
+    useCasinoStore.getState().setBlackjackSettled(s);
+    const text = { blackjack: `¡Blackjack! Ganaste ${s.won}.`, win: `Le ganaste al crupier: +${s.won - s.staked}.`, push: "Empate: te devuelven la apuesta.", lose: `Perdiste ${s.staked}.` }[s.outcome];
+    useOfficeStore.getState().notify(text, s.outcome === "lose" ? "info" : "success");
   });
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
