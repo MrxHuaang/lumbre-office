@@ -26,6 +26,8 @@ import {
 import {
   CAFE,
   CafeOrderMessage,
+  EMOTE,
+  EmoteMessage,
   cafeItem,
   cafeRefId,
   canHear,
@@ -48,6 +50,7 @@ import {
   type PointsAwarded,
   verifyGameToken,
   type CafeOrderResult,
+  type EmoteEvent,
   type ChatEvent,
   type Direction,
   type GameTokenClaims,
@@ -73,6 +76,8 @@ interface UserData {
   lastOrderAt?: number;
   /** Cambios recientes en el editor de oficina (tope para no inundar la base). */
   editTimes?: number[];
+  /** Último emote (para que no se puedan mandar en ráfaga). */
+  lastEmoteAt?: number;
 }
 
 interface PendingKnock {
@@ -166,6 +171,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         client.send(MSG.officeEditResult, { ok: false, error: "failed" } satisfies OfficeEditResult);
       });
     });
+    this.onMessage(MSG.emote, (client, raw) => this.handleEmote(client, raw));
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -739,6 +745,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (players.length === 0) return;
     const balance = await this.repo.getPoints(userId);
     for (const p of players) p.points = balance;
+  }
+
+  // ---------- Emotes ----------
+
+  /** Emote sobre la cabeza: lo ven quienes están en el mismo nivel (incluida la persona que lo hizo). */
+  private handleEmote(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = EmoteMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const now = Date.now();
+    if (now - (client.userData.lastEmoteAt ?? 0) < EMOTE.cooldownMs) return;
+    client.userData.lastEmoteAt = now;
+    client.userData.lastActiveAt = now;
+    const event: EmoteEvent = { sessionId: client.sessionId, emote: parsed.data.emote };
+    for (const other of this.clients) {
+      if (this.state.players.get(other.sessionId)?.area === player.area) other.send(MSG.emoteEvent, event);
+    }
   }
 
   // ---------- Cafetería ----------

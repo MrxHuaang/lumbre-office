@@ -77,3 +77,35 @@ Misiones: cualquiera publica; otra persona la toma, la entrega y quien la public
 5. **Social y ocio**: regalos, intercambios, huerto, pesca, arcade, sala de cine.
 
 Las fases 2 a 5 traen migraciones de base de datos: se avisan en cada PR y el dueño las aplica en Neon antes de mezclar.
+
+## Extras (se suman entre fases)
+
+Cosas chicas que le dan vida a la cabaña. Se hacen cuando no chocan con la fase en curso.
+
+| Extra | Qué es | Estado |
+|---|---|---|
+| Creador de personajes | Mucho más personalizable, estilo Terraria / Guilty Gear: color por parte (piel, ojos, pelo, camisa, pantalón, zapatos, accesorios), muchos peinados, ojos, vello facial, prendas por capas y accesorios por lugar (cabeza, cara, cuello). Todo gratis. | Pendiente (sigue después de la 3b) |
+| Emotes | T (o el botón de la barra) abre el selector; 1–7 manda saludo, corazón, jaja, ¡bien!, idea, ¿qué? o bailar. Globo sobre la cabeza; lo ven los del mismo nivel. | ✅ |
+| Apps del PC | Enfoque (pomodoro que te pone "Ocupado"), Buscaminas y un navegador de favoritos (abre adentro lo que se deja incrustar: YouTube, Figma, Excalidraw, Wikipedia…; lo demás en otra pestaña). | En curso |
+| Pintura | App del PC para dibujar pixel art de 16x16 que se guarda como un cuadro para colgar en tu oficina (usa el editor de la fase 3c). | Pendiente |
+| Tocadiscos compartido | Pones un video o una playlist y todos en tu oficina lo escuchan sincronizado (con el tocadiscos de la tienda). | Pendiente |
+| Pizarra | Excalidraw en tiempo real, también en la pared de la sala de reuniones. | Pendiente |
+| Sonidos cozy | Pasos, puertas, caja registradora y música ambiente generados por código (WebAudio), sin archivos. | Pendiente |
+| Clima y estaciones | Lluvia, otoño, nieve en diciembre, y la noche según la hora de Bogotá. | Pendiente |
+| Mascota | Un gato o un perro que te sigue (se compra en la tienda). | Pendiente |
+| Standup diario | En el tablón, cada persona escribe qué hará hoy; da un bono pequeño de puntos. | Pendiente |
+| Logros | Insignias que se ven en tu placa (primera misión, racha de 30 días…). | Pendiente |
+| Avisos de GitHub | Un webhook anuncia en el tablón o el chat cuando se mezcla un PR. | Pendiente |
+
+## A futuro: Hyvento para cualquier equipo (fase 6)
+
+Por ahora la cabaña es solo para el equipo Hyvento. Más adelante la idea es abrirla: que cualquiera cree su equipo y tenga su propia cabaña. Lo que hay que cambiar, porque hoy todo asume un solo equipo:
+
+1. **Equipos en la base**: `Team` (nombre, slug, color, límite del casino…) y `Membership` (persona, equipo, rol dueño/admin/miembro). Todo lo que es "del equipo" lleva `teamId`: oficinas (`Office.zoneId` deja de ser único global), puntos (un saldo por equipo), misiones, chat, inventario, casino. Hoy los admins salen de `ADMIN_EMAILS`: pasan a ser un rol de la membresía.
+2. **Registro abierto**: "Crear mi equipo" → nombre y cuántas oficinas → invitar con un link. URL por equipo (`/t/<equipo>`).
+3. **Una sala de juego por equipo**: el token del juego lleva `teamId`; Colyseus abre una sala por equipo (hoy hay una sola, `ROOM_NAME`), y tests de aislamiento para que ningún equipo vea nada de otro.
+4. **Cabaña a la medida**: el piso de oficinas se genera según cuántos son (un piso por cada 4 oficinas).
+5. **Costos y límites**: lo caro es el video (LiveKit cobra por minuto conectado); el resto cabe en planes gratis al principio. Límite de minutos o personas por equipo en el plan gratis.
+6. **Lo de un producto público**: página de inicio, términos y privacidad, borrar cuenta y equipo.
+
+Recomendación: cuando se cierre la fase 3, agregar `teamId` a la base aunque siga habiendo un solo equipo (cada fase nueva suma tablas y migrarlas todas después cuesta más). Abrir el registro puede esperar.

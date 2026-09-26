@@ -7,3 +7,4 @@ export * from "./cafe";
 export * from "./casino";
 export * from "./shop";
 export * from "./decor";
+export * from "./emotes";

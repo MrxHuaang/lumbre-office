@@ -251,7 +251,7 @@ function ControlsHint() {
     <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
       {decorating
         ? "Clic para poner o elegir · R para girar · Supr para guardar · Esc para soltar o terminar"
-        : "WASD / flechas · clic para caminar · E para sentarte · Enter para chatear"}
+        : "WASD / flechas · clic para caminar · E para sentarte · T emotes · Enter para chatear"}
     </div>
   );
 }

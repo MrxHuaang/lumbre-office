@@ -1,8 +1,10 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { media, useMediaStore } from "@/game/media";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
+import { EmotePicker, useEmoteKey } from "./EmotePicker";
 
 /** Barra de herramientas (abajo al centro, estilo Stardew): micrófono, cámara, pantalla y chat. */
 export function MediaControls() {
@@ -14,9 +16,12 @@ export function MediaControls() {
   const unread = useOfficeStore((s) => s.unread);
   const setChatOpen = useOfficeStore((s) => s.setChatOpen);
   const ready = status === "connected";
+  const [emotes, setEmotes] = useState(false);
+  useEmoteKey(useCallback(() => setEmotes((v) => !v), []));
 
   return (
     <div className="cozy-panel absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 p-2.5">
+      {emotes && <EmotePicker onClose={() => setEmotes(false)} />}
       <Slot
         n={1}
         icon="mic"
@@ -55,6 +60,15 @@ export function MediaControls() {
         disabled={false}
         onClick={() => setChatOpen(!chatOpen)}
         badge={!chatOpen && unread > 0 ? unread : undefined}
+      />
+      <Slot
+        n={5}
+        icon="smile"
+        label="Emotes (T)"
+        text="Emotes"
+        active={emotes}
+        disabled={false}
+        onClick={() => setEmotes((v) => !v)}
       />
     </div>
   );

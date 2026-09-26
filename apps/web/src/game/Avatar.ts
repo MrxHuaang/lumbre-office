@@ -1,5 +1,5 @@
-import { bubble, characterShadow, drawCafeItem, FEET_Y, FRAME, FRAMES, heldEffect, puff, SHEET_DIRECTIONS } from "@hyvento/map/art";
-import { heldParts, type Direction, type PresenceStatus } from "@hyvento/shared";
+import { bubble, characterShadow, drawCafeItem, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, puff, SHEET_DIRECTIONS } from "@hyvento/map/art";
+import { EMOTE, heldParts, type Direction, type EmoteId, type PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt, STATUS_HEX } from "@/lib/cozy";
@@ -70,6 +70,9 @@ export class Avatar {
   private readonly statusDot: Phaser.GameObjects.Arc;
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
+  /** Emote sobre la cabeza (un globo con dibujo) y el baile, si está bailando. */
+  private emoteBubble?: { container: Phaser.GameObjects.Container; lift: number; tween: Phaser.Tweens.Tween };
+  private dance?: { timer: Phaser.Time.TimerEvent; step: number };
   /** Lo que lleva en las manos (pedido en la cafetería). */
   private held?: { id: string; parts: HeldPart[] };
   private bubbleTimer?: Phaser.Time.TimerEvent;
@@ -145,6 +148,7 @@ export class Avatar {
     }
     this.speakingRing.setVisible(!hidden && this.speaking && !this.video);
     this.bubble?.setVisible(!hidden);
+    this.emoteBubble?.container.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
   }
 
@@ -296,6 +300,7 @@ export class Avatar {
   }
 
   setMotion(dir: Direction, moving: boolean) {
+    if (moving) this.stopDance();
     if (this.seated) {
       this.dir = dir;
       return;
@@ -321,6 +326,69 @@ export class Avatar {
     }
     const t = Math.min(1, (dtMs / 1000) * 14);
     this.setPosition(this.wx + dx * t, this.wy + dy * t);
+  }
+
+  /** Emote: globo con un dibujo que aparece de un salto, flota y se va. "dance" además hace bailar. */
+  emote(id: EmoteId) {
+    this.emoteBubble?.tween.remove();
+    this.emoteBubble?.container.destroy();
+    ensureTexture(this.scene, "globo-emote", () => bubble(13, 12));
+    ensureTexture(this.scene, `emote-${id}`, () => drawEmote(id));
+    const bg = this.scene.add.image(0, 0, "globo-emote").setOrigin(0.5, 1);
+    const icon = this.scene.add.image(0, -bg.height + 2, `emote-${id}`).setOrigin(0.5, 0);
+    const container = this.scene.add.container(0, 0, [bg, icon]).setVisible(!this.hidden).setScale(0.2);
+    const state = { container, lift: 0, tween: undefined as unknown as Phaser.Tweens.Tween };
+    // Salta a su tamaño, sube un poco mientras se ve y al final se desvanece.
+    state.tween = this.scene.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: EMOTE.showMs,
+      onUpdate: (t) => {
+        const v = t.getValue() ?? 0;
+        container.setScale(v < 0.08 ? 0.2 + (v / 0.08) * 0.9 : v < 0.14 ? 1.1 - ((v - 0.08) / 0.06) * 0.1 : 1);
+        state.lift = Math.round(v * 4);
+        container.setAlpha(v > 0.85 ? 1 - (v - 0.85) / 0.15 : 1);
+        this.layout();
+      },
+      onComplete: () => {
+        container.destroy();
+        if (this.emoteBubble === state) this.emoteBubble = undefined;
+      },
+    });
+    this.emoteBubble = state;
+    if (id === "dance") this.startDance();
+    this.layout();
+  }
+
+  /** Baile: gira mirando a cada lado y da saltitos (solo de pie y quieto). */
+  private startDance() {
+    if (this.seated || this.moving) return;
+    this.stopDance();
+    const order: Direction[] = ["down", "right", "up", "left"];
+    const steps = Math.floor(EMOTE.danceMs / 250);
+    const dance = {
+      step: 0,
+      timer: this.scene.time.addEvent({
+        delay: 250,
+        repeat: steps - 1,
+        callback: () => {
+          dance.step++;
+          const dir = order[Math.floor(dance.step / 2) % order.length]!;
+          this.sprite.setFrame(ROW[dir] * FRAMES + (dance.step % 2 ? 1 : 2));
+          this.layout();
+          if (dance.step >= steps) this.stopDance();
+        },
+      }),
+    };
+    this.dance = dance;
+  }
+
+  private stopDance() {
+    if (!this.dance) return;
+    this.dance.timer.remove();
+    this.dance = undefined;
+    if (!this.seated && !this.moving) this.sprite.setFrame(ROW[this.dir] * FRAMES);
+    this.layout();
   }
 
   /** Globo de diálogo pixel sobre la cabeza, estilo Stardew. */
@@ -355,6 +423,9 @@ export class Avatar {
   destroy() {
     this.clearVideo();
     this.clearHeld();
+    this.stopDance();
+    this.emoteBubble?.tween.remove();
+    this.emoteBubble?.container.destroy();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
     this.sprite.destroy();
@@ -369,7 +440,9 @@ export class Avatar {
     const x = Math.round(s.x);
     const y = Math.round(s.y);
     const depth = depthOf(this.wx, this.wy);
-    this.sprite.setPosition(x, y + 1).setDepth(depth + 0.5);
+    // Bailando da saltitos de 2 px.
+    const hop = this.dance && this.dance.step % 2 ? 2 : 0;
+    this.sprite.setPosition(x, y + 1 - hop).setDepth(depth + 0.5);
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);
     if (this.held) {
@@ -395,5 +468,12 @@ export class Avatar {
     this.label.setPosition(x + 3, y - top).setDepth(5e7 + depth);
     this.statusDot.setPosition(x + 3 - this.label.width / 2 - 4, y - top - this.label.height / 2).setDepth(5e7 + depth + 0.1);
     this.bubble?.setPosition(x, y - top - this.label.height - 1).setDepth(6e7 + depth);
+    if (this.emoteBubble) {
+      // Sobre el nombre; si hay globo de chat, encima de él.
+      const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
+      this.emoteBubble.container
+        .setPosition(x, y - top - this.label.height - 1 - chat - this.emoteBubble.lift)
+        .setDepth(6e7 + depth + 0.1);
+    }
   }
 }

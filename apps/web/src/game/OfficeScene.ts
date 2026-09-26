@@ -54,6 +54,7 @@ import { media, useMediaStore } from "./media";
 import {
   DECOR_ERRORS,
   getRoom,
+  onEmote,
   onMoveCorrection,
   onRoom,
   sendMove,
@@ -190,6 +191,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cleanups.push(
       onRoom((room) => this.bindRoom(room)),
       onMoveCorrection((c) => this.handleCorrection(c)),
+      onEmote((e) => this.avatars.get(e.sessionId)?.emote(e.emote)),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
