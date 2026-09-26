@@ -7,6 +7,7 @@ import {
   nearestFreeTile,
   officeDoor,
   placeAt,
+  INTERACT_REACH_TILES,
   pointsOfType,
   portalAtTile,
   SEAT_REACH_TILES,
@@ -49,12 +50,11 @@ const DOOR_PROMPT_RADIUS = 44;
 /** Cada cuánto se recalcula a quién se oye (audio/video por proximidad). */
 const HEARING_INTERVAL_MS = 250;
 const FADE_MS = 180;
-/** Distancia (en tiles) a la que se puede usar el buzón o el tablón. */
-const INTERACT_REACH_TILES = 1.4;
-/** Punto del mapa y mueble de cada objeto con el que se interactúa. */
-const INTERACTABLES: { kind: Interactable; point: string; furniture: string }[] = [
-  { kind: "mailbox", point: "mailbox", furniture: "mailbox" },
-  { kind: "board", point: "task_board", furniture: "notice-board" },
+/** Puntos del mapa y muebles (para el clic) de cada objeto con el que se interactúa. */
+const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[] = [
+  { kind: "mailbox", point: "mailbox", furniture: ["mailbox"] },
+  { kind: "board", point: "task_board", furniture: ["notice-board"] },
+  { kind: "cafe", point: "cafe_counter", furniture: ["counter-coffee", "pastry-case", "counter"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 
@@ -334,6 +334,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setStatus(player.status);
     avatar.setMotion(player.dir, false);
     avatar.setSeated(player.seated ? player.dir : null);
+    avatar.setHeld(player.held);
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -342,6 +343,7 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("look", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("avatar", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("name", (name) => avatar.setName(name));
+    p$.listen("held", (held) => avatar.setHeld(held));
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
@@ -405,7 +407,7 @@ export class OfficeScene extends Phaser.Scene {
       vx = down - up + right - left;
       vy = down - up - right + left;
       if (Phaser.Input.Keyboard.JustDown(k.E)) {
-        // Junto al buzón o el tablón, E los abre; si no, sienta o levanta.
+        // Junto al buzón, el tablón o la barra, E los abre; si no, sienta o levanta.
         const near = useOfficeStore.getState().interact;
         if (near && !this.seat) useOfficeStore.getState().openPanel(near, true);
         else this.toggleSeat();
@@ -432,7 +434,7 @@ export class OfficeScene extends Phaser.Scene {
           if (seat) this.sit(seat);
           const target = this.pendingInteract;
           this.pendingInteract = null;
-          if (target && this.nearestInteractable() === target) useOfficeStore.getState().openPanel(target, true);
+          if (target && this.interactableInReach() === target) useOfficeStore.getState().openPanel(target, true);
         }
       } else {
         vx = dx / dist;
@@ -464,7 +466,8 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.updateDoorPrompt();
     this.updateSeatPrompt();
-    const near = this.nearestInteractable();
+    // Sentado, E levanta: el aviso "E" de los objetos solo aparece de pie.
+    const near = this.seat ? null : this.interactableInReach();
     if (near !== useOfficeStore.getState().interact) useOfficeStore.getState().setInteract(near);
 
     this.sendAccumulator += delta;
@@ -613,10 +616,10 @@ export class OfficeScene extends Phaser.Scene {
     this.pendingZone = null;
     this.pendingInteract = null;
     const ts = this.map.tileSize;
-    // Clic sobre el buzón o el tablón (objetos altos): caminar hasta su punto y abrirlo al llegar.
+    // Clic sobre el buzón, el tablón o la barra: caminar hasta su punto y abrirlo al llegar.
     const target = this.interactableUnder(sx, sy);
     if (target) {
-      if (this.nearestInteractable() === target.kind) {
+      if (this.interactableInReach() === target.kind) {
         useOfficeStore.getState().openPanel(target.kind, true);
         return;
       }
@@ -637,15 +640,19 @@ export class OfficeScene extends Phaser.Scene {
       const tx = Math.floor(w.x / ts);
       const ty = Math.floor(w.y / ts);
       const f = this.map.furniture.find((f) => tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d);
-      const spec = f && INTERACTABLES.find((i) => i.furniture === f.type);
-      const point = spec && pointsOfType(this.map, spec.point)[0];
-      if (spec && point) return { kind: spec.kind, x: point.x, y: point.y };
+      const spec = f && INTERACTABLES.find((i) => i.furniture.includes(f.type));
+      if (!f || !spec) continue;
+      // El punto más cercano al mueble (la barra tiene dos).
+      const fx = (f.x + f.w / 2) * ts;
+      const fy = (f.y + f.d / 2) * ts;
+      const point = pointsOfType(this.map, spec.point).sort((a, b) => Math.hypot(a.x - fx, a.y - fy) - Math.hypot(b.x - fx, b.y - fy))[0];
+      if (point) return { kind: spec.kind, x: point.x, y: point.y };
     }
     return null;
   }
 
   /** Objeto interactivo al alcance del jugador local (o null). */
-  private nearestInteractable(): Interactable | null {
+  private interactableInReach(): Interactable | null {
     const avatar = this.local;
     if (!avatar) return null;
     const reach = INTERACT_REACH_TILES * this.map.tileSize;

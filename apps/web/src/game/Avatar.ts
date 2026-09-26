@@ -1,4 +1,4 @@
-import { bubble, characterShadow, FEET_Y, FRAME, FRAMES, SHEET_DIRECTIONS } from "@hyvento/map/art";
+import { bubble, characterShadow, drawCafeItem, FEET_Y, FRAME, FRAMES, isDrinkArt, SHEET_DIRECTIONS, steamPuff } from "@hyvento/map/art";
 import type { Direction, PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
@@ -12,6 +12,16 @@ const VIDEO_SIZE = 30;
 /** Altura del nombre sobre los pies. */
 const HEAD = 30;
 const SPEAKING_COLOR = "#5ea247";
+/**
+ * Dónde va lo que lleva en la mano, según hacia dónde mira: desplazamiento horizontal desde el centro y
+ * si queda delante del cuerpo (de frente) o detrás (de espaldas, asomado al costado).
+ */
+const HAND: Record<Direction, { dx: number; front: boolean }> = {
+  down: { dx: 4, front: true },
+  right: { dx: -5, front: true },
+  left: { dx: 7, front: false },
+  up: { dx: -7, front: false },
+};
 
 export const STATUS_COLORS = Object.fromEntries(
   Object.entries(STATUS_HEX).map(([k, v]) => [k, hexToInt(v)]),
@@ -40,6 +50,8 @@ export class Avatar {
   private readonly statusDot: Phaser.GameObjects.Arc;
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
+  /** Lo que lleva en la mano (pedido en la cafetería) y el vapor si es una bebida. */
+  private held?: { id: string; image: Phaser.GameObjects.Image; steam?: Phaser.GameObjects.Image; tween?: Phaser.Tweens.Tween };
   private bubbleTimer?: Phaser.Time.TimerEvent;
   private video?: { track: Track; el: HTMLVideoElement; wrap: HTMLDivElement; dom: Phaser.GameObjects.DOMElement };
   private speaking = false;
@@ -107,6 +119,8 @@ export class Avatar {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
+    this.held?.image.setVisible(!hidden);
+    this.held?.steam?.setVisible(!hidden);
     this.speakingRing.setVisible(!hidden && this.speaking && !this.video);
     this.bubble?.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
@@ -170,6 +184,44 @@ export class Avatar {
     this.video = undefined;
     this.speakingRing.setVisible(this.speaking && !this.hidden);
     this.layout();
+  }
+
+  /** Pone en la mano un producto de la cafetería (id del menú) o lo quita con "". */
+  setHeld(id: string) {
+    if ((this.held?.id ?? "") === id) return;
+    this.clearHeld();
+    if (!id) return;
+    const key = `mano-${id}`;
+    ensureTexture(this.scene, key, () => drawCafeItem(id));
+    const image = this.scene.add.image(0, 0, key).setOrigin(0.5, 1).setVisible(!this.hidden);
+    this.held = { id, image };
+    if (isDrinkArt(id)) {
+      ensureTexture(this.scene, "vapor", () => steamPuff());
+      const steam = this.scene.add.image(0, 0, "vapor").setOrigin(0.5, 1).setVisible(!this.hidden);
+      // El vapor sube y se desvanece; `steamRise` lo desplaza desde la boca de la taza (ver layout).
+      const tween = this.scene.tweens.addCounter({
+        from: 0,
+        to: 1,
+        duration: 1400,
+        repeat: -1,
+        repeatDelay: 500,
+        onUpdate: (t) => {
+          const v = t.getValue() ?? 0;
+          steam.setData("rise", v * 5).setAlpha(1 - v);
+          this.layout();
+        },
+      });
+      this.held = { id, image, steam, tween };
+    }
+    this.layout();
+  }
+
+  private clearHeld() {
+    if (!this.held) return;
+    this.held.tween?.remove();
+    this.held.image.destroy();
+    this.held.steam?.destroy();
+    this.held = undefined;
   }
 
   /** Nombre visible (cambia en vivo si la persona edita su perfil). */
@@ -269,6 +321,7 @@ export class Avatar {
 
   destroy() {
     this.clearVideo();
+    this.clearHeld();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
     this.sprite.destroy();
@@ -286,6 +339,15 @@ export class Avatar {
     this.sprite.setPosition(x, y + 1).setDepth(depth + 0.5);
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);
+    if (this.held) {
+      const hand = HAND[this.seated ?? this.dir];
+      // Sentado, las manos quedan 3 px más abajo (sobre las piernas).
+      const bottom = y + 1 - (this.seated ? 2 : 5);
+      const hd = depth + (hand.front ? 0.55 : 0.47);
+      this.held.image.setPosition(x + hand.dx, bottom).setDepth(hd);
+      const rise = (this.held.steam?.getData("rise") as number | undefined) ?? 0;
+      this.held.steam?.setPosition(x + hand.dx, bottom - this.held.image.height - rise).setDepth(hd);
+    }
     // Con cámara, el nombre va sobre la burbuja de video. Los textos van por encima de todo.
     const head = HEAD - (this.seated ? 3 : 0);
     const top = this.video ? head + VIDEO_SIZE + 2 : head;

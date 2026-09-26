@@ -8,6 +8,7 @@ export * from "./chibi";
 export { drawFurniture, type Variant } from "./furniture";
 export { CABIN_CHIMNEY_TOP } from "./outdoor";
 export { composeArea } from "./compose";
+export { CAFE_ITEM_ART, drawCafeItem, isDrinkArt, steamPuff } from "./items";
 export { drawAreaBase, drawDoorPost, drawLowWall, LOW_WALL_H, WALL_H, type AreaArt } from "./room";
 
 /** Halo de luz en bandas tramadas (se suma de noche). */

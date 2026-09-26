@@ -11,7 +11,7 @@ export async function GET() {
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     take: 15,
-    select: { id: true, amount: true, reason: true, createdAt: true },
+    select: { id: true, amount: true, reason: true, refId: true, createdAt: true },
   });
   const claimed = claimedToday(user.lastDailyAt);
   // La racha que tendría al reclamar hoy (o la actual si ya reclamó).
@@ -20,7 +20,13 @@ export async function GET() {
     {
       balance: user.points,
       daily: { claimed, streak, reward: dailyReward(streak) },
-      moves: moves.map((m) => ({ id: m.id, amount: m.amount, reason: m.reason as PointReason, at: m.createdAt.toISOString() })),
+      moves: moves.map((m) => ({
+        id: m.id,
+        amount: m.amount,
+        reason: m.reason as PointReason,
+        refId: m.refId,
+        at: m.createdAt.toISOString(),
+      })),
     },
     { headers: { "Cache-Control": "no-store" } },
   );

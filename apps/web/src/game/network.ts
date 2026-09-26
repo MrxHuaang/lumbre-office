@@ -2,6 +2,9 @@ import {
   CLOSE_CODE,
   MSG,
   ROOM_NAME,
+  cafeItem,
+  type CafeItemId,
+  type CafeOrderResult,
   type ChatEvent,
   type ChatScope,
   type JoinOptions,
@@ -33,6 +36,8 @@ export interface RemotePlayer {
   zoneId: string;
   place: string;
   points: number;
+  /** Lo que lleva en la mano (id del menú de la cafetería; "" = nada). */
+  held: string;
 }
 export interface RemoteOffice {
   zoneId: string;
@@ -136,6 +141,29 @@ export function sendTravel(portal: string) {
   room?.send(MSG.travel, { portal });
 }
 
+/** Pide algo en la barra de la cafetería (el servidor valida que estés junto a ella y cobra). */
+export function sendCafeOrder(item: CafeItemId) {
+  room?.send(MSG.cafeOrder, { item });
+}
+
+const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], string> = {
+  far: "Acércate a la barra para pedir.",
+  funds: "No te alcanzan los puntos.",
+  busy: "Un momento, ya viene tu pedido.",
+  failed: "No se pudo hacer el pedido. Intenta de nuevo.",
+};
+
+function handleCafeResult(r: CafeOrderResult) {
+  const store = useOfficeStore.getState();
+  const name = cafeItem(r.item)?.name ?? "tu pedido";
+  if (r.ok) {
+    store.closePanel();
+    store.notify(`Aquí tienes: ${name}. ¡Buen provecho!`, "success");
+  } else {
+    store.notify(CAFE_ERRORS[r.error], "warning");
+  }
+}
+
 /** Hubo actividad real (mouse/teclado): cuenta para los puntos de presencia. */
 export function sendActivity() {
   room?.send(MSG.activity);
@@ -217,6 +245,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
+  r.onMessage(MSG.cafeResult, handleCafeResult);
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

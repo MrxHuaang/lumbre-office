@@ -33,8 +33,8 @@ export interface PlayerInfo {
   points: number;
 }
 
-/** Objetos del jardín con los que se interactúa (tecla E o clic). */
-export type Interactable = "mailbox" | "board";
+/** Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería. */
+export type Interactable = "mailbox" | "board" | "cafe";
 
 export interface OfficeView {
   zoneId: string;

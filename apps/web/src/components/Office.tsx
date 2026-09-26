@@ -16,6 +16,7 @@ import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
+import { CafePanel } from "./CafePanel";
 import { ProfileDialog } from "./ProfileDialog";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 
@@ -196,6 +197,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {dialog === "admin" && <AdminDialog onClose={closeDialog} />}
           {panel?.kind === "mailbox" && <MailboxPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "board" && <BoardPanel onClose={closePanel} />}
+          {panel?.kind === "cafe" && <CafePanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}
 

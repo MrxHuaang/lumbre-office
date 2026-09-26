@@ -1,12 +1,12 @@
 "use client";
 
 // Fase 2: el buzón (recompensa diaria y movimientos) y el tablón (misiones y ranking) del jardín.
-import { POINTS, type HumanAvatar, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
+import { cafeItem, POINTS, type HumanAvatar, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useOfficeStore } from "@/game/store";
+import { useOfficeStore, type Interactable } from "@/game/store";
 import { CharacterSprite } from "./CharacterSprite";
-import { PixelIcon } from "./Cozy";
+import { PixelIcon, type PixelIconName } from "./Cozy";
 
 const REASON_LABEL: Record<PointReason, string> = {
   PRESENCE: "Presencia",
@@ -14,9 +14,23 @@ const REASON_LABEL: Record<PointReason, string> = {
   DAILY: "Recompensa diaria",
   MISSION: "Misión",
   ADMIN: "Ajuste",
+  PURCHASE: "Compra",
 };
 
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
+/** Nombre de un movimiento: las compras dicen qué se compró ("Cafetería · Tinto"). */
+function moveLabel(m: { reason: PointReason; refId: string | null }) {
+  const [kind, id] = (m.refId ?? "").split(":");
+  if (m.reason === "PURCHASE" && kind === "cafe") return `Cafetería · ${cafeItem(id ?? "")?.name ?? "pedido"}`;
+  return REASON_LABEL[m.reason];
+}
+
+const PROMPT: Record<Interactable, string> = {
+  mailbox: "Abrir el buzón",
+  board: "Ver el tablón",
+  cafe: "Pedir en la barra",
+};
+
+export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
   const body = (await res.json().catch(() => null)) as (T & { error?: string }) | null;
   if (!res.ok || !body) throw new Error(body?.error ?? "Algo salió mal. Intenta de nuevo.");
@@ -62,7 +76,7 @@ export function PointsCounter() {
   );
 }
 
-/** Ayuda junto al buzón o el tablón: tecla E o botón para abrirlo. */
+/** Ayuda junto al buzón, el tablón o la barra: tecla E o botón para abrirlo. */
 export function InteractPrompt() {
   const near = useOfficeStore((s) => s.interact);
   const panel = useOfficeStore((s) => s.panel);
@@ -75,13 +89,25 @@ export function InteractPrompt() {
       className="cozy-chip absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-[14px]"
     >
       <kbd className="cozy-kbd">E</kbd>
-      {near === "mailbox" ? "Abrir el buzón" : "Ver el tablón"}
+      {PROMPT[near]}
     </button>
   );
 }
 
-/** Ventana de panel (buzón, tablón): se cierra con Esc; mientras está abierta el teclado no mueve al personaje. */
-function PanelShell({ title, icon, onClose, children, wide = false }: { title: string; icon: "mail" | "board"; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+/** Ventana de panel (buzón, tablón, barra): se cierra con Esc; mientras está abierta el teclado no mueve al personaje. */
+export function PanelShell({
+  title,
+  icon,
+  onClose,
+  children,
+  wide = false,
+}: {
+  title: string;
+  icon: PixelIconName;
+  onClose: () => void;
+  children: React.ReactNode;
+  wide?: boolean;
+}) {
   useEffect(() => {
     const { setTyping } = useOfficeStore.getState();
     setTyping(true);
@@ -113,7 +139,7 @@ function PanelShell({ title, icon, onClose, children, wide = false }: { title: s
 interface PointsState {
   balance: number;
   daily: { claimed: boolean; streak: number; reward: number };
-  moves: { id: string; amount: number; reason: PointReason; at: string }[];
+  moves: { id: string; amount: number; reason: PointReason; refId: string | null; at: string }[];
 }
 
 export function MailboxPanel({ atObject, onClose }: { atObject: boolean; onClose: () => void }) {
@@ -177,7 +203,7 @@ export function MailboxPanel({ atObject, onClose }: { atObject: boolean; onClose
               <ul>
                 {data.moves.map((m) => (
                   <li key={m.id} className="flex items-center gap-3 border-b-2 border-cozy-paper-dark py-1.5 text-[14px] last:border-b-0">
-                    <span className="flex-1">{REASON_LABEL[m.reason]}</span>
+                    <span className="flex-1">{moveLabel(m)}</span>
                     <span className="text-[12px] text-cozy-ink-soft">{ago(m.at)}</span>
                     <span className={`w-12 text-right font-semibold ${m.amount >= 0 ? "text-cozy-green" : "text-cozy-red-deep"}`}>
                       {m.amount >= 0 ? "+" : ""}
