@@ -43,6 +43,8 @@ export class OfficeScene extends Phaser.Scene {
   private nameplates = new Map<string, Phaser.GameObjects.Text>();
   private cleanups: (() => void)[] = [];
   private roomDetach: (() => void)[] = [];
+  /** La escena fue destruida: ignorar cualquier evento tardío de la sala. */
+  private disposed = false;
 
   constructor() {
     super("office");
@@ -96,6 +98,7 @@ export class OfficeScene extends Phaser.Scene {
     // `game.destroy()` emite DESTROY (no SHUTDOWN): hay que limpiar en ambos casos, o la escena
     // muerta seguiría suscrita a la sala siguiente y rompería sus callbacks de estado.
     const cleanup = () => {
+      this.disposed = true;
       this.unbindRoom();
       this.cleanups.forEach((fn) => fn());
       this.cleanups = [];
@@ -122,7 +125,9 @@ export class OfficeScene extends Phaser.Scene {
     this.seenMessages = useOfficeStore.getState().messages.length;
 
     const $ = getStateCallbacks(room);
-    const alive = () => this.sys.isActive();
+    // Ojo: no usar sys.isActive(): durante create() la escena aún no está "activa" y
+    // los jugadores existentes se notifican justo en ese momento.
+    const alive = () => !this.disposed;
     this.roomDetach.push(
       $(room.state).players.onAdd((player, sessionId) => {
         if (alive()) this.addAvatar(sessionId, player, $);
