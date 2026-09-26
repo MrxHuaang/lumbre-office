@@ -28,6 +28,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Google],
   // JWT: la sesión no consulta la DB en cada request; los usuarios/cuentas sí se guardan con el adapter.
   session: { strategy: "jwt" },
+  // Detrás del proxy del hosting (Vercel u otro) el host viene en las cabeceras.
+  trustHost: true,
   pages: { signIn: "/login", error: "/login" },
   callbacks: {
     async signIn({ user, profile }) {

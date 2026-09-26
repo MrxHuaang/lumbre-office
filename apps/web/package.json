@@ -17,6 +17,7 @@
     "@hyvento/db": "workspace:*",
     "@hyvento/map": "workspace:*",
     "@hyvento/shared": "workspace:*",
+    "@prisma/client": "^6.19.3",
     "colyseus.js": "^0.16.0",
     "livekit-client": "^2.22.3",
     "livekit-server-sdk": "^2.19.1",
