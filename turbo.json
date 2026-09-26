@@ -3,7 +3,7 @@
   "ui": "stream",
   "tasks": {
     "dev": { "cache": false, "persistent": true },
-    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
+    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**", "public/assets/**"] },
     "typecheck": { "dependsOn": ["^typecheck"] },
     "test": {}
   }

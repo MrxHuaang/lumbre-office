@@ -81,6 +81,12 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   preload() {
+    // Sin mapa o tileset no hay nada que dibujar: mostrar el error en vez de una pantalla vacía.
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
+      if (file.key === "office" || file.key === "tiles") {
+        useOfficeStore.getState().setConnection("error", "No se pudo cargar el mapa de la oficina. Recarga la página.");
+      }
+    });
     this.load.tilemapTiledJSON("office", "/assets/office.json");
     this.load.image("tiles", "/assets/tileset.png");
     for (const a of HUMAN_AVATARS) {
