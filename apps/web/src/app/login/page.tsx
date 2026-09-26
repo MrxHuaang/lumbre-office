@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { Overprint, RisoLogo, Sprite } from "@/components/Riso";
 import { getCurrentUser } from "@/lib/current-user";
+import { RISO } from "@/lib/riso";
 import { loginWithGoogle } from "../actions";
 
 const ERRORS: Record<string, string> = {
@@ -15,43 +17,79 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const message = error ? (ERRORS[error] ?? "No se pudo iniciar sesión. Intenta de nuevo.") : null;
 
   return (
-    <main className="flex min-h-full items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 text-center shadow-2xl sm:p-8">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-panel-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/characters/ada.png" alt="" className="pixelated h-auto w-auto" style={{ objectFit: "none", objectPosition: "0 0", width: 32, height: 32, transform: "scale(1.5)" }} />
-        </div>
-        <p className="mt-4 text-xs font-semibold tracking-[0.2em] text-accent uppercase">Hyvento</p>
-        <h1 className="mt-1 text-2xl font-bold">Oficina virtual</h1>
-        <p className="mt-2 text-sm text-muted">Entra con la cuenta de Google con la que te invitaron.</p>
+    <main className="riso-grain relative grid min-h-full overflow-hidden md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+      <div className="relative z-[2] flex flex-col justify-between gap-10 px-6 py-8 sm:px-10 md:px-14 md:py-12">
+        <RisoLogo />
 
-        {message && (
-          <p role="alert" className="mt-5 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-left text-sm text-red-200">
-            {message}
+        <div className="flex flex-col gap-7">
+          <p className="text-[13px] font-semibold tracking-[0.14em] text-riso-blue uppercase">
+            Oficina virtual · Equipo Hyvento
           </p>
-        )}
+          <Overprint
+            as="h1"
+            lines={["Oficina", "virtual"]}
+            back={RISO.blue}
+            front={RISO.pink}
+            offset={[5, 4]}
+            className="text-[clamp(64px,9vw,148px)] leading-[0.86] tracking-[-0.035em]"
+          />
+          <p className="max-w-[30ch] text-[17px] leading-normal text-pretty">
+            Entra con la cuenta de Google con la que te invitaron.
+          </p>
 
-        <form action={loginWithGoogle} className="mt-6">
-          <button
-            type="submit"
-            className="flex w-full items-center justify-center gap-3 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-[#1f1f1f] transition hover:bg-white/90"
-          >
-            <GoogleIcon />
-            Continuar con Google
-          </button>
-        </form>
+          {message && (
+            <p
+              role="alert"
+              className="riso-panel max-w-md px-4 py-3 text-sm leading-relaxed"
+              style={{ "--riso-shadow": RISO.pink } as React.CSSProperties}
+            >
+              {message}
+            </p>
+          )}
+
+          <form action={loginWithGoogle} className="flex">
+            <button
+              type="submit"
+              className="riso-cta border-0 bg-riso-navy text-riso-paper"
+              style={{ "--riso-shadow": RISO.pink } as React.CSSProperties}
+            >
+              <span className="grid h-[26px] w-[26px] place-items-center rounded-full bg-riso-paper text-[15px] font-black text-riso-navy [font-family:var(--riso-archivo)]">
+                G
+              </span>
+              Continuar con Google
+            </button>
+          </form>
+        </div>
+
+        <p className="text-xs text-riso-muted">Usa las flechas o WASD para moverte dentro.</p>
+      </div>
+
+      {/* Ilustración: semitono rosa, disco azul, cuadrado amarillo y el personaje saludando. */}
+      <div aria-hidden className="relative order-first grid h-[45vh] place-items-center md:order-none md:h-auto md:min-h-screen">
+        <div
+          className="absolute aspect-square w-[78%] max-w-[78vh] rounded-full opacity-90 mix-blend-multiply"
+          style={{
+            background: `radial-gradient(circle, ${RISO.pink} 2.2px, transparent 2.6px) 0 0 / 11px 11px`,
+            transform: "translate(-6%, -4%)",
+          }}
+        />
+        <div
+          className="absolute aspect-square w-[62%] max-w-[62vh] rounded-full bg-riso-blue opacity-85 mix-blend-multiply"
+          style={{ transform: "translate(12%, 10%)" }}
+        />
+        <div
+          className="absolute aspect-square w-[30%] max-w-[30vh] bg-riso-yellow mix-blend-multiply"
+          style={{ transform: "translate(-70%, 95%) rotate(12deg)" }}
+        />
+        <Sprite
+          avatar="ada"
+          className="relative w-[min(30vw,260px)] max-md:w-[min(40vw,28vh)]"
+          style={{ filter: "drop-shadow(8px 8px 0 rgba(31,42,68,.35))" }}
+        />
+        <div className="absolute top-[22%] right-[12%] rotate-[4deg] border-2 border-riso-navy bg-riso-paper px-3.5 py-2 text-[13px] font-semibold shadow-[4px_4px_0_var(--color-riso-navy)]">
+          ¡hola equipo!
+        </div>
       </div>
     </main>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
-      <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
-      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
-    </svg>
   );
 }

@@ -5,13 +5,14 @@ import { logout } from "@/app/actions";
 import { media } from "@/game/media";
 import { connect, disconnect } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
-import { waitForRisoFont } from "@/lib/riso";
+import { RISO, waitForRisoFont } from "@/lib/riso";
 import { ChatPanel } from "./ChatPanel";
 import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices } from "./OfficeOverlays";
+import { Overprint } from "./Riso";
 
 const RELOAD_FLAG = "hyvento:reloaded-after-update";
 
@@ -144,14 +145,14 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
 
       {(connection === "connecting" || connection === "idle") && (
         <Overlay>
-          <Overprint text="Entrando…" />
+          <Title text="Entrando…" />
           <p className="mt-4 text-[13px] text-riso-muted">Preparando la oficina</p>
         </Overlay>
       )}
 
       {connection === "error" && (
         <Overlay>
-          <Overprint text="Uy." />
+          <Title text="Uy." />
           <p className="mt-5 max-w-sm text-center text-[15px] leading-relaxed">{error ?? "Algo salió mal."}</p>
           <div className="mt-6 flex items-center gap-4">
             <button onClick={() => setAttempt((n) => n + 1)} className="riso-pill riso-press bg-riso-pink px-5 py-3 text-[15px]">
@@ -176,14 +177,8 @@ function ControlsHint() {
   );
 }
 
-/** Titular con dos tintas superpuestas (la técnica de impresión RISO). */
-function Overprint({ text }: { text: string }) {
-  return (
-    <p className="font-display relative text-6xl leading-none font-black tracking-tight [font-stretch:125%]">
-      <span className="absolute top-[3px] left-1 text-riso-blue mix-blend-multiply">{text}</span>
-      <span className="relative text-riso-pink mix-blend-multiply">{text}</span>
-    </p>
-  );
+function Title({ text }: { text: string }) {
+  return <Overprint lines={[text]} back={RISO.blue} front={RISO.pink} offset={[4, 3]} className="text-6xl leading-none tracking-tight" />;
 }
 
 function Overlay({ children }: { children: React.ReactNode }) {
