@@ -9,3 +9,6 @@ onlyBuiltDependencies:
   - "@prisma/engines"
   - sharp
   - "@tailwindcss/oxide"
+
+ignoredBuiltDependencies:
+  - msgpackr-extract
