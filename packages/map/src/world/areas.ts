@@ -395,6 +395,17 @@ const piso2: AreaDef = {
 
 const ROULETTE = { x: 5, y: 3 };
 const BLACKJACK = { x: 11, y: 4 };
+/**
+ * Banquetas del blackjack en el orden de los asientos 1 a 5: una en la punta de arriba, tres frente a la
+ * mesa y una en la punta de abajo (el crupier es automático, del otro lado).
+ */
+export const BLACKJACK_SEATS: readonly { x: number; y: number; facing: "left" | "down" | "up" }[] = [
+  { x: BLACKJACK.x + 1, y: BLACKJACK.y - 1, facing: "down" },
+  { x: BLACKJACK.x + 2, y: BLACKJACK.y, facing: "left" },
+  { x: BLACKJACK.x + 2, y: BLACKJACK.y + 1, facing: "left" },
+  { x: BLACKJACK.x + 2, y: BLACKJACK.y + 2, facing: "left" },
+  { x: BLACKJACK.x + 1, y: BLACKJACK.y + 3, facing: "up" },
+];
 /** Tarima de 3x3 con el tubo en el tile del medio. */
 const STAGE = { x: 7, y: 8 };
 
@@ -415,12 +426,8 @@ const sotano: AreaDef = {
     place("stairs-up", 1, 0),
     place("roulette-table", ROULETTE.x, ROULETTE.y),
     place("blackjack-table", BLACKJACK.x, BLACKJACK.y),
-    // Banquetas del blackjack: tres frente a la mesa y una en cada punta, mirando a la mesa.
-    place("stool", BLACKJACK.x + 2, BLACKJACK.y, "left"),
-    place("stool", BLACKJACK.x + 2, BLACKJACK.y + 1, "left"),
-    place("stool", BLACKJACK.x + 2, BLACKJACK.y + 2, "left"),
-    place("stool", BLACKJACK.x + 1, BLACKJACK.y - 1, "down"),
-    place("stool", BLACKJACK.x + 1, BLACKJACK.y + 3, "up"),
+    // Banquetas del blackjack (ver BLACKJACK_SEATS), mirando a la mesa.
+    ...BLACKJACK_SEATS.map((s) => place("stool", s.x, s.y, s.facing)),
     place("pole-stage", STAGE.x, STAGE.y),
     place("dance-pole", STAGE.x + 1, STAGE.y + 1),
     place("casino-cashier", 14, 0, "down"),

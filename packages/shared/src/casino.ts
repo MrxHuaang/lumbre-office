@@ -23,7 +23,7 @@ export const CASINO = {
 } as const;
 
 /** Por qué no se aceptó una apuesta. */
-export const CASINO_ERRORS = ["far", "closed", "limit", "funds", "max-bets", "disabled", "failed"] as const;
+export const CASINO_ERRORS = ["far", "closed", "limit", "funds", "max-bets", "disabled", "failed", "seat", "turn"] as const;
 export type CasinoError = (typeof CASINO_ERRORS)[number];
 
 export const CASINO_ERROR_TEXT: Record<CasinoError, string> = {
@@ -34,6 +34,8 @@ export const CASINO_ERROR_TEXT: Record<CasinoError, string> = {
   "max-bets": "Ya hiciste todas las apuestas que se permiten en esta ronda.",
   disabled: "El casino está cerrado por ahora.",
   failed: "No se pudo hacer la apuesta. Intenta de nuevo.",
+  seat: "Siéntate en una banqueta de la mesa de blackjack para jugar.",
+  turn: "Todavía no es tu turno.",
 };
 
 /**
@@ -162,3 +164,88 @@ export const CasinoSettingsBody = z.object({
   enabled: z.boolean(),
   dailyLossLimit: z.number().int().min(0).max(100_000),
 });
+
+// ---------- Blackjack ----------
+
+export const BLACKJACK = {
+  seats: 5,
+  decks: 6,
+  /** Con menos cartas que esto en el sabot, se baraja de nuevo antes de repartir. */
+  reshuffleAt: 60,
+  /** Tiempo para apostar (arranca con la primera apuesta), para cada turno y para mostrar el resultado. */
+  bettingMs: 12_000,
+  turnMs: 20_000,
+  dealerStepMs: 700,
+  resultMs: 5_000,
+} as const;
+
+/** Carta como número 0..51: palo = n / 13 (picas, corazones, diamantes, tréboles), valor = n % 13 + 1 (1 = as). */
+export type Card = number;
+/** Carta tapada del crupier (en el estado viaja así hasta que se destapa). */
+export const HIDDEN_CARD = -1;
+
+export const cardRank = (c: Card) => (c % 13) + 1;
+export const cardSuit = (c: Card) => Math.floor(c / 13) as 0 | 1 | 2 | 3;
+export const SUIT_NAMES = ["picas", "corazones", "diamantes", "tréboles"] as const;
+export const RANK_LABEL = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] as const;
+export const isRedSuit = (c: Card) => cardSuit(c) === 1 || cardSuit(c) === 2;
+
+/** Valor de una mano: el as vale 11 si no se pasa (mano "blanda"), si no 1. */
+export function handValue(cards: readonly Card[]): { total: number; soft: boolean } {
+  let total = 0;
+  let aces = 0;
+  for (const c of cards) {
+    if (c === HIDDEN_CARD) continue;
+    const r = cardRank(c);
+    if (r === 1) aces++;
+    total += r === 1 ? 1 : Math.min(r, 10);
+  }
+  const soft = aces > 0 && total + 10 <= 21;
+  return { total: soft ? total + 10 : total, soft };
+}
+
+export const isBlackjack = (cards: readonly Card[]) => cards.length === 2 && handValue(cards).total === 21;
+
+/** El crupier pide carta con menos de 17 y se planta con cualquier 17 (también el blando). */
+export const dealerShouldHit = (cards: readonly Card[]) => handValue(cards).total < 17;
+
+export type BlackjackOutcome = "blackjack" | "win" | "push" | "lose";
+
+/** Resultado de una mano contra la del crupier (sin contar el seguro ni la división: no los hay). */
+export function blackjackOutcome(player: readonly Card[], dealer: readonly Card[]): BlackjackOutcome {
+  const p = handValue(player).total;
+  const d = handValue(dealer).total;
+  const pbj = isBlackjack(player);
+  const dbj = isBlackjack(dealer);
+  if (p > 21) return "lose";
+  if (pbj && !dbj) return "blackjack";
+  if (dbj && !pbj) return "lose";
+  if (pbj && dbj) return "push";
+  if (d > 21 || p > d) return "win";
+  return p === d ? "push" : "lose";
+}
+
+/** Puntos devueltos (apuesta incluida) según el resultado: blackjack 3:2 (redondeado hacia abajo), gana 1:1, empate devuelve. */
+export function blackjackReturn(outcome: BlackjackOutcome, bet: number): number {
+  if (outcome === "blackjack") return bet + Math.floor((bet * 3) / 2);
+  if (outcome === "win") return bet * 2;
+  if (outcome === "push") return bet;
+  return 0;
+}
+
+export type BlackjackPhase = "waiting" | "betting" | "playing" | "dealer" | "result";
+export const BLACKJACK_ACTIONS = ["hit", "stand", "double"] as const;
+export type BlackjackAction = (typeof BLACKJACK_ACTIONS)[number];
+
+/** Cliente → servidor (`MSG.blackjackBet`): apostar en tu asiento (hay que estar sentado a la mesa). */
+export const BlackjackBetMessage = z.object({ amount: z.number().int().min(CASINO.minBet).max(CASINO.maxBet) });
+/** Servidor → cliente al terminar una mano de blackjack (`MSG.blackjackSettled`). */
+export interface BlackjackSettled {
+  round: number;
+  outcome: BlackjackOutcome;
+  won: number;
+  staked: number;
+}
+
+/** Cliente → servidor (`MSG.blackjackAction`): jugada en tu turno. */
+export const BlackjackActionMessage = z.object({ action: z.enum(BLACKJACK_ACTIONS) });

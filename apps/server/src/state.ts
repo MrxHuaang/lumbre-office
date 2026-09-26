@@ -79,8 +79,35 @@ export class RouletteState extends Schema {
   @type([RouletteBet]) bets = new ArraySchema<RouletteBet>();
 }
 
+/** Un asiento del blackjack (5 en total, en el orden de BLACKJACK_SEATS). */
+export class BlackjackSeat extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  @type("number") bet = 0;
+  @type(["number"]) cards = new ArraySchema<number>();
+  /** "" (sin mano), "playing", "stand", "bust" o "blackjack". */
+  @type("string") status = "";
+  @type("boolean") doubled = false;
+  /** Al terminar: "blackjack", "win", "push" o "lose" (y lo devuelto en `payout`). */
+  @type("string") outcome = "";
+  @type("number") payout = 0;
+}
+
+/** Mesa de blackjack del sótano. La carta tapada del crupier viaja como -1 hasta que se destapa. */
+export class BlackjackState extends Schema {
+  /** "waiting" (nadie apostó), "betting", "playing", "dealer" o "result". */
+  @type("string") phase = "waiting";
+  @type("number") round = 0;
+  @type("number") endsAt = 0;
+  /** Asiento que juega ahora (-1 = nadie). */
+  @type("number") turn = -1;
+  @type(["number"]) dealer = new ArraySchema<number>();
+  @type([BlackjackSeat]) seats = new ArraySchema<BlackjackSeat>();
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
   @type(RouletteState) roulette = new RouletteState();
+  @type(BlackjackState) blackjack = new BlackjackState();
 }
