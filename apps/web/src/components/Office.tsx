@@ -12,6 +12,48 @@ import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices } from "./OfficeOverlays";
 
+const RELOAD_FLAG = "hyvento:reloaded-after-update";
+
+const sessionStorageSafe = {
+  get: (k: string) => {
+    try {
+      return sessionStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k: string, v: string) => {
+    try {
+      sessionStorage.setItem(k, v);
+    } catch {
+      // sin almacenamiento: no se puede evitar un segundo reintento
+    }
+  },
+  remove: (k: string) => {
+    try {
+      sessionStorage.removeItem(k);
+    } catch {
+      // ignorar
+    }
+  },
+};
+
+/**
+ * Si falla la carga del módulo del juego (típicamente porque se desplegó una versión nueva y la
+ * pestaña pide un chunk que ya no existe), recargar una vez; si vuelve a fallar, avisar.
+ */
+function handleGameLoadError(err: unknown) {
+  console.error("No se pudo cargar el juego:", err);
+  const message = err instanceof Error ? `${err.name} ${err.message}` : String(err);
+  const isChunkError = /ChunkLoadError|Loading chunk|dynamically imported module|Failed to fetch/i.test(message);
+  if (isChunkError && !sessionStorageSafe.get(RELOAD_FLAG)) {
+    sessionStorageSafe.set(RELOAD_FLAG, "1");
+    window.location.reload();
+    return;
+  }
+  useOfficeStore.getState().setConnection("error", "No se pudo cargar el mapa de la oficina. Recarga la página.");
+}
+
 async function fetchGameToken(): Promise<string> {
   const res = await fetch("/api/game-token", { cache: "no-store" });
   if (res.status === 401) {
@@ -46,11 +88,19 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
         return;
       }
       if (cancelled || !gameRef.current) return;
-      const { createGame, waitForSize } = await import("@/game/createGame"); // Phaser necesita `window`
-      if (cancelled || !gameRef.current) return;
-      await waitForSize(gameRef.current);
-      if (cancelled || !gameRef.current) return;
-      game = createGame(gameRef.current);
+      try {
+        const { createGame, waitForSize, waitForVisible } = await import("@/game/createGame"); // Phaser necesita `window`
+        if (cancelled || !gameRef.current) return;
+        await waitForVisible();
+        await waitForSize(gameRef.current);
+        if (cancelled || !gameRef.current) return;
+        game = createGame(gameRef.current);
+        game.events.once("ready", () => sessionStorageSafe.remove(RELOAD_FLAG));
+      } catch (err) {
+        if (cancelled) return;
+        handleGameLoadError(err);
+        return;
+      }
       // Audio/video: opcional; si LiveKit no está disponible la oficina funciona igual.
       void media.connect();
     })();

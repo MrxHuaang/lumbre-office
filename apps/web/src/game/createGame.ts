@@ -18,9 +18,24 @@ export function waitForSize(el: HTMLElement): Promise<void> {
   });
 }
 
+/** Espera a que la pestaña esté visible (arrancar el juego en segundo plano puede fallar). */
+export function waitForVisible(): Promise<void> {
+  if (document.visibilityState === "visible") return Promise.resolve();
+  return new Promise((resolve) => {
+    const onChange = () => {
+      if (document.visibilityState !== "visible") return;
+      document.removeEventListener("visibilitychange", onChange);
+      resolve();
+    };
+    document.addEventListener("visibilitychange", onChange);
+  });
+}
+
 export function createGame(parent: HTMLElement) {
   return new Phaser.Game({
-    type: Phaser.AUTO,
+    // Canvas 2D en vez de WebGL: más compatible (GPUs integradas, Brave, pestañas en segundo plano)
+    // y de sobra para un mapa pixel-art de este tamaño.
+    type: Phaser.CANVAS,
     parent,
     pixelArt: true,
     roundPixels: true,
