@@ -7,17 +7,19 @@ import {
   decorateAreaDef,
   defaultOfficeItems,
   getWorld,
-  nearestFreeTile,
   nearPointOfType,
   nearPortal,
+  officeDoor,
   placeAt,
   SEAT_REACH_TILES,
   seatAtPoint,
   spawnPoint,
+  wallBetween,
   zoneAt,
   type AreaDecor,
   type DecorEdit,
   type OfficeMap,
+  type TilePos,
   type World,
   type Zone,
 } from "@hyvento/map";
@@ -85,6 +87,8 @@ const CHAT_HISTORY_SIZE = 50;
 const CHAT_RATE = { max: 5, windowMs: 5_000 };
 const EDIT_RATE = { max: 10, windowMs: 3_000 };
 const RECONNECT_SECONDS = 15;
+/** Hasta qué distancia (en tiles) se busca lugar para quien quedó dentro de un mueble. */
+const UNSTICK_RADIUS = 6;
 
 const itemDTO = (i: OfficeItem): OfficeItemDTO => ({ id: i.id, type: i.type, x: i.x, y: i.y, facing: i.facing as Direction });
 
@@ -156,7 +160,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.officeEdit, (client, raw) => {
-      this.serial(() => this.handleOfficeEdit(client, raw)).catch((err) => console.error("officeEdit", err));
+      this.serial(() => this.handleOfficeEdit(client, raw)).catch((err) => {
+        // Un error inesperado igual se responde: si no, el editor se queda esperando.
+        console.error("officeEdit", err);
+        client.send(MSG.officeEditResult, { ok: false, error: "failed" } satisfies OfficeEditResult);
+      });
     });
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
@@ -326,16 +334,56 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const [sessionId, p] of this.state.players) {
       if (p.area !== areaId) continue;
       if (p.seated ? seatAtPoint(map, p.x, p.y) : canStandAt(map, p.x, p.y)) continue;
-      const tile = nearestFreeTile(map, { x: Math.floor(p.x / ts), y: Math.floor(p.y / ts) });
-      if (!tile) continue;
-      p.x = tile.x * ts + ts / 2;
-      p.y = tile.y * ts + ts / 2;
+      const tile = this.freeTileFor(map, p);
+      const zone = zoneAt(map, p.x, p.y);
+      // Sin lugar libre cerca: a la puerta de su oficina (afuera, en el pasillo).
+      const spot = tile ? { x: tile.x * ts + ts / 2, y: tile.y * ts + ts / 2 } : zone?.door ? officeDoor(zone) : null;
+      if (!spot) continue;
+      p.x = spot.x;
+      p.y = spot.y;
       p.seated = false;
       p.moving = false;
       p.zoneId = zoneAt(map, p.x, p.y)?.id ?? "";
       p.place = placeAt(map, p.x, p.y);
       this.clients.getById(sessionId)?.send(MSG.moveCorrection, { x: p.x, y: p.y } satisfies MoveCorrection);
     }
+  }
+
+  /**
+   * Tile libre más cercano para sacar a alguien de un mueble (BFS por tiles). No cruza paredes (las
+   * oficinas vecinas comparten pared) ni entra a una oficina cerrada que no le toca; se prefiere
+   * quedar en la misma zona y, si no hay lugar ahí, el tile libre más cercano de otra.
+   */
+  private freeTileFor(map: OfficeMap, player: Player): TilePos | null {
+    const ts = map.tileSize;
+    const start = { x: Math.floor(player.x / ts), y: Math.floor(player.y / ts) };
+    const zoneId = zoneAt(map, player.x, player.y)?.id ?? "";
+    const seen = new Set([start.y * map.width + start.x]);
+    let frontier: TilePos[] = [start];
+    let other: TilePos | null = null;
+    for (let r = 0; r <= UNSTICK_RADIUS && frontier.length; r++) {
+      const next: TilePos[] = [];
+      for (const t of frontier) {
+        const cx = t.x * ts + ts / 2;
+        const cy = t.y * ts + ts / 2;
+        if (!this.canAccess(player, cx, cy)) continue; // ni se queda ni se pasa por ahí
+        if (canStandAt(map, cx, cy)) {
+          if ((zoneAt(map, cx, cy)?.id ?? "") === zoneId) return t;
+          other ??= t;
+        }
+        // Se puede pasar por debajo de los muebles (está dentro de uno), pero no a través de una pared.
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          const n = { x: t.x + dx, y: t.y + dy };
+          const i = n.y * map.width + n.x;
+          if (n.x < 0 || n.y < 0 || n.x >= map.width || n.y >= map.height || seen.has(i)) continue;
+          if (wallBetween(map, t.x, t.y, n.x, n.y)) continue;
+          seen.add(i);
+          next.push(n);
+        }
+      }
+      frontier = next;
+    }
+    return other;
   }
 
   /**

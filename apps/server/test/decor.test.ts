@@ -156,6 +156,9 @@ describe("editor de oficina", () => {
     expect(await edit(alice, { action: "move", zoneId: ZONE, itemId: "fijo-0", x: 13, y: 3, facing: "right" })).toEqual({ ok: false, error: "fixed" });
     expect(await edit(alice, { action: "remove", zoneId: ZONE, itemId: "fijo-1" })).toEqual({ ok: false, error: "fixed" });
     expect(await edit(alice, { action: "remove", zoneId: ZONE, itemId: "no-existe" })).toEqual({ ok: false, error: "unknown" });
+    // Claves del prototipo del catálogo: se rechazan (antes el servidor lanzaba y no respondía).
+    repo.give("u-alice", "constructor");
+    expect(await edit(alice, place("constructor", 14, 7))).toEqual({ ok: false, error: "unknown" });
     expect(office().customized).toBe(false);
   });
 
@@ -176,5 +179,21 @@ describe("editor de oficina", () => {
     const p = me(room, alice);
     expect(Math.floor(p.x / 32) === 14 && Math.floor(p.y / 32) === 7).toBe(false);
     expect(corrections.at(-1)).toEqual({ x: p.x, y: p.y });
+  });
+
+  it("quien queda dentro de un mueble no cruza la pared hacia la oficina vecina cerrada", async () => {
+    const { room, alice } = await setup();
+    // La oficina 4 (de Bob, cerrada) comparte con la 2 la pared entre y = 8 e y = 9; en (14, 9) hay piso libre.
+    repo.assign("office-4", "u-bob", "Bob");
+    await repo.setOfficeLocked("office-4", true);
+    await walkToTile(alice, room, 14, 8);
+    // Plantas a su lado y encima: el único vecino libre sin mirar paredes sería (14, 9), del otro lado.
+    repo.decorate(ZONE, [13, 14, 15].map((x) => ({ id: `p${x}`, type: "plant", x, y: 8, facing: "right" as const })));
+    await OfficeRoom.reloadOfficesEverywhere();
+    await room.waitForNextPatch();
+    await tick(30);
+    const p = me(room, alice);
+    expect([Math.floor(p.x / 32), Math.floor(p.y / 32)]).toEqual([14, 7]);
+    expect(p.zoneId).toBe(ZONE);
   });
 });
