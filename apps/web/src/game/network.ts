@@ -348,6 +348,7 @@ function attach(r: OfficeRoom) {
   // Ruleta del sótano: una copia simple para React (fase, cuenta regresiva, apuestas y números).
   const syncRoulette = () => {
     const rl = r.state.roulette;
+    if (!rl) return;
     useCasinoStore.getState().setRoulette({
       phase: rl.phase,
       round: rl.round,
@@ -357,13 +358,17 @@ function attach(r: OfficeRoom) {
       bets: [...rl.bets].map((b) => ({ userId: b.userId, name: b.name, kind: b.kind, param: b.param, amount: b.amount })),
     });
   };
-  const rl$ = $(r.state).roulette;
-  rl$.onChange(syncRoulette);
-  rl$.bets.onAdd(syncRoulette);
-  rl$.bets.onRemove(syncRoulette);
-  rl$.history.onAdd(syncRoulette);
-  rl$.history.onRemove(syncRoulette);
-  syncRoulette();
+  // La mesa llega con el primer estado: los callbacks se enganchan cuando aparece (antes no tiene refId).
+  $(r.state).listen("roulette", (table) => {
+    if (!table) return;
+    const rl$ = $(table);
+    rl$.onChange(syncRoulette);
+    rl$.bets.onAdd(syncRoulette);
+    rl$.bets.onRemove(syncRoulette);
+    rl$.history.onAdd(syncRoulette);
+    rl$.history.onRemove(syncRoulette);
+    syncRoulette();
+  });
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
