@@ -1,8 +1,13 @@
 import {
   allZones,
+  applyDecorEdit,
+  buildArea,
   canStandAt,
   canWalkBetween,
+  decorateAreaDef,
+  defaultOfficeItems,
   getWorld,
+  nearestFreeTile,
   nearPointOfType,
   nearPortal,
   placeAt,
@@ -10,6 +15,8 @@ import {
   seatAtPoint,
   spawnPoint,
   zoneAt,
+  type AreaDecor,
+  type DecorEdit,
   type OfficeMap,
   type World,
   type Zone,
@@ -29,6 +36,7 @@ import {
   KnockRespondMessage,
   MoveMessage,
   MSG,
+  OfficeEditMessage,
   OfficeLockMessage,
   PLAYER_SPEED,
   StatusMessage,
@@ -39,17 +47,20 @@ import {
   verifyGameToken,
   type CafeOrderResult,
   type ChatEvent,
+  type Direction,
   type GameTokenClaims,
   type KnockOutcome,
   type KnockRequest,
   type KnockResult,
   type MoveCorrection,
+  type OfficeEditResult,
+  type OfficeItemDTO,
   type Positioned,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
-import type { GameRepository, OfficeRecord } from "../repo/types";
-import { OfficeInfo, OfficeState, Player } from "../state";
+import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
+import { OfficeInfo, OfficeItem, OfficeState, Player } from "../state";
 
 interface UserData {
   lastMoveAt: number;
@@ -58,6 +69,8 @@ interface UserData {
   lastActiveAt: number;
   /** Último pedido en la cafetería (para no cobrar dos veces por un doble clic). */
   lastOrderAt?: number;
+  /** Cambios recientes en el editor de oficina (tope para no inundar la base). */
+  editTimes?: number[];
 }
 
 interface PendingKnock {
@@ -70,7 +83,10 @@ interface PendingKnock {
 
 const CHAT_HISTORY_SIZE = 50;
 const CHAT_RATE = { max: 5, windowMs: 5_000 };
+const EDIT_RATE = { max: 10, windowMs: 3_000 };
 const RECONNECT_SECONDS = 15;
+
+const itemDTO = (i: OfficeItem): OfficeItemDTO => ({ id: i.id, type: i.type, x: i.x, y: i.y, facing: i.facing as Direction });
 
 function gameTokenSecret() {
   const secret = process.env.GAME_TOKEN_SECRET;
@@ -102,8 +118,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   maxClients = 64;
   patchRate = 50; // 20 Hz
 
+  /** Niveles de esta sala: los del mapa, con el piso 2 rearmado según la decoración de las oficinas. */
   private world!: World;
   private zonesById = new Map<string, Zone>();
+  /** Nivel de cada zona (para saber qué nivel rearmar al decorar una oficina). */
+  private areaOfZone = new Map<string, string>();
+  /** Los cambios de decoración (y las recargas de oficinas) van de a uno: cada uno valida sobre el anterior. */
+  private decorQueue: Promise<unknown> = Promise.resolve();
   private globalHistory: ChatEvent[] = [];
   private pendingReconnections = new Map<string, Deferred<Client>>();
   private pendingKnocks = new Map<string, PendingKnock>();
@@ -116,8 +137,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   async onCreate() {
-    this.world = getWorld();
+    // Copia propia de la lista de niveles: rearmar el piso 2 no toca el mundo compartido del módulo.
+    const base = getWorld();
+    this.world = { ...base, areas: new Map(base.areas) };
     for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
+    for (const [areaId, map] of this.world.areas) for (const z of map.zones) this.areaOfZone.set(z.id, areaId);
     this.setState(new OfficeState());
     OfficeRoom.instances.add(this);
 
@@ -131,6 +155,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
+    this.onMessage(MSG.officeEdit, (client, raw) => {
+      this.serial(() => this.handleOfficeEdit(client, raw)).catch((err) => console.error("officeEdit", err));
+    });
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -201,18 +228,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   // ---------- Oficinas ----------
 
-  /** Sincroniza `state.offices` con la base de datos (dueños, nombres, candado). */
+  /** Sincroniza `state.offices` con la base de datos (dueños, nombres, candado y decoración). */
   async reloadOffices() {
-    const records = await this.repo.listOffices();
-    const seen = new Set<string>();
-    for (const r of records) {
-      if (!this.zonesById.has(r.zoneId)) continue; // oficina que ya no está en el mapa
-      seen.add(r.zoneId);
-      this.applyOfficeRecord(r);
-    }
-    for (const zoneId of [...this.state.offices.keys()]) {
-      if (!seen.has(zoneId)) this.state.offices.delete(zoneId);
-    }
+    // En la fila de la decoración: así no pisa con datos viejos un cambio que se está guardando.
+    await this.serial(async () => {
+      const records = await this.repo.listOffices();
+      const seen = new Set<string>();
+      for (const r of records) {
+        if (!this.zonesById.has(r.zoneId)) continue; // oficina que ya no está en el mapa
+        seen.add(r.zoneId);
+        this.applyOfficeRecord(r);
+      }
+      for (const zoneId of [...this.state.offices.keys()]) {
+        if (!seen.has(zoneId)) this.state.offices.delete(zoneId);
+      }
+      for (const areaId of new Set([...seen].map((z) => this.areaOfZone.get(z)!))) this.rebuildArea(areaId);
+    });
   }
 
   private applyOfficeRecord(r: OfficeRecord) {
@@ -229,6 +260,152 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Una oficina sin dueño no puede estar cerrada.
     office.locked = Boolean(r.ownerId) && r.locked;
     if (ownerChanged || !office.locked) office.guests.clear();
+    office.floor = r.floor ?? "";
+    office.wallpaper = r.wallpaper ?? "";
+    office.customized = r.customized;
+    this.syncItems(office, r.customized ? r.items : []);
+  }
+
+  /** Deja `office.items` igual a `items` tocando solo lo que cambió (así el cliente recibe poco). */
+  private syncItems(office: OfficeInfo, items: OfficeItemDTO[]) {
+    const wanted = new Set(items.map((i) => i.id));
+    for (let i = office.items.length - 1; i >= 0; i--) if (!wanted.has(office.items[i]!.id)) office.items.splice(i, 1);
+    for (const it of items) {
+      let item = office.items.find((x) => x.id === it.id);
+      if (!item) {
+        item = new OfficeItem();
+        item.id = it.id;
+        office.items.push(item);
+      }
+      item.type = it.type;
+      item.x = it.x;
+      item.y = it.y;
+      item.facing = it.facing;
+    }
+  }
+
+  // ---------- Decoración (fase 3c) ----------
+
+  /** Encola una tarea de decoración: corre cuando terminó la anterior. */
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.decorQueue.then(fn);
+    this.decorQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  /** Decoración de las oficinas de un nivel, como la entiende `decorateArea`. */
+  private decorOf(areaId: string): AreaDecor {
+    const decor: AreaDecor = {};
+    for (const office of this.state.offices.values()) {
+      if (this.areaOfZone.get(office.zoneId) !== areaId) continue;
+      decor[office.zoneId] = {
+        items: office.customized ? office.items.map(itemDTO) : null,
+        floor: office.floor || null,
+        wallpaper: office.wallpaper || null,
+      };
+    }
+    return decor;
+  }
+
+  /** Rearma un nivel con la decoración actual (colisión y asientos del servidor). */
+  private rebuildArea(areaId: string) {
+    const base = getWorld().areas.get(areaId);
+    if (!base) return;
+    const def = decorateAreaDef(base.def, this.decorOf(areaId));
+    this.world.areas.set(areaId, def === base.def ? base : buildArea(def));
+    this.unstick(areaId);
+  }
+
+  /**
+   * Nadie queda dentro de un mueble: la validación lo evita, pero alguien pudo pisar ahí mientras se
+   * guardaba. Se le mueve al tile libre más cercano (y se levanta si su asiento ya no está).
+   */
+  private unstick(areaId: string) {
+    const map = this.mapOf(areaId);
+    const ts = map.tileSize;
+    for (const [sessionId, p] of this.state.players) {
+      if (p.area !== areaId) continue;
+      if (p.seated ? seatAtPoint(map, p.x, p.y) : canStandAt(map, p.x, p.y)) continue;
+      const tile = nearestFreeTile(map, { x: Math.floor(p.x / ts), y: Math.floor(p.y / ts) });
+      if (!tile) continue;
+      p.x = tile.x * ts + ts / 2;
+      p.y = tile.y * ts + ts / 2;
+      p.seated = false;
+      p.moving = false;
+      p.zoneId = zoneAt(map, p.x, p.y)?.id ?? "";
+      p.place = placeAt(map, p.x, p.y);
+      this.clients.getById(sessionId)?.send(MSG.moveCorrection, { x: p.x, y: p.y } satisfies MoveCorrection);
+    }
+  }
+
+  /**
+   * Editor de oficina: solo la dueña o dueño de esa oficina. Se valida con la misma regla que usa el
+   * cliente (`applyDecorEdit`) y se guarda en una transacción (mochila incluida).
+   */
+  private async handleOfficeEdit(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = OfficeEditMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const msg = parsed.data;
+    const reply = (r: OfficeEditResult) => client.send(MSG.officeEditResult, r);
+
+    const now = Date.now();
+    const times = (client.userData.editTimes ?? []).filter((t) => now - t < EDIT_RATE.windowMs);
+    if (times.length >= EDIT_RATE.max) return reply({ ok: false, error: "failed" });
+    times.push(now);
+    client.userData.editTimes = times;
+
+    const office = this.state.offices.get(msg.zoneId);
+    const areaId = this.areaOfZone.get(msg.zoneId);
+    if (!office || !areaId) return reply({ ok: false, error: "unknown" });
+    if (!office.ownerId || office.ownerId !== player.userId) return reply({ ok: false, error: "not-owner" });
+
+    if (msg.action === "style") {
+      const style = { floor: msg.floor, wallpaper: msg.wallpaper };
+      if (!style.floor && !style.wallpaper) return reply({ ok: true });
+      try {
+        await this.repo.setOfficeStyle(office.zoneId, style);
+      } catch (err) {
+        console.error("setOfficeStyle", err);
+        return reply({ ok: false, error: "failed" });
+      }
+      if (style.floor) office.floor = style.floor;
+      if (style.wallpaper) office.wallpaper = style.wallpaper;
+      this.rebuildArea(areaId);
+      return reply({ ok: true });
+    }
+
+    const edit: DecorEdit =
+      msg.action === "place"
+        ? { action: "place", type: msg.type, x: msg.x, y: msg.y, facing: msg.facing }
+        : msg.action === "move"
+          ? { action: "move", itemId: msg.itemId, x: msg.x, y: msg.y, facing: msg.facing }
+          : { action: "remove", itemId: msg.itemId };
+    const def = getWorld().areas.get(areaId)!.def;
+    const people = [...this.state.players.values()].filter((p) => p.area === areaId).map((p) => ({ x: p.x, y: p.y }));
+    const check = applyDecorEdit({ def, decor: this.decorOf(areaId), zoneId: office.zoneId, people }, edit);
+    if (!check.ok) return reply({ ok: false, error: check.error });
+
+    let result: OfficeItemsResult;
+    try {
+      result = await this.repo.editOfficeItems({
+        zoneId: office.zoneId,
+        userId: player.userId,
+        defaults: office.customized ? [] : defaultOfficeItems(def, office.zoneId),
+        edit,
+      });
+    } catch (err) {
+      console.error("editOfficeItems", err);
+      return reply({ ok: false, error: "failed" });
+    }
+    if (!result.ok) return reply({ ok: false, error: result.error });
+    const current = this.state.offices.get(office.zoneId); // pudo recargarse mientras se guardaba
+    if (current) {
+      current.customized = true;
+      this.syncItems(current, result.items);
+    }
+    this.rebuildArea(areaId);
+    reply({ ok: true });
   }
 
   /** ¿Puede este jugador estar en (x, y)? Bloquea oficinas cerradas a quien no es dueño ni invitado. */

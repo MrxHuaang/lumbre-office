@@ -1,5 +1,5 @@
-import { DAILY_CAPS, dayStart, type ChatEvent, type PointReason, type PresenceStatus } from "@hyvento/shared";
-import type { GameRepository, OfficeRecord, UserProfile } from "./types";
+import { DAILY_CAPS, dayStart, type ChatEvent, type OfficeItemDTO, type PointReason, type PresenceStatus } from "@hyvento/shared";
+import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -9,21 +9,77 @@ export class MemoryRepository implements GameRepository {
   chat: ChatEvent[] = [];
   /** Libro de puntos en memoria. */
   ledger: { userId: string; amount: number; reason: PointReason; at: number; refId?: string }[] = [];
+  /** Mochilas: `${userId}:${itemId}` → unidades guardadas. */
+  inventory = new Map<string, number>();
+  private nextItemId = 1;
 
   async ensureOffices(offices: { zoneId: string; name: string }[]) {
     for (const o of offices) {
       if (!this.offices.has(o.zoneId)) {
-        this.offices.set(o.zoneId, { ...o, ownerId: null, ownerName: null, locked: false });
+        this.offices.set(o.zoneId, { ...o, ownerId: null, ownerName: null, locked: false, floor: null, wallpaper: null, customized: false, items: [] });
       }
     }
   }
   async listOffices() {
-    return [...this.offices.values()].map((o) => ({ ...o }));
+    return [...this.offices.values()].map((o) => ({ ...o, items: o.items.map((i) => ({ ...i })) }));
   }
   async setOfficeLocked(zoneId: string, locked: boolean) {
     const o = this.offices.get(zoneId);
     if (o) o.locked = locked;
   }
+
+  async editOfficeItems({ zoneId, userId, defaults, edit }: OfficeItemsInput): Promise<OfficeItemsResult> {
+    const office = this.offices.get(zoneId);
+    if (!office) return { ok: false, error: "unknown" };
+    // Se trabaja sobre copias y se guarda al final: si algo falla no queda nada a medias (como la transacción).
+    let items = office.items.map((i) => ({ ...i }));
+    const ids = new Map<string, string>();
+    if (!office.customized) {
+      for (const d of defaults) {
+        const id = `item-${this.nextItemId++}`;
+        ids.set(d.id, id);
+        items.push({ ...d, id });
+      }
+    }
+    const inventory = new Map(this.inventory);
+    const key = (itemId: string) => `${userId}:${itemId}`;
+    switch (edit.action) {
+      case "place": {
+        const have = inventory.get(key(edit.type)) ?? 0;
+        if (have < 1) return { ok: false, error: "not-owned" };
+        inventory.set(key(edit.type), have - 1);
+        items.push({ id: `item-${this.nextItemId++}`, type: edit.type, x: edit.x, y: edit.y, facing: edit.facing });
+        break;
+      }
+      case "move": {
+        const id = ids.get(edit.itemId) ?? edit.itemId;
+        const item = items.find((i) => i.id === id);
+        if (!item) return { ok: false, error: "unknown" };
+        Object.assign(item, { x: edit.x, y: edit.y, facing: edit.facing });
+        break;
+      }
+      case "remove": {
+        const id = ids.get(edit.itemId) ?? edit.itemId;
+        const item = items.find((i) => i.id === id);
+        if (!item) return { ok: false, error: "unknown" };
+        items = items.filter((i) => i !== item);
+        inventory.set(key(item.type), (inventory.get(key(item.type)) ?? 0) + 1);
+        break;
+      }
+    }
+    office.items = items;
+    office.customized = true;
+    this.inventory = inventory;
+    return { ok: true, items: items.map((i) => ({ ...i })) };
+  }
+
+  async setOfficeStyle(zoneId: string, style: { floor?: string; wallpaper?: string }) {
+    const o = this.offices.get(zoneId);
+    if (!o) return;
+    if (style.floor) o.floor = style.floor;
+    if (style.wallpaper) o.wallpaper = style.wallpaper;
+  }
+
   async getUserStatus(userId: string) {
     return this.statuses.get(userId) ?? null;
   }
@@ -68,5 +124,24 @@ export class MemoryRepository implements GameRepository {
     if (!o) throw new Error(`No existe ${zoneId}`);
     o.ownerId = ownerId;
     o.ownerName = ownerName;
+  }
+
+  /** Helper de tests: mete unidades en la mochila de alguien. */
+  give(userId: string, itemId: string, quantity = 1) {
+    const key = `${userId}:${itemId}`;
+    this.inventory.set(key, (this.inventory.get(key) ?? 0) + quantity);
+  }
+
+  /** Helper de tests: unidades guardadas. */
+  held(userId: string, itemId: string) {
+    return this.inventory.get(`${userId}:${itemId}`) ?? 0;
+  }
+
+  /** Helper de tests: decora una oficina a mano. */
+  decorate(zoneId: string, items: OfficeItemDTO[]) {
+    const o = this.offices.get(zoneId);
+    if (!o) throw new Error(`No existe ${zoneId}`);
+    o.items = items.map((i) => ({ ...i }));
+    o.customized = true;
   }
 }

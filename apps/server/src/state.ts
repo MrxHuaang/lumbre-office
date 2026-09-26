@@ -27,6 +27,16 @@ export class Player extends Schema {
   @type("string") place = "";
 }
 
+/** Mueble puesto en una oficina decorada (tiles del nivel). */
+export class OfficeItem extends Schema {
+  @type("string") id = "";
+  /** Tipo del catálogo de packages/map (p. ej. "plant"). */
+  @type("string") type = "";
+  @type("uint8") x = 0;
+  @type("uint8") y = 0;
+  @type("string") facing = "right";
+}
+
 export class OfficeInfo extends Schema {
   @type("string") zoneId = "";
   @type("string") name = "";
@@ -36,6 +46,12 @@ export class OfficeInfo extends Schema {
   @type("boolean") locked = false;
   /** User.id de quienes el dueño dejó pasar (se pierde al salir de la oficina). */
   @type(["string"]) guests = new ArraySchema<string>();
+  /** Fase 3c: false = quedan los muebles del mapa; true = los de `items` (más el escritorio con PC y su silla). */
+  @type("boolean") customized = false;
+  @type([OfficeItem]) items = new ArraySchema<OfficeItem>();
+  /** Piso y papel tapiz elegidos ("" = los del mapa). */
+  @type("string") floor = "";
+  @type("string") wallpaper = "";
 }
 
 export class OfficeState extends Schema {
