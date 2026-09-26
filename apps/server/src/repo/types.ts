@@ -1,4 +1,4 @@
-import type { ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus } from "@hyvento/shared";
+import type { CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus } from "@hyvento/shared";
 
 /** Nombre visible y personaje de una persona, como están guardados. */
 export interface UserProfile {
@@ -73,4 +73,12 @@ export interface GameRepository {
   awardPoints(input: { userId: string; amount: number; reason: PointReason }): Promise<{ awarded: number; balance: number }>;
   /** Gasta puntos solo si alcanzan (`ok: false` = no se cobró nada). */
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }): Promise<{ ok: boolean; balance: number }>;
+  /** Ajustes del casino (límite diario de pérdidas, abierto o cerrado). */
+  getCasinoSettings(): Promise<CasinoSettingsDTO>;
+  /** Descuenta una apuesta si no pasa el límite de pérdidas de hoy ni el saldo. */
+  casinoBet(input: { userId: string; amount: number; refId: string; limit: number }): Promise<
+    { ok: true; balance: number } | { ok: false; error: "limit" | "funds"; balance: number }
+  >;
+  /** Paga un premio del casino (o devuelve una apuesta): suma sin tope. */
+  casinoPayout(input: { userId: string; amount: number; refId: string }): Promise<{ balance: number }>;
 }

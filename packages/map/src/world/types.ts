@@ -12,8 +12,8 @@ export interface Rect {
 }
 
 export type ZoneType = "office" | "meeting" | "table" | "common";
-export type FloorKind = "wood" | "carpet" | "tiles" | "stone" | "grass" | "path" | "doormat";
-export type WallpaperKind = "sage" | "cream" | "blue" | "rose";
+export type FloorKind = "wood" | "carpet" | "tiles" | "stone" | "grass" | "path" | "doormat" | "casino";
+export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine";
 
 export interface ZoneDef {
   id: string;
@@ -74,7 +74,7 @@ export interface PortalDef {
 }
 
 export interface PointDef {
-  type: "spawn" | "screen" | "task_board" | "mailbox" | "cafe_counter" | "shop_counter" | "fitting_room";
+  type: "spawn" | "screen" | "task_board" | "mailbox" | "cafe_counter" | "shop_counter" | "fitting_room" | "roulette" | "casino_cashier";
   name: string;
   x: number;
   y: number;

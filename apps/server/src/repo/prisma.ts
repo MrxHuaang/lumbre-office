@@ -1,4 +1,13 @@
-import { addInventoryTx, awardPoints, type PresenceStatus as DbStatus, prisma, spendPoints, takeInventoryTx } from "@hyvento/db";
+import {
+  addInventoryTx,
+  awardPoints,
+  casinoBet,
+  getCasinoSettings,
+  type PresenceStatus as DbStatus,
+  prisma,
+  spendPoints,
+  takeInventoryTx,
+} from "@hyvento/db";
 import {
   DIRECTIONS,
   HUMAN_AVATARS,
@@ -179,5 +188,18 @@ export class PrismaRepository implements GameRepository {
 
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }) {
     return spendPoints(prisma, input);
+  }
+
+  getCasinoSettings() {
+    return getCasinoSettings(prisma);
+  }
+
+  casinoBet(input: { userId: string; amount: number; refId: string; limit: number }) {
+    return casinoBet(prisma, input);
+  }
+
+  async casinoPayout({ userId, amount, refId }: { userId: string; amount: number; refId: string }) {
+    const { balance } = await awardPoints(prisma, { userId, amount, reason: "CASINO", refId });
+    return { balance };
   }
 }

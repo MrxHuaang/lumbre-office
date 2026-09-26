@@ -193,8 +193,9 @@ const plantaBaja: AreaDef = {
     place("rug-round", 10, 14),
     place("lamp", 9, 16),
     place("plant", 20, 16),
-    // Recibidor: escalera al piso 2 y alfombra de bienvenida.
+    // Recibidor: escalera al piso 2, bajada al sótano (el casino) y alfombra de bienvenida.
     place("stairs-up", 0, 9),
+    place("stairwell", 6, 9),
     place("rug-2x3", 3, 14, "down"),
     place("lamp", 8, 8),
     place("plant", 8, 16),
@@ -217,6 +218,15 @@ const plantaBaja: AreaDef = {
         { x: 1, y: 12 },
       ],
       to: { area: "piso-2", x: 9, y: 5, facing: "down" },
+    },
+    {
+      id: "planta-baja-sotano",
+      label: "Bajar al casino",
+      tiles: [
+        { x: 6, y: 12 },
+        { x: 7, y: 12 },
+      ],
+      to: { area: "sotano", x: 2, y: 4, facing: "down" },
     },
   ],
   points: [
@@ -378,6 +388,75 @@ const piso2: AreaDef = {
   points: [],
 };
 
-export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2];
+// ---------- Sótano: el casino ----------
+// Se baja por la escalera del recibidor. La ruleta al centro, el blackjack con cinco banquetas (tres del
+// lado de las personas y una en cada punta; el crupier es automático, del otro lado), la caja al fondo
+// y tragamonedas de adorno contra la pared.
+
+const ROULETTE = { x: 5, y: 3 };
+const BLACKJACK = { x: 11, y: 4 };
+
+const sotano: AreaDef = {
+  id: "sotano",
+  name: "Sótano",
+  width: 18,
+  height: 13,
+  rooms: [{ id: "casino", rect: { x: 0, y: 0, w: 18, h: 13 }, floor: "casino", wallpaper: "wine" }],
+  doors: [],
+  zones: [{ id: "casino", name: "Casino", type: "common", rect: { x: 0, y: 0, w: 18, h: 13 }, isolated: false }],
+  features: [
+    { kind: "clock", edge: "h", x: 8, y: 0 },
+    { kind: "picture", edge: "h", x: 11, y: 0 },
+    { kind: "picture", edge: "v", x: 0, y: 10 },
+  ],
+  furniture: [
+    place("stairs-up", 1, 0),
+    place("roulette-table", ROULETTE.x, ROULETTE.y),
+    place("blackjack-table", BLACKJACK.x, BLACKJACK.y),
+    // Banquetas del blackjack: tres frente a la mesa y una en cada punta, mirando a la mesa.
+    place("stool", BLACKJACK.x + 2, BLACKJACK.y, "left"),
+    place("stool", BLACKJACK.x + 2, BLACKJACK.y + 1, "left"),
+    place("stool", BLACKJACK.x + 2, BLACKJACK.y + 2, "left"),
+    place("stool", BLACKJACK.x + 1, BLACKJACK.y - 1, "down"),
+    place("stool", BLACKJACK.x + 1, BLACKJACK.y + 3, "up"),
+    place("casino-cashier", 14, 0, "down"),
+    place("slot-machine", 0, 5),
+    place("slot-machine", 0, 6),
+    place("slot-machine", 0, 7),
+    place("lamp", 4, 0),
+    place("lamp", 17, 5),
+    place("plant", 17, 0),
+    place("plant", 17, 12),
+    place("plant", 0, 12),
+  ],
+  portals: [
+    {
+      id: "sotano-escalera",
+      label: "Subir a la planta baja",
+      tiles: [
+        { x: 1, y: 3 },
+        { x: 2, y: 3 },
+      ],
+      to: { area: "planta-baja", x: 7, y: 13, facing: "down" },
+    },
+  ],
+  points: [
+    // Alrededor de la mesa de ruleta (desde cualquiera de esos lugares se apuesta).
+    ...[
+      [ROULETTE.x - 1, ROULETTE.y],
+      [ROULETTE.x - 1, ROULETTE.y + 2],
+      [ROULETTE.x + 2, ROULETTE.y],
+      [ROULETTE.x + 2, ROULETTE.y + 2],
+      [ROULETTE.x, ROULETTE.y + 3],
+      [ROULETTE.x + 1, ROULETTE.y + 3],
+      [ROULETTE.x, ROULETTE.y - 1],
+      [ROULETTE.x + 1, ROULETTE.y - 1],
+    ].map(([x, y]) => ({ type: "roulette" as const, name: "Ruleta", x: x!, y: y! })),
+    { type: "casino_cashier", name: "Caja", x: 14, y: 1 },
+    { type: "casino_cashier", name: "Caja", x: 15, y: 1 },
+  ],
+};
+
+export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2, sotano];
 /** Donde aparece todo el mundo al entrar. */
 export const SPAWN_AREA = "jardin";

@@ -9,3 +9,4 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 export * from "@prisma/client";
 export * from "./points";
 export * from "./inventory";
+export * from "./casino";

@@ -166,8 +166,10 @@ enum PointReason {
   DAILY
   MISSION
   ADMIN
-  /// Gasto (monto negativo): compras en la cafetería y, más adelante, la tienda.
+  /// Gasto (monto negativo): compras en la cafetería y la tienda.
   PURCHASE
+  /// Casino: apuestas (monto negativo) y premios (positivo). Tiene un límite diario de pérdidas.
+  CASINO
 }
 
 /**
@@ -286,4 +288,15 @@ model OfficeItem {
   createdAt DateTime @default(now())
 
   @@index([officeId])
+}
+
+// ---------- Casino (fase 4) ----------
+
+/** Ajustes del casino (una sola fila, id = 1). Los cambia un admin en /admin. */
+model CasinoSettings {
+  id             Int      @id @default(1)
+  enabled        Boolean  @default(true)
+  /** Lo máximo que alguien puede perder en el casino en un día (de Bogotá). */
+  dailyLossLimit Int      @default(150)
+  updatedAt      DateTime @updatedAt
 }

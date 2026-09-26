@@ -24,8 +24,8 @@ export const LOW_WALL_H = 10;
 const WALL_T = 4;
 const SLAB = 5;
 
-const WALLPAPER: Record<WallpaperKind, Ramp> = { sage: C.sage, cream: C.cream, blue: C.blue, rose: C.rose };
-const CARPET: Record<WallpaperKind, Ramp> = { sage: C.green, cream: C.cream, blue: C.blue, rose: C.rose };
+const WALLPAPER: Record<WallpaperKind, Ramp> = { sage: C.sage, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug };
+const CARPET: Record<WallpaperKind, Ramp> = { sage: C.green, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug };
 
 // ---------- Pisos ----------
 
@@ -50,6 +50,18 @@ function cafeTiles(X: number, Y: number): RGBA {
   const cell = (Math.floor(X / 8) + Math.floor(Y / 8)) % 2;
   if (X % 8 < 0.8 || Y % 8 < 0.8) return at(C.cream, 1);
   return cell ? at(C.cream, 4) : at(C.terracotta, 3);
+}
+
+/** Alfombra de casino: rombos con borde dorado sobre vino, con un punto dorado al centro de cada uno. */
+function casinoCarpet(X: number, Y: number): RGBA {
+  const x = Math.floor(X);
+  const y = Math.floor(Y);
+  const u = (((x + y) % 16) + 16) % 16;
+  const v = (((x - y) % 16) + 16) % 16;
+  if (u === 0 || v === 0) return at(C.gold, 2);
+  if ((u === 8 || u === 7) && (v === 8 || v === 7)) return at(C.gold, 3);
+  const cell = (Math.floor((x + y) / 16) + Math.floor((x - y + 1600) / 16)) % 2;
+  return at(C.rug, bayer(x, y) < 0.18 ? cell : cell + 1);
 }
 
 function grass(X: number, Y: number): RGBA {
@@ -102,6 +114,8 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return stonePath(X, Y);
     case "doormat":
       return doormat(X, Y);
+    case "casino":
+      return casinoCarpet(X, Y);
   }
 }
 

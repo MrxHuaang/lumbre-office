@@ -22,6 +22,7 @@ import { DECOR } from "./decor";
 import { cushion, leg, shadowSpace, shadowUnder, volume, type Variant } from "./kit";
 import { drawOutdoor, hasOutdoor } from "./outdoor";
 import { SHOP } from "./shop";
+import { CASINO_DRAW } from "./casino";
 
 export type { Variant } from "./kit";
 
@@ -690,6 +691,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   stairwell,
   ...DECOR,
   ...SHOP,
+  ...CASINO_DRAW,
 };
 
 const cache = new Map<string, Sprite>();

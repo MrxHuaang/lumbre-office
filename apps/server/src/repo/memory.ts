@@ -1,4 +1,14 @@
-import { DAILY_CAPS, dayStart, type ChatEvent, type OfficeItemDTO, type PointReason, type PresenceStatus } from "@hyvento/shared";
+import {
+  CASINO,
+  DAILY_CAPS,
+  dayStart,
+  remainingToday,
+  type CasinoSettingsDTO,
+  type ChatEvent,
+  type OfficeItemDTO,
+  type PointReason,
+  type PresenceStatus,
+} from "@hyvento/shared";
 import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
@@ -116,6 +126,25 @@ export class MemoryRepository implements GameRepository {
     if (balance < amount) return { ok: false, balance };
     this.ledger.push({ userId, amount: -amount, reason, at: Date.now(), refId });
     return { ok: true, balance: balance - amount };
+  }
+
+  /** Ajustes del casino en memoria (los tests los cambian directo). */
+  casinoSettings: CasinoSettingsDTO = { enabled: true, dailyLossLimit: CASINO.defaultDailyLossLimit };
+  async getCasinoSettings() {
+    return { ...this.casinoSettings };
+  }
+  async casinoBet({ userId, amount, refId, limit }: { userId: string; amount: number; refId: string; limit: number }) {
+    const net = this.ledger
+      .filter((m) => m.userId === userId && m.reason === "CASINO" && m.at >= dayStart(Date.now()))
+      .reduce((a, m) => a + m.amount, 0);
+    const balance = await this.getPoints(userId);
+    if (amount > remainingToday(limit, net)) return { ok: false as const, error: "limit" as const, balance };
+    const spent = await this.spendPoints({ userId, amount, reason: "CASINO", refId });
+    return spent.ok ? { ok: true as const, balance: spent.balance } : { ok: false as const, error: "funds" as const, balance: spent.balance };
+  }
+  async casinoPayout({ userId, amount, refId }: { userId: string; amount: number; refId: string }) {
+    if (amount > 0) this.ledger.push({ userId, amount, reason: "CASINO", at: Date.now(), refId });
+    return { balance: await this.getPoints(userId) };
   }
 
   /** Helper de tests: asigna una oficina. */

@@ -124,6 +124,8 @@ export const INTERNAL_ROUTES = {
   officesChanged: "/internal/offices-changed",
   /** Cambió el saldo de alguien desde la web (buzón, misiones): body `{ userId }`. */
   pointsChanged: "/internal/points-changed",
+  /** Cambiaron los ajustes del casino en /admin (límite diario, abierto/cerrado). */
+  casinoSettingsChanged: "/internal/casino-settings-changed",
 } as const;
 
 /** Nombres de mensajes Colyseus. */
@@ -136,6 +138,11 @@ export const MSG = {
   /** Pedir en la barra de la cafetería (`CafeOrderMessage`) y su respuesta (`CafeOrderResult`). */
   cafeOrder: "cafe:order",
   cafeResult: "cafe:result",
+  /** Casino: apostar en la ruleta (`RouletteBetMessage`), resultado de una apuesta (`CasinoResult`) y lo
+   *  ganado al terminar la ronda (`RouletteSettled`). */
+  rouletteBet: "casino:roulette:bet",
+  casinoResult: "casino:result",
+  rouletteSettled: "casino:roulette:settled",
   /** Editor de oficina (`OfficeEditMessage`) y su respuesta (`OfficeEditResult`). */
   officeEdit: "office:edit",
   officeEditResult: "office:edit:result",

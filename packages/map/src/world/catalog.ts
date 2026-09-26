@@ -69,6 +69,11 @@ export const CATALOG = {
   "clothes-rack": { name: "Perchero de ropa", size: [1, 2] },
   "display-shelf": { name: "Estante de la tienda", size: [1, 2] },
   "fitting-booth": { name: "Probador", size: [2, 2] },
+  // Fase 4: el casino del sótano (dibujos en art/casino.ts).
+  "roulette-table": { name: "Mesa de ruleta", size: [2, 3] },
+  "blackjack-table": { name: "Mesa de blackjack", size: [2, 3] },
+  "casino-cashier": { name: "Caja del casino", size: [1, 2] },
+  "slot-machine": { name: "Tragamonedas", size: [1, 1], light: { at: [8, 8, 22], color: "#ff6fa0", radius: 30 } },
   "stairs-up": { name: "Escalera", size: [2, 3], fixed: true },
   stairwell: { name: "Escalera", size: [2, 3], fixed: true },
   cabin: { name: "Cabaña", size: [16, 10], fixed: true, hasNight: true },
