@@ -37,7 +37,7 @@ export function OfficeAssign({ zoneId, ownerId, users }: Props) {
           });
         }}
         aria-label={`Dueño de ${zoneId}`}
-        className="w-full rounded-lg border border-line bg-ink px-3 py-1.5 text-sm disabled:opacity-60 sm:w-56"
+        className="riso-input w-full cursor-pointer px-3 py-2 text-[13px] disabled:opacity-60 sm:w-56"
       >
         <option value="">Sin asignar</option>
         {users.map((u) => (
@@ -46,8 +46,8 @@ export function OfficeAssign({ zoneId, ownerId, users }: Props) {
           </option>
         ))}
       </select>
-      {pending && <span className="text-xs text-muted">Guardando…</span>}
-      {error && <span className="text-xs text-red-300">{error}</span>}
+      {pending && <span className="text-xs text-riso-muted">Guardando…</span>}
+      {error && <span className="text-xs font-semibold text-riso-pink-deep">{error}</span>}
     </div>
   );
 }
