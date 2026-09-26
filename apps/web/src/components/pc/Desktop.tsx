@@ -11,6 +11,7 @@ import {
   BrowserIcon,
   CalendarIcon,
   MailIcon,
+  MineIcon,
   MusicIcon,
   NotesIcon,
   PowerIcon,
@@ -18,18 +19,21 @@ import {
   TrashIcon,
   WhiteboardIcon,
 } from "./icons";
+import { MinesweeperApp } from "./MinesweeperApp";
 import { ALERT_TEXT, usePomodoro } from "./pomodoro";
 import { PomodoroApp, PomodoroTaskbarClock } from "./PomodoroApp";
 import type { NotesStore } from "./useNotes";
 import { Window, type WindowBox } from "./Window";
 
-type AppId = "notes" | "trash" | "calendar" | "pomodoro";
+type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper";
 
 interface AppInfo {
   title: string;
   ink: string;
   inkText?: string;
   size: { w: number; h: number };
+  /** Minimizada sigue montada (oculta): no se pierde la partida. */
+  keepAlive?: boolean;
 }
 
 const APPS: Record<AppId, AppInfo> = {
@@ -37,6 +41,7 @@ const APPS: Record<AppId, AppInfo> = {
   trash: { title: "Papelera", ink: COZY.sky, inkText: COZY.paper, size: { w: 560, h: 360 } },
   calendar: { title: "Calendario", ink: COZY.green, size: { w: 340, h: 420 } },
   pomodoro: { title: "Enfoque", ink: COZY.red, inkText: COZY.paperLight, size: { w: 340, h: 450 } },
+  minesweeper: { title: "Buscaminas", ink: COZY.woodLight, size: { w: 440, h: 540 }, keepAlive: true },
 };
 
 /** Apps que aún no existen: se ven en el escritorio para mostrar hacia dónde va el PC. */
@@ -201,6 +206,7 @@ export function Desktop({
     { id: "trash", label: "Papelera", icon: <TrashIcon full={notes.trashed.length > 0} />, onOpen: () => open("trash") },
     { id: "calendar", label: "Calendario", icon: <CalendarIcon />, onOpen: () => open("calendar") },
     { id: "pomodoro", label: "Enfoque", icon: <TomatoIcon />, onOpen: () => open("pomodoro") },
+    { id: "minesweeper", label: "Buscaminas", icon: <MineIcon />, onOpen: () => open("minesweeper") },
     ...FUTURE.map((f) => ({ id: f.id, label: f.label, icon: <f.Icon />, onOpen: () => soon(f.label), disabled: true })),
   ];
 
@@ -214,6 +220,8 @@ export function Desktop({
         return <CalendarIcon size={size} />;
       case "pomodoro":
         return <TomatoIcon size={size} />;
+      case "minesweeper":
+        return <MineIcon size={size} />;
     }
   };
 
@@ -306,8 +314,8 @@ export function Desktop({
 
         {windows.map((w) => {
           const info = APPS[w.app];
-          if (w.minimized) return null;
-          return (
+          if (w.minimized && !info.keepAlive) return null;
+          const win = (
             <Window
               key={w.app}
               title={info.title}
@@ -329,7 +337,16 @@ export function Desktop({
               {w.app === "trash" && <TrashApp notes={notes} confirm={confirm} />}
               {w.app === "calendar" && <CalendarApp />}
               {w.app === "pomodoro" && <PomodoroApp />}
+              {w.app === "minesweeper" && <MinesweeperApp />}
             </Window>
+          );
+          // `contents` no cambia el acomodo de la ventana; `none` la esconde sin desmontarla.
+          return info.keepAlive ? (
+            <div key={w.app} style={{ display: w.minimized ? "none" : "contents" }}>
+              {win}
+            </div>
+          ) : (
+            win
           );
         })}
 

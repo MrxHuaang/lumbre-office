@@ -73,6 +73,18 @@ export function TomatoIcon({ size }: { size?: number }) {
   );
 }
 
+/** Buscaminas: una mina sobre una casilla de papel. */
+export function MineIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="3" y="3" width="26" height="26" fill={COZY.paperLight} stroke={INK} strokeWidth="2" />
+      <path d="M16 6v20M6 16h20M9 9l14 14M23 9L9 23" stroke={INK} strokeWidth="2" />
+      <circle cx="16" cy="16" r="7" fill={COZY.void} stroke={INK} strokeWidth="2" />
+      <rect x="12" y="12" width="3" height="3" fill={COZY.paperLight} />
+    </Icon>
+  );
+}
+
 export function MusicIcon({ size }: { size?: number }) {
   return (
     <Icon size={size}>
