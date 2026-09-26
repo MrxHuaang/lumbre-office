@@ -6,8 +6,12 @@ import {
   cafeItem,
   type CafeItemId,
   type CafeOrderResult,
+  CASINO_ERROR_TEXT,
+  type CasinoResult,
   type ChatEvent,
   type ChatScope,
+  type RouletteBetSpec,
+  type RouletteSettled,
   type Direction,
   type EmoteEvent,
   type EmoteId,
@@ -23,6 +27,7 @@ import {
   type PresenceStatus,
 } from "@hyvento/shared";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
+import { useCasinoStore, type RouletteBetView } from "./casino";
 import { useOfficeStore, type Interactable } from "./store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
@@ -66,9 +71,18 @@ export interface RemoteOffice {
   floor: string;
   wallpaper: string;
 }
+export interface RemoteRoulette {
+  phase: "betting" | "spinning" | "result";
+  round: number;
+  endsAt: number;
+  result: number;
+  history: number[];
+  bets: RouletteBetView[];
+}
 export interface OfficeStateView {
   players: Map<string, RemotePlayer>;
   offices: Map<string, RemoteOffice>;
+  roulette: RemoteRoulette;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -120,6 +134,11 @@ export function onEmote(cb: (e: EmoteEvent) => void) {
 
 export function sendEmote(emote: EmoteId) {
   room?.send(MSG.emote, { emote });
+}
+
+/** Apostar en la ruleta (el servidor valida que estés junto a la mesa y cobra). */
+export function sendRouletteBet(bet: RouletteBetSpec, amount: number) {
+  room?.send(MSG.rouletteBet, { bet, amount });
 }
 
 /** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
@@ -325,6 +344,41 @@ function attach(r: OfficeRoom) {
     o$.items.onRemove(sync);
   });
   $(r.state).offices.onRemove((_office, zoneId) => useOfficeStore.getState().removeOffice(zoneId));
+
+  // Ruleta del sótano: una copia simple para React (fase, cuenta regresiva, apuestas y números).
+  const syncRoulette = () => {
+    const rl = r.state.roulette;
+    useCasinoStore.getState().setRoulette({
+      phase: rl.phase,
+      round: rl.round,
+      endsAt: rl.endsAt,
+      result: rl.result,
+      history: [...rl.history],
+      bets: [...rl.bets].map((b) => ({ userId: b.userId, name: b.name, kind: b.kind, param: b.param, amount: b.amount })),
+    });
+  };
+  const rl$ = $(r.state).roulette;
+  rl$.onChange(syncRoulette);
+  rl$.bets.onAdd(syncRoulette);
+  rl$.bets.onRemove(syncRoulette);
+  rl$.history.onAdd(syncRoulette);
+  rl$.history.onRemove(syncRoulette);
+  syncRoulette();
+  r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
+  r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
+    useCasinoStore.getState().setResult(res);
+    if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");
+  });
+  r.onMessage(MSG.rouletteSettled, (s: RouletteSettled) => {
+    useCasinoStore.getState().setSettled(s);
+    const profit = s.won - s.staked;
+    useOfficeStore
+      .getState()
+      .notify(
+        s.won > 0 ? `Salió el ${s.result}: ganaste ${s.won} (${profit >= 0 ? "+" : ""}${profit}).` : `Salió el ${s.result}. Esta vez no hubo suerte.`,
+        s.won > 0 ? "success" : "info",
+      );
+  });
 
   r.onMessage(MSG.chatHistory, (history: ChatEvent[]) => useOfficeStore.getState().addMessages(history));
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));

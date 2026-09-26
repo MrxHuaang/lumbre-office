@@ -33,6 +33,12 @@ export async function publishOfficesChanged() {
   await notifyGameServer(INTERNAL_ROUTES.officesChanged, "oficinas");
 }
 
+/** Avisa al servidor de juego que cambiaron los ajustes del casino (límite diario, abierto o cerrado). */
+export async function publishCasinoSettingsChanged() {
+  // Si el servidor no responde, los ajustes nuevos se leen cuando la sala vuelva a arrancar.
+  await notifyGameServer(INTERNAL_ROUTES.casinoSettingsChanged, "casino");
+}
+
 /** Avisa al servidor de juego que cambió el saldo de alguien (para el contador del HUD en vivo). */
 export async function publishPointsChanged(userId: string) {
   // Si el servidor no responde, el saldo se lee de la base la próxima vez que esa persona entre.

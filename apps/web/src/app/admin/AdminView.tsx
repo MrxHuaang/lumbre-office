@@ -1,8 +1,9 @@
+import type { CasinoSettingsDTO } from "@hyvento/shared";
 import Link from "next/link";
 import { CharacterSprite } from "@/components/CharacterSprite";
 import { CozyTitle, PixelIcon } from "@/components/Cozy";
 import { asAvatar, asLook } from "@/lib/current-user";
-import { revokeInvite } from "./actions";
+import { revokeInvite, saveCasinoSettingsAction } from "./actions";
 import { InviteForm } from "./InviteForm";
 import { OfficeAssign } from "./OfficeAssign";
 
@@ -10,10 +11,11 @@ export interface AdminData {
   users: { id: string; name: string; email: string; role: string; avatar: string; look: unknown; onboardedAt: Date | null }[];
   invites: { id: string; email: string; role: string }[];
   offices: { zoneId: string; name: string; ownerId: string | null; isLocked: boolean }[];
+  casino: CasinoSettingsDTO;
 }
 
 /** Vista de administración del equipo (los datos los carga la página). */
-export function AdminView({ users, invites, offices, embedded = false }: AdminData & { embedded?: boolean }) {
+export function AdminView({ users, invites, offices, casino, embedded = false }: AdminData & { embedded?: boolean }) {
   return (
     <main className={`cozy-void min-h-full font-pixel text-cozy-ink ${embedded ? "px-5 py-6 sm:px-8" : "px-6 py-8 sm:px-10 md:px-14 md:py-10"}`}>
       <div className="mx-auto flex max-w-3xl flex-col gap-8">
@@ -55,6 +57,32 @@ export function AdminView({ users, invites, offices, embedded = false }: AdminDa
             </ul>
           </Section>
         )}
+
+        <Section title="Casino">
+          <form action={saveCasinoSettingsAction} className="flex flex-wrap items-end gap-4">
+            <label className="flex items-center gap-2 text-[15px]">
+              <input type="checkbox" name="enabled" defaultChecked={casino.enabled} className="h-4 w-4 accent-[var(--color-cozy-green)]" />
+              Casino abierto
+            </label>
+            <label className="flex flex-col gap-1 text-[14px]">
+              Límite diario de pérdidas por persona
+              <input
+                type="number"
+                name="dailyLossLimit"
+                min={0}
+                max={100000}
+                defaultValue={casino.dailyLossLimit}
+                className="cozy-input w-40 px-3 py-2 text-[16px]"
+              />
+            </label>
+            <button type="submit" className="cozy-btn cozy-btn-primary px-4 py-2">
+              Guardar
+            </button>
+          </form>
+          <p className="mt-3 text-[13px] text-cozy-ink-soft">
+            Cuenta lo que cada persona lleva perdido en el día (de Bogotá), con las apuestas abiertas. Los cambios llegan a las mesas al instante.
+          </p>
+        </Section>
 
         <Section title="Oficinas" count={offices.length}>
           <p className="text-[13px] text-cozy-ink-soft">

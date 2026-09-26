@@ -18,6 +18,8 @@ import { DecorPanel } from "./DecorPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { CafePanel } from "./CafePanel";
+import { CashierPanel } from "./casino/CashierPanel";
+import { RoulettePanel } from "./casino/RoulettePanel";
 import { BackpackPanel, ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { ProfileDialog } from "./ProfileDialog";
@@ -205,6 +207,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "mailbox" && <MailboxPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "board" && <BoardPanel onClose={closePanel} />}
           {panel?.kind === "cafe" && <CafePanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "roulette" && <RoulettePanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "cashier" && <CashierPanel onClose={closePanel} />}
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
           {panel?.kind === "fitting" && (

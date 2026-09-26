@@ -28,6 +28,7 @@ function moveLabel(m: { reason: PointReason; refId: string | null }) {
   const id = i < 0 ? "" : ref.slice(i + 1);
   if (m.reason === "PURCHASE" && kind === "cafe") return `Cafetería · ${cafeItem(id)?.name ?? "pedido"}`;
   if (m.reason === "PURCHASE" && kind === "shop") return `Tienda · ${shopItem(id)?.name ?? "compra"}`;
+  if (m.reason === "CASINO") return kind === "blackjack" ? "Casino · Blackjack" : "Casino · Ruleta";
   return REASON_LABEL[m.reason];
 }
 
@@ -38,6 +39,8 @@ const PROMPT: Record<Interactable, string> = {
   shop: "Ver la tienda",
   fitting: "Entrar al probador",
   pole: "Bailar en el tubo",
+  roulette: "Jugar a la ruleta",
+  cashier: "Ver la caja",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

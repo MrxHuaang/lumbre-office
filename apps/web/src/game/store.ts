@@ -40,7 +40,7 @@ export interface PlayerInfo {
  * Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería,
  * mostrador de la tienda y probador.
  */
-export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole";
+export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier";
 /** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
 export type PanelKind = Interactable | "backpack";
 

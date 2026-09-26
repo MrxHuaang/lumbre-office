@@ -81,6 +81,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "shop", point: "shop_counter", furniture: ["shop-counter", "display-shelf"] },
   { kind: "fitting", point: "fitting_room", furniture: ["fitting-booth", "clothes-rack"] },
   { kind: "pole", point: "pole_stage", furniture: ["dance-pole"] },
+  { kind: "roulette", point: "roulette", furniture: ["roulette-table"] },
+  { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Colores del editor de oficina: grilla, y fantasma/huella cuando se puede (verde) o no (rojo). */
