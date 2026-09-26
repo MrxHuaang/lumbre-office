@@ -448,13 +448,14 @@ function drawHairFront(c: PixelCanvas, style: HairStyle, t: Tones, y: Row, sway:
     c.set(7, y(-1), hr[2]);
   }
   if (style === "ponytail") {
-    // Atada atrás de la cabeza (a la izquierda de frente); la punta se mece al caminar.
+    // Atada atrás de la cabeza (a la izquierda de frente); la punta se mece al caminar. No pasa de x = 1:
+    // en la columna 0 no cabría el contorno.
     c.rect(1, y(3), 2, 6, hr[1]);
     c.rect(2, y(4), 1, 5, hr[0]);
     c.set(1, y(3), hr[2]);
     c.rect(3, y(3), 1, 2, t.ribbon[1]);
-    c.set(sway > 0 ? 2 : 1, y(9), hr[1]);
-    if (sway < 0) c.set(0, y(9), hr[1]);
+    if (sway <= 0) c.set(1, y(9), hr[1]);
+    if (sway >= 0) c.set(2, y(9), hr[0]);
   }
   if (style === "braids") {
     braid(c, 2, 5, 12, t, y);
