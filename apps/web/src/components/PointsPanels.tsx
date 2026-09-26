@@ -1,7 +1,7 @@
 "use client";
 
 // Fase 2: el buzón (recompensa diaria y movimientos) y el tablón (misiones y ranking) del jardín.
-import { cafeItem, POINTS, type HumanAvatar, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
+import { cafeItem, POINTS, shopItem, type HumanAvatar, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useOfficeStore, type Interactable } from "@/game/store";
@@ -17,10 +17,11 @@ const REASON_LABEL: Record<PointReason, string> = {
   PURCHASE: "Compra",
 };
 
-/** Nombre de un movimiento: las compras dicen qué se compró ("Cafetería · Tinto"). */
+/** Nombre de un movimiento: las compras dicen qué se compró ("Cafetería · Tinto", "Tienda · Planta"). */
 function moveLabel(m: { reason: PointReason; refId: string | null }) {
   const [kind, id] = (m.refId ?? "").split(":");
   if (m.reason === "PURCHASE" && kind === "cafe") return `Cafetería · ${cafeItem(id ?? "")?.name ?? "pedido"}`;
+  if (m.reason === "PURCHASE" && kind === "shop") return `Tienda · ${shopItem(id ?? "")?.name ?? "compra"}`;
   return REASON_LABEL[m.reason];
 }
 
