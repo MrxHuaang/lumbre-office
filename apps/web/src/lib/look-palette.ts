@@ -1,47 +1,43 @@
 import { HUMANS } from "@hyvento/map/art";
-import type {
-  Accessory,
-  BackItem,
-  Bottom,
-  EyeStyle,
-  FaceItem,
-  FacialHair,
-  HairStyle,
-  HeadItem,
-  HumanAvatar,
-  Look,
-  NeckItem,
-  Outfit,
-  Pattern,
-  Shoes,
-  Top,
+import {
+  LOOK_BOTTOMS,
+  LOOK_CLOTHES,
+  LOOK_EYES,
+  LOOK_EYES_FANTASY,
+  LOOK_HAIR_FANTASY,
+  LOOK_HAIR_NATURAL,
+  LOOK_SHOES,
+  LOOK_SKINS,
+  normalizeLook,
+  type BackItem,
+  type Bottom,
+  type EyeStyle,
+  type FaceItem,
+  type FacialHair,
+  type FullLook,
+  type HairStyle,
+  type HeadItem,
+  type HumanAvatar,
+  type Look,
+  type LookInput,
+  type NeckItem,
+  type Outfit,
+  type Pattern,
+  type Shoes,
+  type Top,
 } from "@hyvento/shared";
 
-/** Muestras sugeridas del editor de personaje (además hay un selector de color libre). */
-export const SKIN_TONES = ["#ffdbac", "#f1c27d", "#e0ac69", "#c68642", "#8d5524", "#5c3a21"];
-export const HAIR_COLORS = ["#0d0d0d", "#3b2219", "#6b4423", "#b5651d", "#d4a017", "#e8e1d0", "#c9674e", "#6886c4"];
-/** Ropa y accesorios: la paleta cozy de la cabaña más algunos neutros. */
-export const INK_COLORS = [
-  "#c05a4a",
-  "#e0923e",
-  "#dcae3f",
-  "#5ea247",
-  "#437a55",
-  "#4660a0",
-  "#6886c4",
-  "#a45a6c",
-  "#7a4a7e",
-  "#5a331d",
-  "#3a3a4a",
-  "#f7ebc8",
-];
-
 /**
- * Lo que se elige al entrar y desde "Mi personaje". El resto (y los conjuntos) se estrena en el
- * probador de la tienda, que es el vestidor; es todo gratis.
+ * Muestras sugeridas del editor de personaje (además hay un selector de color libre). Son las mismas
+ * paletas que usa "Al azar" (`randomLook`), para que lo sugerido y lo que sale al azar combinen.
  */
-export const BASIC_HAIR_STYLES: readonly HairStyle[] = ["short", "long", "curly", "buzz", "bun"];
-export const BASIC_ACCESSORIES: readonly Accessory[] = ["glasses", "cap", "headphones", "beard"];
+export const SKIN_TONES: readonly string[] = LOOK_SKINS;
+export const HAIR_COLORS: readonly string[] = [...LOOK_HAIR_NATURAL, ...LOOK_HAIR_FANTASY];
+export const EYE_COLORS: readonly string[] = [...LOOK_EYES, ...LOOK_EYES_FANTASY];
+/** Ropa y accesorios: la paleta cozy de la cabaña más algunos neutros. */
+export const INK_COLORS: readonly string[] = LOOK_CLOTHES;
+export const PANTS_COLORS: readonly string[] = LOOK_BOTTOMS;
+export const SHOE_COLORS: readonly string[] = LOOK_SHOES;
 
 export const HAIR_STYLE_LABEL: Record<HairStyle, string> = {
   short: "Corto",
@@ -119,20 +115,15 @@ export const FACE_LABEL: Record<FaceItem, string> = {
   eyepatch: "Parche",
 };
 
-export const NECK_LABEL: Record<NeckItem, string> = { none: "Nada", scarf: "Bufanda", tie: "Corbata", bowtie: "Corbatín", necklace: "Collar" };
+export const NECK_LABEL: Record<NeckItem, string> = {
+  none: "Nada",
+  scarf: "Bufanda",
+  tie: "Corbata",
+  bowtie: "Corbatín",
+  necklace: "Collar",
+};
 
 export const BACK_LABEL: Record<BackItem, string> = { none: "Nada", backpack: "Morral", cape: "Capa" };
-
-export const ACCESSORY_LABEL: Record<Accessory, string> = {
-  glasses: "Gafas",
-  cap: "Gorra",
-  headphones: "Audífonos",
-  beard: "Barba",
-  "straw-hat": "Sombrero de paja",
-  beanie: "Gorro de lana",
-  scarf: "Bufanda",
-  flower: "Flor en el pelo",
-};
 
 export const OUTFIT_LABEL: Record<Outfit, string> = {
   overalls: "Overol",
@@ -142,13 +133,27 @@ export const OUTFIT_LABEL: Record<Outfit, string> = {
 };
 
 /** Lo que se pinta con el color de acento (nombre corto, para el título del selector de color). */
-export const ACCENT_ACCESSORIES: Partial<Record<Accessory, string>> = {
-  cap: "gorra",
-  headphones: "audífonos",
-  beanie: "gorro",
-  scarf: "bufanda",
-};
-export const ACCENT_OUTFITS: Partial<Record<Outfit, string>> = { jacket: "chaqueta" };
+const ACCENT_HEAD: Partial<Record<HeadItem, string>> = { cap: "gorra", beanie: "gorro", headphones: "audífonos", bandana: "pañoleta" };
+const ACCENT_NECK: Partial<Record<NeckItem, string>> = { scarf: "bufanda" };
+const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "morral", cape: "capa" };
+const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "chaqueta" };
+
+/** Lo que lleva puesto y usa el color de acento, en el orden de la cabeza a la espalda. */
+export function accentUsers(look: FullLook): string[] {
+  return [ACCENT_HEAD[look.head], ACCENT_NECK[look.neck], look.outfit && ACCENT_OUTFIT[look.outfit], ACCENT_BACK[look.back]].filter(
+    (n): n is string => Boolean(n),
+  );
+}
+
+/** Lo que usa el color secundario de la parte de arriba (`top2`). */
+export function top2Users(look: FullLook): string[] {
+  const parts: string[] = [];
+  if (look.pattern === "stripes") parts.push("rayas");
+  if (look.pattern === "dots") parts.push("puntos");
+  if (look.top === "hoodie") parts.push("capucha");
+  if (look.top === "shirt-tie") parts.push("corbata");
+  return parts;
+}
 
 /** "A", "A y B", "A, B y C". */
 export function joinEs(parts: string[]): string {
@@ -156,8 +161,19 @@ export function joinEs(parts: string[]): string {
   return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
 }
 
+/** Un look completo en el formato nuevo: los lugares explícitos, `accessories: []` y sin conjunto si no hay. */
+export function lookFromFull(full: FullLook): Look {
+  const { outfit, ...rest } = full;
+  return outfit ? { ...rest, outfit, accessories: [] } : { ...rest, accessories: [] };
+}
+
+/** Lo que escribe el editor: el formato nuevo con todo decidido, aunque se haya abierto un look viejo. */
+export function editableLook(look: LookInput): Look {
+  return lookFromFull(normalizeLook(look));
+}
+
 /** Look equivalente a un personaje fijo, para empezar a editar desde él. */
 export function presetLook(avatar: HumanAvatar): Look {
   const s = HUMANS[avatar] ?? HUMANS.ada;
-  return { skin: s.skin, hair: s.hair, shirt: s.shirt, pants: s.pants, accent: "#4660a0", hairStyle: s.hairStyle ?? "short", accessories: [] };
+  return editableLook({ ...s, accent: "#4660a0", top2: "#f7ebc8" });
 }

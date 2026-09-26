@@ -41,7 +41,7 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
 
   return (
     <form
-      className="cozy-void flex min-h-full flex-col gap-9 px-6 py-8 font-pixel text-cozy-ink sm:px-10 md:px-14 md:py-10"
+      className="cozy-void flex min-h-full flex-col gap-9 px-4 py-8 font-pixel text-cozy-ink sm:px-10 md:px-14 md:py-10"
       onSubmit={(e) => {
         e.preventDefault();
         if (trimmed && !saving) onJoin({ name: trimmed, ...appearance });
@@ -83,7 +83,7 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
           <div className="max-md:hidden">{actions}</div>
         </div>
 
-        <fieldset className="cozy-panel min-w-0 self-start p-5">
+        <fieldset className="cozy-panel min-w-0 self-start p-3 sm:p-5">
           <legend className="sr-only">Personaje</legend>
           <CharacterEditor value={appearance} onChange={setAppearance} />
         </fieldset>
