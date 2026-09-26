@@ -14,6 +14,7 @@ import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
+import { DecorPanel } from "./DecorPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { CafePanel } from "./CafePanel";
@@ -105,6 +106,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const panel = useOfficeStore((s) => s.panel);
   const closePanel = useOfficeStore((s) => s.closePanel);
   const connection = useOfficeStore((s) => s.connection);
+  const decorating = useOfficeStore((s) => s.decorating);
 
   // Actividad real (mouse, teclado): cuenta para los puntos de presencia. Como mucho un aviso por minuto.
   useEffect(() => {
@@ -178,8 +180,11 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             onAdmin={() => setDialog("admin")}
             onLogout={onExit}
           />
-          <div className="pointer-events-none absolute top-3 right-3 z-10 flex w-[min(270px,calc(100%-1.5rem))] flex-col items-end gap-3 max-md:w-44">
-            <PeoplePanel />
+          {/* Decorando tu oficina, el panel del editor toma el lugar de los conectados. */}
+          <div
+            className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-3 ${decorating ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-44"}`}
+          >
+            {decorating ? <DecorPanel /> : <PeoplePanel />}
             <Notices />
           </div>
           <ChatPanel />
@@ -241,9 +246,12 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
 
 /** Recordatorio de controles (abajo a la derecha, solo en pantallas anchas). */
 function ControlsHint() {
+  const decorating = useOfficeStore((s) => s.decorating);
   return (
     <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
-      WASD / flechas · clic para caminar · E para sentarte · Enter para chatear
+      {decorating
+        ? "Clic para poner o elegir · R para girar · Supr para guardar · Esc para soltar o terminar"
+        : "WASD / flechas · clic para caminar · E para sentarte · Enter para chatear"}
     </div>
   );
 }

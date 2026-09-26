@@ -1,11 +1,18 @@
 import {
   allZones,
+  applyDecorEdit,
+  buildArea,
   canStandAt,
+  catalogItem,
+  decorateAreaDef,
   findPath,
+  footprint,
+  furnitureTiles,
   getWorld,
   isBlockedTile,
   nearestFreeTile,
   officeDoor,
+  officeFurniture,
   placeAt,
   INTERACT_REACH_TILES,
   pointsOfType,
@@ -16,6 +23,10 @@ import {
   seatStandSpot,
   zoneAt,
   zoneCenterTile,
+  type AreaDecor,
+  type DecorEdit,
+  type DecorEditResult,
+  type OfficeFurniture,
   type OfficeMap,
   type Seat,
   type TilePos,
@@ -37,11 +48,21 @@ import { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, isNightNow } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
-import { AreaView, DEPTH_OVERLAY, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
+import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { ensureCharacterTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
-import { getRoom, onMoveCorrection, onRoom, sendMove, sendTravel, type OfficeRoom, type RemotePlayer } from "./network";
-import { canEnterOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView } from "./store";
+import {
+  DECOR_ERRORS,
+  getRoom,
+  onMoveCorrection,
+  onRoom,
+  sendMove,
+  sendOfficeEdit,
+  sendTravel,
+  type OfficeRoom,
+  type RemotePlayer,
+} from "./network";
+import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView } from "./store";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -59,8 +80,13 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "fitting", point: "fitting_room", furniture: ["fitting-booth", "clothes-rack"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
+/** Colores del editor de oficina: grilla, y fantasma/huella cuando se puede (verde) o no (rojo). */
+const DECOR_COLORS = { grid: 0xfff4d6, ok: 0x6fcf5f, bad: 0xe05a4a };
 
-type Keys = Record<"W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT" | "E", Phaser.Input.Keyboard.Key>;
+type Keys = Record<
+  "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT" | "E" | "R" | "ESC" | "DELETE" | "BACKSPACE",
+  Phaser.Input.Keyboard.Key
+>;
 
 /** Dirección del sprite según hacia dónde se mueve en pantalla (+x = sureste, +y = suroeste). */
 function facingFor(vx: number, vy: number): Direction {
@@ -109,18 +135,30 @@ export class OfficeScene extends Phaser.Scene {
   /** Tile de portal en el que quedé (no se vuelve a usar hasta salir de él). */
   private portalTile = "";
   private ambient: Phaser.Time.TimerEvent[] = [];
+  /** Decoración aplicada a cada nivel (JSON), para rearmarlo solo cuando cambia. */
+  private decorApplied = new Map<string, string>();
+  /** Editor de oficina: grilla sobre la oficina, huella y fantasma del mueble bajo el puntero. */
+  private decorGrid?: Phaser.GameObjects.Graphics;
+  private decorMarks?: Phaser.GameObjects.Graphics;
+  private decorGhost?: { key: string; img: Phaser.GameObjects.Image };
+  /** Tile bajo el puntero en el modo decorar. */
+  private decorHover: TilePos | null = null;
 
   constructor() {
     super("office");
   }
 
   create() {
-    this.world = getWorld();
+    // Copia propia de la lista de niveles: la decoración de las oficinas rearma el piso 2 solo aquí.
+    const base = getWorld();
+    this.world = { ...base, areas: new Map(base.areas) };
     for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
     useOfficeStore.getState().setZoneNames(Object.fromEntries(allZones(this.world).map((z) => [z.id, z.name])));
     if (!useOfficeStore.getState().area) useOfficeStore.getState().setNight(isNightNow());
     // Hasta saber dónde está el jugador se muestra el jardín.
     this.map = this.world.areas.get(this.world.spawnArea)!;
+    // Las oficinas pueden haber llegado antes que la escena: su decoración ya se aplica.
+    this.applyDecor(useOfficeStore.getState().offices);
 
     ensureTexture(this, "cursor-tile", () => tileCursor());
     this.hoverCursor = this.add.image(0, 0, "cursor-tile").setVisible(false).setDepth(-5e5);
@@ -131,9 +169,12 @@ export class OfficeScene extends Phaser.Scene {
     cam.setRoundPixels(true);
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
-    this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E", false) as Keys;
+    this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,ESC,DELETE,BACKSPACE", false) as Keys;
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (!useOfficeStore.getState().pcOn) this.clickAt(p.worldX, p.worldY); // con el PC prendido no se camina
+      const s = useOfficeStore.getState();
+      if (s.pcOn) return; // con el PC prendido no se camina
+      if (s.decorating) this.decorClick(p.worldX, p.worldY); // decorando, el clic pone o elige muebles
+      else this.clickAt(p.worldX, p.worldY);
     });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => this.hoverAt(p.worldX, p.worldY));
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
@@ -152,10 +193,19 @@ export class OfficeScene extends Phaser.Scene {
         }
       }),
       useOfficeStore.subscribe((s, prev) => {
-        if (s.offices !== prev.offices) this.updateNameplates(s.offices);
+        if (s.offices !== prev.offices) {
+          this.applyDecor(s.offices);
+          this.updateNameplates(s.offices);
+        }
         if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
-        if (s.night !== prev.night) this.view?.setNight(s.night);
+        if (s.night !== prev.night) {
+          this.view?.setNight(s.night);
+          this.updateGhost(true); // el fantasma también cambia de textura
+        }
         if (s.lastAward && s.lastAward !== prev.lastAward) this.floatAward(s.lastAward.amount);
+        if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
+          this.refreshDecor();
+        }
       }),
     );
     // `game.destroy()` emite DESTROY (no SHUTDOWN): hay que limpiar en ambos casos, o la escena
@@ -177,6 +227,8 @@ export class OfficeScene extends Phaser.Scene {
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
       this.hearingElapsed = 0;
       this.updateHearing();
+      // Alguien pudo pararse donde iba el mueble: el fantasma se vuelve a revisar.
+      if (this.decorGhost) this.updateGhost();
     }
     for (const [id, avatar] of this.avatars) if (id !== this.localId) avatar.interpolate(delta);
   }
@@ -200,6 +252,60 @@ export class OfficeScene extends Phaser.Scene {
     useOfficeStore.getState().setArea(map.id);
     this.updateNameplates(useOfficeStore.getState().offices);
     this.syncScreens();
+    this.refreshDecor();
+  }
+
+  /** Decoración de las oficinas de un nivel según el estado de la sala (solo las que tienen algo). */
+  private decorOf(areaId: string, offices: Record<string, OfficeView>): AreaDecor {
+    const decor: AreaDecor = {};
+    for (const z of getWorld().areas.get(areaId)?.zones ?? []) {
+      const o = z.type === "office" ? offices[z.id] : undefined;
+      if (!o || (!o.customized && !o.floor && !o.wallpaper)) continue;
+      decor[z.id] = { items: o.customized ? o.items : null, floor: o.floor || null, wallpaper: o.wallpaper || null };
+    }
+    return decor;
+  }
+
+  /**
+   * Cambió la decoración de alguna oficina: se rearma su nivel (colisión y asientos locales, igual que
+   * el servidor) y, si es el que se está viendo, se vuelve a dibujar.
+   */
+  private applyDecor(offices: Record<string, OfficeView>) {
+    for (const [areaId, base] of getWorld().areas) {
+      if (!base.zones.some((z) => z.type === "office")) continue;
+      const decor = this.decorOf(areaId, offices);
+      const applied = JSON.stringify(decor);
+      if (applied === (this.decorApplied.get(areaId) ?? "{}")) continue;
+      let map: OfficeMap;
+      try {
+        const def = decorateAreaDef(base.def, decor);
+        map = def === base.def ? base : buildArea(def);
+      } catch (err) {
+        console.error("No se pudo rearmar el nivel con la decoración", err);
+        continue;
+      }
+      this.decorApplied.set(areaId, applied);
+      this.world.areas.set(areaId, map);
+      if (this.map.id === areaId) this.redrawArea(map);
+    }
+    this.updateGhost();
+  }
+
+  /** Vuelve a dibujar el nivel actual con otro mapa (misma área, otra decoración). */
+  private redrawArea(map: OfficeMap) {
+    this.map = map;
+    this.view?.destroy();
+    this.view = new AreaView(this, map, useOfficeStore.getState().night);
+    AreaView.dropStaleBases(this, map);
+    // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
+    const goal = this.path.at(-1);
+    if (goal && this.local) {
+      const ts = map.tileSize;
+      this.path = findPath(map, { x: Math.floor(this.local.x / ts), y: Math.floor(this.local.y / ts) }, goal) ?? [];
+      if (this.path.length === 0) this.clearPath();
+    }
+    if (this.seat) this.seat = seatAtPoint(map, this.seat.x, this.seat.y) ?? this.seat;
+    this.refreshDecor();
   }
 
   private handleCorrection(c: MoveCorrection) {
@@ -414,6 +520,7 @@ export class OfficeScene extends Phaser.Scene {
         if (near && !this.seat) useOfficeStore.getState().openPanel(near, true);
         else this.toggleSeat();
       }
+      if (useOfficeStore.getState().decorating) this.decorKeys();
     }
 
     if (vx !== 0 || vy !== 0) {
@@ -607,6 +714,11 @@ export class OfficeScene extends Phaser.Scene {
   private hoverAt(sx: number, sy: number) {
     const cursor = this.hoverCursor;
     if (!cursor) return;
+    if (useOfficeStore.getState().decorating) {
+      cursor.setVisible(false);
+      this.decorHoverAt(sx, sy);
+      return;
+    }
     const hit = this.tileUnder(sx, sy);
     if (!hit || (isBlockedTile(this.map, hit.tile.x, hit.tile.y) && !hit.seat)) return cursor.setVisible(false);
     const ts = this.map.tileSize;
@@ -758,6 +870,177 @@ export class OfficeScene extends Phaser.Scene {
     this.pendingZone = zoneId;
     const t = portal.tiles[0]!;
     this.walkTo(t.x * ts + ts / 2, t.y * ts + ts / 2);
+  }
+
+  // ---------- Editor de oficina (modo decorar) ----------
+
+  /** Mi oficina, si estoy decorando y está en el nivel que se ve. */
+  private decorZone(): Zone | null {
+    const s = useOfficeStore.getState();
+    if (!s.decorating) return null;
+    const mine = selectMyOffice(s);
+    return (mine && this.map.zones.find((z) => z.id === mine.zoneId)) || null;
+  }
+
+  /** Muebles de una oficina tal como están (con los fijos y los ids que entiende el servidor). */
+  private decorFurniture(zoneId: string): OfficeFurniture[] {
+    const def = getWorld().areas.get(this.map.id)?.def;
+    if (!def) return [];
+    return officeFurniture(def, zoneId, this.decorOf(this.map.id, useOfficeStore.getState().offices)[zoneId]);
+  }
+
+  /** Misma validación que el servidor, con quienes están en el nivel (yo, donde me veo). */
+  private checkDecor(zoneId: string, edit: DecorEdit): DecorEditResult {
+    const def = getWorld().areas.get(this.map.id)!.def;
+    const people: { x: number; y: number }[] = [];
+    getRoom()?.state.players.forEach((p, sessionId) => {
+      if (sessionId !== this.localId && p.area === this.map.id) people.push({ x: p.x, y: p.y });
+    });
+    if (this.local) people.push({ x: this.local.x, y: this.local.y });
+    return applyDecorEdit({ def, decor: this.decorOf(this.map.id, useOfficeStore.getState().offices), zoneId, people }, edit);
+  }
+
+  /** Dónde caería el mueble elegido con el puntero en `tile` (centrado bajo el puntero si es grande). */
+  private ghostPose(tile: TilePos): FurniturePose | null {
+    const { decorPick, decorFacing } = useOfficeStore.getState();
+    if (!decorPick) return null;
+    const [w, d] = footprint(catalogItem(decorPick.type), decorFacing);
+    return { type: decorPick.type, x: tile.x - Math.floor((w - 1) / 2), y: tile.y - Math.floor((d - 1) / 2), facing: decorFacing };
+  }
+
+  private poseEdit(pose: FurniturePose): DecorEdit {
+    const pick = useOfficeStore.getState().decorPick;
+    return pick?.itemId ? { action: "move", itemId: pick.itemId, ...pose } : { action: "place", ...pose };
+  }
+
+  /** Muestra u oculta la grilla del modo decorar y atenúa el mueble que se está moviendo. */
+  private refreshDecor() {
+    const zone = this.decorZone();
+    if (!zone) {
+      this.decorGrid?.destroy();
+      this.decorGrid = undefined;
+      this.decorHover = null;
+      this.view?.dimFurniture(null);
+      this.updateGhost();
+      return;
+    }
+    const ts = this.map.tileSize;
+    this.decorGrid ??= this.add.graphics().setDepth(DEPTH_FLAT + 1);
+    const g = this.decorGrid.clear().lineStyle(1, DECOR_COLORS.grid, 0.35);
+    const x0 = zone.x / ts;
+    const y0 = zone.y / ts;
+    const x1 = x0 + zone.width / ts;
+    const y1 = y0 + zone.height / ts;
+    for (let x = x0; x <= x1; x++) {
+      const a = worldToScreen(x * ts, y0 * ts);
+      const b = worldToScreen(x * ts, y1 * ts);
+      g.lineBetween(a.x, a.y, b.x, b.y);
+    }
+    for (let y = y0; y <= y1; y++) {
+      const a = worldToScreen(x0 * ts, y * ts);
+      const b = worldToScreen(x1 * ts, y * ts);
+      g.lineBetween(a.x, a.y, b.x, b.y);
+    }
+    const pick = useOfficeStore.getState().decorPick;
+    const moving = pick?.itemId ? this.decorFurniture(zone.id).find((f) => f.id === pick.itemId) : undefined;
+    this.view?.dimFurniture(moving ? (f) => f.type === moving.type && f.x === moving.x && f.y === moving.y && f.facing === moving.facing : null);
+    this.updateGhost(true);
+  }
+
+  /** Fantasma del mueble elegido bajo el puntero: verde si se puede poner ahí, rojo si no. */
+  private updateGhost(redraw = false) {
+    const zone = this.decorZone();
+    const pose = zone && this.decorHover ? this.ghostPose(this.decorHover) : null;
+    const ok = Boolean(zone && pose && this.checkDecor(zone.id, this.poseEdit(pose)).ok);
+    const key = pose ? `${pose.type}:${pose.x},${pose.y}:${pose.facing}:${ok}` : "";
+    if (redraw || !pose || this.decorGhost?.key !== key) {
+      this.decorGhost?.img.destroy();
+      this.decorGhost = undefined;
+    }
+    this.decorMarks?.clear();
+    if (!zone || !pose) return;
+    const ts = this.map.tileSize;
+    if (!this.decorGhost) {
+      const { img } = furnitureImage(this, pose, useOfficeStore.getState().night, ts, ok ? "ok" : "bad");
+      // Un poco por delante de su lugar; una alfombra, sobre la grilla y la huella.
+      img.setDepth(catalogItem(pose.type).flat ? DEPTH_FLAT + 3 : img.depth + 0.5).setAlpha(0.85);
+      this.decorGhost = { key, img };
+    }
+    this.decorMarks ??= this.add.graphics().setDepth(DEPTH_FLAT + 2);
+    this.decorMarks.fillStyle(ok ? DECOR_COLORS.ok : DECOR_COLORS.bad, 0.45);
+    for (const t of furnitureTiles(pose)) this.decorMarks.fillPoints(tileDiamond(t.x, t.y, ts), true);
+  }
+
+  private decorHoverAt(sx: number, sy: number) {
+    const ts = this.map.tileSize;
+    const w = screenToWorld(sx, sy);
+    const tile = { x: Math.floor(w.x / ts), y: Math.floor(w.y / ts) };
+    if (this.decorHover?.x === tile.x && this.decorHover.y === tile.y) return;
+    this.decorHover = tile;
+    this.updateGhost();
+  }
+
+  /** Mueble de mi oficina dibujado bajo el puntero (los altos se buscan un poco más abajo, como los objetos). */
+  private decorItemUnder(sx: number, sy: number, zoneId: string): OfficeFurniture | null {
+    const ts = this.map.tileSize;
+    const items = this.decorFurniture(zoneId);
+    const at = (lift: number, flat: boolean) => {
+      const w = screenToWorld(sx, sy + lift);
+      const tx = Math.floor(w.x / ts);
+      const ty = Math.floor(w.y / ts);
+      return items.find((f) => Boolean(catalogItem(f.type).flat) === flat && furnitureTiles(f).some((t) => t.x === tx && t.y === ty));
+    };
+    for (let lift = 0; lift <= 30; lift += 4) {
+      const f = at(lift, false);
+      if (f) return f;
+    }
+    return at(0, true) ?? null; // las alfombras, solo si se hizo clic justo encima
+  }
+
+  /** Clic en el modo decorar: pone o mueve el mueble elegido; sin nada elegido, elige el que se tocó. */
+  private decorClick(sx: number, sy: number) {
+    const zone = this.decorZone();
+    if (!zone) return;
+    const s = useOfficeStore.getState();
+    const ts = this.map.tileSize;
+    const w = screenToWorld(sx, sy);
+    this.decorHover = { x: Math.floor(w.x / ts), y: Math.floor(w.y / ts) };
+    const pose = this.ghostPose(this.decorHover);
+    if (pose) {
+      const edit = this.poseEdit(pose);
+      const check = this.checkDecor(zone.id, edit);
+      if (!check.ok) {
+        s.notify(DECOR_ERRORS[check.error], "warning");
+        return;
+      }
+      sendOfficeEdit({ ...edit, zoneId: zone.id });
+      // Movido, se suelta; uno nuevo se puede seguir poniendo mientras queden en la mochila.
+      if (edit.action === "move") s.pickDecor(null);
+      return;
+    }
+    const under = this.decorItemUnder(sx, sy, zone.id);
+    if (!under) return;
+    if (under.fixed) s.notify(DECOR_ERRORS.fixed, "info");
+    else s.pickDecor({ type: under.type, itemId: under.id }, under.facing);
+  }
+
+  /** Teclas del modo decorar: R gira, Supr quita lo elegido y Esc lo suelta (o sale del modo). */
+  private decorKeys() {
+    const k = this.keys;
+    const s = useOfficeStore.getState();
+    const zone = this.decorZone();
+    if (Phaser.Input.Keyboard.JustDown(k.R) && s.decorPick) s.rotateDecor();
+    if (Phaser.Input.Keyboard.JustDown(k.ESC)) {
+      if (s.decorPick) s.pickDecor(null);
+      else s.setDecorating(false);
+    }
+    const del = Phaser.Input.Keyboard.JustDown(k.DELETE) || Phaser.Input.Keyboard.JustDown(k.BACKSPACE);
+    if (del && zone && s.decorPick?.itemId) {
+      const check = this.checkDecor(zone.id, { action: "remove", itemId: s.decorPick.itemId });
+      if (!check.ok) return s.notify(DECOR_ERRORS[check.error], "warning");
+      sendOfficeEdit({ action: "remove", zoneId: zone.id, itemId: s.decorPick.itemId });
+      s.pickDecor(null);
+    }
   }
 
   // ---------- Audio/video por proximidad ----------

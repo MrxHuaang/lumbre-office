@@ -2,11 +2,14 @@ import {
   KNOCK_TIMEOUT_MS,
   type ChatEvent,
   type ChatScope,
+  type Direction,
   type HumanAvatar,
   type Look,
   type KnockOutcome,
   type KnockRequest,
   type KnockResult,
+  type OfficeEditResult,
+  type OfficeItemDTO,
   type PointsAwarded,
   type PresenceStatus,
 } from "@hyvento/shared";
@@ -48,7 +51,24 @@ export interface OfficeView {
   ownerName: string;
   locked: boolean;
   guests: string[];
+  /** Fase 3c: false = quedan los muebles del mapa; true = los de `items` (más el escritorio con PC y su silla). */
+  customized: boolean;
+  items: OfficeItemDTO[];
+  /** Piso y papel tapiz elegidos ("" = los del mapa). */
+  floor: string;
+  wallpaper: string;
 }
+
+/**
+ * Mueble elegido en el modo decorar: uno de la mochila (`type`) para ponerlo, o uno ya puesto
+ * (`itemId`) para moverlo o quitarlo.
+ */
+export interface DecorPick {
+  type: string;
+  itemId?: string;
+}
+
+const TURN: Record<Direction, Direction> = { right: "down", down: "left", left: "up", up: "right" };
 
 export interface ZoneInfo {
   id: string;
@@ -108,6 +128,14 @@ interface OfficeStore {
   panel: { kind: PanelKind; atObject: boolean } | null;
   /** Último premio de puntos (cambia `id` en cada uno, para animarlo). */
   lastAward: (PointsAwarded & { id: number }) | null;
+  /** Modo decorar tu oficina: el clic pone o elige muebles en vez de caminar. */
+  decorating: boolean;
+  /** Mueble elegido para poner o mover (null = ninguno: el clic elige uno puesto). */
+  decorPick: DecorPick | null;
+  /** Hacia dónde mira el mueble elegido (R lo gira). */
+  decorFacing: Direction;
+  /** Última respuesta del servidor al editor (cambia `id` en cada una: la mochila se vuelve a pedir). */
+  decorResult: (OfficeEditResult & { id: number }) | null;
 
   setConnection: (c: ConnectionStatus, error?: string | null) => void;
   setSessionId: (id: string | null) => void;
@@ -139,6 +167,10 @@ interface OfficeStore {
   openPanel: (kind: PanelKind, atObject: boolean) => void;
   closePanel: () => void;
   addAward: (a: PointsAwarded) => void;
+  setDecorating: (on: boolean) => void;
+  pickDecor: (pick: DecorPick | null, facing?: Direction) => void;
+  rotateDecor: () => void;
+  setDecorResult: (r: OfficeEditResult) => void;
   reset: () => void;
 }
 
@@ -182,6 +214,10 @@ const initial = {
   interact: null as Interactable | null,
   panel: null as { kind: PanelKind; atObject: boolean } | null,
   lastAward: null as (PointsAwarded & { id: number }) | null,
+  decorating: false,
+  decorPick: null as DecorPick | null,
+  decorFacing: "right" as Direction,
+  decorResult: null as (OfficeEditResult & { id: number }) | null,
 };
 
 export const useOfficeStore = create<OfficeStore>((set, get) => ({
@@ -245,6 +281,11 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   openPanel: (kind, atObject) => set({ panel: { kind, atObject } }),
   closePanel: () => set({ panel: null }),
   addAward: (a) => set({ lastAward: { ...a, id: ++noticeId } }),
+  // Al entrar o salir del modo decorar no queda nada elegido.
+  setDecorating: (decorating) => set({ decorating, decorPick: null, panel: decorating ? null : get().panel }),
+  pickDecor: (decorPick, facing) => set((s) => ({ decorPick, decorFacing: facing ?? s.decorFacing })),
+  rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
+  setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),
   reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night })),
 }));
 

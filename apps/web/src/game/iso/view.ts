@@ -2,13 +2,16 @@
 // El juego usa píxeles de mundo (tile de 32); el arte usa unidades de arte (tile de 16): arte = mundo / 2.
 import {
   catalogItem,
+  footprint,
   wallAbove,
   wallLeftOf,
+  type Facing,
   type OfficeMap,
   type PlacedFurniture,
   type WallFeatureKind,
 } from "@hyvento/map";
 import {
+  PixelCanvas,
   WORLD_TO_ART,
   drawAreaBase,
   drawFurniture,
@@ -37,7 +40,7 @@ export function screenToWorld(sx: number, sy: number) {
 /** Profundidad isométrica: lo que está más abajo-adelante (mayor x + y) se dibuja encima. */
 export const depthOf = (x: number, y: number) => x + y;
 const DEPTH_FLOOR = -1e7;
-const DEPTH_FLAT = -1e6;
+export const DEPTH_FLAT = -1e6;
 export const DEPTH_OVERLAY = 1e7;
 
 function spriteTexture(scene: Phaser.Scene, key: string, make: () => Sprite): Sprite {
@@ -46,12 +49,96 @@ function spriteTexture(scene: Phaser.Scene, key: string, make: () => Sprite): Sp
   return s;
 }
 
+function furnitureKey(type: string, variant: "front" | "back", night: boolean) {
+  return catalogItem(type).hasNight ? `mueble-${type}-${variant}-${night ? "noche" : "dia"}` : `mueble-${type}-${variant}`;
+}
+
+/** Mueble ubicado en (x, y) (su esquina, en tiles) mirando hacia `facing`. */
+export interface FurniturePose {
+  type: string;
+  x: number;
+  y: number;
+  facing: Facing;
+}
+
+/** Colores del fantasma del editor: verde si se puede poner, rojo si no. */
+const GHOST_TINT = { ok: [111, 207, 95], bad: [224, 90, 74] } as const;
+const ghostSprites = new Map<string, Sprite>();
+
+/**
+ * Copia teñida de un dibujo (el renderer es Canvas 2D, donde Phaser no aplica `setTint`): cada píxel
+ * se mezcla con el color, así se nota de lejos.
+ */
+function tinted(s: Sprite, rgb: readonly [number, number, number], t = 0.5): Sprite {
+  const out = new PixelCanvas(s.canvas.width, s.canvas.height);
+  const src = s.canvas.data;
+  const dst = out.data;
+  for (let i = 0; i < src.length; i += 4) {
+    if (!src[i + 3]) continue;
+    dst[i] = src[i]! + (rgb[0] - src[i]!) * t;
+    dst[i + 1] = src[i + 1]! + (rgb[1] - src[i + 1]!) * t;
+    dst[i + 2] = src[i + 2]! + (rgb[2] - src[i + 2]!) * t;
+    dst[i + 3] = src[i + 3]!;
+  }
+  return { canvas: out, ox: s.ox, oy: s.oy };
+}
+
+/**
+ * Imagen de un mueble en su lugar y con su profundidad. La usan el nivel y el fantasma del editor de
+ * oficina (`ghost`: teñido de verde o rojo), así el fantasma cae exactamente donde quedará el mueble.
+ */
+export function furnitureImage(scene: Phaser.Scene, f: FurniturePose, night: boolean, ts: number, ghost?: "ok" | "bad") {
+  const item = catalogItem(f.type);
+  const back = (f.facing === "left" || f.facing === "up") && item.hasBack;
+  const flip = !item.fixed && (f.facing === "down" || f.facing === "up");
+  const variant: "front" | "back" = back ? "back" : "front";
+  const base = furnitureKey(f.type, variant, night);
+  const key = ghost ? `${base}-fantasma-${ghost}` : base;
+  const draw = () => drawFurniture(f.type, variant, night);
+  const make = ghost
+    ? () => {
+        let t = ghostSprites.get(key);
+        if (!t) ghostSprites.set(key, (t = tinted(draw(), GHOST_TINT[ghost])));
+        return t;
+      }
+    : draw;
+  const s = spriteTexture(scene, key, make);
+  const [w, d] = footprint(item, f.facing);
+  const anchor = worldToScreen(f.x * ts, f.y * ts);
+  const img = scene.add
+    .image(anchor.x - (flip ? s.canvas.width - s.ox : s.ox), anchor.y - s.oy, key)
+    .setOrigin(0, 0)
+    .setFlipX(flip)
+    .setDepth(item.flat ? DEPTH_FLAT : depthOf((f.x + w / 2) * ts, (f.y + d / 2) * ts));
+  return { img, variant, flip, anchor };
+}
+
+/** Rombo de un tile en pantalla (para la grilla y la huella del editor). */
+export function tileDiamond(tx: number, ty: number, ts: number): Phaser.Geom.Point[] {
+  return [
+    worldToScreen(tx * ts, ty * ts),
+    worldToScreen((tx + 1) * ts, ty * ts),
+    worldToScreen((tx + 1) * ts, (ty + 1) * ts),
+    worldToScreen(tx * ts, (ty + 1) * ts),
+  ].map((p) => new Phaser.Geom.Point(p.x, p.y));
+}
+
+/**
+ * Fondo del nivel según el piso y papel tapiz de cada habitación: con la decoración de las oficinas
+ * cambia, así que va en la clave de la textura (una letra de cada uno alcanza: no se repiten).
+ */
+function baseSignature(map: OfficeMap) {
+  return map.def.rooms.map((r) => `${r.floor[0]}${r.wallpaper[0]}`).join("");
+}
+
 /** Un nivel dibujado: fondo, muebles, paredes bajas y luces. Se destruye al cambiar de nivel. */
 export class AreaView {
   private objects: Phaser.GameObjects.GameObject[] = [];
   private base!: Phaser.GameObjects.Image;
   private nightLayer: Phaser.GameObjects.Rectangle;
   private glows: Phaser.GameObjects.Image[] = [];
+  /** Cada mueble con su imagen (el editor atenúa el que se está moviendo). */
+  private furnitureImages: { f: PlacedFurniture; img: Phaser.GameObjects.Image }[] = [];
   /** Muebles con versión nocturna (la cabaña): se les cambia la textura con la noche. */
   private nightly: { img: Phaser.GameObjects.Image; type: string; variant: "front" | "back"; flip: boolean; ax: number; ay: number }[] = [];
   /** Posición en pantalla de lo colgado en las paredes (p. ej. la pantalla de la sala). */
@@ -80,8 +167,22 @@ export class AreaView {
     this.setNight(night);
   }
 
+  /**
+   * Borra los fondos guardados de este nivel con otra decoración (piso o papel tapiz que ya no se
+   * usan): cada uno es un lienzo grande y no se volverían a pedir.
+   */
+  static dropStaleBases(scene: Phaser.Scene, map: OfficeMap) {
+    const prefix = `area-${map.id}-`;
+    const keep = `${prefix}${baseSignature(map)}-`;
+    for (const key of scene.textures.getTextureKeys()) {
+      if (!key.startsWith(prefix) || key.startsWith(keep)) continue;
+      scene.textures.remove(key);
+      scene.registry.remove(`${key}-origin`);
+    }
+  }
+
   private drawBase(night: boolean) {
-    const key = `area-${this.map.id}-${night ? "noche" : "dia"}`;
+    const key = `area-${this.map.id}-${baseSignature(this.map)}-${night ? "noche" : "dia"}`;
     let art: ReturnType<typeof drawAreaBase> | null = null;
     if (!this.scene.textures.exists(key)) {
       art = drawAreaBase(this.map, !night);
@@ -106,25 +207,12 @@ export class AreaView {
     }
   }
 
-  private furnitureKey(type: string, variant: "front" | "back", night: boolean) {
-    return catalogItem(type).hasNight ? `mueble-${type}-${variant}-${night ? "noche" : "dia"}` : `mueble-${type}-${variant}`;
-  }
-
   private placeFurniture(f: PlacedFurniture, night: boolean) {
     const item = catalogItem(f.type);
-    const back = (f.facing === "left" || f.facing === "up") && item.hasBack;
-    const flip = !item.fixed && (f.facing === "down" || f.facing === "up");
-    const variant = back ? "back" : "front";
-    const key = this.furnitureKey(f.type, variant, night);
-    const s = spriteTexture(this.scene, key, () => drawFurniture(f.type, variant, night));
     const ts = this.map.tileSize;
-    const anchor = worldToScreen(f.x * ts, f.y * ts);
-    const img = this.scene.add
-      .image(anchor.x - (flip ? s.canvas.width - s.ox : s.ox), anchor.y - s.oy, key)
-      .setOrigin(0, 0)
-      .setFlipX(flip)
-      .setDepth(item.flat ? DEPTH_FLAT : depthOf((f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts));
+    const { img, variant, flip, anchor } = furnitureImage(this.scene, f, night, ts);
     this.objects.push(img);
+    this.furnitureImages.push({ f, img });
     if (item.hasNight) this.nightly.push({ img, type: f.type, variant, flip, ax: anchor.x, ay: anchor.y });
 
     if (item.light) {
@@ -138,6 +226,11 @@ export class AreaView {
       this.glows.push(glow);
       this.objects.push(glow);
     }
+  }
+
+  /** Atenúa los muebles que cumplen `match` (el que se está moviendo en el editor); null = ninguno. */
+  dimFurniture(match: ((f: PlacedFurniture) => boolean) | null) {
+    for (const { f, img } of this.furnitureImages) img.setAlpha(match?.(f) ? 0.3 : 1);
   }
 
   /** Paredes bajas: una pieza por borde, con su propia profundidad para tapar a quien pase detrás. */
@@ -166,7 +259,7 @@ export class AreaView {
   setNight(on: boolean) {
     this.drawBase(on);
     for (const n of this.nightly) {
-      const key = this.furnitureKey(n.type, n.variant, on);
+      const key = furnitureKey(n.type, n.variant, on);
       const s = spriteTexture(this.scene, key, () => drawFurniture(n.type, n.variant, on));
       n.img.setTexture(key).setPosition(n.ax - (n.flip ? s.canvas.width - s.ox : s.ox), n.ay - s.oy);
     }
@@ -179,5 +272,6 @@ export class AreaView {
     this.objects = [];
     this.glows = [];
     this.nightly = [];
+    this.furnitureImages = [];
   }
 }
