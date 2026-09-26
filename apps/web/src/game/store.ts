@@ -21,6 +21,8 @@ export interface PlayerInfo {
   name: string;
   avatar: string;
   zoneId: string;
+  /** Lugar para mostrar (zona, "door:<zona>" o ""). */
+  place: string;
   status: PresenceStatus;
 }
 
@@ -55,6 +57,10 @@ interface OfficeStore {
   players: Record<string, PlayerInfo>;
   offices: Record<string, OfficeView>;
   zone: ZoneInfo | null;
+  /** Lugar actual del jugador local (ver `placeAt`), calculado en el cliente. */
+  place: string;
+  /** Nombres de las zonas del mapa, por id. */
+  zoneNames: Record<string, string>;
   messages: ChatEvent[];
   unread: number;
   chatScope: ChatScope;
@@ -78,6 +84,8 @@ interface OfficeStore {
   upsertOffice: (o: OfficeView) => void;
   removeOffice: (zoneId: string) => void;
   setZone: (z: ZoneInfo | null) => void;
+  setPlace: (place: string) => void;
+  setZoneNames: (names: Record<string, string>) => void;
   addMessages: (m: ChatEvent[]) => void;
   setChatScope: (s: ChatScope) => void;
   setChatOpen: (open: boolean) => void;
@@ -113,6 +121,8 @@ const initial = {
   players: {},
   offices: {},
   zone: null,
+  place: "",
+  zoneNames: {},
   messages: [],
   unread: 0,
   chatScope: "proximity" as ChatScope,
@@ -142,6 +152,8 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
       return { offices: rest };
     }),
   setZone: (zone) => set({ zone }),
+  setPlace: (place) => set({ place }),
+  setZoneNames: (zoneNames) => set({ zoneNames }),
   addMessages: (m) =>
     set((s) => {
       const known = new Set(s.messages.map((x) => x.id));
@@ -175,7 +187,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   },
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
-  reset: () => set(initial),
+  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames })),
 }));
 
 /** User.id del jugador local. */

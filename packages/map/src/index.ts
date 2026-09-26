@@ -139,6 +139,46 @@ export function zoneAt(map: OfficeMap, px: number, py: number): Zone | undefined
   return best;
 }
 
+const DOORWAY_PRIORITY: ZoneType[] = ["office", "meeting", "lab"];
+
+/**
+ * Lugar "humano" de un punto, para mostrar dónde está alguien:
+ * - el id de la zona cerrada (oficina, sala, lab) que lo contiene;
+ * - `door:<zoneId>` si está en el umbral de una puerta: fuera de toda zona cerrada pero pegado a una.
+ *   Funciona porque las zonas cerradas están rodeadas de muro y solo sus puertas quedan contiguas;
+ * - la zona abierta que lo contiene (zona común), o "" en un pasillo sin zona.
+ * No afecta el aislamiento de audio/chat: eso depende solo de `zoneAt`.
+ */
+export function placeAt(map: OfficeMap, x: number, y: number): string {
+  const zone = zoneAt(map, x, y);
+  if (zone && DOORWAY_PRIORITY.includes(zone.type)) return zone.id;
+  const doorway = doorwayAt(map, x, y);
+  if (doorway) return `door:${doorway.id}`;
+  return zone?.id ?? "";
+}
+
+function doorwayAt(map: OfficeMap, x: number, y: number): Zone | undefined {
+  const ts = map.tileSize;
+  const around = [
+    zoneAt(map, x, y - ts),
+    zoneAt(map, x, y + ts),
+    zoneAt(map, x - ts, y),
+    zoneAt(map, x + ts, y),
+  ].filter((z): z is Zone => Boolean(z));
+  for (const type of DOORWAY_PRIORITY) {
+    const z = around.find((a) => a.type === type);
+    if (z) return z;
+  }
+  return undefined;
+}
+
+/** Texto para un lugar devuelto por `placeAt`. */
+export function placeLabel(place: string, zoneName: (id: string) => string | undefined): string {
+  if (!place) return "Pasillo";
+  if (place.startsWith("door:")) return `Entrada · ${zoneName(place.slice(5)) ?? "sala"}`;
+  return zoneName(place) ?? "Pasillo";
+}
+
 /** Punto frente a la puerta de una oficina: centro del borde inferior, un tile hacia afuera. */
 export function officeDoor(map: OfficeMap, zone: Zone): { x: number; y: number } {
   return { x: zone.x + zone.width / 2, y: zone.y + zone.height + map.tileSize / 2 };

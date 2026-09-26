@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canStandAt, findPath, isBlockedTile, nearestFreeTile, pointsOfType, spawnPoint, zoneAt } from "./index";
+import { canStandAt, findPath, isBlockedTile, nearestFreeTile, placeAt, placeLabel, pointsOfType, spawnPoint, zoneAt } from "./index";
 import { loadOfficeMap } from "./node";
 
 const map = loadOfficeMap();
@@ -42,6 +42,24 @@ describe("zoneAt", () => {
     expect(zoneAt(map, center(3), center(5))?.isolated).toBe(true);
     expect(zoneAt(map, center(33), center(8))?.isolated).toBe(true);
     expect(zoneAt(map, center(24), center(13))?.isolated).toBe(false);
+  });
+});
+
+describe("placeAt", () => {
+  const name = (id: string) => map.zones.find((z) => z.id === id)?.name;
+
+  it("devuelve la zona, o la entrada cuando se está en el umbral de una puerta", () => {
+    expect(placeAt(map, center(24), center(6))).toBe("office-4");
+    expect(placeAt(map, center(24), center(8))).toBe("door:office-4"); // puerta de la oficina 4
+    expect(placeAt(map, center(33), center(11))).toBe("door:meeting-main"); // puerta de la sala
+    expect(placeAt(map, center(8), center(15))).toBe("door:lab"); // puerta norte del lab
+    expect(placeAt(map, center(24), center(13))).toBe("lounge");
+  });
+
+  it("genera textos legibles", () => {
+    expect(placeLabel("door:office-4", name)).toBe("Entrada · Oficina 4");
+    expect(placeLabel("office-2", name)).toBe("Oficina 2");
+    expect(placeLabel("", name)).toBe("Pasillo");
   });
 });
 

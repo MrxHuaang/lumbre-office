@@ -5,6 +5,7 @@ import {
   nearestFreeTile,
   officeDoor,
   parseOfficeMap,
+  placeAt,
   zoneAt,
   zoneCenterTile,
   type OfficeMap,
@@ -41,6 +42,7 @@ export class OfficeScene extends Phaser.Scene {
   private officeZones: Zone[] = [];
   private nameplates = new Map<string, Phaser.GameObjects.Text>();
   private cleanups: (() => void)[] = [];
+  private roomDetach: (() => void)[] = [];
 
   constructor() {
     super("office");
@@ -62,6 +64,7 @@ export class OfficeScene extends Phaser.Scene {
 
     this.officeMap = parseOfficeMap(this.cache.tilemap.get("office").data as TiledMap);
     this.officeZones = this.officeMap.zones.filter((z) => z.type === "office");
+    useOfficeStore.getState().setZoneNames(Object.fromEntries(this.officeMap.zones.map((z) => [z.id, z.name])));
     this.createNameplates();
 
     const cam = this.cameras.main;
@@ -90,7 +93,15 @@ export class OfficeScene extends Phaser.Scene {
       }),
     );
     this.updateNameplates(useOfficeStore.getState().offices);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanups.forEach((fn) => fn()));
+    // `game.destroy()` emite DESTROY (no SHUTDOWN): hay que limpiar en ambos casos, o la escena
+    // muerta seguiría suscrita a la sala siguiente y rompería sus callbacks de estado.
+    const cleanup = () => {
+      this.unbindRoom();
+      this.cleanups.forEach((fn) => fn());
+      this.cleanups = [];
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+    this.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
   }
 
   update(_time: number, delta: number) {
@@ -102,6 +113,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private bindRoom(room: OfficeRoom) {
     // Reconstruye todo en cada (re)conexión.
+    this.unbindRoom();
     for (const a of this.avatars.values()) a.destroy();
     this.avatars.clear();
     this.local = undefined;
@@ -110,11 +122,22 @@ export class OfficeScene extends Phaser.Scene {
     this.seenMessages = useOfficeStore.getState().messages.length;
 
     const $ = getStateCallbacks(room);
-    $(room.state).players.onAdd((player, sessionId) => this.addAvatar(sessionId, player, $));
-    $(room.state).players.onRemove((_p, sessionId) => {
-      this.avatars.get(sessionId)?.destroy();
-      this.avatars.delete(sessionId);
-    });
+    const alive = () => this.sys.isActive();
+    this.roomDetach.push(
+      $(room.state).players.onAdd((player, sessionId) => {
+        if (alive()) this.addAvatar(sessionId, player, $);
+      }),
+      $(room.state).players.onRemove((_p, sessionId) => {
+        if (!alive()) return;
+        this.avatars.get(sessionId)?.destroy();
+        this.avatars.delete(sessionId);
+      }),
+    );
+  }
+
+  private unbindRoom() {
+    this.roomDetach.forEach((detach) => detach());
+    this.roomDetach = [];
   }
 
   private addAvatar(sessionId: string, player: RemotePlayer, $: ReturnType<typeof getStateCallbacks>) {
@@ -310,6 +333,8 @@ export class OfficeScene extends Phaser.Scene {
 
   private updateZone() {
     if (!this.local) return;
+    const place = placeAt(this.officeMap, this.local.x, this.local.y);
+    if (place !== useOfficeStore.getState().place) useOfficeStore.getState().setPlace(place);
     const z = zoneAt(this.officeMap, this.local.x, this.local.y);
     const current = useOfficeStore.getState().zone;
     if ((z?.id ?? null) === (current?.id ?? null)) return;

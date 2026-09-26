@@ -1,4 +1,4 @@
-import { canStandAt, spawnPoint, zoneAt, type OfficeMap, type Zone } from "@hyvento/map";
+import { canStandAt, placeAt, spawnPoint, zoneAt, type OfficeMap, type Zone } from "@hyvento/map";
 import { loadOfficeMap } from "@hyvento/map/node";
 import {
   canHear,
@@ -124,6 +124,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.x = pos.x;
     player.y = pos.y;
     player.zoneId = zoneAt(this.map, pos.x, pos.y)?.id ?? "";
+    player.place = placeAt(this.map, pos.x, pos.y);
     player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
     this.state.players.set(client.sessionId, player);
 
@@ -304,6 +305,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.dir = dir;
     player.moving = moving;
     player.zoneId = zoneAt(this.map, x, y)?.id ?? "";
+    player.place = placeAt(this.map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
   }
 

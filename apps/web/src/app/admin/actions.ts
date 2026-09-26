@@ -33,14 +33,19 @@ export async function createInvite(_prev: InviteState, form: FormData): Promise<
   return { ok: `Invitación creada para ${email}. Ya puede entrar con Google.` };
 }
 
-export async function assignOfficeAction(form: FormData) {
+export async function assignOfficeAction(zoneId: string, userId: string | null): Promise<{ error?: string }> {
   await requireAdmin();
-  const zoneId = String(form.get("zoneId") ?? "");
-  const userId = String(form.get("userId") ?? "") || null;
-  if (!zoneId) return;
-  await assignOffice(zoneId, userId);
+  const parsed = z.object({ zoneId: z.string().min(1), userId: z.string().min(1).nullable() }).safeParse({ zoneId, userId });
+  if (!parsed.success) return { error: "Datos inválidos" };
+  try {
+    await assignOffice(parsed.data.zoneId, parsed.data.userId);
+  } catch (err) {
+    console.error("assignOffice", err);
+    return { error: "No se pudo asignar la oficina" };
+  }
   await publishOfficesChanged();
   revalidatePath("/admin");
+  return {};
 }
 
 export async function revokeInvite(form: FormData) {

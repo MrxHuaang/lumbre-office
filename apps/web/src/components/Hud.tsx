@@ -1,5 +1,6 @@
 "use client";
 
+import { placeLabel } from "@hyvento/map";
 import { PRESENCE_STATUSES, type PresenceStatus } from "@hyvento/shared";
 import Link from "next/link";
 import { useState } from "react";
@@ -35,7 +36,13 @@ export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
   const [showMenu, setShowMenu] = useState(false);
   const myOffice = useOfficeStore(useShallow(selectMyOffice));
   const walkToZone = useOfficeStore((s) => s.walkToZone);
-  const people = Object.values(players).sort((a, b) => a.name.localeCompare(b.name));
+  const place = useOfficeStore((s) => s.place);
+  const zoneNames = useOfficeStore((s) => s.zoneNames);
+  const labelOf = (p: string) => placeLabel(p, (id) => zoneNames[id]);
+  // Yo primero; el resto por nombre.
+  const people = Object.values(players).sort((a, b) =>
+    a.sessionId === sessionId ? -1 : b.sessionId === sessionId ? 1 : a.name.localeCompare(b.name),
+  );
 
   return (
     <div className="absolute top-3 left-3 flex max-w-[calc(100%-1.5rem)] flex-wrap items-start gap-2 text-sm">
@@ -44,7 +51,7 @@ export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
         <span className="h-4 w-px bg-line" />
         <span className="flex items-center gap-1.5" title={zone?.isolated ? "Zona privada: solo te oyen quienes están aquí" : undefined}>
           {zone?.isolated && <LockIcon />}
-          {zone?.name ?? "Pasillo"}
+          {labelOf(place)}
         </span>
       </div>
 
@@ -54,15 +61,24 @@ export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
           className="flex items-center gap-2 rounded-xl border border-line bg-panel/90 px-3 py-2 backdrop-blur hover:border-muted"
         >
           <span className="h-2 w-2 rounded-full bg-[#3ddc84]" />
-          {people.length} en la oficina
+          {people.length} {people.length === 1 ? "conectado" : "conectados"}
         </button>
         {showPeople && (
-          <ul className="absolute top-full left-0 mt-2 max-h-72 w-56 overflow-auto rounded-xl border border-line bg-panel p-2 shadow-xl">
+          <ul className="absolute top-full left-0 mt-2 max-h-80 w-64 overflow-auto rounded-xl border border-line bg-panel p-2 shadow-xl">
             {people.map((p) => (
-              <li key={p.sessionId} className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[p.status] ?? STATUS_DOT.available}`} />
-                <span className="truncate">{p.name}</span>
-                {p.sessionId === sessionId && <span className="text-xs text-muted">(tú)</span>}
+              <li key={p.sessionId} className="flex items-start gap-2 rounded-lg px-2 py-1.5">
+                <span
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[p.status] ?? STATUS_DOT.available}`}
+                  title={STATUS_LABEL[p.status]}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate">
+                    {p.name} {p.sessionId === sessionId && <span className="text-xs text-muted">(tú)</span>}
+                  </span>
+                  <span className="block truncate text-xs text-muted">
+                    📍 {labelOf(p.sessionId === sessionId ? place : p.place)}
+                  </span>
+                </span>
               </li>
             ))}
           </ul>

@@ -95,6 +95,18 @@ describe("OfficeRoom: movimiento", () => {
     expect(room.state.players.get(alice.sessionId)!.zoneId).toBe("lounge");
   });
 
+  it("publica el lugar de cada jugador, incluida la entrada de una oficina", async () => {
+    const { room, alice } = await setup();
+    const me = () => room.state.players.get(alice.sessionId)!;
+    expect(me().place).toBe("lounge");
+    await walkTo(alice, room, c(24), me().y);
+    await walkTo(alice, room, c(24), c(8)); // umbral de la puerta de la oficina 4
+    expect(me().place).toBe("door:office-4");
+    expect(me().zoneId).toBe(""); // el umbral no aísla el audio
+    await walkTo(alice, room, c(24), c(6));
+    expect(me().place).toBe("office-4");
+  });
+
   it("corrige teletransportes y movimientos dentro de muros", async () => {
     const { room, alice } = await setup();
     const corrections: MoveCorrection[] = [];

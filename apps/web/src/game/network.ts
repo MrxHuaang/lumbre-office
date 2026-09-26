@@ -25,6 +25,7 @@ export interface RemotePlayer {
   moving: boolean;
   status: PresenceStatus;
   zoneId: string;
+  place: string;
 }
 export interface RemoteOffice {
   zoneId: string;
@@ -155,11 +156,14 @@ function attach(r: OfficeRoom) {
         name: player.name,
         avatar: player.avatar,
         zoneId: player.zoneId,
+        place: player.place,
         status: player.status,
       });
     sync();
     $(player).listen("zoneId", sync);
+    $(player).listen("place", sync);
     $(player).listen("status", sync);
+    $(player).listen("name", sync);
   });
   $(r.state).players.onRemove((_player, sessionId) => useOfficeStore.getState().removePlayer(sessionId));
 

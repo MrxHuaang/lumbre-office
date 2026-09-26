@@ -2,7 +2,7 @@
  * SOLO DESARROLLO LOCAL. Crea (o reutiliza) un usuario de prueba `<nombre>@hyvento.test` y
  * genera una cookie de sesión de Auth.js para probar la oficina con varias personas sin Google.
  *
- *   pnpm --filter @hyvento/web dev:session "Tester Uno" [--office office-2] [--avatar carla]
+ *   pnpm --filter @hyvento/web dev:session "Tester Uno" [--office office-2] [--avatar carla] [--admin]
  *
  * Pega el valor impreso en el navegador (DevTools → consola):
  *   document.cookie = "authjs.session-token=<valor>; path=/"
@@ -30,8 +30,8 @@ if (!secret) throw new Error("Falta AUTH_SECRET");
 const email = `${name.toLowerCase().replace(/[^a-z0-9]+/g, ".")}@hyvento.test`;
 const user = await prisma.user.upsert({
   where: { email },
-  create: { email, name, avatar: flag("--avatar") ?? "carla", onboardedAt: new Date() },
-  update: {},
+  create: { email, name, avatar: flag("--avatar") ?? "carla", onboardedAt: new Date(), role: args.includes("--admin") ? "ADMIN" : "MEMBER" },
+  update: args.includes("--admin") ? { role: "ADMIN" } : {},
 });
 
 const office = flag("--office");

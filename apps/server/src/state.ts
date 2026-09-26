@@ -11,8 +11,10 @@ export class Player extends Schema {
   @type("string") dir = "down";
   @type("boolean") moving = false;
   @type("string") status = "available";
-  /** Zona actual ("" = pasillo sin zona). */
+  /** Zona actual ("" = pasillo sin zona). Define el aislamiento de chat/audio. */
   @type("string") zoneId = "";
+  /** Lugar para mostrar (ver `placeAt`): zona, "door:<zona>" en una entrada, o "". */
+  @type("string") place = "";
 }
 
 export class OfficeInfo extends Schema {
