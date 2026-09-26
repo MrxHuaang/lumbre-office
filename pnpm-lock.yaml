@@ -142,6 +142,10 @@ importers:
         version: 5.9.3
 
   packages/map:
+    dependencies:
+      '@hyvento/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@types/pngjs':
         specifier: ^6.0.5

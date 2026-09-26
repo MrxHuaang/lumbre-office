@@ -1,6 +1,6 @@
 import { signGameToken } from "@hyvento/shared";
 import { NextResponse } from "next/server";
-import { asAvatar, getCurrentUser } from "@/lib/current-user";
+import { asAvatar, asLook, getCurrentUser } from "@/lib/current-user";
 
 /** Emite el token corto con el que el cliente entra al servidor de juego. */
 export async function GET() {
@@ -12,7 +12,13 @@ export async function GET() {
   if (!secret) return NextResponse.json({ error: "Falta GAME_TOKEN_SECRET en el servidor" }, { status: 500 });
 
   const token = await signGameToken(
-    { sub: user.id, name: user.name || user.email, avatar: asAvatar(user.avatar), role: user.role },
+    {
+      sub: user.id,
+      name: user.name || user.email,
+      avatar: asAvatar(user.avatar),
+      look: asLook(user.look) ?? undefined,
+      role: user.role,
+    },
     secret,
   );
   return NextResponse.json({ token }, { headers: { "Cache-Control": "no-store" } });

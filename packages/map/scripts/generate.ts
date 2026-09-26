@@ -9,7 +9,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { TiledMap, TiledObject, TiledProperty } from "../src/tiled";
-import { DIRECTIONS, drawCharacter, drawSitting, FRAME, FRAMES, HUMANS, SIT_FACINGS } from "./avatars";
+import { DIRECTIONS, drawCharacter, drawSitting, FRAME, FRAMES, HUMANS, SIT_FACINGS } from "../src/character";
+import { savePng } from "./pixels";
 import { COLLIDES, COLUMNS, drawTileset, ROWS, SEATS, T, TILE } from "./tiles";
 
 const W = 40;
@@ -313,11 +314,11 @@ const map: TiledMap = {
 };
 
 writeFileSync(`${assetsDir}office.json`, JSON.stringify(map, null, 1));
-drawTileset().save(`${assetsDir}tileset.png`);
+savePng(drawTileset(), `${assetsDir}tileset.png`);
 
 for (const [id, style] of Object.entries(HUMANS)) {
-  drawCharacter(style).save(`${assetsDir}characters/${id}.png`);
-  drawSitting(style).save(`${assetsDir}characters/${id}-sit.png`);
+  savePng(drawCharacter(style), `${assetsDir}characters/${id}.png`);
+  savePng(drawSitting(style), `${assetsDir}characters/${id}-sit.png`);
 }
 writeFileSync(
   `${assetsDir}characters.json`,

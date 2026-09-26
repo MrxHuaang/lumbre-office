@@ -41,6 +41,19 @@ body {
   image-rendering: pixelated;
 }
 
+/* Caminata de un personaje en una vista previa: recorre los 3 frames de su fila. */
+@keyframes sprite-walk {
+  from {
+    background-position-x: 0%;
+  }
+  to {
+    background-position-x: 150%;
+  }
+}
+.sprite-walk {
+  animation: sprite-walk 0.5s steps(3) infinite;
+}
+
 /* ---------- Estilo RISO ---------- */
 
 /* Titulares: Archivo ancho y pesado. */

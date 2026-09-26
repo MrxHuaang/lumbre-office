@@ -20,6 +20,7 @@ const STATUS_LABEL: Record<PresenceStatus, string> = {
 interface HudProps {
   isAdmin: boolean;
   onEditProfile: () => void;
+  onEditCharacter: () => void;
   onLogout: () => void;
 }
 
@@ -29,7 +30,7 @@ const useLabelOf = () => {
 };
 
 /** Fichas de arriba a la izquierda: marca, dónde estás, a quién oyes, estado y menú. */
-export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
+export function Hud({ isAdmin, onEditProfile, onEditCharacter, onLogout }: HudProps) {
   const zone = useOfficeStore((s) => s.zone);
   const players = useOfficeStore((s) => s.players);
   const sessionId = useOfficeStore((s) => s.sessionId);
@@ -98,6 +99,7 @@ export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
         </button>
         {showMenu && (
           <div className="riso-panel absolute top-full right-0 z-30 mt-3 w-48 p-1" onClick={() => setShowMenu(false)}>
+            <MenuItem onClick={onEditCharacter}>Mi personaje</MenuItem>
             <MenuItem onClick={onEditProfile}>Editar perfil</MenuItem>
             {isAdmin && <MenuItem href="/admin">Administrar equipo</MenuItem>}
             <MenuItem onClick={onLogout}>Cerrar sesión</MenuItem>

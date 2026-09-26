@@ -5,6 +5,8 @@ export class Player extends Schema {
   @type("string") userId = "";
   @type("string") name = "";
   @type("string") avatar = "ada";
+  /** Personaje personalizado como JSON (Look de @hyvento/shared); "" = usa `avatar`. */
+  @type("string") look = "";
   /** Posición de los pies, en px. */
   @type("number") x = 0;
   @type("number") y = 0;

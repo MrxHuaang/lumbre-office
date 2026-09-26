@@ -23,6 +23,7 @@ import {
   OfficeLockMessage,
   PLAYER_SPEED,
   StatusMessage,
+  AppearanceMessage,
   verifyGameToken,
   type ChatEvent,
   type GameTokenClaims,
@@ -96,6 +97,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
+    this.onMessage(MSG.appearance, (client, raw) => this.handleAppearance(client, raw));
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
@@ -130,6 +132,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.userId = auth.sub;
     player.name = auth.name;
     player.avatar = auth.avatar;
+    player.look = auth.look ? JSON.stringify(auth.look) : "";
     player.x = pos.x;
     player.y = pos.y;
     player.zoneId = zoneAt(this.map, pos.x, pos.y)?.id ?? "";
@@ -335,6 +338,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       if (id !== sessionId && p.seated && Math.abs(p.x - x) <= 0.5 && Math.abs(p.y - y) <= 0.5) return true;
     }
     return false;
+  }
+
+  /** Cambio de personaje en vivo (la web ya lo guardó; aquí solo se refleja para todos). */
+  private handleAppearance(client: Client<UserData>, raw: unknown) {
+    const parsed = AppearanceMessage.safeParse(raw);
+    const player = this.state.players.get(client.sessionId);
+    if (!parsed.success || !player) return;
+    player.avatar = parsed.data.avatar;
+    player.look = parsed.data.look ? JSON.stringify(parsed.data.look) : "";
   }
 
   private handleStatus(client: Client<UserData>, raw: unknown) {

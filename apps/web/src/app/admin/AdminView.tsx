@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { Overprint, RisoLogo, Sprite } from "@/components/Riso";
-import { asAvatar } from "@/lib/current-user";
+import { CharacterSprite } from "@/components/CharacterSprite";
+import { Overprint, RisoLogo } from "@/components/Riso";
+import { asAvatar, asLook } from "@/lib/current-user";
 import { RISO } from "@/lib/riso";
 import { revokeInvite } from "./actions";
 import { InviteForm } from "./InviteForm";
 import { OfficeAssign } from "./OfficeAssign";
 
 export interface AdminData {
-  users: { id: string; name: string; email: string; role: string; avatar: string; onboardedAt: Date | null }[];
+  users: { id: string; name: string; email: string; role: string; avatar: string; look: unknown; onboardedAt: Date | null }[];
   invites: { id: string; email: string; role: string }[];
   offices: { zoneId: string; name: string; ownerId: string | null; isLocked: boolean }[];
 }
@@ -84,7 +85,7 @@ export function AdminView({ users, invites, offices }: AdminData) {
           <ul>
             {users.map((u) => (
               <Row key={u.id}>
-                <Sprite avatar={asAvatar(u.avatar)} className="w-8 shrink-0" />
+                <CharacterSprite avatar={asAvatar(u.avatar)} look={asLook(u.look)} className="w-8 shrink-0" />
                 <span className="min-w-0 flex-1 truncate">
                   <span className="font-semibold">{u.name || "—"}</span>{" "}
                   <span className="text-riso-muted">· {u.email}</span>

@@ -3,6 +3,7 @@ import {
   type ChatEvent,
   type ChatScope,
   type HumanAvatar,
+  type Look,
   type KnockOutcome,
   type KnockRequest,
   type KnockResult,
@@ -13,6 +14,8 @@ import { create } from "zustand";
 export interface Profile {
   name: string;
   avatar: HumanAvatar;
+  /** Personaje personalizado; null = usa `avatar`. */
+  look: Look | null;
 }
 
 export interface PlayerInfo {

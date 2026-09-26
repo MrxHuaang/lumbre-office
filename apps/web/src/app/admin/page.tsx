@@ -9,7 +9,7 @@ export default async function AdminPage() {
   const [users, invites, offices] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, role: true, avatar: true, onboardedAt: true },
+      select: { id: true, name: true, email: true, role: true, avatar: true, look: true, onboardedAt: true },
     }),
     prisma.invite.findMany({ where: { acceptedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.office.findMany({ orderBy: { zoneId: "asc" }, select: { zoneId: true, name: true, ownerId: true, isLocked: true } }),

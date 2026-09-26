@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@hyvento/db";
-import { HUMAN_AVATARS, type HumanAvatar } from "@hyvento/shared";
+import { HUMAN_AVATARS, Look, type HumanAvatar } from "@hyvento/shared";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 
@@ -24,4 +24,10 @@ export async function requireAdmin() {
 
 export function asAvatar(value: string): HumanAvatar {
   return (HUMAN_AVATARS as readonly string[]).includes(value) ? (value as HumanAvatar) : "ada";
+}
+
+/** Personaje personalizado guardado (JSON de la base), o null si no hay o no es válido. */
+export function asLook(value: unknown): Look | null {
+  const parsed = Look.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }

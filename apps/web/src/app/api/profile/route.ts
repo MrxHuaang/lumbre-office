@@ -1,4 +1,4 @@
-import { prisma } from "@hyvento/db";
+import { Prisma, prisma } from "@hyvento/db";
 import { ProfileUpdate } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
@@ -13,10 +13,16 @@ export async function PATCH(req: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
 
   const firstTime = !user.onboardedAt;
+  const { look, ...profile } = parsed.data;
   const updated = await prisma.user.update({
     where: { id: user.id },
-    data: { ...parsed.data, onboardedAt: user.onboardedAt ?? new Date() },
-    select: { name: true, avatar: true, office: { select: { zoneId: true } } },
+    data: {
+      ...profile,
+      // undefined = no tocar; null = volver al personaje fijo.
+      ...(look !== undefined && { look: look ?? Prisma.DbNull }),
+      onboardedAt: user.onboardedAt ?? new Date(),
+    },
+    select: { name: true, avatar: true, look: true, office: { select: { zoneId: true } } },
   });
 
   let officesChanged = Boolean(updated.office) && user.name !== updated.name; // la placa muestra el nombre
@@ -29,5 +35,5 @@ export async function PATCH(req: Request) {
   }
   if (officesChanged) await publishOfficesChanged();
 
-  return NextResponse.json({ name: updated.name, avatar: updated.avatar });
+  return NextResponse.json({ name: updated.name, avatar: updated.avatar, look: updated.look });
 }

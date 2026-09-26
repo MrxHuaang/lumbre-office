@@ -1,4 +1,5 @@
 import {
+  type AppearanceMessage,
   CLOSE_CODE,
   MSG,
   ROOM_NAME,
@@ -19,6 +20,8 @@ export interface RemotePlayer {
   userId: string;
   name: string;
   avatar: string;
+  /** Look en JSON ("" = personaje fijo). */
+  look: string;
   x: number;
   y: number;
   dir: MoveMessage["dir"];
@@ -118,6 +121,11 @@ export async function disconnect() {
 
 export function sendMove(m: MoveMessage) {
   room?.send(MSG.move, m);
+}
+
+/** Avisa a la sala del nuevo personaje (ya guardado por la web) para que todos lo vean. */
+export function sendAppearance(m: AppearanceMessage) {
+  room?.send(MSG.appearance, m);
 }
 
 export function sendChat(text: string, scope: ChatScope) {

@@ -1,20 +1,10 @@
 "use client";
 
-import { HUMAN_AVATARS, type HumanAvatar } from "@hyvento/shared";
 import { useState } from "react";
 import type { Profile } from "@/game/store";
 import { RISO } from "@/lib/riso";
-import { Overprint, RisoLogo, Sprite } from "./Riso";
-
-/** Tinta de la tarjeta de cada personaje (semitono + disco). */
-const AVATAR_INK: Record<HumanAvatar, string> = {
-  ada: RISO.pink,
-  bruno: RISO.blue,
-  carla: RISO.yellow,
-  dario: RISO.green,
-  eva: RISO.orange,
-  fede: RISO.violet,
-};
+import { CharacterEditor, type Appearance } from "./CharacterEditor";
+import { Overprint, RisoLogo } from "./Riso";
 
 interface JoinScreenProps {
   initial: Profile | null;
@@ -29,7 +19,10 @@ interface JoinScreenProps {
 
 export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false, error }: JoinScreenProps) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [avatar, setAvatar] = useState<HumanAvatar>(initial?.avatar ?? "ada");
+  const [appearance, setAppearance] = useState<Appearance>({
+    avatar: initial?.avatar ?? "ada",
+    look: initial?.look ?? null,
+  });
   const trimmed = name.trim();
 
   const actions = (
@@ -52,7 +45,7 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
       className="riso-grain flex min-h-full flex-col gap-9 px-6 py-8 sm:px-10 md:px-14 md:py-10"
       onSubmit={(e) => {
         e.preventDefault();
-        if (trimmed && !saving) onJoin({ name: trimmed, avatar });
+        if (trimmed && !saving) onJoin({ name: trimmed, ...appearance });
       }}
     >
       <header className="flex items-center justify-between gap-4">
@@ -60,7 +53,7 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
         <span className="text-[13px] text-riso-muted">{firstTime ? "Paso 2 de 2" : "Tu perfil"}</span>
       </header>
 
-      <div className="grid flex-1 items-center gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] md:gap-14">
+      <div className="grid flex-1 items-center gap-10 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] md:gap-14">
         <div className="flex flex-col gap-7">
           <div className="flex flex-col gap-4">
             <Overprint
@@ -99,42 +92,9 @@ export function JoinScreen({ initial, onJoin, onBack, firstTime, saving = false,
           <div className="max-md:hidden">{actions}</div>
         </div>
 
-        <fieldset className="min-w-0">
-          <legend className="sr-only">Avatar</legend>
-          <div className="grid grid-cols-3 gap-3 sm:gap-[18px]">
-            {HUMAN_AVATARS.map((a) => {
-              const selected = a === avatar;
-              const ink = AVATAR_INK[a];
-              return (
-                <button
-                  key={a}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setAvatar(a)}
-                  className="flex aspect-[1/1.1] cursor-pointer flex-col overflow-hidden border-2 border-riso-navy bg-riso-cream p-0 transition-[transform,box-shadow] duration-[120ms]"
-                  style={{
-                    boxShadow: selected ? `6px 6px 0 ${RISO.navy}` : "none",
-                    transform: selected ? "translate(-3px, -3px)" : "none",
-                  }}
-                >
-                  <span
-                    className="relative grid flex-1 place-items-center"
-                    style={{ background: `radial-gradient(circle, ${ink} 2px, transparent 2.4px) 0 0 / 9px 9px` }}
-                  >
-                    <span
-                      className="absolute aspect-square w-[62%] rounded-full opacity-90 mix-blend-multiply"
-                      style={{ background: ink }}
-                    />
-                    <Sprite avatar={a} className="relative w-[46%]" />
-                  </span>
-                  <span className="flex items-center justify-between border-t-2 border-riso-navy px-3 py-2.5 text-[13px] font-semibold">
-                    <span className="capitalize">{a}</span>
-                    <span aria-hidden>{selected ? "●" : "○"}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+        <fieldset className="min-w-0 self-start">
+          <legend className="sr-only">Personaje</legend>
+          <CharacterEditor value={appearance} onChange={setAppearance} />
         </fieldset>
 
         <div className="md:hidden">{actions}</div>

@@ -1,5 +1,6 @@
 import { jwtVerify, SignJWT } from "jose";
 import { z } from "zod";
+import { Look } from "./look";
 import { HUMAN_AVATARS } from "./protocol";
 
 /**
@@ -10,6 +11,8 @@ export const GameTokenClaims = z.object({
   sub: z.string().min(1), // User.id
   name: z.string().trim().min(1).max(40),
   avatar: z.enum(HUMAN_AVATARS),
+  /** Personaje personalizado (si no hay, se usa `avatar`). */
+  look: Look.optional(),
   role: z.enum(["ADMIN", "MEMBER"]),
 });
 export type GameTokenClaims = z.infer<typeof GameTokenClaims>;

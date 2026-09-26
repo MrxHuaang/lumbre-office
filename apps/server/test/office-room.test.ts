@@ -5,7 +5,7 @@ import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { c, TILE, tick, token, walkPath, walkTo } from "./helpers";
+import { c, SECRET, TILE, tick, token, walkPath, walkTo } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -280,5 +280,50 @@ describe("OfficeRoom: sentarse", () => {
     await tick();
     expect(me().seated).toBe(false);
     expect(me().y).toBe(18 * TILE + 24);
+  });
+});
+
+describe("OfficeRoom: personaje", () => {
+  const look = {
+    skin: "#e0ac69",
+    hair: "#0d0d0d",
+    shirt: "#ff48b0",
+    pants: "#1f2a44",
+    accent: "#0078bf",
+    hairStyle: "curly" as const,
+    accessories: ["glasses" as const, "cap" as const],
+  };
+
+  it("entra con el personaje personalizado del token", async () => {
+    const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
+    const t = await signGameToken({ sub: "u-lu", name: "Lu", avatar: "eva", look, role: "MEMBER" }, SECRET);
+    const lu = await colyseus.connectTo(room, { token: t });
+    await room.waitForNextPatch();
+    const p = room.state.players.get(lu.sessionId)!;
+    expect(p.avatar).toBe("eva");
+    expect(JSON.parse(p.look)).toEqual(look);
+  });
+
+  it("cambia de personaje en vivo y vuelve al fijo; ignora looks inválidos", async () => {
+    const { room, alice } = await setup();
+    const me = () => room.state.players.get(alice.sessionId)!;
+    expect(me().look).toBe("");
+
+    alice.send(MSG.appearance, { avatar: "carla", look });
+    await room.waitForNextPatch();
+    await tick();
+    expect(me().avatar).toBe("carla");
+    expect(JSON.parse(me().look).hairStyle).toBe("curly");
+
+    alice.send(MSG.appearance, { avatar: "carla", look: { ...look, skin: "rojo" } });
+    await room.waitForNextPatch();
+    await tick();
+    expect(JSON.parse(me().look).skin).toBe("#e0ac69");
+
+    alice.send(MSG.appearance, { avatar: "dario", look: null });
+    await room.waitForNextPatch();
+    await tick();
+    expect(me().avatar).toBe("dario");
+    expect(me().look).toBe("");
   });
 });

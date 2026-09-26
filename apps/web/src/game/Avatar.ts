@@ -57,7 +57,7 @@ export class Avatar {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly textureKey: string,
+    private textureKey: string,
     name: string,
     x: number,
     y: number,
@@ -164,6 +164,20 @@ export class Avatar {
     this.sprite.setVisible(true);
     this.speakingRing.setVisible(this.speaking);
     this.layout();
+  }
+
+  /** Cambia el personaje (fijo o personalizado) sin perder la pose actual. */
+  setAppearance(textureKey: string) {
+    if (textureKey === this.textureKey) return;
+    ensureAnimations(this.scene, textureKey);
+    this.textureKey = textureKey;
+    if (this.seated) {
+      this.sprite.setTexture(`${textureKey}-sit`, this.seated === "down" ? 0 : 1);
+    } else if (this.moving) {
+      this.sprite.play(`${textureKey}-walk-${this.dir}`, true);
+    } else {
+      this.sprite.setTexture(textureKey, ROW[this.dir] * FRAMES_PER_ROW);
+    }
   }
 
   /** Sienta al personaje mirando hacia `facing`, o lo vuelve a poner de pie con `null`. */

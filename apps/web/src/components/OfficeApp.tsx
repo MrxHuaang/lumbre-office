@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { logout } from "@/app/actions";
 import type { Profile } from "@/game/store";
+import { saveProfile } from "@/lib/profile";
 import { JoinScreen } from "./JoinScreen";
 import { Office } from "./Office";
 
@@ -12,7 +13,7 @@ export interface CurrentUser extends Profile {
 }
 
 export function OfficeApp({ user }: { user: CurrentUser }) {
-  const [profile, setProfile] = useState<Profile>({ name: user.name, avatar: user.avatar });
+  const [profile, setProfile] = useState<Profile>({ name: user.name, avatar: user.avatar, look: user.look });
   const [onboarded, setOnboarded] = useState(user.onboarded);
   const [editing, setEditing] = useState(!user.onboarded);
   const [error, setError] = useState<string | null>(null);
@@ -30,12 +31,7 @@ export function OfficeApp({ user }: { user: CurrentUser }) {
           setSaving(true);
           setError(null);
           try {
-            const res = await fetch("/api/profile", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(p),
-            });
-            if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "No se pudo guardar");
+            await saveProfile(p);
             setProfile(p);
             setOnboarded(true);
             setEditing(false);
@@ -49,5 +45,13 @@ export function OfficeApp({ user }: { user: CurrentUser }) {
     );
   }
 
-  return <Office key={`${profile.name}-${profile.avatar}`} isAdmin={user.isAdmin} onEditProfile={() => setEditing(true)} />;
+  // Al volver del perfil la oficina se monta de nuevo y entra con un token con los datos nuevos.
+  return (
+    <Office
+      isAdmin={user.isAdmin}
+      profile={profile}
+      onProfileChange={setProfile}
+      onEditProfile={() => setEditing(true)}
+    />
+  );
 }

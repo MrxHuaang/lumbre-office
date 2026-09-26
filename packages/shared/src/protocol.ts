@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Look } from "./look";
 
 export const ROOM_NAME = "office";
 
@@ -24,10 +25,11 @@ export type PresenceStatus = (typeof PRESENCE_STATUSES)[number];
 export const JoinOptions = z.object({ token: z.string().min(1) });
 export type JoinOptions = z.infer<typeof JoinOptions>;
 
-/** Perfil editable por el usuario (onboarding / ajustes). */
+/** Perfil editable por el usuario (onboarding / ajustes). `look: null` vuelve al personaje fijo. */
 export const ProfileUpdate = z.object({
   name: z.string().trim().min(1).max(24),
   avatar: z.enum(HUMAN_AVATARS),
+  look: Look.nullable().optional(),
 });
 export type ProfileUpdate = z.infer<typeof ProfileUpdate>;
 
@@ -58,6 +60,10 @@ export type ChatSendMessage = z.infer<typeof ChatSendMessage>;
 
 export const StatusMessage = z.object({ status: z.enum(PRESENCE_STATUSES) });
 export type StatusMessage = z.infer<typeof StatusMessage>;
+
+/** Cambio de personaje en vivo desde la oficina (la web ya lo guardó en la base). */
+export const AppearanceMessage = z.object({ avatar: z.enum(HUMAN_AVATARS), look: Look.nullable() });
+export type AppearanceMessage = z.infer<typeof AppearanceMessage>;
 
 // ---------- Servidor → cliente ----------
 
@@ -123,6 +129,7 @@ export const MSG = {
   chatEvent: "chat:event",
   chatHistory: "chat:history",
   status: "status",
+  appearance: "appearance",
   officeLock: "office:lock",
   knock: "office:knock",
   knockRequest: "office:knock:request",

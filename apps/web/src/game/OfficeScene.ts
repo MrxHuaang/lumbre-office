@@ -31,6 +31,7 @@ import {
 import { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { Avatar } from "./Avatar";
+import { ensureLookTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
 import { getRoom, onMoveCorrection, onRoom, sendMove, type OfficeRoom, type RemotePlayer } from "./network";
 import { canEnterOffice, selectMyUserId, useOfficeStore, type OfficeView } from "./store";
@@ -204,8 +205,7 @@ export class OfficeScene extends Phaser.Scene {
     this.avatars.get(sessionId)?.destroy();
     const isLocal = sessionId === this.localId;
     this.userOfSession.set(sessionId, player.userId);
-    const texture = (HUMAN_AVATARS as readonly string[]).includes(player.avatar) ? player.avatar : "ada";
-    const avatar = new Avatar(this, texture, player.name, player.x, player.y, isLocal);
+    const avatar = new Avatar(this, this.textureFor(player), player.name, player.x, player.y, isLocal);
     avatar.setStatus(player.status);
     avatar.setMotion(player.dir, false);
     avatar.setSeated(player.seated ? seatFacing(player.dir) : null);
@@ -213,6 +213,9 @@ export class OfficeScene extends Phaser.Scene {
 
     const p$ = $(player);
     p$.listen("status", (status) => avatar.setStatus(status));
+    // Cambios de personaje en vivo (el editor de la oficina), también para mí.
+    p$.listen("look", () => avatar.setAppearance(this.textureFor(player)));
+    p$.listen("avatar", () => avatar.setAppearance(this.textureFor(player)));
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
@@ -228,6 +231,13 @@ export class OfficeScene extends Phaser.Scene {
       avatar.setSeated(player.seated ? seatFacing(player.dir) : null);
       avatar.setMotion(player.dir, player.moving);
     });
+  }
+
+  /** Textura del personaje: la del look personalizado, o la del personaje fijo. */
+  private textureFor(player: RemotePlayer): string {
+    const look = parseLook(player.look);
+    if (look) return ensureLookTextures(this, look);
+    return (HUMAN_AVATARS as readonly string[]).includes(player.avatar) ? player.avatar : "ada";
   }
 
   private showNewBubbles(messages: { fromId: string; text: string; ts: number }[]) {

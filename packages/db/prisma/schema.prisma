@@ -28,6 +28,11 @@ model User {
   email         String         @unique
   name          String         @default("")
   avatar        String         @default("ada")
+  /**
+   * Personaje personalizado (colores, peinado y accesorios; ver Look en @hyvento/shared).
+   * null = usa el personaje fijo de `avatar`.
+   */
+  look          Json?
   role          Role           @default(MEMBER)
   status        PresenceStatus @default(AVAILABLE)
   /**

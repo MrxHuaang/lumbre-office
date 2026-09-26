@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
 import { media } from "@/game/media";
 import { connect, disconnect } from "@/game/network";
-import { useOfficeStore } from "@/game/store";
+import { useOfficeStore, type Profile } from "@/game/store";
 import { RISO, waitForRisoFont } from "@/lib/riso";
+import { CharacterDialog } from "./CharacterDialog";
 import { ChatPanel } from "./ChatPanel";
 import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
@@ -67,9 +68,18 @@ async function fetchGameToken(): Promise<string> {
   return body.token;
 }
 
-export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditProfile: () => void }) {
+interface OfficeProps {
+  isAdmin: boolean;
+  profile: Profile;
+  onProfileChange: (p: Profile) => void;
+  onEditProfile: () => void;
+}
+
+export function Office({ isAdmin, profile, onProfileChange, onEditProfile }: OfficeProps) {
   const gameRef = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
+  const [editingCharacter, setEditingCharacter] = useState(false);
+  const closeCharacter = useCallback(() => setEditingCharacter(false), []);
   const connection = useOfficeStore((s) => s.connection);
   const error = useOfficeStore((s) => s.error);
   const onExit = () => void logout();
@@ -121,7 +131,12 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
       <div ref={gameRef} className="absolute inset-0" />
       {connection === "connected" || connection === "reconnecting" ? (
         <>
-          <Hud isAdmin={isAdmin} onEditProfile={onEditProfile} onLogout={onExit} />
+          <Hud
+            isAdmin={isAdmin}
+            onEditProfile={onEditProfile}
+            onEditCharacter={() => setEditingCharacter(true)}
+            onLogout={onExit}
+          />
           <div className="pointer-events-none absolute top-3 right-3 z-10 flex w-[min(270px,calc(100%-1.5rem))] flex-col items-end gap-3 max-md:w-44">
             <PeoplePanel />
             <Notices />
@@ -135,6 +150,7 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
           <ControlsHint />
           <VideoStrip />
           <ScreenFocus />
+          {editingCharacter && <CharacterDialog profile={profile} onClose={closeCharacter} onSaved={onProfileChange} />}
         </>
       ) : null}
 
