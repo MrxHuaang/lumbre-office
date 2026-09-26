@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0f111a;
+  --color-panel: #171a26;
+  --color-panel-2: #1f2333;
+  --color-line: #2c3147;
+  --color-muted: #8a8fa3;
+  --color-text: #e8e9f0;
+  --color-accent: #ffe08a;
+  --color-accent-ink: #2a2110;
+  --color-lab: #5ee1e6;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+}
+
+/* Caminata del avatar seleccionado en la pantalla de ingreso (3 frames de la fila "abajo"). */
+@keyframes walk-down {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: -288px;
+  }
+}
+.avatar-walk {
+  animation: walk-down 0.45s steps(3) infinite;
+}

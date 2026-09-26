@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@10.34.5",
   "scripts": {
-    "dev": "turbo run dev --parallel --filter=@hyvento/web --filter=@hyvento/server",
+    "dev": "turbo run dev --filter=@hyvento/web --filter=@hyvento/server",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
