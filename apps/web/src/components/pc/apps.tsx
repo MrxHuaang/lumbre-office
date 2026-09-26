@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { NOTE_BODY_MAX, NOTE_TITLE_MAX, type NoteDTO } from "@/lib/notes";
-import { NotesIcon } from "./icons";
+import { NotesIcon, TrashIcon } from "./icons";
 import type { NotesStore } from "./useNotes";
 
 /** Pregunta de confirmación del sistema (la muestra el escritorio). */
@@ -22,13 +22,28 @@ export function useNow(ms = 15_000) {
   return now;
 }
 
-function ToolButton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
+/** Botón de la barra de herramientas; con `label` es un botón de solo ícono (el texto va en el tooltip). */
+function ToolButton({
+  onClick,
+  disabled,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  label?: string;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="border-[1.5px] border-riso-navy bg-riso-cream px-2.5 py-1 text-xs font-semibold hover:bg-riso-yellow disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-riso-cream"
+      aria-label={label}
+      title={label}
+      className={`border-[1.5px] border-riso-navy bg-riso-cream text-xs font-semibold hover:bg-riso-yellow disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-riso-cream ${
+        label ? "px-1 py-0.5" : "px-2.5 py-1"
+      }`}
     >
       {children}
     </button>
@@ -69,8 +84,8 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
     <>
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b-2 border-riso-navy bg-riso-cream px-2 py-1.5">
         <ToolButton onClick={() => void create()}>+ Nueva nota</ToolButton>
-        <ToolButton onClick={() => selected && void notes.trash(selected.id)} disabled={!selected}>
-          A la papelera
+        <ToolButton onClick={() => selected && void notes.trash(selected.id)} disabled={!selected} label="Mandar a la papelera">
+          <TrashIcon size={20} full={false} />
         </ToolButton>
         <input
           value={query}
