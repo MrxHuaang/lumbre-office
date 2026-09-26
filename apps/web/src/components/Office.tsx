@@ -6,6 +6,8 @@ import { connect, disconnect } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 import { ChatPanel } from "./ChatPanel";
 import { Hud } from "./Hud";
+import { MyOfficePanel } from "./MyOfficePanel";
+import { DoorPrompt, KnockRequests, Notices } from "./OfficeOverlays";
 
 async function fetchGameToken(): Promise<string> {
   const res = await fetch("/api/game-token", { cache: "no-store" });
@@ -60,6 +62,10 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
         <>
           <Hud isAdmin={isAdmin} onEditProfile={onEditProfile} onLogout={onExit} />
           <ChatPanel />
+          <MyOfficePanel />
+          <DoorPrompt />
+          <KnockRequests />
+          <Notices />
           <p className="pointer-events-none absolute bottom-3 left-1/2 hidden -translate-x-1/2 rounded-full bg-ink/70 px-3 py-1 text-xs text-muted xl:block">
             WASD o flechas para caminar · clic para ir a un lugar · Enter para chatear
           </p>

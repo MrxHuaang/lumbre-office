@@ -3,9 +3,12 @@ import {
   findPath,
   isBlockedTile,
   nearestFreeTile,
+  officeDoor,
   parseOfficeMap,
   zoneAt,
+  zoneCenterTile,
   type OfficeMap,
+  type Zone,
   type TiledMap,
   type TilePos,
 } from "@hyvento/map";
@@ -13,12 +16,14 @@ import { HUMAN_AVATARS, MOVE_SEND_HZ, PLAYER_SPEED, type Direction, type MoveMes
 import Phaser from "phaser";
 import { Avatar } from "./Avatar";
 import { onMoveCorrection, onRoom, sendMove, type OfficeRoom, type RemotePlayer } from "./network";
-import { useOfficeStore } from "./store";
+import { canEnterOffice, selectMyUserId, useOfficeStore, type OfficeView } from "./store";
 import { getStateCallbacks } from "colyseus.js";
 
 const TILE_LAYERS = ["floor", "walls", "furniture"] as const;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
+/** Distancia (px) a la puerta de una oficina cerrada para ofrecer "tocar". */
+const DOOR_PROMPT_RADIUS = 44;
 
 type Keys = Record<"W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT", Phaser.Input.Keyboard.Key>;
 
@@ -33,6 +38,8 @@ export class OfficeScene extends Phaser.Scene {
   private lastSent: MoveMessage | null = null;
   private sendAccumulator = 0;
   private seenMessages = 0;
+  private officeZones: Zone[] = [];
+  private nameplates = new Map<string, Phaser.GameObjects.Text>();
   private cleanups: (() => void)[] = [];
 
   constructor() {
@@ -54,6 +61,8 @@ export class OfficeScene extends Phaser.Scene {
     TILE_LAYERS.forEach((name, i) => tilemap.createLayer(name, tileset, 0, 0)?.setDepth(-10 + i));
 
     this.officeMap = parseOfficeMap(this.cache.tilemap.get("office").data as TiledMap);
+    this.officeZones = this.officeMap.zones.filter((z) => z.type === "office");
+    this.createNameplates();
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, tilemap.widthInPixels, tilemap.heightInPixels);
@@ -75,7 +84,12 @@ export class OfficeScene extends Phaser.Scene {
         this.local?.setPosition(c.x, c.y);
       }),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
+      useOfficeStore.subscribe((s, prev) => {
+        if (s.offices !== prev.offices) this.updateNameplates(s.offices);
+        if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
+      }),
     );
+    this.updateNameplates(useOfficeStore.getState().offices);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanups.forEach((fn) => fn()));
   }
 
@@ -181,8 +195,8 @@ export class OfficeScene extends Phaser.Scene {
       let x = avatar.x;
       let y = avatar.y;
       // Ejes por separado para deslizar a lo largo de las paredes.
-      if (canStandAt(this.officeMap, nx, y)) x = nx;
-      if (canStandAt(this.officeMap, x, ny)) y = ny;
+      if (this.canMoveTo(nx, y)) x = nx;
+      if (this.canMoveTo(x, ny)) y = ny;
       moving = x !== avatar.x || y !== avatar.y;
       if (!moving && this.path.length) this.clearPath();
       dir = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? "right" : "left") : vy > 0 ? "down" : "up";
@@ -190,6 +204,7 @@ export class OfficeScene extends Phaser.Scene {
     }
     avatar.setMotion(dir, moving);
     if (moving) this.updateZone();
+    this.updateDoorPrompt();
 
     this.sendAccumulator += delta;
     if (this.sendAccumulator >= 1000 / MOVE_SEND_HZ) {
@@ -210,8 +225,13 @@ export class OfficeScene extends Phaser.Scene {
     if (isBlockedTile(this.officeMap, goal.x, goal.y)) goal = nearestFreeTile(this.officeMap, goal);
     if (!goal) return;
     const start = { x: Math.floor(this.local.x / ts), y: Math.floor((this.local.y - 1) / ts) };
-    const path = findPath(this.officeMap, start, goal);
-    if (!path || path.length === 0) return;
+    let path = findPath(this.officeMap, start, goal);
+    if (!path) return;
+    // Si la ruta entra a una oficina cerrada sin permiso, llegar solo hasta la puerta.
+    const blockedAt = path.findIndex((t) => !this.canMoveTo(t.x * ts + ts / 2, t.y * ts + ts * 0.75));
+    if (blockedAt >= 0) path = path.slice(0, blockedAt);
+    if (path.length === 0) return;
+    goal = path[path.length - 1]!;
     this.path = path;
     this.pathMarker?.destroy();
     this.pathMarker = this.add
@@ -224,6 +244,68 @@ export class OfficeScene extends Phaser.Scene {
     this.path = [];
     this.pathMarker?.destroy();
     this.pathMarker = undefined;
+  }
+
+  /** Colisión del mapa + oficinas cerradas a las que no tengo acceso (misma regla que el servidor). */
+  private canMoveTo(x: number, y: number) {
+    if (!canStandAt(this.officeMap, x, y)) return false;
+    const zone = zoneAt(this.officeMap, x, y);
+    if (zone?.type !== "office") return true;
+    const s = useOfficeStore.getState();
+    return canEnterOffice(s.offices[zone.id], selectMyUserId(s));
+  }
+
+  private updateDoorPrompt() {
+    if (!this.local) return;
+    const s = useOfficeStore.getState();
+    const me = selectMyUserId(s);
+    let prompt: string | null = null;
+    for (const zone of this.officeZones) {
+      const office = s.offices[zone.id];
+      if (!office || canEnterOffice(office, me)) continue;
+      const door = officeDoor(this.officeMap, zone);
+      if (Math.hypot(door.x - this.local.x, door.y - this.local.y) < DOOR_PROMPT_RADIUS) {
+        prompt = zone.id;
+        break;
+      }
+    }
+    if (prompt !== s.doorPrompt) s.setDoorPrompt(prompt);
+  }
+
+  private createNameplates() {
+    for (const zone of this.officeZones) {
+      const door = officeDoor(this.officeMap, zone);
+      const plate = this.add
+        .text(door.x, door.y - this.officeMap.tileSize / 2 + 1, "", {
+          fontFamily: "ui-sans-serif, system-ui, sans-serif",
+          fontSize: "10px",
+          color: "#f4efe3",
+          backgroundColor: "rgba(22,24,36,0.88)",
+          padding: { x: 5, y: 2 },
+          resolution: 3,
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(50_000);
+      this.nameplates.set(zone.id, plate);
+    }
+  }
+
+  private updateNameplates(offices: Record<string, OfficeView>) {
+    for (const [zoneId, plate] of this.nameplates) {
+      const office = offices[zoneId];
+      const owner = office?.ownerName;
+      plate.setText(owner ? `${office.locked ? "🔒 " : ""}${owner}` : "Libre");
+      plate.setColor(office?.locked ? "#ffb4a2" : owner ? "#ffe08a" : "#8a8fa3");
+    }
+    this.updateDoorPrompt();
+  }
+
+  private walkToZone(zoneId: string) {
+    const zone = this.officeMap.zones.find((z) => z.id === zoneId);
+    if (!zone) return;
+    const center = zoneCenterTile(this.officeMap, zone);
+    const ts = this.officeMap.tileSize;
+    this.walkTo(center.x * ts + ts / 2, center.y * ts + ts / 2);
   }
 
   private updateZone() {

@@ -4,6 +4,8 @@ import { prisma } from "@hyvento/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/current-user";
+import { publishOfficesChanged } from "@/lib/events";
+import { assignOffice } from "@/lib/offices";
 
 const InviteInput = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -29,6 +31,16 @@ export async function createInvite(_prev: InviteState, form: FormData): Promise<
   });
   revalidatePath("/admin");
   return { ok: `Invitación creada para ${email}. Ya puede entrar con Google.` };
+}
+
+export async function assignOfficeAction(form: FormData) {
+  await requireAdmin();
+  const zoneId = String(form.get("zoneId") ?? "");
+  const userId = String(form.get("userId") ?? "") || null;
+  if (!zoneId) return;
+  await assignOffice(zoneId, userId);
+  await publishOfficesChanged();
+  revalidatePath("/admin");
 }
 
 export async function revokeInvite(form: FormData) {

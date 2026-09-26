@@ -3,14 +3,16 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/current-user";
 import { revokeInvite } from "./actions";
 import { InviteForm } from "./InviteForm";
+import { OfficeAssign } from "./OfficeAssign";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   await requireAdmin();
-  const [users, invites] = await Promise.all([
+  const [users, invites, offices] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, name: true, email: true, role: true, onboardedAt: true } }),
     prisma.invite.findMany({ where: { acceptedAt: null }, orderBy: { createdAt: "desc" } }),
+    prisma.office.findMany({ orderBy: { zoneId: "asc" }, select: { zoneId: true, name: true, ownerId: true, isLocked: true } }),
   ]);
 
   return (
@@ -45,6 +47,27 @@ export default async function AdminPage() {
           </ul>
         </section>
       )}
+
+      <section className="mt-6 rounded-2xl border border-line bg-panel p-5">
+        <h2 className="font-semibold">Oficinas</h2>
+        <p className="mt-1 text-xs text-muted">
+          Se asignan solas al primer ingreso (la primera libre). Los cambios se ven en la oficina al instante.
+        </p>
+        {offices.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">Las oficinas se crean cuando arranca el servidor de juego.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line">
+            {offices.map((o) => (
+              <li key={o.zoneId} className="flex flex-col gap-2 py-2 text-sm sm:flex-row sm:items-center">
+                <span className="flex-1">
+                  {o.name} {o.isLocked && <span className="text-xs text-muted">· cerrada</span>}
+                </span>
+                <OfficeAssign zoneId={o.zoneId} ownerId={o.ownerId} users={users} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mt-6 rounded-2xl border border-line bg-panel p-5">
         <h2 className="font-semibold">Miembros ({users.length})</h2>

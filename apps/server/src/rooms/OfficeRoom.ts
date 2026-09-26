@@ -5,23 +5,40 @@ import {
   ChatSendMessage,
   CLOSE_CODE,
   JoinOptions,
+  KNOCK_COOLDOWN_MS,
+  KNOCK_TIMEOUT_MS,
+  KnockMessage,
+  KnockRespondMessage,
   MoveMessage,
   MSG,
+  OfficeLockMessage,
   PLAYER_SPEED,
   StatusMessage,
   verifyGameToken,
   type ChatEvent,
   type GameTokenClaims,
+  type KnockOutcome,
+  type KnockRequest,
+  type KnockResult,
   type MoveCorrection,
   type Positioned,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
-import { OfficeState, Player } from "../state";
+import type { GameRepository, OfficeRecord } from "../repo/types";
+import { OfficeInfo, OfficeState, Player } from "../state";
 
 interface UserData {
   lastMoveAt: number;
   chatTimes: number[];
+}
+
+interface PendingKnock {
+  requestId: string;
+  zoneId: string;
+  requesterSessionId: string;
+  requesterUserId: string;
+  timer: { clear(): void };
 }
 
 const CHAT_HISTORY_SIZE = 50;
@@ -38,6 +55,15 @@ let sharedMap: OfficeMap | undefined;
 const getMap = () => (sharedMap ??= loadOfficeMap());
 
 export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
+  /** Persistencia inyectada por `createGameServer`. */
+  static repo: GameRepository;
+  /** Salas vivas, para propagar cambios externos (p. ej. reasignación de oficinas). */
+  static readonly instances = new Set<OfficeRoom>();
+
+  static async reloadOfficesEverywhere() {
+    await Promise.all([...OfficeRoom.instances].map((r) => r.reloadOffices()));
+  }
+
   maxClients = 64;
   patchRate = 50; // 20 Hz
 
@@ -45,19 +71,34 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private zonesById = new Map<string, Zone>();
   private globalHistory: ChatEvent[] = [];
   private pendingReconnections = new Map<string, Deferred<Client>>();
+  private pendingKnocks = new Map<string, PendingKnock>();
+  private lastKnockAt = new Map<string, number>(); // `${userId}:${zoneId}` → ts
 
-  onCreate() {
+  private get repo() {
+    return OfficeRoom.repo;
+  }
+
+  async onCreate() {
     this.map = getMap();
     for (const z of this.map.zones) this.zonesById.set(z.id, z);
     this.setState(new OfficeState());
+    OfficeRoom.instances.add(this);
 
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
-    this.onMessage(MSG.status, (client, raw) => {
-      const parsed = StatusMessage.safeParse(raw);
-      const player = this.state.players.get(client.sessionId);
-      if (parsed.success && player) player.status = parsed.data.status;
-    });
+    this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
+    this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
+    this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
+    this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
+
+    const officeZones = this.map.zones.filter((z) => z.type === "office");
+    await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
+    await this.reloadOffices();
+    this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
+  }
+
+  onDispose() {
+    OfficeRoom.instances.delete(this);
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -70,7 +111,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
-  onJoin(client: Client<UserData>, _options: unknown, auth: GameTokenClaims) {
+  async onJoin(client: Client<UserData>, _options: unknown, auth: GameTokenClaims) {
     this.removeOtherPresences(auth.sub, client.sessionId);
 
     const spawn = spawnPoint(this.map);
@@ -83,6 +124,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.x = pos.x;
     player.y = pos.y;
     player.zoneId = zoneAt(this.map, pos.x, pos.y)?.id ?? "";
+    player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
     this.state.players.set(client.sessionId, player);
 
     client.userData = { lastMoveAt: Date.now(), chatTimes: [] };
@@ -104,26 +146,138 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         this.pendingReconnections.delete(client.sessionId);
       }
     }
-    this.state.players.delete(client.sessionId);
+    this.removePlayer(client.sessionId);
   }
 
-  /**
-   * Una sola presencia por persona. Al entrar con una sesión nueva:
-   * - una pestaña activa anterior se cierra con CLOSE_CODE.replaced;
-   * - una sesión esperando reconexión (p. ej. tras recargar la página) se descarta de inmediato.
-   */
-  private removeOtherPresences(userId: string, keepSessionId: string) {
-    for (const [sessionId, p] of this.state.players.entries()) {
-      if (sessionId === keepSessionId || p.userId !== userId) continue;
-      this.state.players.delete(sessionId);
-      const pending = this.pendingReconnections.get(sessionId);
-      if (pending) {
-        pending.reject(new Error("reemplazada por una sesión nueva"));
-        continue;
-      }
-      this.clients.getById(sessionId)?.leave(CLOSE_CODE.replaced);
+  // ---------- Oficinas ----------
+
+  /** Sincroniza `state.offices` con la base de datos (dueños, nombres, candado). */
+  async reloadOffices() {
+    const records = await this.repo.listOffices();
+    const seen = new Set<string>();
+    for (const r of records) {
+      if (!this.zonesById.has(r.zoneId)) continue; // oficina que ya no está en el mapa
+      seen.add(r.zoneId);
+      this.applyOfficeRecord(r);
+    }
+    for (const zoneId of [...this.state.offices.keys()]) {
+      if (!seen.has(zoneId)) this.state.offices.delete(zoneId);
     }
   }
+
+  private applyOfficeRecord(r: OfficeRecord) {
+    let office = this.state.offices.get(r.zoneId);
+    if (!office) {
+      office = new OfficeInfo();
+      office.zoneId = r.zoneId;
+      this.state.offices.set(r.zoneId, office);
+    }
+    const ownerChanged = office.ownerId !== (r.ownerId ?? "");
+    office.name = r.name;
+    office.ownerId = r.ownerId ?? "";
+    office.ownerName = r.ownerName ?? "";
+    // Una oficina sin dueño no puede estar cerrada.
+    office.locked = Boolean(r.ownerId) && r.locked;
+    if (ownerChanged || !office.locked) office.guests.clear();
+  }
+
+  /** ¿Puede este jugador estar en (x, y)? Bloquea oficinas cerradas a quien no es dueño ni invitado. */
+  private canAccess(player: Player, x: number, y: number): boolean {
+    const zone = zoneAt(this.map, x, y);
+    if (zone?.type !== "office") return true;
+    const office = this.state.offices.get(zone.id);
+    if (!office?.locked || !office.ownerId) return true;
+    return office.ownerId === player.userId || office.guests.includes(player.userId);
+  }
+
+  private handleLock(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = OfficeLockMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const office = [...this.state.offices.values()].find((o) => o.ownerId === player.userId);
+    if (!office || office.locked === parsed.data.locked) return;
+
+    office.locked = parsed.data.locked;
+    office.guests.clear();
+    if (office.locked) {
+      // Quien ya está adentro queda como invitado: cerrar no expulsa a nadie.
+      for (const p of this.state.players.values()) {
+        if (p.zoneId === office.zoneId && p.userId !== office.ownerId && !office.guests.includes(p.userId)) {
+          office.guests.push(p.userId);
+        }
+      }
+    }
+    this.repo.setOfficeLocked(office.zoneId, office.locked).catch((err) => console.error("setOfficeLocked", err));
+  }
+
+  private handleKnock(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = KnockMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const office = this.state.offices.get(parsed.data.zoneId);
+    if (!office || !office.ownerId || office.ownerId === player.userId) return;
+
+    const reply = (outcome: KnockOutcome) =>
+      client.send(MSG.knockResult, { zoneId: office.zoneId, outcome, ownerName: office.ownerName } satisfies KnockResult);
+
+    if (!office.locked || office.guests.includes(player.userId)) return reply("not-locked");
+
+    const key = `${player.userId}:${office.zoneId}`;
+    const now = Date.now();
+    if (now - (this.lastKnockAt.get(key) ?? 0) < KNOCK_COOLDOWN_MS) return reply("too-soon");
+    this.lastKnockAt.set(key, now);
+
+    const owner = this.clientOfUser(office.ownerId);
+    if (!owner) return reply("owner-away");
+
+    const requestId = randomUUID();
+    const timer = this.clock.setTimeout(() => {
+      this.pendingKnocks.delete(requestId);
+      this.clients.getById(client.sessionId)?.send(MSG.knockResult, {
+        zoneId: office.zoneId,
+        outcome: "timeout",
+        ownerName: office.ownerName,
+      } satisfies KnockResult);
+    }, KNOCK_TIMEOUT_MS);
+    this.pendingKnocks.set(requestId, {
+      requestId,
+      zoneId: office.zoneId,
+      requesterSessionId: client.sessionId,
+      requesterUserId: player.userId,
+      timer,
+    });
+    owner.send(MSG.knockRequest, { requestId, zoneId: office.zoneId, fromName: player.name } satisfies KnockRequest);
+  }
+
+  private handleKnockRespond(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = KnockRespondMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const knock = this.pendingKnocks.get(parsed.data.requestId);
+    const office = knock && this.state.offices.get(knock.zoneId);
+    if (!knock || !office || office.ownerId !== player.userId) return;
+
+    knock.timer.clear();
+    this.pendingKnocks.delete(knock.requestId);
+    const accepted = parsed.data.accept;
+    if (accepted && !office.guests.includes(knock.requesterUserId)) office.guests.push(knock.requesterUserId);
+    this.clients.getById(knock.requesterSessionId)?.send(MSG.knockResult, {
+      zoneId: office.zoneId,
+      outcome: accepted ? "accepted" : "declined",
+      ownerName: office.ownerName,
+    } satisfies KnockResult);
+  }
+
+  /** Al salir de una oficina, el invitado pierde el permiso. */
+  private revokeGuestOnExit(player: Player, previousZoneId: string) {
+    if (!previousZoneId || previousZoneId === player.zoneId) return;
+    const office = this.state.offices.get(previousZoneId);
+    if (!office) return;
+    const i = office.guests.indexOf(player.userId);
+    if (i >= 0) office.guests.splice(i, 1);
+  }
+
+  // ---------- Movimiento, chat y estado ----------
 
   private handleMove(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
@@ -138,17 +292,27 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const maxDist = Math.max(this.map.tileSize * 0.75, dt * PLAYER_SPEED * 1.6);
     const dist = Math.hypot(x - player.x, y - player.y);
 
-    if (dist > maxDist || !canStandAt(this.map, x, y)) {
+    if (dist > maxDist || !canStandAt(this.map, x, y) || !this.canAccess(player, x, y)) {
       const correction: MoveCorrection = { x: player.x, y: player.y };
       client.send(MSG.moveCorrection, correction);
       return;
     }
 
+    const previousZoneId = player.zoneId;
     player.x = x;
     player.y = y;
     player.dir = dir;
     player.moving = moving;
     player.zoneId = zoneAt(this.map, x, y)?.id ?? "";
+    this.revokeGuestOnExit(player, previousZoneId);
+  }
+
+  private handleStatus(client: Client<UserData>, raw: unknown) {
+    const parsed = StatusMessage.safeParse(raw);
+    const player = this.state.players.get(client.sessionId);
+    if (!parsed.success || !player) return;
+    player.status = parsed.data.status;
+    this.repo.setUserStatus(player.userId, parsed.data.status).catch((err) => console.error("setUserStatus", err));
   }
 
   private handleChat(client: Client<UserData>, raw: unknown) {
@@ -176,6 +340,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.globalHistory.push(event);
       if (this.globalHistory.length > CHAT_HISTORY_SIZE) this.globalHistory.shift();
       this.broadcast(MSG.chatEvent, event);
+      this.repo.saveChat(event, player.userId).catch((err) => console.error("saveChat", err));
       return;
     }
 
@@ -187,6 +352,43 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         other.send(MSG.chatEvent, event);
       }
     }
+  }
+
+  // ---------- Utilidades ----------
+
+  private removePlayer(sessionId: string) {
+    const player = this.state.players.get(sessionId);
+    this.state.players.delete(sessionId);
+    if (!player) return;
+    // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
+    const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
+    if (stillHere) return;
+    for (const office of this.state.offices.values()) {
+      const i = office.guests.indexOf(player.userId);
+      if (i >= 0) office.guests.splice(i, 1);
+    }
+  }
+
+  /**
+   * Una sola presencia por persona. Al entrar con una sesión nueva:
+   * - una pestaña activa anterior se cierra con CLOSE_CODE.replaced;
+   * - una sesión esperando reconexión (p. ej. tras recargar la página) se descarta de inmediato.
+   */
+  private removeOtherPresences(userId: string, keepSessionId: string) {
+    for (const [sessionId, p] of this.state.players.entries()) {
+      if (sessionId === keepSessionId || p.userId !== userId) continue;
+      this.state.players.delete(sessionId);
+      const pending = this.pendingReconnections.get(sessionId);
+      if (pending) {
+        pending.reject(new Error("reemplazada por una sesión nueva"));
+        continue;
+      }
+      this.clients.getById(sessionId)?.leave(CLOSE_CODE.replaced);
+    }
+  }
+
+  private clientOfUser(userId: string): Client | undefined {
+    return this.clients.find((c) => this.state.players.get(c.sessionId)?.userId === userId);
   }
 
   private positioned(p: Player): Positioned {

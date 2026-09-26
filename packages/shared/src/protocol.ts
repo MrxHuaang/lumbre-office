@@ -75,6 +75,41 @@ export interface MoveCorrection {
   y: number;
 }
 
+// ---------- Oficinas personales ----------
+
+export const OfficeLockMessage = z.object({ locked: z.boolean() });
+export type OfficeLockMessage = z.infer<typeof OfficeLockMessage>;
+
+export const KnockMessage = z.object({ zoneId: z.string().min(1) });
+export type KnockMessage = z.infer<typeof KnockMessage>;
+
+export const KnockRespondMessage = z.object({ requestId: z.string().min(1), accept: z.boolean() });
+export type KnockRespondMessage = z.infer<typeof KnockRespondMessage>;
+
+/** Servidor → dueño de la oficina: alguien toca la puerta. */
+export interface KnockRequest {
+  requestId: string;
+  zoneId: string;
+  fromName: string;
+}
+
+export type KnockOutcome = "accepted" | "declined" | "timeout" | "owner-away" | "not-locked" | "too-soon";
+
+/** Servidor → quien tocó: resultado. */
+export interface KnockResult {
+  zoneId: string;
+  outcome: KnockOutcome;
+  ownerName: string;
+}
+
+/** Tiempo que el dueño tiene para responder antes de que el toque expire. */
+export const KNOCK_TIMEOUT_MS = 30_000;
+/** Mínimo entre toques de la misma persona a la misma oficina. */
+export const KNOCK_COOLDOWN_MS = 8_000;
+
+/** Canal de Redis: la web avisa al servidor de juego que cambiaron las oficinas (dueños, nombres). */
+export const REDIS_CHANNEL = { officesChanged: "hyvento:offices-changed" } as const;
+
 /** Nombres de mensajes Colyseus. */
 export const MSG = {
   move: "move",
@@ -83,4 +118,9 @@ export const MSG = {
   chatEvent: "chat:event",
   chatHistory: "chat:history",
   status: "status",
+  officeLock: "office:lock",
+  knock: "office:knock",
+  knockRequest: "office:knock:request",
+  knockRespond: "office:knock:respond",
+  knockResult: "office:knock:result",
 } as const;

@@ -1,4 +1,4 @@
-import { MapSchema, Schema, type } from "@colyseus/schema";
+import { ArraySchema, MapSchema, Schema, type } from "@colyseus/schema";
 
 export class Player extends Schema {
   /** User.id (Auth.js). */
@@ -15,6 +15,18 @@ export class Player extends Schema {
   @type("string") zoneId = "";
 }
 
+export class OfficeInfo extends Schema {
+  @type("string") zoneId = "";
+  @type("string") name = "";
+  /** User.id del dueño ("" = sin asignar: cualquiera puede entrar y nadie la puede cerrar). */
+  @type("string") ownerId = "";
+  @type("string") ownerName = "";
+  @type("boolean") locked = false;
+  /** User.id de quienes el dueño dejó pasar (se pierde al salir de la oficina). */
+  @type(["string"]) guests = new ArraySchema<string>();
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
+  @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
 }

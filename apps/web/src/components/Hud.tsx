@@ -4,7 +4,8 @@ import { PRESENCE_STATUSES, type PresenceStatus } from "@hyvento/shared";
 import Link from "next/link";
 import { useState } from "react";
 import { sendStatus } from "@/game/network";
-import { useOfficeStore } from "@/game/store";
+import { useShallow } from "zustand/react/shallow";
+import { selectMyOffice, useOfficeStore } from "@/game/store";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -32,6 +33,8 @@ export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
   const me = sessionId ? players[sessionId] : undefined;
   const [showPeople, setShowPeople] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const myOffice = useOfficeStore(useShallow(selectMyOffice));
+  const walkToZone = useOfficeStore((s) => s.walkToZone);
   const people = Object.values(players).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -82,6 +85,16 @@ export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
             ))}
           </select>
         </label>
+      )}
+
+      {myOffice && zone?.id !== myOffice.zoneId && (
+        <button
+          onClick={() => walkToZone(myOffice.zoneId)}
+          className="rounded-xl border border-line bg-panel/90 px-3 py-2 backdrop-blur hover:border-muted"
+          title={`Caminar hasta ${myOffice.name}`}
+        >
+          🏠 Mi oficina
+        </button>
       )}
 
       <div className="relative">

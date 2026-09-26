@@ -5,6 +5,8 @@ import {
   type ChatEvent,
   type ChatScope,
   type JoinOptions,
+  type KnockRequest,
+  type KnockResult,
   type MoveCorrection,
   type MoveMessage,
   type PresenceStatus,
@@ -14,6 +16,7 @@ import { useOfficeStore } from "./store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
+  userId: string;
   name: string;
   avatar: string;
   x: number;
@@ -23,8 +26,17 @@ export interface RemotePlayer {
   status: PresenceStatus;
   zoneId: string;
 }
+export interface RemoteOffice {
+  zoneId: string;
+  name: string;
+  ownerId: string;
+  ownerName: string;
+  locked: boolean;
+  guests: string[];
+}
 export interface OfficeStateView {
   players: Map<string, RemotePlayer>;
+  offices: Map<string, RemoteOffice>;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -114,6 +126,20 @@ export function sendStatus(status: PresenceStatus) {
   room?.send(MSG.status, { status });
 }
 
+export function sendOfficeLock(locked: boolean) {
+  room?.send(MSG.officeLock, { locked });
+}
+
+export function sendKnock(zoneId: string) {
+  useOfficeStore.getState().setPendingKnock(zoneId);
+  room?.send(MSG.knock, { zoneId });
+}
+
+export function respondKnock(requestId: string, accept: boolean) {
+  useOfficeStore.getState().removeKnockRequest(requestId);
+  room?.send(MSG.knockRespond, { requestId, accept });
+}
+
 function attach(r: OfficeRoom) {
   room = r;
   const store = useOfficeStore.getState();
@@ -125,6 +151,7 @@ function attach(r: OfficeRoom) {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({
         sessionId,
+        userId: player.userId,
         name: player.name,
         avatar: player.avatar,
         zoneId: player.zoneId,
@@ -136,8 +163,28 @@ function attach(r: OfficeRoom) {
   });
   $(r.state).players.onRemove((_player, sessionId) => useOfficeStore.getState().removePlayer(sessionId));
 
+  $(r.state).offices.onAdd((office, zoneId) => {
+    const sync = () =>
+      useOfficeStore.getState().upsertOffice({
+        zoneId,
+        name: office.name,
+        ownerId: office.ownerId,
+        ownerName: office.ownerName,
+        locked: office.locked,
+        guests: [...office.guests],
+      });
+    sync();
+    const o$ = $(office);
+    o$.onChange(sync);
+    o$.guests.onAdd(sync);
+    o$.guests.onRemove(sync);
+  });
+  $(r.state).offices.onRemove((_office, zoneId) => useOfficeStore.getState().removeOffice(zoneId));
+
   r.onMessage(MSG.chatHistory, (history: ChatEvent[]) => useOfficeStore.getState().addMessages(history));
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
+  r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
+  r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
 
   r.onLeave((code) => {

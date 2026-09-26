@@ -139,6 +139,18 @@ export function zoneAt(map: OfficeMap, px: number, py: number): Zone | undefined
   return best;
 }
 
+/** Punto frente a la puerta de una oficina: centro del borde inferior, un tile hacia afuera. */
+export function officeDoor(map: OfficeMap, zone: Zone): { x: number; y: number } {
+  return { x: zone.x + zone.width / 2, y: zone.y + zone.height + map.tileSize / 2 };
+}
+
+/** Centro de una zona, ajustado a un tile libre (para "ir a mi oficina"). */
+export function zoneCenterTile(map: OfficeMap, zone: Zone): { x: number; y: number } {
+  const cx = Math.floor((zone.x + zone.width / 2) / map.tileSize);
+  const cy = Math.floor((zone.y + zone.height / 2) / map.tileSize);
+  return { x: cx, y: cy };
+}
+
 export function pointsOfType(map: OfficeMap, type: PointType): MapPoint[] {
   return map.points.filter((p) => p.type === type);
 }
