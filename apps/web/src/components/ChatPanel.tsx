@@ -22,12 +22,14 @@ export function ChatPanel() {
 
   const visible = useMemo(() => messages.filter((m) => m.scope === scope), [messages, scope]);
 
-  // Enter enfoca el chat desde el juego.
+  // Enter enfoca el chat desde el juego (no mientras se escribe en otro lado ni con el PC prendido).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || useOfficeStore.getState().typing) return;
-      const tag = (document.activeElement?.tagName ?? "").toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      const { typing, pcOn } = useOfficeStore.getState();
+      if (e.key !== "Enter" || typing || pcOn || e.defaultPrevented) return;
+      const active = document.activeElement as HTMLElement | null;
+      const tag = (active?.tagName ?? "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || active?.isContentEditable) return;
       e.preventDefault();
       setChatOpen(true);
       requestAnimationFrame(() => inputRef.current?.focus());
