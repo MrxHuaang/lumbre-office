@@ -1,11 +1,12 @@
 "use client";
 
 import { normalizeLook, type FullLook, type HumanAvatar, type Look } from "@hyvento/shared";
-import { useDeferredValue, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { lookFromFull } from "@/lib/look-palette";
 import { MiniIcon, type MiniIconName } from "./icons";
 import { LookPanel, type LookActions, type TabId } from "./LookPanel";
 import { LookPreview } from "./LookPreview";
+import { clearEditorSprites } from "./sprites";
 
 const TABS: { id: TabId; label: string; icon: MiniIconName }[] = [
   { id: "body", label: "Cuerpo", icon: "face" },
@@ -35,6 +36,8 @@ export function LookEditor({
   const full = useMemo(() => normalizeLook(look), [look]);
   // Las pestañas (decenas de miniaturas) se redibujan con prioridad baja: la vista previa responde primero.
   const base = useDeferredValue(full);
+  // Los dibujos cacheados no hacen falta con el editor cerrado (y la cabaña sigue corriendo al lado).
+  useEffect(() => clearEditorSprites, []);
 
   // Las acciones leen siempre lo último, así son estables y el panel no se redibuja de más.
   const latest = useRef({ full, onChange, onPreset });
@@ -70,8 +73,10 @@ export function LookEditor({
         <LookPreview look={look} />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-4">
-        <div role="tablist" aria-label="Partes del personaje" className="grid grid-cols-4 gap-1.5">
+      {/* Las pestañas se acomodan al ancho de su columna (no al del editor): muy angosta, 2 x 2 con el ícono
+          al lado; mediana, 4 con el ícono arriba; ancha, 4 con el ícono al lado. Así ninguna se corta. */}
+      <div className="@container/tabs flex min-w-0 flex-col gap-4">
+        <div role="tablist" aria-label="Partes del personaje" className="grid grid-cols-2 gap-1.5 @[21rem]/tabs:grid-cols-4">
           {TABS.map((t, i) => (
             <button
               key={t.id}
@@ -83,10 +88,10 @@ export function LookEditor({
               tabIndex={t.id === tab ? 0 : -1}
               onClick={() => setTab(t.id)}
               onKeyDown={(e) => onTabKey(e, i)}
-              className="cozy-btn min-w-0 flex-col gap-1 px-1 py-1.5 text-[12px] @md:flex-row @md:text-[14px]"
+              className="cozy-btn min-w-0 gap-1 px-1 py-1.5 text-[12px] @[21rem]/tabs:flex-col @md/tabs:flex-row @md/tabs:text-[14px]"
             >
               <MiniIcon name={t.icon} size={14} className="shrink-0" />
-              <span className="truncate">{t.label}</span>
+              <span className="min-w-0 text-center leading-tight break-words">{t.label}</span>
             </button>
           ))}
         </div>

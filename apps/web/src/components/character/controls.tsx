@@ -76,6 +76,15 @@ export function OptionGrid<T extends string>({
   );
 }
 
+/**
+ * Recuadro de las muestras: rojo en la elegida (como el de Stardew) y oscuro en la que tiene el foco del
+ * teclado; si coinciden, rojo punteado. Con clases y no en línea, para no taparle el foco al navegador.
+ */
+const SWATCH_RING =
+  "outline-offset-1 data-[on=true]:outline-3 data-[on=true]:outline-cozy-red " +
+  "focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cozy-frame " +
+  "[&[data-on=true]:focus-visible]:outline-dashed [&[data-on=true]:focus-visible]:outline-cozy-red";
+
 /** Muestras de color sugeridas y, al final, un selector libre para cualquier otro color. */
 export function Swatches({
   colors,
@@ -93,32 +102,32 @@ export function Swatches({
   const inPalette = colors.some((c) => c.toLowerCase() === current);
   return (
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-1.5">
-      {colors.map((c) => {
+      {colors.map((c, i) => {
         const on = c.toLowerCase() === current;
         return (
           <button
             key={c}
             type="button"
-            aria-label={c}
+            // El código del color no le dice nada a quien usa lector de pantalla: mejor su lugar en la fila.
+            aria-label={`${label}: muestra ${i + 1} de ${colors.length}`}
             aria-pressed={on}
+            data-on={on}
             onClick={() => onChange(c)}
-            className="h-8 w-8 border-2 border-cozy-frame"
-            style={{ background: c, outline: on ? "3px solid var(--color-cozy-red)" : "none", outlineOffset: 1 }}
+            className={`h-8 w-8 border-2 border-cozy-frame ${SWATCH_RING}`}
+            style={{ background: c }}
           />
         );
       })}
-      {/* overflow-hidden: el <input type="color"> nativo es más ancho que la casilla y en el celular movía el panel. */}
+      {/* overflow-hidden: el <input type="color"> nativo es más ancho que la casilla y en el celular movía el
+          panel. El foco lo tiene el input (invisible), así que el recuadro lo muestra la casilla con :has. */}
       <label
         title="Otro color"
-        className="relative grid h-8 w-8 cursor-pointer place-items-center overflow-hidden border-2 border-dashed border-cozy-frame text-sm font-semibold"
-        style={
-          inPalette
-            ? { background: "var(--color-cozy-paper-light)" }
-            : { background: value, borderStyle: "solid", outline: "3px solid var(--color-cozy-red)", outlineOffset: 1 }
-        }
+        data-on={!inPalette}
+        className="relative grid h-8 w-8 cursor-pointer place-items-center overflow-hidden border-2 border-dashed border-cozy-frame text-sm font-semibold outline-offset-1 data-[on=true]:border-solid data-[on=true]:outline-3 data-[on=true]:outline-cozy-red has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cozy-frame [&[data-on=true]:has(:focus-visible)]:outline-dashed [&[data-on=true]:has(:focus-visible)]:outline-cozy-red"
+        style={{ background: inPalette ? "var(--color-cozy-paper-light)" : value }}
       >
         {inPalette && "+"}
-        <span className="sr-only">Otro color</span>
+        <span className="sr-only">{`${label}: otro color`}</span>
         <input
           type="color"
           value={value}
