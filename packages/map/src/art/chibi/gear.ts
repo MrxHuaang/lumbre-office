@@ -1,9 +1,15 @@
 // Accesorios de cuello y espalda del chibi (usan el color de acento; el collar lleva cadena dorada).
-import type { PixelCanvas, RGBA } from "../pixel";
-import { three, type Ctx, type Row, type Three, type Tones, type View } from "./kit";
+import type { BackItem, NeckItem } from "@hyvento/shared";
+import { PixelCanvas, type RGBA } from "../pixel";
+import { drawHair } from "./hair";
+import { three, type Ctx, type Row, type Three, type View } from "./kit";
 
 /** Cadena dorada del collar y broche de la capa. */
 const GOLD = three("#e8b84a");
+
+/** Lo del cuello y la espalda que se pinta con el color de acento (el editor lo usa para nombrar su selector). */
+export const ACCENT_NECK_ITEMS: readonly NeckItem[] = ["scarf", "tie", "bowtie", "necklace"];
+export const ACCENT_BACK_ITEMS: readonly BackItem[] = ["backpack", "cape"];
 
 /** Lo que va en el cuello. De frente va antes del pelo (el pelo largo cae encima); de espaldas, después. */
 export function drawNeckGear(ctx: Ctx) {
@@ -24,7 +30,8 @@ export function drawNeckGear(ctx: Ctx) {
 
 /**
  * Lo que va en la espalda (morral, capa). Se llama dos veces: `behind` antes del cuerpo (lo que queda
- * detrás, visto de frente) y `over` al final (lo que se ve encima, visto de espaldas).
+ * detrás, visto de frente) y `over` al final (lo que se ve encima: tirantes, cuello de la capa y, de
+ * espaldas, el morral o la capa enteros), siempre por debajo del pelo y de lo del cuello.
  */
 export function drawBackGear(ctx: Ctx, layer: "behind" | "over") {
   const { look, view } = ctx;
@@ -85,7 +92,8 @@ function drawBowtie({ c, t, view, y }: Ctx) {
 }
 
 /** Collar: cadena dorada en U con un dije del color de acento. De espaldas, el broche en la nuca. */
-function drawNecklace({ c, t, view, y }: Ctx) {
+function drawNecklace(ctx: Ctx) {
+  const { c, t, view, y } = ctx;
   const [g0, g1, g2] = GOLD;
   if (view === "front") {
     c.set(6, y(13), g2);
@@ -97,7 +105,8 @@ function drawNecklace({ c, t, view, y }: Ctx) {
     return;
   }
   // Solo sobre la nuca que se ve: con pelo largo la cadena queda tapada.
-  for (const x of [7, 8]) if (isSkin(c, x, y(12), t)) c.set(x, y(12), x === 7 ? g1 : g0);
+  const hair = hairMask(ctx);
+  for (const x of [7, 8]) if (!hair.alphaAt(x, y(12))) c.set(x, y(12), x === 7 ? g1 : g0);
 }
 
 // ---------- Espalda ----------
@@ -113,19 +122,20 @@ function drawPackSide({ c, t, y }: Ctx) {
   c.rect(1, y(15), 2, 1, a0);
 }
 
-/** Tirantes del morral sobre el pecho (de frente). */
-function drawPackStraps({ c, t, y }: Ctx) {
-  const [a0, a1] = t.accent;
-  c.set(5, y(13), a1);
-  c.rect(5, y(14), 1, 2, a0);
-  c.set(10, y(13), a1);
-  c.rect(10, y(14), 1, 3, a0);
+/** Tirantes del morral sobre el pecho (de frente), por debajo de la bufanda. */
+function drawPackStraps(ctx: Ctx) {
+  const [a0, a1] = ctx.t.accent;
+  const put = under(ctx);
+  put(5, 13, a1);
+  for (const r of [14, 15]) put(5, r, a0);
+  put(10, 13, a1);
+  for (const r of [14, 15, 16]) put(10, r, a0);
 }
 
 /** Morral completo visto de espaldas, con solapa, hebilla y bolsillo. El pelo largo cae por encima. */
-function drawPackBack({ c, t, y }: Ctx) {
-  const [a0, a1, a2] = t.accent;
-  const put = under(c, t, y);
+function drawPackBack(ctx: Ctx) {
+  const [a0, a1, a2] = ctx.t.accent;
+  const put = under(ctx);
   // Tirantes en los hombros.
   put(4, 13, a0);
   put(11, 13, a0);
@@ -145,8 +155,7 @@ function drawPackBack({ c, t, y }: Ctx) {
 /** Capa vista de frente: cuelga detrás del cuerpo; asoma a los lados y ondea al caminar. */
 function drawCapeBehind({ c, t, frame, sit, y }: Ctx) {
   const [a0, a1] = t.accent;
-  // Sentado, la capa queda debajo: solo baja hasta el asiento.
-  const bottom = sit ? 19 : 21;
+  const bottom = capeBottom(frame, sit);
   const wave = frame === 0 ? 0 : 1;
   for (let r = 13; r <= bottom; r++) {
     const left = r <= 15 ? 3 : r <= 18 ? 2 : 2 - wave;
@@ -157,25 +166,28 @@ function drawCapeBehind({ c, t, frame, sit, y }: Ctx) {
   }
 }
 
-/** Capa de frente: los bordes sobre los hombros y el broche dorado. */
-function drawCapeCollar({ c, t, y }: Ctx) {
-  const [a0, a1, a2] = t.accent;
-  c.rect(4, y(12), 2, 1, a1);
-  c.set(4, y(12), a2);
-  c.rect(10, y(12), 2, 1, a0);
-  c.set(4, y(13), a1);
-  c.set(11, y(13), a0);
-  c.set(6, y(13), a0);
-  c.set(9, y(13), a0);
-  c.set(7, y(13), GOLD[2]);
-  c.set(8, y(13), GOLD[1]);
+/** Capa de frente: los bordes sobre los hombros y el broche dorado (por debajo de lo del cuello). */
+function drawCapeCollar(ctx: Ctx) {
+  const [a0, a1, a2] = ctx.t.accent;
+  const put = under(ctx);
+  put(4, 12, a2);
+  put(5, 12, a1);
+  put(10, 12, a0);
+  put(11, 12, a0);
+  put(4, 13, a1);
+  put(11, 13, a0);
+  put(6, 13, a0);
+  put(9, 13, a0);
+  put(7, 13, GOLD[2]);
+  put(8, 13, GOLD[1]);
 }
 
 /** Capa vista de espaldas: cubre la espalda y los brazos, con pliegues y el borde que ondea. */
-function drawCapeBack({ c, t, frame, sit, y }: Ctx) {
+function drawCapeBack(ctx: Ctx) {
+  const { t, frame, sit } = ctx;
   const [a0, a1, a2] = t.accent;
-  const put = under(c, t, y);
-  const bottom = sit ? 19 : 21;
+  const put = under(ctx);
+  const bottom = capeBottom(frame, sit);
   for (let r = 13; r <= bottom; r++) {
     const [from, to] = r === 13 ? [4, 11] : [3, 12];
     for (let x = from; x <= to; x++) {
@@ -190,29 +202,29 @@ function drawCapeBack({ c, t, frame, sit, y }: Ctx) {
 
 // ---------- Utilidades ----------
 
-/** ¿El píxel es del mismo color? */
-function isColor(c: PixelCanvas, x: number, yy: number, col: RGBA): boolean {
-  if (x < 0 || yy < 0 || x >= c.width || yy >= c.height) return false;
-  const i = (yy * c.width + x) * 4;
-  return c.data[i] === col[0] && c.data[i + 1] === col[1] && c.data[i + 2] === col[2] && c.data[i + 3] === col[3];
-}
+/**
+ * Última fila de la capa (en filas del torso, que bajan con el paso). Al caminar el torso baja un
+ * píxel: la capa queda una fila más corta para no tapar los pies. Sentada solo llega al asiento.
+ */
+const capeBottom = (frame: Ctx["frame"], sit: boolean) => (sit ? 19 : frame === 0 ? 21 : 20);
 
-const isSkin = (c: PixelCanvas, x: number, yy: number, t: Tones) => t.skin.some((s) => isColor(c, x, yy, s));
+/** El pelo solo, en un lienzo aparte: dice qué píxeles son pelo sin mirar colores. */
+function hairMask(ctx: Ctx): PixelCanvas {
+  const mask = new PixelCanvas(ctx.c.width, ctx.c.height);
+  drawHair({ ...ctx, c: mask });
+  return mask;
+}
 
 /**
- * ¿Ese píxel es pelo? Se reconoce por el color. Si coincide con un tono de la ropa o la piel (se eligió
- * el mismo color, o la cinta es del color de la camisa) no se puede saber: se toma como ropa, para que
- * la capa o el morral no queden con huecos.
+ * Pinta por debajo del pelo y de lo del cuello: lo que va en la espalda no tapa el pelo largo que cae
+ * encima ni la bufanda. Se sabe qué es pelo dibujándolo aparte (no por el color, que puede ser el
+ * mismo de la ropa o del acento).
  */
-function isHair(c: PixelCanvas, x: number, yy: number, t: Tones): boolean {
-  const is = (tones: readonly RGBA[]) => tones.some((h) => isColor(c, x, yy, h));
-  if (!is([...t.hair, t.ribbon[1]])) return false;
-  return !is([...t.shirt, ...t.top2, ...t.pants, ...t.skin, ...t.accent, ...t.shoes, ...t.cream]);
-}
-
-/** Pinta por debajo del pelo: lo que va en la espalda no tapa el pelo largo que cae encima. */
-function under(c: PixelCanvas, t: Tones, y: Row) {
+function under(ctx: Ctx) {
+  const { c, y } = ctx;
+  const mask = hairMask(ctx);
+  drawNeckGear({ ...ctx, c: mask });
   return (x: number, row: number, col: RGBA) => {
-    if (!isHair(c, x, y(row), t)) c.set(x, y(row), col);
+    if (!mask.alphaAt(x, y(row))) c.set(x, y(row), col);
   };
 }

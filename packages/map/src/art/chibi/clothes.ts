@@ -1,6 +1,6 @@
 // Ropa del chibi: piernas y zapatos, brazos, parte de arriba (con su patrón), parte de abajo y
 // conjuntos. Filas del cuerpo: torso 13-17, cintura 18, piernas 19-21, zapatos 22-23 (ver kit.ts).
-import type { Bottom, Outfit, Pattern, Top } from "@hyvento/shared";
+import type { Bottom, FullLook, Outfit, Pattern, Top } from "@hyvento/shared";
 import { hex, type PixelCanvas, type RGBA } from "../pixel";
 import type { Ctx, Row, Tones, View } from "./kit";
 
@@ -14,6 +14,29 @@ const SLEEVE: Record<Top, "none" | "short" | "long"> = {
   tank: "none",
   polo: "short",
 };
+
+/** Partes de arriba que usan el color secundario (top2) aunque sean lisas. */
+export const TOPS_WITH_TOP2: readonly Top[] = ["hoodie", "sweater", "shirt-tie", "polo"];
+
+/** Dónde se ve el color secundario: patrón, capucha (forro y cordones), cuello, corbata o puños. */
+export type Top2Part = Exclude<Pattern, "solid"> | "hood" | "collar" | "tie" | "cuffs";
+
+/**
+ * Lo que se pinta con top2 en este look, para que el editor diga dónde se ve (o que no se ve). El
+ * vestido tapa cuello, capucha y corbata, pero sus mangas siguen siendo las de la parte de arriba; la
+ * chaqueta cambia las mangas por las suyas.
+ */
+export function top2Parts(look: FullLook): Top2Part[] {
+  const parts: Top2Part[] = look.pattern === "solid" ? [] : [look.pattern];
+  const dress = look.outfit === "dress";
+  if (!dress && look.top === "hoodie") parts.push("hood");
+  if (!dress && look.top === "shirt-tie") parts.push("tie");
+  if (look.top === "sweater" || look.top === "polo") {
+    if (!dress) parts.push("collar");
+    if (look.outfit !== "jacket") parts.push("cuffs");
+  }
+  return parts;
+}
 
 /** Botones dorados del overol y del polo. */
 const BUTTON = hex("#f4d35e");
@@ -35,12 +58,15 @@ function cloth({ c, t, look, y }: Ctx): Cloth {
 
 /** Piernas (tela o piel según la parte de abajo) y zapatos. Sentado, las piernas se doblan hacia adelante. */
 export function drawLegs(ctx: Ctx) {
-  const { c, t, look, frame, sit, Y } = ctx;
+  const { c, t, look, frame, sit, y, Y } = ctx;
   // Con vestido la parte de abajo no se ve: piernas de piel.
   const bottom = look.outfit === "dress" ? null : look.bottom;
-  // Filas de tela desde la 19 (el resto de la pierna es piel).
+  // Filas de tela desde la cadera (el resto de la pierna es piel).
   const cover = bottom === "pants" ? 3 : bottom === "shorts" ? 1 : 0;
   if (sit) return drawLap(ctx, bottom);
+  // La cadera baja con el torso en cada paso (la cintura tapa la fila 19): la pierna empieza bajo
+  // ella, así el short se ve en los tres frames.
+  const hip = y(19) - Y(0);
   const lift = (leg: 0 | 1) => (frame === 1 && leg === 0) || (frame === 2 && leg === 1);
   for (const leg of [0, 1] as const) {
     const x = leg === 0 ? 5 : 8;
@@ -48,20 +74,21 @@ export function drawLegs(ctx: Ctx) {
     // La pierna de atrás (0) va con luz y la de adelante (1) en sombra.
     const fabric = t.pants[leg === 0 ? 1 : 0];
     const skin = t.skin[leg === 0 ? 1 : 0];
-    for (let r = 19; r <= 21 - up; r++) c.rect(x, Y(r), 3, 1, r - 19 < cover ? fabric : skin);
-    drawShoe(ctx, leg, x - (leg === 0 ? 1 : 0), 22 - up);
+    for (let r = hip; r <= 21 - up; r++) c.rect(x, Y(r), 3, 1, r - hip < cover ? fabric : skin);
+    drawShoe(ctx, leg, x - (leg === 0 ? 1 : 0), 22 - up, hip);
   }
 }
 
 /** Un zapato de 4 px de ancho: empeine en la fila `row` y suela en la siguiente. */
-function drawShoe({ c, t, look, Y }: Ctx, leg: 0 | 1, x: number, row: number) {
+function drawShoe({ c, t, look, Y }: Ctx, leg: 0 | 1, x: number, row: number, hip: number) {
   const [s0, s1, s2] = t.shoes;
   const upper = leg === 0 ? s2 : s1;
   if (look.shoes === "boots") {
-    // Caña de dos filas sobre la pierna, con el borde doblado más claro.
+    // Caña de hasta dos filas, con el borde doblado más claro. Deja libre la primera fila bajo la
+    // cadera: al dar el paso la pierna se acorta y la bota no sube hasta la cintura.
     const shin = x + (leg === 0 ? 1 : 0);
-    c.rect(shin, Y(row - 2), 3, 1, leg === 0 ? s2 : s1);
-    c.rect(shin, Y(row - 1), 3, 1, leg === 0 ? s1 : s0);
+    const top = Math.max(row - 2, hip + 1);
+    for (let r = top; r < row; r++) c.rect(shin, Y(r), 3, 1, r === top ? (leg === 0 ? s2 : s1) : leg === 0 ? s1 : s0);
     c.rect(x, Y(row), 4, 1, upper);
     c.rect(x, Y(row + 1), 4, 1, s0);
     return;

@@ -1,7 +1,10 @@
-import { BACK_ITEMS, BOTTOMS, NECK_ITEMS, OUTFITS, PATTERNS, SHOES, TOPS, type Top } from "@hyvento/shared";
+import { BACK_ITEMS, BOTTOMS, HAIR_STYLES, NECK_ITEMS, normalizeLook, OUTFITS, PATTERNS, SHOES, TOPS, type Outfit } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
-import { drawCharacter, drawSitting, FRAME, SHEET_DIRECTIONS, type CharacterStyle } from "./chibi";
-import { three } from "./chibi/kit";
+import { drawCharacter, drawSitting, FEET_Y, FRAME, SHEET_DIRECTIONS, type CharacterStyle } from "./chibi";
+import { top2Parts, TOPS_WITH_TOP2 } from "./chibi/clothes";
+import { ACCENT_BACK_ITEMS, ACCENT_NECK_ITEMS } from "./chibi/gear";
+import { tone } from "./chibi/kit";
+import { OUT } from "./palette";
 import type { PixelCanvas } from "./pixel";
 
 // Ropa, cuello y espalda del creador de personajes: cada opción tiene que verse donde corresponde, con
@@ -50,6 +53,29 @@ function changedViews(a: CharacterStyle, b: CharacterStyle): View[] {
 
 const missing = (want: View[], got: View[]) => want.filter((v) => !got.includes(v));
 
+/** Color de un píxel del cuerpo (columna x de 0 a 15, fila del cuerpo) dentro de la celda (col, row). */
+function bodyPixel(sheet: PixelCanvas, col: number, row: number, x: number, bodyRow: number): string {
+  // El frame de 16 px va centrado en la celda y con los pies (fila 24 del cuerpo) en FEET_Y.
+  const sx = col * FRAME + (FRAME - 16) / 2 + x;
+  const sy = row * FRAME + FEET_Y - 24 + bodyRow;
+  const i = (sy * sheet.width + sx) * 4;
+  return Array.from(sheet.data.slice(i, i + 4)).join();
+}
+
+/** Las dos hojas (caminata y sentado) de un look. */
+const sheets = (s: CharacterStyle) => [drawCharacter(s), drawSitting(s)];
+
+/** Índices de los píxeles que cambian entre dos hojas. */
+function changedPixels(a: PixelCanvas, b: PixelCanvas): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < a.data.length; i += 4) if ([0, 1, 2, 3].some((k) => a.data[i + k] !== b.data[i + k])) out.push(i);
+  return out;
+}
+
+/** De esos píxeles, los que no quedaron iguales en `worn` que en `plain`. */
+const alteredAt = (pixels: number[], plain: PixelCanvas, worn: PixelCanvas) =>
+  pixels.filter((i) => [0, 1, 2, 3].some((k) => plain.data[i + k] !== worn.data[i + k]));
+
 type ColorKey = "shirt" | "top2" | "pants" | "shoeColor" | "accent";
 /** ¿Cambiar ese color cambia algún píxel, caminando o sentado? */
 function usesColor(style: CharacterStyle, key: ColorKey): boolean {
@@ -81,12 +107,27 @@ describe("ropa del chibi: parte de arriba", () => {
   it("usan el color de la camisa y el secundario solo las que lo llevan", () => {
     // Capucha, cuello del suéter, corbata y cuello del polo van con top2; la camiseta, la manga larga y el
     // esqueleto lisos no (así el look por defecto no depende de un color que el editor no muestra).
-    const withTop2: Top[] = ["hoodie", "sweater", "shirt-tie", "polo"];
     for (const top of TOPS) {
       expect(usesColor({ ...base, top }, "shirt"), `${top}: camisa`).toBe(true);
-      expect(usesColor({ ...base, top }, "top2"), `${top}: secundario`).toBe(withTop2.includes(top));
+      expect(usesColor({ ...base, top }, "top2"), `${top}: secundario`).toBe(TOPS_WITH_TOP2.includes(top));
       expect(usesColor({ ...base, top }, "accent"), `${top}: acento`).toBe(false);
     }
+  });
+
+  it("top2Parts dice cuándo se ve el color secundario, con cualquier patrón y conjunto", () => {
+    // El editor lo usa para mostrar el selector: tiene que coincidir con lo que se dibuja.
+    const outfits: (Outfit | undefined)[] = [undefined, ...OUTFITS];
+    for (const top of TOPS)
+      for (const pattern of PATTERNS)
+        for (const outfit of outfits) {
+          const style: CharacterStyle = { ...base, top, pattern, ...(outfit ? { outfit } : {}) };
+          const parts = top2Parts(normalizeLook(style));
+          expect(parts.length > 0, `${top}, ${pattern}, ${outfit ?? "sin conjunto"}: ${parts.join()}`).toBe(usesColor(style, "top2"));
+        }
+    // El vestido tapa capucha, cuello y corbata; las mangas del suéter y del polo siguen con sus puños.
+    expect(top2Parts(normalizeLook({ ...base, top: "hoodie", outfit: "dress" }))).toEqual([]);
+    expect(top2Parts(normalizeLook({ ...base, top: "sweater", outfit: "dress" }))).toEqual(["cuffs"]);
+    expect(top2Parts(normalizeLook({ ...base, top: "polo", outfit: "jacket", pattern: "dots" }))).toEqual(["dots", "collar"]);
   });
 
   it("cada patrón se ve en todas las vistas, sobre cualquier parte de arriba, con el color secundario", () => {
@@ -137,19 +178,56 @@ describe("ropa del chibi: parte de abajo y zapatos", () => {
     }
   });
 
-  it("caminan: en cada paso se levanta un pie distinto, con cualquier parte de abajo y zapato", () => {
+  it("caminan: en cada paso se levanta un pie distinto, con cualquier parte de abajo, zapato y espalda", () => {
     // Filas de los pies en la hoja (cuerpo 21-23).
-    const feet: [number, number] = [26, 28];
+    const feet: [number, number] = [FEET_Y - 3, FEET_Y - 1];
     for (const bottom of BOTTOMS)
-      for (const shoes of SHOES) {
-        const sheet = drawCharacter({ ...base, bottom, shoes });
-        for (const row of [RIGHT, UP]) {
-          const [f0, f1, f2] = [0, 1, 2].map((f) => cell(sheet, f, row, feet));
-          const name = `${bottom} con ${shoes} (${SHEET_DIRECTIONS[row]})`;
-          expect(same(f0!, f1!), `${name}: paso A`).toBe(false);
-          expect(same(f0!, f2!), `${name}: paso B`).toBe(false);
-          expect(same(f1!, f2!), `${name}: los dos pasos`).toBe(false);
+      for (const shoes of SHOES)
+        for (const back of BACK_ITEMS) {
+          const sheet = drawCharacter({ ...base, bottom, shoes, back });
+          for (const row of [RIGHT, UP]) {
+            const [f0, f1, f2] = [0, 1, 2].map((f) => cell(sheet, f, row, feet));
+            const name = `${bottom} con ${shoes} y ${back} (${SHEET_DIRECTIONS[row]})`;
+            expect(same(f0!, f1!), `${name}: paso A`).toBe(false);
+            expect(same(f0!, f2!), `${name}: paso B`).toBe(false);
+            expect(same(f1!, f2!), `${name}: los dos pasos`).toBe(false);
+          }
         }
+  });
+
+  it("bajo la cintura se ve la tela de abajo en los tres frames: el short no desaparece y la bota no sube", () => {
+    // Al dar el paso el torso baja un píxel y la cintura tapa la fila 19: la cadera pasa a la 20.
+    const fabric = [tone(base.pants, -0.25), tone(base.pants, 0.1)].map((c) => c.join());
+    for (const bottom of ["pants", "shorts"] as const)
+      for (const shoes of SHOES) {
+        const sheet = drawCharacter({ ...base, bottom, shoes, shoeColor: "#5a331d" });
+        for (const row of [RIGHT, UP])
+          for (const frame of [0, 1, 2]) {
+            const hip = frame === 0 ? 19 : 20;
+            for (let x = 5; x <= 10; x++)
+              expect(fabric, `${bottom} con ${shoes}, ${SHEET_DIRECTIONS[row]}, frame ${frame}, x ${x}`).toContain(
+                bodyPixel(sheet, frame, row, x, hip),
+              );
+          }
+      }
+  });
+
+  it("el morral y la capa no tapan los pies al caminar", () => {
+    // Se ven las suelas de los dos pies y el pie apoyado entero (filas 22 y 23 del cuerpo), en todos los frames.
+    const outline = OUT.join();
+    for (const back of BACK_ITEMS.filter((b) => b !== "none"))
+      for (const shoes of SHOES) {
+        const bare = drawCharacter({ ...base, shoes });
+        const worn = drawCharacter({ ...base, shoes, back });
+        SHEET_DIRECTIONS.forEach((dir, row) => {
+          for (const frame of [0, 1, 2])
+            for (const bodyRow of [22, 23])
+              for (let x = 0; x < 16; x++) {
+                const foot = bodyPixel(bare, frame, row, x, bodyRow);
+                if (foot === outline || foot.endsWith(",0")) continue;
+                expect(bodyPixel(worn, frame, row, x, bodyRow), `${back} con ${shoes}, ${dir}, frame ${frame}`).toBe(foot);
+              }
+        });
       }
   });
 });
@@ -172,10 +250,10 @@ describe("ropa del chibi: conjuntos encima de las partes nuevas", () => {
 });
 
 describe("ropa del chibi: cuello y espalda", () => {
-  it("cada cosa del cuello se ve de frente, con el color de acento", () => {
-    for (const neck of NECK_ITEMS.filter((n) => n !== "none")) {
-      expect(missing(FRONT, changedViews(base, { ...base, neck })), neck).toEqual([]);
-      expect(usesColor({ ...base, neck }, "accent"), neck).toBe(true);
+  it("cada cosa del cuello se ve de frente, con el color de acento (las de ACCENT_NECK_ITEMS)", () => {
+    for (const neck of NECK_ITEMS) {
+      if (neck !== "none") expect(missing(FRONT, changedViews(base, { ...base, neck })), neck).toEqual([]);
+      expect(usesColor({ ...base, neck }, "accent"), neck).toBe(ACCENT_NECK_ITEMS.includes(neck));
     }
     // De espaldas: la bufanda da la vuelta y el broche del collar queda en la nuca; corbata y corbatín no se ven.
     expect(changedViews(base, { ...base, neck: "scarf" })).toEqual(ALL);
@@ -193,24 +271,43 @@ describe("ropa del chibi: cuello y espalda", () => {
     );
   });
 
-  it("el morral y la capa se ven en todas las vistas, con el color de acento", () => {
-    for (const back of BACK_ITEMS.filter((b) => b !== "none")) {
-      expect(missing(ALL, changedViews(base, { ...base, back })), back).toEqual([]);
-      expect(usesColor({ ...base, back }, "accent"), back).toBe(true);
+  it("el morral y la capa se ven en todas las vistas, con el color de acento (los de ACCENT_BACK_ITEMS)", () => {
+    for (const back of BACK_ITEMS) {
+      if (back !== "none") expect(missing(ALL, changedViews(base, { ...base, back })), back).toEqual([]);
+      expect(usesColor({ ...base, back }, "accent"), back).toBe(ACCENT_BACK_ITEMS.includes(back));
     }
     expect(changedViews({ ...base, back: "backpack" }, { ...base, back: "cape" })).toEqual(ALL);
   });
 
-  it("de espaldas, el pelo largo cae por encima del morral, la capa y el collar", () => {
-    const long: CharacterStyle = { ...base, hairStyle: "long", hair: "#d4a017" };
-    const hair = three(long.hair).map((c) => c.join());
-    const plain = cell(drawCharacter(long), 0, UP);
-    for (const extra of [{ back: "backpack" }, { back: "cape" }, { neck: "necklace" }] as const) {
-      const worn = cell(drawCharacter({ ...long, ...extra }), 0, UP);
-      for (let i = 0; i < plain.length; i += 4) {
-        if (!hair.includes(plain.slice(i, i + 4).join())) continue;
-        expect(worn.slice(i, i + 4), JSON.stringify(extra)).toEqual(plain.slice(i, i + 4));
+  it("el pelo cae por encima del morral, la capa y el collar con cualquier peinado, aunque sea del color de la ropa o del acento", () => {
+    for (const hairStyle of HAIR_STYLES) {
+      // Qué píxeles son pelo: los que cambian al cambiar solo su color.
+      const [a, b] = [sheets({ ...base, hairStyle, hair: "#d4a017" }), sheets({ ...base, hairStyle, hair: "#35a0d0" })];
+      const hairPixels = a.map((sheet, k) => changedPixels(sheet, b[k]!));
+      expect(hairPixels[0]!.length, hairStyle).toBeGreaterThan(0);
+      for (const hair of ["#d4a017", base.shirt!, base.accent!]) {
+        const plain = sheets({ ...base, hairStyle, hair });
+        for (const extra of [{ back: "backpack" }, { back: "cape" }, { neck: "necklace" }] as const) {
+          const worn = sheets({ ...base, hairStyle, hair, ...extra });
+          const altered = hairPixels.flatMap((pixels, k) => alteredAt(pixels, plain[k]!, worn[k]!));
+          expect(altered, `${hairStyle}, pelo ${hair}, ${JSON.stringify(extra)}`).toEqual([]);
+        }
       }
+    }
+  });
+
+  it("la bufanda queda encima del morral y de la capa, de frente y de espaldas", () => {
+    const outline = OUT.join();
+    const bare = sheets(base);
+    const scarf = sheets({ ...base, neck: "scarf" });
+    // Los píxeles de la bufanda (sin el contorno, que cambia con la silueta).
+    const scarfPixels = scarf.map((sheet, k) =>
+      changedPixels(sheet, bare[k]!).filter((i) => Array.from(sheet.data.slice(i, i + 4)).join() !== outline),
+    );
+    for (const back of ["backpack", "cape"] as const) {
+      const both = sheets({ ...base, neck: "scarf", back });
+      const altered = scarfPixels.flatMap((pixels, k) => alteredAt(pixels, scarf[k]!, both[k]!));
+      expect(altered, back).toEqual([]);
     }
   });
 
