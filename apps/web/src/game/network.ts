@@ -1,4 +1,5 @@
 import {
+  CLOSE_CODE,
   MSG,
   ROOM_NAME,
   type ChatEvent,
@@ -127,6 +128,12 @@ function attach(r: OfficeRoom) {
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)
+    if (code === CLOSE_CODE.replaced) {
+      // No reintentar: provocaría que las dos pestañas se expulsen mutuamente.
+      room = null;
+      useOfficeStore.getState().setConnection("error", "Entraste a la oficina desde otra pestaña o dispositivo.");
+      return;
+    }
     // 1000 = cierre normal, 4000 = consentido. Cualquier otro código: intentar reconectar.
     if (code === 1000 || code === 4000) {
       useOfficeStore.getState().setConnection("error", "Te desconectaste de la oficina.");

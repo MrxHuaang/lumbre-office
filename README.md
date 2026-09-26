@@ -6,7 +6,7 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: oficinas persona
 
 | Fase | Estado |
 |---|---|
-| 0. Base (monorepo, CI, esquema Prisma, docker-compose) | ✅ — falta Auth.js (requiere Postgres/Docker) |
+| 0. Base (monorepo, CI, esquema Prisma, docker-compose, login con Google por invitación) | ✅ — falta migrar la DB (requiere Docker) |
 | 1. Oficina multijugador (mapa, movimiento, chat por proximidad y global) | ✅ |
 | 2. Oficinas personales (asignación, tocar la puerta, estados persistidos) | ⏳ aislamiento de chat por zona ya funciona |
 | 3. Video/voz por proximidad (LiveKit) | ⏳ |
@@ -43,6 +43,17 @@ El mapa `packages/map/assets/office.json` es un mapa de [Tiled](https://www.mape
 - `floor`, `walls`, `furniture`: tiles; los tiles con la propiedad `collides` bloquean el paso (en `walls`/`furniture`).
 - `zones`: rectángulos con `type` (`office`, `meeting`, `lab`, `lounge`) y propiedades `zoneId`, `isolated`, `slot`.
 - `points`: `spawn`, `seat`, `agent_desk`, `visitor_spot`, `task_board`.
+
+### Login con Google
+1. [Google Cloud Console](https://console.cloud.google.com) → crea un proyecto (p. ej. "Hyvento Office").
+2. **APIs y servicios → Pantalla de consentimiento de OAuth**: tipo *Externo* (o *Interno* si usan Google Workspace), nombre de la app y correo de soporte. Mientras esté en modo *Prueba*, agrega los correos del equipo como usuarios de prueba.
+3. **Credenciales → Crear credenciales → ID de cliente de OAuth → Aplicación web**:
+   - Orígenes autorizados: `http://localhost:3000`
+   - URI de redireccionamiento: `http://localhost:3000/api/auth/callback/google`
+4. Copia el ID y el secreto a `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET` en `.env`, y pon tu correo en `ADMIN_EMAILS`.
+
+El acceso es **solo por invitación**: entran los correos de `ADMIN_EMAILS` y los invitados desde `/admin`.
+En el primer ingreso cada persona elige su nombre visible y avatar.
 
 ### Infraestructura (Fase 2+)
 ```bash

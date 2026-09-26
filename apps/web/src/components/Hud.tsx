@@ -18,12 +18,19 @@ const STATUS_DOT: Record<PresenceStatus, string> = {
   away: "bg-[#8a8fa3]",
 };
 
-export function Hud({ onExit }: { onExit: () => void }) {
+interface HudProps {
+  isAdmin: boolean;
+  onEditProfile: () => void;
+  onLogout: () => void;
+}
+
+export function Hud({ isAdmin, onEditProfile, onLogout }: HudProps) {
   const zone = useOfficeStore((s) => s.zone);
   const players = useOfficeStore((s) => s.players);
   const sessionId = useOfficeStore((s) => s.sessionId);
   const me = sessionId ? players[sessionId] : undefined;
   const [showPeople, setShowPeople] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const people = Object.values(players).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -76,13 +83,36 @@ export function Hud({ onExit }: { onExit: () => void }) {
         </label>
       )}
 
-      <button
-        onClick={onExit}
-        className="rounded-xl border border-line bg-panel/90 px-3 py-2 text-muted backdrop-blur hover:text-text"
-      >
-        Salir
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => setShowMenu((v) => !v)}
+          aria-label="Menú"
+          className="rounded-xl border border-line bg-panel/90 px-3 py-2 text-muted backdrop-blur hover:text-text"
+        >
+          ☰
+        </button>
+        {showMenu && (
+          <div className="absolute top-full right-0 mt-2 w-44 rounded-xl border border-line bg-panel p-1 shadow-xl">
+            <MenuItem onClick={onEditProfile}>Editar perfil</MenuItem>
+            {isAdmin && <MenuItem href="/admin">Administrar equipo</MenuItem>}
+            <MenuItem onClick={onLogout}>Cerrar sesión</MenuItem>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function MenuItem({ children, onClick, href }: { children: React.ReactNode; onClick?: () => void; href?: string }) {
+  const cls = "block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-panel-2";
+  return href ? (
+    <a href={href} className={cls}>
+      {children}
+    </a>
+  ) : (
+    <button onClick={onClick} className={cls}>
+      {children}
+    </button>
   );
 }
 

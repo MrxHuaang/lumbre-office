@@ -1,16 +1,29 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { logout } from "@/app/actions";
 import { connect, disconnect } from "@/game/network";
-import { useOfficeStore, type Profile } from "@/game/store";
+import { useOfficeStore } from "@/game/store";
 import { ChatPanel } from "./ChatPanel";
 import { Hud } from "./Hud";
 
-export function Office({ profile, onExit }: { profile: Profile; onExit: () => void }) {
+async function fetchGameToken(): Promise<string> {
+  const res = await fetch("/api/game-token", { cache: "no-store" });
+  if (res.status === 401) {
+    window.location.href = "/login";
+    throw new Error("Sesión expirada");
+  }
+  const body = (await res.json().catch(() => null)) as { token?: string; error?: string } | null;
+  if (!res.ok || !body?.token) throw new Error(body?.error ?? "No se pudo obtener el acceso a la oficina");
+  return body.token;
+}
+
+export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditProfile: () => void }) {
   const gameRef = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
   const connection = useOfficeStore((s) => s.connection);
   const error = useOfficeStore((s) => s.error);
+  const onExit = () => void logout();
 
   useEffect(() => {
     let cancelled = false;
@@ -18,9 +31,14 @@ export function Office({ profile, onExit }: { profile: Profile; onExit: () => vo
 
     (async () => {
       try {
-        await connect(profile);
-      } catch {
-        return; // el error queda en el store
+        const token = await fetchGameToken();
+        if (cancelled) return;
+        await connect({ token });
+      } catch (err) {
+        if (!cancelled && useOfficeStore.getState().connection !== "error") {
+          useOfficeStore.getState().setConnection("error", err instanceof Error ? err.message : String(err));
+        }
+        return;
       }
       if (cancelled || !gameRef.current) return;
       const { createGame } = await import("@/game/createGame"); // Phaser necesita `window`
@@ -33,14 +51,14 @@ export function Office({ profile, onExit }: { profile: Profile; onExit: () => vo
       game?.destroy(true);
       void disconnect();
     };
-  }, [profile, attempt]);
+  }, [attempt]);
 
   return (
     <main className="relative h-full w-full overflow-hidden">
       <div ref={gameRef} className="absolute inset-0" />
       {connection === "connected" || connection === "reconnecting" ? (
         <>
-          <Hud onExit={onExit} />
+          <Hud isAdmin={isAdmin} onEditProfile={onEditProfile} onLogout={onExit} />
           <ChatPanel />
           <p className="pointer-events-none absolute bottom-3 left-1/2 hidden -translate-x-1/2 rounded-full bg-ink/70 px-3 py-1 text-xs text-muted xl:block">
             WASD o flechas para caminar · clic para ir a un lugar · Enter para chatear
@@ -71,7 +89,7 @@ export function Office({ profile, onExit }: { profile: Profile; onExit: () => vo
               Reintentar
             </button>
             <button onClick={onExit} className="rounded-lg border border-line px-4 py-2 text-sm">
-              Volver
+              Cerrar sesión
             </button>
           </div>
         </Overlay>

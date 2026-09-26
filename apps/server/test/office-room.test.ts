@@ -1,10 +1,16 @@
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
-import { MSG, ROOM_NAME, type ChatEvent, type MoveCorrection } from "@hyvento/shared";
+import { CLOSE_CODE, MSG, ROOM_NAME, signGameToken, type ChatEvent, type GameTokenClaims, type MoveCorrection } from "@hyvento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createGameServer } from "../src/app";
 import type { OfficeState } from "../src/state";
 
+const SECRET = "test-secret-test-secret-test-secret-123";
+process.env.GAME_TOKEN_SECRET = SECRET;
+
 let colyseus: ColyseusTestServer;
+
+const token = (sub: string, name: string, avatar: GameTokenClaims["avatar"] = "ada") =>
+  signGameToken({ sub, name, avatar, role: "MEMBER" }, SECRET);
 
 beforeAll(async () => {
   colyseus = await boot(createGameServer());
@@ -21,8 +27,8 @@ const c = (t: number) => t * TILE + TILE / 2;
 
 async function setup() {
   const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
-  const alice = await colyseus.connectTo(room, { name: "Alice", avatar: "ada" });
-  const bob = await colyseus.connectTo(room, { name: "Bob", avatar: "bruno" });
+  const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
+  const bob = await colyseus.connectTo(room, { token: await token("u-bob", "Bob", "bruno") });
   await room.waitForNextPatch();
   return { room, alice, bob };
 }
@@ -49,9 +55,25 @@ function collectChat(client: { onMessage: (t: string, cb: (m: ChatEvent) => void
 }
 
 describe("OfficeRoom", () => {
-  it("rechaza ingresos con opciones inválidas", async () => {
+  it("rechaza ingresos sin token o con token inválido", async () => {
     const room = await colyseus.createRoom(ROOM_NAME, {});
-    await expect(colyseus.connectTo(room, { name: "", avatar: "nadie" })).rejects.toThrow();
+    await expect(colyseus.connectTo(room, { name: "Alice", avatar: "ada" })).rejects.toThrow();
+    await expect(colyseus.connectTo(room, { token: "no-es-un-jwt" })).rejects.toThrow();
+    const forged = await signGameToken({ sub: "u-x", name: "X", avatar: "ada", role: "ADMIN" }, "otro-secreto-otro-secreto-otro-secreto");
+    await expect(colyseus.connectTo(room, { token: forged })).rejects.toThrow();
+  });
+
+  it("una misma persona en otra pestaña reemplaza su sesión anterior", async () => {
+    const { room, alice } = await setup();
+    const codes: number[] = [];
+    alice.onLeave((code) => codes.push(code));
+    const alice2 = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
+    await room.waitForNextPatch();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(codes).toEqual([CLOSE_CODE.replaced]);
+    const alices = [...room.state.players.values()].filter((p) => p.userId === "u-alice");
+    expect(alices).toHaveLength(1);
+    expect(room.state.players.has(alice2.sessionId)).toBe(true);
   });
 
   it("crea el jugador en el spawn dentro de la zona común", async () => {

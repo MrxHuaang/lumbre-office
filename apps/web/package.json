@@ -5,20 +5,25 @@
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-assets.mjs",
-    "dev": "next dev --port 3000",
+    "dev": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next dev --port 3000",
     "prebuild": "node scripts/copy-assets.mjs",
-    "build": "next build",
-    "start": "next start",
+    "build": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next build",
+    "start": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next start",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.3",
+    "@hyvento/db": "workspace:*",
     "@hyvento/map": "workspace:*",
     "@hyvento/shared": "workspace:*",
     "colyseus.js": "^0.16.0",
     "next": "^15.5.0",
+    "next-auth": "5.0.0-beta.32",
     "phaser": "^3.90.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "server-only": "^0.0.1",
+    "zod": "^3.25.76",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

@@ -1,6 +1,8 @@
 import { MapSchema, Schema, type } from "@colyseus/schema";
 
 export class Player extends Schema {
+  /** User.id (Auth.js). */
+  @type("string") userId = "";
   @type("string") name = "";
   @type("string") avatar = "ada";
   /** Posición de los pies, en px. */

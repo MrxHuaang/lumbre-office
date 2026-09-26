@@ -3,16 +3,19 @@ import { loadOfficeMap } from "@hyvento/map/node";
 import {
   canHear,
   ChatSendMessage,
+  CLOSE_CODE,
   JoinOptions,
   MoveMessage,
   MSG,
   PLAYER_SPEED,
   StatusMessage,
+  verifyGameToken,
   type ChatEvent,
+  type GameTokenClaims,
   type MoveCorrection,
   type Positioned,
 } from "@hyvento/shared";
-import { Room, type Client } from "colyseus";
+import { Room, ServerError, type Client } from "colyseus";
 import { randomUUID } from "node:crypto";
 import { OfficeState, Player } from "../state";
 
@@ -24,6 +27,12 @@ interface UserData {
 const CHAT_HISTORY_SIZE = 50;
 const CHAT_RATE = { max: 5, windowMs: 5_000 };
 const RECONNECT_SECONDS = 15;
+
+function gameTokenSecret() {
+  const secret = process.env.GAME_TOKEN_SECRET;
+  if (!secret) throw new Error("Falta GAME_TOKEN_SECRET en el entorno");
+  return secret;
+}
 
 let sharedMap: OfficeMap | undefined;
 const getMap = () => (sharedMap ??= loadOfficeMap());
@@ -50,18 +59,30 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
   }
 
-  onAuth(_client: Client, options: unknown) {
-    // Fase 1: identidad simple (nombre + avatar). En la Fase 0/2 se reemplaza por la sesión de Auth.js.
+  async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
     const parsed = JoinOptions.safeParse(options);
-    if (!parsed.success) throw new Error("Opciones de ingreso inválidas");
-    return parsed.data;
+    if (!parsed.success) throw new ServerError(400, "Opciones de ingreso inválidas");
+    try {
+      return await verifyGameToken(parsed.data.token, gameTokenSecret());
+    } catch {
+      throw new ServerError(401, "Sesión inválida o expirada. Vuelve a iniciar sesión.");
+    }
   }
 
-  onJoin(client: Client<UserData>, _options: unknown, auth: JoinOptions) {
+  onJoin(client: Client<UserData>, _options: unknown, auth: GameTokenClaims) {
+    // Una sola presencia por persona: la pestaña nueva reemplaza a la anterior.
+    for (const other of this.clients) {
+      if (other.sessionId !== client.sessionId && this.state.players.get(other.sessionId)?.userId === auth.sub) {
+        this.state.players.delete(other.sessionId);
+        other.leave(CLOSE_CODE.replaced);
+      }
+    }
+
     const spawn = spawnPoint(this.map);
     const pos = this.freeSpotNear(spawn.x, spawn.y + this.map.tileSize / 2 - 2);
 
     const player = new Player();
+    player.userId = auth.sub;
     player.name = auth.name;
     player.avatar = auth.avatar;
     player.x = pos.x;

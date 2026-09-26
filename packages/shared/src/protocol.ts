@@ -20,11 +20,22 @@ export type PresenceStatus = (typeof PRESENCE_STATUSES)[number];
 
 // ---------- Cliente → servidor ----------
 
-export const JoinOptions = z.object({
+/** Se entra a la sala con un token firmado por la web (ver game-token.ts). */
+export const JoinOptions = z.object({ token: z.string().min(1) });
+export type JoinOptions = z.infer<typeof JoinOptions>;
+
+/** Perfil editable por el usuario (onboarding / ajustes). */
+export const ProfileUpdate = z.object({
   name: z.string().trim().min(1).max(24),
   avatar: z.enum(HUMAN_AVATARS),
 });
-export type JoinOptions = z.infer<typeof JoinOptions>;
+export type ProfileUpdate = z.infer<typeof ProfileUpdate>;
+
+/** Códigos de cierre propios (4000–4999). */
+export const CLOSE_CODE = {
+  /** Otra pestaña/dispositivo del mismo usuario entró a la oficina. */
+  replaced: 4001,
+} as const;
 
 export const MoveMessage = z.object({
   x: z.number().finite(),

@@ -88,22 +88,3 @@ export const useOfficeStore = create<OfficeStore>((set) => ({
   setTyping: (typing) => set({ typing }),
   reset: () => set(initial),
 }));
-
-const PROFILE_KEY = "hyvento:profile";
-
-export function loadProfile(): Profile | null {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    return raw ? (JSON.parse(raw) as Profile) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveProfile(p: Profile) {
-  try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
-  } catch {
-    // almacenamiento no disponible: el perfil solo dura esta sesión
-  }
-}

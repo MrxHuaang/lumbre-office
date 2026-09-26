@@ -1,34 +1,18 @@
-"use client";
+import { OfficeApp } from "@/components/OfficeApp";
+import { asAvatar, requireUser } from "@/lib/current-user";
 
-import { useEffect, useState } from "react";
-import { JoinScreen } from "@/components/JoinScreen";
-import { Office } from "@/components/Office";
-import { loadProfile, saveProfile, type Profile } from "@/game/store";
+export const dynamic = "force-dynamic";
 
-export default function Home() {
-  const [ready, setReady] = useState(false);
-  const [saved, setSaved] = useState<Profile | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-
-  useEffect(() => {
-    setSaved(loadProfile());
-    setReady(true);
-  }, []);
-
-  if (!ready) return null;
-
-  if (!profile) {
-    return (
-      <JoinScreen
-        initial={saved}
-        onJoin={(p) => {
-          saveProfile(p);
-          setSaved(p);
-          setProfile(p);
-        }}
-      />
-    );
-  }
-
-  return <Office profile={profile} onExit={() => setProfile(null)} />;
+export default async function Home() {
+  const user = await requireUser();
+  return (
+    <OfficeApp
+      user={{
+        name: user.name,
+        avatar: asAvatar(user.avatar),
+        isAdmin: user.role === "ADMIN",
+        onboarded: Boolean(user.onboardedAt),
+      }}
+    />
+  );
 }
