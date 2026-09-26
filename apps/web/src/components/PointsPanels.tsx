@@ -4,6 +4,7 @@
 import { cafeItem, POINTS, shopItem, type HumanAvatar, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { activateInteractable } from "@/game/network";
 import { useOfficeStore, type Interactable } from "@/game/store";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
@@ -36,6 +37,7 @@ const PROMPT: Record<Interactable, string> = {
   cafe: "Pedir en la barra",
   shop: "Ver la tienda",
   fitting: "Entrar al probador",
+  pole: "Bailar en el tubo",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -93,7 +95,7 @@ export function InteractPrompt() {
   return (
     <button
       type="button"
-      onClick={() => openPanel(near, true)}
+      onClick={() => activateInteractable(near)}
       className="cozy-chip absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-[14px]"
     >
       <kbd className="cozy-kbd">E</kbd>

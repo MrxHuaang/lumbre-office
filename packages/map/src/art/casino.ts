@@ -2,7 +2,7 @@
 // Paleta común: paño verde, madera oscura con borde acolchado y bronce.
 import { C, OUT } from "./palette";
 import { alpha, at, flat, noise, renderSprite, type Box, type RGBA, type Shader, type Sprite } from "./pixel";
-import { leg, shadowUnder, volume } from "./kit";
+import { leg, roundShadow, shadowUnder, volume } from "./kit";
 
 const RED = C.rug;
 const FELT = C.green;
@@ -192,10 +192,48 @@ function slotMachine(): Sprite {
   );
 }
 
+/**
+ * Tarima redonda del tubo (plana: se dibuja bajo todo, como una alfombra): laca negra con un anillo de
+ * neón rosado y luces en el borde.
+ */
+function poleStage(): Sprite {
+  const top: Shader = (u, v, fw, fh) => {
+    const d = Math.hypot(u + 0.5 - fw / 2, v + 0.5 - fh / 2) / (fw / 2);
+    if (d > 1) return [0, 0, 0, 0];
+    if (d > 0.93) return at(C.woodDark, 0);
+    if (d > 0.84) {
+      // Bombillos en el borde, uno sí y uno no.
+      const a = Math.atan2(v + 0.5 - fh / 2, u + 0.5 - fw / 2);
+      return Math.floor(((a + Math.PI) / (Math.PI * 2)) * 28) % 2 ? at(C.gold, 5) : at(C.woodDark, 1);
+    }
+    if (d > 0.76) return at(C.rose, 5);
+    if (d > 0.72) return at(C.rose, 3);
+    return at(C.metal, noise(Math.floor(u), Math.floor(v), 7) < 0.08 ? 1 : 0);
+  };
+  // Sin costados: la tarima es redonda y los lados de la caja dejarían un borde cuadrado.
+  const none: Shader = () => [0, 0, 0, 0];
+  return renderSprite([{ x: 0.5, y: 0.5, z: 0, w: 47, d: 47, h: 1, top, left: none, right: none }], { outline: OUT });
+}
+
+/** El tubo: plateado, con base y tapa, y un brillo de luz a lo largo. */
+function dancePole(): Sprite {
+  const chrome: Shader = (u, v, fw) => at(C.white, u < fw / 2 ? (Math.floor(v / 6) % 2 ? 3 : 4) : 2);
+  return renderSprite(
+    [
+      { x: 5, y: 5, z: 0, w: 6, d: 6, h: 1, top: flat(at(C.white, 3)), left: flat(at(C.white, 1)), right: flat(at(C.white, 2)) },
+      { x: 7, y: 7, z: 1, w: 2, d: 2, h: 52, top: flat(at(C.white, 4)), left: chrome, right: chrome },
+      { x: 6, y: 6, z: 53, w: 4, d: 4, h: 1, top: flat(at(C.white, 4)), left: flat(at(C.white, 2)), right: flat(at(C.white, 1)) },
+    ],
+    { outline: OUT, under: roundShadow(8, 8, 4) },
+  );
+}
+
 /** Dibujos del casino, para registrar en DRAW de furniture.ts. */
 export const CASINO_DRAW: Record<string, () => Sprite> = {
   "roulette-table": rouletteTable,
   "blackjack-table": blackjackTable,
   "casino-cashier": casinoCashier,
   "slot-machine": slotMachine,
+  "pole-stage": poleStage,
+  "dance-pole": dancePole,
 };

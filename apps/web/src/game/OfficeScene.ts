@@ -53,6 +53,7 @@ import { ensureCharacterTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
 import {
   DECOR_ERRORS,
+  activateInteractable,
   getRoom,
   onEmote,
   onMoveCorrection,
@@ -79,6 +80,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "cafe", point: "cafe_counter", furniture: ["counter-coffee", "pastry-case", "counter"] },
   { kind: "shop", point: "shop_counter", furniture: ["shop-counter", "display-shelf"] },
   { kind: "fitting", point: "fitting_room", furniture: ["fitting-booth", "clothes-rack"] },
+  { kind: "pole", point: "pole_stage", furniture: ["dance-pole"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Colores del editor de oficina: grilla, y fantasma/huella cuando se puede (verde) o no (rojo). */
@@ -546,7 +548,7 @@ export class OfficeScene extends Phaser.Scene {
       if (taps.e) {
         // Junto al buzón, el tablón o la barra, E los abre; si no, sienta o levanta.
         const near = useOfficeStore.getState().interact;
-        if (near && !this.seat) useOfficeStore.getState().openPanel(near, true);
+        if (near && !this.seat) activateInteractable(near);
         else this.toggleSeat();
       }
       if (useOfficeStore.getState().decorating) this.decorKeys(taps);
@@ -572,7 +574,7 @@ export class OfficeScene extends Phaser.Scene {
           if (seat) this.sit(seat);
           const target = this.pendingInteract;
           this.pendingInteract = null;
-          if (target && this.interactableInReach() === target) useOfficeStore.getState().openPanel(target, true);
+          if (target && this.interactableInReach() === target) activateInteractable(target);
         }
       } else {
         vx = dx / dist;
@@ -763,7 +765,7 @@ export class OfficeScene extends Phaser.Scene {
     const target = this.interactableUnder(sx, sy);
     if (target) {
       if (this.interactableInReach() === target.kind) {
-        useOfficeStore.getState().openPanel(target.kind, true);
+        activateInteractable(target.kind);
         return;
       }
       this.walkTo(target.x, target.y);

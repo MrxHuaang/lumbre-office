@@ -23,7 +23,7 @@ import {
   type PresenceStatus,
 } from "@hyvento/shared";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
-import { useOfficeStore } from "./store";
+import { useOfficeStore, type Interactable } from "./store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -120,6 +120,12 @@ export function onEmote(cb: (e: EmoteEvent) => void) {
 
 export function sendEmote(emote: EmoteId) {
   room?.send(MSG.emote, { emote });
+}
+
+/** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
+export function activateInteractable(kind: Interactable) {
+  if (kind === "pole") return sendEmote("dance");
+  useOfficeStore.getState().openPanel(kind, true);
 }
 
 export class ConnectionCancelled extends Error {}

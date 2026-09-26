@@ -395,6 +395,8 @@ const piso2: AreaDef = {
 
 const ROULETTE = { x: 5, y: 3 };
 const BLACKJACK = { x: 11, y: 4 };
+/** Tarima de 3x3 con el tubo en el tile del medio. */
+const STAGE = { x: 7, y: 8 };
 
 const sotano: AreaDef = {
   id: "sotano",
@@ -419,6 +421,8 @@ const sotano: AreaDef = {
     place("stool", BLACKJACK.x + 2, BLACKJACK.y + 2, "left"),
     place("stool", BLACKJACK.x + 1, BLACKJACK.y - 1, "down"),
     place("stool", BLACKJACK.x + 1, BLACKJACK.y + 3, "up"),
+    place("pole-stage", STAGE.x, STAGE.y),
+    place("dance-pole", STAGE.x + 1, STAGE.y + 1),
     place("casino-cashier", 14, 0, "down"),
     place("slot-machine", 0, 5),
     place("slot-machine", 0, 6),
@@ -452,6 +456,17 @@ const sotano: AreaDef = {
       [ROULETTE.x, ROULETTE.y - 1],
       [ROULETTE.x + 1, ROULETTE.y - 1],
     ].map(([x, y]) => ({ type: "roulette" as const, name: "Ruleta", x: x!, y: y! })),
+    // Sobre la tarima, alrededor del tubo: ahí se baila.
+    ...[
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [0, 1],
+      [2, 1],
+      [0, 2],
+      [1, 2],
+      [2, 2],
+    ].map(([dx, dy]) => ({ type: "pole_stage" as const, name: "Escenario", x: STAGE.x + dx!, y: STAGE.y + dy! })),
     { type: "casino_cashier", name: "Caja", x: 14, y: 1 },
     { type: "casino_cashier", name: "Caja", x: 15, y: 1 },
   ],

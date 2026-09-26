@@ -74,6 +74,9 @@ export const CATALOG = {
   "blackjack-table": { name: "Mesa de blackjack", size: [2, 3] },
   "casino-cashier": { name: "Caja del casino", size: [1, 2] },
   "slot-machine": { name: "Tragamonedas", size: [1, 1], light: { at: [8, 8, 22], color: "#ff6fa0", radius: 30 } },
+  // El escenario del tubo: la tarima es plana (se pisa) y el tubo, sólido, va en el tile del medio.
+  "pole-stage": { name: "Escenario", size: [3, 3], solid: false, flat: true, light: { at: [24, 24, 2], color: "#ff5fd2", radius: 56 } },
+  "dance-pole": { name: "Tubo", size: [1, 1], light: { at: [8, 8, 50], color: "#ff9ae6", radius: 34 } },
   "stairs-up": { name: "Escalera", size: [2, 3], fixed: true },
   stairwell: { name: "Escalera", size: [2, 3], fixed: true },
   cabin: { name: "Cabaña", size: [16, 10], fixed: true, hasNight: true },
