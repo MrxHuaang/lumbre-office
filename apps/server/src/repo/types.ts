@@ -1,12 +1,4 @@
-import type { AgentChatJob, ChatEvent, PresenceStatus } from "@hyvento/shared";
-
-export interface AgentInfoRecord {
-  id: string;
-  name: string;
-  role: string;
-  sprite: string;
-  deskId: string | null;
-}
+import type { ChatEvent, PresenceStatus } from "@hyvento/shared";
 
 export interface OfficeRecord {
   zoneId: string;
@@ -31,11 +23,5 @@ export interface GameRepository {
   /** Últimos mensajes globales, del más antiguo al más reciente. */
   loadGlobalChat(limit: number): Promise<ChatEvent[]>;
   saveChat(event: ChatEvent, authorUserId: string): Promise<void>;
-  /** Agentes activos (NPCs del laboratorio). */
-  listAgents(): Promise<AgentInfoRecord[]>;
 }
 
-/** Cola de trabajos para el worker de agentes (BullMQ en producción). */
-export interface AgentQueue {
-  enqueue(job: AgentChatJob): Promise<void>;
-}

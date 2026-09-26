@@ -9,7 +9,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { TiledMap, TiledObject, TiledProperty } from "../src/tiled";
-import { AGENTS, DIRECTIONS, drawCharacter, FRAME, FRAMES, HUMANS } from "./avatars";
+import { DIRECTIONS, drawCharacter, FRAME, FRAMES, HUMANS } from "./avatars";
 import { COLLIDES, COLUMNS, drawTileset, ROWS, T, TILE } from "./tiles";
 
 const W = 40;
@@ -74,7 +74,7 @@ for (const x of [33, 34]) {
   put(floor, x, 11, T.DOOR);
 }
 
-// Laboratorio de agentes: muro norte (puerta x=8..9) y muro este (puerta y=20..21)
+// Coworking: muro norte (puerta x=8..9) y muro este (puerta y=20..21)
 fill(walls, 1, 15, 17, 15, T.WALL_TOP);
 fill(walls, 17, 15, 17, 26, T.WALL_TOP);
 for (const x of [8, 9]) {
@@ -115,8 +115,8 @@ for (const [x, y] of [
 ] as const)
   put(furniture, x, y, T.PLANT);
 
-// Laboratorio: 6 escritorios de agentes (2 filas x 3) + tablero de tareas
-const AGENT_DESKS: [number, number][] = [
+// Coworking: 6 escritorios compartidos (2 filas x 3) + tablero
+const COWORK_DESKS: [number, number][] = [
   [3, 18],
   [8, 18],
   [13, 18],
@@ -124,7 +124,7 @@ const AGENT_DESKS: [number, number][] = [
   [8, 23],
   [13, 23],
 ];
-for (const [x, y] of AGENT_DESKS) {
+for (const [x, y] of COWORK_DESKS) {
   put(furniture, x, y, T.LAB_DESK);
   put(furniture, x + 1, y, T.LAB_DESK);
   put(furniture, x, y + 1, T.LAB_CHAIR);
@@ -201,7 +201,7 @@ const zones: TiledObject[] = [
     p("zoneId", "string", "meeting-main"),
     p("isolated", "bool", true),
   ]),
-  rectObj("Laboratorio IA", "lab", 1, 16, 16, 11, [p("zoneId", "string", "lab"), p("isolated", "bool", false)]),
+  rectObj("Coworking", "coworking", 1, 16, 16, 11, [p("zoneId", "string", "coworking"), p("isolated", "bool", false)]),
   rectObj("Zona común", "lounge", 1, 9, 38, 18, [p("zoneId", "string", "lounge"), p("isolated", "bool", false)]),
 ];
 
@@ -210,11 +210,7 @@ const points: TiledObject[] = [
   ...MEETING_SEATS.map(([x, y], i) =>
     pointObj(`Silla ${i + 1}`, "seat", x, y, [p("zone", "string", "meeting-main"), p("index", "int", i)]),
   ),
-  ...AGENT_DESKS.flatMap(([x, y], i) => [
-    pointObj(`desk-${i + 1}`, "agent_desk", x, y + 1, [p("ref", "string", `desk-${i + 1}`), p("index", "int", i)]),
-    pointObj(`visitante desk-${i + 1}`, "visitor_spot", x + 2, y + 1, [p("ref", "string", `desk-${i + 1}`)]),
-  ]),
-  pointObj("Tablero de tareas", "task_board", 13, 17),
+  pointObj("Tablero", "task_board", 13, 17),
   // Pantalla de presentaciones: la pizarra de la pared norte de la sala (x=33..34, y=1).
   pointObj("Pantalla de la sala", "screen", 33, 1, [p("zone", "string", "meeting-main")]),
 ];
@@ -285,13 +281,13 @@ const map: TiledMap = {
 writeFileSync(`${assetsDir}office.json`, JSON.stringify(map, null, 1));
 drawTileset().save(`${assetsDir}tileset.png`);
 
-for (const [id, style] of Object.entries({ ...HUMANS, ...AGENTS })) {
+for (const [id, style] of Object.entries(HUMANS)) {
   drawCharacter(style).save(`${assetsDir}characters/${id}.png`);
 }
 writeFileSync(
   `${assetsDir}characters.json`,
   JSON.stringify(
-    { frameSize: FRAME, frames: FRAMES, directions: DIRECTIONS, humans: Object.keys(HUMANS), agents: Object.keys(AGENTS) },
+    { frameSize: FRAME, frames: FRAMES, directions: DIRECTIONS, humans: Object.keys(HUMANS) },
     null,
     2,
   ),

@@ -59,14 +59,6 @@ export class PrismaRepository implements GameRepository {
     );
   }
 
-  async listAgents() {
-    return prisma.agentDefinition.findMany({
-      where: { isActive: true },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, role: true, sprite: true, deskId: true },
-    });
-  }
-
   async saveChat(event: ChatEvent, authorUserId: string) {
     // Solo se persiste el canal global; el chat de proximidad/oficina es efímero.
     if (event.scope !== "global") return;

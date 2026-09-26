@@ -10,11 +10,9 @@ describe("parseOfficeMap", () => {
     expect(map.width).toBe(40);
     expect(map.height).toBe(28);
     expect(map.zones.map((z) => z.id)).toEqual(
-      expect.arrayContaining(["office-1", "office-2", "office-3", "office-4", "meeting-main", "lab", "lounge"]),
+      expect.arrayContaining(["office-1", "office-2", "office-3", "office-4", "meeting-main", "coworking", "lounge"]),
     );
     expect(pointsOfType(map, "seat")).toHaveLength(6);
-    expect(pointsOfType(map, "agent_desk")).toHaveLength(6);
-    expect(pointsOfType(map, "visitor_spot")).toHaveLength(6);
     expect(pointsOfType(map, "screen").map((s) => s.zone)).toEqual(["meeting-main"]);
   });
 
@@ -33,7 +31,7 @@ describe("parseOfficeMap", () => {
 
 describe("zoneAt", () => {
   it("prioriza la zona más pequeña cuando hay solapamiento", () => {
-    expect(zoneAt(map, center(5), center(20))?.id).toBe("lab"); // lab está dentro de lounge
+    expect(zoneAt(map, center(5), center(20))?.id).toBe("coworking"); // coworking está dentro de lounge
     expect(zoneAt(map, center(24), center(13))?.id).toBe("lounge");
     expect(zoneAt(map, center(3), center(5))?.id).toBe("office-1");
     expect(zoneAt(map, center(33), center(8))?.id).toBe("meeting-main");
@@ -53,7 +51,7 @@ describe("placeAt", () => {
     expect(placeAt(map, center(24), center(6))).toBe("office-4");
     expect(placeAt(map, center(24), center(8))).toBe("door:office-4"); // puerta de la oficina 4
     expect(placeAt(map, center(33), center(11))).toBe("door:meeting-main"); // puerta de la sala
-    expect(placeAt(map, center(8), center(15))).toBe("door:lab"); // puerta norte del lab
+    expect(placeAt(map, center(8), center(15))).toBe("door:coworking"); // puerta norte del coworking
     expect(placeAt(map, center(24), center(13))).toBe("lounge");
   });
 
@@ -65,9 +63,10 @@ describe("placeAt", () => {
 });
 
 describe("findPath", () => {
-  it("encuentra camino desde el spawn a cada oficina, silla y escritorio de agente", () => {
+  it("encuentra camino desde el spawn a cada oficina, silla de reuniones y al tablero", () => {
     const s = spawnPoint(map);
-    const targets = [...pointsOfType(map, "seat"), ...pointsOfType(map, "agent_desk"), ...pointsOfType(map, "task_board")];
+    const targets = [...pointsOfType(map, "seat"), ...pointsOfType(map, "task_board")];
+    targets.push({ ...s, tileX: 3, tileY: 19 }); // silla de un escritorio del coworking
     targets.push({ ...s, tileX: 3, tileY: 5 }); // dentro de la oficina 1
     for (const t of targets) {
       const path = findPath(map, { x: s.tileX, y: s.tileY }, { x: t.tileX, y: t.tileY });

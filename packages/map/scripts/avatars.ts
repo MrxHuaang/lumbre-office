@@ -6,7 +6,6 @@ export const FRAMES = 3;
 export const DIRECTIONS = ["down", "left", "right", "up"] as const;
 
 export interface CharacterStyle {
-  kind: "human" | "agent";
   skin: string;
   hair: string;
   shirt: string;
@@ -14,22 +13,12 @@ export interface CharacterStyle {
 }
 
 export const HUMANS: Record<string, CharacterStyle> = {
-  ada: { kind: "human", skin: "#f1c27d", hair: "#3b2219", shirt: "#e76f51", pants: "#264653" },
-  bruno: { kind: "human", skin: "#c68642", hair: "#1b1b1b", shirt: "#2a9d8f", pants: "#3d405b" },
-  carla: { kind: "human", skin: "#ffdbac", hair: "#b5651d", shirt: "#8338ec", pants: "#22223b" },
-  dario: { kind: "human", skin: "#8d5524", hair: "#0d0d0d", shirt: "#f4a261", pants: "#1d3557" },
-  eva: { kind: "human", skin: "#e0ac69", hair: "#d4a017", shirt: "#06d6a0", pants: "#3a3a4a" },
-  fede: { kind: "human", skin: "#f1c27d", hair: "#6b4423", shirt: "#118ab2", pants: "#4a4e69" },
-};
-
-/** Agentes de IA (se usan desde la Fase 4): cabeza robótica con visor, color por rol. */
-export const AGENTS: Record<string, CharacterStyle> = {
-  "bot-amber": { kind: "agent", skin: "#c9ced6", hair: "#ffd166", shirt: "#ffd166", pants: "#3a3f5c" },
-  "bot-blue": { kind: "agent", skin: "#c9ced6", hair: "#118ab2", shirt: "#118ab2", pants: "#3a3f5c" },
-  "bot-pink": { kind: "agent", skin: "#c9ced6", hair: "#ef476f", shirt: "#ef476f", pants: "#3a3f5c" },
-  "bot-green": { kind: "agent", skin: "#c9ced6", hair: "#06d6a0", shirt: "#06d6a0", pants: "#3a3f5c" },
-  "bot-violet": { kind: "agent", skin: "#c9ced6", hair: "#8338ec", shirt: "#8338ec", pants: "#3a3f5c" },
-  "bot-orange": { kind: "agent", skin: "#c9ced6", hair: "#fb8500", shirt: "#fb8500", pants: "#3a3f5c" },
+  ada: { skin: "#f1c27d", hair: "#3b2219", shirt: "#e76f51", pants: "#264653" },
+  bruno: { skin: "#c68642", hair: "#1b1b1b", shirt: "#2a9d8f", pants: "#3d405b" },
+  carla: { skin: "#ffdbac", hair: "#b5651d", shirt: "#8338ec", pants: "#22223b" },
+  dario: { skin: "#8d5524", hair: "#0d0d0d", shirt: "#f4a261", pants: "#1d3557" },
+  eva: { skin: "#e0ac69", hair: "#d4a017", shirt: "#06d6a0", pants: "#3a3a4a" },
+  fede: { skin: "#f1c27d", hair: "#6b4423", shirt: "#118ab2", pants: "#4a4e69" },
 };
 
 const OUT = hex("#1b1b24");
@@ -59,35 +48,20 @@ function drawFront(c: Canvas, ox: number, oy: number, s: CharacterStyle, frame: 
   const armR = frame === 1 ? -1 : 0;
   c.rect(ox + 8, oy + 15 + bob + armL, 2, 6, shade(shirt, -0.2));
   c.rect(ox + 22, oy + 15 + bob + armR, 2, 6, shade(shirt, -0.2));
-  c.rect(ox + 8, oy + 21 + bob + armL, 2, 2, s.kind === "agent" ? shade(skin, -0.2) : skin);
-  c.rect(ox + 22, oy + 21 + bob + armR, 2, 2, s.kind === "agent" ? shade(skin, -0.2) : skin);
+  c.rect(ox + 8, oy + 21 + bob + armL, 2, 2, skin);
+  c.rect(ox + 22, oy + 21 + bob + armR, 2, 2, skin);
 
   // Cabeza
-  if (s.kind === "agent") {
-    c.rect(ox + 11, oy + 4 + bob, 10, 10, skin);
-    c.rect(ox + 11, oy + 4 + bob, 10, 1, shade(skin, 0.3));
-    c.rect(ox + 15, oy + 1 + bob, 2, 3, shade(skin, -0.3)); // antena
-    c.rect(ox + 15, oy + 0 + bob, 2, 1, hair);
-    if (!back) {
-      c.rect(ox + 12, oy + 8 + bob, 8, 3, hex("#0f1b2d")); // visor
-      c.rect(ox + 13, oy + 9 + bob, 2, 1, hex("#5ee1e6"));
-      c.rect(ox + 17, oy + 9 + bob, 2, 1, hex("#5ee1e6"));
-    } else {
-      c.rect(ox + 13, oy + 7 + bob, 6, 4, shade(skin, -0.15)); // panel trasero
-    }
-    c.rect(ox + 11, oy + 14 + bob, 10, 1, hair); // cuello de color del rol
+  c.rect(ox + 11, oy + 4 + bob, 10, 10, skin);
+  if (back) {
+    c.rect(ox + 11, oy + 3 + bob, 10, 10, hair);
   } else {
-    c.rect(ox + 11, oy + 4 + bob, 10, 10, skin);
-    if (back) {
-      c.rect(ox + 11, oy + 3 + bob, 10, 10, hair);
-    } else {
-      c.rect(ox + 11, oy + 3 + bob, 10, 3, hair);
-      c.rect(ox + 11, oy + 6 + bob, 1, 4, hair);
-      c.rect(ox + 20, oy + 6 + bob, 1, 4, hair);
-      c.rect(ox + 13, oy + 9 + bob, 1, 2, OUT);
-      c.rect(ox + 18, oy + 9 + bob, 1, 2, OUT);
-      c.rect(ox + 15, oy + 12 + bob, 2, 1, shade(skin, -0.25));
-    }
+    c.rect(ox + 11, oy + 3 + bob, 10, 3, hair);
+    c.rect(ox + 11, oy + 6 + bob, 1, 4, hair);
+    c.rect(ox + 20, oy + 6 + bob, 1, 4, hair);
+    c.rect(ox + 13, oy + 9 + bob, 1, 2, OUT);
+    c.rect(ox + 18, oy + 9 + bob, 1, 2, OUT);
+    c.rect(ox + 15, oy + 12 + bob, 2, 1, shade(skin, -0.25));
   }
   c.outline(ox, oy, FRAME, FRAME, OUT);
 }
@@ -113,23 +87,13 @@ function drawSide(c: Canvas, ox: number, oy: number, s: CharacterStyle, frame: n
   c.rect(ox + 12, oy + 14 + bob, 8, 1, shade(shirt, 0.2));
   const swing = frame === 0 ? 0 : frame === 1 ? 2 : -2;
   c.rect(ox + 15 + swing, oy + 15 + bob, 2, 6, shade(shirt, -0.2));
-  c.rect(ox + 15 + swing, oy + 21 + bob, 2, 2, s.kind === "agent" ? shade(skin, -0.2) : skin);
+  c.rect(ox + 15 + swing, oy + 21 + bob, 2, 2, skin);
 
-  if (s.kind === "agent") {
-    c.rect(ox + 11, oy + 4 + bob, 10, 10, skin);
-    c.rect(ox + 11, oy + 4 + bob, 10, 1, shade(skin, 0.3));
-    c.rect(ox + 16, oy + 1 + bob, 2, 3, shade(skin, -0.3));
-    c.rect(ox + 16, oy + 0 + bob, 2, 1, hair);
-    c.rect(ox + 11, oy + 8 + bob, 5, 3, hex("#0f1b2d"));
-    c.rect(ox + 12, oy + 9 + bob, 2, 1, hex("#5ee1e6"));
-    c.rect(ox + 11, oy + 14 + bob, 10, 1, hair);
-  } else {
-    c.rect(ox + 11, oy + 4 + bob, 10, 10, skin);
-    c.rect(ox + 11, oy + 3 + bob, 10, 3, hair);
-    c.rect(ox + 16, oy + 6 + bob, 5, 6, hair);
-    c.rect(ox + 13, oy + 9 + bob, 1, 2, OUT);
-    c.rect(ox + 10, oy + 10 + bob, 1, 2, skin); // nariz
-  }
+  c.rect(ox + 11, oy + 4 + bob, 10, 10, skin);
+  c.rect(ox + 11, oy + 3 + bob, 10, 3, hair);
+  c.rect(ox + 16, oy + 6 + bob, 5, 6, hair);
+  c.rect(ox + 13, oy + 9 + bob, 1, 2, OUT);
+  c.rect(ox + 10, oy + 10 + bob, 1, 2, skin); // nariz
   c.outline(ox, oy, FRAME, FRAME, OUT);
 }
 

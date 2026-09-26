@@ -11,7 +11,7 @@
  "tileheight": 32,
  "compressionlevel": -1,
  "nextlayerid": 6,
- "nextobjectid": 29,
+ "nextobjectid": 17,
  "layers": [
   {
    "id": 1,
@@ -3559,8 +3559,8 @@
     },
     {
      "id": 6,
-     "name": "Laboratorio IA",
-     "type": "lab",
+     "name": "Coworking",
+     "type": "coworking",
      "x": 32,
      "y": 512,
      "width": 512,
@@ -3571,7 +3571,7 @@
       {
        "name": "zoneId",
        "type": "string",
-       "value": "lab"
+       "value": "coworking"
       },
       {
        "name": "isolated",
@@ -3774,265 +3774,7 @@
     },
     {
      "id": 15,
-     "name": "desk-1",
-     "type": "agent_desk",
-     "x": 112,
-     "y": 624,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-1"
-      },
-      {
-       "name": "index",
-       "type": "int",
-       "value": 0
-      }
-     ]
-    },
-    {
-     "id": 16,
-     "name": "visitante desk-1",
-     "type": "visitor_spot",
-     "x": 176,
-     "y": 624,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-1"
-      }
-     ]
-    },
-    {
-     "id": 17,
-     "name": "desk-2",
-     "type": "agent_desk",
-     "x": 272,
-     "y": 624,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-2"
-      },
-      {
-       "name": "index",
-       "type": "int",
-       "value": 1
-      }
-     ]
-    },
-    {
-     "id": 18,
-     "name": "visitante desk-2",
-     "type": "visitor_spot",
-     "x": 336,
-     "y": 624,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-2"
-      }
-     ]
-    },
-    {
-     "id": 19,
-     "name": "desk-3",
-     "type": "agent_desk",
-     "x": 432,
-     "y": 624,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-3"
-      },
-      {
-       "name": "index",
-       "type": "int",
-       "value": 2
-      }
-     ]
-    },
-    {
-     "id": 20,
-     "name": "visitante desk-3",
-     "type": "visitor_spot",
-     "x": 496,
-     "y": 624,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-3"
-      }
-     ]
-    },
-    {
-     "id": 21,
-     "name": "desk-4",
-     "type": "agent_desk",
-     "x": 112,
-     "y": 784,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-4"
-      },
-      {
-       "name": "index",
-       "type": "int",
-       "value": 3
-      }
-     ]
-    },
-    {
-     "id": 22,
-     "name": "visitante desk-4",
-     "type": "visitor_spot",
-     "x": 176,
-     "y": 784,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-4"
-      }
-     ]
-    },
-    {
-     "id": 23,
-     "name": "desk-5",
-     "type": "agent_desk",
-     "x": 272,
-     "y": 784,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-5"
-      },
-      {
-       "name": "index",
-       "type": "int",
-       "value": 4
-      }
-     ]
-    },
-    {
-     "id": 24,
-     "name": "visitante desk-5",
-     "type": "visitor_spot",
-     "x": 336,
-     "y": 784,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-5"
-      }
-     ]
-    },
-    {
-     "id": 25,
-     "name": "desk-6",
-     "type": "agent_desk",
-     "x": 432,
-     "y": 784,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-6"
-      },
-      {
-       "name": "index",
-       "type": "int",
-       "value": 5
-      }
-     ]
-    },
-    {
-     "id": 26,
-     "name": "visitante desk-6",
-     "type": "visitor_spot",
-     "x": 496,
-     "y": 784,
-     "width": 0,
-     "height": 0,
-     "rotation": 0,
-     "visible": true,
-     "point": true,
-     "properties": [
-      {
-       "name": "ref",
-       "type": "string",
-       "value": "desk-6"
-      }
-     ]
-    },
-    {
-     "id": 27,
-     "name": "Tablero de tareas",
+     "name": "Tablero",
      "type": "task_board",
      "x": 432,
      "y": 560,
@@ -4044,7 +3786,7 @@
      "properties": []
     },
     {
-     "id": 28,
+     "id": 16,
      "name": "Pantalla de la sala",
      "type": "screen",
      "x": 1072,

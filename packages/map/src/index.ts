@@ -6,8 +6,8 @@ export * from "./pathfinding";
 /** Capas de tiles cuyos tiles con `collides=true` bloquean el paso. */
 export const COLLISION_LAYERS = ["walls", "furniture"] as const;
 
-export type ZoneType = "office" | "meeting" | "lab" | "lounge";
-export type PointType = "spawn" | "seat" | "agent_desk" | "visitor_spot" | "task_board" | "screen";
+export type ZoneType = "office" | "meeting" | "coworking" | "lounge";
+export type PointType = "spawn" | "seat" | "task_board" | "screen";
 
 export interface Zone {
   id: string;
@@ -139,11 +139,11 @@ export function zoneAt(map: OfficeMap, px: number, py: number): Zone | undefined
   return best;
 }
 
-const DOORWAY_PRIORITY: ZoneType[] = ["office", "meeting", "lab"];
+const DOORWAY_PRIORITY: ZoneType[] = ["office", "meeting", "coworking"];
 
 /**
  * Lugar "humano" de un punto, para mostrar dónde está alguien:
- * - el id de la zona cerrada (oficina, sala, lab) que lo contiene;
+ * - el id de la zona cerrada (oficina, sala, coworking) que lo contiene;
  * - `door:<zoneId>` si está en el umbral de una puerta: fuera de toda zona cerrada pero pegado a una.
  *   Funciona porque las zonas cerradas están rodeadas de muro y solo sus puertas quedan contiguas;
  * - la zona abierta que lo contiene (zona común), o "" en un pasillo sin zona.

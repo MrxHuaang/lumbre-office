@@ -15,7 +15,6 @@
     "@hyvento/db": "workspace:*",
     "@hyvento/map": "workspace:*",
     "@hyvento/shared": "workspace:*",
-    "bullmq": "^5.81.5",
     "colyseus": "^0.16.0",
     "ioredis": "^5.11.1"
   },

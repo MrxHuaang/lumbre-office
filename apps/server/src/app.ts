@@ -1,12 +1,11 @@
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ROOM_NAME } from "@hyvento/shared";
 import { Server } from "colyseus";
-import type { AgentQueue, GameRepository } from "./repo/types";
+import type { GameRepository } from "./repo/types";
 import { OfficeRoom } from "./rooms/OfficeRoom";
 
-export function createGameServer({ repo, agentQueue }: { repo: GameRepository; agentQueue: AgentQueue }) {
+export function createGameServer({ repo }: { repo: GameRepository }) {
   OfficeRoom.repo = repo;
-  OfficeRoom.agentQueue = agentQueue;
   const server = new Server({ transport: new WebSocketTransport() });
   server.define(ROOM_NAME, OfficeRoom);
   return server;

@@ -1,6 +1,23 @@
 import * as Phaser from "phaser";
 import { OfficeScene } from "./OfficeScene";
 
+/**
+ * Espera a que el contenedor tenga tamaño real. Si Phaser arranca con 0x0 (pestaña en segundo plano
+ * o aún sin layout), WebGL falla al crear su framebuffer y el juego queda muerto.
+ */
+export function waitForSize(el: HTMLElement): Promise<void> {
+  if (el.clientWidth > 0 && el.clientHeight > 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth > 0 && el.clientHeight > 0) {
+        ro.disconnect();
+        resolve();
+      }
+    });
+    ro.observe(el);
+  });
+}
+
 export function createGame(parent: HTMLElement) {
   return new Phaser.Game({
     type: Phaser.AUTO,

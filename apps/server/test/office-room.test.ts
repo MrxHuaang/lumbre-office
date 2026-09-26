@@ -5,14 +5,14 @@ import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { FakeAgentQueue, c, TILE, tick, token, walkPath, walkTo } from "./helpers";
+import { c, TILE, tick, token, walkPath, walkTo } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
 
 beforeAll(async () => {
   repo = new MemoryRepository();
-  colyseus = await boot(createGameServer({ repo, agentQueue: new FakeAgentQueue() }));
+  colyseus = await boot(createGameServer({ repo }));
 });
 afterAll(async () => {
   await colyseus.shutdown();

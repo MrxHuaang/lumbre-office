@@ -1,5 +1,4 @@
-// Esquema inicial de Hyvento Office.
-// Fase 0/2: usuarios, invitaciones, oficinas, chat. Fase 4+: agentes, tareas, artefactos, logs.
+// Esquema de Hyvento Office: usuarios, invitaciones, oficinas personales y chat.
 
 generator client {
   provider = "prisma-client-js"
@@ -45,8 +44,6 @@ model User {
 
   office       Office?
   chatMessages ChatMessage[]
-  agentChats   AgentChat[]
-  tasks        Task[]
   invitesSent  Invite[]      @relation("InvitedBy")
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
@@ -131,146 +128,4 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-// ---------- Agentes (Fase 4+) ----------
-
-model AgentDefinition {
-  id           String   @id @default(cuid())
-  name         String
-  role         String // "pm", "researcher", "writer", "developer", "qa", ...
-  systemPrompt String
-  model        String   @default("claude-opus-5")
-  effort       String   @default("high")
-  tools        String[] // herramientas habilitadas
-  sprite       String   @default("bot-blue")
-  deskId       String?  @unique // "desk-1".."desk-6" (agent_desk en Tiled)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  subTasks     SubTask[]
-  messagesFrom AgentMessage[] @relation("MessageFrom")
-  runLogs      AgentRunLog[]
-  chats        AgentChat[]
-}
-
-/** Conversación directa persona ↔ agente (Fase 4). Un hilo por (agente, persona). */
-model AgentChat {
-  id        String          @id @default(cuid())
-  agentId   String
-  agent     AgentDefinition @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      String // "user" | "assistant"
-  content   String
-  runId     String?
-  createdAt DateTime        @default(now())
-
-  @@index([agentId, userId, createdAt])
-}
-
-enum TaskStatus {
-  PENDING
-  PLANNING
-  IN_PROGRESS
-  WAITING_HUMAN
-  DONE
-  FAILED
-  CANCELLED
-}
-
-model Task {
-  id          String     @id @default(cuid())
-  title       String
-  description String
-  status      TaskStatus @default(PENDING)
-  ownerId     String
-  owner       User       @relation(fields: [ownerId], references: [id])
-  /**
-   * Presupuesto máximo de tokens y costo acumulado (USD).
-   */
-  tokenBudget Int        @default(500000)
-  tokensUsed  Int        @default(0)
-  costUsd     Decimal    @default(0) @db.Decimal(10, 4)
-  /**
-   * Brief acumulado (espejo persistente de task:<id>:brief en Redis).
-   */
-  brief       String     @default("")
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  subTasks  SubTask[]
-  messages  AgentMessage[]
-  artifacts Artifact[]
-  runLogs   AgentRunLog[]
-}
-
-model SubTask {
-  id             String          @id @default(cuid())
-  taskId         String
-  task           Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  agentId        String
-  agent          AgentDefinition @relation(fields: [agentId], references: [id])
-  instructions   String
-  status         TaskStatus      @default(PENDING)
-  summary        String?
-  dependsOn      String[] // ids de otras subtareas
-  /**
-   * run_id + tool_use_id que la creó: evita duplicados en reintentos.
-   */
-  idempotencyKey String          @unique
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-}
-
-model AgentMessage {
-  id             String           @id @default(cuid())
-  taskId         String
-  task           Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  fromAgentId    String?
-  fromAgent      AgentDefinition? @relation("MessageFrom", fields: [fromAgentId], references: [id])
-  fromUserId     String?
-  toId           String // id de agente o de usuario
-  content        String // corto: el trabajo pesado va en Artifact
-  artifactIds    String[]
-  readAt         DateTime?
-  idempotencyKey String           @unique
-  createdAt      DateTime         @default(now())
-
-  @@index([toId, readAt])
-}
-
-model Artifact {
-  id             String   @id @default(cuid())
-  taskId         String
-  task           Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  name           String
-  kind           String   @default("markdown") // markdown | json
-  content        String
-  version        Int      @default(1)
-  createdBy      String // agent id
-  idempotencyKey String   @unique
-  createdAt      DateTime @default(now())
-
-  @@unique([taskId, name, version])
-}
-
-/**
- * Eventos crudos de cada run (auditoría y replay en la oficina).
- */
-model AgentRunLog {
-  id        String          @id @default(cuid())
-  taskId    String?
-  task      Task?           @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  agentId   String
-  agent     AgentDefinition @relation(fields: [agentId], references: [id])
-  runId     String
-  seq       Int
-  type      String // agent.status | agent.move | agent.message | agent.tool | ...
-  payload   Json
-  createdAt DateTime        @default(now())
-
-  @@unique([runId, seq])
-  @@index([taskId, createdAt])
 }

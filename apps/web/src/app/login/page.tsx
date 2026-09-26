@@ -19,7 +19,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 text-center shadow-2xl sm:p-8">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-panel-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/characters/bot-amber.png" alt="" className="pixelated h-auto w-auto" style={{ objectFit: "none", objectPosition: "0 0", width: 32, height: 32, transform: "scale(1.5)" }} />
+          <img src="/assets/characters/ada.png" alt="" className="pixelated h-auto w-auto" style={{ objectFit: "none", objectPosition: "0 0", width: 32, height: 32, transform: "scale(1.5)" }} />
         </div>
         <p className="mt-4 text-xs font-semibold tracking-[0.2em] text-accent uppercase">Hyvento</p>
         <h1 className="mt-1 text-2xl font-bold">Oficina virtual</h1>

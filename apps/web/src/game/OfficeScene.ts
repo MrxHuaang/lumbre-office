@@ -15,8 +15,6 @@ import {
   type TilePos,
 } from "@hyvento/map";
 import {
-  AGENT_SPRITES,
-  AGENT_STATUS_ICON,
   hearing,
   HUMAN_AVATARS,
   MOVE_SEND_HZ,
@@ -29,16 +27,7 @@ import { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { Avatar } from "./Avatar";
 import { media, useMediaStore } from "./media";
-import {
-  getRoom,
-  onAgentSay,
-  onMoveCorrection,
-  onRoom,
-  sendMove,
-  type OfficeRoom,
-  type RemoteAgent,
-  type RemotePlayer,
-} from "./network";
+import { getRoom, onMoveCorrection, onRoom, sendMove, type OfficeRoom, type RemotePlayer } from "./network";
 import { canEnterOffice, selectMyUserId, useOfficeStore, type OfficeView } from "./store";
 import { getStateCallbacks } from "colyseus.js";
 
@@ -56,7 +45,6 @@ export class OfficeScene extends Phaser.Scene {
   private officeMap!: OfficeMap;
   private keys!: Keys;
   private avatars = new Map<string, Avatar>();
-  private agentAvatars = new Map<string, Avatar>();
   private local?: Avatar;
   private localId: string | null = null;
   private path: TilePos[] = [];
@@ -84,7 +72,7 @@ export class OfficeScene extends Phaser.Scene {
   preload() {
     this.load.tilemapTiledJSON("office", "/assets/office.json");
     this.load.image("tiles", "/assets/tileset.png");
-    for (const a of [...HUMAN_AVATARS, ...AGENT_SPRITES]) {
+    for (const a of HUMAN_AVATARS) {
       this.load.spritesheet(a, `/assets/characters/${a}.png`, { frameWidth: 32, frameHeight: 32 });
     }
   }
@@ -116,7 +104,6 @@ export class OfficeScene extends Phaser.Scene {
 
     this.cleanups.push(
       onRoom((room) => this.bindRoom(room)),
-      onAgentSay((say) => this.agentAvatars.get(say.agentId)?.say(say.text)),
       onMoveCorrection((c) => {
         this.path = [];
         this.local?.setPosition(c.x, c.y);
@@ -160,7 +147,6 @@ export class OfficeScene extends Phaser.Scene {
       this.updateHearing();
     }
     for (const [id, avatar] of this.avatars) if (id !== this.localId) avatar.interpolate(delta);
-    for (const avatar of this.agentAvatars.values()) avatar.interpolate(delta);
   }
 
   // ---------- Red ----------
@@ -170,8 +156,6 @@ export class OfficeScene extends Phaser.Scene {
     this.unbindRoom();
     for (const a of this.avatars.values()) a.destroy();
     this.avatars.clear();
-    for (const a of this.agentAvatars.values()) a.destroy();
-    this.agentAvatars.clear();
     this.local = undefined;
     this.localId = room.sessionId;
     this.lastSent = null;
@@ -190,14 +174,6 @@ export class OfficeScene extends Phaser.Scene {
         this.avatars.get(sessionId)?.destroy();
         this.avatars.delete(sessionId);
         this.userOfSession.delete(sessionId);
-      }),
-      $(room.state).agents.onAdd((agent, id) => {
-        if (alive()) this.addAgent(id, agent, $);
-      }),
-      $(room.state).agents.onRemove((_a, id) => {
-        if (!alive()) return;
-        this.agentAvatars.get(id)?.destroy();
-        this.agentAvatars.delete(id);
       }),
     );
   }
@@ -231,37 +207,6 @@ export class OfficeScene extends Phaser.Scene {
       avatar.targetY = player.y;
       avatar.setMotion(player.dir, player.moving);
     });
-  }
-
-  private addAgent(id: string, agent: RemoteAgent, $: ReturnType<typeof getStateCallbacks>) {
-    this.agentAvatars.get(id)?.destroy();
-    const texture = (AGENT_SPRITES as readonly string[]).includes(agent.sprite) ? agent.sprite : "bot-blue";
-    const avatar = new Avatar(this, texture, agent.name, agent.x, agent.y, false, { labelColor: "#5ee1e6" });
-    avatar.setMotion(agent.dir, agent.moving);
-    avatar.setBadge(AGENT_STATUS_ICON[agent.status] ?? "", agent.detail);
-    avatar.onClick(() => this.visitAgent(id));
-    this.agentAvatars.set(id, avatar);
-    $(agent).onChange(() => {
-      avatar.targetX = agent.x;
-      avatar.targetY = agent.y;
-      avatar.setMotion(agent.dir, agent.moving);
-      avatar.setBadge(AGENT_STATUS_ICON[agent.status] ?? "", agent.detail);
-    });
-  }
-
-  /** Clic en un agente: abrir su chat y caminar hasta el puesto de visita junto a su escritorio. */
-  private visitAgent(agentId: string) {
-    useOfficeStore.getState().openAgent(agentId);
-    const agent = this.agentAvatars.get(agentId);
-    if (!agent || !this.local) return;
-    const spots = pointsOfType(this.officeMap, "visitor_spot");
-    const nearest = spots.reduce<(typeof spots)[number] | null>(
-      (best, p) => (!best || Math.hypot(p.x - agent.x, p.y - agent.y) < Math.hypot(best.x - agent.x, best.y - agent.y) ? p : best),
-      null,
-    );
-    if (nearest && Math.hypot(nearest.x - this.local.x, nearest.y - this.local.y) > this.officeMap.tileSize) {
-      this.walkTo(nearest.x, nearest.y);
-    }
   }
 
   private showNewBubbles(messages: { fromId: string; text: string; ts: number }[]) {

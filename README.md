@@ -1,6 +1,6 @@
 # Hyvento Office
 
-Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: oficinas personales, chat y video por proximidad, y un equipo de agentes de IA que colaboran en tareas de forma visible dentro de la oficina.
+Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: cada persona con su oficina, chat y video por proximidad, salas privadas y pantalla compartida.
 
 ## Estado
 
@@ -10,9 +10,9 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: oficinas persona
 | 1. Oficina multijugador (mapa, movimiento, chat por proximidad y global) | ✅ |
 | 2. Oficinas personales (asignación, placas, cerrar/tocar la puerta, notas, estado y chat persistidos) | ✅ |
 | 3. Video/voz por proximidad (LiveKit): suscripción selectiva, permisos en el SFU, pantalla compartida | ✅ |
-| 4. Primer agente (Nova): worker con Claude, cola BullMQ, NPC en el laboratorio, chat privado en streaming con búsqueda web | ✅ |
-| 5–6. Equipo de agentes, editor y rol Developer | ⏳ |
-| 7. Despliegue | ⏳ |
+| Despliegue | ⏳ |
+
+> Las funciones de agentes de IA se retiraron del proyecto; su código quedó archivado en la rama `archivo/agentes-ia`.
 
 ## Stack
 - **apps/web**: Next.js 15 + Phaser 3 (mapa, avatares) + UI React (Tailwind 4, zustand)
@@ -20,7 +20,6 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: oficinas persona
 - **packages/map**: mapa Tiled, zonas, colisión y A* compartidos cliente/servidor
 - **packages/shared**: protocolo (zod) y reglas de proximidad
 - **packages/db**: Prisma + Postgres
-- **apps/agents**: worker de agentes (Claude API en streaming + BullMQ)
 
 ## Requisitos
 - Node 22+ y pnpm 10 (`npm i -g pnpm@10`)
@@ -46,8 +45,8 @@ pnpm map:generate   # ⚠️ sobrescribe packages/map/assets/office.json
 ```
 El mapa `packages/map/assets/office.json` es un mapa de [Tiled](https://www.mapeditor.org) editable. Capas:
 - `floor`, `walls`, `furniture`: tiles; los tiles con la propiedad `collides` bloquean el paso (en `walls`/`furniture`).
-- `zones`: rectángulos con `type` (`office`, `meeting`, `lab`, `lounge`) y propiedades `zoneId`, `isolated`, `slot`.
-- `points`: `spawn`, `seat`, `agent_desk`, `visitor_spot`, `task_board`.
+- `zones`: rectángulos con `type` (`office`, `meeting`, `coworking`, `lounge`) y propiedades `zoneId`, `isolated`, `slot`.
+- `points`: `spawn`, `seat` (sala de reuniones), `task_board`, `screen` (pantalla de presentaciones).
 
 ### Login con Google
 1. [Google Cloud Console](https://console.cloud.google.com) → crea un proyecto (p. ej. "Hyvento Office").
@@ -65,7 +64,4 @@ En el primer ingreso cada persona elige su nombre visible y avatar.
 cp .env.example .env
 pnpm infra:up       # Postgres, Redis y LiveKit (dev) con Docker
 pnpm --filter @hyvento/db migrate
-pnpm db:seed        # crea los agentes predefinidos (Nova)
 ```
-
-`pnpm dev` levanta la web, el servidor de juego y el worker de agentes. Para que los agentes respondan, pon tu `ANTHROPIC_API_KEY` en `.env`.

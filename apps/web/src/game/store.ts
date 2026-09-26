@@ -1,8 +1,5 @@
 import {
   KNOCK_TIMEOUT_MS,
-  type AgentAck,
-  type AgentStatus,
-  type AgentStreamMessage,
   type ChatEvent,
   type ChatScope,
   type HumanAvatar,
@@ -36,32 +33,6 @@ export interface OfficeView {
   ownerName: string;
   locked: boolean;
   guests: string[];
-}
-
-export interface AgentView {
-  id: string;
-  name: string;
-  role: string;
-  sprite: string;
-  status: AgentStatus;
-  detail: string;
-}
-
-export interface AgentMsg {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  streaming?: boolean;
-  error?: boolean;
-  /** Último seq aplicado (para descartar fragmentos repetidos). */
-  seq?: number;
-}
-
-export interface AgentThread {
-  loaded: boolean;
-  messages: AgentMsg[];
-  /** Hay una respuesta en camino (desde que se envía la pregunta hasta el final). */
-  pending: boolean;
 }
 
 export interface ZoneInfo {
@@ -106,10 +77,6 @@ interface OfficeStore {
   notices: Notice[];
   /** Pedido a la escena de caminar hasta una zona (cambia `nonce` para repetir). */
   walkTarget: { zoneId: string; nonce: number } | null;
-  agents: Record<string, AgentView>;
-  /** Agente con el panel de chat abierto. */
-  openAgentId: string | null;
-  agentThreads: Record<string, AgentThread>;
 
   setConnection: (c: ConnectionStatus, error?: string | null) => void;
   setSessionId: (id: string | null) => void;
@@ -132,13 +99,6 @@ interface OfficeStore {
   notify: (text: string, tone?: Notice["tone"], action?: Notice["action"]) => void;
   dismissNotice: (id: number) => void;
   walkToZone: (zoneId: string) => void;
-  upsertAgent: (a: AgentView) => void;
-  removeAgent: (id: string) => void;
-  openAgent: (id: string | null) => void;
-  setAgentHistory: (agentId: string, messages: AgentMsg[]) => void;
-  addAgentUserMessage: (agentId: string, text: string) => void;
-  handleAgentAck: (ack: AgentAck) => void;
-  handleAgentStream: (m: AgentStreamMessage) => void;
   reset: () => void;
 }
 
@@ -174,9 +134,6 @@ const initial = {
   knockRequests: [],
   notices: [],
   walkTarget: null,
-  agents: {},
-  openAgentId: null,
-  agentThreads: {},
 };
 
 export const useOfficeStore = create<OfficeStore>((set, get) => ({
@@ -231,54 +188,6 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   },
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
-  upsertAgent: (a) => set((s) => ({ agents: { ...s.agents, [a.id]: a } })),
-  removeAgent: (id) =>
-    set((s) => {
-      const { [id]: _removed, ...rest } = s.agents;
-      return { agents: rest, openAgentId: s.openAgentId === id ? null : s.openAgentId };
-    }),
-  openAgent: (openAgentId) => set({ openAgentId }),
-  setAgentHistory: (agentId, messages) =>
-    set((s) => {
-      const current = s.agentThreads[agentId];
-      // Lo que ya llegó en vivo (mientras cargaba el historial) va después del historial.
-      const live = current?.messages.filter((m) => !messages.some((h) => h.id === m.id)) ?? [];
-      return {
-        agentThreads: {
-          ...s.agentThreads,
-          [agentId]: { loaded: true, messages: [...messages, ...live], pending: current?.pending ?? false },
-        },
-      };
-    }),
-  addAgentUserMessage: (agentId, text) =>
-    set((s) => {
-      const t = s.agentThreads[agentId] ?? { loaded: false, messages: [], pending: false };
-      const msg: AgentMsg = { id: `local-${Date.now()}`, role: "user", text };
-      return { agentThreads: { ...s.agentThreads, [agentId]: { ...t, messages: [...t.messages, msg], pending: true } } };
-    }),
-  handleAgentAck: (ack) =>
-    set((s) => {
-      const t = s.agentThreads[ack.agentId] ?? { loaded: false, messages: [], pending: false };
-      if (ack.error || !ack.runId) {
-        const msg: AgentMsg = { id: `err-${Date.now()}`, role: "assistant", text: ack.error ?? "No se pudo enviar.", error: true };
-        return { agentThreads: { ...s.agentThreads, [ack.agentId]: { ...t, messages: [...t.messages, msg], pending: false } } };
-      }
-      if (t.messages.some((m) => m.id === ack.runId)) return {};
-      const placeholder: AgentMsg = { id: ack.runId, role: "assistant", text: "", streaming: true, seq: -1 };
-      return { agentThreads: { ...s.agentThreads, [ack.agentId]: { ...t, messages: [...t.messages, placeholder] } } };
-    }),
-  handleAgentStream: (m) =>
-    set((s) => {
-      const t = s.agentThreads[m.agentId] ?? { loaded: false, messages: [], pending: true };
-      const idx = t.messages.findIndex((x) => x.id === m.runId);
-      const prev: AgentMsg = idx >= 0 ? t.messages[idx]! : { id: m.runId, role: "assistant", text: "", streaming: true, seq: -1 };
-      if (!m.done && m.seq <= (prev.seq ?? -1)) return {}; // fragmento repetido
-      const next: AgentMsg = m.done
-        ? { ...prev, text: m.text, streaming: false, error: m.error, seq: m.seq }
-        : { ...prev, text: prev.text + m.text, seq: m.seq };
-      const messages = idx >= 0 ? t.messages.map((x, i) => (i === idx ? next : x)) : [...t.messages, next];
-      return { agentThreads: { ...s.agentThreads, [m.agentId]: { ...t, messages, pending: m.done ? false : t.pending } } };
-    }),
   reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames })),
 }));
 
