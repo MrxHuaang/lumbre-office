@@ -40,7 +40,7 @@ import { Avatar } from "./Avatar";
 import { AreaView, DEPTH_OVERLAY, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
 import { ensureCharacterTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
-import { getRoom, onMoveCorrection, onRoom, sendMove, sendTravel, type OfficeRoom, type RemotePlayer } from "./network";
+import { getRoom, onEmote, onMoveCorrection, onRoom, sendMove, sendTravel, type OfficeRoom, type RemotePlayer } from "./network";
 import { canEnterOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView } from "./store";
 
 const MIN_ZOOM = 2;
@@ -141,6 +141,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cleanups.push(
       onRoom((room) => this.bindRoom(room)),
       onMoveCorrection((c) => this.handleCorrection(c)),
+      onEmote((e) => this.avatars.get(e.sessionId)?.emote(e.emote)),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);

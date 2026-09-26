@@ -7,6 +7,8 @@ import {
   type CafeOrderResult,
   type ChatEvent,
   type ChatScope,
+  type EmoteEvent,
+  type EmoteId,
   type JoinOptions,
   type KnockRequest,
   type KnockResult,
@@ -61,6 +63,7 @@ let client: Client | null = null;
 let room: OfficeRoom | null = null;
 const correctionListeners = new Set<(c: MoveCorrection) => void>();
 const roomListeners = new Set<(r: OfficeRoom) => void>();
+const emoteListeners = new Set<(e: EmoteEvent) => void>();
 
 // Al cerrar/recargar la pestaña, salir "con consentimiento" para que el avatar desaparezca
 // al instante en vez de quedar esperando una reconexión.
@@ -90,6 +93,16 @@ export function onRoom(cb: (r: OfficeRoom) => void) {
 export function onMoveCorrection(cb: (c: MoveCorrection) => void) {
   correctionListeners.add(cb);
   return () => correctionListeners.delete(cb);
+}
+
+/** Emotes de quienes están en tu nivel (también los tuyos, cuando el servidor los acepta). */
+export function onEmote(cb: (e: EmoteEvent) => void) {
+  emoteListeners.add(cb);
+  return () => emoteListeners.delete(cb);
+}
+
+export function sendEmote(emote: EmoteId) {
+  room?.send(MSG.emote, { emote });
 }
 
 export class ConnectionCancelled extends Error {}
@@ -246,6 +259,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
   r.onMessage(MSG.cafeResult, handleCafeResult);
+  r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

@@ -236,7 +236,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
 function ControlsHint() {
   return (
     <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
-      WASD / flechas · clic para caminar · E para sentarte · Enter para chatear
+      WASD / flechas · clic para caminar · E para sentarte · T emotes · Enter para chatear
     </div>
   );
 }

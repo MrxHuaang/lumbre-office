@@ -136,6 +136,9 @@ export const MSG = {
   /** Pedir en la barra de la cafetería (`CafeOrderMessage`) y su respuesta (`CafeOrderResult`). */
   cafeOrder: "cafe:order",
   cafeResult: "cafe:result",
+  /** Emote sobre la cabeza (`EmoteMessage`) y el aviso a los del mismo nivel (`EmoteEvent`). */
+  emote: "emote",
+  emoteEvent: "emote:event",
   chatSend: "chat:send",
   chatEvent: "chat:event",
   chatHistory: "chat:history",
