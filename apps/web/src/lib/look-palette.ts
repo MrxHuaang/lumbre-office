@@ -1,5 +1,6 @@
 import { HUMANS } from "@hyvento/map/art";
 import {
+  isSwimwear,
   LOOK_BOTTOMS,
   LOOK_CLOTHES,
   LOOK_EYES,
@@ -133,6 +134,10 @@ export const OUTFIT_LABEL: Record<Outfit, string> = {
   dress: "Vestido",
   jacket: "Chaqueta",
   apron: "Delantal",
+  // Van juntos bajo "Traje de baño" (ver LookPanel).
+  trunks: "Bañador",
+  swimsuit: "Entero",
+  bikini: "Bikini",
 };
 
 /**
@@ -152,7 +157,7 @@ const ACCENT_NECK: Partial<Record<NeckItem, string>> = {
   bowtie: "el corbatín",
   necklace: "el collar",
 };
-const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta" };
+const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta", trunks: "los detalles del bañador" };
 const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "el morral", cape: "la capa" };
 
 /** Lo que lleva puesto y usa el color de acento, en el orden de la cabeza a la espalda. */
@@ -176,12 +181,15 @@ const TOP2_TOP: Partial<Record<Top, string[]>> = {
 /**
  * Lo que usa el color secundario de la parte de arriba (`top2`), con su artículo: el patrón y los detalles
  * de la parte de arriba. El vestido tapa la capucha, la corbata y el cuello (las mangas siguen a la vista)
- * y la chaqueta tapa los puños con sus mangas.
+ * y la chaqueta tapa los puños con sus mangas. Con traje de baño no hay parte de arriba: el entero y el
+ * bikini llevan el patrón y el bañador nada.
  */
 export function top2Users(look: FullLook): string[] {
   const parts: string[] = [];
+  if (look.outfit === "trunks") return parts;
   if (look.pattern === "stripes") parts.push("las rayas");
   if (look.pattern === "dots") parts.push("los puntos");
+  if (isSwimwear(look.outfit)) return parts;
   for (const part of TOP2_TOP[look.top] ?? []) {
     if (look.outfit === "dress" && part !== "los puños") continue;
     if (look.outfit === "jacket" && part === "los puños") continue;
@@ -194,6 +202,7 @@ export function top2Users(look: FullLook): string[] {
 export function top2Hint(look: FullLook): string {
   const patterns = PATTERNS.filter((pattern) => top2Users({ ...look, pattern }).length > 0).map((p) => PATTERN_LABEL[p].toLowerCase());
   const tops = TOPS.filter((top) => top2Users({ ...look, top, pattern: "solid" }).length > 0).map((t) => TOP_LABEL[t].toLowerCase());
+  if (!patterns.length) return "Con este conjunto no se ve.";
   return `Se ve con ${joinEs(patterns, "o")}${tops.length ? `, o con ${joinEs(tops, "o")}` : ""}.`;
 }
 

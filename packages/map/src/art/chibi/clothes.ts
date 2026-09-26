@@ -1,6 +1,6 @@
 // Ropa del chibi: piernas y zapatos, brazos, parte de arriba (con su patrón), parte de abajo y
 // conjuntos. Filas del cuerpo: torso 13-17, cintura 18, piernas 19-21, zapatos 22-23 (ver kit.ts).
-import type { Bottom, FullLook, Outfit, Pattern, Top } from "@hyvento/shared";
+import { isSwimwear, type Bottom, type FullLook, type Outfit, type Pattern, type Swimwear, type Top } from "@hyvento/shared";
 import { hex, type PixelCanvas, type RGBA } from "../pixel";
 import type { Ctx, Row, Tones, View } from "./kit";
 
@@ -28,6 +28,8 @@ export type Top2Part = Exclude<Pattern, "solid"> | "hood" | "collar" | "tie" | "
  */
 export function top2Parts(look: FullLook): Top2Part[] {
   const parts: Top2Part[] = look.pattern === "solid" ? [] : [look.pattern];
+  // Con traje de baño no hay parte de arriba: el entero y el bikini llevan el patrón, el bañador no.
+  if (isSwimwear(look.outfit)) return look.outfit === "trunks" ? [] : parts;
   const dress = look.outfit === "dress";
   if (!dress && look.top === "hoodie") parts.push("hood");
   if (!dress && look.top === "shirt-tie") parts.push("tie");
@@ -59,10 +61,11 @@ function cloth({ c, t, look, y }: Ctx): Cloth {
 /** Piernas (tela o piel según la parte de abajo) y zapatos. Sentado, las piernas se doblan hacia adelante. */
 export function drawLegs(ctx: Ctx) {
   const { c, t, look, frame, sit, y, Y } = ctx;
-  // Con vestido la parte de abajo no se ve: piernas de piel.
-  const bottom = look.outfit === "dress" ? null : look.bottom;
-  // Filas de tela desde la cadera (el resto de la pierna es piel).
-  const cover = bottom === "pants" ? 3 : bottom === "shorts" ? 1 : 0;
+  // Con vestido o traje de baño la parte de abajo no se ve: piernas de piel.
+  const bottom = look.outfit === "dress" || isSwimwear(look.outfit) ? null : look.bottom;
+  const trunks = look.outfit === "trunks";
+  // Filas de tela desde la cadera (el resto de la pierna es piel). El bañador llega casi a la rodilla.
+  const cover = trunks ? 2 : bottom === "pants" ? 3 : bottom === "shorts" ? 1 : 0;
   if (sit) return drawLap(ctx, bottom);
   // La cadera baja con el torso en cada paso (la cintura tapa la fila 19): la pierna empieza bajo
   // ella, así el short se ve en los tres frames.
@@ -74,7 +77,11 @@ export function drawLegs(ctx: Ctx) {
     // La pierna de atrás (0) va con luz y la de adelante (1) en sombra.
     const fabric = t.pants[leg === 0 ? 1 : 0];
     const skin = t.skin[leg === 0 ? 1 : 0];
-    for (let r = hip; r <= 21 - up; r++) c.rect(x, Y(r), 3, 1, r - hip < cover ? fabric : skin);
+    for (let r = hip; r <= 21 - up; r++) {
+      c.rect(x, Y(r), 3, 1, r - hip < cover ? fabric : skin);
+      // Franja de acento del bañador, por fuera de la pierna de adelante.
+      if (trunks && leg === 1 && r - hip < cover) c.set(x + 2, Y(r), t.accent[0]);
+    }
     drawShoe(ctx, leg, x - (leg === 0 ? 1 : 0), 22 - up, hip);
   }
 }
@@ -110,8 +117,10 @@ function drawShoe({ c, t, look, Y }: Ctx, leg: 0 | 1, x: number, row: number, hi
 /** Sentado (solo se ven de frente): muslos, espinilla y el pie adelante. */
 function drawLap({ c, t, look, view, Y }: Ctx, bottom: Bottom | null) {
   const dress = look.outfit === "dress";
+  // El entero y el bikini dejan el muslo al aire; el bañador lo tapa como la tela de abajo.
+  const bareLap = isSwimwear(look.outfit) && look.outfit !== "trunks";
   // Sobre las rodillas va el vestido, la falda o la tela de abajo; con falda, shorts o vestido se ve la espinilla.
-  const lap: [RGBA, RGBA] = dress ? [t.shirt[0], t.shirt[1]] : t.pants;
+  const lap: [RGBA, RGBA] = dress ? [t.shirt[0], t.shirt[1]] : bareLap ? [t.skin[0], t.skin[1]] : t.pants;
   const shin = bottom === "pants" ? t.pants[0] : t.skin[0];
   if (view === "back") {
     c.rect(4, Y(20), 8, 2, lap[0]);
@@ -119,6 +128,8 @@ function drawLap({ c, t, look, view, Y }: Ctx, bottom: Bottom | null) {
   }
   c.rect(5, Y(20), 7, 2, lap[1]);
   c.rect(5, Y(22), 7, 1, lap[0]);
+  // La parte de abajo del traje de baño asoma en la cadera.
+  if (bareLap) c.rect(5, Y(22), 2, 1, t.shirt[0]);
   c.rect(10, Y(22), 3, 2, shin);
   const [s0, s1, s2] = t.shoes;
   if (look.shoes === "boots") {
@@ -158,6 +169,10 @@ export function drawArms(ctx: Ctx) {
       c.rect(x, y(14), 1, len, t.accent[0]);
       continue;
     }
+    if (isSwimwear(look.outfit)) {
+      c.rect(x, y(14), 1, len, skin);
+      continue;
+    }
     const kind = SLEEVE[look.top];
     const sleeve = kind === "long" ? len : kind === "short" ? Math.min(2, len) : 0;
     for (let r = 14; r < 14 + sleeve; r++) paint(x, r, 0);
@@ -177,6 +192,8 @@ export function drawArms(ctx: Ctx) {
 export function drawTorso(ctx: Ctx) {
   const { c, t, look, view, sit, y, Y } = ctx;
   const paint = cloth(ctx);
+  // El traje de baño deja el torso al aire: no hay parte de arriba ni de abajo.
+  if (isSwimwear(look.outfit)) return drawSwimwear(ctx, look.outfit, paint);
   // Cuerpo: base, sombra a la derecha y luz arriba a la izquierda.
   for (let r = 13; r <= 17; r++) for (let x = 4; x <= 11; x++) paint(x, r, x === 11 ? 0 : x === 5 && r <= 15 ? 2 : 1);
   // El vestido es la parte de arriba y tapa la de abajo.
@@ -296,8 +313,59 @@ function drawDress({ c, t, view, sit, y }: Ctx, paint: Cloth) {
   for (let x = 3; x <= 12; x++) paint(x, 20, x >= 11 || x === 6 || x === 9 ? 0 : x === 3 ? 2 : 1);
 }
 
+/** Filas de tela de cada traje de baño (columnas por fila), de frente y de espaldas. */
+type SwimCut = Record<number, readonly number[]>;
+const span = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+const SWIM_CUT: Record<Exclude<Swimwear, "trunks">, Record<View, SwimCut>> = {
+  // Entero: tirantes, escote redondo adelante y espalda abierta; la pierna bien cortada en la cadera.
+  swimsuit: {
+    front: { 13: [5, 10], 14: [4, 5, 6, 9, 10, 11], 15: span(4, 11), 16: span(4, 11), 17: span(4, 11), 18: span(4, 11), 19: span(6, 9) },
+    back: { 13: [5, 10], 14: [4, 5, 10, 11], 15: [4, 5, 10, 11], 16: span(4, 11), 17: span(4, 11), 18: span(4, 11), 19: span(6, 9) },
+  },
+  // Bikini: tiras al cuello, dos copas y la parte de abajo; de espaldas, la tira que cruza con su lazo.
+  bikini: {
+    front: { 13: [6, 9], 14: [5, 6, 8, 9, 10], 15: span(5, 10), 18: span(4, 11), 19: span(6, 9) },
+    back: { 15: span(4, 11), 16: [7, 9], 18: span(4, 11), 19: span(6, 9) },
+  },
+};
+
+/**
+ * Traje de baño: torso de piel y encima el bañador (del color de abajo, con cordón y franja de acento) o
+ * el entero y el bikini (del color de arriba, con su patrón). Sentado, lo que va sobre el muslo lo dibuja
+ * drawLap.
+ */
+function drawSwimwear(ctx: Ctx, outfit: Swimwear, paint: Cloth) {
+  const { c, t, view, sit, y } = ctx;
+  const front = view === "front";
+  const [k0, k1] = t.skin;
+  // Los brazos son de piel como el torso: el de atrás (con luz) se separa del torso con una sombra y el de
+  // adelante (en sombra) con el torso claro.
+  for (let r = 13; r <= 18; r++)
+    for (let x = 4; x <= 11; x++) c.set(x, y(r), (x === 4 && r >= 14) || (x === 11 && r === 13) ? k0 : k1);
+  // Ombligo (el entero lo tapa).
+  if (front && outfit !== "swimsuit") c.set(8, y(17), k0);
+  if (outfit === "trunks") {
+    // Pretina del color de abajo con el cordón de acento adelante.
+    const [p0, p1] = t.pants;
+    c.rect(4, y(18), 8, 1, p0);
+    c.set(4, y(18), p1);
+    if (front) {
+      c.set(7, y(18), t.accent[2]);
+      c.set(8, y(18), t.accent[1]);
+    }
+    return;
+  }
+  for (const [row, xs] of Object.entries(SWIM_CUT[outfit][view])) {
+    const r = Number(row);
+    if (sit && r > 18) continue;
+    for (const x of xs) paint(x, r, x === 11 ? 0 : x === 5 && r <= 15 ? 2 : 1);
+  }
+  // Nudo del lazo del bikini en la espalda.
+  if (outfit === "bikini" && !front) paint(8, 15, 2);
+}
+
 /** Conjuntos encima de la parte de arriba (el torso ya está dibujado con su cintura). */
-function drawOutfit(c: PixelCanvas, outfit: Exclude<Outfit, "dress">, t: Tones, view: View, sit: boolean, y: Row, Y: Row) {
+function drawOutfit(c: PixelCanvas, outfit: Exclude<Outfit, "dress" | Swimwear>, t: Tones, view: View, sit: boolean, y: Row, Y: Row) {
   const front = view === "front";
   if (outfit === "overalls") {
     // Overol del color de abajo: tirantes con botones, peto y la parte de arriba asomando.

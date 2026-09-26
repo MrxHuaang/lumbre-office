@@ -10,10 +10,12 @@ import {
   FACIAL_HAIR,
   HAIR_STYLES,
   HEAD_ITEMS,
+  isSwimwear,
   NECK_ITEMS,
   OUTFITS,
   PATTERNS,
   SHOES,
+  SWIMWEAR,
   TOPS,
   type Bottom,
   type HairStyle,
@@ -105,6 +107,10 @@ export const HAIR_CLIPS: readonly HeadItem[] = ["bow", "flower"];
 /** Corbatas de cuello: no van con la camisa que ya trae corbata, ni con esqueleto o capucha. */
 export const NECK_TIES: readonly NeckItem[] = ["tie", "bowtie"];
 export const NO_TIE_TOPS: readonly Top[] = ["shirt-tie", "tank", "hoodie"];
+/** Conjuntos que no son traje de baño. */
+export const EVERYDAY_OUTFITS: readonly Outfit[] = OUTFITS.filter((o) => !isSwimwear(o));
+/** Con traje de baño (el pecho al aire) en el cuello solo va el collar. */
+export const SWIM_NECK_ITEMS: readonly NeckItem[] = ["none", "necklace"];
 
 /** Lo que se puede poner en la cabeza con cierto peinado. */
 export function headItemsFor(hairStyle: HairStyle): HeadItem[] {
@@ -113,17 +119,19 @@ export function headItemsFor(hairStyle: HairStyle): HeadItem[] {
   );
 }
 
-/** Lo que se puede poner en el cuello con cierta parte de arriba. */
-export function neckItemsFor(top: Top): NeckItem[] {
+/** Lo que se puede poner en el cuello con cierta parte de arriba (y, si hay, cierto conjunto). */
+export function neckItemsFor(top: Top, outfit?: Outfit): NeckItem[] {
+  if (isSwimwear(outfit)) return [...SWIM_NECK_ITEMS];
   return NECK_ITEMS.filter((n) => !(NO_TIE_TOPS.includes(top) && NECK_TIES.includes(n)));
 }
 
 /**
- * ¿Los zapatos quedan junto a la piel? Con shorts, falda o vestido se ve la pierna encima del zapato y con
- * sandalias, el pie; solo el pantalón largo (sin vestido) con zapatos cerrados los separa de la piel.
+ * ¿Los zapatos quedan junto a la piel? Con shorts, falda, vestido o traje de baño se ve la pierna encima del
+ * zapato y con sandalias, el pie; solo el pantalón largo (sin vestido ni traje de baño) con zapatos cerrados
+ * los separa de la piel.
  */
 export function shoesTouchSkin(look: { bottom: Bottom; shoes: Shoes; outfit?: Outfit | undefined }): boolean {
-  return look.bottom !== "pants" || look.outfit === "dress" || look.shoes === "sandals";
+  return look.bottom !== "pants" || look.outfit === "dress" || isSwimwear(look.outfit) || look.shoes === "sandals";
 }
 
 /** Distancia entre dos colores (0 = iguales), para que dos partes vecinas no se confundan. */
@@ -164,8 +172,11 @@ export function randomLook(r: Random = Math.random): Look {
   const eyeColor = chance(r, 0.08) ? pick(r, LOOK_EYES_FANTASY) : pick(r, LOOK_EYES);
 
   const top = pick(r, TOPS);
-  const shirt = pick(r, LOOK_CLOTHES);
-  const pants = pickApart(r, LOOK_BOTTOMS, [shirt]);
+  // Conjunto en uno de cada cuatro; el traje de baño casi nunca (al pulsar "Al azar" no debe salir seguido).
+  const outfit = chance(r, 0.02) ? pick(r, SWIMWEAR) : chance(r, 0.25) ? pick(r, EVERYDAY_OUTFITS) : undefined;
+  // El traje de baño va sobre la piel: su color (el de arriba o, el bañador, el de abajo) se distingue de ella.
+  const shirt = outfit === "swimsuit" || outfit === "bikini" ? pickApart(r, LOOK_CLOTHES, [skin]) : pick(r, LOOK_CLOTHES);
+  const pants = pickApart(r, LOOK_BOTTOMS, outfit === "trunks" ? [shirt, skin] : [shirt]);
   const top2 = pickApart(r, LOOK_CLOTHES, [shirt]);
   const accent = pickApart(r, LOOK_CLOTHES, [shirt, pants, skin]);
   const pattern = chance(r, 0.6)
@@ -174,7 +185,6 @@ export function randomLook(r: Random = Math.random): Look {
         r,
         PATTERNS.filter((p) => p !== "solid"),
       );
-  const outfit = chance(r, 0.25) ? pick(r, OUTFITS) : undefined;
   const bottom = pick(r, BOTTOMS);
   const shoes = pick(r, SHOES);
   // El zapato no se puede fundir con lo que tiene al lado: el pantalón y, si se ve, la piel.
@@ -202,7 +212,7 @@ export function randomLook(r: Random = Math.random): Look {
     shoeColor,
     head: maybe(r, headItemsFor(hairStyle), 0.5),
     face: maybe(r, FACE_ITEMS, 0.7),
-    neck: maybe(r, neckItemsFor(top), 0.65),
+    neck: maybe(r, neckItemsFor(top, outfit), 0.65),
     back: maybe(r, BACK_ITEMS, 0.75),
   };
 }

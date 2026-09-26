@@ -1,4 +1,16 @@
-import { BACK_ITEMS, BOTTOMS, HAIR_STYLES, NECK_ITEMS, normalizeLook, OUTFITS, PATTERNS, SHOES, TOPS, type Outfit } from "@hyvento/shared";
+import {
+  BACK_ITEMS,
+  BOTTOMS,
+  HAIR_STYLES,
+  NECK_ITEMS,
+  normalizeLook,
+  OUTFITS,
+  PATTERNS,
+  SHOES,
+  SWIMWEAR,
+  TOPS,
+  type Outfit,
+} from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { drawCharacter, drawSitting, FEET_Y, FRAME, SHEET_DIRECTIONS, type CharacterStyle } from "./chibi";
 import { top2Parts, TOPS_WITH_TOP2 } from "./chibi/clothes";
@@ -246,6 +258,138 @@ describe("ropa del chibi: conjuntos encima de las partes nuevas", () => {
           expect(missing(FRONT, changedViews(plain, { ...plain, outfit })), `${outfit} sobre ${top} y ${bottom}`).toEqual([]);
       }
     }
+  });
+});
+
+describe("ropa del chibi: trajes de baño", () => {
+  const skin = tone(base.skin, 0).join();
+  const shirt = tone(base.shirt!, 0).join();
+
+  /** Color de un píxel del cuerpo en cada vista (los pasos bajan el torso uno y sentado baja tres). */
+  function torsoPixels(style: CharacterStyle, x: number, bodyRow: number): Record<View, string> {
+    const walk = drawCharacter(style);
+    const sit = drawSitting(style);
+    return {
+      frente: bodyPixel(walk, 0, RIGHT, x, bodyRow),
+      espaldas: bodyPixel(walk, 0, UP, x, bodyRow),
+      "paso de frente": bodyPixel(walk, 1, RIGHT, x, bodyRow + 1),
+      "paso de espaldas": bodyPixel(walk, 2, UP, x, bodyRow + 1),
+      "sentado de frente": bodyPixel(sit, RIGHT, 0, x, bodyRow + 3),
+      "sentado de espaldas": bodyPixel(sit, UP, 0, x, bodyRow + 3),
+    };
+  }
+  const everywhere = (color: string) => Object.fromEntries(ALL.map((v) => [v, color]));
+
+  it("cada traje de baño se dibuja en todas las vistas, siempre igual y sin cambiar el tamaño de las hojas", () => {
+    for (const outfit of SWIMWEAR) {
+      const style: CharacterStyle = { ...base, outfit };
+      expect(missing(ALL, changedViews(base, style)), outfit).toEqual([]);
+      const [walk, sit] = sheets(style);
+      expect(same(walk!.data, drawCharacter(style).data), outfit).toBe(true);
+      expect(same(sit!.data, drawSitting(style).data), outfit).toBe(true);
+      expect([walk!.width, walk!.height, sit!.width, sit!.height]).toEqual([FRAME * 3, FRAME * 4, FRAME * 4, FRAME]);
+    }
+    // Se distinguen entre sí en todas las vistas.
+    SWIMWEAR.forEach((a, i) =>
+      SWIMWEAR.forEach((b, j) => {
+        if (i < j) expect(missing(ALL, changedViews({ ...base, outfit: a }, { ...base, outfit: b })), `${a} = ${b}`).toEqual([]);
+      }),
+    );
+  });
+
+  it("con el bañador y el bikini la barriga es de piel; con el entero, del color del traje", () => {
+    // Fila 16 del cuerpo: la barriga, entre el pecho y la cintura.
+    expect(torsoPixels({ ...base, outfit: "trunks" }, 6, 16)).toEqual(everywhere(skin));
+    expect(torsoPixels({ ...base, outfit: "bikini" }, 6, 16)).toEqual(everywhere(skin));
+    expect(torsoPixels({ ...base, outfit: "swimsuit" }, 6, 16)).toEqual(everywhere(shirt));
+    // El pecho: al aire con el bañador; de frente, la copa del bikini y el entero.
+    expect(torsoPixels({ ...base, outfit: "trunks" }, 6, 14)).toEqual(everywhere(skin));
+    for (const outfit of ["bikini", "swimsuit"] as const) {
+      const chest = torsoPixels({ ...base, outfit }, 6, 14);
+      for (const v of FRONT) expect(chest[v], `${outfit}, ${v}`).toBe(shirt);
+    }
+  });
+
+  it("los brazos van al aire y las piernas también, salvo lo que tapa el bañador", () => {
+    const hip = tone(base.pants, 0.1).join();
+    for (const outfit of SWIMWEAR) {
+      const walk = drawCharacter({ ...base, outfit });
+      for (const row of [RIGHT, UP]) {
+        const name = `${outfit} (${SHEET_DIRECTIONS[row]})`;
+        // Brazo de atrás (x = 3) a la altura del pecho.
+        expect(bodyPixel(walk, 0, row, 3, 15), `${name}: brazo`).toBe(skin);
+        // Pierna de atrás: el bañador llega casi a la rodilla; el entero y el bikini se cortan en la cadera.
+        expect(bodyPixel(walk, 0, row, 6, 20), `${name}: muslo`).toBe(outfit === "trunks" ? hip : skin);
+        expect(bodyPixel(walk, 0, row, 6, 21), `${name}: rodilla`).toBe(skin);
+        if (outfit !== "trunks") expect(bodyPixel(walk, 0, row, 7, 19), `${name}: cadera`).toBe(shirt);
+      }
+    }
+  });
+
+  it("tapan la parte de arriba y la de abajo, y cada uno usa sus colores", () => {
+    for (const outfit of SWIMWEAR) {
+      const looks = TOPS.flatMap((top) => BOTTOMS.map((bottom) => sheets({ ...base, outfit, top, bottom })));
+      for (const [walk, sit] of looks.slice(1)) {
+        expect(same(walk!.data, looks[0]![0]!.data), `${outfit}: caminando`).toBe(true);
+        expect(same(sit!.data, looks[0]![1]!.data), `${outfit}: sentado`).toBe(true);
+      }
+      const style: CharacterStyle = { ...base, outfit };
+      const trunks = outfit === "trunks";
+      // El bañador es del color de abajo con detalles de acento; el entero y el bikini, del de arriba.
+      expect(usesColor(style, "pants"), `${outfit}: abajo`).toBe(trunks);
+      expect(usesColor(style, "accent"), `${outfit}: acento`).toBe(trunks);
+      expect(usesColor(style, "shirt"), `${outfit}: arriba`).toBe(!trunks);
+      expect(usesColor(style, "top2"), `${outfit}: secundario`).toBe(false);
+      // El estampado va en el entero y el bikini, en todas las vistas; en el bañador no.
+      const plain: CharacterStyle = { ...style, top2: CREAM };
+      for (const pattern of ["stripes", "dots"] as const) {
+        const changed = changedViews(plain, { ...plain, pattern });
+        if (trunks) expect(changed, `${outfit} con ${pattern}`).toEqual([]);
+        else expect(changed.length, `${outfit} con ${pattern}`).toBeGreaterThan(0);
+      }
+      expect(missing(ALL, changedViews(plain, { ...plain, pattern: "stripes" })), `${outfit} con rayas`).toEqual(trunks ? ALL : []);
+    }
+  });
+
+  it("no dejan píxeles sueltos: la silueta es la del esqueleto con shorts, también con morral o capa", () => {
+    const alpha = (sheet: PixelCanvas) => Array.from(sheet.data.filter((_, i) => i % 4 === 3));
+    for (const back of BACK_ITEMS) {
+      const plain = sheets({ ...base, top: "tank", bottom: "shorts", back });
+      for (const outfit of SWIMWEAR) {
+        const swim = sheets({ ...base, outfit, back });
+        swim.forEach((sheet, k) => expect(same(alpha(sheet), alpha(plain[k]!)), `${outfit} con ${back}`).toBe(true));
+      }
+    }
+  });
+
+  it("de espaldas la capa tapa todo el traje de baño, caminando y sentado", () => {
+    for (const outfit of SWIMWEAR) {
+      const key = outfit === "trunks" ? "pants" : "shirt";
+      const back = (color: string) => {
+        const style: CharacterStyle = { ...base, outfit, back: "cape", [key]: color };
+        const walk = drawCharacter(style);
+        return [0, 1, 2].map((f) => cell(walk, f, UP)).concat([cell(drawSitting(style), UP, 0)]);
+      };
+      expect(back("#ff00ff"), outfit).toEqual(back("#00ff00"));
+    }
+  });
+
+  it("el morral y la capa no tapan los pies con traje de baño", () => {
+    const outline = OUT.join();
+    for (const outfit of SWIMWEAR)
+      for (const back of BACK_ITEMS.filter((b) => b !== "none")) {
+        const bare = drawCharacter({ ...base, outfit });
+        const worn = drawCharacter({ ...base, outfit, back });
+        SHEET_DIRECTIONS.forEach((dir, row) => {
+          for (const frame of [0, 1, 2])
+            for (const bodyRow of [22, 23])
+              for (let x = 0; x < 16; x++) {
+                const foot = bodyPixel(bare, frame, row, x, bodyRow);
+                if (foot === outline || foot.endsWith(",0")) continue;
+                expect(bodyPixel(worn, frame, row, x, bodyRow), `${outfit} con ${back}, ${dir}, frame ${frame}`).toBe(foot);
+              }
+        });
+      }
   });
 });
 

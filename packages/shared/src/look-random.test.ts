@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HAIR_STYLES, HEAD_ITEMS, Look, TOPS } from "./look";
+import { HAIR_STYLES, HEAD_ITEMS, isSwimwear, Look, TOPS } from "./look";
 import {
   colorDistance,
   HAIR_CLIPS,
@@ -12,6 +12,7 @@ import {
   randomLook,
   seededRandom,
   shoesTouchSkin,
+  SWIM_NECK_ITEMS,
   TALL_HAIR,
 } from "./look-random";
 
@@ -53,6 +54,18 @@ describe("randomLook", () => {
     }
   });
 
+  it("los trajes de baño salen muy poco, sin corbata ni bufanda y de un color que no se funde con la piel", () => {
+    const many = Array.from({ length: 3000 }, (_, i) => randomLook(seededRandom(i * 104729 + 7)));
+    const swim = many.filter((l) => isSwimwear(l.outfit));
+    expect(swim.length).toBeGreaterThan(0);
+    expect(swim.length).toBeLessThan(many.length * 0.05);
+    for (const look of swim) {
+      expect(SWIM_NECK_ITEMS).toContain(look.neck);
+      const color = look.outfit === "trunks" ? look.pants : look.shirt;
+      expect(colorDistance(color, look.skin), `${look.outfit} ${color} sobre ${look.skin}`).toBeGreaterThanOrEqual(MIN_COLOR_DISTANCE);
+    }
+  });
+
   it("sale variado: casi todos los peinados y partes de arriba, y a veces nada en la cabeza", () => {
     expect(new Set(looks.map((l) => l.hairStyle)).size).toBeGreaterThanOrEqual(HAIR_STYLES.length - 1);
     expect(new Set(looks.map((l) => l.top)).size).toBe(TOPS.length);
@@ -79,11 +92,15 @@ describe("reglas de combinación", () => {
     expect(shoesTouchSkin({ bottom: "pants", shoes: "boots", outfit: "dress" })).toBe(true);
     expect(shoesTouchSkin({ bottom: "shorts", shoes: "sneakers" })).toBe(true);
     expect(shoesTouchSkin({ bottom: "skirt", shoes: "boots" })).toBe(true);
+    expect(shoesTouchSkin({ bottom: "pants", shoes: "sneakers", outfit: "trunks" })).toBe(true);
   });
 
   it("la camisa con corbata no lleva otra corbata", () => {
     expect(neckItemsFor("shirt-tie")).not.toContain("tie");
     expect(neckItemsFor("shirt-tie")).toContain("scarf");
     expect(neckItemsFor("polo")).toContain("bowtie");
+    // Con el pecho al aire solo el collar.
+    expect(neckItemsFor("polo", "bikini")).toEqual(["none", "necklace"]);
+    expect(neckItemsFor("polo", "jacket")).toContain("bowtie");
   });
 });

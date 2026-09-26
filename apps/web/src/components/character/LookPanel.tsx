@@ -5,16 +5,18 @@
 import {
   BACK_ITEMS,
   BOTTOMS,
+  EVERYDAY_OUTFITS,
   EYE_STYLES,
   FACE_ITEMS,
   FACIAL_HAIR,
   HAIR_STYLES,
   HEAD_ITEMS,
   HUMAN_AVATARS,
+  isSwimwear,
   NECK_ITEMS,
-  OUTFITS,
   PATTERNS,
   SHOES,
+  SWIMWEAR,
   TOPS,
   type FullLook,
   type HumanAvatar,
@@ -64,6 +66,12 @@ export interface LookActions {
 }
 
 const PANTS_TITLE = { pants: "Color del pantalón", shorts: "Color de los shorts", skirt: "Color de la falda" } as const;
+/** Título del color principal según lo que lo lleva. */
+const SHIRT_TITLE: Partial<Record<Outfit, string>> = {
+  dress: "Color del vestido",
+  swimsuit: "Color del traje de baño",
+  bikini: "Color del bikini",
+};
 
 export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabId; full: FullLook; act: LookActions }) {
   const thumb = (patch: Partial<FullLook>): Look => lookFromFull({ ...full, ...patch });
@@ -71,6 +79,11 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
     ids.map((id) => ({ id, label: label[id], look: thumb(patch(id)) }));
 
   const dress = full.outfit === "dress";
+  // Con traje de baño no se ven la parte de arriba ni la de abajo; el bañador tampoco usa los colores de arriba.
+  const swim = isSwimwear(full.outfit);
+  const trunks = full.outfit === "trunks";
+  // El entero y el bikini llevan el estampado: sus miniaturas lo muestran en el traje de baño.
+  const patterned = swim && !trunks;
   const accent = accentUsers(full);
   const second = top2Users(full);
 
@@ -161,41 +174,47 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
       {tab === "clothes" && (
         <>
           <Group>
-            <Section title="Parte de arriba">
+            <Section title="Parte de arriba" hint={swim ? "Con traje de baño no se ve." : undefined}>
               <OptionGrid
                 crop="torso"
+                disabled={swim}
                 options={options(TOPS, TOP_LABEL, (top) => ({ top, outfit: null }))}
                 isOn={(t) => t === full.top}
                 onPick={(t) => act.set("top", t)}
               />
             </Section>
-            <Section title="Estampado">
+            <Section title="Estampado" hint={trunks ? "El bañador no lleva." : undefined}>
               <OptionGrid
                 crop="torso"
-                options={options(PATTERNS, PATTERN_LABEL, (pattern) => ({ pattern, outfit: null }))}
+                disabled={trunks}
+                options={options(PATTERNS, PATTERN_LABEL, (pattern) => ({ pattern, outfit: patterned ? full.outfit : null }))}
                 isOn={(p) => p === full.pattern}
                 onPick={(p) => act.set("pattern", p)}
               />
             </Section>
-            <Section title={dress ? "Color del vestido" : "Color principal"}>
-              <Swatches label="Color principal" colors={INK_COLORS} value={full.shirt} onChange={act.color("shirt")} />
-            </Section>
-            <Section title={second.length ? colorTitle(second) : "Segundo color"} hint={second.length ? undefined : top2Hint(full)}>
-              <Swatches label="Segundo color" colors={INK_COLORS} value={full.top2} onChange={act.color("top2")} />
-            </Section>
+            {!trunks && (
+              <>
+                <Section title={(full.outfit && SHIRT_TITLE[full.outfit]) ?? "Color principal"}>
+                  <Swatches label="Color principal" colors={INK_COLORS} value={full.shirt} onChange={act.color("shirt")} />
+                </Section>
+                <Section title={second.length ? colorTitle(second) : "Segundo color"} hint={second.length ? undefined : top2Hint(full)}>
+                  <Swatches label="Segundo color" colors={INK_COLORS} value={full.top2} onChange={act.color("top2")} />
+                </Section>
+              </>
+            )}
           </Group>
           <Group>
-            <Section title="Parte de abajo" hint={dress ? "El vestido la tapa." : undefined}>
+            <Section title="Parte de abajo" hint={dress ? "El vestido la tapa." : swim ? "Con traje de baño no se ve." : undefined}>
               <OptionGrid
                 crop="legs"
-                disabled={dress}
+                disabled={dress || swim}
                 options={options(BOTTOMS, BOTTOM_LABEL, (bottom) => ({ bottom, outfit: null }))}
                 isOn={(b) => b === full.bottom}
                 onPick={(b) => act.set("bottom", b)}
               />
             </Section>
-            {!dress && (
-              <Section title={full.outfit === "overalls" ? "Color del overol" : PANTS_TITLE[full.bottom]}>
+            {!dress && !patterned && (
+              <Section title={full.outfit === "overalls" ? "Color del overol" : trunks ? "Color del bañador" : PANTS_TITLE[full.bottom]}>
                 <Swatches label="Color de la parte de abajo" colors={PANTS_COLORS} value={full.pants} onChange={act.color("pants")} />
               </Section>
             )}
@@ -219,10 +238,18 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
                 crop="body"
                 options={[
                   { id: "none" as const, label: "Nada", look: thumb({ outfit: null }) },
-                  ...options(OUTFITS, OUTFIT_LABEL, (outfit) => ({ outfit })),
+                  ...options(EVERYDAY_OUTFITS, OUTFIT_LABEL, (outfit) => ({ outfit })),
                 ]}
                 isOn={(o) => (o === "none" ? !full.outfit : o === full.outfit)}
                 onPick={(o) => act.set("outfit", o === "none" ? null : (o as Outfit))}
+              />
+            </Section>
+            <Section title="Traje de baño" hint="Va en lugar de la ropa.">
+              <OptionGrid
+                crop="body"
+                options={options(SWIMWEAR, OUTFIT_LABEL, (outfit) => ({ outfit }))}
+                isOn={(o) => o === full.outfit}
+                onPick={(o) => act.set("outfit", o)}
               />
             </Section>
           </Group>

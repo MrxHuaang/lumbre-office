@@ -58,9 +58,18 @@ export type Shoes = (typeof SHOES)[number];
  * - dress: vestido con el color `shirt` (tapa la parte de abajo).
  * - jacket: chaqueta abierta con el color `accent`.
  * - apron: delantal crema.
+ * - trunks: bañador de hombre con el color `pants` (franja y cordón con `accent`); pecho y brazos al aire.
+ * - swimsuit: traje de baño entero con el color `shirt` (lleva el patrón); brazos y piernas al aire.
+ * - bikini: parte de arriba y de abajo con el color `shirt` (lleva el patrón); barriga al aire.
  */
-export const OUTFITS = ["overalls", "dress", "jacket", "apron"] as const;
+export const OUTFITS = ["overalls", "dress", "jacket", "apron", "trunks", "swimsuit", "bikini"] as const;
 export type Outfit = (typeof OUTFITS)[number];
+
+/** Trajes de baño: con ellos no se dibujan la parte de arriba ni la de abajo, se ve la piel. */
+export const SWIMWEAR = ["trunks", "swimsuit", "bikini"] as const satisfies readonly Outfit[];
+export type Swimwear = (typeof SWIMWEAR)[number];
+export const isSwimwear = (outfit: Outfit | null | undefined): outfit is Swimwear =>
+  (SWIMWEAR as readonly (Outfit | null | undefined)[]).includes(outfit);
 
 /** Accesorios por lugar (uno por lugar). Los que llevan color usan `accent`. */
 export const HEAD_ITEMS = ["none", "cap", "beanie", "straw-hat", "headphones", "bow", "crown", "flower", "bandana"] as const;
