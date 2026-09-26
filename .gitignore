@@ -7,3 +7,4 @@ dist
 *.log
 apps/web/public/assets/
 .env.production
+.env.vercel
