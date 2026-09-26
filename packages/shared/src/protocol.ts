@@ -143,6 +143,8 @@ export const MSG = {
   rouletteBet: "casino:roulette:bet",
   casinoResult: "casino:result",
   rouletteSettled: "casino:roulette:settled",
+  /** Servidor → cliente al entrar: la hora del servidor (`{ now }`) para los conteos regresivos. */
+  clock: "clock",
   /** Editor de oficina (`OfficeEditMessage`) y su respuesta (`OfficeEditResult`). */
   officeEdit: "office:edit",
   officeEditResult: "office:edit:result",

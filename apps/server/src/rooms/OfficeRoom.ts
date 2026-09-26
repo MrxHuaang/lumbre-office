@@ -25,6 +25,7 @@ import {
 } from "@hyvento/map";
 import {
   CAFE,
+  CASINO,
   CafeOrderMessage,
   EMOTE,
   EmoteMessage,
@@ -50,6 +51,8 @@ import {
   type PointsAwarded,
   verifyGameToken,
   type CafeOrderResult,
+  type CasinoSettingsDTO,
+  type RouletteSettled,
   type EmoteEvent,
   type ChatEvent,
   type Direction,
@@ -66,6 +69,7 @@ import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
 import { OfficeInfo, OfficeItem, OfficeState, Player } from "../state";
+import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 
 interface UserData {
   lastMoveAt: number;
@@ -123,6 +127,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static idleMs: number = POINTS.idleMs;
   /** Cuánto dura en la mano lo pedido en la cafetería (los tests lo acortan). */
   static heldMs: number = CAFE.heldMs;
+  /** Tiempos de la ruleta y de dónde sale el número (los tests los acortan y fijan el resultado). */
+  static rouletteTimings: RouletteTimings = { ...CASINO.roulette };
+  static rouletteSpin: () => number = randomSpin;
+
+  /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
+  static async reloadCasinoSettingsEverywhere() {
+    await Promise.all([...OfficeRoom.instances].map((r) => r.reloadCasinoSettings()));
+  }
 
   maxClients = 64;
   patchRate = 50; // 20 Hz
@@ -172,10 +184,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       });
     });
     this.onMessage(MSG.emote, (client, raw) => this.handleEmote(client, raw));
+    this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
+    await this.reloadCasinoSettings();
+    this.startCasino();
     await this.reloadOffices();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
   }
@@ -220,6 +235,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
     client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now() };
     client.send(MSG.chatHistory, this.globalHistory);
+    // La hora del servidor, para que el cliente calcule bien los conteos regresivos (la ruleta).
+    client.send(MSG.clock, { now: Date.now() });
   }
 
   async onLeave(client: Client<UserData>, consented: boolean) {
@@ -745,6 +762,45 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (players.length === 0) return;
     const balance = await this.repo.getPoints(userId);
     for (const p of players) p.points = balance;
+  }
+
+  // ---------- Casino ----------
+
+  private casinoSettings: CasinoSettingsDTO = { enabled: true, dailyLossLimit: CASINO.defaultDailyLossLimit };
+  private roulette?: RouletteTable;
+
+  private async reloadCasinoSettings() {
+    this.casinoSettings = await this.repo.getCasinoSettings().catch((err) => {
+      console.error("getCasinoSettings", err);
+      return this.casinoSettings;
+    });
+  }
+
+  /** Arranca la mesa de ruleta del sótano (una sola por sala; las rondas corren solas). */
+  private startCasino() {
+    this.roulette = new RouletteTable({
+      state: this.state.roulette,
+      repo: () => this.repo,
+      settings: () => this.casinoSettings,
+      later: (ms, fn) => void this.clock.setTimeout(fn, ms),
+      setPoints: (userId, balance) => {
+        for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+      },
+      notify: (userId, settled: RouletteSettled) => {
+        for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.rouletteSettled, settled);
+      },
+      timings: () => OfficeRoom.rouletteTimings,
+      spin: () => OfficeRoom.rouletteSpin(),
+    });
+    this.roulette.start();
+  }
+
+  private async handleRouletteBet(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !this.roulette) return;
+    const near = nearPointOfType(this.mapOf(player.area), "roulette", player.x, player.y);
+    const result = await this.roulette.bet({ userId: player.userId, name: player.name }, raw, near);
+    if (result) client.send(MSG.casinoResult, result);
   }
 
   // ---------- Emotes ----------

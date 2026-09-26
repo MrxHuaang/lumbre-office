@@ -41,6 +41,16 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
       return json(res, 500, { error: "no se pudieron recargar las oficinas" });
     }
   }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.casinoSettingsChanged) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    try {
+      await OfficeRoom.reloadCasinoSettingsEverywhere();
+      return json(res, 200, { ok: true });
+    } catch (err) {
+      console.error("reloadCasinoSettings", err);
+      return json(res, 500, { error: "no se pudieron recargar los ajustes del casino" });
+    }
+  }
   if (req.method === "POST" && path === INTERNAL_ROUTES.pointsChanged) {
     if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
     const body = (await readJson(req)) as { userId?: unknown } | null;

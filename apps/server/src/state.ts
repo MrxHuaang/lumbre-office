@@ -54,7 +54,33 @@ export class OfficeInfo extends Schema {
   @type("string") wallpaper = "";
 }
 
+/** Una apuesta de la ronda de ruleta (todos las ven sobre el paño). */
+export class RouletteBet extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** Tipo de apuesta (RouletteBetSpec["kind"]). */
+  @type("string") kind = "";
+  /** Número del pleno, docena o columna (-1 si la apuesta no lleva). */
+  @type("number") param = -1;
+  @type("number") amount = 0;
+}
+
+/** Mesa de ruleta del sótano: la ronda en curso, el último número y los anteriores. */
+export class RouletteState extends Schema {
+  /** "betting" (se apuesta), "spinning" (gira; `result` ya está decidido) o "result" (se paga). */
+  @type("string") phase = "betting";
+  @type("number") round = 0;
+  /** Cuándo termina la fase, en ms de la hora del servidor (el cliente corrige con `MSG.clock`). */
+  @type("number") endsAt = 0;
+  /** Número que salió (o que está saliendo); -1 = ninguno todavía. */
+  @type("number") result = -1;
+  /** Últimos números, el más reciente primero. */
+  @type(["number"]) history = new ArraySchema<number>();
+  @type([RouletteBet]) bets = new ArraySchema<RouletteBet>();
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
+  @type(RouletteState) roulette = new RouletteState();
 }
