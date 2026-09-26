@@ -9,7 +9,7 @@ import { OfficeDialog } from "./OfficeDialog";
 
 /**
  * Editar el perfil (nombre y personaje) o solo el personaje, sin salir de la cabaña: se guarda y
- * todos ven el cambio al instante.
+ * todos ven el cambio al instante. La ropa nueva se estrena en el probador de la tienda (`FittingPanel`).
  */
 export function ProfileDialog({
   profile,

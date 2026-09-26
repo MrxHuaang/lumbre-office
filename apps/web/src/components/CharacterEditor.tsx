@@ -3,15 +3,33 @@
 import {
   ACCESSORIES,
   HAIR_STYLES,
+  HEADWEAR,
   HUMAN_AVATARS,
+  OUTFITS,
   type Accessory,
   type Direction,
+  type HairStyle,
   type HumanAvatar,
   type Look,
+  type Outfit,
 } from "@hyvento/shared";
 import { useRef, useState } from "react";
-import { ACCESSORY_LABEL, HAIR_COLORS, HAIR_STYLE_LABEL, INK_COLORS, presetLook, SKIN_TONES } from "@/lib/look-palette";
+import {
+  ACCENT_ACCESSORIES,
+  ACCENT_OUTFITS,
+  ACCESSORY_LABEL,
+  BASIC_ACCESSORIES,
+  BASIC_HAIR_STYLES,
+  HAIR_COLORS,
+  HAIR_STYLE_LABEL,
+  INK_COLORS,
+  joinEs,
+  OUTFIT_LABEL,
+  presetLook,
+  SKIN_TONES,
+} from "@/lib/look-palette";
 import { CharacterSprite } from "./CharacterSprite";
+import { PixelIcon } from "./Cozy";
 
 /** Personaje de alguien: uno fijo (`avatar`) o uno personalizado (`look`). */
 export interface Appearance {
@@ -19,13 +37,23 @@ export interface Appearance {
   look: Look | null;
 }
 
-
 const TURN: Direction[] = ["down", "left", "up", "right"];
 
-export function CharacterEditor({ value, onChange }: { value: Appearance; onChange: (v: Appearance) => void }) {
+export function CharacterEditor({
+  value,
+  onChange,
+  wardrobe = false,
+}: {
+  value: Appearance;
+  onChange: (v: Appearance) => void;
+  /** true = el probador de la tienda: todos los peinados, accesorios y conjuntos. */
+  wardrobe?: boolean;
+}) {
   const custom = value.look !== null;
   // Al volver a "Personajes" y regresar, se recupera lo que ya se había armado.
   const lastLook = useRef<Look | null>(value.look);
+  // Lo que tenía puesto al abrir el editor: fuera del probador se sigue ofreciendo aunque se lo saque.
+  const [worn] = useState<Look | null>(value.look);
 
   const setLook = (look: Look) => {
     lastLook.current = look;
@@ -44,7 +72,7 @@ export function CharacterEditor({ value, onChange }: { value: Appearance; onChan
       </div>
 
       {custom ? (
-        <LookEditor look={value.look!} avatar={value.avatar} onChange={setLook} />
+        <LookEditor look={value.look!} worn={worn} avatar={value.avatar} wardrobe={wardrobe} onChange={setLook} />
       ) : (
         <PresetGrid selected={value.avatar} onSelect={(avatar) => onChange({ avatar, look: null })} />
       )}
@@ -92,12 +120,47 @@ function PresetGrid({ selected, onSelect }: { selected: HumanAvatar; onSelect: (
   );
 }
 
-function LookEditor({ look, avatar, onChange }: { look: Look; avatar: HumanAvatar; onChange: (l: Look) => void }) {
+/** El look con otro conjunto; sin conjunto se borra la clave (queda igual a un look de antes de la tienda). */
+function withOutfit(look: Look, outfit: Outfit | undefined): Look {
+  const { outfit: _, ...rest } = look;
+  return outfit ? { ...rest, outfit } : rest;
+}
+
+function LookEditor({
+  look,
+  worn,
+  avatar,
+  wardrobe,
+  onChange,
+}: {
+  look: Look;
+  worn: Look | null;
+  avatar: HumanAvatar;
+  wardrobe: boolean;
+  onChange: (l: Look) => void;
+}) {
   const [dir, setDir] = useState<Direction>("down");
+  // Fuera del probador se ofrece lo básico más lo que ya llevaba puesto (para sacárselo o volver a ponérselo).
+  const hairStyles: readonly HairStyle[] = wardrobe
+    ? HAIR_STYLES
+    : HAIR_STYLES.filter((h) => BASIC_HAIR_STYLES.includes(h) || h === look.hairStyle || h === worn?.hairStyle);
+  const accessories: readonly Accessory[] = wardrobe
+    ? ACCESSORIES
+    : ACCESSORIES.filter((a) => BASIC_ACCESSORIES.includes(a) || look.accessories.includes(a) || worn?.accessories.includes(a));
+  const outfits: readonly Outfit[] = wardrobe ? OUTFITS : OUTFITS.filter((o) => o === look.outfit || o === worn?.outfit);
   const set = <K extends keyof Look>(key: K, v: Look[K]) => onChange({ ...look, [key]: v });
+  // Solo un sombrero a la vez: al ponerse uno se saca el otro.
   const toggle = (a: Accessory) =>
-    set("accessories", look.accessories.includes(a) ? look.accessories.filter((x) => x !== a) : [...look.accessories, a]);
-  const usesAccent = look.accessories.includes("cap") || look.accessories.includes("headphones");
+    set(
+      "accessories",
+      look.accessories.includes(a)
+        ? look.accessories.filter((x) => x !== a)
+        : [...look.accessories.filter((x) => !(HEADWEAR.includes(a) && HEADWEAR.includes(x))), a],
+    );
+  // Lo que se pinta con el color de acento, para nombrarlo en el selector.
+  const accentUsers = [...look.accessories.map((a) => ACCENT_ACCESSORIES[a]), look.outfit && ACCENT_OUTFITS[look.outfit]].filter(
+    (n): n is string => Boolean(n),
+  );
 
   return (
     <div className="grid gap-6 sm:grid-cols-[minmax(0,200px)_minmax(0,1fr)]">
@@ -142,7 +205,7 @@ function LookEditor({ look, avatar, onChange }: { look: Look; avatar: HumanAvata
 
         <Field label="Peinado">
           <Chips
-            options={HAIR_STYLES.map((h) => ({ id: h, label: HAIR_STYLE_LABEL[h] }))}
+            options={hairStyles.map((h) => ({ id: h, label: HAIR_STYLE_LABEL[h] }))}
             isOn={(h) => h === look.hairStyle}
             onToggle={(h) => set("hairStyle", h)}
           />
@@ -152,26 +215,46 @@ function LookEditor({ look, avatar, onChange }: { look: Look; avatar: HumanAvata
           <Swatches colors={HAIR_COLORS} value={look.hair} onChange={(v) => set("hair", v)} />
         </Field>
 
-        <Field label="Camisa">
+        {outfits.length > 0 && (
+          <Field label="Conjunto">
+            <Chips
+              options={[{ id: "none" as const, label: "Camisa y pantalón" }, ...outfits.map((o) => ({ id: o, label: OUTFIT_LABEL[o] }))]}
+              isOn={(o) => (o === "none" ? !look.outfit : o === look.outfit)}
+              onToggle={(o) => onChange(withOutfit(look, o === "none" || o === look.outfit ? undefined : o))}
+            />
+          </Field>
+        )}
+
+        {/* El vestido usa el color de la camisa y el overol el del pantalón. */}
+        <Field label={look.outfit === "dress" ? "Vestido" : "Camisa"}>
           <Swatches colors={INK_COLORS} value={look.shirt} onChange={(v) => set("shirt", v)} />
         </Field>
 
-        <Field label="Pantalón">
-          <Swatches colors={INK_COLORS} value={look.pants} onChange={(v) => set("pants", v)} />
-        </Field>
+        {look.outfit !== "dress" && (
+          <Field label={look.outfit === "overalls" ? "Overol" : "Pantalón"}>
+            <Swatches colors={INK_COLORS} value={look.pants} onChange={(v) => set("pants", v)} />
+          </Field>
+        )}
 
         <Field label="Accesorios">
           <Chips
-            options={ACCESSORIES.map((a) => ({ id: a, label: ACCESSORY_LABEL[a] }))}
+            options={accessories.map((a) => ({ id: a, label: ACCESSORY_LABEL[a] }))}
             isOn={(a) => look.accessories.includes(a)}
             onToggle={toggle}
           />
         </Field>
 
-        {usesAccent && (
-          <Field label="Color de gorra y audífonos">
+        {accentUsers.length > 0 && (
+          <Field label={`Color de ${joinEs(accentUsers)}`}>
             <Swatches colors={INK_COLORS} value={look.accent} onChange={(v) => set("accent", v)} />
           </Field>
+        )}
+
+        {!wardrobe && (
+          <p className="cozy-chip flex items-center gap-2 self-start px-3 py-1.5 text-[13px] leading-snug text-cozy-ink-soft">
+            <PixelIcon name="star" size={14} className="shrink-0" />
+            Más peinados, accesorios y conjuntos en el probador de la tienda (planta baja).
+          </p>
         )}
       </div>
     </div>
@@ -237,9 +320,10 @@ function Swatches({ colors, value, onChange }: { colors: string[]; value: string
           }}
         />
       ))}
+      {/* overflow-hidden: el <input type="color"> nativo es más ancho que la casilla y en el celular movía el panel. */}
       <label
         title="Otro color"
-        className="relative grid h-7 w-7 cursor-pointer place-items-center border-2 border-dashed border-cozy-frame text-sm font-semibold"
+        className="relative grid h-7 w-7 cursor-pointer place-items-center overflow-hidden border-2 border-dashed border-cozy-frame text-sm font-semibold"
         style={
           inPalette
             ? { background: "var(--color-cozy-paper-light)" }
