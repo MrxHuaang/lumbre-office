@@ -9,6 +9,7 @@ import {
   type KnockResult,
   type MoveCorrection,
   type MoveMessage,
+  type PointsAwarded,
   type PresenceStatus,
 } from "@hyvento/shared";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -21,6 +22,8 @@ export interface RemotePlayer {
   avatar: string;
   /** Look en JSON ("" = personaje fijo). */
   look: string;
+  /** Nivel de la cabaña ("jardin", "planta-baja", "piso-2"). */
+  area: string;
   x: number;
   y: number;
   dir: MoveMessage["dir"];
@@ -29,6 +32,7 @@ export interface RemotePlayer {
   status: PresenceStatus;
   zoneId: string;
   place: string;
+  points: number;
 }
 export interface RemoteOffice {
   zoneId: string;
@@ -127,6 +131,16 @@ export function sendProfileChanged() {
   room?.send(MSG.profileChanged);
 }
 
+/** Pide pasar a otro nivel por un portal (el servidor responde con una corrección con `area`). */
+export function sendTravel(portal: string) {
+  room?.send(MSG.travel, { portal });
+}
+
+/** Hubo actividad real (mouse/teclado): cuenta para los puntos de presencia. */
+export function sendActivity() {
+  room?.send(MSG.activity);
+}
+
 export function sendChat(text: string, scope: ChatScope) {
   room?.send(MSG.chatSend, { text, scope });
 }
@@ -163,15 +177,19 @@ function attach(r: OfficeRoom) {
         userId: player.userId,
         name: player.name,
         avatar: player.avatar,
+        area: player.area,
         zoneId: player.zoneId,
         place: player.place,
         status: player.status,
+        points: player.points,
       });
     sync();
+    $(player).listen("area", sync);
     $(player).listen("zoneId", sync);
     $(player).listen("place", sync);
     $(player).listen("status", sync);
     $(player).listen("name", sync);
+    $(player).listen("points", sync);
   });
   $(r.state).players.onRemove((_player, sessionId) => useOfficeStore.getState().removePlayer(sessionId));
 
@@ -198,18 +216,19 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
+  r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)
     if (code === CLOSE_CODE.replaced) {
       // No reintentar: provocaría que las dos pestañas se expulsen mutuamente.
       room = null;
-      useOfficeStore.getState().setConnection("error", "Entraste a la oficina desde otra pestaña o dispositivo.");
+      useOfficeStore.getState().setConnection("error", "Entraste a la cabaña desde otra pestaña o dispositivo.");
       return;
     }
     // 1000 = cierre normal, 4000 = consentido. Cualquier otro código: intentar reconectar.
     if (code === 1000 || code === 4000) {
-      useOfficeStore.getState().setConnection("error", "Te desconectaste de la oficina.");
+      useOfficeStore.getState().setConnection("error", "Te desconectaste de la cabaña.");
       return;
     }
     void reconnect(r.reconnectionToken);
@@ -237,7 +256,7 @@ async function reconnect(token: string) {
       // siguiente intento
     }
   }
-  store.setConnection("error", "Se perdió la conexión con la oficina.");
+  store.setConnection("error", "Se perdió la conexión con la cabaña.");
 }
 
 function describeError(err: unknown): string {
@@ -245,5 +264,5 @@ function describeError(err: unknown): string {
   if (err && typeof err === "object" && "type" in err && (err as Event).type === "error") {
     return "No se pudo conectar con el servidor de juego. ¿Está corriendo `pnpm dev`?";
   }
-  return "No se pudo conectar con la oficina.";
+  return "No se pudo conectar con la cabaña.";
 }

@@ -7,6 +7,7 @@ import {
   type KnockOutcome,
   type KnockRequest,
   type KnockResult,
+  type PointsAwarded,
   type PresenceStatus,
 } from "@hyvento/shared";
 import { create } from "zustand";
@@ -23,11 +24,17 @@ export interface PlayerInfo {
   userId: string;
   name: string;
   avatar: string;
+  /** Nivel de la cabaña donde está. */
+  area: string;
   zoneId: string;
   /** Lugar para mostrar (zona, "door:<zona>" o ""). */
   place: string;
   status: PresenceStatus;
+  points: number;
 }
+
+/** Objetos del jardín con los que se interactúa (tecla E o clic). */
+export type Interactable = "mailbox" | "board";
 
 export interface OfficeView {
   zoneId: string;
@@ -86,6 +93,16 @@ interface OfficeStore {
   notices: Notice[];
   /** Pedido a la escena de caminar hasta una zona (cambia `nonce` para repetir). */
   walkTarget: { zoneId: string; nonce: number } | null;
+  /** Nivel en el que está el jugador local. */
+  area: string;
+  /** Modo noche (luces encendidas); arranca según la hora local. */
+  night: boolean;
+  /** Objeto al alcance del jugador (para ofrecer "E: abrir"). */
+  interact: Interactable | null;
+  /** Panel abierto (buzón o tablón); `atObject` = se abrió junto al objeto (permite reclamar). */
+  panel: { kind: Interactable; atObject: boolean } | null;
+  /** Último premio de puntos (cambia `id` en cada uno, para animarlo). */
+  lastAward: (PointsAwarded & { id: number }) | null;
 
   setConnection: (c: ConnectionStatus, error?: string | null) => void;
   setSessionId: (id: string | null) => void;
@@ -111,6 +128,12 @@ interface OfficeStore {
   notify: (text: string, tone?: Notice["tone"], action?: Notice["action"]) => void;
   dismissNotice: (id: number) => void;
   walkToZone: (zoneId: string) => void;
+  setArea: (area: string) => void;
+  setNight: (night: boolean) => void;
+  setInteract: (i: Interactable | null) => void;
+  openPanel: (kind: Interactable, atObject: boolean) => void;
+  closePanel: () => void;
+  addAward: (a: PointsAwarded) => void;
   reset: () => void;
 }
 
@@ -149,6 +172,11 @@ const initial = {
   knockRequests: [],
   notices: [],
   walkTarget: null,
+  area: "",
+  night: false,
+  interact: null as Interactable | null,
+  panel: null as { kind: Interactable; atObject: boolean } | null,
+  lastAward: null as (PointsAwarded & { id: number }) | null,
 };
 
 export const useOfficeStore = create<OfficeStore>((set, get) => ({
@@ -206,7 +234,13 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   },
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
-  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames })),
+  setArea: (area) => set({ area }),
+  setNight: (night) => set({ night }),
+  setInteract: (interact) => set({ interact }),
+  openPanel: (kind, atObject) => set({ panel: { kind, atObject } }),
+  closePanel: () => set({ panel: null }),
+  addAward: (a) => set({ lastAward: { ...a, id: ++noticeId } }),
+  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night })),
 }));
 
 /** User.id del jugador local. */

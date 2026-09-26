@@ -2,7 +2,7 @@
 
 import type { Direction, Look } from "@hyvento/shared";
 import { useEffect, useState, type CSSProperties } from "react";
-import { lookSheetUrl } from "@/game/looks";
+import { characterSheetUrl } from "@/game/looks";
 
 const ROW: Record<Direction, number> = { down: 0, left: 1, right: 2, up: 3 };
 
@@ -25,10 +25,9 @@ export function CharacterSprite({
   className?: string;
   style?: CSSProperties;
 }) {
-  // Los looks se dibujan en un <canvas>: solo en el navegador, después de montar.
-  const [lookUrl, setLookUrl] = useState<string | null>(null);
-  useEffect(() => setLookUrl(look ? lookSheetUrl(look) : null), [look]);
-  const url = look ? lookUrl : `/assets/characters/${avatar}.png`;
+  // Los personajes se dibujan en un <canvas>: solo en el navegador, después de montar.
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => setUrl(characterSheetUrl(avatar, look ?? null)), [avatar, look]);
 
   return (
     <div
