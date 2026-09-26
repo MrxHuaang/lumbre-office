@@ -108,7 +108,9 @@ export class OfficeScene extends Phaser.Scene {
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
     this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E", false) as Keys;
-    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => this.walkTo(p.worldX, p.worldY));
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
+      if (!useOfficeStore.getState().pcOn) this.walkTo(p.worldX, p.worldY); // con el PC prendido no se camina
+    });
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       cam.setZoom(Phaser.Math.Clamp(cam.zoom - dy * 0.001, MIN_ZOOM, MAX_ZOOM));
     });
@@ -260,7 +262,9 @@ export class OfficeScene extends Phaser.Scene {
 
     let vx = 0;
     let vy = 0;
-    if (!useOfficeStore.getState().typing) {
+    const { typing, pcOn } = useOfficeStore.getState();
+    // Escribiendo en la UI o usando el PC: el teclado no mueve al personaje.
+    if (!typing && !pcOn) {
       const k = this.keys;
       vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
       vy = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.W.isDown || k.UP.isDown ? 1 : 0);
@@ -411,6 +415,8 @@ export class OfficeScene extends Phaser.Scene {
     const prompt = this.seat ? "stand" : this.nearestFreeSeat() ? "sit" : null;
     const s = useOfficeStore.getState();
     if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
+    const atComputer = this.seat?.computer ?? false;
+    if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
   }
 
   private walkTo(worldX: number, worldY: number) {

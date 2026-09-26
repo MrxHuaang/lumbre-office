@@ -54,6 +54,19 @@ body {
   animation: sprite-walk 0.5s steps(3) infinite;
 }
 
+/* Barra de arranque del PC: tres bloques que cruzan la barra una y otra vez (como XP). */
+@keyframes pc-boot {
+  from {
+    transform: translateX(-60px);
+  }
+  to {
+    transform: translateX(180px);
+  }
+}
+.pc-boot-blocks {
+  animation: pc-boot 1.4s linear infinite;
+}
+
 /* ---------- Estilo RISO ---------- */
 
 /* Titulares: Archivo ancho y pesado. */

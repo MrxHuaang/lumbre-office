@@ -109,6 +109,9 @@ export const SEATS: Partial<Record<number, "up" | "down">> = {
   [T.SOFA_BOTTOM_R]: "up",
 };
 
+/** Escritorios con computador (propiedad `computer`): la silla de enfrente permite usarlo. */
+export const COMPUTERS: number[] = [T.DESK_PC, T.COWORK_DESK_L, T.COWORK_DESK_R];
+
 const C = {
   wood: hex("#d8bd98"),
   woodSeam: hex("#caae89"),

@@ -130,6 +130,15 @@ describe("asientos", () => {
     expect(seatAtTile(map, 24, 13)).toBeUndefined();
   });
 
+  it("sabe qué sillas están frente a un computador", () => {
+    const withPc = [...map.seats.values()].filter((s) => s.computer).map((s) => `${s.tileX},${s.tileY}`);
+    // 4 oficinas + 2 escritorios de la zona común + 6 del coworking.
+    expect(withPc).toHaveLength(12);
+    expect(withPc).toEqual(expect.arrayContaining(["2,4", "31,19", "3,19"]));
+    expect(seatAtTile(map, 5, 5)?.computer).toBe(false); // silla de visitas de la oficina 1
+    expect(seatAtTile(map, 32, 4)?.computer).toBe(false); // sala de reuniones
+  });
+
   it("la posición de sentado es exacta", () => {
     const seat = seatAtTile(map, 31, 19)!;
     expect(seatAtPoint(map, seat.x, seat.y)).toBe(seat);

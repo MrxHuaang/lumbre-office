@@ -13,6 +13,7 @@ import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
+import { Computer } from "./pc/Computer";
 import { Overprint } from "./Riso";
 
 const RELOAD_FLAG = "hyvento:reloaded-after-update";
@@ -80,6 +81,16 @@ export function Office({ isAdmin, profile, onProfileChange, onEditProfile }: Off
   const [attempt, setAttempt] = useState(0);
   const [editingCharacter, setEditingCharacter] = useState(false);
   const closeCharacter = useCallback(() => setEditingCharacter(false), []);
+  const pcOn = useOfficeStore((s) => s.pcOn);
+  const atComputer = useOfficeStore((s) => s.atComputer);
+  const setPcOn = useOfficeStore((s) => s.setPcOn);
+
+  // Si dejas de estar frente al computador (p. ej. el servidor te levantó), el PC se apaga.
+  useEffect(() => {
+    if (pcOn && !atComputer) setPcOn(false);
+  }, [pcOn, atComputer, setPcOn]);
+  // Al salir de la oficina el PC queda apagado.
+  useEffect(() => () => useOfficeStore.getState().setPcOn(false), []);
   const connection = useOfficeStore((s) => s.connection);
   const error = useOfficeStore((s) => s.error);
   const onExit = () => void logout();
@@ -150,6 +161,7 @@ export function Office({ isAdmin, profile, onProfileChange, onEditProfile }: Off
           <ControlsHint />
           <VideoStrip />
           <ScreenFocus />
+          {pcOn && <Computer profile={profile} onOff={() => setPcOn(false)} />}
           {editingCharacter && <CharacterDialog profile={profile} onClose={closeCharacter} onSaved={onProfileChange} />}
         </>
       ) : null}

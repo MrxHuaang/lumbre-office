@@ -75,6 +75,10 @@ interface OfficeStore {
   doorPrompt: string | null;
   /** Junto a un asiento libre ("sit") o sentado ("stand"), para mostrar la ayuda de la tecla E. */
   seatPrompt: "sit" | "stand" | null;
+  /** Sentado frente a un escritorio con computador (se puede prender el PC). */
+  atComputer: boolean;
+  /** El PC está prendido: el mapa no responde a clics ni teclas. */
+  pcOn: boolean;
   /** Oficina a la que tocamos y cuya respuesta esperamos. */
   pendingKnock: string | null;
   /** Toques recibidos en mi oficina, pendientes de respuesta. */
@@ -98,6 +102,8 @@ interface OfficeStore {
   setTyping: (t: boolean) => void;
   setDoorPrompt: (zoneId: string | null) => void;
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
+  setAtComputer: (at: boolean) => void;
+  setPcOn: (on: boolean) => void;
   setPendingKnock: (zoneId: string | null) => void;
   addKnockRequest: (r: KnockRequest) => void;
   removeKnockRequest: (requestId: string) => void;
@@ -137,6 +143,8 @@ const initial = {
   typing: false,
   doorPrompt: null,
   seatPrompt: null as "sit" | "stand" | null,
+  atComputer: false,
+  pcOn: false,
   pendingKnock: null,
   knockRequests: [],
   notices: [],
@@ -176,6 +184,8 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setTyping: (typing) => set({ typing }),
   setDoorPrompt: (doorPrompt) => set({ doorPrompt }),
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
+  setAtComputer: (atComputer) => set({ atComputer }),
+  setPcOn: (pcOn) => set({ pcOn }),
   setPendingKnock: (pendingKnock) => set({ pendingKnock }),
   addKnockRequest: (r) => {
     const expiresAt = Date.now() + KNOCK_TIMEOUT_MS;

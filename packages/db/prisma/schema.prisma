@@ -49,6 +49,7 @@ model User {
 
   office       Office?
   chatMessages ChatMessage[]
+  notes        Note[]
   invitesSent  Invite[]      @relation("InvitedBy")
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
@@ -79,12 +80,30 @@ model Office {
   ownerId  String? @unique
   owner    User?   @relation(fields: [ownerId], references: [id])
   isLocked Boolean @default(false) // cerrada: hay que tocar la puerta
+  /** Obsoleto: las notas pasaron a Note (se conserva mientras conviven versiones). */
   notes    String  @default("")
 }
 
 enum ChatScope {
   PROXIMITY
   GLOBAL
+}
+
+/**
+ * Nota personal (app de Notas del computador de la oficina). Solo la ve su dueño, desde
+ * cualquier PC. Con `deletedAt` está en la papelera hasta que se vacíe.
+ */
+model Note {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String    @default("")
+  body      String    @default("")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, deletedAt])
 }
 
 model ChatMessage {

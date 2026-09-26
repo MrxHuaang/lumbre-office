@@ -51,6 +51,8 @@ export interface Seat {
   x: number;
   y: number;
   facing: SeatFacing;
+  /** Frente a un escritorio con computador (se puede prender el PC). */
+  computer: boolean;
 }
 
 export interface OfficeMap {
@@ -77,16 +79,25 @@ export function parseOfficeMap(tmj: TiledMap): OfficeMap {
   const tileSize = tmj.tilewidth;
   const colliding = new Set<number>();
   const seatFacing = new Map<number, SeatFacing>();
+  const computerGids = new Set<number>();
   for (const ts of tmj.tilesets) {
     for (const t of ts.tiles ?? []) {
       if (prop<boolean>(t.properties, "collides")) colliding.add(ts.firstgid + t.id);
       const seat = prop<string>(t.properties, "seat");
       if (seat === "up" || seat === "down") seatFacing.set(ts.firstgid + t.id, seat);
+      if (prop<boolean>(t.properties, "computer")) computerGids.add(ts.firstgid + t.id);
     }
   }
 
   const blocked = new Uint8Array(tmj.width * tmj.height);
   const seats = new Map<number, Seat>();
+  const computers = new Set<number>();
+  for (const layer of tmj.layers) {
+    if (layer.type !== "tilelayer") continue;
+    (layer as TiledTileLayer).data.forEach((gid, i) => {
+      if (computerGids.has(gid)) computers.add(i);
+    });
+  }
   for (const layer of tmj.layers) {
     if (layer.type !== "tilelayer") continue;
     (layer as TiledTileLayer).data.forEach((gid, i) => {
@@ -94,7 +105,9 @@ export function parseOfficeMap(tmj: TiledMap): OfficeMap {
       if (!facing) return;
       const tileX = i % tmj.width;
       const tileY = Math.floor(i / tmj.width);
-      seats.set(i, { tileX, tileY, x: tileX * tileSize + tileSize / 2, y: tileY * tileSize + SEAT_FEET_Y, facing });
+      // Se usa el PC si la silla mira hacia un escritorio con computador justo arriba.
+      const computer = facing === "up" && computers.has(i - tmj.width);
+      seats.set(i, { tileX, tileY, x: tileX * tileSize + tileSize / 2, y: tileY * tileSize + SEAT_FEET_Y, facing, computer });
     });
     if (!(COLLISION_LAYERS as readonly string[]).includes(layer.name)) continue;
     (layer as TiledTileLayer).data.forEach((gid, i) => {

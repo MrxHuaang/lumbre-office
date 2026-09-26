@@ -3,6 +3,7 @@
 import { respondKnock, sendKnock } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 import { RISO } from "@/lib/riso";
+import { PowerIcon } from "./pc/icons";
 
 /** Frente a la puerta de una oficina cerrada: ofrecer tocar. */
 export function DoorPrompt() {
@@ -101,15 +102,33 @@ export function Notices() {
   );
 }
 
-/** Ayuda de la tecla E junto a un asiento libre o estando sentado (solo con teclado). */
+/**
+ * Ayuda de la tecla E junto a un asiento libre o estando sentado. Frente a un computador,
+ * además el botón para prenderlo (este sí también en el celular).
+ */
 export function SeatPrompt() {
   const prompt = useOfficeStore((s) => s.seatPrompt);
   const doorPrompt = useOfficeStore((s) => s.doorPrompt);
-  if (!prompt || doorPrompt) return null;
+  const atComputer = useOfficeStore((s) => s.atComputer);
+  const pcOn = useOfficeStore((s) => s.pcOn);
+  const setPcOn = useOfficeStore((s) => s.setPcOn);
+  if (!prompt || doorPrompt || pcOn) return null;
+  const pcButton = atComputer && prompt === "stand";
+
   return (
-    <div className="riso-chip pointer-events-none absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-xs font-semibold max-md:hidden">
-      <kbd className="rounded-[3px] border-[1.5px] border-riso-navy bg-riso-yellow px-1.5 font-plex text-[11px]">E</kbd>
-      {prompt === "sit" ? "sentarte" : "levantarte (o muévete)"}
+    <div
+      className={`absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 ${pcButton ? "" : "pointer-events-none max-md:hidden"}`}
+    >
+      {pcButton && (
+        <button type="button" onClick={() => setPcOn(true)} className="riso-pill riso-press bg-riso-green px-3.5 py-1.5 text-xs">
+          <PowerIcon size={13} />
+          Encender PC
+        </button>
+      )}
+      <div className="riso-chip flex items-center gap-2 px-3 py-1.5 text-xs font-semibold max-md:hidden">
+        <kbd className="rounded-[3px] border-[1.5px] border-riso-navy bg-riso-yellow px-1.5 font-plex text-[11px]">E</kbd>
+        {prompt === "sit" ? "sentarte" : "levantarte (o muévete)"}
+      </div>
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function Overprint({
     </span>
   ));
   return (
-    <Tag className={`relative m-0 font-black [font-family:var(--riso-archivo)] [font-stretch:125%] ${className}`}>
+    <Tag className={`relative m-0 font-black whitespace-nowrap [font-family:var(--riso-archivo)] [font-stretch:125%] ${className}`}>
       <span aria-hidden className="absolute mix-blend-multiply" style={{ left: offset[0], top: offset[1], color: back }}>
         {text}
       </span>

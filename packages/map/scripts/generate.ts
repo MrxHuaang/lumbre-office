@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import type { TiledMap, TiledObject, TiledProperty } from "../src/tiled";
 import { DIRECTIONS, drawCharacter, drawSitting, FRAME, FRAMES, HUMANS, SIT_FACINGS } from "../src/character";
 import { savePng } from "./pixels";
-import { COLLIDES, COLUMNS, drawTileset, ROWS, SEATS, T, TILE } from "./tiles";
+import { COLLIDES, COLUMNS, COMPUTERS, drawTileset, ROWS, SEATS, T, TILE } from "./tiles";
 
 const W = 40;
 const H = 28;
@@ -300,13 +300,14 @@ const map: TiledMap = {
       columns: COLUMNS,
       margin: 0,
       spacing: 0,
-      tiles: [...new Set([...COLLIDES, ...Object.keys(SEATS).map(Number)])]
+      tiles: [...new Set([...COLLIDES, ...COMPUTERS, ...Object.keys(SEATS).map(Number)])]
         .sort((a, b) => a - b)
         .map((id) => ({
           id,
           properties: [
             ...(COLLIDES.includes(id) ? [{ name: "collides", type: "bool" as const, value: true }] : []),
             ...(SEATS[id] ? [{ name: "seat", type: "string" as const, value: SEATS[id] }] : []),
+            ...(COMPUTERS.includes(id) ? [{ name: "computer", type: "bool" as const, value: true }] : []),
           ],
         })),
     },
