@@ -28,7 +28,7 @@ interface AppInfo {
 }
 
 const APPS: Record<AppId, AppInfo> = {
-  notes: { title: "Notas", ink: RISO.yellow, size: { w: 640, h: 420 } },
+  notes: { title: "Notas", ink: RISO.yellow, size: { w: 780, h: 500 } },
   trash: { title: "Papelera", ink: RISO.blue, inkText: RISO.paper, size: { w: 560, h: 360 } },
   calendar: { title: "Calendario", ink: RISO.green, size: { w: 340, h: 420 } },
 };

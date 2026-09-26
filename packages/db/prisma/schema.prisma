@@ -98,12 +98,21 @@ model Note {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String    @default("")
+  /** Texto plano de la nota (para buscar y para la vista previa en la lista). */
   body      String    @default("")
+  /** Documento del editor (bloques, formato, tablas…). null = nota antigua: se arma desde `body`. */
+  content   Json?
+  /** Subpágina de otra nota (null = en la raíz). Borrar la madre borra sus subpáginas. */
+  parentId  String?
+  parent    Note?     @relation("NoteTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Note[]    @relation("NoteTree")
+  favorite  Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   @@index([userId, deletedAt])
+  @@index([parentId])
 }
 
 model ChatMessage {

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
 import { media } from "@/game/media";
@@ -13,8 +14,10 @@ import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
-import { Computer } from "./pc/Computer";
 import { Overprint } from "./Riso";
+
+// El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
+const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
 
 const RELOAD_FLAG = "hyvento:reloaded-after-update";
 

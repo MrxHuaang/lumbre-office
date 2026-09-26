@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import type { Editor } from "@tiptap/react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NOTE_BODY_MAX, NOTE_TITLE_MAX, type NoteDTO } from "@/lib/notes";
+import { NoteEditor, textToDoc } from "./editor/NoteEditor";
 import { NotesIcon, TrashIcon } from "./icons";
-import type { NotesStore } from "./useNotes";
+import { subtree, type NotesStore } from "./useNotes";
 
 /** Pregunta de confirmación del sistema (la muestra el escritorio). */
 export type Confirm = (opts: { title: string; message: string; confirmLabel: string }) => Promise<boolean>;
@@ -60,93 +62,215 @@ function StatusBar({ children }: { children: React.ReactNode }) {
 
 // ---------- Notas ----------
 
+/** Hijas activas de cada página, en orden de creación. */
+function childrenIndex(active: NoteDTO[]) {
+  const byParent = new Map<string | null, NoteDTO[]>();
+  const ids = new Set(active.map((n) => n.id));
+  for (const n of [...active].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
+    // Si la madre no está activa (p. ej. se restauró solo la hija), la página cuelga de la raíz.
+    const parent = n.parentId && ids.has(n.parentId) ? n.parentId : null;
+    byParent.set(parent, [...(byParent.get(parent) ?? []), n]);
+  }
+  return byParent;
+}
+
+function ancestorsOf(note: NoteDTO, byId: Map<string, NoteDTO>): NoteDTO[] {
+  const out: NoteDTO[] = [];
+  let cur = note.parentId ? byId.get(note.parentId) : undefined;
+  while (cur && out.length < 50) {
+    out.unshift(cur);
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+  }
+  return out;
+}
+
 export function NotesApp({ notes }: { notes: NotesStore }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const editorRef = useRef<Editor | null>(null);
 
-  const list = useMemo(() => {
+  const byId = useMemo(() => new Map(notes.active.map((n) => [n.id, n])), [notes.active]);
+  const tree = useMemo(() => childrenIndex(notes.active), [notes.active]);
+  const lastEdited = useMemo(() => [...notes.active].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0], [notes.active]);
+  const selected = (selectedId ? byId.get(selectedId) : undefined) ?? lastEdited ?? null;
+  const ancestors = selected ? ancestorsOf(selected, byId) : [];
+
+  const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return [...notes.active]
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .filter((n) => !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
+    if (!q) return null;
+    return notes.active.filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
   }, [notes.active, query]);
-  const selected = notes.active.find((n) => n.id === selectedId) ?? list[0] ?? null;
 
-  const create = async () => {
-    setQuery("");
-    const note = await notes.create();
-    setSelectedId(note.id);
+  /** Abrir una página y desplegar sus madres en el árbol. */
+  const open = (id: string) => {
+    setSelectedId(id);
+    const note = byId.get(id);
+    if (!note) return;
+    setExpanded((s) => new Set([...s, ...ancestorsOf(note, byId).map((a) => a.id)]));
   };
 
+  const create = async (parentId: string | null = null, openIt = true) => {
+    setQuery("");
+    const note = await notes.create(parentId);
+    if (parentId) setExpanded((s) => new Set([...s, parentId]));
+    if (openIt) setSelectedId(note.id);
+    return note;
+  };
+
+  const toggle = (id: string) =>
+    setExpanded((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const favorites = notes.active.filter((n) => n.favorite);
   const saveLabel = { idle: "", saving: "Guardando…", saved: "Guardado", error: "No se pudo guardar" }[notes.status];
+
+  const row = (n: NoteDTO, depth: number, showTree: boolean): React.ReactNode => {
+    const kids = showTree ? (tree.get(n.id) ?? []) : [];
+    const isOpen = expanded.has(n.id);
+    return (
+      <li key={`${showTree ? "t" : "f"}-${n.id}`}>
+        <div
+          className={`group flex items-center gap-1 pr-1 ${n.id === selected?.id ? "bg-riso-yellow" : "hover:bg-riso-paper"}`}
+          style={{ paddingLeft: 4 + depth * 12 }}
+        >
+          <button
+            type="button"
+            aria-label={isOpen ? "Contraer" : "Desplegar"}
+            onClick={() => toggle(n.id)}
+            className={`grid h-5 w-4 shrink-0 place-items-center text-[10px] text-riso-muted ${kids.length ? "" : "invisible"}`}
+          >
+            <span className={`transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
+          </button>
+          <button type="button" onClick={() => open(n.id)} className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left">
+            <NotesIcon size={14} />
+            <span className="truncate text-[12.5px] font-semibold">{titleOf(n)}</span>
+          </button>
+          {showTree && (
+            <button
+              type="button"
+              title="Agregar una subpágina"
+              aria-label={`Agregar una subpágina a ${titleOf(n)}`}
+              onClick={() => void create(n.id)}
+              className="invisible grid h-5 w-5 shrink-0 place-items-center text-sm font-semibold text-riso-muted group-hover:visible hover:bg-riso-cream hover:text-riso-navy"
+            >
+              +
+            </button>
+          )}
+        </div>
+        {showTree && isOpen && kids.length > 0 && <ul>{kids.map((k) => row(k, depth + 1, true))}</ul>}
+      </li>
+    );
+  };
+
+  const pages = {
+    titleOf: (id: string) => byId.get(id)?.title ?? null,
+    open,
+  };
 
   return (
     <>
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b-2 border-riso-navy bg-riso-cream px-2 py-1.5">
-        <ToolButton onClick={() => void create()}>+ Nueva nota</ToolButton>
-        <ToolButton onClick={() => selected && void notes.trash(selected.id)} disabled={!selected} label="Mandar a la papelera">
-          <TrashIcon size={20} full={false} />
-        </ToolButton>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar…"
-          aria-label="Buscar notas"
-          className="riso-input ml-auto w-40 px-2 py-1 text-xs shadow-none"
-        />
-      </div>
-
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,190px)_minmax(0,1fr)] max-sm:grid-cols-[minmax(0,120px)_minmax(0,1fr)]">
-        <ul className="min-h-0 overflow-y-auto border-r-2 border-riso-navy bg-riso-cream">
-          {notes.loading && <li className="p-3 text-xs text-riso-muted">Cargando…</li>}
-          {!notes.loading && list.length === 0 && (
-            <li className="p-3 text-xs text-riso-muted">{query ? "Nada coincide." : "Aún no tienes notas."}</li>
-          )}
-          {list.map((n) => (
-            <li key={n.id}>
-              <button
-                type="button"
-                onClick={() => setSelectedId(n.id)}
-                className={`block w-full border-b border-dashed border-riso-navy/30 px-3 py-2 text-left ${
-                  n.id === selected?.id ? "bg-riso-yellow" : "hover:bg-riso-paper"
-                }`}
-              >
-                <span className="block truncate text-[13px] font-semibold">{titleOf(n)}</span>
-                <span className="block truncate text-[11px] text-riso-muted">
-                  {formatDate(n.updatedAt)} · {n.body.slice(0, 40) || "vacía"}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,210px)_minmax(0,1fr)] max-sm:grid-cols-[minmax(0,130px)_minmax(0,1fr)]">
+        {/* Barra lateral: búsqueda, favoritos y árbol de páginas. */}
+        <aside className="flex min-h-0 flex-col border-r-2 border-riso-navy bg-riso-cream">
+          <div className="flex flex-col gap-1.5 border-b-2 border-riso-navy p-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar…"
+              aria-label="Buscar notas"
+              className="riso-input w-full px-2 py-1 text-xs shadow-none"
+            />
+            <ToolButton onClick={() => void create()}>+ Nueva página</ToolButton>
+          </div>
+          <nav className="min-h-0 flex-1 overflow-y-auto py-1">
+            {notes.loading && <p className="p-3 text-xs text-riso-muted">Cargando…</p>}
+            {results ? (
+              <>
+                <SideLabel>Resultados</SideLabel>
+                {results.length === 0 && <p className="px-3 text-xs text-riso-muted">Nada coincide.</p>}
+                <ul>{results.map((n) => row(n, 0, false))}</ul>
+              </>
+            ) : (
+              <>
+                {favorites.length > 0 && (
+                  <>
+                    <SideLabel>Favoritos</SideLabel>
+                    <ul className="mb-2">{favorites.map((n) => row(n, 0, false))}</ul>
+                  </>
+                )}
+                <SideLabel>Páginas</SideLabel>
+                {!notes.loading && notes.active.length === 0 && <p className="px-3 text-xs text-riso-muted">Aún no tienes páginas.</p>}
+                <ul>{(tree.get(null) ?? []).map((n) => row(n, 0, true))}</ul>
+              </>
+            )}
+          </nav>
+        </aside>
 
         {selected ? (
           <div className="flex min-h-0 flex-col bg-riso-cream">
+            {/* Ruta de la página (madres) y acciones. */}
+            <div className="flex shrink-0 items-center gap-2 border-b border-dashed border-riso-navy/30 px-3 py-1.5">
+              <nav aria-label="Ruta" className="flex min-w-0 flex-1 items-center gap-1 text-[11.5px] text-riso-muted">
+                {ancestors.map((a) => (
+                  <span key={a.id} className="flex min-w-0 items-center gap-1">
+                    <button type="button" onClick={() => open(a.id)} className="truncate hover:text-riso-navy hover:underline">
+                      {titleOf(a)}
+                    </button>
+                    <span aria-hidden>/</span>
+                  </span>
+                ))}
+                <span className="truncate font-semibold text-riso-navy">{titleOf(selected)}</span>
+              </nav>
+              <button
+                type="button"
+                aria-pressed={selected.favorite}
+                title={selected.favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+                aria-label={selected.favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
+                onClick={() => void notes.setFavorite(selected.id, !selected.favorite)}
+                className={`grid h-6 w-6 place-items-center text-base ${selected.favorite ? "text-riso-pink-deep" : "text-riso-muted hover:text-riso-navy"}`}
+              >
+                {selected.favorite ? "★" : "☆"}
+              </button>
+              <ToolButton onClick={() => void notes.trash(selected.id)} label="Mandar a la papelera">
+                <TrashIcon size={18} full={false} />
+              </ToolButton>
+            </div>
+
             <input
               key={`t-${selected.id}`}
               value={selected.title}
               maxLength={NOTE_TITLE_MAX}
               onChange={(e) => notes.edit(selected.id, { title: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  editorRef.current?.commands.focus("start");
+                }
+              }}
               placeholder="Sin título"
               aria-label="Título"
-              className="font-display border-b-2 border-dashed border-riso-navy/30 bg-transparent px-4 py-3 text-lg outline-none placeholder:text-riso-placeholder"
+              className="font-display shrink-0 bg-transparent pt-4 pr-4 pb-2 pl-9 text-2xl outline-none placeholder:text-riso-placeholder"
             />
-            <textarea
-              key={`b-${selected.id}`}
-              value={selected.body}
-              maxLength={NOTE_BODY_MAX}
-              onChange={(e) => notes.edit(selected.id, { body: e.target.value })}
-              placeholder="Escribe aquí…"
-              aria-label="Texto de la nota"
-              className="min-h-0 flex-1 resize-none bg-transparent px-4 py-3 font-plex text-[13px] leading-relaxed outline-none placeholder:text-riso-placeholder"
+            <NoteEditor
+              key={selected.id}
+              initial={selected.content ?? textToDoc(selected.body)}
+              onChange={(doc, text) => notes.edit(selected.id, { content: doc, body: text.slice(0, NOTE_BODY_MAX) })}
+              pages={pages}
+              onCreateSubpage={async () => (await create(selected.id, false)).id}
+              editorRef={editorRef}
             />
           </div>
         ) : (
           <div className="grid place-items-center bg-riso-cream p-6 text-center">
             <div className="flex flex-col items-center gap-3">
               <NotesIcon size={48} />
-              <p className="text-[13px]">Tus notas son privadas: solo tú las ves, desde cualquier PC.</p>
-              <ToolButton onClick={() => void create()}>+ Crear la primera</ToolButton>
+              <p className="max-w-xs text-[13px]">Tus notas son privadas: solo tú las ves, desde cualquier PC.</p>
+              <ToolButton onClick={() => void create()}>+ Crear la primera página</ToolButton>
             </div>
           </div>
         )}
@@ -154,7 +278,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
 
       <StatusBar>
         <span>
-          {notes.active.length} {notes.active.length === 1 ? "nota" : "notas"}
+          {notes.active.length} {notes.active.length === 1 ? "página" : "páginas"} · escribe &quot;/&quot; para insertar bloques
         </span>
         <span className={notes.status === "error" ? "font-semibold text-riso-pink-deep" : ""}>{saveLabel}</span>
       </StatusBar>
@@ -162,15 +286,24 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
   );
 }
 
+function SideLabel({ children }: { children: React.ReactNode }) {
+  return <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold tracking-[0.12em] text-riso-muted uppercase">{children}</p>;
+}
+
 // ---------- Papelera ----------
 
 export function TrashApp({ notes, confirm }: { notes: NotesStore; confirm: Confirm }) {
-  const items = [...notes.trashed].sort((a, b) => (b.deletedAt ?? "").localeCompare(a.deletedAt ?? ""));
+  // Solo la página de arriba de cada rama borrada: sus subpáginas van (y vuelven) con ella.
+  const trashedIds = new Set(notes.trashed.map((n) => n.id));
+  const items = notes.trashed
+    .filter((n) => !n.parentId || !trashedIds.has(n.parentId))
+    .sort((a, b) => (b.deletedAt ?? "").localeCompare(a.deletedAt ?? ""));
+  const subpagesOf = (n: NoteDTO) => subtree(n.id, notes.trashed).size - 1;
 
   const empty = async () => {
     const ok = await confirm({
       title: "Vaciar la papelera",
-      message: `Se borrarán para siempre ${items.length} ${items.length === 1 ? "nota" : "notas"}. No se puede deshacer.`,
+      message: `Se borrarán para siempre ${notes.trashed.length} ${notes.trashed.length === 1 ? "página" : "páginas"}. No se puede deshacer.`,
       confirmLabel: "Vaciar",
     });
     if (ok) await notes.emptyTrash();
@@ -178,7 +311,7 @@ export function TrashApp({ notes, confirm }: { notes: NotesStore; confirm: Confi
   const destroy = async (n: NoteDTO) => {
     const ok = await confirm({
       title: "Eliminar para siempre",
-      message: `"${titleOf(n)}" se borrará para siempre. No se puede deshacer.`,
+      message: `"${titleOf(n)}"${subpagesOf(n) ? ` y sus ${subpagesOf(n)} subpáginas` : ""} se borrará para siempre. No se puede deshacer.`,
       confirmLabel: "Eliminar",
     });
     if (ok) await notes.destroy(n.id);
@@ -199,7 +332,10 @@ export function TrashApp({ notes, confirm }: { notes: NotesStore; confirm: Confi
             <NotesIcon size={24} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-semibold">{titleOf(n)}</span>
-              <span className="block text-[11px] text-riso-muted">Eliminada el {formatDate(n.deletedAt!)}</span>
+              <span className="block text-[11px] text-riso-muted">
+                Eliminada el {formatDate(n.deletedAt!)}
+                {subpagesOf(n) > 0 && ` · con ${subpagesOf(n)} ${subpagesOf(n) === 1 ? "subpágina" : "subpáginas"}`}
+              </span>
             </span>
             <ToolButton onClick={() => void notes.restore(n.id)}>Restaurar</ToolButton>
             <ToolButton onClick={() => void destroy(n)}>Eliminar</ToolButton>
