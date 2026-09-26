@@ -60,6 +60,19 @@ export function BrowserIcon({ size }: { size?: number }) {
   );
 }
 
+/** Enfoque (Pomodoro): un tomate con las manecillas de un reloj. */
+export function TomatoIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <circle cx="16" cy="18" r="11" fill={COZY.red} stroke={INK} strokeWidth="2" />
+      <path d="M9 14h2v-2h2" stroke="#ee7a6a" strokeWidth="2" fill="none" />
+      <path d="M16 15v4h4" stroke={COZY.paperLight} strokeWidth="2" fill="none" />
+      <path d="M10 8l3 2 3-3 3 3 3-2-2 4h-8z" fill={COZY.green} stroke={INK} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M16 3v4" stroke={INK} strokeWidth="2" />
+    </Icon>
+  );
+}
+
 export function MusicIcon({ size }: { size?: number }) {
   return (
     <Icon size={size}>
