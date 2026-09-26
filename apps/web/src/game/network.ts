@@ -1,5 +1,6 @@
 import {
   CLOSE_CODE,
+  DIRECTIONS,
   MSG,
   ROOM_NAME,
   cafeItem,
@@ -7,11 +8,15 @@ import {
   type CafeOrderResult,
   type ChatEvent,
   type ChatScope,
+  type Direction,
   type JoinOptions,
   type KnockRequest,
   type KnockResult,
   type MoveCorrection,
   type MoveMessage,
+  type OfficeEditError,
+  type OfficeEditMessage,
+  type OfficeEditResult,
   type PointsAwarded,
   type PresenceStatus,
 } from "@hyvento/shared";
@@ -39,6 +44,13 @@ export interface RemotePlayer {
   /** Lo que lleva en la mano (id del menú de la cafetería; "" = nada). */
   held: string;
 }
+export interface RemoteOfficeItem {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  facing: string;
+}
 export interface RemoteOffice {
   zoneId: string;
   name: string;
@@ -46,6 +58,11 @@ export interface RemoteOffice {
   ownerName: string;
   locked: boolean;
   guests: string[];
+  /** Fase 3c: decoración (ver OfficeView en store.ts). */
+  customized: boolean;
+  items: RemoteOfficeItem[];
+  floor: string;
+  wallpaper: string;
 }
 export interface OfficeStateView {
   players: Map<string, RemotePlayer>;
@@ -164,6 +181,30 @@ function handleCafeResult(r: CafeOrderResult) {
   }
 }
 
+/** Editor de oficina: poner, mover, quitar o cambiar piso/papel tapiz (lo valida el servidor). */
+export function sendOfficeEdit(edit: OfficeEditMessage) {
+  room?.send(MSG.officeEdit, edit);
+}
+
+/** Por qué no se pudo, en palabras (los mismos motivos que muestra el fantasma rojo). */
+export const DECOR_ERRORS: Record<OfficeEditError, string> = {
+  "not-owner": "Solo puedes decorar tu propia oficina.",
+  "not-owned": "Ese mueble ya no está en tu mochila.",
+  outside: "Tiene que quedar dentro de tu oficina.",
+  blocked: "Ahí choca con otro mueble.",
+  door: "Así taparías la puerta o el paso hasta tu escritorio.",
+  occupied: "Hay alguien ahí.",
+  fixed: "El escritorio con el PC y su silla no se mueven.",
+  unknown: "Ese mueble no existe.",
+  failed: "No se pudo guardar. Intenta de nuevo.",
+};
+
+function handleOfficeEditResult(r: OfficeEditResult) {
+  const store = useOfficeStore.getState();
+  store.setDecorResult(r);
+  if (!r.ok) store.notify(DECOR_ERRORS[r.error], "warning");
+}
+
 /** Hubo actividad real (mouse/teclado): cuenta para los puntos de presencia. */
 export function sendActivity() {
   room?.send(MSG.activity);
@@ -222,7 +263,7 @@ function attach(r: OfficeRoom) {
   $(r.state).players.onRemove((_player, sessionId) => useOfficeStore.getState().removePlayer(sessionId));
 
   $(r.state).offices.onAdd((office, zoneId) => {
-    const sync = () =>
+    const push = () =>
       useOfficeStore.getState().upsertOffice({
         zoneId,
         name: office.name,
@@ -230,12 +271,39 @@ function attach(r: OfficeRoom) {
         ownerName: office.ownerName,
         locked: office.locked,
         guests: [...office.guests],
+        customized: office.customized,
+        items: [...office.items].map((i) => ({
+          id: i.id,
+          type: i.type,
+          x: i.x,
+          y: i.y,
+          facing: (DIRECTIONS as readonly string[]).includes(i.facing) ? (i.facing as Direction) : "right",
+        })),
+        floor: office.floor,
+        wallpaper: office.wallpaper,
       });
-    sync();
+    // Un patch dispara un callback por cada cambio (la primera edición agrega ~10 muebles y marca
+    // `customized`): se juntan y el store recibe la oficina una sola vez, ya completa.
+    let queued = false;
+    const sync = () => {
+      if (queued) return;
+      queued = true;
+      queueMicrotask(() => {
+        queued = false;
+        if (room === r && r.state.offices.get(zoneId) === office) push();
+      });
+    };
+    push();
     const o$ = $(office);
     o$.onChange(sync);
     o$.guests.onAdd(sync);
     o$.guests.onRemove(sync);
+    // Muebles: al ponerlos, quitarlos y moverlos (x, y, facing cambian en el mismo objeto).
+    o$.items.onAdd((item) => {
+      sync();
+      $(item).onChange(sync);
+    });
+    o$.items.onRemove(sync);
   });
   $(r.state).offices.onRemove((_office, zoneId) => useOfficeStore.getState().removeOffice(zoneId));
 
@@ -246,6 +314,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
   r.onMessage(MSG.cafeResult, handleCafeResult);
+  r.onMessage(MSG.officeEditResult, handleOfficeEditResult);
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

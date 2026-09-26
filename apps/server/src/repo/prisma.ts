@@ -1,9 +1,34 @@
 import { awardPoints, prisma, spendPoints, type PresenceStatus as DbStatus } from "@hyvento/db";
-import { HUMAN_AVATARS, Look, type ChatEvent, type HumanAvatar, type PointReason, type PresenceStatus } from "@hyvento/shared";
-import type { GameRepository } from "./types";
+import {
+  DIRECTIONS,
+  HUMAN_AVATARS,
+  Look,
+  type ChatEvent,
+  type Direction,
+  type HumanAvatar,
+  type OfficeItemDTO,
+  type PointReason,
+  type PresenceStatus,
+} from "@hyvento/shared";
+import type { GameRepository, OfficeItemsInput, OfficeItemsResult } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
+
+const toItemDTO = (i: { id: string; type: string; x: number; y: number; facing: string }): OfficeItemDTO => ({
+  id: i.id,
+  type: i.type,
+  x: i.x,
+  y: i.y,
+  facing: (DIRECTIONS as readonly string[]).includes(i.facing) ? (i.facing as Direction) : "right",
+});
+
+/** Corta la transacción del editor (se deshace todo) con el motivo para responder. */
+class EditAborted extends Error {
+  constructor(readonly code: "not-owned" | "unknown") {
+    super(code);
+  }
+}
 
 export class PrismaRepository implements GameRepository {
   async ensureOffices(offices: { zoneId: string; name: string }[]) {
@@ -15,14 +40,82 @@ export class PrismaRepository implements GameRepository {
   }
 
   async listOffices() {
-    const rows = await prisma.office.findMany({ include: { owner: { select: { name: true } } } });
+    const rows = await prisma.office.findMany({
+      include: { owner: { select: { name: true } }, items: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] } },
+    });
     return rows.map((o) => ({
       zoneId: o.zoneId,
       name: o.name,
       ownerId: o.ownerId,
       ownerName: o.owner?.name ?? null,
       locked: o.isLocked,
+      floor: o.floor,
+      wallpaper: o.wallpaper,
+      customized: o.customized,
+      items: o.items.map(toItemDTO),
     }));
+  }
+
+  async editOfficeItems({ zoneId, userId, defaults, edit }: OfficeItemsInput): Promise<OfficeItemsResult> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const office = await tx.office.findUnique({ where: { zoneId }, select: { id: true } });
+        if (!office) throw new EditAborted("unknown");
+        const officeId = office.id;
+        // Primera edición: los muebles del mapa pasan a ser filas propias. El update condicional hace que
+        // se copien una sola vez aunque lleguen dos cambios a la vez.
+        const ids = new Map<string, string>();
+        const first = await tx.office.updateMany({ where: { id: officeId, customized: false }, data: { customized: true } });
+        if (first.count === 1) {
+          for (const d of defaults) {
+            const row = await tx.officeItem.create({ data: { officeId, type: d.type, x: d.x, y: d.y, facing: d.facing }, select: { id: true } });
+            ids.set(d.id, row.id);
+          }
+        }
+        const itemId = (id: string) => ids.get(id) ?? id;
+
+        switch (edit.action) {
+          case "place": {
+            // Descuento condicional: sin unidades en la mochila no se pone nada.
+            const taken = await tx.inventoryItem.updateMany({
+              where: { userId, itemId: edit.type, quantity: { gte: 1 } },
+              data: { quantity: { decrement: 1 } },
+            });
+            if (taken.count === 0) throw new EditAborted("not-owned");
+            await tx.officeItem.create({ data: { officeId, type: edit.type, x: edit.x, y: edit.y, facing: edit.facing } });
+            break;
+          }
+          case "move": {
+            const moved = await tx.officeItem.updateMany({
+              where: { id: itemId(edit.itemId), officeId },
+              data: { x: edit.x, y: edit.y, facing: edit.facing },
+            });
+            if (moved.count === 0) throw new EditAborted("unknown");
+            break;
+          }
+          case "remove": {
+            const row = await tx.officeItem.findFirst({ where: { id: itemId(edit.itemId), officeId }, select: { id: true, type: true } });
+            if (!row) throw new EditAborted("unknown");
+            await tx.officeItem.delete({ where: { id: row.id } });
+            await tx.inventoryItem.upsert({
+              where: { userId_itemId: { userId, itemId: row.type } },
+              create: { userId, itemId: row.type, quantity: 1 },
+              update: { quantity: { increment: 1 } },
+            });
+            break;
+          }
+        }
+        const items = await tx.officeItem.findMany({ where: { officeId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+        return { ok: true as const, items: items.map(toItemDTO) };
+      });
+    } catch (err) {
+      if (err instanceof EditAborted) return { ok: false, error: err.code };
+      throw err;
+    }
+  }
+
+  async setOfficeStyle(zoneId: string, style: { floor?: string; wallpaper?: string }) {
+    await prisma.office.update({ where: { zoneId }, data: { floor: style.floor, wallpaper: style.wallpaper } });
   }
 
   async getUserProfile(userId: string) {

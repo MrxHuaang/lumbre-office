@@ -1,9 +1,8 @@
-import { nearestFreeTile } from "./pathfinding";
 import { AREAS, SPAWN_AREA } from "./world/areas";
-import { buildArea, step, type OfficeMap, type PointType, type Portal, type Seat, type Zone } from "./world/build";
-import type { Facing } from "./world/types";
+import { buildArea, FEET_BOX, isBlockedTile, wallAbove, wallLeftOf, type OfficeMap, type PointType, type Portal, type Seat, type Zone } from "./world/build";
 
 export * from "./pathfinding";
+export * from "./decor";
 export * from "./world/build";
 export * from "./world/catalog";
 export type * from "./world/types";
@@ -33,34 +32,8 @@ export const PORTAL_REACH_TILES = 1.25;
 /** Distancia (en tiles) a la que se usa un objeto interactivo (buzón, tablón, barra de la cafetería). */
 export const INTERACT_REACH_TILES = 1.4;
 
-/** Caja de colisión de los pies del avatar, centrada en su posición (x, y = pies). */
-export const FEET_BOX = { halfWidth: 6, top: -6, bottom: 7 } as const;
-
-export function isBlockedTile(map: OfficeMap, tx: number, ty: number): boolean {
-  if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) return true;
-  return map.blocked[ty * map.width + tx] === 1;
-}
-
 export function isBlockedPx(map: OfficeMap, px: number, py: number): boolean {
   return isBlockedTile(map, Math.floor(px / map.tileSize), Math.floor(py / map.tileSize));
-}
-
-/** Pared en el borde superior del tile (x, y). */
-export function wallAbove(map: OfficeMap, x: number, y: number): number {
-  if (x < 0 || x >= map.width || y < 0 || y > map.height) return 0;
-  return map.wallH[y * map.width + x]!;
-}
-
-/** Pared en el borde izquierdo del tile (x, y). */
-export function wallLeftOf(map: OfficeMap, x: number, y: number): number {
-  if (y < 0 || y >= map.height || x < 0 || x > map.width) return 0;
-  return map.wallV[y * (map.width + 1) + x]!;
-}
-
-/** ¿Hay pared entre dos tiles vecinos (ortogonales)? */
-export function wallBetween(map: OfficeMap, ax: number, ay: number, bx: number, by: number): boolean {
-  if (ax === bx) return wallAbove(map, ax, Math.max(ay, by)) !== 0;
-  return wallLeftOf(map, Math.max(ax, bx), ay) !== 0;
 }
 
 /**
@@ -159,31 +132,6 @@ export function seatAtTile(map: OfficeMap, tx: number, ty: number): Seat | undef
 export function seatAtPoint(map: OfficeMap, x: number, y: number): Seat | undefined {
   const seat = seatAtTile(map, Math.floor(x / map.tileSize), Math.floor(y / map.tileSize));
   return seat && Math.abs(seat.x - x) <= 0.5 && Math.abs(seat.y - y) <= 0.5 ? seat : undefined;
-}
-
-const OPPOSITE: Record<Facing, Facing> = { up: "down", down: "up", left: "right", right: "left" };
-const SIDES: Record<Facing, [Facing, Facing]> = {
-  up: ["left", "right"],
-  down: ["left", "right"],
-  left: ["up", "down"],
-  right: ["up", "down"],
-};
-
-/**
- * Dónde queda de pie quien se levanta: detrás del asiento (las sillas miran a la mesa), a los
- * lados o adelante; el primer tile libre sin pared de por medio.
- */
-export function seatStandSpot(map: OfficeMap, seat: Seat): { x: number; y: number } {
-  const ts = map.tileSize;
-  const order: Facing[] = [OPPOSITE[seat.facing], ...SIDES[seat.facing], seat.facing];
-  for (const dir of order) {
-    const [nx, ny] = step(seat.tileX, seat.tileY, dir);
-    if (!isBlockedTile(map, nx, ny) && !wallBetween(map, seat.tileX, seat.tileY, nx, ny)) {
-      return { x: nx * ts + ts / 2, y: ny * ts + ts / 2 };
-    }
-  }
-  const tile = nearestFreeTile(map, { x: seat.tileX, y: seat.tileY });
-  return tile ? { x: tile.x * ts + ts / 2, y: tile.y * ts + ts / 2 } : { x: seat.x, y: seat.y };
 }
 
 export function pointsOfType(map: OfficeMap, type: string) {
