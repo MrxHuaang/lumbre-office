@@ -28,6 +28,8 @@ const PROMPT: Record<Interactable, string> = {
   mailbox: "Abrir el buzón",
   board: "Ver el tablón",
   cafe: "Pedir en la barra",
+  shop: "Ver la tienda",
+  fitting: "Entrar al probador",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

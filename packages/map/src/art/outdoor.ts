@@ -532,6 +532,10 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   fence,
 };
 
+export function hasOutdoor(type: string): boolean {
+  return type in OUTDOOR;
+}
+
 export function drawOutdoor(type: string, night = false): Sprite {
   const draw = OUTDOOR[type];
   if (!draw) throw new Error(`Sin dibujo para "${type}"`);

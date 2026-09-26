@@ -17,6 +17,8 @@ import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { CafePanel } from "./CafePanel";
+import { BackpackPanel, ShopPanel } from "./ShopPanel";
+import { FittingPanel } from "./FittingPanel";
 import { ProfileDialog } from "./ProfileDialog";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 
@@ -198,6 +200,11 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "mailbox" && <MailboxPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "board" && <BoardPanel onClose={closePanel} />}
           {panel?.kind === "cafe" && <CafePanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
+          {panel?.kind === "fitting" && (
+            <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
+          )}
         </>
       ) : null}
 

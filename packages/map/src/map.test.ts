@@ -206,3 +206,11 @@ describe("lugares y zonas", () => {
     expect(isBlockedTile(plantaBaja, free!.x, free!.y)).toBe(false);
   });
 });
+
+describe("tienda", () => {
+  it("cada mueble a la venta existe en el catálogo", async () => {
+    const { SHOP_FURNITURE } = await import("@hyvento/shared");
+    const { CATALOG } = await import("./world/catalog");
+    for (const item of SHOP_FURNITURE) expect(item.id in CATALOG, item.id).toBe(true);
+  });
+});

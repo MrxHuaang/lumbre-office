@@ -136,6 +136,9 @@ export const MSG = {
   /** Pedir en la barra de la cafetería (`CafeOrderMessage`) y su respuesta (`CafeOrderResult`). */
   cafeOrder: "cafe:order",
   cafeResult: "cafe:result",
+  /** Editor de oficina (`OfficeEditMessage`) y su respuesta (`OfficeEditResult`). */
+  officeEdit: "office:edit",
+  officeEditResult: "office:edit:result",
   chatSend: "chat:send",
   chatEvent: "chat:event",
   chatHistory: "chat:history",

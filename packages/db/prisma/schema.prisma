@@ -63,6 +63,7 @@ model User {
   pointMoves      PointTransaction[]
   missionsCreated Mission[]          @relation("MissionCreator")
   missionsTaken   Mission[]          @relation("MissionAssignee")
+  inventory       InventoryItem[]
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -86,16 +87,26 @@ model Invite {
  * Oficina personal: una zona `office-<slot>` del piso 2 de la cabaña asignada a un usuario.
  */
 model Office {
-  id       String  @id @default(cuid())
-  zoneId   String  @unique // p. ej. "office-2" (id de la zona en packages/map)
-  name     String
-  ownerId  String? @unique
-  owner    User?   @relation(fields: [ownerId], references: [id])
-  isLocked Boolean @default(false) // cerrada: hay que tocar la puerta
+  id         String       @id @default(cuid())
+  zoneId     String       @unique // p. ej. "office-2" (id de la zona en packages/map)
+  name       String
+  ownerId    String?      @unique
+  owner      User?        @relation(fields: [ownerId], references: [id])
+  isLocked   Boolean      @default(false) // cerrada: hay que tocar la puerta
   /**
    * Obsoleto: las notas pasaron a Note (se conserva mientras conviven versiones).
    */
-  notes    String  @default("")
+  notes      String       @default("")
+  /**
+   * Fase 3c: piso y papel tapiz elegidos por el dueño (null = los del mapa).
+   */
+  floor      String?
+  wallpaper  String?
+  /**
+   * false = sus muebles son los del mapa; true = salen de OfficeItem (el dueño ya la decoró).
+   */
+  customized Boolean      @default(false)
+  items      OfficeItem[]
 }
 
 enum ChatScope {
@@ -241,4 +252,38 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ---------- Tienda y decoración (fase 3b/3c) ----------
+
+/**
+ * Lo que alguien tiene guardado: muebles sin poner y ropa comprada. `itemId` es el id de la tienda
+ * (packages/shared/src/shop.ts): el tipo del mueble ("plant") o la prenda ("hair:braids").
+ * Poner un mueble en la oficina resta 1; quitarlo suma 1.
+ */
+model InventoryItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId    String
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, itemId])
+}
+
+/**
+ * Mueble puesto en una oficina decorada (tiles del nivel; `facing` = right/left/down/up).
+ */
+model OfficeItem {
+  id        String   @id @default(cuid())
+  officeId  String
+  office    Office   @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  type      String
+  x         Int
+  y         Int
+  facing    String
+  createdAt DateTime @default(now())
+
+  @@index([officeId])
 }

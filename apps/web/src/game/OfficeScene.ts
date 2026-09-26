@@ -55,6 +55,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "mailbox", point: "mailbox", furniture: ["mailbox"] },
   { kind: "board", point: "task_board", furniture: ["notice-board"] },
   { kind: "cafe", point: "cafe_counter", furniture: ["counter-coffee", "pastry-case", "counter"] },
+  { kind: "shop", point: "shop_counter", furniture: ["shop-counter", "display-shelf"] },
+  { kind: "fitting", point: "fitting_room", furniture: ["fitting-booth", "clothes-rack"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 

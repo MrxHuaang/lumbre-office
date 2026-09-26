@@ -33,8 +33,13 @@ export interface PlayerInfo {
   points: number;
 }
 
-/** Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería. */
-export type Interactable = "mailbox" | "board" | "cafe";
+/**
+ * Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería,
+ * mostrador de la tienda y probador.
+ */
+export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting";
+/** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
+export type PanelKind = Interactable | "backpack";
 
 export interface OfficeView {
   zoneId: string;
@@ -100,7 +105,7 @@ interface OfficeStore {
   /** Objeto al alcance del jugador (para ofrecer "E: abrir"). */
   interact: Interactable | null;
   /** Panel abierto (buzón o tablón); `atObject` = se abrió junto al objeto (permite reclamar). */
-  panel: { kind: Interactable; atObject: boolean } | null;
+  panel: { kind: PanelKind; atObject: boolean } | null;
   /** Último premio de puntos (cambia `id` en cada uno, para animarlo). */
   lastAward: (PointsAwarded & { id: number }) | null;
 
@@ -131,7 +136,7 @@ interface OfficeStore {
   setArea: (area: string) => void;
   setNight: (night: boolean) => void;
   setInteract: (i: Interactable | null) => void;
-  openPanel: (kind: Interactable, atObject: boolean) => void;
+  openPanel: (kind: PanelKind, atObject: boolean) => void;
   closePanel: () => void;
   addAward: (a: PointsAwarded) => void;
   reset: () => void;
@@ -175,7 +180,7 @@ const initial = {
   area: "",
   night: false,
   interact: null as Interactable | null,
-  panel: null as { kind: Interactable; atObject: boolean } | null,
+  panel: null as { kind: PanelKind; atObject: boolean } | null,
   lastAward: null as (PointsAwarded & { id: number }) | null,
 };
 

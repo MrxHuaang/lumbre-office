@@ -20,7 +20,8 @@ import {
   type Shader,
   type Sprite,
 } from "./pixel";
-import { drawOutdoor } from "./outdoor";
+import { catalogItem } from "../world/catalog";
+import { drawOutdoor, hasOutdoor } from "./outdoor";
 
 export type Variant = "front" | "back";
 
@@ -723,8 +724,17 @@ export function drawFurniture(type: string, variant: Variant = "front", night = 
   const key = draw ? `${type}:${variant}` : `${type}:${variant}:${night ? "noche" : "dia"}`;
   let s = cache.get(key);
   if (!s) {
-    s = draw ? draw(variant) : drawOutdoor(type, night);
+    s = draw ? draw(variant) : hasOutdoor(type) ? drawOutdoor(type, night) : placeholder(type);
     cache.set(key, s);
   }
   return s;
+}
+
+/** Mueble del catálogo que todavía no tiene dibujo: una caja rosada de su tamaño (se nota a propósito). */
+function placeholder(type: string): Sprite {
+  const [w, d] = catalogItem(type).size;
+  return renderSprite([solidBox({ x: 1, y: 1, z: 0, w: w * 16 - 2, d: d * 16 - 2, h: 12 }, C.rug, 3)], {
+    outline: OUT,
+    under: shadowUnder(1, 1, w * 16 - 2, d * 16 - 2),
+  });
 }

@@ -1,5 +1,5 @@
 import { HUMANS } from "@hyvento/map/art";
-import type { Accessory, HairStyle, HumanAvatar, Look } from "@hyvento/shared";
+import type { Accessory, HairStyle, HumanAvatar, Look, Outfit } from "@hyvento/shared";
 
 /** Muestras sugeridas del editor de personaje (además hay un selector de color libre). */
 export const SKIN_TONES = ["#ffdbac", "#f1c27d", "#e0ac69", "#c68642", "#8d5524", "#5c3a21"];
@@ -26,6 +26,9 @@ export const HAIR_STYLE_LABEL: Record<HairStyle, string> = {
   curly: "Rizado",
   buzz: "Rapado",
   bun: "Moño",
+  ponytail: "Cola de caballo",
+  braids: "Trenzas",
+  afro: "Afro",
 };
 
 export const ACCESSORY_LABEL: Record<Accessory, string> = {
@@ -33,6 +36,17 @@ export const ACCESSORY_LABEL: Record<Accessory, string> = {
   cap: "Gorra",
   headphones: "Audífonos",
   beard: "Barba",
+  "straw-hat": "Sombrero de paja",
+  beanie: "Gorro de lana",
+  scarf: "Bufanda",
+  flower: "Flor en el pelo",
+};
+
+export const OUTFIT_LABEL: Record<Outfit, string> = {
+  overalls: "Overol",
+  dress: "Vestido",
+  jacket: "Chaqueta",
+  apron: "Delantal",
 };
 
 /** Look equivalente a un personaje fijo, para empezar a editar desde él. */
