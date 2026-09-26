@@ -4,9 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-assets.mjs",
     "dev": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next dev --port 3000",
-    "prebuild": "node scripts/copy-assets.mjs && pnpm --filter @hyvento/db generate",
+    "prebuild": "pnpm --filter @hyvento/db generate",
     "build": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next build",
     "start": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next start",
     "typecheck": "tsc --noEmit",
