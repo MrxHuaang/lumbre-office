@@ -217,3 +217,68 @@ describe("OfficeRoom: chat y estado", () => {
     expect(room.state.players.get(bob2.sessionId)!.status).toBe("busy");
   });
 });
+
+describe("OfficeRoom: sentarse", () => {
+  /** Posición de sentado en un tile de asiento (ver SEAT_FEET_Y en @hyvento/map). */
+  const seatPos = (tx: number, ty: number) => ({ x: c(tx), y: ty * TILE + 24 });
+  // Silla del escritorio libre de la zona común (x=31, y=19), mira hacia el escritorio.
+  const toDeskChair: [number, number][] = [
+    [24, 13],
+    [30, 13],
+    [30, 19],
+  ];
+
+  it("se sienta en una silla cercana y queda mirando hacia el escritorio", async () => {
+    const { room, alice } = await setup();
+    await walkPath(alice, room, toDeskChair);
+    alice.send(MSG.move, { ...seatPos(31, 19), dir: "down", moving: false, seated: true });
+    await room.waitForNextPatch();
+    await tick();
+    const p = room.state.players.get(alice.sessionId)!;
+    expect(p.seated).toBe(true);
+    expect(p.dir).toBe("up");
+    expect([p.x, p.y]).toEqual([seatPos(31, 19).x, seatPos(31, 19).y]);
+  });
+
+  it("no deja sentarse en un asiento ocupado ni desde lejos", async () => {
+    const { room, alice, bob } = await setup();
+    const corrections: MoveCorrection[] = [];
+    bob.onMessage(MSG.moveCorrection, (m: MoveCorrection) => corrections.push(m));
+
+    bob.send(MSG.move, { ...seatPos(31, 19), dir: "up", moving: false, seated: true }); // desde el spawn
+    await room.waitForNextPatch();
+    await tick();
+    expect(room.state.players.get(bob.sessionId)!.seated).toBe(false);
+
+    await walkPath(alice, room, toDeskChair);
+    alice.send(MSG.move, { ...seatPos(31, 19), dir: "up", moving: false, seated: true });
+    await walkPath(bob, room, toDeskChair);
+    bob.send(MSG.move, { ...seatPos(31, 19), dir: "up", moving: false, seated: true });
+    await room.waitForNextPatch();
+    await tick();
+    expect(room.state.players.get(alice.sessionId)!.seated).toBe(true);
+    expect(room.state.players.get(bob.sessionId)!.seated).toBe(false);
+    expect(corrections.length).toBe(2);
+  });
+
+  it("se sienta en el sofá (que bloquea el paso) y se levanta frente a él", async () => {
+    const { room, alice } = await setup();
+    const me = () => room.state.players.get(alice.sessionId)!;
+    await walkPath(alice, room, [
+      [24, 13],
+      [24, 16],
+    ]);
+    alice.send(MSG.move, { ...seatPos(24, 17), dir: "up", moving: false, seated: true });
+    await room.waitForNextPatch();
+    await tick();
+    expect(me().seated).toBe(true);
+    expect(me().dir).toBe("down");
+
+    // Levantarse: al tile libre de enfrente (la alfombra), sin pasar por el sofá.
+    alice.send(MSG.move, { x: c(24), y: 18 * TILE + 24, dir: "down", moving: false, seated: false });
+    await room.waitForNextPatch();
+    await tick();
+    expect(me().seated).toBe(false);
+    expect(me().y).toBe(18 * TILE + 24);
+  });
+});

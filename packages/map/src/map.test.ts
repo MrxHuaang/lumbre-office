@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { canStandAt, findPath, isBlockedTile, nearestFreeTile, placeAt, placeLabel, pointsOfType, spawnPoint, zoneAt } from "./index";
+import {
+  canStandAt,
+  findPath,
+  isBlockedTile,
+  nearestFreeTile,
+  placeAt,
+  placeLabel,
+  pointsOfType,
+  seatAtPoint,
+  seatAtTile,
+  seatStandSpot,
+  spawnPoint,
+  zoneAt,
+} from "./index";
 import { loadOfficeMap } from "./node";
 
 const map = loadOfficeMap();
@@ -104,5 +117,32 @@ describe("canStandAt", () => {
   it("rechaza posiciones que invaden un muro", () => {
     expect(canStandAt(map, center(24), center(13))).toBe(true);
     expect(canStandAt(map, map.tileSize + 2, center(13))).toBe(false); // pies tocando el muro oeste
+  });
+});
+
+describe("asientos", () => {
+  it("reconoce sillas y sofás con hacia dónde se mira", () => {
+    expect(map.seats.size).toBe(30);
+    expect(seatAtTile(map, 31, 19)?.facing).toBe("up"); // silla de escritorio: mira al escritorio
+    expect(seatAtTile(map, 32, 4)?.facing).toBe("down"); // fila de arriba de la sala: mira a la mesa
+    expect(seatAtTile(map, 24, 17)?.facing).toBe("down"); // sofá de arriba
+    expect(seatAtTile(map, 24, 22)?.facing).toBe("up"); // sofá de abajo
+    expect(seatAtTile(map, 24, 13)).toBeUndefined();
+  });
+
+  it("la posición de sentado es exacta", () => {
+    const seat = seatAtTile(map, 31, 19)!;
+    expect(seatAtPoint(map, seat.x, seat.y)).toBe(seat);
+    expect(seatAtPoint(map, seat.x + 3, seat.y)).toBeUndefined();
+  });
+
+  it("de una silla uno se levanta ahí mismo; de un sofá, frente a él", () => {
+    const chair = seatAtTile(map, 31, 19)!;
+    expect(seatStandSpot(map, chair)).toEqual({ x: chair.x, y: chair.y });
+    const sofa = seatAtTile(map, 24, 17)!;
+    expect(isBlockedTile(map, 24, 17)).toBe(true);
+    const spot = seatStandSpot(map, sofa);
+    expect([Math.floor(spot.x / map.tileSize), Math.floor(spot.y / map.tileSize)]).toEqual([24, 18]);
+    expect(canStandAt(map, spot.x, spot.y)).toBe(true);
   });
 });

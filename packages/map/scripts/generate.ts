@@ -9,8 +9,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { TiledMap, TiledObject, TiledProperty } from "../src/tiled";
-import { DIRECTIONS, drawCharacter, FRAME, FRAMES, HUMANS } from "./avatars";
-import { COLLIDES, COLUMNS, drawTileset, ROWS, T, TILE } from "./tiles";
+import { DIRECTIONS, drawCharacter, drawSitting, FRAME, FRAMES, HUMANS, SIT_FACINGS } from "./avatars";
+import { COLLIDES, COLUMNS, drawTileset, ROWS, SEATS, T, TILE } from "./tiles";
 
 const W = 40;
 const H = 28;
@@ -299,7 +299,15 @@ const map: TiledMap = {
       columns: COLUMNS,
       margin: 0,
       spacing: 0,
-      tiles: COLLIDES.map((id) => ({ id, properties: [{ name: "collides", type: "bool", value: true }] })),
+      tiles: [...new Set([...COLLIDES, ...Object.keys(SEATS).map(Number)])]
+        .sort((a, b) => a - b)
+        .map((id) => ({
+          id,
+          properties: [
+            ...(COLLIDES.includes(id) ? [{ name: "collides", type: "bool" as const, value: true }] : []),
+            ...(SEATS[id] ? [{ name: "seat", type: "string" as const, value: SEATS[id] }] : []),
+          ],
+        })),
     },
   ],
 };
@@ -309,11 +317,12 @@ drawTileset().save(`${assetsDir}tileset.png`);
 
 for (const [id, style] of Object.entries(HUMANS)) {
   drawCharacter(style).save(`${assetsDir}characters/${id}.png`);
+  drawSitting(style).save(`${assetsDir}characters/${id}-sit.png`);
 }
 writeFileSync(
   `${assetsDir}characters.json`,
   JSON.stringify(
-    { frameSize: FRAME, frames: FRAMES, directions: DIRECTIONS, humans: Object.keys(HUMANS) },
+    { frameSize: FRAME, frames: FRAMES, directions: DIRECTIONS, sitFacings: SIT_FACINGS, humans: Object.keys(HUMANS) },
     null,
     2,
   ),

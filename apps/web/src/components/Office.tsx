@@ -11,7 +11,7 @@ import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
-import { DoorPrompt, KnockRequests, Notices } from "./OfficeOverlays";
+import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { Overprint } from "./Riso";
 
 const RELOAD_FLAG = "hyvento:reloaded-after-update";
@@ -129,6 +129,7 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
           <ChatPanel />
           <MyOfficePanel />
           <DoorPrompt />
+          <SeatPrompt />
           <KnockRequests />
           <MediaControls />
           <ControlsHint />
@@ -172,7 +173,7 @@ export function Office({ isAdmin, onEditProfile }: { isAdmin: boolean; onEditPro
 function ControlsHint() {
   return (
     <div className="absolute right-3 bottom-4 hidden border-[1.5px] border-riso-navy bg-riso-paper px-2.5 py-1.5 text-xs text-riso-muted xl:block">
-      WASD / flechas · clic para caminar · Enter para chatear
+      WASD / flechas · clic para caminar · E para sentarte · Enter para chatear
     </div>
   );
 }

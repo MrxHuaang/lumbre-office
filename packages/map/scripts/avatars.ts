@@ -51,19 +51,64 @@ function drawFront(c: Canvas, ox: number, oy: number, s: CharacterStyle, frame: 
   c.rect(ox + 8, oy + 21 + bob + armL, 2, 2, skin);
   c.rect(ox + 22, oy + 21 + bob + armR, 2, 2, skin);
 
-  // Cabeza
-  c.rect(ox + 11, oy + 4 + bob, 10, 10, skin);
-  if (back) {
-    c.rect(ox + 11, oy + 3 + bob, 10, 10, hair);
-  } else {
-    c.rect(ox + 11, oy + 3 + bob, 10, 3, hair);
-    c.rect(ox + 11, oy + 6 + bob, 1, 4, hair);
-    c.rect(ox + 20, oy + 6 + bob, 1, 4, hair);
-    c.rect(ox + 13, oy + 9 + bob, 1, 2, OUT);
-    c.rect(ox + 18, oy + 9 + bob, 1, 2, OUT);
-    c.rect(ox + 15, oy + 12 + bob, 2, 1, shade(skin, -0.25));
-  }
+  drawHead(c, ox, oy + bob, skin, hair, back);
   c.outline(ox, oy, FRAME, FRAME, OUT);
+}
+
+/** Cabeza de frente o de espaldas; `oy` ya incluye el desplazamiento vertical. */
+function drawHead(c: Canvas, ox: number, oy: number, skin: RGBA, hair: RGBA, back: boolean) {
+  c.rect(ox + 11, oy + 4, 10, 10, skin);
+  if (back) {
+    c.rect(ox + 11, oy + 3, 10, 10, hair);
+    return;
+  }
+  c.rect(ox + 11, oy + 3, 10, 3, hair);
+  c.rect(ox + 11, oy + 6, 1, 4, hair);
+  c.rect(ox + 20, oy + 6, 1, 4, hair);
+  c.rect(ox + 13, oy + 9, 1, 2, OUT);
+  c.rect(ox + 18, oy + 9, 1, 2, OUT);
+  c.rect(ox + 15, oy + 12, 2, 1, shade(skin, -0.25));
+}
+
+/**
+ * Persona sentada, más baja que de pie. De frente (mirando hacia abajo) se ven los muslos y los
+ * zapatos; de espaldas (mirando hacia arriba) la silla tapa las piernas.
+ */
+function drawSit(c: Canvas, ox: number, oy: number, s: CharacterStyle, back: boolean) {
+  const skin = hex(s.skin);
+  const hair = hex(s.hair);
+  const shirt = hex(s.shirt);
+  const pants = hex(s.pants);
+  const sink = 4; // cuánto baja el cuerpo al sentarse
+
+  if (!back) {
+    c.rect(ox + 11, oy + 24 + sink, 10, 2, pants); // muslos hacia adelante
+    c.rect(ox + 12, oy + 26 + sink, 3, 2, SHOE);
+    c.rect(ox + 17, oy + 26 + sink, 3, 2, SHOE);
+  }
+  c.rect(ox + 10, oy + 14 + sink, 12, 10, shirt);
+  c.rect(ox + 10, oy + 14 + sink, 12, 1, shade(shirt, 0.2));
+  c.rect(ox + 8, oy + 15 + sink, 2, 6, shade(shirt, -0.2));
+  c.rect(ox + 22, oy + 15 + sink, 2, 6, shade(shirt, -0.2));
+  // Manos sobre las piernas (de frente) o a los lados (de espaldas).
+  if (back) {
+    c.rect(ox + 8, oy + 21 + sink, 2, 2, skin);
+    c.rect(ox + 22, oy + 21 + sink, 2, 2, skin);
+  } else {
+    c.rect(ox + 10, oy + 22 + sink, 3, 2, skin);
+    c.rect(ox + 19, oy + 22 + sink, 3, 2, skin);
+  }
+  drawHead(c, ox, oy + sink, skin, hair, back);
+  c.outline(ox, oy, FRAME, FRAME, OUT);
+}
+
+/** Frames de "sentado" en el orden de `SIT_FACINGS`. */
+export const SIT_FACINGS = ["down", "up"] as const;
+
+export function drawSitting(style: CharacterStyle): Canvas {
+  const c = new Canvas(SIT_FACINGS.length * FRAME, FRAME);
+  SIT_FACINGS.forEach((facing, i) => drawSit(c, i * FRAME, 0, style, facing === "up"));
+  return c;
 }
 
 function drawSide(c: Canvas, ox: number, oy: number, s: CharacterStyle, frame: number) {

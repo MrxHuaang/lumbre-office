@@ -100,3 +100,16 @@ export function Notices() {
     </div>
   );
 }
+
+/** Ayuda de la tecla E junto a un asiento libre o estando sentado (solo con teclado). */
+export function SeatPrompt() {
+  const prompt = useOfficeStore((s) => s.seatPrompt);
+  const doorPrompt = useOfficeStore((s) => s.doorPrompt);
+  if (!prompt || doorPrompt) return null;
+  return (
+    <div className="riso-chip pointer-events-none absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-xs font-semibold max-md:hidden">
+      <kbd className="rounded-[3px] border-[1.5px] border-riso-navy bg-riso-yellow px-1.5 font-plex text-[11px]">E</kbd>
+      {prompt === "sit" ? "sentarte" : "levantarte (o muévete)"}
+    </div>
+  );
+}

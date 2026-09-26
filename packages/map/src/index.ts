@@ -1,3 +1,4 @@
+import { nearestFreeTile } from "./pathfinding";
 import { prop, type TiledMap, type TiledObjectLayer, type TiledTileLayer } from "./tiled";
 
 export * from "./tiled";
@@ -39,6 +40,19 @@ export interface MapPoint {
   index?: number;
 }
 
+/** Hacia dónde queda mirando quien se sienta (sillas y sofás miran a la mesa). */
+export type SeatFacing = "up" | "down";
+
+/** Un tile con la propiedad `seat` (silla o sofá). */
+export interface Seat {
+  tileX: number;
+  tileY: number;
+  /** Posición de los pies de quien está sentado, en px. */
+  x: number;
+  y: number;
+  facing: SeatFacing;
+}
+
 export interface OfficeMap {
   width: number;
   height: number;
@@ -47,7 +61,14 @@ export interface OfficeMap {
   blocked: Uint8Array;
   zones: Zone[];
   points: MapPoint[];
+  /** Asientos por índice de tile (`ty * width + tx`). */
+  seats: Map<number, Seat>;
 }
+
+/** Altura de los pies dentro del tile del asiento (la persona sentada queda sobre la silla). */
+export const SEAT_FEET_Y = 24;
+/** Distancia máxima (en tiles) desde la que uno puede sentarse o a la que se levanta. */
+export const SEAT_REACH_TILES = 1.5;
 
 /** Caja de colisión de los pies del avatar, relativa a su posición (x, y = pies). */
 export const FEET_BOX = { halfWidth: 7, top: -6, bottom: 0 } as const;
@@ -55,15 +76,26 @@ export const FEET_BOX = { halfWidth: 7, top: -6, bottom: 0 } as const;
 export function parseOfficeMap(tmj: TiledMap): OfficeMap {
   const tileSize = tmj.tilewidth;
   const colliding = new Set<number>();
+  const seatFacing = new Map<number, SeatFacing>();
   for (const ts of tmj.tilesets) {
     for (const t of ts.tiles ?? []) {
       if (prop<boolean>(t.properties, "collides")) colliding.add(ts.firstgid + t.id);
+      const seat = prop<string>(t.properties, "seat");
+      if (seat === "up" || seat === "down") seatFacing.set(ts.firstgid + t.id, seat);
     }
   }
 
   const blocked = new Uint8Array(tmj.width * tmj.height);
+  const seats = new Map<number, Seat>();
   for (const layer of tmj.layers) {
     if (layer.type !== "tilelayer") continue;
+    (layer as TiledTileLayer).data.forEach((gid, i) => {
+      const facing = seatFacing.get(gid);
+      if (!facing) return;
+      const tileX = i % tmj.width;
+      const tileY = Math.floor(i / tmj.width);
+      seats.set(i, { tileX, tileY, x: tileX * tileSize + tileSize / 2, y: tileY * tileSize + SEAT_FEET_Y, facing });
+    });
     if (!(COLLISION_LAYERS as readonly string[]).includes(layer.name)) continue;
     (layer as TiledTileLayer).data.forEach((gid, i) => {
       if (colliding.has(gid)) blocked[i] = 1;
@@ -101,7 +133,7 @@ export function parseOfficeMap(tmj: TiledMap): OfficeMap {
     };
   });
 
-  return { width: tmj.width, height: tmj.height, tileSize, blocked, zones, points };
+  return { width: tmj.width, height: tmj.height, tileSize, blocked, zones, points, seats };
 }
 
 function findObjectLayer(tmj: TiledMap, name: string): TiledObjectLayer | undefined {
@@ -189,6 +221,29 @@ export function zoneCenterTile(map: OfficeMap, zone: Zone): { x: number; y: numb
   const cx = Math.floor((zone.x + zone.width / 2) / map.tileSize);
   const cy = Math.floor((zone.y + zone.height / 2) / map.tileSize);
   return { x: cx, y: cy };
+}
+
+export function seatAtTile(map: OfficeMap, tx: number, ty: number): Seat | undefined {
+  return map.seats.get(ty * map.width + tx);
+}
+
+/** Asiento cuya posición de sentado es exactamente (x, y) (con medio píxel de tolerancia). */
+export function seatAtPoint(map: OfficeMap, x: number, y: number): Seat | undefined {
+  const seat = seatAtTile(map, Math.floor(x / map.tileSize), Math.floor(y / map.tileSize));
+  return seat && Math.abs(seat.x - x) <= 0.5 && Math.abs(seat.y - y) <= 0.5 ? seat : undefined;
+}
+
+/**
+ * Dónde queda de pie quien se levanta: en la misma silla si es transitable, o en el tile libre
+ * hacia el que mira (frente al sofá).
+ */
+export function seatStandSpot(map: OfficeMap, seat: Seat): { x: number; y: number } {
+  if (canStandAt(map, seat.x, seat.y)) return { x: seat.x, y: seat.y };
+  const ts = map.tileSize;
+  const ahead = { x: seat.tileX, y: seat.tileY + (seat.facing === "down" ? 1 : -1) };
+  const tile = isBlockedTile(map, ahead.x, ahead.y) ? nearestFreeTile(map, { x: seat.tileX, y: seat.tileY }) : ahead;
+  if (!tile) return { x: seat.x, y: seat.y };
+  return { x: tile.x * ts + ts / 2, y: tile.y * ts + ts * 0.75 };
 }
 
 export function pointsOfType(map: OfficeMap, type: PointType): MapPoint[] {

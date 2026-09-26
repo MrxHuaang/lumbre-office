@@ -70,6 +70,8 @@ interface OfficeStore {
   typing: boolean;
   /** Oficina cerrada frente a cuya puerta está el jugador (para ofrecer "tocar"). */
   doorPrompt: string | null;
+  /** Junto a un asiento libre ("sit") o sentado ("stand"), para mostrar la ayuda de la tecla E. */
+  seatPrompt: "sit" | "stand" | null;
   /** Oficina a la que tocamos y cuya respuesta esperamos. */
   pendingKnock: string | null;
   /** Toques recibidos en mi oficina, pendientes de respuesta. */
@@ -92,6 +94,7 @@ interface OfficeStore {
   setChatOpen: (open: boolean) => void;
   setTyping: (t: boolean) => void;
   setDoorPrompt: (zoneId: string | null) => void;
+  setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setPendingKnock: (zoneId: string | null) => void;
   addKnockRequest: (r: KnockRequest) => void;
   removeKnockRequest: (requestId: string) => void;
@@ -130,6 +133,7 @@ const initial = {
   chatOpen: true,
   typing: false,
   doorPrompt: null,
+  seatPrompt: null as "sit" | "stand" | null,
   pendingKnock: null,
   knockRequests: [],
   notices: [],
@@ -168,6 +172,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setChatOpen: (chatOpen) => set((s) => ({ chatOpen, unread: chatOpen ? 0 : s.unread })),
   setTyping: (typing) => set({ typing }),
   setDoorPrompt: (doorPrompt) => set({ doorPrompt }),
+  setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setPendingKnock: (pendingKnock) => set({ pendingKnock }),
   addKnockRequest: (r) => {
     const expiresAt = Date.now() + KNOCK_TIMEOUT_MS;

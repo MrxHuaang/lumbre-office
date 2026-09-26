@@ -7,9 +7,14 @@ import {
   parseOfficeMap,
   placeAt,
   pointsOfType,
+  SEAT_REACH_TILES,
+  seatAtPoint,
+  seatAtTile,
+  seatStandSpot,
   zoneAt,
   zoneCenterTile,
   type OfficeMap,
+  type Seat,
   type Zone,
   type TiledMap,
   type TilePos,
@@ -40,7 +45,7 @@ const DOOR_PROMPT_RADIUS = 44;
 /** Cada cuánto se recalcula a quién se oye (audio/video por proximidad). */
 const HEARING_INTERVAL_MS = 250;
 
-type Keys = Record<"W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT", Phaser.Input.Keyboard.Key>;
+type Keys = Record<"W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT" | "E", Phaser.Input.Keyboard.Key>;
 
 export class OfficeScene extends Phaser.Scene {
   private officeMap!: OfficeMap;
@@ -49,6 +54,10 @@ export class OfficeScene extends Phaser.Scene {
   private local?: Avatar;
   private localId: string | null = null;
   private path: TilePos[] = [];
+  /** Asiento en el que estoy sentado. */
+  private seat: Seat | null = null;
+  /** Asiento al que voy caminando (clic en una silla): al llegar me siento. */
+  private pendingSeat: Seat | null = null;
   private pathMarker?: Phaser.GameObjects.Rectangle;
   private lastSent: MoveMessage | null = null;
   private sendAccumulator = 0;
@@ -75,6 +84,7 @@ export class OfficeScene extends Phaser.Scene {
     this.load.image("tiles", "/assets/tileset.png");
     for (const a of HUMAN_AVATARS) {
       this.load.spritesheet(a, `/assets/characters/${a}.png`, { frameWidth: 32, frameHeight: 32 });
+      this.load.spritesheet(`${a}-sit`, `/assets/characters/${a}-sit.png`, { frameWidth: 32, frameHeight: 32 });
     }
   }
 
@@ -96,7 +106,7 @@ export class OfficeScene extends Phaser.Scene {
     cam.setRoundPixels(true);
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
-    this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT", false) as Keys;
+    this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E", false) as Keys;
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => this.walkTo(p.worldX, p.worldY));
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       cam.setZoom(Phaser.Math.Clamp(cam.zoom - dy * 0.001, MIN_ZOOM, MAX_ZOOM));
@@ -105,7 +115,12 @@ export class OfficeScene extends Phaser.Scene {
     this.cleanups.push(
       onRoom((room) => this.bindRoom(room)),
       onMoveCorrection((c) => {
-        this.path = [];
+        this.clearPath();
+        // El servidor no aceptó el movimiento (p. ej. el asiento ya estaba ocupado): quedar de pie.
+        if (this.seat) {
+          this.seat = null;
+          this.local?.setSeated(null);
+        }
         this.local?.setPosition(c.x, c.y);
       }),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
@@ -157,6 +172,8 @@ export class OfficeScene extends Phaser.Scene {
     for (const a of this.avatars.values()) a.destroy();
     this.avatars.clear();
     this.local = undefined;
+    this.seat = null;
+    this.pendingSeat = null;
     this.localId = room.sessionId;
     this.lastSent = null;
     this.seenMessages = useOfficeStore.getState().messages.length;
@@ -191,6 +208,7 @@ export class OfficeScene extends Phaser.Scene {
     const avatar = new Avatar(this, texture, player.name, player.x, player.y, isLocal);
     avatar.setStatus(player.status);
     avatar.setMotion(player.dir, false);
+    avatar.setSeated(player.seated ? seatFacing(player.dir) : null);
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -198,6 +216,8 @@ export class OfficeScene extends Phaser.Scene {
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
+      // Al reconectar se conserva el asiento que el servidor recuerda.
+      this.seat = player.seated ? (seatAtPoint(this.officeMap, player.x, player.y) ?? null) : null;
       this.cameras.main.startFollow(avatar.sprite, true, 0.15, 0.15);
       this.updateZone();
       return;
@@ -205,6 +225,7 @@ export class OfficeScene extends Phaser.Scene {
     p$.onChange(() => {
       avatar.targetX = player.x;
       avatar.targetY = player.y;
+      avatar.setSeated(player.seated ? seatFacing(player.dir) : null);
       avatar.setMotion(player.dir, player.moving);
     });
   }
@@ -233,10 +254,12 @@ export class OfficeScene extends Phaser.Scene {
       const k = this.keys;
       vx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
       vy = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.W.isDown || k.UP.isDown ? 1 : 0);
+      if (Phaser.Input.Keyboard.JustDown(k.E)) this.toggleSeat();
     }
 
     if (vx !== 0 || vy !== 0) {
       this.clearPath(); // el teclado cancela el clic-para-caminar
+      if (this.seat) this.standUp(); // caminar te levanta
     } else if (this.path.length > 0) {
       const next = this.path[0]!;
       const tx = next.x * this.officeMap.tileSize + this.officeMap.tileSize / 2;
@@ -246,7 +269,11 @@ export class OfficeScene extends Phaser.Scene {
       const dist = Math.hypot(dx, dy);
       if (dist < 2) {
         this.path.shift();
-        if (this.path.length === 0) this.clearPath();
+        if (this.path.length === 0) {
+          const seat = this.pendingSeat;
+          this.clearPath();
+          if (seat) this.sit(seat);
+        }
       } else {
         vx = dx / dist;
         vy = dy / dist;
@@ -273,23 +300,125 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setMotion(dir, moving);
     if (moving) this.updateZone();
     this.updateDoorPrompt();
+    this.updateSeatPrompt();
 
     this.sendAccumulator += delta;
     if (this.sendAccumulator >= 1000 / MOVE_SEND_HZ) {
       this.sendAccumulator = 0;
-      const msg: MoveMessage = { x: Math.round(avatar.x * 10) / 10, y: Math.round(avatar.y * 10) / 10, dir, moving };
-      const last = this.lastSent;
-      if (!last || last.x !== msg.x || last.y !== msg.y || last.dir !== msg.dir || last.moving !== msg.moving) {
-        sendMove(msg);
-        this.lastSent = msg;
-      }
+      this.sendPosition(dir, moving);
     }
+  }
+
+  /** Envía la posición si cambió algo desde el último envío. */
+  private sendPosition(dir: Direction, moving: boolean) {
+    const avatar = this.local;
+    if (!avatar) return;
+    const seated = this.seat !== null;
+    // Sentado: la posición exacta del asiento (el servidor la compara con la del mapa).
+    const round = (v: number) => (seated ? v : Math.round(v * 10) / 10);
+    const msg: MoveMessage = { x: round(avatar.x), y: round(avatar.y), dir, moving: seated ? false : moving, seated };
+    const last = this.lastSent;
+    if (
+      !last ||
+      last.x !== msg.x ||
+      last.y !== msg.y ||
+      last.dir !== msg.dir ||
+      last.moving !== msg.moving ||
+      last.seated !== msg.seated
+    ) {
+      sendMove(msg);
+      this.lastSent = msg;
+    }
+  }
+
+  // ---------- Sentarse ----------
+
+  private toggleSeat() {
+    if (this.seat) {
+      this.standUp();
+      return;
+    }
+    const seat = this.nearestFreeSeat();
+    if (seat) this.sit(seat);
+  }
+
+  private sit(seat: Seat) {
+    const avatar = this.local;
+    if (!avatar) return;
+    const reach = SEAT_REACH_TILES * this.officeMap.tileSize;
+    if (Math.hypot(seat.x - avatar.x, seat.y - avatar.y) > reach || !this.canEnterZoneAt(seat.x, seat.y)) return;
+    if (this.seatOccupied(seat)) {
+      useOfficeStore.getState().notify("Ese asiento está ocupado.", "info");
+      return;
+    }
+    this.clearPath();
+    this.seat = seat;
+    avatar.setPosition(seat.x, seat.y);
+    avatar.setMotion(seat.facing, false);
+    avatar.setSeated(seat.facing);
+    this.updateZone();
+    this.sendPosition(seat.facing, false);
+  }
+
+  private standUp() {
+    const avatar = this.local;
+    const seat = this.seat;
+    if (!avatar || !seat) return;
+    const spot = seatStandSpot(this.officeMap, seat);
+    this.seat = null;
+    avatar.setSeated(null);
+    avatar.setPosition(spot.x, spot.y);
+    this.updateZone();
+    this.sendPosition(avatar.direction, false);
+  }
+
+  private seatOccupied(seat: Seat) {
+    let taken = false;
+    getRoom()?.state.players.forEach((p, sessionId) => {
+      if (sessionId !== this.localId && p.seated && Math.abs(p.x - seat.x) <= 0.5 && Math.abs(p.y - seat.y) <= 0.5) {
+        taken = true;
+      }
+    });
+    return taken;
+  }
+
+  /** Asiento libre más cercano a mi alcance (para la tecla E y la ayuda en pantalla). */
+  private nearestFreeSeat(): Seat | null {
+    const avatar = this.local;
+    if (!avatar) return null;
+    let best: Seat | null = null;
+    let bestDist = SEAT_REACH_TILES * this.officeMap.tileSize;
+    for (const seat of this.officeMap.seats.values()) {
+      const d = Math.hypot(seat.x - avatar.x, seat.y - avatar.y);
+      if (d > bestDist || !this.canEnterZoneAt(seat.x, seat.y) || this.seatOccupied(seat)) continue;
+      best = seat;
+      bestDist = d;
+    }
+    return best;
+  }
+
+  private updateSeatPrompt() {
+    const prompt = this.seat ? "stand" : this.nearestFreeSeat() ? "sit" : null;
+    const s = useOfficeStore.getState();
+    if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
   }
 
   private walkTo(worldX: number, worldY: number) {
     if (!this.local) return;
     const ts = this.officeMap.tileSize;
     let goal: TilePos | null = { x: Math.floor(worldX / ts), y: Math.floor(worldY / ts) };
+    // Clic en una silla o sofá: caminar hasta ahí y sentarse al llegar.
+    const seat = seatAtTile(this.officeMap, goal.x, goal.y);
+    if (seat && seat === this.seat) return;
+    if (this.seat) this.standUp();
+    if (seat) {
+      if (Math.hypot(seat.x - this.local.x, seat.y - this.local.y) <= ts) {
+        this.sit(seat);
+        return;
+      }
+      const spot = seatStandSpot(this.officeMap, seat);
+      goal = { x: Math.floor(spot.x / ts), y: Math.floor((spot.y - 1) / ts) };
+    }
     if (isBlockedTile(this.officeMap, goal.x, goal.y)) goal = nearestFreeTile(this.officeMap, goal);
     if (!goal) return;
     const start = { x: Math.floor(this.local.x / ts), y: Math.floor((this.local.y - 1) / ts) };
@@ -301,6 +430,7 @@ export class OfficeScene extends Phaser.Scene {
     if (path.length === 0) return;
     goal = path[path.length - 1]!;
     this.path = path;
+    this.pendingSeat = seat ?? null;
     this.pathMarker?.destroy();
     this.pathMarker = this.add
       .rectangle(goal.x * ts + ts / 2, goal.y * ts + ts / 2, ts - 6, ts - 6)
@@ -310,6 +440,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private clearPath() {
     this.path = [];
+    this.pendingSeat = null;
     this.pathMarker?.destroy();
     this.pathMarker = undefined;
   }
@@ -422,7 +553,11 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Colisión del mapa + oficinas cerradas a las que no tengo acceso (misma regla que el servidor). */
   private canMoveTo(x: number, y: number) {
-    if (!canStandAt(this.officeMap, x, y)) return false;
+    return canStandAt(this.officeMap, x, y) && this.canEnterZoneAt(x, y);
+  }
+
+  /** Oficinas cerradas: solo su dueño y los invitados pueden estar adentro. */
+  private canEnterZoneAt(x: number, y: number) {
     const zone = zoneAt(this.officeMap, x, y);
     if (zone?.type !== "office") return true;
     const s = useOfficeStore.getState();
@@ -498,4 +633,9 @@ export class OfficeScene extends Phaser.Scene {
   private defaultZoom() {
     return Phaser.Math.Clamp(Math.round((window.innerHeight / 620) * 2) / 2, MIN_ZOOM, MAX_ZOOM);
   }
+}
+
+/** Los asientos solo miran hacia arriba o hacia abajo; cualquier otra dirección cuenta como "abajo". */
+function seatFacing(dir: string): "up" | "down" {
+  return dir === "up" ? "up" : "down";
 }

@@ -3922,6 +3922,26 @@
      ]
     },
     {
+     "id": 16,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "up"
+      }
+     ]
+    },
+    {
+     "id": 17,
+     "properties": [
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "down"
+      }
+     ]
+    },
+    {
      "id": 18,
      "properties": [
       {
@@ -4018,6 +4038,11 @@
        "name": "collides",
        "type": "bool",
        "value": true
+      },
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "down"
       }
      ]
     },
@@ -4028,6 +4053,11 @@
        "name": "collides",
        "type": "bool",
        "value": true
+      },
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "down"
       }
      ]
     },
@@ -4038,6 +4068,11 @@
        "name": "collides",
        "type": "bool",
        "value": true
+      },
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "down"
       }
      ]
     },
@@ -4048,6 +4083,11 @@
        "name": "collides",
        "type": "bool",
        "value": true
+      },
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "up"
       }
      ]
     },
@@ -4058,6 +4098,11 @@
        "name": "collides",
        "type": "bool",
        "value": true
+      },
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "up"
       }
      ]
     },
@@ -4068,6 +4113,11 @@
        "name": "collides",
        "type": "bool",
        "value": true
+      },
+      {
+       "name": "seat",
+       "type": "string",
+       "value": "up"
       }
      ]
     },

@@ -94,6 +94,21 @@ export const COLLIDES: number[] = [
   T.TASKBOARD,
 ];
 
+/**
+ * Tiles donde uno se puede sentar (propiedad `seat` en Tiled) y hacia dónde queda mirando.
+ * Las sillas son transitables; los sofás bloquean el paso y se ocupan desde el tile de al lado.
+ */
+export const SEATS: Partial<Record<number, "up" | "down">> = {
+  [T.CHAIR]: "up",
+  [T.CHAIR_DOWN]: "down",
+  [T.SOFA_TOP_L]: "down",
+  [T.SOFA_TOP_M]: "down",
+  [T.SOFA_TOP_R]: "down",
+  [T.SOFA_BOTTOM_L]: "up",
+  [T.SOFA_BOTTOM_M]: "up",
+  [T.SOFA_BOTTOM_R]: "up",
+};
+
 const C = {
   wood: hex("#d8bd98"),
   woodSeam: hex("#caae89"),

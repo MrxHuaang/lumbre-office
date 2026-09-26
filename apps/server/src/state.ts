@@ -10,6 +10,8 @@ export class Player extends Schema {
   @type("number") y = 0;
   @type("string") dir = "down";
   @type("boolean") moving = false;
+  /** Sentado en la silla/sofá de su posición (mira hacia `dir`). */
+  @type("boolean") seated = false;
   @type("string") status = "available";
   /** Zona actual ("" = pasillo sin zona). Define el aislamiento de chat/audio. */
   @type("string") zoneId = "";

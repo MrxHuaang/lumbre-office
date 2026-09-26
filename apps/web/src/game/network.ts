@@ -23,6 +23,7 @@ export interface RemotePlayer {
   y: number;
   dir: MoveMessage["dir"];
   moving: boolean;
+  seated: boolean;
   status: PresenceStatus;
   zoneId: string;
   place: string;

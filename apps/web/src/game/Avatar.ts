@@ -48,6 +48,8 @@ export class Avatar {
   private speaking = false;
   private dir: Direction = "down";
   private moving = false;
+  /** Sentado: hacia dónde mira (usa el spritesheet `<avatar>-sit`). */
+  private seated: "up" | "down" | null = null;
 
   /** Posición destino (jugadores remotos, interpolada en `update`). */
   targetX: number;
@@ -164,7 +166,28 @@ export class Avatar {
     this.layout();
   }
 
+  /** Sienta al personaje mirando hacia `facing`, o lo vuelve a poner de pie con `null`. */
+  setSeated(facing: "up" | "down" | null) {
+    if (facing === this.seated) return;
+    this.seated = facing;
+    if (facing) {
+      this.sprite.stop();
+      this.sprite.setTexture(`${this.textureKey}-sit`, facing === "down" ? 0 : 1);
+    } else {
+      this.moving = false;
+      this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES_PER_ROW);
+    }
+  }
+
+  get isSeated() {
+    return this.seated !== null;
+  }
+
   setMotion(dir: Direction, moving: boolean) {
+    if (this.seated) {
+      this.dir = dir;
+      return;
+    }
     if (dir === this.dir && moving === this.moving) return;
     this.dir = dir;
     this.moving = moving;

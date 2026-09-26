@@ -1,4 +1,13 @@
-import { canStandAt, placeAt, spawnPoint, zoneAt, type OfficeMap, type Zone } from "@hyvento/map";
+import {
+  canStandAt,
+  placeAt,
+  SEAT_REACH_TILES,
+  seatAtPoint,
+  spawnPoint,
+  zoneAt,
+  type OfficeMap,
+  type Zone,
+} from "@hyvento/map";
 import { loadOfficeMap } from "@hyvento/map/node";
 import {
   canHear,
@@ -284,16 +293,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     const parsed = MoveMessage.safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
-    const { x, y, dir, moving } = parsed.data;
+    const { x, y, moving } = parsed.data;
+    let { dir } = parsed.data;
+    const seated = parsed.data.seated ?? false;
 
     const now = Date.now();
     const dt = (now - client.userData.lastMoveAt) / 1000;
     client.userData.lastMoveAt = now;
-    // Tolerancia: latencia/jitter + mínimo de medio tile.
-    const maxDist = Math.max(this.map.tileSize * 0.75, dt * PLAYER_SPEED * 1.6);
+    // Tolerancia: latencia/jitter + mínimo de medio tile. Sentarse y levantarse "saltan" hasta
+    // el asiento (p. ej. del tile de enfrente al sofá), así que ahí se permite algo más.
+    const snap = seated !== player.seated ? this.map.tileSize * SEAT_REACH_TILES : 0;
+    const maxDist = Math.max(this.map.tileSize * 0.75, dt * PLAYER_SPEED * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
 
-    if (dist > maxDist || !canStandAt(this.map, x, y) || !this.canAccess(player, x, y)) {
+    // Sentado: la posición debe ser la de un asiento libre (los sofás bloquean el paso, así que
+    // no se valida canStandAt) y se mira hacia donde mira el asiento.
+    const seat = seated ? seatAtPoint(this.map, x, y) : undefined;
+    const validSpot = seated ? Boolean(seat) && !this.seatTaken(client.sessionId, x, y) : canStandAt(this.map, x, y);
+    if (seat) dir = seat.facing;
+
+    if (dist > maxDist || !validSpot || !this.canAccess(player, x, y)) {
       const correction: MoveCorrection = { x: player.x, y: player.y };
       client.send(MSG.moveCorrection, correction);
       return;
@@ -303,10 +322,19 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.x = x;
     player.y = y;
     player.dir = dir;
-    player.moving = moving;
+    player.moving = seated ? false : moving;
+    player.seated = seated;
     player.zoneId = zoneAt(this.map, x, y)?.id ?? "";
     player.place = placeAt(this.map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
+  }
+
+  /** ¿Hay otra persona sentada en (x, y)? */
+  private seatTaken(sessionId: string, x: number, y: number) {
+    for (const [id, p] of this.state.players) {
+      if (id !== sessionId && p.seated && Math.abs(p.x - x) <= 0.5 && Math.abs(p.y - y) <= 0.5) return true;
+    }
+    return false;
   }
 
   private handleStatus(client: Client<UserData>, raw: unknown) {

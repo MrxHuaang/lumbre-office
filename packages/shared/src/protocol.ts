@@ -42,6 +42,8 @@ export const MoveMessage = z.object({
   y: z.number().finite(),
   dir: z.enum(DIRECTIONS),
   moving: z.boolean(),
+  /** Sentado en el asiento cuya posición es (x, y). Opcional: clientes viejos no lo envían. */
+  seated: z.boolean().optional(),
 });
 export type MoveMessage = z.infer<typeof MoveMessage>;
 
