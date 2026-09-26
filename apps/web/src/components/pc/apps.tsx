@@ -43,7 +43,7 @@ function ToolButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`border-[1.5px] border-riso-navy bg-riso-cream text-xs font-semibold hover:bg-riso-yellow disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-riso-cream ${
+      className={`border-[1.5px] border-cozy-frame bg-cozy-paper-light text-xs font-semibold hover:bg-cozy-paper-dark disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-cozy-paper-light ${
         label ? "px-1 py-0.5" : "px-2.5 py-1"
       }`}
     >
@@ -54,7 +54,7 @@ function ToolButton({
 
 function StatusBar({ children }: { children: React.ReactNode }) {
   return (
-    <footer className="flex shrink-0 items-center justify-between gap-3 border-t-2 border-riso-navy bg-riso-cream px-3 py-1 text-[11px] text-riso-muted">
+    <footer className="flex shrink-0 items-center justify-between gap-3 border-t-2 border-cozy-frame bg-cozy-paper-light px-3 py-1 text-[11px] text-cozy-ink-soft">
       {children}
     </footer>
   );
@@ -135,14 +135,14 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
     return (
       <li key={`${showTree ? "t" : "f"}-${n.id}`}>
         <div
-          className={`group flex items-center gap-1 pr-1 ${n.id === selected?.id ? "bg-riso-yellow" : "hover:bg-riso-paper"}`}
+          className={`group flex items-center gap-1 pr-1 ${n.id === selected?.id ? "bg-cozy-paper-dark" : "hover:bg-cozy-paper"}`}
           style={{ paddingLeft: 4 + depth * 12 }}
         >
           <button
             type="button"
             aria-label={isOpen ? "Contraer" : "Desplegar"}
             onClick={() => toggle(n.id)}
-            className={`grid h-5 w-4 shrink-0 place-items-center text-[10px] text-riso-muted ${kids.length ? "" : "invisible"}`}
+            className={`grid h-5 w-4 shrink-0 place-items-center text-[10px] text-cozy-ink-soft ${kids.length ? "" : "invisible"}`}
           >
             <span className={`transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
           </button>
@@ -156,7 +156,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
               title="Agregar una subpágina"
               aria-label={`Agregar una subpágina a ${titleOf(n)}`}
               onClick={() => void create(n.id)}
-              className="invisible grid h-5 w-5 shrink-0 place-items-center text-sm font-semibold text-riso-muted group-hover:visible hover:bg-riso-cream hover:text-riso-navy"
+              className="invisible grid h-5 w-5 shrink-0 place-items-center text-sm font-semibold text-cozy-ink-soft group-hover:visible hover:bg-cozy-paper-light hover:text-cozy-ink"
             >
               +
             </button>
@@ -176,23 +176,23 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
     <>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,210px)_minmax(0,1fr)] max-sm:grid-cols-[minmax(0,130px)_minmax(0,1fr)]">
         {/* Barra lateral: búsqueda, favoritos y árbol de páginas. */}
-        <aside className="flex min-h-0 flex-col border-r-2 border-riso-navy bg-riso-cream">
-          <div className="flex flex-col gap-1.5 border-b-2 border-riso-navy p-2">
+        <aside className="flex min-h-0 flex-col border-r-2 border-cozy-frame bg-cozy-paper-light">
+          <div className="flex flex-col gap-1.5 border-b-2 border-cozy-frame p-2">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar…"
               aria-label="Buscar notas"
-              className="riso-input w-full px-2 py-1 text-xs shadow-none"
+              className="cozy-input w-full px-2 py-1 text-xs shadow-none"
             />
             <ToolButton onClick={() => void create()}>+ Nueva página</ToolButton>
           </div>
           <nav className="min-h-0 flex-1 overflow-y-auto py-1">
-            {notes.loading && <p className="p-3 text-xs text-riso-muted">Cargando…</p>}
+            {notes.loading && <p className="p-3 text-xs text-cozy-ink-soft">Cargando…</p>}
             {results ? (
               <>
                 <SideLabel>Resultados</SideLabel>
-                {results.length === 0 && <p className="px-3 text-xs text-riso-muted">Nada coincide.</p>}
+                {results.length === 0 && <p className="px-3 text-xs text-cozy-ink-soft">Nada coincide.</p>}
                 <ul>{results.map((n) => row(n, 0, false))}</ul>
               </>
             ) : (
@@ -204,7 +204,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
                   </>
                 )}
                 <SideLabel>Páginas</SideLabel>
-                {!notes.loading && notes.active.length === 0 && <p className="px-3 text-xs text-riso-muted">Aún no tienes páginas.</p>}
+                {!notes.loading && notes.active.length === 0 && <p className="px-3 text-xs text-cozy-ink-soft">Aún no tienes páginas.</p>}
                 <ul>{(tree.get(null) ?? []).map((n) => row(n, 0, true))}</ul>
               </>
             )}
@@ -212,19 +212,19 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
         </aside>
 
         {selected ? (
-          <div className="flex min-h-0 flex-col bg-riso-cream">
+          <div className="flex min-h-0 flex-col bg-cozy-paper-light">
             {/* Ruta de la página (madres) y acciones. */}
-            <div className="flex shrink-0 items-center gap-2 border-b border-dashed border-riso-navy/30 px-3 py-1.5">
-              <nav aria-label="Ruta" className="flex min-w-0 flex-1 items-center gap-1 text-[11.5px] text-riso-muted">
+            <div className="flex shrink-0 items-center gap-2 border-b border-dashed border-cozy-frame/30 px-3 py-1.5">
+              <nav aria-label="Ruta" className="flex min-w-0 flex-1 items-center gap-1 text-[11.5px] text-cozy-ink-soft">
                 {ancestors.map((a) => (
                   <span key={a.id} className="flex min-w-0 items-center gap-1">
-                    <button type="button" onClick={() => open(a.id)} className="truncate hover:text-riso-navy hover:underline">
+                    <button type="button" onClick={() => open(a.id)} className="truncate hover:text-cozy-ink hover:underline">
                       {titleOf(a)}
                     </button>
                     <span aria-hidden>/</span>
                   </span>
                 ))}
-                <span className="truncate font-semibold text-riso-navy">{titleOf(selected)}</span>
+                <span className="truncate font-semibold text-cozy-ink">{titleOf(selected)}</span>
               </nav>
               <button
                 type="button"
@@ -232,7 +232,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
                 title={selected.favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
                 aria-label={selected.favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
                 onClick={() => void notes.setFavorite(selected.id, !selected.favorite)}
-                className={`grid h-6 w-6 place-items-center text-base ${selected.favorite ? "text-riso-pink-deep" : "text-riso-muted hover:text-riso-navy"}`}
+                className={`grid h-6 w-6 place-items-center text-base ${selected.favorite ? "text-cozy-red-deep" : "text-cozy-ink-soft hover:text-cozy-ink"}`}
               >
                 {selected.favorite ? "★" : "☆"}
               </button>
@@ -254,7 +254,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
               }}
               placeholder="Sin título"
               aria-label="Título"
-              className="font-display shrink-0 bg-transparent pt-4 pr-4 pb-2 pl-9 text-2xl outline-none placeholder:text-riso-placeholder"
+              className="font-semibold shrink-0 bg-transparent pt-4 pr-4 pb-2 pl-9 text-2xl outline-none placeholder:text-cozy-placeholder"
             />
             <NoteEditor
               key={selected.id}
@@ -266,7 +266,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
             />
           </div>
         ) : (
-          <div className="grid place-items-center bg-riso-cream p-6 text-center">
+          <div className="grid place-items-center bg-cozy-paper-light p-6 text-center">
             <div className="flex flex-col items-center gap-3">
               <NotesIcon size={48} />
               <p className="max-w-xs text-[13px]">Tus notas son privadas: solo tú las ves, desde cualquier PC.</p>
@@ -280,14 +280,14 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
         <span>
           {notes.active.length} {notes.active.length === 1 ? "página" : "páginas"} · escribe &quot;/&quot; para insertar bloques
         </span>
-        <span className={notes.status === "error" ? "font-semibold text-riso-pink-deep" : ""}>{saveLabel}</span>
+        <span className={notes.status === "error" ? "font-semibold text-cozy-red-deep" : ""}>{saveLabel}</span>
       </StatusBar>
     </>
   );
 }
 
 function SideLabel({ children }: { children: React.ReactNode }) {
-  return <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold tracking-[0.12em] text-riso-muted uppercase">{children}</p>;
+  return <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold tracking-[0.12em] text-cozy-ink-soft uppercase">{children}</p>;
 }
 
 // ---------- Papelera ----------
@@ -319,20 +319,20 @@ export function TrashApp({ notes, confirm }: { notes: NotesStore; confirm: Confi
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-2 border-b-2 border-riso-navy bg-riso-cream px-2 py-1.5">
+      <div className="flex shrink-0 items-center gap-2 border-b-2 border-cozy-frame bg-cozy-paper-light px-2 py-1.5">
         <ToolButton onClick={() => void empty()} disabled={items.length === 0}>
           Vaciar papelera
         </ToolButton>
-        <span className="ml-auto text-[11px] text-riso-muted">Las notas se quedan aquí hasta que vacíes la papelera.</span>
+        <span className="ml-auto text-[11px] text-cozy-ink-soft">Las notas se quedan aquí hasta que vacíes la papelera.</span>
       </div>
-      <ul className="min-h-0 flex-1 overflow-y-auto bg-riso-cream">
-        {items.length === 0 && <li className="p-4 text-[13px] text-riso-muted">La papelera está vacía.</li>}
+      <ul className="min-h-0 flex-1 overflow-y-auto bg-cozy-paper-light">
+        {items.length === 0 && <li className="p-4 text-[13px] text-cozy-ink-soft">La papelera está vacía.</li>}
         {items.map((n) => (
-          <li key={n.id} className="flex items-center gap-3 border-b border-dashed border-riso-navy/30 px-3 py-2">
+          <li key={n.id} className="flex items-center gap-3 border-b border-dashed border-cozy-frame/30 px-3 py-2">
             <NotesIcon size={24} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-semibold">{titleOf(n)}</span>
-              <span className="block text-[11px] text-riso-muted">
+              <span className="block text-[11px] text-cozy-ink-soft">
                 Eliminada el {formatDate(n.deletedAt!)}
                 {subpagesOf(n) > 0 && ` · con ${subpagesOf(n)} ${subpagesOf(n) === 1 ? "subpágina" : "subpáginas"}`}
               </span>
@@ -367,21 +367,21 @@ export function CalendarApp() {
   const isToday = (d: number) => offset === 0 && d === now.getDate();
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-riso-cream">
-      <div className="border-b-2 border-riso-navy px-4 py-3">
-        <p className="font-display text-3xl leading-none">{timeFmt.format(now)}</p>
+    <div className="flex min-h-0 flex-1 flex-col bg-cozy-paper-light">
+      <div className="border-b-2 border-cozy-frame px-4 py-3">
+        <p className="font-semibold text-3xl leading-none">{timeFmt.format(now)}</p>
         <p className="mt-1 text-xs first-letter:uppercase">{longDateFmt.format(now)}</p>
       </div>
       <div className="flex items-center justify-between px-3 py-2">
         <ToolButton onClick={() => setOffset((o) => o - 1)}>‹</ToolButton>
-        <button type="button" onClick={() => setOffset(0)} className="font-display text-sm first-letter:uppercase" title="Volver a hoy">
+        <button type="button" onClick={() => setOffset(0)} className="font-semibold text-sm first-letter:uppercase" title="Volver a hoy">
           {monthFmt.format(first)}
         </button>
         <ToolButton onClick={() => setOffset((o) => o + 1)}>›</ToolButton>
       </div>
       <div className="grid grid-cols-7 gap-1 px-3 pb-3 text-center text-xs">
         {WEEKDAYS.map((d) => (
-          <span key={d} className="py-1 font-semibold text-riso-muted">
+          <span key={d} className="py-1 font-semibold text-cozy-ink-soft">
             {d}
           </span>
         ))}
@@ -392,7 +392,7 @@ export function CalendarApp() {
           <span
             key={d}
             className={`grid aspect-square place-items-center ${
-              isToday(d) ? "rounded-full border-2 border-riso-navy bg-riso-pink font-semibold" : ""
+              isToday(d) ? "rounded-full border-2 border-cozy-frame bg-cozy-red font-semibold" : ""
             }`}
           >
             {d}

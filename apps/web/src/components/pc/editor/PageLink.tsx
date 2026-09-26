@@ -25,10 +25,10 @@ function PageLinkView({ node }: ReactNodeViewProps) {
         contentEditable={false}
         disabled={title === null}
         onClick={() => id && pages.open(id)}
-        className="flex w-full items-center gap-2 px-1.5 py-1 text-left hover:bg-riso-yellow/60 disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+        className="flex w-full items-center gap-2 px-1.5 py-1 text-left hover:bg-cozy-paper-dark/60 disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
       >
         <NotesIcon size={18} />
-        <span className="border-b-[1.5px] border-riso-navy/30 font-semibold">
+        <span className="border-b-[1.5px] border-cozy-frame/30 font-semibold">
           {title === null ? "Página eliminada" : title.trim() || "Sin título"}
         </span>
       </button>
