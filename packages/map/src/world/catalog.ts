@@ -1,5 +1,5 @@
 // Catálogo de muebles: solo lo que importa al juego (tamaño, colisión, asientos). El dibujo de cada
-// uno vive en art/furniture.ts, así el servidor no carga arte.
+// uno vive en art/ (furniture.ts los registra todos en DRAW), así el servidor no carga arte.
 import type { Facing } from "./types";
 
 export interface CatalogItem {
@@ -43,7 +43,7 @@ export const CATALOG = {
   fireplace: { name: "Chimenea", size: [1, 2], light: { at: [6, 16, 8], color: "#ff9a4a", radius: 56 } },
   "rug-3x3": { name: "Alfombra", size: [3, 3], solid: false, flat: true },
   "rug-2x3": { name: "Alfombra", size: [2, 3], solid: false, flat: true },
-  // Fase 3b: muebles de la tienda (el dibujo va en art/furniture.ts; mientras no exista se ve una caja).
+  // Fase 3b: muebles de la tienda (dibujos en art/decor.ts).
   cactus: { name: "Cactus", size: [1, 1] },
   "side-table": { name: "Mesita", size: [1, 1] },
   "coat-rack": { name: "Perchero", size: [1, 1] },
@@ -62,7 +62,9 @@ export const CATALOG = {
   "tv-retro": { name: "Tele con consola", size: [1, 1], hasBack: true },
   aquarium: { name: "Pecera", size: [1, 2], light: { at: [8, 16, 18], color: "#7fd4ff", radius: 40 } },
   piano: { name: "Piano", size: [1, 2], hasBack: true },
-  // La tienda de la planta baja (no se venden).
+  // La tienda de la planta baja (no se venden; dibujos en art/shop.ts). Sin dibujo de espaldas: el
+  // frente (caja, cortina, ropa) queda hacia +x con right o left y hacia +y con down o up. Elegir la
+  // orientación que deje el frente libre, no contra una pared.
   "shop-counter": { name: "Mostrador", size: [1, 2] },
   "clothes-rack": { name: "Perchero de ropa", size: [1, 2] },
   "display-shelf": { name: "Estante de la tienda", size: [1, 2] },
