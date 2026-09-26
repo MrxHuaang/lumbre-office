@@ -1,7 +1,7 @@
 // Personaje al azar (botón "Al azar" del editor) y las paletas sugeridas de cada parte. Los colores
 // combinan (piel natural, pelo natural y a veces de fantasía, ropa de la paleta cozy de la cabaña) y
 // no sale nada que se vea roto: dos corbatas, un sombrero aplastando una cresta, una flor en una
-// cabeza calva, la ropa del mismo color que el pantalón…
+// cabeza calva, la ropa del mismo color que el pantalón, unos zapatos que se funden con la pierna…
 import {
   BACK_ITEMS,
   BOTTOMS,
@@ -15,10 +15,13 @@ import {
   PATTERNS,
   SHOES,
   TOPS,
+  type Bottom,
   type HairStyle,
   type HeadItem,
   type Look,
   type NeckItem,
+  type Outfit,
+  type Shoes,
   type Top,
 } from "./look";
 
@@ -115,6 +118,14 @@ export function neckItemsFor(top: Top): NeckItem[] {
   return NECK_ITEMS.filter((n) => !(NO_TIE_TOPS.includes(top) && NECK_TIES.includes(n)));
 }
 
+/**
+ * ¿Los zapatos quedan junto a la piel? Con shorts, falda o vestido se ve la pierna encima del zapato y con
+ * sandalias, el pie; solo el pantalón largo (sin vestido) con zapatos cerrados los separa de la piel.
+ */
+export function shoesTouchSkin(look: { bottom: Bottom; shoes: Shoes; outfit?: Outfit | undefined }): boolean {
+  return look.bottom !== "pants" || look.outfit === "dress" || look.shoes === "sandals";
+}
+
 /** Distancia entre dos colores (0 = iguales), para que dos partes vecinas no se confundan. */
 export function colorDistance(a: string, b: string): number {
   const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -164,6 +175,10 @@ export function randomLook(r: Random = Math.random): Look {
         PATTERNS.filter((p) => p !== "solid"),
       );
   const outfit = chance(r, 0.25) ? pick(r, OUTFITS) : undefined;
+  const bottom = pick(r, BOTTOMS);
+  const shoes = pick(r, SHOES);
+  // El zapato no se puede fundir con lo que tiene al lado: el pantalón y, si se ve, la piel.
+  const shoeColor = pickApart(r, LOOK_SHOES, shoesTouchSkin({ bottom, shoes, outfit }) ? [pants, skin] : [pants]);
 
   return {
     skin,
@@ -182,9 +197,9 @@ export function randomLook(r: Random = Math.random): Look {
     top,
     top2,
     pattern,
-    bottom: pick(r, BOTTOMS),
-    shoes: pick(r, SHOES),
-    shoeColor: pickApart(r, LOOK_SHOES, [pants]),
+    bottom,
+    shoes,
+    shoeColor,
     head: maybe(r, headItemsFor(hairStyle), 0.5),
     face: maybe(r, FACE_ITEMS, 0.7),
     neck: maybe(r, neckItemsFor(top), 0.65),

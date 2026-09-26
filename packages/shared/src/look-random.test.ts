@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HAIR_STYLES, Look, TOPS } from "./look";
+import { HAIR_STYLES, HEAD_ITEMS, Look, TOPS } from "./look";
 import {
   colorDistance,
   HAIR_CLIPS,
@@ -11,6 +11,7 @@ import {
   NO_TIE_TOPS,
   randomLook,
   seededRandom,
+  shoesTouchSkin,
   TALL_HAIR,
 } from "./look-random";
 
@@ -45,6 +46,10 @@ describe("randomLook", () => {
       expect(colorDistance(look.shirt, look.top2!)).toBeGreaterThanOrEqual(MIN_COLOR_DISTANCE);
       expect(colorDistance(look.shirt, look.accent)).toBeGreaterThanOrEqual(MIN_COLOR_DISTANCE);
       expect(colorDistance(look.pants, look.accent)).toBeGreaterThanOrEqual(MIN_COLOR_DISTANCE);
+      // El zapato no se funde con el pantalón ni, si queda a la vista, con la pierna o el pie.
+      expect(colorDistance(look.shoeColor!, look.pants)).toBeGreaterThanOrEqual(MIN_COLOR_DISTANCE);
+      if (shoesTouchSkin({ bottom: look.bottom!, shoes: look.shoes!, outfit: look.outfit }))
+        expect(colorDistance(look.shoeColor!, look.skin)).toBeGreaterThanOrEqual(MIN_COLOR_DISTANCE);
     }
   });
 
@@ -59,12 +64,21 @@ describe("randomLook", () => {
 });
 
 describe("reglas de combinación", () => {
-  it("un peinado alto no lleva sombrero y un calvo no lleva moño ni flor", () => {
+  it("un peinado alto no lleva sombrero y un calvo no lleva lazo ni flor", () => {
     expect(headItemsFor("mohawk")).not.toContain("cap");
     expect(headItemsFor("mohawk")).toContain("headphones");
     expect(headItemsFor("bald")).not.toContain("flower");
     expect(headItemsFor("bald")).toContain("beanie");
-    expect(headItemsFor("short")).toHaveLength(9);
+    expect(headItemsFor("short")).toHaveLength(HEAD_ITEMS.length);
+  });
+
+  it("los zapatos quedan junto a la piel salvo con pantalón largo y zapatos cerrados", () => {
+    expect(shoesTouchSkin({ bottom: "pants", shoes: "sneakers" })).toBe(false);
+    expect(shoesTouchSkin({ bottom: "pants", shoes: "boots", outfit: "jacket" })).toBe(false);
+    expect(shoesTouchSkin({ bottom: "pants", shoes: "sandals" })).toBe(true);
+    expect(shoesTouchSkin({ bottom: "pants", shoes: "boots", outfit: "dress" })).toBe(true);
+    expect(shoesTouchSkin({ bottom: "shorts", shoes: "sneakers" })).toBe(true);
+    expect(shoesTouchSkin({ bottom: "skirt", shoes: "boots" })).toBe(true);
   });
 
   it("la camisa con corbata no lleva otra corbata", () => {
