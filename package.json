@@ -1,0 +1,19 @@
+{
+  "name": "hyvento-office",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "dev": "turbo run dev --parallel --filter=@hyvento/web --filter=@hyvento/server",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "map:generate": "pnpm --filter @hyvento/map generate",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0"
+  }
+}
