@@ -63,8 +63,10 @@ export function officeZoneDef(def: AreaDef, zoneId: string): ZoneDef | undefined
 
 /** ¿Se puede poner este tipo con el editor? (del catálogo, que rote y que no sea un escritorio con PC). */
 export function isPlaceable(type: string): boolean {
-  const item = (CATALOG as Record<string, CatalogItem>)[type];
-  return Boolean(item && !item.fixed && !item.computer);
+  // Solo claves propias: "constructor" o "toString" vienen del prototipo y no son muebles.
+  if (!Object.hasOwn(CATALOG, type)) return false;
+  const item = (CATALOG as Record<string, CatalogItem>)[type]!;
+  return !item.fixed && !item.computer;
 }
 
 /** Tiles que ocupa un mueble en el nivel. */

@@ -175,6 +175,14 @@ describe("validar cambios", () => {
     expect(edit({ action: "remove", itemId: "no-existe" })).toEqual({ ok: false, error: "unknown" });
     expect(edit(place("desk-pc", 13, 6))).toEqual({ ok: false, error: "unknown" });
     expect(edit(place("hair:braids", 13, 6))).toEqual({ ok: false, error: "unknown" });
+    // Claves del prototipo del catálogo: no son muebles (antes rompían con un TypeError).
+    for (const type of ["constructor", "toString", "hasOwnProperty", "__proto__"]) {
+      expect(edit(place(type, 13, 6))).toEqual({ ok: false, error: "unknown" });
+    }
+    // Un mueble guardado con un tipo así se ignora al rearmar el nivel.
+    const junk = { "office-2": { items: [{ id: "x", type: "constructor", x: 13, y: 6, facing: "right" as const }] } };
+    expect(officeFurniture(def, "office-2", junk["office-2"]).some((f) => f.id === "x")).toBe(false);
+    expect(() => decorateArea(def, junk)).not.toThrow();
     // En una oficina ya decorada los ids del mapa ya no existen.
     expect(edit({ action: "remove", itemId: "map-0" }, { "office-2": { items: [] } })).toEqual({ ok: false, error: "unknown" });
     expect(applyDecorEdit({ def, decor: {}, zoneId: "pasillo" }, place("plant", 9, 9))).toEqual({ ok: false, error: "unknown" });
