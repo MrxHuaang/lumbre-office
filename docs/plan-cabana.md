@@ -71,7 +71,7 @@ Misiones: cualquiera publica; otra persona la toma, la entrega y quien la public
 2. ✅ **Economía base**: puntos por presencia y reuniones, tablón de misiones, buzón con racha, ranking semanal.
 3. **Compras y decoración**, en tres partes:
    - 3a ✅ **Cafetería**: menú en la barra (tinto, café con leche, aromática, chocolate con queso, Coca-Cola, pandebono, buñuelo, torta de tres leches, cigarro y los combos "Desayuno": tinto o Coca-Cola con cigarro; 3 a 12 puntos). Lo pedido se lleva en la mano 30 min (los combos, uno en cada mano) y todos lo ven. Solo decorativo. Gastar puntos (`PURCHASE`) nunca deja el saldo en negativo.
-   - 3b **Tienda, probador e inventario**: sala nueva en la mitad sur de la cafetería; ropa nueva de pago (lo actual sigue gratis); muebles nuevos; mochila en el HUD.
+   - 3b ✅ **Tienda, vestidor e inventario**: la planta baja queda con la cafetería al norte y la tienda al sur (mostrador, estantes, percheros y probador). La tienda vende 27 muebles (18 nuevos; con los de la tienda son 22 dibujos nuevos, todos por código); lo comprado va a la mochila (HUD). La ropa es **toda gratis**: peinados, accesorios y conjuntos nuevos, y el probador es un vestidor.
    - 3c **Editor de oficina**: poner, mover, rotar y quitar muebles de la mochila en tu oficina, y cambiar piso y papel tapiz; lo valida el servidor y se ve en vivo.
 4. **Casino**: ruleta, blackjack, caja, límite en `/admin`.
 5. **Social y ocio**: regalos, intercambios, huerto, pesca, arcade, sala de cine.

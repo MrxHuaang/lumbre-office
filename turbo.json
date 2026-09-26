@@ -5,6 +5,6 @@
     "dev": { "cache": false, "persistent": true },
     "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
     "typecheck": { "dependsOn": ["^typecheck"] },
-    "test": {}
+    "test": { "passThroughEnv": ["HYVENTO_TEST_PORT"] }
   }
 }
