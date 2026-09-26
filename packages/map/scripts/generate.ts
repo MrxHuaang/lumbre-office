@@ -33,12 +33,23 @@ const clear = (layer: number[], x: number, y: number) => {
 };
 
 // Suelos
-fill(floor, 1, 1, W - 2, H - 2, T.FLOOR_WOOD);
+for (let y = 1; y <= H - 2; y++)
+  for (let x = 1; x <= W - 2; x++) put(floor, x, y, x % 2 ? T.FLOOR_WOOD_JOINT : T.FLOOR_WOOD);
 const OFFICES = [0, 1, 2, 3].map((i) => 1 + 7 * i); // x0 de cada oficina (interior de 6 tiles)
 for (const x0 of OFFICES) fill(floor, x0, 2, x0 + 5, 7, T.FLOOR_CARPET);
 fill(floor, 29, 2, 38, 10, T.FLOOR_MEETING);
-fill(floor, 1, 16, 16, 26, T.FLOOR_LAB);
-fill(floor, 22, 18, 27, 21, T.RUG);
+fill(floor, 1, 16, 16, 26, T.FLOOR_COWORK);
+// Alfombra de la zona común: borde de 9 piezas alrededor del centro.
+for (let y = 18; y <= 21; y++)
+  for (let x = 22; x <= 27; x++) {
+    const col = x === 22 ? 0 : x === 27 ? 2 : 1;
+    const row = y === 18 ? 0 : y === 21 ? 2 : 1;
+    put(floor, x, y, [
+      [T.RUG_TL, T.RUG_T, T.RUG_TR],
+      [T.RUG_L, T.RUG_C, T.RUG_R],
+      [T.RUG_BL, T.RUG_B, T.RUG_BR],
+    ][row]![col]!);
+  }
 
 // Muros perimetrales
 fill(walls, 0, 0, W - 1, 0, T.WALL_TOP);
@@ -51,14 +62,14 @@ for (const x0 of OFFICES) {
   put(walls, x0 + 2, 1, T.WINDOW);
   put(walls, x0 + 3, 1, T.WINDOW);
 }
-put(walls, 33, 1, T.WHITEBOARD);
-put(walls, 34, 1, T.WHITEBOARD);
+put(walls, 33, 1, T.WHITEBOARD_L);
+put(walls, 34, 1, T.WHITEBOARD_R);
 put(walls, 31, 1, T.WINDOW);
 put(walls, 36, 1, T.WINDOW);
 
-// Oficinas: tabiques verticales y muro sur con puerta de 2 tiles
+// Oficinas: frente de vidrio con puerta de 2 tiles y tabiques entre ellas
+fill(walls, 1, 8, 27, 8, T.GLASS);
 for (const x0 of OFFICES) fill(walls, x0 + 6, 1, x0 + 6, 8, T.WALL_TOP);
-fill(walls, 1, 8, 27, 8, T.WALL_TOP);
 for (const x0 of OFFICES) {
   for (const dx of [2, 3]) {
     clear(walls, x0 + dx, 8);
@@ -66,16 +77,16 @@ for (const x0 of OFFICES) {
   }
 }
 
-// Sala de reuniones: tabique x=28 y muro sur con puerta
+// Sala de reuniones: tabique x=28 y frente de vidrio con puerta
 fill(walls, 28, 1, 28, 11, T.WALL_TOP);
-fill(walls, 29, 11, 38, 11, T.WALL_TOP);
+fill(walls, 29, 11, 38, 11, T.GLASS);
 for (const x of [33, 34]) {
   clear(walls, x, 11);
   put(floor, x, 11, T.DOOR);
 }
 
-// Coworking: muro norte (puerta x=8..9) y muro este (puerta y=20..21)
-fill(walls, 1, 15, 17, 15, T.WALL_TOP);
+// Coworking: frente de vidrio al norte (puerta x=8..9) y muro este (puerta y=20..21)
+fill(walls, 1, 15, 16, 15, T.GLASS);
 fill(walls, 17, 15, 17, 26, T.WALL_TOP);
 for (const x of [8, 9]) {
   clear(walls, x, 15);
@@ -83,7 +94,7 @@ for (const x of [8, 9]) {
 }
 for (const y of [20, 21]) {
   clear(walls, 17, y);
-  put(floor, 17, y, T.DOOR);
+  put(floor, 17, y, T.DOOR_V);
 }
 
 // ---------- Mobiliario ----------
@@ -97,7 +108,13 @@ for (const x0 of OFFICES) {
 }
 
 // Sala de reuniones: mesa de 5x2 y 6 sillas
-fill(furniture, 32, 5, 36, 6, T.TABLE);
+put(furniture, 32, 5, T.TABLE_TL);
+fill(furniture, 33, 5, 35, 5, T.TABLE_T);
+put(furniture, 34, 5, T.TABLE_PHONE);
+put(furniture, 36, 5, T.TABLE_TR);
+put(furniture, 32, 6, T.TABLE_BL);
+fill(furniture, 33, 6, 35, 6, T.TABLE_B);
+put(furniture, 36, 6, T.TABLE_BR);
 const MEETING_SEATS: [number, number][] = [
   [32, 4],
   [34, 4],
@@ -106,7 +123,8 @@ const MEETING_SEATS: [number, number][] = [
   [34, 7],
   [36, 7],
 ];
-for (const [x, y] of MEETING_SEATS) put(furniture, x, y, T.CHAIR);
+// Las sillas de arriba miran hacia la mesa (abajo).
+for (const [x, y] of MEETING_SEATS) put(furniture, x, y, y < 5 ? T.CHAIR_DOWN : T.CHAIR);
 for (const [x, y] of [
   [29, 2],
   [38, 2],
@@ -125,9 +143,9 @@ const COWORK_DESKS: [number, number][] = [
   [13, 23],
 ];
 for (const [x, y] of COWORK_DESKS) {
-  put(furniture, x, y, T.LAB_DESK);
-  put(furniture, x + 1, y, T.LAB_DESK);
-  put(furniture, x, y + 1, T.LAB_CHAIR);
+  put(furniture, x, y, T.COWORK_DESK_L);
+  put(furniture, x + 1, y, T.COWORK_DESK_R);
+  put(furniture, x, y + 1, T.CHAIR);
 }
 fill(furniture, 12, 16, 14, 16, T.TASKBOARD);
 for (const [x, y] of [
@@ -137,9 +155,17 @@ for (const [x, y] of [
 ] as const)
   put(furniture, x, y, T.PLANT);
 
-// Zona común: sofás, café, hot desks, plantas
-fill(furniture, 23, 17, 26, 17, T.SOFA);
-fill(furniture, 23, 22, 26, 22, T.SOFA);
+// Zona común: sofás enfrentados con mesa de centro, café, hot desks, plantas
+put(furniture, 23, 17, T.SOFA_TOP_L);
+fill(furniture, 24, 17, 25, 17, T.SOFA_TOP_M);
+put(furniture, 26, 17, T.SOFA_TOP_R);
+put(furniture, 23, 22, T.SOFA_BOTTOM_L);
+fill(furniture, 24, 22, 25, 22, T.SOFA_BOTTOM_M);
+put(furniture, 26, 22, T.SOFA_BOTTOM_R);
+put(furniture, 24, 19, T.COFFEE_TABLE_TL);
+put(furniture, 25, 19, T.COFFEE_TABLE_TR);
+put(furniture, 24, 20, T.COFFEE_TABLE_BL);
+put(furniture, 25, 20, T.COFFEE_TABLE_BR);
 fill(furniture, 35, 12, 37, 12, T.COFFEE); // deja libre la puerta de la sala (x=33..34)
 for (const x of [31, 35]) {
   put(furniture, x, 18, T.DESK_PC);

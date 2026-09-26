@@ -66,6 +66,28 @@ export class Canvas {
     this.rect(x + 1, y + 1, w - 2, h - 2, fill);
   }
 
+  /** Rectángulo relleno con esquinas redondeadas de radio `r`. */
+  roundRect(x: number, y: number, w: number, h: number, r: number, c: RGBA) {
+    for (let j = y; j < y + h; j++)
+      for (let i = x; i < x + w; i++) {
+        const cx = i < x + r ? x + r : i >= x + w - r ? x + w - r - 1 : i;
+        const cy = j < y + r ? y + r : j >= y + h - r ? y + h - r - 1 : j;
+        if ((i - cx) ** 2 + (j - cy) ** 2 <= r * r) this.set(i, j, c);
+      }
+  }
+
+  /** Copia (sin mezclar) una región de otro canvas. */
+  blit(src: Canvas, sx: number, sy: number, w: number, h: number, dx: number, dy: number) {
+    const s = src.png.data;
+    const d = this.png.data;
+    for (let j = 0; j < h; j++)
+      for (let i = 0; i < w; i++) {
+        const si = ((sy + j) * src.width + sx + i) * 4;
+        const di = ((dy + j) * this.width + dx + i) * 4;
+        for (let k = 0; k < 4; k++) d[di + k] = s[si + k]!;
+      }
+  }
+
   ellipse(cx: number, cy: number, rx: number, ry: number, c: RGBA) {
     for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++)
       for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
