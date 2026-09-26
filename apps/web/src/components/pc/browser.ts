@@ -20,7 +20,8 @@ export const FAVORITES_MAX = 40;
 
 /** Favoritos que vienen con el PC (no se pueden borrar). */
 export const DEFAULT_FAVORITES: Favorite[] = [
-  { id: "d-lofi", title: "Radio lo-fi", url: "https://www.youtube.com/watch?v=jfKfPfyJRdk" },
+  // El directo de Lofi Girl. Ojo: cuando el canal reinicia la transmisión cambia el id (se ve "no disponible").
+  { id: "d-lofi", title: "Radio lo-fi", url: "https://www.youtube.com/watch?v=rFZHOHl-L8A" },
   { id: "d-excalidraw", title: "Excalidraw", url: "https://excalidraw.com/" },
   { id: "d-wikipedia", title: "Wikipedia", url: "https://es.wikipedia.org/wiki/Wikipedia:Portada" },
 ];
