@@ -1,14 +1,18 @@
 import {
+  allZones,
   canStandAt,
+  canWalkBetween,
+  getWorld,
+  nearPortal,
   placeAt,
   SEAT_REACH_TILES,
   seatAtPoint,
   spawnPoint,
   zoneAt,
   type OfficeMap,
+  type World,
   type Zone,
 } from "@hyvento/map";
-import { loadOfficeMap } from "@hyvento/map/node";
 import {
   canHear,
   ChatSendMessage,
@@ -23,6 +27,10 @@ import {
   OfficeLockMessage,
   PLAYER_SPEED,
   StatusMessage,
+  TravelMessage,
+  POINTS,
+  type PointReason,
+  type PointsAwarded,
   verifyGameToken,
   type ChatEvent,
   type GameTokenClaims,
@@ -40,6 +48,8 @@ import { OfficeInfo, OfficeState, Player } from "../state";
 interface UserData {
   lastMoveAt: number;
   chatTimes: number[];
+  /** Última actividad real (mouse, teclado, moverse): sin ella no se ganan puntos de presencia. */
+  lastActiveAt: number;
 }
 
 interface PendingKnock {
@@ -60,9 +70,6 @@ function gameTokenSecret() {
   return secret;
 }
 
-let sharedMap: OfficeMap | undefined;
-const getMap = () => (sharedMap ??= loadOfficeMap());
-
 export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Persistencia inyectada por `createGameServer`. */
   static repo: GameRepository;
@@ -73,10 +80,19 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadOffices()));
   }
 
+  /** La web cambió el saldo de alguien (buzón, misiones): refrescarlo en vivo. */
+  static async reloadPointsEverywhere(userId: string) {
+    await Promise.all([...OfficeRoom.instances].map((r) => r.reloadPoints(userId)));
+  }
+
+  /** Cada cuánto se reparten puntos de presencia y cuánto dura la actividad (los tests los acortan). */
+  static presenceTickMs: number = POINTS.tickMs;
+  static idleMs: number = POINTS.idleMs;
+
   maxClients = 64;
   patchRate = 50; // 20 Hz
 
-  private map!: OfficeMap;
+  private world!: World;
   private zonesById = new Map<string, Zone>();
   private globalHistory: ChatEvent[] = [];
   private pendingReconnections = new Map<string, Deferred<Client>>();
@@ -88,8 +104,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   async onCreate() {
-    this.map = getMap();
-    for (const z of this.map.zones) this.zonesById.set(z.id, z);
+    this.world = getWorld();
+    for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
     this.setState(new OfficeState());
     OfficeRoom.instances.add(this);
 
@@ -100,8 +116,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
+    this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
+    this.onMessage(MSG.activity, (client) => this.markActive(client));
+    this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
-    const officeZones = this.map.zones.filter((z) => z.type === "office");
+    const officeZones = allZones(this.world).filter((z) => z.type === "office");
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
     await this.reloadOffices();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
@@ -124,22 +143,27 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   async onJoin(client: Client<UserData>, _options: unknown, auth: GameTokenClaims) {
     this.removeOtherPresences(auth.sub, client.sessionId);
 
-    const spawn = spawnPoint(this.map);
-    const pos = this.freeSpotNear(spawn.x, spawn.y + this.map.tileSize / 2 - 2);
+    // Todos aparecen en el jardín, frente a la cabaña.
+    const area = this.world.spawnArea;
+    const map = this.mapOf(area);
+    const spawn = spawnPoint(map);
+    const pos = this.freeSpotNear(map, spawn.x, spawn.y);
 
     const player = new Player();
     player.userId = auth.sub;
     player.name = auth.name;
     player.avatar = auth.avatar;
     player.look = auth.look ? JSON.stringify(auth.look) : "";
+    player.area = area;
     player.x = pos.x;
     player.y = pos.y;
-    player.zoneId = zoneAt(this.map, pos.x, pos.y)?.id ?? "";
-    player.place = placeAt(this.map, pos.x, pos.y);
+    player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
+    player.place = placeAt(map, pos.x, pos.y);
     player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
+    player.points = await this.repo.getPoints(auth.sub).catch(() => 0);
     this.state.players.set(client.sessionId, player);
 
-    client.userData = { lastMoveAt: Date.now(), chatTimes: [] };
+    client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now() };
     client.send(MSG.chatHistory, this.globalHistory);
   }
 
@@ -195,7 +219,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** ¿Puede este jugador estar en (x, y)? Bloquea oficinas cerradas a quien no es dueño ni invitado. */
   private canAccess(player: Player, x: number, y: number): boolean {
-    const zone = zoneAt(this.map, x, y);
+    const zone = zoneAt(this.mapOf(player.area), x, y);
     if (zone?.type !== "office") return true;
     const office = this.state.offices.get(zone.id);
     if (!office?.locked || !office.ownerId) return true;
@@ -299,19 +323,24 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     let { dir } = parsed.data;
     const seated = parsed.data.seated ?? false;
 
+    const map = this.mapOf(player.area);
     const now = Date.now();
     const dt = (now - client.userData.lastMoveAt) / 1000;
     client.userData.lastMoveAt = now;
     // Tolerancia: latencia/jitter + mínimo de medio tile. Sentarse y levantarse "saltan" hasta
-    // el asiento (p. ej. del tile de enfrente al sofá), así que ahí se permite algo más.
-    const snap = seated !== player.seated ? this.map.tileSize * SEAT_REACH_TILES : 0;
-    const maxDist = Math.max(this.map.tileSize * 0.75, dt * PLAYER_SPEED * 1.6, snap);
+    // el asiento (p. ej. del tile de enfrente a la silla), así que ahí se permite algo más.
+    const snap = seated !== player.seated ? map.tileSize * SEAT_REACH_TILES : 0;
+    const maxDist = Math.max(map.tileSize * 0.75, dt * PLAYER_SPEED * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
 
-    // Sentado: la posición debe ser la de un asiento libre (los sofás bloquean el paso, así que
-    // no se valida canStandAt) y se mira hacia donde mira el asiento.
-    const seat = seated ? seatAtPoint(this.map, x, y) : undefined;
-    const validSpot = seated ? Boolean(seat) && !this.seatTaken(client.sessionId, x, y) : canStandAt(this.map, x, y);
+    // Sentado: la posición debe ser la de un asiento libre (los muebles bloquean el paso, así que
+    // no se valida canStandAt) y se mira hacia donde mira el asiento. De pie: el tramo desde la
+    // posición anterior no puede cruzar paredes (son bordes delgados entre tiles).
+    const seat = seated ? seatAtPoint(map, x, y) : undefined;
+    const fromSeat = player.seated && !seated;
+    const validSpot = seated
+      ? Boolean(seat) && !this.seatTaken(client.sessionId, x, y)
+      : canStandAt(map, x, y) && (fromSeat || canWalkBetween(map, player.x, player.y, x, y));
     if (seat) dir = seat.facing;
 
     if (dist > maxDist || !validSpot || !this.canAccess(player, x, y)) {
@@ -321,14 +350,42 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
 
     const previousZoneId = player.zoneId;
+    if (x !== player.x || y !== player.y) client.userData.lastActiveAt = now;
     player.x = x;
     player.y = y;
     player.dir = dir;
     player.moving = seated ? false : moving;
     player.seated = seated;
-    player.zoneId = zoneAt(this.map, x, y)?.id ?? "";
-    player.place = placeAt(this.map, x, y);
+    player.zoneId = zoneAt(map, x, y)?.id ?? "";
+    player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
+  }
+
+  /** Pasar a otro nivel por un portal: hay que estar parado junto a él. */
+  private handleTravel(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = TravelMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const map = this.mapOf(player.area);
+    const portal = map.portals.find((p) => p.id === parsed.data.portal);
+    if (!portal || player.seated || !nearPortal(map, portal, player.x, player.y)) {
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
+      return;
+    }
+    const target = this.mapOf(portal.to.area);
+    const ts = target.tileSize;
+    const pos = this.freeSpotNear(target, portal.to.x * ts + ts / 2, portal.to.y * ts + ts / 2);
+    const previousZoneId = player.zoneId;
+    player.area = target.id;
+    player.x = pos.x;
+    player.y = pos.y;
+    player.dir = portal.to.facing;
+    player.moving = false;
+    player.zoneId = zoneAt(target, pos.x, pos.y)?.id ?? "";
+    player.place = placeAt(target, pos.x, pos.y);
+    this.revokeGuestOnExit(player, previousZoneId);
+    client.userData.lastMoveAt = Date.now();
+    client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
   }
 
   /** ¿Hay otra persona sentada en (x, y)? */
@@ -404,6 +461,47 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
+  // ---------- Puntos ----------
+
+  private markActive(client: Client<UserData>) {
+    if (client.userData) client.userData.lastActiveAt = Date.now();
+  }
+
+  /**
+   * Reparte los puntos de presencia: a quien tuvo actividad reciente y no está ausente. En la sala de
+   * reuniones con alguien más, además los de reunión. Los topes diarios los aplica el repositorio.
+   */
+  private async presenceTick() {
+    const now = Date.now();
+    const inZone = new Map<string, number>();
+    for (const p of this.state.players.values()) if (p.zoneId) inZone.set(p.zoneId, (inZone.get(p.zoneId) ?? 0) + 1);
+    for (const client of this.clients) {
+      const player = this.state.players.get(client.sessionId);
+      const data = client.userData as UserData | undefined;
+      if (!player || !data || player.status === "away" || now - data.lastActiveAt > OfficeRoom.idleMs) continue;
+      await this.award(client, player, POINTS.presence, "PRESENCE");
+      const zone = this.zonesById.get(player.zoneId);
+      if (zone?.type === "meeting" && (inZone.get(zone.id) ?? 0) >= 2) await this.award(client, player, POINTS.meeting, "MEETING");
+    }
+  }
+
+  private async award(client: Client, player: Player, amount: number, reason: PointReason) {
+    try {
+      const { awarded, balance } = await this.repo.awardPoints({ userId: player.userId, amount, reason });
+      player.points = balance;
+      if (awarded > 0) client.send(MSG.pointsAwarded, { amount: awarded, reason, balance } satisfies PointsAwarded);
+    } catch (err) {
+      console.error("awardPoints", err);
+    }
+  }
+
+  private async reloadPoints(userId: string) {
+    const players = [...this.state.players.values()].filter((p) => p.userId === userId);
+    if (players.length === 0) return;
+    const balance = await this.repo.getPoints(userId);
+    for (const p of players) p.points = balance;
+  }
+
   // ---------- Utilidades ----------
 
   private removePlayer(sessionId: string) {
@@ -443,18 +541,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   private positioned(p: Player): Positioned {
     const zone = p.zoneId ? this.zonesById.get(p.zoneId) : undefined;
-    return { x: p.x, y: p.y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false };
+    return { area: p.area, x: p.x, y: p.y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false };
   }
 
-  /** Busca un punto libre (sin muros ni otros avatares) alrededor del spawn. */
-  private freeSpotNear(x: number, y: number) {
-    const ts = this.map.tileSize;
+  private mapOf(area: string): OfficeMap {
+    return this.world.areas.get(area) ?? this.world.areas.get(this.world.spawnArea)!;
+  }
+
+  /** Busca un punto libre (sin muros ni otros avatares) cerca de (x, y) en un nivel. */
+  private freeSpotNear(map: OfficeMap, x: number, y: number) {
+    const ts = map.tileSize;
     const occupied = (px: number, py: number) =>
-      [...this.state.players.values()].some((p) => Math.hypot(p.x - px, p.y - py) < ts * 0.6);
+      [...this.state.players.values()].some((p) => p.area === map.id && Math.hypot(p.x - px, p.y - py) < ts * 0.6);
     for (let attempt = 0; attempt < 30; attempt++) {
-      const ox = attempt === 0 ? 0 : Math.round((Math.random() - 0.5) * ts * 5);
+      const ox = attempt === 0 ? 0 : Math.round((Math.random() - 0.5) * ts * 3);
       const oy = attempt === 0 ? 0 : Math.round((Math.random() - 0.5) * ts * 1.5);
-      if (canStandAt(this.map, x + ox, y + oy) && !occupied(x + ox, y + oy)) return { x: x + ox, y: y + oy };
+      if (canStandAt(map, x + ox, y + oy) && !occupied(x + ox, y + oy)) return { x: x + ox, y: y + oy };
     }
     return { x, y };
   }

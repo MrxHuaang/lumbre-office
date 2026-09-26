@@ -1,4 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
+import { findPath, getWorld, officeDoor } from "@hyvento/map";
 import { MSG, signGameToken, type GameTokenClaims } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import type { OfficeState } from "../src/state";
@@ -9,19 +10,21 @@ process.env.GAME_TOKEN_SECRET = SECRET;
 export const TILE = 32;
 /** Centro de un tile en píxeles. */
 export const c = (t: number) => t * TILE + TILE / 2;
+const tileOf = (px: number) => Math.floor(px / TILE);
 
 export const token = (sub: string, name: string, avatar: GameTokenClaims["avatar"] = "ada") =>
   signGameToken({ sub, name, avatar, role: "MEMBER" }, SECRET);
 
 export const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 
-type ServerRoom = Awaited<ReturnType<ColyseusTestServer["createRoom"]>> & { state: OfficeState };
+export type ServerRoom = Awaited<ReturnType<ColyseusTestServer["createRoom"]>> & { state: OfficeState };
 
-/** Mueve a un jugador en pasos pequeños en línea recta (como lo haría el cliente real). */
-export async function walkTo(client: ClientRoom, room: ServerRoom, x: number, y: number) {
-  const p = room.state.players.get(client.sessionId)!;
-  let cx = p.x;
-  let cy = p.y;
+const me = (client: ClientRoom, room: ServerRoom) => room.state.players.get(client.sessionId)!;
+
+/** Envía pasos pequeños en línea recta desde (fromX, fromY) (como lo haría el cliente real). */
+function sendSteps(client: ClientRoom, from: { x: number; y: number }, x: number, y: number) {
+  let cx = from.x;
+  let cy = from.y;
   while (Math.hypot(x - cx, y - cy) > 1) {
     const d = Math.hypot(x - cx, y - cy);
     const step = Math.min(10, d);
@@ -29,24 +32,87 @@ export async function walkTo(client: ClientRoom, room: ServerRoom, x: number, y:
     cy += ((y - cy) / d) * step;
     client.send(MSG.move, { x: cx, y: cy, dir: "down", moving: true });
   }
+  return { x: cx, y: cy };
+}
+
+/** Camina en línea recta hasta (x, y) en px. */
+export async function walkTo(client: ClientRoom, room: ServerRoom, x: number, y: number) {
+  sendSteps(client, me(client, room), x, y);
   await room.waitForNextPatch();
   await tick(20);
 }
 
-/** Recorre una lista de puntos (en tiles) desde la posición actual. */
-export async function walkPath(client: ClientRoom, room: ServerRoom, tiles: [number, number][]) {
-  for (const [tx, ty] of tiles) await walkTo(client, room, c(tx), c(ty));
+/**
+ * Camina hasta un tile siguiendo la ruta del A* del nivel actual (respeta paredes y muebles, no las
+ * oficinas cerradas: esas las rechaza el servidor).
+ */
+export async function walkToTile(client: ClientRoom, room: ServerRoom, tx: number, ty: number) {
+  const p = me(client, room);
+  const map = getWorld().areas.get(p.area)!;
+  const start = { x: tileOf(p.x), y: tileOf(p.y) };
+  const path = findPath(map, start, { x: tx, y: ty });
+  if (!path) throw new Error(`Sin ruta a (${tx}, ${ty}) en ${p.area}`);
+  let pos = sendSteps(client, p, c(start.x), c(start.y));
+  for (const t of path) pos = sendSteps(client, pos, c(t.x), c(t.y));
+  await room.waitForNextPatch();
+  await tick(20);
 }
 
-/** Ruta desde el spawn (fila 13) hasta el interior de la oficina 4 (puerta en x=24, y=8). */
-export const INTO_OFFICE_4: [number, number][] = [
-  [24, 13],
-  [24, 10],
-  [24, 6],
-];
-/** Justo afuera de la puerta de la oficina 4. */
-export const OUTSIDE_OFFICE_4: [number, number][] = [
-  [24, 13],
-  [24, 10],
-];
+/** Va de nivel en nivel por los portales hasta llegar a `area`. */
+export async function goToArea(client: ClientRoom, room: ServerRoom, area: string) {
+  const world = getWorld();
+  for (let hops = 0; hops < 5 && me(client, room).area !== area; hops++) {
+    const current = world.areas.get(me(client, room).area)!;
+    // Siguiente salto por el grafo de portales (BFS).
+    const prev = new Map<string, { from: string; portal: string } | null>([[current.id, null]]);
+    const queue = [current.id];
+    while (queue.length) {
+      const id = queue.shift()!;
+      for (const portal of world.areas.get(id)!.portals)
+        if (!prev.has(portal.to.area)) {
+          prev.set(portal.to.area, { from: id, portal: portal.id });
+          queue.push(portal.to.area);
+        }
+    }
+    let step = prev.get(area);
+    while (step && step.from !== current.id) step = prev.get(step.from);
+    if (!step) throw new Error(`No hay camino a ${area}`);
+    const portal = current.portals.find((p) => p.id === step!.portal)!;
+    await walkToTile(client, room, portal.tiles[0]!.x, portal.tiles[0]!.y);
+    client.send(MSG.travel, { portal: portal.id });
+    await room.waitForNextPatch();
+    await tick(20);
+  }
+}
 
+/** Tile de la puerta (afuera) y uno adentro de una oficina del piso 2 (dos pasos hacia adentro). */
+export function officeTiles(zoneId: string) {
+  const map = getWorld().areas.get("piso-2")!;
+  const zone = map.zones.find((z) => z.id === zoneId)!;
+  const door = officeDoor(zone);
+  const outside = { x: tileOf(door.x), y: tileOf(door.y) };
+  const inZone = (x: number, y: number) =>
+    x * TILE >= zone.x && x * TILE < zone.x + zone.width && y * TILE >= zone.y && y * TILE < zone.y + zone.height;
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const;
+  const [dx, dy] = dirs.find(([dx, dy]) => inZone(outside.x + dx, outside.y + dy))!;
+  return { outside, inside: { x: outside.x + dx * 2, y: outside.y + dy * 2 } };
+}
+
+/** Lleva al jugador a la puerta de una oficina (afuera). */
+export async function toOfficeDoor(client: ClientRoom, room: ServerRoom, zoneId: string) {
+  await goToArea(client, room, "piso-2");
+  const { outside } = officeTiles(zoneId);
+  await walkToTile(client, room, outside.x, outside.y);
+}
+
+/** Lleva al jugador adentro de una oficina (si puede entrar). */
+export async function intoOffice(client: ClientRoom, room: ServerRoom, zoneId: string) {
+  await toOfficeDoor(client, room, zoneId);
+  const { inside } = officeTiles(zoneId);
+  await walkToTile(client, room, inside.x, inside.y);
+}

@@ -7,7 +7,9 @@ export class Player extends Schema {
   @type("string") avatar = "ada";
   /** Personaje personalizado como JSON (Look de @hyvento/shared); "" = usa `avatar`. */
   @type("string") look = "";
-  /** Posición de los pies, en px. */
+  /** Nivel de la cabaña donde está ("jardin", "planta-baja", "piso-2"). */
+  @type("string") area = "";
+  /** Posición de los pies, en px de mundo del nivel. */
   @type("number") x = 0;
   @type("number") y = 0;
   @type("string") dir = "down";
@@ -15,7 +17,9 @@ export class Player extends Schema {
   /** Sentado en la silla/sofá de su posición (mira hacia `dir`). */
   @type("boolean") seated = false;
   @type("string") status = "available";
-  /** Zona actual ("" = pasillo sin zona). Define el aislamiento de chat/audio. */
+  /** Saldo de puntos (lo lleva la base; aquí se refleja para el HUD y el ranking en vivo). */
+  @type("number") points = 0;
+  /** Zona actual ("" = sin zona). Define el aislamiento de chat/audio. */
   @type("string") zoneId = "";
   /** Lugar para mostrar (ver `placeAt`): zona, "door:<zona>" en una entrada, o "". */
   @type("string") place = "";

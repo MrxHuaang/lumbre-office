@@ -49,6 +49,10 @@ export const MoveMessage = z.object({
 });
 export type MoveMessage = z.infer<typeof MoveMessage>;
 
+/** Usar un portal (puerta de la cabaña, escaleras) para pasar a otro nivel. */
+export const TravelMessage = z.object({ portal: z.string().min(1) });
+export type TravelMessage = z.infer<typeof TravelMessage>;
+
 export const ChatScope = z.enum(["proximity", "global"]);
 export type ChatScope = z.infer<typeof ChatScope>;
 
@@ -78,6 +82,8 @@ export interface ChatEvent {
 export interface MoveCorrection {
   x: number;
   y: number;
+  /** Presente cuando el servidor te cambió de nivel (al usar un portal). */
+  area?: string;
 }
 
 // ---------- Oficinas personales ----------
@@ -116,12 +122,17 @@ export const KNOCK_COOLDOWN_MS = 8_000;
 export const INTERNAL_ROUTES = {
   health: "/health",
   officesChanged: "/internal/offices-changed",
+  /** Cambió el saldo de alguien desde la web (buzón, misiones): body `{ userId }`. */
+  pointsChanged: "/internal/points-changed",
 } as const;
 
 /** Nombres de mensajes Colyseus. */
 export const MSG = {
   move: "move",
   moveCorrection: "move:correction",
+  travel: "travel",
+  activity: "activity",
+  pointsAwarded: "points:awarded",
   chatSend: "chat:send",
   chatEvent: "chat:event",
   chatHistory: "chat:history",

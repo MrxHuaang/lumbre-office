@@ -1,5 +1,5 @@
-import { prisma, type PresenceStatus as DbStatus } from "@hyvento/db";
-import { HUMAN_AVATARS, Look, type ChatEvent, type HumanAvatar, type PresenceStatus } from "@hyvento/shared";
+import { awardPoints, prisma, type PresenceStatus as DbStatus } from "@hyvento/db";
+import { HUMAN_AVATARS, Look, type ChatEvent, type HumanAvatar, type PointReason, type PresenceStatus } from "@hyvento/shared";
 import type { GameRepository } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
@@ -81,5 +81,14 @@ export class PrismaRepository implements GameRepository {
         createdAt: new Date(event.ts),
       },
     });
+  }
+
+  async getPoints(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { points: true } });
+    return user?.points ?? 0;
+  }
+
+  awardPoints(input: { userId: string; amount: number; reason: PointReason }) {
+    return awardPoints(prisma, input);
   }
 }

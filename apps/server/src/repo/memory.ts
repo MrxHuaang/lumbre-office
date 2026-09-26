@@ -1,4 +1,4 @@
-import type { ChatEvent, PresenceStatus } from "@hyvento/shared";
+import { DAILY_CAPS, dayStart, type ChatEvent, type PointReason, type PresenceStatus } from "@hyvento/shared";
 import type { GameRepository, OfficeRecord, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
@@ -7,6 +7,8 @@ export class MemoryRepository implements GameRepository {
   statuses = new Map<string, PresenceStatus>();
   profiles = new Map<string, UserProfile>();
   chat: ChatEvent[] = [];
+  /** Libro de puntos en memoria. */
+  ledger: { userId: string; amount: number; reason: PointReason; at: number }[] = [];
 
   async ensureOffices(offices: { zoneId: string; name: string }[]) {
     for (const o of offices) {
@@ -36,6 +38,22 @@ export class MemoryRepository implements GameRepository {
   }
   async saveChat(event: ChatEvent) {
     if (event.scope === "global") this.chat.push(event);
+  }
+
+  async getPoints(userId: string) {
+    return this.ledger.filter((m) => m.userId === userId).reduce((a, m) => a + m.amount, 0);
+  }
+  async awardPoints({ userId, amount, reason }: { userId: string; amount: number; reason: PointReason }) {
+    const now = Date.now();
+    const cap = DAILY_CAPS[reason];
+    if (cap !== null) {
+      const today = this.ledger
+        .filter((m) => m.userId === userId && m.reason === reason && m.at >= dayStart(now))
+        .reduce((a, m) => a + m.amount, 0);
+      amount = Math.min(amount, cap - today);
+    }
+    if (amount > 0) this.ledger.push({ userId, amount, reason, at: now });
+    return { awarded: Math.max(0, amount), balance: await this.getPoints(userId) };
   }
 
   /** Helper de tests: asigna una oficina. */

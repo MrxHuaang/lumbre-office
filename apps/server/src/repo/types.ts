@@ -1,4 +1,4 @@
-import type { ChatEvent, HumanAvatar, Look, PresenceStatus } from "@hyvento/shared";
+import type { ChatEvent, HumanAvatar, Look, PointReason, PresenceStatus } from "@hyvento/shared";
 
 /** Nombre visible y personaje de una persona, como están guardados. */
 export interface UserProfile {
@@ -32,5 +32,9 @@ export interface GameRepository {
   /** Últimos mensajes globales, del más antiguo al más reciente. */
   loadGlobalChat(limit: number): Promise<ChatEvent[]>;
   saveChat(event: ChatEvent, authorUserId: string): Promise<void>;
+  /** Saldo de puntos de alguien (0 si no existe). */
+  getPoints(userId: string): Promise<number>;
+  /** Suma puntos respetando el tope diario del motivo; devuelve lo sumado y el saldo nuevo. */
+  awardPoints(input: { userId: string; amount: number; reason: PointReason }): Promise<{ awarded: number; balance: number }>;
 }
 

@@ -6,7 +6,7 @@ import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { INTO_OFFICE_4, OUTSIDE_OFFICE_4, c, tick, token, walkPath, walkTo } from "./helpers";
+import { intoOffice, officeTiles, tick, toOfficeDoor, token, walkToTile } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -48,7 +48,7 @@ function next<T>(client: ClientRoom, type: string): Promise<T> {
 const zoneOf = (room: { state: OfficeState }, client: ClientRoom) => room.state.players.get(client.sessionId)!.zoneId;
 
 describe("oficinas personales", () => {
-  it("crea las oficinas del mapa y publica dueño y nombre en el estado", async () => {
+  it("crea las oficinas de la cabaña y publica dueño y nombre en el estado", async () => {
     const { room } = await setup();
     expect([...room.state.offices.keys()].sort()).toEqual(["office-1", "office-2", "office-3", "office-4"]);
     const office = room.state.offices.get("office-4")!;
@@ -62,17 +62,17 @@ describe("oficinas personales", () => {
     const corrections: MoveCorrection[] = [];
     bob.onMessage(MSG.moveCorrection, (m: MoveCorrection) => corrections.push(m));
 
-    await walkPath(bob, room, INTO_OFFICE_4);
+    await intoOffice(bob, room, "office-4");
     expect(zoneOf(room, bob)).not.toBe("office-4");
-    expect(corrections.length).toBeGreaterThan(0);
+    expect(corrections.some((m) => m.area === undefined)).toBe(true);
 
-    await walkPath(alice, room, INTO_OFFICE_4);
+    await intoOffice(alice, room, "office-4");
     expect(zoneOf(room, alice)).toBe("office-4");
   });
 
   it("solo la dueña puede cerrar su oficina y quien ya estaba adentro queda como invitado", async () => {
     const { room, alice, bob } = await setup();
-    await walkPath(bob, room, INTO_OFFICE_4);
+    await intoOffice(bob, room, "office-4");
     expect(zoneOf(room, bob)).toBe("office-4");
 
     bob.send(MSG.officeLock, { locked: true }); // Bob no es dueño de ninguna oficina
@@ -90,7 +90,7 @@ describe("oficinas personales", () => {
 
   it("tocar la puerta: si la dueña acepta, el visitante entra; al salir pierde el permiso", async () => {
     const { room, alice, bob } = await setup({ locked: true });
-    await walkPath(bob, room, OUTSIDE_OFFICE_4);
+    await toOfficeDoor(bob, room, "office-4");
 
     const requestP = next<KnockRequest>(alice, MSG.knockRequest);
     bob.send(MSG.knock, { zoneId: "office-4" });
@@ -101,12 +101,13 @@ describe("oficinas personales", () => {
     alice.send(MSG.knockRespond, { requestId: request.requestId, accept: true });
     expect((await resultP).outcome).toBe("accepted");
 
-    await walkTo(bob, room, c(24), c(6));
+    const { inside, outside } = officeTiles("office-4");
+    await walkToTile(bob, room, inside.x, inside.y);
     expect(zoneOf(room, bob)).toBe("office-4");
 
-    await walkPath(bob, room, [[24, 10]]);
+    await walkToTile(bob, room, outside.x, outside.y + 2);
     expect([...room.state.offices.get("office-4")!.guests]).toEqual([]);
-    await walkTo(bob, room, c(24), c(6));
+    await walkToTile(bob, room, inside.x, inside.y);
     expect(zoneOf(room, bob)).not.toBe("office-4");
   });
 
