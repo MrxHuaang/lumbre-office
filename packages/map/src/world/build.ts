@@ -21,7 +21,7 @@ export interface Zone {
   doorEdge?: { x: number; y: number };
 }
 
-export type PointType = "spawn" | "screen" | "task_board" | "mailbox";
+export type PointType = "spawn" | "screen" | "task_board" | "mailbox" | "cafe_counter";
 
 export interface MapPoint {
   id: number;

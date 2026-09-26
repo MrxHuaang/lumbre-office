@@ -3,6 +3,7 @@ import {
   canStandAt,
   canWalkBetween,
   getWorld,
+  nearPointOfType,
   nearPortal,
   placeAt,
   SEAT_REACH_TILES,
@@ -14,6 +15,10 @@ import {
   type Zone,
 } from "@hyvento/map";
 import {
+  CAFE,
+  CafeOrderMessage,
+  cafeItem,
+  cafeRefId,
   canHear,
   ChatSendMessage,
   CLOSE_CODE,
@@ -32,6 +37,7 @@ import {
   type PointReason,
   type PointsAwarded,
   verifyGameToken,
+  type CafeOrderResult,
   type ChatEvent,
   type GameTokenClaims,
   type KnockOutcome,
@@ -50,6 +56,8 @@ interface UserData {
   chatTimes: number[];
   /** Última actividad real (mouse, teclado, moverse): sin ella no se ganan puntos de presencia. */
   lastActiveAt: number;
+  /** Último pedido en la cafetería (para no cobrar dos veces por un doble clic). */
+  lastOrderAt?: number;
 }
 
 interface PendingKnock {
@@ -88,6 +96,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Cada cuánto se reparten puntos de presencia y cuánto dura la actividad (los tests los acortan). */
   static presenceTickMs: number = POINTS.tickMs;
   static idleMs: number = POINTS.idleMs;
+  /** Cuánto dura en la mano lo pedido en la cafetería (los tests lo acortan). */
+  static heldMs: number = CAFE.heldMs;
 
   maxClients = 64;
   patchRate = 50; // 20 Hz
@@ -98,6 +108,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private pendingReconnections = new Map<string, Deferred<Client>>();
   private pendingKnocks = new Map<string, PendingKnock>();
   private lastKnockAt = new Map<string, number>(); // `${userId}:${zoneId}` → ts
+  /** Lo que cada persona lleva en la mano (por userId: sobrevive a recargar la página). */
+  private heldByUser = new Map<string, { item: string; timer: { clear(): void } }>();
 
   private get repo() {
     return OfficeRoom.repo;
@@ -118,6 +130,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
     this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
+    this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -161,6 +174,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.place = placeAt(map, pos.x, pos.y);
     player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
     player.points = await this.repo.getPoints(auth.sub).catch(() => 0);
+    player.held = this.heldByUser.get(auth.sub)?.item ?? "";
     this.state.players.set(client.sessionId, player);
 
     client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now() };
@@ -500,6 +514,48 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (players.length === 0) return;
     const balance = await this.repo.getPoints(userId);
     for (const p of players) p.points = balance;
+  }
+
+  // ---------- Cafetería ----------
+
+  /** Pedido en la barra: hay que estar junto a ella y tener saldo. Lo pedido se lleva en la mano un rato. */
+  private async handleCafeOrder(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = CafeOrderMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const item = cafeItem(parsed.data.item)!;
+    const reply = (r: CafeOrderResult) => client.send(MSG.cafeResult, r);
+
+    const now = Date.now();
+    if (now - (client.userData.lastOrderAt ?? 0) < CAFE.orderCooldownMs) return reply({ ok: false, item: item.id, error: "busy" });
+    if (!nearPointOfType(this.mapOf(player.area), "cafe_counter", player.x, player.y)) {
+      return reply({ ok: false, item: item.id, error: "far" });
+    }
+    client.userData.lastOrderAt = now;
+
+    const userId = player.userId;
+    let result: { ok: boolean; balance: number };
+    try {
+      result = await this.repo.spendPoints({ userId, amount: item.price, reason: "PURCHASE", refId: cafeRefId(item.id) });
+    } catch (err) {
+      console.error("spendPoints", err);
+      return reply({ ok: false, item: item.id, error: "failed" });
+    }
+    for (const p of this.state.players.values()) if (p.userId === userId) p.points = result.balance;
+    if (!result.ok) return reply({ ok: false, item: item.id, error: "funds" });
+    this.setHeld(userId, item.id);
+    reply({ ok: true, item: item.id, balance: result.balance });
+  }
+
+  /** Pone algo en la mano de alguien (reemplaza lo anterior) y lo quita solo al rato. */
+  private setHeld(userId: string, item: string) {
+    this.heldByUser.get(userId)?.timer.clear();
+    const timer = this.clock.setTimeout(() => {
+      this.heldByUser.delete(userId);
+      for (const p of this.state.players.values()) if (p.userId === userId) p.held = "";
+    }, OfficeRoom.heldMs);
+    this.heldByUser.set(userId, { item, timer });
+    for (const p of this.state.players.values()) if (p.userId === userId) p.held = item;
   }
 
   // ---------- Utilidades ----------

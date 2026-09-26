@@ -201,7 +201,12 @@ const plantaBaja: AreaDef = {
       to: { area: "piso-2", x: 9, y: 5, facing: "down" },
     },
   ],
-  points: [{ type: "screen", name: "Pantalla de la sala", x: 4, y: 0, zone: "meeting-main" }],
+  points: [
+    { type: "screen", name: "Pantalla de la sala", x: 4, y: 0, zone: "meeting-main" },
+    // Frente a la cafetera y a la vitrina, entre los taburetes: ahí se pide.
+    { type: "cafe_counter", name: "Barra", x: 11, y: 2 },
+    { type: "cafe_counter", name: "Barra", x: 13, y: 2 },
+  ],
 };
 
 // ---------- Piso 2: oficinas ----------

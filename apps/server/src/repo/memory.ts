@@ -8,7 +8,7 @@ export class MemoryRepository implements GameRepository {
   profiles = new Map<string, UserProfile>();
   chat: ChatEvent[] = [];
   /** Libro de puntos en memoria. */
-  ledger: { userId: string; amount: number; reason: PointReason; at: number }[] = [];
+  ledger: { userId: string; amount: number; reason: PointReason; at: number; refId?: string }[] = [];
 
   async ensureOffices(offices: { zoneId: string; name: string }[]) {
     for (const o of offices) {
@@ -54,6 +54,12 @@ export class MemoryRepository implements GameRepository {
     }
     if (amount > 0) this.ledger.push({ userId, amount, reason, at: now });
     return { awarded: Math.max(0, amount), balance: await this.getPoints(userId) };
+  }
+  async spendPoints({ userId, amount, reason, refId }: { userId: string; amount: number; reason: PointReason; refId?: string }) {
+    const balance = await this.getPoints(userId);
+    if (balance < amount) return { ok: false, balance };
+    this.ledger.push({ userId, amount: -amount, reason, at: Date.now(), refId });
+    return { ok: true, balance: balance - amount };
   }
 
   /** Helper de tests: asigna una oficina. */

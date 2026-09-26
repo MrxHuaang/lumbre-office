@@ -1,6 +1,6 @@
 import { nearestFreeTile } from "./pathfinding";
 import { AREAS, SPAWN_AREA } from "./world/areas";
-import { buildArea, step, type OfficeMap, type Portal, type Seat, type Zone } from "./world/build";
+import { buildArea, step, type OfficeMap, type PointType, type Portal, type Seat, type Zone } from "./world/build";
 import type { Facing } from "./world/types";
 
 export * from "./pathfinding";
@@ -30,6 +30,8 @@ export function allZones(w: World = getWorld()): Zone[] {
 export const SEAT_REACH_TILES = 1.5;
 /** Distancia máxima (en tiles) al centro de un portal para usarlo. */
 export const PORTAL_REACH_TILES = 1.25;
+/** Distancia (en tiles) a la que se usa un objeto interactivo (buzón, tablón, barra de la cafetería). */
+export const INTERACT_REACH_TILES = 1.4;
 
 /** Caja de colisión de los pies del avatar, centrada en su posición (x, y = pies). */
 export const FEET_BOX = { halfWidth: 6, top: -6, bottom: 7 } as const;
@@ -186,6 +188,12 @@ export function seatStandSpot(map: OfficeMap, seat: Seat): { x: number; y: numbe
 
 export function pointsOfType(map: OfficeMap, type: string) {
   return map.points.filter((p) => p.type === type);
+}
+
+/** ¿Está (x, y) al alcance de algún punto de ese tipo (la barra, el buzón)? */
+export function nearPointOfType(map: OfficeMap, type: PointType, x: number, y: number): boolean {
+  const reach = INTERACT_REACH_TILES * map.tileSize;
+  return pointsOfType(map, type).some((p) => Math.hypot(p.x - x, p.y - y) <= reach);
 }
 
 export function spawnPoint(map: OfficeMap) {

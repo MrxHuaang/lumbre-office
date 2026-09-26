@@ -19,6 +19,8 @@ export class Player extends Schema {
   @type("string") status = "available";
   /** Saldo de puntos (lo lleva la base; aquí se refleja para el HUD y el ranking en vivo). */
   @type("number") points = 0;
+  /** Lo que lleva en la mano, pedido en la cafetería (id de CAFE_MENU; "" = nada). */
+  @type("string") held = "";
   /** Zona actual ("" = sin zona). Define el aislamiento de chat/audio. */
   @type("string") zoneId = "";
   /** Lugar para mostrar (ver `placeAt`): zona, "door:<zona>" en una entrada, o "". */

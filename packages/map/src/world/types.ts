@@ -74,7 +74,7 @@ export interface PortalDef {
 }
 
 export interface PointDef {
-  type: "spawn" | "screen" | "task_board" | "mailbox";
+  type: "spawn" | "screen" | "task_board" | "mailbox" | "cafe_counter";
   name: string;
   x: number;
   y: number;

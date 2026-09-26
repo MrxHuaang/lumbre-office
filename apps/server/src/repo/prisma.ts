@@ -1,4 +1,4 @@
-import { awardPoints, prisma, type PresenceStatus as DbStatus } from "@hyvento/db";
+import { awardPoints, prisma, spendPoints, type PresenceStatus as DbStatus } from "@hyvento/db";
 import { HUMAN_AVATARS, Look, type ChatEvent, type HumanAvatar, type PointReason, type PresenceStatus } from "@hyvento/shared";
 import type { GameRepository } from "./types";
 
@@ -90,5 +90,9 @@ export class PrismaRepository implements GameRepository {
 
   awardPoints(input: { userId: string; amount: number; reason: PointReason }) {
     return awardPoints(prisma, input);
+  }
+
+  spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }) {
+    return spendPoints(prisma, input);
   }
 }
