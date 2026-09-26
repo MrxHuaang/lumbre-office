@@ -1,4 +1,11 @@
-import type { ChatEvent, PresenceStatus } from "@hyvento/shared";
+import type { ChatEvent, HumanAvatar, Look, PresenceStatus } from "@hyvento/shared";
+
+/** Nombre visible y personaje de una persona, como están guardados. */
+export interface UserProfile {
+  name: string;
+  avatar: HumanAvatar;
+  look: Look | null;
+}
 
 export interface OfficeRecord {
   zoneId: string;
@@ -19,6 +26,8 @@ export interface GameRepository {
   listOffices(): Promise<OfficeRecord[]>;
   setOfficeLocked(zoneId: string, locked: boolean): Promise<void>;
   getUserStatus(userId: string): Promise<PresenceStatus | null>;
+  /** Perfil guardado (para reflejar cambios hechos desde la web sin reconectar). */
+  getUserProfile(userId: string): Promise<UserProfile | null>;
   setUserStatus(userId: string, status: PresenceStatus): Promise<void>;
   /** Últimos mensajes globales, del más antiguo al más reciente. */
   loadGlobalChat(limit: number): Promise<ChatEvent[]>;

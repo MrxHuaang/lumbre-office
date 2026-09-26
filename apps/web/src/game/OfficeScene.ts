@@ -224,6 +224,7 @@ export class OfficeScene extends Phaser.Scene {
     // Cambios de personaje en vivo (el editor de la oficina), también para mí.
     p$.listen("look", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("avatar", () => avatar.setAppearance(this.textureFor(player)));
+    p$.listen("name", (name) => avatar.setName(name));
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;

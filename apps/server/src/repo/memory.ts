@@ -1,10 +1,11 @@
 import type { ChatEvent, PresenceStatus } from "@hyvento/shared";
-import type { GameRepository, OfficeRecord } from "./types";
+import type { GameRepository, OfficeRecord, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
   offices = new Map<string, OfficeRecord>();
   statuses = new Map<string, PresenceStatus>();
+  profiles = new Map<string, UserProfile>();
   chat: ChatEvent[] = [];
 
   async ensureOffices(offices: { zoneId: string; name: string }[]) {
@@ -23,6 +24,9 @@ export class MemoryRepository implements GameRepository {
   }
   async getUserStatus(userId: string) {
     return this.statuses.get(userId) ?? null;
+  }
+  async getUserProfile(userId: string) {
+    return this.profiles.get(userId) ?? null;
   }
   async setUserStatus(userId: string, status: PresenceStatus) {
     this.statuses.set(userId, status);

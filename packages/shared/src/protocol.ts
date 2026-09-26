@@ -61,9 +61,6 @@ export type ChatSendMessage = z.infer<typeof ChatSendMessage>;
 export const StatusMessage = z.object({ status: z.enum(PRESENCE_STATUSES) });
 export type StatusMessage = z.infer<typeof StatusMessage>;
 
-/** Cambio de personaje en vivo desde la oficina (la web ya lo guardó en la base). */
-export const AppearanceMessage = z.object({ avatar: z.enum(HUMAN_AVATARS), look: Look.nullable() });
-export type AppearanceMessage = z.infer<typeof AppearanceMessage>;
 
 // ---------- Servidor → cliente ----------
 
@@ -129,7 +126,8 @@ export const MSG = {
   chatEvent: "chat:event",
   chatHistory: "chat:history",
   status: "status",
-  appearance: "appearance",
+  /** La web guardó el perfil (nombre o personaje): el servidor lo vuelve a leer de la base. */
+  profileChanged: "profile:changed",
   officeLock: "office:lock",
   knock: "office:knock",
   knockRequest: "office:knock:request",

@@ -304,26 +304,26 @@ describe("OfficeRoom: personaje", () => {
     expect(JSON.parse(p.look)).toEqual(look);
   });
 
-  it("cambia de personaje en vivo y vuelve al fijo; ignora looks inválidos", async () => {
-    const { room, alice } = await setup();
+  it("al guardar el perfil en la web, la sala refleja el nombre y el personaje guardados", async () => {
+    const { room, alice, bob } = await setup();
     const me = () => room.state.players.get(alice.sessionId)!;
     expect(me().look).toBe("");
 
-    alice.send(MSG.appearance, { avatar: "carla", look });
+    repo.profiles.set("u-alice", { name: "Alicia", avatar: "carla", look });
+    alice.send(MSG.profileChanged);
     await room.waitForNextPatch();
     await tick();
+    expect(me().name).toBe("Alicia");
     expect(me().avatar).toBe("carla");
     expect(JSON.parse(me().look).hairStyle).toBe("curly");
 
-    alice.send(MSG.appearance, { avatar: "carla", look: { ...look, skin: "rojo" } });
-    await room.waitForNextPatch();
-    await tick();
-    expect(JSON.parse(me().look).skin).toBe("#e0ac69");
-
-    alice.send(MSG.appearance, { avatar: "dario", look: null });
+    repo.profiles.set("u-alice", { name: "Alicia", avatar: "dario", look: null });
+    alice.send(MSG.profileChanged);
     await room.waitForNextPatch();
     await tick();
     expect(me().avatar).toBe("dario");
     expect(me().look).toBe("");
+    // Solo cambia quien avisó.
+    expect(room.state.players.get(bob.sessionId)!.name).toBe("Bob");
   });
 });

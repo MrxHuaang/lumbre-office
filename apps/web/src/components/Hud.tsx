@@ -2,7 +2,6 @@
 
 import { placeLabel } from "@hyvento/map";
 import { PRESENCE_STATUSES, type PresenceStatus } from "@hyvento/shared";
-import Link from "next/link";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMediaStore } from "@/game/media";
@@ -21,6 +20,7 @@ interface HudProps {
   isAdmin: boolean;
   onEditProfile: () => void;
   onEditCharacter: () => void;
+  onAdmin: () => void;
   onLogout: () => void;
 }
 
@@ -30,7 +30,7 @@ const useLabelOf = () => {
 };
 
 /** Fichas de arriba a la izquierda: marca, dónde estás, a quién oyes, estado y menú. */
-export function Hud({ isAdmin, onEditProfile, onEditCharacter, onLogout }: HudProps) {
+export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout }: HudProps) {
   const zone = useOfficeStore((s) => s.zone);
   const players = useOfficeStore((s) => s.players);
   const sessionId = useOfficeStore((s) => s.sessionId);
@@ -101,7 +101,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onLogout }: HudPr
           <div className="riso-panel absolute top-full right-0 z-30 mt-3 w-48 p-1" onClick={() => setShowMenu(false)}>
             <MenuItem onClick={onEditCharacter}>Mi personaje</MenuItem>
             <MenuItem onClick={onEditProfile}>Editar perfil</MenuItem>
-            {isAdmin && <MenuItem href="/admin">Administrar equipo</MenuItem>}
+            {isAdmin && <MenuItem onClick={onAdmin}>Administrar equipo</MenuItem>}
             <MenuItem onClick={onLogout}>Cerrar sesión</MenuItem>
           </div>
         )}
@@ -198,14 +198,9 @@ function StatusDot({ status, title }: { status: PresenceStatus; title?: string }
   );
 }
 
-function MenuItem({ children, onClick, href }: { children: React.ReactNode; onClick?: () => void; href?: string }) {
-  const cls = "block w-full px-3 py-2 text-left text-[13px] font-semibold hover:bg-riso-yellow";
-  return href ? (
-    <Link href={href} className={cls}>
-      {children}
-    </Link>
-  ) : (
-    <button onClick={onClick} className={cls}>
+function MenuItem({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="block w-full px-3 py-2 text-left text-[13px] font-semibold hover:bg-riso-yellow">
       {children}
     </button>
   );

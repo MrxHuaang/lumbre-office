@@ -4,8 +4,10 @@ import { AdminView } from "./AdminView";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+/** `?embed=1`: dentro de la ventana "Administrar equipo" de la oficina (sin cabecera ni enlace de vuelta). */
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ embed?: string }> }) {
   await requireAdmin();
+  const { embed } = await searchParams;
   const [users, invites, offices] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },
@@ -14,5 +16,5 @@ export default async function AdminPage() {
     prisma.invite.findMany({ where: { acceptedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.office.findMany({ orderBy: { zoneId: "asc" }, select: { zoneId: true, name: true, ownerId: true, isLocked: true } }),
   ]);
-  return <AdminView users={users} invites={invites} offices={offices} />;
+  return <AdminView users={users} invites={invites} offices={offices} embedded={embed === "1"} />;
 }

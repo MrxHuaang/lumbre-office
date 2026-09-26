@@ -1,5 +1,4 @@
 import {
-  type AppearanceMessage,
   CLOSE_CODE,
   MSG,
   ROOM_NAME,
@@ -123,9 +122,9 @@ export function sendMove(m: MoveMessage) {
   room?.send(MSG.move, m);
 }
 
-/** Avisa a la sala del nuevo personaje (ya guardado por la web) para que todos lo vean. */
-export function sendAppearance(m: AppearanceMessage) {
-  room?.send(MSG.appearance, m);
+/** Avisa a la sala que la web guardó el perfil: el servidor lo relee y todos ven el cambio. */
+export function sendProfileChanged() {
+  room?.send(MSG.profileChanged);
 }
 
 export function sendChat(text: string, scope: ChatScope) {

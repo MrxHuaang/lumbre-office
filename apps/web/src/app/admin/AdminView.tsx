@@ -14,16 +14,19 @@ export interface AdminData {
 }
 
 /** Vista de administración del equipo (los datos los carga la página). */
-export function AdminView({ users, invites, offices }: AdminData) {
+export function AdminView({ users, invites, offices, embedded = false }: AdminData & { embedded?: boolean }) {
   return (
-    <main className="riso-grain min-h-full px-6 py-8 sm:px-10 md:px-14 md:py-10">
+    <main className={`riso-grain min-h-full ${embedded ? "px-5 py-6 sm:px-8" : "px-6 py-8 sm:px-10 md:px-14 md:py-10"}`}>
       <div className="mx-auto flex max-w-3xl flex-col gap-9">
-        <header className="flex items-center justify-between gap-4">
-          <RisoLogo />
-          <Link href="/" className="text-[13px] font-semibold">
-            ← Volver a la oficina
-          </Link>
-        </header>
+        {/* Dentro de la oficina la ventana ya tiene su barra: sin logo ni "Volver a la oficina". */}
+        {!embedded && (
+          <header className="flex items-center justify-between gap-4">
+            <RisoLogo />
+            <Link href="/" className="text-[13px] font-semibold">
+              ← Volver a la oficina
+            </Link>
+          </header>
+        )}
 
         <div className="flex flex-col gap-4">
           <Overprint

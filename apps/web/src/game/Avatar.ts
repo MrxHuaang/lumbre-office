@@ -61,7 +61,7 @@ export class Avatar {
     name: string,
     x: number,
     y: number,
-    isLocal: boolean,
+    private readonly isLocal: boolean,
   ) {
     ensureAnimations(scene, textureKey);
     this.targetX = x;
@@ -163,6 +163,14 @@ export class Avatar {
     this.video = undefined;
     this.sprite.setVisible(true);
     this.speakingRing.setVisible(this.speaking);
+    this.layout();
+  }
+
+  /** Nombre visible (cambia en vivo si la persona edita su perfil). */
+  setName(name: string) {
+    this.label.setText(this.isLocal ? `${name} (tú)` : name);
+    this.labelBox.setSize(this.label.width, this.label.height);
+    this.labelShadow.setSize(this.label.width, this.label.height);
     this.layout();
   }
 

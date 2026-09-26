@@ -23,7 +23,6 @@ import {
   OfficeLockMessage,
   PLAYER_SPEED,
   StatusMessage,
-  AppearanceMessage,
   verifyGameToken,
   type ChatEvent,
   type GameTokenClaims,
@@ -97,7 +96,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
-    this.onMessage(MSG.appearance, (client, raw) => this.handleAppearance(client, raw));
+    this.onMessage(MSG.profileChanged, (client) => void this.handleProfileChanged(client));
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
@@ -340,13 +339,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return false;
   }
 
-  /** Cambio de personaje en vivo (la web ya lo guardó; aquí solo se refleja para todos). */
-  private handleAppearance(client: Client<UserData>, raw: unknown) {
-    const parsed = AppearanceMessage.safeParse(raw);
-    const player = this.state.players.get(client.sessionId);
-    if (!parsed.success || !player) return;
-    player.avatar = parsed.data.avatar;
-    player.look = parsed.data.look ? JSON.stringify(parsed.data.look) : "";
+  /**
+   * La persona cambió su nombre o personaje desde la web. No se confía en lo que manda el
+   * cliente: se vuelve a leer de la base y se refleja para todos, sin reconectar.
+   */
+  private async handleProfileChanged(client: Client<UserData>) {
+    const userId = this.state.players.get(client.sessionId)?.userId;
+    if (!userId) return;
+    const profile = await this.repo.getUserProfile(userId).catch((err) => {
+      console.error("getUserProfile", err);
+      return null;
+    });
+    const player = this.state.players.get(client.sessionId); // pudo irse mientras tanto
+    if (!profile || !player) return;
+    player.name = profile.name;
+    player.avatar = profile.avatar;
+    player.look = profile.look ? JSON.stringify(profile.look) : "";
   }
 
   private handleStatus(client: Client<UserData>, raw: unknown) {

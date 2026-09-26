@@ -1,5 +1,5 @@
 import { prisma, type PresenceStatus as DbStatus } from "@hyvento/db";
-import type { ChatEvent, PresenceStatus } from "@hyvento/shared";
+import { HUMAN_AVATARS, Look, type ChatEvent, type HumanAvatar, type PresenceStatus } from "@hyvento/shared";
 import type { GameRepository } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
@@ -23,6 +23,15 @@ export class PrismaRepository implements GameRepository {
       ownerName: o.owner?.name ?? null,
       locked: o.isLocked,
     }));
+  }
+
+  async getUserProfile(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true, avatar: true, look: true } });
+    if (!user) return null;
+    const avatar = (HUMAN_AVATARS as readonly string[]).includes(user.avatar) ? (user.avatar as HumanAvatar) : "ada";
+    const look = Look.safeParse(user.look);
+    // Mismo nombre que va en el token de juego (ver /api/game-token).
+    return { name: user.name || user.email, avatar, look: look.success ? look.data : null };
   }
 
   async setOfficeLocked(zoneId: string, locked: boolean) {

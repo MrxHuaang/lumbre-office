@@ -7,13 +7,14 @@ import { media } from "@/game/media";
 import { connect, disconnect } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
 import { RISO, waitForRisoFont } from "@/lib/riso";
-import { CharacterDialog } from "./CharacterDialog";
+import { AdminDialog } from "./AdminDialog";
 import { ChatPanel } from "./ChatPanel";
 import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
+import { ProfileDialog } from "./ProfileDialog";
 import { Overprint } from "./Riso";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
@@ -76,14 +77,16 @@ interface OfficeProps {
   isAdmin: boolean;
   profile: Profile;
   onProfileChange: (p: Profile) => void;
-  onEditProfile: () => void;
 }
 
-export function Office({ isAdmin, profile, onProfileChange, onEditProfile }: OfficeProps) {
+/** Ventanas que se abren sobre la oficina sin salir de la sala. */
+type Dialog = "profile" | "character" | "admin" | null;
+
+export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const gameRef = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);
-  const [editingCharacter, setEditingCharacter] = useState(false);
-  const closeCharacter = useCallback(() => setEditingCharacter(false), []);
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const closeDialog = useCallback(() => setDialog(null), []);
   const pcOn = useOfficeStore((s) => s.pcOn);
   const atComputer = useOfficeStore((s) => s.atComputer);
   const setPcOn = useOfficeStore((s) => s.setPcOn);
@@ -147,8 +150,9 @@ export function Office({ isAdmin, profile, onProfileChange, onEditProfile }: Off
         <>
           <Hud
             isAdmin={isAdmin}
-            onEditProfile={onEditProfile}
-            onEditCharacter={() => setEditingCharacter(true)}
+            onEditProfile={() => setDialog("profile")}
+            onEditCharacter={() => setDialog("character")}
+            onAdmin={() => setDialog("admin")}
             onLogout={onExit}
           />
           <div className="pointer-events-none absolute top-3 right-3 z-10 flex w-[min(270px,calc(100%-1.5rem))] flex-col items-end gap-3 max-md:w-44">
@@ -165,7 +169,10 @@ export function Office({ isAdmin, profile, onProfileChange, onEditProfile }: Off
           <VideoStrip />
           <ScreenFocus />
           {pcOn && <Computer profile={profile} onOff={() => setPcOn(false)} />}
-          {editingCharacter && <CharacterDialog profile={profile} onClose={closeCharacter} onSaved={onProfileChange} />}
+          {(dialog === "profile" || dialog === "character") && (
+            <ProfileDialog profile={profile} withName={dialog === "profile"} onClose={closeDialog} onSaved={onProfileChange} />
+          )}
+          {dialog === "admin" && <AdminDialog onClose={closeDialog} />}
         </>
       ) : null}
 

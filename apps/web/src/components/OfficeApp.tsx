@@ -45,13 +45,6 @@ export function OfficeApp({ user }: { user: CurrentUser }) {
     );
   }
 
-  // Al volver del perfil la oficina se monta de nuevo y entra con un token con los datos nuevos.
-  return (
-    <Office
-      isAdmin={user.isAdmin}
-      profile={profile}
-      onProfileChange={setProfile}
-      onEditProfile={() => setEditing(true)}
-    />
-  );
+  // El perfil se edita después desde la oficina misma (sin salir de la sala).
+  return <Office isAdmin={user.isAdmin} profile={profile} onProfileChange={setProfile} />;
 }
