@@ -38,9 +38,9 @@ importers:
       colyseus:
         specifier: ^0.16.0
         version: 0.16.5(@colyseus/auth@0.16.6(@colyseus/core@0.16.26(@colyseus/schema@3.0.76)(@pm2/io@6.1.0))(express@5.2.1))(@colyseus/core@0.16.26(@colyseus/schema@3.0.76)(@pm2/io@6.1.0))(@colyseus/redis-driver@0.16.1(@colyseus/schema@3.0.76)(@pm2/io@6.1.0))(@colyseus/redis-presence@0.16.4(@colyseus/schema@3.0.76)(@pm2/io@6.1.0))(@colyseus/schema@3.0.76)(@colyseus/uwebsockets-transport@0.16.11(@colyseus/core@0.16.26(@colyseus/schema@3.0.76)(@pm2/io@6.1.0)))(@colyseus/ws-transport@0.16.5(@colyseus/core@0.16.26(@colyseus/schema@3.0.76)(@pm2/io@6.1.0)))
-      ioredis:
-        specifier: ^5.11.1
-        version: 5.11.1
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.15
     devDependencies:
       '@colyseus/testing':
         specifier: ^0.16.0
@@ -48,9 +48,6 @@ importers:
       colyseus.js:
         specifier: ^0.16.0
         version: 0.16.22
-      tsx:
-        specifier: ^4.19.0
-        version: 4.23.15
       typescript:
         specifier: ^5.8.0
         version: 5.9.3
@@ -75,9 +72,6 @@ importers:
       colyseus.js:
         specifier: ^0.16.0
         version: 0.16.22
-      ioredis:
-        specifier: ^5.11.1
-        version: 5.11.1
       livekit-client:
         specifier: ^2.22.3
         version: 2.22.3(@types/dom-mediacapture-record@1.0.22)

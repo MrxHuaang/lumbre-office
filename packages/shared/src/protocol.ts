@@ -107,8 +107,11 @@ export const KNOCK_TIMEOUT_MS = 30_000;
 /** Mínimo entre toques de la misma persona a la misma oficina. */
 export const KNOCK_COOLDOWN_MS = 8_000;
 
-/** Canal de Redis: la web avisa al servidor de juego que cambiaron las oficinas (dueños, nombres). */
-export const REDIS_CHANNEL = { officesChanged: "hyvento:offices-changed" } as const;
+/** Rutas HTTP del servidor de juego (la web avisa cambios con `Authorization: Bearer GAME_TOKEN_SECRET`). */
+export const INTERNAL_ROUTES = {
+  health: "/health",
+  officesChanged: "/internal/offices-changed",
+} as const;
 
 /** Nombres de mensajes Colyseus. */
 export const MSG = {

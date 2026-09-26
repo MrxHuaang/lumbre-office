@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "node scripts/copy-assets.mjs",
     "dev": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next dev --port 3000",
-    "prebuild": "node scripts/copy-assets.mjs",
+    "prebuild": "node scripts/copy-assets.mjs && pnpm --filter @hyvento/db generate",
     "build": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next build",
     "start": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next start",
     "typecheck": "tsc --noEmit",
@@ -18,7 +18,6 @@
     "@hyvento/map": "workspace:*",
     "@hyvento/shared": "workspace:*",
     "colyseus.js": "^0.16.0",
-    "ioredis": "^5.11.1",
     "livekit-client": "^2.22.3",
     "livekit-server-sdk": "^2.19.1",
     "next": "^15.5.0",

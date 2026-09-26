@@ -8,8 +8,7 @@
  *   document.cookie = "authjs.session-token=<valor>; path=/"
  */
 import { prisma } from "@hyvento/db";
-import { REDIS_CHANNEL } from "@hyvento/shared";
-import { Redis } from "ioredis";
+import { INTERNAL_ROUTES } from "@hyvento/shared";
 import { encode } from "next-auth/jwt";
 
 const args = process.argv.slice(2);
@@ -38,11 +37,12 @@ const office = flag("--office");
 if (office) {
   await prisma.office.updateMany({ where: { ownerId: user.id }, data: { ownerId: null, isLocked: false } });
   await prisma.office.update({ where: { zoneId: office }, data: { ownerId: user.id, isLocked: false } });
-  if (process.env.REDIS_URL) {
-    const redis = new Redis(process.env.REDIS_URL);
-    await redis.publish(REDIS_CHANNEL.officesChanged, "dev-session");
-    redis.disconnect();
-  }
+  // Avisar al servidor de juego local para que actualice la placa.
+  const base = (process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567").replace(/^ws/, "http");
+  await fetch(`${base}${INTERNAL_ROUTES.officesChanged}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${process.env.GAME_TOKEN_SECRET}` },
+  }).catch(() => console.warn("(el servidor de juego no está corriendo; la placa se verá al reiniciarlo)"));
 }
 
 const token = await encode({

@@ -23,7 +23,7 @@ Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: cada persona con
 
 ## Requisitos
 - Node 22+ y pnpm 10 (`npm i -g pnpm@10`)
-- Docker Desktop — necesario desde la Fase 2 (Postgres, Redis, LiveKit)
+- Docker Desktop (Postgres y LiveKit para desarrollo)
 
 ## Desarrollo
 ```bash
@@ -62,6 +62,23 @@ En el primer ingreso cada persona elige su nombre visible y avatar.
 ### Infraestructura (Fase 2+)
 ```bash
 cp .env.example .env
-pnpm infra:up       # Postgres, Redis y LiveKit (dev) con Docker
+pnpm infra:up       # Postgres y LiveKit (dev) con Docker
 pnpm --filter @hyvento/db migrate
 ```
+
+## Despliegue
+
+| Pieza | Servicio |
+|---|---|
+| Web (Next.js, `apps/web`) | Vercel |
+| Servidor de juego (Colyseus, `apps/server`) | Render (`render.yaml`) |
+| Base de datos | Neon (Postgres) |
+| Audio/video | LiveKit Cloud |
+
+1. Completa `.env.production` (no se sube a git) con Neon y LiveKit.
+2. Migraciones: `DATABASE_URL=<cadena sin pooler> pnpm --filter @hyvento/db migrate:deploy`.
+3. Render → **New → Blueprint** → este repo. Variables: `DATABASE_URL` (sin pooler) y `GAME_TOKEN_SECRET`.
+4. Vercel → **Add New → Project** → este repo, **Root Directory `apps/web`**, y las variables de `.env.production` (con `DATABASE_URL` *pooled* y `NEXT_PUBLIC_GAME_SERVER_URL=wss://<servicio>.onrender.com`).
+5. Google Cloud → credencial OAuth: agrega el origen `https://<dominio>.vercel.app` y el redirect `https://<dominio>.vercel.app/api/auth/callback/google`.
+
+El servidor de juego en el plan gratis de Render se duerme tras ~15 min sin uso; el primero en entrar espera ~1 min mientras despierta.

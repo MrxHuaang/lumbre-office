@@ -6,3 +6,4 @@ dist
 .env.local
 *.log
 apps/web/public/assets/
+.env.production

@@ -1,0 +1,19 @@
+# Blueprint de Render para el servidor de juego (Colyseus).
+# Render → New → Blueprint → elegir este repo. Las variables con sync: false se piden en el dashboard.
+services:
+  - type: web
+    name: hyvento-game
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyvento/db generate
+    startCommand: pnpm --filter @hyvento/server start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: GAME_TOKEN_SECRET
+        sync: false

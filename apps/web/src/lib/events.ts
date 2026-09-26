@@ -1,22 +1,28 @@
 import "server-only";
-import { REDIS_CHANNEL } from "@hyvento/shared";
-import { Redis } from "ioredis";
+import { INTERNAL_ROUTES } from "@hyvento/shared";
 
-const globalForRedis = globalThis as unknown as { redisPub?: Redis | null };
-
-function publisher(): Redis | null {
-  if (globalForRedis.redisPub !== undefined) return globalForRedis.redisPub;
-  const url = process.env.REDIS_URL;
-  globalForRedis.redisPub = url ? new Redis(url, { maxRetriesPerRequest: 2, lazyConnect: false }) : null;
-  globalForRedis.redisPub?.on("error", (err) => console.error("Redis:", err.message));
-  return globalForRedis.redisPub;
+/** URL HTTP del servidor de juego (por defecto, la misma de WebSocket con http/https). */
+function gameServerHttpUrl(): string | null {
+  const explicit = process.env.GAME_SERVER_HTTP_URL;
+  if (explicit) return explicit.replace(/\/$/, "");
+  const ws = process.env.NEXT_PUBLIC_GAME_SERVER_URL;
+  return ws ? ws.replace(/^ws/, "http").replace(/\/$/, "") : null;
 }
 
-/** Avisa al servidor de juego que cambiaron dueños o nombres de oficinas. */
+/** Avisa al servidor de juego que cambiaron dueños o nombres de oficinas (para actualizar placas en vivo). */
 export async function publishOfficesChanged() {
+  const base = gameServerHttpUrl();
+  const secret = process.env.GAME_TOKEN_SECRET;
+  if (!base || !secret) return;
   try {
-    await publisher()?.publish(REDIS_CHANNEL.officesChanged, String(Date.now()));
+    const res = await fetch(`${base}${INTERNAL_ROUTES.officesChanged}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) console.error(`El servidor de juego respondió ${res.status} al aviso de oficinas`);
   } catch (err) {
-    console.error("No se pudo avisar del cambio de oficinas:", err);
+    // Si el servidor está dormido o caído, las placas se actualizan cuando vuelva a cargar las oficinas.
+    console.error("No se pudo avisar del cambio de oficinas:", err instanceof Error ? err.message : err);
   }
 }
