@@ -49,6 +49,21 @@ export const OUTFIT_LABEL: Record<Outfit, string> = {
   apron: "Delantal",
 };
 
+/** Lo que se pinta con el color de acento (nombre corto, para el título del selector de color). */
+export const ACCENT_ACCESSORIES: Partial<Record<Accessory, string>> = {
+  cap: "gorra",
+  headphones: "audífonos",
+  beanie: "gorro",
+  scarf: "bufanda",
+};
+export const ACCENT_OUTFITS: Partial<Record<Outfit, string>> = { jacket: "chaqueta" };
+
+/** "A", "A y B", "A, B y C". */
+export function joinEs(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}`;
+}
+
 /** Look equivalente a un personaje fijo, para empezar a editar desde él. */
 export function presetLook(avatar: HumanAvatar): Look {
   const s = HUMANS[avatar] ?? HUMANS.ada;
