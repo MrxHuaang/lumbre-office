@@ -33,6 +33,22 @@ function cell(sheet: PixelCanvas, col: number, row: number, y0 = 0, y1 = FRAME):
 
 const same = (a: ArrayLike<number>, b: ArrayLike<number>) => a.length === b.length && Array.from(a).every((v, i) => v === b[i]);
 
+/** El píxel i (RGBA) de una celda. */
+const pixel = (c: number[], i: number) => c.slice(i * 4, i * 4 + 4);
+const isOut = (p: number[]) => p[0] === OUT[0] && p[1] === OUT[1] && p[2] === OUT[2] && p[3] === 255;
+
+/** Las celdas de frente: de pie (quieto) y sentado. */
+const frontCells = (style: CharacterStyle) => [cell(drawCharacter(style), 0, RIGHT), cell(drawSitting(style), RIGHT, 0)];
+
+/**
+ * Píxeles (x, fila) del cuerpo de frente, de pie y sentado. El cuerpo va 8 columnas adentro de la celda;
+ * de pie la fila r es la r + 5 de la celda y sentado baja 3 más.
+ */
+function frontBodyPixels(style: CharacterStyle, points: readonly (readonly [number, number])[]): number[][] {
+  const [standing, sitting] = frontCells(style);
+  return points.flatMap(([x, r]) => [pixel(standing!, (r + 5) * FRAME + x + 8), pixel(sitting!, (r + 8) * FRAME + x + 8)]);
+}
+
 type View =
   | "frente"
   | "paso A de frente"
@@ -165,12 +181,68 @@ describe("cara", () => {
     expect(allDistinct(FACIAL_HAIR, (facialHair) => ({ ...base, facialHair }), RIGHT)).toEqual([]);
   });
 
+  it("el vello facial deja piel debajo de los ojos (no se junta con el ojo en una raya)", () => {
+    // Con pelo oscuro, un píxel de vello justo debajo del ojo se lee como una cicatriz hasta la barbilla.
+    const UNDER_EYES = [
+      [7, 9],
+      [10, 9],
+    ] as const;
+    for (const eyes of EYE_STYLES) {
+      const look: CharacterStyle = { ...base, hair: "#1b1b1b", eyes };
+      const bare = frontBodyPixels(look, UNDER_EYES);
+      for (const facialHair of FACIAL_HAIR)
+        expect(frontBodyPixels({ ...look, facialHair }, UNDER_EYES), `${facialHair} con ojos ${eyes}`).toEqual(bare);
+    }
+  });
+
   it("lo de la cara se ve de frente y de espaldas (patillas, cinta) y no usa el acento", () => {
     for (const face of FACE_ITEMS.filter((f) => f !== "none")) {
       expect(missing(ALL, changedViews(base, { ...base, face })), face).toEqual([]);
       expect(usesColor({ ...base, face }, "accent"), face).toBe(false);
     }
     expect(allDistinct(FACE_ITEMS, (face) => ({ ...base, face }), RIGHT)).toEqual([]);
+  });
+
+  it("las gafas respetan cada forma de ojos y el vidrio no cae sobre la piel", () => {
+    const MAGENTA = "#ff00ff";
+    for (const eyes of EYE_STYLES)
+      for (const face of ["glasses", "round-glasses"] as const) {
+        const look: CharacterStyle = { ...base, eyes };
+        const plain = frontCells(look);
+        const plainEyes = frontCells({ ...look, eyeColor: MAGENTA });
+        const worn = frontCells({ ...look, face });
+        const wornEyes = frontCells({ ...look, face, eyeColor: MAGENTA });
+        const wornSkin = frontCells({ ...look, face, skin: MAGENTA });
+        const name = `${face} con ojos ${eyes}`;
+        plain.forEach((c, k) => {
+          for (let i = 0; i < FRAME * FRAME; i++) {
+            const p = pixel(c, i);
+            const w = pixel(worn[k]!, i);
+            // Las pestañas (todo lo OUT) siguen ahí: el marco no borra la forma del ojo.
+            if (isOut(p)) expect(isOut(w), `${name}: pestaña tapada`).toBe(true);
+            // El iris se sigue viendo a través del vidrio.
+            if (!same(p, pixel(plainEyes[k]!, i))) expect(same(w, pixel(wornEyes[k]!, i)), `${name}: iris tapado`).toBe(false);
+            // Lo que agregan las gafas es marco o vidrio sobre el ojo, nunca vidrio sobre la piel.
+            if (!same(p, w)) expect(same(w, pixel(wornSkin[k]!, i)), `${name}: vidrio sobre la piel`).toBe(true);
+          }
+        });
+      }
+  });
+
+  it("de espaldas, las patillas de las gafas redondas se ven sobre el pelo castaño y el oscuro", () => {
+    for (const hair of ["#6b3a22", "#3b2219", "#1b1b1b"]) {
+      const bare = cell(drawCharacter({ ...base, hair }), 0, UP);
+      const worn = cell(drawCharacter({ ...base, hair, face: "round-glasses" }), 0, UP);
+      let changed = 0;
+      for (let i = 0; i < FRAME * FRAME; i++) {
+        const [a, b] = [pixel(bare, i), pixel(worn, i)];
+        if (same(a, b)) continue;
+        changed++;
+        const diff = Math.abs(a[0]! - b[0]!) + Math.abs(a[1]! - b[1]!) + Math.abs(a[2]! - b[2]!);
+        expect(diff, `patilla sobre ${hair}`).toBeGreaterThan(100);
+      }
+      expect(changed, hair).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -220,7 +292,6 @@ describe("cabeza", () => {
         const i = ((row * FRAME + y) * s.width + x) * 4;
         return [s.data[i]!, s.data[i + 1]!, s.data[i + 2]!, s.data[i + 3]!];
       };
-      const isOut = (p: number[]) => p[0] === OUT[0] && p[1] === OUT[1] && p[2] === OUT[2];
       const item = (x: number, y: number) => {
         const q = px(b, x, y);
         return q[3]! > 0 && !isOut(q) && !same(q, px(a, x, y));
@@ -240,6 +311,33 @@ describe("cabeza", () => {
           [UP, "de espaldas"],
         ] as const)
           expect(rests({ ...base, hairStyle }, head, row), `${head} con ${hairStyle} ${name}`).toBe(true);
+  });
+
+  it("con corona, el moño y el moño alto asoman entre las puntas (no quedan como pelo corto)", () => {
+    // ¿Algún píxel del pelo llega a la altura de las puntas de la corona o más arriba?
+    const peeks = (hairStyle: HairStyle, row: number) => {
+      const look: CharacterStyle = { ...base, hairStyle, head: "crown" };
+      const crowned = cell(drawCharacter(look), 0, row);
+      const recolored = cell(drawCharacter({ ...look, hair: "#ff00ff" }), 0, row);
+      const bare = cell(drawCharacter({ ...base, hairStyle }), 0, row);
+      let hairTop = FRAME;
+      let crownTop = FRAME;
+      for (let i = 0; i < FRAME * FRAME; i++) {
+        const y = Math.floor(i / FRAME);
+        const p = pixel(crowned, i);
+        if (!same(p, pixel(recolored, i))) hairTop = Math.min(hairTop, y);
+        else if (p[3] && !isOut(p) && !same(p, pixel(bare, i))) crownTop = Math.min(crownTop, y);
+      }
+      return hairTop <= crownTop;
+    };
+    for (const [row, name] of [
+      [RIGHT, "de frente"],
+      [UP, "de espaldas"],
+    ] as const) {
+      // Con el corto la banda tapa todo el pelo de arriba.
+      expect(peeks("short", row), `corto ${name}`).toBe(false);
+      for (const hairStyle of ["bun", "top-knot"] as const) expect(peeks(hairStyle, row), `${hairStyle} ${name}`).toBe(true);
+    }
   });
 });
 

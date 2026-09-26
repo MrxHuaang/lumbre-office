@@ -4,7 +4,7 @@
 import type { HairStyle } from "@hyvento/shared";
 import { C } from "../palette";
 import { hex, type PixelCanvas } from "../pixel";
-import { CROWN_W, CROWN_X, restRow } from "./hair";
+import { CROWN_W, CROWN_X, crownRest, restRow } from "./hair";
 import { LEAF, PETAL, PETAL_DARK, POLLEN, type Ctx, type Row, type Three, type Tones, type View } from "./kit";
 
 /** Peinados sin pelo a los costados: ahí se ven las patas de los audífonos. */
@@ -33,7 +33,7 @@ export function drawHeadwear({ c, t, look, view, y }: Ctx) {
     case "bow":
       return drawBow(c, a, view, y, rest);
     case "crown":
-      return drawCrown(c, y, rest);
+      return drawCrown(c, y, crownRest(look.hairStyle));
     case "bandana":
       return drawBandana(c, t, view, y);
     default:

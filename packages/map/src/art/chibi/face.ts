@@ -32,64 +32,76 @@ const FRECKLES = [
   [12, 9],
 ] as const;
 
-/**
- * Ojos. Abierto: la pestaña oscura arriba y el iris (color de ojos) abajo, como los de siempre. Los
- * cerrados (feliz, cerrados y el ojo que guiña) son solo pestaña y no muestran el color.
- */
-function drawEyes(c: PixelCanvas, style: EyeStyle, e: Three, y: Row) {
-  const open = (x: number) => {
-    c.set(x, y(7), OUT);
-    c.set(x, y(8), e[1]);
-  };
-  switch (style) {
-    case "normal":
-      open(7);
-      open(10);
-      // Brillo del ojo de atrás (como antes).
-      c.set(7, y(7), hex("#4a3a5a"));
-      return;
-    case "happy":
-      // Arcos hacia arriba (^ ^); el de atrás se ve a medias.
-      c.set(6, y(8), OUT);
-      c.set(7, y(7), OUT);
-      c.set(9, y(8), OUT);
-      c.set(10, y(7), OUT);
-      c.set(11, y(8), OUT);
-      return;
-    case "sleepy":
-      // Párpado caído: una raya gruesa encima y el iris asomando abajo.
-      c.rect(6, y(7), 2, 1, OUT);
-      c.rect(10, y(7), 2, 1, OUT);
-      c.set(7, y(8), e[1]);
-      c.set(10, y(8), e[1]);
-      return;
-    case "big":
-      bigEye(c, 6, e, y);
-      bigEye(c, 10, e, y);
-      return;
-    case "wink":
-      open(7);
-      // El de adelante guiña: una rayita con la punta hacia abajo.
-      c.rect(10, y(8), 2, 1, OUT);
-      c.set(9, y(7), OUT);
-      return;
-    case "closed":
-      // Rayitas curvas hacia abajo, tranquilas.
-      c.set(6, y(7), OUT);
-      c.set(7, y(8), OUT);
-      c.set(10, y(8), OUT);
-      c.set(11, y(8), OUT);
-      c.set(9, y(7), OUT);
-      return;
-  }
-}
+/** Qué va en cada píxel del ojo: pestaña, la pestaña suave del ojo de atrás, iris (base o sombra) y brillo. */
+type EyePaint = "lash" | "soft" | "iris" | "shade" | "glint";
+type EyePixel = readonly [x: number, row: number, paint: EyePaint];
+/** Lo que se ve del ojo abierto (ahí va el vidrio de las gafas). */
+const OPEN: ReadonlySet<EyePaint> = new Set(["iris", "shade", "glint"]);
 
 /** Ojo grande de 2x3: pestaña, el iris con sombra arriba y un brillo del lado hacia donde mira. */
-function bigEye(c: PixelCanvas, x: number, e: Three, y: Row) {
-  c.rect(x, y(6), 2, 1, OUT);
-  c.set(x, y(7), e[0]);
-  c.set(x + 1, y(7), GLINT);
-  c.rect(x, y(8), 2, 1, e[1]);
+const bigEye = (x: number): EyePixel[] => [
+  [x, 6, "lash"],
+  [x + 1, 6, "lash"],
+  [x, 7, "shade"],
+  [x + 1, 7, "glint"],
+  [x, 8, "iris"],
+  [x + 1, 8, "iris"],
+];
+
+/**
+ * Píxeles de cada forma de ojos. Abierto: la pestaña oscura arriba y el iris (color de ojos) abajo, como
+ * los de siempre. Los cerrados (feliz, cerrados y el ojo que guiña) son solo pestaña y no muestran el
+ * color. Están como datos para que las gafas sepan dónde no pintar.
+ */
+const EYES: Record<EyeStyle, readonly EyePixel[]> = {
+  // El ojo de atrás lleva la pestaña más suave (como antes).
+  normal: [
+    [7, 7, "soft"],
+    [7, 8, "iris"],
+    [10, 7, "lash"],
+    [10, 8, "iris"],
+  ],
+  // Arcos hacia arriba (^ ^); el de atrás se ve a medias.
+  happy: [
+    [6, 8, "lash"],
+    [7, 7, "lash"],
+    [9, 8, "lash"],
+    [10, 7, "lash"],
+    [11, 8, "lash"],
+  ],
+  // Párpado caído: una raya gruesa encima y el iris asomando abajo.
+  sleepy: [
+    [6, 7, "lash"],
+    [7, 7, "lash"],
+    [10, 7, "lash"],
+    [11, 7, "lash"],
+    [7, 8, "iris"],
+    [10, 8, "iris"],
+  ],
+  big: [...bigEye(6), ...bigEye(10)],
+  // El de adelante guiña: una rayita con la punta hacia abajo.
+  wink: [
+    [7, 7, "lash"],
+    [7, 8, "iris"],
+    [10, 8, "lash"],
+    [11, 8, "lash"],
+    [9, 7, "lash"],
+  ],
+  // Rayitas curvas hacia abajo, tranquilas.
+  closed: [
+    [6, 7, "lash"],
+    [7, 8, "lash"],
+    [10, 8, "lash"],
+    [11, 8, "lash"],
+    [9, 7, "lash"],
+  ],
+};
+
+const SOFT_LASH = hex("#4a3a5a");
+
+function drawEyes(c: PixelCanvas, style: EyeStyle, e: Three, y: Row) {
+  const paint: Record<EyePaint, RGBA> = { lash: OUT, soft: SOFT_LASH, iris: e[1], shade: e[0], glint: GLINT };
+  for (const [x, r, p] of EYES[style]) c.set(x, y(r), paint[p]);
 }
 
 /** Vello facial (del color del pelo). */
@@ -114,14 +126,14 @@ function drawFacialHair(c: PixelCanvas, style: FacialHair, t: Tones, y: Row) {
       c.rect(8, y(12), 2, 1, hr[0]);
       return;
     case "stubble": {
-      // De tres días: el pelo apenas tiñe la mandíbula y el bigote, salpicado.
+      // De tres días: el pelo apenas tiñe la mandíbula y el bigote, salpicado. Debajo de los ojos
+      // (columnas 7 y 10 de la fila 9) queda piel, para que no se junte con el ojo.
       const light = alpha(hr[0], 0.3);
       const dark = alpha(hr[0], 0.5);
       const jaw: [number, number][] = [];
       for (let x = 4; x <= 12; x++) jaw.push([x, 11]);
       for (const x of [4, 5, 11, 12]) jaw.push([x, 10], [x, 9]);
-      for (const x of [8, 9, 10]) jaw.push([x, 9]);
-      jaw.push([8, 10], [10, 10]);
+      jaw.push([8, 9], [9, 9], [8, 10], [10, 10]);
       for (const [x, r] of jaw) c.set(x, y(r), (x + r) % 2 ? dark : light);
       return;
     }
@@ -130,11 +142,14 @@ function drawFacialHair(c: PixelCanvas, style: FacialHair, t: Tones, y: Row) {
   }
 }
 
-/** Bigote sobre la boca, con las puntas cayendo a los lados. */
+/**
+ * Bigote en arco sobre la boca, con las puntas cayendo a los lados. No toca la fila 9 debajo de los ojos
+ * (columnas 7 y 10): con pelo oscuro se juntaría con el ojo en una raya que baja hasta la barbilla.
+ */
 function mustache(c: PixelCanvas, hr: Three, y: Row) {
-  c.rect(8, y(9), 3, 1, hr[1]);
+  c.rect(8, y(9), 2, 1, hr[1]);
   c.set(8, y(9), hr[2]);
-  c.set(8, y(10), hr[1]);
+  c.set(7, y(10), hr[1]);
   c.set(10, y(10), hr[0]);
 }
 
@@ -144,17 +159,8 @@ export function drawFaceGear({ c, look, view, y }: Ctx) {
   if (view === "back") return drawFaceGearBack(c, look.face, y);
   switch (look.face) {
     case "glasses":
-      for (const x of [6, 8, 9, 11]) c.set(x, y(7), GLASSES);
-      c.set(7, y(6), GLASSES);
-      c.set(10, y(6), GLASSES);
-      c.set(7, y(8), LENS);
-      c.set(10, y(8), LENS);
-      return;
     case "round-glasses":
-      // Aros redondos dorados alrededor de cada ojo (el ojo se ve adentro).
-      for (const x of [7, 10]) ring(c, x, y);
-      c.set(5, y(7), ROUND_FRAME[0]);
-      return;
+      return drawGlasses(c, look.face, look.eyes, y);
     case "sunglasses":
       // Lentes oscuros de 2x2 unidos por el puente, con un reflejo arriba en cada uno.
       c.rect(6, y(7), 2, 2, SUN_LENS);
@@ -192,13 +198,48 @@ const SUN_LENS = hex("#232638");
 const SUN_GLINT = hex("#6d7396");
 const PATCH: Three = [hex("#1d1622"), hex("#2e2433"), hex("#4a3d52")];
 
-/** Aro redondo alrededor del ojo de x: arriba y a los lados (abajo queda abierto, sobre la mejilla). */
-function ring(c: PixelCanvas, x: number, y: Row) {
-  c.set(x, y(6), ROUND_FRAME[1]);
-  c.set(x - 1, y(7), ROUND_FRAME[1]);
-  c.set(x - 1, y(8), ROUND_FRAME[0]);
-  c.set(x + 1, y(7), ROUND_FRAME[1]);
-  c.set(x + 1, y(8), ROUND_FRAME[0]);
+/**
+ * Gafas de marco fino o redondas. El marco rodea cada ojo (los grandes son más anchos y altos) y nunca
+ * pisa un píxel del ojo, así la forma (feliz, guiño, cerrados…) se sigue leyendo; el vidrio va solo
+ * sobre la parte abierta del ojo, no sobre la piel.
+ */
+function drawGlasses(c: PixelCanvas, face: "glasses" | "round-glasses", style: EyeStyle, y: Row) {
+  const eye = EYES[style];
+  const taken = new Set(eye.map(([x, r]) => `${x},${r}`));
+  const frame = (x: number, r: number, col: RGBA) => {
+    if (!taken.has(`${x},${r}`)) c.set(x, y(r), col);
+  };
+  // Columnas de cada ojo (el de atrás y el de adelante) y su primera fila.
+  const big = style === "big";
+  const top = big ? 6 : 7;
+  const boxes: [number, number][] = big
+    ? [
+        [6, 7],
+        [10, 11],
+      ]
+    : [
+        [7, 7],
+        [10, 10],
+      ];
+  for (const [x0, x1] of boxes) {
+    if (face === "glasses") {
+      // Marco fino: la ceja encima del ojo y las esquinas a la altura de la pestaña.
+      for (let x = x0; x <= x1; x++) frame(x, top - 1, GLASSES);
+      frame(x0 - 1, top, GLASSES);
+      frame(x1 + 1, top, GLASSES);
+      continue;
+    }
+    // Aro dorado: arriba y a los lados (abajo queda abierto, sobre la mejilla), con la luz arriba.
+    for (let x = x0; x <= x1; x++) frame(x, top - 1, ROUND_FRAME[1]);
+    for (let r = top; r <= 8; r++) {
+      const col = r === 8 ? ROUND_FRAME[0] : ROUND_FRAME[1];
+      frame(x0 - 1, r, col);
+      frame(x1 + 1, r, col);
+    }
+  }
+  // La patilla sale del aro de atrás hacia la oreja.
+  if (face === "round-glasses") frame(boxes[0]![0] - 2, top, ROUND_FRAME[0]);
+  else for (const [x, r, p] of eye) if (OPEN.has(p)) c.set(x, y(r), LENS);
 }
 
 function drawFaceGearBack(c: PixelCanvas, face: Exclude<FaceItem, "none">, y: Row) {
@@ -219,8 +260,9 @@ function drawFaceGearBack(c: PixelCanvas, face: Exclude<FaceItem, "none">, y: Ro
       c.set(x, y(r), PATCH[0]);
     return;
   }
-  // Patillas de las gafas a los dos lados de la cabeza.
-  const frameC = face === "glasses" ? GLASSES : face === "round-glasses" ? ROUND_FRAME[0] : SUN_FRAME;
+  // Patillas de las gafas a los dos lados de la cabeza. Las redondas van en el dorado claro: el oscuro
+  // se pierde sobre el pelo castaño.
+  const frameC = face === "glasses" ? GLASSES : face === "round-glasses" ? ROUND_FRAME[1] : SUN_FRAME;
   c.set(3, y(7), frameC);
   c.set(12, y(7), frameC);
 }

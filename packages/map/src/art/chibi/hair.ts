@@ -35,6 +35,15 @@ export function hairTop(style: HairStyle): number {
 /** Fila donde se apoya lo que va encima de la cabeza (más arriba no cabe: el frame empieza en -2). */
 export const restRow = (style: HairStyle) => Math.max(1, hairTop(style));
 
+/** Peinados con un moño encima de la cabeza. */
+const KNOTS: ReadonlySet<HairStyle> = new Set(["bun", "top-knot"]);
+
+/**
+ * Fila donde se apoya la corona. Es abierta arriba: con moño baja una fila y el moño asoma entero entre
+ * las puntas (si no, la banda lo taparía y se vería como pelo corto).
+ */
+export const crownRest = (style: HairStyle) => restRow(style) + (KNOTS.has(style) ? 1 : 0);
+
 /** Primera columna y ancho de la corona. */
 export const CROWN_X = 4;
 export const CROWN_W = 7;
@@ -47,9 +56,10 @@ function maskHair(c: PixelCanvas, head: HeadItem, style: HairStyle, y: Row): Pix
   let hide: ((x: number, r: number) => boolean) | null = null;
   if (head === "cap" || head === "beanie" || head === "bandana") hide = (_x, r) => r < 1;
   else if (head === "straw-hat") hide = (_x, r) => r < 3;
-  else if (head === "crown") {
-    // Arriba de la banda se ve el fondo entre las puntas (con una columna de margen a la sombra).
-    const band = restRow(style) - 1;
+  else if (head === "crown" && !KNOTS.has(style)) {
+    // Arriba de la banda se ve el fondo entre las puntas (con una columna de margen a la sombra). Con moño
+    // no se esconde nada: el moño es lo único que pasa por encima de la banda y tiene que asomar.
+    const band = crownRest(style) - 1;
     hide = (x, r) => x >= CROWN_X && x <= CROWN_X + CROWN_W && r < band;
   }
   if (!hide) return c;
