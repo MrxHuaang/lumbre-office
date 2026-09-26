@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { CabinShowcase } from "@/components/CabinShowcase";
 import { CozyTitle, PixelIcon } from "@/components/Cozy";
 import { getCurrentUser } from "@/lib/current-user";
-import { loginWithGoogle } from "../actions";
+import { devLoginEnabled } from "@/lib/dev-login";
+import { loginDev, loginWithGoogle } from "../actions";
 
 const ERRORS: Record<string, string> = {
   AccessDenied: "Tu correo no tiene invitación a la cabaña. Pídele a un administrador que te invite.",
@@ -49,6 +50,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               Continuar con Google
             </button>
           </form>
+
+          {devLoginEnabled() && <DevLogin />}
         </div>
 
         <p className="text-[14px] text-cozy-paper-dark">Adentro: clic para caminar, WASD o flechas, E para sentarte.</p>
@@ -59,5 +62,28 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="cozy-panel absolute top-[14%] right-[10%] rotate-[3deg] px-4 py-2 text-[16px]">¡hola equipo!</div>
       </div>
     </main>
+  );
+}
+
+/** SOLO DESARROLLO LOCAL (no aparece en producción): entrar sin Google con un usuario de prueba. */
+function DevLogin() {
+  return (
+    <form action={loginDev} className="cozy-panel flex max-w-md flex-col gap-3 px-5 py-4">
+      <p className="text-[15px] font-semibold">Entrar de prueba (solo en tu máquina)</p>
+      <label className="flex flex-col gap-1.5 text-[14px]">
+        Nombre
+        <input name="name" defaultValue="Juan" maxLength={24} required className="cozy-input px-3 py-2 text-[16px]" />
+      </label>
+      <label className="flex items-center gap-2 text-[14px]">
+        <input type="checkbox" name="admin" defaultChecked className="h-4 w-4 accent-[var(--color-cozy-green)]" />
+        Con permisos de administrador
+      </label>
+      <button type="submit" className="cozy-btn cozy-btn-primary px-5 py-2.5 text-[16px]">
+        Entrar de prueba
+      </button>
+      <p className="text-[13px] text-cozy-ink-soft">
+        Crea o reutiliza <code>nombre@hyvento.test</code>. Para probar con varias personas, abre otra ventana en incógnito con otro nombre.
+      </p>
+    </form>
   );
 }

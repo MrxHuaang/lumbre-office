@@ -52,7 +52,7 @@ La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, mu
 - **Tienda e inventario**: la tienda (planta baja, mitad sur) vende solo muebles; el catálogo y los precios están en `packages/shared/src/shop.ts`. La compra (`POST /api/shop/buy`) cobra con `spendPointsTx` y guarda en `InventoryItem` en la misma transacción (`packages/db/src/inventory.ts`). La ropa es toda gratis y se cambia en el vestidor (probador de la tienda) o en "Mi personaje".
 - **Cafetería**: el menú y los precios están en `packages/shared/src/cafe.ts`; el pedido lo valida y cobra el servidor (`MSG.cafeOrder`) y lo pedido queda en `Player.held` media hora. El arte de los productos está en `packages/map/src/art/items.ts`.
 - **Notas**: privadas por persona (API en `apps/web/src/app/api/notes`, siempre filtrando por `userId`). El documento del editor va en `Note.content` (JSON de TipTap) y el texto plano en `body` para buscar.
-- **Login local sin Google**: `pnpm --filter @hyvento/web dev:session "Nombre" [--office office-2] [--admin]` crea un usuario de prueba y da la cookie de sesión (solo contra la base local).
+- **Login local sin Google**: en `pnpm dev`, el login muestra "Entrar de prueba" (nombre y, si quieres, admin): crea o reutiliza `nombre@hyvento.test` y entra. Para varias personas, otra ventana en incógnito con otro nombre. También `pnpm --filter @hyvento/web dev:session "Nombre" [--office office-2] [--admin]` imprime la cookie. Solo funciona fuera de producción, contra la base local y desde localhost (`src/lib/dev-login.ts`).
 
 ## Comandos
 
