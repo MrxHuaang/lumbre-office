@@ -87,6 +87,8 @@ type Keys = Record<
   "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT" | "E" | "R" | "ESC" | "DELETE" | "BACKSPACE",
   Phaser.Input.Keyboard.Key
 >;
+/** Teclas de un toque apretadas en este frame con el juego libre (ver `readTaps`). */
+type Taps = Record<"e" | "r" | "esc" | "del", boolean>;
 
 /** Dirección del sprite según hacia dónde se mueve en pantalla (+x = sureste, +y = suroeste). */
 function facingFor(vx: number, vy: number): Direction {
@@ -143,6 +145,10 @@ export class OfficeScene extends Phaser.Scene {
   private decorGhost?: { key: string; img: Phaser.GameObjects.Image };
   /** Tile bajo el puntero en el modo decorar. */
   private decorHover: TilePos | null = null;
+  /** Cambió la decoración de alguna oficina: el nivel se rearma una vez, en el próximo frame. */
+  private decorDirty = false;
+  /** Cuándo se dejó de escribir o se apagó el PC (mismo reloj que `event.timeStamp`). */
+  private keysFreeAt = 0;
 
   constructor() {
     super("office");
@@ -194,9 +200,11 @@ export class OfficeScene extends Phaser.Scene {
       }),
       useOfficeStore.subscribe((s, prev) => {
         if (s.offices !== prev.offices) {
-          this.applyDecor(s.offices);
+          // Un patch trae muchos cambios seguidos (la primera edición copia ~10 muebles): se rearma una vez.
+          this.decorDirty = true;
           this.updateNameplates(s.offices);
         }
+        if ((prev.typing || prev.pcOn) && !s.typing && !s.pcOn) this.keysFreeAt = performance.now();
         if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
         if (s.night !== prev.night) {
           this.view?.setNight(s.night);
@@ -222,7 +230,11 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    this.updateLocal(delta);
+    if (this.decorDirty) {
+      this.decorDirty = false;
+      this.applyDecor(useOfficeStore.getState().offices);
+    }
+    this.updateLocal(delta, this.readTaps());
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
       this.hearingElapsed = 0;
@@ -495,7 +507,22 @@ export class OfficeScene extends Phaser.Scene {
 
   // ---------- Movimiento local ----------
 
-  private updateLocal(delta: number) {
+  /**
+   * Teclas de un toque de este frame. Se consumen siempre: Phaser escucha el teclado en window, así que
+   * una "r" escrita en el chat, o la Esc que cerró un diálogo, quedaría pendiente y se dispararía al
+   * volver al juego. Solo cuentan las apretadas con el juego libre (sin escribir y con el PC apagado).
+   */
+  private readTaps(): Taps {
+    const { typing, pcOn } = useOfficeStore.getState();
+    const tap = (key: Phaser.Input.Keyboard.Key) =>
+      Phaser.Input.Keyboard.JustDown(key) && !typing && !pcOn && key.timeDown > this.keysFreeAt;
+    const k = this.keys;
+    const del = tap(k.DELETE);
+    const backspace = tap(k.BACKSPACE);
+    return { e: tap(k.E), r: tap(k.R), esc: tap(k.ESC), del: del || backspace };
+  }
+
+  private updateLocal(delta: number, taps: Taps) {
     const avatar = this.local;
     if (!avatar || this.travelling) return;
     const dt = delta / 1000;
@@ -514,13 +541,13 @@ export class OfficeScene extends Phaser.Scene {
       const right = k.D.isDown || k.RIGHT.isDown ? 1 : 0;
       vx = down - up + right - left;
       vy = down - up - right + left;
-      if (Phaser.Input.Keyboard.JustDown(k.E)) {
+      if (taps.e) {
         // Junto al buzón, el tablón o la barra, E los abre; si no, sienta o levanta.
         const near = useOfficeStore.getState().interact;
         if (near && !this.seat) useOfficeStore.getState().openPanel(near, true);
         else this.toggleSeat();
       }
-      if (useOfficeStore.getState().decorating) this.decorKeys();
+      if (useOfficeStore.getState().decorating) this.decorKeys(taps);
     }
 
     if (vx !== 0 || vy !== 0) {
@@ -1025,20 +1052,21 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /** Teclas del modo decorar: R gira, Supr quita lo elegido y Esc lo suelta (o sale del modo). */
-  private decorKeys() {
-    const k = this.keys;
+  private decorKeys(taps: Taps) {
     const s = useOfficeStore.getState();
-    const zone = this.decorZone();
-    if (Phaser.Input.Keyboard.JustDown(k.R) && s.decorPick) s.rotateDecor();
-    if (Phaser.Input.Keyboard.JustDown(k.ESC)) {
+    if (taps.esc) {
+      // Esc gana: en el mismo frame no se gira ni se quita lo que se acaba de soltar.
       if (s.decorPick) s.pickDecor(null);
       else s.setDecorating(false);
+      return;
     }
-    const del = Phaser.Input.Keyboard.JustDown(k.DELETE) || Phaser.Input.Keyboard.JustDown(k.BACKSPACE);
-    if (del && zone && s.decorPick?.itemId) {
-      const check = this.checkDecor(zone.id, { action: "remove", itemId: s.decorPick.itemId });
+    if (taps.r && s.decorPick) s.rotateDecor();
+    const pick = useOfficeStore.getState().decorPick;
+    const zone = this.decorZone();
+    if (taps.del && zone && pick?.itemId) {
+      const check = this.checkDecor(zone.id, { action: "remove", itemId: pick.itemId });
       if (!check.ok) return s.notify(DECOR_ERRORS[check.error], "warning");
-      sendOfficeEdit({ action: "remove", zoneId: zone.id, itemId: s.decorPick.itemId });
+      sendOfficeEdit({ action: "remove", zoneId: zone.id, itemId: pick.itemId });
       s.pickDecor(null);
     }
   }

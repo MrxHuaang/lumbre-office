@@ -263,7 +263,7 @@ function attach(r: OfficeRoom) {
   $(r.state).players.onRemove((_player, sessionId) => useOfficeStore.getState().removePlayer(sessionId));
 
   $(r.state).offices.onAdd((office, zoneId) => {
-    const sync = () =>
+    const push = () =>
       useOfficeStore.getState().upsertOffice({
         zoneId,
         name: office.name,
@@ -282,7 +282,18 @@ function attach(r: OfficeRoom) {
         floor: office.floor,
         wallpaper: office.wallpaper,
       });
-    sync();
+    // Un patch dispara un callback por cada cambio (la primera edición agrega ~10 muebles y marca
+    // `customized`): se juntan y el store recibe la oficina una sola vez, ya completa.
+    let queued = false;
+    const sync = () => {
+      if (queued) return;
+      queued = true;
+      queueMicrotask(() => {
+        queued = false;
+        if (room === r && r.state.offices.get(zoneId) === office) push();
+      });
+    };
+    push();
     const o$ = $(office);
     o$.onChange(sync);
     o$.guests.onAdd(sync);
