@@ -1,18 +1,17 @@
-import { boot, type ColyseusTestServer } from "@colyseus/testing";
+import type { ColyseusTestServer } from "@colyseus/testing";
 import { INTERNAL_ROUTES, MSG, POINTS, ROOM_NAME, type PointsAwarded } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { goToArea, SECRET, tick, token, walkToTile } from "./helpers";
+import { bootServer, goToArea, SECRET, TEST_PORT, tick, token, walkToTile } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
 
 beforeAll(async () => {
   repo = new MemoryRepository();
-  colyseus = await boot(createGameServer({ repo }));
+  colyseus = await bootServer(repo);
 });
 afterAll(async () => {
   await colyseus.shutdown();
@@ -94,8 +93,7 @@ describe("aviso de la web: cambió un saldo", () => {
     const { room, alice } = await setup();
     repo.ledger.push({ userId: "u-alice", amount: 25, reason: "DAILY", at: Date.now() });
 
-    // boot() con un Server ya creado escucha en el puerto de prueba por defecto (2568).
-    const url = `http://localhost:2568${INTERNAL_ROUTES.pointsChanged}`;
+    const url = `http://localhost:${TEST_PORT}${INTERNAL_ROUTES.pointsChanged}`;
     const denied = await fetch(url, { method: "POST", body: JSON.stringify({ userId: "u-alice" }) });
     expect(denied.status).toBe(401);
     const ok = await fetch(url, {

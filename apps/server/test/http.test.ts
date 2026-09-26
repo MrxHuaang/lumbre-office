@@ -1,21 +1,18 @@
-import { boot, type ColyseusTestServer } from "@colyseus/testing";
+import type { ColyseusTestServer } from "@colyseus/testing";
 import { INTERNAL_ROUTES, ROOM_NAME } from "@hyvento/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { SECRET } from "./helpers";
+import { bootServer, SECRET, TEST_PORT } from "./helpers";
 
-// boot() con un Server ya creado siempre escucha en el puerto de prueba por defecto (2568).
-const PORT = 2568;
-const base = `http://localhost:${PORT}`;
+const base = `http://localhost:${TEST_PORT}`;
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
 
 beforeAll(async () => {
   repo = new MemoryRepository();
-  colyseus = await boot(createGameServer({ repo }));
+  colyseus = await bootServer(repo);
 });
 afterAll(async () => {
   await colyseus.shutdown();

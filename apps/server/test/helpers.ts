@@ -1,11 +1,27 @@
-import type { ColyseusTestServer } from "@colyseus/testing";
+import { ColyseusTestServer } from "@colyseus/testing";
 import { findPath, getWorld, officeDoor } from "@hyvento/map";
 import { MSG, signGameToken, type GameTokenClaims } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
+import { createGameServer } from "../src/app";
+import type { GameRepository } from "../src/repo/types";
 import type { OfficeState } from "../src/state";
 
 export const SECRET = "test-secret-test-secret-test-secret-123";
 process.env.GAME_TOKEN_SECRET = SECRET;
+
+/**
+ * Puerto del servidor de prueba. `boot()` de @colyseus/testing ignora el puerto si le pasas un Server ya
+ * creado (siempre usa 2568), así que se levanta a mano: con HYVENTO_TEST_PORT distintos se pueden correr
+ * los tests de varias copias del repo a la vez.
+ */
+export const TEST_PORT = Number(process.env.HYVENTO_TEST_PORT) || 2568;
+
+/** Levanta el servidor de juego de prueba en `TEST_PORT`. */
+export async function bootServer(repo: GameRepository): Promise<ColyseusTestServer> {
+  const server = createGameServer({ repo });
+  await server.listen(TEST_PORT);
+  return new ColyseusTestServer(server);
+}
 
 export const TILE = 32;
 /** Centro de un tile en píxeles. */
