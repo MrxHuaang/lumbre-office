@@ -1,4 +1,4 @@
-import { awardPoints, prisma, spendPoints, type PresenceStatus as DbStatus } from "@hyvento/db";
+import { addInventoryTx, awardPoints, type PresenceStatus as DbStatus, prisma, spendPoints, takeInventoryTx } from "@hyvento/db";
 import {
   DIRECTIONS,
   HUMAN_AVATARS,
@@ -77,11 +77,7 @@ export class PrismaRepository implements GameRepository {
         switch (edit.action) {
           case "place": {
             // Descuento condicional: sin unidades en la mochila no se pone nada.
-            const taken = await tx.inventoryItem.updateMany({
-              where: { userId, itemId: edit.type, quantity: { gte: 1 } },
-              data: { quantity: { decrement: 1 } },
-            });
-            if (taken.count === 0) throw new EditAborted("not-owned");
+            if (!(await takeInventoryTx(tx, userId, edit.type))) throw new EditAborted("not-owned");
             await tx.officeItem.create({ data: { officeId, type: edit.type, x: edit.x, y: edit.y, facing: edit.facing } });
             break;
           }
@@ -97,11 +93,7 @@ export class PrismaRepository implements GameRepository {
             const row = await tx.officeItem.findFirst({ where: { id: itemId(edit.itemId), officeId }, select: { id: true, type: true } });
             if (!row) throw new EditAborted("unknown");
             await tx.officeItem.delete({ where: { id: row.id } });
-            await tx.inventoryItem.upsert({
-              where: { userId_itemId: { userId, itemId: row.type } },
-              create: { userId, itemId: row.type, quantity: 1 },
-              update: { quantity: { increment: 1 } },
-            });
+            await addInventoryTx(tx, userId, row.type, 1);
             break;
           }
         }
