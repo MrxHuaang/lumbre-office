@@ -13,7 +13,8 @@ La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, co
 | Despliegue | ✅ |
 | Cabaña 1. Isométrico: jardín, planta baja y piso 2 con portales, motor pixel propio, chibis, HUD cozy | ✅ |
 | Cabaña 2. Economía: puntos por presencia y reuniones, buzón con racha diaria, tablón de misiones y ranking semanal | ✅ |
-| Cabaña 3–5. Cafetería y tienda, decoración, casino, regalos e intercambios (ver el plan) | Pendiente |
+| Cabaña 3a. Cafetería: menú en la barra pagado con puntos, lo pedido se lleva en la mano | ✅ |
+| Cabaña 3b–5. Tienda y probador, decoración de oficinas, casino, regalos e intercambios (ver el plan) | Pendiente |
 
 > Las funciones de agentes de IA se retiraron del proyecto; su código quedó archivado en la rama `archivo/agentes-ia`.
 

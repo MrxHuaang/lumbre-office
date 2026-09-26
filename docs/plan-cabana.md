@@ -69,7 +69,10 @@ Misiones: cualquiera publica; otra persona la toma, la entrega y quien la public
 
 1. ✅ **Migración**: motor a `packages/map`, render isométrico, áreas con transiciones, exterior básico, planta baja (recibidor, cafetería con mesas privadas, reuniones), piso 2 con 4 oficinas grandes, HUD cozy, chibis. Todo lo que ya funciona sigue funcionando (sillas, puertas, PC, video, pantalla compartida).
 2. ✅ **Economía base**: puntos por presencia y reuniones, tablón de misiones, buzón con racha, ranking semanal.
-3. **Compras y decoración**: menú de la cafetería, tienda y probador, inventario, editor de oficina.
+3. **Compras y decoración**, en tres partes:
+   - 3a ✅ **Cafetería**: menú en la barra (tinto, café con leche, aromática, chocolate con queso, pandebono, buñuelo, torta de tres leches; 3 a 12 puntos). Lo pedido se lleva en la mano 30 min y todos lo ven. Solo decorativo. Gastar puntos (`PURCHASE`) nunca deja el saldo en negativo.
+   - 3b **Tienda, probador e inventario**: sala nueva en la mitad sur de la cafetería; ropa nueva de pago (lo actual sigue gratis); muebles nuevos; mochila en el HUD.
+   - 3c **Editor de oficina**: poner, mover, rotar y quitar muebles de la mochila en tu oficina, y cambiar piso y papel tapiz; lo valida el servidor y se ve en vivo.
 4. **Casino**: ruleta, blackjack, caja, límite en `/admin`.
 5. **Social y ocio**: regalos, intercambios, huerto, pesca, arcade, sala de cine.
 
