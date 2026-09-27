@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { bootServer, c, intoOffice, tick, token, walkTo, walkToTile, type ServerRoom } from "./helpers";
+import { bootServer, c, goToArea, intoOffice, tick, token, walkTo, walkToTile, type ServerRoom } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -188,7 +188,7 @@ describe("editor de oficina", () => {
     // La oficina 2 comparte con la sala de reuniones la pared entre x = 29 y x = 30; en (29, 5) hay piso libre.
     await walkToTile(alice, room, 30, 5);
     // Plantas encima, arriba, abajo y a su derecha: el único vecino libre sin mirar paredes sería (29, 5),
-    // del otro lado; tiene que quedar en la oficina, en una diagonal.
+    // del otro lado. Tiene que quedar en la oficina: el primer tile libre sin cruzar paredes es (32, 5).
     const tiles = [
       [30, 4],
       [30, 5],
@@ -200,8 +200,34 @@ describe("editor de oficina", () => {
     await room.waitForNextPatch();
     await tick(30);
     const p = me(room, alice);
-    expect([Math.floor(p.x / 32), Math.floor(p.y / 32)]).not.toEqual([29, 5]);
-    expect(Math.floor(p.x / 32)).toBeGreaterThanOrEqual(30);
+    expect([Math.floor(p.x / 32), Math.floor(p.y / 32)]).toEqual([32, 5]);
     expect(p.zoneId).toBe(ZONE);
+  });
+
+  it("a quien quedó dentro de un mueble en una oficina cerrada que no le toca se le saca a la puerta", async () => {
+    const { room } = await setup();
+    // La oficina 4 es de Bob (x 30..39, y 14..23; puerta afuera en (34, 13)). Su decoración tiene una planta
+    // en (34, 15), relativa (4, 1). Carol quedó parada ahí (entró justo antes de que se guardara).
+    repo.assign("office-4", "u-bob", "Bob");
+    repo.decorate("office-4", [{ id: "p1", type: "plant", x: 4, y: 1, facing: "right" }]);
+    const carol = await colyseus.connectTo(room, { token: await token("u-carol", "Carol", "bruno") });
+    await room.waitForNextPatch();
+    await goToArea(carol, room, "piso-2");
+    const stuck = async () => {
+      const p = me(room, carol);
+      p.x = c(34);
+      p.y = c(15);
+      await OfficeRoom.reloadOfficesEverywhere();
+      await room.waitForNextPatch();
+      await tick(30);
+      return me(room, carol);
+    };
+    // Abierta: se queda adentro, en el tile libre más cercano.
+    let p = await stuck();
+    expect([Math.floor(p.x / 32), Math.floor(p.y / 32), p.zoneId]).toEqual([35, 15, "office-4"]);
+    // Cerrada: no se queda ni se busca lugar adentro; sale al pasillo, frente a la puerta.
+    await repo.setOfficeLocked("office-4", true);
+    p = await stuck();
+    expect([Math.floor(p.x / 32), Math.floor(p.y / 32), p.zoneId]).toEqual([34, 13, "pasillo"]);
   });
 });
