@@ -310,8 +310,6 @@ model OfficeItem {
 model CasinoSettings {
   id             Int      @id @default(1)
   enabled        Boolean  @default(true)
-  /** Lo máximo que alguien puede perder en el casino en un día (de Bogotá). */
-  dailyLossLimit Int      @default(150)
   updatedAt      DateTime @updatedAt
 }
 
