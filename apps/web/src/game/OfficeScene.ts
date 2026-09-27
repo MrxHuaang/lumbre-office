@@ -51,6 +51,7 @@ import { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, isNightNow } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
+import { ClubMode } from "./club";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { ensureCharacterTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
@@ -93,6 +94,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "roulette", point: "roulette", furniture: ["roulette-table", "roulette-wheel"] },
   { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },
   { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
+  { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
+  { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Colores del editor de oficina: grilla, y fantasma/huella cuando se puede (verde) o no (rojo). */
@@ -174,6 +177,8 @@ export class OfficeScene extends Phaser.Scene {
   private usableNear: UsableHit | null = null;
   /** Mueble al que voy caminando (clic en la tele, el piano…): al llegar se usa. */
   private pendingUse: PlacedFurniture | null = null;
+  /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
+  private club!: ClubMode;
 
   constructor() {
     super("office");
@@ -203,6 +208,7 @@ export class OfficeScene extends Phaser.Scene {
     this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,F,ESC,DELETE,BACKSPACE", false) as Keys;
     this.table = new TableMode(this);
     this.usables = new Usables(this, (id) => this.avatars.get(id), () => this.local);
+    this.club = new ClubMode(this, (id) => this.avatars.get(id), () => this.local, () => this.localId);
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
@@ -226,6 +232,7 @@ export class OfficeScene extends Phaser.Scene {
       onHeldUsed((e) => this.avatars.get(e.sessionId)?.useHeld(e.part, e.action, e.left)),
       onFurnitureEvent((e) => this.usables.handleEvent(e)),
       () => this.usables.destroy(),
+      () => this.club.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
@@ -284,6 +291,8 @@ export class OfficeScene extends Phaser.Scene {
     }
     for (const [id, avatar] of this.avatars) if (id !== this.localId) avatar.interpolate(delta);
     this.usables.update();
+    // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
+    this.club.update();
   }
 
   // ---------- Niveles ----------
@@ -298,6 +307,7 @@ export class OfficeScene extends Phaser.Scene {
       this.view?.destroy();
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
       this.usables.setArea(map, this.view);
+      this.club.setArea(map, this.view);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -351,6 +361,7 @@ export class OfficeScene extends Phaser.Scene {
     this.view?.destroy();
     this.view = new AreaView(this, map, useOfficeStore.getState().night);
     this.usables.setArea(map, this.view);
+    this.club.setArea(map, this.view);
     AreaView.dropStaleBases(this, map);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
     const goal = this.path.at(-1);
@@ -592,6 +603,8 @@ export class OfficeScene extends Phaser.Scene {
       const right = k.D.isDown || k.RIGHT.isDown ? 1 : 0;
       vx = down - up + right - left;
       vy = down - up - right + left;
+      // En el club, E sobre la pista baila o deja de bailar (si no hay otro objeto al lado).
+      if (taps.e && !this.seat && !this.table.kind && this.club.tapE(useOfficeStore.getState().interact)) taps.e = false;
       if (taps.e) {
         // Junto al buzón, el tablón o la barra, E los abre; junto a un mueble que se usa (si le gana al
         // asiento), lo usa; si no, sienta o levanta.
@@ -605,6 +618,8 @@ export class OfficeScene extends Phaser.Scene {
       if (useOfficeStore.getState().decorating) this.decorKeys(taps);
       // Esc sale de la mesa (y del blackjack te levanta).
       if (taps.esc && this.table.kind) useOfficeStore.getState().closePanel();
+      // Esc suelta el tubo o deja de bailar en la pista.
+      else if (taps.esc && !useOfficeStore.getState().decorating) this.club.esc();
     }
 
     if (vx !== 0 || vy !== 0) {

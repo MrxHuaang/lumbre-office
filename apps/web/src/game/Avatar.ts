@@ -481,6 +481,22 @@ export class Avatar {
     return this.seated !== null;
   }
 
+  /** Está en otro nivel (no se ve). */
+  get isHidden() {
+    return this.hidden;
+  }
+
+  /**
+   * Baile del club (club/index.ts): el club dibuja el baile con su propia imagen y mientras tanto el
+   * cuerpo, la sombra y lo que lleva en la mano no se ven. Se llama en cada frame que dura el baile.
+   */
+  setBodyVisible(visible: boolean) {
+    const show = visible && !this.hidden;
+    this.sprite.setVisible(show);
+    this.shadow.setVisible(show && !this.seated);
+    for (const part of this.held?.parts ?? []) part.image.setVisible(show && part.left > 0);
+  }
+
   setMotion(dir: Direction, moving: boolean) {
     if (moving) {
       this.stopDance();

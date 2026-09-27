@@ -33,6 +33,8 @@ import {
 } from "@hyvento/shared";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
+import { bindArcade } from "./arcade/net";
+import { bindClub, togglePole } from "./club/net";
 import { useOfficeStore, type Interactable } from "./store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
@@ -203,7 +205,7 @@ export function sendBlackjackAction(action: BlackjackAction) {
 
 /** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
 export function activateInteractable(kind: Interactable) {
-  if (kind === "pole") return sendEmote("dance");
+  if (kind === "pole") return togglePole();
   useOfficeStore.getState().openPanel(kind, true);
 }
 
@@ -482,6 +484,9 @@ function attach(r: OfficeRoom) {
     useOfficeStore.getState().notify(text, s.outcome === "lose" ? "info" : "success");
   });
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
+  // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
+  bindClub(r);
+  bindArcade(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
     if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");

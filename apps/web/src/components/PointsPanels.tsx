@@ -5,6 +5,7 @@ import { barItem, cafeItem, POINTS, shopItem, type HumanAvatar, type Look, type 
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
+import { useClubStore } from "@/game/club/store";
 import { useOfficeStore, type Interactable } from "@/game/store";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
@@ -46,6 +47,8 @@ const PROMPT: Record<Interactable, string> = {
   cashier: "Ver la caja",
   blackjack: "Jugar blackjack",
   bar: "Pedir en la barra del club",
+  dj: "Poner música en la cabina",
+  arcade: "Jugar en la máquina",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -99,7 +102,10 @@ export function InteractPrompt() {
   const near = useOfficeStore((s) => s.interact);
   const panel = useOfficeStore((s) => s.panel);
   const openPanel = useOfficeStore((s) => s.openPanel);
+  // Bailando en el tubo, el club muestra su propio botón para soltarlo.
+  const onPole = useClubStore((s) => s.here.dancing === "pole");
   if (!near || panel) return null;
+  if (near === "pole" && onPole) return null;
   return (
     <button
       type="button"
