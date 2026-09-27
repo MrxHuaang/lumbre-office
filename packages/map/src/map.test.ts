@@ -387,11 +387,6 @@ describe("circulación (docs/plan-rediseno.md)", () => {
     expect(stairs(piso2)).toEqual(expect.arrayContaining(stairs(piso3)));
   });
 
-  // Se activa al integrar con la rama del sótano: allá la escalera tiene que quedar en los mismos tiles
-  // que la bajada de la planta baja (acá el sótano sigue con la escalera de la base).
-  it.skip("la escalera del sótano queda debajo de la bajada de la planta baja", () => {
-    expect(CONEXIONES.sotano.escalera.tiles).toEqual(CONEXIONES.plantaBaja.escaleraSotano.tiles);
-  });
 });
 
 describe("sótano", () => {

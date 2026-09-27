@@ -87,7 +87,7 @@ export function barItem(id: string): BarItem | undefined {
  */
 export const MENUS = {
   cafe: { point: "cafe_counter", items: CAFE_MENU, furniture: ["counter-coffee", "pastry-case", "counter"] },
-  bar: { point: "club_bar", items: BAR_MENU, furniture: ["bar-counter", "bar-shelf", "bar-taps"] },
+  bar: { point: "club_bar", items: BAR_MENU, furniture: ["bar-counter", "bar-shelf", "bar-taps", "cigar-case"] },
 } as const;
 export type MenuId = keyof typeof MENUS;
 export type MenuItem = CafeItem | BarItem;
