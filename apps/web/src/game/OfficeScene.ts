@@ -147,6 +147,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
+  { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */

@@ -50,7 +50,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "dj"
   | "arcade"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
-  | "race";
+  | "race"
+  // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
+  | "shed";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {

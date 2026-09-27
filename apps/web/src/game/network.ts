@@ -50,6 +50,9 @@ import {
   CASA_MSG,
   CASA_NOTICES,
   type CasaNotice,
+  HUERTO_MSG,
+  huertoNoticeText,
+  type HuertoNotice,
   isWeather,
   type PhotoCountdownEvent,
   type PhotoFlashEvent,
@@ -164,6 +167,19 @@ export interface OfficeStateView {
   counters: Map<string, number>;
   stalls: Map<string, string>;
   pets: Map<string, RemotePet>;
+  /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
+  garden: Map<string, RemoteGardenPlot>;
+}
+
+/** Una parcela sembrada como viaja en el estado (espejo de `GardenPlotState` en apps/server/src/state.ts). */
+export interface RemoteGardenPlot {
+  crop: string;
+  plantedBy: string;
+  plantedByName: string;
+  plantedAt: number;
+  growthMs: number;
+  growthAt: number;
+  wateredUntil: number;
 }
 
 /** Casa viva: una mascota como viaja en el estado (espejo de `Pet` en apps/server/src/state.ts). */
@@ -347,6 +363,11 @@ export function sendUseHeld() {
 /** Usar un mueble de mi nivel (tele, lámpara, piano…): el servidor valida que esté al alcance. */
 export function sendFurnitureUse(type: string, x: number, y: number) {
   room?.send(MSG.furnitureUse, { type, x, y });
+}
+
+/** Sacar la regadera o semillas del cobertizo: el servidor valida que estés junto a su puerta. */
+export function sendShedTake(item: string) {
+  room?.send(HUERTO_MSG.shedTake, { item });
 }
 
 /** Casa viva: alguien de tu nivel llamó, acarició o le dio un premio a una mascota. */
@@ -763,6 +784,8 @@ function attach(r: OfficeRoom) {
     const text = CASA_NOTICES[n.code];
     if (text) useOfficeStore.getState().notify(text, "info");
   });
+  // Jardín vivo: por qué no se pudo sembrar, regar, cosechar o sacar miel.
+  r.onMessage(HUERTO_MSG.notice, (n: HuertoNotice) => useOfficeStore.getState().notify(huertoNoticeText(n), "info"));
   r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));
