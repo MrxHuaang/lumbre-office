@@ -2,14 +2,17 @@
 // la fogata y los faroles. Se dibuja con el mismo motor del juego (sin Phaser) y encima caminan
 // personajes. Aquí solo hay datos y cuentas (nada del DOM), para poder probarla aparte.
 import { catalogItem, type AreaDef, type FloorKind, type Placement } from "@hyvento/map";
-import { L, toScreen } from "@hyvento/map/art";
+import { cardSprite, drawFish, drawFurniture, drawMenuItem, L, toScreen, type PixelCanvas } from "@hyvento/map/art";
 
 const place = (type: string, x: number, y: number, facing: Placement["facing"] = "right"): Placement => ({ type, x, y, facing });
 
 export const ESCENA_W = 34;
 export const ESCENA_H = 31;
 
-/** La casa (22x14): la puerta queda en x = CASA.x + 10 y el porche da a la fila CASA.y + 14. */
+/**
+ * La casa (22x14): la puerta queda en x = CASA.x + 10 y el porche da a la fila CASA.y + 14. El letrero
+ * del porche dice "HYVENTO" a propósito: es la cabaña del equipo Hyvento, que vive adentro de Lumbre.
+ */
 const CASA = { x: 6, y: 2 };
 export const PUERTA = { x: CASA.x + 10.5, y: CASA.y + 14.6 };
 /** La fogata (2x2), a un costado del sendero. */
@@ -122,7 +125,7 @@ export const OFICINA: AreaDef = {
     place("coffee-table", 2, 4),
     place("armchair", 4, 4, "left"),
     place("monstera", 6, 3),
-    place("lamp", 6, 5),
+    // Sin lámpara de pie adelante: tapaba el sillón y la monstera. Alumbra la de lectura.
     place("reading-lamp", 0, 5),
   ],
 };
@@ -146,11 +149,12 @@ export const JUEGOS: AreaDef = {
     place("arcade-cabinet", 0, 0, "down"),
     place("arcade-cabinet", 1, 0, "down"),
     place("roulette-wheel", 3, 2),
+    // La crispetera en la esquina y el tocadiscos aparte, fuera del cable del neón (sin la planta
+    // de antes, que lo tapaba).
     place("popcorn-machine", 6, 0),
-    place("record-player", 5, 0),
+    place("record-player", 6, 2),
     place("cafe-table", 1, 4),
     place("armchair", 0, 4, "right"),
-    place("plant", 6, 3),
     place("bench", 0, 1, "right"),
   ],
 };
@@ -183,11 +187,43 @@ export function aLienzo(tx: number, ty: number, pad: number, z = 0) {
   return { x: ESCENA_H * L + 2 + pad + s.x, y: 2 + pad + s.y };
 }
 
-/** Las luces de la escena (faroles, fogata, farol del porche), sacadas del catálogo: en tiles y alto. */
-export const LUCES = ESCENA.furniture.flatMap((f) => {
-  const luz = catalogItem(f.type).light;
-  return luz ? [{ x: f.x + luz.at[0] / L, y: f.y + luz.at[1] / L, z: luz.at[2], color: luz.color, radio: luz.radius, fuego: f.type === "fire-pit" }] : [];
-});
+export interface Luz {
+  x: number;
+  y: number;
+  z: number;
+  color: string;
+  radio: number;
+  fuego: boolean;
+}
+
+let luces: Luz[] | undefined;
+/**
+ * Las luces de la escena (faroles, fogata, farol del porche), sacadas del catálogo: en tiles y alto.
+ * Se calculan al pedirlas y un mueble que ya no exista se salta: la portada y el login importan este
+ * archivo, y un cambio en el catálogo no puede tumbarlos (el test de la escena avisa).
+ */
+export function lucesDeEscena(): Luz[] {
+  luces ??= ESCENA.furniture.flatMap((f) => {
+    let luz: ReturnType<typeof catalogItem>["light"];
+    try {
+      luz = catalogItem(f.type).light;
+    } catch {
+      return [];
+    }
+    return luz ? [{ x: f.x + luz.at[0] / L, y: f.y + luz.at[1] / L, z: luz.at[2], color: luz.color, radio: luz.radius, fuego: f.type === "fire-pit" }] : [];
+  });
+  return luces;
+}
+
+/** Cosas sueltas del juego para la sección de juegos: de la cafetería, el casino, el arcade y el lago. */
+export const OBJETOS: { nombre: string; dibujar: () => PixelCanvas }[] = [
+  { nombre: "Tinto", dibujar: () => drawMenuItem("tinto") },
+  { nombre: "Pandebono", dibujar: () => drawMenuItem("pandebono") },
+  { nombre: "Tres leches", dibujar: () => drawMenuItem("torta") },
+  { nombre: "As", dibujar: () => cardSprite(0, 3) },
+  { nombre: "Arawana", dibujar: () => drawFish("arawana", "raro") },
+  { nombre: "Arcade", dibujar: () => drawFurniture("arcade-cabinet").canvas },
+];
 
 /** La gente quieta junto a la fogata: dónde está y hacia dónde mira. */
 export const RONDA = [

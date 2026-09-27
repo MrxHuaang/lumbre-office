@@ -533,13 +533,14 @@ body {
 .lumbre-luz-fuego {
   animation-duration: 0.7s;
 }
+/* Con la propiedad translate (aparte del transform que lo centra): no recalcula el layout. */
 @keyframes lumbre-globo {
   0%,
   100% {
-    margin-top: 0;
+    translate: 0 0;
   }
   50% {
-    margin-top: -3px;
+    translate: 0 -3px;
   }
 }
 .lumbre-globo {
@@ -609,6 +610,8 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  /* También los personajes de las vistas previas: con menos movimiento quedan parados. */
+  .sprite-walk,
   .lumbre-cuadro-a,
   .lumbre-luz,
   .lumbre-globo,

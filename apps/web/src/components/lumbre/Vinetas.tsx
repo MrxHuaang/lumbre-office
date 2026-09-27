@@ -3,13 +3,13 @@
 // Las ilustraciones chicas de la portada, todas con el arte del juego: salas en miniatura, cosas de
 // la cafetería y el casino, personajes al azar y la burbuja de proximidad.
 import { buildArea, type AreaDef } from "@hyvento/map";
-import { cardSprite, composeArea, drawFish, drawMenuItem, drawFurniture, type PixelCanvas } from "@hyvento/map/art";
+import { composeArea } from "@hyvento/map/art";
 import { HUMAN_AVATARS, randomLook, seededRandom, type Look } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { CharacterSprite } from "../CharacterSprite";
 import { PixelIcon } from "../Cozy";
-import { recortar, type Dibujo } from "./dibujo";
-import { JUEGOS, OFICINA } from "./escena";
+import { prefiereQuieto, recortar, type Dibujo } from "./dibujo";
+import { JUEGOS, OBJETOS, OFICINA } from "./escena";
 
 const SALAS: Record<string, AreaDef> = { oficina: OFICINA, juegos: JUEGOS };
 
@@ -17,23 +17,21 @@ const SALAS: Record<string, AreaDef> = { oficina: OFICINA, juegos: JUEGOS };
 export function Diorama({ sala, className = "" }: { sala: keyof typeof SALAS & string; className?: string }) {
   const [d, setD] = useState<Dibujo | null>(null);
   useEffect(() => {
-    const id = setTimeout(() => setD(recortar(composeArea(buildArea(SALAS[sala]!), true, 40))), 0);
+    const id = setTimeout(() => {
+      try {
+        setD(recortar(composeArea(buildArea(SALAS[sala]!), true, 40)));
+      } catch (e) {
+        // Si la sala ya no se puede armar (un mueble cambió de nombre), queda el hueco y la página sigue.
+        console.error("No se pudo dibujar la sala de la portada", e);
+      }
+    }, 0);
     return () => clearTimeout(id);
   }, [sala]);
   if (!d) return <div className={`aspect-[5/4] ${className}`} aria-hidden />;
   return <img src={d.src} alt="" aria-hidden className={`pixelated h-auto ${className}`} style={{ aspectRatio: `${d.w} / ${d.h}` }} draggable={false} />;
 }
 
-/** Cosas sueltas del juego, cada una en su casilla: de la cafetería, el casino, el arcade y el lago. */
-const OBJETOS: { nombre: string; dibujar: () => PixelCanvas }[] = [
-  { nombre: "Tinto", dibujar: () => drawMenuItem("tinto") },
-  { nombre: "Pandebono", dibujar: () => drawMenuItem("pandebono") },
-  { nombre: "Tres leches", dibujar: () => drawMenuItem("torta") },
-  { nombre: "As", dibujar: () => cardSprite(0, 3) },
-  { nombre: "Arawana", dibujar: () => drawFish("arawana", "raro") },
-  { nombre: "Arcade", dibujar: () => drawFurniture("arcade-cabinet").canvas },
-];
-
+/** Cosas sueltas del juego (OBJETOS de escena.ts), cada una en su casilla. */
 export function Objetos({ className = "" }: { className?: string }) {
   const [srcs, setSrcs] = useState<(Dibujo | null)[]>([]);
   useEffect(() => {
@@ -83,6 +81,9 @@ export function Objetos({ className = "" }: { className?: string }) {
 /** Una fila de personajes: los seis fijos y algunos armados al azar; "Otro" sortea uno nuevo. */
 export function Personajes({ className = "" }: { className?: string }) {
   const [semilla, setSemilla] = useState(7);
+  // Caminan en el lugar, salvo con "menos movimiento" (se sabe recién en el navegador).
+  const [caminan, setCaminan] = useState(false);
+  useEffect(() => setCaminan(!prefiereQuieto()), []);
   // Con semillas fijas el primer dibujo es igual en el servidor y en el navegador.
   const [looks, setLooks] = useState<(Look | null)[]>(() => [null, randomLook(seededRandom(3)), null, randomLook(seededRandom(21)), null, randomLook(seededRandom(8))]);
   const sortear = () => {
@@ -99,7 +100,7 @@ export function Personajes({ className = "" }: { className?: string }) {
             avatar={HUMAN_AVATARS[i % HUMAN_AVATARS.length]!}
             look={look}
             dir="down"
-            walking
+            walking={caminan}
             className="w-[15%] max-w-24"
             style={{ animationDelay: `${-i * 0.13}s` }}
           />

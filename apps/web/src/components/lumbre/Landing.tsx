@@ -194,7 +194,9 @@ export function Landing() {
           <div className="lumbre-hoguera grid place-items-center">
             <Llama size={112} />
           </div>
-          <CozyTitle className="text-[clamp(38px,6vw,64px)] leading-none">Acércate a la lumbre</CozyTitle>
+          <CozyTitle as="h2" className="text-[clamp(38px,6vw,64px)] leading-none">
+            Acércate a la lumbre
+          </CozyTitle>
           <p className="max-w-[34ch] text-[18px] leading-snug text-cozy-paper-dark">Tu equipo te espera adentro. Entra con la cuenta de Google con la que te invitaron.</p>
           <Link href="/login" className="cozy-btn cozy-btn-primary gap-2.5 px-7 py-4 text-[20px]">
             <Llama size={22} viva={false} />

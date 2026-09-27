@@ -9,9 +9,11 @@ import { randomLook, seededRandom, type Direction, type HumanAvatar, type Look }
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { CharacterSprite } from "../CharacterSprite";
 import { prefiereQuieto, recortar, type Dibujo } from "./dibujo";
-import { aLienzo, enRecorrido, ESCENA, LLEGADA, LUCES, PASEO, RONDA, type Recorrido } from "./escena";
+import { aLienzo, enRecorrido, ESCENA, LLEGADA, lucesDeEscena, PASEO, RONDA, type Recorrido } from "./escena";
 
 const PAD = 80;
+/** Con "menos movimiento" cada caminante queda parado a esta distancia de su punta de salida. */
+const QUIETO_EN = 1.6;
 /** Tiles por segundo (el juego camina un poco más rápido; aquí es un paseo). */
 const VELOCIDAD = 1.15;
 
@@ -41,7 +43,15 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
 
   useEffect(() => {
     // Se dibuja después de montar (usa <canvas>) y sin bloquear el primer render.
-    const id = setTimeout(() => setDibujo(recortar(composeArea(buildArea(ESCENA), false, PAD))), 0);
+    const id = setTimeout(() => {
+      try {
+        setDibujo(recortar(composeArea(buildArea(ESCENA), false, PAD)));
+      } catch (e) {
+        // Si la escena ya no se puede armar (un mueble cambió de nombre), queda el hueco: la portada
+        // y el login siguen funcionando sin la ilustración.
+        console.error("No se pudo dibujar la escena de la portada", e);
+      }
+    }, 0);
     return () => clearTimeout(id);
   }, []);
 
@@ -68,7 +78,7 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
       setEstado((viejos) => (viejos.every((v, i) => v.dir === nuevos[i]!.dir && v.caminando === nuevos[i]!.caminando) ? viejos : nuevos));
     };
     // Quieto: cada uno a mitad de camino, parado.
-    ubicar(quieto ? 1.6 : 0);
+    ubicar(quieto ? QUIETO_EN : 0);
     if (quieto) return;
     const paso = (ahora: number) => {
       recorrido += (Math.min(ahora - t0, 100) / 1000) * VELOCIDAD;
@@ -91,6 +101,18 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
     };
   }, [dibujo, caminantes]);
 
+  // Dónde arranca cada caminante, ya en el primer cuadro (si no, se ve un instante en la esquina
+  // hasta que corre el efecto). Es fijo: después los mueve el efecto directo en el DOM.
+  const inicio = useMemo(() => {
+    if (!dibujo) return [];
+    const d0 = prefiereQuieto() ? QUIETO_EN : 0;
+    return caminantes.map((c) => {
+      const p = enRecorrido(c.recorrido, c.desde + d0, c.pausa);
+      const q = aLienzo(p.x, p.y, PAD);
+      return { left: `${((q.x - dibujo.x0) / dibujo.w) * 100}%`, top: `${((q.y - dibujo.y0) / dibujo.h) * 100}%`, zIndex: 10 + Math.round(q.y) };
+    });
+  }, [dibujo, caminantes]);
+
   if (!dibujo) return <div className={`aspect-[1205/620] ${className}`} aria-hidden />;
 
   const pct = (tx: number, ty: number, z = 0) => {
@@ -102,10 +124,10 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
   const charla = RONDA[0]!;
 
   return (
-    <div ref={caja} className={`relative select-none ${className}`} style={{ aspectRatio: `${dibujo.w} / ${dibujo.h}` }} aria-hidden>
+    <div ref={caja} className={`relative isolate select-none ${className}`} style={{ aspectRatio: `${dibujo.w} / ${dibujo.h}` }} aria-hidden>
       <img src={dibujo.src} alt="" className="pixelated absolute inset-0 h-full w-full" draggable={false} />
       {/* El resplandor de cada luz, en pasos (como el juego de noche, pero suave para que se vea el día). */}
-      {LUCES.map((l, i) => {
+      {lucesDeEscena().map((l, i) => {
         const r = ((l.radio * (l.fuego ? 1.5 : 1)) / dibujo.w) * 100;
         return (
           <span
@@ -137,7 +159,7 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
             cuerpos.current[i] = el;
           }}
           className="absolute"
-          style={cuerpo}
+          style={{ ...inicio[i], ...cuerpo }}
         >
           <CharacterSprite avatar={c.avatar} look={c.look} dir={estado[i]!.dir} walking={estado[i]!.caminando} />
         </div>
