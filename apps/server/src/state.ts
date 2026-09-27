@@ -122,6 +122,31 @@ export class BlackjackState extends Schema {
   @type([BlackjackSeat]) seats = new ArraySchema<BlackjackSeat>();
 }
 
+/** Un lado del hockey de mesa del arcade (0 = la punta del norte, 1 = la del sur). */
+export class HockeyPlayer extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  @type("number") score = 0;
+  /** Lo juega la máquina. */
+  @type("boolean") bot = false;
+}
+
+/**
+ * Hockey de mesa: lo que cambia poco (fase, jugadores, goles). El disco y los mazos van aparte, en
+ * cuadros (`MSG.hockeyFrame`) solo a los del sótano.
+ */
+export class HockeyState extends Schema {
+  /** "idle", "waiting" (uno pagó y espera rival), "countdown", "playing", "goal" (pausa) u "over". */
+  @type("string") phase = "idle";
+  @type("number") match = 0;
+  /** Fin de la fase (o del partido, jugando), en ms de la hora del servidor. */
+  @type("number") endsAt = 0;
+  /** Al terminar: el lado que ganó (-1 = empate) y si fue porque el otro se fue. */
+  @type("number") winner = -1;
+  @type("boolean") forfeit = false;
+  @type([HockeyPlayer]) sides = new ArraySchema<HockeyPlayer>(new HockeyPlayer(), new HockeyPlayer());
+}
+
 /** Casa viva: una mascota de la casa (la mueve el servidor; ver rooms/mascotas.ts). */
 export class Pet extends Schema {
   @type("string") id = "";
@@ -186,6 +211,7 @@ export class OfficeState extends Schema {
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
   @type(RouletteState) roulette = new RouletteState();
   @type(BlackjackState) blackjack = new BlackjackState();
+  @type(HockeyState) hockey = new HockeyState();
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`; los que no están siguen como arrancan. */
   @type({ map: "boolean" }) switches = new MapSchema<boolean>();
   /** Cambios del editor de la casa por nivel (JSON de WorldEdits de @hyvento/map); sin entrada, el plano. */

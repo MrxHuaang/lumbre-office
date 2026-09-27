@@ -146,6 +146,7 @@ import { Trades } from "./trades";
 import { CasaViva } from "./casa";
 import { Pets, type PetUser } from "./mascotas";
 import { Arcade } from "./arcade";
+import { HockeyTable } from "./hockey";
 import { Club, musicOf, type ClubWho } from "./club";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
@@ -438,6 +439,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** El club del sótano (música, pista y tubo) y el arcade. */
   private club!: Club;
   private arcade!: Arcade;
+  /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
+  private hockey!: HockeyTable;
 
   private get repo() {
     return OfficeRoom.repo;
@@ -468,7 +471,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       seed: () => OfficeRoom.arcadeSeed(),
       token: () => randomUUID(),
       award: (userId, amount) => this.awardLeisure(userId, amount),
+      setPoints: (userId, balance) => {
+        for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+      },
     });
+    this.startHockey();
     OfficeRoom.instances.add(this);
 
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
@@ -538,8 +545,17 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.clubQueue, (client, raw) => void this.handleClubQueue(client, raw));
     this.onMessage(MSG.clubReact, (client, raw) => this.handleClubReact(client, raw));
     this.onMessage(MSG.arcadeBoard, (client, raw) => void this.handleArcadeBoard(client, raw));
-    this.onMessage(MSG.arcadeStart, (client, raw) => this.handleArcadeStart(client, raw));
+    this.onMessage(MSG.arcadeStart, (client, raw) => void this.handleArcadeStart(client, raw));
     this.onMessage(MSG.arcadeFinish, (client, raw) => void this.handleArcadeFinish(client, raw));
+    this.onMessage(MSG.hockeyJoin, (client, raw) => void this.handleHockeyJoin(client, raw));
+    this.onMessage(MSG.hockeyMove, (client, raw) => {
+      const p = this.state.players.get(client.sessionId);
+      if (p) this.hockey.move(p.userId, raw);
+    });
+    this.onMessage(MSG.hockeyLeave, (client) => {
+      const p = this.state.players.get(client.sessionId);
+      if (p) this.hockey.leave(p.userId);
+    });
     this.onMessage(MSG.clockPing, (client, raw) => {
       const parsed = ClockPingMessage.safeParse(raw);
       if (parsed.success) client.send(MSG.clockPong, { id: parsed.data.id, now: Date.now() } satisfies ClockPong);
@@ -1878,11 +1894,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (board) client.send(MSG.arcadeBoardResult, board);
   }
 
-  private handleArcadeStart(client: Client<UserData>, raw: unknown) {
+  private async handleArcadeStart(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
-    const started = this.arcade.start(this.mapOf(player.area), player, raw, OfficeRoom.arcadeNow());
     client.userData.lastActiveAt = Date.now();
+    const started = await this.arcade.start(this.mapOf(player.area), player, raw, OfficeRoom.arcadeNow());
     if ("ok" in started) client.send(MSG.arcadeResult, started);
     else client.send(MSG.arcadeStarted, started);
   }
@@ -1893,6 +1909,33 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastActiveAt = Date.now();
     const result = await this.arcade.finish(player, raw, OfficeRoom.arcadeNow());
     client.send(MSG.arcadeResult, result);
+  }
+
+  /** El hockey de mesa: cobra y paga por el repositorio, corre con el reloj de la sala y avisa a los del sótano. */
+  private startHockey() {
+    this.hockey = new HockeyTable({
+      state: this.state.hockey,
+      repo: () => this.repo,
+      map: () => this.mapOf("sotano"),
+      every: (ms, fn) => this.clock.setInterval(fn, ms),
+      later: (ms, fn) => this.clock.setTimeout(fn, ms),
+      now: () => Date.now(),
+      where: (userId) => [...this.state.players.values()].find((p) => p.userId === userId) ?? null,
+      setPoints: (userId, balance) => {
+        for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+      },
+      frame: (frame) => this.sendToArea("sotano", MSG.hockeyFrame, frame),
+      settled: (userId, settled) => this.clientOfUser(userId)?.send(MSG.hockeySettled, settled),
+      bonus: (userId, amount) => this.awardLeisure(userId, amount),
+    });
+  }
+
+  private async handleHockeyJoin(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const result = await this.hockey.join(player, raw);
+    if (result) client.send(MSG.hockeyResult, result);
   }
 
   /** Premio de ocio (con su tope diario) para todas las sesiones de esa persona; devuelve lo sumado. */
@@ -1924,6 +1967,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
     this.fishery.forget(player.userId);
+    this.hockey?.leave(player.userId);
     this.casa.forget(player.userId);
     this.swivels.forget(player.userId);
     void this.achievements.forget(player.userId);
