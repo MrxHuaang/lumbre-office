@@ -49,6 +49,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Club y arcade del sótano: la consola de la cabina de DJ y las máquinas.
   | "dj"
   | "arcade"
+  // Cine del sótano: la cabina del proyector (programar, pausar y seguir la función).
+  | "cinema"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race";
 

@@ -62,6 +62,7 @@ import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
 import { bindClub, togglePole } from "./club/net";
+import { bindCinema } from "./cinema/net";
 import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
@@ -719,6 +720,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
+  bindCinema(r);
   bindRace(r);
   bindArcade(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {

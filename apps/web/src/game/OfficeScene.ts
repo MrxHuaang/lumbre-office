@@ -53,6 +53,7 @@ import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, isNightNow, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
+import { CinemaMode } from "./cinema";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { ensureCharacterTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
@@ -144,6 +145,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
   { kind: "fishing", point: "fishing_spot", furniture: ["flat-rock"] },
   { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
+  { kind: "cinema", point: "cinema", furniture: ["projector"] },
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
@@ -249,6 +251,8 @@ export class OfficeScene extends Phaser.Scene {
   private rods!: FishingRods;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
+  /** El cine del sótano (la función en la pantalla, las luces y el haz del proyector). */
+  private cinema!: CinemaMode;
   /** Lo que ve quien tomó de más (filtros sobre el canvas) y su zigzag al caminar. */
   private drunkVision!: DrunkVision;
   private drunkStage: DrunkStage = 0;
@@ -306,6 +310,7 @@ export class OfficeScene extends Phaser.Scene {
     this.fishing = new FishingController(this, () => this.local, () => this.map);
     this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
     this.club = new ClubMode(this, (id) => this.avatars.get(id), () => this.local, () => this.localId);
+    this.cinema = new CinemaMode(this, () => this.local);
     this.drunkVision = new DrunkVision(() => this.game.canvas);
     this.toasts = new ToastController(this, {
       avatar: (id) => this.avatars.get(id),
@@ -383,6 +388,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
       () => this.club.destroy(),
+      () => this.cinema.destroy(),
       () => disposeRadio(),
       () => this.drunkVision.destroy(),
       bindUiSounds(),
@@ -470,6 +476,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.update();
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
+    this.cinema.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
     this.updateOfficeRadio();
@@ -583,6 +590,7 @@ export class OfficeScene extends Phaser.Scene {
       this.rods.setArea(map);
       this.fishing.reset();
       this.club.setArea(map, this.view);
+      this.cinema.setArea(map);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -643,6 +651,7 @@ export class OfficeScene extends Phaser.Scene {
     this.photoBoards.setArea(map);
     this.rods.setArea(map);
     this.club.setArea(map, this.view);
+    this.cinema.setArea(map);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
@@ -1053,7 +1062,7 @@ export class OfficeScene extends Phaser.Scene {
       if (taps.esc && this.table.kind) useOfficeStore.getState().closePanel();
       // Esc suelta el tubo o deja de bailar en la pista.
       else if (taps.esc && this.local?.isRiding) sendRaceCancel();
-      else if (taps.esc && !useOfficeStore.getState().decorating) this.club.esc();
+      else if (taps.esc && !useOfficeStore.getState().decorating && !this.cinema.esc()) this.club.esc();
     }
 
     if (vx !== 0 || vy !== 0) {

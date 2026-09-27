@@ -1,13 +1,15 @@
 "use client";
 
 // Panel lateral plegable (borde derecho, abajo): lo del lugar donde estoy sin tenerlo siempre en
-// pantalla. En el club, lo que suena; en una oficina o la sala de reuniones, lo de la sala. Cerrado queda
+// pantalla. En el club, lo que suena; en el cine, la función; en una oficina o la sala de reuniones, lo de la sala. Cerrado queda
 // una pestaña con flecha (y una nota si suena algo); abierto o cerrado se recuerda en el navegador.
-import { isPlaying } from "@hyvento/shared";
+import { isPlaying, isShowing } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { useClubStore } from "@/game/club/store";
 import { useOfficeStore } from "@/game/store";
+import { useCinemaStore } from "@/game/cinema/store";
 import { ClubSection } from "./club/ClubDock";
+import { CinemaSection } from "./cinema/CinemaPanel";
 import { PixelIcon } from "./Cozy";
 import { inRoom, RoomSection, useRoomTitle } from "./RoomPanel";
 
@@ -37,6 +39,8 @@ export function SideDock() {
 
   const inClub = useClubStore((s) => s.here.inClub);
   const clubPlaying = useClubStore((s) => isPlaying(s));
+  const inCinema = useCinemaStore((s) => s.here.inCinema);
+  const showing = useCinemaStore((s) => isShowing(s));
   const zoneType = useOfficeStore((s) => s.zone?.type);
   const radioOn = useOfficeStore((s) => Boolean(s.zone?.type === "office" && s.offices[s.zone.id]?.radio && !s.offices[s.zone.id]!.radio!.paused));
   const roomTitle = useRoomTitle();
@@ -49,9 +53,9 @@ export function SideDock() {
 
   const indoors = useOfficeStore((s) => s.indoors);
   const room = inRoom(zoneType) || indoors;
-  if ((!inClub && !room) || decorating || worldEditing || pcOn || panel) return null;
-  const title = inClub ? "Club" : roomTitle;
-  const sounding = inClub ? clubPlaying : radioOn;
+  if ((!inClub && !inCinema && !room) || decorating || worldEditing || pcOn || panel) return null;
+  const title = inClub ? "Club" : inCinema ? "Cine" : roomTitle;
+  const sounding = inClub ? clubPlaying : inCinema ? showing : radioOn;
 
   return (
     <div className={`pointer-events-none absolute right-0 bottom-28 z-10 flex items-end xl:bottom-16 ${chatOpen && open ? "max-md:hidden" : ""}`}>
@@ -66,7 +70,7 @@ export function SideDock() {
         <span aria-hidden>{open ? "▶" : "◀"}</span>
         {!open && (
           <>
-            <PixelIcon name={inClub ? "sound" : "home"} size={14} />
+            <PixelIcon name={inClub ? "sound" : inCinema ? "screen" : "home"} size={14} />
             {sounding && (
               <span className="text-cozy-red" aria-label="suena algo">
                 ♪
@@ -78,7 +82,7 @@ export function SideDock() {
       {open && (
         <section id="panel-lateral" aria-label={title} className="cozy-panel pointer-events-auto mr-3 flex w-[min(320px,calc(100vw-4.5rem))] flex-col gap-2 px-3 py-2.5">
           <p className="text-[12px] text-cozy-ink-soft">{title}</p>
-          {inClub ? <ClubSection /> : <RoomSection />}
+          {inClub ? <ClubSection /> : inCinema ? <CinemaSection /> : <RoomSection />}
         </section>
       )}
     </div>

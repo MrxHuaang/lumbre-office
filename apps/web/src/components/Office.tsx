@@ -31,6 +31,7 @@ import { ProfileDialog } from "./ProfileDialog";
 import { ArcadePanel } from "./arcade/ArcadePanel";
 import { ClubHud } from "./club/ClubHud";
 import { DjConsole } from "./club/DjConsole";
+import { CinemaHud, CinemaPanel } from "./cinema/CinemaPanel";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
@@ -225,6 +226,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <RaceTimer />
             <RadioTapPrompt />
             <ClubHud />
+            <CinemaHud />
           </div>
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
           <div className="pointer-events-none absolute top-16 left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
@@ -273,6 +275,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
           )}
           {panel?.kind === "dj" && <DjConsole atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "cinema" && <CinemaPanel onClose={closePanel} />}
           {panel?.kind === "arcade" && <ArcadePanel onClose={closePanel} />}
           {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
           {panel?.kind === "race" && <RacePanel atObject={panel.atObject} onClose={closePanel} />}
