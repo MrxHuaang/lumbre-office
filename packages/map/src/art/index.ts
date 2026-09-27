@@ -98,6 +98,21 @@ export {
   TABLE_MIN_ZOOM,
   type TableViewport,
 } from "./casino-camara";
+// Hockey de mesa del arcade: la cancha del modo mesa, el disco, los mazos y el marcador.
+export {
+  hockeyBanner,
+  hockeyRinkOverlay,
+  hockeyRinkRect,
+  malletPiece,
+  puckPiece,
+  rinkToScreen,
+  scoreboardPiece,
+  screenToRink,
+  HOCKEY_BOARD,
+  HOCKEY_SIDE_COLOR,
+  HOCKEY_TOP_Z,
+  type HockeyPiece,
+} from "./hockey";
 
 /** Halo de luz en bandas tramadas (se suma de noche). */
 export function glowSprite(rx: number, ry: number, color: string, maxAlpha: number): PixelCanvas {
