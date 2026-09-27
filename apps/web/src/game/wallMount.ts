@@ -117,6 +117,13 @@ export class WallMount {
     const st = this.host.style;
     if (layout === "hidden") {
       st.visibility = "hidden";
+      // Escondido sigue teniendo tamaño: YouTube no reproduce en un reproductor de menos de 200x200 (la
+      // radio de las oficinas, que solo suena, o el club con la pantalla fuera de la vista).
+      if (!st.width) {
+        st.width = `${BASE_W}px`;
+        st.height = `${(BASE_W * 9) / 16}px`;
+        Object.assign(this.frame.style, { width: st.width, height: st.height, left: "0px", top: "0px" });
+      }
       return;
     }
     st.visibility = "visible";
