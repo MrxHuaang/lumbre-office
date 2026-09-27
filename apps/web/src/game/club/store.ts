@@ -1,6 +1,6 @@
 // Estado del club en el cliente: copia de lo que sincroniza el servidor (qué suena, desde cuándo y quién
 // baila) y lo que es solo de esta persona (volumen y silencio de la música, guardados en el navegador).
-import { beatAt, DANCE_MOVE_IDS, isPlaying, trackElapsed, type ClubMusicState, type DanceMoveId } from "@hyvento/shared";
+import { beatAt, DANCE_MOVE_IDS, isPlaying, trackElapsed, type ClubMusicState, type ClubVideoView, type DanceMoveId } from "@hyvento/shared";
 import { create } from "zustand";
 import { useCasinoStore } from "../casino";
 import { measuredOffset } from "./clock";
@@ -20,6 +20,17 @@ export interface ClubHere {
 
 interface ClubStore extends ClubMusicState {
   dj: string;
+  /** El video de YouTube que suena (o null), lo que viene y lo que ya sonó. */
+  now: ClubVideoView | null;
+  queue: ClubVideoView[];
+  history: ClubVideoView[];
+  /** El navegador no dejó sonar el video solo: hace falta un toque (botón "Activar sonido"). */
+  needsTap: boolean;
+  /** Ver el video en grande (clic en la pantalla del club). */
+  videoBig: boolean;
+  setVideos: (v: { now: ClubVideoView | null; queue: ClubVideoView[]; history: ClubVideoView[] }) => void;
+  setNeedsTap: (b: boolean) => void;
+  setVideoBig: (b: boolean) => void;
   dancers: Record<string, ClubDancerView>;
   /** Volumen de la música para mí (0 a 1) y si la silencié. */
   volume: number;
@@ -69,6 +80,15 @@ export const useClubStore = create<ClubStore>((set, get) => ({
   paused: false,
   pausedAt: 0,
   dj: "",
+  video: "",
+  now: null,
+  queue: [],
+  history: [],
+  needsTap: false,
+  videoBig: false,
+  setVideos: (v) => set(v),
+  setNeedsTap: (needsTap) => get().needsTap !== needsTap && set({ needsTap }),
+  setVideoBig: (videoBig) => set({ videoBig }),
   dancers: {},
   ...loadPrefs(),
   here: { inClub: false, onFloor: false, dancing: null },

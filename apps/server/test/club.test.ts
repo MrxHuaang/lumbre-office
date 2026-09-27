@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { getWorld, isBlockedTile, pointsOfType, zoneAt, type OfficeMap } from "@hyvento/map";
-import { CLUB, MSG, ROOM_NAME, loopMs, clubTrack, poleKey, type ClockPong, type ClubResult } from "@hyvento/shared";
+import { CLUB, CLUB_VIDEO, MSG, ROOM_NAME, loopMs, clubTrack, poleKey, type ClockPong, type ClubReactionEvent, type ClubResult } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -253,5 +253,147 @@ describe("club (en la sala)", () => {
     await tick(80);
     await room.waitForNextPatch();
     expect(room.state.club.dancers.size).toBe(0);
+  });
+});
+
+// ---------- Cola de videos de YouTube ----------
+
+const vid = (n: number) => `video${String(n).padStart(6, "0")}`;
+
+describe("cola de videos (reglas)", () => {
+  it("el primero arranca ya (cortando una pista generada), los demás esperan en orden", () => {
+    const { state, club, map, booth } = rules();
+    club.dj(map, at(booth.x, booth.y), { action: "play", track: "house" }, 1000);
+    expect(club.enqueue({ videoId: vid(1), title: "Uno" }, "Ana", 2000)).toEqual({ ok: true });
+    expect(state.track).toBe("");
+    expect(state.video).toMatchObject({ videoId: vid(1), title: "Uno", by: "Ana" });
+    expect(state.startedAt).toBe(2000);
+    expect(state.dj).toBe("Ana");
+    club.enqueue({ videoId: vid(2), title: "Dos" }, "Beto", 2100);
+    club.enqueue({ videoId: vid(3), title: "Tres" }, "Beto", 2200);
+    expect(state.queue.map((v) => v.videoId)).toEqual([vid(2), vid(3)]);
+    // El mismo video no entra dos veces (ni el que suena).
+    expect(club.enqueue({ videoId: vid(1), title: "Uno" }, "Beto", 2300)).toEqual({ ok: false, error: "queued" });
+    expect(club.enqueue({ videoId: vid(3), title: "Tres" }, "Beto", 2300)).toEqual({ ok: false, error: "queued" });
+  });
+
+  it("se reordena, se quita y se salta (dos saltos a la vez se llevan uno solo)", () => {
+    const { state, club } = rules();
+    for (let i = 1; i <= 4; i++) club.enqueue({ videoId: vid(i), title: `V${i}` }, "Ana", 1000 + i);
+    const ids = () => state.queue.map((v) => v.videoId);
+    expect(ids()).toEqual([vid(2), vid(3), vid(4)]);
+    const id4 = state.queue[2]!.id;
+    expect(club.move(id4, 0)).toEqual({ ok: true });
+    expect(ids()).toEqual([vid(4), vid(2), vid(3)]);
+    expect(club.move(id4, 99)).toEqual({ ok: true }); // se recorta al final
+    expect(ids()).toEqual([vid(2), vid(3), vid(4)]);
+    expect(club.unqueue(state.queue[1]!.id)).toEqual({ ok: true });
+    expect(ids()).toEqual([vid(2), vid(4)]);
+    expect(club.move("no-existe", 0)).toEqual({ ok: false, error: "invalid" });
+    const playing = state.video.id;
+    club.skip(playing, 5000);
+    club.skip(playing, 5001);
+    expect(state.video.videoId).toBe(vid(2));
+    expect(ids()).toEqual([vid(4)]);
+    expect(state.history.map((v) => v.videoId)).toEqual([vid(1)]);
+  });
+
+  it("pasa solo al siguiente cuando termina (con la duración del reproductor) y sin cola queda en silencio", () => {
+    const { state, club } = rules();
+    club.enqueue({ videoId: vid(1), title: "Uno" }, "Ana", 0);
+    club.enqueue({ videoId: vid(2), title: "Dos" }, "Ana", 0);
+    const first = state.video.id;
+    club.duration(first, 60_000);
+    club.duration(first, 1_000); // la segunda no cambia nada
+    expect(state.video.durationMs).toBe(60_000);
+    // Un "terminó" adelantado no se cree; uno a tiempo sí.
+    club.ended(first, 30_000);
+    expect(state.video.id).toBe(first);
+    club.ended(first, 58_000);
+    expect(state.video.videoId).toBe(vid(2));
+    // El segundo termina por el reloj del servidor aunque nadie avise.
+    club.duration(state.video.id, 10_000);
+    club.tick(58_000 + 10_000 + CLUB_VIDEO.endGraceMs);
+    expect(state.video.videoId).toBe("");
+    expect(state.startedAt).toBe(0);
+    expect(state.history.map((v) => v.videoId)).toEqual([vid(2), vid(1)]);
+  });
+
+  it("sin duración conocida el aviso vale después de un rato, y el reloj corta a los 20 minutos", () => {
+    const { state, club } = rules();
+    club.enqueue({ videoId: vid(1), title: "Uno" }, "Ana", 0);
+    club.ended(state.video.id, CLUB_VIDEO.minPlayMs - 1);
+    expect(state.video.videoId).toBe(vid(1));
+    club.tick(CLUB_VIDEO.unknownMaxMs);
+    expect(state.video.videoId).toBe("");
+  });
+
+  it("lo que sonó se vuelve a poner, sin repetirse en la lista, y la cola tiene tope", () => {
+    const { state, club } = rules();
+    club.enqueue({ videoId: vid(1), title: "Uno" }, "Ana", 0);
+    club.skip(state.video.id, 1);
+    club.enqueue({ videoId: vid(1), title: "Uno" }, "Ana", 2);
+    club.skip(state.video.id, 3);
+    expect(state.history.map((v) => v.videoId)).toEqual([vid(1)]);
+    expect(club.replay(state.history[0]!.id, "Beto", 4)).toEqual({ ok: true });
+    expect(state.video).toMatchObject({ videoId: vid(1), by: "Beto" });
+    for (let i = 2; i < CLUB_VIDEO.maxQueue + 2; i++) club.enqueue({ videoId: vid(i), title: "x" }, "Ana", 5);
+    expect(state.queue.length).toBe(CLUB_VIDEO.maxQueue);
+    expect(club.enqueue({ videoId: vid(999), title: "x" }, "Ana", 6)).toEqual({ ok: false, error: "queue-full" });
+  });
+
+  it("la cabina pausa y sigue un video en su punto; una pista generada lo devuelve al frente de la cola", () => {
+    const { state, club, map, booth } = rules();
+    const dj = at(booth.x, booth.y);
+    club.enqueue({ videoId: vid(1), title: "Uno" }, "Ana", 1000);
+    club.dj(map, dj, { action: "pause" }, 4000);
+    expect(state).toMatchObject({ paused: true, pausedAt: 3000 });
+    club.dj(map, dj, { action: "resume" }, 10_000);
+    expect(state).toMatchObject({ paused: false, startedAt: 7000 });
+    club.dj(map, { ...dj, userId: "otro" }, { action: "play", track: "lofi" }, 11_000);
+    expect(state.video.videoId).toBe("");
+    expect(state.queue.map((v) => v.videoId)).toEqual([vid(1)]);
+  });
+});
+
+describe("cola de videos (en la sala)", () => {
+  beforeEach(() => {
+    OfficeRoom.youtubeLookup = async (id) => (id === "bloqueado1x" ? { ok: false, error: "not-embeddable" } : { ok: true, title: `Título de ${id}` });
+  });
+
+  it("dentro del club se agrega un link con su título; afuera o con un link raro, no", async () => {
+    const { room, bob, errors, send } = await setup();
+    await send(bob, MSG.clubQueue, { action: "add", url: "https://youtu.be/dQw4w9WgXcQ" });
+    expect(errors.at(-1)).toEqual({ ok: false, error: "far" });
+    const { floor } = spots(sotano());
+    await goToArea(bob, room, "sotano");
+    await walkToTile(bob, room, floor.x, floor.y);
+    await send(bob, MSG.clubQueue, { action: "add", url: "https://vimeo.com/123" });
+    expect(errors.at(-1)).toEqual({ ok: false, error: "not-youtube" });
+    await send(bob, MSG.clubQueue, { action: "add", url: "https://youtu.be/bloqueado1x" });
+    expect(errors.at(-1)).toEqual({ ok: false, error: "not-embeddable" });
+    await send(bob, MSG.clubQueue, { action: "add", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10" });
+    expect(room.state.club.video).toMatchObject({ videoId: "dQw4w9WgXcQ", title: "Título de dQw4w9WgXcQ", by: "Bob" });
+    // Con un video sonando se baila en la pista.
+    await send(bob, MSG.clubDance, { move: "robot" });
+    expect(room.state.club.dancers.get(bob.sessionId)).toMatchObject({ kind: "floor", move: "robot" });
+  });
+
+  it("las reacciones llegan a los del sótano solo mientras suena algo", async () => {
+    const { room, alice, bob, send } = await setup();
+    const seen: ClubReactionEvent[] = [];
+    bob.onMessage(MSG.clubReaction, (e: ClubReactionEvent) => seen.push(e));
+    alice.onMessage(MSG.clubReaction, () => {});
+    const { floor } = spots(sotano());
+    await goToArea(alice, room, "sotano");
+    await walkToTile(alice, room, floor.x, floor.y);
+    await goToArea(bob, room, "sotano");
+    await send(alice, MSG.clubReact, { emoji: "🔥" });
+    expect(seen).toEqual([]);
+    await send(alice, MSG.clubQueue, { action: "add", url: "dQw4w9WgXcQ" });
+    await send(alice, MSG.clubReact, { emoji: "🔥" });
+    await send(alice, MSG.clubReact, { emoji: "💩" });
+    await tick(60);
+    expect(seen).toEqual([{ sessionId: alice.sessionId, name: "Alice", emoji: "🔥" }]);
   });
 });

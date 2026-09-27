@@ -643,6 +643,36 @@ function neonAt(text: string, u: number, hv: number, u1: number): RGBA | null {
   return at(C.violet, 0);
 }
 
+/**
+ * Recuadro de la imagen de la pantalla del club (`video-wall`), en unidades de arte relativas al rasgo:
+ * `u` a lo largo de la pared desde su borde izquierdo y `hv` de altura. Ahí monta el navegador el video.
+ */
+export const VIDEO_WALL_SCREEN = { u0: 3, uPad: 3, hv0: 28, hv1: 53 } as const;
+
+/** Pantalla LED del club (sobre la cabina): marco negro con filo de neón y, apagada, "DJ" en neón. */
+function videoWallAt(u: number, hv: number, u1: number): RGBA | null {
+  const { u0, uPad, hv0, hv1 } = VIDEO_WALL_SCREEN;
+  if (!inRect(u, hv, u0 - 2, hv0 - 2, u1 - uPad + 2, hv1 + 2)) return null;
+  if (!inRect(u, hv, u0, hv0, u1 - uPad, hv1)) {
+    const edge = inRect(u, hv, u0 - 1, hv0 - 1, u1 - uPad + 1, hv1 + 1);
+    return edge ? at(C.neon, 3) : at(C.metal, 0);
+  }
+  // Letras de 3x5 a escala 3, centradas: se ven cuando no hay video encima.
+  const s = 3;
+  const text = "DJ";
+  const tw = text.length * 4 * s - s;
+  const x0 = Math.floor((u1 - tw) / 2);
+  const top = Math.floor((hv0 + hv1 + 5 * s) / 2);
+  const x = Math.floor(u) - x0;
+  const y = top - Math.floor(hv);
+  const k = Math.floor(x / (4 * s));
+  const gx = Math.floor((x - k * 4 * s) / s);
+  if (x >= 0 && k < text.length && y >= 0 && y < 5 * s && gx < 3 && glyphOn(text[k]!, gx, Math.floor(y / s)))
+    return at(C.neon, (x + y) % 4 === 0 ? 5 : 4);
+  // Rejilla de leds apagados.
+  return Math.floor(u) % 2 === 0 && Math.floor(hv) % 2 === 0 ? at(C.violet, 1) : at(C.night, 0);
+}
+
 /** Pantalla de cine con telón rojo a los lados y arriba; muestra un atardecer (la "película"). */
 function cinemaScreenAt(u: number, hv: number, u1: number): RGBA | null {
   const cur = 9;
@@ -766,6 +796,8 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
       return neonAt(f.text ?? "", u, hv, u1);
     case "cinema-screen":
       return cinemaScreenAt(u, hv, u1);
+    case "video-wall":
+      return videoWallAt(u, hv, u1);
     case "poster":
       return posterAt(f, u, hv, u1);
     // Interiores del rediseño (art/interior-room.ts).

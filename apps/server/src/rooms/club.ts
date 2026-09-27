@@ -3,6 +3,7 @@
 import { nearPointOfType, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import {
   CLUB,
+  CLUB_VIDEO,
   ClubDanceMessage,
   ClubDjMessage,
   ClubPoleMessage,
@@ -12,8 +13,31 @@ import {
   poleKey,
   type ClubError,
 } from "@hyvento/shared";
-import { ClubDancer, type ClubState } from "../state";
+import { ClubDancer, ClubVideo, type ClubState } from "../state";
 import { canUse } from "./usables";
+
+/** Copia un video (una instancia de schema no puede estar en dos lugares del estado a la vez). */
+function copyVideo(v: ClubVideo): ClubVideo {
+  return assignVideo(new ClubVideo(), v);
+}
+
+function assignVideo(to: ClubVideo, from: Pick<ClubVideo, "id" | "videoId" | "title" | "by" | "durationMs">): ClubVideo {
+  to.id = from.id;
+  to.videoId = from.videoId;
+  to.title = from.title;
+  to.by = from.by;
+  to.durationMs = from.durationMs;
+  return to;
+}
+
+/** Lo que suena, como lo cuentan las reglas de @hyvento/shared. */
+export function musicOf(s: ClubState) {
+  return { track: s.track, video: s.video.videoId, startedAt: s.startedAt, paused: s.paused, pausedAt: s.pausedAt };
+}
+
+function clearVideo(v: ClubVideo) {
+  assignVideo(v, { id: "", videoId: "", title: "", by: "", durationMs: 0 });
+}
 
 /** Quien usa el club: su sesión, su nivel y dónde tiene los pies. */
 export interface ClubWho {
@@ -56,6 +80,8 @@ export class Club {
   /** Cuándo puede volver a usar la cabina o cambiar de paso cada persona. */
   private djAt = new Map<string, number>();
   private danceAt = new Map<string, number>();
+  /** Para los ids de las entradas de la cola. */
+  private seq = 0;
 
   constructor(private readonly state: ClubState) {}
 
@@ -71,6 +97,11 @@ export class Club {
     const msg = parsed.data;
     switch (msg.action) {
       case "play":
+        // Una pista generada corta el video: vuelve al frente de la cola, así no se pierde.
+        if (s.video.videoId) {
+          this.setQueue([copyVideo(s.video), ...s.queue.map(copyVideo)]);
+          clearVideo(s.video);
+        }
         s.track = msg.track;
         s.startedAt = now;
         s.paused = false;
@@ -79,20 +110,22 @@ export class Club {
         return OK;
       case "pause": {
         const t = clubTrack(s.track);
-        if (!t || s.paused) return OK;
-        // Se guarda el punto dentro del loop: al seguir, arranca desde ahí.
-        s.pausedAt = (now - s.startedAt) % loopMs(t);
+        if ((!t && !s.video.videoId) || s.paused) return OK;
+        // Se guarda el punto (dentro del loop, en una pista): al seguir, arranca desde ahí.
+        s.pausedAt = t ? (now - s.startedAt) % loopMs(t) : now - s.startedAt;
         s.paused = true;
         this.stopFloor();
         return OK;
       }
       case "resume":
-        if (!s.track || !s.paused) return OK;
+        if ((!s.track && !s.video.videoId) || !s.paused) return OK;
         s.startedAt = now - s.pausedAt;
         s.paused = false;
         s.pausedAt = 0;
         return OK;
       case "stop":
+        if (s.video.videoId) this.remember(s.video);
+        clearVideo(s.video);
         s.track = "";
         s.paused = false;
         s.pausedAt = 0;
@@ -101,6 +134,140 @@ export class Club {
         this.stopFloor();
         return OK;
     }
+  }
+
+  // ---------- Cola de videos de YouTube ----------
+
+  /** ¿Puede tocar la cola? Hay que estar dentro del club (en cualquier parte, no solo en la cabina). */
+  inClub(map: OfficeMap, who: Pick<ClubWho, "area" | "x" | "y">): boolean {
+    return map.id === CLUB.area && who.area === CLUB.area && zoneAt(map, who.x, who.y)?.id === CLUB.zone;
+  }
+
+  /** ¿Se puede agregar este video? (antes de ir a averiguar su título) */
+  canAdd(videoId: string): ClubOutcome {
+    const s = this.state;
+    if (s.queue.length >= CLUB_VIDEO.maxQueue) return fail("queue-full");
+    if (s.video.videoId === videoId || s.queue.some((v) => v.videoId === videoId)) return fail("queued");
+    return OK;
+  }
+
+  /**
+   * Agrega un video al final de la cola. Si no suena ningún video (nada, o una pista generada), arranca
+   * ya: los videos mandan sobre los loops.
+   */
+  enqueue(video: { videoId: string; title: string; durationMs?: number }, by: string, now: number): ClubOutcome {
+    const check = this.canAdd(video.videoId);
+    if (!check.ok) return check;
+    const v = new ClubVideo();
+    v.id = `v${now.toString(36)}${(this.seq++).toString(36)}`;
+    v.videoId = video.videoId;
+    v.title = video.title.slice(0, CLUB_VIDEO.maxTitle);
+    v.by = by.slice(0, 40);
+    v.durationMs = video.durationMs ?? 0;
+    this.state.queue.push(v);
+    if (!this.state.video.videoId) this.next(now);
+    return OK;
+  }
+
+  /** Vuelve a poner uno de lo que sonó (al final de la cola). */
+  replay(id: string, by: string, now: number): ClubOutcome {
+    const old = this.state.history.find((v) => v.id === id);
+    if (!old) return fail("invalid");
+    return this.enqueue(old, by, now);
+  }
+
+  /** Mueve una entrada de la cola a la posición `to` (se recorta al largo de la cola). */
+  move(id: string, to: number): ClubOutcome {
+    const q = this.state.queue;
+    const from = q.findIndex((v) => v.id === id);
+    if (from < 0) return fail("invalid");
+    const target = Math.min(to, q.length - 1);
+    if (target === from) return OK;
+    const list = q.map(copyVideo);
+    const [moved] = list.splice(from, 1);
+    list.splice(target, 0, moved!);
+    this.setQueue(list);
+    return OK;
+  }
+
+  unqueue(id: string): ClubOutcome {
+    const q = this.state.queue;
+    const i = q.findIndex((v) => v.id === id);
+    if (i < 0) return fail("invalid");
+    q.splice(i, 1);
+    return OK;
+  }
+
+  /** Salta el video que suena (si todavía es `id`: dos saltos a la vez no se llevan dos). */
+  skip(id: string, now: number): ClubOutcome {
+    if (this.state.video.id !== id) return OK;
+    this.next(now);
+    return OK;
+  }
+
+  /**
+   * Un reproductor avisó que terminó `id`. Se cree si ya es la hora (con la duración conocida) o si pasó
+   * un rato (sin ella): un cliente adelantado no corta el video a los demás.
+   */
+  ended(id: string, now: number): ClubOutcome {
+    const s = this.state;
+    if (s.video.id !== id || s.paused) return OK;
+    const elapsed = now - s.startedAt;
+    const due = s.video.durationMs > 0 ? elapsed >= s.video.durationMs - CLUB_VIDEO.endSlackMs : elapsed >= CLUB_VIDEO.minPlayMs;
+    if (due) this.next(now);
+    return OK;
+  }
+
+  /** La duración que dio el primer reproductor del video `id` (las siguientes no cambian nada). */
+  duration(id: string, ms: number): ClubOutcome {
+    const v = this.state.video.id === id ? this.state.video : this.state.queue.find((q) => q.id === id);
+    if (!v || v.durationMs > 0 || ms <= 0) return OK;
+    v.durationMs = Math.min(CLUB_VIDEO.maxDurationMs, Math.max(CLUB_VIDEO.minDurationMs, ms));
+    return OK;
+  }
+
+  /** Cada medio segundo: si el video ya terminó (según el reloj del servidor), pasa al siguiente. */
+  tick(now: number) {
+    const s = this.state;
+    if (!s.video.videoId || s.paused) return;
+    const limit = s.video.durationMs > 0 ? s.video.durationMs + CLUB_VIDEO.endGraceMs : CLUB_VIDEO.unknownMaxMs;
+    if (now - s.startedAt >= limit) this.next(now);
+  }
+
+  /** Pasa al siguiente de la cola (lo que sonaba va a "lo que sonó"); sin cola, silencio. */
+  private next(now: number) {
+    const s = this.state;
+    if (s.video.videoId) this.remember(s.video);
+    const next = s.queue.shift();
+    s.track = "";
+    s.paused = false;
+    s.pausedAt = 0;
+    if (!next) {
+      clearVideo(s.video);
+      s.startedAt = 0;
+      s.dj = "";
+      this.stopFloor();
+      return;
+    }
+    assignVideo(s.video, next);
+    s.startedAt = now;
+    s.dj = next.by;
+  }
+
+  /** Reemplaza la cola entera (ArraySchema no deja insertar en el medio con splice). */
+  private setQueue(list: ClubVideo[]) {
+    const q = this.state.queue;
+    q.splice(0, q.length);
+    for (const v of list) q.push(v);
+  }
+
+  /** Guarda un video en "lo que sonó" (lo último primero, sin repetir el mismo video). */
+  private remember(v: ClubVideo) {
+    const h = this.state.history;
+    for (let i = h.length - 1; i >= 0; i--) if (h[i]!.videoId === v.videoId) h.splice(i, 1);
+    const list = [copyVideo(v), ...h.map(copyVideo)].slice(0, CLUB_VIDEO.historySize);
+    h.splice(0, h.length);
+    for (const x of list) h.push(x);
   }
 
   /** Bailar en la pista con un paso (o dejar de bailar con `null`): parado sobre la pista y con música. */
@@ -114,7 +281,7 @@ export class Club {
     }
     if (who.seated) return fail("seated");
     if (!onDanceFloor(map, who.x, who.y)) return fail("far");
-    if (!isPlaying(this.state)) return fail("silence");
+    if (!isPlaying(musicOf(this.state))) return fail("silence");
     if (now < (this.danceAt.get(who.userId) ?? 0)) return fail("busy");
     this.danceAt.set(who.userId, now + CLUB.danceCooldownMs);
     const d = current ?? new ClubDancer();

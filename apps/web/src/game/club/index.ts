@@ -21,11 +21,14 @@ import {
   styleFor,
   FEET_Y,
   FRAME,
+  L,
+  VIDEO_WALL_SCREEN,
+  WORLD_TO_ART,
   type ArcadeScreenKind,
   type PixelCanvas,
   type Sprite,
 } from "@hyvento/map/art";
-import { ARCADE_MACHINES, CLUB, DANCE_MOVE_IDS, isPlaying, poleKey, type DanceMoveId } from "@hyvento/shared";
+import { ARCADE_MACHINES, CLUB, DANCE_MOVE_IDS, isPlaying, poleKey, type ClubReactionEvent, type DanceMoveId } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, depthOf, ensureTexture, toHtmlCanvas, worldToScreen } from "../iso/view";
@@ -33,8 +36,12 @@ import { characterKey, parseLook } from "../looks";
 import { getRoom } from "../network";
 import { useOfficeStore } from "../store";
 import { clubMusic, disposeClubMusic } from "./music";
-import { sendClubDance, sendClubPole } from "./net";
+import { onClubReaction, sendClubDance, sendClubPole } from "./net";
 import { clubBeat, serverNow, useClubStore, type ClubDancerView } from "./store";
+import { ClubVideo, type Point, type ScreenQuad } from "./video";
+
+/** El reproductor del club (uno solo, mientras estoy en el sótano). */
+let video: ClubVideo | null = null;
 
 /** Colores de las luces del club (rosado, turquesa, violeta y dorado del neón). */
 const LIGHTS = ["#ff5fd2", "#3fd0dd", "#9459ba", "#f3d672"];
@@ -108,13 +115,16 @@ export class ClubMode {
   private objects: Phaser.GameObjects.GameObject[] = [];
   private screenFrame = 0;
   private screenTimer?: Phaser.Time.TimerEvent;
+  private offReaction: () => void;
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly avatarOf: (sessionId: string) => Avatar | undefined,
     private readonly local: () => Avatar | undefined,
     private readonly localId: () => string | null,
-  ) {}
+  ) {
+    this.offReaction = onClubReaction((e) => this.floatReaction(e));
+  }
 
   /** Se dibujó un nivel: capas nuevas para sus muebles del club y del arcade. */
   setArea(map: OfficeMap, _view: AreaView) {
@@ -153,6 +163,9 @@ export class ClubMode {
 
   destroy() {
     this.clear();
+    this.offReaction();
+    video?.destroy();
+    video = null;
     disposeClubMusic();
   }
 
@@ -174,6 +187,7 @@ export class ClubMode {
     music?.setSong(club.track, club.startedAt, playing);
     music?.setLevel(level);
     music?.update();
+    this.updateVideo(level);
 
     const mine = myId ? club.dancers[myId] : undefined;
     club.setHere({
@@ -185,6 +199,85 @@ export class ClubMode {
 
     this.updateLights(beat);
     this.updateDancers(club.dancers, beat);
+  }
+
+  // ---------- Video de YouTube ----------
+
+  /** El reproductor existe mientras estoy en el sótano; suena solo dentro del club, con mi volumen. */
+  private updateVideo(level: number) {
+    const map = this.map;
+    const club = useClubStore.getState();
+    if (!map || map.id !== CLUB.area) {
+      video?.destroy();
+      video = null;
+      return;
+    }
+    const parent = this.scene.game.canvas.parentElement;
+    if (!parent) return;
+    if (!video && club.now) video = new ClubVideo(parent);
+    video?.update({
+      entry: club.now,
+      startedAt: club.startedAt,
+      paused: club.paused,
+      pausedAt: club.pausedAt,
+      serverNow: serverNow(),
+      volume: level,
+      quad: this.videoQuad(parent),
+      big: club.videoBig,
+    });
+  }
+
+  /** Dónde cae la imagen de la pantalla del club, en px del contenedor (null si no se ve). */
+  private videoQuad(parent: HTMLElement): ScreenQuad | null {
+    const map = this.map!;
+    const f = map.def.features.find((w) => w.kind === "video-wall");
+    if (!f || f.edge !== "h") return null;
+    const { u0, uPad, hv0, hv1 } = VIDEO_WALL_SCREEN;
+    const u1 = (f.width ?? 1) * L - uPad;
+    const x0 = f.x * map.tileSize;
+    const y0 = f.y * map.tileSize;
+    const at = (u: number, hv: number) => this.toCss(worldToScreen(x0 + u / WORLD_TO_ART, y0, hv));
+    const q = { tl: at(u0, hv1), tr: at(u1, hv1), bl: at(u0, hv0), aspect: (u1 - u0) / (hv1 - hv0) };
+    const xs = [q.tl.x, q.tr.x, q.bl.x];
+    const ys = [q.tl.y, q.tr.y, q.bl.y];
+    const off = Math.max(...xs) < 0 || Math.min(...xs) > parent.clientWidth || Math.max(...ys) < -40 || Math.min(...ys) > parent.clientHeight;
+    return off ? null : q;
+  }
+
+  /** Punto de la escena (coordenadas de mundo de Phaser) → px del contenedor del juego. */
+  private toCss(p: Point): Point {
+    const cam = this.scene.cameras.main;
+    const canvas = this.scene.game.canvas;
+    const k = canvas.clientWidth / this.scene.scale.width || 1;
+    return { x: (p.x - cam.worldView.x) * cam.zoom * k + canvas.offsetLeft, y: (p.y - cam.worldView.y) * cam.zoom * k + canvas.offsetTop };
+  }
+
+  /**
+   * Una reacción sube sobre la cabeza de quien la mandó (sobre la pantalla la taparía el video, que va
+   * encima del canvas); si no lo veo, desde el borde de arriba de la pantalla.
+   */
+  private floatReaction(e: ClubReactionEvent) {
+    const map = this.map;
+    if (!map || map.id !== CLUB.area) return;
+    const a = this.avatarOf(e.sessionId);
+    const f = map.def.features.find((w) => w.kind === "video-wall");
+    let p: Point | null = null;
+    if (a && !a.isHidden) p = worldToScreen(a.x + (Math.random() - 0.5) * 12, a.y, 46);
+    else if (f) p = worldToScreen((f.x + (f.width ?? 1) * (0.2 + Math.random() * 0.6)) * map.tileSize, f.y * map.tileSize, VIDEO_WALL_SCREEN.hv1 + 4);
+    if (!p) return;
+    const text = this.scene.add
+      .text(Math.round(p.x), Math.round(p.y), e.emoji, { fontSize: "14px", fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", system-ui, sans-serif' })
+      .setOrigin(0.5, 1)
+      .setDepth(DEPTH_OVERLAY + 12);
+    this.scene.tweens.add({
+      targets: text,
+      y: text.y - 26 - Math.random() * 10,
+      x: text.x + (Math.random() - 0.5) * 10,
+      alpha: 0,
+      duration: 1800,
+      ease: "Sine.out",
+      onComplete: () => text.destroy(),
+    });
   }
 
   private updateLights(beat: number | null) {
@@ -354,8 +447,14 @@ export class ClubMode {
 
   /** Esc: soltar el tubo o dejar de bailar. Devuelve si la usó. */
   esc(): boolean {
+    const club = useClubStore.getState();
+    // Primero se achica el video si está en grande.
+    if (club.videoBig) {
+      club.setVideoBig(false);
+      return true;
+    }
     const id = this.localId();
-    const mine = id ? useClubStore.getState().dancers[id] : undefined;
+    const mine = id ? club.dancers[id] : undefined;
     if (!mine) return false;
     if (mine.kind === "pole") sendClubPole(false);
     else sendClubDance(null);

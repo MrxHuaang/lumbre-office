@@ -121,9 +121,10 @@ export const sotano: AreaDef = {
     { kind: "neon", edge: "v", x: 0, y: 6, width: 4, text: "SLOTS" },
     { kind: "picture", edge: "v", x: 0, y: 11 },
     { kind: "neon", edge: "v", x: 0, y: 13, width: 3, text: "777" },
-    // Club: el letrero del bar sobre el humidor (los estantes de botellas lo taparían) y el del DJ sobre la cabina.
+    // Club: el letrero del bar sobre el humidor (los estantes de botellas lo taparían) y, sobre la cabina y
+    // los parlantes, la pantalla donde se ven los videos de YouTube (apagada dice "DJ").
     { kind: "neon", edge: "h", x: 37, y: CLUB_ROOM.y, width: 3, text: "BAR" },
-    { kind: "neon", edge: "h", x: 41, y: CLUB_ROOM.y, width: 2, text: "DJ" },
+    { kind: "video-wall", edge: "h", x: 40, y: CLUB_ROOM.y, width: 4 },
     // Pasillo: un afiche al fondo.
     { kind: "poster", edge: "v", x: 0, y: 19 },
     // Cine: la pantalla con telón al centro de la pared oeste, con un afiche a cada lado.

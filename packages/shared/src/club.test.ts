@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ARCADE_GAMES, ARCADE_MACHINES, ArcadeFinishMessage, arcadeGameOf, plausibleScore, weekStart } from "./arcade";
-import { beatAt, clockOffset, CLUB_TRACKS, ClubDjMessage, ClubDanceMessage, isPlaying, loopMs, trackElapsed } from "./club";
+import { beatAt, clockOffset, CLUB_TRACKS, CLUB_VIDEO, ClubDjMessage, ClubDanceMessage, ClubQueueMessage, isPlaying, loopMs, parseYoutubeId, trackElapsed } from "./club";
 import { dayStart } from "./points";
 
 describe("club", () => {
@@ -24,6 +24,35 @@ describe("club", () => {
     expect(isPlaying(paused)).toBe(false);
     expect(trackElapsed({ ...s, track: "" }, 12_000)).toBeNull();
     expect(beatAt({ ...s, track: "no-existe" }, 12_000)).toBeNull();
+  });
+
+  it("reconoce los links de YouTube (y nada más)", () => {
+    const id = "dQw4w9WgXcQ";
+    for (const url of [
+      id,
+      `https://www.youtube.com/watch?v=${id}`,
+      `youtube.com/watch?v=${id}&list=RD${id}&t=42`,
+      `https://youtu.be/${id}?si=abc`,
+      `https://m.youtube.com/watch?v=${id}`,
+      `https://music.youtube.com/watch?v=${id}`,
+      `https://www.youtube.com/shorts/${id}`,
+      `https://www.youtube.com/embed/${id}`,
+      `https://www.youtube.com/live/${id}`,
+      `  https://WWW.YOUTUBE.COM/watch?v=${id}  `,
+    ])
+      expect(parseYoutubeId(url), url).toBe(id);
+    for (const url of ["", "hola", "https://vimeo.com/123456", `https://evil.com/watch?v=${id}`, "https://youtu.be/corto", "https://www.youtube.com/@canal", "javascript:alert(1)"])
+      expect(parseYoutubeId(url), url).toBeNull();
+  });
+
+  it("un video también cuenta como música (y late a su tempo fijo)", () => {
+    const s = { track: "", video: "dQw4w9WgXcQ", startedAt: 0, paused: false, pausedAt: 0 };
+    expect(isPlaying(s)).toBe(true);
+    expect(beatAt(s, 30_000)).toBeCloseTo((30_000 * CLUB_VIDEO.bpm) / 60_000);
+    expect(isPlaying({ ...s, paused: true, pausedAt: 10 })).toBe(false);
+    expect(trackElapsed({ ...s, video: "" }, 5)).toBeNull();
+    expect(ClubQueueMessage.safeParse({ action: "move", id: "v1", to: 2 }).success).toBe(true);
+    expect(ClubQueueMessage.safeParse({ action: "add", url: "" }).success).toBe(false);
   });
 
   it("los mensajes rechazan pistas y pasos que no existen", () => {

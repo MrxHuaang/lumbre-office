@@ -220,6 +220,11 @@ export const MSG = {
   clubDance: "club:dance",
   clubPole: "club:pole",
   clubResult: "club:result",
+  /** La cola de videos de YouTube (`ClubQueueMessage`), reaccionar (`ClubReactMessage`) y el aviso de la
+   *  reacción a los del sótano (`ClubReactionEvent`). */
+  clubQueue: "club:queue",
+  clubReact: "club:react",
+  clubReaction: "club:reaction",
   /** Arcade: récords de una máquina (`ArcadeBoardMessage` → `ArcadeBoard`), empezar (`ArcadeStartMessage`
    *  → `ArcadeStarted`) y terminar una partida (`ArcadeFinishMessage` → `ArcadeResult`). */
   arcadeBoard: "arcade:board",

@@ -97,6 +97,13 @@ import {
   parseHeldLeft,
   SWIVEL,
   SwivelMessage,
+  CLUB_VIDEO,
+  ClubQueueMessage,
+  ClubReactMessage,
+  isPlaying,
+  parseYoutubeId,
+  type ClubError,
+  type ClubReactionEvent,
   TOAST,
   ToastMessage,
   type SwivelEvent,
@@ -128,7 +135,8 @@ import { Trades } from "./trades";
 import { CasaViva } from "./casa";
 import { Pets, type PetUser } from "./mascotas";
 import { Arcade } from "./arcade";
-import { Club, type ClubWho } from "./club";
+import { Club, musicOf, type ClubWho } from "./club";
+import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 
@@ -306,6 +314,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
     () => OfficeRoom.toastTimings,
   );
+  /** Cómo se averigua el título de un video de YouTube (los tests no salen a internet). */
+  static youtubeLookup: YoutubeLookup = lookupYoutube;
+  /** Cuándo puede volver a reaccionar cada persona en el club. */
+  private reactAt = new Map<string, number>();
   /** Tiempos de las sillas giratorias y cuántas vueltas da cada giro (los tests los fijan). */
   static swivelTimings: SwivelTimings = { ...DEFAULT_SWIVEL_TIMINGS };
   static swivelTurns: () => number = () => randomInt(SWIVEL.minTurns, SWIVEL.maxTurns + 1);
@@ -482,6 +494,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.clubDj, (client, raw) => this.handleClub(client, raw, "dj"));
     this.onMessage(MSG.clubDance, (client, raw) => this.handleClub(client, raw, "dance"));
     this.onMessage(MSG.clubPole, (client, raw) => this.handleClub(client, raw, "pole"));
+    this.onMessage(MSG.clubQueue, (client, raw) => void this.handleClubQueue(client, raw));
+    this.onMessage(MSG.clubReact, (client, raw) => this.handleClubReact(client, raw));
     this.onMessage(MSG.arcadeBoard, (client, raw) => void this.handleArcadeBoard(client, raw));
     this.onMessage(MSG.arcadeStart, (client, raw) => this.handleArcadeStart(client, raw));
     this.onMessage(MSG.arcadeFinish, (client, raw) => void this.handleArcadeFinish(client, raw));
@@ -490,7 +504,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       if (parsed.success) client.send(MSG.clockPong, { id: parsed.data.id, now: Date.now() } satisfies ClockPong);
     });
     // Quien se fue, cambió de nivel o se alejó deja de bailar (moverse ya lo revisa; esto cubre el resto).
-    this.clock.setInterval(() => this.club.sweep(this.state.players), 500);
+    this.clock.setInterval(() => {
+      this.club.sweep(this.state.players);
+      // Y el video que terminó pasa al siguiente aunque nadie en el club lo esté mirando.
+      this.club.tick(Date.now());
+    }, 500);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
     this.weather.start();
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
@@ -1625,6 +1643,61 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const result = kind === "dj" ? this.club.dj(map, who, raw, now) : kind === "dance" ? this.club.dance(map, who, raw, now) : this.club.pole(map, who, raw, now);
     client.userData.lastActiveAt = now;
     if (!result.ok) client.send(MSG.clubResult, result);
+  }
+
+  /** La cola de videos: dentro del club, cualquiera agrega, reordena, quita o salta. */
+  private async handleClubQueue(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = ClubQueueMessage.safeParse(raw);
+    if (!player || !client.userData || !parsed.success) return;
+    const msg = parsed.data;
+    const now = Date.now();
+    // Lo que avisan los reproductores (terminó, duración) vale desde cualquier parte del sótano.
+    if (msg.action === "ended") return void this.club.ended(msg.id, now);
+    if (msg.action === "duration") return void this.club.duration(msg.id, msg.ms);
+    const fail = (error: ClubError) => client.send(MSG.clubResult, { ok: false, error });
+    if (!this.club.inClub(this.mapOf(player.area), player)) return fail("far");
+    client.userData.lastActiveAt = now;
+    let result: { ok: true } | { ok: false; error: ClubError };
+    switch (msg.action) {
+      case "add": {
+        const videoId = parseYoutubeId(msg.url);
+        if (!videoId) return fail("not-youtube");
+        const pre = this.club.canAdd(videoId);
+        if (!pre.ok) return fail(pre.error);
+        const info = await OfficeRoom.youtubeLookup(videoId).catch(() => ({ ok: true as const, title: FALLBACK_TITLE }));
+        if (!info.ok) return fail(info.error);
+        result = this.club.enqueue({ videoId, title: info.title }, player.name, Date.now());
+        break;
+      }
+      case "replay":
+        result = this.club.replay(msg.id, player.name, now);
+        break;
+      case "move":
+        result = this.club.move(msg.id, msg.to);
+        break;
+      case "remove":
+        result = this.club.unqueue(msg.id);
+        break;
+      case "skip":
+        result = this.club.skip(msg.id, now);
+        break;
+    }
+    if (!result.ok) fail(result.error);
+  }
+
+  /** Una reacción a lo que suena: la ven los del sótano (flota sobre la pantalla del club). */
+  private handleClubReact(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = ClubReactMessage.safeParse(raw);
+    if (!player || !client.userData || !parsed.success) return;
+    const now = Date.now();
+    if (!this.club.inClub(this.mapOf(player.area), player) || !isPlaying(musicOf(this.state.club))) return;
+    if (now < (this.reactAt.get(player.userId) ?? 0)) return;
+    this.reactAt.set(player.userId, now + CLUB_VIDEO.reactCooldownMs);
+    client.userData.lastActiveAt = now;
+    const event: ClubReactionEvent = { sessionId: client.sessionId, name: player.name, emoji: parsed.data.emoji };
+    this.sendToArea(player.area, MSG.clubReaction, event);
   }
 
   private async handleArcadeBoard(client: Client<UserData>, raw: unknown) {

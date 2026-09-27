@@ -137,10 +137,28 @@ export class ClubDancer extends Schema {
   @type("number") since = 0;
 }
 
+/** Un video de YouTube de la cola del club (o el que suena, o uno que ya sonó). */
+export class ClubVideo extends Schema {
+  /** Id de la entrada (no del video: el mismo video puede entrar dos veces). */
+  @type("string") id = "";
+  @type("string") videoId = "";
+  @type("string") title = "";
+  /** Quién lo puso. */
+  @type("string") by = "";
+  /** Duración que dio el primer reproductor (0 = no se sabe todavía). */
+  @type("number") durationMs = 0;
+}
+
 /** El club del sótano: lo que suena en la cabina (con la hora del servidor) y quién baila. */
 export class ClubState extends Schema {
   /** Pista que suena (CLUB_TRACKS; "" = nada). */
   @type("string") track = "";
+  /** Video que suena (`videoId` "" = ninguno); nunca a la vez que una pista. */
+  @type(ClubVideo) video = new ClubVideo();
+  /** Lo que viene después, en orden. */
+  @type([ClubVideo]) queue = new ArraySchema<ClubVideo>();
+  /** Lo que ya sonó, lo último primero (para volver a ponerlo). */
+  @type([ClubVideo]) history = new ArraySchema<ClubVideo>();
   /** Hora del servidor en la que la pista estaba en 0 (todos cuentan el compás desde ahí). */
   @type("number") startedAt = 0;
   @type("boolean") paused = false;

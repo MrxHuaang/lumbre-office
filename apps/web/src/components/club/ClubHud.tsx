@@ -1,17 +1,23 @@
 "use client";
 
-// En el club: lo que suena (con tu volumen), el botón "Bailar" y los pasos cuando estás parado sobre la
-// pista con música, y "Soltar el tubo" mientras bailas en el tubo.
+// En el club: lo que suena (con tu volumen, las reacciones y el botón de la cola de videos), el botón
+// "Bailar" y los pasos cuando estás parado sobre la pista con música, y "Soltar el tubo" mientras bailas
+// en el tubo.
 import { clubTrack, DANCE_MOVES, isPlaying, type DanceMoveId } from "@hyvento/shared";
 import { useShallow } from "zustand/react/shallow";
+import { tapClubVideo } from "@/game/club/video";
 import { sendClubDance, sendClubPole } from "@/game/club/net";
 import { useClubStore } from "@/game/club/store";
 import { useOfficeStore } from "@/game/store";
 import { LocalVolume } from "./DjConsole";
+import { Reactions } from "./YoutubeQueue";
 
 export function ClubHud() {
   const here = useClubStore((s) => s.here);
-  const music = useClubStore(useShallow((s) => ({ track: s.track, paused: s.paused, startedAt: s.startedAt, pausedAt: s.pausedAt })));
+  const music = useClubStore(useShallow((s) => ({ track: s.track, video: s.video, paused: s.paused, startedAt: s.startedAt, pausedAt: s.pausedAt })));
+  const video = useClubStore((s) => s.now);
+  const queued = useClubStore((s) => s.queue.length);
+  const needsTap = useClubStore((s) => s.needsTap);
   const myMove = useClubStore((s) => {
     const id = useOfficeStore.getState().sessionId;
     const d = id ? s.dancers[id] : undefined;
@@ -58,15 +64,35 @@ export function ClubHud() {
         </div>
       )}
       {here.onFloor && !playing && <p className="cozy-chip px-3 py-1 text-[12px]">Para bailar, pon música en la cabina del DJ.</p>}
-      {current && (
-        <div className="flex items-center gap-2 border-2 border-[#1d1128] bg-[#1e1030] px-2.5 py-1 text-[12px] text-[#fdf0c8] shadow-[2px_2px_0_#1d1128]">
-          <span className="text-[#ff5fd2]">{playing ? "♪" : "❚❚"}</span>
-          <span className="max-w-40 truncate">{current.name}</span>
+      {needsTap && (
+        <button type="button" onClick={() => tapClubVideo()} className="cozy-btn cozy-btn-primary px-3 py-1.5 text-[13px]">
+          ▶ Activar el sonido del video
+        </button>
+      )}
+      <div className="flex flex-wrap items-center justify-center gap-2 border-2 border-[#1d1128] bg-[#1e1030] px-2.5 py-1 text-[12px] text-[#fdf0c8] shadow-[2px_2px_0_#1d1128]">
+        {(current || video) && (
+          <>
+            <span className="text-[#ff5fd2]">{playing ? "♪" : "❚❚"}</span>
+            <span className="max-w-48 truncate" title={video?.title}>
+              {video ? video.title : current!.name}
+            </span>
+          </>
+        )}
+        {playing && <Reactions compact />}
+        <button
+          type="button"
+          onClick={() => useOfficeStore.getState().openPanel("dj", false)}
+          className="border-2 border-[#3fd0dd] px-2 py-0.5 text-[#3fd0dd]"
+          title="Poner videos de YouTube y ordenar la cola"
+        >
+          {current || video ? `Cola${queued ? ` (${queued})` : ""}` : "Poner un video"}
+        </button>
+        {(current || video) && (
           <span className="w-36">
             <LocalVolume compact />
           </span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
