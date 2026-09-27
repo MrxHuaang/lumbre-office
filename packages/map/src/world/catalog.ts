@@ -13,8 +13,18 @@ export interface CatalogItem {
   size: [w: number, d: number];
   /** Bloquea el paso (por defecto sí). */
   solid?: boolean;
-  /** Tiles de asiento en el marco local "right". Quien se sienta mira hacia el `facing` del mueble. */
-  seats?: [number, number][];
+  /**
+   * Tiles de asiento en el marco local "right". Quien se sienta mira hacia el `facing` del mueble, salvo
+   * que el asiento traiga el suyo (solo en muebles `fixed`, como las bancas de la glorieta que miran al
+   * centro): ese asiento además se ordena con su propio tile y no con el centro del mueble.
+   */
+  seats?: ([number, number] | [number, number, Facing])[];
+  /**
+   * Solo estos tiles (marco local "right") bloquean el paso; el resto del mueble se camina (la glorieta:
+   * se entra por el frente y las bancas y los rincones quedan bloqueados). Sin esto, bloquea todo (si es
+   * `solid`).
+   */
+  blocks?: [number, number][];
   /** Escritorio con computador: la silla que lo mira permite prender el PC. */
   computer?: boolean;
   /** Tiene dibujo de espaldas (para mirar hacia "left"/"up"); si no, se usa el de frente. */
