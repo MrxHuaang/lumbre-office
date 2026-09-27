@@ -8,6 +8,7 @@ export * from "./decor";
 export * from "./worldEdits";
 export * from "./world/build";
 export * from "./world/catalog";
+export * from "./world/seats";
 export type * from "./world/types";
 export { AREAS, BLACKJACK_SEATS, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
 

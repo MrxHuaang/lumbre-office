@@ -45,6 +45,11 @@ export interface Seat {
   facing: Facing;
   /** Frente a un escritorio con computador (se puede prender el PC). */
   computer: boolean;
+  /** Tipo del mueble (cada uno tiene su altura de asiento; ver world/seats.ts). */
+  type: string;
+  /** Centro del mueble en px: quien se sienta se ordena con el mueble y no con su tile. */
+  cx: number;
+  cy: number;
 }
 
 export interface Portal {
@@ -168,7 +173,17 @@ export function buildArea(def: AreaDef): OfficeMap {
       const [dx, dy] = localToWorld(item, facing, lx, ly);
       const tx = p.x + dx;
       const ty = p.y + dy;
-      seats.set(idx(tx, ty), { tileX: tx, tileY: ty, x: tx * ts + ts / 2, y: ty * ts + ts / 2, facing, computer: false });
+      seats.set(idx(tx, ty), {
+        tileX: tx,
+        tileY: ty,
+        x: tx * ts + ts / 2,
+        y: ty * ts + ts / 2,
+        facing,
+        computer: false,
+        type: p.type,
+        cx: (p.x + w / 2) * ts,
+        cy: (p.y + d / 2) * ts,
+      });
     }
   }
   // Una silla que mira a un escritorio con computador permite prender el PC.

@@ -583,7 +583,7 @@ export class OfficeScene extends Phaser.Scene {
     const avatar = new Avatar(this, this.textureFor(player), player.name, player.x, player.y, isLocal);
     avatar.setStatus(player.status);
     avatar.setMotion(player.dir, false);
-    avatar.setSeated(player.seated ? player.dir : null);
+    avatar.setSeated(player.seated ? player.dir : null, player.seated ? seatAtPoint(this.map, player.x, player.y) : null);
     avatar.setHeld(player.held, player.heldLeft);
     this.avatars.set(sessionId, avatar);
 
@@ -602,6 +602,7 @@ export class OfficeScene extends Phaser.Scene {
       this.enterArea(player.area);
       // Al reconectar se conserva el asiento que el servidor recuerda.
       this.seat = player.seated ? (seatAtPoint(this.map, player.x, player.y) ?? null) : null;
+      avatar.setSeated(player.seated ? player.dir : null, this.seat);
       this.portalTile = `${Math.floor(player.x / this.map.tileSize)},${Math.floor(player.y / this.map.tileSize)}`;
       this.cameras.main.startFollow(avatar.sprite, true, 0.15, 0.15);
       this.updateZone();
@@ -616,7 +617,7 @@ export class OfficeScene extends Phaser.Scene {
       }
       avatar.targetX = player.x;
       avatar.targetY = player.y;
-      avatar.setSeated(player.seated ? player.dir : null);
+      avatar.setSeated(player.seated ? player.dir : null, player.seated ? seatAtPoint(this.map, player.x, player.y) : null);
       avatar.setMotion(player.dir, player.moving);
     });
   }
@@ -832,7 +833,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setPosition(seat.x, seat.y);
     avatar.setMotion(seat.facing, false);
     if (this.isBlackjackSeat(seat)) useOfficeStore.getState().openPanel("blackjack", true);
-    avatar.setSeated(seat.facing);
+    avatar.setSeated(seat.facing, seat);
     this.updateZone();
     this.sendPosition(seat.facing, false);
   }

@@ -1,3 +1,4 @@
+import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
 import { bubble, characterShadow, crumbColor, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS } from "@hyvento/map/art";
 import { EMOTE, heldParts, parseHeldLeft, usesOf, type ConsumeAction, type Direction, type EmoteId, type PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
@@ -108,6 +109,8 @@ export class Avatar {
   private dir: Direction = "down";
   private moving = false;
   private seated: Direction | null = null;
+  /** Cómo va sentado: cuánto bajar el dibujo, con qué profundidad y si el respaldo lo tapa. */
+  private seatPose: { lift: number; depth: number; behind: boolean } | null = null;
   private wx: number;
   private wy: number;
   private hidden = false;
@@ -456,6 +459,7 @@ export class Avatar {
     this.textureKey = textureKey;
     if (this.seated) {
       this.sprite.setTexture(`${textureKey}-sit`, ROW[this.seated]);
+      this.applySeatCrop();
     } else if (this.moving) {
       this.sprite.play(`${textureKey}-walk-${this.dir}`, true);
     } else {
@@ -463,18 +467,34 @@ export class Avatar {
     }
   }
 
-  /** Sienta al personaje mirando hacia `facing`, o lo vuelve a poner de pie con `null`. */
-  setSeated(facing: Direction | null) {
-    if (facing === this.seated) return;
-    this.seated = facing;
-    this.shadow.setVisible(!facing && !this.hidden);
-    if (facing) {
-      this.sprite.stop();
-      this.sprite.setTexture(`${this.textureKey}-sit`, ROW[facing]);
-    } else {
-      this.moving = false;
-      this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES);
+  /**
+   * Sienta al personaje mirando hacia `facing`, o lo vuelve a poner de pie con `null`. Con el asiento
+   * se dibuja a la altura de ese mueble, ordenado con él y, de espaldas, asomando sobre el respaldo.
+   */
+  setSeated(facing: Direction | null, seat?: Seat | null) {
+    const pose = facing && seat ? { lift: seatLift(seat.type), depth: depthOf(seat.cx, seat.cy), behind: seatBehind(seat.type, facing) } : null;
+    const same = facing === this.seated && pose?.lift === this.seatPose?.lift && pose?.depth === this.seatPose?.depth && pose?.behind === this.seatPose?.behind;
+    if (same) return;
+    this.seatPose = pose;
+    if (facing !== this.seated) {
+      this.seated = facing;
+      this.shadow.setVisible(!facing && !this.hidden);
+      if (facing) {
+        this.sprite.stop();
+        this.sprite.setTexture(`${this.textureKey}-sit`, ROW[facing]);
+      } else {
+        this.moving = false;
+        this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES);
+      }
     }
+    this.applySeatCrop();
+    this.layout();
+  }
+
+  /** De espaldas en un asiento con respaldo solo se ven la cabeza y los hombros (el resto lo tapa el respaldo). */
+  private applySeatCrop() {
+    if (this.seated && this.seatPose?.behind) this.sprite.setCrop(0, 0, FRAME, SIT_BACK_ROWS);
+    else this.sprite.setCrop();
   }
 
   get isSeated() {
@@ -625,8 +645,10 @@ export class Avatar {
   private layout() {
     const s = worldToScreen(this.wx, this.wy);
     const x = Math.round(s.x);
-    const y = Math.round(s.y);
-    const depth = depthOf(this.wx, this.wy);
+    const pose = this.seated ? this.seatPose : null;
+    const y = Math.round(s.y) + (pose?.lift ?? 0);
+    // Sentado se ordena con el mueble (+0.5: encima de él); así un tronco largo no lo tapa.
+    const depth = pose ? pose.depth : depthOf(this.wx, this.wy);
     // Bailando da saltitos de 2 px; tocando un instrumento, de 1 px.
     const hop = this.dance && this.dance.step % 2 ? 2 : this.playing && this.playing.step % 2 ? 1 : 0;
     this.sprite.setPosition(x, y + 1 - hop).setDepth(depth + 0.5);
