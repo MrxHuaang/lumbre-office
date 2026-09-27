@@ -38,8 +38,11 @@ export interface NewPhotoRecord {
 
 /** Dónde se guardan (Prisma en la web; en memoria en los tests). */
 export interface PhotoStore {
-  /** Guarda si no pasó el tope del día (contando desde `since`) y deja solo las últimas `keep`. */
-  save(photo: NewPhotoRecord, rules: { dailyLimit: number; since: Date; keep: number }): Promise<"ok" | "limit" | "duplicate">;
+  /**
+   * Guarda si no pasó el tope del día (contando desde `since`) y deja solo las últimas `keep` sin fijar
+   * y las últimas `keepPinned` fijadas.
+   */
+  save(photo: NewPhotoRecord, rules: { dailyLimit: number; since: Date; keep: number; keepPinned: number }): Promise<"ok" | "limit" | "duplicate">;
   list(limit: number): Promise<PhotoRecord[]>;
   find(id: string): Promise<PhotoRecord | null>;
   image(id: string): Promise<{ image: Uint8Array; mime: string } | null>;
@@ -104,7 +107,7 @@ export async function uploadPhoto(
   const now = deps.now ?? Date.now();
   const saved = await deps.store.save(
     { id: claims.jti, takenById: user.id, area: claims.area, caption, people: claims.people, image: input.image, mime: file.mime },
-    { dailyLimit: PHOTO.dailyLimit, since: photoDayStart(now), keep: PHOTO.keep },
+    { dailyLimit: PHOTO.dailyLimit, since: photoDayStart(now), keep: PHOTO.keep, keepPinned: PHOTO.keepPinned },
   );
   if (saved !== "ok") return fail(saved);
   const record = await deps.store.find(claims.jti);

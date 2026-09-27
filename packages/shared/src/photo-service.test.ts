@@ -14,12 +14,14 @@ class MemoryPhotoStore implements PhotoStore {
   rows: (PhotoRecord & { image: Uint8Array; mime: string })[] = [];
   clock = NOW;
 
-  async save(p: NewPhotoRecord, rules: { dailyLimit: number; since: Date; keep: number }) {
+  async save(p: NewPhotoRecord, rules: { dailyLimit: number; since: Date; keep: number; keepPinned: number }) {
     if (this.rows.some((r) => r.id === p.id)) return "duplicate" as const;
     const today = this.rows.filter((r) => r.takenById === p.takenById && r.createdAt >= rules.since).length;
     if (today >= rules.dailyLimit) return "limit" as const;
     this.rows.unshift({ ...p, takenByName: NAMES[p.takenById] ?? "?", pinned: true, createdAt: new Date(this.clock++) });
-    this.rows = this.rows.slice(0, rules.keep);
+    const pinned = this.rows.filter((r) => r.pinned).slice(0, rules.keepPinned);
+    const loose = this.rows.filter((r) => !r.pinned).slice(0, rules.keep);
+    this.rows = this.rows.filter((r) => pinned.includes(r) || loose.includes(r));
     return "ok" as const;
   }
   async list(limit: number) {
@@ -151,11 +153,23 @@ describe("ver y borrar", () => {
     expect(list.ok && list.value).toHaveLength(1);
   });
 
-  it(`solo se guardan las últimas ${PHOTO.keep}`, async () => {
-    const people = [...Array(PHOTO.keep + 5).keys()].map((i) => ({ id: `u-${i}`, role: "MEMBER" }));
-    for (const p of people) await uploadPhoto(deps(), p, { ticket: await ticket({ sub: p.id }), caption: "", image: png() });
-    const list = await listPhotosFor(store, ana);
-    expect(list.ok && list.value).toHaveLength(PHOTO.keep);
-    expect(list.ok && list.value[0]!.takenBy.id).toBe(`u-${PHOTO.keep + 4}`);
+  it(`solo se guardan las últimas ${PHOTO.keep} sin fijar y las últimas ${PHOTO.keepPinned} fijadas`, async () => {
+    const upload = async (i: number) => {
+      const p = { id: `u-${i}`, role: "MEMBER" };
+      await uploadPhoto(deps(), p, { ticket: await ticket({ sub: p.id }), caption: "", image: png() });
+    };
+    for (let i = 0; i < PHOTO.keepPinned + 5; i++) await upload(i);
+    expect(store.rows).toHaveLength(PHOTO.keepPinned);
+    expect(store.rows[0]!.takenById).toBe(`u-${PHOTO.keepPinned + 4}`);
+
+    // Las sin fijar tienen su propio tope y no sacan del corcho a las fijadas.
+    for (const r of store.rows) r.pinned = false;
+    store.rows[store.rows.length - 1]!.pinned = true;
+    const oldestPinned = store.rows.at(-1)!.id;
+    await upload(999);
+    store.rows[0]!.pinned = false;
+    await upload(1000);
+    expect(store.rows.filter((r) => !r.pinned)).toHaveLength(PHOTO.keep);
+    expect(store.rows.some((r) => r.id === oldestPinned)).toBe(true);
   });
 });
