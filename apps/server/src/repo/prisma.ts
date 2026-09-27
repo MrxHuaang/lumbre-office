@@ -3,6 +3,8 @@ import {
   awardPoints,
   casinoBet,
   getCasinoSettings,
+  givenToday,
+  listInventory,
   type PresenceStatus as DbStatus,
   prisma,
   spendPoints,
@@ -19,9 +21,8 @@ import {
   type PointReason,
   type PresenceStatus,
 } from "@hyvento/shared";
-import type { GameRepository, OfficeItemsInput, OfficeItemsResult } from "./types";
-import { executeTradeTx, givenToday, listInventory, SocialAborted } from "@hyvento/db";
-import type { TradeResult, TradeSideInput } from "./types";
+import { executeTrade } from "./social";
+import type { GameRepository, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
@@ -215,15 +216,7 @@ export class PrismaRepository implements GameRepository {
     return (await givenToday(prisma, userId)).points;
   }
 
-  async executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
-    try {
-      const { balances } = await prisma.$transaction((tx) => executeTradeTx(tx, input));
-      return { ok: true, balances };
-    } catch (err) {
-      if (!(err instanceof SocialAborted)) throw err;
-      const error = err.code === "funds" || err.code === "items" ? err.code : err.code === "limit-points" ? "limit" : null;
-      if (!error || !err.userId) throw err;
-      return { ok: false, error, userId: err.userId };
-    }
+  executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
+    return executeTrade(prisma, input);
   }
 }

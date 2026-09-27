@@ -2,16 +2,17 @@ import {
   CASINO,
   DAILY_CAPS,
   dayStart,
+  giftAllowedToday,
   remainingToday,
+  tradeGap,
   type CasinoSettingsDTO,
   type ChatEvent,
+  type ItemStack,
   type OfficeItemDTO,
   type PointReason,
   type PresenceStatus,
 } from "@hyvento/shared";
-import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, UserProfile } from "./types";
-import { giftAllowedToday, type ItemStack } from "@hyvento/shared";
-import type { TradeResult, TradeSideInput } from "./types";
+import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TradeResult, TradeSideInput, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -196,6 +197,7 @@ export class MemoryRepository implements GameRepository {
 
   async executeTrade({ refId, a, b }: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
     if (this.tradeGate) await this.tradeGate;
+    if (tradeGap(a, b) !== "ok") return { ok: false, error: "one-sided", userId: (a.points > 0 || a.items.length > 0 ? b : a).userId };
     // Todo se revalida y se aplica sobre copias: si algo no alcanza no queda nada a medias (como la transacción).
     const inventory = new Map(this.inventory);
     const moves: typeof this.ledger = [];

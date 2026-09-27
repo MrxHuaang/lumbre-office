@@ -1,6 +1,6 @@
 // Regalos e intercambios (fase 5): lo que mueve puntos y objetos entre dos personas. Vive aquí (y no en la
 // web o en el servidor de juego) para que el tope diario de "dar" sea uno solo y para poder probarlo.
-import { dayStart, giftAllowedToday, giftRefId, type ItemStack } from "@hyvento/shared";
+import { dayStart, giftAllowedToday, giftRefId, tradeGap, type ItemStack } from "@hyvento/shared";
 import type { Prisma } from "@prisma/client";
 import { addInventoryTx, takeInventoryTx } from "./inventory";
 import { awardPointsTx, spendPointsTx } from "./points";
@@ -10,9 +10,10 @@ type Db = Prisma.TransactionClient;
 /**
  * Por qué no se pudo (la transacción se deshace entera):
  * `funds`/`items`: no alcanzan los puntos o el objeto; `limit-gifts`/`limit-points`: tope del día;
- * `missing`: el regalo o la persona no existen; `opened`: el regalo ya se abrió.
+ * `missing`: el regalo o la persona no existen; `opened`: el regalo ya se abrió; `one-sided`: en un
+ * intercambio, uno de los dos lados no pone nada (eso es un regalo, ver `tradeGap`).
  */
-export type SocialAbortCode = "funds" | "items" | "limit-gifts" | "limit-points" | "missing" | "opened";
+export type SocialAbortCode = "funds" | "items" | "limit-gifts" | "limit-points" | "missing" | "opened" | "one-sided";
 
 export class SocialAborted extends Error {
   constructor(
@@ -114,11 +115,14 @@ export interface TradeSide {
 /**
  * Un intercambio en la transacción `tx`: primero pagan los dos (en orden de id, para que dos intercambios
  * cruzados no se traben) y después reciben. Los puntos que se dan cuentan para el tope diario de dar (el
- * mismo de los regalos). Si algo no alcanza, lanza `SocialAborted` y no queda nada movido.
+ * mismo de los regalos). Los dos lados tienen que poner algo (`tradeGap`). Si algo no alcanza, lanza
+ * `SocialAborted` y no queda nada movido.
  */
 export async function executeTradeTx(tx: Db, input: { refId: string; a: TradeSide; b: TradeSide; now?: number }): Promise<{ balances: Record<string, number> }> {
   const { refId, a, b } = input;
   const now = input.now ?? Date.now();
+  // El que no pone nada (o el primero, si ninguno pone).
+  if (tradeGap(a, b) !== "ok") throw new SocialAborted("one-sided", (a.points > 0 || a.items.length > 0 ? b : a).userId);
   const sides = [
     { from: a, to: b },
     { from: b, to: a },

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { acceptEmote, EMOTE, EMOTE_IDS, EMOTES } from "./emotes";
-import { describeBundle, GIFT, giftAllowedToday, GiftCreateBody, itemName, TRADE, TradeOfferMessage, tradeReach } from "./social";
+import { describeBundle, GIFT, giftAllowedToday, GiftCreateBody, itemName, TRADE, tradeGap, TradeOfferMessage, tradeReach } from "./social";
 
 describe("regalos", () => {
   it("lleva puntos, un objeto o las dos cosas", () => {
@@ -45,6 +45,14 @@ describe("intercambios", () => {
     expect(TradeOfferMessage.safeParse({ points: 0, items: [{ itemId: "plant", quantity: 1 }, { itemId: "plant", quantity: 1 }] }).success).toBe(false);
     const many = Array.from({ length: TRADE.maxSlots + 1 }, (_, i) => ({ itemId: `item-${i}`, quantity: 1 }));
     expect(TradeOfferMessage.safeParse({ points: 0, items: many }).success).toBe(false);
+  });
+
+  it("los dos lados tienen que poner algo", () => {
+    const nada = { points: 0, items: [] };
+    expect(tradeGap(nada, nada)).toBe("empty");
+    expect(tradeGap({ points: 1000, items: [] }, nada)).toBe("one-sided");
+    expect(tradeGap(nada, { points: 0, items: [{ itemId: "sofa", quantity: 10 }] })).toBe("one-sided");
+    expect(tradeGap({ points: 5, items: [] }, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] })).toBe("ok");
   });
 
   it("hay que estar cerca y en el mismo nivel", () => {

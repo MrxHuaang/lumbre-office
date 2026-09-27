@@ -93,11 +93,12 @@ export interface TradeSideInput {
 
 /**
  * Resultado de un intercambio: los saldos nuevos, o quién no tenía los puntos (`funds`) o los objetos
- * (`items`), o llegó al tope diario de dar (`limit`), cuando se revalidó (entonces no se movió nada).
+ * (`items`), llegó al tope diario de dar (`limit`) o no puso nada (`one-sided`), cuando se revalidó
+ * (entonces no se movió nada).
  */
 export type TradeResult =
   | { ok: true; balances: Record<string, number> }
-  | { ok: false; error: "funds" | "items" | "limit"; userId: string };
+  | { ok: false; error: "funds" | "items" | "limit" | "one-sided"; userId: string };
 
 /** Regalos e intercambios (fase 5): van en su propia interfaz y se suman a GameRepository. */
 export interface SocialRepository {

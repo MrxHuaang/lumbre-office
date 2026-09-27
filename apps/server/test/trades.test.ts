@@ -304,8 +304,10 @@ describe("intercambios: bordes", () => {
 
   it("si no se pudo hacer y alguien había cancelado mientras tanto, se cierra con ese motivo", async () => {
     await repo.awardPoints({ userId: "u-alice", amount: 10, reason: "ADMIN" });
+    repo.give("u-bob", "sofa", 1);
     const { alice, bob, a, b } = await openTrade();
     alice.send(MSG.tradeOffer, { points: 10, items: [] });
+    bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
     await tick(80);
     alice.send(MSG.tradeReady, { ready: true });
     bob.send(MSG.tradeReady, { ready: true });
@@ -367,11 +369,13 @@ describe("intercambios: bordes", () => {
     expect(b.invites).toHaveLength(1);
     await tick(300);
     expect(a.closed.at(-1)).toMatchObject({ id: b.invites[0]!.requestId, reason: "timeout", with: "Bob" });
-    // Aceptar tarde no abre nada.
+    expect(b.invites[0]!.ttlMs).toBe(150);
+    // Aceptar tarde no abre nada, y se avisa que venció.
     bob.send(MSG.tradeRespond, { requestId: b.invites[0]!.requestId, accept: true });
     await tick(80);
     expect(a.views).toEqual([]);
     expect(b.views).toEqual([]);
+    expect(b.problems.at(-1)).toEqual({ error: "expired" });
   });
 
   it("no se invita a alguien en No molestar", async () => {
@@ -468,9 +472,11 @@ describe("intercambios: bordes", () => {
 
   it("los puntos que se dan en intercambios cuentan para el tope diario de dar (el de los regalos)", async () => {
     await repo.awardPoints({ userId: "u-alice", amount: 2000, reason: "ADMIN" });
+    repo.give("u-bob", "sofa", 1);
     // Ya regaló casi todo el tope hoy.
     repo.ledger.push({ userId: "u-alice", amount: -(GIFT.dailyPoints - 100), reason: "GIFT", at: Date.now(), refId: "gift:x" });
     const { alice, bob, a, b } = await openTrade();
+    bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
     alice.send(MSG.tradeOffer, { points: 150, items: [] });
     await tick(80);
     expect(a.problems.at(-1)).toEqual({ error: "limit" });
@@ -489,5 +495,59 @@ describe("intercambios: bordes", () => {
     expect(b.problems.at(-1)).toEqual({ error: "limit", who: "Alice" });
     expect(a.closed).toEqual([]);
     expect(await points("u-bob")).toBe(0);
+  });
+
+  it("un intercambio de un solo lado no se confirma: dar sin recibir es un regalo (con sus topes)", async () => {
+    await repo.awardPoints({ userId: "u-alice", amount: 900, reason: "ADMIN" });
+    repo.give("u-alice", "sofa", 10);
+    const { alice, bob, a, b } = await openTrade();
+    alice.send(MSG.tradeOffer, { points: 900, items: [{ itemId: "sofa", quantity: 10 }] });
+    await tick(80);
+    alice.send(MSG.tradeReady, { ready: true });
+    bob.send(MSG.tradeReady, { ready: true });
+    await tick(80);
+    expect(a.view?.stage).toBe("confirm");
+    alice.send(MSG.tradeConfirm);
+    bob.send(MSG.tradeConfirm);
+    await tick(120);
+    expect(a.problems.at(-1)).toEqual({ error: "one-sided" });
+    expect(b.problems.at(-1)).toEqual({ error: "one-sided" });
+    expect(a.view?.you.confirmed).toBe(false);
+    expect(a.closed).toEqual([]);
+    expect(await points("u-alice")).toBe(900);
+    expect(repo.held("u-bob", "sofa")).toBe(0);
+
+    // Con algo del otro lado, sí.
+    repo.give("u-bob", "plant", 1);
+    bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "plant", quantity: 1 }] });
+    await tick(80);
+    alice.send(MSG.tradeReady, { ready: true });
+    bob.send(MSG.tradeReady, { ready: true });
+    await tick(80);
+    alice.send(MSG.tradeConfirm);
+    bob.send(MSG.tradeConfirm);
+    await tick(120);
+    expect(a.closed.at(-1)).toMatchObject({ reason: "done" });
+    expect(repo.held("u-bob", "sofa")).toBe(10);
+  });
+
+  it("el repositorio también rechaza un intercambio de un solo lado (si la sala se equivocara)", async () => {
+    await repo.awardPoints({ userId: "u-alice", amount: 100, reason: "ADMIN" });
+    const result = await repo.executeTrade({ refId: "trade:x", a: { userId: "u-alice", points: 100, items: [] }, b: { userId: "u-bob", points: 0, items: [] } });
+    expect(result).toEqual({ ok: false, error: "one-sided", userId: "u-bob" });
+    expect(await points("u-alice")).toBe(100);
+  });
+
+  it("las pausas entre invitaciones no se acumulan: se olvidan al irse y al vencer", async () => {
+    const { room, alice, bob, b } = await setup();
+    const trades = (room as unknown as { trades: { cooldownsTracked(): number } }).trades;
+    alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
+    bob.send(MSG.tradeRequest, { sessionId: alice.sessionId });
+    await tick(80);
+    expect(b.invites).toHaveLength(1);
+    expect(trades.cooldownsTracked()).toBe(2);
+    await bob.leave(true);
+    await tick(120);
+    expect(trades.cooldownsTracked()).toBe(0);
   });
 });

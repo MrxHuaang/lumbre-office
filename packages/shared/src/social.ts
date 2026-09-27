@@ -117,6 +117,8 @@ export const TRADE = {
   requestTimeoutMs: 20_000,
   /** Pausa entre dos invitaciones a la misma persona. */
   requestCooldownMs: 4_000,
+  /** Margen con el que el cliente da por vencida una invitación (la latencia se come parte del plazo). */
+  inviteMarginMs: 750,
   /** Topes de lo que pone cada lado. */
   maxPoints: 1000,
   maxSlots: 6,
@@ -156,6 +158,8 @@ export interface TradeInvite {
   fromName: string;
   /** Hasta cuándo se puede aceptar (hora del servidor). */
   expiresAt: number;
+  /** Cuánto le queda al salir del servidor: el cliente cuenta desde que le llega (su reloj puede no coincidir). */
+  ttlMs: number;
 }
 
 export interface TradeSideView {
@@ -195,7 +199,20 @@ export interface TradeClosed {
 }
 
 /** Algo que no se pudo (el intercambio sigue abierto, o la invitación no salió). */
-export type TradeError = "self" | "unknown" | "busy" | "far" | "dnd" | "too-soon" | "funds" | "items" | "limit" | "empty" | "failed";
+export type TradeError =
+  | "self"
+  | "unknown"
+  | "busy"
+  | "far"
+  | "dnd"
+  | "too-soon"
+  | "expired"
+  | "funds"
+  | "items"
+  | "limit"
+  | "empty"
+  | "one-sided"
+  | "failed";
 
 export interface TradeProblem {
   error: TradeError;
@@ -210,12 +227,27 @@ export const TRADE_ERROR_TEXT: Record<TradeError, string> = {
   far: "Tienen que estar cerca y en el mismo piso.",
   dnd: "Esa persona está en No molestar.",
   "too-soon": "Espera un momento antes de volver a invitar.",
+  expired: "Esa invitación ya venció.",
   funds: "No alcanzan los puntos.",
   items: "Falta un objeto en la mochila.",
   limit: `Hoy ya se dieron muchos puntos: el tope es de ${GIFT.dailyPoints} al día, entre regalos e intercambios.`,
   empty: "Pongan algo antes de confirmar.",
+  "one-sided": "Los dos tienen que poner algo. Para dar sin recibir nada, manda un regalo.",
   failed: "No se pudo hacer el intercambio. Intenten de nuevo.",
 };
+
+/**
+ * ¿Qué falta para poder confirmar? Los dos lados tienen que poner algo: un intercambio de un solo lado es
+ * un regalo y va por el buzón, con sus topes (regalos por día y unidades por regalo), que un intercambio
+ * no puede contar porque los objetos no dejan movimientos en la base. Los puntos sí tienen tope en los dos
+ * (`GIFT.dailyPoints`). Poner casi nada de un lado a cambio de mucho del otro se acepta: los muebles no se
+ * revenden, así que no se convierten en puntos. Se valida en el servidor de juego y en la transacción.
+ */
+export function tradeGap(a: { points: number; items: readonly unknown[] }, b: { points: number; items: readonly unknown[] }): "ok" | "empty" | "one-sided" {
+  const empty = (s: { points: number; items: readonly unknown[] }) => s.points <= 0 && s.items.length === 0;
+  if (empty(a) && empty(b)) return "empty";
+  return empty(a) || empty(b) ? "one-sided" : "ok";
+}
 
 /** ¿Están lo bastante cerca para intercambiar? (misma regla en el servidor y en el cliente). */
 export function tradeReach(a: { area: string; x: number; y: number }, b: { area: string; x: number; y: number }): boolean {

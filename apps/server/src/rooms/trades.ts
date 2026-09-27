@@ -9,6 +9,7 @@ import {
   TradeReadyMessage,
   TradeRequestMessage,
   TradeRespondMessage,
+  tradeGap,
   tradeReach,
   tradeRefId,
   type ItemStack,
@@ -111,6 +112,8 @@ export class Trades {
     const key = `${from}:${to}`;
     const now = Date.now();
     if (now - (this.lastInviteAt.get(key) ?? 0) < TRADE.requestCooldownMs) return problem("too-soon");
+    // Las pausas viejas ya no frenan nada: se sacan para que el mapa no crezca mientras la sala vive.
+    for (const [k, at] of this.lastInviteAt) if (now - at >= TRADE.requestCooldownMs) this.lastInviteAt.delete(k);
     this.lastInviteAt.set(key, now);
     // Una sola invitación saliente a la vez: la anterior se retira (y se le avisa a quien la tenía).
     for (const inv of [...this.invites.values()]) if (inv.from === from) this.dropInvite(inv, [from]);
@@ -122,14 +125,15 @@ export class Trades {
       this.closed(from, { id: requestId, reason: "timeout", with: other.name });
     });
     this.invites.set(requestId, { requestId, from, fromName: me.name, to, toName: other.name, timer });
-    this.deps.send(to, MSG.tradeInvite, { requestId, fromSessionId: from, fromName: me.name, expiresAt: now + timeoutMs } satisfies TradeInvite);
+    this.deps.send(to, MSG.tradeInvite, { requestId, fromSessionId: from, fromName: me.name, expiresAt: now + timeoutMs, ttlMs: timeoutMs } satisfies TradeInvite);
   }
 
   respond(sessionId: string, raw: unknown) {
     const parsed = TradeRespondMessage.safeParse(raw);
     if (!parsed.success) return;
     const invite = this.invites.get(parsed.data.requestId);
-    if (!invite || invite.to !== sessionId) return;
+    // Aceptar una que ya venció (o que se retiró justo antes): se avisa, si no la tarjeta se va sin más.
+    if (!invite || invite.to !== sessionId) return parsed.data.accept ? this.problem(sessionId, "expired") : undefined;
     invite.timer.clear();
     this.invites.delete(invite.requestId);
     const me = this.deps.player(sessionId);
@@ -216,8 +220,9 @@ export class Trades {
       if (!this.checkNear(trade) || !trade.a.ready || !trade.b.ready) return;
       const side = this.sideOf(trade, sessionId);
       if (side.confirmed) return;
-      const empty = (s: Side) => s.points === 0 && s.items.length === 0;
-      if (empty(trade.a) && empty(trade.b)) return this.problem(sessionId, "empty");
+      // Los dos tienen que poner algo: dar sin recibir es un regalo (va por el buzón, con sus topes).
+      const gap = tradeGap(trade.a, trade.b);
+      if (gap !== "ok") return this.problem(sessionId, gap);
       side.confirmed = true;
       if (!trade.a.confirmed || !trade.b.confirmed) return this.broadcast(trade);
       await this.execute(trade);
@@ -242,6 +247,12 @@ export class Trades {
     const trade = this.bySession.get(sessionId);
     if (trade) this.close(trade, "left");
     for (const inv of [...this.invites.values()]) if (inv.from === sessionId || inv.to === sessionId) this.dropInvite(inv, [sessionId]);
+    for (const key of [...this.lastInviteAt.keys()]) if (key.startsWith(`${sessionId}:`) || key.endsWith(`:${sessionId}`)) this.lastInviteAt.delete(key);
+  }
+
+  /** Cuántas pausas entre invitaciones se recuerdan (para los tests). */
+  cooldownsTracked(): number {
+    return this.lastInviteAt.size;
   }
 
   // ---------- Internos ----------
