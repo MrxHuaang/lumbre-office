@@ -8,3 +8,5 @@ dist
 .env.production
 .env.vercel
 *.tsbuildinfo
+# Arte viejo generado (antes se versionaba): que un `git add -A` no lo suba.
+apps/web/public/assets/
