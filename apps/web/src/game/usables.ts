@@ -1,7 +1,7 @@
 // Muebles que se usan (E o clic): piano y guitarra se tocan, el tocadiscos pone música, la tele y las
 // lámparas se prenden y apagan, y al gato se lo acaricia. Lo que queda prendido lo decide el servidor
 // (`OfficeState.switches`); tocar o acariciar llega como evento. La escena solo tiene ganchos chicos.
-import { catalogItem, footprint, INTERACT_REACH_TILES, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
+import { catalogItem, footprint, INTERACT_REACH_TILES, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import { glowSprite, heartSmall, lampLit, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin, type Sprite } from "@hyvento/map/art";
 import { isSwitchedOn, usableSpec, type Direction, type FurnitureEvent, type UsableSpec } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
@@ -37,6 +37,14 @@ function distTo(f: PlacedFurniture, ts: number, px: number, py: number) {
   const dx = Math.max(f.x * ts - px, 0, px - (f.x + f.w) * ts);
   const dy = Math.max(f.y * ts - py, 0, py - (f.y + f.d) * ts);
   return Math.hypot(dx, dy);
+}
+
+/** Lo de una oficina no se usa desde afuera (ni al revés): la misma regla que el servidor. */
+function sameRoom(map: OfficeMap, f: PlacedFurniture, px: number, py: number) {
+  const ts = map.tileSize;
+  const fz = zoneAt(map, (f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts);
+  const pz = zoneAt(map, px, py);
+  return (fz?.type !== "office" && pz?.type !== "office") || fz?.id === pz?.id;
 }
 
 /** Hacia dónde mirar para quedar de frente al mueble. */
@@ -199,7 +207,7 @@ export class Usables {
       const spec = usableSpec(f.type);
       if (!spec) continue;
       const dist = distTo(f, map.tileSize, x, y);
-      if (dist <= reach && (!best || dist < best.dist)) best = { f, spec, dist };
+      if (dist <= reach && (!best || dist < best.dist) && sameRoom(map, f, x, y)) best = { f, spec, dist };
     }
     return best;
   }

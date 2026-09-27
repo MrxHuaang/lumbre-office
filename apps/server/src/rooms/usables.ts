@@ -1,6 +1,6 @@
 // Muebles que se usan (piano, guitarra, tocadiscos, tele, lámparas, gato). Lo que cambia para todos
 // (prendido/apagado) queda en `OfficeState.switches`; tocar un instrumento o acariciar al gato es un evento.
-import { INTERACT_REACH_TILES, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
+import { INTERACT_REACH_TILES, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import { FurnitureUseMessage, furnitureKey, isSwitchedOn, usableSpec, type FurnitureEvent } from "@hyvento/shared";
 
 /** Lo que se pueda guardar como interruptores (un MapSchema<boolean> en la sala, un Map en los tests). */
@@ -30,6 +30,18 @@ export function inReach(map: OfficeMap, f: PlacedFurniture, px: number, py: numb
   return Math.hypot(dx, dy) <= INTERACT_REACH_TILES * ts;
 }
 
+/**
+ * Una oficina no se usa desde afuera (ni al revés): la pared está en medio aunque el mueble quede al
+ * alcance. Se compara la zona del mueble con la de quien lo usa si alguna es una oficina.
+ */
+export function sameRoom(map: OfficeMap, f: PlacedFurniture, px: number, py: number): boolean {
+  const ts = map.tileSize;
+  const fz = zoneAt(map, (f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts);
+  const pz = zoneAt(map, px, py);
+  if (fz?.type !== "office" && pz?.type !== "office") return true;
+  return fz?.id === pz?.id;
+}
+
 export class FurnitureUses {
   /** Cuándo puede volver a usar un mueble cada persona. */
   private nextAt = new Map<string, number>();
@@ -43,7 +55,7 @@ export class FurnitureUses {
     const f = usableAt(map, type, x, y);
     const spec = usableSpec(type);
     if (!f || !spec) return { ok: false, error: "invalid" };
-    if (!inReach(map, f, who.x, who.y)) return { ok: false, error: "far" };
+    if (!inReach(map, f, who.x, who.y) || !sameRoom(map, f, who.x, who.y)) return { ok: false, error: "far" };
     if (now < (this.nextAt.get(who.userId) ?? 0)) return { ok: false, error: "busy" };
     this.nextAt.set(who.userId, now + spec.cooldownMs);
     if (spec.action === "toggle") {

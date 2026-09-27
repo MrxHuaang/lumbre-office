@@ -19,7 +19,8 @@ const TEST_AREA: AreaDef = {
   height: 6,
   rooms: [{ id: "sala", rect: { x: 0, y: 0, w: 10, h: 6 }, floor: "wood", wallpaper: "cream" }],
   doors: [],
-  zones: [],
+  // La tele queda dentro de una oficina (x 7..9, y 0..2).
+  zones: [{ id: "oficina-prueba", name: "Oficina", type: "office", rect: { x: 7, y: 0, w: 3, h: 3 }, isolated: true }],
   features: [],
   furniture: [
     { type: "piano", x: 0, y: 0 },
@@ -79,6 +80,12 @@ describe("muebles que se usan (reglas)", () => {
     expect(uses.use(map, at(4, 1), { type: "sofa", x: 4, y: 0 }, 0)).toEqual({ ok: false, error: "invalid" });
     expect(uses.use(map, at(4, 1), { type: "lamp", x: -3 }, 0)).toEqual({ ok: false, error: "invalid" });
     expect(switches.size).toBe(0);
+  });
+
+  it("lo de una oficina no se usa desde afuera aunque quede al alcance", () => {
+    const { map, uses } = rules();
+    expect(uses.use(map, at(6, 1), { type: "tv-retro", x: 7, y: 0 }, 0)).toEqual({ ok: false, error: "far" });
+    expect(uses.use(map, at(7, 1), { type: "tv-retro", x: 7, y: 0 }, 0).ok).toBe(true);
   });
 
   it("hay una pausa entre usos de la misma persona (otra persona no espera)", () => {
