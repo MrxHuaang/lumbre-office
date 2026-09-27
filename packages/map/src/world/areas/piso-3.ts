@@ -98,10 +98,15 @@ export const piso3: AreaDef = {
     place("armchair-wing", 7, 9, "up"),
     place("reading-lamp", 8, 9),
     place("grandfather-clock", 17, 4),
+    // Dos escritorios con PC para quien no tiene oficina (sus Notas están en cualquier PC).
+    place("desk-pc", 17, 5, "left"),
+    place("office-chair-sage", 16, 5, "right"),
+    place("desk-pc", 17, 7, "left"),
+    place("office-chair-sage", 16, 7, "right"),
     place("bookshelf-low", 12, 9, "down"),
     place("armchair-wing", 15, 9, "up"),
     place("reading-lamp", 16, 9),
-    place("fiddle-fig", 17, 10),
+    place("fiddle-fig", 17, 9),
     // ----- Sala de estar: chimenea al norte, sofá y sillones alrededor, el tocadiscos y mantas.
     place("rug-persian", 22, 3, "down"),
     place("fireplace-stone", 24, 0, "down"),

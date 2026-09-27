@@ -87,6 +87,12 @@ describe("oficinas", () => {
     }
   });
 
+  it("la biblioteca tiene PC compartidos para quien no tiene oficina", () => {
+    const piso3 = getWorld().areas.get("piso-3")!;
+    const pcSeats = [...piso3.seats.values()].filter((s) => s.computer && zoneAt(piso3, s.x, s.y)?.id === "biblioteca");
+    expect(pcSeats).toHaveLength(2);
+  });
+
   it("se llega del pasillo al interior de cada oficina pasando por su puerta", () => {
     for (const office of offices) {
       const door = officeDoor(office);

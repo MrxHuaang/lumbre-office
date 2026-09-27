@@ -85,7 +85,6 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "arcade-cabinet",
   "projector",
   "garden-plot",
-  "desk-pc",
 ]);
 
 /** ¿Es un mueble del plano que el editor no toca? (fijo del catálogo, funcional o banqueta del blackjack). */
