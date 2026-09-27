@@ -393,3 +393,77 @@ describe("circulación (docs/plan-rediseno.md)", () => {
     expect(CONEXIONES.sotano.escalera.tiles).toEqual(CONEXIONES.plantaBaja.escaleraSotano.tiles);
   });
 });
+
+describe("sótano", () => {
+  const sotano = area("sotano");
+  const llegada = CONEXIONES.sotano.escalera.llegada;
+  /** Habitación de un tile (la última que lo contiene, como en build.ts). */
+  const roomAt = (x: number, y: number) =>
+    sotano.def.rooms.filter((r) => x >= r.rect.x && x < r.rect.x + r.rect.w && y >= r.rect.y && y < r.rect.y + r.rect.h).at(-1)?.id;
+
+  it("ninguna sala se cruza para llegar a otra: todo se reparte desde el vestíbulo y el pasillo", () => {
+    for (const room of sotano.def.rooms) {
+      if (room.id === "vestibulo" || room.id === "pasillo") continue;
+      const { x, y, w, h } = room.rect;
+      const target = Array.from({ length: w * h }, (_, i) => ({ x: x + (i % w), y: y + Math.floor(i / w) })).find(
+        (t) => roomAt(t.x, t.y) === room.id && !isBlockedTile(sotano, t.x, t.y),
+      )!;
+      const path = findPath(sotano, llegada, target);
+      expect(path, room.id).not.toBeNull();
+      const crossed = new Set(path!.map((t) => roomAt(t.x, t.y)));
+      for (const id of crossed) expect(["vestibulo", "pasillo", room.id], `${room.id} cruza ${id}`).toContain(id);
+    }
+  });
+
+  it("cada puerta une una sala con el vestíbulo o el pasillo (no hay puertas entre salas)", () => {
+    for (const d of sotano.def.doors) {
+      // Los dos tiles a cada lado del borde: el borde "h" en y separa (x, y-1) de (x, y); el "v" en x, (x-1, y) de (x, y).
+      const sides = d.edge === "h" ? [roomAt(d.x, d.y - 1), roomAt(d.x, d.y)] : [roomAt(d.x - 1, d.y), roomAt(d.x, d.y)];
+      const hub = sides.filter((id) => id === "vestibulo" || id === "pasillo");
+      expect(hub.length, `puerta ${d.edge} (${d.x}, ${d.y}): ${sides.join(" / ")}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("el vestíbulo tiene un neón por sala", () => {
+    const vest = sotano.def.rooms.find((r) => r.id === "vestibulo")!.rect;
+    const neons = sotano.def.features.filter(
+      (f) => f.kind === "neon" && f.x >= vest.x && f.x < vest.x + vest.w && f.y >= vest.y && f.y < vest.y + vest.h,
+    );
+    expect(neons.map((n) => n.text).sort()).toEqual(["ARCADE", "CASINO", "CINE", "CLUB"]);
+  });
+
+  it("hay un punto de arcade delante de cada máquina, en el mismo orden", () => {
+    const cabinets = sotano.furniture.filter((f) => f.type === "arcade-cabinet");
+    const spots = pointsOfType(sotano, "arcade");
+    expect(spots).toHaveLength(cabinets.length);
+    cabinets.forEach((c, i) => {
+      const s = spots[i]!;
+      // Del lado al que mira la pantalla.
+      const front = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] }[c.facing];
+      expect([s.tileX - c.x, s.tileY - c.y], s.name).toEqual(front);
+    });
+  });
+
+  it("la ruleta, la barra del club, la tarima, la caja y el proyector tienen sus puntos junto al mueble", () => {
+    const near = (type: string, furniture: string[]) =>
+      pointsOfType(sotano, type).every((p) =>
+        sotano.furniture.some(
+          (f) => furniture.includes(f.type) && p.tileX >= f.x - 1 && p.tileX <= f.x + f.w && p.tileY >= f.y - 1 && p.tileY <= f.y + f.d,
+        ),
+      );
+    expect(pointsOfType(sotano, "roulette").length).toBeGreaterThanOrEqual(8);
+    expect(near("roulette", ["roulette-table"])).toBe(true);
+    expect(pointsOfType(sotano, "club_bar").length).toBeGreaterThanOrEqual(2);
+    expect(near("club_bar", ["bar-counter", "bar-taps", "cigar-case"])).toBe(true);
+    expect(near("pole_stage", ["dance-pole"])).toBe(true);
+    expect(near("casino_cashier", ["casino-cashier"])).toBe(true);
+    expect(near("cinema", ["projector"])).toBe(true);
+  });
+
+  it("todos los puntos del sótano se alcanzan caminando desde la escalera", () => {
+    for (const p of sotano.points) {
+      expect(isBlockedTile(sotano, p.tileX, p.tileY), `${p.type} ${p.name} sobre un mueble`).toBe(false);
+      expect(findPath(sotano, llegada, { x: p.tileX, y: p.tileY }), `${p.type} ${p.name}`).not.toBeNull();
+    }
+  });
+});

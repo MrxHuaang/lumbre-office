@@ -39,7 +39,11 @@ export type FloorKind =
   | "parquet"
   | "kitchen"
   | "mosaic"
-  | "terrace";
+  | "terrace"
+  // Sótano: mármol del vestíbulo, baldosas de los baños y madera oscura del club.
+  | "marble"
+  | "bath"
+  | "lounge";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
 export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet" | "paneling" | "tile" | "forest";
 

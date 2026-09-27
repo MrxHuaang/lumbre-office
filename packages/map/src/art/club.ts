@@ -38,6 +38,41 @@ function barCounter(): Sprite {
   );
 }
 
+/**
+ * Tramo de barra con los grifos de cerveza: una torre de bronce del lado del barman con tres grifos de
+ * manijas de colores, la bandeja de goteo y un chop recién servido del lado de la clientela.
+ */
+function barTaps(): Sprite {
+  const handle = (y: number, r: Ramp): Box[] => [
+    solidBox({ x: 5, y: y + 0.4, z: 22, w: 2, d: 1.2, h: 1.2 }, C.gold, 4),
+    solidBox({ x: 6.4, y: y + 0.4, z: 20.5, w: 1, d: 1.2, h: 1.5 }, C.gold, 3),
+    { x: 3.6, y, z: 24.5, w: 1.6, d: 2, h: 5, top: flat(at(r, 5)), left: flat(at(r, 3)), right: flat(at(r, 4)) },
+  ];
+  const mug: Shader = (u, v, fw, fh) => {
+    if (v >= fh - 1.5) return at(C.cream, 5);
+    if (u < 0.6 || u >= fw - 0.6) return alpha(at(C.white, 4), 0.9);
+    return at(C.mustard, v > fh * 0.5 ? 4 : 3);
+  };
+  return renderSprite(
+    [
+      { x: 1, y: 0, z: 0, w: 14, d: 16, h: 16, top: flat(at(C.woodDark, 3)), left: flat(at(C.woodDark, 2)), right: barFront },
+      { x: 0, y: 0, z: 16, w: 16, d: 16, h: 2, top: blackMarble, left: flat(at(C.gold, 2)), right: flat(at(C.gold, 3)) },
+      // Bandeja de goteo con rejilla.
+      { x: 5, y: 2, z: 18, w: 4, d: 12, h: 0.6, top: (_u, v) => (Math.floor(v) % 2 ? at(C.metal, 4) : at(C.metal, 2)), left: flat(at(C.metal, 2)), right: flat(at(C.metal, 3)) },
+      // Torre de los grifos.
+      solidBox({ x: 2.5, y: 7, z: 18, w: 2, d: 2, h: 5 }, C.gold, 3),
+      solidBox({ x: 2.5, y: 2, z: 22, w: 2.5, d: 12, h: 2.5 }, C.gold, 3),
+      ...handle(2.5, C.rug),
+      ...handle(7, C.gold),
+      ...handle(11.5, C.green),
+      // Chop de cerveza con espuma.
+      { x: 10, y: 9, z: 18, w: 3, d: 3, h: 5, top: flat(at(C.cream, 5)), left: mug, right: mug },
+      solidBox({ x: 13, y: 10, z: 19, w: 1, d: 1, h: 3 }, C.white, 3),
+    ],
+    { outline: OUT },
+  );
+}
+
 const BOTTLES: Ramp[] = [C.green, C.gold, C.rug, C.cyan, C.cream, C.violet, C.fire];
 
 /** Estante alto detrás de la barra: mueble abajo, espejo al fondo y tres repisas con botellas. */
@@ -164,6 +199,7 @@ function cocktailTable(): Sprite {
 /** Dibujos del club, para registrar en DRAW de furniture.ts. */
 export const CLUB_DRAW: Record<string, () => Sprite> = {
   "bar-counter": barCounter,
+  "bar-taps": barTaps,
   "bar-shelf": barShelf,
   "dj-booth": djBooth,
   speaker,

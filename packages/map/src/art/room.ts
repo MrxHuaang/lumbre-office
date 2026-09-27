@@ -4,6 +4,7 @@ import type { OfficeMap } from "../world/build";
 import type { FloorKind, WallFeature, WallpaperKind } from "../world/types";
 import { C, OUT, inRect, mix } from "./palette";
 import { SURROUND_PAD, surroundingsAt } from "./surroundings";
+import { bathFloor, loungeFloor, marbleFloor } from "./sotano";
 import {
   L,
   at,
@@ -210,6 +211,12 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
     case "mosaic":
     case "terrace":
       return interiorFloor(kind, X, Y);
+    case "marble":
+      return marbleFloor(X, Y);
+    case "bath":
+      return bathFloor(X, Y, WALLPAPER[wallpaper ?? "blue"]);
+    case "lounge":
+      return loungeFloor(X, Y);
   }
 }
 
@@ -302,6 +309,9 @@ const KIND_SET: Record<FloorKind, true> = {
   kitchen: true,
   mosaic: true,
   terrace: true,
+  marble: true,
+  bath: true,
+  lounge: true,
 };
 const KINDS = Object.keys(KIND_SET) as FloorKind[];
 

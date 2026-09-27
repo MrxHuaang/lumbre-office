@@ -25,6 +25,11 @@ export interface CatalogItem {
   hasNight?: boolean;
   /** Emite luz de noche: [x, y, z] del foco en unidades de arte relativas al mueble, y color. */
   light?: { at: [number, number, number]; color: string; radius: number };
+  /**
+   * Altura de su superficie en unidades de arte (gradas, tarimas y lo que va encima). Quien se para o se
+   * sienta ahí debería dibujarse así de más arriba (el cliente todavía no lo aplica).
+   */
+  lift?: number;
 }
 
 export const CATALOG = {
