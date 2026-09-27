@@ -25,12 +25,13 @@ export class SocialAborted extends Error {
 }
 
 /**
- * Bloquea la fila de la persona hasta el final de la transacción (un UPDATE que no cambia nada). Así dos
- * regalos o intercambios al mismo tiempo leen "lo que ya dio hoy" de a uno y no se pasan del tope.
+ * Bloquea la fila de la persona hasta el final de la transacción (SELECT … FOR UPDATE, como el casino).
+ * Así dos regalos o intercambios al mismo tiempo leen "lo que ya dio hoy" de a uno y no se pasan del tope.
+ * Es una lectura: no toca `updatedAt`.
  */
 export async function lockUser(tx: Db, userId: string): Promise<boolean> {
-  const locked = await tx.user.updateMany({ where: { id: userId }, data: { points: { increment: 0 } } });
-  return locked.count > 0;
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+  return rows.length > 0;
 }
 
 /**
