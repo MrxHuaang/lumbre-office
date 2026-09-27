@@ -29,6 +29,9 @@ import { ProfileDialog } from "./ProfileDialog";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { FishingHud } from "./fishing/FishingHud";
+import { AchievementToasts } from "./profile/AchievementToasts";
+import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
+import { useAchievementStore } from "@/game/achievements";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
@@ -116,6 +119,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const mapReady = useOfficeStore((s) => s.mapReady);
   const decorating = useOfficeStore((s) => s.decorating);
   const worldEditing = useOfficeStore((s) => s.worldEditing);
+  const profileId = useAchievementStore((s) => s.profileId);
+  const closeProfile = useAchievementStore((s) => s.closeProfile);
+  // Al salir de la cabaña no queda un perfil abierto para la próxima vez.
+  useEffect(() => () => useAchievementStore.getState().closeProfile(), []);
 
   // Actividad real (mouse, teclado): cuenta para los puntos de presencia. Como mucho un aviso por minuto.
   useEffect(() => {
@@ -187,6 +194,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             isAdmin={isAdmin}
             onEditProfile={() => setDialog("profile")}
             onEditCharacter={() => setDialog("character")}
+            onMyProfile={() => useAchievementStore.getState().openProfile("me")}
             onAdmin={() => setDialog("admin")}
             onLogout={onExit}
           />
@@ -204,6 +212,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <InteractPrompt />
           <UsablePrompt />
           <KnockRequests />
+          <AchievementToasts />
           <FishingHud />
           <MediaControls>
             <HeldSlot />
@@ -216,6 +225,16 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <ProfileDialog profile={profile} withName={dialog === "profile"} onClose={closeDialog} onSaved={onProfileChange} />
           )}
           {dialog === "admin" && <AdminDialog onClose={closeDialog} />}
+          {profileId && !dialog && (
+            <PlayerProfileDialog
+              userId={profileId}
+              onClose={closeProfile}
+              onEditProfile={() => {
+                closeProfile();
+                setDialog("profile");
+              }}
+            />
+          )}
           {panel?.kind === "mailbox" && <MailboxPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "board" && <BoardPanel onClose={closePanel} />}
           {panel?.kind === "cafe" && <CafePanel atObject={panel.atObject} onClose={closePanel} />}

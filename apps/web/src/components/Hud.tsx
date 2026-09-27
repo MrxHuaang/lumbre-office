@@ -7,6 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { useMediaStore } from "@/game/media";
 import { sendStatus } from "@/game/network";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
+import { useAchievementStore } from "@/game/achievements";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon } from "./Cozy";
 import { PointsCounter } from "./PointsPanels";
@@ -22,6 +23,7 @@ interface HudProps {
   isAdmin: boolean;
   onEditProfile: () => void;
   onEditCharacter: () => void;
+  onMyProfile: () => void;
   onAdmin: () => void;
   onLogout: () => void;
 }
@@ -32,7 +34,7 @@ const useLabelOf = () => {
 };
 
 /** Fichas de arriba a la izquierda: marca, puntos, dónde estás, a quién oyes, estado, mochila, noche y menú. */
-export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout }: HudProps) {
+export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmin, onLogout }: HudProps) {
   const zone = useOfficeStore((s) => s.zone);
   const players = useOfficeStore((s) => s.players);
   const sessionId = useOfficeStore((s) => s.sessionId);
@@ -124,6 +126,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
         </button>
         {showMenu && (
           <div className="cozy-panel absolute top-full right-0 z-30 mt-3 w-52 p-2" onClick={() => setShowMenu(false)}>
+            <MenuItem onClick={onMyProfile}>Mi perfil y logros</MenuItem>
             <MenuItem onClick={onEditCharacter}>Mi personaje</MenuItem>
             <MenuItem onClick={onEditProfile}>Editar perfil</MenuItem>
             {isAdmin && <MenuItem onClick={onAdmin}>Administrar equipo</MenuItem>}
@@ -170,6 +173,7 @@ export function PeoplePanel() {
   const sessionId = useOfficeStore((s) => s.sessionId);
   const place = useOfficeStore((s) => s.place);
   const labelOf = useLabelOf();
+  const openProfile = useAchievementStore((s) => s.openProfile);
   // En pantallas angostas empieza plegado para no tapar el mapa.
   const [open, setOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 900);
   // Yo primero; el resto por nombre.
@@ -193,15 +197,23 @@ export function PeoplePanel() {
       {open && (
         <ul className="cozy-scroll max-h-[45vh] overflow-y-auto">
           {people.map((p) => (
-            <li key={p.sessionId} className="flex items-center gap-2.5 border-b-2 border-cozy-paper-dark px-2.5 py-2 last:border-b-0">
-              <StatusDot status={p.status} title={STATUS_LABEL[p.status]} />
-              <span className="min-w-0 flex-1 truncate text-[14px]">
-                {p.name}
-                {p.sessionId === sessionId && " (tú)"}
-              </span>
-              <span className="max-w-[45%] truncate text-[12px] text-cozy-ink-soft">
-                {labelOf(p.sessionId === sessionId ? place : p.place)}
-              </span>
+            <li key={p.sessionId} className="border-b-2 border-cozy-paper-dark last:border-b-0">
+              {/* Clic en alguien: su perfil (estadísticas y logros). */}
+              <button
+                type="button"
+                onClick={() => openProfile(p.sessionId === sessionId ? "me" : p.userId)}
+                title={`Ver el perfil de ${p.name}`}
+                className="flex w-full items-center gap-2.5 px-2.5 py-2 text-left hover:bg-cozy-paper-dark"
+              >
+                <StatusDot status={p.status} title={STATUS_LABEL[p.status]} />
+                <span className="min-w-0 flex-1 truncate text-[14px]">
+                  {p.name}
+                  {p.sessionId === sessionId && " (tú)"}
+                </span>
+                <span className="max-w-[45%] truncate text-[12px] text-cozy-ink-soft">
+                  {labelOf(p.sessionId === sessionId ? place : p.place)}
+                </span>
+              </button>
             </li>
           ))}
         </ul>

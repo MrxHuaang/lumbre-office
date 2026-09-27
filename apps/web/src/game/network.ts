@@ -33,6 +33,8 @@ import {
   type PresenceStatus,
   type WorldEditMessage,
   type WorldEditResult,
+  achievementById,
+  type AchievementUnlockedEvent,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -40,6 +42,7 @@ import { useCasinoStore, type RouletteBetView } from "./casino";
 import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
+import { useAchievementStore } from "./achievements";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -189,6 +192,22 @@ const blackoutListeners = new Set<(e: DrunkBlackoutEvent) => void>();
 export function onDrunkBlackout(cb: (e: DrunkBlackoutEvent) => void) {
   blackoutListeners.add(cb);
   return () => blackoutListeners.delete(cb);
+}
+
+const achievementListeners = new Set<(e: AchievementUnlockedEvent) => void>();
+/** Alguien de mi nivel (o yo) desbloqueó un logro: la escena hace un destello sobre su avatar. */
+export function onAchievementUnlocked(cb: (e: AchievementUnlockedEvent) => void) {
+  achievementListeners.add(cb);
+  return () => achievementListeners.delete(cb);
+}
+
+/** El propio logro se anuncia grande; el de otra persona del nivel, con un aviso chiquito. */
+function handleAchievement(e: AchievementUnlockedEvent) {
+  achievementListeners.forEach((cb) => cb(e));
+  const ach = achievementById(e.achievementId);
+  if (!ach) return;
+  if (e.sessionId === room?.sessionId) useAchievementStore.getState().pushToast(ach.id);
+  else useOfficeStore.getState().notify(`${e.name} desbloqueó «${ach.name}».`, "success");
 }
 
 /** Alguien de tu nivel tocó un instrumento o acarició al gato. */
@@ -566,6 +585,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.drunkBlackout, (e: DrunkBlackoutEvent) => blackoutListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.fishEvent, handleFishEvent);
+  r.onMessage(MSG.achievementUnlocked, handleAchievement);
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)
