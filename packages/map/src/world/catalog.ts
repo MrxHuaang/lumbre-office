@@ -93,6 +93,14 @@ export const CATALOG = {
   "popcorn-machine": { name: "Máquina de crispetas", size: [1, 1], light: { at: [8, 8, 18], color: "#ffd66a", radius: 34 } },
   projector: { name: "Proyector", size: [1, 1], hasBack: true, light: { at: [14, 8, 15], color: "#cfe8ff", radius: 30 } },
   "poster-stand": { name: "Afiche de cartelera", size: [1, 1] },
+  // Fase 5: el huerto del jardín y el arcade del sótano (dibujos en art/leisure.ts).
+  // Se pisa (se cultiva parado encima, como en Stardew); lo que crece lo dibuja el cliente.
+  "garden-plot": { name: "Parcela del huerto", size: [1, 1], solid: false, flat: true },
+  scarecrow: { name: "Espantapájaros", size: [1, 1] },
+  "water-barrel": { name: "Barril de agua", size: [1, 1] },
+  "arcade-cabinet": { name: "Máquina de arcade", size: [1, 1], light: { at: [14, 8, 22], color: "#8ef0f0", radius: 30 } },
+  "claw-machine": { name: "Máquina de peluches", size: [1, 1], light: { at: [8, 8, 24], color: "#ff9ae6", radius: 30 } },
+  "air-hockey": { name: "Hockey de mesa", size: [1, 2] },
   "stairs-up": { name: "Escalera", size: [2, 3], fixed: true },
   stairwell: { name: "Escalera", size: [2, 3], fixed: true },
   cabin: { name: "Cabaña", size: [16, 10], fixed: true, hasNight: true },

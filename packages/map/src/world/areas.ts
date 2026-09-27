@@ -12,6 +12,20 @@ const CABIN = { x: 8, y: 2, w: 16, d: 10 };
 const PATH_X = [15, 16];
 const PORCH_Y = CABIN.y + CABIN.d;
 const FENCE_FROM = 15;
+/** Huerto (fase 5): dos filas de cuatro parcelas al oeste del sendero, con un pasillo al medio. */
+const PLOTS = [16, 18].flatMap((y) => [6, 7, 8, 9].map((x) => ({ x, y })));
+/**
+ * Estanque (fase 5) al este del sendero: agua que no se camina (una elipse con el borde ondulado) y un
+ * muelle de dos tablas que entra desde la orilla sur.
+ */
+const POND = { cx: 25, cy: 16.5, rx: 4.3, ry: 2.9 };
+const DOCK = { x: 24, y: 16, w: 2, h: 3 };
+const isDock = (x: number, y: number) => x >= DOCK.x && x < DOCK.x + DOCK.w && y >= DOCK.y && y < DOCK.y + DOCK.h;
+function isPond(x: number, y: number): boolean {
+  const dx = (x + 0.5 - POND.cx) / POND.rx;
+  const dy = (y + 0.5 - POND.cy) / POND.ry;
+  return Math.hypot(dx, dy) <= 1 + 0.14 * Math.sin(3 * Math.atan2(dy, dx) + 1);
+}
 
 const gardenFurniture: Placement[] = [
   place("cabin", CABIN.x, CABIN.y),
@@ -21,13 +35,16 @@ const gardenFurniture: Placement[] = [
   place("lamp-post", 14, 18),
   place("lamp-post", 17, 18),
   place("bench", 20, 16, "down"),
+  ...PLOTS.map((p) => place("garden-plot", p.x, p.y)),
+  place("scarecrow", 10, 16, "down"),
+  place("water-barrel", 10, 18),
   place("tree", 2, 2),
   place("tree", 4, 8),
   place("tree", 2, 13),
   place("tree", 4, 20),
   place("tree", 27, 3),
   place("tree", 29, 9),
-  place("tree", 26, 19),
+  place("tree", 29, 20),
   place("tree", 8, 24),
   place("tree", 23, 24),
   place("pine", 26, 1),
@@ -54,7 +71,11 @@ const jardin: AreaDef = {
   width: GARDEN_W,
   height: GARDEN_H,
   outdoor: true,
-  ground: (x, y) => (PATH_X.includes(x) && y >= PORCH_Y) || (y === PORCH_Y && x >= 14 && x <= 17) ? "path" : "grass",
+  ground: (x, y) => {
+    if (isDock(x, y)) return "dock";
+    if (isPond(x, y)) return "water";
+    return (PATH_X.includes(x) && y >= PORCH_Y) || (y === PORCH_Y && x >= 14 && x <= 17) ? "path" : "grass";
+  },
   rooms: [],
   doors: [],
   zones: [{ id: "jardin", name: "Jardín", type: "common", rect: { x: 0, y: 0, w: GARDEN_W, h: GARDEN_H }, isolated: false }],
@@ -72,6 +93,11 @@ const jardin: AreaDef = {
     { type: "spawn", name: "Entrada del jardín", x: 15, y: 24 },
     { type: "task_board", name: "Tablón", x: 18, y: PORCH_Y + 3 },
     { type: "mailbox", name: "Buzón", x: 13, y: PORCH_Y + 3 },
+    // Una por parcela, en el mismo orden que PLOTS (el índice es el id de la parcela).
+    ...PLOTS.map((p, i) => ({ type: "garden_plot" as const, name: `Parcela ${i + 1}`, x: p.x, y: p.y })),
+    // La punta del muelle, mirando al agua.
+    { type: "fishing_spot", name: "Muelle", x: DOCK.x, y: DOCK.y },
+    { type: "fishing_spot", name: "Muelle", x: DOCK.x + 1, y: DOCK.y },
   ],
 };
 
@@ -397,6 +423,10 @@ const piso2: AreaDef = {
 const CASINO_ROOM = { x: 0, y: 0, w: 18, h: 12 };
 const CLUB_ROOM = { x: 18, y: 0, w: 10, h: 12 };
 const CINEMA_ROOM = { x: 0, y: 12, w: 16, h: 6 };
+/** Arcade (fase 5): abajo a la derecha, con puertas al club y al cine. */
+const ARCADE_ROOM = { x: 16, y: 12, w: 12, h: 6 };
+/** Máquinas de arcade contra la pared del club (miran hacia el sur); se juega parado delante. */
+const ARCADE_CABINETS = [17, 18, 22, 23, 24, 25].map((x) => ({ x, y: ARCADE_ROOM.y }));
 
 const ROULETTE = { x: 5, y: 4 };
 const BLACKJACK = { x: 11, y: 4 };
@@ -427,15 +457,19 @@ const sotano: AreaDef = {
     { id: "casino", rect: CASINO_ROOM, floor: "casino", wallpaper: "wine" },
     { id: "club", rect: CLUB_ROOM, floor: "dance", wallpaper: "violet" },
     { id: "cine", rect: CINEMA_ROOM, floor: "cinema", wallpaper: "navy" },
+    { id: "arcade", rect: ARCADE_ROOM, floor: "arcade", wallpaper: "violet" },
   ],
   doors: [
     { edge: "v", x: CLUB_ROOM.x, y: 5, width: 2 },
     { edge: "h", x: 10, y: CINEMA_ROOM.y, width: 2 },
+    { edge: "h", x: 19, y: ARCADE_ROOM.y, width: 2 },
+    { edge: "v", x: ARCADE_ROOM.x, y: 14, width: 2 },
   ],
   zones: [
     { id: "casino", name: "Casino", type: "common", rect: CASINO_ROOM, isolated: false },
     { id: "club", name: "Club", type: "common", rect: CLUB_ROOM, isolated: true },
     { id: "cine", name: "Cine", type: "common", rect: CINEMA_ROOM, isolated: true },
+    { id: "arcade", name: "Arcade", type: "common", rect: ARCADE_ROOM, isolated: false },
   ],
   features: [
     // Casino: letreros de neón sobre los tragamonedas, reloj y cuadros.
@@ -509,6 +543,16 @@ const sotano: AreaDef = {
     place("projector", 13, 14, "left"),
     place("popcorn-machine", 15, CINEMA_ROOM.y, "down"),
     place("plant", 15, CINEMA_ROOM.y + CINEMA_ROOM.h - 1),
+    // ---- Arcade ----
+    ...ARCADE_CABINETS.map((c) => place("arcade-cabinet", c.x, c.y, "down")),
+    place("claw-machine", 26, ARCADE_ROOM.y, "down"),
+    place("claw-machine", 27, ARCADE_ROOM.y, "down"),
+    place("plant", 16, ARCADE_ROOM.y),
+    place("air-hockey", 20, 15, "down"),
+    place("beanbag", 25, 16, "up"),
+    place("beanbag", 26, 16, "up"),
+    place("lamp-mushroom", 16, 17),
+    place("lamp-mushroom", 27, 17),
   ],
   portals: [
     {
@@ -546,6 +590,10 @@ const sotano: AreaDef = {
     ].map(([dx, dy]) => ({ type: "pole_stage" as const, name: "Escenario", x: STAGE.x + dx!, y: STAGE.y + dy! })),
     { type: "casino_cashier", name: "Caja", x: 13, y: 1 },
     { type: "casino_cashier", name: "Caja", x: 14, y: 1 },
+    // Delante de cada máquina del arcade, en el orden de ARCADE_CABINETS.
+    ...ARCADE_CABINETS.map((c, i) => ({ type: "arcade" as const, name: `Máquina ${i + 1}`, x: c.x, y: c.y + 1 })),
+    // Junto al proyector: desde ahí se elige qué se ve en el cine.
+    { type: "cinema", name: "Proyector", x: 14, y: 14 },
   ],
 };
 

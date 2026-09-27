@@ -91,6 +91,42 @@ function cinemaCarpet(X: number, Y: number): RGBA {
   return at(C.navy, bayer(x, y) < 0.15 ? 1 : 2);
 }
 
+/** Alfombra del arcade: azul noche con figuritas de neón (triángulos, anillos y zigzags). */
+function arcadeCarpet(X: number, Y: number): RGBA {
+  const x = Math.floor(X);
+  const y = Math.floor(Y);
+  const cx = Math.floor(x / 12);
+  const cy = Math.floor(y / 12);
+  const u = x - cx * 12 - 6;
+  const v = y - cy * 12 - 6;
+  const n = noise(cx, cy, 53);
+  const col = [C.neon, C.cyan, C.gold][Math.floor(noise(cx, cy, 11) * 3)]!;
+  if (n < 0.33 && v >= -2 && v <= 2 && Math.abs(u) <= 2 - (v + 2) / 2) return at(col, 4);
+  if (n >= 0.33 && n < 0.66 && Math.abs(Math.hypot(u, v) - 2.5) < 0.6) return at(col, 4);
+  if (n >= 0.66 && Math.abs(v - (Math.abs(u % 4) < 2 ? 1 : -1)) < 0.6 && Math.abs(u) <= 3) return at(col, 3);
+  return at(C.navy, bayer(x, y) < 0.2 ? 0 : 1);
+}
+
+/** Agua del estanque: azul con rizos claros sueltos y un poco de tramado. */
+function water(X: number, Y: number): RGBA {
+  const x = Math.floor(X);
+  const y = Math.floor(Y);
+  const r = noise(Math.floor(x / 5), y, 37);
+  if (r > 0.93 && x % 5 < 3) return at(C.sky, 4);
+  const deep = smoothNoise(X, Y, 20, 8);
+  return at(C.sky, deep < 0.4 ? 0 : bayer(x, y) < 0.3 ? 1 : deep < 0.7 ? 1 : 2);
+}
+
+/** Muelle: tablas a lo largo de y con juntas oscuras y clavos. */
+function dock(X: number, Y: number): RGBA {
+  const u = ((X % 16) + 16) % 16;
+  const plank = Math.floor(u / 4);
+  if (u % 4 < 0.8) return at(C.woodDark, 1);
+  const v = ((Y % 16) + 16) % 16;
+  if ((v < 1 || v >= 15) && u % 4 >= 1.5 && u % 4 < 2.5) return at(C.metal, 3);
+  return at(C.wood, noise(plank, Math.floor(Y / 16), 19) < 0.5 ? 3 : 2);
+}
+
 function grass(X: number, Y: number): RGBA {
   const n = noise(Math.floor(X), Math.floor(Y), 13);
   // Dos octavas de ruido suave y un poco de tramado en los bordes: manchas de pasto orgánicas.
@@ -147,7 +183,54 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return danceFloor(X, Y);
     case "cinema":
       return cinemaCarpet(X, Y);
+    case "arcade":
+      return arcadeCarpet(X, Y);
+    case "water":
+      return water(X, Y);
+    case "dock":
+      return dock(X, Y);
   }
+}
+
+/**
+ * Orilla del estanque: una franja de arena y espuma donde el agua toca tierra, con las esquinas
+ * redondeadas (lo que queda fuera de la curva es pasto). El muelle cuenta como agua: no lleva arena.
+ */
+function shore(map: OfficeMap, tx: number, ty: number, u: number, v: number, c: RGBA): RGBA {
+  const W = map.width;
+  const dry = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= W || y >= map.height) return true;
+    const f = map.floors[y * W + x];
+    return f !== "water" && f !== "dock";
+  };
+  const n = dry(tx, ty - 1);
+  const s = dry(tx, ty + 1);
+  const w = dry(tx - 1, ty);
+  const e = dry(tx + 1, ty);
+  const R = 7;
+  const u1 = L - u;
+  const v1 = L - v;
+  let d = 99;
+  if (w) d = Math.min(d, u);
+  if (e) d = Math.min(d, u1);
+  if (n) d = Math.min(d, v);
+  if (s) d = Math.min(d, v1);
+  // Esquinas convexas (dos lados secos): se redondean.
+  if (n && w && u < R && v < R) d = Math.min(d, R - Math.hypot(R - u, R - v));
+  if (n && e && u1 < R && v < R) d = Math.min(d, R - Math.hypot(R - u1, R - v));
+  if (s && w && u < R && v1 < R) d = Math.min(d, R - Math.hypot(R - u, R - v1));
+  if (s && e && u1 < R && v1 < R) d = Math.min(d, R - Math.hypot(R - u1, R - v1));
+  // Esquinas cóncavas (solo la diagonal seca): un cuarto de círculo de arena.
+  if (!n && !w && dry(tx - 1, ty - 1)) d = Math.min(d, Math.hypot(u, v));
+  if (!n && !e && dry(tx + 1, ty - 1)) d = Math.min(d, Math.hypot(u1, v));
+  if (!s && !w && dry(tx - 1, ty + 1)) d = Math.min(d, Math.hypot(u, v1));
+  if (!s && !e && dry(tx + 1, ty + 1)) d = Math.min(d, Math.hypot(u1, v1));
+  if (d < 0) return grass(tx * L + u, ty * L + v);
+  if (d < 1) return at(C.dirt, 3);
+  if (d < 2) return at(C.dirt, 4);
+  if (d < 3.5) return at(C.sky, 4);
+  if (d < 5 && bayer(Math.floor(u), Math.floor(v)) < 0.4) return at(C.sky, 3);
+  return c;
 }
 
 // ---------- Paredes ----------
@@ -423,7 +506,8 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
       d: L,
       h: slabH,
       top: (u, v) => {
-        const c = floorColor(kind, x0 + u, y0 + v, wp);
+        let c = floorColor(kind, x0 + u, y0 + v, wp);
+        if (kind === "water") c = shore(map, tx, ty, u, v, c);
         const o = map.outdoor ? 0 : occlusion(map, tx, ty, u, v);
         return o ? mix(c, at(C.woodDark, 0), o) : c;
       },

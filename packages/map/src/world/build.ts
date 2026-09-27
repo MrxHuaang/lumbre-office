@@ -1,6 +1,6 @@
 import { nearestFreeTile } from "../pathfinding";
 import { catalogItem, footprint, localToWorld } from "./catalog";
-import type { AreaDef, Facing, FloorKind, Placement, ZoneType } from "./types";
+import type { AreaDef, Facing, FloorKind, Placement, PointDef, ZoneType } from "./types";
 
 export const TILE_SIZE = 32;
 
@@ -22,7 +22,7 @@ export interface Zone {
   doorEdge?: { x: number; y: number };
 }
 
-export type PointType = "spawn" | "screen" | "task_board" | "mailbox" | "cafe_counter" | "shop_counter" | "fitting_room" | "roulette" | "casino_cashier" | "pole_stage";
+export type PointType = PointDef["type"];
 
 export interface MapPoint {
   id: number;
@@ -138,9 +138,9 @@ export function buildArea(def: AreaDef): OfficeMap {
       }
   }
 
-  // Colisión: fuera del edificio y muebles sólidos.
+  // Colisión: fuera del edificio, el agua del estanque y muebles sólidos.
   const blocked = new Uint8Array(width * height);
-  for (let i = 0; i < blocked.length; i++) if (floors[i] === null) blocked[i] = 1;
+  for (let i = 0; i < blocked.length; i++) if (floors[i] === null || floors[i] === "water") blocked[i] = 1;
 
   const furniture: PlacedFurniture[] = [];
   const computers = new Set<number>();

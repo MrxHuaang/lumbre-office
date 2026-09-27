@@ -12,7 +12,22 @@ export interface Rect {
 }
 
 export type ZoneType = "office" | "meeting" | "table" | "common";
-export type FloorKind = "wood" | "carpet" | "tiles" | "stone" | "grass" | "path" | "doormat" | "casino" | "dance" | "cinema";
+export type FloorKind =
+  | "wood"
+  | "carpet"
+  | "tiles"
+  | "stone"
+  | "grass"
+  | "path"
+  | "doormat"
+  | "casino"
+  | "dance"
+  | "cinema"
+  | "arcade"
+  /** Agua del estanque: no se camina (ver build.ts). */
+  | "water"
+  /** Muelle de tablas sobre el estanque. */
+  | "dock";
 export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet";
 
 export interface ZoneDef {
@@ -76,7 +91,23 @@ export interface PortalDef {
 }
 
 export interface PointDef {
-  type: "spawn" | "screen" | "task_board" | "mailbox" | "cafe_counter" | "shop_counter" | "fitting_room" | "roulette" | "casino_cashier" | "pole_stage";
+  type:
+    | "spawn"
+    | "screen"
+    | "task_board"
+    | "mailbox"
+    | "cafe_counter"
+    | "shop_counter"
+    | "fitting_room"
+    | "roulette"
+    | "casino_cashier"
+    | "pole_stage"
+    // Fase 5: una por parcela del huerto (en el orden de las parcelas), donde se pesca, frente a cada
+    // máquina del arcade (en el orden de las máquinas) y junto al proyector del cine.
+    | "garden_plot"
+    | "fishing_spot"
+    | "arcade"
+    | "cinema";
   name: string;
   x: number;
   y: number;
