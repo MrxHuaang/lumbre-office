@@ -1,8 +1,8 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { findPath, getWorld } from "@hyvento/map";
-import { MSG, ROOM_NAME, TRADE, type TradeClosed, type TradeInvite, type TradeProblem, type TradeView } from "@hyvento/shared";
+import { GIFT, MSG, ROOM_NAME, TRADE, type TradeClosed, type TradeInvite, type TradeProblem, type TradeView } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
@@ -262,5 +262,232 @@ describe("intercambios", () => {
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
     await tick(80);
     expect(a.problems.at(-1)).toEqual({ error: "busy" });
+  });
+});
+
+describe("intercambios: bordes", () => {
+  afterEach(() => {
+    OfficeRoom.tradeInviteMs = TRADE.requestTimeoutMs;
+    repo.tradeGate = null;
+  });
+
+  it("si alguien cancela mientras se guarda, igual termina como hecho y el saldo llega a los dos", async () => {
+    await repo.awardPoints({ userId: "u-alice", amount: 40, reason: "ADMIN" });
+    repo.give("u-bob", "sofa", 1);
+    const { alice, bob, a, b, room } = await openTrade();
+    alice.send(MSG.tradeOffer, { points: 25, items: [] });
+    bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
+    await tick(80);
+    alice.send(MSG.tradeReady, { ready: true });
+    bob.send(MSG.tradeReady, { ready: true });
+    await tick(80);
+
+    // La base tarda: el intercambio queda "guardándose" hasta que se suelta la puerta.
+    let release!: () => void;
+    repo.tradeGate = new Promise<void>((r) => (release = r));
+    alice.send(MSG.tradeConfirm);
+    bob.send(MSG.tradeConfirm);
+    await tick(80);
+    bob.send(MSG.tradeCancel);
+    await tick(60);
+    expect(a.closed).toEqual([]); // el cierre espera a ver cómo sale
+    release();
+    await tick(100);
+
+    expect(a.closed).toHaveLength(1);
+    expect(a.closed[0]).toMatchObject({ reason: "done", balance: 15 });
+    expect(b.closed[0]).toMatchObject({ reason: "done", balance: 25 });
+    expect(room.state.players.get(alice.sessionId)!.points).toBe(15);
+    expect(room.state.players.get(bob.sessionId)!.points).toBe(25);
+    expect(repo.held("u-alice", "sofa")).toBe(1);
+  });
+
+  it("si no se pudo hacer y alguien había cancelado mientras tanto, se cierra con ese motivo", async () => {
+    await repo.awardPoints({ userId: "u-alice", amount: 10, reason: "ADMIN" });
+    const { alice, bob, a, b } = await openTrade();
+    alice.send(MSG.tradeOffer, { points: 10, items: [] });
+    await tick(80);
+    alice.send(MSG.tradeReady, { ready: true });
+    bob.send(MSG.tradeReady, { ready: true });
+    await tick(80);
+    let release!: () => void;
+    repo.tradeGate = new Promise<void>((r) => (release = r));
+    alice.send(MSG.tradeConfirm);
+    bob.send(MSG.tradeConfirm);
+    await tick(80);
+    await repo.spendPoints({ userId: "u-alice", amount: 5, reason: "PURCHASE" });
+    alice.send(MSG.tradeCancel);
+    await tick(40);
+    release();
+    await tick(100);
+    expect(a.closed.at(-1)).toMatchObject({ reason: "cancelled" });
+    expect(b.closed.at(-1)).toMatchObject({ reason: "cancelled", with: "Alice" });
+    expect(b.problems).toEqual([]);
+    expect(await points("u-bob")).toBe(0);
+  });
+
+  it("si alguien se desconecta mientras se guarda, se hace igual y una oferta nueva en el medio no cambia nada", async () => {
+    await repo.awardPoints({ userId: "u-alice", amount: 40, reason: "ADMIN" });
+    repo.give("u-bob", "sofa", 1);
+    const { alice, bob, a, room } = await openTrade();
+    alice.send(MSG.tradeOffer, { points: 25, items: [] });
+    bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
+    await tick(80);
+    alice.send(MSG.tradeReady, { ready: true });
+    bob.send(MSG.tradeReady, { ready: true });
+    await tick(80);
+    let release!: () => void;
+    repo.tradeGate = new Promise<void>((r) => (release = r));
+    alice.send(MSG.tradeConfirm);
+    bob.send(MSG.tradeConfirm);
+    await tick(80);
+    // Alice cambia la oferta (queda en la cola) y Bob se va: nada de eso corre durante el guardado.
+    alice.send(MSG.tradeOffer, { points: 40, items: [] });
+    await bob.leave(true);
+    await tick(80);
+    expect(a.closed).toEqual([]);
+    release();
+    await tick(120);
+
+    expect(a.closed).toHaveLength(1);
+    expect(a.closed[0]).toMatchObject({ reason: "done", with: "Bob", gave: { points: 25 }, balance: 15 });
+    expect(await points("u-alice")).toBe(15);
+    expect(await points("u-bob")).toBe(25);
+    expect(repo.held("u-alice", "sofa")).toBe(1);
+    expect(room.state.players.get(alice.sessionId)!.points).toBe(15);
+    // El intercambio ya no existe: Alice puede invitar de nuevo sin quedar "ocupada".
+    expect(a.problems).toEqual([]);
+  });
+
+  it("la invitación vence si nadie responde", async () => {
+    OfficeRoom.tradeInviteMs = 150;
+    const { alice, bob, a, b } = await setup();
+    alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
+    await tick(80);
+    expect(b.invites).toHaveLength(1);
+    await tick(300);
+    expect(a.closed.at(-1)).toMatchObject({ id: b.invites[0]!.requestId, reason: "timeout", with: "Bob" });
+    // Aceptar tarde no abre nada.
+    bob.send(MSG.tradeRespond, { requestId: b.invites[0]!.requestId, accept: true });
+    await tick(80);
+    expect(a.views).toEqual([]);
+    expect(b.views).toEqual([]);
+  });
+
+  it("no se invita a alguien en No molestar", async () => {
+    const { room, alice, bob, a, b } = await setup();
+    bob.send(MSG.status, { status: "dnd" });
+    await room.waitForNextPatch();
+    await tick();
+    alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
+    await tick(80);
+    expect(a.problems.at(-1)).toEqual({ error: "dnd" });
+    expect(b.invites).toEqual([]);
+  });
+
+  it("se cancela si alguien cambia de nivel por un portal", async () => {
+    const { room, alice, bob, a, b } = await setup();
+    const map = getWorld().areas.get("jardin")!;
+    const portal = map.portals[0]!;
+    const at = portal.tiles[0]!;
+    await walkToTile(alice, room, at.x, at.y);
+    // Bob se para junto al portal (en un tile al que se llega caminando).
+    const me = room.state.players.get(bob.sessionId)!;
+    const start = { x: Math.floor(me.x / TILE), y: Math.floor(me.y / TILE) };
+    const around = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1], [2, 0], [0, 2], [-2, 0], [0, -2]] as const;
+    const near = around
+      .map(([dx, dy]) => ({ x: at.x + dx, y: at.y + dy }))
+      .find((t) => !portal.tiles.some((p) => p.x === t.x && p.y === t.y) && findPath(map, start, t));
+    expect(near).toBeDefined();
+    await walkToTile(bob, room, near!.x, near!.y);
+    alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
+    await tick(80);
+    bob.send(MSG.tradeRespond, { requestId: b.invites[0]!.requestId, accept: true });
+    await tick(80);
+    expect(a.view?.them.name).toBe("Bob");
+
+    alice.send(MSG.travel, { portal: portal.id });
+    await room.waitForNextPatch();
+    await tick(60);
+    expect(room.state.players.get(alice.sessionId)!.area).toBe(portal.to.area);
+    expect(a.closed.at(-1)).toMatchObject({ reason: "far", with: "Bob" });
+    expect(b.closed.at(-1)).toMatchObject({ reason: "far", with: "Alice" });
+  });
+
+  it("se cancela si se corta la conexión (sin cerrar la pestaña)", async () => {
+    const { bob, a } = await openTrade();
+    await bob.leave(false);
+    await tick(120);
+    expect(a.closed.at(-1)).toMatchObject({ reason: "left", with: "Bob" });
+  });
+
+  it("abrir otra pestaña con la misma persona cierra su intercambio", async () => {
+    const { room, b } = await openTrade();
+    await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
+    await room.waitForNextPatch();
+    await tick(120);
+    expect(b.closed.at(-1)).toMatchObject({ reason: "left", with: "Alice" });
+    expect([...room.state.players.values()].filter((p) => p.userId === "u-alice")).toHaveLength(1);
+  });
+
+  it("una invitación nueva retira la anterior y a quien la tenía le llega el aviso", async () => {
+    const { room, alice, bob, b } = await setup();
+    const carla = await colyseus.connectTo(room, { token: await token("u-carla", "Carla", "carla") });
+    const c = inbox(carla);
+    await room.waitForNextPatch();
+    alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
+    await tick(80);
+    alice.send(MSG.tradeRequest, { sessionId: carla.sessionId });
+    await tick(80);
+    expect(b.closed.at(-1)).toMatchObject({ id: b.invites[0]!.requestId, reason: "cancelled", with: "Alice" });
+    // La de Bob ya no sirve; la de Carla sí.
+    bob.send(MSG.tradeRespond, { requestId: b.invites[0]!.requestId, accept: true });
+    await tick(80);
+    expect(b.views).toEqual([]);
+    carla.send(MSG.tradeRespond, { requestId: c.invites[0]!.requestId, accept: true });
+    await tick(80);
+    expect(c.view?.them.name).toBe("Alice");
+  });
+
+  it("al entrar a un intercambio, se avisa a quien esperaba respuesta de esa persona", async () => {
+    const { room, alice, bob, a, b } = await setup();
+    const carla = await colyseus.connectTo(room, { token: await token("u-carla", "Carla", "carla") });
+    const c = inbox(carla);
+    await room.waitForNextPatch();
+    carla.send(MSG.tradeRequest, { sessionId: bob.sessionId });
+    alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
+    await tick(80);
+    const fromAlice = b.invites.find((i) => i.fromName === "Alice")!;
+    bob.send(MSG.tradeRespond, { requestId: fromAlice.requestId, accept: true });
+    await tick(80);
+    expect(a.view?.them.name).toBe("Bob");
+    expect(c.closed.at(-1)).toMatchObject({ reason: "cancelled", with: "Bob" });
+    expect(a.closed).toEqual([]);
+    expect(b.closed).toEqual([]);
+  });
+
+  it("los puntos que se dan en intercambios cuentan para el tope diario de dar (el de los regalos)", async () => {
+    await repo.awardPoints({ userId: "u-alice", amount: 2000, reason: "ADMIN" });
+    // Ya regaló casi todo el tope hoy.
+    repo.ledger.push({ userId: "u-alice", amount: -(GIFT.dailyPoints - 100), reason: "GIFT", at: Date.now(), refId: "gift:x" });
+    const { alice, bob, a, b } = await openTrade();
+    alice.send(MSG.tradeOffer, { points: 150, items: [] });
+    await tick(80);
+    expect(a.problems.at(-1)).toEqual({ error: "limit" });
+    expect(b.view?.them.points).toBe(0);
+
+    alice.send(MSG.tradeOffer, { points: 100, items: [] });
+    await tick(80);
+    alice.send(MSG.tradeReady, { ready: true });
+    bob.send(MSG.tradeReady, { ready: true });
+    await tick(80);
+    // Mandó otro regalo antes de confirmar: se revalida y no se mueve nada.
+    repo.ledger.push({ userId: "u-alice", amount: -1, reason: "GIFT", at: Date.now(), refId: "gift:y" });
+    alice.send(MSG.tradeConfirm);
+    bob.send(MSG.tradeConfirm);
+    await tick(120);
+    expect(b.problems.at(-1)).toEqual({ error: "limit", who: "Alice" });
+    expect(a.closed).toEqual([]);
+    expect(await points("u-bob")).toBe(0);
   });
 });

@@ -2,6 +2,7 @@
 // objetos de la mochila), "Listo" y un "Confirmar" final. El servidor lo valida todo y lo ejecuta en una
 // transacción del repositorio; se cancela si alguien se aleja, se desconecta o cierra.
 import {
+  giftAllowedToday,
   MSG,
   TRADE,
   TradeOfferMessage,
@@ -39,6 +40,8 @@ export interface TradeDeps {
   /** Cambió el saldo de alguien (la sala lo copia a sus `Player`). */
   setPoints(userId: string, balance: number): void;
   later(ms: number, fn: () => void): { clear(): void };
+  /** Cuánto espera una invitación (los tests lo acortan). */
+  inviteTimeoutMs?(): number;
 }
 
 interface Side {
@@ -58,12 +61,18 @@ interface Trade {
   /** Las ofertas y la confirmación van de a una (esperan a la base): cada una ve lo que dejó la anterior. */
   queue: Promise<unknown>;
   closed: boolean;
+  /** Se está guardando en la base: cerrarlo ahora no deshace nada, así que el cierre espera a ver cómo sale. */
+  executing: boolean;
+  /** Pidieron cerrarlo mientras se guardaba: si no se hizo, se cierra con este motivo. */
+  pendingClose: TradeCloseReason | null;
 }
 
 interface Invite {
   requestId: string;
   from: string;
+  fromName: string;
   to: string;
+  toName: string;
   timer: { clear(): void };
 }
 
@@ -103,14 +112,17 @@ export class Trades {
     const now = Date.now();
     if (now - (this.lastInviteAt.get(key) ?? 0) < TRADE.requestCooldownMs) return problem("too-soon");
     this.lastInviteAt.set(key, now);
+    // Una sola invitación saliente a la vez: la anterior se retira (y se le avisa a quien la tenía).
+    for (const inv of [...this.invites.values()]) if (inv.from === from) this.dropInvite(inv, [from]);
 
     const requestId = randomUUID();
-    const timer = this.deps.later(TRADE.requestTimeoutMs, () => {
+    const timeoutMs = this.deps.inviteTimeoutMs?.() ?? TRADE.requestTimeoutMs;
+    const timer = this.deps.later(timeoutMs, () => {
       if (!this.invites.delete(requestId)) return;
       this.closed(from, { id: requestId, reason: "timeout", with: other.name });
     });
-    this.invites.set(requestId, { requestId, from, to, timer });
-    this.deps.send(to, MSG.tradeInvite, { requestId, fromSessionId: from, fromName: me.name, expiresAt: now + TRADE.requestTimeoutMs } satisfies TradeInvite);
+    this.invites.set(requestId, { requestId, from, fromName: me.name, to, toName: other.name, timer });
+    this.deps.send(to, MSG.tradeInvite, { requestId, fromSessionId: from, fromName: me.name, expiresAt: now + timeoutMs } satisfies TradeInvite);
   }
 
   respond(sessionId: string, raw: unknown) {
@@ -131,12 +143,22 @@ export class Trades {
       return this.problem(invite.from, "far");
     }
     const side = (s: string, p: TradePlayer): Side => ({ sessionId: s, userId: p.userId, name: p.name, points: 0, items: [], ready: false, confirmed: false });
-    const trade: Trade = { id: randomUUID(), a: side(invite.from, other), b: side(sessionId, me), queue: Promise.resolve(), closed: false };
+    const trade: Trade = {
+      id: randomUUID(),
+      a: side(invite.from, other),
+      b: side(sessionId, me),
+      queue: Promise.resolve(),
+      closed: false,
+      executing: false,
+      pendingClose: null,
+    };
     this.trades.set(trade.id, trade);
     this.bySession.set(trade.a.sessionId, trade);
     this.bySession.set(trade.b.sessionId, trade);
     // Quien entra a un intercambio deja de esperar respuesta a otras invitaciones.
-    for (const inv of [...this.invites.values()]) if ([inv.from, inv.to].some((s) => s === trade.a.sessionId || s === trade.b.sessionId)) this.dropInvite(inv);
+    // A la otra punta de cada una se le avisa (si no, le queda una tarjeta que ya no lleva a nada).
+    const inTrade = [trade.a.sessionId, trade.b.sessionId];
+    for (const inv of [...this.invites.values()]) if (inTrade.includes(inv.from) || inTrade.includes(inv.to)) this.dropInvite(inv, inTrade);
     this.broadcast(trade);
   }
 
@@ -158,6 +180,12 @@ export class Trades {
       if (parsed.data.points > balance) return this.problem(sessionId, "funds");
       const has = (it: ItemStack) => (inventory.find((e) => e.itemId === it.itemId)?.quantity ?? 0) >= it.quantity;
       if (!items.every(has)) return this.problem(sessionId, "items");
+      // El tope diario de dar puntos (el mismo de los regalos): se avisa ya, y se revalida al confirmar.
+      if (parsed.data.points > side.points) {
+        const given = await repo.givenPointsToday(side.userId);
+        if (trade.closed) return;
+        if (giftAllowedToday({ gifts: 0, points: given }, parsed.data.points) !== "ok") return this.problem(sessionId, "limit");
+      }
       side.points = parsed.data.points;
       side.items = items;
       this.unready(trade);
@@ -213,13 +241,15 @@ export class Trades {
   left(sessionId: string) {
     const trade = this.bySession.get(sessionId);
     if (trade) this.close(trade, "left");
-    for (const inv of [...this.invites.values()]) if (inv.from === sessionId || inv.to === sessionId) this.dropInvite(inv);
+    for (const inv of [...this.invites.values()]) if (inv.from === sessionId || inv.to === sessionId) this.dropInvite(inv, [sessionId]);
   }
 
   // ---------- Internos ----------
 
   private async execute(trade: Trade) {
     let result;
+    // Mientras se guarda, cancelar, alejarse o desconectarse no cierran: la base ya puede haberlo hecho.
+    trade.executing = true;
     try {
       result = await this.deps.repo().executeTrade({
         refId: tradeRefId(trade.id),
@@ -229,8 +259,11 @@ export class Trades {
     } catch (err) {
       console.error("executeTrade", err);
       result = null;
+    } finally {
+      trade.executing = false;
     }
-    if (trade.closed) return; // se cerró mientras se guardaba (p. ej. se desconectó): ya se avisó
+    if (trade.closed) return;
+    if ((!result || !result.ok) && trade.pendingClose) return this.close(trade, trade.pendingClose);
     if (!result || !result.ok) {
       // No se movió nada: se vuelve a la oferta para que lo arreglen.
       const who = result ? this.sideByUser(trade, result.userId)?.name : undefined;
@@ -239,6 +272,8 @@ export class Trades {
       this.broadcast(trade);
       return;
     }
+    // Se hizo: aunque alguien haya pedido cerrar en el medio, los dos reciben el "hecho" y el saldo nuevo
+    // (a quien se desconectó no le llega nada, pero su saldo ya quedó guardado).
     for (const [userId, balance] of Object.entries(result.balances)) this.deps.setPoints(userId, balance);
     const bundle = (s: Side) => ({ points: s.points, items: s.items.map((i) => ({ ...i })) });
     this.finish(trade);
@@ -268,6 +303,10 @@ export class Trades {
 
   private close(trade: Trade, reason: TradeCloseReason) {
     if (trade.closed) return;
+    if (trade.executing) {
+      trade.pendingClose ??= reason;
+      return;
+    }
     this.finish(trade);
     this.closed(trade.a.sessionId, { id: trade.id, reason, with: trade.b.name });
     this.closed(trade.b.sessionId, { id: trade.id, reason, with: trade.a.name });
@@ -280,9 +319,12 @@ export class Trades {
     if (this.bySession.get(trade.b.sessionId) === trade) this.bySession.delete(trade.b.sessionId);
   }
 
-  private dropInvite(inv: Invite) {
+  /** Retira una invitación y se lo avisa a las puntas que no están en `quiet` (y siguen conectadas). */
+  private dropInvite(inv: Invite, quiet: readonly string[]) {
     inv.timer.clear();
     this.invites.delete(inv.requestId);
+    if (!quiet.includes(inv.to) && this.deps.player(inv.to)) this.closed(inv.to, { id: inv.requestId, reason: "cancelled", with: inv.fromName });
+    if (!quiet.includes(inv.from) && this.deps.player(inv.from)) this.closed(inv.from, { id: inv.requestId, reason: "cancelled", with: inv.toName });
   }
 
   private unready(trade: Trade) {

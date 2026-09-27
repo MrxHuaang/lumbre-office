@@ -85,7 +85,7 @@ import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blac
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
 import { FurnitureUses } from "./usables";
-import { acceptEmote, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
+import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 
 interface UserData {
@@ -197,7 +197,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
     },
     later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    inviteTimeoutMs: () => OfficeRoom.tradeInviteMs,
   });
+  /** Cuánto espera una invitación a intercambiar (los tests lo acortan). */
+  static tradeInviteMs: number = TRADE.requestTimeoutMs;
 
   /** La web avisó que alguien mandó un regalo: si quien lo recibe está conectado, le llega el aviso. */
   static giftReceivedEverywhere(notice: GiftSentNotice) {

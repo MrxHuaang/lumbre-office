@@ -113,7 +113,13 @@ function attachSocial(r: OfficeRoom) {
     notify(p.who && (p.error === "funds" || p.error === "items") ? `${text} (${p.who})` : text, "warning");
   });
   r.onMessage(MSG.tradeClosed, (c: TradeClosed) => {
-    const { trade } = useSocialStore.getState();
+    const { trade, invites } = useSocialStore.getState();
+    // Una invitación que me habían mandado y ya no vale (venció, o quien invitó está en otra cosa).
+    if (invites.some((i) => i.requestId === c.id)) {
+      useSocialStore.setState((s) => ({ invites: s.invites.filter((i) => i.requestId !== c.id) }));
+      if (c.reason === "cancelled") notify(`La invitación de ${c.with} ya no está.`, "info");
+      return;
+    }
     if (trade && trade.id === c.id) useSocialStore.setState({ trade: null });
     if (c.reason === "done") {
       const got = c.got ? describeBundle(c.got.points, c.got.items) : "nada";
