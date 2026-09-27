@@ -127,7 +127,9 @@ export interface PointDef {
     | "arcade"
     | "cinema"
     // Rediseño: frente a la barra del club, donde se piden tragos y cigarros.
-    | "club_bar";
+    | "club_bar"
+    // Club: delante de la cabina de DJ, donde se abre la consola para poner música.
+    | "dj_booth";
   name: string;
   x: number;
   y: number;

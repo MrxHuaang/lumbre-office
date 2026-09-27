@@ -174,4 +174,18 @@ export const MSG = {
   /** Usar un mueble (`FurnitureUseMessage`) y el aviso de instrumentos y gato (`FurnitureEvent`). */
   furnitureUse: "furniture:use",
   furnitureEvent: "furniture:event",
+  /** Club: la consola del DJ (`ClubDjMessage`), bailar en la pista (`ClubDanceMessage`), el tubo
+   *  (`ClubPoleMessage`) y el aviso cuando no se pudo (`ClubResult`). */
+  clubDj: "club:dj",
+  clubDance: "club:dance",
+  clubPole: "club:pole",
+  clubResult: "club:result",
+  /** Arcade: récords de una máquina (`ArcadeBoardMessage` → `ArcadeBoard`), empezar (`ArcadeStartMessage`
+   *  → `ArcadeStarted`) y terminar una partida (`ArcadeFinishMessage` → `ArcadeResult`). */
+  arcadeBoard: "arcade:board",
+  arcadeBoardResult: "arcade:board:result",
+  arcadeStart: "arcade:start",
+  arcadeStarted: "arcade:started",
+  arcadeFinish: "arcade:finish",
+  arcadeResult: "arcade:result",
 } as const;

@@ -1,4 +1,4 @@
-import type { CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus } from "@hyvento/shared";
+import type { ArcadeBoardEntry, ArcadeGame, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus } from "@hyvento/shared";
 
 /** Nombre visible y personaje de una persona, como están guardados. */
 export interface UserProfile {
@@ -81,4 +81,15 @@ export interface GameRepository {
   >;
   /** Paga un premio del casino (o devuelve una apuesta): suma sin tope. */
   casinoPayout(input: { userId: string; amount: number; refId: string }): Promise<{ balance: number }>;
+  /**
+   * Guarda una partida del arcade (ya validada) y dice si era la primera del día de esa persona (desde
+   * `dayStart`, en cualquier juego) y cuál era el récord de la semana de ese juego antes de ella (desde
+   * `weekStart`; 0 si no había). `name` solo lo usa la versión en memoria (Prisma lo lee del usuario).
+   */
+  saveArcadeScore(input: { userId: string; name: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }): Promise<{
+    firstToday: boolean;
+    weekBest: number;
+  }>;
+  /** Récords de un juego desde `since`: el mejor puntaje de cada persona, de mayor a menor. */
+  arcadeBoard(input: { game: ArcadeGame; since: number; limit: number }): Promise<ArcadeBoardEntry[]>;
 }

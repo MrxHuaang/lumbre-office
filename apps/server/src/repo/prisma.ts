@@ -12,6 +12,7 @@ import {
   DIRECTIONS,
   HUMAN_AVATARS,
   Look,
+  type ArcadeGame,
   type ChatEvent,
   type Direction,
   type HumanAvatar,
@@ -201,5 +202,27 @@ export class PrismaRepository implements GameRepository {
   async casinoPayout({ userId, amount, refId }: { userId: string; amount: number; refId: string }) {
     const { balance } = await awardPoints(prisma, { userId, amount, reason: "CASINO", refId });
     return { balance };
+  }
+
+  saveArcadeScore({ userId, game, score, dayStart, weekStart }: { userId: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }) {
+    return prisma.$transaction(async (tx) => {
+      const today = await tx.arcadeScore.count({ where: { userId, createdAt: { gte: new Date(dayStart) } } });
+      const best = await tx.arcadeScore.aggregate({ where: { game, createdAt: { gte: new Date(weekStart) } }, _max: { score: true } });
+      await tx.arcadeScore.create({ data: { userId, game, score } });
+      return { firstToday: today === 0, weekBest: best._max.score ?? 0 };
+    });
+  }
+
+  async arcadeBoard({ game, since, limit }: { game: ArcadeGame; since: number; limit: number }) {
+    const rows = await prisma.arcadeScore.groupBy({
+      by: ["userId"],
+      where: { game, createdAt: { gte: new Date(since) } },
+      _max: { score: true },
+      orderBy: { _max: { score: "desc" } },
+      take: limit,
+    });
+    const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } });
+    const names = new Map(users.map((u) => [u.id, u.name]));
+    return rows.map((r) => ({ name: names.get(r.userId) || "Alguien", score: r._max.score ?? 0 }));
   }
 }

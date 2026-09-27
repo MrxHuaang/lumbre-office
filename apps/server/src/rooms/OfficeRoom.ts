@@ -78,7 +78,7 @@ import {
   type MenuId,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
 import { OfficeInfo, OfficeItem, OfficeState, Player } from "../state";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
@@ -86,6 +86,8 @@ import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulet
 import { HeldItems } from "./consumables";
 import { devToolsEnabled, parseDevJump } from "./devtools";
 import { FurnitureUses } from "./usables";
+import { Arcade } from "./arcade";
+import { Club, type ClubWho } from "./club";
 
 interface UserData {
   lastMoveAt: number;
@@ -150,6 +152,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static rouletteSpin: () => number = randomSpin;
   static blackjackTimings: BlackjackTimings = { ...BLACKJACK };
   static blackjackShuffle: () => number[] = randomShoe;
+  /** Semilla de cada partida del arcade (los tests la fijan). */
+  static arcadeSeed: () => number = () => randomInt(2 ** 31);
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   static async reloadCasinoSettingsEverywhere() {
@@ -185,6 +189,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** Muebles que se usan (tele, lámparas, instrumentos, gato). */
   private furnitureUses!: FurnitureUses;
+  /** El club del sótano (música, pista y tubo) y el arcade. */
+  private club!: Club;
+  private arcade!: Arcade;
 
   private get repo() {
     return OfficeRoom.repo;
@@ -198,6 +205,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const [areaId, map] of this.world.areas) for (const z of map.zones) this.areaOfZone.set(z.id, areaId);
     this.setState(new OfficeState());
     this.furnitureUses = new FurnitureUses(this.state.switches);
+    this.club = new Club(this.state.club);
+    this.arcade = new Arcade({
+      repo: () => this.repo,
+      seed: () => OfficeRoom.arcadeSeed(),
+      token: () => randomUUID(),
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+    });
     OfficeRoom.instances.add(this);
 
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
@@ -224,6 +238,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
     this.onMessage(MSG.blackjackBet, (client, raw) => void this.handleBlackjack(client, raw, "bet"));
     this.onMessage(MSG.blackjackAction, (client, raw) => void this.handleBlackjack(client, raw, "action"));
+    this.onMessage(MSG.clubDj, (client, raw) => this.handleClub(client, raw, "dj"));
+    this.onMessage(MSG.clubDance, (client, raw) => this.handleClub(client, raw, "dance"));
+    this.onMessage(MSG.clubPole, (client, raw) => this.handleClub(client, raw, "pole"));
+    this.onMessage(MSG.arcadeBoard, (client, raw) => void this.handleArcadeBoard(client, raw));
+    this.onMessage(MSG.arcadeStart, (client, raw) => this.handleArcadeStart(client, raw));
+    this.onMessage(MSG.arcadeFinish, (client, raw) => void this.handleArcadeFinish(client, raw));
+    // Quien se fue, cambió de nivel o se alejó deja de bailar (moverse ya lo revisa; esto cubre el resto).
+    this.clock.setInterval(() => this.club.sweep(this.state.players), 500);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -664,6 +686,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(map, x, y)?.id ?? "";
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
+    this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
   }
 
   /** Pasar a otro nivel por un portal: hay que estar parado junto a él. */
@@ -997,11 +1020,67 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
+  // ---------- Club y arcade ----------
+
+  /** La cabina de DJ, bailar en la pista o engancharse al tubo: si no se pudo, se avisa por qué. */
+  private handleClub(client: Client<UserData>, raw: unknown, kind: "dj" | "dance" | "pole") {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const now = Date.now();
+    const map = this.mapOf(player.area);
+    const who: ClubWho = { sessionId: client.sessionId, userId: player.userId, name: player.name, area: player.area, x: player.x, y: player.y, seated: player.seated };
+    const result = kind === "dj" ? this.club.dj(map, who, raw, now) : kind === "dance" ? this.club.dance(map, who, raw, now) : this.club.pole(map, who, raw, now);
+    client.userData.lastActiveAt = now;
+    if (!result.ok) client.send(MSG.clubResult, result);
+  }
+
+  private async handleArcadeBoard(client: Client<UserData>, raw: unknown) {
+    const board = await this.arcade.board(raw, Date.now()).catch((err) => {
+      console.error("arcadeBoard", err);
+      return null;
+    });
+    if (board) client.send(MSG.arcadeBoardResult, board);
+  }
+
+  private handleArcadeStart(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const started = this.arcade.start(this.mapOf(player.area), player, raw, Date.now());
+    client.userData.lastActiveAt = Date.now();
+    if ("ok" in started) client.send(MSG.arcadeResult, started);
+    else client.send(MSG.arcadeStarted, started);
+  }
+
+  private async handleArcadeFinish(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const result = await this.arcade.finish(player, raw, Date.now());
+    client.send(MSG.arcadeResult, result);
+  }
+
+  /** Premio de ocio (con su tope diario) para todas las sesiones de esa persona; devuelve lo sumado. */
+  private async awardLeisure(userId: string, amount: number): Promise<number> {
+    const client = this.clientOfUser(userId);
+    const player = client && this.state.players.get(client.sessionId);
+    if (!client || !player) return 0;
+    try {
+      const { awarded, balance } = await this.repo.awardPoints({ userId, amount, reason: "LEISURE" });
+      for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+      if (awarded > 0) client.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded);
+      return awarded;
+    } catch (err) {
+      console.error("awardPoints", err);
+      return 0;
+    }
+  }
+
   // ---------- Utilidades ----------
 
   private removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
     this.state.players.delete(sessionId);
+    this.club?.forget(sessionId);
     if (!player) return;
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
