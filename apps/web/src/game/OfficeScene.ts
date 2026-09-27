@@ -387,7 +387,7 @@ export class OfficeScene extends Phaser.Scene {
     this.ambient.forEach((t) => t.remove());
     this.ambient = [];
     // La casa del jardín (o la cabaña vieja): la que tenga chimenea.
-    const cabin = this.map.furniture.find((f) => f.type in CHIMNEY_TOPS);
+    const cabin = this.map.furniture.find((f) => Object.hasOwn(CHIMNEY_TOPS, f.type));
     if (!cabin) return;
     const ts = this.map.tileSize;
     const c = CHIMNEY_TOPS[cabin.type]!;
