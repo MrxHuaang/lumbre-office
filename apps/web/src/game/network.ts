@@ -32,6 +32,9 @@ import {
   type PresenceStatus,
   PET_MSG,
   type PetEvent,
+  CASA_MSG,
+  CASA_NOTICES,
+  type CasaNotice,
 } from "@hyvento/shared";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
@@ -545,6 +548,11 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(PET_MSG.event, (e: PetEvent) => petListeners.forEach((cb) => cb(e)));
+  // Casa viva: por qué no se pudo (las manos llenas, el baño ocupado, la mascota ya comió…).
+  r.onMessage(CASA_MSG.notice, (n: CasaNotice) => {
+    const text = CASA_NOTICES[n.code];
+    if (text) useOfficeStore.getState().notify(text, "info");
+  });
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

@@ -3,7 +3,7 @@
 // cerradas, lo que avanza para todos (puzle, pizarra, caballete), la luz de "ocupado" de los baños y lo
 // que se lleva un rato en la mano (libro, regadera, malvavisco). Lo usa usables.ts: aquí no hay reglas,
 // solo dibujo y sonido (las reglas las valida el servidor).
-import { catalogItem, curtainFeature, footprint, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
+import { catalogItem, curtainFeature, curtainsOf, footprint, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import {
   curtainClosed,
   flame,
@@ -25,7 +25,7 @@ import {
   type PixelCanvas,
   type Sprite,
 } from "@hyvento/map/art";
-import { bookTitle, CASA, counterMax, CURTAIN_TYPE, furnitureKey, usableSpec, type Direction, type FurnitureEvent } from "@hyvento/shared";
+import { bookTitle, CASA, counterMax, CURTAIN_TYPE, furnitureKey, isFreeHold, usableSpec, type Direction, type FurnitureEvent } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily } from "@/lib/cozy";
@@ -72,9 +72,27 @@ const STALL_TYPES = new Set(["toilet-stall", "bath-stall"]);
 const PROGRESS_TYPES = new Set(["puzzle-table", "cafe-sign", "easel"]);
 const LAMP_SOUND = new Set(["lamp", "lamp-mushroom", "reading-lamp", "lamp-post", "garden-lantern", "dock-lamp", "wall-sconce", "record-player", "radio"]);
 /** Cómo se dice lo que salió de la nevera o la cafetera. */
-const GIFT_TEXT: Record<string, string> = { jugo: "¡Un jugo!", manzana: "¡Una manzana!", banano: "¡Un banano!", tinto: "¡Un tinto!", malvavisco: "¡Malvavisco dorado!" };
+const GIFT_TEXT: Record<string, string> = { jugo: "¡Un jugo!", manzana: "¡Una manzana!", banano: "¡Un banano!", aguapanela: "¡Un agua de panela!", malvavisco: "¡Malvavisco dorado!" };
+/** Cuánto "más lejos" cuenta una cortina al elegir qué ofrece E (tiles; ver `nearest` en usables.ts). */
+export const CURTAIN_PENALTY_TILES = 0.75;
 /** Hasta dónde se oye el fuego (el volumen de `hear` se eleva a esta potencia: se oye de más cerca). */
 const FIRE_HEAR_POW = 2.2;
+/**
+ * La radio suena como el tocadiscos (usables.ts): plena en toda la habitación donde está y, afuera,
+ * bajito rodeando las paredes por las puertas.
+ */
+const ROOM_MUSIC_VOLUME = 0.85;
+const OUTSIDE_ROOM_FACTOR = 0.35;
+
+/** Habitación que contiene el tile (la última que lo cubre, como en build.ts). */
+function roomOf(map: OfficeMap, x: number, y: number): string | undefined {
+  const rooms = map.def.rooms;
+  for (let i = rooms.length - 1; i >= 0; i--) {
+    const r = rooms[i]!.rect;
+    if (x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h) return rooms[i]!.id;
+  }
+  return undefined;
+}
 
 interface Fire {
   f: PlacedFurniture;
@@ -128,6 +146,7 @@ export class CasaViva {
   setArea(map: OfficeMap) {
     this.clear();
     this.map = map;
+    this.curtainRects = undefined;
     for (const f of map.furniture) {
       if (FIRE_TYPES.has(f.type)) this.addFire(f);
       if (STALL_TYPES.has(f.type)) this.addStallLight(f);
@@ -402,6 +421,31 @@ export class CasaViva {
     return { images };
   }
 
+  /** Rectángulo en pantalla de la ventana de cada cortina (donde se dibuja cerrada), para el clic. */
+  private curtainRects?: { f: PlacedFurniture; x: number; y: number; w: number; h: number }[];
+
+  /**
+   * La cortina cuya ventana está bajo el puntero. El clic se prueba sobre el dibujo de la ventana en la
+   * pared, no sobre el piso de adelante: si no, un clic para caminar junto a la pared la cerraría.
+   */
+  curtainUnder(sx: number, sy: number): PlacedFurniture | null {
+    const map = this.map;
+    if (!map) return null;
+    if (!this.curtainRects) {
+      const ts = map.tileSize;
+      this.curtainRects = [];
+      for (const f of curtainsOf(map)) {
+        const feature = curtainFeature(map, f);
+        if (!feature) continue;
+        const s = curtainClosed(feature.edge, feature.width ?? 1);
+        const a = worldToScreen(f.x * ts, f.y * ts);
+        this.curtainRects.push({ f, x: a.x - s.ox, y: a.y - s.oy, w: s.canvas.width, h: s.canvas.height });
+      }
+    }
+    const hit = this.curtainRects.find((r) => sx >= r.x && sx < r.x + r.w && sy >= r.y && sy < r.y + r.h);
+    return hit?.f ?? null;
+  }
+
   /** Una nota que sube desde el mueble y se desvanece (como las del tocadiscos). */
   private note(f: PlacedFurniture, z: number, k: number) {
     const ts = this.map!.tileSize;
@@ -446,6 +490,12 @@ export class CasaViva {
     if (!map || !spec) return undefined;
     const key = furnitureKey(map.id, f.type, f.x, f.y);
     if (spec.action === "count") return `${spec.label} (${this.counterOf(key)}/${counterMax(f.type)})`;
+    if (spec.action === "take" || spec.action === "roast") {
+      // Lo gratis no pisa lo pagado (el servidor lo rechaza igual): se avisa antes.
+      const room = this.host.room();
+      const held = room?.state.players.get(room.sessionId)?.held;
+      if (held && !isFreeHold(held)) return "Tienes las manos ocupadas";
+    }
     if (spec.action === "stall") {
       const who = this.host.room()?.state.stalls?.get(key);
       const me = this.host.room()?.state.players.get(this.host.room()!.sessionId)?.userId;
@@ -469,7 +519,8 @@ export class CasaViva {
         playPage(vol);
         if (who) {
           this.prop(who, `casa-libro-${e.seed % 5}`, () => openBook(e.seed), CASA.readMs, { dx: 0, dy: 9, pointing: false });
-          who.say(`«${bookTitle(e.seed)}»`);
+          // Aparte del globo de chat (no lo pisa si estaba hablando).
+          this.floatText(who, `«${bookTitle(e.seed)}»`, CASA.readMs - 1200);
         }
         return true;
       }
@@ -551,11 +602,17 @@ export class CasaViva {
             dy: 10,
             pointing: true,
             onFrame: (ms) => {
-              const t = Math.min(2, Math.floor((ms / CASA.roastMs) * 3));
+              const t = Math.min(3, Math.floor((ms / CASA.roastMs) * 4));
               return keys[t]!;
             },
           });
+          const areaId = map.id;
           this.scene.time.delayedCall(CASA.roastMs, () => {
+            // Si se fue de la fogata (o de nivel), el servidor no se lo da: no se festeja.
+            const ts2 = map.tileSize;
+            const dx = Math.max(f.x * ts2 - who.x, 0, who.x - (f.x + f.w) * ts2);
+            const dy = Math.max(f.y * ts2 - who.y, 0, who.y - (f.y + f.d) * ts2);
+            if (this.map?.id !== areaId || Math.hypot(dx, dy) > CASA.roastReachTiles * ts2) return;
             playGot(vol);
             this.floatText(who, GIFT_TEXT.malvavisco!);
           });
@@ -575,11 +632,9 @@ export class CasaViva {
           playChalk(vol, f.type === "easel");
           for (let k = 0; k < 5; k++) this.scene.time.delayedCall(k * 120, () => this.dust(p.x + Phaser.Math.Between(-4, 4), p.y + Phaser.Math.Between(-3, 5), f.type === "easel"));
         }
-        // El contador lo dice el estado (ya avanzó): se muestra un momento sobre el mueble.
-        this.scene.time.delayedCall(60, () => {
-          const n = this.counterOf(furnitureKey(map.id, f.type, f.x, f.y));
-          this.floatAt(p.x, p.y - 6, n === 0 ? "¡Terminado! De nuevo" : `${n}/${counterMax(f.type)}`);
-        });
+        // El valor nuevo viene en el evento (el parche del estado llega un poco después).
+        const n = e.count ?? this.counterOf(furnitureKey(map.id, f.type, f.x, f.y));
+        this.floatAt(p.x, p.y - 6, n === 0 ? "¡Terminado! De nuevo" : `${n}/${counterMax(f.type)}`);
         return true;
       }
       default:
@@ -615,18 +670,18 @@ export class CasaViva {
     }
   }
 
-  /** Texto chico que sube sobre la cabeza ("¡Un jugo!"). */
-  private floatText(who: Avatar, text: string) {
+  /** Texto chico que sube sobre la cabeza ("¡Un jugo!"); `holdMs`: cuánto se queda antes de irse. */
+  private floatText(who: Avatar, text: string, holdMs = 600) {
     const s = worldToScreen(who.x, who.y);
-    this.floatAt(s.x, s.y - 36, text);
+    this.floatAt(s.x, s.y - 36, text, holdMs);
   }
 
-  private floatAt(x: number, y: number, text: string) {
+  private floatAt(x: number, y: number, text: string, holdMs = 600) {
     const t = this.scene.add
       .text(x, y, text, { fontFamily: cozyFontFamily(), fontSize: "8px", color: COZY.paperLight, stroke: COZY.frame, strokeThickness: 2, resolution: 6 })
       .setOrigin(0.5, 1)
       .setDepth(DEPTH_OVERLAY + 10);
-    this.scene.tweens.add({ targets: t, y: y - 12, alpha: 0, delay: 600, duration: 1200, ease: "Sine.out", onComplete: () => t.destroy() });
+    this.scene.tweens.add({ targets: t, y: y - 12, alpha: 0, delay: holdMs, duration: 1200, ease: "Sine.out", onComplete: () => t.destroy() });
   }
 
   /** Algo en la mano por un rato: sigue al avatar (ver `update`). `onFrame` devuelve otra textura. */
@@ -680,15 +735,26 @@ export class CasaViva {
     }
     this.updateStallHiding();
     const me = this.host.local();
-    if (!me) return;
+    if (!me || !this.map) {
+      // Reconectando (sin avatar): que no siga sonando al último volumen.
+      setFireCrackle(0);
+      setRadioMusic(0);
+      return;
+    }
     let fire = 0;
     for (const f of this.fires) {
       const v = this.host.hear(f.f, me.x, me.y) ** FIRE_HEAR_POW;
       fire = Math.max(fire, now < f.stokedUntil ? Math.min(1, v * 1.6) : v);
     }
     setFireCrackle(fire);
+    const ts = this.map.tileSize;
+    const myRoom = roomOf(this.map, Math.floor(me.x / ts), Math.floor(me.y / ts));
     let radio = 0;
-    for (const f of this.radios) if (this.host.isOn(f)) radio = Math.max(radio, this.host.hear(f, me.x, me.y));
+    for (const f of this.radios) {
+      if (!this.host.isOn(f)) continue;
+      const room = roomOf(this.map, f.x, f.y);
+      radio = Math.max(radio, room && room === myRoom ? ROOM_MUSIC_VOLUME : this.host.hear(f, me.x, me.y) * OUTSIDE_ROOM_FACTOR);
+    }
     setRadioMusic(radio);
   }
 

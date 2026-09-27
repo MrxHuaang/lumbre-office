@@ -351,6 +351,9 @@ class Radio {
 
   private schedule() {
     const eighth = 60 / 96 / 2;
+    // Con la pestaña en segundo plano el intervalo se frena: al volver no se agenda lo atrasado (sería
+    // una ráfaga de notas a la vez), se sigue desde ahora.
+    if (this.next < this.a.ctx.currentTime) this.next = this.a.ctx.currentTime + 0.05;
     while (this.next < this.a.ctx.currentTime + 0.4) {
       const t = this.next;
       const s = this.step;
@@ -400,4 +403,15 @@ export function stopRadioMusic() {
   if (!r) return;
   r.setVolume(0);
   setTimeout(() => r.stop(), 800);
+}
+
+// Con la pestaña oculta la escena deja de actualizar los volúmenes: la radio y el fuego se callan (y
+// al volver la escena los sube otra vez al volumen que toque).
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) return;
+    stopRadioMusic();
+    const a = crackle ? audioOut() : null;
+    if (a) crackle!.setVolume(0, a.ctx);
+  });
 }

@@ -7,7 +7,7 @@ import { CURTAIN_TYPE, isSwitchedOn, stepsTo, USE_STEPS, usableSpec, type Direct
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import type { Avatar } from "./Avatar";
-import { CasaViva } from "./casaViva";
+import { CasaViva, CURTAIN_PENALTY_TILES } from "./casaViva";
 import { Mascotas } from "./mascotas";
 import { AreaView, DEPTH_OVERLAY, depthOf, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
@@ -256,7 +256,9 @@ export class Usables {
       const spec = usableSpec(f.type);
       // Una lámpara sin capa de encendida solo cambia algo de noche: de día no se ofrece.
       if (!spec || (spec.nightOnly && !night)) continue;
-      const dist = distTo(f, map.tileSize, x, y);
+      // Las cortinas ceden ante cualquier mueble cerca: caminando pegado a la pared, E no queda siempre en
+      // "Cerrar la cortina".
+      const dist = distTo(f, map.tileSize, x, y) + (f.type === CURTAIN_TYPE ? map.tileSize * CURTAIN_PENALTY_TILES : 0);
       if ((!best || dist < best.dist) && canUse(map, f, x, y)) best = { f, spec, dist };
     }
     return best;
@@ -280,11 +282,12 @@ export class Usables {
       const night = useOfficeStore.getState().night;
       const f = usablesOf(map).find((f) => {
         const spec = usableSpec(f.type);
-        return spec && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
+        // Las cortinas no ocupan el piso: se prueban sobre el dibujo de la ventana (abajo).
+        return spec && f.type !== CURTAIN_TYPE && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
       });
       if (f) return f;
     }
-    return null;
+    return this.casa.curtainUnder(sx, sy);
   }
 
   /** Lo que dice la ayuda para ese mueble ("Prender la tele" o "Apagar la tele"). */
