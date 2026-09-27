@@ -24,6 +24,10 @@ export function useEmoteKey(toggle: () => void) {
   }, [toggle]);
 }
 
+/** ¿Es un campo donde se escribe? (ahí las teclas son del texto, no del selector). */
+const isField = (el: EventTarget | Element | null) =>
+  el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable);
+
 /** Columnas de la grilla según el ancho (las flechas arriba/abajo saltan de a una fila). */
 const columns = () => (typeof window !== "undefined" && window.innerWidth < 640 ? 4 : 8);
 
@@ -36,10 +40,30 @@ export function EmotePicker({ onClose }: { onClose: () => void }) {
     onClose();
   };
 
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  // Abierto, el teclado es del selector: Phaser lee las flechas antes que este listener, así que se marca
+  // "escribiendo" para que el personaje no camine mientras se elige. Al cerrar se suelta (salvo que el foco
+  // haya quedado en un campo, como el chat, que maneja su propio "escribiendo").
+  useEffect(() => {
+    const { setTyping } = useOfficeStore.getState();
+    setTyping(true);
+    return () => {
+      if (!isField(document.activeElement)) useOfficeStore.getState().setTyping(false);
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (useOfficeStore.getState().typing) return;
+      if (isField(e.target)) return;
       if (e.key === "Escape") return onClose();
+      // La T también lo cierra (el atajo general la ignora mientras está marcado "escribiendo").
+      if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        if (!e.repeat) closeRef.current();
+        return;
+      }
       const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns(), ArrowDown: columns() }[e.key];
       if (move !== undefined) {
         e.preventDefault();
