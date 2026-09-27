@@ -21,6 +21,7 @@ export * from "./club";
 export * from "./cinema";
 export * from "./arcade";
 export * from "./arcade-sim";
+export * from "./hockey";
 export * from "./soundGate";
 export * from "./toast";
 export * from "./swivel";

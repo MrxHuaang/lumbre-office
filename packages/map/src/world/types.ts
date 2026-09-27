@@ -149,6 +149,8 @@ export interface PointDef {
     | "garden_plot"
     | "fishing_spot"
     | "arcade"
+    // Las dos puntas del hockey de mesa del arcade (primero la del norte: el lado 0).
+    | "air_hockey"
     | "cinema"
     // Frente a la máquina de crispetas del cine: la confitería.
     | "cinema_snacks"

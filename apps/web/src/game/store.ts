@@ -52,6 +52,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Cine del sótano: la cabina del proyector (programar, pausar y seguir la función) y la confitería.
   | "cinema"
   | "snacks"
+  // El hockey de mesa del arcade (se juega en modo mesa, parado en una punta).
+  | "hockey"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).

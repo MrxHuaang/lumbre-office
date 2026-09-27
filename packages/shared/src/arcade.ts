@@ -1,23 +1,25 @@
-// Arcade del sótano: tres minijuegos pixel que se juegan en la pantalla de la máquina. El servidor da una
+// Arcade del sótano: cuatro minijuegos pixel que se juegan en la pantalla de la máquina. El servidor da una
 // semilla al empezar (el cliente la usa para su azar) y al terminar el cliente manda el puntaje y las teclas
 // que apretó: el servidor repite la partida con su semilla (arcade-sim.ts) y solo la acepta si da lo mismo,
 // si duró algo y si no duró más que lo que marca su reloj. Premios chicos de ocio (LEISURE, con su tope).
 import { z } from "zod";
-import { ARCADE_STEP_MS, FLAPPY, SCREEN_W, SNAKE } from "./arcade-sim";
+import { ARCADE_STEP_MS, BLOQUES, FLAPPY, SCREEN_W, SNAKE } from "./arcade-sim";
 import { dayStart } from "./points";
 
-export const ARCADE_GAMES = ["snake", "breakout", "flappy"] as const;
+export const ARCADE_GAMES = ["snake", "breakout", "flappy", "bloques"] as const;
 export type ArcadeGame = (typeof ARCADE_GAMES)[number];
 
 export const ARCADE_GAME_INFO: Record<ArcadeGame, { name: string; controls: string }> = {
   snake: { name: "Culebrita", controls: "Flechas para girar" },
   breakout: { name: "Rompeladrillos", controls: "Flechas para mover · Espacio para lanzar" },
   flappy: { name: "Aleteo", controls: "Espacio o flecha arriba para aletear" },
+  bloques: { name: "Bloques", controls: "Flechas para mover · Arriba gira · Espacio la suelta" },
 };
 
 /**
  * Juego de cada máquina, en el orden de ARCADE_CABINETS del sótano (y de sus puntos "arcade"). Las
- * tres primeras tienen un juego cada una, las que siguen los repiten y las últimas están fuera de servicio.
+ * tres primeras tienen un juego cada una, las que siguen los repiten (Bloques, el más nuevo, en dos de
+ * la fila del cine) y la última está fuera de servicio.
  */
 export const ARCADE_MACHINES: readonly (ArcadeGame | null)[] = [
   "snake",
@@ -26,11 +28,11 @@ export const ARCADE_MACHINES: readonly (ArcadeGame | null)[] = [
   "snake",
   "breakout",
   "flappy",
-  "flappy",
+  "bloques",
   "snake",
   "breakout",
-  null,
-  "snake",
+  "bloques",
+  "flappy",
   null,
 ];
 
@@ -61,18 +63,38 @@ export const ARCADE = {
   boardCacheMs: 5000,
 } as const;
 
+/**
+ * Lo que cuesta jugar (monedas = puntos). Se cobra en el servidor al empezar, con `spendPoints` (motivo
+ * PURCHASE: se compra la partida); si no alcanza, no se juega. El hockey es una apuesta entre las dos
+ * personas: cada una pone su moneda y el ganador se lleva el pozo (motivo CASINO, sin tope diario).
+ */
+export const ARCADE_PRICE = {
+  /** Una partida en una máquina. */
+  machine: 5,
+  /** Un partido de hockey de mesa (lo pone cada jugador). */
+  hockey: 10,
+  /** Ganarle a la máquina en el hockey: se devuelve la moneda y esto de premio de ocio (LEISURE, con tope). */
+  hockeyBotBonus: 5,
+} as const;
+
+/** `refId` del cobro de una partida de máquina (para leer el libro de puntos). */
+export const arcadeRefId = (game: string) => `arcade:${game}`;
+/** `refId` del cobro y el pago de un partido de hockey. */
+export const hockeyRefId = (match: number) => `hockey:${match}`;
+
 /** Pasos que puede tener una partida como mucho (la de `sessionMs`). */
 export const ARCADE_MAX_STEPS = Math.ceil(ARCADE.sessionMs / ARCADE_STEP_MS);
 
 /** Puntaje mínimo para cobrar el premio por récord (si no, el primero de la semana lo gana con 1). */
-export const ARCADE_RECORD_MIN: Record<ArcadeGame, number> = { snake: 8, breakout: 12, flappy: 5 };
+export const ARCADE_RECORD_MIN: Record<ArcadeGame, number> = { snake: 8, breakout: 12, flappy: 5, bloques: 4 };
 
 /**
  * Lo máximo posible de cada juego en `elapsedMs` de partida, sacado de las constantes de cada uno. Es una
  * segunda barrera: la que vale es repetir la partida. Culebrita: una manzana por movimiento como mucho y un
  * movimiento cada `minMs` (y no cabe más culebra que la pantalla). Aleteo: el primer tubo se pasa cuando
- * llega desde la derecha hasta el pajarito y después sale uno cada `spacing` px. Rompeladrillos: cota
- * gruesa, dos ladrillos por segundo (un bot que no pierde nunca rompe menos de uno).
+ * llega desde la derecha hasta el pajarito y después sale uno cada `spacing` px. Bloques: las piezas que
+ * caben en ese tiempo (con la pausa entre una y otra), de a cuatro cuadritos por fila de diez.
+ * Rompeladrillos: cota gruesa, dos ladrillos por segundo (un bot que no pierde nunca rompe menos de uno).
  */
 export function maxArcadeScore(game: ArcadeGame, elapsedMs: number): number {
   const ms = Math.max(0, elapsedMs);
@@ -81,6 +103,11 @@ export function maxArcadeScore(game: ArcadeGame, elapsedMs: number): number {
     const firstMs = ((FLAPPY.spawnX - FLAPPY.birdX + FLAPPY.pipeW) / FLAPPY.speed) * 1000;
     const everyMs = ((FLAPPY.spawnX - (SCREEN_W - FLAPPY.spacing)) / FLAPPY.speed) * 1000;
     return ms < firstMs ? 0 : Math.floor((ms - firstMs) / everyMs) + 1;
+  }
+  if (game === "bloques") {
+    // Entre pieza y pieza hay al menos `spawnDelay` pasos, y cada pieza llena 4 de las 10 de una fila.
+    const pieces = Math.floor(ms / ARCADE_STEP_MS / BLOQUES.spawnDelay) + 1;
+    return Math.floor((pieces * 4) / BLOQUES.cols);
   }
   return 6 + Math.floor((2 * ms) / 1000);
 }
@@ -129,22 +156,27 @@ export interface ArcadeBoardEntry {
   score: number;
 }
 
-/** Servidor → cliente (`MSG.arcadeBoardResult`). */
+/** Servidor → cliente (`MSG.arcadeBoardResult`): los récords de la semana (`board`) y los de hoy. */
 export interface ArcadeBoard {
   machine: number;
   game: ArcadeGame;
   board: ArcadeBoardEntry[];
+  today: ArcadeBoardEntry[];
 }
 
-/** Servidor → cliente (`MSG.arcadeStarted`): la partida empezó; la semilla es para el azar del juego. */
+/**
+ * Servidor → cliente (`MSG.arcadeStarted`): se cobró la partida y empezó; la semilla es para el azar
+ * del juego y `balance` el saldo después de pagar.
+ */
 export interface ArcadeStarted {
   machine: number;
   game: ArcadeGame;
   token: string;
   seed: number;
+  balance: number;
 }
 
-export type ArcadeError = "far" | "invalid" | "short" | "implausible" | "expired" | "failed";
+export type ArcadeError = "far" | "invalid" | "funds" | "short" | "implausible" | "expired" | "failed";
 
 /** Servidor → cliente (`MSG.arcadeResult`). */
 export type ArcadeResult =
@@ -156,14 +188,19 @@ export type ArcadeResult =
       awarded: number;
       /** Superó el récord de la semana de ese juego. */
       record: boolean;
+      /** Es lo mejor de hoy en ese juego. */
+      bestToday: boolean;
       firstToday: boolean;
+      /** Récords de la semana y de hoy, ya con esta partida. */
       board: ArcadeBoardEntry[];
+      today: ArcadeBoardEntry[];
     }
   | { ok: false; error: ArcadeError };
 
 export const ARCADE_ERROR_TEXT: Record<ArcadeError, string> = {
   far: "Párate delante de la máquina para jugar.",
   invalid: "Esa máquina está fuera de servicio.",
+  funds: `No te alcanzan las monedas: cada partida cuesta ${ARCADE_PRICE.machine}.`,
   short: "La partida fue muy corta: no cuenta.",
   implausible: "Ese puntaje no cuadra con la partida: no se guardó.",
   expired: "La partida se venció. Empieza otra.",

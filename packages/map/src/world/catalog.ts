@@ -132,7 +132,8 @@ export const CATALOG = {
   "water-barrel": { name: "Barril de agua", size: [1, 1] },
   "arcade-cabinet": { name: "Máquina de arcade", size: [1, 1], light: { at: [14, 8, 22], color: "#8ef0f0", radius: 30 } },
   "claw-machine": { name: "Máquina de peluches", size: [1, 1], light: { at: [8, 8, 24], color: "#ff9ae6", radius: 30 } },
-  "air-hockey": { name: "Hockey de mesa", size: [1, 2] },
+  // Se juega de a dos (o contra la máquina) parado en cada punta: ver HOCKEY en @hyvento/shared.
+  "air-hockey": { name: "Hockey de mesa", size: [2, 3], light: { at: [16, 24, 16], color: "#8ef0f0", radius: 48 } },
   "stairs-up": { name: "Escalera", size: [2, 3], fixed: true },
   stairwell: { name: "Escalera", size: [2, 3], fixed: true },
   cabin: { name: "Cabaña", size: [16, 10], fixed: true, hasNight: true },

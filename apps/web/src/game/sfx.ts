@@ -501,6 +501,27 @@ export const sfx = {
     };
   },
 
+  // ---- Hockey de mesa ----
+  /** El mazo le pega al disco: un "toc" de plástico duro. */
+  puckHit() {
+    play("puck-hit", 70, 80, 1, (a, t) => {
+      noise(a, t, 0.018, { freq: 2600 * jitter(), q: 2.5, vol: 0.1 });
+      tone(a, t, 0.04, 900, 600, 0.04, { type: "triangle" });
+    });
+  },
+  /** El disco contra la banda: más apagado. */
+  puckWall() {
+    play("puck-wall", 70, 60, 1, (a, t) => noise(a, t, 0.02, { freq: 1500 * jitter(), q: 2, vol: 0.06 }));
+  },
+  /** Gol: el disco cae en el arco y suena la chicharra del arcade. */
+  goalHorn() {
+    play("goal", 600, 500, 1, (a, t) => {
+      noise(a, t, 0.05, { freq: 700, q: 1.5, vol: 0.08 });
+      tone(a, t + 0.06, 0.34, 330, 330, 0.035, { type: "square", lowpass: 1600 });
+      tone(a, t + 0.06, 0.34, 415, 415, 0.025, { type: "square", lowpass: 1600 });
+    });
+  },
+
   // ---- Fotos ----
   /** El obturador: un clic seco, la cortina que corre y el avance del rollo. */
   shutter() {

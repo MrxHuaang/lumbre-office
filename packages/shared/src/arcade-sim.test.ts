@@ -3,6 +3,9 @@ import { ARCADE, ARCADE_MAX_STEPS, maxArcadeScore, plausibleScore, type ArcadeGa
 import {
   ARCADE_STEP_MS,
   ArcadeRecorder,
+  BLOQUES,
+  bloquesCells,
+  BloquesSim,
   BREAKOUT,
   BreakoutSim,
   createArcadeSim,
@@ -19,7 +22,7 @@ import {
   type ArcadeSim,
 } from "./arcade-sim";
 
-type Sim = SnakeSim | BreakoutSim | FlappySim;
+type Sim = SnakeSim | BreakoutSim | FlappySim | BloquesSim;
 
 /** Juega como lo haría el navegador (grabando las teclas) con un bot que decide en cada paso. */
 function play(game: ArcadeGame, seed: number, bot: (sim: Sim, held: Record<ArcadeKey, boolean>) => { press?: ArcadeKey[]; hold?: Partial<Record<ArcadeKey, boolean>> }, maxSteps = 60 * 60 * 5) {
@@ -88,7 +91,57 @@ const flappyBot = (sim: Sim) => {
   return f.waiting || (f.y > target && f.vy > 0) ? { press: ["action" as ArcadeKey] } : {};
 };
 
-const BOTS: Record<ArcadeGame, () => Parameters<typeof play>[2]> = { snake: snakeBot, breakout: () => breakoutBot, flappy: () => flappyBot };
+/**
+ * Bloques: para cada pieza nueva prueba todos los giros y columnas, se queda con la jugada que borra
+ * más filas y deja menos huecos y menos altura, y la hace de a una tecla por paso (girar, correr, soltar).
+ */
+function bloquesBot() {
+  let plan: { rot: number; x: number } | null = null;
+  return (sim: Sim) => {
+    const b = sim as BloquesSim;
+    const p = b.piece;
+    if (!p) return {};
+    if (!plan) {
+      let best: { rot: number; x: number; score: number } | null = null;
+      for (let rot = 0; rot < 4; rot++)
+        for (let x = -2; x < BLOQUES.cols; x++) {
+          const at = { kind: p.kind, rot, x, y: p.y };
+          if (!b.fits(at)) continue;
+          while (b.fits({ ...at, y: at.y + 1 })) at.y++;
+          const board = [...b.board];
+          let out = false;
+          for (const c of bloquesCells(at.kind, at.rot)) {
+            if (at.y + c.y < 0) out = true;
+            else board[(at.y + c.y) * BLOQUES.cols + at.x + c.x] = 1;
+          }
+          if (out) continue;
+          let lines = 0;
+          let holes = 0;
+          let height = 0;
+          for (let y = 0; y < BLOQUES.rows; y++) if (board.slice(y * BLOQUES.cols, (y + 1) * BLOQUES.cols).every(Boolean)) lines++;
+          for (let cx = 0; cx < BLOQUES.cols; cx++) {
+            let top = -1;
+            for (let y = 0; y < BLOQUES.rows; y++) {
+              const on = board[y * BLOQUES.cols + cx];
+              if (on && top < 0) top = y;
+              if (!on && top >= 0) holes++;
+            }
+            if (top >= 0) height += BLOQUES.rows - top;
+          }
+          const score = lines * 8 - holes * 5 - height * 0.5;
+          if (!best || score > best.score) best = { rot, x, score };
+        }
+      plan = best ?? { rot: 0, x: p.x };
+    }
+    if (p.rot !== plan.rot) return { press: ["up" as ArcadeKey] };
+    if (p.x < plan.x) return { press: ["right" as ArcadeKey] };
+    if (p.x > plan.x) return { press: ["left" as ArcadeKey] };
+    plan = null;
+    return { press: ["action" as ArcadeKey] };
+  };
+}
+
+const BOTS: Record<ArcadeGame, () => Parameters<typeof play>[2]> = { snake: snakeBot, breakout: () => breakoutBot, flappy: () => flappyBot, bloques: bloquesBot };
 
 describe("simulación del arcade", () => {
   it("la semilla da siempre el mismo azar", () => {
@@ -106,7 +159,7 @@ describe("simulación del arcade", () => {
     expect(decodeInput(-1)).toBeNull();
   });
 
-  it.each(["snake", "breakout", "flappy"] as const)("%s: la misma semilla y las mismas teclas dan la misma partida", (game) => {
+  it.each(["snake", "breakout", "flappy", "bloques"] as const)("%s: la misma semilla y las mismas teclas dan la misma partida", (game) => {
     const run = play(game, 99, BOTS[game](), 60 * 90);
     expect(run.sim.score).toBeGreaterThan(0);
     expect(replayArcade(game, 99, run.inputs, run.steps)).toEqual({ valid: true, score: run.sim.score, over: run.sim.over });
@@ -135,7 +188,7 @@ describe("simulación del arcade", () => {
     expect(replayArcade("snake", 1, [15], 100).valid).toBe(false);
   });
 
-  it.each(["snake", "breakout", "flappy"] as const)("%s: un bot jugando lo mejor que puede queda dentro del tope del juego", (game) => {
+  it.each(["snake", "breakout", "flappy", "bloques"] as const)("%s: un bot jugando lo mejor que puede queda dentro del tope del juego", (game) => {
     for (const seed of [1, 2, 3, 4, 5]) {
       const run = play(game, seed, BOTS[game]());
       const ms = run.steps * ARCADE_STEP_MS;
@@ -155,9 +208,32 @@ describe("simulación del arcade", () => {
     expect(plausibleScore("flappy", 60, 60_000)).toBe(false);
   });
 
+  it("bloques: las piezas caen solas, una fila llena se borra y suma, y el tablero lleno termina la partida", () => {
+    const b = new BloquesSim(7);
+    const first = b.piece!;
+    for (let i = 0; i < BLOQUES.gravityStart; i++) b.step(noKeys());
+    expect(b.piece!.y).toBe(first.y + 1);
+    // Una fila casi llena: con una pieza que la complete se borra.
+    const g = new BloquesSim(3);
+    for (let x = 0; x < BLOQUES.cols; x++) g.board[(BLOQUES.rows - 1) * BLOQUES.cols + x] = x < 4 ? 0 : 1;
+    g.piece = { kind: 0, rot: 0, x: 0, y: 0 }; // la I acostada en las cuatro que faltan
+    g.press("action");
+    expect(g.score).toBe(1);
+    expect(g.board.slice(-BLOQUES.cols).every((c) => c === 0)).toBe(true);
+    // Sin tocar nada, las piezas se apilan hasta arriba.
+    const idle = replayArcade("bloques", 11, [], 60 * 60 * 10);
+    expect(idle).toMatchObject({ valid: true, over: true, score: 0 });
+  });
+
+  it("bloques: el tope sale de las piezas que caben (no alcanza para inventar filas)", () => {
+    expect(maxArcadeScore("bloques", 0)).toBe(0);
+    expect(maxArcadeScore("bloques", 60_000)).toBeLessThan(140);
+    expect(plausibleScore("bloques", 200, 60_000)).toBe(false);
+  });
+
   it("una partida entera cabe en el mensaje", () => {
     expect(ARCADE_MAX_STEPS * ARCADE_STEP_MS).toBeGreaterThanOrEqual(ARCADE.sessionMs);
-    const sims: ArcadeSim[] = [new SnakeSim(1), new BreakoutSim(1), new FlappySim(1)];
+    const sims: ArcadeSim[] = [new SnakeSim(1), new BreakoutSim(1), new FlappySim(1), new BloquesSim(1)];
     for (const s of sims) expect(s.score).toBe(0);
   });
 });
