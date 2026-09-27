@@ -1,9 +1,10 @@
 "use client";
 
-// Selector de emotes (sobre la barra de abajo): T lo abre y lo cierra, 1–7 o clic manda uno.
-import { drawEmote } from "@hyvento/map/art";
+// Selector de emotes (sobre la barra de abajo): T lo abre y lo cierra. Grilla de 8x2 (4x4 en pantallas
+// angostas); 1–9 mandan los nueve primeros, las flechas eligen y Enter manda. El elegido se anima.
+import { drawEmote, emoteFrames } from "@hyvento/map/art";
 import { EMOTES, type EmoteId } from "@hyvento/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendEmote } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
@@ -23,7 +24,13 @@ export function useEmoteKey(toggle: () => void) {
   }, [toggle]);
 }
 
+/** Columnas de la grilla según el ancho (las flechas arriba/abajo saltan de a una fila). */
+const columns = () => (typeof window !== "undefined" && window.innerWidth < 640 ? 4 : 8);
+
 export function EmotePicker({ onClose }: { onClose: () => void }) {
+  const [active, setActive] = useState(0);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const send = (id: EmoteId) => {
     sendEmote(id);
     onClose();
@@ -33,8 +40,20 @@ export function EmotePicker({ onClose }: { onClose: () => void }) {
     const onKey = (e: KeyboardEvent) => {
       if (useOfficeStore.getState().typing) return;
       if (e.key === "Escape") return onClose();
+      const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns(), ArrowDown: columns() }[e.key];
+      if (move !== undefined) {
+        e.preventDefault();
+        setActive((i) => (i + move + EMOTES.length) % EMOTES.length);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendEmote(EMOTES[activeRef.current]!.id);
+        onClose();
+        return;
+      }
       const n = Number(e.key);
-      const emote = Number.isInteger(n) && n >= 1 ? EMOTES[n - 1] : undefined;
+      const emote = Number.isInteger(n) && n >= 1 && n <= 9 ? EMOTES[n - 1] : undefined;
       if (!emote) return;
       e.preventDefault();
       sendEmote(emote.id);
@@ -44,35 +63,63 @@ export function EmotePicker({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const current = EMOTES[active]!;
   return (
-    <div role="menu" aria-label="Emotes" className="cozy-panel absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 gap-1 p-1.5">
-      {EMOTES.map((e, i) => (
-        <button
-          key={e.id}
-          type="button"
-          role="menuitem"
-          onClick={() => send(e.id)}
-          title={`${e.name} (${i + 1})`}
-          aria-label={e.name}
-          className="cozy-btn relative h-11 w-11 p-0"
-        >
-          <span className="absolute top-0 left-1 text-[10px] text-cozy-ink-soft">{i + 1}</span>
-          <EmoteArt id={e.id} />
-        </button>
-      ))}
+    <div role="menu" aria-label="Emotes" className="cozy-panel absolute bottom-full left-1/2 mb-2 w-max -translate-x-1/2 p-1.5">
+      <div className="grid grid-cols-4 gap-1 sm:grid-cols-8">
+        {EMOTES.map((e, i) => (
+          <button
+            key={e.id}
+            type="button"
+            role="menuitem"
+            onClick={() => send(e.id)}
+            onMouseEnter={() => setActive(i)}
+            onFocus={() => setActive(i)}
+            title={i < 9 ? `${e.name} (${i + 1})` : e.name}
+            aria-label={e.name}
+            data-on={i === active || undefined}
+            className="cozy-btn relative h-11 w-11 p-0"
+          >
+            {i < 9 && <span className="absolute top-0 left-1 text-[10px] leading-tight text-cozy-ink-soft">{i + 1}</span>}
+            <EmoteArt id={e.id} animate={i === active} />
+          </button>
+        ))}
+      </div>
+      <p className="mt-1.5 flex items-center justify-between gap-3 px-1 text-[13px]">
+        <span className="font-semibold">{current.name}</span>
+        <span className="text-cozy-ink-soft">
+          <kbd className="cozy-kbd">1</kbd>–<kbd className="cozy-kbd">9</kbd> · flechas y <kbd className="cozy-kbd">Enter</kbd>
+        </span>
+      </p>
     </div>
   );
 }
 
 const artCache = new Map<string, string>();
 
-function EmoteArt({ id }: { id: string }) {
-  const [src, setSrc] = useState(() => artCache.get(id) ?? null);
+/** Un frame del emote como data URL (se dibuja una sola vez). */
+function frameUrl(id: string, frame: number) {
+  const key = `${id}-${frame}`;
+  let url = artCache.get(key);
+  if (!url) {
+    url = toHtmlCanvas(drawEmote(id, frame)).toDataURL();
+    artCache.set(key, url);
+  }
+  return url;
+}
+
+/** El dibujo del emote; el elegido pasa por sus frames como sobre la cabeza. */
+export function EmoteArt({ id, animate = false, className = "h-8 w-8" }: { id: string; animate?: boolean; className?: string }) {
+  const [frame, setFrame] = useState(0);
+  const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
-    if (artCache.has(id)) return;
-    const url = toHtmlCanvas(drawEmote(id)).toDataURL();
-    artCache.set(id, url);
-    setSrc(url);
-  }, [id]);
-  return src ? <img src={src} alt="" className="h-7 w-7 [image-rendering:pixelated]" /> : null;
+    if (!animate) return setFrame(0);
+    const { count, ms } = emoteFrames(id);
+    if (count < 2) return;
+    const timer = setInterval(() => setFrame((f) => (f + 1) % count), ms);
+    return () => clearInterval(timer);
+  }, [animate, id]);
+  // El canvas solo existe en el navegador: se dibuja después de montar.
+  useEffect(() => setSrc(frameUrl(id, frame)), [id, frame]);
+  return src ? <img src={src} alt="" className={`${className} [image-rendering:pixelated]`} /> : null;
 }
