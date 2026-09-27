@@ -3,6 +3,7 @@
 import { EXTERIOR_CATALOG } from "./catalog-exterior";
 import { INTERIOR_CATALOG } from "./catalog-interior";
 import { SOTANO_CATALOG } from "./catalog-sotano";
+import { CASA_CATALOG } from "./catalog-casa";
 import type { Facing } from "./types";
 
 export interface CatalogItem {
@@ -126,6 +127,7 @@ export const CATALOG = {
   ...EXTERIOR_CATALOG,
   ...INTERIOR_CATALOG,
   ...SOTANO_CATALOG,
+  ...CASA_CATALOG,
 } satisfies Record<string, CatalogItem>;
 
 export type FurnitureType = keyof typeof CATALOG;

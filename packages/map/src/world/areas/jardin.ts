@@ -590,6 +590,12 @@ export const jardin: AreaDef = {
       tiles: CONEXIONES.jardin.casa.tiles,
       to: hacia("planta-baja", CONEXIONES.plantaBaja.entrada),
     },
+    {
+      id: "jardin-escalera-terraza",
+      label: "Subir al balcón del piso 2",
+      tiles: CONEXIONES.jardin.escaleraTerraza.tiles,
+      to: hacia("piso-2", CONEXIONES.piso2.terraza),
+    },
   ],
   points: POINTS,
 };

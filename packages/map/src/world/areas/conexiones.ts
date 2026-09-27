@@ -17,6 +17,11 @@ export const CONEXIONES = {
   jardin: {
     /** La puerta principal de la casa: el porche (la casa está en (38, 13) y mide 22x14). */
     casa: { tiles: par(48, 27), llegada: { x: 48, y: 29, facing: "down" } },
+    /**
+     * El pie de la escalera exterior de madera que sube al balcón del piso 2: pegada al costado este de la
+     * terraza cubierta (la casa termina en x = 59), baja hasta el pasto en y = 27.
+     */
+    escaleraTerraza: { tiles: [{ x: 59, y: 27 }], llegada: { x: 59, y: 28, facing: "down" } },
   },
   plantaBaja: {
     /** La puerta de entrada del recibidor, al centro de la fachada sur (detrás del porche del jardín). */
@@ -31,6 +36,8 @@ export const CONEXIONES = {
   piso2: {
     escaleraAbajo: { tiles: par(11, 17), llegada: { x: 12, y: 18, facing: "down" } },
     escaleraArriba: { tiles: par(14, 17), llegada: { x: 15, y: 18, facing: "down" } },
+    /** La salida del balcón (esquina este) a la escalera exterior que baja al jardín. */
+    terraza: { tiles: [{ x: 28, y: 24 }], llegada: { x: 27, y: 24, facing: "left" } },
   },
   piso3: {
     escaleraAbajo: { tiles: par(14, 17), llegada: { x: 15, y: 18, facing: "down" } },
