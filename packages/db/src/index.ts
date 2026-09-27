@@ -12,3 +12,4 @@ export * from "./inventory";
 export * from "./casino";
 export * from "./fishing";
 export * from "./photos";
+export * from "./achievements";

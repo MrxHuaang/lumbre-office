@@ -59,6 +59,7 @@ import {
   activateInteractable,
   getRoom,
   onEmote,
+  onAchievementUnlocked,
   onFurnitureEvent,
   onPhotoCountdown,
   onPhotoFlash,
@@ -109,6 +110,7 @@ import type { PhotoShot } from "@hyvento/shared";
 import { PhotoBoards } from "./photos/board";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
+import { useAchievementStore } from "./achievements";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -347,6 +349,7 @@ export class OfficeScene extends Phaser.Scene {
         usePhotoStore.getState().markStale(watching);
       }),
       () => this.photoBoards.destroy(),
+      onAchievementUnlocked((e) => this.avatars.get(e.sessionId)?.celebrate()),
       () => this.usables.destroy(),
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
@@ -1222,6 +1225,12 @@ export class OfficeScene extends Phaser.Scene {
     this.pendingZone = null;
     this.pendingInteract = null;
     this.pendingUse = null;
+    // Clic sobre otra persona: su perfil (sin caminar).
+    const person = this.personUnder(sx, sy);
+    if (person) {
+      useAchievementStore.getState().openProfile(person);
+      return;
+    }
     const ts = this.map.tileSize;
     // Clic sobre el buzón, el tablón o la barra: caminar hasta su punto y abrirlo al llegar.
     const target = this.interactableUnder(sx, sy);
@@ -1246,6 +1255,22 @@ export class OfficeScene extends Phaser.Scene {
     const hit = this.tileUnder(sx, sy);
     if (!hit) return;
     this.walkTo((hit.tile.x + 0.5) * ts, (hit.tile.y + 0.5) * ts);
+  }
+
+  /** userId de otra persona dibujada bajo el puntero (la de más adelante si hay varias), o null. */
+  private personUnder(sx: number, sy: number): string | null {
+    const players = useOfficeStore.getState().players;
+    let best: { userId: string; depth: number } | null = null;
+    for (const [sessionId, avatar] of this.avatars) {
+      if (sessionId === this.localId || !avatar.sprite.visible) continue;
+      const info = players[sessionId];
+      if (!info || info.area !== this.map.id) continue;
+      // Solo la parte opaca del cuerpo, no el cuadro entero del frame (que es más ancho que el chibi).
+      const b = avatar.sprite.getBounds();
+      if (!Phaser.Geom.Rectangle.Contains(new Phaser.Geom.Rectangle(b.x + b.width * 0.25, b.y + b.height * 0.2, b.width * 0.5, b.height * 0.8), sx, sy)) continue;
+      if (!best || avatar.sprite.depth > best.depth) best = { userId: info.userId, depth: avatar.sprite.depth };
+    }
+    return best?.userId ?? null;
   }
 
   /** Objeto interactivo dibujado bajo el puntero (se revisa un poco más abajo: los objetos son altos). */

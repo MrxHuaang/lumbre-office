@@ -41,6 +41,8 @@ import {
   type PhotoCountdownEvent,
   type PhotoFlashEvent,
   type PhotoShot,
+  achievementById,
+  type AchievementUnlockedEvent,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -48,6 +50,7 @@ import { useCasinoStore, type RouletteBetView } from "./casino";
 import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
+import { useAchievementStore } from "./achievements";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -223,6 +226,22 @@ export function onSwivelEvent(cb: (e: SwivelEvent) => void) {
 /** Girar en la silla (R): el servidor valida que esté sentado en una que gira y la pausa. */
 export function sendSwivel() {
   room?.send(MSG.swivel);
+}
+
+const achievementListeners = new Set<(e: AchievementUnlockedEvent) => void>();
+/** Alguien de mi nivel (o yo) desbloqueó un logro: la escena hace un destello sobre su avatar. */
+export function onAchievementUnlocked(cb: (e: AchievementUnlockedEvent) => void) {
+  achievementListeners.add(cb);
+  return () => achievementListeners.delete(cb);
+}
+
+/** El propio logro se anuncia grande; el de otra persona del nivel, con un aviso chiquito. */
+function handleAchievement(e: AchievementUnlockedEvent) {
+  achievementListeners.forEach((cb) => cb(e));
+  const ach = achievementById(e.achievementId);
+  if (!ach) return;
+  if (e.sessionId === room?.sessionId) useAchievementStore.getState().pushToast(ach.id);
+  else useOfficeStore.getState().notify(`${e.name} desbloqueó «${ach.name}».`, "success");
 }
 
 /** Alguien de tu nivel tocó un instrumento o acarició al gato. */
@@ -637,6 +656,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photosChanged, () => photosChangedListeners.forEach((cb) => cb()));
+  r.onMessage(MSG.achievementUnlocked, handleAchievement);
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

@@ -1,7 +1,8 @@
-import { listPhotosFor, PHOTO, uploadPhoto } from "@hyvento/shared";
+import { bumpStat, prisma } from "@hyvento/db";
+import { listPhotosFor, PHOTO, STAT_KEYS, uploadPhoto } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
-import { publishPhotosChanged } from "@/lib/events";
+import { publishPhotosChanged, publishPointsChanged } from "@/lib/events";
 import { photoFail, photoStore } from "@/lib/photos";
 
 /** Las fotos del tablón de la cafetería (sin las imágenes: esas van por /api/photos/[id]/image). */
@@ -32,8 +33,9 @@ export async function POST(req: Request) {
   const res = await uploadPhoto({ store: photoStore, secret }, user, { ticket: form?.get("ticket"), caption: form?.get("caption") ?? "", image });
   if (!res.ok) return photoFail(res.error);
 
-  // TODO(logros): acá se sumaría el stat `photos_taken` de quien la sacó (user.id), cuando exista el
-  // sistema de logros (otra rama). Es el único lugar donde una foto queda guardada de verdad.
-  await publishPhotosChanged();
+  // Cuenta para los logros (Paparazzi) solo lo que quedó guardado de verdad; el aviso de puntos hace que el
+  // servidor de juego relea las estadísticas y revise si se desbloqueó algo.
+  await bumpStat(prisma, user.id, STAT_KEYS.photosTaken).catch((err) => console.error("bumpStat photos", err));
+  await Promise.all([publishPhotosChanged(), publishPointsChanged(user.id)]);
   return NextResponse.json({ photo: res.value }, { status: 201 });
 }

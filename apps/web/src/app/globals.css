@@ -489,11 +489,63 @@ body {
   content: "";
   animation: cozy-dots 1.4s steps(1) infinite;
 }
+/*
+ * "¡Logro desbloqueado!": baja a saltos (como pixel-art), se queda y al final sube y se va. Dura lo mismo
+ * que el aviso en pantalla (TOAST_MS en game/achievements.ts). La insignia da un saltito al llegar.
+ */
+@keyframes achievement-toast {
+  0% {
+    transform: translateY(-14px);
+    opacity: 0;
+    animation-timing-function: steps(3);
+  }
+  6%,
+  92% {
+    transform: translateY(0);
+    opacity: 1;
+    animation-timing-function: steps(3);
+  }
+  100% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+}
+.achievement-toast {
+  animation: achievement-toast 6s both;
+}
+@keyframes achievement-badge {
+  0%,
+  8% {
+    transform: translateY(0) scale(1);
+  }
+  12% {
+    transform: translateY(-4px) scale(1.1);
+  }
+  16% {
+    transform: translateY(0) scale(1);
+  }
+  20% {
+    transform: translateY(-2px) rotate(-6deg);
+  }
+  24%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+}
+.achievement-toast-badge {
+  display: inline-block;
+  animation: achievement-badge 6s steps(1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .loader-scroll,
   .loader-bob,
   .cozy-cloud,
-  .cozy-dots::after {
+  .cozy-dots::after,
+  .achievement-toast-badge {
     animation: none;
+  }
+  .achievement-toast {
+    animation-timing-function: steps(1);
   }
 }

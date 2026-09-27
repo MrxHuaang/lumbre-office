@@ -51,6 +51,8 @@ export interface FishingDeps {
   send(userId: string, event: FishingEvent): void;
   /** Cambió el saldo por un pez (`awarded` = lo que se sumó, para el "+N"). */
   points(userId: string, awarded: number, balance: number): void;
+  /** Sacó algo del lago (para las estadísticas y los logros). `first` = primera vez de esa especie. */
+  caught?(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean): void;
 }
 
 export class Fishery {
@@ -192,6 +194,7 @@ export class Fishery {
       return this.deps.send(userId, { type: "end", castId: cast.castId, outcome: "invalid" });
     }
     this.deps.points(userId, saved.awarded, saved.balance);
+    this.deps.caught?.(userId, fish, size, saved.previousBest === null, treasure);
     const result: FishCatchResult = {
       species: fish.id,
       size,

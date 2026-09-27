@@ -206,4 +206,6 @@ export const MSG = {
   photoShot: "photo:shot",
   photoFlash: "photo:flash",
   photosChanged: "photo:changed",
+  /** Servidor → los del nivel: alguien desbloqueó un logro (ver achievements.ts). */
+  achievementUnlocked: "achievement:unlocked",
 } as const;

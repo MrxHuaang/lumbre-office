@@ -19,3 +19,4 @@ export * from "./swivel";
 export * from "./weather";
 export * from "./photos";
 export * from "./photo-service";
+export * from "./achievements";

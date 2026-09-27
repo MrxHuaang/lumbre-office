@@ -1,5 +1,5 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
-import { bubble, characterShadow, crumbColor, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS } from "@hyvento/map/art";
+import { bubble, characterShadow, crumbColor, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS, sparkleSprite } from "@hyvento/map/art";
 import { consumeActionOf, DRUNK, EMOTE, heldParts, parseHeldLeft, spinMs, spinProgress, TOAST, usesOf, type ConsumeAction, type Direction, type DrunkStage, type EmoteId, type PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
@@ -670,6 +670,33 @@ export class Avatar {
   private hic() {
     this.floatText("¡hic!", 8, 7);
     sfx.hic(this.soundVol());
+  }
+
+  /** Logro desbloqueado: unas estrellitas doradas saltan alrededor de la cabeza y se desvanecen. */
+  celebrate() {
+    if (this.destroyed || this.hidden) return;
+    ensureTexture(this.scene, "destello-logro", () => sparkleSprite());
+    const s = worldToScreen(this.wx, this.wy);
+    const depth = 5e7 + depthOf(this.wx, this.wy) + 0.3;
+    const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const count = reduced ? 2 : 6;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+      const x = Math.round(s.x + Math.cos(angle) * 6);
+      const y = Math.round(s.y - HEAD + 6 + Math.sin(angle) * 4);
+      const star = this.scene.add.image(x, y, "destello-logro").setDepth(depth).setScale(0.4);
+      this.scene.tweens.add({
+        targets: star,
+        x: Math.round(s.x + Math.cos(angle) * 14),
+        y: Math.round(s.y - HEAD + 2 + Math.sin(angle) * 9) - 6,
+        scale: 1,
+        alpha: { from: 1, to: 0 },
+        delay: i * 60,
+        duration: reduced ? 900 : 1100,
+        ease: "Quad.out",
+        onComplete: () => star.destroy(),
+      });
+    }
   }
 
   /** Un textito que sube y se desvanece junto a la cabeza (el hipo, las "z" del desmayo). */

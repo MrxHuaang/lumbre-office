@@ -1,5 +1,8 @@
 import {
   addInventoryTx,
+  applyStatChanges,
+  loadAchievementRecord,
+  unlockAchievement,
   awardPoints,
   grantWelcomeBonus,
   casinoBet,
@@ -21,6 +24,7 @@ import {
   type OfficeItemDTO,
   type PointReason,
   type PresenceStatus,
+  type StatChange,
 } from "@hyvento/shared";
 import type { GameRepository, OfficeItemsInput, OfficeItemsResult } from "./types";
 
@@ -221,5 +225,18 @@ export class PrismaRepository implements GameRepository {
 
   saveFishCatch(input: { userId: string; species: string; size: number; points: number }) {
     return recordFishCatch(prisma, input);
+  }
+
+  async loadAchievements(userId: string) {
+    const r = await loadAchievementRecord(prisma, userId);
+    return { stats: r.stats, unlocked: Object.keys(r.unlocked) };
+  }
+
+  saveStats(userId: string, changes: StatChange[]) {
+    return applyStatChanges(prisma, userId, changes);
+  }
+
+  unlockAchievement(userId: string, achievementId: string) {
+    return unlockAchievement(prisma, userId, achievementId);
   }
 }

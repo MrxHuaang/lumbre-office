@@ -6,6 +6,7 @@ import {
   type OfficeItemDTO,
   type PointReason,
   type PresenceStatus,
+  type StatChange,
 } from "@hyvento/shared";
 import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, UserProfile } from "./types";
 
@@ -164,6 +165,32 @@ export class MemoryRepository implements GameRepository {
     this.catches.push({ userId, species, size, at: Date.now() });
     const award = points > 0 ? await this.awardPoints({ userId, amount: points, reason: "LEISURE" }) : { awarded: 0, balance: await this.getPoints(userId) };
     return { previousBest: sizes.length ? Math.max(...sizes) : null, ...award };
+  }
+
+  /** Logros en memoria: contadores por persona y logros desbloqueados. */
+  userStats = new Map<string, Map<string, number>>();
+  achievements = new Map<string, Set<string>>();
+  /** Cuántas veces se guardaron contadores (para ver que se agrupan). */
+  statSaves = 0;
+  async loadAchievements(userId: string) {
+    return { stats: Object.fromEntries(this.userStats.get(userId) ?? []), unlocked: [...(this.achievements.get(userId) ?? [])] };
+  }
+  async saveStats(userId: string, changes: StatChange[]) {
+    this.statSaves++;
+    const stats = this.userStats.get(userId) ?? new Map<string, number>();
+    for (const c of changes) stats.set(c.key, c.op === "inc" ? (stats.get(c.key) ?? 0) + c.value : Math.max(stats.get(c.key) ?? c.value, c.value));
+    this.userStats.set(userId, stats);
+  }
+  async unlockAchievement(userId: string, achievementId: string) {
+    const set = this.achievements.get(userId) ?? new Set<string>();
+    this.achievements.set(userId, set);
+    if (set.has(achievementId)) return false;
+    set.add(achievementId);
+    return true;
+  }
+  /** Helper de tests: un contador guardado. */
+  savedStat(userId: string, key: string) {
+    return this.userStats.get(userId)?.get(key) ?? 0;
   }
 
   /** Helper de tests: asigna una oficina. */
