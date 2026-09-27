@@ -263,7 +263,6 @@ function QueueList({ queue, inClub }: { queue: ClubVideoView[]; inClub: boolean 
 function Thumb({ videoId, big = false }: { videoId: string; big?: boolean }) {
   return (
     // Miniaturas del propio YouTube: no son arte del juego, son la tapa de cada video.
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={thumb(videoId)}
       alt=""
