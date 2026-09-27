@@ -1,4 +1,5 @@
 // Arte del jardín: la cabaña, árboles y objetos de afuera. Coordenadas locales de arte (tile = 16).
+import { drawHouse, HOUSE_CHIMNEY_TOP } from "./exterior-casa";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -60,6 +61,12 @@ const CHIMNEY = { x: 40, y: 34, w: 20, top: RIDGE_Z + 24 };
 
 /** Tope de la chimenea en coordenadas locales de arte (para el humo que anima el cliente). */
 export const CABIN_CHIMNEY_TOP = { x: CHIMNEY.x + CHIMNEY.w / 2, y: CHIMNEY.y + CHIMNEY.w / 2, z: CHIMNEY.top + 3 };
+
+/** Chimeneas con humo por tipo de mueble: la cabaña vieja (vitrina del login) y la casa del jardín. */
+export const CHIMNEY_TOPS: Record<string, { x: number; y: number; z: number }> = {
+  cabin: CABIN_CHIMNEY_TOP,
+  house: HOUSE_CHIMNEY_TOP,
+};
 
 /** Troncos horizontales: bandas con luz arriba y sombra abajo, y basa de piedra. */
 function logs(u: number, v: number, seed: number): RGBA {
@@ -522,6 +529,7 @@ function fence(): Sprite {
 
 const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   cabin,
+  house: drawHouse,
   tree,
   pine,
   bush,
