@@ -31,6 +31,9 @@ export interface WispOptions {
   delay?: number;
 }
 
+/** Capa de los nombres de los avatares: el humo se dibuja encima. */
+const ABOVE_LABELS = 5e7 + 0.2;
+
 /**
  * Una voluta de humo o vapor en (x, y) de pantalla: sube, se ondula de lado a lado, crece y se deshace.
  * Queda en el mundo (no sigue a la persona), como el humo de verdad.
@@ -38,7 +41,9 @@ export interface WispOptions {
 export function spawnWisp(scene: Phaser.Scene, x: number, y: number, depth: number, o: WispOptions) {
   const sizes: (0 | 1 | 2 | 3)[] = [];
   for (let s = o.from; s <= o.to; s++) sizes.push(s as 0 | 1 | 2 | 3);
-  const img = scene.add.image(x, y, wispKey(scene, o.from, o.fx)).setOrigin(0.5, 0.5).setDepth(depth).setAlpha(0);
+  // Por encima de los nombres (que van en 5e7 + profundidad, ver Avatar.layout): el humo sube justo
+  // donde está la etiqueta y, si no, la etiqueta lo tapaba entero.
+  const img = scene.add.image(x, y, wispKey(scene, o.from, o.fx)).setOrigin(0.5, 0.5).setDepth(ABOVE_LABELS + depth).setAlpha(0);
   const phase = Math.random() * Math.PI * 2;
   let size = 0;
   scene.tweens.addCounter({
@@ -65,16 +70,16 @@ export function spawnWisp(scene: Phaser.Scene, x: number, y: number, depth: numb
 
 /** Bocanada al soltar el humo: varias volutas que salen de la boca y se abren. */
 export function exhale(scene: Phaser.Scene, x: number, y: number, depth: number, side: number) {
-  for (let k = 0; k < 6; k++) {
-    spawnWisp(scene, x + side * (1 + k * 0.6), y - k * 0.4, depth, {
+  for (let k = 0; k < 9; k++) {
+    spawnWisp(scene, x + side * (1 + k * 0.7), y - k * 0.5, depth, {
       fx: "smoke",
-      from: k < 2 ? 1 : 0,
-      to: k < 3 ? 3 : 2,
-      rise: 14 + Math.random() * 8,
-      drift: side * (5 + Math.random() * 6),
-      wobble: 2 + Math.random() * 2,
-      ms: 1700 + Math.random() * 700,
-      delay: k * 70,
+      from: k < 3 ? 1 : 0,
+      to: 3,
+      rise: 22 + Math.random() * 12,
+      drift: side * (10 + Math.random() * 10),
+      wobble: 2.5 + Math.random() * 2,
+      ms: 2600 + Math.random() * 900,
+      delay: k * 80,
     });
   }
 }
@@ -85,8 +90,8 @@ export function idleWisp(scene: Phaser.Scene, x: number, y: number, depth: numbe
   spawnWisp(scene, x, y, depth, {
     fx,
     from: 0,
-    to: smoke ? 1 : 1,
-    rise: smoke ? 11 + Math.random() * 5 : 6 + Math.random() * 3,
+    to: smoke ? 2 : 1,
+    rise: smoke ? 16 + Math.random() * 6 : 8 + Math.random() * 3,
     drift: (Math.random() - 0.3) * 3,
     wobble: smoke ? 1.6 : 1,
     ms: smoke ? 1900 : 1300,

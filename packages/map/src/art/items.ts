@@ -513,7 +513,8 @@ export function puff(fx: HeldEffect = "steam"): PixelCanvas {
  */
 export function wisp(size: 0 | 1 | 2 | 3, fx: HeldEffect = "smoke"): PixelCanvas {
   const base = fx === "smoke" ? [hex("#8e8698"), hex("#b8b0bc"), hex("#dcd6e0")] : [hex("#e8e0d4"), hex("#fff8e8"), hex("#ffffff")];
-  const d = [1, 2, 3, 5][size]!;
+  // Crece hasta 9 px: a escala de juego el humo se tiene que ver de lejos.
+  const d = [2, 3, 5, 8][size]!;
   const c = new PixelCanvas(d + 1, d + 1);
   const r = d / 2;
   for (let y = 0; y <= d; y++)
@@ -521,10 +522,9 @@ export function wisp(size: 0 | 1 | 2 | 3, fx: HeldEffect = "smoke"): PixelCanvas
       const nx = (x + 0.5 - r - 0.5) / (r + 0.01);
       const ny = (y + 0.5 - r - 0.5) / (r + 0.01);
       const dd = Math.hypot(nx, ny);
-      if (size > 0 && dd > 1.05) continue;
+      if (dd > 1.05) continue;
       const light = nx + ny < -0.4 ? 2 : nx + ny > 0.6 ? 0 : 1;
-      c.set(x, y, alpha(base[light]!, size === 0 ? 0.75 : dd > 0.75 ? 0.45 : 0.8));
-      if (size === 0) return c;
+      c.set(x, y, alpha(base[light]!, dd > 0.75 ? 0.6 : 0.92));
     }
   return c;
 }
