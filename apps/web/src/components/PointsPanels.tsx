@@ -461,7 +461,7 @@ function NewMission({ maxReward, onCancel, onCreated }: { maxReward: number; onC
           className="cozy-input w-24 px-3 py-2 text-[14px] font-normal"
         />
         <span className="text-[13px] font-normal text-cozy-ink-soft">
-          puntos (de {POINTS.missionMinReward} a {maxReward})
+          puntos (de {POINTS.missionMinReward} a {maxReward}; salen de tu saldo y vuelven si la cancelas)
         </span>
       </label>
       {error && <p className="text-[14px] font-semibold text-cozy-red-deep">{error}</p>}

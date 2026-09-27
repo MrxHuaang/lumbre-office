@@ -1,5 +1,5 @@
 import { awardPointsTx, bumpStat, prisma, type MissionStatus, type Prisma } from "@hyvento/db";
-import { MISSION_ACTIONS, STAT_KEYS, type MissionAction } from "@hyvento/shared";
+import { MISSION_ACTIONS, missionRefundRef, STAT_KEYS, type MissionAction } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/current-user";
@@ -13,7 +13,8 @@ const fail = (error: string, status = 409) => NextResponse.json({ error }, { sta
 /**
  * Cambiar el estado de una misión:
  * - tomar (quien no la creó) → soltar o entregar (quien la tomó);
- * - aprobar (paga la recompensa), rechazar o cancelar: quien la creó o un admin.
+ * - aprobar (paga la recompensa que dejó en depósito quien la creó), rechazar o cancelar (le devuelve el
+ *   depósito): quien la creó o un admin.
  * Cada cambio es un update condicional sobre el estado esperado, así dos clics no pagan dos veces.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,6 +48,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       data: rule.data,
     });
     if (changed.count === 0) return false;
+    if (action === "cancel") {
+      // Solo si hubo depósito: las misiones publicadas antes de que se cobrara no tienen nada que devolver.
+      const deposit = await tx.pointTransaction.findFirst({
+        where: { userId: mission.createdById, reason: "MISSION", refId: mission.id, amount: { lt: 0 } },
+        select: { amount: true },
+      });
+      if (deposit) {
+        await awardPointsTx(tx, { userId: mission.createdById, amount: -deposit.amount, reason: "MISSION", refId: missionRefundRef(mission.id) });
+      }
+    }
     if (action === "approve" && mission.assigneeId) {
       await awardPointsTx(tx, { userId: mission.assigneeId, amount: mission.reward, reason: "MISSION", refId: mission.id });
       // Para el logro "Manos a la obra" (el servidor de juego lo relee con el aviso de puntos).
@@ -56,6 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
   if (!paid) return fail("Alguien cambió la misión recién. Actualiza el tablón.");
   if (action === "approve" && mission.assigneeId) await publishPointsChanged(mission.assigneeId);
+  if (action === "cancel") await publishPointsChanged(mission.createdById);
 
   const updated = await prisma.mission.findUniqueOrThrow({ where: { id }, include: MISSION_INCLUDE });
   return NextResponse.json({ mission: toMissionDTO(updated) });

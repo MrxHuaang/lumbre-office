@@ -43,7 +43,7 @@ export const DAILY_CAPS: Record<PointReason, number | null> = {
   PRESENCE: POINTS.presenceDailyCap,
   MEETING: POINTS.meetingDailyCap,
   DAILY: null,
-  MISSION: null,
+  MISSION: null, // sin tope: la recompensa sale del depósito de quien publica, no se crea
   ADMIN: null,
   PURCHASE: null,
   CASINO: null,
@@ -101,6 +101,9 @@ export const MissionCreate = z.object({
   reward: z.number().int().min(POINTS.missionMinReward).max(POINTS.missionMaxReward.ADMIN),
 });
 export type MissionCreate = z.infer<typeof MissionCreate>;
+
+/** `refId` de la devolución del depósito de una misión cancelada (el ranking no la cuenta como ganancia). */
+export const missionRefundRef = (missionId: string) => `${missionId}:devolucion`;
 
 export const MISSION_ACTIONS = ["take", "release", "submit", "approve", "reject", "cancel"] as const;
 export type MissionAction = (typeof MISSION_ACTIONS)[number];

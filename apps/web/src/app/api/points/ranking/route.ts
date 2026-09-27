@@ -11,7 +11,8 @@ export async function GET() {
   const sums = await prisma.pointTransaction.groupBy({
     by: ["userId"],
     // Los regalos e intercambios no cuentan: si no, dos personas subirían regalándose lo mismo.
-    where: { createdAt: { gte: since }, amount: { gt: 0 }, reason: { not: "GIFT" } },
+    // Tampoco las devoluciones de misiones canceladas: son el depósito que vuelve, no algo ganado.
+    where: { createdAt: { gte: since }, amount: { gt: 0 }, reason: { not: "GIFT" }, OR: [{ refId: null }, { NOT: { refId: { endsWith: ":devolucion" } } }] },
     _sum: { amount: true },
     orderBy: { _sum: { amount: "desc" } },
     take: 10,
