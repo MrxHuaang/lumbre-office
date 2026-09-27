@@ -127,9 +127,24 @@ export function insideCell(c: RouletteCell, u: number, v: number): boolean {
 
 /** Casilla del paño bajo (u, v), o null (borde, fieltro sin apuesta). */
 export function rouletteCellAt(u: number, v: number): RouletteCell | null {
-  for (const c of ROULETTE_CELLS) if (insideCell(c, u, v)) return c;
+  // Se busca por franjas (el paño se pinta punto por punto: recorrer las 49 casillas cada vez es lento).
+  const band = BANDS.find((b) => u >= b.u0 && u < b.u1 && v >= b.v0 && v < b.v1);
+  if (!band) return null;
+  for (const c of band.cells) if (insideCell(c, u, v)) return c;
   return null;
 }
+
+/** Casillas agrupadas por zonas rectangulares del paño (para buscar rápido). */
+const BANDS = (() => {
+  const zones = [
+    { u0: NUM_U0, u1: NUM_U0 + COL_W * 3, v0: ZERO_V[0], v1: ROW_V0 },
+    ...Array.from({ length: 12 }, (_, i) => ({ u0: NUM_U0, u1: NUM_U0 + COL_W * 3, v0: ROW_V0 + i * ROULETTE_ROW_H, v1: ROW_V0 + (i + 1) * ROULETTE_ROW_H })),
+    { u0: NUM_U0, u1: NUM_U0 + COL_W * 3, v0: COLS_V[0], v1: COLS_V[1] },
+    { u0: DOZEN_U[0], u1: DOZEN_U[1], v0: ROW_V0, v1: COLS_V[0] },
+    { u0: EVEN_U[0], u1: EVEN_U[1], v0: ROW_V0, v1: COLS_V[0] },
+  ];
+  return zones.map((z) => ({ ...z, cells: ROULETTE_CELLS.filter((c) => c.u0 < z.u1 && c.u1 > z.u0 && c.v0 < z.v1 && c.v1 > z.v0) }));
+})();
 
 export function rouletteCellOf(key: string): RouletteCell | undefined {
   return ROULETTE_CELLS.find((c) => c.key === key);

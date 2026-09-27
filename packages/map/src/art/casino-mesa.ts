@@ -245,6 +245,10 @@ export class WheelPainter {
   readonly overlay: Overlay;
   private readonly polar: Float32Array;
   private readonly px: number;
+  /** Lo que no gira (el cuenco, la pista, los deflectores), pintado una vez. */
+  private base?: Uint8ClampedArray;
+  /** Puntos de la parte que gira (índices del lienzo): son los únicos que se recalculan. */
+  private spinning?: Int32Array;
   /** ¿Caben los números a esta resolución? */
   readonly numbers: boolean;
 
@@ -275,9 +279,9 @@ export class WheelPainter {
   paint(spin: number, ball: BallPose | null, highlight = -1): PixelCanvas {
     const { canvas } = this.overlay;
     const data = canvas.data;
-    data.fill(0);
-    const n = canvas.width * canvas.height;
-    for (let k = 0; k < n; k++) {
+    if (!this.base || !this.spinning) this.prepare();
+    data.set(this.base!);
+    for (const k of this.spinning!) {
       const col = wheelColor(this.polar[k * 2]!, this.polar[k * 2 + 1]!, spin, this.px);
       if (!col) continue;
       const o = k * 4;
@@ -290,6 +294,26 @@ export class WheelPainter {
     this.paintTurret();
     if (ball) this.paintBall(ball);
     return canvas;
+  }
+
+  /** Separa lo fijo de lo que gira: el cuenco se pinta una sola vez. */
+  private prepare() {
+    const { canvas } = this.overlay;
+    const n = canvas.width * canvas.height;
+    const base = new Uint8ClampedArray(n * 4);
+    const moving: number[] = [];
+    for (let k = 0; k < n; k++) {
+      const r = this.polar[k * 2]!;
+      if (r > WHEEL_R.rim) continue;
+      if (r <= WHEEL_R.head) {
+        moving.push(k);
+        continue;
+      }
+      const col = wheelColor(r, this.polar[k * 2 + 1]!, 0, this.px)!;
+      base.set([col[0], col[1], col[2], 255], k * 4);
+    }
+    this.base = base;
+    this.spinning = Int32Array.from(moving);
   }
 
   /** Punto del lienzo de un punto polar del plato (a la altura del plato + `lift`). */

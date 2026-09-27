@@ -8,7 +8,6 @@ import {
   BLACKJACK_SHOE,
   BLACKJACK_SPOTS,
   BLACKJACK_TOP_Z,
-  ROULETTE_CELLS,
   ROULETTE_FELT,
   ROULETTE_TOP_Z,
   WHEEL_CENTER,
@@ -16,6 +15,7 @@ import {
   WHEEL_TOP_Z,
   blackjackEdge,
   insideCell,
+  rouletteCellAt,
   type CellFill,
 } from "./casino-layout";
 import { C, OUT } from "./palette";
@@ -106,8 +106,8 @@ export function rouletteFeltColor(u: number, v: number): RGBA {
   // Filete dorado alrededor de toda la grilla.
   const e = Math.min(u - u0, v - v0, u1 - u, v1 - v);
   if (e >= 0.4 && e < 0.9) return at(C.gold, 3);
-  for (const cell of ROULETTE_CELLS) {
-    if (!insideCell(cell, u, v)) continue;
+  const cell = rouletteCellAt(u, v);
+  if (cell) {
     // Borde de la casilla (en el cero, también la diagonal de las puntas).
     const b = 0.3;
     if (!insideCell(cell, u - b, v) || !insideCell(cell, u + b, v) || !insideCell(cell, u, v - b) || !insideCell(cell, u, v + b)) return at(C.cream, 3);
