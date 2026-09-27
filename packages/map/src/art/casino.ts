@@ -31,26 +31,17 @@ function woodSide(u: number, v: number, _fw: number, fh: number): RGBA {
   return at(C.woodDark, Math.floor(u) % 7 === 0 ? 2 : 3);
 }
 
+/**
+ * Paño de la ruleta (3x4 tiles; la rueda es un mueble aparte, "roulette-wheel", en la cabecera de -y).
+ * Provisorio del rediseño: el dibujo definitivo, con números legibles, lo hace el rediseño del casino.
+ */
 function rouletteTable(): Sprite {
-  // Arriba: la rueda (en el extremo de -y) y el paño con la grilla de números (3 columnas x 12 filas).
+  const W = 46;
+  const D = 62;
   const top = railed((u, v, fw, fh) => {
-    const cx = fw / 2;
-    const cy = 8;
-    const d = Math.hypot(u + 0.5 - cx, v + 0.5 - cy);
-    if (d < 7.5) {
-      if (d >= 6.6) return at(C.gold, 3);
-      if (d >= 4.4) {
-        const a = (Math.atan2(v + 0.5 - cy, u + 0.5 - cx) + Math.PI) / (Math.PI * 2);
-        const n = WHEEL[Math.floor(a * WHEEL.length) % WHEEL.length]!;
-        return n === 0 ? at(FELT, 4) : REDS.has(n) ? at(RED, 3) : at(C.metal, 0);
-      }
-      if (d >= 3.6) return at(C.gold, 2);
-      if (d < 1.2) return at(C.gold, 5);
-      return at(C.woodDark, d < 2.4 ? 4 : 3);
-    }
     // Grilla de números: el cero arriba y 12 filas de 3.
     const gx0 = 3;
-    const gy0 = 18;
+    const gy0 = 6;
     const gw = fw - 6;
     const gh = fh - gy0 - 3;
     const gu = u - gx0;
@@ -70,15 +61,42 @@ function rouletteTable(): Sprite {
   return renderSprite(
     [
       leg(3, 3, 9),
-      leg(27, 3, 9),
-      leg(3, 43, 9),
-      leg(27, 43, 9),
-      { x: 1, y: 1, z: 9, w: 30, d: 46, h: 4, top: flat(at(C.woodDark, 3)), left: woodSide, right: woodSide },
-      { x: 1, y: 1, z: 13, w: 30, d: 46, h: 1, top, left: flat(at(RED, 1)), right: flat(at(RED, 1)) },
-      // La torreta dorada al centro de la rueda.
-      { x: 15, y: 8, z: 14, w: 2, d: 2, h: 3, top: flat(at(C.gold, 5)), left: flat(at(C.gold, 3)), right: flat(at(C.gold, 2)) },
+      leg(W - 3, 3, 9),
+      leg(3, D - 3, 9),
+      leg(W - 3, D - 3, 9),
+      { x: 1, y: 1, z: 9, w: W, d: D, h: 4, top: flat(at(C.woodDark, 3)), left: woodSide, right: woodSide },
+      { x: 1, y: 1, z: 13, w: W, d: D, h: 1, top, left: flat(at(RED, 1)), right: flat(at(RED, 1)) },
     ],
-    { outline: OUT, under: shadowUnder(1, 1, 30, 46) },
+    { outline: OUT, under: shadowUnder(1, 1, W, D) },
+  );
+}
+
+/** Rueda de la ruleta sobre su pedestal (2x2). Provisoria del rediseño, como el paño. */
+function rouletteWheel(): Sprite {
+  const top: Shader = (u, v, fw, fh) => {
+    const cx = fw / 2;
+    const cy = fh / 2;
+    const d = Math.hypot(u + 0.5 - cx, v + 0.5 - cy);
+    const R = fw / 2;
+    if (d > R) return null;
+    if (d >= R - 1.5) return at(C.gold, 3);
+    if (d >= R * 0.55) {
+      const a = (Math.atan2(v + 0.5 - cy, u + 0.5 - cx) + Math.PI) / (Math.PI * 2);
+      const n = WHEEL[Math.floor(a * WHEEL.length) % WHEEL.length]!;
+      return n === 0 ? at(FELT, 4) : REDS.has(n) ? at(RED, 3) : at(C.metal, 0);
+    }
+    if (d >= R * 0.45) return at(C.gold, 2);
+    if (d < 1.5) return at(C.gold, 5);
+    return at(C.woodDark, d < R * 0.25 ? 4 : 3);
+  };
+  const none: Shader = () => null;
+  return renderSprite(
+    [
+      solidBox({ x: 10, y: 10, z: 0, w: 12, d: 12, h: 12 }, C.woodDark, 3),
+      { x: 2, y: 2, z: 12, w: 28, d: 28, h: 3, top, left: none, right: none },
+      { x: 15, y: 15, z: 15, w: 2, d: 2, h: 3, top: flat(at(C.gold, 5)), left: flat(at(C.gold, 3)), right: flat(at(C.gold, 2)) },
+    ],
+    { outline: OUT, under: roundShadow(16, 16, 12) },
   );
 }
 
@@ -426,6 +444,7 @@ function fortuneWheel(): Sprite {
 /** Dibujos del casino, para registrar en DRAW de furniture.ts. */
 export const CASINO_DRAW: Record<string, () => Sprite> = {
   "roulette-table": rouletteTable,
+  "roulette-wheel": rouletteWheel,
   "blackjack-table": blackjackTable,
   "casino-cashier": casinoCashier,
   "slot-machine": slotMachine,

@@ -16,7 +16,8 @@ const ARCADE_ROOM = { x: 16, y: 12, w: 12, h: 6 };
 /** Máquinas de arcade contra la pared del club (miran hacia el sur); se juega parado delante. */
 const ARCADE_CABINETS = [17, 18, 22, 23, 24, 25].map((x) => ({ x, y: ARCADE_ROOM.y }));
 
-const ROULETTE = { x: 5, y: 4 };
+/** Paño de la ruleta (3x4) con la rueda (2x2) a su derecha, en la parte de arriba. */
+const ROULETTE = { x: 5, y: 3 };
 const BLACKJACK = { x: 11, y: 4 };
 /**
  * Banquetas del blackjack en el orden de los asientos 1 a 5: una en la punta de arriba, tres frente a la
@@ -84,6 +85,7 @@ export const sotano: AreaDef = {
     place("fortune-wheel", 16, 0, "down"),
     place("palm", 17, 0),
     place("roulette-table", ROULETTE.x, ROULETTE.y),
+    place("roulette-wheel", ROULETTE.x + 3, ROULETTE.y),
     place("blackjack-table", BLACKJACK.x, BLACKJACK.y),
     // Banquetas del blackjack (ver BLACKJACK_SEATS), mirando a la mesa.
     ...BLACKJACK_SEATS.map((s) => place("stool", s.x, s.y, s.facing)),
@@ -154,13 +156,17 @@ export const sotano: AreaDef = {
     // Alrededor de la mesa de ruleta (desde cualquiera de esos lugares se apuesta).
     ...[
       [ROULETTE.x - 1, ROULETTE.y],
+      [ROULETTE.x - 1, ROULETTE.y + 1],
       [ROULETTE.x - 1, ROULETTE.y + 2],
-      [ROULETTE.x + 2, ROULETTE.y],
-      [ROULETTE.x + 2, ROULETTE.y + 2],
-      [ROULETTE.x, ROULETTE.y + 3],
-      [ROULETTE.x + 1, ROULETTE.y + 3],
+      [ROULETTE.x - 1, ROULETTE.y + 3],
+      [ROULETTE.x + 3, ROULETTE.y + 2],
+      [ROULETTE.x + 3, ROULETTE.y + 3],
+      [ROULETTE.x, ROULETTE.y + 4],
+      [ROULETTE.x + 1, ROULETTE.y + 4],
+      [ROULETTE.x + 2, ROULETTE.y + 4],
       [ROULETTE.x, ROULETTE.y - 1],
       [ROULETTE.x + 1, ROULETTE.y - 1],
+      [ROULETTE.x + 2, ROULETTE.y - 1],
     ].map(([x, y]) => ({ type: "roulette" as const, name: "Ruleta", x: x!, y: y! })),
     // Sobre la tarima, alrededor del tubo: ahí se baila.
     ...[
