@@ -18,7 +18,7 @@ export const TOAST = {
 } as const;
 
 /** Tiempos del brindis que el servidor usa (los tests los acortan). */
-export type ToastTimings = Pick<typeof TOAST, "windowMs" | "joinGraceMs" | "cooldownMs">;
+export type ToastTimings = Record<"windowMs" | "joinGraceMs" | "cooldownMs", number>;
 
 /**
  * La mano que lleva una bebida con sorbos (en los combos, la del tinto y no la del cigarro), o -1 si no
