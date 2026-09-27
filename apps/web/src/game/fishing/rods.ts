@@ -6,11 +6,13 @@ import { biteMark, bobber, drawFish, ROD_COLORS } from "@hyvento/map/art";
 import { fishById, type Direction } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
-import { DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "../iso/view";
+import { depthOf, ensureTexture, worldToScreen } from "../iso/view";
 import { castTarget, SCREEN_DIR } from "./water";
 
 /** Cuánto dura el lance (la boya volando hasta el agua). */
 const CAST_MS = 420;
+/** El "!" y el pez levantado van sobre los nombres (5e7), como los globos. */
+const OVER_NAMES = 6.5e7;
 /** Mano que sostiene la caña respecto de los pies, según hacia dónde mira. */
 const HAND: Record<Direction, { x: number; y: number }> = {
   right: { x: 3, y: -8 },
@@ -169,7 +171,7 @@ export class FishingRods {
       rod.mark ??= this.scene.add.image(0, 0, "pesca-pica").setOrigin(0.5, 1);
       rod.mark
         .setPosition(Math.round(s.x), Math.round(s.y) - 44 - (Math.floor(now / 120) % 2))
-        .setDepth(DEPTH_OVERLAY + 5)
+        .setDepth(OVER_NAMES)
         .setVisible(true);
     } else rod.mark?.setVisible(false);
   }
@@ -188,7 +190,7 @@ export class FishingRods {
     const rise = Math.min(1, age / 250);
     rod.fish
       .setPosition(Math.round(s.x), Math.round(s.y) - 34 - Math.round(rise * 6) - (Math.floor(now / 300) % 2))
-      .setDepth(DEPTH_OVERLAY + 4)
+      .setDepth(OVER_NAMES)
       .setVisible(true);
   }
 

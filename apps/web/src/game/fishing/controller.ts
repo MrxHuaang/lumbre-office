@@ -6,7 +6,7 @@ import { drawFishingBar, FISHING_BAR, PixelCanvas } from "@hyvento/map/art";
 import { FishingSim, SIM, SIM_FRAME_MS, type Direction } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
-import { DEPTH_OVERLAY, worldToScreen } from "../iso/view";
+import { worldToScreen } from "../iso/view";
 import { useOfficeStore } from "../store";
 import { cancelFishing, hookFish, sendFishResult, fishingSpotAction } from "./net";
 import { playFishSound } from "./sound";
@@ -19,6 +19,8 @@ const RESULT_MS = 700;
 const STUCK_MS = 6000;
 /** Tope de frames por cuadro (si la pestaña se trabó no se "adelanta" de golpe). */
 const MAX_STEPS = 6;
+/** Por encima de los nombres y los globos (que van en 5e7 y 6e7). */
+const MINIGAME_DEPTH = 8e7;
 
 const TRANSITIONAL: FishingLocalPhase[] = ["casting", "hooking", "finishing"];
 
@@ -135,7 +137,7 @@ export class FishingController {
     const key = "pesca-minijuego";
     if (this.scene.textures.exists(key)) this.scene.textures.remove(key);
     this.tex = this.scene.textures.createCanvas(key, FISHING_BAR.w, FISHING_BAR.h) ?? undefined;
-    this.img = this.scene.add.image(0, 0, key).setOrigin(0, 1).setDepth(DEPTH_OVERLAY + 30);
+    this.img = this.scene.add.image(0, 0, key).setOrigin(0, 1).setDepth(MINIGAME_DEPTH);
     // Aparece de un saltito.
     this.img.setScale(1, 0.2);
     this.scene.tweens.add({ targets: this.img, scaleY: 1, duration: 160, ease: "Back.out" });
@@ -180,7 +182,7 @@ export class FishingController {
     const s = worldToScreen(me.x, me.y);
     const dir = castTarget(this.map(), me.x, me.y)?.dir ?? "right";
     const left = SCREEN_DIR[dir].x > 0;
-    const x = Math.round(s.x) + (left ? -16 - FISHING_BAR.w : 16);
+    const x = Math.round(s.x) + (left ? -20 - FISHING_BAR.w : 20);
     this.img.setPosition(x, Math.round(s.y) + 10);
   }
 }

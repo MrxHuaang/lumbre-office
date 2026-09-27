@@ -700,6 +700,13 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Pescando: el personaje queda quieto mirando al agua; E, espacio, clic y Esc manejan la caña. */
   private updateFishing(avatar: Avatar, delta: number, taps: Taps) {
+    // Lo que quedaba pendiente (una ruta, un objeto al que iba) se olvida: al soltar la caña no se retoma solo.
+    if (this.path.length || this.pendingInteract || this.pendingUse || this.pendingZone) {
+      this.clearPath();
+      this.pendingInteract = null;
+      this.pendingUse = null;
+      this.pendingZone = null;
+    }
     const { typing, pcOn } = useOfficeStore.getState();
     if (!typing && !pcOn) {
       const k = this.keys;
