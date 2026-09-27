@@ -1,5 +1,6 @@
 // Animaciones de lo que se tiene en la mano: la pitada (brasa que brilla y humo que sube, se ondula y se
-// deshace), el sorbo (el vaso se inclina hacia la boca) y el mordisco (migas que caen). Las usa Avatar.ts;
+// deshace), el sorbo (el vaso se inclina hacia la boca), el mordisco (migas que caen) y la cucharada (el
+// plato sube al pecho). Las usa Avatar.ts;
 // el arte (cada estado dibujado por código) está en packages/map/src/art/items.ts.
 import { crumb, drawHeldItem, emberGlow, wisp, type HeldEffect, type RGBA } from "@hyvento/map/art";
 import type { ConsumeAction } from "@hyvento/shared";
@@ -199,6 +200,13 @@ async function animateUse(scene: Phaser.Scene, action: ConsumeAction, target: Us
     target.setTilt(0);
     target.applyLeft();
     await step(scene, USE_MS.lower, (v) => target.setPose(1 - v, 0));
+  } else if (action === "spoon") {
+    // Cucharadas: el plato o la taza sube hasta el pecho (no se inclina ni se muerde) y dos cucharaditas
+    // (saltitos) hacia la boca; en la primera baja lo que queda.
+    await step(scene, USE_MS.chomp * 1.5, (v) => target.setPose(0.6, v > 0.5 ? -1 : 0));
+    target.applyLeft();
+    await step(scene, USE_MS.chomp * 1.5, (v) => target.setPose(0.6, v > 0.5 ? -1 : 0));
+    await step(scene, USE_MS.lower, (v) => target.setPose(0.6 * (1 - v), 0));
   } else {
     // Dos mordiscos rápidos: en el primero se ve el pedazo que falta y caen migas.
     await step(scene, USE_MS.chomp, (v) => target.setPose(1, v > 0.5 ? 1 : 0));

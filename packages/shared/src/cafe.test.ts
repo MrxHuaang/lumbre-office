@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { BAR_MENU, BarOrderMessage, CAFE_MENU, CafeOrderMessage, MENUS, barRefId, cafeItem, cafeRefId, heldParts, menuItem } from "./cafe";
+import {
+  BAR_MENU,
+  BarOrderMessage,
+  CAFE_CATEGORIES,
+  CAFE_MENU,
+  CafeOrderMessage,
+  MENUS,
+  barRefId,
+  cafeItem,
+  cafeItemsIn,
+  cafeRefId,
+  heldParts,
+  menuItem,
+} from "./cafe";
+import { FREE_HOLDS } from "./casa";
 import { CONSUMABLES } from "./consumables";
 
 describe("menú de la cafetería", () => {
@@ -16,14 +30,45 @@ describe("menú de la cafetería", () => {
   });
 });
 
-describe("combos", () => {
-  it("el desayuno lleva algo en cada mano y sale más barato que por separado", () => {
-    for (const id of ["desayuno-tinto", "desayuno-coca"]) {
-      const combo = cafeItem(id)!;
-      expect(combo.holds).toHaveLength(2);
-      const separate = combo.holds.reduce((sum, part) => sum + cafeItem(part)!.price, 0);
-      expect(combo.price, id).toBeLessThan(separate);
+describe("carta colombiana", () => {
+  it("tiene mucha variedad: cada sección con lo suyo y todo producto en una sección conocida", () => {
+    expect(CAFE_MENU.length).toBeGreaterThanOrEqual(50);
+    const known = new Set<string>(CAFE_CATEGORIES.map((c) => c.id));
+    for (const item of CAFE_MENU) expect(known.has(item.category), item.id).toBe(true);
+    for (const c of CAFE_CATEGORIES) expect(cafeItemsIn(c.id).length, c.id).toBeGreaterThan(0);
+    expect(CAFE_CATEGORIES.reduce((n, c) => n + cafeItemsIn(c.id).length, 0)).toBe(CAFE_MENU.length);
+    // Algunos clásicos que no pueden faltar.
+    for (const id of ["perico", "jugo-lulo", "almojabana", "empanada", "arepa-huevo", "tamal", "cholado", "bocadillo"]) {
+      expect(cafeItem(id), id).toBeDefined();
+      expect(CafeOrderMessage.safeParse({ item: id }).success, id).toBe(true);
     }
+  });
+
+  it("los precios se quedan en el rango de la cafetería y cada producto dice algo", () => {
+    for (const i of CAFE_MENU) {
+      expect(i.price, i.id).toBeGreaterThanOrEqual(3);
+      expect(i.price, i.id).toBeLessThanOrEqual(12);
+      expect(i.blurb.length, i.id).toBeGreaterThan(8);
+    }
+  });
+
+  it("lo del menú y lo gratis de la casa no comparten id (lo que se lleva en la mano se guarda por id)", () => {
+    for (const i of CAFE_MENU) expect(Object.hasOwn(FREE_HOLDS, i.id), i.id).toBe(false);
+  });
+});
+
+describe("combos", () => {
+  it("cada combo lleva algo en cada mano y sale más barato que por separado", () => {
+    const single = (part: string) => CAFE_MENU.find((i) => i.kind !== "combo" && i.holds.length === 1 && i.holds[0] === part)!.price;
+    const combos = CAFE_MENU.filter((i) => i.kind === "combo");
+    expect(combos.length).toBeGreaterThanOrEqual(6);
+    for (const combo of combos) {
+      expect(combo.holds, combo.id).toHaveLength(2);
+      expect(combo.category, combo.id).toBe("combos");
+      const separate = combo.holds.reduce((sum, part) => sum + single(part), 0);
+      expect(combo.price, combo.id).toBeLessThan(separate);
+    }
+    expect(heldParts("onces")).toEqual(["tinto", "pandebono"]);
     expect(heldParts("tinto")).toEqual(["tinto"]);
     expect(heldParts("mojito")).toEqual([]);
   });

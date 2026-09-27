@@ -4,25 +4,116 @@
 import { z } from "zod";
 import { FREE_HOLDS } from "./casa";
 
+/** Las secciones de la carta de la cafetería (pestañas del panel), en el orden en que se muestran. */
+export const CAFE_CATEGORIES = [
+  { id: "calientes", label: "Bebidas calientes" },
+  { id: "frias", label: "Bebidas frías" },
+  { id: "panaderia", label: "Panadería" },
+  { id: "fritos", label: "Fritos y arepas" },
+  { id: "desayunos", label: "Desayunos" },
+  { id: "postres", label: "Postres y dulces" },
+  { id: "combos", label: "Combos" },
+  { id: "otros", label: "Otros" },
+] as const;
+export type CafeCategory = (typeof CAFE_CATEGORIES)[number]["id"];
+
 /**
  * `holds`: lo que queda en las manos (los combos son dos cosas, una en cada mano). Cada id de `holds`
- * tiene su dibujo en packages/map/src/art/items.ts.
+ * tiene su dibujo en packages/map/src/art/items.ts y su forma de usarse en consumables.ts.
+ * `category`: la pestaña de la carta en la que sale.
  */
 export const CAFE_MENU = [
-  { id: "tinto", name: "Tinto", price: 3, kind: "drink", holds: ["tinto"], blurb: "Café negro, pequeño y bien cargado." },
-  { id: "cafe-leche", name: "Café con leche", price: 5, kind: "drink", holds: ["cafe-leche"], blurb: "En taza grande, para la mañana." },
-  { id: "aromatica", name: "Aromática", price: 4, kind: "drink", holds: ["aromatica"], blurb: "Infusión de frutas y hierbabuena." },
-  { id: "chocolate", name: "Chocolate con queso", price: 8, kind: "drink", holds: ["chocolate"], blurb: "Caliente, con su tajada de queso." },
-  { id: "coca-cola", name: "Coca-Cola", price: 5, kind: "drink", holds: ["coca-cola"], blurb: "Bien fría, en lata." },
-  { id: "pandebono", name: "Pandebono", price: 5, kind: "food", holds: ["pandebono"], blurb: "Recién salido del horno." },
-  { id: "bunuelo", name: "Buñuelo", price: 5, kind: "food", holds: ["bunuelo"], blurb: "Redondo, dorado y crocante." },
-  { id: "torta", name: "Torta de tres leches", price: 12, kind: "food", holds: ["torta"], blurb: "Para celebrar algo (o nada)." },
-  { id: "cigarro", name: "Cigarro", price: 4, kind: "smoke", holds: ["cigarro"], blurb: "Para la pausa en el porche." },
+  // ---------- Bebidas calientes ----------
+  { id: "tinto", name: "Tinto", price: 3, kind: "drink", category: "calientes", holds: ["tinto"], blurb: "Café negro, pequeño y bien cargado." },
+  { id: "perico", name: "Perico", price: 4, kind: "drink", category: "calientes", holds: ["perico"], blurb: "Tinto con un chorrito de leche, en pocillo." },
+  { id: "cafe-leche", name: "Café con leche", price: 5, kind: "drink", category: "calientes", holds: ["cafe-leche"], blurb: "En taza grande, para la mañana." },
+  { id: "cafe-campesino", name: "Café campesino", price: 4, kind: "drink", category: "calientes", holds: ["cafe-campesino"], blurb: "Con panela y canela, en pocillo de peltre." },
+  { id: "aromatica", name: "Aromática", price: 4, kind: "drink", category: "calientes", holds: ["aromatica"], blurb: "Infusión de frutas y hierbabuena." },
+  {
+    id: "agua-panela-queso",
+    name: "Agua de panela con queso",
+    price: 6,
+    kind: "drink",
+    category: "calientes",
+    holds: ["agua-panela-queso"],
+    blurb: "Calientita, con el queso derritiéndose adentro.",
+  },
+  { id: "milo", name: "Milo caliente", price: 6, kind: "drink", category: "calientes", holds: ["milo"], blurb: "Chocolatoso y espeso, como en el colegio." },
+  { id: "chocolate", name: "Chocolate con queso", price: 8, kind: "drink", category: "calientes", holds: ["chocolate"], blurb: "Caliente, con su tajada de queso." },
+  // ---------- Bebidas frías ----------
+  { id: "coca-cola", name: "Coca-Cola", price: 5, kind: "drink", category: "frias", holds: ["coca-cola"], blurb: "Bien fría, en lata." },
+  { id: "gaseosa-manzana", name: "Gaseosa de manzana", price: 4, kind: "drink", category: "frias", holds: ["gaseosa-manzana"], blurb: "La roja de siempre, en botella de vidrio." },
+  { id: "jugo-mora", name: "Jugo de mora", price: 6, kind: "drink", category: "frias", holds: ["jugo-mora"], blurb: "En leche, bien espeso." },
+  { id: "jugo-lulo", name: "Jugo de lulo", price: 6, kind: "drink", category: "frias", holds: ["jugo-lulo"], blurb: "Ácido y fresquito, con pepitas." },
+  { id: "jugo-maracuya", name: "Jugo de maracuyá", price: 6, kind: "drink", category: "frias", holds: ["jugo-maracuya"], blurb: "Amarillo, perfumado y con hielo." },
+  { id: "jugo-guanabana", name: "Jugo de guanábana", price: 7, kind: "drink", category: "frias", holds: ["jugo-guanabana"], blurb: "En leche, cremoso y dulcecito." },
+  { id: "jugo-mango", name: "Jugo de mango", price: 6, kind: "drink", category: "frias", holds: ["jugo-mango"], blurb: "De mango maduro, sin colar." },
+  { id: "limonada-coco", name: "Limonada de coco", price: 8, kind: "drink", category: "frias", holds: ["limonada-coco"], blurb: "Frappé, con coco rallado encima." },
+  { id: "avena", name: "Avena fría", price: 5, kind: "drink", category: "frias", holds: ["avena"], blurb: "Con canela, en vaso grande." },
+  { id: "kumis", name: "Kumis", price: 5, kind: "drink", category: "frias", holds: ["kumis"], blurb: "Casero, en vasito, con un toque de azúcar." },
+  { id: "champus", name: "Champús", price: 6, kind: "drink", category: "frias", holds: ["champus"], blurb: "De lulo, piña y maíz, como en Cali." },
+  { id: "salpicon", name: "Salpicón", price: 7, kind: "drink", category: "frias", holds: ["salpicon"], blurb: "Frutas picadas en jugo de sandía." },
+  // ---------- Panadería ----------
+  { id: "pandebono", name: "Pandebono", price: 5, kind: "food", category: "panaderia", holds: ["pandebono"], blurb: "Recién salido del horno." },
+  { id: "pan-yuca", name: "Pan de yuca", price: 4, kind: "food", category: "panaderia", holds: ["pan-yuca"], blurb: "En herradura, suavecito y con queso." },
+  { id: "almojabana", name: "Almojábana", price: 5, kind: "food", category: "panaderia", holds: ["almojabana"], blurb: "Esponjosa, de cuajada. Pide chocolate." },
+  { id: "bunuelo", name: "Buñuelo", price: 5, kind: "food", category: "panaderia", holds: ["bunuelo"], blurb: "Redondo, dorado y crocante." },
+  { id: "roscon", name: "Roscón de arequipe", price: 6, kind: "food", category: "panaderia", holds: ["roscon"], blurb: "Con azúcar por encima y relleno de arequipe." },
+  { id: "croissant", name: "Croissant de jamón y queso", price: 7, kind: "food", category: "panaderia", holds: ["croissant"], blurb: "Hojaldrado y calentito." },
+  { id: "achiras", name: "Achiras", price: 4, kind: "food", category: "panaderia", holds: ["achiras"], blurb: "Del Huila, en bolsita. Se deshacen en la boca." },
+  // ---------- Fritos y arepas ----------
+  { id: "empanada", name: "Empanada", price: 4, kind: "food", category: "fritos", holds: ["empanada"], blurb: "De maíz, con papa y carne. Con ají." },
+  { id: "dedito", name: "Dedito de queso", price: 4, kind: "food", category: "fritos", holds: ["dedito"], blurb: "Crocante por fuera y el queso estirado." },
+  { id: "papa-rellena", name: "Papa rellena", price: 6, kind: "food", category: "fritos", holds: ["papa-rellena"], blurb: "Con carne, arroz y huevo adentro." },
+  { id: "carimanola", name: "Carimañola", price: 6, kind: "food", category: "fritos", holds: ["carimanola"], blurb: "De yuca, rellena de carne, costeña." },
+  { id: "aborrajado", name: "Aborrajado", price: 7, kind: "food", category: "fritos", holds: ["aborrajado"], blurb: "Maduro con queso, apanado y frito." },
+  { id: "arepa-huevo", name: "Arepa de huevo", price: 7, kind: "food", category: "fritos", holds: ["arepa-huevo"], blurb: "Frita, con el huevo adentro, como en la Costa." },
+  { id: "arepa-queso", name: "Arepa con queso", price: 5, kind: "food", category: "fritos", holds: ["arepa-queso"], blurb: "Asada, con mantequilla y quesito." },
+  { id: "arepa-boyacense", name: "Arepa boyacense", price: 6, kind: "food", category: "fritos", holds: ["arepa-boyacense"], blurb: "Dulcecita y rellena de cuajada." },
+  { id: "arepa-choclo", name: "Arepa de choclo", price: 7, kind: "food", category: "fritos", holds: ["arepa-choclo"], blurb: "De maíz tierno, con quesito encima." },
+  // ---------- Desayunos ----------
+  { id: "huevos-pericos", name: "Huevos pericos", price: 9, kind: "food", category: "desayunos", holds: ["huevos-pericos"], blurb: "Con tomate y cebolla larga, en platico." },
+  { id: "changua", name: "Changua", price: 8, kind: "food", category: "desayunos", holds: ["changua"], blurb: "Caldo de leche con huevo y cilantro." },
+  { id: "calentado", name: "Calentado", price: 12, kind: "food", category: "desayunos", holds: ["calentado"], blurb: "Fríjoles con arroz, huevo frito y arepa." },
+  { id: "tamal", name: "Tamal tolimense", price: 12, kind: "food", category: "desayunos", holds: ["tamal"], blurb: "Envuelto en hoja de plátano. Para el domingo." },
+  // ---------- Postres y dulces ----------
+  { id: "cocada", name: "Cocada", price: 3, kind: "food", category: "postres", holds: ["cocada"], blurb: "De coco y panela, bien melcochuda." },
+  { id: "bocadillo", name: "Bocadillo con queso", price: 3, kind: "food", category: "postres", holds: ["bocadillo"], blurb: "Guayaba y queso: el matrimonio perfecto." },
+  { id: "natilla", name: "Natilla", price: 5, kind: "food", category: "postres", holds: ["natilla"], blurb: "Con canela, aunque no sea diciembre." },
+  { id: "obleas", name: "Oblea con arequipe", price: 6, kind: "food", category: "postres", holds: ["obleas"], blurb: "Crocante, con arequipe y mora." },
+  { id: "arroz-con-leche", name: "Arroz con leche", price: 6, kind: "food", category: "postres", holds: ["arroz-con-leche"], blurb: "Cremoso, con uvas pasas y canela." },
+  { id: "brevas", name: "Brevas con arequipe", price: 7, kind: "food", category: "postres", holds: ["brevas"], blurb: "Brevas caladas, con arequipe encima." },
+  { id: "cholado", name: "Cholado", price: 9, kind: "food", category: "postres", holds: ["cholado"], blurb: "Hielo raspado, frutas, leche condensada y barquillo." },
+  { id: "merengon", name: "Merengón", price: 10, kind: "food", category: "postres", holds: ["merengon"], blurb: "Merengue, crema y fresas. Se desmorona." },
+  { id: "torta", name: "Torta de tres leches", price: 12, kind: "food", category: "postres", holds: ["torta"], blurb: "Para celebrar algo (o nada)." },
+  // ---------- Combos (más baratos que por separado) ----------
+  { id: "onces", name: "Las onces: tinto y pandebono", price: 7, kind: "combo", category: "combos", holds: ["tinto", "pandebono"], blurb: "El clásico de media tarde." },
+  { id: "perico-arepa", name: "Perico y arepa con queso", price: 8, kind: "combo", category: "combos", holds: ["perico", "arepa-queso"], blurb: "Desayuno de pueblo, sin afán." },
+  {
+    id: "chocolate-almojabana",
+    name: "Chocolate con almojábana",
+    price: 11,
+    kind: "combo",
+    category: "combos",
+    holds: ["chocolate", "almojabana"],
+    blurb: "Con queso para mojar, como donde la abuela.",
+  },
+  {
+    id: "media-manana",
+    name: "Media mañana: lulo y empanada",
+    price: 9,
+    kind: "combo",
+    category: "combos",
+    holds: ["jugo-lulo", "empanada"],
+    blurb: "Para aguantar hasta el almuerzo.",
+  },
+  { id: "avena-bunuelo", name: "Avena con buñuelo", price: 8, kind: "combo", category: "combos", holds: ["avena", "bunuelo"], blurb: "El combo de la panadería del barrio." },
   {
     id: "desayuno-tinto",
     name: "Desayuno: tinto y cigarro",
     price: 6,
     kind: "combo",
+    category: "combos",
     holds: ["tinto", "cigarro"],
     blurb: "El desayuno de campeones (sale más barato).",
   },
@@ -31,10 +122,16 @@ export const CAFE_MENU = [
     name: "Desayuno: Coca-Cola y cigarro",
     price: 8,
     kind: "combo",
+    category: "combos",
     holds: ["coca-cola", "cigarro"],
     blurb: "La versión fría del desayuno (sale más barato).",
   },
-] as const;
+  // ---------- Otros ----------
+  { id: "cigarro", name: "Cigarro", price: 4, kind: "smoke", category: "otros", holds: ["cigarro"], blurb: "Para la pausa en el porche." },
+] as const satisfies readonly ({ category: CafeCategory } & Record<string, unknown>)[];
+
+/** Los productos de una sección de la carta, en su orden. */
+export const cafeItemsIn = (category: CafeCategory): CafeItem[] => CAFE_MENU.filter((i) => i.category === category);
 
 export type CafeItem = (typeof CAFE_MENU)[number];
 export type CafeItemId = CafeItem["id"];

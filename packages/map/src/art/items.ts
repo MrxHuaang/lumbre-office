@@ -34,6 +34,53 @@ interface ItemArt {
   ember?: { chars: string; body: string };
 }
 
+type Hexes = Record<string, string>;
+const legend = (h: Hexes): Legend => Object.fromEntries(Object.entries(h).map(([k, v]) => [k, hex(v)]));
+
+/**
+ * Vaso alto de jugo con pitillo (`s`): el jugo (`a`, sombra `A`, pepitas o trocitos `b`) y, si trae
+ * `f`/`F`, la espuma de arriba (se va con el primer sorbo). `flakes`: la espuma lleva coco rallado.
+ */
+function juiceGlass(c: Hexes, flakes = false): ItemArt {
+  const foam = Boolean(c.f);
+  return {
+    liquid: { chars: "aAb", foam: foam ? "fF" : "" },
+    rows: [
+      "....ss.", //
+      "oooosoo",
+      foam ? (flakes ? "ohfFsfo" : "ohffsFo") : "ohaasAo",
+      foam && flakes ? "ohFffFo" : "ohaaaAo",
+      "ohabaAo",
+      "ohaaaAo",
+      "ohbaAAo",
+      "oggggGo",
+      ".ooooo.",
+    ],
+    colors: { ...legend(c), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
+  };
+}
+
+/** Copa de pie (champús, salpicón): el líquido `a`/`A` con trocitos `b` y `c`, y lo que asoma arriba (`top`). */
+function goblet(c: Hexes & { top: string }): ItemArt {
+  const { top, ...rest } = c;
+  return {
+    liquid: { chars: "aAbc" },
+    rows: [
+      "....t..", //
+      "oooootoo".slice(0, 7),
+      "ohabaAo",
+      "oaacaAo",
+      "oabaaAo",
+      ".oacAo.",
+      "..ogo..",
+      "..ogo..",
+      ".oggGo.",
+      ".ooooo.",
+    ],
+    colors: { ...legend(rest), t: hex(top), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
+  };
+}
+
 const ITEMS: Record<string, ItemArt> = {
   tinto: {
     fx: "steam",
@@ -165,6 +212,543 @@ const ITEMS: Record<string, ItemArt> = {
       ".ooo.",
     ],
     colors: { s: hex("#c9c9d0"), r: hex("#d42a2a"), R: hex("#9c1c1c"), w: hex("#f4ecdc") },
+  },
+  // ---------- La carta colombiana: bebidas calientes ----------
+  // El perico: el pocillo del tinto, con la leche que le aclara el color.
+  perico: {
+    fx: "steam",
+    rows: [
+      ".ooooo.", //
+      ".opPpo.",
+      ".owwWoo",
+      ".owwWoo",
+      "ooooooo",
+      "oWwwwWo",
+      ".ooooo.",
+    ],
+    colors: { ...CUP, p: hex("#a8703f"), P: hex("#e6c79a") },
+    surface: { chars: "pP", inner: hex("#a8977e") },
+  },
+  // Pocillo de peltre (blanco con el borde azul y un desportillado) y su astilla de canela.
+  "cafe-campesino": {
+    fx: "steam",
+    from: [1, 1],
+    rows: [
+      ".....s..", //
+      "ooooso..",
+      "occsCo..",
+      "oBBBBoo.",
+      "owwwWo.o",
+      "owkwWo.o",
+      "owwwWoo.",
+      "oBBBBo..",
+      ".oooo...",
+    ],
+    colors: { c: hex("#3b1f14"), C: hex("#5a3220"), s: hex("#9a5a2a"), B: hex("#3f6fb0"), w: hex("#f2f4f6"), W: hex("#c3ccd8"), k: hex("#2b3a55") },
+    surface: { chars: "cC", inner: hex("#c3ccd8") },
+  },
+  // Taza verde con el agua de panela dorada y el cubo de queso flotando.
+  "agua-panela-queso": {
+    fx: "steam",
+    from: [2, 0],
+    rows: [
+      "oooooo..", //
+      "opPyYo..",
+      "ogggGoo.",
+      "ogggGo.o",
+      "ogggGoo.",
+      "ogggGo..",
+      ".oooo...",
+    ],
+    colors: { p: hex("#c9862e"), P: hex("#e8a64a"), y: hex("#fff6d8"), Y: hex("#e6d4a0"), g: hex("#6a9a5a"), G: hex("#46704a") },
+    surface: { chars: "pPyY", inner: hex("#355a38") },
+  },
+  // Taza grande con franja amarilla; el milo con sus grumitos encima.
+  milo: {
+    fx: "steam",
+    from: [3, 0],
+    rows: [
+      "ooooooo..", //
+      "okKkkKo..",
+      "owwwwWoo.",
+      "owwwwWo.o",
+      "orrrrRo.o",
+      "owwwwWoo.",
+      "owwwwWo..",
+      ".ooooo...",
+    ],
+    colors: { ...CUP, k: hex("#8a5634"), K: hex("#4e2c18"), r: hex("#e8b83a"), R: hex("#c0902a") },
+    surface: { chars: "kK", inner: hex("#a8977e") },
+  },
+  // ---------- Bebidas frías ----------
+  // Botella de vidrio con la gaseosa roja, tapa dorada y la etiqueta con la hojita.
+  "gaseosa-manzana": {
+    liquid: { chars: "rR" },
+    rows: [
+      ".oyo.", //
+      ".oro.",
+      ".oro.",
+      "orrRo",
+      "ohrRo",
+      "owlwo",
+      "owwwo",
+      "ohrRo",
+      "orrRo",
+      ".ooo.",
+    ],
+    colors: { y: hex("#e8c050"), r: hex("#d8322e"), R: hex("#9a1c1c"), h: GLASS.h, w: hex("#fff4dc"), l: hex("#6fb34a") },
+  },
+  "jugo-mora": juiceGlass({ a: "#8e2a5e", A: "#621a40", b: "#b84a80", f: "#d690b8", F: "#b0648e", s: "#f4ecdc" }),
+  "jugo-lulo": juiceGlass({ a: "#b9c23c", A: "#8a9426", b: "#4a5418", f: "#e2e8a0", F: "#bcc470", s: "#6fb34a" }),
+  "jugo-guanabana": juiceGlass({ a: "#f3e7c4", A: "#cdb98a", b: "#2b2420", s: "#8cc653" }),
+  // Vaso bajo con hielo: el maracuyá con sus pepas negras.
+  "jugo-maracuya": {
+    liquid: { chars: "aAbcC" },
+    rows: [
+      "oooooo", //
+      "ohcCao",
+      "ohacCo",
+      "ohbaAo",
+      "ohaabo",
+      "ohbaAo",
+      "oggggo",
+      ".oooo.",
+    ],
+    colors: { a: hex("#f7c52a"), A: hex("#d49a14"), b: hex("#3a2a1a"), c: alpha(hex("#f4fbff"), 0.95), C: alpha(hex("#b8dcea"), 0.95), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85) },
+  },
+  // Vaso ancho con la tajada de mango en el borde.
+  "jugo-mango": {
+    liquid: { chars: "aAb" },
+    rows: [
+      "....omo.", //
+      "oooomMmo",
+      "ohaaaAo.",
+      "ohabaAo.",
+      "ohaaaAo.",
+      "ohaaaAo.",
+      "oggggGo.",
+      ".ooooo..",
+    ],
+    colors: { a: hex("#ffb838"), A: hex("#e8901c"), b: hex("#ffd070"), m: hex("#ffd24a"), M: hex("#f08a1c"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
+  },
+  // Frappé blanco con coco rallado arriba y pedacitos de limón.
+  "limonada-coco": juiceGlass({ a: "#eee7cf", A: "#cfc3a0", b: "#9cc45a", f: "#fffaf0", F: "#d9ccaa", s: "#9cc45a" }, true),
+  // Vaso grande de avena con canela espolvoreada.
+  avena: {
+    liquid: { chars: "aA", foam: "fFd" },
+    rows: [
+      "ooooooo", //
+      "ohfdfFo",
+      "ohaaaAo",
+      "ohaaaAo",
+      "ohaaaAo",
+      "ohaaaAo",
+      "ohaaaAo",
+      "oggggGo",
+      ".ooooo.",
+    ],
+    colors: { a: hex("#e6d09c"), A: hex("#c4a870"), f: hex("#f6e8c8"), F: hex("#dcc8a0"), d: hex("#8a5a2a"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
+  },
+  // Vasito chico de kumis, blanco y espeso.
+  kumis: {
+    liquid: { chars: "aA", foam: "fF" },
+    rows: [
+      "oooooo", //
+      "ohfFfo",
+      "ohaaAo",
+      "ohaaAo",
+      "ohaaAo",
+      "oggggo",
+      ".oooo.",
+    ],
+    colors: { a: hex("#f4e8c8"), A: hex("#d0bd90"), f: hex("#fffdf6"), F: hex("#e8dcc0"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85) },
+  },
+  // En copa: el champús amarillo con granos de maíz y su hojita de naranjo.
+  champus: goblet({ a: "#f2b43c", A: "#c88a1e", b: "#fff09a", c: "#f2b43c", top: "#6fb34a" }),
+  // En copa: el salpicón rojo de sandía con los cuadritos de fruta y la cuchara.
+  salpicon: goblet({ a: "#f04a60", A: "#b82a40", b: "#ffd84a", c: "#8cc653", top: "#c9c9d0" }),
+  // ---------- Panadería ----------
+  // En herradura, pálido y con el queso que se tuesta en las puntas.
+  "pan-yuca": {
+    crumb: hex("#fff6d8"),
+    rows: [
+      "..ooooo..", //
+      ".obBBbbo.",
+      "obBbbbbdo",
+      "obbooobdo",
+      "obdo.obdo",
+      "oDdo.odDo",
+      ".oo...oo.",
+    ],
+    colors: { b: hex("#f0d48a"), B: hex("#fff0c0"), d: hex("#d4aa52"), D: hex("#b88a3c") },
+  },
+  // Alta y esponjosa, más pálida que el pandebono, con la grieta de arriba.
+  almojabana: {
+    crumb: hex("#fffae8"),
+    rows: [
+      "..oooo..", //
+      ".oBBcbo.",
+      "oBbbbcbo",
+      "obbbbbbo",
+      "obbbbbdo",
+      "obbbbddo",
+      "oddddDDo",
+      ".oooooo.",
+    ],
+    colors: { b: hex("#f6e0a0"), B: hex("#fff4d4"), c: hex("#d8b870"), d: hex("#dcb468"), D: hex("#b8903e") },
+  },
+  // Anillo trenzado con azúcar por encima y el arequipe asomando por debajo.
+  roscon: {
+    crumb: hex("#f0c890"),
+    rows: [
+      "..ooooo..", //
+      ".obsbsbo.",
+      "osbooobso",
+      "obso.osbo",
+      "osbooobso",
+      ".odadado.",
+      "..ooooo..",
+    ],
+    colors: { b: hex("#d8943e"), s: hex("#fff8f0"), d: hex("#a86024"), a: hex("#7a3e14") },
+  },
+  // Media luna dorada con capas y el jamón rosado asomando.
+  croissant: {
+    crumb: hex("#fff0c8"),
+    rows: [
+      "...ooo...", //
+      ".oobBboo.",
+      "obdbdbdbo",
+      "odbpPpbdo",
+      "odoooooDo",
+      ".o.....o.",
+    ],
+    colors: { b: hex("#e8a848"), B: hex("#f8d488"), d: hex("#b87424"), p: hex("#f09aa0"), P: hex("#d86a78"), D: hex("#8a5418") },
+  },
+  // Bolsita de papel con dos achiras asomando.
+  achiras: {
+    crumb: hex("#fff0c0"),
+    rows: [
+      ".oo.oo.", //
+      ".oyoYo.",
+      "ooyoYoo",
+      "okkkkKo",
+      "okllkKo",
+      "okkkkKo",
+      "okkkkKo",
+      ".ooooo.",
+    ],
+    colors: { y: hex("#f4dc8a"), Y: hex("#d8b860"), k: hex("#c89a60"), K: hex("#9a7040"), l: hex("#d8322e") },
+  },
+  // ---------- Fritos y arepas ----------
+  empanada: {
+    crumb: hex("#f6d27a"),
+    rows: [
+      "...oooo...", //
+      "..oaBaAo..",
+      ".oaBaaaAo.",
+      "oaaaaaaaAo",
+      "ocCcCcCcCo",
+      ".oooooooo.",
+    ],
+    colors: { a: hex("#eba43a"), A: hex("#c87a22"), B: hex("#f8c870"), c: hex("#d8902c"), C: hex("#a8601a") },
+  },
+  // Palito apanado con la punta de queso a la vista.
+  dedito: {
+    crumb: hex("#fff6d0"),
+    rows: [
+      ".ooooooo.", //
+      "obBbBbBwo",
+      "obbbbbbwo",
+      "odddddddo",
+      ".ooooooo.",
+    ],
+    colors: { b: hex("#e0a040"), B: hex("#f4c870"), d: hex("#b8782a"), w: hex("#fff6d0") },
+  },
+  "papa-rellena": {
+    crumb: hex("#f0d890"),
+    rows: [
+      "..ooooo..", //
+      ".obBbdbo.",
+      "obBbbbbdo",
+      "obdbbbbbo",
+      "obbbdbbDo",
+      ".oDbbbDo.",
+      "..ooooo..",
+    ],
+    colors: { b: hex("#c8742a"), B: hex("#e89a4a"), d: hex("#8a4a1a"), D: hex("#9a5420") },
+  },
+  // Alargada con las puntas finas: la de yuca de la Costa.
+  carimanola: {
+    crumb: hex("#fff4dc"),
+    rows: [
+      "...oooo...", //
+      ".oobBBboo.",
+      "obbbbbbbbo",
+      "obbbbbbbdo",
+      ".ooddddoo.",
+      "...oooo...",
+    ],
+    colors: { b: hex("#ecc070"), B: hex("#fae0a0"), d: hex("#c8903a") },
+  },
+  // Apanado naranja con el maduro y el queso asomando.
+  aborrajado: {
+    crumb: hex("#f6c84a"),
+    rows: [
+      "..ooooo..", //
+      ".oAaaaAo.",
+      "oaaaAaaao",
+      "oayywyaAo",
+      ".oaaaaao.",
+      "..ooooo..",
+    ],
+    colors: { a: hex("#d88a34"), A: hex("#f0b060"), y: hex("#f8c838"), w: hex("#fff6e0") },
+  },
+  // Gruesa y dorada, con la costura donde metieron el huevo.
+  "arepa-huevo": {
+    crumb: hex("#fff0c4"),
+    rows: [
+      "..ooooo..", //
+      ".oAaAaao.",
+      "oaaaaaaao",
+      "odwwyyddo",
+      "oddddddDo",
+      ".ooooooo.",
+    ],
+    colors: { a: hex("#f2b440"), A: hex("#fad07a"), d: hex("#d08a22"), D: hex("#a86a14"), w: hex("#fffaf0"), y: hex("#ffb020") },
+  },
+  // Pálida, con las marcas de la parrilla y la tajada de queso encima.
+  "arepa-queso": {
+    crumb: hex("#fff8e0"),
+    rows: [
+      "..ooooo..", //
+      ".oaqqqao.",
+      "oagqQqgao",
+      "oagaagaao",
+      "oddddddDo",
+      ".ooooooo.",
+    ],
+    colors: { a: hex("#f4e2a8"), g: hex("#b8884a"), q: hex("#fffaf0"), Q: hex("#e8dcbc"), d: hex("#d8b870"), D: hex("#b89650") },
+  },
+  // Amarilla y gruesa, rellena de cuajada (la franja blanca del medio).
+  "arepa-boyacense": {
+    crumb: hex("#fff0b0"),
+    rows: [
+      "..ooooo..", //
+      ".oyYyyyo.",
+      "oyyyyyyYo",
+      "owwwwwwWo",
+      "oYyyyyyYo",
+      ".ooooooo.",
+    ],
+    colors: { y: hex("#f6c43c"), Y: hex("#d89a20"), w: hex("#fff8ec"), W: hex("#e8dcc4") },
+  },
+  // De choclo: más naranja, con manchas tostadas y el quesito blanco encima.
+  "arepa-choclo": {
+    crumb: hex("#ffe08a"),
+    rows: [
+      "..ooooo..", //
+      ".oaqqQao.",
+      "oasqqQsao",
+      "oaasaasao",
+      "oddddddDo",
+      ".ooooooo.",
+    ],
+    colors: { a: hex("#f0a830"), s: hex("#a8601a"), q: hex("#fffaf0"), Q: hex("#e6dcc0"), d: hex("#c8801e"), D: hex("#a06414") },
+  },
+  // ---------- Desayunos (en plato o taza: se comen a cucharadas y se ve el plato) ----------
+  "huevos-pericos": {
+    rows: [
+      "..ooooo..", //
+      ".oyYryyo.",
+      "opyrygyPo",
+      "opYyyryPo",
+      ".oppppPo.",
+      "..ooooo..",
+    ],
+    colors: { y: hex("#f8d040"), Y: hex("#fce890"), r: hex("#d8322e"), g: hex("#6fb34a"), p: hex("#f8f4ec"), P: hex("#d8d0c0") },
+    surface: { chars: "yYrg", inner: hex("#f8f4ec") },
+  },
+  // Taza de barro con el caldo de leche, la yema y el cilantro; la cuchara adentro.
+  changua: {
+    fx: "steam",
+    from: [2, 0],
+    rows: [
+      ".......s", //
+      ".oooooso",
+      "omgmmsMo",
+      "ommgmyMo",
+      "obbbbbBo",
+      ".obbbBo.",
+      "..oooo..",
+    ],
+    colors: { m: hex("#f8f2e0"), M: hex("#e2d8c0"), g: hex("#5aa84a"), y: hex("#ffc030"), s: hex("#c9c9d0"), b: hex("#b8683a"), B: hex("#8a4a26") },
+    surface: { chars: "mMgy", inner: hex("#8a4a26") },
+  },
+  // Plato con fríjoles, arroz, huevo frito y un pedazo de arepa.
+  calentado: {
+    fx: "steam",
+    from: [5, 0],
+    rows: [
+      "..oooooo..", //
+      ".ofFfrrro.",
+      "offfwywrro",
+      "opaAapppPo",
+      ".oppppppo.",
+      "..oooooo..",
+    ],
+    colors: {
+      f: hex("#7a3422"),
+      F: hex("#a24a2e"),
+      r: hex("#fbf6e8"),
+      w: hex("#fffcf4"),
+      y: hex("#ffb020"),
+      a: hex("#f0d890"),
+      A: hex("#d8b870"),
+      p: hex("#f4f0e6"),
+      P: hex("#d0c8b8"),
+    },
+    surface: { chars: "fFrwyaA", inner: hex("#f4f0e6") },
+  },
+  // Envuelto en hoja de plátano y amarrado, abierto arriba para que se vea la masa.
+  tamal: {
+    crumb: hex("#f0a050"),
+    rows: [
+      ".ooooooo.", //
+      "olmmMmmLo",
+      "olLllllLo",
+      "ossssssso",
+      "ollLlllLo",
+      "olllllLLo",
+      ".ooooooo.",
+    ],
+    colors: { l: hex("#4a8a3a"), L: hex("#2e6a2a"), m: hex("#e8903a"), M: hex("#f4b868"), s: hex("#e0c890") },
+  },
+  // ---------- Postres y dulces ----------
+  cocada: {
+    crumb: hex("#f4e0c0"),
+    rows: [
+      "..ooo..", //
+      ".owcwo.",
+      "ocwcwco",
+      "ocCcCco",
+      ".ooooo.",
+    ],
+    colors: { c: hex("#c89050"), C: hex("#a06a30"), w: hex("#fff4e0") },
+  },
+  bocadillo: {
+    crumb: hex("#d8485a"),
+    rows: [
+      ".oooooo.", //
+      "obbbbbBo",
+      "obbbbbBo",
+      "owwwwwWo",
+      "owwwwwWo",
+      ".oooooo.",
+    ],
+    colors: { b: hex("#b8283a"), B: hex("#8a1a2a"), w: hex("#fff8e8"), W: hex("#e8dcc4") },
+  },
+  natilla: {
+    crumb: hex("#e8c088"),
+    rows: [
+      "ooooooo", //
+      "oTTdTto",
+      "odTTdto",
+      "onnnnNo",
+      "onnnnNo",
+      "ooooooo",
+    ],
+    colors: { T: hex("#e8c088"), t: hex("#d8a868"), d: hex("#8a4a22"), n: hex("#c8904e"), N: hex("#a87034") },
+  },
+  // La oblea redonda con su rejilla y, en el canto, el arequipe con mora.
+  obleas: {
+    crumb: hex("#f6e6b8"),
+    rows: [
+      "..ooooo..", //
+      ".owWwWwo.",
+      "owWwWwWwo",
+      "oWwWwWwWo",
+      "oaamaaaAo",
+      "owwwwwwWo",
+      ".ooooooo.",
+    ],
+    colors: { w: hex("#f6e6b8"), W: hex("#d8c090"), a: hex("#9a5a24"), A: hex("#6e3a14"), m: hex("#6a1a4a") },
+  },
+  // Vasito de vidrio con el arroz con leche, pasas, canela y la cuchara parada.
+  "arroz-con-leche": {
+    liquid: { chars: "rRcp" },
+    rows: [
+      "....s..", //
+      "oooosoo",
+      "ohrcsro",
+      "ohrprRo",
+      "ohrrrRo",
+      "ohprrRo",
+      "oggggGo",
+      ".ooooo.",
+    ],
+    colors: { r: hex("#f8f0dc"), R: hex("#ddd0b4"), c: hex("#9a5a2a"), p: hex("#5a2a3a"), s: hex("#c9c9d0"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
+  },
+  // Una breva calada con el arequipe chorreando encima.
+  brevas: {
+    crumb: hex("#c86a5a"),
+    rows: [
+      "...os...", //
+      "..oaAo..",
+      ".oaAaao.",
+      "obaabaao",
+      "obBbbbBo",
+      "obbbbBBo",
+      ".obbBBo.",
+      "..oooo..",
+    ],
+    colors: { s: hex("#6a8a3a"), a: hex("#c8782e"), A: hex("#e8a050"), b: hex("#6a2e2a"), B: hex("#4a1c1c") },
+  },
+  // Vaso plástico con capas de fruta y hielo, leche condensada arriba y el barquillo.
+  cholado: {
+    liquid: { chars: "mckpPrRyYgG" },
+    rows: [
+      ".....o.", //
+      "....obo",
+      "oooooBo",
+      "ohmcmko",
+      "ohpppPo",
+      "ohrrrRo",
+      "ohyyyYo",
+      "ohgggGo",
+      "oqqqqQo",
+      ".ooooo.",
+    ],
+    colors: {
+      b: hex("#e8c070"),
+      B: hex("#c89a48"),
+      m: hex("#fffaf0"),
+      c: hex("#e0283a"),
+      k: hex("#6fb34a"),
+      p: hex("#ffb030"),
+      P: hex("#e08a18"),
+      r: hex("#c83a5a"),
+      R: hex("#9a2440"),
+      y: hex("#f8e060"),
+      Y: hex("#d8bc3a"),
+      g: hex("#a8c848"),
+      G: hex("#86a430"),
+      h: GLASS.h,
+      q: alpha(hex("#d8eef6"), 0.85),
+      Q: alpha(hex("#e8f6fb"), 0.95),
+    },
+  },
+  // Base de merengue, crema rosada y dos fresas encima.
+  merengon: {
+    crumb: hex("#fff6f0"),
+    rows: [
+      "..oo.oo..", //
+      ".orRoorRo",
+      "ocpcpcpco",
+      "owwwwwwWo",
+      "owswwswWo",
+      ".ooooooo.",
+    ],
+    colors: { r: hex("#e0283a"), R: hex("#b01a2a"), c: hex("#fff4f6"), p: hex("#f4a0b8"), w: hex("#fffcf4"), W: hex("#e8dccc"), s: hex("#f0e6d8") },
   },
   // ---------- El bar del club ----------
   cerveza: {

@@ -17,7 +17,7 @@ describe("consumibles", () => {
   it("cada cosa tiene al menos un uso y una acción conocida", () => {
     for (const [id, c] of Object.entries(CONSUMABLES)) {
       expect(c.uses, id).toBeGreaterThan(0);
-      expect(["smoke", "sip", "bite"]).toContain(c.action);
+      expect(["smoke", "sip", "bite", "spoon"]).toContain(c.action);
     }
     expect(usesOf("desconocido")).toBe(1);
   });
