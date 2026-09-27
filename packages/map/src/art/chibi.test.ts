@@ -1,4 +1,4 @@
-import { ACCESSORIES, HAIR_STYLES, OUTFITS, type Accessory } from "@hyvento/shared";
+import { ACCESSORIES, HAIR_STYLES, OUTFITS, type Accessory, type Outfit } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { drawCharacter, drawSitting, FRAME, SHEET_DIRECTIONS, type CharacterStyle } from "./chibi";
 import type { PixelCanvas } from "./pixel";
@@ -68,9 +68,12 @@ describe("personajes chibi", () => {
   });
 
   it("cada prenda usa los colores que el editor deja elegir para ella", () => {
-    // Tiene que coincidir con el editor (apps/web: CharacterEditor y ACCENT_ACCESSORIES / ACCENT_OUTFITS de
-    // look-palette): con vestido no hay selector de pantalón y el de acento nombra lo que lo usa.
+    // Formato viejo de accesorios: los que usan el color de acento (el editor nuevo nombra todo lo que lo
+    // usa con accentUsers de look-palette).
     const accentAccessories: Accessory[] = ["cap", "headphones", "beanie", "scarf"];
+    // El vestido, el entero y el bikini tapan la parte de abajo; la chaqueta y el bañador usan el acento.
+    const noPants: Outfit[] = ["dress", "swimsuit", "bikini"];
+    const withAccent: Outfit[] = ["jacket", "trunks"];
     const noAccent: CharacterStyle[] = [
       { ...base, accessories: [] },
       { ...base, hairStyle: "long", accessories: ACCESSORIES.filter((a) => !accentAccessories.includes(a)) },
@@ -79,8 +82,8 @@ describe("personajes chibi", () => {
       expect(usesColor(plain, "pants"), "sin conjunto, el pantalón").toBe(true);
       expect(usesColor(plain, "accent"), `sin nada de acento (${plain.accessories?.join(", ")})`).toBe(false);
       for (const outfit of OUTFITS) {
-        expect(usesColor({ ...plain, outfit }, "pants"), `${outfit}: pantalón`).toBe(outfit !== "dress");
-        expect(usesColor({ ...plain, outfit }, "accent"), `${outfit}: acento`).toBe(outfit === "jacket");
+        expect(usesColor({ ...plain, outfit }, "pants"), `${outfit}: pantalón`).toBe(!noPants.includes(outfit));
+        expect(usesColor({ ...plain, outfit }, "accent"), `${outfit}: acento`).toBe(withAccent.includes(outfit));
       }
     }
     for (const a of ACCESSORIES) expect(usesColor({ ...base, accessories: [a] }, "accent"), a).toBe(accentAccessories.includes(a));

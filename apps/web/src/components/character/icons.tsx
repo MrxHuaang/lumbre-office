@@ -1,0 +1,23 @@
+// Iconos pixel de 8x8 del editor de personaje ("#" = píxel), dibujados como los de `Cozy.tsx`.
+const ICONS = {
+  face: [".######.", "#......#", "#.#..#.#", "#......#", "#......#", "#.#..#.#", "#..##..#", ".######."],
+  comb: ["........", "########", "########", "#.#.#.#.", "#.#.#.#.", "#.#.#.#.", "#.#.#.#.", "........"],
+  shirt: [".##..##.", "########", "########", "#.####.#", "..####..", "..####..", "..####..", "........"],
+  hat: ["........", "..####..", "..####..", "..####..", "..#..#..", "########", "########", "........"],
+  dice: ["########", "#......#", "#.#..#.#", "#......#", "#......#", "#.#..#.#", "#......#", "########"],
+  undo: ["..#.....", ".##.....", "######..", ".##...#.", "..#....#", ".......#", "......#.", "..####.."],
+  left: ["........", "...#....", "..##....", ".#######", ".#######", "..##....", "...#....", "........"],
+  right: ["........", "....#...", "....##..", "#######.", "#######.", "....##..", "....#...", "........"],
+} as const;
+
+export type MiniIconName = keyof typeof ICONS;
+
+export function MiniIcon({ name, size = 14, className }: { name: MiniIconName; size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 8 8" shapeRendering="crispEdges" aria-hidden className={className}>
+      {ICONS[name].flatMap((row, y) =>
+        [...row].map((ch, x) => (ch === "#" ? <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} fill="currentColor" /> : null)),
+      )}
+    </svg>
+  );
+}

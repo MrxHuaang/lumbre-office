@@ -9,7 +9,7 @@ import { OfficeDialog } from "./OfficeDialog";
 
 /**
  * Editar el perfil (nombre y personaje) o solo el personaje, sin salir de la cabaña: se guarda y
- * todos ven el cambio al instante. La ropa nueva se estrena en el probador de la tienda (`FittingPanel`).
+ * todos ven el cambio al instante. Es el mismo editor que el probador de la tienda (`FittingPanel`).
  */
 export function ProfileDialog({
   profile,
@@ -70,7 +70,8 @@ export function ProfileDialog({
         </>
       }
     >
-      <div className="cozy-scroll min-h-0 overflow-y-auto px-4 py-4">
+      {/* El -1rem deja la vista previa pegada arriba del todo al desplazar (compensa el py-4). */}
+      <div className="cozy-scroll min-h-0 overflow-y-auto px-4 py-4 [--editor-sticky-top:-1rem]">
         {withName && (
           <label className="mb-5 flex max-w-sm flex-col gap-2 text-[14px] font-semibold">
             Tu nombre
