@@ -11,29 +11,33 @@ import { AreaView, DEPTH_OVERLAY, ensureTexture } from "./iso/view";
 const MAIN_NEAR_TILES = 7;
 const USABLE_NEAR_TILES = 4;
 /** Cada cuánto titila un destello (ms) y cuánto dura el brillo. */
-const TWINKLE_EVERY_MS = 2600;
-const TWINKLE_MS = 900;
+const TWINKLE_EVERY_MS = 2200;
+const TWINKLE_MS = 1200;
 /** Distancia (tiles) de un punto al mueble que lo marca. */
 const POINT_TO_FURNITURE_TILES = 1.6;
 /** Muebles con indicador aunque no tengan punto (se usan sentándose). */
 const ALWAYS: readonly string[] = ["blackjack-table"];
 
 function markerArt(): PixelCanvas {
-  // Destello de cuatro puntas: centro blanco, brazos crema y un halo muy suave (sin contorno: no es un
-  // cartel, es un brillo).
-  const c = new PixelCanvas(9, 9);
-  const core = at(C.white, 4);
-  const arm = at(C.cream, 5);
-  const halo = alpha(at(C.cream, 4), 0.35);
-  for (const [x, y] of [[3, 3], [5, 3], [3, 5], [5, 5]] as const) c.set(x, y, halo);
-  for (let k = 1; k <= 3; k++) {
-    const col = k === 1 ? arm : k === 2 ? alpha(arm, 0.8) : alpha(arm, 0.45);
-    c.set(4 - k, 4, col);
-    c.set(4 + k, 4, col);
-    c.set(4, 4 - k, col);
-    c.set(4, 4 + k, col);
+  // Destello de cuatro puntas: centro blanco, brazos crema, puntas doradas y un halo dorado suave (sin
+  // contorno: no es un cartel, es un brillo del objeto).
+  const c = new PixelCanvas(13, 13);
+  const m = 6;
+  const halo = alpha(at(C.gold, 4), 0.28);
+  for (let y = 0; y < 13; y++)
+    for (let x = 0; x < 13; x++) {
+      const d = Math.hypot(x - m, y - m);
+      if (d <= 3.2 && d > 1.2) c.set(x, y, halo);
+    }
+  for (let k = 1; k <= 5; k++) {
+    const col = k === 1 ? at(C.white, 4) : k <= 3 ? at(C.cream, 5) : k === 4 ? alpha(at(C.gold, 5), 0.85) : alpha(at(C.gold, 4), 0.5);
+    c.set(m - k, m, col);
+    c.set(m + k, m, col);
+    c.set(m, m - k, col);
+    c.set(m, m + k, col);
   }
-  c.set(4, 4, core);
+  for (const [x, y] of [[m - 1, m - 1], [m + 1, m - 1], [m - 1, m + 1], [m + 1, m + 1]] as const) c.set(x, y, alpha(at(C.cream, 5), 0.7));
+  c.set(m, m, at(C.white, 4));
   return c;
 }
 
@@ -57,7 +61,7 @@ export class InteractMarkers {
   /** Arma los indicadores del nivel: uno por mueble de cada objeto interactivo (junto a su punto) y los de los muebles que se usan. */
   setArea(map: OfficeMap, view: AreaView, specs: readonly { point: string; furniture: readonly string[] }[]) {
     this.clear();
-    const key = ensureTexture(this.scene, "indicador-destello", markerArt);
+    const key = ensureTexture(this.scene, "indicador-destello-2", markerArt);
     const ts = map.tileSize;
     const chosen = new Set<PlacedFurniture>();
     const center = (f: PlacedFurniture) => ({ x: (f.x + f.w / 2) * ts, y: (f.y + f.d / 2) * ts });
