@@ -8,8 +8,9 @@ import { CONEXIONES, hacia } from "./conexiones";
 // (oeste) y al club (este, con el bar integrado), y por el pasillo de abajo al cine, al arcade y a los
 // baños. Ninguna sala se cruza para llegar a otra.
 
-const VESTIBULO: Rect = { x: 16, y: 0, w: 14, h: 18 };
-const CASINO_ROOM: Rect = { x: 0, y: 4, w: 16, h: 14 };
+/** El vestíbulo, justo de ancho para los tres neones del norte y la escalera; el resto va al casino. */
+const VESTIBULO: Rect = { x: 18, y: 0, w: 12, h: 18 };
+const CASINO_ROOM: Rect = { x: 0, y: 4, w: 18, h: 14 };
 const CLUB_ROOM: Rect = { x: 30, y: 4, w: 15, h: 14 };
 const PASILLO: Rect = { x: 0, y: 18, w: 45, h: 3 };
 const CINEMA_ROOM: Rect = { x: 0, y: 21, w: 16, h: 9 };
@@ -24,12 +25,15 @@ const CABALLEROS: Rect = { x: 39, y: 21, w: 6, h: 4 };
 /** Puertas del vestíbulo y del pasillo (el primer tile de cada una). */
 const PUERTA_CASINO = { x: VESTIBULO.x, y: 10 };
 const PUERTA_CLUB = { x: CLUB_ROOM.x, y: 10 };
-const PUERTA_PASILLO = { x: 22, y: PASILLO.y };
+const PUERTA_PASILLO = { x: 23, y: PASILLO.y };
 
 // ---- Casino ----
-/** Paño de la ruleta (3x4); la rueda (2x2) va en su cabecera, del lado de -y. */
-const ROULETTE = { x: 5, y: 9 };
-const BLACKJACK = { x: 11, y: 9 };
+/**
+ * Paño de la ruleta (3x4); la rueda (2x2) va en su cabecera, del lado de -y. Entre los puntos de la
+ * ruleta y el blackjack quedan 4 tiles libres, para pasar aunque haya gente jugando.
+ */
+const ROULETTE = { x: 4, y: 9 };
+const BLACKJACK = { x: 12, y: 9 };
 /**
  * Banquetas del blackjack en el orden de los asientos 1 a 5: una en la punta de arriba, tres frente a la
  * mesa y una en la punta de abajo (el crupier es automático, del otro lado).
@@ -100,24 +104,25 @@ export const sotano: AreaDef = {
     { id: "pasillo-sotano", name: "Pasillo", type: "common", rect: PASILLO, isolated: false },
     { id: "cine", name: "Cine", type: "common", rect: CINEMA_ROOM, isolated: true },
     { id: "arcade", name: "Arcade", type: "common", rect: ARCADE_ROOM, isolated: false },
+    { id: "banos-damas", name: "Baño de damas", type: "common", rect: DAMAS, isolated: false },
+    { id: "banos-caballeros", name: "Baño de caballeros", type: "common", rect: CABALLEROS, isolated: false },
   ],
   features: [
     // Vestíbulo: un neón por sala. El del casino en la pared oeste (queda de su lado); los demás al norte.
     { kind: "neon", edge: "v", x: VESTIBULO.x, y: 0, width: 4, text: "CASINO" },
-    { kind: "neon", edge: "h", x: 16, y: 0, width: 3, text: "CINE" },
-    { kind: "neon", edge: "h", x: 19, y: 0, width: 4, text: "ARCADE" },
-    { kind: "neon", edge: "h", x: 23, y: 0, width: 3, text: "CLUB" },
+    { kind: "neon", edge: "h", x: 18, y: 0, width: 3, text: "CINE" },
+    { kind: "neon", edge: "h", x: 21, y: 0, width: 4, text: "ARCADE" },
+    { kind: "neon", edge: "h", x: 25, y: 0, width: 3, text: "CLUB" },
     // Casino: letreros sobre los tragamonedas y la caja, reloj y cuadros.
     { kind: "neon", edge: "h", x: 1, y: CASINO_ROOM.y, width: 4, text: "JACKPOT" },
-    { kind: "clock", edge: "h", x: 6, y: CASINO_ROOM.y },
-    { kind: "picture", edge: "h", x: 8, y: CASINO_ROOM.y },
-    { kind: "neon", edge: "h", x: 10, y: CASINO_ROOM.y, width: 4, text: "CAJA" },
+    { kind: "clock", edge: "h", x: 7, y: CASINO_ROOM.y },
+    { kind: "picture", edge: "h", x: 9, y: CASINO_ROOM.y },
+    { kind: "neon", edge: "h", x: 12, y: CASINO_ROOM.y, width: 3, text: "CAJA" },
     { kind: "neon", edge: "v", x: 0, y: 6, width: 4, text: "SLOTS" },
     { kind: "picture", edge: "v", x: 0, y: 11 },
     { kind: "neon", edge: "v", x: 0, y: 13, width: 3, text: "777" },
-    // Club: el letrero del bar sobre los estantes y el del DJ sobre la cabina.
-    { kind: "neon", edge: "h", x: 32, y: CLUB_ROOM.y, width: 4, text: "BAR" },
-    { kind: "poster", edge: "h", x: 38, y: CLUB_ROOM.y },
+    // Club: el letrero del bar sobre el humidor (los estantes de botellas lo taparían) y el del DJ sobre la cabina.
+    { kind: "neon", edge: "h", x: 37, y: CLUB_ROOM.y, width: 3, text: "BAR" },
     { kind: "neon", edge: "h", x: 41, y: CLUB_ROOM.y, width: 2, text: "DJ" },
     // Pasillo: un afiche al fondo.
     { kind: "poster", edge: "v", x: 0, y: 19 },
@@ -129,43 +134,44 @@ export const sotano: AreaDef = {
   furniture: [
     // ---- Vestíbulo ----
     // Alfombras primero (van debajo de todo, en este orden).
-    place("lobby-rug", 20, 5),
-    place("stairs-up", 27, 0),
+    place("lobby-rug", 21, 5),
+    // La escalera contra la esquina noreste, sin dejar un rincón detrás.
+    place("stairs-up", 28, 0),
     // Guardarropa en el rincón oeste: percheros con abrigos contra la pared y el mostrador delante.
-    place("coat-rail", 16, 0),
-    place("coat-rail", 16, 2),
-    place("coat-check", 18, 1),
-    place("lobby-statue", 22, 9),
+    place("coat-rail", 18, 0),
+    place("coat-rail", 18, 2),
+    place("coat-check", 20, 1),
+    place("lobby-statue", 23, 9),
     // Sofás a los dos lados de la estatua, mirándola.
-    place("lounge-sofa", 20, 9),
-    place("lounge-sofa", 25, 9, "left"),
-    place("monstera", 19, 5),
-    place("velvet-rope", 17, 9),
-    place("velvet-rope", 17, 12),
+    place("lounge-sofa", 21, 9),
+    place("lounge-sofa", 26, 9, "left"),
+    place("monstera", 20, 5),
+    place("velvet-rope", 19, 9),
+    place("velvet-rope", 19, 12),
     place("velvet-rope", 29, 9),
     place("velvet-rope", 29, 12),
     // Sala de espera a cada lado.
-    place("lounge-sofa", 16, 14),
-    place("cocktail-table", 17, 14),
+    place("lounge-sofa", 18, 14),
+    place("cocktail-table", 19, 14),
     place("lounge-sofa", 29, 14, "left"),
     place("cocktail-table", 28, 14),
-    place("lamp", 16, 5),
+    place("lamp", 18, 5),
     place("lamp", 29, 5),
-    place("palm", 16, 17),
+    place("palm", 18, 17),
     place("palm", 29, 17),
     place("monstera", 26, 4),
-    place("poster-stand", 20, 17, "down"),
-    place("poster-stand", 25, 17, "down"),
-    place("lobby-sign", 24, 16),
+    place("poster-stand", 21, 17, "down"),
+    place("poster-stand", 26, 17, "down"),
+    place("lobby-sign", 25, 16),
     // ---- Casino ----
     place("palm", 0, 4),
     ...[1, 2, 3, 4].map((x) => place("slot-machine", x, CASINO_ROOM.y, "down")),
-    place("wall-sconce", 5, CASINO_ROOM.y, "down"),
-    place("lamp", 7, CASINO_ROOM.y),
-    place("wall-sconce", 9, CASINO_ROOM.y, "down"),
-    place("casino-cashier", 11, CASINO_ROOM.y, "down"),
-    place("fortune-wheel", 14, CASINO_ROOM.y, "down"),
-    place("palm", 15, CASINO_ROOM.y),
+    place("wall-sconce", 6, CASINO_ROOM.y, "down"),
+    place("lamp", 8, CASINO_ROOM.y),
+    place("wall-sconce", 10, CASINO_ROOM.y, "down"),
+    place("casino-cashier", 12, CASINO_ROOM.y, "down"),
+    place("fortune-wheel", 15, CASINO_ROOM.y, "down"),
+    place("palm", 17, CASINO_ROOM.y),
     ...[6, 7, 8, 9].map((y) => place("slot-machine", 0, y)),
     ...[13, 14, 15].map((y) => place("slot-machine", 0, y)),
     place("wall-sconce", 0, 11),
@@ -178,15 +184,15 @@ export const sotano: AreaDef = {
     place("poker-table", POKER.x, POKER.y, "down"),
     ...[0, 1, 2].map((dx) => place("stool", POKER.x + dx, POKER.y - 1, "down")),
     ...[0, 1, 2].map((dx) => place("stool", POKER.x + dx, POKER.y + 2, "up")),
-    place("coin-fountain", 8, 15),
+    place("coin-fountain", 9, 15),
     // Rincón de sofás frente a frente con una mesita, junto a la puerta.
-    place("lounge-sofa", 12, 14, "down"),
-    place("cocktail-table", 12, 15),
-    place("lounge-sofa", 12, 16, "up"),
-    place("velvet-rope", 15, 9),
-    place("velvet-rope", 15, 12),
+    place("lounge-sofa", 13, 14, "down"),
+    place("cocktail-table", 13, 15),
+    place("lounge-sofa", 13, 16, "up"),
+    place("lamp", 16, 15),
+    place("velvet-rope", 17, 9),
+    place("velvet-rope", 17, 12),
     place("palm", 0, 17),
-    place("palm", 15, 17),
     // ---- Club ----
     place("dance-floor", 34, 9),
     place("pole-stage", STAGE.x, STAGE.y),
@@ -205,7 +211,6 @@ export const sotano: AreaDef = {
     place("dj-booth", 41, CLUB_ROOM.y, "down"),
     place("speaker", 43, CLUB_ROOM.y, "down"),
     place("palm", 44, CLUB_ROOM.y),
-    place("wall-sconce", 39, CLUB_ROOM.y, "down"),
     // Sofás de terciopelo con mesas de cóctel alrededor de la pista.
     place("lounge-sofa", 44, 11, "left"),
     place("cocktail-table", 43, 11),
@@ -248,7 +253,8 @@ export const sotano: AreaDef = {
     place("plant", 15, CINEMA_ROOM.y + CINEMA_ROOM.h - 1),
     // ---- Arcade ----
     ...ARCADE_CABINETS.map((c) => place("arcade-cabinet", c.x, c.y, c.facing)),
-    place("plant", ARCADE_ROOM.x, ARCADE_ROOM.y),
+    // La planta un tile adentro: pegada a la pared taparía la máquina de crispetas del cine.
+    place("plant", ARCADE_ROOM.x + 1, ARCADE_ROOM.y),
     place("lamp-mushroom", 24, ARCADE_ROOM.y),
     place("claw-machine", 29, ARCADE_ROOM.y, "down"),
     place("claw-machine", 30, ARCADE_ROOM.y, "down"),
@@ -301,8 +307,8 @@ export const sotano: AreaDef = {
     ].map(([dx, dy]) => ({ type: "pole_stage" as const, name: "Escenario", x: STAGE.x + dx!, y: STAGE.y + dy! })),
     // Frente a la barra del club, entre las banquetas: ahí se piden tragos y cigarros.
     ...[2, 5, 7].map((i) => ({ type: "club_bar" as const, name: "Barra del club", x: BAR.x + i, y: BAR.y + 1 })),
-    { type: "casino_cashier", name: "Caja", x: 11, y: CASINO_ROOM.y + 1 },
     { type: "casino_cashier", name: "Caja", x: 12, y: CASINO_ROOM.y + 1 },
+    { type: "casino_cashier", name: "Caja", x: 13, y: CASINO_ROOM.y + 1 },
     // Delante de cada máquina del arcade, en el orden de ARCADE_CABINETS.
     ...ARCADE_CABINETS.map((c, i) => ({
       type: "arcade" as const,
