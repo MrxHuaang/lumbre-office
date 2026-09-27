@@ -1,10 +1,11 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
-import { bubble, characterShadow, crumbColor, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS } from "@hyvento/map/art";
-import { EMOTE, heldParts, parseHeldLeft, usesOf, type ConsumeAction, type Direction, type EmoteId, type PresenceStatus } from "@hyvento/shared";
+import { bubble, characterShadow, crumbColor, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS } from "@hyvento/map/art";
+import { EMOTE, emoteInfo, heldParts, parseHeldLeft, usesOf, type ConsumeAction, type Direction, type EmoteGesture, type EmoteId, type PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt, STATUS_HEX } from "@/lib/cozy";
 import { heldTexture, idleWisp, playUse } from "./consumables";
+import { armTexture, ensureEmoteTextures, gestureOffset, SHOULDER_UP, WAVE_SIDE } from "./gestures";
 import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
 
 const ROW = Object.fromEntries(SHEET_DIRECTIONS.map((d, i) => [d, i])) as Record<Direction, number>;
@@ -98,6 +99,8 @@ export class Avatar {
   /** Emote sobre la cabeza (un globo con dibujo) y el baile, si está bailando. */
   private emoteBubble?: { container: Phaser.GameObjects.Container; lift: number; tween: Phaser.Tweens.Tween };
   private dance?: { timer: Phaser.Time.TimerEvent; step: number };
+  /** Gesto de un emote en curso (`t` = ms desde que empezó) y el brazo que saluda, si va. */
+  private gesture?: { kind: EmoteGesture; t: number; timer: Phaser.Time.TimerEvent; arm?: Phaser.GameObjects.Image };
   /** Lo que lleva en las manos (pedido en la cafetería o el bar); `clearing` = se quita al terminar de usarlo. */
   private held?: { id: string; parts: HeldPart[]; clearing: boolean };
   /** Tocando un instrumento: lleva el ritmo con saltitos. */
@@ -176,6 +179,7 @@ export class Avatar {
     this.speakingRing.setVisible(!hidden && this.speaking && !this.video);
     this.bubble?.setVisible(!hidden);
     this.emoteBubble?.container.setVisible(!hidden);
+    this.gesture?.arm?.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
   }
 
@@ -505,6 +509,7 @@ export class Avatar {
     if (moving) {
       this.stopDance();
       this.stopPerform();
+      this.stopGesture();
     }
     if (this.seated) {
       this.dir = dir;
@@ -533,14 +538,18 @@ export class Avatar {
     this.setPosition(this.wx + dx * t, this.wy + dy * t);
   }
 
-  /** Emote: globo con un dibujo que aparece de un salto, flota y se va. "dance" además hace bailar. */
+  /**
+   * Emote: globo con un dibujo animado que aparece de un salto, flota y se va. Algunos suman un gesto
+   * del personaje (saltito, balanceo, saludar con el brazo) y "dance" lo hace bailar.
+   */
   emote(id: EmoteId) {
     this.emoteBubble?.tween.remove();
     this.emoteBubble?.container.destroy();
-    ensureTexture(this.scene, "globo-emote", () => bubble(13, 12));
-    ensureTexture(this.scene, `emote-${id}`, () => drawEmote(id));
-    const bg = this.scene.add.image(0, 0, "globo-emote").setOrigin(0.5, 1);
-    const icon = this.scene.add.image(0, -bg.height + 2, `emote-${id}`).setOrigin(0.5, 0);
+    ensureTexture(this.scene, "globo-emote-2", () => bubble(15, 13));
+    const frames = ensureEmoteTextures(this.scene, id);
+    const bg = this.scene.add.image(0, 0, "globo-emote-2").setOrigin(0.5, 1);
+    const icon = this.scene.add.image(0, -bg.height + 1, `emote-${id}-0`).setOrigin(0.5, 0);
+    let shown = 0;
     const container = this.scene.add.container(0, 0, [bg, icon]).setVisible(!this.hidden).setScale(0.2);
     const state = { container, lift: 0, tween: undefined as unknown as Phaser.Tweens.Tween };
     // Salta a su tamaño, sube un poco mientras se ve y al final se desvanece.
@@ -553,6 +562,8 @@ export class Avatar {
         container.setScale(v < 0.08 ? 0.2 + (v / 0.08) * 0.9 : v < 0.14 ? 1.1 - ((v - 0.08) / 0.06) * 0.1 : 1);
         state.lift = Math.round(v * 4);
         container.setAlpha(v > 0.85 ? 1 - (v - 0.85) / 0.15 : 1);
+        const frame = frames.ms ? Math.floor((v * EMOTE.showMs) / frames.ms) % frames.count : 0;
+        if (frame !== shown) icon.setTexture(`emote-${id}-${(shown = frame)}`);
         this.layout();
       },
       onComplete: () => {
@@ -561,8 +572,55 @@ export class Avatar {
       },
     });
     this.emoteBubble = state;
-    if (id === "dance") this.startDance();
+    const gesture = emoteInfo(id)?.gesture ?? "none";
+    if (gesture === "dance") this.startDance();
+    else if (gesture !== "none") this.startGesture(gesture);
     this.layout();
+  }
+
+  /** Gesto corto (ver gestures.ts): corre el sprite unos píxeles y, al saludar, levanta un brazo. */
+  private startGesture(kind: EmoteGesture) {
+    this.stopGesture();
+    if (this.moving) return;
+    const start = this.scene.time.now;
+    const g: NonNullable<typeof this.gesture> = {
+      kind,
+      t: 0,
+      timer: this.scene.time.addEvent({
+        delay: 40,
+        loop: true,
+        callback: () => {
+          g.t = this.scene.time.now - start;
+          if (g.t >= EMOTE.gestureMs) return this.stopGesture();
+          this.layout();
+        },
+      }),
+    };
+    if (kind === "wave") g.arm = this.scene.add.image(0, 0, "__DEFAULT").setOrigin(0, 0).setVisible(false);
+    this.gesture = g;
+  }
+
+  private stopGesture() {
+    if (!this.gesture) return;
+    this.gesture.timer.remove();
+    this.gesture.arm?.destroy();
+    this.gesture = undefined;
+    this.layout();
+  }
+
+  /** Brazo que saluda: se ubica en el hombro del lado que se ve y alterna dos poses. */
+  private layoutArm(x: number, y: number, depth: number) {
+    const g = this.gesture;
+    if (!g?.arm) return;
+    const face = this.seated ?? this.dir;
+    const { side, dx } = WAVE_SIDE[face];
+    const { key, shoulder } = armTexture(this.scene, this.textureKey, side, Math.floor(g.t / 200));
+    const up = SHOULDER_UP - (this.seated ? 3 : 0);
+    g.arm
+      .setTexture(key)
+      .setPosition(x + dx - shoulder.x, y + 1 - up - shoulder.y)
+      .setDepth(depth + 0.52)
+      .setVisible(!this.hidden);
   }
 
   /** Baile: gira mirando a cada lado y da saltitos (solo de pie y quieto). */
@@ -631,6 +689,7 @@ export class Avatar {
     this.clearHeld();
     this.stopDance();
     this.stopPerform();
+    this.stopGesture();
     this.emoteBubble?.tween.remove();
     this.emoteBubble?.container.destroy();
     this.bubbleTimer?.remove();
@@ -650,8 +709,11 @@ export class Avatar {
     // Sentado se ordena con el mueble (+0.5: encima de él); así un tronco largo no lo tapa.
     const depth = pose ? pose.depth : depthOf(this.wx, this.wy);
     // Bailando da saltitos de 2 px; tocando un instrumento, de 1 px.
-    const hop = this.dance && this.dance.step % 2 ? 2 : this.playing && this.playing.step % 2 ? 1 : 0;
-    this.sprite.setPosition(x, y + 1 - hop).setDepth(depth + 0.5);
+    // Un gesto de emote corre al personaje unos píxeles (lo de las manos lo sigue).
+    const g = this.gesture ? gestureOffset(this.gesture.kind, this.gesture.t) : { x: 0, lift: 0 };
+    const hop = (this.dance && this.dance.step % 2 ? 2 : this.playing && this.playing.step % 2 ? 1 : 0) + g.lift;
+    this.sprite.setPosition(x + g.x, y + 1 - hop).setDepth(depth + 0.5);
+    this.layoutArm(x + g.x, y - hop, depth);
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);
     if (this.held) {
@@ -660,7 +722,7 @@ export class Avatar {
       const front = face === "down" || face === "right";
       // Sentado, las manos quedan 3 px más abajo (sobre las piernas) y la boca también.
       const bottom = y + 1 - hop - (this.seated ? 2 : 5);
-      const mouthX = x + MOUTH[face].dx;
+      const mouthX = x + g.x + MOUTH[face].dx;
       const mouthY = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
       for (const part of this.held.parts) {
         const hand = hands[part.hand];
@@ -669,7 +731,7 @@ export class Avatar {
         const smoke = part.smoke;
         const flip = smoke && hand.dx < 0;
         img.setFlipX(flip);
-        const hx = x + hand.dx;
+        const hx = x + g.x + hand.dx;
         // En la boca: el filtro entre los labios, o el borde del vaso a la altura de la boca.
         const toHand = hand.dx - MOUTH[face].dx < 0 ? -1 : 1;
         const mx = smoke ? mouthX + (flip ? -1 : 1) * Math.floor(img.width / 2) : mouthX + toHand * Math.max(1, Math.floor(img.width / 2) - 2);

@@ -8,6 +8,7 @@ import { activateInteractable } from "@/game/network";
 import { useOfficeStore, type Interactable } from "@/game/store";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
+import { GiftsSection } from "./social/GiftsSection";
 
 const REASON_LABEL: Record<PointReason, string> = {
   PRESENCE: "Presencia",
@@ -33,6 +34,7 @@ function moveLabel(m: { reason: PointReason; refId: string | null }) {
   if (m.reason === "PURCHASE" && kind === "shop") return `Tienda · ${shopItem(id)?.name ?? "compra"}`;
   if (m.reason === "CASINO") return kind === "blackjack" ? "Casino · Blackjack" : "Casino · Ruleta";
   if (m.reason === "ADMIN" && ref === WELCOME_REF) return "Bono de bienvenida";
+  if (m.reason === "GIFT" && kind === "trade") return "Intercambio";
   return REASON_LABEL[m.reason];
 }
 
@@ -208,6 +210,8 @@ export function MailboxPanel({ atObject, onClose }: { atObject: boolean; onClose
             )}
             {error && <p className="text-[14px] font-semibold text-cozy-red-deep">{error}</p>}
           </section>
+
+          <GiftsSection />
 
           <section className="flex flex-col gap-2">
             <p className="flex items-center justify-between text-[15px] font-semibold">

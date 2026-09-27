@@ -10,6 +10,7 @@ import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon } from "./Cozy";
 import { PointsCounter } from "./PointsPanels";
+import { GiftChip, PersonActions } from "./social/SocialOverlays";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -54,6 +55,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
       </div>
 
       <PointsCounter />
+
+      <GiftChip />
 
       <div
         className="cozy-chip flex items-center gap-1.5 px-3 py-1.5"
@@ -202,6 +205,7 @@ export function PeoplePanel() {
               <span className="max-w-[45%] truncate text-[12px] text-cozy-ink-soft">
                 {labelOf(p.sessionId === sessionId ? place : p.place)}
               </span>
+              {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>
           ))}
         </ul>

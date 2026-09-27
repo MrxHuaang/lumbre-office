@@ -4,6 +4,8 @@ import {
   grantWelcomeBonus,
   casinoBet,
   getCasinoSettings,
+  givenToday,
+  listInventory,
   type PresenceStatus as DbStatus,
   prisma,
   type Prisma,
@@ -22,7 +24,8 @@ import {
   type PointReason,
   type PresenceStatus,
 } from "@hyvento/shared";
-import type { GameRepository, OfficeItemsInput, OfficeItemsResult } from "./types";
+import { executeTrade } from "./social";
+import type { GameRepository, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
@@ -221,5 +224,19 @@ export class PrismaRepository implements GameRepository {
 
   saveFishCatch(input: { userId: string; species: string; size: number; points: number }) {
     return recordFishCatch(prisma, input);
+  }
+
+  // ---------- Regalos e intercambios ----------
+
+  getInventory(userId: string) {
+    return listInventory(prisma, userId);
+  }
+
+  async givenPointsToday(userId: string) {
+    return (await givenToday(prisma, userId)).points;
+  }
+
+  executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
+    return executeTrade(prisma, input);
   }
 }

@@ -1,5 +1,5 @@
 import "server-only";
-import { INTERNAL_ROUTES } from "@hyvento/shared";
+import { INTERNAL_ROUTES, type GiftSentNotice } from "@hyvento/shared";
 
 /** URL HTTP del servidor de juego (por defecto, la misma de WebSocket con http/https). */
 function gameServerHttpUrl(): string | null {
@@ -43,4 +43,10 @@ export async function publishCasinoSettingsChanged() {
 export async function publishPointsChanged(userId: string) {
   // Si el servidor no responde, el saldo se lee de la base la próxima vez que esa persona entre.
   await notifyGameServer(INTERNAL_ROUTES.pointsChanged, "puntos", { userId });
+}
+
+/** Avisa al servidor de juego que alguien recibió un regalo (si está conectado, le llega el aviso). */
+export async function publishGiftSent(notice: GiftSentNotice) {
+  // Si el servidor no responde, el regalo igual espera en el buzón.
+  await notifyGameServer(INTERNAL_ROUTES.giftSent, "regalo", notice);
 }

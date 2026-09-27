@@ -114,6 +114,11 @@ interface OfficeStore {
   chatOpen: boolean;
   /** Hay un input de texto enfocado: el juego no debe leer el teclado. */
   typing: boolean;
+  /**
+   * Cuántos lo pidieron (chat, paneles, selector de emotes, intercambio): `typing` sigue mientras quede
+   * alguno. Si fuera un solo booleano, cerrar un panel soltaría el teclado con otro todavía abierto.
+   */
+  typingHolds: number;
   /** Oficina cerrada frente a cuya puerta está el jugador (para ofrecer "tocar"). */
   doorPrompt: string | null;
   /** Junto a un asiento libre ("sit") o sentado ("stand"), para mostrar la ayuda de la tecla E. */
@@ -221,6 +226,7 @@ const initial = {
   chatScope: "proximity" as ChatScope,
   chatOpen: true,
   typing: false,
+  typingHolds: 0,
   doorPrompt: null,
   seatPrompt: null as "sit" | "stand" | null,
   atComputer: false,
@@ -273,7 +279,12 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     }),
   setChatScope: (chatScope) => set({ chatScope }),
   setChatOpen: (chatOpen) => set((s) => ({ chatOpen, unread: chatOpen ? 0 : s.unread })),
-  setTyping: (typing) => set({ typing }),
+  // Cada `true` se suelta con un `false` (foco y blur, montar y desmontar).
+  setTyping: (on) =>
+    set((s) => {
+      const typingHolds = Math.max(0, s.typingHolds + (on ? 1 : -1));
+      return { typingHolds, typing: typingHolds > 0 };
+    }),
   setDoorPrompt: (doorPrompt) => set({ doorPrompt }),
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setAtComputer: (atComputer) => set({ atComputer }),

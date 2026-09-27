@@ -10,6 +10,8 @@ export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";
 export { composeArea } from "./compose";
 export { CAFE_ITEM_ART, crumb, crumbColor, drawCafeItem, drawHeldItem, drawMenuItem, emberGlow, heldEffect, puff, wisp, type HeldArtState, type HeldEffect } from "./items";
 export { drawEmote, EMOTE_ART } from "./emotes";
+export { emoteFrames, EMOTE_H, EMOTE_W } from "./emotes";
+export { giftBox, wavingArm, GIFT_BOX_FRAMES, GIFT_BOX_H, GIFT_BOX_W } from "./social";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.

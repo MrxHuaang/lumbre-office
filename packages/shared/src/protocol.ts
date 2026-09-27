@@ -126,6 +126,8 @@ export const INTERNAL_ROUTES = {
   pointsChanged: "/internal/points-changed",
   /** Cambiaron los ajustes del casino en /admin (límite diario, abierto/cerrado). */
   casinoSettingsChanged: "/internal/casino-settings-changed",
+  /** Alguien mandó un regalo desde la web (body `GiftSentNotice`): avisar a quien lo recibe. */
+  giftSent: "/internal/gift-sent",
 } as const;
 
 /** Nombres de mensajes Colyseus. */
@@ -184,4 +186,18 @@ export const MSG = {
   fishFinish: "fish:finish",
   fishCancel: "fish:cancel",
   fishEvent: "fish:event",
+  /** Regalos: te llegó uno al buzón (`GiftReceived`). */
+  giftReceived: "gift:received",
+  /** Intercambios (ver social.ts): invitar, responder, armar la oferta, listo, confirmar y cancelar. */
+  tradeRequest: "trade:request",
+  tradeInvite: "trade:invite",
+  tradeRespond: "trade:respond",
+  tradeOffer: "trade:offer",
+  tradeReady: "trade:ready",
+  tradeConfirm: "trade:confirm",
+  tradeCancel: "trade:cancel",
+  /** Servidor → los dos: estado (`TradeView`), fin (`TradeClosed`) o algo que no se pudo (`TradeProblem`). */
+  tradeUpdate: "trade:update",
+  tradeClosed: "trade:closed",
+  tradeProblem: "trade:problem",
 } as const;

@@ -11,3 +11,4 @@ export * from "./points";
 export * from "./inventory";
 export * from "./casino";
 export * from "./fishing";
+export * from "./social";

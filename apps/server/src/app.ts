@@ -5,6 +5,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { GameRepository } from "./repo/types";
 import { OfficeRoom } from "./rooms/OfficeRoom";
+import { GiftSentNotice } from "@hyvento/shared";
 
 /** Compara el `Authorization: Bearer <secreto>` sin filtrar información por tiempos. */
 function authorized(req: IncomingMessage, secret: string | undefined): boolean {
@@ -62,6 +63,13 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
       console.error("reloadPoints", err);
       return json(res, 500, { error: "no se pudo recargar el saldo" });
     }
+  }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.giftSent) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    const notice = GiftSentNotice.safeParse(await readJson(req));
+    if (!notice.success) return json(res, 400, { error: "aviso de regalo inválido" });
+    OfficeRoom.giftReceivedEverywhere(notice.data);
+    return json(res, 200, { ok: true });
   }
   json(res, 404, { error: "no encontrado" });
 }

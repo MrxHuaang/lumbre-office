@@ -1,13 +1,16 @@
 import {
   DAILY_CAPS,
   dayStart,
+  giftAllowedToday,
+  tradeGap,
   type CasinoSettingsDTO,
   type ChatEvent,
+  type ItemStack,
   type OfficeItemDTO,
   type PointReason,
   type PresenceStatus,
 } from "@hyvento/shared";
-import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, UserProfile } from "./types";
+import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TradeResult, TradeSideInput, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -191,5 +194,57 @@ export class MemoryRepository implements GameRepository {
     if (!o) throw new Error(`No existe ${zoneId}`);
     o.items = items.map((i) => ({ ...i }));
     o.customized = true;
+  }
+
+  // ---------- Regalos e intercambios ----------
+
+  async getInventory(userId: string): Promise<ItemStack[]> {
+    const prefix = `${userId}:`;
+    return [...this.inventory]
+      .filter(([key, quantity]) => key.startsWith(prefix) && quantity > 0)
+      .map(([key, quantity]) => ({ itemId: key.slice(prefix.length), quantity }))
+      .sort((a, b) => a.itemId.localeCompare(b.itemId));
+  }
+
+  async givenPointsToday(userId: string, now = Date.now()) {
+    const since = dayStart(now);
+    return -this.ledger.filter((m) => m.userId === userId && m.reason === "GIFT" && m.amount < 0 && m.at >= since).reduce((sum, m) => sum + m.amount, 0);
+  }
+
+  /** Si se fija, `executeTrade` espera esta promesa antes de escribir (para probar lo que pasa mientras). */
+  tradeGate: Promise<void> | null = null;
+
+  async executeTrade({ refId, a, b }: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
+    if (this.tradeGate) await this.tradeGate;
+    if (tradeGap(a, b) !== "ok") return { ok: false, error: "one-sided", userId: (a.points > 0 || a.items.length > 0 ? b : a).userId };
+    // Todo se revalida y se aplica sobre copias: si algo no alcanza no queda nada a medias (como la transacción).
+    const inventory = new Map(this.inventory);
+    const moves: typeof this.ledger = [];
+    const now = Date.now();
+    for (const [from, to] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      if (from.points > 0) {
+        const given = await this.givenPointsToday(from.userId, now);
+        if (giftAllowedToday({ gifts: 0, points: given }, from.points) !== "ok") return { ok: false, error: "limit", userId: from.userId };
+        if ((await this.getPoints(from.userId)) < from.points) return { ok: false, error: "funds", userId: from.userId };
+        moves.push({ userId: from.userId, amount: -from.points, reason: "GIFT", at: now, refId });
+        moves.push({ userId: to.userId, amount: from.points, reason: "GIFT", at: now, refId });
+      }
+      for (const it of from.items) {
+        const have = inventory.get(`${from.userId}:${it.itemId}`) ?? 0;
+        if (have < it.quantity) return { ok: false, error: "items", userId: from.userId };
+        inventory.set(`${from.userId}:${it.itemId}`, have - it.quantity);
+      }
+    }
+    for (const [from, to] of [
+      [a, b],
+      [b, a],
+    ] as const)
+      for (const it of from.items) inventory.set(`${to.userId}:${it.itemId}`, (inventory.get(`${to.userId}:${it.itemId}`) ?? 0) + it.quantity);
+    this.inventory = inventory;
+    this.ledger.push(...moves);
+    return { ok: true, balances: { [a.userId]: await this.getPoints(a.userId), [b.userId]: await this.getPoints(b.userId) } };
   }
 }

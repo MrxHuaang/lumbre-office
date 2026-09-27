@@ -29,6 +29,7 @@ import { ProfileDialog } from "./ProfileDialog";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { FishingHud } from "./fishing/FishingHud";
+import { SocialOverlays } from "./social/SocialOverlays";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
@@ -205,6 +206,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <UsablePrompt />
           <KnockRequests />
           <FishingHud />
+          <SocialOverlays />
           <MediaControls>
             <HeldSlot />
           </MediaControls>
