@@ -56,8 +56,12 @@ export interface DecorContext {
 
 export type DecorEditResult = { ok: true; items: OfficeItemDTO[] } | { ok: false; error: DecorProblem };
 
-const FLOORS: readonly string[] = OFFICE_FLOORS;
-const WALLPAPERS: readonly string[] = OFFICE_WALLPAPERS;
+// Tipados con los del mapa: si en @hyvento/shared se agrega un nombre que no es un piso o papel de
+// verdad, no compila (en vez de dibujarse como otra cosa).
+const OFFICE_FLOOR_KINDS: readonly FloorKind[] = OFFICE_FLOORS;
+const OFFICE_WALLPAPER_KINDS: readonly WallpaperKind[] = OFFICE_WALLPAPERS;
+const FLOORS: readonly string[] = OFFICE_FLOOR_KINDS;
+const WALLPAPERS: readonly string[] = OFFICE_WALLPAPER_KINDS;
 
 const inRect = (r: Rect, x: number, y: number) => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
 

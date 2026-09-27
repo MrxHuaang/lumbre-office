@@ -43,9 +43,33 @@ export type FloorKind =
   // Sótano: mármol del vestíbulo, baldosas de los baños y madera oscura del club.
   | "marble"
   | "bath"
-  | "lounge";
+  | "lounge"
+  // Variedad de interiores: baldosa hidráulica de dibujo, parqué en damero, terrazo, ladrillo de barro,
+  // moqueta con dibujo y tablas anchas claras.
+  | "hydraulic"
+  | "checker"
+  | "terrazzo"
+  | "brick"
+  | "moquette"
+  | "planks";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
-export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet" | "paneling" | "tile" | "forest";
+// Variedad: rayas finas, damasco dorado, ladrillo visto, listones de madera clara y estuco con zócalo.
+export type WallpaperKind =
+  | "sage"
+  | "cream"
+  | "blue"
+  | "rose"
+  | "wine"
+  | "navy"
+  | "violet"
+  | "paneling"
+  | "tile"
+  | "forest"
+  | "stripes"
+  | "damask"
+  | "brick"
+  | "slats"
+  | "colonial";
 
 export interface ZoneDef {
   id: string;

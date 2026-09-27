@@ -13,31 +13,89 @@ import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { PixelIcon } from "./Cozy";
 import { api } from "./PointsPanels";
 
-const FLOOR_LABEL: Record<OfficeFloor, string> = { carpet: "Alfombrado", wood: "Madera", tiles: "Baldosas", stone: "Piedra" };
-const WALLPAPER_LABEL: Record<OfficeWallpaper, string> = { cream: "Crema", blue: "Azul", rose: "Rosa", sage: "Salvia" };
+const FLOOR_LABEL: Record<OfficeFloor, string> = {
+  carpet: "Alfombrado",
+  wood: "Madera",
+  tiles: "Baldosas",
+  stone: "Piedra",
+  planks: "Tablas claras",
+  checker: "Damero",
+  hydraulic: "Hidráulica",
+  terrazzo: "Terrazo",
+  brick: "Barro cocido",
+  moquette: "Moqueta",
+};
+const WALLPAPER_LABEL: Record<OfficeWallpaper, string> = {
+  cream: "Crema",
+  blue: "Azul",
+  rose: "Rosa",
+  sage: "Salvia",
+  stripes: "Rayas",
+  damask: "Damasco",
+  brick: "Ladrillo",
+  slats: "Listones",
+  colonial: "Colonial",
+};
 
 const css = (c: RGBA | undefined) => (c ? `rgb(${c[0]} ${c[1]} ${c[2]})` : "transparent");
-/** Muestra de cada papel tapiz: sus franjas, con los colores del motor pixel. */
-const WALLPAPER_RAMP = { cream: C.cream, blue: C.blue, rose: C.rose, sage: C.sage } as const;
-/** El alfombrado toma el color del papel tapiz (como en el mapa). */
-const CARPET_RAMP = { cream: C.cream, blue: C.blue, rose: C.rose, sage: C.green } as const;
+/** El alfombrado toma el color del papel tapiz (como en el mapa, ver CARPET de art/room.ts). */
+const CARPET_RAMP: Record<OfficeWallpaper, readonly RGBA[]> = {
+  cream: C.cream,
+  blue: C.blue,
+  rose: C.rose,
+  sage: C.green,
+  stripes: C.blue,
+  damask: C.mustard,
+  brick: C.terracotta,
+  slats: C.cream,
+  colonial: C.green,
+};
 
 function floorSwatch(floor: OfficeFloor, wallpaper: OfficeWallpaper): string {
   switch (floor) {
     case "wood":
       return `repeating-linear-gradient(0deg, ${css(C.wood[1])} 0 1px, ${css(C.wood[3])} 1px 7px)`;
-    case "carpet":
-      return `radial-gradient(${css(CARPET_RAMP[wallpaper][2])} 25%, transparent 30%) 0 0 / 5px 5px, ${css(CARPET_RAMP[wallpaper][3])}`;
+    case "carpet": {
+      // El papel de la sala puede no estar en la lista (si el mapa trae otro): crema por defecto.
+      const r = CARPET_RAMP[wallpaper] ?? C.cream;
+      return `radial-gradient(${css(r[2])} 25%, transparent 30%) 0 0 / 5px 5px, ${css(r[3])}`;
+    }
     case "tiles":
       return `repeating-conic-gradient(${css(C.cream[4])} 0 25%, ${css(C.terracotta[3])} 0 50%) 0 0 / 12px 12px`;
     case "stone":
       return `radial-gradient(${css(C.stone[4])} 45%, ${css(C.dirt[2])} 55%) 0 0 / 8px 7px`;
+    case "planks":
+      return `repeating-linear-gradient(0deg, ${css(C.cream[1])} 0 1px, ${css(C.cream[3])} 1px 6px)`;
+    case "checker":
+      return `repeating-conic-gradient(${css(C.wood[4])} 0 25%, ${css(C.woodDark[4])} 0 50%) 0 0 / 10px 10px`;
+    case "hydraulic":
+      return `radial-gradient(circle at 0 0, ${css(C.rug[2])} 30%, transparent 32%) 0 0 / 8px 8px, radial-gradient(${css(C.sage[2])} 20%, ${css(C.cream[4])} 24%) 0 0 / 8px 8px`;
+    case "terrazzo":
+      return `radial-gradient(${css(C.rose[3])} 12%, transparent 16%) 1px 2px / 5px 6px, radial-gradient(${css(C.stone[3])} 12%, transparent 16%) 3px 0 / 7px 5px, ${css(C.cream[4])}`;
+    case "brick":
+      return `repeating-linear-gradient(0deg, ${css(C.stone[2])} 0 1px, ${css(C.terracotta[3])} 1px 5px)`;
+    case "moquette":
+      return `repeating-linear-gradient(45deg, ${css(C.mustard[2])} 0 1px, transparent 1px 6px), repeating-linear-gradient(-45deg, ${css(C.mustard[2])} 0 1px, ${css(C.green[2])} 1px 6px)`;
   }
 }
 
 function wallpaperSwatch(w: OfficeWallpaper): string {
-  const r = WALLPAPER_RAMP[w];
-  return `repeating-linear-gradient(90deg, ${css(r[2])} 0 2px, ${css(r[3])} 2px 10px)`;
+  switch (w) {
+    case "stripes":
+      return `repeating-linear-gradient(90deg, ${css(C.blue[3])} 0 1px, ${css(C.cream[4])} 1px 4px, ${css(C.rose[3])} 4px 5px, ${css(C.cream[4])} 5px 8px)`;
+    case "damask":
+      return `radial-gradient(${css(C.mustard[3])} 30%, transparent 34%) 0 0 / 8px 10px, ${css(C.mustard[2])}`;
+    case "brick":
+      return `repeating-linear-gradient(0deg, ${css(C.cream[2])} 0 1px, ${css(C.terracotta[3])} 1px 5px)`;
+    case "slats":
+      return `repeating-linear-gradient(90deg, ${css(C.woodDark[1])} 0 1px, ${css(C.cream[3])} 1px 4px)`;
+    case "colonial":
+      return `linear-gradient(0deg, ${css(C.sage[1])} 0 40%, ${css(C.mustard[3])} 40% 48%, ${css(C.cream[5])} 48%)`;
+    default: {
+      const r = { cream: C.cream, blue: C.blue, rose: C.rose, sage: C.sage }[w];
+      return `repeating-linear-gradient(90deg, ${css(r[2])} 0 2px, ${css(r[3])} 2px 10px)`;
+    }
+  }
 }
 
 const artCache = new Map<string, string>();

@@ -27,8 +27,41 @@ export const LOW_WALL_H = 10;
 const WALL_T = 4;
 const SLAB = 5;
 
-const WALLPAPER: Record<WallpaperKind, Ramp> = { sage: C.sage, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug, navy: C.navy, violet: C.violet, paneling: C.wood, tile: C.cream, forest: FOREST };
-const CARPET: Record<WallpaperKind, Ramp> = { sage: C.green, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug, navy: C.navy, violet: C.violet, paneling: C.wood, tile: C.cream, forest: C.green };
+const WALLPAPER: Record<WallpaperKind, Ramp> = {
+  sage: C.sage,
+  cream: C.cream,
+  blue: C.blue,
+  rose: C.rose,
+  wine: C.rug,
+  navy: C.navy,
+  violet: C.violet,
+  paneling: C.wood,
+  tile: C.cream,
+  forest: FOREST,
+  stripes: C.cream,
+  damask: C.mustard,
+  brick: C.terracotta,
+  slats: C.wood,
+  colonial: C.cream,
+};
+/** El alfombrado toma el color del papel de la sala. */
+const CARPET: Record<WallpaperKind, Ramp> = {
+  sage: C.green,
+  cream: C.cream,
+  blue: C.blue,
+  rose: C.rose,
+  wine: C.rug,
+  navy: C.navy,
+  violet: C.violet,
+  paneling: C.wood,
+  tile: C.cream,
+  forest: C.green,
+  stripes: C.blue,
+  damask: C.mustard,
+  brick: C.terracotta,
+  slats: C.cream,
+  colonial: C.green,
+};
 
 // ---------- Pisos ----------
 
@@ -210,6 +243,12 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
     case "kitchen":
     case "mosaic":
     case "terrace":
+    case "hydraulic":
+    case "checker":
+    case "terrazzo":
+    case "brick":
+    case "moquette":
+    case "planks":
       return interiorFloor(kind, X, Y);
     case "marble":
       return marbleFloor(X, Y);
@@ -312,6 +351,12 @@ const KIND_SET: Record<FloorKind, true> = {
   marble: true,
   bath: true,
   lounge: true,
+  hydraulic: true,
+  checker: true,
+  terrazzo: true,
+  brick: true,
+  moquette: true,
+  planks: true,
 };
 const KINDS = Object.keys(KIND_SET) as FloorKind[];
 
