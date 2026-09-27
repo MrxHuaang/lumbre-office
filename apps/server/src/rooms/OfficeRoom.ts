@@ -6,6 +6,7 @@ import {
   canWalkBetween,
   decorateAreaDef,
   defaultOfficeItems,
+  storedEdit,
   BLACKJACK_SEATS,
   getWorld,
   nearPointOfType,
@@ -471,7 +472,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         zoneId: office.zoneId,
         userId: player.userId,
         defaults: office.customized ? [] : defaultOfficeItems(def, office.zoneId),
-        edit,
+        // La base guarda la decoración relativa a la oficina.
+        edit: storedEdit(def, office.zoneId, edit),
       });
     } catch (err) {
       console.error("editOfficeItems", err);

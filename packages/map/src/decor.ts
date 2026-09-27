@@ -7,7 +7,12 @@ import { buildArea, FEET_BOX, seatStandSpot, step, TILE_SIZE, wallBetween, type 
 import { CATALOG, catalogItem, footprint, localToWorld, type CatalogItem } from "./world/catalog";
 import type { AreaDef, Facing, FloorKind, Placement, Rect, WallpaperKind, ZoneDef } from "./world/types";
 
-/** Decoración de una oficina, como la guarda la base. */
+/**
+ * Decoración de una oficina, como la guarda la base. Los muebles guardados van en coordenadas
+ * **relativas a la oficina** (0,0 = su esquina), así un rediseño del nivel que mueva la oficina no corre
+ * la decoración de nadie. Adentro de este módulo todo se calcula en tiles del nivel: se convierte al leer
+ * (`toLevel`) y al devolver lo que se guarda (`toStored`).
+ */
 export interface OfficeDecor {
   /** Muebles puestos por la dueña o dueño; `null` = no la ha decorado y quedan los del mapa. */
   items: OfficeItemDTO[] | null;
@@ -55,6 +60,11 @@ const FLOORS: readonly string[] = OFFICE_FLOORS;
 const WALLPAPERS: readonly string[] = OFFICE_WALLPAPERS;
 
 const inRect = (r: Rect, x: number, y: number) => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h;
+
+/** Mueble guardado (relativo a la oficina) → tiles del nivel. */
+const toLevel = (zone: ZoneDef, item: OfficeItemDTO): OfficeItemDTO => ({ ...item, x: item.x + zone.rect.x, y: item.y + zone.rect.y });
+/** Tiles del nivel → como se guarda (relativo a la oficina). */
+const toStored = (zone: ZoneDef, item: OfficeItemDTO): OfficeItemDTO => ({ ...item, x: item.x - zone.rect.x, y: item.y - zone.rect.y });
 
 /** La zona de oficina `zoneId` del nivel (o undefined). */
 export function officeZoneDef(def: AreaDef, zoneId: string): ZoneDef | undefined {
@@ -135,15 +145,23 @@ export function officeFurniture(def: AreaDef, zoneId: string, decor?: OfficeDeco
     if (fixed[i]) out.push({ ...base, id: `${FIXED_ITEM_PREFIX}${nf++}`, fixed: true });
     else if (!decor?.items) out.push({ ...base, id: `${MAP_ITEM_PREFIX}${nm++}`, fixed: false });
   });
-  for (const item of decor?.items ?? []) if (validItem(zone, item)) out.push({ ...item, fixed: false });
+  for (const stored of decor?.items ?? []) {
+    const item = toLevel(zone, stored);
+    if (validItem(zone, item)) out.push({ ...item, fixed: false });
+  }
   return out;
 }
 
-/** Muebles del mapa que se pueden mover en una oficina sin decorar (los que se copian a la base). */
+/**
+ * Muebles del mapa que se pueden mover en una oficina sin decorar (los que se copian a la base), ya
+ * en coordenadas relativas a la oficina.
+ */
 export function defaultOfficeItems(def: AreaDef, zoneId: string): OfficeItemDTO[] {
+  const zone = officeZoneDef(def, zoneId);
+  if (!zone) return [];
   return officeFurniture(def, zoneId)
     .filter((f) => !f.fixed)
-    .map(({ fixed: _fixed, ...item }) => item);
+    .map(({ fixed: _fixed, ...item }) => toStored(zone, item));
 }
 
 /** La definición del nivel con la decoración aplicada (sin decoración devuelve la misma). */
@@ -168,7 +186,10 @@ export function decorateAreaDef(def: AreaDef, decor: AreaDecor): AreaDef {
     const own = mapFurnitureIn(def, zone);
     const fixed = fixedFlags(own);
     own.forEach((p, i) => !fixed[i] && drop.add(p));
-    for (const item of items) if (validItem(zone, item)) added.push({ type: item.type, x: item.x, y: item.y, facing: item.facing });
+    for (const stored of items) {
+      const item = toLevel(zone, stored);
+      if (validItem(zone, item)) added.push({ type: item.type, x: item.x, y: item.y, facing: item.facing });
+    }
   }
   const furniture = drop.size || added.length ? [...def.furniture.filter((p) => !drop.has(p)), ...added] : def.furniture;
   return { ...def, rooms, furniture };
@@ -211,7 +232,8 @@ function reachesComputer(map: OfficeMap, zone: ZoneDef, furniture: readonly Offi
 }
 
 /**
- * Valida un cambio en la decoración de una oficina y devuelve cómo quedan sus muebles (sin los fijos).
+ * Valida un cambio en la decoración de una oficina y devuelve cómo quedan sus muebles (sin los fijos),
+ * listos para guardar (relativos a la oficina). El cambio (`edit`) viene en tiles del nivel.
  * Reglas: dentro de la oficina; sin encimarse con otros muebles (una alfombra sí puede ir debajo de un
  * mueble, pero no sobre otra alfombra) ni cruzar paredes; lo sólido no tapa el tile de la puerta, deja
  * camino desde la puerta hasta el escritorio con PC, no encierra a nadie y no cae sobre alguien (ni se
@@ -219,9 +241,25 @@ function reachesComputer(map: OfficeMap, zone: ZoneDef, furniture: readonly Offi
  * `newId` es el id que llevará un mueble recién puesto.
  */
 export function applyDecorEdit(ctx: DecorContext, edit: DecorEdit, newId = "nuevo"): DecorEditResult {
-  const fail = (error: DecorProblem): DecorEditResult => ({ ok: false, error });
   const zone = officeZoneDef(ctx.def, ctx.zoneId);
-  if (!zone) return fail("unknown");
+  if (!zone) return { ok: false, error: "unknown" };
+  const r = applyInLevel(ctx, zone, edit, newId);
+  return r.ok ? { ok: true, items: r.items.map((i) => toStored(zone, i)) } : r;
+}
+
+/**
+ * Un cambio en tiles del nivel, pasado a como se guarda (relativo a la oficina): lo que recibe el
+ * repositorio, que aplica el cambio por su cuenta.
+ */
+export function storedEdit(def: AreaDef, zoneId: string, edit: DecorEdit): DecorEdit {
+  const zone = officeZoneDef(def, zoneId);
+  if (!zone || edit.action === "remove") return edit;
+  return { ...edit, x: edit.x - zone.rect.x, y: edit.y - zone.rect.y };
+}
+
+/** `applyDecorEdit` en tiles del nivel (lo que devuelve también está en tiles del nivel). */
+function applyInLevel(ctx: DecorContext, zone: ZoneDef, edit: DecorEdit, newId: string): DecorEditResult {
+  const fail = (error: DecorProblem): DecorEditResult => ({ ok: false, error });
   const current = ctx.decor[ctx.zoneId];
   const all = officeFurniture(ctx.def, ctx.zoneId, current);
   const movable: OfficeItemDTO[] = all.filter((f) => !f.fixed).map(({ fixed: _fixed, ...item }) => item);
@@ -238,7 +276,7 @@ export function applyDecorEdit(ctx: DecorContext, edit: DecorEdit, newId = "nuev
   const ts = TILE_SIZE;
   const people = ctx.people ?? [];
   const occupiedTiles = new Set(people.flatMap((p) => feetTiles(p.x, p.y, ts)).map((t) => `${t.x},${t.y}`));
-  const withItems = (items: OfficeItemDTO[]): AreaDecor => ({ ...ctx.decor, [ctx.zoneId]: { ...current, items } });
+  const withItems = (items: OfficeItemDTO[]): AreaDecor => ({ ...ctx.decor, [ctx.zoneId]: { ...current, items: items.map((i) => toStored(zone, i)) } });
 
   // Lo sólido con alguien encima (sentado en la silla) no se mueve ni se quita.
   if (target && catalogItem(target.type).solid !== false && furnitureTiles(target).some((t) => occupiedTiles.has(`${t.x},${t.y}`))) {

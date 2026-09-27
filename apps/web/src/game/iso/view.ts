@@ -16,6 +16,7 @@ import {
   drawAreaBase,
   drawFurniture,
   drawLowWall,
+  drawSurroundings,
   glowSprite,
   toScreen,
   toWorld,
@@ -40,6 +41,8 @@ export function screenToWorld(sx: number, sy: number) {
 /** Profundidad isométrica: lo que está más abajo-adelante (mayor x + y) se dibuja encima. */
 export const depthOf = (x: number, y: number) => x + y;
 const DEPTH_FLOOR = -1e7;
+/** Cuánto se extiende el bosque de afuera más allá del dibujo del nivel (px de pantalla). */
+const SURROUND_PAD = 3000;
 export const DEPTH_FLAT = -1e6;
 export const DEPTH_OVERLAY = 1e7;
 
@@ -134,6 +137,7 @@ function baseSignature(map: OfficeMap) {
 /** Un nivel dibujado: fondo, muebles, paredes bajas y luces. Se destruye al cambiar de nivel. */
 export class AreaView {
   private objects: Phaser.GameObjects.GameObject[] = [];
+  private surround?: Phaser.GameObjects.TileSprite;
   private base!: Phaser.GameObjects.Image;
   private nightLayer: Phaser.GameObjects.Rectangle;
   private glows: Phaser.GameObjects.Image[] = [];
@@ -151,15 +155,17 @@ export class AreaView {
     readonly map: OfficeMap,
     night: boolean,
   ) {
+    this.drawSurroundings();
     this.drawBase(night);
     for (const f of map.furniture) this.placeFurniture(f, night);
     this.placeLowWalls();
     const b = this.base.getBounds();
     this.bounds = new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height);
+    this.surround?.setPosition(b.centerX, b.centerY).setSize(b.width + SURROUND_PAD * 2, b.height + SURROUND_PAD * 2);
     // De noche afuera está oscuro; adentro las luces están prendidas, así que solo se tiñe de azul.
     const [tint, strength] = map.outdoor ? [0x4a3f8a, 0.6] : [0xb4a6e0, 0.55];
     this.nightLayer = scene.add
-      .rectangle(b.centerX, b.centerY, b.width + 800, b.height + 800, tint, strength)
+      .rectangle(b.centerX, b.centerY, b.width + SURROUND_PAD * 2, b.height + SURROUND_PAD * 2, tint, strength)
       .setBlendMode(Phaser.BlendModes.MULTIPLY)
       .setDepth(DEPTH_OVERLAY)
       .setVisible(night);
@@ -179,6 +185,19 @@ export class AreaView {
       scene.textures.remove(key);
       scene.registry.remove(`${key}-origin`);
     }
+  }
+
+  /** Afuera: el bosque que se repite más allá del borde del terreno (debajo de todo). */
+  private drawSurroundings() {
+    const kind = this.map.def.surroundings;
+    if (!kind) return;
+    const key = ensureTexture(this.scene, `alrededores-${kind}`, () => drawSurroundings(kind));
+    const tile = this.scene.add
+      .tileSprite(0, 0, SURROUND_PAD * 2, SURROUND_PAD * 2, key)
+      .setDepth(DEPTH_FLOOR - 1);
+    // Centrado en el nivel; se ubica después de dibujar el fondo (ver el constructor).
+    this.surround = tile;
+    this.objects.push(tile);
   }
 
   private drawBase(night: boolean) {

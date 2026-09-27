@@ -25,7 +25,10 @@ import { SHOP } from "./shop";
 import { CASINO_DRAW } from "./casino";
 import { CINEMA_DRAW } from "./cinema";
 import { CLUB_DRAW } from "./club";
+import { EXTERIOR_DRAW } from "./exterior";
+import { INTERIOR_DRAW } from "./interior";
 import { LEISURE_DRAW } from "./leisure";
+import { SOTANO_DRAW } from "./sotano";
 
 export type { Variant } from "./kit";
 
@@ -701,6 +704,9 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...CLUB_DRAW,
   ...CINEMA_DRAW,
   ...LEISURE_DRAW,
+  ...EXTERIOR_DRAW,
+  ...INTERIOR_DRAW,
+  ...SOTANO_DRAW,
 };
 
 const cache = new Map<string, Sprite>();

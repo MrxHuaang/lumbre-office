@@ -35,7 +35,7 @@ const piso2 = area("piso-2");
 
 describe("mundo", () => {
   it("tiene el jardín, la planta baja, el piso 2 y el sótano, y se aparece en el jardín", () => {
-    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "sotano"]);
+    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano"]);
     expect(world.spawnArea).toBe("jardin");
     const spawn = spawnPoint(jardin);
     expect(canStandAt(jardin, spawn.x, spawn.y)).toBe(true);
@@ -145,6 +145,7 @@ describe("portales", () => {
       jardin: { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY },
       "planta-baja": { x: 4, y: 15 },
       "piso-2": { x: 9, y: 5 },
+      "piso-3": { x: 5, y: 6 },
       sotano: { x: 2, y: 4 },
     };
     for (const map of world.areas.values())
@@ -165,7 +166,7 @@ describe("portales", () => {
 
 describe("asientos", () => {
   it("cada asiento tiene un lugar libre para pararse y se llega caminando", () => {
-    const starts: Record<string, { x: number; y: number }> = { jardin: { x: 15, y: 24 }, "planta-baja": { x: 4, y: 15 }, "piso-2": { x: 9, y: 5 }, sotano: { x: 2, y: 4 } };
+    const starts: Record<string, { x: number; y: number }> = { jardin: { x: 15, y: 24 }, "planta-baja": { x: 4, y: 15 }, "piso-2": { x: 9, y: 5 }, "piso-3": { x: 5, y: 6 }, sotano: { x: 2, y: 4 } };
     for (const map of world.areas.values())
       for (const seat of map.seats.values()) {
         expect(seatAtPoint(map, seat.x, seat.y)).toBe(seat);

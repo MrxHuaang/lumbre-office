@@ -72,7 +72,8 @@ describe("editor de oficina", () => {
     // Los 9 muebles del mapa se copiaron (con ids propios) y se sumó la planta.
     expect(office().items).toHaveLength(10);
     expect(office().items.some((i) => i.id.startsWith("map-"))).toBe(false);
-    expect(office().items.filter((i) => i.type === "plant" && i.x === 14 && i.y === 7)).toHaveLength(1);
+    // Se guarda relativo a la oficina (la 2 empieza en x = 11).
+    expect(office().items.filter((i) => i.type === "plant" && i.x === 3 && i.y === 7)).toHaveLength(1);
     expect(repo.held("u-alice", "plant")).toBe(1);
     expect(repo.offices.get(ZONE)!.items).toHaveLength(10);
 
@@ -85,7 +86,7 @@ describe("editor de oficina", () => {
     const { alice, office } = await setup();
     expect(await edit(alice, { action: "move", zoneId: ZONE, itemId: "map-6", x: 13, y: 2, facing: "down" })).toEqual({ ok: true });
     const sofas = office().items.filter((i) => i.type === "sofa");
-    expect(sofas.map((s) => [s.x, s.y, s.facing])).toEqual([[13, 2, "down"]]);
+    expect(sofas.map((s) => [s.x, s.y, s.facing])).toEqual([[2, 2, "down"]]);
     expect(office().items).toHaveLength(9);
     // Ya con ids propios: se mueve por su id.
     const id = sofas[0]!.id;
@@ -168,7 +169,8 @@ describe("editor de oficina", () => {
     const corrections: MoveCorrection[] = [];
     alice.onMessage(MSG.moveCorrection, (m: MoveCorrection) => corrections.push(m));
     // Otra instancia guardó una decoración con una planta justo donde está Alice.
-    repo.decorate(ZONE, [{ id: "p1", type: "plant", x: 14, y: 7, facing: "right" }]);
+    // Lo guardado es relativo a la oficina (la 2 empieza en x = 11): (3, 7) es el tile (14, 7).
+    repo.decorate(ZONE, [{ id: "p1", type: "plant", x: 3, y: 7, facing: "right" }]);
     await repo.setOfficeStyle(ZONE, { floor: "tiles" });
     await OfficeRoom.reloadOfficesEverywhere();
     await room.waitForNextPatch();
@@ -188,7 +190,7 @@ describe("editor de oficina", () => {
     await repo.setOfficeLocked("office-4", true);
     await walkToTile(alice, room, 14, 8);
     // Plantas a su lado y encima: el único vecino libre sin mirar paredes sería (14, 9), del otro lado.
-    repo.decorate(ZONE, [13, 14, 15].map((x) => ({ id: `p${x}`, type: "plant", x, y: 8, facing: "right" as const })));
+    repo.decorate(ZONE, [13, 14, 15].map((x) => ({ id: `p${x}`, type: "plant", x: x - 11, y: 8, facing: "right" as const })));
     await OfficeRoom.reloadOfficesEverywhere();
     await room.waitForNextPatch();
     await tick(30);

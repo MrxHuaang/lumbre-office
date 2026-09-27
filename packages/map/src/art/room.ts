@@ -495,6 +495,8 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
     const x0 = tx * L;
     const y0 = ty * L;
     const side: Shader = (_u, v, _fw, fh) => {
+      // Con alrededores (bosque sin fin) el terreno no tiene borde: no se dibuja la losa.
+      if (map.def.surroundings) return null;
       if (map.outdoor && v >= fh - 2) return at(C.grass, v >= fh - 1 ? 3 : 1);
       return at(sideRamp, v < 1 ? 0 : v < fh / 2 ? 1 : 2);
     };

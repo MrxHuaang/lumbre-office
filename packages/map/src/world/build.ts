@@ -141,6 +141,14 @@ export function buildArea(def: AreaDef): OfficeMap {
   // Colisión: fuera del edificio, el agua del estanque y muebles sólidos.
   const blocked = new Uint8Array(width * height);
   for (let i = 0; i < blocked.length; i++) if (floors[i] === null || floors[i] === "water") blocked[i] = 1;
+  // Fuera de la zona jugable se dibuja pero no se camina (límite invisible).
+  const play = def.playable;
+  if (play)
+    for (let i = 0; i < blocked.length; i++) {
+      const x = i % width;
+      const y = Math.floor(i / width);
+      if (x < play.x || y < play.y || x >= play.x + play.w || y >= play.y + play.h) blocked[i] = 1;
+    }
 
   const furniture: PlacedFurniture[] = [];
   const computers = new Set<number>();

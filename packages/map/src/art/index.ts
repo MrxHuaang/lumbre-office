@@ -10,6 +10,7 @@ export { CABIN_CHIMNEY_TOP } from "./outdoor";
 export { composeArea } from "./compose";
 export { CAFE_ITEM_ART, drawCafeItem, heldEffect, puff, type HeldEffect } from "./items";
 export { drawEmote, EMOTE_ART } from "./emotes";
+export { drawSurroundings } from "./surroundings";
 export { drawAreaBase, drawDoorPost, drawLowWall, LOW_WALL_H, WALL_H, type AreaArt } from "./room";
 
 /** Halo de luz en bandas tramadas (se suma de noche). */

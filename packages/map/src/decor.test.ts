@@ -70,7 +70,8 @@ describe("nivel decorado", () => {
   });
 
   it("una oficina decorada lleva solo sus muebles (y los fijos); las demás no cambian", () => {
-    const map = decorateArea(def, { "office-2": { items: [{ id: "a", type: "plant", x: 13, y: 6, facing: "right" }] } });
+    // Lo guardado va relativo a la oficina: la 2 empieza en (11, 0), así que (2, 6) es el tile (13, 6).
+    const map = decorateArea(def, { "office-2": { items: [{ id: "a", type: "plant", x: 2, y: 6, facing: "right" }] } });
     const inOffice2 = map.furniture.filter((f) => f.x >= 11 && f.y < 9);
     expect(inOffice2.map((f) => f.type).sort()).toEqual(["chair", "desk-pc", "plant"]);
     expect(isBlockedTile(map, 13, 6)).toBe(true);
@@ -108,7 +109,8 @@ describe("validar cambios", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.items).toHaveLength(10);
-    expect(r.items.at(-1)).toEqual({ id: "nuevo", type: "plant", x: 13, y: 6, facing: "right" });
+    // Se guarda relativo a la oficina (empieza en x = 11).
+    expect(r.items.at(-1)).toEqual({ id: "nuevo", type: "plant", x: 2, y: 6, facing: "right" });
   });
 
   it("fuera de la oficina no", () => {
@@ -155,7 +157,7 @@ describe("validar cambios", () => {
     // El sofá (map-6) en (17, 3) mirando a la izquierda: girarlo en su lugar.
     const r = edit({ action: "move", itemId: "map-6", x: 17, y: 3, facing: "down" });
     expect(r.ok).toBe(true);
-    if (r.ok) expect(r.items.find((f) => f.id === "map-6")).toEqual({ id: "map-6", type: "sofa", x: 17, y: 3, facing: "down" });
+    if (r.ok) expect(r.items.find((f) => f.id === "map-6")).toEqual({ id: "map-6", type: "sofa", x: 6, y: 3, facing: "down" });
     expect(edit({ action: "move", itemId: "map-6", x: 12, y: 6, facing: "right" }).ok).toBe(true);
     expect(edit({ action: "move", itemId: "map-6", x: 16, y: 0, facing: "right" })).toEqual({ ok: false, error: "blocked" });
     // Alguien sentado en el sillón (map-4): no se mueve ni se quita.

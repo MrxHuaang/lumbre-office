@@ -121,6 +121,16 @@ export interface AreaDef {
   height: number;
   /** Afuera (jardín): todo el terreno es transitable salvo los objetos. Adentro solo las habitaciones. */
   outdoor?: boolean;
+  /**
+   * Afuera: zona que se camina. Lo que queda fuera se dibuja (bosque, rocas) pero no se pisa: es el
+   * límite invisible del mapa. Sin esto se camina todo el nivel.
+   */
+  playable?: Rect;
+  /**
+   * Afuera: lo que se ve más allá del borde del dibujo (un bosque que se repite sin fin), para que el
+   * terreno no parezca una isla flotante. Con esto el borde del terreno no lleva losa.
+   */
+  surroundings?: "forest";
   /** Piso por tile en exteriores; en interiores lo define cada habitación. */
   ground?: (x: number, y: number) => FloorKind;
   rooms: RoomDef[];

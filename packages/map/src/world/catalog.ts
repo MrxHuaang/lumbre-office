@@ -1,5 +1,8 @@
 // Catálogo de muebles: solo lo que importa al juego (tamaño, colisión, asientos). El dibujo de cada
 // uno vive en art/ (furniture.ts los registra todos en DRAW), así el servidor no carga arte.
+import { EXTERIOR_CATALOG } from "./catalog-exterior";
+import { INTERIOR_CATALOG } from "./catalog-interior";
+import { SOTANO_CATALOG } from "./catalog-sotano";
 import type { Facing } from "./types";
 
 export interface CatalogItem {
@@ -112,6 +115,10 @@ export const CATALOG = {
   "notice-board": { name: "Tablón", size: [1, 1] },
   "lamp-post": { name: "Farol", size: [1, 1], light: { at: [8, 8, 40], color: "#ffd98a", radius: 52 } },
   fence: { name: "Cerca", size: [1, 1] },
+  // Rediseño (docs/plan-rediseno.md): cada parte en su archivo para no pisarse.
+  ...EXTERIOR_CATALOG,
+  ...INTERIOR_CATALOG,
+  ...SOTANO_CATALOG,
 } satisfies Record<string, CatalogItem>;
 
 export type FurnitureType = keyof typeof CATALOG;
