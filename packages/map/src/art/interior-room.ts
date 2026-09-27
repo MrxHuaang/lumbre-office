@@ -79,6 +79,130 @@ function deck(X: number, Y: number): RGBA {
   return c;
 }
 
+/** Roble claro (tablas anchas y listones de pared). */
+const OAK: Ramp = ramp("#6e5438", "#927252", "#b3916b", "#cdac83", "#e0c59e", "#efdcbc");
+/** Barro cocido (ladrillo del piso y de la pared). */
+const CLAY: Ramp = ramp("#4f2519", "#74392a", "#97503a", "#b3664a", "#c98260", "#dea17f");
+/** Verde agua colonial (zócalo pintado y baldosa hidráulica). */
+const TEAL: Ramp = ramp("#173a38", "#21524e", "#2f6d66", "#468a80", "#6aa99c", "#9ccabd");
+
+/**
+ * Baldosa hidráulica (la de las casas viejas colombianas): cuadros de 8 con un cuarto de círculo en cada
+ * esquina (entre cuatro baldosas forman una flor), un rombo al centro y la cenefa fina.
+ */
+function hydraulic(X: number, Y: number): RGBA {
+  // Una baldosa por tile: el dibujo se lee de lejos sin volverse ruido.
+  const s = 16;
+  const u = mod(X, s);
+  const v = mod(Y, s);
+  if (u < 0.6 || v < 0.6) return at(C.stone, 3);
+  const cu = Math.min(u, s - u);
+  const cv = Math.min(v, s - v);
+  const r = Math.hypot(cu, cv);
+  // Cuarto de flor en cada esquina: botón mostaza y pétalos rojo vino con su filo crema.
+  if (r < 2) return at(C.mustard, 3);
+  if (r < 5.5) {
+    // Cuatro pétalos por flor: se cortan en las diagonales.
+    const petal = Math.abs(cu - cv) < 1.1 ? at(C.cream, 4) : at(C.rug, r < 4 ? 2 : 3);
+    return petal;
+  }
+  if (r < 6.3) return at(C.rug, 1);
+  // Rombo verde al centro de cada baldosa, con el ojo crema.
+  const d = Math.abs(u - s / 2) + Math.abs(v - s / 2);
+  if (d < 1.5) return at(C.cream, 5);
+  if (d < 3.5) return at(TEAL, d < 2.5 ? 4 : 3);
+  if (d < 4.1) return at(TEAL, 1);
+  // Cenefa verde por el borde de la baldosa, entre flor y flor.
+  if (Math.min(cu, cv) < 1.8 && Math.min(cu, cv) > 1.1) return at(TEAL, 2);
+  return at(C.cream, bayer(Math.floor(X), Math.floor(Y)) < 0.1 ? 3 : 4);
+}
+
+/** Parqué en damero: cuadros de 8 con tres tablillas, a lo largo de x y de y alternados. */
+function checker(X: number, Y: number): RGBA {
+  const s = 8;
+  const i = Math.floor(X / s);
+  const j = Math.floor(Y / s);
+  const u = mod(X, s);
+  const v = mod(Y, s);
+  if (u < 0.5 || v < 0.5) return at(C.woodDark, 2);
+  const alongX = (i + j) % 2 === 0;
+  // Dos tablillas por cuadro (con más, de lejos se ve como tejido de alfombra).
+  const across = alongX ? v : u;
+  const strip = Math.floor(across / (s / 2));
+  const tone = noise(i * 2 + strip, j, 57);
+  // Los cuadros a lo largo de y van en madera oscura: así se lee el tablero.
+  const r = alongX ? C.wood : C.woodDark;
+  const base = alongX ? 4 : 5;
+  const c = at(r, base - (tone < 0.3 ? 1 : 0));
+  if (Math.abs(across - s / 2) < 0.4) return mix(c, at(C.woodDark, 1), 0.45);
+  // Brillo en la punta de cada tablilla.
+  const along = alongX ? u : v;
+  return along < 1.2 ? mix(c, at(C.cream, 5), 0.2) : c;
+}
+
+/** Terrazo: base crema con esquirlas de colores y juntas de latón cada dos tiles. */
+function terrazzo(X: number, Y: number): RGBA {
+  if (mod(X, 32) < 0.5 || mod(Y, 32) < 0.5) return at(C.gold, 3);
+  const x = Math.floor(X);
+  const y = Math.floor(Y);
+  const n = noise(x, y, 61);
+  const chip = noise(Math.floor(X / 2), Math.floor(Y / 2), 63);
+  // Esquirlas grandes (de 2x2) y chicas (de 1x1), pocas y en tonos apagados sobre la base de mármol.
+  if (chip < 0.025) return at(C.rose, 3);
+  if (chip < 0.045) return at(C.sage, 3);
+  if (chip > 0.975) return at(C.stone, 2);
+  if (n < 0.04) return at(C.stone, 3);
+  if (n < 0.06) return at(C.cork, 3);
+  if (n > 0.95) return at(C.white, 4);
+  return at(C.cream, bayer(x, y) < 0.25 ? 4 : 5);
+}
+
+/** Ladrillo de barro cocido en trabazón: piezas de 8x4 desfasadas por hilera, con junta gris. */
+function brickFloor(X: number, Y: number): RGBA {
+  const row = Math.floor(Y / 4);
+  const off = row % 2 ? 4 : 0;
+  const u = mod(X + off, 8);
+  const v = mod(Y, 4);
+  if (u < 0.6 || v < 0.6) return at(C.stone, 2);
+  const tone = noise(Math.floor((X + off) / 8), row, 67);
+  let c = at(CLAY, tone < 0.3 ? 2 : tone < 0.8 ? 3 : 4);
+  // Desgaste: el borde de arriba de cada ladrillo un pelo más claro y manchitas oscuras.
+  if (v < 1.3) c = mix(c, at(CLAY, 5), 0.25);
+  if (noise(Math.floor(X), Math.floor(Y), 69) < 0.05) c = at(CLAY, 1);
+  return c;
+}
+
+/** Moqueta de hotel: verde oscuro con una retícula de rombos mostaza y un punto crema en cada cruce. */
+function moquette(X: number, Y: number): RGBA {
+  // La retícula va a lo largo de x e y del mundo: en la vista isométrica se ve como rombos.
+  const x = mod(X, 12) - 6;
+  const y = mod(Y, 12) - 6;
+  const edge = Math.max(Math.abs(x), Math.abs(y));
+  if (edge > 5.4) return at(C.mustard, 2);
+  // Una florcita crema al centro de cada rombo, con cuatro pétalos mostaza.
+  const r = Math.abs(x) + Math.abs(y);
+  if (r < 1.1) return at(C.cream, 4);
+  if (r < 2.6 && Math.min(Math.abs(x), Math.abs(y)) < 0.7) return at(C.mustard, 3);
+  if (edge > 3.6 && edge < 4.3) return at(C.green, 3);
+  return at(C.green, bayer(Math.floor(X), Math.floor(Y)) < 0.18 ? 1 : 2);
+}
+
+/** Tablas anchas de roble claro, largas y con la veta marcada. */
+function planks(X: number, Y: number): RGBA {
+  const row = Math.floor(Y / 5.33);
+  const v = mod(Y, 5.33);
+  if (v < 0.55) return at(OAK, 1);
+  const off = Math.floor(noise(row, 5, 71) * 48);
+  const seg = Math.floor((X + off) / 48);
+  if (mod(X + off, 48) < 0.55) return at(OAK, 1);
+  const tone = noise(seg, row, 73);
+  let c = at(OAK, tone < 0.3 ? 3 : tone < 0.85 ? 4 : 5);
+  // Vetas: líneas largas y finas que ondulan.
+  const g = Math.sin((X + off) * 0.19 + row * 2) * 1.2 + 2.6;
+  if (Math.abs(v - g) < 0.35 && noise(Math.floor((X + off) / 6), row, 75) < 0.6) c = at(OAK, 2);
+  return c;
+}
+
 export function interiorFloor(kind: FloorKind, X: number, Y: number): RGBA {
   switch (kind) {
     case "parquet":
@@ -87,6 +211,18 @@ export function interiorFloor(kind: FloorKind, X: number, Y: number): RGBA {
       return kitchenTiles(X, Y);
     case "mosaic":
       return bathTiles(X, Y);
+    case "hydraulic":
+      return hydraulic(X, Y);
+    case "checker":
+      return checker(X, Y);
+    case "terrazzo":
+      return terrazzo(X, Y);
+    case "brick":
+      return brickFloor(X, Y);
+    case "moquette":
+      return moquette(X, Y);
+    case "planks":
+      return planks(X, Y);
     default:
       return deck(X, Y);
   }
@@ -156,6 +292,100 @@ function forest(u: number, hv: number): RGBA {
   return at(FOREST, hv < 20 ? 1 : 2);
 }
 
+/** Zócalo de madera oscura con su moldura (de 0 a `top`), para los papeles que lo llevan. */
+function wainscot(u: number, hv: number, top: number): RGBA {
+  if (hv < 3) return at(C.woodDark, hv >= 2 ? 3 : 2);
+  if (hv >= top - 2) return at(C.woodDark, hv >= top - 1 ? 5 : 2);
+  const pu = mod(u, 16);
+  if (pu < 1 || (hv >= 5 && hv < 6) || (hv >= top - 4 && hv < top - 3)) return at(C.woodDark, 2);
+  if (pu < 2 || (hv >= 6 && hv < 7)) return at(C.woodDark, 4);
+  return at(C.woodDark, 3);
+}
+
+/** Rayas finas: crema con líneas azules y rosadas alternadas, sobre un zócalo pintado de azul. */
+function stripes(u: number, hv: number): RGBA {
+  const top = crown(hv);
+  if (top) return top;
+  if (hv < 3) return at(C.woodDark, hv >= 2 ? 3 : 2);
+  if (hv < 18) {
+    // Zócalo de tablero pintado, con su marco.
+    if (hv >= 16) return at(C.cream, hv >= 17 ? 5 : 2);
+    const pu = mod(u, 12);
+    if (pu < 1 || hv < 4 || hv >= 15) return at(C.blue, 2);
+    if (pu < 2 || hv < 5) return at(C.blue, 4);
+    return at(C.blue, 3);
+  }
+  const k = mod(u, 6);
+  if (k < 0.8) return at(Math.floor(u / 6) % 2 ? C.rose : C.blue, 3);
+  if (k >= 3 && k < 3.5) return at(C.cream, 3);
+  return at(C.cream, hv < 20 ? 3 : 4);
+}
+
+/** Damasco dorado tono sobre tono: medallones en rejilla desfasada, con zócalo de madera. */
+function damask(u: number, hv: number): RGBA {
+  const top = crown(hv);
+  if (top) return top;
+  if (hv < 20) return wainscot(u, hv, 20);
+  const row = Math.floor((hv - 20) / 12);
+  const x = mod(u + (row % 2 ? 6 : 0), 12) - 6;
+  const y = mod(hv - 20, 12) - 6;
+  const ax = Math.abs(x);
+  // Medallón: una gota doble (arriba y abajo) con el centro calado y hojitas a los lados.
+  const shape = ax / 3.2 + Math.abs(y) / 5.5;
+  if (shape < 0.35) return at(C.mustard, 2);
+  if (shape < 1) return at(C.mustard, ax < 1.6 && Math.abs(y) < 3 ? 4 : 3);
+  if (Math.abs(ax - 4) < 0.7 && Math.abs(y) < 1.2) return at(C.mustard, 3);
+  return at(C.mustard, bayer(Math.floor(u), Math.floor(hv)) < 0.12 ? 1 : 2);
+}
+
+/** Ladrillo visto: hileras de 8x4 en trabazón con junta crema, del zócalo a la cornisa. */
+function brickWall(u: number, hv: number): RGBA {
+  const top = crown(hv);
+  if (top) return top;
+  if (hv < 3) return at(C.woodDark, hv >= 2 ? 3 : 2);
+  const row = Math.floor((hv - 3) / 4);
+  const off = row % 2 ? 4 : 0;
+  const x = mod(u + off, 8);
+  const y = mod(hv - 3, 4);
+  if (x < 0.7 || y < 0.7) return at(C.cream, 2);
+  const tone = noise(Math.floor((u + off) / 8), row, 81);
+  let c = at(CLAY, tone < 0.25 ? 2 : tone < 0.8 ? 3 : 4);
+  if (y > 3.1) c = at(CLAY, 2);
+  if (noise(Math.floor(u), Math.floor(hv), 83) < 0.06) c = at(CLAY, 1);
+  return c;
+}
+
+/** Listones verticales de roble claro, angostos y con una ranura oscura entre cada uno. */
+function slats(u: number, hv: number): RGBA {
+  const top = crown(hv);
+  if (top) return top;
+  if (hv < 3) return at(OAK, hv >= 2 ? 2 : 1);
+  const k = Math.floor(u / 3);
+  const x = mod(u, 3);
+  if (x < 0.7) return at(C.woodDark, 1);
+  const tone = noise(k, 1, 85);
+  let c = at(OAK, tone < 0.3 ? 3 : tone < 0.8 ? 4 : 5);
+  if (x < 1.3) c = at(OAK, 5);
+  if (noise(k, Math.floor(hv / 4), 87) < 0.08) c = at(OAK, 2);
+  return c;
+}
+
+/** Casa colonial: estuco blanco cálido arriba y un zócalo pintado de verde agua con su filete. */
+function colonial(u: number, hv: number): RGBA {
+  const top = crown(hv);
+  if (top) return top;
+  if (hv < 2) return at(TEAL, 1);
+  if (hv < 20) {
+    if (hv >= 18.5) return at(C.mustard, 3);
+    if (hv >= 17.5) return at(TEAL, 1);
+    // Pintura a brocha: un leve veteado horizontal.
+    return at(TEAL, noise(Math.floor(u / 5), Math.floor(hv / 2), 89) < 0.25 ? 2 : 3);
+  }
+  const n = noise(Math.floor(u), Math.floor(hv), 91);
+  if (n < 0.04) return at(C.cream, 3);
+  return at(C.cream, bayer(Math.floor(u), Math.floor(hv)) < 0.08 ? 4 : 5);
+}
+
 /** Muro de un papel del rediseño, o null si es de los de siempre (room.ts lo dibuja). */
 export function interiorWall(kind: WallpaperKind | null, u: number, hv: number): RGBA | null {
   if (hv < 0) return null;
@@ -166,6 +396,16 @@ export function interiorWall(kind: WallpaperKind | null, u: number, hv: number):
       return tiled(u, hv);
     case "forest":
       return forest(u, hv);
+    case "stripes":
+      return stripes(u, hv);
+    case "damask":
+      return damask(u, hv);
+    case "brick":
+      return brickWall(u, hv);
+    case "slats":
+      return slats(u, hv);
+    case "colonial":
+      return colonial(u, hv);
     default:
       return null;
   }
