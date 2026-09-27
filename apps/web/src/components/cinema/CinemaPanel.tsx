@@ -87,7 +87,7 @@ export function CinemaPanel({ onClose }: { onClose: () => void }) {
                     className="cozy-btn shrink-0 px-2 py-1 text-[12px]"
                     aria-label={`Programar ${m.title}`}
                   >
-                    {on ? "En cola" : "Programar"}
+                    {now?.videoId === m.videoId ? "En pantalla" : on ? "En cola" : "Programar"}
                   </button>
                 </li>
               );
