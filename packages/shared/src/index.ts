@@ -8,3 +8,4 @@ export * from "./casino";
 export * from "./shop";
 export * from "./decor";
 export * from "./emotes";
+export * from "./consumables";

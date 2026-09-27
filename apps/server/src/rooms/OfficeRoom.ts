@@ -31,8 +31,6 @@ import {
   CafeOrderMessage,
   EMOTE,
   EmoteMessage,
-  cafeItem,
-  cafeRefId,
   canHear,
   ChatSendMessage,
   CLOSE_CODE,
@@ -68,6 +66,16 @@ import {
   type OfficeEditResult,
   type OfficeItemDTO,
   type Positioned,
+  BarOrderMessage,
+  MENUS,
+  UseHeldMessage,
+  CONSUME,
+  menuRefId,
+  formatHeldLeft,
+  menuItem,
+  type FurnitureEvent,
+  type HeldUsedEvent,
+  type MenuId,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
@@ -75,6 +83,8 @@ import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/ty
 import { OfficeInfo, OfficeItem, OfficeState, Player } from "../state";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
+import { HeldItems } from "./consumables";
+import { FurnitureUses } from "./usables";
 
 interface UserData {
   lastMoveAt: number;
@@ -132,6 +142,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static idleMs: number = POINTS.idleMs;
   /** Cuánto dura en la mano lo pedido en la cafetería (los tests lo acortan). */
   static heldMs: number = CAFE.heldMs;
+  /** Pausa entre dos usos de lo que se tiene en la mano (los tests la acortan). */
+  static consumeCooldownMs: number = CONSUME.cooldownMs;
   /** Tiempos de la ruleta y de dónde sale el número (los tests los acortan y fijan el resultado). */
   static rouletteTimings: RouletteTimings = { ...CASINO.roulette };
   static rouletteSpin: () => number = randomSpin;
@@ -157,8 +169,21 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private pendingReconnections = new Map<string, Deferred<Client>>();
   private pendingKnocks = new Map<string, PendingKnock>();
   private lastKnockAt = new Map<string, number>(); // `${userId}:${zoneId}` → ts
-  /** Lo que cada persona lleva en la mano (por userId: sobrevive a recargar la página). */
-  private heldByUser = new Map<string, { item: string; timer: { clear(): void } }>();
+  /** Lo que cada persona lleva en la mano y sus usos (por userId: sobrevive a recargar la página). */
+  private held = new HeldItems(
+    { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+    () => OfficeRoom.heldMs,
+    (userId, item, left) => {
+      for (const p of this.state.players.values())
+        if (p.userId === userId) {
+          p.held = item;
+          p.heldLeft = formatHeldLeft(left);
+        }
+    },
+    () => OfficeRoom.consumeCooldownMs,
+  );
+  /** Muebles que se usan (tele, lámparas, instrumentos, gato). */
+  private furnitureUses!: FurnitureUses;
 
   private get repo() {
     return OfficeRoom.repo;
@@ -171,6 +196,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
     for (const [areaId, map] of this.world.areas) for (const z of map.zones) this.areaOfZone.set(z.id, areaId);
     this.setState(new OfficeState());
+    this.furnitureUses = new FurnitureUses(this.state.switches);
     OfficeRoom.instances.add(this);
 
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
@@ -183,6 +209,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
+    this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
+    this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
+    this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
     this.onMessage(MSG.officeEdit, (client, raw) => {
       this.serial(() => this.handleOfficeEdit(client, raw)).catch((err) => {
         // Un error inesperado igual se responde: si no, el editor se queda esperando.
@@ -239,7 +268,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.place = placeAt(map, pos.x, pos.y);
     player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
     player.points = await this.repo.getPoints(auth.sub).catch(() => 0);
-    player.held = this.heldByUser.get(auth.sub)?.item ?? "";
+    const held = this.held.get(auth.sub);
+    player.held = held?.item ?? "";
+    player.heldLeft = held ? formatHeldLeft(held.left) : "";
     this.state.players.set(client.sessionId, player);
 
     client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now() };
@@ -354,6 +385,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const def = decorateAreaDef(base.def, this.decorOf(areaId));
     this.world.areas.set(areaId, def === base.def ? base : buildArea(def));
     this.unstick(areaId);
+    this.furnitureUses?.prune(this.mapOf(areaId));
   }
 
   /**
@@ -864,46 +896,79 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
-  // ---------- Cafetería ----------
+  // ---------- Cafetería y bar ----------
 
-  /** Pedido en la barra: hay que estar junto a ella y tener saldo. Lo pedido se lleva en la mano un rato. */
-  private async handleCafeOrder(client: Client<UserData>, raw: unknown) {
+  private handleCafeOrder(client: Client<UserData>, raw: unknown) {
+    return this.handleOrder(client, raw, "cafe");
+  }
+
+  /**
+   * Pedido en la barra de la cafetería o del club: hay que estar junto a esa barra y tener saldo. Lo
+   * pedido se lleva en la mano un rato (y se usa con F).
+   */
+  private async handleOrder(client: Client<UserData>, raw: unknown, menu: MenuId) {
     const player = this.state.players.get(client.sessionId);
-    const parsed = CafeOrderMessage.safeParse(raw);
+    const parsed = (menu === "cafe" ? CafeOrderMessage : BarOrderMessage).safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
-    const item = cafeItem(parsed.data.item)!;
+    const item = menuItem(parsed.data.item)!;
     const reply = (r: CafeOrderResult) => client.send(MSG.cafeResult, r);
 
     const now = Date.now();
     if (now - (client.userData.lastOrderAt ?? 0) < CAFE.orderCooldownMs) return reply({ ok: false, item: item.id, error: "busy" });
-    if (!nearPointOfType(this.mapOf(player.area), "cafe_counter", player.x, player.y)) {
+    if (!nearPointOfType(this.mapOf(player.area), MENUS[menu].point, player.x, player.y)) {
       return reply({ ok: false, item: item.id, error: "far" });
     }
     client.userData.lastOrderAt = now;
 
     const userId = player.userId;
+    const refId = menuRefId(item.id);
     let result: { ok: boolean; balance: number };
     try {
-      result = await this.repo.spendPoints({ userId, amount: item.price, reason: "PURCHASE", refId: cafeRefId(item.id) });
+      result = await this.repo.spendPoints({ userId, amount: item.price, reason: "PURCHASE", refId });
     } catch (err) {
       console.error("spendPoints", err);
       return reply({ ok: false, item: item.id, error: "failed" });
     }
     for (const p of this.state.players.values()) if (p.userId === userId) p.points = result.balance;
     if (!result.ok) return reply({ ok: false, item: item.id, error: "funds" });
-    this.setHeld(userId, item.id);
+    this.held.give(userId, item.id);
     reply({ ok: true, item: item.id, balance: result.balance });
   }
 
-  /** Pone algo en la mano de alguien (reemplaza lo anterior) y lo quita solo al rato. */
-  private setHeld(userId: string, item: string) {
-    this.heldByUser.get(userId)?.timer.clear();
-    const timer = this.clock.setTimeout(() => {
-      this.heldByUser.delete(userId);
-      for (const p of this.state.players.values()) if (p.userId === userId) p.held = "";
-    }, OfficeRoom.heldMs);
-    this.heldByUser.set(userId, { item, timer });
-    for (const p of this.state.players.values()) if (p.userId === userId) p.held = item;
+  /** Usar lo que se tiene en la mano (una pitada, un sorbo, un mordisco): lo ven los del mismo nivel. */
+  private handleUseHeld(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = UseHeldMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const now = Date.now();
+    const used = this.held.use(player.userId, now, parsed.data?.part);
+    if (!used.ok) return;
+    client.userData.lastActiveAt = now;
+    const event: HeldUsedEvent = { sessionId: client.sessionId, part: used.part, art: used.art, action: used.action, left: used.left };
+    this.sendToArea(player.area, MSG.heldUsed, event);
+  }
+
+  // ---------- Muebles que se usan ----------
+
+  /** Tele, lámparas y tocadiscos se prenden para todos; instrumentos y gato avisan a los del nivel. */
+  private handleFurnitureUse(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const now = Date.now();
+    const seed = Math.floor(Math.random() * 2 ** 31);
+    const result = this.furnitureUses.use(this.mapOf(player.area), player, raw, now, seed);
+    if (!result.ok) return;
+    client.userData.lastActiveAt = now;
+    if (result.kind === "event") {
+      const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
+      this.sendToArea(player.area, MSG.furnitureEvent, event);
+    }
+  }
+
+  private sendToArea(area: string, type: string, message: unknown) {
+    for (const other of this.clients) {
+      if (this.state.players.get(other.sessionId)?.area === area) other.send(type, message);
+    }
   }
 
   // ---------- Utilidades ----------
