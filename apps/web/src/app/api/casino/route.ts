@@ -1,46 +1,67 @@
-import { casinoTodayNetTx, getCasinoSettings, prisma } from "@hyvento/db";
-import { CASINO, remainingToday } from "@hyvento/shared";
-import { NextResponse } from "next/server";
+import { casinoStats, casinoTodayNetTx, getCasinoSettings, prisma } from "@hyvento/db";
+import { CASINO, casinoRankings, type CasinoPeriod, type CasinoPlayerStats } from "@hyvento/shared";
+import { NextResponse, type NextRequest } from "next/server";
 import { asAvatar, asLook, getCurrentUser } from "@/lib/current-user";
 
 /**
- * La caja del casino: tu saldo, cómo vas hoy (ganado o perdido), el límite de pérdidas y cuánto te
- * queda, y el ranking semanal por ganancia neta en el casino.
+ * La caja del casino: tu saldo, cómo vas hoy, tus números, los rankings (quién más ganó, quién más perdió
+ * y los cobros más grandes) y las estadísticas de cada juego. `?periodo=siempre` cuenta todo; si no, los
+ * últimos `CASINO.rankingDays` días.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  const [settings, todayNet, sums] = await Promise.all([
+  const period: CasinoPeriod = req.nextUrl.searchParams.get("periodo") === "siempre" ? "siempre" : "semana";
+  const since = period === "siempre" ? null : new Date(Date.now() - CASINO.rankingDays * 86_400_000);
+  const [settings, todayNet, stats] = await Promise.all([
     getCasinoSettings(prisma),
     casinoTodayNetTx(prisma, user.id),
-    prisma.pointTransaction.groupBy({
-      by: ["userId"],
-      where: { reason: "CASINO", createdAt: { gte: new Date(Date.now() - CASINO.rankingDays * 86_400_000) } },
-      _sum: { amount: true },
-    }),
+    casinoStats(prisma, since),
   ]);
-  const top = sums
-    .map((s) => ({ userId: s.userId, net: s._sum.amount ?? 0 }))
-    .sort((a, b) => b.net - a.net)
-    .slice(0, 10);
+  const ranks = casinoRankings(stats.players);
+  const ids = new Set([...ranks.winners, ...ranks.losers, ...ranks.bigWins].map((p) => p.userId));
   const people = await prisma.user.findMany({
-    where: { id: { in: top.map((t) => t.userId) } },
+    where: { id: { in: [...ids] } },
     select: { id: true, name: true, avatar: true, look: true },
   });
   const byId = new Map(people.map((p) => [p.id, p]));
-  const ranking = top.flatMap((t) => {
-    const p = byId.get(t.userId);
-    return p ? [{ userId: p.id, name: p.name || "Alguien", avatar: asAvatar(p.avatar), look: asLook(p.look), net: t.net }] : [];
-  });
+  const rows = (list: CasinoPlayerStats[]) =>
+    list.flatMap((s) => {
+      const p = byId.get(s.userId);
+      return p
+        ? [
+            {
+              userId: p.id,
+              name: p.name || "Alguien",
+              avatar: asAvatar(p.avatar),
+              look: asLook(p.look),
+              net: s.net,
+              best: s.best,
+            },
+          ]
+        : [];
+    });
+  const mine = stats.players.find((p) => p.userId === user.id) ?? {
+    userId: user.id,
+    net: 0,
+    staked: 0,
+    paid: 0,
+    bets: 0,
+    best: 0,
+  };
   return NextResponse.json(
     {
       balance: user.points,
       enabled: settings.enabled,
-      limit: settings.dailyLossLimit,
       todayNet,
-      remaining: remainingToday(settings.dailyLossLimit, todayNet),
+      period,
       days: CASINO.rankingDays,
-      ranking,
+      mine,
+      winners: rows(ranks.winners),
+      losers: rows(ranks.losers),
+      bigWins: rows(ranks.bigWins),
+      games: stats.games,
+      total: stats.total,
       me: user.id,
     },
     { headers: { "Cache-Control": "no-store" } },

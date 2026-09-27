@@ -131,7 +131,7 @@ export class RouletteTable {
     const refId = casinoRefId("ruleta", round);
     let outcome;
     try {
-      outcome = await this.d.repo().casinoBet({ userId: player.userId, amount, refId, limit: settings.dailyLossLimit });
+      outcome = await this.d.repo().casinoBet({ userId: player.userId, amount, refId });
     } catch (err) {
       console.error("casinoBet", err);
       return { ok: false, error: "failed" };

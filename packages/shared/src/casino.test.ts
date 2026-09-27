@@ -2,14 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   blackjackOutcome,
   blackjackReturn,
+  casinoRankings,
   colorOf,
   dealerShouldHit,
   handValue,
   HIDDEN_CARD,
-  remainingToday,
   RouletteBetMessage,
   rouletteBetLabel,
   roulettePayout,
+  summarizeCasino,
   rouletteWins,
   WHEEL_ORDER,
   type RouletteBetSpec,
@@ -39,13 +40,6 @@ describe("ruleta europea", () => {
       const returned = every(bet).length * (roulettePayout(bet) + 1);
       expect(returned, rouletteBetLabel(bet)).toBe(36);
     }
-  });
-
-  it("el límite cuenta lo perdido hoy (incluidas las apuestas abiertas) y lo ganado lo recupera", () => {
-    expect(remainingToday(150, 0)).toBe(150);
-    expect(remainingToday(150, -120)).toBe(30);
-    expect(remainingToday(150, -200)).toBe(0);
-    expect(remainingToday(150, 40)).toBe(190);
   });
 
   it("las apuestas fuera de rango no pasan", () => {
@@ -83,5 +77,32 @@ describe("blackjack", () => {
     expect(blackjackReturn("win", 10)).toBe(20);
     expect(blackjackReturn("push", 10)).toBe(10);
     expect(blackjackReturn("lose", 10)).toBe(0);
+  });
+});
+
+describe("estadísticas de la caja", () => {
+  const rows = [
+    { userId: "a", game: "ruleta", staked: 100, paid: 180, bets: 8, best: 72 },
+    { userId: "a", game: "blackjack", staked: 40, paid: 0, bets: 2, best: 0 },
+    { userId: "b", game: "ruleta", staked: 60, paid: 10, bets: 5, best: 10 },
+    { userId: "c", game: "blackjack", staked: 20, paid: 20, bets: 1, best: 20 },
+    { userId: "d", game: "", staked: 0, paid: 5, bets: 0, best: 5 },
+  ];
+
+  it("suma por persona, por juego y la casa", () => {
+    const s = summarizeCasino(rows);
+    expect(s.players.find((p) => p.userId === "a")).toEqual({ userId: "a", net: 40, staked: 140, paid: 180, bets: 10, best: 72 });
+    expect(s.games).toEqual([
+      { game: "ruleta", staked: 160, paid: 190, bets: 13, players: 2 },
+      { game: "blackjack", staked: 60, paid: 20, bets: 3, players: 2 },
+    ]);
+    expect(s.total).toEqual({ staked: 220, paid: 215, house: 5, bets: 16, players: 3 });
+  });
+
+  it("rankings de ganancias, pérdidas y cobros más grandes", () => {
+    const r = casinoRankings(summarizeCasino(rows).players);
+    expect(r.winners.map((p) => p.userId)).toEqual(["a", "d"]);
+    expect(r.losers.map((p) => p.userId)).toEqual(["b"]);
+    expect(r.bigWins.map((p) => p.userId)).toEqual(["a", "c", "b", "d"]);
   });
 });

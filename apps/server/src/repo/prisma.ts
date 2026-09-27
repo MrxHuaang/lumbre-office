@@ -210,7 +210,7 @@ export class PrismaRepository implements GameRepository {
     await prisma.worldLayout.upsert({ where: { area }, create: { area, edits: json, updatedBy: userId }, update: { edits: json, updatedBy: userId } });
   }
 
-  casinoBet(input: { userId: string; amount: number; refId: string; limit: number }) {
+  casinoBet(input: { userId: string; amount: number; refId: string }) {
     return casinoBet(prisma, input);
   }
 

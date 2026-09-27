@@ -86,7 +86,7 @@ export class BlackjackTable {
     const round = this.s.round + (this.s.phase === "waiting" ? 1 : 0);
     const { amount } = parsed.data;
     const refId = casinoRefId("blackjack", round);
-    const outcome = await this.charge(player.userId, amount, refId, settings.dailyLossLimit);
+    const outcome = await this.charge(player.userId, amount, refId);
     if (!outcome.ok) return outcome;
     const stillOpen = (this.s.phase === "waiting" || this.s.phase === "betting") && place.bet === 0;
     if (!stillOpen) {
@@ -117,7 +117,7 @@ export class BlackjackTable {
     const { action } = parsed.data;
     if (action === "double") {
       if (place.cards.length !== 2 || place.doubled) return { ok: false, error: "turn" };
-      const outcome = await this.charge(player.userId, place.bet, casinoRefId("blackjack", this.s.round), this.d.settings().dailyLossLimit);
+      const outcome = await this.charge(player.userId, place.bet, casinoRefId("blackjack", this.s.round));
       if (!outcome.ok) return outcome;
       // Mientras se cobraba pudo vencer el turno: se devuelve.
       if (token !== this.turnToken) {
@@ -145,9 +145,9 @@ export class BlackjackTable {
     return null;
   }
 
-  private async charge(userId: string, amount: number, refId: string, limit: number): Promise<CasinoResult> {
+  private async charge(userId: string, amount: number, refId: string): Promise<CasinoResult> {
     try {
-      const outcome = await this.d.repo().casinoBet({ userId, amount, refId, limit });
+      const outcome = await this.d.repo().casinoBet({ userId, amount, refId });
       this.d.setPoints(userId, outcome.balance);
       return outcome.ok ? { ok: true, balance: outcome.balance } : { ok: false, error: outcome.error };
     } catch (err) {

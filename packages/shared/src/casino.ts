@@ -3,13 +3,13 @@
 import { z } from "zod";
 
 export const CASINO = {
-  /** Límite diario de pérdidas por defecto (el admin lo cambia en /admin). */
-  defaultDailyLossLimit: 150,
   /** Apuesta mínima y máxima de una ficha (una apuesta de la ruleta, una mano de blackjack). */
   minBet: 1,
   maxBet: 50,
-  /** Ranking del casino: ganancia neta de los últimos N días. */
+  /** Rankings y estadísticas de la caja: los últimos N días (o desde siempre). */
   rankingDays: 7,
+  /** Personas en cada ranking de la caja. */
+  rankingSize: 10,
   roulette: {
     /** Tiempo para apostar, lo que dura el giro y cuánto se muestra el resultado. */
     bettingMs: 20_000,
@@ -23,13 +23,12 @@ export const CASINO = {
 } as const;
 
 /** Por qué no se aceptó una apuesta. */
-export const CASINO_ERRORS = ["far", "closed", "limit", "funds", "max-bets", "disabled", "failed", "seat", "turn"] as const;
+export const CASINO_ERRORS = ["far", "closed", "funds", "max-bets", "disabled", "failed", "seat", "turn"] as const;
 export type CasinoError = (typeof CASINO_ERRORS)[number];
 
 export const CASINO_ERROR_TEXT: Record<CasinoError, string> = {
   far: "Acércate a la mesa para apostar.",
   closed: "Ya no se puede apostar en esta ronda.",
-  limit: "Llegaste a tu límite de pérdidas de hoy. Vuelve mañana.",
   funds: "No te alcanzan los puntos.",
   "max-bets": "Ya hiciste todas las apuestas que se permiten en esta ronda.",
   disabled: "El casino está cerrado por ahora.",
@@ -37,14 +36,6 @@ export const CASINO_ERROR_TEXT: Record<CasinoError, string> = {
   seat: "Siéntate en una banqueta de la mesa de blackjack para jugar.",
   turn: "Todavía no es tu turno.",
 };
-
-/**
- * Cuánto más se puede apostar hoy sin pasar el límite de pérdidas. `todayNet` es la suma de los
- * movimientos del casino de hoy (las apuestas abiertas ya están descontadas, así que cuentan).
- */
-export function remainingToday(limit: number, todayNet: number): number {
-  return Math.max(0, limit + todayNet);
-}
 
 /** `refId` de un movimiento de puntos del casino (p. ej. "ruleta:12"). */
 export const casinoRefId = (game: "ruleta" | "blackjack", round: number) => `${game}:${round}`;
@@ -54,8 +45,7 @@ export const casinoRefId = (game: "ruleta" | "blackjack", round: number) => `${g
 export const RED_NUMBERS: readonly number[] = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 /** Orden de los números en la rueda, en sentido horario desde el cero. */
 export const WHEEL_ORDER: readonly number[] = [
-  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3,
-  26,
+  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
 ];
 
 export function colorOf(n: number): "red" | "black" | "green" {
@@ -72,8 +62,14 @@ export const RouletteBetSpec = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("odd") }),
   z.object({ kind: z.literal("low") }),
   z.object({ kind: z.literal("high") }),
-  z.object({ kind: z.literal("dozen"), d: z.union([z.literal(1), z.literal(2), z.literal(3)]) }),
-  z.object({ kind: z.literal("column"), c: z.union([z.literal(1), z.literal(2), z.literal(3)]) }),
+  z.object({
+    kind: z.literal("dozen"),
+    d: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  }),
+  z.object({
+    kind: z.literal("column"),
+    c: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  }),
 ]);
 export type RouletteBetSpec = z.infer<typeof RouletteBetSpec>;
 
@@ -157,13 +153,151 @@ export interface RouletteSettled {
 /** Ajustes del casino que se cambian en /admin. */
 export interface CasinoSettingsDTO {
   enabled: boolean;
-  dailyLossLimit: number;
 }
 
 export const CasinoSettingsBody = z.object({
   enabled: z.boolean(),
-  dailyLossLimit: z.number().int().min(0).max(100_000),
 });
+
+// ---------- Estadísticas y rankings de la caja ----------
+
+export const CASINO_GAMES = ["ruleta", "blackjack"] as const;
+export type CasinoGame = (typeof CASINO_GAMES)[number];
+export const CASINO_GAME_NAMES: Record<CasinoGame, string> = {
+  ruleta: "Ruleta",
+  blackjack: "Blackjack",
+};
+
+/** Período de las estadísticas: los últimos `CASINO.rankingDays` días o desde siempre. */
+export const CASINO_PERIODS = ["semana", "siempre"] as const;
+export type CasinoPeriod = (typeof CASINO_PERIODS)[number];
+
+/**
+ * Movimientos del casino de una persona en un juego, ya sumados por la base: lo apostado (en positivo),
+ * lo cobrado (premios y devoluciones), cuántas apuestas hizo y el cobro más grande de una vez.
+ */
+export interface CasinoRow {
+  userId: string;
+  game: string;
+  staked: number;
+  paid: number;
+  bets: number;
+  best: number;
+}
+
+export interface CasinoPlayerStats {
+  userId: string;
+  /** Cobrado menos apostado (negativo = va perdiendo). */
+  net: number;
+  staked: number;
+  paid: number;
+  bets: number;
+  best: number;
+}
+
+export interface CasinoGameStats {
+  game: CasinoGame;
+  staked: number;
+  paid: number;
+  bets: number;
+  players: number;
+}
+
+export interface CasinoSummary {
+  players: CasinoPlayerStats[];
+  games: CasinoGameStats[];
+  /** Lo del casino entero: lo que se apostó, lo que se pagó y lo que se quedó la casa. */
+  total: {
+    staked: number;
+    paid: number;
+    house: number;
+    bets: number;
+    players: number;
+  };
+}
+
+const gameOf = (g: string): CasinoGame | null => ((CASINO_GAMES as readonly string[]).includes(g) ? (g as CasinoGame) : null);
+
+/** Junta las filas por persona y por juego (los movimientos sin juego conocido cuentan solo por persona). */
+export function summarizeCasino(rows: readonly CasinoRow[]): CasinoSummary {
+  const players = new Map<string, CasinoPlayerStats>();
+  const games = new Map<CasinoGame, CasinoGameStats & { who: Set<string> }>();
+  for (const r of rows) {
+    const p = players.get(r.userId) ?? {
+      userId: r.userId,
+      net: 0,
+      staked: 0,
+      paid: 0,
+      bets: 0,
+      best: 0,
+    };
+    p.staked += r.staked;
+    p.paid += r.paid;
+    p.net = p.paid - p.staked;
+    p.bets += r.bets;
+    p.best = Math.max(p.best, r.best);
+    players.set(r.userId, p);
+    const game = gameOf(r.game);
+    if (!game) continue;
+    const g = games.get(game) ?? {
+      game,
+      staked: 0,
+      paid: 0,
+      bets: 0,
+      players: 0,
+      who: new Set<string>(),
+    };
+    g.staked += r.staked;
+    g.paid += r.paid;
+    g.bets += r.bets;
+    if (r.bets > 0) g.who.add(r.userId);
+    g.players = g.who.size;
+    games.set(game, g);
+  }
+  const list = [...players.values()];
+  const staked = list.reduce((a, p) => a + p.staked, 0);
+  const paid = list.reduce((a, p) => a + p.paid, 0);
+  return {
+    players: list,
+    games: CASINO_GAMES.map((game) => {
+      const g = games.get(game);
+      return g
+        ? {
+            game,
+            staked: g.staked,
+            paid: g.paid,
+            bets: g.bets,
+            players: g.players,
+          }
+        : { game, staked: 0, paid: 0, bets: 0, players: 0 };
+    }),
+    total: {
+      staked,
+      paid,
+      house: staked - paid,
+      bets: list.reduce((a, p) => a + p.bets, 0),
+      players: list.filter((p) => p.bets > 0).length,
+    },
+  };
+}
+
+/** Los tres rankings de la caja: quién más ganó, quién más perdió y los cobros más grandes de una vez. */
+export function casinoRankings(players: readonly CasinoPlayerStats[], size: number = CASINO.rankingSize) {
+  return {
+    winners: players
+      .filter((p) => p.net > 0)
+      .sort((a, b) => b.net - a.net)
+      .slice(0, size),
+    losers: players
+      .filter((p) => p.net < 0)
+      .sort((a, b) => a.net - b.net)
+      .slice(0, size),
+    bigWins: players
+      .filter((p) => p.best > 0)
+      .sort((a, b) => b.best - a.best)
+      .slice(0, size),
+  };
+}
 
 // ---------- Blackjack ----------
 
@@ -191,7 +325,10 @@ export const RANK_LABEL = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10"
 export const isRedSuit = (c: Card) => cardSuit(c) === 1 || cardSuit(c) === 2;
 
 /** Valor de una mano: el as vale 11 si no se pasa (mano "blanda"), si no 1. */
-export function handValue(cards: readonly Card[]): { total: number; soft: boolean } {
+export function handValue(cards: readonly Card[]): {
+  total: number;
+  soft: boolean;
+} {
   let total = 0;
   let aces = 0;
   for (const c of cards) {
@@ -238,7 +375,9 @@ export const BLACKJACK_ACTIONS = ["hit", "stand", "double"] as const;
 export type BlackjackAction = (typeof BLACKJACK_ACTIONS)[number];
 
 /** Cliente → servidor (`MSG.blackjackBet`): apostar en tu asiento (hay que estar sentado a la mesa). */
-export const BlackjackBetMessage = z.object({ amount: z.number().int().min(CASINO.minBet).max(CASINO.maxBet) });
+export const BlackjackBetMessage = z.object({
+  amount: z.number().int().min(CASINO.minBet).max(CASINO.maxBet),
+});
 /** Servidor → cliente al terminar una mano de blackjack (`MSG.blackjackSettled`). */
 export interface BlackjackSettled {
   round: number;
@@ -248,4 +387,6 @@ export interface BlackjackSettled {
 }
 
 /** Cliente → servidor (`MSG.blackjackAction`): jugada en tu turno. */
-export const BlackjackActionMessage = z.object({ action: z.enum(BLACKJACK_ACTIONS) });
+export const BlackjackActionMessage = z.object({
+  action: z.enum(BLACKJACK_ACTIONS),
+});

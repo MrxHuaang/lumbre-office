@@ -80,10 +80,8 @@ export interface GameRepository {
   /** Cambios del editor de la casa, por nivel (JSON crudo: se valida al leer). */
   loadWorldEdits(): Promise<Record<string, unknown>>;
   saveWorldEdits(area: string, edits: unknown, userId: string): Promise<void>;
-  /** Descuenta una apuesta si no pasa el límite de pérdidas de hoy ni el saldo. */
-  casinoBet(input: { userId: string; amount: number; refId: string; limit: number }): Promise<
-    { ok: true; balance: number } | { ok: false; error: "limit" | "funds"; balance: number }
-  >;
+  /** Descuenta una apuesta si alcanza el saldo. */
+  casinoBet(input: { userId: string; amount: number; refId: string }): Promise<{ ok: true; balance: number } | { ok: false; error: "funds"; balance: number }>;
   /** Paga un premio del casino (o devuelve una apuesta): suma sin tope. */
   casinoPayout(input: { userId: string; amount: number; refId: string }): Promise<{ balance: number }>;
   /**

@@ -56,10 +56,10 @@ export async function revokeInvite(form: FormData) {
   revalidatePath("/admin");
 }
 
-/** Casino: abrirlo o cerrarlo y el límite diario de pérdidas por persona. */
+/** Casino: abrirlo o cerrarlo. */
 export async function saveCasinoSettingsAction(form: FormData) {
   await requireAdmin();
-  const parsed = CasinoSettingsBody.safeParse({ enabled: form.get("enabled") === "on", dailyLossLimit: Number(form.get("dailyLossLimit")) });
+  const parsed = CasinoSettingsBody.safeParse({ enabled: form.get("enabled") === "on" });
   if (!parsed.success) return;
   await saveCasinoSettings(prisma, parsed.data);
   await publishCasinoSettingsChanged();

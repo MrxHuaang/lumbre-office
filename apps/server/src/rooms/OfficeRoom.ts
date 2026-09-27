@@ -934,7 +934,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   // ---------- Casino ----------
 
-  private casinoSettings: CasinoSettingsDTO = { enabled: true, dailyLossLimit: CASINO.defaultDailyLossLimit };
+  private casinoSettings: CasinoSettingsDTO = { enabled: true };
   private roulette?: RouletteTable;
   private blackjack?: BlackjackTable;
 

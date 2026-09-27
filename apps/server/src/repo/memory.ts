@@ -1,8 +1,6 @@
 import {
-  CASINO,
   DAILY_CAPS,
   dayStart,
-  remainingToday,
   type CasinoSettingsDTO,
   type ChatEvent,
   type OfficeItemDTO,
@@ -138,7 +136,7 @@ export class MemoryRepository implements GameRepository {
   }
 
   /** Ajustes del casino en memoria (los tests los cambian directo). */
-  casinoSettings: CasinoSettingsDTO = { enabled: true, dailyLossLimit: CASINO.defaultDailyLossLimit };
+  casinoSettings: CasinoSettingsDTO = { enabled: true };
   /** Cambios del editor de la casa en memoria. */
   worldEdits: Record<string, unknown> = {};
   async loadWorldEdits() {
@@ -150,12 +148,7 @@ export class MemoryRepository implements GameRepository {
   async getCasinoSettings() {
     return { ...this.casinoSettings };
   }
-  async casinoBet({ userId, amount, refId, limit }: { userId: string; amount: number; refId: string; limit: number }) {
-    const net = this.ledger
-      .filter((m) => m.userId === userId && m.reason === "CASINO" && m.at >= dayStart(Date.now()))
-      .reduce((a, m) => a + m.amount, 0);
-    const balance = await this.getPoints(userId);
-    if (amount > remainingToday(limit, net)) return { ok: false as const, error: "limit" as const, balance };
+  async casinoBet({ userId, amount, refId }: { userId: string; amount: number; refId: string }) {
     const spent = await this.spendPoints({ userId, amount, reason: "CASINO", refId });
     return spent.ok ? { ok: true as const, balance: spent.balance } : { ok: false as const, error: "funds" as const, balance: spent.balance };
   }

@@ -93,17 +93,15 @@ describe("ruleta", () => {
     expect(await repo.getPoints("u-alice")).toBe(5);
   });
 
-  it("el límite diario de pérdidas corta las apuestas (las abiertas cuentan)", async () => {
-    repo.casinoSettings = { enabled: true, dailyLossLimit: 15 };
-    const { bet } = await setup(100);
-    expect(await bet({ kind: "red" }, 10)).toMatchObject({ ok: true });
-    expect(await bet({ kind: "black" }, 10)).toEqual({ ok: false, error: "limit" });
-    expect(await bet({ kind: "black" }, 5)).toMatchObject({ ok: true });
-    expect(await repo.getPoints("u-alice")).toBe(85);
+  it("no hay límite diario: se apuesta mientras alcancen los puntos", async () => {
+    const { bet } = await setup(300);
+    for (let i = 0; i < 6; i++) expect(await bet({ kind: "red" }, 50)).toMatchObject({ ok: true });
+    expect(await bet({ kind: "black" }, 1)).toEqual({ ok: false, error: "funds" });
+    expect(await repo.getPoints("u-alice")).toBe(0);
   });
 
   it("con el casino cerrado no se apuesta, y una apuesta inventada se ignora", async () => {
-    repo.casinoSettings = { enabled: false, dailyLossLimit: 150 };
+    repo.casinoSettings = { enabled: false };
     const { bet } = await setup(50);
     expect(await bet({ kind: "red" }, 10)).toEqual({ ok: false, error: "disabled" });
     expect(await bet({ kind: "number", n: 40 }, 10)).toEqual({ ok: false, error: "disabled" }); // la última respuesta sigue siendo la anterior

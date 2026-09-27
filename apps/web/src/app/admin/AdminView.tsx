@@ -64,23 +64,12 @@ export function AdminView({ users, invites, offices, casino, embedded = false }:
               <input type="checkbox" name="enabled" defaultChecked={casino.enabled} className="h-4 w-4 accent-[var(--color-cozy-green)]" />
               Casino abierto
             </label>
-            <label className="flex flex-col gap-1 text-[14px]">
-              Límite diario de pérdidas por persona
-              <input
-                type="number"
-                name="dailyLossLimit"
-                min={0}
-                max={100000}
-                defaultValue={casino.dailyLossLimit}
-                className="cozy-input w-40 px-3 py-2 text-[16px]"
-              />
-            </label>
             <button type="submit" className="cozy-btn cozy-btn-primary px-4 py-2">
               Guardar
             </button>
           </form>
           <p className="mt-3 text-[13px] text-cozy-ink-soft">
-            Cuenta lo que cada persona lleva perdido en el día (de Bogotá), con las apuestas abiertas. Los cambios llegan a las mesas al instante.
+            No hay límite diario: cada quien apuesta mientras le alcancen los puntos. Cerrarlo llega a las mesas al instante.
           </p>
         </Section>
 
