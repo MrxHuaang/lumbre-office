@@ -280,4 +280,14 @@ export const MSG = {
   photosChanged: "photo:changed",
   /** Servidor → los del nivel: alguien desbloqueó un logro (ver achievements.ts). */
   achievementUnlocked: "achievement:unlocked",
+  /** Cumpleaños (events.ts): felicitar a quien cumple (`CongratsMessage`), la respuesta a quien felicita
+   *  (`CongratsResult`) y el aviso a todos (`CongratsEvent`). */
+  congrats: "birthday:congrats",
+  congratsResult: "birthday:congrats:result",
+  congratsEvent: "birthday:congrats:event",
+  /** Modo foco (focus.ts): empezar (`FocusStartMessage`), dejarlo o saltar el descanso, y cómo le fue
+   *  (`FocusEvent`, solo a la persona). */
+  focusStart: "focus:start",
+  focusStop: "focus:stop",
+  focusEvent: "focus:event",
 } as const;

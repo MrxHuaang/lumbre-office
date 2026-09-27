@@ -53,6 +53,10 @@ model User {
    */
   streak        Int            @default(0)
   lastDailyAt   DateTime?
+  /**
+   * Cumpleaños sin año, "MM-DD" (ver events.ts de @hyvento/shared). null = no lo puso.
+   */
+  birthday      String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 

@@ -33,6 +33,12 @@ export class Player extends Schema {
   @type("string") fishing = "";
   /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
   @type("uint8") drunk = 0;
+  /** Modo foco (focus.ts): "" nada, "work" concentrado (lleva el tomatito), "break" descanso. */
+  @type("string") focus = "";
+  /** Cuándo termina la fase del foco, en ms de la hora del servidor (0 = sin foco). */
+  @type("number") focusEndsAt = 0;
+  /** Preset del foco ("25-5" o "50-10"). */
+  @type("string") focusPreset = "";
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */
@@ -156,6 +162,8 @@ export class ClubVideo extends Schema {
   @type("string") title = "";
   /** Quién lo puso. */
   @type("string") by = "";
+  /** User.id de quien lo puso (en el karaoke, quien canta). */
+  @type("string") byId = "";
   /** Duración que dio el primer reproductor (0 = no se sabe todavía). */
   @type("number") durationMs = 0;
 }
@@ -181,6 +189,16 @@ export class ClubState extends Schema {
   @type({ map: ClubDancer }) dancers = new MapSchema<ClubDancer>();
 }
 
+/** Eventos del calendario (rooms/events.ts): quién cumple hoy y si el club está en modo karaoke. */
+export class EventsState extends Schema {
+  /** Día de Bogotá al que corresponde (`eventDay`). */
+  @type("number") day = 0;
+  /** Quienes cumplen años hoy: userId → nombre (también los que no están conectados). */
+  @type({ map: "string" }) birthdays = new MapSchema<string>();
+  /** Viernes desde las 17:00 de Bogotá: el club es karaoke. */
+  @type("boolean") karaoke = false;
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -199,4 +217,5 @@ export class OfficeState extends Schema {
   @type(ClubState) club = new ClubState();
   /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
   @type("string") weather = "despejado";
+  @type(EventsState) events = new EventsState();
 }

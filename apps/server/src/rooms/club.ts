@@ -21,11 +21,12 @@ function copyVideo(v: ClubVideo): ClubVideo {
   return assignVideo(new ClubVideo(), v);
 }
 
-function assignVideo(to: ClubVideo, from: Pick<ClubVideo, "id" | "videoId" | "title" | "by" | "durationMs">): ClubVideo {
+function assignVideo(to: ClubVideo, from: Pick<ClubVideo, "id" | "videoId" | "title" | "by" | "byId" | "durationMs">): ClubVideo {
   to.id = from.id;
   to.videoId = from.videoId;
   to.title = from.title;
   to.by = from.by;
+  to.byId = from.byId;
   to.durationMs = from.durationMs;
   return to;
 }
@@ -36,7 +37,7 @@ export function musicOf(s: ClubState) {
 }
 
 function clearVideo(v: ClubVideo) {
-  assignVideo(v, { id: "", videoId: "", title: "", by: "", durationMs: 0 });
+  assignVideo(v, { id: "", videoId: "", title: "", by: "", byId: "", durationMs: 0 });
 }
 
 /** Quien usa el club: su sesión, su nivel y dónde tiene los pies. */
@@ -155,7 +156,7 @@ export class Club {
    * Agrega un video al final de la cola. Si no suena ningún video (nada, o una pista generada), arranca
    * ya: los videos mandan sobre los loops.
    */
-  enqueue(video: { videoId: string; title: string; durationMs?: number }, by: string, now: number): ClubOutcome {
+  enqueue(video: { videoId: string; title: string; durationMs?: number }, by: string, now: number, byId = ""): ClubOutcome {
     const check = this.canAdd(video.videoId);
     if (!check.ok) return check;
     const v = new ClubVideo();
@@ -163,6 +164,7 @@ export class Club {
     v.videoId = video.videoId;
     v.title = video.title.slice(0, CLUB_VIDEO.maxTitle);
     v.by = by.slice(0, 40);
+    v.byId = byId;
     v.durationMs = video.durationMs ?? 0;
     this.state.queue.push(v);
     if (!this.state.video.videoId) this.next(now);
@@ -170,10 +172,10 @@ export class Club {
   }
 
   /** Vuelve a poner uno de lo que sonó (al final de la cola). */
-  replay(id: string, by: string, now: number): ClubOutcome {
+  replay(id: string, by: string, now: number, byId = ""): ClubOutcome {
     const old = this.state.history.find((v) => v.id === id);
     if (!old) return fail("invalid");
-    return this.enqueue(old, by, now);
+    return this.enqueue(old, by, now, byId);
   }
 
   /** Mueve una entrada de la cola a la posición `to` (se recorta al largo de la cola). */

@@ -4,6 +4,7 @@ import {
   loadAchievementRecord,
   unlockAchievement,
   awardPoints,
+  awardPointsOnce,
   grantWelcomeBonus,
   casinoBet,
   getCasinoSettings,
@@ -31,7 +32,7 @@ import {
   type StatChange,
 } from "@hyvento/shared";
 import { executeTrade } from "./social";
-import type { GameRepository, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
+import type { AwardOnceInput, GameRepository, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
@@ -199,6 +200,14 @@ export class PrismaRepository implements GameRepository {
   }
   grantWelcome(userId: string) {
     return grantWelcomeBonus(prisma, userId);
+  }
+  awardPointsOnce(input: AwardOnceInput) {
+    return awardPointsOnce(prisma, input);
+  }
+  async listBirthdays() {
+    const users = await prisma.user.findMany({ where: { birthday: { not: null } }, select: { id: true, name: true, email: true, birthday: true } });
+    // Mismo nombre que en la cabaña: sin nombre visible, el correo.
+    return users.map((u) => ({ userId: u.id, name: u.name || u.email.split("@")[0]!, birthday: u.birthday! }));
   }
 
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }) {

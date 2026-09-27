@@ -373,7 +373,7 @@ describe("cola de videos (en la sala)", () => {
     await send(bob, MSG.clubQueue, { action: "add", url: "https://youtu.be/bloqueado1x" });
     expect(errors.at(-1)).toEqual({ ok: false, error: "not-embeddable" });
     await send(bob, MSG.clubQueue, { action: "add", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10" });
-    expect(room.state.club.video).toMatchObject({ videoId: "dQw4w9WgXcQ", title: "Título de dQw4w9WgXcQ", by: "Bob" });
+    expect(room.state.club.video).toMatchObject({ videoId: "dQw4w9WgXcQ", title: "Título de dQw4w9WgXcQ", by: "Bob", byId: "u-bob" });
     // Con un video sonando se baila en la pista.
     await send(bob, MSG.clubDance, { move: "robot" });
     expect(room.state.club.dancers.get(bob.sessionId)).toMatchObject({ kind: "floor", move: "robot" });
