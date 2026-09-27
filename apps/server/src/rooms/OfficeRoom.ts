@@ -84,6 +84,7 @@ import { OfficeInfo, OfficeItem, OfficeState, Player } from "../state";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
+import { devToolsEnabled, parseDevJump } from "./devtools";
 import { FurnitureUses } from "./usables";
 
 interface UserData {
@@ -726,6 +727,30 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.repo.setUserStatus(player.userId, parsed.data.status).catch((err) => console.error("setUserStatus", err));
   }
 
+  /** Solo en desarrollo: "/ir <nivel> [punto]" (ver devtools.ts). Devuelve si era el comando. */
+  private devJump(client: Client<UserData>, player: Player, text: string): boolean {
+    const jump = parseDevJump(text, getWorld().areas);
+    if (!jump) return false;
+    if ("error" in jump) {
+      const note: ChatEvent = { id: randomUUID(), fromId: "", fromName: "Dev", text: jump.error, scope: "proximity", zoneId: null, ts: Date.now() };
+      client.send(MSG.chatEvent, note);
+      return true;
+    }
+    const target = this.mapOf(jump.area);
+    const ts = target.tileSize;
+    const pos = this.freeSpotNear(target, jump.x * ts + ts / 2, jump.y * ts + ts / 2);
+    player.area = target.id;
+    player.x = pos.x;
+    player.y = pos.y;
+    player.moving = false;
+    player.seated = false;
+    player.zoneId = zoneAt(target, pos.x, pos.y)?.id ?? "";
+    player.place = placeAt(target, pos.x, pos.y);
+    client.userData!.lastMoveAt = Date.now();
+    client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
+    return true;
+  }
+
   private handleChat(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = ChatSendMessage.safeParse(raw);
@@ -736,6 +761,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (times.length >= CHAT_RATE.max) return;
     times.push(now);
     client.userData.chatTimes = times;
+    if (devToolsEnabled() && this.devJump(client, player, parsed.data.text)) return;
 
     const event: ChatEvent = {
       id: randomUUID(),

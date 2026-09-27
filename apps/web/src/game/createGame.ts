@@ -32,7 +32,7 @@ export function waitForVisible(): Promise<void> {
 }
 
 export function createGame(parent: HTMLElement) {
-  return new Phaser.Game({
+  const game = new Phaser.Game({
     // Canvas 2D en vez de WebGL: más compatible (GPUs integradas, Brave, pestañas en segundo plano)
     // y de sobra para un mapa pixel-art de este tamaño.
     type: Phaser.CANVAS,
@@ -49,4 +49,7 @@ export function createGame(parent: HTMLElement) {
     banner: false,
     scene: [OfficeScene],
   });
+  // Solo en desarrollo: el juego queda a mano en la consola para depurar (window.__hyventoGame).
+  if (process.env.NODE_ENV !== "production") (window as unknown as { __hyventoGame?: Phaser.Game }).__hyventoGame = game;
+  return game;
 }
