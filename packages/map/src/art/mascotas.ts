@@ -202,12 +202,13 @@ function legs(b: Body, kind: PetArtKind, coat: Coat, step: 0 | 1 | 2, x0: number
     // Patitas claras (el perro, con "medias").
     b.rect(x + forward, bottom - lift - 1, 2, 1, kind === "perro" ? coat.belly : far ? coat.dark : coat.light);
   };
+  // Las de cerca dan el paso más largo (2 px) que las de lejos: así los dos cuadros se distinguen.
   const a = step === 1 ? -1 : step === 2 ? 1 : 0;
   // Las de atrás (más lejos) primero, más oscuras.
   leg(x0 + 2, -a, true);
   leg(x1 + 2, a, true);
-  leg(x0, a, false);
-  leg(x1, -a, false);
+  leg(x0, a * 2, false);
+  leg(x1, -a * 2, false);
 }
 
 function drawStand(kind: PetArtKind, coat: Coat, view: PetView, frame: number, pose: "stand" | "walk" | "eat") {
@@ -249,8 +250,21 @@ function drawSit(kind: PetArtKind, coat: Coat, view: PetView) {
   else {
     // De espaldas, sentada: la cabeza (nuca y orejas) encima del lomo, con la raya del lomo más oscura.
     for (let y = 10; y < 16; y++) b.px(12, y, coat.mark ?? coat.dark);
+    if (dog) {
+      // El perro: la mancha del lomo, la cola parada moviéndose y las orejas caídas a los lados.
+      if (coat.mark) b.ellipse(13.6, 13.2, 1.8, 1.5, coat.mark);
+      for (let k = 0; k < 4; k++) {
+        b.px(16 + (k > 1 ? 1 : 0), 13 - k, coat.base);
+        b.px(17 + (k > 1 ? 1 : 0), 13 - k, k === 3 ? coat.light : coat.base);
+      }
+    }
     headBack(b, kind, head.x, head.y, r, coat);
-    if (dog) b.rect(Math.round(head.x - 2), Math.round(head.y + r - 0.5), 5, 1, COLLAR);
+    if (dog) {
+      for (const side of [-1, 1]) b.rect(Math.round(head.x + side * (r - 0.5)) - (side < 0 ? 1 : 0), Math.round(head.y), 1, 3, coat.dark);
+      b.rect(Math.round(head.x - 2), Math.round(head.y + r - 0.5), 5, 1, COLLAR);
+      // La hebilla del collar, atrás.
+      b.px(Math.round(head.x), Math.round(head.y + r - 0.5), TAG);
+    }
   }
   // Patas delanteras rectas.
   b.rect(9, 14, 2, PET_FRAME.feetY - 14, coat.base);
