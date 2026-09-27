@@ -1,6 +1,6 @@
 "use client";
 
-// Lo de la sala donde estoy, en un solo recuadro (abajo a la derecha): la pizarra y las paredes altas en
+// Lo de la sala donde estoy (va en el panel lateral, SideDock): la pizarra y las paredes altas en
 // cualquier oficina o en la sala de reuniones; y en tu oficina, además, decorar, el candado, la nota de
 // la placa y la radio. La radio de una oficina ajena se ve (y se le baja el volumen) desde aquí también.
 import { OFFICE_NOTE_MAX, parseYoutubeId, type OfficeRadioState } from "@hyvento/shared";
@@ -11,34 +11,47 @@ import { selectMyUserId, useOfficeStore, type OfficeView } from "@/game/store";
 import { tapVideos } from "@/game/youtube";
 import { PixelIcon } from "./Cozy";
 
-export function RoomPanel() {
+/** ¿Hay sala (oficina o de reuniones) donde estoy? El panel lateral la muestra si sí. */
+export const inRoom = (zoneType: string | undefined) => zoneType === "office" || zoneType === "meeting";
+
+/** Título de la sección: tu oficina, la de otro o el nombre de la sala. */
+export function useRoomTitle(): string {
   const zone = useOfficeStore((s) => s.zone);
   const office = useOfficeStore((s) => (s.zone?.type === "office" ? s.offices[s.zone.id] : undefined));
   const me = useOfficeStore(selectMyUserId);
-  const decorating = useOfficeStore((s) => s.decorating);
-  const worldEditing = useOfficeStore((s) => s.worldEditing);
-  const pcOn = useOfficeStore((s) => s.pcOn);
-  // En el celular no caben el chat y este panel a la vez: el chat abierto tiene prioridad.
-  const chatOpen = useOfficeStore((s) => s.chatOpen);
-  if (!zone || (zone.type !== "office" && zone.type !== "meeting") || decorating || worldEditing || pcOn) return null;
+  if (!zone) return "";
   const mine = Boolean(office?.ownerId && office.ownerId === me);
-  const title = zone.type === "meeting" ? zone.name : mine ? "Tu oficina" : office?.ownerName ? `Oficina de ${office.ownerName}` : zone.name;
+  return zone.type === "meeting" ? zone.name : mine ? "Tu oficina" : office?.ownerName ? `Oficina de ${office.ownerName}` : zone.name;
+}
+
+export function RoomSection() {
+  const zone = useOfficeStore((s) => s.zone);
+  const office = useOfficeStore((s) => (s.zone?.type === "office" ? s.offices[s.zone.id] : undefined));
+  const me = useOfficeStore(selectMyUserId);
+  if (!zone || !inRoom(zone.type)) return null;
+  const mine = Boolean(office?.ownerId && office.ownerId === me);
 
   return (
-    <section
-      aria-label={title}
-      className={`cozy-panel absolute right-3 bottom-28 z-10 flex w-[min(330px,calc(100%-1.5rem))] flex-col gap-2.5 px-3 py-2.5 xl:bottom-16 ${chatOpen ? "max-md:hidden" : ""}`}
-    >
-      <header className="flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-[12px] text-cozy-ink-soft">{title}</p>
-          {mine && office && <p className="truncate text-[16px] font-semibold">{office.name}</p>}
-        </div>
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-2">
+        {mine && office ? <p className="min-w-0 flex-1 truncate text-[16px] font-semibold">{office.name}</p> : <span className="flex-1" />}
         <RoomTools />
-      </header>
+      </div>
       {mine && office && <OwnerRow office={office} />}
       {office && (mine || office.radio) && <RadioRow radio={office.radio} mine={mine} />}
-    </section>
+    </div>
+  );
+}
+
+/** "Activar sonido" de la radio: va en la pila de avisos (se ve aunque el panel lateral esté cerrado). */
+export function RadioTapPrompt() {
+  const needsTap = useRadioStore((s) => s.needsTap);
+  const hasRadio = useOfficeStore((s) => Boolean(s.zone?.type === "office" && s.offices[s.zone.id]?.radio));
+  if (!needsTap || !hasRadio) return null;
+  return (
+    <button type="button" onClick={() => tapVideos()} className="cozy-btn cozy-btn-primary pointer-events-auto px-3 py-1.5 text-[13px]">
+      ▶ Activar el sonido de la radio
+    </button>
   );
 }
 
@@ -122,7 +135,7 @@ function DoorNote({ note }: { note: string }) {
 
 /** La radio: qué suena y mi volumen; al dueño, además, ponerla, pausarla y apagarla. */
 function RadioRow({ radio, mine }: { radio: OfficeRadioState | null; mine: boolean }) {
-  const { volume, muted, needsTap, setVolume, setMuted } = useRadioStore();
+  const { volume, muted, setVolume, setMuted } = useRadioStore();
   const setTyping = useOfficeStore((s) => s.setTyping);
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState("");
@@ -178,15 +191,9 @@ function RadioRow({ radio, mine }: { radio: OfficeRadioState | null; mine: boole
       {bad && <p className="text-cozy-red">Eso no parece un link de YouTube.</p>}
       {radio && (
         <div className="flex items-center gap-1.5">
-          {needsTap ? (
-            <button type="button" onClick={() => tapVideos()} className="cozy-btn cozy-btn-primary px-2 py-0.5 text-[12px]">
-              ▶ Activar sonido
-            </button>
-          ) : (
-            <button type="button" onClick={() => setMuted(!muted)} aria-pressed={muted} className="cozy-btn px-2 py-0.5 text-[12px]">
-              {muted ? "Sin sonido" : "Sonido"}
-            </button>
-          )}
+          <button type="button" onClick={() => setMuted(!muted)} aria-pressed={muted} className="cozy-btn px-2 py-0.5 text-[12px]">
+            {muted ? "Sin sonido" : "Sonido"}
+          </button>
           <input
             type="range"
             min={0}

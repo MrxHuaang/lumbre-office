@@ -14,7 +14,8 @@ import { ChatPanel } from "./ChatPanel";
 import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
-import { RoomPanel } from "./RoomPanel";
+import { RadioTapPrompt } from "./RoomPanel";
+import { SideDock } from "./SideDock";
 import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
@@ -212,7 +213,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <Notices />
           </div>
           <ChatPanel />
-          <RoomPanel />
+          <SideDock />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
             <DoorPrompt />
@@ -220,6 +221,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <InteractPrompt />
             <UsablePrompt />
             <FishingHint />
+            <RadioTapPrompt />
             <ClubHud />
           </div>
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
