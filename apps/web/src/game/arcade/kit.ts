@@ -1,35 +1,23 @@
-// Piezas comunes de los minijuegos del arcade: la pantalla (160x144, como una consola de bolsillo), el
-// azar con la semilla del servidor, los colores de la paleta y el dibujo en píxeles sobre un canvas 2D.
+// Piezas comunes de los minijuegos del arcade: la pantalla (160x144, como una consola de bolsillo), los
+// colores de la paleta y el dibujo en píxeles sobre un canvas 2D. La lógica de cada juego (y el azar con
+// la semilla del servidor) está en @hyvento/shared (arcade-sim.ts), para que el servidor pueda repetirla.
 import { C, type Ramp } from "@hyvento/map/art";
+import type { ArcadeKey, HeldKeys } from "@hyvento/shared";
 
-export const SCREEN_W = 160;
-export const SCREEN_H = 144;
+export { SCREEN_H, SCREEN_W, type ArcadeKey, type HeldKeys } from "@hyvento/shared";
 
-export type ArcadeKey = "left" | "right" | "up" | "down" | "action";
-export type HeldKeys = Record<ArcadeKey, boolean>;
-
-/** Un minijuego: se le pasan las teclas, avanza en pasos fijos y se dibuja en la pantalla. */
+/** Un minijuego en pantalla: la simulación compartida más su dibujo. */
 export interface MiniGame {
   readonly score: number;
   readonly over: boolean;
+  /** Esperando que se lance (la pelota sobre la paleta, el pajarito antes del primer aleteo). */
+  readonly waiting: boolean;
   /** Tecla recién apretada. */
   press(k: ArcadeKey): void;
-  /** Avanza `dt` ms (pasos fijos de 1000/60). */
-  step(dt: number, held: HeldKeys): void;
+  /** Avanza un paso fijo (ARCADE_STEP_MS). */
+  step(held: HeldKeys): void;
   /** `t` = ms desde que empezó (para animaciones). */
   draw(g: CanvasRenderingContext2D, t: number): void;
-}
-
-/** Azar repetible con la semilla (mulberry32): el servidor da la semilla al empezar. */
-export function seeded(seed: number) {
-  let a = seed >>> 0 || 1;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 /** Color CSS de un tono de la paleta. */

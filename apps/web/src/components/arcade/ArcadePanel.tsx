@@ -1,17 +1,18 @@
 "use client";
 
 // La pantalla de una máquina del arcade, con su gabinete alrededor: el juego se juega con el teclado
-// (flechas y espacio) y Esc sale. Al terminar se manda el puntaje: el servidor lo valida, lo guarda y,
-// si corresponde, da el premio de ocio. Arriba, la tabla de récords de la semana.
-import { ARCADE_ERROR_TEXT, ARCADE_GAME_INFO, arcadeGameOf, type ArcadeGame } from "@hyvento/shared";
+// (flechas y espacio) y Esc sale. Al terminar se manda el puntaje con las teclas grabadas: el servidor
+// repite la partida, la guarda y, si corresponde, da el premio de ocio. Arriba, la tabla de la semana.
+import { ARCADE_ERROR_TEXT, ARCADE_GAME_INFO, ARCADE_KEYS, ARCADE_STEP_MS, arcadeGameOf, ArcadeRecorder, type ArcadeGame } from "@hyvento/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createGame, drawStatic, isWaiting, machineAt } from "@/game/arcade/games";
+import { createGame, drawStatic } from "@/game/arcade/games";
 import { SCREEN_H, SCREEN_W, type ArcadeKey, type HeldKeys, type MiniGame } from "@/game/arcade/kit";
+import { localMachine } from "@/game/arcade/local";
 import { sendArcadeBoard, sendArcadeFinish, sendArcadeStart, useArcadeStore } from "@/game/arcade/net";
-import { getRoom } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 
-const STEP_MS = 1000 / 60;
+/** Después de perder, cuánto hay que esperar para volver a jugar (así el Espacio del último aleteo no cuenta). */
+const RESTART_MS = 700;
 const KEYS: Record<string, ArcadeKey> = {
   ArrowLeft: "left",
   ArrowRight: "right",
@@ -36,17 +37,17 @@ const CABINET: Record<ArcadeGame | "off", { body: string; glow: string }> = {
 };
 
 export function ArcadePanel({ onClose }: { onClose: () => void }) {
-  const [machine] = useState(() => {
-    const sessionId = useOfficeStore.getState().sessionId;
-    const me = sessionId ? getRoom()?.state.players.get(sessionId) : undefined;
-    return me && me.area === "sotano" ? machineAt(me.x, me.y) : null;
-  });
+  const [machine] = useState(localMachine);
   const game = machine === null ? null : arcadeGameOf(machine);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const run = useRef<{ game: MiniGame; token: string; t: number; sent: boolean } | null>(null);
+  const run = useRef<{ game: MiniGame; token: string; t: number; sent: boolean; rec: ArcadeRecorder } | null>(null);
   const demo = useRef<MiniGame | null>(null);
   /** Respuesta del servidor que había al mandar el puntaje: la que llegue después es la de esta partida. */
   const sentSeq = useRef(-1);
+  /** Respuesta que había al pedir empezar: un error que llegue después es que no se pudo empezar. */
+  const startSeq = useRef(-1);
+  /** Cuándo se perdió la última partida (para no volver a empezar sin querer). */
+  const overAt = useRef(0);
   const held = useRef<HeldKeys>({ left: false, right: false, up: false, down: false, action: false });
   const [phase, setPhase] = useState<Phase>("attract");
   const [score, setScore] = useState(0);
@@ -55,6 +56,10 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
   const started = useArcadeStore((s) => s.started);
   const result = useArcadeStore((s) => s.result);
   const [shownResult, setShownResult] = useState<number>(result?.seq ?? 0);
+  const lastResult = phase === "over" && result && result.seq > sentSeq.current ? result : null;
+  // No se vuelve a jugar hasta que llegue el resultado de la anterior: si no, la respuesta vieja se
+  // confunde con la de la partida nueva.
+  const canStart = phase === "attract" || (phase === "over" && lastResult !== null);
 
   // Mientras está abierta, el teclado es de la máquina (no mueve al personaje).
   useEffect(() => {
@@ -67,29 +72,33 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
 
   const start = useCallback(() => {
     if (machine === null || !game) return;
+    if (phase === "over" && performance.now() - overAt.current < RESTART_MS) return;
+    startSeq.current = useArcadeStore.getState().result?.seq ?? 0;
     setPhase("starting");
     sendArcadeStart(machine);
-  }, [machine, game]);
+  }, [machine, game, phase]);
 
-  // El servidor dio la semilla: empieza la partida.
+  // El servidor dio la semilla: empieza la partida (con las teclas que ya estaban apretadas).
   useEffect(() => {
     if (phase !== "starting" || !started || started.machine !== machine || !game) return;
-    run.current = { game: createGame(game, started.seed), token: started.token, t: 0, sent: false };
+    const rec = new ArcadeRecorder();
+    for (const k of ARCADE_KEYS) if (held.current[k]) rec.hold(k);
+    run.current = { game: createGame(game, started.seed), token: started.token, t: 0, sent: false, rec };
     setScore(0);
     setPhase("playing");
   }, [phase, started, machine, game]);
 
-  // Respuestas del servidor: no se pudo empezar, o el resultado de la partida.
+  // Respuestas del servidor: no se pudo empezar (lejos o máquina rota), o el resultado de la partida.
   useEffect(() => {
     if (!result || result.seq === shownResult) return;
     setShownResult(result.seq);
-    if (!result.ok && phase === "starting") {
+    if (!result.ok && phase === "starting" && result.seq > startSeq.current && (result.error === "far" || result.error === "invalid")) {
       useOfficeStore.getState().notify(ARCADE_ERROR_TEXT[result.error], "warning");
       setPhase("attract");
     }
   }, [result, shownResult, phase]);
 
-  // Teclado.
+  // Teclado: en la partida, cada tecla se aplica al juego y se graba con el número de paso.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -100,15 +109,21 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
       const k = KEYS[e.key] ?? KEYS[e.key.toLowerCase()];
       if (!k) return;
       e.preventDefault();
-      if (!held.current[k]) {
-        held.current[k] = true;
-        if (phase === "playing") run.current?.game.press(k);
-        else if (k === "action" && (phase === "attract" || phase === "over")) start();
-      }
+      if (held.current[k]) return;
+      held.current[k] = true;
+      const r = run.current;
+      if (phase === "playing" && r && !r.game.over) {
+        r.rec.hold(k);
+        r.rec.press(k);
+        r.game.press(k);
+      } else if (k === "action" && canStart) start();
     };
     const up = (e: KeyboardEvent) => {
       const k = KEYS[e.key] ?? KEYS[e.key.toLowerCase()];
-      if (k) held.current[k] = false;
+      if (!k || !held.current[k]) return;
+      held.current[k] = false;
+      const r = run.current;
+      if (phase === "playing" && r && !r.game.over) r.rec.release(k);
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -116,7 +131,7 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [phase, start, onClose]);
+  }, [phase, start, canStart, onClose]);
 
   // El bucle: pasos fijos y dibujo en cada cuadro.
   useEffect(() => {
@@ -137,18 +152,21 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
         return;
       }
       if (r && phase === "playing") {
-        while (acc >= STEP_MS) {
-          acc -= STEP_MS;
-          r.t += STEP_MS;
-          r.game.step(STEP_MS, held.current);
+        // Se deja de contar pasos al perder: el servidor repite exactamente estos.
+        while (acc >= ARCADE_STEP_MS && !r.game.over) {
+          acc -= ARCADE_STEP_MS;
+          r.t += ARCADE_STEP_MS;
+          r.game.step(held.current);
+          r.rec.steps++;
         }
         r.game.draw(g, r.t);
         setScore(r.game.score);
-        setWaiting(isWaiting(r.game));
+        setWaiting(r.game.waiting);
         if (r.game.over && !r.sent) {
           r.sent = true;
           sentSeq.current = useArcadeStore.getState().result?.seq ?? 0;
-          sendArcadeFinish(r.token, r.game.score);
+          overAt.current = now;
+          sendArcadeFinish(r.token, r.game.score, r.rec.steps, r.rec.inputs);
           setPhase("over");
         }
       } else if (r) {
@@ -167,21 +185,23 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
 
   const info = game ? ARCADE_GAME_INFO[game] : null;
   const colors = CABINET[game ?? "off"];
-  const lastResult = phase === "over" && result && result.seq > sentSeq.current ? result : null;
+  /** Lejos de todas las máquinas (el panel se abrió con un clic desde lejos): no es que esté rota. */
+  const far = machine === null;
+  const title = info?.name.toUpperCase() ?? (far ? "ARCADE" : "FUERA DE SERVICIO");
 
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[rgb(20_12_30/0.72)] p-3" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <section
         role="dialog"
         aria-modal
-        aria-label={info ? `Máquina: ${info.name}` : "Máquina fuera de servicio"}
+        aria-label={info ? `Máquina: ${info.name}` : far ? "Arcade" : "Máquina fuera de servicio"}
         className="cozy-scroll flex max-h-full w-[min(520px,100%)] flex-col items-stretch overflow-y-auto border-4 p-3 font-pixel"
         style={{ background: colors.body, borderColor: "#1d1128", boxShadow: `0 0 0 3px ${colors.glow}55, 6px 6px 0 #1d1128` }}
       >
         {/* Marquesina con el nombre del juego. */}
         <header className="relative mb-3 flex items-center justify-center border-4 border-[#1d1128] bg-[#1e1030] px-3 py-2">
           <h2 className="text-center text-[26px] leading-none tracking-wider" style={{ color: colors.glow, textShadow: `0 0 6px ${colors.glow}, 2px 2px 0 #000` }}>
-            {info?.name.toUpperCase() ?? "FUERA DE SERVICIO"}
+            {title}
           </h2>
           <button type="button" onClick={onClose} className="absolute top-1 right-1 px-2 text-[14px] text-[#fdf0c8]" aria-label="Salir de la máquina">
             Esc ✕
@@ -196,7 +216,11 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
           )}
           {!game && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="bg-[#a8262a] px-3 py-1 text-[18px] text-[#fdf0c8] [text-shadow:2px_2px_0_#000]">FUERA DE SERVICIO</span>
+              {far ? (
+                <span className="bg-[rgb(10_6_20/0.8)] px-3 py-1 text-center text-[15px] text-[#fdf0c8] [text-shadow:2px_2px_0_#000]">{ARCADE_ERROR_TEXT.far}</span>
+              ) : (
+                <span className="bg-[#a8262a] px-3 py-1 text-[18px] text-[#fdf0c8] [text-shadow:2px_2px_0_#000]">FUERA DE SERVICIO</span>
+              )}
             </div>
           )}
           {game && phase === "playing" && waiting && (
@@ -212,7 +236,7 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
                 </>
               )}
               <Board board={board} />
-              <p className="mt-1 animate-pulse text-[15px] text-[#f3d672]">{phase === "starting" ? "Insertando moneda…" : "Espacio para jugar"}</p>
+              <p className="mt-1 animate-pulse text-[15px] text-[#f3d672]">{phase === "starting" ? "Insertando moneda…" : canStart ? "Espacio para jugar" : "Espera un momento…"}</p>
               <p className="text-[12px] text-[#c0e377]">{info?.controls}</p>
             </div>
           )}

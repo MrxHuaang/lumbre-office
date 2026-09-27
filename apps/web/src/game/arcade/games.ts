@@ -12,8 +12,6 @@ export function createGame(game: ArcadeGame, seed: number): MiniGame {
   return new Flappy(seed);
 }
 
-/** ¿El juego está esperando que se lance (la pelota sobre la paleta, el pajarito antes del primer aleteo)? */
-export const isWaiting = (g: MiniGame) => "waiting" in g && Boolean((g as { waiting: boolean }).waiting);
 
 /** Estática de una máquina rota: ruido gris que se mueve y una franja que baja. */
 export function drawStatic(g: CanvasRenderingContext2D, t: number) {

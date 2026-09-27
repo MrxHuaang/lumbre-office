@@ -1,5 +1,5 @@
 // Red del arcade: pedir la tabla de récords, empezar una partida (el servidor da la semilla) y mandar el
-// puntaje al terminar. network.ts llama a `bindArcade` con cada sala nueva.
+// puntaje (con las teclas grabadas) al terminar. network.ts llama a `bindArcade` con cada sala nueva.
 import { MSG, type ArcadeBoard, type ArcadeResult, type ArcadeStarted } from "@hyvento/shared";
 import type { Room } from "colyseus.js";
 import { create } from "zustand";
@@ -41,6 +41,7 @@ export function sendArcadeStart(machine: number) {
   room?.send(MSG.arcadeStart, { machine });
 }
 
-export function sendArcadeFinish(token: string, score: number) {
-  room?.send(MSG.arcadeFinish, { token, score });
+/** Manda el puntaje con los pasos y las teclas de la partida: el servidor la repite para validarla. */
+export function sendArcadeFinish(token: string, score: number, steps: number, inputs: readonly number[]) {
+  room?.send(MSG.arcadeFinish, { token, score, steps, inputs });
 }

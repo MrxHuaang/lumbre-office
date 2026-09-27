@@ -1,72 +1,38 @@
 // Aleteo: un pajarito que cae; con espacio (o flecha arriba) aletea. Cada tubo que se pasa es un punto y
-// se pierde al tocar un tubo o el suelo. Los huecos salen de la semilla del servidor.
-import { PAL, rect, SCREEN_H, SCREEN_W, seeded, sprite, type ArcadeKey, type MiniGame } from "./kit";
+// se pierde al tocar un tubo o el suelo. Los huecos salen de la semilla del servidor. La lógica está en
+// @hyvento/shared (FlappySim).
+import { FLAPPY, FlappySim, type ArcadeKey } from "@hyvento/shared";
+import { PAL, rect, SCREEN_H, SCREEN_W, sprite, type MiniGame } from "./kit";
 
-const GRAVITY = 430;
-const FLAP = -150;
-const SPEED = 60;
-const PIPE_W = 16;
-const GAP = 46;
-/** Distancia entre tubos: sale uno cada 1,5 s. */
-const SPACING = 90;
-const GROUND = SCREEN_H - 12;
-const BIRD_X = 40;
+const { pipeW: PIPE_W, gap: GAP, ground: GROUND, birdX: BIRD_X } = FLAPPY;
 const BIRD = [
   ["..yyyy..", ".yyyywk.", "wwyyyyyo", "wwwyyyoo", ".yyyyyy.", "..yyyy.."],
   ["..yyyy..", ".yyyywk.", ".yyyyyyo", "wwwyyyoo", "wwyyyyy.", "..yyyy.."],
 ];
 
 export class Flappy implements MiniGame {
-  score = 0;
-  over = false;
-  private y = SCREEN_H / 2 - 10;
-  private vy = 0;
-  private pipes: { x: number; gap: number; passed: boolean }[] = [];
-  private rand: () => number;
-  /** Hasta el primer aleteo el pajarito flota y no salen tubos. */
-  private waitingStart = true;
-  private scroll = 0;
-  private flapAt = -1000;
-  private t = 0;
+  readonly sim: FlappySim;
 
   constructor(seed: number) {
-    this.rand = seeded(seed);
+    this.sim = new FlappySim(seed);
+  }
+
+  get score() {
+    return this.sim.score;
+  }
+  get over() {
+    return this.sim.over;
+  }
+  get waiting() {
+    return this.sim.waiting;
   }
 
   press(k: ArcadeKey) {
-    if (this.over || (k !== "action" && k !== "up")) return;
-    this.waitingStart = false;
-    this.vy = FLAP;
-    this.flapAt = this.t;
+    this.sim.press(k);
   }
 
-  step(dt: number) {
-    this.t += dt;
-    if (this.over) return;
-    const s = dt / 1000;
-    this.scroll += SPEED * s;
-    if (this.waitingStart) {
-      this.y = SCREEN_H / 2 - 10 + Math.sin(this.t / 200) * 3;
-      return;
-    }
-    this.vy = Math.min(220, this.vy + GRAVITY * s);
-    this.y += this.vy * s;
-    const last = this.pipes.at(-1);
-    if (!last || last.x < SCREEN_W - SPACING) this.pipes.push({ x: SCREEN_W + 4, gap: 20 + Math.floor(this.rand() * (GROUND - 40 - GAP)), passed: false });
-    for (const p of this.pipes) {
-      p.x -= SPEED * s;
-      if (!p.passed && p.x + PIPE_W < BIRD_X) {
-        p.passed = true;
-        this.score++;
-      }
-    }
-    this.pipes = this.pipes.filter((p) => p.x > -PIPE_W - 2);
-    // Choque: la caja del pajarito (un poco más chica que el dibujo, para que sea justo).
-    const top = this.y + 1;
-    const bottom = this.y + 5;
-    if (bottom >= GROUND || top < 0) this.over = true;
-    for (const p of this.pipes)
-      if (BIRD_X + 7 > p.x && BIRD_X + 1 < p.x + PIPE_W && (top < p.gap || bottom > p.gap + GAP)) this.over = true;
+  step() {
+    this.sim.step();
   }
 
   draw(g: CanvasRenderingContext2D, t: number) {
@@ -74,19 +40,19 @@ export class Flappy implements MiniGame {
     const bands = [PAL.sky(1), PAL.sky(2), PAL.sky(3), PAL.cream(4), PAL.gold(4)];
     bands.forEach((c, i) => rect(g, 0, (i * GROUND) / bands.length, SCREEN_W, Math.ceil(GROUND / bands.length) + 1, c));
     for (let k = 0; k < 4; k++) {
-      const x = ((k * 57 - this.scroll * 0.2) % (SCREEN_W + 30) + SCREEN_W + 30) % (SCREEN_W + 30) - 30;
+      const x = ((k * 57 - this.sim.scroll * 0.2) % (SCREEN_W + 30) + SCREEN_W + 30) % (SCREEN_W + 30) - 30;
       rect(g, x, 14 + k * 11, 22, 4, PAL.cream(5));
       rect(g, x + 4, 11 + k * 11, 12, 3, PAL.cream(5));
     }
     for (let k = 0; k < 12; k++) {
       const w = 12 + ((k * 7) % 9);
       const h = 14 + ((k * 13) % 22);
-      const x = ((k * 19 - this.scroll * 0.4) % (SCREEN_W + 20) + SCREEN_W + 20) % (SCREEN_W + 20) - 20;
+      const x = ((k * 19 - this.sim.scroll * 0.4) % (SCREEN_W + 20) + SCREEN_W + 20) % (SCREEN_W + 20) - 20;
       rect(g, x, GROUND - h, w, h, PAL.violet(2));
       if (k % 2) rect(g, x + 3, GROUND - h + 4, 2, 2, PAL.gold(5));
     }
     // Tubos con borde y brillo.
-    for (const p of this.pipes) {
+    for (const p of this.sim.pipes) {
       for (const [y0, y1] of [
         [0, p.gap],
         [p.gap + GAP, GROUND],
@@ -100,18 +66,16 @@ export class Flappy implements MiniGame {
     }
     // Suelo que avanza.
     rect(g, 0, GROUND, SCREEN_W, SCREEN_H - GROUND, PAL.mustard(2));
-    for (let x = -((this.scroll | 0) % 8); x < SCREEN_W; x += 8) rect(g, x, GROUND, 4, 2, PAL.leaf(4));
+    for (let x = -((this.sim.scroll | 0) % 8); x < SCREEN_W; x += 8) rect(g, x, GROUND, 4, 2, PAL.leaf(4));
     // El pajarito: aletea al subir y se inclina al caer.
-    const flapping = t - this.flapAt < 180 || Math.floor(t / 150) % 2 === 0;
-    sprite(g, BIRD[flapping ? 1 : 0]!, BIRD_X, Math.round(this.y) + (this.vy > 120 ? 1 : 0), {
+    const flapping = t - this.sim.flapAt < 180 || Math.floor(t / 150) % 2 === 0;
+    // Antes del primer aleteo flota arriba y abajo.
+    const bob = this.sim.waiting ? Math.sin(t / 200) * 3 : 0;
+    sprite(g, BIRD[flapping ? 1 : 0]!, BIRD_X, Math.round(this.sim.y + bob) + (this.sim.vy > 120 ? 1 : 0), {
       y: PAL.gold(4),
       w: PAL.cream(5),
       k: PAL.ink,
       o: PAL.rug(4),
     });
-  }
-
-  get waiting() {
-    return this.waitingStart && !this.over;
   }
 }
