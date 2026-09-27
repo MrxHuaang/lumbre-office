@@ -188,4 +188,6 @@ export const MSG = {
   fishFinish: "fish:finish",
   fishCancel: "fish:cancel",
   fishEvent: "fish:event",
+  /** Servidor → los del nivel: alguien desbloqueó un logro (ver achievements.ts). */
+  achievementUnlocked: "achievement:unlocked",
 } as const;
