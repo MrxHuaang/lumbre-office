@@ -82,6 +82,8 @@ import { FishingController } from "./fishing/controller";
 import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
 import { DRUNK, type DrunkStage } from "@hyvento/shared";
+import { setSfxArea, setSfxListener, sfx } from "./sfx";
+import { bindUiSounds } from "./sfxBindings";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -90,6 +92,8 @@ const DOOR_PROMPT_RADIUS = 44;
 /** Cada cuánto se recalcula a quién se oye (audio/video por proximidad). */
 const HEARING_INTERVAL_MS = 250;
 const FADE_MS = 180;
+/** Orden de los niveles de abajo hacia arriba (para que la escalera suene a subir o a bajar). */
+const LEVEL_ORDER = ["sotano", "planta-baja", "piso-2", "piso-3"];
 /** Puntos del mapa y muebles (para el clic) de cada objeto con el que se interactúa. */
 const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[] = [
   { kind: "mailbox", point: "mailbox", furniture: ["mailbox"] },
@@ -275,6 +279,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
       () => this.drunkVision.destroy(),
+      bindUiSounds(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
@@ -320,6 +325,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
+    if (this.local) setSfxListener(this.local.x, this.local.y);
     this.markers?.update(time, this.local ? { x: this.local.x, y: this.local.y } : null, this.map?.tileSize ?? 32);
     if (this.decorDirty) {
       this.decorDirty = false;
@@ -353,6 +359,7 @@ export class OfficeScene extends Phaser.Scene {
     if (!map) return;
     const changed = !this.view || map.id !== this.map.id;
     this.map = map;
+    setSfxArea(map);
     if (changed) {
       this.view?.destroy();
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
@@ -411,6 +418,7 @@ export class OfficeScene extends Phaser.Scene {
   /** Vuelve a dibujar el nivel actual con otro mapa (misma área, otra decoración). */
   private redrawArea(map: OfficeMap) {
     this.map = map;
+    setSfxArea(map);
     this.view?.destroy();
     this.view = new AreaView(this, map, useOfficeStore.getState().night);
     this.usables.setArea(map, this.view);
@@ -487,6 +495,7 @@ export class OfficeScene extends Phaser.Scene {
     // Solo la corrección del despertar trae el nivel (las de un paso rechazado mientras tanto, no).
     if (this.fainted && c.area) {
       this.fainted = false;
+      sfx.wake();
       useOfficeStore.getState().notify(WAKE_NOTICE, "info");
     }
   }
@@ -517,6 +526,7 @@ export class OfficeScene extends Phaser.Scene {
     this.pathMarker = undefined;
     this.sendPosition(avatar.direction, false);
     this.cameras.main.fadeOut(FADE_MS, 0, 0, 0);
+    this.portalSound(portal.to.area);
     sendTravel(portal.id);
     // Si la respuesta se pierde (p. ej. se reinició el servidor), no quedarse en negro para siempre.
     this.time.delayedCall(TRAVEL_TIMEOUT_MS, () => {
@@ -524,6 +534,13 @@ export class OfficeScene extends Phaser.Scene {
       this.travelling = false;
       this.cameras.main.fadeIn(FADE_MS, 0, 0, 0);
     });
+  }
+
+  /** La puerta si se entra o se sale de la casa; si no, la escalera (subiendo o bajando). */
+  private portalSound(to: string) {
+    const target = this.world.areas.get(to);
+    if (this.map.def.outdoor || target?.def.outdoor) return sfx.door();
+    sfx.stairs(LEVEL_ORDER.indexOf(to) > LEVEL_ORDER.indexOf(this.map.id));
   }
 
   /** Detalles vivos del nivel: humo de la chimenea de la casa. */
@@ -1110,6 +1127,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private useFurniture(f: PlacedFurniture) {
+    sfx.interact();
     sendFurnitureUse(f.type, f.x, f.y);
   }
 
@@ -1117,6 +1135,7 @@ export class OfficeScene extends Phaser.Scene {
   private floatAward(amount: number) {
     const avatar = this.local;
     if (!avatar) return;
+    sfx.coin();
     const s = worldToScreen(avatar.x, avatar.y);
     const text = this.add
       .text(s.x + 10, s.y - 34, `+${amount}`, {

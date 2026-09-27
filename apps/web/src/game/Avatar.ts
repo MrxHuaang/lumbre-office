@@ -6,6 +6,7 @@ import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt, STATUS_HEX } from "@/lib/cozy";
 import { heldTexture, idleWisp, playUse } from "./consumables";
 import { SWAY_DEG } from "./drunk";
+import { sfx, volAt } from "./sfx";
 import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
 
 const ROW = Object.fromEntries(SHEET_DIRECTIONS.map((d, i) => [d, i])) as Record<Direction, number>;
@@ -121,6 +122,8 @@ export class Avatar {
   private nextHicAt = 0;
   /** Cuándo empezó el desmayo (0 = no lo vimos empezar: aparece ya tendido). */
   private faintAt = 0;
+  /** Al aparecer (conectarse, cambiar de nivel) se aplica el estado sin sonidos. */
+  private readonly bornAt = performance.now();
 
   /** Posición destino (jugadores remotos, interpolada en `update`). */
   targetX: number;
@@ -154,7 +157,22 @@ export class Avatar {
       .setOrigin(0.5, 1);
     this.statusDot = scene.add.circle(0, 0, 2, STATUS_COLORS.available).setStrokeStyle(1, hexToInt(COZY.frame));
     this.speakingRing = scene.add.ellipse(0, 0, 18, 8).setStrokeStyle(1.5, hexToInt(SPEAKING_COLOR), 0.95).setVisible(false);
+    // Los pasos, al ritmo de la caminata: la hoja va 1-0-2-0 y el pie apoya en los cuadros 1 y 2.
+    this.sprite.on(Phaser.Animations.Events.ANIMATION_UPDATE, (_anim: unknown, frame: Phaser.Animations.AnimationFrame) => {
+      if (frame.index % 2 === 1 && this.moving && !this.seated) sfx.stepAt(this.wx, this.wy, this.soundVol() * (this.isLocal ? 1 : 0.8), this.isLocal);
+    });
     this.layout();
+  }
+
+  /** Cuánto se oye lo que hace este personaje desde donde estoy (0 si está en otro nivel). */
+  private soundVol(): number {
+    if (this.hidden || this.destroyed) return 0;
+    return this.isLocal ? 1 : volAt(this.wx, this.wy);
+  }
+
+  /** Ya pasó el momento de aparecer: los cambios de estado de ahora en más suenan. */
+  private get settled() {
+    return performance.now() - this.bornAt > 800;
   }
 
   /** Posición de los pies en px de mundo. */
@@ -270,6 +288,8 @@ export class Avatar {
     const parts = heldParts(id);
     if (parts.length === 0) return;
     this.held = { id, clearing: false, parts: parts.map((art, i) => this.makeHeldPart(art, i === 0 ? 0 : 1, counts[i] ?? usesOf(art))) };
+    // Recién pedido un cigarro o un habano: se prende con el encendedor.
+    if (this.settled && this.held.parts.some((p) => p.smoke)) sfx.lighter(this.soundVol());
     for (const p of this.held.parts) this.applyLeft(p);
     this.layout();
   }
@@ -385,6 +405,7 @@ export class Avatar {
       emberPoint: () => (alive() ? this.emberPoint(part) : null),
       crumbColor: () => crumbColor(part.art),
       hidden: () => this.hidden || this.destroyed,
+      volume: () => this.soundVol(),
       done,
     });
   }
@@ -484,6 +505,10 @@ export class Avatar {
     if (same) return;
     this.seatPose = pose;
     if (facing !== this.seated) {
+      if (this.settled && (facing === null) !== (this.seated === null)) {
+        if (facing) sfx.sit(this.soundVol());
+        else sfx.stand(this.soundVol());
+      }
       this.seated = facing;
       this.shadow.setVisible(!facing && !this.hidden);
       if (facing) {
@@ -566,10 +591,13 @@ export class Avatar {
       .setVisible(!this.hidden);
     this.scene.tweens.add({ targets: puddle, displayWidth: 18, displayHeight: 7, duration: DRUNK.vomitMs, ease: "Sine.out" });
     this.scene.tweens.add({ targets: puddle, alpha: 0, delay: 12_000, duration: 3000, onComplete: () => puddle.destroy() });
+    // El golpe al caer (la caída dura ~300 ms, ver faintPose).
+    this.scene.time.delayedCall(DRUNK.vomitMs + 260, () => sfx.thud(this.soundVol()));
     // Tres arcadas, cada una un chorrito de gotas que caen al charco.
     for (let k = 0; k < 3; k++) {
       this.scene.time.delayedCall(250 + k * (DRUNK.vomitMs / 3.2), () => {
         if (this.destroyed || this.hidden) return;
+        sfx.retch(this.soundVol());
         for (let i = 0; i < 7; i++) {
           const drop = this.scene.add
             .rectangle(mouthX, mouthY, 2, 2, i % 3 ? 0xa8c040 : 0xd6d25a)
@@ -624,6 +652,7 @@ export class Avatar {
 
   private hic() {
     this.floatText("¡hic!", 8, 7);
+    sfx.hic(this.soundVol());
   }
 
   /** Un textito que sube y se desvanece junto a la cabeza (el hipo, las "z" del desmayo). */
@@ -672,6 +701,7 @@ export class Avatar {
     });
     this.emoteBubble = state;
     if (id === "dance") this.startDance();
+    sfx.pop(this.soundVol());
     this.layout();
   }
 
