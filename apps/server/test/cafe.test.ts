@@ -34,7 +34,7 @@ async function setup(points: number, atCounter = true) {
   const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
   await room.waitForNextPatch();
   await goToArea(alice, room, "planta-baja");
-  if (atCounter) await walkToTile(alice, room, 11, 2);
+  if (atCounter) await walkToTile(alice, room, 21, 3);
   const results: CafeOrderResult[] = [];
   alice.onMessage(MSG.cafeResult, (r: CafeOrderResult) => results.push(r));
   const order = async (item: string) => {

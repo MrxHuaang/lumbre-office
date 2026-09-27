@@ -104,7 +104,8 @@ describe("oficinas personales", () => {
     await walkToTile(bob, room, inside.x, inside.y);
     expect(zoneOf(room, bob)).toBe("office-4");
 
-    await walkToTile(bob, room, outside.x, outside.y + 2);
+    // Dos pasos hacia el pasillo, alejándose de la puerta.
+    await walkToTile(bob, room, 2 * outside.x - inside.x, 2 * outside.y - inside.y);
     expect([...room.state.offices.get("office-4")!.guests]).toEqual([]);
     await walkToTile(bob, room, inside.x, inside.y);
     expect(zoneOf(room, bob)).not.toBe("office-4");
