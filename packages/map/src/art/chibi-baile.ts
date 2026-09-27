@@ -36,6 +36,11 @@ export interface DancePose {
   dy?: number;
   /** Cuánto sube (enganchada al tubo). */
   lift?: number;
+  /**
+   * Piernas en el tubo (solo con `sit` y de frente): `cross` = la espinilla de adelante rodea el tubo,
+   * como enganchada; `extend` = la otra pierna estirada hacia afuera, lejos del tubo (la pose de arriba).
+   */
+  leg?: "cross" | "extend";
 }
 
 /** Frame de la rutina del tubo: además, si queda detrás del tubo (se dibuja por debajo de él). */
@@ -68,9 +73,10 @@ const ARM: Record<ArmPose, [number, number][]> = {
 /** Mechones que vuelan al costado de la cabeza (del lado izquierdo del dibujo), según el largo del pelo. */
 const STREAK: Record<"long" | "mid" | "short", [number, number, 0 | 1 | 2][]> = {
   long: [
-    [2, 4, 2], [1, 4, 1], [2, 5, 1], [1, 5, 1], [0, 5, 1], [2, 6, 1], [1, 6, 0], [0, 6, 0], [2, 7, 0], [1, 7, 0], [2, 8, 0],
+    [2, 4, 2], [1, 4, 1], [2, 5, 1], [1, 5, 1], [0, 5, 1], [2, 6, 1], [1, 6, 0], [0, 6, 0], [2, 7, 0], [1, 7, 0], [0, 7, 0],
+    [2, 8, 0], [1, 8, 0], [0, 9, 0],
   ],
-  mid: [[2, 4, 2], [1, 5, 1], [2, 5, 1], [2, 6, 0]],
+  mid: [[2, 4, 2], [1, 4, 1], [1, 5, 1], [2, 5, 1], [0, 5, 0], [2, 6, 0], [1, 6, 0]],
   short: [[2, 4, 1]],
 };
 const LONG_HAIR = new Set(["long", "ponytail", "braids", "pigtails", "wavy", "dreads", "mullet"]);
@@ -102,6 +108,25 @@ function drawHeadBase({ c, t, y }: Ctx) {
   c.rect(4, y(11), 8, 1, t.skin[0]);
 }
 
+/** La pierna extra de las poses del tubo, sobre las piernas dobladas del chibi sentado. */
+function drawPoleLeg(ctx: Ctx, leg: "cross" | "extend") {
+  const { c, t, look, Y } = ctx;
+  const bottom = look.outfit === "dress" || isSwimwear(look.outfit) ? null : look.bottom;
+  const fabric = bottom === "pants" ? t.pants : ([t.skin[0], t.skin[1]] as const);
+  const shoe = look.shoes === "sandals" ? t.skin[0] : t.shoes[1];
+  if (leg === "cross") {
+    // La espinilla de adelante sigue de largo y rodea el tubo.
+    for (const [x, r] of [[12, 22], [13, 23], [14, 24]] as const) c.rect(x, Y(r), 2, 1, fabric[0]);
+    c.rect(14, Y(25), 2, 1, shoe);
+    return;
+  }
+  // Estirada hacia afuera, lejos del tubo, con la punta del pie un poco arriba.
+  c.rect(2, Y(21), 4, 2, fabric[1]);
+  c.rect(1, Y(20), 2, 2, fabric[1]);
+  c.rect(0, Y(19), 2, 1, shoe);
+  c.set(0, Y(20), shoe);
+}
+
 function drawStreak(ctx: Ctx, side: -1 | 1) {
   const { c, t, look, y } = ctx;
   for (const [x, r, k] of streakOf(look)) c.set(side < 0 ? x : 15 - x, y(r), t.hair[k] as RGBA);
@@ -130,6 +155,7 @@ function danceBody(look: FullLook, p: DancePose, t: Tones): PixelCanvas {
   };
   drawBackGear(ctx, "behind");
   drawLegs(ctx);
+  if (p.leg && sit && p.view === "front") drawPoleLeg(ctx, p.leg);
   drawTorso(ctx);
   // Los brazos que suben junto a la cabeza van después del pelo (si no, el pelo largo los tapa).
   const raised = (a: ArmPose) => a === "up" || a === "high";
@@ -212,24 +238,25 @@ export const POLE_ROUTINE: readonly PoleFrame[] = [
   // La vuelta: por delante del tubo hacia la derecha, y por detrás de vuelta.
   { view: F, flip: false, dx: -5, arms: ["out", "high"], frame: 1 },
   { view: F, flip: false, dx: -3, dy: 2, arms: ["out", "high"], sit: true, lift: 4, hair: -1 },
-  { view: F, flip: false, dx: 0, dy: 3, arms: ["high", "high"], sit: true, lift: 5, hair: -1 },
+  { view: F, flip: false, dx: 0, dy: 3, arms: ["high", "high"], sit: true, lift: 5, hair: -1, leg: "extend" },
   { view: F, flip: true, dx: 3, dy: 2, arms: ["out", "high"], sit: true, lift: 4, hair: -1 },
   { view: F, flip: true, dx: 5, arms: ["out", "high"], frame: 2 },
   { view: B, flip: true, dx: 3, dy: -2, arms: ["out", "high"], hair: 1, behind: true },
   { view: B, flip: true, dx: 0, dy: -3, arms: ["high", "high"], hair: 1, behind: true, frame: 1 },
   { view: B, flip: false, dx: -3, dy: -2, arms: ["high", "out"], hair: 1, behind: true },
-  // Sube enganchada con las piernas, abraza el tubo y arriba se inclina hacia atrás.
-  { view: F, flip: false, dx: -5, arms: ["forward", "up"], sit: true, lift: 3 },
-  { view: F, flip: false, dx: -5, arms: ["forward", "up"], sit: true, lift: 7 },
-  { view: F, flip: false, dx: -5, arms: ["out", "up"], sit: true, lift: 11 },
-  { view: F, flip: false, dx: -5, arms: ["high", "up"], sit: true, lift: 13, lean: -2, hair: -1 },
-  { view: F, flip: false, dx: -4, arms: ["high", "up"], sit: true, lift: 13, lean: -3, hair: -1 },
-  { view: F, flip: false, dx: -5, arms: ["out", "up"], sit: true, lift: 10, lean: -1 },
-  { view: F, flip: false, dx: -5, arms: ["forward", "up"], sit: true, lift: 6 },
-  { view: F, flip: false, dx: -5, arms: ["forward", "up"], sit: true, lift: 2 },
+  // Sube enganchada con las piernas cruzadas, abraza el tubo y arriba se inclina hacia atrás con una
+  // pierna estirada.
+  { view: F, flip: false, dx: -5, arms: ["forward", "up"], sit: true, lift: 3, leg: "cross" },
+  { view: F, flip: false, dx: -5, arms: ["forward", "up"], sit: true, lift: 7, leg: "cross", lean: 1 },
+  { view: F, flip: false, dx: -5, arms: ["out", "up"], sit: true, lift: 11, leg: "cross" },
+  { view: F, flip: false, dx: -3, arms: ["high", "up"], sit: true, lift: 13, lean: -3, hair: -1, leg: "extend" },
+  { view: F, flip: false, dx: -2, arms: ["out", "up"], sit: true, lift: 13, lean: -4, hair: -1, leg: "extend" },
+  { view: F, flip: false, dx: -5, arms: ["out", "up"], sit: true, lift: 10, lean: -2, hair: -1, leg: "cross" },
+  { view: F, flip: false, dx: -5, arms: ["forward", "up"], sit: true, lift: 6, leg: "cross" },
+  { view: F, flip: false, dx: -5, arms: ["forward", "up"], sit: true, lift: 2, leg: "cross" },
   // Colgada de una mano, inclinada lejos del tubo, y de vuelta.
-  { view: F, flip: false, dx: -5, arms: ["up", "out"], lean: -3, hair: -1 },
-  { view: F, flip: false, dx: -5, arms: ["up", "out"], lean: -3, bob: 1, hair: -1 },
+  { view: F, flip: false, dx: -2, arms: ["up", "out"], lean: -4, hair: -1 },
+  { view: F, flip: false, dx: -2, arms: ["up", "high"], lean: -4, bob: 1, hair: -1 },
   { view: F, flip: false, dx: -5, arms: ["up", "out"], lean: -2, frame: 1 },
   { view: F, flip: false, dx: -6, arms: ["hip", "up"], lean: 0 },
 ];

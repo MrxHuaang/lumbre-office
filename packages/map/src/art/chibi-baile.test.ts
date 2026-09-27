@@ -14,15 +14,19 @@ function opaque(c: PixelCanvas, x0: number, y0: number, w: number, h: number) {
 
 describe("bailes del chibi", () => {
   it("la rutina del tubo tiene un frame por paso, todos con el personaje entero dentro", () => {
-    const sheet = drawPoleDance(HUMANS.carla);
-    expect(sheet.width).toBe(POLE_FRAME_W * POLE_ROUTINE.length);
-    expect(sheet.height).toBe(POLE_FRAME_H);
     // Dos frames por tiempo: la rutina cierra en tiempos enteros.
     expect(POLE_ROUTINE.length % 2).toBe(0);
-    for (let i = 0; i < POLE_ROUTINE.length; i++) {
-      expect(opaque(sheet, i * POLE_FRAME_W, 0, POLE_FRAME_W, POLE_FRAME_H), `frame ${i}`).toBeGreaterThan(150);
-      // Nada pegado al borde del frame (quedaría cortado).
-      expect(opaque(sheet, i * POLE_FRAME_W, 0, 1, POLE_FRAME_H) + opaque(sheet, i * POLE_FRAME_W + POLE_FRAME_W - 1, 0, 1, POLE_FRAME_H), `frame ${i}`).toBe(0);
+    // Con todos los personajes (el pelo largo al viento y la pierna estirada llegan más lejos).
+    for (const [who, style] of Object.entries(HUMANS)) {
+      const sheet = drawPoleDance(style);
+      expect(sheet.width).toBe(POLE_FRAME_W * POLE_ROUTINE.length);
+      expect(sheet.height).toBe(POLE_FRAME_H);
+      for (let i = 0; i < POLE_ROUTINE.length; i++) {
+        expect(opaque(sheet, i * POLE_FRAME_W, 0, POLE_FRAME_W, POLE_FRAME_H), `${who} frame ${i}`).toBeGreaterThan(150);
+        // Nada pegado al borde del frame (quedaría cortado).
+        const edges = opaque(sheet, i * POLE_FRAME_W, 0, 1, POLE_FRAME_H) + opaque(sheet, i * POLE_FRAME_W + POLE_FRAME_W - 1, 0, 1, POLE_FRAME_H);
+        expect(edges, `${who} frame ${i}`).toBe(0);
+      }
     }
   });
 
