@@ -51,11 +51,44 @@ export function CalendarIcon({ size }: { size?: number }) {
   );
 }
 
+/** Navegador de favoritos: el globo con una estrellita. */
 export function BrowserIcon({ size }: { size?: number }) {
   return (
     <Icon size={size}>
-      <circle cx="16" cy="16" r="11" fill={COZY.sky} stroke={INK} strokeWidth="2" />
-      <path d="M5 16h22M16 5c-5 6-5 16 0 22M16 5c5 6 5 16 0 22" stroke={COZY.paper} strokeWidth="1.5" fill="none" />
+      <circle cx="15" cy="15" r="11" fill={COZY.sky} stroke={INK} strokeWidth="2" />
+      <path d="M4 15h22M15 4c-5 6-5 16 0 22M15 4c5 6 5 16 0 22" stroke={COZY.paper} strokeWidth="1.5" fill="none" />
+      <path
+        d="M24 17.5l1.7 4.2 4.5.3-3.5 2.9 1.1 4.4-3.8-2.5-3.8 2.5 1.1-4.4-3.5-2.9 4.5-.3z"
+        fill={COZY.gold}
+        stroke={INK}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </Icon>
+  );
+}
+
+/** Enfoque (Pomodoro): un tomate con las manecillas de un reloj. */
+export function TomatoIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <circle cx="16" cy="18" r="11" fill={COZY.red} stroke={INK} strokeWidth="2" />
+      <path d="M9 14h2v-2h2" stroke="#ee7a6a" strokeWidth="2" fill="none" />
+      <path d="M16 15v4h4" stroke={COZY.paperLight} strokeWidth="2" fill="none" />
+      <path d="M10 8l3 2 3-3 3 3 3-2-2 4h-8z" fill={COZY.green} stroke={INK} strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M16 3v4" stroke={INK} strokeWidth="2" />
+    </Icon>
+  );
+}
+
+/** Buscaminas: una mina sobre una casilla de papel. */
+export function MineIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="3" y="3" width="26" height="26" fill={COZY.paperLight} stroke={INK} strokeWidth="2" />
+      <path d="M16 6v20M6 16h20M9 9l14 14M23 9L9 23" stroke={INK} strokeWidth="2" />
+      <circle cx="16" cy="16" r="7" fill={COZY.void} stroke={INK} strokeWidth="2" />
+      <rect x="12" y="12" width="3" height="3" fill={COZY.paperLight} />
     </Icon>
   );
 }

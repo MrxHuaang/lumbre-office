@@ -7,37 +7,47 @@ import { CabinShowcase } from "../CabinShowcase";
 import { CharacterSprite } from "../CharacterSprite";
 import { PixelIcon } from "../Cozy";
 import { CalendarApp, NotesApp, TrashApp, useNow, type Confirm } from "./apps";
+import { BrowserApp } from "./BrowserApp";
 import {
   BrowserIcon,
   CalendarIcon,
   MailIcon,
+  MineIcon,
   MusicIcon,
   NotesIcon,
   PowerIcon,
+  TomatoIcon,
   TrashIcon,
   WhiteboardIcon,
 } from "./icons";
+import { MinesweeperApp } from "./MinesweeperApp";
+import { ALERT_TEXT, usePomodoro } from "./pomodoro";
+import { PomodoroApp, PomodoroTaskbarClock } from "./PomodoroApp";
 import type { NotesStore } from "./useNotes";
 import { Window, type WindowBox } from "./Window";
 
-type AppId = "notes" | "trash" | "calendar";
+type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper" | "browser";
 
 interface AppInfo {
   title: string;
   ink: string;
   inkText?: string;
   size: { w: number; h: number };
+  /** Minimizada sigue montada (oculta): no se pierde la partida ni se corta la música. */
+  keepAlive?: boolean;
 }
 
 const APPS: Record<AppId, AppInfo> = {
   notes: { title: "Notas", ink: COZY.paperDark, size: { w: 780, h: 500 } },
   trash: { title: "Papelera", ink: COZY.sky, inkText: COZY.paper, size: { w: 560, h: 360 } },
   calendar: { title: "Calendario", ink: COZY.green, size: { w: 340, h: 420 } },
+  pomodoro: { title: "Enfoque", ink: COZY.red, inkText: COZY.paperLight, size: { w: 340, h: 450 } },
+  minesweeper: { title: "Buscaminas", ink: COZY.woodLight, size: { w: 440, h: 540 }, keepAlive: true },
+  browser: { title: "Favoritos", ink: COZY.sky, inkText: COZY.paperLight, size: { w: 820, h: 540 }, keepAlive: true },
 };
 
 /** Apps que aún no existen: se ven en el escritorio para mostrar hacia dónde va el PC. */
 const FUTURE = [
-  { id: "browser", label: "Navegador", Icon: BrowserIcon },
   { id: "music", label: "Música", Icon: MusicIcon },
   { id: "board", label: "Pizarra", Icon: WhiteboardIcon },
   { id: "mail", label: "Mensajes", Icon: MailIcon },
@@ -118,6 +128,9 @@ export function Desktop({
   }, [iconMenu]);
 
   const top = windows.filter((w) => !w.minimized).sort((a, b) => b.z - a.z)[0]?.app ?? null;
+  const pomodoroAlert = usePomodoro((s) => s.alert);
+  const dismissPomodoroAlert = usePomodoro((s) => s.dismissAlert);
+  const pomodoroVisible = windows.some((w) => w.app === "pomodoro" && !w.minimized);
 
   const focus = (app: AppId) =>
     setWindows((ws) => ws.map((w) => (w.app === app ? { ...w, z: ++zTop.current, minimized: false } : w)));
@@ -193,17 +206,28 @@ export function Desktop({
     { id: "notes", label: "Notas", icon: <NotesIcon />, onOpen: () => open("notes") },
     { id: "trash", label: "Papelera", icon: <TrashIcon full={notes.trashed.length > 0} />, onOpen: () => open("trash") },
     { id: "calendar", label: "Calendario", icon: <CalendarIcon />, onOpen: () => open("calendar") },
+    { id: "pomodoro", label: "Enfoque", icon: <TomatoIcon />, onOpen: () => open("pomodoro") },
+    { id: "minesweeper", label: "Buscaminas", icon: <MineIcon />, onOpen: () => open("minesweeper") },
+    { id: "browser", label: "Favoritos", icon: <BrowserIcon />, onOpen: () => open("browser") },
     ...FUTURE.map((f) => ({ id: f.id, label: f.label, icon: <f.Icon />, onOpen: () => soon(f.label), disabled: true })),
   ];
 
-  const iconFor = (app: AppId, size = 18) =>
-    app === "notes" ? (
-      <NotesIcon size={size} />
-    ) : app === "trash" ? (
-      <TrashIcon size={size} full={notes.trashed.length > 0} />
-    ) : (
-      <CalendarIcon size={size} />
-    );
+  const iconFor = (app: AppId, size = 18) => {
+    switch (app) {
+      case "notes":
+        return <NotesIcon size={size} />;
+      case "trash":
+        return <TrashIcon size={size} full={notes.trashed.length > 0} />;
+      case "calendar":
+        return <CalendarIcon size={size} />;
+      case "pomodoro":
+        return <TomatoIcon size={size} />;
+      case "minesweeper":
+        return <MineIcon size={size} />;
+      case "browser":
+        return <BrowserIcon size={size} />;
+    }
+  };
 
   return (
     <div className="flex h-full flex-col font-pixel text-cozy-ink">
@@ -294,8 +318,8 @@ export function Desktop({
 
         {windows.map((w) => {
           const info = APPS[w.app];
-          if (w.minimized) return null;
-          return (
+          if (w.minimized && !info.keepAlive) return null;
+          const win = (
             <Window
               key={w.app}
               title={info.title}
@@ -316,9 +340,46 @@ export function Desktop({
               {w.app === "notes" && <NotesApp notes={notes} />}
               {w.app === "trash" && <TrashApp notes={notes} confirm={confirm} />}
               {w.app === "calendar" && <CalendarApp />}
+              {w.app === "pomodoro" && <PomodoroApp />}
+              {w.app === "minesweeper" && <MinesweeperApp />}
+              {w.app === "browser" && <BrowserApp active={top === "browser"} />}
             </Window>
           );
+          // `contents` no cambia el acomodo de la ventana; `none` la esconde sin desmontarla.
+          return info.keepAlive ? (
+            <div key={w.app} style={{ display: w.minimized ? "none" : "contents" }}>
+              {win}
+            </div>
+          ) : (
+            win
+          );
         })}
+
+        {/* Aviso del Pomodoro cuando su ventana no está a la vista (y el navegador no mostró notificación). */}
+        {pomodoroAlert && !pomodoroVisible && (
+          <div role="alert" className="cozy-panel absolute right-3 bottom-3 z-[1400] flex w-[min(300px,calc(100%-1.5rem))] items-start gap-2.5 p-3">
+            <TomatoIcon size={28} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold">{ALERT_TEXT[pomodoroAlert].title}</p>
+              <p className="mt-0.5 text-[12px] leading-snug text-cozy-ink-soft">{ALERT_TEXT[pomodoroAlert].body}</p>
+              <div className="mt-2 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    dismissPomodoroAlert();
+                    open("pomodoro");
+                  }}
+                  className="cozy-btn cozy-btn-primary px-2.5 py-1 text-[12px]"
+                >
+                  Abrir Enfoque
+                </button>
+                <button type="button" onClick={dismissPomodoroAlert} className="cozy-btn px-2.5 py-1 text-[12px]">
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {dialog && (
           <div className="absolute inset-0 z-[1000] grid place-items-center bg-cozy-frame/25 p-4">
@@ -381,6 +442,8 @@ export function Desktop({
             </button>
           ))}
         </div>
+
+        <PomodoroTaskbarClock onOpen={() => open("pomodoro")} />
 
         <button
           type="button"
