@@ -9,6 +9,8 @@
     "build": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next build",
     "start": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next start",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "banner": "node ./node_modules/tsx/dist/cli.mjs scripts/banner-lumbre.ts",
     "dev:session": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs scripts/dev-session.ts"
   },
   "dependencies": {
@@ -55,6 +57,7 @@
     "postcss": "^8.5.0",
     "tailwindcss": "^4.1.0",
     "tsx": "^4.23.15",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
   }
 }

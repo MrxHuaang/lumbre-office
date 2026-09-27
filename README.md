@@ -143,6 +143,14 @@ Todo cabe en planes gratis: **Vercel** (web), **Render** (servidor de juego, `re
 
 > Ni Vercel ni Render corren migraciones: se aplican en Neon **antes** de que el código llegue a `main`.
 
+## La marca
+
+**Lumbre** es el nombre público (lumbre = la luz de la fogata: el equipo se junta como alrededor del fuego). **Hyvento** es el equipo que la usa: adentro de Lumbre está "la cabaña de Hyvento". Por eso lo interno conserva el nombre (paquetes `@hyvento/*`, ids, base de datos y el botón "Hyvento" del HUD).
+
+- **Portada** (`/` sin sesión): la presentación pública, con la casa del jardín dibujada por el motor del juego y gente caminando (`apps/web/src/components/lumbre/`). Con sesión, `/` entra directo a la cabaña.
+- **Login** (`/login`): Google por invitación y, en desarrollo, "Entrar de prueba".
+- **Identidad**: la llamita pixel, las letras pixel y el eslogan están en `components/lumbre/marca.ts`. De ahí salen el logotipo, el favicon (`app/icon.tsx`, con respaldo PNG en `app/icon2.tsx`), el ícono de iOS (`app/apple-icon.tsx`), la imagen al compartir el enlace (`app/opengraph-image.tsx`) y el banner de este README (`pnpm --filter @hyvento/web banner` lo vuelve a dibujar).
+
 ## Documentación
 
 - [Plan de la cabaña](docs/plan-cabana.md): salas y fases.

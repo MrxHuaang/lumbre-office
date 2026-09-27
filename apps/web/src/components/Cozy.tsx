@@ -62,14 +62,25 @@ export function PixelIcon({
 }
 
 /** Titular grande en pixel con sombra de madera (pantallas de carga, ingreso y login). */
-export function CozyTitle({ children, className = "", style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+export function CozyTitle({
+  children,
+  className = "",
+  style,
+  as: Tag = "h1",
+}: {
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+  /** Nivel del encabezado: h1 por defecto; h2 si la página ya tiene su h1. */
+  as?: "h1" | "h2";
+}) {
   return (
-    <h1
+    <Tag
       className={`font-pixel font-semibold text-cozy-paper-light ${className}`}
       style={{ textShadow: "3px 3px 0 var(--color-cozy-wood), 6px 6px 0 var(--color-cozy-frame)", ...style }}
     >
       {children}
-    </h1>
+    </Tag>
   );
 }
 
