@@ -25,8 +25,6 @@ export const PHOTO = {
   dailyLimit: 20,
   /** Solo se guardan las últimas; las más viejas se borran al subir una nueva. */
   keep: 60,
-  /** Fotos pinchadas que se ven en el corcho de la cafetería (las más recientes). */
-  boardSlots: 12,
   /** Pie de foto escrito por quien la saca. */
   captionMax: 60,
   /** Personas que se nombran en el pie (y se guardan). */
