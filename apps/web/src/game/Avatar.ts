@@ -236,6 +236,22 @@ export class Avatar {
     this.video?.dom.setVisible(!hidden);
   }
 
+  /**
+   * Velado por el modo privado de otra sala: no se ve (sin tocar `hidden`, que es el del nivel). Con
+   * transparencia y no con visibilidad, así no pelea con lo que prende o apaga cada cosa.
+   */
+  setVeiled(veiled: boolean) {
+    if (veiled === this.veiled) return;
+    this.veiled = veiled;
+    const a = veiled ? 0 : 1;
+    for (const o of [this.sprite, this.shadow, this.label, this.statusDot, this.speakingRing]) o.setAlpha(a);
+    for (const part of this.held?.parts ?? []) part.image.setAlpha(a);
+    this.bubble?.setAlpha(a);
+    this.emoteBubble?.container.setAlpha(a);
+    this.gesture?.arm?.setAlpha(a);
+  }
+  private veiled = false;
+
   setStatus(status: PresenceStatus) {
     this.statusDot.setFillStyle(STATUS_COLORS[status] ?? STATUS_COLORS.available);
   }

@@ -510,6 +510,11 @@ export class OfficeScene extends Phaser.Scene {
     const zone = s.privateWalls && s.zone && (s.zone.type === "office" || s.zone.type === "meeting") ? this.map?.zones.find((z) => z.id === s.zone!.id) : undefined;
     const ts = this.map?.tileSize ?? 32;
     this.view?.setPrivateRoom(zone ? { x: zone.x / ts, y: zone.y / ts, w: zone.width / ts, h: zone.height / ts } : null);
+    // Los de afuera tampoco se ven (asomarían por encima del muro alto).
+    for (const [id, a] of this.avatars) {
+      const inside = !zone || id === this.localId || (a.x >= zone.x && a.x < zone.x + zone.width && a.y >= zone.y && a.y < zone.y + zone.height);
+      a.setVeiled(!inside);
+    }
   }
 
   // ---------- Fotos ----------

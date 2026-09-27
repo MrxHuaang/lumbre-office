@@ -436,13 +436,17 @@ export class AreaView {
     // Los muebles de afuera se esconden: los altos del pasillo (un reloj, una planta) asomarían por el hueco.
     const inside = (f: PlacedFurniture) => !rect || (f.x >= rect.x && f.y >= rect.y && f.x < rect.x + rect.w && f.y < rect.y + rect.h);
     for (const { f, img } of this.furnitureImages) img.setVisible(inside(f));
-    // Los tramos bajos del fondo de la sala quedan dentro de la pared alta nueva: se esconden, si no se
-    // ven como bloques encima del muro.
+    // De las paredes bajas quedan solo las del frente de la sala (sur y este). Las del fondo quedan dentro
+    // de la pared alta nueva y las de las salas vecinas, detrás del muro: si no, se ven encima de él.
     for (const [key, img] of this.lowWalls) {
       const [edge, pos] = key.split(":") as ["h" | "v", string];
       const [x, y] = pos.split(",").map(Number) as [number, number];
-      const raised = rect && (edge === "h" ? y === rect.y && x >= rect.x && x < rect.x + rect.w : x === rect.x && y >= rect.y && y < rect.y + rect.h);
-      img.setVisible(!raised);
+      const front = rect
+        ? edge === "h"
+          ? y === rect.y + rect.h && x >= rect.x && x < rect.x + rect.w
+          : x === rect.x + rect.w && y >= rect.y && y < rect.y + rect.h
+        : true;
+      img.setVisible(front);
     }
     if (!rect) return;
     const objects: Phaser.GameObjects.GameObject[] = [];
