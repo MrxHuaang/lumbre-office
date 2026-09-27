@@ -12,7 +12,7 @@ import {
   type Outfit,
 } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
-import { drawCharacter, drawSitting, FEET_Y, FRAME, SHEET_DIRECTIONS, type CharacterStyle } from "./chibi";
+import { BODY_X, BODY_Y, drawCharacter, drawSitting, FEET_Y, FRAME, SHEET_DIRECTIONS, SIT_DROP, type CharacterStyle } from "./chibi";
 import { top2Parts, TOPS_WITH_TOP2 } from "./chibi/clothes";
 import { ACCENT_BACK_ITEMS, ACCENT_NECK_ITEMS } from "./chibi/gear";
 import { tone } from "./chibi/kit";
@@ -34,7 +34,7 @@ const ALL: View[] = ["frente", "espaldas", "paso de frente", "paso de espaldas",
 const LEGS: View[] = ["frente", "espaldas", "paso de frente", "paso de espaldas", "sentado de frente"];
 const FRONT: View[] = ["frente", "paso de frente", "sentado de frente"];
 
-/** Píxeles de una celda de 32x32 de una hoja (opcionalmente solo algunas filas). */
+/** Píxeles de una celda (FRAME x FRAME) de una hoja (opcionalmente solo algunas filas). */
 function cell(sheet: PixelCanvas, col: number, row: number, rows: [number, number] = [0, FRAME - 1]): number[] {
   const out: number[] = [];
   for (let y = rows[0]; y <= rows[1]; y++)
@@ -67,9 +67,9 @@ const missing = (want: View[], got: View[]) => want.filter((v) => !got.includes(
 
 /** Color de un píxel del cuerpo (columna x de 0 a 15, fila del cuerpo) dentro de la celda (col, row). */
 function bodyPixel(sheet: PixelCanvas, col: number, row: number, x: number, bodyRow: number): string {
-  // El frame de 16 px va centrado en la celda y con los pies (fila 24 del cuerpo) en FEET_Y.
-  const sx = col * FRAME + (FRAME - 16) / 2 + x;
-  const sy = row * FRAME + FEET_Y - 24 + bodyRow;
+  // El frame de 16 px va centrado en la celda (desde BODY_X) y la fila 0 del cuerpo cae en BODY_Y.
+  const sx = col * FRAME + BODY_X + x;
+  const sy = row * FRAME + BODY_Y + bodyRow;
   const i = (sy * sheet.width + sx) * 4;
   return Array.from(sheet.data.slice(i, i + 4)).join();
 }
@@ -191,7 +191,7 @@ describe("ropa del chibi: parte de abajo y zapatos", () => {
   });
 
   it("caminan: en cada paso se levanta un pie distinto, con cualquier parte de abajo, zapato y espalda", () => {
-    // Filas de los pies en la hoja (cuerpo 21-23).
+    // Filas de los pies en la hoja (cuerpo 24-26).
     const feet: [number, number] = [FEET_Y - 3, FEET_Y - 1];
     for (const bottom of BOTTOMS)
       for (const shoes of SHOES)
@@ -208,14 +208,14 @@ describe("ropa del chibi: parte de abajo y zapatos", () => {
   });
 
   it("bajo la cintura se ve la tela de abajo en los tres frames: el short no desaparece y la bota no sube", () => {
-    // Al dar el paso el torso baja un píxel y la cintura tapa la fila 19: la cadera pasa a la 20.
+    // Al dar el paso el torso baja un píxel y la cintura tapa la fila 21: la cadera pasa a la 22.
     const fabric = [tone(base.pants, -0.25), tone(base.pants, 0.1)].map((c) => c.join());
     for (const bottom of ["pants", "shorts"] as const)
       for (const shoes of SHOES) {
         const sheet = drawCharacter({ ...base, bottom, shoes, shoeColor: "#5a331d" });
         for (const row of [RIGHT, UP])
           for (const frame of [0, 1, 2]) {
-            const hip = frame === 0 ? 19 : 20;
+            const hip = frame === 0 ? 21 : 22;
             for (let x = 5; x <= 10; x++)
               expect(fabric, `${bottom} con ${shoes}, ${SHEET_DIRECTIONS[row]}, frame ${frame}, x ${x}`).toContain(
                 bodyPixel(sheet, frame, row, x, hip),
@@ -225,7 +225,7 @@ describe("ropa del chibi: parte de abajo y zapatos", () => {
   });
 
   it("el morral y la capa no tapan los pies al caminar", () => {
-    // Se ven las suelas de los dos pies y el pie apoyado entero (filas 22 y 23 del cuerpo), en todos los frames.
+    // Se ven las suelas de los dos pies y el pie apoyado entero (filas 25 y 26 del cuerpo), en todos los frames.
     const outline = OUT.join();
     for (const back of BACK_ITEMS.filter((b) => b !== "none"))
       for (const shoes of SHOES) {
@@ -233,7 +233,7 @@ describe("ropa del chibi: parte de abajo y zapatos", () => {
         const worn = drawCharacter({ ...base, shoes, back });
         SHEET_DIRECTIONS.forEach((dir, row) => {
           for (const frame of [0, 1, 2])
-            for (const bodyRow of [22, 23])
+            for (const bodyRow of [25, 26])
               for (let x = 0; x < 16; x++) {
                 const foot = bodyPixel(bare, frame, row, x, bodyRow);
                 if (foot === outline || foot.endsWith(",0")) continue;
@@ -265,7 +265,7 @@ describe("ropa del chibi: trajes de baño", () => {
   const skin = tone(base.skin, 0).join();
   const shirt = tone(base.shirt!, 0).join();
 
-  /** Color de un píxel del cuerpo en cada vista (los pasos bajan el torso uno y sentado baja tres). */
+  /** Color de un píxel del cuerpo en cada vista (los pasos bajan el torso uno y sentado baja SIT_DROP). */
   function torsoPixels(style: CharacterStyle, x: number, bodyRow: number): Record<View, string> {
     const walk = drawCharacter(style);
     const sit = drawSitting(style);
@@ -274,8 +274,8 @@ describe("ropa del chibi: trajes de baño", () => {
       espaldas: bodyPixel(walk, 0, UP, x, bodyRow),
       "paso de frente": bodyPixel(walk, 1, RIGHT, x, bodyRow + 1),
       "paso de espaldas": bodyPixel(walk, 2, UP, x, bodyRow + 1),
-      "sentado de frente": bodyPixel(sit, RIGHT, 0, x, bodyRow + 3),
-      "sentado de espaldas": bodyPixel(sit, UP, 0, x, bodyRow + 3),
+      "sentado de frente": bodyPixel(sit, RIGHT, 0, x, bodyRow + SIT_DROP),
+      "sentado de espaldas": bodyPixel(sit, UP, 0, x, bodyRow + SIT_DROP),
     };
   }
   const everywhere = (color: string) => Object.fromEntries(ALL.map((v) => [v, color]));
@@ -298,14 +298,14 @@ describe("ropa del chibi: trajes de baño", () => {
   });
 
   it("con el bañador y el bikini la barriga es de piel; con el entero, del color del traje", () => {
-    // Fila 16 del cuerpo: la barriga, entre el pecho y la cintura.
-    expect(torsoPixels({ ...base, outfit: "trunks" }, 6, 16)).toEqual(everywhere(skin));
-    expect(torsoPixels({ ...base, outfit: "bikini" }, 6, 16)).toEqual(everywhere(skin));
-    expect(torsoPixels({ ...base, outfit: "swimsuit" }, 6, 16)).toEqual(everywhere(shirt));
+    // Fila 18 del cuerpo: la barriga, entre el pecho y la cintura.
+    expect(torsoPixels({ ...base, outfit: "trunks" }, 6, 18)).toEqual(everywhere(skin));
+    expect(torsoPixels({ ...base, outfit: "bikini" }, 6, 18)).toEqual(everywhere(skin));
+    expect(torsoPixels({ ...base, outfit: "swimsuit" }, 6, 18)).toEqual(everywhere(shirt));
     // El pecho: al aire con el bañador; de frente, la copa del bikini y el entero.
-    expect(torsoPixels({ ...base, outfit: "trunks" }, 6, 14)).toEqual(everywhere(skin));
+    expect(torsoPixels({ ...base, outfit: "trunks" }, 6, 15)).toEqual(everywhere(skin));
     for (const outfit of ["bikini", "swimsuit"] as const) {
-      const chest = torsoPixels({ ...base, outfit }, 6, 14);
+      const chest = torsoPixels({ ...base, outfit }, 6, 15);
       for (const v of FRONT) expect(chest[v], `${outfit}, ${v}`).toBe(shirt);
     }
   });
@@ -317,11 +317,11 @@ describe("ropa del chibi: trajes de baño", () => {
       for (const row of [RIGHT, UP]) {
         const name = `${outfit} (${SHEET_DIRECTIONS[row]})`;
         // Brazo de atrás (x = 3) a la altura del pecho.
-        expect(bodyPixel(walk, 0, row, 3, 15), `${name}: brazo`).toBe(skin);
-        // Pierna de atrás: el bañador llega casi a la rodilla; el entero y el bikini se cortan en la cadera.
-        expect(bodyPixel(walk, 0, row, 6, 20), `${name}: muslo`).toBe(outfit === "trunks" ? hip : skin);
-        expect(bodyPixel(walk, 0, row, 6, 21), `${name}: rodilla`).toBe(skin);
-        if (outfit !== "trunks") expect(bodyPixel(walk, 0, row, 7, 19), `${name}: cadera`).toBe(shirt);
+        expect(bodyPixel(walk, 0, row, 3, 16), `${name}: brazo`).toBe(skin);
+        // Pierna de atrás: el bañador llega a medio muslo; el entero y el bikini se cortan en la cadera.
+        expect(bodyPixel(walk, 0, row, 6, 22), `${name}: muslo`).toBe(outfit === "trunks" ? hip : skin);
+        expect(bodyPixel(walk, 0, row, 6, 23), `${name}: rodilla`).toBe(skin);
+        if (outfit !== "trunks") expect(bodyPixel(walk, 0, row, 7, 21), `${name}: cadera`).toBe(shirt);
       }
     }
   });
@@ -382,7 +382,7 @@ describe("ropa del chibi: trajes de baño", () => {
         const worn = drawCharacter({ ...base, outfit, back });
         SHEET_DIRECTIONS.forEach((dir, row) => {
           for (const frame of [0, 1, 2])
-            for (const bodyRow of [22, 23])
+            for (const bodyRow of [25, 26])
               for (let x = 0; x < 16; x++) {
                 const foot = bodyPixel(bare, frame, row, x, bodyRow);
                 if (foot === outline || foot.endsWith(",0")) continue;

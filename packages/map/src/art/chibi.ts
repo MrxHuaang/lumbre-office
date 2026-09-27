@@ -8,13 +8,28 @@ import { drawFace, drawFaceGear } from "./chibi/face";
 import { drawBackGear, drawNeckGear } from "./chibi/gear";
 import { drawHair } from "./chibi/hair";
 import { drawHeadwear } from "./chibi/head";
-import { BODY_H, TOP, tones, type Ctx, type View } from "./chibi/kit";
+import { BODY_H, SIT_DROP, SOLE, TOP, tones, type Ctx, type View } from "./chibi/kit";
 import { OUT } from "./palette";
 import { PixelCanvas } from "./pixel";
 
-/** Cada frame mide 32x32; el personaje va centrado abajo con los pies en FEET_Y. */
-export const FRAME = 32;
-export const FEET_Y = 29;
+/** Cada frame mide 40x40; el personaje va centrado abajo con los pies en FEET_Y. */
+export const FRAME = 40;
+export const FEET_Y = 37;
+/** Columna de la celda donde empieza el cuerpo (mide 16 de ancho) y fila donde cae su fila 0, de pie. */
+export const BODY_X = (FRAME - 16) / 2;
+export const BODY_Y = FEET_Y - 1 - SOLE;
+export { SIT_DROP };
+/**
+ * Alturas sobre los pies (px) de partes del cuerpo de pie: la coronilla, la boca, el hombro y la mano
+ * (Avatar.ts pone ahí el nombre, lo que se come, el brazo que saluda y lo que se lleva en la mano).
+ * Sentado, todo baja SIT_DROP.
+ */
+export const BODY_UP = {
+  crown: FEET_Y - (BODY_Y + 1),
+  mouth: FEET_Y - (BODY_Y + 10),
+  shoulder: FEET_Y - (BODY_Y + 14),
+  hand: FEET_Y - (BODY_Y + 20),
+} as const;
 /** Columnas de la hoja de caminata: quieto, paso A, paso B. */
 export const FRAMES = 3;
 /** Filas de la hoja (direcciones del mundo) y frames de la hoja de sentado, en este orden. */
@@ -37,8 +52,8 @@ export const HUMANS: Record<HumanAvatar, CharacterStyle> = {
 /** Un frame del cuerpo (16 x BODY_H). Las capas van de atrás hacia adelante. */
 function drawBody(look: FullLook, view: View, frame: 0 | 1 | 2, sit: boolean): PixelCanvas {
   const c = new PixelCanvas(16, BODY_H);
-  // Sentado: el cuerpo baja 3 píxeles y las piernas se doblan hacia adelante.
-  const drop = sit ? 3 : 0;
+  // Sentado: el cuerpo baja y las piernas se doblan hacia adelante.
+  const drop = sit ? SIT_DROP : 0;
   const bob = sit ? 0 : frame === 0 ? 0 : 1;
   const ctx: Ctx = {
     c,
@@ -85,8 +100,8 @@ function drawHeadBase({ c, t, y }: Ctx) {
 
 /** Copia un frame del cuerpo dentro de la celda (col, row) de una hoja, espejado si hace falta. */
 function blitFrame(sheet: PixelCanvas, f: PixelCanvas, col: number, row: number, flip: boolean) {
-  const ox = col * FRAME + 8;
-  const oy = row * FRAME + (FEET_Y - 24 - TOP);
+  const ox = col * FRAME + BODY_X;
+  const oy = row * FRAME + BODY_Y - TOP;
   for (let y = 0; y < f.height; y++)
     for (let x = 0; x < f.width; x++) {
       const i = (y * f.width + x) * 4;

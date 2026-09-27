@@ -1,5 +1,5 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
-import { bubble, characterShadow, crumbColor, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS, sparkleSprite } from "@hyvento/map/art";
+import { BODY_UP, bubble, characterShadow, crumbColor, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS, SIT_DROP, sparkleSprite } from "@hyvento/map/art";
 import {
   consumeActionOf,
   DRUNK,
@@ -33,8 +33,8 @@ const ROW = Object.fromEntries(SHEET_DIRECTIONS.map((d, i) => [d, i])) as Record
 const BUBBLE_MS = 4500;
 /** Diámetro (px de pantalla del juego) de la burbuja de cámara sobre la cabeza. */
 const VIDEO_SIZE = 30;
-/** Altura del nombre sobre los pies. */
-const HEAD = 30;
+/** Altura del nombre sobre los pies (un poco más arriba de la coronilla). */
+const HEAD = BODY_UP.crown + 7;
 const SPEAKING_COLOR = "#5ea247";
 /**
  * Dónde va lo que lleva en cada mano, según hacia dónde mira: desplazamiento horizontal desde el centro
@@ -66,8 +66,8 @@ const HANDS: Record<Direction, [{ dx: number; front: boolean }, { dx: number; fr
  */
 /** Tope de una animación de uso (la más larga, la pitada, dura ~1,1 s): después se libera la mano igual. */
 const USE_SAFETY_MS = 2500;
-const MOUTH_STANDING = 13;
-const MOUTH_SEATED = 10;
+const MOUTH_STANDING = BODY_UP.mouth - 1;
+const MOUTH_SEATED = MOUTH_STANDING - SIT_DROP;
 const MOUTH: Record<Direction, { dx: number }> = { down: { dx: -1 }, right: { dx: 1 }, left: { dx: -4 }, up: { dx: 4 } };
 
 /** Algo en una mano: su sprite, los usos que le quedan y cómo está en la animación de uso. */
@@ -1080,7 +1080,7 @@ export class Avatar {
     const face = this.seated ?? this.dir;
     const { side, dx } = WAVE_SIDE[face];
     const { key, shoulder } = armTexture(this.scene, this.textureKey, side, Math.floor(g.t / 200));
-    const up = SHOULDER_UP - (this.seated ? 3 : 0);
+    const up = SHOULDER_UP - (this.seated ? SIT_DROP : 0);
     g.arm
       .setTexture(key)
       .setPosition(x + dx - shoulder.x, y + 1 - up - shoulder.y)
@@ -1244,8 +1244,8 @@ export class Avatar {
       const face = this.spinning?.face ?? this.seated ?? this.dir;
       const hands = HANDS[face];
       const front = face === "down" || face === "right";
-      // Sentado, las manos quedan 3 px más abajo (sobre las piernas) y la boca también.
-      const bottom = y + 1 - hop - (this.seated ? 2 : 5);
+      // Sentado, las manos quedan más abajo (sobre las piernas) y la boca también.
+      const bottom = y + 1 - hop - (BODY_UP.hand - 1 - (this.seated ? SIT_DROP : 0));
       const mouthX = x + g.x + MOUTH[face].dx;
       const mouthY = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
       for (const part of this.held.parts) {
@@ -1266,7 +1266,7 @@ export class Avatar {
       }
     }
     // Con cámara, el nombre va sobre la burbuja de video. Los textos van por encima de todo.
-    const head = HEAD - (this.seated ? 3 : 0);
+    const head = HEAD - (this.seated ? SIT_DROP : 0);
     const top = this.video ? head + VIDEO_SIZE + 2 : head;
     this.video?.dom.setPosition(x, y - head + 2).setDepth(depth + 0.6);
     this.label.setPosition(x + 3, y - top).setDepth(5e7 + depth);

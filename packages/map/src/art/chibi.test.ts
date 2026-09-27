@@ -5,7 +5,7 @@ import type { PixelCanvas } from "./pixel";
 
 const base: CharacterStyle = { skin: "#f1c27d", hair: "#3b2219", shirt: "#e76f51", pants: "#264653", accent: "#4660a0", hairStyle: "short" };
 
-/** Píxeles de una celda de 32x32 de una hoja. */
+/** Píxeles de una celda (FRAME x FRAME) de una hoja. */
 function cell(sheet: PixelCanvas, col: number, row: number): number[] {
   const out: number[] = [];
   for (let y = 0; y < FRAME; y++)

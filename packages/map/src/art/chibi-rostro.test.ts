@@ -11,7 +11,7 @@ import {
   type HeadItem,
 } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
-import { drawCharacter, drawSitting, FRAME, SHEET_DIRECTIONS, type CharacterStyle } from "./chibi";
+import { BODY_X, BODY_Y, drawCharacter, drawSitting, FRAME, SHEET_DIRECTIONS, SIT_DROP, type CharacterStyle } from "./chibi";
 import { OUT } from "./palette";
 import type { PixelCanvas } from "./pixel";
 
@@ -20,7 +20,7 @@ const base: CharacterStyle = { skin: "#f1c27d", hair: "#3b2219", shirt: "#e76f51
 const RIGHT = SHEET_DIRECTIONS.indexOf("right");
 const UP = SHEET_DIRECTIONS.indexOf("up");
 
-/** Píxeles de una celda de 32x32 de una hoja (desde la fila `y0` hasta la `y1` de la celda). */
+/** Píxeles de una celda (FRAME x FRAME) de una hoja (desde la fila `y0` hasta la `y1` de la celda). */
 function cell(sheet: PixelCanvas, col: number, row: number, y0 = 0, y1 = FRAME): number[] {
   const out: number[] = [];
   for (let y = y0; y < y1; y++)
@@ -41,12 +41,12 @@ const isOut = (p: number[]) => p[0] === OUT[0] && p[1] === OUT[1] && p[2] === OU
 const frontCells = (style: CharacterStyle) => [cell(drawCharacter(style), 0, RIGHT), cell(drawSitting(style), RIGHT, 0)];
 
 /**
- * Píxeles (x, fila) del cuerpo de frente, de pie y sentado. El cuerpo va 8 columnas adentro de la celda;
- * de pie la fila r es la r + 5 de la celda y sentado baja 3 más.
+ * Píxeles (x, fila) del cuerpo de frente, de pie y sentado. El cuerpo va BODY_X columnas adentro de la
+ * celda; de pie la fila r es la r + BODY_Y de la celda y sentado baja SIT_DROP más.
  */
 function frontBodyPixels(style: CharacterStyle, points: readonly (readonly [number, number])[]): number[][] {
   const [standing, sitting] = frontCells(style);
-  return points.flatMap(([x, r]) => [pixel(standing!, (r + 5) * FRAME + x + 8), pixel(sitting!, (r + 8) * FRAME + x + 8)]);
+  return points.flatMap(([x, r]) => [pixel(standing!, (r + BODY_Y) * FRAME + x + BODY_X), pixel(sitting!, (r + BODY_Y + SIT_DROP) * FRAME + x + BODY_X)]);
 }
 
 type View =
@@ -104,11 +104,8 @@ function allDistinct<T extends string>(options: readonly T[], look: (o: T) => Ch
   return clashes;
 }
 
-/**
- * De pie, el cuerpo empieza en la fila 3 de la celda con TOP = 2 de margen: la fila r del cuerpo es la
- * fila r + 5 de la celda. Hasta la fila 10 de la celda es la cabeza por encima de la frente (filas < 5).
- */
-const ABOVE_BROW = 10;
+/** De pie, la fila r del cuerpo es la r + BODY_Y de la celda: arriba de esto, la cabeza por encima de la frente (filas < 5). */
+const ABOVE_BROW = BODY_Y + 5;
 
 describe("peinados", () => {
   it("los 20 peinados se distinguen entre sí, de frente y de espaldas", () => {
@@ -134,7 +131,7 @@ describe("peinados", () => {
   it("las colitas, las rastas y el mullet se mecen al caminar", () => {
     // Entre los dos pasos el cuerpo sube igual; en la cabeza y el pelo de arriba de los hombros solo cambia lo
     // que se mece (el corto no cambia nada).
-    const HEAD_ROWS = 19;
+    const HEAD_ROWS = BODY_Y + 14;
     const swings = (hairStyle: HairStyle) => {
       const s = drawCharacter({ ...base, hairStyle });
       return !same(cell(s, 1, RIGHT, 0, HEAD_ROWS), cell(s, 2, RIGHT, 0, HEAD_ROWS));

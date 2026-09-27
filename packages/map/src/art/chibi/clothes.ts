@@ -1,8 +1,8 @@
 // Ropa del chibi: piernas y zapatos, brazos, parte de arriba (con su patrón), parte de abajo y
-// conjuntos. Filas del cuerpo: torso 13-17, cintura 18, piernas 19-21, zapatos 22-23 (ver kit.ts).
+// conjuntos. Filas del cuerpo: torso 13-19, cintura 20, piernas 21-24, zapatos 25-26 (ver kit.ts).
 import { isSwimwear, type Bottom, type FullLook, type Outfit, type Pattern, type Swimwear, type Top } from "@hyvento/shared";
 import { hex, type PixelCanvas, type RGBA } from "../pixel";
-import type { Ctx, Row, Tones, View } from "./kit";
+import type { Ctx, Row, Three, Tones, View } from "./kit";
 
 /** Largo de manga de cada parte de arriba. */
 const SLEEVE: Record<Top, "none" | "short" | "long"> = {
@@ -14,6 +14,7 @@ const SLEEVE: Record<Top, "none" | "short" | "long"> = {
   tank: "none",
   polo: "short",
 };
+export const sleeveOf = (top: Top) => SLEEVE[top];
 
 /** Partes de arriba que usan el color secundario (top2) aunque sean lisas. */
 export const TOPS_WITH_TOP2: readonly Top[] = ["hoodie", "sweater", "shirt-tie", "polo"];
@@ -56,6 +57,28 @@ function cloth({ c, t, look, y }: Ctx): Cloth {
   return (x, row, k) => c.set(x, y(row), inPattern(look.pattern, x, row) ? t.top2[k] : t.shirt[k]);
 }
 
+/**
+ * Corbata (la de la camisa y la del cuello): nudo bajo el cuello, la hoja de dos píxeles con su borde a
+ * la sombra, que se ensancha y termina en punta. Con el torso alto se lee de lejos.
+ */
+export function drawTieShape(c: PixelCanvas, k: Three, y: Row) {
+  const [k0, k1, k2] = k;
+  // Nudo.
+  c.set(7, y(13), k2);
+  c.set(8, y(13), k1);
+  // Hoja: luz a la izquierda y sombra a la derecha.
+  for (let r = 14; r <= 17; r++) {
+    c.set(7, y(r), r === 14 ? k1 : k2);
+    c.set(8, y(r), k1);
+  }
+  c.set(9, y(16), k0);
+  c.set(9, y(17), k0);
+  c.set(7, y(18), k1);
+  c.set(8, y(18), k0);
+  // Punta.
+  c.set(8, y(19), k0);
+}
+
 // ---------- Piernas y zapatos ----------
 
 /** Piernas (tela o piel según la parte de abajo) y zapatos. Sentado, las piernas se doblan hacia adelante. */
@@ -64,12 +87,12 @@ export function drawLegs(ctx: Ctx) {
   // Con vestido o traje de baño la parte de abajo no se ve: piernas de piel.
   const bottom = look.outfit === "dress" || isSwimwear(look.outfit) ? null : look.bottom;
   const trunks = look.outfit === "trunks";
-  // Filas de tela desde la cadera (el resto de la pierna es piel). El bañador llega casi a la rodilla.
-  const cover = trunks ? 2 : bottom === "pants" ? 3 : bottom === "shorts" ? 1 : 0;
+  // Filas de tela desde la cadera (el resto de la pierna es piel). El bañador y el short llegan a medio muslo.
+  const cover = trunks ? 2 : bottom === "pants" ? 4 : bottom === "shorts" ? 2 : 0;
   if (sit) return drawLap(ctx, bottom);
-  // La cadera baja con el torso en cada paso (la cintura tapa la fila 19): la pierna empieza bajo
+  // La cadera baja con el torso en cada paso (la cintura tapa la fila 21): la pierna empieza bajo
   // ella, así el short se ve en los tres frames.
-  const hip = y(19) - Y(0);
+  const hip = y(21) - Y(0);
   const lift = (leg: 0 | 1) => (frame === 1 && leg === 0) || (frame === 2 && leg === 1);
   for (const leg of [0, 1] as const) {
     const x = leg === 0 ? 5 : 8;
@@ -77,12 +100,17 @@ export function drawLegs(ctx: Ctx) {
     // La pierna de atrás (0) va con luz y la de adelante (1) en sombra.
     const fabric = t.pants[leg === 0 ? 1 : 0];
     const skin = t.skin[leg === 0 ? 1 : 0];
-    for (let r = hip; r <= 21 - up; r++) {
-      c.rect(x, Y(r), 3, 1, r - hip < cover ? fabric : skin);
+    for (let r = hip; r <= 24 - up; r++) {
+      const cloth = r - hip < cover;
+      c.rect(x, Y(r), 3, 1, cloth ? fabric : skin);
       // Franja de acento del bañador, por fuera de la pierna de adelante.
-      if (trunks && leg === 1 && r - hip < cover) c.set(x + 2, Y(r), t.accent[0]);
+      if (trunks && leg === 1 && cloth) c.set(x + 2, Y(r), t.accent[0]);
+      // Dobladillo del short: la última fila de tela, más oscura.
+      if (bottom === "shorts" && r - hip === cover - 1) c.rect(x, Y(r), 3, 1, t.pants[0]);
     }
-    drawShoe(ctx, leg, x - (leg === 0 ? 1 : 0), 22 - up, hip);
+    // Rodilla del pantalón: un pliegue a la sombra en la pierna de adelante.
+    if (bottom === "pants" && leg === 1) c.set(x, Y(hip + 2), t.pants[0]);
+    drawShoe(ctx, leg, x - (leg === 0 ? 1 : 0), 25 - up, hip);
   }
 }
 
@@ -109,12 +137,13 @@ function drawShoe({ c, t, look, Y }: Ctx, leg: 0 | 1, x: number, row: number, hi
     c.rect(x, Y(row + 1), 4, 1, s0);
     return;
   }
-  // Tenis: empeine del color del zapato y suela de goma clara.
+  // Tenis: empeine del color del zapato con los cordones claros y suela de goma clara.
   c.rect(x, Y(row), 4, 1, upper);
+  c.set(x + 2, Y(row), t.cream[leg === 0 ? 2 : 1]);
   c.rect(x, Y(row + 1), 4, 1, leg === 0 ? t.cream[1] : t.cream[0]);
 }
 
-/** Sentado (solo se ven de frente): muslos, espinilla y el pie adelante. */
+/** Sentado (solo se ven de frente): el muslo, la espinilla y el pie adelante. */
 function drawLap({ c, t, look, view, Y }: Ctx, bottom: Bottom | null) {
   const dress = look.outfit === "dress";
   // El entero y el bikini dejan el muslo al aire; el bañador lo tapa como la tela de abajo.
@@ -123,31 +152,31 @@ function drawLap({ c, t, look, view, Y }: Ctx, bottom: Bottom | null) {
   const lap: [RGBA, RGBA] = dress ? [t.shirt[0], t.shirt[1]] : bareLap ? [t.skin[0], t.skin[1]] : t.pants;
   const shin = bottom === "pants" ? t.pants[0] : t.skin[0];
   if (view === "back") {
-    c.rect(4, Y(20), 8, 2, lap[0]);
+    c.rect(4, Y(23), 8, 2, lap[0]);
     return;
   }
-  c.rect(5, Y(20), 7, 2, lap[1]);
-  c.rect(5, Y(22), 7, 1, lap[0]);
+  c.rect(5, Y(23), 7, 2, lap[1]);
+  c.rect(5, Y(25), 7, 1, lap[0]);
   // La parte de abajo del traje de baño asoma en la cadera.
-  if (bareLap) c.rect(5, Y(22), 2, 1, t.shirt[0]);
-  c.rect(10, Y(22), 3, 2, shin);
+  if (bareLap) c.rect(5, Y(25), 2, 1, t.shirt[0]);
+  c.rect(10, Y(25), 3, 2, shin);
   const [s0, s1, s2] = t.shoes;
   if (look.shoes === "boots") {
-    c.rect(10, Y(22), 3, 1, s2);
-    c.rect(10, Y(23), 3, 1, s1);
-    c.rect(10, Y(24), 4, 1, s0);
+    c.rect(10, Y(25), 3, 1, s2);
+    c.rect(10, Y(26), 3, 1, s1);
+    c.rect(10, Y(27), 4, 1, s0);
   } else if (look.shoes === "sandals") {
-    c.rect(10, Y(24), 4, 1, t.skin[0]);
-    c.set(11, Y(24), s1);
-    c.set(13, Y(24), t.skin[1]);
+    c.rect(10, Y(27), 4, 1, t.skin[0]);
+    c.set(11, Y(27), s1);
+    c.set(13, Y(27), t.skin[1]);
   } else {
-    c.rect(10, Y(24), 3, 1, s1);
-    c.set(13, Y(24), t.cream[1]);
+    c.rect(10, Y(27), 3, 1, s1);
+    c.set(13, Y(27), t.cream[1]);
   }
   if (bottom === "skirt") {
     // La falda cae sobre la rodilla (encima de la caña de las botas), con el borde abierto.
-    c.rect(10, Y(22), 3, 1, t.pants[1]);
-    c.set(13, Y(22), t.pants[0]);
+    c.rect(10, Y(25), 3, 1, t.pants[1]);
+    c.set(13, Y(25), t.pants[0]);
   }
 }
 
@@ -159,14 +188,15 @@ export function drawArms(ctx: Ctx) {
   const paint = cloth(ctx);
   // Brazo de atrás (x = 3, con luz) y de adelante (x = 12, en sombra): el balanceo los alarga o acorta.
   const arms = [
-    [3, 4 + swing, t.skin[1]],
-    [12, 4 - swing, t.skin[0]],
+    [3, 6 + swing, t.skin[1]],
+    [12, 6 - swing, t.skin[0]],
   ] as const;
   for (const [x, len, skin] of arms) {
     const hand = 14 + len;
     c.set(x, y(hand), skin);
     if (look.outfit === "jacket") {
       c.rect(x, y(14), 1, len, t.accent[0]);
+      c.set(x, y(13 + len), t.accent[1]);
       continue;
     }
     if (isSwimwear(look.outfit)) {
@@ -174,7 +204,7 @@ export function drawArms(ctx: Ctx) {
       continue;
     }
     const kind = SLEEVE[look.top];
-    const sleeve = kind === "long" ? len : kind === "short" ? Math.min(2, len) : 0;
+    const sleeve = kind === "long" ? len : kind === "short" ? Math.min(3, len) : 0;
     for (let r = 14; r < 14 + sleeve; r++) paint(x, r, 0);
     c.rect(x, y(14 + sleeve), 1, len - sleeve, skin);
     // Puños y bordes de manga.
@@ -195,7 +225,7 @@ export function drawTorso(ctx: Ctx) {
   // El traje de baño deja el torso al aire: no hay parte de arriba ni de abajo.
   if (isSwimwear(look.outfit)) return drawSwimwear(ctx, look.outfit, paint);
   // Cuerpo: base, sombra a la derecha y luz arriba a la izquierda.
-  for (let r = 13; r <= 17; r++) for (let x = 4; x <= 11; x++) paint(x, r, x === 11 ? 0 : x === 5 && r <= 15 ? 2 : 1);
+  for (let r = 13; r <= 19; r++) for (let x = 4; x <= 11; x++) paint(x, r, x === 11 ? 0 : x === 5 && r <= 16 ? 2 : 1);
   // El vestido es la parte de arriba y tapa la de abajo.
   if (look.outfit === "dress") return drawDress(ctx, paint);
   drawTopDetails(ctx);
@@ -208,7 +238,7 @@ function drawTopDetails({ c, t, look, view, y }: Ctx) {
   const front = view === "front";
   const [s0, s1, s2] = t.shirt;
   const [k0, k1, k2] = t.top2;
-  const belt = () => c.rect(4, y(18), 8, 1, t.pants[0]);
+  const belt = () => c.rect(4, y(20), 8, 1, t.pants[0]);
   switch (look.top) {
     case "tshirt":
     case "longsleeve":
@@ -220,21 +250,25 @@ function drawTopDetails({ c, t, look, view, y }: Ctx) {
       // Sin mangas: hombros y escote de piel, con dos tirantes.
       c.set(4, y(13), t.skin[1]);
       c.set(11, y(13), t.skin[0]);
-      if (front) c.rect(7, y(13), 2, 1, t.skin[1]);
-      else c.rect(7, y(13), 2, 1, t.skin[0]);
+      if (front) {
+        c.rect(7, y(13), 2, 1, t.skin[1]);
+        c.set(7, y(14), t.skin[1]);
+      } else c.rect(7, y(13), 2, 1, t.skin[0]);
       return;
     }
     case "polo":
       belt();
       if (front) {
-        // Cuello de otro color y la tapeta con un botón.
+        // Cuello de otro color y la tapeta con dos botones.
         c.set(6, y(12), k2);
         c.set(9, y(12), k1);
         c.set(6, y(13), k1);
         c.set(7, y(13), k1);
         c.set(9, y(13), k0);
         c.set(8, y(13), s0);
-        c.set(8, y(14), BUTTON);
+        c.set(8, y(14), s0);
+        c.set(8, y(15), BUTTON);
+        c.set(8, y(16), s0);
       } else c.rect(5, y(13), 6, 1, k1);
       return;
     case "shirt-tie":
@@ -242,27 +276,28 @@ function drawTopDetails({ c, t, look, view, y }: Ctx) {
       if (front) {
         // Cuello claro en punta y la corbata del color secundario.
         c.set(6, y(13), s2);
-        c.set(7, y(13), s2);
         c.set(9, y(13), s2);
-        c.set(8, y(13), k1);
-        c.set(8, y(14), k1);
-        c.rect(7, y(15), 2, 2, k1);
-        c.set(8, y(15), k0);
-        c.set(8, y(16), k0);
-        c.set(8, y(17), k0);
-      } else c.rect(5, y(13), 6, 1, s2);
+        c.set(6, y(14), s2);
+        drawTieShape(c, t.top2, y);
+      } else {
+        c.rect(5, y(13), 6, 1, s2);
+        c.rect(6, y(14), 4, 1, s1);
+      }
       return;
     case "sweater":
       // Cuello redondo de otro color y el borde tejido abajo.
-      for (let x = 4; x <= 11; x++) c.set(x, y(18), x % 2 ? s0 : s1);
-      if (front) c.rect(6, y(13), 4, 1, k1);
-      else c.rect(5, y(13), 6, 1, k1);
+      for (let x = 4; x <= 11; x++) c.set(x, y(20), x % 2 ? s0 : s1);
+      for (let x = 4; x <= 11; x++) if (x % 2) c.set(x, y(19), s0);
+      if (front) {
+        c.rect(6, y(13), 4, 1, k1);
+        c.set(9, y(13), k0);
+      } else c.rect(5, y(13), 6, 1, k1);
       return;
     case "hoodie":
-      for (let x = 4; x <= 11; x++) c.set(x, y(18), x % 2 ? s0 : s1);
+      for (let x = 4; x <= 11; x++) c.set(x, y(20), x % 2 ? s0 : s1);
       if (front) {
         // La capucha asoma detrás de la cabeza y alrededor del cuello (con el forro del color
-        // secundario) y cuelgan dos cordones cortos.
+        // secundario) y cuelgan dos cordones.
         c.set(3, y(11), s1);
         c.rect(3, y(12), 3, 1, s1);
         c.set(6, y(12), k1);
@@ -273,20 +308,23 @@ function drawTopDetails({ c, t, look, view, y }: Ctx) {
         c.set(9, y(13), k1);
         c.set(7, y(14), k2);
         c.set(9, y(14), k1);
+        c.set(7, y(15), k1);
+        c.set(9, y(15), k0);
         // Bolsillo canguro.
-        c.rect(6, y(16), 5, 1, s0);
-        c.set(6, y(17), s0);
-        c.set(10, y(17), s0);
+        c.rect(6, y(17), 5, 1, s0);
+        c.set(6, y(18), s0);
+        c.set(10, y(18), s0);
+        c.rect(7, y(18), 3, 1, s2);
       } else {
         // De espaldas, la capucha cae sobre la espalda y deja su sombra en punta.
         c.rect(4, y(12), 8, 1, s1);
         c.set(6, y(12), k1);
         c.set(9, y(12), k1);
-        c.rect(5, y(13), 6, 2, s1);
-        c.rect(5, y(13), 1, 2, s2);
-        c.rect(10, y(13), 1, 2, s0);
-        c.rect(6, y(15), 4, 1, s0);
-        c.rect(7, y(16), 2, 1, s0);
+        c.rect(5, y(13), 6, 3, s1);
+        c.rect(5, y(13), 1, 3, s2);
+        c.rect(10, y(13), 1, 3, s0);
+        c.rect(6, y(16), 4, 1, s0);
+        c.rect(7, y(17), 2, 1, s0);
       }
       return;
   }
@@ -295,22 +333,25 @@ function drawTopDetails({ c, t, look, view, y }: Ctx) {
 /** Falda (del color de abajo) con tablas; sentada va sobre las rodillas (ver drawLap). */
 function drawSkirt(c: PixelCanvas, t: Tones, y: Row) {
   const [p0, p1] = t.pants;
-  c.rect(4, y(19), 8, 1, p1);
-  c.rect(3, y(20), 10, 1, p1);
-  c.set(11, y(19), p0);
-  c.rect(11, y(20), 2, 1, p0);
-  for (const x of [5, 8]) c.set(x, y(20), p0);
+  c.rect(4, y(21), 8, 1, p1);
+  c.rect(3, y(22), 10, 1, p1);
+  c.set(11, y(21), p0);
+  c.rect(11, y(22), 2, 1, p0);
+  for (const x of [5, 8]) c.set(x, y(22), p0);
 }
 
 /** Vestido del color de arriba (con su patrón): lazo en la cintura y falda con vuelo que tapa la parte de abajo. */
 function drawDress({ c, t, view, sit, y }: Ctx, paint: Cloth) {
-  if (view === "front") c.rect(7, y(13), 3, 1, t.skin[1]);
-  c.rect(4, y(17), 8, 1, t.shirt[0]);
-  for (let x = 4; x <= 11; x++) paint(x, 18, x === 11 ? 0 : x === 4 ? 2 : 1);
+  if (view === "front") {
+    c.rect(7, y(13), 3, 1, t.skin[1]);
+    c.set(8, y(14), t.skin[1]);
+  }
+  c.rect(4, y(19), 8, 1, t.shirt[0]);
+  for (let x = 4; x <= 11; x++) paint(x, 20, x === 11 ? 0 : x === 4 ? 2 : 1);
   if (sit) return;
   // La falda se abre abajo; en la fila de las manos queda angosta para no taparlas.
-  for (let x = 4; x <= 11; x++) paint(x, 19, x === 11 ? 0 : x === 4 ? 2 : 1);
-  for (let x = 3; x <= 12; x++) paint(x, 20, x >= 11 || x === 6 || x === 9 ? 0 : x === 3 ? 2 : 1);
+  for (let x = 4; x <= 11; x++) paint(x, 21, x === 11 ? 0 : x === 4 ? 2 : 1);
+  for (let x = 3; x <= 12; x++) paint(x, 22, x >= 11 || x === 6 || x === 9 ? 0 : x === 3 ? 2 : 1);
 }
 
 /** Filas de tela de cada traje de baño (columnas por fila), de frente y de espaldas. */
@@ -319,13 +360,33 @@ const span = (from: number, to: number) => Array.from({ length: to - from + 1 },
 const SWIM_CUT: Record<Exclude<Swimwear, "trunks">, Record<View, SwimCut>> = {
   // Entero: tirantes, escote redondo adelante y espalda abierta; la pierna bien cortada en la cadera.
   swimsuit: {
-    front: { 13: [5, 10], 14: [4, 5, 6, 9, 10, 11], 15: span(4, 11), 16: span(4, 11), 17: span(4, 11), 18: span(4, 11), 19: span(6, 9) },
-    back: { 13: [5, 10], 14: [4, 5, 10, 11], 15: [4, 5, 10, 11], 16: span(4, 11), 17: span(4, 11), 18: span(4, 11), 19: span(6, 9) },
+    front: {
+      13: [5, 10],
+      14: [4, 5, 6, 9, 10, 11],
+      15: span(4, 11),
+      16: span(4, 11),
+      17: span(4, 11),
+      18: span(4, 11),
+      19: span(4, 11),
+      20: span(4, 11),
+      21: span(6, 9),
+    },
+    back: {
+      13: [5, 10],
+      14: [4, 5, 10, 11],
+      15: [4, 5, 10, 11],
+      16: [4, 5, 10, 11],
+      17: span(4, 11),
+      18: span(4, 11),
+      19: span(4, 11),
+      20: span(4, 11),
+      21: span(6, 9),
+    },
   },
   // Bikini: tiras al cuello, dos copas y la parte de abajo; de espaldas, la tira que cruza con su lazo.
   bikini: {
-    front: { 13: [6, 9], 14: [5, 6, 8, 9, 10], 15: span(5, 10), 18: span(4, 11), 19: span(6, 9) },
-    back: { 15: span(4, 11), 16: [7, 9], 18: span(4, 11), 19: span(6, 9) },
+    front: { 13: [6, 9], 14: [5, 6, 9, 10], 15: span(5, 10), 16: [5, 6, 7, 9, 10], 20: span(4, 11), 21: span(6, 9) },
+    back: { 16: span(4, 11), 17: [7, 9], 20: span(4, 11), 21: span(6, 9) },
   },
 };
 
@@ -340,70 +401,72 @@ function drawSwimwear(ctx: Ctx, outfit: Swimwear, paint: Cloth) {
   const [k0, k1] = t.skin;
   // Los brazos son de piel como el torso: el de atrás (con luz) se separa del torso con una sombra y el de
   // adelante (en sombra) con el torso claro.
-  for (let r = 13; r <= 18; r++)
+  for (let r = 13; r <= 20; r++)
     for (let x = 4; x <= 11; x++) c.set(x, y(r), (x === 4 && r >= 14) || (x === 11 && r === 13) ? k0 : k1);
   // Ombligo (el entero lo tapa).
-  if (front && outfit !== "swimsuit") c.set(8, y(17), k0);
+  if (front && outfit !== "swimsuit") c.set(8, y(18), k0);
   if (outfit === "trunks") {
     // Pretina del color de abajo con el cordón de acento adelante.
     const [p0, p1] = t.pants;
-    c.rect(4, y(18), 8, 1, p0);
-    c.set(4, y(18), p1);
+    c.rect(4, y(20), 8, 1, p0);
+    c.set(4, y(20), p1);
     if (front) {
-      c.set(7, y(18), t.accent[2]);
-      c.set(8, y(18), t.accent[1]);
+      c.set(7, y(20), t.accent[2]);
+      c.set(8, y(20), t.accent[1]);
     }
     return;
   }
   for (const [row, xs] of Object.entries(SWIM_CUT[outfit][view])) {
     const r = Number(row);
-    if (sit && r > 18) continue;
-    for (const x of xs) paint(x, r, x === 11 ? 0 : x === 5 && r <= 15 ? 2 : 1);
+    if (sit && r > 20) continue;
+    for (const x of xs) paint(x, r, x === 11 ? 0 : x === 5 && r <= 16 ? 2 : 1);
   }
   // Nudo del lazo del bikini en la espalda.
-  if (outfit === "bikini" && !front) paint(8, 15, 2);
+  if (outfit === "bikini" && !front) paint(8, 16, 2);
 }
 
 /** Conjuntos encima de la parte de arriba (el torso ya está dibujado con su cintura). */
 function drawOutfit(c: PixelCanvas, outfit: Exclude<Outfit, "dress" | Swimwear>, t: Tones, view: View, sit: boolean, y: Row, Y: Row) {
   const front = view === "front";
   if (outfit === "overalls") {
-    // Overol del color de abajo: tirantes con botones, peto y la parte de arriba asomando.
+    // Overol del color de abajo: tirantes con botones, peto con bolsillo y la parte de arriba asomando.
     const [p0, p1] = t.pants;
-    c.set(5, y(13), p1);
-    c.set(10, y(13), p1);
+    c.rect(5, y(13), 1, 2, p1);
+    c.rect(10, y(13), 1, 2, p1);
     if (front) {
-      c.rect(5, y(14), 6, 2, p1);
-      c.rect(7, y(15), 2, 1, p0);
-      c.set(5, y(14), BUTTON);
-      c.set(10, y(14), BUTTON);
+      c.rect(5, y(15), 6, 3, p1);
+      c.rect(7, y(16), 2, 1, p0);
+      c.set(5, y(15), BUTTON);
+      c.set(10, y(15), BUTTON);
     } else {
-      c.rect(5, y(14), 1, 2, p1);
-      c.rect(10, y(14), 1, 2, p1);
+      c.rect(5, y(15), 1, 3, p1);
+      c.rect(10, y(15), 1, 3, p1);
+      c.rect(6, y(16), 4, 1, p1);
     }
-    c.rect(4, y(16), 8, 3, p1);
-    c.rect(11, y(16), 1, 3, p0);
-    c.rect(4, y(16), 1, 1, p0);
+    c.rect(4, y(18), 8, 3, p1);
+    c.rect(11, y(18), 1, 3, p0);
+    c.set(4, y(18), p0);
     return;
   }
   if (outfit === "jacket") {
     // Chaqueta abierta del color de acento: de frente se ve la parte de arriba en el medio.
     const [a0, a1, a2] = t.accent;
     if (front) {
-      c.rect(4, y(13), 3, 6, a1);
-      c.rect(10, y(13), 2, 6, a1);
-      c.rect(11, y(13), 1, 6, a0);
-      c.rect(5, y(13), 1, 3, a2);
+      c.rect(4, y(13), 3, 8, a1);
+      c.rect(10, y(13), 2, 8, a1);
+      c.rect(11, y(13), 1, 8, a0);
+      c.rect(5, y(13), 1, 4, a2);
       c.set(6, y(13), a2);
       c.set(10, y(13), a2);
-      c.set(6, y(16), a0);
-      c.set(5, y(17), a0);
+      c.set(6, y(17), a0);
+      c.set(5, y(18), a0);
+      c.set(5, y(19), a0);
     } else {
-      c.rect(4, y(13), 8, 6, a1);
-      c.rect(11, y(13), 1, 6, a0);
-      c.rect(5, y(13), 1, 3, a2);
+      c.rect(4, y(13), 8, 8, a1);
+      c.rect(11, y(13), 1, 8, a0);
+      c.rect(5, y(13), 1, 4, a2);
       c.rect(5, y(13), 6, 1, a2);
-      c.rect(8, y(16), 1, 3, a0);
+      c.rect(8, y(17), 1, 4, a0);
     }
     return;
   }
@@ -412,26 +475,27 @@ function drawOutfit(c: PixelCanvas, outfit: Exclude<Outfit, "dress" | Swimwear>,
   if (front) {
     c.set(6, y(13), c1);
     c.set(9, y(13), c1);
-    c.rect(6, y(14), 4, 2, c1);
+    c.rect(6, y(14), 4, 3, c1);
     c.rect(6, y(14), 4, 1, c2);
-    c.rect(5, y(16), 6, 3, c1);
-    c.rect(10, y(16), 1, 3, c0);
-    c.set(4, y(16), c0);
-    c.set(11, y(16), c0);
-    c.rect(7, y(17), 2, 1, c0);
-    if (sit) c.rect(6, Y(20), 5, 1, c1);
+    c.rect(5, y(17), 6, 4, c1);
+    c.rect(10, y(17), 1, 4, c0);
+    c.set(4, y(17), c0);
+    c.set(11, y(17), c0);
+    c.rect(7, y(19), 2, 1, c0);
+    // Sentado, el delantal cae sobre el regazo.
+    if (sit) c.rect(6, Y(25), 4, 1, c1);
     else {
-      c.rect(5, y(19), 6, 2, c1);
-      c.rect(10, y(19), 1, 2, c0);
-      c.rect(5, y(20), 6, 1, c0);
+      c.rect(5, y(21), 6, 2, c1);
+      c.rect(10, y(21), 1, 2, c0);
+      c.rect(5, y(22), 6, 1, c0);
     }
   } else {
     // De espaldas solo se ven la tira de la cintura y el lazo.
-    c.rect(4, y(16), 8, 1, c1);
-    c.rect(7, y(16), 2, 1, c2);
-    c.set(6, y(15), c1);
-    c.set(9, y(15), c1);
-    c.set(7, y(17), c0);
-    c.set(8, y(17), c0);
+    c.rect(4, y(17), 8, 1, c1);
+    c.rect(7, y(17), 2, 1, c2);
+    c.set(6, y(16), c1);
+    c.set(9, y(16), c1);
+    c.set(7, y(18), c0);
+    c.set(8, y(18), c0);
   }
 }
