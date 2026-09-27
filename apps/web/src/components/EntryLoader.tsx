@@ -9,6 +9,7 @@ import type { Profile } from "@/game/store";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { CharacterSprite } from "./CharacterSprite";
 import { CozyTitle } from "./Cozy";
+import { LumbreLogo } from "./lumbre/Logo";
 
 const TIPS = [
   "Acércate a algo con un rombito dorado y aprieta E.",
@@ -68,6 +69,7 @@ export function EntryLoader({ profile }: { profile: Profile | null }) {
 
   return (
     <div className="flex w-[min(560px,100%)] flex-col items-center">
+      <LumbreLogo size={22} className="mb-5 opacity-90" />
       <CozyTitle className="text-5xl sm:text-6xl">
         Entrando<span className="cozy-dots" aria-hidden />
       </CozyTitle>

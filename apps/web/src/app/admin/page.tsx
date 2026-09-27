@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/current-user";
 import { AdminView } from "./AdminView";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Administración" };
 
 /** `?embed=1`: dentro de la ventana "Administrar equipo" de la oficina (sin cabecera ni enlace de vuelta). */
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ embed?: string }> }) {
