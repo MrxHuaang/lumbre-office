@@ -212,6 +212,12 @@ export class Usables {
     return best;
   }
 
+  /** ¿Se alcanza ese mueble desde (x, y)? */
+  reaches(f: PlacedFurniture, x: number, y: number): boolean {
+    const map = this.map;
+    return Boolean(map && distTo(f, map.tileSize, x, y) <= INTERACT_REACH_TILES * map.tileSize && sameRoom(map, f, x, y));
+  }
+
   /** Mueble que se usa dibujado bajo el puntero (se busca un poco más abajo: los muebles son altos). */
   under(sx: number, sy: number): PlacedFurniture | null {
     const map = this.map;

@@ -606,7 +606,7 @@ export class OfficeScene extends Phaser.Scene {
           if (target && this.interactableInReach() === target) activateInteractable(target);
           const use = this.pendingUse;
           this.pendingUse = null;
-          if (use && this.usables.nearest(avatar.x, avatar.y)?.f === use) this.useFurniture(use);
+          if (use && this.usables.reaches(use, avatar.x, avatar.y)) this.useFurniture(use);
         }
       } else {
         vx = dx / dist;
@@ -816,7 +816,7 @@ export class OfficeScene extends Phaser.Scene {
     // Clic en un mueble que se usa: usarlo si está al alcance, o caminar hasta él y usarlo al llegar.
     const usable = this.local && !this.seat ? this.usables.under(sx, sy) : null;
     if (usable && this.local) {
-      if (this.usables.nearest(this.local.x, this.local.y)?.f === usable) return this.useFurniture(usable);
+      if (this.usables.reaches(usable, this.local.x, this.local.y)) return this.useFurniture(usable);
       const spot = this.usables.standSpot(usable);
       this.walkTo(spot.x, spot.y);
       this.pendingUse = usable;
