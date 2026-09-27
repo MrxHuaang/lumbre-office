@@ -59,10 +59,11 @@ export class HeldItems {
    * Usar lo que se tiene: hace falta tener algo con usos y respetar la pausa entre usos. Sin `part` se
    * alterna entre las manos que tienen usos. Al gastar todo, se va de la mano.
    */
-  use(userId: string, now: number, part?: number): UseResult {
+  use(userId: string, now: number, part?: number, opts: { skipCooldown?: boolean } = {}): UseResult {
     const held = this.byUser.get(userId);
     if (!held || held.left.every((n) => n <= 0)) return { ok: false, error: "empty" };
-    if (now - held.lastUseAt < this.cooldownMs()) return { ok: false, error: "busy" };
+    // El sorbo del brindis no espera la pausa: el brindis ya tiene la suya.
+    if (!opts.skipCooldown && now - held.lastUseAt < this.cooldownMs()) return { ok: false, error: "busy" };
     let i = part ?? -1;
     if (i < 0 || !(held.left[i]! > 0)) {
       // La siguiente mano con usos después de la última usada.

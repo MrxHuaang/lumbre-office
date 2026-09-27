@@ -178,6 +178,14 @@ export const MSG = {
   heldUsed: "held:used",
   /** Alguien se pasó de tragos: vomita y se desmaya (`DrunkBlackoutEvent`, a los del mismo nivel). */
   drunkBlackout: "drunk:blackout",
+  /** Brindar (`ToastMessage`), lo que pasa con el brindis (`ToastEvent`, a los del nivel) y por qué no se
+   *  pudo (`ToastResult`, solo a quien brindó). Ver toast.ts. */
+  toast: "toast",
+  toastEvent: "toast:event",
+  toastResult: "toast:result",
+  /** Girar en la silla del escritorio (`SwivelMessage`) y el aviso a los del nivel (`SwivelEvent`). */
+  swivel: "swivel",
+  swivelEvent: "swivel:event",
   /** Usar un mueble (`FurnitureUseMessage`) y el aviso de instrumentos y gato (`FurnitureEvent`). */
   furnitureUse: "furniture:use",
   furnitureEvent: "furniture:event",

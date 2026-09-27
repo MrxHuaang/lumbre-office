@@ -85,6 +85,15 @@ import {
   type FurnitureEvent,
   type HeldUsedEvent,
   type MenuId,
+  drinkPart,
+  parseHeldLeft,
+  SWIVEL,
+  SwivelMessage,
+  TOAST,
+  ToastMessage,
+  type SwivelEvent,
+  type ToastResult,
+  type ToastTimings,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
@@ -94,6 +103,8 @@ import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blac
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
 import { Drunkenness } from "./drunk";
+import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
+import { Toasts, type Toaster } from "./toasts";
 import { devToolsEnabled, parseDevJump } from "./devtools";
 import { FurnitureUses } from "./usables";
 import { FISHING, type FishingTimings } from "@hyvento/shared";
@@ -222,6 +233,30 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** Lo que dura un desmayo (los tests lo acortan). */
   static faintMs: number = DRUNK.faintMs;
+  /** Tiempos del brindis (los tests los acortan). */
+  static toastTimings: ToastTimings = { ...TOAST };
+  /** Brindis abiertos: invitaciones que se vencen y grupos que chocan los vasos. */
+  private toasts = new Toasts(
+    { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+    () => Date.now(),
+    {
+      person: (userId) => {
+        for (const [sessionId, p] of this.state.players) if (p.userId === userId) return this.toaster(sessionId, p);
+        return undefined;
+      },
+      people: (area) => [...this.state.players].filter(([, p]) => p.area === area).map(([id, p]) => this.toaster(id, p)),
+      send: (area, event) => this.sendToArea(area, MSG.toastEvent, event),
+      sip: (userId) => this.toastSip(userId),
+    },
+    () => OfficeRoom.toastTimings,
+  );
+  /** Tiempos de las sillas giratorias y cuántas vueltas da cada giro (los tests los fijan). */
+  static swivelTimings: SwivelTimings = { ...DEFAULT_SWIVEL_TIMINGS };
+  static swivelTurns: () => number = () => randomInt(SWIVEL.minTurns, SWIVEL.maxTurns + 1);
+  private swivels = new Swivels(
+    () => OfficeRoom.swivelTurns(),
+    () => OfficeRoom.swivelTimings,
+  );
   /** Muebles que se usan (tele, lámparas, instrumentos, gato). */
   private furnitureUses!: FurnitureUses;
   /** La pesca en el lago del jardín (ver fishing.ts). */
@@ -275,6 +310,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
     this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
+    this.onMessage(MSG.toast, (client, raw) => this.handleToast(client, raw));
+    this.onMessage(MSG.swivel, (client, raw) => this.handleSwivel(client, raw));
     this.onMessage(MSG.officeEdit, (client, raw) => {
       this.serial(() => this.handleOfficeEdit(client, raw)).catch((err) => {
         // Un error inesperado igual se responde: si no, el editor se queda esperando.
@@ -310,6 +347,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   onDispose() {
     OfficeRoom.instances.delete(this);
     this.drunk.dispose();
+    this.toasts.dispose();
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -1142,6 +1180,54 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sendToArea(player.area, MSG.heldUsed, event);
   }
 
+  // ---------- Brindis ----------
+
+  /** Cómo ve el brindis a alguien: dónde está y si tiene una bebida con sorbos (desmayado, no). */
+  private toaster(sessionId: string, p: Player): Toaster {
+    const drink = !this.drunk.fainted(p.userId) && drinkPart(p.held, parseHeldLeft(p.heldLeft)) >= 0;
+    return { userId: p.userId, sessionId, area: p.area, x: p.x, y: p.y, drink };
+  }
+
+  /** El sorbo del brindis: como usar lo de la mano (F), sin esperar la pausa, y suma alcohol si lleva. */
+  private toastSip(userId: string) {
+    let sessionId: string | undefined;
+    let player: Player | undefined;
+    for (const [id, p] of this.state.players) if (p.userId === userId) [sessionId, player] = [id, p];
+    const held = this.held.get(userId);
+    const part = held ? drinkPart(held.item, held.left) : -1;
+    if (!sessionId || !player || part < 0) return null;
+    const used = this.held.use(userId, Date.now(), part, { skipCooldown: true });
+    if (!used.ok) return null;
+    this.drunk.consumed(userId, used.art);
+    return { sessionId, part: used.part, left: used.left };
+  }
+
+  /** Brindar (B): invita a los de al lado con bebida, o se suma a un brindis que está abierto cerca. */
+  private handleToast(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData || !ToastMessage.safeParse(raw).success) return;
+    client.userData.lastActiveAt = Date.now();
+    const result = this.toasts.raise(player.userId);
+    if (!result.ok) client.send(MSG.toastResult, { ok: false, error: result.error } satisfies ToastResult);
+  }
+
+  // ---------- Sillas giratorias ----------
+
+  /** Girar en la silla (R): sentado en la silla de escritorio que mira al PC. Lo ven los del nivel. */
+  private handleSwivel(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData || !SwivelMessage.safeParse(raw).success) return;
+    const seat = player.seated ? seatAtPoint(this.mapOf(player.area), player.x, player.y) : undefined;
+    const now = Date.now();
+    const result = this.swivels.spin(player.userId, seat, now);
+    if (!result.ok) return;
+    client.userData.lastActiveAt = now;
+    // Tantas vueltas seguidas marean un poco (como el alcohol, pero sin pasar de "mareado").
+    if (result.dizzy) this.drunk.dizzy(player.userId, SWIVEL.dizzyUnits, SWIVEL.dizzyCap);
+    const event: SwivelEvent = { sessionId: client.sessionId, turns: result.turns, dizzy: result.dizzy };
+    this.sendToArea(player.area, MSG.swivelEvent, event);
+  }
+
   // ---------- Muebles que se usan ----------
 
   /** Tele, lámparas y tocadiscos se prenden para todos; instrumentos y gato avisan a los del nivel. */
@@ -1193,6 +1279,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
     this.fishery.forget(player.userId);
+    this.swivels.forget(player.userId);
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);

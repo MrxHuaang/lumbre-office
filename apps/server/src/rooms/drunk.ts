@@ -57,6 +57,22 @@ export class Drunkenness {
     this.hooks.onBlackout(userId);
   }
 
+  /**
+   * Mareo sin alcohol (dar vueltas en la silla): suma `units` pero sin pasar de `cap`, que queda debajo de
+   * "borracho", así que nunca desmaya. Si ya está más mareado que eso (por el bar), no cambia nada.
+   * Devuelve la etapa con la que queda.
+   */
+  dizzy(userId: string, units: number, cap: number): DrunkStage {
+    if (this.fainted(userId)) return 4;
+    const now = this.now();
+    const d = this.byUser.get(userId);
+    const current = d ? drunkDecay(d.units, now - d.at) : 0;
+    const limit = Math.min(cap, DRUNK.blackout - 0.01);
+    if (current >= limit) return this.stage(userId);
+    this.set(userId, Math.min(limit, current + units), now, d);
+    return this.stage(userId);
+  }
+
   private wake(userId: string) {
     const d = this.byUser.get(userId);
     if (!d) return;
