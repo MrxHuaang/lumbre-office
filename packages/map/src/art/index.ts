@@ -8,8 +8,9 @@ export * from "./chibi";
 export { drawFurniture, type Variant } from "./furniture";
 export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";
 export { composeArea } from "./compose";
-export { CAFE_ITEM_ART, drawCafeItem, heldEffect, puff, type HeldEffect } from "./items";
+export { CAFE_ITEM_ART, crumb, crumbColor, drawCafeItem, drawHeldItem, drawMenuItem, emberGlow, heldEffect, puff, wisp, type HeldArtState, type HeldEffect } from "./items";
 export { drawEmote, EMOTE_ART } from "./emotes";
+export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 export { drawAreaBase, drawDoorPost, drawLowWall, LOW_WALL_H, WALL_H, type AreaArt } from "./room";
 // Casino: tipografía de números, geometría de las mesas, el arte del modo mesa y su encuadre. Con

@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { media, useMediaStore } from "@/game/media";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { EmotePicker, useEmoteKey } from "./EmotePicker";
 
-/** Barra de herramientas (abajo al centro, estilo Stardew): micrófono, cámara, pantalla y chat. */
-export function MediaControls() {
+/**
+ * Barra de herramientas (abajo al centro, estilo Stardew): micrófono, cámara, pantalla y chat. `children`
+ * va al final de la barra (el casillero de lo que tienes en la mano), así no depende de su ancho.
+ */
+export function MediaControls({ children }: { children?: ReactNode } = {}) {
   const status = useMediaStore((s) => s.status);
   const mic = useMediaStore((s) => s.mic);
   const cam = useMediaStore((s) => s.cam);
@@ -70,6 +73,7 @@ export function MediaControls() {
         disabled={false}
         onClick={() => setEmotes((v) => !v)}
       />
+      {children}
     </div>
   );
 }

@@ -166,4 +166,12 @@ export const MSG = {
   knockRequest: "office:knock:request",
   knockRespond: "office:knock:respond",
   knockResult: "office:knock:result",
+  /** Pedir en la barra del club (`BarOrderMessage`); responde con `cafeResult`. */
+  barOrder: "bar:order",
+  /** Usar lo que tengo en la mano (`UseHeldMessage`) y el aviso a los del mismo nivel (`HeldUsedEvent`). */
+  useHeld: "held:use",
+  heldUsed: "held:used",
+  /** Usar un mueble (`FurnitureUseMessage`) y el aviso de instrumentos y gato (`FurnitureEvent`). */
+  furnitureUse: "furniture:use",
+  furnitureEvent: "furniture:event",
 } as const;

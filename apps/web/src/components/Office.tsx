@@ -17,7 +17,8 @@ import { MyOfficePanel } from "./MyOfficePanel";
 import { DecorPanel } from "./DecorPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
-import { CafePanel } from "./CafePanel";
+import { BarPanel, CafePanel } from "./CafePanel";
+import { HeldSlot, UsablePrompt } from "./UsePrompt";
 import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
 import { BackpackPanel, ShopPanel } from "./ShopPanel";
@@ -194,8 +195,11 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <DoorPrompt />
           <SeatPrompt />
           <InteractPrompt />
+          <UsablePrompt />
           <KnockRequests />
-          <MediaControls />
+          <MediaControls>
+            <HeldSlot />
+          </MediaControls>
           <ControlsHint />
           <VideoStrip />
           <ScreenFocus />
@@ -209,6 +213,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "cafe" && <CafePanel atObject={panel.atObject} onClose={closePanel} />}
           {/* La ruleta y el blackjack se juegan sobre la mesa (modo mesa): solo queda la tira de abajo. */}
           {panel?.kind === "roulette" && <RouletteStrip />}
+          {panel?.kind === "bar" && <BarPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "cashier" && <CashierPanel onClose={closePanel} />}
           {panel?.kind === "blackjack" && <BlackjackStrip />}
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
@@ -257,7 +262,7 @@ function ControlsHint() {
     <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
       {decorating
         ? "Clic para poner o elegir · R para girar · Supr para guardar · Esc para soltar o terminar"
-        : "WASD / flechas · clic para caminar · E para sentarte · T emotes · Enter para chatear"}
+        : "WASD / flechas · clic para caminar · E sentarte o usar · F lo de la mano · T emotes · Enter chatear"}
     </div>
   );
 }

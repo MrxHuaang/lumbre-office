@@ -29,6 +29,7 @@ import {
   type DecorEditResult,
   type OfficeFurniture,
   type OfficeMap,
+  type PlacedFurniture,
   type Seat,
   type TilePos,
   type World,
@@ -43,6 +44,7 @@ import {
   type MoveCorrection,
   type MoveMessage,
   type Positioned,
+  MENUS,
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { Track } from "livekit-client";
@@ -57,9 +59,13 @@ import {
   activateInteractable,
   getRoom,
   onEmote,
+  onFurnitureEvent,
+  onHeldUsed,
   onMoveCorrection,
   onRoom,
+  sendFurnitureUse,
   sendMove,
+  sendUseHeld,
   sendOfficeEdit,
   sendTravel,
   type OfficeRoom,
@@ -67,6 +73,7 @@ import {
 } from "./network";
 import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
 import { TableMode } from "./table";
+import { Usables, type UsableHit } from "./usables";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -85,17 +92,18 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "pole", point: "pole_stage", furniture: ["dance-pole"] },
   { kind: "roulette", point: "roulette", furniture: ["roulette-table", "roulette-wheel"] },
   { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },
+  { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Colores del editor de oficina: grilla, y fantasma/huella cuando se puede (verde) o no (rojo). */
 const DECOR_COLORS = { grid: 0xfff4d6, ok: 0x6fcf5f, bad: 0xe05a4a };
 
 type Keys = Record<
-  "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT" | "E" | "R" | "ESC" | "DELETE" | "BACKSPACE",
+  "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT" | "E" | "R" | "F" | "ESC" | "DELETE" | "BACKSPACE",
   Phaser.Input.Keyboard.Key
 >;
 /** Teclas de un toque apretadas en este frame con el juego libre (ver `readTaps`). */
-type Taps = Record<"e" | "r" | "esc" | "del", boolean>;
+type Taps = Record<"e" | "r" | "f" | "esc" | "del", boolean>;
 
 /** Paneles del casino que se juegan en la mesa (modo mesa) en vez de en una ventana. */
 const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" => kind === "roulette" || kind === "blackjack";
@@ -161,6 +169,11 @@ export class OfficeScene extends Phaser.Scene {
   private keysFreeAt = 0;
   /** Modo mesa del casino (ruleta o blackjack con la cámara sobre la mesa). */
   private table!: TableMode;
+  /** Muebles que se usan (tele, lámparas, instrumentos, gato) y el que está al alcance. */
+  private usables!: Usables;
+  private usableNear: UsableHit | null = null;
+  /** Mueble al que voy caminando (clic en la tele, el piano…): al llegar se usa. */
+  private pendingUse: PlacedFurniture | null = null;
 
   constructor() {
     super("office");
@@ -187,8 +200,9 @@ export class OfficeScene extends Phaser.Scene {
     cam.setRoundPixels(true);
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
-    this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,ESC,DELETE,BACKSPACE", false) as Keys;
+    this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,F,ESC,DELETE,BACKSPACE", false) as Keys;
     this.table = new TableMode(this);
+    this.usables = new Usables(this, (id) => this.avatars.get(id), () => this.local);
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
@@ -209,6 +223,9 @@ export class OfficeScene extends Phaser.Scene {
       onRoom((room) => this.bindRoom(room)),
       onMoveCorrection((c) => this.handleCorrection(c)),
       onEmote((e) => this.avatars.get(e.sessionId)?.emote(e.emote)),
+      onHeldUsed((e) => this.avatars.get(e.sessionId)?.useHeld(e.part, e.action, e.left)),
+      onFurnitureEvent((e) => this.usables.handleEvent(e)),
+      () => this.usables.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
@@ -266,6 +283,7 @@ export class OfficeScene extends Phaser.Scene {
       if (this.decorGhost) this.updateGhost();
     }
     for (const [id, avatar] of this.avatars) if (id !== this.localId) avatar.interpolate(delta);
+    this.usables.update();
   }
 
   // ---------- Niveles ----------
@@ -279,6 +297,7 @@ export class OfficeScene extends Phaser.Scene {
     if (changed) {
       this.view?.destroy();
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
+      this.usables.setArea(map, this.view);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -331,6 +350,7 @@ export class OfficeScene extends Phaser.Scene {
     this.map = map;
     this.view?.destroy();
     this.view = new AreaView(this, map, useOfficeStore.getState().night);
+    this.usables.setArea(map, this.view);
     AreaView.dropStaleBases(this, map);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
     const goal = this.path.at(-1);
@@ -437,6 +457,7 @@ export class OfficeScene extends Phaser.Scene {
   private bindRoom(room: OfficeRoom) {
     // Reconstruye todo en cada (re)conexión.
     this.unbindRoom();
+    this.usables.bind(room);
     for (const a of this.avatars.values()) a.destroy();
     this.avatars.clear();
     this.local = undefined;
@@ -483,7 +504,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setStatus(player.status);
     avatar.setMotion(player.dir, false);
     avatar.setSeated(player.seated ? player.dir : null);
-    avatar.setHeld(player.held);
+    avatar.setHeld(player.held, player.heldLeft);
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -492,7 +513,8 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("look", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("avatar", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("name", (name) => avatar.setName(name));
-    p$.listen("held", (held) => avatar.setHeld(held));
+    p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
+    p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
@@ -548,7 +570,7 @@ export class OfficeScene extends Phaser.Scene {
     const k = this.keys;
     const del = tap(k.DELETE);
     const backspace = tap(k.BACKSPACE);
-    return { e: tap(k.E), r: tap(k.R), esc: tap(k.ESC), del: del || backspace };
+    return { e: tap(k.E), r: tap(k.R), f: tap(k.F), esc: tap(k.ESC), del: del || backspace };
   }
 
   private updateLocal(delta: number, taps: Taps) {
@@ -571,11 +593,15 @@ export class OfficeScene extends Phaser.Scene {
       vx = down - up + right - left;
       vy = down - up - right + left;
       if (taps.e) {
-        // Junto al buzón, el tablón o la barra, E los abre; si no, sienta o levanta.
+        // Junto al buzón, el tablón o la barra, E los abre; junto a un mueble que se usa (si le gana al
+        // asiento), lo usa; si no, sienta o levanta.
         const near = useOfficeStore.getState().interact;
         if (near && !this.seat) activateInteractable(near);
+        else if (this.usableNear && !this.seat && !this.table.kind) this.useFurniture(this.usableNear.f);
         else this.toggleSeat();
       }
+      // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
+      if (taps.f && this.local?.holding && !useOfficeStore.getState().decorating && !this.table.kind) sendUseHeld();
       if (useOfficeStore.getState().decorating) this.decorKeys(taps);
       // Esc sale de la mesa (y del blackjack te levanta).
       if (taps.esc && this.table.kind) useOfficeStore.getState().closePanel();
@@ -587,6 +613,7 @@ export class OfficeScene extends Phaser.Scene {
       this.clearPath(); // el teclado cancela el clic-para-caminar
       this.pendingZone = null;
       this.pendingInteract = null;
+      this.pendingUse = null;
       if (this.seat) this.standUp(); // caminar te levanta
     } else if (this.path.length > 0) {
       const next = this.path[0]!;
@@ -604,6 +631,9 @@ export class OfficeScene extends Phaser.Scene {
           const target = this.pendingInteract;
           this.pendingInteract = null;
           if (target && this.interactableInReach() === target) activateInteractable(target);
+          const use = this.pendingUse;
+          this.pendingUse = null;
+          if (use && this.usables.reaches(use, avatar.x, avatar.y)) this.useFurniture(use);
         }
       } else {
         vx = dx / dist;
@@ -634,10 +664,11 @@ export class OfficeScene extends Phaser.Scene {
       this.checkPortal();
     }
     this.updateDoorPrompt();
-    this.updateSeatPrompt();
     // Sentado, E levanta: el aviso "E" de los objetos solo aparece de pie.
     const near = this.seat ? null : this.interactableInReach();
     if (near !== useOfficeStore.getState().interact) useOfficeStore.getState().setInteract(near);
+    this.updateUsable(near !== null);
+    this.updateSeatPrompt();
 
     this.sendAccumulator += delta;
     if (this.sendAccumulator >= 1000 / MOVE_SEND_HZ) {
@@ -770,7 +801,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private updateSeatPrompt() {
-    const prompt = this.seat ? "stand" : this.nearestFreeSeat() ? "sit" : null;
+    const prompt = this.seat ? "stand" : this.nearestFreeSeat() && !this.usableNear ? "sit" : null;
     const s = useOfficeStore.getState();
     if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
     const atComputer = this.seat?.computer ?? false;
@@ -823,6 +854,7 @@ export class OfficeScene extends Phaser.Scene {
   private clickAt(sx: number, sy: number) {
     this.pendingZone = null;
     this.pendingInteract = null;
+    this.pendingUse = null;
     const ts = this.map.tileSize;
     // Clic sobre el buzón, el tablón o la barra: caminar hasta su punto y abrirlo al llegar.
     const target = this.interactableUnder(sx, sy);
@@ -833,6 +865,15 @@ export class OfficeScene extends Phaser.Scene {
       }
       this.walkTo(target.x, target.y);
       this.pendingInteract = target.kind;
+      return;
+    }
+    // Clic en un mueble que se usa: usarlo si está al alcance, o caminar hasta él y usarlo al llegar.
+    const usable = this.local && !this.seat ? this.usables.under(sx, sy) : null;
+    if (usable && this.local) {
+      if (this.usables.reaches(usable, this.local.x, this.local.y)) return this.useFurniture(usable);
+      const spot = this.usables.standSpot(usable);
+      this.walkTo(spot.x, spot.y);
+      this.pendingUse = usable;
       return;
     }
     const hit = this.tileUnder(sx, sy);
@@ -870,6 +911,26 @@ export class OfficeScene extends Phaser.Scene {
       }
     }
     return null;
+  }
+
+  /**
+   * Mueble que se usa al alcance (de pie y sin un objeto interactivo al lado). Si hay un asiento libre
+   * más cerca, gana el asiento: así E sigue sentando junto a un sofá con lámpara.
+   */
+  private updateUsable(besideObject: boolean) {
+    const avatar = this.local;
+    let hit = avatar && !this.seat && !besideObject ? this.usables.nearest(avatar.x, avatar.y) : null;
+    const seat = hit && avatar ? this.nearestFreeSeat() : null;
+    if (hit && seat && avatar && Math.hypot(seat.x - avatar.x, seat.y - avatar.y) < hit.dist + this.map.tileSize / 2) hit = null;
+    this.usableNear = hit;
+    const s = useOfficeStore.getState();
+    const next = hit ? { type: hit.f.type, x: hit.f.x, y: hit.f.y, label: this.usables.label(hit.f) } : null;
+    const cur = s.usable;
+    if (next?.type !== cur?.type || next?.x !== cur?.x || next?.y !== cur?.y || next?.label !== cur?.label) s.setUsable(next);
+  }
+
+  private useFurniture(f: PlacedFurniture) {
+    sendFurnitureUse(f.type, f.x, f.y);
   }
 
   /** "+N" dorado que sube sobre el personaje al ganar puntos. */
