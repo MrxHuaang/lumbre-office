@@ -25,6 +25,11 @@ export interface CatalogItem {
    * `solid`).
    */
   blocks?: [number, number][];
+  /**
+   * Techo o paredes de algo que se camina por dentro (glorieta, invernadero): el cliente lo transparenta
+   * cuando hay alguien adentro, así que puede tapar lo que queda bajo él.
+   */
+  seeThrough?: boolean;
   /** Escritorio con computador: la silla que lo mira permite prender el PC. */
   computer?: boolean;
   /** Tiene dibujo de espaldas (para mirar hacia "left"/"up"); si no, se usa el de frente. */

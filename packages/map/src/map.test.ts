@@ -63,7 +63,8 @@ describe("mundo", () => {
   it("los puntos de interés quedan en tiles transitables (salvo la pantalla, que cuelga de la pared)", () => {
     for (const map of world.areas.values())
       for (const p of map.points) {
-        if (p.type === "screen") continue;
+        // La pantalla cuelga de la pared y los bancales del invernadero se usan desde el pasillo.
+        if (p.type === "screen" || p.type === "greenhouse_plot") continue;
         expect(isBlockedTile(map, p.tileX, p.tileY), `${map.id}: ${p.name}`).toBe(false);
       }
     // La sala de reuniones se mudó al piso 2 (el del trabajo).
