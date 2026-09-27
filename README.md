@@ -152,5 +152,5 @@ Todo cabe en planes gratis: **Vercel** (web), **Render** (servidor de juego, `re
 
 <div align="center">
 <br />
-<sub>Hecho en Pasto, Colombia · por <a href="https://juanordonezdev.hyvento.co/">Juan José Pantoja</a> para <a href="https://hyvento.co">Hyvento</a></sub>
+<sub>Hecho en Pereira, Colombia · por <a href="https://juanordonezdev.hyvento.co/">Juan José Pantoja</a> para <a href="https://hyvento.co">Hyvento</a></sub>
 </div>
