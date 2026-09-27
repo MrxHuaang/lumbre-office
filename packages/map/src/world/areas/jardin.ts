@@ -24,6 +24,15 @@ const H = PH + M * 2;
 const HOUSE = { x: 28, y: 3 };
 const DOOR_X = HOUSE.x + 10;
 const PORCH_Y = HOUSE.y + 14;
+/**
+ * El garaje (5x5), pegado al oeste de la torre de la casa (donde antes había bosquecito): la puerta chica
+ * da a la fila y = 17, como el porche, y de su frente baja la entrada de concreto hasta el sendero del
+ * huerto.
+ */
+const GARAGE = { x: 23, y: 12 };
+const GARAGE_DOOR_X = GARAGE.x + 3;
+const DRIVEWAY = { x0: 22.9, x1: 27.7, y0: 15, y1: 25.6 };
+const inGarage = (x: number, y: number) => x >= GARAGE.x && x < GARAGE.x + 5 && y >= GARAGE.y && y < GARAGE.y + 5;
 /** El portón de la cerca, al sur, donde llega el camino. */
 const GATE_X = 38;
 
@@ -128,6 +137,9 @@ function onPatio(x: number, y: number): boolean {
 /** Arena: la playita donde nace el muelle y el círculo de la fogata. */
 const onSand = (x: number, y: number) =>
   Math.hypot(x - 43.4, (y - 41) * 0.8) < 2.9 + wobble(x, y, 13, 0.3) || Math.hypot(x - (FIRE.x + 1), y - (FIRE.y + 1)) < 3.3 + wobble(x, y, 17, 0.2);
+/** Entrada de concreto del garaje: el borde de adelante, gastado, se come el pasto a mordiscos. */
+const onDriveway = (x: number, y: number) =>
+  x > DRIVEWAY.x0 + wobble(x, y, 31, 0.2) && x < DRIVEWAY.x1 + wobble(x, y, 32, 0.2) && y > DRIVEWAY.y0 && y < DRIVEWAY.y1 + wobble(x, y, 33, 0.5);
 /** Tierra del huerto (rectángulo de esquinas redondeadas) y la base de la glorieta. */
 function onSoil(x: number, y: number): boolean {
   const r = 1;
@@ -152,6 +164,7 @@ function localGround(x: number, y: number): FloorKind {
   if (onGazeboBase(x, y)) return "path";
   if (onSand(x, y)) return "sand";
   if (onPath(x, y)) return "path";
+  if (onDriveway(x, y)) return "concrete";
   if (onSoil(x, y)) return "soil";
   return "grass";
 }
@@ -161,6 +174,8 @@ const fine = (x: number, y: number) => localGround(x - M, y - M);
 // La puerta del porche tiene que coincidir con CONEXIONES.jardin.casa (tiles frente a la puerta).
 if (CONEXIONES.jardin.casa.tiles[0]!.x !== DOOR_X + M || CONEXIONES.jardin.casa.tiles[0]!.y !== PORCH_Y + M)
   throw new Error("CONEXIONES.jardin.casa no coincide con la puerta de la casa");
+if (CONEXIONES.jardin.garaje.tiles[0]!.x !== GARAGE_DOOR_X + M || CONEXIONES.jardin.garaje.tiles[0]!.y !== GARAGE.y + 5 + M)
+  throw new Error("CONEXIONES.jardin.garaje no coincide con la puerta del garaje");
 
 // ---------- Muebles ----------
 
@@ -170,8 +185,29 @@ const put = (type: string, x: number, y: number, facing: Placement["facing"] = "
 const ground = (x: number, y: number) => localGround(x + 0.5, y + 0.5);
 const isWater = (x: number, y: number) => ground(x, y) === "water";
 
-// La casa.
+// La casa y, al lado de la torre, el garaje.
 put("house", HOUSE.x, HOUSE.y);
+put("garage", GARAGE.x, GARAGE.y);
+// Detrás del garaje (al noroeste) su dibujo tapa a quien se pare ahí: matorral y cachivaches tirados, sin
+// lugar donde pararse (como el bosquecito detrás de la torre).
+for (const [x, y, t] of [
+  [21, 10, "oak-1"],
+  [22, 10, "pine-2"],
+  [23, 10, "bush-round"],
+  [21, 11, "birch-1"],
+  [22, 11, "oak-3"],
+  [23, 11, "bush-berry"],
+  [24, 11, "crates"],
+  [21, 12, "bush-round"],
+  [22, 12, "tire-stack"],
+  [21, 13, "bush-berry"],
+  [22, 13, "oil-drum"],
+  [21, 14, "bush-round"],
+  [22, 14, "barrel"],
+  [21, 15, "bush-hydrangea"],
+  [22, 15, "tire-stack"],
+] as const)
+  put(t, x, y, "down");
 
 // Huerto: parcelas, cobertizo, invernadero, pozo, barriles, compost, colmenas y espantapájaros.
 for (const p of PLOTS) put("garden-plot", p.x, p.y);
@@ -182,7 +218,7 @@ put("barrel", 5, 4);
 put("wheelbarrow", 6, 15, "down");
 put("compost", 2, 7, "right");
 put("greenhouse", 2, 17);
-// El pozo junto al sendero del huerto, a la vista (no detrás de la torre).
+// El pozo junto al sendero del huerto, a la vista (no detrás de la torre ni del garaje).
 put("well", 21, 16);
 put("water-barrel", 18, 8);
 put("water-barrel", 18, 11);
@@ -199,18 +235,15 @@ for (const [x, y] of [
   [2, 13],
   [4, 9],
   [5, 13],
-  [24, 16],
 ])
   put("wildflowers", x!, y!);
 put("signpost", 21, 21, "down");
 
-// Jardín de flores entre el huerto y el camino, y canteros junto a la casa.
+// Jardín de flores entre el garaje y el camino, y canteros junto a la casa.
 for (const [x, y, t] of [
-  [25, 20, "flower-patch"],
-  [26, 21, "bush-rose"],
-  [24, 22, "flower-patch"],
   [28, 22, "bush-hydrangea"],
-  [27, 23, "flower-patch"],
+  [29, 24, "flower-patch"],
+  [30, 26, "bush-rose"],
   [30, 21, "flower-patch"],
   [31, 23, "bush-rose"],
   [33, 21, "flower-patch"],
@@ -424,7 +457,6 @@ for (const [x, y, t, f] of [
   [44, 54, "birch-2", "down"],
   [41, 24, "bush-round", "right"],
   [34, 17, "bush-round", "down"],
-  [26, 16, "birch-2", "right"],
   [11, 20, "fallen-log", "right"],
   [16, 23, "rock-medium", "down"],
   [6, 22, "stump", "right"],
@@ -450,7 +482,7 @@ const behindHouse = (x: number, y: number) =>
 {
   const THICKET = ["oak-1", "pine-2", "birch-1", "oak-3", "pine-1", "bush-round", "oak-2", "pine-3", "birch-2", "bush-berry"];
   const used = new Set<string>();
-  const free = (x: number, y: number) => behindHouse(x, y) && !used.has(`${x},${y}`);
+  const free = (x: number, y: number) => behindHouse(x, y) && !inGarage(x, y) && !used.has(`${x},${y}`);
   for (let y = 0; y <= 13; y++)
     for (let x = 18; x < HOUSE.x + 15; x++) {
       if (!free(x, y)) continue;
@@ -631,6 +663,12 @@ export const jardin: AreaDef = {
       label: "Subir al balcón del piso 2",
       tiles: CONEXIONES.jardin.escaleraTerraza.tiles,
       to: hacia("piso-2", CONEXIONES.piso2.terraza),
+    },
+    {
+      id: "jardin-garaje",
+      label: "Entrar al garaje",
+      tiles: CONEXIONES.jardin.garaje.tiles,
+      to: hacia("garaje", CONEXIONES.garaje.entrada),
     },
   ],
   points: POINTS,
