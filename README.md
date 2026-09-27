@@ -29,7 +29,7 @@ Lumbre convierte la oficina remota en un lugar al que se entra. Cada persona tie
 <table>
   <tr>
     <td width="50%"><img src="docs/img/juego-cafeteria.webp" alt="Cafetería" /><br /><sub><b>Cafetería</b>: se pide en la barra con puntos y lo pedido queda en la mano del personaje.</sub></td>
-    <td width="50%"><img src="docs/img/juego-casino.webp" alt="Casino" /><br /><sub><b>Casino</b> en el sótano: ruleta y blackjack con mesas autoritativas y límite diario de pérdidas.</sub></td>
+    <td width="50%"><img src="docs/img/juego-casino.webp" alt="Casino" /><br /><sub><b>Casino</b> en el sótano: ruleta y blackjack con mesas autoritativas; se apuesta solo lo que alcanza el saldo.</sub></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/img/juego-club.webp" alt="Club" /><br /><sub><b>Club</b>: pista de baile, barra y cabina de DJ, con letreros de neón generados letra por letra.</sub></td>

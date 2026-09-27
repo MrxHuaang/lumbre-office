@@ -32,7 +32,7 @@ Se cambia de nivel por puertas y escaleras con un fundido a negro (como Stardew)
 ### Sótano · ocio
 | Sala | Función |
 |---|---|
-| Casino | Ruleta y blackjack (5 asientos, crupier automático), caja con saldo y **límite diario configurable en `/admin`**, ranking semanal. Tragamonedas bajo letreros de neón, mesa de póker, fuente de monedas, rueda de la fortuna y un rincón de sofás. |
+| Casino | Ruleta y blackjack (5 asientos, crupier automático), caja con saldo y estadísticas, ranking semanal. Sin límite diario de pérdidas: solo hace falta que alcance el saldo (en `/admin` se puede cerrar el casino). Tragamonedas bajo letreros de neón, mesa de póker, fuente de monedas, rueda de la fortuna y un rincón de sofás. |
 | Club | Pista de baile de colores, barra con estante de botellas, cabina de DJ con parlantes, sofás de terciopelo y la tarima con el tubo (E para bailar). Audio aislado. |
 | Sala de cine | Pantalla con telón en la pared oeste, 16 butacas, proyector y crispetas. Audio aislado. En la fase 5, video sincronizado en la pantalla. |
 | Arcade | Minijuegos entre amigos (dardos, ajedrez, pong) con apuestas amistosas de puntos. |
@@ -77,7 +77,7 @@ Misiones: cualquiera publica; otra persona la toma, la entrega y quien la public
 4. ✅ **Casino** (sótano, se baja por la escalera del recibidor):
    - **Ruleta europea** con rondas compartidas (20 s para apostar, gira y paga); plenos, columnas, docenas, rojo/negro, par/impar y mitades.
    - **Blackjack** de 5 asientos (las banquetas de la mesa), sabot de 6 mazos, crupier automático que se planta en 17, blackjack 3:2, doblar; sin seguro ni división.
-   - **Caja**: saldo, cómo vas hoy, el límite y el ranking semanal por ganancia neta. **Límite diario de pérdidas** configurable en `/admin` (150 por defecto; cuenta las apuestas abiertas), y se puede cerrar el casino.
+   - **Caja**: saldo, cómo vas hoy y el ranking semanal por ganancia neta. No hay límite diario de pérdidas (se quitó: solo cuenta el saldo), y en `/admin` se puede cerrar el casino.
    - El sótano tiene tres salas: el **casino** (tragamonedas de adorno, póker, fuente, rueda de la fortuna), el **club** (barra, DJ y el escenario con tubo, E para bailar) y el **cine** (pantalla con telón y butacas).
 5. **Social y ocio**: regalos, intercambios, huerto, pesca, arcade y el video del cine.
 

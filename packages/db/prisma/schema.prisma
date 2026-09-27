@@ -178,7 +178,7 @@ enum PointReason {
   ADMIN
   /// Gasto (monto negativo): compras en la cafetería y la tienda.
   PURCHASE
-  /// Casino: apuestas (monto negativo) y premios (positivo). Tiene un límite diario de pérdidas.
+  /// Casino: apuestas (monto negativo) y premios (positivo). Sin límite diario: solo cuenta el saldo.
   CASINO
   /// Regalos e intercambios entre personas: lo que sale (negativo) y lo que llega (positivo).
   GIFT

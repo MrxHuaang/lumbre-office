@@ -3,7 +3,7 @@
   "ui": "stream",
   "tasks": {
     "dev": { "cache": false, "persistent": true },
-    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**"] },
+    "build": { "dependsOn": ["^build"], "outputs": [".next/**", "!.next/cache/**", "dist/**", "public/prerender/**"] },
     "typecheck": { "dependsOn": ["^typecheck"] },
     "test": { "passThroughEnv": ["HYVENTO_TEST_PORT"] }
   }

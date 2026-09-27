@@ -1,9 +1,10 @@
 // La portada y el login importan la escena: si un mueble del catálogo cambia de nombre o un recorrido
 // queda sobre algo sólido, este test avisa antes de que se note en producción.
 import { buildArea, canStandAt, canWalkBetween, catalogItem, TILE_SIZE, type AreaDef } from "@hyvento/map";
-import { composeArea } from "@hyvento/map/art";
+import { composeArea, L as MOTOR_L, toScreen } from "@hyvento/map/art";
 import { describe, expect, it } from "vitest";
-import { enRecorrido, ESCENA, JUEGOS, largo, LLEGADA, lucesDeEscena, OBJETOS, OFICINA, PASEO, RONDA, type Recorrido } from "./escena";
+import { aLienzo, enRecorrido, ESCENA, ESCENA_H, JUEGOS, L, largo, LLEGADA, OBJETOS, OFICINA, PASEO, RONDA, type Recorrido } from "./escena";
+import { DIBUJO_DE_OBJETO, lucesDeEscena } from "./escena-arte";
 import { bannerSvg, ESLOGAN, llamaPixeles, MARCA, textoPixeles } from "./marca";
 
 const SALAS: [string, AreaDef][] = [
@@ -57,8 +58,14 @@ describe("escena de la portada", () => {
     expect(luces.some((l) => l.fuego)).toBe(true);
   });
 
-  it.each(OBJETOS.map((o) => [o.nombre, o] as const))("el objeto %s tiene dibujo", (_, o) => {
-    const c = o.dibujar();
+  it("la proyección de la escena es la del motor (escena.ts no lo importa)", () => {
+    expect(L).toBe(MOTOR_L);
+    const s = toScreen(3.5 * MOTOR_L, 7 * MOTOR_L, 12);
+    expect(aLienzo(3.5, 7, 80, 12)).toEqual({ x: ESCENA_H * MOTOR_L + 2 + 80 + s.x, y: 2 + 80 + s.y });
+  });
+
+  it.each(OBJETOS.map((o) => [o] as const))("el objeto %s tiene dibujo", (o) => {
+    const c = DIBUJO_DE_OBJETO[o]();
     expect(c.width * c.height).toBeGreaterThan(0);
     expect(c.data.some((v, i) => i % 4 === 3 && v > 0)).toBe(true);
   });

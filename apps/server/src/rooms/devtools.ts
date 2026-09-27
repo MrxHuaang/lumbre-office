@@ -6,7 +6,8 @@ import { pointsOfType, type OfficeMap } from "@hyvento/map";
 import { isWeather, WEATHERS, type Weather } from "@hyvento/shared";
 
 export function devToolsEnabled(): boolean {
-  return process.env.HYVENTO_DEV_TOOLS === "1" && process.env.NODE_ENV !== "production";
+  // Render no define NODE_ENV (y ponerlo en render.yaml dejaría a prisma fuera del install): se mira RENDER.
+  return process.env.HYVENTO_DEV_TOOLS === "1" && process.env.NODE_ENV !== "production" && !process.env.RENDER;
 }
 
 export interface DevJump {

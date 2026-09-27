@@ -3,6 +3,7 @@ import { getWorld, pointsOfType } from "@hyvento/map";
 import { CASINO, MSG, ROOM_NAME, type CasinoResult, type RouletteSettled } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
+import { CASINO_BURST } from "../src/rooms/casino/common";
 import { randomSpin } from "../src/rooms/casino/roulette";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
@@ -80,6 +81,32 @@ describe("ruleta", () => {
     await finish();
     expect(settled.at(-1)).toMatchObject({ result: 17, staked: 12, won: 2 * 36 + 5 * 2 });
     expect(await repo.getPoints("u-alice")).toBe(50 - 12 + 72 + 10);
+  });
+
+  it("muchas apuestas simultáneas no pasan el tope por ronda", async () => {
+    const { alice, room } = await setup(1000);
+    const bet = repo.casinoBet.bind(repo);
+    repo.casinoBet = async (input) => {
+      await tick(10);
+      return bet(input);
+    };
+    const burst = CASINO_BURST.max;
+    CASINO_BURST.max = 100; // acá se prueba la cola de la mesa, no el tope de ráfagas
+    try {
+      for (let i = 0; i < 20; i++) alice.send(MSG.rouletteBet, { bet: { kind: "red" }, amount: 1 });
+      await tick(600);
+    } finally {
+      CASINO_BURST.max = burst;
+    }
+    expect(room.state.roulette.bets.length).toBe(CASINO.roulette.maxBetsPerRound);
+    expect(await repo.getPoints("u-alice")).toBe(1000 - CASINO.roulette.maxBetsPerRound);
+  });
+
+  it("frena las ráfagas de mensajes", async () => {
+    const { alice, room } = await setup(1000);
+    for (let i = 0; i < 20; i++) alice.send(MSG.rouletteBet, { bet: { kind: "red" }, amount: 1 });
+    await tick(300);
+    expect(room.state.roulette.bets.length).toBe(CASINO_BURST.max);
   });
 
   it("no se puede apostar lejos de la mesa ni sin saldo", async () => {

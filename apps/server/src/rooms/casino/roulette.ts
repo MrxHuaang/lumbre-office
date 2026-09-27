@@ -14,6 +14,7 @@ import {
 import { randomInt } from "node:crypto";
 import type { GameRepository } from "../../repo/types";
 import { RouletteBet, type RouletteState } from "../../state";
+import { payoutWithRetry, TableQueue } from "./common";
 
 export interface RouletteTimings {
   bettingMs: number;
@@ -55,6 +56,9 @@ function paramOf(spec: RouletteBetSpec): number {
 }
 
 export class RouletteTable {
+  /** Apuestas de a una: así el tope por ronda se cuenta con las anteriores ya puestas. */
+  private readonly queue = new TableQueue();
+
   constructor(private readonly d: Deps) {}
 
   /** Arranca el ciclo de rondas. */
@@ -104,12 +108,8 @@ export class RouletteTable {
     }
     for (const [userId, t] of byUser) {
       if (t.won > 0) {
-        try {
-          const { balance } = await this.d.repo().casinoPayout({ userId, amount: t.won, refId: casinoRefId("ruleta", round) });
-          this.d.setPoints(userId, balance);
-        } catch (err) {
-          console.error("casinoPayout", err);
-        }
+        const paid = await payoutWithRetry(this.d.repo, { userId, amount: t.won, refId: casinoRefId("ruleta", round) }, "premio");
+        if (paid) this.d.setPoints(userId, paid.balance);
       }
       this.d.notify(userId, { round, result, won: t.won, staked: t.staked }, { straight: t.straight });
     }
@@ -118,7 +118,11 @@ export class RouletteTable {
   /**
    * Una apuesta. `near` = está junto a la mesa. Si la ronda se cierra mientras se cobraba, se devuelve.
    */
-  async bet(player: { userId: string; name: string }, raw: unknown, near: boolean): Promise<CasinoResult | null> {
+  bet(player: { userId: string; name: string }, raw: unknown, near: boolean): Promise<CasinoResult | null> {
+    return this.queue.run(() => this.placeBet(player, raw, near));
+  }
+
+  private async placeBet(player: { userId: string; name: string }, raw: unknown, near: boolean): Promise<CasinoResult | null> {
     const parsed = RouletteBetMessage.safeParse(raw);
     if (!parsed.success) return null;
     const s = this.d.state;
@@ -143,8 +147,8 @@ export class RouletteTable {
     if (!outcome.ok) return { ok: false, error: outcome.error };
     if (s.round !== round || s.phase !== "betting") {
       // Se cerró la ronda mientras se cobraba: se devuelve la apuesta.
-      const { balance } = await this.d.repo().casinoPayout({ userId: player.userId, amount, refId });
-      this.d.setPoints(player.userId, balance);
+      const paid = await payoutWithRetry(this.d.repo, { userId: player.userId, amount, refId }, "devolución");
+      if (paid) this.d.setPoints(player.userId, paid.balance);
       return { ok: false, error: "closed" };
     }
     const b = new RouletteBet();

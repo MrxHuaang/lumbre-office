@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { getWorld } from "@hyvento/map";
+import { canStandAt, getWorld, seatAtPoint } from "@hyvento/map";
 import { CLOSE_CODE, isWeather, MSG, ROOM_NAME, signGameToken, type ChatEvent, type MoveCorrection } from "@hyvento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -321,6 +321,35 @@ describe("OfficeRoom: sentarse", () => {
     await tick();
     expect(me().seated).toBe(false);
     expect(me().y).toBe(c(sofa.y - 1));
+  });
+
+  it("alguien sentado en un piso no ocupa la silla con las mismas coordenadas de otro piso", async () => {
+    // (14, 9) es una silla en la planta baja y una banqueta en el sótano.
+    const world = getWorld();
+    const dup = { x: c(14), y: c(9) };
+    const nextTo = (area: string) => {
+      const map = world.areas.get(area)!;
+      const seatTile = { x: 14, y: 9 };
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+        const t = { x: seatTile.x + dx, y: seatTile.y + dy };
+        if (canStandAt(map, c(t.x), c(t.y))) return t;
+      }
+      throw new Error(`Sin tile libre junto a la silla en ${area}`);
+    };
+    expect(seatAtPoint(world.areas.get("planta-baja")!, dup.x, dup.y)).toBeTruthy();
+    expect(seatAtPoint(world.areas.get("sotano")!, dup.x, dup.y)).toBeTruthy();
+
+    const { room, alice, bob } = await setup();
+    for (const [client, area] of [[alice, "sotano"], [bob, "planta-baja"]] as const) {
+      await goToArea(client, room, area);
+      const t = nextTo(area);
+      await walkToTile(client, room, t.x, t.y);
+      client.send(MSG.move, { ...dup, dir: "down", moving: false, seated: true });
+      await room.waitForNextPatch();
+      await tick();
+    }
+    expect(room.state.players.get(alice.sessionId)!).toMatchObject({ area: "sotano", seated: true });
+    expect(room.state.players.get(bob.sessionId)!).toMatchObject({ area: "planta-baja", seated: true });
   });
 
   it("no se puede usar un portal estando sentado", async () => {

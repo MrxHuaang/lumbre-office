@@ -55,6 +55,7 @@ import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
 import { CinemaMode } from "./cinema";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
+import { queuePrerender } from "./iso/prerender";
 import { ensureCharacterTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
 import {
@@ -279,7 +280,29 @@ export class OfficeScene extends Phaser.Scene {
     super("office");
   }
 
+  /** El arte pre-dibujado en el build (fondos, muebles, bosque): lo que falte se dibuja después. */
+  preload() {
+    queuePrerender(this);
+  }
+
   create() {
+    try {
+      this.setupScene();
+    } catch (err) {
+      this.failMap(err);
+    }
+  }
+
+  /**
+   * No se pudo armar o dibujar el nivel: en vez de quedar en "Entrando…" para siempre, la pantalla de
+   * error con "Reintentar" (vuelve a conectar y a crear el juego).
+   */
+  private failMap(err: unknown) {
+    console.error("No se pudo cargar el mapa", err);
+    if (!this.disposed) useOfficeStore.getState().setConnection("error", "No se pudo cargar el mapa. Reintenta o recarga la página.");
+  }
+
+  private setupScene() {
     // Copia propia de la lista de niveles: la decoración de las oficinas rearma el piso 2 solo aquí.
     const base = getWorld();
     this.world = { ...base, areas: new Map(base.areas) };
@@ -576,6 +599,14 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Muestra un nivel: se redibuja todo y solo se ven los avatares que están en él. */
   private enterArea(areaId: string) {
+    try {
+      this.showArea(areaId);
+    } catch (err) {
+      this.failMap(err);
+    }
+  }
+
+  private showArea(areaId: string) {
     const map = this.world.areas.get(areaId);
     if (!map) return;
     const changed = !this.view || map.id !== this.map.id;
@@ -643,6 +674,14 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Vuelve a dibujar el nivel actual con otro mapa (misma área, otra decoración). */
   private redrawArea(map: OfficeMap) {
+    try {
+      this.showRedrawn(map);
+    } catch (err) {
+      this.failMap(err);
+    }
+  }
+
+  private showRedrawn(map: OfficeMap) {
     this.map = map;
     setSfxArea(map);
     this.view?.destroy();

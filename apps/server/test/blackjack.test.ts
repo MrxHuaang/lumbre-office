@@ -98,6 +98,23 @@ describe("blackjack", () => {
     expect(await repo.getPoints("u-alice")).toBe(70);
   });
 
+  it("varios \"doblar\" a la vez cobran y doblan una sola vez", async () => {
+    shoe([5, 6], [10, 8], 10, 10, 10);
+    const { alice, send, settled, table } = await setup(1000);
+    await send(MSG.blackjackBet, { amount: 50 }, 250);
+    // La base tarda en cobrar: sin la cola de la mesa, todos pasaban el chequeo antes del primer cobro.
+    const bet = repo.casinoBet.bind(repo);
+    repo.casinoBet = async (input) => {
+      await tick(20);
+      return bet(input);
+    };
+    for (let i = 0; i < 10; i++) alice.send(MSG.blackjackAction, { action: "double" });
+    await tick(800);
+    expect(table().seats[0]!.cards.length).toBe(3);
+    expect(settled.at(-1)).toMatchObject({ outcome: "win", staked: 100, won: 200 });
+    expect(await repo.getPoints("u-alice")).toBe(1100);
+  });
+
   it("si se acaba el tiempo del turno, se planta sola", async () => {
     OfficeRoom.blackjackTimings = { bettingMs: 100, turnMs: 150, dealerStepMs: 30, resultMs: 5_000 };
     shoe([10, 7], [10, 9]);

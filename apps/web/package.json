@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "pnpm run prerender",
     "dev": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next dev --port 3000",
-    "prebuild": "pnpm --filter @hyvento/db generate",
+    "prebuild": "pnpm --filter @hyvento/db generate && pnpm run prerender",
     "build": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next build",
     "start": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "prerender": "node ./node_modules/tsx/dist/cli.mjs scripts/prerender.ts",
     "banner": "node ./node_modules/tsx/dist/cli.mjs scripts/banner-lumbre.ts",
     "dev:session": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs scripts/dev-session.ts"
   },

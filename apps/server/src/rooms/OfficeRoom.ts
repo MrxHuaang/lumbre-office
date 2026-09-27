@@ -133,6 +133,7 @@ import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
 import { GardenPlotState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
+import { acceptCasinoMessage } from "./casino/common";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
@@ -175,6 +176,8 @@ interface UserData {
   admin?: boolean;
   /** Emotes aceptados hace poco (pausa entre uno y otro y tope por ráfaga, ver `acceptEmote`). */
   emoteTimes?: number[];
+  /** Mensajes recientes al casino (tope por ráfaga, ver `acceptCasinoMessage`). */
+  casinoTimes?: number[];
 }
 
 interface PendingKnock {
@@ -1169,7 +1172,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const seat = seated ? seatAtPoint(map, x, y) : undefined;
     const fromSeat = player.seated && !seated;
     const validSpot = seated
-      ? Boolean(seat) && !this.seatTaken(client.sessionId, x, y)
+      ? Boolean(seat) && !this.seatTaken(client.sessionId, map.id, x, y)
       : canStandAt(map, x, y) && (fromSeat || canWalkBetween(map, player.x, player.y, x, y));
     if (seat) dir = seat.facing;
 
@@ -1295,7 +1298,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const restSeats = [...map.seats.values()].filter((s) => zoneAt(map, s.x, s.y)?.id === DRUNK.restZone);
     for (const [sessionId, player] of this.state.players) {
       if (player.userId !== userId) continue;
-      const free = restSeats.filter((s) => !this.seatTaken(sessionId, s.x, s.y));
+      const free = restSeats.filter((s) => !this.seatTaken(sessionId, map.id, s.x, s.y));
       // Los sofás primero (se descansa mejor que en una banqueta).
       const seat = free.find((s) => s.type.includes("sofa")) ?? free[0];
       const near = restSeats[0] ?? { x: map.tileSize, y: map.tileSize };
@@ -1322,10 +1325,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
-  /** ¿Hay otra persona sentada en (x, y)? */
-  private seatTaken(sessionId: string, x: number, y: number) {
+  /** ¿Hay otra persona sentada en (x, y) de ese nivel? (Varios pisos tienen asientos en las mismas coordenadas.) */
+  private seatTaken(sessionId: string, area: string, x: number, y: number) {
     for (const [id, p] of this.state.players) {
-      if (id !== sessionId && p.seated && Math.abs(p.x - x) <= 0.5 && Math.abs(p.y - y) <= 0.5) return true;
+      if (id !== sessionId && p.seated && p.area === area && Math.abs(p.x - x) <= 0.5 && Math.abs(p.y - y) <= 0.5) return true;
     }
     return false;
   }
@@ -1564,9 +1567,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return i >= 0 ? i : null;
   }
 
+  /** Frena las ráfagas de mensajes al casino (cada uno abre una transacción con la fila bloqueada). */
+  private acceptCasino(client: Client<UserData>): boolean {
+    if (!client.userData) return false;
+    return acceptCasinoMessage((client.userData.casinoTimes ??= []), Date.now());
+  }
+
   private async handleBlackjack(client: Client<UserData>, raw: unknown, kind: "bet" | "action") {
     const player = this.state.players.get(client.sessionId);
-    if (!player || !this.blackjack) return;
+    if (!player || !this.blackjack || !this.acceptCasino(client)) return;
     const seat = this.blackjackSeatOf(player);
     const who = { userId: player.userId, name: player.name };
     const result = kind === "bet" ? await this.blackjack.bet(who, seat, raw) : await this.blackjack.action(who, seat, raw);
@@ -1575,7 +1584,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   private async handleRouletteBet(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
-    if (!player || !this.roulette) return;
+    if (!player || !this.roulette || !this.acceptCasino(client)) return;
     const near = nearPointOfType(this.mapOf(player.area), "roulette", player.x, player.y);
     const result = await this.roulette.bet({ userId: player.userId, name: player.name }, raw, near);
     if (result) client.send(MSG.casinoResult, result);

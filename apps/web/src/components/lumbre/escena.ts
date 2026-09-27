@@ -1,8 +1,12 @@
 // La escena de la portada de Lumbre: la casa nueva del jardín en una isla de pasto, con el sendero,
 // la fogata y los faroles. Se dibuja con el mismo motor del juego (sin Phaser) y encima caminan
-// personajes. Aquí solo hay datos y cuentas (nada del DOM), para poder probarla aparte.
-import { catalogItem, type AreaDef, type FloorKind, type Placement } from "@hyvento/map";
-import { cardSprite, drawFish, drawFurniture, drawMenuItem, L, toScreen, type PixelCanvas } from "@hyvento/map/art";
+// personajes. Aquí solo hay datos y cuentas (nada del DOM), para poder probarla aparte. Solo tipos del
+// mundo: la portada no carga el motor (el dibujo sale del build, ver scripts/prerender.ts y escena-arte.ts).
+import type { AreaDef, FloorKind, Placement } from "@hyvento/map";
+
+/** Lado del tile en unidades de arte y proyección isométrica del motor (L y toScreen de art/pixel.ts). */
+export const L = 16;
+const toScreen = (x: number, y: number, z = 0) => ({ x: x - y, y: (x + y) / 2 - z });
 
 const place = (type: string, x: number, y: number, facing: Placement["facing"] = "right"): Placement => ({ type, x, y, facing });
 
@@ -187,43 +191,20 @@ export function aLienzo(tx: number, ty: number, pad: number, z = 0) {
   return { x: ESCENA_H * L + 2 + pad + s.x, y: 2 + pad + s.y };
 }
 
-export interface Luz {
-  x: number;
-  y: number;
-  z: number;
-  color: string;
-  radio: number;
-  fuego: boolean;
-}
+/** Cosas sueltas del juego para la sección de juegos (sus dibujos, en escena-arte.ts). */
+export const OBJETOS = ["Tinto", "Pandebono", "Tres leches", "As", "Arawana", "Arcade"] as const;
+export type Objeto = (typeof OBJETOS)[number];
 
-let luces: Luz[] | undefined;
+/** Relleno alrededor de la escena viva al dibujarla (aLienzo lo necesita para ubicar a la gente). */
+export const ESCENA_PAD = 80;
+/** Relleno de los dioramas. */
+export const SALA_PAD = 40;
+
 /**
- * Las luces de la escena (faroles, fogata, farol del porche), sacadas del catálogo: en tiles y alto.
- * Se calculan al pedirlas y un mueble que ya no exista se salta: la portada y el login importan este
- * archivo, y un cambio en el catálogo no puede tumbarlos (el test de la escena avisa).
+ * Semillas de los looks al azar que aparecen en la portada (escena, personajes y proximidad): sus hojas
+ * se pre-dibujan en el build. Si una vista usa otra, se dibuja en el navegador.
  */
-export function lucesDeEscena(): Luz[] {
-  luces ??= ESCENA.furniture.flatMap((f) => {
-    let luz: ReturnType<typeof catalogItem>["light"];
-    try {
-      luz = catalogItem(f.type).light;
-    } catch {
-      return [];
-    }
-    return luz ? [{ x: f.x + luz.at[0] / L, y: f.y + luz.at[1] / L, z: luz.at[2], color: luz.color, radio: luz.radius, fuego: f.type === "fire-pit" }] : [];
-  });
-  return luces;
-}
-
-/** Cosas sueltas del juego para la sección de juegos: de la cafetería, el casino, el arcade y el lago. */
-export const OBJETOS: { nombre: string; dibujar: () => PixelCanvas }[] = [
-  { nombre: "Tinto", dibujar: () => drawMenuItem("tinto") },
-  { nombre: "Pandebono", dibujar: () => drawMenuItem("pandebono") },
-  { nombre: "Tres leches", dibujar: () => drawMenuItem("torta") },
-  { nombre: "As", dibujar: () => cardSprite(0, 3) },
-  { nombre: "Arawana", dibujar: () => drawFish("arawana", "raro") },
-  { nombre: "Arcade", dibujar: () => drawFurniture("arcade-cabinet").canvas },
-];
+export const SEMILLAS_PORTADA = [3, 5, 8, 11, 17, 21] as const;
 
 /** La gente quieta junto a la fogata: dónde está y hacia dónde mira. */
 export const RONDA = [

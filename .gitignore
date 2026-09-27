@@ -8,3 +8,7 @@ dist
 .env.production
 .env.vercel
 *.tsbuildinfo
+# Arte viejo generado (antes se versionaba): que un `git add -A` no lo suba.
+apps/web/public/assets/
+# Arte generado en el build (apps/web/scripts/prerender.ts): no se versiona.
+apps/web/public/prerender/

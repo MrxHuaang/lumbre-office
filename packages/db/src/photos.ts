@@ -62,7 +62,7 @@ const toRow = (p: Selected): PhotoRow => ({
 export function savePhoto(
   client: PrismaClient,
   photo: NewPhoto,
-  rules: { dailyLimit: number; since: Date; keep: number },
+  rules: { dailyLimit: number; since: Date; keep: number; keepPinned: number },
 ): Promise<SavePhotoOutcome> {
   return client.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT 1 FROM "User" WHERE id = ${photo.takenById} FOR UPDATE`;
@@ -80,7 +80,9 @@ export function savePhoto(
         mime: photo.mime,
       },
     });
-    await tx.$executeRaw`DELETE FROM "Photo" WHERE id IN (SELECT id FROM "Photo" ORDER BY "createdAt" DESC, id DESC OFFSET ${rules.keep})`;
+    // Las fijadas y las sin fijar se cuentan por separado: subir muchas no saca del corcho las de otros.
+    await tx.$executeRaw`DELETE FROM "Photo" WHERE id IN (SELECT id FROM "Photo" WHERE NOT pinned ORDER BY "createdAt" DESC, id DESC OFFSET ${rules.keep})`;
+    await tx.$executeRaw`DELETE FROM "Photo" WHERE id IN (SELECT id FROM "Photo" WHERE pinned ORDER BY "createdAt" DESC, id DESC OFFSET ${rules.keepPinned})`;
     return "ok";
   });
 }

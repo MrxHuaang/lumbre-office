@@ -24,6 +24,8 @@ export async function awardPointsTx(tx: Prisma.TransactionClient, input: AwardIn
   let amount = input.amount;
   const cap = DAILY_CAPS[reason];
   if (cap !== null && amount > 0) {
+    // Se bloquea la fila: dos premios con tope al mismo tiempo leerían la misma suma y juntos lo pasarían.
+    await tx.$executeRaw`SELECT 1 FROM "User" WHERE id = ${userId} FOR UPDATE`;
     const today = await tx.pointTransaction.aggregate({
       where: { userId, reason, createdAt: { gte: new Date(dayStart(now)) } },
       _sum: { amount: true },

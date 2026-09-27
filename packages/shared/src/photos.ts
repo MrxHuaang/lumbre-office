@@ -23,8 +23,13 @@ export const PHOTO = {
   maxSide: 800,
   /** Fotos por persona por día (de Bogotá). */
   dailyLimit: 20,
-  /** Solo se guardan las últimas; las más viejas se borran al subir una nueva. */
+  /** Solo se guardan las últimas sin fijar; las más viejas se borran al subir una nueva. */
   keep: 60,
+  /**
+   * Las fijadas en el corcho no cuentan para `keep` (las fotos de muchas de una persona no sacan las de
+   * los demás), pero tienen su propio tope para que la tabla no crezca sin fin.
+   */
+  keepPinned: 180,
   /** Pie de foto escrito por quien la saca. */
   captionMax: 60,
   /** Personas que se nombran en el pie (y se guardan). */

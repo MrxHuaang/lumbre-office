@@ -19,6 +19,7 @@ import {
 import { randomInt } from "node:crypto";
 import type { GameRepository } from "../../repo/types";
 import { BlackjackSeat, type BlackjackState } from "../../state";
+import { payoutWithRetry, TableQueue } from "./common";
 
 export interface BlackjackTimings {
   bettingMs: number;
@@ -58,6 +59,8 @@ export class BlackjackTable {
   private dealerCards: Card[] = [];
   /** Cambia en cada turno: un temporizador viejo no planta a nadie. */
   private turnToken = 0;
+  /** Apuestas y jugadas de a una (ver `TableQueue`). */
+  private readonly queue = new TableQueue();
 
   constructor(private readonly d: Deps) {
     for (let i = 0; i < BLACKJACK.seats; i++) d.state.seats.push(new BlackjackSeat());
@@ -73,7 +76,11 @@ export class BlackjackTable {
   }
 
   /** Apostar en tu asiento (`seat` = índice de la banqueta donde estás sentado, o null si no lo estás). */
-  async bet(player: Player, seat: number | null, raw: unknown): Promise<CasinoResult | null> {
+  bet(player: Player, seat: number | null, raw: unknown): Promise<CasinoResult | null> {
+    return this.queue.run(() => this.placeBet(player, seat, raw));
+  }
+
+  private async placeBet(player: Player, seat: number | null, raw: unknown): Promise<CasinoResult | null> {
     const parsed = BlackjackBetMessage.safeParse(raw);
     if (!parsed.success) return null;
     const settings = this.d.settings();
@@ -106,7 +113,11 @@ export class BlackjackTable {
   }
 
   /** Jugada en tu turno. */
-  async action(player: Player, seat: number | null, raw: unknown): Promise<CasinoResult | null> {
+  action(player: Player, seat: number | null, raw: unknown): Promise<CasinoResult | null> {
+    return this.queue.run(() => this.play(player, seat, raw));
+  }
+
+  private async play(player: Player, seat: number | null, raw: unknown): Promise<CasinoResult | null> {
     const parsed = BlackjackActionMessage.safeParse(raw);
     if (!parsed.success) return null;
     const place = seat === null ? undefined : this.s.seats[seat];
@@ -117,14 +128,17 @@ export class BlackjackTable {
     const { action } = parsed.data;
     if (action === "double") {
       if (place.cards.length !== 2 || place.doubled) return { ok: false, error: "turn" };
-      const outcome = await this.charge(player.userId, place.bet, casinoRefId("blackjack", this.s.round));
+      // Lo que cobra *esta* jugada: si hay que devolver, se devuelve esto y no `place.bet`.
+      const extra = place.bet;
+      const refId = casinoRefId("blackjack", this.s.round);
+      const outcome = await this.charge(player.userId, extra, refId);
       if (!outcome.ok) return outcome;
       // Mientras se cobraba pudo vencer el turno: se devuelve.
-      if (token !== this.turnToken) {
-        await this.refund(player.userId, place.bet, casinoRefId("blackjack", this.s.round));
+      if (token !== this.turnToken || place.doubled) {
+        await this.refund(player.userId, extra, refId);
         return { ok: false, error: "turn" };
       }
-      place.bet *= 2;
+      place.bet += extra;
       place.doubled = true;
       place.cards.push(this.draw());
       place.status = handValue([...place.cards]).total > 21 ? "bust" : "stand";
@@ -157,8 +171,8 @@ export class BlackjackTable {
   }
 
   private async refund(userId: string, amount: number, refId: string) {
-    const { balance } = await this.d.repo().casinoPayout({ userId, amount, refId });
-    this.d.setPoints(userId, balance);
+    const paid = await payoutWithRetry(this.d.repo, { userId, amount, refId }, "devolución");
+    if (paid) this.d.setPoints(userId, paid.balance);
   }
 
   private deal() {
@@ -232,21 +246,22 @@ export class BlackjackTable {
     this.s.phase = "result";
     this.s.endsAt = Date.now() + this.d.timings().resultMs;
     this.d.later(this.d.timings().resultMs, () => this.reset());
-    for (const p of [...this.s.seats]) {
-      if (p.bet === 0) continue;
-      const outcome = blackjackOutcome([...p.cards], this.dealerCards);
-      const won = blackjackReturn(outcome, p.bet);
-      p.outcome = outcome;
-      p.payout = won;
-      if (won > 0) {
-        try {
-          const { balance } = await this.d.repo().casinoPayout({ userId: p.userId, amount: won, refId: casinoRefId("blackjack", round) });
-          this.d.setPoints(p.userId, balance);
-        } catch (err) {
-          console.error("casinoPayout", err);
-        }
+    // Primero se calcula todo: mientras se paga (con reintentos) la mesa puede reiniciarse.
+    const results = [...this.s.seats]
+      .filter((p) => p.bet > 0)
+      .map((p) => {
+        const outcome = blackjackOutcome([...p.cards], this.dealerCards);
+        const won = blackjackReturn(outcome, p.bet);
+        p.outcome = outcome;
+        p.payout = won;
+        return { userId: p.userId, outcome, won, staked: p.bet };
+      });
+    for (const r of results) {
+      if (r.won > 0) {
+        const paid = await payoutWithRetry(this.d.repo, { userId: r.userId, amount: r.won, refId: casinoRefId("blackjack", round) }, "premio");
+        if (paid) this.d.setPoints(r.userId, paid.balance);
       }
-      this.d.notify(p.userId, { round, outcome, won, staked: p.bet });
+      this.d.notify(r.userId, { round, outcome: r.outcome, won: r.won, staked: r.staked });
     }
   }
 
