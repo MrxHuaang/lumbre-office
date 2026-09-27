@@ -54,6 +54,16 @@ export class Mascotas {
     this.offEvent = onPetEvent((e) => this.handleEvent(e));
   }
 
+  /** Modo privado de una sala (px de mundo): las mascotas de afuera no se ven (asomarían por el muro alto). */
+  private veil: { x: number; y: number; w: number; h: number } | null = null;
+  setVeil(rect: { x: number; y: number; w: number; h: number } | null) {
+    this.veil = rect;
+  }
+  private veiled(s: { x: number; y: number }) {
+    const v = this.veil;
+    return Boolean(v && (s.x < v.x || s.x >= v.x + v.w || s.y < v.y || s.y >= v.y + v.h));
+  }
+
   setArea(areaId: string) {
     this.area = areaId;
     this.closeMenu();
@@ -252,9 +262,11 @@ export class Mascotas {
       }
       s.img.setTexture(this.texture(s));
       this.place(s);
-      s.name.setVisible(s.hover || this.near(s, NAME_TILES));
+      const hidden = this.veiled(s);
+      s.img.setAlpha(hidden ? 0 : 1);
+      s.name.setVisible(!hidden && (s.hover || this.near(s, NAME_TILES)));
       // Durmiendo: sale una "z" cada tanto.
-      if (s.pose === "sleep" && now - s.zAt > 1600) {
+      if (!hidden && s.pose === "sleep" && now - s.zAt > 1600) {
         s.zAt = now;
         this.floatZ(s);
       }

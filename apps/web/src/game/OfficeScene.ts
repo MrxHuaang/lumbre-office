@@ -533,7 +533,8 @@ export class OfficeScene extends Phaser.Scene {
     // El panel lateral ofrece el botón de las paredes en cualquier sala interior.
     const indoors = Boolean(this.map && !this.map.outdoor);
     if (s.indoors !== indoors) s.setIndoors(indoors);
-    // Los de afuera tampoco se ven (asomarían por encima del muro alto).
+    // Los de afuera tampoco se ven (asomarían por encima del muro alto), ni las mascotas.
+    this.usables.setPetVeil(rect ? { x: rect.x * ts, y: rect.y * ts, w: rect.w * ts, h: rect.h * ts } : null);
     for (const [id, a] of this.avatars) {
       const inside = !rect || id === this.localId || (a.x >= rect.x * ts && a.x < (rect.x + rect.w) * ts && a.y >= rect.y * ts && a.y < (rect.y + rect.h) * ts);
       a.setVeiled(!inside);

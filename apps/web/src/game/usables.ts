@@ -90,6 +90,10 @@ export class Usables {
   /** Casa viva: fuego, radio, cortinas, contadores, baños y lo que se lleva en la mano; y las mascotas. */
   private casa: CasaViva;
   private pets: Mascotas;
+  /** El modo privado vela a las mascotas de afuera de la sala (px de mundo). */
+  setPetVeil(rect: { x: number; y: number; w: number; h: number } | null) {
+    this.pets.setVeil(rect);
+  }
   private readonly onSceneUpdate = (_time: number, delta: number) => {
     this.casa.update();
     this.pets.update(delta);
