@@ -15,7 +15,12 @@ export interface TradeDb {
  */
 export function tradeAbortResult(err: unknown): Extract<TradeResult, { ok: false }> | null {
   if (!(err instanceof SocialAborted)) return null;
-  const error = err.code === "funds" || err.code === "items" || err.code === "one-sided" ? err.code : err.code === "limit-points" ? "limit" : null;
+  const error =
+    err.code === "funds" || err.code === "items" || err.code === "one-sided" || err.code === "limit-items"
+      ? err.code
+      : err.code === "limit-points"
+        ? "limit"
+        : null;
   if (!error) return null;
   return { ok: false, error, userId: err.userId ?? "" };
 }

@@ -1,6 +1,6 @@
 // Regalos e intercambios (fase 5): lo que mueve puntos y objetos entre dos personas. Vive aquí (y no en la
 // web o en el servidor de juego) para que el tope diario de "dar" sea uno solo y para poder probarlo.
-import { dayStart, giftAllowedToday, giftRefId, tradeGap, type ItemStack } from "@hyvento/shared";
+import { dayStart, giftAllowedToday, giftRefId, stackUnits, tradeGap, type GivenToday, type ItemStack } from "@hyvento/shared";
 import type { Prisma } from "@prisma/client";
 import { addInventoryTx, takeInventoryTx } from "./inventory";
 import { awardPointsTx, spendPointsTx } from "./points";
@@ -9,11 +9,13 @@ type Db = Prisma.TransactionClient;
 
 /**
  * Por qué no se pudo (la transacción se deshace entera):
- * `funds`/`items`: no alcanzan los puntos o el objeto; `limit-gifts`/`limit-points`: tope del día;
+ * `funds`/`items`: no alcanzan los puntos o el objeto; `limit-gifts`/`limit-points`/`limit-items`: tope del día;
  * `missing`: el regalo o la persona no existen; `opened`: el regalo ya se abrió; `one-sided`: en un
  * intercambio, uno de los dos lados no pone nada (eso es un regalo, ver `tradeGap`).
  */
-export type SocialAbortCode = "funds" | "items" | "limit-gifts" | "limit-points" | "missing" | "opened" | "one-sided";
+export type SocialAbortCode = "funds" | "items" | "limit-gifts" | "limit-points" | "limit-items" | "missing" | "opened" | "one-sided";
+
+const LIMIT_CODE = { gifts: "limit-gifts", points: "limit-points", items: "limit-items" } as const;
 
 export class SocialAborted extends Error {
   constructor(
@@ -36,16 +38,19 @@ export async function lockUser(tx: Db, userId: string): Promise<boolean> {
 }
 
 /**
- * Lo que alguien ya dio hoy (día de Bogotá): cuántos regalos mandó y cuántos puntos salieron con motivo
- * GIFT, sumando regalos e intercambios (los dos cuentan para el mismo tope).
+ * Lo que alguien ya dio hoy (día de Bogotá): cuántos regalos mandó, cuántos puntos salieron con motivo
+ * GIFT y cuántas unidades de muebles (las de sus regalos y las de sus intercambios, en ItemTransfer).
+ * Regalos e intercambios cuentan para los mismos topes.
  */
-export async function givenToday(tx: Db, userId: string, now = Date.now()): Promise<{ gifts: number; points: number }> {
+export async function givenToday(tx: Db, userId: string, now = Date.now()): Promise<GivenToday> {
   const since = new Date(dayStart(now));
-  const [gifts, out] = await Promise.all([
+  const [gifts, out, giftItems, traded] = await Promise.all([
     tx.gift.count({ where: { fromId: userId, createdAt: { gte: since } } }),
     tx.pointTransaction.aggregate({ where: { userId, reason: "GIFT", amount: { lt: 0 }, createdAt: { gte: since } }, _sum: { amount: true } }),
+    tx.gift.aggregate({ where: { fromId: userId, createdAt: { gte: since } }, _sum: { quantity: true } }),
+    tx.itemTransfer.aggregate({ where: { fromId: userId, createdAt: { gte: since } }, _sum: { quantity: true } }),
   ]);
-  return { gifts, points: -(out._sum.amount ?? 0) };
+  return { gifts, points: -(out._sum.amount ?? 0), items: (giftItems._sum.quantity ?? 0) + (traded._sum.quantity ?? 0) };
 }
 
 export interface SendGiftInput {
@@ -64,8 +69,8 @@ export interface SendGiftInput {
 export async function sendGiftTx(tx: Db, fromId: string, input: SendGiftInput): Promise<{ giftId: string; balance: number | null }> {
   const now = input.now ?? Date.now();
   if (!(await lockUser(tx, fromId))) throw new SocialAborted("missing", fromId);
-  const allowed = giftAllowedToday(await givenToday(tx, fromId, now), input.points);
-  if (allowed !== "ok") throw new SocialAborted(allowed === "gifts" ? "limit-gifts" : "limit-points", fromId);
+  const allowed = giftAllowedToday(await givenToday(tx, fromId, now), input.points, input.itemId ? input.quantity : 0);
+  if (allowed !== "ok") throw new SocialAborted(LIMIT_CODE[allowed], fromId);
   const gift = await tx.gift.create({
     data: {
       fromId,
@@ -114,8 +119,9 @@ export interface TradeSide {
 
 /**
  * Un intercambio en la transacción `tx`: primero pagan los dos (en orden de id, para que dos intercambios
- * cruzados no se traben) y después reciben. Los puntos que se dan cuentan para el tope diario de dar (el
- * mismo de los regalos). Los dos lados tienen que poner algo (`tradeGap`). Si algo no alcanza, lanza
+ * cruzados no se traben) y después reciben. Los puntos y los muebles que se dan cuentan para los topes
+ * diarios de dar (los mismos de los regalos); los muebles quedan anotados en ItemTransfer. Los dos lados
+ * tienen que poner algo (`tradeGap`). Si algo no alcanza, lanza
  * `SocialAborted` y no queda nada movido.
  */
 export async function executeTradeTx(tx: Db, input: { refId: string; a: TradeSide; b: TradeSide; now?: number }): Promise<{ balances: Record<string, number> }> {
@@ -129,9 +135,12 @@ export async function executeTradeTx(tx: Db, input: { refId: string; a: TradeSid
   ].sort((x, y) => x.from.userId.localeCompare(y.from.userId));
   for (const { from } of sides) {
     if (!(await lockUser(tx, from.userId))) throw new SocialAborted("missing", from.userId);
+    const units = stackUnits(from.items);
+    if (from.points > 0 || units > 0) {
+      const allowed = giftAllowedToday({ ...(await givenToday(tx, from.userId, now)), gifts: 0 }, from.points, units);
+      if (allowed !== "ok") throw new SocialAborted(LIMIT_CODE[allowed], from.userId);
+    }
     if (from.points > 0) {
-      if (giftAllowedToday({ gifts: 0, points: (await givenToday(tx, from.userId, now)).points }, from.points) !== "ok")
-        throw new SocialAborted("limit-points", from.userId);
       const spent = await spendPointsTx(tx, { userId: from.userId, amount: from.points, reason: "GIFT", refId, now });
       if (!spent.ok) throw new SocialAborted("funds", from.userId);
     }
@@ -142,6 +151,10 @@ export async function executeTradeTx(tx: Db, input: { refId: string; a: TradeSid
   for (const { from, to } of sides) {
     if (from.points > 0) await awardPointsTx(tx, { userId: to.userId, amount: from.points, reason: "GIFT", refId, now });
     for (const it of from.items) await addInventoryTx(tx, to.userId, it.itemId, it.quantity);
+    if (from.items.length > 0)
+      await tx.itemTransfer.createMany({
+        data: from.items.map((it) => ({ fromId: from.userId, toId: to.userId, itemId: it.itemId, quantity: it.quantity, refId, createdAt: new Date(now) })),
+      });
   }
   const users = await tx.user.findMany({ where: { id: { in: [a.userId, b.userId] } }, select: { id: true, points: true } });
   return { balances: Object.fromEntries(users.map((u) => [u.id, u.points])) };

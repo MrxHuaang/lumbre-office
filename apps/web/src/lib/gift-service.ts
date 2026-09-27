@@ -44,6 +44,7 @@ const ABORT_TEXT: Record<SocialAbortCode, [string, number]> = {
   items: ["Ese objeto ya no está en tu mochila (o no tienes tantos).", 409],
   "limit-gifts": [`Ya mandaste ${GIFT.dailyGifts} regalos hoy. Mañana puedes seguir.`, 429],
   "limit-points": [`Hoy puedes dar hasta ${GIFT.dailyPoints} puntos en total (entre regalos e intercambios).`, 429],
+  "limit-items": [`Hoy puedes dar hasta ${GIFT.dailyItems} muebles en total (entre regalos e intercambios).`, 429],
   missing: ["Ese regalo no existe.", 404],
   opened: ["Ese regalo ya lo abriste.", 409],
   // Solo lo usan los intercambios; está para que la tabla cubra todos los motivos.

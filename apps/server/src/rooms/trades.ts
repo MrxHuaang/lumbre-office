@@ -3,6 +3,7 @@
 // transacción del repositorio; se cancela si alguien se aleja, se desconecta o cierra.
 import {
   giftAllowedToday,
+  stackUnits,
   MSG,
   TRADE,
   TradeOfferMessage,
@@ -184,11 +185,14 @@ export class Trades {
       if (parsed.data.points > balance) return this.problem(sessionId, "funds");
       const has = (it: ItemStack) => (inventory.find((e) => e.itemId === it.itemId)?.quantity ?? 0) >= it.quantity;
       if (!items.every(has)) return this.problem(sessionId, "items");
-      // El tope diario de dar puntos (el mismo de los regalos): se avisa ya, y se revalida al confirmar.
-      if (parsed.data.points > side.points) {
-        const given = await repo.givenPointsToday(side.userId);
+      // Los topes diarios de dar puntos y muebles (los mismos de los regalos): se avisa ya, y se revalida al confirmar.
+      const units = stackUnits(items);
+      if (parsed.data.points > side.points || units > stackUnits(side.items)) {
+        const given = await repo.givenToday(side.userId);
         if (trade.closed) return;
-        if (giftAllowedToday({ gifts: 0, points: given }, parsed.data.points) !== "ok") return this.problem(sessionId, "limit");
+        const allowed = giftAllowedToday({ gifts: 0, ...given }, parsed.data.points, units);
+        if (allowed === "points") return this.problem(sessionId, "limit");
+        if (allowed === "items") return this.problem(sessionId, "limit-items");
       }
       side.points = parsed.data.points;
       side.items = items;

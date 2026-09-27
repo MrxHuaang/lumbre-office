@@ -37,11 +37,21 @@ interface GiftRow {
   openedAt: Date | null;
 }
 
+interface TransferRow {
+  fromId: string;
+  toId: string;
+  itemId: string;
+  quantity: number;
+  refId: string;
+  createdAt: Date;
+}
+
 interface Tables {
   users: UserRow[];
   moves: MoveRow[];
   items: ItemRow[];
   gifts: GiftRow[];
+  transfers: TransferRow[];
 }
 
 type Where = Record<string, unknown>;
@@ -90,7 +100,7 @@ interface Tx {
 }
 
 export class FakeDb {
-  t: Tables = { users: [], moves: [], items: [], gifts: [] };
+  t: Tables = { users: [], moves: [], items: [], gifts: [], transfers: [] };
   private nextId = 1;
   private nextTx = 1;
   /** Fila bloqueada → transacción que la tiene y promesa que se cumple al soltarla. */
@@ -264,6 +274,16 @@ export class FakeDb {
           return rows(db.t.items, where).map((i) => ({ itemId: i.itemId, quantity: i.quantity }));
         },
       },
+      itemTransfer: {
+        async createMany({ data }: { data: TransferRow[] }) {
+          for (const row of data) insert(db.t.transfers, { ...row, createdAt: row.createdAt ?? new Date() });
+          return { count: data.length };
+        },
+        async aggregate({ where }: { where: Where }) {
+          const found = rows(db.t.transfers, where);
+          return { _sum: { quantity: found.length ? found.reduce((s, t) => s + t.quantity, 0) : null } };
+        },
+      },
       gift: {
         async create({ data }: { data: Omit<GiftRow, "id" | "openedAt" | "createdAt"> & { createdAt?: Date } }) {
           const row: GiftRow = { ...data, id: `g${db.nextId++}`, createdAt: data.createdAt ?? new Date(), openedAt: null };
@@ -272,6 +292,10 @@ export class FakeDb {
         },
         async count({ where }: { where: Where }) {
           return rows(db.t.gifts, where).length;
+        },
+        async aggregate({ where }: { where: Where }) {
+          const found = rows(db.t.gifts, where);
+          return { _sum: { quantity: found.length ? found.reduce((s, g) => s + g.quantity, 0) : null } };
         },
         async updateMany({ where, data }: { where: Where; data: Record<string, unknown> }) {
           return { count: (await update(db.t.gifts, (g) => `gift:${g.id}`, where, data)).length };

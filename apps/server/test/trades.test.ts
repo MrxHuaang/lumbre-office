@@ -497,6 +497,35 @@ describe("intercambios: bordes", () => {
     expect(await points("u-bob")).toBe(0);
   });
 
+  it("los muebles tienen tope: hasta TRADE.maxUnits por lado y GIFT.dailyItems al día (con los ya dados)", async () => {
+    repo.give("u-alice", "sofa", 30);
+    await repo.awardPoints({ userId: "u-bob", amount: 10, reason: "ADMIN" });
+    // Ya dio 15 muebles hoy en otro intercambio.
+    repo.itemTransfers.push({ fromId: "u-alice", toId: "u-carla", itemId: "sofa", quantity: GIFT.dailyItems - 5, at: Date.now() });
+    const { alice, bob, a, b } = await openTrade();
+    bob.send(MSG.tradeOffer, { points: 1, items: [] });
+    // Más de TRADE.maxUnits no pasa ni la validación del mensaje (se ignora).
+    alice.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: TRADE.maxUnits + 1 }] });
+    await tick(80);
+    expect(b.view?.them.items).toEqual([]);
+    alice.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 6 }] });
+    await tick(80);
+    expect(a.problems.at(-1)).toEqual({ error: "limit-items" });
+    expect(b.view?.them.items).toEqual([]);
+
+    alice.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 5 }] });
+    await tick(80);
+    alice.send(MSG.tradeReady, { ready: true });
+    bob.send(MSG.tradeReady, { ready: true });
+    await tick(80);
+    alice.send(MSG.tradeConfirm);
+    bob.send(MSG.tradeConfirm);
+    await tick(120);
+    expect(a.closed.at(-1)?.reason).toBe("done");
+    expect(repo.itemTransfers.at(-1)).toMatchObject({ fromId: "u-alice", toId: "u-bob", itemId: "sofa", quantity: 5 });
+    expect(await repo.givenToday("u-alice")).toMatchObject({ items: GIFT.dailyItems });
+  });
+
   it("un intercambio de un solo lado no se confirma: dar sin recibir es un regalo (con sus topes)", async () => {
     await repo.awardPoints({ userId: "u-alice", amount: 900, reason: "ADMIN" });
     repo.give("u-alice", "sofa", 10);

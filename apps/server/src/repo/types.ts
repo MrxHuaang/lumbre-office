@@ -118,19 +118,19 @@ export interface TradeSideInput {
 
 /**
  * Resultado de un intercambio: los saldos nuevos, o quién no tenía los puntos (`funds`) o los objetos
- * (`items`), llegó al tope diario de dar (`limit`) o no puso nada (`one-sided`), cuando se revalidó
+ * (`items`), llegó al tope diario de dar puntos (`limit`) o muebles (`limit-items`) o no puso nada (`one-sided`), cuando se revalidó
  * (entonces no se movió nada).
  */
 export type TradeResult =
   | { ok: true; balances: Record<string, number> }
-  | { ok: false; error: "funds" | "items" | "limit" | "one-sided"; userId: string };
+  | { ok: false; error: "funds" | "items" | "limit" | "limit-items" | "one-sided"; userId: string };
 
 /** Regalos e intercambios (fase 5): van en su propia interfaz y se suman a GameRepository. */
 export interface SocialRepository {
   /** Lo que alguien tiene en la mochila (solo lo que tiene al menos una unidad). */
   getInventory(userId: string): Promise<ItemStack[]>;
-  /** Cuántos puntos dio hoy (día de Bogotá) en regalos e intercambios: el tope diario de dar. */
-  givenPointsToday(userId: string): Promise<number>;
+  /** Cuántos puntos y cuántos muebles dio hoy (día de Bogotá) en regalos e intercambios: los topes diarios de dar. */
+  givenToday(userId: string): Promise<{ points: number; items: number }>;
   /**
    * Intercambio en una sola transacción: cada lado paga sus puntos (motivo GIFT, dentro del tope diario
    * de dar) y saca sus objetos solo si los tiene, y la otra persona los recibe. Si algo no alcanza, no se

@@ -74,7 +74,7 @@ describe("regalos en la base", () => {
     await db.transaction((tx) =>
       executeTradeTx(tx, { refId: "trade:1", a: { userId: "rica", points: 900, items: [] }, b: { userId: "beto", points: 0, items: [{ itemId: "plant", quantity: 1 }] } }),
     );
-    expect(await givenToday(db.outside, "rica")).toEqual({ gifts: 0, points: 900 });
+    expect(await givenToday(db.outside, "rica")).toEqual({ gifts: 0, points: 900, items: 0 });
     await aborted(db.transaction((tx) => sendGiftTx(tx, "rica", gift({ points: 200 }))), "limit-points");
     await db.transaction((tx) => sendGiftTx(tx, "rica", gift({ points: 100 })));
     expect(db.points("rica")).toBe(4000);
@@ -145,6 +145,30 @@ describe("intercambios en la base", () => {
     expect(err).toMatchObject({ code: "limit-points", userId: "rica" });
     await db.transaction((tx) => executeTradeTx(tx, { refId: "trade:t5", a: { userId: "rica", points: 50, items: [] }, b: { userId: "beto", points: 0, items: [{ itemId: "plant", quantity: 1 }] } }));
     expect(db.points("beto")).toBe(100);
+  });
+
+  it("los muebles dados en intercambios quedan anotados y cuentan para el tope de muebles, con los de los regalos", async () => {
+    db.give("ana", "plant", 30);
+    db.give("beto", "sofa", 5);
+    // 8 plantas en un regalo y 10 en un intercambio desparejo (1 punto a cambio): van 18 de 20.
+    await db.transaction((tx) => sendGiftTx(tx, "ana", gift({ itemId: "plant", quantity: 8 })));
+    await db.transaction((tx) =>
+      executeTradeTx(tx, { refId: "trade:m1", a: { userId: "ana", points: 0, items: [{ itemId: "plant", quantity: 10 }] }, b: { userId: "beto", points: 1, items: [] } }),
+    );
+    expect(db.t.transfers).toEqual([expect.objectContaining({ fromId: "ana", toId: "beto", itemId: "plant", quantity: 10, refId: "trade:m1" })]);
+    expect(await givenToday(db.outside, "ana")).toMatchObject({ items: GIFT.dailyItems - 2 });
+    const err = await db
+      .transaction((tx) => executeTradeTx(tx, { refId: "trade:m2", a: { userId: "ana", points: 0, items: [{ itemId: "plant", quantity: 3 }] }, b: { userId: "beto", points: 0, items: [{ itemId: "sofa", quantity: 1 }] } }))
+      .catch((e: SocialAborted) => e);
+    expect(err).toMatchObject({ code: "limit-items", userId: "ana" });
+    expect(db.held("ana", "plant")).toBe(12);
+    await aborted(db.transaction((tx) => sendGiftTx(tx, "ana", gift({ itemId: "plant", quantity: 3 }))), "limit-items");
+    // Lo que da la otra persona cuenta para ella, no para ana.
+    await db.transaction((tx) =>
+      executeTradeTx(tx, { refId: "trade:m3", a: { userId: "ana", points: 0, items: [{ itemId: "plant", quantity: 2 }] }, b: { userId: "beto", points: 0, items: [{ itemId: "sofa", quantity: 5 }] } }),
+    );
+    expect(db.held("ana", "sofa")).toBe(5);
+    expect(tradeAbortResult(new SocialAborted("limit-items", "ana"))).toEqual({ ok: false, error: "limit-items", userId: "ana" });
   });
 });
 

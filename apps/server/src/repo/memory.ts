@@ -2,6 +2,7 @@ import {
   DAILY_CAPS,
   dayStart,
   giftAllowedToday,
+  stackUnits,
   tradeGap,
   type ArcadeGame,
   type CasinoSettingsDTO,
@@ -227,9 +228,14 @@ export class MemoryRepository implements GameRepository {
       .sort((a, b) => a.itemId.localeCompare(b.itemId));
   }
 
-  async givenPointsToday(userId: string, now = Date.now()) {
+  /** Muebles que salieron en intercambios (como ItemTransfer): cuentan para el tope diario de dar. */
+  itemTransfers: { fromId: string; toId: string; itemId: string; quantity: number; at: number }[] = [];
+
+  async givenToday(userId: string, now = Date.now()) {
     const since = dayStart(now);
-    return -this.ledger.filter((m) => m.userId === userId && m.reason === "GIFT" && m.amount < 0 && m.at >= since).reduce((sum, m) => sum + m.amount, 0);
+    const points = -this.ledger.filter((m) => m.userId === userId && m.reason === "GIFT" && m.amount < 0 && m.at >= since).reduce((sum, m) => sum + m.amount, 0);
+    const items = this.itemTransfers.filter((t) => t.fromId === userId && t.at >= since).reduce((sum, t) => sum + t.quantity, 0);
+    return { points, items };
   }
 
   /** Si se fija, `executeTrade` espera esta promesa antes de escribir (para probar lo que pasa mientras). */
@@ -246,9 +252,11 @@ export class MemoryRepository implements GameRepository {
       [a, b],
       [b, a],
     ] as const) {
+      const units = stackUnits(from.items);
+      const allowed = giftAllowedToday({ gifts: 0, ...(await this.givenToday(from.userId, now)) }, from.points, units);
+      if (allowed === "points") return { ok: false, error: "limit", userId: from.userId };
+      if (allowed === "items") return { ok: false, error: "limit-items", userId: from.userId };
       if (from.points > 0) {
-        const given = await this.givenPointsToday(from.userId, now);
-        if (giftAllowedToday({ gifts: 0, points: given }, from.points) !== "ok") return { ok: false, error: "limit", userId: from.userId };
         if ((await this.getPoints(from.userId)) < from.points) return { ok: false, error: "funds", userId: from.userId };
         moves.push({ userId: from.userId, amount: -from.points, reason: "GIFT", at: now, refId });
         moves.push({ userId: to.userId, amount: from.points, reason: "GIFT", at: now, refId });
@@ -263,7 +271,10 @@ export class MemoryRepository implements GameRepository {
       [a, b],
       [b, a],
     ] as const)
-      for (const it of from.items) inventory.set(`${to.userId}:${it.itemId}`, (inventory.get(`${to.userId}:${it.itemId}`) ?? 0) + it.quantity);
+      for (const it of from.items) {
+        inventory.set(`${to.userId}:${it.itemId}`, (inventory.get(`${to.userId}:${it.itemId}`) ?? 0) + it.quantity);
+        this.itemTransfers.push({ fromId: from.userId, toId: to.userId, itemId: it.itemId, quantity: it.quantity, at: now });
+      }
     this.inventory = inventory;
     this.ledger.push(...moves);
     return { ok: true, balances: { [a.userId]: await this.getPoints(a.userId), [b.userId]: await this.getPoints(b.userId) } };

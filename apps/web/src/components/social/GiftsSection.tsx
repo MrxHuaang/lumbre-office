@@ -91,7 +91,7 @@ export function GiftsSection() {
           Enviados
         </button>
         <span className="ml-auto self-center text-[12px] text-cozy-ink-soft">
-          Hoy: {data.today.gifts}/{GIFT.dailyGifts} regalos
+          Hoy: {data.today.gifts}/{GIFT.dailyGifts} regalos · {data.today.items}/{GIFT.dailyItems} muebles
         </span>
       </div>
       {history.length === 0 ? (

@@ -66,6 +66,8 @@ model User {
   inventory       InventoryItem[]
   giftsSent       Gift[]             @relation("GiftsSent")
   giftsReceived   Gift[]             @relation("GiftsReceived")
+  itemsGiven      ItemTransfer[]     @relation("ItemsGiven")
+  itemsReceived   ItemTransfer[]     @relation("ItemsReceived")
   gardenPlots     GardenPlot[]
   fishCatches     FishCatch[]
   arcadeScores    ArcadeScore[]
@@ -329,6 +331,25 @@ model Gift {
   openedAt  DateTime?
 
   @@index([toId, openedAt])
+}
+
+/**
+ * Objetos que pasaron de una persona a otra en un intercambio (los regalos ya quedan en Gift). Sirve para
+ * el tope diario de muebles que alguien puede dar (`GIFT.dailyItems`), sumando regalos e intercambios.
+ */
+model ItemTransfer {
+  id        String   @id @default(cuid())
+  fromId    String
+  from      User     @relation("ItemsGiven", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        User     @relation("ItemsReceived", fields: [toId], references: [id], onDelete: Cascade)
+  itemId    String
+  quantity  Int
+  /// Id del intercambio (`trade:<id>`), el mismo de los movimientos de puntos.
+  refId     String
+  createdAt DateTime @default(now())
+
+  @@index([fromId, createdAt])
 }
 
 /**

@@ -22,11 +22,15 @@ describe("regalos", () => {
     expect(GiftCreateBody.safeParse({ toId: "u1", itemId: "../x", quantity: 1 }).success).toBe(false);
   });
 
-  it("tope diario de regalos y de puntos regalados", () => {
-    expect(giftAllowedToday({ gifts: 0, points: 0 }, 100)).toBe("ok");
-    expect(giftAllowedToday({ gifts: GIFT.dailyGifts, points: 0 }, 1)).toBe("gifts");
-    expect(giftAllowedToday({ gifts: 1, points: GIFT.dailyPoints - 10 }, 11)).toBe("points");
-    expect(giftAllowedToday({ gifts: 1, points: GIFT.dailyPoints - 10 }, 10)).toBe("ok");
+  it("tope diario de regalos, de puntos y de muebles regalados", () => {
+    expect(giftAllowedToday({ gifts: 0, points: 0, items: 0 }, 100)).toBe("ok");
+    expect(giftAllowedToday({ gifts: GIFT.dailyGifts, points: 0, items: 0 }, 1)).toBe("gifts");
+    expect(giftAllowedToday({ gifts: 1, points: GIFT.dailyPoints - 10, items: 0 }, 11)).toBe("points");
+    expect(giftAllowedToday({ gifts: 1, points: GIFT.dailyPoints - 10, items: 0 }, 10)).toBe("ok");
+    expect(giftAllowedToday({ gifts: 1, points: 0, items: GIFT.dailyItems - 2 }, 0, 3)).toBe("items");
+    expect(giftAllowedToday({ gifts: 1, points: 0, items: GIFT.dailyItems - 2 }, 0, 2)).toBe("ok");
+    // Ya pasado del tope de muebles, dar solo puntos sigue valiendo.
+    expect(giftAllowedToday({ gifts: 1, points: 0, items: GIFT.dailyItems }, 5)).toBe("ok");
   });
 
   it("describe lo que trae", () => {
@@ -45,6 +49,10 @@ describe("intercambios", () => {
     expect(TradeOfferMessage.safeParse({ points: 0, items: [{ itemId: "plant", quantity: 1 }, { itemId: "plant", quantity: 1 }] }).success).toBe(false);
     const many = Array.from({ length: TRADE.maxSlots + 1 }, (_, i) => ({ itemId: `item-${i}`, quantity: 1 }));
     expect(TradeOfferMessage.safeParse({ points: 0, items: many }).success).toBe(false);
+    // Cada lado pone hasta TRADE.maxUnits muebles en total, aunque cada objeto quepa por separado.
+    const units = (q: number[]) => ({ points: 0, items: q.map((quantity, i) => ({ itemId: `item-${i}`, quantity })) });
+    expect(TradeOfferMessage.safeParse(units([5, 5])).success).toBe(true);
+    expect(TradeOfferMessage.safeParse(units([5, 5, 1])).success).toBe(false);
   });
 
   it("los dos lados tienen que poner algo", () => {

@@ -32,6 +32,11 @@ export const GIFT = {
    * GIFT): si no, un intercambio de un solo lado serviría para saltarse el tope de los regalos.
    */
   dailyPoints: 1000,
+  /**
+   * Cuántas unidades de muebles puede dar alguien por día, sumando regalos e intercambios: así un
+   * intercambio desparejo (1 punto por 60 muebles) no sirve para pasar la mochila entera.
+   */
+  dailyItems: 20,
   /** Cuántos regalos (enviados y recibidos) muestra el historial del buzón. */
   historySize: 20,
 } as const;
@@ -55,15 +60,26 @@ export const GiftCreateBody = z
   });
 export type GiftCreateBody = z.infer<typeof GiftCreateBody>;
 
+/** Lo que alguien ya dio hoy (día de Bogotá): regalos mandados, puntos y unidades de muebles (regalos e intercambios). */
+export interface GivenToday {
+  gifts: number;
+  points: number;
+  items: number;
+}
+
 /**
- * ¿Cabe dar esto hoy? `sentToday`: cuántos regalos mandó hoy esa persona y cuántos puntos dio (en regalos
- * e intercambios). Los intercambios solo miran los puntos (pasan `gifts: 0`).
+ * ¿Cabe dar esto hoy? `sentToday`: lo que esa persona ya dio. Los intercambios no cuentan como regalos
+ * (pasan `gifts: 0`), pero sus puntos y sus muebles sí suman para los topes.
  */
-export function giftAllowedToday(sentToday: { gifts: number; points: number }, points: number): "ok" | "gifts" | "points" {
+export function giftAllowedToday(sentToday: GivenToday, points: number, items = 0): "ok" | "gifts" | "points" | "items" {
   if (sentToday.gifts >= GIFT.dailyGifts) return "gifts";
-  if (sentToday.points + points > GIFT.dailyPoints) return "points";
+  if (points > 0 && sentToday.points + points > GIFT.dailyPoints) return "points";
+  if (items > 0 && sentToday.items + items > GIFT.dailyItems) return "items";
   return "ok";
 }
+
+/** Cuántas unidades hay en total en una lista de objetos. */
+export const stackUnits = (items: readonly ItemStack[]) => items.reduce((sum, it) => sum + it.quantity, 0);
 
 export interface GiftDTO {
   id: string;
@@ -82,8 +98,8 @@ export interface GiftsState {
   unopened: number;
   received: GiftDTO[];
   sent: GiftDTO[];
-  /** Lo que ya diste hoy: regalos mandados y puntos (regalos e intercambios), para avisar antes del tope. */
-  today: { gifts: number; points: number };
+  /** Lo que ya diste hoy: regalos mandados, puntos y muebles (regalos e intercambios), para avisar antes del tope. */
+  today: GivenToday;
 }
 
 /** Web → servidor de juego (ruta interna `giftSent`): avisar a quien lo recibe si está conectado. */
@@ -123,6 +139,8 @@ export const TRADE = {
   maxPoints: 1000,
   maxSlots: 6,
   maxQuantity: 10,
+  /** Unidades de muebles en total que pone cada lado (sumando todos los objetos). */
+  maxUnits: 10,
 } as const;
 
 /** `refId` de los movimientos de un intercambio (los dos lados usan el mismo). */
@@ -144,7 +162,8 @@ export const TradeOfferMessage = z
     points: z.number().int().min(0).max(TRADE.maxPoints),
     items: z.array(TradeItem).max(TRADE.maxSlots),
   })
-  .refine((o) => new Set(o.items.map((i) => i.itemId)).size === o.items.length, "Un objeto repetido");
+  .refine((o) => new Set(o.items.map((i) => i.itemId)).size === o.items.length, "Un objeto repetido")
+  .refine((o) => stackUnits(o.items) <= TRADE.maxUnits, `Hasta ${TRADE.maxUnits} muebles por intercambio`);
 export type TradeOfferMessage = z.infer<typeof TradeOfferMessage>;
 
 /** Cliente → servidor: marcar o desmarcar "Listo". */
@@ -210,13 +229,14 @@ export type TradeError =
   | "funds"
   | "items"
   | "limit"
+  | "limit-items"
   | "empty"
   | "one-sided"
   | "failed";
 
 export interface TradeProblem {
   error: TradeError;
-  /** Quién no tiene los puntos o los objetos, o llegó al tope (en `funds`/`items`/`limit` al confirmar). */
+  /** Quién no tiene los puntos o los objetos, o llegó al tope (en `funds`/`items`/`limit`/`limit-items` al confirmar). */
   who?: string;
 }
 
@@ -231,6 +251,7 @@ export const TRADE_ERROR_TEXT: Record<TradeError, string> = {
   funds: "No alcanzan los puntos.",
   items: "Falta un objeto en la mochila.",
   limit: `Hoy ya se dieron muchos puntos: el tope es de ${GIFT.dailyPoints} al día, entre regalos e intercambios.`,
+  "limit-items": `Hoy ya se dieron muchos muebles: el tope es de ${GIFT.dailyItems} al día, entre regalos e intercambios.`,
   empty: "Pongan algo antes de confirmar.",
   "one-sided": "Los dos tienen que poner algo. Para dar sin recibir nada, manda un regalo.",
   failed: "No se pudo hacer el intercambio. Intenten de nuevo.",
@@ -238,10 +259,10 @@ export const TRADE_ERROR_TEXT: Record<TradeError, string> = {
 
 /**
  * ¿Qué falta para poder confirmar? Los dos lados tienen que poner algo: un intercambio de un solo lado es
- * un regalo y va por el buzón, con sus topes (regalos por día y unidades por regalo), que un intercambio
- * no puede contar porque los objetos no dejan movimientos en la base. Los puntos sí tienen tope en los dos
- * (`GIFT.dailyPoints`). Poner casi nada de un lado a cambio de mucho del otro se acepta: los muebles no se
- * revenden, así que no se convierten en puntos. Se valida en el servidor de juego y en la transacción.
+ * un regalo y va por el buzón. Poner casi nada de un lado a cambio de mucho del otro se acepta, pero con
+ * tope: cada lado pone hasta `TRADE.maxUnits` muebles, y lo que alguien da por día (puntos y muebles,
+ * regalos e intercambios juntos) no pasa de `GIFT.dailyPoints` y `GIFT.dailyItems`. Se valida en el
+ * servidor de juego y en la transacción.
  */
 export function tradeGap(a: { points: number; items: readonly unknown[] }, b: { points: number; items: readonly unknown[] }): "ok" | "empty" | "one-sided" {
   const empty = (s: { points: number; items: readonly unknown[] }) => s.points <= 0 && s.items.length === 0;

@@ -3,7 +3,7 @@
 // Ventana de intercambio a dos columnas: a la izquierda lo que pongo (puntos y objetos de la mochila), a
 // la derecha lo que pone la otra persona. Cualquier cambio desmarca el "Listo" de los dos; con los dos
 // listos aparece el "Confirmar" final. Cerrarla cancela el intercambio.
-import { itemName, TRADE, TRADE_ERROR_TEXT, tradeGap, type ItemStack, type TradeSideView, type TradeView } from "@hyvento/shared";
+import { itemName, stackUnits, TRADE, TRADE_ERROR_TEXT, tradeGap, type ItemStack, type TradeSideView, type TradeView } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import { sendTradeCancel, sendTradeConfirm, sendTradeOffer, sendTradeReady, useSocialStore } from "@/game/social";
 import { useOfficeStore } from "@/game/store";
@@ -54,6 +54,7 @@ export function TradeWindow({ trade }: { trade: TradeView }) {
     const q = inOffer(itemId);
     if (q >= Math.min(have(itemId), TRADE.maxQuantity)) return;
     if (q === 0 && draft.items.length >= TRADE.maxSlots) return;
+    if (stackUnits(draft.items) >= TRADE.maxUnits) return;
     const items = q === 0 ? [...draft.items, { itemId, quantity: 1 }] : draft.items.map((i) => (i.itemId === itemId ? { ...i, quantity: q + 1 } : i));
     change({ ...draft, items });
   };
@@ -98,7 +99,12 @@ export function TradeWindow({ trade }: { trade: TradeView }) {
               <span className="text-[12px] text-cozy-ink-soft">de {balance}</span>
             </label>
             <OfferList items={draft.items} onRemove={remove} />
-            <p className="mt-1 text-[13px] font-semibold text-cozy-ink-soft">Tu mochila</p>
+            <p className="mt-1 text-[13px] font-semibold text-cozy-ink-soft">
+              Tu mochila{" "}
+              <span className="font-normal">
+                ({stackUnits(draft.items)}/{TRADE.maxUnits} muebles)
+              </span>
+            </p>
             {!inventory ? (
               <p className="text-[13px] text-cozy-ink-soft">Abriendo la mochila…</p>
             ) : inventory.length === 0 ? (

@@ -233,8 +233,9 @@ export class PrismaRepository implements GameRepository {
     return listInventory(prisma, userId);
   }
 
-  async givenPointsToday(userId: string) {
-    return (await givenToday(prisma, userId)).points;
+  async givenToday(userId: string) {
+    const { points, items } = await givenToday(prisma, userId);
+    return { points, items };
   }
 
   executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
