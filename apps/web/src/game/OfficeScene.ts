@@ -73,6 +73,7 @@ import {
 } from "./network";
 import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
 import { TableMode } from "./table";
+import { clientPoint, personAt, useSocialStore } from "./social";
 import { Usables, type UsableHit } from "./usables";
 
 const MIN_ZOOM = 2;
@@ -207,6 +208,10 @@ export class OfficeScene extends Phaser.Scene {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
       if (this.table.pointerDown(p.worldX, p.worldY)) return; // en la mesa, el clic pone fichas
+      // Clic sobre otra persona: su menú (regalar, intercambiar) en vez de caminar.
+      const person = s.decorating ? null : personAt(this.avatars, this.localId, p.worldX, p.worldY);
+      if (person) return useSocialStore.getState().openPersonMenu(person, ...clientPoint(this.game.canvas, this.scale.width, p.x, p.y));
+      useSocialStore.getState().closePersonMenu();
       if (s.decorating) this.decorClick(p.worldX, p.worldY); // decorando, el clic pone o elige muebles
       else this.clickAt(p.worldX, p.worldY);
     });

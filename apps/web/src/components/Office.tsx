@@ -25,6 +25,7 @@ import { BackpackPanel, ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { ProfileDialog } from "./ProfileDialog";
 import { CozyOverlay, CozyTitle } from "./Cozy";
+import { SocialOverlays } from "./social/SocialOverlays";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
@@ -197,6 +198,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <InteractPrompt />
           <UsablePrompt />
           <KnockRequests />
+          <SocialOverlays />
           <MediaControls>
             <HeldSlot />
           </MediaControls>
