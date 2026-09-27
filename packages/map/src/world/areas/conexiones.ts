@@ -15,8 +15,8 @@ const par = (x: number, y: number) => [
 
 export const CONEXIONES = {
   jardin: {
-    /** La puerta principal de la casa (el porche). */
-    casa: { tiles: par(15, 12), llegada: { x: 15, y: 14, facing: "down" } },
+    /** La puerta principal de la casa: el porche (la casa está en (38, 13) y mide 22x14). */
+    casa: { tiles: par(48, 27), llegada: { x: 48, y: 29, facing: "down" } },
   },
   plantaBaja: {
     /** La puerta de entrada del recibidor, hacia el jardín. */
