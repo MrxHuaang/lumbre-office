@@ -183,6 +183,9 @@ export const MSG = {
   officeLock: "office:lock",
   /** La nota de la placa de la puerta (`OfficeNoteMessage`), solo el dueño. */
   officeNote: "office:note",
+  /** La radio de la oficina (`OfficeRadioMessage`) y el aviso cuando no se pudo (`OfficeRadioResult`). */
+  officeRadio: "office:radio",
+  officeRadioResult: "office:radio:result",
   /** Pizarras (whiteboard.ts): abrir y cerrar la de la sala, un trazo, deshacer y borrar; y lo que el
    *  servidor manda a quienes la tienen abierta (la pizarra entera, un trazo nuevo, trazos que se van). */
   boardOpen: "board:open",

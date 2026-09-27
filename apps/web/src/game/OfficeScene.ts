@@ -112,6 +112,7 @@ const SWIVEL_SOBER_NOTICE = "Se te pasó el mareo. La oficina por fin se quedó 
 import { WeatherView } from "./weather";
 import { Critters } from "./critters";
 import type { PhotoShot, PresenceStatus } from "@hyvento/shared";
+import { disposeRadio, updateRadio } from "./radio";
 import { PhotoBoards } from "./photos/board";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
@@ -370,6 +371,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
       () => this.club.destroy(),
+      () => disposeRadio(),
       () => this.drunkVision.destroy(),
       bindUiSounds(),
       bindWeatherSounds(),
@@ -458,6 +460,15 @@ export class OfficeScene extends Phaser.Scene {
     this.club.update();
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
+    this.updateOfficeRadio();
+  }
+
+  /** La radio de la oficina donde estoy (si tiene): suena solo adentro, al segundo del servidor. */
+  private updateOfficeRadio() {
+    const s = useOfficeStore.getState();
+    const office = s.zone?.type === "office" ? s.offices[s.zone.id] : undefined;
+    const parent = this.game.canvas.parentElement;
+    if (parent) updateRadio(parent, office?.radio ?? null);
   }
 
   /** Modo privado: dentro de una oficina o la sala de reuniones, sus paredes altas y afuera a oscuras. */

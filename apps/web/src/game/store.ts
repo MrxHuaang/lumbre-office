@@ -10,6 +10,7 @@ import {
   type KnockResult,
   type OfficeEditResult,
   type OfficeItemDTO,
+  type OfficeRadioState,
   type PointsAwarded,
   type PresenceStatus,
   type Weather,
@@ -76,6 +77,8 @@ export interface OfficeView {
   locked: boolean;
   /** Nota de la placa de la puerta (la pone el dueño). */
   note: string;
+  /** La radio de la oficina (suena solo adentro), o null si está apagada. */
+  radio: OfficeRadioState | null;
   guests: string[];
   /** Fase 3c: false = quedan los muebles del mapa; true = los de `items` (más el escritorio con PC y su silla). */
   customized: boolean;

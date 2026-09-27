@@ -36,12 +36,33 @@ import { characterKey, parseLook } from "../looks";
 import { getRoom } from "../network";
 import { useOfficeStore } from "../store";
 import { clubMusic, disposeClubMusic } from "./music";
-import { onClubReaction, sendClubDance, sendClubPole } from "./net";
+import { YoutubeScreen, type Point, type ScreenQuad } from "../youtube";
+import { onClubReaction, sendClubDance, sendClubPole, sendClubQueue } from "./net";
 import { clubBeat, serverNow, useClubStore, type ClubDancerView } from "./store";
-import { ClubVideo, type Point, type ScreenQuad } from "./video";
 
 /** El reproductor del club (uno solo, mientras estoy en el sótano). */
-let video: ClubVideo | null = null;
+let video: YoutubeScreen | null = null;
+
+/** Lo que el club hace con los avisos de su reproductor: la cola la lleva el servidor. */
+function clubScreen(parent: HTMLElement) {
+  return new YoutubeScreen(parent, {
+    onDuration: (id, ms) => sendClubQueue({ action: "duration", id, ms }),
+    onEnded: (id) => sendClubQueue({ action: "ended", id }),
+    // El video no se puede ver (lo borraron, no deja insertarse): se salta para todos.
+    onError: (id, code) => {
+      useOfficeStore
+        .getState()
+        .notify(code === 101 || code === 150 ? "Ese video no deja verse fuera de YouTube: pasa al siguiente." : "Ese video no se pudo reproducir: pasa al siguiente.", "warning");
+      sendClubQueue({ action: "skip", id });
+    },
+    onNeedsTap: (needs) => useClubStore.getState().setNeedsTap(needs),
+    onClick: () => {
+      const s = useClubStore.getState();
+      s.setVideoBig(!s.videoBig);
+    },
+    titles: { small: "Ver el video en grande", big: "Volver a la pantalla del club" },
+  });
+}
 
 /** Colores de las luces del club (rosado, turquesa, violeta y dorado del neón). */
 const LIGHTS = ["#ff5fd2", "#3fd0dd", "#9459ba", "#f3d672"];
@@ -214,13 +235,11 @@ export class ClubMode {
     }
     const parent = this.scene.game.canvas.parentElement;
     if (!parent) return;
-    if (!video && club.now) video = new ClubVideo(parent);
+    if (!video && club.now) video = clubScreen(parent);
     video?.update({
       entry: club.now,
-      startedAt: club.startedAt,
+      elapsedMs: club.paused ? club.pausedAt : serverNow() - club.startedAt,
       paused: club.paused,
-      pausedAt: club.pausedAt,
-      serverNow: serverNow(),
       volume: level,
       quad: this.videoQuad(parent),
       big: club.videoBig,

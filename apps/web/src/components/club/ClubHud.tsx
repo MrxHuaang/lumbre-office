@@ -5,7 +5,7 @@
 // en el tubo.
 import { clubTrack, DANCE_MOVES, isPlaying, type DanceMoveId } from "@hyvento/shared";
 import { useShallow } from "zustand/react/shallow";
-import { tapClubVideo } from "@/game/club/video";
+import { tapVideos } from "@/game/youtube";
 import { sendClubDance, sendClubPole } from "@/game/club/net";
 import { useClubStore } from "@/game/club/store";
 import { useOfficeStore } from "@/game/store";
@@ -65,7 +65,7 @@ export function ClubHud() {
       )}
       {here.onFloor && !playing && <p className="cozy-chip px-3 py-1 text-[12px]">Para bailar, pon música en la cabina del DJ.</p>}
       {needsTap && (
-        <button type="button" onClick={() => tapClubVideo()} className="cozy-btn cozy-btn-primary px-3 py-1.5 text-[13px]">
+        <button type="button" onClick={() => tapVideos()} className="cozy-btn cozy-btn-primary px-3 py-1.5 text-[13px]">
           ▶ Activar el sonido del video
         </button>
       )}

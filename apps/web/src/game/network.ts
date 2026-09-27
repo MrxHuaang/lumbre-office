@@ -14,6 +14,9 @@ import {
   type BoardStateEvent,
   type BoardStrokeEvent,
   type BoardStrokeInput,
+  type OfficeRadioMessage,
+  type OfficeRadioResult,
+  OFFICE_RADIO_ERROR_TEXT,
   type ToastEvent,
   type ToastResult,
   TOAST_ERROR_TEXT,
@@ -104,6 +107,12 @@ export interface RemoteOffice {
   ownerName: string;
   locked: boolean;
   note: string;
+  radioVideo: string;
+  radioTitle: string;
+  radioStartedAt: number;
+  radioPaused: boolean;
+  radioPausedAt: number;
+  radioDurationMs: number;
   guests: string[];
   /** Fase 3c: decoración (ver OfficeView en store.ts). */
   customized: boolean;
@@ -521,6 +530,11 @@ export function sendStatus(status: PresenceStatus) {
   room?.send(MSG.status, { status });
 }
 
+/** La radio de mi oficina (poner un link, pausar, seguir, apagar) o la duración que dio el reproductor. */
+export function sendOfficeRadio(msg: OfficeRadioMessage) {
+  room?.send(MSG.officeRadio, msg);
+}
+
 /** La nota de la placa de mi oficina ("" la borra). */
 export function sendOfficeNote(note: string) {
   room?.send(MSG.officeNote, { note });
@@ -583,6 +597,16 @@ function attach(r: OfficeRoom) {
         ownerName: office.ownerName,
         locked: office.locked,
         note: office.note ?? "",
+        radio: office.radioVideo
+          ? {
+              videoId: office.radioVideo,
+              title: office.radioTitle,
+              startedAt: office.radioStartedAt,
+              paused: office.radioPaused,
+              pausedAt: office.radioPausedAt,
+              durationMs: office.radioDurationMs,
+            }
+          : null,
         guests: [...office.guests],
         customized: office.customized,
         items: [...office.items].map((i) => ({
@@ -723,6 +747,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.toastEvent, (e: ToastEvent) => toastListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.toastResult, (res: ToastResult) => useOfficeStore.getState().notify(TOAST_ERROR_TEXT[res.error], "info"));
   r.onMessage(MSG.swivelEvent, (e: SwivelEvent) => swivelListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.officeRadioResult, (res: OfficeRadioResult) => useOfficeStore.getState().notify(OFFICE_RADIO_ERROR_TEXT[res.error], "warning"));
   r.onMessage(MSG.boardState, (e: BoardStateEvent) => boardListeners.forEach((cb) => cb({ kind: "state", ...e })));
   r.onMessage(MSG.boardStrokeEvent, (e: BoardStrokeEvent) => boardListeners.forEach((cb) => cb({ kind: "stroke", ...e })));
   r.onMessage(MSG.boardRemove, (e: BoardRemoveEvent) => boardListeners.forEach((cb) => cb({ kind: "remove", ...e })));

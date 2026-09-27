@@ -15,6 +15,7 @@ import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
+import { OfficeRadio } from "./OfficeRadio";
 import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
@@ -213,6 +214,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </div>
           <ChatPanel />
           <MyOfficePanel />
+          <OfficeRadio />
           <DoorPrompt />
           <SeatPrompt />
           <InteractPrompt />

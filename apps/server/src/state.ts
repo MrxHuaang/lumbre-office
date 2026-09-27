@@ -52,6 +52,13 @@ export class OfficeInfo extends Schema {
   @type("boolean") locked = false;
   /** Nota de la placa de la puerta (la pone el dueño; vive en la sala, no se guarda en la base). */
   @type("string") note = "";
+  /** La radio (office-radio.ts): video de YouTube que suena en bucle adentro ("" = apagada). */
+  @type("string") radioVideo = "";
+  @type("string") radioTitle = "";
+  @type("number") radioStartedAt = 0;
+  @type("boolean") radioPaused = false;
+  @type("number") radioPausedAt = 0;
+  @type("number") radioDurationMs = 0;
   /** User.id de quienes el dueño dejó pasar (se pierde al salir de la oficina). */
   @type(["string"]) guests = new ArraySchema<string>();
   /** Fase 3c: false = quedan los muebles del mapa; true = los de `items` (más el escritorio con PC y su silla). */

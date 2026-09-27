@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { MSG, OFFICE_NOTE_MAX, ROOM_NAME, type KnockRequest, type KnockResult, type MoveCorrection } from "@hyvento/shared";
+import { MSG, OFFICE_NOTE_MAX, ROOM_NAME, type KnockRequest, type KnockResult, type MoveCorrection, type OfficeRadioResult } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -85,6 +85,39 @@ describe("oficinas personales", () => {
     expect(office.locked).toBe(true);
     expect([...office.guests]).toEqual(["u-bob"]);
     expect(repo.offices.get("office-4")!.locked).toBe(true);
+  });
+
+  it("la radio de la oficina la pone la dueña; la duración la informa quien está adentro", async () => {
+    OfficeRoom.youtubeLookup = async (id) => ({ ok: true, title: `Radio ${id}` });
+    const { room, alice, bob } = await setup();
+    const errors: OfficeRadioResult[] = [];
+    bob.onMessage(MSG.officeRadioResult, (r: OfficeRadioResult) => errors.push(r));
+    const office = () => room.state.offices.get("office-4")!;
+    bob.send(MSG.officeRadio, { action: "set", url: "https://youtu.be/jfKfPfyJRdk" });
+    await tick(60);
+    expect(errors).toEqual([{ ok: false, error: "not-owner" }]);
+    alice.send(MSG.officeRadio, { action: "set", url: "https://youtu.be/jfKfPfyJRdk" });
+    await tick(60);
+    await room.waitForNextPatch();
+    expect(office()).toMatchObject({ radioVideo: "jfKfPfyJRdk", radioTitle: "Radio jfKfPfyJRdk", radioPaused: false, radioDurationMs: 0 });
+    // Desde el pasillo no vale la duración; desde adentro sí (la primera).
+    bob.send(MSG.officeRadio, { action: "duration", videoId: "jfKfPfyJRdk", ms: 90_000 });
+    await tick(60);
+    expect(office().radioDurationMs).toBe(0);
+    await intoOffice(bob, room, "office-4");
+    bob.send(MSG.officeRadio, { action: "duration", videoId: "jfKfPfyJRdk", ms: 90_000 });
+    bob.send(MSG.officeRadio, { action: "duration", videoId: "jfKfPfyJRdk", ms: 5 });
+    await tick(60);
+    await room.waitForNextPatch();
+    expect(office().radioDurationMs).toBe(90_000);
+    alice.send(MSG.officeRadio, { action: "pause" });
+    await tick(60);
+    await room.waitForNextPatch();
+    expect(office().radioPaused).toBe(true);
+    alice.send(MSG.officeRadio, { action: "stop" });
+    await tick(60);
+    await room.waitForNextPatch();
+    expect(office().radioVideo).toBe("");
   });
 
   it("la nota de la placa la pone solo la dueña, en una línea corta", async () => {

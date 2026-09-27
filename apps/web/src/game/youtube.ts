@@ -1,11 +1,7 @@
-// El video de YouTube del club: un solo reproductor (el iframe oficial de YouTube, sin clave) montado
-// sobre la pantalla de la pared, encima del canvas. No se mueve nunca de lugar en el DOM (moverlo lo
-// recargaría): se estira con una matriz CSS para que caiga sobre la pared inclinada y, en grande, se
-// centra. Se sincroniza con la hora del servidor: todos ven el mismo segundo del video.
-import type { ClubVideoView } from "@hyvento/shared";
-import { useOfficeStore } from "../store";
-import { sendClubQueue } from "./net";
-import { useClubStore } from "./store";
+// Un reproductor de YouTube (el iframe oficial, sin clave) encima del canvas: el del club, montado sobre
+// la pantalla de la pared, y el de la radio de las oficinas, que solo suena. No se mueve nunca de lugar
+// en el DOM (moverlo lo recargaría): se estira con una matriz CSS para que caiga sobre la pared inclinada
+// y, en grande, se centra. Va al segundo que le digan (la hora del servidor): todos ven lo mismo.
 
 // ---------- API del iframe de YouTube ----------
 
@@ -73,12 +69,17 @@ export interface ScreenQuad {
   aspect: number;
 }
 
+/** Lo que tiene que sonar: `id` distingue dos veces el mismo video (la cola del club). */
+export interface VideoEntry {
+  id: string;
+  videoId: string;
+}
+
 export interface VideoWant {
-  entry: ClubVideoView | null;
-  startedAt: number;
+  entry: VideoEntry | null;
+  /** En qué punto del video va (ms), con la hora del servidor. */
+  elapsedMs: number;
   paused: boolean;
-  pausedAt: number;
-  serverNow: number;
   /** 0 a 1; 0 = no se oye (fuera del club o en silencio). */
   volume: number;
   /** Dónde se ve; null = no se ve (pero puede seguir sonando). */
@@ -86,9 +87,26 @@ export interface VideoWant {
   big: boolean;
 }
 
-/** El reproductor vivo (el HUD lo despierta con un toque sin cargar la escena). */
-let active: ClubVideo | null = null;
-export const tapClubVideo = () => active?.tap();
+/** Lo que cada dueño hace con los avisos del reproductor. */
+export interface ScreenHooks {
+  /** El reproductor dijo cuánto dura, o que terminó (el club pasa al siguiente). */
+  onDuration?: (id: string, ms: number) => void;
+  onEnded?: (id: string) => void;
+  /** El video no se puede ver (código de error de YouTube). */
+  onError?: (id: string, code: number) => void;
+  /** El navegador no lo deja sonar solo: hace falta un toque. */
+  onNeedsTap?: (needs: boolean) => void;
+  /** Clic en la pantalla (el club la agranda). */
+  onClick?: () => void;
+  /** Al terminar vuelve a empezar (la radio de la oficina). */
+  loop?: boolean;
+  /** Títulos de la pantalla chica y de la grande. */
+  titles?: { small: string; big: string };
+}
+
+/** Los reproductores vivos (el HUD los despierta con un toque sin cargar la escena). */
+const active = new Set<YoutubeScreen>();
+export const tapVideos = () => active.forEach((v) => v.tap());
 
 /** Ancho base del recuadro (px antes de la matriz): de ahí salen el tamaño del iframe y la calidad. */
 const BASE_W = 640;
@@ -99,7 +117,7 @@ const DRIFT_MS = 2000;
 /** Si en este tiempo el video no arrancó solo, el navegador lo bloqueó: se pide un toque. */
 const BLOCKED_MS = 3500;
 
-export class ClubVideo {
+export class YoutubeScreen {
   private host: HTMLDivElement;
   private frame: HTMLDivElement;
   private player: YTPlayer | null = null;
@@ -114,7 +132,10 @@ export class ClubVideo {
   private layout = "";
   private want: VideoWant | null = null;
 
-  constructor(parent: HTMLElement) {
+  constructor(
+    parent: HTMLElement,
+    private readonly hooks: ScreenHooks = {},
+  ) {
     this.host = document.createElement("div");
     Object.assign(this.host.style, {
       position: "absolute",
@@ -127,11 +148,8 @@ export class ClubVideo {
       cursor: "zoom-in",
       zIndex: "1",
     } satisfies Partial<CSSStyleDeclaration>);
-    this.host.title = "Ver el video en grande";
-    this.host.addEventListener("click", () => {
-      const s = useClubStore.getState();
-      s.setVideoBig(!s.videoBig);
-    });
+    this.host.title = hooks.titles?.small ?? "";
+    this.host.addEventListener("click", () => hooks.onClick?.());
     this.frame = document.createElement("div");
     // El iframe no recibe clics: los toma la pantalla (para agrandar), no los controles de YouTube.
     Object.assign(this.frame.style, { position: "absolute", pointerEvents: "none" } satisfies Partial<CSSStyleDeclaration>);
@@ -139,7 +157,7 @@ export class ClubVideo {
     this.frame.appendChild(mount);
     this.host.appendChild(this.frame);
     parent.appendChild(this.host);
-    active = this;
+    active.add(this);
   }
 
   /** Cada frame: dónde se ve, cuánto suena y qué video y segundo tocan. */
@@ -151,7 +169,7 @@ export class ClubVideo {
         this.player?.stopVideo();
         this.loaded = null;
       }
-      useClubStore.getState().setNeedsTap(false);
+      this.hooks.onNeedsTap?.(false);
       return;
     }
     if (!this.player) {
@@ -170,7 +188,7 @@ export class ClubVideo {
     const now = performance.now();
     if (now - this.lastSync < SYNC_MS && this.loaded === want.entry.id) return;
     this.lastSync = now;
-    const expected = want.paused ? want.pausedAt : want.serverNow - want.startedAt;
+    const expected = want.elapsedMs;
     if (this.loaded !== want.entry.id) {
       this.loaded = want.entry.id;
       this.loadedAt = now;
@@ -185,10 +203,10 @@ export class ClubVideo {
       if (drift > DRIFT_MS) this.player.seekTo(expected / 1000, true);
       return;
     }
-    if (state === YT_STATE.paused || state === YT_STATE.cued) this.player.playVideo();
+    if (state === YT_STATE.paused || state === YT_STATE.cued || (this.hooks.loop && state === YT_STATE.ended)) this.player.playVideo();
     if (state === YT_STATE.playing && drift > DRIFT_MS) this.player.seekTo(expected / 1000, true);
     const stuck = state !== YT_STATE.playing && state !== YT_STATE.buffering && state !== YT_STATE.ended;
-    useClubStore.getState().setNeedsTap(stuck && now - this.loadedAt > BLOCKED_MS && want.volume > 0);
+    this.hooks.onNeedsTap?.(stuck && now - this.loadedAt > BLOCKED_MS && want.volume > 0);
   }
 
   /** "Activar sonido": un toque de la persona deja al navegador reproducir con sonido. */
@@ -202,8 +220,8 @@ export class ClubVideo {
     this.player?.destroy();
     this.player = null;
     this.host.remove();
-    if (active === this) active = null;
-    useClubStore.getState().setNeedsTap(false);
+    active.delete(this);
+    this.hooks.onNeedsTap?.(false);
   }
 
   private async create() {
@@ -238,22 +256,18 @@ export class ClubVideo {
     const id = this.loaded;
     if (!id || !this.player) return;
     if (state === YT_STATE.playing) {
-      useClubStore.getState().setNeedsTap(false);
+      this.hooks.onNeedsTap?.(false);
       const d = this.player.getDuration();
       if (d > 0 && !this.reported.has(id)) {
         this.reported.add(id);
-        sendClubQueue({ action: "duration", id, ms: Math.round(d * 1000) });
+        this.hooks.onDuration?.(id, Math.round(d * 1000));
       }
     }
-    if (state === YT_STATE.ended) sendClubQueue({ action: "ended", id });
+    if (state === YT_STATE.ended) this.hooks.onEnded?.(id);
   }
 
-  /** El video no se puede ver (lo borraron, no deja insertarse): se salta para todos. */
   private onError(code: number) {
-    const id = this.loaded;
-    if (!id) return;
-    useOfficeStore.getState().notify(code === 101 || code === 150 ? "Ese video no deja verse fuera de YouTube: pasa al siguiente." : "Ese video no se pudo reproducir: pasa al siguiente.", "warning");
-    sendClubQueue({ action: "skip", id });
+    if (this.loaded) this.hooks.onError?.(this.loaded, code);
   }
 
   /** Estira el recuadro sobre la pantalla de la pared, o lo centra en grande. */
@@ -294,7 +308,7 @@ export class ClubVideo {
       st.zIndex = "30";
       st.cursor = "zoom-out";
       st.boxShadow = "0 0 0 4px #1d1128, 0 0 0 7px #ff5fd2, 8px 8px 0 7px #1d1128";
-      this.host.title = "Volver a la pantalla del club";
+      this.host.title = this.hooks.titles?.big ?? "";
     } else {
       const [bh, m] = layout.slice(5).split(":");
       w = BASE_W;
@@ -303,7 +317,7 @@ export class ClubVideo {
       st.zIndex = "1";
       st.cursor = "zoom-in";
       st.boxShadow = "none";
-      this.host.title = "Ver el video en grande";
+      this.host.title = this.hooks.titles?.small ?? "";
     }
     st.width = `${w}px`;
     st.height = `${h}px`;

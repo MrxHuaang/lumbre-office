@@ -50,6 +50,9 @@ import {
   OfficeLockMessage,
   OfficeNoteMessage,
   cleanOfficeNote,
+  OfficeRadioMessage,
+  type OfficeRadioError,
+  type OfficeRadioResult,
   PLAYER_SPEED,
   StatusMessage,
   TravelMessage,
@@ -466,6 +469,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.profileChanged, (client) => void this.handleProfileChanged(client));
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.officeNote, (client, raw) => this.handleOfficeNote(client, raw));
+    this.onMessage(MSG.officeRadio, (client, raw) => void this.handleOfficeRadio(client, raw));
     this.onMessage(MSG.boardOpen, (client, raw) => this.withBoard(client, (who) => this.whiteboards.open(who, raw)));
     this.onMessage(MSG.boardClose, (client, raw) => this.whiteboards.close(client.sessionId, raw));
     this.onMessage(MSG.boardStroke, (client, raw) => this.withBoard(client, (who) => this.whiteboards.stroke(who, raw, Date.now())));
@@ -934,6 +938,61 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       owner: Boolean(zone && this.state.offices.get(zone.id)?.ownerId === player.userId),
     };
     fn(who).catch((err) => console.error("pizarra", err));
+  }
+
+  /**
+   * La radio de la oficina: el dueño pone un video (con su título de oEmbed), la pausa, la sigue o la
+   * apaga. La duración la informa cualquiera que esté adentro (la primera vale): así da la vuelta.
+   */
+  private async handleOfficeRadio(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = OfficeRadioMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const msg = parsed.data;
+    const now = Date.now();
+    if (msg.action === "duration") {
+      const office = this.state.offices.get(player.zoneId);
+      if (office && office.radioVideo === msg.videoId && !office.radioDurationMs && msg.ms > 0)
+        office.radioDurationMs = Math.min(CLUB_VIDEO.maxDurationMs, Math.max(CLUB_VIDEO.minDurationMs, msg.ms));
+      return;
+    }
+    const fail = (error: OfficeRadioError) => client.send(MSG.officeRadioResult, { ok: false, error } satisfies OfficeRadioResult);
+    const office = [...this.state.offices.values()].find((o) => o.ownerId === player.userId);
+    if (!office) return fail("not-owner");
+    switch (msg.action) {
+      case "set": {
+        const videoId = parseYoutubeId(msg.url);
+        if (!videoId) return fail("not-youtube");
+        const info = await OfficeRoom.youtubeLookup(videoId).catch(() => ({ ok: true as const, title: FALLBACK_TITLE }));
+        if (!info.ok) return fail(info.error);
+        office.radioVideo = videoId;
+        office.radioTitle = info.title.slice(0, CLUB_VIDEO.maxTitle);
+        office.radioStartedAt = Date.now();
+        office.radioPaused = false;
+        office.radioPausedAt = 0;
+        office.radioDurationMs = 0;
+        return;
+      }
+      case "pause":
+        if (!office.radioVideo || office.radioPaused) return;
+        office.radioPausedAt = now - office.radioStartedAt;
+        office.radioPaused = true;
+        return;
+      case "resume":
+        if (!office.radioVideo || !office.radioPaused) return;
+        office.radioStartedAt = now - office.radioPausedAt;
+        office.radioPaused = false;
+        office.radioPausedAt = 0;
+        return;
+      case "stop":
+        office.radioVideo = "";
+        office.radioTitle = "";
+        office.radioStartedAt = 0;
+        office.radioPaused = false;
+        office.radioPausedAt = 0;
+        office.radioDurationMs = 0;
+        return;
+    }
   }
 
   /** La nota de la placa de la puerta: solo el dueño de la oficina, una línea corta. */
