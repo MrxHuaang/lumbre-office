@@ -3,8 +3,11 @@
 import { z } from "zod";
 import { CASA_CONSUMABLES, CASA_USABLES, type CasaAction } from "./casa";
 
-/** Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas) o mordisco (comida). */
-export type ConsumeAction = "smoke" | "sip" | "bite";
+/**
+ * Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas), mordisco (comida en la mano) o
+ * cucharada (lo que viene en plato, taza o vaso: los desayunos, el arroz con leche, el cholado).
+ */
+export type ConsumeAction = "smoke" | "sip" | "bite" | "spoon";
 
 /**
  * Cada cosa que se puede llevar en la mano (los `holds` de las cartas en cafe.ts): cómo se usa y cuántas
@@ -20,6 +23,49 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   bunuelo: { action: "bite", uses: 3 },
   torta: { action: "bite", uses: 4 },
   cigarro: { action: "smoke", uses: 5 },
+  // La carta colombiana de la cafetería: pocillos y vasos se toman a sorbos; lo de comer, a mordiscos
+  // (lo más grande rinde más).
+  perico: { action: "sip", uses: 3 },
+  "cafe-campesino": { action: "sip", uses: 3 },
+  "agua-panela-queso": { action: "sip", uses: 4 },
+  milo: { action: "sip", uses: 4 },
+  "gaseosa-manzana": { action: "sip", uses: 4 },
+  "jugo-mora": { action: "sip", uses: 4 },
+  "jugo-lulo": { action: "sip", uses: 4 },
+  "jugo-maracuya": { action: "sip", uses: 4 },
+  "jugo-guanabana": { action: "sip", uses: 4 },
+  "jugo-mango": { action: "sip", uses: 4 },
+  "limonada-coco": { action: "sip", uses: 5 },
+  avena: { action: "sip", uses: 5 },
+  kumis: { action: "sip", uses: 3 },
+  champus: { action: "sip", uses: 4 },
+  salpicon: { action: "sip", uses: 4 },
+  "pan-yuca": { action: "bite", uses: 3 },
+  almojabana: { action: "bite", uses: 3 },
+  roscon: { action: "bite", uses: 4 },
+  croissant: { action: "bite", uses: 4 },
+  achiras: { action: "bite", uses: 4 },
+  empanada: { action: "bite", uses: 3 },
+  dedito: { action: "bite", uses: 2 },
+  "papa-rellena": { action: "bite", uses: 3 },
+  carimanola: { action: "bite", uses: 2 },
+  aborrajado: { action: "bite", uses: 3 },
+  "arepa-huevo": { action: "bite", uses: 4 },
+  "arepa-queso": { action: "bite", uses: 3 },
+  "arepa-boyacense": { action: "bite", uses: 3 },
+  "arepa-choclo": { action: "bite", uses: 4 },
+  "huevos-pericos": { action: "spoon", uses: 4 },
+  changua: { action: "spoon", uses: 4 },
+  calentado: { action: "spoon", uses: 5 },
+  tamal: { action: "bite", uses: 4 },
+  cocada: { action: "bite", uses: 2 },
+  bocadillo: { action: "bite", uses: 2 },
+  natilla: { action: "bite", uses: 3 },
+  obleas: { action: "bite", uses: 3 },
+  "arroz-con-leche": { action: "spoon", uses: 3 },
+  brevas: { action: "bite", uses: 3 },
+  cholado: { action: "spoon", uses: 5 },
+  merengon: { action: "bite", uses: 4 },
   cerveza: { action: "sip", uses: 5 },
   vino: { action: "sip", uses: 4 },
   coctel: { action: "sip", uses: 4 },

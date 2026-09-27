@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { CAFE, MSG, ROOM_NAME, cafeItem, type CafeOrderResult } from "@hyvento/shared";
+import { CAFE, MSG, ROOM_NAME, cafeItem, usesOf, type CafeOrderResult } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
@@ -86,6 +86,23 @@ describe("cafetería", () => {
     await tick(700);
     await room.waitForNextPatch();
     expect(me().held).toBe("");
+  });
+
+  it("la carta colombiana se pide igual: una arepa de huevo cobra su precio y queda en la mano", async () => {
+    const { order, me } = await setup(30);
+    const arepa = cafeItem("arepa-huevo")!;
+    expect(await order("arepa-huevo")).toEqual({ ok: true, item: "arepa-huevo", balance: 30 - arepa.price });
+    expect(me().held).toBe("arepa-huevo");
+    expect(me().heldLeft).toBe(String(usesOf("arepa-huevo")));
+    expect(repo.ledger.at(-1)).toMatchObject({ amount: -arepa.price, reason: "PURCHASE", refId: "cafe:arepa-huevo" });
+  });
+
+  it("un combo nuevo deja una cosa en cada mano, con sus usos", async () => {
+    const { order, me } = await setup(30);
+    const onces = cafeItem("onces")!;
+    expect(await order("onces")).toEqual({ ok: true, item: "onces", balance: 30 - onces.price });
+    expect(me().held).toBe("onces");
+    expect(me().heldLeft).toBe(`${usesOf("tinto")},${usesOf("pandebono")}`);
   });
 
   it("un producto que no está en el menú se ignora", async () => {

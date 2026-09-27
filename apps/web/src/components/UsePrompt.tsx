@@ -10,7 +10,7 @@ import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendFurnitureUse, sendUseHeld } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 
-const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer" } as const;
+const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer", spoon: "Comer" } as const;
 
 /**
  * Casillero de lo que tengo en la mano, al final de la barra de herramientas (como el inventario de
