@@ -134,3 +134,36 @@ export function drawTextCentered(c: PixelCanvas, text: string, cx: number, cy: n
   drawText(c, text, x, y, color, opts);
   return { x, y, w, h };
 }
+
+/** Dígitos mini de 3x5, para cuando los de 5x7 no caben (los números de la rueda con poco zoom). */
+const TINY_DIGITS: readonly (readonly string[])[] = [
+  ["###", "#.#", "#.#", "#.#", "###"],
+  [".#.", "##.", ".#.", ".#.", "###"],
+  ["###", "..#", "###", "#..", "###"],
+  ["###", "..#", ".##", "..#", "###"],
+  ["#.#", "#.#", "###", "..#", "..#"],
+  ["###", "#..", "###", "..#", "###"],
+  ["###", "#..", "###", "#.#", "###"],
+  ["###", "..#", ".#.", ".#.", ".#."],
+  ["###", "#.#", "###", "#.#", "###"],
+  ["###", "#.#", "###", "..#", "###"],
+];
+export const TINY_GLYPH_W = 3;
+export const TINY_GLYPH_H = 5;
+
+/** Escribe un número con los dígitos mini, centrado en (cx, cy), con contorno de 1 píxel. */
+export function drawTinyNumberCentered(c: PixelCanvas, text: string, cx: number, cy: number, color: RGBA, outline?: RGBA) {
+  const w = text.length * (TINY_GLYPH_W + 1) - 1;
+  const x0 = Math.round(cx - w / 2);
+  const y0 = Math.round(cy - TINY_GLYPH_H / 2);
+  const lit = (x: number, y: number) => {
+    const k = Math.floor((x - x0) / (TINY_GLYPH_W + 1));
+    const gx = x - x0 - k * (TINY_GLYPH_W + 1);
+    const d = TINY_DIGITS[Number(text[k])];
+    return x >= x0 && y >= y0 && k < text.length && gx < TINY_GLYPH_W && d?.[y - y0]?.[gx] === "#";
+  };
+  if (outline)
+    for (let y = y0 - 1; y <= y0 + TINY_GLYPH_H; y++)
+      for (let x = x0 - 1; x <= x0 + w; x++) if (!lit(x, y) && (lit(x - 1, y) || lit(x + 1, y) || lit(x, y - 1) || lit(x, y + 1))) c.set(x, y, outline);
+  for (let y = y0; y < y0 + TINY_GLYPH_H; y++) for (let x = x0; x < x0 + w; x++) if (lit(x, y)) c.set(x, y, color);
+}

@@ -23,7 +23,7 @@ import {
   type RouletteCell,
 } from "./casino-layout";
 import { INK, POCKET_RAMP, blackjackFeltColor, pocketAngle, rouletteFeltColor, wheelColor } from "./casino";
-import { GLYPH_H, drawText, drawTextCentered, textWidth } from "./digits";
+import { GLYPH_H, TINY_GLYPH_H, TINY_GLYPH_W, drawText, drawTextCentered, drawTinyNumberCentered, textWidth } from "./digits";
 import { C, OUT } from "./palette";
 import { PixelCanvas, alpha, at, noise, renderSprite, solidBox, toScreen, type Box, type Ramp, type RGBA, type Shader, type Sprite } from "./pixel";
 
@@ -242,7 +242,8 @@ export class WheelPainter {
   /** Puntos de la parte que gira (índices del lienzo): son los únicos que se recalculan. */
   private spinning?: Int32Array;
   /** ¿Caben los números a esta resolución? */
-  readonly numbers: boolean;
+  /** Qué números se dibujan: los de 5x7, los mini de 3x5 (con poco zoom) o ninguno (no entran ni esos). */
+  readonly numbers: "big" | "tiny" | "none";
 
   constructor(
     private readonly fr: MesaFrame,
@@ -264,7 +265,7 @@ export class WheelPainter {
         this.polar[k + 1] = Math.atan2(l.v - cv, l.u - cu);
       }
     this.px = 1 / R;
-    this.numbers = numbersFit(R);
+    this.numbers = numbersFit(R) ? "big" : numbersFit(R, TINY_GLYPH_W * 2 + 1, TINY_GLYPH_H) ? "tiny" : "none";
   }
 
   /** Dibuja la rueda girada `spin` (y la bola, si está). */
@@ -282,7 +283,7 @@ export class WheelPainter {
       data[o + 2] = col[2];
       data[o + 3] = 255;
     }
-    if (this.numbers) this.paintNumbers(spin, highlight);
+    if (this.numbers !== "none") this.paintNumbers(spin, highlight);
     this.paintTurret();
     if (ball) this.paintBall(ball);
     return canvas;
@@ -319,9 +320,10 @@ export class WheelPainter {
     for (const n of WHEEL_ORDER) {
       const p = this.at(r, pocketAngle(n) + spin);
       const win = n === highlight;
-      drawTextCentered(this.overlay.canvas, String(n), p.x, p.y, win ? at(C.gold, 5) : at(C.cream, 5), {
-        outline: win ? at(C.gold, 0) : n === 0 ? at(C.green, 0) : at(POCKET_RAMP[colorOf(n) === "red" ? "red" : "black"], 0),
-      });
+      const color = win ? at(C.gold, 5) : at(C.cream, 5);
+      const outline = win ? at(C.gold, 0) : n === 0 ? at(C.green, 0) : at(POCKET_RAMP[colorOf(n) === "red" ? "red" : "black"], 0);
+      if (this.numbers === "tiny") drawTinyNumberCentered(this.overlay.canvas, String(n), p.x, p.y, color, outline);
+      else drawTextCentered(this.overlay.canvas, String(n), p.x, p.y, color, { outline });
     }
   }
 
@@ -368,20 +370,21 @@ export class WheelPainter {
 }
 
 /**
- * ¿Caben los 37 números de 5x7 derechos alrededor del aro a resolución R? Cada número mide 11x7 puntos
- * y los vecinos no se pueden tocar (en los costados de la elipse quedan uno encima del otro).
+ * ¿Caben los 37 números derechos alrededor del aro a resolución R? Con los dígitos de 5x7 cada número
+ * mide 11x7 puntos (con los mini, 7x5) y los vecinos no se pueden tocar (en los costados de la elipse
+ * quedan uno encima del otro).
  */
-export function numbersFit(R: number): boolean {
+export function numbersFit(R: number, w = 11, h = 7): boolean {
   const r = (WHEEL_R.numbers + WHEEL_R.pockets) / 2;
   const step = (Math.PI * 2) / WHEEL_ORDER.length;
   for (let a = 0; a < Math.PI * 2; a += 0.05) {
     const p = toScreen(Math.cos(a) * r, Math.sin(a) * r);
     const q = toScreen(Math.cos(a + step) * r, Math.sin(a + step) * r);
     // Se pueden tocar en diagonal, no montarse (11x7 puntos cada uno).
-    if (Math.abs(q.x - p.x) * R < 11 && Math.abs(q.y - p.y) * R < 7) return false;
+    if (Math.abs(q.x - p.x) * R < w && Math.abs(q.y - p.y) * R < h) return false;
   }
-  // Y el aro tiene que tener alto para los 7 puntos arriba y abajo de la elipse.
-  return ((WHEEL_R.numbers - WHEEL_R.pockets) / Math.SQRT2) * R >= 8;
+  // Y el aro tiene que tener alto para los puntos del número arriba y abajo de la elipse.
+  return ((WHEEL_R.numbers - WHEEL_R.pockets) / Math.SQRT2) * R >= h + 1;
 }
 
 /**
