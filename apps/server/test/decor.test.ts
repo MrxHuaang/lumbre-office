@@ -99,7 +99,8 @@ describe("editor de oficina", () => {
     expect(await edit(alice, { action: "remove", zoneId: ZONE, itemId: "map-0" })).toEqual({ ok: true });
     expect(office().items).toHaveLength(13);
     expect(office().items.some((i) => i.x === 9 && i.y === 0)).toBe(false);
-    expect(repo.held("u-alice", "plant")).toBe(1);
+    // La oficina 2 tiene un ficus lira en ese rincón.
+    expect(repo.held("u-alice", "fiddle-fig")).toBe(1);
   });
 
   it("piso y papel tapiz", async () => {
