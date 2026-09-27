@@ -106,12 +106,15 @@ function useNearMe(sessionId: string | null) {
   return near;
 }
 
-/** Invitaciones a intercambiar (como los toques de puerta): aceptar o no. */
+/**
+ * Invitaciones a intercambiar (como los toques de puerta): aceptar o no. Van por encima de los paneles
+ * (z-40, como el buzón o el PC): si no, con uno abierto la invitación vence sin que se vea.
+ */
 function TradeInvites() {
   const invites = useSocialStore((s) => s.invites);
   if (invites.length === 0) return null;
   return (
-    <div className="absolute top-1/4 left-1/2 z-20 flex w-[min(360px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-3">
+    <div className="absolute top-1/4 left-1/2 z-50 flex w-[min(360px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-3">
       {invites.map((inv) => (
         <div key={inv.requestId} role="alert" className="cozy-panel px-5 py-4">
           <p className="flex items-center gap-2 text-[15px]">
