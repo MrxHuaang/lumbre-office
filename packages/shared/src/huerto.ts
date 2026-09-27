@@ -224,7 +224,7 @@ export const JARDIN_USABLES: Record<string, UsableSpec> = {
   "garden-plot": { action: "plot", label: "Parcela del huerto", cooldownMs: HUERTO.plotCooldownMs, marker: false },
   "water-barrel": fill,
   well: fill,
-  beehive: { action: "honey", label: "Sacar miel", cooldownMs: 2000 },
+  beehive: { action: "honey", label: "Sacar miel", cooldownMs: 1500 },
   "gazebo-roof": { action: "ring", label: "Tocar la campanita", cooldownMs: 2600 },
 };
 

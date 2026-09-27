@@ -181,6 +181,17 @@ export class ClubState extends Schema {
   @type({ map: ClubDancer }) dancers = new MapSchema<ClubDancer>();
 }
 
+/** Jardín vivo: una parcela sembrada del huerto (PlotState de @hyvento/shared). La clave es su índice. */
+export class GardenPlotState extends Schema {
+  @type("string") crop = "";
+  @type("string") plantedBy = "";
+  @type("string") plantedByName = "";
+  @type("number") plantedAt = 0;
+  @type("number") growthMs = 0;
+  @type("number") growthAt = 0;
+  @type("number") wateredUntil = 0;
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -197,6 +208,8 @@ export class OfficeState extends Schema {
   /** Casa viva: las mascotas, por id. */
   @type({ map: Pet }) pets = new MapSchema<Pet>();
   @type(ClubState) club = new ClubState();
+  /** Jardín vivo: las parcelas sembradas del huerto, por índice de parcela (las vacías no están). */
+  @type({ map: GardenPlotState }) garden = new MapSchema<GardenPlotState>();
   /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
   @type("string") weather = "despejado";
 }

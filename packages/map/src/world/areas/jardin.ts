@@ -475,6 +475,8 @@ const POINTS: PointDef[] = [
   pt("task_board", "Tablón", 42, 22),
   // Una por parcela, en el mismo orden que PLOTS (el índice es el id de la parcela): sobre la parcela.
   ...PLOTS.map((p, i) => pt("garden_plot", `Parcela ${i + 1}`, p.x, p.y)),
+  // Frente a la puerta del cobertizo: la regadera y las semillas.
+  pt("tool_shed", "Cobertizo", 1, 3),
   // La punta del muelle y la piedra plana de la orilla norte.
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0),
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0 + 1),

@@ -13,7 +13,7 @@ import {
   type PresenceStatus,
   type StatChange,
 } from "@hyvento/shared";
-import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TradeResult, TradeSideInput, UserProfile } from "./types";
+import type { GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TradeResult, TradeSideInput, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -227,6 +227,16 @@ export class MemoryRepository implements GameRepository {
     for (const c of changes) stats.set(c.key, c.op === "inc" ? (stats.get(c.key) ?? 0) + c.value : Math.max(stats.get(c.key) ?? c.value, c.value));
     this.userStats.set(userId, stats);
   }
+  /** Parcelas sembradas del huerto, por índice. */
+  garden = new Map<number, GardenPlotRecord>();
+  async loadGarden() {
+    return [...this.garden.values()].map((p) => ({ ...p }));
+  }
+  async saveGardenPlot(id: number, plot: Omit<GardenPlotRecord, "id"> | null) {
+    if (plot) this.garden.set(id, { id, ...plot });
+    else this.garden.delete(id);
+  }
+
   async unlockAchievement(userId: string, achievementId: string) {
     const set = this.achievements.get(userId) ?? new Set<string>();
     this.achievements.set(userId, set);
