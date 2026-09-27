@@ -51,6 +51,9 @@ interface CasinoState {
   lastSettled: RouletteSettled | null;
   blackjack: BlackjackView;
   lastBlackjack: BlackjackSettled | null;
+  /** Ficha elegida en la tira de la mesa (la que se pone al hacer clic en el paño o al apostar). */
+  chip: number;
+  setChip: (chip: number) => void;
   setBlackjack: (b: BlackjackView) => void;
   setBlackjackSettled: (s: BlackjackSettled) => void;
   setOffset: (serverNow: number) => void;
@@ -68,6 +71,8 @@ export const useCasinoStore = create<CasinoState>((set) => ({
   lastSettled: null,
   blackjack: { phase: "waiting", round: 0, endsAt: 0, turn: -1, dealer: [], seats: [] },
   lastBlackjack: null,
+  chip: 5,
+  setChip: (chip) => set({ chip }),
   setBlackjack: (blackjack) => set({ blackjack }),
   setBlackjackSettled: (lastBlackjack) => set({ lastBlackjack }),
   setOffset: (serverNow) => set({ offset: serverNow - Date.now() }),
