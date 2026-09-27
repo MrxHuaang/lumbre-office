@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { MSG, ROOM_NAME, type EmoteEvent } from "@hyvento/shared";
+import { EMOTE, MSG, ROOM_NAME, type EmoteEvent } from "@hyvento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
@@ -51,4 +51,17 @@ describe("emotes", () => {
     await tick(120);
     expect(got.bob.map((e) => e.emote)).toEqual(["heart"]);
   });
+
+  it("acepta los emotes nuevos, con pausa entre uno y otro y tope por ráfaga", async () => {
+    const { alice, got } = await setup();
+    const sent = ["cry", "angry", "sleep", "party", "coffee", "music", "surprise"] as const;
+    for (const emote of sent) {
+      alice.send(MSG.emote, { emote });
+      await tick(EMOTE.cooldownMs + 30);
+    }
+    await tick(60);
+    const seen = got.bob.map((e) => e.emote);
+    // Aunque se respete la pausa, hay tope: no más de `burst` en la ventana (7 envíos en ~7 s).
+    expect(seen).toEqual(sent.slice(0, EMOTE.burst));
+  }, 20_000);
 });

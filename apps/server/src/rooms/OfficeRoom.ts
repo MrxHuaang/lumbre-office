@@ -85,6 +85,8 @@ import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blac
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
 import { FurnitureUses } from "./usables";
+import { acceptEmote, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
+import { Trades } from "./trades";
 
 interface UserData {
   lastMoveAt: number;
@@ -97,6 +99,8 @@ interface UserData {
   editTimes?: number[];
   /** Último emote (para que no se puedan mandar en ráfaga). */
   lastEmoteAt?: number;
+  /** Emotes aceptados hace poco (pausa entre uno y otro y tope por ráfaga, ver `acceptEmote`). */
+  emoteTimes?: number[];
 }
 
 interface PendingKnock {
@@ -184,6 +188,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** Muebles que se usan (tele, lámparas, instrumentos, gato). */
   private furnitureUses!: FurnitureUses;
+  /** Intercambios en vivo entre dos personas cerca (fase 5). */
+  private trades = new Trades({
+    player: (sessionId) => this.state.players.get(sessionId),
+    send: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
+    repo: () => this.repo,
+    setPoints: (userId, balance) => {
+      for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+    },
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+  });
+
+  /** La web avisó que alguien mandó un regalo: si quien lo recibe está conectado, le llega el aviso. */
+  static giftReceivedEverywhere(notice: GiftSentNotice) {
+    const { toId, ...gift } = notice;
+    for (const room of OfficeRoom.instances)
+      for (const c of room.clients) if (room.state.players.get(c.sessionId)?.userId === toId) c.send(MSG.giftReceived, gift satisfies GiftReceived);
+  }
 
   private get repo() {
     return OfficeRoom.repo;
@@ -223,6 +244,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
     this.onMessage(MSG.blackjackBet, (client, raw) => void this.handleBlackjack(client, raw, "bet"));
     this.onMessage(MSG.blackjackAction, (client, raw) => void this.handleBlackjack(client, raw, "action"));
+    this.onMessage(MSG.tradeRequest, (client, raw) => this.trades.request(client.sessionId, raw));
+    this.onMessage(MSG.tradeRespond, (client, raw) => this.trades.respond(client.sessionId, raw));
+    this.onMessage(MSG.tradeOffer, (client, raw) => void this.trades.offer(client.sessionId, raw));
+    this.onMessage(MSG.tradeReady, (client, raw) => void this.trades.ready(client.sessionId, raw));
+    this.onMessage(MSG.tradeConfirm, (client) => void this.trades.confirm(client.sessionId));
+    this.onMessage(MSG.tradeCancel, (client) => this.trades.cancel(client.sessionId));
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -280,6 +307,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   async onLeave(client: Client<UserData>, consented: boolean) {
+    // Un intercambio no espera a que vuelva: se cancela en cuanto se corta la conexión.
+    this.trades.left(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     if (!consented && player) {
       player.moving = false;
@@ -663,6 +692,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(map, x, y)?.id ?? "";
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
+    this.trades.moved(client.sessionId);
   }
 
   /** Pasar a otro nivel por un portal: hay que estar parado junto a él. */
@@ -690,6 +720,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.revokeGuestOnExit(player, previousZoneId);
     client.userData.lastMoveAt = Date.now();
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
+    this.trades.moved(client.sessionId);
   }
 
   /** ¿Hay otra persona sentada en (x, y)? */
@@ -887,7 +918,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const parsed = EmoteMessage.safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
     const now = Date.now();
-    if (now - (client.userData.lastEmoteAt ?? 0) < EMOTE.cooldownMs) return;
+    if (!acceptEmote((client.userData.emoteTimes ??= []), now)) return;
     client.userData.lastEmoteAt = now;
     client.userData.lastActiveAt = now;
     const event: EmoteEvent = { sessionId: client.sessionId, emote: parsed.data.emote };

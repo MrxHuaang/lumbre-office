@@ -1,4 +1,5 @@
 import type { CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus } from "@hyvento/shared";
+import type { ItemStack } from "@hyvento/shared";
 
 /** Nombre visible y personaje de una persona, como están guardados. */
 export interface UserProfile {
@@ -82,3 +83,32 @@ export interface GameRepository {
   /** Paga un premio del casino (o devuelve una apuesta): suma sin tope. */
   casinoPayout(input: { userId: string; amount: number; refId: string }): Promise<{ balance: number }>;
 }
+
+/** Un lado de un intercambio: lo que da esa persona (a la otra). */
+export interface TradeSideInput {
+  userId: string;
+  points: number;
+  items: ItemStack[];
+}
+
+/**
+ * Resultado de un intercambio: los saldos nuevos, o quién no tenía los puntos (`funds`) o los objetos
+ * (`items`) cuando se revalidó (entonces no se movió nada).
+ */
+export type TradeResult =
+  | { ok: true; balances: Record<string, number> }
+  | { ok: false; error: "funds" | "items"; userId: string };
+
+/** Regalos e intercambios (fase 5): van en su propia interfaz y se suman a GameRepository. */
+export interface SocialRepository {
+  /** Lo que alguien tiene en la mochila (solo lo que tiene al menos una unidad). */
+  getInventory(userId: string): Promise<ItemStack[]>;
+  /**
+   * Intercambio en una sola transacción: cada lado paga sus puntos (motivo GIFT) y saca sus objetos solo
+   * si los tiene, y la otra persona los recibe. Si algo no alcanza, no se mueve nada.
+   */
+  executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult>;
+}
+
+// Se funde con la declaración de arriba: el repositorio del juego también hace regalos e intercambios.
+export interface GameRepository extends SocialRepository {}

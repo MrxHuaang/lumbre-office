@@ -10,6 +10,8 @@ import {
   type PresenceStatus,
 } from "@hyvento/shared";
 import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, UserProfile } from "./types";
+import type { ItemStack } from "@hyvento/shared";
+import type { TradeResult, TradeSideInput } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -172,5 +174,45 @@ export class MemoryRepository implements GameRepository {
     if (!o) throw new Error(`No existe ${zoneId}`);
     o.items = items.map((i) => ({ ...i }));
     o.customized = true;
+  }
+
+  // ---------- Regalos e intercambios ----------
+
+  async getInventory(userId: string): Promise<ItemStack[]> {
+    const prefix = `${userId}:`;
+    return [...this.inventory]
+      .filter(([key, quantity]) => key.startsWith(prefix) && quantity > 0)
+      .map(([key, quantity]) => ({ itemId: key.slice(prefix.length), quantity }))
+      .sort((a, b) => a.itemId.localeCompare(b.itemId));
+  }
+
+  async executeTrade({ refId, a, b }: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
+    // Todo se revalida y se aplica sobre copias: si algo no alcanza no queda nada a medias (como la transacción).
+    const inventory = new Map(this.inventory);
+    const moves: typeof this.ledger = [];
+    const now = Date.now();
+    for (const [from, to] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      if (from.points > 0) {
+        if ((await this.getPoints(from.userId)) < from.points) return { ok: false, error: "funds", userId: from.userId };
+        moves.push({ userId: from.userId, amount: -from.points, reason: "GIFT", at: now, refId });
+        moves.push({ userId: to.userId, amount: from.points, reason: "GIFT", at: now, refId });
+      }
+      for (const it of from.items) {
+        const have = inventory.get(`${from.userId}:${it.itemId}`) ?? 0;
+        if (have < it.quantity) return { ok: false, error: "items", userId: from.userId };
+        inventory.set(`${from.userId}:${it.itemId}`, have - it.quantity);
+      }
+    }
+    for (const [from, to] of [
+      [a, b],
+      [b, a],
+    ] as const)
+      for (const it of from.items) inventory.set(`${to.userId}:${it.itemId}`, (inventory.get(`${to.userId}:${it.itemId}`) ?? 0) + it.quantity);
+    this.inventory = inventory;
+    this.ledger.push(...moves);
+    return { ok: true, balances: { [a.userId]: await this.getPoints(a.userId), [b.userId]: await this.getPoints(b.userId) } };
   }
 }

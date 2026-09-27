@@ -20,6 +20,8 @@ import {
   type PresenceStatus,
 } from "@hyvento/shared";
 import type { GameRepository, OfficeItemsInput, OfficeItemsResult } from "./types";
+import { awardPointsTx, listInventory, spendPointsTx } from "@hyvento/db";
+import type { TradeResult, TradeSideInput } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
@@ -201,5 +203,52 @@ export class PrismaRepository implements GameRepository {
   async casinoPayout({ userId, amount, refId }: { userId: string; amount: number; refId: string }) {
     const { balance } = await awardPoints(prisma, { userId, amount, reason: "CASINO", refId });
     return { balance };
+  }
+
+  // ---------- Regalos e intercambios ----------
+
+  getInventory(userId: string) {
+    return listInventory(prisma, userId);
+  }
+
+  async executeTrade({ refId, a, b }: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        // Primero pagan los dos (en orden de id, para que dos intercambios cruzados no se traben) y
+        // después reciben: el cobro es condicional, así que sin saldo o sin el objeto se deshace todo.
+        const sides = [
+          { from: a, to: b },
+          { from: b, to: a },
+        ].sort((x, y) => x.from.userId.localeCompare(y.from.userId));
+        for (const { from } of sides) {
+          if (from.points > 0) {
+            const spent = await spendPointsTx(tx, { userId: from.userId, amount: from.points, reason: "GIFT", refId });
+            if (!spent.ok) throw new TradeAborted("funds", from.userId);
+          }
+          for (const it of from.items) {
+            if (!(await takeInventoryTx(tx, from.userId, it.itemId, it.quantity))) throw new TradeAborted("items", from.userId);
+          }
+        }
+        for (const { from, to } of sides) {
+          if (from.points > 0) await awardPointsTx(tx, { userId: to.userId, amount: from.points, reason: "GIFT", refId });
+          for (const it of from.items) await addInventoryTx(tx, to.userId, it.itemId, it.quantity);
+        }
+        const users = await tx.user.findMany({ where: { id: { in: [a.userId, b.userId] } }, select: { id: true, points: true } });
+        return { ok: true as const, balances: Object.fromEntries(users.map((u) => [u.id, u.points])) };
+      });
+    } catch (err) {
+      if (err instanceof TradeAborted) return { ok: false, error: err.code, userId: err.userId };
+      throw err;
+    }
+  }
+}
+
+/** Corta la transacción de un intercambio (se deshace todo) diciendo qué faltó y a quién. */
+class TradeAborted extends Error {
+  constructor(
+    readonly code: "funds" | "items",
+    readonly userId: string,
+  ) {
+    super(code);
   }
 }
