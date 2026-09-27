@@ -48,6 +48,8 @@ const MOUTH: Record<Direction, { dx: number }> = { down: { dx: -1 }, right: { dx
 /** Algo en una mano: su sprite, los usos que le quedan y cómo está en la animación de uso. */
 interface HeldPart {
   art: string;
+  /** Cigarro o habano (apunta hacia afuera y echa humo). */
+  smoke: boolean;
   image: Phaser.GameObjects.Image;
   hand: 0 | 1;
   /** Usos que se ven y los últimos que mandó el servidor (se aplican al terminar la animación). */
@@ -266,8 +268,10 @@ export class Avatar {
   }
 
   private makeHeldPart(art: string, hand: 0 | 1, left: number): HeldPart {
+    const effect = heldEffect(art);
     const part: HeldPart = {
       art,
+      smoke: effect?.fx === "smoke",
       hand,
       left,
       pendingLeft: left,
@@ -278,7 +282,6 @@ export class Avatar {
       busy: false,
       image: this.scene.add.image(0, 0, heldTexture(this.scene, art, left, 1, 0)).setOrigin(0.5, 1).setVisible(!this.hidden),
     };
-    const effect = heldEffect(art);
     if (effect) {
       const smoke = effect.fx === "smoke";
       // Mientras se sostiene: la brasa titila y sale un hilo de humo; las bebidas calientes echan vapor.
@@ -632,7 +635,7 @@ export class Avatar {
         const hand = hands[part.hand];
         const img = part.image;
         // El cigarro apunta hacia afuera: en la mano izquierda se voltea (el filtro queda hacia la cara).
-        const smoke = heldEffect(part.art)?.fx === "smoke";
+        const smoke = part.smoke;
         const flip = smoke && hand.dx < 0;
         img.setFlipX(flip);
         const hx = x + hand.dx;
