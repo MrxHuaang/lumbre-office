@@ -23,6 +23,11 @@ interface ItemArt {
   from?: [number, number];
   /** Vaso de vidrio: letras del líquido (bajan con cada sorbo) y de la espuma (se va con el primero). */
   liquid?: { chars: string; foam?: string };
+  /**
+   * Taza opaca: solo se ve la superficie (letras `chars` de la fila de arriba). Con cada sorbo una parte
+   * se vuelve el interior de la taza (`inner`), como si el nivel bajara y asomara la loza.
+   */
+  surface?: { chars: string; inner: RGBA };
   /** Comida: color de la miga que queda a la vista en cada mordisco. */
   crumb?: RGBA;
   /** Brasa (cigarro, habano): letras que titilan y brillan al pitar. El papel (`body`) se quema. */
@@ -42,6 +47,7 @@ const ITEMS: Record<string, ItemArt> = {
       ".ooooo.",
     ],
     colors: { ...CUP, c: hex("#3b1f14") },
+    surface: { chars: "c", inner: hex("#a8977e") },
   },
   "cafe-leche": {
     fx: "steam",
@@ -56,6 +62,7 @@ const ITEMS: Record<string, ItemArt> = {
       ".oooo...",
     ],
     colors: { f: hex("#f2d9b0"), F: hex("#c9955e"), m: hex("#d0694a"), M: hex("#9c4632") },
+    surface: { chars: "fF", inner: hex("#7a3526") },
   },
   aromatica: {
     fx: "steam",
@@ -68,6 +75,8 @@ const ITEMS: Record<string, ItemArt> = {
       ".oooo.",
     ],
     colors: { a: hex("#e8894a"), A: hex("#c9552f"), r: hex("#8cc653"), h: alpha(hex("#fff6dc"), 0.85) },
+    // Es un vaso de vidrio: se ve bajar la infusión.
+    liquid: { chars: "aAr" },
   },
   chocolate: {
     fx: "steam",
@@ -83,6 +92,7 @@ const ITEMS: Record<string, ItemArt> = {
       ".....oooo",
     ],
     colors: { ...CUP, k: hex("#6b3a22"), y: hex("#f6e3a0"), Y: hex("#e0c270") },
+    surface: { chars: "k", inner: hex("#a8977e") },
   },
   pandebono: {
     crumb: hex("#fff0c4"),
@@ -286,6 +296,15 @@ function rowsFor(item: ItemArt, id: string, left: number): string[] {
     const emberCol = Math.max(...rows.map((r) => [...r].findIndex((ch) => item.ember!.chars.includes(ch))));
     rows = rows.map((r) => r.slice(0, emberCol - cut) + r.slice(emberCol));
   }
+  if (item.surface && left < uses) {
+    // Asoma la loza desde atrás (la izquierda) hacia adelante; algo de bebida queda hasta el último sorbo.
+    const { chars } = item.surface;
+    const cells: [number, number][] = [];
+    rows.forEach((r, y) => [...r].forEach((ch, x) => chars.includes(ch) && cells.push([x, y])));
+    const drained = Math.min(cells.length - 1, Math.round((cells.length * (uses - left)) / uses));
+    const gone = new Set(cells.slice(0, drained).map(([x, y]) => `${x},${y}`));
+    rows = rows.map((r, y) => [...r].map((ch, x) => (gone.has(`${x},${y}`) ? "i" : ch)).join(""));
+  }
   if (item.liquid && left < uses) {
     const { chars, foam = "" } = item.liquid;
     const liquidRows = rows.map((r, y) => ([...r].some((ch) => chars.includes(ch)) ? y : -1)).filter((y) => y >= 0);
@@ -304,6 +323,7 @@ function paint(item: ItemArt, rows: string[], ember: number): PixelCanvas {
     [...row].forEach((ch, x) => {
       if (ch === ".") return;
       if (ch === "e" && !item.ember) return c.set(x, y, GLASS.empty);
+      if (ch === "i" && item.surface) return c.set(x, y, item.surface.inner);
       const color = ch === "o" ? OUT : item.ember?.chars.includes(ch) ? EMBER[ember]! : item.colors[ch];
       if (color) c.set(x, y, color);
     }),
@@ -364,12 +384,12 @@ const isOutAt = (c: PixelCanvas, x: number, y: number) => {
 };
 
 /**
- * Inclina el dibujo hacia un lado corriendo cada fila (la de arriba es la que más se mueve). A este
- * tamaño un sesgo se lee como un vaso que se inclina y no ensucia el dibujo como una rotación. Después se
- * cierra el contorno donde las filas se separaron.
+ * Inclina el dibujo hacia un lado corriendo 1 px la mitad de arriba: la base queda firme en la mano y se
+ * lee como un vaso que se lleva a la boca, sin deformar toda la silueta como un sesgo parejo. Después se
+ * cierra el contorno donde las dos mitades se separaron.
  */
 function leaned(c: PixelCanvas, dir: -1 | 1): PixelCanvas {
-  const shift = (y: number) => Math.round((c.height - 1 - y) * 0.6);
+  const shift = (y: number) => (y < Math.floor(c.height / 2) ? 1 : 0);
   const extra = shift(0);
   const out = new PixelCanvas(c.width + extra + 2, c.height + 2);
   for (let y = 0; y < c.height; y++)

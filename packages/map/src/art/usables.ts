@@ -84,16 +84,30 @@ export function tvScreenOn(frame: number): Sprite {
  * cálida y más clara abajo, donde sale la luz, con el borde de abajo casi blanco.
  */
 export function lampLit(): Sprite {
-  const { base, out } = layerOf("lamp");
   const warm = hex("#ffc85a");
   const hot = hex("#fff6d8");
+  // Abajo, por donde sale la luz, casi blanca; hacia arriba se entibia.
+  return lampShade((own, v) => (v < 1.2 ? hot : mix(own, warm, 0.75 - v * 0.05)));
+}
+
+/**
+ * La pantalla apagada: más oscura y apagada (sin la tibieza del dibujo base), así de día también se nota
+ * que está apagada. Más oscura arriba, donde no le llega la luz del cuarto.
+ */
+export function lampOff(): Sprite {
+  const dusk = hex("#5c4a4e");
+  return lampShade((own, v) => mix(own, dusk, 0.38 + v * 0.02));
+}
+
+/** Pinta las dos caras visibles de la pantalla de la lámpara con `shade(color propio, altura en la pantalla)`. */
+function lampShade(shade: (own: RGBA, v: number) => RGBA): Sprite {
+  const { base, out } = layerOf("lamp");
   const tint = (px: number, py: number, v: number) => {
     const i = (py * base.canvas.width + px) * 4;
     const d = base.canvas.data;
     const own: RGBA = [d[i]!, d[i + 1]!, d[i + 2]!, 255];
     if (own[0] === OUT[0] && own[1] === OUT[1] && own[2] === OUT[2]) return null;
-    // Abajo, por donde sale la luz, casi blanca; hacia arriba se entibia.
-    return v < 1.2 ? hot : mix(own, warm, 0.75 - v * 0.05);
+    return shade(own, v);
   };
   // Las dos caras que se ven (+x y +y) de la pantalla.
   paintRightFace(base, out, { x1: 13, y0: 3, y1: 13, z0: 30, z1: 39 }, (_u, v, px, py) => tint(px, py, v));

@@ -2,7 +2,7 @@ import { BAR_MENU, CAFE_MENU, CONSUMABLES, usesOf } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { drawFurniture } from "./furniture";
 import { CAFE_ITEM_ART, drawHeldItem, drawMenuItem, heldEffect } from "./items";
-import { lampLit, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
+import { lampLit, lampOff, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 
 const opaque = (c: { data: Uint8ClampedArray }) => {
   let n = 0;
@@ -23,8 +23,8 @@ describe("lo que se lleva en la mano", () => {
       const first = states[0]!;
       const last = states.at(-1)!;
       const changed = first.width !== last.width || first.data.some((v, i) => v !== last.data[i]);
-      // La lata y las tazas opacas no muestran el líquido: esas se ven iguales hasta el último sorbo.
-      if (["tinto", "cafe-leche", "aromatica", "chocolate", "coca-cola"].includes(art)) continue;
+      // La lata no muestra el líquido: se ve igual hasta el último sorbo (las tazas muestran la superficie).
+      if (art === "coca-cola") continue;
       expect(changed, art).toBe(true);
     }
   });
@@ -51,6 +51,7 @@ describe("capas de los muebles que se usan", () => {
       ["tv-retro", tvScreenOff()],
       ["tv-retro", tvScreenOn(1)],
       ["lamp", lampLit()],
+      ["lamp", lampOff()],
       ["record-player", vinylSpin(2)],
     ];
     for (const [type, layer] of cases) {
