@@ -412,14 +412,14 @@ function sofaLeather(variant: Variant): Sprite {
     left: (u, v, fw, fh) => (v >= fh - 2.5 ? at(f, 4) : u < 1 || u >= fw - 1 ? at(f, 1) : Math.floor(u) % 4 === 0 && v > 4 ? at(C.gold, 3) : at(f, 2)),
     right: (u, v, fw, fh) => (Math.hypot(u - fw / 2, v - fh + 3.5) < 2.5 ? at(f, Math.hypot(u - fw / 2 + 0.6, v - fh + 3) < 1.2 ? 4 : 2) : at(f, v >= fh - 1.5 ? 3 : 1)),
   });
-  const rest: Box = { x: back ? 11 : 0, y: 4, z: 2, w: 5, d: D - 8, h: 18, top: flat(at(f, 4)), left: flat(at(f, 1)), right: back ? flat(at(f, 1)) : tufted };
-  const restBack: Box = { ...rest, left: flat(at(f, 1)), right: flat(at(f, 1)) };
+  // De espaldas se ve el dorso del respaldo: cuero liso con costuras verticales.
+  const plainBack: Shader = (u, v, _fw, fh) => (v >= fh - 1.5 ? at(f, 3) : mod(u, 10) < 0.7 ? at(f, 1) : at(f, 2));
+  const rest: Box = { x: back ? 11 : 0, y: 4, z: 2, w: 5, d: D - 8, h: 18, top: flat(at(f, 4)), left: flat(at(f, 1)), right: back ? plainBack : tufted };
   const base: Box = { x: back ? 0 : 4, y: 4, z: 2, w: 12, d: D - 8, h: 6, top: flat(at(f, 2)), left: flat(at(f, 1)), right: flat(at(f, 2)) };
   const seats = [0, 1, 2].map((i) => cushion(back ? 1 : 5, 5 + i * 12.7, 8, 10, 12.2, 3, f));
-  const tuftedBack: Box = { ...restBack, x: back ? 11 : 0, right: back ? tufted : flat(at(f, 1)), left: flat(at(f, 1)) };
   const legs = [leg(1, 1, 2, C.woodDark), leg(13, 1, 2, C.woodDark), leg(1, D - 3, 2, C.woodDark), leg(13, D - 3, 2, C.woodDark)];
   const pillow = cushion(back ? 2 : 6, D - 13, 11, 4, 7, 6, C.mustard);
-  const middle = back ? [base, ...seats, pillow, back ? tuftedBack : rest] : [rest, base, ...seats, pillow];
+  const middle = back ? [base, ...seats, pillow, rest] : [rest, base, ...seats, pillow];
   return renderSprite([legs[0]!, legs[1]!, armRoll(0), ...middle, legs[2]!, armRoll(D - 5), legs[3]!], {
     outline: OUT,
     under: shadowUnder(0, 0, 16, D),
@@ -809,7 +809,7 @@ function rugPersian(): Sprite {
     if (m < 0.18) return at(C.gold, 4);
     if (m < 0.36) return at(C.navy, 2);
     if (m < 0.42) return at(C.cream, 4);
-    if (m < 0.8) return Math.abs(mod(cu + cv, 8) - 4) < 0.8 || Math.abs(mod(cu - cv, 8) - 4) < 0.8 ? at(C.rug, 4) : at(C.rug, 2);
+    if (m < 0.8) return Math.abs(m - 0.6) < 0.04 ? at(C.cream, 4) : at(C.rug, m < 0.6 ? 4 : 3);
     if (m < 0.86) return at(C.gold, 3);
     // Campo con flores pequeñas en rejilla.
     const fu = mod(u, 8) - 4;

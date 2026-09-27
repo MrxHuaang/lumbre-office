@@ -106,6 +106,8 @@ export const piso3: AreaDef = {
     place("reading-lamp", 15, 4),
     place("bookshelf-low", 15, 8, "right"),
     place("plant", 21, 10),
+    place("plant", 15, 0),
+    place("plant", 21, 0),
     place("armchair", 20, 7, "left"),
     // ----- Sala de estar: chimenea al norte, sofá y sillones alrededor, el tocadiscos y mantas.
     place("rug-persian", 24, 3, "down"),
@@ -128,9 +130,13 @@ export const piso3: AreaDef = {
     place("grandfather-clock", 16, 11),
     // ----- Rellano: la escalera que baja al piso 2 y un banco junto a la ventana.
     place("stairwell", 3, 14),
+    place("bookshelf-low", 0, 14, "right"),
     place("entry-bench", 0, 18, "right"),
     place("plant", 0, 20),
+    place("side-table", 5, 20),
+    place("armchair-wing", 6, 20, "up"),
     place("plant", 7, 20),
+    place("reading-lamp", 7, 18),
     // ----- Sala de juegos de mesa: ajedrez, el puzle a medio armar, cartas y el estante de juegos.
     place("rug-3x3", 9, 15),
     place("chair", 9, 16, "right"),
@@ -159,6 +165,9 @@ export const piso3: AreaDef = {
     place("chair", 25, 18, "right"),
     place("chair", 27, 18, "left"),
     place("plant", 20, 19),
+    place("planter", 20, 16, "right"),
+    place("lamp-post", 30, 14),
+    place("monstera", 24, 19),
     place("bonsai", 30, 19),
   ],
   portals: [
