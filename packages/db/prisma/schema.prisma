@@ -69,6 +69,7 @@ model User {
   gardenPlots     GardenPlot[]
   fishCatches     FishCatch[]
   arcadeScores    ArcadeScore[]
+  photos          Photo[]
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -384,4 +385,26 @@ model WorldLayout {
   edits     Json
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+/**
+ * Foto sacada en la cabaña (PNG o WebP de hasta ~150 KB, con el marco de polaroid ya dibujado). El id es
+ * el del ticket que firmó el servidor de juego, así la misma foto no se sube dos veces; `people` lo
+ * calculó el servidor ([{ id, name }]). Se guardan solo las últimas (ver PHOTO.keep en @hyvento/shared).
+ */
+model Photo {
+  id        String   @id
+  takenById String
+  takenBy   User     @relation(fields: [takenById], references: [id], onDelete: Cascade)
+  area      String
+  caption   String   @default("")
+  people    Json
+  image     Bytes
+  mime      String
+  /// Se ve en el corcho de la cafetería (quien la sacó puede quitarla sin borrarla).
+  pinned    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([takenById, createdAt])
 }
