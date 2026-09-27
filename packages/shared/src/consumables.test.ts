@@ -8,7 +8,9 @@ import {
   furnitureKey,
   isSwitchedOn,
   parseHeldLeft,
+  stepsTo,
   usesOf,
+  type WallGrid,
 } from "./consumables";
 
 describe("consumibles", () => {
@@ -51,5 +53,20 @@ describe("muebles que se usan", () => {
     }
     expect(FurnitureUseMessage.safeParse({ type: "piano", x: 3, y: 4 }).success).toBe(true);
     expect(FurnitureUseMessage.safeParse({ type: "piano", x: -1, y: 4 }).success).toBe(false);
+  });
+
+  it("los pasos hasta un mueble no cruzan paredes: dan la vuelta por la puerta o no llegan", () => {
+    // 6x4 con una pared vertical en x = 3 (entre las columnas 2 y 3), abierta solo en y = 3.
+    const width = 6;
+    const height = 4;
+    const g: WallGrid = { width, height, wallH: new Uint8Array((height + 1) * width), wallV: new Uint8Array(height * (width + 1)) };
+    for (let y = 0; y < 3; y++) (g.wallV as Uint8Array)[y * (width + 1) + 3] = 1;
+    const lamp = { x: 3, y: 0, w: 1, d: 1 };
+    expect(stepsTo(g, 3, 0, lamp, 3)).toBe(0);
+    expect(stepsTo(g, 4, 1, lamp, 3)).toBe(2);
+    // Del otro lado de la pared, pegado a la lámpara: el camino da la vuelta por la puerta (y = 3).
+    expect(stepsTo(g, 2, 0, lamp, 3)).toBe(Infinity);
+    expect(stepsTo(g, 2, 0, lamp, 10)).toBe(7);
+    expect(stepsTo(g, -1, 0, lamp, 10)).toBe(Infinity);
   });
 });

@@ -1,7 +1,7 @@
 // Muebles que se usan (piano, guitarra, tocadiscos, tele, lámparas, gato). Lo que cambia para todos
 // (prendido/apagado) queda en `OfficeState.switches`; tocar un instrumento o acariciar al gato es un evento.
 import { INTERACT_REACH_TILES, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
-import { FurnitureUseMessage, furnitureKey, isSwitchedOn, usableSpec, type FurnitureEvent } from "@hyvento/shared";
+import { FurnitureUseMessage, furnitureKey, isSwitchedOn, stepsTo, USE_STEPS, usableSpec, type FurnitureEvent } from "@hyvento/shared";
 
 /** Lo que se pueda guardar como interruptores (un MapSchema<boolean> en la sala, un Map en los tests). */
 export interface Switches {
@@ -42,6 +42,20 @@ export function sameRoom(map: OfficeMap, f: PlacedFurniture, px: number, py: num
   return fz?.id === pz?.id;
 }
 
+/**
+ * ¿Hay pared de por medio? La distancia se mide en línea recta, así que una lámpara pegada a una pared
+ * interior quedaría al alcance desde la sala de al lado: hace falta llegar tile a tile sin cruzar pared.
+ */
+export function noWallBetween(map: OfficeMap, f: PlacedFurniture, px: number, py: number): boolean {
+  const ts = map.tileSize;
+  return stepsTo(map, Math.floor(px / ts), Math.floor(py / ts), f, USE_STEPS) <= USE_STEPS;
+}
+
+/** Las tres reglas juntas: al alcance, sin pared de por medio y del mismo lado de la puerta de una oficina. */
+export function canUse(map: OfficeMap, f: PlacedFurniture, px: number, py: number): boolean {
+  return inReach(map, f, px, py) && noWallBetween(map, f, px, py) && sameRoom(map, f, px, py);
+}
+
 export class FurnitureUses {
   /** Cuándo puede volver a usar un mueble cada persona. */
   private nextAt = new Map<string, number>();
@@ -55,8 +69,9 @@ export class FurnitureUses {
     const f = usableAt(map, type, x, y);
     const spec = usableSpec(type);
     if (!f || !spec) return { ok: false, error: "invalid" };
-    if (!inReach(map, f, who.x, who.y) || !sameRoom(map, f, who.x, who.y)) return { ok: false, error: "far" };
+    if (!canUse(map, f, who.x, who.y)) return { ok: false, error: "far" };
     if (now < (this.nextAt.get(who.userId) ?? 0)) return { ok: false, error: "busy" };
+    this.forgetExpired(now);
     this.nextAt.set(who.userId, now + spec.cooldownMs);
     if (spec.action === "toggle") {
       const key = furnitureKey(map.id, type, x, y);
@@ -65,6 +80,17 @@ export class FurnitureUses {
       return { ok: true, kind: "toggle", key, on };
     }
     return { ok: true, kind: "event", event: { type, x, y, action: spec.action, seed } };
+  }
+
+  /** Las pausas ya vencidas no hacen falta: sin esto el mapa crece con cada persona que pasó por la sala. */
+  private forgetExpired(now: number) {
+    if (this.nextAt.size < 64) return;
+    for (const [userId, at] of this.nextAt) if (at <= now) this.nextAt.delete(userId);
+  }
+
+  /** Cuántas pausas se recuerdan (para los tests). */
+  get pending() {
+    return this.nextAt.size;
   }
 
   /** Se rearmó un nivel (decoración de oficinas): se olvidan los interruptores de muebles que ya no están. */

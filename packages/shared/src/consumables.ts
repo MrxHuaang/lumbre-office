@@ -75,6 +75,11 @@ export interface UsableSpec {
   defaultOn?: boolean;
   /** Pausa mínima entre dos usos de la misma persona. */
   cooldownMs: number;
+  /**
+   * Lámparas sin capa de encendida: de día prenderlas no cambia nada visible, así que la ayuda solo se
+   * ofrece de noche (el servidor igual acepta el cambio).
+   */
+  nightOnly?: boolean;
 }
 
 export const USABLE_FURNITURE: Record<string, UsableSpec> = {
@@ -83,7 +88,9 @@ export const USABLE_FURNITURE: Record<string, UsableSpec> = {
   "record-player": { action: "toggle", label: "Poner un disco", labelOn: "Quitar el disco", defaultOn: false, cooldownMs: 800 },
   "tv-retro": { action: "toggle", label: "Prender la tele", labelOn: "Apagar la tele", defaultOn: false, cooldownMs: 600 },
   lamp: { action: "toggle", label: "Prender la lámpara", labelOn: "Apagar la lámpara", defaultOn: true, cooldownMs: 400 },
-  "lamp-mushroom": { action: "toggle", label: "Prender la lámpara", labelOn: "Apagar la lámpara", defaultOn: true, cooldownMs: 400 },
+  "lamp-mushroom": { action: "toggle", label: "Prender la lámpara", labelOn: "Apagar la lámpara", defaultOn: true, cooldownMs: 400, nightOnly: true },
+  // La de lectura de los interiores nuevos (catalog-interior.ts): sin capa propia, solo su luz de noche.
+  "reading-lamp": { action: "toggle", label: "Prender la lámpara", labelOn: "Apagar la lámpara", defaultOn: true, cooldownMs: 400, nightOnly: true },
   "cat-bed": { action: "pet", label: "Acariciar al gato", cooldownMs: 1500 },
 };
 
@@ -95,6 +102,52 @@ export const furnitureKey = (area: string, type: string, x: number, y: number) =
 /** ¿Está prendido? Lo que no está en `switches` sigue como arranca (`defaultOn`). */
 export function isSwitchedOn(switches: { get(key: string): boolean | undefined }, area: string, type: string, x: number, y: number) {
   return switches.get(furnitureKey(area, type, x, y)) ?? usableSpec(type)?.defaultOn ?? false;
+}
+
+/** Lo mínimo de un nivel para saber dónde hay paredes (lo cumple `OfficeMap` de @hyvento/map). */
+export interface WallGrid {
+  width: number;
+  height: number;
+  /** Pared en el borde superior de cada tile: índice `y * width + x`, con y de 0 a height. */
+  wallH: ArrayLike<number>;
+  /** Pared en el borde izquierdo de cada tile: índice `y * (width + 1) + x`, con x de 0 a width. */
+  wallV: ArrayLike<number>;
+}
+
+/** Pasos máximos (tile a tile, sin cruzar paredes) para usar un mueble: a la vuelta de una pared no se llega. */
+export const USE_STEPS = 3;
+
+/**
+ * Pasos de tile a tile desde (tx, ty) hasta el rectángulo del mueble sin cruzar paredes, o Infinity si
+ * hacen falta más de `max`. Los muebles no estorban (se estira el brazo por encima): lo que separa dos
+ * salas es la pared, aunque sea baja. Sirve para usar muebles y para ver hasta dónde se oye la música.
+ */
+export function stepsTo(g: WallGrid, tx: number, ty: number, f: { x: number; y: number; w: number; d: number }, max: number): number {
+  const inside = (x: number, y: number) => x >= f.x && x < f.x + f.w && y >= f.y && y < f.y + f.d;
+  if (tx < 0 || ty < 0 || tx >= g.width || ty >= g.height) return Infinity;
+  if (inside(tx, ty)) return 0;
+  const seen = new Set<number>([ty * g.width + tx]);
+  let frontier: [number, number][] = [[tx, ty]];
+  for (let steps = 1; steps <= max && frontier.length > 0; steps++) {
+    const next: [number, number][] = [];
+    for (const [x, y] of frontier) {
+      // Arriba, abajo, izquierda y derecha, si no hay pared en ese borde.
+      const moves: [number, number, boolean][] = [
+        [x, y - 1, !g.wallH[y * g.width + x]],
+        [x, y + 1, !g.wallH[(y + 1) * g.width + x]],
+        [x - 1, y, !g.wallV[y * (g.width + 1) + x]],
+        [x + 1, y, !g.wallV[y * (g.width + 1) + x + 1]],
+      ];
+      for (const [nx, ny, open] of moves) {
+        if (!open || nx < 0 || ny < 0 || nx >= g.width || ny >= g.height || seen.has(ny * g.width + nx)) continue;
+        if (inside(nx, ny)) return steps;
+        seen.add(ny * g.width + nx);
+        next.push([nx, ny]);
+      }
+    }
+    frontier = next;
+  }
+  return Infinity;
 }
 
 /** Cliente → servidor (`MSG.furnitureUse`): usar el mueble de ese tipo con esquina en (x, y) de mi nivel. */

@@ -5,9 +5,9 @@ import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
-import { FurnitureUses, inReach } from "../src/rooms/usables";
+import { FurnitureUses, inReach, noWallBetween } from "../src/rooms/usables";
 import type { OfficeState } from "../src/state";
-import { bootServer, c, goToArea, tick, token, walkToTile, type ServerRoom } from "./helpers";
+import { bootServer, c, goToArea, intoOffice, tick, toOfficeDoor, token, walkToTile, type ServerRoom } from "./helpers";
 
 // ---------- Reglas (con un nivel de prueba) ----------
 
@@ -86,6 +86,35 @@ describe("muebles que se usan (reglas)", () => {
     const { map, uses } = rules();
     expect(uses.use(map, at(6, 1), { type: "tv-retro", x: 7, y: 0 }, 0)).toEqual({ ok: false, error: "far" });
     expect(uses.use(map, at(7, 1), { type: "tv-retro", x: 7, y: 0 }, 0).ok).toBe(true);
+  });
+
+  it("a través de una pared no se usa, aunque en línea recta quede al alcance", () => {
+    // Dos salas (x 0..4 y 5..9) con la pared en x = 5 y una puerta abajo (y = 5); la lámpara, pegada a la pared.
+    const map = buildArea({
+      ...TEST_AREA,
+      rooms: [
+        { id: "sala", rect: { x: 0, y: 0, w: 5, h: 6 }, floor: "wood", wallpaper: "cream" },
+        { id: "cocina", rect: { x: 5, y: 0, w: 5, h: 6 }, floor: "tiles", wallpaper: "cream" },
+      ],
+      doors: [{ edge: "v", x: 5, y: 5 }],
+      zones: [],
+      furniture: [{ type: "lamp", x: 5, y: 0 }],
+    });
+    const uses = new FurnitureUses(new Map());
+    const lamp = map.furniture[0]!;
+    expect(inReach(map, lamp, c(4), c(0))).toBe(true);
+    expect(noWallBetween(map, lamp, c(4), c(0))).toBe(false);
+    expect(uses.use(map, at(4, 0), { type: "lamp", x: 5, y: 0 }, 0)).toEqual({ ok: false, error: "far" });
+    expect(uses.use(map, at(4, 1), { type: "lamp", x: 5, y: 0 }, 0)).toEqual({ ok: false, error: "far" });
+    // Del mismo lado, sí.
+    expect(uses.use(map, at(5, 1), { type: "lamp", x: 5, y: 0 }, 0)).toMatchObject({ ok: true, on: false });
+  });
+
+  it("las pausas vencidas se olvidan (no se acumula una por cada persona que pasó)", () => {
+    const { map, uses } = rules();
+    // Cien personas, una por segundo: la pausa de cada una ya venció cuando llega la siguiente.
+    for (let k = 0; k < 100; k++) uses.use(map, at(4, 1, `u${k}`), { type: "lamp", x: 4, y: 0 }, k * 1000);
+    expect(uses.pending).toBeLessThanOrEqual(64);
   });
 
   it("hay una pausa entre usos de la misma persona (otra persona no espera)", () => {
@@ -169,10 +198,14 @@ describe("muebles que se usan (en la sala)", () => {
     await tick(60);
     await room.waitForNextPatch();
     expect(room.state.switches.get(key)).toBe(false);
+    // Lo ven los demás: el cambio llega al estado de cada cliente, aunque esté en otro nivel.
+    await tick(60);
+    const seen = (client: ClientRoom) => (client.state as OfficeState).switches.get(key);
+    expect(seen(bob)).toBe(false);
+    expect(seen(alice)).toBe(false);
   });
 
-  it("los eventos (piano, gato) solo llegan a los del mismo nivel", async () => {
-    // No hay piano en el mapa base: se revisa que un mueble que no existe no genere eventos.
+  it("un tipo que no se usa o un mueble que no existe no genera eventos", async () => {
     const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
     const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
     const events: FurnitureEvent[] = [];
@@ -182,5 +215,68 @@ describe("muebles que se usan (en la sala)", () => {
     alice.send(MSG.furnitureUse, { type: "nada", x: 1, y: 1 });
     await tick(60);
     expect(events).toEqual([]);
+  });
+});
+
+// ---------- En la sala: una oficina decorada con piano y gato ----------
+
+describe("muebles que se usan en una oficina decorada", () => {
+  // Oficina 2 (x 11..18, y 0..8): puerta afuera en (10, 6) y adentro en (11, 6); se entra hasta (12, 6).
+  const ZONE = "office-2";
+  const PIANO = { type: "piano", x: 13, y: 7 };
+  const CAT = { type: "cat-bed", x: 11, y: 5 };
+
+  async function setup() {
+    const repo = new MemoryRepository();
+    OfficeRoom.repo = repo;
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    repo.assign(ZONE, "u-alice", "Alice");
+    // Lo guardado es relativo a la oficina (la 2 empieza en x = 11).
+    repo.decorate(ZONE, [
+      { id: "piano", type: "piano", x: PIANO.x - 11, y: PIANO.y, facing: "right" },
+      { id: "gato", type: "cat-bed", x: CAT.x - 11, y: CAT.y, facing: "right" },
+    ]);
+    await OfficeRoom.reloadOfficesEverywhere();
+    const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
+    const bob = await colyseus.connectTo(room, { token: await token("u-bob", "Bob", "bruno") });
+    const carol = await colyseus.connectTo(room, { token: await token("u-carol", "Carol", "carla") });
+    await room.waitForNextPatch();
+    const events = { alice: [] as FurnitureEvent[], bob: [] as FurnitureEvent[], carol: [] as FurnitureEvent[] };
+    alice.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => events.alice.push(e));
+    bob.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => events.bob.push(e));
+    carol.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => events.carol.push(e));
+    await intoOffice(alice, room, ZONE);
+    return { room, alice, bob, carol, events };
+  }
+
+  it("tocar el piano llega con la misma semilla a los del nivel, y no a quien está en otro", async () => {
+    const { room, alice, bob, carol, events } = await setup();
+    // Bob en el piso 2 (afuera de la oficina); Carol se queda en el nivel donde se entra.
+    await toOfficeDoor(bob, room, ZONE);
+    expect(me(bob, room).area).toBe("piso-2");
+    expect(me(carol, room).area).not.toBe("piso-2");
+
+    alice.send(MSG.furnitureUse, PIANO);
+    await tick(80);
+    expect(events.alice).toHaveLength(1);
+    expect(events.alice[0]).toMatchObject({ ...PIANO, action: "play", sessionId: alice.sessionId });
+    expect(events.bob).toEqual(events.alice);
+    expect(events.carol).toEqual([]);
+
+    // Acariciar al gato también es un evento (después de la pausa del piano).
+    await tick(USABLE_FURNITURE.piano!.cooldownMs);
+    alice.send(MSG.furnitureUse, CAT);
+    await tick(80);
+    expect(events.bob.at(-1)).toMatchObject({ ...CAT, action: "pet" });
+    expect(events.carol).toEqual([]);
+  });
+
+  it("desde la puerta de la oficina no se acaricia al gato de adentro, aunque quede al alcance", async () => {
+    const { room, bob, events } = await setup();
+    await toOfficeDoor(bob, room, ZONE);
+    bob.send(MSG.furnitureUse, CAT);
+    await tick(80);
+    expect(events.alice).toEqual([]);
+    expect(events.bob).toEqual([]);
   });
 });
