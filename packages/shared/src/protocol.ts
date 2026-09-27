@@ -258,6 +258,10 @@ export const MSG = {
   clubQueue: "club:queue",
   clubReact: "club:react",
   clubReaction: "club:reaction",
+  /** Cine: la cola de la función, pausar y seguir (`CinemaMessage`) y el aviso cuando no se pudo
+   *  (`CinemaResult`). */
+  cinemaQueue: "cinema:queue",
+  cinemaResult: "cinema:result",
   /** Arcade: récords de una máquina (`ArcadeBoardMessage` → `ArcadeBoard`), empezar (`ArcadeStartMessage`
    *  → `ArcadeStarted`) y terminar una partida (`ArcadeFinishMessage` → `ArcadeResult`). */
   arcadeBoard: "arcade:board",

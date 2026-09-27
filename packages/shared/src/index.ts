@@ -17,6 +17,7 @@ export * from "./social";
 export * from "./casa";
 export * from "./mascotas";
 export * from "./club";
+export * from "./cinema";
 export * from "./arcade";
 export * from "./arcade-sim";
 export * from "./soundGate";
