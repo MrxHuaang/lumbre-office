@@ -1,5 +1,6 @@
 import type { AreaDef, Placement, WallFeature, WallpaperKind, ZoneDef } from "../types";
 import { place } from "./place";
+import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Piso 2: oficinas ----------
 // Pasillo central (x 8..10) con la escalera al fondo y dos oficinas a cada lado. Las de atrás tienen
@@ -139,20 +140,14 @@ export const piso2: AreaDef = {
     {
       id: "piso-2-escalera",
       label: "Bajar a la planta baja",
-      tiles: [
-        { x: HALL.x, y: 3 },
-        { x: HALL.x + 1, y: 3 },
-      ],
-      to: { area: "planta-baja", x: 1, y: 14, facing: "down" },
+      tiles: CONEXIONES.piso2.escaleraAbajo.tiles,
+      to: hacia("planta-baja", CONEXIONES.plantaBaja.escaleraArriba),
     },
     {
       id: "piso-2-escalera-arriba",
       label: "Subir al piso 3",
-      tiles: [
-        { x: HALL.x, y: FLOOR2_D - 2 },
-        { x: HALL.x + 1, y: FLOOR2_D - 2 },
-      ],
-      to: { area: "piso-3", x: 5, y: 6, facing: "down" },
+      tiles: CONEXIONES.piso2.escaleraArriba.tiles,
+      to: hacia("piso-3", CONEXIONES.piso3.escaleraAbajo),
     },
   ],
   points: [],

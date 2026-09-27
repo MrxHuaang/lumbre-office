@@ -1,5 +1,6 @@
 import type { AreaDef, Placement, ZoneDef } from "../types";
 import { place } from "./place";
+import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Planta baja ----------
 
@@ -130,29 +131,20 @@ export const plantaBaja: AreaDef = {
     {
       id: "planta-baja-salida",
       label: "Salir al jardín",
-      tiles: [
-        { x: 4, y: 17 },
-        { x: 5, y: 17 },
-      ],
-      to: { area: "jardin", x: 15, y: 14, facing: "down" },
+      tiles: CONEXIONES.plantaBaja.entrada.tiles,
+      to: hacia("jardin", CONEXIONES.jardin.casa),
     },
     {
       id: "planta-baja-escalera",
       label: "Subir al piso 2",
-      tiles: [
-        { x: 0, y: 12 },
-        { x: 1, y: 12 },
-      ],
-      to: { area: "piso-2", x: 9, y: 5, facing: "down" },
+      tiles: CONEXIONES.plantaBaja.escaleraArriba.tiles,
+      to: hacia("piso-2", CONEXIONES.piso2.escaleraAbajo),
     },
     {
       id: "planta-baja-sotano",
       label: "Bajar al casino",
-      tiles: [
-        { x: 6, y: 12 },
-        { x: 7, y: 12 },
-      ],
-      to: { area: "sotano", x: 2, y: 4, facing: "down" },
+      tiles: CONEXIONES.plantaBaja.escaleraSotano.tiles,
+      to: hacia("sotano", CONEXIONES.sotano.escalera),
     },
   ],
   points: [

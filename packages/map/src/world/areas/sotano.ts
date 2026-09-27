@@ -1,5 +1,6 @@
 import type { AreaDef } from "../types";
 import { place } from "./place";
+import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Sótano: casino, club y cine ----------
 // Se baja por la escalera del recibidor y se llega al casino (arriba a la izquierda): la ruleta y el
@@ -145,11 +146,8 @@ export const sotano: AreaDef = {
     {
       id: "sotano-escalera",
       label: "Subir a la planta baja",
-      tiles: [
-        { x: 1, y: 3 },
-        { x: 2, y: 3 },
-      ],
-      to: { area: "planta-baja", x: 7, y: 13, facing: "down" },
+      tiles: CONEXIONES.sotano.escalera.tiles,
+      to: hacia("planta-baja", CONEXIONES.plantaBaja.escaleraSotano),
     },
   ],
   points: [

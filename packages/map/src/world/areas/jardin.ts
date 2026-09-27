@@ -1,5 +1,6 @@
 import type { AreaDef, Placement } from "../types";
 import { place } from "./place";
+import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Jardín ----------
 
@@ -83,8 +84,8 @@ export const jardin: AreaDef = {
     {
       id: "jardin-casa",
       label: "Entrar a la cabaña",
-      tiles: PATH_X.map((x) => ({ x, y: PORCH_Y })),
-      to: { area: "planta-baja", x: 4, y: 15, facing: "up" },
+      tiles: CONEXIONES.jardin.casa.tiles,
+      to: hacia("planta-baja", CONEXIONES.plantaBaja.entrada),
     },
   ],
   points: [

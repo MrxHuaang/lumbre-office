@@ -6,6 +6,7 @@ import { piso3 } from "./piso-3";
 import { plantaBaja } from "./planta-baja";
 import { sotano } from "./sotano";
 
+export { CONEXIONES, type Conexion } from "./conexiones";
 export { OFFICE_COUNT } from "./piso-2";
 export { BLACKJACK_SEATS } from "./sotano";
 

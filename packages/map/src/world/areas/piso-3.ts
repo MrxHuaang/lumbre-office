@@ -1,5 +1,6 @@
 import type { AreaDef } from "../types";
 import { place } from "./place";
+import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Piso 3: biblioteca y descanso ----------
 // Esqueleto del rediseño (ver docs/plan-rediseno.md): por ahora solo el rellano con la escalera que
@@ -20,11 +21,8 @@ export const piso3: AreaDef = {
     {
       id: "piso-3-escalera",
       label: "Bajar al piso 2",
-      tiles: [
-        { x: 5, y: 5 },
-        { x: 6, y: 5 },
-      ],
-      to: { area: "piso-2", x: 10, y: 16, facing: "up" },
+      tiles: CONEXIONES.piso3.escaleraAbajo.tiles,
+      to: hacia("piso-2", CONEXIONES.piso2.escaleraArriba),
     },
   ],
   points: [],

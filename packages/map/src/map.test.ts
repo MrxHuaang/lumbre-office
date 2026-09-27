@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CONEXIONES } from "./world/areas/conexiones";
 import {
   allZones,
   canStandAt,
@@ -21,6 +22,14 @@ import {
   zoneAt,
   type OfficeMap,
 } from "./index";
+
+/** Desde dónde se prueba cada nivel: la llegada de sus conexiones (el jardín, desde su aparición). */
+const STARTS: Record<string, { x: number; y: number }> = {
+  "planta-baja": CONEXIONES.plantaBaja.entrada.llegada,
+  "piso-2": CONEXIONES.piso2.escaleraAbajo.llegada,
+  "piso-3": CONEXIONES.piso3.escaleraAbajo.llegada,
+  sotano: CONEXIONES.sotano.escalera.llegada,
+};
 
 const world = getWorld();
 const area = (id: string): OfficeMap => {
@@ -141,13 +150,7 @@ describe("portales", () => {
   });
 
   it("desde cada aparición se llega a todos los portales del nivel", () => {
-    const starts: Record<string, { x: number; y: number }> = {
-      jardin: { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY },
-      "planta-baja": { x: 4, y: 15 },
-      "piso-2": { x: 9, y: 5 },
-      "piso-3": { x: 5, y: 6 },
-      sotano: { x: 2, y: 4 },
-    };
+    const starts: Record<string, { x: number; y: number }> = { jardin: { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, ...STARTS };
     for (const map of world.areas.values())
       for (const portal of map.portals) {
         const t = portal.tiles[0]!;
@@ -166,7 +169,7 @@ describe("portales", () => {
 
 describe("asientos", () => {
   it("cada asiento tiene un lugar libre para pararse y se llega caminando", () => {
-    const starts: Record<string, { x: number; y: number }> = { jardin: { x: 15, y: 24 }, "planta-baja": { x: 4, y: 15 }, "piso-2": { x: 9, y: 5 }, "piso-3": { x: 5, y: 6 }, sotano: { x: 2, y: 4 } };
+    const starts: Record<string, { x: number; y: number }> = { jardin: { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, ...STARTS };
     for (const map of world.areas.values())
       for (const seat of map.seats.values()) {
         expect(seatAtPoint(map, seat.x, seat.y)).toBe(seat);
@@ -214,7 +217,7 @@ describe("lugares y zonas", () => {
         for (let tx = mesa.x / ts; tx < (mesa.x + mesa.width) / ts; tx++)
           if (!isBlockedTile(plantaBaja, tx, ty)) libres.push({ x: tx, y: ty });
       expect(libres.length, mesa.id).toBeGreaterThan(0);
-      expect(libres.some((t) => findPath(plantaBaja, { x: 4, y: 15 }, t) !== null), mesa.id).toBe(true);
+      expect(libres.some((t) => findPath(plantaBaja, STARTS["planta-baja"]!, t) !== null), mesa.id).toBe(true);
     }
   });
 
@@ -233,7 +236,7 @@ describe("lugares y zonas", () => {
 });
 
 describe("tienda", () => {
-  const entrada = { x: 4, y: 15 }; // donde se llega desde el jardín
+  const entrada = STARTS["planta-baja"]!; // donde se llega desde el jardín
   const tile = (p: { tileX: number; tileY: number }) => ({ x: p.tileX, y: p.tileY });
 
   it("el mostrador y el probador están dentro de la tienda y se llega caminando desde la entrada", () => {
