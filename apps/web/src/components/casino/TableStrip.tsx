@@ -83,6 +83,12 @@ function ChipPicker({ disabled = false }: { disabled?: boolean }) {
   const chip = useCasinoStore((s) => s.chip);
   const setChip = useCasinoStore((s) => s.setChip);
   const points = useMyPoints();
+  // Si la ficha elegida ya no alcanza, se elige sola la más grande que sí (con poco saldo no queda trabado).
+  useEffect(() => {
+    if (points >= chip) return;
+    const fit = [...CHIP_VALUES].reverse().find((c) => c <= points);
+    if (fit !== undefined && fit !== chip) setChip(fit);
+  }, [points, chip, setChip]);
   return (
     <div role="radiogroup" aria-label="Ficha" className="flex items-end gap-1">
       {CHIP_VALUES.map((c) => (

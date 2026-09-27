@@ -697,7 +697,8 @@ function stamp(c: PixelCanvas, g: readonly string[], x: number, y: number, col: 
  * es más chica, así las cinco manos entran en la mesa. El corrimiento deja ver el valor de todas.
  */
 export function cardSize(R: number): { w: number; h: number; fan: number } {
-  return R < 5 ? { w: 11, h: 15, fan: 6 } : { w: 16, h: 21, fan: 7 };
+  // El abanico deja a la vista más de media carta: se leen el valor y el palo de todas.
+  return R < 5 ? { w: 11, h: 15, fan: 7 } : { w: 16, h: 21, fan: 9 };
 }
 
 /**
