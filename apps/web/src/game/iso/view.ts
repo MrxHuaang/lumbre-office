@@ -168,6 +168,8 @@ export class AreaView {
   readonly features: { kind: WallFeatureKind; x: number; y: number; tileX: number; tileY: number }[] = [];
   /** Rectángulo de pantalla que ocupa el nivel (para la cámara). */
   readonly bounds: Phaser.Geom.Rectangle;
+  /** Cada tramo de pared baja por su borde ("h:x,y" / "v:x,y"): el modo privado esconde los que levanta. */
+  private lowWalls = new Map<string, Phaser.GameObjects.Image>();
   /** Modo privado: la sala donde estoy con paredes altas y lo de afuera a oscuras (ver setPrivateRoom). */
   private privateRoom: { key: string; objects: Phaser.GameObjects.GameObject[] } | null = null;
 
@@ -284,26 +286,48 @@ export class AreaView {
     for (const { f, img } of this.furnitureImages) img.setAlpha(match?.(f) ? 0.3 : 1);
   }
 
-  /** Paredes bajas: una pieza por borde, con su propia profundidad para tapar a quien pase detrás. */
+  /**
+   * Paredes bajas: una pieza por borde, con su propia profundidad para tapar a quien pase detrás. Un
+   * mueble pegado a la pared por dentro (la baldosa de abajo de un borde norte, la de la derecha de uno
+   * oeste) siempre queda delante de ese tramo: con la profundidad del centro, un mueble largo (la pecera,
+   * una estantería) empataba con los tramos de su costado y la pared lo tapaba.
+   */
   private placeLowWalls() {
     const { width, height, tileSize: ts } = this.map;
     const h = spriteTexture(this.scene, "pared-baja-h", () => drawLowWall("h"));
     const v = spriteTexture(this.scene, "pared-baja-v", () => drawLowWall("v"));
+    // Profundidad del mueble (no plano) que ocupa cada baldosa.
+    const occupant = new Map<number, number>();
+    for (const { f, img } of this.furnitureImages) {
+      if (catalogItem(f.type).flat) continue;
+      for (let y = f.y; y < f.y + f.d; y++)
+        for (let x = f.x; x < f.x + f.w; x++) {
+          const k = y * width + x;
+          occupant.set(k, Math.min(occupant.get(k) ?? Infinity, img.depth));
+        }
+    }
+    const behind = (depth: number, tx: number, ty: number) => Math.min(depth, (occupant.get(ty * width + tx) ?? Infinity) - 0.05);
     for (let ty = 0; ty <= height; ty++)
       for (let tx = 0; tx < width; tx++) {
         if (wallAbove(this.map, tx, ty) !== 1) continue;
         const a = worldToScreen(tx * ts, ty * ts);
-        this.objects.push(
-          this.scene.add.image(a.x - h.ox, a.y - h.oy, "pared-baja-h").setOrigin(0, 0).setDepth(depthOf((tx + 0.5) * ts, ty * ts)),
-        );
+        const img = this.scene.add
+          .image(a.x - h.ox, a.y - h.oy, "pared-baja-h")
+          .setOrigin(0, 0)
+          .setDepth(behind(depthOf((tx + 0.5) * ts, ty * ts), tx, ty));
+        this.objects.push(img);
+        this.lowWalls.set(`h:${tx},${ty}`, img);
       }
     for (let ty = 0; ty < height; ty++)
       for (let tx = 0; tx <= width; tx++) {
         if (wallLeftOf(this.map, tx, ty) !== 1) continue;
         const a = worldToScreen(tx * ts, ty * ts);
-        this.objects.push(
-          this.scene.add.image(a.x - v.ox, a.y - v.oy, "pared-baja-v").setOrigin(0, 0).setDepth(depthOf(tx * ts, (ty + 0.5) * ts)),
-        );
+        const img = this.scene.add
+          .image(a.x - v.ox, a.y - v.oy, "pared-baja-v")
+          .setOrigin(0, 0)
+          .setDepth(behind(depthOf(tx * ts, (ty + 0.5) * ts), tx, ty));
+        this.objects.push(img);
+        this.lowWalls.set(`v:${tx},${ty}`, img);
       }
   }
 
@@ -412,6 +436,14 @@ export class AreaView {
     // Los muebles de afuera se esconden: los altos del pasillo (un reloj, una planta) asomarían por el hueco.
     const inside = (f: PlacedFurniture) => !rect || (f.x >= rect.x && f.y >= rect.y && f.x < rect.x + rect.w && f.y < rect.y + rect.h);
     for (const { f, img } of this.furnitureImages) img.setVisible(inside(f));
+    // Los tramos bajos del fondo de la sala quedan dentro de la pared alta nueva: se esconden, si no se
+    // ven como bloques encima del muro.
+    for (const [key, img] of this.lowWalls) {
+      const [edge, pos] = key.split(":") as ["h" | "v", string];
+      const [x, y] = pos.split(",").map(Number) as [number, number];
+      const raised = rect && (edge === "h" ? y === rect.y && x >= rect.x && x < rect.x + rect.w : x === rect.x && y >= rect.y && y < rect.y + rect.h);
+      img.setVisible(!raised);
+    }
     if (!rect) return;
     const objects: Phaser.GameObjects.GameObject[] = [];
     const ts = this.map.tileSize;
@@ -470,5 +502,6 @@ export class AreaView {
     this.lightsOff.clear();
     this.nightly = [];
     this.furnitureImages = [];
+    this.lowWalls.clear();
   }
 }
