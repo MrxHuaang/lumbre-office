@@ -188,4 +188,8 @@ export const MSG = {
   arcadeStarted: "arcade:started",
   arcadeFinish: "arcade:finish",
   arcadeResult: "arcade:result",
+  /** Medir la hora del servidor descontando la latencia (`ClockPingMessage` → `ClockPong`): la música
+   *  del club tiene que sonar a la vez para todos. */
+  clockPing: "clock:ping",
+  clockPong: "clock:pong",
 } as const;

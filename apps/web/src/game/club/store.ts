@@ -3,6 +3,7 @@
 import { beatAt, DANCE_MOVE_IDS, isPlaying, trackElapsed, type ClubMusicState, type DanceMoveId } from "@hyvento/shared";
 import { create } from "zustand";
 import { useCasinoStore } from "../casino";
+import { measuredOffset } from "./clock";
 
 export interface ClubDancerView {
   kind: "floor" | "pole";
@@ -91,8 +92,8 @@ export const useClubStore = create<ClubStore>((set, get) => ({
   },
 }));
 
-/** Hora del servidor ahora (ms), con la diferencia que se midió al entrar. */
-export const serverNow = () => Date.now() + useCasinoStore.getState().offset;
+/** Hora del servidor ahora (ms): con la medida del ping/pong si ya hay, o con la que llegó al entrar. */
+export const serverNow = () => Date.now() + (measuredOffset() ?? useCasinoStore.getState().offset);
 
 /** El tiempo (en negras) de la música ahora, o null si no suena. */
 export function clubBeat(): number | null {

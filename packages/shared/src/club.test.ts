@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ARCADE_GAMES, ARCADE_MACHINES, ArcadeFinishMessage, arcadeGameOf, plausibleScore, weekStart } from "./arcade";
-import { beatAt, CLUB_TRACKS, ClubDjMessage, ClubDanceMessage, isPlaying, loopMs, trackElapsed } from "./club";
+import { beatAt, clockOffset, CLUB_TRACKS, ClubDjMessage, ClubDanceMessage, isPlaying, loopMs, trackElapsed } from "./club";
 import { dayStart } from "./points";
 
 describe("club", () => {
@@ -72,5 +72,20 @@ describe("arcade", () => {
     expect(weekStart(Date.UTC(2026, 8, 14, 5, 1))).toBe(Date.UTC(2026, 8, 14, 5));
     expect(weekStart(Date.UTC(2026, 8, 14, 4, 59))).toBe(Date.UTC(2026, 8, 7, 5));
     expect(weekStart(wed)).toBeLessThanOrEqual(dayStart(wed));
+  });
+});
+
+describe("hora del servidor", () => {
+  it("se queda con la medida de menor ida y vuelta y descuenta la mitad", () => {
+    expect(clockOffset([])).toBeNull();
+    const samples = [
+      { sentAt: 1000, receivedAt: 1300, serverNow: 5200 },
+      // La mejor: 40 ms de ida y vuelta; el servidor respondió a los 20 ms.
+      { sentAt: 2000, receivedAt: 2040, serverNow: 6020 },
+      { sentAt: 3000, receivedAt: 3100, serverNow: 7090 },
+      // Una respuesta que volvió "antes" de mandarse (reloj local que saltó) no cuenta.
+      { sentAt: 4000, receivedAt: 3990, serverNow: 1 },
+    ];
+    expect(clockOffset(samples)).toBe(4000);
   });
 });

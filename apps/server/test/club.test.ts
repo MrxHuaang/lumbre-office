@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { getWorld, isBlockedTile, pointsOfType, zoneAt, type OfficeMap } from "@hyvento/map";
-import { CLUB, MSG, ROOM_NAME, loopMs, clubTrack, poleKey, type ClubResult } from "@hyvento/shared";
+import { CLUB, MSG, ROOM_NAME, loopMs, clubTrack, poleKey, type ClockPong, type ClubResult } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -190,6 +190,19 @@ async function setup() {
 }
 
 describe("club (en la sala)", () => {
+  it("el servidor responde la hora para medir la latencia (e ignora pedidos raros)", async () => {
+    const { alice } = await setup();
+    const pongs: ClockPong[] = [];
+    alice.onMessage(MSG.clockPong, (p: ClockPong) => pongs.push(p));
+    const before = Date.now();
+    alice.send(MSG.clockPing, { id: 7 });
+    alice.send(MSG.clockPing, { id: "x" });
+    await tick(80);
+    expect(pongs).toHaveLength(1);
+    expect(pongs[0]!.id).toBe(7);
+    expect(pongs[0]!.now).toBeGreaterThanOrEqual(before);
+  });
+
   it("la pista que pone alguien en la cabina llega a todos con la hora del servidor", async () => {
     const { room, alice, bob, send } = await setup();
     const { booth } = spots(sotano());

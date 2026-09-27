@@ -3,6 +3,7 @@
 import { CLUB_ERROR_TEXT, MSG, type ClubDjMessage, type ClubResult, type DanceMoveId } from "@hyvento/shared";
 import { getStateCallbacks, type Room } from "colyseus.js";
 import { useOfficeStore } from "../store";
+import { startClockSync } from "./clock";
 import { useClubStore, type ClubDancerView } from "./store";
 
 interface RemoteDancer {
@@ -23,6 +24,7 @@ let room: Room | null = null;
 
 export function bindClub(r: Room) {
   room = r;
+  startClockSync(r);
   const $ = getStateCallbacks(r as Room<{ club: RemoteClub }>);
   const state = r.state as { club?: RemoteClub };
   const syncMusic = () => {

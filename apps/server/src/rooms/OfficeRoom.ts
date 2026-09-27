@@ -76,6 +76,8 @@ import {
   type FurnitureEvent,
   type HeldUsedEvent,
   type MenuId,
+  ClockPingMessage,
+  type ClockPong,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
@@ -246,6 +248,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.arcadeBoard, (client, raw) => void this.handleArcadeBoard(client, raw));
     this.onMessage(MSG.arcadeStart, (client, raw) => this.handleArcadeStart(client, raw));
     this.onMessage(MSG.arcadeFinish, (client, raw) => void this.handleArcadeFinish(client, raw));
+    this.onMessage(MSG.clockPing, (client, raw) => {
+      const parsed = ClockPingMessage.safeParse(raw);
+      if (parsed.success) client.send(MSG.clockPong, { id: parsed.data.id, now: Date.now() } satisfies ClockPong);
+    });
     // Quien se fue, cambió de nivel o se alejó deja de bailar (moverse ya lo revisa; esto cubre el resto).
     this.clock.setInterval(() => this.club.sweep(this.state.players), 500);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);

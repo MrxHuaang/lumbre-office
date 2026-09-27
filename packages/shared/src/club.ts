@@ -114,3 +114,32 @@ export const CLUB_ERROR_TEXT: Record<ClubError, string> = {
 
 /** Llave de un tubo (su tile), para saber quién baila en cuál. */
 export const poleKey = (x: number, y: number) => `${x},${y}`;
+
+// ---------- Hora del servidor ----------
+
+/** Cliente → servidor (`MSG.clockPing`): pide la hora; `id` es para reconocer la respuesta. */
+export const ClockPingMessage = z.object({ id: z.number().int().min(0).max(1_000_000_000) });
+export type ClockPingMessage = z.infer<typeof ClockPingMessage>;
+
+/** Servidor → cliente (`MSG.clockPong`). */
+export interface ClockPong {
+  id: number;
+  now: number;
+}
+
+/** Una medida: cuándo se mandó el ping y cuándo volvió (hora local) y la hora que dio el servidor. */
+export interface ClockSample {
+  sentAt: number;
+  receivedAt: number;
+  serverNow: number;
+}
+
+/**
+ * Diferencia entre la hora del servidor y la local (ms). Se queda con la medida de menor ida y vuelta (la
+ * menos afectada por la red) y supone que el servidor respondió a mitad de camino.
+ */
+export function clockOffset(samples: readonly ClockSample[]): number | null {
+  let best: ClockSample | null = null;
+  for (const s of samples) if (s.receivedAt >= s.sentAt && (!best || s.receivedAt - s.sentAt < best.receivedAt - best.sentAt)) best = s;
+  return best ? best.serverNow - (best.sentAt + best.receivedAt) / 2 : null;
+}
