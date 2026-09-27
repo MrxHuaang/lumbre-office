@@ -14,15 +14,19 @@ export interface PetDef {
   coat: PetCoat;
   /** Nivel donde vive: nunca sale de él. */
   area: string;
-  /** Tile de su cama (un mueble "pet-bed" del nivel). */
+  /**
+   * Tile de su cama (un mueble "pet-bed" del nivel). Si la cama se movió o se quitó, duerme en la
+   * "pet-bed" más cercana a este tile (ver `bedTile` en el servidor).
+   */
   bed: { x: number; y: number };
   /** Por dónde deambula (tiles del nivel): los destinos al azar se eligen adentro. */
   roam: { x: number; y: number; w: number; h: number };
 }
 
 export const PETS: readonly PetDef[] = [
-  // Canela, la gata del salón: la chimenea, el pasillo y el recibidor.
-  { id: "canela", name: "Canela", kind: "gato", coat: "naranja", area: "planta-baja", bed: { x: 10, y: 2 }, roam: { x: 0, y: 0, w: 24, h: 26 } },
+  // Canela, la gata atigrada del salón: la chimenea, el pasillo y el recibidor (es café, para no
+  // confundirla con el gato naranja de la cesta de al lado).
+  { id: "canela", name: "Canela", kind: "gato", coat: "cafe", area: "planta-baja", bed: { x: 10, y: 2 }, roam: { x: 0, y: 0, w: 24, h: 26 } },
   // Tobi, el perro del jardín: frente a la casa, entre el camino, la fogata y el lago.
   { id: "tobi", name: "Tobi", kind: "perro", coat: "cafe", area: "jardin", bed: { x: 58, y: 39 }, roam: { x: 22, y: 28, w: 40, h: 26 } },
   // Nube, el gato gris del piso 3: la sala de estar, el rincón de lectura y el pasillo.
@@ -49,6 +53,10 @@ export const PET = {
   /** Desde dónde se acaricia o se le da un premio (tiles). */
   reachTiles: 1.8,
   petCooldownMs: 1_500,
+  /** Pausa entre dos llamadas de la misma persona (cada una recalcula la ruta y suena en todo el nivel). */
+  callCooldownMs: 2_000,
+  /** Hasta dónde busca su cama si la movieron (tiles). */
+  bedSearchTiles: 12,
   /** Pausa entre dos premios de la misma persona. */
   treatCooldownMs: 20_000,
   /** Cuánto dura comerse el premio. */

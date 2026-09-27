@@ -1,4 +1,4 @@
-import { canStandAt, getWorld, wallBetween, zoneAt, type OfficeMap } from "@hyvento/map";
+import { buildArea, canStandAt, getWorld, isBlockedTile, portalAtTile, wallBetween, zoneAt, type OfficeMap } from "@hyvento/map";
 import { PET, PETS } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { Pets, type PetView } from "../src/rooms/mascotas";
@@ -99,29 +99,107 @@ describe("mascotas", () => {
     const { pets, sim } = setup(2);
     const tobi = pets.get("tobi")!;
     const who = { userId: "u", area: "jardin", x: tobi.x - 5 * 32, y: tobi.y + 1 * 32 };
-    expect(sim.call({ ...who, area: "planta-baja" }, { pet: "tobi" }, 0)).toBeNull();
-    expect(sim.call(who, { pet: "tobi" }, 0)).toBe("call");
+    expect(sim.call({ ...who, area: "planta-baja" }, { pet: "tobi" }, 0)).toMatchObject({ ok: false });
+    expect(sim.call(who, { pet: "tobi" }, 0)).toEqual({ ok: true, action: "call" });
     let now = 0;
     for (let i = 0; i < 200 && sim.modeOf("tobi") === "walk"; i++) sim.tick((now += PET.tickMs), PET.tickMs);
     expect(Math.hypot(tobi.x - who.x, tobi.y - who.y)).toBeLessThanOrEqual(1.5 * 32);
     expect(tobi.pose).toBe("sit");
     // Lejísimos no oye.
-    expect(sim.call({ ...who, x: who.x + 40 * 32 }, { pet: "tobi" }, now)).toBeNull();
-    expect(sim.call(who, { pet: "nadie" }, now)).toBeNull();
+    expect(sim.call({ ...who, x: who.x + 40 * 32 }, { pet: "tobi" }, now)).toMatchObject({ ok: false });
+    expect(sim.call(who, { pet: "nadie" }, now)).toMatchObject({ ok: false });
   });
 
   it("se acaricia y se le da un premio solo de cerca, con pausa entre premios", () => {
     const { pets, sim } = setup(2);
     const canela = pets.get("canela")!;
     const near = { userId: "u", area: "planta-baja", x: canela.x + 32, y: canela.y };
-    expect(sim.act({ ...near, x: canela.x + 5 * 32 }, { pet: "canela", action: "pet" }, 0)).toBeNull();
-    expect(sim.act(near, { pet: "canela", action: "pet" }, 0)).toBe("pet");
+    expect(sim.act({ ...near, x: canela.x + 5 * 32 }, { pet: "canela", action: "pet" }, 0)).toEqual({ ok: false, error: "far" });
+    expect(sim.act(near, { pet: "canela", action: "pet" }, 0)).toEqual({ ok: true, action: "pet" });
     // Muy seguido, no (la pausa de acariciar).
-    expect(sim.act(near, { pet: "canela", action: "pet" }, 500)).toBeNull();
-    expect(sim.act(near, { pet: "canela", action: "treat" }, 2_000)).toBe("treat");
+    expect(sim.act(near, { pet: "canela", action: "pet" }, 500)).toMatchObject({ ok: false });
+    expect(sim.act(near, { pet: "canela", action: "treat" }, 2_000)).toEqual({ ok: true, action: "treat" });
     expect(canela.pose).toBe("eat");
-    expect(sim.act(near, { pet: "canela", action: "treat" }, 5_000)).toBeNull();
-    expect(sim.act(near, { pet: "canela", action: "treat" }, 2_000 + PET.treatCooldownMs)).toBe("treat");
-    expect(sim.act(near, { pet: "canela", action: "bailar" }, 60_000)).toBeNull();
+    expect(sim.act(near, { pet: "canela", action: "treat" }, 5_000)).toEqual({ ok: false, error: "fed" });
+    expect(sim.act(near, { pet: "canela", action: "treat" }, 2_000 + PET.treatCooldownMs)).toEqual({ ok: true, action: "treat" });
+    expect(sim.act(near, { pet: "canela", action: "bailar" }, 60_000)).toMatchObject({ ok: false });
+  });
+
+  it("llamar tiene pausa por persona (cada llamada suena en todo el nivel)", () => {
+    const { pets, sim } = setup(2);
+    const tobi = pets.get("tobi")!;
+    const who = { userId: "u", area: "jardin", x: tobi.x - 4 * 32, y: tobi.y + 32 };
+    expect(sim.call(who, { pet: "tobi" }, 0)).toEqual({ ok: true, action: "call" });
+    expect(sim.call(who, { pet: "tobi" }, 500)).toEqual({ ok: false, error: "busy" });
+    // Otra persona sí puede, y la misma pasada la pausa.
+    expect(sim.call({ ...who, userId: "v" }, { pet: "tobi" }, 500)).toEqual({ ok: true, action: "call" });
+    expect(sim.call(who, { pet: "tobi" }, PET.callCooldownMs)).toEqual({ ok: true, action: "call" });
+    // Muchas personas que pasaron no quedan guardadas para siempre.
+    for (let i = 0; i < 200; i++) sim.call({ ...who, userId: `p${i}` }, { pet: "tobi" }, 10_000 + i * PET.callCooldownMs);
+    expect(sim.pending).toBeLessThan(80);
+  });
+
+  it("si el editor pone un mueble encima y mueve la cama, se corre, sigue paseando y duerme en la cama nueva", () => {
+    const pets = new Map<string, PetView>();
+    const maps = new Map(world.areas);
+    const sim = new Pets({ pets, create: blank, map: (a) => maps.get(a)!, rng: seeded(4) });
+    sim.start(0);
+    const canela = pets.get("canela")!;
+    const def = PETS.find((d) => d.id === "canela")!;
+    const base = world.areas.get("planta-baja")!;
+    // Un tile libre a unos pasos para la cama nueva (dentro de su zona, sin portal ni oficina).
+    let bed: { x: number; y: number } | undefined;
+    for (let r = 3; r <= 6 && !bed; r++)
+      for (let dx = -r; dx <= r && !bed; dx++) {
+        const x = def.bed.x + dx;
+        const y = def.bed.y + r;
+        if (!isBlockedTile(base, x, y) && !portalAtTile(base, x, y) && zoneAt(base, x * 32 + 16, y * 32 + 16)?.type !== "office") bed = { x, y };
+      }
+    expect(bed).toBeDefined();
+    const edited = buildArea({
+      ...base.def,
+      furniture: [...base.def.furniture.filter((f) => !(f.type === "pet-bed" && f.x === def.bed.x && f.y === def.bed.y)), { type: "radio", x: def.bed.x, y: def.bed.y }, { type: "pet-bed", x: bed!.x, y: bed!.y }],
+    });
+    expect(isBlockedTile(edited, def.bed.x, def.bed.y)).toBe(true);
+    maps.set("planta-baja", edited);
+    sim.rebuilt("planta-baja");
+    expect(isBlockedTile(edited, Math.floor(canela.x / 32), Math.floor(canela.y / 32))).toBe(false);
+    let slept = false;
+    let moved = false;
+    const start = { x: canela.x, y: canela.y };
+    for (let now = 0, i = 0; i < 6000; i++) {
+      now += PET.tickMs;
+      sim.tick(now, PET.tickMs);
+      expect(canStandAt(edited, canela.x, canela.y), `(${canela.x}, ${canela.y})`).toBe(true);
+      if (canela.x !== start.x || canela.y !== start.y) moved = true;
+      if (canela.pose === "sleep" && Math.floor(canela.x / 32) === bed!.x && Math.floor(canela.y / 32) === bed!.y) slept = true;
+    }
+    expect(moved).toBe(true);
+    expect(slept).toBe(true);
+  });
+
+  it("si un mueble nuevo le tapa la ruta a mitad de camino, deja la ruta y no lo atraviesa", () => {
+    const pets = new Map<string, PetView>();
+    const maps = new Map(world.areas);
+    const sim = new Pets({ pets, create: blank, map: (a) => maps.get(a)!, rng: seeded(9) });
+    sim.start(0);
+    const tobi = pets.get("tobi")!;
+    const jardin = world.areas.get("jardin")!;
+    const who = { userId: "u", area: "jardin", x: tobi.x - 6 * 32, y: tobi.y + 32 };
+    expect(sim.call(who, { pet: "tobi" }, 0)).toEqual({ ok: true, action: "call" });
+    let now = 0;
+    sim.tick((now += PET.tickMs), PET.tickMs);
+    expect(sim.modeOf("tobi")).toBe("walk");
+    // Un mueble sólido justo en el tile al que va.
+    const ahead = sim.nextStepOf("tobi")!;
+    expect(ahead).toBeDefined();
+    const edited = buildArea({ ...jardin.def, furniture: [...jardin.def.furniture, { type: "radio", x: ahead.x, y: ahead.y }] });
+    expect(isBlockedTile(edited, ahead.x, ahead.y)).toBe(true);
+    maps.set("jardin", edited);
+    for (let i = 0; i < 400; i++) {
+      sim.tick((now += PET.tickMs), PET.tickMs);
+      expect(canStandAt(edited, tobi.x, tobi.y), `(${tobi.x}, ${tobi.y})`).toBe(true);
+      expect([Math.floor(tobi.x / 32), Math.floor(tobi.y / 32)]).not.toEqual([ahead.x, ahead.y]);
+    }
   });
 });

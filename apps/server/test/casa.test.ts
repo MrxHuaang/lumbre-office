@@ -31,12 +31,12 @@ const TEST_AREA: AreaDef = {
   points: [{ type: "spawn", name: "Inicio", x: 5, y: 6 }],
 };
 
-function rules(occupied = new Map<string, string>()) {
+function rules(occupied = new Map<string, string>(), held = new Map<string, string>()) {
   const map = buildArea(TEST_AREA);
   const switches = new Map<string, boolean>();
   const counters = new Map<string, number>();
-  const uses = new FurnitureUses(switches, { counters, occupant: (k) => occupied.get(k) });
-  return { map, switches, counters, uses, occupied };
+  const uses = new FurnitureUses(switches, { counters, occupant: (k) => occupied.get(k), holding: (u) => held.get(u) });
+  return { map, switches, counters, uses, occupied, held };
 }
 
 const at = (tx: number, ty: number, userId = "u") => ({ userId, x: c(tx), y: c(ty) });
@@ -52,8 +52,22 @@ describe("casa viva: muebles que se usan (reglas)", () => {
     // Ni la nevera ni la cafetera: la pausa de lo gratis es para todo.
     expect(uses.use(map, at(1, 1), { type: "coffee-station", x: 1, y: 0 }, 5_000)).toEqual({ ok: false, error: "busy" });
     // Otra persona sí puede.
-    expect(uses.use(map, at(1, 1, "v"), { type: "coffee-station", x: 1, y: 0 }, 5_000)).toMatchObject({ gives: { item: "tinto" } });
-    expect(uses.use(map, at(1, 1), { type: "coffee-station", x: 1, y: 0 }, CASA.freebieCooldownMs + 1)).toMatchObject({ ok: true, gives: { item: "tinto" } });
+    expect(uses.use(map, at(1, 1, "v"), { type: "coffee-station", x: 1, y: 0 }, 5_000)).toMatchObject({ gives: { item: "aguapanela" } });
+    expect(uses.use(map, at(1, 1), { type: "coffee-station", x: 1, y: 0 }, CASA.freebieCooldownMs + 1)).toMatchObject({ ok: true, gives: { item: "aguapanela" } });
+  });
+
+  it("lo gratis no reemplaza lo que se pagó: con un whisky en la mano, la nevera no da nada", () => {
+    const held = new Map<string, string>([["u", "whisky"], ["v", "jugo"]]);
+    const { map, uses } = rules(new Map(), held);
+    expect(uses.use(map, at(0, 1), { type: "fridge", x: 0, y: 0 }, 0)).toEqual({ ok: false, error: "hands" });
+    expect(uses.use(map, at(8, 4), { type: "fire-pit", x: 9, y: 4 }, 0)).toEqual({ ok: false, error: "hands" });
+    // Lo que no es gratis (una planta) se usa igual con las manos llenas.
+    expect(uses.use(map, at(11, 1), { type: "plant", x: 11, y: 0 }, 0)).toMatchObject({ ok: true });
+    // Con algo gratis en la mano sí se cambia (no se pierde nada pagado).
+    expect(uses.use(map, at(0, 1, "v"), { type: "fridge", x: 0, y: 0 }, 0)).toMatchObject({ ok: true, gives: {} });
+    // Con las manos vacías, también.
+    held.delete("u");
+    expect(uses.use(map, at(0, 1), { type: "fridge", x: 0, y: 0 }, 5_000)).toMatchObject({ ok: true, gives: {} });
   });
 
   it("el ajedrez avanza un contador para todos y vuelve a empezar al llegar al tope", () => {
@@ -61,7 +75,8 @@ describe("casa viva: muebles que se usan (reglas)", () => {
     const key = furnitureKey("prueba-casa", "chess-table", 4, 3);
     const max = COUNTER_MAX["chess-table"]!;
     for (let i = 1; i <= max; i++) {
-      expect(uses.use(map, at(4, 4, `u${i}`), { type: "chess-table", x: 4, y: 3 }, 0)).toMatchObject({ counter: { key, value: i } });
+      // El valor nuevo también va en el evento (el cliente no espera al parche del estado).
+      expect(uses.use(map, at(4, 4, `u${i}`), { type: "chess-table", x: 4, y: 3 }, 0)).toMatchObject({ counter: { key, value: i }, event: { count: i } });
     }
     expect(uses.use(map, at(4, 4, "otra"), { type: "chess-table", x: 4, y: 3 }, 0)).toMatchObject({ counter: { key, value: 0 } });
     expect(counters.get(key)).toBe(0);
@@ -73,7 +88,7 @@ describe("casa viva: muebles que se usan (reglas)", () => {
     const key = furnitureKey("prueba-casa", "toilet-stall", 6, 0);
     expect(uses.use(map, at(8, 0), { type: "toilet-stall", x: 6, y: 0 }, 0)).toMatchObject({ ok: true, stall: key });
     occupied.set(key, "u");
-    expect(uses.use(map, at(8, 0, "v"), { type: "toilet-stall", x: 6, y: 0 }, 0)).toEqual({ ok: false, error: "busy" });
+    expect(uses.use(map, at(8, 0, "v"), { type: "toilet-stall", x: 6, y: 0 }, 0)).toEqual({ ok: false, error: "stall" });
   });
 
   it("las cortinas de las ventanas se cierran y se abren para todos", () => {
@@ -137,6 +152,17 @@ describe("casa viva: lo que pasa después", () => {
     expect(given).toHaveLength(1);
     clock.run(20);
     expect(given).toEqual(["u:jugo", "u:malvavisco"]);
+    // Si se fue de la fogata mientras se asaba, no le llega.
+    casa.after("u", { ok: true, kind: "event", event: { ...event, action: "roast" }, gives: { item: "malvavisco", afterMs: CASA.roastMs } }, () => false);
+    clock.run(CASA.roastMs + 1);
+    expect(given).toHaveLength(2);
+  });
+
+  it("stillInReach: sigue junto al mueble (el malvavisco se entrega solo si no se fue)", () => {
+    const { map, uses } = rules();
+    const pit = { type: "fire-pit", x: 9, y: 4 };
+    expect(uses.stillInReach(map, pit, c(7), c(4))).toBe(true);
+    expect(uses.stillInReach(map, pit, c(1), c(7))).toBe(false);
   });
 
   it("el cubículo queda ocupado un rato y se libera solo, al moverse o al irse", () => {

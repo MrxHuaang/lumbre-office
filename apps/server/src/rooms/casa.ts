@@ -32,8 +32,11 @@ export class CasaViva {
   /** Quién está en ese cubículo. */
   occupant = (key: string) => this.stalls.get(key);
 
-  /** Después de un uso válido: dar lo gratis y ocupar el cubículo. */
-  after(userId: string, result: FurnitureUseResult) {
+  /**
+   * Después de un uso válido: dar lo gratis y ocupar el cubículo. `stillNear` dice, al terminar de asar
+   * el malvavisco, si sigue junto a la fogata (si se fue o cambió de nivel, no lo recibe).
+   */
+  after(userId: string, result: FurnitureUseResult, stillNear: () => boolean = () => true) {
     if (!result.ok || result.kind !== "event") return;
     if (result.gives) {
       const { item, afterMs } = result.gives;
@@ -45,7 +48,7 @@ export class CasaViva {
           userId,
           this.clock.setTimeout(() => {
             this.roastTimers.delete(userId);
-            this.give(userId, item);
+            if (stillNear()) this.give(userId, item);
           }, afterMs),
         );
       }

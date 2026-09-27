@@ -87,6 +87,11 @@ export interface UsableSpec {
   gives?: readonly string[];
   /** Alcance propio en tiles (la fogata se usa desde los troncos); si no, INTERACT_REACH_TILES. */
   reachTiles?: number;
+  /**
+   * `false`: sin destello de "aquí se puede hacer algo" (plantas, estanterías, lavamanos, cortinas): son
+   * tantos que el indicador quedaría titilando sobre casi cada mueble. Ver `usableMarker` en casa.ts.
+   */
+  marker?: false;
 }
 
 export const USABLE_FURNITURE: Record<string, UsableSpec> = {
@@ -179,4 +184,6 @@ export interface FurnitureEvent {
   seed: number;
   /** Casa viva: lo que salió de la nevera o la cafetera (o el malvavisco que se está asando). */
   item?: string;
+  /** Casa viva: el valor nuevo del contador (ajedrez, puzle, pizarra), para mostrarlo sin esperar al estado. */
+  count?: number;
 }

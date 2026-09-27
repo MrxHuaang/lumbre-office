@@ -6,6 +6,7 @@ import {
   FurnitureUseMessage,
   counterMax,
   furnitureKey,
+  isFreeHold,
   isSwitchedOn,
   pickGift,
   stepsTo,
@@ -35,6 +36,8 @@ export interface CasaOptions {
   counters?: Counters;
   /** userId de quien está en el cubículo con esa clave (o undefined si está libre). */
   occupant?: (key: string) => string | undefined;
+  /** Lo que lleva en la mano esa persona (HeldItems.get): lo gratis no reemplaza lo que se pagó. */
+  holding?: (userId: string) => string | undefined;
 }
 
 export type FurnitureUseResult =
@@ -50,7 +53,8 @@ export type FurnitureUseResult =
       /** Casa viva: el cubículo del baño al que se entra. */
       stall?: string;
     }
-  | { ok: false; error: "invalid" | "far" | "busy" };
+  /** `hands`: lleva algo pagado en la mano (lo gratis lo reemplazaría); `stall`: el baño está ocupado. */
+  | { ok: false; error: "invalid" | "far" | "busy" | "hands" | "stall" };
 
 /** El mueble usable de ese tipo con esquina en (x, y), si existe en el nivel. */
 export function usableAt(map: OfficeMap, type: string, x: number, y: number): PlacedFurniture | undefined {
@@ -121,9 +125,12 @@ export class FurnitureUses {
     // Lo gratis tiene su propia pausa (más larga), y a un cubículo ocupado no se entra.
     const freebie = spec.action === "take" || spec.action === "roast";
     if (freebie && now < (this.freebieAt.get(who.userId) ?? 0)) return { ok: false, error: "busy" };
+    // Lo gratis no pisa lo que se compró con puntos (un whisky, un combo): hay que terminarlo primero.
+    const held = freebie ? this.casa.holding?.(who.userId) : undefined;
+    if (held && !isFreeHold(held)) return { ok: false, error: "hands" };
     if (spec.action === "stall") {
       const inside = this.casa.occupant?.(key);
-      if (inside && inside !== who.userId) return { ok: false, error: "busy" };
+      if (inside && inside !== who.userId) return { ok: false, error: "stall" };
     }
     this.forgetExpired(now);
     this.nextAt.set(who.userId, now + spec.cooldownMs);
@@ -142,10 +149,19 @@ export class FurnitureUses {
       // Avanza para todos; al llegar al tope vuelve a empezar (partida nueva, pizarra borrada).
       const value = ((this.counters.get(key) ?? 0) + 1) % (counterMax(type) + 1);
       this.counters.set(key, value);
-      return { ok: true, kind: "event", event, counter: { key, value } };
+      // El valor va en el evento: el cliente lo muestra sin esperar al parche del estado.
+      return { ok: true, kind: "event", event: { ...event, count: value }, counter: { key, value } };
     }
     if (spec.action === "stall") return { ok: true, kind: "event", event, stall: key };
     return { ok: true, kind: "event", event };
+  }
+
+  /**
+   * ¿Sigue al alcance del mueble de ese evento? (el malvavisco tarda en asarse: si se fue, no lo recibe).
+   */
+  stillInReach(map: OfficeMap, e: { type: string; x: number; y: number }, px: number, py: number): boolean {
+    const f = usableAt(map, e.type, e.x, e.y);
+    return Boolean(f && canUse(map, f, px, py));
   }
 
   /** Las pausas ya vencidas no hacen falta: sin esto el mapa crece con cada persona que pasó por la sala. */

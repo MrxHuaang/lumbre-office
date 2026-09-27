@@ -77,6 +77,8 @@ import {
   type HeldUsedEvent,
   type MenuId,
   CASA,
+  CASA_MSG,
+  type CasaNotice,
   PET,
   PET_MSG,
   type PetEvent,
@@ -215,7 +217,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       (userId, item) => this.held.give(userId, item),
       () => OfficeRoom.stallMs,
     );
-    this.furnitureUses = new FurnitureUses(this.state.switches, { counters: this.state.counters, occupant: this.casa.occupant });
+    this.furnitureUses = new FurnitureUses(this.state.switches, {
+      counters: this.state.counters,
+      occupant: this.casa.occupant,
+      holding: (userId) => this.held.get(userId)?.item,
+    });
     this.startPets();
     OfficeRoom.instances.add(this);
 
@@ -408,6 +414,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.world.areas.set(areaId, def === base.def ? base : buildArea(def));
     this.unstick(areaId);
     this.furnitureUses?.prune(this.mapOf(areaId));
+    // Casa viva: si un mueble nuevo quedó encima de una mascota o de su ruta, se corre.
+    this.pets?.rebuilt(areaId);
   }
 
   /**
@@ -1009,14 +1017,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const now = Date.now();
     const seed = Math.floor(Math.random() * 2 ** 31);
     const result = this.furnitureUses.use(this.mapOf(player.area), player, raw, now, seed);
-    if (!result.ok) return;
+    if (!result.ok) {
+      // Casa viva: por qué no (las manos llenas, el baño ocupado); lo demás se ignora como antes.
+      if (result.error === "hands" || result.error === "stall") client.send(CASA_MSG.notice, { code: result.error } satisfies CasaNotice);
+      return;
+    }
     client.userData.lastActiveAt = now;
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
       this.sendToArea(player.area, MSG.furnitureEvent, event);
     }
-    // Casa viva: lo gratis a la mano (el malvavisco, al terminar de asarse) y el cubículo ocupado.
-    this.casa.after(player.userId, result);
+    // Casa viva: lo gratis a la mano (el malvavisco, al terminar de asarse, si sigue junto a la fogata) y
+    // el cubículo ocupado.
+    const area = player.area;
+    this.casa.after(player.userId, result, () => {
+      const p = this.state.players.get(client.sessionId);
+      return !!p && p.area === area && result.kind === "event" && this.furnitureUses.stillInReach(this.mapOf(area), result.event, p.x, p.y);
+    });
   }
 
   // ---------- Casa viva: mascotas ----------
@@ -1044,8 +1061,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !client.userData) return;
     const now = Date.now();
     const who: PetUser = { userId: player.userId, area: player.area, x: player.x, y: player.y };
-    const action = kind === "call" ? this.pets.call(who, raw, now) : this.pets.act(who, raw, now);
-    if (!action) return;
+    const result = kind === "call" ? this.pets.call(who, raw, now) : this.pets.act(who, raw, now);
+    if (!result.ok) {
+      // Al que pidió acariciar o dar un premio se le dice por qué no (llamar lejos no avisa: es un clic).
+      if (result.error === "fed" || (kind === "action" && result.error === "far")) {
+        client.send(CASA_MSG.notice, { code: result.error === "fed" ? "fed" : "petFar" } satisfies CasaNotice);
+      }
+      return;
+    }
+    const action = result.action;
     client.userData.lastActiveAt = now;
     const pet = (raw as { pet: string }).pet;
     this.sendToArea(player.area, PET_MSG.event, { pet, sessionId: client.sessionId, action } satisfies PetEvent);

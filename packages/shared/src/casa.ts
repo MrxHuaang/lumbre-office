@@ -3,6 +3,7 @@
 // USABLE_FURNITURE (consumables.ts): mismo mensaje (`MSG.furnitureUse`), mismas reglas de alcance.
 // El servidor valida y avisa; lo que ven todos queda en el estado (interruptores, contadores y
 // cubículos ocupados) o llega como evento.
+import { z } from "zod";
 import type { ConsumeAction, UsableSpec } from "./consumables";
 
 /**
@@ -52,10 +53,12 @@ const lamp = (label: string): UsableSpec => ({
   defaultOn: true,
   cooldownMs: 400,
   nightOnly: true,
+  marker: false,
 });
-const read: UsableSpec = { action: "read", label: "Leer un libro", cooldownMs: CASA.readMs };
-const water: UsableSpec = { action: "water", label: "Regar la planta", cooldownMs: CASA.waterMs };
-const wash: UsableSpec = { action: "wash", label: "Lavarse las manos", cooldownMs: CASA.washMs };
+// Estanterías, plantas y lavamanos hay por docenas: se usan igual, pero sin destello.
+const read: UsableSpec = { action: "read", label: "Leer un libro", cooldownMs: CASA.readMs, marker: false };
+const water: UsableSpec = { action: "water", label: "Regar la planta", cooldownMs: CASA.waterMs, marker: false };
+const wash: UsableSpec = { action: "wash", label: "Lavarse las manos", cooldownMs: CASA.washMs, marker: false };
 const stall: UsableSpec = { action: "stall", label: "Entrar al baño", cooldownMs: 1500 };
 const stoke: UsableSpec = { action: "stoke", label: "Avivar el fuego", cooldownMs: 3000 };
 
@@ -74,7 +77,8 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   bookshelf: read,
   // Nevera y cafetera: algo gratis a la mano.
   fridge: { action: "take", label: "Abrir la nevera", cooldownMs: 1500, gives: ["jugo", "manzana", "banano"] },
-  "coffee-station": { action: "take", label: "Servirse un tinto", cooldownMs: 1500, gives: ["tinto"] },
+  // La cafetera da agua de panela, que no está en la carta (el tinto y la aromática se pagan en la cafetería).
+  "coffee-station": { action: "take", label: "Servirse un agua de panela", cooldownMs: 1500, gives: ["aguapanela"] },
   // Radio: música, como el tocadiscos (arranca apagada).
   radio: { action: "toggle", label: "Prender la radio", labelOn: "Apagar la radio", defaultOn: false, cooldownMs: 800 },
   globe: { action: "spin", label: "Girar el globo", cooldownMs: 1800 },
@@ -88,7 +92,7 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   planter: water,
   "balcony-planter": water,
   // Las cortinas de las ventanas: prendida = cerrada.
-  [CURTAIN_TYPE]: { action: "toggle", label: "Cerrar la cortina", labelOn: "Abrir la cortina", defaultOn: false, cooldownMs: 600 },
+  [CURTAIN_TYPE]: { action: "toggle", label: "Cerrar la cortina", labelOn: "Abrir la cortina", defaultOn: false, cooldownMs: 600, marker: false },
   // Juegos de mesa y pizarras: un contador que avanza para todos.
   "chess-table": { action: "count", label: "Mover una pieza", cooldownMs: 1200 },
   "puzzle-table": { action: "count", label: "Poner una pieza", cooldownMs: 1200 },
@@ -107,14 +111,16 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
 /** Lo gratis que se lleva en la mano: cómo se usa y cuántas veces (se suma a CONSUMABLES). */
 export const CASA_CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }> = {
   jugo: { action: "sip", uses: 3 },
+  aguapanela: { action: "sip", uses: 3 },
   manzana: { action: "bite", uses: 3 },
   banano: { action: "bite", uses: 3 },
   malvavisco: { action: "bite", uses: 2 },
 };
 
-/** Qué queda en la mano por algo gratis (el tinto sale de la carta de la cafetería). */
+/** Qué queda en la mano por algo gratis (lo pagado sale de las cartas de la cafetería y el bar). */
 export const FREE_HOLDS: Record<string, readonly string[]> = {
   jugo: ["jugo"],
+  aguapanela: ["aguapanela"],
   manzana: ["manzana"],
   banano: ["banano"],
   malvavisco: ["malvavisco"],
@@ -152,3 +158,43 @@ export function pickGift(gives: readonly string[], seed: number): string {
 
 /** Clave de un contador en el estado (`OfficeState.counters`), igual que la de los interruptores. */
 export const counterMax = (type: string) => COUNTER_MAX[type] ?? 1;
+
+/** Cómo se llama lo gratis que se lleva en la mano (no está en ninguna carta). */
+export const FREE_NAMES: Record<string, string> = {
+  jugo: "Jugo de naranja",
+  aguapanela: "Agua de panela",
+  manzana: "Manzana",
+  banano: "Banano",
+  malvavisco: "Malvavisco asado",
+};
+
+/** ¿Es algo gratis de la casa? (se puede cambiar por otra cosa gratis sin perder nada). */
+export const isFreeHold = (item: string) => Object.hasOwn(FREE_HOLDS, item);
+
+/**
+ * ¿Lleva un destello de "aquí se puede hacer algo"? Los muebles sin `marker` y las lámparas de solo
+ * noche (de día no se ofrecen) no. Lo usan los indicadores del cliente (markers.ts).
+ */
+export function usableMarker(spec: UsableSpec | undefined, night: boolean): boolean {
+  if (!spec || spec.marker === false) return false;
+  return !spec.nightOnly || night;
+}
+
+// ---------- Avisos a quien intentó algo y no se pudo ----------
+
+/** Servidor → quien lo intentó (`CASA_MSG.notice`): por qué no se pudo (las manos llenas, ya comió…). */
+export const CASA_MSG = { notice: "casa:notice" } as const;
+
+export const CasaNoticeCode = z.enum(["hands", "stall", "fed", "petFar"]);
+export type CasaNoticeCode = z.infer<typeof CasaNoticeCode>;
+
+export interface CasaNotice {
+  code: CasaNoticeCode;
+}
+
+export const CASA_NOTICES: Record<CasaNoticeCode, string> = {
+  hands: "Tienes las manos ocupadas: termina primero lo que llevas.",
+  stall: "Ese baño está ocupado.",
+  fed: "Ya comió: espera un rato para darle otro premio.",
+  petFar: "Acércate un poco más.",
+};

@@ -276,6 +276,22 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { a: hex("#ffa62b"), A: hex("#e07a18"), s: hex("#f25c7a"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
   },
+  // El agua de panela de la cafetera de la casa (no está en la carta): la taza del tinto, dorada y con
+  // una rodaja de limón.
+  aguapanela: {
+    fx: "steam",
+    rows: [
+      ".oooool", //
+      ".occcoL",
+      ".owwWoo",
+      ".owwWoo",
+      "ooooooo",
+      "oWwwwWo",
+      ".ooooo.",
+    ],
+    colors: { ...CUP, c: hex("#b8742e"), l: hex("#f3e36a"), L: hex("#9fc43a") },
+    surface: { chars: "c", inner: hex("#dca45a") },
+  },
   manzana: {
     crumb: hex("#fff3d0"),
     rows: [
