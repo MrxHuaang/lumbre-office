@@ -43,7 +43,7 @@ function wallpaperSwatch(w: OfficeWallpaper): string {
 const artCache = new Map<string, string>();
 
 /** El mueble en pixel-art, ampliado sin suavizar (se dibuja en el navegador). */
-function FurnitureArt({ type }: { type: string }) {
+export function FurnitureArt({ type }: { type: string }) {
   const [src, setSrc] = useState(() => artCache.get(type) ?? null);
   useEffect(() => {
     if (artCache.has(type)) return setSrc(artCache.get(type)!);

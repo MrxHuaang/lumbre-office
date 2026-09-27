@@ -5,6 +5,11 @@ import {
   canStandAt,
   canWalkBetween,
   decorateAreaDef,
+  checkWorldEdit,
+  parseWorldEdits,
+  planDef,
+  setWorldEdits,
+  type WorldEdits,
   defaultOfficeItems,
   storedEdit,
   BLACKJACK_SEATS,
@@ -64,6 +69,8 @@ import {
   type KnockResult,
   type MoveCorrection,
   type OfficeEditResult,
+  WorldEditMessage,
+  type WorldEditResult,
   type OfficeItemDTO,
   type Positioned,
   BarOrderMessage,
@@ -98,6 +105,8 @@ interface UserData {
   editTimes?: number[];
   /** Último emote (para que no se puedan mandar en ráfaga). */
   lastEmoteAt?: number;
+  /** Admin del equipo (puede usar el editor de la casa). */
+  admin?: boolean;
 }
 
 interface PendingKnock {
@@ -152,6 +161,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static blackjackShuffle: () => number[] = randomShoe;
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
+  /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
+  static applyWorldEditsEverywhere(area: string, edits: WorldEdits) {
+    for (const r of OfficeRoom.instances) r.applyWorldEdits(area, edits);
+  }
+
   static async reloadCasinoSettingsEverywhere() {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadCasinoSettings()));
   }
@@ -220,6 +234,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         client.send(MSG.officeEditResult, { ok: false, error: "failed" } satisfies OfficeEditResult);
       });
     });
+    this.onMessage(MSG.worldEdit, (client, raw) => {
+      this.serial(() => this.handleWorldEdit(client, raw)).catch((err) => {
+        console.error("worldEdit", err);
+        client.send(MSG.worldEditResult, { ok: false, error: "failed" } satisfies WorldEditResult);
+      });
+    });
     this.onMessage(MSG.emote, (client, raw) => this.handleEmote(client, raw));
     this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
     this.onMessage(MSG.blackjackBet, (client, raw) => void this.handleBlackjack(client, raw, "bet"));
@@ -229,6 +249,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
     await this.reloadCasinoSettings();
+    await this.loadWorldEdits();
     this.startCasino();
     await this.reloadOffices();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
@@ -276,7 +297,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
     this.state.players.set(client.sessionId, player);
 
-    client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now() };
+    client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now(), admin: auth.role === "ADMIN" };
     client.send(MSG.chatHistory, this.globalHistory);
     // La hora del servidor, para que el cliente calcule bien los conteos regresivos (la ruleta).
     client.send(MSG.clock, { now: Date.now() });
@@ -379,6 +400,46 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       };
     }
     return decor;
+  }
+
+  /** Carga los cambios guardados del editor de la casa y los aplica a cada nivel. */
+  private async loadWorldEdits() {
+    const saved = await this.repo.loadWorldEdits().catch((err) => {
+      console.error("loadWorldEdits", err);
+      return {} as Record<string, unknown>;
+    });
+    for (const [area, raw] of Object.entries(saved)) if (planDef(area)) this.applyWorldEdits(area, parseWorldEdits(raw));
+  }
+
+  /** Aplica los cambios del editor a un nivel: el mundo compartido, la copia de esta sala y el estado. */
+  private applyWorldEdits(area: string, edits: WorldEdits) {
+    setWorldEdits(area, edits);
+    this.state.worldEdits.set(area, JSON.stringify(edits));
+    this.rebuildArea(area);
+  }
+
+  /** Editor de la casa (solo admins): valida el cambio, lo guarda y lo aplica en todas las salas. */
+  private async handleWorldEdit(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = WorldEditMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const reply = (r: WorldEditResult) => client.send(MSG.worldEditResult, r);
+    if (!client.userData.admin) return reply({ ok: false, error: "admin" });
+    const { area, op } = parsed.data;
+    const def = planDef(area);
+    if (!def) return reply({ ok: false, error: "unknown" });
+    const current = parseWorldEdits(JSON.parse(this.state.worldEdits.get(area) ?? "null"));
+    const people = [...this.state.players.values()].filter((p) => p.area === area).map((p) => ({ x: p.x, y: p.y }));
+    const check = checkWorldEdit(def, current, op, people, randomUUID().slice(0, 8));
+    if (!check.ok) return reply({ ok: false, error: check.error });
+    try {
+      await this.repo.saveWorldEdits(area, check.edits, player.userId);
+    } catch (err) {
+      console.error("saveWorldEdits", err);
+      return reply({ ok: false, error: "failed" });
+    }
+    OfficeRoom.applyWorldEditsEverywhere(area, check.edits);
+    reply({ ok: true });
   }
 
   /** Rearma un nivel con la decoración actual (colisión y asientos del servidor). */

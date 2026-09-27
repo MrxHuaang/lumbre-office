@@ -62,6 +62,7 @@ import {
   onFurnitureEvent,
   onHeldUsed,
   onMoveCorrection,
+  onWorldEdits,
   onRoom,
   sendFurnitureUse,
   sendMove,
@@ -74,6 +75,7 @@ import {
 import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
 import { TableMode } from "./table";
 import { InteractMarkers } from "./markers";
+import { WorldEditor } from "./worldEditor";
 import { Usables, type UsableHit } from "./usables";
 
 const MIN_ZOOM = 2;
@@ -184,6 +186,8 @@ export class OfficeScene extends Phaser.Scene {
   private usableNear: UsableHit | null = null;
   /** Rombitos sobre lo que se puede usar (ver markers.ts). */
   private markers!: InteractMarkers;
+  /** Editor de la casa (admins; ver worldEditor.ts). */
+  private worldEditor!: WorldEditor;
   /** Mueble al que voy caminando (clic en la tele, el piano…): al llegar se usa. */
   private pendingUse: PlacedFurniture | null = null;
 
@@ -216,11 +220,18 @@ export class OfficeScene extends Phaser.Scene {
     this.table = new TableMode(this);
     this.usables = new Usables(this, (id) => this.avatars.get(id), () => this.local);
     this.markers = new InteractMarkers(this);
+    this.worldEditor = new WorldEditor(this, {
+      map: () => this.map,
+      view: () => this.view,
+      me: () => (this.local ? { x: this.local.x, y: this.local.y } : null),
+    });
+    this.cleanups.push(onWorldEdits((area) => this.rebuildFromWorld(area)));
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
       if (this.table.pointerDown(p.worldX, p.worldY)) return; // en la mesa, el clic pone fichas
-      if (s.decorating) this.decorClick(p.worldX, p.worldY); // decorando, el clic pone o elige muebles
+      if (s.worldEditing) this.worldEditor.click(p.worldX, p.worldY); // editor de la casa (admins)
+      else if (s.decorating) this.decorClick(p.worldX, p.worldY); // decorando, el clic pone o elige muebles
       else this.clickAt(p.worldX, p.worldY);
     });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
@@ -263,6 +274,9 @@ export class OfficeScene extends Phaser.Scene {
         if (s.panel?.kind !== prev.panel?.kind) this.syncTable(s.panel?.kind, prev.panel?.kind);
         if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
           this.refreshDecor();
+        }
+        if (s.worldEditing !== prev.worldEditing || (s.worldEditing && (s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing))) {
+          this.worldEditor.refresh(true);
         }
       }),
     );
@@ -379,6 +393,28 @@ export class OfficeScene extends Phaser.Scene {
     }
     if (this.seat) this.seat = seatAtPoint(map, this.seat.x, this.seat.y) ?? this.seat;
     this.refreshDecor();
+    this.worldEditor?.refresh(true);
+  }
+
+  /**
+   * Cambió un nivel con el editor de la casa (el mundo del módulo ya lo tiene): se rearma la copia de la
+   * escena con la decoración de las oficinas encima y, si es el que se ve, se vuelve a dibujar.
+   */
+  private rebuildFromWorld(areaId: string) {
+    const base = getWorld().areas.get(areaId);
+    if (!base) return;
+    this.decorApplied.delete(areaId);
+    const decor = this.decorOf(areaId, useOfficeStore.getState().offices);
+    let map: OfficeMap = base;
+    try {
+      const def = decorateAreaDef(base.def, decor);
+      if (def !== base.def) map = buildArea(def);
+    } catch (err) {
+      console.error("No se pudo rearmar el nivel", err);
+    }
+    this.decorApplied.set(areaId, JSON.stringify(decor));
+    this.world.areas.set(areaId, map);
+    if (this.map?.id === areaId) this.redrawArea(map);
   }
 
   private handleCorrection(c: MoveCorrection) {
@@ -628,6 +664,7 @@ export class OfficeScene extends Phaser.Scene {
       // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
       if (taps.f && this.local?.holding && !useOfficeStore.getState().decorating && !this.table.kind) sendUseHeld();
       if (useOfficeStore.getState().decorating) this.decorKeys(taps);
+      if (useOfficeStore.getState().worldEditing) this.worldEditor.keys(taps);
       // Esc sale de la mesa (y del blackjack te levanta).
       if (taps.esc && this.table.kind) useOfficeStore.getState().closePanel();
     }
@@ -864,6 +901,11 @@ export class OfficeScene extends Phaser.Scene {
   private hoverAt(sx: number, sy: number) {
     const cursor = this.hoverCursor;
     if (!cursor) return;
+    if (useOfficeStore.getState().worldEditing) {
+      cursor.setVisible(false);
+      this.worldEditor.hoverAt(sx, sy);
+      return;
+    }
     if (useOfficeStore.getState().decorating) {
       cursor.setVisible(false);
       this.decorHoverAt(sx, sy);

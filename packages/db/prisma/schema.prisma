@@ -372,3 +372,16 @@ model ArcadeScore {
   @@index([game, createdAt])
   @@index([userId, game])
 }
+
+/**
+ * Cambios que hizo un admin a la decoración de un nivel con el editor de la casa: qué muebles del
+ * plano (el código) se quitaron y cuáles se agregaron. Se aplican encima del plano, así el plano puede
+ * seguir cambiando en el código sin perder lo que se acomodó a mano.
+ */
+model WorldLayout {
+  area      String   @id
+  /// { removed: string[] ("tipo@x,y" de muebles del plano), added: { id, type, x, y, facing }[] }
+  edits     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}

@@ -146,6 +146,9 @@ interface OfficeStore {
   lastAward: (PointsAwarded & { id: number }) | null;
   /** Modo decorar tu oficina: el clic pone o elige muebles en vez de caminar. */
   decorating: boolean;
+  /** Editor de la casa (solo admins): usa decorPick/decorFacing igual que el editor de oficina. */
+  worldEditing: boolean;
+  setWorldEditing: (on: boolean) => void;
   /** Mueble elegido para poner o mover (null = ninguno: el clic elige uno puesto). */
   decorPick: DecorPick | null;
   /** Hacia dónde mira el mueble elegido (R lo gira). */
@@ -234,6 +237,7 @@ const initial = {
   panel: null as { kind: PanelKind; atObject: boolean } | null,
   lastAward: null as (PointsAwarded & { id: number }) | null,
   decorating: false,
+  worldEditing: false,
   decorPick: null as DecorPick | null,
   decorFacing: "right" as Direction,
   decorResult: null as (OfficeEditResult & { id: number }) | null,
@@ -303,7 +307,8 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   closePanel: () => set({ panel: null }),
   addAward: (a) => set({ lastAward: { ...a, id: ++noticeId } }),
   // Al entrar o salir del modo decorar no queda nada elegido.
-  setDecorating: (decorating) => set({ decorating, decorPick: null, panel: decorating ? null : get().panel }),
+  setDecorating: (decorating) => set({ decorating, worldEditing: false, decorPick: null, panel: decorating ? null : get().panel }),
+  setWorldEditing: (worldEditing) => set({ worldEditing, decorating: false, decorPick: null, panel: worldEditing ? null : get().panel }),
   pickDecor: (decorPick, facing) => set((s) => ({ decorPick, decorFacing: facing ?? s.decorFacing })),
   rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
   setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),

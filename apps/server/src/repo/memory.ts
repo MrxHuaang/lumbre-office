@@ -139,6 +139,14 @@ export class MemoryRepository implements GameRepository {
 
   /** Ajustes del casino en memoria (los tests los cambian directo). */
   casinoSettings: CasinoSettingsDTO = { enabled: true, dailyLossLimit: CASINO.defaultDailyLossLimit };
+  /** Cambios del editor de la casa en memoria. */
+  worldEdits: Record<string, unknown> = {};
+  async loadWorldEdits() {
+    return { ...this.worldEdits };
+  }
+  async saveWorldEdits(area: string, edits: unknown) {
+    this.worldEdits[area] = JSON.parse(JSON.stringify(edits));
+  }
   async getCasinoSettings() {
     return { ...this.casinoSettings };
   }

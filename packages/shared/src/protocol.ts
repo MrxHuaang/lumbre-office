@@ -152,6 +152,9 @@ export const MSG = {
   /** Editor de oficina (`OfficeEditMessage`) y su respuesta (`OfficeEditResult`). */
   officeEdit: "office:edit",
   officeEditResult: "office:edit:result",
+  /** Editor de la casa, solo admins (`WorldEditMessage`) y su respuesta (`WorldEditResult`). */
+  worldEdit: "world:edit",
+  worldEditResult: "world:edit:result",
   /** Emote sobre la cabeza (`EmoteMessage`) y el aviso a los del mismo nivel (`EmoteEvent`). */
   emote: "emote",
   emoteEvent: "emote:event",

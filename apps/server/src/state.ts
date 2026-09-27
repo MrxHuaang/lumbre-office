@@ -114,4 +114,6 @@ export class OfficeState extends Schema {
   @type(BlackjackState) blackjack = new BlackjackState();
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`; los que no están siguen como arrancan. */
   @type({ map: "boolean" }) switches = new MapSchema<boolean>();
+  /** Cambios del editor de la casa por nivel (JSON de WorldEdits de @hyvento/map); sin entrada, el plano. */
+  @type({ map: "string" }) worldEdits = new MapSchema<string>();
 }

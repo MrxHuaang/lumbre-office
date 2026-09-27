@@ -77,6 +77,9 @@ export interface GameRepository {
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }): Promise<{ ok: boolean; balance: number }>;
   /** Ajustes del casino (límite diario de pérdidas, abierto o cerrado). */
   getCasinoSettings(): Promise<CasinoSettingsDTO>;
+  /** Cambios del editor de la casa, por nivel (JSON crudo: se valida al leer). */
+  loadWorldEdits(): Promise<Record<string, unknown>>;
+  saveWorldEdits(area: string, edits: unknown, userId: string): Promise<void>;
   /** Descuenta una apuesta si no pasa el límite de pérdidas de hoy ni el saldo. */
   casinoBet(input: { userId: string; amount: number; refId: string; limit: number }): Promise<
     { ok: true; balance: number } | { ok: false; error: "limit" | "funds"; balance: number }

@@ -6,6 +6,7 @@ import {
   getCasinoSettings,
   type PresenceStatus as DbStatus,
   prisma,
+  type Prisma,
   spendPoints,
   takeInventoryTx,
 } from "@hyvento/db";
@@ -196,6 +197,16 @@ export class PrismaRepository implements GameRepository {
 
   getCasinoSettings() {
     return getCasinoSettings(prisma);
+  }
+
+  async loadWorldEdits() {
+    const rows = await prisma.worldLayout.findMany();
+    return Object.fromEntries(rows.map((r) => [r.area, r.edits as unknown]));
+  }
+
+  async saveWorldEdits(area: string, edits: unknown, userId: string) {
+    const json = edits as Prisma.InputJsonValue;
+    await prisma.worldLayout.upsert({ where: { area }, create: { area, edits: json, updatedBy: userId }, update: { edits: json, updatedBy: userId } });
   }
 
   casinoBet(input: { userId: string; amount: number; refId: string; limit: number }) {

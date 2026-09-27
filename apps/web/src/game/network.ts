@@ -30,7 +30,10 @@ import {
   type OfficeEditResult,
   type PointsAwarded,
   type PresenceStatus,
+  type WorldEditMessage,
+  type WorldEditResult,
 } from "@hyvento/shared";
+import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { useOfficeStore, type Interactable } from "./store";
@@ -111,6 +114,8 @@ export interface OfficeStateView {
   blackjack: RemoteBlackjack;
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`. */
   switches: Map<string, boolean>;
+  /** Cambios del editor de la casa por nivel (JSON de WorldEdits). */
+  worldEdits: Map<string, string>;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -309,6 +314,39 @@ function handleOfficeEditResult(r: OfficeEditResult) {
   if (!r.ok) store.notify(DECOR_ERRORS[r.error], "warning");
 }
 
+/** Editor de la casa (solo admins): un cambio en un nivel. */
+export function sendWorldEdit(edit: WorldEditMessage) {
+  room?.send(MSG.worldEdit, edit);
+}
+
+const WORLD_EDIT_TEXT: Record<string, string> = {
+  ...WORLD_EDIT_ERRORS,
+  admin: "Solo los admins pueden editar la casa.",
+  failed: "No se pudo guardar. Intenta de nuevo.",
+};
+
+function handleWorldEditResult(r: WorldEditResult) {
+  if (!r.ok) useOfficeStore.getState().notify(WORLD_EDIT_TEXT[r.error] ?? WORLD_EDIT_TEXT.failed!, "warning");
+}
+
+/** Llegaron cambios del editor de la casa para un nivel: se aplican al mundo y se avisa a la escena. */
+function applyWorldEditsJson(area: string, json: string) {
+  try {
+    setWorldEdits(area, parseWorldEdits(JSON.parse(json)));
+  } catch (err) {
+    console.error("Cambios de la casa inválidos", err);
+    return;
+  }
+  worldEditListeners.forEach((cb) => cb(area));
+}
+
+const worldEditListeners = new Set<(area: string) => void>();
+/** La escena rearma el nivel cuando cambia (ver OfficeScene). */
+export function onWorldEdits(cb: (area: string) => void) {
+  worldEditListeners.add(cb);
+  return () => worldEditListeners.delete(cb);
+}
+
 /** Hubo actividad real (mouse/teclado): cuenta para los puntos de presencia. */
 export function sendActivity() {
   room?.send(MSG.activity);
@@ -414,6 +452,8 @@ function attach(r: OfficeRoom) {
     o$.items.onRemove(sync);
   });
   $(r.state).offices.onRemove((_office, zoneId) => useOfficeStore.getState().removeOffice(zoneId));
+  $(r.state).worldEdits.onAdd((json, area) => applyWorldEditsJson(area, json));
+  $(r.state).worldEdits.onChange((json, area) => applyWorldEditsJson(area, json));
 
   // Ruleta del sótano: una copia simple para React (fase, cuenta regresiva, apuestas y números).
   const syncRoulette = () => {
@@ -505,6 +545,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
   r.onMessage(MSG.cafeResult, handleCafeResult);
   r.onMessage(MSG.officeEditResult, handleOfficeEditResult);
+  r.onMessage(MSG.worldEditResult, handleWorldEditResult);
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));

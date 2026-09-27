@@ -118,6 +118,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
             <MenuItem onClick={onEditCharacter}>Mi personaje</MenuItem>
             <MenuItem onClick={onEditProfile}>Editar perfil</MenuItem>
             {isAdmin && <MenuItem onClick={onAdmin}>Administrar equipo</MenuItem>}
+            {isAdmin && <MenuItem onClick={() => useOfficeStore.getState().setWorldEditing(true)}>Editar la casa</MenuItem>}
             <MenuItem onClick={onLogout}>Cerrar sesión</MenuItem>
           </div>
         )}

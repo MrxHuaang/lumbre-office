@@ -16,6 +16,7 @@ import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { MyOfficePanel } from "./MyOfficePanel";
 import { DecorPanel } from "./DecorPanel";
+import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { BarPanel, CafePanel } from "./CafePanel";
@@ -112,6 +113,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const connection = useOfficeStore((s) => s.connection);
   const mapReady = useOfficeStore((s) => s.mapReady);
   const decorating = useOfficeStore((s) => s.decorating);
+  const worldEditing = useOfficeStore((s) => s.worldEditing);
 
   // Actividad real (mouse, teclado): cuenta para los puntos de presencia. Como mucho un aviso por minuto.
   useEffect(() => {
@@ -188,9 +190,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           />
           {/* Decorando tu oficina, el panel del editor toma el lugar de los conectados. */}
           <div
-            className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-3 ${decorating ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-44"}`}
+            className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-3 ${decorating || worldEditing ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-44"}`}
           >
-            {decorating ? <DecorPanel /> : <PeoplePanel />}
+            {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <PeoplePanel />}
             <Notices />
           </div>
           <ChatPanel />

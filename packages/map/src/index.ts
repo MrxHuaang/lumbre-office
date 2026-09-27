@@ -1,8 +1,11 @@
 import { AREAS, SPAWN_AREA } from "./world/areas";
+import type { AreaDef } from "./world/types";
+import { buildEditedArea, type WorldEdits } from "./worldEdits";
 import { buildArea, FEET_BOX, isBlockedTile, wallAbove, wallLeftOf, type OfficeMap, type PointType, type Portal, type Seat, type Zone } from "./world/build";
 
 export * from "./pathfinding";
 export * from "./decor";
+export * from "./worldEdits";
 export * from "./world/build";
 export * from "./world/catalog";
 export type * from "./world/types";
@@ -18,6 +21,23 @@ let world: World | undefined;
 export function getWorld(): World {
   world ??= { areas: new Map(AREAS.map((a) => [a.id, buildArea(a)])), spawnArea: SPAWN_AREA };
   return world;
+}
+
+/** Definición de un nivel tal como está en el código (sin los cambios del editor de la casa). */
+export function planDef(areaId: string): AreaDef | undefined {
+  return AREAS.find((a) => a.id === areaId);
+}
+
+/**
+ * Aplica los cambios del editor de la casa a un nivel del mundo: desde ahí `getWorld()` lo devuelve con
+ * esos muebles (y la decoración de las oficinas se arma encima). Devuelve el nivel nuevo.
+ */
+export function setWorldEdits(areaId: string, edits: WorldEdits): OfficeMap | undefined {
+  const def = planDef(areaId);
+  if (!def) return undefined;
+  const map = buildEditedArea(def, edits);
+  getWorld().areas.set(areaId, map);
+  return map;
 }
 
 /** Todas las zonas de todos los niveles (sus ids son únicos en toda la cabaña). */
