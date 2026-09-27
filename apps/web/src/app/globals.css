@@ -413,3 +413,87 @@ body {
   background: var(--color-cozy-paper-dark);
   color: var(--color-cozy-frame);
 }
+
+/* Pantalla de carga (EntryLoader): el sendero se desliza, el personaje rebota al caminar, las nubes
+   pasan lento, la barra avanza en pasos y los puntitos de "Entrando" aparecen de a uno. */
+@keyframes loader-scroll {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: -512px;
+  }
+}
+.loader-scroll {
+  animation: loader-scroll 6s steps(128) infinite;
+}
+@keyframes loader-bob {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, -2px);
+  }
+}
+.loader-bob {
+  animation: loader-bob 0.5s steps(2) infinite;
+}
+@keyframes cozy-cloud {
+  from {
+    transform: translateX(-120px);
+  }
+  to {
+    transform: translateX(640px);
+  }
+}
+.cozy-cloud {
+  box-shadow:
+    8px -4px 0 rgb(255 255 255 / 0.8),
+    18px 0 0 rgb(255 255 255 / 0.7);
+  animation: cozy-cloud 24s linear infinite;
+}
+@keyframes loader-bar {
+  0% {
+    width: 4%;
+  }
+  60% {
+    width: 78%;
+  }
+  100% {
+    width: 96%;
+  }
+}
+.loader-bar {
+  animation: loader-bar 5s steps(24) forwards;
+}
+@keyframes cozy-dots {
+  0% {
+    content: "";
+  }
+  25% {
+    content: ".";
+  }
+  50% {
+    content: "..";
+  }
+  75%,
+  100% {
+    content: "...";
+  }
+}
+.cozy-dots::after {
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  content: "";
+  animation: cozy-dots 1.4s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loader-scroll,
+  .loader-bob,
+  .cozy-cloud,
+  .cozy-dots::after {
+    animation: none;
+  }
+}

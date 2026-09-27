@@ -15,16 +15,26 @@ const POINT_TO_FURNITURE_TILES = 1.6;
 const ALWAYS: readonly string[] = ["blackjack-table"];
 
 function markerArt(): PixelCanvas {
-  // Rombo de 9x11: dorado con brillo blanco arriba a la izquierda y contorno oscuro.
-  const c = new PixelCanvas(11, 13);
-  const rows = [1, 2, 3, 4, 5, 4, 3, 2, 1];
-  for (let y = 0; y < rows.length; y++) {
-    const half = rows[y]!;
-    for (let x = 5 - half + 1; x <= 5 + half - 1; x++) c.set(x, y + 2, at(C.gold, x < 5 && y < 4 ? 5 : x > 5 || y > 4 ? 3 : 4));
+  // Plaquita crema con contorno oscuro, sombra y un "!" rojo, con la colita hacia abajo: se lee sobre
+  // cualquier piso (el rombo dorado se perdía sobre la madera).
+  const c = new PixelCanvas(13, 17);
+  const cream = at(C.cream, 5);
+  const shade = at(C.cream, 3);
+  for (let y = 1; y < 12; y++)
+    for (let x = 1; x < 12; x++) {
+      const corner = (x === 1 || x === 11) && (y === 1 || y === 11);
+      if (!corner) c.set(x, y, y >= 10 ? shade : cream);
+    }
+  // Colita.
+  for (let k = 0; k < 3; k++) for (let x = 6 - (2 - k); x <= 6 + (2 - k); x++) c.set(x, 12 + k, k === 0 ? shade : cream);
+  // El "!".
+  const red = at(C.rug, 3);
+  for (let y = 3; y <= 7; y++) {
+    c.set(6, y, red);
+    if (y < 7) c.set(5, y, at(C.rug, 2));
   }
-  c.set(4, 5, at(C.white, 4));
-  c.set(5, 4, at(C.white, 4));
-  c.set(4, 4, at(C.white, 4));
+  c.set(6, 9, red);
+  c.set(5, 9, at(C.rug, 2));
   c.outline(OUT);
   return c;
 }
@@ -46,7 +56,7 @@ export class InteractMarkers {
   /** Arma los indicadores del nivel: uno por mueble de cada objeto interactivo (junto a su punto) y los de los muebles que se usan. */
   setArea(map: OfficeMap, view: AreaView, specs: readonly { point: string; furniture: readonly string[] }[]) {
     this.clear();
-    const key = ensureTexture(this.scene, "indicador-interaccion", markerArt);
+    const key = ensureTexture(this.scene, "indicador-interaccion-2", markerArt);
     const ts = map.tileSize;
     const chosen = new Set<PlacedFurniture>();
     const center = (f: PlacedFurniture) => ({ x: (f.x + f.w / 2) * ts, y: (f.y + f.d / 2) * ts });

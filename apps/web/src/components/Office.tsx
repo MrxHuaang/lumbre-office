@@ -7,6 +7,7 @@ import { logout } from "@/app/actions";
 import { media } from "@/game/media";
 import { connect, disconnect, sendActivity } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
+import { EntryLoader } from "./EntryLoader";
 import { waitForCozyFont } from "@/lib/cozy";
 import { AdminDialog } from "./AdminDialog";
 import { ChatPanel } from "./ChatPanel";
@@ -232,8 +233,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
 
       {(connection === "connecting" || connection === "idle" || (connection === "connected" && !mapReady)) && (
         <CozyOverlay>
-          <CozyTitle className="text-6xl">Entrando…</CozyTitle>
-          <p className="mt-5 text-[15px] text-cozy-paper-dark">Abriendo la cabaña</p>
+          <EntryLoader profile={profile} />
         </CozyOverlay>
       )}
 
