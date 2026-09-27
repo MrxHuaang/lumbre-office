@@ -37,7 +37,7 @@ export function SoundControl() {
         <PixelIcon name="sound" size={16} off={silent} />
       </button>
       {open && (
-        <div className="cozy-panel absolute top-full right-0 z-30 mt-3 flex w-56 flex-col gap-2.5 p-3 text-[14px]">
+        <div className="cozy-panel absolute top-full left-0 z-30 mt-3 flex w-56 flex-col gap-2.5 p-3 text-[14px]">
           <span className="font-semibold">Efectos de sonido</span>
           <label className="flex items-center gap-2.5">
             <span className="sr-only">Volumen</span>
