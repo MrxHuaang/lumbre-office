@@ -9,9 +9,9 @@ import { PixelCanvas, at, bayer, noise, type RGBA } from "./pixel";
 /** Lado de la baldosa que se repite (px de pantalla). */
 export const SURROUND_TILE = 192;
 /**
- * Relleno alrededor del nivel en el cliente (SURROUND_PAD de apps/web/src/game/iso/view.ts): la baldosa
- * empieza en la esquina del fondo del nivel menos este relleno. Si no coincide, el dibujo igual empalma
- * (es el mismo bosque), solo se corre la costura.
+ * Cuánto se extiende el bosque más allá del dibujo del nivel en el cliente (px de pantalla): la baldosa
+ * empieza en la esquina del fondo del nivel menos este relleno, y el margen del nivel (room.ts) se pinta
+ * alineado con eso. Es el único valor: iso/view.ts lo importa de aquí.
  */
 export const SURROUND_PAD = 3000;
 

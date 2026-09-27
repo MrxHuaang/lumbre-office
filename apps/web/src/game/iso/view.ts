@@ -18,6 +18,7 @@ import {
   drawLowWall,
   drawSurroundings,
   glowSprite,
+  SURROUND_PAD,
   toScreen,
   toWorld,
   type Sprite,
@@ -41,8 +42,6 @@ export function screenToWorld(sx: number, sy: number) {
 /** Profundidad isométrica: lo que está más abajo-adelante (mayor x + y) se dibuja encima. */
 export const depthOf = (x: number, y: number) => x + y;
 const DEPTH_FLOOR = -1e7;
-/** Cuánto se extiende el bosque de afuera más allá del dibujo del nivel (px de pantalla). */
-const SURROUND_PAD = 3000;
 export const DEPTH_FLAT = -1e6;
 export const DEPTH_OVERLAY = 1e7;
 
@@ -195,7 +194,8 @@ export class AreaView {
     const tile = this.scene.add
       .tileSprite(0, 0, SURROUND_PAD * 2, SURROUND_PAD * 2, key)
       .setDepth(DEPTH_FLOOR - 1);
-    // Centrado en el nivel; se ubica después de dibujar el fondo (ver el constructor).
+    // Centrado en el nivel; se ubica después de dibujar el fondo (ver el constructor). La baldosa arranca
+    // en la esquina del fondo menos SURROUND_PAD: el margen del nivel se pinta alineado con eso (room.ts).
     this.surround = tile;
     this.objects.push(tile);
   }

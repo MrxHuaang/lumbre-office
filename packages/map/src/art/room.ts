@@ -128,16 +128,21 @@ function dock(X: number, Y: number): RGBA {
   return at(C.wood, noise(plank, Math.floor(Y / 16), 19) < 0.5 ? 3 : 2);
 }
 
-function grass(X: number, Y: number): RGBA {
+/**
+ * Pasto. `calm`: la versión del exterior grande (con piso fino), con menos briznas claras y florcitas
+ * porque ahí ya hay macizos y flores de verdad; el resto de los niveles (y la vitrina del login) sigue
+ * con el pasto de siempre.
+ */
+function grass(X: number, Y: number, calm = false): RGBA {
   const n = noise(Math.floor(X), Math.floor(Y), 13);
   // Dos octavas de ruido suave y un poco de tramado en los bordes: manchas de pasto orgánicas.
   const patch = smoothNoise(X, Y, 28, 2) * 0.7 + smoothNoise(X, Y, 9, 5) * 0.3 + (bayer(Math.floor(X), Math.floor(Y)) - 0.5) * 0.08;
   let c = at(C.grass, patch < 0.36 ? 2 : patch < 0.64 ? 3 : 4);
   if (n < 0.07) c = at(C.grass, 1);
-  else if (n > 0.985) c = at(C.grass, 5);
+  else if (n > (calm ? 0.985 : 0.95)) c = at(C.grass, 5);
   // Florcitas sueltas.
   const f = noise(Math.floor(X / 2), Math.floor(Y / 2), 17);
-  if (f > 0.9985) return [at(C.white, 4), at(C.gold, 5), at(C.rose, 5)][Math.floor(noise(X, Y, 3) * 3)]!;
+  if (f > (calm ? 0.9985 : 0.996)) return [at(C.white, 4), at(C.gold, 5), at(C.rose, 5)][Math.floor(noise(X, Y, 3) * 3)]!;
   return c;
 }
 
@@ -213,7 +218,7 @@ function forestFloor(X: number, Y: number, t: number): RGBA {
   // Transición tramada con manchas: el pasto se va apagando hacia el bosque.
   const patch = smoothNoise(X, Y, 22, 31) * 0.6 + smoothNoise(X, Y, 7, 32) * 0.4;
   if (patch + bayer(x, y) * 0.25 > 0.35 + t * 0.95) {
-    const g = grass(X, Y);
+    const g = grass(X, Y, true);
     return t > 0.35 ? mix(g, at(C.leaf, 1), 0.35) : g;
   }
   const n = noise(x, y, 33);
@@ -261,7 +266,33 @@ function sand(X: number, Y: number): RGBA {
   return mix(at(C.cream, r < 0.4 ? 2 : 3), at(C.mustard, 3), 0.25 + (bayer(x, y) < 0.2 ? 0.15 : 0));
 }
 
-const KINDS: FloorKind[] = ["grass", "path", "water", "dock", "forest", "deck", "soil", "sand", "stone", "doormat"];
+/** El piso de un exterior con piso fino (el pasto, en su versión tranquila). */
+const outdoorFloor = (k: FloorKind, X: number, Y: number) => (k === "grass" ? grass(X, Y, true) : floorColor(k, X, Y, null));
+
+/**
+ * Todos los pisos, para guardar el piso fino de cada píxel como un número. Es un Record para que el
+ * compilador pida agregar aquí cualquier piso nuevo (si faltara, ese piso se dibujaría como pasto).
+ */
+const KIND_SET: Record<FloorKind, true> = {
+  wood: true,
+  carpet: true,
+  tiles: true,
+  stone: true,
+  grass: true,
+  path: true,
+  doormat: true,
+  casino: true,
+  dance: true,
+  cinema: true,
+  arcade: true,
+  water: true,
+  dock: true,
+  forest: true,
+  deck: true,
+  soil: true,
+  sand: true,
+};
+const KINDS = Object.keys(KIND_SET) as FloorKind[];
 
 /** Datos del dibujo de un exterior con `groundFine`, calculados una vez por nivel. */
 interface OutdoorArt {
@@ -300,12 +331,12 @@ function outdoorArt(map: OfficeMap): OutdoorArt {
     let cells = mixed.get(i);
     if (!cells) {
       cells = new Uint8Array(L * L);
-      for (let v = 0; v < L; v++) for (let u = 0; u < L; u++) cells[v * L + u] = Math.max(0, KINDS.indexOf(fine(tx + (u + 0.5) / L, ty + (v + 0.5) / L)));
+      for (let v = 0; v < L; v++) for (let u = 0; u < L; u++) cells[v * L + u] = KINDS.indexOf(fine(tx + (u + 0.5) / L, ty + (v + 0.5) / L));
       mixed.set(i, cells);
     }
     const u = Math.floor(X - tx * L);
     const v = Math.floor(Y - ty * L);
-    return KINDS[cells[v * L + u]!] ?? "grass";
+    return KINDS[cells[v * L + u]!]!;
   };
   // Profundidad del agua: BFS desde los tiles que no son agua.
   const waterDepth = new Float32Array(W * H).fill(0);
@@ -369,7 +400,7 @@ function outdoorColor(map: OfficeMap, X: number, Y: number): RGBA {
   const k = art.kindAt(X, Y);
   // Tile parejo (sin bordes cerca): el piso tal cual, sin buscar vecinos.
   const flatTile = art.uniform(Math.floor(X / L), Math.floor(Y / L));
-  if (flatTile && k !== "forest" && k !== "water") return floorColor(k, X, Y, null);
+  if (flatTile && k !== "forest" && k !== "water") return outdoorFloor(k, X, Y);
   if (k === "forest") {
     const p = map.def.playable;
     const d = p ? Math.max(p.x * L - X, X - (p.x + p.w) * L, p.y * L - Y, Y - (p.y + p.h) * L) / L : 9;
@@ -378,13 +409,13 @@ function outdoorColor(map: OfficeMap, X: number, Y: number): RGBA {
     // relleno): así el borde del nivel no se ve.
     const canopyMix = d > 4.8 ? 2 : (d - 3) / 1.6 + (smoothNoise(X, Y, 14, 35) - 0.5) * 0.8;
     if (canopyMix > bayer(Math.floor(X), Math.floor(Y))) {
-      const ox = map.height * L + 2;
-      return surroundingsAt(X - Y + ox + SURROUND_PAD, (X + Y) / 2 + 2 + SURROUND_PAD);
+      const o = baseOrigin(map);
+      return surroundingsAt(X - Y + o.ox + SURROUND_PAD, (X + Y) / 2 + o.oy + SURROUND_PAD);
     }
     return forestFloor(X, Y, Math.max(0, Math.min(1, (d - 0.5) / 2.5)));
   }
   if (k === "water") return lakeWater(map, art, X, Y, flatTile);
-  let c = floorColor(k, X, Y, null);
+  let c = outdoorFloor(k, X, Y);
   const near = (r: number, test: (n: FloorKind) => boolean) => DIRS8.some(([dx, dy]) => test(art.kindAt(X + dx * r, Y + dy * r)));
   if (EDGED.has(k) && near(1.2, (n) => n === "grass" || n === "forest")) {
     if (k === "path") return at(C.dirt, 2);
@@ -401,6 +432,15 @@ function outdoorColor(map: OfficeMap, X: number, Y: number): RGBA {
   // La tierra del huerto lleva un marco de tablones contra el pasto.
   if (k === "soil" && near(2.6, (n) => n === "grass" || n === "path")) return at(C.wood, near(1.9, (n) => n === "grass" || n === "path") ? 3 : 4);
   return c;
+}
+
+/**
+ * Dónde queda el origen del mundo en el lienzo del fondo: lo mismo que calcula renderSprite (relleno de
+ * 2 px; el tile (0, alto) es lo de más a la izquierda y la cara de arriba de los tiles está en z = 0). El
+ * margen del bosque se alinea con esto y drawAreaBase comprueba que coincida con lo que salió.
+ */
+function baseOrigin(map: OfficeMap) {
+  return { ox: map.height * L + 2, oy: 2 };
 }
 
 /** Agua del lago: arena mojada y espuma en la orilla, bajío claro y lo hondo oscuro, con rizos. */
@@ -844,7 +884,13 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
   walls.sort((a, b) => a.x + a.y - (b.x + b.y));
 
   // Con alrededores el terreno sigue en el bosque de afuera: sin contorno, que marcaría el borde.
-  return { base: renderSprite([...boxes, ...walls], { outline: map.def.surroundings ? undefined : OUT }), features };
+  const base = renderSprite([...boxes, ...walls], { outline: map.def.surroundings ? undefined : OUT });
+  // Si renderSprite cambiara su relleno (o el fondo su forma), el margen quedaría corrido respecto del
+  // bosque que el cliente repite alrededor y se vería la costura: mejor fallar aquí.
+  const o = baseOrigin(map);
+  if (map.def.surroundings && (base.ox !== o.ox || base.oy !== o.oy))
+    throw new Error(`El fondo de ${map.id} no tiene el origen esperado (${base.ox}, ${base.oy}) ≠ (${o.ox}, ${o.oy})`);
+  return { base, features };
 }
 
 // ---------- Paredes bajas ----------
