@@ -48,6 +48,8 @@ import {
   MSG,
   OfficeEditMessage,
   OfficeLockMessage,
+  OfficeNoteMessage,
+  cleanOfficeNote,
   PLAYER_SPEED,
   StatusMessage,
   TravelMessage,
@@ -448,6 +450,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
     this.onMessage(MSG.profileChanged, (client) => void this.handleProfileChanged(client));
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
+    this.onMessage(MSG.officeNote, (client, raw) => this.handleOfficeNote(client, raw));
     this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
     this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
@@ -894,6 +897,16 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
     }
     this.repo.setOfficeLocked(office.zoneId, office.locked).catch((err) => console.error("setOfficeLocked", err));
+  }
+
+  /** La nota de la placa de la puerta: solo el dueño de la oficina, una línea corta. */
+  private handleOfficeNote(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = OfficeNoteMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const office = [...this.state.offices.values()].find((o) => o.ownerId === player.userId);
+    if (!office) return;
+    office.note = cleanOfficeNote(parsed.data.note);
   }
 
   private handleKnock(client: Client<UserData>, raw: unknown) {

@@ -93,6 +93,16 @@ export interface MoveCorrection {
 export const OfficeLockMessage = z.object({ locked: z.boolean() });
 export type OfficeLockMessage = z.infer<typeof OfficeLockMessage>;
 
+/** Largo máximo de la nota de la placa de la puerta ("Vuelvo a las 3", "En entrevista"). */
+export const OFFICE_NOTE_MAX = 40;
+
+/** Cliente → servidor (`MSG.officeNote`): la nota de la placa de tu oficina ("" la borra). */
+export const OfficeNoteMessage = z.object({ note: z.string().max(200) });
+export type OfficeNoteMessage = z.infer<typeof OfficeNoteMessage>;
+
+/** La nota como queda guardada: una línea, sin espacios de sobra y cortada al largo máximo. */
+export const cleanOfficeNote = (note: string) => note.replace(/\s+/g, " ").trim().slice(0, OFFICE_NOTE_MAX);
+
 export const KnockMessage = z.object({ zoneId: z.string().min(1) });
 export type KnockMessage = z.infer<typeof KnockMessage>;
 
@@ -171,6 +181,8 @@ export const MSG = {
   /** La web guardó el perfil (nombre o personaje): el servidor lo vuelve a leer de la base. */
   profileChanged: "profile:changed",
   officeLock: "office:lock",
+  /** La nota de la placa de la puerta (`OfficeNoteMessage`), solo el dueño. */
+  officeNote: "office:note",
   knock: "office:knock",
   knockRequest: "office:knock:request",
   knockRespond: "office:knock:respond",

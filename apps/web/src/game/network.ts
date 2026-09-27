@@ -99,6 +99,7 @@ export interface RemoteOffice {
   ownerId: string;
   ownerName: string;
   locked: boolean;
+  note: string;
   guests: string[];
   /** Fase 3c: decoración (ver OfficeView en store.ts). */
   customized: boolean;
@@ -498,6 +499,11 @@ export function sendStatus(status: PresenceStatus) {
   room?.send(MSG.status, { status });
 }
 
+/** La nota de la placa de mi oficina ("" la borra). */
+export function sendOfficeNote(note: string) {
+  room?.send(MSG.officeNote, { note });
+}
+
 export function sendOfficeLock(locked: boolean) {
   room?.send(MSG.officeLock, { locked });
 }
@@ -554,6 +560,7 @@ function attach(r: OfficeRoom) {
         ownerId: office.ownerId,
         ownerName: office.ownerName,
         locked: office.locked,
+        note: office.note ?? "",
         guests: [...office.guests],
         customized: office.customized,
         items: [...office.items].map((i) => ({

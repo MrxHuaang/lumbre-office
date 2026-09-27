@@ -16,7 +16,9 @@ import {
   drawAreaBase,
   drawFurniture,
   drawLowWall,
+  drawRoomWalls,
   drawSurroundings,
+  WALL_H,
   glowSprite,
   SURROUND_PAD,
   toScreen,
@@ -166,6 +168,8 @@ export class AreaView {
   readonly features: { kind: WallFeatureKind; x: number; y: number; tileX: number; tileY: number }[] = [];
   /** Rectángulo de pantalla que ocupa el nivel (para la cámara). */
   readonly bounds: Phaser.Geom.Rectangle;
+  /** Modo privado: la sala donde estoy con paredes altas y lo de afuera a oscuras (ver setPrivateRoom). */
+  private privateRoom: { key: string; objects: Phaser.GameObjects.GameObject[] } | null = null;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -396,7 +400,62 @@ export class AreaView {
     for (const r of this.nightOutside ?? []) r.setVisible(on);
   }
 
+  /**
+   * Modo privado de una sala (oficinas y sala de reuniones): sus paredes del fondo se levantan altas y lo
+   * que queda afuera se oscurece, para sentirse adentro de una habitación. `null` lo quita.
+   */
+  setPrivateRoom(rect: { x: number; y: number; w: number; h: number } | null) {
+    const key = rect ? `${rect.x},${rect.y},${rect.w},${rect.h}` : "";
+    if ((this.privateRoom?.key ?? "") === key) return;
+    for (const o of this.privateRoom?.objects ?? []) o.destroy();
+    this.privateRoom = null;
+    if (!rect) return;
+    const objects: Phaser.GameObjects.GameObject[] = [];
+    const ts = this.map.tileSize;
+    const walls = drawRoomWalls(this.map, rect);
+    if (walls) {
+      const tex = `paredes-altas-${this.map.id}-${key}-${baseSignature(this.map)}`;
+      ensureTexture(this.scene, tex, () => walls.canvas);
+      objects.push(this.scene.add.image(-walls.ox, -walls.oy, tex).setOrigin(0, 0).setDepth(DEPTH_FLOOR + 1));
+    }
+    // Lo de afuera, a oscuras: un rectángulo enorme con el hueco de la sala (piso y paredes del fondo).
+    const pad = 8;
+    const x0 = rect.x * ts;
+    const y0 = rect.y * ts;
+    const x1 = (rect.x + rect.w) * ts;
+    const y1 = (rect.y + rect.h) * ts;
+    const hole = [
+      worldToScreen(x0 - pad, y1),
+      worldToScreen(x0 - pad, y1, WALL_H + 2),
+      worldToScreen(x0 - pad, y0 - pad, WALL_H + 2),
+      worldToScreen(x1, y0 - pad, WALL_H + 2),
+      worldToScreen(x1, y0 - pad),
+      worldToScreen(x1 + 2, y1 + 2),
+    ].map((p) => new Phaser.Math.Vector2(p.x, p.y));
+    // Una textura oscura del tamaño del nivel (y un margen) con el hueco borrado: la máscara invertida no
+    // anda igual en todos los renderizadores.
+    const b = this.bounds;
+    // Margen: lo que se ve más allá del nivel con la cámara en un borde (más, y la textura sería enorme).
+    const m = 800;
+    const shade = this.scene.add
+      .renderTexture(b.x - m, b.y - m, Math.ceil(b.width + m * 2), Math.ceil(b.height + m * 2))
+      .setOrigin(0, 0)
+      // Encima de los nombres de los de afuera (5e7 y 6e7 en Avatar), debajo del HUD de Phaser.
+      .setDepth(7e7);
+    shade.fill(0x0c0814, 0.93);
+    const shape = this.scene.make.graphics({}, false);
+    shape.fillStyle(0xffffff).fillPoints(
+      hole.map((p) => new Phaser.Math.Vector2(p.x - (b.x - m), p.y - (b.y - m))),
+      true,
+    );
+    shade.erase(shape);
+    shape.destroy();
+    objects.push(shade);
+    this.privateRoom = { key, objects };
+  }
+
   destroy() {
+    this.setPrivateRoom(null);
     for (const o of this.objects) o.destroy();
     this.nightMask = undefined;
     this.nightOutside = undefined;

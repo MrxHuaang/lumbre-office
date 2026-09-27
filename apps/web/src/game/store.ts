@@ -74,6 +74,8 @@ export interface OfficeView {
   ownerId: string;
   ownerName: string;
   locked: boolean;
+  /** Nota de la placa de la puerta (la pone el dueño). */
+  note: string;
   guests: string[];
   /** Fase 3c: false = quedan los muebles del mapa; true = los de `items` (más el escritorio con PC y su silla). */
   customized: boolean;
@@ -155,6 +157,9 @@ interface OfficeStore {
   area: string;
   /** Modo noche (luces encendidas); arranca según la hora local. */
   night: boolean;
+  /** Modo privado: dentro de una oficina o la sala de reuniones, paredes altas y lo de afuera a oscuras. */
+  privateWalls: boolean;
+  setPrivateWalls: (on: boolean) => void;
   /** Clima de afuera (lo decide el servidor: `state.weather`). */
   weather: Weather;
   setWeather: (weather: Weather) => void;
@@ -234,6 +239,17 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
   "too-soon": () => ({ text: "Espera un momento antes de volver a tocar.", tone: "info" }),
 };
 
+const PRIVATE_WALLS_KEY = "hyvento:paredes-altas";
+
+/** El modo privado se recuerda en este navegador (arranca apagado). */
+function loadPrivateWalls(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(PRIVATE_WALLS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 const initial = {
   connection: "idle" as ConnectionStatus,
   error: null,
@@ -261,6 +277,7 @@ const initial = {
   walkTarget: null,
   area: "",
   night: false,
+  privateWalls: loadPrivateWalls(),
   weather: "despejado" as Weather,
   mapReady: false,
   interact: null as Interactable | null,
@@ -338,6 +355,14 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
   setArea: (area) => set({ area }),
   setNight: (night) => set({ night }),
+  setPrivateWalls: (privateWalls) => {
+    set({ privateWalls });
+    try {
+      localStorage.setItem(PRIVATE_WALLS_KEY, privateWalls ? "1" : "0");
+    } catch {
+      // sin almacenamiento: vale solo para esta visita
+    }
+  },
   setWeather: (weather) => set({ weather }),
   setMapReady: (mapReady) => set({ mapReady }),
   setInteract: (interact) => set({ interact }),
@@ -351,7 +376,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   pickDecor: (decorPick, facing) => set((s) => ({ decorPick, decorFacing: facing ?? s.decorFacing })),
   rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
   setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),
-  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night })),
+  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls })),
 }));
 
 /** User.id del jugador local. */

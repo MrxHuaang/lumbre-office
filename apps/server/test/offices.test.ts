@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { MSG, ROOM_NAME, type KnockRequest, type KnockResult, type MoveCorrection } from "@hyvento/shared";
+import { MSG, OFFICE_NOTE_MAX, ROOM_NAME, type KnockRequest, type KnockResult, type MoveCorrection } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -85,6 +85,22 @@ describe("oficinas personales", () => {
     expect(office.locked).toBe(true);
     expect([...office.guests]).toEqual(["u-bob"]);
     expect(repo.offices.get("office-4")!.locked).toBe(true);
+  });
+
+  it("la nota de la placa la pone solo la dueña, en una línea corta", async () => {
+    const { room, alice, bob } = await setup();
+    bob.send(MSG.officeNote, { note: "Pasen" });
+    await room.waitForNextPatch();
+    expect(room.state.offices.get("office-4")!.note).toBe("");
+    alice.send(MSG.officeNote, { note: "  Vuelvo   a las\n3  " });
+    await room.waitForNextPatch();
+    expect(room.state.offices.get("office-4")!.note).toBe("Vuelvo a las 3");
+    alice.send(MSG.officeNote, { note: "x".repeat(OFFICE_NOTE_MAX + 20) });
+    await room.waitForNextPatch();
+    expect(room.state.offices.get("office-4")!.note).toHaveLength(OFFICE_NOTE_MAX);
+    alice.send(MSG.officeNote, { note: "" });
+    await room.waitForNextPatch();
+    expect(room.state.offices.get("office-4")!.note).toBe("");
   });
 
   it("tocar la puerta: si la dueña acepta, el visitante entra; al salir pierde el permiso", async () => {

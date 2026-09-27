@@ -49,7 +49,7 @@ import {
 import { getStateCallbacks } from "colyseus.js";
 import { Track } from "livekit-client";
 import * as Phaser from "phaser";
-import { COZY, cozyFontFamily, isNightNow } from "@/lib/cozy";
+import { COZY, cozyFontFamily, isNightNow, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
@@ -99,6 +99,9 @@ import { ALCOHOL_PER_SIP, DRUNK, isSwivelSeat, spinMs, type DrunkStage, type Swi
 import { playAnticSound } from "./antics-sound";
 import { ToastController } from "./toasts";
 
+/** Cómo se lee el estado del dueño en la placa de su puerta. */
+const DOOR_STATUS: Record<PresenceStatus, string> = { available: "Disponible", busy: "Ocupado", dnd: "No molestar", away: "Ausente" };
+
 /** Avisos de dar muchas vueltas en la silla (van rotando) y de cuando se pasa el mareo. */
 const SWIVEL_DIZZY_NOTICE = [
   "Tantas vueltas… la oficina sigue girando un ratito.",
@@ -108,7 +111,7 @@ const SWIVEL_DIZZY_NOTICE = [
 const SWIVEL_SOBER_NOTICE = "Se te pasó el mareo. La oficina por fin se quedó quieta.";
 import { WeatherView } from "./weather";
 import { Critters } from "./critters";
-import type { PhotoShot } from "@hyvento/shared";
+import type { PhotoShot, PresenceStatus } from "@hyvento/shared";
 import { PhotoBoards } from "./photos/board";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
@@ -186,6 +189,8 @@ export class OfficeScene extends Phaser.Scene {
   private sendAccumulator = 0;
   private seenMessages = 0;
   private nameplates = new Map<string, Phaser.GameObjects.Text>();
+  /** Debajo de cada placa: cómo está el dueño (disponible, ocupado, en reunión…) y su nota. */
+  private statusPlates = new Map<string, Phaser.GameObjects.Text>();
   private cleanups: (() => void)[] = [];
   private roomDetach: (() => void)[] = [];
   /** La escena fue destruida: ignorar cualquier evento tardío de la sala. */
@@ -380,6 +385,8 @@ export class OfficeScene extends Phaser.Scene {
         }
       }),
       useOfficeStore.subscribe((s, prev) => {
+        // Quién está dónde y su estado cambian la línea de las placas ("En reunión", "Ocupado").
+        if (s.players !== prev.players && s.offices === prev.offices) this.updateNameplates(s.offices);
         if (s.offices !== prev.offices) {
           // Un patch trae muchos cambios seguidos (la primera edición copia ~10 muebles): se rearma una vez.
           this.decorDirty = true;
@@ -450,6 +457,15 @@ export class OfficeScene extends Phaser.Scene {
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
     this.updateToastPrompt(time);
+    this.updatePrivateRoom();
+  }
+
+  /** Modo privado: dentro de una oficina o la sala de reuniones, sus paredes altas y afuera a oscuras. */
+  private updatePrivateRoom() {
+    const s = useOfficeStore.getState();
+    const zone = s.privateWalls && s.zone && (s.zone.type === "office" || s.zone.type === "meeting") ? this.map?.zones.find((z) => z.id === s.zone!.id) : undefined;
+    const ts = this.map?.tileSize ?? 32;
+    this.view?.setPrivateRoom(zone ? { x: zone.x / ts, y: zone.y / ts, w: zone.width / ts, h: zone.height / ts } : null);
   }
 
   // ---------- Fotos ----------
@@ -1764,8 +1780,9 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Placas con el nombre del dueño sobre la puerta de cada oficina del nivel. */
   private createNameplates() {
-    for (const plate of this.nameplates.values()) plate.destroy();
+    for (const plate of [...this.nameplates.values(), ...this.statusPlates.values()]) plate.destroy();
     this.nameplates.clear();
+    this.statusPlates.clear();
     for (const zone of this.map.zones) {
       if (zone.type !== "office" || !zone.doorEdge) continue;
       const p = worldToScreen(zone.doorEdge.x, zone.doorEdge.y, 18);
@@ -1781,6 +1798,12 @@ export class OfficeScene extends Phaser.Scene {
         .setOrigin(0.5, 1)
         .setDepth(4e7);
       this.nameplates.set(zone.id, plate);
+      const status = this.add
+        .text(p.x, p.y + 1, "", { fontFamily: cozyFontFamily(), fontSize: "6px", color: COZY.paperLight, padding: { x: 3, y: 1 }, resolution: 6 })
+        .setOrigin(0.5, 0)
+        .setDepth(4e7)
+        .setVisible(false);
+      this.statusPlates.set(zone.id, status);
     }
   }
 
@@ -1792,8 +1815,25 @@ export class OfficeScene extends Phaser.Scene {
       plate.setText(owner ? `${office.locked ? "Cerrada · " : ""}${owner}` : "Libre");
       plate.setColor(office?.locked ? COZY.paperLight : owner ? COZY.ink : COZY.inkSoft);
       plate.setBackgroundColor(office?.locked ? COZY.red : owner ? COZY.paperLight : COZY.paperDark);
+      const status = this.statusPlates.get(zoneId);
+      const line = office ? this.doorStatus(office) : null;
+      status?.setVisible(Boolean(line));
+      if (line && status) status.setText(line.text).setBackgroundColor(line.color);
     }
     this.updateDoorPrompt();
+  }
+
+  /**
+   * La línea de estado de la placa: si el dueño está en su oficina con alguien, "En reunión"; si no, su
+   * estado (el Pomodoro lo pone en "Ocupado"). Con la nota que dejó al lado. Sin dueño, nada.
+   */
+  private doorStatus(office: OfficeView): { text: string; color: string } | null {
+    if (!office.ownerId) return null;
+    const players = Object.values(useOfficeStore.getState().players);
+    const owner = players.find((p) => p.userId === office.ownerId);
+    const meeting = owner && owner.zoneId === office.zoneId && players.some((p) => p.userId !== office.ownerId && p.zoneId === office.zoneId);
+    const state = !owner ? { text: "Fuera de la cabaña", color: STATUS_HEX.away } : meeting ? { text: "En reunión", color: COZY.sky } : { text: DOOR_STATUS[owner.status], color: STATUS_HEX[owner.status] };
+    return { text: office.note ? `${state.text} · ${office.note}` : state.text, color: state.color };
   }
 
   private updateZone() {

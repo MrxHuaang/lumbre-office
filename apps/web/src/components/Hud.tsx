@@ -127,6 +127,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
         <PixelIcon name={night ? "moon" : "sun"} size={16} color={night ? "#4a3f8a" : "var(--color-cozy-gold)"} />
       </button>
 
+      <PrivateWallsButton />
+
       <SoundControl />
 
       <div className="relative">
@@ -277,6 +279,24 @@ function MenuItem({ children, onClick }: { children: React.ReactNode; onClick: (
   return (
     <button onClick={onClick} className="block w-full px-3 py-2 text-left text-[14px] hover:bg-cozy-paper-dark">
       {children}
+    </button>
+  );
+}
+
+/** Dentro de una oficina o la sala de reuniones: paredes altas y lo de afuera a oscuras (se recuerda). */
+function PrivateWallsButton() {
+  const on = useOfficeStore((s) => s.privateWalls);
+  const inRoom = useOfficeStore((s) => s.zone?.type === "office" || s.zone?.type === "meeting");
+  if (!inRoom) return null;
+  return (
+    <button
+      onClick={() => useOfficeStore.getState().setPrivateWalls(!on)}
+      aria-pressed={on}
+      className="cozy-btn h-[34px] w-[34px] p-0"
+      title={on ? "Bajar las paredes (ver toda la casa)" : "Subir las paredes: más privacidad, solo se ve esta sala"}
+      aria-label={on ? "Bajar las paredes" : "Subir las paredes"}
+    >
+      <PixelIcon name="walls" size={16} color={on ? "var(--color-cozy-red)" : undefined} />
     </button>
   );
 }

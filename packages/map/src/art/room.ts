@@ -954,6 +954,57 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
   return { base, features };
 }
 
+/**
+ * Paredes del fondo (norte y oeste) de una sala, altas como las del edificio y con su papel mural: el
+ * "modo privado" de las oficinas. Donde ya hay pared alta o una puerta no se dibuja nada. Las de adelante
+ * siguen bajas (si no, taparían la sala). El sprite va en coordenadas de arte del nivel, como el fondo.
+ */
+export function drawRoomWalls(map: OfficeMap, rect: { x: number; y: number; w: number; h: number }): Sprite | null {
+  const W = map.width;
+  const wp = map.def.rooms.find((r) => rect.x >= r.rect.x && rect.x < r.rect.x + r.rect.w && rect.y >= r.rect.y && rect.y < r.rect.y + r.rect.h)?.wallpaper ?? "sage";
+  const r = WALLPAPER[wp];
+  const walls: Box[] = [];
+  const north = (tx: number) => map.wallH[rect.y * W + tx] ?? 0;
+  const west = (ty: number) => map.wallV[ty * (W + 1) + rect.x] ?? 0;
+  for (let tx = rect.x; tx < rect.x + rect.w; tx++) {
+    if (north(tx) !== 1) continue;
+    walls.push({
+      x: tx * L,
+      y: rect.y * L - WALL_T,
+      z: 0,
+      w: L,
+      d: WALL_T,
+      h: WALL_H,
+      top: flat(at(C.cream, 1)),
+      right: flat(at(C.woodDark, 2)),
+      left: (u, v) => interiorWall(wp, tx * L + u, v) ?? wallpaper(tx * L + u, v, r, 0),
+    });
+  }
+  for (let ty = rect.y; ty < rect.y + rect.h; ty++) {
+    if (west(ty) !== 1) continue;
+    walls.push({
+      x: rect.x * L - WALL_T,
+      y: ty * L,
+      z: 0,
+      w: WALL_T,
+      d: L,
+      h: WALL_H,
+      top: flat(at(C.cream, 1)),
+      left: flat(at(C.woodDark, 2)),
+      right: (u, v) => {
+        const Y = ty * L + (L - u);
+        return interiorWall(wp, Y, v) ?? wallpaper(Y, v, r, -1);
+      },
+    });
+  }
+  if (walls.length === 0) return null;
+  // La esquina donde se juntan, si alguna de las dos se levantó.
+  if (north(rect.x) === 1 || west(rect.y) === 1)
+    walls.push({ x: rect.x * L - WALL_T, y: rect.y * L - WALL_T, z: 0, w: WALL_T, d: WALL_T, h: WALL_H, top: flat(at(C.cream, 1)), left: flat(at(C.woodDark, 2)), right: flat(at(C.woodDark, 2)) });
+  walls.sort((a, b) => a.x + a.y - (b.x + b.y));
+  return renderSprite(walls, { outline: OUT });
+}
+
 // ---------- Paredes bajas ----------
 
 const lowWallShader: Shader = (u, v, _fw, fh) => {
