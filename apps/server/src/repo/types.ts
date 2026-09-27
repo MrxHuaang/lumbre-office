@@ -86,4 +86,13 @@ export interface GameRepository {
   >;
   /** Paga un premio del casino (o devuelve una apuesta): suma sin tope. */
   casinoPayout(input: { userId: string; amount: number; refId: string }): Promise<{ balance: number }>;
+  /**
+   * Pesca: guarda el pez atrapado y suma sus puntos (LEISURE, con el tope diario) en una transacción.
+   * Devuelve el más grande que tenía de esa especie (null = primero), lo sumado y el saldo.
+   */
+  saveFishCatch(input: { userId: string; species: string; size: number; points: number }): Promise<{
+    previousBest: number | null;
+    awarded: number;
+    balance: number;
+  }>;
 }

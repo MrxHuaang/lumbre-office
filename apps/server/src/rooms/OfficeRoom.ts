@@ -93,6 +93,9 @@ import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulet
 import { HeldItems } from "./consumables";
 import { devToolsEnabled, parseDevJump } from "./devtools";
 import { FurnitureUses } from "./usables";
+import { FISHING, type FishingTimings } from "@hyvento/shared";
+import { randomInt } from "node:crypto";
+import { Fishery } from "./fishing";
 
 interface UserData {
   lastMoveAt: number;
@@ -159,6 +162,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static rouletteSpin: () => number = randomSpin;
   static blackjackTimings: BlackjackTimings = { ...BLACKJACK };
   static blackjackShuffle: () => number[] = randomShoe;
+  /** Pesca: el azar (entero en [0, n)), la hora (para el horario de los peces) y los tiempos del lance. */
+  static fishingRandom: (n: number) => number = (n) => randomInt(n);
+  static fishingNow: () => number = () => Date.now();
+  static fishingTimings: FishingTimings = { ...FISHING };
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
@@ -199,6 +206,29 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** Muebles que se usan (tele, lámparas, instrumentos, gato). */
   private furnitureUses!: FurnitureUses;
+  /** La pesca en el lago del jardín (ver fishing.ts). */
+  private fishery = new Fishery({
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    now: () => OfficeRoom.fishingNow(),
+    random: (n) => OfficeRoom.fishingRandom(n),
+    timings: () => OfficeRoom.fishingTimings,
+    repo: () => this.repo,
+    newId: () => randomUUID(),
+    setPhase: (userId, phase) => {
+      for (const p of this.state.players.values()) if (p.userId === userId) p.fishing = phase;
+    },
+    send: (userId, event) => {
+      for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.fishEvent, event);
+    },
+    points: (userId, awarded, balance) => {
+      for (const c of this.clients) {
+        const p = this.state.players.get(c.sessionId);
+        if (p?.userId !== userId) continue;
+        p.points = balance;
+        if (awarded > 0) c.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded);
+      }
+    },
+  });
 
   private get repo() {
     return OfficeRoom.repo;
@@ -244,6 +274,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
     this.onMessage(MSG.blackjackBet, (client, raw) => void this.handleBlackjack(client, raw, "bet"));
     this.onMessage(MSG.blackjackAction, (client, raw) => void this.handleBlackjack(client, raw, "action"));
+    this.onMessage(MSG.fishCast, (client) => this.handleFishCast(client));
+    this.onMessage(MSG.fishHook, (client, raw) => this.withFisher(client, (userId) => this.fishery.hook(userId, raw)));
+    this.onMessage(MSG.fishFinish, (client, raw) => this.withFisher(client, (userId) => void this.fishery.finish(userId, raw)));
+    this.onMessage(MSG.fishCancel, (client) => this.withFisher(client, (userId) => this.fishery.cancel(userId)));
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -271,6 +305,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   async onJoin(client: Client<UserData>, _options: unknown, auth: GameTokenClaims) {
     this.removeOtherPresences(auth.sub, client.sessionId);
+    this.fishery.forget(auth.sub); // un lance de la sesión anterior no sigue en la nueva
 
     // Todos aparecen en el jardín, frente a la cabaña.
     const area = this.world.spawnArea;
@@ -727,6 +762,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(map, x, y)?.id ?? "";
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
+    this.fishery.moved(player.userId, x, y, seated);
   }
 
   /** Pasar a otro nivel por un portal: hay que estar parado junto a él. */
@@ -753,6 +789,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.place = placeAt(target, pos.x, pos.y);
     this.revokeGuestOnExit(player, previousZoneId);
     client.userData.lastMoveAt = Date.now();
+    this.fishery.cancel(player.userId);
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
   }
 
@@ -1060,6 +1097,24 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
+  // ---------- Pesca ----------
+
+  /** Lanzar la caña: el servidor valida que estés junto a un punto de pesca del lago y de pie. */
+  private handleFishCast(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
+    this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near);
+  }
+
+  private withFisher(client: Client<UserData>, fn: (userId: string) => void) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    fn(player.userId);
+  }
+
   // ---------- Utilidades ----------
 
   private removePlayer(sessionId: string) {
@@ -1069,6 +1124,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
+    this.fishery.forget(player.userId);
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);

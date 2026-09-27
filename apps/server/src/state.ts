@@ -27,6 +27,8 @@ export class Player extends Schema {
   @type("string") place = "";
   /** Usos que le quedan a lo que lleva en cada mano ("4,5"; ver `parseHeldLeft`). */
   @type("string") heldLeft = "";
+  /** Pesca (lo ven todos): "" nada, "wait" la boya flota, "bite" pica, "reel" el minijuego, "show:<pez>" lo levanta. */
+  @type("string") fishing = "";
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */

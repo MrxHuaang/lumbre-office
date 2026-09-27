@@ -177,4 +177,11 @@ export const MSG = {
   /** Usar un mueble (`FurnitureUseMessage`) y el aviso de instrumentos y gato (`FurnitureEvent`). */
   furnitureUse: "furniture:use",
   furnitureEvent: "furniture:event",
+  /** Pesca (fishing.ts): lanzar junto al lago, responder a la picada (`FishHookMessage`), terminar el
+   *  minijuego (`FishFinishMessage`) o recoger el sedal; el servidor avisa con `FishingEvent`. */
+  fishCast: "fish:cast",
+  fishHook: "fish:hook",
+  fishFinish: "fish:finish",
+  fishCancel: "fish:cancel",
+  fishEvent: "fish:event",
 } as const;

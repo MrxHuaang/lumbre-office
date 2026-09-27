@@ -7,6 +7,7 @@ import {
   type PresenceStatus as DbStatus,
   prisma,
   type Prisma,
+  recordFishCatch,
   spendPoints,
   takeInventoryTx,
 } from "@hyvento/db";
@@ -216,5 +217,9 @@ export class PrismaRepository implements GameRepository {
   async casinoPayout({ userId, amount, refId }: { userId: string; amount: number; refId: string }) {
     const { balance } = await awardPoints(prisma, { userId, amount, reason: "CASINO", refId });
     return { balance };
+  }
+
+  saveFishCatch(input: { userId: string; species: string; size: number; points: number }) {
+    return recordFishCatch(prisma, input);
   }
 }

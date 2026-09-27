@@ -164,6 +164,15 @@ export class MemoryRepository implements GameRepository {
     return { balance: await this.getPoints(userId) };
   }
 
+  /** Peces atrapados (pesca). */
+  catches: { userId: string; species: string; size: number; at: number }[] = [];
+  async saveFishCatch({ userId, species, size, points }: { userId: string; species: string; size: number; points: number }) {
+    const sizes = this.catches.filter((c) => c.userId === userId && c.species === species).map((c) => c.size);
+    this.catches.push({ userId, species, size, at: Date.now() });
+    const award = points > 0 ? await this.awardPoints({ userId, amount: points, reason: "LEISURE" }) : { awarded: 0, balance: await this.getPoints(userId) };
+    return { previousBest: sizes.length ? Math.max(...sizes) : null, ...award };
+  }
+
   /** Helper de tests: asigna una oficina. */
   assign(zoneId: string, ownerId: string | null, ownerName: string | null) {
     const o = this.offices.get(zoneId);

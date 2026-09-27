@@ -77,6 +77,8 @@ import { TableMode } from "./table";
 import { InteractMarkers } from "./markers";
 import { WorldEditor } from "./worldEditor";
 import { Usables, type UsableHit } from "./usables";
+import { FishingController } from "./fishing/controller";
+import { FishingRods } from "./fishing/rods";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -96,6 +98,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "roulette", point: "roulette", furniture: ["roulette-table", "roulette-wheel"] },
   { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },
   { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
+  { kind: "fishing", point: "fishing_spot", furniture: ["flat-rock"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -190,6 +193,9 @@ export class OfficeScene extends Phaser.Scene {
   private worldEditor!: WorldEditor;
   /** Mueble al que voy caminando (clic en la tele, el piano…): al llegar se usa. */
   private pendingUse: PlacedFurniture | null = null;
+  /** Pesca: la caña y el minijuego del jugador local, y las cañas de todos. */
+  private fishing!: FishingController;
+  private rods!: FishingRods;
 
   constructor() {
     super("office");
@@ -226,9 +232,12 @@ export class OfficeScene extends Phaser.Scene {
       me: () => (this.local ? { x: this.local.x, y: this.local.y } : null),
     });
     this.cleanups.push(onWorldEdits((area) => this.rebuildFromWorld(area)));
+    this.fishing = new FishingController(this, () => this.local, () => this.map);
+    this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
+      if (this.fishing.pointerDown()) return; // pescando, el clic es para la caña
       if (this.table.pointerDown(p.worldX, p.worldY)) return; // en la mesa, el clic pone fichas
       if (s.worldEditing) this.worldEditor.click(p.worldX, p.worldY); // editor de la casa (admins)
       else if (s.decorating) this.decorClick(p.worldX, p.worldY); // decorando, el clic pone o elige muebles
@@ -250,6 +259,8 @@ export class OfficeScene extends Phaser.Scene {
       onHeldUsed((e) => this.avatars.get(e.sessionId)?.useHeld(e.part, e.action, e.left)),
       onFurnitureEvent((e) => this.usables.handleEvent(e)),
       () => this.usables.destroy(),
+      () => this.fishing.destroy(),
+      () => this.rods.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
@@ -312,6 +323,8 @@ export class OfficeScene extends Phaser.Scene {
     }
     for (const [id, avatar] of this.avatars) if (id !== this.localId) avatar.interpolate(delta);
     this.usables.update();
+    this.fishing.update(delta);
+    this.rods.update();
   }
 
   // ---------- Niveles ----------
@@ -328,6 +341,8 @@ export class OfficeScene extends Phaser.Scene {
       this.usables.setArea(map, this.view);
       this.markers.setArea(map, this.view, INTERACTABLES);
       if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
+      this.rods.setArea(map);
+      this.fishing.reset();
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -382,6 +397,7 @@ export class OfficeScene extends Phaser.Scene {
     this.view = new AreaView(this, map, useOfficeStore.getState().night);
     this.usables.setArea(map, this.view);
     this.markers.setArea(map, this.view, INTERACTABLES);
+    this.rods.setArea(map);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
@@ -519,6 +535,8 @@ export class OfficeScene extends Phaser.Scene {
     // Reconstruye todo en cada (re)conexión.
     this.unbindRoom();
     this.usables.bind(room);
+    this.fishing.reset();
+    this.rods.destroy();
     for (const a of this.avatars.values()) a.destroy();
     this.avatars.clear();
     this.local = undefined;
@@ -545,6 +563,7 @@ export class OfficeScene extends Phaser.Scene {
         if (!alive()) return;
         this.avatars.get(sessionId)?.destroy();
         this.avatars.delete(sessionId);
+        this.rods.remove(sessionId);
         this.userOfSession.delete(sessionId);
         this.areaOfSession.delete(sessionId);
       }),
@@ -576,6 +595,7 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("name", (name) => avatar.setName(name));
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
+    p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
@@ -639,6 +659,7 @@ export class OfficeScene extends Phaser.Scene {
     if (!avatar || this.travelling) return;
     const dt = delta / 1000;
     const ts = this.map.tileSize;
+    if (this.fishing.busy) return this.updateFishing(avatar, delta, taps);
 
     let vx = 0;
     let vy = 0;
@@ -736,6 +757,31 @@ export class OfficeScene extends Phaser.Scene {
     if (this.sendAccumulator >= 1000 / MOVE_SEND_HZ) {
       this.sendAccumulator = 0;
       this.sendPosition(dir, moving);
+    }
+  }
+
+  /** Pescando: el personaje queda quieto mirando al agua; E, espacio, clic y Esc manejan la caña. */
+  private updateFishing(avatar: Avatar, delta: number, taps: Taps) {
+    // Lo que quedaba pendiente (una ruta, un objeto al que iba) se olvida: al soltar la caña no se retoma solo.
+    if (this.path.length || this.pendingInteract || this.pendingUse || this.pendingZone) {
+      this.clearPath();
+      this.pendingInteract = null;
+      this.pendingUse = null;
+      this.pendingZone = null;
+    }
+    const { typing, pcOn } = useOfficeStore.getState();
+    if (!typing && !pcOn) {
+      const k = this.keys;
+      const moving = [k.W, k.A, k.S, k.D, k.UP, k.DOWN, k.LEFT, k.RIGHT].some((key) => key.isDown);
+      this.fishing.control(taps, moving);
+    }
+    const face = this.fishing.facing();
+    if (face && face !== avatar.direction) avatar.setMotion(face, false);
+    if (useOfficeStore.getState().interact) useOfficeStore.getState().setInteract(null);
+    this.sendAccumulator += delta;
+    if (this.sendAccumulator >= 1000 / MOVE_SEND_HZ) {
+      this.sendAccumulator = 0;
+      this.sendPosition(avatar.direction, false);
     }
   }
 

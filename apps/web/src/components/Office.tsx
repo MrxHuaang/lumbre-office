@@ -27,6 +27,8 @@ import { BackpackPanel, ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { ProfileDialog } from "./ProfileDialog";
 import { CozyOverlay, CozyTitle } from "./Cozy";
+import { FishAlbum } from "./fishing/FishAlbum";
+import { FishingHud } from "./fishing/FishingHud";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
@@ -202,6 +204,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <InteractPrompt />
           <UsablePrompt />
           <KnockRequests />
+          <FishingHud />
           <MediaControls>
             <HeldSlot />
           </MediaControls>
@@ -223,6 +226,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "blackjack" && <BlackjackStrip />}
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
+          {panel?.kind === "fishAlbum" && <FishAlbum onClose={closePanel} />}
           {panel?.kind === "fitting" && (
             <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
           )}
