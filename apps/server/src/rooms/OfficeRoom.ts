@@ -268,7 +268,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(map, pos.x, pos.y);
     player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
-    player.points = await this.repo.getPoints(auth.sub).catch(() => 0);
+    // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
+    const welcome = await this.repo.grantWelcome(auth.sub).catch(() => null);
+    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(() => 0));
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";

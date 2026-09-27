@@ -1,6 +1,7 @@
 import {
   addInventoryTx,
   awardPoints,
+  grantWelcomeBonus,
   casinoBet,
   getCasinoSettings,
   type PresenceStatus as DbStatus,
@@ -184,6 +185,9 @@ export class PrismaRepository implements GameRepository {
 
   awardPoints(input: { userId: string; amount: number; reason: PointReason }) {
     return awardPoints(prisma, input);
+  }
+  grantWelcome(userId: string) {
+    return grantWelcomeBonus(prisma, userId);
   }
 
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }) {

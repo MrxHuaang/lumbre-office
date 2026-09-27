@@ -121,6 +121,15 @@ export class MemoryRepository implements GameRepository {
     if (amount > 0) this.ledger.push({ userId, amount, reason, at: now });
     return { awarded: Math.max(0, amount), balance: await this.getPoints(userId) };
   }
+  /** Bono de bienvenida de los tests: 0 (apagado) salvo que un test lo prenda. */
+  welcomeBonus = 0;
+  private welcomed = new Set<string>();
+  async grantWelcome(userId: string) {
+    if (this.welcomeBonus <= 0 || this.welcomed.has(userId)) return { granted: false, balance: await this.getPoints(userId) };
+    this.welcomed.add(userId);
+    this.ledger.push({ userId, amount: this.welcomeBonus, reason: "ADMIN", at: Date.now(), refId: "bienvenida" });
+    return { granted: true, balance: await this.getPoints(userId) };
+  }
   async spendPoints({ userId, amount, reason, refId }: { userId: string; amount: number; reason: PointReason; refId?: string }) {
     const balance = await this.getPoints(userId);
     if (balance < amount) return { ok: false, balance };

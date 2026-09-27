@@ -1,6 +1,6 @@
 // Movimientos de puntos: la única forma de cambiar un saldo. La usan el servidor de juego (presencia,
 // reuniones, cafetería) y la web (buzón, misiones), así el tope diario y el libro quedan iguales en todos lados.
-import { DAILY_CAPS, dayStart, type PointReason } from "@hyvento/shared";
+import { DAILY_CAPS, dayStart, POINTS, WELCOME_REF, type PointReason } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 export interface AwardInput {
@@ -69,4 +69,21 @@ export async function spendPointsTx(tx: Prisma.TransactionClient, input: SpendIn
 
 export function spendPoints(client: PrismaClient, input: SpendInput): Promise<{ ok: boolean; balance: number }> {
   return client.$transaction((tx) => spendPointsTx(tx, input));
+}
+
+/**
+ * Da el bono de bienvenida si esa persona todavía no lo recibió (una sola vez). Bloquea la fila del
+ * usuario para que dos entradas a la vez no lo den dos veces.
+ */
+export async function grantWelcomeBonus(db: PrismaClient, userId: string, amount: number = POINTS.welcomeBonus): Promise<AwardResult & { granted: boolean }> {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    const done = await tx.pointTransaction.findFirst({ where: { userId, reason: "ADMIN", refId: WELCOME_REF }, select: { id: true } });
+    if (done || amount <= 0) {
+      const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { points: true } });
+      return { granted: false, awarded: 0, balance: user.points };
+    }
+    const r = await awardPointsTx(tx, { userId, amount, reason: "ADMIN", refId: WELCOME_REF });
+    return { ...r, granted: true };
+  });
 }

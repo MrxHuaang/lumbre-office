@@ -71,6 +71,8 @@ export interface GameRepository {
   getPoints(userId: string): Promise<number>;
   /** Suma puntos respetando el tope diario del motivo; devuelve lo sumado y el saldo nuevo. */
   awardPoints(input: { userId: string; amount: number; reason: PointReason }): Promise<{ awarded: number; balance: number }>;
+  /** Bono de bienvenida: una sola vez por persona (`granted` = se dio ahora). */
+  grantWelcome(userId: string): Promise<{ granted: boolean; balance: number }>;
   /** Gasta puntos solo si alcanzan (`ok: false` = no se cobró nada). */
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }): Promise<{ ok: boolean; balance: number }>;
   /** Ajustes del casino (límite diario de pérdidas, abierto o cerrado). */

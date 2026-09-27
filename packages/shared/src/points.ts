@@ -28,7 +28,15 @@ export const POINTS = {
   rankingDays: 7,
   /** Tope diario de los premios del ocio (cosechas, pesca, arcade). */
   leisureDailyCap: 40,
+  /**
+   * Bono de bienvenida, una sola vez por persona (también a quienes ya tenían cuenta): para que desde el
+   * primer día alcance para comer, decorar la oficina o probar el casino.
+   */
+  welcomeBonus: 1000,
 } as const;
+
+/** `refId` del movimiento del bono de bienvenida (motivo ADMIN): marca que ya se dio. */
+export const WELCOME_REF = "bienvenida";
 
 /** Tope diario por motivo (null = sin tope). */
 export const DAILY_CAPS: Record<PointReason, number | null> = {
