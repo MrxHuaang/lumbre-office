@@ -3,7 +3,7 @@
 // propio; las luces que bajan mientras hay función y el haz del proyector. La escena solo tiene ganchos
 // chicos: setArea, update, esc y destroy.
 import { nearPointOfType, zoneAt, type OfficeMap, type Zone } from "@hyvento/map";
-import { CINEMA_SCREEN, L, LOW_WALL_H, WALL_H, WORLD_TO_ART } from "@hyvento/map/art";
+import { CINEMA_SCREEN, L, WORLD_TO_ART } from "@hyvento/map/art";
 import { CINEMA, isShowing } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
@@ -13,10 +13,11 @@ import { serverNow } from "../club/store";
 import { wallQuad, type Point } from "../wallMount";
 import { YoutubeScreen } from "../youtube";
 import { sendCinema } from "./net";
+import { penumbraOutline } from "./penumbra";
 import { useCinemaStore } from "./store";
 
 /** Penumbra de la sala con función (0 a 1 de este alfa) y cuánto queda en pausa (las luces a media). */
-const DIM_ALPHA = 0.55;
+const DIM_ALPHA = 0.6;
 const PAUSED_DIM = 0.45;
 /** Cuánto tarda en bajar o subir la luz (ms, de todo a nada). */
 const FADE_MS = 1600;
@@ -88,7 +89,7 @@ export class CinemaMode {
     this.zone = map.zones.find((z) => z.id === CINEMA.zone);
     if (!this.zone) return;
     this.dim = this.scene.add.graphics().setDepth(DEPTH_OVERLAY - 2).setVisible(false);
-    this.drawDim(this.zone);
+    this.drawDim(map, this.zone);
     this.beam = this.scene.add.graphics().setDepth(DEPTH_OVERLAY - 1).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
     this.drawBeam(map);
   }
@@ -160,24 +161,9 @@ export class CinemaMode {
 
   // ---------- Penumbra y haz ----------
 
-  /**
-   * La penumbra cubre el piso de la sala, la pared oeste entera (la de la pantalla: el video va encima del
-   * canvas, así que nunca queda tapado) y el alto de la pared baja del norte, para no oscurecer el pasillo.
-   */
-  private drawDim(zone: Zone) {
-    const x0 = zone.x;
-    const y0 = zone.y;
-    const x1 = zone.x + zone.width;
-    const y1 = zone.y + zone.height;
-    const pts = [
-      worldToScreen(x0, y1),
-      worldToScreen(x0, y1, WALL_H),
-      worldToScreen(x0, y0, WALL_H),
-      worldToScreen(x0, y0, LOW_WALL_H),
-      worldToScreen(x1, y0, LOW_WALL_H),
-      worldToScreen(x1, y0),
-      worldToScreen(x1, y1),
-    ];
+  /** La penumbra: un polígono sobre la sala (ver penumbra.ts), que se prende y apaga con su alfa. */
+  private drawDim(map: OfficeMap, zone: Zone) {
+    const pts = penumbraOutline(map, zone).map((p) => worldToScreen(p.x, p.y, p.z));
     this.dim!.fillStyle(DIM_COLOR, DIM_ALPHA).fillPoints(pts.map((p) => new Phaser.Geom.Point(p.x, p.y)), true);
   }
 
