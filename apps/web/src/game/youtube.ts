@@ -92,6 +92,8 @@ export interface ScreenHooks {
   loop?: boolean;
   /** Títulos de la pantalla chica y de la grande. */
   titles?: { small: string; big: string };
+  /** Marca del reproductor (uno por marca en la página; ver MountOptions.id). */
+  id?: string;
 }
 
 /** Los reproductores vivos (el HUD los despierta con un toque sin cargar la escena). */
@@ -122,7 +124,7 @@ export class YoutubeScreen {
     parent: HTMLElement,
     private readonly hooks: ScreenHooks = {},
   ) {
-    this.mount = new WallMount(parent, { onClick: hooks.onClick, titles: hooks.titles });
+    this.mount = new WallMount(parent, { id: hooks.id, onClick: hooks.onClick, titles: hooks.titles });
     this.mount.frame.appendChild(document.createElement("div"));
     active.add(this);
   }

@@ -58,6 +58,7 @@ export function updateRadio(parent: HTMLElement, radio: OfficeRadioState | null)
     return;
   }
   screen ??= new YoutubeScreen(parent, {
+    id: "radio",
     loop: true,
     onDuration: (videoId, ms) => sendOfficeRadio({ action: "duration", videoId, ms }),
     onNeedsTap: (needs) => useRadioStore.getState().setNeedsTap(needs),

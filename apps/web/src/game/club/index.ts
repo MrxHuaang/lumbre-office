@@ -46,6 +46,7 @@ let video: YoutubeScreen | null = null;
 /** Lo que el club hace con los avisos de su reproductor: la cola la lleva el servidor. */
 function clubScreen(parent: HTMLElement) {
   return new YoutubeScreen(parent, {
+    id: "club",
     onDuration: (id, ms) => sendClubQueue({ action: "duration", id, ms }),
     onEnded: (id) => sendClubQueue({ action: "ended", id }),
     // El video no se puede ver (lo borraron, no deja insertarse): se salta para todos.

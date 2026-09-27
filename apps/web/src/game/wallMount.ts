@@ -55,6 +55,11 @@ export function wallQuad(scene: Phaser.Scene, map: OfficeMap, f: WallFeature, in
 const BASE_W = 640;
 
 export interface MountOptions {
+  /**
+   * Marca del montaje (radio, club…): al crear uno con la misma marca se quita el anterior que haya
+   * quedado en la página (la recarga en caliente de desarrollo dejaba un reproductor huérfano sonando).
+   */
+  id?: string;
   onClick?: () => void;
   /** Títulos de la pantalla chica (en la pared) y de la grande. */
   titles?: { small: string; big: string };
@@ -72,7 +77,9 @@ export class WallMount {
     parent: HTMLElement,
     private readonly opts: MountOptions = {},
   ) {
+    if (opts.id) for (const old of parent.querySelectorAll(`[data-wall-mount="${opts.id}"]`)) old.remove();
     this.host = document.createElement("div");
+    if (opts.id) this.host.dataset.wallMount = opts.id;
     Object.assign(this.host.style, {
       position: "absolute",
       left: "0",
