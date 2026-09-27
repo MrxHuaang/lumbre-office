@@ -36,7 +36,7 @@ export function ClubHud() {
   };
 
   return (
-    <div className="absolute bottom-[10.5rem] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col items-center gap-1.5 font-pixel max-md:bottom-[12rem]">
+    <div className="pointer-events-auto flex w-max max-w-full flex-col items-center gap-1.5 font-pixel">
       {here.dancing === "pole" && (
         <button type="button" onClick={() => sendClubPole(false)} className="cozy-chip flex items-center gap-2 px-3 py-1.5 text-[14px]">
           <kbd className="cozy-kbd">Esc</kbd>

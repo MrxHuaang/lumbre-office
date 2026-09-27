@@ -116,7 +116,7 @@ export function InteractPrompt() {
     <button
       type="button"
       onClick={() => activateInteractable(near)}
-      className="cozy-chip absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-[14px]"
+      className="cozy-chip pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[14px]"
     >
       <kbd className="cozy-kbd">E</kbd>
       {near === "arcade" ? <ArcadePromptLabel /> : PROMPT[near]}

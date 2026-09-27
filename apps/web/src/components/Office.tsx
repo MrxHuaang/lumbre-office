@@ -14,8 +14,7 @@ import { ChatPanel } from "./ChatPanel";
 import { Hud, PeoplePanel } from "./Hud";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
-import { MyOfficePanel } from "./MyOfficePanel";
-import { OfficeRadio } from "./OfficeRadio";
+import { RoomPanel } from "./RoomPanel";
 import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
@@ -34,7 +33,7 @@ import { DjConsole } from "./club/DjConsole";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
-import { FishingHud } from "./fishing/FishingHud";
+import { CatchCard, FishingHint } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
 import { AchievementToasts } from "./profile/AchievementToasts";
 import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
@@ -213,16 +212,23 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <Notices />
           </div>
           <ChatPanel />
-          <MyOfficePanel />
-          <OfficeRadio />
-          <DoorPrompt />
-          <SeatPrompt />
-          <InteractPrompt />
-          <UsablePrompt />
-          <ClubHud />
+          <RoomPanel />
+          {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
+          <div className="pointer-events-none absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
+            <DoorPrompt />
+            <SeatPrompt />
+            <InteractPrompt />
+            <UsablePrompt />
+            <FishingHint />
+            <ClubHud />
+          </div>
+          {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
+          <div className="pointer-events-none absolute top-16 left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
+            {connection === "reconnecting" && <div className="cozy-chip px-3.5 py-1.5 text-[13px]">Reconectando…</div>}
+            <AchievementToasts />
+            <CatchCard />
+          </div>
           <KnockRequests />
-          <AchievementToasts />
-          <FishingHud />
           <SocialOverlays />
           <MediaControls>
             <HeldSlot />
@@ -268,9 +274,6 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
         </>
       ) : null}
 
-      {connection === "reconnecting" && (
-        <div className="cozy-chip absolute top-16 left-1/2 z-20 -translate-x-1/2 px-3.5 py-1.5 text-[13px]">Reconectando…</div>
-      )}
 
       {(connection === "connecting" || connection === "idle" || (connection === "connected" && !mapReady)) && (
         <CozyOverlay>

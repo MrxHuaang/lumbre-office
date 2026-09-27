@@ -13,7 +13,7 @@ export function AchievementToasts() {
   const openProfile = useAchievementStore((s) => s.openProfile);
   if (toasts.length === 0) return null;
   return (
-    <div className="pointer-events-none absolute top-16 left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-2" aria-live="polite">
+    <div className="pointer-events-none flex w-full flex-col gap-2" aria-live="polite">
       {toasts.map((t) => {
         const a = achievementById(t.achievementId);
         if (!a) return null;

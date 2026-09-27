@@ -13,7 +13,7 @@ export function DoorPrompt() {
   const waiting = pending === zoneId;
 
   return (
-    <div className="cozy-panel absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 px-5 py-3 text-[14px] max-md:top-1/2 max-md:bottom-auto">
+    <div className="cozy-panel pointer-events-auto flex w-max max-w-full flex-wrap items-center justify-center gap-3 px-5 py-3 text-[14px]">
       <PixelIcon name="lock" size={16} color="var(--color-cozy-wood)" />
       <span>
         La oficina de <strong>{office.ownerName}</strong> está cerrada
@@ -106,7 +106,7 @@ export function SeatPrompt() {
 
   return (
     <div
-      className={`absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 ${pcButton || spinButton ? "" : "pointer-events-none max-md:hidden"}`}
+      className={`flex items-center gap-2.5 ${pcButton || spinButton ? "pointer-events-auto" : "pointer-events-none max-md:hidden"}`}
     >
       {pcButton && (
         <button type="button" onClick={() => setPcOn(true)} className="cozy-btn cozy-btn-primary">

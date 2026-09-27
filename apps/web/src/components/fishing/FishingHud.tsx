@@ -1,6 +1,7 @@
 "use client";
 
-// Lo de la pesca sobre la cabaña: la ayuda de las teclas mientras se pesca y la tarjeta del pez atrapado.
+// Lo de la pesca sobre la cabaña: la ayuda de las teclas mientras se pesca (va en la pila de avisos de
+// abajo) y la tarjeta del pez atrapado (en la de arriba). Office.tsx los ubica.
 import { drawFish } from "@hyvento/map/art";
 import { fishById, RARITY } from "@hyvento/shared";
 import { useEffect } from "react";
@@ -12,17 +13,8 @@ import { PixelIcon } from "../Cozy";
 
 const CARD_MS = 6500;
 
-export function FishingHud() {
-  return (
-    <>
-      <FishingHint />
-      <CatchCard />
-    </>
-  );
-}
-
 /** La ayuda de abajo según el momento: esperando, ¡pica! o el minijuego. */
-function FishingHint() {
+export function FishingHint() {
   const phase = useFishingStore((s) => s.phase);
   if (phase === "waiting")
     return (
@@ -59,7 +51,7 @@ function FishingHint() {
 function Hint({ children, strong = false }: { children: React.ReactNode; strong?: boolean }) {
   return (
     <div
-      className={`cozy-chip pointer-events-auto absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-[14px] ${strong ? "animate-[cozy-pop_0.4s_steps(3)_infinite] bg-cozy-paper-dark" : ""}`}
+      className={`cozy-chip pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[14px] ${strong ? "animate-[cozy-pop_0.4s_steps(3)_infinite] bg-cozy-paper-dark" : ""}`}
     >
       {children}
     </div>
@@ -67,7 +59,7 @@ function Hint({ children, strong = false }: { children: React.ReactNode; strong?
 }
 
 /** Tarjeta del pez atrapado: el dibujo, el tamaño, si es nuevo o récord y los puntos. */
-function CatchCard() {
+export function CatchCard() {
   const card = useFishingStore((s) => s.card);
   const dismiss = useFishingStore((s) => s.dismissCard);
   const openPanel = useOfficeStore((s) => s.openPanel);
@@ -85,7 +77,7 @@ function CatchCard() {
     <section
       key={card.id}
       role="status"
-      className="cozy-panel pointer-events-auto absolute top-20 left-1/2 z-20 w-[min(300px,calc(100%-1.5rem))] -translate-x-1/2 animate-[cozy-pop_0.35s_steps(3)] p-1.5"
+      className="cozy-panel pointer-events-auto w-[min(300px,100%)] animate-[cozy-pop_0.35s_steps(3)] p-1.5"
     >
       <header className="flex items-center justify-between gap-2 bg-cozy-wood px-3 py-1.5 text-cozy-paper-light">
         <span className="text-[15px] font-semibold">{trash ? "Sacaste algo…" : card.first ? "¡Especie nueva!" : card.record ? "¡Nuevo récord!" : "¡Lo sacaste!"}</span>
