@@ -53,6 +53,20 @@ describe("club (reglas)", () => {
     for (const t of [floor, booth, ...stage]) expect(zoneAt(map, c(t.x), c(t.y))?.id, `${t.x},${t.y}`).toBe(CLUB.zone);
   });
 
+  it("una pista de baile fuera del club (movida con el editor de la casa) no sirve para bailar", () => {
+    const jardin = getWorld().areas.get("jardin")!;
+    const floor = furniture(sotano(), "dance-floor");
+    const moved: OfficeMap = { ...jardin, furniture: [...jardin.furniture, { ...floor, x: 2, y: 2 }] };
+    expect(onDanceFloor(moved, c(3), c(3))).toBe(false);
+    // Ni en el sótano fuera de la sala del club.
+    const map = sotano();
+    let other: { x: number; y: number } | undefined;
+    for (let y = 0; y < map.height && !other; y++)
+      for (let x = 0; x < map.width && !other; x++) if (zoneAt(map, c(x), c(y)) && zoneAt(map, c(x), c(y))!.id !== CLUB.zone) other = { x, y };
+    const inOther: OfficeMap = { ...map, furniture: [...map.furniture, { ...floor, x: other!.x, y: other!.y }] };
+    expect(onDanceFloor(inOther, c(other!.x), c(other!.y))).toBe(false);
+  });
+
   it("la cabina pone una pista con la hora del servidor, la pausa en su punto del loop y la sigue", () => {
     const { state, club, map, booth } = rules();
     const dj = at(booth.x, booth.y);

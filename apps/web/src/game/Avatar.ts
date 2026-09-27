@@ -497,6 +497,31 @@ export class Avatar {
     for (const part of this.held?.parts ?? []) part.image.setVisible(show && part.left > 0);
   }
 
+  /** Dónde se ve la persona si no es donde tiene los pies (bailando en el tubo: en el centro del tubo). */
+  private overlayAnchor: { x: number; y: number } | null = null;
+
+  /**
+   * Mientras baila en el tubo (club/index.ts) el nombre, las burbujas, el anillo de quien habla y la
+   * cámara van sobre el tubo y no donde quedaron los pies. `null` los devuelve a su lugar.
+   */
+  setOverlayAnchor(p: { x: number; y: number } | null) {
+    const cur = this.overlayAnchor;
+    if (cur === p || (cur && p && cur.x === p.x && cur.y === p.y)) return;
+    this.overlayAnchor = p;
+    this.layout();
+  }
+
+  private shiftOverlays() {
+    const a = this.overlayAnchor;
+    if (!a) return;
+    const from = worldToScreen(this.wx, this.wy);
+    const to = worldToScreen(a.x, a.y);
+    const dx = Math.round(to.x) - Math.round(from.x);
+    const dy = Math.round(to.y) - Math.round(from.y);
+    const objects = [this.label, this.statusDot, this.speakingRing, this.bubble, this.emoteBubble?.container, this.video?.dom];
+    for (const o of objects) if (o) o.setPosition(o.x + dx, o.y + dy);
+  }
+
   setMotion(dir: Direction, moving: boolean) {
     if (moving) {
       this.stopDance();
@@ -687,5 +712,6 @@ export class Avatar {
         .setPosition(x, y - top - this.label.height - 1 - chat - this.emoteBubble.lift)
         .setDepth(6e7 + depth + 0.1);
     }
+    this.shiftOverlays();
   }
 }

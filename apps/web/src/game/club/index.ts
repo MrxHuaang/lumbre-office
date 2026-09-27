@@ -57,10 +57,28 @@ interface DanceImage {
   texture: string;
 }
 
-/** ¿Están los pies en (x, y) sobre la pista de baile? (la misma cuenta que el servidor). */
+/** ¿Está el mueble dentro del club? (una pista o un parlante que un admin puso en otro lado no se encienden). */
+function inClub(map: OfficeMap, f: PlacedFurniture) {
+  return map.id === CLUB.area && zoneAt(map, (f.x + f.w / 2) * map.tileSize, (f.y + f.d / 2) * map.tileSize)?.id === CLUB.zone;
+}
+
+/** ¿Están los pies en (x, y) sobre la pista de baile del club? (la misma cuenta que el servidor). */
 function onFloor(map: OfficeMap, x: number, y: number) {
   const ts = map.tileSize;
+  if (map.id !== CLUB.area || zoneAt(map, x, y)?.id !== CLUB.zone) return false;
   return map.furniture.some((f) => f.type === "dance-floor" && x >= f.x * ts && x < (f.x + f.w) * ts && y >= f.y * ts && y < (f.y + f.d) * ts);
+}
+
+/** Juego de la máquina: el de su punto "arcade" más cercano (el mismo índice que usa el servidor). */
+function cabinetGame(map: OfficeMap, f: PlacedFurniture) {
+  const cx = (f.x + f.w / 2) * map.tileSize;
+  const cy = (f.y + f.d / 2) * map.tileSize;
+  let best = { i: -1, d: Infinity };
+  pointsOfType(map, "arcade").forEach((p, i) => {
+    const d = Math.hypot(p.x - cx, p.y - cy);
+    if (d < best.d) best = { i, d };
+  });
+  return best.i < 0 ? null : (ARCADE_MACHINES[best.i] ?? null);
 }
 
 /** Registra una hoja como textura con frames de w x h numerados de izquierda a derecha y de arriba abajo. */
@@ -102,15 +120,14 @@ export class ClubMode {
   setArea(map: OfficeMap, _view: AreaView) {
     this.clear();
     this.map = map;
-    let cabinet = 0;
     for (const f of map.furniture) {
-      if (f.type === "dance-floor") this.floorLayers.push(this.layer(f, "club-pista-0", danceFloorLights(0), DEPTH_FLAT + 1));
+      if (f.type === "dance-floor" && inClub(map, f)) this.floorLayers.push(this.layer(f, "club-pista-0", danceFloorLights(0), DEPTH_FLAT + 1));
       else if (f.type === "pole-stage") this.stageLayers.push(this.layer(f, "club-tarima-0", poleStageLights(0), DEPTH_FLAT + 1));
       else if (f.type === "dj-booth") this.eqLayers.push(this.layer(f, "club-eq-0", djBoothEq(EQ_LEVELS[0]!)));
-      else if (f.type === "speaker" && zoneAt(map, (f.x + 0.5) * map.tileSize, (f.y + 0.5) * map.tileSize)?.id === CLUB.zone)
+      else if (f.type === "speaker" && inClub(map, f))
         this.speakerLayers.push(this.layer(f, "club-parlante-0", speakerPulse(0)));
       else if (f.type === "arcade-cabinet") {
-        const kind = ARCADE_MACHINES[cabinet++] ?? null;
+        const kind = cabinetGame(map, f);
         this.screens.push({ layer: this.layer(f, `arcade-pantalla-${kind ?? "off"}-0`, arcadeScreen(kind ?? "off", 0)), kind: kind ?? "off" });
       }
     }
@@ -121,7 +138,7 @@ export class ClubMode {
     }
     const booth = map.furniture.find((f) => f.type === "dj-booth");
     if (booth) for (const [k, color] of LIGHTS.slice(0, 2).entries()) this.djGlows.push(this.glow(booth, 22 + k * 4, color, 18, 0.45).setVisible(false));
-    const floor = map.furniture.find((f) => f.type === "dance-floor");
+    const floor = map.furniture.find((f) => f.type === "dance-floor" && inClub(map, f));
     if (floor) {
       for (let k = 0; k < 3; k++) {
         const key = ensureTexture(this.scene, `club-rayo-${k}`, () => glowSprite(22, 11, LIGHTS[k]!, 0.4));
@@ -193,7 +210,8 @@ export class ClubMode {
     // Luces de la cabina que se turnan en cada tiempo.
     this.djGlows.forEach((g, k) => g.setVisible(on && Math.floor(b) % 2 === k).setAlpha(1 - frac * 0.6));
     // Rayos de colores que barren la pista.
-    const floor = this.map?.furniture.find((f) => f.type === "dance-floor");
+    const map = this.map;
+    const floor = map?.furniture.find((f) => f.type === "dance-floor" && inClub(map, f));
     if (floor) {
       const ts = this.map!.tileSize;
       this.beams.forEach((img, k) => {
@@ -236,7 +254,10 @@ export class ClubMode {
         const p = worldToScreen(cx, cy);
         const img = this.danceImage(id, texture, POLE_FEET_Y / POLE_FRAME_H);
         img.setFrame(frame).setPosition(Math.round(p.x), Math.round(p.y)).setDepth(depthOf(cx, cy) + (POLE_ROUTINE[frame]!.behind ? -0.3 : 0.3));
+        // El nombre y las burbujas van con quien baila, no donde quedaron sus pies.
+        avatar.setOverlayAnchor({ x: cx, y: cy });
       } else {
+        avatar.setOverlayAnchor(null);
         const row = Math.max(0, DANCE_MOVE_IDS.indexOf(d.move as DanceMoveId));
         const t = beat ?? 0;
         const frame = row * DANCE_FRAMES + (Math.floor(t * 2) % DANCE_FRAMES);
@@ -257,6 +278,7 @@ export class ClubMode {
       this.dances.delete(id);
       this.lastPos.delete(id);
       this.avatarOf(id)?.setBodyVisible(true);
+      this.avatarOf(id)?.setOverlayAnchor(null);
     }
     // La tarima se enciende con alguien en el tubo: los bombillos corren y el tubo brilla.
     const lit = polesInUse.size > 0;
@@ -391,6 +413,7 @@ export class ClubMode {
     for (const [id, d] of this.dances) {
       d.img.destroy();
       this.avatarOf(id)?.setBodyVisible(true);
+      this.avatarOf(id)?.setOverlayAnchor(null);
     }
     this.dances.clear();
     this.lastPos.clear();

@@ -1,6 +1,6 @@
 // El club del sótano: la cabina de DJ (qué suena y desde cuándo), el baile en la pista y el tubo. Todo
 // queda en `OfficeState.club`, así lo ven igual todos; cada cliente genera la música y dibuja los pasos.
-import { nearPointOfType, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
+import { nearPointOfType, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import {
   CLUB,
   ClubDanceMessage,
@@ -31,9 +31,13 @@ export type ClubOutcome = { ok: true } | { ok: false; error: ClubError };
 const fail = (error: ClubError): ClubOutcome => ({ ok: false, error });
 const OK: ClubOutcome = { ok: true };
 
-/** ¿Están los pies sobre la pista de baile de ese nivel? */
+/**
+ * ¿Están los pies sobre la pista de baile del club? Una pista que un admin ponga en otro lado (el editor
+ * de la casa la deja mover) no cuenta: la música solo suena en el club.
+ */
 export function onDanceFloor(map: OfficeMap, x: number, y: number): boolean {
   const ts = map.tileSize;
+  if (map.id !== CLUB.area || zoneAt(map, x, y)?.id !== CLUB.zone) return false;
   return map.furniture.some((f) => f.type === "dance-floor" && x >= f.x * ts && x < (f.x + f.w) * ts && y >= f.y * ts && y < (f.y + f.d) * ts);
 }
 

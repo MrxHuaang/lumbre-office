@@ -1,6 +1,6 @@
 // Estado del club en el cliente: copia de lo que sincroniza el servidor (qué suena, desde cuándo y quién
 // baila) y lo que es solo de esta persona (volumen y silencio de la música, guardados en el navegador).
-import { beatAt, isPlaying, trackElapsed, type ClubMusicState, type DanceMoveId } from "@hyvento/shared";
+import { beatAt, DANCE_MOVE_IDS, isPlaying, trackElapsed, type ClubMusicState, type DanceMoveId } from "@hyvento/shared";
 import { create } from "zustand";
 import { useCasinoStore } from "../casino";
 
@@ -46,7 +46,8 @@ function loadPrefs(): { volume: number; muted: boolean; move: DanceMoveId } {
     return {
       volume: typeof p.volume === "number" ? Math.min(1, Math.max(0, p.volume)) : fallback.volume,
       muted: typeof p.muted === "boolean" ? p.muted : fallback.muted,
-      move: typeof p.move === "string" ? (p.move as DanceMoveId) : fallback.move,
+      // Un paso guardado que ya no existe haría que "Bailar" mande algo que el servidor rechaza.
+      move: DANCE_MOVE_IDS.includes(p.move as DanceMoveId) ? (p.move as DanceMoveId) : fallback.move,
     };
   } catch {
     return fallback;
