@@ -1,7 +1,9 @@
 // Arcade del sótano: tres minijuegos pixel que se juegan en la pantalla de la máquina. El servidor da una
-// semilla al empezar (el cliente la usa para su azar) y al terminar valida el puntaje: que la partida haya
-// durado algo y que el puntaje sea posible en ese tiempo. Premios chicos de ocio (LEISURE, con su tope).
+// semilla al empezar (el cliente la usa para su azar) y al terminar el cliente manda el puntaje y las teclas
+// que apretó: el servidor repite la partida con su semilla (arcade-sim.ts) y solo la acepta si da lo mismo,
+// si duró algo y si no duró más que lo que marca su reloj. Premios chicos de ocio (LEISURE, con su tope).
 import { z } from "zod";
+import { ARCADE_STEP_MS, FLAPPY, SCREEN_W, SNAKE } from "./arcade-sim";
 import { dayStart } from "./points";
 
 export const ARCADE_GAMES = ["snake", "breakout", "flappy"] as const;
@@ -42,30 +44,50 @@ export const ARCADE = {
   sessionMs: 20 * 60_000,
   /** Premio por la primera partida del día (cualquier juego). */
   firstGameReward: 5,
-  /** Premio por superar el récord de la semana de ese juego. */
+  /**
+   * Premio por superar el récord de la semana de ese juego. Solo si el récord anterior era de otra persona
+   * (subir el propio de a un punto no paga) y con un puntaje mínimo (ARCADE_RECORD_MIN).
+   */
   recordReward: 10,
   /** Cuántos puestos muestra la tabla de récords. */
   boardSize: 5,
   /** Tope de puntaje que acepta el mensaje (ningún juego llega a tanto). */
   maxScore: 100_000,
+  /** Cuántas teclas se pueden mandar de una partida. */
+  maxInputs: 20_000,
+  /** Margen entre el reloj del navegador y el del servidor al comparar la duración de la partida. */
+  clockSlackMs: 1500,
+  /** Cuánto se guarda en memoria la tabla de récords de cada juego antes de volver a leerla. */
+  boardCacheMs: 5000,
 } as const;
 
+/** Pasos que puede tener una partida como mucho (la de `sessionMs`). */
+export const ARCADE_MAX_STEPS = Math.ceil(ARCADE.sessionMs / ARCADE_STEP_MS);
+
+/** Puntaje mínimo para cobrar el premio por récord (si no, el primero de la semana lo gana con 1). */
+export const ARCADE_RECORD_MIN: Record<ArcadeGame, number> = { snake: 8, breakout: 12, flappy: 5 };
+
 /**
- * Lo máximo posible de cada juego: `base` más `perSecond` por cada segundo de partida. Culebrita: una
- * manzana por punto (la serpiente más rápida come como mucho unas dos por segundo). Rompeladrillos: un
- * ladrillo por punto (en los rebotes buenos caen varios seguidos). Aleteo: un tubo por punto (sale uno
- * cada segundo y medio).
+ * Lo máximo posible de cada juego en `elapsedMs` de partida, sacado de las constantes de cada uno. Es una
+ * segunda barrera: la que vale es repetir la partida. Culebrita: una manzana por movimiento como mucho y un
+ * movimiento cada `minMs` (y no cabe más culebra que la pantalla). Aleteo: el primer tubo se pasa cuando
+ * llega desde la derecha hasta el pajarito y después sale uno cada `spacing` px. Rompeladrillos: cota
+ * gruesa, dos ladrillos por segundo (un bot que no pierde nunca rompe menos de uno).
  */
-export const ARCADE_LIMITS: Record<ArcadeGame, { base: number; perSecond: number }> = {
-  snake: { base: 3, perSecond: 2 },
-  breakout: { base: 6, perSecond: 4 },
-  flappy: { base: 2, perSecond: 1 },
-};
+export function maxArcadeScore(game: ArcadeGame, elapsedMs: number): number {
+  const ms = Math.max(0, elapsedMs);
+  if (game === "snake") return Math.min(SNAKE.cols * SNAKE.rows - 4, Math.floor(ms / SNAKE.minMs));
+  if (game === "flappy") {
+    const firstMs = ((FLAPPY.spawnX - FLAPPY.birdX + FLAPPY.pipeW) / FLAPPY.speed) * 1000;
+    const everyMs = ((FLAPPY.spawnX - (SCREEN_W - FLAPPY.spacing)) / FLAPPY.speed) * 1000;
+    return ms < firstMs ? 0 : Math.floor((ms - firstMs) / everyMs) + 1;
+  }
+  return 6 + Math.floor((2 * ms) / 1000);
+}
 
 /** ¿Es posible ese puntaje en `elapsedMs` de partida? */
 export function plausibleScore(game: ArcadeGame, score: number, elapsedMs: number): boolean {
-  const lim = ARCADE_LIMITS[game];
-  return Number.isInteger(score) && score >= 0 && score <= lim.base + (lim.perSecond * elapsedMs) / 1000;
+  return Number.isInteger(score) && score >= 0 && score <= maxArcadeScore(game, elapsedMs);
 }
 
 const DAY_MS = 86_400_000;
@@ -90,10 +112,15 @@ export type ArcadeBoardMessage = z.infer<typeof ArcadeBoardMessage>;
 export const ArcadeStartMessage = z.object({ machine: z.number().int().min(0).max(63) });
 export type ArcadeStartMessage = z.infer<typeof ArcadeStartMessage>;
 
-/** Cliente → servidor (`MSG.arcadeFinish`): terminó la partida `token` con ese puntaje. */
+/**
+ * Cliente → servidor (`MSG.arcadeFinish`): terminó la partida `token` con ese puntaje, después de `steps`
+ * pasos fijos y con esas teclas (codificadas con `encodeInput`, en orden), para que el servidor la repita.
+ */
 export const ArcadeFinishMessage = z.object({
   token: z.string().min(1).max(64),
   score: z.number().int().min(0).max(ARCADE.maxScore),
+  steps: z.number().int().min(0).max(ARCADE_MAX_STEPS),
+  inputs: z.array(z.number().int().min(0)).max(ARCADE.maxInputs),
 });
 export type ArcadeFinishMessage = z.infer<typeof ArcadeFinishMessage>;
 

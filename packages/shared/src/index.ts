@@ -12,3 +12,4 @@ export * from "./emotes";
 export * from "./consumables";
 export * from "./club";
 export * from "./arcade";
+export * from "./arcade-sim";

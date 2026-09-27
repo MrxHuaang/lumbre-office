@@ -84,11 +84,13 @@ export interface GameRepository {
   /**
    * Guarda una partida del arcade (ya validada) y dice si era la primera del día de esa persona (desde
    * `dayStart`, en cualquier juego) y cuál era el récord de la semana de ese juego antes de ella (desde
-   * `weekStart`; 0 si no había). `name` solo lo usa la versión en memoria (Prisma lo lee del usuario).
+   * `weekStart`; 0 si no había) y de quién (null si no había). `name` solo lo usa la versión en memoria
+   * (Prisma lo lee del usuario).
    */
   saveArcadeScore(input: { userId: string; name: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }): Promise<{
     firstToday: boolean;
     weekBest: number;
+    weekBestUserId: string | null;
   }>;
   /** Récords de un juego desde `since`: el mejor puntaje de cada persona, de mayor a menor. */
   arcadeBoard(input: { game: ArcadeGame; since: number; limit: number }): Promise<ArcadeBoardEntry[]>;

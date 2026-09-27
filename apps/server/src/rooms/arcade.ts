@@ -1,17 +1,22 @@
 // Arcade del sótano: una partida por persona. Al empezar (parada delante de la máquina) el servidor da
-// una semilla y anota la hora; al terminar valida el puntaje con su propio reloj (duración mínima y lo
-// máximo posible por segundo), lo guarda en el repositorio y reparte el premio de ocio si corresponde.
+// una semilla y anota la hora; al terminar repite la partida con esa semilla y las teclas que mandó el
+// cliente (tiene que dar el mismo puntaje), compara la duración con su propio reloj, la guarda en el
+// repositorio y reparte el premio de ocio si corresponde.
 import { INTERACT_REACH_TILES, pointsOfType, type OfficeMap } from "@hyvento/map";
 import {
   ARCADE,
+  ARCADE_RECORD_MIN,
+  ARCADE_STEP_MS,
   ArcadeBoardMessage,
   ArcadeFinishMessage,
   arcadeGameOf,
   ArcadeStartMessage,
   dayStart,
   plausibleScore,
+  replayArcade,
   weekStart,
   type ArcadeBoard,
+  type ArcadeBoardEntry,
   type ArcadeGame,
   type ArcadeResult,
   type ArcadeStarted,
@@ -51,6 +56,10 @@ export function atMachine(map: OfficeMap, machine: number, x: number, y: number)
 export class Arcade {
   /** La partida abierta de cada persona (una sola: empezar otra reemplaza la anterior). */
   private sessions = new Map<string, Session>();
+  /** Tabla de cada juego leída hace poco: pedirla en bucle no le pega a la base. */
+  private boards = new Map<ArcadeGame, { at: number; board: ArcadeBoardEntry[] }>();
+  /** Las partidas se guardan de a una: dos que terminan a la vez no cobran las dos el mismo récord. */
+  private saving: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly deps: ArcadeDeps) {}
 
@@ -59,8 +68,15 @@ export class Arcade {
     const parsed = ArcadeBoardMessage.safeParse(raw);
     const game = parsed.success ? arcadeGameOf(parsed.data.machine) : null;
     if (!parsed.success || !game) return null;
+    return { machine: parsed.data.machine, game, board: await this.boardOf(game, now) };
+  }
+
+  private async boardOf(game: ArcadeGame, now: number): Promise<ArcadeBoardEntry[]> {
+    const cached = this.boards.get(game);
+    if (cached && now - cached.at < ARCADE.boardCacheMs && cached.at >= weekStart(now)) return cached.board;
     const board = await this.deps.repo().arcadeBoard({ game, since: weekStart(now), limit: ARCADE.boardSize });
-    return { machine: parsed.data.machine, game, board };
+    this.boards.set(game, { at: now, board });
+    return board;
   }
 
   /** Empieza una partida: hay que estar delante de una máquina que funcione. */
@@ -77,33 +93,49 @@ export class Arcade {
     return { machine, game, token: session.token, seed: session.seed };
   }
 
-  /** Termina la partida: valida duración y puntaje, guarda y da el premio (primera del día, récord semanal). */
-  async finish(who: ArcadeWho, raw: unknown, now: number): Promise<ArcadeResult> {
+  /**
+   * Termina la partida: la repite con la semilla y las teclas, valida la duración con el reloj del servidor,
+   * guarda y da el premio (primera del día; récord semanal si le gana a otra persona).
+   */
+  finish(who: ArcadeWho, raw: unknown, now: number): Promise<ArcadeResult> {
     const parsed = ArcadeFinishMessage.safeParse(raw);
-    if (!parsed.success) return { ok: false, error: "invalid" };
+    if (!parsed.success) return Promise.resolve({ ok: false, error: "invalid" });
     const session = this.sessions.get(who.userId);
-    if (!session || session.token !== parsed.data.token) return { ok: false, error: "expired" };
+    if (!session || session.token !== parsed.data.token) return Promise.resolve({ ok: false, error: "expired" });
     // La partida se cierra pase lo que pase: el mismo token no se puede mandar dos veces.
     this.sessions.delete(who.userId);
     const elapsed = now - session.startedAt;
-    if (elapsed > ARCADE.sessionMs) return { ok: false, error: "expired" };
-    if (elapsed < ARCADE.minMs) return { ok: false, error: "short" };
-    const { score } = parsed.data;
-    if (!plausibleScore(session.game, score, elapsed)) return { ok: false, error: "implausible" };
+    if (elapsed > ARCADE.sessionMs) return Promise.resolve({ ok: false, error: "expired" });
+    const { score, steps, inputs } = parsed.data;
+    const played = steps * ARCADE_STEP_MS;
+    if (played < ARCADE.minMs || elapsed < ARCADE.minMs) return Promise.resolve({ ok: false, error: "short" });
+    // El navegador no puede haber jugado más tiempo que el que pasó en el servidor.
+    if (played > elapsed + ARCADE.clockSlackMs || !plausibleScore(session.game, score, played)) return Promise.resolve({ ok: false, error: "implausible" });
+    const replay = replayArcade(session.game, session.seed, inputs, steps);
+    if (!replay.valid || !replay.over || replay.score !== score) return Promise.resolve({ ok: false, error: "implausible" });
 
+    const run = this.saving.then(() => this.save(who, session.game, score, now));
+    this.saving = run.catch(() => undefined);
+    return run;
+  }
+
+  private async save(who: ArcadeWho, game: ArcadeGame, score: number, now: number): Promise<ArcadeResult> {
     const repo = this.deps.repo();
-    let saved: { firstToday: boolean; weekBest: number };
+    let saved: { firstToday: boolean; weekBest: number; weekBestUserId: string | null };
     try {
-      saved = await repo.saveArcadeScore({ userId: who.userId, name: who.name, game: session.game, score, dayStart: dayStart(now), weekStart: weekStart(now) });
+      saved = await repo.saveArcadeScore({ userId: who.userId, name: who.name, game, score, dayStart: dayStart(now), weekStart: weekStart(now) });
     } catch (err) {
       console.error("saveArcadeScore", err);
       return { ok: false, error: "failed" };
     }
+    this.boards.delete(game);
     const record = score > 0 && score > saved.weekBest;
-    const prize = (saved.firstToday ? ARCADE.firstGameReward : 0) + (record ? ARCADE.recordReward : 0);
+    // Subir el propio récord no paga (si no, se cobra de a un punto) y el récord pide un mínimo.
+    const recordPrize = record && saved.weekBestUserId !== who.userId && score >= ARCADE_RECORD_MIN[game];
+    const prize = (saved.firstToday ? ARCADE.firstGameReward : 0) + (recordPrize ? ARCADE.recordReward : 0);
     const awarded = prize > 0 ? await this.deps.award(who.userId, prize) : 0;
-    const board = await repo.arcadeBoard({ game: session.game, since: weekStart(now), limit: ARCADE.boardSize }).catch(() => []);
-    return { ok: true, game: session.game, score, awarded, record, firstToday: saved.firstToday, board };
+    const board = await this.boardOf(game, now).catch(() => []);
+    return { ok: true, game, score, awarded, record, firstToday: saved.firstToday, board };
   }
 
   /** Cuántas partidas abiertas hay (para los tests). */

@@ -154,6 +154,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static blackjackShuffle: () => number[] = randomShoe;
   /** Semilla de cada partida del arcade (los tests la fijan). */
   static arcadeSeed: () => number = () => randomInt(2 ** 31);
+  /** Reloj del arcade (los tests lo adelantan para no esperar la duración mínima de una partida). */
+  static arcadeNow: () => number = () => Date.now();
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   static async reloadCasinoSettingsEverywhere() {
@@ -1035,7 +1037,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   private async handleArcadeBoard(client: Client<UserData>, raw: unknown) {
-    const board = await this.arcade.board(raw, Date.now()).catch((err) => {
+    const board = await this.arcade.board(raw, OfficeRoom.arcadeNow()).catch((err) => {
       console.error("arcadeBoard", err);
       return null;
     });
@@ -1045,7 +1047,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private handleArcadeStart(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
-    const started = this.arcade.start(this.mapOf(player.area), player, raw, Date.now());
+    const started = this.arcade.start(this.mapOf(player.area), player, raw, OfficeRoom.arcadeNow());
     client.userData.lastActiveAt = Date.now();
     if ("ok" in started) client.send(MSG.arcadeResult, started);
     else client.send(MSG.arcadeStarted, started);
@@ -1055,7 +1057,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
     client.userData.lastActiveAt = Date.now();
-    const result = await this.arcade.finish(player, raw, Date.now());
+    const result = await this.arcade.finish(player, raw, OfficeRoom.arcadeNow());
     client.send(MSG.arcadeResult, result);
   }
 

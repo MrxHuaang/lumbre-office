@@ -45,15 +45,22 @@ describe("arcade", () => {
   });
 
   it("el puntaje tiene que caber en el tiempo jugado", () => {
-    expect(plausibleScore("snake", 3, 0)).toBe(true);
-    expect(plausibleScore("snake", 23, 10_000)).toBe(true);
-    expect(plausibleScore("snake", 24, 10_000)).toBe(false);
-    expect(plausibleScore("flappy", 12, 10_000)).toBe(true);
-    expect(plausibleScore("flappy", 13, 10_000)).toBe(false);
+    expect(plausibleScore("snake", 0, 0)).toBe(true);
+    expect(plausibleScore("snake", 1, 0)).toBe(false);
+    // Culebrita: un movimiento cada 70 ms como mucho.
+    expect(plausibleScore("snake", 142, 10_000)).toBe(true);
+    expect(plausibleScore("snake", 143, 10_000)).toBe(false);
+    // Aleteo: el primer tubo a los 2,3 s y después uno cada 1,6 s.
+    expect(plausibleScore("flappy", 5, 10_000)).toBe(true);
+    expect(plausibleScore("flappy", 6, 10_000)).toBe(false);
+    expect(plausibleScore("breakout", 26, 10_000)).toBe(true);
+    expect(plausibleScore("breakout", 27, 10_000)).toBe(false);
     expect(plausibleScore("breakout", -1, 10_000)).toBe(false);
     expect(plausibleScore("breakout", 1.5, 10_000)).toBe(false);
-    expect(ArcadeFinishMessage.safeParse({ token: "t", score: 10 }).success).toBe(true);
-    expect(ArcadeFinishMessage.safeParse({ token: "t", score: 10.5 }).success).toBe(false);
+    expect(ArcadeFinishMessage.safeParse({ token: "t", score: 10, steps: 600, inputs: [16, 33] }).success).toBe(true);
+    expect(ArcadeFinishMessage.safeParse({ token: "t", score: 10 }).success).toBe(false);
+    expect(ArcadeFinishMessage.safeParse({ token: "t", score: 10.5, steps: 600, inputs: [] }).success).toBe(false);
+    expect(ArcadeFinishMessage.safeParse({ token: "t", score: 1, steps: 600, inputs: [-3] }).success).toBe(false);
   });
 
   it("la semana empieza el lunes a la medianoche de Bogotá", () => {

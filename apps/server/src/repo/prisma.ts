@@ -206,10 +206,17 @@ export class PrismaRepository implements GameRepository {
 
   saveArcadeScore({ userId, game, score, dayStart, weekStart }: { userId: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }) {
     return prisma.$transaction(async (tx) => {
+      // Un candado de la transacción para todo el arcade: dos partidas que terminan a la vez (aunque haya
+      // más de un servidor) no leen el mismo récord ni cuentan las dos como la primera del día.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('hyvento:arcade'))`;
       const today = await tx.arcadeScore.count({ where: { userId, createdAt: { gte: new Date(dayStart) } } });
-      const best = await tx.arcadeScore.aggregate({ where: { game, createdAt: { gte: new Date(weekStart) } }, _max: { score: true } });
+      const best = await tx.arcadeScore.findFirst({
+        where: { game, createdAt: { gte: new Date(weekStart) } },
+        orderBy: [{ score: "desc" }, { createdAt: "asc" }],
+        select: { score: true, userId: true },
+      });
       await tx.arcadeScore.create({ data: { userId, game, score } });
-      return { firstToday: today === 0, weekBest: best._max.score ?? 0 };
+      return { firstToday: today === 0, weekBest: best?.score ?? 0, weekBestUserId: best?.userId ?? null };
     });
   }
 
