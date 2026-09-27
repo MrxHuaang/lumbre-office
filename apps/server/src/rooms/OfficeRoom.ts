@@ -75,6 +75,8 @@ import {
   type MoveCorrection,
   type OfficeEditResult,
   WorldEditMessage,
+  WorldEditLockMessage,
+  type WorldEditLockResult,
   type WorldEditResult,
   type OfficeItemDTO,
   type Positioned,
@@ -174,6 +176,8 @@ interface UserData {
   lastEmoteAt?: number;
   /** Admin del equipo (puede usar el editor de la casa). */
   admin?: boolean;
+  /** Puede usar el editor de la casa (ver `houseEditor` del token). */
+  houseEditor?: boolean;
   /** Emotes aceptados hace poco (pausa entre uno y otro y tope por ráfaga, ver `acceptEmote`). */
   emoteTimes?: number[];
   /** Mensajes recientes al casino (tope por ráfaga, ver `acceptCasinoMessage`). */
@@ -547,6 +551,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         client.send(MSG.officeEditResult, { ok: false, error: "failed" } satisfies OfficeEditResult);
       });
     });
+    this.onMessage(MSG.worldEditLock, (client, raw) => this.handleWorldEditLock(client, raw));
     this.onMessage(MSG.worldEdit, (client, raw) => {
       this.serial(() => this.handleWorldEdit(client, raw)).catch((err) => {
         console.error("worldEdit", err);
@@ -664,7 +669,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.drunk = this.drunk.stage(auth.sub);
     this.state.players.set(client.sessionId, player);
 
-    client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now(), admin: auth.role === "ADMIN" };
+    client.userData = {
+      lastMoveAt: Date.now(),
+      chatTimes: [],
+      lastActiveAt: Date.now(),
+      admin: auth.role === "ADMIN",
+      houseEditor: auth.houseEditor ?? auth.role === "ADMIN",
+    };
     void this.achievements.load(auth.sub).then(() => {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
@@ -792,12 +803,35 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   /** Editor de la casa (solo admins): valida el cambio, lo guarda y lo aplica en todas las salas. */
+  /** Quién tiene el editor de la casa (una persona a la vez). */
+  private houseEditLock: { sessionId: string; name: string } | null = null;
+
+  /** Entrar o salir del editor de la casa: solo quien puede editar, y si nadie más lo tiene. */
+  private handleWorldEditLock(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = WorldEditLockMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const reply = (r: WorldEditLockResult) => client.send(MSG.worldEditLockResult, r);
+    if (!parsed.data.on) {
+      if (this.houseEditLock?.sessionId === client.sessionId) this.houseEditLock = null;
+      return;
+    }
+    if (!client.userData.houseEditor) return reply({ ok: false, error: "not-allowed" });
+    const lock = this.houseEditLock;
+    if (lock && lock.sessionId !== client.sessionId && this.state.players.has(lock.sessionId)) return reply({ ok: false, error: "busy", by: lock.name });
+    this.houseEditLock = { sessionId: client.sessionId, name: player.name };
+    reply({ ok: true });
+  }
+
   private async handleWorldEdit(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = WorldEditMessage.safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
     const reply = (r: WorldEditResult) => client.send(MSG.worldEditResult, r);
-    if (!client.userData.admin) return reply({ ok: false, error: "admin" });
+    if (!client.userData.houseEditor) return reply({ ok: false, error: "admin" });
+    // Una sola persona edita la casa a la vez: la que tiene el candado (lo toma si está libre).
+    if (this.houseEditLock && this.houseEditLock.sessionId !== client.sessionId) return reply({ ok: false, error: "busy" });
+    this.houseEditLock ??= { sessionId: client.sessionId, name: player.name };
     const { area, op } = parsed.data;
     const def = planDef(area);
     if (!def) return reply({ ok: false, error: "unknown" });
@@ -2078,6 +2112,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.club?.forget(sessionId);
     this.whiteboards.forget(sessionId);
     this.races.forget(sessionId);
+    if (this.houseEditLock?.sessionId === sessionId) this.houseEditLock = null;
     if (!player) return;
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);

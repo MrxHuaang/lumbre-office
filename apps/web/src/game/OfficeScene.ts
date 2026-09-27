@@ -80,6 +80,7 @@ import {
   sendMove,
   sendUseHeld,
   sendSwivel,
+  sendWorldEditLock,
   sendToast,
   sendOfficeEdit,
   sendTravel,
@@ -454,6 +455,8 @@ export class OfficeScene extends Phaser.Scene {
         if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
           this.refreshDecor();
         }
+        // Entrar o salir del editor de la casa pide o suelta el candado (una persona a la vez).
+        if (s.worldEditing !== prev.worldEditing) sendWorldEditLock(s.worldEditing);
         if (s.worldEditing !== prev.worldEditing || (s.worldEditing && (s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing))) {
           this.worldEditor.refresh(true);
         }
@@ -483,6 +486,8 @@ export class OfficeScene extends Phaser.Scene {
     this.updateLocal(delta, this.readTaps());
     this.table.update();
     this.table.fadeAvatars([...this.avatars.values()].map((a) => a.sprite));
+    // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa.
+    for (const a of this.avatars.values()) a.setNameHidden(Boolean(this.table.kind));
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
       this.hearingElapsed = 0;

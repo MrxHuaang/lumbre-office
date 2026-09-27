@@ -171,6 +171,9 @@ export const MSG = {
   /** Editor de la casa, solo admins (`WorldEditMessage`) y su respuesta (`WorldEditResult`). */
   worldEdit: "world:edit",
   worldEditResult: "world:edit:result",
+  /** Tomar o soltar el editor de la casa (una persona a la vez): `WorldEditLockMessage` → `WorldEditLockResult`. */
+  worldEditLock: "world:edit:lock",
+  worldEditLockResult: "world:edit:lock:result",
   /** Emote sobre la cabeza (`EmoteMessage`) y el aviso a los del mismo nivel (`EmoteEvent`). */
   emote: "emote",
   emoteEvent: "emote:event",
