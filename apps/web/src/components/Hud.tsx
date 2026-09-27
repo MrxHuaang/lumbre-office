@@ -100,6 +100,15 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
       </button>
 
       <button
+        onClick={() => openPanel("fishAlbum", false)}
+        className="cozy-btn h-[34px] w-[34px] p-0"
+        title="Álbum de pesca: los peces que has sacado del lago"
+        aria-label="Álbum de pesca"
+      >
+        <PixelIcon name="fish" size={16} color="var(--color-cozy-sky)" />
+      </button>
+
+      <button
         onClick={() => setNight(!night)}
         aria-pressed={night}
         className="cozy-btn h-[34px] w-[34px] p-0"

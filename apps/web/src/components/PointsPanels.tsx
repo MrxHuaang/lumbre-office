@@ -46,6 +46,7 @@ const PROMPT: Record<Interactable, string> = {
   cashier: "Ver la caja",
   blackjack: "Jugar blackjack",
   bar: "Pedir en la barra del club",
+  fishing: "Pescar",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
