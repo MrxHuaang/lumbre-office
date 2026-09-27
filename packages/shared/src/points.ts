@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 /** Motivo de un movimiento de puntos (mismo nombre que el enum PointReason de Prisma). `PURCHASE` es un gasto (monto negativo). */
-export const POINT_REASONS = ["PRESENCE", "MEETING", "DAILY", "MISSION", "ADMIN", "PURCHASE", "CASINO"] as const;
+export const POINT_REASONS = ["PRESENCE", "MEETING", "DAILY", "MISSION", "ADMIN", "PURCHASE", "CASINO", "GIFT", "LEISURE"] as const;
 export type PointReason = (typeof POINT_REASONS)[number];
 
 export const POINTS = {
@@ -26,6 +26,8 @@ export const POINTS = {
   missionMinReward: 5,
   /** Ranking: puntos ganados en los últimos N días. */
   rankingDays: 7,
+  /** Tope diario de los premios del ocio (cosechas, pesca, arcade). */
+  leisureDailyCap: 40,
 } as const;
 
 /** Tope diario por motivo (null = sin tope). */
@@ -37,6 +39,8 @@ export const DAILY_CAPS: Record<PointReason, number | null> = {
   ADMIN: null,
   PURCHASE: null,
   CASINO: null,
+  GIFT: null,
+  LEISURE: POINTS.leisureDailyCap,
 };
 
 // El equipo está en Colombia (UTC-5, sin horario de verano): los días cambian a la medianoche de Bogotá.

@@ -17,6 +17,8 @@ const REASON_LABEL: Record<PointReason, string> = {
   ADMIN: "Ajuste",
   PURCHASE: "Compra",
   CASINO: "Casino",
+  GIFT: "Regalo",
+  LEISURE: "Ocio",
 };
 
 /** Nombre de un movimiento: las compras dicen qué se compró ("Cafetería · Tinto", "Tienda · Planta"). */

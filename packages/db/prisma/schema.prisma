@@ -64,6 +64,11 @@ model User {
   missionsCreated Mission[]          @relation("MissionCreator")
   missionsTaken   Mission[]          @relation("MissionAssignee")
   inventory       InventoryItem[]
+  giftsSent       Gift[]             @relation("GiftsSent")
+  giftsReceived   Gift[]             @relation("GiftsReceived")
+  gardenPlots     GardenPlot[]
+  fishCatches     FishCatch[]
+  arcadeScores    ArcadeScore[]
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -170,6 +175,10 @@ enum PointReason {
   PURCHASE
   /// Casino: apuestas (monto negativo) y premios (positivo). Tiene un límite diario de pérdidas.
   CASINO
+  /// Regalos e intercambios entre personas: lo que sale (negativo) y lo que llega (positivo).
+  GIFT
+  /// Ocio de la fase 5: cosechas del huerto, pesca y arcade (premios chicos con tope diario).
+  LEISURE
 }
 
 /**
@@ -299,4 +308,67 @@ model CasinoSettings {
   /** Lo máximo que alguien puede perder en el casino en un día (de Bogotá). */
   dailyLossLimit Int      @default(150)
   updatedAt      DateTime @updatedAt
+}
+
+/**
+ * Regalo (fase 5): puntos y/o un objeto de la mochila, con una nota. Se descuenta al enviarlo y llega
+ * al buzón de quien lo recibe; recién al abrirlo se le acredita.
+ */
+model Gift {
+  id        String    @id @default(cuid())
+  fromId    String
+  from      User      @relation("GiftsSent", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        User      @relation("GiftsReceived", fields: [toId], references: [id], onDelete: Cascade)
+  points    Int       @default(0)
+  /// Objeto de la mochila (id del catálogo de la tienda) y cuántos.
+  itemId    String?
+  quantity  Int       @default(0)
+  note      String    @default("")
+  createdAt DateTime  @default(now())
+  openedAt  DateTime?
+
+  @@index([toId, openedAt])
+}
+
+/**
+ * Parcela del huerto compartido del jardín (fase 5). `id` es el índice de la parcela en el mapa. El
+ * crecimiento se acumula en `growthMs` (calculado hasta `growthAt`); regar acelera hasta `wateredUntil`.
+ */
+model GardenPlot {
+  id           Int       @id
+  crop         String?
+  plantedById  String?
+  plantedBy    User?     @relation(fields: [plantedById], references: [id], onDelete: SetNull)
+  plantedAt    DateTime?
+  growthMs     Int       @default(0)
+  growthAt     DateTime?
+  wateredUntil DateTime?
+  updatedAt    DateTime  @updatedAt
+}
+
+/** Pez atrapado en el estanque del jardín (fase 5): la colección de cada persona. */
+model FishCatch {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species  String
+  /// Tamaño en centímetros.
+  size     Int
+  caughtAt DateTime @default(now())
+
+  @@index([userId, species])
+}
+
+/** Puntaje de una partida en una máquina del arcade del sótano (fase 5). */
+model ArcadeScore {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game      String
+  score     Int
+  createdAt DateTime @default(now())
+
+  @@index([game, createdAt])
+  @@index([userId, game])
 }
