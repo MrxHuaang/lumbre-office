@@ -62,12 +62,16 @@ import {
   onFurnitureEvent,
   onHeldUsed,
   onDrunkBlackout,
+  onSwivelEvent,
+  onToastEvent,
   onMoveCorrection,
   onWorldEdits,
   onRoom,
   sendFurnitureUse,
   sendMove,
   sendUseHeld,
+  sendSwivel,
+  sendToast,
   sendOfficeEdit,
   sendTravel,
   type OfficeRoom,
@@ -81,7 +85,17 @@ import { Usables, type UsableHit } from "./usables";
 import { FishingController } from "./fishing/controller";
 import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
-import { DRUNK, type DrunkStage } from "@hyvento/shared";
+import { ALCOHOL_PER_SIP, DRUNK, isSwivelSeat, spinMs, type DrunkStage, type SwivelEvent } from "@hyvento/shared";
+import { playAnticSound } from "./antics-sound";
+import { ToastController } from "./toasts";
+
+/** Avisos de dar muchas vueltas en la silla (van rotando) y de cuando se pasa el mareo. */
+const SWIVEL_DIZZY_NOTICE = [
+  "Tantas vueltas… la oficina sigue girando un ratito.",
+  "Ya ni sabes dónde quedó el PC. Mejor para un poquito.",
+  "El mundo da vueltas y tú también. ¿Seguro que esto es trabajar?",
+];
+const SWIVEL_SOBER_NOTICE = "Se te pasó el mareo. La oficina por fin se quedó quieta.";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -110,11 +124,11 @@ const ARRIVAL_CLEAR_TILES = 1.5;
 const DECOR_COLORS = { grid: 0xfff4d6, ok: 0x6fcf5f, bad: 0xe05a4a };
 
 type Keys = Record<
-  "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT" | "E" | "R" | "F" | "ESC" | "DELETE" | "BACKSPACE",
+  "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT" | "E" | "R" | "F" | "B" | "ESC" | "DELETE" | "BACKSPACE",
   Phaser.Input.Keyboard.Key
 >;
 /** Teclas de un toque apretadas en este frame con el juego libre (ver `readTaps`). */
-type Taps = Record<"e" | "r" | "f" | "esc" | "del", boolean>;
+type Taps = Record<"e" | "r" | "f" | "b" | "esc" | "del", boolean>;
 
 /** Paneles del casino que se juegan en la mesa (modo mesa) en vez de en una ventana. */
 const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" => kind === "roulette" || kind === "blackjack";
@@ -204,6 +218,12 @@ export class OfficeScene extends Phaser.Scene {
   private drunkStage: DrunkStage = 0;
   /** Desmayado: no se camina hasta que el servidor me despierta (y ahí vuelve la imagen). */
   private fainted = false;
+  /** Brindis: animaciones y la ayuda "B" del HUD (se recalcula unas veces por segundo). */
+  private toasts!: ToastController;
+  private toastPromptAt = 0;
+  /** El mareo de ahora es de dar vueltas en la silla (no del bar): cambia el aviso al subir y al pasarse. */
+  private dizzyOnly = false;
+  private dizzySpins = 0;
 
   constructor() {
     super("office");
@@ -230,7 +250,7 @@ export class OfficeScene extends Phaser.Scene {
     cam.setRoundPixels(true);
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
-    this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,F,ESC,DELETE,BACKSPACE", false) as Keys;
+    this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,F,B,ESC,DELETE,BACKSPACE", false) as Keys;
     this.table = new TableMode(this);
     this.usables = new Usables(this, (id) => this.avatars.get(id), () => this.local);
     this.markers = new InteractMarkers(this);
@@ -243,6 +263,13 @@ export class OfficeScene extends Phaser.Scene {
     this.fishing = new FishingController(this, () => this.local, () => this.map);
     this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
     this.drunkVision = new DrunkVision(() => this.game.canvas);
+    this.toasts = new ToastController(this, {
+      avatar: (id) => this.avatars.get(id),
+      here: (id) => this.areaOfSession.get(id) === this.map.id,
+      localId: () => this.localId,
+      name: (id) => useOfficeStore.getState().players[id]?.name ?? "Alguien",
+      present: () => [...this.areaOfSession].filter(([, area]) => area === this.map.id).map(([id]) => id),
+    });
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
@@ -265,7 +292,16 @@ export class OfficeScene extends Phaser.Scene {
       onRoom((room) => this.bindRoom(room)),
       onMoveCorrection((c) => this.handleCorrection(c)),
       onEmote((e) => this.avatars.get(e.sessionId)?.emote(e.emote)),
-      onHeldUsed((e) => this.avatars.get(e.sessionId)?.useHeld(e.part, e.action, e.left)),
+      onHeldUsed((e) => {
+        this.avatars.get(e.sessionId)?.useHeld(e.part, e.action, e.left);
+        if (e.sessionId === this.localId && ALCOHOL_PER_SIP[e.art]) this.dizzyOnly = false;
+      }),
+      onToastEvent((e) => {
+        this.toasts.handle(e);
+        // Brindé: el sorbo pudo llevar alcohol, así que los avisos vuelven a ser los del bar.
+        if (e.kind === "clink" && e.sips.some((sip) => sip.sessionId === this.localId)) this.dizzyOnly = false;
+      }),
+      onSwivelEvent((e) => this.handleSwivel(e)),
       onDrunkBlackout((e) => {
         this.avatars.get(e.sessionId)?.faint(this.time.now);
         if (e.sessionId === this.localId) this.faintLocal();
@@ -275,6 +311,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
       () => this.drunkVision.destroy(),
+      () => this.toasts.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
@@ -343,6 +380,7 @@ export class OfficeScene extends Phaser.Scene {
     this.usables.update();
     this.fishing.update(delta);
     this.rods.update();
+    this.updateToastPrompt(time);
   }
 
   // ---------- Niveles ----------
@@ -664,6 +702,14 @@ export class OfficeScene extends Phaser.Scene {
     this.drunkStage = stage;
     this.drunkVision.setStage(stage);
     if (stage === prev) return;
+    // Mareado de dar vueltas: el aviso ya salió con el giro; al pasarse, uno propio.
+    if (this.dizzyOnly) {
+      if (stage === 0) {
+        this.dizzyOnly = false;
+        useOfficeStore.getState().notify(SWIVEL_SOBER_NOTICE, "info");
+      }
+      return;
+    }
     // Al subir se avisa cada etapa; al bajar, solo cuando se pasa del todo.
     if (stage > prev || stage === 0) useOfficeStore.getState().notify(DRUNK_NOTICE[stage], stage >= 3 ? "warning" : "info");
   }
@@ -684,6 +730,39 @@ export class OfficeScene extends Phaser.Scene {
     this.time.delayedCall(DRUNK.vomitMs + 400, () => {
       if (this.fainted) this.cameras.main.fadeOut(1400, 0, 0, 0);
     });
+  }
+
+  // ---------- Brindis y sillas giratorias ----------
+
+  /** La ayuda "B" del HUD (unas veces por segundo: mira a los de alrededor). */
+  private updateToastPrompt(time: number) {
+    if (time - this.toastPromptAt < 150) return;
+    this.toastPromptAt = time;
+    const next = this.fainted ? null : this.toasts.prompt();
+    const s = useOfficeStore.getState();
+    const cur = s.toastPrompt;
+    if (next?.mode !== cur?.mode || next?.name !== cur?.name) s.setToastPrompt(next);
+  }
+
+  /** Pedirle al servidor un giro (él valida la silla y la pausa; mientras gira no se insiste). */
+  private spinChair() {
+    if (this.local?.isSpinning) return;
+    sendSwivel();
+  }
+
+  /** Alguien de mi nivel gira en su silla: el giro lo ven todos; si fui yo y me mareé, un aviso. */
+  private handleSwivel(e: SwivelEvent) {
+    const avatar = this.avatars.get(e.sessionId);
+    avatar?.spin(e.turns, e.dizzy);
+    const me = this.localId ? this.avatars.get(this.localId) : undefined;
+    const dist = avatar && me ? Math.hypot(avatar.x - me.x, avatar.y - me.y) : 0;
+    playAnticSound("swivel-whoosh", { dist, turns: e.turns, durationMs: spinMs(e.turns) });
+    if (!e.dizzy) return;
+    playAnticSound("swivel-dizzy", { dist });
+    if (e.sessionId !== this.localId) return;
+    // Solo si no venía tomado: si ya estaba borracho, el mareo de la silla no cambia nada.
+    if (this.drunkStage === 0 || this.dizzyOnly) this.dizzyOnly = true;
+    useOfficeStore.getState().notify(SWIVEL_DIZZY_NOTICE[this.dizzySpins++ % SWIVEL_DIZZY_NOTICE.length]!, "info");
   }
 
   /** Textura del personaje (fijo o personalizado), dibujada en el navegador. */
@@ -716,7 +795,7 @@ export class OfficeScene extends Phaser.Scene {
     const k = this.keys;
     const del = tap(k.DELETE);
     const backspace = tap(k.BACKSPACE);
-    return { e: tap(k.E), r: tap(k.R), f: tap(k.F), esc: tap(k.ESC), del: del || backspace };
+    return { e: tap(k.E), r: tap(k.R), f: tap(k.F), b: tap(k.B), esc: tap(k.ESC), del: del || backspace };
   }
 
   private updateLocal(delta: number, taps: Taps) {
@@ -749,6 +828,11 @@ export class OfficeScene extends Phaser.Scene {
       }
       // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
       if (taps.f && this.local?.holding && !useOfficeStore.getState().decorating && !this.table.kind) sendUseHeld();
+      const editing = useOfficeStore.getState().decorating || useOfficeStore.getState().worldEditing;
+      // B: brindar (invitar o sumarse; el servidor valida la bebida, la distancia y la pausa).
+      if (taps.b && !editing && !this.table.kind) sendToast();
+      // R, sentado en la silla del escritorio: girar (decorando, R gira el mueble elegido).
+      if (taps.r && this.seat && isSwivelSeat(this.seat) && !editing && !this.table.kind) this.spinChair();
       if (useOfficeStore.getState().decorating) this.decorKeys(taps);
       if (useOfficeStore.getState().worldEditing) this.worldEditor.keys(taps);
       // Esc sale de la mesa (y del blackjack te levanta).
@@ -981,6 +1065,8 @@ export class OfficeScene extends Phaser.Scene {
     if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
     const atComputer = this.seat?.computer ?? false;
     if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
+    const atSwivel = this.seat ? isSwivelSeat(this.seat) : false;
+    if (atSwivel !== s.atSwivel) s.setAtSwivel(atSwivel);
   }
 
   // ---------- Clic para caminar ----------
@@ -1032,6 +1118,11 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private clickAt(sx: number, sy: number) {
+    // Sentado en la silla del escritorio, clic en mi personaje: girar (en vez de levantarme).
+    if (this.seat && isSwivelSeat(this.seat) && this.local?.sprite.getBounds().contains(sx, sy)) {
+      this.spinChair();
+      return;
+    }
     this.pendingZone = null;
     this.pendingInteract = null;
     this.pendingUse = null;
