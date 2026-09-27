@@ -12,6 +12,10 @@ export { CAFE_ITEM_ART, drawCafeItem, heldEffect, puff, type HeldEffect } from "
 export { drawEmote, EMOTE_ART } from "./emotes";
 export { drawSurroundings } from "./surroundings";
 export { drawAreaBase, drawDoorPost, drawLowWall, LOW_WALL_H, WALL_H, type AreaArt } from "./room";
+// Casino: tipografía de números, geometría de las mesas y el arte del modo mesa.
+export * from "./digits";
+export * from "./casino-layout";
+export * from "./casino-mesa";
 
 /** Halo de luz en bandas tramadas (se suma de noche). */
 export function glowSprite(rx: number, ry: number, color: string, maxAlpha: number): PixelCanvas {
