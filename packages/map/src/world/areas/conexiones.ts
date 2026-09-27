@@ -29,7 +29,8 @@ export const CONEXIONES = {
     // Las escaleras están una sobre otra en todos los pisos, contra la pared norte del recibidor (o del
     // rellano): la de la izquierda (x 11..12) une la planta baja con el piso 2 y la de la derecha
     // (x 14..15) baja al sótano y, en el piso 2, sube al 3. Se pisan en la fila de abajo del primer
-    // escalón (y = 17). El sótano pone su escalera en estos mismos tiles.
+    // escalón (y = 17). El sótano no: ahí esas baldosas son del casino y su escalera está en el
+    // vestíbulo (ver `sotano` abajo); bajar lleva de una a la otra.
     escaleraArriba: { tiles: par(11, 17), llegada: { x: 12, y: 18, facing: "down" } },
     escaleraSotano: { tiles: par(14, 17), llegada: { x: 15, y: 18, facing: "down" } },
   },
