@@ -61,6 +61,7 @@ import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map"
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
+import { bindHockey } from "./arcade/hockey";
 import { bindClub, togglePole } from "./club/net";
 import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
@@ -721,6 +722,7 @@ function attach(r: OfficeRoom) {
   bindClub(r);
   bindRace(r);
   bindArcade(r);
+  bindHockey(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
     if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");

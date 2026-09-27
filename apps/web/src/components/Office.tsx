@@ -29,6 +29,7 @@ import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
 import { ProfileDialog } from "./ProfileDialog";
 import { ArcadePanel } from "./arcade/ArcadePanel";
+import { HockeyStrip } from "./arcade/HockeyStrip";
 import { ClubHud } from "./club/ClubHud";
 import { DjConsole } from "./club/DjConsole";
 import { WhiteboardPanel } from "./WhiteboardPanel";
@@ -274,6 +275,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           )}
           {panel?.kind === "dj" && <DjConsole atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "arcade" && <ArcadePanel onClose={closePanel} />}
+          {/* El hockey de mesa también se juega sobre la mesa: solo la tira de abajo. */}
+          {panel?.kind === "hockey" && <HockeyStrip />}
           {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
           {panel?.kind === "race" && <RacePanel atObject={panel.atObject} onClose={closePanel} />}
         </>

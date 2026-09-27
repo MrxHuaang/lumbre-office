@@ -145,6 +145,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "fishing", point: "fishing_spot", furniture: ["flat-rock"] },
   { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
+  { kind: "hockey", point: "air_hockey", furniture: ["air-hockey"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
 ];
@@ -161,8 +162,8 @@ type Keys = Record<
 /** Teclas de un toque apretadas en este frame con el juego libre (ver `readTaps`). */
 type Taps = Record<"e" | "r" | "f" | "b" | "esc" | "del", boolean>;
 
-/** Paneles del casino que se juegan en la mesa (modo mesa) en vez de en una ventana. */
-const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" => kind === "roulette" || kind === "blackjack";
+/** Paneles del casino (y el hockey del arcade) que se juegan en la mesa (modo mesa) en vez de en una ventana. */
+const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" | "hockey" => kind === "roulette" || kind === "blackjack" || kind === "hockey";
 
 /** Dirección del sprite según hacia dónde se mueve en pantalla (+x = sureste, +y = suroeste). */
 function facingFor(vx: number, vy: number): Direction {
@@ -1030,6 +1031,8 @@ export class OfficeScene extends Phaser.Scene {
       const right = k.D.isDown || k.RIGHT.isDown ? 1 : 0;
       vx = down - up + right - left;
       vy = down - up - right + left;
+      // En el hockey las flechas mueven el mazo (lo lee la mesa), no al personaje.
+      if (this.table.kind === "hockey") vx = vy = 0;
       // En el club, E sobre la pista baila o deja de bailar (si no hay otro objeto al lado).
       if (taps.e && !this.seat && !this.table.kind && this.club.tapE(useOfficeStore.getState().interact)) taps.e = false;
       if (taps.e) {

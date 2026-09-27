@@ -54,6 +54,7 @@ const PROMPT: Record<Interactable, string> = {
   fishing: "Pescar",
   dj: "Poner música en la cabina",
   arcade: "Jugar en la máquina",
+  hockey: "Jugar al hockey de mesa",
   photos: "Ver las fotos del tablón",
   race: "Carrera de sillas",
 };

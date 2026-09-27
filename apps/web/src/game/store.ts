@@ -49,6 +49,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Club y arcade del sótano: la consola de la cabina de DJ y las máquinas.
   | "dj"
   | "arcade"
+  // El hockey de mesa del arcade (se juega en modo mesa, parado en una punta).
+  | "hockey"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race";
 
