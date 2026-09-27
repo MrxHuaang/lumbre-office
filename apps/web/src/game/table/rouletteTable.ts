@@ -31,6 +31,7 @@ import { CASINO, CASINO_ERROR_TEXT, rouletteWins } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { rouletteRemaining, useCasinoStore, type RouletteView } from "../casino";
 import { sendRouletteBet } from "../network";
+import { sfx } from "../sfx";
 import { selectMyUserId, useOfficeStore } from "../store";
 import type { TableCamera } from "./camera";
 import { furnitureDepth, overlayImage, pieceImage } from "./draw";
@@ -72,6 +73,9 @@ export class RouletteTableView {
   private chipRound = -1;
   private wheel?: { painter: WheelPainter; tex: Phaser.Textures.CanvasTexture; img: Phaser.GameObjects.Image; pose: string; paintedAt: number };
   private focusOn: "pano" | "rueda" | null = null;
+  /** El sonido de la bola (ronda que ya sonó y cómo cortarlo) y si ya se pintaron las fichas de entrada. */
+  private spin: { round: number; stop: () => void } | null = null;
+  private chipsReady = false;
   private unsub: () => void = () => undefined;
 
   constructor(
@@ -133,6 +137,10 @@ export class RouletteTableView {
     }
     this.updateWheel(r, now);
     this.updateWin(r, now >= resultStart + HOLD_ON_WHEEL_MS * 0.6);
+    if (r.phase === "spinning" && r.result >= 0 && this.spin?.round !== r.round) {
+      this.spin?.stop();
+      this.spin = { round: r.round, stop: sfx.rouletteSpin(r.endsAt - now) };
+    }
   }
 
   // ---------- Rueda ----------
@@ -221,9 +229,12 @@ export class RouletteTableView {
       const texKey = `mesa-fichas-${g.amount}-${g.mine ? 1 : 0}-${R}`;
       const img = pieceImage(this.scene, texKey, () => stack.canvas, p.x, p.y, R, this.depth + 0.5 + (g.cell.chip.u + g.cell.chip.v) / 1000, stack);
       this.chips.set(id, { sig, img, cell: g.cell });
+      if (this.chipsReady) sfx.chip();
       // Cae sobre el paño.
       if (!old) this.scene.tweens.add({ targets: img, y: { from: p.y - 5, to: p.y }, alpha: { from: 0, to: 1 }, duration: 220, ease: "Bounce.out" });
     }
+    // Las fichas que ya estaban al llegar a la mesa no suenan; las que se ponen después, sí.
+    this.chipsReady = true;
   }
 
   /** En el resultado: el número ganador brilla en el paño y las fichas que perdieron se apagan. */
@@ -289,6 +300,8 @@ export class RouletteTableView {
 
   destroy() {
     this.unsub();
+    this.spin?.stop();
+    this.spin = null;
     this.win?.tween.stop();
     this.win?.img.destroy();
     this.hover?.img.destroy();
