@@ -13,7 +13,7 @@ export { drawEmote, EMOTE_ART } from "./emotes";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // Logros: las insignias del perfil y el destello al desbloquear uno.
-export { BADGE_SIZE, drawBadge, hasBadgeArt, sparkleSprite } from "./badges";
+export { BADGE_SIZE, drawBadge, drawBadgeGlyph, hasBadgeArt, sparkleSprite } from "./badges";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.
 export { BAR as FISHING_BAR, biteMark, bobber, drawFish, drawFishingBar, fishIcon, hasFishArt, treasureChest, FISH_H, FISH_W, ROD_COLORS, type BarState } from "./fish";
 export { drawAreaBase, drawDoorPost, drawLowWall, LOW_WALL_H, WALL_H, type AreaArt } from "./room";

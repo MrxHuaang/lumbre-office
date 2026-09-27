@@ -2,6 +2,7 @@
 // su regla (un contador y un umbral), el progreso y el "título" divertido que sale de los contadores.
 // Es puro: lo usan el servidor de juego (suma y desbloquea), la base (guarda) y la web (el perfil).
 import { bogotaHour } from "./fishing";
+import type { Look } from "./look";
 
 /**
  * Claves de los contadores (UserStat.key). Las que dicen "máximo" guardan el valor más alto visto; las
@@ -345,7 +346,7 @@ export interface ProfileDTO {
   id: string;
   name: string;
   avatar: string;
-  look: unknown;
+  look: Look | null;
   status: string;
   officeName: string | null;
   points: number;

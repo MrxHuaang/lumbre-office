@@ -135,6 +135,11 @@ export function drawBadge(icon: BadgeIcon, rarity: AchievementRarity, opts: { lo
   return c;
 }
 
+/** Solo el dibujito de un ícono, sin la medalla (para los datos del perfil). */
+export function drawBadgeGlyph(icon: BadgeIcon): PixelCanvas {
+  return glyph(icon, null);
+}
+
 /** Estrellita dorada de 5x5 (el destello sobre el avatar al desbloquear un logro). */
 export function sparkleSprite(): PixelCanvas {
   const c = new PixelCanvas(7, 7);
