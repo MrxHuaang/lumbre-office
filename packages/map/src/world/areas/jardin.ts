@@ -9,7 +9,7 @@ import { CONEXIONES, hacia } from "./conexiones";
 // pisa (ver docs/plan-rediseno.md). Todo lo de abajo está en coordenadas de la zona jugable (0..63,
 // 0..55) y se corre en M al ubicarlo en el nivel.
 //
-//   norte: la casa al centro, el huerto con el cobertizo y el invernadero al oeste, la terraza al este;
+//   norte: la casa al centro, el huerto con el cobertizo y el invernadero al oeste, el patio al este;
 //   centro: el camino de piedra del porche al portón, bifurcado hacia el huerto y hacia el lago;
 //   sur: la fogata, la glorieta y el huerto de frutales al oeste; el lago con el muelle al sureste.
 
@@ -31,8 +31,11 @@ const GATE_X = 38;
 const PLOTS = [6, 8, 10, 12].flatMap((y) => [8, 10, 12, 14, 16].map((x) => ({ x, y })));
 const SOIL = { x0: 6.6, y0: 4.6, x1: 18.4, y1: 13.4 };
 
-/** Terraza de madera al este de la casa (pegada a la pared del ala este, que termina en x = 49). */
-const DECK = { x0: 50, y0: 4, x1: 62, y1: 17 };
+/**
+ * Patio de piedra al este de la casa, con la pérgola y las mesas. La terraza es una sola: la cubierta
+ * del ala este (dibujada con la casa, bajo el balcón del piso 2); por eso el patio no es de tablas.
+ */
+const PATIO = { x0: 51, y0: 5, x1: 62, y1: 16.6, r: 2.2 };
 
 /** Lago al sureste: una elipse deformada con ruido, con un islote y el muelle desde la orilla oeste. */
 const LAKE = { cx: 52.8, cy: 42.3, rx: 8.6, ry: 10.8 };
@@ -42,6 +45,8 @@ const DOCK = { x0: 43, x1: 50, y0: 40, y1: 42 };
 /** Fogata con troncos alrededor y la glorieta. */
 const FIRE = { x: 14, y: 36 };
 const GAZEBO = { x: 24, y: 44 };
+/** Zona de charla de la fogata (en coordenadas del nivel): los troncos quedan adentro con un tile de aire. */
+const FIRE_ZONE = { x: FIRE.x - 3 + M, y: FIRE.y - 3 + M, w: 8, h: 8 };
 
 // ---------- Formas del terreno (continuas, en tiles de la zona jugable) ----------
 
@@ -68,10 +73,10 @@ const PATHS: Seg[] = [
   // Hacia el lago (este) hasta la raíz del muelle.
   { a: [40, 28], b: [43.6, 31.5], w: 2 },
   { a: [43.6, 31.5], b: [43.4, 39.2], w: 2 },
-  // Senderitos a la fogata, a la glorieta y a la terraza.
+  // Senderitos a la fogata, a la glorieta y al patio.
   { a: [29, 28.9], b: [16.8, 34.8], w: 1.5 },
   { a: [38.8, 43.5], b: [30.2, 45.8], w: 1.5 },
-  { a: [41.5, 18.6], b: [51, 17.6], w: 2 },
+  { a: [41.5, 18.6], b: [52.6, 16.4], w: 2 },
 ];
 
 function segDist(px: number, py: number, s: Seg): number {
@@ -113,7 +118,13 @@ function inLake(x: number, y: number): boolean {
 }
 const onIslet = (x: number, y: number) => Math.hypot(x - ISLET.cx, (y - ISLET.cy) * 1.15) < ISLET.r + wobble(x, y, 11, 0.2);
 const onDock = (x: number, y: number) => x >= DOCK.x0 && x < DOCK.x1 && y >= DOCK.y0 && y < DOCK.y1;
-const onDeck = (x: number, y: number) => x >= DECK.x0 && x < DECK.x1 && y >= DECK.y0 && y < DECK.y1;
+/** Patio: rectángulo de esquinas redondeadas con el borde que ondula (como la tierra del huerto). */
+function onPatio(x: number, y: number): boolean {
+  const { x0, y0, x1, y1, r } = PATIO;
+  const cx = Math.max(x0 + r, Math.min(x1 - r, x));
+  const cy = Math.max(y0 + r, Math.min(y1 - r, y));
+  return Math.hypot(x - cx, y - cy) < r + wobble(x, y, 29, 0.15);
+}
 /** Arena: la playita donde nace el muelle y el círculo de la fogata. */
 const onSand = (x: number, y: number) =>
   Math.hypot(x - 43.4, (y - 41) * 0.8) < 2.9 + wobble(x, y, 13, 0.3) || Math.hypot(x - (FIRE.x + 1), y - (FIRE.y + 1)) < 3.3 + wobble(x, y, 17, 0.2);
@@ -137,7 +148,7 @@ function localGround(x: number, y: number): FloorKind {
   }
   if (onDock(x, y)) return "dock";
   if (inLake(x, y) && !onIslet(x, y)) return "water";
-  if (onDeck(x, y)) return "deck";
+  if (onPatio(x, y)) return "path";
   if (onGazeboBase(x, y)) return "path";
   if (onSand(x, y)) return "sand";
   if (onPath(x, y)) return "path";
@@ -229,7 +240,7 @@ for (const [x, y] of [
 put("dog-house", 48, 28, "down");
 put("pet-bed", 48, 29);
 
-// Terraza este: mesas con sillas, la pérgola, farolitos y la leñera.
+// Patio este: mesas con sillas, la pérgola, farolitos y la leñera.
 put("pergola", 57, 5);
 for (const [tx, ty] of [
   [53, 8],
@@ -246,7 +257,7 @@ put("patio-table", 53, 8);
 put("patio-table", 54, 13);
 put("woodpile", 61, 10);
 put("bench", 59, 12, "left");
-// Jardineras al borde norte de la terraza y un seto detrás: la pérgola tapa esos tiles.
+// Jardineras al borde norte del patio y un seto detrás: la pérgola tapa esos tiles.
 for (const [x, y] of [
   [51, 7],
   [51, 11],
@@ -282,11 +293,14 @@ put("log-seat", FIRE.x, FIRE.y + 3, "up");
 put("woodpile", 9, 35);
 put("stump", 19, 39);
 
-// Glorieta con bancas mirando al camino.
+// Glorieta: se entra por el frente (+x, desde el sendero) y adentro hay una banca en herradura. La base
+// va plana y el techo es otra pieza en el mismo lugar (ver el catálogo). Afuera, bancas mirando al camino.
 put("gazebo", GAZEBO.x, GAZEBO.y);
+put("gazebo-roof", GAZEBO.x, GAZEBO.y);
 put("bench", 29, 43, "down");
 put("bench", 29, 48, "up");
-// Detrás de la glorieta (lo que tapa su techo) va un macizo de rosales y hortensias: ahí nadie se para.
+// Alrededor de la glorieta (detrás, lo que tapa su techo, y pegado a la baranda) va un macizo de rosales
+// y hortensias: ahí nadie se para, y quien se levanta de la banca queda adentro y no del otro lado.
 for (const [x, y, t] of [
   [22, 42, "bush-rose"],
   [23, 42, "flower-patch"],
@@ -295,10 +309,18 @@ for (const [x, y, t] of [
   [23, 43, "bush-rose"],
   [24, 43, "flower-patch"],
   [25, 43, "bush-rose"],
+  [26, 43, "bush-hydrangea"],
+  [27, 43, "flower-patch"],
   [22, 44, "flower-patch"],
   [23, 44, "bush-hydrangea"],
   [23, 45, "bush-rose"],
+  [23, 46, "flower-patch"],
+  [23, 47, "bush-hydrangea"],
   [22, 48, "bush-rose"],
+  [24, 48, "flower-patch"],
+  [25, 48, "bush-rose"],
+  [26, 48, "flower-patch"],
+  [27, 48, "bush-hydrangea"],
   [28, 42, "flower-patch"],
   [28, 49, "flower-patch"],
 ] as const)
@@ -453,6 +475,8 @@ const POINTS: PointDef[] = [
   pt("task_board", "Tablón", 42, 22),
   // Una por parcela, en el mismo orden que PLOTS (el índice es el id de la parcela): sobre la parcela.
   ...PLOTS.map((p, i) => pt("garden_plot", `Parcela ${i + 1}`, p.x, p.y)),
+  // Frente a la puerta del cobertizo: la regadera y las semillas.
+  pt("tool_shed", "Cobertizo", 1, 3),
   // La punta del muelle y la piedra plana de la orilla norte.
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0),
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0 + 1),
@@ -585,7 +609,14 @@ export const jardin: AreaDef = {
   groundFine: fine,
   rooms: [],
   doors: [],
-  zones: [{ id: "jardin", name: "Jardín", type: "common", rect: { x: 0, y: 0, w: W, h: H }, isolated: false }],
+  zones: [
+    { id: "jardin", name: "Jardín", type: "common", rect: { x: 0, y: 0, w: W, h: H }, isolated: false },
+    // Alrededor de la fogata (los cuatro troncos y un tile más) se charla aparte, como en las mesas de la
+    // cafetería: lo que se dice junto al fuego queda junto al fuego.
+    { id: "fogata", name: "Fogata", type: "table", rect: FIRE_ZONE, isolated: true },
+    // Adentro de la glorieta, igual: una burbuja de charla bajo el techo.
+    { id: "glorieta", name: "Glorieta", type: "table", rect: { x: GAZEBO.x + M, y: GAZEBO.y + M, w: 4, h: 4 }, isolated: true },
+  ],
   features: [],
   furniture: items,
   portals: [

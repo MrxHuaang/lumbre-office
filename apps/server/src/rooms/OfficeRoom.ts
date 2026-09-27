@@ -132,7 +132,7 @@ import {
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
-import { OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
+import { GardenPlotState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
@@ -156,6 +156,8 @@ import { Whiteboards, type BoardWho } from "./whiteboards";
 import { ChairRaces, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
+import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
+import { Huerto, isHuertoAction } from "./huerto";
 
 interface UserData {
   lastMoveAt: number;
@@ -231,6 +233,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Casa viva: el azar de las mascotas y cuánto se está en el baño (los tests los fijan y acortan). */
   static petRandom: () => number = Math.random;
   static stallMs: number = CASA.stallMs;
+  /** Reloj del huerto (los tests lo adelantan para que crezca lo sembrado). */
+  static huertoNow: () => number = () => Date.now();
   /** Semilla de cada partida del arcade (los tests la fijan). */
   static arcadeSeed: () => number = () => randomInt(2 ** 31);
   /** Reloj del arcade (los tests lo adelantan para no esperar la duración mínima de una partida). */
@@ -444,6 +448,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private arcade!: Arcade;
   /** El cine del sótano (la cola de la función). */
   private cinema!: Cinema;
+  /** Jardín vivo: el huerto, el cobertizo y la miel (ver huerto.ts). */
+  private huerto!: Huerto<GardenPlotState>;
 
   private get repo() {
     return OfficeRoom.repo;
@@ -476,8 +482,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       token: () => randomUUID(),
       award: (userId, amount) => this.awardLeisure(userId, amount),
     });
+    this.huerto = new Huerto({
+      plots: this.state.garden,
+      create: () => new GardenPlotState(),
+      repo: () => this.repo,
+      held: {
+        get: (userId) => this.held.get(userId),
+        give: (userId, item) => this.held.give(userId, item),
+        spend: (userId, now) => {
+          const used = this.held.use(userId, now, 0, { skipCooldown: true, tool: true });
+          return used.ok ? { done: used.done } : null;
+        },
+      },
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+    });
     OfficeRoom.instances.add(this);
 
+    this.onMessage(HUERTO_MSG.shedTake, (client, raw) => this.handleShed(client, raw));
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
@@ -569,6 +590,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
     await this.reloadCasinoSettings();
     await this.loadWorldEdits();
+    await this.huerto.load().catch((err) => console.error("loadGarden", err));
     this.startCasino();
     await this.reloadOffices();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
@@ -1697,6 +1719,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       return;
     }
     client.userData.lastActiveAt = now;
+    // Jardín vivo: las parcelas, el barril y el pozo y las colmenas tienen sus reglas (huerto.ts).
+    if (result.kind === "event" && isHuertoAction(result.event.action)) return void this.handleHuerto(client, player, result.event);
     this.countFurniture(player.userId, result);
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
@@ -1709,6 +1733,29 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const p = this.state.players.get(client.sessionId);
       return !!p && p.area === area && result.kind === "event" && this.furnitureUses.stillInReach(this.mapOf(area), result.event, p.x, p.y);
     });
+  }
+
+  // ---------- Jardín vivo ----------
+
+  /** Sembrar, regar, cosechar, llenar la regadera o sacar miel: lo ven los del nivel; si no, el porqué. */
+  private async handleHuerto(client: Client<UserData>, player: Player, e: Omit<FurnitureEvent, "sessionId">) {
+    const area = player.area;
+    const result = await this.huerto.use(this.mapOf(area), player, e, OfficeRoom.huertoNow()).catch((err) => {
+      console.error("huerto", err);
+      return null;
+    });
+    if (!result) return;
+    if (!result.ok) return void client.send(HUERTO_MSG.notice, result.notice satisfies HuertoNotice);
+    this.sendToArea(area, MSG.furnitureEvent, { sessionId: client.sessionId, ...result.event } satisfies FurnitureEvent);
+  }
+
+  /** Sacar la regadera o semillas del cobertizo (junto a su puerta). */
+  private handleShed(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const result = this.huerto.shed(this.mapOf(player.area), player, raw);
+    if (result && !result.ok) client.send(HUERTO_MSG.notice, result.notice satisfies HuertoNotice);
   }
 
   // ---------- Casa viva: mascotas ----------

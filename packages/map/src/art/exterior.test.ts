@@ -43,7 +43,8 @@ describe("arte del jardín", () => {
     const py = jardin.def.playable!.y;
     for (const f of jardin.furniture) {
       const item = catalogItem(f.type);
-      if (!item.fixed || f.w * f.d < 9) continue;
+      // Lo plano (la base de la glorieta) se dibuja debajo de todos: no tapa a nadie.
+      if (!item.fixed || item.flat || f.w * f.d < 9) continue;
       const s = drawFurniture(f.type, "front", false);
       const a = toScreen(f.x * ts * WORLD_TO_ART, f.y * ts * WORLD_TO_ART);
       const left = a.x - s.ox;

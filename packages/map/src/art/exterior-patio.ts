@@ -190,37 +190,55 @@ function toolShed(): Sprite {
 
 // ---------- Glorieta ----------
 
+const GZ = { cx: 32, cy: 32, R: 27, ROOF: 46, posts: 8 };
+
+/** Ángulo del poste i (el octógono queda con la entrada, entre dos postes, hacia +x). */
+const gazeboPost = (i: number) => (i / GZ.posts) * Math.PI * 2 + Math.PI / 8;
+
+/**
+ * Base de la glorieta (va plana, debajo de todo: se camina por dentro): plataforma de piedra, piso de
+ * madera en abanico, el escalón de la entrada (+x) y la banca corrida en herradura mirando al centro.
+ */
 function gazebo(): Sprite {
-  const s = scene(4, 4, 96, 10);
-  const cx = 32, cy = 32, R = 27, ROOF = 42;
+  const s = scene(4, 4, 30, 10);
+  const { cx, cy, R } = GZ;
   s.roundShadow(cx + 2, cy + 2, R + 4, 0.3);
-  // Plataforma de piedra con escalones y piso de madera.
   s.cylinder(cx, cy, 0, R + 2, 5, (a, v, luz) => stones(a * (R + 2), v, 4, luz < 0 ? 1 : 0));
   s.disc(cx, cy, 5, R + 2, (dx, dy) => {
     const d = Math.hypot(dx, dy);
     if (d > R) return at(C.stone, 4);
+    // Tablas en abanico con un rosetón al centro.
+    if (d < 4) return at(C.woodDark, d < 2 ? 4 : 3);
     return at(C.wood, Math.floor((Math.atan2(dy, dx) + 4) * 4) % 2 ? 3 : 4);
   });
-  s.box(cx + R, cy - 6, 0, 5, 12, 3, flatT(at(C.stone, 4)), flatT(at(C.stone, 3)), flatT(at(C.stone, 2)));
-  // Bancas adentro (media luna) y una mesita.
-  for (let a = Math.PI * 0.55; a < Math.PI * 1.85; a += 0.06) {
+  s.box(cx + R, cy - 8, 0, 5, 16, 3, flatT(at(C.stone, 4)), flatT(at(C.stone, 3)), flatT(at(C.stone, 2)));
+  // Banca en herradura: de un poste de la entrada al otro, por detrás.
+  for (let a = Math.PI * 0.3; a < Math.PI * 1.7; a += 0.05) {
     const x = cx + Math.cos(a) * (R - 5);
     const y = cy + Math.sin(a) * (R - 5);
-    s.solid(x - 1.5, y - 1.5, 5, 3, 3, 7, at(C.wood, 5), at(C.wood, 3), at(C.wood, 2));
+    s.solid(x - 1.8, y - 1.8, 5, 3.6, 3.6, 7, at(C.wood, 5), at(C.wood, 3), at(C.wood, 2));
   }
-  s.cylinder(cx, cy, 5, 5, 8, (_a, _v, luz) => at(C.wood, luz > 0 ? 3 : 2));
-  s.disc(cx, cy, 13, 6, (dx, dy) => at(C.wood, dx + dy < -3 ? 5 : 4));
-  pottedPlant(s, cx, cy, 13, 2.2, 5);
-  // Postes blancos y baranda baja (con la entrada hacia +x).
-  const posts = 8;
+  // Patas de la banca.
+  for (let a = Math.PI * 0.35; a < Math.PI * 1.7; a += Math.PI / 5) s.solid(cx + Math.cos(a) * (R - 5) - 1, cy + Math.sin(a) * (R - 5) - 1, 5, 2, 2, 5, at(C.woodDark, 3), at(C.woodDark, 2), at(C.woodDark, 1));
+  return s.sprite();
+}
+
+/**
+ * La parte de arriba de la glorieta: los postes blancos, la baranda, los arcos calados, el techo
+ * octogonal, el farol y la campanita que cuelgan del centro, y la guirnalda de bombillos entre los postes
+ * (de noche encendida). Va sobre la base, ordenada con su centro; el cliente la transparenta cuando hay
+ * alguien adentro, para que se vea quién está.
+ */
+function gazeboRoof(night: boolean): Sprite {
+  const s = scene(4, 4, 104, 10);
+  const { cx, cy, R, ROOF, posts } = GZ;
   for (let i = 0; i < posts; i++) {
-    const a = (i / posts) * Math.PI * 2 + Math.PI / 8;
+    const a = gazeboPost(i);
     const x = cx + Math.cos(a) * R;
     const y = cy + Math.sin(a) * R;
     s.solid(x - 1.5, y - 1.5, 5, 3, 3, ROOF - 5, at(C.white, 4), at(C.white, 3), at(C.white, 1));
-    const b = ((i + 1) / posts) * Math.PI * 2 + Math.PI / 8;
+    const b = gazeboPost(i + 1);
     const entrance = Math.abs(Math.cos((a + b) / 2) - 1) < 0.1;
-    // Baranda y un arco calado arriba entre postes.
     for (let k = 0; k <= 1; k += 0.03) {
       const x1 = cx + Math.cos(a) * R * (1 - k) + Math.cos(b) * R * k;
       const y1 = cy + Math.sin(a) * R * (1 - k) + Math.sin(b) * R * k;
@@ -231,11 +249,19 @@ function gazebo(): Sprite {
         s.borde = true;
       }
       s.plot(x1, y1, ROOF - 3 - Math.sin(k * Math.PI) * 4, at(C.white, 4));
+      // Guirnalda: cae un poco más que el arco, con un bombillo cada tanto.
+      const zg = ROOF - 6 - Math.sin(k * Math.PI) * 6;
+      s.plot(x1, y1, zg, at(C.metal, 1));
+      if (Math.floor(k * 100) % 20 === 10) {
+        const bulb = night ? at(C.gold, 5) : at(C.cream, 4);
+        s.plot(x1, y1, zg - 1, bulb);
+        s.plot(x1 + 0.5, y1, zg - 1.5, night ? at(C.white, 4) : at(C.gold, 3));
+      }
     }
   }
   // Enredadera de rosas en dos postes.
   for (const i of [2, 5]) {
-    const a = (i / posts) * Math.PI * 2 + Math.PI / 8;
+    const a = gazeboPost(i);
     const x = cx + Math.cos(a) * R;
     const y = cy + Math.sin(a) * R;
     for (let z = 5; z < ROOF; z += 0.5) {
@@ -256,9 +282,13 @@ function gazebo(): Sprite {
   });
   s.solid(cx - 1, cy - 1, ROOF + 24, 2, 2, 6, at(C.white, 4), at(C.white, 3), at(C.white, 2));
   s.disc(cx, cy, ROOF + 31, 2, () => at(C.gold, 4));
-  // Farol colgante.
-  for (let z = 30; z < ROOF + 6; z += 0.5) s.plot(cx, cy, z, at(C.metal, 1));
-  lantern(s, cx, cy, 25);
+  // Del centro cuelgan el farol y, un poco al lado, la campanita de bronce con su cordón.
+  for (let z = 34; z < ROOF + 6; z += 0.5) s.plot(cx, cy, z, at(C.metal, 1));
+  lantern(s, cx, cy, 29);
+  for (let z = 30; z < ROOF + 4; z += 0.5) s.plot(cx + 5, cy - 3, z, at(C.metal, 1));
+  s.cylinder(cx + 5, cy - 3, 26, 2.2, 4, (_a, v, luz) => at(C.gold, v < 1 ? 2 : luz > 0 ? 4 : 3));
+  s.disc(cx + 5, cy - 3, 30, 1.2, () => at(C.gold, 5));
+  for (let z = 22; z < 26; z += 0.5) s.plot(cx + 5, cy - 3, z, at(C.cork, 3));
   return s.sprite();
 }
 
@@ -766,6 +796,9 @@ function planter(): Sprite {
 }
 
 // ---------- Registro ----------
+
+/** La parte de arriba de la glorieta tiene versión de noche (la guirnalda encendida): va en outdoor.ts. */
+export { gazeboRoof };
 
 export const YARD_DRAW: Record<string, (v: "front" | "back") => Sprite> = {
   greenhouse,

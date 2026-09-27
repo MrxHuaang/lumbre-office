@@ -3,7 +3,7 @@
 // Rediseño: usar lo que se tiene en la mano (F, o el casillero junto a la barra de abajo), brindar (B,
 // al lado del casillero) y la ayuda "E" junto a un mueble que se usa (tele, lámparas, tocadiscos, piano…).
 import { drawHeldItem } from "@hyvento/map/art";
-import { consumeActionOf, FREE_NAMES, heldParts, menuItem, parseHeldLeft } from "@hyvento/shared";
+import { consumeActionOf, EMPTY_CAN, FREE_NAMES, heldParts, isHuertoTool, menuItem, parseHeldLeft } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toHtmlCanvas } from "@/game/iso/canvas";
@@ -33,7 +33,9 @@ export function HeldSlot() {
   // Se muestra la mano que tiene más usos (en los combos se alterna: lo decide el servidor).
   const i = left.length > 1 && (left[1] ?? 0) > (left[0] ?? 0) ? 1 : 0;
   const art = parts[i]!;
-  const verb = parts.length > 1 ? "Usar" : VERB[consumeActionOf(art)];
+  // Las herramientas del huerto no se usan con F: se usan con E en las parcelas, el barril o el pozo.
+  const tool = isHuertoTool(mine.held);
+  const verb = tool ? "Huerto" : parts.length > 1 ? "Usar" : VERB[consumeActionOf(art)];
   // Lo gratis de la casa (nevera, cafetera, fogata) no está en ninguna carta.
   const name = menuItem(mine.held)?.name ?? FREE_NAMES[mine.held] ?? "";
   return (
@@ -41,18 +43,18 @@ export function HeldSlot() {
     <span className="ml-1 flex self-stretch items-center border-l-2 border-cozy-ink-soft/40 pl-2.5">
       <button
         type="button"
-        onClick={() => sendUseHeld()}
+        onClick={() => !tool && sendUseHeld()}
         disabled={Boolean(panel)}
-        title={`${verb}: ${name} (F)`}
+        title={tool ? `${name}: úsala con E en el huerto` : `${verb}: ${name} (F)`}
         aria-label={`${verb} ${name}, quedan ${total} usos`}
         className="cozy-btn relative h-[58px] w-[62px] flex-col gap-0.5 p-1 text-[12px] max-sm:h-12 max-sm:w-12"
       >
-        <kbd className="cozy-kbd absolute top-0.5 left-0.5 px-1 text-[10px] leading-none">F</kbd>
+        <kbd className="cozy-kbd absolute top-0.5 left-0.5 px-1 text-[10px] leading-none">{tool ? "E" : "F"}</kbd>
         <HeldArt art={art} left={left[i] ?? 1} />
         <span className="max-sm:hidden">{verb}</span>
         {/* Usos que quedan, como la cantidad de un objeto en el inventario. */}
         <span className="absolute right-0.5 bottom-0 text-[12px] font-semibold text-cozy-ink [text-shadow:1px_1px_0_var(--color-cozy-paper-light)]">
-          {total}
+          {mine.held === EMPTY_CAN ? 0 : total}
         </span>
       </button>
       {toast && <ToastButton mode={toast.mode} name={toast.name} disabled={Boolean(panel)} />}

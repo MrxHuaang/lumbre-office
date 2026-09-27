@@ -15,6 +15,7 @@ export * from "./fishing";
 export * from "./fishing-sim";
 export * from "./social";
 export * from "./casa";
+export * from "./huerto";
 export * from "./mascotas";
 export * from "./club";
 export * from "./cinema";

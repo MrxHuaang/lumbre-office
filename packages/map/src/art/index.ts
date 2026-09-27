@@ -19,16 +19,21 @@ export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 export {
+  drawBee,
   drawBird,
   drawFirefly,
   drawSquirrel,
+  BEE_FRAMES,
   BIRD_FRAMES,
   BIRD_KINDS,
   SQUIRREL_FRAMES,
+  type BeeFrame,
   type BirdFrame,
   type BirdKind,
   type SquirrelFrame,
 } from "./fauna";
+// Jardín vivo: lo que crece en las parcelas del huerto y la tierra mojada.
+export { cropSprite, wetSoil, type CropStage } from "./huerto";
 // Logros: las insignias del perfil y el destello al desbloquear uno.
 export { BADGE_SIZE, drawBadge, drawBadgeGlyph, hasBadgeArt, sparkleSprite } from "./badges";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.

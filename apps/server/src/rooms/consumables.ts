@@ -1,6 +1,6 @@
 // Lo que cada persona lleva en la mano (pedido en la cafetería o en el bar) y cuántos usos le quedan.
 // Se guarda por userId: sobrevive a recargar la página. La sala refleja cada cambio en `Player`.
-import { CONSUME, consumeActionOf, heldParts, usesOf, type ConsumeAction } from "@hyvento/shared";
+import { CONSUME, consumeActionOf, heldParts, isHuertoTool, usesOf, type ConsumeAction } from "@hyvento/shared";
 
 interface Held {
   item: string;
@@ -59,9 +59,11 @@ export class HeldItems {
    * Usar lo que se tiene: hace falta tener algo con usos y respetar la pausa entre usos. Sin `part` se
    * alterna entre las manos que tienen usos. Al gastar todo, se va de la mano.
    */
-  use(userId: string, now: number, part?: number, opts: { skipCooldown?: boolean } = {}): UseResult {
+  use(userId: string, now: number, part?: number, opts: { skipCooldown?: boolean; tool?: boolean } = {}): UseResult {
     const held = this.byUser.get(userId);
     if (!held || held.left.every((n) => n <= 0)) return { ok: false, error: "empty" };
+    // Las herramientas del huerto no se "comen" con F: sus usos los gasta el huerto (`tool`).
+    if (isHuertoTool(held.item) !== Boolean(opts.tool)) return { ok: false, error: "empty" };
     // El sorbo del brindis no espera la pausa: el brindis ya tiene la suya.
     if (!opts.skipCooldown && now - held.lastUseAt < this.cooldownMs()) return { ok: false, error: "busy" };
     let i = part ?? -1;
