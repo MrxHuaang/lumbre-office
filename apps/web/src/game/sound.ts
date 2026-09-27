@@ -379,3 +379,8 @@ export function volumeAt(dist: number, reach: number) {
   const t = Math.max(0, 1 - dist / reach);
   return t * t;
 }
+
+/** El contexto de audio y la salida de los sonidos de la cabaña (la música del club la usa, club/music.ts). */
+export function sharedAudio(): { ctx: AudioContext; out: GainNode } | null {
+  return audio();
+}
