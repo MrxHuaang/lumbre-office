@@ -3,6 +3,7 @@ import { buildArea, FEET_BOX, isBlockedTile, wallAbove, wallLeftOf, type OfficeM
 
 export * from "./pathfinding";
 export * from "./decor";
+export * from "./casa";
 export * from "./world/build";
 export * from "./world/catalog";
 export type * from "./world/types";

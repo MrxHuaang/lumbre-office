@@ -136,6 +136,8 @@ export const plantaBaja: AreaDef = {
     place("reading-lamp", 4, 0),
     place("blanket-basket", 8, 0),
     place("cat-bed", 8, 2),
+    // La cama de Canela, la gata que deambula por la casa (ver PETS en @hyvento/shared).
+    place("pet-bed", 10, 2),
     place("armchair-wing", 3, 4, "right"),
     place("coffee-table", 6, 4),
     place("armchair-wing", 9, 4, "left"),

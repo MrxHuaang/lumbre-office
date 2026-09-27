@@ -76,16 +76,22 @@ import {
   type FurnitureEvent,
   type HeldUsedEvent,
   type MenuId,
+  CASA,
+  PET,
+  PET_MSG,
+  type PetEvent,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
-import { OfficeInfo, OfficeItem, OfficeState, Player } from "../state";
+import { OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
 import { devToolsEnabled, parseDevJump } from "./devtools";
 import { FurnitureUses } from "./usables";
+import { CasaViva } from "./casa";
+import { Pets, type PetUser } from "./mascotas";
 
 interface UserData {
   lastMoveAt: number;
@@ -150,6 +156,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static rouletteSpin: () => number = randomSpin;
   static blackjackTimings: BlackjackTimings = { ...BLACKJACK };
   static blackjackShuffle: () => number[] = randomShoe;
+  /** Casa viva: el azar de las mascotas y cuánto se está en el baño (los tests los fijan y acortan). */
+  static petRandom: () => number = Math.random;
+  static stallMs: number = CASA.stallMs;
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   static async reloadCasinoSettingsEverywhere() {
@@ -185,6 +194,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** Muebles que se usan (tele, lámparas, instrumentos, gato). */
   private furnitureUses!: FurnitureUses;
+  /** Casa viva: lo gratis que queda en la mano, los cubículos del baño y las mascotas. */
+  private casa!: CasaViva;
+  private pets!: Pets;
 
   private get repo() {
     return OfficeRoom.repo;
@@ -197,7 +209,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
     for (const [areaId, map] of this.world.areas) for (const z of map.zones) this.areaOfZone.set(z.id, areaId);
     this.setState(new OfficeState());
-    this.furnitureUses = new FurnitureUses(this.state.switches);
+    this.casa = new CasaViva(
+      this.state.stalls,
+      { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+      (userId, item) => this.held.give(userId, item),
+      () => OfficeRoom.stallMs,
+    );
+    this.furnitureUses = new FurnitureUses(this.state.switches, { counters: this.state.counters, occupant: this.casa.occupant });
+    this.startPets();
     OfficeRoom.instances.add(this);
 
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
@@ -213,6 +232,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
     this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
+    this.onMessage(PET_MSG.call, (client, raw) => this.handlePet(client, raw, "call"));
+    this.onMessage(PET_MSG.action, (client, raw) => this.handlePet(client, raw, "action"));
     this.onMessage(MSG.officeEdit, (client, raw) => {
       this.serial(() => this.handleOfficeEdit(client, raw)).catch((err) => {
         // Un error inesperado igual se responde: si no, el editor se queda esperando.
@@ -655,7 +676,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
 
     const previousZoneId = player.zoneId;
-    if (x !== player.x || y !== player.y) client.userData.lastActiveAt = now;
+    if (x !== player.x || y !== player.y) {
+      client.userData.lastActiveAt = now;
+      // Casa viva: moverse te saca del cubículo del baño.
+      this.casa.leaveStall(player.userId);
+    }
     player.x = x;
     player.y = y;
     player.dir = dir;
@@ -680,6 +705,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const target = this.mapOf(portal.to.area);
     const ts = target.tileSize;
     const pos = this.freeSpotNear(target, portal.to.x * ts + ts / 2, portal.to.y * ts + ts / 2);
+    this.casa.leaveStall(player.userId);
     const previousZoneId = player.zoneId;
     player.area = target.id;
     player.x = pos.x;
@@ -989,6 +1015,40 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
       this.sendToArea(player.area, MSG.furnitureEvent, event);
     }
+    // Casa viva: lo gratis a la mano (el malvavisco, al terminar de asarse) y el cubículo ocupado.
+    this.casa.after(player.userId, result);
+  }
+
+  // ---------- Casa viva: mascotas ----------
+
+  /** Las mascotas aparecen durmiendo en sus camas y el servidor las mueve seguido. */
+  private startPets() {
+    this.pets = new Pets({
+      pets: this.state.pets,
+      create: () => new Pet(),
+      map: (area) => this.mapOf(area),
+      rng: () => OfficeRoom.petRandom(),
+    });
+    let last = Date.now();
+    this.pets.start(last);
+    this.clock.setInterval(() => {
+      const now = Date.now();
+      this.pets.tick(now, Math.min(500, now - last));
+      last = now;
+    }, PET.tickMs);
+  }
+
+  /** Llamar a una mascota (clic) o acariciarla y darle un premio (de cerca): lo ven los del nivel. */
+  private handlePet(client: Client<UserData>, raw: unknown, kind: "call" | "action") {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const now = Date.now();
+    const who: PetUser = { userId: player.userId, area: player.area, x: player.x, y: player.y };
+    const action = kind === "call" ? this.pets.call(who, raw, now) : this.pets.act(who, raw, now);
+    if (!action) return;
+    client.userData.lastActiveAt = now;
+    const pet = (raw as { pet: string }).pet;
+    this.sendToArea(player.area, PET_MSG.event, { pet, sessionId: client.sessionId, action } satisfies PetEvent);
   }
 
   private sendToArea(area: string, type: string, message: unknown) {
@@ -1006,6 +1066,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
+    this.casa.forget(player.userId);
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);

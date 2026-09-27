@@ -107,6 +107,22 @@ export class BlackjackState extends Schema {
   @type([BlackjackSeat]) seats = new ArraySchema<BlackjackSeat>();
 }
 
+/** Casa viva: una mascota de la casa (la mueve el servidor; ver rooms/mascotas.ts). */
+export class Pet extends Schema {
+  @type("string") id = "";
+  @type("string") name = "";
+  /** "gato" o "perro", y el pelaje (colores del dibujo). */
+  @type("string") kind = "";
+  @type("string") coat = "";
+  @type("string") area = "";
+  /** Posición en px de mundo del nivel. */
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") dir = "down";
+  /** "stand", "walk", "sit", "sleep" o "eat" (PetPose). */
+  @type("string") pose = "stand";
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -114,4 +130,10 @@ export class OfficeState extends Schema {
   @type(BlackjackState) blackjack = new BlackjackState();
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`; los que no están siguen como arrancan. */
   @type({ map: "boolean" }) switches = new MapSchema<boolean>();
+  /** Casa viva: contadores de los juegos de mesa y las pizarras (ajedrez, puzle), por `furnitureKey`. */
+  @type({ map: "number" }) counters = new MapSchema<number>();
+  /** Casa viva: cubículos del baño ocupados (`furnitureKey` → userId de quien está adentro). */
+  @type({ map: "string" }) stalls = new MapSchema<string>();
+  /** Casa viva: las mascotas, por id. */
+  @type({ map: Pet }) pets = new MapSchema<Pet>();
 }

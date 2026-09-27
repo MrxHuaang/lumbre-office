@@ -1,7 +1,18 @@
 // Muebles que se usan (piano, guitarra, tocadiscos, tele, lámparas, gato). Lo que cambia para todos
 // (prendido/apagado) queda en `OfficeState.switches`; tocar un instrumento o acariciar al gato es un evento.
-import { INTERACT_REACH_TILES, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
-import { FurnitureUseMessage, furnitureKey, isSwitchedOn, stepsTo, USE_STEPS, usableSpec, type FurnitureEvent } from "@hyvento/shared";
+import { INTERACT_REACH_TILES, usablesOf, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
+import {
+  CASA,
+  FurnitureUseMessage,
+  counterMax,
+  furnitureKey,
+  isSwitchedOn,
+  pickGift,
+  stepsTo,
+  USE_STEPS,
+  usableSpec,
+  type FurnitureEvent,
+} from "@hyvento/shared";
 
 /** Lo que se pueda guardar como interruptores (un MapSchema<boolean> en la sala, un Map en los tests). */
 export interface Switches {
@@ -11,15 +22,41 @@ export interface Switches {
   keys(): IterableIterator<string>;
 }
 
+/** Contadores de la casa viva (ajedrez, puzle, pizarras): un MapSchema<number> en la sala, un Map en los tests. */
+export interface Counters {
+  get(key: string): number | undefined;
+  set(key: string, n: number): unknown;
+  delete(key: string): unknown;
+  keys(): IterableIterator<string>;
+}
+
+/** Casa viva: con qué más cuenta el uso de muebles (los contadores y quién ocupa cada cubículo). */
+export interface CasaOptions {
+  counters?: Counters;
+  /** userId de quien está en el cubículo con esa clave (o undefined si está libre). */
+  occupant?: (key: string) => string | undefined;
+}
+
 export type FurnitureUseResult =
   | { ok: true; kind: "toggle"; key: string; on: boolean }
-  | { ok: true; kind: "event"; event: Omit<FurnitureEvent, "sessionId"> }
+  | {
+      ok: true;
+      kind: "event";
+      event: Omit<FurnitureEvent, "sessionId">;
+      /** Casa viva: lo que queda en la mano (y al rato: el malvavisco se asa primero). */
+      gives?: { item: string; afterMs: number };
+      /** Casa viva: el contador que avanzó (ajedrez, puzle, pizarra) y su valor nuevo. */
+      counter?: { key: string; value: number };
+      /** Casa viva: el cubículo del baño al que se entra. */
+      stall?: string;
+    }
   | { ok: false; error: "invalid" | "far" | "busy" };
 
 /** El mueble usable de ese tipo con esquina en (x, y), si existe en el nivel. */
 export function usableAt(map: OfficeMap, type: string, x: number, y: number): PlacedFurniture | undefined {
   if (!usableSpec(type)) return undefined;
-  return map.furniture.find((f) => f.type === type && f.x === x && f.y === y);
+  // Los muebles del nivel y, además, las cortinas de las ventanas (ver usablesOf).
+  return usablesOf(map).find((f) => f.type === type && f.x === x && f.y === y);
 }
 
 /** ¿Están los pies en (px, py) al alcance del mueble? Se mide al borde de lo que ocupa, no a su esquina. */
@@ -27,7 +64,8 @@ export function inReach(map: OfficeMap, f: PlacedFurniture, px: number, py: numb
   const ts = map.tileSize;
   const dx = Math.max(f.x * ts - px, 0, px - (f.x + f.w) * ts);
   const dy = Math.max(f.y * ts - py, 0, py - (f.y + f.d) * ts);
-  return Math.hypot(dx, dy) <= INTERACT_REACH_TILES * ts;
+  // La fogata se usa desde los troncos, un poco más lejos que el resto.
+  return Math.hypot(dx, dy) <= (usableSpec(f.type)?.reachTiles ?? INTERACT_REACH_TILES) * ts;
 }
 
 /**
@@ -59,8 +97,16 @@ export function canUse(map: OfficeMap, f: PlacedFurniture, px: number, py: numbe
 export class FurnitureUses {
   /** Cuándo puede volver a usar un mueble cada persona. */
   private nextAt = new Map<string, number>();
+  /** Casa viva: cuándo puede volver a sacar algo gratis cada persona (nevera, cafetera, malvavisco). */
+  private freebieAt = new Map<string, number>();
+  private readonly counters: Counters;
 
-  constructor(private readonly switches: Switches) {}
+  constructor(
+    private readonly switches: Switches,
+    private readonly casa: CasaOptions = {},
+  ) {
+    this.counters = casa.counters ?? new Map<string, number>();
+  }
 
   use(map: OfficeMap, who: { userId: string; x: number; y: number }, raw: unknown, now: number, seed = 0): FurnitureUseResult {
     const parsed = FurnitureUseMessage.safeParse(raw);
@@ -71,21 +117,43 @@ export class FurnitureUses {
     if (!f || !spec) return { ok: false, error: "invalid" };
     if (!canUse(map, f, who.x, who.y)) return { ok: false, error: "far" };
     if (now < (this.nextAt.get(who.userId) ?? 0)) return { ok: false, error: "busy" };
+    const key = furnitureKey(map.id, type, x, y);
+    // Lo gratis tiene su propia pausa (más larga), y a un cubículo ocupado no se entra.
+    const freebie = spec.action === "take" || spec.action === "roast";
+    if (freebie && now < (this.freebieAt.get(who.userId) ?? 0)) return { ok: false, error: "busy" };
+    if (spec.action === "stall") {
+      const inside = this.casa.occupant?.(key);
+      if (inside && inside !== who.userId) return { ok: false, error: "busy" };
+    }
     this.forgetExpired(now);
     this.nextAt.set(who.userId, now + spec.cooldownMs);
     if (spec.action === "toggle") {
-      const key = furnitureKey(map.id, type, x, y);
       const on = !isSwitchedOn(this.switches, map.id, type, x, y);
       this.switches.set(key, on);
       return { ok: true, kind: "toggle", key, on };
     }
-    return { ok: true, kind: "event", event: { type, x, y, action: spec.action, seed } };
+    const event: Omit<FurnitureEvent, "sessionId"> = { type, x, y, action: spec.action, seed };
+    if (freebie && spec.gives?.length) {
+      this.freebieAt.set(who.userId, now + CASA.freebieCooldownMs);
+      const item = pickGift(spec.gives, seed);
+      return { ok: true, kind: "event", event: { ...event, item }, gives: { item, afterMs: spec.action === "roast" ? CASA.roastMs : 0 } };
+    }
+    if (spec.action === "count") {
+      // Avanza para todos; al llegar al tope vuelve a empezar (partida nueva, pizarra borrada).
+      const value = ((this.counters.get(key) ?? 0) + 1) % (counterMax(type) + 1);
+      this.counters.set(key, value);
+      return { ok: true, kind: "event", event, counter: { key, value } };
+    }
+    if (spec.action === "stall") return { ok: true, kind: "event", event, stall: key };
+    return { ok: true, kind: "event", event };
   }
 
   /** Las pausas ya vencidas no hacen falta: sin esto el mapa crece con cada persona que pasó por la sala. */
   private forgetExpired(now: number) {
-    if (this.nextAt.size < 64) return;
-    for (const [userId, at] of this.nextAt) if (at <= now) this.nextAt.delete(userId);
+    for (const m of [this.nextAt, this.freebieAt]) {
+      if (m.size < 64) continue;
+      for (const [userId, at] of m) if (at <= now) m.delete(userId);
+    }
   }
 
   /** Cuántas pausas se recuerdan (para los tests). */
@@ -96,7 +164,8 @@ export class FurnitureUses {
   /** Se rearmó un nivel (decoración de oficinas): se olvidan los interruptores de muebles que ya no están. */
   prune(map: OfficeMap) {
     const prefix = `${map.id}:`;
-    const alive = new Set(map.furniture.map((f) => furnitureKey(map.id, f.type, f.x, f.y)));
+    const alive = new Set(usablesOf(map).map((f) => furnitureKey(map.id, f.type, f.x, f.y)));
     for (const key of [...this.switches.keys()]) if (key.startsWith(prefix) && !alive.has(key)) this.switches.delete(key);
+    for (const key of [...this.counters.keys()]) if (key.startsWith(prefix) && !alive.has(key)) this.counters.delete(key);
   }
 }

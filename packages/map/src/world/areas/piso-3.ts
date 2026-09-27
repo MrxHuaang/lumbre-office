@@ -146,6 +146,8 @@ export const piso3: AreaDef = {
     place("side-table", 2, 16),
     place("beanbag", 3, 18, "left"),
     place("hammock", 6, 17, "right"),
+    // La cama de Nube, el gato del piso 3.
+    place("pet-bed", 9, 16),
     place("blanket-basket", 8, 20),
     place("bookshelf-low", 7, 14, "down"),
     place("plant", 9, 14),

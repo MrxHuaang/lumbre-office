@@ -1,6 +1,7 @@
 // Rediseño: usar lo que se tiene en la mano (F) y los muebles que se usan (E). El servidor valida y
 // avisa a los del mismo nivel; cada cliente dibuja la animación.
 import { z } from "zod";
+import { CASA_CONSUMABLES, CASA_USABLES, type CasaAction } from "./casa";
 
 /** Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas) o mordisco (comida). */
 export type ConsumeAction = "smoke" | "sip" | "bite";
@@ -24,6 +25,8 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   coctel: { action: "sip", uses: 4 },
   whisky: { action: "sip", uses: 3 },
   habano: { action: "smoke", uses: 8 },
+  // Casa viva: lo gratis de la nevera, la cafetera y la fogata.
+  ...CASA_CONSUMABLES,
 };
 
 /** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). */
@@ -64,7 +67,7 @@ export interface HeldUsedEvent {
  * `toggle`: se prende y apaga, y lo ven todos (el estado lo guarda el servidor). `play` (instrumentos) y
  * `pet` (el gato) son un evento: una animación y un sonido para los del mismo nivel.
  */
-export type FurnitureAction = "toggle" | "play" | "pet";
+export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction;
 
 export interface UsableSpec {
   action: FurnitureAction;
@@ -80,6 +83,10 @@ export interface UsableSpec {
    * ofrece de noche (el servidor igual acepta el cambio).
    */
   nightOnly?: boolean;
+  /** Casa viva (`take`, `roast`): lo que puede quedar en la mano (el servidor elige con la semilla). */
+  gives?: readonly string[];
+  /** Alcance propio en tiles (la fogata se usa desde los troncos); si no, INTERACT_REACH_TILES. */
+  reachTiles?: number;
 }
 
 export const USABLE_FURNITURE: Record<string, UsableSpec> = {
@@ -92,6 +99,9 @@ export const USABLE_FURNITURE: Record<string, UsableSpec> = {
   // La de lectura de los interiores nuevos (catalog-interior.ts): sin capa propia, solo su luz de noche.
   "reading-lamp": { action: "toggle", label: "Prender la lámpara", labelOn: "Apagar la lámpara", defaultOn: true, cooldownMs: 400, nightOnly: true },
   "cat-bed": { action: "pet", label: "Acariciar al gato", cooldownMs: 1500 },
+  // Casa viva (casa.ts): lámparas, libros, nevera, cafetera, radio, globo, chimeneas, plantas, cortinas,
+  // juegos de mesa, pizarras, baños y la fogata.
+  ...CASA_USABLES,
 };
 
 export const usableSpec = (type: string): UsableSpec | undefined => USABLE_FURNITURE[type];
@@ -167,4 +177,6 @@ export interface FurnitureEvent {
   action: Exclude<FurnitureAction, "toggle">;
   /** Semilla de la melodía: todos oyen las mismas notas. */
   seed: number;
+  /** Casa viva: lo que salió de la nevera o la cafetera (o el malvavisco que se está asando). */
+  item?: string;
 }

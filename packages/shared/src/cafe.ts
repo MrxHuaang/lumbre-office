@@ -2,6 +2,7 @@
 // barra lo llevas en la mano un rato (los combos, una cosa en cada mano), todos lo ven y se usa con F
 // (ver consumables.ts). Solo es decorativo: no da puntos ni ventajas.
 import { z } from "zod";
+import { FREE_HOLDS } from "./casa";
 
 /**
  * `holds`: lo que queda en las manos (los combos son dos cosas, una en cada mano). Cada id de `holds`
@@ -103,7 +104,8 @@ export function menuItem(id: string): (MenuItem & { menu: MenuId }) | undefined 
 
 /** Lo que se ve en las manos por un pedido (vacío si el id no es de ninguna carta). */
 export function heldParts(id: string): readonly string[] {
-  return menuItem(id)?.holds ?? [];
+  // Lo gratis de la casa (la nevera, la fogata) no sale de ninguna carta.
+  return menuItem(id)?.holds ?? FREE_HOLDS[id] ?? [];
 }
 
 export const CAFE = {
