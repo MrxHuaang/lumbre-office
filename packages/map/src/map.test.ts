@@ -303,6 +303,15 @@ describe("sótano", () => {
     }
   });
 
+  it("cada puerta une una sala con el vestíbulo o el pasillo (no hay puertas entre salas)", () => {
+    for (const d of sotano.def.doors) {
+      // Los dos tiles a cada lado del borde: el borde "h" en y separa (x, y-1) de (x, y); el "v" en x, (x-1, y) de (x, y).
+      const sides = d.edge === "h" ? [roomAt(d.x, d.y - 1), roomAt(d.x, d.y)] : [roomAt(d.x - 1, d.y), roomAt(d.x, d.y)];
+      const hub = sides.filter((id) => id === "vestibulo" || id === "pasillo");
+      expect(hub.length, `puerta ${d.edge} (${d.x}, ${d.y}): ${sides.join(" / ")}`).toBeGreaterThan(0);
+    }
+  });
+
   it("el vestíbulo tiene un neón por sala", () => {
     const vest = sotano.def.rooms.find((r) => r.id === "vestibulo")!.rect;
     const neons = sotano.def.features.filter(
@@ -317,7 +326,9 @@ describe("sótano", () => {
     expect(spots).toHaveLength(cabinets.length);
     cabinets.forEach((c, i) => {
       const s = spots[i]!;
-      expect(Math.abs(s.tileX - c.x) + Math.abs(s.tileY - c.y), s.name).toBe(1);
+      // Del lado al que mira la pantalla.
+      const front = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] }[c.facing];
+      expect([s.tileX - c.x, s.tileY - c.y], s.name).toEqual(front);
     });
   });
 
@@ -335,5 +346,12 @@ describe("sótano", () => {
     expect(near("pole_stage", ["dance-pole"])).toBe(true);
     expect(near("casino_cashier", ["casino-cashier"])).toBe(true);
     expect(near("cinema", ["projector"])).toBe(true);
+  });
+
+  it("todos los puntos del sótano se alcanzan caminando desde la escalera", () => {
+    for (const p of sotano.points) {
+      expect(isBlockedTile(sotano, p.tileX, p.tileY), `${p.type} ${p.name} sobre un mueble`).toBe(false);
+      expect(findPath(sotano, llegada, { x: p.tileX, y: p.tileY }), `${p.type} ${p.name}`).not.toBeNull();
+    }
   });
 });
