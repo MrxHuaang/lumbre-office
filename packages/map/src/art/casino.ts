@@ -488,9 +488,9 @@ function poleStage(): Sprite {
     if (d > 1) return [0, 0, 0, 0];
     if (d > 0.93) return at(C.woodDark, 0);
     if (d > 0.84) {
-      // Bombillos en el borde, uno sí y uno no.
+      // Bombillos en el borde, uno sí y uno no: apagados (se prenden cuando alguien baila, club-vivo.ts).
       const a = Math.atan2(v + 0.5 - fh / 2, u + 0.5 - fw / 2);
-      return Math.floor(((a + Math.PI) / (Math.PI * 2)) * 28) % 2 ? at(C.gold, 5) : at(C.woodDark, 1);
+      return Math.floor(((a + Math.PI) / (Math.PI * 2)) * 28) % 2 ? at(C.gold, 2) : at(C.woodDark, 1);
     }
     if (d > 0.76) return at(C.rose, 5);
     if (d > 0.72) return at(C.rose, 3);

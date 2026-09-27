@@ -16,3 +16,6 @@ export * from "./fishing-sim";
 export * from "./social";
 export * from "./casa";
 export * from "./mascotas";
+export * from "./club";
+export * from "./arcade";
+export * from "./arcade-sim";

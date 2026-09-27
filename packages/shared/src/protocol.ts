@@ -200,4 +200,22 @@ export const MSG = {
   tradeUpdate: "trade:update",
   tradeClosed: "trade:closed",
   tradeProblem: "trade:problem",
+  /** Club: la consola del DJ (`ClubDjMessage`), bailar en la pista (`ClubDanceMessage`), el tubo
+   *  (`ClubPoleMessage`) y el aviso cuando no se pudo (`ClubResult`). */
+  clubDj: "club:dj",
+  clubDance: "club:dance",
+  clubPole: "club:pole",
+  clubResult: "club:result",
+  /** Arcade: récords de una máquina (`ArcadeBoardMessage` → `ArcadeBoard`), empezar (`ArcadeStartMessage`
+   *  → `ArcadeStarted`) y terminar una partida (`ArcadeFinishMessage` → `ArcadeResult`). */
+  arcadeBoard: "arcade:board",
+  arcadeBoardResult: "arcade:board:result",
+  arcadeStart: "arcade:start",
+  arcadeStarted: "arcade:started",
+  arcadeFinish: "arcade:finish",
+  arcadeResult: "arcade:result",
+  /** Medir la hora del servidor descontando la latencia (`ClockPingMessage` → `ClockPong`): la música
+   *  del club tiene que sonar a la vez para todos. */
+  clockPing: "clock:ping",
+  clockPong: "clock:pong",
 } as const;

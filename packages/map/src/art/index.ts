@@ -16,6 +16,21 @@ export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvSc
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.
 export { BAR as FISHING_BAR, biteMark, bobber, drawFish, drawFishingBar, fishIcon, hasFishArt, treasureChest, FISH_H, FISH_W, ROD_COLORS, type BarState } from "./fish";
+// Club y arcade: los bailes del chibi y las capas que se encienden (pista, tarima, cabina, parlantes, pantallas).
+export {
+  drawFloorDance,
+  drawPoleDance,
+  DANCE_FRAMES,
+  FLOOR_MOVES,
+  POLE_FEET_Y,
+  POLE_FRAME_H,
+  POLE_FRAME_W,
+  POLE_ROUTINE,
+  type ArmPose,
+  type DancePose,
+  type PoleFrame,
+} from "./chibi-baile";
+export { arcadeScreen, danceFloorLights, djBoothEq, FLOOR_LIGHT_PATTERNS, poleStageLights, speakerPulse, type ArcadeScreenKind } from "./club-vivo";
 export { drawAreaBase, drawDoorPost, drawLowWall, LOW_WALL_H, WALL_H, type AreaArt } from "./room";
 // Casino: tipografía de números, geometría de las mesas, el arte del modo mesa y su encuadre. Con
 // nombres explícitos (no `export *`): así un nombre genérico no choca con lo que agreguen otras partes.

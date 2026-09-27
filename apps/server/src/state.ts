@@ -125,6 +125,31 @@ export class Pet extends Schema {
   @type("string") pose = "stand";
 }
 
+/** Alguien bailando en el club: en la pista (con un paso) o en el tubo. */
+export class ClubDancer extends Schema {
+  /** "floor" (pista) o "pole" (tubo). */
+  @type("string") kind = "floor";
+  /** Paso de la pista (DANCE_MOVES) o, en el tubo, cuál es (`poleKey`). */
+  @type("string") move = "";
+  /** Hora del servidor al empezar: la rutina del tubo se cuenta desde ahí. */
+  @type("number") since = 0;
+}
+
+/** El club del sótano: lo que suena en la cabina (con la hora del servidor) y quién baila. */
+export class ClubState extends Schema {
+  /** Pista que suena (CLUB_TRACKS; "" = nada). */
+  @type("string") track = "";
+  /** Hora del servidor en la que la pista estaba en 0 (todos cuentan el compás desde ahí). */
+  @type("number") startedAt = 0;
+  @type("boolean") paused = false;
+  /** En pausa: en qué punto de la pista quedó (ms). */
+  @type("number") pausedAt = 0;
+  /** Quién puso la pista (se ve en la consola). */
+  @type("string") dj = "";
+  /** Quién baila, por sessionId. */
+  @type({ map: ClubDancer }) dancers = new MapSchema<ClubDancer>();
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -140,4 +165,5 @@ export class OfficeState extends Schema {
   @type({ map: "string" }) stalls = new MapSchema<string>();
   /** Casa viva: las mascotas, por id. */
   @type({ map: Pet }) pets = new MapSchema<Pet>();
+  @type(ClubState) club = new ClubState();
 }

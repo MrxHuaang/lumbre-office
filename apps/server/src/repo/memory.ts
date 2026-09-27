@@ -3,6 +3,7 @@ import {
   dayStart,
   giftAllowedToday,
   tradeGap,
+  type ArcadeGame,
   type CasinoSettingsDTO,
   type ChatEvent,
   type ItemStack,
@@ -167,6 +168,26 @@ export class MemoryRepository implements GameRepository {
     this.catches.push({ userId, species, size, at: Date.now() });
     const award = points > 0 ? await this.awardPoints({ userId, amount: points, reason: "LEISURE" }) : { awarded: 0, balance: await this.getPoints(userId) };
     return { previousBest: sizes.length ? Math.max(...sizes) : null, ...award };
+  }
+
+  /** Partidas del arcade guardadas. */
+  arcade: { userId: string; name: string; game: ArcadeGame; score: number; at: number }[] = [];
+  async saveArcadeScore({ userId, name, game, score, dayStart: day, weekStart: week }: { userId: string; name: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }) {
+    const firstToday = !this.arcade.some((a) => a.userId === userId && a.at >= day);
+    // El récord es del primero que llegó a ese puntaje.
+    let best: { userId: string; score: number } | null = null;
+    for (const a of this.arcade) if (a.game === game && a.at >= week && (!best || a.score > best.score)) best = a;
+    this.arcade.push({ userId, name, game, score, at: Date.now() });
+    return { firstToday, weekBest: best?.score ?? 0, weekBestUserId: best?.userId ?? null };
+  }
+  async arcadeBoard({ game, since, limit }: { game: ArcadeGame; since: number; limit: number }) {
+    const best = new Map<string, { name: string; score: number }>();
+    for (const a of this.arcade) {
+      if (a.game !== game || a.at < since) continue;
+      const b = best.get(a.userId);
+      if (!b || a.score > b.score) best.set(a.userId, { name: a.name, score: a.score });
+    }
+    return [...best.values()].sort((a, b) => b.score - a.score).slice(0, limit);
   }
 
   /** Helper de tests: asigna una oficina. */

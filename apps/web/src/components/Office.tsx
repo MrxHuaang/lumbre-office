@@ -26,6 +26,9 @@ import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
 import { BackpackPanel, ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { ProfileDialog } from "./ProfileDialog";
+import { ArcadePanel } from "./arcade/ArcadePanel";
+import { ClubHud } from "./club/ClubHud";
+import { DjConsole } from "./club/DjConsole";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { FishingHud } from "./fishing/FishingHud";
@@ -204,6 +207,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <SeatPrompt />
           <InteractPrompt />
           <UsablePrompt />
+          <ClubHud />
           <KnockRequests />
           <FishingHud />
           <SocialOverlays />
@@ -232,6 +236,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "fitting" && (
             <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
           )}
+          {panel?.kind === "dj" && <DjConsole atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "arcade" && <ArcadePanel onClose={closePanel} />}
         </>
       ) : null}
 

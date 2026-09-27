@@ -17,6 +17,7 @@ import {
   DIRECTIONS,
   HUMAN_AVATARS,
   Look,
+  type ArcadeGame,
   type ChatEvent,
   type Direction,
   type HumanAvatar,
@@ -238,5 +239,34 @@ export class PrismaRepository implements GameRepository {
 
   executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
     return executeTrade(prisma, input);
+  }
+
+  saveArcadeScore({ userId, game, score, dayStart, weekStart }: { userId: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }) {
+    return prisma.$transaction(async (tx) => {
+      // Un candado de la transacción para todo el arcade: dos partidas que terminan a la vez (aunque haya
+      // más de un servidor) no leen el mismo récord ni cuentan las dos como la primera del día.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('hyvento:arcade'))`;
+      const today = await tx.arcadeScore.count({ where: { userId, createdAt: { gte: new Date(dayStart) } } });
+      const best = await tx.arcadeScore.findFirst({
+        where: { game, createdAt: { gte: new Date(weekStart) } },
+        orderBy: [{ score: "desc" }, { createdAt: "asc" }],
+        select: { score: true, userId: true },
+      });
+      await tx.arcadeScore.create({ data: { userId, game, score } });
+      return { firstToday: today === 0, weekBest: best?.score ?? 0, weekBestUserId: best?.userId ?? null };
+    });
+  }
+
+  async arcadeBoard({ game, since, limit }: { game: ArcadeGame; since: number; limit: number }) {
+    const rows = await prisma.arcadeScore.groupBy({
+      by: ["userId"],
+      where: { game, createdAt: { gte: new Date(since) } },
+      _max: { score: true },
+      orderBy: { _max: { score: "desc" } },
+      take: limit,
+    });
+    const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } });
+    const names = new Map(users.map((u) => [u.id, u.name]));
+    return rows.map((r) => ({ name: names.get(r.userId) || "Alguien", score: r._max.score ?? 0 }));
   }
 }

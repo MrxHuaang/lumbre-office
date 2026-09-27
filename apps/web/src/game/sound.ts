@@ -382,3 +382,7 @@ export function volumeAt(dist: number, reach: number) {
 
 /** El contexto de audio compartido (casa viva: casaSonidos.ts suma sus sonidos a la misma salida). */
 export const audioOut = audio;
+/** El contexto de audio y la salida de los sonidos de la cabaña (la música del club la usa, club/music.ts). */
+export function sharedAudio(): { ctx: AudioContext; out: GainNode } | null {
+  return audio();
+}

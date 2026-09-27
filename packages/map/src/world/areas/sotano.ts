@@ -306,6 +306,9 @@ export const sotano: AreaDef = {
     ].map(([dx, dy]) => ({ type: "pole_stage" as const, name: "Escenario", x: STAGE.x + dx!, y: STAGE.y + dy! })),
     // Frente a la barra del club, entre las banquetas: ahí se piden tragos y cigarros.
     ...[2, 5, 7].map((i) => ({ type: "club_bar" as const, name: "Barra del club", x: BAR.x + i, y: BAR.y + 1 })),
+    // Delante de la cabina de DJ: ahí se abre la consola para poner música.
+    { type: "dj_booth" as const, name: "Cabina de DJ", x: 41, y: CLUB_ROOM.y + 1 },
+    { type: "dj_booth" as const, name: "Cabina de DJ", x: 42, y: CLUB_ROOM.y + 1 },
     { type: "casino_cashier", name: "Caja", x: 12, y: CASINO_ROOM.y + 1 },
     { type: "casino_cashier", name: "Caja", x: 13, y: CASINO_ROOM.y + 1 },
     // Delante de cada máquina del arcade, en el orden de ARCADE_CABINETS.
