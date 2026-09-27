@@ -69,6 +69,8 @@ model User {
   gardenPlots     GardenPlot[]
   fishCatches     FishCatch[]
   arcadeScores    ArcadeScore[]
+  stats           UserStat[]
+  achievements    UserAchievement[]
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -384,4 +386,31 @@ model WorldLayout {
   edits     Json
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+// ---------- Logros y estadísticas del perfil ----------
+
+/**
+ * Contador de alguien (tazas de café, desmayos, peces, minutos en la cabaña…). Las claves están en
+ * STAT_KEYS de @hyvento/shared (achievements.ts); unas se suman y otras guardan el máximo.
+ */
+model UserStat {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  value     Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@id([userId, key])
+}
+
+/** Logro desbloqueado (el catálogo está en @hyvento/shared: ACHIEVEMENTS). Una fila por persona y logro. */
+model UserAchievement {
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  @@id([userId, achievementId])
+  @@index([achievementId])
 }
