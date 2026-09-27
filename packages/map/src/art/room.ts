@@ -267,6 +267,8 @@ const KINDS: FloorKind[] = ["grass", "path", "water", "dock", "forest", "deck", 
 interface OutdoorArt {
   /** Piso en un punto (unidades de arte). */
   kindAt(X: number, Y: number): FloorKind;
+  /** El tile y sus ocho vecinos tienen el mismo piso (no hay bordes que dibujar). */
+  uniform(tx: number, ty: number): boolean;
   /** Distancia en tiles de cada tile de agua a la tierra (para lo hondo del lago). */
   waterDepth: Float32Array;
 }
@@ -332,7 +334,13 @@ function outdoorArt(map: OfficeMap): OutdoorArt {
       }
     }
   }
-  const art = { kindAt, waterDepth };
+  const uniform = (tx: number, ty: number) => {
+    if (tx < 0 || ty < 0 || tx >= W || ty >= H) return true;
+    const i = ty * W + tx;
+    if (mixedFlag[i] === -1) mixedFlag[i] = isMixed(tx, ty) ? 1 : 0;
+    return mixedFlag[i] === 0;
+  };
+  const art = { kindAt, uniform, waterDepth };
   outdoorCache.set(map, art);
   return art;
 }
@@ -359,25 +367,28 @@ const EDGED = new Set<FloorKind>(["path", "soil", "sand", "deck"]);
 function outdoorColor(map: OfficeMap, X: number, Y: number): RGBA {
   const art = outdoorArt(map);
   const k = art.kindAt(X, Y);
+  // Tile parejo (sin bordes cerca): el piso tal cual, sin buscar vecinos.
+  const flatTile = art.uniform(Math.floor(X / L), Math.floor(Y / L));
+  if (flatTile && k !== "forest" && k !== "water") return floorColor(k, X, Y, null);
   if (k === "forest") {
     const p = map.def.playable;
     const d = p ? Math.max(p.x * L - X, X - (p.x + p.w) * L, p.y * L - Y, Y - (p.y + p.h) * L) / L : 9;
     // Más afuera de la fila de árboles, el suelo se vuelve la copa del bosque de alrededor, alineada con
     // la baldosa que el cliente repite más allá del nivel (empieza en la esquina del fondo menos el
     // relleno): así el borde del nivel no se ve.
-    const canopyMix = (d - 3) / 1.6 + (smoothNoise(X, Y, 14, 35) - 0.5) * 0.8;
+    const canopyMix = d > 4.8 ? 2 : (d - 3) / 1.6 + (smoothNoise(X, Y, 14, 35) - 0.5) * 0.8;
     if (canopyMix > bayer(Math.floor(X), Math.floor(Y))) {
       const ox = map.height * L + 2;
       return surroundingsAt(X - Y + ox + SURROUND_PAD, (X + Y) / 2 + 2 + SURROUND_PAD);
     }
     return forestFloor(X, Y, Math.max(0, Math.min(1, (d - 0.5) / 2.5)));
   }
-  if (k === "water") return lakeWater(map, art, X, Y);
+  if (k === "water") return lakeWater(map, art, X, Y, flatTile);
   let c = floorColor(k, X, Y, null);
   const near = (r: number, test: (n: FloorKind) => boolean) => DIRS8.some(([dx, dy]) => test(art.kindAt(X + dx * r, Y + dy * r)));
   if (EDGED.has(k) && near(1.2, (n) => n === "grass" || n === "forest")) {
     if (k === "path") return at(C.dirt, 2);
-    if (k === "soil") return at(C.dirt, 0);
+    if (k === "soil") return at(C.woodDark, 2);
     if (k === "deck") return at(C.woodDark, 1);
     return mix(c, at(C.grass, 3), 0.5);
   }
@@ -387,14 +398,17 @@ function outdoorColor(map: OfficeMap, X: number, Y: number): RGBA {
     if (near(1.8, (n) => n === "sand") && bayer(Math.floor(X), Math.floor(Y)) < 0.5) return at(C.grass, 4);
   }
   if (k === "path" && near(2.4, (n) => n === "grass")) c = mix(c, at(C.dirt, 3), 0.25);
+  // La tierra del huerto lleva un marco de tablones contra el pasto.
+  if (k === "soil" && near(2.6, (n) => n === "grass" || n === "path")) return at(C.wood, near(1.9, (n) => n === "grass" || n === "path") ? 3 : 4);
   return c;
 }
 
 /** Agua del lago: arena mojada y espuma en la orilla, bajío claro y lo hondo oscuro, con rizos. */
-function lakeWater(map: OfficeMap, art: OutdoorArt, X: number, Y: number): RGBA {
-  // Distancia a la tierra (sin contar el muelle) en píxeles, buscando hasta 7 en ocho direcciones.
+function lakeWater(map: OfficeMap, art: OutdoorArt, X: number, Y: number, open: boolean): RGBA {
+  // Distancia a la tierra (sin contar el muelle) en píxeles, buscando hasta 7 en ocho direcciones
+  // (en un tile rodeado de agua la tierra queda más lejos que eso).
   let d = 8;
-  for (let r = 1; r <= 7 && d === 8; r++)
+  for (let r = 1; r <= 7 && d === 8 && !open; r++)
     for (const [dx, dy] of DIRS8) {
       const n = art.kindAt(X + dx * r, Y + dy * r);
       if (n !== "water" && n !== "dock") {
@@ -723,7 +737,8 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
   };
 
   const boxes: Box[] = [];
-  const slabH = map.outdoor ? 9 : SLAB;
+  // Con alrededores no se ve la losa: sin alto, el dibujo del fondo sale más rápido.
+  const slabH = map.def.surroundings ? 0.5 : map.outdoor ? 9 : SLAB;
   const sideRamp = map.outdoor ? C.dirt : C.woodDark;
   // Un bloque de losa por tile, de atrás hacia adelante: solo quedan a la vista los bordes expuestos.
   const order: [number, number][] = [];

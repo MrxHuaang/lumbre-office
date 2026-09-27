@@ -7,7 +7,7 @@
 //    exterior que sube a ese balcón y la pérgola con glicinas.
 import { Escena, type Tinte } from "./exterior-escena";
 import { C, OUT, mix } from "./palette";
-import { alpha, at, bayer, noise, smoothNoise, type RGBA, type Sprite } from "./pixel";
+import { at, bayer, noise, smoothNoise, type RGBA, type Sprite } from "./pixel";
 
 // ---------- Medidas (unidades de arte) ----------
 
@@ -50,7 +50,7 @@ const P = { x0: 132, x1: 228, y0: 206, y1: 240, h: 6 };
 const P_ROOF = { eave: 52, slope: 0.42, x0: 128, x1: 232, y0: 200, y1: 232 };
 const P_POST_Y = 224;
 
-const CHIMNEY = { x: 116, y: 62, w: 20, top: 194 };
+const CHIMNEY = { x: 116, y: 62, w: 20, top: 184 };
 
 /** Tope de la chimenea (para el humo que anima el cliente). */
 export const HOUSE_CHIMNEY_TOP = { x: CHIMNEY.x + CHIMNEY.w / 2, y: CHIMNEY.y + CHIMNEY.w / 2, z: CHIMNEY.top + 4 };
@@ -406,18 +406,32 @@ function drawMainBody(s: Escena, night: boolean) {
     return escamas(u, v, -1);
   });
   gableX(s, A.x0 - 8, A.x1 + 8, A.y0 - A_EAVE, A_RIDGE_Y, A.y1 + A_EAVE, A_RIDGE_Z, A_SLOPE, 21);
-  // Faroles a los lados de la puerta del balcón este.
+  // Puntas de los troncos en la esquina de atrás.
   logEnds(s, A.x1, A.y0, STONE_H, A.h, "x", 4);
 }
 
 function drawChimney(s: Escena) {
   const { x, y, w, top } = CHIMNEY;
-  const face = (luz: number) => (u: number, v: number) => stones(u, v, 17, luz);
-  s.box(x, y, A.h - 20, w, w, top - A.h + 20, null, face(0), face(1));
-  // Remate: losa de piedra, la boca negra y dos ladrillos que asoman.
-  s.box(x - 2, y - 2, top, w + 4, w + 4, 3, (u, v) => (u > 4 && u < w && v > 4 && v < w ? OUT : at(C.stone, 4)), () => at(C.stone, 3), () => at(C.stone, 2));
-  s.solid(x + 3, y + 3, top + 3, 5, 5, 3, at(C.terracotta, 4), at(C.terracotta, 3), at(C.terracotta, 2));
-  s.solid(x + 12, y + 12, top + 3, 5, 5, 3, at(C.terracotta, 4), at(C.terracotta, 3), at(C.terracotta, 2));
+  // Piedras tibias (alguna rojiza) para que no se vea como un bloque gris.
+  const face = (luz: number) => (u: number, v: number) => {
+    const c = stones(u, v, 17, luz);
+    const row = Math.floor(v / 5);
+    return noise(Math.floor((u + noise(row, 3, 17) * 9) / 9), row, 23) < 0.22 ? mix(c, at(C.terracotta, 3 - luz), 0.45) : c;
+  };
+  // Tramo ancho abajo, un escalón con su cornisa y el tramo angosto hasta el remate.
+  const mid = A_RIDGE_Z - 6;
+  s.box(x - 2, y - 2, A.h - 20, w + 4, w + 4, mid - A.h + 20, null, face(0), face(1));
+  s.box(x - 3, y - 3, mid, w + 6, w + 6, 2.5, () => at(C.stone, 4), () => at(C.stone, 3), () => at(C.stone, 2));
+  s.box(x, y, mid + 2.5, w, w, top - mid - 2.5, null, face(0), face(1));
+  // Remate: losa, la boca negra con hollín y dos cañones de barro.
+  s.box(x - 2, y - 2, top, w + 4, w + 4, 3, (u, v) => (u > 3 && u < w + 1 && v > 3 && v < w + 1 ? (u < 5 || v < 5 ? at(C.stone, 1) : OUT) : at(C.stone, 4)), () => at(C.stone, 3), () => at(C.stone, 2));
+  for (const [px, py] of [
+    [x + 4, y + 5],
+    [x + 11, y + 10],
+  ] as const) {
+    s.cylinder(px + 2.5, py + 2.5, top + 3, 2.5, 5, (_a, v, luz) => at(C.terracotta, v > 4 ? 4 : luz > 0.2 ? 3 : 2));
+    s.disc(px + 2.5, py + 2.5, top + 8, 2.5, (dx, dy) => (Math.hypot(dx, dy) < 1.4 ? OUT : at(C.terracotta, 4)));
+  }
 }
 
 function drawDormers(s: Escena, night: boolean) {
@@ -588,7 +602,6 @@ function drawTower(s: Escena, night: boolean) {
     { v0: 58, v1: 78, angs: [0.7, 1.9], kind: "ventana" },
     { v0: 92, v1: 110, angs: [0.1, 1.2, 2.25], kind: "ventana" },
   ];
-  const hw = 9 / r;
   s.cylinder(cx, cy, 0, r, top, (ang, v, luz) => {
     const lz = luz > 0.35 ? 0 : luz > -0.35 ? -1 : -2;
     for (const f of floors)
@@ -602,14 +615,13 @@ function drawTower(s: Escena, night: boolean) {
       const seg = (ang * r) % 11;
       if (seg < 2) return at(C.woodDark, 2 + lz);
       if (v < deck + 7 || v >= top - 5) return at(C.cream, 3);
-      return night ? at(C.gold, v > top - 12 ? 5 : 4) : at(C.sky, v > top - 10 ? 3 : 2) ;
+      return night ? at(C.gold, v > top - 12 ? 5 : 4) : at(C.sky, v > top - 10 ? 3 : 2);
     }
     if (v >= deck && v < deck + 5) return at(C.woodDark, 3 + lz);
     if (v >= 44 && v < 48) return at(C.woodDark, 3 + lz);
     if (v < 44) return stones(ang * r, v, 13, lz < 0 ? 1 : 0);
     return logWall(ang * r, v - 34, 15, lz);
   });
-  void hw;
   // Balcón del mirador: losa anillada y baranda.
   s.disc(cx, cy, deck, r + 7, (dx, dy) => {
     const d = Math.hypot(dx, dy);
@@ -826,6 +838,4 @@ function drawGardenBeds(s: Escena) {
     }
     s.disc(bx, by, br * 1.15, br * 0.7, (dx, dy) => at(C.leaf, dx + dy < -2 ? 4 : 3));
   }
-  // Sombra de las plantas junto a la pared (tramado sobre el pasto).
-  void alpha;
 }

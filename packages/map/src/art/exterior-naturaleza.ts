@@ -83,8 +83,6 @@ export function canopy(c: PixelCanvas, o: CanopyOpts): [number, number, number][
 /** Tronco cónico con corteza, raíces que se abren en la base y alguna rama asomando. */
 function trunk(s: Escena, x: number, y: number, r: number, h: number, bark: Ramp, seed: number, birch = false) {
   s.cylinder(x, y, 0, r, h, (ang, v, luz) => {
-    const rr = r * (1 - (v / h) * 0.25);
-    void rr;
     if (birch) {
       // Corteza blanca con marcas negras horizontales.
       const mark = noise(Math.floor(ang * 3), Math.floor(v / 2), seed) < 0.18;
@@ -263,20 +261,23 @@ const PATCH_COLS: RGBA[] = [at(C.rug, 4), at(C.gold, 5), at(C.rose, 5), at(C.whi
 
 /** Macizo de flores: un montículo de hojas cubierto de flores de colores. */
 function flowerPatch(seed: number): Sprite {
-  const s = scene(1, 1, 16, 4);
-  s.roundShadow(8.5, 8.5, 6.5, 0.25);
+  const s = scene(1, 1, 18, 4);
+  s.roundShadow(8.5, 8.5, 7, 0.28);
   const b = s.p(8, 8, 1);
-  canopy(s.canvas, { cx: b.x, cy: b.y - 3, rx: 10, ry: 5.5, ramp: LEAF, seed, size: [2, 3.4], base: 2.8 });
-  for (let i = 0; i < 30; i++) {
+  canopy(s.canvas, { cx: b.x, cy: b.y - 4, rx: 11.5, ry: 6.5, ramp: LEAF_DEEP, seed, size: [2.4, 3.8], base: 2.6 });
+  // Dos o tres colores por macizo, en grupitos (como plantado a propósito).
+  const cols = [0, 1, 2].map((k) => PATCH_COLS[Math.floor(noise(k, 7, seed) * PATCH_COLS.length)]!);
+  for (let i = 0; i < 22; i++) {
     const a = noise(i, 1, seed + 2) * Math.PI * 2;
     const d = Math.sqrt(noise(i, 2, seed + 2));
-    const x = Math.round(b.x + Math.cos(a) * d * 8.5);
-    const y = Math.round(b.y - 3.5 + Math.sin(a) * d * 4.8);
-    const col = PATCH_COLS[Math.floor(noise(i, 3, seed) * PATCH_COLS.length)]!;
-    s.canvas.set(x, y - 1, mix(col, at(C.white, 4), 0.3));
+    const x = Math.round(b.x + Math.cos(a) * d * 9.5);
+    const y = Math.round(b.y - 5 + Math.sin(a) * d * 5);
+    const col = cols[Math.floor(noise(Math.floor(x / 5), Math.floor(y / 4), seed) * cols.length)]!;
+    const dark = mix(col, at(C.rug, 0), 0.3);
+    s.canvas.set(x, y - 1, col);
     s.canvas.set(x - 1, y, col);
-    s.canvas.set(x + 1, y, col);
-    s.canvas.set(x, y + 1, mix(col, at(C.rug, 0), 0.25));
+    s.canvas.set(x + 1, y, dark);
+    s.canvas.set(x, y + 1, dark);
     s.canvas.set(x, y, at(C.gold, 5));
   }
   return s.sprite();
@@ -503,7 +504,7 @@ function stump(seed: number): Sprite {
     if (d > 3.9) return at(C.logs, 2);
     return at(C.logs, Math.floor(d * 1.4) % 2 ? 4 : 5);
   });
-  // Hacha clavada no: unas hojitas de brote.
+  // Un brote verde que sale del tocón.
   s.solid(4, 11, 0, 1, 1, 4, at(C.leaf, 4), at(C.leaf, 3), at(C.leaf, 2));
   return s.sprite();
 }

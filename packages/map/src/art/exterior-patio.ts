@@ -4,7 +4,7 @@
 import { Escena, type Tinte } from "./exterior-escena";
 import { blob } from "./kit";
 import { C, OUT, mix } from "./palette";
-import { alpha, at, bayer, noise, type Ramp, type RGBA, type Sprite } from "./pixel";
+import { alpha, at, noise, type Ramp, type RGBA, type Sprite } from "./pixel";
 
 const scene = (w: number, d: number, h: number, pad = 6) => new Escena({ x0: -pad, y0: -pad, z0: -2, x1: w * 16 + pad, y1: d * 16 + pad, z1: h }, 2);
 
@@ -169,7 +169,8 @@ function toolShed(): Sprite {
   const slope = 12 / (Y1 - Y0 + 8);
   s.quad([X0 - 4, Y0 - 4, zB], [1, 0, 0], [0, 1, -slope], X1 - X0 + 8, Y1 - Y0 + 8, (u, v) => tejas(u, v * 1.05, 0));
   s.quad([X0 - 4, Y1 + 4, zB - (Y1 - Y0 + 8) * slope - 2], [1, 0, 0], [0, 0, 1], X1 - X0 + 8, 2, () => at(C.woodDark, 2));
-  s.quad([X1, Y0, H], [0, 1, 0], [0, 0, 1], Y1 - Y0, 12, (u, v) => (v > 12 - (u / (Y1 - Y0)) * 12 + 1.5 * 0 - (u * slope * 0) ? null : planks(C.rug, 4, 2)(u, v)));
+  // Triángulo del costado bajo el techo a un agua.
+  s.quad([X1, Y0, H], [0, 1, 0], [0, 0, 1], Y1 - Y0, 12, (u, v) => (v > 12 - (u / (Y1 - Y0)) * 12 ? null : planks(C.rug, 4, 2)(u, v)));
   s.quad([X1 + 4, Y0 - 4, zB - 2], [0, 1, -slope], [0, 0, 1], Y1 - Y0 + 8, 2.2, () => at(C.woodDark, 1));
   // Herramientas apoyadas en el frente: rastrillo, pala y una regadera verde.
   for (const [x, head] of [
@@ -703,7 +704,6 @@ function signpost(): Sprite {
     });
   board(22, 1, C.wood);
   board(15, -1, C.wood);
-  s.quad([1, 9.2, 8], [0, 1, 0], [0, 0, 1], 0.1, 0.1, () => null);
   return s.sprite();
 }
 
@@ -794,4 +794,3 @@ export const YARD_DRAW: Record<string, (v: "front" | "back") => Sprite> = {
   planter,
 };
 
-void bayer;

@@ -405,7 +405,7 @@ const POINTS: PointDef[] = [
       if (reserved.has(`${x},${y}`) || ground(x, y) !== "grass" || soft(x, y)) continue;
       const edge = Math.min(x, y, PW - 1 - x, PH - 1 - y);
       const grove = smoothNoise(x, y, 7, 71);
-      const pTree = edge < 2 ? 0.3 : edge < 4 ? 0.12 : grove > 0.74 ? 0.2 : 0.012;
+      const pTree = edge < 2 ? 0.3 : edge < 4 ? 0.12 : grove > 0.72 ? 0.34 : 0.004;
       const n = noise(x, y, 72);
       const facing = noise(x, y, 73) < 0.5 ? "right" : "down";
       if (n < pTree) {

@@ -190,13 +190,8 @@ export class Escena {
         const i = y * w + x;
         const d = this.depth[i]!;
         if (d === -Infinity) continue;
-        for (const j of [i - 1, i + 1, i - w, i + w]) {
-          if (j < 0 || j >= w * h || !this.bordes[j]) continue;
-          if (this.depth[j]! - d > salto) {
-            marks.push(x, y);
-            break;
-          }
-        }
+        const near = (j: number) => this.bordes[j] === 1 && this.depth[j]! - d > salto;
+        if ((x > 0 && near(i - 1)) || (x < w - 1 && near(i + 1)) || (y > 0 && near(i - w)) || (y < h - 1 && near(i + w))) marks.push(x, y);
       }
     for (let k = 0; k < marks.length; k += 2) this.canvas.set(marks[k]!, marks[k + 1]!, OUT);
     this.canvas.outline(OUT);
