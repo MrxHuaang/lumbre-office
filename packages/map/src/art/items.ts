@@ -920,7 +920,166 @@ const ITEMS: Record<string, ItemArt> = {
     // Dorado por fuera (asado en la fogata) y blanco por dentro; el palito de madera abajo.
     colors: { b: hex("#d9923e"), B: hex("#f3c47a"), w: hex("#fff4e0"), s: hex("#8a5530") },
   },
+  // ---------- Jardín vivo: lo que se cosecha, la miel y las herramientas del cobertizo ----------
+  cilantro: {
+    crumb: hex("#b8e89a"),
+    rows: [
+      ".o.o.o..", //
+      "olololo.",
+      "olLlLlLo",
+      ".olLlLo.",
+      "..oggo..",
+      "..obbo..",
+      "..oggo..",
+      "...oo...",
+    ],
+    colors: { l: hex("#6fbf4a"), L: hex("#3f8a2e"), g: hex("#8fcf5a"), b: hex("#e8d08a") },
+  },
+  fresa: {
+    crumb: hex("#fbd0c8"),
+    rows: [
+      "..olLo..", //
+      ".olLlLo.",
+      "orrrrrro",
+      "oryrrryo",
+      "orrryrRo",
+      ".oryrRo.",
+      "..orRo..",
+      "...oo...",
+    ],
+    colors: { r: hex("#e8323c"), R: hex("#a8202a"), y: hex("#f7e27a"), l: hex("#5fa83e"), L: hex("#3f7a2e") },
+  },
+  tomate: {
+    crumb: hex("#f6b0a0"),
+    rows: [
+      "...lL...", //
+      "..olLlo.",
+      ".orrrRro",
+      "orHrrrRo",
+      "orrrrrRo",
+      "orrrrRRo",
+      ".oRRRRo.",
+      "..oooo..",
+    ],
+    colors: { r: hex("#e04030"), R: hex("#a82820"), H: hex("#ff9a80"), l: hex("#6fb34a"), L: hex("#3f7a2e") },
+  },
+  papa: {
+    crumb: hex("#fff0b8"),
+    rows: [
+      "..oooo..", //
+      ".oyHyyo.",
+      "oyyyyyYo",
+      "oyydyyYo",
+      "oyyyydYo",
+      "oyyyyYYo",
+      ".oYYYYo.",
+      "..oooo..",
+    ],
+    colors: { y: hex("#e8c24a"), Y: hex("#b8902a"), H: hex("#f7e08a"), d: hex("#8a6a2a") },
+  },
+  mazorca: {
+    crumb: hex("#fff6c8"),
+    rows: [
+      "..oooo..", //
+      ".okKkko.",
+      ".okkKko.",
+      ".oKkkKo.",
+      ".okkKko.",
+      ".okKkko.",
+      "oLokkoLo",
+      "oLLooLLo",
+      ".oLLLLo.",
+      "..oooo..",
+    ],
+    colors: { k: hex("#f2c83a"), K: hex("#d09a22"), L: hex("#8fbf5a") },
+  },
+  lulo: {
+    crumb: hex("#e8e26a"),
+    rows: [
+      "...oLo..", //
+      "..oLlLo.",
+      ".oaaaAo.",
+      "oaHaaaAo",
+      "oaaaaaAo",
+      "oaaaaAAo",
+      ".oAAAAo.",
+      "..oooo..",
+    ],
+    colors: { a: hex("#f09a2a"), A: hex("#c06a18"), H: hex("#ffd08a"), l: hex("#6fb34a"), L: hex("#3f7a2e") },
+  },
+  // Frasco de miel con la tapa de tela a cuadros: se come a cucharadas y el nivel baja.
+  miel: {
+    liquid: { chars: "aA" },
+    rows: [
+      ".oooooo.", //
+      ".ocCcCo.",
+      "oooooooo",
+      "ohaaaaAo",
+      "ohaaaaAo",
+      "oaaaaaAo",
+      "oaaaaAAo",
+      ".oooooo.",
+    ],
+    colors: { a: hex("#f0a830"), A: hex("#c07a18"), c: hex("#d9533a"), C: hex("#f4ecdc"), h: GLASS.h },
+  },
+  // La regadera verde: llena, con una gota que asoma por la flor; vacía, sin gota.
+  regadera: {
+    rows: [
+      ".........w", //
+      "...ooo..oo",
+      "..o...o.oo",
+      ".ooooooogo",
+      ".oGgggGoo.",
+      ".oGgggGgo.",
+      ".oGgggGo..",
+      ".oGGGGGo..",
+      "..ooooo...",
+    ],
+    colors: { g: hex("#5aa04a"), G: hex("#3f7a34"), w: hex("#7fd0ff") },
+  },
+  "regadera-vacia": {
+    rows: [
+      "...ooo..oo", //
+      "..o...o.oo",
+      ".ooooooogo",
+      ".oGgggGoo.",
+      ".oGgggGgo.",
+      ".oGgggGo..",
+      ".oGGGGGo..",
+      "..ooooo...",
+    ],
+    colors: { g: hex("#6f9a5e"), G: hex("#4a6e40") },
+  },
+  ...Object.fromEntries(
+    (
+      [
+        ["cilantro", "#6fbf4a", "#3f8a2e"],
+        ["fresa", "#e8323c", "#a8202a"],
+        ["tomate", "#e04030", "#a82820"],
+        ["papa", "#e8c24a", "#b8902a"],
+        ["maiz", "#f2c83a", "#d09a22"],
+        ["lulo", "#f09a2a", "#c06a18"],
+      ] as const
+    ).map(([crop, c, C]) => [`semillas-${crop}`, seedPacket(c, C)]),
+  ),
 };
+
+/** Sobre de semillas de papel kraft con el dibujo del cultivo (su color) al frente. */
+function seedPacket(c: string, dark: string): ItemArt {
+  return {
+    rows: [
+      ".oooooo.", //
+      "oPPPPPPo",
+      "oppppppo",
+      "opcccCpo",
+      "opcCccpo",
+      "opccCCpo",
+      "oppppppo",
+      ".oooooo.",
+    ],
+    colors: { p: hex("#e8d8b0"), P: hex("#c9b48a"), c: hex(c), C: hex(dark) },
+  };
+}
 
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 

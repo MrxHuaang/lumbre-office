@@ -2,6 +2,7 @@
 // avisa a los del mismo nivel; cada cliente dibuja la animación.
 import { z } from "zod";
 import { CASA_CONSUMABLES, CASA_USABLES, type CasaAction } from "./casa";
+import { HUERTO_CONSUMABLES, HUERTO_TOOLS, JARDIN_USABLES, type GardenStep, type JardinAction } from "./huerto";
 
 /**
  * Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas), mordisco (comida en la mano) o
@@ -73,10 +74,12 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   habano: { action: "smoke", uses: 8 },
   // Casa viva: lo gratis de la nevera, la cafetera y la fogata.
   ...CASA_CONSUMABLES,
+  // Jardín vivo: lo que se cosecha en el huerto y la miel.
+  ...HUERTO_CONSUMABLES,
 };
 
-/** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). */
-export const usesOf = (art: string) => CONSUMABLES[art]?.uses ?? 1;
+/** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). Las herramientas del huerto, los suyos. */
+export const usesOf = (art: string) => CONSUMABLES[art]?.uses ?? HUERTO_TOOLS[art]?.uses ?? 1;
 export const consumeActionOf = (art: string): ConsumeAction => CONSUMABLES[art]?.action ?? "bite";
 
 export const CONSUME = {
@@ -172,7 +175,7 @@ export interface HeldUsedEvent {
  * `toggle`: se prende y apaga, y lo ven todos (el estado lo guarda el servidor). `play` (instrumentos) y
  * `pet` (el gato) son un evento: una animación y un sonido para los del mismo nivel.
  */
-export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction;
+export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction | JardinAction;
 
 export interface UsableSpec {
   action: FurnitureAction;
@@ -212,6 +215,8 @@ export const USABLE_FURNITURE: Record<string, UsableSpec> = {
   // Casa viva (casa.ts): lámparas, libros, nevera, cafetera, radio, globo, chimeneas, plantas, cortinas,
   // juegos de mesa, pizarras, baños y la fogata.
   ...CASA_USABLES,
+  // Jardín vivo (huerto.ts): parcelas, barriles y pozo, colmenas y la campanita de la glorieta.
+  ...JARDIN_USABLES,
 };
 
 export const usableSpec = (type: string): UsableSpec | undefined => USABLE_FURNITURE[type];
@@ -291,4 +296,6 @@ export interface FurnitureEvent {
   item?: string;
   /** Casa viva: el valor nuevo del contador (ajedrez, puzle, pizarra), para mostrarlo sin esperar al estado. */
   count?: number;
+  /** Jardín vivo: qué se hizo en la parcela (`item` = el cultivo sembrado o regado, o lo cosechado). */
+  garden?: GardenStep;
 }
