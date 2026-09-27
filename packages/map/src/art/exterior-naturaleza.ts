@@ -513,10 +513,19 @@ function stump(seed: number): Sprite {
 
 /** Juncos y totoras en el agua: hojas altas, espigas cafés y los anillos del agua en la base. */
 function reeds(seed: number): Sprite {
-  const s = scene(1, 1, 34, 6);
+  const s = scene(1, 1, 34, 8);
   const b = s.p(8, 8, 0);
-  s.suelo.ellipse(b.x, b.y, 11, 4.5, alpha(C.sky[4]!, 0.35));
-  s.suelo.ellipse(b.x, b.y, 8, 3, alpha(C.sky[0]!, 0.3));
+  // En el agua (sin contorno, debajo): la sombra oscura de la mata y dos ondas claras cortadas, así los
+  // juncos salen del agua y no flotan como un recorte de base recta.
+  s.suelo.ellipse(b.x, b.y + 0.5, 9, 3.4, alpha(C.sky[0]!, 0.5));
+  const ring = (rx: number, ry: number, from: number, to: number, a: number) => {
+    for (let t = from; t <= to; t += 0.04) {
+      if (noise(Math.floor(t * 9), Math.floor(rx), seed) < 0.22) continue;
+      s.suelo.set(Math.round(b.x + Math.cos(t) * rx), Math.round(b.y + 0.5 + Math.sin(t) * ry), alpha(C.sky[4]!, a));
+    }
+  };
+  ring(10.5, 3.9, -0.3, Math.PI + 0.3, 0.85);
+  ring(14, 5.4, 0.35, Math.PI - 0.35, 0.55);
   const blades = 14;
   const stalks: [number, number, number, number][] = [];
   for (let i = 0; i < blades; i++) {
@@ -528,7 +537,9 @@ function reeds(seed: number): Sprite {
   }
   stalks.sort((a, b) => a[1] - b[1]);
   for (const [x, y, h, lean] of stalks) {
-    for (let k = 0; k < h; k += 0.5) {
+    // El pie de cada hoja queda bajo el agua: translúcido y en el suelo (sin la raya del contorno).
+    for (let k = 0; k < 2; k += 0.5) s.suelo.set(x, y - k, alpha(C.green[1]!, 0.55));
+    for (let k = 2; k < h; k += 0.5) {
       const t = k / h;
       s.canvas.set(x + lean * t * t, y - k, at(C.green, t > 0.7 ? 4 : lean > 0 ? 2 : 3));
       if (t < 0.5) s.canvas.set(x + lean * t * t + 1, y - k, at(C.green, 2));
