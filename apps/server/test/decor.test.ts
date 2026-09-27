@@ -1,4 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
+import { getWorld } from "@hyvento/map";
 import { MSG, ROOM_NAME, type MoveCorrection, type OfficeEditMessage, type OfficeEditResult } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -96,10 +97,14 @@ describe("editor de oficina", () => {
 
   it("quitar un mueble lo devuelve a la mochila", async () => {
     const { alice, office } = await setup();
+    // La planta de la esquina (la especie cambia con el plano): vuelve a la mochila la que era.
+    const map = getWorld().areas.get("piso-2")!;
+    const zone = map.zones.find((z) => z.id === ZONE)!;
+    const type = map.furniture.find((f) => f.x === zone.x / map.tileSize + 9 && f.y === zone.y / map.tileSize)!.type;
     expect(await edit(alice, { action: "remove", zoneId: ZONE, itemId: "map-0" })).toEqual({ ok: true });
     expect(office().items).toHaveLength(13);
     expect(office().items.some((i) => i.x === 9 && i.y === 0)).toBe(false);
-    expect(repo.held("u-alice", "plant")).toBe(1);
+    expect(repo.held("u-alice", type)).toBe(1);
   });
 
   it("piso y papel tapiz", async () => {
