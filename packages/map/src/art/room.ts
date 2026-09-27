@@ -19,14 +19,15 @@ import {
   type Shader,
   type Sprite,
 } from "./pixel";
+import { FOREST, interiorFeature, interiorFloor, interiorWall } from "./interior-room";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;
 const WALL_T = 4;
 const SLAB = 5;
 
-const WALLPAPER: Record<WallpaperKind, Ramp> = { sage: C.sage, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug, navy: C.navy, violet: C.violet };
-const CARPET: Record<WallpaperKind, Ramp> = { sage: C.green, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug, navy: C.navy, violet: C.violet };
+const WALLPAPER: Record<WallpaperKind, Ramp> = { sage: C.sage, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug, navy: C.navy, violet: C.violet, paneling: C.wood, tile: C.cream, forest: FOREST };
+const CARPET: Record<WallpaperKind, Ramp> = { sage: C.green, cream: C.cream, blue: C.blue, rose: C.rose, wine: C.rug, navy: C.navy, violet: C.violet, paneling: C.wood, tile: C.cream, forest: C.green };
 
 // ---------- Pisos ----------
 
@@ -203,6 +204,12 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return soil(X, Y);
     case "sand":
       return sand(X, Y);
+    // Interiores del rediseño (art/interior-room.ts).
+    case "parquet":
+    case "kitchen":
+    case "mosaic":
+    case "terrace":
+      return interiorFloor(kind, X, Y);
   }
 }
 
@@ -291,6 +298,10 @@ const KIND_SET: Record<FloorKind, true> = {
   deck: true,
   soil: true,
   sand: true,
+  parquet: true,
+  kitchen: true,
+  mosaic: true,
+  terrace: true,
 };
 const KINDS = Object.keys(KIND_SET) as FloorKind[];
 
@@ -747,6 +758,14 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
       return cinemaScreenAt(u, hv, u1);
     case "poster":
       return posterAt(f, u, hv, u1);
+    // Interiores del rediseño (art/interior-room.ts).
+    case "mirror":
+    case "acoustic":
+    case "ventanal":
+    case "shelf":
+    case "map":
+    case "portrait":
+      return interiorFeature(f, u, hv, day);
   }
 }
 
@@ -847,7 +866,7 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
           const X = tx * L + u;
           const hv = v - SLAB;
           const fc = f && featureAt(f, X - f.x * L, hv, day);
-          return fc ?? wallpaper(X, hv, r, 0);
+          return fc ?? interiorWall(roomWallpaper(tx, ty), X, hv) ?? wallpaper(X, hv, r, 0);
         },
       });
     }
@@ -870,7 +889,7 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
           const Y = ty * L + (L - u);
           const hv = v - SLAB;
           const fc = f && featureAt(f, (f.y + (f.width ?? 1)) * L - Y, hv, day);
-          return fc ?? wallpaper(Y, hv, r, -1);
+          return fc ?? interiorWall(roomWallpaper(tx, ty), Y, hv) ?? wallpaper(Y, hv, r, -1);
         },
       });
     }

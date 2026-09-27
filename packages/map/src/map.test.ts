@@ -41,6 +41,7 @@ const center = (map: OfficeMap, t: number) => t * map.tileSize + map.tileSize / 
 const jardin = area("jardin");
 const plantaBaja = area("planta-baja");
 const piso2 = area("piso-2");
+const piso3 = area("piso-3");
 
 describe("mundo", () => {
   it("tiene el jardín, la planta baja, el piso 2 y el sótano, y se aparece en el jardín", () => {
@@ -54,7 +55,7 @@ describe("mundo", () => {
     const ids = allZones(world).map((z) => z.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toEqual(
-      expect.arrayContaining(["office-1", "office-4", "meeting-main", "mesa-1", "mesa-4", "cafeteria", "tienda", "recibidor", "jardin"]),
+      expect.arrayContaining(["office-1", "office-4", "meeting-main", "mesa-1", "mesa-6", "cafeteria", "tienda", "recibidor", "jardin", "biblioteca", "cabina-1"]),
     );
     expect(ids).not.toContain("coworking");
   });
@@ -65,7 +66,9 @@ describe("mundo", () => {
         if (p.type === "screen") continue;
         expect(isBlockedTile(map, p.tileX, p.tileY), `${map.id}: ${p.name}`).toBe(false);
       }
-    expect(pointsOfType(plantaBaja, "screen").map((s) => s.zone)).toEqual(["meeting-main"]);
+    // La sala de reuniones se mudó al piso 2 (el del trabajo).
+    expect(pointsOfType(piso2, "screen").map((s) => s.zone)).toEqual(["meeting-main"]);
+    expect(pointsOfType(plantaBaja, "screen")).toEqual([]);
   });
 });
 
@@ -88,11 +91,12 @@ describe("oficinas", () => {
     for (const office of offices) {
       const door = officeDoor(office);
       const doorTile = { x: Math.floor(door.x / piso2.tileSize), y: Math.floor(door.y / piso2.tileSize) };
-      // El tile de adentro queda al otro lado del borde de la puerta.
+      // El tile de adentro queda al otro lado del borde de la puerta (a un lado o arriba/abajo).
       const edge = office.doorEdge!;
-      const inside = { x: edge.x > door.x ? doorTile.x + 1 : edge.x < door.x ? doorTile.x - 1 : doorTile.x, y: doorTile.y };
+      const side = (e: number, d: number, t: number) => (e > d ? t + 1 : e < d ? t - 1 : t);
+      const inside = { x: side(edge.x, door.x, doorTile.x), y: side(edge.y, door.y, doorTile.y) };
       expect(zoneAt(piso2, center(piso2, inside.x), center(piso2, inside.y))?.id, office.id).toBe(office.id);
-      const path = findPath(piso2, { x: 9, y: 16 }, inside);
+      const path = findPath(piso2, STARTS["piso-2"]!, inside);
       expect(path, office.id).not.toBeNull();
       expect(path!.some((t) => t.x === doorTile.x && t.y === doorTile.y)).toBe(true);
     }
@@ -101,25 +105,26 @@ describe("oficinas", () => {
 
 describe("paredes", () => {
   it("las paredes del fondo son altas y las interiores bajas", () => {
-    expect(piso2.wallH[0 * piso2.width + 5]).toBe(2); // norte del edificio
+    expect(piso2.wallH[0 * piso2.width + 10]).toBe(2); // norte del edificio
     expect(piso2.wallV[3 * (piso2.width + 1) + 0]).toBe(2); // oeste del edificio
-    expect(piso2.wallH[9 * piso2.width + 3]).toBe(1); // entre las oficinas 1 y 3
-    expect(piso2.wallV[8 * (piso2.width + 1) + 8]).toBe(1); // oficina 1 ↔ pasillo (fuera de la puerta)
-    expect(piso2.wallV[6 * (piso2.width + 1) + 8]).toBe(0); // la puerta de la oficina 1
+    expect(piso2.wallV[5 * (piso2.width + 1) + 18]).toBe(1); // entre la oficina 1 y la sala de reuniones
+    expect(piso2.wallH[11 * piso2.width + 10]).toBe(1); // oficina 1 ↔ pasillo (fuera de la puerta)
+    expect(piso2.wallH[11 * piso2.width + 12]).toBe(0); // la puerta de la oficina 1
   });
 
   it("no se puede pararse sobre una pared ni atravesarla, pero sí cruzar por la puerta", () => {
     const ts = piso2.tileSize;
-    // Borde entre la oficina 1 (x = 7) y el pasillo (x = 8): pared en la fila 8, puerta en la fila 6.
-    expect(wallBetween(piso2, 7, 8, 8, 8)).toBe(true);
-    expect(canStandAt(piso2, 8 * ts, center(piso2, 8))).toBe(false);
-    expect(canWalkBetween(piso2, center(piso2, 8), center(piso2, 8), center(piso2, 7), center(piso2, 8))).toBe(false);
-    expect(canWalkBetween(piso2, center(piso2, 8), center(piso2, 6), center(piso2, 7), center(piso2, 6))).toBe(true);
+    // Borde entre la oficina 1 (y = 10) y el pasillo (y = 11): pared en la columna 10, puerta en la 12.
+    expect(wallBetween(piso2, 10, 10, 10, 11)).toBe(true);
+    expect(canStandAt(piso2, center(piso2, 10), 11 * ts)).toBe(false);
+    expect(canWalkBetween(piso2, center(piso2, 10), center(piso2, 11), center(piso2, 10), center(piso2, 10))).toBe(false);
+    expect(canWalkBetween(piso2, center(piso2, 12), center(piso2, 11), center(piso2, 12), center(piso2, 10))).toBe(true);
   });
 
   it("fuera del edificio no se puede caminar", () => {
-    expect(isBlockedTile(plantaBaja, 10, 17)).toBe(true);
-    expect(isBlockedTile(plantaBaja, 4, 17)).toBe(false); // umbral de la puerta de entrada
+    expect(isBlockedTile(plantaBaja, 10, 26)).toBe(true);
+    const umbral = CONEXIONES.plantaBaja.entrada.tiles[0]!;
+    expect(isBlockedTile(plantaBaja, umbral.x, umbral.y)).toBe(false); // umbral de la puerta de entrada
     expect(isBlockedTile(plantaBaja, -1, 5)).toBe(true);
   });
 });
@@ -185,28 +190,28 @@ describe("asientos", () => {
 
   it("las sillas de las mesas miran hacia la mesa", () => {
     const facing = (x: number, y: number) => plantaBaja.seats.get(y * plantaBaja.width + x)?.facing;
-    expect(facing(11, 5)).toBe("right");
-    expect(facing(13, 5)).toBe("left");
-    expect(facing(12, 4)).toBe("down");
-    expect(facing(12, 6)).toBe("up");
+    expect(facing(13, 5)).toBe("right");
+    expect(facing(15, 5)).toBe("left");
+    expect(facing(14, 4)).toBe("down");
+    expect(facing(14, 6)).toBe("up");
   });
 });
 
 describe("lugares y zonas", () => {
   it("las mesas de la cafetería son burbujas de audio y se muestran como lugar", () => {
-    const x = center(plantaBaja, 11);
+    const x = center(plantaBaja, 13);
     const y = center(plantaBaja, 5);
     expect(zoneAt(plantaBaja, x, y)?.id).toBe("mesa-1");
     expect(zoneAt(plantaBaja, x, y)?.isolated).toBe(true);
     expect(placeAt(plantaBaja, x, y)).toBe("mesa-1");
-    expect(placeAt(plantaBaja, center(plantaBaja, 15), center(plantaBaja, 3))).toBe("cafeteria");
-    expect(placeAt(plantaBaja, center(plantaBaja, 15), center(plantaBaja, 14))).toBe("tienda");
+    expect(placeAt(plantaBaja, center(plantaBaja, 20), center(plantaBaja, 7))).toBe("cafeteria");
+    expect(placeAt(plantaBaja, center(plantaBaja, 28), center(plantaBaja, 17))).toBe("tienda");
   });
 
-  it("las cuatro mesas siguen aisladas, dentro de la cafetería y se llega a cada una desde la entrada", () => {
+  it("las mesas son aisladas, están dentro de la cafetería y se llega a cada una desde la entrada", () => {
     const cafe = plantaBaja.zones.find((z) => z.id === "cafeteria")!;
     const mesas = plantaBaja.zones.filter((z) => z.type === "table");
-    expect(mesas.map((z) => z.id)).toEqual(["mesa-1", "mesa-2", "mesa-3", "mesa-4"]);
+    expect(mesas.map((z) => z.id)).toEqual(Array.from({ length: 8 }, (_, i) => `mesa-${i + 1}`));
     for (const mesa of mesas) {
       expect(mesa.isolated, mesa.id).toBe(true);
       expect(mesa.x >= cafe.x && mesa.y >= cafe.y, mesa.id).toBe(true);
@@ -232,7 +237,7 @@ describe("lugares y zonas", () => {
   });
 
   it("nearestFreeTile encuentra un tile libre cerca de un obstáculo", () => {
-    const free = nearestFreeTile(plantaBaja, { x: 4, y: 3 }); // mesa de reuniones
+    const free = nearestFreeTile(plantaBaja, { x: 36, y: 4 }); // isla de la cocina
     expect(free).not.toBeNull();
     expect(isBlockedTile(plantaBaja, free!.x, free!.y)).toBe(false);
   });
@@ -264,16 +269,18 @@ describe("tienda", () => {
     expect(near("fitting_room", "fitting-booth")).toBe(true);
   });
 
-  it("la tienda y la cafetería se separan con una pared baja y una puerta", () => {
+  it("se entra a la tienda desde el recibidor y desde el pasillo (con paredes bajas)", () => {
+    const ts = plantaBaja.tileSize;
     const shop = plantaBaja.zones.find((z) => z.id === "tienda")!;
-    const y = shop.y / plantaBaja.tileSize; // primera fila de la tienda
-    const walls = Array.from({ length: shop.width / plantaBaja.tileSize }, (_, i) => wallAbove(plantaBaja, 9 + i, y));
+    const y = shop.y / ts; // primera fila de la tienda, contra el pasillo
+    const walls = Array.from({ length: shop.width / ts }, (_, i) => wallAbove(plantaBaja, shop.x / ts + i, y));
     expect(walls.filter((w) => w === 0).length).toBe(2);
     expect(walls.every((w) => w === 0 || w === 1)).toBe(true);
-    // Del recibidor se entra a la tienda por la puerta de siempre (x = 9, y = 12).
-    expect(wallBetween(plantaBaja, 8, 12, 9, 12)).toBe(false);
-    expect(zoneAt(plantaBaja, center(plantaBaja, 9), center(plantaBaja, 12))?.id).toBe("tienda");
-    // Y de la tienda a la barra de la cafetería.
+    // Del recibidor se entra a la tienda por su puerta (x = 24, y = 19).
+    expect(wallBetween(plantaBaja, 23, 19, 24, 19)).toBe(false);
+    expect(zoneAt(plantaBaja, center(plantaBaja, 23), center(plantaBaja, 19))?.id).toBe("recibidor");
+    expect(zoneAt(plantaBaja, center(plantaBaja, 24), center(plantaBaja, 19))?.id).toBe("tienda");
+    // La barra de la cafetería queda a un paseo por el pasillo.
     const barra = pointsOfType(plantaBaja, "cafe_counter")[0]!;
     expect(findPath(plantaBaja, entrada, tile(barra))).not.toBeNull();
   });
@@ -282,5 +289,107 @@ describe("tienda", () => {
     const { SHOP_FURNITURE } = await import("@hyvento/shared");
     const { CATALOG } = await import("./world/catalog");
     for (const item of SHOP_FURNITURE) expect(item.id in CATALOG, item.id).toBe(true);
+  });
+});
+
+describe("circulación (docs/plan-rediseno.md)", () => {
+  /** Salas de paso de cada nivel: pasillos, recibidor y rellanos. */
+  const CIRCULATION: Record<string, string[]> = {
+    "planta-baja": ["pasillo", "recibidor"],
+    "piso-2": ["pasillo", "rellano"],
+    "piso-3": ["pasillo-3", "rellano-3"],
+  };
+  /** Lo que es parte de otra sala y solo se abre a ella. */
+  const PART_OF: Record<string, string> = {
+    cocina: "cafeteria",
+    probadores: "tienda",
+    guardarropa: "recibidor",
+    "cabina-1": "sala-cabinas",
+    "cabina-2": "sala-cabinas",
+    balcon: "descanso",
+  };
+  /** Habitación de un tile (la última que lo cubre, como en build.ts). */
+  const roomAt = (map: OfficeMap, x: number, y: number) =>
+    [...map.def.rooms].reverse().find((r) => x >= r.rect.x && y >= r.rect.y && x < r.rect.x + r.rect.w && y < r.rect.y + r.rect.h)?.id;
+  /** Pares de habitaciones unidas por una puerta. */
+  const links = (map: OfficeMap) => {
+    const out = new Set<string>();
+    for (const d of map.def.doors)
+      for (let k = 0; k < (d.width ?? 1); k++) {
+        const [a, b] = d.edge === "h" ? [roomAt(map, d.x + k, d.y - 1), roomAt(map, d.x + k, d.y)] : [roomAt(map, d.x - 1, d.y + k), roomAt(map, d.x, d.y + k)];
+        if (a && b && a !== b) out.add(`${a}|${b}`).add(`${b}|${a}`);
+      }
+    return out;
+  };
+  const levels = [plantaBaja, piso2, piso3];
+
+  it("cada sala se abre a un pasillo o vestíbulo (o a la sala de la que es parte)", () => {
+    for (const map of levels) {
+      const l = links(map);
+      const hubs = CIRCULATION[map.id]!;
+      for (const room of map.def.rooms) {
+        if (hubs.includes(room.id)) continue;
+        const allowed = PART_OF[room.id] ? [PART_OF[room.id]!] : hubs;
+        expect(allowed.some((h) => l.has(`${room.id}|${h}`)), `${map.id}: ${room.id}`).toBe(true);
+        // Y nunca se pasa por ella para llegar a otra sala que no sea parte suya.
+        const through = map.def.rooms.filter(
+          (r) => r.id !== room.id && !hubs.includes(r.id) && l.has(`${room.id}|${r.id}`) && PART_OF[r.id] !== room.id && PART_OF[room.id] !== r.id,
+        );
+        expect(through.map((r) => r.id), `${map.id}: ${room.id}`).toEqual([]);
+      }
+    }
+  });
+
+  /** Tiles libres a los que se llega caminando desde la llegada del nivel (sin pasar por portales). */
+  const reachable = (map: OfficeMap) => {
+    const start = STARTS[map.id]!;
+    const seen = new Set([start.y * map.width + start.x]);
+    const queue = [start];
+    while (queue.length) {
+      const t = queue.pop()!;
+      if (portalAtTile(map, t.x, t.y)) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const n = { x: t.x + dx, y: t.y + dy };
+        const i = n.y * map.width + n.x;
+        if (seen.has(i) || isBlockedTile(map, n.x, n.y) || wallBetween(map, t.x, t.y, n.x, n.y)) continue;
+        seen.add(i);
+        queue.push(n);
+      }
+    }
+    return seen;
+  };
+
+  it("se llega caminando a todo el piso libre de cada nivel, sin rincones encerrados", () => {
+    for (const map of levels) {
+      const ok = reachable(map);
+      const closed: string[] = [];
+      for (let y = 0; y < map.height; y++)
+        for (let x = 0; x < map.width; x++) if (!isBlockedTile(map, x, y) && !ok.has(y * map.width + x)) closed.push(`${x},${y}`);
+      expect(closed, map.id).toEqual([]);
+      // Y a cada asiento se llega por un tile vecino (sin cruzar paredes).
+      for (const seat of map.seats.values()) {
+        const near = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).some(([dx, dy]) => {
+          const n = { x: seat.tileX + dx, y: seat.tileY + dy };
+          return ok.has(n.y * map.width + n.x) && !wallBetween(map, seat.tileX, seat.tileY, n.x, n.y);
+        });
+        expect(near, `${map.id}: asiento (${seat.tileX}, ${seat.tileY})`).toBe(true);
+      }
+    }
+  });
+
+  it("las escaleras están una sobre otra en todos los pisos", () => {
+    expect(CONEXIONES.piso2.escaleraAbajo.tiles).toEqual(CONEXIONES.plantaBaja.escaleraArriba.tiles);
+    expect(CONEXIONES.piso3.escaleraAbajo.tiles).toEqual(CONEXIONES.piso2.escaleraArriba.tiles);
+    // La que baja al sótano está en la misma columna que la que sube del piso 2 al 3.
+    expect(CONEXIONES.plantaBaja.escaleraSotano.tiles).toEqual(CONEXIONES.piso2.escaleraArriba.tiles);
+    const stairs = (map: OfficeMap) => map.furniture.filter((f) => f.type === "stairs-up" || f.type === "stairwell").map((f) => `${f.x},${f.y}`);
+    expect(stairs(piso2)).toEqual(expect.arrayContaining(stairs(plantaBaja)));
+    expect(stairs(piso2)).toEqual(expect.arrayContaining(stairs(piso3)));
+  });
+
+  // Se activa al integrar con la rama del sótano: allá la escalera tiene que quedar en los mismos tiles
+  // que la bajada de la planta baja (acá el sótano sigue con la escalera de la base).
+  it.skip("la escalera del sótano queda debajo de la bajada de la planta baja", () => {
+    expect(CONEXIONES.sotano.escalera.tiles).toEqual(CONEXIONES.plantaBaja.escaleraSotano.tiles);
   });
 });

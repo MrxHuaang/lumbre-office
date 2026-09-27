@@ -71,10 +71,10 @@ describe("puntos de presencia", () => {
 
   it("en la sala de reuniones con alguien más se gana el extra de reunión", async () => {
     const { alice, bob, room } = await setup();
-    await goToArea(alice, room, "planta-baja");
-    await walkToTile(alice, room, 1, 1);
-    await goToArea(bob, room, "planta-baja");
-    await walkToTile(bob, room, 7, 6);
+    await goToArea(alice, room, "piso-2");
+    await walkToTile(alice, room, 19, 1);
+    await goToArea(bob, room, "piso-2");
+    await walkToTile(bob, room, 27, 9);
     await stayActive([alice, bob], 500);
     const meeting = repo.ledger.filter((m) => m.userId === "u-alice" && m.reason === "MEETING");
     expect(meeting.length).toBeGreaterThan(0);

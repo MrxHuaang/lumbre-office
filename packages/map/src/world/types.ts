@@ -33,8 +33,15 @@ export type FloorKind =
   | "forest"
   | "deck"
   | "soil"
-  | "sand";
-export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet";
+  | "sand"
+  // Interiores del rediseño: parqué en espiga (salón, biblioteca), baldosa de cocina, mosaico blanco y
+  // azul (los baños de la planta baja) y el deck del balcón y la terraza (tablas alineadas con la sala).
+  | "parquet"
+  | "kitchen"
+  | "mosaic"
+  | "terrace";
+// Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
+export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet" | "paneling" | "tile" | "forest";
 
 export interface ZoneDef {
   id: string;
@@ -67,7 +74,8 @@ export interface DoorDef {
   width?: number;
 }
 
-export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "poster";
+// Del rediseño de interiores: espejo, paneles acústicos, ventanal de piso a techo, repisa, mapamundi y retrato.
+export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
