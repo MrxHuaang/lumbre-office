@@ -65,7 +65,8 @@ import {
   type OfficeRoom,
   type RemotePlayer,
 } from "./network";
-import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView } from "./store";
+import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
+import { TableMode } from "./table";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -82,7 +83,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "shop", point: "shop_counter", furniture: ["shop-counter", "display-shelf"] },
   { kind: "fitting", point: "fitting_room", furniture: ["fitting-booth", "clothes-rack"] },
   { kind: "pole", point: "pole_stage", furniture: ["dance-pole"] },
-  { kind: "roulette", point: "roulette", furniture: ["roulette-table"] },
+  { kind: "roulette", point: "roulette", furniture: ["roulette-table", "roulette-wheel"] },
   { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
@@ -95,6 +96,9 @@ type Keys = Record<
 >;
 /** Teclas de un toque apretadas en este frame con el juego libre (ver `readTaps`). */
 type Taps = Record<"e" | "r" | "esc" | "del", boolean>;
+
+/** Paneles del casino que se juegan en la mesa (modo mesa) en vez de en una ventana. */
+const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" => kind === "roulette" || kind === "blackjack";
 
 /** Dirección del sprite según hacia dónde se mueve en pantalla (+x = sureste, +y = suroeste). */
 function facingFor(vx: number, vy: number): Direction {
@@ -155,6 +159,8 @@ export class OfficeScene extends Phaser.Scene {
   private decorDirty = false;
   /** Cuándo se dejó de escribir o se apagó el PC (mismo reloj que `event.timeStamp`). */
   private keysFreeAt = 0;
+  /** Modo mesa del casino (ruleta o blackjack con la cámara sobre la mesa). */
+  private table!: TableMode;
 
   constructor() {
     super("office");
@@ -182,14 +188,20 @@ export class OfficeScene extends Phaser.Scene {
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
     this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,ESC,DELETE,BACKSPACE", false) as Keys;
+    this.table = new TableMode(this);
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
+      if (this.table.pointerDown(p.worldX, p.worldY)) return; // en la mesa, el clic pone fichas
       if (s.decorating) this.decorClick(p.worldX, p.worldY); // decorando, el clic pone o elige muebles
       else this.clickAt(p.worldX, p.worldY);
     });
-    this.input.on("pointermove", (p: Phaser.Input.Pointer) => this.hoverAt(p.worldX, p.worldY));
+    this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
+      if (this.table.pointerMove(p.worldX, p.worldY)) this.hoverCursor?.setVisible(false);
+      else this.hoverAt(p.worldX, p.worldY);
+    });
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
+      if (this.table.kind) return; // en la mesa el zoom lo maneja el modo mesa
       cam.setZoom(Phaser.Math.Clamp(Math.round(cam.zoom) + (dy > 0 ? -1 : 1), MIN_ZOOM, MAX_ZOOM));
     });
 
@@ -218,6 +230,7 @@ export class OfficeScene extends Phaser.Scene {
           this.updateGhost(true); // el fantasma también cambia de textura
         }
         if (s.lastAward && s.lastAward !== prev.lastAward) this.floatAward(s.lastAward.amount);
+        if (s.panel?.kind !== prev.panel?.kind) this.syncTable(s.panel?.kind, prev.panel?.kind);
         if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
           this.refreshDecor();
         }
@@ -227,6 +240,7 @@ export class OfficeScene extends Phaser.Scene {
     // muerta seguiría suscrita a la sala siguiente y rompería sus callbacks de estado.
     const cleanup = () => {
       this.disposed = true;
+      this.table.dispose();
       this.clearScreens();
       this.unbindRoom();
       this.cleanups.forEach((fn) => fn());
@@ -242,6 +256,8 @@ export class OfficeScene extends Phaser.Scene {
       this.applyDecor(useOfficeStore.getState().offices);
     }
     this.updateLocal(delta, this.readTaps());
+    this.table.update();
+    this.table.fadeAvatars([...this.avatars.values()].map((a) => a.sprite));
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
       this.hearingElapsed = 0;
@@ -333,6 +349,8 @@ export class OfficeScene extends Phaser.Scene {
     if (this.seat) {
       this.seat = null;
       this.local?.setSeated(null);
+      // Si era una banqueta del blackjack, también se sale de la mesa.
+      if (this.table.kind === "blackjack") useOfficeStore.getState().closePanel();
     }
     const cam = this.cameras.main;
     if (c.area && c.area !== this.map.id) {
@@ -426,6 +444,9 @@ export class OfficeScene extends Phaser.Scene {
     this.pendingSeat = null;
     this.travelling = false;
     this.cameras.main.resetFX();
+    // Al reconectar se sale de la mesa (la cámara vuelve a seguir al personaje nuevo).
+    this.table.exit();
+    if (isTablePanel(useOfficeStore.getState().panel?.kind)) useOfficeStore.getState().closePanel();
     this.localId = room.sessionId;
     this.lastSent = null;
     this.seenMessages = useOfficeStore.getState().messages.length;
@@ -556,9 +577,13 @@ export class OfficeScene extends Phaser.Scene {
         else this.toggleSeat();
       }
       if (useOfficeStore.getState().decorating) this.decorKeys(taps);
+      // Esc sale de la mesa (y del blackjack te levanta).
+      if (taps.esc && this.table.kind) useOfficeStore.getState().closePanel();
     }
 
     if (vx !== 0 || vy !== 0) {
+      // Caminar te saca de la ruleta (del blackjack te saca al levantarte).
+      if (this.table.kind === "roulette") useOfficeStore.getState().closePanel();
       this.clearPath(); // el teclado cancela el clic-para-caminar
       this.pendingZone = null;
       this.pendingInteract = null;
@@ -673,7 +698,33 @@ export class OfficeScene extends Phaser.Scene {
     this.sendPosition(seat.facing, false);
   }
 
-/** ¿Es una de las banquetas de la mesa de blackjack del sótano? */
+  /**
+   * Abre o cierra el modo mesa según el panel del casino que se abrió (ruleta o blackjack). Solo te
+   * levanta del blackjack cerrar su panel (Esc, "Levantarse" o caminar): si encima se abre otro panel
+   * (la mochila, los puntos), se sale de la mesa sin levantarte y se vuelve a ella al cerrarlo.
+   */
+  private syncTable(kind: PanelKind | undefined, prev: PanelKind | undefined) {
+    if (isTablePanel(kind) && this.local) {
+      if (this.table.enter(kind, this.map, this.local, () => this.blackjackSeatIndex())) return;
+      useOfficeStore.getState().closePanel(); // en este nivel no está esa mesa
+      return;
+    }
+    if (this.table.kind) this.table.exit(this.local?.sprite);
+    const atBlackjack = !!this.seat && this.isBlackjackSeat(this.seat);
+    if (kind || !atBlackjack) return;
+    if (prev === "blackjack") this.standUp();
+    else useOfficeStore.getState().openPanel("blackjack", true); // se cerró el otro panel: de vuelta a la mesa
+  }
+
+  /** Banqueta del blackjack donde estoy sentado (índice de BLACKJACK_SEATS), o null. */
+  private blackjackSeatIndex(): number | null {
+    const seat = this.seat;
+    if (!seat || this.map.id !== "sotano") return null;
+    const i = BLACKJACK_SEATS.findIndex((b) => b.x === seat.tileX && b.y === seat.tileY);
+    return i >= 0 ? i : null;
+  }
+
+  /** ¿Es una de las banquetas de la mesa de blackjack del sótano? */
   private isBlackjackSeat(seat: Seat): boolean {
     return this.map.id === "sotano" && BLACKJACK_SEATS.some((b) => b.x === seat.tileX && b.y === seat.tileY);
   }
@@ -683,13 +734,14 @@ export class OfficeScene extends Phaser.Scene {
     const seat = this.seat;
     if (!avatar || !seat) return;
     const spot = seatStandSpot(this.map, seat);
-    if (this.isBlackjackSeat(seat) && useOfficeStore.getState().panel?.kind === "blackjack") useOfficeStore.getState().closePanel();
     this.seat = null;
     avatar.setSeated(null);
     avatar.setPosition(spot.x, spot.y);
     this.portalTile = "";
     this.updateZone();
     this.sendPosition(avatar.direction, false);
+    // Al final: cerrar el panel saca del modo mesa, que ya te encuentra de pie.
+    if (this.isBlackjackSeat(seat) && useOfficeStore.getState().panel?.kind === "blackjack") useOfficeStore.getState().closePanel();
   }
 
   private seatOccupied(seat: Seat) {

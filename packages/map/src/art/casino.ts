@@ -1,14 +1,36 @@
-// Muebles del casino del sótano: mesa de ruleta, mesa de blackjack, caja y tragamonedas (decorativas).
-// Paleta común: paño verde, madera oscura con borde acolchado y bronce.
+// Muebles del casino del sótano: la ruleta (paño de 3x4 y la rueda aparte, de 2x2), el blackjack, la
+// caja, tragamonedas y decoración. Paleta común: paño verde, caoba, cuero burdeos y bronce. La
+// geometría de las mesas está en casino-layout.ts: el modo mesa (casino-mesa.ts) dibuja encima.
+import { colorOf, WHEEL_ORDER } from "@hyvento/shared";
+import {
+  BLACKJACK_ARC,
+  BLACKJACK_DISCARD,
+  BLACKJACK_SHAPE,
+  BLACKJACK_SHOE,
+  BLACKJACK_SPOTS,
+  BLACKJACK_TOP_Z,
+  BLACKJACK_TRAY,
+  ROULETTE_FELT,
+  ROULETTE_TOP_Z,
+  WHEEL_CENTER,
+  WHEEL_R,
+  WHEEL_TOP_Z,
+  blackjackEdge,
+  blackjackInset,
+  insideCell,
+  rouletteCellAt,
+  type CellFill,
+} from "./casino-layout";
 import { C, OUT } from "./palette";
-import { alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type Ramp, type RGBA, type Shader, type Sprite } from "./pixel";
+import { alpha, at, bayer, flat, noise, ramp, renderSprite, solidBox, type Box, type PixelCanvas, type Project, type Ramp, type RGBA, type Shader, type Sprite } from "./pixel";
 import { leg, roundShadow, shadowUnder, volume } from "./kit";
 
 const RED = C.rug;
 const FELT = C.green;
-/** Números rojos de la ruleta europea (para pintar la rueda y el paño). */
-const REDS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
-const WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+/** Negro de las casillas y los casilleros: casi negro, tirando a ciruela como las sombras de la paleta. */
+export const INK: Ramp = ramp("#140f18", "#1f1824", "#2b2331", "#3d3445", "#554a5e", "#776b80");
+/** Rampa de cada color de la ruleta. */
+export const POCKET_RAMP: Record<Exclude<CellFill, "felt">, Ramp> = { red: RED, black: INK, green: FELT };
 
 /** Borde acolchado de cuero alrededor del paño (lo de siempre en las mesas de casino). */
 function railed(inner: Shader, rail = 2): Shader {
@@ -21,8 +43,8 @@ function railed(inner: Shader, rail = 2): Shader {
 }
 
 /** Paño verde con un leve tramado de fieltro. */
-function felt(u: number, v: number): RGBA {
-  return at(FELT, noise(Math.floor(u), Math.floor(v), 41) < 0.12 ? 2 : 3);
+export function felt(u: number, v: number): RGBA {
+  return at(FELT, noise(Math.floor(u), Math.floor(v), 41) < 0.035 ? 2 : 3);
 }
 
 function woodSide(u: number, v: number, _fw: number, fh: number): RGBA {
@@ -31,72 +53,261 @@ function woodSide(u: number, v: number, _fw: number, fh: number): RGBA {
   return at(C.woodDark, Math.floor(u) % 7 === 0 ? 2 : 3);
 }
 
+// ---------- Formas redondas (se pintan píxel a píxel invirtiendo la proyección) ----------
+
 /**
- * Paño de la ruleta (3x4 tiles; la rueda es un mueble aparte, "roulette-wheel", en la cabecera de -y).
- * Provisorio del rediseño: el dibujo definitivo, con números legibles, lo hace el rediseño del casino.
+ * Pinta un plano horizontal a la altura `z` entre (x0, y0) y (x1, y1): cada píxel toma el color del
+ * punto del mundo que cae ahí (`shade` puede devolver null para dejarlo como está).
  */
-function rouletteTable(): Sprite {
-  const W = 46;
-  const D = 62;
-  const top = railed((u, v, fw, fh) => {
-    // Grilla de números: el cero arriba y 12 filas de 3.
-    const gx0 = 3;
-    const gy0 = 6;
-    const gw = fw - 6;
-    const gh = fh - gy0 - 3;
-    const gu = u - gx0;
-    const gv = v - gy0;
-    if (gu >= 0 && gv >= -3 && gu < gw && gv < gh) {
-      if (gv < 0) return gv === -3 ? at(C.cream, 5) : at(FELT, 4);
-      const col = Math.min(2, Math.floor((gu / gw) * 3));
-      const row = Math.min(11, Math.floor((gv / gh) * 12));
-      const cu = gu - (col * gw) / 3;
-      const cv = gv - (row * gh) / 12;
-      if (cu < 0.6 || cv < 0.6) return at(C.cream, 5);
-      const n = row * 3 + col + 1;
-      return REDS.has(n) ? at(RED, 3) : at(C.metal, 0);
+export function paintPlane(c: PixelCanvas, p: Project, z: number, x0: number, y0: number, x1: number, y1: number, shade: (x: number, y: number) => RGBA | null) {
+  const o = p(0, 0, 0);
+  const pts = [p(x0, y0, z), p(x1, y0, z), p(x0, y1, z), p(x1, y1, z)];
+  const minX = Math.floor(Math.min(...pts.map((q) => q.x)));
+  const maxX = Math.ceil(Math.max(...pts.map((q) => q.x)));
+  const minY = Math.floor(Math.min(...pts.map((q) => q.y)));
+  const maxY = Math.ceil(Math.max(...pts.map((q) => q.y)));
+  for (let py = minY; py <= maxY; py++)
+    for (let px = minX; px <= maxX; px++) {
+      const sx = px + 0.5 - o.x;
+      const sy = py + 0.5 - o.y;
+      const X = sy + z + sx / 2;
+      const Y = sy + z - sx / 2;
+      if (X < x0 || X >= x1 || Y < y0 || Y >= y1) continue;
+      const col = shade(X, Y);
+      if (col) c.set(px, py, col);
     }
-    return felt(u, v);
+}
+
+/**
+ * Pinta el costado visible de un cilindro vertical de radio `r` centrado en (cx, cy), de z0 a z1.
+ * `shade` recibe el ángulo del punto (0 = +x, π/2 = +y) y la altura desde z0.
+ */
+export function paintCylinder(c: PixelCanvas, p: Project, cx: number, cy: number, r: number, z0: number, z1: number, shade: (a: number, h: number) => RGBA | null) {
+  const o = p(0, 0, 0);
+  const top = p(cx, cy, z1);
+  const bottom = p(cx, cy, z0);
+  for (let py = Math.floor(top.y - r) - 1; py <= Math.ceil(bottom.y + r) + 1; py++)
+    for (let px = Math.floor(top.x - r * 1.42) - 1; px <= Math.ceil(top.x + r * 1.42) + 1; px++) {
+      const k = (px + 0.5 - o.x - (cx - cy)) / r;
+      if (Math.abs(k) >= Math.SQRT2) continue;
+      const s = Math.sqrt(2 - k * k);
+      const z = (cx + cy) / 2 + (r * s) / 2 - (py + 0.5 - o.y);
+      if (z < z0 || z >= z1) continue;
+      const col = shade(Math.atan2((s - k) / 2, (k + s) / 2), z - z0);
+      if (col) c.set(px, py, col);
+    }
+}
+
+/** Tono de un costado redondo con la luz de la paleta: lo que mira a +y es más claro que lo que mira a +x. */
+const sideTone = (a: number, base: number) => base + (Math.sin(a) - Math.cos(a)) * 0.6;
+
+// ---------- Ruleta: el paño ----------
+
+/** Fieltro del paño con la grilla de apuestas: casillas rojas y negras, el cero verde y líneas crema. */
+export function rouletteFeltColor(u: number, v: number): RGBA {
+  const { u0, v0, u1, v1 } = ROULETTE_FELT;
+  // Filete dorado alrededor de toda la grilla.
+  const e = Math.min(u - u0, v - v0, u1 - u, v1 - v);
+  if (e >= 0.4 && e < 0.9) return at(C.gold, 3);
+  const cell = rouletteCellAt(u, v);
+  if (cell) {
+    // Borde de la casilla (en el cero, también la diagonal de las puntas).
+    const b = 0.3;
+    if (!insideCell(cell, u - b, v) || !insideCell(cell, u + b, v) || !insideCell(cell, u, v - b) || !insideCell(cell, u, v + b)) return at(C.cream, 3);
+    if (cell.shape === "diamond") {
+      const cu = (cell.u0 + cell.u1) / 2;
+      const cv = (cell.v0 + cell.v1) / 2;
+      const d = Math.abs(u - cu) / ((cell.u1 - cell.u0) * 0.24) + Math.abs(v - cv) / ((cell.v1 - cell.v0) * 0.44);
+      if (d <= 1) return at(POCKET_RAMP[cell.fill as "red" | "black"], d > 0.8 ? 1 : 3);
+      return felt(u, v);
+    }
+    if (cell.fill === "felt") return felt(u, v);
+    // El cero, verde más hondo que el paño para que se distinga.
+    const r = POCKET_RAMP[cell.fill];
+    return at(r, cell.fill === "red" ? 2 : 1);
+  }
+  return felt(u, v);
+}
+
+/** Cojín de cuero del borde: redondeado (oscuro en las orillas, brillo al centro) y con costura. */
+function railShader(along: "u" | "v"): Shader {
+  return (u, v, fw, fh) => {
+    const t = along === "u" ? v / fh : u / fw;
+    if (t < 0.16 || t > 0.84) return at(RED, 1);
+    return at(RED, t < 0.42 ? 3 : 2);
+  };
+}
+
+/** Faldón de caoba con paneles tallados y un filete de bronce arriba. */
+const apron: Shader = (u, v, fw, fh) => {
+  if (v >= fh - 1) return at(C.gold, 3);
+  if (v < 0.8) return at(C.wood, 1);
+  const k = u % 12;
+  if (k < 1 || u < 1.5 || u > fw - 1.5) return at(C.wood, 2);
+  if (k < 1.8 || v < 1.6 || v > fh - 2) return at(C.wood, 4);
+  return at(C.wood, 3);
+};
+
+/** Pata torneada: bulbo al medio y pie de bronce. */
+function turnedLeg(x: number, y: number, h: number): Box[] {
+  return [
+    solidBox({ x: x - 0.5, y: y - 0.5, z: 0, w: 3, d: 3, h: 1 }, C.gold, 3),
+    solidBox({ x, y, z: 1, w: 2, d: 2, h: h - 1 }, C.wood, 3),
+    solidBox({ x: x - 0.4, y: y - 0.4, z: h * 0.45, w: 2.8, d: 2.8, h: 2 }, C.wood, 4),
+  ];
+}
+
+/** Paño de la ruleta (3x4 tiles; la rueda es un mueble aparte, "roulette-wheel"). */
+function rouletteTable(): Sprite {
+  const W = 48;
+  const D = 64;
+  const z = ROULETTE_TOP_Z;
+  const { u0, v0, u1, v1 } = ROULETTE_FELT;
+  const slab: Shader = (_u, v, _fw, fh) => (v >= fh - 1 ? at(C.gold, 4) : at(C.wood, 2));
+  const railTop = (x: number, y: number, w: number, d: number, along: "u" | "v"): Box => ({
+    x,
+    y,
+    z: z - 1,
+    w,
+    d,
+    h: 2.2,
+    top: railShader(along),
+    left: (_u, v, _fw, fh) => at(RED, v > fh - 0.8 ? 3 : 1),
+    right: (_u, v, _fw, fh) => at(RED, v > fh - 0.8 ? 2 : 1),
   });
   return renderSprite(
     [
-      leg(3, 3, 9),
-      leg(W - 3, 3, 9),
-      leg(3, D - 3, 9),
-      leg(W - 3, D - 3, 9),
-      { x: 1, y: 1, z: 9, w: W, d: D, h: 4, top: flat(at(C.woodDark, 3)), left: woodSide, right: woodSide },
-      { x: 1, y: 1, z: 13, w: W, d: D, h: 1, top, left: flat(at(RED, 1)), right: flat(at(RED, 1)) },
+      ...turnedLeg(4, 4, 9),
+      ...turnedLeg(W - 6, 4, 9),
+      ...turnedLeg(4, D - 6, 9),
+      ...turnedLeg(W - 6, D - 6, 9),
+      { x: 2.5, y: 2.5, z: 9, w: W - 5, d: D - 5, h: 3, top: flat(at(C.wood, 2)), left: apron, right: apron },
+      { x: 1, y: 1, z: 12, w: W - 2, d: D - 2, h: 1.2, top: flat(at(C.wood, 3)), left: slab, right: slab },
+      // Cojines de atrás, el paño y los de adelante (en ese orden, para que se tapen bien).
+      railTop(1, 1, W - 2, v0 - 1, "u"),
+      railTop(1, v0, u0 - 1, v1 - v0, "v"),
+      { x: u0, y: v0, z: z - 1, w: u1 - u0, d: v1 - v0, h: 1, top: (u, v) => rouletteFeltColor(u + u0, v + v0) },
+      railTop(u1, v0, W - 1 - u1, v1 - v0, "v"),
+      railTop(1, v1, W - 2, D - 1 - v1, "u"),
     ],
-    { outline: OUT, under: shadowUnder(1, 1, W, D) },
+    { outline: OUT, under: shadowUnder(1, 1, W - 2, D - 2) },
   );
 }
 
-/** Rueda de la ruleta sobre su pedestal (2x2). Provisoria del rediseño, como el paño. */
-function rouletteWheel(): Sprite {
-  const top: Shader = (u, v, fw, fh) => {
-    const cx = fw / 2;
-    const cy = fh / 2;
-    const d = Math.hypot(u + 0.5 - cx, v + 0.5 - cy);
-    const R = fw / 2;
-    if (d > R) return null;
-    if (d >= R - 1.5) return at(C.gold, 3);
-    if (d >= R * 0.55) {
-      const a = (Math.atan2(v + 0.5 - cy, u + 0.5 - cx) + Math.PI) / (Math.PI * 2);
-      const n = WHEEL[Math.floor(a * WHEEL.length) % WHEEL.length]!;
-      return n === 0 ? at(FELT, 4) : REDS.has(n) ? at(RED, 3) : at(C.metal, 0);
+// ---------- Ruleta: la rueda ----------
+
+const SECTOR = (Math.PI * 2) / WHEEL_ORDER.length;
+/** Deflectores de bronce en la pista (fijos, no giran). */
+const DEFLECTORS = 8;
+
+/** Ángulo (0..2π) normalizado. */
+const wrap = (a: number) => ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+/** Número del casillero en el ángulo `a` (vista de arriba) con la rueda girada `spin`. */
+export function pocketAt(a: number, spin: number): { n: number; f: number } {
+  const x = wrap(a - spin) / SECTOR;
+  const i = Math.floor(x) % WHEEL_ORDER.length;
+  return { n: WHEEL_ORDER[i]!, f: x - Math.floor(x) };
+}
+
+/** Ángulo del centro del casillero de `n` (con la rueda sin girar). */
+export const pocketAngle = (n: number) => (WHEEL_ORDER.indexOf(n) + 0.5) * SECTOR;
+
+const pocketColor = (n: number): Exclude<CellFill, "felt"> => colorOf(n);
+
+/**
+ * Color del plato de la rueda en el punto (r, a) de la vista de arriba (a = ángulo, 0 = +x), con la
+ * parte que gira rotada `spin`. Lo usan el mueble y el modo mesa (que además escribe los números).
+ * `px` = tamaño de un píxel en unidades de arte (los detalles finos se ajustan a la resolución).
+ */
+export function wheelColor(r: number, a: number, spin: number, px = 1): RGBA | null {
+  const R = WHEEL_R;
+  // A la escala del mueble los aros finos se juntan (si no, quedan puntos sueltos); en el modo mesa,
+  // con píxeles más chicos, aparecen los deflectores, los trastes y los brillos.
+  const fine = px < 0.6;
+  if (r > R.rim) return null;
+  if (r > R.rim - Math.max(0.5, px * 0.9)) return at(C.gold, 3 + Math.round(Math.cos(a - 2.36) * 0.8));
+  if (r > R.lip) return at(C.woodDark, 3 + Math.round(Math.cos(a - 2.36) * 0.7));
+  if (r > R.track) {
+    // Pista de la bola: madera oscura pulida, con un brillo del lado de la luz.
+    if (fine && r > R.lip - 0.3) return at(C.gold, 2);
+    const shine = fine && Math.cos(a + 0.78) > 0.8 && Math.abs(r - (R.track + R.lip) / 2) < 0.2;
+    return at(C.woodDark, shine ? 4 : 2);
+  }
+  if (r > R.head) {
+    // Zona de los deflectores (rombos de bronce fijos).
+    if (fine) {
+      const step = (Math.PI * 2) / DEFLECTORS;
+      const f = wrap(a + step / 2) % step;
+      const d = (Math.abs(f - step / 2) * r) / 0.9 + Math.abs(r - (R.track + R.head) / 2) / ((R.track - R.head) / 2);
+      if (d < 1) return at(C.gold, d < 0.45 ? 5 : 3);
     }
-    if (d >= R * 0.45) return at(C.gold, 2);
-    if (d < 1.5) return at(C.gold, 5);
-    return at(C.woodDark, d < R * 0.25 ? 4 : 3);
+    return at(C.woodDark, 1);
+  }
+  if (r > R.numbers) return fine ? at(C.gold, r > R.head - 0.15 ? 2 : 4) : at(C.woodDark, 1);
+  const { n, f } = pocketAt(a, spin);
+  const color = pocketColor(n);
+  const fret = Math.min(0.24, (0.3 * px) / (r * SECTOR));
+  const onFret = fine && (f < fret / 2 || f > 1 - fret / 2);
+  if (r > R.pockets) {
+    // Aro de los números: color del número, con separadores de bronce finos.
+    if (onFret) return at(C.gold, 3);
+    return at(POCKET_RAMP[color], color === "black" ? 2 : color === "red" ? 2 : 3);
+  }
+  if (r > R.cone) {
+    // Casilleros: el mismo color más oscuro (están hundidos) y trastes de bronce.
+    if (fine && r > R.pockets - 0.3) return at(C.gold, 2);
+    if (onFret) return at(C.gold, 4);
+    const deep = (R.pockets - r) / (R.pockets - R.cone);
+    return at(POCKET_RAMP[color], (color === "black" ? 1 : color === "red" ? 1 : 2) - (deep > 0.6 ? 1 : 0));
+  }
+  if (r > R.turret) {
+    // Cono de madera clara con los cuatro brazos de la torreta (giran con la rueda).
+    if (fine && r > R.cone - 0.3) return at(C.gold, 2);
+    const arm = wrap(a - spin) % (Math.PI / 2);
+    const armW = 0.45 / r;
+    if (arm < armW || arm > Math.PI / 2 - armW) return at(C.gold, 4);
+    const grain = fine && noise(Math.floor(r * 3), Math.floor(wrap(a - spin) * 40), 13) < 0.12 ? -1 : 0;
+    // Más oscuro hacia afuera (baja hacia los casilleros) y con brillo del lado de la luz.
+    return at(fine ? C.wood : C.woodDark, (fine ? 2.5 : 3) + (1 - (r - R.turret) / (R.cone - R.turret)) + Math.round(Math.cos(a - 2.36) * 0.8) + grain);
+  }
+  return at(C.gold, r < R.turret * 0.55 ? 5 : 3);
+}
+
+/** Rueda de la ruleta sobre su pedestal (2x2): cuenco de caoba, plato con los 37 casilleros y torreta. */
+function rouletteWheel(): Sprite {
+  const { u: cx, v: cy } = WHEEL_CENTER;
+  const z = WHEEL_TOP_Z;
+  const fluted: Shader = (u, v, _fw, fh) => {
+    if (v >= fh - 1) return at(C.gold, 3);
+    if (v < 1) return at(C.gold, 2);
+    return at(C.wood, Math.floor(u) % 3 === 0 ? 2 : 3);
   };
-  const none: Shader = () => null;
   return renderSprite(
     [
-      solidBox({ x: 10, y: 10, z: 0, w: 12, d: 12, h: 12 }, C.woodDark, 3),
-      { x: 2, y: 2, z: 12, w: 28, d: 28, h: 3, top, left: none, right: none },
-      { x: 15, y: 15, z: 15, w: 2, d: 2, h: 3, top: flat(at(C.gold, 5)), left: flat(at(C.gold, 3)), right: flat(at(C.gold, 2)) },
+      { x: 6, y: 6, z: 0, w: 20, d: 20, h: 2, top: flat(at(C.woodDark, 3)), left: (_u, v, _f, fh) => at(v > fh - 0.8 ? C.gold : C.woodDark, v > fh - 0.8 ? 3 : 2), right: (_u, v, _f, fh) => at(v > fh - 0.8 ? C.gold : C.woodDark, v > fh - 0.8 ? 2 : 1) },
+      { x: 10, y: 10, z: 2, w: 12, d: 12, h: z - 6, left: fluted, right: fluted, top: flat(at(C.wood, 3)) },
+      volume(cx - WHEEL_R.rim, cy - WHEEL_R.rim, 0, WHEEL_R.rim * 2, WHEEL_R.rim * 2, z + 4),
     ],
-    { outline: OUT, under: roundShadow(16, 16, 12) },
+    {
+      outline: OUT,
+      under: roundShadow(cx, cy, 13),
+      extra: (c, p) => {
+        // Cuenco: costado de caoba con un aro de bronce arriba y otro abajo.
+        paintCylinder(c, p, cx, cy, WHEEL_R.rim, z - 4, z, (a, h) => {
+          if (h > 3.3) return at(C.gold, sideTone(a, 3));
+          if (h < 0.6) return at(C.gold, sideTone(a, 2));
+          const grain = noise(Math.floor(a * 18), Math.floor(h), 5) < 0.12 ? -1 : 0;
+          return at(C.wood, sideTone(a, 2.6) + grain);
+        });
+        paintPlane(c, p, z, cx - WHEEL_R.rim, cy - WHEEL_R.rim, cx + WHEEL_R.rim, cy + WHEEL_R.rim, (x, y) => wheelColor(Math.hypot(x - cx, y - cy), Math.atan2(y - cy, x - cx), 0.3));
+        // Torreta al centro: columnita y perilla de bronce.
+        paintCylinder(c, p, cx, cy, 0.9, z, z + 2, (a) => at(C.gold, sideTone(a, 3)));
+        const knob = p(cx, cy, z + 2);
+        c.set(knob.x - 1, knob.y - 1, at(C.gold, 4));
+        c.set(knob.x, knob.y - 1, at(C.gold, 5));
+      },
+    },
   );
 }
 
@@ -115,41 +326,93 @@ function chipStack(x: number, y: number, h: number, r: Ramp): Box {
   };
 }
 
+// ---------- Blackjack ----------
+
+/**
+ * Bandeja de fichas del crupier, hundida junto al lado recto: marco de caoba y siete canales con fichas
+ * paradas de canto (las rayas son los cantos).
+ */
+function trayColor(u: number, v: number): RGBA | null {
+  const { u0, u1, v0, v1 } = BLACKJACK_TRAY;
+  if (u < u0 || u >= u1 || v < v0 || v >= v1) return null;
+  if (u < u0 + 0.5 || u >= u1 - 0.5 || v < v0 + 0.5 || v >= v1 - 0.5) return at(C.wood, u < u0 + 0.5 || v < v0 + 0.5 ? 2 : 4);
+  const k = (v - v0 - 0.5) / 2;
+  if (k - Math.floor(k) < 0.18) return at(C.wood, 1);
+  const chip = TRAY_CHIPS[Math.floor(k) % TRAY_CHIPS.length]!;
+  const edge = (u - u0) % 0.7 < 0.18;
+  return at(chip, edge ? 1 : u > u1 - 1.6 ? 4 : 3);
+}
+const TRAY_CHIPS: Ramp[] = [C.cream, RED, C.blue, FELT, INK, RED, C.blue];
+
+/** Fieltro del blackjack con el cojín del borde, los círculos de apuesta y el arco del texto. */
+export function blackjackFeltColor(u: number, v: number, text = true): RGBA | null {
+  const d = blackjackInset(u, v);
+  if (d < 0) return null;
+  const tray = trayColor(u, v);
+  if (tray) return tray;
+  // Lado del crupier: canto de caoba con filete de bronce.
+  if (u < BLACKJACK_SHAPE.u0 + 1.6) return u < BLACKJACK_SHAPE.u0 + 0.5 ? at(C.gold, 3) : at(C.wood, 3);
+  if (d < 2.8 && u > BLACKJACK_SHAPE.u0 + 1.6) {
+    if (d < 0.5) return at(RED, 1);
+    if (d > 2.3) return at(RED, 1);
+    if (Math.abs(d - 1.4) < 0.2 && noise(Math.floor(u * 2), Math.floor(v * 2), 3) < 0.6) return at(RED, 4);
+    return at(RED, d > 1.4 ? 2 : 3);
+  }
+  for (const s of BLACKJACK_SPOTS) {
+    const r = Math.hypot(u - s.u, v - s.v);
+    if (r < 2.9 && r >= 2.25) return at(C.gold, 4);
+    if (r < 2.25) return at(FELT, 2);
+  }
+  const { u: au, v: av, r0, r1 } = BLACKJACK_ARC;
+  const ra = Math.hypot(u - au, v - av);
+  if (Math.abs(ra - r0) < 0.3 || Math.abs(ra - r1) < 0.3) return at(C.gold, 3);
+  // Entre las dos líneas va el texto; a la escala del mueble, un punteado crema que lo sugiere.
+  const ang0 = Math.atan2(v - av, u - au) - Math.PI / 4;
+  if (text && ra > r0 + 1.4 && ra < r1 - 1.4 && Math.abs(ang0) < 0.55) {
+    const ang = Math.atan2(v - av, u - au);
+    const k = Math.floor((ang + Math.PI) * 26);
+    if (k % 4 !== 3 && noise(k, Math.floor(ra * 2), 21) < 0.55) return at(C.cream, 4);
+  }
+  return felt(u, v);
+}
+
 function blackjackTable(): Sprite {
-  // El crupier va del lado -x (donde está el sabot); las personas del lado +x y en las puntas, cada
-  // una con su círculo de apuesta.
-  const spots: [number, number][] = [
-    [21, 5],
-    [22, 13],
-    [22, 21],
-    [22, 29],
-    [21, 37],
-  ];
-  const top = railed((u, v) => {
-    for (const [su, sv] of spots) {
-      const d = Math.hypot(u + 0.5 - su, v + 0.5 - sv);
-      if (d < 3 && d >= 2) return at(C.gold, 4);
-    }
-    // Arco del texto ("el blackjack paga 3 a 2") como una línea dorada.
-    const arc = Math.hypot(u + 0.5 - 2, v + 0.5 - 21);
-    if (arc > 14 && arc < 15) return at(C.gold, 3);
-    return felt(u, v);
-  });
-  const chip = chipStack;
+  const { u0, v0, v1 } = BLACKJACK_SHAPE;
+  const z = BLACKJACK_TOP_Z;
+  // La mesa en D se arma con tajadas de 1 de ancho a lo largo de v: sus caras +x dibujan la curva.
+  const slices: Box[] = [];
+  for (let v = v0; v < v1; v++) {
+    const edge = Math.min(blackjackEdge(v), blackjackEdge(v + 1));
+    slices.push({ x: u0 + 1.5, y: v + 0.2, z: 9, w: edge - u0 - 3, d: 0.8, h: 3, left: apron, right: apron });
+  }
+  for (let v = v0; v < v1; v++) {
+    const edge = Math.min(blackjackEdge(v + 0.5), 99);
+    const vv = v;
+    slices.push({
+      x: u0,
+      y: v,
+      z: z - 2,
+      w: edge - u0,
+      d: 1,
+      h: 2,
+      top: (u, dv) => blackjackFeltColor(u + u0, dv + vv) ?? at(RED, 1),
+      left: (_u, h, _fw, fh) => at(RED, h > fh - 0.8 ? 2 : 1),
+      right: (_u, h, _fw, fh) => (h < 0.7 ? at(C.gold, 2) : at(RED, h > fh - 0.8 ? 3 : 1)),
+    });
+  }
+  const { u: su, v: sv } = BLACKJACK_SHOE;
   return renderSprite(
     [
-      leg(3, 3, 9),
-      leg(27, 3, 9),
-      leg(3, 43, 9),
-      leg(27, 43, 9),
-      { x: 1, y: 1, z: 9, w: 30, d: 46, h: 4, top: flat(at(C.woodDark, 3)), left: woodSide, right: woodSide },
-      { x: 1, y: 1, z: 13, w: 30, d: 46, h: 1, top, left: flat(at(RED, 1)), right: flat(at(RED, 1)) },
-      // Bandeja de fichas y sabot del lado del crupier.
-      chip(4, 16, 3, RED),
-      chip(4, 19, 4, C.blue),
-      chip(4, 22, 2, C.gold),
-      chip(4, 25, 3, C.cream),
-      { x: 4, y: 32, z: 14, w: 5, d: 6, h: 4, top: flat(at(C.woodDark, 4)), left: flat(at(C.woodDark, 2)), right: (u) => at(u < 2 ? C.cream : C.woodDark, u < 2 ? 5 : 2) },
+      ...turnedLeg(4, 6, 9),
+      ...turnedLeg(4, 40, 9),
+      ...turnedLeg(20, 11, 9),
+      ...turnedLeg(20, 35, 9),
+      ...slices,
+      // Sabot: caja de madera con frente de acrílico rojo y la carta asomada.
+      { x: su - 2, y: sv - 3, z, w: 4.5, d: 6, h: 3, top: (u, v) => (u > 1 && u < 3.5 && v > 1 && v < 5 ? at(C.cream, 5) : at(C.woodDark, 3)), left: flat(at(C.woodDark, 2)), right: (u, v) => (v > 2.3 ? at(RED, 3) : at(C.woodDark, 2)) },
+      solidBox({ x: su + 2.3, y: sv - 1.2, z, w: 1, d: 2.4, h: 1.8 }, C.cream, 4),
+      // Descarte: un mazo de cartas usadas de dorso rojo.
+      { x: BLACKJACK_DISCARD.u - 1.5, y: BLACKJACK_DISCARD.v - 2, z, w: 3, d: 4, h: 1.5, top: flat(at(RED, 3)), left: (_u, v) => at(C.cream, Math.floor(v * 2) % 2 ? 3 : 5), right: (_u, v) => at(C.cream, Math.floor(v * 2) % 2 ? 2 : 4) },
     ],
     { outline: OUT, under: shadowUnder(1, 1, 30, 46) },
   );

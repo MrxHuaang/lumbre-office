@@ -97,7 +97,9 @@ export function SeatPrompt() {
   const atComputer = useOfficeStore((s) => s.atComputer);
   const pcOn = useOfficeStore((s) => s.pcOn);
   const setPcOn = useOfficeStore((s) => s.setPcOn);
-  if (!prompt || doorPrompt || pcOn) return null;
+  // En la mesa de blackjack, la tira del modo mesa ya tiene "Levantarse".
+  const atTable = useOfficeStore((s) => s.panel?.kind === "blackjack");
+  if (!prompt || doorPrompt || pcOn || atTable) return null;
   const pcButton = atComputer && prompt === "stand";
 
   return (
