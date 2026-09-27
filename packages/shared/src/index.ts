@@ -14,3 +14,4 @@ export * from "./worldEdit";
 export * from "./fishing";
 export * from "./fishing-sim";
 export * from "./photos";
+export * from "./photo-service";

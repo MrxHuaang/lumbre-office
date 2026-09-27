@@ -39,6 +39,12 @@ export async function publishCasinoSettingsChanged() {
   await notifyGameServer(INTERNAL_ROUTES.casinoSettingsChanged, "casino");
 }
 
+/** Avisa al servidor de juego que se subió o se borró una foto (el tablón de la cafetería se refresca). */
+export async function publishPhotosChanged() {
+  // Si el servidor no responde, el tablón se actualiza la próxima vez que alguien lo mire.
+  await notifyGameServer(INTERNAL_ROUTES.photosChanged, "fotos");
+}
+
 /** Avisa al servidor de juego que cambió el saldo de alguien (para el contador del HUD en vivo). */
 export async function publishPointsChanged(userId: string) {
   // Si el servidor no responde, el saldo se lee de la base la próxima vez que esa persona entre.
