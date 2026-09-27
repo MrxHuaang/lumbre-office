@@ -1,18 +1,18 @@
-import { boot, type ColyseusTestServer } from "@colyseus/testing";
-import { CLOSE_CODE, MSG, ROOM_NAME, signGameToken, type ChatEvent, type MoveCorrection } from "@hyvento/shared";
+import type { ColyseusTestServer } from "@colyseus/testing";
+import { canStandAt, getWorld, seatAtPoint } from "@hyvento/map";
+import { CLOSE_CODE, isWeather, MSG, ROOM_NAME, signGameToken, type ChatEvent, type MoveCorrection } from "@hyvento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createGameServer } from "../src/app";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { c, SECRET, TILE, tick, token, walkPath, walkTo } from "./helpers";
+import { bootServer, c, goToArea, intoOffice, SECRET, tick, TILE, token, toOfficeDoor, walkTo, walkToTile } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
 
 beforeAll(async () => {
   repo = new MemoryRepository();
-  colyseus = await boot(createGameServer({ repo }));
+  colyseus = await bootServer(repo);
 });
 afterAll(async () => {
   await colyseus.shutdown();
@@ -49,13 +49,16 @@ describe("OfficeRoom: ingreso y sesiones", () => {
     await expect(colyseus.connectTo(room, { token: forged })).rejects.toThrow();
   });
 
-  it("crea el jugador en el spawn dentro de la zona común", async () => {
+  it("crea el jugador en el jardín, frente a la cabaña", async () => {
     const { room, alice } = await setup();
     const p = room.state.players.get(alice.sessionId)!;
     expect(p.name).toBe("Alice");
     expect(p.userId).toBe("u-alice");
-    expect(p.zoneId).toBe("lounge");
+    expect(p.area).toBe("jardin");
+    expect(p.zoneId).toBe("jardin");
     expect(room.state.players.size).toBe(2);
+    // El clima de afuera ya viene en el estado.
+    expect(isWeather(room.state.weather)).toBe(true);
   });
 
   it("una misma persona en otra pestaña reemplaza su sesión anterior", async () => {
@@ -92,34 +95,74 @@ describe("OfficeRoom: movimiento", () => {
     const startX = p.x;
     await walkTo(alice, room, p.x + 40, p.y);
     expect(room.state.players.get(alice.sessionId)!.x).toBeCloseTo(startX + 40, 0);
-    expect(room.state.players.get(alice.sessionId)!.zoneId).toBe("lounge");
+    expect(room.state.players.get(alice.sessionId)!.zoneId).toBe("jardin");
   });
 
   it("publica el lugar de cada jugador, incluida la entrada de una oficina", async () => {
     const { room, alice } = await setup();
     const me = () => room.state.players.get(alice.sessionId)!;
-    expect(me().place).toBe("lounge");
-    await walkTo(alice, room, c(24), me().y);
-    await walkTo(alice, room, c(24), c(8)); // umbral de la puerta de la oficina 4
+    expect(me().place).toBe("jardin");
+    await toOfficeDoor(alice, room, "office-4");
+    expect(me().area).toBe("piso-2");
     expect(me().place).toBe("door:office-4");
-    expect(me().zoneId).toBe(""); // el umbral no aísla el audio
-    await walkTo(alice, room, c(24), c(6));
+    expect(me().zoneId).toBe("pasillo"); // el umbral no aísla el audio
+    await intoOffice(alice, room, "office-4");
     expect(me().place).toBe("office-4");
   });
 
-  it("corrige teletransportes y movimientos dentro de muros", async () => {
+  it("corrige teletransportes, movimientos dentro de muebles y atravesar paredes", async () => {
     const { room, alice } = await setup();
     const corrections: MoveCorrection[] = [];
     alice.onMessage(MSG.moveCorrection, (m: MoveCorrection) => corrections.push(m));
     const before = { ...room.state.players.get(alice.sessionId)!.toJSON() };
 
     alice.send(MSG.move, { x: before.x + 500, y: before.y, dir: "right", moving: true });
-    alice.send(MSG.move, { x: c(0), y: c(13), dir: "left", moving: true });
+    alice.send(MSG.move, { x: c(10), y: c(5), dir: "left", moving: true }); // dentro de la cabaña
     await room.waitForNextPatch();
     await tick();
-
     expect(corrections.length).toBe(2);
     expect(room.state.players.get(alice.sessionId)!.x).toBe(before.x);
+
+    // En el piso 2: del pasillo (y = 11) a la oficina 1 (y = 10) de un salto a través de la pared.
+    await goToArea(alice, room, "piso-2");
+    await walkToTile(alice, room, 10, 11);
+    alice.send(MSG.move, { x: c(10), y: c(10), dir: "up", moving: true });
+    await room.waitForNextPatch();
+    await tick();
+    expect(room.state.players.get(alice.sessionId)!.y).toBe(c(11));
+  });
+});
+
+describe("OfficeRoom: niveles", () => {
+  it("usar la puerta de la cabaña lleva a la planta baja y avisa al cliente", async () => {
+    const { room, alice } = await setup();
+    const corrections: MoveCorrection[] = [];
+    alice.onMessage(MSG.moveCorrection, (m: MoveCorrection) => corrections.push(m));
+    await goToArea(alice, room, "planta-baja");
+    const p = room.state.players.get(alice.sessionId)!;
+    expect(p.area).toBe("planta-baja");
+    expect(p.zoneId).toBe("recibidor");
+    expect(corrections.at(-1)).toEqual({ x: p.x, y: p.y, area: "planta-baja" });
+  });
+
+  it("no se puede usar un portal desde lejos ni uno de otro nivel", async () => {
+    const { room, alice } = await setup();
+    alice.send(MSG.travel, { portal: "jardin-casa" }); // el spawn queda a varios tiles de la puerta
+    alice.send(MSG.travel, { portal: "piso-2-escalera" });
+    await room.waitForNextPatch();
+    await tick();
+    expect(room.state.players.get(alice.sessionId)!.area).toBe("jardin");
+  });
+
+  it("no se oye a quien está en otro nivel, aunque las coordenadas coincidan", async () => {
+    const { room, alice, bob } = await setup();
+    const bobGot = collectChat(bob);
+    await goToArea(alice, room, "planta-baja");
+    alice.send(MSG.chatSend, { text: "¿hay alguien afuera?", scope: "proximity" });
+    alice.send(MSG.chatSend, { text: "para todos", scope: "global" });
+    await room.waitForNextPatch();
+    await tick();
+    expect(bobGot.map((m) => m.text)).toEqual(["para todos"]);
   });
 });
 
@@ -149,8 +192,7 @@ describe("OfficeRoom: chat y estado", () => {
     alice.send(MSG.chatSend, { text: "cerca", scope: "proximity" });
     await room.waitForNextPatch();
 
-    const p = room.state.players.get(alice.sessionId)!;
-    await walkTo(alice, room, c(37), p.y);
+    await walkToTile(alice, room, 22, 20);
     alice.send(MSG.chatSend, { text: "lejos", scope: "proximity" });
     await room.waitForNextPatch();
     await tick();
@@ -163,11 +205,8 @@ describe("OfficeRoom: chat y estado", () => {
     const { room, alice, bob } = await setup();
     const bobGot = collectChat(bob);
 
-    await walkTo(alice, room, c(24), room.state.players.get(alice.sessionId)!.y);
-    await walkTo(alice, room, c(24), c(10));
-    await walkTo(alice, room, c(24), c(6));
-    await walkTo(bob, room, c(25), room.state.players.get(bob.sessionId)!.y);
-    await walkTo(bob, room, c(25), c(10));
+    await intoOffice(alice, room, "office-4");
+    await toOfficeDoor(bob, room, "office-4");
     expect(room.state.players.get(alice.sessionId)!.zoneId).toBe("office-4");
 
     alice.send(MSG.chatSend, { text: "reunión privada", scope: "proximity" });
@@ -179,11 +218,11 @@ describe("OfficeRoom: chat y estado", () => {
   it("dentro de una sala se oye a todos aunque estén lejos (sin proximidad)", async () => {
     const { room, alice, bob } = await setup();
     const bobGot = collectChat(bob);
-    // Esquinas opuestas de la sala de reuniones: ~9 tiles de distancia (> radio de 5 tiles).
-    await walkTo(alice, room, c(33), room.state.players.get(alice.sessionId)!.y);
-    await walkPath(alice, room, [[33, 10], [30, 10], [30, 3]]);
-    await walkTo(bob, room, c(34), room.state.players.get(bob.sessionId)!.y);
-    await walkPath(bob, room, [[34, 10], [37, 10], [37, 9]]);
+    // Esquinas opuestas de la sala de reuniones (piso 2): ~12 tiles de distancia (> radio de 5 tiles).
+    await goToArea(alice, room, "piso-2");
+    await walkToTile(alice, room, 19, 1);
+    await goToArea(bob, room, "piso-2");
+    await walkToTile(bob, room, 28, 9);
     const a = room.state.players.get(alice.sessionId)!;
     const b = room.state.players.get(bob.sessionId)!;
     expect([a.zoneId, b.zoneId]).toEqual(["meeting-main", "meeting-main"]);
@@ -219,25 +258,25 @@ describe("OfficeRoom: chat y estado", () => {
 });
 
 describe("OfficeRoom: sentarse", () => {
-  /** Posición de sentado en un tile de asiento (ver SEAT_FEET_Y en @hyvento/map). */
-  const seatPos = (tx: number, ty: number) => ({ x: c(tx), y: ty * TILE + 24 });
-  // Silla del escritorio libre de la zona común (x=31, y=19), mira hacia el escritorio.
-  const toDeskChair: [number, number][] = [
-    [24, 13],
-    [30, 13],
-    [30, 19],
-  ];
+  // Silla oeste de la mesa 1 de la cafetería (13, 5): mira hacia la mesa (+x). Detrás está la pared del
+  // salón; se llega por la esquina de la burbuja (13, 4).
+  const seat = { x: c(13), y: c(5) };
+  const toSeat = async (client: Parameters<typeof walkToTile>[0], room: Parameters<typeof walkToTile>[1]) => {
+    await goToArea(client, room, "planta-baja");
+    await walkToTile(client, room, 13, 4);
+  };
 
-  it("se sienta en una silla cercana y queda mirando hacia el escritorio", async () => {
+  it("se sienta en una silla cercana y queda mirando hacia la mesa", async () => {
     const { room, alice } = await setup();
-    await walkPath(alice, room, toDeskChair);
-    alice.send(MSG.move, { ...seatPos(31, 19), dir: "down", moving: false, seated: true });
+    await toSeat(alice, room);
+    alice.send(MSG.move, { ...seat, dir: "down", moving: false, seated: true });
     await room.waitForNextPatch();
     await tick();
     const p = room.state.players.get(alice.sessionId)!;
     expect(p.seated).toBe(true);
-    expect(p.dir).toBe("up");
-    expect([p.x, p.y]).toEqual([seatPos(31, 19).x, seatPos(31, 19).y]);
+    expect(p.dir).toBe("right");
+    expect([p.x, p.y]).toEqual([seat.x, seat.y]);
+    expect(p.zoneId).toBe("mesa-1");
   });
 
   it("no deja sentarse en un asiento ocupado ni desde lejos", async () => {
@@ -245,15 +284,17 @@ describe("OfficeRoom: sentarse", () => {
     const corrections: MoveCorrection[] = [];
     bob.onMessage(MSG.moveCorrection, (m: MoveCorrection) => corrections.push(m));
 
-    bob.send(MSG.move, { ...seatPos(31, 19), dir: "up", moving: false, seated: true }); // desde el spawn
+    await goToArea(bob, room, "planta-baja");
+    corrections.length = 0;
+    bob.send(MSG.move, { ...seat, dir: "right", moving: false, seated: true }); // desde el recibidor
     await room.waitForNextPatch();
     await tick();
     expect(room.state.players.get(bob.sessionId)!.seated).toBe(false);
 
-    await walkPath(alice, room, toDeskChair);
-    alice.send(MSG.move, { ...seatPos(31, 19), dir: "up", moving: false, seated: true });
-    await walkPath(bob, room, toDeskChair);
-    bob.send(MSG.move, { ...seatPos(31, 19), dir: "up", moving: false, seated: true });
+    await toSeat(alice, room);
+    alice.send(MSG.move, { ...seat, dir: "right", moving: false, seated: true });
+    await walkToTile(bob, room, 13, 6);
+    bob.send(MSG.move, { ...seat, dir: "right", moving: false, seated: true });
     await room.waitForNextPatch();
     await tick();
     expect(room.state.players.get(alice.sessionId)!.seated).toBe(true);
@@ -261,25 +302,65 @@ describe("OfficeRoom: sentarse", () => {
     expect(corrections.length).toBe(2);
   });
 
-  it("se sienta en el sofá (que bloquea el paso) y se levanta frente a él", async () => {
+  /** El sofá de los probadores (mirando hacia la izquierda; detrás está la pared): se llega por el tile de arriba. */
+  const sofa = getWorld().areas.get("planta-baja")!.furniture.find((f) => f.type === "sofa" && f.facing === "left")!;
+
+  it("se sienta en el sofá y se levanta en el tile libre de al lado", async () => {
     const { room, alice } = await setup();
     const me = () => room.state.players.get(alice.sessionId)!;
-    await walkPath(alice, room, [
-      [24, 13],
-      [24, 16],
-    ]);
-    alice.send(MSG.move, { ...seatPos(24, 17), dir: "up", moving: false, seated: true });
+    await goToArea(alice, room, "planta-baja");
+    await walkToTile(alice, room, sofa.x, sofa.y - 1);
+    alice.send(MSG.move, { x: c(sofa.x), y: c(sofa.y), dir: "down", moving: false, seated: true });
     await room.waitForNextPatch();
     await tick();
     expect(me().seated).toBe(true);
-    expect(me().dir).toBe("down");
+    expect(me().dir).toBe("left");
 
-    // Levantarse: al tile libre de enfrente (la alfombra), sin pasar por el sofá.
-    alice.send(MSG.move, { x: c(24), y: 18 * TILE + 24, dir: "down", moving: false, seated: false });
+    alice.send(MSG.move, { x: c(sofa.x), y: c(sofa.y - 1), dir: "down", moving: false, seated: false });
     await room.waitForNextPatch();
     await tick();
     expect(me().seated).toBe(false);
-    expect(me().y).toBe(18 * TILE + 24);
+    expect(me().y).toBe(c(sofa.y - 1));
+  });
+
+  it("alguien sentado en un piso no ocupa la silla con las mismas coordenadas de otro piso", async () => {
+    // (14, 9) es una silla en la planta baja y una banqueta en el sótano.
+    const world = getWorld();
+    const dup = { x: c(14), y: c(9) };
+    const nextTo = (area: string) => {
+      const map = world.areas.get(area)!;
+      const seatTile = { x: 14, y: 9 };
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+        const t = { x: seatTile.x + dx, y: seatTile.y + dy };
+        if (canStandAt(map, c(t.x), c(t.y))) return t;
+      }
+      throw new Error(`Sin tile libre junto a la silla en ${area}`);
+    };
+    expect(seatAtPoint(world.areas.get("planta-baja")!, dup.x, dup.y)).toBeTruthy();
+    expect(seatAtPoint(world.areas.get("sotano")!, dup.x, dup.y)).toBeTruthy();
+
+    const { room, alice, bob } = await setup();
+    for (const [client, area] of [[alice, "sotano"], [bob, "planta-baja"]] as const) {
+      await goToArea(client, room, area);
+      const t = nextTo(area);
+      await walkToTile(client, room, t.x, t.y);
+      client.send(MSG.move, { ...dup, dir: "down", moving: false, seated: true });
+      await room.waitForNextPatch();
+      await tick();
+    }
+    expect(room.state.players.get(alice.sessionId)!).toMatchObject({ area: "sotano", seated: true });
+    expect(room.state.players.get(bob.sessionId)!).toMatchObject({ area: "planta-baja", seated: true });
+  });
+
+  it("no se puede usar un portal estando sentado", async () => {
+    const { room, alice } = await setup();
+    await goToArea(alice, room, "planta-baja");
+    await walkToTile(alice, room, sofa.x, sofa.y - 1);
+    alice.send(MSG.move, { x: c(sofa.x), y: c(sofa.y), dir: "up", moving: false, seated: true });
+    alice.send(MSG.travel, { portal: "planta-baja-salida" });
+    await room.waitForNextPatch();
+    await tick();
+    expect(room.state.players.get(alice.sessionId)!.area).toBe("planta-baja");
   });
 });
 

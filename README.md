@@ -1,84 +1,164 @@
-# Hyvento Office
+<div align="center">
 
-Oficina virtual 2D (pixel-art top-down) para el equipo Hyvento: cada persona con su oficina, chat y video por proximidad, salas privadas y pantalla compartida.
+<img src="docs/img/lumbre-banner.svg" alt="Lumbre — la cabaña virtual de tu equipo" width="100%" />
 
-## Estado
+Oficina virtual isométrica en pixel-art para equipos remotos: caminas por una cabaña, te acercas a alguien y empiezas a hablar.
 
-| Fase | Estado |
-|---|---|
-| 0. Base (monorepo, CI, esquema Prisma, docker-compose, login con Google por invitación) | ✅ |
-| 1. Oficina multijugador (mapa, movimiento, chat por proximidad y global) | ✅ |
-| 2. Oficinas personales (asignación, placas, cerrar/tocar la puerta, notas, estado y chat persistidos) | ✅ |
-| 3. Video/voz por proximidad (LiveKit): suscripción selectiva, permisos en el SFU, pantalla compartida | ✅ |
-| Despliegue | ✅ |
+[![Next.js](https://img.shields.io/badge/Next.js-15-000?style=for-the-badge&logo=nextdotjs)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-149eca?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Phaser](https://img.shields.io/badge/Phaser-3.90-8b5cf6?style=for-the-badge)](https://phaser.io/)
+[![Colyseus](https://img.shields.io/badge/Colyseus-0.16-f4b93c?style=for-the-badge&logoColor=111)](https://colyseus.io/)
+[![LiveKit](https://img.shields.io/badge/LiveKit-WebRTC-000?style=for-the-badge&logo=webrtc)](https://livekit.io/)
+[![Prisma](https://img.shields.io/badge/Prisma-Postgres-2d3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
 
-> Las funciones de agentes de IA se retiraron del proyecto; su código quedó archivado en la rama `archivo/agentes-ia`.
+<br />
+
+[Recorrido](#recorrido) · [Stack](#stack) · [Funcionamiento](#funcionamiento) · [Desarrollo](#desarrollo-local) · [Deploy](#deploy)
+
+</div>
+
+---
+
+![Lumbre: un personaje caminando por el jardín de noche](docs/img/lumbre-caminando.gif)
+
+Lumbre convierte la oficina remota en un lugar al que se entra. Cada persona tiene un chibi personalizable, una oficina propia que decora con muebles comprados con puntos y un PC con su propio sistema operativo. La voz y el video funcionan **por proximidad**: si te acercas a alguien, lo escuchas; si entras a una sala, solo te escucha quien está adentro. Todo es multijugador en tiempo real con un servidor autoritativo, y **todo el arte se genera por código**: no hay un solo PNG dibujado a mano en el repo.
+
+## Recorrido
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/juego-cafeteria.webp" alt="Cafetería" /><br /><sub><b>Cafetería</b>: se pide en la barra con puntos y lo pedido queda en la mano del personaje.</sub></td>
+    <td width="50%"><img src="docs/img/juego-casino.webp" alt="Casino" /><br /><sub><b>Casino</b> en el sótano: ruleta y blackjack con mesas autoritativas; se apuesta solo lo que alcanza el saldo.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/img/juego-club.webp" alt="Club" /><br /><sub><b>Club</b>: pista de baile, barra y cabina de DJ, con letreros de neón generados letra por letra.</sub></td>
+    <td width="50%"><img src="docs/img/juego-piso2.webp" alt="Piso 2" /><br /><sub><b>Piso 2</b>: oficinas personales con placa, puerta que se cierra y toque para pedir pasar.</sub></td>
+  </tr>
+</table>
+
+<details>
+<summary><b>Los niveles completos, dibujados por el motor pixel</b></summary>
+<br />
+
+![Jardín](docs/img/jardin.webp)
+![Planta baja](docs/img/planta-baja.webp)
+![Piso 2](docs/img/piso-2.webp)
+
+Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png`, sin abrir el juego.
+</details>
+
+### Qué hay adentro
+
+| | |
+| --- | --- |
+| **Proximidad** | Chat y video por cercanía; las salas cerradas aíslan el audio. Suscripción selectiva en el SFU: solo recibes las pistas de quien tienes cerca. |
+| **Oficinas** | Una por persona, con placa, estado, puerta que se cierra y toque de puerta. Decoración en vivo que sobrevive a un rediseño del plano. |
+| **Hyvento OS** | Un PC dentro del juego con escritorio, ventanas y apps: notas estilo Notion (TipTap), papelera y calendario. |
+| **Economía** | Puntos por presencia y reuniones, buzón con racha diaria, tablón de misiones y ranking semanal. Cada movimiento queda en un libro contable. |
+| **Tienda y vestidor** | Muebles con inventario y ropa gratis. El personaje se arma por piezas (rostro, pelo, ropa) y se dibuja en el navegador. |
+| **Sótano** | Casino, club y cine. Azar con `crypto.randomInt` y apuestas en transacciones que bloquean la fila del usuario. |
+| **Afuera** | Jardín con huerto, pesca con minijuego, fogata y un bosque infinito que se repite más allá del borde. |
+| **Editor de la casa** | Los admins mueven, giran, quitan y agregan muebles en cualquier nivel; se guarda como diferencia sobre el plano. |
 
 ## Stack
-- **apps/web**: Next.js 15 + Phaser 3 (mapa, avatares) + UI React (Tailwind 4, zustand)
-- **apps/server**: Colyseus 0.16 (estado multijugador autoritativo)
-- **packages/map**: mapa Tiled, zonas, colisión y A* compartidos cliente/servidor
-- **packages/shared**: protocolo (zod) y reglas de proximidad
-- **packages/db**: Prisma + Postgres
 
-## Requisitos
-- Node 22+ y pnpm 10 (`npm i -g pnpm@10`)
-- Docker Desktop (Postgres y LiveKit para desarrollo)
+| Capa | Tecnología | Uso |
+| --- | --- | --- |
+| Web | Next.js 15 App Router, React 19, TypeScript strict | Login, perfil, cabaña, `/admin` y API |
+| Juego | Phaser 3, proyección isométrica propia | Render de niveles, chibis, luces de noche e interacción |
+| UI | Tailwind CSS v4, zustand, Pixelify Sans | HUD "cozy" con sombras sólidas y esquinas rectas |
+| Multijugador | Colyseus 0.16 | Estado autoritativo: movimiento, paredes, asientos, portales, casino y cafetería |
+| Medios | LiveKit (WebRTC SFU) | Voz, video y pantalla compartida por proximidad, con permisos en el servidor |
+| Mundo | `packages/map` | Niveles, catálogo de muebles, colisión, A* y el motor pixel |
+| Datos | Prisma + Postgres | Usuarios, notas, inventario, decoración y libro de puntos |
+| Auth | Auth.js (Google), solo por invitación | Admins por correo e invitaciones desde `/admin` |
+| Calidad | Vitest, Turborepo, GitHub Actions | Typecheck y tests en cada PR |
 
-## Desarrollo
+## Funcionamiento
+
+```mermaid
+flowchart LR
+  Browser["Navegador<br/>Next.js + Phaser"] -->|"input, travel, sit"| Game["Colyseus<br/>estado autoritativo"]
+  Game -->|"estado y correcciones"| Browser
+  Browser -->|"token firmado"| Web["API Next.js"]
+  Web -->|"GAME_TOKEN_SECRET"| Game
+  Web --> DB[("Postgres")]
+  Game --> DB
+  Browser <-->|"pistas cercanas"| LK["LiveKit SFU"]
+  Web -->|"permisos por sala"| LK
+  Map["packages/map<br/>mundo + A*"] --- Browser
+  Map --- Game
+```
+
+- **Un solo mundo, dos lados.** El mapa vive en código (`packages/map/src/world`) y lo usan el servidor y el cliente: la colisión que valida el servidor es la misma que anticipa el navegador.
+- **El cliente anticipa, el servidor decide.** Moverse, sentarse, cambiar de nivel o entrar a una oficina cerrada se valida en `apps/server` con `canWalkBetween` sobre los bordes de pared. Toda regla nueva lleva test.
+- **Coordenadas.** El juego usa píxeles de mundo con tiles de 32; el arte, tiles de 16. La vista isométrica es solo una proyección en el cliente.
+- **Arte procedural.** Rampas de color, cajas isométricas con sombreado por cara, contornos y luces. Cada mueble se dibuja mirando a `+x` y los otros lados salen por espejo. Un test exige que todo tipo del catálogo tenga dibujo.
+- **Puntos con libro contable.** El saldo solo cambia con `awardPoints` o `spendPoints`, que escriben el movimiento, aplican topes diarios y actualizan la caché del saldo.
+
+## Desarrollo local
+
+### Requisitos
+
+- Node 22+ y pnpm 10 (`npm i -g pnpm@10`).
+- Docker Desktop (Postgres y LiveKit en modo dev).
+
+### Instalación
+
 ```bash
 pnpm install
-pnpm dev            # web en http://localhost:3000 + servidor de juego en ws://localhost:2567
-pnpm test           # tests de mapa, proximidad y sala
-pnpm typecheck
-```
-Para probar con varias personas sin Google (solo contra la base local):
-```bash
-pnpm --filter @hyvento/web dev:session "Tester Uno" [--office office-2] [--admin]
-```
-Pega el valor impreso en la consola del navegador de otra ventana/perfil: `document.cookie = "authjs.session-token=<valor>; path=/"` y recarga.
-
-### Mapa y assets
-Los assets placeholder (tileset, mapa y personajes) se generan por código:
-```bash
-pnpm map:generate   # ⚠️ sobrescribe packages/map/assets/office.json
-```
-El mapa `packages/map/assets/office.json` es un mapa de [Tiled](https://www.mapeditor.org) editable. Capas:
-- `floor`, `walls`, `furniture`: tiles; los tiles con la propiedad `collides` bloquean el paso (en `walls`/`furniture`).
-- `zones`: rectángulos con `type` (`office`, `meeting`, `coworking`, `lounge`) y propiedades `zoneId`, `isolated`, `slot`.
-- `points`: `spawn`, `seat` (sala de reuniones), `task_board`, `screen` (pantalla de presentaciones).
-
-### Login con Google
-1. [Google Cloud Console](https://console.cloud.google.com) → crea un proyecto (p. ej. "Hyvento Office").
-2. **APIs y servicios → Pantalla de consentimiento de OAuth**: tipo *Externo* (o *Interno* si usan Google Workspace), nombre de la app y correo de soporte. Mientras esté en modo *Prueba*, agrega los correos del equipo como usuarios de prueba.
-3. **Credenciales → Crear credenciales → ID de cliente de OAuth → Aplicación web**:
-   - Orígenes autorizados: `http://localhost:3000`
-   - URI de redireccionamiento: `http://localhost:3000/api/auth/callback/google`
-4. Copia el ID y el secreto a `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET` en `.env`, y pon tu correo en `ADMIN_EMAILS`.
-
-El acceso es **solo por invitación**: entran los correos de `ADMIN_EMAILS` y los invitados desde `/admin`.
-En el primer ingreso cada persona elige su nombre visible y avatar.
-
-### Infraestructura (Fase 2+)
-```bash
 cp .env.example .env
-pnpm infra:up       # Postgres y LiveKit (dev) con Docker
-pnpm --filter @hyvento/db migrate
+pnpm infra:up                       # Postgres + LiveKit
+pnpm --filter @hyvento/db migrate   # esquema en la base local
+pnpm dev                            # web :3000 + servidor de juego :2567
 ```
 
-## Despliegue
+En desarrollo el login muestra **"Entrar de prueba"**: pones un nombre y entras sin Google. Para varias personas, otra ventana en incógnito con otro nombre.
 
-| Pieza | Servicio |
-|---|---|
-| Web (Next.js, `apps/web`) | Vercel |
-| Servidor de juego (Colyseus, `apps/server`) | Render (`render.yaml`) |
-| Base de datos | Neon (Postgres) |
-| Audio/video | LiveKit Cloud |
+### Comandos
 
-1. Completa `.env.production` (no se sube a git) con Neon y LiveKit.
-2. Migraciones: `DATABASE_URL=<cadena sin pooler> pnpm --filter @hyvento/db migrate:deploy`.
-3. Render → **New → Blueprint** → este repo. Variables: `DATABASE_URL` (sin pooler) y `GAME_TOKEN_SECRET`.
-4. Vercel → **Add New → Project** → este repo, **Root Directory `apps/web`**, y las variables de `.env.production` (con `DATABASE_URL` *pooled* y `NEXT_PUBLIC_GAME_SERVER_URL=wss://<servicio>.onrender.com`).
-5. Google Cloud → credencial OAuth: agrega el origen `https://<dominio>.vercel.app` y el redirect `https://<dominio>.vercel.app/api/auth/callback/google`.
+```bash
+pnpm typecheck && pnpm test                    # lo mismo que corre el CI
+pnpm --filter @hyvento/map render jardin a.png # dibuja un nivel a PNG ("noche" como 3er argumento)
+pnpm --filter @hyvento/web build               # build de producción
+```
 
-El servidor de juego en el plan gratis de Render se duerme tras ~15 min sin uso; el primero en entrar espera ~1 min mientras despierta.
+## Estructura
+
+```text
+apps/
+  web/        Next.js + Phaser: escena, HUD, Hyvento OS, API y /admin
+  server/     Colyseus: sala, reglas, casino, cafetería y tests
+packages/
+  map/        Mundo en código, colisión, A* y motor pixel (src/art)
+  shared/     Protocolo (zod), Look del personaje, reglas de puntos, tienda y casino
+  db/         Prisma, migraciones y libro de puntos
+docs/         Plan de la cabaña, rediseño y guía de despliegue
+```
+
+## Deploy
+
+Todo cabe en planes gratis: **Vercel** (web), **Render** (servidor de juego, `render.yaml`), **Neon** (Postgres) y **LiveKit Cloud** (voz y video, opcional). El paso a paso está en [`docs/despliegue.md`](docs/despliegue.md).
+
+> Ni Vercel ni Render corren migraciones: se aplican en Neon **antes** de que el código llegue a `main`.
+
+## La marca
+
+**Lumbre** es el nombre público (lumbre = la luz de la fogata: el equipo se junta como alrededor del fuego). **Hyvento** es el equipo que la usa: adentro de Lumbre está "la cabaña de Hyvento". Por eso lo interno conserva el nombre (paquetes `@hyvento/*`, ids, base de datos y el botón "Hyvento" del HUD).
+
+- **Portada** (`/` sin sesión): la presentación pública, con la casa del jardín dibujada por el motor del juego y gente caminando (`apps/web/src/components/lumbre/`). Con sesión, `/` entra directo a la cabaña.
+- **Login** (`/login`): Google por invitación y, en desarrollo, "Entrar de prueba".
+- **Identidad**: la llamita pixel, las letras pixel y el eslogan están en `components/lumbre/marca.ts`. De ahí salen el logotipo, el favicon (`app/icon.tsx`, con respaldo PNG en `app/icon2.tsx`), el ícono de iOS (`app/apple-icon.tsx`), la imagen al compartir el enlace (`app/opengraph-image.tsx`) y el banner de este README (`pnpm --filter @hyvento/web banner` lo vuelve a dibujar).
+
+## Documentación
+
+- [Plan de la cabaña](docs/plan-cabana.md): salas y fases.
+- [Plan del rediseño](docs/plan-rediseno.md): el plano actual.
+- [Despliegue gratis](docs/despliegue.md).
+- [Onboarding](ONBOARDING.md) y [convenciones](CLAUDE.md).
+
+<div align="center">
+<br />
+<sub>Hecho en Pereira, Colombia · por <a href="https://juanordonezdev.hyvento.co/">Juan José Pantoja</a> para <a href="https://hyvento.co">Hyvento</a></sub>
+</div>

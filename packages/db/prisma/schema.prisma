@@ -1,4 +1,4 @@
-// Esquema de Hyvento Office: usuarios, invitaciones, oficinas personales y chat.
+// Esquema de Hyvento Office: usuarios, invitaciones, oficinas personales, chat, notas y puntos.
 
 generator client {
   provider = "prisma-client-js"
@@ -44,13 +44,36 @@ model User {
    * Completó el onboarding (eligió nombre visible y avatar).
    */
   onboardedAt   DateTime?
+  /**
+   * Saldo de puntos (la suma de sus PointTransaction; se actualiza en la misma transacción).
+   */
+  points        Int            @default(0)
+  /**
+   * Días seguidos reclamando la recompensa del buzón, y cuándo fue el último reclamo.
+   */
+  streak        Int            @default(0)
+  lastDailyAt   DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  office       Office?
-  chatMessages ChatMessage[]
-  notes        Note[]
-  invitesSent  Invite[]      @relation("InvitedBy")
+  office          Office?
+  chatMessages    ChatMessage[]
+  notes           Note[]
+  invitesSent     Invite[]           @relation("InvitedBy")
+  pointMoves      PointTransaction[]
+  missionsCreated Mission[]          @relation("MissionCreator")
+  missionsTaken   Mission[]          @relation("MissionAssignee")
+  inventory       InventoryItem[]
+  giftsSent       Gift[]             @relation("GiftsSent")
+  giftsReceived   Gift[]             @relation("GiftsReceived")
+  itemsGiven      ItemTransfer[]     @relation("ItemsGiven")
+  itemsReceived   ItemTransfer[]     @relation("ItemsReceived")
+  gardenPlots     GardenPlot[]
+  fishCatches     FishCatch[]
+  arcadeScores    ArcadeScore[]
+  photos          Photo[]
+  stats           UserStat[]
+  achievements    UserAchievement[]
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -71,17 +94,29 @@ model Invite {
 }
 
 /**
- * Oficina personal: una zona `office-<slot>` del mapa asignada a un usuario.
+ * Oficina personal: una zona `office-<slot>` del piso 2 de la cabaña asignada a un usuario.
  */
 model Office {
-  id       String  @id @default(cuid())
-  zoneId   String  @unique // p. ej. "office-2" (zoneId en Tiled)
-  name     String
-  ownerId  String? @unique
-  owner    User?   @relation(fields: [ownerId], references: [id])
-  isLocked Boolean @default(false) // cerrada: hay que tocar la puerta
-  /** Obsoleto: las notas pasaron a Note (se conserva mientras conviven versiones). */
-  notes    String  @default("")
+  id         String       @id @default(cuid())
+  zoneId     String       @unique // p. ej. "office-2" (id de la zona en packages/map)
+  name       String
+  ownerId    String?      @unique
+  owner      User?        @relation(fields: [ownerId], references: [id])
+  isLocked   Boolean      @default(false) // cerrada: hay que tocar la puerta
+  /**
+   * Obsoleto: las notas pasaron a Note (se conserva mientras conviven versiones).
+   */
+  notes      String       @default("")
+  /**
+   * Fase 3c: piso y papel tapiz elegidos por el dueño (null = los del mapa).
+   */
+  floor      String?
+  wallpaper  String?
+  /**
+   * false = sus muebles son los del mapa; true = salen de OfficeItem (el dueño ya la decoró).
+   */
+  customized Boolean      @default(false)
+  items      OfficeItem[]
 }
 
 enum ChatScope {
@@ -98,11 +133,17 @@ model Note {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String    @default("")
-  /** Texto plano de la nota (para buscar y para la vista previa en la lista). */
+  /**
+   * Texto plano de la nota (para buscar y para la vista previa en la lista).
+   */
   body      String    @default("")
-  /** Documento del editor (bloques, formato, tablas…). null = nota antigua: se arma desde `body`. */
+  /**
+   * Documento del editor (bloques, formato, tablas…). null = nota antigua: se arma desde `body`.
+   */
   content   Json?
-  /** Subpágina de otra nota (null = en la raíz). Borrar la madre borra sus subpáginas. */
+  /**
+   * Subpágina de otra nota (null = en la raíz). Borrar la madre borra sus subpáginas.
+   */
   parentId  String?
   parent    Note?     @relation("NoteTree", fields: [parentId], references: [id], onDelete: Cascade)
   children  Note[]    @relation("NoteTree")
@@ -125,6 +166,72 @@ model ChatMessage {
   createdAt DateTime  @default(now())
 
   @@index([scope, createdAt])
+}
+
+// ---------- Puntos (fase 2) ----------
+
+enum PointReason {
+  PRESENCE
+  MEETING
+  DAILY
+  MISSION
+  ADMIN
+  /// Gasto (monto negativo): compras en la cafetería y la tienda.
+  PURCHASE
+  /// Casino: apuestas (monto negativo) y premios (positivo). Sin límite diario: solo cuenta el saldo.
+  CASINO
+  /// Regalos e intercambios entre personas: lo que sale (negativo) y lo que llega (positivo).
+  GIFT
+  /// Ocio de la fase 5: cosechas del huerto, pesca y arcade (premios chicos con tope diario).
+  LEISURE
+}
+
+/**
+ * Libro de puntos: cada movimiento (ganar o gastar). El saldo de User.points es la suma.
+ */
+model PointTransaction {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  reason    PointReason
+  /**
+   * Referencia a lo que lo originó (p. ej. el id de una misión).
+   */
+  refId     String?
+  createdAt DateTime    @default(now())
+
+  @@index([userId, reason, createdAt])
+  @@index([createdAt])
+}
+
+enum MissionStatus {
+  OPEN
+  TAKEN
+  REVIEW
+  DONE
+  CANCELLED
+}
+
+/**
+ * Misión del tablón: alguien la crea con una recompensa, otra persona la toma y la entrega, y quien la
+ * creó (o un admin) la aprueba y se pagan los puntos.
+ */
+model Mission {
+  id          String        @id @default(cuid())
+  title       String
+  description String        @default("")
+  reward      Int
+  status      MissionStatus @default(OPEN)
+  createdById String
+  createdBy   User          @relation("MissionCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assigneeId  String?
+  assignee    User?         @relation("MissionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  completedAt DateTime?
+
+  @@index([status, createdAt])
 }
 
 // ---------- Auth.js ----------
@@ -161,4 +268,199 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ---------- Tienda y decoración (fase 3b/3c) ----------
+
+/**
+ * Lo que alguien tiene guardado: muebles sin poner y ropa comprada. `itemId` es el id de la tienda
+ * (packages/shared/src/shop.ts): el tipo del mueble ("plant") o la prenda ("hair:braids").
+ * Poner un mueble en la oficina resta 1; quitarlo suma 1.
+ */
+model InventoryItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId    String
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, itemId])
+}
+
+/**
+ * Mueble puesto en una oficina decorada (tiles del nivel; `facing` = right/left/down/up).
+ */
+model OfficeItem {
+  id        String   @id @default(cuid())
+  officeId  String
+  office    Office   @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  type      String
+  x         Int
+  y         Int
+  facing    String
+  createdAt DateTime @default(now())
+
+  @@index([officeId])
+}
+
+// ---------- Casino (fase 4) ----------
+
+/** Ajustes del casino (una sola fila, id = 1). Los cambia un admin en /admin. */
+model CasinoSettings {
+  id             Int      @id @default(1)
+  enabled        Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+}
+
+/**
+ * Regalo (fase 5): puntos y/o un objeto de la mochila, con una nota. Se descuenta al enviarlo y llega
+ * al buzón de quien lo recibe; recién al abrirlo se le acredita.
+ */
+model Gift {
+  id        String    @id @default(cuid())
+  fromId    String
+  from      User      @relation("GiftsSent", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        User      @relation("GiftsReceived", fields: [toId], references: [id], onDelete: Cascade)
+  points    Int       @default(0)
+  /// Objeto de la mochila (id del catálogo de la tienda) y cuántos.
+  itemId    String?
+  quantity  Int       @default(0)
+  note      String    @default("")
+  createdAt DateTime  @default(now())
+  openedAt  DateTime?
+
+  @@index([toId, openedAt])
+}
+
+/**
+ * Objetos que pasaron de una persona a otra en un intercambio (los regalos ya quedan en Gift). Sirve para
+ * el tope diario de muebles que alguien puede dar (`GIFT.dailyItems`), sumando regalos e intercambios.
+ */
+model ItemTransfer {
+  id        String   @id @default(cuid())
+  fromId    String
+  from      User     @relation("ItemsGiven", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      String
+  to        User     @relation("ItemsReceived", fields: [toId], references: [id], onDelete: Cascade)
+  itemId    String
+  quantity  Int
+  /// Id del intercambio (`trade:<id>`), el mismo de los movimientos de puntos.
+  refId     String
+  createdAt DateTime @default(now())
+
+  @@index([fromId, createdAt])
+}
+
+/**
+ * Parcela del huerto compartido del jardín (fase 5). `id` es el índice de la parcela en el mapa. El
+ * crecimiento se acumula en `growthMs` (calculado hasta `growthAt`); regar acelera hasta `wateredUntil`.
+ */
+model GardenPlot {
+  id           Int       @id
+  crop         String?
+  plantedById  String?
+  plantedBy    User?     @relation(fields: [plantedById], references: [id], onDelete: SetNull)
+  plantedAt    DateTime?
+  growthMs     Int       @default(0)
+  growthAt     DateTime?
+  wateredUntil DateTime?
+  updatedAt    DateTime  @updatedAt
+}
+
+/** Pez atrapado en el estanque del jardín (fase 5): la colección de cada persona. */
+model FishCatch {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species  String
+  /// Tamaño en centímetros.
+  size     Int
+  caughtAt DateTime @default(now())
+
+  @@index([userId, species])
+}
+
+/** Puntaje de una partida en una máquina del arcade del sótano (fase 5). */
+model ArcadeScore {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game      String
+  score     Int
+  createdAt DateTime @default(now())
+
+  @@index([game, createdAt])
+  @@index([userId, game])
+}
+
+/**
+ * Cambios que hizo un admin a la decoración de un nivel con el editor de la casa: qué muebles del
+ * plano (el código) se quitaron y cuáles se agregaron. Se aplican encima del plano, así el plano puede
+ * seguir cambiando en el código sin perder lo que se acomodó a mano.
+ */
+/// Pizarra compartida de una oficina o de la sala de reuniones (whiteboard.ts de @hyvento/shared).
+model Whiteboard {
+  zoneId    String   @id
+  /// BoardStroke[]: { id, by (User.id), color, width, points: [x0, y0, x1, y1, …] }
+  strokes   Json
+  updatedAt DateTime @updatedAt
+}
+
+model WorldLayout {
+  area      String   @id
+  /// { removed: string[] ("tipo@x,y" de muebles del plano), added: { id, type, x, y, facing }[] }
+  edits     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+/**
+ * Foto sacada en la cabaña (PNG o WebP de hasta ~150 KB, con el marco de polaroid ya dibujado). El id es
+ * el del ticket que firmó el servidor de juego, así la misma foto no se sube dos veces; `people` lo
+ * calculó el servidor ([{ id, name }]). Se guardan solo las últimas (ver PHOTO.keep en @hyvento/shared).
+ */
+model Photo {
+  id        String   @id
+  takenById String
+  takenBy   User     @relation(fields: [takenById], references: [id], onDelete: Cascade)
+  area      String
+  caption   String   @default("")
+  people    Json
+  image     Bytes
+  mime      String
+  /// Se ve en el corcho de la cafetería (quien la sacó puede quitarla sin borrarla).
+  pinned    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([takenById, createdAt])
+}
+
+// ---------- Logros y estadísticas del perfil ----------
+
+/**
+ * Contador de alguien (tazas de café, desmayos, peces, minutos en la cabaña…). Las claves están en
+ * STAT_KEYS de @hyvento/shared (achievements.ts); unas se suman y otras guardan el máximo.
+ */
+model UserStat {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  value     Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@id([userId, key])
+}
+
+/** Logro desbloqueado (el catálogo está en @hyvento/shared: ACHIEVEMENTS). Una fila por persona y logro. */
+model UserAchievement {
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  @@id([userId, achievementId])
+  @@index([achievementId])
 }

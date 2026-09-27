@@ -1,20 +1,22 @@
-import { prisma } from "@hyvento/db";
+import { getCasinoSettings, prisma } from "@hyvento/db";
 import { requireAdmin } from "@/lib/current-user";
 import { AdminView } from "./AdminView";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Administración" };
 
 /** `?embed=1`: dentro de la ventana "Administrar equipo" de la oficina (sin cabecera ni enlace de vuelta). */
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ embed?: string }> }) {
   await requireAdmin();
   const { embed } = await searchParams;
-  const [users, invites, offices] = await Promise.all([
+  const [users, invites, offices, casino] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, email: true, role: true, avatar: true, look: true, onboardedAt: true },
     }),
     prisma.invite.findMany({ where: { acceptedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.office.findMany({ orderBy: { zoneId: "asc" }, select: { zoneId: true, name: true, ownerId: true, isLocked: true } }),
+    getCasinoSettings(prisma),
   ]);
-  return <AdminView users={users} invites={invites} offices={offices} embedded={embed === "1"} />;
+  return <AdminView users={users} invites={invites} offices={offices} casino={casino} embedded={embed === "1"} />;
 }

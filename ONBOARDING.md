@@ -44,13 +44,15 @@ La web queda en http://localhost:3000 y el servidor de juego en `ws://localhost:
 
 ## 4. Entrar a tu oficina local
 
-**Sin Google (lo más rápido):**
+**Sin Google (lo más rápido):** abre http://localhost:3000/login (en `/` está la portada; su botón también lleva ahí), escribe tu nombre en "Entrar de prueba (solo en tu máquina)", deja marcado "administrador" si quieres usar /admin, y listo. Para probar con varias personas, abre otra ventana en incógnito con otro nombre.
+
+También se puede por consola:
 
 ```bash
 pnpm --filter @hyvento/web dev:session "Tu Nombre" --admin
 ```
 
-Imprime un valor de sesión. En el navegador, en http://localhost:3000, abre la consola (F12) y pega:
+Imprime un valor de sesión. En el navegador, en http://localhost:3000/login, abre la consola (F12) y pega:
 
 ```js
 document.cookie = "authjs.session-token=<valor>; path=/"
@@ -75,13 +77,13 @@ Recarga y entras. Para probar con varias personas, repite con otro nombre en otr
 - `apps/web`: la web (Next.js + Phaser + React). Pantallas, API y la escena del juego (`src/game`).
 - `apps/web/src/components/pc`: el PC de la oficina (Hyvento OS, notas, papelera, calendario).
 - `apps/server`: servidor de juego (Colyseus), que valida todo lo que pasa en la oficina.
-- `packages/map`: mapa, tiles, asientos y dibujo de personajes.
+- `packages/map`: el mundo (niveles, muebles, portales) en `src/world` y el motor pixel que dibuja la cabaña y los personajes en `src/art`.
 - `packages/shared`: protocolo entre cliente y servidor.
 - `packages/db`: esquema de Prisma y migraciones.
 
 ## 7. Problemas comunes
 
 - **"Can't reach database server at localhost:5432"**: Docker Desktop está cerrado. Ábrelo y corre `pnpm infra:up`.
-- **El mapa o los personajes no se actualizan** después de `pnpm map:generate`: reinicia `pnpm dev` (los assets se copian al arrancar).
-- **Te rebota al login**: la cookie de `dev:session` venció o se borró la base; genera otra.
+- **Cambié un nivel o un mueble y el servidor de juego se cayó**: `tsx` lo reinicia solo al guardar; si guardaste a medias, vuelve a guardar y recarga la página.
+- **Te rebota al login**: la sesión de prueba venció (dura un día) o se borró la base; vuelve a "Entrar de prueba" en http://localhost:3000/login.
 - **Errores de tipos en `.next/types`** por páginas que ya no existen: borra la carpeta `apps/web/.next/types` y vuelve a correr `pnpm typecheck`.

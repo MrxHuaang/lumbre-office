@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { RISO } from "@/lib/riso";
+import { COZY } from "@/lib/cozy";
 
 export interface WindowBox {
   x: number;
@@ -35,7 +35,7 @@ export function Window({
   title,
   icon,
   ink,
-  inkText = RISO.navy,
+  inkText = COZY.frame,
   box,
   z,
   active,
@@ -72,11 +72,11 @@ export function Window({
       role="dialog"
       aria-label={title}
       onPointerDownCapture={onFocus}
-      className="absolute flex flex-col border-2 border-riso-navy bg-riso-paper"
+      className="absolute flex flex-col border-2 border-cozy-frame bg-cozy-paper"
       style={{
         ...(maximized ? { inset: 0 } : { left: box.x, top: box.y, width: box.w, height: box.h }),
         zIndex: z,
-        boxShadow: `${active ? 4 : 2}px ${active ? 4 : 2}px 0 ${RISO.navy}`,
+        boxShadow: `${active ? 4 : 2}px ${active ? 4 : 2}px 0 ${COZY.frame}`,
       }}
     >
       <header
@@ -84,11 +84,11 @@ export function Window({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onDoubleClick={(e) => !(e.target as HTMLElement).closest("button") && onToggleMaximize()}
-        className="flex h-8 shrink-0 cursor-default items-center gap-2 border-b-2 border-riso-navy px-2 select-none"
+        className="flex h-8 shrink-0 cursor-default items-center gap-2 border-b-2 border-cozy-frame px-2 select-none"
         style={{ background: ink, color: inkText, opacity: active ? 1 : 0.8 }}
       >
         <span className="shrink-0">{icon}</span>
-        <span className="font-display min-w-0 flex-1 truncate text-[13px]">{title}</span>
+        <span className="font-semibold min-w-0 flex-1 truncate text-[13px]">{title}</span>
         <TitleButton label="Minimizar" onClick={onMinimize}>
           <path d="M4 11h8" />
         </TitleButton>
@@ -121,8 +121,8 @@ function TitleButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={`grid h-5 w-5 shrink-0 place-items-center border-[1.5px] border-riso-navy text-riso-navy ${
-        close ? "bg-riso-pink" : "bg-riso-cream hover:bg-riso-yellow"
+      className={`grid h-5 w-5 shrink-0 place-items-center border-[1.5px] border-cozy-frame text-cozy-ink ${
+        close ? "bg-cozy-red" : "bg-cozy-paper-light hover:bg-cozy-paper-dark"
       }`}
     >
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">

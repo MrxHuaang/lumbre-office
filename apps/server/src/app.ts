@@ -5,6 +5,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { GameRepository } from "./repo/types";
 import { OfficeRoom } from "./rooms/OfficeRoom";
+import { GiftSentNotice } from "@hyvento/shared";
 
 /** Compara el `Authorization: Bearer <secreto>` sin filtrar información por tiempos. */
 function authorized(req: IncomingMessage, secret: string | undefined): boolean {
@@ -24,6 +25,8 @@ function json(res: ServerResponse, status: number, body: unknown) {
  * Rutas HTTP propias (Colyseus atiende antes las de matchmaking):
  * - GET  /health: chequeo de salud del hosting.
  * - POST /internal/offices-changed: la web avisa que cambiaron dueños/nombres de oficinas.
+ * - POST /internal/points-changed: la web cambió el saldo de alguien (body `{ userId }`).
+ * - POST /internal/photos-changed: se subió o se borró una foto (el tablón de la cafetería se refresca).
  */
 async function handleHttp(req: IncomingMessage, res: ServerResponse) {
   const path = (req.url ?? "").split("?")[0];
@@ -40,7 +43,60 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
       return json(res, 500, { error: "no se pudieron recargar las oficinas" });
     }
   }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.casinoSettingsChanged) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    try {
+      await OfficeRoom.reloadCasinoSettingsEverywhere();
+      return json(res, 200, { ok: true });
+    } catch (err) {
+      console.error("reloadCasinoSettings", err);
+      return json(res, 500, { error: "no se pudieron recargar los ajustes del casino" });
+    }
+  }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.photosChanged) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    OfficeRoom.broadcastPhotosChanged();
+    return json(res, 200, { ok: true });
+  }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.pointsChanged) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    const body = (await readJson(req)) as { userId?: unknown } | null;
+    if (!body || typeof body.userId !== "string") return json(res, 400, { error: "falta userId" });
+    try {
+      await OfficeRoom.reloadPointsEverywhere(body.userId);
+      return json(res, 200, { ok: true });
+    } catch (err) {
+      console.error("reloadPoints", err);
+      return json(res, 500, { error: "no se pudo recargar el saldo" });
+    }
+  }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.giftSent) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    const notice = GiftSentNotice.safeParse(await readJson(req));
+    if (!notice.success) return json(res, 400, { error: "aviso de regalo inválido" });
+    OfficeRoom.giftReceivedEverywhere(notice.data);
+    return json(res, 200, { ok: true });
+  }
   json(res, 404, { error: "no encontrado" });
+}
+
+/** Lee un cuerpo JSON chico (hasta 4 KB); null si no es válido. */
+function readJson(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve) => {
+    let data = "";
+    req.on("data", (chunk: Buffer) => {
+      data += chunk.toString("utf8");
+      if (data.length > 4096) req.destroy();
+    });
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(data));
+      } catch {
+        resolve(null);
+      }
+    });
+    req.on("error", () => resolve(null));
+  });
 }
 
 export function createGameServer({ repo }: { repo: GameRepository }) {

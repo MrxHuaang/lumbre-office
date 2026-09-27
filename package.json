@@ -7,7 +7,6 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "map:generate": "pnpm --filter @hyvento/map generate",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"
   },

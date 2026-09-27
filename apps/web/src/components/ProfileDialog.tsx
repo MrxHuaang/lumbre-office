@@ -4,13 +4,12 @@ import { useState } from "react";
 import { sendProfileChanged } from "@/game/network";
 import type { Profile } from "@/game/store";
 import { saveProfile } from "@/lib/profile";
-import { RISO } from "@/lib/riso";
 import { CharacterEditor, type Appearance } from "./CharacterEditor";
 import { OfficeDialog } from "./OfficeDialog";
 
 /**
- * Editar el perfil (nombre y personaje) o solo el personaje, sin salir de la oficina: se guarda y
- * todos ven el cambio al instante.
+ * Editar el perfil (nombre y personaje) o solo el personaje, sin salir de la cabaña: se guarda y
+ * todos ven el cambio al instante. Es el mismo editor que el probador de la tienda (`FittingPanel`).
  */
 export function ProfileDialog({
   profile,
@@ -50,31 +49,31 @@ export function ProfileDialog({
     <OfficeDialog
       title={withName ? "Editar perfil" : "Tu personaje"}
       onClose={onClose}
-      shadow={RISO.pink}
       footer={
         <>
           <button
             type="button"
             onClick={() => void save()}
             disabled={saving || !trimmed}
-            className="riso-pill riso-press bg-riso-pink px-5 py-2.5"
+            className="cozy-btn cozy-btn-primary px-5 py-2.5 text-[15px]"
           >
             {saving ? "Guardando…" : "Guardar"}
           </button>
-          <button type="button" onClick={onClose} className="text-[13px] underline underline-offset-2">
+          <button type="button" onClick={onClose} className="cozy-btn px-5 py-2.5 text-[15px]">
             Cancelar
           </button>
           {error && (
-            <p role="alert" className="text-[13px] font-semibold text-riso-pink-deep">
+            <p role="alert" className="text-[14px] font-semibold text-cozy-red-deep">
               {error}
             </p>
           )}
         </>
       }
     >
-      <div className="min-h-0 overflow-y-auto px-5 py-4">
+      {/* El -1rem deja la vista previa pegada arriba del todo al desplazar (compensa el py-4). */}
+      <div className="cozy-scroll min-h-0 overflow-y-auto px-4 py-4 [--editor-sticky-top:-1rem]">
         {withName && (
-          <label className="mb-5 flex max-w-sm flex-col gap-2 text-xs font-semibold tracking-[0.12em] uppercase">
+          <label className="mb-5 flex max-w-sm flex-col gap-2 text-[14px] font-semibold">
             Tu nombre
             <input
               autoFocus
@@ -83,7 +82,7 @@ export function ProfileDialog({
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && void save()}
               placeholder="¿Cómo te llaman?"
-              className="riso-input px-3.5 py-2.5 text-base font-normal tracking-normal normal-case"
+              className="cozy-input px-3.5 py-2.5 text-[16px] font-normal"
             />
           </label>
         )}

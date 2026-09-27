@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { OfficeScene } from "./OfficeScene";
+import { PIXEL_RATIO } from "./pixelRatio";
 
 /**
  * Espera a que el contenedor tenga tamaño real. Si Phaser arranca con 0x0 (pestaña en segundo plano
@@ -32,7 +33,7 @@ export function waitForVisible(): Promise<void> {
 }
 
 export function createGame(parent: HTMLElement) {
-  return new Phaser.Game({
+  const game = new Phaser.Game({
     // Canvas 2D en vez de WebGL: más compatible (GPUs integradas, Brave, pestañas en segundo plano)
     // y de sobra para un mapa pixel-art de este tamaño.
     type: Phaser.CANVAS,
@@ -41,7 +42,9 @@ export function createGame(parent: HTMLElement) {
     roundPixels: true,
     // Transparente: alrededor del mapa se ve el papel con semitono del contenedor.
     transparent: true,
-    scale: { mode: Phaser.Scale.RESIZE, width: parent.clientWidth, height: parent.clientHeight },
+    // A la resolución real de la pantalla (ver pixelRatio.ts): el canvas mide PIXEL_RATIO veces el
+    // contenedor y se muestra achicado a su tamaño (zoom), así no lo estira el navegador.
+    scale: { mode: Phaser.Scale.NONE, width: parent.clientWidth * PIXEL_RATIO, height: parent.clientHeight * PIXEL_RATIO, zoom: 1 / PIXEL_RATIO },
     input: { keyboard: true, mouse: { preventDefaultWheel: false } },
     disableContextMenu: true,
     // Contenedor DOM: burbujas de cámara y pantallas de la sala (siguen la cámara y el zoom del juego).
@@ -49,4 +52,13 @@ export function createGame(parent: HTMLElement) {
     banner: false,
     scene: [OfficeScene],
   });
+  // Sin el modo RESIZE, el tamaño sigue al contenedor a mano.
+  const ro = new ResizeObserver(() => {
+    if (parent.clientWidth > 0 && parent.clientHeight > 0) game.scale.resize(parent.clientWidth * PIXEL_RATIO, parent.clientHeight * PIXEL_RATIO);
+  });
+  ro.observe(parent);
+  game.events.once(Phaser.Core.Events.DESTROY, () => ro.disconnect());
+  // Solo en desarrollo: el juego queda a mano en la consola para depurar (window.__hyventoGame).
+  if (process.env.NODE_ENV !== "production") (window as unknown as { __hyventoGame?: Phaser.Game }).__hyventoGame = game;
+  return game;
 }

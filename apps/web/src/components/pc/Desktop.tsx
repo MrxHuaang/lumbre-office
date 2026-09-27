@@ -2,40 +2,52 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Profile } from "@/game/store";
-import { RISO } from "@/lib/riso";
+import { COZY } from "@/lib/cozy";
+import { CabinShowcase } from "../CabinShowcase";
 import { CharacterSprite } from "../CharacterSprite";
+import { PixelIcon } from "../Cozy";
 import { CalendarApp, NotesApp, TrashApp, useNow, type Confirm } from "./apps";
+import { BrowserApp } from "./BrowserApp";
 import {
   BrowserIcon,
   CalendarIcon,
   MailIcon,
+  MineIcon,
   MusicIcon,
   NotesIcon,
   PowerIcon,
+  TomatoIcon,
   TrashIcon,
   WhiteboardIcon,
 } from "./icons";
+import { MinesweeperApp } from "./MinesweeperApp";
+import { ALERT_TEXT, usePomodoro } from "./pomodoro";
+import { PomodoroApp, PomodoroTaskbarClock } from "./PomodoroApp";
 import type { NotesStore } from "./useNotes";
 import { Window, type WindowBox } from "./Window";
 
-type AppId = "notes" | "trash" | "calendar";
+type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper" | "browser";
 
 interface AppInfo {
   title: string;
   ink: string;
   inkText?: string;
   size: { w: number; h: number };
+  /** Minimizada sigue montada (oculta): no se pierde la partida ni se corta la música. */
+  keepAlive?: boolean;
 }
 
 const APPS: Record<AppId, AppInfo> = {
-  notes: { title: "Notas", ink: RISO.yellow, size: { w: 780, h: 500 } },
-  trash: { title: "Papelera", ink: RISO.blue, inkText: RISO.paper, size: { w: 560, h: 360 } },
-  calendar: { title: "Calendario", ink: RISO.green, size: { w: 340, h: 420 } },
+  notes: { title: "Notas", ink: COZY.paperDark, size: { w: 780, h: 500 } },
+  trash: { title: "Papelera", ink: COZY.sky, inkText: COZY.paper, size: { w: 560, h: 360 } },
+  calendar: { title: "Calendario", ink: COZY.green, size: { w: 340, h: 420 } },
+  pomodoro: { title: "Enfoque", ink: COZY.red, inkText: COZY.paperLight, size: { w: 340, h: 450 } },
+  minesweeper: { title: "Buscaminas", ink: COZY.woodLight, size: { w: 440, h: 540 }, keepAlive: true },
+  browser: { title: "Favoritos", ink: COZY.sky, inkText: COZY.paperLight, size: { w: 820, h: 540 }, keepAlive: true },
 };
 
 /** Apps que aún no existen: se ven en el escritorio para mostrar hacia dónde va el PC. */
 const FUTURE = [
-  { id: "browser", label: "Navegador", Icon: BrowserIcon },
   { id: "music", label: "Música", Icon: MusicIcon },
   { id: "board", label: "Pizarra", Icon: WhiteboardIcon },
   { id: "mail", label: "Mensajes", Icon: MailIcon },
@@ -116,6 +128,9 @@ export function Desktop({
   }, [iconMenu]);
 
   const top = windows.filter((w) => !w.minimized).sort((a, b) => b.z - a.z)[0]?.app ?? null;
+  const pomodoroAlert = usePomodoro((s) => s.alert);
+  const dismissPomodoroAlert = usePomodoro((s) => s.dismissAlert);
+  const pomodoroVisible = windows.some((w) => w.app === "pomodoro" && !w.minimized);
 
   const focus = (app: AppId) =>
     setWindows((ws) => ws.map((w) => (w.app === app ? { ...w, z: ++zTop.current, minimized: false } : w)));
@@ -191,35 +206,42 @@ export function Desktop({
     { id: "notes", label: "Notas", icon: <NotesIcon />, onOpen: () => open("notes") },
     { id: "trash", label: "Papelera", icon: <TrashIcon full={notes.trashed.length > 0} />, onOpen: () => open("trash") },
     { id: "calendar", label: "Calendario", icon: <CalendarIcon />, onOpen: () => open("calendar") },
+    { id: "pomodoro", label: "Enfoque", icon: <TomatoIcon />, onOpen: () => open("pomodoro") },
+    { id: "minesweeper", label: "Buscaminas", icon: <MineIcon />, onOpen: () => open("minesweeper") },
+    { id: "browser", label: "Favoritos", icon: <BrowserIcon />, onOpen: () => open("browser") },
     ...FUTURE.map((f) => ({ id: f.id, label: f.label, icon: <f.Icon />, onOpen: () => soon(f.label), disabled: true })),
   ];
 
-  const iconFor = (app: AppId, size = 18) =>
-    app === "notes" ? (
-      <NotesIcon size={size} />
-    ) : app === "trash" ? (
-      <TrashIcon size={size} full={notes.trashed.length > 0} />
-    ) : (
-      <CalendarIcon size={size} />
-    );
+  const iconFor = (app: AppId, size = 18) => {
+    switch (app) {
+      case "notes":
+        return <NotesIcon size={size} />;
+      case "trash":
+        return <TrashIcon size={size} full={notes.trashed.length > 0} />;
+      case "calendar":
+        return <CalendarIcon size={size} />;
+      case "pomodoro":
+        return <TomatoIcon size={size} />;
+      case "minesweeper":
+        return <MineIcon size={size} />;
+      case "browser":
+        return <BrowserIcon size={size} />;
+    }
+  };
 
   return (
-    <div className="flex h-full flex-col font-plex text-riso-navy">
-      {/* Escritorio: fondo de papel con las formas de tinta del login. */}
+    <div className="flex h-full flex-col font-pixel text-cozy-ink">
+      {/* Escritorio: cielo pixel con la cabaña de fondo (la misma ilustración del login). */}
       <div
         ref={areaRef}
-        className="relative min-h-0 flex-1 overflow-hidden bg-riso-paper"
+        className="relative min-h-0 flex-1 overflow-hidden"
+        style={{ background: `radial-gradient(circle, rgb(255 255 255 / 0.16) 1px, transparent 1.4px) 0 0 / 16px 16px, ${COZY.sky}` }}
         onPointerDown={(e) => e.target === e.currentTarget && setSelectedIcon(null)}
         onContextMenu={(e) => e.preventDefault()}
       >
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div
-            className="absolute right-[6%] bottom-[-18%] aspect-square w-[46%] rounded-full opacity-80 mix-blend-multiply"
-            style={{ background: `radial-gradient(circle, ${RISO.pink} 2.2px, transparent 2.6px) 0 0 / 11px 11px` }}
-          />
-          <div className="absolute right-[-6%] bottom-[-30%] aspect-square w-[40%] rounded-full bg-riso-blue opacity-70 mix-blend-multiply" />
-          <div className="absolute right-[30%] bottom-[8%] aspect-square w-[12%] rotate-12 bg-riso-yellow mix-blend-multiply" />
-          <p className="font-display absolute right-6 top-4 text-sm opacity-50">Hyvento OS</p>
+          <CabinShowcase className="absolute right-[-4%] bottom-[-10%] w-[72%] max-w-[760px]" />
+          <p className="absolute top-4 right-6 text-[15px] font-semibold text-cozy-paper-light">Hyvento OS</p>
         </div>
 
         <div className="absolute top-3 left-3 flex max-h-[calc(100%-1.5rem)] flex-col flex-wrap content-start gap-1">
@@ -251,8 +273,8 @@ export function Desktop({
             >
               {ic.icon}
               <span
-                className={`max-w-full truncate px-1 text-[11px] font-semibold ${
-                  selectedIcon === ic.id ? "bg-riso-navy text-riso-paper" : "bg-riso-paper/80"
+                className={`max-w-full truncate border-2 px-1 text-[12px] ${
+                  selectedIcon === ic.id ? "border-cozy-frame bg-cozy-frame text-cozy-paper-light" : "border-transparent bg-cozy-paper-light/90"
                 }`}
               >
                 {ic.label}
@@ -274,19 +296,19 @@ export function Desktop({
                 data-ctx
                 role="menu"
                 aria-label={`Opciones de ${ic.label}`}
-                className="riso-panel absolute z-[1500] w-52 py-1 text-[13px]"
+                className="cozy-panel absolute z-[1500] w-52 py-1 text-[13px]"
                 style={{ left: iconMenu.x, top: iconMenu.y }}
               >
                 <CtxItem onClick={run(ic.onOpen)} bold disabled={ic.disabled}>
                   Abrir
                 </CtxItem>
-                {ic.disabled && <p className="px-3 py-1 text-[11px] text-riso-muted">Próximamente</p>}
+                {ic.disabled && <p className="px-3 py-1 text-[11px] text-cozy-ink-soft">Próximamente</p>}
                 {ic.id === "trash" && (
                   <>
                     <CtxItem onClick={() => void emptyTrash()} disabled={notes.trashed.length === 0} icon={<TrashIcon size={16} full={false} />}>
                       Vaciar papelera
                     </CtxItem>
-                    <hr className="my-1 border-t border-dashed border-riso-navy/35" />
+                    <hr className="my-1 border-t border-dashed border-cozy-frame/35" />
                     <CtxItem onClick={trashProperties}>Propiedades</CtxItem>
                   </>
                 )}
@@ -296,8 +318,8 @@ export function Desktop({
 
         {windows.map((w) => {
           const info = APPS[w.app];
-          if (w.minimized) return null;
-          return (
+          if (w.minimized && !info.keepAlive) return null;
+          const win = (
             <Window
               key={w.app}
               title={info.title}
@@ -318,15 +340,52 @@ export function Desktop({
               {w.app === "notes" && <NotesApp notes={notes} />}
               {w.app === "trash" && <TrashApp notes={notes} confirm={confirm} />}
               {w.app === "calendar" && <CalendarApp />}
+              {w.app === "pomodoro" && <PomodoroApp />}
+              {w.app === "minesweeper" && <MinesweeperApp />}
+              {w.app === "browser" && <BrowserApp active={top === "browser"} />}
             </Window>
+          );
+          // `contents` no cambia el acomodo de la ventana; `none` la esconde sin desmontarla.
+          return info.keepAlive ? (
+            <div key={w.app} style={{ display: w.minimized ? "none" : "contents" }}>
+              {win}
+            </div>
+          ) : (
+            win
           );
         })}
 
+        {/* Aviso del Pomodoro cuando su ventana no está a la vista (y el navegador no mostró notificación). */}
+        {pomodoroAlert && !pomodoroVisible && (
+          <div role="alert" className="cozy-panel absolute right-3 bottom-3 z-[1400] flex w-[min(300px,calc(100%-1.5rem))] items-start gap-2.5 p-3">
+            <TomatoIcon size={28} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold">{ALERT_TEXT[pomodoroAlert].title}</p>
+              <p className="mt-0.5 text-[12px] leading-snug text-cozy-ink-soft">{ALERT_TEXT[pomodoroAlert].body}</p>
+              <div className="mt-2 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    dismissPomodoroAlert();
+                    open("pomodoro");
+                  }}
+                  className="cozy-btn cozy-btn-primary px-2.5 py-1 text-[12px]"
+                >
+                  Abrir Enfoque
+                </button>
+                <button type="button" onClick={dismissPomodoroAlert} className="cozy-btn px-2.5 py-1 text-[12px]">
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {dialog && (
-          <div className="absolute inset-0 z-[1000] grid place-items-center bg-riso-navy/25 p-4">
-            <div role="alertdialog" aria-label={dialog.title} className="riso-panel w-full max-w-sm">
-              <p className="font-display border-b-2 border-riso-navy bg-riso-yellow px-3 py-1.5 text-[13px]">{dialog.title}</p>
-              <p className="px-4 py-4 text-[13px] leading-relaxed">{dialog.message}</p>
+          <div className="absolute inset-0 z-[1000] grid place-items-center bg-cozy-frame/25 p-4">
+            <div role="alertdialog" aria-label={dialog.title} className="cozy-panel w-full max-w-sm">
+              <p className="m-1.5 mb-0 bg-cozy-wood px-3 py-1.5 text-[14px] font-semibold text-cozy-paper-light">{dialog.title}</p>
+              <p className="px-4 py-4 text-[14px] leading-relaxed">{dialog.message}</p>
               <div className="flex justify-end gap-2 px-4 pb-4">
                 {dialog.confirmLabel && (
                   <button
@@ -335,7 +394,7 @@ export function Desktop({
                       dialog.resolve(true);
                       setDialog(null);
                     }}
-                    className="riso-pill riso-press bg-riso-pink px-4 py-1.5 text-xs"
+                    className="cozy-btn cozy-btn-danger px-4 py-1.5 text-[13px]"
                   >
                     {dialog.confirmLabel}
                   </button>
@@ -346,7 +405,7 @@ export function Desktop({
                     dialog.resolve(false);
                     setDialog(null);
                   }}
-                  className="riso-pill px-4 py-1.5 text-xs"
+                  className="cozy-btn px-4 py-1.5 text-[13px]"
                 >
                   {dialog.confirmLabel ? "Cancelar" : "Aceptar"}
                 </button>
@@ -357,27 +416,26 @@ export function Desktop({
       </div>
 
       {/* Barra de tareas estilo XP: Inicio, ventanas abiertas y reloj. */}
-      <div className="relative flex h-10 shrink-0 items-stretch border-t-2 border-riso-navy bg-riso-navy">
+      <div className="relative flex h-11 shrink-0 items-center gap-1.5 border-t-[3px] border-cozy-frame bg-cozy-wood px-1.5 shadow-[inset_0_2px_0_var(--color-cozy-wood-light)]">
         <button
           type="button"
           data-start
           onClick={() => setStartOpen((v) => !v)}
           aria-expanded={startOpen}
-          className="flex items-center gap-2 rounded-r-full border-2 border-l-0 border-riso-navy bg-riso-pink pr-5 pl-3 italic"
+          className="cozy-btn cozy-btn-primary h-8 px-3 text-[15px]"
         >
-          <span className="h-3.5 w-3.5 rounded-full bg-riso-yellow mix-blend-multiply" />
-          <span className="font-display text-[15px] lowercase">inicio</span>
+          <PixelIcon name="cabin" size={14} />
+          Inicio
         </button>
 
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 px-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 px-1">
           {windows.map((w) => (
             <button
               key={w.app}
               type="button"
               onClick={() => (top === w.app ? update(w.app, { minimized: true }) : focus(w.app))}
-              className={`flex h-7 max-w-40 min-w-0 items-center gap-1.5 border-[1.5px] border-riso-navy px-2 text-xs font-semibold ${
-                top === w.app ? "bg-riso-yellow" : "bg-riso-cream"
-              }`}
+              data-on={top === w.app}
+              className="cozy-btn h-8 max-w-40 min-w-0 justify-start px-2 text-[13px]"
             >
               {iconFor(w.app, 14)}
               <span className="truncate">{APPS[w.app].title}</span>
@@ -385,31 +443,33 @@ export function Desktop({
           ))}
         </div>
 
+        <PomodoroTaskbarClock onOpen={() => open("pomodoro")} />
+
         <button
           type="button"
           onClick={() => open("calendar")}
           title="Calendario"
-          className="border-l-2 border-riso-navy bg-riso-blue px-4 text-[13px] font-semibold text-riso-paper"
+          className="cozy-chip h-8 px-3 text-[13px]"
         >
           {timeFmt.format(now)}
         </button>
 
         {startOpen && (
-          <div data-start className="riso-panel absolute bottom-full left-0 z-[1001] mb-0.5 w-[min(330px,100%)]">
-            <div className="flex items-center gap-3 border-b-2 border-riso-navy bg-riso-blue px-3 py-2.5 text-riso-paper">
-              <span className="border-2 border-riso-paper bg-riso-cream">
-                <CharacterSprite avatar={profile.avatar} look={profile.look} className="w-10" />
+          <div data-start className="cozy-panel absolute bottom-full left-0 z-[1001] mb-0.5 w-[min(330px,100%)]">
+            <div className="m-1.5 mb-0 flex items-center gap-3 bg-cozy-wood px-3 py-2.5 text-cozy-paper-light">
+              <span className="border-2 border-cozy-frame bg-[#5d9c46]">
+                <CharacterSprite avatar={profile.avatar} look={profile.look} dir="right" className="w-10" />
               </span>
-              <span className="font-display truncate text-base">{profile.name}</span>
+              <span className="font-semibold truncate text-base">{profile.name}</span>
             </div>
             <div className="grid grid-cols-2">
-              <ul className="border-r-2 border-riso-navy bg-riso-cream py-1">
+              <ul className="border-r-2 border-cozy-frame bg-cozy-paper-light py-1">
                 {(Object.keys(APPS) as AppId[]).map((app) => (
                   <li key={app}>
                     <button
                       type="button"
                       onClick={() => open(app)}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] font-semibold hover:bg-riso-yellow"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] font-semibold hover:bg-cozy-paper-dark"
                     >
                       {iconFor(app, 22)}
                       {APPS[app].title}
@@ -417,29 +477,21 @@ export function Desktop({
                   </li>
                 ))}
               </ul>
-              <ul className="bg-riso-paper py-1">
-                <li className="px-3 pt-1 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-riso-muted uppercase">Próximamente</li>
+              <ul className="bg-cozy-paper py-1">
+                <li className="px-3 pt-1 pb-1.5 text-[12px] font-semibold text-cozy-ink-soft">Próximamente</li>
                 {FUTURE.map((f) => (
-                  <li key={f.id} className="flex items-center gap-2 px-3 py-1 text-xs text-riso-muted opacity-70">
+                  <li key={f.id} className="flex items-center gap-2 px-3 py-1 text-xs text-cozy-ink-soft opacity-70">
                     <f.Icon size={18} />
                     {f.label}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="flex justify-end gap-2 border-t-2 border-riso-navy bg-riso-navy px-2 py-2">
-              <button
-                type="button"
-                onClick={onLogOff}
-                className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-riso-paper hover:underline"
-              >
+            <div className="m-1.5 mt-0 flex justify-end gap-2 bg-cozy-wood px-2 py-2">
+              <button type="button" onClick={onLogOff} className="cozy-btn px-2.5 py-1 text-[13px]">
                 Cerrar sesión
               </button>
-              <button
-                type="button"
-                onClick={onShutdown}
-                className="flex items-center gap-1.5 border-[1.5px] border-riso-paper bg-riso-pink px-2.5 py-1 text-xs font-semibold text-riso-navy"
-              >
+              <button type="button" onClick={onShutdown} className="cozy-btn cozy-btn-danger px-2.5 py-1 text-[13px]">
                 <PowerIcon size={13} />
                 Apagar
               </button>
@@ -470,7 +522,7 @@ function CtxItem({
       role="menuitem"
       disabled={disabled}
       onClick={onClick}
-      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-riso-yellow disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent ${
+      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-cozy-paper-dark disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent ${
         bold ? "font-semibold" : ""
       }`}
     >

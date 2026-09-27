@@ -147,7 +147,7 @@ function FormatMenu({ editor }: { editor: Editor }) {
       shouldShow={({ editor: e, state: s }) =>
         !s.selection.empty && !(s.selection instanceof NodeSelection) && !e.isActive("codeBlock") && e.isEditable
       }
-      className="z-[2000] flex items-center border-2 border-riso-navy bg-riso-navy font-plex shadow-[3px_3px_0_var(--color-riso-pink)]"
+      className="z-[2000] flex items-center border-2 border-cozy-frame bg-cozy-frame font-pixel shadow-[3px_3px_0_var(--color-cozy-red)]"
     >
       {linking ? (
         <form
@@ -162,7 +162,7 @@ function FormatMenu({ editor }: { editor: Editor }) {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="Pega un enlace…"
-            className="w-52 bg-riso-cream px-2 py-1 text-xs text-riso-navy outline-none"
+            className="w-52 bg-cozy-paper-light px-2 py-1 text-xs text-cozy-ink outline-none"
           />
           <MenuButton label="Aplicar enlace" onClick={applyLink}>
             ↵
@@ -183,7 +183,7 @@ function FormatMenu({ editor }: { editor: Editor }) {
             {"</>"}
           </MenuButton>
           <MenuButton label="Resaltar" active={state.highlight} onClick={() => editor.chain().focus().toggleHighlight().run()}>
-            <span className="bg-riso-yellow px-0.5 text-riso-navy">A</span>
+            <span className="bg-cozy-paper-dark px-0.5 text-cozy-ink">A</span>
           </MenuButton>
           <MenuButton
             label="Enlace"
@@ -221,7 +221,7 @@ function MenuButton({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       className={`grid h-7 min-w-7 place-items-center px-1.5 text-[13px] ${
-        active ? "bg-riso-pink text-riso-navy" : "text-riso-paper hover:bg-riso-blue"
+        active ? "bg-cozy-red text-cozy-ink" : "text-cozy-paper-light hover:bg-cozy-sky"
       }`}
     >
       {children}
@@ -240,7 +240,7 @@ function TableMenu({ editor }: { editor: Editor }) {
       appendTo={() => document.body}
       options={{ strategy: "fixed", placement: "bottom", offset: 8 }}
       shouldShow={({ editor: e, state: s }) => e.isActive("table") && s.selection.empty}
-      className="z-[2000] flex flex-wrap items-center gap-px border-2 border-riso-navy bg-riso-navy font-plex text-[11px] font-semibold shadow-[3px_3px_0_var(--color-riso-blue)]"
+      className="z-[2000] flex flex-wrap items-center gap-px border-2 border-cozy-frame bg-cozy-frame font-pixel text-[11px] font-semibold shadow-[3px_3px_0_var(--color-cozy-sky)]"
     >
       {(
         [
@@ -256,7 +256,7 @@ function TableMenu({ editor }: { editor: Editor }) {
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => run(fn)}
-          className="bg-riso-cream px-2 py-1 text-riso-navy hover:bg-riso-yellow"
+          className="bg-cozy-paper-light px-2 py-1 text-cozy-ink hover:bg-cozy-paper-dark"
         >
           {label}
         </button>

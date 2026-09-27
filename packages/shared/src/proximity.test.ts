@@ -19,6 +19,13 @@ describe("canHear", () => {
     expect(canHear(at(0, 0, "meeting", true), at(900, 0, "meeting", true), 160)).toBe(true);
   });
 
+  it("en niveles distintos no se oye aunque las coordenadas coincidan", () => {
+    const a = { ...at(0, 0, "jardin"), area: "jardin" };
+    const b = { ...at(10, 0, "recibidor"), area: "planta-baja" };
+    expect(canHear(a, b, 160)).toBe(false);
+    expect(hearing(a, new Map([["b", b]]), new Set(), 160).size).toBe(0);
+  });
+
   it("no se oye a través de la pared de una zona aislada aunque estén cerca", () => {
     expect(canHear(at(0, 0, "office-1", true), at(10, 0, "lounge"), 160)).toBe(false);
     expect(canHear(at(0, 0, "lounge"), at(10, 0, "office-1", true), 160)).toBe(false);

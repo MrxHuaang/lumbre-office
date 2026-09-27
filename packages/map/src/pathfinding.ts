@@ -1,4 +1,4 @@
-import type { OfficeMap } from "./index";
+import type { OfficeMap } from "./world/build";
 
 export interface TilePos {
   x: number;
@@ -20,12 +20,18 @@ const DIRS: readonly [number, number, number][] = [
 /**
  * A* sobre la grilla de colisión (8 direcciones, sin cortar esquinas).
  * Devuelve la ruta de tiles SIN incluir el inicio, o `null` si no hay camino.
- * Síncrono: la usan tanto el cliente (clic-para-caminar) como el servidor (NPCs).
+ * Respeta las paredes delgadas entre tiles. Síncrono: la usa el cliente (clic-para-caminar).
+ * Los portales (puertas, escaleras) solo se pisan si son el destino: pasar junto a una puerta no cambia de nivel.
  */
 export function findPath(map: OfficeMap, start: TilePos, goal: TilePos): TilePos[] | null {
   const { width, height, blocked } = map;
   const inBounds = (x: number, y: number) => x >= 0 && y >= 0 && x < width && y < height;
-  const free = (x: number, y: number) => inBounds(x, y) && blocked[y * width + x] === 0;
+  const portalTiles = new Set(map.portals.flatMap((p) => p.tiles.map((t) => t.y * width + t.x)));
+  portalTiles.delete(goal.y * width + goal.x);
+  const free = (x: number, y: number) => inBounds(x, y) && blocked[y * width + x] === 0 && !portalTiles.has(y * width + x);
+  // Paredes delgadas entre tiles vecinos (ortogonales).
+  const wall = (ax: number, ay: number, bx: number, by: number) =>
+    ax === bx ? map.wallH[Math.max(ay, by) * width + ax] !== 0 : map.wallV[ay * (width + 1) + Math.max(ax, bx)] !== 0;
   if (!free(goal.x, goal.y) || !inBounds(start.x, start.y)) return null;
   if (start.x === goal.x && start.y === goal.y) return [];
 
@@ -58,8 +64,19 @@ export function findPath(map: OfficeMap, start: TilePos, goal: TilePos): TilePos
       const nx = cx + dx;
       const ny = cy + dy;
       if (!free(nx, ny)) continue;
-      // Sin cortar esquinas: en diagonal ambos ortogonales deben estar libres.
-      if (dx !== 0 && dy !== 0 && (!free(cx + dx, cy) || !free(cx, cy + dy))) continue;
+      if (dx === 0 || dy === 0) {
+        if (wall(cx, cy, nx, ny)) continue;
+      } else if (
+        // Sin cortar esquinas: en diagonal ambos ortogonales deben estar libres y sin paredes.
+        !free(cx + dx, cy) ||
+        !free(cx, cy + dy) ||
+        wall(cx, cy, cx + dx, cy) ||
+        wall(cx, cy, cx, cy + dy) ||
+        wall(cx + dx, cy, nx, ny) ||
+        wall(cx, cy + dy, nx, ny)
+      ) {
+        continue;
+      }
       const ni = ny * width + nx;
       if (closed[ni]) continue;
       const tentative = g[current]! + cost;

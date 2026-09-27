@@ -1,176 +1,99 @@
-import { nearestFreeTile } from "./pathfinding";
-import { prop, type TiledMap, type TiledObjectLayer, type TiledTileLayer } from "./tiled";
+import { AREAS, SPAWN_AREA } from "./world/areas";
+import type { AreaDef } from "./world/types";
+import { buildEditedArea, type WorldEdits } from "./worldEdits";
+import { buildArea, FEET_BOX, isBlockedTile, wallAbove, wallLeftOf, type OfficeMap, type PointType, type Portal, type Seat, type Zone } from "./world/build";
 
-export * from "./tiled";
 export * from "./pathfinding";
+export * from "./decor";
+export * from "./worldEdits";
+export * from "./casa";
+export * from "./footsteps";
+export * from "./world/build";
+export * from "./world/catalog";
+export * from "./world/seats";
+export type * from "./world/types";
+export { AREAS, BLACKJACK_SEATS, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
 
-/** Capas de tiles cuyos tiles con `collides=true` bloquean el paso. */
-export const COLLISION_LAYERS = ["walls", "furniture"] as const;
-
-export type ZoneType = "office" | "meeting" | "coworking" | "lounge";
-export type PointType = "spawn" | "seat" | "task_board" | "screen";
-
-export interface Zone {
-  id: string;
-  type: ZoneType;
-  name: string;
-  /** Rectángulo en píxeles. */
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  /** Audio/chat aislado del exterior (oficinas y salas de reunión). */
-  isolated: boolean;
-  slot?: number;
+/** Todos los niveles de la cabaña, ya construidos. */
+export interface World {
+  areas: Map<string, OfficeMap>;
+  spawnArea: string;
 }
 
-export interface MapPoint {
-  id: number;
-  type: PointType;
-  name: string;
-  tileX: number;
-  tileY: number;
-  /** Centro del tile en píxeles. */
-  x: number;
-  y: number;
-  /** Zona a la que pertenece (seats). */
-  zone?: string;
-  /** Referencia a otra entidad (visitor_spot → desk id). */
-  ref?: string;
-  index?: number;
+let world: World | undefined;
+export function getWorld(): World {
+  world ??= { areas: new Map(AREAS.map((a) => [a.id, buildArea(a)])), spawnArea: SPAWN_AREA };
+  return world;
 }
 
-/** Hacia dónde queda mirando quien se sienta (sillas y sofás miran a la mesa). */
-export type SeatFacing = "up" | "down";
-
-/** Un tile con la propiedad `seat` (silla o sofá). */
-export interface Seat {
-  tileX: number;
-  tileY: number;
-  /** Posición de los pies de quien está sentado, en px. */
-  x: number;
-  y: number;
-  facing: SeatFacing;
-  /** Frente a un escritorio con computador (se puede prender el PC). */
-  computer: boolean;
+/** Definición de un nivel tal como está en el código (sin los cambios del editor de la casa). */
+export function planDef(areaId: string): AreaDef | undefined {
+  return AREAS.find((a) => a.id === areaId);
 }
 
-export interface OfficeMap {
-  width: number;
-  height: number;
-  tileSize: number;
-  /** 1 = bloqueado, indexado como `ty * width + tx`. */
-  blocked: Uint8Array;
-  zones: Zone[];
-  points: MapPoint[];
-  /** Asientos por índice de tile (`ty * width + tx`). */
-  seats: Map<number, Seat>;
+/**
+ * Aplica los cambios del editor de la casa a un nivel del mundo: desde ahí `getWorld()` lo devuelve con
+ * esos muebles (y la decoración de las oficinas se arma encima). Devuelve el nivel nuevo.
+ */
+export function setWorldEdits(areaId: string, edits: WorldEdits): OfficeMap | undefined {
+  const def = planDef(areaId);
+  if (!def) return undefined;
+  const map = buildEditedArea(def, edits);
+  getWorld().areas.set(areaId, map);
+  return map;
 }
 
-/** Altura de los pies dentro del tile del asiento (la persona sentada queda sobre la silla). */
-export const SEAT_FEET_Y = 24;
+/** Todas las zonas de todos los niveles (sus ids son únicos en toda la cabaña). */
+export function allZones(w: World = getWorld()): Zone[] {
+  return [...w.areas.values()].flatMap((a) => a.zones);
+}
+
 /** Distancia máxima (en tiles) desde la que uno puede sentarse o a la que se levanta. */
 export const SEAT_REACH_TILES = 1.5;
-
-/** Caja de colisión de los pies del avatar, relativa a su posición (x, y = pies). */
-export const FEET_BOX = { halfWidth: 7, top: -6, bottom: 0 } as const;
-
-export function parseOfficeMap(tmj: TiledMap): OfficeMap {
-  const tileSize = tmj.tilewidth;
-  const colliding = new Set<number>();
-  const seatFacing = new Map<number, SeatFacing>();
-  const computerGids = new Set<number>();
-  for (const ts of tmj.tilesets) {
-    for (const t of ts.tiles ?? []) {
-      if (prop<boolean>(t.properties, "collides")) colliding.add(ts.firstgid + t.id);
-      const seat = prop<string>(t.properties, "seat");
-      if (seat === "up" || seat === "down") seatFacing.set(ts.firstgid + t.id, seat);
-      if (prop<boolean>(t.properties, "computer")) computerGids.add(ts.firstgid + t.id);
-    }
-  }
-
-  const blocked = new Uint8Array(tmj.width * tmj.height);
-  const seats = new Map<number, Seat>();
-  const computers = new Set<number>();
-  for (const layer of tmj.layers) {
-    if (layer.type !== "tilelayer") continue;
-    (layer as TiledTileLayer).data.forEach((gid, i) => {
-      if (computerGids.has(gid)) computers.add(i);
-    });
-  }
-  for (const layer of tmj.layers) {
-    if (layer.type !== "tilelayer") continue;
-    (layer as TiledTileLayer).data.forEach((gid, i) => {
-      const facing = seatFacing.get(gid);
-      if (!facing) return;
-      const tileX = i % tmj.width;
-      const tileY = Math.floor(i / tmj.width);
-      // Se usa el PC si la silla mira hacia un escritorio con computador justo arriba.
-      const computer = facing === "up" && computers.has(i - tmj.width);
-      seats.set(i, { tileX, tileY, x: tileX * tileSize + tileSize / 2, y: tileY * tileSize + SEAT_FEET_Y, facing, computer });
-    });
-    if (!(COLLISION_LAYERS as readonly string[]).includes(layer.name)) continue;
-    (layer as TiledTileLayer).data.forEach((gid, i) => {
-      if (colliding.has(gid)) blocked[i] = 1;
-    });
-  }
-
-  const zonesLayer = findObjectLayer(tmj, "zones");
-  const zones: Zone[] = (zonesLayer?.objects ?? []).map((o) => ({
-    id: prop<string>(o.properties, "zoneId") ?? `${o.type}-${o.id}`,
-    type: o.type as ZoneType,
-    name: o.name,
-    x: o.x,
-    y: o.y,
-    width: o.width,
-    height: o.height,
-    isolated: prop<boolean>(o.properties, "isolated") ?? (o.type === "office" || o.type === "meeting"),
-    slot: prop<number>(o.properties, "slot"),
-  }));
-
-  const pointsLayer = findObjectLayer(tmj, "points");
-  const points: MapPoint[] = (pointsLayer?.objects ?? []).map((o) => {
-    const tileX = Math.floor(o.x / tileSize);
-    const tileY = Math.floor(o.y / tileSize);
-    return {
-      id: o.id,
-      type: o.type as PointType,
-      name: o.name,
-      tileX,
-      tileY,
-      x: tileX * tileSize + tileSize / 2,
-      y: tileY * tileSize + tileSize / 2,
-      zone: prop<string>(o.properties, "zone"),
-      ref: prop<string>(o.properties, "ref"),
-      index: prop<number>(o.properties, "index"),
-    };
-  });
-
-  return { width: tmj.width, height: tmj.height, tileSize, blocked, zones, points, seats };
-}
-
-function findObjectLayer(tmj: TiledMap, name: string): TiledObjectLayer | undefined {
-  return tmj.layers.find((l): l is TiledObjectLayer => l.type === "objectgroup" && l.name === name);
-}
-
-export function isBlockedTile(map: OfficeMap, tx: number, ty: number): boolean {
-  if (tx < 0 || ty < 0 || tx >= map.width || ty >= map.height) return true;
-  return map.blocked[ty * map.width + tx] === 1;
-}
+/** Distancia máxima (en tiles) al centro de un portal para usarlo. */
+export const PORTAL_REACH_TILES = 1.25;
+/** Distancia (en tiles) a la que se usa un objeto interactivo (buzón, tablón, barra de la cafetería). */
+export const INTERACT_REACH_TILES = 1.4;
 
 export function isBlockedPx(map: OfficeMap, px: number, py: number): boolean {
   return isBlockedTile(map, Math.floor(px / map.tileSize), Math.floor(py / map.tileSize));
 }
 
-/** ¿Puede un avatar pararse con los pies en (x, y)? Revisa las esquinas de FEET_BOX. */
+/**
+ * ¿Puede un avatar pararse con los pies en (x, y)? La caja de los pies no puede tocar tiles
+ * bloqueados ni quedar partida por una pared (las paredes son bordes delgados entre tiles).
+ */
 export function canStandAt(map: OfficeMap, x: number, y: number): boolean {
   const { halfWidth, top, bottom } = FEET_BOX;
-  return (
-    !isBlockedPx(map, x - halfWidth, y + top) &&
-    !isBlockedPx(map, x + halfWidth, y + top) &&
-    !isBlockedPx(map, x - halfWidth, y + bottom - 1) &&
-    !isBlockedPx(map, x + halfWidth, y + bottom - 1)
-  );
+  const ts = map.tileSize;
+  const x0 = x - halfWidth;
+  const x1 = x + halfWidth;
+  const y0 = y + top;
+  const y1 = y + bottom - 1;
+  if (isBlockedPx(map, x0, y0) || isBlockedPx(map, x1, y0) || isBlockedPx(map, x0, y1) || isBlockedPx(map, x1, y1)) {
+    return false;
+  }
+  const tx0 = Math.floor(x0 / ts);
+  const tx1 = Math.floor(x1 / ts);
+  const ty0 = Math.floor(y0 / ts);
+  const ty1 = Math.floor(y1 / ts);
+  if (tx0 !== tx1) for (let ty = ty0; ty <= ty1; ty++) if (wallLeftOf(map, tx1, ty)) return false;
+  if (ty0 !== ty1) for (let tx = tx0; tx <= tx1; tx++) if (wallAbove(map, tx, ty1)) return false;
+  return true;
+}
+
+/**
+ * ¿Se puede caminar en línea recta de A a B? Revisa puntos intermedios más cerca que el ancho de
+ * los pies, así nadie "salta" una pared delgada entre dos posiciones enviadas.
+ */
+export function canWalkBetween(map: OfficeMap, ax: number, ay: number, bx: number, by: number): boolean {
+  const dist = Math.hypot(bx - ax, by - ay);
+  const steps = Math.max(1, Math.ceil(dist / 4));
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    if (!canStandAt(map, ax + (bx - ax) * t, ay + (by - ay) * t)) return false;
+  }
+  return true;
 }
 
 /** Zona que contiene el punto; si hay solapamiento gana la más pequeña. */
@@ -184,37 +107,25 @@ export function zoneAt(map: OfficeMap, px: number, py: number): Zone | undefined
   return best;
 }
 
-const DOORWAY_PRIORITY: ZoneType[] = ["office", "meeting", "coworking"];
+/** Zonas "cerradas": tienen puerta y se muestran como lugar propio. */
+const CLOSED_TYPES = new Set(["office", "meeting", "table"]);
 
 /**
  * Lugar "humano" de un punto, para mostrar dónde está alguien:
- * - el id de la zona cerrada (oficina, sala, coworking) que lo contiene;
- * - `door:<zoneId>` si está en el umbral de una puerta: fuera de toda zona cerrada pero pegado a una.
- *   Funciona porque las zonas cerradas están rodeadas de muro y solo sus puertas quedan contiguas;
- * - la zona abierta que lo contiene (zona común), o "" en un pasillo sin zona.
+ * - el id de la zona cerrada (oficina, sala, mesa) que lo contiene;
+ * - `door:<zoneId>` si está parado en el tile de la puerta de una zona cerrada;
+ * - la zona abierta que lo contiene, o "" si no hay ninguna.
  * No afecta el aislamiento de audio/chat: eso depende solo de `zoneAt`.
  */
 export function placeAt(map: OfficeMap, x: number, y: number): string {
   const zone = zoneAt(map, x, y);
-  if (zone && DOORWAY_PRIORITY.includes(zone.type)) return zone.id;
-  const doorway = doorwayAt(map, x, y);
+  if (zone && CLOSED_TYPES.has(zone.type)) return zone.id;
+  const ts = map.tileSize;
+  const tx = Math.floor(x / ts);
+  const ty = Math.floor(y / ts);
+  const doorway = map.zones.find((z) => z.door && Math.floor(z.door.x / ts) === tx && Math.floor(z.door.y / ts) === ty);
   if (doorway) return `door:${doorway.id}`;
   return zone?.id ?? "";
-}
-
-function doorwayAt(map: OfficeMap, x: number, y: number): Zone | undefined {
-  const ts = map.tileSize;
-  const around = [
-    zoneAt(map, x, y - ts),
-    zoneAt(map, x, y + ts),
-    zoneAt(map, x - ts, y),
-    zoneAt(map, x + ts, y),
-  ].filter((z): z is Zone => Boolean(z));
-  for (const type of DOORWAY_PRIORITY) {
-    const z = around.find((a) => a.type === type);
-    if (z) return z;
-  }
-  return undefined;
 }
 
 /** Texto para un lugar devuelto por `placeAt`. */
@@ -224,12 +135,12 @@ export function placeLabel(place: string, zoneName: (id: string) => string | und
   return zoneName(place) ?? "Pasillo";
 }
 
-/** Punto frente a la puerta de una oficina: centro del borde inferior, un tile hacia afuera. */
-export function officeDoor(map: OfficeMap, zone: Zone): { x: number; y: number } {
-  return { x: zone.x + zone.width / 2, y: zone.y + zone.height + map.tileSize / 2 };
+/** Punto frente a la puerta de una zona cerrada (o su centro si no tiene puerta). */
+export function officeDoor(zone: Zone): { x: number; y: number } {
+  return zone.door ?? { x: zone.x + zone.width / 2, y: zone.y + zone.height / 2 };
 }
 
-/** Centro de una zona, ajustado a un tile libre (para "ir a mi oficina"). */
+/** Centro de una zona, en tiles (para "ir a mi oficina"). */
 export function zoneCenterTile(map: OfficeMap, zone: Zone): { x: number; y: number } {
   const cx = Math.floor((zone.x + zone.width / 2) / map.tileSize);
   const cy = Math.floor((zone.y + zone.height / 2) / map.tileSize);
@@ -246,25 +157,29 @@ export function seatAtPoint(map: OfficeMap, x: number, y: number): Seat | undefi
   return seat && Math.abs(seat.x - x) <= 0.5 && Math.abs(seat.y - y) <= 0.5 ? seat : undefined;
 }
 
-/**
- * Dónde queda de pie quien se levanta: en la misma silla si es transitable, o en el tile libre
- * hacia el que mira (frente al sofá).
- */
-export function seatStandSpot(map: OfficeMap, seat: Seat): { x: number; y: number } {
-  if (canStandAt(map, seat.x, seat.y)) return { x: seat.x, y: seat.y };
-  const ts = map.tileSize;
-  const ahead = { x: seat.tileX, y: seat.tileY + (seat.facing === "down" ? 1 : -1) };
-  const tile = isBlockedTile(map, ahead.x, ahead.y) ? nearestFreeTile(map, { x: seat.tileX, y: seat.tileY }) : ahead;
-  if (!tile) return { x: seat.x, y: seat.y };
-  return { x: tile.x * ts + ts / 2, y: tile.y * ts + ts * 0.75 };
-}
-
-export function pointsOfType(map: OfficeMap, type: PointType): MapPoint[] {
+export function pointsOfType(map: OfficeMap, type: string) {
   return map.points.filter((p) => p.type === type);
 }
 
-export function spawnPoint(map: OfficeMap): MapPoint {
+/** ¿Está (x, y) al alcance de algún punto de ese tipo (la barra, el buzón)? */
+export function nearPointOfType(map: OfficeMap, type: PointType, x: number, y: number): boolean {
+  const reach = INTERACT_REACH_TILES * map.tileSize;
+  return pointsOfType(map, type).some((p) => Math.hypot(p.x - x, p.y - y) <= reach);
+}
+
+export function spawnPoint(map: OfficeMap) {
   const spawn = map.points.find((p) => p.type === "spawn");
-  if (!spawn) throw new Error("El mapa no tiene un punto 'spawn'");
+  if (!spawn) throw new Error(`El nivel ${map.id} no tiene un punto 'spawn'`);
   return spawn;
+}
+
+/** Portal cuyo tile es (tx, ty). */
+export function portalAtTile(map: OfficeMap, tx: number, ty: number): Portal | undefined {
+  return map.portals.find((p) => p.tiles.some((t) => t.x === tx && t.y === ty));
+}
+
+/** ¿Está (x, y) lo bastante cerca de algún tile del portal para usarlo? */
+export function nearPortal(map: OfficeMap, portal: Portal, x: number, y: number): boolean {
+  const ts = map.tileSize;
+  return portal.tiles.some((t) => Math.hypot(t.x * ts + ts / 2 - x, t.y * ts + ts / 2 - y) <= ts * PORTAL_REACH_TILES);
 }

@@ -91,9 +91,9 @@ const SlashMenu = forwardRef<SlashMenuHandle, SuggestionProps<SlashItem, SlashIt
   }));
 
   return (
-    <div ref={listRef} className="riso-panel max-h-72 w-64 overflow-y-auto py-1 font-plex text-riso-navy">
-      <p className="px-3 pt-1 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-riso-muted uppercase">Bloques</p>
-      {items.length === 0 && <p className="px-3 pb-2 text-xs text-riso-muted">Sin resultados</p>}
+    <div ref={listRef} className="cozy-panel max-h-72 w-64 overflow-y-auto py-1 font-pixel text-cozy-ink">
+      <p className="px-3 pt-1 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-cozy-ink-soft uppercase">Bloques</p>
+      {items.length === 0 && <p className="px-3 pb-2 text-xs text-cozy-ink-soft">Sin resultados</p>}
       {items.map((item, i) => (
         <button
           key={item.title}
@@ -104,14 +104,14 @@ const SlashMenu = forwardRef<SlashMenuHandle, SuggestionProps<SlashItem, SlashIt
             e.preventDefault(); // no perder la selección del editor
             command(item);
           }}
-          className={`flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left ${i === index ? "bg-riso-yellow" : ""}`}
+          className={`flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left ${i === index ? "bg-cozy-paper-dark" : ""}`}
         >
-          <span className="grid h-8 w-8 shrink-0 place-items-center border-[1.5px] border-riso-navy bg-riso-cream text-[12px] font-semibold">
+          <span className="grid h-8 w-8 shrink-0 place-items-center border-[1.5px] border-cozy-frame bg-cozy-paper-light text-[12px] font-semibold">
             {item.icon}
           </span>
           <span className="min-w-0">
             <span className="block text-[13px] font-semibold">{item.title}</span>
-            <span className="block truncate text-[11px] text-riso-muted">{item.description}</span>
+            <span className="block truncate text-[11px] text-cozy-ink-soft">{item.description}</span>
           </span>
         </button>
       ))}

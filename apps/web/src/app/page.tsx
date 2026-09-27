@@ -1,10 +1,13 @@
-import { OfficeApp } from "@/components/OfficeApp";
-import { asAvatar, asLook, requireUser } from "@/lib/current-user";
+import { OfficeAppLazy as OfficeApp } from "@/components/OfficeAppLazy";
+import { Landing } from "@/components/lumbre/Landing";
+import { asAvatar, asLook, getCurrentUser } from "@/lib/current-user";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const user = await requireUser();
+  // Sin sesión (o si el usuario ya no existe en la base) se ve la portada pública de Lumbre.
+  const user = await getCurrentUser();
+  if (!user) return <Landing />;
   return (
     <OfficeApp
       user={{

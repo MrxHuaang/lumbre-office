@@ -1,9 +1,55 @@
-import { prisma, type PresenceStatus as DbStatus } from "@hyvento/db";
-import { HUMAN_AVATARS, Look, type ChatEvent, type HumanAvatar, type PresenceStatus } from "@hyvento/shared";
-import type { GameRepository } from "./types";
+import {
+  addInventoryTx,
+  applyStatChanges,
+  loadAchievementRecord,
+  unlockAchievement,
+  awardPoints,
+  grantWelcomeBonus,
+  casinoBet,
+  getCasinoSettings,
+  givenToday,
+  listInventory,
+  type PresenceStatus as DbStatus,
+  prisma,
+  type Prisma,
+  recordFishCatch,
+  spendPoints,
+  takeInventoryTx,
+} from "@hyvento/db";
+import {
+  CHAIR_RACE,
+  DIRECTIONS,
+  HUMAN_AVATARS,
+  Look,
+  type ArcadeGame,
+  type ChatEvent,
+  type Direction,
+  type HumanAvatar,
+  type OfficeItemDTO,
+  type PointReason,
+  type PresenceStatus,
+  type StatChange,
+} from "@hyvento/shared";
+import { executeTrade } from "./social";
+import type { GameRepository, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
+
+const toItemDTO = (i: { id: string; type: string; x: number; y: number; facing: string }): OfficeItemDTO => ({
+  id: i.id,
+  type: i.type,
+  x: i.x,
+  y: i.y,
+  facing: (DIRECTIONS as readonly string[]).includes(i.facing) ? (i.facing as Direction) : "right",
+});
+
+/** Corta la transacción del editor (se deshace todo) con el motivo para responder. */
+class EditAborted extends Error {
+  constructor(readonly code: "not-owned" | "unknown") {
+    super(code);
+  }
+}
 
 export class PrismaRepository implements GameRepository {
   async ensureOffices(offices: { zoneId: string; name: string }[]) {
@@ -15,14 +61,74 @@ export class PrismaRepository implements GameRepository {
   }
 
   async listOffices() {
-    const rows = await prisma.office.findMany({ include: { owner: { select: { name: true } } } });
+    const rows = await prisma.office.findMany({
+      include: { owner: { select: { name: true } }, items: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] } },
+    });
     return rows.map((o) => ({
       zoneId: o.zoneId,
       name: o.name,
       ownerId: o.ownerId,
       ownerName: o.owner?.name ?? null,
       locked: o.isLocked,
+      floor: o.floor,
+      wallpaper: o.wallpaper,
+      customized: o.customized,
+      items: o.items.map(toItemDTO),
     }));
+  }
+
+  async editOfficeItems({ zoneId, userId, defaults, edit }: OfficeItemsInput): Promise<OfficeItemsResult> {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const office = await tx.office.findUnique({ where: { zoneId }, select: { id: true } });
+        if (!office) throw new EditAborted("unknown");
+        const officeId = office.id;
+        // Primera edición: los muebles del mapa pasan a ser filas propias. El update condicional hace que
+        // se copien una sola vez aunque lleguen dos cambios a la vez.
+        const ids = new Map<string, string>();
+        const first = await tx.office.updateMany({ where: { id: officeId, customized: false }, data: { customized: true } });
+        if (first.count === 1) {
+          for (const d of defaults) {
+            const row = await tx.officeItem.create({ data: { officeId, type: d.type, x: d.x, y: d.y, facing: d.facing }, select: { id: true } });
+            ids.set(d.id, row.id);
+          }
+        }
+        const itemId = (id: string) => ids.get(id) ?? id;
+
+        switch (edit.action) {
+          case "place": {
+            // Descuento condicional: sin unidades en la mochila no se pone nada.
+            if (!(await takeInventoryTx(tx, userId, edit.type))) throw new EditAborted("not-owned");
+            await tx.officeItem.create({ data: { officeId, type: edit.type, x: edit.x, y: edit.y, facing: edit.facing } });
+            break;
+          }
+          case "move": {
+            const moved = await tx.officeItem.updateMany({
+              where: { id: itemId(edit.itemId), officeId },
+              data: { x: edit.x, y: edit.y, facing: edit.facing },
+            });
+            if (moved.count === 0) throw new EditAborted("unknown");
+            break;
+          }
+          case "remove": {
+            const row = await tx.officeItem.findFirst({ where: { id: itemId(edit.itemId), officeId }, select: { id: true, type: true } });
+            if (!row) throw new EditAborted("unknown");
+            await tx.officeItem.delete({ where: { id: row.id } });
+            await addInventoryTx(tx, userId, row.type, 1);
+            break;
+          }
+        }
+        const items = await tx.officeItem.findMany({ where: { officeId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] });
+        return { ok: true as const, items: items.map(toItemDTO) };
+      });
+    } catch (err) {
+      if (err instanceof EditAborted) return { ok: false, error: err.code };
+      throw err;
+    }
+  }
+
+  async setOfficeStyle(zoneId: string, style: { floor?: string; wallpaper?: string }) {
+    await prisma.office.update({ where: { zoneId }, data: { floor: style.floor, wallpaper: style.wallpaper } });
   }
 
   async getUserProfile(userId: string) {
@@ -81,5 +187,128 @@ export class PrismaRepository implements GameRepository {
         createdAt: new Date(event.ts),
       },
     });
+  }
+
+  async getPoints(userId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { points: true } });
+    return user?.points ?? 0;
+  }
+
+  awardPoints(input: { userId: string; amount: number; reason: PointReason }) {
+    return awardPoints(prisma, input);
+  }
+  grantWelcome(userId: string) {
+    return grantWelcomeBonus(prisma, userId);
+  }
+
+  spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }) {
+    return spendPoints(prisma, input);
+  }
+
+  getCasinoSettings() {
+    return getCasinoSettings(prisma);
+  }
+
+  async loadWorldEdits() {
+    const rows = await prisma.worldLayout.findMany();
+    return Object.fromEntries(rows.map((r) => [r.area, r.edits as unknown]));
+  }
+
+  async saveWorldEdits(area: string, edits: unknown, userId: string) {
+    const json = edits as Prisma.InputJsonValue;
+    await prisma.worldLayout.upsert({ where: { area }, create: { area, edits: json, updatedBy: userId }, update: { edits: json, updatedBy: userId } });
+  }
+
+  async loadBoard(zoneId: string) {
+    return (await prisma.whiteboard.findUnique({ where: { zoneId } }))?.strokes ?? null;
+  }
+
+  async saveBoard(zoneId: string, strokes: unknown) {
+    const json = strokes as Prisma.InputJsonValue;
+    await prisma.whiteboard.upsert({ where: { zoneId }, create: { zoneId, strokes: json }, update: { strokes: json } });
+  }
+
+  casinoBet(input: { userId: string; amount: number; refId: string }) {
+    return casinoBet(prisma, input);
+  }
+
+  async casinoPayout({ userId, amount, refId }: { userId: string; amount: number; refId: string }) {
+    const { balance } = await awardPoints(prisma, { userId, amount, reason: "CASINO", refId });
+    return { balance };
+  }
+
+  saveFishCatch(input: { userId: string; species: string; size: number; points: number }) {
+    return recordFishCatch(prisma, input);
+  }
+
+  // ---------- Regalos e intercambios ----------
+
+  getInventory(userId: string) {
+    return listInventory(prisma, userId);
+  }
+
+  async givenToday(userId: string) {
+    const { points, items } = await givenToday(prisma, userId);
+    return { points, items };
+  }
+
+  executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
+    return executeTrade(prisma, input);
+  }
+
+  saveArcadeScore({ userId, game, score, dayStart, weekStart }: { userId: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }) {
+    return prisma.$transaction(async (tx) => {
+      // Un candado de la transacción para todo el arcade: dos partidas que terminan a la vez (aunque haya
+      // más de un servidor) no leen el mismo récord ni cuentan las dos como la primera del día.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('hyvento:arcade'))`;
+      const today = await tx.arcadeScore.count({ where: { userId, createdAt: { gte: new Date(dayStart) } } });
+      const best = await tx.arcadeScore.findFirst({
+        where: { game, createdAt: { gte: new Date(weekStart) } },
+        orderBy: [{ score: "desc" }, { createdAt: "asc" }],
+        select: { score: true, userId: true },
+      });
+      await tx.arcadeScore.create({ data: { userId, game, score } });
+      return { firstToday: today === 0, weekBest: best?.score ?? 0, weekBestUserId: best?.userId ?? null };
+    });
+  }
+
+  async arcadeBoard({ game, since, limit }: { game: ArcadeGame; since: number; limit: number }) {
+    const rows = await prisma.arcadeScore.groupBy({
+      by: ["userId"],
+      where: { game, createdAt: { gte: new Date(since) } },
+      _max: { score: true },
+      orderBy: { _max: { score: "desc" } },
+      take: limit,
+    });
+    const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } });
+    const names = new Map(users.map((u) => [u.id, u.name]));
+    return rows.map((r) => ({ name: names.get(r.userId) || "Alguien", score: r._max.score ?? 0 }));
+  }
+
+  async saveRaceTime({ userId, ms }: { userId: string; name: string; ms: number }) {
+    // Los tiempos van en la tabla de récords del arcade con su propio "juego" (el puntaje son ms).
+    await prisma.arcadeScore.create({ data: { userId, game: CHAIR_RACE.game, score: ms } });
+  }
+
+  async raceBoard({ since, limit, userId }: { since: number; limit: number; userId: string }) {
+    const where = { game: CHAIR_RACE.game, createdAt: { gte: new Date(since) } };
+    const rows = await prisma.arcadeScore.groupBy({ by: ["userId"], where, _min: { score: true }, orderBy: { _min: { score: "asc" } }, take: limit });
+    const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } });
+    const names = new Map(users.map((u) => [u.id, u.name]));
+    const mine = await prisma.arcadeScore.aggregate({ where: { ...where, userId }, _min: { score: true } });
+    return { entries: rows.map((r) => ({ name: names.get(r.userId) || "Alguien", ms: r._min.score ?? 0 })), myBest: mine._min.score ?? null };
+  }
+
+  async loadAchievements(userId: string) {
+    const r = await loadAchievementRecord(prisma, userId);
+    return { stats: r.stats, unlocked: Object.keys(r.unlocked) };
+  }
+
+  saveStats(userId: string, changes: StatChange[]) {
+    return applyStatChanges(prisma, userId, changes);
+  }
+
+  unlockAchievement(userId: string, achievementId: string) {
+    return unlockAchievement(prisma, userId, achievementId);
   }
 }

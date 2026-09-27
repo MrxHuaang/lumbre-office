@@ -1,10 +1,11 @@
 "use server";
 
-import { prisma } from "@hyvento/db";
+import { prisma, saveCasinoSettings } from "@hyvento/db";
+import { CasinoSettingsBody } from "@hyvento/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/current-user";
-import { publishOfficesChanged } from "@/lib/events";
+import { publishCasinoSettingsChanged, publishOfficesChanged } from "@/lib/events";
 import { assignOffice } from "@/lib/offices";
 
 const InviteInput = z.object({
@@ -52,5 +53,15 @@ export async function revokeInvite(form: FormData) {
   await requireAdmin();
   const email = String(form.get("email") ?? "");
   await prisma.invite.deleteMany({ where: { email, acceptedAt: null } });
+  revalidatePath("/admin");
+}
+
+/** Casino: abrirlo o cerrarlo. */
+export async function saveCasinoSettingsAction(form: FormData) {
+  await requireAdmin();
+  const parsed = CasinoSettingsBody.safeParse({ enabled: form.get("enabled") === "on" });
+  if (!parsed.success) return;
+  await saveCasinoSettings(prisma, parsed.data);
+  await publishCasinoSettingsChanged();
   revalidatePath("/admin");
 }

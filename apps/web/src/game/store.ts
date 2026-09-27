@@ -2,12 +2,18 @@ import {
   KNOCK_TIMEOUT_MS,
   type ChatEvent,
   type ChatScope,
+  type Direction,
   type HumanAvatar,
   type Look,
   type KnockOutcome,
   type KnockRequest,
   type KnockResult,
+  type OfficeEditResult,
+  type OfficeItemDTO,
+  type OfficeRadioState,
+  type PointsAwarded,
   type PresenceStatus,
+  type Weather,
 } from "@hyvento/shared";
 import { create } from "zustand";
 
@@ -23,11 +29,47 @@ export interface PlayerInfo {
   userId: string;
   name: string;
   avatar: string;
+  /** Nivel de la cabaña donde está. */
+  area: string;
   zoneId: string;
   /** Lugar para mostrar (zona, "door:<zona>" o ""). */
   place: string;
   status: PresenceStatus;
+  points: number;
+  /** Lo que lleva en la mano (id de la carta) y los usos que le quedan a cada mano ("4,5"). */
+  held: string;
+  heldLeft: string;
 }
+
+/**
+ * Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería,
+ * mostrador de la tienda y probador.
+ */
+export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack" | "bar" | "fishing" | "photos"
+  // Club y arcade del sótano: la consola de la cabina de DJ y las máquinas.
+  | "dj"
+  | "arcade"
+  // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
+  | "race";
+
+/** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
+export interface UsableNear {
+  type: string;
+  x: number;
+  y: number;
+  label: string;
+}
+/**
+ * Brindis al alcance: "invite" (hay alguien cerca con bebida), "join" (alguien de al lado invita: `name`)
+ * o "waiting" (ya levanté el vaso y espero a los demás).
+ */
+export interface ToastPrompt {
+  mode: "invite" | "join" | "waiting";
+  name?: string;
+}
+
+/** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
+export type PanelKind = Interactable | "backpack" | "fishAlbum" | "whiteboard";
 
 export interface OfficeView {
   zoneId: string;
@@ -35,8 +77,29 @@ export interface OfficeView {
   ownerId: string;
   ownerName: string;
   locked: boolean;
+  /** Nota de la placa de la puerta (la pone el dueño). */
+  note: string;
+  /** La radio de la oficina (suena solo adentro), o null si está apagada. */
+  radio: OfficeRadioState | null;
   guests: string[];
+  /** Fase 3c: false = quedan los muebles del mapa; true = los de `items` (más el escritorio con PC y su silla). */
+  customized: boolean;
+  items: OfficeItemDTO[];
+  /** Piso y papel tapiz elegidos ("" = los del mapa). */
+  floor: string;
+  wallpaper: string;
 }
+
+/**
+ * Mueble elegido en el modo decorar: uno de la mochila (`type`) para ponerlo, o uno ya puesto
+ * (`itemId`) para moverlo o quitarlo.
+ */
+export interface DecorPick {
+  type: string;
+  itemId?: string;
+}
+
+const TURN: Record<Direction, Direction> = { right: "down", down: "left", left: "up", up: "right" };
 
 export interface ZoneInfo {
   id: string;
@@ -71,12 +134,21 @@ interface OfficeStore {
   chatOpen: boolean;
   /** Hay un input de texto enfocado: el juego no debe leer el teclado. */
   typing: boolean;
+  /**
+   * Cuántos lo pidieron (chat, paneles, selector de emotes, intercambio): `typing` sigue mientras quede
+   * alguno. Si fuera un solo booleano, cerrar un panel soltaría el teclado con otro todavía abierto.
+   */
+  typingHolds: number;
   /** Oficina cerrada frente a cuya puerta está el jugador (para ofrecer "tocar"). */
   doorPrompt: string | null;
   /** Junto a un asiento libre ("sit") o sentado ("stand"), para mostrar la ayuda de la tecla E. */
   seatPrompt: "sit" | "stand" | null;
   /** Sentado frente a un escritorio con computador (se puede prender el PC). */
   atComputer: boolean;
+  /** Sentado en una silla que gira (la del escritorio con PC): R da unas vueltas. */
+  atSwivel: boolean;
+  /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
+  toastPrompt: ToastPrompt | null;
   /** El PC está prendido: el mapa no responde a clics ni teclas. */
   pcOn: boolean;
   /** Oficina a la que tocamos y cuya respuesta esperamos. */
@@ -86,6 +158,41 @@ interface OfficeStore {
   notices: Notice[];
   /** Pedido a la escena de caminar hasta una zona (cambia `nonce` para repetir). */
   walkTarget: { zoneId: string; nonce: number } | null;
+  /** Nivel en el que está el jugador local. */
+  area: string;
+  /** Modo noche (luces encendidas); arranca según la hora local. */
+  night: boolean;
+  /** Modo privado: dentro de una oficina o la sala de reuniones, paredes altas y lo de afuera a oscuras. */
+  privateWalls: boolean;
+  setPrivateWalls: (on: boolean) => void;
+  /** Estoy en un nivel de adentro de la casa (el modo privado sirve en cualquier sala). */
+  indoors: boolean;
+  setIndoors: (on: boolean) => void;
+  /** Clima de afuera (lo decide el servidor: `state.weather`). */
+  weather: Weather;
+  setWeather: (weather: Weather) => void;
+  /** Ya se dibujó el primer nivel (el jardín grande tarda un poco: mientras, el cartel de "Entrando"). */
+  mapReady: boolean;
+  setMapReady: (ready: boolean) => void;
+  /** Objeto al alcance del jugador (para ofrecer "E: abrir"). */
+  interact: Interactable | null;
+  /** Mueble que se usa al alcance (si le gana al asiento más cercano). */
+  usable: UsableNear | null;
+  /** Panel abierto (buzón o tablón); `atObject` = se abrió junto al objeto (permite reclamar). */
+  panel: { kind: PanelKind; atObject: boolean } | null;
+  /** Último premio de puntos (cambia `id` en cada uno, para animarlo). */
+  lastAward: (PointsAwarded & { id: number }) | null;
+  /** Modo decorar tu oficina: el clic pone o elige muebles en vez de caminar. */
+  decorating: boolean;
+  /** Editor de la casa (solo admins): usa decorPick/decorFacing igual que el editor de oficina. */
+  worldEditing: boolean;
+  setWorldEditing: (on: boolean) => void;
+  /** Mueble elegido para poner o mover (null = ninguno: el clic elige uno puesto). */
+  decorPick: DecorPick | null;
+  /** Hacia dónde mira el mueble elegido (R lo gira). */
+  decorFacing: Direction;
+  /** Última respuesta del servidor al editor (cambia `id` en cada una: la mochila se vuelve a pedir). */
+  decorResult: (OfficeEditResult & { id: number }) | null;
 
   setConnection: (c: ConnectionStatus, error?: string | null) => void;
   setSessionId: (id: string | null) => void;
@@ -103,6 +210,8 @@ interface OfficeStore {
   setDoorPrompt: (zoneId: string | null) => void;
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
+  setAtSwivel: (at: boolean) => void;
+  setToastPrompt: (prompt: ToastPrompt | null) => void;
   setPcOn: (on: boolean) => void;
   setPendingKnock: (zoneId: string | null) => void;
   addKnockRequest: (r: KnockRequest) => void;
@@ -111,6 +220,17 @@ interface OfficeStore {
   notify: (text: string, tone?: Notice["tone"], action?: Notice["action"]) => void;
   dismissNotice: (id: number) => void;
   walkToZone: (zoneId: string) => void;
+  setArea: (area: string) => void;
+  setNight: (night: boolean) => void;
+  setInteract: (i: Interactable | null) => void;
+  setUsable: (u: UsableNear | null) => void;
+  openPanel: (kind: PanelKind, atObject: boolean) => void;
+  closePanel: () => void;
+  addAward: (a: PointsAwarded) => void;
+  setDecorating: (on: boolean) => void;
+  pickDecor: (pick: DecorPick | null, facing?: Direction) => void;
+  rotateDecor: () => void;
+  setDecorResult: (r: OfficeEditResult) => void;
   reset: () => void;
 }
 
@@ -127,6 +247,17 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
   "too-soon": () => ({ text: "Espera un momento antes de volver a tocar.", tone: "info" }),
 };
 
+const PRIVATE_WALLS_KEY = "hyvento:paredes-altas";
+
+/** El modo privado se recuerda en este navegador (arranca apagado). */
+function loadPrivateWalls(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(PRIVATE_WALLS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 const initial = {
   connection: "idle" as ConnectionStatus,
   error: null,
@@ -141,14 +272,32 @@ const initial = {
   chatScope: "proximity" as ChatScope,
   chatOpen: true,
   typing: false,
+  typingHolds: 0,
   doorPrompt: null,
   seatPrompt: null as "sit" | "stand" | null,
   atComputer: false,
+  atSwivel: false,
+  toastPrompt: null as ToastPrompt | null,
   pcOn: false,
   pendingKnock: null,
   knockRequests: [],
   notices: [],
   walkTarget: null,
+  area: "",
+  night: false,
+  privateWalls: loadPrivateWalls(),
+  indoors: false,
+  weather: "despejado" as Weather,
+  mapReady: false,
+  interact: null as Interactable | null,
+  usable: null as UsableNear | null,
+  panel: null as { kind: PanelKind; atObject: boolean } | null,
+  lastAward: null as (PointsAwarded & { id: number }) | null,
+  decorating: false,
+  worldEditing: false,
+  decorPick: null as DecorPick | null,
+  decorFacing: "right" as Direction,
+  decorResult: null as (OfficeEditResult & { id: number }) | null,
 };
 
 export const useOfficeStore = create<OfficeStore>((set, get) => ({
@@ -181,10 +330,17 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     }),
   setChatScope: (chatScope) => set({ chatScope }),
   setChatOpen: (chatOpen) => set((s) => ({ chatOpen, unread: chatOpen ? 0 : s.unread })),
-  setTyping: (typing) => set({ typing }),
+  // Cada `true` se suelta con un `false` (foco y blur, montar y desmontar).
+  setTyping: (on) =>
+    set((s) => {
+      const typingHolds = Math.max(0, s.typingHolds + (on ? 1 : -1));
+      return { typingHolds, typing: typingHolds > 0 };
+    }),
   setDoorPrompt: (doorPrompt) => set({ doorPrompt }),
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setAtComputer: (atComputer) => set({ atComputer }),
+  setAtSwivel: (atSwivel) => set({ atSwivel }),
+  setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),
   setPendingKnock: (pendingKnock) => set({ pendingKnock }),
   addKnockRequest: (r) => {
@@ -206,7 +362,31 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   },
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
-  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames })),
+  setArea: (area) => set({ area }),
+  setNight: (night) => set({ night }),
+  setIndoors: (indoors) => set({ indoors }),
+  setPrivateWalls: (privateWalls) => {
+    set({ privateWalls });
+    try {
+      localStorage.setItem(PRIVATE_WALLS_KEY, privateWalls ? "1" : "0");
+    } catch {
+      // sin almacenamiento: vale solo para esta visita
+    }
+  },
+  setWeather: (weather) => set({ weather }),
+  setMapReady: (mapReady) => set({ mapReady }),
+  setInteract: (interact) => set({ interact }),
+  setUsable: (usable) => set({ usable }),
+  openPanel: (kind, atObject) => set({ panel: { kind, atObject } }),
+  closePanel: () => set({ panel: null }),
+  addAward: (a) => set({ lastAward: { ...a, id: ++noticeId } }),
+  // Al entrar o salir del modo decorar no queda nada elegido.
+  setDecorating: (decorating) => set({ decorating, worldEditing: false, decorPick: null, panel: decorating ? null : get().panel }),
+  setWorldEditing: (worldEditing) => set({ worldEditing, decorating: false, decorPick: null, panel: worldEditing ? null : get().panel }),
+  pickDecor: (decorPick, facing) => set((s) => ({ decorPick, decorFacing: facing ?? s.decorFacing })),
+  rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
+  setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),
+  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls })),
 }));
 
 /** User.id del jugador local. */

@@ -18,11 +18,11 @@ for (const key of ["GAME_TOKEN_SECRET", "DATABASE_URL"]) {
 const { createGameServer } = await import("./app");
 const { PrismaRepository } = await import("./repo/prisma");
 
-const { loadOfficeMap } = await import("@hyvento/map/node");
+const { allZones } = await import("@hyvento/map");
 
 const repo = new PrismaRepository();
-// Las oficinas del mapa existen en la DB desde el arranque (el panel /admin las lista y asigna).
-const officeZones = loadOfficeMap().zones.filter((z) => z.type === "office");
+// Las oficinas de la cabaña existen en la DB desde el arranque (el panel /admin las lista y asigna).
+const officeZones = allZones().filter((z) => z.type === "office");
 await repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
 
 // Render (y otros hostings) asignan el puerto en PORT.

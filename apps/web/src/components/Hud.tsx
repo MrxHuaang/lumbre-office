@@ -1,13 +1,19 @@
 "use client";
 
 import { placeLabel } from "@hyvento/map";
-import { PRESENCE_STATUSES, type PresenceStatus } from "@hyvento/shared";
+import { PRESENCE_STATUSES, WEATHER_TEXT, type PresenceStatus, type Weather } from "@hyvento/shared";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMediaStore } from "@/game/media";
 import { sendStatus } from "@/game/network";
+import { sfx } from "@/game/sfx";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
-import { STATUS_HEX } from "@/lib/riso";
+import { useAchievementStore } from "@/game/achievements";
+import { STATUS_HEX } from "@/lib/cozy";
+import { PixelIcon, type PixelIconName } from "./Cozy";
+import { PointsCounter } from "./PointsPanels";
+import { GiftChip, PersonActions } from "./social/SocialOverlays";
+import { SoundControl } from "./SoundControl";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -20,6 +26,7 @@ interface HudProps {
   isAdmin: boolean;
   onEditProfile: () => void;
   onEditCharacter: () => void;
+  onMyProfile: () => void;
   onAdmin: () => void;
   onLogout: () => void;
 }
@@ -29,8 +36,8 @@ const useLabelOf = () => {
   return (p: string) => placeLabel(p, (id) => zoneNames[id]);
 };
 
-/** Fichas de arriba a la izquierda: marca, dónde estás, a quién oyes, estado y menú. */
-export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout }: HudProps) {
+/** Fichas de arriba a la izquierda: marca, puntos, dónde estás, a quién oyes, estado, mochila, noche y menú. */
+export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmin, onLogout }: HudProps) {
   const zone = useOfficeStore((s) => s.zone);
   const players = useOfficeStore((s) => s.players);
   const sessionId = useOfficeStore((s) => s.sessionId);
@@ -39,28 +46,36 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
   const myOffice = useOfficeStore(useShallow(selectMyOffice));
   const walkToZone = useOfficeStore((s) => s.walkToZone);
   const place = useOfficeStore((s) => s.place);
+  const night = useOfficeStore((s) => s.night);
+  const setNight = useOfficeStore((s) => s.setNight);
+  const openPanel = useOfficeStore((s) => s.openPanel);
   const labelOf = useLabelOf();
 
   return (
-    <div className="absolute top-3 left-3 flex max-w-[calc(100%-13rem)] flex-wrap items-center gap-2.5 text-[13px] font-semibold md:max-w-[calc(100%-20rem)]">
-      <div className="riso-chip flex items-center gap-2 px-3.5 py-2">
-        <span className="h-3.5 w-3.5 rounded-full bg-riso-pink mix-blend-multiply" />
-        <span className="-ml-4 h-3.5 w-3.5 rounded-full bg-riso-blue mix-blend-multiply" />
-        <span className="font-display text-[17px] leading-none">Hyvento</span>
+    <div className="absolute top-3 left-3 flex max-w-[calc(100%-13rem)] flex-wrap items-center gap-2.5 text-[14px] md:max-w-[calc(100%-20rem)]">
+      <div className="cozy-panel flex items-center gap-2 px-3.5 py-2">
+        <PixelIcon name="cabin" size={18} color="var(--color-cozy-wood)" />
+        <span className="text-[18px] leading-none font-semibold">Hyvento</span>
       </div>
 
+      <PointsCounter />
+
+      <GiftChip />
+
       <div
-        className="riso-chip flex items-center gap-1.5 bg-riso-yellow px-3.5 py-2"
+        className="cozy-chip flex items-center gap-1.5 px-3 py-1.5"
         title={zone?.isolated ? "Zona privada: solo te oyen quienes están aquí" : undefined}
       >
-        {zone?.isolated && <LockIcon />}
-        Estás en: {labelOf(place)}
+        {zone?.isolated && <PixelIcon name="lock" size={13} color="var(--color-cozy-wood)" />}
+        {labelOf(place)}
       </div>
+
+      <WeatherChip />
 
       <HearingChip />
 
       {me && (
-        <label className="riso-chip flex items-center gap-2 px-3 py-1.5">
+        <label className="cozy-chip flex items-center gap-2 px-2.5 py-1">
           <StatusDot status={me.status} />
           <span className="sr-only">Estado</span>
           <select
@@ -69,7 +84,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
             className="cursor-pointer bg-transparent py-0.5 outline-none"
           >
             {PRESENCE_STATUSES.map((s) => (
-              <option key={s} value={s} className="bg-riso-paper">
+              <option key={s} value={s} className="bg-cozy-paper-light">
                 {STATUS_LABEL[s]}
               </option>
             ))}
@@ -78,34 +93,89 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
       )}
 
       {myOffice && zone?.id !== myOffice.zoneId && (
-        <button
-          onClick={() => walkToZone(myOffice.zoneId)}
-          className="riso-pill riso-press rounded-none px-3.5"
-          title={`Caminar hasta ${myOffice.name}`}
-        >
-          <HomeIcon />
+        <button onClick={() => walkToZone(myOffice.zoneId)} className="cozy-btn" title={`Caminar hasta ${myOffice.name}`}>
+          <PixelIcon name="home" size={14} />
           Mi oficina
         </button>
       )}
 
+      <button
+        onClick={() => openPanel("backpack", false)}
+        className="cozy-btn h-[34px] w-[34px] p-0"
+        title="Mochila: tus muebles guardados"
+        aria-label="Mochila"
+      >
+        <PixelIcon name="bag" size={16} color="var(--color-cozy-wood)" />
+      </button>
+
+      <button
+        onClick={() => openPanel("fishAlbum", false)}
+        className="cozy-btn h-[34px] w-[34px] p-0"
+        title="Álbum de pesca: los peces que has sacado del lago"
+        aria-label="Álbum de pesca"
+      >
+        <PixelIcon name="fish" size={16} color="var(--color-cozy-sky)" />
+      </button>
+
+      <button
+        onClick={() => setNight(!night)}
+        aria-pressed={night}
+        className="cozy-btn h-[34px] w-[34px] p-0"
+        title={night ? "Volver al día" : "Encender las luces (noche)"}
+        aria-label={night ? "Volver al día" : "Modo noche"}
+      >
+        <PixelIcon name={night ? "moon" : "sun"} size={16} color={night ? "#4a3f8a" : "var(--color-cozy-gold)"} />
+      </button>
+
+
+      <SoundControl />
+
       <div className="relative">
         <button
-          onClick={() => setShowMenu((v) => !v)}
+          onClick={() => {
+            if (showMenu) sfx.uiClose();
+            else sfx.uiOpen();
+            setShowMenu(!showMenu);
+          }}
           aria-label="Menú"
           aria-expanded={showMenu}
-          className="riso-pill riso-press h-[38px] w-[38px] rounded-none p-0"
+          className="cozy-btn h-[34px] w-[34px] p-0"
         >
-          <MenuIcon />
+          <PixelIcon name="menu" size={16} />
         </button>
         {showMenu && (
-          <div className="riso-panel absolute top-full right-0 z-30 mt-3 w-48 p-1" onClick={() => setShowMenu(false)}>
+          <div className="cozy-panel absolute top-full right-0 z-30 mt-3 w-52 p-2" onClick={() => setShowMenu(false)}>
+            <MenuItem onClick={onMyProfile}>Mi perfil y logros</MenuItem>
             <MenuItem onClick={onEditCharacter}>Mi personaje</MenuItem>
             <MenuItem onClick={onEditProfile}>Editar perfil</MenuItem>
             {isAdmin && <MenuItem onClick={onAdmin}>Administrar equipo</MenuItem>}
+            {isAdmin && <MenuItem onClick={() => useOfficeStore.getState().setWorldEditing(true)}>Editar la casa</MenuItem>}
             <MenuItem onClick={onLogout}>Cerrar sesión</MenuItem>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Ícono y color de cada clima (despejado de noche es la luna). */
+const WEATHER_ICON: Record<Weather, { icon: PixelIconName; color: string }> = {
+  despejado: { icon: "sun", color: "var(--color-cozy-gold)" },
+  nublado: { icon: "cloud", color: "#8a8a96" },
+  lluvia: { icon: "rain", color: "var(--color-cozy-sky)" },
+  tormenta: { icon: "storm", color: "#4a3f8a" },
+  niebla: { icon: "fog", color: "#a8977f" },
+};
+
+/** El clima de afuera (lo decide el servidor: todos ven el mismo). */
+function WeatherChip() {
+  const weather = useOfficeStore((s) => s.weather);
+  const night = useOfficeStore((s) => s.night);
+  const { icon, color } = weather === "despejado" && night ? { icon: "moon" as const, color: "#4a3f8a" } : WEATHER_ICON[weather];
+  return (
+    <div className="cozy-chip flex items-center gap-1.5 px-3 py-1.5" title="El clima de afuera">
+      <PixelIcon name={icon} size={14} color={color} />
+      {WEATHER_TEXT[weather]}
     </div>
   );
 }
@@ -118,21 +188,22 @@ function HearingChip() {
   );
   const zone = useOfficeStore((s) => s.zone);
 
-  if (status === "connecting") return <div className="riso-chip px-3.5 py-2 text-riso-muted">Conectando audio…</div>;
-  if (status === "unavailable") return <div className="riso-chip px-3.5 py-2 text-riso-muted">Audio/video no disponible</div>;
+  if (status === "connecting") return <div className="cozy-chip px-3 py-1.5 text-cozy-ink-soft">Conectando audio…</div>;
+  if (status === "unavailable") return <div className="cozy-chip px-3 py-1.5 text-cozy-ink-soft">Audio y video no disponibles</div>;
   if (names.length === 0) return null;
 
   const shown = names.length > 3 ? `${names.slice(0, 2).join(", ")} y ${names.length - 2} más` : names.join(", ");
   return (
     <div
-      className="riso-chip max-w-full truncate bg-riso-pink px-3.5 py-2"
+      className="cozy-chip flex max-w-full items-center gap-2 truncate px-3 py-1.5"
       title={
         zone?.isolated
           ? `En ${zone.name} se oye a todos los que están adentro, sin importar la distancia`
           : "Personas que te pueden oír y ver"
       }
     >
-      {zone?.isolated ? `En ${zone.name} con ${shown}` : `Cerca de ${shown}`} · audio activo
+      <span className="h-2.5 w-2.5 shrink-0 bg-[#5ea247] outline-2 outline-cozy-frame" />
+      <span className="truncate">{zone?.isolated ? `En ${zone.name} con ${shown}` : `Cerca de ${shown}`}</span>
     </div>
   );
 }
@@ -143,6 +214,7 @@ export function PeoplePanel() {
   const sessionId = useOfficeStore((s) => s.sessionId);
   const place = useOfficeStore((s) => s.place);
   const labelOf = useLabelOf();
+  const openProfile = useAchievementStore((s) => s.openProfile);
   // En pantallas angostas empieza plegado para no tapar el mapa.
   const [open, setOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 900);
   // Yo primero; el resto por nombre.
@@ -151,35 +223,39 @@ export function PeoplePanel() {
   );
 
   return (
-    <section className="riso-panel pointer-events-auto w-full">
+    <section className="cozy-panel pointer-events-auto w-full p-1.5">
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={`flex w-full items-center justify-between gap-3 bg-riso-blue px-3.5 py-2.5 text-riso-paper ${
-          open ? "border-b-2 border-riso-navy" : ""
-        }`}
+        className="flex w-full items-center justify-between gap-3 bg-cozy-wood px-3 py-2 text-cozy-paper-light"
       >
-        <span className="font-display text-[15px]">Conectados</span>
-        <span className="flex items-center gap-2 text-[13px] font-semibold">
+        <span className="text-[16px] font-semibold">Conectados</span>
+        <span className="flex items-center gap-2 text-[14px]">
           {people.length}
-          <ChevronIcon open={open} />
+          <PixelIcon name="chevron" size={12} className={open ? "rotate-180" : ""} />
         </span>
       </button>
       {open && (
-        <ul className="max-h-[45vh] overflow-y-auto">
+        <ul className="cozy-scroll max-h-[45vh] overflow-y-auto">
           {people.map((p) => (
-            <li
-              key={p.sessionId}
-              className="flex items-center gap-2.5 border-b border-dashed border-riso-navy/35 px-3.5 py-2 last:border-b-0"
-            >
-              <StatusDot status={p.status} title={STATUS_LABEL[p.status]} />
-              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
-                {p.name}
-                {p.sessionId === sessionId && " (tú)"}
-              </span>
-              <span className="max-w-[45%] truncate text-[11px] text-riso-muted">
-                {labelOf(p.sessionId === sessionId ? place : p.place)}
-              </span>
+            <li key={p.sessionId} className="flex items-center border-b-2 border-cozy-paper-dark pr-2 last:border-b-0">
+              {/* Clic en alguien: su perfil (estadísticas y logros). */}
+              <button
+                type="button"
+                onClick={() => openProfile(p.sessionId === sessionId ? "me" : p.userId)}
+                title={`Ver el perfil de ${p.name}`}
+                className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2 text-left hover:bg-cozy-paper-dark"
+              >
+                <StatusDot status={p.status} title={STATUS_LABEL[p.status]} />
+                <span className="min-w-0 flex-1 truncate text-[14px]">
+                  {p.name}
+                  {p.sessionId === sessionId && " (tú)"}
+                </span>
+                <span className="max-w-[45%] truncate text-[12px] text-cozy-ink-soft">
+                  {labelOf(p.sessionId === sessionId ? place : p.place)}
+                </span>
+              </button>
+              {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>
           ))}
         </ul>
@@ -192,7 +268,7 @@ function StatusDot({ status, title }: { status: PresenceStatus; title?: string }
   return (
     <span
       title={title}
-      className="h-3 w-3 shrink-0 rounded-full border-[1.5px] border-riso-navy"
+      className="h-3 w-3 shrink-0 border-2 border-cozy-frame"
       style={{ background: STATUS_HEX[status] ?? STATUS_HEX.available }}
     />
   );
@@ -200,53 +276,8 @@ function StatusDot({ status, title }: { status: PresenceStatus; title?: string }
 
 function MenuItem({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="block w-full px-3 py-2 text-left text-[13px] font-semibold hover:bg-riso-yellow">
+    <button onClick={onClick} className="block w-full px-3 py-2 text-left text-[14px] hover:bg-cozy-paper-dark">
       {children}
     </button>
-  );
-}
-
-const icon = {
-  width: 14,
-  height: 14,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 2.5,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-};
-
-function LockIcon() {
-  return (
-    <svg {...icon} aria-hidden>
-      <rect x="4" y="11" width="16" height="10" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-    </svg>
-  );
-}
-
-function HomeIcon() {
-  return (
-    <svg {...icon} aria-hidden>
-      <path d="M3 11 12 4l9 7" />
-      <path d="M5 10v10h14V10" />
-    </svg>
-  );
-}
-
-function MenuIcon() {
-  return (
-    <svg {...icon} width={16} height={16} aria-hidden>
-      <path d="M4 7h16M4 12h16M4 17h16" />
-    </svg>
-  );
-}
-
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg {...icon} aria-hidden className={`transition-transform ${open ? "rotate-180" : ""}`}>
-      <path d="m6 9 6 6 6-6" />
-    </svg>
   );
 }

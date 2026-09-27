@@ -7,21 +7,17 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./character": "./src/character.ts",
-    "./node": "./src/node.ts",
-    "./assets/*": "./assets/*"
+    "./art": "./src/art/index.ts"
   },
   "scripts": {
-    "generate": "tsx scripts/generate.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "render": "tsx scripts/render-area.ts"
   },
   "devDependencies": {
-    "@types/pngjs": "^6.0.5",
-    "pngjs": "^7.0.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.8.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "tsx": "^4.19.0"
   },
   "dependencies": {
     "@hyvento/shared": "workspace:*"
