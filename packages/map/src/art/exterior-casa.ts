@@ -527,19 +527,31 @@ function drawPorch(s: Escena, night: boolean) {
     s.box(mx, 210, P.h, 8, 8, 7, () => at(C.dirt, 1), (u) => at(C.terracotta, u < 2 ? 4 : 3), () => at(C.terracotta, 2));
     flowers(s, mx + 0.5, 210.5, mx + 7.5, 217.5, P.h + 7, 51 + mx, 1.8);
   }
-  // Techito del porche: dos aguas con un hastial de tablas y un sol tallado.
+  // Techito del porche: dos aguas con un hastial de tablas y, al frente, el letrero "HYVENTO" sobre un
+  // sol tallado (en el hastial se ve siempre: detrás, bajo el techito, quedaría tapado).
   const half = (P_ROOF.x1 - P_ROOF.x0) / 2;
   const ridgeZ = P_ROOF.eave + half * P_ROOF.slope;
   gableY(s, P_ROOF.x0, P_ROOF.x0 + half, P_ROOF.x1, P_ROOF.y0, P_ROOF.y1, ridgeZ, P_ROOF.slope, 61);
+  const text = "HYVENTO";
+  const textW = text.length * 4 - 1;
   s.quad([P_ROOF.x0 + 4, P_ROOF.y1 - 1, P_ROOF.eave - 4], [1, 0, 0], [0, 0, 1], (half - 4) * 2, ridgeZ - P_ROOF.eave + 4, (u, v) => {
     const du = u - (half - 4);
     const lim = ridgeZ - P_ROOF.eave + 1 - Math.abs(du) * P_ROOF.slope;
     if (v > lim) return null;
-    const r = Math.hypot(du, (v - 3) * 2);
-    if (v > 3 && r < 14) {
-      if (r < 4) return at(C.gold, 4);
-      const ang = Math.atan2(v - 3, du);
-      return Math.floor(ang * 5) % 2 ? at(C.cream, 4) : at(C.cream, 2);
+    // Letrero: tabla oscura con marco claro y las letras de 3x5 en dorado.
+    if (Math.abs(du) < textW / 2 + 3 && v >= 5 && v < 14) {
+      if (Math.abs(du) >= textW / 2 + 2 || v < 6 || v >= 13) return at(C.wood, 5);
+      const gx = Math.floor(du + textW / 2);
+      const gy = Math.floor(12 - v);
+      const k = Math.floor(gx / 4);
+      if (gx >= 0 && k < text.length && gx % 4 < 3 && gy >= 0 && gy < 5 && GLYPHS[text[k]!]?.[gy]?.[gx % 4] === "#") return at(C.gold, 5);
+      return at(C.woodDark, 1);
+    }
+    // Rayos del sol que asoman alrededor del letrero.
+    const r = Math.hypot(du, (v - 9) * 1.6);
+    if (v > 3 && r < 26) {
+      const ang = Math.atan2(v - 9, du);
+      return Math.floor(ang * 6 + 20) % 2 ? at(C.cream, 4) : at(C.cream, 2);
     }
     if (v < 4) return at(C.woodDark, v < 1 ? 1 : 3);
     return at(C.wood, Math.floor(u) % 4 === 0 ? 2 : 4);
@@ -547,17 +559,6 @@ function drawPorch(s: Escena, night: boolean) {
   // Farol colgante al centro (la luz del porche).
   for (let z = 38; z < P_ROOF.eave - 2; z += 0.5) s.plot(180, 226, z, at(C.metal, 1));
   lantern(s, 180, 226, 32, night);
-  // Letrero de la casa sobre la puerta.
-  s.box(164, B.y1 + 1, 56, 32, 1.5, 9, null, (u, v) => {
-    if (u < 1 || u > 31 || v < 1 || v > 8) return at(C.woodDark, 2);
-    // "HYVENTO" en letras de 3x5.
-    const text = "HYVENTO";
-    const gx = Math.floor(u - 2.5);
-    const gy = Math.floor(7.5 - v);
-    const k = Math.floor(gx / 4);
-    if (k >= 0 && k < text.length && gx % 4 < 3 && gy >= 0 && gy < 5 && GLYPHS[text[k]!]?.[gy]?.[gx % 4] === "#") return at(C.gold, 5);
-    return at(C.wood, 2);
-  }, null);
 }
 
 /** Letras de 3x5 para el letrero (filas de arriba abajo). */
