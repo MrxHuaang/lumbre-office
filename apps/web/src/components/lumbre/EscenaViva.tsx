@@ -2,16 +2,14 @@
 
 // La ilustración viva de la portada: la casa del jardín dibujada con el motor del juego (con las
 // ventanas encendidas), luces que titilan y gente: dos que caminan por el sendero y dos charlando en
-// la fogata. Con "menos movimiento" todo queda quieto. Fuera de pantalla no se anima.
-import { buildArea } from "@hyvento/map";
-import { composeArea, FEET_Y, FRAME } from "@hyvento/map/art";
+// la fogata. Con "menos movimiento" todo queda quieto. Fuera de pantalla no se anima. La casa es una
+// imagen del build (scripts/prerender.ts): la portada no carga el motor de arte.
 import { randomLook, seededRandom, type Direction, type HumanAvatar, type Look } from "@hyvento/shared";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { CharacterSprite } from "../CharacterSprite";
-import { prefiereQuieto, recortar, type Dibujo } from "./dibujo";
-import { aLienzo, enRecorrido, ESCENA, LLEGADA, lucesDeEscena, PASEO, RONDA, type Recorrido } from "./escena";
+import { prefiereQuieto, useEscena } from "./dibujo";
+import { aLienzo, enRecorrido, ESCENA_PAD as PAD, LLEGADA, PASEO, RONDA, type Recorrido } from "./escena";
+import { Personaje } from "./Personaje";
 
-const PAD = 80;
 /** Con "menos movimiento" cada caminante queda parado a esta distancia de su punta de salida. */
 const QUIETO_EN = 1.6;
 /** Tiles por segundo (el juego camina un poco más rápido; aquí es un paseo). */
@@ -27,7 +25,9 @@ interface Caminante {
 }
 
 export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { className?: string; saludo?: string }) {
-  const [dibujo, setDibujo] = useState<Dibujo | null>(null);
+  // De noche, con las ventanas encendidas (la del día también sale del build).
+  const escena = useEscena(true);
+  const dibujo = escena?.dibujo ?? null;
   const caja = useRef<HTMLDivElement>(null);
   const cuerpos = useRef<(HTMLDivElement | null)[]>([]);
   const caminantes = useMemo<Caminante[]>(
@@ -40,20 +40,6 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
   const ronda = useMemo(() => [{ avatar: "eva" as HumanAvatar, look: null }, { avatar: "bruno" as HumanAvatar, look: randomLook(seededRandom(5)) }], []);
   // Dirección y si camina, por caminante (cambia pocas veces: solo eso pasa por React).
   const [estado, setEstado] = useState(() => caminantes.map((c) => ({ dir: enRecorrido(c.recorrido, c.desde, c.pausa).dir as Direction, caminando: false })));
-
-  useEffect(() => {
-    // Se dibuja después de montar (usa <canvas>) y sin bloquear el primer render.
-    const id = setTimeout(() => {
-      try {
-        setDibujo(recortar(composeArea(buildArea(ESCENA), false, PAD)));
-      } catch (e) {
-        // Si la escena ya no se puede armar (un mueble cambió de nombre), queda el hueco: la portada
-        // y el login siguen funcionando sin la ilustración.
-        console.error("No se pudo dibujar la escena de la portada", e);
-      }
-    }, 0);
-    return () => clearTimeout(id);
-  }, []);
 
   useEffect(() => {
     if (!dibujo) return;
@@ -113,21 +99,22 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
     });
   }, [dibujo, caminantes]);
 
-  if (!dibujo) return <div className={`aspect-[1205/620] ${className}`} aria-hidden />;
+  // Sin la escena (cargando, o si ya no se pudo armar) queda el hueco: la portada y el login siguen.
+  if (!escena || !dibujo) return <div className={`aspect-[1205/620] ${className}`} aria-hidden />;
 
   const pct = (tx: number, ty: number, z = 0) => {
     const q = aLienzo(tx, ty, PAD, z);
     return { left: `${((q.x - dibujo.x0) / dibujo.w) * 100}%`, top: `${((q.y - dibujo.y0) / dibujo.h) * 100}%` };
   };
   // El personaje ocupa un cuadro de 32 px del motor: su ancho en porcentaje del dibujo, pies en el punto.
-  const cuerpo: CSSProperties = { width: `${(FRAME / dibujo.w) * 100}%`, transform: `translate(-50%, -${(FEET_Y / FRAME) * 100}%)` };
+  const cuerpo: CSSProperties = { width: `${(escena.frame / dibujo.w) * 100}%`, transform: `translate(-50%, -${(escena.feetY / escena.frame) * 100}%)` };
   const charla = RONDA[0]!;
 
   return (
     <div ref={caja} className={`relative isolate select-none ${className}`} style={{ aspectRatio: `${dibujo.w} / ${dibujo.h}` }} aria-hidden>
       <img src={dibujo.src} alt="" className="pixelated absolute inset-0 h-full w-full" draggable={false} />
       {/* El resplandor de cada luz, en pasos (como el juego de noche, pero suave para que se vea el día). */}
-      {lucesDeEscena().map((l, i) => {
+      {escena.luces.map((l, i) => {
         const r = ((l.radio * (l.fuego ? 1.5 : 1)) / dibujo.w) * 100;
         return (
           <span
@@ -148,7 +135,7 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
         const q = aLienzo(p.x, p.y, PAD);
         return (
           <div key={`r${i}`} className="absolute" style={{ ...pct(p.x, p.y), zIndex: 10 + Math.round(q.y), ...cuerpo }}>
-            <CharacterSprite avatar={ronda[i]!.avatar} look={ronda[i]!.look} dir={p.dir} />
+            <Personaje avatar={ronda[i]!.avatar} look={ronda[i]!.look} dir={p.dir} />
           </div>
         );
       })}
@@ -161,7 +148,7 @@ export function EscenaViva({ className = "", saludo = "¡hola equipo!" }: { clas
           className="absolute"
           style={{ ...inicio[i], ...cuerpo }}
         >
-          <CharacterSprite avatar={c.avatar} look={c.look} dir={estado[i]!.dir} walking={estado[i]!.caminando} />
+          <Personaje avatar={c.avatar} look={c.look} dir={estado[i]!.dir} walking={estado[i]!.caminando} />
         </div>
       ))}
       {/* Globito de charla sobre quien está en la fogata. */}

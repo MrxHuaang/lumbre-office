@@ -45,6 +45,8 @@ import { useAchievementStore } from "@/game/achievements";
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
 
 const RELOAD_FLAG = "hyvento:reloaded-after-update";
+/** Cuánto se espera el mapa ya conectado antes de ofrecer "Reintentar". */
+const MAP_TIMEOUT_MS = 20_000;
 
 const sessionStorageSafe = {
   get: (k: string) => {
@@ -149,6 +151,24 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   }, []);
   const error = useOfficeStore((s) => s.error);
   const onExit = () => void logout();
+
+  // Conectado pero sin mapa después de un rato: algo se trabó al dibujar. Mejor el error con
+  // "Reintentar" que "Entrando…" para siempre (la escena también avisa si el dibujo falla).
+  const waitingMap = connection === "connected" && !mapReady;
+  useEffect(() => {
+    if (!waitingMap) return;
+    // Solo cuenta con la pestaña a la vista: en segundo plano el juego espera a propósito (waitForVisible).
+    let waited = 0;
+    const id = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      waited += 1000;
+      const s = useOfficeStore.getState();
+      if (waited >= MAP_TIMEOUT_MS && s.connection === "connected" && !s.mapReady) {
+        s.setConnection("error", "La cabaña está tardando demasiado en cargar. Reintenta o recarga la página.");
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [waitingMap, attempt]);
 
   useEffect(() => {
     let cancelled = false;

@@ -27,6 +27,8 @@ import {
 } from "@hyvento/map/art";
 import * as Phaser from "phaser";
 import { ensureTexture } from "./canvas";
+import { prerenderedBase, prerenderedFurniture, prerenderedSurroundings } from "./prerender";
+import { furnitureKey } from "./prerender-keys";
 
 export { ensureTexture, toHtmlCanvas } from "./canvas";
 
@@ -64,8 +66,24 @@ function spriteTexture(scene: Phaser.Scene, key: string, make: () => Sprite): Sp
   return s;
 }
 
-function furnitureKey(type: string, variant: "front" | "back", night: boolean) {
-  return catalogItem(type).hasNight ? `mueble-${type}-${variant}-${night ? "noche" : "dia"}` : `mueble-${type}-${variant}`;
+/** Textura (y cuadro, si viene del atlas) de un dibujo, con su tamaño y su origen. */
+interface SpriteTex {
+  texture: string;
+  frame?: string;
+  w: number;
+  h: number;
+  ox: number;
+  oy: number;
+}
+
+const texOf = (key: string, s: Sprite): SpriteTex => ({ texture: key, w: s.canvas.width, h: s.canvas.height, ox: s.ox, oy: s.oy });
+
+/** Un mueble: su cuadro en el atlas del build o, si no está (desarrollo sin generar), su dibujo aquí. */
+function furnitureTexture(scene: Phaser.Scene, type: string, variant: "front" | "back", night: boolean): SpriteTex {
+  const key = furnitureKey(type, variant, night);
+  const pre = prerenderedFurniture(scene, key);
+  if (pre) return pre;
+  return texOf(key, spriteTexture(scene, key, () => drawFurniture(type, variant, night)));
 }
 
 /** Mueble ubicado en (x, y) (su esquina, en tiles) mirando hacia `facing`. */
@@ -107,21 +125,23 @@ export function furnitureImage(scene: Phaser.Scene, f: FurniturePose, night: boo
   const back = (f.facing === "left" || f.facing === "up") && item.hasBack;
   const flip = !item.fixed && (f.facing === "down" || f.facing === "up");
   const variant: "front" | "back" = back ? "back" : "front";
-  const base = furnitureKey(f.type, variant, night);
-  const key = ghost ? `${base}-fantasma-${ghost}` : base;
-  const draw = () => drawFurniture(f.type, variant, night);
-  const make = ghost
-    ? () => {
+  let tex: SpriteTex;
+  if (ghost) {
+    // El fantasma del editor necesita los píxeles para teñirlos: se dibuja aquí (es uno solo).
+    const key = `${furnitureKey(f.type, variant, night)}-fantasma-${ghost}`;
+    tex = texOf(
+      key,
+      spriteTexture(scene, key, () => {
         let t = ghostSprites.get(key);
-        if (!t) ghostSprites.set(key, (t = tinted(draw(), GHOST_TINT[ghost])));
+        if (!t) ghostSprites.set(key, (t = tinted(drawFurniture(f.type, variant, night), GHOST_TINT[ghost])));
         return t;
-      }
-    : draw;
-  const s = spriteTexture(scene, key, make);
+      }),
+    );
+  } else tex = furnitureTexture(scene, f.type, variant, night);
   const [w, d] = footprint(item, f.facing);
   const anchor = worldToScreen(f.x * ts, f.y * ts);
   const img = scene.add
-    .image(anchor.x - (flip ? s.canvas.width - s.ox : s.ox), anchor.y - s.oy, key)
+    .image(anchor.x - (flip ? tex.w - tex.ox : tex.ox), anchor.y - tex.oy, tex.texture, tex.frame)
     .setOrigin(0, 0)
     .setFlipX(flip)
     .setDepth(item.flat ? DEPTH_FLAT : depthOf((f.x + w / 2) * ts, (f.y + d / 2) * ts));
@@ -150,6 +170,8 @@ function baseSignature(map: OfficeMap) {
 export class AreaView {
   private objects: Phaser.GameObjects.GameObject[] = [];
   private surround?: Phaser.GameObjects.TileSprite;
+  /** Esquina (px de pantalla del nivel) desde la que se repite el bosque: el margen del fondo empalma ahí. */
+  private surroundOrigin = { x: 0, y: 0 };
   private base!: Phaser.GameObjects.Image;
   private nightLayer: Phaser.GameObjects.Rectangle;
   private glows: Phaser.GameObjects.Image[] = [];
@@ -216,7 +238,7 @@ export class AreaView {
     this.placeLowWalls();
     const b = this.base.getBounds();
     this.bounds = new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height);
-    this.surround?.setPosition(b.centerX, b.centerY).setSize(b.width + SURROUND_PAD * 2, b.height + SURROUND_PAD * 2);
+    this.surroundOrigin = { x: b.x - SURROUND_PAD, y: b.y - SURROUND_PAD };
     // De noche: penumbra azulada (más oscura afuera) con huecos de luz donde hay lámparas, faroles,
     // ventanas y fuego (ver drawNightMask). Este rectángulo parejo queda de respaldo.
     const n = NIGHT[map.outdoor ? "outdoor" : "indoor"];
@@ -243,29 +265,50 @@ export class AreaView {
     }
   }
 
-  /** Afuera: el bosque que se repite más allá del borde del terreno (debajo de todo). */
+  /**
+   * Afuera: el bosque que se repite más allá del borde del terreno (debajo de todo). Es una baldosa del
+   * tamaño de lo que ve la cámara que la sigue (followCamera): una del tamaño del nivel pasaba los
+   * 60 Mpx en el jardín, más de lo que deja iOS para un canvas.
+   */
   private drawSurroundings() {
     const kind = this.map.def.surroundings;
     if (!kind) return;
-    const key = ensureTexture(this.scene, `alrededores-${kind}`, () => drawSurroundings(kind));
-    const tile = this.scene.add
-      .tileSprite(0, 0, SURROUND_PAD * 2, SURROUND_PAD * 2, key)
-      .setDepth(DEPTH_FLOOR - 1);
-    // Centrado en el nivel; se ubica después de dibujar el fondo (ver el constructor). La baldosa arranca
-    // en la esquina del fondo menos SURROUND_PAD: el margen del nivel se pinta alineado con eso (room.ts).
-    this.surround = tile;
-    this.objects.push(tile);
+    const key = prerenderedSurroundings(this.scene, kind) ?? ensureTexture(this.scene, `alrededores-${kind}`, () => drawSurroundings(kind));
+    this.surround = this.scene.add.tileSprite(0, 0, 1, 1, key).setOrigin(0, 0).setDepth(DEPTH_FLOOR - 1);
+    this.objects.push(this.surround);
+    this.scene.cameras.main.on(Phaser.Cameras.Scene2D.Events.PRE_RENDER, this.followCamera, this);
+  }
+
+  /**
+   * Antes de cada cuadro la baldosa cubre la vista de la cámara (con un margen, por el zoom y el
+   * seguimiento suave) y corre su dibujo según dónde quedó: la baldosa arranca en la esquina del fondo
+   * menos SURROUND_PAD, igual que el margen del nivel (room.ts), así no se ve la costura. Todo en píxeles
+   * enteros: con roundPixels, un medio píxel corría el bosque respecto del fondo.
+   */
+  private followCamera(cam: Phaser.Cameras.Scene2D.Camera) {
+    const tile = this.surround;
+    if (!tile) return;
+    const m = 64;
+    const v = cam.worldView;
+    const x = Math.floor(v.x) - m;
+    const y = Math.floor(v.y) - m;
+    const w = Math.ceil(v.width) + m * 2;
+    const h = Math.ceil(v.height) + m * 2;
+    if (tile.width !== w || tile.height !== h) tile.setSize(w, h);
+    if (tile.x !== x || tile.y !== y) tile.setPosition(x, y);
+    tile.setTilePosition(x - this.surroundOrigin.x, y - this.surroundOrigin.y);
   }
 
   private drawBase(night: boolean) {
-    const key = `area-${this.map.id}-${baseSignature(this.map)}-${night ? "noche" : "dia"}`;
-    let art: ReturnType<typeof drawAreaBase> | null = null;
-    if (!this.scene.textures.exists(key)) {
-      art = drawAreaBase(this.map, !night);
-      ensureTexture(this.scene, key, () => art!.base.canvas);
+    // El del build si coincide con la decoración; si no (una oficina con otro piso), se dibuja aquí.
+    const pre = prerenderedBase(this.scene, this.map, night);
+    const key = pre?.key ?? `area-${this.map.id}-${baseSignature(this.map)}-${night ? "noche" : "dia"}`;
+    if (!pre && !this.scene.textures.exists(key)) {
+      const art = drawAreaBase(this.map, !night);
+      ensureTexture(this.scene, key, () => art.base.canvas);
       this.scene.registry.set(`${key}-origin`, { ox: art.base.ox, oy: art.base.oy });
     }
-    const { ox, oy } = this.scene.registry.get(`${key}-origin`) as { ox: number; oy: number };
+    const { ox, oy } = pre ?? (this.scene.registry.get(`${key}-origin`) as { ox: number; oy: number });
     if (this.base) {
       this.base.setTexture(key).setPosition(-ox, -oy);
     } else {
@@ -444,9 +487,8 @@ export class AreaView {
     this.night = on;
     this.drawBase(on);
     for (const n of this.nightly) {
-      const key = furnitureKey(n.type, n.variant, on);
-      const s = spriteTexture(this.scene, key, () => drawFurniture(n.type, n.variant, on));
-      n.img.setTexture(key).setPosition(n.ax - (n.flip ? s.canvas.width - s.ox : s.ox), n.ay - s.oy);
+      const t = furnitureTexture(this.scene, n.type, n.variant, on);
+      n.img.setTexture(t.texture, t.frame).setPosition(n.ax - (n.flip ? t.w - t.ox : t.ox), n.ay - t.oy);
     }
     // El rectángulo parejo ya no se usa: la noche es la textura con las luces (drawNightMask).
     this.nightLayer.setVisible(false);
@@ -528,6 +570,8 @@ export class AreaView {
   }
 
   destroy() {
+    this.scene.cameras.main?.off(Phaser.Cameras.Scene2D.Events.PRE_RENDER, this.followCamera, this);
+    this.surround = undefined;
     this.setPrivateRoom(null);
     this.stash?.destroy();
     this.stash = undefined;

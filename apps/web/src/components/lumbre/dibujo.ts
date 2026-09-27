@@ -1,43 +1,76 @@
 "use client";
 
-// De píxeles del motor a una imagen recortada al dibujo (sin el relleno vacío de alrededor), para
-// mostrarla con <img> y ubicar cosas encima en porcentajes.
-import type { PixelCanvas } from "@hyvento/map/art";
-import { toHtmlCanvas } from "@/game/iso/canvas";
+// Las imágenes de la portada: salen del build (scripts/prerender.ts → public/prerender/portada.json)
+// y se muestran con <img>. Si faltan (desarrollo sin generar), se dibujan en el navegador con el motor,
+// que se carga aparte (portada-motor.ts) para no sumarlo al paquete de la portada.
+import type { Look } from "@hyvento/shared";
+import { useEffect, useState } from "react";
+import { LANDING_MANIFEST, PRERENDER_DIR, type LandingImage, type LandingManifest } from "@/game/iso/prerender-paths";
 
-export interface Dibujo {
-  src: string;
-  /** Tamaño del recorte, en píxeles del motor. */
-  w: number;
-  h: number;
-  /** Esquina del recorte dentro del lienzo original (para pasar coordenadas del lienzo al recorte). */
-  x0: number;
-  y0: number;
+/** Imagen recortada al dibujo, con la esquina del recorte en el lienzo original (en píxeles del motor). */
+export type Dibujo = LandingImage;
+type Motor = typeof import("./portada-motor");
+
+let manifiesto: Promise<LandingManifest | null> | undefined;
+function cargarManifiesto(): Promise<LandingManifest | null> {
+  manifiesto ??= fetch(`${PRERENDER_DIR}/${LANDING_MANIFEST}`)
+    .then((r) => (r.ok ? (r.json() as Promise<LandingManifest>) : null))
+    .catch(() => null);
+  return manifiesto;
 }
 
-export function recortar(px: PixelCanvas, margen = 2): Dibujo {
-  let minX = px.width;
-  let minY = px.height;
-  let maxX = -1;
-  let maxY = -1;
-  for (let y = 0; y < px.height; y++)
-    for (let x = 0; x < px.width; x++)
-      if (px.data[(y * px.width + x) * 4 + 3]) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
+/** URL de una imagen del build (la versión cambia con el dibujo: no queda una vieja en caché). */
+export const urlDelBuild = (m: LandingManifest, archivo: string) => `${PRERENDER_DIR}/${archivo}?v=${m.version}`;
+
+const conUrl = (m: LandingManifest, d: LandingImage | undefined): Dibujo | undefined => d && { ...d, src: urlDelBuild(m, d.src) };
+
+/**
+ * Lo pre-dibujado que pide `delBuild`; si el build no lo trae, lo que dibuja `enVivo` con el motor.
+ * Mientras tanto (o si todo falla) es null: la portada deja el hueco y sigue funcionando.
+ */
+export function useArte<T>(delBuild: (m: LandingManifest) => T | undefined, enVivo: (motor: Motor) => T, clave: string): T | null {
+  const [valor, setValor] = useState<T | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void (async () => {
+      try {
+        const m = await cargarManifiesto();
+        const hecho = m ? delBuild(m) : undefined;
+        if (hecho !== undefined) return vivo && setValor(hecho);
+        const motor = await import("./portada-motor");
+        if (vivo) setValor(enVivo(motor));
+      } catch (e) {
+        console.error("No se pudo dibujar la portada", e);
       }
-  if (maxX < 0) return { src: toHtmlCanvas(px).toDataURL(), w: px.width, h: px.height, x0: 0, y0: 0 };
-  const x0 = Math.max(0, minX - margen);
-  const y0 = Math.max(0, minY - margen);
-  const w = Math.min(px.width, maxX + margen + 1) - x0;
-  const h = Math.min(px.height, maxY + margen + 1) - y0;
-  const out = document.createElement("canvas");
-  out.width = w;
-  out.height = h;
-  out.getContext("2d")!.drawImage(toHtmlCanvas(px), x0, y0, w, h, 0, 0, w, h);
-  return { src: out.toDataURL(), w, h, x0, y0 };
+    })();
+    return () => {
+      vivo = false;
+    };
+    // `clave` resume lo que cambia el dibujo (las funciones se recrean en cada render).
+  }, [clave]);
+  return valor;
+}
+
+/** La escena viva (con sus luces y las medidas del personaje). */
+export function useEscena(noche: boolean) {
+  return useArte(
+    (m) => ({ dibujo: conUrl(m, m.escena[noche ? "noche" : "dia"])!, luces: m.luces, frame: m.frame, feetY: m.feetY }),
+    (motor) => motor.escenaEnVivo(noche),
+    `escena-${noche}`,
+  );
+}
+
+export function useSala(sala: string, noche: boolean) {
+  return useArte((m) => conUrl(m, m.salas[sala]?.[noche ? "noche" : "dia"]), (motor) => motor.salaEnVivo(sala, noche), `sala-${sala}-${noche}`);
+}
+
+export function useObjeto(nombre: string) {
+  return useArte((m) => conUrl(m, m.objetos[nombre]), (motor) => motor.objetoEnVivo(nombre), `objeto-${nombre}`);
+}
+
+/** Hoja de caminata de un personaje: la del build si la hay (clave de characterKey), si no, dibujada. */
+export function useHoja(clave: string, avatar: string, look: Look | null) {
+  return useArte((m) => (m.personajes[clave] ? urlDelBuild(m, m.personajes[clave]) : undefined), (motor) => motor.hojaEnVivo(avatar, look), clave);
 }
 
 /** ¿La persona pidió menos movimiento? (en el servidor, o si no se puede saber, se asume que no). */
