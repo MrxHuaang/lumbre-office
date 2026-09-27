@@ -19,20 +19,21 @@ export const CONEXIONES = {
     casa: { tiles: par(15, 12), llegada: { x: 15, y: 14, facing: "down" } },
   },
   plantaBaja: {
-    /** La puerta de entrada del recibidor, hacia el jardín. */
-    entrada: { tiles: par(7, 26), llegada: { x: 7, y: 24, facing: "up" } },
-    // Las escaleras están una sobre otra en todos los pisos (contra la pared oeste, al sur del pasillo): la de la
-    // izquierda (x 0..1) une la planta baja con el piso 2 y la de la derecha (x 3..4) baja al sótano
-    // y, en el piso 2, sube al 3. Se pisan en la fila de abajo del primer escalón (y = 17).
-    escaleraArriba: { tiles: par(0, 17), llegada: { x: 1, y: 18, facing: "down" } },
-    escaleraSotano: { tiles: par(3, 17), llegada: { x: 4, y: 18, facing: "down" } },
+    /** La puerta de entrada del recibidor, al centro de la fachada sur (detrás del porche del jardín). */
+    entrada: { tiles: par(17, 26), llegada: { x: 17, y: 24, facing: "up" } },
+    // Las escaleras están una sobre otra en todos los pisos, contra la pared norte del recibidor (o del
+    // rellano): la de la izquierda (x 11..12) une la planta baja con el piso 2 y la de la derecha
+    // (x 14..15) baja al sótano y, en el piso 2, sube al 3. Se pisan en la fila de abajo del primer
+    // escalón (y = 17). El sótano pone su escalera en estos mismos tiles.
+    escaleraArriba: { tiles: par(11, 17), llegada: { x: 12, y: 18, facing: "down" } },
+    escaleraSotano: { tiles: par(14, 17), llegada: { x: 15, y: 18, facing: "down" } },
   },
   piso2: {
-    escaleraAbajo: { tiles: par(0, 17), llegada: { x: 1, y: 18, facing: "down" } },
-    escaleraArriba: { tiles: par(3, 17), llegada: { x: 4, y: 18, facing: "down" } },
+    escaleraAbajo: { tiles: par(11, 17), llegada: { x: 12, y: 18, facing: "down" } },
+    escaleraArriba: { tiles: par(14, 17), llegada: { x: 15, y: 18, facing: "down" } },
   },
   piso3: {
-    escaleraAbajo: { tiles: par(3, 17), llegada: { x: 4, y: 18, facing: "down" } },
+    escaleraAbajo: { tiles: par(14, 17), llegada: { x: 15, y: 18, facing: "down" } },
   },
   sotano: {
     escalera: { tiles: par(1, 3), llegada: { x: 2, y: 4, facing: "down" } },

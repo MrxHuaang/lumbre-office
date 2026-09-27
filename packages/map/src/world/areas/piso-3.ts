@@ -5,18 +5,19 @@ import { CONEXIONES, hacia } from "./conexiones";
 // ---------- Piso 3: biblioteca y descanso ----------
 // Ver docs/plan-rediseno.md. Bajo el techo y más chico que los de abajo. El pasillo (y 11..13) cruza el
 // piso y todas las salas se abren a él: arriba la biblioteca (con las estanterías altas contra las
-// paredes del fondo), el rincón de lectura (con el ventanal) y la sala de estar; abajo el rellano de la
-// escalera (el mismo lugar que en los otros pisos), la sala de juegos de mesa y la terraza al aire libre.
+// paredes del fondo) y la sala de estar; abajo el rincón de lectura (con el ventanal en la pared oeste),
+// el rellano de la escalera (el mismo lugar que en los otros pisos), la sala de juegos de mesa y la
+// terraza al aire libre, en la esquina sureste (sobre el techo del ala de abajo).
 
 const W = 32;
 const H = 21;
-const BIBLIOTECA: Rect = { x: 0, y: 0, w: 15, h: 11 };
-const LECTURA: Rect = { x: 15, y: 0, w: 7, h: 11 };
-const ESTAR: Rect = { x: 22, y: 0, w: 10, h: 11 };
+const BIBLIOTECA: Rect = { x: 0, y: 0, w: 18, h: 11 };
+const ESTAR: Rect = { x: 18, y: 0, w: 14, h: 11 };
 const PASILLO: Rect = { x: 0, y: 11, w: W, h: 3 };
-const RELLANO: Rect = { x: 0, y: 14, w: 8, h: 7 };
-const JUEGOS: Rect = { x: 8, y: 14, w: 12, h: 7 };
-const TERRAZA: Rect = { x: 20, y: 14, w: 12, h: 7 };
+const LECTURA: Rect = { x: 0, y: 14, w: 10, h: 7 };
+const RELLANO: Rect = { x: 10, y: 14, w: 8, h: 7 };
+const JUEGOS: Rect = { x: 18, y: 14, w: 7, h: 7 };
+const TERRAZA: Rect = { x: 25, y: 14, w: 7, h: 7 };
 
 export const piso3: AreaDef = {
   id: "piso-3",
@@ -25,20 +26,20 @@ export const piso3: AreaDef = {
   height: H,
   rooms: [
     { id: "biblioteca", rect: BIBLIOTECA, floor: "parquet", wallpaper: "forest" },
-    { id: "lectura", rect: LECTURA, floor: "wood", wallpaper: "cream" },
     { id: "estar", rect: ESTAR, floor: "parquet", wallpaper: "paneling" },
     { id: "pasillo-3", rect: PASILLO, floor: "wood", wallpaper: "sage" },
+    { id: "lectura", rect: LECTURA, floor: "wood", wallpaper: "cream" },
     { id: "rellano-3", rect: RELLANO, floor: "parquet", wallpaper: "paneling" },
     { id: "juegos", rect: JUEGOS, floor: "carpet", wallpaper: "sage" },
     { id: "terraza", rect: TERRAZA, floor: "terrace", wallpaper: "cream" },
   ],
   doors: [
-    { edge: "h", x: 7, y: 11, width: 2 }, // biblioteca ↔ pasillo
-    { edge: "h", x: 18, y: 11 }, // rincón de lectura ↔ pasillo
-    { edge: "h", x: 26, y: 11, width: 2 }, // sala de estar ↔ pasillo
-    { edge: "h", x: 5, y: 14, width: 3 }, // rellano ↔ pasillo
-    { edge: "h", x: 13, y: 14, width: 2 }, // sala de juegos ↔ pasillo
-    { edge: "h", x: 25, y: 14, width: 2 }, // terraza ↔ pasillo
+    { edge: "h", x: 8, y: 11, width: 2 }, // biblioteca ↔ pasillo
+    { edge: "h", x: 24, y: 11, width: 2 }, // sala de estar ↔ pasillo
+    { edge: "h", x: 4, y: 14, width: 2 }, // rincón de lectura ↔ pasillo
+    { edge: "h", x: 11, y: 14, width: 3 }, // rellano ↔ pasillo
+    { edge: "h", x: 20, y: 14, width: 2 }, // sala de juegos ↔ pasillo
+    { edge: "h", x: 26, y: 14, width: 2 }, // terraza ↔ pasillo
     // La terraza no tiene paredes hacia afuera: la cierran las barandas.
     { edge: "v", x: TERRAZA.x + TERRAZA.w, y: TERRAZA.y, width: TERRAZA.h },
     { edge: "h", x: TERRAZA.x, y: TERRAZA.y + TERRAZA.h, width: TERRAZA.w },
@@ -46,40 +47,39 @@ export const piso3: AreaDef = {
   zones: [
     // Rincón silencioso: lo que se habla en la biblioteca se queda en la biblioteca.
     { id: "biblioteca", name: "Biblioteca", type: "common", rect: BIBLIOTECA, isolated: true },
-    { id: "lectura", name: "Rincón de lectura", type: "common", rect: LECTURA, isolated: false },
     { id: "estar", name: "Sala de estar", type: "common", rect: ESTAR, isolated: false },
     { id: "pasillo-3", name: "Pasillo", type: "common", rect: PASILLO, isolated: false },
+    { id: "lectura", name: "Rincón de lectura", type: "common", rect: LECTURA, isolated: false },
     { id: "rellano-3", name: "Rellano", type: "common", rect: RELLANO, isolated: false },
     { id: "juegos", name: "Sala de juegos", type: "common", rect: JUEGOS, isolated: false },
     { id: "terraza", name: "Terraza", type: "common", rect: TERRAZA, isolated: false },
   ],
   features: [
-    // Biblioteca: una ventana entre las estanterías y el mapamundi.
-    { kind: "window", edge: "h", x: 7, y: 0, width: 2 },
+    // Biblioteca: una ventana entre las estanterías del norte y otra al oeste.
+    { kind: "window", edge: "h", x: 8, y: 0, width: 2 },
     { kind: "window", edge: "v", x: 0, y: 5 },
-    // Rincón de lectura: el ventanal de piso a techo.
-    { kind: "ventanal", edge: "h", x: 15, y: 0, width: 7 },
     // Sala de estar.
-    { kind: "window", edge: "h", x: 23, y: 0, width: 2 },
-    { kind: "portrait", edge: "h", x: 25, y: 0 },
-    { kind: "picture", edge: "h", x: 29, y: 0 },
-    { kind: "window", edge: "h", x: 30, y: 0, width: 2 },
+    { kind: "window", edge: "h", x: 19, y: 0, width: 2 },
+    { kind: "portrait", edge: "h", x: 21, y: 0 },
+    { kind: "picture", edge: "h", x: 28, y: 0 },
+    { kind: "window", edge: "h", x: 29, y: 0, width: 2 },
     { kind: "window", edge: "v", x: 0, y: 12 },
-    { kind: "picture", edge: "v", x: 0, y: 17 },
-    { kind: "window", edge: "v", x: 0, y: 18, width: 2 },
+    // Rincón de lectura: el ventanal de piso a techo en la pared oeste.
+    { kind: "ventanal", edge: "v", x: 0, y: 15, width: 5 },
   ],
   furniture: [
     // ----- Biblioteca: estanterías altas contra el norte y el oeste, la escalerita, dos mesas largas con
-    // lámparas verdes y, al sur, sillones y el globo.
-    place("rug-persian", 3, 3, "down"),
-    place("rug-persian", 8, 3, "down"),
+    // lámparas verdes, cada una en su alfombra, y al sur sillones, el globo y el reloj.
+    place("rug-persian", 2, 3, "down"),
+    place("rug-persian", 10, 3, "down"),
     place("plant", 0, 0),
     place("bookcase-tall", 1, 0, "down"),
     place("bookcase-tall", 3, 0, "down"),
     place("bookcase-tall", 5, 0, "down"),
-    place("bookcase-tall", 9, 0, "down"),
-    place("bookcase-tall", 11, 0, "down"),
-    place("curio-cabinet", 13, 0, "down"),
+    place("bookcase-tall", 10, 0, "down"),
+    place("bookcase-tall", 12, 0, "down"),
+    place("bookcase-tall", 14, 0, "down"),
+    place("curio-cabinet", 16, 0, "down"),
     place("bookcase-tall", 0, 1, "right"),
     place("bookcase-tall", 0, 3, "right"),
     place("bookcase-tall", 0, 6, "right"),
@@ -87,87 +87,110 @@ export const piso3: AreaDef = {
     place("library-ladder", 4, 1, "down"),
     place("library-ladder", 1, 7, "right"),
     place("reading-table", 3, 4, "down"),
-    place("reading-table", 9, 4, "down"),
-    ...[3, 4, 5, 6, 9, 10, 11, 12].flatMap((x) => [place("chair", x, 3, "down"), place("chair", x, 6, "up")]),
+    place("reading-table", 11, 4, "down"),
+    ...[3, 4, 5, 6, 11, 12, 13, 14].flatMap((x) => [place("chair", x, 3, "down"), place("chair", x, 6, "up")]),
+    place("plant", 7, 0),
     place("globe", 3, 9),
     place("armchair-wing", 5, 9, "up"),
     place("side-table", 6, 9),
     place("armchair-wing", 7, 9, "up"),
     place("reading-lamp", 8, 9),
-    place("grandfather-clock", 14, 4),
-    place("plant", 14, 10),
-    place("bookshelf-low", 11, 9, "down"),
-    // ----- Rincón de lectura: la hamaca frente al ventanal, puffs, mantas y una lámpara de pie.
-    place("rug-round", 16, 4),
-    place("hammock", 17, 1, "down"),
-    place("beanbag", 16, 5, "up"),
-    place("beanbag", 18, 5, "up"),
-    place("blanket-basket", 20, 4),
-    place("reading-lamp", 15, 4),
-    place("bookshelf-low", 15, 8, "right"),
-    place("plant", 21, 10),
-    place("plant", 15, 0),
-    place("plant", 21, 0),
-    place("armchair", 20, 7, "left"),
+    place("grandfather-clock", 17, 4),
+    place("bookshelf-low", 12, 9, "down"),
+    place("armchair-wing", 15, 9, "up"),
+    place("reading-lamp", 16, 9),
+    place("plant", 17, 10),
     // ----- Sala de estar: chimenea al norte, sofá y sillones alrededor, el tocadiscos y mantas.
-    place("rug-persian", 24, 3, "down"),
-    place("fireplace-stone", 26, 0, "down"),
-    place("record-player", 22, 0),
-    place("plant", 31, 3),
-    place("armchair-wing", 24, 4, "right"),
-    place("coffee-table", 27, 5),
-    place("armchair-wing", 30, 4, "left"),
-    place("sofa-leather", 26, 7, "up"),
-    place("blanket-basket", 29, 7),
-    place("lamp", 23, 7),
-    place("sideboard", 22, 8, "right"),
+    place("rug-persian", 22, 3, "down"),
+    place("fireplace-stone", 24, 0, "down"),
+    place("record-player", 18, 0),
+    place("plant", 23, 0),
+    place("bookshelf-low", 27, 0, "down"),
+    place("plant", 31, 0),
+    place("armchair-wing", 22, 4, "right"),
+    place("coffee-table", 25, 5),
+    place("armchair-wing", 28, 4, "left"),
+    place("sofa-leather", 24, 7, "up"),
+    place("blanket-basket", 27, 7),
+    place("side-table", 23, 7),
+    place("lamp", 21, 7),
+    place("sideboard", 18, 5, "right"),
     place("guitar", 31, 10),
+    place("armchair", 31, 5, "left"),
+    place("reading-lamp", 31, 4),
+    place("monstera", 18, 10),
+    // Un rincón para escuchar discos al lado de la entrada, y la vitrina de los vinilos al este.
+    place("rug-round", 19, 8),
+    place("armchair-wing", 19, 8, "right"),
+    place("side-table", 20, 8),
+    place("beanbag", 20, 9, "up"),
+    place("cat-bed", 22, 9),
+    place("curio-cabinet", 31, 7, "left"),
     // ----- Pasillo.
-    place("runner", 9, 12, "down"),
-    place("runner", 19, 12, "down"),
+    place("runner", 2, 12, "down"),
+    place("runner", 14, 12, "down"),
+    place("runner", 22, 12, "down"),
     place("plant", 0, 11),
     place("plant", 31, 11),
     place("grandfather-clock", 16, 11),
-    // ----- Rellano: la escalera que baja al piso 2 y un banco junto a la ventana.
-    place("stairwell", 3, 14),
-    place("bookshelf-low", 0, 14, "right"),
-    place("entry-bench", 0, 18, "right"),
-    place("plant", 0, 20),
-    place("side-table", 5, 20),
-    place("armchair-wing", 6, 20, "up"),
-    place("plant", 7, 20),
-    place("reading-lamp", 7, 18),
-    // ----- Sala de juegos de mesa: ajedrez, el puzle a medio armar, cartas y el estante de juegos.
-    place("rug-3x3", 9, 15),
-    place("chair", 9, 16, "right"),
-    place("chess-table", 10, 16),
-    place("chair", 11, 16, "left"),
-    place("reading-lamp", 8, 14),
-    place("game-shelf", 16, 14, "down"),
-    place("puzzle-table", 15, 17, "right"),
-    place("chair", 14, 17, "right"),
-    place("chair", 14, 18, "right"),
-    place("chair", 16, 17, "left"),
-    place("chair", 16, 18, "left"),
-    place("beanbag", 9, 19, "up"),
-    place("beanbag", 11, 19, "up"),
-    place("plant", 19, 20),
-    place("lamp", 19, 14),
-    // ----- Terraza: barandas, jardineras, tumbonas y el telescopio mirando al lago.
-    ...Array.from({ length: TERRAZA.h }, (_, i) => place("railing", TERRAZA.x + TERRAZA.w - 1, TERRAZA.y + i, "right")),
-    ...Array.from({ length: TERRAZA.w }, (_, i) => place("railing", TERRAZA.x + i, TERRAZA.y + TERRAZA.h - 1, "down")),
-    place("balcony-planter", 20, 14, "down"),
+    place("plant", 11, 11),
+    place("plant", 29, 13),
+    // ----- Rincón de lectura: sillón y pufs contra el ventanal, la hamaca, mantas y una lámpara de pie.
+    place("rug-persian", 3, 16, "down"),
+    place("rug-round", 1, 17),
+    place("armchair-wing", 1, 16, "right"),
+    place("reading-lamp", 1, 15),
+    place("beanbag", 1, 19, "right"),
+    place("side-table", 2, 16),
+    place("beanbag", 3, 18, "left"),
+    place("hammock", 6, 17, "right"),
+    place("blanket-basket", 8, 20),
+    place("bookshelf-low", 7, 14, "down"),
+    place("plant", 9, 14),
+    place("plant", 0, 14),
+    place("lamp", 9, 20),
+    // ----- Rellano: la escalera que baja al piso 2 y un banco para esperar.
+    place("plant", 10, 14),
+    place("stairwell", 14, 14),
+    place("bookshelf-low", 16, 14, "down"),
+    place("entry-bench", 10, 18, "right"),
+    place("reading-lamp", 10, 20),
+    place("rug-3x3", 11, 18),
+    place("plant", 13, 20),
+    place("side-table", 16, 20),
+    place("armchair-wing", 17, 20, "up"),
+    place("plant", 17, 17),
+    // ----- Sala de juegos de mesa: ajedrez, el puzle a medio armar y el estante de juegos.
+    place("game-shelf", 22, 14, "down"),
+    place("lamp", 24, 14),
+    place("reading-lamp", 18, 14),
+    place("rug-3x3", 18, 16),
+    place("chair", 18, 17, "right"),
+    place("chess-table", 19, 17),
+    place("chair", 20, 17, "left"),
+    place("puzzle-table", 22, 17, "right"),
+    place("chair", 21, 17, "right"),
+    place("chair", 21, 18, "right"),
+    place("chair", 23, 17, "left"),
+    place("chair", 23, 18, "left"),
+    place("beanbag", 18, 20, "up"),
+    place("beanbag", 19, 20, "up"),
+    place("plant", 24, 20),
+    // ----- Terraza: barandas (con la esquina en un mueble), jardinera, tumbonas, la mesita y el telescopio
+    // mirando al lago. Lo alto va atrás (al norte) para no tapar las tumbonas.
+    ...Array.from({ length: TERRAZA.h - 1 }, (_, i) => place("railing", TERRAZA.x + TERRAZA.w - 1, TERRAZA.y + i, "right")),
+    ...Array.from({ length: TERRAZA.w - 1 }, (_, i) => place("railing", TERRAZA.x + i, TERRAZA.y + TERRAZA.h - 1, "down")),
+    place("railing-corner", TERRAZA.x + TERRAZA.w - 1, TERRAZA.y + TERRAZA.h - 1, "right"),
+    place("monstera", 25, 14),
     place("balcony-planter", 28, 14, "down"),
-    place("telescope", 29, 16),
-    place("deck-chair", 22, 17, "right"),
-    place("deck-chair", 22, 18, "right"),
-    place("cafe-table", 26, 18),
-    place("chair", 25, 18, "right"),
-    place("chair", 27, 18, "left"),
-    place("plant", 20, 19),
-    place("balcony-planter", 20, 16, "right"),
     place("lamp-post", 30, 14),
-    place("monstera", 24, 19),
+    place("deck-chair", 25, 16, "right"),
+    place("deck-chair", 25, 17, "right"),
+    place("telescope", 30, 16),
+    place("cafe-table", 29, 18),
+    place("chair", 28, 18, "right"),
+    place("chair", 30, 18, "left"),
+    place("cactus", 25, 19),
     place("bonsai", 30, 19),
   ],
   portals: [

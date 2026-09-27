@@ -123,7 +123,8 @@ describe("paredes", () => {
 
   it("fuera del edificio no se puede caminar", () => {
     expect(isBlockedTile(plantaBaja, 10, 26)).toBe(true);
-    expect(isBlockedTile(plantaBaja, 7, 26)).toBe(false); // umbral de la puerta de entrada
+    const umbral = CONEXIONES.plantaBaja.entrada.tiles[0]!;
+    expect(isBlockedTile(plantaBaja, umbral.x, umbral.y)).toBe(false); // umbral de la puerta de entrada
     expect(isBlockedTile(plantaBaja, -1, 5)).toBe(true);
   });
 });
@@ -201,13 +202,13 @@ describe("lugares y zonas", () => {
     expect(zoneAt(plantaBaja, x, y)?.isolated).toBe(true);
     expect(placeAt(plantaBaja, x, y)).toBe("mesa-1");
     expect(placeAt(plantaBaja, center(plantaBaja, 20), center(plantaBaja, 7))).toBe("cafeteria");
-    expect(placeAt(plantaBaja, center(plantaBaja, 15), center(plantaBaja, 19))).toBe("tienda");
+    expect(placeAt(plantaBaja, center(plantaBaja, 28), center(plantaBaja, 17))).toBe("tienda");
   });
 
-  it("las seis mesas son aisladas, están dentro de la cafetería y se llega a cada una desde la entrada", () => {
+  it("las mesas son aisladas, están dentro de la cafetería y se llega a cada una desde la entrada", () => {
     const cafe = plantaBaja.zones.find((z) => z.id === "cafeteria")!;
     const mesas = plantaBaja.zones.filter((z) => z.type === "table");
-    expect(mesas.map((z) => z.id)).toEqual(["mesa-1", "mesa-2", "mesa-3", "mesa-4", "mesa-5", "mesa-6"]);
+    expect(mesas.map((z) => z.id)).toEqual(Array.from({ length: 8 }, (_, i) => `mesa-${i + 1}`));
     for (const mesa of mesas) {
       expect(mesa.isolated, mesa.id).toBe(true);
       expect(mesa.x >= cafe.x && mesa.y >= cafe.y, mesa.id).toBe(true);
@@ -233,7 +234,7 @@ describe("lugares y zonas", () => {
   });
 
   it("nearestFreeTile encuentra un tile libre cerca de un obstáculo", () => {
-    const free = nearestFreeTile(plantaBaja, { x: 33, y: 4 }); // isla de la cocina
+    const free = nearestFreeTile(plantaBaja, { x: 36, y: 4 }); // isla de la cocina
     expect(free).not.toBeNull();
     expect(isBlockedTile(plantaBaja, free!.x, free!.y)).toBe(false);
   });
@@ -272,9 +273,10 @@ describe("tienda", () => {
     const walls = Array.from({ length: shop.width / ts }, (_, i) => wallAbove(plantaBaja, shop.x / ts + i, y));
     expect(walls.filter((w) => w === 0).length).toBe(2);
     expect(walls.every((w) => w === 0 || w === 1)).toBe(true);
-    // Del recibidor se entra a la tienda por su puerta (x = 13, y = 18).
-    expect(wallBetween(plantaBaja, 12, 18, 13, 18)).toBe(false);
-    expect(zoneAt(plantaBaja, center(plantaBaja, 13), center(plantaBaja, 18))?.id).toBe("tienda");
+    // Del recibidor se entra a la tienda por su puerta (x = 24, y = 19).
+    expect(wallBetween(plantaBaja, 23, 19, 24, 19)).toBe(false);
+    expect(zoneAt(plantaBaja, center(plantaBaja, 23), center(plantaBaja, 19))?.id).toBe("recibidor");
+    expect(zoneAt(plantaBaja, center(plantaBaja, 24), center(plantaBaja, 19))?.id).toBe("tienda");
     // La barra de la cafetería queda a un paseo por el pasillo.
     const barra = pointsOfType(plantaBaja, "cafe_counter")[0]!;
     expect(findPath(plantaBaja, entrada, tile(barra))).not.toBeNull();
@@ -335,15 +337,41 @@ describe("circulación (docs/plan-rediseno.md)", () => {
     }
   });
 
-  it("se llega caminando a cada sala desde la escalera o la entrada", () => {
-    for (const map of levels)
-      for (const room of map.def.rooms) {
-        const tiles: { x: number; y: number }[] = [];
-        for (let y = room.rect.y; y < room.rect.y + room.rect.h; y++)
-          for (let x = room.rect.x; x < room.rect.x + room.rect.w; x++)
-            if (roomAt(map, x, y) === room.id && !isBlockedTile(map, x, y) && !portalAtTile(map, x, y)) tiles.push({ x, y });
-        expect(tiles.some((t) => findPath(map, STARTS[map.id]!, t) !== null), `${map.id}: ${room.id}`).toBe(true);
+  /** Tiles libres a los que se llega caminando desde la llegada del nivel (sin pasar por portales). */
+  const reachable = (map: OfficeMap) => {
+    const start = STARTS[map.id]!;
+    const seen = new Set([start.y * map.width + start.x]);
+    const queue = [start];
+    while (queue.length) {
+      const t = queue.pop()!;
+      if (portalAtTile(map, t.x, t.y)) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const n = { x: t.x + dx, y: t.y + dy };
+        const i = n.y * map.width + n.x;
+        if (seen.has(i) || isBlockedTile(map, n.x, n.y) || wallBetween(map, t.x, t.y, n.x, n.y)) continue;
+        seen.add(i);
+        queue.push(n);
       }
+    }
+    return seen;
+  };
+
+  it("se llega caminando a todo el piso libre de cada nivel, sin rincones encerrados", () => {
+    for (const map of levels) {
+      const ok = reachable(map);
+      const closed: string[] = [];
+      for (let y = 0; y < map.height; y++)
+        for (let x = 0; x < map.width; x++) if (!isBlockedTile(map, x, y) && !ok.has(y * map.width + x)) closed.push(`${x},${y}`);
+      expect(closed, map.id).toEqual([]);
+      // Y a cada asiento se llega por un tile vecino (sin cruzar paredes).
+      for (const seat of map.seats.values()) {
+        const near = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).some(([dx, dy]) => {
+          const n = { x: seat.tileX + dx, y: seat.tileY + dy };
+          return ok.has(n.y * map.width + n.x) && !wallBetween(map, seat.tileX, seat.tileY, n.x, n.y);
+        });
+        expect(near, `${map.id}: asiento (${seat.tileX}, ${seat.tileY})`).toBe(true);
+      }
+    }
   });
 
   it("las escaleras están una sobre otra en todos los pisos", () => {
@@ -354,5 +382,11 @@ describe("circulación (docs/plan-rediseno.md)", () => {
     const stairs = (map: OfficeMap) => map.furniture.filter((f) => f.type === "stairs-up" || f.type === "stairwell").map((f) => `${f.x},${f.y}`);
     expect(stairs(piso2)).toEqual(expect.arrayContaining(stairs(plantaBaja)));
     expect(stairs(piso2)).toEqual(expect.arrayContaining(stairs(piso3)));
+  });
+
+  // Se activa al integrar con la rama del sótano: allá la escalera tiene que quedar en los mismos tiles
+  // que la bajada de la planta baja (acá el sótano sigue con la escalera de la base).
+  it.skip("la escalera del sótano queda debajo de la bajada de la planta baja", () => {
+    expect(CONEXIONES.sotano.escalera.tiles).toEqual(CONEXIONES.plantaBaja.escaleraSotano.tiles);
   });
 });

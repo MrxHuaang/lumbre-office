@@ -5,8 +5,9 @@ import { CONEXIONES, hacia } from "./conexiones";
 // ---------- Piso 2: el trabajo ----------
 // Ver docs/plan-rediseno.md. El pasillo de oficinas cruza el piso de oeste a este (y 11..13) y todas
 // las salas se abren a él. Arriba: las cabinas de llamada, la oficina 1, la sala de reuniones y la
-// oficina 2 (con ventanas en la pared norte). Abajo: el rellano de las escaleras (el mismo lugar que en
-// los otros pisos), la oficina 3, la zona de descanso (con su balcón) y la oficina 4.
+// oficina 2 (con ventanas en la pared norte). Abajo: la oficina 3 (con ventana en la pared oeste), el
+// rellano de las escaleras (el mismo lugar que en los otros pisos), la zona de descanso (con su balcón)
+// y la oficina 4. La 4 no tiene pared alta (el frente es bajo, para ver adentro): lleva más plantas.
 
 export const OFFICE_COUNT = 4;
 const W = 40;
@@ -58,7 +59,7 @@ function northOffice(ox: number, wallpaper: WallpaperKind, mirror = false): Offi
   };
 }
 
-/** Oficina de abajo (10x10, puerta al norte), relativa a su esquina (ox, 14). */
+/** Oficina de abajo (10x10, puerta al norte), relativa a su esquina (ox, 14). La del oeste tiene ventana. */
 function southOffice(ox: number, wallpaper: WallpaperKind, mirror = false): OfficeSpec {
   const X = (dx: number, w = 1) => (mirror ? ox + 9 - dx - (w - 1) : ox + dx);
   const oy = 14;
@@ -66,7 +67,13 @@ function southOffice(ox: number, wallpaper: WallpaperKind, mirror = false): Offi
     rect: { x: ox, y: oy, w: 10, h: 10 },
     door: { x: ox + 4, y: oy - 1 },
     wallpaper,
-    features: [],
+    features:
+      ox === 0
+        ? [
+            { kind: "window", edge: "v", x: 0, y: oy + 2, width: 2 },
+            { kind: "picture", edge: "v", x: 0, y: oy + 6 },
+          ]
+        : [],
     furniture: [
       place("bookcase-tall", X(0, 2), oy, "down"),
       place("plant", X(2), oy),
@@ -83,19 +90,20 @@ function southOffice(ox: number, wallpaper: WallpaperKind, mirror = false): Offi
       place("bookshelf-low", X(0), oy + 8, mirror ? "left" : "right"),
       place("plant", X(9), oy + 9),
       place("lamp", X(8), oy + 9),
+      place("monstera", X(9), oy + 6),
     ],
   };
 }
 
-const OFFICES: OfficeSpec[] = [northOffice(8, "cream"), northOffice(30, "blue", true), southOffice(11, "rose"), southOffice(30, "sage", true)];
+const OFFICES: OfficeSpec[] = [northOffice(8, "cream"), northOffice(30, "blue", true), southOffice(0, "rose"), southOffice(30, "sage", true)];
 
 const CABINA_1: Rect = { x: 0, y: 0, w: 4, h: 4 };
 const CABINA_2: Rect = { x: 4, y: 0, w: 4, h: 4 };
 const SALA_CABINAS: Rect = { x: 0, y: 4, w: 8, h: 7 };
 const REUNIONES: Rect = { x: 18, y: 0, w: 12, h: 11 };
-const RELLANO: Rect = { x: 0, y: 14, w: 11, h: 10 };
-const DESCANSO: Rect = { x: 21, y: 14, w: 9, h: 10 };
-const BALCON: Rect = { x: 21, y: 24, w: 9, h: 3 };
+const RELLANO: Rect = { x: 10, y: 14, w: 10, h: 10 };
+const DESCANSO: Rect = { x: 20, y: 14, w: 10, h: 10 };
+const BALCON: Rect = { x: 21, y: 24, w: 8, h: 3 };
 
 /** Cabina de llamada: dos sillones frente a frente, una mesita y paneles que apagan el ruido. */
 function cabina(r: Rect): Placement[] {
@@ -110,6 +118,17 @@ function cabina(r: Rect): Placement[] {
 
 /** Baranda en el borde de afuera de un tile (el balcón): este, oeste o sur. */
 const railing = (x: number, y: number, side: "e" | "w" | "s") => place("railing", x, y, side === "e" ? "right" : side === "w" ? "left" : "down");
+/** Barandas alrededor de un balcón (lados y frente), con las esquinas en un solo mueble. */
+function balconyRailings(r: Rect): Placement[] {
+  const last = r.y + r.h - 1;
+  return [
+    ...Array.from({ length: r.h - 1 }, (_, i) => railing(r.x, r.y + i, "w")),
+    ...Array.from({ length: r.h - 1 }, (_, i) => railing(r.x + r.w - 1, r.y + i, "e")),
+    ...Array.from({ length: r.w - 2 }, (_, i) => railing(r.x + 1 + i, last, "s")),
+    place("railing-corner", r.x, last, "left"),
+    place("railing-corner", r.x + r.w - 1, last, "right"),
+  ];
+}
 
 export const piso2: AreaDef = {
   id: "piso-2",
@@ -121,7 +140,8 @@ export const piso2: AreaDef = {
     { id: "cabina-1", rect: CABINA_1, floor: "carpet", wallpaper: "paneling" },
     { id: "cabina-2", rect: CABINA_2, floor: "carpet", wallpaper: "paneling" },
     { id: "sala-cabinas", rect: SALA_CABINAS, floor: "wood", wallpaper: "sage" },
-    { id: "reuniones", rect: REUNIONES, floor: "carpet", wallpaper: "blue" },
+    // Azul noche: la oficina 2, al lado, es azul claro, y así no se funden.
+    { id: "reuniones", rect: REUNIONES, floor: "carpet", wallpaper: "navy" },
     { id: "rellano", rect: RELLANO, floor: "parquet", wallpaper: "paneling" },
     { id: "descanso", rect: DESCANSO, floor: "wood", wallpaper: "cream" },
     { id: "balcon", rect: BALCON, floor: "terrace", wallpaper: "cream" },
@@ -134,7 +154,7 @@ export const piso2: AreaDef = {
     { edge: "h", x: 5, y: 4 }, // cabina 2
     { edge: "h", x: 3, y: 11, width: 2 }, // sala de cabinas ↔ pasillo
     { edge: "h", x: 23, y: 11, width: 2 }, // sala de reuniones ↔ pasillo
-    { edge: "h", x: 5, y: 14, width: 6 }, // rellano ↔ pasillo
+    { edge: "h", x: 16, y: 14, width: 4 }, // rellano ↔ pasillo
     { edge: "h", x: 24, y: 14, width: 3 }, // zona de descanso ↔ pasillo
     { edge: "h", x: 24, y: 24, width: 2 }, // zona de descanso ↔ balcón
     // El balcón no tiene paredes hacia afuera: lo cierran las barandas.
@@ -175,10 +195,6 @@ export const piso2: AreaDef = {
     { kind: "screen", edge: "h", x: 22, y: 0, width: 4 },
     { kind: "window", edge: "h", x: 27, y: 0, width: 2 },
     { kind: "window", edge: "v", x: 0, y: 12 },
-    // Rellano: ventana y cuadros en la pared oeste.
-    { kind: "map", edge: "v", x: 0, y: 17, width: 2 },
-    { kind: "window", edge: "v", x: 0, y: 19, width: 2 },
-    { kind: "portrait", edge: "v", x: 0, y: 22 },
   ],
   furniture: [
     ...OFFICES.flatMap((o) => o.furniture),
@@ -215,46 +231,52 @@ export const piso2: AreaDef = {
     place("plant", 39, 11),
     place("plant", 20, 13),
     place("plant", 29, 13),
-    // ----- Rellano: las escaleras (una sobre otra en todos los pisos) y un rincón para esperar.
-    place("stairwell", 0, 14),
-    place("grandfather-clock", 2, 14),
-    place("stairs-up", 3, 14),
-    place("rug-persian", 4, 18, "down"),
-    place("armchair-wing", 5, 19, "down"),
-    place("side-table", 6, 19),
-    place("armchair-wing", 7, 19, "down"),
-    place("reading-lamp", 8, 19),
-    place("bookshelf-low", 0, 21, "right"),
-    place("plant", 0, 23),
-    place("plant", 10, 17),
-    place("monstera", 10, 23),
-    place("curio-cabinet", 5, 23, "down"),
+    // ----- Rellano: las escaleras (una sobre otra en todos los pisos: la de la izquierda baja a la planta
+    // baja y la de la derecha sube al piso 3) y un rincón para esperar.
+    place("plant", 10, 14),
+    place("stairwell", 11, 14),
+    place("grandfather-clock", 13, 14),
+    place("stairs-up", 14, 14),
+    place("rug-persian", 13, 18, "down"),
+    place("armchair-wing", 14, 19, "down"),
+    place("side-table", 15, 19),
+    place("armchair-wing", 16, 19, "down"),
+    place("reading-lamp", 17, 19),
+    place("bookshelf-low", 10, 20, "right"),
+    place("plant", 10, 23),
+    place("plant", 19, 18),
+    place("monstera", 19, 23),
+    place("curio-cabinet", 14, 23, "down"),
     // ----- Zona de descanso: la kitchenette contra el oeste, mesa alta y sofás; sale al balcón.
-    place("fridge", 21, 14),
-    place("kitchen-sink", 21, 15),
-    place("coffee-station", 21, 16),
-    place("kitchen-counter", 21, 17),
-    place("water-cooler", 21, 18),
-    place("high-table", 23, 16),
-    place("stool", 23, 15, "down"),
-    place("stool", 23, 17, "up"),
-    place("stool", 24, 16, "left"),
+    place("fridge", 20, 14),
+    place("kitchen-sink", 20, 15),
+    place("coffee-station", 20, 16),
+    place("kitchen-counter", 20, 17),
+    place("water-cooler", 20, 18),
+    place("high-table", 22, 16),
+    place("stool", 22, 15, "down"),
+    place("stool", 22, 17, "up"),
+    place("stool", 23, 16, "left"),
     place("rug-3x3", 25, 19),
     place("sofa", 29, 19, "left"),
     place("coffee-table", 26, 20),
     place("armchair", 25, 20, "right"),
     place("beanbag", 26, 22, "up"),
+    // Mesita para almorzar junto a la kitchenette.
+    place("rug-round", 21, 20),
+    place("cafe-table", 22, 21),
+    place("chair", 21, 21, "right"),
+    place("chair", 23, 21, "left"),
+    place("chair", 22, 20, "down"),
     place("plant", 29, 14),
-    place("plant", 21, 23),
+    place("plant", 20, 23),
     place("lamp", 29, 23),
     place("cafe-sign", 28, 17),
-    // ----- Balcón: barandas alrededor, tumbona y jardineras.
-    ...[24, 25, 26].map((y) => railing(BALCON.x, y, "w")),
-    ...[24, 25, 26].map((y) => railing(BALCON.x + BALCON.w - 1, y, "e")),
-    ...Array.from({ length: BALCON.w }, (_, i) => railing(BALCON.x + i, BALCON.y + BALCON.h - 1, "s")),
+    // ----- Balcón: barandas alrededor, la jardinera, una tumbona y una planta que no la tapa.
+    ...balconyRailings(BALCON),
     place("balcony-planter", 22, 24, "down"),
-    place("deck-chair", 27, 24, "right"),
-    place("plant", 28, 25),
+    place("plant", 27, 24),
+    place("deck-chair", 26, 25, "right"),
   ],
   portals: [
     {
