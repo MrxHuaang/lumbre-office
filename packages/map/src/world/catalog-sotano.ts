@@ -1,6 +1,9 @@
 // El sótano rediseñado: vestíbulo, bar del club y lo nuevo del entretenimiento (dibujos en art/sotano.ts).
 import type { CatalogItem } from "./catalog";
 
+/** Alto de cada grada del cine en unidades de arte: bajo, para que el avatar no se vea hundido. */
+export const CINEMA_TIER_STEP = 2;
+
 export const SOTANO_CATALOG = {
   // Vestíbulo: el guardarropa (percheros contra la pared y el mostrador), la estatua y las alfombras.
   "coat-rail": { name: "Perchero del guardarropa", size: [1, 2] },
@@ -16,13 +19,13 @@ export const SOTANO_CATALOG = {
   "bar-taps": { name: "Barra con grifos de cerveza", size: [1, 1] },
   "dance-floor": { name: "Pista de baile", size: [5, 5], solid: false, flat: true, light: { at: [40, 40, 2], color: "#8ef0f0", radius: 70 } },
   // Cine: gradas (se pisan) y las butacas que van encima de cada una, a la misma altura.
-  "cinema-tier-1": { name: "Grada del cine", size: [2, 8], solid: false, flat: true },
-  "cinema-tier-2": { name: "Grada del cine", size: [2, 8], solid: false, flat: true },
-  "cinema-tier-3": { name: "Grada del cine", size: [3, 8], solid: false, flat: true },
-  "cinema-seat-1": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true },
-  "cinema-seat-2": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true },
-  "cinema-seat-3": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true },
-  "cinema-stage": { name: "Tarima del cine", size: [2, 7], solid: false, flat: true },
+  "cinema-tier-1": { name: "Grada del cine", size: [2, 8], solid: false, flat: true, lift: CINEMA_TIER_STEP },
+  "cinema-tier-2": { name: "Grada del cine", size: [2, 8], solid: false, flat: true, lift: CINEMA_TIER_STEP * 2 },
+  "cinema-tier-3": { name: "Grada del cine", size: [3, 8], solid: false, flat: true, lift: CINEMA_TIER_STEP * 3 },
+  "cinema-seat-1": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true, lift: CINEMA_TIER_STEP },
+  "cinema-seat-2": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true, lift: CINEMA_TIER_STEP * 2 },
+  "cinema-seat-3": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true, lift: CINEMA_TIER_STEP * 3 },
+  "cinema-stage": { name: "Tarima del cine", size: [2, 7], solid: false, flat: true, lift: 3 },
   // Baños (de adorno).
   "bath-stall": { name: "Cubículo del baño", size: [1, 1] },
   "bath-sink": { name: "Lavamanos", size: [1, 1] },

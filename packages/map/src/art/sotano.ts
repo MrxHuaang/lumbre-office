@@ -4,6 +4,7 @@
 import { C, OUT, mix } from "./palette";
 import { alpha, at, bayer, flat, noise, renderSprite, smoothNoise, solidBox, type Box, type Ramp, type RGBA, type Shader, type Sprite } from "./pixel";
 import { blob, leg, roundShadow, shadowUnder, volume, type Variant } from "./kit";
+import { CINEMA_TIER_STEP, SOTANO_CATALOG } from "../world/catalog-sotano";
 
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 const none: Shader = () => null;
@@ -507,8 +508,8 @@ function danceFloor(): Sprite {
 
 // ---------- Cine: las gradas ----------
 
-/** Alto de cada grada en unidades de arte (bajo, para que los avatares no queden hundidos). */
-export const TIER_STEP = 4;
+/** Alto de cada grada: sale del catálogo (`lift`), que es lo que usaría el cliente para subir al avatar. */
+const TIER_STEP = CINEMA_TIER_STEP;
 
 /**
  * Grada del cine (`w` tiles de fondo en x, 8 de largo en y): alfombra azul con una nariz de bronce y luces
@@ -806,7 +807,7 @@ function cinemaStage(): Sprite {
     if (v >= fh - 1) return at(C.gold, 3);
     return at(C.curtain, mod(Math.floor(u), 4) === 0 ? 1 : 2);
   };
-  return renderSprite([{ x: 0, y: 0, z: 0, w: 32, d: 112, h: 5, top, left: side, right: side }], { outline: OUT });
+  return renderSprite([{ x: 0, y: 0, z: 0, w: 32, d: 112, h: SOTANO_CATALOG["cinema-stage"].lift, top, left: side, right: side }], { outline: OUT });
 }
 
 /** Dibujos para registrar en DRAW de furniture.ts. */

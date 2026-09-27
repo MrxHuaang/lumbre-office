@@ -3,11 +3,11 @@
 import { C, OUT } from "./palette";
 import { alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type Shader, type Sprite } from "./pixel";
 import { cushion, shadowUnder, volume, type Variant } from "./kit";
-import { TIER_STEP } from "./sotano";
+import { SOTANO_CATALOG } from "../world/catalog-sotano";
 
 /**
  * Butaca de cine: respaldo alto de terciopelo rojo, apoyabrazos negros con portavasos y asiento acolchado.
- * `lift` la sube a la altura de una grada (ver cinemaTier en sotano.ts).
+ * `lift` la sube a la altura de su grada (el `lift` del catálogo, igual al de la grada).
  */
 function cinemaSeat(variant: Variant, lift = 0): Sprite {
   const back = variant === "back";
@@ -121,9 +121,9 @@ function posterStand(): Sprite {
 export const CINEMA_DRAW: Record<string, (v: Variant) => Sprite> = {
   "cinema-seat": (v) => cinemaSeat(v),
   // Las butacas de las gradas, cada una a la altura de su grada.
-  "cinema-seat-1": (v) => cinemaSeat(v, TIER_STEP),
-  "cinema-seat-2": (v) => cinemaSeat(v, TIER_STEP * 2),
-  "cinema-seat-3": (v) => cinemaSeat(v, TIER_STEP * 3),
+  "cinema-seat-1": (v) => cinemaSeat(v, SOTANO_CATALOG["cinema-seat-1"].lift),
+  "cinema-seat-2": (v) => cinemaSeat(v, SOTANO_CATALOG["cinema-seat-2"].lift),
+  "cinema-seat-3": (v) => cinemaSeat(v, SOTANO_CATALOG["cinema-seat-3"].lift),
   "popcorn-machine": popcornMachine,
   projector,
   "poster-stand": posterStand,
