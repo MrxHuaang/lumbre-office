@@ -22,6 +22,7 @@ export const SOTANO_CATALOG = {
   "cinema-seat-1": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true },
   "cinema-seat-2": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true },
   "cinema-seat-3": { name: "Butaca de cine", size: [1, 1], seats: [[0, 0]], hasBack: true },
+  "cinema-stage": { name: "Tarima del cine", size: [2, 7], solid: false, flat: true },
   // Baños (de adorno).
   "bath-stall": { name: "Cubículo del baño", size: [1, 1] },
   "bath-sink": { name: "Lavamanos", size: [1, 1] },

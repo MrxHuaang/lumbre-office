@@ -233,9 +233,9 @@ function lobbyStatue(): Sprite {
       { x: 4.5, y: 4.5, z: 19, w: 23, d: 23, h: 2.5, top: marble, left: marbleSide(4), right: marbleSide(3) },
       { x: 9, y: 9, z: 21.5, w: 14, d: 14, h: 3, top: cushionTop, left: flat(at(C.rug, 2)), right: flat(at(C.rug, 1)) },
       // Dados: uno grande apoyado y uno chico encima, corrido.
-      { x: 10, y: 11, z: 24.5, w: 9, d: 9, h: 9, top: dieFace(5, 4), left: dieFace(3, 3), right: dieFace(2, 2) },
-      { x: 13, y: 12, z: 33.5, w: 6, d: 6, h: 6, top: dieFace(1, 4), left: dieFace(6, 3), right: dieFace(4, 2) },
-      volume(0, 0, 0, 32, 32, 44),
+      { x: 9.5, y: 10, z: 24.5, w: 12, d: 12, h: 12, top: dieFace(5, 4), left: dieFace(3, 3), right: dieFace(2, 2) },
+      { x: 12.5, y: 12, z: 36.5, w: 8, d: 8, h: 8, top: dieFace(1, 4), left: dieFace(6, 3), right: dieFace(4, 2) },
+      volume(0, 0, 0, 32, 32, 48),
     ],
     {
       outline: OUT,
@@ -243,9 +243,9 @@ function lobbyStatue(): Sprite {
       extra: (c, p) => {
         // Destellos sobre el oro y borlas en las esquinas del cojín.
         for (const [x, y, z] of [
-          [11, 12, 33],
-          [14, 13, 39],
-          [18, 12, 30],
+          [10.5, 11, 36],
+          [13.5, 13, 44],
+          [20, 11, 33],
         ] as const) {
           const s = p(x, y, z);
           c.set(s.x, s.y - 1, at(C.gold, 5));
@@ -282,12 +282,15 @@ function lobbyRug(): Sprite {
     if (e < 5) return at(C.gold, 3);
     const cu = u - fw / 2;
     const cv = v - fh / 2;
-    // Medallón central en rombo, con un rombo navy adentro.
-    const d = Math.abs(cu) / (fw * 0.34) + Math.abs(cv) / (fh * 0.3);
-    if (d < 0.3) return at(C.gold, d < 0.14 ? 5 : 4);
-    if (d < 0.55) return at(C.navy, mod(x + y, 4) === 0 ? 3 : 2);
-    if (d < 0.63) return at(C.gold, 4);
-    if (d < 0.7) return at(C.rug, 1);
+    // Medallón central en rombo (más ancho que la estatua que va encima), con rombitos dorados adentro,
+    // doble filete y puntas festoneadas.
+    const d = Math.abs(cu) / (fw * 0.42) + Math.abs(cv) / (fh * 0.36);
+    if (d < 0.2) return at(C.gold, d < 0.1 ? 5 : 4);
+    if (d < 0.62) return mod(x + y, 8) === 0 && mod(x - y, 8) === 0 ? at(C.gold, 4) : at(C.navy, d < 0.3 ? 3 : 2);
+    if (d < 0.67) return at(C.gold, 4);
+    if (d < 0.71) return at(C.rug, 0);
+    if (d < 0.75) return at(C.gold, 2);
+    if (d < 0.86 && mod(Math.floor(d * 60), 3) === 0 && mod(x + y, 3) === 0) return at(C.cream, 4);
     // Esquineras: cuartos de rombo en cada esquina del campo.
     const ex = Math.min(u - 5, fw - 6 - u);
     const ey = Math.min(v - 7, fh - 8 - v);
@@ -322,30 +325,42 @@ function hallRunner(): Sprite {
 }
 
 /**
- * Aplique de pared (colgado del lado -x del tile; con "down" queda en la pared norte): placa de bronce,
- * brazo curvo y una tulipa de vidrio esmerilado con su bombillo.
+ * Aplique de pared de dos brazos (colgado del lado -x del tile; con "down" queda en la pared norte):
+ * placa de bronce con remate, brazos en S y dos pantallas de tela plisada encendidas, con su halo.
  */
 function wallSconce(): Sprite {
-  const shade: Shader = (u, v, fw, fh) => {
-    if (v >= fh - 1) return at(C.gold, 4);
-    if (v < 1) return at(C.gold, 2);
-    const glow = 1 - Math.abs(u + 0.5 - fw / 2) / (fw / 2);
-    return at(C.cream, glow > 0.5 ? 5 : 4);
+  const pleats: Shader = (u, v, _fw, fh) => {
+    if (v >= fh - 0.8) return at(C.gold, 4);
+    if (v < 0.8) return at(C.gold, 3);
+    return at(C.cream, mod(Math.floor(u), 2) === 0 ? 5 : 4);
   };
+  // Brazo que sale de la placa, sube y sostiene una pantalla acampanada (ancha abajo, angosta arriba).
+  const arm = (y: number): Box[] => [
+    solidBox({ x: 1.2, y: y + 0.5, z: 27, w: 3.8, d: 1, h: 1 }, C.gold, 3),
+    solidBox({ x: 4, y: y + 0.5, z: 28, w: 1, d: 1, h: 2.5 }, C.gold, 3),
+    solidBox({ x: 3.5, y, z: 30, w: 2, d: 2, h: 1 }, C.gold, 4),
+    { x: 2.5, y: y - 1, z: 31, w: 4, d: 4, h: 2.5, top: flat(at(C.cream, 5)), left: pleats, right: pleats },
+    { x: 3, y: y - 0.5, z: 33.5, w: 3, d: 3, h: 2, top: flat(at(C.cream, 5)), left: pleats, right: pleats },
+  ];
   return renderSprite(
     [
-      // Placa contra la pared.
-      { x: 0, y: 6, z: 26, w: 1.2, d: 4, h: 7, top: flat(at(C.gold, 4)), left: flat(at(C.gold, 2)), right: (_u, v, _fw, fh) => at(C.gold, v >= fh - 1 ? 5 : 3) },
-      solidBox({ x: 1.2, y: 7.5, z: 28, w: 3.5, d: 1, h: 1 }, C.gold, 3),
-      solidBox({ x: 4.2, y: 7.5, z: 28, w: 1, d: 1, h: 3 }, C.gold, 3),
-      { x: 2.5, y: 5.5, z: 31, w: 5, d: 5, h: 5, top: flat(at(C.gold, 5)), left: shade, right: shade },
-      solidBox({ x: 4, y: 7, z: 36, w: 2, d: 2, h: 1 }, C.gold, 3),
+      // Placa contra la pared, con un remate arriba y una gota abajo.
+      { x: 0, y: 6.5, z: 24, w: 1.2, d: 3, h: 11, top: flat(at(C.gold, 4)), left: flat(at(C.gold, 2)), right: (_u, v, _fw, fh) => at(C.gold, v >= fh - 1 || v < 1 ? 5 : 3) },
+      solidBox({ x: 0.2, y: 7.3, z: 35, w: 1.4, d: 1.4, h: 1.5 }, C.gold, 4),
+      solidBox({ x: 0.2, y: 7.3, z: 22.5, w: 1.4, d: 1.4, h: 1.5 }, C.gold, 2),
+      ...arm(3),
+      ...arm(11),
     ],
     {
       outline: OUT,
+      pad: 6,
       extra: (c, p) => {
-        const s = p(5, 8, 31);
-        c.glow(s.x, s.y + 2, 7, 5, at(C.gold, 5), 0.25, 3);
+        for (const y of [4, 12]) {
+          const s = p(4.5, y, 31);
+          c.glow(s.x, s.y + 3, 6, 4, at(C.gold, 5), 0.2, 2);
+          // El bombillo asoma bajo la pantalla.
+          c.set(s.x, s.y + 1, at(C.gold, 5));
+        }
       },
     },
   );
@@ -773,6 +788,27 @@ function lobbySign(): Sprite {
   );
 }
 
+/**
+ * Tarima frente a la pantalla del cine (2x7): tablas de madera oscura con un borde de bronce y una fila
+ * de candilejas en el borde que da a las butacas (+x).
+ */
+function cinemaStage(): Sprite {
+  const top: Shader = (u, v, fw, fh) => {
+    const x = Math.floor(u);
+    const y = Math.floor(v);
+    if (u >= fw - 2) return mod(y, 6) === 3 ? at(C.gold, 5) : at(C.gold, u >= fw - 1 ? 2 : 3);
+    if (v < 1 || v >= fh - 1) return at(C.gold, 3);
+    const off = Math.floor(noise(x >> 3, 0, 5) * 16);
+    if (mod(x, 8) === 0 || mod(y + off, 24) === 0) return at(C.woodDark, 1);
+    return at(C.woodDark, noise(x >> 3, (y + off) >> 4, 9) < 0.5 ? 3 : 4);
+  };
+  const side: Shader = (u, v, _fw, fh) => {
+    if (v >= fh - 1) return at(C.gold, 3);
+    return at(C.curtain, mod(Math.floor(u), 4) === 0 ? 1 : 2);
+  };
+  return renderSprite([{ x: 0, y: 0, z: 0, w: 32, d: 112, h: 5, top, left: side, right: side }], { outline: OUT });
+}
+
 /** Dibujos para registrar en DRAW de furniture.ts. */
 export const SOTANO_DRAW: Record<string, (v: Variant) => Sprite> = {
   "coat-rail": coatRail,
@@ -787,6 +823,7 @@ export const SOTANO_DRAW: Record<string, (v: Variant) => Sprite> = {
   "cinema-tier-1": cinemaTier(1, 2),
   "cinema-tier-2": cinemaTier(2, 2),
   "cinema-tier-3": cinemaTier(3, 3),
+  "cinema-stage": cinemaStage,
   "bath-stall": bathStall,
   "bath-sink": bathSink,
   "prize-shelf": prizeShelf,

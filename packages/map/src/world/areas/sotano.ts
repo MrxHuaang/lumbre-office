@@ -136,6 +136,10 @@ export const sotano: AreaDef = {
     place("coat-rail", 16, 2),
     place("coat-check", 18, 1),
     place("lobby-statue", 22, 9),
+    // Sofás a los dos lados de la estatua, mirándola.
+    place("lounge-sofa", 20, 9),
+    place("lounge-sofa", 25, 9, "left"),
+    place("monstera", 19, 5),
     place("velvet-rope", 17, 9),
     place("velvet-rope", 17, 12),
     place("velvet-rope", 29, 9),
@@ -230,6 +234,7 @@ export const sotano: AreaDef = {
     place("poster-stand", 11, 20, "down"),
     place("poster-stand", 14, 20, "down"),
     // ---- Cine ----
+    place("cinema-stage", 0, CINEMA_ROOM.y + 1),
     place("cinema-tier-1", 5, CINEMA_ROOM.y),
     place("cinema-tier-2", 7, CINEMA_ROOM.y),
     place("cinema-tier-3", 9, CINEMA_ROOM.y),
