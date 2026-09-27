@@ -62,6 +62,20 @@ function faceToward(f: PlacedFurniture, ts: number, x: number, y: number): Direc
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
 }
 
+/** Volumen del tocadiscos dentro de su habitación, y cuánto de eso sale por las puertas. */
+const ROOM_MUSIC_VOLUME = 0.85;
+const OUTSIDE_ROOM_FACTOR = 0.35;
+
+/** Habitación que contiene el tile (la última que lo cubre, como en build.ts). */
+function roomAt(map: OfficeMap, x: number, y: number): string | undefined {
+  const rooms = map.def.rooms;
+  for (let i = rooms.length - 1; i >= 0; i--) {
+    const r = rooms[i]!.rect;
+    if (x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h) return rooms[i]!.id;
+  }
+  return undefined;
+}
+
 export class Usables {
   private map?: OfficeMap;
   private view?: AreaView;
@@ -268,13 +282,22 @@ export class Usables {
 
   // ---------- Lo que pasa al usarlos ----------
 
-  /** Cada frame: la música del tocadiscos prendido más cercano de tu nivel, según la distancia. */
+  /**
+   * Cada frame: la música del tocadiscos prendido de tu nivel. Suena pleno en toda la habitación donde
+   * está puesto; afuera se oye bajito, rodeando las paredes por las puertas (hearVolume).
+   */
   update() {
     const me = this.local();
     const map = this.map;
     if (!me || !map) return;
+    const ts = map.tileSize;
+    const myRoom = roomAt(map, Math.floor(me.x / ts), Math.floor(me.y / ts));
     let vol = 0;
-    for (const o of this.overlays.values()) if (o.f.type === "record-player" && this.isOn(o.f)) vol = Math.max(vol, this.hearVolume(o.f, me.x, me.y));
+    for (const o of this.overlays.values()) {
+      if (o.f.type !== "record-player" || !this.isOn(o.f)) continue;
+      const room = roomAt(map, o.f.x, o.f.y);
+      vol = Math.max(vol, room && room === myRoom ? ROOM_MUSIC_VOLUME : this.hearVolume(o.f, me.x, me.y) * OUTSIDE_ROOM_FACTOR);
+    }
     setRecordMusic(vol);
   }
 
