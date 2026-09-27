@@ -1,13 +1,13 @@
 "use client";
 
-// Rediseño: usar lo que se tiene en la mano (F, o el casillero junto a la barra de abajo) y la ayuda "E"
-// junto a un mueble que se usa (tele, lámparas, tocadiscos, piano, guitarra, gato).
+// Rediseño: usar lo que se tiene en la mano (F, o el casillero junto a la barra de abajo), brindar (B,
+// al lado del casillero) y la ayuda "E" junto a un mueble que se usa (tele, lámparas, tocadiscos, piano…).
 import { drawHeldItem } from "@hyvento/map/art";
 import { consumeActionOf, heldParts, menuItem, parseHeldLeft } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toHtmlCanvas } from "@/game/iso/canvas";
-import { sendFurnitureUse, sendUseHeld } from "@/game/network";
+import { sendFurnitureUse, sendToast, sendUseHeld } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 
 const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer" } as const;
@@ -25,6 +25,7 @@ export function HeldSlot() {
   );
   const panel = useOfficeStore((s) => s.panel);
   const pcOn = useOfficeStore((s) => s.pcOn);
+  const toast = useOfficeStore((s) => s.toastPrompt);
   const parts = heldParts(mine.held);
   const left = parseHeldLeft(mine.left);
   const total = left.reduce((a, b) => a + b, 0);
@@ -53,7 +54,31 @@ export function HeldSlot() {
           {total}
         </span>
       </button>
+      {toast && <ToastButton mode={toast.mode} name={toast.name} disabled={Boolean(panel)} />}
     </span>
+  );
+}
+
+const TOAST_LABEL = { invite: "Brindar", join: "¡Salud!", waiting: "Esperando…" } as const;
+
+/** Brindar (B): con alguien cerca con bebida invita; si alguien de al lado invitó, se suma. */
+function ToastButton({ mode, name, disabled }: { mode: "invite" | "join" | "waiting"; name?: string; disabled: boolean }) {
+  const title =
+    mode === "join" ? `Brindar con ${name ?? "los de al lado"} (B)` : mode === "waiting" ? "Esperando a que brinden contigo" : "Invitar a brindar a los de al lado (B)";
+  return (
+    <button
+      type="button"
+      onClick={() => sendToast()}
+      disabled={disabled || mode === "waiting"}
+      title={title}
+      aria-label={title}
+      data-on={mode === "join" ? "" : undefined}
+      className={`cozy-btn relative ml-1.5 h-[58px] min-w-[62px] flex-col gap-0.5 p-1 text-[12px] max-sm:h-12 max-sm:min-w-12 ${mode === "join" ? "cozy-btn-primary animate-pulse" : ""}`}
+    >
+      <kbd className="cozy-kbd absolute top-0.5 left-0.5 px-1 text-[10px] leading-none">B</kbd>
+      <span aria-hidden className="mt-2 text-[15px] leading-none">{mode === "waiting" ? "…" : "¡!"}</span>
+      <span className="max-sm:hidden">{TOAST_LABEL[mode]}</span>
+    </button>
   );
 }
 

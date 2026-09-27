@@ -1,6 +1,6 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
 import { bubble, characterShadow, crumbColor, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS } from "@hyvento/map/art";
-import { DRUNK, EMOTE, heldParts, parseHeldLeft, usesOf, type ConsumeAction, type Direction, type DrunkStage, type EmoteId, type PresenceStatus } from "@hyvento/shared";
+import { consumeActionOf, DRUNK, EMOTE, heldParts, parseHeldLeft, spinMs, spinProgress, TOAST, usesOf, type ConsumeAction, type Direction, type DrunkStage, type EmoteId, type PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt, STATUS_HEX } from "@/lib/cozy";
@@ -65,7 +65,11 @@ interface HeldPart {
   /** 0 = en la mano, 1 = en la boca; y un saltito en px (el sorbo, el mordisco). */
   raise: number;
   bob: number;
+  /** Corrimiento de lado en px (el vaso que va a chocar con el de al lado). */
+  nudge: number;
   busy: boolean;
+  /** Levantado para brindar (hasta que chocan o se vence). */
+  toasting: boolean;
   /** Brasa que titila y humo o vapor mientras se sostiene. */
   idle?: Phaser.Time.TimerEvent;
 }
@@ -124,6 +128,10 @@ export class Avatar {
   private faintAt = 0;
   /** Al aparecer (conectarse, cambiar de nivel) se aplica el estado sin sonidos. */
   private readonly bornAt = performance.now();
+  /** Tipo del asiento en el que está (para saber si el respaldo lo tapa mientras gira). */
+  private seatType = "";
+  /** Girando en la silla: hacia dónde mira en este momento del giro. */
+  private spinning?: { tween: Phaser.Tweens.Tween; face: Direction };
 
   /** Posición destino (jugadores remotos, interpolada en `update`). */
   targetX: number;
@@ -311,7 +319,9 @@ export class Avatar {
       tilt: 0,
       raise: 0,
       bob: 0,
+      nudge: 0,
       busy: false,
+      toasting: false,
       image: this.scene.add.image(0, 0, heldTexture(this.scene, art, left, 1, 0)).setOrigin(0.5, 1).setVisible(!this.hidden),
     };
     if (effect) {
@@ -500,6 +510,8 @@ export class Avatar {
    * se dibuja a la altura de ese mueble, ordenado con él y, de espaldas, asomando sobre el respaldo.
    */
   setSeated(facing: Direction | null, seat?: Seat | null) {
+    if (this.spinning && (facing !== this.seated || !seat)) this.stopSpin();
+    this.seatType = facing && seat ? seat.type : "";
     const pose = facing && seat ? { lift: seatLift(seat.type), depth: depthOf(seat.cx, seat.cy), behind: seatBehind(seat.type, facing) } : null;
     const same = facing === this.seated && pose?.lift === this.seatPose?.lift && pose?.depth === this.seatPose?.depth && pose?.behind === this.seatPose?.behind;
     if (same) return;
@@ -525,7 +537,9 @@ export class Avatar {
 
   /** De espaldas en un asiento con respaldo solo se ven la cabeza y los hombros (el resto lo tapa el respaldo). */
   private applySeatCrop() {
-    if (this.seated && this.seatPose?.behind) this.sprite.setCrop(0, 0, FRAME, SIT_BACK_ROWS);
+    // Girando, el respaldo tapa según hacia dónde mira en ese momento.
+    const behind = this.spinning ? Boolean(this.seatType) && seatBehind(this.seatType, this.spinning.face) : this.seatPose?.behind;
+    if (this.seated && behind) this.sprite.setCrop(0, 0, FRAME, SIT_BACK_ROWS);
     else this.sprite.setCrop();
   }
 
@@ -672,6 +686,159 @@ export class Avatar {
     this.scene.tweens.add({ targets: text, y: text.y - 10, x: text.x + 4, alpha: 0, duration: 1300, ease: "Sine.out", onComplete: () => text.destroy() });
   }
 
+  // ---------- Brindis ----------
+
+  /** La mano con una bebida que todavía tiene sorbos (en los combos, la del tinto). */
+  private drinkPart(): HeldPart | undefined {
+    return this.held?.parts.find((p) => consumeActionOf(p.art) === "sip" && p.pendingLeft > 0);
+  }
+
+  /** ¿Tiene una bebida en la mano? (para ofrecer el brindis). */
+  get hasDrink() {
+    return Boolean(this.drinkPart());
+  }
+
+  /** Dónde está el vaso para brindar, en pantalla (ahí sale el destello). */
+  toastPoint(): { x: number; y: number; depth: number } | null {
+    const part = this.drinkPart() ?? this.held?.parts.find((p) => p.toasting || p.busy);
+    if (!part || this.hidden) return null;
+    const img = part.image;
+    return { x: img.x, y: img.y - img.height, depth: img.depth };
+  }
+
+  /** Mueve el vaso (arriba con `bob` negativo, de lado con `nudge`) y redibuja en cada paso. */
+  private moveGlass(part: HeldPart, to: { bob?: number; nudge?: number }, ms: number, onComplete?: () => void) {
+    this.scene.tweens.add({
+      targets: part,
+      ...to,
+      duration: ms,
+      ease: "Sine.out",
+      onUpdate: () => {
+        if (!this.destroyed) this.layout();
+      },
+      onComplete: () => {
+        part.bob = Math.round(part.bob);
+        part.nudge = Math.round(part.nudge);
+        onComplete?.();
+      },
+    });
+  }
+
+  /** Invitó a brindar o se sumó: levanta el vaso y lo deja arriba esperando. */
+  raiseToast() {
+    const part = this.drinkPart();
+    if (!part || part.busy || part.toasting) return;
+    part.toasting = true;
+    this.stopDance();
+    this.moveGlass(part, { bob: -7 }, 220);
+  }
+
+  /** El brindis terminó sin mí (me alejé, se me acabó): baja el vaso si seguía arriba esperando. */
+  cancelToast() {
+    for (const part of this.held?.parts ?? []) if (part.toasting && !part.busy) this.lowerToast(part);
+  }
+
+  /** Baja el vaso (se venció o terminó). */
+  private lowerToast(part: HeldPart, then?: () => void) {
+    part.toasting = false;
+    this.moveGlass(part, { bob: 0, nudge: 0 }, 220, then);
+  }
+
+  /**
+   * Chocan los vasos: mira hacia el grupo, estira el vaso hacia `towardX` (-1 izquierda, 1 derecha en
+   * pantalla), "¡Salud!" y después el sorbo que avisó el servidor (`index` y `left`, como en `useHeld`).
+   */
+  clink(face: Direction, index: number, left: number, towardX: -1 | 1) {
+    if (this.destroyed) return;
+    this.stopDance();
+    if (!this.seated) this.setMotion(face, false);
+    const part = this.held?.parts[index];
+    if (!part || part.busy) return this.floatText("¡Salud!", 0, 7);
+    // Ocupado mientras brinda: si era el último sorbo, el vaso no desaparece antes de tomárselo.
+    part.busy = true;
+    part.toasting = true;
+    part.pendingLeft = Math.min(part.pendingLeft, left);
+    const third = TOAST.clinkMs / 3;
+    this.moveGlass(part, { bob: -8 }, third, () => {
+      this.moveGlass(part, { nudge: towardX * 3 }, third / 2, () => {
+        if (!this.hidden) this.floatText("¡Salud!", towardX * -4, 7);
+        this.moveGlass(part, { nudge: 0 }, third / 2, () => {
+          this.lowerToast(part, () => {
+            if (this.destroyed) return;
+            part.busy = false;
+            this.useHeld(index, "sip", left);
+          });
+        });
+      });
+    });
+  }
+
+  /** Nadie respondió: levanta el vaso hacia la cámara, un chiste, y lo baja (sin tomar). */
+  soloToast() {
+    const part = this.drinkPart();
+    if (!part || part.busy) return;
+    if (!this.seated && !this.moving) this.setMotion("down", false);
+    const lines = ["¡Salud… conmigo mismo!", "¿Nadie? …¡salud!", "*brinda con el aire*", "Por mí, que me lo merezco"];
+    const line = lines[Math.floor(Math.random() * lines.length)]!;
+    part.toasting = true;
+    this.moveGlass(part, { bob: -9 }, 260, () => {
+      if (!this.hidden) this.floatText(line, 0, 6);
+      this.scene.time.delayedCall(900, () => {
+        if (!this.destroyed && this.held?.parts.includes(part)) this.lowerToast(part);
+      });
+    });
+  }
+
+  // ---------- Silla giratoria ----------
+
+  /**
+   * Da `turns` vueltas en la silla (lo avisa el servidor): recorre las cuatro caras del sprite de sentado,
+   * arranca despacio, va rápido y frena. Si quedó mareado, al final le salen los ojitos en espiral.
+   */
+  spin(turns: number, dizzy = false) {
+    if (!this.seated || this.destroyed) return;
+    this.stopSpin();
+    this.stopDance();
+    // Las caras en el sentido del reloj en pantalla: sureste, suroeste, noroeste, noreste.
+    const order: Direction[] = ["right", "down", "left", "up"];
+    const start = order.indexOf(this.seated);
+    const state = { face: this.seated, tween: undefined as unknown as Phaser.Tweens.Tween };
+    this.spinning = state;
+    state.tween = this.scene.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: spinMs(turns),
+      onUpdate: (t) => {
+        const q = spinProgress(turns, t.getValue() ?? 0);
+        const face = order[(start + Math.floor(q * 4)) % 4]!;
+        if (face === state.face || this.spinning !== state) return;
+        state.face = face;
+        this.sprite.setFrame(ROW[face]);
+        this.applySeatCrop();
+        this.layout();
+      },
+      onComplete: () => {
+        if (this.spinning !== state) return;
+        this.stopSpin();
+        if (dizzy && !this.hidden) this.floatText("@_@", 0, 7);
+      },
+    });
+  }
+
+  private stopSpin() {
+    const spinning = this.spinning;
+    if (!spinning) return;
+    this.spinning = undefined;
+    spinning.tween.remove();
+    if (this.seated) this.sprite.setFrame(ROW[this.seated]);
+    this.applySeatCrop();
+    this.layout();
+  }
+
+  get isSpinning() {
+    return Boolean(this.spinning);
+  }
+
   /** Emote: globo con un dibujo que aparece de un salto, flota y se va. "dance" además hace bailar. */
   emote(id: EmoteId) {
     this.emoteBubble?.tween.remove();
@@ -767,6 +934,7 @@ export class Avatar {
 
   destroy() {
     this.destroyed = true;
+    this.spinning?.tween.remove();
     this.clearVideo();
     this.clearHeld();
     this.stopDance();
@@ -795,7 +963,7 @@ export class Avatar {
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);
     if (this.held) {
-      const face = this.seated ?? this.dir;
+      const face = this.spinning?.face ?? this.seated ?? this.dir;
       const hands = HANDS[face];
       const front = face === "down" || face === "right";
       // Sentado, las manos quedan 3 px más abajo (sobre las piernas) y la boca también.
@@ -816,7 +984,7 @@ export class Avatar {
         const my = smoke ? mouthY + Math.ceil(img.height / 2) : mouthY + img.height - 1;
         const r = part.raise;
         const hd = depth + (r > 0 ? (front ? 0.56 : 0.46) : hand.front ? 0.55 : 0.47);
-        img.setPosition(Math.round(hx + (mx - hx) * r), Math.round(bottom + (my - bottom) * r) + part.bob).setDepth(hd);
+        img.setPosition(Math.round(hx + (mx - hx) * r) + Math.round(part.nudge), Math.round(bottom + (my - bottom) * r) + Math.round(part.bob)).setDepth(hd);
       }
     }
     // Con cámara, el nombre va sobre la burbuja de video. Los textos van por encima de todo.

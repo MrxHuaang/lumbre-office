@@ -9,6 +9,10 @@ import {
   type FurnitureEvent,
   type HeldUsedEvent,
   type DrunkBlackoutEvent,
+  type SwivelEvent,
+  type ToastEvent,
+  type ToastResult,
+  TOAST_ERROR_TEXT,
   type CafeOrderResult,
   CASINO_ERROR_TEXT,
   type CasinoResult,
@@ -189,6 +193,30 @@ const blackoutListeners = new Set<(e: DrunkBlackoutEvent) => void>();
 export function onDrunkBlackout(cb: (e: DrunkBlackoutEvent) => void) {
   blackoutListeners.add(cb);
   return () => blackoutListeners.delete(cb);
+}
+
+const toastListeners = new Set<(e: ToastEvent) => void>();
+/** Brindis en mi nivel: invitaciones, quién se suma, el choque de vasos y los que brindan solos. */
+export function onToastEvent(cb: (e: ToastEvent) => void) {
+  toastListeners.add(cb);
+  return () => toastListeners.delete(cb);
+}
+
+/** Brindar (B): el servidor valida la bebida, que haya alguien cerca y la pausa. */
+export function sendToast() {
+  room?.send(MSG.toast);
+}
+
+const swivelListeners = new Set<(e: SwivelEvent) => void>();
+/** Alguien de mi nivel gira en la silla de su escritorio. */
+export function onSwivelEvent(cb: (e: SwivelEvent) => void) {
+  swivelListeners.add(cb);
+  return () => swivelListeners.delete(cb);
+}
+
+/** Girar en la silla (R): el servidor valida que esté sentado en una que gira y la pausa. */
+export function sendSwivel() {
+  room?.send(MSG.swivel);
 }
 
 /** Alguien de tu nivel tocó un instrumento o acarició al gato. */
@@ -564,6 +592,9 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.drunkBlackout, (e: DrunkBlackoutEvent) => blackoutListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.toastEvent, (e: ToastEvent) => toastListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.toastResult, (res: ToastResult) => useOfficeStore.getState().notify(TOAST_ERROR_TEXT[res.error], "info"));
+  r.onMessage(MSG.swivelEvent, (e: SwivelEvent) => swivelListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.fishEvent, handleFishEvent);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { respondKnock, sendKnock } from "@/game/network";
+import { respondKnock, sendKnock, sendSwivel } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon } from "./Cozy";
 
@@ -95,21 +95,30 @@ export function SeatPrompt() {
   const prompt = useOfficeStore((s) => s.seatPrompt);
   const doorPrompt = useOfficeStore((s) => s.doorPrompt);
   const atComputer = useOfficeStore((s) => s.atComputer);
+  const atSwivel = useOfficeStore((s) => s.atSwivel);
   const pcOn = useOfficeStore((s) => s.pcOn);
   const setPcOn = useOfficeStore((s) => s.setPcOn);
   // En la mesa de blackjack, la tira del modo mesa ya tiene "Levantarse".
   const atTable = useOfficeStore((s) => s.panel?.kind === "blackjack");
   if (!prompt || doorPrompt || pcOn || atTable) return null;
   const pcButton = atComputer && prompt === "stand";
+  const spinButton = atSwivel && prompt === "stand";
 
   return (
     <div
-      className={`absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 ${pcButton ? "" : "pointer-events-none max-md:hidden"}`}
+      className={`absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2.5 ${pcButton || spinButton ? "" : "pointer-events-none max-md:hidden"}`}
     >
       {pcButton && (
         <button type="button" onClick={() => setPcOn(true)} className="cozy-btn cozy-btn-primary">
           <PixelIcon name="power" size={14} />
           Encender PC
+        </button>
+      )}
+      {/* La silla del escritorio gira: R, el botón o clic en tu personaje. */}
+      {spinButton && (
+        <button type="button" onClick={() => sendSwivel()} title="Girar en la silla (R, o clic en tu personaje)" className="cozy-btn">
+          <kbd className="cozy-kbd max-md:hidden">R</kbd>
+          Girar
         </button>
       )}
       <div className="cozy-chip flex items-center gap-2 px-3 py-1.5 text-[13px] max-md:hidden">

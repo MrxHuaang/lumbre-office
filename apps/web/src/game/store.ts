@@ -52,6 +52,15 @@ export interface UsableNear {
   y: number;
   label: string;
 }
+/**
+ * Brindis al alcance: "invite" (hay alguien cerca con bebida), "join" (alguien de al lado invita: `name`)
+ * o "waiting" (ya levanté el vaso y espero a los demás).
+ */
+export interface ToastPrompt {
+  mode: "invite" | "join" | "waiting";
+  name?: string;
+}
+
 /** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
 export type PanelKind = Interactable | "backpack" | "fishAlbum";
 
@@ -120,6 +129,10 @@ interface OfficeStore {
   seatPrompt: "sit" | "stand" | null;
   /** Sentado frente a un escritorio con computador (se puede prender el PC). */
   atComputer: boolean;
+  /** Sentado en una silla que gira (la del escritorio con PC): R da unas vueltas. */
+  atSwivel: boolean;
+  /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
+  toastPrompt: ToastPrompt | null;
   /** El PC está prendido: el mapa no responde a clics ni teclas. */
   pcOn: boolean;
   /** Oficina a la que tocamos y cuya respuesta esperamos. */
@@ -172,6 +185,8 @@ interface OfficeStore {
   setDoorPrompt: (zoneId: string | null) => void;
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
+  setAtSwivel: (at: boolean) => void;
+  setToastPrompt: (prompt: ToastPrompt | null) => void;
   setPcOn: (on: boolean) => void;
   setPendingKnock: (zoneId: string | null) => void;
   addKnockRequest: (r: KnockRequest) => void;
@@ -224,6 +239,8 @@ const initial = {
   doorPrompt: null,
   seatPrompt: null as "sit" | "stand" | null,
   atComputer: false,
+  atSwivel: false,
+  toastPrompt: null as ToastPrompt | null,
   pcOn: false,
   pendingKnock: null,
   knockRequests: [],
@@ -277,6 +294,8 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setDoorPrompt: (doorPrompt) => set({ doorPrompt }),
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setAtComputer: (atComputer) => set({ atComputer }),
+  setAtSwivel: (atSwivel) => set({ atSwivel }),
+  setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),
   setPendingKnock: (pendingKnock) => set({ pendingKnock }),
   addKnockRequest: (r) => {

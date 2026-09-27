@@ -307,6 +307,41 @@ export const sfx = {
   stand(vol = 1) {
     play("stand", 120, 140, vol, (a, t, v) => noise(a, t, 0.11, { freq: 600, to: 1400, q: 0.9, vol: 0.05 * v, attack: 0.03 }));
   },
+  /** Alguien levanta el vaso (invita a brindar o se suma): un roce y un tintineo suave. */
+  raiseGlass(vol = 1) {
+    play("raise-glass", 150, 180, vol, (a, t, v) => {
+      noise(a, t, 0.08, { freq: 1800, to: 3200, q: 1, vol: 0.03 * v, attack: 0.02 });
+      tone(a, t + 0.05, 0.12, 1760, 1760, 0.02 * v, { type: "sine" });
+    });
+  },
+  /** Chocan los vasos: un "clin" por cada vaso, apenas desfasados (más gente, más tintineo). */
+  clink(vol = 1, people = 2) {
+    play("clink", 300, 600, vol, (a, t, v) => {
+      const n = Math.min(5, Math.max(2, people));
+      for (let i = 0; i < n; i++) {
+        const f = 2100 * jitter(0.12);
+        tone(a, t + i * 0.035, 0.35, f, f * 0.995, (0.05 / Math.sqrt(n)) * v, { type: "sine" });
+        tone(a, t + i * 0.035, 0.18, f * 2.7, f * 2.7, (0.015 / Math.sqrt(n)) * v, { type: "sine" });
+      }
+    });
+  },
+  /** Silla giratoria: un soplido que sube y baja lo que dura el giro. */
+  whoosh(vol = 1, durationMs = 900) {
+    const dur = Math.min(2.5, Math.max(0.3, durationMs / 1000));
+    play("whoosh", 300, durationMs, vol, (a, t, v) => {
+      noise(a, t, dur * 0.55, { freq: 500, to: 1600, q: 0.8, vol: 0.05 * v, attack: dur * 0.3 });
+      noise(a, t + dur * 0.5, dur * 0.5, { freq: 1600, to: 450, q: 0.8, vol: 0.04 * v });
+      // El chirrido del eje de la silla.
+      tone(a, t, 0.12, 1400, 1150, 0.012 * v, { type: "square", lowpass: 2400 });
+    });
+  },
+  /** Mareado de tanto girar: un "uiii" que baja, como de dibujo animado. */
+  dizzy(vol = 1) {
+    play("dizzy", 1000, 700, vol, (a, t, v) => {
+      tone(a, t, 0.6, 880, 330, 0.04 * v, { type: "sine" });
+      tone(a, t + 0.05, 0.55, 1320, 495, 0.02 * v, { type: "sine" });
+    });
+  },
   /** Puerta de la casa: un crujido bajito y el golpe al cerrar. */
   door() {
     play("portal", 500, 500, 1, (a, t) => {
