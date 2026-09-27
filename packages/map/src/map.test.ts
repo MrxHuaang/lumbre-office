@@ -213,8 +213,8 @@ describe("asientos", () => {
     const facing = (x: number, y: number) => plantaBaja.seats.get(y * plantaBaja.width + x)?.facing;
     expect(facing(13, 5)).toBe("right");
     expect(facing(15, 5)).toBe("left");
-    expect(facing(14, 4)).toBe("down");
-    expect(facing(14, 6)).toBe("up");
+    expect(facing(18, 6)).toBe("up");
+    expect(facing(25, 5)).toBe("down");
   });
 });
 
@@ -232,13 +232,15 @@ describe("lugares y zonas", () => {
   it("las mesas son aisladas, están dentro de la cafetería y se llega a cada una desde la entrada", () => {
     const cafe = plantaBaja.zones.find((z) => z.id === "cafeteria")!;
     const mesas = plantaBaja.zones.filter((z) => z.type === "table");
-    expect(mesas.map((z) => z.id)).toEqual(Array.from({ length: 8 }, (_, i) => `mesa-${i + 1}`));
+    expect(mesas.map((z) => z.id)).toEqual(Array.from({ length: 6 }, (_, i) => `mesa-${i + 1}`));
     for (const mesa of mesas) {
       expect(mesa.isolated, mesa.id).toBe(true);
       expect(mesa.x >= cafe.x && mesa.y >= cafe.y, mesa.id).toBe(true);
       expect(mesa.x + mesa.width <= cafe.x + cafe.width && mesa.y + mesa.height <= cafe.y + cafe.height, mesa.id).toBe(true);
       const seats = [...plantaBaja.seats.values()].filter((s) => zoneAt(plantaBaja, s.x, s.y)?.id === mesa.id);
-      expect(seats, mesa.id).toHaveLength(4);
+      // Dos o tres sillas por mesa: la cafetería respira (docs: menos sillas, más rincones).
+      expect(seats.length, mesa.id).toBeGreaterThanOrEqual(2);
+      expect(seats.length, mesa.id).toBeLessThanOrEqual(3);
       // Se entra a la burbuja caminando: algún tile libre de la zona (las esquinas) se alcanza con A*.
       const ts = plantaBaja.tileSize;
       const libres: { x: number; y: number }[] = [];

@@ -182,8 +182,8 @@ export const sotano: AreaDef = {
     ...BLACKJACK_SEATS.map((s) => place("stool", s.x, s.y, s.facing)),
     // Póker de adorno, con banquetas a los dos lados para sentarse a conversar.
     place("poker-table", POKER.x, POKER.y, "down"),
-    ...[0, 1, 2].map((dx) => place("stool", POKER.x + dx, POKER.y - 1, "down")),
-    ...[0, 1, 2].map((dx) => place("stool", POKER.x + dx, POKER.y + 2, "up")),
+    ...[0, 2].map((dx) => place("stool", POKER.x + dx, POKER.y - 1, "down")),
+    ...[0, 1].map((dx) => place("stool", POKER.x + dx, POKER.y + 2, "up")),
     place("coin-fountain", 9, 15),
     // Rincón de sofás frente a frente con una mesita, junto a la puerta.
     place("lounge-sofa", 13, 14, "down"),
@@ -220,8 +220,7 @@ export const sotano: AreaDef = {
     place("cocktail-table", 32, 16),
     place("lounge-sofa", 37, 17, "up"),
     place("cocktail-table", 37, 16),
-    place("lounge-sofa", 30, 14),
-    place("cocktail-table", 31, 14),
+    place("palm", 30, 14),
     place("speaker", 33, 9, "down"),
     place("speaker", 33, 13, "down"),
     place("lamp-mushroom", 30, 17),

@@ -230,11 +230,11 @@ for (const [tx, ty] of [
   [53, 8],
   [54, 13],
 ])
+  // Tres sillas por mesa (la de adelante queda libre: se ve la mesa y se pasa).
   for (const [dx, dy, f] of [
     [-1, 0, "right"],
     [1, 0, "left"],
     [0, -1, "down"],
-    [0, 1, "up"],
   ] as const)
     put("patio-chair", tx! + dx, ty! + dy, f);
 put("patio-table", 53, 8);
