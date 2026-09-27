@@ -2,19 +2,22 @@
 // lámparas se prenden y apagan, y al gato se lo acaricia. Lo que queda prendido lo decide el servidor
 // (`OfficeState.switches`); tocar o acariciar llega como evento. La escena solo tiene ganchos chicos.
 import { catalogItem, footprint, INTERACT_REACH_TILES, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
-import { glowSprite, heartSmall, lampLit, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin, type Sprite } from "@hyvento/map/art";
-import { isSwitchedOn, usableSpec, type Direction, type FurnitureEvent, type UsableSpec } from "@hyvento/shared";
+import { glowSprite, heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin, type Sprite } from "@hyvento/map/art";
+import { isSwitchedOn, stepsTo, USE_STEPS, usableSpec, type Direction, type FurnitureEvent, type UsableSpec } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import type { Avatar } from "./Avatar";
 import { AreaView, DEPTH_OVERLAY, depthOf, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
-import { playGuitar, playPiano, playPurr, setRecordMusic, volumeAt } from "./sound";
+import { playGuitar, playPiano, playPurr, setRecordMusic, stopRecordMusic, volumeAt } from "./sound";
+import { useOfficeStore } from "./store";
 
 /** Cuánto dura tocar un instrumento (igual a la pausa del servidor). */
 const PLAY_MS = 2400;
 /** Hasta dónde se oye (px de mundo): los instrumentos y el tocadiscos. */
 const HEAR_PX = 12 * 32;
+/** Pasos máximos (tile a tile, rodeando paredes) por los que llega el sonido. */
+const HEAR_STEPS = 14;
 
 export interface UsableHit {
   f: PlacedFurniture;
@@ -39,9 +42,14 @@ function distTo(f: PlacedFurniture, ts: number, px: number, py: number) {
   return Math.hypot(dx, dy);
 }
 
-/** Lo de una oficina no se usa desde afuera (ni al revés): la misma regla que el servidor. */
-function sameRoom(map: OfficeMap, f: PlacedFurniture, px: number, py: number) {
+/**
+ * Las mismas reglas que el servidor (`canUse`): al alcance, sin pared de por medio (tile a tile) y lo de
+ * una oficina no se usa desde afuera (ni al revés).
+ */
+function canUse(map: OfficeMap, f: PlacedFurniture, px: number, py: number) {
   const ts = map.tileSize;
+  if (distTo(f, ts, px, py) > INTERACT_REACH_TILES * ts) return false;
+  if (stepsTo(map, Math.floor(px / ts), Math.floor(py / ts), f, USE_STEPS) > USE_STEPS) return false;
   const fz = zoneAt(map, (f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts);
   const pz = zoneAt(map, px, py);
   return (fz?.type !== "office" && pz?.type !== "office") || fz?.id === pz?.id;
@@ -60,7 +68,8 @@ export class Usables {
   private room?: OfficeRoom;
   private overlays = new Map<PlacedFurniture, Overlay>();
   private detach: (() => void)[] = [];
-  private musicTimer?: Phaser.Time.TimerEvent;
+  /** Pasos hasta cada tocadiscos, recalculados solo al cambiar de tile (la música se mide cada frame). */
+  private hearCache = new Map<PlacedFurniture, { tile: number; steps: number }>();
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -71,6 +80,7 @@ export class Usables {
   /** Se dibujó un nivel (o se rearmó con otra decoración): capas nuevas según lo prendido. */
   setArea(map: OfficeMap, view: AreaView) {
     this.clearOverlays();
+    this.hearCache.clear();
     this.map = map;
     this.view = view;
     for (const f of map.furniture) if (usableSpec(f.type)?.action === "toggle") this.overlays.set(f, { f, images: [], frame: 0 });
@@ -103,7 +113,7 @@ export class Usables {
   destroy() {
     this.unbind();
     this.clearOverlays();
-    setRecordMusic(0);
+    stopRecordMusic();
   }
 
   private isOn(f: PlacedFurniture) {
@@ -156,7 +166,8 @@ export class Usables {
       }
       if (on) o.images.push(this.glow(f, "#7fd4ff", 22, 14));
     } else if (f.type === "lamp") {
-      if (on) o.images.push(this.layer(f, "capa-lampara", lampLit()));
+      // Apagada también lleva capa: la pantalla oscura se nota de día (de noche, además, no da luz).
+      o.images.push(on ? this.layer(f, "capa-lampara", lampLit()) : this.layer(f, "capa-lampara-apagada", lampOff()));
     } else if (f.type === "record-player" && on) {
       const frames = [0, 1, 2, 3].map((k) => {
         const s = vinylSpin(k);
@@ -201,13 +212,14 @@ export class Usables {
   nearest(x: number, y: number): UsableHit | null {
     const map = this.map;
     if (!map) return null;
-    const reach = INTERACT_REACH_TILES * map.tileSize;
+    const night = useOfficeStore.getState().night;
     let best: UsableHit | null = null;
     for (const f of map.furniture) {
       const spec = usableSpec(f.type);
-      if (!spec) continue;
+      // Una lámpara sin capa de encendida solo cambia algo de noche: de día no se ofrece.
+      if (!spec || (spec.nightOnly && !night)) continue;
       const dist = distTo(f, map.tileSize, x, y);
-      if (dist <= reach && (!best || dist < best.dist) && sameRoom(map, f, x, y)) best = { f, spec, dist };
+      if ((!best || dist < best.dist) && canUse(map, f, x, y)) best = { f, spec, dist };
     }
     return best;
   }
@@ -215,7 +227,7 @@ export class Usables {
   /** ¿Se alcanza ese mueble desde (x, y)? */
   reaches(f: PlacedFurniture, x: number, y: number): boolean {
     const map = this.map;
-    return Boolean(map && distTo(f, map.tileSize, x, y) <= INTERACT_REACH_TILES * map.tileSize && sameRoom(map, f, x, y));
+    return Boolean(map && canUse(map, f, x, y));
   }
 
   /** Mueble que se usa dibujado bajo el puntero (se busca un poco más abajo: los muebles son altos). */
@@ -227,7 +239,11 @@ export class Usables {
       const w = screenToWorld(sx, sy + lift);
       const tx = Math.floor(w.x / ts);
       const ty = Math.floor(w.y / ts);
-      const f = map.furniture.find((f) => usableSpec(f.type) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d);
+      const night = useOfficeStore.getState().night;
+      const f = map.furniture.find((f) => {
+        const spec = usableSpec(f.type);
+        return spec && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
+      });
       if (f) return f;
     }
     return null;
@@ -258,9 +274,32 @@ export class Usables {
     const map = this.map;
     if (!me || !map) return;
     let vol = 0;
-    for (const o of this.overlays.values())
-      if (o.f.type === "record-player" && this.isOn(o.f)) vol = Math.max(vol, volumeAt(distTo(o.f, map.tileSize, me.x, me.y), HEAR_PX));
+    for (const o of this.overlays.values()) if (o.f.type === "record-player" && this.isOn(o.f)) vol = Math.max(vol, this.hearVolume(o.f, me.x, me.y));
     setRecordMusic(vol);
+  }
+
+  /**
+   * Volumen con que se oye un mueble desde (x, y): el sonido rodea las paredes (se cuentan los pasos tile
+   * a tile hasta él) y no entra ni sale de una zona aislada (oficinas, sala de reuniones).
+   */
+  private hearVolume(f: PlacedFurniture, x: number, y: number): number {
+    const map = this.map;
+    if (!map) return 0;
+    const ts = map.tileSize;
+    const fz = zoneAt(map, (f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts);
+    const pz = zoneAt(map, x, y);
+    if (fz?.id !== pz?.id && (fz?.isolated || pz?.isolated)) return 0;
+    const tx = Math.floor(x / ts);
+    const ty = Math.floor(y / ts);
+    const tile = ty * map.width + tx;
+    let cached = this.hearCache.get(f);
+    if (cached?.tile !== tile) {
+      cached = { tile, steps: stepsTo(map, tx, ty, f, HEAR_STEPS) };
+      this.hearCache.set(f, cached);
+    }
+    if (!Number.isFinite(cached.steps)) return 0;
+    // Dando la vuelta por una puerta, cuenta lo que se camina (no la línea recta a través de la pared).
+    return volumeAt(Math.max(distTo(f, ts, x, y), (cached.steps - 1) * ts), HEAR_PX);
   }
 
   /** Alguien de tu nivel tocó un instrumento o acarició al gato. */
@@ -271,7 +310,7 @@ export class Usables {
     if (!f) return;
     const who = this.avatarOf(e.sessionId);
     const me = this.local();
-    const vol = me ? volumeAt(distTo(f, map.tileSize, me.x, me.y), HEAR_PX) : 0;
+    const vol = me ? this.hearVolume(f, me.x, me.y) : 0;
     if (who) who.perform(faceToward(f, map.tileSize, who.x, who.y), e.action === "play" ? PLAY_MS : 600);
     if (e.action === "play") {
       if (e.type === "guitar") playGuitar(e.seed, vol);

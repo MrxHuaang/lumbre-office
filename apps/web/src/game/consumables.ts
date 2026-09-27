@@ -141,15 +141,36 @@ export interface UseTarget {
   done(): void;
 }
 
-/** Tween de 0 a 1 en `ms`, como promesa (para encadenar los pasos de un uso). */
+/**
+ * Tween de 0 a 1 en `ms`, como promesa (para encadenar los pasos de un uso). También se resuelve si el
+ * tween se corta (la escena se reinicia): si no, la mano quedaría ocupada para siempre.
+ */
 function step(scene: Phaser.Scene, ms: number, fn: (v: number) => void): Promise<void> {
   return new Promise((resolve) => {
-    scene.tweens.addCounter({ from: 0, to: 1, duration: ms, ease: "Sine.easeInOut", onUpdate: (t) => fn(t.getValue() ?? 0), onComplete: () => resolve() });
+    scene.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: ms,
+      ease: "Sine.easeInOut",
+      onUpdate: (t) => fn(t.getValue() ?? 0),
+      onComplete: () => resolve(),
+      onStop: () => resolve(),
+    });
   });
 }
 
 /** Un uso completo, con su animación según qué es. */
 export async function playUse(scene: Phaser.Scene, action: ConsumeAction, target: UseTarget) {
+  try {
+    await animateUse(scene, action, target);
+  } finally {
+    // Pase lo que pase con la animación, la mano se libera y se aplica lo que dijo el servidor.
+    target.setPose(0, 0);
+    target.done();
+  }
+}
+
+async function animateUse(scene: Phaser.Scene, action: ConsumeAction, target: UseTarget) {
   await step(scene, USE_MS.raise, (v) => target.setPose(v, 0));
   if (action === "smoke") {
     // La brasa se enciende mientras se pita, con su halo.
@@ -183,6 +204,4 @@ export async function playUse(scene: Phaser.Scene, action: ConsumeAction, target
     await step(scene, USE_MS.chomp, (v) => target.setPose(1, v > 0.5 ? 1 : 0));
     await step(scene, USE_MS.lower, (v) => target.setPose(1 - v, 0));
   }
-  target.setPose(0, 0);
-  target.done();
 }

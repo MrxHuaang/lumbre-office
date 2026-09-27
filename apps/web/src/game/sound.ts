@@ -333,27 +333,45 @@ class Lofi {
 
 let lofi: Lofi | null = null;
 
+/** Umbrales del tocadiscos: arranca por encima de uno y se calla por debajo del otro (histéresis). */
+const LOFI_START = 0.03;
+const LOFI_QUIET = 0.01;
+/** Cuánto sigue viva la música en silencio antes de pararla: caminar por el borde no la corta y la arranca. */
+const LOFI_GRACE_MS = 4000;
+let lofiQuietSince = 0;
+
 /**
- * Música del tocadiscos al volumen dado (0 = apagada). La escena la llama seguido con la distancia al
- * tocadiscos prendido más cercano de tu nivel.
+ * Música del tocadiscos al volumen dado (0 = apagada). La escena la llama seguido con el volumen del
+ * tocadiscos prendido que mejor se oye desde tu lugar.
  */
 export function setRecordMusic(vol: number) {
-  if (vol <= 0.01) {
-    if (lofi) {
-      lofi.setVolume(0);
-      const current = lofi;
-      lofi = null;
-      setTimeout(() => current.stop(), 800);
-    }
-    return;
-  }
-  const a = audio();
-  if (!a) return;
   if (!lofi) {
+    if (vol <= LOFI_START) return;
+    const a = audio();
+    if (!a) return;
     lofi = new Lofi(a);
     lofi.start();
   }
-  lofi.setVolume(vol * 0.8);
+  if (vol > LOFI_QUIET) {
+    lofiQuietSince = 0;
+    lofi.setVolume(vol * 0.8);
+    return;
+  }
+  lofi.setVolume(0);
+  const now = performance.now();
+  if (!lofiQuietSince) lofiQuietSince = now;
+  else if (now - lofiQuietSince > LOFI_GRACE_MS) stopRecordMusic();
+}
+
+/** Para la música del tocadiscos ya (al salir de la cabaña). */
+export function stopRecordMusic() {
+  lofiQuietSince = 0;
+  if (!lofi) return;
+  lofi.setVolume(0);
+  const current = lofi;
+  lofi = null;
+  // Espera a que baje el volumen para no cortar en seco.
+  setTimeout(() => current.stop(), 800);
 }
 
 /** Volumen según la distancia (px de mundo): pleno cerca, nada a partir de `reach`. */

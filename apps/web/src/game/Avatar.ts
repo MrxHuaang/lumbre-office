@@ -41,6 +41,8 @@ const HANDS: Record<Direction, [{ dx: number; front: boolean }, { dx: number; fr
  * Boca respecto de los pies: cuántos px arriba (de pie o sentado) y cuánto al costado según hacia dónde
  * mira (de espaldas queda del lado hacia el que gira la cabeza). Ahí se lleva lo que se consume.
  */
+/** Tope de una animación de uso (la más larga, la pitada, dura ~1,1 s): después se libera la mano igual. */
+const USE_SAFETY_MS = 2500;
 const MOUTH_STANDING = 13;
 const MOUTH_SEATED = 10;
 const MOUTH: Record<Direction, { dx: number }> = { down: { dx: -1 }, right: { dx: 1 }, left: { dx: -4 }, up: { dx: 4 } };
@@ -330,6 +332,21 @@ export class Avatar {
     part.busy = true;
     const alive = () => !this.destroyed && Boolean(this.held?.parts.includes(part));
     const avatar = this;
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(safety);
+      if (!alive()) return;
+      part.busy = false;
+      part.raise = 0;
+      part.bob = 0;
+      part.tilt = 0;
+      avatar.applyLeft(part);
+      if (this.held?.clearing && !this.held.parts.some((p) => p.busy)) this.clearHeld();
+    };
+    // Por si la animación no termina nunca (tweens cortados): el estado del servidor igual se aplica.
+    const safety = setTimeout(done, USE_SAFETY_MS);
     void playUse(this.scene, action, {
       setPose(raise, bob) {
         if (!alive()) return;
@@ -358,15 +375,7 @@ export class Avatar {
       emberPoint: () => (alive() ? this.emberPoint(part) : null),
       crumbColor: () => crumbColor(part.art),
       hidden: () => this.hidden || this.destroyed,
-      done: () => {
-        if (!alive()) return;
-        part.busy = false;
-        part.raise = 0;
-        part.bob = 0;
-        part.tilt = 0;
-        avatar.applyLeft(part);
-        if (this.held?.clearing && !this.held.parts.some((p) => p.busy)) this.clearHeld();
-      },
+      done,
     });
   }
 
