@@ -501,6 +501,21 @@ export const sfx = {
     };
   },
 
+  // ---- Fotos ----
+  /** El obturador: un clic seco, la cortina que corre y el avance del rollo. */
+  shutter() {
+    play("shutter", 500, 350, 1, (a, t) => {
+      noise(a, t, 0.02, { type: "highpass", freq: 3500, vol: 0.09 });
+      tone(a, t, 0.025, 1900, 1200, 0.04, { type: "square", lowpass: 3000 });
+      noise(a, t + 0.06, 0.05, { freq: 2400, q: 1.5, vol: 0.05 });
+      noise(a, t + 0.16, 0.12, { freq: 900, to: 1500, q: 2, vol: 0.03 });
+    });
+  },
+  /** La cuenta regresiva de la foto (3, 2, 1): un bip corto, más agudo en el último. */
+  countdown(last: boolean, vol = 1) {
+    play("countdown", 400, 120, vol, (a, t, v) => tone(a, t, 0.08, last ? 1320 : 880, last ? 1320 : 880, 0.035 * v, { type: "sine" }));
+  },
+
   // ---- Clima ----
   /** Trueno: un retumbo grave que rueda; cerca, antes un chasquido. Adentro se oye apagado. */
   thunder(strength: number, indoor: boolean) {

@@ -128,6 +128,8 @@ export const INTERNAL_ROUTES = {
   pointsChanged: "/internal/points-changed",
   /** Cambiaron los ajustes del casino en /admin (límite diario, abierto/cerrado). */
   casinoSettingsChanged: "/internal/casino-settings-changed",
+  /** Se subió o se borró una foto: el servidor avisa a todos para que el tablón se refresque. */
+  photosChanged: "/internal/photos-changed",
 } as const;
 
 /** Nombres de mensajes Colyseus. */
@@ -196,4 +198,12 @@ export const MSG = {
   fishFinish: "fish:finish",
   fishCancel: "fish:cancel",
   fishEvent: "fish:event",
+  /** Fotos (photos.ts): pedir una foto, la cuenta 3-2-1 a los del nivel (`PhotoCountdownEvent`), el
+   *  ticket para subirla a quien la saca (`PhotoShot`), el flash (`PhotoFlashEvent`) y el aviso a todos
+   *  de que el tablón cambió (sin datos: el cliente vuelve a pedir la lista). */
+  photoTake: "photo:take",
+  photoCountdown: "photo:countdown",
+  photoShot: "photo:shot",
+  photoFlash: "photo:flash",
+  photosChanged: "photo:changed",
 } as const;

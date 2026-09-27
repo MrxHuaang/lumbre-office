@@ -25,6 +25,7 @@ import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
 import { BackpackPanel, ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
+import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
 import { ProfileDialog } from "./ProfileDialog";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
@@ -227,6 +228,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
           {panel?.kind === "fishAlbum" && <FishAlbum onClose={closePanel} />}
+          {panel?.kind === "photos" && <PhotoGallery onClose={closePanel} />}
+          <PhotoPreview />
+          <PhotoFlash />
           {panel?.kind === "fitting" && (
             <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
           )}
@@ -270,7 +274,7 @@ function ControlsHint() {
     <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
       {decorating
         ? "Clic para poner o elegir · R para girar · Supr para guardar · Esc para soltar o terminar"
-        : "WASD / flechas · clic para caminar · E sentarte o usar · F lo de la mano · T emotes · Enter chatear"}
+        : "WASD / flechas · clic para caminar · E sentarte o usar · F lo de la mano · T emotes · P foto · Enter chatear"}
     </div>
   );
 }

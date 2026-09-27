@@ -38,6 +38,9 @@ import {
   type WorldEditMessage,
   type WorldEditResult,
   isWeather,
+  type PhotoCountdownEvent,
+  type PhotoFlashEvent,
+  type PhotoShot,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -226,6 +229,35 @@ export function sendSwivel() {
 export function onFurnitureEvent(cb: (e: FurnitureEvent) => void) {
   furnitureListeners.add(cb);
   return () => furnitureListeners.delete(cb);
+}
+
+const photoCountdownListeners = new Set<(e: PhotoCountdownEvent) => void>();
+const photoFlashListeners = new Set<(e: PhotoFlashEvent) => void>();
+const photoShotListeners = new Set<(e: PhotoShot) => void>();
+const photosChangedListeners = new Set<() => void>();
+/** Alguien de mi nivel va a sacar una foto (3-2-1 sobre su cabeza). */
+export function onPhotoCountdown(cb: (e: PhotoCountdownEvent) => void) {
+  photoCountdownListeners.add(cb);
+  return () => photoCountdownListeners.delete(cb);
+}
+/** El flash de la cámara de alguien de mi nivel (también la mía). */
+export function onPhotoFlash(cb: (e: PhotoFlashEvent) => void) {
+  photoFlashListeners.add(cb);
+  return () => photoFlashListeners.delete(cb);
+}
+/** Mi foto: el servidor disparó y manda el ticket para subirla. */
+export function onPhotoShot(cb: (e: PhotoShot) => void) {
+  photoShotListeners.add(cb);
+  return () => photoShotListeners.delete(cb);
+}
+/** Alguien subió o borró una foto: el tablón se vuelve a pedir. */
+export function onPhotosChanged(cb: () => void) {
+  photosChangedListeners.add(cb);
+  return () => photosChangedListeners.delete(cb);
+}
+/** Sacar una foto: el servidor cuenta 3-2-1 (y aplica la pausa entre fotos). */
+export function sendPhotoTake() {
+  room?.send(MSG.photoTake);
 }
 
 /** Usar lo que tengo en la mano (F): el servidor valida que tenga algo y la pausa entre usos. */
@@ -601,6 +633,10 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.swivelEvent, (e: SwivelEvent) => swivelListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.fishEvent, handleFishEvent);
+  r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.photosChanged, () => photosChangedListeners.forEach((cb) => cb()));
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

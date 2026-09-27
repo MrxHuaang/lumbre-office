@@ -111,6 +111,7 @@ import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
 import { randomInt } from "node:crypto";
 import { Fishery } from "./fishing";
+import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 
 interface UserData {
   lastMoveAt: number;
@@ -191,6 +192,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static applyWorldEditsEverywhere(area: string, edits: WorldEdits) {
     for (const r of OfficeRoom.instances) r.applyWorldEdits(area, edits);
   }
+
+  /** Se subió o se borró una foto (lo avisa la web): todos vuelven a pedir la lista del tablón. */
+  static broadcastPhotosChanged() {
+    for (const r of OfficeRoom.instances) r.broadcast(MSG.photosChanged, {});
+  }
+
+  /** Cuenta regresiva y pausa entre fotos (los tests las acortan). */
+  static photoTimings: { countdownMs: number; cooldownMs: number } = { ...PHOTO_TIMINGS };
 
   static async reloadCasinoSettingsEverywhere() {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadCasinoSettings()));
@@ -300,6 +309,28 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
   });
 
+  /** Fotos: la cuenta 3-2-1, quiénes salen y el ticket para subirla (ver photos.ts). */
+  private photos = new PhotoBooth({
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    now: () => Date.now(),
+    newId: () => randomUUID(),
+    secret: gameTokenSecret,
+    timings: () => OfficeRoom.photoTimings,
+    subject: (sessionId) => {
+      const p = this.state.players.get(sessionId);
+      return p ? { sessionId, userId: p.userId, name: p.name, area: p.area, x: p.x, y: p.y } : null;
+    },
+    inArea: (area) =>
+      [...this.state.players.entries()]
+        .filter(([, p]) => p.area === area)
+        .map(([sessionId, p]) => ({ sessionId, userId: p.userId, name: p.name, area: p.area, x: p.x, y: p.y })),
+    toArea: (area, type, message) => {
+      for (const c of this.clients) if (this.state.players.get(c.sessionId)?.area === area) c.send(type, message);
+    },
+    toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
+    messages: { countdown: MSG.photoCountdown, shot: MSG.photoShot, flash: MSG.photoFlash },
+  });
+
   private get repo() {
     return OfficeRoom.repo;
   }
@@ -343,6 +374,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       });
     });
     this.onMessage(MSG.emote, (client, raw) => this.handleEmote(client, raw));
+    this.onMessage(MSG.photoTake, (client) => {
+      this.markActive(client);
+      this.photos.take(client.sessionId);
+    });
     this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
     this.onMessage(MSG.blackjackBet, (client, raw) => void this.handleBlackjack(client, raw, "bet"));
     this.onMessage(MSG.blackjackAction, (client, raw) => void this.handleBlackjack(client, raw, "action"));

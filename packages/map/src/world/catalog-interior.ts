@@ -45,6 +45,8 @@ export const INTERIOR_CATALOG = {
   "high-table": { name: "Mesa alta", size: [1, 1] },
   "water-cooler": { name: "Dispensador de agua", size: [1, 1] },
   "cafe-sign": { name: "Pizarra de pie", size: [1, 1] },
+  // El corcho de las fotos (dibujo en art/photos.ts; las fotos se pinchan encima en el cliente).
+  "photo-board": { name: "Tablón de fotos", size: [1, 3] },
   "coffee-sacks": { name: "Sacos de café", size: [1, 1] },
   "prep-table": { name: "Mesa de preparación", size: [1, 2] },
   "dish-hutch": { name: "Alacena", size: [1, 2] },

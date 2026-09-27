@@ -103,9 +103,8 @@ export const plantaBaja: AreaDef = {
     { kind: "window", edge: "h", x: 10, y: 0, width: 2 },
     { kind: "map", edge: "v", x: 0, y: 1, width: 2 },
     { kind: "picture", edge: "v", x: 0, y: 9 },
-    // Cafetería: el ventanal de los rincones, repisas y el menú sobre la barra.
-    { kind: "ventanal", edge: "h", x: 13, y: 0, width: 8 },
-    { kind: "picture", edge: "h", x: 21, y: 0 },
+    // Cafetería: el ventanal de los rincones, repisas y el menú sobre la barra (el tablón de fotos tapa x 20..22).
+    { kind: "ventanal", edge: "h", x: 13, y: 0, width: 7 },
     { kind: "shelf", edge: "h", x: 23, y: 0, width: 2 },
     { kind: "menu", edge: "h", x: 25, y: 0, width: 3 },
     { kind: "clock", edge: "h", x: 28, y: 0 },
@@ -144,7 +143,8 @@ export const plantaBaja: AreaDef = {
     place("plant", 12, 0),
     place("record-player", 12, 8),
     place("monstera", 12, 10),
-    // ----- Cafetería. Dos rincones contra el ventanal (noroeste), cada uno con su mesita y tres sillones.
+    // ----- Cafetería. Dos rincones contra el ventanal (noroeste), cada uno con su mesita y sillones (el
+    // segundo tiene dos: a su lado va el tablón de fotos).
     place("rug-round", 14, 0),
     place("armchair", 14, 0, "right"),
     place("cafe-table", 15, 0),
@@ -153,12 +153,11 @@ export const plantaBaja: AreaDef = {
     place("rug-round", 18, 0),
     place("armchair", 18, 0, "right"),
     place("cafe-table", 19, 0),
-    place("armchair", 20, 0, "left"),
     place("armchair", 19, 1, "up"),
     place("plant", 13, 0),
     place("plant", 17, 0),
-    place("plant", 21, 0),
-    place("lamp", 22, 0),
+    // El tablón de fotos contra la pared norte, entre el rincón y la barra (se mira desde y = 1).
+    place("photo-board", 20, 0, "down"),
     // La barra: el estante contra la pared, el paso de quien atiende (y = 1) y el mesón (y = 2), con una
     // entrada por el oeste (23, 2) y la puerta de la cocina al fondo del paso.
     place("backbar", 23, 0, "down"),
@@ -345,6 +344,8 @@ export const plantaBaja: AreaDef = {
     // Frente a la cafetera y a la vitrina, entre los taburetes: ahí se pide.
     { type: "cafe_counter", name: "Barra", x: 25, y: 3 },
     { type: "cafe_counter", name: "Barra", x: 29, y: 3 },
+    // Frente al tablón de fotos (ver la galería).
+    { type: "photo_board", name: "Tablón de fotos", x: 21, y: 1 },
     // Frente al mostrador (comprar) y a la cortina del probador del medio (probarse ropa).
     { type: "shop_counter", name: "Mostrador", x: 26, y: 16 },
     { type: "fitting_room", name: "Probador", x: 37, y: 16 },
