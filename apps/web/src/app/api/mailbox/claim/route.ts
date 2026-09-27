@@ -1,5 +1,5 @@
-import { awardPointsTx, prisma } from "@hyvento/db";
-import { claimedToday, dailyReward, dayStart, nextStreak } from "@hyvento/shared";
+import { awardPointsTx, prisma, setStatMax } from "@hyvento/db";
+import { claimedToday, dailyReward, dayStart, nextStreak, STAT_KEYS } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { publishPointsChanged } from "@/lib/events";
@@ -20,6 +20,8 @@ export async function POST() {
       data: { lastDailyAt: new Date(now), streak },
     });
     if (claimed.count === 0) return null;
+    // La racha más larga, para los logros (el servidor de juego la relee con el aviso de puntos).
+    await setStatMax(tx, user.id, STAT_KEYS.streakBest, streak);
     return awardPointsTx(tx, { userId: user.id, amount: reward, reason: "DAILY", now });
   });
   if (!result) return NextResponse.json({ error: "Ya reclamaste la recompensa de hoy" }, { status: 409 });
