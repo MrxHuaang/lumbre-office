@@ -73,6 +73,7 @@ import {
 } from "./network";
 import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
 import { TableMode } from "./table";
+import { InteractMarkers } from "./markers";
 import { Usables, type UsableHit } from "./usables";
 
 const MIN_ZOOM = 2;
@@ -181,6 +182,8 @@ export class OfficeScene extends Phaser.Scene {
   /** Muebles que se usan (tele, lámparas, instrumentos, gato) y el que está al alcance. */
   private usables!: Usables;
   private usableNear: UsableHit | null = null;
+  /** Rombitos sobre lo que se puede usar (ver markers.ts). */
+  private markers!: InteractMarkers;
   /** Mueble al que voy caminando (clic en la tele, el piano…): al llegar se usa. */
   private pendingUse: PlacedFurniture | null = null;
 
@@ -212,6 +215,7 @@ export class OfficeScene extends Phaser.Scene {
     this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,F,ESC,DELETE,BACKSPACE", false) as Keys;
     this.table = new TableMode(this);
     this.usables = new Usables(this, (id) => this.avatars.get(id), () => this.local);
+    this.markers = new InteractMarkers(this);
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
@@ -276,7 +280,8 @@ export class OfficeScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
   }
 
-  update(_time: number, delta: number) {
+  update(time: number, delta: number) {
+    this.markers?.update(time, this.local ? { x: this.local.x, y: this.local.y } : null, this.map?.tileSize ?? 32);
     if (this.decorDirty) {
       this.decorDirty = false;
       this.applyDecor(useOfficeStore.getState().offices);
@@ -307,6 +312,7 @@ export class OfficeScene extends Phaser.Scene {
       this.view?.destroy();
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
       this.usables.setArea(map, this.view);
+      this.markers.setArea(map, this.view, INTERACTABLES);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -360,6 +366,7 @@ export class OfficeScene extends Phaser.Scene {
     this.view?.destroy();
     this.view = new AreaView(this, map, useOfficeStore.getState().night);
     this.usables.setArea(map, this.view);
+    this.markers.setArea(map, this.view, INTERACTABLES);
     AreaView.dropStaleBases(this, map);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
     const goal = this.path.at(-1);

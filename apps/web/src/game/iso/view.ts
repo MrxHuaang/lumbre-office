@@ -42,6 +42,17 @@ export function screenToWorld(sx: number, sy: number) {
 /** Profundidad isométrica: lo que está más abajo-adelante (mayor x + y) se dibuja encima. */
 export const depthOf = (x: number, y: number) => x + y;
 const DEPTH_FLOOR = -1e7;
+/**
+ * La noche: color y fuerza de la penumbra (MULTIPLY) y cuánto más lejos que su brillo llega cada luz.
+ * Adentro es suave (las luces de la casa están prendidas); afuera, azul de noche.
+ */
+const NIGHT = {
+  // Adentro la casa tiene su luz general prendida: apenas un toque de noche; las lámparas suman encima.
+  indoor: { color: 0xa597d6, alpha: 0.2, reach: 2.2 },
+  outdoor: { color: 0x2c3570, alpha: 0.7, reach: 2.2 },
+} as const;
+/** La textura de la noche va a media resolución (es un degradado). */
+const NIGHT_SCALE = 2;
 export const DEPTH_FLAT = -1e6;
 export const DEPTH_OVERLAY = 1e7;
 
@@ -143,6 +154,9 @@ export class AreaView {
   /** Luz de cada mueble que la tiene, y las que alguien apagó (lámparas; ver usables.ts). */
   private lightOf = new Map<PlacedFurniture, Phaser.GameObjects.Image>();
   private lightsOff = new Set<Phaser.GameObjects.Image>();
+  private nightTex?: Phaser.Textures.CanvasTexture;
+  private nightMask?: Phaser.GameObjects.Image;
+  private nightOutside?: Phaser.GameObjects.Rectangle[];
   private night = false;
   /** Cada mueble con su imagen (el editor atenúa el que se está moviendo). */
   private furnitureImages: { f: PlacedFurniture; img: Phaser.GameObjects.Image }[] = [];
@@ -165,10 +179,11 @@ export class AreaView {
     const b = this.base.getBounds();
     this.bounds = new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height);
     this.surround?.setPosition(b.centerX, b.centerY).setSize(b.width + SURROUND_PAD * 2, b.height + SURROUND_PAD * 2);
-    // De noche afuera está oscuro; adentro las luces están prendidas, así que solo se tiñe de azul.
-    const [tint, strength] = map.outdoor ? [0x4a3f8a, 0.6] : [0xb4a6e0, 0.55];
+    // De noche: penumbra azulada (más oscura afuera) con huecos de luz donde hay lámparas, faroles,
+    // ventanas y fuego (ver drawNightMask). Este rectángulo parejo queda de respaldo.
+    const n = NIGHT[map.outdoor ? "outdoor" : "indoor"];
     this.nightLayer = scene.add
-      .rectangle(b.centerX, b.centerY, b.width + SURROUND_PAD * 2, b.height + SURROUND_PAD * 2, tint, strength)
+      .rectangle(b.centerX, b.centerY, b.width + SURROUND_PAD * 2, b.height + SURROUND_PAD * 2, n.color, n.alpha)
       .setBlendMode(Phaser.BlendModes.MULTIPLY)
       .setDepth(DEPTH_OVERLAY)
       .setVisible(night);
@@ -252,6 +267,14 @@ export class AreaView {
     }
   }
 
+  /** Punto de pantalla justo arriba del dibujo de un mueble (para los indicadores de interacción). */
+  furnitureTop(f: PlacedFurniture): { x: number; y: number; depth: number } | null {
+    const hit = this.furnitureImages.find((e) => e.f === f);
+    if (!hit) return null;
+    const b = hit.img.getBounds();
+    return { x: b.centerX, y: b.y, depth: hit.img.depth };
+  }
+
   /** Atenúa los muebles que cumplen `match` (el que se está moviendo en el editor); null = ninguno. */
   dimFurniture(match: ((f: PlacedFurniture) => boolean) | null) {
     for (const { f, img } of this.furnitureImages) img.setAlpha(match?.(f) ? 0.3 : 1);
@@ -287,6 +310,74 @@ export class AreaView {
     if (on) this.lightsOff.delete(glow);
     else this.lightsOff.add(glow);
     glow.setVisible(this.night && on);
+    if (this.night) this.drawNightMask();
+  }
+
+  /**
+   * La penumbra de la noche como textura: el color de la noche con huecos degradados alrededor de cada
+   * luz prendida, así las lámparas iluminan de verdad (sin el filtro gris parejo de antes). Va a media
+   * resolución (es un degradado suave) y con MULTIPLY encima de todo; afuera del nivel, franjas parejas.
+   */
+  private drawNightMask() {
+    const b = this.bounds;
+    const w = Math.ceil(b.width / NIGHT_SCALE);
+    const h = Math.ceil(b.height / NIGHT_SCALE);
+    const key = `noche-${this.map.id}`;
+    if (!this.nightTex || this.nightTex.width !== w || this.nightTex.height !== h) {
+      if (this.scene.textures.exists(key)) this.scene.textures.remove(key);
+      this.nightTex = this.scene.textures.createCanvas(key, w, h)!;
+    }
+    const n = NIGHT[this.map.outdoor ? "outdoor" : "indoor"];
+    const ctx = this.nightTex.getContext();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = `rgba(${(n.color >> 16) & 255}, ${(n.color >> 8) & 255}, ${n.color & 255}, ${n.alpha})`;
+    ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = "destination-out";
+    for (const g of this.glows) {
+      if (this.lightsOff.has(g)) continue;
+      const rx = ((g.width / 2) * n.reach) / NIGHT_SCALE;
+      const ry = ((g.height / 2) * n.reach) / NIGHT_SCALE;
+      ctx.save();
+      ctx.translate((g.x - b.x) / NIGHT_SCALE, (g.y - b.y) / NIGHT_SCALE);
+      ctx.scale(1, ry / rx);
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+      grad.addColorStop(0, "rgba(0,0,0,1)");
+      grad.addColorStop(0.45, "rgba(0,0,0,0.85)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, rx, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    this.nightTex.refresh();
+    if (!this.nightMask) {
+      this.nightMask = this.scene.add
+        .image(b.x, b.y, key)
+        .setOrigin(0, 0)
+        .setScale(NIGHT_SCALE)
+        .setBlendMode(Phaser.BlendModes.MULTIPLY)
+        .setDepth(DEPTH_OVERLAY);
+      this.objects.push(this.nightMask);
+    }
+    this.nightOutside ??= this.outsideFrame(n);
+  }
+
+  /** Cuatro franjas de penumbra alrededor del nivel (lo que queda afuera de la textura de la noche). */
+  private outsideFrame(n: { color: number; alpha: number }) {
+    const b = this.bounds;
+    const P = SURROUND_PAD;
+    const rects = [
+      [b.x - P, b.y - P, b.width + 2 * P, P],
+      [b.x - P, b.bottom, b.width + 2 * P, P],
+      [b.x - P, b.y, P, b.height],
+      [b.right, b.y, P, b.height],
+    ].map(([x, y, w, h]) =>
+      this.scene.add.rectangle(x!, y!, w!, h!, n.color, n.alpha).setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY).setDepth(DEPTH_OVERLAY),
+    );
+    this.objects.push(...rects);
+    return rects;
   }
 
   setNight(on: boolean) {
@@ -297,12 +388,20 @@ export class AreaView {
       const s = spriteTexture(this.scene, key, () => drawFurniture(n.type, n.variant, on));
       n.img.setTexture(key).setPosition(n.ax - (n.flip ? s.canvas.width - s.ox : s.ox), n.ay - s.oy);
     }
-    this.nightLayer.setVisible(on);
+    // El rectángulo parejo ya no se usa: la noche es la textura con las luces (drawNightMask).
+    this.nightLayer.setVisible(false);
     for (const g of this.glows) g.setVisible(on && !this.lightsOff.has(g));
+    if (on) this.drawNightMask();
+    this.nightMask?.setVisible(on);
+    for (const r of this.nightOutside ?? []) r.setVisible(on);
   }
 
   destroy() {
     for (const o of this.objects) o.destroy();
+    this.nightMask = undefined;
+    this.nightOutside = undefined;
+    if (this.nightTex) this.scene.textures.remove(this.nightTex.key);
+    this.nightTex = undefined;
     this.objects = [];
     this.glows = [];
     this.lightOf.clear();
