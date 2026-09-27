@@ -22,6 +22,7 @@ import {
   FEET_Y,
   FRAME,
   VIDEO_WALL_SCREEN,
+  drawReaction,
   type ArcadeScreenKind,
   type PixelCanvas,
   type Sprite,
@@ -261,13 +262,11 @@ export class ClubMode {
     const a = this.avatarOf(e.sessionId);
     const f = map.def.features.find((w) => w.kind === "video-wall");
     let p: Point | null = null;
-    if (a && !a.isHidden) p = worldToScreen(a.x + (Math.random() - 0.5) * 12, a.y, 46);
+    if (a && !a.isHidden) p = worldToScreen(a.x + (Math.random() - 0.5) * 12, a.y, 40);
     else if (f) p = worldToScreen((f.x + (f.width ?? 1) * (0.2 + Math.random() * 0.6)) * map.tileSize, f.y * map.tileSize, VIDEO_WALL_SCREEN.hv1 + 4);
     if (!p) return;
-    const text = this.scene.add
-      .text(Math.round(p.x), Math.round(p.y), e.emoji, { fontSize: "14px", fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", system-ui, sans-serif' })
-      .setOrigin(0.5, 1)
-      .setDepth(DEPTH_OVERLAY + 12);
+    const key = ensureTexture(this.scene, `reaccion-${e.emoji}`, () => drawReaction(e.emoji));
+    const text = this.scene.add.image(Math.round(p.x), Math.round(p.y), key).setOrigin(0.5, 1).setDepth(DEPTH_OVERLAY + 12);
     this.scene.tweens.add({
       targets: text,
       y: text.y - 26 - Math.random() * 10,

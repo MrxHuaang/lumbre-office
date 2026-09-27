@@ -388,12 +388,12 @@ describe("cola de videos (en la sala)", () => {
     await goToArea(alice, room, "sotano");
     await walkToTile(alice, room, floor.x, floor.y);
     await goToArea(bob, room, "sotano");
-    await send(alice, MSG.clubReact, { emoji: "🔥" });
+    await send(alice, MSG.clubReact, { emoji: "fuego" });
     expect(seen).toEqual([]);
     await send(alice, MSG.clubQueue, { action: "add", url: "dQw4w9WgXcQ" });
-    await send(alice, MSG.clubReact, { emoji: "🔥" });
-    await send(alice, MSG.clubReact, { emoji: "💩" });
+    await send(alice, MSG.clubReact, { emoji: "fuego" });
+    await send(alice, MSG.clubReact, { emoji: "caca" });
     await tick(60);
-    expect(seen).toEqual([{ sessionId: alice.sessionId, name: "Alice", emoji: "🔥" }]);
+    expect(seen).toEqual([{ sessionId: alice.sessionId, name: "Alice", emoji: "fuego" }]);
   });
 });

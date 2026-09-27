@@ -3,10 +3,12 @@
 // La cola de videos de YouTube del club: pegar un link, ver lo que suena (con reacciones y "saltar"),
 // ordenar lo que viene arrastrando (o con las flechas), quitar, y volver a poner lo que ya sonó. Lo
 // valida el servidor: cualquiera dentro del club puede tocar la cola.
-import { CLUB_REACTIONS, CLUB_VIDEO, parseYoutubeId, type ClubVideoView } from "@hyvento/shared";
+import { drawReaction } from "@hyvento/map/art";
+import { CLUB_REACTION_NAMES, CLUB_REACTIONS, CLUB_VIDEO, parseYoutubeId, type ClubVideoView } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { sendClubQueue, sendClubReact } from "@/game/club/net";
 import { clubElapsed, useClubStore } from "@/game/club/store";
+import { ArtImage } from "../casino/PixelArt";
 import { NEON } from "./neon";
 
 /** Miniatura de YouTube (la chiquita, 120x90, recortada a 16:9). */
@@ -161,7 +163,7 @@ function NowPlaying({ now, paused, inClub }: { now: ClubVideoView | null; paused
   );
 }
 
-/** Botones de reacción: flotan sobre la pantalla del club para todos los del sótano. */
+/** Botones de reacción (dibujos pixel-art propios): suben sobre quien reacciona, lo ven los del sótano. */
 export function Reactions({ disabled, compact = false }: { disabled?: boolean; compact?: boolean }) {
   return (
     <div className="flex flex-wrap gap-1" role="group" aria-label="Reaccionar">
@@ -171,11 +173,12 @@ export function Reactions({ disabled, compact = false }: { disabled?: boolean; c
           type="button"
           disabled={disabled}
           onClick={() => sendClubReact(e)}
-          aria-label={`Reaccionar ${e}`}
-          className={`border-2 leading-none disabled:opacity-40 ${compact ? "px-1 py-0.5 text-[14px]" : "px-1.5 py-1 text-[16px]"}`}
+          aria-label={`Reaccionar: ${CLUB_REACTION_NAMES[e]}`}
+          title={CLUB_REACTION_NAMES[e]}
+          className={`grid place-items-center border-2 leading-none disabled:opacity-40 ${compact ? "p-0.5" : "p-1"}`}
           style={{ borderColor: NEON.edge, background: NEON.ink }}
         >
-          {e}
+          <ArtImage id={`reaccion-${e}`} make={() => drawReaction(e)} scale={compact ? 2 : 3} alt="" />
         </button>
       ))}
     </div>

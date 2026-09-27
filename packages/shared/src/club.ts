@@ -148,9 +148,20 @@ export interface ClubVideoView {
   durationMs: number;
 }
 
-/** Reacciones que se pueden mandar mientras suena algo (flotan sobre la pantalla del club). */
-export const CLUB_REACTIONS = ["🔥", "❤️", "😂", "👏", "🎉", "🕺"] as const;
+/**
+ * Reacciones que se pueden mandar mientras suena algo (flotan sobre quien reacciona). Cada una tiene su
+ * dibujo pixel-art (art/reactions.ts de @hyvento/map); el nombre es para leerlas en voz alta.
+ */
+export const CLUB_REACTIONS = ["fuego", "corazon", "risa", "aplauso", "fiesta", "baile"] as const;
 export type ClubReaction = (typeof CLUB_REACTIONS)[number];
+export const CLUB_REACTION_NAMES: Record<ClubReaction, string> = {
+  fuego: "Fuego",
+  corazon: "Corazón",
+  risa: "Risa",
+  aplauso: "Aplauso",
+  fiesta: "Fiesta",
+  baile: "A bailar",
+};
 
 const entryId = z.string().min(1).max(40);
 

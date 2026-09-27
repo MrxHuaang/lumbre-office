@@ -10,6 +10,7 @@ export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";
 export { composeArea } from "./compose";
 export { CAFE_ITEM_ART, crumb, crumbColor, drawCafeItem, drawHeldItem, drawMenuItem, emberGlow, heldEffect, puff, wisp, type HeldArtState, type HeldEffect } from "./items";
 export { drawEmote, EMOTE_ART } from "./emotes";
+export { drawReaction, REACTION_ART, REACTION_SIZE } from "./reactions";
 export { emoteFrames, EMOTE_H, EMOTE_W } from "./emotes";
 export { giftBox, wavingArm, GIFT_BOX_FRAMES, GIFT_BOX_H, GIFT_BOX_W } from "./social";
 export { photoBoardPhotos, PHOTO_BOARD_PIC, PHOTO_BOARD_SLOTS, type PhotoThumb } from "./photos";
