@@ -81,10 +81,13 @@ export function barItem(id: string): BarItem | undefined {
   return BAR_MENU.find((i) => i.id === id);
 }
 
-/** Las dos cartas: dónde se pide cada una (tipo de punto del mapa) y con qué prefijo queda el movimiento. */
+/**
+ * Las dos cartas: dónde se pide cada una (tipo de punto del mapa) y en qué muebles se hace clic para
+ * abrirla (la barra nueva del club suma los grifos de cerveza, "bar-taps").
+ */
 export const MENUS = {
-  cafe: { point: "cafe_counter", items: CAFE_MENU },
-  bar: { point: "club_bar", items: BAR_MENU },
+  cafe: { point: "cafe_counter", items: CAFE_MENU, furniture: ["counter-coffee", "pastry-case", "counter"] },
+  bar: { point: "club_bar", items: BAR_MENU, furniture: ["bar-counter", "bar-shelf", "bar-taps"] },
 } as const;
 export type MenuId = keyof typeof MENUS;
 export type MenuItem = CafeItem | BarItem;

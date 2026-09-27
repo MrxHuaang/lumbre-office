@@ -45,6 +45,8 @@ describe("carta del bar del club", () => {
     expect(menuItem("whisky")?.menu).toBe("bar");
     expect(menuItem("tinto")?.menu).toBe("cafe");
     expect(MENUS.bar.point).toBe("club_bar");
+    // La barra nueva del club tiene grifos: un clic ahí también abre la carta.
+    expect(MENUS.bar.furniture).toEqual(expect.arrayContaining(["bar-counter", "bar-shelf", "bar-taps"]));
     expect(barRefId("habano")).toBe("bar:habano");
     expect(heldParts("padrino")).toEqual(["whisky", "habano"]);
   });

@@ -44,6 +44,7 @@ import {
   type MoveCorrection,
   type MoveMessage,
   type Positioned,
+  MENUS,
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { Track } from "livekit-client";
@@ -90,7 +91,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "pole", point: "pole_stage", furniture: ["dance-pole"] },
   { kind: "roulette", point: "roulette", furniture: ["roulette-table"] },
   { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },
-  { kind: "bar", point: "club_bar", furniture: ["bar-counter", "bar-shelf"] },
+  { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Colores del editor de oficina: grilla, y fantasma/huella cuando se puede (verde) o no (rojo). */

@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { findPath, getWorld, pointsOfType, isBlockedTile } from "@hyvento/map";
-import { CAFE, CONSUME, MSG, ROOM_NAME, barItem, usesOf, type CafeOrderResult, type HeldUsedEvent } from "@hyvento/shared";
+import { findPath, getWorld, pointsOfType, isBlockedTile, INTERACT_REACH_TILES } from "@hyvento/map";
+import { CAFE, CONSUME, MENUS, MSG, ROOM_NAME, barItem, usesOf, type CafeOrderResult, type HeldUsedEvent } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -163,6 +163,27 @@ async function setup(points: number) {
 }
 
 describe("bar del club", () => {
+  it("cada barra tiene al lado un mueble en el que se hace clic, y cada uno de esos muebles tiene su barra", () => {
+    // El clic en un mueble de la barra (MENUS.bar.furniture, que usa la escena) camina al punto más cercano.
+    for (const [id, menu] of Object.entries(MENUS)) {
+      const clickable = new Set<string>(menu.furniture);
+      for (const map of getWorld().areas.values()) {
+        const ts = map.tileSize;
+        const points = pointsOfType(map, menu.point as never);
+        const pieces = map.furniture.filter((f) => clickable.has(f.type));
+        for (const p of points) {
+          const beside = pieces.some((f) => {
+            const dx = Math.max(f.x * ts - p.x, 0, p.x - (f.x + f.w) * ts);
+            const dy = Math.max(f.y * ts - p.y, 0, p.y - (f.y + f.d) * ts);
+            return Math.hypot(dx, dy) <= INTERACT_REACH_TILES * ts;
+          });
+          expect(beside, `${id}: ${map.id} (${p.tileX}, ${p.tileY})`).toBe(true);
+        }
+        if (pieces.length > 0) expect(points.length, `${id}: ${map.id}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("junto a la barra del club se pide, se cobra y queda en la mano con sus usos", async () => {
     const { room, alice, order } = await setup(50);
     await walkNextTo(alice, room, "sotano", "club_bar");
