@@ -1051,7 +1051,8 @@ export class Avatar {
     this.layout();
   }
 
-  private clearCountdown() {
+  /** Quita el globo de la cuenta (también justo antes de capturar la foto, para que no salga en ella). */
+  clearCountdown() {
     this.countdownBubble?.timer.remove();
     this.countdownBubble?.container.destroy();
     this.countdownBubble = undefined;

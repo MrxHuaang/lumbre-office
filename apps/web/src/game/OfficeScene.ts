@@ -520,6 +520,8 @@ export class OfficeScene extends Phaser.Scene {
    */
   private takePhoto(shot: PhotoShot) {
     usePhotoStore.getState().setCounting(0);
+    // El globo del 3-2-1 no sale en la foto (si el reloj del juego se atrasó, todavía puede estar).
+    for (const a of this.avatars.values()) a.clearCountdown();
     this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
       const me = this.local;
       if (this.disposed || !me) return;
