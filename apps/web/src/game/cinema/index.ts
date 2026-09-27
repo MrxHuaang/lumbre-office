@@ -1,13 +1,13 @@
 // El cine en la escena: la función de YouTube proyectada sobre la pantalla de la pared oeste (con la hora
 // del servidor, así todos ven el mismo segundo), que solo se oye dentro de la sala y con el volumen
-// propio; las luces que bajan mientras hay función y el haz del proyector. La escena solo tiene ganchos
+// propio; las luces que bajan mientras hay función, el haz del proyector y la marquesina de la puerta. La escena solo tiene ganchos
 // chicos: setArea, update, esc y destroy.
 import { nearPointOfType, zoneAt, type OfficeMap, type Zone } from "@hyvento/map";
-import { CINEMA_SCREEN, L, WORLD_TO_ART } from "@hyvento/map/art";
+import { CINEMA_SCREEN, cinemaMarquee, L, LOW_WALL_H, WORLD_TO_ART } from "@hyvento/map/art";
 import { CINEMA, isShowing } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
-import { DEPTH_OVERLAY, worldToScreen } from "../iso/view";
+import { DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "../iso/view";
 import { useOfficeStore } from "../store";
 import { serverNow } from "../club/store";
 import { wallQuad, type Point } from "../wallMount";
@@ -69,6 +69,8 @@ export class CinemaMode {
   private zone?: Zone;
   private dim?: Phaser.GameObjects.Graphics;
   private beam?: Phaser.GameObjects.Graphics;
+  /** La marquesina sobre la puerta ("EN FUNCION", "EN PAUSA", "SALA LIBRE") y la textura que muestra. */
+  private marquee?: { img: Phaser.GameObjects.Image; key: string };
   private video: YoutubeScreen | null = null;
   /** Luz de la sala: 0 = prendida, 1 = función a oscuras. */
   private level = 0;
@@ -92,6 +94,7 @@ export class CinemaMode {
     this.drawDim(map, this.zone);
     this.beam = this.scene.add.graphics().setDepth(DEPTH_OVERLAY - 1).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
     this.drawBeam(map);
+    this.placeMarquee(map, this.zone);
   }
 
   destroy() {
@@ -129,6 +132,7 @@ export class CinemaMode {
     // El haz solo con la película corriendo, y titila apenas (el obturador del proyector).
     const beamOn = isShowing(cine) && this.level > 0.2;
     this.beam?.setVisible(beamOn).setAlpha(beamOn ? this.level * (0.9 + 0.1 * Math.sin(time / 90)) : 0);
+    this.updateMarquee(cine.now ? (cine.paused ? "EN PAUSA" : "EN FUNCION") : "SALA LIBRE", isShowing(cine) ? Math.floor(time / 450) % 2 : 0, Boolean(cine.now));
   }
 
   // ---------- Video ----------
@@ -195,7 +199,33 @@ export class CinemaMode {
     g.fillStyle(BEAM_COLOR, 0.06).fillPoints(core.map((p) => new Phaser.Geom.Point(p.x, p.y)), true);
   }
 
+  // ---------- Marquesina ----------
+
+  /** Sobre la puerta del cine (la del pasillo): entre sus dos postes, encima de la pared baja. */
+  private placeMarquee(map: OfficeMap, zone: Zone) {
+    const ts = map.tileSize;
+    const door = map.def.doors.find((d) => d.edge === "h" && d.y * ts === zone.y && d.x * ts >= zone.x && d.x * ts < zone.x + zone.width);
+    if (!door) return;
+    const cx = (door.x + (door.width ?? 1) / 2) * ts;
+    const p = worldToScreen(cx, door.y * ts, LOW_WALL_H);
+    const img = this.scene.add.image(Math.round(p.x), Math.round(p.y), "__DEFAULT").setDepth(depthOf(cx, door.y * ts) + 0.05);
+    this.marquee = { img, key: "" };
+  }
+
+  private updateMarquee(text: string, frame: number, lit: boolean) {
+    const m = this.marquee;
+    if (!m) return;
+    const key = `cine-marquesina-${text}-${frame}-${lit ? 1 : 0}`;
+    if (m.key === key) return;
+    const s = cinemaMarquee(text, frame, lit);
+    ensureTexture(this.scene, key, () => s.canvas);
+    m.img.setTexture(key).setOrigin(s.ox / s.canvas.width, s.oy / s.canvas.height);
+    m.key = key;
+  }
+
   private clear() {
+    this.marquee?.img.destroy();
+    this.marquee = undefined;
     this.dim?.destroy();
     this.beam?.destroy();
     this.dim = undefined;

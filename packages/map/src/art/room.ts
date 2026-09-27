@@ -661,7 +661,7 @@ const GLYPHS: Record<string, string> = {
 };
 
 /** ¿La letra `ch` tiene prendido el píxel (gx, gy)? (gx 0..2, gy 0..4 de arriba abajo). */
-function glyphOn(ch: string, gx: number, gy: number): boolean {
+export function glyphOn(ch: string, gx: number, gy: number): boolean {
   return GLYPHS[ch]?.split(" ")[gy]?.[gx] === "#";
 }
 
