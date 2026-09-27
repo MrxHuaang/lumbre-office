@@ -197,9 +197,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <SeatPrompt />
           <InteractPrompt />
           <UsablePrompt />
-          <HeldSlot />
           <KnockRequests />
-          <MediaControls />
+          <MediaControls>
+            <HeldSlot />
+          </MediaControls>
           <ControlsHint />
           <VideoStrip />
           <ScreenFocus />
@@ -261,7 +262,7 @@ function ControlsHint() {
     <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
       {decorating
         ? "Clic para poner o elegir · R para girar · Supr para guardar · Esc para soltar o terminar"
-        : "WASD / flechas · clic para caminar · E para sentarte o usar · F para usar lo que tienes en la mano · T emotes · Enter para chatear"}
+        : "WASD / flechas · clic para caminar · E sentarte o usar · F lo de la mano · T emotes · Enter chatear"}
     </div>
   );
 }

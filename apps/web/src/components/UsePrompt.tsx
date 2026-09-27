@@ -12,7 +12,10 @@ import { useOfficeStore } from "@/game/store";
 
 const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer" } as const;
 
-/** Casillero de lo que tengo en la mano, al lado de la barra de herramientas (como el inventario de Stardew). */
+/**
+ * Casillero de lo que tengo en la mano, al final de la barra de herramientas (como el inventario de
+ * Stardew): va dentro de MediaControls, así se acomoda solo cuando cambia el ancho de la barra.
+ */
 export function HeldSlot() {
   const mine = useOfficeStore(
     useShallow((s) => {
@@ -32,15 +35,16 @@ export function HeldSlot() {
   const verb = parts.length > 1 ? "Usar" : VERB[consumeActionOf(art)];
   const name = menuItem(mine.held)?.name ?? "";
   return (
-    <button
-      type="button"
-      onClick={() => sendUseHeld()}
-      disabled={Boolean(panel)}
-      title={`${verb}: ${name} (F)`}
-      aria-label={`${verb} ${name}, quedan ${total} usos`}
-      className="cozy-panel absolute bottom-3 left-[calc(50%+188px)] z-10 flex items-center gap-2 p-2.5 max-sm:bottom-[6.25rem] max-sm:left-3"
-    >
-      <span className="cozy-btn relative h-[58px] w-[62px] flex-col gap-0.5 p-1 text-[12px] max-sm:h-12 max-sm:w-12">
+    // Separado de los botones de la barra por una raya, como otra sección del inventario.
+    <span className="ml-1 flex self-stretch items-center border-l-2 border-cozy-ink-soft/40 pl-2.5">
+      <button
+        type="button"
+        onClick={() => sendUseHeld()}
+        disabled={Boolean(panel)}
+        title={`${verb}: ${name} (F)`}
+        aria-label={`${verb} ${name}, quedan ${total} usos`}
+        className="cozy-btn relative h-[58px] w-[62px] flex-col gap-0.5 p-1 text-[12px] max-sm:h-12 max-sm:w-12"
+      >
         <kbd className="cozy-kbd absolute top-0.5 left-0.5 px-1 text-[10px] leading-none">F</kbd>
         <HeldArt art={art} left={left[i] ?? 1} />
         <span className="max-sm:hidden">{verb}</span>
@@ -48,8 +52,8 @@ export function HeldSlot() {
         <span className="absolute right-0.5 bottom-0 text-[12px] font-semibold text-cozy-ink [text-shadow:1px_1px_0_var(--color-cozy-paper-light)]">
           {total}
         </span>
-      </span>
-    </button>
+      </button>
+    </span>
   );
 }
 
