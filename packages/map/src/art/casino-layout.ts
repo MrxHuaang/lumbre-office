@@ -188,13 +188,63 @@ export function blackjackEdge(v: number): number {
   if (Math.abs(t) >= 1) return straight;
   return straight + (u1 - straight) * Math.sqrt(1 - t * t);
 }
-/** Círculos de apuesta, en el orden de los asientos 1 a 5 (de -v a +v, siguiendo la curva). */
-export const BLACKJACK_SPOTS: readonly { u: number; v: number }[] = [8.5, 16.2, 24, 31.8, 39.5].map((v) => ({
-  u: blackjackEdge(v) - 5.2,
-  v,
-}));
-/** Dónde van las cartas del crupier (junto al lado recto) y el sabot. */
+/** Distancia (aprox.) de (u, v) al borde de la mesa en D; negativa afuera. */
+export function blackjackInset(u: number, v: number): number {
+  const { u0, straight, u1, v0, v1 } = BLACKJACK_SHAPE;
+  if (u < u0 || v < v0 || v > v1) return -1;
+  const cv = (v0 + v1) / 2;
+  const rv = (v1 - v0) / 2;
+  const ends = Math.min(v - v0, v1 - v);
+  if (u <= straight) return Math.min(ends, u - u0 + 99);
+  const q = Math.hypot((u - straight) / (u1 - straight), (v - cv) / rv);
+  return (1 - q) * Math.min(u1 - straight, rv);
+}
+
+/**
+ * Banquetas del blackjack respecto de la mesa (tiles, en el orden de los asientos 1 a 5). Tienen que
+ * coincidir con BLACKJACK_SEATS del sótano (un test lo exige): de ahí salen los círculos de apuesta.
+ */
+export const BLACKJACK_SEAT_TILES: readonly (readonly [number, number])[] = [
+  [1, -1],
+  [2, 0],
+  [2, 1],
+  [2, 2],
+  [1, 3],
+];
+/** Hacia dónde miran los círculos: un punto detrás del crupier (así quedan repartidos por la curva). */
+const SPOT_EYE = { u: -2, v: 24 } as const;
+/** Cuánto adentro del borde queda el centro de cada círculo. */
+const SPOT_INSET = 5.4;
+
+/**
+ * Círculo de apuesta de una banqueta en (u, v) local: sobre la recta que va de la banqueta al crupier,
+ * donde el paño ya tiene lugar para el círculo. Así cada círculo queda frente a su banqueta.
+ */
+export function blackjackSpotFor(seat: { u: number; v: number }): { u: number; v: number } {
+  const du = SPOT_EYE.u - seat.u;
+  const dv = SPOT_EYE.v - seat.v;
+  const len = Math.hypot(du, dv);
+  for (let t = 0; t < len; t += 0.05) {
+    const u = seat.u + (du / len) * t;
+    const v = seat.v + (dv / len) * t;
+    if (blackjackInset(u, v) >= SPOT_INSET) return { u, v };
+  }
+  return { u: BLACKJACK_SHAPE.straight, v: seat.v };
+}
+
+/** Centro local de cada banqueta (unidades de arte). */
+export const BLACKJACK_SEAT_CENTERS: readonly { u: number; v: number }[] = BLACKJACK_SEAT_TILES.map(([x, y]) => ({ u: (x + 0.5) * 16, v: (y + 0.5) * 16 }));
+/** Círculos de apuesta, en el orden de los asientos 1 a 5. */
+export const BLACKJACK_SPOTS: readonly { u: number; v: number }[] = BLACKJACK_SEAT_CENTERS.map(blackjackSpotFor);
+/** Dónde van las cartas del crupier (junto al lado recto, entre la bandeja y el sabot) y el sabot. */
 export const BLACKJACK_DEALER = { u: 9, v: 24 } as const;
-export const BLACKJACK_SHOE = { u: 5, v: 36 } as const;
-/** Arco del texto ("BLACKJACK PAGA 3 A 2"): centro y radio, alrededor del crupier. */
-export const BLACKJACK_ARC = { u: 4, v: 24, r: 10.5 } as const;
+export const BLACKJACK_SHOE = { u: 5, v: 43 } as const;
+/** Bandeja de fichas del crupier, hundida junto al lado recto (el texto del paño no la pisa). */
+export const BLACKJACK_TRAY = { u0: 2.4, u1: 6.4, v0: 16.5, v1: 31.5 } as const;
+/** Descarte: el mazo de cartas usadas, del otro lado de la bandeja. */
+export const BLACKJACK_DISCARD = { u: 4, v: 5 } as const;
+/**
+ * Arco del texto ("BLACKJACK PAGA 3 A 2"), alrededor del crupier: centro y radios de los dos filetes
+ * dorados (el texto va entre los dos).
+ */
+export const BLACKJACK_ARC = { u: 1, v: 24, r0: 11, r1: 16 } as const;

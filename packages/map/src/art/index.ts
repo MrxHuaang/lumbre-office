@@ -12,10 +12,55 @@ export { CAFE_ITEM_ART, drawCafeItem, heldEffect, puff, type HeldEffect } from "
 export { drawEmote, EMOTE_ART } from "./emotes";
 export { drawSurroundings } from "./surroundings";
 export { drawAreaBase, drawDoorPost, drawLowWall, LOW_WALL_H, WALL_H, type AreaArt } from "./room";
-// Casino: tipografía de números, geometría de las mesas y el arte del modo mesa.
-export * from "./digits";
-export * from "./casino-layout";
-export * from "./casino-mesa";
+// Casino: tipografía de números, geometría de las mesas, el arte del modo mesa y su encuadre. Con
+// nombres explícitos (no `export *`): así un nombre genérico no choca con lo que agreguen otras partes.
+export { textMask } from "./digits";
+export {
+  betKey,
+  rouletteCellAt,
+  rouletteCellOf,
+  BLACKJACK_DISCARD,
+  BLACKJACK_SHOE,
+  BLACKJACK_SPOTS,
+  BLACKJACK_TOP_Z,
+  ROULETTE_TOP_Z,
+  type RouletteCell,
+} from "./casino-layout";
+export {
+  betChips,
+  blackjackDealerPlan,
+  blackjackFeltOverlay,
+  blackjackHandPlan,
+  blackjackSpotMark,
+  cardSprite,
+  chipStack,
+  discardSprite,
+  localToScreen,
+  mesaFrame,
+  restPose,
+  rouletteCellMark,
+  rouletteFeltOverlay,
+  screenToLocal,
+  shoeSprite,
+  spinPose,
+  tagSprite,
+  CHIP_VALUES,
+  WheelPainter,
+  type BallPose,
+  type MesaFrame,
+  type Overlay,
+  type ScreenBox,
+} from "./casino-mesa";
+export {
+  blackjackFeltRect,
+  rouletteFeltRect,
+  tableZoom,
+  wheelBowlRect,
+  wheelZoom,
+  TABLE_MAX_ZOOM,
+  TABLE_MIN_ZOOM,
+  type TableViewport,
+} from "./casino-camara";
 
 /** Halo de luz en bandas tramadas (se suma de noche). */
 export function glowSprite(rx: number, ry: number, color: string, maxAlpha: number): PixelCanvas {

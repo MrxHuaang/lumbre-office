@@ -1,19 +1,22 @@
 // Muebles del casino del sótano: la ruleta (paño de 3x4 y la rueda aparte, de 2x2), el blackjack, la
 // caja, tragamonedas y decoración. Paleta común: paño verde, caoba, cuero burdeos y bronce. La
 // geometría de las mesas está en casino-layout.ts: el modo mesa (casino-mesa.ts) dibuja encima.
-import { WHEEL_ORDER } from "@hyvento/shared";
+import { colorOf, WHEEL_ORDER } from "@hyvento/shared";
 import {
   BLACKJACK_ARC,
+  BLACKJACK_DISCARD,
   BLACKJACK_SHAPE,
   BLACKJACK_SHOE,
   BLACKJACK_SPOTS,
   BLACKJACK_TOP_Z,
+  BLACKJACK_TRAY,
   ROULETTE_FELT,
   ROULETTE_TOP_Z,
   WHEEL_CENTER,
   WHEEL_R,
   WHEEL_TOP_Z,
   blackjackEdge,
+  blackjackInset,
   insideCell,
   rouletteCellAt,
   type CellFill,
@@ -210,8 +213,7 @@ export function pocketAt(a: number, spin: number): { n: number; f: number } {
 /** Ángulo del centro del casillero de `n` (con la rueda sin girar). */
 export const pocketAngle = (n: number) => (WHEEL_ORDER.indexOf(n) + 0.5) * SECTOR;
 
-const pocketColor = (n: number): Exclude<CellFill, "felt"> => (n === 0 ? "green" : RED_SET.has(n) ? "red" : "black");
-const RED_SET = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const pocketColor = (n: number): Exclude<CellFill, "felt"> => colorOf(n);
 
 /**
  * Color del plato de la rueda en el punto (r, a) de la vista de arriba (a = ángulo, 0 = +x), con la
@@ -326,27 +328,12 @@ function chipStack(x: number, y: number, h: number, r: Ramp): Box {
 
 // ---------- Blackjack ----------
 
-/** Distancia (aprox.) de (u, v) al borde de la mesa en D; negativa afuera. */
-export function blackjackInset(u: number, v: number): number {
-  const { u0, straight, u1, v0, v1 } = BLACKJACK_SHAPE;
-  if (u < u0 || v < v0 || v > v1) return -1;
-  const cv = (v0 + v1) / 2;
-  const rv = (v1 - v0) / 2;
-  const ends = Math.min(v - v0, v1 - v);
-  if (u <= straight) return Math.min(ends, u - u0 + 99);
-  const q = Math.hypot((u - straight) / (u1 - straight), (v - cv) / rv);
-  return (1 - q) * Math.min(u1 - straight, rv);
-}
-
 /**
  * Bandeja de fichas del crupier, hundida junto al lado recto: marco de caoba y siete canales con fichas
  * paradas de canto (las rayas son los cantos).
  */
 function trayColor(u: number, v: number): RGBA | null {
-  const u0 = 2.4;
-  const u1 = 6.4;
-  const v0 = 16.5;
-  const v1 = 31.5;
+  const { u0, u1, v0, v1 } = BLACKJACK_TRAY;
   if (u < u0 || u >= u1 || v < v0 || v >= v1) return null;
   if (u < u0 + 0.5 || u >= u1 - 0.5 || v < v0 + 0.5 || v >= v1 - 0.5) return at(C.wood, u < u0 + 0.5 || v < v0 + 0.5 ? 2 : 4);
   const k = (v - v0 - 0.5) / 2;
@@ -376,11 +363,12 @@ export function blackjackFeltColor(u: number, v: number, text = true): RGBA | nu
     if (r < 2.9 && r >= 2.25) return at(C.gold, 4);
     if (r < 2.25) return at(FELT, 2);
   }
-  const { u: au, v: av, r: ar } = BLACKJACK_ARC;
+  const { u: au, v: av, r0, r1 } = BLACKJACK_ARC;
   const ra = Math.hypot(u - au, v - av);
-  if (Math.abs(ra - ar) < 0.3 || Math.abs(ra - (ar + 3.6)) < 0.3) return at(C.gold, 3);
+  if (Math.abs(ra - r0) < 0.3 || Math.abs(ra - r1) < 0.3) return at(C.gold, 3);
   // Entre las dos líneas va el texto; a la escala del mueble, un punteado crema que lo sugiere.
-  if (text && ra > ar + 1 && ra < ar + 2.6 && u > au + 2) {
+  const ang0 = Math.atan2(v - av, u - au) - Math.PI / 4;
+  if (text && ra > r0 + 1.4 && ra < r1 - 1.4 && Math.abs(ang0) < 0.55) {
     const ang = Math.atan2(v - av, u - au);
     const k = Math.floor((ang + Math.PI) * 26);
     if (k % 4 !== 3 && noise(k, Math.floor(ra * 2), 21) < 0.55) return at(C.cream, 4);
@@ -424,7 +412,7 @@ function blackjackTable(): Sprite {
       { x: su - 2, y: sv - 3, z, w: 4.5, d: 6, h: 3, top: (u, v) => (u > 1 && u < 3.5 && v > 1 && v < 5 ? at(C.cream, 5) : at(C.woodDark, 3)), left: flat(at(C.woodDark, 2)), right: (u, v) => (v > 2.3 ? at(RED, 3) : at(C.woodDark, 2)) },
       solidBox({ x: su + 2.3, y: sv - 1.2, z, w: 1, d: 2.4, h: 1.8 }, C.cream, 4),
       // Descarte: un mazo de cartas usadas de dorso rojo.
-      { x: su - 1.5, y: 8, z, w: 3, d: 4, h: 1.5, top: flat(at(RED, 3)), left: (_u, v) => at(C.cream, Math.floor(v * 2) % 2 ? 3 : 5), right: (_u, v) => at(C.cream, Math.floor(v * 2) % 2 ? 2 : 4) },
+      { x: BLACKJACK_DISCARD.u - 1.5, y: BLACKJACK_DISCARD.v - 2, z, w: 3, d: 4, h: 1.5, top: flat(at(RED, 3)), left: (_u, v) => at(C.cream, Math.floor(v * 2) % 2 ? 3 : 5), right: (_u, v) => at(C.cream, Math.floor(v * 2) % 2 ? 2 : 4) },
     ],
     { outline: OUT, under: shadowUnder(1, 1, 30, 46) },
   );

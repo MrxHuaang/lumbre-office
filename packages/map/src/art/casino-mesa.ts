@@ -2,11 +2,17 @@
 // paño con los números, la rueda girando con la bola, las fichas y las cartas). Va en alta resolución
 // (R puntos por unidad de arte) para que los números de 5x7 se lean; el cliente lo pone en el mundo
 // con escala 1/R, justo sobre el mueble. Sin Phaser: también se dibuja a PNG para revisarlo.
-import { cardRank, cardSuit, HIDDEN_CARD, isRedSuit, RANK_LABEL, WHEEL_ORDER, type Card } from "@hyvento/shared";
+import { cardRank, cardSuit, colorOf, HIDDEN_CARD, isRedSuit, RANK_LABEL, WHEEL_ORDER, type Card } from "@hyvento/shared";
 import {
   BLACKJACK_ARC,
+  BLACKJACK_DEALER,
+  BLACKJACK_DISCARD,
+  BLACKJACK_SHAPE,
+  BLACKJACK_SHOE,
   BLACKJACK_SPOTS,
   BLACKJACK_TOP_Z,
+  BLACKJACK_TRAY,
+  blackjackInset,
   ROULETTE_CELLS,
   ROULETTE_FELT,
   ROULETTE_TOP_Z,
@@ -19,7 +25,7 @@ import {
 import { INK, POCKET_RAMP, blackjackFeltColor, pocketAngle, rouletteFeltColor, wheelColor } from "./casino";
 import { GLYPH_H, drawText, drawTextCentered, textWidth } from "./digits";
 import { C, OUT } from "./palette";
-import { PixelCanvas, alpha, at, toScreen, type Ramp, type RGBA } from "./pixel";
+import { PixelCanvas, alpha, at, noise, renderSprite, solidBox, toScreen, type Box, type Ramp, type RGBA, type Shader, type Sprite } from "./pixel";
 
 // ---------- Marco de la mesa: local del mueble ↔ mundo ↔ pantalla ----------
 
@@ -155,20 +161,17 @@ export interface ChipSprite {
 const CHIP_R = 2;
 
 /**
- * Pila de `count` fichas de `value` (la de arriba con el número) y, si `total` no es el valor de una
- * sola, una placa con el total encima. `mine` = borde dorado (las tuyas se distinguen de las de los demás).
+ * Pila de `count` fichas de `value`, la de arriba con el número (o con `face`, el monto de la apuesta).
+ * `mine` = borde dorado (las tuyas se distinguen de las de los demás).
  */
-export function chipStack(value: number, count: number, R: number, opts: { total?: number; mine?: boolean } = {}): ChipSprite {
+export function chipStack(value: number, count: number, R: number, opts: { mine?: boolean; face?: string } = {}): ChipSprite {
   const col = CHIP_COLORS[value] ?? CHIP_COLORS[1]!;
   const rx = CHIP_R * Math.SQRT2 * R;
   const ry = (CHIP_R / Math.SQRT2) * R;
   const th = Math.max(2, Math.round(0.5 * R));
   const n = Math.max(1, Math.min(8, count));
-  const tag = opts.total !== undefined && opts.total !== value ? String(opts.total) : "";
-  const tagW = tag ? textWidth(tag) + 6 : 0;
-  const tagH = tag ? GLYPH_H + 5 : 0;
-  const W = Math.ceil(Math.max(rx * 2 + 4, tagW + 2));
-  const H = Math.ceil(ry * 2 + th * n + 4 + tagH);
+  const W = Math.ceil(rx * 2 + 2);
+  const H = Math.ceil(ry * 2 + th * n + 4);
   const c = new PixelCanvas(W, H);
   const cx = W / 2;
   const baseY = H - ry - 2;
@@ -196,35 +199,24 @@ export function chipStack(value: number, count: number, R: number, opts: { total
       const d = nx * nx + ny * ny;
       if (d > 1) continue;
       const ang = Math.atan2(ny, nx);
-      const ringZone = d > 0.62;
+      // Con R chico el anillo de rayas es más fino, así el número no se monta sobre las rayas.
+      const ringZone = d > (R < 4 ? 0.86 : 0.62);
       const stripe = ringZone && Math.floor(((ang + Math.PI) / (Math.PI * 2)) * 12) % 2 === 0;
-      c.set(x, y, stripe ? col.stripe : at(col.body, d > 0.62 ? 3 : 4));
+      c.set(x, y, stripe ? col.stripe : at(col.body, ringZone ? 3 : 4));
     }
-  drawTextCentered(c, String(value), cx, topY, col.text, { outline: value === 1 ? undefined : at(col.body, 1) });
+  drawTextCentered(c, opts.face ?? String(value), cx, topY, col.text, { outline: value === 1 ? undefined : at(col.body, 1) });
   c.outline(opts.mine ? at(C.gold, 5) : OUT);
-  if (tag) {
-    // Placa con el total, arriba de la pila.
-    const ty = topY - ry - tagH - 1;
-    const tx = Math.round(cx - tagW / 2);
-    c.rect(tx, ty, tagW, tagH, at(INK, 1));
-    c.rect(tx + 1, ty + 1, tagW - 2, tagH - 2, at(INK, 2));
-    drawText(c, tag, tx + 3, ty + 3, opts.mine ? at(C.gold, 5) : at(C.cream, 5));
-    for (let x = tx; x < tx + tagW; x++) {
-      c.set(x, ty, at(C.gold, 3));
-      c.set(x, ty + tagH - 1, at(C.gold, 2));
-    }
-    for (let y = ty; y < ty + tagH; y++) {
-      c.set(tx, y, at(C.gold, 3));
-      c.set(tx + tagW - 1, y, at(C.gold, 2));
-    }
-  }
   return { canvas: c, ax: cx, ay: baseY };
 }
 
-/** Pila de fichas para una apuesta de `amount` puntos hecha con `bets` fichas. */
-export function betStack(amount: number, bets: number, R: number, mine: boolean): ChipSprite {
+/**
+ * Fichas de una apuesta: una pila corta del color de la ficha más grande que entra, con el monto escrito
+ * en la de arriba. Sin placa encima: una pila alta taparía los números de la fila de atrás del paño.
+ * `extra` = fichas de más (el blackjack doblado se ve más alto, sin ocupar más ancho).
+ */
+export function betChips(amount: number, R: number, mine: boolean, extra = 0): ChipSprite {
   const value = chipFor(amount);
-  return chipStack(value, Math.max(bets, Math.ceil(amount / value) > 1 ? 2 : 1), R, { total: amount, mine });
+  return chipStack(value, (amount > value ? 2 : 1) + extra, R, { mine, face: String(amount) });
 }
 
 // ---------- Ruleta: la rueda ----------
@@ -328,7 +320,7 @@ export class WheelPainter {
       const p = this.at(r, pocketAngle(n) + spin);
       const win = n === highlight;
       drawTextCentered(this.overlay.canvas, String(n), p.x, p.y, win ? at(C.gold, 5) : at(C.cream, 5), {
-        outline: win ? at(C.gold, 0) : n === 0 ? at(C.green, 0) : at(POCKET_RAMP[isRed(n) ? "red" : "black"], 0),
+        outline: win ? at(C.gold, 0) : n === 0 ? at(C.green, 0) : at(POCKET_RAMP[colorOf(n) === "red" ? "red" : "black"], 0),
       });
     }
   }
@@ -374,8 +366,6 @@ export class WheelPainter {
       }
   }
 }
-
-const isRed = (n: number) => [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36].includes(n);
 
 /**
  * ¿Caben los 37 números de 5x7 derechos alrededor del aro a resolución R? Cada número mide 11x7 puntos
@@ -456,12 +446,133 @@ export function restPose(round: number, n: number): { spin: number; ball: BallPo
 
 // ---------- Blackjack ----------
 
-/** Paño del blackjack en alta resolución, con el arco del texto y el número de cada asiento. */
+/** Caja en pantalla (unidades de arte, como el juego a zoom 1). */
+export interface ScreenBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** ¿Se tocan dos cajas? (`pad` = aire que tiene que quedar entre las dos). */
+export const boxesTouch = (a: ScreenBox, b: ScreenBox, pad = 0) =>
+  a.w > 0 && b.w > 0 && a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
+
+/** ¿Tapa algo el punto local (u, v)? La bandeja, un círculo de apuesta, el sabot o el descarte. */
+function blackjackBusy(u: number, v: number): boolean {
+  const t = BLACKJACK_TRAY;
+  if (u >= t.u0 - 0.5 && u < t.u1 + 0.5 && v >= t.v0 - 0.5 && v < t.v1 + 0.5) return true;
+  if (BLACKJACK_SPOTS.some((s) => Math.hypot(u - s.u, v - s.v) < 3.4)) return true;
+  for (const b of [BLACKJACK_SHOE, BLACKJACK_DISCARD]) if (Math.abs(u - b.u) < 3.2 && Math.abs(v - b.v) < 4) return true;
+  return false;
+}
+
+/** Una letra del texto del paño: el carácter y el punto local donde va su centro. */
+export interface ArcGlyph {
+  ch: string;
+  u: number;
+  v: number;
+}
+
+/** Textos del arco, del más largo al más corto: se usa el primero que entra a esa resolución. */
+const ARC_TEXTS: readonly (readonly string[])[] = [
+  ["BLACKJACK PAGA 3 A 2", "BLACKJACK 3 A 2", "PAGA 3 A 2"],
+  ["SE PLANTA EN 17", "PLANTA EN 17"],
+];
+
+/** Caja en pantalla (desde el marco de la mesa en el origen) de una letra centrada en (u, v). */
+function glyphBox(ch: string, u: number, v: number, R: number): ScreenBox {
+  const p = toScreen(u, v, BLACKJACK_TOP_Z);
+  const w = (textWidth(ch) + 2) / R;
+  const h = (GLYPH_H + 2) / R;
+  return { x: p.x - w / 2, y: p.y - h / 2, w, h };
+}
+
+/**
+ * Letras de un texto a lo largo del arco de radio `r`, centrado en el ángulo π/4 (donde el arco se ve
+ * horizontal en pantalla). Null si alguna letra se sale del paño o cae sobre la bandeja, un círculo, el
+ * sabot o el descarte: mejor otro texto que letras sueltas.
+ */
+function arcLine(text: string, r: number, R: number): ArcGlyph[] | null {
+  const { u: cu, v: cv } = BLACKJACK_ARC;
+  const pos = (a: number) => toScreen(cu + Math.cos(a) * r, cv + Math.sin(a) * r);
+  // Largo del arco en pantalla, muestreado fino; bajando el ángulo, el texto va de izquierda a derecha.
+  const a0 = Math.PI / 4;
+  const samples: { a: number; d: number }[] = [];
+  let d = 0;
+  let prev = pos(a0 + 1.6);
+  for (let a = a0 + 1.6; a >= a0 - 1.6; a -= 0.002) {
+    const p = pos(a);
+    d += Math.hypot(p.x - prev.x, p.y - prev.y);
+    samples.push({ a, d });
+    prev = p;
+  }
+  const mid = samples.find((s) => s.a <= a0)!.d;
+  const w = textWidth(text) / R;
+  const out: ArcGlyph[] = [];
+  let x = mid - w / 2;
+  for (const ch of text) {
+    const cw = textWidth(ch) / R;
+    const s = samples.find((q) => q.d >= x + cw / 2);
+    // Más allá de ±0,8 rad el arco se empina y las letras quedarían en escalera.
+    if (!s || Math.abs(s.a - a0) > 0.8) return null;
+    if (ch !== " ") {
+      const g = { ch, u: cu + Math.cos(s.a) * r, v: cv + Math.sin(s.a) * r };
+      const b = glyphBox(ch, g.u, g.v, R);
+      for (const [px, py] of [
+        [b.x, b.y],
+        [b.x + b.w, b.y],
+        [b.x, b.y + b.h],
+        [b.x + b.w, b.y + b.h],
+      ] as const) {
+        const l = { u: py + BLACKJACK_TOP_Z + px / 2, v: py + BLACKJACK_TOP_Z - px / 2 };
+        if (blackjackInset(l.u, l.v) < 0.4 || blackjackBusy(l.u, l.v)) return null;
+      }
+      out.push(g);
+    }
+    x += cw + 1 / R;
+  }
+  return out;
+}
+
+/**
+ * El texto del paño entre los dos filetes dorados del arco, a resolución R: las dos líneas si entran
+ * (separadas por al menos una letra y dos puntos en pantalla), si no una sola, y más corta si hace falta.
+ */
+export function blackjackArcGlyphs(R: number): ArcGlyph[] {
+  const { r0, r1 } = BLACKJACK_ARC;
+  // En π/4 el radio se ve vertical y achicado por √2: cuánto radio ocupa una letra con su borde.
+  const perPoint = Math.SQRT2 / R;
+  const half = ((GLYPH_H + 2) / 2) * perPoint;
+  const step = (GLYPH_H + 3) * perPoint;
+  const two = r1 - r0 >= half * 2 + step + 0.4;
+  const radii = two ? [(r0 + r1) / 2 + step / 2, (r0 + r1) / 2 - step / 2] : [(r0 + r1) / 2];
+  const out: ArcGlyph[] = [];
+  radii.forEach((r, i) => {
+    for (const text of ARC_TEXTS[i]!) {
+      const line = arcLine(text, r, R);
+      if (line) {
+        out.push(...line);
+        break;
+      }
+    }
+  });
+  return out;
+}
+
+/** Cajas en pantalla de las letras del paño (para que las cartas y placas no las tapen). */
+export function blackjackArcBoxes(R: number): ScreenBox[] {
+  return blackjackArcGlyphs(R).map((g) => glyphBox(g.ch, g.u, g.v, R));
+}
+
+/** Paño del blackjack en alta resolución, con el texto del arco y el número de cada asiento. */
 export function blackjackFeltOverlay(fr: MesaFrame, R: number): Overlay {
-  const ov = paintLocalPlane(fr, BLACKJACK_TOP_Z, 1, 1, 31, 47, R, (u, v) => blackjackFeltColor(u, v, false));
-  const { u: au, v: av, r: ar } = BLACKJACK_ARC;
-  arcText(ov, fr, "BLACKJACK PAGA 3 A 2", au, av, ar + 1.8, at(C.gold, 5), at(C.green, 0));
-  arcText(ov, fr, "SE PLANTA EN 17", au, av, ar - 1.9, at(C.cream, 4), at(C.green, 0));
+  const { u0, v0, u1, v1 } = BLACKJACK_SHAPE;
+  const ov = paintLocalPlane(fr, BLACKJACK_TOP_Z, u0, v0, u1, v1, R, (u, v) => blackjackFeltColor(u, v, false));
+  for (const g of blackjackArcGlyphs(R)) {
+    const p = toCanvas(ov, localToScreen(fr, g.u, g.v, BLACKJACK_TOP_Z));
+    drawTextCentered(ov.canvas, g.ch, p.x, p.y, at(C.gold, 5), { outline: at(C.green, 0) });
+  }
   BLACKJACK_SPOTS.forEach((s, i) => {
     const p = toCanvas(ov, localToScreen(fr, s.u, s.v, BLACKJACK_TOP_Z));
     drawTextCentered(ov.canvas, String(i + 1), p.x, p.y, alpha(at(C.gold, 4), 0.75));
@@ -481,40 +592,87 @@ export function blackjackSpotMark(fr: MesaFrame, R: number, spot: { u: number; v
 }
 
 /**
- * Texto derecho a lo largo de un arco del paño. Va centrado en el ángulo π/4, donde el arco se ve
- * horizontal en la pantalla (más allá, en isométrico, se empina y las letras quedarían apiladas).
+ * Cajas locales → sprite en alta resolución (R puntos por unidad), con el origen del sprite en el punto
+ * local (0, 0, 0). Con el mueble espejado se cruzan u y v (y las caras izquierda y derecha).
  */
-function arcText(ov: Overlay, fr: MesaFrame, text: string, cu: number, cv: number, r: number, color: RGBA, outline: RGBA) {
-  const z = BLACKJACK_TOP_Z;
-  const pos = (a: number) => toCanvas(ov, localToScreen(fr, cu + Math.cos(a) * r, cv + Math.sin(a) * r, z));
-  // Largo del arco en puntos del lienzo, muestreado fino.
-  // Se recorre bajando el ángulo: en pantalla eso va de izquierda a derecha.
-  const a0 = Math.PI / 4;
-  const samples: { a: number; d: number }[] = [];
-  let d = 0;
-  let prev = pos(a0 + 1.7);
-  for (let a = a0 + 1.7; a >= a0 - 1.7; a -= 0.004) {
-    const p = pos(a);
-    d += Math.hypot(p.x - prev.x, p.y - prev.y);
-    samples.push({ a, d });
-    prev = p;
-  }
-  const mid = samples.find((s) => s.a <= a0)!.d;
-  const w = textWidth(text);
-  let x = mid - w / 2;
-  for (const ch of text) {
-    const cw = textWidth(ch);
-    const target = x + cw / 2;
-    const s = samples.find((q) => q.d >= target);
-    if (s && ch !== " ") {
-      const p = pos(s.a);
-      drawTextCentered(ov.canvas, ch, p.x, p.y, color, { outline });
-    }
-    x += cw + 1;
-  }
+function hiResPiece(fr: MesaFrame, boxes: Box[], R: number): Sprite {
+  // Los sombreadores siguen recibiendo unidades de arte (se dividen por R).
+  const unscale = (f: Shader | undefined): Shader | undefined => f && ((u, v, fw, fh) => f(u / R, v / R, fw / R, fh / R));
+  const scaled = boxes.map((b): Box => {
+    const s = { ...b, x: b.x * R, y: b.y * R, z: b.z * R, w: b.w * R, d: b.d * R, h: b.h * R, top: unscale(b.top), left: unscale(b.left), right: unscale(b.right) };
+    return fr.swap ? { ...s, x: s.y, y: s.x, w: s.d, d: s.w, left: s.right, right: s.left } : s;
+  });
+  return renderSprite(scaled, { outline: OUT });
 }
 
-// Palos de 5x5 (picas, corazones, diamantes, tréboles) y en grande de 7x7 para el centro de la carta.
+/** Una pieza suelta sobre el paño: el lienzo y el punto del lienzo que va sobre su lugar. */
+export interface PieceSprite {
+  canvas: PixelCanvas;
+  ax: number;
+  ay: number;
+}
+
+/**
+ * El sabot (la caja de madera con frente de acrílico rojo y la carta asomada) en alta resolución, para
+ * dibujarlo encima del paño del modo mesa. Su punto de apoyo es BLACKJACK_SHOE.
+ */
+export function shoeSprite(fr: MesaFrame, R: number): PieceSprite {
+  const px = 1 / R;
+  const wood = (u: number, v: number, fw: number, fh: number) => {
+    const edge = u < px * 1.5 || v < px * 1.5 || u > fw - px * 1.5 || v > fh - px * 1.5;
+    return at(C.woodDark, edge ? 4 : noise(Math.floor(u * 3), Math.floor(v * 6), 7) < 0.25 ? 2 : 3);
+  };
+  const sp = hiResPiece(
+    fr,
+    [
+      // Filete de bronce de abajo (primero: lo de atrás se dibuja antes).
+      solidBox({ x: -2.2, y: -3.2, z: 0, w: 4.9, d: 6.4, h: 0.4 }, C.gold, 3),
+      // La caja: tapa de madera con la ranura de las cartas.
+      {
+        x: -2,
+        y: -3,
+        z: 0.4,
+        w: 4.5,
+        d: 6,
+        h: 2.6,
+        // La ranura: una franja angosta con el canto de las cartas (no un rectángulo crema entero).
+        top: (u, v, fw, fh) => (u > 2.6 && u < 3.6 && v > 1 && v < 5 ? at(C.cream, u > 3.3 ? 3 : 5) : wood(u, v, fw, fh)),
+        left: (u, h) => at(C.woodDark, h > 2.6 ? 3 : 2),
+        right: (u, h) => (u > 0.6 && u < 5.4 && h > 0.5 && h < 2.6 ? at(C.rug, h > 2 ? 4 : 3) : at(C.woodDark, 2)),
+      },
+      // La carta asomada por la boca del sabot.
+      solidBox({ x: 2.3, y: -1.2, z: 0.4, w: 1, d: 2.4, h: 1.4 }, C.cream, 4),
+    ],
+    R,
+  );
+  return { canvas: sp.canvas, ax: sp.ox, ay: sp.oy };
+}
+
+/** El descarte: un mazo de cartas usadas de dorso rojo, con los cantos crema. */
+export function discardSprite(fr: MesaFrame, R: number): PieceSprite {
+  const sp = hiResPiece(
+    fr,
+    [
+      {
+        x: -1.5,
+        y: -2,
+        z: 0,
+        w: 3,
+        d: 4,
+        h: 1.5,
+        top: (u, v) => ((Math.floor(u * R * 0.5) + Math.floor(v * R * 0.5)) % 2 ? at(C.rug, 4) : at(C.rug, 3)),
+        left: (_u, h) => at(C.cream, Math.floor(h * R * 0.5) % 2 ? 3 : 5),
+        right: (_u, h) => at(C.cream, Math.floor(h * R * 0.5) % 2 ? 2 : 4),
+      },
+    ],
+    R,
+  );
+  return { canvas: sp.canvas, ax: sp.ox, ay: sp.oy };
+}
+
+// ---------- Cartas ----------
+
+// Palos de 5x5 (picas, corazones, diamantes, tréboles) y en grande de 7x7 para la carta grande.
 const SUITS: readonly (readonly string[])[] = [
   ["..#..", ".###.", "#####", "..#..", ".###."],
   [".#.#.", "#####", "#####", ".###.", "..#.."],
@@ -527,43 +685,52 @@ const BIG_SUITS: readonly (readonly string[])[] = [
   ["...#...", "..###..", ".#####.", "#######", ".#####.", "..###..", "...#..."],
   ["..###..", "..###..", "##.#.##", "#######", "##.#.##", "...#...", "..###.."],
 ];
+/** El 10 de las cartas en 5 de ancho (un 1 de un trazo y un 0 angosto), como las demás figuras. */
+const TEN = ["#..#.", "#.#.#", "#.#.#", "#.#.#", "#.#.#", "#.#.#", "#..#."];
 
 function stamp(c: PixelCanvas, g: readonly string[], x: number, y: number, col: RGBA) {
   g.forEach((row, j) => [...row].forEach((ch, i) => ch === "#" && c.set(x + i, y + j, col)));
 }
 
-export const CARD_W = 15;
-export const CARD_H = 21;
 /**
- * Cómo se abre la mano de cada jugador: cada carta nueva un poco más arriba y a la derecha, detrás de la
- * anterior (se dibujan de la última a la primera), así se ve el valor de todas. La del crupier, en fila.
+ * Tamaño de las cartas (sin el contorno) y cuánto se corre cada carta de una mano: con R chico la carta
+ * es más chica, así las cinco manos entran en la mesa. El corrimiento deja ver el valor de todas.
  */
-export const PLAYER_FAN = { dx: 3, dy: -9 } as const;
-export const DEALER_FAN = { dx: 13, dy: 0 } as const;
+export function cardSize(R: number): { w: number; h: number; fan: number } {
+  return R < 5 ? { w: 11, h: 15, fan: 6 } : { w: 16, h: 21, fan: 7 };
+}
 
-/** Carta derecha de 15x21 puntos: valor y palo arriba a la izquierda, palo grande al centro; o el dorso. */
-export function cardSprite(card: Card): PixelCanvas {
-  const c = new PixelCanvas(CARD_W + 2, CARD_H + 2);
+/**
+ * Carta derecha: valor y palo arriba a la izquierda (lo que queda a la vista en el abanico) y, en la
+ * grande, el palo grande abajo a la derecha, separado del chico. O el dorso.
+ */
+export function cardSprite(card: Card, R = 5): PixelCanvas {
+  const { w, h } = cardSize(R);
+  const small = w < 16;
+  const c = new PixelCanvas(w + 2, h + 2);
   const x0 = 1;
   const y0 = 1;
   if (card === HIDDEN_CARD) {
     // Dorso: rojo con rombos crema y borde blanco.
-    c.rect(x0, y0, CARD_W, CARD_H, at(C.cream, 5));
-    for (let y = 2; y < CARD_H - 2; y++)
-      for (let x = 2; x < CARD_W - 2; x++) {
+    c.rect(x0, y0, w, h, at(C.cream, 5));
+    for (let y = 2; y < h - 2; y++)
+      for (let x = 2; x < w - 2; x++) {
         const diamond = (x + y) % 4 === 0 || (x - y + 64) % 4 === 0;
         c.set(x0 + x, y0 + y, diamond ? at(C.rug, 4) : at(C.rug, 2));
       }
   } else {
-    const red = isRedSuit(card);
-    const ink = red ? at(C.rug, 2) : at(INK, 1);
-    c.rect(x0, y0, CARD_W, CARD_H, at(C.cream, 5));
+    const ink = isRedSuit(card) ? at(C.rug, 2) : at(INK, 1);
+    c.rect(x0, y0, w, h, at(C.cream, 5));
     // Sombrita del canto de abajo y la derecha: se ve apoyada.
-    for (let x = 1; x < CARD_W; x++) c.set(x0 + x, y0 + CARD_H - 1, at(C.cream, 3));
-    for (let y = 1; y < CARD_H; y++) c.set(x0 + CARD_W - 1, y0 + y, at(C.cream, 3));
-    drawText(c, RANK_LABEL[cardRank(card)]!, x0 + 2, y0 + 2, ink);
-    stamp(c, SUITS[cardSuit(card)]!, x0 + 2, y0 + 10, ink);
-    stamp(c, BIG_SUITS[cardSuit(card)]!, x0 + CARD_W - 9, y0 + CARD_H - 9, ink);
+    for (let x = 1; x < w; x++) c.set(x0 + x, y0 + h - 1, at(C.cream, 3));
+    for (let y = 1; y < h; y++) c.set(x0 + w - 1, y0 + y, at(C.cream, 3));
+    const m = small ? 1 : 2;
+    const rank = cardRank(card);
+    if (rank === 10) stamp(c, TEN, x0 + m, y0 + m, ink);
+    else drawText(c, RANK_LABEL[rank]!, x0 + m, y0 + m, ink);
+    stamp(c, SUITS[cardSuit(card)]!, x0 + m, y0 + m + GLYPH_H + 1, ink);
+    // Abajo a la derecha, con un punto de aire respecto del palo chico (si no, se ven como una mancha).
+    if (!small) stamp(c, BIG_SUITS[cardSuit(card)]!, x0 + w - 8, y0 + h - 8, ink);
   }
   c.outline(OUT);
   return c;
@@ -576,7 +743,7 @@ export function tagSprite(text: string, tone: "plain" | "good" | "bad" | "gold" 
   const c = new PixelCanvas(w + 2, h + 2);
   const bg = tone === "good" ? C.green : tone === "bad" ? C.rug : INK;
   c.rect(1, 1, w, h, at(bg, 1));
-  c.rect(2, 2, w - 2, h - 2, at(bg, tone === "plain" || tone === "gold" ? 2 : 2));
+  c.rect(2, 2, w - 2, h - 2, at(bg, 2));
   for (let x = 1; x <= w; x++) {
     c.set(x, 1, at(C.gold, 3));
     c.set(x, h, at(C.gold, 2));
@@ -588,4 +755,88 @@ export function tagSprite(text: string, tone: "plain" | "good" | "bad" | "gold" 
   drawText(c, text, 4, 4, tone === "gold" ? at(C.gold, 5) : at(C.cream, 5));
   c.outline(OUT);
   return c;
+}
+
+// ---------- Blackjack: dónde va cada cosa de una mano ----------
+
+type Side = "left" | "right" | "above";
+
+/**
+ * Dónde van las cartas de cada asiento (punto local del paño: la base de la mano) y de qué lado de las
+ * cartas va la placa del total. Se eligieron asiento por asiento, cerca de la línea entre la ficha y
+ * el crupier, para que ninguna mano toque a otra, ni a las fichas, ni a las cartas del crupier, desde R3
+ * (lo verifica un test con manos de tres cartas).
+ */
+export interface HandSpot {
+  u: number;
+  v: number;
+  tag: Side;
+}
+export const BLACKJACK_HANDS: readonly HandSpot[] = [
+  { u: 9.5, v: 11.3, tag: "left" },
+  { u: 18, v: 16.5, tag: "left" },
+  { u: 19.6, v: 25, tag: "left" },
+  { u: 21.5, v: 40, tag: "above" },
+  { u: 9, v: 36.2, tag: "left" },
+];
+/** Las cartas del crupier y su placa. */
+export const BLACKJACK_DEALER_HAND: HandSpot = { u: BLACKJACK_DEALER.u, v: BLACKJACK_DEALER.v, tag: "left" };
+
+/** Dónde va cada pieza de una mano (pantalla, con el marco de la mesa). */
+export interface HandPlan {
+  /** Base de la pila de fichas (el centro del círculo de apuesta). */
+  chip: { x: number; y: number };
+  chipBox: ScreenBox;
+  /** Centro de la base de cada carta, en el orden en que se reparten (cada una delante de la anterior). */
+  cards: { x: number; y: number }[];
+  cardsBox: ScreenBox;
+  /** La placa (total o resultado). */
+  tag: ScreenBox;
+}
+
+/** Aire entre piezas, en puntos de pantalla. */
+const GAP_PTS = 2;
+
+/** Las cartas de una mano con la base centrada en `at` (pantalla) y la placa al lado. */
+function placeHand(at: { x: number; y: number }, n: number, R: number, tag: { width: number; height: number } | null, side: Side) {
+  const { w, h, fan } = cardSize(R);
+  const cw = (w + 2) / R;
+  const gw = cw + (Math.max(n, 1) - 1) * (fan / R);
+  const cardsBox = n > 0 ? { x: at.x - gw / 2, y: at.y - (h + 2) / R, w: gw, h: (h + 2) / R } : { x: at.x, y: at.y, w: 0, h: 0 };
+  const cards = Array.from({ length: n }, (_, k) => ({ x: cardsBox.x + cw / 2 + (k * fan) / R, y: at.y }));
+  let tagBox: ScreenBox = { x: at.x, y: at.y, w: 0, h: 0 };
+  if (tag && n > 0) {
+    const tw = tag.width / R;
+    const th = tag.height / R;
+    const g = GAP_PTS / R;
+    if (side === "left") tagBox = { x: cardsBox.x - g - tw, y: at.y - th, w: tw, h: th };
+    else if (side === "right") tagBox = { x: cardsBox.x + gw + g, y: at.y - th, w: tw, h: th };
+    else tagBox = { x: at.x - tw / 2, y: cardsBox.y - g - th, w: tw, h: th };
+  }
+  return { cards, cardsBox, tag: tagBox };
+}
+
+/**
+ * La mano del asiento `seat` con `n` cartas: la ficha en su círculo, las cartas y la placa. `chip` y
+ * `tag` son los dibujos que se van a usar (sus tamaños deciden las cajas); todo en pantalla, con el
+ * marco de la mesa `fr`.
+ */
+export function blackjackHandPlan(
+  fr: MesaFrame,
+  R: number,
+  seat: number,
+  n: number,
+  chip: { canvas: { width: number; height: number }; ax: number; ay: number } | null,
+  tag: { width: number; height: number } | null,
+  hand: HandSpot = BLACKJACK_HANDS[seat]!,
+): HandPlan {
+  const spot = BLACKJACK_SPOTS[seat]!;
+  const p = localToScreen(fr, spot.u, spot.v, BLACKJACK_TOP_Z);
+  const chipBox: ScreenBox = chip ? { x: p.x - chip.ax / R, y: p.y - chip.ay / R, w: chip.canvas.width / R, h: chip.canvas.height / R } : { x: p.x, y: p.y, w: 0, h: 0 };
+  return { chip: p, chipBox, ...placeHand(localToScreen(fr, hand.u, hand.v, BLACKJACK_TOP_Z), n, R, tag, hand.tag) };
+}
+
+/** Las cartas del crupier, en fila junto al lado recto, con su placa. */
+export function blackjackDealerPlan(fr: MesaFrame, R: number, n: number, tag: { width: number; height: number } | null, hand: HandSpot = BLACKJACK_DEALER_HAND) {
+  return placeHand(localToScreen(fr, hand.u, hand.v, BLACKJACK_TOP_Z), n, R, tag, hand.tag);
 }
