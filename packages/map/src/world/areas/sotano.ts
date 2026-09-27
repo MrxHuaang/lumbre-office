@@ -321,5 +321,7 @@ export const sotano: AreaDef = {
     })),
     // Junto al proyector: desde ahí se elige qué se ve en el cine.
     { type: "cinema", name: "Proyector", x: 13, y: 24 },
+    // Delante de la máquina de crispetas: la confitería del cine.
+    { type: "cinema_snacks", name: "Confitería", x: 15, y: CINEMA_ROOM.y + 1 },
   ],
 };

@@ -6,6 +6,7 @@ import {
   ROOM_NAME,
   menuItem,
   type BarItemId,
+  type CinemaMenuItemId,
   type CafeItemId,
   type FurnitureEvent,
   type HeldUsedEvent,
@@ -62,6 +63,7 @@ import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
 import { bindClub, togglePole } from "./club/net";
+import { bindCinema } from "./cinema/net";
 import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
@@ -444,6 +446,11 @@ export function sendBarOrder(item: BarItemId) {
   room?.send(MSG.barOrder, { item });
 }
 
+/** Pide algo en la confitería del cine (junto a la máquina de crispetas). */
+export function sendCinemaOrder(item: CinemaMenuItemId) {
+  room?.send(MSG.cinemaOrder, { item });
+}
+
 const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], string> = {
   far: "Acércate a la barra para pedir.",
   funds: "No te alcanzan los puntos.",
@@ -457,7 +464,8 @@ function handleCafeResult(r: CafeOrderResult) {
   const name = item?.name ?? "tu pedido";
   if (r.ok) {
     store.closePanel();
-    store.notify(item?.menu === "bar" ? `Aquí tienes: ${name}. ¡Salud!` : `Aquí tienes: ${name}. ¡Buen provecho!`, "success");
+    const cheers = item?.menu === "bar" ? "¡Salud!" : item?.menu === "cine" ? "¡Buena función!" : "¡Buen provecho!";
+    store.notify(`Aquí tienes: ${name}. ${cheers}`, "success");
   } else {
     store.notify(CAFE_ERRORS[r.error], "warning");
   }
@@ -719,6 +727,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
+  bindCinema(r);
   bindRace(r);
   bindArcade(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {

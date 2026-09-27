@@ -79,6 +79,7 @@ import {
   type OfficeItemDTO,
   type Positioned,
   BarOrderMessage,
+  CinemaOrderMessage,
   MENUS,
   UseHeldMessage,
   CONSUME,
@@ -111,6 +112,8 @@ import {
   type RaceResult,
   ClubQueueMessage,
   ClubReactMessage,
+  CinemaMessage,
+  type CinemaError,
   isPlaying,
   parseYoutubeId,
   type ClubError,
@@ -147,6 +150,7 @@ import { CasaViva } from "./casa";
 import { Pets, type PetUser } from "./mascotas";
 import { Arcade } from "./arcade";
 import { Club, musicOf, type ClubWho } from "./club";
+import { Cinema } from "./cinema";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
 import { ChairRaces, type RaceOutcome } from "./races";
@@ -438,6 +442,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** El club del sótano (música, pista y tubo) y el arcade. */
   private club!: Club;
   private arcade!: Arcade;
+  /** El cine del sótano (la cola de la función). */
+  private cinema!: Cinema;
 
   private get repo() {
     return OfficeRoom.repo;
@@ -463,6 +469,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     this.startPets();
     this.club = new Club(this.state.club);
+    this.cinema = new Cinema(this.state.cinema);
     this.arcade = new Arcade({
       repo: () => this.repo,
       seed: () => OfficeRoom.arcadeSeed(),
@@ -495,6 +502,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
+    this.onMessage(MSG.cinemaOrder, (client, raw) => void this.handleOrder(client, raw, "cine"));
     this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
     this.onMessage(PET_MSG.call, (client, raw) => this.handlePet(client, raw, "call"));
@@ -537,6 +545,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.clubPole, (client, raw) => this.handleClub(client, raw, "pole"));
     this.onMessage(MSG.clubQueue, (client, raw) => void this.handleClubQueue(client, raw));
     this.onMessage(MSG.clubReact, (client, raw) => this.handleClubReact(client, raw));
+    this.onMessage(MSG.cinemaQueue, (client, raw) => void this.handleCinema(client, raw));
     this.onMessage(MSG.arcadeBoard, (client, raw) => void this.handleArcadeBoard(client, raw));
     this.onMessage(MSG.arcadeStart, (client, raw) => this.handleArcadeStart(client, raw));
     this.onMessage(MSG.arcadeFinish, (client, raw) => void this.handleArcadeFinish(client, raw));
@@ -550,6 +559,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       for (const [id, outcome] of this.races.sweep(Date.now(), this.state.players)) void this.raceOutcome(id, outcome);
       // Y el video que terminó pasa al siguiente aunque nadie en el club lo esté mirando.
       this.club.tick(Date.now());
+      this.cinema.tick(Date.now());
     }, 500);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
     this.weather.start();
@@ -1559,12 +1569,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   /**
-   * Pedido en la barra de la cafetería o del club: hay que estar junto a esa barra y tener saldo. Lo
-   * pedido se lleva en la mano un rato (y se usa con F).
+   * Pedido en la barra de la cafetería, del club o en la confitería del cine: hay que estar junto a esa
+   * barra y tener saldo. Lo pedido se lleva en la mano un rato (y se usa con F).
    */
   private async handleOrder(client: Client<UserData>, raw: unknown, menu: MenuId) {
     const player = this.state.players.get(client.sessionId);
-    const parsed = (menu === "cafe" ? CafeOrderMessage : BarOrderMessage).safeParse(raw);
+    const parsed = (menu === "cafe" ? CafeOrderMessage : menu === "bar" ? BarOrderMessage : CinemaOrderMessage).safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
     const item = menuItem(parsed.data.item)!;
     const reply = (r: CafeOrderResult) => client.send(MSG.cafeResult, r);
@@ -1589,7 +1599,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!result.ok) return reply({ ok: false, item: item.id, error: "funds" });
     this.held.give(userId, item.id);
     const a = this.achievements;
-    a.bump(userId, menu === "cafe" ? STAT_KEYS.cafeOrders : STAT_KEYS.barOrders);
+    // La confitería del cine cuenta como la cafetería (no es trago).
+    a.bump(userId, menu === "bar" ? STAT_KEYS.barOrders : STAT_KEYS.cafeOrders);
     a.bump(userId, `${STAT_PREFIX.order}${item.id}`);
     const holds: readonly string[] = item.holds;
     if (holds.includes("tinto") || holds.includes("cafe-leche")) a.bump(userId, STAT_KEYS.coffees);
@@ -1851,6 +1862,55 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         break;
       case "skip":
         result = this.club.skip(msg.id, now);
+        break;
+    }
+    if (!result.ok) fail(result.error);
+  }
+
+  /**
+   * La cola del cine: dentro de la sala cualquiera programa, reordena, quita o salta; pausar y seguir,
+   * desde la cabina del proyector. Los avisos del reproductor (terminó, duración) valen desde donde sea.
+   */
+  private async handleCinema(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = CinemaMessage.safeParse(raw);
+    if (!player || !client.userData || !parsed.success) return;
+    const msg = parsed.data;
+    const now = Date.now();
+    const videos = this.cinema.videos;
+    if (msg.action === "ended") return void videos.ended(msg.id, now);
+    if (msg.action === "duration") return void videos.duration(msg.id, msg.ms);
+    const fail = (error: CinemaError) => client.send(MSG.cinemaResult, { ok: false, error });
+    const map = this.mapOf(player.area);
+    if (!this.cinema.inCinema(map, player)) return fail("far");
+    client.userData.lastActiveAt = now;
+    let result: { ok: true } | { ok: false; error: CinemaError };
+    switch (msg.action) {
+      case "add": {
+        const videoId = parseYoutubeId(msg.url);
+        if (!videoId) return fail("not-youtube");
+        const pre = videos.canAdd(videoId);
+        if (!pre.ok) return fail(pre.error);
+        const info = await OfficeRoom.youtubeLookup(videoId).catch(() => ({ ok: true as const, title: FALLBACK_TITLE }));
+        if (!info.ok) return fail(info.error);
+        result = videos.enqueue({ videoId, title: info.title }, player.name, Date.now());
+        break;
+      }
+      case "replay":
+        result = videos.replay(msg.id, player.name, now);
+        break;
+      case "move":
+        result = videos.move(msg.id, msg.to);
+        break;
+      case "remove":
+        result = videos.unqueue(msg.id);
+        break;
+      case "skip":
+        result = videos.skip(msg.id, now);
+        break;
+      case "pause":
+      case "resume":
+        result = this.cinema.control(map, { userId: player.userId, area: player.area, x: player.x, y: player.y }, msg.action, now);
         break;
     }
     if (!result.ok) fail(result.error);

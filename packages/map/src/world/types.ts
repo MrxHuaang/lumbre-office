@@ -150,6 +150,8 @@ export interface PointDef {
     | "fishing_spot"
     | "arcade"
     | "cinema"
+    // Frente a la máquina de crispetas del cine: la confitería.
+    | "cinema_snacks"
     // Rediseño: frente a la barra del club, donde se piden tragos y cigarros.
     | "club_bar"
     // Club: delante de la cabina de DJ, donde se abre la consola para poner música.

@@ -20,6 +20,9 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   chocolate: { action: "sip", uses: 4 },
   "coca-cola": { action: "sip", uses: 4 },
   pandebono: { action: "bite", uses: 3 },
+  // La confitería del cine: un puñado de crispetas por vez, que dura la película.
+  crispetas: { action: "bite", uses: 4 },
+  "crispetas-caramelo": { action: "bite", uses: 4 },
   bunuelo: { action: "bite", uses: 3 },
   torta: { action: "bite", uses: 4 },
   cigarro: { action: "smoke", uses: 5 },

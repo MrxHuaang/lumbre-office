@@ -1,8 +1,8 @@
-// Un reproductor de YouTube (el iframe oficial, sin clave) encima del canvas: el del club, montado sobre
-// la pantalla de la pared, y el de la radio de las oficinas, que solo suena. No se mueve nunca de lugar
-// en el DOM (moverlo lo recargaría): se estira con una matriz CSS para que caiga sobre la pared inclinada
-// y, en grande, se centra (ver wallMount.ts). Va al segundo que le digan (la hora del servidor): todos
-// ven lo mismo.
+// Un reproductor de YouTube (el iframe oficial, sin clave) encima del canvas: el del club y el del cine,
+// montados sobre su pantalla de la pared, y el de la radio de las oficinas, que solo suena. No se mueve
+// nunca de lugar en el DOM (moverlo lo recargaría): se estira con una matriz CSS para que caiga sobre la
+// pared inclinada y, en grande, se centra (ver wallMount.ts). Va al segundo que le digan (la hora del
+// servidor): todos ven lo mismo.
 import { WallMount, type ScreenQuad } from "./wallMount";
 
 export type { Point, ScreenQuad } from "./wallMount";
@@ -94,6 +94,8 @@ export interface ScreenHooks {
   titles?: { small: string; big: string };
   /** Marca del reproductor (uno por marca en la página; ver MountOptions.id). */
   id?: string;
+  /** Borde de la vista en grande (el cine lo lleva dorado; el club, de neón). */
+  bigFrame?: string;
 }
 
 /** Los reproductores vivos (el HUD los despierta con un toque sin cargar la escena). */
@@ -124,7 +126,7 @@ export class YoutubeScreen {
     parent: HTMLElement,
     private readonly hooks: ScreenHooks = {},
   ) {
-    this.mount = new WallMount(parent, { id: hooks.id, onClick: hooks.onClick, titles: hooks.titles });
+    this.mount = new WallMount(parent, { id: hooks.id, onClick: hooks.onClick, titles: hooks.titles, bigFrame: hooks.bigFrame });
     this.mount.frame.appendChild(document.createElement("div"));
     active.add(this);
   }

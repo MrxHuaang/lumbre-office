@@ -661,7 +661,7 @@ const GLYPHS: Record<string, string> = {
 };
 
 /** ¿La letra `ch` tiene prendido el píxel (gx, gy)? (gx 0..2, gy 0..4 de arriba abajo). */
-function glyphOn(ch: string, gx: number, gy: number): boolean {
+export function glyphOn(ch: string, gx: number, gy: number): boolean {
   return GLYPHS[ch]?.split(" ")[gy]?.[gx] === "#";
 }
 
@@ -721,9 +721,15 @@ function videoWallAt(u: number, hv: number, u1: number): RGBA | null {
   return Math.floor(u) % 2 === 0 && Math.floor(hv) % 2 === 0 ? at(C.violet, 1) : at(C.night, 0);
 }
 
-/** Pantalla de cine con telón rojo a los lados y arriba; muestra un atardecer (la "película"). */
+/**
+ * Recuadro de la tela de la pantalla del cine (`cinema-screen`, en la pared oeste), como VIDEO_WALL_SCREEN:
+ * ahí proyecta el navegador la función. Entre los telones (9) y el marco negro (2).
+ */
+export const CINEMA_SCREEN = { u0: 11, uPad: 11, hv0: 12, hv1: 45 } as const;
+
+/** Pantalla de cine con telón rojo a los lados y arriba; sin función muestra un atardecer. */
 function cinemaScreenAt(u: number, hv: number, u1: number): RGBA | null {
-  const cur = 9;
+  const cur = CINEMA_SCREEN.u0 - 2;
   if (!inRect(u, hv, 0, 8, u1, WALL_H - 3)) return null;
   // Cenefa arriba, festoneada y con un ribete dorado.
   const scallop = 2 * Math.abs(Math.sin((u / 8) * Math.PI));
@@ -740,7 +746,7 @@ function cinemaScreenAt(u: number, hv: number, u1: number): RGBA | null {
     return at(C.curtain, side > cur - 2 ? 1 : f === 0 ? 1 : f === 1 ? 3 : 2);
   }
   // Marco negro alrededor de la tela.
-  if (hv < 12 || hv >= 45 || u < cur + 2 || u >= u1 - cur - 2) return at(C.metal, 0);
+  if (hv < CINEMA_SCREEN.hv0 || hv >= CINEMA_SCREEN.hv1 || u < CINEMA_SCREEN.u0 || u >= u1 - CINEMA_SCREEN.uPad) return at(C.metal, 0);
   const x = u - cur - 2;
   const w = u1 - (cur + 2) * 2;
   // y crece hacia abajo desde el borde de arriba de la tela.

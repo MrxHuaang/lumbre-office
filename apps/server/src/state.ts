@@ -181,6 +181,20 @@ export class ClubState extends Schema {
   @type({ map: ClubDancer }) dancers = new MapSchema<ClubDancer>();
 }
 
+/** El cine del sótano: la película que se proyecta (con la hora del servidor), la cola y lo que ya se vio. */
+export class CinemaState extends Schema {
+  /** La función de ahora (`videoId` "" = ninguna). */
+  @type(ClubVideo) video = new ClubVideo();
+  @type([ClubVideo]) queue = new ArraySchema<ClubVideo>();
+  /** Lo que ya se vio, lo último primero (para volver a ponerlo). */
+  @type([ClubVideo]) history = new ArraySchema<ClubVideo>();
+  /** Hora del servidor en la que el video estaba en 0. */
+  @type("number") startedAt = 0;
+  @type("boolean") paused = false;
+  /** En pausa: en qué punto del video quedó (ms). */
+  @type("number") pausedAt = 0;
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -197,6 +211,7 @@ export class OfficeState extends Schema {
   /** Casa viva: las mascotas, por id. */
   @type({ map: Pet }) pets = new MapSchema<Pet>();
   @type(ClubState) club = new ClubState();
+  @type(CinemaState) cinema = new CinemaState();
   /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
   @type("string") weather = "despejado";
 }
