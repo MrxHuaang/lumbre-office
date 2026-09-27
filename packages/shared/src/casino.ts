@@ -218,11 +218,18 @@ export interface CasinoSummary {
 
 const gameOf = (g: string): CasinoGame | null => ((CASINO_GAMES as readonly string[]).includes(g) ? (g as CasinoGame) : null);
 
+/**
+ * Juegos que usan el libro del casino (motivo CASINO, sin tope) pero no son de la caja: el pozo del
+ * hockey de mesa del arcade pasa de un jugador a otro y no cuenta en las estadísticas del casino.
+ */
+const NOT_CASINO = new Set(["hockey"]);
+
 /** Junta las filas por persona y por juego (los movimientos sin juego conocido cuentan solo por persona). */
 export function summarizeCasino(rows: readonly CasinoRow[]): CasinoSummary {
   const players = new Map<string, CasinoPlayerStats>();
   const games = new Map<CasinoGame, CasinoGameStats & { who: Set<string> }>();
   for (const r of rows) {
+    if (NOT_CASINO.has(r.game)) continue;
     const p = players.get(r.userId) ?? {
       userId: r.userId,
       net: 0,

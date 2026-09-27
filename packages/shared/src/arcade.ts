@@ -61,6 +61,25 @@ export const ARCADE = {
   boardCacheMs: 5000,
 } as const;
 
+/**
+ * Lo que cuesta jugar (monedas = puntos). Se cobra en el servidor al empezar, con `spendPoints` (motivo
+ * PURCHASE: se compra la partida); si no alcanza, no se juega. El hockey es una apuesta entre las dos
+ * personas: cada una pone su moneda y el ganador se lleva el pozo (motivo CASINO, sin tope diario).
+ */
+export const ARCADE_PRICE = {
+  /** Una partida en una máquina. */
+  machine: 5,
+  /** Un partido de hockey de mesa (lo pone cada jugador). */
+  hockey: 10,
+  /** Ganarle a la máquina en el hockey: se devuelve la moneda y esto de premio de ocio (LEISURE, con tope). */
+  hockeyBotBonus: 5,
+} as const;
+
+/** `refId` del cobro de una partida de máquina (para leer el libro de puntos). */
+export const arcadeRefId = (game: string) => `arcade:${game}`;
+/** `refId` del cobro y el pago de un partido de hockey. */
+export const hockeyRefId = (match: number) => `hockey:${match}`;
+
 /** Pasos que puede tener una partida como mucho (la de `sessionMs`). */
 export const ARCADE_MAX_STEPS = Math.ceil(ARCADE.sessionMs / ARCADE_STEP_MS);
 
@@ -129,22 +148,27 @@ export interface ArcadeBoardEntry {
   score: number;
 }
 
-/** Servidor → cliente (`MSG.arcadeBoardResult`). */
+/** Servidor → cliente (`MSG.arcadeBoardResult`): los récords de la semana (`board`) y los de hoy. */
 export interface ArcadeBoard {
   machine: number;
   game: ArcadeGame;
   board: ArcadeBoardEntry[];
+  today: ArcadeBoardEntry[];
 }
 
-/** Servidor → cliente (`MSG.arcadeStarted`): la partida empezó; la semilla es para el azar del juego. */
+/**
+ * Servidor → cliente (`MSG.arcadeStarted`): se cobró la partida y empezó; la semilla es para el azar
+ * del juego y `balance` el saldo después de pagar.
+ */
 export interface ArcadeStarted {
   machine: number;
   game: ArcadeGame;
   token: string;
   seed: number;
+  balance: number;
 }
 
-export type ArcadeError = "far" | "invalid" | "short" | "implausible" | "expired" | "failed";
+export type ArcadeError = "far" | "invalid" | "funds" | "short" | "implausible" | "expired" | "failed";
 
 /** Servidor → cliente (`MSG.arcadeResult`). */
 export type ArcadeResult =
@@ -156,14 +180,19 @@ export type ArcadeResult =
       awarded: number;
       /** Superó el récord de la semana de ese juego. */
       record: boolean;
+      /** Es lo mejor de hoy en ese juego. */
+      bestToday: boolean;
       firstToday: boolean;
+      /** Récords de la semana y de hoy, ya con esta partida. */
       board: ArcadeBoardEntry[];
+      today: ArcadeBoardEntry[];
     }
   | { ok: false; error: ArcadeError };
 
 export const ARCADE_ERROR_TEXT: Record<ArcadeError, string> = {
   far: "Párate delante de la máquina para jugar.",
   invalid: "Esa máquina está fuera de servicio.",
+  funds: `No te alcanzan las monedas: cada partida cuesta ${ARCADE_PRICE.machine}.`,
   short: "La partida fue muy corta: no cuenta.",
   implausible: "Ese puntaje no cuadra con la partida: no se guardó.",
   expired: "La partida se venció. Empieza otra.",

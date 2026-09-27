@@ -266,6 +266,15 @@ export const MSG = {
   arcadeStarted: "arcade:started",
   arcadeFinish: "arcade:finish",
   arcadeResult: "arcade:result",
+  /** Hockey de mesa (hockey.ts): sumarse en una punta (`HockeyJoinMessage` → `HockeyResult`), mover el
+   *  mazo (`HockeyMoveMessage`), dejar la mesa, los cuadros del partido a los del sótano (`HockeyFrame`)
+   *  y cómo le fue a cada jugador al terminar (`HockeySettled`). */
+  hockeyJoin: "hockey:join",
+  hockeyResult: "hockey:result",
+  hockeyMove: "hockey:move",
+  hockeyLeave: "hockey:leave",
+  hockeyFrame: "hockey:frame",
+  hockeySettled: "hockey:settled",
   /** Medir la hora del servidor descontando la latencia (`ClockPingMessage` → `ClockPong`): la música
    *  del club tiene que sonar a la vez para todos. */
   clockPing: "clock:ping",
