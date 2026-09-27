@@ -1,4 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
+import { BLACKJACK_SEATS } from "@hyvento/map";
 import { BLACKJACK, MSG, ROOM_NAME, type BlackjackSettled, type CasinoResult } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -38,16 +39,18 @@ const shoe = (mine: [number, number], dealer: [number, number], ...then: number[
   OfficeRoom.blackjackShuffle = () => [...order].reverse();
 };
 
-/** Alice entra con `points` y se sienta en la banqueta de la punta de arriba (asiento 1, en 12,3). */
+/** Alice entra con `points` y se sienta en la banqueta de la punta de arriba (asiento 1). */
 async function setup(points: number, sit = true) {
   await repo.awardPoints({ userId: "u-alice", amount: points, reason: "ADMIN" });
   const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
   const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
   await room.waitForNextPatch();
   await goToArea(alice, room, "sotano");
-  await walkToTile(alice, room, 12, 2);
+  // Se llega por detrás de la banqueta (mira hacia la mesa, abajo) y se sienta.
+  const seat = BLACKJACK_SEATS[0]!;
+  await walkToTile(alice, room, seat.x, seat.y - 1);
   if (sit) {
-    alice.send(MSG.move, { x: c(12), y: c(3), dir: "down", moving: false, seated: true });
+    alice.send(MSG.move, { x: c(seat.x), y: c(seat.y), dir: "down", moving: false, seated: true });
     await room.waitForNextPatch();
     await tick();
   }

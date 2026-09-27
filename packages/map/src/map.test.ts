@@ -281,3 +281,59 @@ describe("tienda", () => {
     for (const item of SHOP_FURNITURE) expect(item.id in CATALOG, item.id).toBe(true);
   });
 });
+
+describe("sótano", () => {
+  const sotano = area("sotano");
+  const llegada = CONEXIONES.sotano.escalera.llegada;
+  /** Habitación de un tile (la última que lo contiene, como en build.ts). */
+  const roomAt = (x: number, y: number) =>
+    sotano.def.rooms.filter((r) => x >= r.rect.x && x < r.rect.x + r.rect.w && y >= r.rect.y && y < r.rect.y + r.rect.h).at(-1)?.id;
+
+  it("ninguna sala se cruza para llegar a otra: todo se reparte desde el vestíbulo y el pasillo", () => {
+    for (const room of sotano.def.rooms) {
+      if (room.id === "vestibulo" || room.id === "pasillo") continue;
+      const { x, y, w, h } = room.rect;
+      const target = Array.from({ length: w * h }, (_, i) => ({ x: x + (i % w), y: y + Math.floor(i / w) })).find(
+        (t) => roomAt(t.x, t.y) === room.id && !isBlockedTile(sotano, t.x, t.y),
+      )!;
+      const path = findPath(sotano, llegada, target);
+      expect(path, room.id).not.toBeNull();
+      const crossed = new Set(path!.map((t) => roomAt(t.x, t.y)));
+      for (const id of crossed) expect(["vestibulo", "pasillo", room.id], `${room.id} cruza ${id}`).toContain(id);
+    }
+  });
+
+  it("el vestíbulo tiene un neón por sala", () => {
+    const vest = sotano.def.rooms.find((r) => r.id === "vestibulo")!.rect;
+    const neons = sotano.def.features.filter(
+      (f) => f.kind === "neon" && f.x >= vest.x && f.x < vest.x + vest.w && f.y >= vest.y && f.y < vest.y + vest.h,
+    );
+    expect(neons.map((n) => n.text).sort()).toEqual(["ARCADE", "CASINO", "CINE", "CLUB"]);
+  });
+
+  it("hay un punto de arcade delante de cada máquina, en el mismo orden", () => {
+    const cabinets = sotano.furniture.filter((f) => f.type === "arcade-cabinet");
+    const spots = pointsOfType(sotano, "arcade");
+    expect(spots).toHaveLength(cabinets.length);
+    cabinets.forEach((c, i) => {
+      const s = spots[i]!;
+      expect(Math.abs(s.tileX - c.x) + Math.abs(s.tileY - c.y), s.name).toBe(1);
+    });
+  });
+
+  it("la ruleta, la barra del club, la tarima, la caja y el proyector tienen sus puntos junto al mueble", () => {
+    const near = (type: string, furniture: string[]) =>
+      pointsOfType(sotano, type).every((p) =>
+        sotano.furniture.some(
+          (f) => furniture.includes(f.type) && p.tileX >= f.x - 1 && p.tileX <= f.x + f.w && p.tileY >= f.y - 1 && p.tileY <= f.y + f.d,
+        ),
+      );
+    expect(pointsOfType(sotano, "roulette").length).toBeGreaterThanOrEqual(8);
+    expect(near("roulette", ["roulette-table"])).toBe(true);
+    expect(pointsOfType(sotano, "club_bar").length).toBeGreaterThanOrEqual(2);
+    expect(near("club_bar", ["bar-counter", "bar-taps", "cigar-case"])).toBe(true);
+    expect(near("pole_stage", ["dance-pole"])).toBe(true);
+    expect(near("casino_cashier", ["casino-cashier"])).toBe(true);
+    expect(near("cinema", ["projector"])).toBe(true);
+  });
+});

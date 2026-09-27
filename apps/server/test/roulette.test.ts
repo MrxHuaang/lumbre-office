@@ -1,4 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
+import { getWorld, pointsOfType } from "@hyvento/map";
 import { CASINO, MSG, ROOM_NAME, type CasinoResult, type RouletteSettled } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -36,7 +37,10 @@ async function setup(points: number, atTable = true) {
   const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
   await room.waitForNextPatch();
   await goToArea(alice, room, "sotano");
-  if (atTable) await walkToTile(alice, room, 4, 3);
+  if (atTable) {
+    const spot = pointsOfType(getWorld().areas.get("sotano")!, "roulette")[0]!;
+    await walkToTile(alice, room, spot.tileX, spot.tileY);
+  }
   const results: CasinoResult[] = [];
   const settled: RouletteSettled[] = [];
   alice.onMessage(MSG.casinoResult, (r: CasinoResult) => results.push(r));

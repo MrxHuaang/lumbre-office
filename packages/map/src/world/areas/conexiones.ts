@@ -32,7 +32,8 @@ export const CONEXIONES = {
     escaleraAbajo: { tiles: par(5, 5), llegada: { x: 5, y: 6, facing: "down" } },
   },
   sotano: {
-    escalera: { tiles: par(1, 3), llegada: { x: 2, y: 4, facing: "down" } },
+    /** La escalera del vestíbulo, contra la pared norte. */
+    escalera: { tiles: par(27, 3), llegada: { x: 27, y: 4, facing: "down" } },
   },
 } satisfies Record<string, Record<string, Conexion>>;
 
