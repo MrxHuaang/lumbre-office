@@ -31,10 +31,10 @@ const snapshot = (m: OfficeMap) => ({
 });
 
 // Oficina 2 (x 30..39, y 0..10; puerta afuera en (34, 11), adentro (34, 10)). Muebles del mapa en orden:
-// map-0 planta (39,0) · map-1 estantería alta (37,0) · fijo-0 escritorio con PC (34,0) · fijo-1 silla (35,1) ·
+// map-0 ficus lira (39,0) · map-1 estantería alta (37,0) · fijo-0 escritorio con PC (34,0) · fijo-1 silla (35,1) ·
 // map-2 archivador (33,0) · map-3 impresora (30,0) · map-4 lámpara de lectura (30,3) · map-5 alfombra (36,5) ·
 // map-6 sofá (39,5) · map-7 mesa (37,6) · map-8 sillón (36,5) · map-9 sillón (36,7) · map-10 aparador (39,8) ·
-// map-11 lámpara (39,10) · map-12 planta (30,10) · map-13 monstera (30,7).
+// map-11 lámpara (39,10) · map-12 helecho (30,10) · map-13 palmera de salón (30,7).
 const edit = (e: DecorEdit, decor: AreaDecor = {}, people: { x: number; y: number }[] = []) =>
   applyDecorEdit({ def, decor, zoneId: "office-2", people }, e);
 const place = (type: string, x: number, y: number, facing: Facing = "right"): DecorEdit =>
