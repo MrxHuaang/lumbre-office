@@ -37,6 +37,25 @@ interface ItemArt {
 type Hexes = Record<string, string>;
 const legend = (h: Hexes): Legend => Object.fromEntries(Object.entries(h).map(([k, v]) => [k, hex(v)]));
 
+/** Caja de crispetas: el copete (`p`, `P`) sobre la caja de rayas (`r`, `w`) que se angosta abajo. */
+function popcorn(c: Hexes, crumb: string): ItemArt {
+  return {
+    crumb: hex(crumb),
+    rows: [
+      "..oPpo..", //
+      ".oPpPpo.",
+      "opPpPpPo",
+      "oPpPpPpo",
+      "orwrwrwo",
+      "orwrwrwo",
+      ".orwrwo.",
+      ".orwrwo.",
+      ".oooooo.",
+    ],
+    colors: legend(c),
+  };
+}
+
 /**
  * Vaso alto de jugo con pitillo (`s`): el jugo (`a`, sombra `A`, pepitas o trocitos `b`) y, si trae
  * `f`/`F`, la espuma de arriba (se va con el primer sorbo). `flakes`: la espuma lleva coco rallado.
@@ -367,6 +386,11 @@ const ITEMS: Record<string, ItemArt> = {
   champus: goblet({ a: "#f2b43c", A: "#c88a1e", b: "#fff09a", c: "#f2b43c", top: "#6fb34a" }),
   // En copa: el salpicón rojo de sandía con los cuadritos de fruta y la cuchara.
   salpicon: goblet({ a: "#f04a60", A: "#b82a40", b: "#ffd84a", c: "#8cc653", top: "#c9c9d0" }),
+  // ---------- Confitería del cine ----------
+  // La caja de rayas rojas con el copete de crispetas: los mordiscos se llevan primero el copete.
+  crispetas: popcorn({ p: "#fff6d8", P: "#f3d27a", r: "#d93a2b", w: "#f4ecdc" }, "#fffbe8"),
+  // Las de caramelo, doradas, en la caja de rayas azules.
+  "crispetas-caramelo": popcorn({ p: "#e8a64a", P: "#c97a28", r: "#3a5fb0", w: "#f4ecdc" }, "#f6d49a"),
   // ---------- Panadería ----------
   // En herradura, pálido y con el queso que se tuesta en las puntas.
   "pan-yuca": {

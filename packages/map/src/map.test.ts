@@ -478,6 +478,7 @@ describe("sótano", () => {
     expect(near("pole_stage", ["dance-pole"])).toBe(true);
     expect(near("casino_cashier", ["casino-cashier"])).toBe(true);
     expect(near("cinema", ["projector"])).toBe(true);
+    expect(near("cinema_snacks", ["popcorn-machine"])).toBe(true);
   });
 
   it("todos los puntos del sótano se alcanzan caminando desde la escalera", () => {

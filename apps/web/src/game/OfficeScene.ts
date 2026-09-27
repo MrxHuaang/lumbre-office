@@ -146,6 +146,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "fishing", point: "fishing_spot", furniture: ["flat-rock"] },
   { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
   { kind: "cinema", point: "cinema", furniture: ["projector"] },
+  { kind: "snacks", point: MENUS.cine.point, furniture: [...MENUS.cine.furniture] },
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },

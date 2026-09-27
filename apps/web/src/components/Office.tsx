@@ -20,7 +20,7 @@ import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
-import { BarPanel, CafePanel } from "./CafePanel";
+import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
 import { HeldSlot, UsablePrompt } from "./UsePrompt";
 import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
@@ -276,6 +276,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           )}
           {panel?.kind === "dj" && <DjConsole atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "cinema" && <CinemaPanel onClose={closePanel} />}
+          {panel?.kind === "snacks" && <SnacksPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "arcade" && <ArcadePanel onClose={closePanel} />}
           {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
           {panel?.kind === "race" && <RacePanel atObject={panel.atObject} onClose={closePanel} />}

@@ -7,19 +7,21 @@ import { drawMenuItem } from "@hyvento/map/art";
 import {
   BAR_MENU,
   CAFE,
+  CINEMA_MENU,
   CAFE_CATEGORIES,
   cafeItemsIn,
   consumeActionOf,
   heldParts,
   usesOf,
   type BarItemId,
+  type CinemaMenuItemId,
   type CafeCategory,
   type CafeItemId,
   type MenuItem,
 } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { toHtmlCanvas } from "@/game/iso/canvas";
-import { sendBarOrder, sendCafeOrder } from "@/game/network";
+import { sendBarOrder, sendCafeOrder, sendCinemaOrder } from "@/game/network";
 import { PixelIcon } from "./Cozy";
 import { PanelShell, useMyPoints } from "./PointsPanels";
 
@@ -60,6 +62,7 @@ const CAFE_SECTIONS: MenuSection[] = CAFE_CATEGORIES.map((c) => ({ id: c.id, lab
 );
 
 const BAR_SECTIONS: MenuSection[] = [{ id: "bar", label: "Carta", icon: "coctel", items: BAR_MENU }];
+const CINEMA_SECTIONS: MenuSection[] = [{ id: "cine", label: "Confitería", icon: "crispetas", items: CINEMA_MENU }];
 
 /** Última pestaña abierta en cada carta: al volver a la barra sigue donde la dejaste. */
 const lastTab = new Map<string, string>();
@@ -87,6 +90,21 @@ export function BarPanel({ atObject, onClose }: { atObject: boolean; onClose: ()
       onClose={onClose}
       order={(id) => sendBarOrder(id as BarItemId)}
       farHint="Para pedir, acércate a la barra del club (sótano)."
+      night
+    />
+  );
+}
+
+/** La confitería del cine: crispetas y gaseosa para la función, junto a la máquina de crispetas. */
+export function SnacksPanel({ atObject, onClose }: { atObject: boolean; onClose: () => void }) {
+  return (
+    <MenuPanel
+      title="Confitería del cine"
+      sections={CINEMA_SECTIONS}
+      atObject={atObject}
+      onClose={onClose}
+      order={(id) => sendCinemaOrder(id as CinemaMenuItemId)}
+      farHint="Para pedir, acércate a la máquina de crispetas del cine (sótano)."
       night
     />
   );

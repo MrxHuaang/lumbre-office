@@ -6,6 +6,7 @@ import {
   ROOM_NAME,
   menuItem,
   type BarItemId,
+  type CinemaMenuItemId,
   type CafeItemId,
   type FurnitureEvent,
   type HeldUsedEvent,
@@ -445,6 +446,11 @@ export function sendBarOrder(item: BarItemId) {
   room?.send(MSG.barOrder, { item });
 }
 
+/** Pide algo en la confitería del cine (junto a la máquina de crispetas). */
+export function sendCinemaOrder(item: CinemaMenuItemId) {
+  room?.send(MSG.cinemaOrder, { item });
+}
+
 const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], string> = {
   far: "Acércate a la barra para pedir.",
   funds: "No te alcanzan los puntos.",
@@ -458,7 +464,8 @@ function handleCafeResult(r: CafeOrderResult) {
   const name = item?.name ?? "tu pedido";
   if (r.ok) {
     store.closePanel();
-    store.notify(item?.menu === "bar" ? `Aquí tienes: ${name}. ¡Salud!` : `Aquí tienes: ${name}. ¡Buen provecho!`, "success");
+    const cheers = item?.menu === "bar" ? "¡Salud!" : item?.menu === "cine" ? "¡Buena función!" : "¡Buen provecho!";
+    store.notify(`Aquí tienes: ${name}. ${cheers}`, "success");
   } else {
     store.notify(CAFE_ERRORS[r.error], "warning");
   }

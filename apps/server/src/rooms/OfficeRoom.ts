@@ -79,6 +79,7 @@ import {
   type OfficeItemDTO,
   type Positioned,
   BarOrderMessage,
+  CinemaOrderMessage,
   MENUS,
   UseHeldMessage,
   CONSUME,
@@ -501,6 +502,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
+    this.onMessage(MSG.cinemaOrder, (client, raw) => void this.handleOrder(client, raw, "cine"));
     this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
     this.onMessage(PET_MSG.call, (client, raw) => this.handlePet(client, raw, "call"));
@@ -1567,12 +1569,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   /**
-   * Pedido en la barra de la cafetería o del club: hay que estar junto a esa barra y tener saldo. Lo
-   * pedido se lleva en la mano un rato (y se usa con F).
+   * Pedido en la barra de la cafetería, del club o en la confitería del cine: hay que estar junto a esa
+   * barra y tener saldo. Lo pedido se lleva en la mano un rato (y se usa con F).
    */
   private async handleOrder(client: Client<UserData>, raw: unknown, menu: MenuId) {
     const player = this.state.players.get(client.sessionId);
-    const parsed = (menu === "cafe" ? CafeOrderMessage : BarOrderMessage).safeParse(raw);
+    const parsed = (menu === "cafe" ? CafeOrderMessage : menu === "bar" ? BarOrderMessage : CinemaOrderMessage).safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
     const item = menuItem(parsed.data.item)!;
     const reply = (r: CafeOrderResult) => client.send(MSG.cafeResult, r);
@@ -1597,7 +1599,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!result.ok) return reply({ ok: false, item: item.id, error: "funds" });
     this.held.give(userId, item.id);
     const a = this.achievements;
-    a.bump(userId, menu === "cafe" ? STAT_KEYS.cafeOrders : STAT_KEYS.barOrders);
+    // La confitería del cine cuenta como la cafetería (no es trago).
+    a.bump(userId, menu === "bar" ? STAT_KEYS.barOrders : STAT_KEYS.cafeOrders);
     a.bump(userId, `${STAT_PREFIX.order}${item.id}`);
     const holds: readonly string[] = item.holds;
     if (holds.includes("tinto") || holds.includes("cafe-leche")) a.bump(userId, STAT_KEYS.coffees);

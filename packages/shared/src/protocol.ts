@@ -262,6 +262,8 @@ export const MSG = {
    *  (`CinemaResult`). */
   cinemaQueue: "cinema:queue",
   cinemaResult: "cinema:result",
+  /** Pedir en la confitería del cine (`CinemaOrderMessage`); responde con `cafeResult`. */
+  cinemaOrder: "cinema:order",
   /** Arcade: récords de una máquina (`ArcadeBoardMessage` → `ArcadeBoard`), empezar (`ArcadeStartMessage`
    *  → `ArcadeStarted`) y terminar una partida (`ArcadeFinishMessage` → `ArcadeResult`). */
   arcadeBoard: "arcade:board",
