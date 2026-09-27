@@ -484,9 +484,11 @@ function danceFloor(): Sprite {
   const PAL = [C.neon, C.cyan, C.violet, C.gold];
   const top: Shader = (u, v, fw, fh) => {
     const e = Math.min(u, v, fw - 1 - u, fh - 1 - v);
+    // Apagada: vidrio de colores oscuro y los bombillos del borde sin luz. Con música, el club dibuja
+    // encima las luces del ritmo (club-vivo.ts).
     if (e < 2) {
-      const lit = mod(Math.floor(u + v), 4) === 0;
-      return e < 1 ? at(C.metal, 2) : lit ? at(C.gold, 5) : at(C.metal, 4);
+      const bulb = mod(Math.floor(u + v), 4) === 0;
+      return e < 1 ? at(C.metal, 2) : bulb ? at(C.gold, 2) : at(C.metal, 4);
     }
     const x = u - 2;
     const y = v - 2;
@@ -495,13 +497,9 @@ function danceFloor(): Sprite {
     const lu = mod(x, 8);
     const lv = mod(y, 8);
     if (lu < 1 || lv < 1) return at(C.metal, 0);
-    // Diagonales de colores que se cruzan (como un patrón de luces en ese instante).
-    const k = mod(cx + cy, 4);
-    const r = PAL[k]!;
-    const lit = noise(cx, cy, 57) < 0.4 || mod(cx - cy, 5) === 0;
-    if (lu < 2.5 && lv < 2.5) return at(r, lit ? 5 : 3);
-    if (!lit) return at(r, bayer(Math.floor(u), Math.floor(v)) < 0.25 ? 0 : 1);
-    return at(r, lu + lv > 11 ? 3 : 4);
+    const r = PAL[mod(cx + cy, 4)]!;
+    if (lu < 2.5 && lv < 2.5) return at(r, 2);
+    return at(r, bayer(Math.floor(u), Math.floor(v)) < 0.25 ? 0 : 1);
   };
   return renderSprite([{ x: 0, y: 0, z: 0, w: S, d: S, h: 1, top, left: flat(at(C.metal, 1)), right: flat(at(C.metal, 2)) }], { outline: OUT });
 }
