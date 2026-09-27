@@ -120,4 +120,6 @@ export class OfficeState extends Schema {
   @type({ map: "boolean" }) switches = new MapSchema<boolean>();
   /** Cambios del editor de la casa por nivel (JSON de WorldEdits de @hyvento/map); sin entrada, el plano. */
   @type({ map: "string" }) worldEdits = new MapSchema<string>();
+  /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
+  @type("string") weather = "despejado";
 }

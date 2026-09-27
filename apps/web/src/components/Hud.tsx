@@ -1,7 +1,7 @@
 "use client";
 
 import { placeLabel } from "@hyvento/map";
-import { PRESENCE_STATUSES, type PresenceStatus } from "@hyvento/shared";
+import { PRESENCE_STATUSES, WEATHER_TEXT, type PresenceStatus, type Weather } from "@hyvento/shared";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMediaStore } from "@/game/media";
@@ -9,7 +9,7 @@ import { sendStatus } from "@/game/network";
 import { sfx } from "@/game/sfx";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { STATUS_HEX } from "@/lib/cozy";
-import { PixelIcon } from "./Cozy";
+import { PixelIcon, type PixelIconName } from "./Cozy";
 import { PointsCounter } from "./PointsPanels";
 import { SoundControl } from "./SoundControl";
 
@@ -64,6 +64,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
         {zone?.isolated && <PixelIcon name="lock" size={13} color="var(--color-cozy-wood)" />}
         {labelOf(place)}
       </div>
+
+      <WeatherChip />
 
       <HearingChip />
 
@@ -145,6 +147,28 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Ícono y color de cada clima (despejado de noche es la luna). */
+const WEATHER_ICON: Record<Weather, { icon: PixelIconName; color: string }> = {
+  despejado: { icon: "sun", color: "var(--color-cozy-gold)" },
+  nublado: { icon: "cloud", color: "#8a8a96" },
+  lluvia: { icon: "rain", color: "var(--color-cozy-sky)" },
+  tormenta: { icon: "storm", color: "#4a3f8a" },
+  niebla: { icon: "fog", color: "#a8977f" },
+};
+
+/** El clima de afuera (lo decide el servidor: todos ven el mismo). */
+function WeatherChip() {
+  const weather = useOfficeStore((s) => s.weather);
+  const night = useOfficeStore((s) => s.night);
+  const { icon, color } = weather === "despejado" && night ? { icon: "moon" as const, color: "#4a3f8a" } : WEATHER_ICON[weather];
+  return (
+    <div className="cozy-chip flex items-center gap-1.5 px-3 py-1.5" title="El clima de afuera">
+      <PixelIcon name={icon} size={14} color={color} />
+      {WEATHER_TEXT[weather]}
     </div>
   );
 }

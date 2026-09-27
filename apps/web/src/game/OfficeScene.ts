@@ -87,6 +87,7 @@ import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
 import { setSfxArea, setSfxListener, sfx } from "./sfx";
 import { bindUiSounds } from "./sfxBindings";
+import { bindWeatherSounds } from "./weatherSound";
 import { ALCOHOL_PER_SIP, DRUNK, isSwivelSeat, spinMs, type DrunkStage, type SwivelEvent } from "@hyvento/shared";
 import { playAnticSound } from "./antics-sound";
 import { ToastController } from "./toasts";
@@ -98,6 +99,8 @@ const SWIVEL_DIZZY_NOTICE = [
   "El mundo da vueltas y tú también. ¿Seguro que esto es trabajar?",
 ];
 const SWIVEL_SOBER_NOTICE = "Se te pasó el mareo. La oficina por fin se quedó quieta.";
+import { WeatherView } from "./weather";
+import { Critters } from "./critters";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -228,6 +231,11 @@ export class OfficeScene extends Phaser.Scene {
   /** El mareo de ahora es de dar vueltas en la silla (no del bar): cambia el aviso al subir y al pasarse. */
   private dizzyOnly = false;
   private dizzySpins = 0;
+  /** El clima de afuera (lluvia, nubes, niebla, relámpagos) y la fauna del jardín. */
+  private weatherView!: WeatherView;
+  private critters!: Critters;
+  /** Ya llegó el clima de esta conexión (el primero se pone de una, sin transición). */
+  private weatherKnown = false;
 
   constructor() {
     super("office");
@@ -274,6 +282,10 @@ export class OfficeScene extends Phaser.Scene {
       name: (id) => useOfficeStore.getState().players[id]?.name ?? "Alguien",
       present: () => [...this.areaOfSession].filter(([, area]) => area === this.map.id).map(([id]) => id),
     });
+    this.weatherView = new WeatherView(this);
+    this.weatherView.setWeather(useOfficeStore.getState().weather, true);
+    this.critters = new Critters(this, () => this.peopleHere());
+    this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
@@ -316,7 +328,10 @@ export class OfficeScene extends Phaser.Scene {
       () => this.rods.destroy(),
       () => this.drunkVision.destroy(),
       bindUiSounds(),
+      bindWeatherSounds(),
       () => this.toasts.destroy(),
+      () => this.weatherView.destroy(),
+      () => this.critters.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
@@ -333,6 +348,11 @@ export class OfficeScene extends Phaser.Scene {
         }
         if ((prev.typing || prev.pcOn) && !s.typing && !s.pcOn) this.keysFreeAt = performance.now();
         if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
+        if (s.weather !== prev.weather) {
+          this.weatherView.setWeather(s.weather, !this.weatherKnown);
+          this.weatherKnown = true;
+        }
+        if (s.weather !== prev.weather || s.night !== prev.night) this.critters.setConditions(s.night, s.weather);
         if (s.night !== prev.night) {
           this.view?.setNight(s.night);
           this.updateGhost(true); // el fantasma también cambia de textura
@@ -383,6 +403,8 @@ export class OfficeScene extends Phaser.Scene {
       avatar.sway(time);
     }
     this.drunkVision.update(time, delta);
+    this.weatherView.update(time, delta);
+    this.critters.update(time, delta);
     this.usables.update();
     this.fishing.update(delta);
     this.rods.update();
@@ -403,6 +425,8 @@ export class OfficeScene extends Phaser.Scene {
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
       this.usables.setArea(map, this.view);
       this.markers.setArea(map, this.view, INTERACTABLES);
+      this.weatherView.setArea(map, this.view.bounds);
+      this.critters.setArea(map);
       if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
       this.rods.setArea(map);
       this.fishing.reset();
@@ -461,6 +485,8 @@ export class OfficeScene extends Phaser.Scene {
     this.view = new AreaView(this, map, useOfficeStore.getState().night);
     this.usables.setArea(map, this.view);
     this.markers.setArea(map, this.view, INTERACTABLES);
+    this.weatherView.setArea(map, this.view.bounds);
+    this.critters.setArea(map);
     this.rods.setArea(map);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
@@ -582,6 +608,13 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /** Detalles vivos del nivel: humo de la chimenea de la casa. */
+  /** Dónde están los personajes del nivel que se ve (para que la fauna se asuste). */
+  private peopleHere(): { x: number; y: number }[] {
+    const out: { x: number; y: number }[] = [];
+    for (const [id, a] of this.avatars) if (this.areaOfSession.get(id) === this.map.id) out.push({ x: a.x, y: a.y });
+    return out;
+  }
+
   private startAmbient() {
     this.ambient.forEach((t) => t.remove());
     this.ambient = [];
@@ -633,6 +666,7 @@ export class OfficeScene extends Phaser.Scene {
     if (isTablePanel(useOfficeStore.getState().panel?.kind)) useOfficeStore.getState().closePanel();
     this.localId = room.sessionId;
     this.lastSent = null;
+    this.weatherKnown = false;
     this.seenMessages = useOfficeStore.getState().messages.length;
 
     const $ = getStateCallbacks(room);

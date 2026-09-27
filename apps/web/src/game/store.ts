@@ -12,6 +12,7 @@ import {
   type OfficeItemDTO,
   type PointsAwarded,
   type PresenceStatus,
+  type Weather,
 } from "@hyvento/shared";
 import { create } from "zustand";
 
@@ -146,6 +147,9 @@ interface OfficeStore {
   area: string;
   /** Modo noche (luces encendidas); arranca según la hora local. */
   night: boolean;
+  /** Clima de afuera (lo decide el servidor: `state.weather`). */
+  weather: Weather;
+  setWeather: (weather: Weather) => void;
   /** Ya se dibujó el primer nivel (el jardín grande tarda un poco: mientras, el cartel de "Entrando"). */
   mapReady: boolean;
   setMapReady: (ready: boolean) => void;
@@ -248,6 +252,7 @@ const initial = {
   walkTarget: null,
   area: "",
   night: false,
+  weather: "despejado" as Weather,
   mapReady: false,
   interact: null as Interactable | null,
   usable: null as UsableNear | null,
@@ -319,6 +324,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
   setArea: (area) => set({ area }),
   setNight: (night) => set({ night }),
+  setWeather: (weather) => set({ weather }),
   setMapReady: (mapReady) => set({ mapReady }),
   setInteract: (interact) => set({ interact }),
   setUsable: (usable) => set({ usable }),

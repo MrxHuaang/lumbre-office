@@ -16,3 +16,4 @@ export * from "./fishing-sim";
 export * from "./soundGate";
 export * from "./toast";
 export * from "./swivel";
+export * from "./weather";

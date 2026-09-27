@@ -500,4 +500,59 @@ export const sfx = {
       }
     };
   },
+
+  // ---- Clima ----
+  /** Trueno: un retumbo grave que rueda; cerca, antes un chasquido. Adentro se oye apagado. */
+  thunder(strength: number, indoor: boolean) {
+    play("thunder", 1500, 3500, 1, (a, t) => {
+      const k = Math.max(0.2, Math.min(1, strength)) * (indoor ? 0.45 : 1);
+      if (strength > 0.6 && !indoor) noise(a, t, 0.25, { type: "highpass", freq: 1800, vol: 0.12 * k });
+      noise(a, t + 0.05, 2.8, { type: "lowpass", freq: indoor ? 140 : 220, to: 60, vol: 0.32 * k, attack: 0.15 });
+      noise(a, t + 0.6, 1.8, { type: "lowpass", freq: indoor ? 110 : 160, to: 50, vol: 0.2 * k, attack: 0.3 });
+    });
+  },
 };
+
+// ---------- Lluvia de fondo ----------
+
+let rain: { ctx: AudioContext; gain: GainNode } | null = null;
+let rainLevel = 0;
+let rainTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Ajusta la lluvia al nivel pedido (o la baja si ahora no se debe oír nada: pestaña oculta, silencio). */
+function applyRain() {
+  const a = sfxOut();
+  const target = a ? 0.07 * rainLevel : 0;
+  if (!rain && a && rainLevel > 0) {
+    // Ruido en bucle entre un pasaaltos y un pasabajos: el "shhh" parejo de la lluvia.
+    const src = a.ctx.createBufferSource();
+    src.buffer = noiseBuffer(a.ctx);
+    src.loop = true;
+    const hp = a.ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 350;
+    const lp = a.ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 2600;
+    const gain = a.ctx.createGain();
+    gain.gain.value = 0;
+    src.connect(hp).connect(lp).connect(gain).connect(a.out);
+    src.start();
+    rain = { ctx: a.ctx, gain };
+  }
+  if (rain) rain.gain.gain.setTargetAtTime(target, rain.ctx.currentTime, 1.2);
+  if (rainLevel <= 0 && rainTimer) {
+    clearInterval(rainTimer);
+    rainTimer = null;
+  }
+}
+
+/**
+ * Lluvia de fondo: 0 nada, 1 tormenta afuera. Entra y sale de a poco; mientras suene se revisa cada rato
+ * (así arranca cuando el audio se habilita y se apaga si se oculta la pestaña o se silencia).
+ */
+export function setRainLevel(level: number) {
+  rainLevel = Math.max(0, Math.min(1, level));
+  if (rainLevel > 0 && !rainTimer) rainTimer = setInterval(applyRain, 1500);
+  applyRain();
+}

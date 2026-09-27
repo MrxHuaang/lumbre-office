@@ -37,6 +37,7 @@ import {
   type PresenceStatus,
   type WorldEditMessage,
   type WorldEditResult,
+  isWeather,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -127,6 +128,8 @@ export interface OfficeStateView {
   switches: Map<string, boolean>;
   /** Cambios del editor de la casa por nivel (JSON de WorldEdits). */
   worldEdits: Map<string, string>;
+  /** Clima de afuera (Weather de @hyvento/shared). */
+  weather: string;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -497,6 +500,7 @@ function attach(r: OfficeRoom) {
   $(r.state).offices.onRemove((_office, zoneId) => useOfficeStore.getState().removeOffice(zoneId));
   $(r.state).worldEdits.onAdd((json, area) => applyWorldEditsJson(area, json));
   $(r.state).worldEdits.onChange((json, area) => applyWorldEditsJson(area, json));
+  $(r.state).listen("weather", (w) => useOfficeStore.getState().setWeather(isWeather(w) ? w : "despejado"));
 
   // Ruleta del sótano: una copia simple para React (fase, cuenta regresiva, apuestas y números).
   const syncRoulette = () => {

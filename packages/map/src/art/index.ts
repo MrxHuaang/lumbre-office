@@ -12,6 +12,19 @@ export { CAFE_ITEM_ART, crumb, crumbColor, drawCafeItem, drawHeldItem, drawMenuI
 export { drawEmote, EMOTE_ART } from "./emotes";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
+// Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
+export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
+export {
+  drawBird,
+  drawFirefly,
+  drawSquirrel,
+  BIRD_FRAMES,
+  BIRD_KINDS,
+  SQUIRREL_FRAMES,
+  type BirdFrame,
+  type BirdKind,
+  type SquirrelFrame,
+} from "./fauna";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.
 export { BAR as FISHING_BAR, biteMark, bobber, drawFish, drawFishingBar, fishIcon, hasFishArt, treasureChest, FISH_H, FISH_W, ROD_COLORS, type BarState } from "./fish";
 export { drawAreaBase, drawDoorPost, drawLowWall, LOW_WALL_H, WALL_H, type AreaArt } from "./room";
