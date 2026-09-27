@@ -128,18 +128,22 @@ const BULB = (c: string, C2: string) => [
 /** Gorro de fiesta con rayas y pompón (el confeti va aparte, en los efectos). */
 const PARTY_HAT = ["....y....", "...yYy...", "....c....", "...ccC...", "...cCc...", "..ccCcc..", "..cCccC..", ".cccCccc.", "bbbbbbbbb"];
 
-const DISCO = (swap: boolean) =>
-  [
+// Bola de disco grande, con espejitos de colores que giran (cada frame corre los colores uno) y la sombra
+// a la derecha: chica y gris no se distinguía en el globo.
+const DISCO = (step: number) => {
+  const facets = ["w", "n", "c"];
+  return [
     "....k....",
-    "..wbwbw..",
-    ".wbwbwbd.",
-    ".bwbwbwd.",
-    ".wbwbwbd.",
-    ".bwbwbdd.",
-    "..dbdbd..",
+    "..ABCAB..",
+    ".BCABCAd.",
+    "ABCABCAdd",
+    "BCABCABCd",
+    "CABCABCdd",
+    ".ABCABdd.",
+    "..dddddd.",
     ".........",
-    ".........",
-  ].map((row) => (swap ? row.replace(/[wb]/g, (ch) => (ch === "w" ? "b" : "w")) : row));
+  ].map((row) => row.replace(/[ABC]/g, (ch) => facets[("ABC".indexOf(ch) + step) % 3]!));
+};
 
 const ART: Record<string, EmoteArt> = {
   wave: {
@@ -160,16 +164,17 @@ const ART: Record<string, EmoteArt> = {
     ms: 260,
     frames: [{ rows: HEART_BIG, fx: [[8, -1, "w"]] }, { rows: HEART_SMALL }],
   },
+  // Manos anchas con puño de manga (finas se confundían): separadas y juntas, con el chasquido.
   clap: {
     colors: { ...SKIN, k: OUT },
     ms: 150,
     frames: [
       {
-        rows: [".........", "s.......s", "ss.....ss", "sss...sss", "sss...sss", "Sss...ssS", ".SS...SS.", "..S...S..", "........."],
+        rows: ["ss.....ss", "sss...sss", "sss...sss", "sss...sss", "SsS...SsS", "SSS...SSS", ".SS...SS.", ".bb...bb.", ".bb...bb."],
       },
       {
-        rows: [".........", "...sks...", "..sskss..", "..sskss..", "..sskss..", "..SskSS..", "...SkS...", "....S....", "........."],
-        fx: [[0, 1, "w"], [8, 1, "w"], [0, 5, "w"], [8, 5, "w"], [4, -1, "w"]],
+        rows: ["...sks...", "..sskss..", "..sskss..", "..sskss..", "..SskSS..", "..SSkSS..", "...SkS...", "..bb.bb..", "..bb.bb.."],
+        fx: [[0, 0, "w"], [8, 0, "w"], [0, 3, "w"], [8, 3, "w"], [1, -1, "w"], [7, -1, "w"]],
       },
     ],
   },
@@ -221,11 +226,12 @@ const ART: Record<string, EmoteArt> = {
     ],
   },
   dance: {
-    colors: { w: C.metal[5]!, b: C.metal[3]!, d: C.metal[2]!, k: OUT, n: C.neon[4]!, c: C.cyan[4]! },
+    colors: { w: C.white[4]!, d: C.metal[3]!, k: OUT, n: C.neon[3]!, c: C.cyan[4]!, y: C.gold[5]! },
     ms: 200,
     frames: [
-      { rows: DISCO(false), fx: [[8, 1, "n"], [0, 6, "c"]] },
-      { rows: DISCO(true), fx: [[0, 2, "c"], [8, 6, "n"], [9, 3, "n"]] },
+      { rows: DISCO(0), fx: [[9, 1, "y"], [-1, 7, "c"], [9, 8, "n"]] },
+      { rows: DISCO(1), fx: [[-1, 1, "n"], [9, 6, "y"], [0, 8, "c"]] },
+      { rows: DISCO(2), fx: [[8, -1, "c"], [-1, 4, "y"], [9, 8, "n"]] },
     ],
   },
   surprise: {
