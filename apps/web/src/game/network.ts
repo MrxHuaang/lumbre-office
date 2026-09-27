@@ -34,6 +34,8 @@ import {
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { useOfficeStore, type Interactable } from "./store";
+import { fishingSpotAction } from "./fishing/net";
+import { handleFishEvent } from "./fishing/store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -57,6 +59,8 @@ export interface RemotePlayer {
   held: string;
   /** Usos que le quedan a cada mano ("4,5"). */
   heldLeft: string;
+  /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
+  fishing: string;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -204,6 +208,7 @@ export function sendBlackjackAction(action: BlackjackAction) {
 /** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return sendEmote("dance");
+  if (kind === "fishing") return fishingSpotAction();
   useOfficeStore.getState().openPanel(kind, true);
 }
 
@@ -508,6 +513,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.fishEvent, handleFishEvent);
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

@@ -43,7 +43,7 @@ export interface PlayerInfo {
  * Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería,
  * mostrador de la tienda y probador.
  */
-export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack" | "bar";
+export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack" | "bar" | "fishing";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {
@@ -53,7 +53,7 @@ export interface UsableNear {
   label: string;
 }
 /** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
-export type PanelKind = Interactable | "backpack";
+export type PanelKind = Interactable | "backpack" | "fishAlbum";
 
 export interface OfficeView {
   zoneId: string;

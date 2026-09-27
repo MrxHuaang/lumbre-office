@@ -181,7 +181,15 @@ export const FISHING = {
   moveTolerancePx: 6,
 } as const;
 
-export type FishingTimings = Pick<typeof FISHING, "biteMinMs" | "biteMaxMs" | "biteWindowMs" | "reelMaxMs" | "slackMs" | "showMs">;
+/** Los tiempos del lance (el servidor los toma de `FISHING`; los tests los acortan). */
+export interface FishingTimings {
+  biteMinMs: number;
+  biteMaxMs: number;
+  biteWindowMs: number;
+  reelMaxMs: number;
+  slackMs: number;
+  showMs: number;
+}
 
 /** Puntos por un pez (la basura no da). */
 export const fishPoints = (f: FishSpecies) => RARITY[f.rarity].points;
