@@ -29,6 +29,8 @@ export class Player extends Schema {
   @type("string") heldLeft = "";
   /** Pesca (lo ven todos): "" nada, "wait" la boya flota, "bite" pica, "reel" el minijuego, "show:<pez>" lo levanta. */
   @type("string") fishing = "";
+  /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
+  @type("uint8") drunk = 0;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */
@@ -166,4 +168,6 @@ export class OfficeState extends Schema {
   /** Casa viva: las mascotas, por id. */
   @type({ map: Pet }) pets = new MapSchema<Pet>();
   @type(ClubState) club = new ClubState();
+  /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
+  @type("string") weather = "despejado";
 }

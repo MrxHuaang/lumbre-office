@@ -28,6 +28,7 @@ import { CLUB_DRAW } from "./club";
 import { EXTERIOR_DRAW } from "./exterior";
 import { INTERIOR_DRAW } from "./interior";
 import { LEISURE_DRAW } from "./leisure";
+import { photoBoard } from "./photos";
 import { SOTANO_DRAW } from "./sotano";
 import { CASA_DRAW } from "./casa-viva";
 
@@ -709,6 +710,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...INTERIOR_DRAW,
   ...SOTANO_DRAW,
   ...CASA_DRAW,
+  "photo-board": photoBoard,
 };
 
 const cache = new Map<string, Sprite>();

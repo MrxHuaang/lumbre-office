@@ -6,6 +6,7 @@ import { crumb, drawHeldItem, emberGlow, wisp, type HeldEffect, type RGBA } from
 import type { ConsumeAction } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import { ensureTexture } from "./iso/view";
+import { sfx } from "./sfx";
 
 /** Tiempos de cada uso (ms). Todo junto dura menos que la pausa del servidor entre usos. */
 export const USE_MS = { raise: 260, puff: 560, sip: 520, chomp: 130, lower: 240 } as const;
@@ -144,6 +145,8 @@ export interface UseTarget {
   emberPoint(): { x: number; y: number; depth: number } | null;
   crumbColor(): RGBA | null;
   hidden(): boolean;
+  /** Cuánto se oye desde donde estoy (0 si está en otro nivel). */
+  volume(): number;
   done(): void;
 }
 
@@ -182,6 +185,7 @@ async function animateUse(scene: Phaser.Scene, action: ConsumeAction, target: Us
     // La brasa se enciende mientras se pita, con su halo.
     const halo = emberHalo(scene);
     target.setEmber(2);
+    sfx.puff(target.volume());
     await step(scene, USE_MS.puff, (v) => {
       const p = target.emberPoint();
       if (p) halo.setPosition(p.x, p.y).setDepth(p.depth + 0.01).setAlpha(Math.sin(v * Math.PI) * 0.9);
@@ -193,9 +197,11 @@ async function animateUse(scene: Phaser.Scene, action: ConsumeAction, target: Us
     await step(scene, USE_MS.lower, (v) => target.setPose(1 - v, 0));
     const m = target.mouth();
     if (!target.hidden()) exhale(scene, m.x, m.y, m.depth, target.faceSide());
+    sfx.exhale(target.volume());
   } else if (action === "sip") {
     // Se inclina hacia la cara, un sorbo (saltito) y vuelve derecho con menos líquido.
     target.setTilt(target.faceSide() < 0 ? -1 : 1);
+    sfx.sip(target.volume());
     await step(scene, USE_MS.sip, (v) => target.setPose(1, Math.round(Math.sin(v * Math.PI * 2)) === 1 ? -1 : 0));
     target.setTilt(0);
     target.applyLeft();
@@ -210,11 +216,13 @@ async function animateUse(scene: Phaser.Scene, action: ConsumeAction, target: Us
   } else {
     // Dos mordiscos rápidos: en el primero se ve el pedazo que falta y caen migas.
     await step(scene, USE_MS.chomp, (v) => target.setPose(1, v > 0.5 ? 1 : 0));
+    sfx.chomp(target.volume());
     target.applyLeft();
     const color = target.crumbColor();
     const m = target.mouth();
     if (color && !target.hidden()) spawnCrumbs(scene, m.x, m.y + 2, m.floorY, m.depth, color);
     await step(scene, USE_MS.chomp, (v) => target.setPose(1, v > 0.5 ? 1 : 0));
+    sfx.chomp(target.volume() * 0.7);
     await step(scene, USE_MS.lower, (v) => target.setPose(1 - v, 0));
   }
 }

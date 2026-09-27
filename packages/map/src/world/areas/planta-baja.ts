@@ -110,8 +110,8 @@ export const plantaBaja: AreaDef = {
     { kind: "window", edge: "h", x: 10, y: 0, width: 2 },
     { kind: "map", edge: "v", x: 0, y: 1, width: 2 },
     { kind: "picture", edge: "v", x: 0, y: 9 },
-    // Cafetería: el ventanal del rincón, repisas y el menú sobre la barra.
-    { kind: "ventanal", edge: "h", x: 13, y: 0, width: 5 },
+    // Cafetería: el ventanal del rincón, repisas y el menú sobre la barra (el tablón de fotos tapa x 16..18).
+    { kind: "ventanal", edge: "h", x: 13, y: 0, width: 3 },
     { kind: "shelf", edge: "h", x: 19, y: 0, width: 2 },
     { kind: "menu", edge: "h", x: 21, y: 0, width: 3 },
     { kind: "clock", edge: "h", x: 24, y: 0 },
@@ -152,15 +152,14 @@ export const plantaBaja: AreaDef = {
     place("plant", 12, 0),
     place("record-player", 12, 8),
     place("monstera", 12, 10),
-    // ----- Cafetería. Rincón con ventanal (noroeste): mesita y tres sillones sobre una alfombra.
+    // ----- Cafetería. Rincón con ventanal (noroeste): mesita y dos sillones sobre una alfombra, y a su
+    // lado el tablón de fotos contra la pared norte (se mira desde y = 1).
     place("rug-round", 14, 0),
     place("armchair", 14, 0, "right"),
     place("cafe-table", 15, 0),
-    place("armchair", 16, 0, "left"),
     place("armchair", 15, 1, "up"),
     place("plant", 13, 0),
-    place("plant", 17, 0),
-    place("plant", 18, 0),
+    place("photo-board", 16, 0, "down"),
     // La barra: el estante contra la pared, el paso de quien atiende (y = 1) y el mesón (y = 2), con una
     // entrada por el oeste (19, 2) y la puerta de la cocina al fondo del paso.
     place("backbar", 19, 0, "down"),
@@ -352,6 +351,8 @@ export const plantaBaja: AreaDef = {
     // Frente a la cafetera y a la vitrina, entre los taburetes: ahí se pide.
     { type: "cafe_counter", name: "Barra", x: 21, y: 3 },
     { type: "cafe_counter", name: "Barra", x: 25, y: 3 },
+    // Frente al tablón de fotos (ver la galería).
+    { type: "photo_board", name: "Tablón de fotos", x: 17, y: 1 },
     // Frente al mostrador (comprar) y a la cortina del probador del medio (probarse ropa).
     { type: "shop_counter", name: "Mostrador", x: 21, y: 16 },
     { type: "fitting_room", name: "Probador", x: 37, y: 16 },

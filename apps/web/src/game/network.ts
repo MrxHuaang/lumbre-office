@@ -8,6 +8,11 @@ import {
   type CafeItemId,
   type FurnitureEvent,
   type HeldUsedEvent,
+  type DrunkBlackoutEvent,
+  type SwivelEvent,
+  type ToastEvent,
+  type ToastResult,
+  TOAST_ERROR_TEXT,
   type CafeOrderResult,
   CASINO_ERROR_TEXT,
   type CasinoResult,
@@ -37,6 +42,12 @@ import {
   CASA_MSG,
   CASA_NOTICES,
   type CasaNotice,
+  isWeather,
+  type PhotoCountdownEvent,
+  type PhotoFlashEvent,
+  type PhotoShot,
+  achievementById,
+  type AchievementUnlockedEvent,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -46,6 +57,7 @@ import { bindClub, togglePole } from "./club/net";
 import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
+import { useAchievementStore } from "./achievements";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -71,6 +83,8 @@ export interface RemotePlayer {
   heldLeft: string;
   /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
   fishing: string;
+  /** Borrachera: 0 sobrio … 3 borracho (DrunkStage). */
+  drunk: number;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -127,6 +141,8 @@ export interface OfficeStateView {
   switches: Map<string, boolean>;
   /** Cambios del editor de la casa por nivel (JSON de WorldEdits). */
   worldEdits: Map<string, string>;
+  /** Clima de afuera (Weather de @hyvento/shared). */
+  weather: string;
   /** Casa viva: contadores (ajedrez, puzle, pizarras), cubículos ocupados (clave → userId) y mascotas. */
   counters: Map<string, number>;
   stalls: Map<string, string>;
@@ -206,10 +222,86 @@ export function onHeldUsed(cb: (e: HeldUsedEvent) => void) {
   return () => heldUsedListeners.delete(cb);
 }
 
+const blackoutListeners = new Set<(e: DrunkBlackoutEvent) => void>();
+/** Alguien de mi nivel se pasó de tragos (vomita y se desmaya). */
+export function onDrunkBlackout(cb: (e: DrunkBlackoutEvent) => void) {
+  blackoutListeners.add(cb);
+  return () => blackoutListeners.delete(cb);
+}
+
+const toastListeners = new Set<(e: ToastEvent) => void>();
+/** Brindis en mi nivel: invitaciones, quién se suma, el choque de vasos y los que brindan solos. */
+export function onToastEvent(cb: (e: ToastEvent) => void) {
+  toastListeners.add(cb);
+  return () => toastListeners.delete(cb);
+}
+
+/** Brindar (B): el servidor valida la bebida, que haya alguien cerca y la pausa. */
+export function sendToast() {
+  room?.send(MSG.toast);
+}
+
+const swivelListeners = new Set<(e: SwivelEvent) => void>();
+/** Alguien de mi nivel gira en la silla de su escritorio. */
+export function onSwivelEvent(cb: (e: SwivelEvent) => void) {
+  swivelListeners.add(cb);
+  return () => swivelListeners.delete(cb);
+}
+
+/** Girar en la silla (R): el servidor valida que esté sentado en una que gira y la pausa. */
+export function sendSwivel() {
+  room?.send(MSG.swivel);
+}
+
+const achievementListeners = new Set<(e: AchievementUnlockedEvent) => void>();
+/** Alguien de mi nivel (o yo) desbloqueó un logro: la escena hace un destello sobre su avatar. */
+export function onAchievementUnlocked(cb: (e: AchievementUnlockedEvent) => void) {
+  achievementListeners.add(cb);
+  return () => achievementListeners.delete(cb);
+}
+
+/** El propio logro se anuncia grande; el de otra persona del nivel, con un aviso chiquito. */
+function handleAchievement(e: AchievementUnlockedEvent) {
+  achievementListeners.forEach((cb) => cb(e));
+  const ach = achievementById(e.achievementId);
+  if (!ach) return;
+  if (e.sessionId === room?.sessionId) useAchievementStore.getState().pushToast(ach.id);
+  else useOfficeStore.getState().notify(`${e.name} desbloqueó «${ach.name}».`, "success");
+}
+
 /** Alguien de tu nivel tocó un instrumento o acarició al gato. */
 export function onFurnitureEvent(cb: (e: FurnitureEvent) => void) {
   furnitureListeners.add(cb);
   return () => furnitureListeners.delete(cb);
+}
+
+const photoCountdownListeners = new Set<(e: PhotoCountdownEvent) => void>();
+const photoFlashListeners = new Set<(e: PhotoFlashEvent) => void>();
+const photoShotListeners = new Set<(e: PhotoShot) => void>();
+const photosChangedListeners = new Set<() => void>();
+/** Alguien de mi nivel va a sacar una foto (3-2-1 sobre su cabeza). */
+export function onPhotoCountdown(cb: (e: PhotoCountdownEvent) => void) {
+  photoCountdownListeners.add(cb);
+  return () => photoCountdownListeners.delete(cb);
+}
+/** El flash de la cámara de alguien de mi nivel (también la mía). */
+export function onPhotoFlash(cb: (e: PhotoFlashEvent) => void) {
+  photoFlashListeners.add(cb);
+  return () => photoFlashListeners.delete(cb);
+}
+/** Mi foto: el servidor disparó y manda el ticket para subirla. */
+export function onPhotoShot(cb: (e: PhotoShot) => void) {
+  photoShotListeners.add(cb);
+  return () => photoShotListeners.delete(cb);
+}
+/** Alguien subió o borró una foto: el tablón se vuelve a pedir. */
+export function onPhotosChanged(cb: () => void) {
+  photosChangedListeners.add(cb);
+  return () => photosChangedListeners.delete(cb);
+}
+/** Sacar una foto: el servidor cuenta 3-2-1 (y aplica la pausa entre fotos). */
+export function sendPhotoTake() {
+  room?.send(MSG.photoTake);
 }
 
 /** Usar lo que tengo en la mano (F): el servidor valida que tenga algo y la pausa entre usos. */
@@ -500,6 +592,7 @@ function attach(r: OfficeRoom) {
   $(r.state).offices.onRemove((_office, zoneId) => useOfficeStore.getState().removeOffice(zoneId));
   $(r.state).worldEdits.onAdd((json, area) => applyWorldEditsJson(area, json));
   $(r.state).worldEdits.onChange((json, area) => applyWorldEditsJson(area, json));
+  $(r.state).listen("weather", (w) => useOfficeStore.getState().setWeather(isWeather(w) ? w : "despejado"));
 
   // Ruleta del sótano: una copia simple para React (fase, cuenta regresiva, apuestas y números).
   const syncRoulette = () => {
@@ -597,6 +690,10 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.worldEditResult, handleWorldEditResult);
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.drunkBlackout, (e: DrunkBlackoutEvent) => blackoutListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.toastEvent, (e: ToastEvent) => toastListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.toastResult, (res: ToastResult) => useOfficeStore.getState().notify(TOAST_ERROR_TEXT[res.error], "info"));
+  r.onMessage(MSG.swivelEvent, (e: SwivelEvent) => swivelListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.fishEvent, handleFishEvent);
   r.onMessage(PET_MSG.event, (e: PetEvent) => petListeners.forEach((cb) => cb(e)));
@@ -605,6 +702,11 @@ function attach(r: OfficeRoom) {
     const text = CASA_NOTICES[n.code];
     if (text) useOfficeStore.getState().notify(text, "info");
   });
+  r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.photosChanged, () => photosChangedListeners.forEach((cb) => cb()));
+  r.onMessage(MSG.achievementUnlocked, handleAchievement);
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

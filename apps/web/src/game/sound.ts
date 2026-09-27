@@ -23,6 +23,9 @@ function audio(): { ctx: AudioContext; out: GainNode } | null {
   return { ctx, out: master! };
 }
 
+/** El contexto de audio compartido (lo usan los efectos de sfx.ts, la pesca y la música del club). */
+export const sharedAudio = audio;
+
 /** Generador pseudoaleatorio con semilla: todos oyen la misma melodía. */
 function rng(seed: number) {
   let s = seed >>> 0 || 1;
@@ -382,7 +385,3 @@ export function volumeAt(dist: number, reach: number) {
 
 /** El contexto de audio compartido (casa viva: casaSonidos.ts suma sus sonidos a la misma salida). */
 export const audioOut = audio;
-/** El contexto de audio y la salida de los sonidos de la cabaña (la música del club la usa, club/music.ts). */
-export function sharedAudio(): { ctx: AudioContext; out: GainNode } | null {
-  return audio();
-}

@@ -26,6 +26,7 @@ function json(res: ServerResponse, status: number, body: unknown) {
  * - GET  /health: chequeo de salud del hosting.
  * - POST /internal/offices-changed: la web avisa que cambiaron dueños/nombres de oficinas.
  * - POST /internal/points-changed: la web cambió el saldo de alguien (body `{ userId }`).
+ * - POST /internal/photos-changed: se subió o se borró una foto (el tablón de la cafetería se refresca).
  */
 async function handleHttp(req: IncomingMessage, res: ServerResponse) {
   const path = (req.url ?? "").split("?")[0];
@@ -51,6 +52,11 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
       console.error("reloadCasinoSettings", err);
       return json(res, 500, { error: "no se pudieron recargar los ajustes del casino" });
     }
+  }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.photosChanged) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    OfficeRoom.broadcastPhotosChanged();
+    return json(res, 200, { ok: true });
   }
   if (req.method === "POST" && path === INTERNAL_ROUTES.pointsChanged) {
     if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });

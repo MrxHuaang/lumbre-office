@@ -84,6 +84,8 @@ export interface MoveCorrection {
   y: number;
   /** Presente cuando el servidor te cambió de nivel (al usar un portal). */
   area?: string;
+  /** El servidor te dejó sentado en (x, y) (al despertar de un desmayo). */
+  seated?: boolean;
 }
 
 // ---------- Oficinas personales ----------
@@ -128,6 +130,8 @@ export const INTERNAL_ROUTES = {
   casinoSettingsChanged: "/internal/casino-settings-changed",
   /** Alguien mandó un regalo desde la web (body `GiftSentNotice`): avisar a quien lo recibe. */
   giftSent: "/internal/gift-sent",
+  /** Se subió o se borró una foto: el servidor avisa a todos para que el tablón se refresque. */
+  photosChanged: "/internal/photos-changed",
 } as const;
 
 /** Nombres de mensajes Colyseus. */
@@ -176,6 +180,16 @@ export const MSG = {
   /** Usar lo que tengo en la mano (`UseHeldMessage`) y el aviso a los del mismo nivel (`HeldUsedEvent`). */
   useHeld: "held:use",
   heldUsed: "held:used",
+  /** Alguien se pasó de tragos: vomita y se desmaya (`DrunkBlackoutEvent`, a los del mismo nivel). */
+  drunkBlackout: "drunk:blackout",
+  /** Brindar (`ToastMessage`), lo que pasa con el brindis (`ToastEvent`, a los del nivel) y por qué no se
+   *  pudo (`ToastResult`, solo a quien brindó). Ver toast.ts. */
+  toast: "toast",
+  toastEvent: "toast:event",
+  toastResult: "toast:result",
+  /** Girar en la silla del escritorio (`SwivelMessage`) y el aviso a los del nivel (`SwivelEvent`). */
+  swivel: "swivel",
+  swivelEvent: "swivel:event",
   /** Usar un mueble (`FurnitureUseMessage`) y el aviso de instrumentos y gato (`FurnitureEvent`). */
   furnitureUse: "furniture:use",
   furnitureEvent: "furniture:event",
@@ -218,4 +232,14 @@ export const MSG = {
    *  del club tiene que sonar a la vez para todos. */
   clockPing: "clock:ping",
   clockPong: "clock:pong",
+  /** Fotos (photos.ts): pedir una foto, la cuenta 3-2-1 a los del nivel (`PhotoCountdownEvent`), el
+   *  ticket para subirla a quien la saca (`PhotoShot`), el flash (`PhotoFlashEvent`) y el aviso a todos
+   *  de que el tablón cambió (sin datos: el cliente vuelve a pedir la lista). */
+  photoTake: "photo:take",
+  photoCountdown: "photo:countdown",
+  photoShot: "photo:shot",
+  photoFlash: "photo:flash",
+  photosChanged: "photo:changed",
+  /** Servidor → los del nivel: alguien desbloqueó un logro (ver achievements.ts). */
+  achievementUnlocked: "achievement:unlocked",
 } as const;

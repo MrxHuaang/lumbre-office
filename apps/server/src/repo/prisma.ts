@@ -1,5 +1,8 @@
 import {
   addInventoryTx,
+  applyStatChanges,
+  loadAchievementRecord,
+  unlockAchievement,
   awardPoints,
   grantWelcomeBonus,
   casinoBet,
@@ -24,6 +27,7 @@ import {
   type OfficeItemDTO,
   type PointReason,
   type PresenceStatus,
+  type StatChange,
 } from "@hyvento/shared";
 import { executeTrade } from "./social";
 import type { GameRepository, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
@@ -269,5 +273,18 @@ export class PrismaRepository implements GameRepository {
     const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } });
     const names = new Map(users.map((u) => [u.id, u.name]));
     return rows.map((r) => ({ name: names.get(r.userId) || "Alguien", score: r._max.score ?? 0 }));
+  }
+
+  async loadAchievements(userId: string) {
+    const r = await loadAchievementRecord(prisma, userId);
+    return { stats: r.stats, unlocked: Object.keys(r.unlocked) };
+  }
+
+  saveStats(userId: string, changes: StatChange[]) {
+    return applyStatChanges(prisma, userId, changes);
+  }
+
+  unlockAchievement(userId: string, achievementId: string) {
+    return unlockAchievement(prisma, userId, achievementId);
   }
 }

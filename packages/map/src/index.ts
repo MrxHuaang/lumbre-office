@@ -7,6 +7,7 @@ export * from "./pathfinding";
 export * from "./decor";
 export * from "./worldEdits";
 export * from "./casa";
+export * from "./footsteps";
 export * from "./world/build";
 export * from "./world/catalog";
 export * from "./world/seats";

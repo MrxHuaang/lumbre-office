@@ -1,0 +1,321 @@
+"use client";
+
+// El perfil de una persona: su personaje en grande, el título que le ganaron sus manías, datos curiosos
+// sacados de las estadísticas y la grilla de logros (bloqueados en silueta, los secretos como "???").
+import {
+  ACHIEVEMENT_RARITY,
+  ACHIEVEMENTS,
+  fishById,
+  STAT_KEYS,
+  type Achievement,
+  type BadgeIcon,
+  type PresenceStatus,
+  type ProfileAchievementDTO,
+  type ProfileDTO,
+} from "@hyvento/shared";
+import { useMemo, useState } from "react";
+import { STATUS_HEX } from "@/lib/cozy";
+import { CharacterSprite } from "../CharacterSprite";
+import { PixelIcon } from "../Cozy";
+import { Badge, BadgeGlyph } from "./Badge";
+
+const STATUS_LABEL: Record<PresenceStatus, string> = { available: "Disponible", busy: "Ocupado", dnd: "No molestar", away: "Ausente" };
+
+const n = (v: number) => Math.round(v).toLocaleString("es-CO");
+const plural = (v: number, one: string, many: string) => `${n(v)} ${Math.round(v) === 1 ? one : many}`;
+const since = (iso: string) => new Date(iso).toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+const day = (iso: string) => new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
+
+export function ProfileView({ profile }: { profile: ProfileDTO }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+      <Identity profile={profile} />
+      <div className="flex min-w-0 flex-col gap-4">
+        <Facts profile={profile} />
+        <Achievements profile={profile} />
+      </div>
+    </div>
+  );
+}
+
+// ---------- Quién es ----------
+
+function Identity({ profile: p }: { profile: ProfileDTO }) {
+  const status = (p.status in STATUS_LABEL ? p.status : "available") as PresenceStatus;
+  return (
+    <aside className="flex flex-col items-center gap-3 text-center md:items-stretch md:text-left">
+      {/* Un trocito de pasto del jardín, con el personaje caminando en su lugar. */}
+      <div className="relative grid w-full max-w-[15rem] place-items-center self-center border-2 border-cozy-frame bg-[#5d9c46] py-3 shadow-[inset_0_0_0_2px_#4f8a3c,inset_0_-10px_0_#4f8a3c]">
+        <CharacterSprite avatar={p.avatar} look={p.look} walking className="w-36" />
+      </div>
+      <div className="min-w-0">
+        <h3 className="text-[24px] leading-tight font-semibold break-words">{p.name}</h3>
+        <p className="mt-1.5 inline-flex items-center gap-1.5 border-2 border-cozy-frame bg-cozy-gold px-2 py-0.5 text-[13px] font-semibold text-cozy-paper-light shadow-[2px_2px_0_rgb(20_10_24/0.35)]">
+          <PixelIcon name="star" size={11} />
+          {p.title}
+        </p>
+      </div>
+      <dl className="grid w-full grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-left text-[13px]">
+        <dt className="text-cozy-ink-soft">Estado</dt>
+        <dd className="flex items-center gap-1.5">
+          <span className="size-2.5 shrink-0 border-2 border-cozy-frame" style={{ background: STATUS_HEX[status] }} />
+          {STATUS_LABEL[status]}
+        </dd>
+        <dt className="text-cozy-ink-soft">Oficina</dt>
+        <dd className="min-w-0 truncate">{p.officeName ?? "Sin oficina (todavía)"}</dd>
+        <dt className="text-cozy-ink-soft">Llegó en</dt>
+        <dd>{since(p.memberSince)}</dd>
+      </dl>
+      <div className="grid w-full grid-cols-2 gap-2">
+        <div className="cozy-chip flex flex-col items-center px-2 py-1.5">
+          <span className="flex items-center gap-1 text-[18px] font-semibold tabular-nums">
+            <PixelIcon name="coin" size={14} color="var(--color-cozy-gold)" />
+            {n(p.points)}
+          </span>
+          <span className="text-[12px] text-cozy-ink-soft">puntos</span>
+        </div>
+        <div className="cozy-chip flex flex-col items-center px-2 py-1.5">
+          <span className="flex items-center gap-1 text-[18px] font-semibold tabular-nums">
+            <BadgeGlyph icon="flame" scale={1} />
+            {n(p.streak)}
+          </span>
+          <span className="text-[12px] text-cozy-ink-soft">{p.streak === 1 ? "día de racha" : "días de racha"}</span>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ---------- Datos curiosos ----------
+
+interface Fact {
+  icon: BadgeIcon;
+  value: string;
+  label: string;
+  /** El chiste o el dato de al lado. */
+  note: string;
+  tone?: "good" | "bad";
+}
+
+function facts(p: ProfileDTO): Fact[] {
+  const s = (k: string) => p.stats[k] ?? 0;
+  const hours = s(STAT_KEYS.secondsOnline) / 3600;
+  const tiles = s(STAT_KEYS.tilesWalked);
+  const best = p.bestFish && fishById(p.bestFish.species);
+  const coffees = s(STAT_KEYS.coffees);
+  return [
+    {
+      icon: "cup",
+      value: n(coffees),
+      label: coffees === 1 ? "taza de café" : "tazas de café",
+      note: coffees ? `≈ ${(coffees * 0.12).toLocaleString("es-CO", { maximumFractionDigits: 1 })} litros de tinto en las venas` : "Vive sin cafeína. Un misterio.",
+    },
+    {
+      icon: "glass",
+      value: n(s(STAT_KEYS.sips)),
+      label: "sorbos",
+      note: `y ${plural(s(STAT_KEYS.bites), "mordisco", "mordiscos")}, ${plural(s(STAT_KEYS.puffs), "pitada", "pitadas")}`,
+    },
+    {
+      icon: "bottle",
+      value: n(s(STAT_KEYS.blackouts)),
+      label: s(STAT_KEYS.blackouts) === 1 ? "vez desmayado" : "veces desmayado",
+      note: s(STAT_KEYS.blackouts) ? `${plural(s(STAT_KEYS.sofaNaps), "siesta", "siestas")} en el sofá del piso 2` : "Sobrio como un juez.",
+      tone: s(STAT_KEYS.blackouts) >= 3 ? "bad" : undefined,
+    },
+    {
+      icon: "fish",
+      value: n(s(STAT_KEYS.fishCaught)),
+      label: s(STAT_KEYS.fishCaught) === 1 ? "pez" : "peces",
+      note: best ? `El mejor: ${best.name} de ${p.bestFish!.size} cm` : "Ni una picada todavía.",
+    },
+    {
+      icon: "chip",
+      value: `${p.casinoNet > 0 ? "+" : ""}${n(p.casinoNet)}`,
+      label: "neto en el casino",
+      note: p.casinoNet < 0 ? "La casa te manda saludos." : p.casinoNet > 0 ? "La casa te tiene en la mira." : "Ni fu ni fa.",
+      tone: p.casinoNet < 0 ? "bad" : p.casinoNet > 0 ? "good" : undefined,
+    },
+    {
+      icon: "clock",
+      value: hours < 10 ? hours.toLocaleString("es-CO", { maximumFractionDigits: 1 }) : n(hours),
+      label: "horas en la cabaña",
+      note: p.favoriteZone ? `Casi siempre en: ${p.favoriteZone}${p.favoriteArea && p.favoriteArea !== p.favoriteZone ? ` (${p.favoriteArea})` : ""}` : "Recién desempacando.",
+    },
+    {
+      icon: "shoe",
+      value: n(tiles),
+      label: "baldosas caminadas",
+      note: `≈ ${(tiles * 0.5 / 1000).toLocaleString("es-CO", { maximumFractionDigits: 2 })} km en pantuflas`,
+    },
+    {
+      icon: "cat",
+      value: n(s(STAT_KEYS.catPets)),
+      label: s(STAT_KEYS.catPets) === 1 ? "caricia al gato" : "caricias al gato",
+      note: `y ${plural(s(STAT_KEYS.pianoPlays), "vez", "veces")} al piano`,
+    },
+    {
+      icon: "map",
+      value: `${n(s(STAT_KEYS.areasVisited))}`,
+      label: "niveles visitados",
+      note: `${plural(s(STAT_KEYS.chatMessages), "mensaje", "mensajes")} y ${plural(s(STAT_KEYS.emotes), "emote", "emotes")}`,
+    },
+  ];
+}
+
+function Facts({ profile }: { profile: ProfileDTO }) {
+  const list = useMemo(() => facts(profile), [profile]);
+  return (
+    <section aria-labelledby="perfil-datos">
+      <h4 id="perfil-datos" className="mb-2 text-[15px] font-semibold">
+        Datos curiosos
+      </h4>
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {list.map((f) => (
+          <li key={f.label} className="flex min-w-0 gap-2 border-2 border-cozy-paper-dark bg-cozy-paper-light px-2.5 py-2">
+            <BadgeGlyph icon={f.icon} scale={2} className="mt-0.5 shrink-0 self-start" />
+            <div className="min-w-0">
+              <p
+                className="text-[20px] leading-none font-semibold tabular-nums"
+                style={{ color: f.tone === "bad" ? "var(--color-cozy-red-deep)" : f.tone === "good" ? "var(--color-cozy-green)" : undefined }}
+              >
+                {f.value}
+              </p>
+              <p className="mt-0.5 text-[13px] leading-tight">{f.label}</p>
+              <p className="mt-1 text-[12px] leading-snug text-cozy-ink-soft">{f.note}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// ---------- Logros ----------
+
+type Filter = "all" | "done" | "todo";
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "all", label: "Todos" },
+  { id: "done", label: "Conseguidos" },
+  { id: "todo", label: "Pendientes" },
+];
+
+function Achievements({ profile }: { profile: ProfileDTO }) {
+  const [filter, setFilter] = useState<Filter>("all");
+  const [selected, setSelected] = useState<string | null>(null);
+  const byId = useMemo(() => new Map(profile.achievements.map((a) => [a.id, a])), [profile.achievements]);
+  // Primero lo conseguido (lo más nuevo arriba), después lo que está más cerca de salir.
+  const rows = useMemo(() => {
+    const list = ACHIEVEMENTS.map((a, i) => ({ a, st: byId.get(a.id) ?? { id: a.id, unlockedAt: null, progress: 0, owners: 0 }, i }));
+    list.sort((x, y) => {
+      if (x.st.unlockedAt && y.st.unlockedAt) return y.st.unlockedAt.localeCompare(x.st.unlockedAt);
+      if (x.st.unlockedAt || y.st.unlockedAt) return x.st.unlockedAt ? -1 : 1;
+      return y.st.progress - x.st.progress || x.i - y.i;
+    });
+    return list;
+  }, [byId]);
+  const done = rows.filter((r) => r.st.unlockedAt).length;
+  const shown = rows.filter((r) => (filter === "all" ? true : filter === "done" ? r.st.unlockedAt : !r.st.unlockedAt));
+  const pick = selected ? rows.find((r) => r.a.id === selected) : undefined;
+
+  return (
+    <section aria-labelledby="perfil-logros">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h4 id="perfil-logros" className="text-[15px] font-semibold">
+          Logros
+        </h4>
+        <span className="text-[13px] text-cozy-ink-soft tabular-nums">
+          {done} de {rows.length}
+        </span>
+        <Meter value={done / rows.length} className="min-w-16 flex-1" label={`${done} de ${rows.length} logros`} />
+        <div role="group" aria-label="Filtrar logros" className="flex gap-1">
+          {FILTERS.map((f) => (
+            <button key={f.id} type="button" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)} className="cozy-btn px-2 py-1 text-[12px]">
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {shown.length === 0 ? (
+        <p className="border-2 border-dashed border-cozy-paper-dark px-3 py-4 text-center text-[13px] text-cozy-ink-soft">
+          {filter === "done" ? (profile.isMe ? "Todavía ninguno. Pide un tinto para empezar." : "Todavía ninguno.") : "¡Los tiene todos! Leyenda de la cabaña."}
+        </p>
+      ) : (
+        <ul className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-8">
+          {shown.map(({ a, st }) => {
+            const locked = !st.unlockedAt;
+            const hidden = locked && a.secret;
+            return (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  aria-pressed={selected === a.id}
+                  onClick={() => setSelected(selected === a.id ? null : a.id)}
+                  title={hidden ? "Logro secreto" : a.name}
+                  className="flex w-full flex-col items-center gap-1 border-2 border-transparent px-0.5 pt-1 pb-1.5 hover:border-cozy-paper-dark aria-pressed:border-cozy-red aria-pressed:bg-cozy-paper-light"
+                >
+                  <Badge achievement={a} locked={locked} scale={2} />
+                  {locked && !hidden ? (
+                    <Meter value={st.progress} className="w-10" />
+                  ) : (
+                    <span className="h-[6px]" aria-hidden />
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {pick && <AchievementDetail a={pick.a} st={pick.st} teamSize={profile.teamSize} />}
+    </section>
+  );
+}
+
+function AchievementDetail({ a, st, teamSize }: { a: Achievement; st: ProfileAchievementDTO; teamSize: number }) {
+  const locked = !st.unlockedAt;
+  const hidden = locked && a.secret;
+  const rarity = ACHIEVEMENT_RARITY[a.rarity];
+  const pct = teamSize > 0 ? Math.round((st.owners / teamSize) * 100) : 0;
+  return (
+    <div className="mt-2 flex items-start gap-3 border-2 border-cozy-wood bg-cozy-paper-light px-3 py-2.5" aria-live="polite">
+      <Badge achievement={a} locked={locked} scale={3} className="shrink-0" />
+      <div className="min-w-0 flex-1 text-[13px]">
+        <p className="flex flex-wrap items-center gap-2 text-[16px] font-semibold">
+          {hidden ? "???" : a.name}
+          <span className="inline-flex items-center gap-1 border-2 border-cozy-frame bg-cozy-paper px-1.5 py-px text-[12px] leading-none font-normal">
+            <span className="size-2 shrink-0" style={{ background: rarity.color }} />
+            {rarity.label}
+          </span>
+        </p>
+        <p className="mt-1 leading-snug">{hidden ? "Es un secreto. Sigue explorando la cabaña…" : a.description}</p>
+        {!hidden && <p className="mt-1 text-cozy-ink-soft">Cómo: {a.goal.charAt(0).toLowerCase() + a.goal.slice(1)}.</p>}
+        <p className="mt-1.5 text-cozy-ink-soft">
+          {locked ? (hidden ? "Bloqueado" : `Progreso: ${Math.floor(st.progress * 100)}%`) : `Desbloqueado el ${day(st.unlockedAt!)}`}
+          {" · "}
+          {st.owners === 0 ? "Nadie del equipo lo tiene todavía" : `${pct}% del equipo lo tiene`}
+        </p>
+        {locked && !hidden && <Meter value={st.progress} className="mt-1.5 max-w-60" />}
+      </div>
+    </div>
+  );
+}
+
+/** Barra de progreso pixel (sin degradados): relleno dorado sobre papel. */
+function Meter({ value, className = "", label }: { value: number; className?: string; label?: string }) {
+  const pct = Math.max(0, Math.min(100, Math.round(value * 100)));
+  return (
+    <span
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      aria-label={label ?? `${pct}%`}
+      className={`block h-[6px] border border-cozy-frame bg-cozy-paper-dark ${className}`}
+    >
+      <span className="block h-full bg-cozy-gold" style={{ width: `${pct}%` }} />
+    </span>
+  );
+}
+
+/** Para los enlaces: la ruta pública del perfil. */
+export const profileHref = (id: string) => `/perfil/${encodeURIComponent(id)}`;

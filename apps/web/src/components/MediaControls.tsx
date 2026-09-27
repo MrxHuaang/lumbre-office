@@ -5,6 +5,7 @@ import { media, useMediaStore } from "@/game/media";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { EmotePicker, useEmoteKey } from "./EmotePicker";
+import { takePhoto, usePhotoCounting, usePhotoKey } from "./PhotoPanels";
 
 /**
  * Barra de herramientas (abajo al centro, estilo Stardew): micrófono, cámara, pantalla y chat. `children`
@@ -21,6 +22,8 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
   const ready = status === "connected";
   const [emotes, setEmotes] = useState(false);
   useEmoteKey(useCallback(() => setEmotes((v) => !v), []));
+  usePhotoKey();
+  const shooting = usePhotoCounting();
 
   return (
     <div className="cozy-panel absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 p-2.5">
@@ -72,6 +75,15 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         active={emotes}
         disabled={false}
         onClick={() => setEmotes((v) => !v)}
+      />
+      <Slot
+        n={6}
+        icon="camera"
+        label="Sacar una foto (P)"
+        text={shooting.counting ? "3, 2, 1…" : "Foto"}
+        active={shooting.counting}
+        disabled={shooting.busy}
+        onClick={takePhoto}
       />
       {children}
     </div>

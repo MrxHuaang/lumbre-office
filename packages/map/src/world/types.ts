@@ -129,7 +129,9 @@ export interface PointDef {
     // Rediseño: frente a la barra del club, donde se piden tragos y cigarros.
     | "club_bar"
     // Club: delante de la cabina de DJ, donde se abre la consola para poner música.
-    | "dj_booth";
+    | "dj_booth"
+    // Frente al tablón de fotos de la cafetería (ver la galería).
+    | "photo_board";
   name: string;
   x: number;
   y: number;

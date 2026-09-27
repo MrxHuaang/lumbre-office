@@ -4,6 +4,7 @@
 import type { OfficeMap, PlacedFurniture } from "@hyvento/map";
 import type * as Phaser from "phaser";
 import { useCasinoStore } from "../casino";
+import { sfx } from "../sfx";
 import { BlackjackTableView } from "./blackjackTable";
 import { TableCamera } from "./camera";
 import { RouletteTableView } from "./rouletteTable";
@@ -30,6 +31,19 @@ export class TableMode {
     // Si la tira cambia de alto (otros botones, pantalla angosta), la mesa se recentra arriba de ella.
     this.unsub = useCasinoStore.subscribe((s, prev) => {
       if (s.stripPx !== prev.stripPx && this.view) this.cam.recenter();
+      // Cómo te fue en la ronda (solo llega si apostaste).
+      if (s.lastSettled && s.lastSettled !== prev.lastSettled) {
+        const { won, staked } = s.lastSettled;
+        if (won > staked) sfx.win();
+        else if (won > 0) sfx.push();
+        else sfx.lose();
+      }
+      if (s.lastBlackjack && s.lastBlackjack !== prev.lastBlackjack) {
+        const o = s.lastBlackjack.outcome;
+        if (o === "win" || o === "blackjack") sfx.win();
+        else if (o === "push") sfx.push();
+        else sfx.lose();
+      }
     });
   }
 

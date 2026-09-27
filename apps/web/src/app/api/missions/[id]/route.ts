@@ -1,5 +1,5 @@
-import { awardPointsTx, prisma, type MissionStatus, type Prisma } from "@hyvento/db";
-import { MISSION_ACTIONS, type MissionAction } from "@hyvento/shared";
+import { awardPointsTx, bumpStat, prisma, type MissionStatus, type Prisma } from "@hyvento/db";
+import { MISSION_ACTIONS, STAT_KEYS, type MissionAction } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/current-user";
@@ -49,6 +49,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (changed.count === 0) return false;
     if (action === "approve" && mission.assigneeId) {
       await awardPointsTx(tx, { userId: mission.assigneeId, amount: mission.reward, reason: "MISSION", refId: mission.id });
+      // Para el logro "Manos a la obra" (el servidor de juego lo relee con el aviso de puntos).
+      await bumpStat(tx, mission.assigneeId, STAT_KEYS.missionsDone);
     }
     return true;
   });

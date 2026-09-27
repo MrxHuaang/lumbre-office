@@ -1,4 +1,4 @@
-import type { ArcadeBoardEntry, ArcadeGame, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus } from "@hyvento/shared";
+import type { ArcadeBoardEntry, ArcadeGame, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus, StatChange } from "@hyvento/shared";
 import type { ItemStack } from "@hyvento/shared";
 
 /** Nombre visible y personaje de una persona, como están guardados. */
@@ -107,6 +107,12 @@ export interface GameRepository {
   }>;
   /** Récords de un juego desde `since`: el mejor puntaje de cada persona, de mayor a menor. */
   arcadeBoard(input: { game: ArcadeGame; since: number; limit: number }): Promise<ArcadeBoardEntry[]>;
+  /** Logros: los contadores y los logros que ya tiene alguien. */
+  loadAchievements(userId: string): Promise<{ stats: Record<string, number>; unlocked: string[] }>;
+  /** Guarda varios cambios de contadores juntos (`inc` suma, `max` se queda con el mayor), todo o nada. */
+  saveStats(userId: string, changes: StatChange[]): Promise<void>;
+  /** Desbloquea un logro; true solo la primera vez. */
+  unlockAchievement(userId: string, achievementId: string): Promise<boolean>;
 }
 
 /** Un lado de un intercambio: lo que da esa persona (a la otra). */

@@ -25,6 +25,7 @@ import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
 import { BackpackPanel, ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
+import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
 import { ProfileDialog } from "./ProfileDialog";
 import { ArcadePanel } from "./arcade/ArcadePanel";
 import { ClubHud } from "./club/ClubHud";
@@ -33,6 +34,9 @@ import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { FishingHud } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
+import { AchievementToasts } from "./profile/AchievementToasts";
+import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
+import { useAchievementStore } from "@/game/achievements";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
@@ -120,6 +124,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const mapReady = useOfficeStore((s) => s.mapReady);
   const decorating = useOfficeStore((s) => s.decorating);
   const worldEditing = useOfficeStore((s) => s.worldEditing);
+  const profileId = useAchievementStore((s) => s.profileId);
+  const closeProfile = useAchievementStore((s) => s.closeProfile);
+  // Al salir de la cabaña no queda un perfil abierto para la próxima vez.
+  useEffect(() => () => useAchievementStore.getState().closeProfile(), []);
 
   // Actividad real (mouse, teclado): cuenta para los puntos de presencia. Como mucho un aviso por minuto.
   useEffect(() => {
@@ -191,6 +199,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             isAdmin={isAdmin}
             onEditProfile={() => setDialog("profile")}
             onEditCharacter={() => setDialog("character")}
+            onMyProfile={() => useAchievementStore.getState().openProfile("me")}
             onAdmin={() => setDialog("admin")}
             onLogout={onExit}
           />
@@ -209,6 +218,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <UsablePrompt />
           <ClubHud />
           <KnockRequests />
+          <AchievementToasts />
           <FishingHud />
           <SocialOverlays />
           <MediaControls>
@@ -222,6 +232,16 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <ProfileDialog profile={profile} withName={dialog === "profile"} onClose={closeDialog} onSaved={onProfileChange} />
           )}
           {dialog === "admin" && <AdminDialog onClose={closeDialog} />}
+          {profileId && !dialog && (
+            <PlayerProfileDialog
+              userId={profileId}
+              onClose={closeProfile}
+              onEditProfile={() => {
+                closeProfile();
+                setDialog("profile");
+              }}
+            />
+          )}
           {panel?.kind === "mailbox" && <MailboxPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "board" && <BoardPanel onClose={closePanel} />}
           {panel?.kind === "cafe" && <CafePanel atObject={panel.atObject} onClose={closePanel} />}
@@ -233,6 +253,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
           {panel?.kind === "fishAlbum" && <FishAlbum onClose={closePanel} />}
+          {panel?.kind === "photos" && <PhotoGallery onClose={closePanel} />}
+          <PhotoPreview />
+          <PhotoFlash />
           {panel?.kind === "fitting" && (
             <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
           )}
@@ -278,7 +301,7 @@ function ControlsHint() {
     <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
       {decorating
         ? "Clic para poner o elegir · R para girar · Supr para guardar · Esc para soltar o terminar"
-        : "WASD / flechas · clic para caminar · E sentarte o usar · F lo de la mano · T emotes · Enter chatear"}
+        : "WASD / flechas · clic para caminar · E sentarte o usar · F lo de la mano · T emotes · P foto · Enter chatear"}
     </div>
   );
 }

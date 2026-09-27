@@ -31,6 +31,7 @@ import { handValue, HIDDEN_CARD, isBlackjack } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { useCasinoStore, type BlackjackSeatView, type BlackjackView } from "../casino";
 import { sendBlackjackBet } from "../network";
+import { sfx } from "../sfx";
 import { selectMyUserId, useOfficeStore } from "../store";
 import type { TableCamera } from "./camera";
 import { furnitureDepth, overlayImage, pieceImage } from "./draw";
@@ -87,6 +88,8 @@ export class BlackjackTableView {
   private dealer: HandView = { sig: "", cards: [], objects: [] };
   private turn?: { seat: number; img: Phaser.GameObjects.Image; tween: Phaser.Tweens.Tween };
   private unsub: () => void = () => undefined;
+  /** Ya se dibujó la mesa al llegar: desde ahí las cartas y fichas nuevas suenan. */
+  private ready = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -119,6 +122,7 @@ export class BlackjackTableView {
       if (s.blackjack !== prev.blackjack) this.sync(s.blackjack);
     });
     this.sync(useCasinoStore.getState().blackjack);
+    this.ready = true;
   }
 
   /** Las banquetas están a los costados y las cartas quedan a la vista: no se atenúa a nadie. */
@@ -171,7 +175,10 @@ export class BlackjackTableView {
     if (chips) {
       const img = pieceImage(this.scene, `mesa-fichas-${amount}-${seat.doubled ? 1 : 0}-${mine ? 1 : 0}-${R}`, () => chips.canvas, plan.chip.x, plan.chip.y, R, base, chips);
       h.objects.push(img);
-      if (seat.cards.length === 0 && prevCards.length === 0) this.scene.tweens.add({ targets: img, y: { from: plan.chip.y - 5, to: plan.chip.y }, duration: 220, ease: "Bounce.out" });
+      if (seat.cards.length === 0 && prevCards.length === 0) {
+        this.scene.tweens.add({ targets: img, y: { from: plan.chip.y - 5, to: plan.chip.y }, duration: 220, ease: "Bounce.out" });
+        if (this.ready) sfx.chip();
+      }
     }
     // Cada carta nueva va a la derecha y delante de la anterior: el valor de todas queda a la vista.
     plan.cards.forEach((p, k) => {
@@ -204,7 +211,10 @@ export class BlackjackTableView {
       // La carta tapada que se destapa se da vuelta en su lugar; las nuevas llegan del sabot.
       const flipped = prev[k] === HIDDEN_CARD && card !== HIDDEN_CARD;
       const img = this.card(card, p.x, p.y, this.depth + 0.52 + k * 0.001, k >= prev.length ? (k - prev.length) * 90 : -1);
-      if (flipped) this.scene.tweens.add({ targets: img, scaleX: { from: 0, to: 1 / R }, duration: 200, ease: "Sine.out" });
+      if (flipped) {
+        this.scene.tweens.add({ targets: img, scaleX: { from: 0, to: 1 / R }, duration: 200, ease: "Sine.out" });
+        if (this.ready) sfx.card();
+      }
       h.objects.push(img);
     });
     const img = pieceImage(this.scene, `mesa-placa-${label.text}-${label.tone}`, () => tag, plan.tag.x, plan.tag.y, R, this.depth + 0.53);
@@ -221,6 +231,7 @@ export class BlackjackTableView {
       const shoe = this.at(BLACKJACK_SHOE.u, BLACKJACK_SHOE.v, 3);
       img.setPosition(shoe.x, shoe.y).setAlpha(0);
       this.scene.tweens.add({ targets: img, x, y, alpha: 1, delay: dealDelay, duration: DEAL_MS, ease: "Quad.out" });
+      if (this.ready) this.scene.time.delayedCall(dealDelay, () => sfx.card());
     }
     return img;
   }

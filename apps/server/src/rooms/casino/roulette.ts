@@ -29,8 +29,8 @@ interface Deps {
   later: (ms: number, fn: () => void) => void;
   /** Refleja el saldo nuevo de alguien en su jugador (HUD). */
   setPoints: (userId: string, balance: number) => void;
-  /** Le manda a alguien lo que ganó al cerrar la ronda. */
-  notify: (userId: string, settled: RouletteSettled) => void;
+  /** Le manda a alguien lo que ganó al cerrar la ronda (`straight` = acertó un pleno). */
+  notify: (userId: string, settled: RouletteSettled, extra: { straight: boolean }) => void;
   timings: () => RouletteTimings;
   /** De dónde sale el número (en los tests, fijo). */
   spin: () => number;
@@ -91,12 +91,15 @@ export class RouletteTable {
     s.endsAt = Date.now() + this.d.timings().resultMs;
     this.d.later(this.d.timings().resultMs, () => this.beginBetting());
 
-    const byUser = new Map<string, { won: number; staked: number }>();
+    const byUser = new Map<string, { won: number; staked: number; straight: boolean }>();
     for (const b of s.bets) {
-      const t = byUser.get(b.userId) ?? { won: 0, staked: 0 };
+      const t = byUser.get(b.userId) ?? { won: 0, staked: 0, straight: false };
       t.staked += b.amount;
       const spec = specOf(b);
-      if (rouletteWins(spec, result)) t.won += b.amount * (roulettePayout(spec) + 1);
+      if (rouletteWins(spec, result)) {
+        t.won += b.amount * (roulettePayout(spec) + 1);
+        if (spec.kind === "number") t.straight = true;
+      }
       byUser.set(b.userId, t);
     }
     for (const [userId, t] of byUser) {
@@ -108,7 +111,7 @@ export class RouletteTable {
           console.error("casinoPayout", err);
         }
       }
-      this.d.notify(userId, { round, result, won: t.won, staked: t.staked });
+      this.d.notify(userId, { round, result, won: t.won, staked: t.staked }, { straight: t.straight });
     }
   }
 

@@ -12,6 +12,7 @@ import {
   type OfficeItemDTO,
   type PointsAwarded,
   type PresenceStatus,
+  type Weather,
 } from "@hyvento/shared";
 import { create } from "zustand";
 
@@ -43,7 +44,7 @@ export interface PlayerInfo {
  * Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería,
  * mostrador de la tienda y probador.
  */
-export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack" | "bar" | "fishing"
+export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack" | "bar" | "fishing" | "photos"
   // Club y arcade del sótano: la consola de la cabina de DJ y las máquinas.
   | "dj"
   | "arcade";
@@ -55,6 +56,15 @@ export interface UsableNear {
   y: number;
   label: string;
 }
+/**
+ * Brindis al alcance: "invite" (hay alguien cerca con bebida), "join" (alguien de al lado invita: `name`)
+ * o "waiting" (ya levanté el vaso y espero a los demás).
+ */
+export interface ToastPrompt {
+  mode: "invite" | "join" | "waiting";
+  name?: string;
+}
+
 /** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
 export type PanelKind = Interactable | "backpack" | "fishAlbum";
 
@@ -128,6 +138,10 @@ interface OfficeStore {
   seatPrompt: "sit" | "stand" | null;
   /** Sentado frente a un escritorio con computador (se puede prender el PC). */
   atComputer: boolean;
+  /** Sentado en una silla que gira (la del escritorio con PC): R da unas vueltas. */
+  atSwivel: boolean;
+  /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
+  toastPrompt: ToastPrompt | null;
   /** El PC está prendido: el mapa no responde a clics ni teclas. */
   pcOn: boolean;
   /** Oficina a la que tocamos y cuya respuesta esperamos. */
@@ -141,6 +155,9 @@ interface OfficeStore {
   area: string;
   /** Modo noche (luces encendidas); arranca según la hora local. */
   night: boolean;
+  /** Clima de afuera (lo decide el servidor: `state.weather`). */
+  weather: Weather;
+  setWeather: (weather: Weather) => void;
   /** Ya se dibujó el primer nivel (el jardín grande tarda un poco: mientras, el cartel de "Entrando"). */
   mapReady: boolean;
   setMapReady: (ready: boolean) => void;
@@ -180,6 +197,8 @@ interface OfficeStore {
   setDoorPrompt: (zoneId: string | null) => void;
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
+  setAtSwivel: (at: boolean) => void;
+  setToastPrompt: (prompt: ToastPrompt | null) => void;
   setPcOn: (on: boolean) => void;
   setPendingKnock: (zoneId: string | null) => void;
   addKnockRequest: (r: KnockRequest) => void;
@@ -233,6 +252,8 @@ const initial = {
   doorPrompt: null,
   seatPrompt: null as "sit" | "stand" | null,
   atComputer: false,
+  atSwivel: false,
+  toastPrompt: null as ToastPrompt | null,
   pcOn: false,
   pendingKnock: null,
   knockRequests: [],
@@ -240,6 +261,7 @@ const initial = {
   walkTarget: null,
   area: "",
   night: false,
+  weather: "despejado" as Weather,
   mapReady: false,
   interact: null as Interactable | null,
   usable: null as UsableNear | null,
@@ -291,6 +313,8 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setDoorPrompt: (doorPrompt) => set({ doorPrompt }),
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setAtComputer: (atComputer) => set({ atComputer }),
+  setAtSwivel: (atSwivel) => set({ atSwivel }),
+  setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),
   setPendingKnock: (pendingKnock) => set({ pendingKnock }),
   addKnockRequest: (r) => {
@@ -314,6 +338,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
   setArea: (area) => set({ area }),
   setNight: (night) => set({ night }),
+  setWeather: (weather) => set({ weather }),
   setMapReady: (mapReady) => set({ mapReady }),
   setInteract: (interact) => set({ interact }),
   setUsable: (usable) => set({ usable }),

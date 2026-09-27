@@ -1,22 +1,9 @@
 // Sonidos de la pesca con WebAudio (sin archivos): el plop de la boya, el "¡pica!", el tic del carrete,
-// la fanfarria al sacarlo y el cofre. El contexto se crea recién con el primer sonido (después de un clic).
+// la fanfarria al sacarlo y el cofre. Suenan por la salida de efectos de sfx.ts.
+import { sfxOut } from "../sfx";
 
-let ctx: AudioContext | null = null;
-let out: GainNode | null = null;
-
-function audio(): { ctx: AudioContext; out: GainNode } | null {
-  if (typeof window === "undefined") return null;
-  if (!ctx) {
-    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctor) return null;
-    ctx = new Ctor();
-    out = ctx.createGain();
-    out.gain.value = 0.35;
-    out.connect(ctx.destination);
-  }
-  if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
-  return { ctx, out: out! };
-}
+/** Salida de los efectos (mismo contexto y volumen que el resto: se silencia con el control del HUD). */
+const audio = sfxOut;
 
 /** Un tono corto con envolvente (`type` del oscilador, frecuencia de inicio y de fin). */
 function tone(at: number, dur: number, from: number, to: number, vol: number, type: OscillatorType = "square") {

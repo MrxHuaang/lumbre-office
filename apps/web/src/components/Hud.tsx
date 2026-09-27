@@ -1,16 +1,19 @@
 "use client";
 
 import { placeLabel } from "@hyvento/map";
-import { PRESENCE_STATUSES, type PresenceStatus } from "@hyvento/shared";
+import { PRESENCE_STATUSES, WEATHER_TEXT, type PresenceStatus, type Weather } from "@hyvento/shared";
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMediaStore } from "@/game/media";
 import { sendStatus } from "@/game/network";
+import { sfx } from "@/game/sfx";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
+import { useAchievementStore } from "@/game/achievements";
 import { STATUS_HEX } from "@/lib/cozy";
-import { PixelIcon } from "./Cozy";
+import { PixelIcon, type PixelIconName } from "./Cozy";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
+import { SoundControl } from "./SoundControl";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -23,6 +26,7 @@ interface HudProps {
   isAdmin: boolean;
   onEditProfile: () => void;
   onEditCharacter: () => void;
+  onMyProfile: () => void;
   onAdmin: () => void;
   onLogout: () => void;
 }
@@ -33,7 +37,7 @@ const useLabelOf = () => {
 };
 
 /** Fichas de arriba a la izquierda: marca, puntos, dónde estás, a quién oyes, estado, mochila, noche y menú. */
-export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout }: HudProps) {
+export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmin, onLogout }: HudProps) {
   const zone = useOfficeStore((s) => s.zone);
   const players = useOfficeStore((s) => s.players);
   const sessionId = useOfficeStore((s) => s.sessionId);
@@ -65,6 +69,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
         {zone?.isolated && <PixelIcon name="lock" size={13} color="var(--color-cozy-wood)" />}
         {labelOf(place)}
       </div>
+
+      <WeatherChip />
 
       <HearingChip />
 
@@ -121,12 +127,24 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
         <PixelIcon name={night ? "moon" : "sun"} size={16} color={night ? "#4a3f8a" : "var(--color-cozy-gold)"} />
       </button>
 
+      <SoundControl />
+
       <div className="relative">
-        <button onClick={() => setShowMenu((v) => !v)} aria-label="Menú" aria-expanded={showMenu} className="cozy-btn h-[34px] w-[34px] p-0">
+        <button
+          onClick={() => {
+            if (showMenu) sfx.uiClose();
+            else sfx.uiOpen();
+            setShowMenu(!showMenu);
+          }}
+          aria-label="Menú"
+          aria-expanded={showMenu}
+          className="cozy-btn h-[34px] w-[34px] p-0"
+        >
           <PixelIcon name="menu" size={16} />
         </button>
         {showMenu && (
           <div className="cozy-panel absolute top-full right-0 z-30 mt-3 w-52 p-2" onClick={() => setShowMenu(false)}>
+            <MenuItem onClick={onMyProfile}>Mi perfil y logros</MenuItem>
             <MenuItem onClick={onEditCharacter}>Mi personaje</MenuItem>
             <MenuItem onClick={onEditProfile}>Editar perfil</MenuItem>
             {isAdmin && <MenuItem onClick={onAdmin}>Administrar equipo</MenuItem>}
@@ -135,6 +153,28 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Ícono y color de cada clima (despejado de noche es la luna). */
+const WEATHER_ICON: Record<Weather, { icon: PixelIconName; color: string }> = {
+  despejado: { icon: "sun", color: "var(--color-cozy-gold)" },
+  nublado: { icon: "cloud", color: "#8a8a96" },
+  lluvia: { icon: "rain", color: "var(--color-cozy-sky)" },
+  tormenta: { icon: "storm", color: "#4a3f8a" },
+  niebla: { icon: "fog", color: "#a8977f" },
+};
+
+/** El clima de afuera (lo decide el servidor: todos ven el mismo). */
+function WeatherChip() {
+  const weather = useOfficeStore((s) => s.weather);
+  const night = useOfficeStore((s) => s.night);
+  const { icon, color } = weather === "despejado" && night ? { icon: "moon" as const, color: "#4a3f8a" } : WEATHER_ICON[weather];
+  return (
+    <div className="cozy-chip flex items-center gap-1.5 px-3 py-1.5" title="El clima de afuera">
+      <PixelIcon name={icon} size={14} color={color} />
+      {WEATHER_TEXT[weather]}
     </div>
   );
 }
@@ -173,6 +213,7 @@ export function PeoplePanel() {
   const sessionId = useOfficeStore((s) => s.sessionId);
   const place = useOfficeStore((s) => s.place);
   const labelOf = useLabelOf();
+  const openProfile = useAchievementStore((s) => s.openProfile);
   // En pantallas angostas empieza plegado para no tapar el mapa.
   const [open, setOpen] = useState(() => typeof window === "undefined" || window.innerWidth >= 900);
   // Yo primero; el resto por nombre.
@@ -196,15 +237,23 @@ export function PeoplePanel() {
       {open && (
         <ul className="cozy-scroll max-h-[45vh] overflow-y-auto">
           {people.map((p) => (
-            <li key={p.sessionId} className="flex items-center gap-2.5 border-b-2 border-cozy-paper-dark px-2.5 py-2 last:border-b-0">
-              <StatusDot status={p.status} title={STATUS_LABEL[p.status]} />
-              <span className="min-w-0 flex-1 truncate text-[14px]">
-                {p.name}
-                {p.sessionId === sessionId && " (tú)"}
-              </span>
-              <span className="max-w-[45%] truncate text-[12px] text-cozy-ink-soft">
-                {labelOf(p.sessionId === sessionId ? place : p.place)}
-              </span>
+            <li key={p.sessionId} className="flex items-center border-b-2 border-cozy-paper-dark pr-2 last:border-b-0">
+              {/* Clic en alguien: su perfil (estadísticas y logros). */}
+              <button
+                type="button"
+                onClick={() => openProfile(p.sessionId === sessionId ? "me" : p.userId)}
+                title={`Ver el perfil de ${p.name}`}
+                className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2 text-left hover:bg-cozy-paper-dark"
+              >
+                <StatusDot status={p.status} title={STATUS_LABEL[p.status]} />
+                <span className="min-w-0 flex-1 truncate text-[14px]">
+                  {p.name}
+                  {p.sessionId === sessionId && " (tú)"}
+                </span>
+                <span className="max-w-[45%] truncate text-[12px] text-cozy-ink-soft">
+                  {labelOf(p.sessionId === sessionId ? place : p.place)}
+                </span>
+              </button>
               {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>
           ))}

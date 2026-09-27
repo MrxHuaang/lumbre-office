@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { getWorld } from "@hyvento/map";
-import { CLOSE_CODE, MSG, ROOM_NAME, signGameToken, type ChatEvent, type MoveCorrection } from "@hyvento/shared";
+import { CLOSE_CODE, isWeather, MSG, ROOM_NAME, signGameToken, type ChatEvent, type MoveCorrection } from "@hyvento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
@@ -57,6 +57,8 @@ describe("OfficeRoom: ingreso y sesiones", () => {
     expect(p.area).toBe("jardin");
     expect(p.zoneId).toBe("jardin");
     expect(room.state.players.size).toBe(2);
+    // El clima de afuera ya viene en el estado.
+    expect(isWeather(room.state.weather)).toBe(true);
   });
 
   it("una misma persona en otra pestaña reemplaza su sesión anterior", async () => {

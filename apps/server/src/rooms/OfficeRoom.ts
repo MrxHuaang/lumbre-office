@@ -79,6 +79,8 @@ import {
   CONSUME,
   menuRefId,
   formatHeldLeft,
+  DRUNK,
+  type DrunkBlackoutEvent,
   menuItem,
   type FurnitureEvent,
   type HeldUsedEvent,
@@ -91,6 +93,20 @@ import {
   type PetEvent,
   ClockPingMessage,
   type ClockPong,
+  drinkPart,
+  parseHeldLeft,
+  SWIVEL,
+  SwivelMessage,
+  TOAST,
+  ToastMessage,
+  type SwivelEvent,
+  type ToastResult,
+  type ToastTimings,
+  ALCOHOL_PER_SIP,
+  STAT_KEYS,
+  STAT_PREFIX,
+  type AchievementUnlockedEvent,
+  type FishSpecies,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
@@ -99,9 +115,13 @@ import { OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
-import { devToolsEnabled, parseDevJump } from "./devtools";
+import { Drunkenness } from "./drunk";
+import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
+import { Toasts, type Toaster } from "./toasts";
+import { devToolsEnabled, parseDevJump, parseDevWeather } from "./devtools";
+import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
-import { FISHING, type FishingTimings } from "@hyvento/shared";
+import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
 import { Fishery } from "./fishing";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
@@ -109,6 +129,8 @@ import { CasaViva } from "./casa";
 import { Pets, type PetUser } from "./mascotas";
 import { Arcade } from "./arcade";
 import { Club, type ClubWho } from "./club";
+import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
+import { AchievementTracker } from "./achievements";
 
 interface UserData {
   lastMoveAt: number;
@@ -188,12 +210,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static arcadeSeed: () => number = () => randomInt(2 ** 31);
   /** Reloj del arcade (los tests lo adelantan para no esperar la duración mínima de una partida). */
   static arcadeNow: () => number = () => Date.now();
+  /** Azar y reloj del clima (los tests los fijan); `weatherInitial` null = según la hora de Bogotá. */
+  static weatherRandom: () => number = () => randomInt(2 ** 30) / 2 ** 30;
+  static weatherNow: () => number = () => Date.now();
+  static weatherInitial: Weather | null = null;
+  /** Cada cuánto se guardan juntas las estadísticas de los logros (los tests lo acortan). */
+  static statsFlushMs = 20_000;
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
   static applyWorldEditsEverywhere(area: string, edits: WorldEdits) {
     for (const r of OfficeRoom.instances) r.applyWorldEdits(area, edits);
   }
+
+  /** Se subió o se borró una foto (lo avisa la web): todos vuelven a pedir la lista del tablón. */
+  static broadcastPhotosChanged() {
+    for (const r of OfficeRoom.instances) r.broadcast(MSG.photosChanged, {});
+  }
+
+  /** Cuenta regresiva y pausa entre fotos (los tests las acortan). */
+  static photoTimings: { countdownMs: number; cooldownMs: number } = { ...PHOTO_TIMINGS };
 
   static async reloadCasinoSettingsEverywhere() {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadCasinoSettings()));
@@ -226,6 +262,57 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
     () => OfficeRoom.consumeCooldownMs,
   );
+  /** Cuánto alcohol lleva cada persona (por userId: recargar no te deja sobrio). */
+  private drunk = new Drunkenness(
+    { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+    () => Date.now(),
+    {
+      onChange: (userId, stage) => {
+        for (const p of this.state.players.values()) if (p.userId === userId) p.drunk = stage;
+      },
+      onBlackout: (userId) => this.blackout(userId),
+      onWake: (userId) => this.wakeToRest(userId),
+    },
+    () => OfficeRoom.faintMs,
+  );
+  /** El clima de afuera (lo ven todos: `state.weather`). */
+  private weather = new WeatherCycle(
+    {
+      clock: { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+      now: () => OfficeRoom.weatherNow(),
+      random: () => OfficeRoom.weatherRandom(),
+      onChange: (w) => {
+        this.state.weather = w;
+      },
+    },
+    OfficeRoom.weatherInitial ?? initialWeather(OfficeRoom.weatherNow()),
+  );
+  /** Lo que dura un desmayo (los tests lo acortan). */
+  static faintMs: number = DRUNK.faintMs;
+  /** Tiempos del brindis (los tests los acortan). */
+  static toastTimings: ToastTimings = { ...TOAST };
+  /** Brindis abiertos: invitaciones que se vencen y grupos que chocan los vasos. */
+  private toasts = new Toasts(
+    { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+    () => Date.now(),
+    {
+      person: (userId) => {
+        for (const [sessionId, p] of this.state.players) if (p.userId === userId) return this.toaster(sessionId, p);
+        return undefined;
+      },
+      people: (area) => [...this.state.players].filter(([, p]) => p.area === area).map(([id, p]) => this.toaster(id, p)),
+      send: (area, event) => this.sendToArea(area, MSG.toastEvent, event),
+      sip: (userId) => this.toastSip(userId),
+    },
+    () => OfficeRoom.toastTimings,
+  );
+  /** Tiempos de las sillas giratorias y cuántas vueltas da cada giro (los tests los fijan). */
+  static swivelTimings: SwivelTimings = { ...DEFAULT_SWIVEL_TIMINGS };
+  static swivelTurns: () => number = () => randomInt(SWIVEL.minTurns, SWIVEL.maxTurns + 1);
+  private swivels = new Swivels(
+    () => OfficeRoom.swivelTurns(),
+    () => OfficeRoom.swivelTimings,
+  );
   /** Muebles que se usan (tele, lámparas, instrumentos, gato). */
   private furnitureUses!: FurnitureUses;
   /** La pesca en el lago del jardín (ver fishing.ts). */
@@ -249,7 +336,41 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         p.points = balance;
         if (awarded > 0) c.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded);
       }
+      this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
     },
+    caught: (userId, fish, size, first, treasure) => this.fishCaught(userId, fish, size, first, treasure),
+  });
+  /** Estadísticas y logros (ver achievements.ts): se suman en memoria y se guardan juntas. */
+  private achievements = new AchievementTracker({
+    repo: () => this.repo,
+    onUnlock: (userId, achievement) => {
+      for (const [sessionId, p] of this.state.players) {
+        if (p.userId !== userId) continue;
+        this.sendToArea(p.area, MSG.achievementUnlocked, { sessionId, name: p.name, achievementId: achievement.id } satisfies AchievementUnlockedEvent);
+      }
+    },
+  });
+
+  /** Fotos: la cuenta 3-2-1, quiénes salen y el ticket para subirla (ver photos.ts). */
+  private photos = new PhotoBooth({
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    now: () => Date.now(),
+    newId: () => randomUUID(),
+    secret: gameTokenSecret,
+    timings: () => OfficeRoom.photoTimings,
+    subject: (sessionId) => {
+      const p = this.state.players.get(sessionId);
+      return p ? { sessionId, userId: p.userId, name: p.name, area: p.area, x: p.x, y: p.y } : null;
+    },
+    inArea: (area) =>
+      [...this.state.players.entries()]
+        .filter(([, p]) => p.area === area)
+        .map(([sessionId, p]) => ({ sessionId, userId: p.userId, name: p.name, area: p.area, x: p.x, y: p.y })),
+    toArea: (area, type, message) => {
+      for (const c of this.clients) if (this.state.players.get(c.sessionId)?.area === area) c.send(type, message);
+    },
+    toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
+    messages: { countdown: MSG.photoCountdown, shot: MSG.photoShot, flash: MSG.photoFlash },
   });
   /** Intercambios en vivo entre dos personas cerca (fase 5). */
   private trades = new Trades({
@@ -325,6 +446,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
     this.onMessage(PET_MSG.call, (client, raw) => this.handlePet(client, raw, "call"));
     this.onMessage(PET_MSG.action, (client, raw) => this.handlePet(client, raw, "action"));
+    this.onMessage(MSG.toast, (client, raw) => this.handleToast(client, raw));
+    this.onMessage(MSG.swivel, (client, raw) => this.handleSwivel(client, raw));
     this.onMessage(MSG.officeEdit, (client, raw) => {
       this.serial(() => this.handleOfficeEdit(client, raw)).catch((err) => {
         // Un error inesperado igual se responde: si no, el editor se queda esperando.
@@ -339,6 +462,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       });
     });
     this.onMessage(MSG.emote, (client, raw) => this.handleEmote(client, raw));
+    this.onMessage(MSG.photoTake, (client) => {
+      this.markActive(client);
+      this.photos.take(client.sessionId);
+    });
     this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
     this.onMessage(MSG.blackjackBet, (client, raw) => void this.handleBlackjack(client, raw, "bet"));
     this.onMessage(MSG.blackjackAction, (client, raw) => void this.handleBlackjack(client, raw, "action"));
@@ -365,6 +492,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Quien se fue, cambió de nivel o se alejó deja de bailar (moverse ya lo revisa; esto cubre el resto).
     this.clock.setInterval(() => this.club.sweep(this.state.players), 500);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
+    this.weather.start();
+    this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
@@ -377,6 +506,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   onDispose() {
     OfficeRoom.instances.delete(this);
+    this.drunk.dispose();
+    this.toasts.dispose();
+    this.weather.dispose();
+    void this.achievements.flushAll();
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -416,9 +549,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
+    player.drunk = this.drunk.stage(auth.sub);
     this.state.players.set(client.sessionId, player);
 
     client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now(), admin: auth.role === "ADMIN" };
+    void this.achievements.load(auth.sub).then(() => {
+      this.achievements.visit(auth.sub, area);
+      this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
+    });
     client.send(MSG.chatHistory, this.globalHistory);
     // La hora del servidor, para que el cliente calcule bien los conteos regresivos (la ruleta).
     client.send(MSG.clock, { now: Date.now() });
@@ -707,6 +845,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.syncItems(current, result.items);
     }
     this.rebuildArea(areaId);
+    this.achievements.bump(player.userId, STAT_KEYS.decorEdits);
     reply({ ok: true });
   }
 
@@ -776,6 +915,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       timer,
     });
     owner.send(MSG.knockRequest, { requestId, zoneId: office.zoneId, fromName: player.name } satisfies KnockRequest);
+    this.achievements.bump(player.userId, STAT_KEYS.knocks);
   }
 
   private handleKnockRespond(client: Client<UserData>, raw: unknown) {
@@ -817,6 +957,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const seated = parsed.data.seated ?? false;
 
     const map = this.mapOf(player.area);
+    // Desmayado no se mueve (el cliente ya lo sabe; esto es por si insiste).
+    if (this.drunk.fainted(player.userId)) {
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y } satisfies MoveCorrection);
+      return;
+    }
     const now = Date.now();
     const dt = (now - client.userData.lastMoveAt) / 1000;
     client.userData.lastMoveAt = now;
@@ -859,6 +1004,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.fishery.moved(player.userId, x, y, seated);
     this.trades.moved(client.sessionId);
     this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
+    if (!seated && !fromSeat && dist > 0) this.achievements.walk(player.userId, dist / map.tileSize);
   }
 
   /** Pasar a otro nivel por un portal: hay que estar parado junto a él. */
@@ -868,7 +1014,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !parsed.success || !client.userData) return;
     const map = this.mapOf(player.area);
     const portal = map.portals.find((p) => p.id === parsed.data.portal);
-    if (!portal || player.seated || !nearPortal(map, portal, player.x, player.y)) {
+    if (!portal || player.seated || this.drunk.fainted(player.userId) || !nearPortal(map, portal, player.x, player.y)) {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       return;
     }
@@ -887,8 +1033,57 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.revokeGuestOnExit(player, previousZoneId);
     client.userData.lastMoveAt = Date.now();
     this.fishery.cancel(player.userId);
+    this.achievements.visit(player.userId, target.id);
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
     this.trades.moved(client.sessionId);
+  }
+
+  /** Se pasó de tragos: se le cae lo que tenía en la mano, vomita y queda en el piso (lo ve su nivel). */
+  private blackout(userId: string) {
+    this.achievements.bump(userId, STAT_KEYS.blackouts);
+    this.held.drop(userId);
+    this.fishery.cancel(userId);
+    for (const [sessionId, p] of this.state.players) {
+      if (p.userId !== userId) continue;
+      p.moving = false;
+      p.seated = false;
+      this.sendToArea(p.area, MSG.drunkBlackout, { sessionId } satisfies DrunkBlackoutEvent);
+    }
+  }
+
+  /**
+   * Se despierta del desmayo descansando en la casa: sentado en un asiento libre de la zona de descanso del
+   * piso 2 (o de pie ahí mismo, si están todos ocupados).
+   */
+  private wakeToRest(userId: string) {
+    const map = this.mapOf(DRUNK.restArea);
+    const restSeats = [...map.seats.values()].filter((s) => zoneAt(map, s.x, s.y)?.id === DRUNK.restZone);
+    for (const [sessionId, player] of this.state.players) {
+      if (player.userId !== userId) continue;
+      const free = restSeats.filter((s) => !this.seatTaken(sessionId, s.x, s.y));
+      // Los sofás primero (se descansa mejor que en una banqueta).
+      const seat = free.find((s) => s.type.includes("sofa")) ?? free[0];
+      const near = restSeats[0] ?? { x: map.tileSize, y: map.tileSize };
+      const pos = seat ?? this.freeSpotNear(map, near.x, near.y);
+      const previousZoneId = player.zoneId;
+      player.area = map.id;
+      player.x = pos.x;
+      player.y = pos.y;
+      player.moving = false;
+      player.seated = Boolean(seat);
+      if (seat) player.dir = seat.facing;
+      player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
+      player.place = placeAt(map, pos.x, pos.y);
+      this.revokeGuestOnExit(player, previousZoneId);
+      const client = this.clients.getById(sessionId);
+      if (client?.userData) client.userData.lastMoveAt = Date.now();
+      client?.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: map.id, seated: Boolean(seat) } satisfies MoveCorrection);
+    }
+    // Despertó en la zona de descanso (una vez por desmayo, aunque tenga dos pestañas).
+    if ([...this.state.players.values()].some((p) => p.userId === userId)) {
+      this.achievements.bump(userId, STAT_KEYS.sofaNaps);
+      this.achievements.visit(userId, map.id);
+    }
   }
 
   /** ¿Hay otra persona sentada en (x, y)? */
@@ -945,7 +1140,21 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(target, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(target, pos.x, pos.y);
     client.userData!.lastMoveAt = Date.now();
+    this.achievements.visit(player.userId, target.id);
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
+    return true;
+  }
+
+  /** Solo en desarrollo: "/clima <tipo>" pone ese clima ya (ver devtools.ts). Devuelve si era el comando. */
+  private devWeather(client: Client<UserData>, text: string): boolean {
+    const w = parseDevWeather(text);
+    if (!w) return false;
+    if (typeof w === "object") {
+      const note: ChatEvent = { id: randomUUID(), fromId: "", fromName: "Dev", text: w.error, scope: "proximity", zoneId: null, ts: Date.now() };
+      client.send(MSG.chatEvent, note);
+      return true;
+    }
+    this.weather.force(w);
     return true;
   }
 
@@ -959,7 +1168,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (times.length >= CHAT_RATE.max) return;
     times.push(now);
     client.userData.chatTimes = times;
-    if (devToolsEnabled() && this.devJump(client, player, parsed.data.text)) return;
+    if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text))) return;
+    this.achievements.bump(player.userId, STAT_KEYS.chatMessages);
 
     const event: ChatEvent = {
       id: randomUUID(),
@@ -1007,6 +1217,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const player = this.state.players.get(client.sessionId);
       const data = client.userData as UserData | undefined;
       if (!player || !data || player.status === "away" || now - data.lastActiveAt > OfficeRoom.idleMs) continue;
+      this.countPresence(player, now);
       await this.award(client, player, POINTS.presence, "PRESENCE");
       const zone = this.zonesById.get(player.zoneId);
       if (zone?.type === "meeting" && (inZone.get(zone.id) ?? 0) >= 2) await this.award(client, player, POINTS.meeting, "MEETING");
@@ -1018,9 +1229,20 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const { awarded, balance } = await this.repo.awardPoints({ userId: player.userId, amount, reason });
       player.points = balance;
       if (awarded > 0) client.send(MSG.pointsAwarded, { amount: awarded, reason, balance } satisfies PointsAwarded);
+      this.achievements.max(player.userId, STAT_KEYS.pointsPeak, balance);
     } catch (err) {
       console.error("awardPoints", err);
     }
+  }
+
+  /** Tiempo activo en la cabaña (y en cada nivel y zona), y si es de madrugada o de noche. */
+  private countPresence(player: Player, now: number) {
+    const secs = Math.max(1, Math.round(OfficeRoom.presenceTickMs / 1000));
+    const { userId } = player;
+    this.achievements.bump(userId, STAT_KEYS.secondsOnline, secs);
+    this.achievements.bump(userId, `${STAT_PREFIX.secArea}${player.area}`, secs);
+    if (player.zoneId) this.achievements.bump(userId, `${STAT_PREFIX.secZone}${player.zoneId}`, secs);
+    this.achievements.activeAt(userId, now);
   }
 
   private async reloadPoints(userId: string) {
@@ -1028,6 +1250,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (players.length === 0) return;
     const balance = await this.repo.getPoints(userId);
     for (const p of players) p.points = balance;
+    // La web pudo sumar estadísticas (racha del buzón, misiones): se releen y se revisan los logros.
+    await this.achievements.refresh(userId).catch((err) => console.error("achievements.refresh", err));
+    this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
   }
 
   // ---------- Casino ----------
@@ -1053,8 +1278,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       setPoints: (userId, balance) => {
         for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
       },
-      notify: (userId, settled: RouletteSettled) => {
+      notify: (userId, settled: RouletteSettled, extra) => {
         for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.rouletteSettled, settled);
+        this.casinoSettled(userId, settled.staked, settled.won);
+        if (extra.straight) this.achievements.bump(userId, STAT_KEYS.rouletteStraights);
       },
       timings: () => OfficeRoom.rouletteTimings,
       spin: () => OfficeRoom.rouletteSpin(),
@@ -1070,10 +1297,25 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
       notify: (userId, settled: BlackjackSettled) => {
         for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.blackjackSettled, settled);
+        this.casinoSettled(userId, settled.staked, settled.won);
+        if (settled.outcome === "blackjack") this.achievements.bump(userId, STAT_KEYS.blackjackNaturals);
       },
       timings: () => OfficeRoom.blackjackTimings,
       shuffle: () => OfficeRoom.blackjackShuffle(),
     });
+  }
+
+  /** Cerró una ronda del casino: lo apostado, lo devuelto, lo perdido y la mejor ganancia. */
+  private casinoSettled(userId: string, staked: number, won: number) {
+    if (staked <= 0) return;
+    const a = this.achievements;
+    a.bump(userId, STAT_KEYS.casinoBets);
+    a.bump(userId, STAT_KEYS.casinoWagered, staked);
+    a.bump(userId, STAT_KEYS.casinoReturned, won);
+    if (won < staked) a.bump(userId, STAT_KEYS.casinoLost, staked - won);
+    else a.max(userId, STAT_KEYS.casinoBestWin, won - staked);
+    const p = [...this.state.players.values()].find((x) => x.userId === userId);
+    if (p) a.max(userId, STAT_KEYS.pointsPeak, p.points);
   }
 
   /** Asiento del blackjack donde está sentada la persona (índice de BLACKJACK_SEATS), o null. */
@@ -1115,6 +1357,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastEmoteAt = now;
     client.userData.lastActiveAt = now;
     const event: EmoteEvent = { sessionId: client.sessionId, emote: parsed.data.emote };
+    this.achievements.bump(player.userId, STAT_KEYS.emotes);
+    if (parsed.data.emote === "dance") this.achievements.bump(player.userId, STAT_KEYS.dances);
     for (const other of this.clients) {
       if (this.state.players.get(other.sessionId)?.area === player.area) other.send(MSG.emoteEvent, event);
     }
@@ -1156,6 +1400,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const p of this.state.players.values()) if (p.userId === userId) p.points = result.balance;
     if (!result.ok) return reply({ ok: false, item: item.id, error: "funds" });
     this.held.give(userId, item.id);
+    const a = this.achievements;
+    a.bump(userId, menu === "cafe" ? STAT_KEYS.cafeOrders : STAT_KEYS.barOrders);
+    a.bump(userId, `${STAT_PREFIX.order}${item.id}`);
+    const holds: readonly string[] = item.holds;
+    if (holds.includes("tinto") || holds.includes("cafe-leche")) a.bump(userId, STAT_KEYS.coffees);
+    if (holds.includes("habano")) a.bump(userId, STAT_KEYS.habanos);
     reply({ ok: true, item: item.id, balance: result.balance });
   }
 
@@ -1167,9 +1417,70 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const now = Date.now();
     const used = this.held.use(player.userId, now, parsed.data?.part);
     if (!used.ok) return;
+    this.countUse(player.userId, used.art, used.action);
+    this.drunk.consumed(player.userId, used.art);
     client.userData.lastActiveAt = now;
     const event: HeldUsedEvent = { sessionId: client.sessionId, part: used.part, art: used.art, action: used.action, left: used.left };
     this.sendToArea(player.area, MSG.heldUsed, event);
+  }
+
+  // ---------- Brindis ----------
+
+  /** Cómo ve el brindis a alguien: dónde está y si tiene una bebida con sorbos (desmayado, no). */
+  private toaster(sessionId: string, p: Player): Toaster {
+    const drink = !this.drunk.fainted(p.userId) && drinkPart(p.held, parseHeldLeft(p.heldLeft)) >= 0;
+    return { userId: p.userId, sessionId, area: p.area, x: p.x, y: p.y, drink };
+  }
+
+  /** El sorbo del brindis: como usar lo de la mano (F), sin esperar la pausa, y suma alcohol si lleva. */
+  private toastSip(userId: string) {
+    let sessionId: string | undefined;
+    let player: Player | undefined;
+    for (const [id, p] of this.state.players) if (p.userId === userId) [sessionId, player] = [id, p];
+    const held = this.held.get(userId);
+    const part = held ? drinkPart(held.item, held.left) : -1;
+    if (!sessionId || !player || part < 0) return null;
+    const used = this.held.use(userId, Date.now(), part, { skipCooldown: true });
+    if (!used.ok) return null;
+    this.drunk.consumed(userId, used.art);
+    // Cada vaso que choca es un brindis (logro "¡Salud!") y un sorbo más.
+    this.achievements.bump(userId, STAT_KEYS.toasts);
+    this.countUse(userId, used.art, used.action);
+    return { sessionId, part: used.part, left: used.left };
+  }
+
+  /** Brindar (B): invita a los de al lado con bebida, o se suma a un brindis que está abierto cerca. */
+  private handleToast(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData || !ToastMessage.safeParse(raw).success) return;
+    client.userData.lastActiveAt = Date.now();
+    const result = this.toasts.raise(player.userId);
+    if (!result.ok) client.send(MSG.toastResult, { ok: false, error: result.error } satisfies ToastResult);
+  }
+
+  // ---------- Sillas giratorias ----------
+
+  /** Girar en la silla (R): sentado en la silla de escritorio que mira al PC. Lo ven los del nivel. */
+  private handleSwivel(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData || !SwivelMessage.safeParse(raw).success) return;
+    const seat = player.seated ? seatAtPoint(this.mapOf(player.area), player.x, player.y) : undefined;
+    const now = Date.now();
+    const result = this.swivels.spin(player.userId, seat, now);
+    if (!result.ok) return;
+    client.userData.lastActiveAt = now;
+    this.achievements.bump(player.userId, STAT_KEYS.chairSpins, result.turns);
+    // Tantas vueltas seguidas marean un poco (como el alcohol, pero sin pasar de "mareado").
+    if (result.dizzy) this.drunk.dizzy(player.userId, SWIVEL.dizzyUnits, SWIVEL.dizzyCap);
+    const event: SwivelEvent = { sessionId: client.sessionId, turns: result.turns, dizzy: result.dizzy };
+    this.sendToArea(player.area, MSG.swivelEvent, event);
+  }
+
+  private countUse(userId: string, art: string, action: string) {
+    const a = this.achievements;
+    a.bump(userId, action === "smoke" ? STAT_KEYS.puffs : action === "sip" ? STAT_KEYS.sips : STAT_KEYS.bites);
+    a.bump(userId, `${STAT_PREFIX.use}${art}`);
+    if (ALCOHOL_PER_SIP[art]) a.bump(userId, STAT_KEYS.alcoholSips);
   }
 
   // ---------- Muebles que se usan ----------
@@ -1187,6 +1498,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       return;
     }
     client.userData.lastActiveAt = now;
+    this.countFurniture(player.userId, result);
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
       this.sendToArea(player.area, MSG.furnitureEvent, event);
@@ -1239,6 +1551,29 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sendToArea(player.area, PET_MSG.event, { pet, sessionId: client.sessionId, action } satisfies PetEvent);
   }
 
+  /** Tocar el piano, acariciar al gato, poner un disco, prender la tele o una lámpara. */
+  private countFurniture(userId: string, result: Extract<ReturnType<FurnitureUses["use"]>, { ok: true }>) {
+    const type = result.kind === "event" ? result.event.type : (result.key.split(":")[1] ?? "");
+    const toggledOn = result.kind === "toggle" && result.on;
+    const key: string | null =
+      type === "piano"
+        ? STAT_KEYS.pianoPlays
+        : type === "guitar"
+          ? STAT_KEYS.guitarPlays
+          : type === "cat-bed"
+            ? STAT_KEYS.catPets
+            : type === "record-player"
+              ? toggledOn
+                ? STAT_KEYS.recordsPlayed
+                : null
+              : type === "tv-retro"
+                ? STAT_KEYS.tvToggles
+                : type.includes("lamp")
+                  ? STAT_KEYS.lightsToggled
+                  : null;
+    if (key) this.achievements.bump(userId, key);
+  }
+
   private sendToArea(area: string, type: string, message: unknown) {
     for (const other of this.clients) {
       if (this.state.players.get(other.sessionId)?.area === area) other.send(type, message);
@@ -1254,6 +1589,21 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastActiveAt = Date.now();
     const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
     this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near);
+  }
+
+  /** Sacó algo del lago: peces, basura, botas, legendarios, especies nuevas y el más grande. */
+  private fishCaught(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean) {
+    const a = this.achievements;
+    if (fish.rarity === "basura") {
+      a.bump(userId, STAT_KEYS.fishTrash);
+      if (fish.id === "bota") a.bump(userId, STAT_KEYS.boots);
+      return;
+    }
+    a.bump(userId, STAT_KEYS.fishCaught);
+    if (first) a.bump(userId, STAT_KEYS.fishSpecies);
+    if (fish.rarity === "legendario") a.bump(userId, STAT_KEYS.legendaryFish);
+    if (treasure) a.bump(userId, STAT_KEYS.fishTreasures);
+    a.max(userId, STAT_KEYS.fishBestCm, size);
   }
 
   private withFisher(client: Client<UserData>, fn: (userId: string) => void) {
@@ -1330,6 +1680,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (stillHere) return;
     this.fishery.forget(player.userId);
     this.casa.forget(player.userId);
+    this.swivels.forget(player.userId);
+    void this.achievements.forget(player.userId);
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);
