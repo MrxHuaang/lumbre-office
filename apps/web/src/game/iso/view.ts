@@ -409,6 +409,9 @@ export class AreaView {
     if ((this.privateRoom?.key ?? "") === key) return;
     for (const o of this.privateRoom?.objects ?? []) o.destroy();
     this.privateRoom = null;
+    // Los muebles de afuera se esconden: los altos del pasillo (un reloj, una planta) asomarían por el hueco.
+    const inside = (f: PlacedFurniture) => !rect || (f.x >= rect.x && f.y >= rect.y && f.x < rect.x + rect.w && f.y < rect.y + rect.h);
+    for (const { f, img } of this.furnitureImages) img.setVisible(inside(f));
     if (!rect) return;
     const objects: Phaser.GameObjects.GameObject[] = [];
     const ts = this.map.tileSize;
