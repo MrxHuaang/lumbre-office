@@ -100,6 +100,7 @@ import {
   SWIVEL,
   SwivelMessage,
   CLUB_VIDEO,
+  BOARD,
   ClubQueueMessage,
   ClubReactMessage,
   isPlaying,
@@ -139,6 +140,7 @@ import { Pets, type PetUser } from "./mascotas";
 import { Arcade } from "./arcade";
 import { Club, musicOf, type ClubWho } from "./club";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
+import { Whiteboards, type BoardWho } from "./whiteboards";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 
@@ -318,6 +320,19 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** Cómo se averigua el título de un video de YouTube (los tests no salen a internet). */
   static youtubeLookup: YoutubeLookup = lookupYoutube;
+  /** Cuánto se espera sin cambios para guardar una pizarra (los tests lo acortan). */
+  static boardSaveDelayMs: number = BOARD.saveDelayMs;
+  /** Pizarras de las oficinas y de la sala de reuniones (ver whiteboards.ts). */
+  private whiteboards = new Whiteboards(
+    {
+      send: (sessionId, type, msg) => this.clients.getById(sessionId)?.send(type, msg),
+      load: (board) => this.repo.loadBoard(board),
+      save: (board, strokes) => this.repo.saveBoard(board, strokes),
+      later: (ms, fn) => this.clock.setTimeout(fn, ms),
+      saveDelayMs: () => OfficeRoom.boardSaveDelayMs,
+    },
+    { state: MSG.boardState, stroke: MSG.boardStrokeEvent, remove: MSG.boardRemove },
+  );
   /** Cuándo puede volver a reaccionar cada persona en el club. */
   private reactAt = new Map<string, number>();
   /** Tiempos de las sillas giratorias y cuántas vueltas da cada giro (los tests los fijan). */
@@ -451,6 +466,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.profileChanged, (client) => void this.handleProfileChanged(client));
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.officeNote, (client, raw) => this.handleOfficeNote(client, raw));
+    this.onMessage(MSG.boardOpen, (client, raw) => this.withBoard(client, (who) => this.whiteboards.open(who, raw)));
+    this.onMessage(MSG.boardClose, (client, raw) => this.whiteboards.close(client.sessionId, raw));
+    this.onMessage(MSG.boardStroke, (client, raw) => this.withBoard(client, (who) => this.whiteboards.stroke(who, raw, Date.now())));
+    this.onMessage(MSG.boardUndo, (client, raw) => this.withBoard(client, (who) => this.whiteboards.undo(who, raw)));
+    this.onMessage(MSG.boardClear, (client, raw) => this.withBoard(client, (who) => this.whiteboards.clear(who, raw)));
     this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
     this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
@@ -531,6 +551,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.toasts.dispose();
     this.weather.dispose();
     void this.achievements.flushAll();
+    void this.whiteboards.flush();
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -899,6 +920,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.repo.setOfficeLocked(office.zoneId, office.locked).catch((err) => console.error("setOfficeLocked", err));
   }
 
+  /** Quién usa una pizarra: la zona donde tiene los pies, su tipo y si es el dueño de esa oficina. */
+  private withBoard(client: Client<UserData>, fn: (who: BoardWho) => Promise<void>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const zone = zoneAt(this.mapOf(player.area), player.x, player.y);
+    client.userData.lastActiveAt = Date.now();
+    const who: BoardWho = {
+      sessionId: client.sessionId,
+      userId: player.userId,
+      zoneId: zone?.id ?? "",
+      zoneType: zone?.type ?? "",
+      owner: Boolean(zone && this.state.offices.get(zone.id)?.ownerId === player.userId),
+    };
+    fn(who).catch((err) => console.error("pizarra", err));
+  }
+
   /** La nota de la placa de la puerta: solo el dueño de la oficina, una línea corta. */
   private handleOfficeNote(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
@@ -1032,6 +1069,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(map, x, y)?.id ?? "";
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
+    this.whiteboards.moved(client.sessionId, player.zoneId);
     this.fishery.moved(player.userId, x, y, seated);
     this.trades.moved(client.sessionId);
     this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
@@ -1062,6 +1100,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(target, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(target, pos.x, pos.y);
     this.revokeGuestOnExit(player, previousZoneId);
+    this.whiteboards.moved(client.sessionId, player.zoneId);
     client.userData.lastMoveAt = Date.now();
     this.fishery.cancel(player.userId);
     this.achievements.visit(player.userId, target.id);
@@ -1106,6 +1145,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
       player.place = placeAt(map, pos.x, pos.y);
       this.revokeGuestOnExit(player, previousZoneId);
+      this.whiteboards.moved(sessionId, player.zoneId);
       const client = this.clients.getById(sessionId);
       if (client?.userData) client.userData.lastMoveAt = Date.now();
       client?.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: map.id, seated: Boolean(seat) } satisfies MoveCorrection);
@@ -1760,6 +1800,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(sessionId);
     this.state.players.delete(sessionId);
     this.club?.forget(sessionId);
+    this.whiteboards.forget(sessionId);
     if (!player) return;
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);

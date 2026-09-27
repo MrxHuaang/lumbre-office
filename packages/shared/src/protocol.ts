@@ -183,6 +183,16 @@ export const MSG = {
   officeLock: "office:lock",
   /** La nota de la placa de la puerta (`OfficeNoteMessage`), solo el dueño. */
   officeNote: "office:note",
+  /** Pizarras (whiteboard.ts): abrir y cerrar la de la sala, un trazo, deshacer y borrar; y lo que el
+   *  servidor manda a quienes la tienen abierta (la pizarra entera, un trazo nuevo, trazos que se van). */
+  boardOpen: "board:open",
+  boardClose: "board:close",
+  boardStroke: "board:stroke",
+  boardUndo: "board:undo",
+  boardClear: "board:clear",
+  boardState: "board:state",
+  boardStrokeEvent: "board:stroke:event",
+  boardRemove: "board:remove",
   knock: "office:knock",
   knockRequest: "office:knock:request",
   knockRespond: "office:knock:respond",

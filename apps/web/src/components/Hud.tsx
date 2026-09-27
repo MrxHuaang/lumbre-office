@@ -128,6 +128,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
       </button>
 
       <PrivateWallsButton />
+      <WhiteboardButton />
 
       <SoundControl />
 
@@ -297,6 +298,22 @@ function PrivateWallsButton() {
       aria-label={on ? "Bajar las paredes" : "Subir las paredes"}
     >
       <PixelIcon name="walls" size={16} color={on ? "var(--color-cozy-red)" : undefined} />
+    </button>
+  );
+}
+
+/** Dentro de una oficina o la sala de reuniones: abre la pizarra de esa sala. */
+function WhiteboardButton() {
+  const inRoom = useOfficeStore((s) => s.zone?.type === "office" || s.zone?.type === "meeting");
+  if (!inRoom) return null;
+  return (
+    <button
+      onClick={() => useOfficeStore.getState().openPanel("whiteboard", true)}
+      className="cozy-btn h-[34px] w-[34px] p-0"
+      title="Pizarra de la sala: dibujar con los que están aquí"
+      aria-label="Pizarra"
+    >
+      <PixelIcon name="board" size={16} />
     </button>
   );
 }

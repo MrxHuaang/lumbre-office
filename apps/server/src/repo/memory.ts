@@ -151,6 +151,13 @@ export class MemoryRepository implements GameRepository {
   async saveWorldEdits(area: string, edits: unknown) {
     this.worldEdits[area] = JSON.parse(JSON.stringify(edits));
   }
+  boards = new Map<string, unknown>();
+  async loadBoard(zoneId: string) {
+    return this.boards.get(zoneId) ?? null;
+  }
+  async saveBoard(zoneId: string, strokes: unknown) {
+    this.boards.set(zoneId, JSON.parse(JSON.stringify(strokes)));
+  }
   async getCasinoSettings() {
     return { ...this.casinoSettings };
   }

@@ -218,6 +218,15 @@ export class PrismaRepository implements GameRepository {
     await prisma.worldLayout.upsert({ where: { area }, create: { area, edits: json, updatedBy: userId }, update: { edits: json, updatedBy: userId } });
   }
 
+  async loadBoard(zoneId: string) {
+    return (await prisma.whiteboard.findUnique({ where: { zoneId } }))?.strokes ?? null;
+  }
+
+  async saveBoard(zoneId: string, strokes: unknown) {
+    const json = strokes as Prisma.InputJsonValue;
+    await prisma.whiteboard.upsert({ where: { zoneId }, create: { zoneId, strokes: json }, update: { strokes: json } });
+  }
+
   casinoBet(input: { userId: string; amount: number; refId: string }) {
     return casinoBet(prisma, input);
   }

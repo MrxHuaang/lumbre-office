@@ -81,6 +81,9 @@ export interface GameRepository {
   /** Cambios del editor de la casa, por nivel (JSON crudo: se valida al leer). */
   loadWorldEdits(): Promise<Record<string, unknown>>;
   saveWorldEdits(area: string, edits: unknown, userId: string): Promise<void>;
+  /** Trazos de la pizarra de una sala (JSON crudo: se valida al leer), o null si nunca se dibujó. */
+  loadBoard(zoneId: string): Promise<unknown>;
+  saveBoard(zoneId: string, strokes: unknown): Promise<void>;
   /** Descuenta una apuesta si alcanza el saldo. */
   casinoBet(input: { userId: string; amount: number; refId: string }): Promise<{ ok: true; balance: number } | { ok: false; error: "funds"; balance: number }>;
   /** Paga un premio del casino (o devuelve una apuesta): suma sin tope. */

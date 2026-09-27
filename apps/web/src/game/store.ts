@@ -66,7 +66,7 @@ export interface ToastPrompt {
 }
 
 /** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
-export type PanelKind = Interactable | "backpack" | "fishAlbum";
+export type PanelKind = Interactable | "backpack" | "fishAlbum" | "whiteboard";
 
 export interface OfficeView {
   zoneId: string;

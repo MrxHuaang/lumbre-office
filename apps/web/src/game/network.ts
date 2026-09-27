@@ -10,6 +10,10 @@ import {
   type HeldUsedEvent,
   type DrunkBlackoutEvent,
   type SwivelEvent,
+  type BoardRemoveEvent,
+  type BoardStateEvent,
+  type BoardStrokeEvent,
+  type BoardStrokeInput,
   type ToastEvent,
   type ToastResult,
   TOAST_ERROR_TEXT,
@@ -252,6 +256,24 @@ export function onSwivelEvent(cb: (e: SwivelEvent) => void) {
 /** Girar en la silla (R): el servidor valida que esté sentado en una que gira y la pausa. */
 export function sendSwivel() {
   room?.send(MSG.swivel);
+}
+
+/** Lo que llega de la pizarra abierta: la pizarra entera, un trazo nuevo o trazos que se van. */
+export type BoardEvent = ({ kind: "state" } & BoardStateEvent) | ({ kind: "stroke" } & BoardStrokeEvent) | ({ kind: "remove" } & BoardRemoveEvent);
+const boardListeners = new Set<(e: BoardEvent) => void>();
+export function onBoardEvent(cb: (e: BoardEvent) => void) {
+  boardListeners.add(cb);
+  return () => boardListeners.delete(cb);
+}
+
+/** Abrir o cerrar la pizarra de la sala, deshacer mi último trazo o borrarla entera. */
+export function sendBoard(action: "open" | "close" | "undo" | "clear", board: string) {
+  const type = { open: MSG.boardOpen, close: MSG.boardClose, undo: MSG.boardUndo, clear: MSG.boardClear }[action];
+  room?.send(type, { board });
+}
+
+export function sendBoardStroke(board: string, stroke: BoardStrokeInput) {
+  room?.send(MSG.boardStroke, { board, stroke });
 }
 
 const achievementListeners = new Set<(e: AchievementUnlockedEvent) => void>();
@@ -701,6 +723,9 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.toastEvent, (e: ToastEvent) => toastListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.toastResult, (res: ToastResult) => useOfficeStore.getState().notify(TOAST_ERROR_TEXT[res.error], "info"));
   r.onMessage(MSG.swivelEvent, (e: SwivelEvent) => swivelListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.boardState, (e: BoardStateEvent) => boardListeners.forEach((cb) => cb({ kind: "state", ...e })));
+  r.onMessage(MSG.boardStrokeEvent, (e: BoardStrokeEvent) => boardListeners.forEach((cb) => cb({ kind: "stroke", ...e })));
+  r.onMessage(MSG.boardRemove, (e: BoardRemoveEvent) => boardListeners.forEach((cb) => cb({ kind: "remove", ...e })));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.fishEvent, handleFishEvent);
   r.onMessage(PET_MSG.event, (e: PetEvent) => petListeners.forEach((cb) => cb(e)));

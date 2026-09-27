@@ -30,6 +30,7 @@ import { ProfileDialog } from "./ProfileDialog";
 import { ArcadePanel } from "./arcade/ArcadePanel";
 import { ClubHud } from "./club/ClubHud";
 import { DjConsole } from "./club/DjConsole";
+import { WhiteboardPanel } from "./WhiteboardPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { FishingHud } from "./fishing/FishingHud";
@@ -261,6 +262,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           )}
           {panel?.kind === "dj" && <DjConsole atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "arcade" && <ArcadePanel onClose={closePanel} />}
+          {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
         </>
       ) : null}
 

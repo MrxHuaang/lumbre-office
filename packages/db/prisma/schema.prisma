@@ -402,6 +402,14 @@ model ArcadeScore {
  * plano (el código) se quitaron y cuáles se agregaron. Se aplican encima del plano, así el plano puede
  * seguir cambiando en el código sin perder lo que se acomodó a mano.
  */
+/// Pizarra compartida de una oficina o de la sala de reuniones (whiteboard.ts de @hyvento/shared).
+model Whiteboard {
+  zoneId    String   @id
+  /// BoardStroke[]: { id, by (User.id), color, width, points: [x0, y0, x1, y1, …] }
+  strokes   Json
+  updatedAt DateTime @updatedAt
+}
+
 model WorldLayout {
   area      String   @id
   /// { removed: string[] ("tipo@x,y" de muebles del plano), added: { id, type, x, y, facing }[] }
