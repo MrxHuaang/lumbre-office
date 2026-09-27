@@ -238,6 +238,7 @@ export interface PhotoDTO {
   people: PhotoPerson[];
   pinned: boolean;
   createdAt: string;
+  mime: string;
   /** La sacaste tú. */
   mine: boolean;
   /** Puedes borrarla (tuya o eres admin). */

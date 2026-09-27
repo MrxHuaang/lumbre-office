@@ -24,6 +24,7 @@ export interface PhotoRow {
   people: PhotoPerson[];
   pinned: boolean;
   createdAt: Date;
+  mime: string;
 }
 
 export type SavePhotoOutcome = "ok" | "limit" | "duplicate";
@@ -36,6 +37,7 @@ const ROW_SELECT = {
   people: true,
   pinned: true,
   createdAt: true,
+  mime: true,
   takenBy: { select: { name: true } },
 } satisfies Prisma.PhotoSelect;
 
@@ -50,6 +52,7 @@ const toRow = (p: Selected): PhotoRow => ({
   people: Array.isArray(p.people) ? (p.people as unknown as PhotoPerson[]) : [],
   pinned: p.pinned,
   createdAt: p.createdAt,
+  mime: p.mime,
 });
 
 /**

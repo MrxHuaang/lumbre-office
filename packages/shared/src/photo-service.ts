@@ -23,6 +23,7 @@ export interface PhotoRecord {
   people: PhotoPerson[];
   pinned: boolean;
   createdAt: Date;
+  mime: string;
 }
 
 export interface NewPhotoRecord {
@@ -64,6 +65,7 @@ export function toPhotoDTO(p: PhotoRecord, user: PhotoUser): PhotoDTO {
     people: p.people,
     pinned: p.pinned,
     createdAt: p.createdAt.toISOString(),
+    mime: p.mime,
     mine: p.takenById === user.id,
     canManage: canManagePhoto(p, user),
   };
