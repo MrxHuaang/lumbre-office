@@ -62,7 +62,7 @@ export const STAT_KEYS = {
   earlyDays: "early_days",
   /** Días con actividad entre la medianoche y las 4 (Bogotá). */
   owlDays: "owl_days",
-  /** Máximo: tiles caminados. */
+  /** Tiles caminados. */
   tilesWalked: "tiles_walked",
   // Puntos y web
   /** Máximo: el saldo más alto que tuvo. */

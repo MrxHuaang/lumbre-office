@@ -1,4 +1,4 @@
-import type { CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus } from "@hyvento/shared";
+import type { StatChange, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus } from "@hyvento/shared";
 
 /** Nombre visible y personaje de una persona, como están guardados. */
 export interface UserProfile {
@@ -93,4 +93,10 @@ export interface GameRepository {
     awarded: number;
     balance: number;
   }>;
+  /** Logros: los contadores y los logros que ya tiene alguien. */
+  loadAchievements(userId: string): Promise<{ stats: Record<string, number>; unlocked: string[] }>;
+  /** Guarda varios cambios de contadores juntos (`inc` suma, `max` se queda con el mayor), todo o nada. */
+  saveStats(userId: string, changes: StatChange[]): Promise<void>;
+  /** Desbloquea un logro; true solo la primera vez. */
+  unlockAchievement(userId: string, achievementId: string): Promise<boolean>;
 }
