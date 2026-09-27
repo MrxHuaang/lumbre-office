@@ -30,6 +30,8 @@ import {
   type OfficeEditResult,
   type PointsAwarded,
   type PresenceStatus,
+  PET_MSG,
+  type PetEvent,
 } from "@hyvento/shared";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
@@ -111,6 +113,23 @@ export interface OfficeStateView {
   blackjack: RemoteBlackjack;
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`. */
   switches: Map<string, boolean>;
+  /** Casa viva: contadores (ajedrez, puzle, pizarras), cubículos ocupados (clave → userId) y mascotas. */
+  counters: Map<string, number>;
+  stalls: Map<string, string>;
+  pets: Map<string, RemotePet>;
+}
+
+/** Casa viva: una mascota como viaja en el estado (espejo de `Pet` en apps/server/src/state.ts). */
+export interface RemotePet {
+  id: string;
+  name: string;
+  kind: string;
+  coat: string;
+  area: string;
+  x: number;
+  y: number;
+  dir: string;
+  pose: string;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -125,6 +144,7 @@ const roomListeners = new Set<(r: OfficeRoom) => void>();
 const emoteListeners = new Set<(e: EmoteEvent) => void>();
 const heldUsedListeners = new Set<(e: HeldUsedEvent) => void>();
 const furnitureListeners = new Set<(e: FurnitureEvent) => void>();
+const petListeners = new Set<(e: PetEvent) => void>();
 
 // Al cerrar/recargar la pestaña, salir "con consentimiento" para que el avatar desaparezca
 // al instante en vez de quedar esperando una reconexión.
@@ -186,6 +206,22 @@ export function sendUseHeld() {
 /** Usar un mueble de mi nivel (tele, lámpara, piano…): el servidor valida que esté al alcance. */
 export function sendFurnitureUse(type: string, x: number, y: number) {
   room?.send(MSG.furnitureUse, { type, x, y });
+}
+
+/** Casa viva: alguien de tu nivel llamó, acarició o le dio un premio a una mascota. */
+export function onPetEvent(cb: (e: PetEvent) => void) {
+  petListeners.add(cb);
+  return () => petListeners.delete(cb);
+}
+
+/** Llamar a una mascota (clic): el servidor valida que esté en tu nivel y no muy lejos. */
+export function sendPetCall(pet: string) {
+  room?.send(PET_MSG.call, { pet });
+}
+
+/** Acariciar o dar un premio a una mascota (de cerca). */
+export function sendPetAction(pet: string, action: "pet" | "treat") {
+  room?.send(PET_MSG.action, { pet, action });
 }
 
 /** Apostar en la ruleta (el servidor valida que estés junto a la mesa y cobra). */
@@ -508,6 +544,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
+  r.onMessage(PET_MSG.event, (e: PetEvent) => petListeners.forEach((cb) => cb(e)));
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)
