@@ -1,12 +1,14 @@
 // Muebles que se usan (E o clic): piano y guitarra se tocan, el tocadiscos pone música, la tele y las
 // lámparas se prenden y apagan, y al gato se lo acaricia. Lo que queda prendido lo decide el servidor
 // (`OfficeState.switches`); tocar o acariciar llega como evento. La escena solo tiene ganchos chicos.
-import { catalogItem, footprint, INTERACT_REACH_TILES, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
+import { catalogItem, footprint, INTERACT_REACH_TILES, usablesOf, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import { glowSprite, heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin, type Sprite } from "@hyvento/map/art";
-import { isSwitchedOn, stepsTo, USE_STEPS, usableSpec, type Direction, type FurnitureEvent, type UsableSpec } from "@hyvento/shared";
+import { CURTAIN_TYPE, isSwitchedOn, stepsTo, USE_STEPS, usableSpec, type Direction, type FurnitureEvent, type UsableSpec } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import type { Avatar } from "./Avatar";
+import { CasaViva } from "./casaViva";
+import { Mascotas } from "./mascotas";
 import { AreaView, DEPTH_OVERLAY, depthOf, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
 import { playGuitar, playPiano, playPurr, setRecordMusic, stopRecordMusic, volumeAt } from "./sound";
@@ -48,7 +50,8 @@ function distTo(f: PlacedFurniture, ts: number, px: number, py: number) {
  */
 function canUse(map: OfficeMap, f: PlacedFurniture, px: number, py: number) {
   const ts = map.tileSize;
-  if (distTo(f, ts, px, py) > INTERACT_REACH_TILES * ts) return false;
+  // La fogata se usa desde los troncos (su propio alcance, igual que el servidor).
+  if (distTo(f, ts, px, py) > (usableSpec(f.type)?.reachTiles ?? INTERACT_REACH_TILES) * ts) return false;
   if (stepsTo(map, Math.floor(px / ts), Math.floor(py / ts), f, USE_STEPS) > USE_STEPS) return false;
   const fz = zoneAt(map, (f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts);
   const pz = zoneAt(map, px, py);
@@ -70,12 +73,31 @@ export class Usables {
   private detach: (() => void)[] = [];
   /** Pasos hasta cada tocadiscos, recalculados solo al cambiar de tile (la música se mide cada frame). */
   private hearCache = new Map<PlacedFurniture, { tile: number; steps: number }>();
+  /** Casa viva: fuego, radio, cortinas, contadores, baños y lo que se lleva en la mano; y las mascotas. */
+  private casa: CasaViva;
+  private pets: Mascotas;
+  private readonly onSceneUpdate = (_time: number, delta: number) => {
+    this.casa.update();
+    this.pets.update(delta);
+  };
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly avatarOf: (sessionId: string) => Avatar | undefined,
     private readonly local: () => Avatar | undefined,
-  ) {}
+  ) {
+    this.casa = new CasaViva(scene, {
+      map: () => this.map,
+      room: () => this.room,
+      avatarOf,
+      local,
+      hear: (f, x, y) => this.hearVolume(f, x, y),
+      isOn: (f) => this.isOn(f),
+    });
+    this.pets = new Mascotas(scene, local);
+    // Cada cuadro, aparte de update(): lo que se mueve en la casa viva (mascotas, fuego, lo de la mano).
+    scene.events.on(Phaser.Scenes.Events.UPDATE, this.onSceneUpdate);
+  }
 
   /** Se dibujó un nivel (o se rearmó con otra decoración): capas nuevas según lo prendido. */
   setArea(map: OfficeMap, view: AreaView) {
@@ -83,13 +105,18 @@ export class Usables {
     this.hearCache.clear();
     this.map = map;
     this.view = view;
-    for (const f of map.furniture) if (usableSpec(f.type)?.action === "toggle") this.overlays.set(f, { f, images: [], frame: 0 });
+    // Con las cortinas de las ventanas (usablesOf), que no son muebles del catálogo.
+    this.casa.setArea(map);
+    this.pets.setArea(map.id);
+    for (const f of usablesOf(map)) if (usableSpec(f.type)?.action === "toggle") this.overlays.set(f, { f, images: [], frame: 0 });
     for (const o of this.overlays.values()) this.refresh(o);
   }
 
   bind(room: OfficeRoom) {
     this.unbind();
     this.room = room;
+    this.casa.bind(room);
+    this.pets.bind(room);
     const $ = getStateCallbacks(room);
     const again = () => {
       for (const o of this.overlays.values()) this.refresh(o);
@@ -108,9 +135,14 @@ export class Usables {
     this.detach.forEach((d) => d());
     this.detach = [];
     this.room = undefined;
+    this.casa.unbind();
+    this.pets.unbind();
   }
 
   destroy() {
+    this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.onSceneUpdate);
+    this.casa.destroy();
+    this.pets.destroy();
     this.unbind();
     this.clearOverlays();
     stopRecordMusic();
@@ -141,13 +173,15 @@ export class Usables {
   private refresh(o: Overlay) {
     const on = this.isOn(o.f);
     if (o.on === on) return;
+    const first = o.on === undefined;
     o.on = on;
     o.timer?.remove();
     o.timer = undefined;
     o.images.forEach((i) => i.destroy());
     o.images = [];
     const f = o.f;
-    const back = (f.facing === "left" || f.facing === "up") && catalogItem(f.type).hasBack;
+    // Las cortinas no están en el catálogo (son las ventanas): no tienen espalda.
+    const back = f.type !== CURTAIN_TYPE && (f.facing === "left" || f.facing === "up") && catalogItem(f.type).hasBack;
     this.view?.setLight(f, on);
     if (f.type === "tv-retro") {
       if (!back) {
@@ -186,6 +220,10 @@ export class Usables {
         },
       });
     }
+    // Casa viva: la radio, las cortinas y el sonido de cada cambio.
+    const extra = this.casa.toggleLayers(f, on, first);
+    o.images.push(...extra.images);
+    if (extra.timer) o.timer = extra.timer;
   }
 
   /** Resplandor de pantalla (la tele prendida), que titila un poco. */
@@ -214,7 +252,7 @@ export class Usables {
     if (!map) return null;
     const night = useOfficeStore.getState().night;
     let best: UsableHit | null = null;
-    for (const f of map.furniture) {
+    for (const f of usablesOf(map)) {
       const spec = usableSpec(f.type);
       // Una lámpara sin capa de encendida solo cambia algo de noche: de día no se ofrece.
       if (!spec || (spec.nightOnly && !night)) continue;
@@ -240,7 +278,7 @@ export class Usables {
       const tx = Math.floor(w.x / ts);
       const ty = Math.floor(w.y / ts);
       const night = useOfficeStore.getState().night;
-      const f = map.furniture.find((f) => {
+      const f = usablesOf(map).find((f) => {
         const spec = usableSpec(f.type);
         return spec && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
       });
@@ -252,6 +290,8 @@ export class Usables {
   /** Lo que dice la ayuda para ese mueble ("Prender la tele" o "Apagar la tele"). */
   label(f: PlacedFurniture): string {
     const spec = usableSpec(f.type)!;
+    const casa = this.casa.label(f);
+    if (casa) return casa;
     return spec.action === "toggle" && this.isOn(f) ? (spec.labelOn ?? spec.label) : spec.label;
   }
 
@@ -306,11 +346,13 @@ export class Usables {
   handleEvent(e: FurnitureEvent) {
     const map = this.map;
     if (!map) return;
-    const f = map.furniture.find((f) => f.type === e.type && f.x === e.x && f.y === e.y);
+    const f = usablesOf(map).find((f) => f.type === e.type && f.x === e.x && f.y === e.y);
     if (!f) return;
     const who = this.avatarOf(e.sessionId);
     const me = this.local();
     const vol = me ? this.hearVolume(f, me.x, me.y) : 0;
+    // Casa viva: leer, girar, avivar, regar, lavarse, sacar algo gratis, el baño, asar y los contadores.
+    if (this.casa.handleEvent(e, f, vol)) return;
     if (who) who.perform(faceToward(f, map.tileSize, who.x, who.y), e.action === "play" ? PLAY_MS : 600);
     if (e.action === "play") {
       if (e.type === "guitar") playGuitar(e.seed, vol);
