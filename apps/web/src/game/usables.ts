@@ -124,7 +124,7 @@ export class Usables {
     this.map = map;
     this.view = view;
     // Con las cortinas de las ventanas (usablesOf), que no son muebles del catálogo.
-    this.casa.setArea(map);
+    this.casa.setArea(map, view);
     this.pets.setArea(map.id);
     for (const f of usablesOf(map)) if (usableSpec(f.type)?.action === "toggle") this.overlays.set(f, { f, images: [], frame: 0 });
     for (const o of this.overlays.values()) this.refresh(o);
@@ -242,6 +242,8 @@ export class Usables {
     const extra = this.casa.toggleLayers(f, on, first);
     o.images.push(...extra.images);
     if (extra.timer) o.timer = extra.timer;
+    // Con el mueble: el modo privado las esconde si queda afuera de la sala.
+    for (const img of o.images) this.view?.attach(f, img);
   }
 
   /** Resplandor de pantalla (la tele prendida), que titila un poco. */

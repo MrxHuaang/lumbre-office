@@ -148,9 +148,12 @@ export class ClubMode {
   }
 
   /** Se dibujó un nivel: capas nuevas para sus muebles del club y del arcade. */
-  setArea(map: OfficeMap, _view: AreaView) {
+  private view?: AreaView;
+
+  setArea(map: OfficeMap, view: AreaView) {
     this.clear();
     this.map = map;
+    this.view = view;
     for (const f of map.furniture) {
       if (f.type === "dance-floor" && inClub(map, f)) this.floorLayers.push(this.layer(f, "club-pista-0", danceFloorLights(0), DEPTH_FLAT + 1));
       else if (f.type === "pole-stage") this.stageLayers.push(this.layer(f, "club-tarima-0", poleStageLights(0), DEPTH_FLAT + 1));
@@ -474,6 +477,7 @@ export class ClubMode {
       .setFlipX(flip)
       .setDepth(depth ?? depthOf((f.x + w / 2) * ts, (f.y + d / 2) * ts) + 0.02);
     this.objects.push(img);
+    this.view?.attach(f, img);
     return { f, img, key, y0: img.y };
   }
 
@@ -491,6 +495,7 @@ export class ClubMode {
     const key = ensureTexture(this.scene, `club-luz-${color}-${r}`, () => glowSprite(r, Math.round(r * 0.6), color, a));
     const img = this.scene.add.image(p.x, p.y, key).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH_OVERLAY + 1);
     this.objects.push(img);
+    this.view?.attach(f, img);
     return img;
   }
 

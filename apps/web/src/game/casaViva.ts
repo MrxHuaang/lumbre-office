@@ -143,9 +143,13 @@ export class CasaViva {
 
   // ---------- Nivel y sala ----------
 
-  setArea(map: OfficeMap) {
+  /** La vista del nivel (las capas pegadas a muebles se registran ahí para el modo privado). */
+  private view?: AreaView;
+
+  setArea(map: OfficeMap, view?: AreaView) {
     this.clear();
     this.map = map;
+    this.view = view;
     this.curtainRects = undefined;
     for (const f of map.furniture) {
       if (FIRE_TYPES.has(f.type)) this.addFire(f);
@@ -267,6 +271,8 @@ export class CasaViva {
     const r = pit ? 46 : 30;
     const gkey = ensureTexture(this.scene, `casa-calor-${r}`, () => glowSprite(r, Math.round(r * 0.6), "#ffb45a", 0.35));
     const glow = this.track(this.scene.add.image(base.x, base.y - (pit ? 6 : 3), gkey).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH_OVERLAY + 1));
+    this.view?.attach(f, img);
+    this.view?.attach(f, glow);
     this.fires.push({ f, img, glow, size, stokedUntil: 0, frame: 0 });
   }
 
@@ -322,6 +328,7 @@ export class CasaViva {
     const p = worldToScreen((f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts, 37);
     const key = ensureTexture(this.scene, "casa-bano-libre", () => stallLight(false));
     const img = this.track(this.scene.add.image(p.x, p.y, key).setDepth(this.furnitureDepth(f) + 0.05));
+    this.view?.attach(f, img);
     this.stallLights.set(furnitureKey(this.map!.id, f.type, f.x, f.y), { f, img });
   }
 

@@ -168,6 +168,38 @@ export class AreaView {
   readonly features: { kind: WallFeatureKind; x: number; y: number; tileX: number; tileY: number }[] = [];
   /** Rectángulo de pantalla que ocupa el nivel (para la cámara). */
   readonly bounds: Phaser.Geom.Rectangle;
+  /**
+   * Capas de otros módulos pegadas a un mueble (la luz de un cubículo, la pantalla de una máquina, la tele
+   * prendida): en el modo privado se esconden con su mueble. Se sacan de la lista de dibujo (a una capa
+   * invisible) en vez de apagarlas, así el módulo que las anima no las vuelve a prender.
+   */
+  private attached: { f: PlacedFurniture; obj: Phaser.GameObjects.GameObject }[] = [];
+  private stash?: Phaser.GameObjects.Layer;
+  private privateRect: { x: number; y: number; w: number; h: number } | null = null;
+
+  attach(f: PlacedFurniture, obj: Phaser.GameObjects.GameObject) {
+    this.attached.push({ f, obj });
+    obj.once(Phaser.GameObjects.Events.DESTROY, () => {
+      this.attached = this.attached.filter((a) => a.obj !== obj);
+    });
+    this.veilAttached(f, obj);
+  }
+
+  private outsidePrivate(f: PlacedFurniture) {
+    const r = this.privateRect;
+    return Boolean(r && (f.x < r.x || f.y < r.y || f.x >= r.x + r.w || f.y >= r.y + r.h));
+  }
+
+  private veilAttached(f: PlacedFurniture, obj: Phaser.GameObjects.GameObject) {
+    if (this.outsidePrivate(f)) {
+      this.stash ??= this.scene.add.layer().setVisible(false);
+      if (obj.displayList !== this.stash) this.stash.add(obj);
+    } else if (this.stash && obj.displayList === this.stash) {
+      this.stash.remove(obj);
+      this.scene.sys.displayList.add(obj);
+    }
+  }
+
   /** Cada tramo de pared baja por su borde ("h:x,y" / "v:x,y"): el modo privado esconde los que levanta. */
   private lowWalls = new Map<string, Phaser.GameObjects.Image>();
   /** Modo privado: la sala donde estoy con paredes altas y lo de afuera a oscuras (ver setPrivateRoom). */
@@ -433,6 +465,8 @@ export class AreaView {
     if ((this.privateRoom?.key ?? "") === key) return;
     for (const o of this.privateRoom?.objects ?? []) o.destroy();
     this.privateRoom = null;
+    this.privateRect = rect;
+    for (const { f, obj } of this.attached) this.veilAttached(f, obj);
     // Los muebles de afuera se esconden: los altos del pasillo (un reloj, una planta) asomarían por el hueco.
     const inside = (f: PlacedFurniture) => !rect || (f.x >= rect.x && f.y >= rect.y && f.x < rect.x + rect.w && f.y < rect.y + rect.h);
     for (const { f, img } of this.furnitureImages) img.setVisible(inside(f));
@@ -495,6 +529,9 @@ export class AreaView {
 
   destroy() {
     this.setPrivateRoom(null);
+    this.stash?.destroy();
+    this.stash = undefined;
+    this.attached = [];
     for (const o of this.objects) o.destroy();
     this.nightMask = undefined;
     this.nightOutside = undefined;
