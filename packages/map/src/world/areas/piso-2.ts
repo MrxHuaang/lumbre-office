@@ -160,7 +160,7 @@ export const piso2: AreaDef = {
     { id: "sala-cabinas", rect: SALA_CABINAS, floor: "planks", wallpaper: "slats" },
     // Azul noche: la oficina 2, al lado, es azul claro, y así no se funden.
     { id: "reuniones", rect: REUNIONES, floor: "carpet", wallpaper: "navy" },
-    { id: "rellano", rect: RELLANO, floor: "terrazzo", wallpaper: "paneling" },
+    { id: "rellano", rect: RELLANO, floor: "parquet", wallpaper: "paneling" },
     { id: "descanso", rect: DESCANSO, floor: "brick", wallpaper: "cream" },
     { id: "balcon", rect: BALCON, floor: "terrace", wallpaper: "cream" },
     ...OFFICES.map((o, i) => ({ id: `office-${i + 1}`, rect: o.rect, floor: OFFICE_FLOOR[i] ?? "carpet", wallpaper: o.wallpaper })),

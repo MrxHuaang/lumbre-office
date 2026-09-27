@@ -72,7 +72,7 @@ export const plantaBaja: AreaDef = {
     { id: "pasillo", rect: PASILLO, floor: "planks", wallpaper: "stripes" },
     { id: "guardarropa", rect: GUARDARROPA, floor: "checker", wallpaper: "paneling" },
     { id: "banos", rect: BANOS, floor: "mosaic", wallpaper: "tile" },
-    { id: "recibidor", rect: RECIBIDOR, floor: "terrazzo", wallpaper: "paneling" },
+    { id: "recibidor", rect: RECIBIDOR, floor: "parquet", wallpaper: "paneling" },
     { id: "tienda", rect: TIENDA, floor: "carpet", wallpaper: "rose" },
     // Va después de la tienda: ocupa su fondo.
     { id: "probadores", rect: PROBADORES, floor: "planks", wallpaper: "rose" },

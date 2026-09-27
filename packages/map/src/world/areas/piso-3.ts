@@ -27,7 +27,7 @@ export const piso3: AreaDef = {
   rooms: [
     { id: "biblioteca", rect: BIBLIOTECA, floor: "parquet", wallpaper: "forest" },
     { id: "estar", rect: ESTAR, floor: "planks", wallpaper: "brick" },
-    { id: "pasillo-3", rect: PASILLO, floor: "terrazzo", wallpaper: "colonial" },
+    { id: "pasillo-3", rect: PASILLO, floor: "wood", wallpaper: "colonial" },
     { id: "lectura", rect: LECTURA, floor: "moquette", wallpaper: "stripes" },
     { id: "rellano-3", rect: RELLANO, floor: "parquet", wallpaper: "paneling" },
     { id: "juegos", rect: JUEGOS, floor: "checker", wallpaper: "sage" },
