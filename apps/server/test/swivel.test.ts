@@ -11,15 +11,18 @@ import { bootServer, tick, token, type ServerRoom } from "./helpers";
 
 // ---------- Reglas (sin sala) ----------
 
-const pcChair = { type: "chair", computer: true };
+const pcChair = { type: "office-chair-rose", computer: true };
 
 describe("sillas giratorias (reglas)", () => {
-  it("solo gira la silla de escritorio que mira al PC", () => {
+  it("solo giran las sillas de oficina (con o sin PC)", () => {
     const swivels = new Swivels(() => 2);
     expect(swivels.spin("u", undefined, 0)).toEqual({ ok: false, error: "seat" }); // de pie
     expect(swivels.spin("u", { type: "chair", computer: false }, 0)).toEqual({ ok: false, error: "seat" }); // silla del comedor
+    expect(swivels.spin("u", { type: "chair", computer: true }, 0)).toEqual({ ok: false, error: "seat" }); // de madera, aunque mire al PC
     expect(swivels.spin("u", { type: "sofa", computer: true }, 0)).toEqual({ ok: false, error: "seat" });
+    expect(swivels.spin("u", { type: "office-chairs" }, 0)).toEqual({ ok: false, error: "seat" }); // solo el prefijo exacto
     expect(swivels.spin("u", pcChair, 0)).toEqual({ ok: true, turns: 2, dizzy: false });
+    expect(swivels.spin("v", { type: "office-chair" }, 0)).toMatchObject({ ok: true }); // la de la sala de reuniones
   });
 
   it("de 1 a 3 vueltas, y no se gira de nuevo hasta terminar", () => {
@@ -119,8 +122,9 @@ function seats() {
   const map = getWorld().areas.get("piso-2")!;
   const all = [...map.seats.values()];
   const pc = all.find((s) => s.computer && zoneAt(map, s.x, s.y)?.type === "office")!;
-  const other = all.find((s) => !s.computer)!;
-  return { pc, other };
+  const other = all.find((s) => !s.type.startsWith("office-chair"))!;
+  const meeting = all.find((s) => zoneAt(map, s.x, s.y)?.type === "meeting")!;
+  return { pc, other, meeting };
 }
 
 async function inRoom() {
@@ -154,6 +158,15 @@ describe("sillas giratorias en la sala", () => {
     sitAt(seats().pc);
     await spin();
     expect(seen).toEqual([{ sessionId: expect.any(String), turns: 2, dizzy: false }]);
+  });
+
+  it("en la sala de reuniones también gira (sin PC)", async () => {
+    const { seen, sitAt, spin } = await inRoom();
+    const { meeting } = seats();
+    expect(meeting.computer).toBe(false);
+    sitAt(meeting);
+    await spin();
+    expect(seen).toHaveLength(1);
   });
 
   it("de pie o en otro asiento no gira", async () => {

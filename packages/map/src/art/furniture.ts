@@ -174,6 +174,42 @@ function chair(variant: Variant): Sprite {
   });
 }
 
+/**
+ * Silla de oficina con ruedas (la única que gira): cruz de patas con ruedas, pistón, asiento y
+ * respaldo acolchados del color de la oficina. Como la silla, el respaldo va del lado contrario a
+ * donde mira quien se sienta.
+ */
+function officeChair(variant: Variant, tapiz: Ramp = C.rug): Sprite {
+  const back = variant === "back";
+  const bx = back ? 12 : 2;
+  const wheel = (x: number, y: number): Box => solidBox({ x, y, z: 0, w: 2, d: 2, h: 1.5 }, C.night, 3);
+  // Las patas en cruz (en iso se ven como la estrella de cinco puntas) con una rueda en cada punta.
+  const base: Box[] = [
+    wheel(7, 1),
+    wheel(1, 7),
+    solidBox({ x: 7.5, y: 2.5, z: 1.5, w: 1, d: 11, h: 1 }, C.metal, 2),
+    solidBox({ x: 2.5, y: 7.5, z: 1.5, w: 11, d: 1, h: 1 }, C.metal, 2),
+    wheel(13, 7),
+    wheel(7, 13),
+    solidBox({ x: 7, y: 7, z: 2, w: 2, d: 2, h: 6 }, C.metal, 3),
+  ];
+  const seat: Box[] = [
+    solidBox({ x: 3, y: 3, z: 8, w: 10, d: 10, h: 1 }, C.metal, 2),
+    cushion(3, 3, 9, 10, 10, 2, tapiz),
+  ];
+  // Respaldo alto con la barra que lo une al asiento y los apoyabrazos a los lados.
+  const rest: Box[] = [
+    solidBox({ x: bx, y: 7, z: 9, w: 2, d: 2, h: 5 }, C.metal, 3),
+    { x: bx, y: 2, z: 13, w: 2, d: 12, h: 12, top: flat(at(tapiz, 4)), left: flat(at(tapiz, 2)), right: (u, v, fw, fh) => at(tapiz, u < 1 || u >= fw - 1 || v < 1 || v >= fh - 1 ? 2 : 3) },
+  ];
+  const arm = (y: number): Box[] => [
+    solidBox({ x: 7, y, z: 11, w: 1, d: 1, h: 4 }, C.metal, 3),
+    solidBox({ x: back ? 5 : 4, y, z: 15, w: 7, d: 1, h: 1 }, C.night, 3),
+  ];
+  const parts = back ? [...base, ...arm(2), ...seat, ...arm(13), ...rest] : [...base, ...rest, ...arm(2), ...seat, ...arm(13)];
+  return renderSprite(parts, { outline: OUT, under: shadowUnder(2, 2, 12, 12) });
+}
+
 function stool(): Sprite {
   return renderSprite(
     [
@@ -681,6 +717,11 @@ function stairwell(): Sprite {
 const DRAW: Record<string, (v: Variant) => Sprite> = {
   "desk-pc": deskPc,
   chair,
+  "office-chair": (v) => officeChair(v),
+  "office-chair-mustard": (v) => officeChair(v, C.mustard),
+  "office-chair-blue": (v) => officeChair(v, C.blue),
+  "office-chair-rose": (v) => officeChair(v, C.rose),
+  "office-chair-sage": (v) => officeChair(v, C.sage),
   stool,
   armchair,
   sofa: (v) => sofa(v),

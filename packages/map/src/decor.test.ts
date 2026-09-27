@@ -62,7 +62,7 @@ describe("nivel decorado", () => {
     const all = officeFurniture(def, "office-2");
     expect(all.filter((f) => f.fixed).map((f) => [f.id, f.type, f.x, f.y])).toEqual([
       ["fijo-0", "desk-pc", 34, 0],
-      ["fijo-1", "chair", 35, 1],
+      ["fijo-1", "office-chair-blue", 35, 1],
     ]);
     const defaults = defaultOfficeItems(def, "office-2");
     expect(defaults).toHaveLength(14);
@@ -74,7 +74,7 @@ describe("nivel decorado", () => {
     // Lo guardado va relativo a la oficina: la 2 empieza en (30, 0), así que (2, 6) es el tile (32, 6).
     const map = decorateArea(def, { "office-2": { items: [{ id: "a", type: "plant", x: 2, y: 6, facing: "right" }] } });
     const inOffice2 = (f: { x: number; y: number }) => f.x >= 30 && f.y < 11;
-    expect(map.furniture.filter(inOffice2).map((f) => f.type).sort()).toEqual(["chair", "desk-pc", "plant"]);
+    expect(map.furniture.filter(inOffice2).map((f) => f.type).sort()).toEqual(["desk-pc", "office-chair-blue", "plant"]);
     expect(isBlockedTile(map, 32, 6)).toBe(true);
     expect(isBlockedTile(map, 37, 0)).toBe(false); // la estantería del mapa ya no está
     expect([...map.seats.values()].filter((s) => s.computer && inOffice2({ x: s.tileX, y: s.tileY }))).toHaveLength(1);

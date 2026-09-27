@@ -36,6 +36,12 @@ export interface CatalogItem {
 export const CATALOG = {
   "desk-pc": { name: "Escritorio con PC", size: [1, 2], computer: true },
   chair: { name: "Silla", size: [1, 1], seats: [[0, 0]], hasBack: true },
+  // Sillas de oficina con ruedas (las únicas que giran, ver swivel.ts), una por color de tapiz.
+  "office-chair": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },
+  "office-chair-mustard": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },
+  "office-chair-blue": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },
+  "office-chair-rose": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },
+  "office-chair-sage": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },
   stool: { name: "Taburete", size: [1, 1], seats: [[0, 0]] },
   armchair: { name: "Sillón", size: [1, 1], seats: [[0, 0]], hasBack: true },
   sofa: { name: "Sofá", size: [1, 2], seats: [[0, 0], [0, 1]], hasBack: true },

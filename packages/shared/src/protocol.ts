@@ -187,7 +187,7 @@ export const MSG = {
   toast: "toast",
   toastEvent: "toast:event",
   toastResult: "toast:result",
-  /** Girar en la silla del escritorio (`SwivelMessage`) y el aviso a los del nivel (`SwivelEvent`). */
+  /** Girar en la silla de oficina (`SwivelMessage`) y el aviso a los del nivel (`SwivelEvent`). */
   swivel: "swivel",
   swivelEvent: "swivel:event",
   /** Usar un mueble (`FurnitureUseMessage`) y el aviso de instrumentos y gato (`FurnitureEvent`). */

@@ -14,6 +14,15 @@ const W = 40;
 const H = 27;
 const PASILLO: Rect = { x: 0, y: 11, w: W, h: 3 };
 
+/** Silla de oficina de cada oficina: el tapiz combina con su papel mural. */
+const OFFICE_CHAIR: Partial<Record<WallpaperKind, string>> = {
+  cream: "office-chair-mustard",
+  blue: "office-chair-blue",
+  rose: "office-chair-rose",
+  sage: "office-chair-sage",
+};
+const officeChair = (wallpaper: WallpaperKind) => OFFICE_CHAIR[wallpaper] ?? "office-chair";
+
 interface OfficeSpec {
   rect: Rect;
   /** Tile del pasillo justo afuera de la puerta (la puerta es el borde horizontal que da al pasillo). */
@@ -42,7 +51,7 @@ function northOffice(ox: number, wallpaper: WallpaperKind, mirror = false): Offi
       place("plant", X(0), 0),
       place("bookcase-tall", X(1, 2), 0, "down"),
       place("desk-pc", X(4, 2), 0, "down"),
-      place("chair", X(4), 1, "up"),
+      place(officeChair(wallpaper), X(4), 1, "up"),
       place("filing-cabinet", X(6), 0),
       place("printer", X(9), 0),
       place("reading-lamp", X(9), 3),
@@ -78,7 +87,7 @@ function southOffice(ox: number, wallpaper: WallpaperKind, mirror = false): Offi
       place("bookcase-tall", X(0, 2), oy, "down"),
       place("plant", X(2), oy),
       place("desk-pc", X(6, 2), oy, "down"),
-      place("chair", X(6), oy + 1, "up"),
+      place(officeChair(wallpaper), X(6), oy + 1, "up"),
       place("filing-cabinet", X(8), oy),
       place("plant", X(9), oy + 3),
       place("rug-3x3", X(3, 3), oy + 5),
@@ -214,10 +223,10 @@ export const piso2: AreaDef = {
     place("plant", 18, 0),
     place("plant", 29, 0),
     place("conference-table", 23, 3, "right"),
-    // Tres sillas por lado (con aire entre una y otra) y dos en la cabecera.
-    ...[3, 5, 7].flatMap((y) => [place("chair", 22, y, "right"), place("chair", 25, y, "left")]),
-    place("chair", 23, 8, "up"),
-    place("chair", 24, 8, "up"),
+    // Tres sillas de oficina por lado (con aire entre una y otra) y dos en la cabecera: todas giran.
+    ...[3, 5, 7].flatMap((y) => [place("office-chair", 22, y, "right"), place("office-chair", 25, y, "left")]),
+    place("office-chair", 23, 8, "up"),
+    place("office-chair", 24, 8, "up"),
     place("sideboard", 18, 4, "right"),
     place("water-cooler", 18, 8),
     place("plant", 29, 10),

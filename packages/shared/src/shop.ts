@@ -15,6 +15,7 @@ const furniture = (id: string, name: string, price: number, blurb: string): Shop
 export const SHOP_FURNITURE: readonly ShopItem[] = [
   furniture("cactus", "Cactus", 20, "No pide agua ni atención."),
   furniture("chair", "Silla", 20, "La de siempre, para una visita."),
+  furniture("office-chair", "Silla de oficina", 60, "Con ruedas: da vueltas (R) y marea."),
   furniture("plant", "Planta", 25, "Un poco de verde en la esquina."),
   furniture("side-table", "Mesita", 25, "Para dejar el tinto."),
   furniture("coffee-table", "Mesa de centro", 30, "Para la zona de estar."),

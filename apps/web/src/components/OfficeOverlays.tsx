@@ -114,7 +114,7 @@ export function SeatPrompt() {
           Encender PC
         </button>
       )}
-      {/* La silla del escritorio gira: R, el botón o clic en tu personaje. */}
+      {/* La silla de oficina gira: R, el botón o clic en tu personaje. */}
       {spinButton && (
         <button type="button" onClick={() => sendSwivel()} title="Girar en la silla (R, o clic en tu personaje)" className="cozy-btn">
           <kbd className="cozy-kbd max-md:hidden">R</kbd>

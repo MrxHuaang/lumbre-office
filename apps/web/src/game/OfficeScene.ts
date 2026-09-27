@@ -948,7 +948,7 @@ export class OfficeScene extends Phaser.Scene {
       const editing = useOfficeStore.getState().decorating || useOfficeStore.getState().worldEditing;
       // B: brindar (invitar o sumarse; el servidor valida la bebida, la distancia y la pausa).
       if (taps.b && !editing && !this.table.kind) sendToast();
-      // R, sentado en la silla del escritorio: girar (decorando, R gira el mueble elegido).
+      // R, sentado en una silla de oficina: girar (decorando, R gira el mueble elegido).
       if (taps.r && this.seat && isSwivelSeat(this.seat) && !editing && !this.table.kind) this.spinChair();
       if (useOfficeStore.getState().decorating) this.decorKeys(taps);
       if (useOfficeStore.getState().worldEditing) this.worldEditor.keys(taps);
@@ -1237,7 +1237,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private clickAt(sx: number, sy: number) {
-    // Sentado en la silla del escritorio, clic en mi personaje: girar (en vez de levantarme).
+    // Sentado en una silla de oficina, clic en mi personaje: girar (en vez de levantarme).
     if (this.seat && isSwivelSeat(this.seat) && this.local?.sprite.getBounds().contains(sx, sy)) {
       this.spinChair();
       return;

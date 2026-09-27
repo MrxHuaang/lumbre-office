@@ -1,5 +1,5 @@
-// Sillas giratorias (ver swivel.ts en @hyvento/shared): solo sentado en la silla de escritorio que mira
-// al PC, con una pausa hasta que termina el giro. Muchas vueltas seguidas marean (eso lo aplica la sala
+// Sillas giratorias (ver swivel.ts en @hyvento/shared): solo sentado en una silla de oficina con
+// ruedas, con una pausa hasta que termina el giro. Muchas vueltas seguidas marean (eso lo aplica la sala
 // con `Drunkenness.dizzy`).
 import { isSwivelSeat, spinMs, SWIVEL } from "@hyvento/shared";
 
@@ -33,7 +33,7 @@ export class Swivels {
   ) {}
 
   /** Girar: hace falta estar sentado en una silla que gira y que haya terminado el giro anterior. */
-  spin(userId: string, seat: { type: string; computer: boolean } | null | undefined, now: number): SwivelResult {
+  spin(userId: string, seat: { type: string; computer?: boolean } | null | undefined, now: number): SwivelResult {
     if (!seat || !isSwivelSeat(seat)) return { ok: false, error: "seat" };
     if (now < (this.nextAt.get(userId) ?? 0)) return { ok: false, error: "busy" };
     const t = this.timings();

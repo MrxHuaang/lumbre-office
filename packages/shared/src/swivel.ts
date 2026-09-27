@@ -1,10 +1,11 @@
-// Sillas giratorias: sentado en la silla de escritorio de una oficina (la que mira al PC) se dan unas
-// vueltas rápidas (R). Lo ven todos los del nivel; girar demasiado marea un poco (sin alcohol).
+// Sillas giratorias: sentado en una silla de oficina con ruedas (las de las oficinas y la sala de
+// reuniones) se dan unas vueltas rápidas (R). Lo ven todos los del nivel; girar demasiado marea un poco
+// (sin alcohol).
 import { z } from "zod";
 
 export const SWIVEL = {
-  /** Tipos de asiento que giran; además tienen que mirar a un escritorio con PC (`Seat.computer`). */
-  seatTypes: ["chair"] as readonly string[],
+  /** Prefijo de los tipos de asiento que giran: las sillas de oficina de todos los colores. */
+  seatPrefix: "office-chair",
   /** Vueltas de cada giro (el servidor elige, así todos ven las mismas). */
   minTurns: 1,
   maxTurns: 3,
@@ -22,9 +23,9 @@ export const SWIVEL = {
   dizzyCap: 5.5,
 } as const;
 
-/** ¿Este asiento gira? La silla de escritorio que mira al PC. */
-export function isSwivelSeat(seat: { type: string; computer: boolean }): boolean {
-  return seat.computer && SWIVEL.seatTypes.includes(seat.type);
+/** ¿Este asiento gira? Solo las sillas de oficina con ruedas, miren o no a un PC. */
+export function isSwivelSeat(seat: { type: string }): boolean {
+  return seat.type === SWIVEL.seatPrefix || seat.type.startsWith(`${SWIVEL.seatPrefix}-`);
 }
 
 /** Lo que dura un giro de `turns` vueltas (arranca despacio, va rápido y frena). */

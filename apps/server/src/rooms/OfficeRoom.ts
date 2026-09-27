@@ -1460,7 +1460,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   // ---------- Sillas giratorias ----------
 
-  /** Girar en la silla (R): sentado en la silla de escritorio que mira al PC. Lo ven los del nivel. */
+  /** Girar en la silla (R): sentado en una silla de oficina con ruedas. Lo ven los del nivel. */
   private handleSwivel(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData || !SwivelMessage.safeParse(raw).success) return;
