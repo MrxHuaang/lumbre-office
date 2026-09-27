@@ -95,6 +95,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
+/** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
+const ARRIVAL_CLEAR_TILES = 1.5;
 /** Colores del editor de oficina: grilla, y fantasma/huella cuando se puede (verde) o no (rojo). */
 const DECOR_COLORS = { grid: 0xfff4d6, ok: 0x6fcf5f, bad: 0xe05a4a };
 
@@ -154,6 +156,13 @@ export class OfficeScene extends Phaser.Scene {
   private travelling = false;
   /** Tile de portal en el que quedé (no se vuelve a usar hasta salir de él). */
   private portalTile = "";
+  /**
+   * Donde se llegó por el último portal. Los portales no se disparan hasta alejarse de ahí (si no, con W
+   * apretada se sube y se baja la escalera en un ciclo), salvo que se haga clic justo en el portal.
+   */
+  private arrivedAt: { x: number; y: number } | null = null;
+  /** Portal al que se hizo clic ("x,y"): ese sí se dispara aunque se acabe de llegar. */
+  private clickedPortal: string | null = null;
   private ambient: Phaser.Time.TimerEvent[] = [];
   /** Decoración aplicada a cada nivel (JSON), para rearmarlo solo cuando cambia. */
   private decorApplied = new Map<string, string>();
@@ -378,6 +387,7 @@ export class OfficeScene extends Phaser.Scene {
       this.enterArea(c.area);
       this.local?.setPosition(c.x, c.y);
       this.portalTile = `${Math.floor(c.x / this.map.tileSize)},${Math.floor(c.y / this.map.tileSize)}`;
+      this.arrivedAt = { x: c.x, y: c.y };
       this.updateZone();
       cam.fadeIn(FADE_MS * 1.5, 0, 0, 0);
       if (this.pendingZone) {
@@ -398,12 +408,18 @@ export class OfficeScene extends Phaser.Scene {
     const tx = Math.floor(avatar.x / this.map.tileSize);
     const ty = Math.floor(avatar.y / this.map.tileSize);
     const key = `${tx},${ty}`;
+    const ts = this.map.tileSize;
+    if (this.arrivedAt && Math.hypot(avatar.x - this.arrivedAt.x, avatar.y - this.arrivedAt.y) >= ARRIVAL_CLEAR_TILES * ts) this.arrivedAt = null;
     const portal = portalAtTile(this.map, tx, ty);
     if (!portal) {
       this.portalTile = "";
       return;
     }
     if (key === this.portalTile) return;
+    // Recién llegado: el portal de vuelta no se dispara por seguir caminando, solo con un clic en él.
+    if (this.arrivedAt && this.clickedPortal !== key) return;
+    this.arrivedAt = null;
+    this.clickedPortal = null;
     this.portalTile = key;
     this.travelling = true;
     this.path = [];
@@ -982,6 +998,7 @@ export class OfficeScene extends Phaser.Scene {
     }
     goal = path[path.length - 1]!;
     this.path = path;
+    this.clickedPortal = portalAtTile(this.map, goal.x, goal.y) ? `${goal.x},${goal.y}` : null;
     this.pendingSeat = seat ?? null;
     this.pathMarker?.destroy();
     const m = worldToScreen(goal.x * ts + ts / 2, goal.y * ts + ts / 2);
@@ -990,6 +1007,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private clearPath() {
     this.path = [];
+    this.clickedPortal = null;
     this.pendingSeat = null;
     this.pathMarker?.destroy();
     this.pathMarker = undefined;
