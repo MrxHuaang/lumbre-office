@@ -29,8 +29,8 @@
   --color-cozy-sky: #5d93cf;
   --color-cozy-void: #2a2033;
 
-  /* Pixelify Sans (next/font, variable --font-cozy en <html>). */
-  --font-pixel: var(--font-cozy), ui-monospace, monospace;
+  /* Pixelify Sans (next/font, variable --font-cozy en <html>), con los dígitos de Tiny5 (layout.tsx). */
+  --font-pixel: "Tiny5", var(--font-cozy), ui-monospace, monospace;
 }
 
 html,

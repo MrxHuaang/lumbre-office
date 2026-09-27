@@ -21,9 +21,7 @@ import {
   styleFor,
   FEET_Y,
   FRAME,
-  L,
   VIDEO_WALL_SCREEN,
-  WORLD_TO_ART,
   type ArcadeScreenKind,
   type PixelCanvas,
   type Sprite,
@@ -36,7 +34,8 @@ import { characterKey, parseLook } from "../looks";
 import { getRoom } from "../network";
 import { useOfficeStore } from "../store";
 import { clubMusic, disposeClubMusic } from "./music";
-import { YoutubeScreen, type Point, type ScreenQuad } from "../youtube";
+import { wallQuad, type Point } from "../wallMount";
+import { YoutubeScreen } from "../youtube";
 import { onClubReaction, sendClubDance, sendClubPole, sendClubQueue } from "./net";
 import { clubBeat, serverNow, useClubStore, type ClubDancerView } from "./store";
 
@@ -247,28 +246,9 @@ export class ClubMode {
   }
 
   /** Dónde cae la imagen de la pantalla del club, en px del contenedor (null si no se ve). */
-  private videoQuad(parent: HTMLElement): ScreenQuad | null {
-    const map = this.map!;
-    const f = map.def.features.find((w) => w.kind === "video-wall");
-    if (!f || f.edge !== "h") return null;
-    const { u0, uPad, hv0, hv1 } = VIDEO_WALL_SCREEN;
-    const u1 = (f.width ?? 1) * L - uPad;
-    const x0 = f.x * map.tileSize;
-    const y0 = f.y * map.tileSize;
-    const at = (u: number, hv: number) => this.toCss(worldToScreen(x0 + u / WORLD_TO_ART, y0, hv));
-    const q = { tl: at(u0, hv1), tr: at(u1, hv1), bl: at(u0, hv0), aspect: (u1 - u0) / (hv1 - hv0) };
-    const xs = [q.tl.x, q.tr.x, q.bl.x];
-    const ys = [q.tl.y, q.tr.y, q.bl.y];
-    const off = Math.max(...xs) < 0 || Math.min(...xs) > parent.clientWidth || Math.max(...ys) < -40 || Math.min(...ys) > parent.clientHeight;
-    return off ? null : q;
-  }
-
-  /** Punto de la escena (coordenadas de mundo de Phaser) → px del contenedor del juego. */
-  private toCss(p: Point): Point {
-    const cam = this.scene.cameras.main;
-    const canvas = this.scene.game.canvas;
-    const k = canvas.clientWidth / this.scene.scale.width || 1;
-    return { x: (p.x - cam.worldView.x) * cam.zoom * k + canvas.offsetLeft, y: (p.y - cam.worldView.y) * cam.zoom * k + canvas.offsetTop };
+  private videoQuad(parent: HTMLElement) {
+    const f = this.map!.def.features.find((w) => w.kind === "video-wall");
+    return f ? wallQuad(this.scene, this.map!, f, VIDEO_WALL_SCREEN, parent) : null;
   }
 
   /**

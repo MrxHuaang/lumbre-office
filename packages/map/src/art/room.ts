@@ -649,6 +649,9 @@ function neonAt(text: string, u: number, hv: number, u1: number): RGBA | null {
  */
 export const VIDEO_WALL_SCREEN = { u0: 3, uPad: 3, hv0: 28, hv1: 53 } as const;
 
+/** Recuadro de la imagen de la tele de la sala de reuniones (`screen`), igual que VIDEO_WALL_SCREEN. */
+export const SCREEN_INSET = { u0: 4, uPad: 4, hv0: 24, hv1: 46 } as const;
+
 /** Pantalla LED del club (sobre la cabina): marco negro con filo de neón y, apagada, "DJ" en neón. */
 function videoWallAt(u: number, hv: number, u1: number): RGBA | null {
   const { u0, uPad, hv0, hv1 } = VIDEO_WALL_SCREEN;
@@ -738,6 +741,7 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
     case "window":
       return windowAt(u, hv, u0 + 4, u1 - 4, day);
     case "screen": {
+      // La imagen es el recuadro de SCREEN_INSET (ahí monta el navegador una pantalla compartida).
       if (!inRect(u, hv, 2, 22, u1 - 2, 48)) return inRect(u, hv, mid - 2, 18, mid + 2, 22) ? at(C.metal, 2) : null;
       if (u < 4 || u >= u1 - 4 || hv < 24 || hv >= 46) return at(C.metal, u < 3 || hv >= 47 ? 3 : 1);
       // Pantalla apagada con un reflejo diagonal (el video se monta encima desde el cliente).

@@ -7,6 +7,13 @@ import "./globals.css";
 const pixelify = Pixelify_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-cozy" });
 
 /**
+ * Los números de Pixelify se confunden (el 5 parece una S o un 8, "25:00" se lee "28:00"). Tiny5 tiene el
+ * mismo aire y números claros: se carga solo con los dígitos (`text=`) y va antes en la familia, así toma
+ * los 0-9 y el resto de las letras sigue siendo Pixelify (ver --font-pixel en globals.css).
+ */
+const DIGITS_FONT = "https://fonts.googleapis.com/css2?family=Tiny5&text=0123456789&display=swap";
+
+/**
  * La dirección pública del sitio, para que la imagen al compartir (opengraph-image.tsx) tenga URL
  * completa: la de Auth.js si está, si no la de producción de Vercel y, en local, localhost.
  */
@@ -39,6 +46,11 @@ export const viewport: Viewport = { themeColor: "#2a2033" };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={pixelify.variable}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link rel="stylesheet" href={DIGITS_FONT} />
+      </head>
       <body className="antialiased">{children}</body>
     </html>
   );

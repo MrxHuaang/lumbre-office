@@ -35,16 +35,20 @@ export const nameInk = (id: string) => NAME_INKS[[...id].reduce((a, c) => a + c.
 
 export const hexToInt = (hex: string) => parseInt(hex.slice(1), 16);
 
-/** Familia de Pixelify Sans que cargó next/font (para los textos que dibuja Phaser). */
+/**
+ * Familia de Pixelify Sans que cargó next/font (para los textos que dibuja Phaser), con los dígitos de
+ * Tiny5 delante (solo trae 0-9: lo demás cae en Pixelify).
+ */
 export function cozyFontFamily(): string {
   const loaded = getComputedStyle(document.documentElement).getPropertyValue("--font-cozy").trim();
-  return loaded ? `${loaded}, ui-monospace, monospace` : "ui-monospace, monospace";
+  return loaded ? `"Tiny5", ${loaded}, ui-monospace, monospace` : "ui-monospace, monospace";
 }
 
 /** Espera a que la fuente esté lista: Phaser pinta cada texto una sola vez al crearlo. */
 export async function waitForCozyFont(timeoutMs = 2000): Promise<void> {
   const family = cozyFontFamily();
-  const loads = Promise.all([document.fonts.load(`400 11px ${family}`), document.fonts.load(`600 11px ${family}`)]);
+  const sample = "Aa0123456789";
+  const loads = Promise.all([document.fonts.load(`400 11px ${family}`, sample), document.fonts.load(`600 11px ${family}`, sample)]);
   await Promise.race([loads.catch(() => undefined), new Promise((r) => setTimeout(r, timeoutMs))]);
 }
 

@@ -1,6 +1,7 @@
 // Cámara del modo mesa: se acerca a la mesa con una transición suave y, al salir, vuelve a seguir al
 // personaje con el zoom de antes. Coordenadas de pantalla del juego (las del arte a zoom 1). Qué se
 // encuadra y con qué zoom está en @hyvento/map/art (casino-camara.ts), sin Phaser y con tests.
+import { PIXEL_RATIO } from "../pixelRatio";
 import type { ScreenBox, TableViewport } from "@hyvento/map/art";
 import * as Phaser from "phaser";
 import { useCasinoStore } from "../casino";
@@ -28,7 +29,8 @@ export class TableCamera {
 
   /** La ventana del juego y lo que tapa la tira de abajo (medida por la tira). */
   get viewport(): TableViewport {
-    return { w: this.cam.width, h: this.cam.height, strip: useCasinoStore.getState().stripPx };
+    // La tira es DOM (px CSS) y la cámara cuenta en píxeles de pantalla.
+    return { w: this.cam.width, h: this.cam.height, strip: useCasinoStore.getState().stripPx * PIXEL_RATIO };
   }
 
   /** Lleva la cámara a mostrar `rect` con `zoom` (deja de seguir al personaje). */

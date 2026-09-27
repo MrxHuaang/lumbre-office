@@ -1,7 +1,11 @@
 // Un reproductor de YouTube (el iframe oficial, sin clave) encima del canvas: el del club, montado sobre
 // la pantalla de la pared, y el de la radio de las oficinas, que solo suena. No se mueve nunca de lugar
 // en el DOM (moverlo lo recargaría): se estira con una matriz CSS para que caiga sobre la pared inclinada
-// y, en grande, se centra. Va al segundo que le digan (la hora del servidor): todos ven lo mismo.
+// y, en grande, se centra (ver wallMount.ts). Va al segundo que le digan (la hora del servidor): todos
+// ven lo mismo.
+import { WallMount, type ScreenQuad } from "./wallMount";
+
+export type { Point, ScreenQuad } from "./wallMount";
 
 // ---------- API del iframe de YouTube ----------
 
@@ -55,20 +59,6 @@ function loadApi(): Promise<YTNamespace> {
 
 // ---------- Montaje sobre la pantalla ----------
 
-export interface Point {
-  x: number;
-  y: number;
-}
-
-/** Dónde cae la imagen de la pantalla, en px del contenedor del juego (tres esquinas del recuadro). */
-export interface ScreenQuad {
-  tl: Point;
-  tr: Point;
-  bl: Point;
-  /** Proporción ancho/alto del recuadro en la pared (sin la inclinación). */
-  aspect: number;
-}
-
 /** Lo que tiene que sonar: `id` distingue dos veces el mismo video (la cola del club). */
 export interface VideoEntry {
   id: string;
@@ -108,8 +98,6 @@ export interface ScreenHooks {
 const active = new Set<YoutubeScreen>();
 export const tapVideos = () => active.forEach((v) => v.tap());
 
-/** Ancho base del recuadro (px antes de la matriz): de ahí salen el tamaño del iframe y la calidad. */
-const BASE_W = 640;
 /** Cada cuánto se revisa que el video vaya al segundo del servidor. */
 const SYNC_MS = 700;
 /** Desfase que se tolera antes de saltar al segundo correcto. */
@@ -118,8 +106,7 @@ const DRIFT_MS = 2000;
 const BLOCKED_MS = 3500;
 
 export class YoutubeScreen {
-  private host: HTMLDivElement;
-  private frame: HTMLDivElement;
+  private mount: WallMount;
   private player: YTPlayer | null = null;
   private creating = false;
   private ready = false;
@@ -129,41 +116,21 @@ export class YoutubeScreen {
   private reported = new Set<string>();
   private lastSync = 0;
   private lastVolume = -1;
-  private layout = "";
   private want: VideoWant | null = null;
 
   constructor(
     parent: HTMLElement,
     private readonly hooks: ScreenHooks = {},
   ) {
-    this.host = document.createElement("div");
-    Object.assign(this.host.style, {
-      position: "absolute",
-      left: "0",
-      top: "0",
-      transformOrigin: "0 0",
-      background: "#05030a",
-      overflow: "hidden",
-      visibility: "hidden",
-      cursor: "zoom-in",
-      zIndex: "1",
-    } satisfies Partial<CSSStyleDeclaration>);
-    this.host.title = hooks.titles?.small ?? "";
-    this.host.addEventListener("click", () => hooks.onClick?.());
-    this.frame = document.createElement("div");
-    // El iframe no recibe clics: los toma la pantalla (para agrandar), no los controles de YouTube.
-    Object.assign(this.frame.style, { position: "absolute", pointerEvents: "none" } satisfies Partial<CSSStyleDeclaration>);
-    const mount = document.createElement("div");
-    this.frame.appendChild(mount);
-    this.host.appendChild(this.frame);
-    parent.appendChild(this.host);
+    this.mount = new WallMount(parent, { onClick: hooks.onClick, titles: hooks.titles });
+    this.mount.frame.appendChild(document.createElement("div"));
     active.add(this);
   }
 
   /** Cada frame: dónde se ve, cuánto suena y qué video y segundo tocan. */
   update(want: VideoWant) {
     this.want = want;
-    this.place(want);
+    this.mount.place(want.entry ? want.quad : null, Boolean(want.entry) && want.big);
     if (!want.entry) {
       if (this.loaded) {
         this.player?.stopVideo();
@@ -219,7 +186,7 @@ export class YoutubeScreen {
   destroy() {
     this.player?.destroy();
     this.player = null;
-    this.host.remove();
+    this.mount.destroy();
     active.delete(this);
     this.hooks.onNeedsTap?.(false);
   }
@@ -234,8 +201,8 @@ export class YoutubeScreen {
       this.creating = false;
       return;
     }
-    if (!this.host.isConnected) return;
-    const mount = this.frame.firstElementChild as HTMLElement;
+    if (!this.mount.parent) return;
+    const mount = this.mount.frame.firstElementChild as HTMLElement;
     this.player = new YT.Player(mount, {
       width: "100%",
       height: "100%",
@@ -268,62 +235,5 @@ export class YoutubeScreen {
 
   private onError(code: number) {
     if (this.loaded) this.hooks.onError?.(this.loaded, code);
-  }
-
-  /** Estira el recuadro sobre la pantalla de la pared, o lo centra en grande. */
-  private place(want: VideoWant) {
-    const show = Boolean(want.entry) && (want.big || want.quad !== null);
-    const parent = this.host.parentElement;
-    let layout = "hidden";
-    if (show && parent) {
-      if (want.big) {
-        const w = Math.min(parent.clientWidth * 0.8, (parent.clientHeight * 0.75 * 16) / 9);
-        const h = (w * 9) / 16;
-        layout = `big:${Math.round(w)}x${Math.round(h)}:${Math.round((parent.clientWidth - w) / 2)},${Math.round((parent.clientHeight - h) / 2)}`;
-      } else {
-        const q = want.quad!;
-        const bh = BASE_W / q.aspect;
-        const a = (q.tr.x - q.tl.x) / BASE_W;
-        const b = (q.tr.y - q.tl.y) / BASE_W;
-        const c = (q.bl.x - q.tl.x) / bh;
-        const d = (q.bl.y - q.tl.y) / bh;
-        layout = `wall:${bh.toFixed(1)}:${[a, b, c, d, q.tl.x, q.tl.y].map((n) => n.toFixed(3)).join(",")}`;
-      }
-    }
-    if (layout === this.layout) return;
-    this.layout = layout;
-    const st = this.host.style;
-    if (layout === "hidden") {
-      st.visibility = "hidden";
-      return;
-    }
-    st.visibility = "visible";
-    let w: number;
-    let h: number;
-    if (layout.startsWith("big:")) {
-      const [size, pos] = layout.slice(4).split(":");
-      [w, h] = size!.split("x").map(Number) as [number, number];
-      const [x, y] = pos!.split(",").map(Number) as [number, number];
-      st.transform = `translate(${x}px, ${y}px)`;
-      st.zIndex = "30";
-      st.cursor = "zoom-out";
-      st.boxShadow = "0 0 0 4px #1d1128, 0 0 0 7px #ff5fd2, 8px 8px 0 7px #1d1128";
-      this.host.title = this.hooks.titles?.big ?? "";
-    } else {
-      const [bh, m] = layout.slice(5).split(":");
-      w = BASE_W;
-      h = Number(bh);
-      st.transform = `matrix(${m})`;
-      st.zIndex = "1";
-      st.cursor = "zoom-in";
-      st.boxShadow = "none";
-      this.host.title = this.hooks.titles?.small ?? "";
-    }
-    st.width = `${w}px`;
-    st.height = `${h}px`;
-    // El video (16:9) va centrado dentro del recuadro, con bandas negras si no calza.
-    const fw = Math.min(w, (h * 16) / 9);
-    const fh = (fw * 9) / 16;
-    Object.assign(this.frame.style, { width: `${fw}px`, height: `${fh}px`, left: `${(w - fw) / 2}px`, top: `${(h - fh) / 2}px` });
   }
 }

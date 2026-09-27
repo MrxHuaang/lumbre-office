@@ -34,8 +34,9 @@ import {
   type TilePos,
   type World,
   type Zone,
+  type WallFeature,
 } from "@hyvento/map";
-import { CHIMNEY_TOPS, tileCursor, WORLD_TO_ART } from "@hyvento/map/art";
+import { CHIMNEY_TOPS, SCREEN_INSET, tileCursor, WORLD_TO_ART } from "@hyvento/map/art";
 import {
   hearing,
   MOVE_SEND_HZ,
@@ -113,6 +114,8 @@ import { WeatherView } from "./weather";
 import { Critters } from "./critters";
 import type { PhotoShot, PresenceStatus } from "@hyvento/shared";
 import { disposeRadio, updateRadio } from "./radio";
+import { WallMount, wallQuad } from "./wallMount";
+import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
@@ -202,7 +205,8 @@ export class OfficeScene extends Phaser.Scene {
   private userOfSession = new Map<string, string>();
   private areaOfSession = new Map<string, string>();
   /** Pantallas de presentación en la pared (punto "screen") → video que muestran. */
-  private screens = new Map<number, { identity: string | null; track: Track; el: HTMLVideoElement; dom: Phaser.GameObjects.DOMElement }>();
+  /** La pantalla compartida de cada tele de sala, montada sobre la pared (ver wallMount.ts). */
+  private screens = new Map<number, { identity: string | null; track: Track; el: HTMLVideoElement; mount: WallMount; feature: WallFeature }>();
   /** Esperando la respuesta del servidor tras pisar un portal. */
   private travelling = false;
   /** Tile de portal en el que quedé (no se vuelve a usar hasta salir de él). */
@@ -283,7 +287,7 @@ export class OfficeScene extends Phaser.Scene {
     this.tweens.add({ targets: this.hoverCursor, alpha: 0.45, duration: 600, yoyo: true, repeat: -1 });
 
     const cam = this.cameras.main;
-    cam.setZoom(this.defaultZoom());
+    cam.setZoom(cameraZoom(this.defaultZoom()));
     cam.setRoundPixels(true);
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
@@ -332,7 +336,7 @@ export class OfficeScene extends Phaser.Scene {
     });
     this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       if (this.table.kind) return; // en la mesa el zoom lo maneja el modo mesa
-      cam.setZoom(Phaser.Math.Clamp(Math.round(cam.zoom) + (dy > 0 ? -1 : 1), MIN_ZOOM, MAX_ZOOM));
+      cam.setZoom(cameraZoom(Phaser.Math.Clamp(Math.round(cssZoomOf(cam.zoom)) + (dy > 0 ? -1 : 1), MIN_ZOOM, MAX_ZOOM)));
     });
 
     this.cleanups.push(
@@ -461,6 +465,35 @@ export class OfficeScene extends Phaser.Scene {
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
     this.updateOfficeRadio();
+    this.updateScreenMounts();
+    this.syncTextResolution(time);
+  }
+
+  private textRes = 0;
+  private textScanAt = 0;
+
+  /**
+   * Los textos del canvas (nombres, placas, burbujas) se rasterizan a la escala a la que se ven: cada
+   * píxel del texto cae en un píxel de pantalla. Con una resolución fija más alta, la cámara los achicaba
+   * saltando filas de píxeles (se veían borrosos o comidos). Se revisa cada tanto por los textos nuevos.
+   */
+  private syncTextResolution(time: number) {
+    const r = Math.max(1, Math.round(this.cameras.main.zoom));
+    if (r === this.textRes && time < this.textScanAt) return;
+    this.textRes = r;
+    this.textScanAt = time + 300;
+    const visit = (list: Phaser.GameObjects.GameObject[]) => {
+      for (const o of list) {
+        if (o instanceof Phaser.GameObjects.Text) {
+          // Phaser solo copia la resolución a la textura al crear el texto: sin esto se dibuja achicado.
+          if (o.style.resolution !== r) {
+            o.frame.source.resolution = r;
+            o.setResolution(r);
+          }
+        } else if (o instanceof Phaser.GameObjects.Container) visit(o.list);
+      }
+    };
+    visit(this.children.list);
   }
 
   /** La radio de la oficina donde estoy (si tiene): suena solo adentro, al segundo del servidor. */
@@ -1692,9 +1725,16 @@ export class OfficeScene extends Phaser.Scene {
   private clearScreens() {
     for (const s of this.screens.values()) {
       s.track.detach(s.el);
-      s.dom.destroy();
+      s.mount.destroy();
     }
     this.screens.clear();
+  }
+
+  /** Cada frame: la pantalla compartida sigue a la tele de la pared cuando se mueve la cámara. */
+  private updateScreenMounts() {
+    const parent = this.game.canvas.parentElement;
+    if (!parent) return;
+    for (const s of this.screens.values()) s.mount.place(wallQuad(this, this.map, s.feature, SCREEN_INSET, parent), false);
   }
 
   /**
@@ -1721,33 +1761,31 @@ export class OfficeScene extends Phaser.Scene {
       if (current && current.track === (presenter as { track: Track } | null)?.track) continue;
       if (current) {
         current.track.detach(current.el);
-        current.dom.destroy();
+        current.mount.destroy();
         this.screens.delete(point.id);
       }
       if (!presenter) continue;
       const { identity, track } = presenter as { identity: string | null; track: Track };
-      const feature = this.view?.features.find((f) => f.kind === "screen");
-      if (!feature) continue;
+      // La tele de la pared más cercana al punto de la sala.
+      const feature = this.map.def.features
+        .filter((f) => f.kind === "screen")
+        .sort((a, b) => Math.hypot(a.x - point.tileX, a.y - point.tileY) - Math.hypot(b.x - point.tileX, b.y - point.tileY))[0];
+      const parent = this.game.canvas.parentElement;
+      if (!feature || !parent) continue;
 
+      // Se ve sobre la tele, inclinada con la pared (como el video del club); un clic la abre en grande.
       const el = document.createElement("video");
       el.muted = true;
       el.playsInline = true;
       el.autoplay = true;
-      // Inclinado como la pared norte (pendiente 1:2 del isométrico) para que parezca colgado.
-      Object.assign(el.style, {
-        width: "40px",
-        height: "21px",
-        objectFit: "contain",
-        background: "#000",
-        cursor: "zoom-in",
-        display: "block",
-        transform: "skewY(26.565deg)",
-      } satisfies Partial<CSSStyleDeclaration>);
-      el.title = "Ver presentación en grande";
-      el.addEventListener("click", () => useMediaStore.getState().setFocused({ identity, source: "screen" }));
+      Object.assign(el.style, { width: "100%", height: "100%", objectFit: "contain", background: "#000", display: "block" } satisfies Partial<CSSStyleDeclaration>);
+      const mount = new WallMount(parent, {
+        onClick: () => useMediaStore.getState().setFocused({ identity, source: "screen" }),
+        titles: { small: "Ver la presentación en grande", big: "" },
+      });
+      mount.frame.appendChild(el);
       track.attach(el);
-      const dom = this.add.dom(feature.x, feature.y, el).setOrigin(0.5, 0.5);
-      this.screens.set(point.id, { identity, track, el, dom });
+      this.screens.set(point.id, { identity, track, el, mount, feature });
     }
   }
 
