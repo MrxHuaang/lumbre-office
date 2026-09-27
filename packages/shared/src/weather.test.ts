@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { bogotaHour } from "./fishing";
 import {
   WEATHER,
   WEATHERS,
-  bogotaHour,
   initialWeather,
   isFogHour,
   isWeather,

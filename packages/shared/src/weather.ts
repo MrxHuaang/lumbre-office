@@ -1,6 +1,7 @@
 // El clima de afuera. Lo decide el servidor (todos ven el mismo) con una cadena de Markov simple: cada
 // tanto se sortea el siguiente según el actual. La niebla es más probable temprano en la mañana (hora de
 // Bogotá). Todo es puro y el azar entra como parámetro, para poder probarlo.
+import { bogotaHour } from "./fishing";
 
 export const WEATHERS = ["despejado", "nublado", "lluvia", "tormenta", "niebla"] as const;
 export type Weather = (typeof WEATHERS)[number];
@@ -45,15 +46,6 @@ export function isWeather(x: unknown): x is Weather {
 
 /** ¿Llueve? (lluvia o tormenta: la fauna se esconde y la casa se ve un poco más oscura). */
 export const isWet = (w: Weather) => w === "lluvia" || w === "tormenta";
-
-// Colombia: UTC-5 todo el año (igual que `dayStart` en points.ts).
-const BOGOTA_OFFSET_MS = -5 * 3_600_000;
-
-/** Hora de Bogotá (0-23) del instante `ts` (ms UTC). */
-export function bogotaHour(ts: number): number {
-  const h = Math.floor((ts + BOGOTA_OFFSET_MS) / 3_600_000) % 24;
-  return h < 0 ? h + 24 : h;
-}
 
 /** ¿Es temprano en la mañana (la hora de la niebla)? */
 export const isFogHour = (hour: number) => hour >= WEATHER.fogHours[0] && hour < WEATHER.fogHours[1];

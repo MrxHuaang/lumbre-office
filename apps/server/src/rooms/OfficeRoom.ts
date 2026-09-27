@@ -94,9 +94,10 @@ import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blac
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
 import { Drunkenness } from "./drunk";
-import { devToolsEnabled, parseDevJump } from "./devtools";
+import { devToolsEnabled, parseDevJump, parseDevWeather } from "./devtools";
+import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
-import { FISHING, type FishingTimings } from "@hyvento/shared";
+import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
 import { randomInt } from "node:crypto";
 import { Fishery } from "./fishing";
 
@@ -169,6 +170,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static fishingRandom: (n: number) => number = (n) => randomInt(n);
   static fishingNow: () => number = () => Date.now();
   static fishingTimings: FishingTimings = { ...FISHING };
+  /** Azar y reloj del clima (los tests los fijan); `weatherInitial` null = según la hora de Bogotá. */
+  static weatherRandom: () => number = () => randomInt(2 ** 30) / 2 ** 30;
+  static weatherNow: () => number = () => Date.now();
+  static weatherInitial: Weather | null = null;
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
@@ -219,6 +224,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       onWake: (userId) => this.wakeToRest(userId),
     },
     () => OfficeRoom.faintMs,
+  );
+  /** El clima de afuera (lo ven todos: `state.weather`). */
+  private weather = new WeatherCycle(
+    {
+      clock: { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+      now: () => OfficeRoom.weatherNow(),
+      random: () => OfficeRoom.weatherRandom(),
+      onChange: (w) => {
+        this.state.weather = w;
+      },
+    },
+    OfficeRoom.weatherInitial ?? initialWeather(OfficeRoom.weatherNow()),
   );
   /** Lo que dura un desmayo (los tests lo acortan). */
   static faintMs: number = DRUNK.faintMs;
@@ -297,6 +314,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.fishFinish, (client, raw) => this.withFisher(client, (userId) => void this.fishery.finish(userId, raw)));
     this.onMessage(MSG.fishCancel, (client) => this.withFisher(client, (userId) => this.fishery.cancel(userId)));
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
+    this.weather.start();
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
@@ -310,6 +328,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   onDispose() {
     OfficeRoom.instances.delete(this);
     this.drunk.dispose();
+    this.weather.dispose();
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -918,6 +937,19 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return true;
   }
 
+  /** Solo en desarrollo: "/clima <tipo>" pone ese clima ya (ver devtools.ts). Devuelve si era el comando. */
+  private devWeather(client: Client<UserData>, text: string): boolean {
+    const w = parseDevWeather(text);
+    if (!w) return false;
+    if (typeof w === "object") {
+      const note: ChatEvent = { id: randomUUID(), fromId: "", fromName: "Dev", text: w.error, scope: "proximity", zoneId: null, ts: Date.now() };
+      client.send(MSG.chatEvent, note);
+      return true;
+    }
+    this.weather.force(w);
+    return true;
+  }
+
   private handleChat(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = ChatSendMessage.safeParse(raw);
@@ -928,7 +960,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (times.length >= CHAT_RATE.max) return;
     times.push(now);
     client.userData.chatTimes = times;
-    if (devToolsEnabled() && this.devJump(client, player, parsed.data.text)) return;
+    if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text))) return;
 
     const event: ChatEvent = {
       id: randomUUID(),
