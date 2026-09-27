@@ -1028,8 +1028,8 @@ function toilet(): Sprite {
   );
 }
 
-/** Lavamanos sobre un mueble de madera: lavatorio blanco, grifo, jabón y una toalla colgando. */
-function bathSink(): Sprite {
+/** Lavamanos (tocador) sobre un mueble de madera: lavatorio blanco, grifo, jabón y una toalla colgando. */
+function vanity(): Sprite {
   const wd = C.wood;
   return renderSprite(
     [
@@ -1606,7 +1606,7 @@ function telescope(): Sprite {
 }
 
 /** Jardinera de madera con lavanda, flores rojas y hierbas. */
-function planter(): Sprite {
+function balconyPlanter(): Sprite {
   const w = C.wood;
   const slats: Shader = (u, v, _fw, fh) => (v >= fh - 1.5 ? at(w, 4) : mod(v, 3.5) < 0.6 ? at(w, 1) : at(w, 3));
   return renderSprite(
@@ -1673,7 +1673,7 @@ export const INTERIOR_DRAW: Record<string, (v: Variant) => Sprite> = {
   "entry-bench": entryBench,
   "umbrella-stand": umbrellaStand,
   toilet,
-  "bath-sink": bathSink,
+  vanity,
   backbar,
   "kitchen-counter": kitchenCounter,
   "kitchen-sink": kitchenSink,
@@ -1691,5 +1691,5 @@ export const INTERIOR_DRAW: Record<string, (v: Variant) => Sprite> = {
   railing,
   "deck-chair": deckChair,
   telescope,
-  planter,
+  "balcony-planter": balconyPlanter,
 };

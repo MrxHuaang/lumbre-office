@@ -28,11 +28,12 @@ export type FloorKind =
   | "water"
   /** Muelle de tablas sobre el estanque. */
   | "dock"
-  // Interiores del rediseño: parqué en espiga (salón, biblioteca), baldosa de cocina, baldosín de los
-  // baños y el deck de madera del balcón y la terraza (afuera, pero sobre la casa).
+  // Interiores del rediseño: parqué en espiga (salón, biblioteca), baldosa de cocina, mosaico blanco y
+  // azul (los baños de la planta baja) y el deck del balcón y la terraza: tablas alineadas con la sala,
+  // sobre la casa (el `deck` del jardín tiene bordes orgánicos contra el pasto; al integrar se pueden unir).
   | "parquet"
   | "kitchen"
-  | "bath"
+  | "mosaic"
   | "terrace";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
 export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet" | "paneling" | "tile" | "forest";

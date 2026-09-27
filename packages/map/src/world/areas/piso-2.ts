@@ -252,7 +252,7 @@ export const piso2: AreaDef = {
     ...[24, 25, 26].map((y) => railing(BALCON.x, y, "w")),
     ...[24, 25, 26].map((y) => railing(BALCON.x + BALCON.w - 1, y, "e")),
     ...Array.from({ length: BALCON.w }, (_, i) => railing(BALCON.x + i, BALCON.y + BALCON.h - 1, "s")),
-    place("planter", 22, 24, "down"),
+    place("balcony-planter", 22, 24, "down"),
     place("deck-chair", 27, 24, "right"),
     place("plant", 28, 25),
   ],

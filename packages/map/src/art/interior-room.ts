@@ -85,7 +85,7 @@ export function interiorFloor(kind: FloorKind, X: number, Y: number): RGBA {
       return parquet(X, Y);
     case "kitchen":
       return kitchenTiles(X, Y);
-    case "bath":
+    case "mosaic":
       return bathTiles(X, Y);
     default:
       return deck(X, Y);

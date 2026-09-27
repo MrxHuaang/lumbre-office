@@ -28,7 +28,7 @@ export const INTERIOR_CATALOG = {
   "entry-bench": { name: "Banca con zapatera", size: [1, 2], seats: [[0, 0], [0, 1]] },
   "umbrella-stand": { name: "Paragüero", size: [1, 1] },
   toilet: { name: "Inodoro", size: [1, 1] },
-  "bath-sink": { name: "Lavamanos", size: [1, 1] },
+  vanity: { name: "Lavamanos", size: [1, 1] },
   // Cafetería, cocina y la zona de descanso.
   backbar: { name: "Estante del bar", size: [1, 2] },
   "kitchen-counter": { name: "Mesón", size: [1, 1] },
@@ -49,5 +49,5 @@ export const INTERIOR_CATALOG = {
   railing: { name: "Baranda", size: [1, 1], hasBack: true },
   "deck-chair": { name: "Tumbona", size: [2, 1], seats: [[0, 0]], hasBack: true },
   telescope: { name: "Telescopio", size: [1, 1] },
-  planter: { name: "Jardinera", size: [1, 2] },
+  "balcony-planter": { name: "Jardinera del balcón", size: [1, 2] },
 } satisfies Record<string, CatalogItem>;

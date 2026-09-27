@@ -59,7 +59,7 @@ export const plantaBaja: AreaDef = {
     { id: "salon", rect: SALON, floor: "parquet", wallpaper: "sage" },
     { id: "cafeteria", rect: CAFE, floor: "tiles", wallpaper: "cream" },
     { id: "cocina", rect: COCINA, floor: "kitchen", wallpaper: "tile" },
-    { id: "banos", rect: BANOS, floor: "bath", wallpaper: "tile" },
+    { id: "banos", rect: BANOS, floor: "mosaic", wallpaper: "tile" },
     { id: "pasillo", rect: PASILLO, floor: "wood", wallpaper: "sage" },
     { id: "recibidor", rect: RECIBIDOR, floor: "wood", wallpaper: "paneling" },
     // Va después del recibidor: ocupa su esquina suroeste.
@@ -201,8 +201,8 @@ export const plantaBaja: AreaDef = {
     place("chair", 36, 8, "right"),
     place("chair", 38, 8, "left"),
     // ----- Baños (de adorno).
-    place("bath-sink", 0, 11, "right"),
-    place("bath-sink", 0, 12, "right"),
+    place("vanity", 0, 11, "right"),
+    place("vanity", 0, 12, "right"),
     place("toilet", 3, 11, "down"),
     place("toilet", 5, 11, "down"),
     place("plant", 6, 13),

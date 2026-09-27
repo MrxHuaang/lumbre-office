@@ -193,7 +193,7 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
     // Interiores del rediseño (art/interior-room.ts).
     case "parquet":
     case "kitchen":
-    case "bath":
+    case "mosaic":
     case "terrace":
       return interiorFloor(kind, X, Y);
   }
