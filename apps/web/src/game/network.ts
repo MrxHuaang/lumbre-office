@@ -66,6 +66,7 @@ import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { bindPhone, resetPhone } from "./phone";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -95,6 +96,10 @@ export interface RemotePlayer {
   drunk: number;
   /** Corriendo la carrera de sillas. */
   racing: boolean;
+  /** Teléfono: "", "calling", "ringing" o "talking" (CallPhase), con quién (userId) y desde cuándo. */
+  call: string;
+  callWith: string;
+  callSince: number;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -417,6 +422,7 @@ export async function disconnect() {
   room = null;
   // Reset síncrono: si se reconecta enseguida (StrictMode), no debe borrar la sesión nueva.
   useOfficeStore.getState().reset();
+  resetPhone();
   await current?.leave(true).catch(() => undefined);
 }
 
@@ -476,7 +482,7 @@ export const DECOR_ERRORS: Record<OfficeEditError, string> = {
   blocked: "Ahí choca con otro mueble.",
   door: "Así taparías la puerta o el paso hasta tu escritorio.",
   occupied: "Hay alguien ahí.",
-  fixed: "El escritorio con el PC y su silla no se mueven.",
+  fixed: "El escritorio con el PC, su teléfono y su silla no se mueven.",
   unknown: "Ese mueble no existe.",
   failed: "No se pudo guardar. Intenta de nuevo.",
 };
@@ -578,8 +584,12 @@ function attach(r: OfficeRoom) {
         points: player.points,
         held: player.held,
         heldLeft: player.heldLeft,
+        call: player.call ?? "",
+        callWith: player.callWith ?? "",
       });
     sync();
+    $(player).listen("call", sync);
+    $(player).listen("callWith", sync);
     $(player).listen("held", sync);
     $(player).listen("heldLeft", sync);
     $(player).listen("area", sync);
@@ -721,6 +731,7 @@ function attach(r: OfficeRoom) {
   bindClub(r);
   bindRace(r);
   bindArcade(r);
+  bindPhone(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
     if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");

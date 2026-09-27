@@ -33,6 +33,12 @@ export class Player extends Schema {
   @type("string") fishing = "";
   /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
   @type("uint8") drunk = 0;
+  /** Teléfono (phones.ts; lo ven todos): "" nada, "calling" llamando, "ringing" le suena, "talking" hablando. */
+  @type("string") call = "";
+  /** userId de la otra persona de la llamada: con ella se oyen sin importar dónde estén. */
+  @type("string") callWith = "";
+  /** Hora del servidor en que contestaron (0 mientras suena), para el reloj de la llamada. */
+  @type("number") callSince = 0;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */

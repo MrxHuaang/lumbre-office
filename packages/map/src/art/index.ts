@@ -6,6 +6,7 @@ export * from "./pixel";
 export * from "./palette";
 export * from "./chibi";
 export { drawFurniture, type Variant } from "./furniture";
+export { handsetSprite, phoneBubble } from "./phone";
 export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";
 export { composeArea } from "./compose";
 export { CAFE_ITEM_ART, crumb, crumbColor, drawCafeItem, drawHeldItem, drawMenuItem, emberGlow, heldEffect, puff, wisp, type HeldArtState, type HeldEffect } from "./items";

@@ -33,6 +33,7 @@ import { ClubHud } from "./club/ClubHud";
 import { DjConsole } from "./club/DjConsole";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
+import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -253,6 +254,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <CatchCard />
           </div>
           <KnockRequests />
+          <IncomingCall />
           <SocialOverlays />
           <MediaControls>
             <HeldSlot />
@@ -296,6 +298,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "arcade" && <ArcadePanel onClose={closePanel} />}
           {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
           {panel?.kind === "race" && <RacePanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "phone" && <PhonePanel onClose={closePanel} />}
         </>
       ) : null}
 

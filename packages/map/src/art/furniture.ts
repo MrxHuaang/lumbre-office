@@ -33,6 +33,7 @@ import { RACE_DRAW } from "./race";
 import { SOTANO_DRAW } from "./sotano";
 import { CASA_DRAW } from "./casa-viva";
 import { PLANTAS_DRAW } from "./plantas";
+import { PHONE_DRAW } from "./phone";
 
 export type { Variant } from "./kit";
 
@@ -756,6 +757,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...PLANTAS_DRAW,
   "photo-board": photoBoard,
   ...RACE_DRAW,
+  ...PHONE_DRAW,
 };
 
 const cache = new Map<string, Sprite>();

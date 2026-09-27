@@ -75,12 +75,12 @@ export function officeZoneDef(def: AreaDef, zoneId: string): ZoneDef | undefined
   return def.zones.find((z) => z.id === zoneId && z.type === "office");
 }
 
-/** ¿Se puede poner este tipo con el editor? (del catálogo, que rote y que no sea un escritorio con PC). */
+/** ¿Se puede poner este tipo con el editor? (del catálogo, que rote y que no sea un escritorio con PC ni un teléfono). */
 export function isPlaceable(type: string): boolean {
   // Solo claves propias: "constructor" o "toString" vienen del prototipo y no son muebles.
   if (!Object.hasOwn(CATALOG, type)) return false;
   const item = (CATALOG as Record<string, CatalogItem>)[type]!;
-  return !item.fixed && !item.computer;
+  return !item.fixed && !item.computer && !item.phone;
 }
 
 /** Tiles que ocupa un mueble en el nivel. */
@@ -108,7 +108,7 @@ function validItem(zone: ZoneDef, item: OfficeItemDTO): boolean {
   return furnitureTiles(item).every((t) => inRect(zone.rect, t.x, t.y));
 }
 
-/** Para cada mueble de la lista: ¿es fijo? (escritorio con PC, o asiento que mira a uno). */
+/** Para cada mueble de la lista: ¿es fijo? (escritorio con PC, su teléfono, o asiento que mira a uno). */
 function fixedFlags(list: readonly Placement[]): boolean[] {
   const computers = new Set<string>();
   for (const p of list) {
@@ -117,7 +117,8 @@ function fixedFlags(list: readonly Placement[]): boolean[] {
   }
   return list.map((p) => {
     const item = catalogItem(p.type);
-    if (item.computer) return true;
+    // El teléfono va encima del escritorio: si se pudiera mover quedaría flotando o en el piso.
+    if (item.computer || item.phone) return true;
     const facing = p.facing ?? "right";
     return (item.seats ?? []).some(([lx, ly]) => {
       const [dx, dy] = localToWorld(item, facing, lx, ly);

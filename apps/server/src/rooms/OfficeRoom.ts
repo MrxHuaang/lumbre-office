@@ -17,6 +17,7 @@ import {
   nearPointOfType,
   nearPortal,
   officeDoor,
+  phoneInReach,
   placeAt,
   SEAT_REACH_TILES,
   seatAtPoint,
@@ -125,6 +126,11 @@ import {
   STAT_PREFIX,
   type AchievementUnlockedEvent,
   type FishSpecies,
+  PHONE,
+  PhoneAnswerMessage,
+  PhoneCallMessage,
+  type PhoneError,
+  type PhoneEvent,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
@@ -153,6 +159,7 @@ import { Whiteboards, type BoardWho } from "./whiteboards";
 import { ChairRaces, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
+import { Phones } from "./phones";
 
 interface UserData {
   lastMoveAt: number;
@@ -426,6 +433,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     later: (ms, fn) => this.clock.setTimeout(fn, ms),
     inviteTimeoutMs: () => OfficeRoom.tradeInviteMs,
   });
+  /** Cuánto suena el teléfono antes de darse por no contestado (los tests lo acortan). */
+  static phoneRingMs: number = PHONE.ringMs;
+  /** Llamadas entre oficinas (ver phones.ts): el estado queda en `Player.call` y `callWith`. */
+  private phones = new Phones({
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    now: () => Date.now(),
+    newId: () => randomUUID(),
+    ringMs: () => OfficeRoom.phoneRingMs,
+    send: (userId, event) => {
+      for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.phoneEvent, event);
+    },
+    setPhase: (userId, phase, withUserId, since) => {
+      for (const p of this.state.players.values())
+        if (p.userId === userId) {
+          p.call = phase;
+          p.callWith = withUserId;
+          p.callSince = since;
+        }
+    },
+  });
   /** Cuánto espera una invitación a intercambiar (los tests lo acortan). */
   static tradeInviteMs: number = TRADE.requestTimeoutMs;
 
@@ -493,6 +520,16 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.boardUndo, (client, raw) => this.withBoard(client, (who) => this.whiteboards.undo(who, raw)));
     this.onMessage(MSG.boardClear, (client, raw) => this.withBoard(client, (who) => this.whiteboards.clear(who, raw)));
     this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
+    this.onMessage(MSG.phoneCall, (client, raw) => this.handlePhoneCall(client, raw));
+    this.onMessage(MSG.phoneAnswer, (client, raw) => {
+      const player = this.state.players.get(client.sessionId);
+      const parsed = PhoneAnswerMessage.safeParse(raw);
+      if (player && parsed.success) this.phones.answer(player.userId, parsed.data.callId, parsed.data.accept);
+    });
+    this.onMessage(MSG.phoneHangup, (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) this.phones.hangup(player.userId);
+    });
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
     this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
@@ -572,6 +609,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.drunk.dispose();
     this.toasts.dispose();
     this.weather.dispose();
+    this.phones.dispose();
     void this.achievements.flushAll();
     void this.whiteboards.flush();
   }
@@ -615,6 +653,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
     player.drunk = this.drunk.stage(auth.sub);
     this.state.players.set(client.sessionId, player);
+    // Si recargó la página en medio de una llamada, la sesión nueva la retoma.
+    this.phones.restore(auth.sub);
 
     client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now(), admin: auth.role === "ADMIN" };
     void this.achievements.load(auth.sub).then(() => {
@@ -1082,6 +1122,47 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     } satisfies KnockResult);
   }
 
+  // ---------- Teléfono ----------
+
+  /**
+   * Llamar a la oficina `zoneId`: hay que estar junto a un teléfono y la oficina tiene que tener dueño; le
+   * suena a esa persona esté donde esté (ocupado, "No molestar" y desconectado los decide `Phones`).
+   */
+  private handlePhoneCall(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = PhoneCallMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    this.markActive(client);
+    const office = this.state.offices.get(parsed.data.zoneId);
+    const fail = (error: PhoneError) =>
+      client.send(MSG.phoneEvent, { kind: "failed", error, withName: office?.ownerName ?? "" } satisfies PhoneEvent);
+    const map = this.mapOf(player.area);
+    const phone = phoneInReach(map, player.x, player.y);
+    if (!phone) return fail("far");
+    if (!office?.ownerId) return fail("invalid");
+    if (office.ownerId === player.userId) return fail("self");
+    const owner = [...this.state.players.values()].find((p) => p.userId === office.ownerId);
+    const ts = map.tileSize;
+    const zone = zoneAt(map, (phone.x + phone.w / 2) * ts, (phone.y + phone.d / 2) * ts);
+    const error = this.phones.call(
+      { userId: player.userId, name: player.name, status: player.status },
+      owner && { userId: owner.userId, name: owner.name, status: owner.status },
+      this.phoneOrigin(player.userId, zone, phone.type),
+    );
+    if (error) fail(error);
+  }
+
+  /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
+  private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
+    if (zone?.type === "office") {
+      const office = this.state.offices.get(zone.id);
+      if (office?.ownerId === callerId) return "su oficina";
+      return office?.ownerName ? `la oficina de ${office.ownerName}` : `la ${zone.name}`;
+    }
+    if (type === "desk-phone-counter") return "la recepción";
+    return zone ? zone.name : "un teléfono de la cabaña";
+  }
+
   /** Al salir de una oficina, el invitado pierde el permiso. */
   private revokeGuestOnExit(player: Player, previousZoneId: string) {
     if (!previousZoneId || previousZoneId === player.zoneId) return;
@@ -1299,6 +1380,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId); // pudo irse mientras tanto
     if (!profile || !player) return;
     player.name = profile.name;
+    this.phones.rename(userId, profile.name);
     player.avatar = profile.avatar;
     player.look = profile.look ? JSON.stringify(profile.look) : "";
   }
@@ -1933,6 +2015,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
     this.fishery.forget(player.userId);
+    this.phones.left(player.userId);
     this.casa.forget(player.userId);
     this.swivels.forget(player.userId);
     void this.achievements.forget(player.userId);

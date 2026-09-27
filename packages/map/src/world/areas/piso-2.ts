@@ -53,6 +53,8 @@ function northOffice(ox: number, wallpaper: WallpaperKind, plants: [string, stri
       place(plants[0], X(0), 0),
       place("bookcase-tall", X(1, 2), 0, "down"),
       place("desk-pc", X(4, 2), 0, "down"),
+      // El teléfono va en el tile del escritorio de más adelante (se dibuja encima de él).
+      place("desk-phone", X(4, 2) + 1, 0, "down"),
       place(officeChair(wallpaper), X(4), 1, "up"),
       place("filing-cabinet", X(6), 0),
       place("printer", X(9), 0),
@@ -89,6 +91,7 @@ function southOffice(ox: number, wallpaper: WallpaperKind, plants: [string, stri
       place("bookcase-tall", X(0, 2), oy, "down"),
       place(plants[0], X(2), oy),
       place("desk-pc", X(6, 2), oy, "down"),
+      place("desk-phone", X(6, 2) + 1, oy, "down"),
       place(officeChair(wallpaper), X(6), oy + 1, "up"),
       place("filing-cabinet", X(8), oy),
       place(plants[1], X(9), oy + 3),

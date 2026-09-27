@@ -278,6 +278,12 @@ export const MSG = {
   photoShot: "photo:shot",
   photoFlash: "photo:flash",
   photosChanged: "photo:changed",
+  /** Teléfono (phone.ts): llamar a una oficina (`PhoneCallMessage`), contestar o rechazar
+   *  (`PhoneAnswerMessage`), colgar, y lo que avisa el servidor (`PhoneEvent`). */
+  phoneCall: "phone:call",
+  phoneAnswer: "phone:answer",
+  phoneHangup: "phone:hangup",
+  phoneEvent: "phone:event",
   /** Servidor → los del nivel: alguien desbloqueó un logro (ver achievements.ts). */
   achievementUnlocked: "achievement:unlocked",
 } as const;

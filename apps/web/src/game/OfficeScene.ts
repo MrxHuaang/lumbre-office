@@ -16,6 +16,8 @@ import {
   officeFurniture,
   placeAt,
   INTERACT_REACH_TILES,
+  phoneInReach,
+  isPhone,
   pointsOfType,
   portalAtTile,
   SEAT_REACH_TILES,
@@ -485,6 +487,7 @@ export class OfficeScene extends Phaser.Scene {
       if (id !== this.localId) avatar.interpolate(delta);
       avatar.sway(time);
     }
+    this.shakePhones(time);
     this.drunkVision.update(time, delta);
     this.weatherView.update(time, delta);
     this.critters.update(time, delta);
@@ -899,6 +902,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setHeld(player.held, player.heldLeft);
     avatar.setDrunk((player.drunk ?? 0) as DrunkStage);
     avatar.setRiding(Boolean(player.racing));
+    avatar.setCall(player.call ?? "");
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -910,6 +914,8 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));
+    // Teléfono: el globo que vibra (le suenan) o el auricular en la mano (llamando o hablando).
+    p$.listen("call", (phase) => avatar.setCall(phase ?? ""));
     // Carrera de sillas: montado en la silla; si soy yo, arranca el cronómetro.
     p$.listen("racing", (racing) => {
       avatar.setRiding(Boolean(racing));
@@ -1346,6 +1352,9 @@ export class OfficeScene extends Phaser.Scene {
     if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
     const atSwivel = this.seat ? isSwivelSeat(this.seat) : false;
     if (atSwivel !== s.atSwivel) s.setAtSwivel(atSwivel);
+    // Sentado en el escritorio, E levanta: el teléfono queda en un botón junto a "Encender PC".
+    const atPhone = Boolean(this.seat && this.local && phoneInReach(this.map, this.local.x, this.local.y));
+    if (atPhone !== s.atPhone) s.setAtPhone(atPhone);
   }
 
   // ---------- Clic para caminar ----------
@@ -1460,7 +1469,14 @@ export class OfficeScene extends Phaser.Scene {
       const w = screenToWorld(sx, sy + lift);
       const tx = Math.floor(w.x / ts);
       const ty = Math.floor(w.y / ts);
-      const f = this.map.furniture.find((f) => tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d);
+      // El teléfono va encima del escritorio: si el tile tiene uno, gana él.
+      const onTile = this.map.furniture.filter((f) => tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d);
+      const phone = onTile.find((f) => isPhone(f.type));
+      if (phone) {
+        const spot = this.phoneStandSpot(phone);
+        if (spot) return { kind: "phone", ...spot };
+      }
+      const f = onTile[0];
       const spec = f && INTERACTABLES.find((i) => i.furniture.includes(f.type));
       if (!f || !spec) continue;
       // El punto más cercano al mueble (la barra tiene dos).
@@ -1482,7 +1498,23 @@ export class OfficeScene extends Phaser.Scene {
         if (Math.hypot(p.x - avatar.x, p.y - avatar.y) <= reach) return spec.kind;
       }
     }
+    // El teléfono es un mueble fijo (no un punto del mapa): se alcanza igual que lo valida el servidor.
+    if (phoneInReach(this.map, avatar.x, avatar.y)) return "phone";
     return null;
+  }
+
+  /** Dónde pararse para usar un teléfono: un tile libre pegado a él, del mismo lado de la pared. */
+  private phoneStandSpot(f: PlacedFurniture): { x: number; y: number } | null {
+    const ts = this.map.tileSize;
+    const around: TilePos[] = [];
+    for (let x = f.x - 1; x <= f.x + f.w; x++) around.push({ x, y: f.y + f.d }, { x, y: f.y - 1 });
+    for (let y = f.y; y < f.y + f.d; y++) around.push({ x: f.x - 1, y }, { x: f.x + f.w, y });
+    const me = this.local;
+    const spots = around
+      .filter((t) => !isBlockedTile(this.map, t.x, t.y) && phoneInReach(this.map, (t.x + 0.5) * ts, (t.y + 0.5) * ts) === f)
+      .sort((a, b) => (me ? Math.hypot(a.x * ts - me.x, a.y * ts - me.y) - Math.hypot(b.x * ts - me.x, b.y * ts - me.y) : 0));
+    const t = spots[0];
+    return t ? { x: (t.x + 0.5) * ts, y: (t.y + 0.5) * ts } : null;
   }
 
   /**
@@ -1782,6 +1814,39 @@ export class OfficeScene extends Phaser.Scene {
     return { area, x, y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false };
   }
 
+  /** Teléfonos del nivel que están sonando (el de la oficina de quien recibe una llamada). */
+  private ringingPhones: PlacedFurniture[] = [];
+
+  /** Busca los teléfonos que suenan: el de la oficina de cada persona a la que le están llamando. */
+  private findRingingPhones() {
+    const room = getRoom();
+    const offices = useOfficeStore.getState().offices;
+    const ts = this.map.tileSize;
+    const ringing = new Set<string>();
+    room?.state.players.forEach((p) => {
+      if (p.call === "ringing") ringing.add(p.userId);
+    });
+    const next: PlacedFurniture[] = [];
+    if (ringing.size)
+      for (const zone of this.map.zones) {
+        const office = offices[zone.id];
+        if (zone.type !== "office" || !office || !ringing.has(office.ownerId)) continue;
+        for (const f of this.map.furniture)
+          if (isPhone(f.type) && zoneAt(this.map, (f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts)?.id === zone.id) next.push(f);
+      }
+    for (const f of this.ringingPhones) if (!next.includes(f)) this.view?.nudgeFurniture(f, 0);
+    this.ringingPhones = next;
+  }
+
+  /** El teléfono que suena tiembla sobre el escritorio (a ráfagas, como el timbre). */
+  private shakePhones(time: number) {
+    if (!this.ringingPhones.length) return;
+    const on = time % 1500 < 900;
+    const dx = on ? (Math.floor(time / 45) % 2 ? 1 : -1) : 0;
+    const dy = on && Math.floor(time / 90) % 2 ? -1 : 0;
+    for (const f of this.ringingPhones) this.view?.nudgeFurniture(f, dx, dy);
+  }
+
   private updateHearing() {
     const room = getRoom();
     if (!room || !this.local) return;
@@ -1791,8 +1856,11 @@ export class OfficeScene extends Phaser.Scene {
       if (sessionId !== this.localId && p.userId) others.set(p.userId, this.positioned(p.area, p.x, p.y, p.zoneId || null));
     });
 
+    // En una llamada (lo decide el servidor: `callWith` de mi jugador), la otra persona se oye siempre.
+    const mine = this.localId ? room.state.players.get(this.localId) : undefined;
+    const inCall = new Set(mine?.call === "talking" && mine.callWith ? [mine.callWith] : []);
     const current = useMediaStore.getState().hearing;
-    const next = hearing(me, others, new Set(Object.keys(current)));
+    const next = hearing(me, others, new Set(Object.keys(current)), undefined, inCall);
     // Solo publicar si cambió quién se oye o algún volumen cambió de forma perceptible.
     const changed =
       next.size !== Object.keys(current).length ||
@@ -1800,6 +1868,7 @@ export class OfficeScene extends Phaser.Scene {
     if (changed) useMediaStore.getState().setHearing(Object.fromEntries(next));
     // Alguien pudo entrar/salir de la sala: revisar las pantallas de presentación.
     this.syncScreens();
+    this.findRingingPhones();
   }
 
   /** Cámara sobre la cabeza: la mía si la tengo encendida, y la de quienes oigo con cámara. */

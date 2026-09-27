@@ -85,6 +85,9 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "arcade-cabinet",
   "projector",
   "garden-plot",
+  // Los teléfonos van encima de un mueble (el escritorio, la recepción): solos quedarían en el aire.
+  "desk-phone",
+  "desk-phone-counter",
 ]);
 
 /** ¿Es un mueble del plano que el editor no toca? (fijo del catálogo, funcional o banqueta del blackjack). */

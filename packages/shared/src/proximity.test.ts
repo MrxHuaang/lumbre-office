@@ -62,4 +62,17 @@ describe("hearing", () => {
     const h = hearing(at(0, 0, "meeting", true), others, new Set(), R);
     expect([...h.entries()]).toEqual([["adentro-lejos", 1]]);
   });
+
+  it("en una llamada se oye al otro en cualquier nivel y distancia, y la proximidad sigue igual", () => {
+    const me = { ...at(0, 0, "office-1", true), area: "piso-2" };
+    const others = new Map<string, Positioned>([
+      ["llamada", { ...at(900, 900, "recibidor"), area: "planta-baja" }],
+      ["adentro", { ...at(40, 0, "office-1", true), area: "piso-2" }],
+      ["afuera", { ...at(10, 0, "pasillo"), area: "piso-2" }],
+    ]);
+    const h = hearing(me, others, new Set(), R, new Set(["llamada"]));
+    expect(Object.fromEntries(h)).toEqual({ llamada: 1, adentro: 1 });
+    // Sin la llamada, vuelve a ser solo la proximidad.
+    expect([...hearing(me, others, new Set(["llamada"]), R).keys()]).toEqual(["adentro"]);
+  });
 });

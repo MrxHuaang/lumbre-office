@@ -356,6 +356,19 @@ export class AreaView {
     return { x: b.centerX, y: b.y, depth: hit.img.depth };
   }
 
+  /** Lugar original de los muebles corridos con `nudgeFurniture`. */
+  private nudged = new Map<Phaser.GameObjects.Image, { x: number; y: number }>();
+
+  /** Corre el dibujo de un mueble unos píxeles de su lugar (el teléfono que vibra al sonar); 0, 0 lo devuelve. */
+  nudgeFurniture(f: PlacedFurniture, dx: number, dy = 0) {
+    const hit = this.furnitureImages.find((e) => e.f === f);
+    if (!hit) return;
+    let base = this.nudged.get(hit.img);
+    if (!base) this.nudged.set(hit.img, (base = { x: hit.img.x, y: hit.img.y }));
+    hit.img.setPosition(base.x + dx, base.y + dy);
+    if (dx === 0 && dy === 0) this.nudged.delete(hit.img);
+  }
+
   /** Atenúa los muebles que cumplen `match` (el que se está moviendo en el editor); null = ninguno. */
   dimFurniture(match: ((f: PlacedFurniture) => boolean) | null) {
     for (const { f, img } of this.furnitureImages) img.setAlpha(match?.(f) ? 0.3 : 1);

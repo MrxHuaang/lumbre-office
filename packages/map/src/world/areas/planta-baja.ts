@@ -267,6 +267,8 @@ export const plantaBaja: AreaDef = {
     place("kentia", 16, 14),
     place("rug-persian", 12, 20, "down"),
     place("reception-desk", 13, 21, "down"),
+    // El teléfono de la recepción, sobre la repisa (para llamar a alguien a su oficina desde la entrada).
+    place("desk-phone-counter", 15, 21, "down"),
     place("lamp", 18, 22),
     place("entry-bench", 11, 24, "right"),
     place("monstera", 13, 25),
