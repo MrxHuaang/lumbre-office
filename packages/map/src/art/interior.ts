@@ -1649,6 +1649,350 @@ function balconyPlanter(): Sprite {
   );
 }
 
+// ---------- Baños, probadores y cocina (segunda tanda) ----------
+
+/**
+ * Cubículo del baño: tabiques de laminado menta levantados del piso, puerta con pestillo verde y el
+ * monito del baño, y el inodoro adentro (se asoma por arriba). Mira hacia +x (la puerta).
+ */
+function toiletStall(): Sprite {
+  const P = PORCELAIN;
+  const H = 34;
+  const lam = MINT;
+  // Tabique por fuera: laminado con un filo más claro arriba.
+  const partition: Shader = (u, v, fw, fh) => {
+    if (v >= fh - 1.2) return at(lam, 5);
+    if (u < 0.8 || u >= fw - 0.8) return at(lam, 2);
+    return at(lam, noise(Math.floor(u / 3), 1, 5) < 0.15 ? 4 : 3);
+  };
+  const door: Shader = (u, v, fw, fh) => {
+    if (v >= fh - 1.2) return at(lam, 5);
+    if (u < 1 || u >= fw - 1) return at(lam, 2);
+    // Bisagras a la izquierda, pestillo verde y tirador a la derecha.
+    if (u < 2.2 && (Math.abs(v - 6) < 1 || Math.abs(v - fh + 6) < 1)) return at(C.metal, 4);
+    if (u > fw - 4 && u < fw - 2 && Math.abs(v - fh * 0.55) < 1) return at(C.leaf, 5);
+    if (u > fw - 4.2 && u < fw - 1.6 && Math.abs(v - fh * 0.45) < 0.6) return at(C.metal, 5);
+    // El monito: cabeza redonda y cuerpo en trapecio, en una placa blanca.
+    const cu = u - fw / 2;
+    const pv = v - fh * 0.68;
+    if (Math.abs(cu) < 3 && Math.abs(pv) < 4.4) {
+      if (Math.hypot(cu, pv - 2.4) < 1.2) return at(C.blue, 2);
+      if (pv < 1 && pv > -3.2 && Math.abs(cu) < 1.2 + (1 - pv) * 0.25) return at(C.blue, 2);
+      return at(C.white, 4);
+    }
+    return at(lam, 3);
+  };
+  return renderSprite(
+    [
+      // Pared del fondo (azulejo) y el tabique de atrás, que se ve por dentro.
+      { x: 0, y: 0, z: 0, w: 1.5, d: 16, h: H, top: flat(at(lam, 4)), left: flat(at(lam, 2)), right: (u, v) => (Math.floor(u / 4) % 2 === Math.floor(v / 4) % 2 ? at(C.cream, 5) : at(C.cream, 4)) },
+      { x: 1.5, y: 0, z: 2, w: 28.5, d: 1, h: H - 2, top: flat(at(lam, 4)), left: (u, v) => at(lam, v >= H - 3.2 ? 5 : noise(Math.floor(u / 3), 2, 5) < 0.2 ? 3 : 2), right: flat(at(lam, 2)) },
+      // El inodoro: tanque contra el fondo con su tapa y la palanca.
+      solidBox({ x: 1.5, y: 4, z: 0, w: 5, d: 8, h: 19 }, P, 3),
+      { x: 1.2, y: 3.6, z: 19, w: 5.8, d: 8.8, h: 1.5, top: flat(at(P, 4)), left: flat(at(P, 2)), right: flat(at(P, 3)) },
+      solidBox({ x: 6.5, y: 5, z: 16, w: 1, d: 2, h: 1 }, C.metal, 4),
+      // Portarrollos en el tabique de atrás.
+      solidBox({ x: 11, y: 1, z: 12, w: 3, d: 2.5, h: 3 }, C.white, 3),
+      volume(4, 3, 0, 12, 10, 11),
+    ],
+    {
+      outline: OUT,
+      under: shadowUnder(0, 0, 32, 16, 0.22),
+      extra: (c, p) => {
+        const b = p(11, 8, 0);
+        const top = p(11, 8, 9);
+        blob(c, b.x, (b.y + top.y) / 2 + 1, 4, (b.y - top.y) / 2 + 1, (nx, ny, x, y) => roundTone(P, nx, ny, x, y, 3));
+        blob(c, top.x, top.y, 7.5, 4, (nx, ny, x, y) => (nx * nx + ny * ny > 0.72 ? at(P, 4) : roundTone(P, nx, ny, x, y, 3, 1)));
+        blob(c, top.x - 0.5, top.y - 1.3, 6.5, 3.3, (_nx, ny) => (ny < -0.6 ? at(P, 5) : at(P, 4)));
+      },
+      // Lo de adelante tapa la taza: el tabique del costado, los postes y la puerta.
+      overlay: [
+        { x: 1.5, y: 15, z: 2, w: 28.5, d: 1, h: H - 2, top: flat(at(lam, 5)), left: partition, right: flat(at(lam, 2)) },
+        solidBox({ x: 30, y: 0, z: 0, w: 2, d: 1.5, h: H + 2 }, C.metal, 3),
+        { x: 30.3, y: 1.5, z: 2, w: 1, d: 13, h: H - 3, top: flat(at(lam, 5)), left: flat(at(lam, 2)), right: door },
+        solidBox({ x: 30, y: 14.5, z: 0, w: 2, d: 1.5, h: H + 2 }, C.metal, 4),
+        // Barra de arriba que amarra los postes.
+        solidBox({ x: 30, y: 0, z: H + 2, w: 2, d: 16, h: 1.2 }, C.metal, 4),
+      ],
+    },
+  );
+}
+
+/** Espejo de pie para los probadores: óvalo en un marco dorado, con patas y el reflejo del cuarto. */
+function floorMirror(): Sprite {
+  const g = C.gold;
+  const glass: Shader = (u, v, fw, fh) => {
+    const nx = (u - fw / 2) / (fw / 2);
+    const ny = (v - fh / 2) / (fh / 2);
+    const d = nx * nx + ny * ny;
+    if (d > 1) return null;
+    if (d > 0.8) return at(g, noise(Math.floor(u), Math.floor(v), 3) < 0.3 ? 5 : d > 0.92 ? 2 : 4);
+    // Reflejo: piso de madera abajo, pared clara arriba y dos brillos en diagonal.
+    if (Math.abs(u - fw * 0.35 - (v - fh / 2) * 0.35) < 0.6 || Math.abs(u - fw * 0.55 - (v - fh / 2) * 0.35) < 0.35) return at(C.white, 4);
+    if (v < fh * 0.3) return at(C.wood, v < fh * 0.18 ? 3 : 4);
+    return at(C.sky, v > fh * 0.75 ? 4 : 3);
+  };
+  return renderSprite(
+    [
+      // Patas y el puntal de atrás.
+      solidBox({ x: 3, y: 3, z: 0, w: 9, d: 2, h: 1.5 }, C.woodDark, 3),
+      solidBox({ x: 3, y: 11, z: 0, w: 9, d: 2, h: 1.5 }, C.woodDark, 3),
+      ...slant([2, 8, 0], [6, 8, 26], 1.2, C.woodDark, 3),
+      { x: 7, y: 2.5, z: 3, w: 1.5, d: 11, h: 36, top: flat(at(g, 4)), left: flat(at(g, 2)), right: glass },
+      // Remate dorado arriba.
+      solidBox({ x: 7, y: 7, z: 39, w: 1.5, d: 2, h: 2 }, g, 4),
+      shadowSpace(3, 3, 9, 10),
+    ],
+    { outline: OUT, under: shadowUnder(3, 3, 9, 10, 0.22) },
+  );
+}
+
+/** Sacos de café de fique apilados (dos abajo y uno encima), con el grano estampado y granos regados. */
+function coffeeSacks(): Sprite {
+  const S = C.cork;
+  const knit = (u: number, v: number) => at(S, (Math.floor(u) + Math.floor(v)) % 2 ? 3 : 4);
+  const weave: Shader = (u, v, fw, fh) => {
+    if (v >= fh - 1 || u < 0.6 || u >= fw - 0.6) return at(S, 2);
+    // Estampa: un grano de café en un óvalo.
+    const nx = (u - fw / 2) / 2.6;
+    const ny = (v - fh * 0.5) / 2.4;
+    const d = nx * nx + ny * ny;
+    if (d < 1) return Math.abs(u - fw / 2 - (v - fh * 0.5) * 0.4) < 0.5 ? at(C.cream, 4) : at(C.woodDark, 2);
+    if (Math.abs(d - 1.5) < 0.25) return at(C.woodDark, 3);
+    return knit(u, v);
+  };
+  const sack = (x: number, y: number, z: number, h: number): Box[] => [
+    { x, y, z, w: 6, d: 7, h, top: (u, v) => knit(u, v), left: (u, v, _fw, fh) => (v >= fh - 1 ? at(S, 3) : at(S, (Math.floor(u) + Math.floor(v)) % 2 ? 2 : 3)), right: weave },
+    // El amarre de arriba: la boca fruncida y el cordel.
+    solidBox({ x: x + 1.5, y: y + 2, z: z + h, w: 3, d: 3, h: 2 }, S, 3),
+    solidBox({ x: x + 1.2, y: y + 1.7, z: z + h, w: 3.6, d: 3.6, h: 0.7 }, C.rug, 3),
+  ];
+  return renderSprite([...sack(2, 1, 0, 9), ...sack(2, 8.5, 0, 9), ...sack(2.5, 4.5, 9, 8), shadowSpace(2, 1, 8, 15)], {
+    outline: OUT,
+    under: shadowUnder(2, 1, 7, 14),
+    extra: (c, p) => {
+      // Granos regados en el piso, adelante.
+      for (const [x, y] of [
+        [11, 4],
+        [12.5, 6],
+        [11.5, 9],
+        [13, 12],
+      ] as const) {
+        const q = p(x, y, 0);
+        c.set(q.x, q.y, at(C.woodDark, 2));
+        c.set(q.x + 1, q.y, at(C.woodDark, 4));
+      }
+    },
+  });
+}
+
+/** Mesa de preparación de acero: tabla, cuenco y cuchillo encima, ollas en la repisa de abajo y un riel con cucharones. */
+function prepTable(): Sprite {
+  const m = C.metal;
+  const D = 32;
+  const steel: Shader = (u, v, fw, fh) => (edgeOf(u, v, fw, fh) < 0.8 ? at(m, 5) : noise(Math.floor(u / 2), Math.floor(v / 2), 9) < 0.12 ? at(m, 5) : at(m, 4));
+  const legs = [2, D - 4].flatMap((y) => [solidBox({ x: 1, y, z: 0, w: 1.5, d: 1.5, h: 14 }, m, 3), solidBox({ x: 11, y, z: 0, w: 1.5, d: 1.5, h: 14 }, m, 3)]);
+  return renderSprite(
+    [
+      ...legs.slice(0, 2),
+      // Repisa de abajo con dos ollas y una pila de platos.
+      { x: 1, y: 2, z: 3, w: 11.5, d: D - 4, h: 1, top: steel, left: flat(at(m, 3)), right: flat(at(m, 3)) },
+      { x: 3, y: 5, z: 4, w: 7, d: 7, h: 5, top: flat(at(m, 1)), left: flat(at(C.terracotta, 3)), right: flat(at(C.terracotta, 2)) },
+      { x: 3, y: 15, z: 4, w: 7, d: 6, h: 6, top: flat(at(m, 1)), left: flat(at(m, 4)), right: flat(at(m, 3)) },
+      ...[0, 1, 2, 3].map((i) => solidBox({ x: 4, y: 23.5, z: 4 + i * 1.1, w: 6, d: 5, h: 1 }, PORCELAIN, i % 2 ? 3 : 4)),
+      ...legs.slice(2),
+      { x: 0, y: 0, z: 14, w: 13.5, d: D, h: 2, top: steel, left: flat(at(m, 3)), right: (_u, v) => at(m, v >= 1.2 ? 4 : 2) },
+      // Encima: tabla con cebolla y tomate, cuenco de masa y un frasco.
+      { x: 2.5, y: 3, z: 16, w: 8, d: 10, h: 1, top: butcher, left: flat(at(C.wood, 3)), right: flat(at(C.wood, 2)) },
+      solidBox({ x: 3.5, y: 18, z: 16, w: 6, d: 6, h: 3 }, C.cream, 4),
+      solidBox({ x: 4, y: 26, z: 16, w: 3, d: 3, h: 4 }, C.white, 4),
+      // Riel con cucharones colgando, sobre dos parales al fondo.
+      solidBox({ x: 0.2, y: 1, z: 16, w: 1.2, d: 1.2, h: 20 }, m, 3),
+      solidBox({ x: 0.2, y: D - 2.2, z: 16, w: 1.2, d: 1.2, h: 20 }, m, 3),
+      solidBox({ x: 0, y: 1, z: 35, w: 1.6, d: D - 2, h: 1.2 }, m, 4),
+      volume(0, 0, 16, 14, D, 22),
+    ],
+    {
+      outline: OUT,
+      under: shadowUnder(0, 0, 13, D),
+      extra: (c, p) => {
+        const onion = p(6.5, 6, 17.5);
+        c.ellipse(onion.x, onion.y, 1.8, 1.5, at(C.violet, 4));
+        c.set(onion.x - 1, onion.y - 1, at(C.rose, 5));
+        const tom = p(6, 10, 17.5);
+        c.ellipse(tom.x, tom.y, 1.5, 1.3, at(C.rug, 3));
+        c.set(tom.x, tom.y - 1, at(C.leaf, 4));
+        const dough = p(6.5, 21, 19);
+        c.ellipse(dough.x, dough.y, 2.2, 1.1, at(C.cream, 5));
+        const k = p(9, 14, 17);
+        c.line(k.x - 3, k.y - 1, k.x, k.y + 1, at(m, 5));
+        c.line(k.x + 1, k.y + 1, k.x + 2, k.y + 2, at(C.woodDark, 2));
+        // Cucharones, espátulas y una sartencita colgando del riel.
+        for (const [y, kind] of [
+          [6, 0],
+          [11, 1],
+          [16, 0],
+          [21, 2],
+          [26, 1],
+        ] as const) {
+          const t = p(0.8, y, 35);
+          c.line(t.x, t.y, t.x, t.y + 6, at(m, 4));
+          if (kind === 0) c.ellipse(t.x, t.y + 7, 1.4, 1, at(m, 5));
+          else if (kind === 1) c.rect(t.x - 1, t.y + 6, 3, 2, at(C.wood, 4));
+          else {
+            c.ellipse(t.x, t.y + 8, 2.6, 1.6, at(C.metal, 1));
+            c.ellipse(t.x, t.y + 7.6, 2, 1, at(C.metal, 3));
+          }
+        }
+      },
+    },
+  );
+}
+
+/** Alacena con vajilla: puertas abajo, repisas abiertas con platos parados, tazas colgadas y una tetera. */
+function dishHutch(): Sprite {
+  const r = C.sage;
+  const H = 46;
+  const upper: Shader = (u, v, fw, fh) => {
+    if (u < 1.4 || u >= fw - 1.4) return at(C.wood, u < 0.7 ? 4 : 2);
+    if (v >= fh - 2) return at(C.wood, v >= fh - 1 ? 5 : 3);
+    const sh = (fh - 2) / 3;
+    const s = Math.floor(v / sh);
+    const lv = v - s * sh;
+    if (lv < 1) return at(C.wood, 4);
+    const y = lv - 1;
+    if (s === 2) {
+      // Arriba: platos parados, uno junto a otro, con su borde azul.
+      const pc = mod(u - 1.4, 4.2) - 2.1;
+      const d = Math.hypot(pc / 2, (y - 3.6) / 3.6);
+      if (d < 1) return d > 0.8 ? at(C.blue, 3) : d < 0.35 ? at(C.blue, 4) : at(PORCELAIN, 4);
+      return at(C.wood, 1);
+    }
+    if (s === 1) {
+      // Tazas colgadas de ganchos.
+      const pu = mod(u - 1.4, 5);
+      if (y > sh - 3 && Math.abs(pu - 2.5) < 0.4) return at(C.gold, 4);
+      if (y > 1 && y < 4.5 && pu > 1 && pu < 4) return at([C.rug, C.mustard, C.blue, C.green][Math.floor((u - 1.4) / 5) % 4]!, pu < 1.8 ? 4 : 3);
+      return at(C.wood, 1);
+    }
+    // Abajo: frascos de especias.
+    const pu = mod(u - 1.4, 3.4);
+    if (y < 4.5 && pu > 0.6 && pu < 2.8) return y > 3.6 ? at(C.woodDark, 3) : at([C.fire, C.mustard, C.leaf, C.cork][Math.floor((u - 1.4) / 3.4) % 4]!, pu < 1.2 ? 4 : 3);
+    return at(C.wood, 1);
+  };
+  return renderSprite(
+    [
+      { x: 0, y: 0, z: 0, w: 12, d: 32, h: 16, top: flat(at(r, 3)), left: flat(at(r, 2)), right: doorsFace(r, 8, { base: 1.5, top: 0.8, drawers: 1 }) },
+      { x: 0, y: 0, z: 16, w: 13, d: 32, h: 1.5, top: butcher, left: flat(at(C.wood, 2)), right: (_u, v) => at(C.wood, v >= 1 ? 4 : 2) },
+      { x: 0, y: 0, z: 17.5, w: 7, d: 32, h: H - 17.5, top: flat(at(C.wood, 4)), left: (u) => at(C.wood, u >= 6 ? 3 : 2), right: upper },
+      { x: -0.5, y: -0.5, z: H, w: 8.5, d: 33, h: 2, top: flat(at(C.wood, 5)), left: flat(at(C.wood, 3)), right: (_u, v) => at(C.wood, v >= 1 ? 5 : 3) },
+      // Un frasco de galletas sobre el mesón (la tetera va a mano).
+      solidBox({ x: 8, y: 22, z: 17.5, w: 4, d: 4, h: 5 }, C.cream, 4),
+      volume(7, 4, 17.5, 6, 8, 8),
+    ],
+    {
+      outline: OUT,
+      under: shadowUnder(0, 0, 13, 32),
+      extra: (c, p) => {
+        const t = p(10, 8, 17.5);
+        blob(c, t.x, t.y - 3, 3.2, 2.8, (nx, ny, x, y) => roundTone(C.blue, nx, ny, x, y, 3));
+        c.rect(t.x - 1, t.y - 7, 2, 1, at(C.blue, 4));
+        c.line(t.x + 3, t.y - 3, t.x + 5, t.y - 5, at(C.blue, 3));
+        c.set(t.x - 4, t.y - 4, at(C.blue, 2));
+        c.set(t.x - 4, t.y - 3, at(C.blue, 2));
+      },
+    },
+  );
+}
+
+/**
+ * Tramo de baranda a lo largo de `along`, en la coordenada `pos` del otro eje, de `from` a `to`: postes en
+ * las puntas, zócalo, balaustres y pasamanos (como `railing`).
+ */
+function railRun(along: "x" | "y", pos: number, from = 0, to = 16): Box[] {
+  const w = C.wood;
+  const len = to - from;
+  const B = (a: number, b: number, z: number, la: number, lb: number, h: number) => (along === "y" ? { x: b, y: a, z, w: lb, d: la, h } : { x: a, y: b, z, w: la, d: lb, h });
+  const post = (a: number): Box[] => [solidBox(B(a, pos, 0, 2.2, 2.2, 17), C.woodDark, 4), solidBox(B(a - 0.3, pos - 0.3, 17, 2.8, 2.8, 1.2), w, 5)];
+  return [
+    ...post(from),
+    solidBox(B(from, pos + 0.4, 1.5, len, 1.6, 1), C.woodDark, 3),
+    ...[5, 10].map((a) => solidBox(B(from + a, pos + 0.8, 2.5, 1, 1, 12), w, 3)),
+    { ...B(from, pos - 0.1, 14.5, len, 2.4, 1.6), top: flat(at(w, 5)), left: flat(at(w, 3)), right: flat(at(w, 4)) },
+    ...post(to - 2.2),
+  ];
+}
+
+/**
+ * Esquina de baranda: los dos lados del tile en un solo mueble (así no se enciman dos sprites). De frente
+ * cierra el lado +x y el +y (la esquina sureste); de espaldas, el -x y el +y (la suroeste).
+ */
+function railingCorner(variant: Variant): Sprite {
+  const boxes = [...railRun("y", variant === "back" ? 0.5 : 13), ...railRun("x", 13)];
+  // De atrás hacia adelante según el centro de cada caja.
+  boxes.sort((a, b) => a.x + a.w / 2 + a.y + a.d / 2 - (b.x + b.w / 2 + b.y + b.d / 2));
+  return renderSprite(boxes, { outline: OUT });
+}
+
+/** Mesa redonda del recibidor: pedestal torneado, un jarrón grande con un ramo, libros y el platito de las llaves. */
+function entryTable(): Sprite {
+  const wd = C.woodDark;
+  const top: Shader = (u, v) => at(wd, (Math.floor(u / 3) + Math.floor(v / 5)) % 3 === 0 ? 4 : 5);
+  return renderSprite(
+    [
+      // Tres patas en cruz y la columna torneada.
+      solidBox({ x: 2.5, y: 7, z: 0, w: 11, d: 2, h: 1.5 }, wd, 2),
+      solidBox({ x: 7, y: 2.5, z: 0, w: 2, d: 11, h: 1.5 }, wd, 2),
+      solidBox({ x: 6.5, y: 6.5, z: 1.5, w: 3, d: 3, h: 3 }, wd, 3),
+      solidBox({ x: 7, y: 7, z: 4.5, w: 2, d: 2, h: 6 }, wd, 4),
+      solidBox({ x: 6.5, y: 6.5, z: 10.5, w: 3, d: 3, h: 1.5 }, wd, 3),
+      // Tapa octogonal (dos tablas cruzadas) con el canto más oscuro.
+      { x: 0.5, y: 4, z: 12, w: 15, d: 8, h: 2, top, left: flat(at(wd, 2)), right: flat(at(wd, 3)) },
+      { x: 4, y: 0.5, z: 12, w: 8, d: 15, h: 2, top, left: flat(at(wd, 2)), right: flat(at(wd, 3)) },
+      // Libros apilados y el platito de las llaves.
+      solidBox({ x: 9, y: 2.5, z: 14, w: 4.5, d: 5, h: 1.2 }, C.rug, 3),
+      solidBox({ x: 9.3, y: 2.8, z: 15.2, w: 4, d: 4.4, h: 1.2 }, C.green, 3),
+      solidBox({ x: 10, y: 10, z: 14, w: 3.5, d: 3.5, h: 0.8 }, C.gold, 4),
+      volume(2, 3, 14, 11, 10, 22),
+    ],
+    {
+      outline: OUT,
+      under: roundShadow(8, 8, 7),
+      extra: (c, p) => {
+        // Jarrón de cerámica azul con un ramo de girasoles, flores rosadas y ramas de eucalipto.
+        const b = p(6, 7.5, 14);
+        blob(c, b.x, b.y - 4, 3.4, 4.2, (nx, ny, x, y) => (Math.abs(ny + 0.1) < 0.12 ? at(C.cream, 5) : roundTone(C.blue, nx, ny, x, y, 3)));
+        c.rect(b.x - 1, b.y - 9, 3, 2, at(C.blue, 2));
+        const t = { x: b.x, y: b.y - 10 };
+        for (const [dx, dy] of [
+          [-5, -4],
+          [5, -3],
+          [-3, -7],
+          [3, -8],
+          [0, -10],
+        ] as const)
+          c.line(t.x, t.y, t.x + dx, t.y + dy, at(C.sage, 2));
+        for (const [dx, dy] of [
+          [-6, -4],
+          [6, -3],
+          [-4, -8],
+        ] as const)
+          c.ellipse(t.x + dx, t.y + dy, 1.4, 1, at(C.sage, 4));
+        for (const [dx, dy, col] of [
+          [-2, -6, C.mustard],
+          [3, -7, C.mustard],
+          [0, -10, C.rose],
+          [-4, -2, C.rose],
+          [4, -2, C.rug],
+        ] as const) {
+          c.ellipse(t.x + dx, t.y + dy, 1.8, 1.6, at(col, 4));
+          c.set(t.x + dx, t.y + dy, col === C.mustard ? at(C.woodDark, 2) : at(col, 5));
+        }
+      },
+    },
+  );
+}
+
 /** Dibujos para registrar en DRAW de furniture.ts. */
 export const INTERIOR_DRAW: Record<string, (v: Variant) => Sprite> = {
   "bookcase-tall": bookcaseTall,
@@ -1674,6 +2018,8 @@ export const INTERIOR_DRAW: Record<string, (v: Variant) => Sprite> = {
   "umbrella-stand": umbrellaStand,
   toilet,
   vanity,
+  "toilet-stall": toiletStall,
+  "floor-mirror": floorMirror,
   backbar,
   "kitchen-counter": kitchenCounter,
   "kitchen-sink": kitchenSink,
@@ -1692,4 +2038,9 @@ export const INTERIOR_DRAW: Record<string, (v: Variant) => Sprite> = {
   "deck-chair": deckChair,
   telescope,
   "balcony-planter": balconyPlanter,
+  "railing-corner": railingCorner,
+  "coffee-sacks": coffeeSacks,
+  "prep-table": prepTable,
+  "dish-hutch": dishHutch,
+  "entry-table": entryTable,
 };

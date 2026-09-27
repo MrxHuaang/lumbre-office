@@ -27,8 +27,12 @@ export const INTERIOR_CATALOG = {
   "console-table": { name: "Consola", size: [1, 2] },
   "entry-bench": { name: "Banca con zapatera", size: [1, 2], seats: [[0, 0], [0, 1]] },
   "umbrella-stand": { name: "Paragüero", size: [1, 1] },
+  "entry-table": { name: "Mesa del recibidor", size: [1, 1] },
   toilet: { name: "Inodoro", size: [1, 1] },
   vanity: { name: "Lavamanos", size: [1, 1] },
+  // Cubículo con puerta: el inodoro queda adentro y no a la vista.
+  "toilet-stall": { name: "Cubículo del baño", size: [2, 1] },
+  "floor-mirror": { name: "Espejo de pie", size: [1, 1] },
   // Cafetería, cocina y la zona de descanso.
   backbar: { name: "Estante del bar", size: [1, 2] },
   "kitchen-counter": { name: "Mesón", size: [1, 1] },
@@ -41,12 +45,17 @@ export const INTERIOR_CATALOG = {
   "high-table": { name: "Mesa alta", size: [1, 1] },
   "water-cooler": { name: "Dispensador de agua", size: [1, 1] },
   "cafe-sign": { name: "Pizarra de pie", size: [1, 1] },
+  "coffee-sacks": { name: "Sacos de café", size: [1, 1] },
+  "prep-table": { name: "Mesa de preparación", size: [1, 2] },
+  "dish-hutch": { name: "Alacena", size: [1, 2] },
   // Trabajo.
   "conference-table": { name: "Mesa de juntas", size: [2, 5] },
   "filing-cabinet": { name: "Archivador", size: [1, 1] },
   printer: { name: "Impresora", size: [1, 1] },
   // Afuera (balcón y terraza).
   railing: { name: "Baranda", size: [1, 1], hasBack: true },
+  // Esquina del balcón y la terraza: los dos lados en un mueble (de frente la sureste, de espaldas la suroeste).
+  "railing-corner": { name: "Baranda de esquina", size: [1, 1], hasBack: true },
   "deck-chair": { name: "Tumbona", size: [2, 1], seats: [[0, 0]], hasBack: true },
   telescope: { name: "Telescopio", size: [1, 1] },
   "balcony-planter": { name: "Jardinera del balcón", size: [1, 2] },
