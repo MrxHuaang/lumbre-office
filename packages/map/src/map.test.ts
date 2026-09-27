@@ -159,11 +159,14 @@ describe("portales", () => {
   });
 
   it("la ruta rodea los portales que no son el destino (pasar junto a la puerta no cambia de nivel)", () => {
-    const path = findPath(jardin, { x: 14, y: 12 }, { x: 17, y: 12 })!;
+    // De un lado al otro de la puerta de la casa (los dos tiles del portal quedan al medio).
+    const [door] = CONEXIONES.jardin.casa.tiles;
+    const left = { x: door!.x - 1, y: door!.y };
+    const path = findPath(jardin, left, { x: door!.x + 2, y: door!.y })!;
     expect(path).not.toBeNull();
     expect(path.some((t) => portalAtTile(jardin, t.x, t.y))).toBe(false);
-    const toDoor = findPath(jardin, { x: 14, y: 12 }, { x: 15, y: 12 })!;
-    expect(toDoor.at(-1)).toEqual({ x: 15, y: 12 });
+    const toDoor = findPath(jardin, left, door!)!;
+    expect(toDoor.at(-1)).toEqual(door);
   });
 });
 

@@ -34,7 +34,7 @@ import {
   type World,
   type Zone,
 } from "@hyvento/map";
-import { CABIN_CHIMNEY_TOP, tileCursor, WORLD_TO_ART } from "@hyvento/map/art";
+import { CHIMNEY_TOPS, tileCursor, WORLD_TO_ART } from "@hyvento/map/art";
 import {
   hearing,
   MOVE_SEND_HZ,
@@ -382,14 +382,15 @@ export class OfficeScene extends Phaser.Scene {
     });
   }
 
-  /** Detalles vivos del nivel: humo de la chimenea de la cabaña. */
+  /** Detalles vivos del nivel: humo de la chimenea de la casa. */
   private startAmbient() {
     this.ambient.forEach((t) => t.remove());
     this.ambient = [];
-    const cabin = this.map.furniture.find((f) => f.type === "cabin");
+    // La casa del jardín (o la cabaña vieja): la que tenga chimenea.
+    const cabin = this.map.furniture.find((f) => Object.hasOwn(CHIMNEY_TOPS, f.type));
     if (!cabin) return;
     const ts = this.map.tileSize;
-    const c = CABIN_CHIMNEY_TOP;
+    const c = CHIMNEY_TOPS[cabin.type]!;
     const top = worldToScreen(cabin.x * ts + c.x / WORLD_TO_ART, cabin.y * ts + c.y / WORLD_TO_ART, c.z);
     this.ambient.push(
       this.time.addEvent({

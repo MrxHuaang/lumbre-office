@@ -27,7 +27,13 @@ export type FloorKind =
   /** Agua del estanque: no se camina (ver build.ts). */
   | "water"
   /** Muelle de tablas sobre el estanque. */
-  | "dock";
+  | "dock"
+  // Exterior rediseñado: el suelo del bosque (lo que no se pisa), la terraza de tablas, la tierra del
+  // huerto y la arena de la orilla del lago y de la fogata.
+  | "forest"
+  | "deck"
+  | "soil"
+  | "sand";
 export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet";
 
 export interface ZoneDef {
@@ -135,6 +141,12 @@ export interface AreaDef {
   surroundings?: "forest";
   /** Piso por tile en exteriores; en interiores lo define cada habitación. */
   ground?: (x: number, y: number) => FloorKind;
+  /**
+   * Afuera: el piso con precisión de píxel (x, y en tiles, con decimales), solo para el dibujo: así los
+   * senderos, la orilla del lago y los canteros tienen bordes orgánicos. Lo que se camina sigue siendo
+   * `ground` (por tile).
+   */
+  groundFine?: (x: number, y: number) => FloorKind;
   rooms: RoomDef[];
   doors: DoorDef[];
   /** Tiles transitables fuera de las habitaciones (umbral de la puerta de entrada). */
