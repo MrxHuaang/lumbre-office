@@ -27,7 +27,11 @@ export type FloorKind =
   /** Agua del estanque: no se camina (ver build.ts). */
   | "water"
   /** Muelle de tablas sobre el estanque. */
-  | "dock";
+  | "dock"
+  // Sótano: mármol del vestíbulo, baldosas de los baños y madera oscura del club.
+  | "marble"
+  | "bath"
+  | "lounge";
 export type WallpaperKind = "sage" | "cream" | "blue" | "rose" | "wine" | "navy" | "violet";
 
 export interface ZoneDef {

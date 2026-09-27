@@ -3,9 +3,13 @@
 import { C, OUT } from "./palette";
 import { alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type Shader, type Sprite } from "./pixel";
 import { cushion, shadowUnder, volume, type Variant } from "./kit";
+import { TIER_STEP } from "./sotano";
 
-/** Butaca de cine: respaldo alto de terciopelo rojo, apoyabrazos negros con portavasos y asiento acolchado. */
-function cinemaSeat(variant: Variant): Sprite {
+/**
+ * Butaca de cine: respaldo alto de terciopelo rojo, apoyabrazos negros con portavasos y asiento acolchado.
+ * `lift` la sube a la altura de una grada (ver cinemaTier en sotano.ts).
+ */
+function cinemaSeat(variant: Variant, lift = 0): Sprite {
   const back = variant === "back";
   const r = C.curtain;
   const rest: Box = {
@@ -24,7 +28,13 @@ function cinemaSeat(variant: Variant): Sprite {
   const arm = (y: number): Box => ({ x: 1, y, z: 0, w: 14, d: 2, h: 12, top: flat(at(C.metal, 2)), left: flat(at(C.metal, 1)), right: flat(at(C.metal, 1)) });
   const cup = solidBox({ x: back ? 2 : 11, y: 14.2, z: 12, w: 2.5, d: 1.6, h: 1 }, C.gold, 3);
   const parts = back ? [arm(0), base, seat, rest, arm(14), cup] : [arm(0), rest, base, seat, arm(14), cup];
-  return renderSprite(parts, { outline: OUT, under: shadowUnder(1, 1, 14, 14) });
+  return renderSprite(
+    parts.map((b) => ({ ...b, z: b.z + lift })),
+    {
+      outline: OUT,
+      under: (c, p) => shadowUnder(1, 1, 14, 14)(c, (x, y, z = 0) => p(x, y, z + lift)),
+    },
+  );
 }
 
 /** Máquina de crispetas: carrito rojo, vitrina llena y techito con ribete dorado. */
@@ -109,7 +119,11 @@ function posterStand(): Sprite {
 
 /** Dibujos del cine, para registrar en DRAW de furniture.ts. */
 export const CINEMA_DRAW: Record<string, (v: Variant) => Sprite> = {
-  "cinema-seat": cinemaSeat,
+  "cinema-seat": (v) => cinemaSeat(v),
+  // Las butacas de las gradas, cada una a la altura de su grada.
+  "cinema-seat-1": (v) => cinemaSeat(v, TIER_STEP),
+  "cinema-seat-2": (v) => cinemaSeat(v, TIER_STEP * 2),
+  "cinema-seat-3": (v) => cinemaSeat(v, TIER_STEP * 3),
   "popcorn-machine": popcornMachine,
   projector,
   "poster-stand": posterStand,

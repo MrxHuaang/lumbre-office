@@ -3,6 +3,7 @@
 import type { OfficeMap } from "../world/build";
 import type { FloorKind, WallFeature, WallpaperKind } from "../world/types";
 import { C, OUT, inRect, mix } from "./palette";
+import { bathFloor, loungeFloor, marbleFloor } from "./sotano";
 import {
   L,
   at,
@@ -189,6 +190,12 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return water(X, Y);
     case "dock":
       return dock(X, Y);
+    case "marble":
+      return marbleFloor(X, Y);
+    case "bath":
+      return bathFloor(X, Y, WALLPAPER[wallpaper ?? "blue"]);
+    case "lounge":
+      return loungeFloor(X, Y);
   }
 }
 
