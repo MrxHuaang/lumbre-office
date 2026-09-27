@@ -60,6 +60,10 @@ import {
   getRoom,
   onEmote,
   onFurnitureEvent,
+  onPhotoCountdown,
+  onPhotoFlash,
+  onPhotoShot,
+  onPhotosChanged,
   onHeldUsed,
   onDrunkBlackout,
   onMoveCorrection,
@@ -81,7 +85,11 @@ import { Usables, type UsableHit } from "./usables";
 import { FishingController } from "./fishing/controller";
 import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
-import { DRUNK, type DrunkStage } from "@hyvento/shared";
+import { DRUNK, type DrunkStage, type PhotoShot } from "@hyvento/shared";
+import { PhotoBoards } from "./photos/board";
+import { captureShot } from "./photos/capture";
+import { usePhotoStore } from "./photos/store";
+import { playShutter } from "./sound";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -102,6 +110,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },
   { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
   { kind: "fishing", point: "fishing_spot", furniture: ["flat-rock"] },
+  { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -204,6 +213,8 @@ export class OfficeScene extends Phaser.Scene {
   private drunkStage: DrunkStage = 0;
   /** Desmayado: no se camina hasta que el servidor me despierta (y ahí vuelve la imagen). */
   private fainted = false;
+  /** Las fotos pinchadas en el tablón de la cafetería. */
+  private photoBoards!: PhotoBoards;
 
   constructor() {
     super("office");
@@ -243,6 +254,7 @@ export class OfficeScene extends Phaser.Scene {
     this.fishing = new FishingController(this, () => this.local, () => this.map);
     this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
     this.drunkVision = new DrunkVision(() => this.game.canvas);
+    this.photoBoards = new PhotoBoards(this);
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
@@ -271,6 +283,18 @@ export class OfficeScene extends Phaser.Scene {
         if (e.sessionId === this.localId) this.faintLocal();
       }),
       onFurnitureEvent((e) => this.usables.handleEvent(e)),
+      onPhotoCountdown((e) => {
+        this.avatars.get(e.sessionId)?.countdown(e.ms);
+        if (e.sessionId === this.localId) usePhotoStore.getState().setCounting(Date.now() + e.ms);
+      }),
+      // Quien la saca no ve su propio destello en la foto: su flash es la pantalla en blanco.
+      onPhotoFlash((e) => e.sessionId !== this.localId && this.avatars.get(e.sessionId)?.photoFlash()),
+      onPhotoShot((shot) => this.takePhoto(shot)),
+      onPhotosChanged(() => {
+        const watching = PhotoBoards.hasBoard(this.map) || useOfficeStore.getState().panel?.kind === "photos";
+        usePhotoStore.getState().markStale(watching);
+      }),
+      () => this.photoBoards.destroy(),
       () => this.usables.destroy(),
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
@@ -345,6 +369,25 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.update();
   }
 
+  // ---------- Fotos ----------
+
+  /**
+   * El servidor disparó mi foto: se recorta el canvas justo después de dibujar el cuadro (sin el HUD,
+   * que es DOM), la pantalla hace flash y queda lista para escribirle el pie y subirla.
+   */
+  private takePhoto(shot: PhotoShot) {
+    usePhotoStore.getState().setCounting(0);
+    this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
+      const me = this.local;
+      if (this.disposed || !me) return;
+      const cam = this.cameras.main;
+      const canvas = captureShot(this.game.canvas, { zoom: cam.zoom, x: cam.x, y: cam.y, worldView: cam.worldView }, worldToScreen(me.x, me.y));
+      playShutter();
+      usePhotoStore.getState().flash();
+      usePhotoStore.getState().setPending({ shot: canvas, ticket: shot.ticket, area: shot.area, people: shot.people, takenAt: shot.takenAt });
+    });
+  }
+
   // ---------- Niveles ----------
 
   /** Muestra un nivel: se redibuja todo y solo se ven los avatares que están en él. */
@@ -358,6 +401,7 @@ export class OfficeScene extends Phaser.Scene {
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
       this.usables.setArea(map, this.view);
       this.markers.setArea(map, this.view, INTERACTABLES);
+      this.photoBoards.setArea(map);
       if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
       this.rods.setArea(map);
       this.fishing.reset();
@@ -415,6 +459,7 @@ export class OfficeScene extends Phaser.Scene {
     this.view = new AreaView(this, map, useOfficeStore.getState().night);
     this.usables.setArea(map, this.view);
     this.markers.setArea(map, this.view, INTERACTABLES);
+    this.photoBoards.setArea(map);
     this.rods.setArea(map);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);

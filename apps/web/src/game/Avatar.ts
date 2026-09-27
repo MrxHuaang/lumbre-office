@@ -99,6 +99,8 @@ export class Avatar {
   /** Emote sobre la cabeza (un globo con dibujo) y el baile, si está bailando. */
   private emoteBubble?: { container: Phaser.GameObjects.Container; lift: number; tween: Phaser.Tweens.Tween };
   private dance?: { timer: Phaser.Time.TimerEvent; step: number };
+  /** Cuenta regresiva de una foto (3-2-1) sobre la cabeza. */
+  private countdownBubble?: { container: Phaser.GameObjects.Container; timer: Phaser.Time.TimerEvent };
   /** Lo que lleva en las manos (pedido en la cafetería o el bar); `clearing` = se quita al terminar de usarlo. */
   private held?: { id: string; parts: HeldPart[]; clearing: boolean };
   /** Tocando un instrumento: lleva el ritmo con saltitos. */
@@ -183,6 +185,7 @@ export class Avatar {
     this.speakingRing.setVisible(!hidden && this.speaking && !this.video);
     this.bubble?.setVisible(!hidden);
     this.emoteBubble?.container.setVisible(!hidden);
+    this.countdownBubble?.container.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
   }
 
@@ -675,6 +678,52 @@ export class Avatar {
     this.layout();
   }
 
+  /**
+   * Foto: 3-2-1 en un globo sobre la cabeza (lo ven los del nivel). Se quita justo al disparar, así no
+   * sale en la foto.
+   */
+  countdown(ms: number) {
+    this.clearCountdown();
+    const steps = Math.max(1, Math.round(ms / 1000));
+    ensureTexture(this.scene, "globo-cuenta", () => bubble(13, 12));
+    const bg = this.scene.add.image(0, 0, "globo-cuenta").setOrigin(0.5, 1);
+    const text = this.scene.add
+      .text(0, -bg.height / 2 - 0.5, String(steps), { fontFamily: cozyFontFamily(), fontSize: "9px", color: COZY.red, resolution: 6 })
+      .setOrigin(0.5, 0.5);
+    const container = this.scene.add.container(0, 0, [bg, text]).setVisible(!this.hidden);
+    let left = steps;
+    const pop = () => this.scene.tweens.add({ targets: container, scale: { from: 1.3, to: 1 }, duration: 160, ease: "Back.out" });
+    pop();
+    const timer = this.scene.time.addEvent({
+      delay: ms / steps,
+      repeat: steps - 1,
+      callback: () => {
+        left--;
+        if (left <= 0) return this.clearCountdown();
+        text.setText(String(left));
+        pop();
+      },
+    });
+    this.countdownBubble = { container, timer };
+    this.layout();
+  }
+
+  private clearCountdown() {
+    this.countdownBubble?.timer.remove();
+    this.countdownBubble?.container.destroy();
+    this.countdownBubble = undefined;
+  }
+
+  /** El flash de la cámara (lo ven los demás; quien la saca ve la pantalla en blanco). */
+  photoFlash() {
+    const s = worldToScreen(this.wx, this.wy);
+    const glow = this.scene.add
+      .ellipse(Math.round(s.x), Math.round(s.y) - HEAD + 6, 26, 20, 0xffffff, 0.95)
+      .setDepth(6e7 + depthOf(this.wx, this.wy) + 0.2)
+      .setVisible(!this.hidden);
+    this.scene.tweens.add({ targets: glow, alpha: 0, scale: 1.8, duration: 260, ease: "Quad.out", onComplete: () => glow.destroy() });
+  }
+
   /** Baile: gira mirando a cada lado y da saltitos (solo de pie y quieto). */
   private startDance() {
     if (this.seated || this.moving) return;
@@ -743,6 +792,7 @@ export class Avatar {
     this.stopPerform();
     this.emoteBubble?.tween.remove();
     this.emoteBubble?.container.destroy();
+    this.clearCountdown();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
     this.sprite.destroy();
@@ -802,6 +852,12 @@ export class Avatar {
       this.emoteBubble.container
         .setPosition(x, y - top - this.label.height - 1 - chat - this.emoteBubble.lift)
         .setDepth(6e7 + depth + 0.1);
+    }
+    if (this.countdownBubble) {
+      // Encima del emote y del globo de chat, si hay.
+      const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
+      const emote = this.emoteBubble ? 14 : 0;
+      this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - chat - emote).setDepth(6e7 + depth + 0.15);
     }
   }
 }

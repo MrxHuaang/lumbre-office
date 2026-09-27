@@ -379,3 +379,9 @@ export function volumeAt(dist: number, reach: number) {
   const t = Math.max(0, 1 - dist / reach);
   return t * t;
 }
+
+/**
+ * El "clic" del obturador al sacar una foto. TODO(sonido): todavía sin audio; cuando lo haya, se arma acá
+ * (como playPiano o playPurr) y la escena ya lo llama justo al disparar.
+ */
+export function playShutter() {}
