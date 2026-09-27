@@ -6,7 +6,7 @@
 import { BLACKJACK_SEATS, TILE_SIZE } from "@hyvento/map";
 import { chipStack, CHIP_VALUES } from "@hyvento/map/art";
 import { CASINO, colorOf } from "@hyvento/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { rouletteRemaining, useCasinoStore } from "@/game/casino";
 import { getRoom, sendBlackjackAction, sendBlackjackBet } from "@/game/network";
 import { selectMyUserId, useOfficeStore } from "@/game/store";
@@ -30,12 +30,41 @@ function useRemaining(t: { endsAt: number }) {
 }
 
 /**
+ * Mide cuánto tapa la tira desde abajo de la ventana (con los controles de micrófono y cámara) y se lo
+ * pasa a la cámara del modo mesa, que centra la mesa en lo que queda libre arriba. En pantallas angostas
+ * la tira pasa a varias filas y es más alta.
+ */
+function useStripHeight() {
+  const ref = useRef<HTMLElement>(null);
+  const setStripPx = useCasinoStore((s) => s.setStripPx);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const px = Math.round(window.innerHeight - el.getBoundingClientRect().top + 8);
+      if (Math.abs(px - useCasinoStore.getState().stripPx) > 2) setStripPx(px);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [setStripPx]);
+  return ref;
+}
+
+/**
  * Marco común, abajo al centro y encima de los controles de micrófono y cámara (que siguen a mano):
- * una línea chica con datos (`info`) y la fila principal. Mide menos que STRIP_PX de game/table.
+ * una línea chica con datos (`info`) y la fila principal.
  */
 function Strip({ children, info, label }: { children: React.ReactNode; info: React.ReactNode; label: string }) {
+  const ref = useStripHeight();
   return (
     <section
+      ref={ref}
       aria-label={label}
       className="cozy-panel absolute bottom-[4.75rem] left-1/2 z-20 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col gap-1.5 px-3 py-2"
     >

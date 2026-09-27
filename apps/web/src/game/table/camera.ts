@@ -1,35 +1,24 @@
 // Cámara del modo mesa: se acerca a la mesa con una transición suave y, al salir, vuelve a seguir al
-// personaje con el zoom de antes. Coordenadas de pantalla del juego (las del arte a zoom 1).
+// personaje con el zoom de antes. Coordenadas de pantalla del juego (las del arte a zoom 1). Qué se
+// encuadra y con qué zoom está en @hyvento/map/art (casino-camara.ts), sin Phaser y con tests.
+import type { ScreenBox, TableViewport } from "@hyvento/map/art";
 import * as Phaser from "phaser";
+import { useCasinoStore } from "../casino";
 
-/**
- * Alto (px reales) que ocupan abajo la tira del modo mesa y los controles de micrófono y cámara: la
- * mesa se centra en lo que queda arriba.
- */
-export const STRIP_PX = 170;
 const MOVE_MS = 700;
-
-export interface ScreenRect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export function rectOf(points: { x: number; y: number }[], pad = 0): ScreenRect {
-  const xs = points.map((p) => p.x);
-  const ys = points.map((p) => p.y);
-  const x = Math.min(...xs) - pad;
-  const y = Math.min(...ys) - pad;
-  return { x, y, w: Math.max(...xs) + pad - x, h: Math.max(...ys) + pad - y };
-}
 
 export class TableCamera {
   private tween?: Phaser.Tweens.Tween;
   /** Zoom que había antes de entrar a la mesa (para volver). */
   private savedZoom: number | null = null;
+  /**
+   * Zoom al que está volviendo la cámara (mientras dura la transición de salida). Si se vuelve a entrar
+   * antes de que termine, ese es el zoom a recordar, no el de la mitad de la animación.
+   */
+  private returning: number | null = null;
   /** A dónde apunta ahora (para no repetir la misma transición). */
   private goal = "";
+  private last?: { rect: ScreenBox; zoom: number };
 
   constructor(private readonly scene: Phaser.Scene) {}
 
@@ -37,30 +26,30 @@ export class TableCamera {
     return this.scene.cameras.main;
   }
 
-  /**
-   * Zoom entero (par si `even`) con el que `rect` entra en la pantalla con aire alrededor, sin la tira
-   * de abajo. Los dibujos del modo mesa van a R = zoom / 2 (puntos de 2 píxeles).
-   */
-  fitZoom(rect: ScreenRect, min: number, max: number, even = true, fill = 0.8): number {
-    const w = this.cam.width * fill;
-    const h = (this.cam.height - STRIP_PX) * fill;
-    let z = Math.floor(Math.min(w / rect.w, h / rect.h));
-    if (even) z -= z % 2;
-    return Phaser.Math.Clamp(z, min, max);
+  /** La ventana del juego y lo que tapa la tira de abajo (medida por la tira). */
+  get viewport(): TableViewport {
+    return { w: this.cam.width, h: this.cam.height, strip: useCasinoStore.getState().stripPx };
   }
 
   /** Lleva la cámara a mostrar `rect` con `zoom` (deja de seguir al personaje). */
-  focus(rect: ScreenRect, zoom: number, ms = MOVE_MS) {
+  focus(rect: ScreenBox, zoom: number, ms = MOVE_MS) {
     const cam = this.cam;
+    this.last = { rect, zoom };
     // El centro baja media tira: la mesa queda centrada en el espacio libre de arriba.
     const cx = rect.x + rect.w / 2;
-    const cy = rect.y + rect.h / 2 + STRIP_PX / 2 / zoom;
+    const cy = rect.y + rect.h / 2 + this.viewport.strip / 2 / zoom;
     const key = `${cx.toFixed(1)},${cy.toFixed(1)},${zoom}`;
     if (key === this.goal) return;
     this.goal = key;
-    if (this.savedZoom === null) this.savedZoom = cam.zoom;
+    if (this.savedZoom === null) this.savedZoom = this.returning ?? cam.zoom;
+    this.returning = null;
     cam.stopFollow();
     this.animate(cx, cy, zoom, ms);
+  }
+
+  /** La tira cambió de alto: se recentra la mesa (con el mismo zoom, sin rehacer los dibujos). */
+  recenter() {
+    if (this.savedZoom !== null && this.last) this.focus(this.last.rect, this.last.zoom, 250);
   }
 
   /** Vuelve a seguir a `target` con el zoom de antes. */
@@ -69,12 +58,15 @@ export class TableCamera {
     const zoom = this.savedZoom;
     this.savedZoom = null;
     this.goal = "";
+    this.last = undefined;
     if (!target) {
       this.tween?.stop();
       this.cam.setZoom(zoom);
       return;
     }
+    this.returning = zoom;
     this.animate(target.x, target.y, zoom, ms, () => {
+      this.returning = null;
       this.cam.startFollow(target as Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Transform, true, 0.15, 0.15);
     });
   }
@@ -83,6 +75,9 @@ export class TableCamera {
   stop() {
     this.tween?.stop();
     this.tween = undefined;
+    // Si se cortó a la mitad de la vuelta, el zoom queda en el de destino (entero: el pixel-art parejo).
+    if (this.returning !== null) this.cam.setZoom(this.returning);
+    this.returning = null;
   }
 
   get active() {

@@ -54,6 +54,12 @@ interface CasinoState {
   /** Ficha elegida en la tira de la mesa (la que se pone al hacer clic en el paño o al apostar). */
   chip: number;
   setChip: (chip: number) => void;
+  /**
+   * Alto (px) que tapan abajo la tira del modo mesa y los controles de micrófono y cámara: lo mide la
+   * tira y la cámara centra la mesa en lo que queda arriba (se recuerda para la próxima vez).
+   */
+  stripPx: number;
+  setStripPx: (px: number) => void;
   setBlackjack: (b: BlackjackView) => void;
   setBlackjackSettled: (s: BlackjackSettled) => void;
   setOffset: (serverNow: number) => void;
@@ -73,6 +79,8 @@ export const useCasinoStore = create<CasinoState>((set) => ({
   lastBlackjack: null,
   chip: 5,
   setChip: (chip) => set({ chip }),
+  stripPx: 170,
+  setStripPx: (stripPx) => set({ stripPx }),
   setBlackjack: (blackjack) => set({ blackjack }),
   setBlackjackSettled: (lastBlackjack) => set({ lastBlackjack }),
   setOffset: (serverNow) => set({ offset: serverNow - Date.now() }),

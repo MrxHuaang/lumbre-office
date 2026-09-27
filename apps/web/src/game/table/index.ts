@@ -3,6 +3,7 @@
 // pasa los clics; la tira de abajo (components/casino/TableStrip.tsx) tiene fichas, saldo y botones.
 import type { OfficeMap, PlacedFurniture } from "@hyvento/map";
 import type * as Phaser from "phaser";
+import { useCasinoStore } from "../casino";
 import { BlackjackTableView } from "./blackjackTable";
 import { TableCamera } from "./camera";
 import { RouletteTableView } from "./rouletteTable";
@@ -22,8 +23,14 @@ export class TableMode {
   /** Personajes atenuados porque tapaban la mesa. */
   private faded = new Set<Phaser.GameObjects.Sprite>();
 
+  private readonly unsub: () => void;
+
   constructor(private readonly scene: Phaser.Scene) {
     this.cam = new TableCamera(scene);
+    // Si la tira cambia de alto (otros botones, pantalla angosta), la mesa se recentra arriba de ella.
+    this.unsub = useCasinoStore.subscribe((s, prev) => {
+      if (s.stripPx !== prev.stripPx && this.view) this.cam.recenter();
+    });
   }
 
   /** Mesa que se está jugando (o null). */
@@ -64,6 +71,7 @@ export class TableMode {
 
   /** Al destruir la escena: sin transiciones. */
   dispose() {
+    this.unsub();
     this.view?.destroy();
     this.view = null;
     this.cam.stop();

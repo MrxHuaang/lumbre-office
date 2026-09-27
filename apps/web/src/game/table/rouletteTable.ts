@@ -3,31 +3,36 @@
 // número que mandó el servidor. Todo sale del estado sincronizado (useCasinoStore): no hay reglas acá.
 import type { OfficeMap, PlacedFurniture } from "@hyvento/map";
 import {
+  betChips,
   betKey,
-  betStack,
   localToScreen,
   mesaFrame,
-  numbersFit,
   restPose,
   rouletteCellAt,
   rouletteCellMark,
   rouletteCellOf,
   rouletteFeltOverlay,
+  rouletteFeltRect,
   screenToLocal,
   spinPose,
+  tableZoom,
+  wheelBowlRect,
+  wheelZoom,
   ROULETTE_TOP_Z,
-  WHEEL_TOP_Z,
+  TABLE_MAX_ZOOM,
+  TABLE_MIN_ZOOM,
   WheelPainter,
   type BallPose,
   type MesaFrame,
   type RouletteCell,
+  type ScreenBox,
 } from "@hyvento/map/art";
 import { CASINO, CASINO_ERROR_TEXT, rouletteWins } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { rouletteRemaining, useCasinoStore, type RouletteView } from "../casino";
 import { sendRouletteBet } from "../network";
 import { selectMyUserId, useOfficeStore } from "../store";
-import { rectOf, type ScreenRect, type TableCamera } from "./camera";
+import type { TableCamera } from "./camera";
 import { furnitureDepth, overlayImage, pieceImage } from "./draw";
 
 /** Cuánto se queda la cámara mirando la rueda después de que cae la bola. */
@@ -53,12 +58,13 @@ export class RouletteTableView {
   private readonly wheelFr: MesaFrame | null;
   readonly depth: number;
   private readonly wheelDepth: number;
-  private readonly panoRect: ScreenRect;
-  private readonly wheelRect: ScreenRect | null;
+  private readonly panoRect: ScreenBox;
+  private readonly wheelRect: ScreenBox | null;
   private zoomPano = 8;
-  private zoomWheel = 12;
+  private zoomWheel = 14;
+  /** Resolución del dibujo de la rueda cuando la cámara la mira (puntos de 2 píxeles o de 1). */
+  private wheelR = 7;
   private R = 4;
-  private objects: Phaser.GameObjects.GameObject[] = [];
   private felt?: Phaser.GameObjects.Image;
   private hover?: { key: string; img: Phaser.GameObjects.Image };
   private win?: { key: string; img: Phaser.GameObjects.Image; tween: Phaser.Tweens.Tween };
@@ -79,19 +85,21 @@ export class RouletteTableView {
     this.wheelFr = wheel ? mesaFrame(wheel) : null;
     this.depth = furnitureDepth(map, table);
     this.wheelDepth = wheel ? furnitureDepth(map, wheel) : this.depth;
-    const corners = (fr: MesaFrame, w: number, d: number, top: number) =>
-      [0, top].flatMap((z) => [localToScreen(fr, 0, 0, z), localToScreen(fr, w * 16, 0, z), localToScreen(fr, 0, d * 16, z), localToScreen(fr, w * 16, d * 16, z)]);
-    // En el marco local la mesa mide 3x4 (el tamaño "right"), sin importar hacia dónde mire.
-    this.panoRect = rectOf(corners(this.fr, 3, 4, ROULETTE_TOP_Z + 2), 2);
-    this.wheelRect = this.wheelFr ? rectOf(corners(this.wheelFr, 2, 2, WHEEL_TOP_Z + 4), 2) : null;
+    // La cámara encuadra solo el plano del paño (y el cuenco de la rueda): así entra con más zoom.
+    this.panoRect = rouletteFeltRect(this.fr);
+    this.wheelRect = this.wheelFr ? wheelBowlRect(this.wheelFr) : null;
   }
 
   start() {
-    this.zoomPano = this.cam.fitZoom(this.panoRect, 6, 12);
-    this.zoomWheel = this.wheelRect ? this.cam.fitZoom(this.wheelRect, this.zoomPano, 16, true, 0.72) : this.zoomPano;
+    const view = this.cam.viewport;
+    this.zoomPano = tableZoom(view, this.panoRect, TABLE_MIN_ZOOM, TABLE_MAX_ZOOM);
+    if (this.wheelRect) {
+      const w = wheelZoom(view, this.wheelRect, this.zoomPano);
+      this.zoomWheel = w.zoom;
+      this.wheelR = w.R;
+    }
     this.R = this.zoomPano / 2;
     this.felt = overlayImage(this.scene, `mesa-ruleta-pano-${++textureSeq}`, rouletteFeltOverlay(this.fr, this.R), this.depth + 0.3);
-    this.objects.push(this.felt);
     this.unsub = useCasinoStore.subscribe((s, prev) => {
       if (s.roulette !== prev.roulette) this.syncChips(s.roulette);
     });
@@ -100,7 +108,7 @@ export class RouletteTableView {
   }
 
   /** Lo que no deben tapar los personajes que están delante (el paño, o la rueda mientras gira). */
-  get cover(): ScreenRect {
+  get cover(): ScreenBox {
     return this.focusOn === "rueda" && this.wheelRect ? this.wheelRect : this.panoRect;
   }
 
@@ -115,10 +123,10 @@ export class RouletteTableView {
       this.focusOn = focus;
       if (focus === "rueda") {
         this.cam.focus(this.wheelRect!, this.zoomWheel);
-        // Con la cámara en la rueda los números van con puntos de 2 píxeles si caben; si no, de 1.
-        this.ensureWheel(numbersFit(this.zoomWheel / 2) ? this.zoomWheel / 2 : this.zoomWheel);
+        this.ensureWheel(this.wheelR);
       } else {
         this.cam.focus(this.panoRect, this.zoomPano);
+        // Vista del paño: la rueda de al lado con puntos de 1 píxel (a zoom 8 los números ya caben).
         this.ensureWheel(this.zoomPano);
       }
       this.setHover(null);
@@ -209,10 +217,9 @@ export class RouletteTableView {
       const du = both && !g.mine ? -1.6 : 0;
       const p = localToScreen(this.fr, g.cell.chip.u + du, g.cell.chip.v, ROULETTE_TOP_Z);
       const R = this.R;
-      const stack = betStack(g.amount, g.bets, R, g.mine);
-      const texKey = `mesa-fichas-${g.amount}-${g.bets}-${g.mine ? 1 : 0}-${R}`;
+      const stack = betChips(g.amount, R, g.mine);
+      const texKey = `mesa-fichas-${g.amount}-${g.mine ? 1 : 0}-${R}`;
       const img = pieceImage(this.scene, texKey, () => stack.canvas, p.x, p.y, R, this.depth + 0.5 + (g.cell.chip.u + g.cell.chip.v) / 1000, stack);
-      this.objects.push(img);
       this.chips.set(id, { sig, img, cell: g.cell });
       // Cae sobre el paño.
       if (!old) this.scene.tweens.add({ targets: img, y: { from: p.y - 5, to: p.y }, alpha: { from: 0, to: 1 }, duration: 220, ease: "Bounce.out" });
@@ -234,7 +241,6 @@ export class RouletteTableView {
     if (!cell) return;
     const img = overlayImage(this.scene, `mesa-ruleta-gana-${++textureSeq}`, rouletteCellMark(this.fr, this.R, cell, "win"), this.depth + 0.4);
     const tween = this.scene.tweens.add({ targets: img, alpha: { from: 1, to: 0.55 }, duration: 520, yoyo: true, repeat: -1, ease: "Sine.inOut" });
-    this.objects.push(img);
     this.win = { key: want, img, tween };
   }
 
@@ -284,9 +290,10 @@ export class RouletteTableView {
   destroy() {
     this.unsub();
     this.win?.tween.stop();
+    this.win?.img.destroy();
     this.hover?.img.destroy();
-    for (const o of this.objects) o.destroy();
-    this.objects = [];
+    this.felt?.destroy();
+    for (const g of this.chips.values()) g.img.destroy();
     this.chips.clear();
     if (this.wheel) {
       this.wheel.img.destroy();
