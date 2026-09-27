@@ -319,11 +319,10 @@ export class WeatherView {
   }
 
   private updatePuddles(delta: number) {
+    // El suelo se moja aunque uno esté adentro: al salir, los charcos ya están.
+    const rain = OUTDOOR[this.weather].rain;
+    this.wet = rain > 0 ? Math.min(1, this.wet + (delta / PUDDLE_FILL_MS) * (0.4 + rain)) : Math.max(0, this.wet - delta / PUDDLE_DRY_MS);
     if (this.puddles.length === 0) return;
-    const raining = this.level.rain > 0.05;
-    this.wet = raining
-      ? Math.min(1, this.wet + (delta / PUDDLE_FILL_MS) * (0.4 + this.level.rain))
-      : Math.max(0, this.wet - delta / PUDDLE_DRY_MS);
     for (const p of this.puddles) {
       const a = Math.max(0, Math.min(1, (this.wet - (p.getData("from") as number)) / 0.2));
       p.setVisible(a > 0.01).setAlpha(a);
