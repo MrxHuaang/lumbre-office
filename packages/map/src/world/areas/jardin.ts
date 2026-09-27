@@ -27,6 +27,16 @@ const PORCH_Y = HOUSE.y + 14;
 /** El portón de la cerca, al sur, donde llega el camino. */
 const GATE_X = 38;
 
+/**
+ * Invernadero (5x4) y sus seis bancales, en L contra los vidrios del fondo (en este orden: el índice es su
+ * id). Van detrás del centro del invernadero: así el vidrio del frente no les queda por detrás.
+ */
+const GREENHOUSE = { x: 2, y: 17 };
+const BEDS = [
+  ...[0, 1, 2, 3].map((dx) => ({ x: GREENHOUSE.x + dx, y: GREENHOUSE.y })),
+  ...[1, 2].map((dy) => ({ x: GREENHOUSE.x, y: GREENHOUSE.y + dy })),
+];
+
 /** Huerto: 20 parcelas en 4 filas de 5, con pasillos de tierra entre ellas. */
 const PLOTS = [6, 8, 10, 12].flatMap((y) => [8, 10, 12, 14, 16].map((x) => ({ x, y })));
 const SOIL = { x0: 6.6, y0: 4.6, x1: 18.4, y1: 13.4 };
@@ -181,7 +191,11 @@ put("crates", 3, 1);
 put("barrel", 5, 4);
 put("wheelbarrow", 6, 15, "down");
 put("compost", 2, 7, "right");
-put("greenhouse", 2, 17);
+// El invernadero se entra por la puerta del frente: la base plana, el vidrio encima y los bancales en
+// L (el fondo y el costado oeste), mirando al pasillo del medio.
+put("greenhouse", GREENHOUSE.x, GREENHOUSE.y);
+put("greenhouse-roof", GREENHOUSE.x, GREENHOUSE.y);
+for (const b of BEDS) put("greenhouse-bed", b.x, b.y);
 // El pozo junto al sendero del huerto, a la vista (no detrás de la torre).
 put("well", 21, 16);
 put("water-barrel", 18, 8);
@@ -477,6 +491,8 @@ const POINTS: PointDef[] = [
   ...PLOTS.map((p, i) => pt("garden_plot", `Parcela ${i + 1}`, p.x, p.y)),
   // Frente a la puerta del cobertizo: la regadera y las semillas.
   pt("tool_shed", "Cobertizo", 1, 3),
+  // Uno por bancal del invernadero, en el orden de BEDS (el índice es el id del bancal).
+  ...BEDS.map((b, i) => pt("greenhouse_plot", `Bancal ${i + 1}`, b.x, b.y)),
   // La punta del muelle y la piedra plana de la orilla norte.
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0),
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0 + 1),

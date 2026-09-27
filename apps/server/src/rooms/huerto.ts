@@ -14,6 +14,8 @@ import {
   canWater,
   cropById,
   cropOfSeeds,
+  GREENHOUSE_PLOT_BASE,
+  isGreenhousePlot,
   isFreeHold,
   plantPlot,
   plotReadyAt,
@@ -82,9 +84,20 @@ export class Huerto<T extends PlotState> {
     }
   }
 
-  /** La parcela con esquina en (x, y): su índice es el de su punto `garden_plot` (-1 si no hay). */
-  static plotIndex(map: OfficeMap, x: number, y: number): number {
-    return pointsOfType(map, "garden_plot").findIndex((p) => p.tileX === x && p.tileY === y);
+  /**
+   * La parcela de ese tipo con esquina en (x, y): una del huerto es el índice de su punto `garden_plot`;
+   * un bancal del invernadero, GREENHOUSE_PLOT_BASE + el de su punto `greenhouse_plot` (-1 si no hay).
+   */
+  static plotIndex(map: OfficeMap, type: string, x: number, y: number): number {
+    const bed = type === "greenhouse-bed";
+    const i = pointsOfType(map, bed ? "greenhouse_plot" : "garden_plot").findIndex((p) => p.tileX === x && p.tileY === y);
+    return i < 0 ? -1 : bed ? GREENHOUSE_PLOT_BASE + i : i;
+  }
+
+  /** ¿Están los pies en (px, py) dentro de algún invernadero del nivel? */
+  static insideGreenhouse(map: OfficeMap, px: number, py: number): boolean {
+    const ts = map.tileSize;
+    return map.furniture.some((f) => f.type === "greenhouse" && px >= f.x * ts && px < (f.x + f.w) * ts && py >= f.y * ts && py < (f.y + f.d) * ts);
   }
 
   /** Estado de una parcela (o undefined si está vacía). */
@@ -98,8 +111,10 @@ export class Huerto<T extends PlotState> {
     if (e.action === "fill") return this.fill(who, base);
     if (e.action === "honey") return this.honey(who, base, now);
     if (e.action !== "plot") return null;
-    const id = Huerto.plotIndex(map, e.x, e.y);
+    const id = Huerto.plotIndex(map, e.type, e.x, e.y);
     if (id < 0) return null;
+    // A los bancales se llega desde adentro: a través del vidrio no se siembra ni se cosecha.
+    if (isGreenhousePlot(id) && !Huerto.insideGreenhouse(map, who.x, who.y)) return { ok: false, notice: { code: "inside" } };
     const held = this.deps.held.get(who.userId);
     const plot = this.plot(id);
     const event = (garden: "plant" | "water" | "harvest", item: string): HuertoResult => ({ ok: true, event: { ...base, action: "plot", garden, item } });
@@ -107,6 +122,9 @@ export class Huerto<T extends PlotState> {
     if (!plot) {
       const crop = held ? cropOfSeeds(held.item) : undefined;
       if (!crop) return { ok: false, notice: { code: "seeds" } };
+      // Lo de tierra caliente va en los bancales del invernadero, y lo del huerto, afuera.
+      if (crop.indoor && !isGreenhousePlot(id)) return { ok: false, notice: { code: "indoor", crop: crop.id } };
+      if (!crop.indoor && isGreenhousePlot(id)) return { ok: false, notice: { code: "outdoor", crop: crop.id } };
       const mine = [...this.deps.plots.values()].filter((p) => p.plantedBy === who.userId).length;
       if (mine >= HUERTO.maxPlotsPerPerson) return { ok: false, notice: { code: "tooMany" } };
       if (!this.deps.held.spend(who.userId, now)) return null;
@@ -127,6 +145,7 @@ export class Huerto<T extends PlotState> {
       return event("harvest", crop.product);
     }
 
+    if ((held?.item === WATERING_CAN || held?.item === EMPTY_CAN) && cropById(plot.crop)?.indoor) return { ok: false, notice: { code: "noWater" } };
     if (held?.item === WATERING_CAN) {
       if (!canWater(plot, now)) return { ok: false, notice: { code: "wet" } };
       const spent = this.deps.held.spend(who.userId, now);

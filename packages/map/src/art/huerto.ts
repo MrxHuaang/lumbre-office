@@ -7,8 +7,11 @@ import { alpha, at, hex, noise, type RGBA, type Sprite } from "./pixel";
 
 export type CropStage = 0 | 1 | 2 | 3;
 
-/** Altura de la tierra de la parcela (el cantero de tablas mide 3). */
-const SOIL_Z = 3;
+/**
+ * Altura de la tierra: la de la parcela (el cantero de tablas mide 3). Los bancales del invernadero la
+ * suben mientras se dibujan (ver bedCropSprite).
+ */
+let SOIL_Z = 3;
 
 const scene = (h: number) => new Escena({ x0: -2, y0: -2, z0: 0, x1: 18, y1: 18, z1: h }, 2);
 
@@ -167,4 +170,73 @@ export function wetSoil(): Sprite {
     return alpha(at(C.night, 0), 0.5);
   });
   return s.sprite();
+}
+
+/** Tierra de la bandeja de un bancal del invernadero (el mesón mide 13). */
+const BED_SOIL_Z = 13;
+const PINK = { c: hex("#e8457a"), d: hex("#a8205a"), s: hex("#ffb0c8") };
+const POD = { c: hex("#e0a030"), d: hex("#9a5a1a"), s: hex("#f7d070") };
+const CHERRY = { c: hex("#c8302a"), d: hex("#7a1a18"), s: hex("#ff8a70") };
+const BERRY = { c: hex("#f7b733"), d: hex("#c8861a"), s: hex("#fff0a0") };
+
+/**
+ * Lo que crece en un bancal del invernadero: una sola mata al centro de la bandeja (uchuva, pitahaya,
+ * cacao o café). Mismo marco que el dibujo del bancal (1x1, la tierra en z = 13).
+ */
+export function bedCropSprite(crop: string, stage: CropStage): Sprite {
+  const saved = SOIL_Z;
+  SOIL_Z = BED_SOIL_Z;
+  try {
+    const s = scene(BED_SOIL_Z + 26);
+    const [x, y] = [9, 9];
+    const seed = crop.length * 11 + stage;
+    if (stage === 0) {
+      mound(s, x, y);
+      s.plot(x, y, SOIL_Z + 1.4, at(C.leaf, 4));
+      return s.sprite();
+    }
+    if (stage === 1) {
+      mound(s, x, y);
+      sprout(s, x, y, 3, at(C.leaf, 4), at(C.leaf, 2));
+      return s.sprite();
+    }
+    const ready = stage === 3;
+    switch (crop) {
+      case "uchuva":
+        // Mata baja y ancha con las uchuvas dentro de su capuchón de papel.
+        bush(s, x, y, ready ? 4 : 3, ready ? 8 : 6, C.leaf, seed);
+        if (ready) for (const [dx, dy, dz] of [[2.5, 1, 3], [-1.5, 2.5, 4], [1.5, -2, 6], [3, -0.5, 5]] as const) fruit(s, x + dx, y + dy, SOIL_Z + dz, 1, BERRY.c, BERRY.d, BERRY.s);
+        break;
+      case "pitahaya":
+        // Cactus trepador en su tutor, con flores blancas y, al final, pitahayas rosadas.
+        stake(s, x - 0.5, y - 0.5, ready ? 16 : 11);
+        for (let z = 0; z < (ready ? 15 : 10); z += 0.5)
+          for (const d of [-1, 1]) s.plot(x + d * (1 + Math.sin(z * 0.8) * 0.8), y + d * 0.5, SOIL_Z + z, at(C.leaf, z % 3 < 1 ? 4 : 2));
+        if (ready) for (const [dx, dy, dz] of [[2, 1, 9], [-1.5, 1.5, 13], [1, -1.5, 15]] as const) fruit(s, x + dx, y + dy, SOIL_Z + dz, 1.6, PINK.c, PINK.d, PINK.s);
+        else for (const [dx, dz] of [[1.5, 8], [-1.5, 10]] as const) s.plot(x + dx, y + 1, SOIL_Z + dz, at(C.white, 4));
+        break;
+      case "cacao":
+        // Arbolito de tronco oscuro con copa y, listo, las mazorcas amarillas pegadas al tronco.
+        for (let z = 0; z < (ready ? 12 : 8); z += 0.5) s.plot(x, y, SOIL_Z + z, at(C.woodDark, 2));
+        bush(s, x, y, ready ? 4.5 : 3.2, 6, C.leaf, seed, SOIL_Z + (ready ? 11 : 7));
+        if (ready) for (const [dx, dy, dz] of [[1.2, 1, 4], [-1, 1.2, 7], [1.2, -0.5, 9]] as const) fruit(s, x + dx, y + dy, SOIL_Z + dz, 1.4, POD.c, POD.d, POD.s);
+        break;
+      case "cafe":
+        // Cafeto: ramas en pisos con hojas brillantes y, listo, las cerezas rojas en racimos.
+        for (let z = 0; z < (ready ? 16 : 11); z += 0.5) s.plot(x, y, SOIL_Z + z, at(C.woodDark, 3));
+        for (let k = 0; k < (ready ? 4 : 3); k++) bush(s, x, y, 3.8 - k * 0.7, 3, C.leaf, seed + k, SOIL_Z + 3 + k * 3.5);
+        if (ready)
+          for (let k = 0; k < 7; k++) {
+            const t = noise(k, 1, seed) * Math.PI * 2;
+            fruit(s, x + Math.cos(t) * 2.5, y + Math.sin(t) * 2.5, SOIL_Z + 4 + noise(k, 2, seed) * 9, 0.8, CHERRY.c, CHERRY.d, CHERRY.s);
+          }
+        break;
+      default:
+        bush(s, x, y, 3, 6, C.leaf, seed);
+    }
+    if (ready) s.plot(x + 4, y - 3, SOIL_Z + 16, alpha(at(C.gold, 5), 0.9));
+    return s.sprite();
+  } finally {
+    SOIL_Z = saved;
+  }
 }

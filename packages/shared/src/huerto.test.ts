@@ -5,6 +5,8 @@ import { heldParts } from "./cafe";
 import {
   CROPS,
   EMPTY_CAN,
+  GREENHOUSE_PLOT_BASE,
+  isGreenhousePlot,
   HUERTO,
   HUERTO_TOOLS,
   SHED_ITEMS,
@@ -53,9 +55,9 @@ describe("huerto: cómo crece", () => {
       expect(plotReady(p, ready - 1), crop.id).toBe(false);
       expect(plotReady(p, ready), crop.id).toBe(true);
       expect(plotGrowth(p, ready + 10 * 60 * 60_000), crop.id).toBe(crop.growMs);
-      // Regando lo más posible tarda lo de la tabla; sin regar, 1/dryRate veces más.
+      // Regando lo más posible tarda lo de la tabla; sin regar, 1/dryRate veces más (en el invernadero, igual).
       const dry = plantPlot(crop.id, alice, T0);
-      expect(plotReadyAt(dry) - T0, crop.id).toBeCloseTo(crop.growMs / HUERTO.dryRate);
+      expect(plotReadyAt(dry) - T0, crop.id).toBeCloseTo(crop.indoor ? crop.growMs : crop.growMs / HUERTO.dryRate);
     }
   });
 
@@ -88,6 +90,21 @@ describe("huerto: cómo crece", () => {
   });
 });
 
+describe("invernadero", () => {
+  it("lo de tierra caliente crece a ritmo completo sin regar, y no se riega", () => {
+    const indoor = CROPS.filter((c) => c.indoor);
+    expect(indoor.map((c) => c.id)).toEqual(["uchuva", "pitahaya", "cacao", "cafe"]);
+    for (const c of indoor) {
+      const p = plantPlot(c.id, alice, T0);
+      expect(plotGrowth(p, T0 + 60_000), c.id).toBe(60_000);
+      expect(plotReadyAt(p), c.id).toBe(T0 + c.growMs);
+      expect(canWater(p, T0 + 60_000), c.id).toBe(false);
+    }
+    expect(isGreenhousePlot(GREENHOUSE_PLOT_BASE)).toBe(true);
+    expect(isGreenhousePlot(19)).toBe(false);
+  });
+});
+
 describe("huerto: lo que se lleva en la mano", () => {
   it("las semillas dicen su cultivo y el cobertizo tiene la regadera y una bolsa de cada uno", () => {
     for (const c of CROPS) {
@@ -115,7 +132,7 @@ describe("huerto: lo que se lleva en la mano", () => {
     expect(CONSUMABLES[WATERING_CAN]).toBeUndefined();
     expect(usesOf(WATERING_CAN)).toBe(HUERTO.canUses);
     expect(usesOf(seedsOf("maiz"))).toBe(HUERTO.seedUses);
-    for (const c of CROPS) expect(CONSUMABLES[c.product]?.action, c.product).toBe("bite");
+    for (const c of CROPS) expect(CONSUMABLES[c.product]?.action, c.product).toBe(c.id === "cafe" ? "sip" : "bite");
     expect(CONSUMABLES.miel?.action).toBe("spoon");
   });
 

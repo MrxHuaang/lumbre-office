@@ -78,29 +78,47 @@ function pottedPlant(s: Escena, x: number, y: number, z: number, r: number, seed
 
 // ---------- Invernadero ----------
 
-/** Casita de vidrio de 5x4 con marcos blancos, mesas con macetas y plantas trepando adentro. */
+/** Casita de vidrio de 5x4: marcos blancos, paredes junto al borde y la puerta al frente (+y, tile x = 2). */
+const GH = { X0: 2, X1: 78, Y0: 2, Y1: 62, WALL: 34, RISE: 20 };
+
+/** Base del invernadero (va plana: se camina por dentro): basa de ladrillo y piso de baldosas. */
 function greenhouse(): Sprite {
-  const s = scene(5, 4, 72);
-  const X0 = 4, X1 = 76, Y0 = 6, Y1 = 58, WALL = 34, RISE = 20;
-  const mid = (Y0 + Y1) / 2;
+  const s = scene(5, 4, 12);
+  const { X0, X1, Y0, Y1 } = GH;
   s.shadow(X0 - 2, Y0 - 2, X1 - X0 + 8, Y1 - Y0 + 8, 0.28);
-  // Basa de ladrillo y piso de baldosas.
   const brick: Tinte = (u, v) => (v % 3 < 0.7 || (u + (Math.floor(v / 3) % 2) * 3) % 6 < 0.7 ? at(C.terracotta, 1) : at(C.terracotta, 3));
   s.box(X0, Y0, 0, X1 - X0, Y1 - Y0, 5, (u, v) => ((Math.floor(u / 6) + Math.floor(v / 6)) % 2 ? at(C.stone, 4) : at(C.terracotta, 3)), brick, (u, v) => brick(u, v) && mix(brick(u, v)!, at(C.night, 1), 0.2));
-  // Mesas con macetas y plantas.
-  for (const ty of [Y0 + 4, Y1 - 14]) {
-    // Mesón de listones sobre patas, con macetas y plantas grandes.
-    for (const lx of [X0 + 7, X1 - 9]) for (const ly of [ty, ty + 8]) s.solid(lx, ly, 5, 2, 2, 9, at(C.wood, 3), at(C.wood, 2), at(C.wood, 1));
-    s.box(X0 + 6, ty, 14, X1 - X0 - 12, 10, 1.5, (u) => at(C.wood, u % 4 < 0.8 ? 2 : 4), flatT(at(C.wood, 3)), flatT(at(C.wood, 2)));
-    for (let x = X0 + 10; x < X1 - 8; x += 7) pottedPlant(s, x, ty + 5, 15.5, 3.8 + noise(x, ty, 2) * 2, x + ty);
-  }
-  // Tomateras altas al fondo y una palmera en maceta.
+  // Tapete de fibra en la entrada.
+  s.box(33, Y1 - 10, 5, 14, 8, 0.3, (u, v) => ((Math.floor(u / 2) + Math.floor(v / 2)) % 2 ? at(C.cork, 3) : at(C.cork, 4)), null, null);
+  return s.sprite();
+}
+
+/**
+ * Las paredes y el techo de vidrio del invernadero, con la puerta abierta al frente y matas de tomate
+ * trepando por el fondo. Va sobre la base, ordenada con su centro; el cliente la transparenta cuando hay
+ * alguien adentro (como el techo de la glorieta).
+ */
+function greenhouseRoof(): Sprite {
+  const s = scene(5, 4, 72);
+  const { X0, X1, Y0, Y1, WALL, RISE } = GH;
+  const mid = (Y0 + Y1) / 2;
+  // Tomateras altas al fondo, pegadas al vidrio.
   for (let x = X0 + 8; x < X1 - 6; x += 12)
     for (let z = 5; z < 30; z += 0.5) {
-      s.plot(x + Math.sin(z * 0.6) * 1.5, Y0 + 2, z, at(C.leaf, 2 + (Math.floor(z) % 3 === 0 ? 2 : 0)));
-      if (Math.floor(z) % 5 === 2) s.plot(x + 1 + Math.sin(z * 0.6) * 1.5, Y0 + 2.5, z, at(C.rug, 4));
+      s.plot(x + Math.sin(z * 0.6) * 1.5, Y0 + 1, z, at(C.leaf, 2 + (Math.floor(z) % 3 === 0 ? 2 : 0)));
+      if (Math.floor(z) % 5 === 2) s.plot(x + 1 + Math.sin(z * 0.6) * 1.5, Y0 + 1.5, z, at(C.rug, 4));
     }
-  // Vidrio: marcos blancos opacos y paños celestes translúcidos (se ve lo de adentro).
+  // Macetas grandes en el piso del frente (a los lados de la puerta) y en la columna del este.
+  for (const [x, y, r, seed] of [
+    [70, 10, 4.5, 11],
+    [70, 26, 3.5, 13],
+    [70, 42, 4, 15],
+    [10, Y1 - 7, 4, 3],
+    [24, Y1 - 6, 3.5, 5],
+    [56, Y1 - 6, 3.5, 7],
+    [70, Y1 - 7, 4, 9],
+  ] as const)
+    pottedPlant(s, x, y, 5, r, seed);
   const pane = (pitch: number, zlim?: (u: number) => number): Tinte => (u, v) => {
     if (zlim && v > zlim(u)) return null;
     if (u % pitch < 1 || v < 1.2 || Math.abs(v - 14) < 0.6) return at(C.white, 4);
@@ -113,29 +131,46 @@ function greenhouse(): Sprite {
   s.quad([X0, Y0, 5], [1, 0, 0], [0, 0, 1], X1 - X0, WALL - 5, pane(12));
   s.quad([X0, Y0, 5], [0, 1, 0], [0, 0, 1], Y1 - Y0, WALL - 5, pane(12));
   s.borde = true;
+  const door = (X1 - X0) / 2;
   s.quad([X0, Y1, 5], [1, 0, 0], [0, 0, 1], X1 - X0, WALL - 5, (u, v) => {
-    // Puerta al centro con su manilla.
-    const door = Math.abs(u - (X1 - X0) / 2) < 7;
-    if (door && (Math.abs(Math.abs(u - (X1 - X0) / 2) - 7) < 1 || v > 22 && v < 23.5)) return at(C.white, 4);
-    if (door && Math.abs(u - (X1 - X0) / 2 - 4) < 0.8 && v > 12 && v < 14) return at(C.gold, 4);
+    // La puerta abierta: solo el marco (se entra por aquí).
+    const du = Math.abs(u - door);
+    if (du < 7 && v < 23) return du > 6 || v > 22 ? at(C.white, 4) : null;
     return pane(12)(u, v);
   });
   s.quad([X1, Y0, 5], [0, 1, 0], [0, 0, 1], Y1 - Y0, WALL - 5, pane(12));
-  // Hastial del frente (x = X1) y techo de vidrio.
+  // La hoja de la puerta, abierta hacia afuera y apoyada de lado.
+  s.quad([X0 + door + 7, Y1, 5], [0, 1, 0], [0, 0, 1], 9, 18, (u, v) => (u < 1 || u > 8 || v < 1 || v > 17 || Math.abs(v - 9) < 0.6 ? at(C.white, 4) : alpha(at(C.sky, 3), 0.3)));
   s.quad([X1, Y0, WALL], [0, 1, 0], [0, 0, 1], Y1 - Y0, RISE, pane(8, (u) => RISE - (Math.abs(u - (mid - Y0)) / (mid - Y0)) * RISE));
   const slope = RISE / (mid - Y0);
   s.quad([X0, mid, WALL + RISE], [1, 0, 0], [0, 1, -slope], X1 - X0, mid - Y0, (u, v) => (u % 12 < 1 || v < 1 || v > mid - Y0 - 1.2 ? at(C.white, 4) : (u - v) % 29 < 1.5 ? alpha(at(C.white, 4), 0.5) : alpha(at(C.sky, 4), 0.26)));
   s.quad([X0, mid, WALL + RISE], [1, 0, 0], [0, -1, -slope], X1 - X0, mid - Y0, (u, v) => (u % 12 < 1 || v < 1 ? at(C.white, 3) : alpha(at(C.sky, 3), 0.26)));
-  // Cumbrera con una veleta chica y ventilación abierta.
   for (let x = X0; x < X1; x += 0.4) {
     s.plot(x, mid, WALL + RISE + 1, at(C.white, 4));
     s.plot(x, mid, WALL + RISE + 1.6, at(C.white, 3));
   }
   s.solid(X1 - 8, mid - 0.5, WALL + RISE, 1, 1, 8, at(C.metal, 3), at(C.metal, 2), at(C.metal, 1));
   s.disc(X1 - 7.5, mid, WALL + RISE + 8, 1.5, () => at(C.gold, 4));
-  // Macetas y una regadera afuera, junto a la puerta.
-  pottedPlant(s, 30, Y1 + 4, 0, 3, 7);
-  pottedPlant(s, 50, Y1 + 4, 0, 3.5, 9);
+  return s.sprite();
+}
+
+/** Bancal del invernadero: mesón de listones con una bandeja de tierra negra (ahí crece lo sembrado). */
+function greenhouseBed(): Sprite {
+  const s = scene(1, 1, 18);
+  s.shadow(3, 3, 13, 13, 0.25);
+  for (const [lx, ly] of [
+    [4, 4],
+    [13, 4],
+    [4, 13],
+    [13, 13],
+  ] as const)
+    s.solid(lx, ly, 0, 1.5, 1.5, 9, at(C.wood, 3), at(C.wood, 2), at(C.wood, 1));
+  s.box(3, 3, 9, 12, 12, 4, (u, v) => {
+    if (u < 1.2 || v < 1.2 || u > 10.8 || v > 10.8) return at(C.wood, 4);
+    return at(C.dirt, noise(Math.floor(u), Math.floor(v), 31) < 0.2 ? 2 : 0);
+  }, planks(C.wood, 3, 4, 2), planks(C.wood, 3, 3, 4));
+  // Una etiqueta de madera clavada en la tierra.
+  s.solid(12.5, 5, 13, 1, 1, 3, at(C.cream, 4), at(C.cream, 3), at(C.cream, 2));
   return s.sprite();
 }
 
@@ -802,6 +837,8 @@ export { gazeboRoof };
 
 export const YARD_DRAW: Record<string, (v: "front" | "back") => Sprite> = {
   greenhouse,
+  "greenhouse-roof": greenhouseRoof,
+  "greenhouse-bed": greenhouseBed,
   "tool-shed": toolShed,
   gazebo,
   pergola,

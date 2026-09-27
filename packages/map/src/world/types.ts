@@ -163,7 +163,9 @@ export interface PointDef {
     // Salida de la carrera de sillas (pasillo del piso 2, junto a la bandera).
     | "chair_race"
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
-    | "tool_shed";
+    | "tool_shed"
+    // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
+    | "greenhouse_plot";
   name: string;
   x: number;
   y: number;
