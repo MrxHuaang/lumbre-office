@@ -11,6 +11,8 @@ import { SOTANO_DRAW } from "../art/sotano";
 import { EXTERIOR_CATALOG } from "./catalog-exterior";
 import { INTERIOR_CATALOG } from "./catalog-interior";
 import { SOTANO_CATALOG } from "./catalog-sotano";
+import { GARAJE_CATALOG } from "./catalog-garaje";
+import { GARAJE_DRAW } from "../art/garaje";
 
 /** Claves repetidas entre grupos: "clave (grupo a, grupo b)". */
 function repeated(groups: Record<string, object>): string[] {
@@ -29,7 +31,7 @@ function repeated(groups: Record<string, object>): string[] {
 // (otro tamaño, otra colisión, otro dibujo). Cada parte del rediseño tiene que usar ids propios.
 describe("registro de muebles", () => {
   it("los catálogos del rediseño no comparten ids", () => {
-    expect(repeated({ exterior: EXTERIOR_CATALOG, interior: INTERIOR_CATALOG, sotano: SOTANO_CATALOG })).toEqual([]);
+    expect(repeated({ exterior: EXTERIOR_CATALOG, interior: INTERIOR_CATALOG, sotano: SOTANO_CATALOG, garaje: GARAJE_CATALOG })).toEqual([]);
   });
 
   it("los grupos de dibujos no comparten ids", () => {
@@ -44,6 +46,7 @@ describe("registro de muebles", () => {
         exterior: EXTERIOR_DRAW,
         interior: INTERIOR_DRAW,
         sotano: SOTANO_DRAW,
+        garaje: GARAJE_DRAW,
       }),
     ).toEqual([]);
   });
