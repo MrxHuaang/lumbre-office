@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CabinShowcase } from "@/components/CabinShowcase";
 import { CozyTitle, PixelIcon } from "@/components/Cozy";
+import { EscenaViva } from "@/components/lumbre/EscenaViva";
+import { LumbreLogo } from "@/components/lumbre/Logo";
 import { getCurrentUser } from "@/lib/current-user";
 import { devLoginEnabled } from "@/lib/dev-login";
 import { loginDev, loginWithGoogle } from "../actions";
+
+export const metadata: Metadata = { title: "Entrar" };
 
 const ERRORS: Record<string, string> = {
   AccessDenied: "Tu correo no tiene invitación a la cabaña. Pídele a un administrador que te invite.",
@@ -18,22 +23,29 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const message = error ? (ERRORS[error] ?? "No se pudo iniciar sesión. Intenta de nuevo.") : null;
 
   return (
-    <main className="cozy-void relative grid min-h-full overflow-hidden font-pixel text-cozy-ink md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-      <div className="relative z-[2] flex flex-col justify-between gap-10 px-6 py-8 sm:px-10 md:px-14 md:py-12">
-        <div className="cozy-panel flex w-max items-center gap-2 px-3.5 py-2">
-          <PixelIcon name="cabin" size={18} color="var(--color-cozy-wood)" />
-          <span className="text-[18px] leading-none font-semibold">Hyvento</span>
+    <main className="cozy-void relative grid min-h-full overflow-x-clip font-pixel text-cozy-ink lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+      <div className="relative z-[2] flex flex-col justify-between gap-10 px-4 py-6 sm:px-10 md:px-14 lg:py-10">
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/" aria-label="Lumbre, volver al inicio">
+            <LumbreLogo size={30} />
+          </Link>
+          <Link href="/" className="text-[15px] text-cozy-paper-dark underline-offset-4 hover:text-cozy-paper-light hover:underline">
+            Volver al inicio
+          </Link>
         </div>
 
-        <div className="flex flex-col gap-7">
-          <p className="text-[16px] text-cozy-paper-dark">La oficina virtual del equipo</p>
-          <CozyTitle className="text-[clamp(56px,7.5vw,120px)] leading-[0.92]">
-            La cabaña
+        <div className="flex flex-col items-start gap-6">
+          <span className="cozy-chip flex items-center gap-2 px-3 py-1.5 text-[14px] leading-none">
+            <PixelIcon name="cabin" size={14} color="var(--color-cozy-wood)" />
+            La cabaña de Hyvento
+          </span>
+          <CozyTitle className="text-[clamp(48px,6.4vw,96px)] leading-[0.95]">
+            Entra a
             <br />
-            Hyvento
+            la cabaña
           </CozyTitle>
-          <p className="max-w-[32ch] text-[18px] leading-snug text-cozy-paper-light">
-            Entra con la cuenta de Google con la que te invitaron.
+          <p className="max-w-[34ch] text-[18px] leading-snug text-cozy-paper-light">
+            Usa la cuenta de Google con la que te invitaron. Adentro te espera tu oficina y el resto del equipo.
           </p>
 
           {message && (
@@ -54,12 +66,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {devLoginEnabled() && <DevLogin />}
         </div>
 
-        <p className="text-[14px] text-cozy-paper-dark">Adentro: clic para caminar, WASD o flechas, E para sentarte.</p>
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-[14px] text-cozy-paper-dark">
+          Adentro: clic para caminar, <kbd className="cozy-kbd">W</kbd>
+          <kbd className="cozy-kbd">A</kbd>
+          <kbd className="cozy-kbd">S</kbd>
+          <kbd className="cozy-kbd">D</kbd> o flechas, <kbd className="cozy-kbd">E</kbd> para sentarte.
+        </p>
       </div>
 
-      <div aria-hidden className="relative order-first grid h-[42vh] place-items-center md:order-none md:h-auto md:min-h-screen">
-        <CabinShowcase className="w-[min(96%,980px)] max-md:h-full max-md:w-auto max-md:max-w-[96%] max-md:object-contain" />
-        <div className="cozy-panel absolute top-[14%] right-[10%] rotate-[3deg] px-4 py-2 text-[16px]">¡hola equipo!</div>
+      <div className="relative order-first grid place-items-center px-2 pt-4 lg:order-none lg:min-h-screen lg:pt-0 lg:pr-8 lg:pl-0">
+        <EscenaViva className="w-[min(100%,1040px)]" saludo="¡llegaste!" />
       </div>
     </main>
   );
