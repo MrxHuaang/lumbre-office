@@ -98,7 +98,7 @@ describe("mascotas", () => {
   it("se acerca a quien la llama y se sienta a mirarla; desde otro nivel no", () => {
     const { pets, sim } = setup(2);
     const tobi = pets.get("tobi")!;
-    const who = { userId: "u", area: "jardin", x: tobi.x + 5 * 32, y: tobi.y + 2 * 32 };
+    const who = { userId: "u", area: "jardin", x: tobi.x - 5 * 32, y: tobi.y + 1 * 32 };
     expect(sim.call({ ...who, area: "planta-baja" }, { pet: "tobi" }, 0)).toBeNull();
     expect(sim.call(who, { pet: "tobi" }, 0)).toBe("call");
     let now = 0;

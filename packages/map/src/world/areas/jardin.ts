@@ -224,9 +224,10 @@ for (const [x, y] of [
 ])
   put("lamp-post", x!, y!);
 
-// La casita de Tobi, el perro, con su cama al lado (ver PETS en @hyvento/shared), camino al lago.
+// La casita de Tobi, el perro, camino al lago, con su cama delante: así la casita no lo tapa al dormir
+// (ver PETS en @hyvento/shared).
 put("dog-house", 48, 28, "down");
-put("pet-bed", 47, 28);
+put("pet-bed", 48, 29);
 
 // Terraza este: mesas con sillas, la pérgola, farolitos y la leñera.
 put("pergola", 57, 5);

@@ -24,7 +24,7 @@ export const PETS: readonly PetDef[] = [
   // Canela, la gata del salón: la chimenea, el pasillo y el recibidor.
   { id: "canela", name: "Canela", kind: "gato", coat: "naranja", area: "planta-baja", bed: { x: 10, y: 2 }, roam: { x: 0, y: 0, w: 24, h: 26 } },
   // Tobi, el perro del jardín: frente a la casa, entre el camino, la fogata y el lago.
-  { id: "tobi", name: "Tobi", kind: "perro", coat: "cafe", area: "jardin", bed: { x: 57, y: 38 }, roam: { x: 22, y: 28, w: 40, h: 26 } },
+  { id: "tobi", name: "Tobi", kind: "perro", coat: "cafe", area: "jardin", bed: { x: 58, y: 39 }, roam: { x: 22, y: 28, w: 40, h: 26 } },
   // Nube, el gato gris del piso 3: la sala de estar, el rincón de lectura y el pasillo.
   { id: "nube", name: "Nube", kind: "gato", coat: "gris", area: "piso-3", bed: { x: 9, y: 16 }, roam: { x: 0, y: 8, w: 32, h: 13 } },
 ];

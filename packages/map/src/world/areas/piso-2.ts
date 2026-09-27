@@ -271,6 +271,8 @@ export const piso2: AreaDef = {
     place("plant", 20, 23),
     place("lamp", 29, 23),
     place("cafe-sign", 28, 17),
+    // Casa viva: la radio de la zona de descanso (se prende con E).
+    place("radio", 28, 15),
     // ----- Balcón: barandas alrededor, la jardinera, una tumbona y una planta que no la tapa.
     // En la esquina este, la baranda se abre a la escalera exterior que baja al jardín.
     ...balconyRailings(BALCON).filter((r) => !(r.x === BALCON.x + BALCON.w - 1 && r.y === BALCON.y)),

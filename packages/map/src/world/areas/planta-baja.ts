@@ -217,6 +217,8 @@ export const plantaBaja: AreaDef = {
     place("chair", 37, 9, "right"),
     place("chair", 39, 9, "left"),
     place("kitchen-counter", 33, 9, "right"),
+    // Casa viva: la radio de la cocina.
+    place("radio", 39, 2),
     // ----- Pasillo.
     place("runner", 2, 12, "down"),
     place("runner", 11, 12, "down"),
