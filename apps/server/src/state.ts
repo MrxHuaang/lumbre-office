@@ -16,6 +16,8 @@ export class Player extends Schema {
   @type("boolean") moving = false;
   /** Sentado en la silla/sofá de su posición (mira hacia `dir`). */
   @type("boolean") seated = false;
+  /** Corriendo la carrera de sillas (se dibuja montado en una silla de oficina). */
+  @type("boolean") racing = false;
   @type("string") status = "available";
   /** Saldo de puntos (lo lleva la base; aquí se refleja para el HUD y el ranking en vivo). */
   @type("number") points = 0;

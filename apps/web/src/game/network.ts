@@ -1,3 +1,4 @@
+import { bindRace } from "./race";
 import {
   CLOSE_CODE,
   DIRECTIONS,
@@ -92,6 +93,8 @@ export interface RemotePlayer {
   fishing: string;
   /** Borrachera: 0 sobrio … 3 borracho (DrunkStage). */
   drunk: number;
+  /** Corriendo la carrera de sillas. */
+  racing: boolean;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -716,6 +719,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
+  bindRace(r);
   bindArcade(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);

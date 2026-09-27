@@ -48,7 +48,9 @@ export interface PlayerInfo {
 export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack" | "bar" | "fishing" | "photos"
   // Club y arcade del sótano: la consola de la cabina de DJ y las máquinas.
   | "dj"
-  | "arcade";
+  | "arcade"
+  // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
+  | "race";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {

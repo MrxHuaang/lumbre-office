@@ -104,6 +104,11 @@ import {
   SwivelMessage,
   CLUB_VIDEO,
   BOARD,
+  CHAIR_RACE,
+  RaceStartMessage,
+  weekStart,
+  type RaceEvent,
+  type RaceResult,
   ClubQueueMessage,
   ClubReactMessage,
   isPlaying,
@@ -144,6 +149,7 @@ import { Arcade } from "./arcade";
 import { Club, musicOf, type ClubWho } from "./club";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
+import { ChairRaces, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 
@@ -336,6 +342,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
     { state: MSG.boardState, stroke: MSG.boardStrokeEvent, remove: MSG.boardRemove },
   );
+  /** La carrera de sillas del pasillo del piso 2 (ver races.ts). */
+  private races = new ChairRaces();
   /** Cuándo puede volver a reaccionar cada persona en el club. */
   private reactAt = new Map<string, number>();
   /** Tiempos de las sillas giratorias y cuántas vueltas da cada giro (los tests los fijan). */
@@ -470,6 +478,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.officeNote, (client, raw) => this.handleOfficeNote(client, raw));
     this.onMessage(MSG.officeRadio, (client, raw) => void this.handleOfficeRadio(client, raw));
+    this.onMessage(MSG.raceStart, (client, raw) => this.handleRaceStart(client, raw));
+    this.onMessage(MSG.raceCancel, (client) => {
+      const p = this.state.players.get(client.sessionId);
+      if (p) void this.raceOutcome(client.sessionId, this.races.cancel(client.sessionId, p, "lane"));
+    });
+    this.onMessage(MSG.raceBoard, (client) => void this.sendRaceBoard(client));
     this.onMessage(MSG.boardOpen, (client, raw) => this.withBoard(client, (who) => this.whiteboards.open(who, raw)));
     this.onMessage(MSG.boardClose, (client, raw) => this.whiteboards.close(client.sessionId, raw));
     this.onMessage(MSG.boardStroke, (client, raw) => this.withBoard(client, (who) => this.whiteboards.stroke(who, raw, Date.now())));
@@ -533,6 +547,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Quien se fue, cambió de nivel o se alejó deja de bailar (moverse ya lo revisa; esto cubre el resto).
     this.clock.setInterval(() => {
       this.club.sweep(this.state.players);
+      for (const [id, outcome] of this.races.sweep(Date.now(), this.state.players)) void this.raceOutcome(id, outcome);
       // Y el video que terminó pasa al siguiente aunque nadie en el club lo esté mirando.
       this.club.tick(Date.now());
     }, 500);
@@ -1095,7 +1110,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Tolerancia: latencia/jitter + mínimo de medio tile. Sentarse y levantarse "saltan" hasta
     // el asiento (p. ej. del tile de enfrente a la silla), así que ahí se permite algo más.
     const snap = seated !== player.seated ? map.tileSize * SEAT_REACH_TILES : 0;
-    const maxDist = Math.max(map.tileSize * 0.75, dt * PLAYER_SPEED * 1.6, snap);
+    // En la carrera de sillas se va más rápido.
+    const speed = PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : 1);
+    const maxDist = Math.max(map.tileSize * 0.75, dt * speed * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
 
     // Sentado: la posición debe ser la de un asiento libre (los muebles bloquean el paso, así que
@@ -1132,6 +1149,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.fishery.moved(player.userId, x, y, seated);
     this.trades.moved(client.sessionId);
     this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
+    if (player.racing) void this.raceOutcome(client.sessionId, this.races.moved(map, client.sessionId, player, now));
     if (!seated && !fromSeat && dist > 0) this.achievements.walk(player.userId, dist / map.tileSize);
   }
 
@@ -1165,6 +1183,46 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.achievements.visit(player.userId, target.id);
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
     this.trades.moved(client.sessionId);
+    void this.raceOutcome(client.sessionId, this.races.cancel(client.sessionId, player, "lane"));
+  }
+
+  // ---------- Carrera de sillas ----------
+
+  /** E junto a la bandera: largar (el tiempo corre desde ahora, con el reloj del servidor). */
+  private handleRaceStart(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData || !RaceStartMessage.safeParse(raw).success) return;
+    const problem = this.races.start(this.mapOf(player.area), client.sessionId, player, Date.now());
+    client.userData.lastActiveAt = Date.now();
+    if (problem) client.send(MSG.raceResult, { ok: false, problem } satisfies RaceResult);
+  }
+
+  /** Terminó (o se anuló) una carrera: el tiempo se guarda, llega a quien corrió y a los de su nivel. */
+  private async raceOutcome(sessionId: string, outcome: RaceOutcome) {
+    if (!outcome) return;
+    const client = this.clients.getById(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (outcome.kind === "cancel") {
+      client?.send(MSG.raceResult, { ok: false, problem: outcome.problem } satisfies RaceResult);
+      return;
+    }
+    if (!player) return;
+    const since = weekStart(Date.now());
+    const before = await this.repo.raceBoard({ since, limit: 1, userId: player.userId }).catch(() => null);
+    await this.repo.saveRaceTime({ userId: player.userId, name: player.name, ms: outcome.ms }).catch((err) => console.error("saveRaceTime", err));
+    const board = await this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => ({ entries: [], myBest: outcome.ms }));
+    const best = before?.myBest == null || outcome.ms < before.myBest;
+    const record = !before?.entries[0] || outcome.ms < before.entries[0].ms;
+    client?.send(MSG.raceResult, { ok: true, ms: outcome.ms, best, board } satisfies RaceResult);
+    const event: RaceEvent = { sessionId, name: player.name, ms: outcome.ms, record };
+    this.sendToArea(player.area, MSG.raceEvent, event);
+  }
+
+  private async sendRaceBoard(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const board = await this.repo.raceBoard({ since: weekStart(Date.now()), limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => null);
+    if (board) client.send(MSG.raceBoardResult, board);
   }
 
   /** Se pasó de tragos: se le cae lo que tenía en la mano, vomita y queda en el piso (lo ve su nivel). */
@@ -1860,6 +1918,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.state.players.delete(sessionId);
     this.club?.forget(sessionId);
     this.whiteboards.forget(sessionId);
+    this.races.forget(sessionId);
     if (!player) return;
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);

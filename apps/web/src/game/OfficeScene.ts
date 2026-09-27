@@ -112,8 +112,9 @@ const SWIVEL_DIZZY_NOTICE = [
 const SWIVEL_SOBER_NOTICE = "Se te pasó el mareo. La oficina por fin se quedó quieta.";
 import { WeatherView } from "./weather";
 import { Critters } from "./critters";
-import type { PhotoShot, PresenceStatus } from "@hyvento/shared";
+import { CHAIR_RACE, type PhotoShot, type PresenceStatus } from "@hyvento/shared";
 import { disposeRadio, updateRadio } from "./radio";
+import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } from "./race";
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
@@ -145,6 +146,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
+  { kind: "race", point: "chair_race", furniture: ["race-flag"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -317,8 +319,14 @@ export class OfficeScene extends Phaser.Scene {
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
+    // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
+    this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
+      if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
+    });
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
+      // En la carrera, el clic es impulso (no caminar).
+      if (this.local?.isRiding) return pumpRace();
       if (s.pcOn) return; // con el PC prendido no se camina
       if (this.fishing.pointerDown()) return; // pescando, el clic es para la caña
       if (this.table.pointerDown(p.worldX, p.worldY)) return; // en la mesa, el clic pone fichas
@@ -504,15 +512,24 @@ export class OfficeScene extends Phaser.Scene {
     if (parent) updateRadio(parent, office?.radio ?? null);
   }
 
-  /** Modo privado: dentro de una oficina o la sala de reuniones, sus paredes altas y afuera a oscuras. */
+  /**
+   * Modo privado: dentro de una oficina o la sala de reuniones, sus paredes altas y afuera a oscuras. En
+   * la carrera de sillas, lo mismo con el pasillo: se ve bien la pista y dónde termina.
+   */
   private updatePrivateRoom() {
     const s = useOfficeStore.getState();
-    const zone = s.privateWalls && s.zone && (s.zone.type === "office" || s.zone.type === "meeting") ? this.map?.zones.find((z) => z.id === s.zone!.id) : undefined;
     const ts = this.map?.tileSize ?? 32;
-    this.view?.setPrivateRoom(zone ? { x: zone.x / ts, y: zone.y / ts, w: zone.width / ts, h: zone.height / ts } : null);
+    let rect: { x: number; y: number; w: number; h: number } | null = null;
+    if (this.local?.isRiding && this.map?.id === CHAIR_RACE.area)
+      rect = { x: 0, y: CHAIR_RACE.laneY0, w: this.map.width, h: CHAIR_RACE.laneY1 - CHAIR_RACE.laneY0 + 1 };
+    else {
+      const zone = s.privateWalls && s.zone && (s.zone.type === "office" || s.zone.type === "meeting") ? this.map?.zones.find((z) => z.id === s.zone!.id) : undefined;
+      if (zone) rect = { x: zone.x / ts, y: zone.y / ts, w: zone.width / ts, h: zone.height / ts };
+    }
+    this.view?.setPrivateRoom(rect);
     // Los de afuera tampoco se ven (asomarían por encima del muro alto).
     for (const [id, a] of this.avatars) {
-      const inside = !zone || id === this.localId || (a.x >= zone.x && a.x < zone.x + zone.width && a.y >= zone.y && a.y < zone.y + zone.height);
+      const inside = !rect || id === this.localId || (a.x >= rect.x * ts && a.x < (rect.x + rect.w) * ts && a.y >= rect.y * ts && a.y < (rect.y + rect.h) * ts);
       a.setVeiled(!inside);
     }
   }
@@ -835,6 +852,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setSeated(player.seated ? player.dir : null, player.seated ? seatAtPoint(this.map, player.x, player.y) : null);
     avatar.setHeld(player.held, player.heldLeft);
     avatar.setDrunk((player.drunk ?? 0) as DrunkStage);
+    avatar.setRiding(Boolean(player.racing));
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -846,6 +864,11 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));
+    // Carrera de sillas: montado en la silla; si soy yo, arranca el cronómetro.
+    p$.listen("racing", (racing) => {
+      avatar.setRiding(Boolean(racing));
+      if (isLocal) useRaceStore.getState().setSince(racing ? Date.now() : null);
+    });
     p$.listen("drunk", (value) => {
       const stage = (value ?? 0) as DrunkStage;
       avatar.setDrunk(stage);
@@ -1022,6 +1045,7 @@ export class OfficeScene extends Phaser.Scene {
       // Esc sale de la mesa (y del blackjack te levanta).
       if (taps.esc && this.table.kind) useOfficeStore.getState().closePanel();
       // Esc suelta el tubo o deja de bailar en la pista.
+      else if (taps.esc && this.local?.isRiding) sendRaceCancel();
       else if (taps.esc && !useOfficeStore.getState().decorating) this.club.esc();
     }
 
@@ -1061,6 +1085,29 @@ export class OfficeScene extends Phaser.Scene {
 
     // Mareado se camina en zigzag (misma velocidad, la dirección va de lado a lado).
     [vx, vy] = this.drunkVision.drift(this.time.now, vx, vy);
+    // Carrera de sillas: la silla avanza sola hacia la meta (+x) con el impulso de los clics, y las teclas
+    // solo cambian de carril (y del mundo).
+    if (avatar.isRiding) {
+      decayRace(dt);
+      // Corriendo no se usa nada (ni la "E" de la salida).
+      if (useOfficeStore.getState().interact) useOfficeStore.getState().setInteract(null);
+      const steer = Math.sign(vy);
+      const nx = avatar.x + PLAYER_SPEED * raceForwardMul() * dt;
+      const ny = avatar.y + steer * PLAYER_SPEED * CHAIR_RACE.steerMul * dt;
+      let x = avatar.x;
+      let y = avatar.y;
+      if (this.canMoveTo(nx, y)) x = nx;
+      if (steer && this.canMoveTo(x, ny)) y = ny;
+      avatar.setPosition(x, y);
+      avatar.setMotion("right", true);
+      this.updateZone();
+      this.sendAccumulator += delta;
+      if (this.sendAccumulator >= 1000 / MOVE_SEND_HZ) {
+        this.sendAccumulator = 0;
+        this.sendPosition("right", true);
+      }
+      return;
+    }
     let moving = false;
     let dir: Direction = avatar.direction;
     if (vx !== 0 || vy !== 0) {

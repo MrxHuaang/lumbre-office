@@ -1,4 +1,4 @@
-import type { ArcadeBoardEntry, ArcadeGame, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus, StatChange } from "@hyvento/shared";
+import type { ArcadeBoardEntry, ArcadeGame, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus, StatChange } from "@hyvento/shared";
 import type { ItemStack } from "@hyvento/shared";
 
 /** Nombre visible y personaje de una persona, como están guardados. */
@@ -110,6 +110,9 @@ export interface GameRepository {
   }>;
   /** Récords de un juego desde `since`: el mejor puntaje de cada persona, de mayor a menor. */
   arcadeBoard(input: { game: ArcadeGame; since: number; limit: number }): Promise<ArcadeBoardEntry[]>;
+  /** Carrera de sillas: guarda un tiempo (ms) y la tabla de la semana (el menor tiempo de cada uno). */
+  saveRaceTime(input: { userId: string; name: string; ms: number }): Promise<void>;
+  raceBoard(input: { since: number; limit: number; userId: string }): Promise<RaceBoard>;
   /** Logros: los contadores y los logros que ya tiene alguien. */
   loadAchievements(userId: string): Promise<{ stats: Record<string, number>; unlocked: string[] }>;
   /** Guarda varios cambios de contadores juntos (`inc` suma, `max` se queda con el mayor), todo o nada. */

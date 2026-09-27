@@ -24,6 +24,7 @@ export * from "./toast";
 export * from "./swivel";
 export * from "./whiteboard";
 export * from "./office-radio";
+export * from "./chair-race";
 export * from "./weather";
 export * from "./photos";
 export * from "./photo-service";

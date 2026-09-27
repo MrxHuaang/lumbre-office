@@ -25,8 +25,10 @@ import { heldTexture, idleWisp, playUse } from "./consumables";
 import { armTexture, ensureEmoteTextures, gestureOffset, SHOULDER_UP, WAVE_SIDE } from "./gestures";
 import { SWAY_DEG } from "./drunk";
 import { sfx, volAt } from "./sfx";
-import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
+import { depthOf, ensureTexture, furnitureImage, worldToScreen } from "./iso/view";
 
+/** La silla de la carrera de sillas. */
+const RIDE_CHAIR = "office-chair";
 const ROW = Object.fromEntries(SHEET_DIRECTIONS.map((d, i) => [d, i])) as Record<Direction, number>;
 const BUBBLE_MS = 4500;
 /** Diámetro (px de pantalla del juego) de la burbuja de cámara sobre la cabeza. */
@@ -227,6 +229,8 @@ export class Avatar {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
+    this.ride?.img.setVisible(!hidden);
+    if (this.ride) this.shadow.setVisible(false);
     for (const part of this.held?.parts ?? []) part.image.setVisible(!hidden && part.left > 0);
     this.speakingRing.setVisible(!hidden && this.speaking && !this.video);
     this.bubble?.setVisible(!hidden);
@@ -245,6 +249,7 @@ export class Avatar {
     this.veiled = veiled;
     const a = veiled ? 0 : 1;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot, this.speakingRing]) o.setAlpha(a);
+    this.ride?.img.setAlpha(a);
     for (const part of this.held?.parts ?? []) part.image.setAlpha(a);
     this.bubble?.setAlpha(a);
     this.emoteBubble?.container.setAlpha(a);
@@ -628,11 +633,60 @@ export class Avatar {
     for (const o of objects) if (o) o.setPosition(o.x + dx, o.y + dy);
   }
 
+  // ---------- Carrera de sillas ----------
+
+  /** La silla de oficina en la que va montado (carrera de sillas), o nada. */
+  private ride?: { img: Phaser.GameObjects.Image; facing: Direction; dx: number; dy: number };
+
+  /** Montado en una silla de oficina (la carrera de sillas): sentado, y la silla lo sigue. */
+  setRiding(on: boolean) {
+    if (on === Boolean(this.ride)) return;
+    if (!on) {
+      this.ride?.img.destroy();
+      this.ride = undefined;
+      this.sprite.setCrop();
+      this.shadow.setVisible(!this.hidden);
+      if (!this.seated) this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES);
+      this.layout();
+      return;
+    }
+    this.stopDance();
+    this.stopPerform();
+    this.sprite.stop();
+    this.shadow.setVisible(false);
+    this.mountChair(this.dir);
+  }
+
+  get isRiding() {
+    return Boolean(this.ride);
+  }
+
+  /** La silla mirando hacia `facing`, y el personaje sentado en ella. */
+  private mountChair(facing: Direction) {
+    this.ride?.img.destroy();
+    const ts = 32;
+    const f = { type: RIDE_CHAIR, x: this.wx / ts - 0.5, y: this.wy / ts - 0.5, facing, w: 1, d: 1 };
+    const { img, anchor } = furnitureImage(this.scene, f, false, ts);
+    img.setVisible(!this.hidden);
+    this.ride = { img, facing, dx: img.x - anchor.x, dy: img.y - anchor.y };
+    this.sprite.setTexture(`${this.textureKey}-sit`, ROW[facing]);
+    // De espaldas, el respaldo tapa el cuerpo: se ve de los hombros para arriba (como sentado).
+    if (seatBehind(RIDE_CHAIR, facing)) this.sprite.setCrop(0, 0, FRAME, SIT_BACK_ROWS);
+    else this.sprite.setCrop();
+    this.layout();
+  }
+
   setMotion(dir: Direction, moving: boolean) {
     if (moving) {
       this.stopDance();
       this.stopPerform();
       this.stopGesture();
+    }
+    if (this.ride) {
+      if (dir !== this.ride.facing) this.mountChair(dir);
+      this.dir = dir;
+      this.moving = moving;
+      return;
     }
     if (this.seated) {
       this.dir = dir;
@@ -1157,6 +1211,7 @@ export class Avatar {
     this.clearCountdown();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
+    this.ride?.img.destroy();
     this.sprite.destroy();
     this.shadow.destroy();
     this.label.destroy();
@@ -1168,7 +1223,13 @@ export class Avatar {
     const s = worldToScreen(this.wx, this.wy);
     const x = Math.round(s.x);
     const pose = this.seated ? this.seatPose : null;
-    const y = Math.round(s.y) + (pose?.lift ?? 0);
+    const y = Math.round(s.y) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0);
+    if (this.ride) {
+      // La silla va debajo (o delante, de espaldas: el respaldo tapa) y rueda con el personaje.
+      const a = worldToScreen(this.wx - 16, this.wy - 16);
+      const d = depthOf(this.wx, this.wy);
+      this.ride.img.setPosition(Math.round(a.x + this.ride.dx), Math.round(a.y + this.ride.dy)).setDepth(seatBehind(RIDE_CHAIR, this.ride.facing) ? d + 0.6 : d + 0.4);
+    }
     // Sentado se ordena con el mueble (+0.5: encima de él); así un tronco largo no lo tapa.
     const depth = pose ? pose.depth : depthOf(this.wx, this.wy);
     // Bailando da saltitos de 2 px; tocando un instrumento, de 1 px.

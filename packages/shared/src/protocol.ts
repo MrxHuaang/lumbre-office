@@ -185,6 +185,14 @@ export const MSG = {
   officeNote: "office:note",
   /** La radio de la oficina (`OfficeRadioMessage`) y el aviso cuando no se pudo (`OfficeRadioResult`). */
   officeRadio: "office:radio",
+  /** Carrera de sillas (chair-race.ts): largar, abandonar, pedir la tabla y lo que responde el servidor
+   *  (la tabla, cómo me fue y el aviso a los del nivel cuando alguien llega). */
+  raceStart: "race:start",
+  raceCancel: "race:cancel",
+  raceBoard: "race:board",
+  raceBoardResult: "race:board:result",
+  raceResult: "race:result",
+  raceEvent: "race:event",
   officeRadioResult: "office:radio:result",
   /** Pizarras (whiteboard.ts): abrir y cerrar la de la sala, un trazo, deshacer y borrar; y lo que el
    *  servidor manda a quienes la tienen abierta (la pizarra entera, un trazo nuevo, trazos que se van). */

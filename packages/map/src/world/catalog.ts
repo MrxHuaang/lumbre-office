@@ -42,6 +42,9 @@ export const CATALOG = {
   "office-chair-blue": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },
   "office-chair-rose": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },
   "office-chair-sage": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },
+  // Carrera de sillas (pasillo del piso 2): líneas pintadas en el piso y la bandera de la salida.
+  "race-line": { name: "Línea de carrera", size: [1, 3], solid: false, flat: true },
+  "race-flag": { name: "Bandera de carrera", size: [1, 1] },
   stool: { name: "Taburete", size: [1, 1], seats: [[0, 0]] },
   armchair: { name: "Sillón", size: [1, 1], seats: [[0, 0]], hasBack: true },
   sofa: { name: "Sofá", size: [1, 2], seats: [[0, 0], [0, 1]], hasBack: true },

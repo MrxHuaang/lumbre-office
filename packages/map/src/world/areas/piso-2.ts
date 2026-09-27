@@ -231,7 +231,10 @@ export const piso2: AreaDef = {
     place("water-cooler", 18, 8),
     place("plant", 29, 10),
     place("plant", 18, 10),
-    // ----- Pasillo.
+    // ----- Pasillo (y la carrera de sillas: salida al oeste, meta al este).
+    place("race-line", 1, 11, "right"),
+    place("race-line", 37, 11, "right"),
+    place("race-flag", 0, 13),
     place("runner", 2, 12, "down"),
     place("runner", 14, 12, "down"),
     place("runner", 26, 12, "down"),
@@ -310,5 +313,9 @@ export const piso2: AreaDef = {
       to: hacia("jardin", CONEXIONES.jardin.escaleraTerraza),
     },
   ],
-  points: [{ type: "screen", name: "Pantalla de la sala", x: 23, y: 0, zone: "meeting-main" }],
+  points: [
+    { type: "screen", name: "Pantalla de la sala", x: 23, y: 0, zone: "meeting-main" },
+    // Detrás de la línea de salida, junto a la bandera: E abre la carrera de sillas.
+    { type: "chair_race", name: "Carrera de sillas", x: 0, y: 12 },
+  ],
 };

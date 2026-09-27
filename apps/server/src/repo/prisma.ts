@@ -17,6 +17,7 @@ import {
   takeInventoryTx,
 } from "@hyvento/db";
 import {
+  CHAIR_RACE,
   DIRECTIONS,
   HUMAN_AVATARS,
   Look,
@@ -282,6 +283,20 @@ export class PrismaRepository implements GameRepository {
     const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } });
     const names = new Map(users.map((u) => [u.id, u.name]));
     return rows.map((r) => ({ name: names.get(r.userId) || "Alguien", score: r._max.score ?? 0 }));
+  }
+
+  async saveRaceTime({ userId, ms }: { userId: string; name: string; ms: number }) {
+    // Los tiempos van en la tabla de récords del arcade con su propio "juego" (el puntaje son ms).
+    await prisma.arcadeScore.create({ data: { userId, game: CHAIR_RACE.game, score: ms } });
+  }
+
+  async raceBoard({ since, limit, userId }: { since: number; limit: number; userId: string }) {
+    const where = { game: CHAIR_RACE.game, createdAt: { gte: new Date(since) } };
+    const rows = await prisma.arcadeScore.groupBy({ by: ["userId"], where, _min: { score: true }, orderBy: { _min: { score: "asc" } }, take: limit });
+    const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } });
+    const names = new Map(users.map((u) => [u.id, u.name]));
+    const mine = await prisma.arcadeScore.aggregate({ where: { ...where, userId }, _min: { score: true } });
+    return { entries: rows.map((r) => ({ name: names.get(r.userId) || "Alguien", ms: r._min.score ?? 0 })), myBest: mine._min.score ?? null };
   }
 
   async loadAchievements(userId: string) {

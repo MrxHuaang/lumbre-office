@@ -131,7 +131,9 @@ export interface PointDef {
     // Club: delante de la cabina de DJ, donde se abre la consola para poner música.
     | "dj_booth"
     // Frente al tablón de fotos de la cafetería (ver la galería).
-    | "photo_board";
+    | "photo_board"
+    // Salida de la carrera de sillas (pasillo del piso 2, junto a la bandera).
+    | "chair_race";
   name: string;
   x: number;
   y: number;

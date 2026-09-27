@@ -189,6 +189,20 @@ export class MemoryRepository implements GameRepository {
     this.arcade.push({ userId, name, game, score, at: Date.now() });
     return { firstToday, weekBest: best?.score ?? 0, weekBestUserId: best?.userId ?? null };
   }
+  /** Tiempos de la carrera de sillas. */
+  races: { userId: string; name: string; ms: number; at: number }[] = [];
+  async saveRaceTime({ userId, name, ms }: { userId: string; name: string; ms: number }) {
+    this.races.push({ userId, name, ms, at: Date.now() });
+  }
+  async raceBoard({ since, limit, userId }: { since: number; limit: number; userId: string }) {
+    const best = new Map<string, { name: string; ms: number }>();
+    for (const r of this.races) {
+      if (r.at < since) continue;
+      const b = best.get(r.userId);
+      if (!b || r.ms < b.ms) best.set(r.userId, { name: r.name, ms: r.ms });
+    }
+    return { entries: [...best.values()].sort((a, b) => a.ms - b.ms).slice(0, limit), myBest: best.get(userId)?.ms ?? null };
+  }
   async arcadeBoard({ game, since, limit }: { game: ArcadeGame; since: number; limit: number }) {
     const best = new Map<string, { name: string; score: number }>();
     for (const a of this.arcade) {
