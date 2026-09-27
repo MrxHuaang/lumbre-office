@@ -165,6 +165,9 @@ interface OfficeStore {
   /** Modo privado: dentro de una oficina o la sala de reuniones, paredes altas y lo de afuera a oscuras. */
   privateWalls: boolean;
   setPrivateWalls: (on: boolean) => void;
+  /** Estoy en un nivel de adentro de la casa (el modo privado sirve en cualquier sala). */
+  indoors: boolean;
+  setIndoors: (on: boolean) => void;
   /** Clima de afuera (lo decide el servidor: `state.weather`). */
   weather: Weather;
   setWeather: (weather: Weather) => void;
@@ -283,6 +286,7 @@ const initial = {
   area: "",
   night: false,
   privateWalls: loadPrivateWalls(),
+  indoors: false,
   weather: "despejado" as Weather,
   mapReady: false,
   interact: null as Interactable | null,
@@ -360,6 +364,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
   setArea: (area) => set({ area }),
   setNight: (night) => set({ night }),
+  setIndoors: (indoors) => set({ indoors }),
   setPrivateWalls: (privateWalls) => {
     set({ privateWalls });
     try {

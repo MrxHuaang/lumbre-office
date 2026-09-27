@@ -513,8 +513,9 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /**
-   * Modo privado: dentro de una oficina o la sala de reuniones, sus paredes altas y afuera a oscuras. En
-   * la carrera de sillas, lo mismo con el pasillo: se ve bien la pista y dónde termina.
+   * Modo privado: dentro de cualquier sala de la casa (una oficina, la cafetería, la biblioteca…), sus
+   * paredes altas y afuera a oscuras. En la carrera de sillas, lo mismo con el pasillo: se ve bien la
+   * pista y dónde termina.
    */
   private updatePrivateRoom() {
     const s = useOfficeStore.getState();
@@ -522,11 +523,16 @@ export class OfficeScene extends Phaser.Scene {
     let rect: { x: number; y: number; w: number; h: number } | null = null;
     if (this.local?.isRiding && this.map?.id === CHAIR_RACE.area)
       rect = { x: 0, y: CHAIR_RACE.laneY0, w: this.map.width, h: CHAIR_RACE.laneY1 - CHAIR_RACE.laneY0 + 1 };
-    else {
-      const zone = s.privateWalls && s.zone && (s.zone.type === "office" || s.zone.type === "meeting") ? this.map?.zones.find((z) => z.id === s.zone!.id) : undefined;
-      if (zone) rect = { x: zone.x / ts, y: zone.y / ts, w: zone.width / ts, h: zone.height / ts };
+    else if (s.privateWalls && this.map && !this.map.outdoor && this.local) {
+      const tx = Math.floor(this.local.x / ts);
+      const ty = Math.floor(this.local.y / ts);
+      const room = this.map.def.rooms.find((r) => tx >= r.rect.x && tx < r.rect.x + r.rect.w && ty >= r.rect.y && ty < r.rect.y + r.rect.h);
+      if (room) rect = room.rect;
     }
     this.view?.setPrivateRoom(rect);
+    // El panel lateral ofrece el botón de las paredes en cualquier sala interior.
+    const indoors = Boolean(this.map && !this.map.outdoor);
+    if (s.indoors !== indoors) s.setIndoors(indoors);
     // Los de afuera tampoco se ven (asomarían por encima del muro alto).
     for (const [id, a] of this.avatars) {
       const inside = !rect || id === this.localId || (a.x >= rect.x * ts && a.x < (rect.x + rect.w) * ts && a.y >= rect.y * ts && a.y < (rect.y + rect.h) * ts);

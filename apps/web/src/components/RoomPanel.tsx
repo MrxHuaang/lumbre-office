@@ -19,7 +19,7 @@ export function useRoomTitle(): string {
   const zone = useOfficeStore((s) => s.zone);
   const office = useOfficeStore((s) => (s.zone?.type === "office" ? s.offices[s.zone.id] : undefined));
   const me = useOfficeStore(selectMyUserId);
-  if (!zone) return "";
+  if (!zone) return "Esta sala";
   const mine = Boolean(office?.ownerId && office.ownerId === me);
   return zone.type === "meeting" ? zone.name : mine ? "Tu oficina" : office?.ownerName ? `Oficina de ${office.ownerName}` : zone.name;
 }
@@ -28,7 +28,9 @@ export function RoomSection() {
   const zone = useOfficeStore((s) => s.zone);
   const office = useOfficeStore((s) => (s.zone?.type === "office" ? s.offices[s.zone.id] : undefined));
   const me = useOfficeStore(selectMyUserId);
-  if (!zone || !inRoom(zone.type)) return null;
+  const indoors = useOfficeStore((s) => s.indoors);
+  // Fuera de una oficina o la sala de reuniones (en cualquier sala de adentro) solo están las paredes.
+  if (!zone || !inRoom(zone.type)) return indoors ? <WallsRow /> : null;
   const mine = Boolean(office?.ownerId && office.ownerId === me);
 
   return (
@@ -51,6 +53,23 @@ export function RadioTapPrompt() {
   return (
     <button type="button" onClick={() => tapVideos()} className="cozy-btn cozy-btn-primary pointer-events-auto px-3 py-1.5 text-[13px]">
       ▶ Activar el sonido de la radio
+    </button>
+  );
+}
+
+/** En una sala sin pizarra: solo el botón de las paredes altas. */
+function WallsRow() {
+  const walls = useOfficeStore((s) => s.privateWalls);
+  return (
+    <button
+      type="button"
+      onClick={() => useOfficeStore.getState().setPrivateWalls(!walls)}
+      aria-pressed={walls}
+      className="cozy-btn h-[32px] self-start px-2"
+      title={walls ? "Bajar las paredes (ver toda la casa)" : "Subir las paredes: solo se ve la sala donde estás"}
+    >
+      <PixelIcon name="walls" size={14} />
+      {walls ? "Paredes altas" : "Paredes bajas"}
     </button>
   );
 }

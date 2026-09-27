@@ -47,7 +47,8 @@ export function SideDock() {
   // En el celular no caben el chat y este panel abierto a la vez: el chat tiene prioridad.
   const chatOpen = useOfficeStore((s) => s.chatOpen);
 
-  const room = inRoom(zoneType);
+  const indoors = useOfficeStore((s) => s.indoors);
+  const room = inRoom(zoneType) || indoors;
   if ((!inClub && !room) || decorating || worldEditing || pcOn || panel) return null;
   const title = inClub ? "Club" : roomTitle;
   const sounding = inClub ? clubPlaying : radioOn;
