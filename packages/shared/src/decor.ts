@@ -4,9 +4,9 @@ import { z } from "zod";
 import { DIRECTIONS } from "./protocol";
 
 /** Pisos y papeles tapiz que se pueden elegir para una oficina (mismos nombres que en packages/map). */
-export const OFFICE_FLOORS = ["carpet", "wood", "tiles", "stone"] as const;
+export const OFFICE_FLOORS = ["carpet", "wood", "tiles", "stone", "planks", "checker", "hydraulic", "terrazzo", "brick", "moquette"] as const;
 export type OfficeFloor = (typeof OFFICE_FLOORS)[number];
-export const OFFICE_WALLPAPERS = ["cream", "blue", "rose", "sage"] as const;
+export const OFFICE_WALLPAPERS = ["cream", "blue", "rose", "sage", "stripes", "damask", "brick", "slats", "colonial"] as const;
 export type OfficeWallpaper = (typeof OFFICE_WALLPAPERS)[number];
 
 /** Mueble puesto en una oficina (coordenadas en tiles del nivel, no de la oficina). */
