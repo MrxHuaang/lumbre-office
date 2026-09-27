@@ -38,6 +38,7 @@ const CABINET: Record<ArcadeGame | "off", { body: string; glow: string }> = {
   snake: { body: "#2e5a40", glow: "#8cc653" },
   breakout: { body: "#34194f", glow: "#ff5fd2" },
   flappy: { body: "#12627a", glow: "#f3d672" },
+  bloques: { body: "#4f2672", glow: "#8ef0f0" },
   off: { body: "#3c3a44", glow: "#9a95a0" },
 };
 

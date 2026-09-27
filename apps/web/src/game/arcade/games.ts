@@ -1,6 +1,7 @@
 // Los minijuegos de cada máquina, y la pantalla de "fuera de servicio".
 import { getWorld, INTERACT_REACH_TILES, pointsOfType } from "@hyvento/map";
 import type { ArcadeGame } from "@hyvento/shared";
+import { Bloques } from "./bloques";
 import { Breakout } from "./breakout";
 import { Flappy } from "./flappy";
 import { PAL, rect, SCREEN_H, SCREEN_W, type MiniGame } from "./kit";
@@ -9,6 +10,7 @@ import { Snake } from "./snake";
 export function createGame(game: ArcadeGame, seed: number): MiniGame {
   if (game === "snake") return new Snake(seed);
   if (game === "breakout") return new Breakout(seed);
+  if (game === "bloques") return new Bloques(seed);
   return new Flappy(seed);
 }
 

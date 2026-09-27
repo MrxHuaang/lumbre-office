@@ -7,7 +7,9 @@ import {
   ARCADE_RECORD_MIN,
   ARCADE_STEP_MS,
   ArcadeRecorder,
+  BloquesSim,
   encodeInput,
+  noKeys,
   MSG,
   POINTS,
   ROOM_NAME,
@@ -157,6 +159,26 @@ describe("arcade (reglas)", () => {
     // Con justo lo que cuesta, sí.
     await repo.awardPoints({ userId: "u-a", amount: 1, reason: "ADMIN" });
     expect(await a.start(sotano(), atM(0), { machine: 0 }, 0)).toMatchObject({ game: "snake", balance: 0 });
+  });
+
+  it("Bloques también se valida repitiendo la partida con la semilla del servidor", async () => {
+    const { a } = await arcade();
+    const m = ARCADE_MACHINES.indexOf("bloques");
+    expect(m).toBeGreaterThanOrEqual(0);
+    const at = atM(m);
+    // Sin tocar nada, las piezas se apilan hasta arriba: una partida de 0 filas, pero de verdad.
+    const sim = new BloquesSim(SEED);
+    let steps = 0;
+    while (!sim.over) {
+      sim.step(noKeys());
+      steps++;
+    }
+    const played = { score: 0, steps, inputs: [] as number[], ms: steps * ARCADE_STEP_MS };
+    const s1 = (await a.start(sotano(), at, { machine: m }, 0)) as ArcadeStarted;
+    expect(s1.game).toBe("bloques");
+    expect(await a.finish(at, finishMsg(s1.token, played, { score: 3 }), played.ms + 200)).toEqual({ ok: false, error: "implausible" });
+    const s2 = (await a.start(sotano(), at, { machine: m }, 0)) as ArcadeStarted;
+    expect(await a.finish(at, finishMsg(s2.token, played), played.ms + 200)).toMatchObject({ ok: true, game: "bloques", score: 0 });
   });
 
   it("una partida muy corta no cuenta (ni por las teclas ni por el reloj del servidor)", async () => {
