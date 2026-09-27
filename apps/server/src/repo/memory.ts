@@ -10,7 +10,7 @@ import {
   type PresenceStatus,
 } from "@hyvento/shared";
 import type { GameRepository, OfficeItemsInput, OfficeItemsResult, OfficeRecord, UserProfile } from "./types";
-import type { ItemStack } from "@hyvento/shared";
+import { giftAllowedToday, type ItemStack } from "@hyvento/shared";
 import type { TradeResult, TradeSideInput } from "./types";
 
 /** Repositorio en memoria para tests. */
@@ -186,7 +186,16 @@ export class MemoryRepository implements GameRepository {
       .sort((a, b) => a.itemId.localeCompare(b.itemId));
   }
 
+  async givenPointsToday(userId: string, now = Date.now()) {
+    const since = dayStart(now);
+    return -this.ledger.filter((m) => m.userId === userId && m.reason === "GIFT" && m.amount < 0 && m.at >= since).reduce((sum, m) => sum + m.amount, 0);
+  }
+
+  /** Si se fija, `executeTrade` espera esta promesa antes de escribir (para probar lo que pasa mientras). */
+  tradeGate: Promise<void> | null = null;
+
   async executeTrade({ refId, a, b }: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
+    if (this.tradeGate) await this.tradeGate;
     // Todo se revalida y se aplica sobre copias: si algo no alcanza no queda nada a medias (como la transacción).
     const inventory = new Map(this.inventory);
     const moves: typeof this.ledger = [];
@@ -196,6 +205,8 @@ export class MemoryRepository implements GameRepository {
       [b, a],
     ] as const) {
       if (from.points > 0) {
+        const given = await this.givenPointsToday(from.userId, now);
+        if (giftAllowedToday({ gifts: 0, points: given }, from.points) !== "ok") return { ok: false, error: "limit", userId: from.userId };
         if ((await this.getPoints(from.userId)) < from.points) return { ok: false, error: "funds", userId: from.userId };
         moves.push({ userId: from.userId, amount: -from.points, reason: "GIFT", at: now, refId });
         moves.push({ userId: to.userId, amount: from.points, reason: "GIFT", at: now, refId });

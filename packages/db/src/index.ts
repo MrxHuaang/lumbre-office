@@ -10,3 +10,4 @@ export * from "@prisma/client";
 export * from "./points";
 export * from "./inventory";
 export * from "./casino";
+export * from "./social";

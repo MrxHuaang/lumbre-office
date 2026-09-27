@@ -25,8 +25,12 @@ export const GIFT = {
   /** Máximo de unidades de un objeto en un regalo. */
   maxQuantity: 10,
   noteMax: 140,
-  /** Por persona y por día (de Bogotá): cuántos regalos se mandan y cuántos puntos en total. */
+  /** Por persona y por día (de Bogotá): cuántos regalos se mandan. */
   dailyGifts: 20,
+  /**
+   * Cuántos puntos puede dar alguien por día, sumando regalos e intercambios (los dos salen con motivo
+   * GIFT): si no, un intercambio de un solo lado serviría para saltarse el tope de los regalos.
+   */
   dailyPoints: 1000,
   /** Cuántos regalos (enviados y recibidos) muestra el historial del buzón. */
   historySize: 20,
@@ -51,7 +55,10 @@ export const GiftCreateBody = z
   });
 export type GiftCreateBody = z.infer<typeof GiftCreateBody>;
 
-/** ¿Cabe un regalo más hoy? `sentToday` = lo que ya mandó hoy esa persona. */
+/**
+ * ¿Cabe dar esto hoy? `sentToday`: cuántos regalos mandó hoy esa persona y cuántos puntos dio (en regalos
+ * e intercambios). Los intercambios solo miran los puntos (pasan `gifts: 0`).
+ */
 export function giftAllowedToday(sentToday: { gifts: number; points: number }, points: number): "ok" | "gifts" | "points" {
   if (sentToday.gifts >= GIFT.dailyGifts) return "gifts";
   if (sentToday.points + points > GIFT.dailyPoints) return "points";
@@ -75,7 +82,7 @@ export interface GiftsState {
   unopened: number;
   received: GiftDTO[];
   sent: GiftDTO[];
-  /** Lo que ya mandaste hoy (para avisar antes de llegar al tope). */
+  /** Lo que ya diste hoy: regalos mandados y puntos (regalos e intercambios), para avisar antes del tope. */
   today: { gifts: number; points: number };
 }
 
@@ -188,11 +195,11 @@ export interface TradeClosed {
 }
 
 /** Algo que no se pudo (el intercambio sigue abierto, o la invitación no salió). */
-export type TradeError = "self" | "unknown" | "busy" | "far" | "dnd" | "too-soon" | "funds" | "items" | "empty" | "failed";
+export type TradeError = "self" | "unknown" | "busy" | "far" | "dnd" | "too-soon" | "funds" | "items" | "limit" | "empty" | "failed";
 
 export interface TradeProblem {
   error: TradeError;
-  /** Quién no tiene los puntos o los objetos (en `funds`/`items` al confirmar). */
+  /** Quién no tiene los puntos o los objetos, o llegó al tope (en `funds`/`items`/`limit` al confirmar). */
   who?: string;
 }
 
@@ -205,6 +212,7 @@ export const TRADE_ERROR_TEXT: Record<TradeError, string> = {
   "too-soon": "Espera un momento antes de volver a invitar.",
   funds: "No alcanzan los puntos.",
   items: "Falta un objeto en la mochila.",
+  limit: `Hoy ya se dieron muchos puntos: el tope es de ${GIFT.dailyPoints} al día, entre regalos e intercambios.`,
   empty: "Pongan algo antes de confirmar.",
   failed: "No se pudo hacer el intercambio. Intenten de nuevo.",
 };

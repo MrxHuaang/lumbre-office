@@ -1,9 +1,9 @@
 import { prisma } from "@hyvento/db";
-import { GIFT, giftAllowedToday, GiftCreateBody, type GiftsState } from "@hyvento/shared";
+import { GIFT, GiftCreateBody, type GiftsState } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { publishGiftSent, publishPointsChanged } from "@/lib/events";
-import { GIFT_INCLUDE, GiftFailed, sendGiftTx, sentToday, toGiftDTO } from "@/lib/gifts";
+import { GIFT_INCLUDE, GiftFailed, givenToday, sendGiftTx, toGiftDTO } from "@/lib/gifts";
 
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
@@ -20,7 +20,7 @@ export async function GET() {
       include: GIFT_INCLUDE,
     }),
     prisma.gift.findMany({ where: { fromId: user.id }, orderBy: { createdAt: "desc" }, take: GIFT.historySize, include: GIFT_INCLUDE }),
-    sentToday(prisma, user.id),
+    givenToday(prisma, user.id),
   ]);
   const body: GiftsState = { unopened, received: received.map(toGiftDTO), sent: sent.map(toGiftDTO), today };
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
@@ -37,13 +37,11 @@ export async function POST(req: Request) {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Regalo inválido");
   const body = parsed.data;
   if (body.toId === user.id) return fail("No puedes regalarte a ti.");
-  const to = await prisma.user.findUnique({ where: { id: body.toId }, select: { id: true } });
+  // Solo a quien ya entró alguna vez (como la lista de /recipients).
+  const to = await prisma.user.findFirst({ where: { id: body.toId, onboardedAt: { not: null } }, select: { id: true } });
   if (!to) return fail("Esa persona no está en el equipo.", 404);
 
-  const allowed = giftAllowedToday(await sentToday(prisma, user.id), body.points);
-  if (allowed === "gifts") return fail(`Ya mandaste ${GIFT.dailyGifts} regalos hoy. Mañana puedes seguir.`, 429);
-  if (allowed === "points") return fail(`Hoy puedes regalar hasta ${GIFT.dailyPoints} puntos en total.`, 429);
-
+  // El tope del día se revisa dentro de la transacción (sendGiftTx), con la fila de quien regala bloqueada.
   try {
     const result = await prisma.$transaction((tx) => sendGiftTx(tx, user.id, body));
     if (body.points > 0) await publishPointsChanged(user.id);
