@@ -230,7 +230,7 @@ export class OfficeScene extends Phaser.Scene {
           this.updateGhost(true); // el fantasma también cambia de textura
         }
         if (s.lastAward && s.lastAward !== prev.lastAward) this.floatAward(s.lastAward.amount);
-        if (s.panel?.kind !== prev.panel?.kind) this.syncTable(s.panel?.kind);
+        if (s.panel?.kind !== prev.panel?.kind) this.syncTable(s.panel?.kind, prev.panel?.kind);
         if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
           this.refreshDecor();
         }
@@ -697,17 +697,22 @@ export class OfficeScene extends Phaser.Scene {
     this.sendPosition(seat.facing, false);
   }
 
-/** Abre o cierra el modo mesa según el panel del casino que se abrió (ruleta o blackjack). */
-  private syncTable(kind: PanelKind | undefined) {
+  /**
+   * Abre o cierra el modo mesa según el panel del casino que se abrió (ruleta o blackjack). Solo te
+   * levanta del blackjack cerrar su panel (Esc, "Levantarse" o caminar): si encima se abre otro panel
+   * (la mochila, los puntos), se sale de la mesa sin levantarte y se vuelve a ella al cerrarlo.
+   */
+  private syncTable(kind: PanelKind | undefined, prev: PanelKind | undefined) {
     if (isTablePanel(kind) && this.local) {
       if (this.table.enter(kind, this.map, this.local, () => this.blackjackSeatIndex())) return;
       useOfficeStore.getState().closePanel(); // en este nivel no está esa mesa
       return;
     }
-    const was = this.table.kind;
-    if (!was) return;
-    this.table.exit(this.local?.sprite);
-    if (was === "blackjack" && this.seat && this.isBlackjackSeat(this.seat)) this.standUp();
+    if (this.table.kind) this.table.exit(this.local?.sprite);
+    const atBlackjack = !!this.seat && this.isBlackjackSeat(this.seat);
+    if (kind || !atBlackjack) return;
+    if (prev === "blackjack") this.standUp();
+    else useOfficeStore.getState().openPanel("blackjack", true); // se cerró el otro panel: de vuelta a la mesa
   }
 
   /** Banqueta del blackjack donde estoy sentado (índice de BLACKJACK_SEATS), o null. */
