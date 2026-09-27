@@ -7,6 +7,7 @@ import { EMOTES, type EmoteId } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendEmote } from "@/game/network";
+import { useSocialStore } from "@/game/social";
 import { useOfficeStore } from "@/game/store";
 
 /** La tecla T abre y cierra el selector (no mientras se escribe, con el PC prendido o un panel abierto). */
@@ -44,15 +45,20 @@ export function EmotePicker({ onClose }: { onClose: () => void }) {
   closeRef.current = onClose;
 
   // Abierto, el teclado es del selector: Phaser lee las flechas antes que este listener, así que se marca
-  // "escribiendo" para que el personaje no camine mientras se elige. Al cerrar se suelta (salvo que el foco
-  // haya quedado en un campo, como el chat, que maneja su propio "escribiendo").
+  // "escribiendo" para que el personaje no camine mientras se elige. Es un contador (ver `typingHolds`):
+  // al cerrar se suelta solo lo del selector, y el chat o un panel abierto siguen frenando el juego.
   useEffect(() => {
-    const { setTyping } = useOfficeStore.getState();
-    setTyping(true);
-    return () => {
-      if (!isField(document.activeElement)) useOfficeStore.getState().setTyping(false);
-    };
+    useOfficeStore.getState().setTyping(true);
+    return () => useOfficeStore.getState().setTyping(false);
   }, []);
+
+  // Si se abre un panel, el PC o una ventana social encima, el selector se cierra: si no, sus teclas
+  // (1–9, Enter, flechas) seguirían mandando emotes por debajo.
+  const covered = useOfficeStore((s) => Boolean(s.panel) || s.pcOn);
+  const socialOpen = useSocialStore((s) => Boolean(s.giftTo || s.trade));
+  useEffect(() => {
+    if (covered || socialOpen) closeRef.current();
+  }, [covered, socialOpen]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

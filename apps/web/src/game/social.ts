@@ -102,11 +102,22 @@ function attachSocial(r: OfficeRoom) {
     });
   });
   r.onMessage(MSG.tradeInvite, (inv: TradeInvite) => {
-    const until = Date.now() + TRADE.requestTimeoutMs;
+    // Se cuenta desde que llegó, con lo que le quedaba al salir del servidor (los relojes no coinciden) y
+    // un margen por la latencia: así la tarjeta se va antes de que el servidor ya no la acepte.
+    const ms = Math.max(0, (inv.ttlMs ?? TRADE.requestTimeoutMs) - TRADE.inviteMarginMs);
+    const until = Date.now() + ms;
     useSocialStore.setState((s) => ({ invites: [...s.invites.filter((i) => i.fromSessionId !== inv.fromSessionId), { ...inv, until }] }));
-    setTimeout(() => useSocialStore.setState((s) => ({ invites: s.invites.filter((i) => i.requestId !== inv.requestId) })), TRADE.requestTimeoutMs);
+    setTimeout(() => useSocialStore.setState((s) => ({ invites: s.invites.filter((i) => i.requestId !== inv.requestId) })), ms);
   });
-  r.onMessage(MSG.tradeUpdate, (view: TradeView) => useSocialStore.setState({ trade: view, personMenu: null }));
+  r.onMessage(MSG.tradeUpdate, (view: TradeView) => {
+    // Al empezar un intercambio se cierran el panel abierto y la ventana de regalo: la del intercambio
+    // tiene que verse, y Esc no debe cerrar dos cosas a la vez.
+    if (!useSocialStore.getState().trade) {
+      useOfficeStore.getState().closePanel();
+      useSocialStore.setState({ giftTo: null });
+    }
+    useSocialStore.setState({ trade: view, personMenu: null });
+  });
   r.onMessage(MSG.tradeProblem, (p: TradeProblem) => {
     useSocialStore.setState({ problem: { ...p, id: ++problemId } });
     const text = TRADE_ERROR_TEXT[p.error];

@@ -3,9 +3,10 @@
 // Ventana de intercambio a dos columnas: a la izquierda lo que pongo (puntos y objetos de la mochila), a
 // la derecha lo que pone la otra persona. Cualquier cambio desmarca el "Listo" de los dos; con los dos
 // listos aparece el "Confirmar" final. Cerrarla cancela el intercambio.
-import { itemName, TRADE, type ItemStack, type TradeSideView, type TradeView } from "@hyvento/shared";
+import { itemName, TRADE, TRADE_ERROR_TEXT, tradeGap, type ItemStack, type TradeSideView, type TradeView } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import { sendTradeCancel, sendTradeConfirm, sendTradeOffer, sendTradeReady, useSocialStore } from "@/game/social";
+import { useOfficeStore } from "@/game/store";
 import { PixelIcon } from "../Cozy";
 import { PanelShell } from "../PointsPanels";
 import { ItemArt, useBackpack, useMyBalance } from "./common";
@@ -62,105 +63,118 @@ export function TradeWindow({ trade }: { trade: TradeView }) {
     change({ ...draft, items });
   };
 
+  // Mientras dura, no se abren otros paneles (quedarían tapados y Esc cerraría los dos).
+  const panel = useOfficeStore((s) => s.panel);
+  useEffect(() => {
+    if (panel) useOfficeStore.getState().closePanel();
+  }, [panel]);
+
   const editing = !sameDraft(draft, draftOf(trade.you));
   const you = trade.you;
   const them = trade.them;
   const confirmStage = trade.stage === "confirm";
+  // El servidor no confirma si un lado no pone nada: se avisa antes (dar sin recibir es un regalo).
+  const gap = tradeGap(you, them);
 
   return (
-    <PanelShell title={`Intercambio con ${them.name}`} icon="swap" onClose={sendTradeCancel} wide>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {/* Lo mío */}
-        <section className={`flex flex-col gap-2.5 border-2 p-3 ${you.ready ? "border-cozy-green" : "border-cozy-wood"} bg-cozy-paper-light`}>
-          <SideHeader title="Tú pones" side={you} />
-          <label className="flex items-center gap-2 text-[14px]">
-            <PixelIcon name="coin" size={14} color="var(--color-cozy-gold)" />
-            <input
-              type="number"
-              min={0}
-              max={Math.min(TRADE.maxPoints, balance)}
-              value={draft.points}
-              onChange={(e) => change({ ...draft, points: Math.max(0, Math.min(TRADE.maxPoints, balance, Math.floor(Number(e.target.value) || 0))) })}
-              className="cozy-input w-24 px-2.5 py-1 text-[14px]"
-              aria-label="Puntos que pones"
-            />
-            <span className="text-[12px] text-cozy-ink-soft">de {balance}</span>
-          </label>
-          <OfferList items={draft.items} onRemove={remove} />
-          <p className="mt-1 text-[13px] font-semibold text-cozy-ink-soft">Tu mochila</p>
-          {!inventory ? (
-            <p className="text-[13px] text-cozy-ink-soft">Abriendo la mochila…</p>
-          ) : inventory.length === 0 ? (
-            <p className="text-[13px] text-cozy-ink-soft">Está vacía: puedes ofrecer puntos.</p>
+    // Por encima de los otros paneles (z-40): la ventana del intercambio no puede quedar tapada.
+    <div className="absolute inset-0 z-[45]">
+      <PanelShell title={`Intercambio con ${them.name}`} icon="swap" onClose={sendTradeCancel} wide>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Lo mío */}
+          <section className={`flex flex-col gap-2.5 border-2 p-3 ${you.ready ? "border-cozy-green" : "border-cozy-wood"} bg-cozy-paper-light`}>
+            <SideHeader title="Tú pones" side={you} />
+            <label className="flex items-center gap-2 text-[14px]">
+              <PixelIcon name="coin" size={14} color="var(--color-cozy-gold)" />
+              <input
+                type="number"
+                min={0}
+                max={Math.min(TRADE.maxPoints, balance)}
+                value={draft.points}
+                onChange={(e) => change({ ...draft, points: Math.max(0, Math.min(TRADE.maxPoints, balance, Math.floor(Number(e.target.value) || 0))) })}
+                className="cozy-input w-24 px-2.5 py-1 text-[14px]"
+                aria-label="Puntos que pones"
+              />
+              <span className="text-[12px] text-cozy-ink-soft">de {balance}</span>
+            </label>
+            <OfferList items={draft.items} onRemove={remove} />
+            <p className="mt-1 text-[13px] font-semibold text-cozy-ink-soft">Tu mochila</p>
+            {!inventory ? (
+              <p className="text-[13px] text-cozy-ink-soft">Abriendo la mochila…</p>
+            ) : inventory.length === 0 ? (
+              <p className="text-[13px] text-cozy-ink-soft">Está vacía: puedes ofrecer puntos.</p>
+            ) : (
+              <ul className="cozy-scroll flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
+                {inventory.map((e) => {
+                  const left = e.quantity - inOffer(e.itemId);
+                  return (
+                    <li key={e.itemId}>
+                      <button
+                        type="button"
+                        onClick={() => add(e.itemId)}
+                        disabled={left <= 0}
+                        title={`Poner ${itemName(e.itemId)} (te quedan ${left})`}
+                        className="cozy-btn relative p-0.5"
+                      >
+                        <ItemArt itemId={e.itemId} size={40} />
+                        <span className="absolute right-0.5 bottom-0 text-[11px] tabular-nums">×{left}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          {/* Lo de la otra persona */}
+          <section className={`flex flex-col gap-2.5 border-2 p-3 ${them.ready ? "border-cozy-green" : "border-cozy-wood"} bg-cozy-paper-light`}>
+            <SideHeader title={`${them.name} pone`} side={them} />
+            <p className="flex items-center gap-2 text-[14px]">
+              <PixelIcon name="coin" size={14} color="var(--color-cozy-gold)" />
+              <span className="font-semibold tabular-nums">{them.points}</span> puntos
+            </p>
+            <OfferList items={them.items} />
+            {them.points === 0 && them.items.length === 0 && <p className="text-[13px] text-cozy-ink-soft">Todavía no puso nada.</p>}
+          </section>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {confirmStage ? (
+            <>
+              <button type="button" onClick={sendTradeConfirm} disabled={you.confirmed || gap !== "ok"} className="cozy-btn cozy-btn-primary px-4 py-2">
+                <PixelIcon name="swap" size={13} />
+                {you.confirmed ? "Confirmado" : "Confirmar el intercambio"}
+              </button>
+              <button type="button" onClick={() => sendTradeReady(false)} className="cozy-btn">
+                Cambiar algo
+              </button>
+            </>
           ) : (
-            <ul className="cozy-scroll flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
-              {inventory.map((e) => {
-                const left = e.quantity - inOffer(e.itemId);
-                return (
-                  <li key={e.itemId}>
-                    <button
-                      type="button"
-                      onClick={() => add(e.itemId)}
-                      disabled={left <= 0}
-                      title={`Poner ${itemName(e.itemId)} (te quedan ${left})`}
-                      className="cozy-btn relative p-0.5"
-                    >
-                      <ItemArt itemId={e.itemId} size={40} />
-                      <span className="absolute right-0.5 bottom-0 text-[11px] tabular-nums">×{left}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <button type="button" onClick={() => sendTradeReady(!you.ready)} disabled={editing} aria-pressed={you.ready} className="cozy-btn px-4 py-2">
+              {you.ready ? "Listo ✓" : "Estoy listo"}
+            </button>
           )}
-        </section>
-
-        {/* Lo de la otra persona */}
-        <section className={`flex flex-col gap-2.5 border-2 p-3 ${them.ready ? "border-cozy-green" : "border-cozy-wood"} bg-cozy-paper-light`}>
-          <SideHeader title={`${them.name} pone`} side={them} />
-          <p className="flex items-center gap-2 text-[14px]">
-            <PixelIcon name="coin" size={14} color="var(--color-cozy-gold)" />
-            <span className="font-semibold tabular-nums">{them.points}</span> puntos
-          </p>
-          <OfferList items={them.items} />
-          {them.points === 0 && them.items.length === 0 && <p className="text-[13px] text-cozy-ink-soft">Todavía no puso nada.</p>}
-        </section>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {confirmStage ? (
-          <>
-            <button type="button" onClick={sendTradeConfirm} disabled={you.confirmed} className="cozy-btn cozy-btn-primary px-4 py-2">
-              <PixelIcon name="swap" size={13} />
-              {you.confirmed ? "Confirmado" : "Confirmar el intercambio"}
-            </button>
-            <button type="button" onClick={() => sendTradeReady(false)} className="cozy-btn">
-              Cambiar algo
-            </button>
-          </>
-        ) : (
-          <button type="button" onClick={() => sendTradeReady(!you.ready)} disabled={editing} aria-pressed={you.ready} className="cozy-btn px-4 py-2">
-            {you.ready ? "Listo ✓" : "Estoy listo"}
+          <button type="button" onClick={sendTradeCancel} className="cozy-btn cozy-btn-danger ml-auto">
+            Cancelar
           </button>
-        )}
-        <button type="button" onClick={sendTradeCancel} className="cozy-btn cozy-btn-danger ml-auto">
-          Cancelar
-        </button>
-      </div>
-      <p className="mt-2 text-[13px] text-cozy-ink-soft">
-        {editing
-          ? "Guardando tu oferta…"
-          : confirmStage
-            ? you.confirmed
-              ? `Esperando que ${them.name} confirme.`
-              : them.confirmed
-                ? `${them.name} ya confirmó. Revisa y confirma.`
-                : "Los dos están listos: revisen y confirmen."
-            : you.ready
-              ? `Esperando que ${them.name} esté listo.`
-              : "Cualquier cambio desmarca el Listo de los dos. Si se alejan, se cancela."}
-      </p>
-    </PanelShell>
+        </div>
+        <p className="mt-2 text-[13px] text-cozy-ink-soft">
+          {editing
+            ? "Guardando tu oferta…"
+            : gap !== "ok" && (confirmStage || you.ready)
+              ? TRADE_ERROR_TEXT[gap]
+              : confirmStage
+                ? you.confirmed
+                  ? `Esperando que ${them.name} confirme.`
+                  : them.confirmed
+                    ? `${them.name} ya confirmó. Revisa y confirma.`
+                    : "Los dos están listos: revisen y confirmen."
+                : you.ready
+                  ? `Esperando que ${them.name} esté listo.`
+                  : "Cualquier cambio desmarca el Listo de los dos. Si se alejan, se cancela."}
+        </p>
+      </PanelShell>
+    </div>
   );
 }
 
