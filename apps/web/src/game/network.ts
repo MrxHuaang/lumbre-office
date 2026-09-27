@@ -3,8 +3,11 @@ import {
   DIRECTIONS,
   MSG,
   ROOM_NAME,
-  cafeItem,
+  menuItem,
+  type BarItemId,
   type CafeItemId,
+  type FurnitureEvent,
+  type HeldUsedEvent,
   type CafeOrderResult,
   CASINO_ERROR_TEXT,
   type CasinoResult,
@@ -50,8 +53,10 @@ export interface RemotePlayer {
   zoneId: string;
   place: string;
   points: number;
-  /** Lo que lleva en la mano (id del menú de la cafetería; "" = nada). */
+  /** Lo que lleva en la mano (id de la carta de la cafetería o del bar; "" = nada). */
   held: string;
+  /** Usos que le quedan a cada mano ("4,5"). */
+  heldLeft: string;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -104,6 +109,8 @@ export interface OfficeStateView {
   offices: Map<string, RemoteOffice>;
   roulette: RemoteRoulette;
   blackjack: RemoteBlackjack;
+  /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`. */
+  switches: Map<string, boolean>;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -116,6 +123,8 @@ let room: OfficeRoom | null = null;
 const correctionListeners = new Set<(c: MoveCorrection) => void>();
 const roomListeners = new Set<(r: OfficeRoom) => void>();
 const emoteListeners = new Set<(e: EmoteEvent) => void>();
+const heldUsedListeners = new Set<(e: HeldUsedEvent) => void>();
+const furnitureListeners = new Set<(e: FurnitureEvent) => void>();
 
 // Al cerrar/recargar la pestaña, salir "con consentimiento" para que el avatar desaparezca
 // al instante en vez de quedar esperando una reconexión.
@@ -155,6 +164,28 @@ export function onEmote(cb: (e: EmoteEvent) => void) {
 
 export function sendEmote(emote: EmoteId) {
   room?.send(MSG.emote, { emote });
+}
+
+/** Alguien de tu nivel usó lo que tenía en la mano (también tú, cuando el servidor lo acepta). */
+export function onHeldUsed(cb: (e: HeldUsedEvent) => void) {
+  heldUsedListeners.add(cb);
+  return () => heldUsedListeners.delete(cb);
+}
+
+/** Alguien de tu nivel tocó un instrumento o acarició al gato. */
+export function onFurnitureEvent(cb: (e: FurnitureEvent) => void) {
+  furnitureListeners.add(cb);
+  return () => furnitureListeners.delete(cb);
+}
+
+/** Usar lo que tengo en la mano (F): el servidor valida que tenga algo y la pausa entre usos. */
+export function sendUseHeld() {
+  room?.send(MSG.useHeld);
+}
+
+/** Usar un mueble de mi nivel (tele, lámpara, piano…): el servidor valida que esté al alcance. */
+export function sendFurnitureUse(type: string, x: number, y: number) {
+  room?.send(MSG.furnitureUse, { type, x, y });
 }
 
 /** Apostar en la ruleta (el servidor valida que estés junto a la mesa y cobra). */
@@ -230,6 +261,11 @@ export function sendCafeOrder(item: CafeItemId) {
   room?.send(MSG.cafeOrder, { item });
 }
 
+/** Pide algo en la barra del club (igual que la cafetería, junto a la barra del sótano). */
+export function sendBarOrder(item: BarItemId) {
+  room?.send(MSG.barOrder, { item });
+}
+
 const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], string> = {
   far: "Acércate a la barra para pedir.",
   funds: "No te alcanzan los puntos.",
@@ -239,10 +275,11 @@ const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], stri
 
 function handleCafeResult(r: CafeOrderResult) {
   const store = useOfficeStore.getState();
-  const name = cafeItem(r.item)?.name ?? "tu pedido";
+  const item = menuItem(r.item);
+  const name = item?.name ?? "tu pedido";
   if (r.ok) {
     store.closePanel();
-    store.notify(`Aquí tienes: ${name}. ¡Buen provecho!`, "success");
+    store.notify(item?.menu === "bar" ? `Aquí tienes: ${name}. ¡Salud!` : `Aquí tienes: ${name}. ¡Buen provecho!`, "success");
   } else {
     store.notify(CAFE_ERRORS[r.error], "warning");
   }
@@ -318,8 +355,12 @@ function attach(r: OfficeRoom) {
         place: player.place,
         status: player.status,
         points: player.points,
+        held: player.held,
+        heldLeft: player.heldLeft,
       });
     sync();
+    $(player).listen("held", sync);
+    $(player).listen("heldLeft", sync);
     $(player).listen("area", sync);
     $(player).listen("zoneId", sync);
     $(player).listen("place", sync);
@@ -465,6 +506,8 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.cafeResult, handleCafeResult);
   r.onMessage(MSG.officeEditResult, handleOfficeEditResult);
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

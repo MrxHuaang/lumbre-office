@@ -141,6 +141,10 @@ export class AreaView {
   private base!: Phaser.GameObjects.Image;
   private nightLayer: Phaser.GameObjects.Rectangle;
   private glows: Phaser.GameObjects.Image[] = [];
+  /** Luz de cada mueble que la tiene, y las que alguien apagó (lámparas; ver usables.ts). */
+  private lightOf = new Map<PlacedFurniture, Phaser.GameObjects.Image>();
+  private lightsOff = new Set<Phaser.GameObjects.Image>();
+  private night = false;
   /** Cada mueble con su imagen (el editor atenúa el que se está moviendo). */
   private furnitureImages: { f: PlacedFurniture; img: Phaser.GameObjects.Image }[] = [];
   /** Muebles con versión nocturna (la cabaña): se les cambia la textura con la noche. */
@@ -243,6 +247,7 @@ export class AreaView {
       const gkey = ensureTexture(this.scene, `luz-${item.light.color}-${r}`, () => glowSprite(r, Math.round(r * 0.6), item.light!.color, 0.55));
       const glow = this.scene.add.image(p.x, p.y + 6, gkey).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH_OVERLAY + 1);
       this.glows.push(glow);
+      this.lightOf.set(f, glow);
       this.objects.push(glow);
     }
   }
@@ -275,7 +280,17 @@ export class AreaView {
       }
   }
 
+  /** Prende o apaga la luz de un mueble (se ve de noche, como todas las luces). */
+  setLight(f: PlacedFurniture, on: boolean) {
+    const glow = this.lightOf.get(f);
+    if (!glow) return;
+    if (on) this.lightsOff.delete(glow);
+    else this.lightsOff.add(glow);
+    glow.setVisible(this.night && on);
+  }
+
   setNight(on: boolean) {
+    this.night = on;
     this.drawBase(on);
     for (const n of this.nightly) {
       const key = furnitureKey(n.type, n.variant, on);
@@ -283,13 +298,15 @@ export class AreaView {
       n.img.setTexture(key).setPosition(n.ax - (n.flip ? s.canvas.width - s.ox : s.ox), n.ay - s.oy);
     }
     this.nightLayer.setVisible(on);
-    for (const g of this.glows) g.setVisible(on);
+    for (const g of this.glows) g.setVisible(on && !this.lightsOff.has(g));
   }
 
   destroy() {
     for (const o of this.objects) o.destroy();
     this.objects = [];
     this.glows = [];
+    this.lightOf.clear();
+    this.lightsOff.clear();
     this.nightly = [];
     this.furnitureImages = [];
   }

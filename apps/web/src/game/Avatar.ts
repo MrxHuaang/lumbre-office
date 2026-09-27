@@ -1,8 +1,9 @@
-import { bubble, characterShadow, drawCafeItem, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, puff, SHEET_DIRECTIONS } from "@hyvento/map/art";
-import { EMOTE, heldParts, type Direction, type EmoteId, type PresenceStatus } from "@hyvento/shared";
+import { bubble, characterShadow, crumbColor, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS } from "@hyvento/map/art";
+import { EMOTE, heldParts, parseHeldLeft, usesOf, type ConsumeAction, type Direction, type EmoteId, type PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt, STATUS_HEX } from "@/lib/cozy";
+import { heldTexture, idleWisp, playUse } from "./consumables";
 import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
 
 const ROW = Object.fromEntries(SHEET_DIRECTIONS.map((d, i) => [d, i])) as Record<Direction, number>;
@@ -36,11 +37,30 @@ const HANDS: Record<Direction, [{ dx: number; front: boolean }, { dx: number; fr
   ],
 };
 
-/** Algo en una mano: su sprite y, si echa vapor o humo, la bocanada animada. */
+/**
+ * Boca respecto de los pies: cuántos px arriba (de pie o sentado) y cuánto al costado según hacia dónde
+ * mira (de espaldas queda del lado hacia el que gira la cabeza). Ahí se lleva lo que se consume.
+ */
+const MOUTH_STANDING = 13;
+const MOUTH_SEATED = 10;
+const MOUTH: Record<Direction, { dx: number }> = { down: { dx: -1 }, right: { dx: 1 }, left: { dx: -4 }, up: { dx: 4 } };
+
+/** Algo en una mano: su sprite, los usos que le quedan y cómo está en la animación de uso. */
 interface HeldPart {
+  art: string;
   image: Phaser.GameObjects.Image;
   hand: 0 | 1;
-  puff?: { image: Phaser.GameObjects.Image; from: [number, number]; rise: number; tween: Phaser.Tweens.Tween };
+  /** Usos que se ven y los últimos que mandó el servidor (se aplican al terminar la animación). */
+  left: number;
+  pendingLeft: number;
+  ember: 0 | 1 | 2;
+  tilt: -1 | 0 | 1;
+  /** 0 = en la mano, 1 = en la boca; y un saltito en px (el sorbo, el mordisco). */
+  raise: number;
+  bob: number;
+  busy: boolean;
+  /** Brasa que titila y humo o vapor mientras se sostiene. */
+  idle?: Phaser.Time.TimerEvent;
 }
 
 export const STATUS_COLORS = Object.fromEntries(
@@ -73,8 +93,11 @@ export class Avatar {
   /** Emote sobre la cabeza (un globo con dibujo) y el baile, si está bailando. */
   private emoteBubble?: { container: Phaser.GameObjects.Container; lift: number; tween: Phaser.Tweens.Tween };
   private dance?: { timer: Phaser.Time.TimerEvent; step: number };
-  /** Lo que lleva en las manos (pedido en la cafetería). */
-  private held?: { id: string; parts: HeldPart[] };
+  /** Lo que lleva en las manos (pedido en la cafetería o el bar); `clearing` = se quita al terminar de usarlo. */
+  private held?: { id: string; parts: HeldPart[]; clearing: boolean };
+  /** Tocando un instrumento: lleva el ritmo con saltitos. */
+  private playing?: { timer: Phaser.Time.TimerEvent; step: number };
+  private destroyed = false;
   private bubbleTimer?: Phaser.Time.TimerEvent;
   private video?: { track: Track; el: HTMLVideoElement; wrap: HTMLDivElement; dom: Phaser.GameObjects.DOMElement };
   private speaking = false;
@@ -142,10 +165,7 @@ export class Avatar {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
-    for (const part of this.held?.parts ?? []) {
-      part.image.setVisible(!hidden);
-      part.puff?.image.setVisible(!hidden);
-    }
+    for (const part of this.held?.parts ?? []) part.image.setVisible(!hidden && part.left > 0);
     this.speakingRing.setVisible(!hidden && this.speaking && !this.video);
     this.bubble?.setVisible(!hidden);
     this.emoteBubble?.container.setVisible(!hidden);
@@ -212,53 +232,203 @@ export class Avatar {
     this.layout();
   }
 
-  /** Pone en las manos lo pedido en la cafetería (id del menú) o lo quita con "". */
-  setHeld(id: string) {
-    if ((this.held?.id ?? "") === id) return;
+  /**
+   * Pone en las manos lo pedido en la cafetería o el bar (id de la carta) o lo quita con "". `left` son
+   * los usos que le quedan a cada mano ("4,5", ver `Player.heldLeft`). Si se está usando, lo nuevo se
+   * aplica al terminar la animación (así el último sorbo se ve antes de que el vaso desaparezca).
+   */
+  setHeld(id: string, left = "") {
+    const counts = parseHeldLeft(left);
+    const current = this.held;
+    if (current && current.id === id) {
+      current.clearing = false;
+      current.parts.forEach((p, i) => {
+        p.pendingLeft = counts[i] ?? p.pendingLeft;
+        if (!p.busy) this.applyLeft(p);
+      });
+      return;
+    }
+    if (!id && current?.parts.some((p) => p.busy)) {
+      current.clearing = true;
+      return;
+    }
     this.clearHeld();
     const parts = heldParts(id);
     if (parts.length === 0) return;
-    this.held = { id, parts: parts.map((art, i) => this.makeHeldPart(art, i === 0 ? 0 : 1)) };
+    this.held = { id, clearing: false, parts: parts.map((art, i) => this.makeHeldPart(art, i === 0 ? 0 : 1, counts[i] ?? usesOf(art))) };
+    for (const p of this.held.parts) this.applyLeft(p);
     this.layout();
   }
 
-  private makeHeldPart(art: string, hand: 0 | 1): HeldPart {
-    const key = `mano-${art}`;
-    ensureTexture(this.scene, key, () => drawCafeItem(art));
-    const part: HeldPart = { image: this.scene.add.image(0, 0, key).setOrigin(0.5, 1).setVisible(!this.hidden), hand };
+  /** ¿Tiene algo en la mano con usos? (para el botón "usar" del HUD). */
+  get holding() {
+    return Boolean(this.held?.parts.some((p) => p.pendingLeft > 0));
+  }
+
+  private makeHeldPart(art: string, hand: 0 | 1, left: number): HeldPart {
+    const part: HeldPart = {
+      art,
+      hand,
+      left,
+      pendingLeft: left,
+      ember: 1,
+      tilt: 0,
+      raise: 0,
+      bob: 0,
+      busy: false,
+      image: this.scene.add.image(0, 0, heldTexture(this.scene, art, left, 1, 0)).setOrigin(0.5, 1).setVisible(!this.hidden),
+    };
     const effect = heldEffect(art);
     if (effect) {
       const smoke = effect.fx === "smoke";
-      const puffKey = smoke ? "humo" : "vapor";
-      ensureTexture(this.scene, puffKey, () => puff(effect.fx));
-      const image = this.scene.add.image(0, 0, puffKey).setOrigin(0.5, 1).setVisible(!this.hidden);
-      // Sube y se desvanece; el humo es más lento y sube más que el vapor.
-      const tween = this.scene.tweens.addCounter({
-        from: 0,
-        to: 1,
-        duration: smoke ? 2000 : 1400,
-        repeat: -1,
-        repeatDelay: smoke ? 900 : 500,
-        delay: hand * 700,
-        onUpdate: (t) => {
-          const v = t.getValue() ?? 0;
-          if (part.puff) part.puff.rise = v * (smoke ? 7 : 5);
-          image.setAlpha(1 - v);
-          this.layout();
+      // Mientras se sostiene: la brasa titila y sale un hilo de humo; las bebidas calientes echan vapor.
+      part.idle = this.scene.time.addEvent({
+        delay: smoke ? 420 : 650,
+        startAt: hand * 300,
+        loop: true,
+        callback: () => {
+          if (part.left <= 0 || part.busy) return;
+          if (smoke) {
+            const ember = Math.random() < 0.3 ? 0 : 1;
+            if (ember !== part.ember) {
+              part.ember = ember;
+              this.refreshPart(part);
+            }
+          }
+          const p = this.emberPoint(part);
+          if (p && !this.hidden && Math.random() < (smoke ? 0.75 : 0.85)) idleWisp(this.scene, p.x, p.y, p.depth, effect.fx);
         },
       });
-      part.puff = { image, from: effect.from, rise: 0, tween };
     }
     return part;
   }
 
+  private refreshPart(part: HeldPart) {
+    part.image.setTexture(heldTexture(this.scene, part.art, Math.max(1, part.left), part.ember, part.tilt));
+  }
+
+  /** Aplica los usos que quedan: se redibuja con menos (o se va de la mano si no queda nada). */
+  private applyLeft(part: HeldPart) {
+    part.left = part.pendingLeft;
+    part.image.setVisible(!this.hidden && part.left > 0);
+    if (part.left > 0) this.refreshPart(part);
+    this.layout();
+  }
+
+  /**
+   * Usar lo que tiene en una mano (lo avisa el servidor, a todos los del nivel): se lleva a la boca y
+   * se ve la pitada, el sorbo o el mordisco. `left` = usos que le quedan después de este.
+   */
+  useHeld(index: number, action: ConsumeAction, left: number) {
+    const part = this.held?.parts[index];
+    if (!part) return;
+    part.pendingLeft = Math.min(part.pendingLeft, left);
+    if (part.busy) return;
+    part.busy = true;
+    const alive = () => !this.destroyed && Boolean(this.held?.parts.includes(part));
+    const avatar = this;
+    void playUse(this.scene, action, {
+      setPose(raise, bob) {
+        if (!alive()) return;
+        part.raise = raise;
+        part.bob = bob;
+        avatar.layout();
+      },
+      setTilt(tilt) {
+        if (!alive()) return;
+        part.tilt = tilt;
+        avatar.refreshPart(part);
+        avatar.layout();
+      },
+      setEmber(ember) {
+        if (!alive()) return;
+        part.ember = ember;
+        avatar.refreshPart(part);
+      },
+      applyLeft() {
+        if (!alive()) return;
+        // El último uso: se ve el mordisco o el sorbo, pero el objeto se va recién al bajar la mano.
+        if (part.pendingLeft > 0) avatar.applyLeft(part);
+      },
+      faceSide: () => this.faceSide(part),
+      mouth: () => this.mouthPoint(),
+      emberPoint: () => (alive() ? this.emberPoint(part) : null),
+      crumbColor: () => crumbColor(part.art),
+      hidden: () => this.hidden || this.destroyed,
+      done: () => {
+        if (!alive()) return;
+        part.busy = false;
+        part.raise = 0;
+        part.bob = 0;
+        part.tilt = 0;
+        avatar.applyLeft(part);
+        if (this.held?.clearing && !this.held.parts.some((p) => p.busy)) this.clearHeld();
+      },
+    });
+  }
+
+  /** Hacia dónde queda la cara respecto de esa mano (-1 izquierda, 1 derecha). */
+  private faceSide(part: HeldPart): -1 | 1 {
+    const face = this.seated ?? this.dir;
+    return MOUTH[face].dx - HANDS[face][part.hand].dx < 0 ? -1 : 1;
+  }
+
+  /** La boca en pantalla (de donde sale el humo y caen las migas). */
+  private mouthPoint() {
+    const s = worldToScreen(this.wx, this.wy);
+    const face = this.seated ?? this.dir;
+    const y = Math.round(s.y) + 1 - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
+    return { x: Math.round(s.x) + MOUTH[face].dx, y, depth: depthOf(this.wx, this.wy) + 0.6, floorY: Math.round(s.y) };
+  }
+
+  /** De dónde sale el humo o el vapor de esa mano (la brasa, o el borde de la taza). */
+  private emberPoint(part: HeldPart) {
+    const effect = heldEffect(part.art, part.left);
+    if (!effect || part.tilt) return null;
+    const img = part.image;
+    const left = img.x - img.width / 2;
+    const top = img.y - img.height;
+    const fx = img.flipX ? img.width - 1 - effect.from[0] : effect.from[0];
+    return { x: Math.round(left + fx) + 0.5, y: Math.round(top + effect.from[1]) + 0.5, depth: img.depth + 0.02 };
+  }
+
   private clearHeld() {
     for (const part of this.held?.parts ?? []) {
-      part.puff?.tween.remove();
-      part.puff?.image.destroy();
+      part.idle?.remove();
       part.image.destroy();
     }
     this.held = undefined;
+  }
+
+  /**
+   * Tocar un instrumento: mira hacia él y lleva el ritmo con saltitos de 1 px durante `ms`. Si camina,
+   * deja de tocar.
+   */
+  perform(face: Direction, ms: number) {
+    this.stopPerform();
+    this.stopDance();
+    if (!this.seated) this.setMotion(face, false);
+    const steps = Math.floor(ms / 240);
+    const play = {
+      step: 0,
+      timer: this.scene.time.addEvent({
+        delay: 240,
+        repeat: steps - 1,
+        callback: () => {
+          play.step++;
+          this.layout();
+          if (play.step >= steps) this.stopPerform();
+        },
+      }),
+    };
+    this.playing = play;
+  }
+
+  private stopPerform() {
+    if (!this.playing) return;
+    this.playing.timer.remove();
+    this.playing = undefined;
+    this.layout();
   }
 
   /** Nombre visible (cambia en vivo si la persona edita su perfil). */
@@ -300,7 +470,10 @@ export class Avatar {
   }
 
   setMotion(dir: Direction, moving: boolean) {
-    if (moving) this.stopDance();
+    if (moving) {
+      this.stopDance();
+      this.stopPerform();
+    }
     if (this.seated) {
       this.dir = dir;
       return;
@@ -421,9 +594,11 @@ export class Avatar {
   }
 
   destroy() {
+    this.destroyed = true;
     this.clearVideo();
     this.clearHeld();
     this.stopDance();
+    this.stopPerform();
     this.emoteBubble?.tween.remove();
     this.emoteBubble?.container.destroy();
     this.bubbleTimer?.remove();
@@ -440,25 +615,34 @@ export class Avatar {
     const x = Math.round(s.x);
     const y = Math.round(s.y);
     const depth = depthOf(this.wx, this.wy);
-    // Bailando da saltitos de 2 px.
-    const hop = this.dance && this.dance.step % 2 ? 2 : 0;
+    // Bailando da saltitos de 2 px; tocando un instrumento, de 1 px.
+    const hop = this.dance && this.dance.step % 2 ? 2 : this.playing && this.playing.step % 2 ? 1 : 0;
     this.sprite.setPosition(x, y + 1 - hop).setDepth(depth + 0.5);
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);
     if (this.held) {
-      const hands = HANDS[this.seated ?? this.dir];
-      // Sentado, las manos quedan 3 px más abajo (sobre las piernas).
-      const bottom = y + 1 - (this.seated ? 2 : 5);
+      const face = this.seated ?? this.dir;
+      const hands = HANDS[face];
+      const front = face === "down" || face === "right";
+      // Sentado, las manos quedan 3 px más abajo (sobre las piernas) y la boca también.
+      const bottom = y + 1 - hop - (this.seated ? 2 : 5);
+      const mouthX = x + MOUTH[face].dx;
+      const mouthY = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
       for (const part of this.held.parts) {
         const hand = hands[part.hand];
+        const img = part.image;
+        // El cigarro apunta hacia afuera: en la mano izquierda se voltea (el filtro queda hacia la cara).
+        const smoke = heldEffect(part.art)?.fx === "smoke";
+        const flip = smoke && hand.dx < 0;
+        img.setFlipX(flip);
         const hx = x + hand.dx;
-        const hd = depth + (hand.front ? 0.55 : 0.47);
-        part.image.setPosition(hx, bottom).setDepth(hd);
-        if (part.puff) {
-          const left = hx - part.image.width / 2;
-          const top = bottom - part.image.height;
-          part.puff.image.setPosition(left + part.puff.from[0] + 0.5, top + part.puff.from[1] - part.puff.rise).setDepth(hd);
-        }
+        // En la boca: el filtro entre los labios, o el borde del vaso a la altura de la boca.
+        const toHand = hand.dx - MOUTH[face].dx < 0 ? -1 : 1;
+        const mx = smoke ? mouthX + (flip ? -1 : 1) * Math.floor(img.width / 2) : mouthX + toHand * Math.max(1, Math.floor(img.width / 2) - 2);
+        const my = smoke ? mouthY + Math.ceil(img.height / 2) : mouthY + img.height - 1;
+        const r = part.raise;
+        const hd = depth + (r > 0 ? (front ? 0.56 : 0.46) : hand.front ? 0.55 : 0.47);
+        img.setPosition(Math.round(hx + (mx - hx) * r), Math.round(bottom + (my - bottom) * r) + part.bob).setDepth(hd);
       }
     }
     // Con cámara, el nombre va sobre la burbuja de video. Los textos van por encima de todo.

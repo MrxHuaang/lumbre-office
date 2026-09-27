@@ -34,13 +34,24 @@ export interface PlayerInfo {
   place: string;
   status: PresenceStatus;
   points: number;
+  /** Lo que lleva en la mano (id de la carta) y los usos que le quedan a cada mano ("4,5"). */
+  held: string;
+  heldLeft: string;
 }
 
 /**
  * Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería,
  * mostrador de la tienda y probador.
  */
-export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack";
+export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack" | "bar";
+
+/** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
+export interface UsableNear {
+  type: string;
+  x: number;
+  y: number;
+  label: string;
+}
 /** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
 export type PanelKind = Interactable | "backpack";
 
@@ -124,6 +135,8 @@ interface OfficeStore {
   night: boolean;
   /** Objeto al alcance del jugador (para ofrecer "E: abrir"). */
   interact: Interactable | null;
+  /** Mueble que se usa al alcance (si le gana al asiento más cercano). */
+  usable: UsableNear | null;
   /** Panel abierto (buzón o tablón); `atObject` = se abrió junto al objeto (permite reclamar). */
   panel: { kind: PanelKind; atObject: boolean } | null;
   /** Último premio de puntos (cambia `id` en cada uno, para animarlo). */
@@ -164,6 +177,7 @@ interface OfficeStore {
   setArea: (area: string) => void;
   setNight: (night: boolean) => void;
   setInteract: (i: Interactable | null) => void;
+  setUsable: (u: UsableNear | null) => void;
   openPanel: (kind: PanelKind, atObject: boolean) => void;
   closePanel: () => void;
   addAward: (a: PointsAwarded) => void;
@@ -212,6 +226,7 @@ const initial = {
   area: "",
   night: false,
   interact: null as Interactable | null,
+  usable: null as UsableNear | null,
   panel: null as { kind: PanelKind; atObject: boolean } | null,
   lastAward: null as (PointsAwarded & { id: number }) | null,
   decorating: false,
@@ -278,6 +293,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setArea: (area) => set({ area }),
   setNight: (night) => set({ night }),
   setInteract: (interact) => set({ interact }),
+  setUsable: (usable) => set({ usable }),
   openPanel: (kind, atObject) => set({ panel: { kind, atObject } }),
   closePanel: () => set({ panel: null }),
   addAward: (a) => set({ lastAward: { ...a, id: ++noticeId } }),

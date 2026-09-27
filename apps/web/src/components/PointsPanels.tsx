@@ -1,7 +1,7 @@
 "use client";
 
 // Fase 2: el buzón (recompensa diaria y movimientos) y el tablón (misiones y ranking) del jardín.
-import { cafeItem, POINTS, shopItem, type HumanAvatar, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
+import { barItem, cafeItem, POINTS, shopItem, type HumanAvatar, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
@@ -29,6 +29,7 @@ function moveLabel(m: { reason: PointReason; refId: string | null }) {
   const kind = i < 0 ? ref : ref.slice(0, i);
   const id = i < 0 ? "" : ref.slice(i + 1);
   if (m.reason === "PURCHASE" && kind === "cafe") return `Cafetería · ${cafeItem(id)?.name ?? "pedido"}`;
+  if (m.reason === "PURCHASE" && kind === "bar") return `Bar del club · ${barItem(id)?.name ?? "pedido"}`;
   if (m.reason === "PURCHASE" && kind === "shop") return `Tienda · ${shopItem(id)?.name ?? "compra"}`;
   if (m.reason === "CASINO") return kind === "blackjack" ? "Casino · Blackjack" : "Casino · Ruleta";
   return REASON_LABEL[m.reason];
@@ -44,6 +45,7 @@ const PROMPT: Record<Interactable, string> = {
   roulette: "Jugar a la ruleta",
   cashier: "Ver la caja",
   blackjack: "Jugar blackjack",
+  bar: "Pedir en la barra del club",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
