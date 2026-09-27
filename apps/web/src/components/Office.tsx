@@ -109,6 +109,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const panel = useOfficeStore((s) => s.panel);
   const closePanel = useOfficeStore((s) => s.closePanel);
   const connection = useOfficeStore((s) => s.connection);
+  const mapReady = useOfficeStore((s) => s.mapReady);
   const decorating = useOfficeStore((s) => s.decorating);
 
   // Actividad real (mouse, teclado): cuenta para los puntos de presencia. Como mucho un aviso por minuto.
@@ -165,6 +166,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
 
     return () => {
       cancelled = true;
+      useOfficeStore.getState().setMapReady(false);
       game?.destroy(true);
       void media.disconnect();
       void disconnect();
@@ -228,7 +230,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
         <div className="cozy-chip absolute top-16 left-1/2 z-20 -translate-x-1/2 px-3.5 py-1.5 text-[13px]">Reconectando…</div>
       )}
 
-      {(connection === "connecting" || connection === "idle") && (
+      {(connection === "connecting" || connection === "idle" || (connection === "connected" && !mapReady)) && (
         <CozyOverlay>
           <CozyTitle className="text-6xl">Entrando…</CozyTitle>
           <p className="mt-5 text-[15px] text-cozy-paper-dark">Abriendo la cabaña</p>

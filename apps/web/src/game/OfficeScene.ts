@@ -313,6 +313,7 @@ export class OfficeScene extends Phaser.Scene {
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
       this.usables.setArea(map, this.view);
       this.markers.setArea(map, this.view, INTERACTABLES);
+      if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -368,6 +369,7 @@ export class OfficeScene extends Phaser.Scene {
     this.usables.setArea(map, this.view);
     this.markers.setArea(map, this.view, INTERACTABLES);
     AreaView.dropStaleBases(this, map);
+    if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
     const goal = this.path.at(-1);
     if (goal && this.local) {

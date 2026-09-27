@@ -133,6 +133,9 @@ interface OfficeStore {
   area: string;
   /** Modo noche (luces encendidas); arranca según la hora local. */
   night: boolean;
+  /** Ya se dibujó el primer nivel (el jardín grande tarda un poco: mientras, el cartel de "Entrando"). */
+  mapReady: boolean;
+  setMapReady: (ready: boolean) => void;
   /** Objeto al alcance del jugador (para ofrecer "E: abrir"). */
   interact: Interactable | null;
   /** Mueble que se usa al alcance (si le gana al asiento más cercano). */
@@ -225,6 +228,7 @@ const initial = {
   walkTarget: null,
   area: "",
   night: false,
+  mapReady: false,
   interact: null as Interactable | null,
   usable: null as UsableNear | null,
   panel: null as { kind: PanelKind; atObject: boolean } | null,
@@ -292,6 +296,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
   setArea: (area) => set({ area }),
   setNight: (night) => set({ night }),
+  setMapReady: (mapReady) => set({ mapReady }),
   setInteract: (interact) => set({ interact }),
   setUsable: (usable) => set({ usable }),
   openPanel: (kind, atObject) => set({ panel: { kind, atObject } }),
