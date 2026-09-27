@@ -80,7 +80,8 @@ export const CATALOG = {
   // Fase 4: el casino del sótano (dibujos en art/casino.ts).
   // La ruleta del rediseño: el paño (3x4) y la rueda aparte (2x2), en la cabecera del paño.
   "roulette-table": { name: "Mesa de ruleta", size: [3, 4] },
-  "roulette-wheel": { name: "Rueda de la ruleta", size: [2, 2], light: { at: [16, 16, 20], color: "#ffd66a", radius: 40 } },
+  // Sin luz propia: el brillo aditivo tapaba los números de la rueda (el casino ya tiene lámparas).
+  "roulette-wheel": { name: "Rueda de la ruleta", size: [2, 2] },
   "blackjack-table": { name: "Mesa de blackjack", size: [2, 3] },
   "casino-cashier": { name: "Caja del casino", size: [1, 2] },
   "slot-machine": { name: "Tragamonedas", size: [1, 1], light: { at: [8, 8, 22], color: "#ff6fa0", radius: 30 } },
