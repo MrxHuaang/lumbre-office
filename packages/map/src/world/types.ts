@@ -107,7 +107,9 @@ export interface PointDef {
     | "garden_plot"
     | "fishing_spot"
     | "arcade"
-    | "cinema";
+    | "cinema"
+    // Rediseño: frente a la barra del club, donde se piden tragos y cigarros.
+    | "club_bar";
   name: string;
   x: number;
   y: number;
