@@ -6,10 +6,12 @@ import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useMediaStore } from "@/game/media";
 import { sendStatus } from "@/game/network";
+import { sfx } from "@/game/sfx";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon } from "./Cozy";
 import { PointsCounter } from "./PointsPanels";
+import { SoundControl } from "./SoundControl";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -118,8 +120,19 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onAdmin, onLogout
         <PixelIcon name={night ? "moon" : "sun"} size={16} color={night ? "#4a3f8a" : "var(--color-cozy-gold)"} />
       </button>
 
+      <SoundControl />
+
       <div className="relative">
-        <button onClick={() => setShowMenu((v) => !v)} aria-label="Menú" aria-expanded={showMenu} className="cozy-btn h-[34px] w-[34px] p-0">
+        <button
+          onClick={() => {
+            if (showMenu) sfx.uiClose();
+            else sfx.uiOpen();
+            setShowMenu(!showMenu);
+          }}
+          aria-label="Menú"
+          aria-expanded={showMenu}
+          className="cozy-btn h-[34px] w-[34px] p-0"
+        >
           <PixelIcon name="menu" size={16} />
         </button>
         {showMenu && (

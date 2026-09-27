@@ -23,6 +23,9 @@ function audio(): { ctx: AudioContext; out: GainNode } | null {
   return { ctx, out: master! };
 }
 
+/** El contexto de audio compartido (lo usan también los efectos de sfx.ts y la pesca). */
+export const sharedAudio = audio;
+
 /** Generador pseudoaleatorio con semilla: todos oyen la misma melodía. */
 function rng(seed: number) {
   let s = seed >>> 0 || 1;
