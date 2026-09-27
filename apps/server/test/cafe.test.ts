@@ -1,4 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
+import { getWorld, pointsOfType } from "@hyvento/map";
 import { CAFE, MSG, ROOM_NAME, cafeItem, type CafeOrderResult } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -34,7 +35,10 @@ async function setup(points: number, atCounter = true) {
   const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
   await room.waitForNextPatch();
   await goToArea(alice, room, "planta-baja");
-  if (atCounter) await walkToTile(alice, room, 25, 3);
+  if (atCounter) {
+    const barra = pointsOfType(getWorld().areas.get("planta-baja")!, "cafe_counter")[0]!;
+    await walkToTile(alice, room, barra.tileX, barra.tileY);
+  }
   const results: CafeOrderResult[] = [];
   alice.onMessage(MSG.cafeResult, (r: CafeOrderResult) => results.push(r));
   const order = async (item: string) => {

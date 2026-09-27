@@ -214,7 +214,7 @@ describe("asientos", () => {
     expect(facing(13, 5)).toBe("right");
     expect(facing(15, 5)).toBe("left");
     expect(facing(18, 6)).toBe("up");
-    expect(facing(25, 5)).toBe("down");
+    expect(facing(26, 4)).toBe("down");
   });
 });
 
@@ -260,7 +260,8 @@ describe("lugares y zonas", () => {
   });
 
   it("nearestFreeTile encuentra un tile libre cerca de un obstáculo", () => {
-    const free = nearestFreeTile(plantaBaja, { x: 36, y: 4 }); // isla de la cocina
+    const isla = plantaBaja.furniture.find((f) => f.type === "kitchen-island")!;
+    const free = nearestFreeTile(plantaBaja, { x: isla.x, y: isla.y });
     expect(free).not.toBeNull();
     expect(isBlockedTile(plantaBaja, free!.x, free!.y)).toBe(false);
   });
@@ -299,10 +300,11 @@ describe("tienda", () => {
     const walls = Array.from({ length: shop.width / ts }, (_, i) => wallAbove(plantaBaja, shop.x / ts + i, y));
     expect(walls.filter((w) => w === 0).length).toBe(2);
     expect(walls.every((w) => w === 0 || w === 1)).toBe(true);
-    // Del recibidor se entra a la tienda por su puerta (x = 24, y = 19).
-    expect(wallBetween(plantaBaja, 23, 19, 24, 19)).toBe(false);
-    expect(zoneAt(plantaBaja, center(plantaBaja, 23), center(plantaBaja, 19))?.id).toBe("recibidor");
-    expect(zoneAt(plantaBaja, center(plantaBaja, 24), center(plantaBaja, 19))?.id).toBe("tienda");
+    // Del recibidor se entra a la tienda por su puerta, en la pared oeste de la tienda (y = 19).
+    const x = shop.x / ts;
+    expect(wallBetween(plantaBaja, x - 1, 19, x, 19)).toBe(false);
+    expect(zoneAt(plantaBaja, center(plantaBaja, x - 1), center(plantaBaja, 19))?.id).toBe("recibidor");
+    expect(zoneAt(plantaBaja, center(plantaBaja, x), center(plantaBaja, 19))?.id).toBe("tienda");
     // La barra de la cafetería queda a un paseo por el pasillo.
     const barra = pointsOfType(plantaBaja, "cafe_counter")[0]!;
     expect(findPath(plantaBaja, entrada, tile(barra))).not.toBeNull();

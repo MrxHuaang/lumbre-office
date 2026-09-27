@@ -1,4 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
+import { getWorld } from "@hyvento/map";
 import { CLOSE_CODE, MSG, ROOM_NAME, signGameToken, type ChatEvent, type MoveCorrection } from "@hyvento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -299,30 +300,32 @@ describe("OfficeRoom: sentarse", () => {
     expect(corrections.length).toBe(2);
   });
 
+  /** El sofá de los probadores (mirando hacia la izquierda; detrás está la pared): se llega por el tile de arriba. */
+  const sofa = getWorld().areas.get("planta-baja")!.furniture.find((f) => f.type === "sofa" && f.facing === "left")!;
+
   it("se sienta en el sofá y se levanta en el tile libre de al lado", async () => {
     const { room, alice } = await setup();
     const me = () => room.state.players.get(alice.sessionId)!;
-    // Sofá de los probadores (39, 17..18) mirando hacia la izquierda; detrás está la pared y al lado queda (39, 16).
     await goToArea(alice, room, "planta-baja");
-    await walkToTile(alice, room, 39, 16);
-    alice.send(MSG.move, { x: c(39), y: c(17), dir: "down", moving: false, seated: true });
+    await walkToTile(alice, room, sofa.x, sofa.y - 1);
+    alice.send(MSG.move, { x: c(sofa.x), y: c(sofa.y), dir: "down", moving: false, seated: true });
     await room.waitForNextPatch();
     await tick();
     expect(me().seated).toBe(true);
     expect(me().dir).toBe("left");
 
-    alice.send(MSG.move, { x: c(39), y: c(16), dir: "down", moving: false, seated: false });
+    alice.send(MSG.move, { x: c(sofa.x), y: c(sofa.y - 1), dir: "down", moving: false, seated: false });
     await room.waitForNextPatch();
     await tick();
     expect(me().seated).toBe(false);
-    expect(me().y).toBe(c(16));
+    expect(me().y).toBe(c(sofa.y - 1));
   });
 
   it("no se puede usar un portal estando sentado", async () => {
     const { room, alice } = await setup();
     await goToArea(alice, room, "planta-baja");
-    await walkToTile(alice, room, 39, 16);
-    alice.send(MSG.move, { x: c(39), y: c(17), dir: "up", moving: false, seated: true });
+    await walkToTile(alice, room, sofa.x, sofa.y - 1);
+    alice.send(MSG.move, { x: c(sofa.x), y: c(sofa.y), dir: "up", moving: false, seated: true });
     alice.send(MSG.travel, { portal: "planta-baja-salida" });
     await room.waitForNextPatch();
     await tick();
