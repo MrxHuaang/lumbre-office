@@ -8,6 +8,7 @@ import {
   type CafeItemId,
   type FurnitureEvent,
   type HeldUsedEvent,
+  type DrunkBlackoutEvent,
   type CafeOrderResult,
   CASINO_ERROR_TEXT,
   type CasinoResult,
@@ -64,6 +65,8 @@ export interface RemotePlayer {
   heldLeft: string;
   /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
   fishing: string;
+  /** Borrachera: 0 sobrio … 3 borracho (DrunkStage). */
+  drunk: number;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -179,6 +182,13 @@ export function sendEmote(emote: EmoteId) {
 export function onHeldUsed(cb: (e: HeldUsedEvent) => void) {
   heldUsedListeners.add(cb);
   return () => heldUsedListeners.delete(cb);
+}
+
+const blackoutListeners = new Set<(e: DrunkBlackoutEvent) => void>();
+/** Alguien de mi nivel se pasó de tragos (vomita y se desmaya). */
+export function onDrunkBlackout(cb: (e: DrunkBlackoutEvent) => void) {
+  blackoutListeners.add(cb);
+  return () => blackoutListeners.delete(cb);
 }
 
 /** Alguien de tu nivel tocó un instrumento o acarició al gato. */
@@ -553,6 +563,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.worldEditResult, handleWorldEditResult);
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.drunkBlackout, (e: DrunkBlackoutEvent) => blackoutListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.fishEvent, handleFishEvent);
 

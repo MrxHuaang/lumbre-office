@@ -29,6 +29,8 @@ export class Player extends Schema {
   @type("string") heldLeft = "";
   /** Pesca (lo ven todos): "" nada, "wait" la boya flota, "bite" pica, "reel" el minijuego, "show:<pez>" lo levanta. */
   @type("string") fishing = "";
+  /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
+  @type("uint8") drunk = 0;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */

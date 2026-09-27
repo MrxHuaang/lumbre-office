@@ -35,6 +35,65 @@ export const CONSUME = {
   cooldownMs: 1600,
 } as const;
 
+// ---------- Alcohol ----------
+
+/**
+ * Cuánto alcohol suma cada sorbo (en "tragos": un trago entero de cerveza son 2,5; uno de whisky, 3,6).
+ * Lo que no está acá no emborracha.
+ */
+export const ALCOHOL_PER_SIP: Record<string, number> = {
+  cerveza: 0.5,
+  vino: 0.7,
+  coctel: 0.8,
+  whisky: 1.2,
+};
+
+export const DRUNK = {
+  /** Lo que se evapora por minuto: de "borracho" a sobrio son unos 4 minutos. */
+  decayPerMinute: 1.5,
+  /** Desde cuánto empieza cada etapa: 1 "alegre", 2 "mareado", 3 "borracho". */
+  stages: [2, 4, 6] as const,
+  /** Pasarse de esto es desmayarse: se vomita, se cae y se despierta descansando en la casa. */
+  blackout: 9,
+  /** Lo que dura el desmayo (el vómito incluido) y cuánto de eso es vomitar. */
+  faintMs: 7000,
+  vomitMs: 2200,
+  /** Con cuánto se despierta: todavía mareado, se pasa en unos minutos más. */
+  wakeUnits: 4.5,
+  /** Dónde se despierta: en un asiento de la zona de descanso del piso 2. */
+  restArea: "piso-2",
+  restZone: "descanso",
+} as const;
+
+/** Etapa de la borrachera: 0 sobrio, 1 alegre, 2 mareado, 3 borracho, 4 desmayado (solo mientras dura). */
+export type DrunkStage = 0 | 1 | 2 | 3 | 4;
+
+export const DRUNK_STAGE_TEXT: Record<DrunkStage, string> = { 0: "Sobrio", 1: "Alegre", 2: "Mareado", 3: "Borracho", 4: "Desmayado" };
+
+/** Servidor → clientes del mismo nivel (`MSG.drunkBlackout`): alguien se pasó de tragos y vomita. */
+export interface DrunkBlackoutEvent {
+  sessionId: string;
+}
+
+/** Etapa según lo que lleva (el desmayo no sale de acá: lo decide el servidor al pasar `blackout`). */
+export function drunkStage(units: number): Exclude<DrunkStage, 4> {
+  const [a, b, c] = DRUNK.stages;
+  return units >= c ? 3 : units >= b ? 2 : units >= a ? 1 : 0;
+}
+
+/** Lo que queda después de `ms` sin tomar. */
+export function drunkDecay(units: number, ms: number): number {
+  return Math.max(0, units - (DRUNK.decayPerMinute * ms) / 60_000);
+}
+
+/** Cuánto falta para bajar de etapa (Infinity si ya está sobrio). */
+export function msToNextDrunkStage(units: number): number {
+  const stage = drunkStage(units);
+  if (stage === 0) return Infinity;
+  const floor = DRUNK.stages[stage - 1]!;
+  return Math.ceil(((units - floor) * 60_000) / DRUNK.decayPerMinute) + 1;
+}
+
 /** Usos que le quedan a cada mano, como viajan en el estado (`Player.heldLeft`): "4,5". */
 export function parseHeldLeft(s: string): number[] {
   if (!s) return [];

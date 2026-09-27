@@ -79,6 +79,8 @@ import {
   CONSUME,
   menuRefId,
   formatHeldLeft,
+  DRUNK,
+  type DrunkBlackoutEvent,
   menuItem,
   type FurnitureEvent,
   type HeldUsedEvent,
@@ -91,6 +93,7 @@ import { OfficeInfo, OfficeItem, OfficeState, Player } from "../state";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
+import { Drunkenness } from "./drunk";
 import { devToolsEnabled, parseDevJump } from "./devtools";
 import { FurnitureUses } from "./usables";
 import { FISHING, type FishingTimings } from "@hyvento/shared";
@@ -204,6 +207,21 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
     () => OfficeRoom.consumeCooldownMs,
   );
+  /** Cuánto alcohol lleva cada persona (por userId: recargar no te deja sobrio). */
+  private drunk = new Drunkenness(
+    { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+    () => Date.now(),
+    {
+      onChange: (userId, stage) => {
+        for (const p of this.state.players.values()) if (p.userId === userId) p.drunk = stage;
+      },
+      onBlackout: (userId) => this.blackout(userId),
+      onWake: (userId) => this.wakeToRest(userId),
+    },
+    () => OfficeRoom.faintMs,
+  );
+  /** Lo que dura un desmayo (los tests lo acortan). */
+  static faintMs: number = DRUNK.faintMs;
   /** Muebles que se usan (tele, lámparas, instrumentos, gato). */
   private furnitureUses!: FurnitureUses;
   /** La pesca en el lago del jardín (ver fishing.ts). */
@@ -291,6 +309,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   onDispose() {
     OfficeRoom.instances.delete(this);
+    this.drunk.dispose();
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -330,6 +349,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
+    player.drunk = this.drunk.stage(auth.sub);
     this.state.players.set(client.sessionId, player);
 
     client.userData = { lastMoveAt: Date.now(), chatTimes: [], lastActiveAt: Date.now(), admin: auth.role === "ADMIN" };
@@ -727,6 +747,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const seated = parsed.data.seated ?? false;
 
     const map = this.mapOf(player.area);
+    // Desmayado no se mueve (el cliente ya lo sabe; esto es por si insiste).
+    if (this.drunk.fainted(player.userId)) {
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y } satisfies MoveCorrection);
+      return;
+    }
     const now = Date.now();
     const dt = (now - client.userData.lastMoveAt) / 1000;
     client.userData.lastMoveAt = now;
@@ -772,7 +797,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !parsed.success || !client.userData) return;
     const map = this.mapOf(player.area);
     const portal = map.portals.find((p) => p.id === parsed.data.portal);
-    if (!portal || player.seated || !nearPortal(map, portal, player.x, player.y)) {
+    if (!portal || player.seated || this.drunk.fainted(player.userId) || !nearPortal(map, portal, player.x, player.y)) {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       return;
     }
@@ -791,6 +816,48 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastMoveAt = Date.now();
     this.fishery.cancel(player.userId);
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
+  }
+
+  /** Se pasó de tragos: se le cae lo que tenía en la mano, vomita y queda en el piso (lo ve su nivel). */
+  private blackout(userId: string) {
+    this.held.drop(userId);
+    this.fishery.cancel(userId);
+    for (const [sessionId, p] of this.state.players) {
+      if (p.userId !== userId) continue;
+      p.moving = false;
+      p.seated = false;
+      this.sendToArea(p.area, MSG.drunkBlackout, { sessionId } satisfies DrunkBlackoutEvent);
+    }
+  }
+
+  /**
+   * Se despierta del desmayo descansando en la casa: sentado en un asiento libre de la zona de descanso del
+   * piso 2 (o de pie ahí mismo, si están todos ocupados).
+   */
+  private wakeToRest(userId: string) {
+    const map = this.mapOf(DRUNK.restArea);
+    const restSeats = [...map.seats.values()].filter((s) => zoneAt(map, s.x, s.y)?.id === DRUNK.restZone);
+    for (const [sessionId, player] of this.state.players) {
+      if (player.userId !== userId) continue;
+      const free = restSeats.filter((s) => !this.seatTaken(sessionId, s.x, s.y));
+      // Los sofás primero (se descansa mejor que en una banqueta).
+      const seat = free.find((s) => s.type.includes("sofa")) ?? free[0];
+      const near = restSeats[0] ?? { x: map.tileSize, y: map.tileSize };
+      const pos = seat ?? this.freeSpotNear(map, near.x, near.y);
+      const previousZoneId = player.zoneId;
+      player.area = map.id;
+      player.x = pos.x;
+      player.y = pos.y;
+      player.moving = false;
+      player.seated = Boolean(seat);
+      if (seat) player.dir = seat.facing;
+      player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
+      player.place = placeAt(map, pos.x, pos.y);
+      this.revokeGuestOnExit(player, previousZoneId);
+      const client = this.clients.getById(sessionId);
+      if (client?.userData) client.userData.lastMoveAt = Date.now();
+      client?.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: map.id, seated: Boolean(seat) } satisfies MoveCorrection);
+    }
   }
 
   /** ¿Hay otra persona sentada en (x, y)? */
@@ -1069,6 +1136,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const now = Date.now();
     const used = this.held.use(player.userId, now, parsed.data?.part);
     if (!used.ok) return;
+    this.drunk.consumed(player.userId, used.art);
     client.userData.lastActiveAt = now;
     const event: HeldUsedEvent = { sessionId: client.sessionId, part: used.part, art: used.art, action: used.action, left: used.left };
     this.sendToArea(player.area, MSG.heldUsed, event);

@@ -1,10 +1,11 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
 import { bubble, characterShadow, crumbColor, drawEmote, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS } from "@hyvento/map/art";
-import { EMOTE, heldParts, parseHeldLeft, usesOf, type ConsumeAction, type Direction, type EmoteId, type PresenceStatus } from "@hyvento/shared";
+import { DRUNK, EMOTE, heldParts, parseHeldLeft, usesOf, type ConsumeAction, type Direction, type DrunkStage, type EmoteId, type PresenceStatus } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt, STATUS_HEX } from "@/lib/cozy";
 import { heldTexture, idleWisp, playUse } from "./consumables";
+import { SWAY_DEG } from "./drunk";
 import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
 
 const ROW = Object.fromEntries(SHEET_DIRECTIONS.map((d, i) => [d, i])) as Record<Direction, number>;
@@ -114,6 +115,12 @@ export class Avatar {
   private wx: number;
   private wy: number;
   private hidden = false;
+  /** Borrachera: se tambalea (cada uno a su ritmo) y a veces se le sale un hipo. */
+  private drunk: DrunkStage = 0;
+  private readonly swayPhase = Math.random() * Math.PI * 2;
+  private nextHicAt = 0;
+  /** Cuándo empezó el desmayo (0 = no lo vimos empezar: aparece ya tendido). */
+  private faintAt = 0;
 
   /** Posición destino (jugadores remotos, interpolada en `update`). */
   targetX: number;
@@ -531,6 +538,109 @@ export class Avatar {
     }
     const t = Math.min(1, (dtMs / 1000) * 14);
     this.setPosition(this.wx + dx * t, this.wy + dy * t);
+  }
+
+  setDrunk(stage: DrunkStage) {
+    this.drunk = stage;
+    if (stage !== 4) this.faintAt = 0;
+    if (!stage) this.sprite.setAngle(0);
+  }
+
+  /**
+   * Se pasó de tragos: se agacha y vomita (gotas verdes y un charco que se seca) y después se cae de lado.
+   * Lo ven todos los del nivel; lo que sigue (despertar descansando) lo decide el servidor.
+   */
+  faint(time: number) {
+    if (this.destroyed) return;
+    this.faintAt = time;
+    this.stopDance();
+    this.stopPerform();
+    const s = worldToScreen(this.wx, this.wy);
+    const face = this.dir === "left" || this.dir === "up" ? -1 : 1;
+    const mouthX = Math.round(s.x) + face * 4;
+    const mouthY = Math.round(s.y) - MOUTH_STANDING + 2;
+    const depth = depthOf(this.wx, this.wy) + 0.6;
+    const puddle = this.scene.add
+      .ellipse(mouthX + face * 3, Math.round(s.y) + 1, 4, 2, 0x9bb33a, 0.9)
+      .setDepth(depthOf(this.wx, this.wy) + 0.3)
+      .setVisible(!this.hidden);
+    this.scene.tweens.add({ targets: puddle, displayWidth: 18, displayHeight: 7, duration: DRUNK.vomitMs, ease: "Sine.out" });
+    this.scene.tweens.add({ targets: puddle, alpha: 0, delay: 12_000, duration: 3000, onComplete: () => puddle.destroy() });
+    // Tres arcadas, cada una un chorrito de gotas que caen al charco.
+    for (let k = 0; k < 3; k++) {
+      this.scene.time.delayedCall(250 + k * (DRUNK.vomitMs / 3.2), () => {
+        if (this.destroyed || this.hidden) return;
+        for (let i = 0; i < 7; i++) {
+          const drop = this.scene.add
+            .rectangle(mouthX, mouthY, 2, 2, i % 3 ? 0xa8c040 : 0xd6d25a)
+            .setDepth(depth);
+          this.scene.tweens.add({
+            targets: drop,
+            x: mouthX + face * (3 + Math.random() * 6),
+            y: Math.round(s.y) + Math.random() * 2,
+            duration: 260 + Math.random() * 200,
+            delay: i * 30,
+            ease: "Quad.in",
+            onComplete: () => drop.destroy(),
+          });
+        }
+      });
+    }
+  }
+
+  /** Cada frame: el tambaleo (desde los pies) y, mareado o más, algún "¡hic!". */
+  sway(time: number) {
+    if (this.destroyed) return;
+    if (this.drunk === 4) return this.faintPose(time);
+    if (!this.drunk) return;
+    // Sentado se mueve menos (y no se sale del asiento).
+    const deg = SWAY_DEG[this.drunk] * (this.seated ? 0.35 : 1);
+    this.sprite.setAngle(Math.sin(time / 430 + this.swayPhase) * deg + Math.sin(time / 1150 + this.swayPhase) * deg * 0.4);
+    if (this.drunk < 2 || this.hidden) return;
+    if (!this.nextHicAt) this.nextHicAt = time + 3000 + Math.random() * 6000;
+    if (time < this.nextHicAt) return;
+    this.nextHicAt = time + (this.drunk === 3 ? 4000 : 8000) + Math.random() * 6000;
+    this.hic();
+  }
+
+  /** Desmayado: agachado mientras vomita, después cae de lado y le salen "z". */
+  private faintPose(time: number) {
+    const t = this.faintAt ? time - this.faintAt : DRUNK.vomitMs + 1000;
+    const side = this.dir === "left" || this.dir === "up" ? -1 : 1;
+    if (t < DRUNK.vomitMs) {
+      // Agachado hacia adelante, con arcadas.
+      this.sprite.setAngle(side * (16 + Math.sin(t / 90) * 4));
+      return;
+    }
+    // Cae en ~300 ms y queda tendido en el piso.
+    const fall = Math.min(1, (t - DRUNK.vomitMs) / 300);
+    this.sprite.setAngle(side * (16 + (84 - 16) * fall * fall));
+    if (fall < 1 || this.hidden) return;
+    if (!this.nextHicAt || this.nextHicAt < time - 10_000) this.nextHicAt = time + 600;
+    if (time < this.nextHicAt) return;
+    this.nextHicAt = time + 1400;
+    this.floatText("z", side * 10, 6);
+  }
+
+  private hic() {
+    this.floatText("¡hic!", 8, 7);
+  }
+
+  /** Un textito que sube y se desvanece junto a la cabeza (el hipo, las "z" del desmayo). */
+  private floatText(label: string, dx: number, size: number) {
+    const s = worldToScreen(this.wx, this.wy);
+    const text = this.scene.add
+      .text(Math.round(s.x) + dx, Math.round(s.y) - HEAD + (this.drunk === 4 ? 20 : 4), label, {
+        fontFamily: cozyFontFamily(),
+        fontSize: `${size}px`,
+        color: COZY.paperLight,
+        stroke: COZY.frame,
+        strokeThickness: 2,
+        resolution: 6,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(5e7 + depthOf(this.wx, this.wy) + 0.2);
+    this.scene.tweens.add({ targets: text, y: text.y - 10, x: text.x + 4, alpha: 0, duration: 1300, ease: "Sine.out", onComplete: () => text.destroy() });
   }
 
   /** Emote: globo con un dibujo que aparece de un salto, flota y se va. "dance" además hace bailar. */

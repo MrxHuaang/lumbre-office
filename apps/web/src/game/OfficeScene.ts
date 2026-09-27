@@ -61,6 +61,7 @@ import {
   onEmote,
   onFurnitureEvent,
   onHeldUsed,
+  onDrunkBlackout,
   onMoveCorrection,
   onWorldEdits,
   onRoom,
@@ -79,6 +80,8 @@ import { WorldEditor } from "./worldEditor";
 import { Usables, type UsableHit } from "./usables";
 import { FishingController } from "./fishing/controller";
 import { FishingRods } from "./fishing/rods";
+import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
+import { DRUNK, type DrunkStage } from "@hyvento/shared";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -196,6 +199,11 @@ export class OfficeScene extends Phaser.Scene {
   /** Pesca: la caña y el minijuego del jugador local, y las cañas de todos. */
   private fishing!: FishingController;
   private rods!: FishingRods;
+  /** Lo que ve quien tomó de más (filtros sobre el canvas) y su zigzag al caminar. */
+  private drunkVision!: DrunkVision;
+  private drunkStage: DrunkStage = 0;
+  /** Desmayado: no se camina hasta que el servidor me despierta (y ahí vuelve la imagen). */
+  private fainted = false;
 
   constructor() {
     super("office");
@@ -234,6 +242,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cleanups.push(onWorldEdits((area) => this.rebuildFromWorld(area)));
     this.fishing = new FishingController(this, () => this.local, () => this.map);
     this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
+    this.drunkVision = new DrunkVision(() => this.game.canvas);
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       if (s.pcOn) return; // con el PC prendido no se camina
@@ -257,10 +266,15 @@ export class OfficeScene extends Phaser.Scene {
       onMoveCorrection((c) => this.handleCorrection(c)),
       onEmote((e) => this.avatars.get(e.sessionId)?.emote(e.emote)),
       onHeldUsed((e) => this.avatars.get(e.sessionId)?.useHeld(e.part, e.action, e.left)),
+      onDrunkBlackout((e) => {
+        this.avatars.get(e.sessionId)?.faint(this.time.now);
+        if (e.sessionId === this.localId) this.faintLocal();
+      }),
       onFurnitureEvent((e) => this.usables.handleEvent(e)),
       () => this.usables.destroy(),
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
+      () => this.drunkVision.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
         if (m.speaking !== prev.speaking) this.updateSpeaking(m.speaking);
@@ -321,7 +335,11 @@ export class OfficeScene extends Phaser.Scene {
       // Alguien pudo pararse donde iba el mueble: el fantasma se vuelve a revisar.
       if (this.decorGhost) this.updateGhost();
     }
-    for (const [id, avatar] of this.avatars) if (id !== this.localId) avatar.interpolate(delta);
+    for (const [id, avatar] of this.avatars) {
+      if (id !== this.localId) avatar.interpolate(delta);
+      avatar.sway(time);
+    }
+    this.drunkVision.update(time, delta);
     this.usables.update();
     this.fishing.update(delta);
     this.rods.update();
@@ -457,9 +475,20 @@ export class OfficeScene extends Phaser.Scene {
       }
     } else {
       this.local?.setPosition(c.x, c.y);
-      if (this.travelling) cam.fadeIn(FADE_MS, 0, 0, 0);
+      if (this.travelling || (this.fainted && c.area)) cam.fadeIn(FADE_MS * (this.fainted ? 4 : 1), 0, 0, 0);
     }
     this.travelling = false;
+    // Al despertar del desmayo el servidor me deja sentado descansando.
+    if (c.seated) {
+      const seat = seatAtPoint(this.map, c.x, c.y) ?? null;
+      this.seat = seat;
+      this.local?.setSeated(seat ? seat.facing : null, seat);
+    }
+    // Solo la corrección del despertar trae el nivel (las de un paso rechazado mientras tanto, no).
+    if (this.fainted && c.area) {
+      this.fainted = false;
+      useOfficeStore.getState().notify(WAKE_NOTICE, "info");
+    }
   }
 
   /** Pisar un portal (puerta, escaleras): fundido a negro y se le pide el cambio al servidor. */
@@ -585,6 +614,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setMotion(player.dir, false);
     avatar.setSeated(player.seated ? player.dir : null, player.seated ? seatAtPoint(this.map, player.x, player.y) : null);
     avatar.setHeld(player.held, player.heldLeft);
+    avatar.setDrunk((player.drunk ?? 0) as DrunkStage);
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -596,9 +626,15 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));
+    p$.listen("drunk", (value) => {
+      const stage = (value ?? 0) as DrunkStage;
+      avatar.setDrunk(stage);
+      if (isLocal) this.setDrunkStage(stage);
+    });
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
+      this.setDrunkStage((player.drunk ?? 0) as DrunkStage);
       this.enterArea(player.area);
       // Al reconectar se conserva el asiento que el servidor recuerda.
       this.seat = player.seated ? (seatAtPoint(this.map, player.x, player.y) ?? null) : null;
@@ -619,6 +655,34 @@ export class OfficeScene extends Phaser.Scene {
       avatar.targetY = player.y;
       avatar.setSeated(player.seated ? player.dir : null, player.seated ? seatAtPoint(this.map, player.x, player.y) : null);
       avatar.setMotion(player.dir, player.moving);
+    });
+  }
+
+  /** Cambió mi borrachera: la visión cambia de a poco y un aviso cuenta cómo voy. */
+  private setDrunkStage(stage: DrunkStage) {
+    const prev = this.drunkStage;
+    this.drunkStage = stage;
+    this.drunkVision.setStage(stage);
+    if (stage === prev) return;
+    // Al subir se avisa cada etapa; al bajar, solo cuando se pasa del todo.
+    if (stage > prev || stage === 0) useOfficeStore.getState().notify(DRUNK_NOTICE[stage], stage >= 3 ? "warning" : "info");
+  }
+
+  /** Me desmayé: se suelta todo, se vomita un rato y la pantalla se va a negro hasta que el servidor me despierta. */
+  private faintLocal() {
+    this.clearPath();
+    this.pendingSeat = null;
+    this.pendingInteract = null;
+    this.pendingUse = null;
+    this.pendingZone = null;
+    if (this.seat) {
+      this.seat = null;
+      this.local?.setSeated(null);
+    }
+    if (this.table.kind) useOfficeStore.getState().closePanel();
+    this.fainted = true;
+    this.time.delayedCall(DRUNK.vomitMs + 400, () => {
+      if (this.fainted) this.cameras.main.fadeOut(1400, 0, 0, 0);
     });
   }
 
@@ -657,7 +721,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private updateLocal(delta: number, taps: Taps) {
     const avatar = this.local;
-    if (!avatar || this.travelling) return;
+    if (!avatar || this.travelling || this.fainted) return;
     const dt = delta / 1000;
     const ts = this.map.tileSize;
     if (this.fishing.busy) return this.updateFishing(avatar, delta, taps);
@@ -725,6 +789,8 @@ export class OfficeScene extends Phaser.Scene {
       }
     }
 
+    // Mareado se camina en zigzag (misma velocidad, la dirección va de lado a lado).
+    [vx, vy] = this.drunkVision.drift(this.time.now, vx, vy);
     let moving = false;
     let dir: Direction = avatar.direction;
     if (vx !== 0 || vy !== 0) {

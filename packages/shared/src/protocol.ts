@@ -84,6 +84,8 @@ export interface MoveCorrection {
   y: number;
   /** Presente cuando el servidor te cambió de nivel (al usar un portal). */
   area?: string;
+  /** El servidor te dejó sentado en (x, y) (al despertar de un desmayo). */
+  seated?: boolean;
 }
 
 // ---------- Oficinas personales ----------
@@ -174,6 +176,8 @@ export const MSG = {
   /** Usar lo que tengo en la mano (`UseHeldMessage`) y el aviso a los del mismo nivel (`HeldUsedEvent`). */
   useHeld: "held:use",
   heldUsed: "held:used",
+  /** Alguien se pasó de tragos: vomita y se desmaya (`DrunkBlackoutEvent`, a los del mismo nivel). */
+  drunkBlackout: "drunk:blackout",
   /** Usar un mueble (`FurnitureUseMessage`) y el aviso de instrumentos y gato (`FurnitureEvent`). */
   furnitureUse: "furniture:use",
   furnitureEvent: "furniture:event",
