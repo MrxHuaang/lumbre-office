@@ -1,6 +1,12 @@
-# Hyvento Office
+# Lumbre — la oficina virtual de Hyvento
 
-La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, con oficina propia para cada persona, chat y video por proximidad, salas privadas y pantalla compartida. Todo el arte se genera por código. El plan de salas y fases está en [`docs/plan-cabana.md`](docs/plan-cabana.md).
+**Lumbre** es una oficina virtual cozy: una cabaña isométrica en pixel-art estilo Stardew donde el equipo se junta como alrededor del fuego (lumbre = la luz de la fogata). Tiene oficina propia para cada persona, chat y video por proximidad, salas privadas y pantalla compartida. Todo el arte se genera por código. El plan de salas y fases está en [`docs/plan-cabana.md`](docs/plan-cabana.md).
+
+Hyvento es el equipo que la usa: adentro de Lumbre está "la cabaña de Hyvento". Por eso lo interno conserva el nombre (paquetes `@hyvento/*`, ids, base de datos y el botón "Hyvento" del HUD); solo cambió la marca pública.
+
+- **Portada** (`/` sin sesión): la presentación pública de Lumbre, con la casa del jardín dibujada por el motor del juego y gente caminando (`apps/web/src/components/lumbre/`). Con sesión, `/` entra directo a la cabaña.
+- **Login** (`/login`): Google por invitación y, en desarrollo, "Entrar de prueba".
+- **Marca**: la llamita pixel (isotipo) está definida en `components/lumbre/marca.ts`; de ahí salen el logotipo, el favicon (`app/icon.tsx`) y el ícono de iOS (`app/apple-icon.tsx`).
 
 ## Estado
 
@@ -57,7 +63,7 @@ pnpm --filter @hyvento/map render planta-baja salida.png        # o "noche" como
 ```
 
 ### Login con Google
-1. [Google Cloud Console](https://console.cloud.google.com) → crea un proyecto (p. ej. "Hyvento Office").
+1. [Google Cloud Console](https://console.cloud.google.com) → crea un proyecto (p. ej. "Lumbre").
 2. **APIs y servicios → Pantalla de consentimiento de OAuth**: tipo *Externo* (o *Interno* si usan Google Workspace), nombre de la app y correo de soporte. Mientras esté en modo *Prueba*, agrega los correos del equipo como usuarios de prueba.
 3. **Credenciales → Crear credenciales → ID de cliente de OAuth → Aplicación web**:
    - Orígenes autorizados: `http://localhost:3000`
