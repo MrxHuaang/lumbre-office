@@ -83,11 +83,17 @@ import {
   type FurnitureEvent,
   type HeldUsedEvent,
   type MenuId,
+  CASA,
+  CASA_MSG,
+  type CasaNotice,
+  PET,
+  PET_MSG,
+  type PetEvent,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
-import { OfficeInfo, OfficeItem, OfficeState, Player } from "../state";
+import { OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { HeldItems } from "./consumables";
@@ -98,6 +104,8 @@ import { randomInt } from "node:crypto";
 import { Fishery } from "./fishing";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
+import { CasaViva } from "./casa";
+import { Pets, type PetUser } from "./mascotas";
 
 interface UserData {
   lastMoveAt: number;
@@ -170,6 +178,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static fishingRandom: (n: number) => number = (n) => randomInt(n);
   static fishingNow: () => number = () => Date.now();
   static fishingTimings: FishingTimings = { ...FISHING };
+  /** Casa viva: el azar de las mascotas y cuánto se está en el baño (los tests los fijan y acortan). */
+  static petRandom: () => number = Math.random;
+  static stallMs: number = CASA.stallMs;
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
@@ -253,6 +264,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const room of OfficeRoom.instances)
       for (const c of room.clients) if (room.state.players.get(c.sessionId)?.userId === toId) c.send(MSG.giftReceived, gift satisfies GiftReceived);
   }
+  /** Casa viva: lo gratis que queda en la mano, los cubículos del baño y las mascotas. */
+  private casa!: CasaViva;
+  private pets!: Pets;
 
   private get repo() {
     return OfficeRoom.repo;
@@ -265,7 +279,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
     for (const [areaId, map] of this.world.areas) for (const z of map.zones) this.areaOfZone.set(z.id, areaId);
     this.setState(new OfficeState());
-    this.furnitureUses = new FurnitureUses(this.state.switches);
+    this.casa = new CasaViva(
+      this.state.stalls,
+      { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+      (userId, item) => this.held.give(userId, item),
+      () => OfficeRoom.stallMs,
+    );
+    this.furnitureUses = new FurnitureUses(this.state.switches, {
+      counters: this.state.counters,
+      occupant: this.casa.occupant,
+      holding: (userId) => this.held.get(userId)?.item,
+    });
+    this.startPets();
     OfficeRoom.instances.add(this);
 
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
@@ -281,6 +306,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
     this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
+    this.onMessage(PET_MSG.call, (client, raw) => this.handlePet(client, raw, "call"));
+    this.onMessage(PET_MSG.action, (client, raw) => this.handlePet(client, raw, "action"));
     this.onMessage(MSG.officeEdit, (client, raw) => {
       this.serial(() => this.handleOfficeEdit(client, raw)).catch((err) => {
         // Un error inesperado igual se responde: si no, el editor se queda esperando.
@@ -517,6 +544,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.world.areas.set(areaId, def === base.def ? base : buildArea(def));
     this.unstick(areaId);
     this.furnitureUses?.prune(this.mapOf(areaId));
+    // Casa viva: si un mueble nuevo quedó encima de una mascota o de su ruta, se corre.
+    this.pets?.rebuilt(areaId);
   }
 
   /**
@@ -785,7 +814,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
 
     const previousZoneId = player.zoneId;
-    if (x !== player.x || y !== player.y) client.userData.lastActiveAt = now;
+    if (x !== player.x || y !== player.y) {
+      client.userData.lastActiveAt = now;
+      // Casa viva: moverse te saca del cubículo del baño.
+      this.casa.leaveStall(player.userId);
+    }
     player.x = x;
     player.y = y;
     player.dir = dir;
@@ -812,6 +845,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const target = this.mapOf(portal.to.area);
     const ts = target.tileSize;
     const pos = this.freeSpotNear(target, portal.to.x * ts + ts / 2, portal.to.y * ts + ts / 2);
+    this.casa.leaveStall(player.userId);
     const previousZoneId = player.zoneId;
     player.area = target.id;
     player.x = pos.x;
@@ -1117,12 +1151,62 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const now = Date.now();
     const seed = Math.floor(Math.random() * 2 ** 31);
     const result = this.furnitureUses.use(this.mapOf(player.area), player, raw, now, seed);
-    if (!result.ok) return;
+    if (!result.ok) {
+      // Casa viva: por qué no (las manos llenas, el baño ocupado); lo demás se ignora como antes.
+      if (result.error === "hands" || result.error === "stall") client.send(CASA_MSG.notice, { code: result.error } satisfies CasaNotice);
+      return;
+    }
     client.userData.lastActiveAt = now;
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
       this.sendToArea(player.area, MSG.furnitureEvent, event);
     }
+    // Casa viva: lo gratis a la mano (el malvavisco, al terminar de asarse, si sigue junto a la fogata) y
+    // el cubículo ocupado.
+    const area = player.area;
+    this.casa.after(player.userId, result, () => {
+      const p = this.state.players.get(client.sessionId);
+      return !!p && p.area === area && result.kind === "event" && this.furnitureUses.stillInReach(this.mapOf(area), result.event, p.x, p.y);
+    });
+  }
+
+  // ---------- Casa viva: mascotas ----------
+
+  /** Las mascotas aparecen durmiendo en sus camas y el servidor las mueve seguido. */
+  private startPets() {
+    this.pets = new Pets({
+      pets: this.state.pets,
+      create: () => new Pet(),
+      map: (area) => this.mapOf(area),
+      rng: () => OfficeRoom.petRandom(),
+    });
+    let last = Date.now();
+    this.pets.start(last);
+    this.clock.setInterval(() => {
+      const now = Date.now();
+      this.pets.tick(now, Math.min(500, now - last));
+      last = now;
+    }, PET.tickMs);
+  }
+
+  /** Llamar a una mascota (clic) o acariciarla y darle un premio (de cerca): lo ven los del nivel. */
+  private handlePet(client: Client<UserData>, raw: unknown, kind: "call" | "action") {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const now = Date.now();
+    const who: PetUser = { userId: player.userId, area: player.area, x: player.x, y: player.y };
+    const result = kind === "call" ? this.pets.call(who, raw, now) : this.pets.act(who, raw, now);
+    if (!result.ok) {
+      // Al que pidió acariciar o dar un premio se le dice por qué no (llamar lejos no avisa: es un clic).
+      if (result.error === "fed" || (kind === "action" && result.error === "far")) {
+        client.send(CASA_MSG.notice, { code: result.error === "fed" ? "fed" : "petFar" } satisfies CasaNotice);
+      }
+      return;
+    }
+    const action = result.action;
+    client.userData.lastActiveAt = now;
+    const pet = (raw as { pet: string }).pet;
+    this.sendToArea(player.area, PET_MSG.event, { pet, sessionId: client.sessionId, action } satisfies PetEvent);
   }
 
   private sendToArea(area: string, type: string, message: unknown) {
@@ -1159,6 +1243,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
     this.fishery.forget(player.userId);
+    this.casa.forget(player.userId);
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);

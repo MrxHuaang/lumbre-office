@@ -114,3 +114,22 @@ export function plate(w: number, h: number, fill = at(C.cream, 4)): PixelCanvas 
   c.outline(OUT);
   return c;
 }
+
+// Casa viva: llamas, cortinas, lo que avanza para todos, el baño, lo que se lleva un rato en la mano y
+// las mascotas (con nombres explícitos, como el casino).
+export {
+  curtainClosed,
+  flame,
+  globeSpin,
+  openBook,
+  progressLayer,
+  roastStick,
+  soapBubble,
+  spark,
+  stallLight,
+  waterDrop,
+  wateringCan,
+  FLAME_FRAMES,
+  type FlameSize,
+} from "./casa-fx";
+export { drawPet, petTreat, sleepZ, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";

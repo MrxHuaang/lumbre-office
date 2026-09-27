@@ -88,7 +88,9 @@ export const piso3: AreaDef = {
     place("library-ladder", 1, 7, "right"),
     place("reading-table", 3, 4, "down"),
     place("reading-table", 11, 4, "down"),
-    ...[3, 4, 5, 6, 11, 12, 13, 14].flatMap((x) => [place("chair", x, 3, "down"), place("chair", x, 6, "up")]),
+    // Dos sillas por lado en cada mesa, alternadas: se lee con espacio (y se llega a cada una).
+    ...[3, 5, 11, 13].map((x) => place("chair", x, 3, "down")),
+    ...[4, 6, 12, 14].map((x) => place("chair", x, 6, "up")),
     place("plant", 7, 0),
     place("globe", 3, 9),
     place("armchair-wing", 5, 9, "up"),
@@ -144,6 +146,8 @@ export const piso3: AreaDef = {
     place("side-table", 2, 16),
     place("beanbag", 3, 18, "left"),
     place("hammock", 6, 17, "right"),
+    // La cama de Nube, el gato del piso 3.
+    place("pet-bed", 9, 16),
     place("blanket-basket", 8, 20),
     place("bookshelf-low", 7, 14, "down"),
     place("plant", 9, 14),
@@ -170,8 +174,6 @@ export const piso3: AreaDef = {
     place("chair", 20, 17, "left"),
     place("puzzle-table", 22, 17, "right"),
     place("chair", 21, 17, "right"),
-    place("chair", 21, 18, "right"),
-    place("chair", 23, 17, "left"),
     place("chair", 23, 18, "left"),
     place("beanbag", 18, 20, "up"),
     place("beanbag", 19, 20, "up"),

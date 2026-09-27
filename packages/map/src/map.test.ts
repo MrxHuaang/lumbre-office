@@ -143,8 +143,29 @@ describe("portales", () => {
   it("se puede ir y volver entre todos los niveles", () => {
     const links = [...world.areas.values()].flatMap((m) => m.portals.map((p) => `${m.id}→${p.to.area}`));
     expect(links).toEqual(
-      expect.arrayContaining(["jardin→planta-baja", "planta-baja→jardin", "planta-baja→piso-2", "piso-2→planta-baja"]),
+      expect.arrayContaining(["jardin→planta-baja", "planta-baja→jardin", "planta-baja→piso-2", "piso-2→planta-baja", "jardin→piso-2", "piso-2→jardin"]),
     );
+  });
+
+  it("la escalera exterior del jardín sube al balcón del piso 2 y se vuelve por el mismo lado", () => {
+    const up = jardin.portals.find((p) => p.id === "jardin-escalera-terraza")!;
+    const down = piso2.portals.find((p) => p.id === "piso-2-balcon")!;
+    expect(up.to.area).toBe("piso-2");
+    expect(down.to.area).toBe("jardin");
+    // El pie de la escalera queda justo al sur del costado este de la casa (donde se dibuja la escalera).
+    const house = jardin.furniture.find((f) => f.type === "house")!;
+    const foot = up.tiles[0]!;
+    expect(foot).toEqual({ x: house.x + house.w - 1, y: house.y + house.d });
+    // Arriba se llega al balcón (se pisa) y de ahí se sale por la puerta de la zona de descanso.
+    const ts = piso2.tileSize;
+    expect(zoneAt(piso2, center(piso2, up.to.x), center(piso2, up.to.y))?.id).toBe("balcon");
+    expect(zoneAt(piso2, center(piso2, down.tiles[0]!.x), center(piso2, down.tiles[0]!.y))?.id).toBe("balcon");
+    const path = findPath(piso2, { x: up.to.x, y: up.to.y }, STARTS["piso-2"]!)!;
+    expect(path).not.toBeNull();
+    const zones = new Set(path.map((t) => zoneAt(piso2, t.x * ts + ts / 2, t.y * ts + ts / 2)?.id));
+    expect(zones.has("descanso")).toBe(true);
+    // Y abajo se llega caminando desde el portón al pie de la escalera.
+    expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, foot)).not.toBeNull();
   });
 
   it("solo se usa un portal estando cerca", () => {
@@ -192,8 +213,8 @@ describe("asientos", () => {
     const facing = (x: number, y: number) => plantaBaja.seats.get(y * plantaBaja.width + x)?.facing;
     expect(facing(13, 5)).toBe("right");
     expect(facing(15, 5)).toBe("left");
-    expect(facing(14, 4)).toBe("down");
-    expect(facing(14, 6)).toBe("up");
+    expect(facing(18, 6)).toBe("up");
+    expect(facing(25, 5)).toBe("down");
   });
 });
 
@@ -211,13 +232,15 @@ describe("lugares y zonas", () => {
   it("las mesas son aisladas, están dentro de la cafetería y se llega a cada una desde la entrada", () => {
     const cafe = plantaBaja.zones.find((z) => z.id === "cafeteria")!;
     const mesas = plantaBaja.zones.filter((z) => z.type === "table");
-    expect(mesas.map((z) => z.id)).toEqual(Array.from({ length: 8 }, (_, i) => `mesa-${i + 1}`));
+    expect(mesas.map((z) => z.id)).toEqual(Array.from({ length: 6 }, (_, i) => `mesa-${i + 1}`));
     for (const mesa of mesas) {
       expect(mesa.isolated, mesa.id).toBe(true);
       expect(mesa.x >= cafe.x && mesa.y >= cafe.y, mesa.id).toBe(true);
       expect(mesa.x + mesa.width <= cafe.x + cafe.width && mesa.y + mesa.height <= cafe.y + cafe.height, mesa.id).toBe(true);
       const seats = [...plantaBaja.seats.values()].filter((s) => zoneAt(plantaBaja, s.x, s.y)?.id === mesa.id);
-      expect(seats, mesa.id).toHaveLength(4);
+      // Dos o tres sillas por mesa: la cafetería respira (docs: menos sillas, más rincones).
+      expect(seats.length, mesa.id).toBeGreaterThanOrEqual(2);
+      expect(seats.length, mesa.id).toBeLessThanOrEqual(3);
       // Se entra a la burbuja caminando: algún tile libre de la zona (las esquinas) se alcanza con A*.
       const ts = plantaBaja.tileSize;
       const libres: { x: number; y: number }[] = [];

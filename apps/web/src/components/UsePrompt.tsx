@@ -3,7 +3,7 @@
 // Rediseño: usar lo que se tiene en la mano (F, o el casillero junto a la barra de abajo) y la ayuda "E"
 // junto a un mueble que se usa (tele, lámparas, tocadiscos, piano, guitarra, gato).
 import { drawHeldItem } from "@hyvento/map/art";
-import { consumeActionOf, heldParts, menuItem, parseHeldLeft } from "@hyvento/shared";
+import { consumeActionOf, FREE_NAMES, heldParts, menuItem, parseHeldLeft } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toHtmlCanvas } from "@/game/iso/canvas";
@@ -33,7 +33,8 @@ export function HeldSlot() {
   const i = left.length > 1 && (left[1] ?? 0) > (left[0] ?? 0) ? 1 : 0;
   const art = parts[i]!;
   const verb = parts.length > 1 ? "Usar" : VERB[consumeActionOf(art)];
-  const name = menuItem(mine.held)?.name ?? "";
+  // Lo gratis de la casa (nevera, cafetera, fogata) no está en ninguna carta.
+  const name = menuItem(mine.held)?.name ?? FREE_NAMES[mine.held] ?? "";
   return (
     // Separado de los botones de la barra por una raya, como otra sección del inventario.
     <span className="ml-1 flex self-stretch items-center border-l-2 border-cozy-ink-soft/40 pl-2.5">

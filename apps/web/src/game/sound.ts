@@ -379,3 +379,6 @@ export function volumeAt(dist: number, reach: number) {
   const t = Math.max(0, 1 - dist / reach);
   return t * t;
 }
+
+/** El contexto de audio compartido (casa viva: casaSonidos.ts suma sus sonidos a la misma salida). */
+export const audioOut = audio;

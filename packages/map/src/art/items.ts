@@ -261,6 +261,81 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { b: hex("#8a5530"), B: hex("#5e3620"), g: hex("#e8c050"), G: hex("#b88a24"), e: hex("#ff7a2a") },
   },
+  // ---------- Casa viva: lo gratis de la nevera y de la fogata ----------
+  jugo: {
+    liquid: { chars: "aA" },
+    rows: [
+      "....ss.", //
+      "oooosoo",
+      "ohaasAo",
+      "ohaaaAo",
+      "ohaaAAo",
+      "ohaaaAo",
+      "oggggGo",
+      ".ooooo.",
+    ],
+    colors: { a: hex("#ffa62b"), A: hex("#e07a18"), s: hex("#f25c7a"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
+  },
+  // El agua de panela de la cafetera de la casa (no está en la carta): la taza del tinto, dorada y con
+  // una rodaja de limón.
+  aguapanela: {
+    fx: "steam",
+    rows: [
+      ".oooool", //
+      ".occcoL",
+      ".owwWoo",
+      ".owwWoo",
+      "ooooooo",
+      "oWwwwWo",
+      ".ooooo.",
+    ],
+    colors: { ...CUP, c: hex("#b8742e"), l: hex("#f3e36a"), L: hex("#9fc43a") },
+    surface: { chars: "c", inner: hex("#dca45a") },
+  },
+  manzana: {
+    crumb: hex("#fff3d0"),
+    rows: [
+      "...ol..", //
+      "..oolL.",
+      ".ooRo..",
+      "orrRrro",
+      "orHrrRo",
+      "orrrrRo",
+      "orrrRRo",
+      ".oRRRo.",
+      "..ooo..",
+    ],
+    colors: { r: hex("#d93a3a"), R: hex("#a8242c"), H: hex("#ff9a8a"), l: hex("#6fb34a"), L: hex("#3f7a2e") },
+  },
+  banano: {
+    crumb: hex("#fff6d6"),
+    rows: [
+      "......oo", //
+      ".....odo",
+      "....oyyo",
+      "...oyyYo",
+      "..oyyyYo",
+      "ooyyyYo.",
+      "oyyyYo..",
+      ".oooo...",
+    ],
+    colors: { y: hex("#f7d84a"), Y: hex("#c9a526"), d: hex("#5a3b1c") },
+  },
+  malvavisco: {
+    crumb: hex("#fffaf0"),
+    rows: [
+      "....ooo.", //
+      "...obBbo",
+      "...oBwbo",
+      "...obbbo",
+      "..oooooo",
+      "..s.....",
+      ".s......",
+      "s.......",
+    ],
+    // Dorado por fuera (asado en la fogata) y blanco por dentro; el palito de madera abajo.
+    colors: { b: hex("#d9923e"), B: hex("#f3c47a"), w: hex("#fff4e0"), s: hex("#8a5530") },
+  },
 };
 
 export const CAFE_ITEM_ART = Object.keys(ITEMS);

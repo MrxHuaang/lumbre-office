@@ -9,16 +9,22 @@ import { CONEXIONES, hacia } from "./conexiones";
 // recibidor, nunca a través de otra sala. Arriba del pasillo: salón, cafetería y cocina (detrás de la
 // barra); abajo: guardarropa y baños (al oeste, junto al recibidor), recibidor y tienda.
 
-/** Mesa de café con cuatro sillas alrededor y su burbuja de audio. */
-function cafeTable(n: number, x: number, y: number): { furniture: Placement[]; zone: ZoneDef } {
+/** Lado de la mesa donde va una silla: a la izquierda (-x), a la derecha (+x), arriba (-y) o abajo (+y). */
+type Lado = "l" | "r" | "u" | "d";
+
+/**
+ * Mesa de café con dos o tres sillas (más aire para pasar que con cuatro) y su burbuja de audio. Cada
+ * silla mira hacia la mesa.
+ */
+function cafeTable(n: number, x: number, y: number, lados: Lado[] = ["l", "r"]): { furniture: Placement[]; zone: ZoneDef } {
+  const silla: Record<Lado, Placement> = {
+    l: place("chair", x - 1, y, "right"),
+    r: place("chair", x + 1, y, "left"),
+    u: place("chair", x, y - 1, "down"),
+    d: place("chair", x, y + 1, "up"),
+  };
   return {
-    furniture: [
-      place("cafe-table", x, y),
-      place("chair", x - 1, y, "right"),
-      place("chair", x + 1, y, "left"),
-      place("chair", x, y - 1, "down"),
-      place("chair", x, y + 1, "up"),
-    ],
+    furniture: [place("cafe-table", x, y), ...lados.map((l) => silla[l])],
     zone: {
       id: `mesa-${n}`,
       name: `Mesa ${n}`,
@@ -40,17 +46,15 @@ const TIENDA = { x: 24, y: 14, w: 16, h: 12 };
 // Los probadores: un rincón con paredes bajas al fondo de la tienda (es parte de ella: se entra desde adentro).
 const PROBADORES = { x: 33, y: 14, w: 7, h: 6 };
 
-// Las mesas de la cafetería: una fila de cinco bajo la barra, un paso (y = 7) y abajo tres más y dos mesas
-// altas, a los lados de la entrada desde el pasillo (x 20..21), que deja libre el camino hasta la barra.
+// Las mesas de la cafetería: seis mesas de dos o tres sillas, repartidas con aire entre ellas (y plantas
+// en los rincones). La entrada desde el pasillo (x 20..21) deja libre el camino hasta la barra.
 const tables = [
   cafeTable(1, 14, 5),
-  cafeTable(2, 18, 5),
-  cafeTable(3, 22, 5),
-  cafeTable(4, 26, 5),
-  cafeTable(5, 30, 5),
-  cafeTable(6, 15, 9),
-  cafeTable(7, 25, 9),
-  cafeTable(8, 29, 9),
+  cafeTable(2, 18, 5, ["l", "r", "d"]),
+  cafeTable(3, 25, 6, ["u", "d"]),
+  cafeTable(4, 30, 6, ["l", "r", "d"]),
+  cafeTable(5, 15, 9),
+  cafeTable(6, 27, 9, ["l", "r"]),
 ];
 
 export const plantaBaja: AreaDef = {
@@ -132,6 +136,8 @@ export const plantaBaja: AreaDef = {
     place("reading-lamp", 4, 0),
     place("blanket-basket", 8, 0),
     place("cat-bed", 8, 2),
+    // La cama de Canela, la gata que deambula por la casa (ver PETS en @hyvento/shared).
+    place("pet-bed", 10, 2),
     place("armchair-wing", 3, 4, "right"),
     place("coffee-table", 6, 4),
     place("armchair-wing", 9, 4, "left"),
@@ -149,12 +155,10 @@ export const plantaBaja: AreaDef = {
     place("armchair", 14, 0, "right"),
     place("cafe-table", 15, 0),
     place("armchair", 16, 0, "left"),
-    place("armchair", 15, 1, "up"),
     place("rug-round", 18, 0),
     place("armchair", 18, 0, "right"),
     place("cafe-table", 19, 0),
-    place("armchair", 20, 0, "left"),
-    place("armchair", 19, 1, "up"),
+    place("bonsai", 20, 0),
     place("plant", 13, 0),
     place("plant", 17, 0),
     place("plant", 21, 0),
@@ -180,14 +184,17 @@ export const plantaBaja: AreaDef = {
     place("stool", 27, 3, "up"),
     place("stool", 31, 3, "up"),
     ...tables.flatMap((t) => t.furniture),
-    place("high-table", 18, 9),
-    place("stool", 17, 9, "right"),
-    place("stool", 18, 8, "down"),
-    place("high-table", 22, 9),
-    place("stool", 22, 8, "down"),
-    place("stool", 23, 9, "left"),
+    // Una mesa alta para tomarse algo de pie junto a la entrada, y plantas y detalles en los rincones.
+    place("high-table", 23, 9),
+    place("stool", 23, 8, "down"),
+    place("stool", 24, 9, "left"),
+    place("monstera", 13, 7),
+    place("plant", 13, 10),
+    place("plant", 19, 10),
+    place("rug-round", 17, 5),
     place("plant", 32, 7),
     place("plant", 32, 10),
+    place("lamp", 32, 8),
     // ----- Cocina (detrás de la barra; de adorno): fogones y lavaplatos al norte, despensa y alacena al
     // oeste, la isla al centro, la mesa de preparación y la mesita del personal.
     place("kitchen-counter", 33, 0, "down"),
@@ -210,6 +217,8 @@ export const plantaBaja: AreaDef = {
     place("chair", 37, 9, "right"),
     place("chair", 39, 9, "left"),
     place("kitchen-counter", 33, 9, "right"),
+    // Casa viva: la radio de la cocina.
+    place("radio", 39, 2),
     // ----- Pasillo.
     place("runner", 2, 12, "down"),
     place("runner", 11, 12, "down"),

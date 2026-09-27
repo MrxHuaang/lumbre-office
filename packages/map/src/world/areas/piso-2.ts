@@ -214,7 +214,8 @@ export const piso2: AreaDef = {
     place("plant", 18, 0),
     place("plant", 29, 0),
     place("conference-table", 23, 3, "right"),
-    ...[3, 4, 5, 6, 7].flatMap((y) => [place("chair", 22, y, "right"), place("chair", 25, y, "left")]),
+    // Tres sillas por lado (con aire entre una y otra) y dos en la cabecera.
+    ...[3, 5, 7].flatMap((y) => [place("chair", 22, y, "right"), place("chair", 25, y, "left")]),
     place("chair", 23, 8, "up"),
     place("chair", 24, 8, "up"),
     place("sideboard", 18, 4, "right"),
@@ -254,7 +255,6 @@ export const piso2: AreaDef = {
     place("kitchen-counter", 20, 17),
     place("water-cooler", 20, 18),
     place("high-table", 22, 16),
-    place("stool", 22, 15, "down"),
     place("stool", 22, 17, "up"),
     place("stool", 23, 16, "left"),
     place("rug-3x3", 25, 19),
@@ -267,16 +267,19 @@ export const piso2: AreaDef = {
     place("cafe-table", 22, 21),
     place("chair", 21, 21, "right"),
     place("chair", 23, 21, "left"),
-    place("chair", 22, 20, "down"),
     place("plant", 29, 14),
     place("plant", 20, 23),
     place("lamp", 29, 23),
     place("cafe-sign", 28, 17),
+    // Casa viva: la radio de la zona de descanso (se prende con E).
+    place("radio", 28, 15),
     // ----- Balcón: barandas alrededor, la jardinera, una tumbona y una planta que no la tapa.
-    ...balconyRailings(BALCON),
+    // En la esquina este, la baranda se abre a la escalera exterior que baja al jardín.
+    ...balconyRailings(BALCON).filter((r) => !(r.x === BALCON.x + BALCON.w - 1 && r.y === BALCON.y)),
+    place("balcony-stair", BALCON.x + BALCON.w - 1, BALCON.y),
     place("balcony-planter", 22, 24, "down"),
-    place("plant", 27, 24),
-    place("deck-chair", 26, 25, "right"),
+    place("deck-chair", 22, 25, "left"),
+    place("plant", 27, 25),
   ],
   portals: [
     {
@@ -290,6 +293,12 @@ export const piso2: AreaDef = {
       label: "Subir al piso 3",
       tiles: CONEXIONES.piso2.escaleraArriba.tiles,
       to: hacia("piso-3", CONEXIONES.piso3.escaleraAbajo),
+    },
+    {
+      id: "piso-2-balcon",
+      label: "Bajar al jardín por la escalera del balcón",
+      tiles: CONEXIONES.piso2.terraza.tiles,
+      to: hacia("jardin", CONEXIONES.jardin.escaleraTerraza),
     },
   ],
   points: [{ type: "screen", name: "Pantalla de la sala", x: 23, y: 0, zone: "meeting-main" }],

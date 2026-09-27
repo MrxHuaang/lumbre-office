@@ -224,17 +224,22 @@ for (const [x, y] of [
 ])
   put("lamp-post", x!, y!);
 
+// La casita de Tobi, el perro, camino al lago, con su cama delante: así la casita no lo tapa al dormir
+// (ver PETS en @hyvento/shared).
+put("dog-house", 48, 28, "down");
+put("pet-bed", 48, 29);
+
 // Terraza este: mesas con sillas, la pérgola, farolitos y la leñera.
 put("pergola", 57, 5);
 for (const [tx, ty] of [
   [53, 8],
   [54, 13],
 ])
+  // Tres sillas por mesa (la de adelante queda libre: se ve la mesa y se pasa).
   for (const [dx, dy, f] of [
     [-1, 0, "right"],
     [1, 0, "left"],
     [0, -1, "down"],
-    [0, 1, "up"],
   ] as const)
     put("patio-chair", tx! + dx, ty! + dy, f);
 put("patio-table", 53, 8);
@@ -589,6 +594,12 @@ export const jardin: AreaDef = {
       label: "Entrar a la casa",
       tiles: CONEXIONES.jardin.casa.tiles,
       to: hacia("planta-baja", CONEXIONES.plantaBaja.entrada),
+    },
+    {
+      id: "jardin-escalera-terraza",
+      label: "Subir al balcón del piso 2",
+      tiles: CONEXIONES.jardin.escaleraTerraza.tiles,
+      to: hacia("piso-2", CONEXIONES.piso2.terraza),
     },
   ],
   points: POINTS,

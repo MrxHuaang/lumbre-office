@@ -14,3 +14,5 @@ export * from "./worldEdit";
 export * from "./fishing";
 export * from "./fishing-sim";
 export * from "./social";
+export * from "./casa";
+export * from "./mascotas";
