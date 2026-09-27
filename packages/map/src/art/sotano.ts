@@ -580,7 +580,10 @@ function bathStall(): Sprite {
   );
 }
 
-/** Lavamanos (1x1, el frente hacia +x): mueble con lavatorio, grifo cromado, jabón y espejo con luz. */
+/**
+ * Lavamanos (1x1, el frente hacia +x): mueble con lavatorio, grifo cromado, jabón y un salpicadero de
+ * azulejos. Sin espejo: va contra la pared baja del pasillo y se vería flotando del otro lado.
+ */
 function bathSink(): Sprite {
   const cab: Shader = (u, v, fw, fh) => {
     if (v >= fh - 1) return at(C.wood, 4);
@@ -588,16 +591,16 @@ function bathSink(): Sprite {
     if (v > fh - 4 && Math.abs(u - fw / 2) < 2 && Math.abs(u - fw / 2) > 1) return at(C.gold, 4);
     return at(C.wood, u < 1 || u >= fw - 1 ? 2 : 3);
   };
-  const mirror: Shader = (u, v, fw, fh) => {
-    if (u < 1 || u >= fw - 1 || v < 1 || v >= fh - 1) return at(C.gold, v >= fh - 1 || u < 1 ? 4 : 2);
-    if (Math.abs(u - v * 0.7 - 1) < 1 || Math.abs(u - v * 0.7 - 4) < 0.5) return at(C.white, 4);
-    return at(C.sky, v > fh * 0.6 ? 3 : 2);
+  // Azulejos blancos con juntas celestes y un ribete dorado arriba.
+  const tiles: Shader = (u, v, _fw, fh) => {
+    if (v >= fh - 1) return at(C.gold, 4);
+    if (mod(Math.floor(u), 3) === 0 || Math.floor(v) === 1) return at(C.sky, 3);
+    return at(C.white, 4);
   };
   return renderSprite(
     [
-      // Espejo contra la pared, con una luz arriba.
-      { x: 0.5, y: 3, z: 17, w: 1.2, d: 10, h: 14, top: flat(at(C.gold, 4)), left: flat(at(C.gold, 2)), right: mirror },
-      solidBox({ x: 1.5, y: 6, z: 31, w: 2, d: 4, h: 1.5 }, C.gold, 3),
+      // Salpicadero contra la pared, apenas más alto que la mesada.
+      { x: 1, y: 1.5, z: 12, w: 1.5, d: 13, h: 4, top: flat(at(C.gold, 4)), left: flat(at(C.white, 2)), right: tiles },
       { x: 3, y: 2, z: 0, w: 10, d: 12, h: 12, top: flat(at(C.wood, 3)), left: flat(at(C.wood, 2)), right: cab },
       {
         x: 2.5,
