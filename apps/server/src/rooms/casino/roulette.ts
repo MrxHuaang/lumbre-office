@@ -16,6 +16,7 @@ import { randomInt } from "node:crypto";
 import type { GameRepository } from "../../repo/types";
 import { RouletteBet, type RouletteState } from "../../state";
 import { payoutWithRetry, TableQueue } from "./common";
+import type { OpenRounds } from "./recovery";
 
 export interface RouletteTimings {
   bettingMs: number;
@@ -36,6 +37,8 @@ interface Deps {
   timings: () => RouletteTimings;
   /** De dónde sale el número (en los tests, fijo). */
   spin: () => number;
+  /** Rondas abiertas (para devolver lo apostado si la sala se cierra antes de pagar). */
+  rounds?: OpenRounds;
 }
 
 /** Número al azar de la ruleta, con el generador criptográfico (no se puede adivinar). */
@@ -59,8 +62,24 @@ function paramOf(spec: RouletteBetSpec): number {
 export class RouletteTable {
   /** Apuestas de a una: así el tope por ronda se cuenta con las anteriores ya puestas. */
   private readonly queue = new TableQueue();
+  /** El pago de la ronda en curso (al cerrar la sala se espera a que termine). */
+  private settling: Promise<void> = Promise.resolve();
+  private closed = false;
 
-  constructor(private readonly d: Deps) {}
+  constructor(private readonly d: Deps) {
+    d.rounds?.attach(this);
+  }
+
+  private ref(round: number) {
+    return this.d.rounds?.ref("ruleta", round) ?? casinoRefId("ruleta", round);
+  }
+
+  /** La sala se cierra: no más apuestas; se esperan las que se estaban cobrando y el pago en curso. */
+  async close() {
+    this.closed = true;
+    await this.queue.run(async () => undefined);
+    await this.settling;
+  }
 
   /** Arranca el ciclo de rondas. */
   start() {
@@ -83,7 +102,9 @@ export class RouletteTable {
     // Se decide al empezar a girar para que la rueda se anime hasta ese número; ya no se puede apostar.
     s.result = this.d.spin();
     s.endsAt = Date.now() + this.d.timings().spinMs;
-    this.d.later(this.d.timings().spinMs, () => void this.settle());
+    this.d.later(this.d.timings().spinMs, () => {
+      this.settling = this.settle();
+    });
   }
 
   private async settle() {
@@ -110,11 +131,12 @@ export class RouletteTable {
     }
     for (const [userId, t] of byUser) {
       if (t.won > 0) {
-        const paid = await payoutWithRetry(this.d.repo, { userId, amount: t.won, refId: casinoRefId("ruleta", round) }, "premio");
+        const paid = await payoutWithRetry(this.d.repo, { userId, amount: t.won, refId: this.ref(round) }, "premio");
         if (paid) this.d.setPoints(userId, paid.balance);
       }
       this.d.notify(userId, { round, result, won: t.won, staked: t.staked }, { straight: t.straight });
     }
+    this.d.rounds?.settled(this.ref(round));
   }
 
   /**
@@ -131,13 +153,15 @@ export class RouletteTable {
     const settings = this.d.settings();
     if (!settings.enabled) return { ok: false, error: "disabled" };
     if (!near) return { ok: false, error: "far" };
-    if (s.phase !== "betting") return { ok: false, error: "closed" };
+    if (s.phase !== "betting" || this.closed) return { ok: false, error: "closed" };
     const mine = s.bets.filter((b) => b.userId === player.userId).length;
     if (mine >= CASINO.roulette.maxBetsPerRound) return { ok: false, error: "max-bets" };
 
     const round = s.round;
     const { bet, amount } = parsed.data;
-    const refId = casinoRefId("ruleta", round);
+    const refId = this.ref(round);
+    // La ronda queda anotada antes de cobrar: si el servidor se cae, la próxima corrida la devuelve.
+    if (this.d.rounds && !(await this.d.rounds.opening(refId))) return { ok: false, error: this.closed ? "closed" : "failed" };
     let outcome;
     try {
       outcome = await this.d.repo().casinoBet({ userId: player.userId, amount, refId });
@@ -147,8 +171,8 @@ export class RouletteTable {
     }
     this.d.setPoints(player.userId, outcome.balance);
     if (!outcome.ok) return { ok: false, error: outcome.error };
-    if (s.round !== round || s.phase !== "betting") {
-      // Se cerró la ronda mientras se cobraba: se devuelve la apuesta.
+    if (s.round !== round || s.phase !== "betting" || this.closed) {
+      // Se cerró la ronda (o la sala) mientras se cobraba: se devuelve la apuesta.
       const paid = await payoutWithRetry(this.d.repo, { userId: player.userId, amount, refId }, "devolución");
       if (paid) this.d.setPoints(player.userId, paid.balance);
       return { ok: false, error: "closed" };

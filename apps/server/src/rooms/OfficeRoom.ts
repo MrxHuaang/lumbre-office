@@ -206,6 +206,8 @@ import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blac
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { Bag } from "./bag";
 import { DEFAULT_MESA_TIMINGS, MesaTable, parseMesaBet, randomMesaDraw, type MesaTimings } from "./casino/mesas";
+import { OpenRounds } from "./casino/recovery";
+import { settleAll } from "./shutdown";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
@@ -1073,19 +1075,30 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.clock.setInterval(() => this.sombrero.refresh(), OfficeRoom.sombreroTickMs);
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
 
-    const officeZones = allZones(this.world).filter((z) => z.type === "office");
-    await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
-    await this.reloadCasinoSettings();
-    await this.loadWorldEdits();
-    await this.loadGameClock();
-    await this.huerto.load().catch((err) => console.error("loadGarden", err));
-    this.startCasino();
-    await this.reloadOffices();
-    await this.events.refresh();
-    this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
+    try {
+      const officeZones = allZones(this.world).filter((z) => z.type === "office");
+      await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
+      await this.reloadCasinoSettings();
+      await this.loadWorldEdits();
+      await this.loadGameClock();
+      await this.huerto.load().catch((err) => console.error("loadGarden", err));
+      this.startCasino();
+      // Apuestas de una corrida anterior que se cayó sin pagarlas (y cada tanto, por si era reciente).
+      await this.casinoRounds.recover();
+      this.clock.setInterval(() => void this.casinoRounds.recover(), OpenRounds.recoverEveryMs);
+      await this.reloadOffices();
+      await this.events.refresh();
+      this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
+    } catch (err) {
+      // Colyseus no cierra una sala que falló al crearse: se paran sus relojes para que no quede viva a medias.
+      console.error("OfficeRoom.onCreate: no se pudo abrir la sala", err);
+      OfficeRoom.instances.delete(this);
+      this.clock.clear();
+      throw err;
+    }
   }
 
-  onDispose() {
+  async onDispose() {
     OfficeRoom.instances.delete(this);
     this.piscina?.dispose();
     this.drunk.dispose();
@@ -1095,9 +1108,24 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.bus?.dispose();
     this.cocina.dispose();
     this.phones.dispose();
-    void this.achievements.flushAll();
-    void this.whiteboards.flush();
-    this.pets?.flush(Date.now());
+    // Primero se devuelve lo cobrado o sacado de la mochila que no alcanzó a terminar (Colyseus espera
+    // esta promesa antes de apagar el proceso)...
+    const restore = (userId: string, itemId: string, n: number) => this.repo.addInventory(userId, itemId, n);
+    await settleAll("devoluciones", {
+      casino: () => this.casinoRounds.close(),
+      parrilla: () => this.parrilla?.close(restore),
+      molino: () => this.granja?.close(restore),
+    });
+    // ...y después se guarda lo pendiente (las devoluciones pudieron sumar contadores).
+    await settleAll("guardado", {
+      logros: () => this.achievements.flushAll(),
+      pizarras: () => this.whiteboards.flush(),
+      mascotas: () => this.pets?.flush(Date.now()),
+      huerto: () => this.huerto?.flush(),
+      mochilas: () => this.held.flushAll(),
+      arcade: () => this.arcade?.flush(),
+      decoracion: () => this.decorQueue,
+    });
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -2269,6 +2297,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
       timings: () => OfficeRoom.rouletteTimings,
       spin: () => OfficeRoom.rouletteSpin(),
+      rounds: this.casinoRounds,
     });
     this.roulette.start();
     for (const id of MESAS) {
@@ -2289,6 +2318,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         },
         timings: () => OfficeRoom.mesaTimings,
         draw: (t) => OfficeRoom.mesaDraw(t),
+        rounds: this.casinoRounds,
       });
       this.mesas.set(id, table);
       table.start();
@@ -2308,6 +2338,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
       timings: () => OfficeRoom.blackjackTimings,
       shuffle: () => OfficeRoom.blackjackShuffle(),
+      rounds: this.casinoRounds,
     });
   }
 
@@ -2928,7 +2959,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         },
         take: (userId, part) => this.held.takePart(userId, part),
       },
-      save: (bond) => void this.repo.savePetBond(bond).catch((err) => console.error("savePetBond", err)),
+      save: (bond) => this.repo.savePetBond(bond).catch((err) => console.error("savePetBond", err)),
     });
     let last = Date.now();
     this.pets.start(last);
@@ -3679,6 +3710,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     return { x, y };
   }
+
+  /** Rondas del casino con apuestas cobradas y sin pagar (se devuelven al cerrar; ver casino/recovery.ts). */
+  private readonly casinoRounds = new OpenRounds({
+    repo: () => this.repo,
+    run: randomUUID().slice(0, 8),
+    setPoints: (userId, balance) => {
+      for (const p of this.state?.players.values() ?? []) if (p.userId === userId) p.points = balance;
+    },
+  });
 }
 /** Lo que responde la parrilla a quien la usó (o nada: se ignora). */
 type GrillResult = { state?: GrillState; notice?: GrillNotice } | null;
