@@ -5,7 +5,7 @@
 import { L, WORLD_TO_ART } from "@hyvento/map/art";
 import type { OfficeMap, WallFeature } from "@hyvento/map";
 import type * as Phaser from "phaser";
-import { worldToScreen } from "./iso/view";
+import { worldToScreen } from "./iso/projection";
 
 export interface Point {
   x: number;

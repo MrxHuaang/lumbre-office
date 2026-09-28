@@ -21,30 +21,17 @@ import {
   WALL_H,
   glowSprite,
   SURROUND_PAD,
-  toScreen,
-  toWorld,
   type Sprite,
 } from "@hyvento/map/art";
 import * as Phaser from "phaser";
 import { ensureTexture } from "./canvas";
 import { prerenderedBase, prerenderedFurniture, prerenderedSurroundings } from "./prerender";
 import { furnitureKey } from "./prerender-keys";
+import { DEPTH_FLAT, DEPTH_OVERLAY, depthOf, worldToScreen } from "./projection";
 
 export { ensureTexture, toHtmlCanvas } from "./canvas";
+export { DEPTH_FLAT, DEPTH_OVERLAY, depthOf, screenToWorld, worldToScreen } from "./projection";
 
-/** Punto del mundo (px de juego, z en px de pantalla) → coordenadas de pantalla del juego. */
-export function worldToScreen(x: number, y: number, z = 0) {
-  return toScreen(x * WORLD_TO_ART, y * WORLD_TO_ART, z);
-}
-
-/** Pantalla → mundo sobre el piso (z = 0). */
-export function screenToWorld(sx: number, sy: number) {
-  const a = toWorld(sx, sy);
-  return { x: a.x / WORLD_TO_ART, y: a.y / WORLD_TO_ART };
-}
-
-/** Profundidad isométrica: lo que está más abajo-adelante (mayor x + y) se dibuja encima. */
-export const depthOf = (x: number, y: number) => x + y;
 const DEPTH_FLOOR = -1e7;
 /**
  * La noche: color y fuerza de la penumbra (MULTIPLY) y cuánto más lejos que su brillo llega cada luz.
@@ -57,8 +44,6 @@ const NIGHT = {
 } as const;
 /** La textura de la noche va a media resolución (es un degradado). */
 const NIGHT_SCALE = 2;
-export const DEPTH_FLAT = -1e6;
-export const DEPTH_OVERLAY = 1e7;
 
 function spriteTexture(scene: Phaser.Scene, key: string, make: () => Sprite): Sprite {
   const s = make();
