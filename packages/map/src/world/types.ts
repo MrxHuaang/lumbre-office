@@ -61,7 +61,11 @@ export type FloorKind =
   // dónde cae, ver art/bus-calle.ts). No se camina: queda fuera de la zona jugable.
   | "road"
   // El Megabús por dentro: piso de caucho antideslizante.
-  | "rubber";
+  | "rubber"
+  // Relieve del jardín: el talud de una loma (no se camina, ver build.ts) y los escalones de piedra donde
+  // lo cruza un sendero.
+  | "slope"
+  | "steps";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
 // Variedad: rayas finas, damasco dorado, ladrillo visto, listones de madera clara y estuco con zócalo.
 export type WallpaperKind =
@@ -277,6 +281,11 @@ export interface AreaDef {
    * `ground` (por tile).
    */
   groundFine?: (x: number, y: number) => FloorKind;
+  /**
+   * Altura del terreno de un exterior (en pisos, con decimales en los taludes), en tiles del nivel con
+   * decimales. Solo la usa el dibujo: sombrea los taludes y aclara lo alto (el isométrico no se levanta).
+   */
+  heightFine?: (x: number, y: number) => number;
   rooms: RoomDef[];
   doors: DoorDef[];
   /** Tiles transitables fuera de las habitaciones (umbral de la puerta de entrada). */

@@ -17,7 +17,7 @@ const WARM = { color: "#ffd98a" };
  */
 export const GRADAS = {
   /** Esquina del anfiteatro en el jardín (coordenadas de la zona jugable) y su tamaño. */
-  origin: { x: 18, y: 53 },
+  origin: { x: 20, y: 85 },
   size: { w: 9, h: 11 },
   /** Centro del semicírculo (el frente de la tarima), relativo al origen. */
   center: { x: -2, y: 6.5 },
