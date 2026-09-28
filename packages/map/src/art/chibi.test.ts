@@ -72,11 +72,12 @@ describe("personajes chibi", () => {
     // usa con accentUsers de look-palette).
     const accentAccessories: Accessory[] = ["cap", "headphones", "beanie", "scarf"];
     // El vestido, el entero y el bikini tapan la parte de abajo; la chaqueta y el bañador usan el acento.
-    const noPants: Outfit[] = ["dress", "swimsuit", "bikini"];
+    const noPants: Outfit[] = ["dress", "swimsuit", "bikini", "gown", "pajamas"];
     const withAccent: Outfit[] = ["jacket", "trunks"];
+    // El color secundario se fija: si no viene, sigue al de acento (y el ribete del pijama lo usa).
     const noAccent: CharacterStyle[] = [
-      { ...base, accessories: [] },
-      { ...base, hairStyle: "long", accessories: ACCESSORIES.filter((a) => !accentAccessories.includes(a)) },
+      { ...base, top2: "#f7ebc8", accessories: [] },
+      { ...base, top2: "#f7ebc8", hairStyle: "long", accessories: ACCESSORIES.filter((a) => !accentAccessories.includes(a)) },
     ];
     for (const plain of noAccent) {
       expect(usesColor(plain, "pants"), "sin conjunto, el pantalón").toBe(true);

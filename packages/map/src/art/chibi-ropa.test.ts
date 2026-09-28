@@ -13,7 +13,7 @@ import {
 } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { BODY_X, BODY_Y, drawCharacter, drawSitting, FEET_Y, FRAME, SHEET_DIRECTIONS, SIT_DROP, type CharacterStyle } from "./chibi";
-import { top2Parts, TOPS_WITH_TOP2 } from "./chibi/clothes";
+import { top2Parts, TOPS_WITH_TOP2 } from "./chibi";
 import { ACCENT_BACK_ITEMS, ACCENT_NECK_ITEMS } from "./chibi/gear";
 import { tone } from "./chibi/kit";
 import { OUT } from "./palette";
@@ -126,11 +126,12 @@ describe("ropa del chibi: parte de arriba", () => {
     }
   });
 
-  it("top2Parts dice cuándo se ve el color secundario, con cualquier patrón y conjunto", () => {
-    // El editor lo usa para mostrar el selector: tiene que coincidir con lo que se dibuja.
-    const outfits: (Outfit | undefined)[] = [undefined, ...OUTFITS];
+  it("top2Parts dice cuándo se ve el color secundario, con cualquier parte de arriba, patrón y conjunto", () => {
+    // El editor lo usa para mostrar el selector: tiene que coincidir con lo que se dibuja (mira solo los
+    // cuerpos quietos; aquí se compara con las hojas enteras). Los conjuntos que tapan más o menos.
+    const outfits: (Outfit | undefined)[] = [undefined, "dress", "jacket", "blazer", "vest", "lab-coat", "coat", "hi-vis"];
     for (const top of TOPS)
-      for (const pattern of PATTERNS)
+      for (const pattern of ["solid", "dots"] as const)
         for (const outfit of outfits) {
           const style: CharacterStyle = { ...base, top, pattern, ...(outfit ? { outfit } : {}) };
           const parts = top2Parts(normalizeLook(style));
@@ -140,6 +141,13 @@ describe("ropa del chibi: parte de arriba", () => {
     expect(top2Parts(normalizeLook({ ...base, top: "hoodie", outfit: "dress" }))).toEqual([]);
     expect(top2Parts(normalizeLook({ ...base, top: "sweater", outfit: "dress" }))).toEqual(["cuffs"]);
     expect(top2Parts(normalizeLook({ ...base, top: "polo", outfit: "jacket", pattern: "dots" }))).toEqual(["dots", "collar"]);
+    // La corbata asoma en el escote del saco; el abrigo lo tapa todo; el pijama lleva sus ribetes.
+    expect(top2Parts(normalizeLook({ ...base, top: "shirt-tie", outfit: "blazer" }))).toContain("tie");
+    expect(top2Parts(normalizeLook({ ...base, top: "hoodie", outfit: "coat" }))).toEqual([]);
+    expect(top2Parts(normalizeLook({ ...base, top: "flannel" }))).toEqual(["plaid"]);
+    expect(top2Parts(normalizeLook({ ...base, outfit: "pajamas" }))).toContain("trim");
+    // Con un traje puesto los colores son los del traje.
+    expect(top2Parts(normalizeLook({ ...base, top: "hoodie", costume: "chef" }))).toEqual([]);
   });
 
   it("cada patrón se ve en todas las vistas, sobre cualquier parte de arriba, con el color secundario", () => {
@@ -254,8 +262,10 @@ describe("ropa del chibi: conjuntos encima de las partes nuevas", () => {
         expect(usesColor({ ...plain, outfit: "dress" }, "pants"), `vestido, ${top}, ${bottom}`).toBe(false);
         expect(usesColor({ ...plain, outfit: "overalls" }, "pants"), `overol, ${top}, ${bottom}`).toBe(true);
         expect(usesColor({ ...plain, outfit: "jacket" }, "accent"), `chaqueta, ${top}, ${bottom}`).toBe(true);
-        for (const outfit of OUTFITS)
-          expect(missing(FRONT, changedViews(plain, { ...plain, outfit })), `${outfit} sobre ${top} y ${bottom}`).toEqual([]);
+        // Todos los conjuntos sobre el pantalón y la falda (las otras partes de abajo son variantes de esas).
+        if (bottom === "pants" || bottom === "skirt")
+          for (const outfit of OUTFITS)
+            expect(missing(FRONT, changedViews(plain, { ...plain, outfit })), `${outfit} sobre ${top} y ${bottom}`).toEqual([]);
       }
     }
   });

@@ -1,9 +1,10 @@
 // Bailes del club, dibujados desde el Look con las mismas capas del chibi (ropa, cara, pelo…) pero con
 // brazos en otras poses, el cuerpo corrido, inclinado o enganchado, y el pelo al viento. No toca las
 // hojas de caminata ni de sentado: son hojas aparte (la rutina del tubo y los pasos de la pista).
-import { DANCE_MOVE_IDS, isSwimwear, normalizeLook, type DanceMoveId, type FullLook } from "@hyvento/shared";
+import { DANCE_MOVE_IDS, normalizeLook, wornLook, type DanceMoveId, type FullLook, type WornLook } from "@hyvento/shared";
 import { FEET_Y, FRAME, type CharacterStyle } from "./chibi";
-import { drawLegs, drawTorso, sleeveOf } from "./chibi/clothes";
+import { armWear, drawLegs, drawTorso, HIDES_BOTTOM } from "./chibi/clothes";
+import { drawCostumeDetails } from "./chibi/costumes";
 import { drawFace, drawFaceGear } from "./chibi/face";
 import { drawBackGear, drawNeckGear } from "./chibi/gear";
 import { drawHair } from "./chibi/hair";
@@ -77,15 +78,15 @@ function streakOf(look: FullLook) {
   return look.hairStyle === "short" || look.hairStyle === "spiky" || look.hairStyle === "undercut" ? STREAK.short : STREAK.mid;
 }
 
-/** Un brazo en su pose: manga según la parte de arriba (o la chaqueta) y la mano de piel. */
+/** Un brazo en su pose: manga según lo que se lleve (como al caminar) y la mano de piel o el guante. */
 function drawArm(ctx: Ctx, side: 0 | 1, pose: ArmPose) {
   const { c, t, look, y } = ctx;
   const path = ARM[pose].map(([x, r]) => [side === 0 ? x : 15 - x, r] as const);
   const skin = t.skin[side === 0 ? 1 : 0];
-  const sleeveLen =
-    look.outfit === "jacket" ? path.length - 1 : isSwimwear(look.outfit) ? 0 : { long: path.length - 1, short: 3, none: 0 }[sleeveOf(look.top)];
-  const sleeve = look.outfit === "jacket" ? t.accent[0] : t.shirt[side === 0 ? 1 : 0];
-  path.forEach(([x, r], i) => c.set(x, y(r), i < sleeveLen && i < path.length - 1 ? sleeve : skin));
+  const wear = armWear(look, t);
+  const hand = path.length - 1;
+  const sleeveLen = { long: hand, short: 3, none: 0 }[wear.kind];
+  path.forEach(([x, r], i) => c.set(x, y(r), i < sleeveLen && i < hand ? wear.paint(x, r) : i === hand && t.gloves ? t.gloves[1] : skin));
 }
 
 /** Cuello y cabeza (piel), igual que en el chibi. */
@@ -100,8 +101,10 @@ function drawHeadBase({ c, t, y }: Ctx) {
 /** La pierna extra de las poses del tubo, sobre las piernas dobladas del chibi sentado. */
 function drawPoleLeg(ctx: Ctx, leg: "cross" | "extend") {
   const { c, t, look, Y } = ctx;
-  const bottom = look.outfit === "dress" || isSwimwear(look.outfit) ? null : look.bottom;
-  const fabric = bottom === "pants" ? t.pants : ([t.skin[0], t.skin[1]] as const);
+  const covered = look.outfit === "coveralls" || look.outfit === "pajamas";
+  const bottom = look.outfit && HIDES_BOTTOM.has(look.outfit) ? null : look.bottom;
+  const long = covered || bottom === "pants" || bottom === "cargo" || bottom === "joggers" || bottom === "long-skirt";
+  const fabric = look.outfit === "pajamas" ? ([t.shirt[0], t.shirt[1]] as const) : long ? t.pants : ([t.skin[0], t.skin[1]] as const);
   const shoe = look.shoes === "sandals" ? t.skin[0] : t.shoes[1];
   if (leg === "cross") {
     // La espinilla de adelante sigue de largo y rodea el tubo.
@@ -122,7 +125,7 @@ function drawStreak(ctx: Ctx, side: -1 | 1) {
 }
 
 /** El cuerpo de un frame del baile (16 x BODY_H, sin contorno: el contorno va sobre el frame armado). */
-function danceBody(look: FullLook, p: DancePose, t: Tones): PixelCanvas {
+function danceBody(look: WornLook, p: DancePose, t: Tones): PixelCanvas {
   const c = new PixelCanvas(16, BODY_H);
   const sit = p.sit ?? false;
   const frame = p.frame ?? 0;
@@ -146,6 +149,7 @@ function danceBody(look: FullLook, p: DancePose, t: Tones): PixelCanvas {
   drawLegs(ctx);
   if (p.leg && sit && p.view === "front") drawPoleLeg(ctx, p.leg);
   drawTorso(ctx);
+  drawCostumeDetails(ctx, "body");
   // Los brazos que suben junto a la cabeza van después del pelo (si no, el pelo largo los tapa).
   const raised = (a: ArmPose) => a === "up" || a === "high";
   for (const side of [0, 1] as const) if (!raised(p.arms[side])) drawArm(ctx, side, p.arms[side]);
@@ -162,6 +166,7 @@ function danceBody(look: FullLook, p: DancePose, t: Tones): PixelCanvas {
   drawFaceGear(ctx);
   drawHeadwear(ctx);
   drawBackGear(ctx, "over");
+  drawCostumeDetails(ctx, "head");
   for (const side of [0, 1] as const) if (raised(p.arms[side])) drawArm(ctx, side, p.arms[side]);
   return c;
 }
@@ -183,7 +188,7 @@ function blitBody(dst: PixelCanvas, body: PixelCanvas, ox: number, oy: number, f
 }
 
 /** Arma un frame de w x h con los pies en `feetY` y el centro en x = w / 2, y le pone el contorno. */
-function danceFrame(look: FullLook, t: Tones, p: DancePose, w: number, h: number, feetY: number): PixelCanvas {
+function danceFrame(look: WornLook, t: Tones, p: DancePose, w: number, h: number, feetY: number): PixelCanvas {
   const f = new PixelCanvas(w, h);
   const body = danceBody(look, p, t);
   const ox = Math.round(w / 2 - 8 + (p.dx ?? 0));
@@ -252,7 +257,7 @@ export const POLE_ROUTINE: readonly PoleFrame[] = [
 
 /** Hoja de la rutina del tubo: una fila con un frame por paso de POLE_ROUTINE. */
 export function drawPoleDance(s: CharacterStyle): PixelCanvas {
-  const look = normalizeLook(s);
+  const look = wornLook(normalizeLook(s));
   const t = tones(look);
   const sheet = new PixelCanvas(POLE_FRAME_W * POLE_ROUTINE.length, POLE_FRAME_H);
   POLE_ROUTINE.forEach((p, i) => paste(sheet, danceFrame(look, t, p, POLE_FRAME_W, POLE_FRAME_H, POLE_FEET_Y), i, 0));
@@ -297,7 +302,7 @@ export const FLOOR_MOVES: Record<DanceMoveId, readonly DancePose[]> = {
 
 /** Hoja de los pasos de la pista: una fila por paso (en el orden de DANCE_MOVES) y DANCE_FRAMES columnas. */
 export function drawFloorDance(s: CharacterStyle): PixelCanvas {
-  const look = normalizeLook(s);
+  const look = wornLook(normalizeLook(s));
   const t = tones(look);
   const sheet = new PixelCanvas(FRAME * DANCE_FRAMES, FRAME * DANCE_MOVE_IDS.length);
   DANCE_MOVE_IDS.forEach((id, row) => FLOOR_MOVES[id].forEach((p, col) => paste(sheet, danceFrame(look, t, p, FRAME, FRAME, FEET_Y), col, row)));

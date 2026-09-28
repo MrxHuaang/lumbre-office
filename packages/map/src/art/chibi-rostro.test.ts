@@ -12,6 +12,7 @@ import {
 } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { BODY_X, BODY_Y, drawCharacter, drawSitting, FRAME, SHEET_DIRECTIONS, SIT_DROP, type CharacterStyle } from "./chibi";
+import { HAT_HIDES } from "./chibi/hair";
 import { OUT } from "./palette";
 import type { PixelCanvas } from "./pixel";
 
@@ -258,7 +259,24 @@ describe("cabeza", () => {
   });
 
   it("gorra, gorro, moño y pañoleta usan el color de acento; sombrero, corona y flor tienen el suyo", () => {
-    const accent: HeadItem[] = ["cap", "beanie", "headphones", "bow", "bandana"];
+    const accent: HeadItem[] = [
+      "cap",
+      "beanie",
+      "headphones",
+      "bow",
+      "bandana",
+      "top-hat",
+      "fire-helmet",
+      "hard-hat",
+      "rain-hat",
+      "party-hat",
+      "beret",
+      "bucket-hat",
+      "nightcap",
+      "headband",
+      "pompom-beanie",
+      "wizard-hat",
+    ];
     for (const head of ITEMS) expect(usesColor({ ...base, head }, "accent"), head).toBe(accent.includes(head));
   });
 
@@ -274,7 +292,8 @@ describe("cabeza", () => {
       const s = drawSitting(style);
       return [topRow(w, 0, RIGHT), topRow(w, 0, UP), topRow(w, 1, RIGHT), topRow(s, RIGHT, 0), topRow(s, UP, 0)];
     };
-    for (const head of ["cap", "beanie", "straw-hat", "bandana"] as const) {
+    // Todos los sombreros que tapan la coronilla (ver HAT_HIDES).
+    for (const head of Object.keys(HAT_HIDES) as HeadItem[]) {
       const ref = tops({ ...base, head });
       for (const hairStyle of HAIR_STYLES) expect(tops({ ...base, hairStyle, head }), `${head} con ${hairStyle}`).toEqual(ref);
     }
@@ -301,7 +320,7 @@ describe("cabeza", () => {
         }
       return false;
     };
-    for (const head of ["crown", "bow", "headphones", "flower"] as const)
+    for (const head of ["crown", "bow", "headphones", "flower", "party-hat", "tiara"] as const)
       for (const hairStyle of HAIR_STYLES)
         for (const [row, name] of [
           [RIGHT, "de frente"],

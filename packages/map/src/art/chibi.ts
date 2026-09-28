@@ -2,8 +2,9 @@
 // partir del Look (ver packages/shared/src/look.ts). Cada parte vive en su módulo de ./chibi: ropa
 // (clothes), cuello y espalda (gear), cara (face), pelo (hair) y cabeza (head). Aquí solo se decide el
 // orden de las capas. Los seis personajes fijos son presets de Look.
-import { normalizeLook, type FullLook, type HumanAvatar, type Look, type LookInput } from "@hyvento/shared";
-import { drawArms, drawLegs, drawTorso } from "./chibi/clothes";
+import { normalizeLook, wornLook, type FullLook, type HumanAvatar, type Look, type LookInput, type Pattern, type WornLook } from "@hyvento/shared";
+import { drawArms, drawLegs, drawTorso, HIDES_TOP, OWN_SLEEVES } from "./chibi/clothes";
+import { drawCostumeDetails } from "./chibi/costumes";
 import { drawFace, drawFaceGear } from "./chibi/face";
 import { drawBackGear, drawNeckGear } from "./chibi/gear";
 import { drawHair } from "./chibi/hair";
@@ -11,6 +12,9 @@ import { drawHeadwear } from "./chibi/head";
 import { BODY_H, SIT_DROP, SOLE, TOP, tones, type Ctx, type View } from "./chibi/kit";
 import { OUT } from "./palette";
 import { PixelCanvas } from "./pixel";
+
+export { HIDES_BOTTOM, HIDES_TOP, OWN_SLEEVES, TOPS_WITH_TOP2 } from "./chibi/clothes";
+export { ACCENT_BACK_ITEMS, ACCENT_NECK_ITEMS } from "./chibi/gear";
 
 /** Cada frame mide 40x40; el personaje va centrado abajo con los pies en FEET_Y. */
 export const FRAME = 40;
@@ -50,7 +54,7 @@ export const HUMANS: Record<HumanAvatar, CharacterStyle> = {
 };
 
 /** Un frame del cuerpo (16 x BODY_H). Las capas van de atrás hacia adelante. */
-function drawBody(look: FullLook, view: View, frame: 0 | 1 | 2, sit: boolean): PixelCanvas {
+function drawBody(look: WornLook, view: View, frame: 0 | 1 | 2, sit: boolean): PixelCanvas {
   const c = new PixelCanvas(16, BODY_H);
   // Sentado: el cuerpo baja y las piernas se doblan hacia adelante.
   const drop = sit ? SIT_DROP : 0;
@@ -71,6 +75,7 @@ function drawBody(look: FullLook, view: View, frame: 0 | 1 | 2, sit: boolean): P
   drawLegs(ctx);
   drawArms(ctx);
   drawTorso(ctx);
+  drawCostumeDetails(ctx, "body");
   drawHeadBase(ctx);
   if (view === "front") {
     drawFace(ctx);
@@ -85,6 +90,7 @@ function drawBody(look: FullLook, view: View, frame: 0 | 1 | 2, sit: boolean): P
   drawFaceGear(ctx);
   drawHeadwear(ctx);
   drawBackGear(ctx, "over");
+  drawCostumeDetails(ctx, "head");
   c.outline(OUT);
   return c;
 }
@@ -120,7 +126,7 @@ const ORIENT: Record<SheetDirection, { view: View; flip: boolean }> = {
 
 /** Hoja de caminata: 3 columnas (quieto, paso A, paso B) x 4 filas (down, left, right, up). */
 export function drawCharacter(s: CharacterStyle): PixelCanvas {
-  const look = normalizeLook(s);
+  const look = wornLook(normalizeLook(s));
   const sheet = new PixelCanvas(FRAME * FRAMES, FRAME * SHEET_DIRECTIONS.length);
   SHEET_DIRECTIONS.forEach((dir, row) => {
     const { view, flip } = ORIENT[dir];
@@ -131,7 +137,7 @@ export function drawCharacter(s: CharacterStyle): PixelCanvas {
 
 /** Hoja de sentado: 4 frames (down, left, right, up). */
 export function drawSitting(s: CharacterStyle): PixelCanvas {
-  const look = normalizeLook(s);
+  const look = wornLook(normalizeLook(s));
   const sheet = new PixelCanvas(FRAME * SHEET_DIRECTIONS.length, FRAME);
   SHEET_DIRECTIONS.forEach((dir, col) => {
     const { view, flip } = ORIENT[dir];
@@ -144,4 +150,49 @@ export function drawSitting(s: CharacterStyle): PixelCanvas {
 export function styleFor(avatar: string, look: Look | null): CharacterStyle {
   if (look) return look;
   return HUMANS[avatar as HumanAvatar] ?? HUMANS.ada;
+}
+
+/**
+ * Dónde se ve el color secundario (top2): el patrón, la capucha, la corbata, el cuello, los puños, los
+ * estampados o los ribetes. El editor lo usa para nombrar su selector (o decir que no se ve).
+ */
+export type Top2Part = Exclude<Pattern, "solid"> | "hood" | "collar" | "tie" | "cuffs" | "plaid" | "flowers" | "print" | "number" | "inner" | "trim" | "details";
+
+/** Lo de cada parte de arriba que va con top2 (además del patrón). */
+const TOP2_OF_TOP: Partial<Record<FullLook["top"], Top2Part[]>> = {
+  hoodie: ["hood"],
+  "shirt-tie": ["tie"],
+  sweater: ["collar", "cuffs"],
+  polo: ["collar", "cuffs"],
+  flannel: ["plaid"],
+  jersey: ["collar", "number", "cuffs"],
+  hawaiian: ["flowers"],
+  sailor: ["collar", "cuffs"],
+  cardigan: ["inner"],
+  "graphic-tee": ["print"],
+};
+
+/**
+ * Lo que se pinta con top2 en este look. Qué partes son sale de la ropa; si se ve o no, de dibujarlo:
+ * se dibuja con dos colores secundarios distintos y se compara (con tantos conjuntos que tapan una parte
+ * u otra, así el editor nunca dice que se ve algo que quedó tapado).
+ */
+export function top2Parts(full: FullLook): Top2Part[] {
+  // Basta con los cuatro cuerpos quietos (de frente y de espaldas, de pie y sentado).
+  const probe = (top2: string) => {
+    const look = wornLook({ ...full, top2 });
+    return (["front", "back"] as const).flatMap((view) => [drawBody(look, view, 0, false), drawBody(look, view, 0, true)]);
+  };
+  const [a, b] = [probe("#ff00ff"), probe("#00ff00")];
+  const visible = a.some((body, k) => body.data.some((v, i) => v !== b[k]!.data[i]));
+  if (!visible) return [];
+  const look = wornLook(full);
+  const parts: Top2Part[] = look.pattern === "solid" ? [] : [look.pattern];
+  const o = look.outfit;
+  if (o === "pajamas" || o === "robe" || o === "ruana") parts.push("trim");
+  // Los puños se ven si las mangas son las de la parte de arriba (el vestido las deja); lo demás, si no la tapa un conjunto.
+  const sleeves = !o || !OWN_SLEEVES.has(o);
+  const top = !o || !HIDES_TOP.has(o);
+  for (const p of TOP2_OF_TOP[look.top] ?? []) if (p === "cuffs" ? sleeves : top) parts.push(p);
+  return parts.length ? parts : ["details"];
 }
