@@ -1,5 +1,5 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
-import { BODY_UP, bubble, characterShadow, crumbColor, drawMiniBadge, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS, SIT_DROP, sparkleSprite } from "@hyvento/map/art";
+import { BODY_UP, bubble, characterShadow, crumbColor, drawMiniBadge, FEET_Y, focusTomato, FRAME, FRAMES, heldEffect, partyHat, SHEET_DIRECTIONS, singerMic, SIT_DROP, sparkleSprite } from "@hyvento/map/art";
 import {
   achievementById,
   consumeActionOf,
@@ -72,6 +72,12 @@ const MOUTH_STANDING = BODY_UP.mouth - 1;
 const MOUTH_SEATED = MOUTH_STANDING - SIT_DROP;
 const MOUTH: Record<Direction, { dx: number }> = { down: { dx: -1 }, right: { dx: 1 }, left: { dx: -4 }, up: { dx: 4 } };
 
+/** Lo que se lleva sobre el nombre: el gorrito de cumpleaños, el tomatito del foco o el micrófono del karaoke. */
+export type AvatarBadge = "hat" | "tomato" | "mic";
+const BADGE_ART = { hat: partyHat, tomato: focusTomato, mic: singerMic } as const;
+/** Alto de la fila de insignias (lo que se corren hacia arriba los globos). */
+const BADGE_ROW_H = 12;
+
 /** Algo en una mano: su sprite, los usos que le quedan y cómo está en la animación de uso. */
 interface HeldPart {
   art: string;
@@ -140,6 +146,8 @@ export class Avatar {
   private dance?: { timer: Phaser.Time.TimerEvent; step: number };
   /** Gesto de un emote en curso (`t` = ms desde que empezó) y el brazo que saluda, si va. */
   private gesture?: { kind: EmoteGesture; t: number; timer: Phaser.Time.TimerEvent; arm?: Phaser.GameObjects.Image };
+  /** Insignias sobre el nombre (ver setBadges) y cuáles son, para no rearmarlas si no cambian. */
+  private badgeRow?: { key: string; container: Phaser.GameObjects.Container };
   /** Cuenta regresiva de una foto (3-2-1) sobre la cabeza. */
   private countdownBubble?: { container: Phaser.GameObjects.Container; timer: Phaser.Time.TimerEvent };
   /** Lo que lleva en las manos (pedido en la cafetería o el bar); `clearing` = se quita al terminar de usarlo. */
@@ -254,6 +262,7 @@ export class Avatar {
     this.emoteBubble?.container.setVisible(!hidden);
     this.gesture?.arm?.setVisible(!hidden);
     this.countdownBubble?.container.setVisible(!hidden);
+    this.badgeRow?.container.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
   }
 
@@ -288,6 +297,54 @@ export class Avatar {
     }
     this.refreshLabel();
     this.layout();
+  }
+
+  /**
+   * Insignias sobre el nombre: el gorrito de quien cumple años, el tomatito de quien está en foco y el
+   * micrófono de quien canta en el karaoke. Se mecen un poquito, en fila.
+   */
+  setBadges(badges: AvatarBadge[]) {
+    const key = badges.join(",");
+    if (key === (this.badgeRow?.key ?? "")) return;
+    this.badgeRow?.container.destroy();
+    this.badgeRow = undefined;
+    if (badges.length > 0) {
+      const images = badges.map((b, i) => {
+        const tex = ensureTexture(this.scene, `insignia-${b}`, () => BADGE_ART[b]());
+        return this.scene.add.image((i - (badges.length - 1) / 2) * 10, 0, tex).setOrigin(0.5, 1);
+      });
+      const container = this.scene.add.container(0, 0, images).setVisible(!this.hidden);
+      this.scene.tweens.add({ targets: images, y: -1, duration: 700, yoyo: true, repeat: -1, ease: "Sine.inOut", delay: (_t: unknown, _k: unknown, _v: unknown, i: number) => i * 180 });
+      this.badgeRow = { key, container };
+      this.refreshLabel();
+    }
+    this.layout();
+  }
+
+  /** Confeti que salta sobre la cabeza (lo felicitaron por su cumpleaños). */
+  confetti(colors: readonly (readonly number[])[]) {
+    if (this.hidden) return;
+    const s = worldToScreen(this.wx, this.wy);
+    const depth = 6e7 + depthOf(this.wx, this.wy) + 0.3;
+    for (let i = 0; i < 24; i++) {
+      const c = colors[i % colors.length]!;
+      const bit = this.scene.add
+        .rectangle(Math.round(s.x), Math.round(s.y) - HEAD, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 1 : 2, (c[0]! << 16) | (c[1]! << 8) | c[2]!)
+        .setDepth(depth)
+        .setAlpha(this.veiled ? 0 : 1);
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+      const speed = 18 + Math.random() * 22;
+      this.scene.tweens.add({
+        targets: bit,
+        x: bit.x + Math.cos(angle) * speed,
+        y: bit.y + Math.sin(angle) * speed + 26,
+        angle: Math.random() * 360,
+        alpha: 0,
+        duration: 1200 + Math.random() * 700,
+        ease: "Quad.out",
+        onComplete: () => bit.destroy(),
+      });
+    }
   }
 
   /**
@@ -329,6 +386,9 @@ export class Avatar {
     this.statusDot.setAlpha(shown ? 1 : 0);
     // La insignia va con el nombre: se esconde con él (modo mesa, velo, nombres ocultos).
     this.badge?.img.setAlpha(shown ? 1 : 0);
+    // Las insignias (gorrito, tomatito, micrófono) siguen al nombre: sin él (modo mesa, velo, nombres
+    // ocultos) tampoco se ven; al pasar el mouse, sí.
+    this.badgeRow?.container.setAlpha(!this.nameHidden && !this.veiled && (this.nameMode !== "oculto" || this.hovered) ? 1 : 0);
   }
 
   setStatus(status: PresenceStatus) {
@@ -710,7 +770,7 @@ export class Avatar {
     const to = worldToScreen(a.x, a.y);
     const dx = Math.round(to.x) - Math.round(from.x);
     const dy = Math.round(to.y) - Math.round(from.y);
-    const objects = [this.label, this.statusDot, this.badge?.img, this.speakingRing, this.bubble, this.emoteBubble?.container, this.video?.dom];
+    const objects = [this.label, this.statusDot, this.badge?.img, this.speakingRing, this.bubble, this.emoteBubble?.container, this.badgeRow?.container, this.video?.dom];
     for (const o of objects) if (o) o.setPosition(o.x + dx, o.y + dy);
   }
 
@@ -1290,6 +1350,7 @@ export class Avatar {
     this.emoteBubble?.tween.remove();
     this.emoteBubble?.container.destroy();
     this.clearCountdown();
+    this.badgeRow?.container.destroy();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
     this.ride?.img.destroy();
@@ -1355,12 +1416,15 @@ export class Avatar {
     this.statusDot.setPosition(x + 3 - this.label.width / 2 - 4, y - top - this.label.height / 2).setDepth(5e7 + depth + 0.1);
     // La insignia, pegada al otro lado del nombre (a píxel entero, para que el dibujo quede nítido).
     this.badge?.img.setPosition(Math.round(x + 3 + this.label.width / 2 + 1), Math.round(y - top - this.label.height / 2)).setDepth(5e7 + depth + 0.1);
-    this.bubble?.setPosition(x, y - top - this.label.height - 1).setDepth(6e7 + depth);
+    // Las insignias van justo sobre el nombre; los globos, encima de ellas.
+    const badgeH = this.badgeRow ? BADGE_ROW_H : 0;
+    this.badgeRow?.container.setPosition(x + 3, y - top - this.label.height - 1).setDepth(5e7 + depth + 0.2);
+    this.bubble?.setPosition(x, y - top - this.label.height - 1 - badgeH).setDepth(6e7 + depth);
     if (this.emoteBubble) {
       // Sobre el nombre; si hay globo de chat, encima de él.
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       this.emoteBubble.container
-        .setPosition(x, y - top - this.label.height - 1 - chat - this.emoteBubble.lift)
+        .setPosition(x, y - top - this.label.height - 1 - badgeH - chat - this.emoteBubble.lift)
         .setDepth(6e7 + depth + 0.1);
     }
     this.shiftOverlays();
@@ -1368,7 +1432,7 @@ export class Avatar {
       // Encima del emote y del globo de chat, si hay.
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       const emote = this.emoteBubble ? 14 : 0;
-      this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - chat - emote).setDepth(6e7 + depth + 0.15);
+      this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - badgeH - chat - emote).setDepth(6e7 + depth + 0.15);
     }
   }
 }

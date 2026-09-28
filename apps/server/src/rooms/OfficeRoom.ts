@@ -140,6 +140,19 @@ import {
   STAT_PREFIX,
   type AchievementUnlockedEvent,
   type FishSpecies,
+  BIRTHDAY,
+  CongratsMessage,
+  congratsRef,
+  congratsRefPrefix,
+  eventDay,
+  FOCUS,
+  focusMs,
+  focusRefPrefix,
+  type CongratsEvent,
+  type CongratsResult,
+  type FocusEvent,
+  type FocusPresetId,
+  type PresenceStatus,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
@@ -172,6 +185,8 @@ import { ChairRaces, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 import { DoorNotes } from "./door-notes";
+import { CabinEvents } from "./events";
+import { FocusTimers } from "./focus";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
@@ -196,6 +211,16 @@ interface UserData {
   emoteTimes?: number[];
   /** Mensajes recientes al casino (tope por ráfaga, ver `acceptCasinoMessage`). */
   casinoTimes?: number[];
+}
+
+/** Lo que el modo foco cambió al empezar un bloque, para devolverlo al terminar (si nadie lo tocó). */
+interface FocusClaim {
+  /** Estado de antes (no se toca si ya estaba en "No molestar"). */
+  status?: PresenceStatus;
+  /** Oficina que el foco cerró (estaba abierta). */
+  lockedZone?: string;
+  /** Nota que tenía la placa de su oficina. */
+  note?: { zoneId: string; prev: string };
 }
 
 interface PendingKnock {
@@ -292,6 +317,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Cuenta regresiva y pausa entre fotos (los tests las acortan). */
   static photoTimings: { countdownMs: number; cooldownMs: number } = { ...PHOTO_TIMINGS };
+
+  /** Reloj de los eventos del calendario (los tests lo fijan en un cumpleaños o un viernes de noche). */
+  static eventsNow: () => number = () => Date.now();
+  /** Cada cuánto se revisan (los tests lo acortan). */
+  static eventsRefreshMs = 30_000;
+  /** Duración de las fases del modo foco (los tests la acortan). */
+  static focusPhaseMs: (preset: FocusPresetId, phase: "work" | "break") => number = focusMs;
 
   static async reloadCasinoSettingsEverywhere() {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadCasinoSettings()));
@@ -493,6 +525,27 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const room of OfficeRoom.instances)
       for (const c of room.clients) if (room.state.players.get(c.sessionId)?.userId === toId) c.send(MSG.giftReceived, gift satisfies GiftReceived);
   }
+  /** Cumpleaños y viernes de karaoke (ver events.ts). */
+  private events!: CabinEvents;
+  /** Modo foco: el reloj de cada pomodoro y lo que cambió al empezar (ver focus.ts). */
+  private focusClaims = new Map<string, FocusClaim>();
+  private focus = new FocusTimers({
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    now: () => Date.now(),
+    phaseMs: (preset, phase) => OfficeRoom.focusPhaseMs(preset, phase),
+    show: (userId, phase, endsAt, preset) => {
+      for (const p of this.state.players.values())
+        if (p.userId === userId) {
+          p.focus = phase;
+          p.focusEndsAt = endsAt;
+          p.focusPreset = preset;
+        }
+    },
+    claim: (userId) => this.claimFocus(userId),
+    release: (userId) => this.releaseFocus(userId),
+    award: (userId) => this.awardFocus(userId),
+    send: (userId, event: FocusEvent) => this.sendToUser(userId, MSG.focusEvent, event),
+  });
   /** Casa viva: lo gratis que queda en la mano, los cubículos del baño y las mascotas. */
   private casa!: CasaViva;
   private pets!: Pets;
@@ -539,6 +592,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
     for (const [areaId, map] of this.world.areas) for (const z of map.zones) this.areaOfZone.set(z.id, areaId);
     this.setState(new OfficeState());
+    this.events = new CabinEvents({ state: this.state.events, now: () => OfficeRoom.eventsNow(), repo: () => this.repo });
     this.casa = new CasaViva(
       this.state.stalls,
       { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
@@ -657,6 +711,17 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.arcadeBoard, (client, raw) => void this.handleArcadeBoard(client, raw));
     this.onMessage(MSG.arcadeStart, (client, raw) => void this.handleArcadeStart(client, raw));
     this.onMessage(MSG.arcadeFinish, (client, raw) => void this.handleArcadeFinish(client, raw));
+    this.onMessage(MSG.congrats, (client, raw) => void this.handleCongrats(client, raw));
+    this.onMessage(MSG.focusStart, (client, raw) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      this.markActive(client);
+      this.focus.start(player.userId, raw);
+    });
+    this.onMessage(MSG.focusStop, (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) this.focus.stop(player.userId);
+    });
     this.onMessage(MSG.hockeyJoin, (client, raw) => void this.handleHockeyJoin(client, raw));
     this.onMessage(MSG.hockeyMove, (client, raw) => {
       const p = this.state.players.get(client.sessionId);
@@ -681,8 +746,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       for (const [id, outcome] of this.races.sweep(Date.now(), this.state.players)) void this.raceOutcome(id, outcome);
       // Y el video que terminó pasa al siguiente aunque nadie en el club lo esté mirando.
       this.club.tick(Date.now());
+      // El foco se cancela si salió de su oficina por cualquier camino (desmayo, editor que lo corrió…).
+      for (const p of this.state.players.values()) if (p.focus === "work") this.focus.moved(p.userId, p.zoneId);
       this.cinema.tick(Date.now());
     }, 500);
+    // Cumpleaños del día y el karaoke de los viernes: se revisa seguido (cambian con la hora de Bogotá).
+    this.clock.setInterval(() => void this.events.refresh(), OfficeRoom.eventsRefreshMs);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
     this.weather.start();
     // Mientras llueve, lo que se va secando se vuelve a regar solo.
@@ -696,6 +765,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await this.huerto.load().catch((err) => console.error("loadGarden", err));
     this.startCasino();
     await this.reloadOffices();
+    await this.events.refresh();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
   }
 
@@ -750,6 +820,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.drunk = this.drunk.stage(auth.sub);
     player.buff = this.cocina.buffOf(auth.sub, OfficeRoom.cocinaNow());
     this.state.players.set(client.sessionId, player);
+    this.focus.joined(auth.sub);
 
     client.userData = {
       lastMoveAt: Date.now(),
@@ -1109,8 +1180,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !parsed.success) return;
     const office = [...this.state.offices.values()].find((o) => o.ownerId === player.userId);
     if (!office || office.locked === parsed.data.locked) return;
+    // La puerta la movió a mano: al terminar el foco ya no se vuelve a abrir sola.
+    const claim = this.focusClaims.get(player.userId);
+    if (claim) delete claim.lockedZone;
+    this.setOfficeLocked(office, parsed.data.locked);
+  }
 
-    office.locked = parsed.data.locked;
+  /** Abre o cierra una oficina (quien ya está adentro queda como invitado) y lo guarda. */
+  private setOfficeLocked(office: OfficeInfo, locked: boolean) {
+    office.locked = locked;
     office.guests.clear();
     if (office.locked) {
       // Quien ya está adentro queda como invitado: cerrar no expulsa a nadie.
@@ -1201,6 +1279,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !parsed.success) return;
     const office = [...this.state.offices.values()].find((o) => o.ownerId === player.userId);
     if (!office) return;
+    // Escribió su propia nota durante el foco: esa se queda.
+    const claim = this.focusClaims.get(player.userId);
+    if (claim) delete claim.note;
     office.note = cleanOfficeNote(parsed.data.note);
   }
 
@@ -1330,6 +1411,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
     this.whiteboards.moved(client.sessionId, player.zoneId);
+    this.focus.moved(player.userId, player.zoneId);
     this.fishery.moved(player.userId, x, y, seated);
     this.trades.moved(client.sessionId);
     this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
@@ -1362,6 +1444,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.place = placeAt(target, pos.x, pos.y);
     this.revokeGuestOnExit(player, previousZoneId);
     this.whiteboards.moved(client.sessionId, player.zoneId);
+    this.focus.moved(player.userId, player.zoneId);
     client.userData.lastMoveAt = Date.now();
     this.fishery.cancel(player.userId);
     this.achievements.visit(player.userId, target.id);
@@ -1475,6 +1558,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!userId) return;
     // La insignia destacada también se elige en la web (el perfil).
     void this.refreshBadge(userId);
+    // Pudo cambiar su nombre o su cumpleaños: la lista de quién cumple hoy se vuelve a leer.
+    void this.events.refresh(true);
     const profile = await this.repo.getUserProfile(userId).catch((err) => {
       console.error("getUserProfile", err);
       return null;
@@ -1604,7 +1689,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     for (const client of this.clients) {
       const player = this.state.players.get(client.sessionId);
       const data = client.userData as UserData | undefined;
-      if (!player || !data || player.status === "away" || now - data.lastActiveAt > OfficeRoom.idleMs) continue;
+      // Concentrado en un bloque de foco cuenta como activo (está trabajando, aunque no toque la cabaña).
+      const active = now - (data?.lastActiveAt ?? 0) <= OfficeRoom.idleMs || player?.focus === "work";
+      if (!player || !data || player.status === "away" || !active) continue;
       this.countPresence(player, now);
       await this.award(client, player, POINTS.presence, "PRESENCE");
       const zone = this.zonesById.get(player.zoneId);
@@ -2123,11 +2210,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         if (!pre.ok) return fail(pre.error);
         const info = await OfficeRoom.youtubeLookup(videoId).catch(() => ({ ok: true as const, title: FALLBACK_TITLE }));
         if (!info.ok) return fail(info.error);
-        result = this.club.enqueue({ videoId, title: info.title }, player.name, Date.now());
+        result = this.club.enqueue({ videoId, title: info.title }, player.name, Date.now(), player.userId);
         break;
       }
       case "replay":
-        result = this.club.replay(msg.id, player.name, now);
+        result = this.club.replay(msg.id, player.name, now, player.userId);
         break;
       case "move":
         result = this.club.move(msg.id, msg.to);
@@ -2329,7 +2416,107 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
+  // ---------- Cumpleaños ----------
+
+  /**
+   * Felicitar a quien cumple hoy: una vez por persona y día. Le da puntos (GIFT, con tope de felicitaciones
+   * por día) y todos se enteran; los de su nivel ven confeti.
+   */
+  private async handleCongrats(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = CongratsMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    this.markActive(client);
+    const reply = (r: CongratsResult) => client.send(MSG.congratsResult, r);
+    const to = parsed.data.userId;
+    const from = player.userId;
+    const problem = this.events.congratulate(from, to);
+    if (problem) return reply({ ok: false, error: problem });
+    const day = this.state.events.day;
+    let result: Awaited<ReturnType<GameRepository["awardPointsOnce"]>>;
+    try {
+      result = await this.repo.awardPointsOnce({
+        userId: to,
+        amount: BIRTHDAY.congratsPoints,
+        reason: "GIFT",
+        refId: congratsRef(day, to, from),
+        refPrefix: congratsRefPrefix(day, to),
+        maxPerDay: BIRTHDAY.congratsDailyCap,
+      });
+    } catch (err) {
+      console.error("congrats", err);
+      this.events.undo(from, to);
+      return reply({ ok: false, error: "failed" });
+    }
+    // Ya lo había felicitado antes de que la sala se reiniciara.
+    if (result.status === "duplicate") return reply({ ok: false, error: "already" });
+    for (const p of this.state.players.values()) if (p.userId === to) p.points = result.balance;
+    if (result.awarded > 0) this.sendToUser(to, MSG.pointsAwarded, { amount: result.awarded, reason: "GIFT", balance: result.balance } satisfies PointsAwarded);
+    const toName = this.state.events.birthdays.get(to) ?? "";
+    this.broadcast(MSG.congratsEvent, { fromName: player.name, toUserId: to, toName, points: result.awarded } satisfies CongratsEvent);
+    reply({ ok: true, toName });
+  }
+
+  // ---------- Modo foco ----------
+
+  /** Empieza un bloque: no molestar y, si está en su oficina, la puerta cerrada y la placa. */
+  private claimFocus(userId: string): string {
+    const mine = [...this.state.players.values()].filter((p) => p.userId === userId);
+    const claim: FocusClaim = {};
+    const first = mine[0];
+    if (first && first.status !== "dnd") {
+      claim.status = first.status as PresenceStatus;
+      for (const p of mine) p.status = "dnd";
+    }
+    let zoneId = "";
+    const office = first ? this.state.offices.get(first.zoneId) : undefined;
+    if (office && office.ownerId === userId) {
+      zoneId = office.zoneId;
+      if (!office.locked) {
+        this.setOfficeLocked(office, true);
+        claim.lockedZone = office.zoneId;
+      }
+      claim.note = { zoneId: office.zoneId, prev: office.note };
+      office.note = cleanOfficeNote(FOCUS.note);
+    }
+    this.focusClaims.set(userId, claim);
+    return zoneId;
+  }
+
+  /** Termina el bloque: vuelve lo que el foco cambió, salvo lo que la persona cambió a mano. */
+  private releaseFocus(userId: string) {
+    const claim = this.focusClaims.get(userId);
+    if (!claim) return;
+    this.focusClaims.delete(userId);
+    if (claim.status) for (const p of this.state.players.values()) if (p.userId === userId && p.status === "dnd") p.status = claim.status;
+    const locked = claim.lockedZone ? this.state.offices.get(claim.lockedZone) : undefined;
+    if (locked?.locked && locked.ownerId === userId) this.setOfficeLocked(locked, false);
+    const noted = claim.note ? this.state.offices.get(claim.note.zoneId) : undefined;
+    if (noted && noted.note === cleanOfficeNote(FOCUS.note)) noted.note = claim.note!.prev;
+  }
+
+  /** Los puntos de un bloque completo: hasta FOCUS.dailyCap por día (día de Bogotá). */
+  private async awardFocus(userId: string): Promise<{ points: number; capped: boolean }> {
+    const prefix = focusRefPrefix(eventDay(Date.now()));
+    const r = await this.repo.awardPointsOnce({
+      userId,
+      amount: FOCUS.points,
+      reason: "PRESENCE",
+      refId: `${prefix}${randomUUID()}`,
+      refPrefix: prefix,
+      maxPerDay: FOCUS.dailyCap,
+    });
+    for (const p of this.state.players.values()) if (p.userId === userId) p.points = r.balance;
+    if (r.awarded > 0) this.sendToUser(userId, MSG.pointsAwarded, { amount: r.awarded, reason: "PRESENCE", balance: r.balance } satisfies PointsAwarded);
+    this.achievements.max(userId, STAT_KEYS.pointsPeak, r.balance);
+    return { points: r.awarded, capped: r.status === "limit" };
+  }
+
   // ---------- Utilidades ----------
+
+  private sendToUser(userId: string, type: string, message: unknown) {
+    for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(type, message);
+  }
 
   private removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
@@ -2343,6 +2530,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
     this.fishery.forget(player.userId);
+    this.focus.forget(player.userId);
     this.hockey?.leave(player.userId);
     this.casa.forget(player.userId);
     this.swivels.forget(player.userId);

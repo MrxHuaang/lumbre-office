@@ -26,6 +26,7 @@ interface RemoteVideo {
   videoId: string;
   title: string;
   by: string;
+  byId?: string;
   durationMs: number;
 }
 interface RemoteList {
@@ -47,7 +48,7 @@ interface RemoteClub {
 
 let room: Room | null = null;
 
-const view = (v: RemoteVideo): ClubVideoView => ({ id: v.id, videoId: v.videoId, title: v.title, by: v.by, durationMs: v.durationMs });
+const view = (v: RemoteVideo): ClubVideoView => ({ id: v.id, videoId: v.videoId, title: v.title, by: v.by, byId: v.byId ?? "", durationMs: v.durationMs });
 const list = (l: RemoteList) => {
   const out: ClubVideoView[] = [];
   l.forEach((v) => out.push(view(v)));

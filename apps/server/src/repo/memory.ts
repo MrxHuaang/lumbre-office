@@ -18,7 +18,7 @@ import {
   type PresenceStatus,
   type StatChange,
 } from "@hyvento/shared";
-import type { GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TradeResult, TradeSideInput, UserProfile } from "./types";
+import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TradeResult, TradeSideInput, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -129,6 +129,22 @@ export class MemoryRepository implements GameRepository {
     }
     if (amount > 0) this.ledger.push({ userId, amount, reason, at: now });
     return { awarded: Math.max(0, amount), balance: await this.getPoints(userId) };
+  }
+  async awardPointsOnce({ userId, amount, reason, refId, refPrefix, maxPerDay }: AwardOnceInput) {
+    const now = Date.now();
+    const mine = this.ledger.filter((m) => m.userId === userId);
+    if (mine.some((m) => m.refId === refId)) return { status: "duplicate" as const, awarded: 0, balance: await this.getPoints(userId) };
+    if (mine.filter((m) => m.refId?.startsWith(refPrefix) && m.at >= dayStart(now)).length >= maxPerDay)
+      return { status: "limit" as const, awarded: 0, balance: await this.getPoints(userId) };
+    const r = await this.awardPoints({ userId, amount, reason });
+    // Como en la base: el movimiento queda con su refId (awardPoints lo acaba de agregar al final).
+    if (r.awarded > 0) this.ledger[this.ledger.length - 1]!.refId = refId;
+    return { status: "ok" as const, ...r };
+  }
+  /** Cumpleaños de los tests: userId → { nombre, "MM-DD" }. */
+  birthdays = new Map<string, { name: string; birthday: string }>();
+  async listBirthdays() {
+    return [...this.birthdays].map(([userId, b]) => ({ userId, ...b }));
   }
   /** Bono de bienvenida de los tests: 0 (apagado) salvo que un test lo prenda. */
   welcomeBonus = 0;

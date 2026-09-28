@@ -10,6 +10,8 @@ import {
   type KnockResult,
   type OfficeEditResult,
   type OfficeItemDTO,
+  type FocusPhase,
+  type FocusPresetId,
   type OfficeRadioState,
   type PointsAwarded,
   type PresenceStatus,
@@ -39,6 +41,10 @@ export interface PlayerInfo {
   /** Lo que lleva en la mano (id de la carta) y los usos que le quedan a cada mano ("4,5"). */
   held: string;
   heldLeft: string;
+  /** Modo foco: la fase ("" sin foco), cuándo termina (hora del servidor) y el preset. */
+  focus: FocusPhase;
+  focusEndsAt: number;
+  focusPreset: FocusPresetId | "";
 }
 
 /**
@@ -202,6 +208,16 @@ interface OfficeStore {
   /** Clima de afuera (lo decide el servidor: `state.weather`). */
   weather: Weather;
   setWeather: (weather: Weather) => void;
+  /** Quienes cumplen años hoy (userId → nombre) y si el club está en modo karaoke (`state.events`). */
+  birthdays: Record<string, string>;
+  karaoke: boolean;
+  setEvents: (e: { birthdays: Record<string, string>; karaoke: boolean }) => void;
+  /** A quiénes ya felicité hoy (para no ofrecer el botón otra vez). */
+  congratulated: Record<string, true>;
+  markCongratulated: (userId: string) => void;
+  /** Confeti en pantalla: cambia cada vez que hay que tirarlo (0 = nunca). */
+  confetti: number;
+  throwConfetti: () => void;
   /** Ya se dibujó el primer nivel (el jardín grande tarda un poco: mientras, el cartel de "Entrando"). */
   mapReady: boolean;
   setMapReady: (ready: boolean) => void;
@@ -338,6 +354,10 @@ const initial = {
   nameTags: loadNameTags(),
   indoors: false,
   weather: "despejado" as Weather,
+  birthdays: {} as Record<string, string>,
+  karaoke: false,
+  congratulated: {} as Record<string, true>,
+  confetti: 0,
   mapReady: false,
   interact: null as Interactable | null,
   usable: null as UsableNear | null,
@@ -436,6 +456,9 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     get().setNameTags(NAME_TAG_MODES[(i + 1) % NAME_TAG_MODES.length]!);
   },
   setWeather: (weather) => set({ weather }),
+  setEvents: ({ birthdays, karaoke }) => set({ birthdays, karaoke }),
+  markCongratulated: (userId) => set((s) => ({ congratulated: { ...s.congratulated, [userId]: true } })),
+  throwConfetti: () => set({ confetti: Date.now() }),
   setMapReady: (mapReady) => set({ mapReady }),
   setInteract: (interact) => set({ interact }),
   setUsable: (usable) => set({ usable }),
@@ -448,12 +471,18 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   pickDecor: (decorPick, facing) => set((s) => ({ decorPick, decorFacing: facing ?? s.decorFacing })),
   rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
   setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),
-  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls, nameTags: s.nameTags })),
+  // Las felicitaciones de hoy sobreviven a una reconexión (el servidor igual las recuerda).
+  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls, nameTags: s.nameTags, congratulated: s.congratulated })),
 }));
 
 /** User.id del jugador local. */
 export function selectMyUserId(s: Pick<OfficeStore, "sessionId" | "players">): string | null {
   return s.sessionId ? (s.players[s.sessionId]?.userId ?? null) : null;
+}
+
+/** ¿Estoy en un bloque de enfoque? (el chat no suena ni muestra el contador mientras tanto). */
+export function selectFocusing(s: Pick<OfficeStore, "sessionId" | "players">): boolean {
+  return Boolean(s.sessionId && s.players[s.sessionId]?.focus === "work");
 }
 
 /** Oficina de la que el jugador local es dueño. */

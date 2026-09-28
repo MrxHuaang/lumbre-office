@@ -66,6 +66,13 @@ import {
   type PhotoShot,
   achievementById,
   type AchievementUnlockedEvent,
+  CONGRATS_ERROR_TEXT,
+  FOCUS_CANCEL_TEXT,
+  type CongratsEvent,
+  type CongratsResult,
+  type FocusEvent,
+  type FocusPhase,
+  type FocusPresetId,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -75,7 +82,7 @@ import { bindHockey } from "./arcade/hockey";
 import { bindBoardGames } from "./boardgames";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
-import { useOfficeStore, type Interactable } from "./store";
+import { selectMyUserId, useOfficeStore, type Interactable } from "./store";
 import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
@@ -113,6 +120,10 @@ export interface RemotePlayer {
   badge: string;
   /** Energía de un plato de la cocina (id de la receta; "" = nada). */
   buff: string;
+  /** Modo foco: "" nada, "work" o "break"; cuándo termina (hora del servidor) y el preset. */
+  focus?: string;
+  focusEndsAt?: number;
+  focusPreset?: string;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -183,6 +194,8 @@ export interface OfficeStateView {
   counters: Map<string, number>;
   stalls: Map<string, string>;
   pets: Map<string, RemotePet>;
+  /** Eventos del calendario: quién cumple hoy (userId → nombre) y el karaoke de los viernes. */
+  events?: RemoteEvents;
   /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
   garden: Map<string, RemoteGardenPlot>;
 }
@@ -196,6 +209,12 @@ export interface RemoteGardenPlot {
   growthMs: number;
   growthAt: number;
   wateredUntil: number;
+}
+
+export interface RemoteEvents {
+  day: number;
+  birthdays: Map<string, string>;
+  karaoke: boolean;
 }
 
 /** Casa viva: una mascota como viaja en el estado (espejo de `Pet` en apps/server/src/state.ts). */
@@ -594,6 +613,61 @@ export function sendStatus(status: PresenceStatus) {
   room?.send(MSG.status, { status });
 }
 
+/** Felicitar a quien cumple hoy (el servidor valida que sea hoy y que no lo hayas felicitado ya). */
+export function sendCongrats(userId: string) {
+  room?.send(MSG.congrats, { userId });
+}
+
+/** Empezar un bloque de enfoque (el servidor lleva el reloj) o dejarlo / saltar el descanso. */
+export function sendFocusStart(preset: FocusPresetId) {
+  room?.send(MSG.focusStart, { preset });
+}
+export function sendFocusStop() {
+  room?.send(MSG.focusStop);
+}
+
+const congratsListeners = new Set<(e: CongratsEvent) => void>();
+/** Alguien felicitó a quien cumple (la escena tira confeti sobre su avatar). */
+export function onCongrats(cb: (e: CongratsEvent) => void) {
+  congratsListeners.add(cb);
+  return () => congratsListeners.delete(cb);
+}
+
+const focusListeners = new Set<(e: FocusEvent) => void>();
+/** Cómo va mi pomodoro (lo avisa el servidor: completo, descanso terminado o cancelado). */
+export function onFocusEvent(cb: (e: FocusEvent) => void) {
+  focusListeners.add(cb);
+  return () => focusListeners.delete(cb);
+}
+
+function handleCongratsResult(r: CongratsResult) {
+  const store = useOfficeStore.getState();
+  if (r.ok) store.notify(`Le deseaste feliz cumpleaños a ${r.toName || "quien cumple"}.`, "success");
+  else store.notify(CONGRATS_ERROR_TEXT[r.error], "info");
+}
+
+function handleCongratsEvent(e: CongratsEvent) {
+  const store = useOfficeStore.getState();
+  const mine = selectMyUserId(store) === e.toUserId;
+  if (mine) {
+    store.notify(`¡${e.fromName} te deseó feliz cumpleaños!${e.points > 0 ? ` +${e.points}` : ""}`, "success");
+    store.throwConfetti();
+  }
+  congratsListeners.forEach((cb) => cb(e));
+}
+
+function handleFocusEvent(e: FocusEvent) {
+  const store = useOfficeStore.getState();
+  if (e.kind === "done")
+    store.notify(
+      e.points > 0 ? `¡Bloque de enfoque completo! +${e.points}. Tómate un descanso.` : e.capped ? "Bloque completo. Ya sumaste los pomodoros con puntos de hoy." : "Bloque completo. Tómate un descanso.",
+      "success",
+    );
+  else if (e.kind === "break-over") store.notify("Se acabó el descanso: cuando quieras, empieza otro bloque.", "info");
+  else store.notify(FOCUS_CANCEL_TEXT[e.reason], e.reason === "left" ? "warning" : "info");
+  focusListeners.forEach((cb) => cb(e));
+}
+
 /** La radio de mi oficina (poner un link, pausar, seguir, apagar) o la duración que dio el reproductor. */
 export function sendOfficeRadio(msg: OfficeRadioMessage) {
   room?.send(MSG.officeRadio, msg);
@@ -645,8 +719,13 @@ function attach(r: OfficeRoom) {
         points: player.points,
         held: player.held,
         heldLeft: player.heldLeft,
+        focus: (player.focus ?? "") as FocusPhase,
+        focusEndsAt: player.focusEndsAt ?? 0,
+        focusPreset: (player.focusPreset ?? "") as FocusPresetId | "",
       });
     sync();
+    $(player).listen("focus", sync);
+    $(player).listen("focusEndsAt", sync);
     $(player).listen("held", sync);
     $(player).listen("heldLeft", sync);
     $(player).listen("area", sync);
@@ -717,6 +796,25 @@ function attach(r: OfficeRoom) {
   $(r.state).worldEdits.onAdd((json, area) => applyWorldEditsJson(area, json));
   $(r.state).worldEdits.onChange((json, area) => applyWorldEditsJson(area, json));
   $(r.state).listen("weather", (w) => useOfficeStore.getState().setWeather(isWeather(w) ? w : "despejado"));
+  // Eventos del calendario: la lista de cumpleaños de hoy y el karaoke (llega con el primer estado).
+  $(r.state).listen("events", (events) => {
+    if (!events) return;
+    const push = () => {
+      const current = r.state.events;
+      if (!current) return;
+      const prev = useOfficeStore.getState();
+      const birthdays = Object.fromEntries(current.birthdays.entries());
+      const first = Object.keys(prev.birthdays).length === 0 && Object.keys(birthdays).length > 0;
+      prev.setEvents({ birthdays, karaoke: current.karaoke });
+      // Al entrar (o cuando empieza el día) con alguien de cumpleaños: confeti.
+      if (first) prev.throwConfetti();
+    };
+    const e$ = $(events);
+    e$.listen("karaoke", push);
+    e$.birthdays.onAdd(push);
+    e$.birthdays.onRemove(push);
+    push();
+  });
 
   // Ruleta del sótano: una copia simple para React (fase, cuenta regresiva, apuestas y números).
   const syncRoulette = () => {
@@ -848,6 +946,9 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photosChanged, () => photosChangedListeners.forEach((cb) => cb()));
   r.onMessage(MSG.achievementUnlocked, handleAchievement);
+  r.onMessage(MSG.congratsResult, handleCongratsResult);
+  r.onMessage(MSG.congratsEvent, handleCongratsEvent);
+  r.onMessage(MSG.focusEvent, handleFocusEvent);
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)
