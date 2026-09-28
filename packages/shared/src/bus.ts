@@ -152,10 +152,12 @@ const smooth = (a: number, b: number, x: number) => {
 
 /**
  * Cuánto se corre hacia el carril de afuera (0 = pegado a la plataforma, 1 = el carril de al lado) un punto
- * del bus que está a `s` tiles de la parada: viene por afuera, se arrima para frenar y al irse vuelve a
- * salir. Cada cuerpo lo calcula con su propio centro: por eso el bus se dobla en el fuelle al arrimarse.
+ * del bus que está a `s` tiles (a lo largo de la calle) de donde para el frente: viene por afuera, se arrima
+ * para frenar y al irse vuelve a salir. Cada cuerpo lo calcula con su propio centro: por eso el bus se
+ * dobla en el fuelle al arrimarse. Todo el largo del bus parado (de `-BUS_LENGTH` a 0) queda en 0: en la
+ * estación los dos cuerpos y el fuelle van en línea, pegados a la plataforma.
  */
-export const busLane = (s: number) => (s < 0 ? 1 - smooth(-18, -3, s) : smooth(4, 20, s));
+export const busLane = (s: number) => (s < 0 ? 1 - smooth(-BUS_LENGTH - 16, -BUS_LENGTH + 2, s) : smooth(3, 19, s));
 
 /** Ms que faltan para que el bus abra las puertas en la estación (0 si ya está ahí). */
 export function busEtaMs(phase: BusPhase, since: number, nextAt: number, now: number, t: BusTimings): number {
