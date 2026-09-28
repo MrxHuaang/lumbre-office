@@ -216,7 +216,7 @@ import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyv
 import { Fishery } from "./fishing";
 import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
-import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
+import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice, type SystemNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 import { CasaViva } from "./casa";
 import { Pets, type PetUser } from "./mascotas";
@@ -723,6 +723,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const { toId, ...gift } = notice;
     for (const room of OfficeRoom.instances)
       for (const c of room.clients) if (room.state.players.get(c.sessionId)?.userId === toId) c.send(MSG.giftReceived, gift satisfies GiftReceived);
+  }
+  /**
+   * La web mandó un aviso del sistema (p. ej. un PR mezclado en GitHub): va al chat global de todas las
+   * salas. Sin autor (fromId vacío) y sin guardar en la base, que exige autor; queda en el historial en memoria.
+   */
+  static systemNoticeEverywhere(notice: SystemNotice) {
+    const event: ChatEvent = { id: randomUUID(), fromId: "", fromName: notice.from, text: notice.text, scope: "global", zoneId: null, ts: Date.now() };
+    for (const room of OfficeRoom.instances) {
+      room.globalHistory.push(event);
+      if (room.globalHistory.length > CHAT_HISTORY_SIZE) room.globalHistory.shift();
+      room.broadcast(MSG.chatEvent, event);
+    }
   }
   /** Cumpleaños y viernes de karaoke (ver events.ts). */
   private events!: CabinEvents;
