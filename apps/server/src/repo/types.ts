@@ -1,5 +1,5 @@
 import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus, StatChange } from "@hyvento/shared";
-import type { ItemStack } from "@hyvento/shared";
+import type { ItemStack, PetBondRecord } from "@hyvento/shared";
 
 /** Nombre visible y personaje de una persona, como están guardados. */
 export interface UserProfile {
@@ -187,3 +187,14 @@ export interface DoorNotesRepository {
 
 // También se funde con GameRepository.
 export interface GameRepository extends DoorNotesRepository {}
+/** Logros a la vista (la insignia del nombre) y las mascotas adoptadas: su propia interfaz, sumada a GameRepository. */
+export interface ShowcaseRepository {
+  /** La insignia destacada guardada (id de un logro), o null. El servidor igual revisa que la tenga. */
+  getFeaturedBadge(userId: string): Promise<string | null>;
+  /** Dueños y cariño de las mascotas. */
+  loadPetBonds(): Promise<PetBondRecord[]>;
+  /** Guarda dueño y cariño de una mascota (dueño null = vuelve a ser de la casa). */
+  savePetBond(bond: PetBondRecord): Promise<void>;
+}
+
+export interface GameRepository extends ShowcaseRepository {}

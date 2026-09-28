@@ -1,6 +1,7 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
-import { BODY_UP, bubble, characterShadow, crumbColor, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS, SIT_DROP, sparkleSprite } from "@hyvento/map/art";
+import { BODY_UP, bubble, characterShadow, crumbColor, drawMiniBadge, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS, SIT_DROP, sparkleSprite } from "@hyvento/map/art";
 import {
+  achievementById,
   consumeActionOf,
   DRUNK,
   EMOTE,
@@ -130,6 +131,8 @@ export class Avatar {
   private readonly shadow: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
   private readonly statusDot: Phaser.GameObjects.Arc;
+  /** Insignia destacada junto al nombre (un logro que tiene; la valida el servidor). */
+  private badge?: { id: string; img: Phaser.GameObjects.Image };
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
   /** Emote sobre la cabeza (un globo con dibujo) y el baile, si está bailando. */
@@ -242,6 +245,7 @@ export class Avatar {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
+    this.badge?.img.setVisible(!hidden);
     this.ride?.img.setVisible(!hidden);
     if (this.ride) this.shadow.setVisible(false);
     for (const part of this.held?.parts ?? []) part.image.setVisible(!hidden && part.left > 0);
@@ -270,6 +274,21 @@ export class Avatar {
     this.gesture?.arm?.setAlpha(a);
   }
   private veiled = false;
+
+  /** La insignia destacada ("" o un id que no es de un logro = ninguna). */
+  setBadge(achievementId: string) {
+    if ((this.badge?.id ?? "") === achievementId) return;
+    this.badge?.img.destroy();
+    this.badge = undefined;
+    const a = achievementId ? achievementById(achievementId) : undefined;
+    if (a) {
+      const key = ensureTexture(this.scene, `insignia-chica-${a.icon}-${a.rarity}`, () => drawMiniBadge(a.icon, a.rarity));
+      const img = this.scene.add.image(0, 0, key).setOrigin(0, 0.5).setVisible(!this.hidden);
+      this.badge = { id: achievementId, img };
+    }
+    this.refreshLabel();
+    this.layout();
+  }
 
   /**
    * Sin nombre ni punto de estado: en el modo mesa la cámara se acerca tanto que el nombre (que crece con
@@ -308,6 +327,8 @@ export class Avatar {
     // Los cortos van un poco transparentes para no tapar muebles ni a otros; el del mouse, encima de todo.
     this.label.setAlpha(shown ? (full ? 1 : 0.82) : 0);
     this.statusDot.setAlpha(shown ? 1 : 0);
+    // La insignia va con el nombre: se esconde con él (modo mesa, velo, nombres ocultos).
+    this.badge?.img.setAlpha(shown ? 1 : 0);
   }
 
   setStatus(status: PresenceStatus) {
@@ -689,7 +710,7 @@ export class Avatar {
     const to = worldToScreen(a.x, a.y);
     const dx = Math.round(to.x) - Math.round(from.x);
     const dy = Math.round(to.y) - Math.round(from.y);
-    const objects = [this.label, this.statusDot, this.speakingRing, this.bubble, this.emoteBubble?.container, this.video?.dom];
+    const objects = [this.label, this.statusDot, this.badge?.img, this.speakingRing, this.bubble, this.emoteBubble?.container, this.video?.dom];
     for (const o of objects) if (o) o.setPosition(o.x + dx, o.y + dy);
   }
 
@@ -1276,6 +1297,7 @@ export class Avatar {
     this.shadow.destroy();
     this.label.destroy();
     this.statusDot.destroy();
+    this.badge?.img.destroy();
     this.speakingRing.destroy();
   }
 
@@ -1331,6 +1353,8 @@ export class Avatar {
     this.video?.dom.setPosition(x, y - head + 2).setDepth(depth + 0.6);
     this.label.setPosition(x + 3, y - top).setDepth((this.hovered ? 5.5e7 : 5e7) + depth);
     this.statusDot.setPosition(x + 3 - this.label.width / 2 - 4, y - top - this.label.height / 2).setDepth(5e7 + depth + 0.1);
+    // La insignia, pegada al otro lado del nombre (a píxel entero, para que el dibujo quede nítido).
+    this.badge?.img.setPosition(Math.round(x + 3 + this.label.width / 2 + 1), Math.round(y - top - this.label.height / 2)).setDepth(5e7 + depth + 0.1);
     this.bubble?.setPosition(x, y - top - this.label.height - 1).setDepth(6e7 + depth);
     if (this.emoteBubble) {
       // Sobre el nombre; si hay globo de chat, encima de él.

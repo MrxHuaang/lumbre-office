@@ -33,6 +33,8 @@ export class Player extends Schema {
   @type("string") fishing = "";
   /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
   @type("uint8") drunk = 0;
+  /** Insignia destacada junto al nombre (id de un logro que tiene; "" = ninguna). La valida el servidor. */
+  @type("string") badge = "";
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */
@@ -205,6 +207,11 @@ export class Pet extends Schema {
   @type("string") dir = "down";
   /** "stand", "walk", "sit", "sleep" o "eat" (PetPose). */
   @type("string") pose = "stand";
+  /** Dueño si la adoptaron (User.id y nombre; "" = de la casa). */
+  @type("string") ownerId = "";
+  @type("string") ownerName = "";
+  /** Cariño (0 a PET_BOND.max). */
+  @type("uint8") love = 0;
 }
 
 /** Alguien bailando en el club: en la pista (con un paso) o en el tubo. */

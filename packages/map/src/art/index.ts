@@ -39,6 +39,9 @@ export {
 export { bedCropSprite, cropSprite, wetSoil, type CropStage } from "./huerto";
 // Logros: las insignias del perfil y el destello al desbloquear uno.
 export { BADGE_SIZE, drawBadge, drawBadgeGlyph, hasBadgeArt, sparkleSprite } from "./badges";
+// Logros a la vista: la insignia chica del nombre y los trofeos de la vitrina de las oficinas.
+export { drawMiniBadge, hasMiniBadge, MINI_BADGE_SIZE } from "./insignias";
+export { trophyCase, trophyShelf, TROPHY_CASE_SLOTS } from "./trofeos";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.
 export { BAR as FISHING_BAR, biteMark, bobber, drawFish, drawFishingBar, fishIcon, hasFishArt, treasureChest, FISH_H, FISH_W, ROD_COLORS, type BarState } from "./fish";
 // Club y arcade: los bailes del chibi y las capas que se encienden (pista, tarima, cabina, parlantes, pantallas).
@@ -202,4 +205,4 @@ export {
   FLAME_FRAMES,
   type FlameSize,
 } from "./casa-fx";
-export { drawPet, petTreat, sleepZ, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
+export { drawPet, petBowl, petTreat, sleepZ, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";

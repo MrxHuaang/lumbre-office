@@ -38,3 +38,4 @@ export * from "./photo-service";
 export * from "./achievements";
 export * from "./door-notes";
 export * from "./aquarium";
+export * from "./insignias";

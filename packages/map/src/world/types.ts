@@ -193,7 +193,9 @@ export interface PointDef {
     // Junto a una mesa de ajedrez o de damas de la sala de juegos: desde ahí se mira la partida.
     | "board_game"
     // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
-    | "greenhouse_plot";
+    | "greenhouse_plot"
+    // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
+    | "trophy_case";
   name: string;
   x: number;
   y: number;

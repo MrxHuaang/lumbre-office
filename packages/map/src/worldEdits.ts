@@ -80,6 +80,7 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "notice-board",
   "photo-board",
   "acuario",
+  "trophy-case",
   "dance-pole",
   "pole-stage",
   "dj-booth",

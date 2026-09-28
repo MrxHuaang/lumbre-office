@@ -103,8 +103,12 @@ import {
   CASA_MSG,
   type CasaNotice,
   PET,
+  PET_BOND,
   PET_MSG,
+  petFoodIn,
+  validFeaturedBadge,
   type PetEvent,
+  type PetNotice,
   ClockPingMessage,
   type ClockPong,
   drinkPart,
@@ -678,6 +682,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.weather.dispose();
     void this.achievements.flushAll();
     void this.whiteboards.flush();
+    this.pets?.flush(Date.now());
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -731,6 +736,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
+    void this.refreshBadge(auth.sub);
     client.send(MSG.chatHistory, this.globalHistory);
     // La hora del servidor, para que el cliente calcule bien los conteos regresivos (la ruleta).
     client.send(MSG.clock, { now: Date.now() });
@@ -1441,6 +1447,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private async handleProfileChanged(client: Client<UserData>) {
     const userId = this.state.players.get(client.sessionId)?.userId;
     if (!userId) return;
+    // La insignia destacada también se elige en la web (el perfil).
+    void this.refreshBadge(userId);
     const profile = await this.repo.getUserProfile(userId).catch((err) => {
       console.error("getUserProfile", err);
       return null;
@@ -1450,6 +1458,20 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.name = profile.name;
     player.avatar = profile.avatar;
     player.look = profile.look ? JSON.stringify(profile.look) : "";
+  }
+
+  /**
+   * La insignia destacada junto al nombre: la guardada en la base, solo si es de un logro que tiene (lo
+   * que sabe el rastreador de logros, no lo que diga el cliente). Si no, ninguna.
+   */
+  private async refreshBadge(userId: string) {
+    const saved = await this.repo.getFeaturedBadge(userId).catch((err) => {
+      console.error("getFeaturedBadge", err);
+      return null;
+    });
+    await this.achievements.load(userId);
+    const badge = validFeaturedBadge(saved, this.achievements.snapshot(userId)?.unlocked ?? []);
+    for (const p of this.state.players.values()) if (p.userId === userId && p.badge !== badge) p.badge = badge;
   }
 
   private handleStatus(client: Client<UserData>, raw: unknown) {
@@ -1893,14 +1915,33 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       create: () => new Pet(),
       map: (area) => this.mapOf(area),
       rng: () => OfficeRoom.petRandom(),
+      // La adoptada sigue a su dueño mientras esté conectado (en cualquier nivel).
+      owner: (userId) => {
+        for (const p of this.state.players.values()) if (p.userId === userId) return { userId, area: p.area, x: p.x, y: p.y, name: p.name };
+        return undefined;
+      },
+      food: {
+        peek: (userId) => {
+          const held = this.held.get(userId);
+          return held ? petFoodIn(held.item, held.left) : null;
+        },
+        take: (userId, part) => this.held.takePart(userId, part),
+      },
+      save: (bond) => void this.repo.savePetBond(bond).catch((err) => console.error("savePetBond", err)),
     });
     let last = Date.now();
     this.pets.start(last);
+    // Dueños y cariño guardados (si la base no tiene la tabla todavía, quedan todas de la casa).
+    void this.repo
+      .loadPetBonds()
+      .then((bonds) => this.pets.loadBonds(bonds, Date.now()))
+      .catch((err) => console.error("loadPetBonds", err));
     this.clock.setInterval(() => {
       const now = Date.now();
       this.pets.tick(now, Math.min(500, now - last));
       last = now;
     }, PET.tickMs);
+    this.clock.setInterval(() => this.pets.flush(Date.now()), PET_BOND.saveMs);
   }
 
   /** Llamar a una mascota (clic) o acariciarla y darle un premio (de cerca): lo ven los del nivel. */
@@ -1908,19 +1949,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
     const now = Date.now();
-    const who: PetUser = { userId: player.userId, area: player.area, x: player.x, y: player.y };
+    const who: PetUser = { userId: player.userId, area: player.area, x: player.x, y: player.y, name: player.name };
     const result = kind === "call" ? this.pets.call(who, raw, now) : this.pets.act(who, raw, now);
     if (!result.ok) {
       // Al que pidió acariciar o dar un premio se le dice por qué no (llamar lejos no avisa: es un clic).
       if (result.error === "fed" || (kind === "action" && result.error === "far")) {
         client.send(CASA_MSG.notice, { code: result.error === "fed" ? "fed" : "petFar" } satisfies CasaNotice);
       }
+      const e = result.error;
+      if (e === "noFood" || e === "hasPet" || e === "taken" || e === "notOwner") {
+        const name = this.state.pets.get((raw as { pet: string }).pet)?.name ?? "";
+        client.send(PET_MSG.notice, { code: e, pet: name } satisfies PetNotice);
+      }
       return;
     }
     const action = result.action;
     client.userData.lastActiveAt = now;
     const pet = (raw as { pet: string }).pet;
-    this.sendToArea(player.area, PET_MSG.event, { pet, sessionId: client.sessionId, action } satisfies PetEvent);
+    this.sendToArea(player.area, PET_MSG.event, { pet, sessionId: client.sessionId, action, ...(result.food ? { food: result.food } : {}) } satisfies PetEvent);
+    // Cuidarla da un punto chiquito (los primeros del día; también cuenta el tope del ocio).
+    if (result.reward > 0) void this.awardLeisure(player.userId, result.reward);
   }
 
   /** Tocar el piano, acariciar al gato, poner un disco, prender la tele o una lámpara. */

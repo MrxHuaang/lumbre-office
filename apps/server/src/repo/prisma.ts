@@ -30,6 +30,7 @@ import {
   type Direction,
   type HumanAvatar,
   type OfficeItemDTO,
+  type PetBondRecord,
   type PointReason,
   type PresenceStatus,
   type StatChange,
@@ -340,6 +341,24 @@ export class PrismaRepository implements GameRepository {
 
   unreadDoorNotes(userIds: string[]) {
     return unreadDoorNotes(prisma, userIds);
+  }
+
+  async getFeaturedBadge(userId: string) {
+    const row = await prisma.featuredBadge.findUnique({ where: { userId }, select: { achievementId: true } });
+    return row?.achievementId ?? null;
+  }
+
+  async loadPetBonds(): Promise<PetBondRecord[]> {
+    const rows = await prisma.petBond.findMany({ include: { owner: { select: { name: true } } } });
+    return rows.map((r) => ({ petId: r.petId, ownerId: r.ownerId, ownerName: r.owner?.name ?? "", love: r.love, loveAt: r.loveAt.getTime() }));
+  }
+
+  async savePetBond(bond: PetBondRecord) {
+    const data = { ownerId: bond.ownerId, love: Math.round(bond.love), loveAt: new Date(bond.loveAt) };
+    // Al adoptar se anota cuándo (la primera vez que aparece este dueño).
+    const prev = await prisma.petBond.findUnique({ where: { petId: bond.petId }, select: { ownerId: true } });
+    const adoptedAt = bond.ownerId && prev?.ownerId !== bond.ownerId ? { adoptedAt: new Date() } : bond.ownerId ? {} : { adoptedAt: null };
+    await prisma.petBond.upsert({ where: { petId: bond.petId }, create: { petId: bond.petId, ...data, ...adoptedAt }, update: { ...data, ...adoptedAt } });
   }
 
   // ---------- Jardín vivo: el huerto ----------

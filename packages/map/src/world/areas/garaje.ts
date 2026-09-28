@@ -86,6 +86,8 @@ export const garaje: AreaDef = {
     place("office-chair-broken", 12, 1, "up"),
     place("filing-dented", 14, 0, "down"),
     place("dead-plant", 15, 0),
+    // La vitrina de trofeos (como en las oficinas del piso 2), contra la pared este.
+    place("trophy-case", 15, 2, "left"),
     place("cardboard-boxes", 15, 5, "down"),
     place("tire-stack", 14, 5),
     place("cardboard-boxes", 10, 5),
@@ -98,5 +100,8 @@ export const garaje: AreaDef = {
       to: hacia("jardin", CONEXIONES.jardin.garaje),
     },
   ],
-  points: [],
+  points: [
+    // Delante de la vitrina de trofeos de la oficina.
+    { type: "trophy_case", name: "Vitrina de trofeos", x: 14, y: 2, zone: "office-5" },
+  ],
 };

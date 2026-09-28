@@ -45,6 +45,7 @@ import { CatchCard, FishingHint } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
 import { AchievementToasts } from "./profile/AchievementToasts";
 import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
+import { TrophyPanel } from "./profile/TrophyPanel";
 import { useAchievementStore } from "@/game/achievements";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
@@ -296,6 +297,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
           {panel?.kind === "fishAlbum" && <FishAlbum onClose={closePanel} />}
           {panel?.kind === "photos" && <PhotoGallery onClose={closePanel} />}
+          {panel?.kind === "trophies" && <TrophyPanel onClose={closePanel} />}
           <PhotoPreview />
           <PhotoFlash />
           {panel?.kind === "fitting" && (

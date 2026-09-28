@@ -53,6 +53,9 @@ import {
   CASA_MSG,
   CASA_NOTICES,
   type CasaNotice,
+  PET_NOTICES,
+  type PetAction,
+  type PetNotice,
   HUERTO_MSG,
   huertoNoticeText,
   type HuertoNotice,
@@ -105,6 +108,8 @@ export interface RemotePlayer {
   drunk: number;
   /** Corriendo la carrera de sillas. */
   racing: boolean;
+  /** Insignia destacada (id de un logro; "" = ninguna). */
+  badge: string;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -201,6 +206,11 @@ export interface RemotePet {
   y: number;
   dir: string;
   pose: string;
+  /** Dueño si la adoptaron ("" = de la casa) y su nombre. */
+  ownerId: string;
+  ownerName: string;
+  /** Cariño (0 a PET_BOND.max). */
+  love: number;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -389,8 +399,8 @@ export function sendPetCall(pet: string) {
   room?.send(PET_MSG.call, { pet });
 }
 
-/** Acariciar o dar un premio a una mascota (de cerca). */
-export function sendPetAction(pet: string, action: "pet" | "treat") {
+/** Acariciar, darle croquetas o la comida de la mano, adoptarla o soltarla (de cerca). */
+export function sendPetAction(pet: string, action: PetAction) {
   room?.send(PET_MSG.action, { pet, action });
 }
 
@@ -821,6 +831,10 @@ function attach(r: OfficeRoom) {
   // Casa viva: por qué no se pudo (las manos llenas, el baño ocupado, la mascota ya comió…).
   r.onMessage(CASA_MSG.notice, (n: CasaNotice) => {
     const text = CASA_NOTICES[n.code];
+    if (text) useOfficeStore.getState().notify(text, "info");
+  });
+  r.onMessage(PET_MSG.notice, (n: PetNotice) => {
+    const text = PET_NOTICES[n.code]?.(n.pet);
     if (text) useOfficeStore.getState().notify(text, "info");
   });
   // Jardín vivo: por qué no se pudo sembrar, regar, cosechar o sacar miel.

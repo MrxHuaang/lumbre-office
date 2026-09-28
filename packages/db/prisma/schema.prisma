@@ -76,6 +76,8 @@ model User {
   achievements    UserAchievement[]
   doorNotesIn     DoorNote[]         @relation("DoorNotesReceived")
   doorNotesOut    DoorNote[]         @relation("DoorNotesSent")
+  featuredBadge   FeaturedBadge?
+  pet             PetBond?
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -488,4 +490,31 @@ model DoorNote {
 
   @@index([toId, createdAt])
   @@index([fromId, createdAt])
+}
+
+/**
+ * La insignia destacada que alguien lleva junto a su nombre (un logro que ya tiene). En su propia tabla
+ * (y no en User) para que leer usuarios no dependa de esta migración.
+ */
+model FeaturedBadge {
+  userId        String   @id
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  updatedAt     DateTime @updatedAt
+}
+
+// ---------- Mascotas ----------
+
+/**
+ * Dueño y cariño de una mascota de la casa (PETS en @hyvento/shared). Una mascota por persona; sin fila
+ * (o sin dueño) es de la casa. El cariño baja con el tiempo desde `loveAt`.
+ */
+model PetBond {
+  petId     String    @id
+  ownerId   String?   @unique
+  owner     User?     @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  love      Int       @default(0)
+  loveAt    DateTime  @default(now())
+  adoptedAt DateTime?
+  updatedAt DateTime  @updatedAt
 }
