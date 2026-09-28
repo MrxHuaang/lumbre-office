@@ -65,6 +65,7 @@ const PROMPT: Record<Interactable, string> = {
   shed: "Abrir el cobertizo",
   trophies: "Ver la vitrina de trofeos",
   kitchen: "Cocinar en la estufa",
+  sombrero: "Hablar con el Man del Sombrero",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

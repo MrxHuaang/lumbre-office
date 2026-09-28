@@ -41,6 +41,7 @@ import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } fro
 import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ShedPanel } from "./ShedPanel";
 import { KitchenPanel } from "./KitchenPanel";
+import { SombreroPanel } from "./SombreroPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -322,6 +323,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "phone" && <PhonePanel onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "kitchen" && <KitchenPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}
 

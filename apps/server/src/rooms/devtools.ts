@@ -1,9 +1,11 @@
 // Herramientas solo de desarrollo: con HYVENTO_DEV_TOOLS=1 en el .env local (y fuera de producción), el
 // chat acepta "/ir <nivel> [tipo de punto]" para saltar a un nivel (o junto a un punto, por ejemplo
 // "/ir sotano roulette"). Sirve para probar el mapa grande sin cruzarlo caminando. También "/clima <tipo>"
-// fuerza un clima (despejado, nublado, lluvia, tormenta, niebla). En producción no existe.
+// fuerza un clima (despejado, nublado, lluvia, tormenta, niebla) y "/sombrero [escondite]" hace salir al
+// Man del Sombrero ya (en el escondite de hoy o en ese) y lleva ahí a quien lo escribió. En producción no
+// existe.
 import { pointsOfType, type OfficeMap } from "@hyvento/map";
-import { isWeather, WEATHERS, type Weather } from "@hyvento/shared";
+import { isWeather, SOMBRERO_HIDEOUTS, WEATHERS, type Weather } from "@hyvento/shared";
 
 export function devToolsEnabled(): boolean {
   // Render no define NODE_ENV (y ponerlo en render.yaml dejaría a prisma fuera del install): se mira RENDER.
@@ -36,6 +38,18 @@ export function parseDevJump(text: string, maps: ReadonlyMap<string, OfficeMap>)
     for (const portal of other.portals) if (portal.to.area === map.id) return { area: map.id, x: portal.to.x, y: portal.to.y };
   const spawn = pointsOfType(map, "spawn")[0];
   return spawn ? { area: map.id, x: spawn.tileX, y: spawn.tileY } : { error: "Ese nivel no tiene llegada" };
+}
+
+/**
+ * Interpreta "/sombrero [escondite]": el índice del escondite pedido, `null` sin escondite (el de hoy), o
+ * `error` si no existe. Devuelve `false` si el texto no es el comando.
+ */
+export function parseDevSombrero(text: string): { hideout: number | null } | { error: string } | false {
+  const m = /^\/sombrero(?:\s+(\S+))?\s*$/.exec(text.trim());
+  if (!m) return false;
+  if (!m[1]) return { hideout: null };
+  const i = SOMBRERO_HIDEOUTS.findIndex((h) => h.id === m[1]!.toLowerCase());
+  return i >= 0 ? { hideout: i } : { error: `Escondites: ${SOMBRERO_HIDEOUTS.map((h) => h.id).join(", ")}` };
 }
 
 /** Interpreta "/clima <tipo>". Devuelve null si el texto no es el comando; `error` si el tipo no existe. */
