@@ -91,10 +91,13 @@ export function Hotbar() {
   );
 }
 
-/** Las tres filas de la mochila: la que se ve, marcada. Clic para ir a otra. */
+/**
+ * Las tres filas de la mochila: la que se ve, marcada. Clic para ir a otra. Caben en el alto de una
+ * casilla (el "Tab" va en el título y en la lista de controles).
+ */
 function RowPips({ row }: { row: number }) {
   return (
-    <div className="flex flex-col items-center gap-[3px]" role="group" aria-label="Filas de la mochila">
+    <div className="flex flex-col items-center gap-[3px]" role="group" aria-label="Filas de la mochila (Tab para cambiar)" title="Filas de la mochila (Tab para cambiar)">
       {Array.from({ length: BAG.rows }, (_, r) => (
         <button
           key={r}
@@ -103,10 +106,9 @@ function RowPips({ row }: { row: number }) {
           aria-label={`Fila ${r + 1}`}
           aria-pressed={r === row}
           onClick={() => selectSlot(r * BAG.cols + (useBagStore.getState().selected % BAG.cols))}
-          className={`h-2.5 w-2.5 border-2 border-cozy-frame max-sm:h-2 max-sm:w-2 ${r === row ? "bg-cozy-red" : "bg-cozy-paper-light"}`}
+          className={`size-2 border-2 border-cozy-frame focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cozy-sky ${r === row ? "bg-cozy-red" : "bg-cozy-paper-light"}`}
         />
       ))}
-      <kbd className="cozy-kbd mt-0.5 px-0.5 text-[9px] leading-none max-md:hidden">Tab</kbd>
     </div>
   );
 }
@@ -138,7 +140,7 @@ function HotbarSlot({
       aria-label={`${col + 1}: ${title}`}
       title={title}
       onClick={() => (selected ? info?.use === "consume" && sendUseHeld() : selectSlot(slot))}
-      className="bag-slot size-[clamp(1.55rem,calc((100vw-5rem)/12),2.9rem)]"
+      className="bag-slot size-[clamp(1.55rem,calc((100vw-4rem)/12),2.25rem)]"
     >
       <span className="bag-slot-n max-sm:hidden">{BAG_KEYS[col]}</span>
       {stack && <ItemIcon itemId={stack.itemId} art={inHand?.held} left={inHand && info?.use === "consume" ? inHand.left : undefined} />}
@@ -174,7 +176,7 @@ export function HandActions() {
           s.pickDecor({ type: info.art });
         }}
         title={inMyOffice ? `Poner ${info.name} en tu oficina` : `${info.name}: se pone en tu oficina (con Decorar)`}
-        className="cozy-btn h-10 gap-1.5 px-2 text-[13px] max-sm:h-9"
+        className="cozy-btn h-9 gap-1.5 px-2 text-[13px] max-sm:h-8"
       >
         <span className="max-w-24 truncate">{inMyOffice ? "Poner" : info.name}</span>
       </button>
@@ -195,7 +197,7 @@ export function HandActions() {
               ? `${info.name}: úsala con E en las parcelas, el barril o el pozo`
               : `${info.name}: lo llevas en la mano`
         }
-        className="cozy-btn h-10 gap-1.5 px-2 text-[13px] disabled:opacity-100 max-sm:h-9"
+        className="cozy-btn h-9 gap-1.5 px-2 text-[13px] disabled:opacity-100 max-sm:h-8"
       >
         {(info.use === "consume" || tool) && <kbd className="cozy-kbd px-1 text-[10px] leading-none">{tool ? "E" : "F"}</kbd>}
         <span className="max-w-24 truncate max-sm:hidden">{verb}</span>
@@ -231,7 +233,7 @@ function ToastButton({ mode, name, disabled }: { mode: "invite" | "join" | "wait
       title={title}
       aria-label={title}
       data-on={mode === "join" ? "" : undefined}
-      className={`cozy-btn h-10 gap-1.5 px-2 text-[13px] max-sm:h-9 ${mode === "join" ? "cozy-btn-primary animate-pulse" : ""}`}
+      className={`cozy-btn h-9 gap-1.5 px-2 text-[13px] max-sm:h-8 ${mode === "join" ? "cozy-btn-primary animate-pulse" : ""}`}
     >
       <kbd className="cozy-kbd px-1 text-[10px] leading-none">B</kbd>
       <span className="max-sm:hidden">{TOAST_LABEL[mode]}</span>

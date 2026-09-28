@@ -160,7 +160,7 @@ export function GiftChip() {
   }, [setUnopened]);
   if (!unopened) return null;
   return (
-    <button type="button" onClick={() => openPanel("mailbox", false)} className="cozy-btn gap-1.5" title="Regalos sin abrir en el buzón">
+    <button type="button" onClick={() => openPanel("mailbox", false)} className="cozy-btn h-[34px] gap-1.5 px-2 py-0" title="Regalos sin abrir en el buzón">
       <PixelIcon name="gift" size={15} color="var(--color-cozy-red)" />
       {unopened}
     </button>

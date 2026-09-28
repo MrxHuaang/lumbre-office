@@ -116,13 +116,13 @@ export function PointsCounter() {
       onClick={() => openPanel("mailbox", false)}
       title="Tus puntos (ver movimientos)"
       aria-label={`${points} puntos`}
-      className="cozy-panel flex items-center gap-1.5 px-2.5 py-1.5"
+      className="cozy-panel flex h-[34px] items-center gap-1.5 px-2 hover:brightness-105"
     >
-      <PixelIcon name="coin" size={18} color="var(--color-cozy-gold)" />
+      <PixelIcon name="coin" size={16} color="var(--color-cozy-gold)" />
       {/* La key cambia con cada premio: reinicia el "salto" de los números. */}
       <span key={award?.id ?? 0} className={`flex gap-0.5 ${award ? "animate-[cozy-pop_0.35s_steps(3)]" : ""}`}>
         {[...digits].map((d, i) => (
-          <span key={i} className="grid h-6 w-[17px] place-items-center border-2 border-cozy-wood bg-cozy-paper-dark text-[15px] leading-none text-[#7a2a0e]">
+          <span key={i} className="grid h-5 w-[15px] place-items-center border-2 border-cozy-wood bg-cozy-paper-dark text-[14px] leading-none text-[#7a2a0e]">
             {d}
           </span>
         ))}
