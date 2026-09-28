@@ -15,6 +15,9 @@ import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
+import { COM_TIMINGS } from "../src/rooms/comunicacion";
+import { Phones } from "../src/rooms/phones";
+import { Anuncio, canAnnounce } from "../src/rooms/anuncio";
 import type { OfficeState } from "../src/state";
 import { bootServer, tick, token, until, type ServerRoom } from "./helpers";
 
@@ -32,12 +35,13 @@ beforeEach(async () => {
   await colyseus.cleanup();
   repo = new MemoryRepository();
   OfficeRoom.repo = repo;
-  OfficeRoom.callCooldownMs = 0;
+  COM_TIMINGS.callCooldownMs = 0;
 });
 afterEach(() => {
-  OfficeRoom.callCooldownMs = COMUNICACION.callCooldownMs;
-  OfficeRoom.waveCooldownMs = COMUNICACION.waveCooldownMs;
-  OfficeRoom.broadcastMaxMs = COMUNICACION.broadcastMaxMs;
+  COM_TIMINGS.callCooldownMs = COMUNICACION.callCooldownMs;
+  COM_TIMINGS.waveCooldownMs = COMUNICACION.waveCooldownMs;
+  COM_TIMINGS.announceCooldownMs = COMUNICACION.announceCooldownMs;
+  COM_TIMINGS.broadcastMaxMs = COMUNICACION.broadcastMaxMs;
 });
 
 const NAMES = ["Ana", "Bob", "Carla", "Dani", "Eva", "Fede", "Gabo"] as const;
@@ -132,7 +136,7 @@ describe("llamar sin teléfono", () => {
     expect(toBob.at(-1)).toMatchObject({ kind: "failed", error: "busy", withName: "Ana" });
 
     // La pausa: quien acaba de llamar no puede volver a marcar enseguida.
-    OfficeRoom.callCooldownMs = 60_000;
+    COM_TIMINGS.callCooldownMs = 60_000;
     const toCarla = phoneEvents(carla);
     carla.send(MSG.phoneHangup);
     await settle(room);
@@ -209,9 +213,31 @@ describe("llamadas grupales", () => {
   });
 });
 
+describe("quien hace sonar a alguien va por userId", () => {
+  it("si cambia de nombre, a quien le suena le llega el nombre nuevo", () => {
+    const sent: PhoneEvent[] = [];
+    let n = 0;
+    const phones = new Phones({
+      later: () => ({ clear() {} }),
+      now: () => 1000,
+      newId: () => `c${++n}`,
+      ringMs: () => 30_000,
+      send: (userId, e) => void (userId === "u-c" && sent.push(e)),
+      setPhase: () => undefined,
+    });
+    const who = (id: string, name: string) => ({ userId: id, name, status: "available" });
+    phones.call(who("u-a", "Ana"), who("u-b", "Bob"), "su celular");
+    phones.answer("u-b", "c1", true);
+    expect(phones.add(who("u-a", "Ana"), who("u-c", "Carla"), "su celular")).toBeNull();
+    phones.rename("u-a", "Ana María");
+    phones.restore("u-c");
+    expect(sent.at(-1)).toMatchObject({ kind: "ringing", withUserId: "u-a", withName: "Ana María" });
+  });
+});
+
 describe("saludar", () => {
   it("le llega el toque, con pausa por par de personas y sin molestar a quien está en No molestar", async () => {
-    OfficeRoom.waveCooldownMs = 200;
+    COM_TIMINGS.waveCooldownMs = 200;
     const { room, people } = await setup(3);
     const [ana, bob, carla] = people as [ClientRoom, ClientRoom, ClientRoom];
     const toBob = collect<WaveEvent>(bob, COM_MSG.waved);
@@ -274,7 +300,7 @@ describe("anuncio a toda la cabaña", () => {
   });
 
   it("la voz: todos saben quién anuncia, el papel queda en el estado y se corta solo al llegar al tope", async () => {
-    OfficeRoom.broadcastMaxMs = 300;
+    COM_TIMINGS.broadcastMaxMs = 300;
     const { room, people } = await setup(2, { admin: true });
     const [admin, bob] = people as [ClientRoom, ClientRoom];
     const toBob = collect<BroadcastEvent>(bob, COM_MSG.broadcastEvent);
@@ -317,5 +343,66 @@ describe("anuncio a toda la cabaña", () => {
     await other.leave(true);
     await until(() => toBob.length === 4);
     expect(toBob[3]).toMatchObject({ kind: "end", reason: "left", name: "Otra" });
+  });
+
+  it("prender y apagar la voz lleva pausa (cada inicio le suena a toda la cabaña)", async () => {
+    const { room, people } = await setup(2, { admin: true });
+    const [admin, bob] = people as [ClientRoom, ClientRoom];
+    const toBob = collect<BroadcastEvent>(bob, COM_MSG.broadcastEvent);
+    const adminErrors = collect<AnnounceResult>(admin, COM_MSG.announceResult);
+
+    // Doble clic: un solo inicio.
+    admin.send(COM_MSG.broadcastStart);
+    admin.send(COM_MSG.broadcastStart);
+    await until(() => toBob.length === 1);
+    admin.send(COM_MSG.broadcastStop);
+    await until(() => toBob.length === 2);
+    // Volver a prender enseguida: no.
+    admin.send(COM_MSG.broadcastStart);
+    await until(() => adminErrors.length === 1);
+    expect(adminErrors[0]!.error).toBe("too-soon");
+    await settle(room);
+    expect(toBob).toHaveLength(2);
+    expect(player(room, admin).broadcastUntil).toBe(0);
+
+    // Pasada la pausa, sí.
+    COM_TIMINGS.announceCooldownMs = 0;
+    admin.send(COM_MSG.broadcastStart);
+    await until(() => toBob.length === 3);
+    expect(toBob[2]).toMatchObject({ kind: "start" });
+  });
+
+  it("quien vuelve a entrar en pleno anuncio lo recibe como retomado (sin timbre ni micrófono solo)", () => {
+    const sent: { sessionId: string; msg: BroadcastEvent }[] = [];
+    const untilOf = new Map<string, number>();
+    const people: Record<string, { userId: string; name: string; admin: boolean }> = {
+      s1: { userId: "u-ana", name: "Ana", admin: true },
+      s2: { userId: "u-ana", name: "Ana", admin: true },
+      s3: { userId: "u-bob", name: "Bob", admin: false },
+    };
+    const anuncio = new Anuncio({
+      person: (sessionId) => people[sessionId],
+      toAll: () => undefined,
+      toSession: (sessionId, _type, msg) => sent.push({ sessionId, msg: msg as BroadcastEvent }),
+      setBroadcast: (userId, t) => untilOf.set(userId, t),
+      later: () => ({ clear() {} }),
+      now: () => 1000,
+      newId: () => "a1",
+      maxMs: () => 60_000,
+      cooldownMs: () => 10_000,
+    });
+    anuncio.start("s1");
+    untilOf.clear();
+    anuncio.greet("s3");
+    anuncio.greet("s2"); // la misma admin, recargó la página
+    expect(sent.map((x) => [x.sessionId, x.msg])).toEqual([
+      ["s3", { kind: "start", userId: "u-ana", name: "Ana", endsAt: 61_000, resumed: true }],
+      ["s2", { kind: "start", userId: "u-ana", name: "Ana", endsAt: 61_000, resumed: true }],
+    ]);
+    // Su sesión nueva vuelve a tener el papel "broadcast" (el micrófono lo prende ella).
+    expect(untilOf.get("u-ana")).toBe(61_000);
+    // Solo un admin puede anunciar: lo decide `canAnnounce`.
+    expect(canAnnounce(people.s3!)).toBe(false);
+    expect(canAnnounce(people.s1!)).toBe(true);
   });
 });

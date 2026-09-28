@@ -12,6 +12,7 @@ import {
   COM_MSG,
   COMUNICACION,
   followNeedsWalk,
+  PODCAST,
   WAVE_RESULT_TEXT,
   type Announcement,
   type AnnounceResult,
@@ -22,6 +23,7 @@ import {
 import type { Room } from "colyseus.js";
 import { create } from "zustand";
 import { useCasinoStore } from "./casino";
+import { useEscenarioStore } from "./escenario/store";
 import { announceChime, shoulderTap } from "./comunicacionSonidos";
 import { media, useMediaStore } from "./media";
 import { browserNotify } from "./notify";
@@ -39,6 +41,7 @@ interface StatePlayer {
   call?: string;
   callId?: string;
   broadcastUntil?: number;
+  status?: string;
 }
 interface StateView {
   players: { get(id: string): StatePlayer | undefined; forEach(fn: (p: StatePlayer, sessionId: string) => void): void };
@@ -187,23 +190,27 @@ export function callBackWave(w: WaveEvent) {
 
 // ---------- Para la escena (quién se oye) ----------
 
-let flagsCache: Map<string, { call?: string; broadcast?: boolean }> | null = null;
+type VoiceFlags = { call?: string; broadcast?: boolean; onAir?: boolean };
+let flagsCache: Map<string, VoiceFlags> | null = null;
 let flagsAt = 0;
 
 /**
  * Lo que la llamada y el anuncio le suman a `Positioned` (ver `hearing` en @hyvento/shared): `call` si está
- * hablando en una llamada y `broadcast` si le habla a toda la cabaña. Se arma una vez cada 100 ms.
+ * hablando en una llamada, `broadcast` si le habla a toda la cabaña y `onAir` si está adentro del estudio
+ * mientras se graba el podcast (ahí no llega el anuncio). Se arma una vez cada 100 ms.
  */
-export function voiceFlags(userId: string): { call?: string; broadcast?: boolean } {
+export function voiceFlags(userId: string): VoiceFlags {
   if (!room || !userId) return {};
   const now = performance.now();
   if (!flagsCache || now - flagsAt > 100) {
     flagsCache = new Map();
     flagsAt = now;
+    const recording = useEscenarioStore.getState().podcast.phase === "recording";
     room.state.players.forEach((p) => {
       const call = p.call === "talking" && p.callId ? p.callId : undefined;
       const broadcast = (p.broadcastUntil ?? 0) > 0;
-      if (call || broadcast) flagsCache!.set(p.userId, { ...(call ? { call } : {}), ...(broadcast ? { broadcast } : {}) });
+      const onAir = recording && p.area === PODCAST.area;
+      if (call || broadcast || onAir) flagsCache!.set(p.userId, { ...(call ? { call } : {}), ...(broadcast ? { broadcast } : {}), ...(onAir ? { onAir } : {}) });
     });
   }
   return flagsCache.get(userId) ?? {};
@@ -220,7 +227,7 @@ const FOLLOW_TICK_MS = 500;
 /** Cuánto sin moverme (lejos de la persona) cuenta como que la ruta se quedó corta. */
 const FOLLOW_STUCK_MS = 1200;
 /** Tras tantos intentos sin avanzar, no hay cómo llegar: se deja de seguir. */
-const FOLLOW_MAX_STUCK = 4;
+const FOLLOW_MAX_STUCK = 2;
 
 let lastGoal: { area: string; x: number; y: number } | null = null;
 let lastTriggerAt = 0;
@@ -264,7 +271,11 @@ function followTick() {
   const moved = !lastGoal || lastGoal.area !== t.area || Math.hypot(lastGoal.x - t.x, lastGoal.y - t.y) > 2 * 32;
   const stuck = now - myLastMoveAt > FOLLOW_STUCK_MS && now - lastTriggerAt > FOLLOW_STUCK_MS;
   if (!moved && !stuck) return;
-  if (stuck && ++stuckTries > FOLLOW_MAX_STUCK) return stopFollowing(`No encuentro cómo llegar hasta ${f.name}: dejas de seguirle.`);
+  if (stuck) {
+    // En otro nivel sin camino, "Ir hasta" ya avisó que no encuentra cómo llegar: se suelta sin repetirlo.
+    if (me.area !== t.area && stuckTries > 0) return stopFollowing();
+    if (++stuckTries > FOLLOW_MAX_STUCK) return stopFollowing(`No encuentro cómo llegar hasta ${f.name}: dejas de seguirle.`);
+  }
   lastGoal = { area: t.area, x: t.x, y: t.y };
   lastTriggerAt = now;
   useOfficeStore.getState().walkToPlayer(target.sessionId);
@@ -279,32 +290,51 @@ function handleWave(w: WaveEvent) {
   browserNotify("wave", `${w.fromName} te saluda. Haz clic para ir hasta allá.`, { onClick: () => goToWave(w) });
 }
 
+/** En "No molestar" el aviso se ve, pero sin timbre. */
+function chimeUnlessDnd() {
+  const me = room ? room.state.players.get(room.sessionId) : undefined;
+  if (me?.status !== "dnd") announceChime();
+}
+
 function handleAnnouncement(a: Announcement) {
   if (announceTimer) clearTimeout(announceTimer);
   useComStore.setState({ announcement: a });
   announceTimer = setTimeout(() => dismissAnnouncement(), COMUNICACION.announceShowMs);
-  announceChime();
+  chimeUnlessDnd();
   browserNotify("announce", a.text, { title: `${a.fromName} · ${announcementTime(a.at)}` });
 }
+
+/**
+ * ¿El anuncio me prendió el micrófono? Entonces al terminar se apaga, para no quedar con el micrófono
+ * abierto por proximidad. Si ya lo tenía prendido, se deja como estaba.
+ */
+let micByBroadcast = false;
 
 function handleBroadcast(e: BroadcastEvent) {
   const mine = e.userId === myUserId();
   if (e.kind === "start") {
     const was = useComStore.getState().broadcast;
     useComStore.setState({ broadcast: { userId: e.userId, name: e.name, endsAt: localTime(e.endsAt) } });
-    if (was?.userId === e.userId) return; // al volver a entrar se repite el aviso: no hace falta otro timbre
+    // Ya estaba sonando (al entrar o recargar): sin timbre y sin prender nada solo.
+    if (was?.userId === e.userId || e.resumed) {
+      if (mine && e.resumed && !useMediaStore.getState().mic) notify("Sigues anunciando a toda la cabaña: prende el micrófono para que te oigan.", "warning");
+      return;
+    }
     if (mine) {
       // Para que te oigan hay que tener el micrófono prendido.
-      if (!useMediaStore.getState().mic) void media.toggleMic();
+      micByBroadcast = !useMediaStore.getState().mic;
+      if (micByBroadcast) void media.toggleMic();
       notify("Estás hablándole a toda la cabaña: todos te oyen, estén donde estén.");
     } else {
-      announceChime();
+      chimeUnlessDnd();
       notify(`${e.name} está hablando a toda la cabaña.`);
       browserNotify("announce", `${e.name} está hablando a toda la cabaña.`);
     }
     return;
   }
   if (useComStore.getState().broadcast?.userId === e.userId) useComStore.setState({ broadcast: null });
+  if (mine && micByBroadcast && useMediaStore.getState().mic) void media.toggleMic();
+  if (mine) micByBroadcast = false;
   notify(broadcastEndText(e, mine));
 }
 
@@ -325,5 +355,6 @@ export function resetComunicacion() {
   dismissAnnouncement();
   room = null;
   flagsCache = null;
+  micByBroadcast = false;
   useComStore.setState({ waves: [], broadcast: null, announceOpen: false });
 }

@@ -1792,7 +1792,6 @@ export class OfficeScene extends Phaser.Scene {
       this.spinChair();
       return;
     }
-    noteManualMove();
     this.pendingZone = null;
     this.pendingPerson = null;
     this.pendingInteract = null;
@@ -1802,6 +1801,7 @@ export class OfficeScene extends Phaser.Scene {
     const man = this.local && !this.seat ? this.npcs.sombreroUnder(sx, sy) : null;
     if (man) {
       if (this.interactableInReach() === "sombrero") return activateInteractable("sombrero");
+      noteManualMove();
       this.walkTo(man.x, man.y);
       this.pendingInteract = "sombrero";
       return;
@@ -1815,6 +1815,7 @@ export class OfficeScene extends Phaser.Scene {
     // Nadando, el clic solo lleva a otro lugar de la pileta.
     if (this.swimming) {
       const w = screenToWorld(sx, sy);
+      noteManualMove(); // caminar a mano deja de seguir a alguien
       this.walkTo(w.x, w.y);
       return;
     }
@@ -1825,6 +1826,7 @@ export class OfficeScene extends Phaser.Scene {
         activateInteractable(target.kind);
         return;
       }
+      noteManualMove();
       this.walkTo(target.x, target.y);
       this.pendingInteract = target.kind;
       return;
@@ -1834,12 +1836,14 @@ export class OfficeScene extends Phaser.Scene {
     if (usable && this.local) {
       if (this.usables.reaches(usable, this.local.x, this.local.y)) return this.useFurniture(usable);
       const spot = this.usables.standSpot(usable);
+      noteManualMove();
       this.walkTo(spot.x, spot.y);
       this.pendingUse = usable;
       return;
     }
     const hit = this.tileUnder(sx, sy);
     if (!hit) return;
+    noteManualMove(); // clic en el suelo: caminar a mano deja de seguir a alguien
     this.walkTo((hit.tile.x + 0.5) * ts, (hit.tile.y + 0.5) * ts);
   }
 

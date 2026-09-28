@@ -7,7 +7,6 @@ import {
   AnnounceMessage,
   cleanAnnouncement,
   COM_MSG,
-  COMUNICACION,
   type Announcement,
   type AnnounceError,
   type AnnounceResult,
@@ -31,6 +30,16 @@ export interface AnuncioDeps {
   now: () => number;
   newId: () => string;
   maxMs: () => number;
+  /** Pausa entre avisos de texto y entre un anuncio por voz y el siguiente (`COMUNICACION.announceCooldownMs`). */
+  cooldownMs: () => number;
+}
+
+/**
+ * ¿Puede anunciar a toda la cabaña (texto y voz)? Hoy, solo los admins (el rol del token). Es el único
+ * lugar donde se decide: si llega un sistema de permisos por persona, se cambia aquí.
+ */
+export function canAnnounce(person: AnuncioPerson): boolean {
+  return person.admin;
 }
 
 interface Live {
@@ -42,6 +51,8 @@ interface Live {
 
 export class Anuncio {
   private lastTextAt = new Map<string, number>();
+  /** Cuándo empezó o terminó el último anuncio por voz de cada admin (para que prender y apagar no sea spam). */
+  private lastVoiceAt = new Map<string, number>();
   private live: Live | null = null;
 
   constructor(private readonly deps: AnuncioDeps) {}
@@ -56,11 +67,11 @@ export class Anuncio {
     const me = this.deps.person(sessionId);
     const parsed = AnnounceMessage.safeParse(raw);
     if (!me || !parsed.success) return;
-    if (!me.admin) return this.fail(sessionId, "admin");
+    if (!canAnnounce(me)) return this.fail(sessionId, "admin");
     const text = cleanAnnouncement(parsed.data.text);
     if (!text) return this.fail(sessionId, "empty");
     const now = this.deps.now();
-    if (now - (this.lastTextAt.get(me.userId) ?? -Infinity) < COMUNICACION.announceCooldownMs) return this.fail(sessionId, "too-soon");
+    if (now - (this.lastTextAt.get(me.userId) ?? -Infinity) < this.deps.cooldownMs()) return this.fail(sessionId, "too-soon");
     this.lastTextAt.set(me.userId, now);
     this.deps.toAll(COM_MSG.announcement, { id: this.deps.newId(), fromUserId: me.userId, fromName: me.name, text, at: now } satisfies Announcement);
   }
@@ -69,10 +80,13 @@ export class Anuncio {
   start(sessionId: string) {
     const me = this.deps.person(sessionId);
     if (!me) return;
-    if (!me.admin) return this.fail(sessionId, "admin");
+    if (!canAnnounce(me)) return this.fail(sessionId, "admin");
     if (this.live && this.live.userId !== me.userId) return this.fail(sessionId, "busy", this.live.name);
-    if (this.live) return; // ya estaba anunciando
+    if (this.live) return; // ya estaba anunciando (un doble clic)
     const now = this.deps.now();
+    // Cada inicio le suena a toda la cabaña: prender y apagar seguido lleva pausa.
+    if (now - (this.lastVoiceAt.get(me.userId) ?? -Infinity) < this.deps.cooldownMs()) return this.fail(sessionId, "too-soon");
+    this.lastVoiceAt.set(me.userId, now);
     const endsAt = now + this.deps.maxMs();
     const timer = this.deps.later(this.deps.maxMs(), () => {
       if (this.live?.userId === me.userId) this.end("timeout");
@@ -94,12 +108,15 @@ export class Anuncio {
     if (!live) return;
     const me = this.deps.person(sessionId);
     if (me?.userId === live.userId) this.deps.setBroadcast(live.userId, live.endsAt);
-    this.deps.toSession(sessionId, COM_MSG.broadcastEvent, { kind: "start", userId: live.userId, name: live.name, endsAt: live.endsAt } satisfies BroadcastEvent);
+    // `resumed`: ya estaba sonando; el navegador no vuelve a tocar el timbre ni prende el micrófono solo.
+    this.deps.toSession(sessionId, COM_MSG.broadcastEvent, { kind: "start", userId: live.userId, name: live.name, endsAt: live.endsAt, resumed: true } satisfies BroadcastEvent);
   }
 
-  /** Quien anunciaba se fue del todo: se corta. */
+  /** Quien anunciaba se fue del todo: se corta, y sus pausas se olvidan (así los mapas no crecen sin límite). */
   forget(userId: string) {
     if (this.live?.userId === userId) this.end("left");
+    this.lastTextAt.delete(userId);
+    this.lastVoiceAt.delete(userId);
   }
 
   dispose() {
@@ -112,6 +129,7 @@ export class Anuncio {
     if (!live) return;
     live.timer.clear();
     this.live = null;
+    this.lastVoiceAt.set(live.userId, this.deps.now());
     this.deps.setBroadcast(live.userId, 0);
     this.deps.toAll(COM_MSG.broadcastEvent, { kind: "end", userId: live.userId, name: live.name, reason } satisfies BroadcastEvent);
   }

@@ -40,7 +40,7 @@ export const COMUNICACION = {
   waveShowMs: 20_000,
   /** Largo máximo del aviso de texto. */
   announceMaxChars: 280,
-  /** Pausa entre avisos de texto del mismo admin. */
+  /** Pausa entre avisos de texto del mismo admin, y entre un anuncio por voz y el siguiente. */
   announceCooldownMs: 10_000,
   /** Cuánto se ve el aviso grande (se puede cerrar antes). */
   announceShowMs: 15_000,
@@ -102,7 +102,8 @@ export interface Announcement {
 
 /** El anuncio por voz: quién habla y hasta cuándo, o que terminó (y por qué). */
 export type BroadcastEvent =
-  | { kind: "start"; userId: string; name: string; endsAt: number }
+  /** `resumed`: el anuncio ya estaba sonando (llega al entrar o al recargar la página). */
+  | { kind: "start"; userId: string; name: string; endsAt: number; resumed?: boolean }
   | { kind: "end"; userId: string; name: string; reason: BroadcastEndReason };
 
 /** Terminó a mano, se venció el tope o quien anunciaba se fue. */
@@ -117,7 +118,7 @@ export interface AnnounceResult {
 
 export const ANNOUNCE_ERROR_TEXT: Record<AnnounceError, (name: string) => string> = {
   admin: () => "Solo un admin puede hablarle a toda la cabaña.",
-  "too-soon": () => "Espera unos segundos antes de mandar otro aviso.",
+  "too-soon": () => "Espera unos segundos antes de mandar otro anuncio.",
   empty: () => "Escribe algo para el aviso.",
   busy: (n) => `${n || "Otra persona"} ya le está hablando a toda la cabaña.`,
 };

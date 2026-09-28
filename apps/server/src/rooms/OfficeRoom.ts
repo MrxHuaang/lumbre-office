@@ -253,10 +253,7 @@ import { Invites } from "./invites";
 import { CabinEvents } from "./events";
 import { FocusTimers } from "./focus";
 import { Phones } from "./phones";
-import { Llamadas } from "./llamadas";
-import { Saludos, WAVE_COOLDOWN_MS } from "./saludos";
-import { Anuncio } from "./anuncio";
-import { COM_MSG, COMUNICACION } from "@hyvento/shared";
+import { registerComunicacion, type Comunicacion } from "./comunicacion";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { BAG_MSG, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
@@ -897,7 +894,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
-    this.startComunicacion();
+    this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1101,7 +1098,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.bus?.dispose();
     this.cocina.dispose();
     this.phones.dispose();
-    this.anuncio?.dispose();
+    this.comunicacion?.dispose();
     void this.achievements.flushAll();
     void this.whiteboards.flush();
     this.pets?.flush(Date.now());
@@ -1159,7 +1156,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.focus.joined(auth.sub);
     // Si recargó la página en medio de una llamada, la sesión nueva la retoma.
     this.phones.restore(auth.sub);
-    this.anuncio?.greet(client.sessionId);
+    this.comunicacion?.greet(client.sessionId);
 
     client.userData = {
       lastMoveAt: Date.now(),
@@ -1735,63 +1732,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     else this.achievements.bump(player.userId, STAT_KEYS.phoneCalls);
   }
 
-  // ---------- Comunicación rápida (llamadas.ts, saludos.ts y anuncio.ts) ----------
-
-  /** Pausa entre saludos a la misma persona y tope del anuncio por voz (los tests los acortan). */
-  static waveCooldownMs: number = WAVE_COOLDOWN_MS;
-  static broadcastMaxMs: number = COMUNICACION.broadcastMaxMs;
-  static callCooldownMs: number = COMUNICACION.callCooldownMs;
-  private anuncio?: Anuncio;
-
-  /** Llamar sin teléfono (y sumar a la llamada), saludar y el anuncio de un admin a toda la cabaña. */
-  private startComunicacion() {
-    const who = (p: Player | undefined) => p && { userId: p.userId, name: p.name, status: p.status };
-    const byUser = (userId: string) => [...this.state.players.values()].find((p) => p.userId === userId);
-    const llamadas = new Llamadas({
-      phones: this.phones,
-      who: (sessionId) => who(this.state.players.get(sessionId)),
-      whoByUser: (userId) => who(byUser(userId)),
-      send: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
-      now: () => Date.now(),
-      called: (userId) => this.achievements.bump(userId, STAT_KEYS.phoneCalls),
-      cooldownMs: () => OfficeRoom.callCooldownMs,
-    });
-    const saludos = new Saludos({
-      person: (sessionId) => who(this.state.players.get(sessionId)),
-      sessionOfUser: (userId) => this.clientOfUser(userId)?.sessionId ?? null,
-      send: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
-      now: () => Date.now(),
-      newId: () => randomUUID(),
-      cooldownMs: () => OfficeRoom.waveCooldownMs,
-    });
-    this.anuncio = new Anuncio({
-      person: (sessionId) => {
-        const p = this.state.players.get(sessionId);
-        const admin = this.clients.getById(sessionId)?.userData?.admin ?? false;
-        return p && { userId: p.userId, name: p.name, admin };
-      },
-      toAll: (type, message) => this.broadcast(type, message),
-      toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
-      setBroadcast: (userId, until) => {
-        for (const p of this.state.players.values()) if (p.userId === userId) p.broadcastUntil = until;
-      },
-      later: (ms, fn) => this.clock.setTimeout(fn, ms),
-      now: () => Date.now(),
-      newId: () => randomUUID(),
-      maxMs: () => OfficeRoom.broadcastMaxMs,
-    });
-    const anuncio = this.anuncio;
-    const active = (client: Client<UserData>, fn: (sessionId: string) => void) => {
-      this.markActive(client);
-      fn(client.sessionId);
-    };
-    this.onMessage(COM_MSG.call, (client, raw) => active(client, (id) => llamadas.call(id, raw)));
-    this.onMessage(COM_MSG.add, (client, raw) => active(client, (id) => llamadas.add(id, raw)));
-    this.onMessage(COM_MSG.wave, (client, raw) => active(client, (id) => saludos.wave(id, raw)));
-    this.onMessage(COM_MSG.announce, (client, raw) => active(client, (id) => anuncio.announce(id, raw)));
-    this.onMessage(COM_MSG.broadcastStart, (client) => active(client, (id) => anuncio.start(id)));
-    this.onMessage(COM_MSG.broadcastStop, (client) => anuncio.stop(client.sessionId));
-  }
+  /** Llamar sin teléfono, llamadas grupales, saludar y el anuncio del admin (ver rooms/comunicacion.ts). */
+  private comunicacion?: Comunicacion;
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
@@ -3541,7 +3483,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
     this.phones.left(player.userId);
-    this.anuncio?.forget(player.userId);
+    this.comunicacion?.forget(player.userId);
     this.invites.forget(player.userId);
     this.hockey?.leave(player.userId);
     this.casa.forget(player.userId);

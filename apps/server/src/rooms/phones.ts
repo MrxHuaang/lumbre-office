@@ -29,9 +29,10 @@ export interface PhonesDeps {
 interface Member {
   who: PhoneWho;
   phase: "calling" | "ringing" | "talking";
-  /** Para quien le suena: desde dónde lo llaman y quién ("te llama desde …"). */
+  /** Para quien le suena: desde dónde lo llaman y quién ("te llama desde …"), por userId y su nombre. */
   from: string;
   by: string;
+  byName: string;
   endsAt: number;
   timer?: { clear(): void };
 }
@@ -74,10 +75,10 @@ export class Phones {
     if (this.ofUser.has(callee.userId)) return "busy";
     if (callee.status === "dnd") return "dnd";
     const call: Call = { id: this.deps.newId(), caller: caller.userId, members: new Map(), since: 0 };
-    call.members.set(caller.userId, { who: caller, phase: "calling", from: "", by: "", endsAt: 0 });
+    call.members.set(caller.userId, { who: caller, phase: "calling", from: "", by: "", byName: "", endsAt: 0 });
     this.calls.set(call.id, call);
     this.ofUser.set(caller.userId, call);
-    this.ring(call, callee, from, caller.name);
+    this.ring(call, callee, from, caller);
     this.announce(call);
     return null;
   }
@@ -94,7 +95,7 @@ export class Phones {
     if (this.ofUser.has(target.userId)) return "busy";
     if (target.status === "dnd") return "dnd";
     if (call.members.size >= COMUNICACION.maxCallMembers) return "full";
-    this.ring(call, target, from, adder.name);
+    this.ring(call, target, from, adder);
     this.tellOthers(call, target.userId, target.name, "invited");
     this.announce(call);
     return null;
@@ -140,8 +141,11 @@ export class Phones {
 
   /** Cambió el nombre de alguien: los demás lo ven en su chip la próxima vez que se avise. */
   rename(userId: string, name: string) {
-    const me = this.ofUser.get(userId)?.members.get(userId);
+    const call = this.ofUser.get(userId);
+    if (!call) return;
+    const me = call.members.get(userId);
     if (me) me.who.name = name;
+    for (const m of call.members.values()) if (m.by === userId) m.byName = name;
   }
 
   dispose() {
@@ -151,8 +155,8 @@ export class Phones {
   }
 
   /** Le empieza a sonar a `who` (se vence solo a los `ringMs`). */
-  private ring(call: Call, who: PhoneWho, from: string, by: string) {
-    const member: Member = { who, phase: "ringing", from, by, endsAt: this.deps.now() + this.deps.ringMs() };
+  private ring(call: Call, who: PhoneWho, from: string, by: PhoneWho) {
+    const member: Member = { who, phase: "ringing", from, by: by.userId, byName: by.name, endsAt: this.deps.now() + this.deps.ringMs() };
     member.timer = this.deps.later(this.deps.ringMs(), () => {
       if (call.members.get(who.userId) === member && member.phase === "ringing") this.drop(call, member, "timeout", who.userId);
     });
@@ -173,10 +177,10 @@ export class Phones {
       if (only && userId !== only) continue;
       const members = this.others(call, userId);
       // "Con quién": para quien le suena, quien lo llama; si no, el primero que está hablando (o sonando).
-      const other = me.phase === "ringing" ? members.find((m) => m.name === me.by && m.phase !== "ringing") ?? members[0] : members.find((m) => m.phase === "talking") ?? members[0];
+      const other = me.phase === "ringing" ? members.find((m) => m.userId === me.by && m.phase !== "ringing") ?? members[0] : members.find((m) => m.phase === "talking") ?? members[0];
       const withUserId = other?.userId ?? "";
       this.deps.setPhase(userId, me.phase, withUserId, call.since, call.id);
-      const base = { callId: call.id, withUserId, withName: me.phase === "ringing" ? me.by : other?.name ?? "", members };
+      const base = { callId: call.id, withUserId, withName: me.phase === "ringing" ? this.byNameOf(call, me) : other?.name ?? "", members };
       if (me.phase === "talking") this.deps.send(userId, { kind: "connected", ...base, since: call.since });
       else if (me.phase === "calling") this.deps.send(userId, { kind: "calling", ...base, endsAt: this.firstRingEnds(call) });
       else this.deps.send(userId, { kind: "ringing", ...base, from: me.from, endsAt: me.endsAt });
@@ -201,7 +205,7 @@ export class Phones {
     const talkingAfter = [...call.members.values()].filter((m) => m !== member && m.phase === "talking").length;
     if (!call.since || talkingAfter < 2) return this.end(call, reason, byUserId);
     this.remove(call, member);
-    this.sendEnded(call, member, reason, byUserId, member.by || this.nameOf(call, call.caller));
+    this.sendEnded(call, member, reason, byUserId, member.by ? this.byNameOf(call, member) : this.nameOf(call, call.caller));
     this.tellOthers(call, member.who.userId, member.who.name, reason === "hangup" || reason === "left" ? "left" : reason);
     this.announce(call);
   }
@@ -211,6 +215,11 @@ export class Phones {
     call.members.delete(member.who.userId);
     if (this.ofUser.get(member.who.userId) === call) this.ofUser.delete(member.who.userId);
     this.deps.setPhase(member.who.userId, "", "", 0, "");
+  }
+
+  /** Nombre de quien hizo sonar a `m` (el de ahora si sigue en la llamada; si no, el que tenía). */
+  private byNameOf(call: Call, m: Member): string {
+    return call.members.get(m.by)?.who.name ?? m.byName;
   }
 
   private nameOf(call: Call, userId: string): string {
@@ -232,7 +241,7 @@ export class Phones {
       const userId = m.who.userId;
       // "Con quién" terminó: quien colgó (o se fue); para quien colgó, alguien del otro lado.
       const withName =
-        userId !== byUserId ? byName : m.phase === "ringing" ? m.by : members.find((o) => o !== m && o.phase !== "ringing")?.who.name ?? members.find((o) => o !== m)?.who.name ?? "";
+        userId !== byUserId ? byName : m.phase === "ringing" ? this.byNameOf(call, m) : members.find((o) => o !== m && o.phase !== "ringing")?.who.name ?? members.find((o) => o !== m)?.who.name ?? "";
       this.remove(call, m);
       this.sendEnded(call, m, reason, byUserId, withName);
     }

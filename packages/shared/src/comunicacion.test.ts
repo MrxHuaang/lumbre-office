@@ -60,6 +60,15 @@ describe("anuncio por voz (broadcast)", () => {
     expect(listeners(admin, "admin", others).sort()).toEqual(["al-lado", "reunion"]);
   });
 
+  it("en el estudio grabando no se oye el anuncio (ni el admin puede suscribirse): no entra a la grabación", () => {
+    const grabando = at("podcast", 5, 5, "podcast", true, { onAir: true });
+    const afuera = at("piso-3", 5, 5, "pasillo");
+    expect(hearing(grabando, new Map([["admin", admin]])).size).toBe(0);
+    expect(listeners(admin, "admin", new Map([["grabando", grabando], ["afuera", afuera]]))).toEqual(["afuera"]);
+    // Sin grabar (el mismo estudio), el anuncio sí llega.
+    expect(hearing({ ...grabando, onAir: false }, new Map([["admin", admin]])).get("admin")).toBe(1);
+  });
+
   it("sin anuncio, la reunión sigue aislada", () => {
     const quiet = { ...admin, broadcast: false };
     expect(hearing(at("piso-3", 400, 400, "meeting", true), new Map([["admin", quiet]])).size).toBe(0);
