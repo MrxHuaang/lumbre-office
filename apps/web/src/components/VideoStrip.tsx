@@ -26,7 +26,7 @@ export function VideoStrip() {
   if (tiles.length === 0) return null;
 
   return (
-    <div className="pointer-events-none absolute top-20 left-1/2 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-3 overflow-x-auto p-1 pb-2 md:max-w-[calc(100%-38rem)]">
+    <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.75rem)] left-1/2 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 gap-3 overflow-x-auto p-1 pb-2 md:max-w-[calc(100%-38rem)]">
       {tiles.map((t) => (
         <ScreenTile key={t.identity ?? "me"} identity={t.identity} name={t.name} />
       ))}

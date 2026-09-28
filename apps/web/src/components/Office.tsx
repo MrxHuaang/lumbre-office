@@ -274,12 +274,15 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           />
           {/* Decorando tu oficina, el panel del editor toma el lugar de los conectados. */}
           <div
-            className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-3 ${decorating || worldEditing ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-44"}`}
+            className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-2 ${decorating || worldEditing ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-auto"}`}
           >
             {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <PeoplePanel />}
-            <DoorNotesChip />
-            <Notices />
-            <NotifyPrompt />
+            {/* En el celular la columna se ajusta a la ficha de conectados y los avisos bajan hasta debajo del HUD. */}
+            <div className="flex w-full flex-col items-end gap-2 empty:hidden max-md:absolute max-md:top-[calc(var(--cozy-hud-bottom,3rem)_-_0.25rem)] max-md:right-0 max-md:w-[min(16rem,calc(100vw-1.5rem))]">
+              <DoorNotesChip />
+              <Notices />
+              <NotifyPrompt />
+            </div>
           </div>
           <ChatPanel isAdmin={isAdmin} />
           <SideDock />
@@ -299,7 +302,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <EscenarioHud />
           </div>
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
-          <div className="pointer-events-none absolute top-16 left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
+          <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
             {connection === "reconnecting" && <div className="cozy-chip px-3.5 py-1.5 text-[13px]">Reconectando…</div>}
             <AchievementToasts />
             <CatchCard />
@@ -310,10 +313,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <IncomingCall />
           <SocialOverlays />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}
-          <MediaControls actions={<HandActions />}>
+          <MediaControls actions={<HandActions />} tail={<ControlsHint />}>
             <Hotbar />
           </MediaControls>
-          <ControlsHint />
           <VideoStrip />
           <ScreenFocus />
           {pcOn && <Computer profile={profile} onOff={() => setPcOn(false)} />}
@@ -419,6 +421,7 @@ const CONTROLS: [string, string][] = [
   ["F", "usar lo de la mano"],
   ["T", "emotes"],
   ["P", "foto"],
+  ["N", "nombres: completos, cortos u ocultos"],
   ["Enter", "chatear"],
   ["Tab", "cambiar la fila de la barra"],
   ["1-9 0 - =", "elegir la casilla (la mano)"],
@@ -433,23 +436,32 @@ const DECOR_CONTROLS: [string, string][] = [
 ];
 
 /**
- * Recordatorio de controles (abajo a la derecha): un chip corto que abre la lista. Una línea larga con
- * todo se metía debajo de la barra de medios en pantallas medianas.
+ * Recordatorio de controles: un botón "?" chico al final de la barra de abajo que abre la lista hacia
+ * arriba. Antes era un chip suelto en la esquina y chocaba con la barra en pantallas medianas.
  */
 function ControlsHint() {
   const decorating = useOfficeStore((s) => s.decorating);
   const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onDown = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+    };
   }, [open]);
   const rows = decorating ? DECOR_CONTROLS : CONTROLS;
+  const label = decorating ? "Teclas del editor" : "Controles";
   return (
-    <div className="absolute right-3 bottom-4 hidden md:block">
+    <div ref={box} className="relative max-md:hidden">
       {open && (
-        <div id="lista-controles" className="cozy-panel absolute right-0 bottom-full mb-2 w-60 px-3 py-2.5">
+        <div id="lista-controles" className="cozy-panel absolute right-0 bottom-full mb-3 w-64 px-3 py-2.5">
           <p className="mb-1.5 text-[12px] text-cozy-ink-soft">{decorating ? "Decorando" : "Controles"}</p>
           <ul className="flex flex-col gap-1.5 text-[13px]">
             {rows.map(([key, what]) => (
@@ -466,10 +478,11 @@ function ControlsHint() {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls="lista-controles"
-        className="cozy-chip flex items-center gap-1.5 px-2.5 py-1 text-[12px] text-cozy-ink-soft"
+        aria-label={label}
+        title={label}
+        className="cozy-btn size-9 p-0 text-[15px] font-semibold text-cozy-ink-soft"
       >
-        <kbd className="cozy-kbd">?</kbd>
-        {decorating ? "Teclas del editor" : "Controles"}
+        ?
       </button>
     </div>
   );
