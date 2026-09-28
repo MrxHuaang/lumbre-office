@@ -52,8 +52,11 @@ export type FloorKind =
   | "brick"
   | "moquette"
   | "planks"
-  // Garaje: concreto gastado con manchas de aceite (adentro y en la entrada de afuera).
-  | "concrete";
+  // Garaje: concreto gastado con manchas de aceite, los tablones gastados del taller y la gravilla de la
+  // entrada (afuera).
+  | "concrete"
+  | "planks-worn"
+  | "gravel";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
 // Variedad: rayas finas, damasco dorado, ladrillo visto, listones de madera clara y estuco con zócalo.
 export type WallpaperKind =
@@ -72,8 +75,9 @@ export type WallpaperKind =
   | "brick"
   | "slats"
   | "colonial"
-  // Garaje: bloque de cemento sin pintar, con humedad y manchas.
-  | "cinderblock";
+  // Garaje: bloque de cemento sin pintar y tablas sobre zócalo de piedra (el taller).
+  | "cinderblock"
+  | "boards";
 
 export interface ZoneDef {
   id: string;
@@ -108,8 +112,9 @@ export interface DoorDef {
 
 // Del rediseño de interiores: espejo, paneles acústicos, ventanal de piso a techo, repisa, mapamundi y retrato.
 export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "video-wall" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait"
-  // Garaje: tablero de herramientas, portón enrollable por dentro, calendario viejo, telaraña y ventana sucia.
-  | "pegboard" | "rollup" | "calendar" | "cobweb" | "grimy-window";
+  // Garaje: tablero de herramientas, el portón de tablas por dentro, calendario viejo, telaraña y la ventana
+  // empolvada.
+  | "pegboard" | "barn-door" | "calendar" | "cobweb" | "dusty-window";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
