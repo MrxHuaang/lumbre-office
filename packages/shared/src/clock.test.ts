@@ -6,6 +6,8 @@ import {
   formatGameTime,
   gameTime,
   initialClock,
+  GAME_EPOCH,
+  parseGameClock,
   isGameNight,
   parseTimeCommand,
   setGameTime,
@@ -31,10 +33,18 @@ describe("reloj del juego", () => {
     expect(isGameNight(at(18 * 60 + 59), 0)).toBe(false);
   });
 
-  it("arranca con la hora de Bogotá", () => {
-    // 2026-09-27 15:00 UTC = 10:00 en Bogotá.
-    const now = Date.UTC(2026, 8, 27, 15, 0);
-    expect(gameTime(initialClock(now), now)).toMatchObject({ hour: 10, minute: 0 });
+  it("el reloj de siempre sigue contando desde el día 0 (reiniciar no lo vuelve a empezar)", () => {
+    expect(gameTime(initialClock(), GAME_EPOCH)).toMatchObject({ day: 0, hour: 0, minute: 0 });
+    // Una hora real después es el día 1; 90 minutos reales, el día 1 a las 12:00.
+    expect(gameTime(initialClock(), GAME_EPOCH + 90 * 60_000)).toMatchObject({ day: 1, hour: 12, minute: 0 });
+    expect(initialClock()).toEqual(initialClock());
+  });
+
+  it("lee un reloj guardado y descarta lo que no sirve", () => {
+    expect(parseGameClock({ anchorReal: 5, anchorMinute: 90 })).toEqual({ anchorReal: 5, anchorMinute: 90 });
+    expect(parseGameClock({ anchorReal: "5", anchorMinute: 90 })).toBeNull();
+    expect(parseGameClock({ anchorReal: 5, anchorMinute: -1 })).toBeNull();
+    expect(parseGameClock(null)).toBeNull();
   });
 
   it("/time set va hacia adelante y no retrocede el día", () => {

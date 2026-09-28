@@ -155,6 +155,7 @@ import {
   formatGameTime,
   gameTime,
   initialClock,
+  parseGameClock,
   parseTimeCommand,
   setGameTime,
   type GameClockState,
@@ -495,7 +496,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     () => OfficeRoom.faintMs,
   );
   /** Con qué hora del juego arranca la sala (el clima inicial ya la necesita, antes de onCreate). */
-  private readonly startClock: GameClockState = OfficeRoom.gameClockInitial ?? initialClock(OfficeRoom.gameClockNow());
+  private readonly startClock: GameClockState = OfficeRoom.gameClockInitial ?? initialClock();
   /** El clima de afuera (lo ven todos: `state.weather`); la niebla sigue la hora del juego. */
   private weather = new WeatherCycle(
     {
@@ -1076,6 +1077,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
     await this.reloadCasinoSettings();
     await this.loadWorldEdits();
+    await this.loadGameClock();
     await this.huerto.load().catch((err) => console.error("loadGarden", err));
     this.startCasino();
     await this.reloadOffices();
@@ -1286,6 +1288,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       };
     }
     return decor;
+  }
+
+  /** Si un admin movió la hora con /time, sigue desde ahí (el reloj de siempre ya cuenta sin reiniciarse). */
+  private async loadGameClock() {
+    if (OfficeRoom.gameClockInitial) return;
+    const saved = parseGameClock(await this.repo.loadGameClock().catch((err) => console.error("loadGameClock", err)));
+    if (!saved) return;
+    this.setGameClock(saved);
+    this.sombrero.refresh();
   }
 
   /** Carga los cambios guardados del editor de la casa y los aplica a cada nivel. */
@@ -2116,6 +2127,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
       const now = OfficeRoom.gameClockNow();
       this.setGameClock(cmd.kind === "set" ? setGameTime(this.gameClock(), now, cmd.minuteOfDay) : addGameTime(this.gameClock(), now, cmd.minutes));
+      // Se guarda para que un reinicio del servidor no deshaga el cambio.
+      this.repo.saveGameClock(this.gameClock(), this.state.players.get(client.sessionId)?.userId ?? "").catch((err) => console.error("saveGameClock", err));
       this.sombrero.refresh();
     }
     const t = this.gameTimeNow();

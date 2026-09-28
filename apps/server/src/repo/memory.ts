@@ -174,6 +174,14 @@ export class MemoryRepository implements GameRepository {
   async saveWorldEdits(area: string, edits: unknown) {
     this.worldEdits[area] = JSON.parse(JSON.stringify(edits));
   }
+  /** Reloj del juego guardado en memoria (null = el de siempre). */
+  gameClock: unknown = null;
+  async loadGameClock() {
+    return this.gameClock;
+  }
+  async saveGameClock(clock: { anchorReal: number; anchorMinute: number }) {
+    this.gameClock = { ...clock };
+  }
   boards = new Map<string, unknown>();
   async loadBoard(zoneId: string) {
     return this.boards.get(zoneId) ?? null;
