@@ -1,4 +1,4 @@
-import { PROXIMITY_RADIUS } from "./protocol";
+import { PROXIMITY_RADIUS, VOICE_RADIUS } from "./protocol";
 
 export interface Positioned {
   /** Nivel de la cabaña ("jardin", "planta-baja", ...): solo se oye a quien está en el mismo. */
@@ -27,12 +27,13 @@ export function canHear(a: Positioned, b: Positioned, radius = PROXIMITY_RADIUS)
 }
 
 /** Margen extra (px) para dejar de oír a alguien: evita que el audio parpadee en el borde del radio. */
-export const HEARING_HYSTERESIS = 24;
+export const HEARING_HYSTERESIS = 32;
 /** Volumen mínimo en el borde del radio (zonas abiertas). */
 const MIN_VOLUME = 0.15;
 
 /**
- * Calcula a quién oye `me` y con qué volumen (0–1), para el audio/video por proximidad.
+ * Calcula a quién oye `me` y con qué volumen (0–1), para el audio/video por proximidad (con su propio
+ * radio, más largo que el del chat de texto).
  * - En zonas aisladas (oficina, sala): todos los de la misma zona, a volumen completo.
  * - En zonas abiertas: dentro del radio, con volumen decreciente; quien ya se oía se sigue oyendo
  *   hasta `radius + HEARING_HYSTERESIS`.
@@ -43,7 +44,7 @@ export function hearing(
   me: Positioned,
   others: Map<string, Positioned>,
   previous: ReadonlySet<string> = new Set(),
-  radius = PROXIMITY_RADIUS,
+  radius = VOICE_RADIUS,
   inCall: ReadonlySet<string> = new Set(),
 ): Map<string, number> {
   const result = new Map<string, number>();

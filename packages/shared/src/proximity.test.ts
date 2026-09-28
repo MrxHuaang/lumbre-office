@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canHear, hearing, HEARING_HYSTERESIS, type Positioned } from "./proximity";
+import { PROXIMITY_RADIUS, VOICE_RADIUS } from "./protocol";
 
 const at = (x: number, y: number, zoneId: string | null = null, zoneIsolated = false): Positioned => ({
   x,
@@ -35,6 +36,18 @@ describe("canHear", () => {
 
 describe("hearing", () => {
   const R = 160;
+
+  it("por defecto la voz llega a una sala de distancia (más lejos que el chat de texto)", () => {
+    expect(VOICE_RADIUS).toBeGreaterThanOrEqual(12 * 32);
+    expect(VOICE_RADIUS).toBeGreaterThan(PROXIMITY_RADIUS);
+    const others = new Map([
+      ["otra-punta", at(16 * 32, 0)],
+      ["sala-de-al-lado", at(12 * 32, 0)],
+    ]);
+    const h = hearing(at(0, 0), others);
+    expect([...h.keys()]).toEqual(["sala-de-al-lado"]);
+    expect(h.get("sala-de-al-lado")!).toBeGreaterThanOrEqual(0.15);
+  });
 
   it("oye a quien está dentro del radio con volumen que baja con la distancia", () => {
     const others = new Map([
