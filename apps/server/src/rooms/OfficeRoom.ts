@@ -461,8 +461,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
   private hockey!: HockeyTable;
 
+  /**
+   * El repositorio con el que nació la sala: un tic que quedó en vuelo al cerrarla no escribe en el de
+   * la sala siguiente (en los tests, cada uno trae su repositorio en memoria).
+   */
+  private readonly ownRepo = OfficeRoom.repo;
   private get repo() {
-    return OfficeRoom.repo;
+    return this.ownRepo;
   }
 
   async onCreate() {
