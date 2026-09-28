@@ -19,6 +19,7 @@ import { SideDock } from "./SideDock";
 import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
+import { NotifyPrompt } from "./NotifyPrompt";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
 import { HeldSlot, UsablePrompt } from "./UsePrompt";
@@ -243,6 +244,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <PeoplePanel />}
             <DoorNotesChip />
             <Notices />
+            <NotifyPrompt />
           </div>
           <ChatPanel isAdmin={isAdmin} />
           <SideDock />
