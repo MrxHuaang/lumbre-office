@@ -14,7 +14,6 @@ export { OFFICE_COUNT } from "./piso-2";
 export { BLACKJACK_SEATS } from "./sotano";
 export { BOARD_TABLES } from "./piso-3";
 
-export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2, piso3, sotano, garaje, casaArbol];
-export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2, piso3, sotano, garaje, megabus];
+export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2, piso3, sotano, garaje, casaArbol, megabus];
 /** Donde aparece todo el mundo al entrar. */
 export const SPAWN_AREA = "jardin";

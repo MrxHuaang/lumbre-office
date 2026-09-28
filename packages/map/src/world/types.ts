@@ -84,7 +84,7 @@ export type WallpaperKind =
   | "cinderblock"
   | "boards"
   // Casa del árbol: tablones horizontales clavados con la viga redonda arriba.
-  | "treehouse";
+  | "treehouse"
   // El Megabús por dentro: paneles claros con la franja verde lima, y los pliegues grises del fuelle.
   | "megabus"
   | "fuelle";
@@ -126,7 +126,7 @@ export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board"
   // empolvada.
   | "pegboard" | "barn-door" | "calendar" | "cobweb" | "dusty-window"
   // Casa del árbol: la ventana a la copa y la guirnalda de banderines.
-  | "treehouse-window" | "bunting";
+  | "treehouse-window" | "bunting"
   // Megabús: las ventanas oscuras de piso a techo (con `text`, la pantalla de ruta encima).
   | "bus-window";
 

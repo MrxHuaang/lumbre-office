@@ -772,6 +772,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     this.startHockey();
     this.startBus();
+    this.startPiscina();
     this.startBoardGames();
     OfficeRoom.instances.add(this);
 
@@ -779,11 +780,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.select, (client, raw) => this.handleBagSelect(client, raw));
     this.onMessage(BAG_MSG.move, (client, raw) => this.handleBagMove(client, raw));
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
-    this.startPiscina();
-    this.startBoardGames();
-    OfficeRoom.instances.add(this);
-
-    this.onMessage(HUERTO_MSG.shedTake, (client, raw) => this.handleShed(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
@@ -1617,15 +1613,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // el asiento (p. ej. del tile de enfrente a la silla), así que ahí se permite algo más.
     const snap = seated !== player.seated ? map.tileSize * SEAT_REACH_TILES : 0;
     // En la carrera de sillas se va más rápido; con la energía de un plato de la cocina, también; trabado
-    // (lo del Man del Sombrero), más lento.
+    // (lo del Man del Sombrero) o nadando, más lento.
     const stoned = this.trips.get(player.userId)?.kind === "trabado";
-    const speed =
-      PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : this.cocina.speedMul(player.userId, OfficeRoom.cocinaNow())) * (stoned ? TRIP.slowSpeedMul : 1);
-    // En la carrera de sillas se va más rápido; con la energía de un plato de la cocina, también; nadando,
-    // más despacio.
     const swim = player.swimming;
     const speed =
-      PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : this.cocina.speedMul(player.userId, OfficeRoom.cocinaNow())) * (swim ? AGUA.swimSpeedMul : 1);
+      PLAYER_SPEED *
+      (player.racing ? CHAIR_RACE.speedMul : this.cocina.speedMul(player.userId, OfficeRoom.cocinaNow())) *
+      (stoned ? TRIP.slowSpeedMul : 1) *
+      (swim ? AGUA.swimSpeedMul : 1);
     const maxDist = Math.max(map.tileSize * 0.75, dt * speed * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
 
@@ -1687,6 +1682,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (blocked) {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       client.send(CASA_ARBOL_MSG.notice, { code: blocked } satisfies CasaArbolNotice);
+      return;
+    }
     // Del Megabús solo se baja con el bus en la estación y las puertas abiertas (nunca en ruta).
     if (map.id === BUS.area && !this.bus.doorsOpen()) {
       client.send(BUS_MSG.notice, { code: "route" } satisfies BusNotice);
@@ -2463,6 +2460,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // "Tirar todo" pide de más: se tira lo que haya.
     const n = Math.min(quantity, this.held.count(player.userId, itemId));
     if (n > 0) await this.held.take(player.userId, itemId, n);
+  }
+
   // ---------- La piscina ----------
 
   /** La piscina del jardín: la gente de la sala, el mapa, el clima, la hora del juego y los puntos. */

@@ -61,6 +61,7 @@ export const CONEXIONES = {
   casaArbol: {
     /** La trampilla del piso, cerca del rincón del frente: se llega a su lado, mirando a la mesita. */
     trampilla: { tiles: [{ x: 5, y: 4 }], llegada: { x: 5, y: 3, facing: "left" } },
+  },
   megabus: {
     /**
      * Las tres puertas del bus por dentro (en la pared baja del sur: la de atrás y las dos de adelante). No

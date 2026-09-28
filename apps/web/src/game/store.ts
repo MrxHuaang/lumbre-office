@@ -83,7 +83,7 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
   | "kitchen"
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
-  | "sombrero";
+  | "sombrero"
   // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).
   | "bus";
 

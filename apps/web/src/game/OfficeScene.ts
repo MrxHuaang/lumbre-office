@@ -1409,10 +1409,8 @@ export class OfficeScene extends Phaser.Scene {
     if (vx !== 0 || vy !== 0) {
       const len = Math.hypot(vx, vy);
       // Con la energía de un plato de la cocina se camina un poco más rápido (el servidor lo acepta);
-      // trabado, más despacio (el servidor tampoco deja ir más rápido).
-      const step = Math.min(PLAYER_SPEED * localSpeedMul() * this.tripVision.speedMul() * dt, 12);
-      // nadando, más despacio (el servidor usa la misma velocidad).
-      const step = Math.min(PLAYER_SPEED * localSpeedMul() * (this.swimming ? AGUA.swimSpeedMul : 1) * dt, 12);
+      // trabado o nadando, más despacio (el servidor usa la misma velocidad).
+      const step = Math.min(PLAYER_SPEED * localSpeedMul() * this.tripVision.speedMul() * (this.swimming ? AGUA.swimSpeedMul : 1) * dt, 12);
       const nx = avatar.x + (vx / len) * step;
       const ny = avatar.y + (vy / len) * step;
       let x = avatar.x;

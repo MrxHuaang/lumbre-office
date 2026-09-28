@@ -346,6 +346,8 @@ export class SombreroState extends Schema {
   @type("uint8") x = 0;
   @type("uint8") y = 0;
   @type("string") facing = "down";
+}
+
 /** El Megabús de la parada del jardín (ver rooms/bus.ts): la fase y cuándo empezó, con la hora del servidor. */
 export class BusState extends Schema {
   /** BusPhase de @hyvento/shared: "away", "arriving", "open", "closing", "route" o "leaving". */

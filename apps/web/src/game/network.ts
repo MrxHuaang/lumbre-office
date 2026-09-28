@@ -484,7 +484,6 @@ export function sendBlackjackAction(action: BlackjackAction) {
 }
 
 /** Usar un objeto interactivo: casi todos abren su panel (el Man del Sombrero, su menú); el tubo del sótano hace bailar. */
-/** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
 /** E en la estación: subirse al Megabús (el servidor valida que esté parado con las puertas abiertas). */
 export function sendBusBoard() {
   room?.send(BUS_MSG.board, {});

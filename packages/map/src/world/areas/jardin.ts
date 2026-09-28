@@ -205,7 +205,6 @@ function localGround(x: number, y: number): FloorKind {
     if (y > ROAD.y0 - M - 1.15 + wobble(x, y, 25, 0.08)) return "path";
     return "grass";
   }
-  if (onDock(x, y)) return "dock";
   if (onDock(x, y) || onPoolDeck(x, y)) return "dock";
   if (inLake(x, y) && !onIslet(x, y)) return "water";
   if (onPatio(x, y)) return "path";

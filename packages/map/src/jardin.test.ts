@@ -186,6 +186,8 @@ describe("jardín", () => {
     // Las puertas del bus por dentro llevan a la plataforma.
     const inside = getWorld().areas.get("megabus")!;
     for (const portal of inside.portals) expect(stops.some((s) => s.tileX === portal.to.x && s.tileY === portal.to.y), portal.id).toBe(true);
+  });
+
   it("la piscina: la pileta no se camina y se nada entera; se entra por las escaleras y se sale por cualquier borde", () => {
     const pool = jardin.furniture.find((f) => f.type === "pool")!;
     expect(pool).toBeDefined();
