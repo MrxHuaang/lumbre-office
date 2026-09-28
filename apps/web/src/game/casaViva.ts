@@ -52,6 +52,7 @@ import {
   stopRadioMusic,
 } from "./casaSonidos";
 import { DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen, type AreaView } from "./iso/view";
+import { useBookStore } from "./libros";
 import type { OfficeRoom } from "./network";
 import { useOfficeStore } from "./store";
 
@@ -517,6 +518,8 @@ export class CasaViva {
       case "read": {
         who?.perform(face, CASA.readMs);
         playPage(vol);
+        // Si lo saqué yo, se abre en pantalla para leerlo.
+        if (e.sessionId === this.host.room()?.sessionId) useBookStore.getState().open(e.seed);
         if (who) {
           this.prop(who, `casa-libro-${e.seed % 5}`, () => openBook(e.seed), CASA.readMs, { dx: 0, dy: 9, pointing: false });
           // Aparte del globo de chat (no lo pisa si estaba hablando).

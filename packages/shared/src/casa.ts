@@ -169,6 +169,7 @@ export const BOOK_TITLES = [
   "Pequeño tratado de siestas",
   "El misterio del reloj de pie",
   "Canciones para una tarde de lluvia",
+  "Carta con olor a lluvia",
 ] as const;
 
 export const bookTitle = (seed: number) => BOOK_TITLES[Math.abs(Math.floor(seed)) % BOOK_TITLES.length]!;

@@ -42,6 +42,7 @@ import { CinemaHud, CinemaPanel } from "./cinema/CinemaPanel";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
 import { AquariumPanel } from "./AquariumPanel";
+import { BookReader } from "./BookReader";
 import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
 import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ShedPanel } from "./ShedPanel";
@@ -325,6 +326,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "trophies" && <TrophyPanel onClose={closePanel} />}
           <PhotoPreview />
           <PhotoFlash />
+          <BookReader />
           {panel?.kind === "fitting" && (
             <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
           )}

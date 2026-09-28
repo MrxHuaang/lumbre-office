@@ -52,3 +52,4 @@ export * from "./focus";
 export * from "./phone";
 export * from "./sombrero";
 export * from "./npcs";
+export * from "./libros";
