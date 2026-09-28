@@ -6,6 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { GameRepository } from "./repo/types";
 import { OfficeRoom } from "./rooms/OfficeRoom";
 import { GiftSentNotice } from "@hyvento/shared";
+import { logError } from "./log";
 
 /** Compara el `Authorization: Bearer <secreto>` sin filtrar información por tiempos. */
 function authorized(req: IncomingMessage, secret: string | undefined): boolean {
@@ -40,7 +41,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
       await OfficeRoom.reloadOfficesEverywhere();
       return json(res, 200, { ok: true });
     } catch (err) {
-      console.error("reloadOffices", err);
+      logError("http reloadOffices", err, { path });
       return json(res, 500, { error: "no se pudieron recargar las oficinas" });
     }
   }
@@ -50,7 +51,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
       await OfficeRoom.reloadCasinoSettingsEverywhere();
       return json(res, 200, { ok: true });
     } catch (err) {
-      console.error("reloadCasinoSettings", err);
+      logError("http reloadCasinoSettings", err, { path });
       return json(res, 500, { error: "no se pudieron recargar los ajustes del casino" });
     }
   }
@@ -67,7 +68,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
       await OfficeRoom.reloadPointsEverywhere(body.userId);
       return json(res, 200, { ok: true });
     } catch (err) {
-      console.error("reloadPoints", err);
+      logError("http reloadPoints", err, { path });
       return json(res, 500, { error: "no se pudo recargar el saldo" });
     }
   }
@@ -79,7 +80,7 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
       await OfficeRoom.reloadDoorNotesEverywhere(body.userId);
       return json(res, 200, { ok: true });
     } catch (err) {
-      console.error("reloadDoorNotes", err);
+      logError("http reloadDoorNotes", err, { path });
       return json(res, 500, { error: "no se pudieron contar las notas" });
     }
   }
@@ -114,7 +115,13 @@ function readJson(req: IncomingMessage): Promise<unknown> {
 
 export function createGameServer({ repo }: { repo: GameRepository }) {
   OfficeRoom.repo = repo;
-  const http = createServer((req, res) => void handleHttp(req, res));
+  const http = createServer((req, res) => {
+    // Un error inesperado en una ruta no deja la petición colgada ni sale como rechazo sin atender.
+    handleHttp(req, res).catch((err) => {
+      logError("http", err, { method: req.method, url: req.url });
+      if (!res.headersSent) json(res, 500, { error: "error interno" });
+    });
+  });
   const server = new Server({ transport: new WebSocketTransport({ server: http }) });
   server.define(ROOM_NAME, OfficeRoom);
   return server;

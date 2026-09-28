@@ -283,6 +283,8 @@ import { Parrilla, type GrillWho } from "./parrilla";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
+import { startChatRetention } from "./chatRetention";
+import { orElse } from "../log";
 
 interface UserData {
   lastMoveAt: number;
@@ -1083,6 +1085,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await this.reloadOffices();
     await this.events.refresh();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
+    startChatRetention(this.clock, () => this.repo);
   }
 
   onDispose() {
@@ -1132,10 +1135,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.y = pos.y;
     player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(map, pos.x, pos.y);
-    player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
+    player.status = (await this.repo.getUserStatus(auth.sub).catch(orElse("onJoin.getUserStatus", null, { userId: auth.sub }))) ?? "available";
     // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
-    const welcome = await this.repo.grantWelcome(auth.sub).catch(() => null);
-    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(() => 0));
+    const welcome = await this.repo.grantWelcome(auth.sub).catch(orElse("onJoin.grantWelcome", null, { userId: auth.sub }));
+    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(orElse("onJoin.getPoints", 0, { userId: auth.sub })));
     // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
     await this.held.load(auth.sub);
     const held = this.held.get(auth.sub);
@@ -1914,9 +1917,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player) return;
     this.achievements.bump(player.userId, STAT_KEYS.racesFinished);
     const since = weekStart(Date.now());
-    const before = await this.repo.raceBoard({ since, limit: 1, userId: player.userId }).catch(() => null);
+    const before = await this.repo.raceBoard({ since, limit: 1, userId: player.userId }).catch(orElse("raceBoard", null, { userId: player.userId }));
     await this.repo.saveRaceTime({ userId: player.userId, name: player.name, ms: outcome.ms }).catch((err) => console.error("saveRaceTime", err));
-    const board = await this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => ({ entries: [], myBest: outcome.ms }));
+    const board = await this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(orElse("raceBoard", { entries: [], myBest: outcome.ms }, { userId: player.userId }));
     const best = before?.myBest == null || outcome.ms < before.myBest;
     const record = !before?.entries[0] || outcome.ms < before.entries[0].ms;
     client?.send(MSG.raceResult, { ok: true, ms: outcome.ms, best, board } satisfies RaceResult);
@@ -1927,7 +1930,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private async sendRaceBoard(client: Client<UserData>) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const board = await this.repo.raceBoard({ since: weekStart(Date.now()), limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => null);
+    const board = await this.repo.raceBoard({ since: weekStart(Date.now()), limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(orElse("raceBoard", null, { userId: player.userId }));
     if (board) client.send(MSG.raceBoardResult, board);
   }
 
