@@ -17,7 +17,7 @@ const TIPS = [
   "T abre los emotes. Enter, el chat.",
   "En la tienda de la planta baja se compran muebles para tu oficina.",
   "El casino, el club, el cine y el arcade están en el sótano.",
-  "En el muelle del lago se pesca. Los legendarios salen de noche.",
+  "En el muelle del lago se pesca. Algunos peces solo pican con lluvia, niebla o de madrugada.",
   "Sube al piso 3: biblioteca, chimenea y una terraza con vista al lago.",
   "Tu oficina está en el piso 2. Puedes cerrarla con llave.",
   "Todos los días hay una recompensa en el buzón del jardín.",

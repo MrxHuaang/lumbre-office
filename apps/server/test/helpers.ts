@@ -28,8 +28,13 @@ export const TILE = 32;
 export const c = (t: number) => t * TILE + TILE / 2;
 const tileOf = (px: number) => Math.floor(px / TILE);
 
-export const token = (sub: string, name: string, avatar: GameTokenClaims["avatar"] = "ada", role: GameTokenClaims["role"] = "MEMBER") =>
-  signGameToken({ sub, name, avatar, role }, SECRET);
+export const token = (
+  sub: string,
+  name: string,
+  avatar: GameTokenClaims["avatar"] = "ada",
+  role: GameTokenClaims["role"] = "MEMBER",
+  extra: Partial<GameTokenClaims> = {},
+) => signGameToken({ sub, name, avatar, role, ...extra }, SECRET);
 
 export const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 

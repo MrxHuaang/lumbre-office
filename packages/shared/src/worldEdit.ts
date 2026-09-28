@@ -20,3 +20,12 @@ export type WorldEditMessage = z.infer<typeof WorldEditMessage>;
 
 /** Servidor → cliente (`MSG.worldEditResult`). `error` es un WorldEditProblem de @hyvento/map, o "admin" / "failed". */
 export type WorldEditResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Cliente → servidor (`MSG.worldEditLock`): entrar al editor de la casa (o salir). Solo una persona lo
+ * tiene a la vez; el servidor responde con `WorldEditLockResult`.
+ */
+export const WorldEditLockMessage = z.object({ on: z.boolean() });
+export type WorldEditLockMessage = z.infer<typeof WorldEditLockMessage>;
+
+export type WorldEditLockResult = { ok: true } | { ok: false; error: "not-allowed" } | { ok: false; error: "busy"; by: string };

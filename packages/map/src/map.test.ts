@@ -29,6 +29,7 @@ const STARTS: Record<string, { x: number; y: number }> = {
   "piso-2": CONEXIONES.piso2.escaleraAbajo.llegada,
   "piso-3": CONEXIONES.piso3.escaleraAbajo.llegada,
   sotano: CONEXIONES.sotano.escalera.llegada,
+  garaje: CONEXIONES.garaje.entrada.llegada,
 };
 
 const world = getWorld();
@@ -42,10 +43,11 @@ const jardin = area("jardin");
 const plantaBaja = area("planta-baja");
 const piso2 = area("piso-2");
 const piso3 = area("piso-3");
+const garaje = area("garaje");
 
 describe("mundo", () => {
-  it("tiene el jardín, la planta baja, el piso 2 y el sótano, y se aparece en el jardín", () => {
-    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano"]);
+  it("tiene el jardín, los pisos de la casa, el sótano y el garaje, y se aparece en el jardín", () => {
+    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje"]);
     expect(world.spawnArea).toBe("jardin");
     const spawn = spawnPoint(jardin);
     expect(canStandAt(jardin, spawn.x, spawn.y)).toBe(true);
@@ -63,7 +65,8 @@ describe("mundo", () => {
   it("los puntos de interés quedan en tiles transitables (salvo la pantalla, que cuelga de la pared)", () => {
     for (const map of world.areas.values())
       for (const p of map.points) {
-        if (p.type === "screen") continue;
+        // La pantalla cuelga de la pared y los bancales del invernadero se usan desde el pasillo.
+        if (p.type === "screen" || p.type === "greenhouse_plot") continue;
         expect(isBlockedTile(map, p.tileX, p.tileY), `${map.id}: ${p.name}`).toBe(false);
       }
     // La sala de reuniones se mudó al piso 2 (el del trabajo).
@@ -85,6 +88,25 @@ describe("oficinas", () => {
       const pcSeats = [...piso2.seats.values()].filter((s) => s.computer && zoneAt(piso2, s.x, s.y)?.id === office.id);
       expect(pcSeats, office.id).toHaveLength(1);
     }
+  });
+
+  it("el garaje tiene una oficina aislada, con puerta al taller y un PC", () => {
+    const office = garaje.zones.find((z) => z.type === "office")!;
+    expect(office).toMatchObject({ id: "office-5", name: "Oficina del garaje", isolated: true });
+    // Las oficinas se crean desde las zonas de todos los niveles: son cinco, con ids distintos.
+    expect(allZones(world).filter((z) => z.type === "office").map((z) => z.id)).toEqual(["office-1", "office-2", "office-3", "office-4", "office-5"]);
+    const door = officeDoor(office);
+    expect(canStandAt(garaje, door.x, door.y)).toBe(true);
+    expect(placeAt(garaje, door.x, door.y)).toBe("door:office-5");
+    expect(zoneAt(garaje, door.x, door.y)?.id).toBe("taller");
+    const pcSeats = [...garaje.seats.values()].filter((s) => s.computer && zoneAt(garaje, s.x, s.y)?.id === office.id);
+    expect(pcSeats).toHaveLength(1);
+    // Se llega desde la entrada del garaje hasta la silla, pasando por la puerta de la oficina.
+    const doorTile = { x: Math.floor(door.x / garaje.tileSize), y: Math.floor(door.y / garaje.tileSize) };
+    const spot = seatStandSpot(garaje, pcSeats[0]!);
+    const path = findPath(garaje, STARTS.garaje!, { x: Math.floor(spot.x / garaje.tileSize), y: Math.floor(spot.y / garaje.tileSize) });
+    expect(path).not.toBeNull();
+    expect(path!.some((t) => t.x === doorTile.x && t.y === doorTile.y)).toBe(true);
   });
 
   it("la biblioteca tiene PC compartidos para quien no tiene oficina", () => {
@@ -149,7 +171,7 @@ describe("portales", () => {
   it("se puede ir y volver entre todos los niveles", () => {
     const links = [...world.areas.values()].flatMap((m) => m.portals.map((p) => `${m.id}→${p.to.area}`));
     expect(links).toEqual(
-      expect.arrayContaining(["jardin→planta-baja", "planta-baja→jardin", "planta-baja→piso-2", "piso-2→planta-baja", "jardin→piso-2", "piso-2→jardin"]),
+      expect.arrayContaining(["jardin→planta-baja", "planta-baja→jardin", "planta-baja→piso-2", "piso-2→planta-baja", "jardin→piso-2", "piso-2→jardin", "jardin→garaje", "garaje→jardin"]),
     );
   });
 
@@ -172,6 +194,21 @@ describe("portales", () => {
     expect(zones.has("descanso")).toBe(true);
     // Y abajo se llega caminando desde el portón al pie de la escalera.
     expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, foot)).not.toBeNull();
+  });
+
+  it("la puerta chica del garaje del jardín lleva al taller y se sale por el mismo lado", () => {
+    const into = jardin.portals.find((p) => p.id === "jardin-garaje")!;
+    const out = garaje.portals.find((p) => p.id === "garaje-salida")!;
+    expect(into.to.area).toBe("garaje");
+    expect(out.to.area).toBe("jardin");
+    // El portal queda justo delante del garaje, frente a su puerta chica.
+    const g = jardin.furniture.find((f) => f.type === "garage")!;
+    const t = into.tiles[0]!;
+    expect(t.y).toBe(g.y + g.d);
+    expect(t.x >= g.x && t.x < g.x + g.w).toBe(true);
+    expect(zoneAt(garaje, center(garaje, into.to.x), center(garaje, into.to.y))?.id).toBe("taller");
+    // Se llega caminando desde el portón del jardín hasta el garaje.
+    expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, t)).not.toBeNull();
   });
 
   it("solo se usa un portal estando cerca", () => {
@@ -329,6 +366,7 @@ describe("circulación (docs/plan-rediseno.md)", () => {
     "planta-baja": ["pasillo", "recibidor"],
     "piso-2": ["pasillo", "rellano"],
     "piso-3": ["pasillo-3", "rellano-3"],
+    garaje: ["taller"],
   };
   /** Lo que es parte de otra sala y solo se abre a ella. */
   const PART_OF: Record<string, string> = {
@@ -352,7 +390,7 @@ describe("circulación (docs/plan-rediseno.md)", () => {
       }
     return out;
   };
-  const levels = [plantaBaja, piso2, piso3];
+  const levels = [plantaBaja, piso2, piso3, garaje];
 
   it("cada sala se abre a un pasillo o vestíbulo (o a la sala de la que es parte)", () => {
     for (const map of levels) {

@@ -25,6 +25,7 @@ import { heldTexture, idleWisp, playUse } from "./consumables";
 import { armTexture, ensureEmoteTextures, gestureOffset, SHOULDER_UP, WAVE_SIDE } from "./gestures";
 import { SWAY_DEG } from "./drunk";
 import { sfx, volAt } from "./sfx";
+import type { NameTagMode } from "./store";
 import { depthOf, ensureTexture, furnitureImage, worldToScreen } from "./iso/view";
 
 /** La silla de la carrera de sillas. */
@@ -113,6 +114,16 @@ export function ensureAnimations(scene: Phaser.Scene, key: string) {
   }
 }
 
+/**
+ * Nombre corto para la placa: el primer nombre y la inicial del segundo ("Juan José Ospina" → "Juan J."),
+ * así dos Juanes se distinguen sin ocupar media pantalla.
+ */
+export function shortName(name: string): string {
+  const words = name.trim().split(/s+/).filter(Boolean);
+  if (words.length <= 1) return words[0] ?? name;
+  return `${words[0]} ${words[1]![0]!.toUpperCase()}.`;
+}
+
 /** Avatar en la cabaña: sprite chibi + sombra + nombre + estado + globo de chat. Posición en px de mundo. */
 export class Avatar {
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -177,8 +188,9 @@ export class Avatar {
     this.targetY = y;
     this.shadow = scene.add.image(0, 0, "sombra-personaje");
     this.sprite = scene.add.sprite(0, 0, textureKey, 0).setOrigin(0.5, FEET_Y / FRAME);
+    this.fullName = name;
     this.label = scene.add
-      .text(0, 0, isLocal ? `${name} (tú)` : name, {
+      .text(0, 0, name, {
         fontFamily: cozyFontFamily(),
         fontSize: "8px",
         color: isLocal ? COZY.paperLight : COZY.ink,
@@ -188,6 +200,7 @@ export class Avatar {
       })
       .setOrigin(0.5, 1);
     this.statusDot = scene.add.circle(0, 0, 2, STATUS_COLORS.available).setStrokeStyle(1, hexToInt(COZY.frame));
+    this.refreshLabel();
     this.speakingRing = scene.add.ellipse(0, 0, 18, 8).setStrokeStyle(1.5, hexToInt(SPEAKING_COLOR), 0.95).setVisible(false);
     // Los pasos, al ritmo de la caminata: la hoja va 1-0-2-0 y el pie apoya en los cuadros 1 y 2.
     this.sprite.on(Phaser.Animations.Events.ANIMATION_UPDATE, (_anim: unknown, frame: Phaser.Animations.AnimationFrame) => {
@@ -248,7 +261,8 @@ export class Avatar {
     if (veiled === this.veiled) return;
     this.veiled = veiled;
     const a = veiled ? 0 : 1;
-    for (const o of [this.sprite, this.shadow, this.label, this.statusDot, this.speakingRing]) o.setAlpha(a);
+    for (const o of [this.sprite, this.shadow, this.speakingRing]) o.setAlpha(a);
+    this.refreshLabel();
     this.ride?.img.setAlpha(a);
     for (const part of this.held?.parts ?? []) part.image.setAlpha(a);
     this.bubble?.setAlpha(a);
@@ -256,6 +270,45 @@ export class Avatar {
     this.gesture?.arm?.setAlpha(a);
   }
   private veiled = false;
+
+  /**
+   * Sin nombre ni punto de estado: en el modo mesa la cámara se acerca tanto que el nombre (que crece con
+   * ella) taparía la mesa. Con transparencia, así no pelea con el ocultado por nivel.
+   */
+  setNameHidden(hidden: boolean) {
+    if (hidden === this.nameHidden) return;
+    this.nameHidden = hidden;
+    this.refreshLabel();
+  }
+  private nameHidden = false;
+
+  /**
+   * Cómo se ve el nombre (preferencia de cada quien, ver `nameTags` en el store) y si el mouse está
+   * encima: al pasar el mouse siempre se ve el nombre completo.
+   */
+  setNameMode(mode: NameTagMode, hovered: boolean) {
+    if (mode === this.nameMode && hovered === this.hovered) return;
+    this.nameMode = mode;
+    this.hovered = hovered;
+    this.refreshLabel();
+    this.layout();
+  }
+  private nameMode: NameTagMode = "corto";
+  private hovered = false;
+  private fullName: string;
+
+  /** Texto, tamaño y transparencia del nombre según el modo, el mouse, el modo mesa y el velo. */
+  private refreshLabel() {
+    const full = this.nameMode === "completo" || this.hovered;
+    // En corto, el propio nombre no se muestra (ya sabes quién eres; el color café lo marca al pasar el mouse).
+    const shown = !this.nameHidden && !this.veiled && (full || (this.nameMode === "corto" && !this.isLocal));
+    const text = full ? (this.isLocal ? `${this.fullName} (tú)` : this.fullName) : shortName(this.fullName);
+    if (this.label.text !== text) this.label.setText(text);
+    this.label.setPadding(full ? 3 : 2, full ? 1 : 0);
+    // Los cortos van un poco transparentes para no tapar muebles ni a otros; el del mouse, encima de todo.
+    this.label.setAlpha(shown ? (full ? 1 : 0.82) : 0);
+    this.statusDot.setAlpha(shown ? 1 : 0);
+  }
 
   setStatus(status: PresenceStatus) {
     this.statusDot.setFillStyle(STATUS_COLORS[status] ?? STATUS_COLORS.available);
@@ -531,8 +584,15 @@ export class Avatar {
 
   /** Nombre visible (cambia en vivo si la persona edita su perfil). */
   setName(name: string) {
-    this.label.setText(this.isLocal ? `${name} (tú)` : name);
+    this.fullName = name;
+    this.refreshLabel();
     this.layout();
+  }
+
+  /** ¿El punto (px de pantalla del mundo, como `pointer.worldX`) cae sobre el personaje o su nombre? */
+  hitTest(x: number, y: number): boolean {
+    if (this.hidden || this.veiled) return false;
+    return this.sprite.getBounds().contains(x, y) || (this.label.alpha > 0 && this.label.getBounds().contains(x, y));
   }
 
   /** Cambia el personaje sin perder la pose actual. */
@@ -1269,7 +1329,7 @@ export class Avatar {
     const head = HEAD - (this.seated ? SIT_DROP : 0);
     const top = this.video ? head + VIDEO_SIZE + 2 : head;
     this.video?.dom.setPosition(x, y - head + 2).setDepth(depth + 0.6);
-    this.label.setPosition(x + 3, y - top).setDepth(5e7 + depth);
+    this.label.setPosition(x + 3, y - top).setDepth((this.hovered ? 5.5e7 : 5e7) + depth);
     this.statusDot.setPosition(x + 3 - this.label.width / 2 - 4, y - top - this.label.height / 2).setDepth(5e7 + depth + 0.1);
     this.bubble?.setPosition(x, y - top - this.label.height - 1).setDepth(6e7 + depth);
     if (this.emoteBubble) {

@@ -1,7 +1,7 @@
 // Logros y estadísticas del perfil: las claves de los contadores (STAT_KEYS), el catálogo de logros con
 // su regla (un contador y un umbral), el progreso y el "título" divertido que sale de los contadores.
 // Es puro: lo usan el servidor de juego (suma y desbloquea), la base (guarda) y la web (el perfil).
-import { bogotaHour } from "./fishing";
+import { FISH, bogotaHour } from "./fishing";
 import type { Look } from "./look";
 
 /**
@@ -33,6 +33,7 @@ export const STAT_KEYS = {
   fishTrash: "fish_trash",
   boots: "fish_boots",
   legendaryFish: "fish_legendary",
+  mythicFish: "fish_mythic",
   fishTreasures: "fish_treasures",
   /** Máximo: el pez más grande, en cm. */
   fishBestCm: "fish_best_cm",
@@ -189,8 +190,11 @@ const a = (
   secret = false,
 ): Achievement => ({ id, name, icon, rarity, stat, min, goal, description, secret });
 
+/** Especies del álbum de pesca (sin la basura): "Álbum completo" pide todas. */
+export const ALBUM_SPECIES = FISH.filter((f) => f.rarity !== "basura").length;
+
 /** Niveles de la cabaña (el test del servidor revisa que "Turista" pida todos). */
-export const TOURIST_AREAS = 5;
+export const TOURIST_AREAS = 6;
 
 export const ACHIEVEMENTS: readonly Achievement[] = [
   // Cafetería y bar
@@ -213,13 +217,15 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   a("coleccionista", "Coleccionista de escamas", "fish", "epico", STAT_KEYS.fishSpecies, 15, "Saca 15 especies distintas", "Tu álbum huele un poquito a lago."),
   a("cazatesoros", "Cazatesoros", "chest", "raro", STAT_KEYS.fishTreasures, 1, "Saca un cofre mientras pescas", "¡Un cofre! Adentro había… más lago."),
   a("pescador-legendario", "Pescador legendario", "crown", "legendario", STAT_KEYS.legendaryFish, 1, "Saca un pez legendario", "Nadie te cree. Menos mal que hay álbum."),
+  a("pescador-mitico", "Pescador de leyendas", "crown", "legendario", STAT_KEYS.mythicFish, 1, "Saca un pez mítico", "Los abuelos tenían razón. Y tú tienes la foto.", true),
+  a("album-completo", "Álbum completo", "fish", "legendario", STAT_KEYS.fishSpecies, ALBUM_SPECIES, `Saca las ${ALBUM_SPECIES} especies del lago`, "Ya no queda nada nuevo en el lago. ¿O sí?"),
   // Casino
   a("hagan-sus-apuestas", "Hagan sus apuestas", "chip", "comun", STAT_KEYS.casinoBets, 1, "Apuesta en el casino", "Solo una, para probar. (Nunca es solo una.)"),
   a("la-casa-siempre-gana", "La casa siempre gana", "chip", "raro", STAT_KEYS.casinoLost, 1000, "Pierde 1000 puntos en el casino", "Gracias por financiar las lámparas nuevas del casino."),
   a("suertudo", "Suertudo", "wheel", "epico", STAT_KEYS.rouletteStraights, 1, "Acierta un pleno en la ruleta", "Un número, una ficha, un grito."),
   a("blackjack-natural", "Blackjack natural", "cards", "raro", STAT_KEYS.blackjackNaturals, 1, "Saca 21 con las dos primeras cartas", "As y figura. El crupier suspira."),
   // Tiempo y lugares
-  a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al piso 3, con foto mental en cada uno."),
+  a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al piso 3 y hasta el garaje, con foto mental en cada uno."),
   a("caminante", "Pantuflas gastadas", "shoe", "raro", STAT_KEYS.tilesWalked, 10_000, "Camina 10.000 baldosas", "Tus pantuflas piden jubilación."),
   a("madrugador", "Madrugador", "sunrise", "raro", STAT_KEYS.earlyDays, 1, "Está activo antes de las 7 de la mañana (Bogotá)", "Llegaste antes que el café."),
   a("buho", "Búho", "owl", "raro", STAT_KEYS.owlDays, 1, "Está activo después de medianoche (Bogotá)", "¿Trabajando o huyendo del sueño?", true),

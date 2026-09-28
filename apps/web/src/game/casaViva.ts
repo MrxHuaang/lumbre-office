@@ -70,7 +70,7 @@ export interface CasaHost {
 const FIRE_TYPES = new Set(["fire-pit", "fireplace", "fireplace-stone"]);
 const STALL_TYPES = new Set(["toilet-stall", "bath-stall"]);
 const PROGRESS_TYPES = new Set(["puzzle-table", "cafe-sign", "easel"]);
-const LAMP_SOUND = new Set(["lamp", "lamp-mushroom", "reading-lamp", "lamp-post", "garden-lantern", "dock-lamp", "wall-sconce", "record-player", "radio"]);
+const LAMP_SOUND = new Set(["lamp", "lamp-mushroom", "reading-lamp", "lamp-post", "garden-lantern", "dock-lamp", "wall-sconce", "record-player", "radio", "work-light"]);
 /** Cómo se dice lo que salió de la nevera o la cafetera. */
 const GIFT_TEXT: Record<string, string> = { jugo: "¡Un jugo!", manzana: "¡Una manzana!", banano: "¡Un banano!", aguapanela: "¡Un agua de panela!", malvavisco: "¡Malvavisco dorado!" };
 /** Cuánto "más lejos" cuenta una cortina al elegir qué ofrece E (tiles; ver `nearest` en usables.ts). */

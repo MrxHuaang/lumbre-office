@@ -5,6 +5,7 @@ import { INTERIOR_CATALOG } from "./catalog-interior";
 import { SOTANO_CATALOG } from "./catalog-sotano";
 import { CASA_CATALOG } from "./catalog-casa";
 import { PLANTAS_CATALOG } from "./catalog-plantas";
+import { GARAJE_CATALOG } from "./catalog-garaje";
 import type { Facing } from "./types";
 
 export interface CatalogItem {
@@ -25,6 +26,11 @@ export interface CatalogItem {
    * `solid`).
    */
   blocks?: [number, number][];
+  /**
+   * Techo o paredes de algo que se camina por dentro (glorieta, invernadero): el cliente lo transparenta
+   * cuando hay alguien adentro, así que puede tapar lo que queda bajo él.
+   */
+  seeThrough?: boolean;
   /** Escritorio con computador: la silla que lo mira permite prender el PC. */
   computer?: boolean;
   /** Tiene dibujo de espaldas (para mirar hacia "left"/"up"); si no, se usa el de frente. */
@@ -151,6 +157,7 @@ export const CATALOG = {
   ...SOTANO_CATALOG,
   ...CASA_CATALOG,
   ...PLANTAS_CATALOG,
+  ...GARAJE_CATALOG,
 } satisfies Record<string, CatalogItem>;
 
 export type FurnitureType = keyof typeof CATALOG;

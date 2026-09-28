@@ -7,6 +7,11 @@ export const ROOM_NAME = "office";
 export const PLAYER_SPEED = 150;
 /** Radio de proximidad para chat (y luego audio/video), en px. */
 export const PROXIMITY_RADIUS = 5 * 32;
+/**
+ * Radio del audio/video por proximidad, en px: 14 tiles, para oír a alguien al otro lado de una sala
+ * grande (la cafetería mide 16x11) o en la sala de al lado. El volumen baja con la distancia.
+ */
+export const VOICE_RADIUS = 14 * 32;
 /** Frecuencia máxima con la que el cliente envía su posición. */
 export const MOVE_SEND_HZ = 15;
 
@@ -171,6 +176,9 @@ export const MSG = {
   /** Editor de la casa, solo admins (`WorldEditMessage`) y su respuesta (`WorldEditResult`). */
   worldEdit: "world:edit",
   worldEditResult: "world:edit:result",
+  /** Tomar o soltar el editor de la casa (una persona a la vez): `WorldEditLockMessage` → `WorldEditLockResult`. */
+  worldEditLock: "world:edit:lock",
+  worldEditLockResult: "world:edit:lock:result",
   /** Emote sobre la cabeza (`EmoteMessage`) y el aviso a los del mismo nivel (`EmoteEvent`). */
   emote: "emote",
   emoteEvent: "emote:event",

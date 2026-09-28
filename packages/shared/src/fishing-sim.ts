@@ -2,7 +2,8 @@
 // según su comportamiento y dificultad, la barra verde que sube mientras se mantiene apretado y cae con
 // gravedad (con inercia y rebote), y el medidor de captura. Es determinista (semilla + botón por frame, a
 // 60 por segundo y solo con sumas, restas y productos): el cliente lo juega y el servidor lo repite igual
-// para validar el resultado. Las medidas son las de Stardew (la barra mide 568).
+// para validar el resultado. Las medidas son las de Stardew (la barra mide 568), un poco más exigente: la
+// barra verde es más corta, el medidor se vacía más rápido y el pez se pone bravo cuando está por salir.
 import type { FishBehavior } from "./fishing";
 
 export const SIM_HZ = 60;
@@ -18,7 +19,12 @@ export const SIM = {
   /** El medidor arranca en 30 %. */
   startMeter: 0.3,
   /** Lo que baja por frame con el pez fuera de la barra. */
-  loss: 0.003,
+  loss: 0.0038,
+  /** Desde qué medidor el pez se pone bravo y cuánto sube su dificultad con el medidor lleno. */
+  rageFrom: 0.6,
+  rage: 0.12,
+  /** Tope de la dificultad con que se mueve el pez (la de Stardew): más allá, solo se achica la barra. */
+  maxMove: 110,
   /** El cofre: lo que sube por frame dentro de la barra y lo que baja fuera. */
   treasureGain: 0.0135,
   treasureLoss: 0.01,
@@ -28,12 +34,20 @@ export const SIM = {
 
 /** La barra verde es más corta en los peces difíciles. */
 export function barHeightFor(difficulty: number): number {
-  return Math.max(104, Math.min(176, Math.round(185 - difficulty * 0.7)));
+  return Math.max(100, Math.min(144, Math.round(150 - difficulty * 0.38)));
 }
 
 /** Cuánto sube el medidor por frame con el pez dentro: a más dificultad, más lento. */
 export function gainFor(difficulty: number): number {
-  return 0.0024 - difficulty * 0.0000055;
+  return 0.0023 - difficulty * 0.0000055;
+}
+
+/**
+ * Con qué dificultad se mueve el pez: igual que la suya hasta 60 y más suave después (en Stardew, pasado
+ * ~95 el pez ya no se puede seguir). Lo que sigue subiendo en los difíciles es la barra y el medidor.
+ */
+export function moveDifficulty(difficulty: number): number {
+  return difficulty <= 60 ? difficulty : 60 + (difficulty - 60) * 0.7;
 }
 
 /** Frames mínimos para llenar el medidor (el pez siempre dentro de la barra). */
@@ -114,7 +128,10 @@ export class FishingSim {
 
   /** El pez: las mismas reglas que el BobberBar de Stardew. */
   private moveFish() {
-    const { difficulty: d, behavior } = this.setup;
+    const { behavior } = this.setup;
+    // Cerca de sacarlo, el pez pelea más (sube su dificultad hasta un 12 %).
+    const rage = Math.max(0, this.meter - SIM.rageFrom) / (1 - SIM.rageFrom);
+    const d = Math.min(SIM.maxMove, moveDifficulty(this.setup.difficulty) * (1 + rage * SIM.rage));
     const top = SIM.track - SIM.fish;
     if (this.rand() < (d * (behavior === "smooth" ? 20 : 1)) / 4000 && (behavior !== "smooth" || this.target === -1)) {
       const below = SIM.track - this.fishPos;

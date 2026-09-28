@@ -80,6 +80,7 @@ import {
   sendMove,
   sendUseHeld,
   sendSwivel,
+  sendWorldEditLock,
   sendToast,
   sendOfficeEdit,
   sendTravel,
@@ -354,6 +355,8 @@ export class OfficeScene extends Phaser.Scene {
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
     });
+    this.input.on("gameout", () => (this.pointerOutside = true));
+    this.input.on("gameover", () => (this.pointerOutside = false));
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       // En la carrera, el clic es impulso (no caminar).
@@ -454,6 +457,8 @@ export class OfficeScene extends Phaser.Scene {
         if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
           this.refreshDecor();
         }
+        // Entrar o salir del editor de la casa pide o suelta el candado (una persona a la vez).
+        if (s.worldEditing !== prev.worldEditing) sendWorldEditLock(s.worldEditing);
         if (s.worldEditing !== prev.worldEditing || (s.worldEditing && (s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing))) {
           this.worldEditor.refresh(true);
         }
@@ -483,6 +488,9 @@ export class OfficeScene extends Phaser.Scene {
     this.updateLocal(delta, this.readTaps());
     this.table.update();
     this.table.fadeAvatars([...this.avatars.values()].map((a) => a.sprite));
+    // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa.
+    for (const a of this.avatars.values()) a.setNameHidden(Boolean(this.table.kind));
+    this.updateNameTags();
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
       this.hearingElapsed = 0;
@@ -1787,6 +1795,26 @@ export class OfficeScene extends Phaser.Scene {
       sendOfficeEdit({ action: "remove", zoneId: zone.id, itemId: pick.itemId });
       s.pickDecor(null);
     }
+  }
+
+  // ---------- Nombres ----------
+
+  /** El mouse salió del lienzo: nadie queda resaltado. */
+  private pointerOutside = false;
+
+  /**
+   * Aplica la preferencia de nombres (completos, cortos u ocultos) y muestra completo el de quien está bajo
+   * el mouse (uno solo: el de más adelante, que es el que se ve encima).
+   */
+  private updateNameTags() {
+    const mode = useOfficeStore.getState().nameTags;
+    let hovered: Avatar | null = null;
+    if (!this.pointerOutside) {
+      const p = this.input.activePointer;
+      const w = this.cameras.main.getWorldPoint(p.x, p.y);
+      for (const a of this.avatars.values()) if (a.hitTest(w.x, w.y) && (!hovered || a.y > hovered.y)) hovered = a;
+    }
+    for (const a of this.avatars.values()) a.setNameMode(mode, a === hovered);
   }
 
   // ---------- Audio/video por proximidad ----------

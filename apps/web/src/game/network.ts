@@ -16,6 +16,7 @@ import {
   type BoardStateEvent,
   type BoardStrokeEvent,
   type BoardStrokeInput,
+  type WorldEditLockResult,
   type OfficeRadioMessage,
   type OfficeRadioResult,
   OFFICE_RADIO_ERROR_TEXT,
@@ -524,9 +525,22 @@ export function sendWorldEdit(edit: WorldEditMessage) {
 
 const WORLD_EDIT_TEXT: Record<string, string> = {
   ...WORLD_EDIT_ERRORS,
-  admin: "Solo los admins pueden editar la casa.",
+  admin: "Solo el administrador de la casa puede editarla.",
+  busy: "Otra persona está editando la casa.",
   failed: "No se pudo guardar. Intenta de nuevo.",
 };
+
+/** Entrar o salir del editor de la casa (el servidor da el candado a una persona a la vez). */
+export function sendWorldEditLock(on: boolean) {
+  room?.send(MSG.worldEditLock, { on });
+}
+
+function handleWorldEditLockResult(r: WorldEditLockResult) {
+  if (r.ok) return;
+  const s = useOfficeStore.getState();
+  s.setWorldEditing(false);
+  s.notify(r.error === "busy" ? `${r.by} está editando la casa: una persona a la vez.` : "Solo el administrador de la casa puede editarla.", "warning");
+}
 
 function handleWorldEditResult(r: WorldEditResult) {
   if (!r.ok) useOfficeStore.getState().notify(WORLD_EDIT_TEXT[r.error] ?? WORLD_EDIT_TEXT.failed!, "warning");
@@ -777,6 +791,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.cafeResult, handleCafeResult);
   r.onMessage(MSG.officeEditResult, handleOfficeEditResult);
   r.onMessage(MSG.worldEditResult, handleWorldEditResult);
+  r.onMessage(MSG.worldEditLockResult, handleWorldEditLockResult);
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.drunkBlackout, (e: DrunkBlackoutEvent) => blackoutListeners.forEach((cb) => cb(e)));
