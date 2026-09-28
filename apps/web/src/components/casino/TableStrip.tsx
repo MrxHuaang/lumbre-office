@@ -19,7 +19,7 @@ const TILE = { red: "#983a3c", black: "#2b2331", green: "#2e5a40" } as const;
 const CREAM = "#fffaf0";
 
 /** Milisegundos que le quedan a la fase de una mesa (se refresca 4 veces por segundo). */
-function useRemaining(t: { endsAt: number }) {
+export function useRemaining(t: { endsAt: number }) {
   const offset = useCasinoStore((s) => s.offset);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -79,7 +79,7 @@ export function Divider() {
 }
 
 /** Las cinco fichas: la elegida sube y lleva el recuadro rojo. */
-function ChipPicker({ disabled = false }: { disabled?: boolean }) {
+export function ChipPicker({ disabled = false }: { disabled?: boolean }) {
   const chip = useCasinoStore((s) => s.chip);
   const setChip = useCasinoStore((s) => s.setChip);
   const points = useMyPoints();

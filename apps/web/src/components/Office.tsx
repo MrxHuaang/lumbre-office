@@ -29,6 +29,7 @@ import { HandActions, Hotbar } from "./bag/Hotbar";
 import { PlayerMenu } from "./bag/PlayerMenu";
 import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
+import { MesaStrip } from "./casino/MesaStrip";
 import { ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
@@ -328,6 +329,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "bar" && <BarPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "cashier" && <CashierPanel onClose={closePanel} />}
           {panel?.kind === "blackjack" && <BlackjackStrip />}
+          {(panel?.kind === "baccarat" || panel?.kind === "dados" || panel?.kind === "caballos") && <MesaStrip table={panel.kind} />}
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "backpack" && (
             <PlayerMenu

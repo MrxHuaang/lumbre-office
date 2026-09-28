@@ -134,6 +134,10 @@ export const CATALOG = {
   "dance-pole": { name: "Tubo", size: [1, 1], light: { at: [8, 8, 50], color: "#ff9ae6", radius: 34 } },
   // Más casino, el club (pole dance) y el cine del sótano (dibujos en art/casino.ts, art/club.ts y art/cinema.ts).
   "poker-table": { name: "Mesa de póker", size: [2, 3] },
+  // Mesas de rondas compartidas (se apuesta parado alrededor): baccarat y dados del casino.
+  "baccarat-table": { name: "Mesa de baccarat", size: [2, 3] },
+  "sicbo-table": { name: "Mesa de dados", size: [2, 2] },
+  "horse-race-table": { name: "Carrera de caballitos", size: [3, 2] },
   "coin-fountain": { name: "Fuente de monedas", size: [2, 2], light: { at: [16, 16, 24], color: "#8ef0f0", radius: 50 } },
   "velvet-rope": { name: "Cordón de terciopelo", size: [1, 1] },
   palm: { name: "Palmera", size: [1, 1] },

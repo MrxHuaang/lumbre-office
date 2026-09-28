@@ -9,6 +9,7 @@ export * from "./game-token";
 export * from "./points";
 export * from "./cafe";
 export * from "./casino";
+export * from "./mesas";
 export * from "./shop";
 export * from "./decor";
 export * from "./emotes";

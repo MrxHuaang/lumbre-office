@@ -125,8 +125,12 @@ export {
   type BallPose,
   type MesaFrame,
   type Overlay,
+  type PieceSprite,
   type ScreenBox,
 } from "./casino-mesa";
+// Baccarat, dados y caballitos: las mesas de rondas compartidas (geometría y arte del modo mesa).
+export { horseU, laneV, mesaCellAt, mesaCellOf, MESA_CELLS, MESA_FURNITURE, MESA_TOP_Z, type MesaCell } from "./mesas-layout";
+export { baccaratCardPlan, dieFaces, dieSprite, domeOverlay, horseSprite, mesaCellMark, mesaFeltOverlay, mesaRect, DICE_SPOTS, HORSE_RAMPS, PIPS } from "./mesas";
 export {
   blackjackFeltRect,
   rouletteFeltRect,

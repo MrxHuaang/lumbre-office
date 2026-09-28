@@ -194,6 +194,11 @@ export interface PointDef {
     | "arcade"
     // Las dos puntas del hockey de mesa del arcade (primero la del norte: el lado 0).
     | "air_hockey"
+    // Alrededor de las mesas de rondas compartidas del casino: el baccarat, los dados y la carrera de
+    // caballitos (desde ahí se apuesta).
+    | "baccarat"
+    | "sicbo"
+    | "horse_race"
     | "cinema"
     // Frente a la máquina de crispetas del cine: la confitería.
     | "cinema_snacks"

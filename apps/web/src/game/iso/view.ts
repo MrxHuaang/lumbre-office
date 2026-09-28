@@ -374,6 +374,11 @@ export class AreaView {
     if (dx === 0 && dy === 0) this.nudged.delete(hit.img);
   }
 
+  /** Los dibujos de los muebles (el modo mesa atenúa los que tapan la mesa). */
+  furnitureSprites(): Phaser.GameObjects.Image[] {
+    return this.furnitureImages.map((e) => e.img);
+  }
+
   /** Atenúa los muebles que cumplen `match` (el que se está moviendo en el editor); null = ninguno. */
   dimFurniture(match: ((f: PlacedFurniture) => boolean) | null) {
     for (const { f, img } of this.furnitureImages) img.setAlpha(match?.(f) ? 0.3 : 1);

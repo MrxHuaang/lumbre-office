@@ -23,6 +23,7 @@ import { cushion, leg, shadowSpace, shadowUnder, volume, type Variant } from "./
 import { drawOutdoor, hasOutdoor } from "./outdoor";
 import { SHOP } from "./shop";
 import { CASINO_DRAW } from "./casino";
+import { MESAS_DRAW } from "./mesas";
 import { CINEMA_DRAW } from "./cinema";
 import { CLUB_DRAW } from "./club";
 import { EXTERIOR_DRAW } from "./exterior";
@@ -753,6 +754,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...DECOR,
   ...SHOP,
   ...CASINO_DRAW,
+  ...MESAS_DRAW,
   ...CLUB_DRAW,
   ...CINEMA_DRAW,
   ...LEISURE_DRAW,
