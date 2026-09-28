@@ -377,6 +377,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     now: () => OfficeRoom.fishingNow(),
     random: (n) => OfficeRoom.fishingRandom(n),
     timings: () => OfficeRoom.fishingTimings,
+    weather: () => this.state.weather as Weather,
     repo: () => this.repo,
     newId: () => randomUUID(),
     setPhase: (userId, phase) => {
@@ -1896,7 +1897,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near);
   }
 
-  /** Sacó algo del lago: peces, basura, botas, legendarios, especies nuevas y el más grande. */
+  /** Sacó algo del lago: peces, basura, botas, legendarios, míticos, especies nuevas y el más grande. */
   private fishCaught(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean) {
     const a = this.achievements;
     if (fish.rarity === "basura") {
@@ -1907,6 +1908,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     a.bump(userId, STAT_KEYS.fishCaught);
     if (first) a.bump(userId, STAT_KEYS.fishSpecies);
     if (fish.rarity === "legendario") a.bump(userId, STAT_KEYS.legendaryFish);
+    if (fish.rarity === "mitico") a.bump(userId, STAT_KEYS.mythicFish);
     if (treasure) a.bump(userId, STAT_KEYS.fishTreasures);
     a.max(userId, STAT_KEYS.fishBestCm, size);
   }
