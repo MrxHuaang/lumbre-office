@@ -53,7 +53,7 @@ function CasillaObjeto({ nombre }: { nombre: Objeto }) {
 }
 
 /** Una fila de personajes: los seis fijos y algunos armados al azar; "Otro" sortea uno nuevo. */
-export function Personajes({ className = "" }: { className?: string }) {
+export function Personajes({ className = "", tam = "w-[15%] max-w-24" }: { className?: string; tam?: string }) {
   const [semilla, setSemilla] = useState(7);
   // Caminan en el lugar, salvo con "menos movimiento" (se sabe recién en el navegador).
   const [caminan, setCaminan] = useState(false);
@@ -75,7 +75,7 @@ export function Personajes({ className = "" }: { className?: string }) {
             look={look}
             dir="down"
             walking={caminan}
-            className="w-[15%] max-w-24"
+            className={tam}
             style={{ animationDelay: `${-i * 0.13}s` }}
           />
         ))}

@@ -65,6 +65,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </form>
 
           {devLoginEnabled() && <DevLogin />}
+
+          <p className="max-w-[40ch] text-[15px] leading-snug text-cozy-paper-dark">
+            ¿Tu equipo todavía no tiene cabaña? Pronto va a poder crear la suya.{" "}
+            <Link href="/#tu-equipo" className="text-cozy-paper-light underline underline-offset-4 hover:text-cozy-wood-light">
+              Ver cómo será
+            </Link>
+          </p>
         </div>
 
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-2 text-[14px] text-cozy-paper-dark">

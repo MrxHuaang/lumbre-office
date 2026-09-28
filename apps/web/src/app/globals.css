@@ -741,6 +741,203 @@ body {
     scroll-behavior: smooth;
   }
 }
+
+/* ---------- Portada: barra, cinta, galería, aviso y detalles ---------- */
+/* La barra fija: la noche de afuera casi opaca, con canto de madera abajo (sombra sólida, sin blur). */
+.lumbre-nav {
+  background: rgb(42 32 51 / 0.97);
+  border-bottom: 4px solid var(--color-cozy-frame);
+  box-shadow:
+    inset 0 -3px 0 var(--color-cozy-wood),
+    0 4px 0 rgb(20 10 24 / 0.35);
+}
+.lumbre-nav-panel {
+  background: var(--color-cozy-void);
+  border-top: 2px solid var(--color-cozy-wood);
+}
+/* Foco con teclado: el mismo recuadro azul de los botones cozy. */
+.lumbre-foco:focus-visible,
+.lumbre-galeria:focus-visible {
+  outline: 3px solid var(--color-cozy-sky);
+  outline-offset: 3px;
+}
+.lumbre-enlace {
+  display: inline-block;
+  color: var(--color-cozy-paper-dark);
+  transition: color 0.12s;
+}
+.lumbre-enlace:hover {
+  color: var(--color-cozy-paper-light);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+.lumbre-enlace-pie {
+  font-size: 16px;
+  color: var(--color-cozy-paper-dark);
+  cursor: pointer;
+}
+.lumbre-enlace-pie:hover {
+  color: var(--color-cozy-paper-light);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+/* "Saltar al contenido": escondido hasta que llega el foco con Tab. */
+.lumbre-saltar {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  transform: translateY(-160%);
+}
+.lumbre-saltar:focus-visible {
+  transform: none;
+}
+.lumbre-h2 {
+  font-weight: 600;
+  line-height: 1.04;
+  text-wrap: balance;
+  color: var(--color-cozy-paper-light);
+  text-shadow:
+    2px 2px 0 var(--color-cozy-wood),
+    4px 4px 0 var(--color-cozy-frame);
+}
+/* La cinta de madera: dos copias de la fila que se corren a la izquierda (se pausa con el mouse encima). */
+.lumbre-cinta {
+  overflow: hidden;
+}
+@keyframes lumbre-cinta {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.lumbre-cinta-pista {
+  animation: lumbre-cinta 70s linear infinite;
+}
+.lumbre-cinta:hover .lumbre-cinta-pista {
+  animation-play-state: paused;
+}
+/* La galería de pausas: se desliza de lado y cada tarjeta se acomoda al borde. */
+.lumbre-galeria {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 1rem;
+  overscroll-behavior-x: contain;
+}
+.lumbre-galeria li {
+  scroll-snap-align: start;
+}
+@media (min-width: 640px) {
+  .lumbre-galeria {
+    scroll-padding-inline: 2rem;
+  }
+}
+/* El aviso de "Próximamente" (un <dialog> nativo). */
+.lumbre-dialogo {
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+}
+.lumbre-dialogo::backdrop {
+  background: rgb(20 10 24 / 0.72);
+}
+/* El control de la hora: una barra de madera con una ficha cuadrada. */
+.lumbre-rango {
+  appearance: none;
+  height: 14px;
+  background: linear-gradient(90deg, #1c1d4a, #8a7fc0 22%, #7cc6ea 40%, #c4ecf6 55%, #f5b264 72%, #3a3470 82%, #1c1d4a);
+  border: 2px solid var(--color-cozy-frame);
+  cursor: pointer;
+}
+.lumbre-rango::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 26px;
+  background: var(--color-cozy-paper-dark);
+  border: 3px solid var(--color-cozy-frame);
+  box-shadow: inset 2px 2px 0 var(--color-cozy-paper-light);
+}
+.lumbre-rango::-moz-range-thumb {
+  width: 16px;
+  height: 20px;
+  border-radius: 0;
+  background: var(--color-cozy-paper-dark);
+  border: 3px solid var(--color-cozy-frame);
+}
+.lumbre-rango:focus-visible {
+  outline: 3px solid var(--color-cozy-sky);
+  outline-offset: 3px;
+}
+/* El velo del reloj cambia a saltos, como la noche del juego. */
+.lumbre-velo {
+  transition: background-color 0.5s steps(4);
+}
+/* Los pasos: un caminito punteado de madera entre número y número. */
+.lumbre-paso-camino {
+  background: repeating-linear-gradient(90deg, var(--color-cozy-wood) 0 8px, transparent 8px 14px);
+}
+.lumbre-pasos li:last-child .lumbre-paso-camino {
+  visibility: hidden;
+}
+/* El globo de las citas, con su colita pixel hacia el personaje. */
+.lumbre-globo-cita::after {
+  content: "";
+  position: absolute;
+  left: 28px;
+  bottom: -14px;
+  width: 14px;
+  height: 14px;
+  background: var(--color-cozy-paper);
+  border-left: 3px solid var(--color-cozy-frame);
+  border-bottom: 3px solid var(--color-cozy-frame);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+.lumbre-pregunta summary::-webkit-details-marker {
+  display: none;
+}
+.lumbre-pregunta[open] summary {
+  border-bottom: 2px dashed rgb(179 87 26 / 0.4);
+  margin-bottom: 1rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* La portada entra una vez al cargar: el texto y, un poquito después, la escena. */
+  @keyframes lumbre-entra {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+  }
+  .lumbre-entra {
+    animation: lumbre-entra 0.7s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+  .lumbre-entra-tarde {
+    animation: lumbre-entra 0.9s 0.15s cubic-bezier(0.25, 1, 0.5, 1) both;
+  }
+  /* Lo que se ve al bajar sube un poco a su lugar (solo se mueve: nunca queda escondido). */
+  @supports (animation-timeline: view()) {
+    @keyframes lumbre-revela {
+      from {
+        translate: 0 36px;
+      }
+    }
+    .lumbre-revela {
+      animation: lumbre-revela linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Sin la cinta que se corre: se desliza a mano. */
+  .lumbre-cinta {
+    overflow-x: auto;
+  }
+  .lumbre-cinta-pista {
+    animation: none;
+  }
+  .lumbre-cinta-fila[aria-hidden] {
+    display: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   /* También los personajes de las vistas previas: con menos movimiento quedan parados. */
   .sprite-walk,
