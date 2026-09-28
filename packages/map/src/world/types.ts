@@ -195,7 +195,9 @@ export interface PointDef {
     // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
     | "greenhouse_plot"
     // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
-    | "trophy_case";
+    | "trophy_case"
+    // Frente a cada estufa de la cocina (planta baja): ahí se cocina con lo del huerto.
+    | "kitchen_stove";
   name: string;
   x: number;
   y: number;

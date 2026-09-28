@@ -39,6 +39,7 @@ import { RacePanel, RaceTimer } from "./RacePanel";
 import { AquariumPanel } from "./AquariumPanel";
 import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
 import { ShedPanel } from "./ShedPanel";
+import { KitchenPanel } from "./KitchenPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -317,6 +318,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "doorNote" && <DoorNoteWritePanel onClose={closePanel} />}
           {panel?.kind === "doorNotes" && <DoorNotesPanel onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "kitchen" && <KitchenPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}
 

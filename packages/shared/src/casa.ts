@@ -5,6 +5,7 @@
 // cubículos ocupados) o llega como evento.
 import { z } from "zod";
 import type { ConsumeAction, UsableSpec } from "./consumables";
+import { COCINA_HOLDS, COCINA_NAMES } from "./cocina";
 import { HUERTO_HOLDS, HUERTO_NAMES } from "./huerto";
 
 /**
@@ -138,6 +139,8 @@ export const FREE_HOLDS: Record<string, readonly string[]> = {
   malvavisco: ["malvavisco"],
   // Jardín vivo: las herramientas del cobertizo, lo cosechado y la miel.
   ...HUERTO_HOLDS,
+  // La cocina: los platos que se cocinan en la estufa.
+  ...COCINA_HOLDS,
 };
 
 /**
@@ -181,6 +184,7 @@ export const FREE_NAMES: Record<string, string> = {
   banano: "Banano",
   malvavisco: "Malvavisco asado",
   ...HUERTO_NAMES,
+  ...COCINA_NAMES,
 };
 
 /** ¿Es algo gratis de la casa? (se puede cambiar por otra cosa gratis sin perder nada). */

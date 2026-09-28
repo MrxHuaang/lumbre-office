@@ -130,6 +130,8 @@ import { TrophyCases } from "./trofeos";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
 import { useAchievementStore } from "./achievements";
+import { localSpeedMul, useCocinaStore } from "./cocina";
+import { SeasonView } from "./seasons";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -162,7 +164,11 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
   { kind: "aquarium", point: "aquarium", furniture: ["acuario"] },
   { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
+<<<<<<< HEAD
   { kind: "trophies", point: "trophy_case", furniture: ["trophy-case"] },
+=======
+  { kind: "kitchen", point: "kitchen_stove", furniture: ["stove", "pantry-shelf"] },
+>>>>>>> master/feat/estaciones-cocina
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -283,6 +289,8 @@ export class OfficeScene extends Phaser.Scene {
   private dizzySpins = 0;
   /** El clima de afuera (lluvia, nubes, niebla, relámpagos) y la fauna del jardín. */
   private weatherView!: WeatherView;
+  /** Las estaciones afuera: tono del pasto, hojas, pétalos y nieve (ver seasons.ts). */
+  private seasonView!: SeasonView;
   private critters!: Critters;
   /** Ya llegó el clima de esta conexión (el primero se pone de una, sin transición). */
   private weatherKnown = false;
@@ -364,6 +372,8 @@ export class OfficeScene extends Phaser.Scene {
     });
     this.weatherView = new WeatherView(this);
     this.weatherView.setWeather(useOfficeStore.getState().weather, true);
+    this.seasonView = new SeasonView(this);
+    this.seasonView.setWeather(useOfficeStore.getState().weather, true);
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
@@ -446,6 +456,7 @@ export class OfficeScene extends Phaser.Scene {
       bindWeatherSounds(),
       () => this.toasts.destroy(),
       () => this.weatherView.destroy(),
+      () => this.seasonView.destroy(),
       () => this.critters.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
@@ -467,6 +478,7 @@ export class OfficeScene extends Phaser.Scene {
         if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
         if (s.weather !== prev.weather) {
           this.weatherView.setWeather(s.weather, !this.weatherKnown);
+          this.seasonView.setWeather(s.weather, !this.weatherKnown);
           this.weatherKnown = true;
         }
         if (s.weather !== prev.weather || s.night !== prev.night) this.critters.setConditions(s.night, s.weather);
@@ -528,6 +540,7 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.drunkVision.update(time, delta);
     this.weatherView.update(time, delta);
+    this.seasonView.update(time, delta);
     this.critters.update(time, delta);
     this.usables.update();
     this.fishing.update(delta);
@@ -651,6 +664,7 @@ export class OfficeScene extends Phaser.Scene {
       this.usables.setArea(map, this.view);
       this.markers.setArea(map, this.view, INTERACTABLES);
       this.weatherView.setArea(map, this.view.bounds);
+      this.seasonView.setArea(map, this.view.bounds);
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
       this.aquariums.setArea(map, this.view);
@@ -725,6 +739,7 @@ export class OfficeScene extends Phaser.Scene {
     this.usables.setArea(map, this.view);
     this.markers.setArea(map, this.view, INTERACTABLES);
     this.weatherView.setArea(map, this.view.bounds);
+    this.seasonView.setArea(map, this.view.bounds);
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
     this.aquariums.setArea(map, this.view);
@@ -972,6 +987,8 @@ export class OfficeScene extends Phaser.Scene {
       avatar.setDrunk(stage);
       if (isLocal) this.setDrunkStage(stage);
     });
+    // La energía de un plato de la cocina: mi paso va a la velocidad que acepta el servidor.
+    if (isLocal) p$.listen("buff", (dish) => useCocinaStore.getState().setBuff(dish ?? ""));
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
@@ -1213,7 +1230,8 @@ export class OfficeScene extends Phaser.Scene {
     let dir: Direction = avatar.direction;
     if (vx !== 0 || vy !== 0) {
       const len = Math.hypot(vx, vy);
-      const step = Math.min(PLAYER_SPEED * dt, 12);
+      // Con la energía de un plato de la cocina se camina un poco más rápido (el servidor lo acepta).
+      const step = Math.min(PLAYER_SPEED * localSpeedMul() * dt, 12);
       const nx = avatar.x + (vx / len) * step;
       const ny = avatar.y + (vy / len) * step;
       let x = avatar.x;

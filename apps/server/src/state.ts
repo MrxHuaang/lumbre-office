@@ -35,6 +35,8 @@ export class Player extends Schema {
   @type("uint8") drunk = 0;
   /** Insignia destacada junto al nombre (id de un logro que tiene; "" = ninguna). La valida el servidor. */
   @type("string") badge = "";
+  /** Energía de un plato de la cocina (id de la receta; "" = nada): camina un poco más rápido un rato. */
+  @type("string") buff = "";
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */

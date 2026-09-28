@@ -19,9 +19,11 @@ const OUTDOOR: Record<Weather, { rain: number; cloud: number; fog: number; dim: 
   lluvia: { rain: 0.6, cloud: 0.5, fog: 0, dim: 0.32 },
   tormenta: { rain: 1, cloud: 0.6, fog: 0, dim: 0.45 },
   niebla: { rain: 0, cloud: 0, fog: 1, dim: 0.1 },
+  // Nieve: los copos los dibuja seasons.ts; acá, nubes y un poco de bruma.
+  nieve: { rain: 0, cloud: 0.7, fog: 0.25, dim: 0.14 },
 };
 /** Adentro: solo un toque más oscuro con nubes o lluvia. */
-const INDOOR_DIM: Record<Weather, number> = { despejado: 0, nublado: 0.05, lluvia: 0.1, tormenta: 0.16, niebla: 0 };
+const INDOOR_DIM: Record<Weather, number> = { despejado: 0, nublado: 0.05, lluvia: 0.1, tormenta: 0.16, niebla: 0, nieve: 0.06 };
 /** Color del tono gris azulado (MULTIPLY). */
 const DIM_COLOR = 0x6c7690;
 /** Tope de gotas a la vez, y cuántos px² de vista toca a cada una. */

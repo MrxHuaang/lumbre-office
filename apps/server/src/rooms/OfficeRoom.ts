@@ -174,6 +174,8 @@ import { AchievementTracker } from "./achievements";
 import { DoorNotes } from "./door-notes";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
+import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
+import { Cocina, type CocinaResult } from "./cocina";
 
 interface UserData {
   lastMoveAt: number;
@@ -343,6 +345,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       random: () => OfficeRoom.weatherRandom(),
       onChange: (w) => {
         this.state.weather = w;
+        // La lluvia riega sola el huerto (y sigue regando mientras dure: ver el intervalo de onCreate).
+        if (isWet(w)) this.rainOnGarden();
       },
     },
     OfficeRoom.weatherInitial ?? initialWeather(OfficeRoom.weatherNow()),
@@ -503,6 +507,21 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private hockey!: HockeyTable;
   /** Ajedrez y damas de la sala de juegos (ver boardGames.ts). */
   private boardGames!: BoardGames;
+  /** Reloj de la cocina (los tests lo adelantan para que se acabe la energía). */
+  static cocinaNow: () => number = () => Date.now();
+  /** La cocina: la despensa de cada persona, la estufa y la energía de los platos (ver cocina.ts). */
+  private cocina = new Cocina({
+    held: {
+      get: (userId) => this.held.get(userId),
+      give: (userId, item) => this.held.give(userId, item),
+      drop: (userId) => this.held.drop(userId),
+    },
+    award: (userId, amount) => this.awardLeisure(userId, amount),
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    onBuff: (userId, dish) => {
+      for (const p of this.state.players.values()) if (p.userId === userId) p.buff = dish;
+    },
+  });
 
   /**
    * El repositorio con el que nació la sala: un tic que quedó en vuelo al cerrarla no escribe en el de
@@ -562,6 +581,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     OfficeRoom.instances.add(this);
 
     this.onMessage(HUERTO_MSG.shedTake, (client, raw) => this.handleShed(client, raw));
+    this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
+    this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
+    this.onMessage(COCINA_MSG.cook, (client, raw) => void this.withCook(client, (p, now) => this.cocina.cook(this.mapOf(p.area), p, raw, now)));
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
@@ -663,6 +685,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }, 500);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
     this.weather.start();
+    // Mientras llueve, lo que se va secando se vuelve a regar solo.
+    this.clock.setInterval(() => isWet(this.weather.weather) && this.rainOnGarden(), 60_000);
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -680,6 +704,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.drunk.dispose();
     this.toasts.dispose();
     this.weather.dispose();
+    this.cocina.dispose();
     void this.achievements.flushAll();
     void this.whiteboards.flush();
     this.pets?.flush(Date.now());
@@ -723,6 +748,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
     player.drunk = this.drunk.stage(auth.sub);
+    player.buff = this.cocina.buffOf(auth.sub, OfficeRoom.cocinaNow());
     this.state.players.set(client.sessionId, player);
 
     client.userData = {
@@ -1268,8 +1294,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Tolerancia: latencia/jitter + mínimo de medio tile. Sentarse y levantarse "saltan" hasta
     // el asiento (p. ej. del tile de enfrente a la silla), así que ahí se permite algo más.
     const snap = seated !== player.seated ? map.tileSize * SEAT_REACH_TILES : 0;
-    // En la carrera de sillas se va más rápido.
-    const speed = PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : 1);
+    // En la carrera de sillas se va más rápido; con la energía de un plato de la cocina, también.
+    const speed = PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : this.cocina.speedMul(player.userId, OfficeRoom.cocinaNow()));
     const maxDist = Math.max(map.tileSize * 0.75, dt * speed * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
 
@@ -1791,6 +1817,33 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastActiveAt = now;
     const event: HeldUsedEvent = { sessionId: client.sessionId, part: used.part, art: used.art, action: used.action, left: used.left };
     this.sendToArea(player.area, MSG.heldUsed, event);
+    // Un plato de la cocina con energía: el primer bocado la prende.
+    const energy = this.cocina.ate(player.userId, used.art, used.left, OfficeRoom.cocinaNow());
+    if (energy) client.send(COCINA_MSG.notice, energy satisfies CocinaNotice);
+  }
+
+  // ---------- Cocina ----------
+
+  /** Guardar en la despensa, cocinar o mirarla: responde el estado y el aviso solo a quien lo pidió. */
+  private async withCook(client: Client<UserData>, fn: (p: Player, now: number) => CocinaResult | Promise<CocinaResult>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const result = await Promise.resolve()
+      .then(() => fn(player, OfficeRoom.cocinaNow()))
+      .catch((err) => {
+        console.error("cocina", err);
+        return null;
+      });
+    if (!result) return;
+    if (result.state) client.send(COCINA_MSG.state, result.state satisfies CocinaState);
+    if (result.notice) client.send(COCINA_MSG.notice, result.notice satisfies CocinaNotice);
+  }
+
+  /** Llueve: las parcelas del jardín que se están secando se riegan solas. */
+  private rainOnGarden() {
+    if (!this.huerto) return;
+    this.huerto.rain(this.mapOf("jardin"), OfficeRoom.huertoNow());
   }
 
   // ---------- Brindis ----------

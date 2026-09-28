@@ -63,7 +63,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
   | "shed"
   // La vitrina de trofeos de cada oficina (los logros de su dueño).
-  | "trophies";
+  | "trophies"
+  // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
+  | "kitchen";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
