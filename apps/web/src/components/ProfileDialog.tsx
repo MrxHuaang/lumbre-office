@@ -4,6 +4,7 @@ import { birthdayKey, MONTH_NAMES, parseBirthday } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { sendProfileChanged } from "@/game/network";
 import type { Profile } from "@/game/store";
+import { getArriveByBus, setArriveByBus } from "@/lib/arriveByBus";
 import { loadBirthdays, saveBirthday } from "@/lib/birthdays";
 import { saveProfile } from "@/lib/profile";
 import { CharacterEditor, type Appearance } from "./CharacterEditor";
@@ -148,8 +149,32 @@ export function ProfileDialog({
             </p>
           </fieldset>
         )}
+        {!withName && <ArriveByBusToggle />}
         <CharacterEditor value={appearance} onChange={setAppearance} />
       </div>
     </OfficeDialog>
+  );
+}
+
+/** "Llegar en bus": se guarda al tocarla (es de este navegador) y vale desde la próxima vez que entres. */
+function ArriveByBusToggle() {
+  const [on, setOn] = useState(false);
+  useEffect(() => setOn(getArriveByBus()), []);
+  return (
+    <label className="mb-5 flex max-w-md cursor-pointer items-start gap-3 text-[14px]">
+      <input
+        type="checkbox"
+        checked={on}
+        onChange={(e) => {
+          setOn(e.target.checked);
+          setArriveByBus(e.target.checked);
+        }}
+        className="mt-1 h-4 w-4 accent-[#62982a]"
+      />
+      <span>
+        <span className="block font-semibold">Llegar en bus</span>
+        <span className="block text-[12px] text-cozy-ink-soft">Al entrar a la cabaña, apareces en el Megabús y te bajas en la Estación Hyvento, afuera del portón.</span>
+      </span>
+    </label>
   );
 }

@@ -117,6 +117,10 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   "work-light": lamp("el reflector"),
   "dead-plant": { ...water, label: "Regar la planta seca" },
   "filing-dented": { ...read, label: "Hojear una carpeta vieja" },
+  // La casa del árbol: el farol de frasco, los libros de los cajones y la tetera de la mesita.
+  "treehouse-lantern": lamp("el farol"),
+  "treehouse-crates": { ...read, label: "Leer un libro de los cajones" },
+  "treehouse-table": { action: "take", label: "Servirse agua de panela de la tetera", cooldownMs: 1500, gives: ["aguapanela"] },
   icebox: { action: "take", label: "Abrir la hielera", cooldownMs: 1500, gives: ["jugo", "manzana"] },
   // La fogata del jardín: se asa desde los troncos (un poco más lejos que el alcance normal).
   "fire-pit": { action: "roast", label: "Asar un malvavisco", cooldownMs: CASA.roastMs + 400, gives: ["malvavisco"], reachTiles: CASA.roastReachTiles },
@@ -205,7 +209,7 @@ export function usableMarker(spec: UsableSpec | undefined, night: boolean): bool
 /** Servidor → quien lo intentó (`CASA_MSG.notice`): por qué no se pudo (las manos llenas, ya comió…). */
 export const CASA_MSG = { notice: "casa:notice" } as const;
 
-export const CasaNoticeCode = z.enum(["hands", "stall", "fed", "petFar"]);
+export const CasaNoticeCode = z.enum(["hands", "stall", "fed", "petFar", "full"]);
 export type CasaNoticeCode = z.infer<typeof CasaNoticeCode>;
 
 export interface CasaNotice {
@@ -217,4 +221,5 @@ export const CASA_NOTICES: Record<CasaNoticeCode, string> = {
   stall: "Ese baño está ocupado.",
   fed: "Ya comió: espera un rato para darle otro premio.",
   petFar: "Acércate un poco más.",
+  full: "No te cabe en la mochila: haz espacio para llevártelo.",
 };

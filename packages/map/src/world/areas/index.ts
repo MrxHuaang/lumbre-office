@@ -6,12 +6,14 @@ import { piso3 } from "./piso-3";
 import { plantaBaja } from "./planta-baja";
 import { sotano } from "./sotano";
 import { garaje } from "./garaje";
+import { casaArbol } from "./casa-arbol";
+import { megabus } from "./megabus";
 
 export { CONEXIONES, type Conexion } from "./conexiones";
 export { OFFICE_COUNT } from "./piso-2";
 export { BLACKJACK_SEATS } from "./sotano";
 export { BOARD_TABLES } from "./piso-3";
 
-export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2, piso3, sotano, garaje];
+export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2, piso3, sotano, garaje, casaArbol, megabus];
 /** Donde aparece todo el mundo al entrar. */
 export const SPAWN_AREA = "jardin";

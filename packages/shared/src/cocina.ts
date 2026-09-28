@@ -1,7 +1,7 @@
-// La cocina de la planta baja: con lo del huerto y la miel del apiario se cocinan platos en la estufa. En
-// la mano cabe una sola cosa, así que lo cosechado se guarda antes en la despensa de cada persona (en el
-// cobertizo del huerto o en la cocina: es la misma). El plato queda en la mano como lo de la cafetería y
-// da puntos (motivo LEISURE, con su tope) o, al primer bocado, un rato de energía (caminar más rápido).
+// La cocina de la planta baja: con lo del huerto y la miel del apiario se cocinan platos en la estufa. La
+// despensa de cada persona es su mochila (bolsa.ts): lo cosechado va ahí y de ahí se cocina. El plato va a
+// la mochila (y a la mano) como lo de la cafetería y da puntos (motivo LEISURE, con su tope) o, al primer
+// bocado, un rato de energía (caminar más rápido).
 // Lo valida el servidor (apps/server/src/rooms/cocina.ts); el cliente solo lo muestra.
 import { z } from "zod";
 import type { ConsumeAction } from "./consumables";
@@ -169,7 +169,7 @@ export interface CocinaState {
   buffLeftMs: number;
 }
 
-export const CocinaNoticeCode = z.enum(["far", "nothing", "notIngredient", "full", "stored", "missing", "hands", "busy", "cooked", "capped", "energy"]);
+export const CocinaNoticeCode = z.enum(["far", "nothing", "notIngredient", "full", "stored", "missing", "hands", "busy", "cooked", "capped", "energy", "inBag", "bagFull"]);
 export type CocinaNoticeCode = z.infer<typeof CocinaNoticeCode>;
 
 export interface CocinaNotice {
@@ -211,5 +211,9 @@ export function cocinaNoticeText(n: CocinaNotice): string {
       return `${dish ?? "El plato"} está listo (por hoy la cocina ya no da más puntos).`;
     case "energy":
       return `${dish ?? "Eso"} te dio energía: caminas más rápido un rato.`;
+    case "inBag":
+      return "Lo cosechado y la miel ya quedan en tu mochila: la cocina los toma de ahí.";
+    case "bagFull":
+      return "El plato no te cabe en la mochila: haz espacio primero.";
   }
 }

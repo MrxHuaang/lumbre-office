@@ -59,8 +59,8 @@ export interface Hideout {
 export const SOMBRERO_HIDEOUTS: readonly Hideout[] = [
   // Jardín (zona jugable + 10): detrás del huerto contra el bosque del noroeste.
   { id: "huerto", area: "jardin", x: 14, y: 11, facing: "down", place: "detrás del huerto" },
-  // Jardín: el rincón del noreste, pasado el patio, contra el bosque.
-  { id: "noreste", area: "jardin", x: 80, y: 12, facing: "down", place: "en el rincón del noreste" },
+  // Jardín: el rincón del noreste, contra el bosque, al lado de la piscina (que ocupa el rincón de antes).
+  { id: "noreste", area: "jardin", x: 71, y: 10, facing: "down", place: "en el rincón del noreste, junto a la piscina" },
   // Jardín: entre los árboles, a medio camino entre la fogata y el camino al portón.
   { id: "arboles", area: "jardin", x: 40, y: 47, facing: "right", place: "entre los árboles del centro" },
   // Jardín: junto al árbol del camino al lago.
@@ -243,7 +243,7 @@ export type SombreroBuyMessage = z.infer<typeof SombreroBuyMessage>;
 /** Servidor → quien compró (`MSG.sombreroResult`). */
 export type SombreroBuyResult =
   | { ok: true; item: SombreroItemId; balance: number }
-  | { ok: false; item: SombreroItemId; error: "gone" | "far" | "funds" | "busy" | "failed" };
+  | { ok: false; item: SombreroItemId; error: "gone" | "far" | "funds" | "busy" | "failed" | "full" };
 
 export const SOMBRERO_ERROR_TEXT: Record<Extract<SombreroBuyResult, { ok: false }>["error"], string> = {
   gone: "El Man del Sombrero ya se fue… como si nunca hubiera estado.",
@@ -251,6 +251,7 @@ export const SOMBRERO_ERROR_TEXT: Record<Extract<SombreroBuyResult, { ok: false 
   funds: "No le alcanza, parcero. Sin plata no hay mercancía.",
   busy: "Calmado, calmado. De a uno.",
   failed: "Algo salió mal. Vuelva a intentar (pero disimule).",
+  full: "No le cabe en la mochila, parcero. Haga espacio primero.",
 };
 
 // ---------- Lo que dice ----------

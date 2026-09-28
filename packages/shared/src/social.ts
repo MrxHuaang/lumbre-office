@@ -1,14 +1,14 @@
 // Fase 5: regalos (por la web, llegan al buzón) e intercambios en vivo (por el servidor de juego, entre
 // dos personas cerca). Los topes y los mensajes están aquí para que web, servidor y cliente usen lo mismo.
 import { z } from "zod";
-import { shopItem } from "./shop";
+import { bagItemInfo } from "./bolsa";
 
-/** Id de un objeto de la mochila (hoy, los muebles de la tienda; el formato deja lugar a otros). */
+/** Id de un objeto de la mochila: un mueble de la tienda o `obj:<id>` (lo que se agarra, ver bolsa.ts). */
 export const ItemId = z.string().regex(/^[a-z0-9][a-z0-9:_-]{0,63}$/, "Objeto inválido");
 
-/** Nombre de un objeto de la mochila para mostrar (el id si no está en ningún catálogo). */
+/** Nombre de un objeto de la mochila para mostrar (uno sacado del id si no está en ningún catálogo). */
 export function itemName(itemId: string): string {
-  return shopItem(itemId)?.name ?? itemId;
+  return bagItemInfo(itemId).name;
 }
 
 /** Un objeto y cuántas unidades (en un regalo o en un intercambio). */

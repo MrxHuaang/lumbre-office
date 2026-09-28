@@ -7,10 +7,10 @@ import { MemoryRepository } from "../src/repo/memory";
 import { Cocina } from "../src/rooms/cocina";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { bootServer, goToArea, tick, token, walkToTile, type ServerRoom } from "./helpers";
+import { bagOf, bootServer, goToArea, tick, token, walkToTile, type ServerRoom } from "./helpers";
 
-// La cocina: guardar lo cosechado en la despensa (en el cobertizo o en la cocina), cocinar en la estufa
-// (valida distancia e ingredientes y los consume), los puntos con su tope y la energía de los platos.
+// La cocina: la despensa es la mochila (lo cosechado va ahí), cocinar en la estufa (valida distancia e
+// ingredientes y los gasta de la mochila), los puntos con su tope y la energía de los platos.
 
 const plantaBaja = getWorld().areas.get("planta-baja")!;
 const jardin = getWorld().areas.get("jardin")!;
@@ -18,17 +18,30 @@ const stove = pointsOfType(plantaBaja, "kitchen_stove")[0]!;
 const shed = pointsOfType(jardin, "tool_shed")[0]!;
 const counter = pointsOfType(plantaBaja, "cafe_counter")[0]!;
 
-/** Una cocina con la mano y los puntos de mentira (el reloj lo lleva cada test). */
+/** Una cocina con una mochila y puntos de mentira (el reloj lo lleva cada test). */
 function kitchen(leisureLeft = 1000) {
-  const hands = new Map<string, string>();
+  const bag = new Map<string, number>();
+  const picked: string[] = [];
   const buffs: string[] = [];
   const timers: { at: number; fn: () => void; dead: boolean }[] = [];
   let left = leisureLeft;
+  let full = false;
   const cocina = new Cocina({
-    held: {
-      get: (userId) => (hands.has(userId) ? { item: hands.get(userId)!, left: [1] } : undefined),
-      give: (userId, item) => void hands.set(userId, item),
-      drop: (userId) => void hands.delete(userId),
+    bag: {
+      count: (_userId, itemId) => bag.get(itemId) ?? 0,
+      fits: (_userId, items) => (full && items.some(([id]) => !bag.has(id)) ? "full" : "ok"),
+      take: async (_userId, itemId, n) => {
+        const have = bag.get(itemId) ?? 0;
+        if (have < n) return false;
+        if (have === n) bag.delete(itemId);
+        else bag.set(itemId, have - n);
+        return true;
+      },
+      add: async (_userId, itemId, n, opts) => {
+        bag.set(itemId, (bag.get(itemId) ?? 0) + n);
+        if (opts.pick) picked.push(itemId);
+        return "ok";
+      },
     },
     award: async (_userId, amount) => {
       const n = Math.min(left, amount);
@@ -43,7 +56,12 @@ function kitchen(leisureLeft = 1000) {
     onBuff: (_userId, dish) => void buffs.push(dish),
   });
   const fire = () => timers.filter((t) => !t.dead).forEach((t) => ((t.dead = true), t.fn()));
-  return { cocina, hands, buffs, fire };
+  /** Pone ingredientes en la mochila (reemplaza lo que había de cada uno). */
+  const fill = (items: Readonly<Record<string, number>>) => {
+    for (const [id, n] of Object.entries(items)) bag.set(`obj:${id}`, n);
+  };
+  const setFull = (v: boolean) => void (full = v);
+  return { cocina, bag, picked, buffs, fire, fill, setFull };
 }
 
 const atStove = { userId: "u-alice", x: stove.x, y: stove.y };
@@ -51,76 +69,71 @@ const atShed = { userId: "u-alice", x: shed.x, y: shed.y };
 const T0 = Date.UTC(2026, 8, 27, 15, 0);
 
 describe("cocina (reglas del servidor)", () => {
-  it("lo cosechado y la miel se guardan en la despensa junto al cobertizo o la estufa, y en otro lado no", () => {
-    const { cocina, hands } = kitchen();
-    hands.set("u-alice", HONEY);
+  it("la despensa es la mochila: se ven sus ingredientes, y guardar ya no hace falta", () => {
+    const { cocina, fill, bag } = kitchen();
+    fill({ [HONEY]: 2, tomate: 1 });
+    bag.set("obj:tinto", 3);
+    expect(cocina.state("u-alice", T0).pantry).toEqual({ miel: 2, tomate: 1 });
     expect(cocina.store(plantaBaja, { userId: "u-alice", x: counter.x, y: counter.y }, T0)?.notice?.code).toBe("far");
-    expect(hands.get("u-alice")).toBe(HONEY);
     const r = cocina.store(jardin, atShed, T0)!;
-    expect(r.notice).toEqual({ code: "stored", item: HONEY });
-    expect(r.state?.pantry).toEqual({ miel: 1 });
-    expect(hands.has("u-alice")).toBe(false);
-    // Nada en la mano, o algo que no es del huerto.
-    expect(cocina.store(jardin, atShed, T0)?.notice?.code).toBe("nothing");
-    hands.set("u-alice", "tinto");
-    expect(cocina.store(plantaBaja, atStove, T0)?.notice?.code).toBe("notIngredient");
-    expect(hands.get("u-alice")).toBe("tinto");
-    // Con tope por ingrediente.
-    cocina.fill("u-alice", { tomate: COCINA.pantryMax });
-    hands.set("u-alice", "tomate");
-    expect(cocina.store(plantaBaja, atStove, T0)?.notice?.code).toBe("full");
+    expect(r.notice).toEqual({ code: "inBag" });
+    expect(r.state?.pantry).toEqual({ miel: 2, tomate: 1 });
   });
 
-  it("cocina solo junto a la estufa, con los ingredientes, y los consume", async () => {
-    const { cocina, hands } = kitchen();
-    cocina.fill("u-alice", { tomate: 1, papa: 1 });
+  it("cocina solo junto a la estufa, con los ingredientes de la mochila, y los gasta", async () => {
+    const { cocina, fill, bag, picked } = kitchen();
+    fill({ tomate: 1, papa: 1 });
     expect((await cocina.cook(jardin, atShed, { recipe: "sopa-verduras" }, T0))?.notice?.code).toBe("far");
     expect((await cocina.cook(plantaBaja, atStove, { recipe: "sopa-verduras" }, T0))?.notice?.code).toBe("missing");
     expect(await cocina.cook(plantaBaja, atStove, { recipe: "no-existe" }, T0)).toBeNull();
-    // Lo que trae en la mano cuenta como ingrediente.
-    hands.set("u-alice", "cilantro");
+    fill({ cilantro: 1 });
     const r = await cocina.cook(plantaBaja, atStove, { recipe: "sopa-verduras" }, T0);
     expect(r?.notice).toMatchObject({ code: "cooked", item: "sopa-verduras", points: 8 });
     expect(r?.state?.pantry).toEqual({});
-    expect(hands.get("u-alice")).toBe("sopa-verduras");
+    // El plato va a la mochila (y a la mano, si estaban libres).
+    expect(bag.get("obj:sopa-verduras")).toBe(1);
+    expect(picked).toEqual(["obj:sopa-verduras"]);
   });
 
-  it("no pisa lo pagado que se lleva en la mano, y la estufa tiene su pausa", async () => {
-    const { cocina, hands } = kitchen();
-    cocina.fill("u-alice", { mazorca: 2, miel: 2 });
-    hands.set("u-alice", "whisky");
-    expect((await cocina.cook(plantaBaja, atStove, { recipe: "pan-miel" }, T0))?.notice?.code).toBe("hands");
-    hands.delete("u-alice");
+  it("si el plato no cabe no se cocina (salvo que se libere una casilla), y la estufa tiene su pausa", async () => {
+    const { cocina, fill, setFull, bag } = kitchen();
+    fill({ mazorca: 2, miel: 2 });
+    setFull(true);
+    expect((await cocina.cook(plantaBaja, atStove, { recipe: "pan-miel" }, T0))?.notice?.code).toBe("bagFull");
+    expect(bag.get("obj:mazorca")).toBe(2);
+    setFull(false);
     expect((await cocina.cook(plantaBaja, atStove, { recipe: "pan-miel" }, T0))?.notice?.code).toBe("cooked");
     expect((await cocina.cook(plantaBaja, atStove, { recipe: "pan-miel" }, T0 + 100))?.notice?.code).toBe("busy");
+    // Con la mochila llena pero gastando lo último de un ingrediente, sí cabe.
+    setFull(true);
     expect((await cocina.cook(plantaBaja, atStove, { recipe: "pan-miel" }, T0 + COCINA.cookCooldownMs))?.notice?.code).toBe("cooked");
   });
 
   it("los puntos de la cocina tienen tope diario (el día de Bogotá)", async () => {
-    const { cocina } = kitchen();
+    const { cocina, fill } = kitchen();
     const ajiaco = recipeById("ajiaco")!;
     let t = T0;
     let total = 0;
     for (let i = 0; i < 4; i++) {
-      cocina.fill("u-alice", ajiaco.needs);
+      fill(ajiaco.needs);
       const r = await cocina.cook(plantaBaja, atStove, { recipe: "ajiaco" }, (t += COCINA.cookCooldownMs));
       total += r?.notice?.points ?? 0;
     }
     expect(total).toBe(COCINA.pointsDailyCap);
-    cocina.fill("u-alice", ajiaco.needs);
+    fill(ajiaco.needs);
     expect((await cocina.cook(plantaBaja, atStove, { recipe: "ajiaco" }, (t += COCINA.cookCooldownMs)))?.notice?.code).toBe("capped");
     // Al otro día vuelve a dar.
-    cocina.fill("u-alice", ajiaco.needs);
+    fill(ajiaco.needs);
     const tomorrow = await cocina.cook(plantaBaja, atStove, { recipe: "ajiaco" }, t + 24 * 3_600_000);
     expect(tomorrow?.notice).toMatchObject({ code: "cooked", points: 12 });
   });
 
   it("si el tope del ocio ya se llenó, el plato sale igual pero sin puntos", async () => {
-    const { cocina, hands } = kitchen(0);
-    cocina.fill("u-alice", recipeById("sopa-verduras")!.needs);
+    const { cocina, fill, bag } = kitchen(0);
+    fill(recipeById("sopa-verduras")!.needs);
     const r = await cocina.cook(plantaBaja, atStove, { recipe: "sopa-verduras" }, T0);
     expect(r?.notice?.code).toBe("capped");
-    expect(hands.get("u-alice")).toBe("sopa-verduras");
+    expect(bag.get("obj:sopa-verduras")).toBe(1);
   });
 
   it("el primer bocado de un plato con energía la prende; dura un rato y deja caminar más rápido", () => {
@@ -170,6 +183,10 @@ afterEach(() => {
 
 const me = (client: ClientRoom, room: ServerRoom) => room.state.players.get(client.sessionId)!;
 const inside = (room: ServerRoom) => (room as unknown as { cocina: Cocina }).cocina;
+/** Pone ingredientes en la mochila de Alice (sin tocar la mano). */
+async function fillBag(room: ServerRoom, items: Readonly<Record<string, number>>) {
+  for (const [id, n] of Object.entries(items)) await bagOf(room).add("u-alice", `obj:${id}`, n);
+}
 
 async function join() {
   const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
@@ -202,7 +219,7 @@ function besideHive(from: { x: number; y: number }) {
 }
 
 describe("cocina (en la sala)", () => {
-  it("la miel se guarda en el cobertizo, se cocina en la estufa y el pan da energía al primer bocado", async () => {
+  it("la miel va a la mochila, se cocina en la estufa con ella y el pan da energía al primer bocado", async () => {
     const { room, client, notices, states } = await join();
     const start = { x: Math.floor(me(client, room).x / 32), y: Math.floor(me(client, room).y / 32) };
     const { hive, spot } = besideHive(start);
@@ -210,20 +227,20 @@ describe("cocina (en la sala)", () => {
     await send(client, room, MSG.furnitureUse, { type: "beehive", x: hive.x, y: hive.y });
     expect(me(client, room).held).toBe(HONEY);
 
-    // Lejos del cobertizo no se guarda; junto a él, sí.
+    // Guardar ya no hace falta: junto al cobertizo solo avisa que está en la mochila.
     await send(client, room, COCINA_MSG.store);
     expect(notices.at(-1)?.code).toBe("far");
     await walkToTile(client, room, shed.tileX, shed.tileY);
     await send(client, room, COCINA_MSG.store);
-    expect(notices.at(-1)).toEqual({ code: "stored", item: HONEY });
+    expect(notices.at(-1)).toEqual({ code: "inBag" });
     expect(states.at(-1)?.pantry).toEqual({ miel: 1 });
-    expect(me(client, room).held).toBe("");
+    expect(me(client, room).held).toBe(HONEY);
 
     // Desde el jardín no se cocina (la estufa está en la cocina de la casa).
-    inside(room).fill("u-alice", { miel: 1, mazorca: 1 });
+    await fillBag(room, { mazorca: 1 });
     await send(client, room, COCINA_MSG.cook, { recipe: "pan-miel" });
     expect(notices.at(-1)?.code).toBe("far");
-    expect(me(client, room).held).toBe("");
+    expect(me(client, room).held).toBe(HONEY);
 
     await goToArea(client, room, "planta-baja");
     await walkToTile(client, room, stove.tileX, stove.tileY);
@@ -251,7 +268,7 @@ describe("cocina (en la sala)", () => {
     await walkToTile(client, room, stove.tileX, stove.tileY);
     const pan = recipeById("pan-miel")!;
     if (pan.effect.kind !== "speed") throw new Error("el pan de miel da energía");
-    inside(room).fill("u-alice", pan.needs);
+    await fillBag(room, pan.needs);
     await send(client, room, COCINA_MSG.cook, { recipe: "pan-miel" });
     await send(client, room, MSG.useHeld);
     expect(me(client, room).buff).toBe("pan-miel");

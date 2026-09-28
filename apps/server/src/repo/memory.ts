@@ -345,6 +345,36 @@ export class MemoryRepository implements GameRepository {
     o.customized = true;
   }
 
+  // ---------- Mochila ----------
+
+  /** Casillas de la mochila: `userId` → itemId → casilla. */
+  bagSlots = new Map<string, Map<string, number>>();
+
+  async addInventory(userId: string, itemId: string, quantity: number) {
+    this.give(userId, itemId, quantity);
+    return this.held(userId, itemId);
+  }
+
+  async takeInventory(userId: string, itemId: string, quantity: number) {
+    const have = this.held(userId, itemId);
+    if (have < quantity) return false;
+    this.inventory.set(`${userId}:${itemId}`, have - quantity);
+    return true;
+  }
+
+  async loadBagSlots(userId: string) {
+    return Object.fromEntries(this.bagSlots.get(userId) ?? []);
+  }
+
+  async saveBagSlots(userId: string, changes: Record<string, number | null>) {
+    const slots = this.bagSlots.get(userId) ?? new Map<string, number>();
+    for (const [itemId, slot] of Object.entries(changes)) {
+      if (slot === null) slots.delete(itemId);
+      else slots.set(itemId, slot);
+    }
+    this.bagSlots.set(userId, slots);
+  }
+
   // ---------- Regalos e intercambios ----------
 
   async getInventory(userId: string): Promise<ItemStack[]> {

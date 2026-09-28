@@ -25,7 +25,7 @@ import {
   type PixelCanvas,
   type Sprite,
 } from "@hyvento/map/art";
-import { bookTitle, CASA, counterMax, CURTAIN_TYPE, furnitureKey, isFreeHold, usableSpec, type Direction, type FurnitureEvent } from "@hyvento/shared";
+import { bookTitle, CASA, counterMax, CURTAIN_TYPE, furnitureKey, usableSpec, type Direction, type FurnitureEvent } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily } from "@/lib/cozy";
@@ -496,12 +496,6 @@ export class CasaViva {
     if (!map || !spec) return undefined;
     const key = furnitureKey(map.id, f.type, f.x, f.y);
     if (spec.action === "count") return `${spec.label} (${this.counterOf(key)}/${counterMax(f.type)})`;
-    if (spec.action === "take" || spec.action === "roast") {
-      // Lo gratis no pisa lo pagado (el servidor lo rechaza igual): se avisa antes.
-      const room = this.host.room();
-      const held = room?.state.players.get(room.sessionId)?.held;
-      if (held && !isFreeHold(held)) return "Tienes las manos ocupadas";
-    }
     if (spec.action === "stall") {
       const who = this.host.room()?.state.stalls?.get(key);
       const me = this.host.room()?.state.players.get(this.host.room()!.sessionId)?.userId;

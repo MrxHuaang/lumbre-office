@@ -1,5 +1,9 @@
 import {
+  INVITE_TIMEOUT_MS,
   KNOCK_TIMEOUT_MS,
+  type Invitation,
+  type InviteOutcome,
+  type InviteResult,
   type GameClockState,
   type ChatEvent,
   type ChatScope,
@@ -74,12 +78,18 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "phone"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
   | "shed"
+  // La piscina: meterse por la escalera, tirarse del trampolín y (nadando, junto al borde) salir.
+  | "pool"
+  | "dive"
+  | "swimOut"
   // La vitrina de trofeos de cada oficina (los logros de su dueño).
   | "trophies"
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
   | "kitchen"
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
-  | "sombrero";
+  | "sombrero"
+  // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).
+  | "bus";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
@@ -156,6 +166,8 @@ export interface Notice {
   action?: { label: string; run: () => void };
 }
 
+export type WalkTarget = ({ kind: "zone"; zoneId: string } | { kind: "player"; sessionId: string }) & { nonce: number };
+
 type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
 interface OfficeStore {
@@ -188,6 +200,8 @@ interface OfficeStore {
   atComputer: boolean;
   /** Sentado en una silla que gira (la del escritorio con PC): R da unas vueltas. */
   atSwivel: boolean;
+  /** El asiento de la ayuda "E" es una reposera de la piscina (se lee "tomar el sol"). */
+  seatSun: boolean;
   /** Sentado con un teléfono al alcance (de pie, el teléfono sale como objeto con "E"). */
   atPhone: boolean;
   /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
@@ -199,8 +213,18 @@ interface OfficeStore {
   /** Toques recibidos en mi oficina, pendientes de respuesta. */
   knockRequests: (KnockRequest & { expiresAt: number })[];
   notices: Notice[];
-  /** Pedido a la escena de caminar hasta una zona (cambia `nonce` para repetir). */
-  walkTarget: { zoneId: string; nonce: number } | null;
+  /**
+   * Pedido a la escena de caminar hasta una zona o hasta alguien (por sessionId), aunque esté en otro
+   * nivel (cambia `nonce` para repetir).
+   */
+  walkTarget: WalkTarget | null;
+  /** Invitaciones recibidas ("te invita a su oficina"), pendientes de respuesta. */
+  invitations: (Invitation & { expiresAt: number })[];
+  /**
+   * Última invitación que llegó (cambia `id` en cada una). Es el "evento" para engancharse desde afuera
+   * (p. ej. una notificación del navegador): `useOfficeStore.subscribe((s, prev) => s.lastInvitation !== prev.lastInvitation …)`.
+   */
+  lastInvitation: (Invitation & { id: number }) | null;
   /** Nivel en el que está el jugador local. */
   area: string;
   /** Modo noche (luces encendidas): lo manda solo el reloj del juego, que lleva el servidor. */
@@ -272,6 +296,7 @@ interface OfficeStore {
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
   setAtSwivel: (at: boolean) => void;
+  setSeatSun: (sun: boolean) => void;
   setAtPhone: (at: boolean) => void;
   setToastPrompt: (prompt: ToastPrompt | null) => void;
   setPcOn: (on: boolean) => void;
@@ -282,6 +307,11 @@ interface OfficeStore {
   notify: (text: string, tone?: Notice["tone"], action?: Notice["action"]) => void;
   dismissNotice: (id: number) => void;
   walkToZone: (zoneId: string) => void;
+  /** Caminar hasta alguien (a un tile libre a su lado; si está en otro nivel, por los portales). */
+  walkToPlayer: (sessionId: string) => void;
+  addInvitation: (inv: Invitation) => void;
+  removeInvitation: (inviteId: string) => void;
+  handleInviteResult: (r: InviteResult) => void;
   setArea: (area: string) => void;
   /** El reloj del juego cruzó las 19:00 o las 7:00 (o llegó por primera vez). */
   setAutoNight: (auto: boolean) => void;
@@ -308,6 +338,16 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
   "owner-away": (o) => ({ text: `${o} no está conectado ahora.`, tone: "info" }),
   "not-locked": () => ({ text: "La puerta está abierta, puedes entrar.", tone: "info" }),
   "too-soon": () => ({ text: "Espera un momento antes de volver a tocar.", tone: "info" }),
+};
+
+const INVITE_TEXT: Record<InviteOutcome, (name: string) => { text: string; tone: Notice["tone"] }> = {
+  sent: (n) => ({ text: `Le avisamos a ${n}.`, tone: "success" }),
+  accepted: (n) => ({ text: `${n} va para allá.`, tone: "success" }),
+  declined: (n) => ({ text: `${n} no puede ahora.`, tone: "info" }),
+  timeout: (n) => ({ text: `${n} no respondió la invitación.`, tone: "info" }),
+  offline: () => ({ text: "Esa persona ya no está conectada.", tone: "warning" }),
+  "too-soon": (n) => ({ text: `Ya invitaste a ${n} hace poco. Espera un momento.`, tone: "info" }),
+  dnd: (n) => ({ text: `${n} está en No molestar.`, tone: "info" }),
 };
 
 // Clave nueva: al pasar las paredes altas a predeterminadas, todos arrancan con ellas una vez (lo que se
@@ -360,13 +400,16 @@ const initial = {
   seatPrompt: null as "sit" | "stand" | null,
   atComputer: false,
   atSwivel: false,
+  seatSun: false,
   atPhone: false,
   toastPrompt: null as ToastPrompt | null,
   pcOn: false,
   pendingKnock: null,
   knockRequests: [],
   notices: [],
-  walkTarget: null,
+  walkTarget: null as WalkTarget | null,
+  invitations: [] as (Invitation & { expiresAt: number })[],
+  lastInvitation: null as (Invitation & { id: number }) | null,
   area: "",
   night: false,
   autoNight: false,
@@ -431,6 +474,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setAtComputer: (atComputer) => set({ atComputer }),
   setAtSwivel: (atSwivel) => set({ atSwivel }),
+  setSeatSun: (seatSun) => set({ seatSun }),
   setAtPhone: (atPhone) => set({ atPhone }),
   setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),
@@ -453,7 +497,22 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     setTimeout(() => get().dismissNotice(id), action ? NOTICE_MS * 2 : NOTICE_MS);
   },
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
-  walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
+  walkToZone: (zoneId) => set({ walkTarget: { kind: "zone", zoneId, nonce: Date.now() } }),
+  walkToPlayer: (sessionId) => set({ walkTarget: { kind: "player", sessionId, nonce: Date.now() } }),
+  addInvitation: (inv) => {
+    const expiresAt = Date.now() + INVITE_TIMEOUT_MS;
+    set((s) => ({
+      // Una nueva de la misma persona reemplaza la anterior.
+      invitations: [...s.invitations.filter((i) => i.fromUserId !== inv.fromUserId), { ...inv, expiresAt }].slice(-3),
+      lastInvitation: { ...inv, id: ++noticeId },
+    }));
+    setTimeout(() => get().removeInvitation(inv.inviteId), INVITE_TIMEOUT_MS);
+  },
+  removeInvitation: (inviteId) => set((s) => ({ invitations: s.invitations.filter((i) => i.inviteId !== inviteId) })),
+  handleInviteResult: (r) => {
+    const { text, tone } = INVITE_TEXT[r.outcome](r.toName || "La persona");
+    get().notify(text, tone);
+  },
   setArea: (area) => set({ area }),
   setAutoNight: (auto) => set({ autoNight: auto, night: auto }),
   setIndoors: (indoors) => set({ indoors }),

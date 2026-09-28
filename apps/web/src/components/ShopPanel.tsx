@@ -1,7 +1,7 @@
 "use client";
 
-// Fase 3b: la tienda (mostrador de la planta baja) y la mochila (HUD). Se venden muebles con puntos y
-// quedan en la mochila hasta ponerlos con "Decorar" en tu oficina. La ropa es gratis: va en el probador.
+// Fase 3b: la tienda (mostrador de la planta baja). Se venden muebles con puntos y quedan en la mochila
+// (bag/PlayerMenu.tsx) hasta ponerlos con "Decorar" en tu oficina. La ropa es gratis: va en el probador.
 import { drawFurniture } from "@hyvento/map/art";
 import { SHOP_FURNITURE, SHOP_MAX_QUANTITY, type InventoryEntry, type ShopItem } from "@hyvento/shared";
 import { useEffect, useState } from "react";
@@ -28,8 +28,6 @@ function useInventory() {
   }, []);
   return { inventory, setInventory, error };
 }
-
-const furnitureItem = (itemId: string) => SHOP_FURNITURE.find((i) => i.id === itemId);
 
 // ---------- Tienda ----------
 
@@ -145,42 +143,6 @@ function Quantity({ value, onChange, label }: { value: number; onChange: (n: num
         +
       </button>
     </div>
-  );
-}
-
-// ---------- Mochila ----------
-
-export function BackpackPanel({ onClose }: { onClose: () => void }) {
-  const { inventory, error } = useInventory();
-  // Solo muebles: si quedara algo que ya no se vende (p. ej. ropa de antes), no se muestra.
-  const furniture = inventory?.filter((e) => furnitureItem(e.itemId)) ?? [];
-
-  return (
-    <PanelShell title="Mochila" icon="bag" onClose={onClose} wide>
-      {!inventory ? (
-        <p className="text-[14px] text-cozy-ink-soft">{error ?? "Abriendo la mochila…"}</p>
-      ) : furniture.length === 0 ? (
-        <p className="text-[14px] text-cozy-ink-soft">
-          Tu mochila está vacía. En la tienda de la planta baja, junto a la cafetería, hay muebles para tu oficina.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <p className="text-[14px] leading-snug text-cozy-ink-soft">
-            Tus muebles guardados. Se ponen desde <strong className="font-semibold text-cozy-ink">Decorar</strong>, en tu oficina; si
-            quitas uno, vuelve aquí.
-          </p>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {furniture.map((e) => (
-              <li key={e.itemId} className="flex items-center gap-3 border-2 border-cozy-paper-dark bg-cozy-paper-light px-3 py-2">
-                <FurnitureArt type={e.itemId} />
-                <p className="min-w-0 flex-1 text-[15px] leading-tight font-semibold">{furnitureItem(e.itemId)?.name}</p>
-                <span className="cozy-chip shrink-0 px-2 py-0.5 text-[14px] tabular-nums">× {e.quantity}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </PanelShell>
   );
 }
 

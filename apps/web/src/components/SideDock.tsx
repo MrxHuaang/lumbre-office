@@ -58,7 +58,7 @@ export function SideDock() {
   const sounding = inClub ? clubPlaying : inCinema ? showing : radioOn;
 
   return (
-    <div className={`pointer-events-none absolute right-0 bottom-28 z-10 flex items-end xl:bottom-16 ${chatOpen && open ? "max-md:hidden" : ""}`}>
+    <div className={`pointer-events-none absolute right-0 bottom-[var(--cozy-bar-top,7rem)] z-10 flex items-end ${chatOpen && open ? "max-md:hidden" : ""}`}>
       <button
         type="button"
         onClick={toggle}
