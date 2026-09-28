@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { MSG, ROOM_NAME, gameTime, type ChatEvent } from "@hyvento/shared";
+import { GAME_DAY_REAL_MS, GAME_EPOCH, MSG, ROOM_NAME, gameTime, type ChatEvent } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
@@ -65,6 +65,30 @@ describe("reloj del juego en la sala", () => {
     await room.waitForNextPatch();
     expect(clock()).toMatchObject({ day: 3, hour: 2 });
     expect(notes.at(-1)).toBe("Día 4, 02:00.");
+  });
+
+  it("el cambio de /time se guarda y la sala nueva sigue desde ahí (reiniciar no lo deshace)", async () => {
+    const { client, room } = await join("ADMIN");
+    client.send(MSG.chatSend, { text: "/time set noche", scope: "proximity" });
+    await tick(80);
+    await room.waitForNextPatch();
+    expect(repo.gameClock).toEqual({ anchorReal: room.state.clockAnchorReal, anchorMinute: room.state.clockAnchorMinute });
+    await colyseus.cleanup();
+    // Sin reloj fijado por el test, la sala nueva lee el guardado.
+    OfficeRoom.gameClockInitial = null;
+    now += 150_000;
+    const again = await join("MEMBER");
+    expect(again.clock()).toMatchObject({ day: 2, hour: 21 });
+  });
+
+  it("sin cambios guardados, el reloj cuenta desde el día 0 y no vuelve a empezar", async () => {
+    OfficeRoom.gameClockInitial = null;
+    now = GAME_EPOCH + 3 * GAME_DAY_REAL_MS + 30 * 60_000;
+    const first = await join("MEMBER");
+    expect(first.clock()).toMatchObject({ day: 3, hour: 12 });
+    await colyseus.cleanup();
+    const second = await join("MEMBER");
+    expect(second.clock()).toMatchObject({ day: 3, hour: 12 });
   });
 
   it("alguien que no es admin solo puede preguntar la hora", async () => {

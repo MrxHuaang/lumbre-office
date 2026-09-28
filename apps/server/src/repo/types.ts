@@ -97,6 +97,9 @@ export interface GameRepository {
   /** Cambios del editor de la casa, por nivel (JSON crudo: se valida al leer). */
   loadWorldEdits(): Promise<Record<string, unknown>>;
   saveWorldEdits(area: string, edits: unknown, userId: string): Promise<void>;
+  /** Reloj del juego guardado tras un /time (JSON crudo: se valida al leer), o null si nunca se movió. */
+  loadGameClock(): Promise<unknown>;
+  saveGameClock(clock: { anchorReal: number; anchorMinute: number }, userId: string): Promise<void>;
   /** Trazos de la pizarra de una sala (JSON crudo: se valida al leer), o null si nunca se dibujó. */
   loadBoard(zoneId: string): Promise<unknown>;
   saveBoard(zoneId: string, strokes: unknown): Promise<void>;

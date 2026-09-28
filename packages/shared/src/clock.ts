@@ -65,10 +65,24 @@ export function skyPhase(minuteOfDay: number): SkyPhase {
   return minuteOfDay >= 17 * 60 ? "atardecer" : "dia";
 }
 
-/** Reloj que arranca con la hora de Bogotá del momento (así el primer día no empieza de madrugada). */
-export function initialClock(now: number): GameClockState {
-  const bogota = new Date(now - 5 * 3_600_000);
-  return { anchorReal: now, anchorMinute: bogota.getUTCHours() * 60 + bogota.getUTCMinutes() };
+/**
+ * Día 0 del juego: medianoche de Bogotá del 28 de septiembre de 2026. El reloj de siempre cuenta desde
+ * acá, así que reiniciar el servidor no lo vuelve a empezar: la hora y el día salen solo del reloj real.
+ */
+export const GAME_EPOCH = Date.UTC(2026, 8, 28, 5);
+
+/** El reloj de siempre (sin cambios de /time): el día 0 a las 00:00 fue `GAME_EPOCH`. */
+export function initialClock(): GameClockState {
+  return { anchorReal: GAME_EPOCH, anchorMinute: 0 };
+}
+
+/** Lee un reloj guardado (JSON crudo de la base), o null si no sirve. */
+export function parseGameClock(raw: unknown): GameClockState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const { anchorReal, anchorMinute } = raw as Record<string, unknown>;
+  if (typeof anchorReal !== "number" || typeof anchorMinute !== "number") return null;
+  if (!Number.isFinite(anchorReal) || !Number.isFinite(anchorMinute) || anchorMinute < 0) return null;
+  return { anchorReal, anchorMinute };
 }
 
 /**
