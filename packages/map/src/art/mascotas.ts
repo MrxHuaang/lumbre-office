@@ -364,3 +364,52 @@ export function sleepZ(): PixelCanvas {
   c.outline(OUT);
   return c;
 }
+
+/** Íconos del menú de la mascota (se dibujan con el contorno de la casa). */
+export type PetMenuIcon = "paw" | "home" | "heart" | "heart-empty";
+export function petMenuIcon(icon: PetMenuIcon): PixelCanvas {
+  const rows: Record<PetMenuIcon, string[]> = {
+    // Patita: cuatro dedos y la almohadilla.
+    paw: [
+      "...........",
+      "...pp.pp...",
+      "...pp.pp...",
+      ".p.......p.",
+      ".pp.lll.pp.",
+      "....ppp....",
+      "..ppppppp..",
+      "..ppppppp..",
+      "...pp.pp...",
+      "...........",
+    ],
+    // Casita: techo rojo, pared de papel y la puerta.
+    home: [
+      ".........",
+      "....r....",
+      "...rrr...",
+      "..rrrrr..",
+      ".rrrrrrr.",
+      "..wwwww..",
+      "..wwdww..",
+      "..wwdww..",
+      "..wwdww..",
+      ".........",
+    ],
+    // Corazones chicos del cariño (lleno y vacío).
+    heart: [".......", ".rr.rr.", ".rwrrr.", ".rrrrr.", "..rrr..", "...r...", "......."],
+    "heart-empty": [".......", ".ee.ee.", ".eeeee.", ".eeeee.", "..eee..", "...e...", "......."],
+  };
+  const col: Record<string, RGBA> = {
+    p: hex("#8a4b1c"),
+    l: hex("#b8733a"),
+    r: hex("#d9433f"),
+    w: hex("#fdf0c8"),
+    d: hex("#8a4b1c"),
+    e: hex("#e8c890"),
+  };
+  const r = rows[icon];
+  const c = new PixelCanvas(r[0]!.length, r.length);
+  r.forEach((line, y) => [...line].forEach((ch, x) => ch !== "." && c.set(x, y, col[ch]!)));
+  c.outline(icon === "heart-empty" ? hex("#c9a066") : OUT);
+  return c;
+}

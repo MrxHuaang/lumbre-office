@@ -218,4 +218,4 @@ export {
   FLAME_FRAMES,
   type FlameSize,
 } from "./casa-fx";
-export { drawPet, petBowl, petTreat, sleepZ, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
+export { drawPet, petBowl, petMenuIcon, petTreat, sleepZ, type PetMenuIcon, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
