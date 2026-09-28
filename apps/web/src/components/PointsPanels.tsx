@@ -59,6 +59,7 @@ const PROMPT: Record<Interactable, string> = {
   blackjack: "Jugar blackjack",
   bar: "Pedir en la barra del club",
   fishing: "Pescar",
+  pesca: "Comprarle a Don Evelio",
   dj: "Poner música en la cabina",
   cinema: "Programar la función",
   snacks: "Pedir en la confitería",
@@ -156,8 +157,17 @@ export function InteractPrompt() {
       className="cozy-chip pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[14px]"
     >
       <kbd className="cozy-kbd">E</kbd>
-      {near === "arcade" ? <ArcadePromptLabel /> : near === "bus" ? <BusPromptLabel /> : near === "stage" || near === "podcast" ? <EscenarioPromptLabel kind={near} /> : PROMPT[near]}
-      {near === "arcade" ? <ArcadePromptLabel /> : near === "marshmallow" ? <MarshmallowPromptLabel /> : PROMPT[near]}
+      {near === "arcade" ? (
+        <ArcadePromptLabel />
+      ) : near === "bus" ? (
+        <BusPromptLabel />
+      ) : near === "stage" || near === "podcast" ? (
+        <EscenarioPromptLabel kind={near} />
+      ) : near === "marshmallow" ? (
+        <MarshmallowPromptLabel />
+      ) : (
+        PROMPT[near]
+      )}
     </button>
   );
 }

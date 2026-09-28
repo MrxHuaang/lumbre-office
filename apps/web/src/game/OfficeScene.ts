@@ -187,6 +187,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },
   { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
   { kind: "fishing", point: "fishing_spot", furniture: ["flat-rock"] },
+  { kind: "pesca", point: "fishing_shop", furniture: ["pesca-mostrador", "pesca-caseta", "pesca-canas", "pesca-nevera"] },
   { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
   { kind: "cinema", point: "cinema", furniture: ["projector"] },
   { kind: "snacks", point: MENUS.cine.point, furniture: [...MENUS.cine.furniture] },
@@ -1184,6 +1185,7 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));
+    p$.listen("fishingRod", (rod) => this.rods.setRod(sessionId, rod ?? ""));
     // Teléfono: el globo que vibra (le suenan) o el auricular en la mano (llamando o hablando).
     p$.listen("call", (phase) => avatar.setCall(phase ?? ""));
     // Carrera de sillas: montado en la silla; si soy yo, arranca el cronómetro.

@@ -1,9 +1,10 @@
 // Los personajes del juego que no son personas: el personal del casino (crupier, dealer, cajera y
-// portero, fijos en su puesto), la astrónoma del observatorio y el Man del Sombrero (cuando el servidor
-// dice que anda por ahí). Se dibujan como chibis con el mismo Avatar de los jugadores y hablan con
-// burbujas. Las frases y los looks están en @hyvento/shared (npcs.ts y sombrero.ts); lo que los hace
-// hablar llega de las mesas del casino (useCasinoStore), de lo que contesta la astrónoma (useObservatorio,
-// la frase la elige el servidor) y de quién está dónde.
+// portero, fijos en su puesto), la astrónoma del observatorio, Don Evelio en el puesto de pesca del lago
+// y el Man del Sombrero (cuando el servidor dice que anda por ahí). Se dibujan como chibis con el mismo
+// Avatar de los jugadores y hablan con burbujas. Las frases y los looks están en @hyvento/shared (npcs.ts,
+// pesca-tienda.ts y sombrero.ts); lo que los hace hablar llega de las mesas del casino (useCasinoStore),
+// de lo que contesta la astrónoma (useObservatorio, la frase la elige el servidor), de las ventas del
+// puesto de pesca y de quién está dónde.
 import { pointsOfType, type OfficeMap } from "@hyvento/map";
 import {
   ALL_NPCS,
@@ -13,6 +14,9 @@ import {
   lineSeed,
   NPC,
   NPC_LINES,
+  PESCA_NPC,
+  pescaGreetLine,
+  pescaIdleLine,
   pickLine,
   rouletteCall,
   SOMBRERO_LOOK,
@@ -28,7 +32,9 @@ import { spawnWisp } from "../consumables";
 import { currentGameTime } from "../gameClock";
 import { worldToScreen } from "../iso/view";
 import { ensureCharacterTextures } from "../looks";
+import { usePescaStore } from "../pesca";
 import { sfx, volAt } from "../sfx";
+import { useOfficeStore } from "../store";
 import { useObservatorio } from "../observatorio";
 import { useSombreroStore, type SombreroView } from "./store";
 
@@ -55,8 +61,12 @@ interface Staff {
   nextIdleAt: number;
 }
 
-/** A qué distancia (tiles) de la caja la cajera saluda, y el Man susurra. */
+/** A qué distancia (tiles) de la caja la cajera saluda (y Don Evelio, del mostrador), y el Man susurra. */
 const CASHIER_TILES = 1.6;
+/** Todos los que atienden en un puesto fijo: el personal del casino y el pescador del lago. */
+const STAFF: readonly GameNpc[] = [...ALL_NPCS, PESCA_NPC];
+/** Color de la placa del nombre de cada uno (el pescador, verde de monte). */
+const TAG_COLOR: Record<string, string> = { [PESCA_NPC.id]: "#4a6b34" };
 const WHISPER_TILES = 3.5;
 const WHISPER_RESET_TILES = 6;
 /** Cada cuánto se revisa quién entró al casino o se arrimó a la caja. */
@@ -75,6 +85,7 @@ export class NpcCast {
   private map?: OfficeMap;
   private zoneOf = new Map<string, string>();
   private atCashier = new Set<string>();
+  private atShop = new Set<string>();
   /** Quiénes ya saludó la astrónoma (hasta que se alejen). */
   private greeted = new Set<string>();
   private whispered = false;
@@ -105,6 +116,12 @@ export class NpcCast {
         if (s.man !== prev.man) this.syncMan(s.man, prev.man);
         if (s.speech && s.speech !== prev.speech) this.man?.say(s.speech.text);
       }),
+      // Alguien le compró a Don Evelio: lo agradece (la frase llega igual a todos).
+      usePescaStore.subscribe((s, prev) => {
+        if (!s.speech || s.speech === prev.speech) return;
+        this.say(PESCA_NPC.id, s.speech.text, true);
+        this.staff.get(PESCA_NPC.id)?.avatar.playGesture("nod");
+      }),
     );
   }
 
@@ -116,14 +133,15 @@ export class NpcCast {
     this.zoneOf.clear();
     this.atCashier.clear();
     this.greeted.clear();
+    this.atShop.clear();
     const ts = map.tileSize;
     const now = this.scene.time.now;
-    for (const npc of ALL_NPCS.filter((n) => n.area === map.id)) {
+    for (const npc of STAFF.filter((n) => n.area === map.id)) {
       const key = ensureCharacterTextures(this.scene, "ada", npc.look);
       const x = (npc.tile.x + 0.5 + (npc.offset?.x ?? 0)) * ts;
       const y = (npc.tile.y + 0.5 + (npc.offset?.y ?? 0)) * ts;
       const avatar = new Avatar(this.scene, key, npc.name, x, y, false);
-      avatar.asNpc(npc.role === "astronoma" ? "#34447c" : "#7a1f2b");
+      avatar.asNpc(TAG_COLOR[npc.id] ?? (npc.role === "astronoma" ? "#34447c" : "#7a1f2b"));
       avatar.face(npc.facing);
       this.staff.set(npc.id, { npc, avatar, quietUntil: 0, nextIdleAt: now + 8000 + Math.random() * NPC.idleEveryMs });
     }
@@ -242,6 +260,7 @@ export class NpcCast {
     const map = this.map;
     if (!map) return;
     const cashier = pointsOfType(map, "casino_cashier");
+    const shop = this.staff.has(PESCA_NPC.id) ? pointsOfType(map, "fishing_shop") : [];
     const reach = CASHIER_TILES * map.tileSize;
     const seen = new Set<string>();
     for (const p of this.deps.people()) {
@@ -262,8 +281,16 @@ export class NpcCast {
         this.atCashier.add(p.sessionId);
         this.say("cajera", pickLine(NPC_LINES.cashier, seed));
       } else if (!near) this.atCashier.delete(p.sessionId);
+      // Don Evelio saluda al que se arrima al mostrador, con un comentario de la hora o del clima.
+      const atShop = shop.some((c) => Math.hypot(c.x - p.x, c.y - p.y) <= reach);
+      if (atShop && !this.atShop.has(p.sessionId)) {
+        this.atShop.add(p.sessionId);
+        this.say(PESCA_NPC.id, pescaGreetLine(name, currentGameTime()?.hour ?? 12, useOfficeStore.getState().weather, seed));
+        this.staff.get(PESCA_NPC.id)?.avatar.playGesture("wave");
+      } else if (!atShop) this.atShop.delete(p.sessionId);
       this.greetAstronomer(p, name);
     }
+    for (const id of [...this.atShop]) if (!seen.has(id)) this.atShop.delete(id);
     for (const id of [...this.zoneOf.keys()]) if (!seen.has(id)) this.zoneOf.delete(id);
     for (const id of [...this.greeted]) if (!seen.has(id)) this.greeted.delete(id);
   }
@@ -304,6 +331,12 @@ export class NpcCast {
       if (time < s.nextIdleAt) continue;
       s.nextIdleAt = time + NPC.idleEveryMs * (0.7 + Math.random() * 0.8);
       if (Math.hypot(s.avatar.x - me.x, s.avatar.y - me.y) > near) continue;
+      if (s.npc.id === PESCA_NPC.id) {
+        // El pescador comenta la hora del juego y el clima (la misma frase para todos en ese rato).
+        const slot = Math.floor(Date.now() / NPC.idleEveryMs);
+        this.say(s.npc.id, pescaIdleLine(currentGameTime()?.hour ?? 12, useOfficeStore.getState().weather, lineSeed(`evelio:${slot}`)));
+        continue;
+      }
       this.say(s.npc.id, s.npc.idle[Math.floor(Math.random() * s.npc.idle.length)]!);
     }
   }
