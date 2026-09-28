@@ -3,6 +3,7 @@ import { catalogItem, footprint } from "../catalog";
 import type { AreaDef, FloorKind, Placement, PointDef } from "../types";
 import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
+import { POOL_BASIN, POOL_SIZE, POOL_STEPS } from "../catalog-agua";
 
 // ---------- Jardín ----------
 // Una zona jugable de 80x64 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
@@ -62,6 +63,15 @@ const LAKE = { cx: 52.8, cy: 42.3, rx: 8.6, ry: 10.8 };
 const ISLET = { cx: 56.2, cy: 45.8, r: 1.9 };
 const DOCK = { x0: 43, x1: 50, y0: 40, y1: 42 };
 
+/**
+ * La piscina, "atrás" de la cabaña pero a la vista: al este del patio (x 64..78), donde no la tapa nada de
+ * la casa. Un deck de tablas de 15x13 con la pileta de piedra en el medio (ver catalog-agua.ts).
+ */
+const POOL = { x: 64, y: 1 };
+const POOL_BOX = { x0: POOL.x, y0: POOL.y, x1: POOL.x + POOL_SIZE[0], y1: POOL.y + POOL_SIZE[1] };
+/** El trampolín, en el borde oeste de la pileta mirando hacia el agua. */
+const BOARD = { x: POOL.x + POOL_BASIN.x - 1, y: POOL.y + POOL_BASIN.y + Math.floor(POOL_BASIN.d / 2) };
+
 /** Fogata con troncos alrededor y la glorieta. */
 const FIRE = { x: 14, y: 36 };
 const GAZEBO = { x: 24, y: 44 };
@@ -97,6 +107,8 @@ const PATHS: Seg[] = [
   { a: [29, 28.9], b: [16.8, 34.8], w: 1.5 },
   { a: [38.8, 43.5], b: [30.2, 45.8], w: 1.5 },
   { a: [41.5, 18.6], b: [52.6, 16.4], w: 2 },
+  // Del patio al deck de la piscina.
+  { a: [62, 8.5], b: [64.4, 8.5], w: 1.8 },
 ];
 
 function segDist(px: number, py: number, s: Seg): number {
@@ -138,6 +150,8 @@ function inLake(x: number, y: number): boolean {
 }
 const onIslet = (x: number, y: number) => Math.hypot(x - ISLET.cx, (y - ISLET.cy) * 1.15) < ISLET.r + wobble(x, y, 11, 0.2);
 const onDock = (x: number, y: number) => x >= DOCK.x0 && x < DOCK.x1 && y >= DOCK.y0 && y < DOCK.y1;
+/** El deck de la piscina: tablas como las del muelle (se pisa y suena a madera). */
+const onPoolDeck = (x: number, y: number) => x >= POOL_BOX.x0 && x < POOL_BOX.x1 && y >= POOL_BOX.y0 && y < POOL_BOX.y1;
 /** Patio: rectángulo de esquinas redondeadas con el borde que ondula (como la tierra del huerto). */
 function onPatio(x: number, y: number): boolean {
   const { x0, y0, x1, y1, r } = PATIO;
@@ -169,7 +183,7 @@ function localGround(x: number, y: number): FloorKind {
     if (y >= PH && y < PH + 6 && Math.abs(x - (GATE_X + 1)) < 1.3 - (y - PH) * 0.12 + wobble(x, y, 23, 0.2)) return "path";
     return "forest";
   }
-  if (onDock(x, y)) return "dock";
+  if (onDock(x, y) || onPoolDeck(x, y)) return "dock";
   if (inLake(x, y) && !onIslet(x, y)) return "water";
   if (onPatio(x, y)) return "path";
   if (onGazeboBase(x, y)) return "path";
@@ -433,6 +447,30 @@ for (const [x, y, t] of [
 ] as const)
   if (!isWater(x, y)) put(t, x, y);
 
+// ---------- La piscina ----------
+
+// La piscina: el deck con la pileta (plano, se camina alrededor), el trampolín en el borde oeste,
+// reposeras mirando al agua (las del fondo, con sombrillas entre medio: atrás no tapan a nadie, y con un
+// pasillo entre ellas y el agua), la ducha
+// y los toalleros en el costado este. Delante (al sur) solo reposeras: son bajas y no tapan a quien nada.
+put("pool", POOL.x, POOL.y);
+put("diving-board", BOARD.x, BOARD.y, "right");
+for (const x of [68, 70, 72, 74]) put("sun-lounger", x, POOL.y, "down");
+for (const x of [69, 73]) put("parasol", x, POOL.y);
+for (const x of [69, 71, 73]) put("sun-lounger", x, POOL.y + POOL_SIZE[1] - 3, "up");
+put("towel-rack", POOL.x + POOL_SIZE[0] - 1, POOL.y + 2);
+put("garden-shower", POOL.x + POOL_SIZE[0] - 1, POOL.y + POOL_SIZE[1] - 2);
+put("planter", POOL.x + POOL_SIZE[0] - 1, POOL.y + 7);
+put("planter", POOL.x, POOL.y);
+// Farolitos en las esquinas del lado del patio (de noche, luz cálida junto al agua turquesa).
+put("garden-lantern", POOL.x, POOL.y + POOL_SIZE[1] - 1);
+put("garden-lantern", POOL.x + POOL_SIZE[0] - 1, POOL.y);
+// Un seto bajo entre el deck y la cerca del fondo (así nadie se levanta de una reposera hacia afuera).
+{
+  const HEDGE = ["bush-hydrangea", "bush-round", "bush-rose", "bush-round", "bush-berry"];
+  for (let x = POOL.x; x < POOL.x + POOL_SIZE[0]; x++) put(HEDGE[x % HEDGE.length]!, x, POOL.y - 1, x % 2 ? "down" : "right");
+}
+
 // Rincón de rocas al noreste y naturaleza suelta (tipos y posiciones fijos: nada se repite en fila).
 for (const [x, y, t, f] of [
   [55, 20, "boulder", "right"],
@@ -530,6 +568,11 @@ const POINTS: PointDef[] = [
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0),
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0 + 1),
   pt("fishing_spot", "Piedra de la orilla", FLAT_ROCK.x, FLAT_ROCK.y),
+  // La piscina: junto a cada escalerita (al sur de la del suroeste y al este de la del noreste) y detrás
+  // del trampolín.
+  pt("pool_steps", "Escalera de la piscina", POOL.x + POOL_STEPS[0]![0], POOL.y + POOL_STEPS[0]![1] + 1),
+  pt("pool_steps", "Escalera de la piscina", POOL.x + POOL_STEPS[1]![0] + 1, POOL.y + POOL_STEPS[1]![1]),
+  pt("diving_board", "Trampolín", BOARD.x - 1, BOARD.y),
 ];
 
 // Naturaleza suelta en el pasto libre: manchones de árboles junto a la cerca y en algunos bosquecitos,
@@ -665,6 +708,8 @@ export const jardin: AreaDef = {
     { id: "fogata", name: "Fogata", type: "table", rect: FIRE_ZONE, isolated: true },
     // Adentro de la glorieta, igual: una burbuja de charla bajo el techo.
     { id: "glorieta", name: "Glorieta", type: "table", rect: { x: GAZEBO.x + M, y: GAZEBO.y + M, w: 4, h: 4 }, isolated: true },
+    // La piscina: se oye como el resto del jardín (es para estar en grupo), pero tiene su nombre.
+    { id: "piscina", name: "Piscina", type: "common", rect: { x: POOL_BOX.x0 + M, y: POOL_BOX.y0 + M, w: POOL_SIZE[0], h: POOL_SIZE[1] }, isolated: false },
   ],
   features: [],
   furniture: items,

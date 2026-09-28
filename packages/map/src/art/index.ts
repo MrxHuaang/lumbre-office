@@ -5,6 +5,9 @@ import { PixelCanvas, alpha, at, hex } from "./pixel";
 export * from "./pixel";
 export * from "./palette";
 export * from "./chibi";
+// La piscina: la hoja de nado y lo que se anima sobre el agua.
+export { drawSwimming, SWIM_DROP } from "./chibi-agua";
+export { poolCover, poolFloat, poolShimmer, POOL_SHIMMER_FRAMES, waterDroplet, waterRing, type PoolFloatKind } from "./agua";
 export { drawFurniture, type Variant } from "./furniture";
 export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";
 export { composeArea } from "./compose";

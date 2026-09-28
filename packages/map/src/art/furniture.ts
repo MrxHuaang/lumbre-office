@@ -34,6 +34,7 @@ import { SOTANO_DRAW } from "./sotano";
 import { CASA_DRAW } from "./casa-viva";
 import { PLANTAS_DRAW } from "./plantas";
 import { GARAJE_DRAW } from "./garaje";
+import { AGUA_DRAW } from "./agua";
 
 export type { Variant } from "./kit";
 
@@ -758,6 +759,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...GARAJE_DRAW,
   "photo-board": photoBoard,
   ...RACE_DRAW,
+  ...AGUA_DRAW,
 };
 
 const cache = new Map<string, Sprite>();

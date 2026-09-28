@@ -171,7 +171,10 @@ export interface PointDef {
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
     | "tool_shed"
     // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
-    | "greenhouse_plot";
+    | "greenhouse_plot"
+    // La piscina del jardín: junto a las escaleritas y detrás del trampolín.
+    | "pool_steps"
+    | "diving_board";
   name: string;
   x: number;
   y: number;

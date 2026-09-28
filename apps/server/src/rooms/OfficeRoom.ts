@@ -3,6 +3,8 @@ import {
   applyDecorEdit,
   buildArea,
   canStandAt,
+  canSwimAt,
+  canSwimBetween,
   canWalkBetween,
   decorateAreaDef,
   checkWorldEdit,
@@ -138,6 +140,10 @@ import {
   setGameTime,
   type GameClockState,
   type GameTime,
+  AGUA,
+  AGUA_MSG,
+  isNightMinute,
+  type AguaNotice,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
@@ -170,6 +176,7 @@ import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
+import { Piscina } from "./piscina";
 
 interface UserData {
   lastMoveAt: number;
@@ -264,6 +271,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static gameClockInitial: GameClockState | null = null;
   /** Cada cuánto se guardan juntas las estadísticas de los logros (los tests lo acortan). */
   static statsFlushMs = 20_000;
+  /** La piscina: cuánto se queda mojado, cada cuánto da puntos el sol y cada cuánto se revisa (los tests los acortan). */
+  static aguaTimings: { wetMs: number; tickMs: number; diveCooldownMs: number; checkMs: number } = {
+    wetMs: AGUA.wetMs,
+    tickMs: AGUA.tickMs,
+    diveCooldownMs: AGUA.diveCooldownMs,
+    checkMs: AGUA.checkMs,
+  };
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
@@ -331,6 +345,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       random: () => OfficeRoom.weatherRandom(),
       onChange: (w) => {
         this.state.weather = w;
+        // Con lluvia se tapa la piscina y salen todos del agua.
+        this.piscina?.weatherChanged(w);
       },
     },
     OfficeRoom.weatherInitial ?? initialWeather(OfficeRoom.weatherNow()),
@@ -472,6 +488,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private huerto!: Huerto<GardenPlotState>;
   /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
   private hockey!: HockeyTable;
+  /** La piscina del jardín: nadar, el trampolín, las reposeras al sol y quedar mojado (ver piscina.ts). */
+  private piscina?: Piscina;
 
   /**
    * El repositorio con el que nació la sala: un tic que quedó en vuelo al cerrarla no escribe en el de
@@ -527,9 +545,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       award: (userId, amount) => this.awardLeisure(userId, amount),
     });
     this.startHockey();
+    this.startPiscina();
     OfficeRoom.instances.add(this);
 
     this.onMessage(HUERTO_MSG.shedTake, (client, raw) => this.handleShed(client, raw));
+    this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
@@ -640,6 +660,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   onDispose() {
     OfficeRoom.instances.delete(this);
+    this.piscina?.dispose();
     this.drunk.dispose();
     this.toasts.dispose();
     this.weather.dispose();
@@ -685,6 +706,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
     player.drunk = this.drunk.stage(auth.sub);
+    player.wet = this.piscina?.isWet(auth.sub) ?? false;
     this.state.players.set(client.sessionId, player);
 
     client.userData = {
@@ -888,7 +910,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const ts = map.tileSize;
     for (const [sessionId, p] of this.state.players) {
       if (p.area !== areaId) continue;
-      if (p.seated ? seatAtPoint(map, p.x, p.y) : canStandAt(map, p.x, p.y)) continue;
+      if (p.swimming ? canSwimAt(map, p.x, p.y) : p.seated ? seatAtPoint(map, p.x, p.y) : canStandAt(map, p.x, p.y)) continue;
+      p.swimming = false;
       const tile = this.freeTileFor(map, p);
       const zone = zoneAt(map, p.x, p.y);
       // Sin lugar libre cerca: a la puerta de su oficina (afuera, en el pasillo).
@@ -1213,19 +1236,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Tolerancia: latencia/jitter + mínimo de medio tile. Sentarse y levantarse "saltan" hasta
     // el asiento (p. ej. del tile de enfrente a la silla), así que ahí se permite algo más.
     const snap = seated !== player.seated ? map.tileSize * SEAT_REACH_TILES : 0;
-    // En la carrera de sillas se va más rápido.
-    const speed = PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : 1);
+    // En la carrera de sillas se va más rápido; nadando, más despacio.
+    const swim = player.swimming;
+    const speed = PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : 1) * (swim ? AGUA.swimSpeedMul : 1);
     const maxDist = Math.max(map.tileSize * 0.75, dt * speed * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
 
     // Sentado: la posición debe ser la de un asiento libre (los muebles bloquean el paso, así que
     // no se valida canStandAt) y se mira hacia donde mira el asiento. De pie: el tramo desde la
-    // posición anterior no puede cruzar paredes (son bordes delgados entre tiles).
+    // posición anterior no puede cruzar paredes (son bordes delgados entre tiles). Nadando, solo se
+    // está en el agua de la piscina (se sale con E, por el borde) y no se sienta nadie.
     const seat = seated ? seatAtPoint(map, x, y) : undefined;
     const fromSeat = player.seated && !seated;
-    const validSpot = seated
-      ? Boolean(seat) && !this.seatTaken(client.sessionId, map.id, x, y)
-      : canStandAt(map, x, y) && (fromSeat || canWalkBetween(map, player.x, player.y, x, y));
+    const validSpot = swim
+      ? !seated && canSwimAt(map, x, y) && canSwimBetween(map, player.x, player.y, x, y)
+      : seated
+        ? Boolean(seat) && !this.seatTaken(client.sessionId, map.id, x, y)
+        : canStandAt(map, x, y) && (fromSeat || canWalkBetween(map, player.x, player.y, x, y));
     if (seat) dir = seat.facing;
 
     if (dist > maxDist || !validSpot || !this.canAccess(player, x, y)) {
@@ -1263,7 +1290,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !parsed.success || !client.userData) return;
     const map = this.mapOf(player.area);
     const portal = map.portals.find((p) => p.id === parsed.data.portal);
-    if (!portal || player.seated || this.drunk.fainted(player.userId) || !nearPortal(map, portal, player.x, player.y)) {
+    if (!portal || player.seated || player.swimming || this.drunk.fainted(player.userId) || !nearPortal(map, portal, player.x, player.y)) {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       return;
     }
@@ -1360,6 +1387,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       player.x = pos.x;
       player.y = pos.y;
       player.moving = false;
+      player.swimming = false;
       player.seated = Boolean(seat);
       if (seat) player.dir = seat.facing;
       player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
@@ -1428,6 +1456,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.y = pos.y;
     player.moving = false;
     player.seated = false;
+    player.swimming = false;
     player.zoneId = zoneAt(target, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(target, pos.x, pos.y);
     client.userData!.lastMoveAt = Date.now();
@@ -1873,6 +1902,63 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result && !result.ok) client.send(HUERTO_MSG.notice, result.notice satisfies HuertoNotice);
   }
 
+  // ---------- La piscina ----------
+
+  /** La piscina del jardín: la gente de la sala, el mapa, el clima, la hora del juego y los puntos. */
+  private startPiscina() {
+    this.piscina = new Piscina({
+      clock: { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+      now: () => Date.now(),
+      map: (area) => this.mapOf(area),
+      weather: () => this.state.weather as Weather,
+      night: () => isNightMinute(this.gameTimeNow().minuteOfDay),
+      people: () => this.state.players.entries(),
+      place: (sessionId, x, y, swimming) => this.placeBather(sessionId, x, y, swimming),
+      setWet: (userId, wet) => {
+        for (const p of this.state.players.values()) if (p.userId === userId) p.wet = wet;
+      },
+      toArea: (area, type, message) => this.sendToArea(area, type, message),
+      notice: (sessionId, code) => this.clients.getById(sessionId)?.send(AGUA_MSG.notice, { code } satisfies AguaNotice),
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      active: (sessionId) => {
+        const data = this.clients.getById(sessionId)?.userData as UserData | undefined;
+        return Boolean(data) && Date.now() - data!.lastActiveAt <= OfficeRoom.idleMs;
+      },
+      freeSpot: (map, x, y) => this.freeSpotNear(map, x, y),
+      timings: () => OfficeRoom.aguaTimings,
+    });
+    this.clock.setInterval(() => void this.piscina?.sunTick().catch((err) => console.error("piscina", err)), OfficeRoom.aguaTimings.checkMs);
+  }
+
+  /** Meterse, tirarse del trampolín o salir del agua (con E junto a la piscina). */
+  private handleAgua(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData || this.drunk.fainted(player.userId)) return;
+    client.userData.lastActiveAt = Date.now();
+    this.piscina?.action(client.sessionId, player, raw);
+  }
+
+  /** La piscina movió a alguien (al agua, al deck): su zona y la corrección para su cliente. */
+  private placeBather(sessionId: string, x: number, y: number, swimming: boolean) {
+    const p = this.state.players.get(sessionId);
+    if (!p) return;
+    const map = this.mapOf(p.area);
+    const previousZoneId = p.zoneId;
+    p.x = x;
+    p.y = y;
+    p.swimming = swimming;
+    p.seated = false;
+    p.moving = false;
+    p.zoneId = zoneAt(map, x, y)?.id ?? "";
+    p.place = placeAt(map, x, y);
+    this.revokeGuestOnExit(p, previousZoneId);
+    this.fishery.cancel(p.userId);
+    this.trades.moved(sessionId);
+    const client = this.clients.getById(sessionId);
+    if (client?.userData) client.userData.lastMoveAt = Date.now();
+    client?.send(MSG.moveCorrection, { x, y } satisfies MoveCorrection);
+  }
+
   // ---------- Casa viva: mascotas ----------
 
   /** Las mascotas aparecen durmiendo en sus camas y el servidor las mueve seguido. */
@@ -2178,6 +2264,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.hockey?.leave(player.userId);
     this.casa.forget(player.userId);
     this.swivels.forget(player.userId);
+    this.piscina?.forget(player.userId);
     void this.achievements.forget(player.userId);
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);

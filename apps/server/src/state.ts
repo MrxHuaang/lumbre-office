@@ -33,6 +33,10 @@ export class Player extends Schema {
   @type("string") fishing = "";
   /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
   @type("uint8") drunk = 0;
+  /** Nadando en la piscina del jardín (se dibuja de medio cuerpo; el servidor valida contra el agua). */
+  @type("boolean") swimming = false;
+  /** Recién salió del agua: gotea un rato (ver AGUA.wetMs). */
+  @type("boolean") wet = false;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */

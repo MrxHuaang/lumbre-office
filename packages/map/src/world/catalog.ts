@@ -6,6 +6,7 @@ import { SOTANO_CATALOG } from "./catalog-sotano";
 import { CASA_CATALOG } from "./catalog-casa";
 import { PLANTAS_CATALOG } from "./catalog-plantas";
 import { GARAJE_CATALOG } from "./catalog-garaje";
+import { AGUA_CATALOG } from "./catalog-agua";
 import type { Facing } from "./types";
 
 export interface CatalogItem {
@@ -48,6 +49,11 @@ export interface CatalogItem {
    * sienta ahí debería dibujarse así de más arriba (el cliente todavía no lo aplica).
    */
   lift?: number;
+  /**
+   * Agua donde se nada (la pileta de la piscina): los tiles que bloquea (`blocks`) no se pisan caminando,
+   * solo nadando (ver agua.ts).
+   */
+  swim?: boolean;
 }
 
 export const CATALOG = {
@@ -158,6 +164,7 @@ export const CATALOG = {
   ...CASA_CATALOG,
   ...PLANTAS_CATALOG,
   ...GARAJE_CATALOG,
+  ...AGUA_CATALOG,
 } satisfies Record<string, CatalogItem>;
 
 export type FurnitureType = keyof typeof CATALOG;
