@@ -1,4 +1,4 @@
-import { seatBehind, seatBodyRows, seatLift, seatShift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
+import { catalogItem, seatBehind, seatBodyRows, seatLift, seatShift, SIT_BACK_ROWS, TUB_WATER_Z, type Seat } from "@hyvento/map";
 import {
   BODY_UP,
   bubble,
@@ -17,6 +17,7 @@ import {
   singerMic,
   SIT_DROP,
   sparkleSprite,
+  steamPuff,
   SWIM_DROP,
   waterDroplet,
   waterRing,
@@ -31,6 +32,7 @@ import {
   parseHeldLeft,
   spinMs,
   spinProgress,
+  spaKindOf,
   TOAST,
   usesOf,
   type ConsumeAction,
@@ -742,7 +744,10 @@ export class Avatar {
     const face = this.seated ?? this.dir;
     // Sentado, la boca va con el cuerpo: a la altura del asiento y corrida hacia el cojín (como en layout).
     const pose = this.seated ? this.seatPose : null;
-    const y = Math.round(s.y) + (pose ? pose.dy + pose.lift : 0) + 1 - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
+    // En la tina, como nadando: la boca baja con el cuerpo metido en el agua.
+    const sit = this.seated && !this.soaking;
+    const drop = this.soaking ? SWIM_DROP - 3 : 0;
+    const y = Math.round(s.y) + (pose ? pose.dy + pose.lift : 0) + 1 - (sit ? MOUTH_SEATED : MOUTH_STANDING) + drop;
     return { x: Math.round(s.x) + (pose?.dx ?? 0) + MOUTH[face].dx, y, depth: depthOf(this.wx, this.wy) + 0.6, floorY: Math.round(s.y) };
   }
 
@@ -817,7 +822,7 @@ export class Avatar {
     if (this.swimming) {
       this.applySwim();
     } else if (this.seated) {
-      this.sprite.setTexture(`${textureKey}-sit`, ROW[this.seated]);
+      this.applySeatTexture();
       this.syncSeatHead();
     } else if (this.moving) {
       this.sprite.play(`${textureKey}-walk-${this.dir}`, true);
@@ -833,33 +838,68 @@ export class Avatar {
   setSeated(facing: Direction | null, seat?: Seat | null) {
     if (this.spinning && (facing !== this.seated || !seat)) this.stopSpin();
     this.seatType = facing && seat ? seat.type : "";
-    const shift = facing && seat ? seatShift(seat.type, facing) : null;
+    // En la tina: medio cuerpo con la línea del agua sobre el agua de la tina (la hoja de nado).
+    const soak = Boolean(facing && seat && catalogItem(seat.type).soak);
+    // Los de la tina (y la sauna) se ordenan con el mueble entero; entre ellos, el de más adelante encima.
+    const nudge = seat && catalogItem(seat.type).sortWhole ? (seat.x + seat.y - seat.cx - seat.cy) * 1e-5 : 0;
+    // En la tina el cuerpo va centrado en su lugar (nada de corrimiento hacia un cojín).
+    const shift = facing && seat ? (soak ? { x: 0, y: 0 } : seatShift(seat.type, facing)) : null;
     const pose =
       facing && seat && shift
-        ? { lift: seatLift(seat.type, facing), depth: depthOf(seat.cx, seat.cy), behind: seatBehind(seat.type, facing), dx: shift.x, dy: shift.y }
+        ? {
+            lift: soak ? -(TUB_WATER_Z + 2) : seatLift(seat.type, facing),
+            depth: depthOf(seat.cx, seat.cy) + nudge,
+            behind: !soak && seatBehind(seat.type, facing),
+            dx: shift.x,
+            dy: shift.y,
+          }
         : null;
     const old = this.seatPose;
     const same =
-      facing === this.seated && pose?.lift === old?.lift && pose?.depth === old?.depth && pose?.behind === old?.behind && pose?.dx === old?.dx && pose?.dy === old?.dy;
+      facing === this.seated &&
+      soak === this.soaking &&
+      pose?.lift === old?.lift &&
+      pose?.depth === old?.depth &&
+      pose?.behind === old?.behind &&
+      pose?.dx === old?.dx &&
+      pose?.dy === old?.dy;
     if (same) return;
     this.seatPose = pose;
+    const wasSoaking = this.soaking;
+    this.soaking = soak;
     if (facing !== this.seated) {
       if (this.settled && (facing === null) !== (this.seated === null)) {
-        if (facing) sfx.sit(this.soundVol());
-        else sfx.stand(this.soundVol());
+        // Meterse a la tina (o salir) chapotea; en la sauna, además, sisea el vapor.
+        const vol = this.soundVol();
+        if (facing && soak) poolSfx.slosh(vol);
+        else if (facing) sfx.sit(vol);
+        else if (wasSoaking) poolSfx.slosh(vol);
+        else sfx.stand(vol);
+        if (facing && spaKindOf(this.seatType) === "sauna") poolSfx.hiss(vol);
       }
       this.seated = facing;
       this.shadow.setVisible(!facing && !this.hidden);
-      if (facing) {
-        this.sprite.stop();
-        this.sprite.setTexture(`${this.textureKey}-sit`, ROW[facing]);
-      } else {
+      if (facing) this.applySeatTexture();
+      else {
         this.moving = false;
         this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES);
       }
-    }
+    } else if (facing && soak !== wasSoaking) this.applySeatTexture();
     this.syncSeatHead();
     this.layout();
+  }
+
+  /** La hoja de sentado (o, en la tina, la de medio cuerpo en el agua) mirando hacia donde mira el asiento. */
+  private applySeatTexture() {
+    if (!this.seated) return;
+    this.sprite.stop();
+    if (this.soaking) this.sprite.setTexture(ensureSwimTexture(this.scene, this.textureKey, "tina"), ROW[this.seated] * FRAMES);
+    else this.sprite.setTexture(`${this.textureKey}-sit`, ROW[this.seated]);
+  }
+
+  /** Metido en la tina caliente (sentado, de medio cuerpo en el agua). */
+  get isSoaking() {
+    return this.soaking;
   }
 
   /** Si ahora el respaldo queda delante del cuerpo (girando, según hacia dónde mira en ese momento del giro). */
@@ -876,9 +916,10 @@ export class Avatar {
    */
   private syncSeatHead() {
     const s = this.sprite;
-    // De espaldas en un asiento sin respaldo el cuerpo se corta en la cintura (seatBodyRows).
+    // De espaldas en un asiento sin respaldo el cuerpo se corta en la cintura (seatBodyRows). En la tina
+    // no: la hoja de medio cuerpo ya viene cortada en la línea del agua.
     const face = this.spinning?.face ?? this.seated;
-    const rows = face && this.seatType && !this.ride ? seatBodyRows(this.seatType, face) : null;
+    const rows = face && this.seatType && !this.ride && !this.soaking ? seatBodyRows(this.seatType, face) : null;
     if (rows) s.setCrop(0, 0, FRAME, rows);
     else if (s.isCropped) s.setCrop();
     const on = s.visible && this.behindBack();
@@ -1541,6 +1582,9 @@ export class Avatar {
   // ---------- La piscina ----------
 
   private swimming = false;
+  /** Sentado en la tina caliente: medio cuerpo en el agua (ver setSeated). */
+  private soaking = false;
+  private nextSteamAt = 0;
   private wet = false;
   private nextDripAt = 0;
   private nextRippleAt = 0;
@@ -1652,6 +1696,27 @@ export class Avatar {
       const ring = this.scene.add.image(Math.round(s.x), Math.round(s.y) + 3, key).setDepth(depthOf(this.wx, this.wy) + 0.3).setAlpha(0.9);
       this.scene.tweens.add({ targets: ring, scaleX: 2, scaleY: 2, alpha: 0, duration: 1100, ease: "Sine.out", onComplete: () => ring.destroy() });
       return;
+    }
+    // En la sauna le sale vapor (sube por encima del barril, que se ve transparentado).
+    if (this.seated && this.seatPose && spaKindOf(this.seatType) === "sauna" && time >= this.nextSteamAt) {
+      this.nextSteamAt = time + 520 + Math.random() * 480;
+      const key = ensureTexture(this.scene, "tina-vapor", () => steamPuff());
+      const head = Math.round(s.y) + this.seatPose.lift - (HEAD - SIT_DROP) + 4;
+      const puff = this.scene.add
+        .image(Math.round(s.x) + Math.round((Math.random() - 0.5) * 12), head, key)
+        .setDepth(this.seatPose.depth + 40)
+        .setAlpha(0.75)
+        .setScale(0.5);
+      this.scene.tweens.add({
+        targets: puff,
+        x: puff.x + Phaser.Math.Between(-5, 7),
+        y: puff.y - Phaser.Math.Between(16, 26),
+        scale: 1.4,
+        alpha: 0,
+        duration: Phaser.Math.Between(1500, 2200),
+        ease: "Sine.out",
+        onComplete: () => puff.destroy(),
+      });
     }
     if (!this.wet || time < this.nextDripAt) return;
     this.nextDripAt = time + 260 + Math.random() * 420;
@@ -1771,10 +1836,11 @@ export class Avatar {
       const front = face === "down" || face === "right";
       // Sentado, las manos quedan más abajo (sobre las piernas) y la boca también. Nadando, todo baja con
       // el cuerpo (el vaso asoma sobre el agua).
-      const drop = this.swimming ? SWIM_DROP - 3 : 0;
-      const bottom = y + 1 - hop - (BODY_UP.hand - 1 - (this.seated ? SIT_DROP : 0)) + drop;
+      const drop = this.swimming || this.soaking ? SWIM_DROP - 3 : 0;
+      const sit = this.seated && !this.soaking;
+      const bottom = y + 1 - hop - (BODY_UP.hand - 1 - (sit ? SIT_DROP : 0)) + drop;
       const mouthX = x + g.x + MOUTH[face].dx;
-      const mouthY = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING) + drop;
+      const mouthY = y + 1 - hop - (sit ? MOUTH_SEATED : MOUTH_STANDING) + drop;
       for (const part of this.held.parts) {
         const hand = hands[part.hand];
         const img = part.image;
@@ -1793,7 +1859,7 @@ export class Avatar {
       }
     }
     // Con cámara, el nombre va sobre la burbuja de video. Los textos van por encima de todo.
-    const head = HEAD - (this.seated ? SIT_DROP : 0) - (this.swimming ? SWIM_DROP - 2 : 0);
+    const head = HEAD - (this.seated && !this.soaking ? SIT_DROP : 0) - (this.swimming || this.soaking ? SWIM_DROP - 2 : 0);
     const top = this.video ? head + VIDEO_SIZE + 2 : head;
     this.video?.dom.setPosition(x, y - head + 2).setDepth(depth + 0.6);
     this.label.setPosition(x + 3, y - top).setDepth((this.hovered ? 5.5e7 : 5e7) + depth);
@@ -1815,7 +1881,7 @@ export class Avatar {
       const face = this.spinning?.face ?? this.seated ?? this.dir;
       // El auricular va pegado a la cabeza, del lado de la oreja que se ve.
       const side = face === "left" || face === "down" ? -1 : 1;
-      const ear = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING) - 4;
+      const ear = y + 1 - hop - (this.seated && !this.soaking ? MOUTH_SEATED : MOUTH_STANDING) - 4 + (this.soaking ? SWIM_DROP - 3 : 0);
       this.phone.handset?.setPosition(x + g.x + side * 6, ear).setFlipX(side < 0).setDepth(depth + 0.56);
       // El globo, sobre el nombre (a la derecha del emote, si hay uno).
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;

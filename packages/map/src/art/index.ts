@@ -8,6 +8,8 @@ export * from "./chibi";
 // La piscina: la hoja de nado y lo que se anima sobre el agua.
 export { drawSwimming, SWIM_DROP } from "./chibi-agua";
 export { poolCover, poolFloat, poolShimmer, POOL_SHIMMER_FRAMES, waterDroplet, waterRing, type PoolFloatKind } from "./agua";
+// La tina y la sauna del lago: el agua de la tina (para la hoja de medio cuerpo) y lo que se anima encima.
+export { spaGlints, SPA_GLINT_FRAMES, steamPuff, TUB_RIPPLE_FRAMES, TUB_WATER, tubRipples } from "./tina";
 export { drawFurniture, type Variant } from "./furniture";
 export { handsetSprite, phoneBubble } from "./phone";
 export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";

@@ -48,6 +48,7 @@ export * from "./bolsa";
 export * from "./casa-arbol";
 export * from "./bus";
 export * from "./agua";
+export * from "./tina";
 export * from "./door-notes";
 export * from "./aquarium";
 export * from "./insignias";

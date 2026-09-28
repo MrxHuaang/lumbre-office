@@ -71,6 +71,7 @@ const MINI: Record<BadgeIcon, readonly string[]> = {
   guitar: ["....n", "...n.", ".on..", "oOo..", ".o..."],
   bulb: [".yyy.", "yyxyy", ".yyy.", ".sss.", "..s.."],
   star: ["..y..", "yyyyy", ".yyy.", ".y.y.", "y...y"],
+  tub: ["x.x.x", ".x.x.", "WeeeW", "WyyyW", ".WWW."],
   telescope: ["...yy", "..yy.", ".yy..", ".nn..", "n..n."],
   marshmallow: ["xx...", "xx...", "..W..", "...W.", "....W"],
 };

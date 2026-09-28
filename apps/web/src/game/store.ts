@@ -20,6 +20,7 @@ import {
   type OfficeRadioState,
   type PointsAwarded,
   type PresenceStatus,
+  type SpaKind,
   type Weather,
 } from "@hyvento/shared";
 import { create } from "zustand";
@@ -218,6 +219,8 @@ interface OfficeStore {
   atSwivel: boolean;
   /** El asiento de la ayuda "E" es una reposera de la piscina (se lee "tomar el sol"). */
   seatSun: boolean;
+  /** El asiento de la ayuda "E" es de la tina o de la sauna del lago (se lee "meterse a la tina"…). */
+  seatSpa: SpaKind | null;
   /** Sentado con un teléfono al alcance (de pie, el teléfono sale como objeto con "E"). */
   atPhone: boolean;
   /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
@@ -312,6 +315,7 @@ interface OfficeStore {
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
   setAtSwivel: (at: boolean) => void;
+  setSeatSpa: (spa: SpaKind | null) => void;
   setSeatSun: (sun: boolean) => void;
   setAtPhone: (at: boolean) => void;
   setToastPrompt: (prompt: ToastPrompt | null) => void;
@@ -418,6 +422,7 @@ const initial = {
   atComputer: false,
   atSwivel: false,
   seatSun: false,
+  seatSpa: null as SpaKind | null,
   atPhone: false,
   toastPrompt: null as ToastPrompt | null,
   pcOn: false,
@@ -492,6 +497,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setAtComputer: (atComputer) => set({ atComputer }),
   setAtSwivel: (atSwivel) => set({ atSwivel }),
   setSeatSun: (seatSun) => set({ seatSun }),
+  setSeatSpa: (seatSpa) => set({ seatSpa }),
   setAtPhone: (atPhone) => set({ atPhone }),
   setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),

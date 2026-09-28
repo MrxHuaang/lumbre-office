@@ -6,6 +6,7 @@ import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
 import { BUS_DOOR_X, PARADA_M, ROAD, STATION, TURNSTILES } from "./parada";
 import { POOL_BASIN, POOL_SIZE, POOL_STEPS } from "../catalog-agua";
+import { SPA } from "../catalog-tina";
 
 // ---------- Jardín ----------
 // Una zona jugable de 132x122 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
@@ -125,6 +126,15 @@ const KEEP_CLEAR = [
   { x0: 0, y0: 31, x1: 12, y1: 42 },
   { x0: 105, y0: 88, x1: 119, y1: 98 },
 ];
+
+/**
+ * La tina caliente y la sauna de barril, en la orilla este del lago: un deck de tablas
+ * de 10x9 que se mete un poco sobre el agua, con la tina junto al lago y la sauna al fondo (ver
+ * catalog-tina.ts: SPA). El reflejo de las luces lo dibuja el deck, en el agua de al lado.
+ */
+const SPA_DECK = { x: 85, y: 51 };
+const SPA_BOX = { x0: SPA_DECK.x, y0: SPA_DECK.y, x1: SPA_DECK.x + SPA.deck[0], y1: SPA_DECK.y + SPA.deck[1] };
+const spaAt = ([dx, dy]: readonly [number, number]) => ({ x: SPA_DECK.x + dx, y: SPA_DECK.y + dy });
 
 /** Fogata con troncos alrededor y la glorieta. */
 const FIRE = { x: 24, y: 56 };
@@ -308,6 +318,8 @@ const onIslet = (x: number, y: number) => Math.hypot(x - ISLET.cx, (y - ISLET.cy
 const onDock = (x: number, y: number) => x >= DOCK.x0 && x < DOCK.x1 && y >= DOCK.y0 && y < DOCK.y1;
 /** El deck de la piscina: tablas como las del muelle (se pisa y suena a madera). */
 const onPoolDeck = (x: number, y: number) => x >= POOL_BOX.x0 && x < POOL_BOX.x1 && y >= POOL_BOX.y0 && y < POOL_BOX.y1;
+/** El deck de la tina: tablas sobre la orilla (se pisa aunque abajo sea agua). */
+const onSpaDeck = (x: number, y: number) => x >= SPA_BOX.x0 && x < SPA_BOX.x1 && y >= SPA_BOX.y0 && y < SPA_BOX.y1;
 /** Patio: rectángulo de esquinas redondeadas con el borde que ondula (como la tierra del huerto). */
 function onPatio(x: number, y: number): boolean {
   const { x0, y0, x1, y1, r } = PATIO;
@@ -368,7 +380,7 @@ function localGround(x: number, y: number): FloorKind {
     if (y > ROAD.y0 - M - 1.15 + wobble(x, y, 25, 0.08)) return "path";
     return "grass";
   }
-  if (onDock(x, y) || onPoolDeck(x, y)) return "dock";
+  if (onDock(x, y) || onPoolDeck(x, y) || onSpaDeck(x, y)) return "dock";
   if (inStream(x, y)) return onBridge(x, y) ? "dock" : "water";
   if (inLake(x, y) && !onIslet(x, y)) return "water";
   // El talud de las lomas: no se pisa, salvo por los escalones donde lo cruza un sendero.
@@ -760,6 +772,33 @@ put("garden-lantern", POOL.x + POOL_SIZE[0] - 1, POOL.y);
   for (let x = POOL.x; x < POOL.x + POOL_SIZE[0]; x++) put(HEDGE[x % HEDGE.length]!, x, POOL.y - 1, x % 2 ? "down" : "right");
 }
 
+// ---------- La tina caliente y la sauna ----------
+
+// La tina junto al agua y la sauna al fondo del deck, con la leñera pegada a su costado oeste y un seto
+// detrás (lo que queda detrás del barril se taparía: ahí no se para nadie). Farolitos en el borde del lago
+// (se reflejan en el agua), el toallero junto a la sauna y una banca mirando a la tina.
+{
+  put("spa-deck", SPA_DECK.x, SPA_DECK.y);
+  const tub = spaAt(SPA.tub);
+  const sauna = spaAt(SPA.sauna);
+  put("hot-tub", tub.x, tub.y);
+  put("sauna", sauna.x, sauna.y);
+  put("sauna-shell", sauna.x, sauna.y + 2);
+  put("woodpile", sauna.x - 1, sauna.y);
+  for (const [dx, t] of [
+    [-1, "bush-round"],
+    [0, "bush-hydrangea"],
+    [1, "bush-berry"],
+    [2, "bush-round"],
+  ] as const)
+    put(t, sauna.x + dx, sauna.y - 1, dx % 2 ? "down" : "right");
+  put("towel-rack", sauna.x + 2, sauna.y);
+  put("bench", sauna.x + 1, SPA_DECK.y + 5, "left");
+  for (const l of [...SPA.shoreLanterns, ...SPA.deckLanterns]) put("garden-lantern", spaAt(l).x, spaAt(l).y);
+  put("planter", SPA_BOX.x1 - 1, SPA_DECK.y + 3);
+  put("planter", SPA_DECK.x + 3, SPA_BOX.y1 - 1);
+}
+
 // ---------- La granja ----------
 
 // La parrilla: el horno de barro (la boca con el fuego mira al patio de piedra), la parrilla de ladrillo,
@@ -883,7 +922,6 @@ for (const [x, y, t, f] of [
   [62, 48, "wildflowers", "right"],
   [22, 69, "wildflowers", "down"],
   [67, 47, "fern", "down"],
-  [85, 58, "pine-3", "right"],
   [85, 41, "oak-3", "down"],
   [69, 76, "oak-1", "right"],
 ] as const)
@@ -1062,6 +1100,10 @@ const POINTS: PointDef[] = [
     for (let y = 0; y < d; y++) for (let x = 0; x < w; x++) mark(f.x - M + x, f.y - M + y, item.flat ? 0 : 1);
   }
   for (const p of POINTS) mark(p.x - M, p.y - M, p.type === "spawn" ? 3 : 1);
+  // Alrededor del deck de la tina, pasto abierto: que ningún árbol quede pegado a las tablas (sin salirse
+  // de la orilla este del lago, x 60..72, y 34..50).
+  for (let y = Math.max(34, SPA_BOX.y0 - 2); y < Math.min(51, SPA_BOX.y1 + 2); y++)
+    for (let x = Math.max(60, SPA_BOX.x0 - 2); x < Math.min(73, SPA_BOX.x1 + 2); x++) reserved.add(`${x},${y}`);
   for (const r of KEEP_CLEAR) for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) reserved.add(`${x},${y}`);
   mark(DOOR_X, PORCH_Y + 2, 2);
   // El pie de la escalera de la casa del árbol, despejado (que ningún árbol la tape).
@@ -1210,6 +1252,8 @@ export const jardin: AreaDef = {
     { id: "glorieta", name: "Glorieta", type: "table", rect: { x: GAZEBO.x + M, y: GAZEBO.y + M, w: 4, h: 4 }, isolated: true },
     // La piscina: se oye como el resto del jardín (es para estar en grupo), pero tiene su nombre.
     { id: "piscina", name: "Piscina", type: "common", rect: { x: POOL_BOX.x0 + M, y: POOL_BOX.y0 + M, w: POOL_SIZE[0], h: POOL_SIZE[1] }, isolated: false },
+    // La tina y la sauna: como la fogata, lo que se dice en el deck queda en el deck.
+    { id: "tina", name: "Tina y sauna", type: "table", rect: { x: SPA_BOX.x0 + M, y: SPA_BOX.y0 + M, w: SPA.deck[0], h: SPA.deck[1] }, isolated: true },
     // El escenario: quien está en la tarima se oye en todo el anfiteatro y en las gradas se oye además a
     // los vecinos (ver `hearing` en @hyvento/shared). De afuera no se oye nada, como en la fogata.
     { id: "escenario", name: "Escenario", type: "table", rect: { x: DECK.x + M, y: DECK.y + M, w: DECK.w, h: DECK.h }, isolated: true },
