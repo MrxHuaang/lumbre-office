@@ -82,6 +82,8 @@ export const garaje: AreaDef = {
     place("worn-rug", 11, 2),
     place("floor-fan", 11, 0, "down"),
     place("desk-crt", 12, 0, "down"),
+    // El teléfono sobre el escritorio (como en las oficinas del piso 2): el dueño también llama desde aquí.
+    place("desk-phone", 13, 0, "down"),
     place("office-chair-broken", 12, 1, "up"),
     place("filing-dented", 14, 0, "down"),
     place("dead-plant", 15, 0),
@@ -89,7 +91,7 @@ export const garaje: AreaDef = {
     place("trophy-case", 15, 2, "left"),
     place("cardboard-boxes", 15, 5, "down"),
     place("armchair", 14, 5, "up"),
-    place("lamp", 15, 2),
+    place("lamp", 15, 4),
     place("cardboard-boxes", 10, 5),
   ],
   portals: [

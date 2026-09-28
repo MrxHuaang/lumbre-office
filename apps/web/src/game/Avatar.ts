@@ -797,7 +797,7 @@ export class Avatar {
     const to = worldToScreen(a.x, a.y);
     const dx = Math.round(to.x) - Math.round(from.x);
     const dy = Math.round(to.y) - Math.round(from.y);
-    const objects = [this.label, this.statusDot, this.badge?.img, this.speakingRing, this.bubble, this.emoteBubble?.container, this.badgeRow?.container, this.video?.dom];
+    const objects = [this.label, this.statusDot, this.badge?.img, this.speakingRing, this.bubble, this.emoteBubble?.container, this.badgeRow?.container, this.phone?.bubble, this.phone?.handset, this.video?.dom];
     for (const o of objects) if (o) o.setPosition(o.x + dx, o.y + dy);
   }
 
@@ -1508,7 +1508,7 @@ export class Avatar {
       // El globo, sobre el nombre (a la derecha del emote, si hay uno).
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       const beside = this.emoteBubble ? 14 : 0;
-      this.phone.bubble?.setPosition(x + beside + this.phone.shake, y - top - this.label.height - 1 - chat).setDepth(6e7 + depth + 0.12);
+      this.phone.bubble?.setPosition(x + beside + this.phone.shake, y - top - this.label.height - 1 - badgeH - chat).setDepth(6e7 + depth + 0.12);
     }
     this.shiftOverlays();
     if (this.countdownBubble) {
