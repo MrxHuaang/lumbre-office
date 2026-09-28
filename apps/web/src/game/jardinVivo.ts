@@ -493,14 +493,20 @@ export class JardinVivo {
     return map.furniture.some((f) => f.type === "greenhouse" && px >= f.x * ts && px < (f.x + f.w) * ts && py >= f.y * ts && py < (f.y + f.d) * ts);
   }
 
-  /** El techo (o el vidrio) lo dibuja el nivel: se busca su imagen, por su textura y su lugar, para transparentarla. */
+  /**
+   * El techo (o el vidrio) lo dibuja el nivel: se busca su imagen, por su nombre y su lugar, para transparentarla.
+   * Con el arte del build el nombre es el del cuadro del atlas (la textura es `pre-muebles-N`); sin él, el de la textura.
+   */
   private roofImage(r: { f: PlacedFurniture; img?: Phaser.GameObjects.Image }): Phaser.GameObjects.Image | undefined {
     if (r.img?.active) return r.img;
     const prefix = `mueble-${r.f.type}-`;
     const ts = this.map!.tileSize;
     const d = depthOf((r.f.x + r.f.w / 2) * ts, (r.f.y + r.f.d / 2) * ts);
     r.img = this.scene.children.list.find(
-      (o): o is Phaser.GameObjects.Image => o instanceof Phaser.GameObjects.Image && o.texture.key.startsWith(prefix) && Math.abs(o.depth - d) < 0.5,
+      (o): o is Phaser.GameObjects.Image =>
+        o instanceof Phaser.GameObjects.Image &&
+        (o.texture.key.startsWith(prefix) || String(o.frame.name).startsWith(prefix)) &&
+        Math.abs(o.depth - d) < 0.5,
     );
     return r.img;
   }
