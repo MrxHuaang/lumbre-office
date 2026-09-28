@@ -63,7 +63,7 @@ function lcg(seed = 1) {
 function weatherOver(start: number, hours: number) {
   const time = fakeTime(start);
   const seen = new Set<Weather>();
-  const cycle = new WeatherCycle({ clock: time.clock, now: time.now, random: lcg(4), onChange: (w) => seen.add(w) }, "nublado");
+  const cycle = new WeatherCycle({ clock: time.clock, hour: () => 15, now: time.now, random: lcg(4), onChange: (w) => seen.add(w) }, "nublado");
   cycle.start();
   time.advance(hours * 3_600_000);
   cycle.dispose();

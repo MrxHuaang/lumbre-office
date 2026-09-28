@@ -74,6 +74,7 @@ import {
   BLACKJACK,
   type EmoteEvent,
   type ChatEvent,
+  type ChatScope,
   type Direction,
   type GameTokenClaims,
   type KnockOutcome,
@@ -288,7 +289,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static rouletteSpin: () => number = randomSpin;
   static blackjackTimings: BlackjackTimings = { ...BLACKJACK };
   static blackjackShuffle: () => number[] = randomShoe;
-  /** Pesca: el azar (entero en [0, n)), la hora (para el horario de los peces) y los tiempos del lance. */
+  /** Pesca: el azar (entero en [0, n)), el reloj real (para los tiempos del minijuego) y los tiempos del lance. */
   static fishingRandom: (n: number) => number = (n) => randomInt(n);
   static fishingNow: () => number = () => Date.now();
   static fishingTimings: FishingTimings = { ...FISHING };
@@ -301,9 +302,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static arcadeSeed: () => number = () => randomInt(2 ** 31);
   /** Reloj del arcade (los tests lo adelantan para no esperar la duración mínima de una partida). */
   static arcadeNow: () => number = () => Date.now();
-  /** Azar y reloj del clima (los tests los fijan); `weatherInitial` null = según la hora de Bogotá. */
+  /** Azar del clima y con cuál arranca (los tests los fijan); `weatherInitial` null = según la hora del juego. */
   static weatherRandom: () => number = () => randomInt(2 ** 30) / 2 ** 30;
-  static weatherNow: () => number = () => Date.now();
   static weatherInitial: Weather | null = null;
   /** Reloj real para el reloj del juego y hora con la que arranca (los tests los fijan; null = la de Bogotá). */
   static gameClockNow: () => number = () => Date.now();
@@ -392,11 +392,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
     () => OfficeRoom.faintMs,
   );
-  /** El clima de afuera (lo ven todos: `state.weather`). */
+  /** Con qué hora del juego arranca la sala (el clima inicial ya la necesita, antes de onCreate). */
+  private readonly startClock: GameClockState = OfficeRoom.gameClockInitial ?? initialClock(OfficeRoom.gameClockNow());
+  /** El clima de afuera (lo ven todos: `state.weather`); la niebla sigue la hora del juego. */
   private weather = new WeatherCycle(
     {
       clock: { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
-      now: () => OfficeRoom.weatherNow(),
+      hour: () => this.gameTimeNow().hour,
+      now: () => Date.now(),
       random: () => OfficeRoom.weatherRandom(),
       onChange: (w) => {
         this.state.weather = w;
@@ -404,7 +407,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         if (isWet(w)) this.rainOnGarden();
       },
     },
-    OfficeRoom.weatherInitial ?? initialWeather(OfficeRoom.weatherNow()),
+    OfficeRoom.weatherInitial ?? initialWeather(gameTime(this.startClock, OfficeRoom.gameClockNow()).hour),
   );
   /** Lo que dura un desmayo (los tests lo acortan). */
   static faintMs: number = DRUNK.faintMs;
@@ -459,6 +462,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     now: () => OfficeRoom.fishingNow(),
     random: (n) => OfficeRoom.fishingRandom(n),
     timings: () => OfficeRoom.fishingTimings,
+    hour: () => this.gameTimeNow().hour,
     weather: () => this.state.weather as Weather,
     repo: () => this.repo,
     newId: () => randomUUID(),
@@ -666,6 +670,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
       now: () => Date.now(),
       newId: () => randomUUID(),
+      tipped: (fromId, toId, amount) => {
+        this.achievements.bump(fromId, STAT_KEYS.tipsGiven, amount);
+        this.achievements.bump(toId, STAT_KEYS.tipsReceived, amount);
+      },
     });
     this.cinema = new Cinema(this.state.cinema);
     this.arcade = new Arcade({
@@ -835,8 +843,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Cumpleaños del día y el karaoke de los viernes: se revisa seguido (cambian con la hora de Bogotá).
     this.clock.setInterval(() => void this.events.refresh(), OfficeRoom.eventsRefreshMs);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
+    this.setGameClock(this.startClock);
     this.weather.start();
-    this.setGameClock(OfficeRoom.gameClockInitial ?? initialClock(OfficeRoom.gameClockNow()));
     // Mientras llueve, lo que se va secando se vuelve a regar solo.
     this.clock.setInterval(() => isWet(this.weather.weather) && this.rainOnGarden(), 60_000);
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
@@ -1464,6 +1472,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.phoneOrigin(player.userId, zone, phone.type),
     );
     if (error) fail(error);
+    else this.achievements.bump(player.userId, STAT_KEYS.phoneCalls);
   }
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
@@ -1607,6 +1616,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       return;
     }
     if (!player) return;
+    this.achievements.bump(player.userId, STAT_KEYS.racesFinished);
     const since = weekStart(Date.now());
     const before = await this.repo.raceBoard({ since, limit: 1, userId: player.userId }).catch(() => null);
     await this.repo.saveRaceTime({ userId: player.userId, name: player.name, ms: outcome.ms }).catch((err) => console.error("saveRaceTime", err));
@@ -1784,11 +1794,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
    * "/time" (o "/hora"): cualquiera pregunta la hora; solo los admins la cambian (set/add, como en
    * Minecraft). La respuesta le llega solo a quien escribió. Devuelve si era el comando.
    */
-  private timeCommand(client: Client<UserData>, text: string): boolean {
+  private timeCommand(client: Client<UserData>, text: string, scope: ChatScope): boolean {
     const cmd = parseTimeCommand(text);
     if (!cmd) return false;
+    // Aviso del sistema (fromId vacío): se responde en la pestaña donde se escribió el comando.
     const note = (msg: string) =>
-      client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Reloj", text: msg, scope: "proximity", zoneId: null, ts: Date.now() } satisfies ChatEvent);
+      client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Reloj", text: msg, scope, zoneId: null, ts: Date.now() } satisfies ChatEvent);
     if (cmd.kind !== "query") {
       if (!client.userData?.admin) {
         note("Solo un admin puede cambiar la hora.");
@@ -1813,7 +1824,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     times.push(now);
     client.userData.chatTimes = times;
     if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text))) return;
-    if (this.timeCommand(client, parsed.data.text)) return;
+    if (this.timeCommand(client, parsed.data.text, parsed.data.scope)) return;
     this.achievements.bump(player.userId, STAT_KEYS.chatMessages);
 
     const event: ChatEvent = {
@@ -2101,6 +2112,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         return null;
       });
     if (!result) return;
+    if (result.notice?.code === "cooked" || result.notice?.code === "capped") this.achievements.bump(player.userId, STAT_KEYS.dishesCooked);
     if (result.state) client.send(COCINA_MSG.state, result.state satisfies CocinaState);
     if (result.notice) client.send(COCINA_MSG.notice, result.notice satisfies CocinaNotice);
   }
@@ -2212,6 +2224,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     if (!result) return;
     if (!result.ok) return void client.send(HUERTO_MSG.notice, result.notice satisfies HuertoNotice);
+    const step = result.event.garden;
+    if (step === "plant") this.achievements.bump(player.userId, STAT_KEYS.plantings);
+    else if (step === "harvest") this.achievements.bump(player.userId, STAT_KEYS.harvests);
     this.sendToArea(area, MSG.furnitureEvent, { sessionId: client.sessionId, ...result.event } satisfies FurnitureEvent);
   }
 
@@ -2313,6 +2328,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     const action = result.action;
     client.userData.lastActiveAt = now;
+    if (action !== "call") this.achievements.bump(player.userId, STAT_KEYS.petCares);
+    if (result.food) this.achievements.bump(player.userId, STAT_KEYS.petTreats);
     const pet = (raw as { pet: string }).pet;
     this.sendToArea(player.area, PET_MSG.event, { pet, sessionId: client.sessionId, action, ...(result.food ? { food: result.food } : {}) } satisfies PetEvent);
     // Cuidarla da un punto chiquito (los primeros del día; también cuenta el tope del ocio).
@@ -2522,6 +2539,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !client.userData) return;
     client.userData.lastActiveAt = Date.now();
     const result = await this.arcade.finish(player, raw, OfficeRoom.arcadeNow());
+    if (result.ok) {
+      this.achievements.bump(player.userId, STAT_KEYS.arcadeGames);
+      if (result.record) this.achievements.bump(player.userId, STAT_KEYS.arcadeRecords);
+    }
     client.send(MSG.arcadeResult, result);
   }
 
@@ -2558,6 +2579,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         return null;
       },
       saveWin: async (win) => {
+        this.achievements.bump(win.userId, STAT_KEYS.boardWins);
         await this.repo.saveBoardWin(win);
         this.boardRankings.delete(win.game);
       },
@@ -2705,6 +2727,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Los puntos de un bloque completo: hasta FOCUS.dailyCap por día (día de Bogotá). */
   private async awardFocus(userId: string): Promise<{ points: number; capped: boolean }> {
+    this.achievements.bump(userId, STAT_KEYS.focusBlocks);
     const prefix = focusRefPrefix(eventDay(Date.now()));
     const r = await this.repo.awardPointsOnce({
       userId,

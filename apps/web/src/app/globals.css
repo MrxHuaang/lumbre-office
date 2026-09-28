@@ -546,14 +546,46 @@ body {
   display: inline-block;
   animation: achievement-badge 6s steps(1) both;
 }
+/* Épicos y legendarios: un reflejo que cruza el cartel dos veces, a saltos. */
+@keyframes achievement-shine {
+  0%,
+  10% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  30%,
+  40% {
+    transform: translateX(420%) skewX(-20deg);
+  }
+  41%,
+  45% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  65%,
+  100% {
+    transform: translateX(420%) skewX(-20deg);
+  }
+}
+.achievement-toast-shiny::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 25%;
+  background: rgb(255 248 220 / 0.45);
+  pointer-events: none;
+  animation: achievement-shine 6s steps(8) both;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .loader-scroll,
   .loader-bob,
   .cozy-cloud,
   .cozy-dots::after,
-  .achievement-toast-badge {
+  .achievement-toast-badge,
+  .achievement-toast-shiny::after {
     animation: none;
+  }
+  .achievement-toast-shiny::after {
+    display: none;
   }
   .achievement-toast {
     animation-timing-function: steps(1);

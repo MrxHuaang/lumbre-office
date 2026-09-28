@@ -245,7 +245,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotesChip />
             <Notices />
           </div>
-          <ChatPanel />
+          <ChatPanel isAdmin={isAdmin} />
           <SideDock />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
@@ -375,6 +375,7 @@ const CONTROLS: [string, string][] = [
   ["Tab", "cambiar la fila de la barra"],
   ["1-9 0 - =", "elegir la casilla (la mano)"],
   ["I", "mochila, stats y personaje"],
+  ["/time", "la hora del juego (/ muestra los comandos)"],
 ];
 const DECOR_CONTROLS: [string, string][] = [
   ["Clic", "poner o elegir"],

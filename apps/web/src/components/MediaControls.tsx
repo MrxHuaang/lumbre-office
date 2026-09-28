@@ -39,6 +39,8 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
   const focusing = useOfficeStore(selectFocusing);
   const setChatOpen = useOfficeStore((s) => s.setChatOpen);
   const ready = status === "connected";
+  // Sin conexión de audio/video, los tres primeros botones dicen por qué (antes era un chip arriba).
+  const mediaDown = status === "unavailable" ? "Audio y video no disponibles" : status === "connecting" ? "Conectando audio y video…" : null;
   const [emotes, setEmotes] = useState(false);
   useEmoteKey(useCallback(() => setEmotes((v) => !v), []));
   usePhotoKey();
@@ -57,7 +59,7 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
         <Slot
           icon="mic"
           off={!mic}
-          label={mic ? "Silenciar micrófono" : "Activar micrófono"}
+          label={mediaDown ?? (mic ? "Silenciar micrófono" : "Activar micrófono")}
           text={mic ? "Mic" : "Mic off"}
           active={mic}
           disabled={!ready}
@@ -66,7 +68,7 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
         <Slot
           icon="cam"
           off={!cam}
-          label={cam ? "Apagar cámara" : "Encender cámara"}
+          label={mediaDown ?? (cam ? "Apagar cámara" : "Encender cámara")}
           text={cam ? "Cámara" : "Cam off"}
           active={cam}
           disabled={!ready}
@@ -74,7 +76,7 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
         />
         <Slot
           icon="screen"
-          label={screen ? "Dejar de compartir" : "Compartir pantalla"}
+          label={mediaDown ?? (screen ? "Dejar de compartir" : "Compartir pantalla")}
           text={screen ? "Compartiendo" : "Pantalla"}
           active={screen}
           disabled={!ready}
