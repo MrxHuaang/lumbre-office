@@ -72,7 +72,7 @@ Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png`, sin 
 | Medios | LiveKit (WebRTC SFU) | Voz, video y pantalla compartida por proximidad, con permisos en el servidor |
 | Mundo | `packages/map` | Niveles, catálogo de muebles, colisión, A* y el motor pixel |
 | Datos | Prisma + Postgres | Usuarios, notas, inventario, decoración y libro de puntos |
-| Auth | Auth.js (Google), solo por invitación | Admins por correo e invitaciones desde `/admin` |
+| Auth | Supabase Auth (Google), solo por invitación; usuarios en Neon | Admins por correo e invitaciones desde `/admin` |
 | Calidad | Vitest, Turborepo, GitHub Actions | Typecheck y tests en cada PR |
 
 ## Funcionamiento

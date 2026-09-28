@@ -2,14 +2,27 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { signIn, signOut } from "@/auth";
 import { createDevSession, DEV_SESSION_COOKIE, DEV_SESSION_MAX_AGE, devLoginEnabled } from "@/lib/dev-login";
+import { supabaseServer } from "@/lib/supabase";
+
+/** Origen público del sitio (detrás del proxy de Vercel el host viene en las cabeceras). */
+async function siteOrigin(): Promise<string> {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host) ? "http" : "https");
+  return `${proto}://${host}`;
+}
 
 export async function loginWithGoogle() {
-  if (!process.env.AUTH_GOOGLE_ID || !process.env.AUTH_GOOGLE_SECRET) {
-    redirect("/login?error=Configuration");
-  }
-  await signIn("google", { redirectTo: "/" });
+  const supabase = await supabaseServer();
+  if (!supabase) redirect("/login?error=Configuration");
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    // Esta URL tiene que estar en Supabase → Authentication → URL Configuration → Redirect URLs.
+    options: { redirectTo: `${await siteOrigin()}/auth/callback` },
+  });
+  if (error || !data.url) redirect("/login?error=Configuration");
+  redirect(data.url);
 }
 
 /**
@@ -26,5 +39,7 @@ export async function loginDev(formData: FormData) {
 }
 
 export async function logout() {
-  await signOut({ redirectTo: "/login" });
+  (await cookies()).delete(DEV_SESSION_COOKIE);
+  await (await supabaseServer())?.auth.signOut();
+  redirect("/login");
 }

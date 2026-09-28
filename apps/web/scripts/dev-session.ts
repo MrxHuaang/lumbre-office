@@ -1,11 +1,11 @@
 /**
  * SOLO DESARROLLO LOCAL. Crea (o reutiliza) un usuario de prueba `<nombre>@hyvento.test` y
- * genera una cookie de sesión de Auth.js para probar la oficina con varias personas sin Google.
+ * genera una cookie de sesión de prueba para probar la oficina con varias personas sin Google.
  *
  *   pnpm --filter @hyvento/web dev:session "Tester Uno" [--office office-2] [--avatar carla] [--admin]
  *
  * Pega el valor impreso en el navegador (DevTools → consola):
- *   document.cookie = "authjs.session-token=<valor>; path=/"
+ *   document.cookie = "lumbre-dev-session=<valor>; path=/"
  * (Más fácil: en el login local aparece el botón "Entrar de prueba".)
  */
 import { prisma } from "@hyvento/db";
