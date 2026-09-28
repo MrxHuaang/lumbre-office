@@ -93,6 +93,12 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Escenario del jardín: la escalerita de la tarima (subir o bajar) y la mesa de la cabina de grabación.
   | "stage"
   | "podcast"
+  // Observatorio: el telescopio, la fogata de malvaviscos, el orrery, el radar de señales y el diario.
+  | "telescope"
+  | "marshmallow"
+  | "orrery"
+  | "radar"
+  | "logbook"
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
   | "sombrero"
   // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).

@@ -134,6 +134,17 @@ const BOOTH = { x: 30, y: 54 };
 /** Zona de charla de la fogata (en coordenadas del nivel): los troncos quedan adentro con un tile de aire. */
 const FIRE_ZONE = { x: FIRE.x - 3 + M, y: FIRE.y - 3 + M, w: 8, h: 8 };
 
+/**
+ * El observatorio (6x6) en la lomita del noreste, en la franja nueva: la puerta de la torre da a la fila
+ * y = 29 (ver CONEXIONES.jardin.observatorio). Delante, la placita de piedra con la fogata de malvaviscos
+ * al oeste y el cohete de madera al este.
+ */
+const OBS = { x: 72, y: 23 };
+const OBS_DOOR_X = OBS.x + 2;
+const OBS_FIRE = { x: 67, y: 29 };
+/** Zona de charla de la fogata del observatorio (coordenadas del nivel), como la de la fogata grande. */
+const OBS_FIRE_ZONE = { x: OBS_FIRE.x - 3 + M, y: OBS_FIRE.y - 3 + M, w: 8, h: 7 };
+
 // ---------- Formas del terreno (continuas, en tiles de la zona jugable) ----------
 
 interface Seg {
@@ -173,6 +184,10 @@ const PATHS: Seg[] = [
   { a: [38.6, 60.8], b: [33.5, 60.2], w: 1.5 },
   { a: [33.5, 60.2], b: [27.5, 59.6], w: 1.4 },
   { a: [27.5, 59.6], b: [18.4, 59.5], w: 1.1 },
+  // Sendero de piedras que sube desde la esquina del patio y el rincón de rocas hasta el observatorio.
+  { a: [61.5, 16.2], b: [65, 21], w: 1.6 },
+  { a: [65, 21], b: [69.5, 26], w: 1.6 },
+  { a: [69.5, 26], b: [74.5, 29.6], w: 1.6 },
 ];
 
 function segDist(px: number, py: number, s: Seg): number {
@@ -237,9 +252,13 @@ const onGrillPad = (x: number, y: number) => Math.hypot((x - GRILL_PAD.cx) / GRI
 const onHenYard = (x: number, y: number) =>
   x > HEN_YARD.x - 0.4 + wobble(x, y, 55, 0.2) && x < HEN_YARD.x + HEN_YARD.w - 0.6 + wobble(x, y, 56, 0.25) && y > HEN_YARD.y + 0.2 + wobble(x, y, 57, 0.2) && y < HEN_YARD.y + HEN_YARD.h - 0.3 + wobble(x, y, 58, 0.25);
 
-/** Arena: la playita donde nace el muelle y el círculo de la fogata. */
+/** Arena: la playita donde nace el muelle, el círculo de la fogata y el de la fogata del observatorio. */
 const onSand = (x: number, y: number) =>
-  Math.hypot(x - 43.4, (y - 41) * 0.8) < 2.9 + wobble(x, y, 13, 0.3) || Math.hypot(x - (FIRE.x + 1), y - (FIRE.y + 1)) < 3.3 + wobble(x, y, 17, 0.2);
+  Math.hypot(x - 43.4, (y - 41) * 0.8) < 2.9 + wobble(x, y, 13, 0.3) ||
+  Math.hypot(x - (FIRE.x + 1), y - (FIRE.y + 1)) < 3.3 + wobble(x, y, 17, 0.2) ||
+  Math.hypot(x - (OBS_FIRE.x + 1), y - (OBS_FIRE.y + 1)) < 2.7 + wobble(x, y, 51, 0.2);
+/** La placita de piedra al pie de los escalones del observatorio. */
+const onObsPlaza = (x: number, y: number) => Math.hypot(x - (OBS_DOOR_X + 1), (y - (OBS.y + 7.3)) * 1.3) < 2.6 + wobble(x, y, 53, 0.2);
 /** Entrada de gravilla del garaje: el borde de adelante se come el pasto a mordiscos. */
 const onDriveway = (x: number, y: number) =>
   x > DRIVEWAY.x0 + wobble(x, y, 31, 0.45) && x < DRIVEWAY.x1 + wobble(x, y, 32, 0.45) && y > DRIVEWAY.y0 && y < DRIVEWAY.y1 + wobble(x, y, 33, 0.5);
@@ -277,6 +296,7 @@ function localGround(x: number, y: number): FloorKind {
   if (onGrillPad(x, y)) return "path";
   if (onHenYard(x, y)) return "sand";
   if (onPatio(x, y)) return "path";
+  if (onObsPlaza(x, y)) return "path";
   if (onGazeboBase(x, y)) return "path";
   if (onSand(x, y)) return "sand";
   if (onPath(x, y)) return "path";
@@ -294,6 +314,8 @@ if (CONEXIONES.jardin.casaArbol.tiles[0]!.x !== TREEHOUSE_FOOT.x + M || CONEXION
   throw new Error("CONEXIONES.jardin.casaArbol no coincide con la escalera de la casa del árbol");
 if (CONEXIONES.jardin.garaje.tiles[0]!.x !== GARAGE_DOOR_X + M || CONEXIONES.jardin.garaje.tiles[0]!.y !== GARAGE.y + 5 + M)
   throw new Error("CONEXIONES.jardin.garaje no coincide con la puerta del garaje");
+if (CONEXIONES.jardin.observatorio.tiles[0]!.x !== OBS_DOOR_X + M || CONEXIONES.jardin.observatorio.tiles[0]!.y !== OBS.y + 6 + M)
+  throw new Error("CONEXIONES.jardin.observatorio no coincide con la puerta del observatorio");
 
 // ---------- Muebles ----------
 
@@ -813,6 +835,44 @@ for (const [x, y, t, f] of [
   [77, 66, "bush-round", "down"],
 ] as const)
   put(t, x, y, f);
+// Observatorio (lomita del noreste): la torre, la fogata de malvaviscos con sus troncos, el cohete de
+// madera en su plataforma, los banderines, los postes con cables que suben por el sendero y el letrero.
+put("observatory", OBS.x, OBS.y);
+put("marshmallow-fire", OBS_FIRE.x, OBS_FIRE.y);
+put("log-seat", OBS_FIRE.x - 2, OBS_FIRE.y, "right");
+put("log-seat", OBS_FIRE.x + 3, OBS_FIRE.y, "left");
+put("log-seat", OBS_FIRE.x, OBS_FIRE.y - 2, "down");
+put("log-seat", OBS_FIRE.x, OBS_FIRE.y + 3, "up");
+put("toy-rocket", 78, 29);
+put("bunting", 76, 32, "down");
+put("cable-pole", 64, 18);
+put("cable-pole", 64, 22);
+put("cable-pole-end", 64, 26);
+put("observatory-sign", 66, 20, "down");
+// La lomita: rocas y matas al pie de la torre, a los costados.
+for (const [x, y, t, f] of [
+  [71, 24, "rock-mossy", "right"],
+  [71, 27, "rock-mossy", "down"],
+  [78, 27, "rock-medium", "down"],
+  [79, 26, "fern", "down"],
+  [72, 31, "rock-small", "right"],
+  [70, 32, "wildflowers", "down"],
+  [79, 33, "rock-mossy", "right"],
+] as const)
+  put(t, x, y, f);
+// Detrás de la torre (lo que su dibujo tapa, medido con el test de oclusión) la lomita es un matorral de
+// rocas, matas y pinos chicos: ahí nadie se para y nadie queda escondido.
+{
+  const BEHIND_OBS: [number, number[]][] = [
+    [19, [68, 69, 70]],
+    [20, [68, 69, 70, 71]],
+    [21, [68, 69, 70, 71, 72]],
+    [22, [69, 70, 71, 72, 73]],
+    [23, [70, 71]],
+  ];
+  const KINDS = ["rock-mossy", "bush-round", "pine-2", "bush-berry", "rock-medium", "pine-3", "bush-round", "birch-1"];
+  for (const [y, xs] of BEHIND_OBS) for (const x of xs) put(KINDS[Math.floor(noise(x, y, 55) * KINDS.length)]!, x, y, noise(x, y, 56) < 0.5 ? "right" : "down");
+}
 
 // ---------- Puntos ----------
 
@@ -846,6 +906,11 @@ const POINTS: PointDef[] = [
   // Frente a la escalerita de la tarima y frente a la mesa de los micrófonos de la cabina.
   pt("stage", "Escenario", DECK.x + DECK.w, DECK.y + 3),
   pt("podcast", "Cabina de grabación", BOOTH.x + 2, BOOTH.y + 2),
+  // Alrededor de la fogata del observatorio (entre los troncos): meter el malvavisco y sacarlo.
+  pt("marshmallow_fire", "Fogata de malvaviscos", OBS_FIRE.x - 1, OBS_FIRE.y - 1),
+  pt("marshmallow_fire", "Fogata de malvaviscos", OBS_FIRE.x + 2, OBS_FIRE.y - 1),
+  pt("marshmallow_fire", "Fogata de malvaviscos", OBS_FIRE.x - 1, OBS_FIRE.y + 2),
+  pt("marshmallow_fire", "Fogata de malvaviscos", OBS_FIRE.x + 2, OBS_FIRE.y + 2),
 ];
 
 // Naturaleza suelta en el pasto libre: manchones de árboles junto a la cerca y en algunos bosquecitos,
@@ -1014,6 +1079,8 @@ export const jardin: AreaDef = {
     { id: "gradas", name: "Gradas", type: "table", rect: { x: GRADAS.origin.x + M, y: GRADAS.origin.y + M, w: GRADAS.size.w + 1, h: GRADAS.size.h }, isolated: true },
     // Adentro de la cabina de grabación (3x3): una sala aislada para tres.
     { id: "podcast", name: "Cabina de grabación", type: "table", rect: { x: BOOTH.x + 1 + M, y: BOOTH.y + 1 + M, w: 3, h: 3 }, isolated: true },
+    // La fogata del observatorio también es una burbuja de charla.
+    { id: "fogata-observatorio", name: "Fogata del observatorio", type: "table", rect: OBS_FIRE_ZONE, isolated: true },
   ],
   features: [],
   furniture: items,
@@ -1041,6 +1108,12 @@ export const jardin: AreaDef = {
       label: "Entrar al garaje",
       tiles: CONEXIONES.jardin.garaje.tiles,
       to: hacia("garaje", CONEXIONES.garaje.entrada),
+    },
+    {
+      id: "jardin-observatorio",
+      label: "Entrar al observatorio",
+      tiles: CONEXIONES.jardin.observatorio.tiles,
+      to: hacia("observatorio", CONEXIONES.observatorio.entrada),
     },
   ],
   points: POINTS,

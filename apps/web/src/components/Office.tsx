@@ -49,6 +49,11 @@ import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ShedPanel } from "./ShedPanel";
 import { CoopPanel, GrillPanel } from "./GranjaPanels";
 import { KitchenPanel } from "./KitchenPanel";
+import { DiarioPanel } from "./observatorio/DiarioPanel";
+import { MarshmallowStrip } from "./observatorio/MarshmallowStrip";
+import { OrreryPanel } from "./observatorio/OrreryPanel";
+import { RadarPanel } from "./observatorio/RadarPanel";
+import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
@@ -284,6 +289,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotePrompt />
             <SeatPrompt />
             <InteractPrompt />
+            <MarshmallowStrip />
             <UsablePrompt />
             <FishingHint />
             <RaceTimer />
@@ -371,6 +377,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "grill" && <GrillPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "coop" && <CoopPanel onClose={closePanel} />}
           {panel?.kind === "kitchen" && <KitchenPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "telescope" && <TelescopePanel onClose={closePanel} />}
+          {panel?.kind === "orrery" && <OrreryPanel onClose={closePanel} />}
+          {panel?.kind === "radar" && <RadarPanel onClose={closePanel} />}
+          {panel?.kind === "logbook" && <DiarioPanel onClose={closePanel} />}
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}

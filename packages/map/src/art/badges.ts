@@ -80,6 +80,9 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   guitar: [".......nn", "......nn.", ".....nn..", "....nn...", ".oOon....", "oOOOo....", "OOkOO....", "oOOOo....", ".ooo....."],
   bulb: ["..yyyy..", ".yYYYYy.", "yYYxYYYy", "yYYYYYYy", ".yYYYYy.", "..yYYy..", "..ssss..", "..SSSS..", "...ss..."],
   star: ["....y....", "....y....", "...yYy...", "yyyYYYyyy", ".yYYYYYy.", "..yYYYy..", "..yYyYy..", ".yY...Yy.", ".y.....y."],
+  // Observatorio: el telescopio de latón en su trípode y el malvavisco en el palito.
+  telescope: ["......yy.", ".....yYy.", "....yYy..", "...yYy...", "..yYy....", ".nyy.....", ".n.n.....", "n...n....", "n...n...."],
+  marshmallow: [".cccc....", "cCccCc...", "cccccc...", "cCcccC...", ".cccc....", "....ww...", ".....ww..", "......ww.", ".......ww"],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],
 };
 
