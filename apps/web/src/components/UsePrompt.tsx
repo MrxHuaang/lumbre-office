@@ -3,14 +3,14 @@
 // Rediseño: usar lo que se tiene en la mano (F, o el casillero junto a la barra de abajo), brindar (B,
 // al lado del casillero) y la ayuda "E" junto a un mueble que se usa (tele, lámparas, tocadiscos, piano…).
 import { drawHeldItem } from "@hyvento/map/art";
-import { consumeActionOf, EMPTY_CAN, FREE_NAMES, heldParts, isHuertoTool, menuItem, parseHeldLeft } from "@hyvento/shared";
+import { consumeActionOf, EMPTY_CAN, FREE_NAMES, heldParts, isHuertoTool, menuItem, parseHeldLeft, sombreroItem } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendFurnitureUse, sendToast, sendUseHeld } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 
-const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer", spoon: "Comer" } as const;
+const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer", spoon: "Comer", sniff: "Esnifar" } as const;
 
 /**
  * Casillero de lo que tengo en la mano, al final de la barra de herramientas (como el inventario de
@@ -37,7 +37,7 @@ export function HeldSlot() {
   const tool = isHuertoTool(mine.held);
   const verb = tool ? "Huerto" : parts.length > 1 ? "Usar" : VERB[consumeActionOf(art)];
   // Lo gratis de la casa (nevera, cafetera, fogata) no está en ninguna carta.
-  const name = menuItem(mine.held)?.name ?? FREE_NAMES[mine.held] ?? "";
+  const name = menuItem(mine.held)?.name ?? FREE_NAMES[mine.held] ?? sombreroItem(mine.held)?.name ?? "";
   return (
     // Separado de los botones de la barra por una raya, como otra sección del inventario.
     <span className="ml-1 flex self-stretch items-center border-l-2 border-cozy-ink-soft/40 pl-2.5">

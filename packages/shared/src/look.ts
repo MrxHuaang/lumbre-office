@@ -61,8 +61,12 @@ export type Shoes = (typeof SHOES)[number];
  * - trunks: bañador de hombre con el color `pants` (franja y cordón con `accent`); pecho y brazos al aire.
  * - swimsuit: traje de baño entero con el color `shirt` (lleva el patrón); brazos y piernas al aire.
  * - bikini: parte de arriba y de abajo con el color `shirt` (lleva el patrón); barriga al aire.
+ * - trenchcoat: gabán largo cerrado con el color `accent`, cinturón y cuello alzado; tapa la parte de arriba
+ *   y los muslos (se ven las canillas con la parte de abajo).
+ * - vest: chaleco cerrado con el color `accent` (el de los crupieres del casino); las mangas y el cuello
+ *   de la parte de arriba quedan a la vista.
  */
-export const OUTFITS = ["overalls", "dress", "jacket", "apron", "trunks", "swimsuit", "bikini"] as const;
+export const OUTFITS = ["overalls", "dress", "jacket", "apron", "trunks", "swimsuit", "bikini", "trenchcoat", "vest"] as const;
 export type Outfit = (typeof OUTFITS)[number];
 
 /** Trajes de baño: con ellos no se dibujan la parte de arriba ni la de abajo, se ve la piel. */
@@ -72,7 +76,8 @@ export const isSwimwear = (outfit: Outfit | null | undefined): outfit is Swimwea
   (SWIMWEAR as readonly (Outfit | null | undefined)[]).includes(outfit);
 
 /** Accesorios por lugar (uno por lugar). Los que llevan color usan `accent`. */
-export const HEAD_ITEMS = ["none", "cap", "beanie", "straw-hat", "headphones", "bow", "crown", "flower", "bandana"] as const;
+/** `fedora`: sombrero de fieltro gris con cinta oscura (color propio, como el de paja). */
+export const HEAD_ITEMS = ["none", "cap", "beanie", "straw-hat", "headphones", "bow", "crown", "flower", "bandana", "fedora"] as const;
 export type HeadItem = (typeof HEAD_ITEMS)[number];
 export const FACE_ITEMS = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch"] as const;
 export type FaceItem = (typeof FACE_ITEMS)[number];

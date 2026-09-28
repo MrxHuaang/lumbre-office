@@ -101,7 +101,7 @@ export function seededRandom(seed: number): Random {
 /** Peinados altos: un sombrero o una gorra los aplastaría. */
 export const TALL_HAIR: readonly HairStyle[] = ["mohawk", "afro", "top-knot", "spiky"];
 /** Lo de la cabeza que tapa (o aplasta) el peinado. */
-export const HATS: readonly HeadItem[] = ["cap", "beanie", "straw-hat", "crown", "bandana"];
+export const HATS: readonly HeadItem[] = ["cap", "beanie", "straw-hat", "crown", "bandana", "fedora"];
 /** Lo que se prende en el pelo: sin pelo no tiene dónde ir. */
 export const HAIR_CLIPS: readonly HeadItem[] = ["bow", "flower"];
 /** Corbatas de cuello: no van con la camisa que ya trae corbata, ni con esqueleto o capucha. */

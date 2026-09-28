@@ -869,6 +869,124 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { b: hex("#8a5530"), B: hex("#5e3620"), g: hex("#e8c050"), G: hex("#b88a24"), e: hex("#ff7a2a") },
   },
+  // ---------- Lo que vende el Man del Sombrero (todo de mentiras) ----------
+  // La bareta: cono de papel con boquilla de cartón y pintas verdes; se quema como el cigarro.
+  bareta: {
+    fx: "smoke",
+    ember: { chars: "e", body: "wg" },
+    rows: [
+      "...oooooo", //
+      "ooowwgwwe",
+      "ofwgwwwge",
+      "ooooooooo",
+    ],
+    colors: { f: hex("#d9b27a"), w: hex("#f1ead2"), g: hex("#6f9a3a"), e: hex("#ff7a2a") },
+  },
+  // El brownie con su hojita encima.
+  "brownie-magico": {
+    crumb: hex("#8a5634"),
+    rows: [
+      "...oo...", //
+      "..olLo..",
+      "oooooooo",
+      "obbbbbBo",
+      "obcbbcBo",
+      "oBBBBBBo",
+      "oooooooo",
+    ],
+    colors: { b: hex("#6b3a22"), B: hex("#4a2616"), c: hex("#3a1e10"), l: hex("#79b84a"), L: hex("#4f8a30") },
+  },
+  // Bolsita de cierre con el cierre rojo: el polvo baja con cada esnifada.
+  "perico-bolsa": {
+    liquid: { chars: "pP" },
+    rows: [
+      "ooooooo", //
+      "orrrrro",
+      "ohGGGGo",
+      "ohpppPo",
+      "ohpppPo",
+      "oppppPo",
+      ".ooooo.",
+    ],
+    colors: {
+      r: hex("#c83a3a"),
+      G: alpha(hex("#e8f0f4"), 0.55),
+      p: hex("#f6f4ee"),
+      P: hex("#d8d4ca"),
+      h: GLASS.h,
+    },
+  },
+  // Un hongo de sombrero dorado con pintas, como los de potrero.
+  "hongos-quindio": {
+    crumb: hex("#e8dcc0"),
+    rows: [
+      "..oooo..", //
+      ".occdcCo",
+      "ocdccdCo",
+      "oCCCCCCo",
+      ".oossoo.",
+      "..osso..",
+      "..oooo..",
+    ],
+    colors: { c: hex("#c89a4a"), C: hex("#96702e"), d: hex("#f4e6c0"), s: hex("#efe4cc") },
+  },
+  // El cartoncito con la mariposa amarilla.
+  carton: {
+    crumb: hex("#e8dcc4"),
+    rows: [
+      "oooooo", //
+      "owwwwo",
+      "owyYwo",
+      "owYywo",
+      "owwwwo",
+      "oooooo",
+    ],
+    colors: { w: hex("#f4ecdc"), y: hex("#f4d35e"), Y: hex("#d99a2a") },
+  },
+  // La totumita del yagé: se ve el brebaje oscuro y, al tomar, el fondo de la totuma.
+  yage: {
+    rows: [
+      ".oooooo.", //
+      "oaaaaaAo",
+      "otttttTo",
+      "otttttTo",
+      ".otttTo.",
+      "..oooo..",
+    ],
+    colors: { t: hex("#b88a4a"), T: hex("#8a6030"), a: hex("#4a2e1a"), A: hex("#3a2012") },
+    surface: { chars: "aA", inner: hex("#d8b878") },
+  },
+  // Chirrinchi: botellita sin etiqueta, tapada con corcho.
+  chirrinchi: {
+    liquid: { chars: "aA" },
+    rows: [
+      ".oko.", //
+      ".oho.",
+      "oohoo",
+      "ohaAo",
+      "ohaAo",
+      "ohaAo",
+      "ohaAo",
+      "ooooo",
+    ],
+    colors: { k: hex("#b8864a"), a: hex("#ddd8b0"), A: hex("#b8b088"), h: GLASS.h },
+  },
+  // Viche: botella reciclada con una etiqueta de papel a mano.
+  viche: {
+    liquid: { chars: "aA" },
+    rows: [
+      ".oko..", //
+      ".oko..",
+      "oohoo.",
+      "ohaaAo",
+      "ohllAo",
+      "ohaaAo",
+      "ohaaAo",
+      "ohaaAo",
+      "oooooo",
+    ],
+    colors: { k: hex("#8a5a30"), a: hex("#d9b86a"), A: hex("#a8843a"), l: hex("#f4ecdc"), h: GLASS.h },
+  },
   // ---------- Casa viva: lo gratis de la nevera y de la fogata ----------
   jugo: {
     liquid: { chars: "aA" },

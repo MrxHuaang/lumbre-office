@@ -33,6 +33,9 @@ export class Player extends Schema {
   @type("string") fishing = "";
   /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
   @type("uint8") drunk = 0;
+  /** Lo que le hizo la mercancía del Man del Sombrero (TripKind; "" = nada) y hasta cuándo (ms del servidor). */
+  @type("string") trip = "";
+  @type("number") tripUntil = 0;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */
@@ -231,6 +234,17 @@ export class GardenPlotState extends Schema {
   @type("number") wateredUntil = 0;
 }
 
+/** El Man del Sombrero (ver rooms/sombrero.ts): si anda por ahí y en qué escondite. */
+export class SombreroState extends Schema {
+  @type("boolean") present = false;
+  /** Escondite del día (índice de SOMBRERO_HIDEOUTS) y dónde queda (se repite para el cliente). */
+  @type("int8") hideout = -1;
+  @type("string") area = "";
+  @type("uint8") x = 0;
+  @type("uint8") y = 0;
+  @type("string") facing = "down";
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -259,4 +273,6 @@ export class OfficeState extends Schema {
    */
   @type("float64") clockAnchorReal = 0;
   @type("float64") clockAnchorMinute = 0;
+  /** El Man del Sombrero: si anda por ahí y dónde (lo decide la sala con el reloj del juego y el clima). */
+  @type(SombreroState) sombrero = new SombreroState();
 }

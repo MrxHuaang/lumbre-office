@@ -277,7 +277,7 @@ describe("cabeza", () => {
       const s = drawSitting(style);
       return [topRow(w, 0, RIGHT), topRow(w, 0, UP), topRow(w, 1, RIGHT), topRow(s, RIGHT, 0), topRow(s, UP, 0)];
     };
-    for (const head of ["cap", "beanie", "straw-hat", "bandana"] as const) {
+    for (const head of ["cap", "beanie", "straw-hat", "bandana", "fedora"] as const) {
       const ref = tops({ ...base, head });
       for (const hairStyle of HAIR_STYLES) expect(tops({ ...base, hairStyle, head }), `${head} con ${hairStyle}`).toEqual(ref);
     }

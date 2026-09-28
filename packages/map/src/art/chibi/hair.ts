@@ -55,7 +55,7 @@ export const CROWN_W = 7;
 function maskHair(c: PixelCanvas, head: HeadItem, style: HairStyle, y: Row): PixelCanvas {
   let hide: ((x: number, r: number) => boolean) | null = null;
   if (head === "cap" || head === "beanie" || head === "bandana") hide = (_x, r) => r < 1;
-  else if (head === "straw-hat") hide = (_x, r) => r < 3;
+  else if (head === "straw-hat" || head === "fedora") hide = (_x, r) => r < 3;
   else if (head === "crown" && !KNOTS.has(style)) {
     // Arriba de la banda se ve el fondo entre las puntas (con una columna de margen a la sombra). Con moño
     // no se esconde nada: el moño es lo único que pasa por encima de la banda y tiene que asomar.

@@ -109,6 +109,7 @@ export const HEAD_LABEL: Record<HeadItem, string> = {
   crown: "Corona",
   flower: "Flor",
   bandana: "Pañoleta",
+  fedora: "Sombrero de fieltro",
 };
 
 export const FACE_LABEL: Record<FaceItem, string> = {
@@ -138,6 +139,8 @@ export const OUTFIT_LABEL: Record<Outfit, string> = {
   trunks: "Bañador",
   swimsuit: "Entero",
   bikini: "Bikini",
+  trenchcoat: "Gabán",
+  vest: "Chaleco",
 };
 
 /**
@@ -157,7 +160,12 @@ const ACCENT_NECK: Partial<Record<NeckItem, string>> = {
   bowtie: "el corbatín",
   necklace: "el collar",
 };
-const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta", trunks: "los detalles del bañador" };
+const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = {
+  jacket: "la chaqueta",
+  trunks: "los detalles del bañador",
+  trenchcoat: "el gabán",
+  vest: "el chaleco",
+};
 const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "el morral", cape: "la capa" };
 
 /** Lo que lleva puesto y usa el color de acento, en el orden de la cabeza a la espalda. */
@@ -186,7 +194,8 @@ const TOP2_TOP: Partial<Record<Top, string[]>> = {
  */
 export function top2Users(look: FullLook): string[] {
   const parts: string[] = [];
-  if (look.outfit === "trunks") return parts;
+  // El bañador no lleva la parte de arriba y el gabán cerrado la tapa entera.
+  if (look.outfit === "trunks" || look.outfit === "trenchcoat") return parts;
   if (look.pattern === "stripes") parts.push("las rayas");
   if (look.pattern === "dots") parts.push("los puntos");
   if (isSwimwear(look.outfit)) return parts;

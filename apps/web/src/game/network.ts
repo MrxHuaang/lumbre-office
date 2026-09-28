@@ -61,6 +61,11 @@ import {
   type PhotoShot,
   achievementById,
   type AchievementUnlockedEvent,
+  SOMBRERO_ERROR_TEXT,
+  SOMBRERO_THANKS,
+  sombreroItem,
+  type SombreroBuyResult,
+  type SombreroItemId,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -73,6 +78,7 @@ import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { useSombreroStore } from "./npcs/store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -102,6 +108,18 @@ export interface RemotePlayer {
   drunk: number;
   /** Corriendo la carrera de sillas. */
   racing: boolean;
+  /** Lo que le hizo la mercancía del Man del Sombrero (TripKind; "" = nada) y hasta cuándo (hora del servidor). */
+  trip: string;
+  tripUntil: number;
+}
+/** El Man del Sombrero como viaja en el estado (espejo de `SombreroState` en apps/server/src/state.ts). */
+export interface RemoteSombrero {
+  present: boolean;
+  hideout: number;
+  area: string;
+  x: number;
+  y: number;
+  facing: string;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -176,6 +194,8 @@ export interface OfficeStateView {
   pets: Map<string, RemotePet>;
   /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
   garden: Map<string, RemoteGardenPlot>;
+  /** El Man del Sombrero: si anda por ahí y en qué escondite. */
+  sombrero: RemoteSombrero;
 }
 
 /** Una parcela sembrada como viaja en el estado (espejo de `GardenPlotState` en apps/server/src/state.ts). */
@@ -406,7 +426,7 @@ export function sendBlackjackAction(action: BlackjackAction) {
   room?.send(MSG.blackjackAction, { action });
 }
 
-/** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
+/** Usar un objeto interactivo: casi todos abren su panel (el Man del Sombrero, su menú); el tubo del sótano hace bailar. */
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return togglePole();
   if (kind === "fishing") return fishingSpotAction();
@@ -475,6 +495,21 @@ export function sendBarOrder(item: BarItemId) {
 /** Pide algo en la confitería del cine (junto a la máquina de crispetas). */
 export function sendCinemaOrder(item: CinemaMenuItemId) {
   room?.send(MSG.cinemaOrder, { item });
+}
+
+/** Comprarle al Man del Sombrero (el servidor valida que esté, que estés junto a él y el saldo). */
+export function sendSombreroBuy(item: SombreroItemId) {
+  room?.send(MSG.sombreroBuy, { item });
+}
+
+function handleSombreroResult(r: SombreroBuyResult) {
+  useSombreroStore.getState().setResult(r);
+  const store = useOfficeStore.getState();
+  if (!r.ok) return store.notify(SOMBRERO_ERROR_TEXT[r.error], "warning");
+  const name = sombreroItem(r.item)?.name ?? "la mercancía";
+  const thanks = SOMBRERO_THANKS[Math.floor(Math.random() * SOMBRERO_THANKS.length)]!;
+  useSombreroStore.getState().speak(thanks);
+  store.notify(`${name} en la mano. Con F la usas.`, "success");
 }
 
 const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], string> = {
@@ -696,6 +731,14 @@ function attach(r: OfficeRoom) {
   $(r.state).worldEdits.onAdd((json, area) => applyWorldEditsJson(area, json));
   $(r.state).worldEdits.onChange((json, area) => applyWorldEditsJson(area, json));
   $(r.state).listen("weather", (w) => useOfficeStore.getState().setWeather(isWeather(w) ? w : "despejado"));
+  // El Man del Sombrero: una copia para la escena y el panel (llega con el primer estado).
+  $(r.state).listen("sombrero", (man) => {
+    if (!man) return;
+    const sync = () =>
+      useSombreroStore.getState().setMan({ present: man.present, hideout: man.hideout, area: man.area, x: man.x, y: man.y, facing: man.facing });
+    $(man).onChange(sync);
+    sync();
+  });
   // Las dos mitades del ancla cambian juntas (/time): se lee el par entero en cada aviso.
   const syncClock = () => useOfficeStore.getState().setGameClock({ anchorReal: r.state.clockAnchorReal, anchorMinute: r.state.clockAnchorMinute });
   $(r.state).listen("clockAnchorReal", syncClock);
@@ -796,6 +839,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
   r.onMessage(MSG.cafeResult, handleCafeResult);
+  r.onMessage(MSG.sombreroResult, handleSombreroResult);
   r.onMessage(MSG.officeEditResult, handleOfficeEditResult);
   r.onMessage(MSG.worldEditResult, handleWorldEditResult);
   r.onMessage(MSG.worldEditLockResult, handleWorldEditLockResult);

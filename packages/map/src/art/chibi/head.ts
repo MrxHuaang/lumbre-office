@@ -36,6 +36,8 @@ export function drawHeadwear({ c, t, look, view, y }: Ctx) {
       return drawCrown(c, y, crownRest(look.hairStyle));
     case "bandana":
       return drawBandana(c, t, view, y);
+    case "fedora":
+      return drawFedora(c, view, y);
     default:
       return;
   }
@@ -134,6 +136,46 @@ function drawCrown(c: PixelCanvas, y: Row, rest: number) {
   c.set(mid, y(top + 1), RUBY);
   c.set(mid - 2, y(top + 2), SAPPHIRE);
   c.set(mid + 2, y(top + 2), SAPPHIRE);
+}
+
+/** Fieltro gris del sombrero y su cinta oscura (fijos, como la paja). */
+const FELT: Three = [hex("#5f6168"), hex("#8a8c92"), hex("#b4b6ba")];
+const FELT_BAND = hex("#2e2a30");
+
+/**
+ * Sombrero de fieltro: copa con el pellizco arriba, cinta oscura y un ala corta que baja hacia donde mira.
+ * El ala le deja la frente y los ojos en sombra (se oscurece lo que ya estaba dibujado debajo).
+ */
+function drawFedora(c: PixelCanvas, view: View, y: Row) {
+  const [f0, f1, f2] = FELT;
+  // Sombra del ala sobre la cara (antes de pintar el ala, para no oscurecerla a ella).
+  for (const [row, k] of [
+    [5, 0.45],
+    [6, 0.25],
+  ] as const)
+    for (let x = 3; x <= 12; x++) darken(c, x, y(row), k);
+  c.rect(5, y(-1), 6, 1, f1);
+  c.rect(7, y(-1), 2, 1, f0);
+  c.rect(4, y(0), 8, 2, f1);
+  c.rect(5, y(0), 2, 1, f2);
+  c.set(7, y(0), f0);
+  c.rect(11, y(-1), 1, 3, f0);
+  c.rect(4, y(2), 8, 1, FELT_BAND);
+  const far = view === "front" ? 13 : 12;
+  c.rect(2, y(3), far, 1, f1);
+  c.rect(3, y(3), 3, 1, f2);
+  c.rect(3, y(4), far - 2, 1, f0);
+  // De frente el ala se dobla hacia abajo sobre los ojos.
+  if (view === "front") c.set(far + 1, y(4), f0);
+}
+
+/** Oscurece un píxel ya pintado (el contorno y lo vacío no se tocan). */
+function darken(c: PixelCanvas, x: number, cy: number, k: number) {
+  const i = (cy * c.width + x) * 4;
+  if (x < 0 || cy < 0 || x >= c.width || cy >= c.height || !c.data[i + 3]) return;
+  c.data[i] = Math.round(c.data[i]! * (1 - k));
+  c.data[i + 1] = Math.round(c.data[i + 1]! * (1 - k));
+  c.data[i + 2] = Math.round(c.data[i + 2]! * (1 - k * 0.8));
 }
 
 const RUBY = hex("#c0392b");

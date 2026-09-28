@@ -1,6 +1,7 @@
 // Borrachera en el cliente. La etapa la decide el servidor (`Player.drunk`); acá solo se dibuja: la
 // pantalla de quien tomó se nubla, ondula y se ve doble, camina en zigzag, y los demás lo ven tambalearse.
 import { DRUNK_STAGE_TEXT, type DrunkStage } from "@hyvento/shared";
+import type { CanvasFx } from "./trip";
 
 /** Cuánto pesa cada etapa en lo que se ve (0 = nada, 1 = lo más fuerte). */
 const INTENSITY: Record<DrunkStage, number> = { 0: 0, 1: 0.3, 2: 0.65, 3: 1, 4: 1 };
@@ -40,37 +41,43 @@ export class DrunkVision {
     this.stage = stage;
   }
 
-  update(time: number, delta: number) {
+  /**
+   * Cada cuadro. `extra`: lo del Man del Sombrero (ver trip.ts), que se suma a lo de la borrachera en el
+   * mismo canvas.
+   */
+  update(time: number, delta: number, extra: CanvasFx | null = null) {
     const target = INTENSITY[this.stage];
     // Sube en ~3 s y baja en ~6 s: el trago pega de a poco y se va más lento.
     const rate = (target > this.level ? 1 / 3000 : 1 / 6000) * delta;
     this.level = target > this.level ? Math.min(target, this.level + rate) : Math.max(target, this.level - rate);
     const el = this.canvas();
     if (!el) return;
-    if (this.level <= 0.001) {
+    const own = this.level > 0.001 ? this.fx(time) : null;
+    if (!own && !extra) {
       if (this.applied) this.clear(el);
       return;
     }
     this.applied = true;
+    el.style.filter = [own?.filter, extra?.filter].filter(Boolean).join(" ");
+    el.style.transform = [own?.transform, extra?.transform].filter(Boolean).join(" ");
+  }
+
+  /** Lo que se ve borracho: nublado, con los colores corridos, imagen doble y todo meciéndose. */
+  private fx(time: number): CanvasFx {
     const k = this.level;
     const t = time / 1000;
-    const calm = reducedMotion();
     const blur = (0.4 + 1.6 * k).toFixed(2);
     const sat = (1 + 0.5 * k).toFixed(2);
     // Con menos movimiento: solo nublado, sin ondas ni imagen doble que se mueva.
-    if (calm) {
-      el.style.filter = `blur(${blur}px) saturate(${sat})`;
-      return;
-    }
+    if (reducedMotion()) return { filter: `blur(${blur}px) saturate(${sat})`, transform: "" };
     const hue = (Math.sin(t * 0.7) * 25 * k).toFixed(1);
     // La imagen doble: una copia rosada corrida que va y viene.
     const gx = (Math.sin(t * 1.3) * 7 * k).toFixed(1);
     const gy = (Math.cos(t * 0.9) * 3 * k).toFixed(1);
     const ghost = k > 0.4 ? ` drop-shadow(${gx}px ${gy}px 0 rgba(255, 190, 220, ${(0.45 * k).toFixed(2)}))` : "";
-    el.style.filter = `blur(${blur}px) saturate(${sat}) hue-rotate(${hue}deg)${ghost}`;
     const rot = (Math.sin(t * 0.8) * 1.6 * k).toFixed(2);
     const scale = (1 + 0.04 * k + Math.sin(t * 1.1) * 0.012 * k).toFixed(3);
-    el.style.transform = `rotate(${rot}deg) scale(${scale})`;
+    return { filter: `blur(${blur}px) saturate(${sat}) hue-rotate(${hue}deg)${ghost}`, transform: `rotate(${rot}deg) scale(${scale})` };
   }
 
   /** Cómo se desvía al caminar: se gira la dirección de lado a lado (sin cambiar la velocidad). */

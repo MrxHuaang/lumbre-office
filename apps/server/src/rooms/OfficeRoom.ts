@@ -138,6 +138,12 @@ import {
   setGameTime,
   type GameClockState,
   type GameTime,
+  SOMBRERO,
+  SombreroBuyMessage,
+  sombreroItem,
+  sombreroRefId,
+  TRIP,
+  type SombreroBuyResult,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
@@ -170,6 +176,8 @@ import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
+import { ManDelSombrero } from "./sombrero";
+import { Trips, type TripTimings } from "./trips";
 
 interface UserData {
   lastMoveAt: number;
@@ -190,6 +198,8 @@ interface UserData {
   emoteTimes?: number[];
   /** Mensajes recientes al casino (tope por ráfaga, ver `acceptCasinoMessage`). */
   casinoTimes?: number[];
+  /** Última compra al Man del Sombrero (para no cobrar dos veces por un doble clic). */
+  lastSombreroAt?: number;
 }
 
 interface PendingKnock {
@@ -262,6 +272,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Reloj real para el reloj del juego y hora con la que arranca (los tests los fijan; null = la de Bogotá). */
   static gameClockNow: () => number = () => Date.now();
   static gameClockInitial: GameClockState | null = null;
+  /** Man del Sombrero: el azar del escondite de cada día (entero en [0, n)) y cada cuánto se revisa. */
+  static sombreroRandom: (n: number) => number = (n) => randomInt(n);
+  static sombreroTickMs = 1000;
+  /** Duración de los efectos de la mercancía (los tests la acortan). */
+  static tripTimings: TripTimings = { scale: 1, maxMs: TRIP.maxMs };
   /** Cada cuánto se guardan juntas las estadísticas de los logros (los tests lo acortan). */
   static statsFlushMs = 20_000;
 
@@ -331,12 +346,29 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       random: () => OfficeRoom.weatherRandom(),
       onChange: (w) => {
         this.state.weather = w;
+        // Con la tormenta sale el Man del Sombrero (y se va cuando escampa, si no es su hora).
+        this.sombrero?.refresh();
       },
     },
     OfficeRoom.weatherInitial ?? initialWeather(OfficeRoom.weatherNow()),
   );
   /** Lo que dura un desmayo (los tests lo acortan). */
   static faintMs: number = DRUNK.faintMs;
+  /** Lo que le hizo a cada uno la mercancía del Man del Sombrero (por userId). */
+  private trips = new Trips(
+    { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+    () => Date.now(),
+    (userId, kind, until) => {
+      for (const p of this.state.players.values())
+        if (p.userId === userId) {
+          p.trip = kind;
+          p.tripUntil = until;
+        }
+    },
+    () => OfficeRoom.tripTimings,
+  );
+  /** El Man del Sombrero: si está y en qué escondite (`state.sombrero`). */
+  private sombrero!: ManDelSombrero;
   /** Tiempos del brindis (los tests los acortan). */
   static toastTimings: ToastTimings = { ...TOAST };
   /** Brindis abiertos: invitaciones que se vencen y grupos que chocan los vasos. */
@@ -555,6 +587,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
     this.onMessage(MSG.cinemaOrder, (client, raw) => void this.handleOrder(client, raw, "cine"));
+    this.onMessage(MSG.sombreroBuy, (client, raw) => void this.handleSombreroBuy(client, raw));
     this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
     this.onMessage(PET_MSG.call, (client, raw) => this.handlePet(client, raw, "call"));
@@ -626,6 +659,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
     this.weather.start();
     this.setGameClock(OfficeRoom.gameClockInitial ?? initialClock(OfficeRoom.gameClockNow()));
+    this.sombrero = new ManDelSombrero({
+      state: this.state.sombrero,
+      time: () => this.gameTimeNow(),
+      weather: () => this.state.weather as Weather,
+      random: (n) => OfficeRoom.sombreroRandom(n),
+    });
+    this.sombrero.refresh();
+    this.clock.setInterval(() => this.sombrero.refresh(), OfficeRoom.sombreroTickMs);
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -641,6 +682,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   onDispose() {
     OfficeRoom.instances.delete(this);
     this.drunk.dispose();
+    this.trips.dispose();
     this.toasts.dispose();
     this.weather.dispose();
     void this.achievements.flushAll();
@@ -685,6 +727,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
     player.drunk = this.drunk.stage(auth.sub);
+    const trip = this.trips.get(auth.sub);
+    player.trip = trip?.kind ?? "";
+    player.tripUntil = trip?.until ?? 0;
     this.state.players.set(client.sessionId, player);
 
     client.userData = {
@@ -1213,8 +1258,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Tolerancia: latencia/jitter + mínimo de medio tile. Sentarse y levantarse "saltan" hasta
     // el asiento (p. ej. del tile de enfrente a la silla), así que ahí se permite algo más.
     const snap = seated !== player.seated ? map.tileSize * SEAT_REACH_TILES : 0;
-    // En la carrera de sillas se va más rápido.
-    const speed = PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : 1);
+    // En la carrera de sillas se va más rápido; trabado, más lento.
+    const stoned = this.trips.get(player.userId)?.kind === "trabado";
+    const speed = PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : 1) * (stoned ? TRIP.slowSpeedMul : 1);
     const maxDist = Math.max(map.tileSize * 0.75, dt * speed * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
 
@@ -1480,6 +1526,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
       const now = OfficeRoom.gameClockNow();
       this.setGameClock(cmd.kind === "set" ? setGameTime(this.gameClock(), now, cmd.minuteOfDay) : addGameTime(this.gameClock(), now, cmd.minutes));
+      this.sombrero.refresh();
     }
     const t = this.gameTimeNow();
     note(`Día ${t.day + 1}, ${formatGameTime(t.minuteOfDay)}.`);
@@ -1745,6 +1792,43 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     reply({ ok: true, item: item.id, balance: result.balance });
   }
 
+  // ---------- El Man del Sombrero ----------
+
+  /**
+   * Comprarle al Man del Sombrero: tiene que estar (sus horas o la tormenta), hay que estar junto a él y
+   * tener saldo. Lo comprado queda en la mano como lo de la cafetería (y se usa con F).
+   */
+  private async handleSombreroBuy(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = SombreroBuyMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const item = sombreroItem(parsed.data.item)!;
+    const reply = (r: SombreroBuyResult) => client.send(MSG.sombreroResult, r);
+    const now = Date.now();
+    if (now - (client.userData.lastSombreroAt ?? 0) < SOMBRERO.buyCooldownMs) return reply({ ok: false, item: item.id, error: "busy" });
+    this.sombrero.refresh();
+    if (!this.sombrero.present) return reply({ ok: false, item: item.id, error: "gone" });
+    const map = this.mapOf(player.area);
+    if (this.drunk.fainted(player.userId) || !this.sombrero.near(player.area, player.x, player.y, map.tileSize)) {
+      return reply({ ok: false, item: item.id, error: "far" });
+    }
+    client.userData.lastSombreroAt = now;
+    const userId = player.userId;
+    let result: { ok: boolean; balance: number };
+    try {
+      result = await this.repo.spendPoints({ userId, amount: item.price, reason: "PURCHASE", refId: sombreroRefId(item.id) });
+    } catch (err) {
+      console.error("spendPoints", err);
+      return reply({ ok: false, item: item.id, error: "failed" });
+    }
+    for (const p of this.state.players.values()) if (p.userId === userId) p.points = result.balance;
+    if (!result.ok) return reply({ ok: false, item: item.id, error: "funds" });
+    this.held.give(userId, item.id);
+    this.achievements.bump(userId, `${STAT_PREFIX.order}${item.id}`);
+    client.userData.lastActiveAt = now;
+    reply({ ok: true, item: item.id, balance: result.balance });
+  }
+
   /** Usar lo que se tiene en la mano (una pitada, un sorbo, un mordisco): lo ven los del mismo nivel. */
   private handleUseHeld(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
@@ -1755,6 +1839,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!used.ok) return;
     this.countUse(player.userId, used.art, used.action);
     this.drunk.consumed(player.userId, used.art);
+    this.trips.consumed(player.userId, used.art);
     client.userData.lastActiveAt = now;
     const event: HeldUsedEvent = { sessionId: client.sessionId, part: used.part, art: used.art, action: used.action, left: used.left };
     this.sendToArea(player.area, MSG.heldUsed, event);
@@ -1779,6 +1864,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const used = this.held.use(userId, Date.now(), part, { skipCooldown: true });
     if (!used.ok) return null;
     this.drunk.consumed(userId, used.art);
+    this.trips.consumed(userId, used.art);
     // Cada vaso que choca es un brindis (logro "¡Salud!") y un sorbo más.
     this.achievements.bump(userId, STAT_KEYS.toasts);
     this.countUse(userId, used.art, used.action);

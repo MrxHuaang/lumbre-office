@@ -33,3 +33,5 @@ export * from "./clock";
 export * from "./photos";
 export * from "./photo-service";
 export * from "./achievements";
+export * from "./sombrero";
+export * from "./npcs";

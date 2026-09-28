@@ -36,6 +36,7 @@ import { CinemaHud, CinemaPanel } from "./cinema/CinemaPanel";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
 import { ShedPanel } from "./ShedPanel";
+import { SombreroPanel } from "./SombreroPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -305,6 +306,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
           {panel?.kind === "race" && <RacePanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}
 

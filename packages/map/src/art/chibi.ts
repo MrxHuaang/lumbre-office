@@ -3,7 +3,7 @@
 // (clothes), cuello y espalda (gear), cara (face), pelo (hair) y cabeza (head). Aquí solo se decide el
 // orden de las capas. Los seis personajes fijos son presets de Look.
 import { normalizeLook, type FullLook, type HumanAvatar, type Look, type LookInput } from "@hyvento/shared";
-import { drawArms, drawLegs, drawTorso } from "./chibi/clothes";
+import { drawArms, drawCollar, drawLegs, drawTorso } from "./chibi/clothes";
 import { drawFace, drawFaceGear } from "./chibi/face";
 import { drawBackGear, drawNeckGear } from "./chibi/gear";
 import { drawHair } from "./chibi/hair";
@@ -61,11 +61,13 @@ function drawBody(look: FullLook, view: View, frame: 0 | 1 | 2, sit: boolean): P
     drawFace(ctx);
     // El cuello va antes que el pelo: el pelo largo cae por encima.
     drawNeckGear(ctx);
+    drawCollar(ctx);
     drawHair(ctx);
   } else {
     drawHair(ctx);
     // De espaldas lo del cuello va encima del pelo, para que se vea.
     drawNeckGear(ctx);
+    drawCollar(ctx);
   }
   drawFaceGear(ctx);
   drawHeadwear(ctx);

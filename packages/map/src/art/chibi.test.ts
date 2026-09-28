@@ -71,9 +71,10 @@ describe("personajes chibi", () => {
     // Formato viejo de accesorios: los que usan el color de acento (el editor nuevo nombra todo lo que lo
     // usa con accentUsers de look-palette).
     const accentAccessories: Accessory[] = ["cap", "headphones", "beanie", "scarf"];
-    // El vestido, el entero y el bikini tapan la parte de abajo; la chaqueta y el bañador usan el acento.
+    // El vestido, el entero y el bikini tapan la parte de abajo; la chaqueta, el bañador, el gabán y el
+    // chaleco usan el acento.
     const noPants: Outfit[] = ["dress", "swimsuit", "bikini"];
-    const withAccent: Outfit[] = ["jacket", "trunks"];
+    const withAccent: Outfit[] = ["jacket", "trunks", "trenchcoat", "vest"];
     const noAccent: CharacterStyle[] = [
       { ...base, accessories: [] },
       { ...base, hairStyle: "long", accessories: ACCESSORIES.filter((a) => !accentAccessories.includes(a)) },

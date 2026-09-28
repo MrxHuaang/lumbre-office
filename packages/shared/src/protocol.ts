@@ -303,4 +303,7 @@ export const MSG = {
   photosChanged: "photo:changed",
   /** Servidor → los del nivel: alguien desbloqueó un logro (ver achievements.ts). */
   achievementUnlocked: "achievement:unlocked",
+  /** Comprarle al Man del Sombrero (`SombreroBuyMessage`) y la respuesta a quien compró (`SombreroBuyResult`). */
+  sombreroBuy: "sombrero:buy",
+  sombreroResult: "sombrero:result",
 } as const;

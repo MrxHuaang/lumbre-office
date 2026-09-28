@@ -3,12 +3,14 @@
 import { z } from "zod";
 import { CASA_CONSUMABLES, CASA_USABLES, type CasaAction } from "./casa";
 import { HUERTO_CONSUMABLES, HUERTO_TOOLS, JARDIN_USABLES, type GardenStep, type JardinAction } from "./huerto";
+import { SOMBRERO_ALCOHOL, SOMBRERO_CONSUMABLES } from "./sombrero";
 
 /**
- * Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas), mordisco (comida en la mano) o
- * cucharada (lo que viene en plato, taza o vaso: los desayunos, el arroz con leche, el cholado).
+ * Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas), mordisco (comida en la mano),
+ * cucharada (lo que viene en plato, taza o vaso: los desayunos, el arroz con leche, el cholado) o, lo del
+ * Man del Sombrero, la esnifada (el perico de bolsita).
  */
-export type ConsumeAction = "smoke" | "sip" | "bite" | "spoon";
+export type ConsumeAction = "smoke" | "sip" | "bite" | "spoon" | "sniff";
 
 /**
  * Cada cosa que se puede llevar en la mano (los `holds` de las cartas en cafe.ts): cómo se usa y cuántas
@@ -79,6 +81,8 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   ...CASA_CONSUMABLES,
   // Jardín vivo: lo que se cosecha en el huerto y la miel.
   ...HUERTO_CONSUMABLES,
+  // Lo que vende el Man del Sombrero (sombrero.ts).
+  ...SOMBRERO_CONSUMABLES,
 };
 
 /** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). Las herramientas del huerto, los suyos. */
@@ -101,6 +105,8 @@ export const ALCOHOL_PER_SIP: Record<string, number> = {
   vino: 0.7,
   coctel: 0.8,
   whisky: 1.2,
+  // El chirrinchi y el viche del Man del Sombrero: más fuertes que lo del bar.
+  ...SOMBRERO_ALCOHOL,
 };
 
 export const DRUNK = {

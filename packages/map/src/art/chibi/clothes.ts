@@ -2,7 +2,7 @@
 // conjuntos. Filas del cuerpo: torso 13-17, cintura 18, piernas 19-21, zapatos 22-23 (ver kit.ts).
 import { isSwimwear, type Bottom, type FullLook, type Outfit, type Pattern, type Swimwear, type Top } from "@hyvento/shared";
 import { hex, type PixelCanvas, type RGBA } from "../pixel";
-import type { Ctx, Row, Tones, View } from "./kit";
+import { tone, type Ctx, type Row, type Tones, type View } from "./kit";
 
 /** Largo de manga de cada parte de arriba. */
 const SLEEVE: Record<Top, "none" | "short" | "long"> = {
@@ -27,6 +27,8 @@ export type Top2Part = Exclude<Pattern, "solid"> | "hood" | "collar" | "tie" | "
  * chaqueta cambia las mangas por las suyas.
  */
 export function top2Parts(look: FullLook): Top2Part[] {
+  // El gabán va cerrado y con mangas propias: la parte de arriba no se ve.
+  if (look.outfit === "trenchcoat") return [];
   const parts: Top2Part[] = look.pattern === "solid" ? [] : [look.pattern];
   // Con traje de baño no hay parte de arriba: el entero y el bikini llevan el patrón, el bañador no.
   if (isSwimwear(look.outfit)) return look.outfit === "trunks" ? [] : parts;
@@ -117,10 +119,12 @@ function drawShoe({ c, t, look, Y }: Ctx, leg: 0 | 1, x: number, row: number, hi
 /** Sentado (solo se ven de frente): muslos, espinilla y el pie adelante. */
 function drawLap({ c, t, look, view, Y }: Ctx, bottom: Bottom | null) {
   const dress = look.outfit === "dress";
+  // El gabán cae sobre las rodillas: el regazo es del color del gabán.
+  const coat = look.outfit === "trenchcoat";
   // El entero y el bikini dejan el muslo al aire; el bañador lo tapa como la tela de abajo.
   const bareLap = isSwimwear(look.outfit) && look.outfit !== "trunks";
   // Sobre las rodillas va el vestido, la falda o la tela de abajo; con falda, shorts o vestido se ve la espinilla.
-  const lap: [RGBA, RGBA] = dress ? [t.shirt[0], t.shirt[1]] : bareLap ? [t.skin[0], t.skin[1]] : t.pants;
+  const lap: [RGBA, RGBA] = coat ? [t.accent[0], t.accent[1]] : dress ? [t.shirt[0], t.shirt[1]] : bareLap ? [t.skin[0], t.skin[1]] : t.pants;
   const shin = bottom === "pants" ? t.pants[0] : t.skin[0];
   if (view === "back") {
     c.rect(4, Y(20), 8, 2, lap[0]);
@@ -169,6 +173,12 @@ export function drawArms(ctx: Ctx) {
       c.rect(x, y(14), 1, len, t.accent[0]);
       continue;
     }
+    if (look.outfit === "trenchcoat") {
+      // Mangas del gabán hasta la muñeca, con el puño más oscuro.
+      c.rect(x, y(14), 1, len, x === 3 ? t.accent[1] : t.accent[0]);
+      c.set(x, y(13 + len), tone(look.accent, -0.5));
+      continue;
+    }
     if (isSwimwear(look.outfit)) {
       c.rect(x, y(14), 1, len, skin);
       continue;
@@ -198,9 +208,91 @@ export function drawTorso(ctx: Ctx) {
   for (let r = 13; r <= 17; r++) for (let x = 4; x <= 11; x++) paint(x, r, x === 11 ? 0 : x === 5 && r <= 15 ? 2 : 1);
   // El vestido es la parte de arriba y tapa la de abajo.
   if (look.outfit === "dress") return drawDress(ctx, paint);
+  // El gabán va cerrado encima de todo: no hace falta dibujar los detalles de la parte de arriba.
+  if (look.outfit === "trenchcoat") return drawTrenchcoat(ctx);
   drawTopDetails(ctx);
   if (look.bottom === "skirt" && !sit) drawSkirt(c, t, y);
-  if (look.outfit) drawOutfit(c, look.outfit, t, view, sit, y, Y);
+  if (look.outfit === "vest") drawVest(ctx);
+  else if (look.outfit) drawOutfit(c, look.outfit, t, view, sit, y, Y);
+}
+
+/**
+ * Gabán largo del color de acento: cerrado y cruzado, con el cuello alzado alrededor de la cara, el
+ * cinturón amarrado y el faldón hasta las rodillas (abierto atrás). Tapa la parte de arriba y los muslos.
+ */
+function drawTrenchcoat({ c, t, look, view, sit, y }: Ctx) {
+  const [a0, a1, a2] = t.accent;
+  const deep = tone(look.accent, -0.55);
+  const front = view === "front";
+  for (let r = 13; r <= 18; r++) for (let x = 4; x <= 11; x++) c.set(x, y(r), x === 11 ? a0 : x === 5 && r <= 15 ? a2 : a1);
+  // Cinturón amarrado, con la hebilla.
+  c.rect(4, y(18), 8, 1, deep);
+  if (front) {
+    // Solapas cruzadas y dos filas de botones.
+    c.set(7, y(13), a0);
+    c.set(8, y(13), deep);
+    c.set(8, y(14), a0);
+    c.set(9, y(15), a0);
+    for (const [x, r] of [
+      [6, 15],
+      [9, 16],
+      [6, 17],
+    ] as const)
+      c.set(x, y(r), deep);
+    c.set(8, y(18), a2);
+  } else {
+    // La costura de la espalda y la pieza de los hombros.
+    c.rect(5, y(13), 6, 1, a2);
+    c.rect(7, y(14), 1, 4, a0);
+    c.set(7, y(18), a2);
+    c.set(8, y(18), a2);
+  }
+  if (sit) return;
+  // Faldón hasta las rodillas, más ancho abajo, con la abertura al medio.
+  for (let x = 4; x <= 11; x++) c.set(x, y(19), x === 11 ? a0 : x === 4 ? a2 : a1);
+  for (let x = 3; x <= 12; x++) c.set(x, y(20), x >= 11 ? a0 : x === 3 ? a2 : a1);
+  c.set(front ? 9 : 7, y(19), a0);
+  c.set(front ? 9 : 7, y(20), deep);
+}
+
+/**
+ * Cuello alzado del gabán: rodea el cuello y sube a los lados de la quijada. Va después de la cabeza (si
+ * no, la quijada lo taparía); el pelo largo cae por encima.
+ */
+export function drawCollar({ c, t, look, y }: Ctx) {
+  if (look.outfit !== "trenchcoat") return;
+  const [a0, a1, a2] = t.accent;
+  c.rect(4, y(12), 8, 1, a1);
+  c.rect(6, y(12), 4, 1, a0);
+  for (const x of [3, 4]) c.set(x, y(11), a1);
+  for (const x of [11, 12]) c.set(x, y(11), a0);
+  c.set(3, y(12), a2);
+  c.set(12, y(12), a0);
+}
+
+/** Chaleco cerrado del color de acento, con la camisa asomando en la V y botones; sin mangas. */
+function drawVest({ c, t, look, view, y }: Ctx) {
+  const [a0, a1, a2] = t.accent;
+  const deep = tone(look.accent, -0.55);
+  if (view === "front") {
+    for (let r = 14; r <= 18; r++)
+      for (let x = 4; x <= 11; x++) {
+        // La V deja ver la camisa (y la corbata, si trae).
+        if ((r <= 15 && (x === 7 || x === 8)) || (r === 16 && x === 8)) continue;
+        c.set(x, y(r), x === 11 ? a0 : x === 5 && r <= 15 ? a2 : a1);
+      }
+    c.set(6, y(14), a2);
+    c.set(9, y(14), a0);
+    for (const r of [17, 18]) c.set(8, y(r), deep);
+    // Las puntas de abajo sobre la pretina.
+    c.set(4, y(18), a0);
+    c.set(11, y(18), deep);
+    return;
+  }
+  for (let r = 14; r <= 18; r++) for (let x = 4; x <= 11; x++) c.set(x, y(r), x === 11 ? a0 : a1);
+  // La tira que lo ajusta en la espalda, con su hebillita.
+  c.rect(6, y(17), 4, 1, a2);
+  c.set(8, y(17), deep);
 }
 
 /** Cuello, capucha, corbata, botones y la cintura de cada parte de arriba. */
@@ -365,7 +457,7 @@ function drawSwimwear(ctx: Ctx, outfit: Swimwear, paint: Cloth) {
 }
 
 /** Conjuntos encima de la parte de arriba (el torso ya está dibujado con su cintura). */
-function drawOutfit(c: PixelCanvas, outfit: Exclude<Outfit, "dress" | Swimwear>, t: Tones, view: View, sit: boolean, y: Row, Y: Row) {
+function drawOutfit(c: PixelCanvas, outfit: Exclude<Outfit, "dress" | "trenchcoat" | "vest" | Swimwear>, t: Tones, view: View, sit: boolean, y: Row, Y: Row) {
   const front = view === "front";
   if (outfit === "overalls") {
     // Overol del color de abajo: tirantes con botones, peto y la parte de arriba asomando.

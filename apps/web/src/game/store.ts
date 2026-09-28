@@ -58,7 +58,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
-  | "shed";
+  | "shed"
+  // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
+  | "sombrero";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {
