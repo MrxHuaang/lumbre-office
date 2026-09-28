@@ -27,6 +27,7 @@ function json(res: ServerResponse, status: number, body: unknown) {
  * - POST /internal/offices-changed: la web avisa que cambiaron dueños/nombres de oficinas.
  * - POST /internal/points-changed: la web cambió el saldo de alguien (body `{ userId }`).
  * - POST /internal/photos-changed: se subió o se borró una foto (el tablón de la cafetería se refresca).
+ * - POST /internal/door-notes-changed: alguien leyó o borró las notas de su puerta (body `{ userId }`).
  */
 async function handleHttp(req: IncomingMessage, res: ServerResponse) {
   const path = (req.url ?? "").split("?")[0];
@@ -68,6 +69,18 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
     } catch (err) {
       console.error("reloadPoints", err);
       return json(res, 500, { error: "no se pudo recargar el saldo" });
+    }
+  }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.doorNotesChanged) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    const body = (await readJson(req)) as { userId?: unknown } | null;
+    if (!body || typeof body.userId !== "string") return json(res, 400, { error: "falta userId" });
+    try {
+      await OfficeRoom.reloadDoorNotesEverywhere(body.userId);
+      return json(res, 200, { ok: true });
+    } catch (err) {
+      console.error("reloadDoorNotes", err);
+      return json(res, 500, { error: "no se pudieron contar las notas" });
     }
   }
   if (req.method === "POST" && path === INTERNAL_ROUTES.giftSent) {

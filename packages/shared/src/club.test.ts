@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ARCADE_GAMES, ARCADE_MACHINES, ArcadeFinishMessage, arcadeGameOf, plausibleScore, weekStart } from "./arcade";
-import { beatAt, clockOffset, CLUB_TRACKS, CLUB_VIDEO, ClubDjMessage, ClubDanceMessage, ClubQueueMessage, isPlaying, loopMs, parseYoutubeId, trackElapsed } from "./club";
+import { beatAt, clockOffset, CLUB_TIP, CLUB_TRACKS, CLUB_VIDEO, ClubDjMessage, ClubDanceMessage, ClubQueueMessage, ClubTipMessage, isPlaying, loopMs, parseYoutubeId, TIP_AMOUNTS, tipAllowedToday, tipRefId, trackElapsed } from "./club";
 import { dayStart } from "./points";
+import { GIFT } from "./social";
 
 describe("club", () => {
   it("las pistas tienen ids únicos y un tempo razonable", () => {
@@ -116,5 +117,21 @@ describe("hora del servidor", () => {
       { sentAt: 4000, receivedAt: 3990, serverNow: 1 },
     ];
     expect(clockOffset(samples)).toBe(4000);
+  });
+});
+
+describe("propinas del tubo", () => {
+  it("el tope de propinas y el de dar de los regalos se cuentan los dos", () => {
+    expect(tipAllowedToday(0, 0, 25)).toBe("ok");
+    expect(tipAllowedToday(CLUB_TIP.dailyMax - 5, 0, 5)).toBe("ok");
+    expect(tipAllowedToday(CLUB_TIP.dailyMax - 5, 0, 10)).toBe("tips");
+    expect(tipAllowedToday(0, GIFT.dailyPoints - 1, 5)).toBe("points");
+  });
+
+  it("solo se tiran los billetes fijos, a una sesión", () => {
+    for (const amount of TIP_AMOUNTS) expect(ClubTipMessage.safeParse({ to: "s1", amount }).success).toBe(true);
+    expect(ClubTipMessage.safeParse({ to: "s1", amount: 7 }).success).toBe(false);
+    expect(ClubTipMessage.safeParse({ to: "", amount: 5 }).success).toBe(false);
+    expect(tipRefId("abc")).toBe(`${CLUB_TIP.refPrefix}abc`);
   });
 });

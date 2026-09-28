@@ -13,7 +13,7 @@ import {
   type ProfileAchievementDTO,
   type ProfileDTO,
 } from "@hyvento/shared";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { STATUS_HEX } from "@/lib/cozy";
 import { CharacterSprite } from "../CharacterSprite";
 import { PixelIcon } from "../Cozy";
@@ -26,13 +26,17 @@ const plural = (v: number, one: string, many: string) => `${n(v)} ${Math.round(v
 const since = (iso: string) => new Date(iso).toLocaleDateString("es-CO", { month: "long", year: "numeric" });
 const day = (iso: string) => new Date(iso).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
-export function ProfileView({ profile }: { profile: ProfileDTO }) {
+/**
+ * `onBadgeChanged`: se eligió otra insignia destacada (dentro de la cabaña se avisa a la sala para que
+ * todos la vean junto al nombre).
+ */
+export function ProfileView({ profile, onBadgeChanged }: { profile: ProfileDTO; onBadgeChanged?: () => void }) {
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
       <Identity profile={profile} />
       <div className="flex min-w-0 flex-col gap-4">
         <Facts profile={profile} />
-        <Achievements profile={profile} />
+        <Achievements profile={profile} onBadgeChanged={onBadgeChanged} />
       </div>
     </div>
   );
@@ -200,9 +204,44 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "todo", label: "Pendientes" },
 ];
 
-function Achievements({ profile }: { profile: ProfileDTO }) {
+/** La insignia destacada propia: se lee y se cambia con /api/badge (solo en el perfil propio). */
+function useFeaturedBadge(enabled: boolean, onChanged?: () => void) {
+  const [featured, setFeatured] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    fetch("/api/badge", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b: { achievementId: string | null } | null) => alive && b && setFeatured(b.achievementId))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [enabled]);
+  const choose = async (achievementId: string | null) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/badge", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ achievementId }) });
+      const body = (await res.json().catch(() => null)) as { achievementId?: string | null; error?: string } | null;
+      if (!res.ok) throw new Error(body?.error ?? "No se pudo guardar la insignia.");
+      setFeatured(body?.achievementId ?? null);
+      onChanged?.();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { featured, choose, busy, error };
+}
+
+function Achievements({ profile, onBadgeChanged }: { profile: ProfileDTO; onBadgeChanged?: () => void }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<string | null>(null);
+  const badge = useFeaturedBadge(profile.isMe, onBadgeChanged);
   const byId = useMemo(() => new Map(profile.achievements.map((a) => [a.id, a])), [profile.achievements]);
   // Primero lo conseguido (lo más nuevo arriba), después lo que está más cerca de salir.
   const rows = useMemo(() => {
@@ -254,7 +293,14 @@ function Achievements({ profile }: { profile: ProfileDTO }) {
                   title={hidden ? "Logro secreto" : a.name}
                   className="flex w-full flex-col items-center gap-1 border-2 border-transparent px-0.5 pt-1 pb-1.5 hover:border-cozy-paper-dark aria-pressed:border-cozy-red aria-pressed:bg-cozy-paper-light"
                 >
-                  <Badge achievement={a} locked={locked} scale={2} />
+                  <span className="relative">
+                    <Badge achievement={a} locked={locked} scale={2} />
+                    {profile.isMe && badge.featured === a.id && (
+                      <span className="absolute -top-1 -right-1" title="Junto a tu nombre">
+                        <PixelIcon name="star" size={11} color="var(--color-cozy-gold)" />
+                      </span>
+                    )}
+                  </span>
                   {locked && !hidden ? (
                     <Meter value={st.progress} className="w-10" />
                   ) : (
@@ -266,12 +312,29 @@ function Achievements({ profile }: { profile: ProfileDTO }) {
           })}
         </ul>
       )}
-      {pick && <AchievementDetail a={pick.a} st={pick.st} teamSize={profile.teamSize} />}
+      {pick && (
+        <AchievementDetail a={pick.a} st={pick.st} teamSize={profile.teamSize}>
+          {profile.isMe && pick.st.unlockedAt && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={badge.busy}
+                aria-pressed={badge.featured === pick.a.id}
+                onClick={() => void badge.choose(badge.featured === pick.a.id ? null : pick.a.id)}
+                className="cozy-btn px-2.5 py-1 text-[13px]"
+              >
+                {badge.featured === pick.a.id ? "Quitar de junto a mi nombre" : "Llevar junto a mi nombre"}
+              </button>
+              {badge.error && <span className="text-[12px] text-cozy-red-deep">{badge.error}</span>}
+            </div>
+          )}
+        </AchievementDetail>
+      )}
     </section>
   );
 }
 
-function AchievementDetail({ a, st, teamSize }: { a: Achievement; st: ProfileAchievementDTO; teamSize: number }) {
+function AchievementDetail({ a, st, teamSize, children }: { a: Achievement; st: ProfileAchievementDTO; teamSize: number; children?: React.ReactNode }) {
   const locked = !st.unlockedAt;
   const hidden = locked && a.secret;
   const rarity = ACHIEVEMENT_RARITY[a.rarity];
@@ -295,6 +358,7 @@ function AchievementDetail({ a, st, teamSize }: { a: Achievement; st: ProfileAch
           {st.owners === 0 ? "Nadie del equipo lo tiene todavía" : `${pct}% del equipo lo tiene`}
         </p>
         {locked && !hidden && <Meter value={st.progress} className="mt-1.5 max-w-60" />}
+        {children}
       </div>
     </div>
   );

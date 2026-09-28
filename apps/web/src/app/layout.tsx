@@ -15,11 +15,11 @@ const DIGITS_FONT = "https://fonts.googleapis.com/css2?family=Tiny5&text=0123456
 
 /**
  * La dirección pública del sitio, para que la imagen al compartir (opengraph-image.tsx) tenga URL
- * completa: la de Auth.js si está, si no la de producción de Vercel y, en local, localhost.
+ * completa: la de NEXT_PUBLIC_SITE_URL si está, si no la de producción de Vercel y, en local, localhost.
  */
 function urlDelSitio(): URL {
   const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL;
-  const candidatas = [process.env.AUTH_URL, process.env.NEXTAUTH_URL, vercel && `https://${vercel}`, "http://localhost:3000"];
+  const candidatas = [process.env.NEXT_PUBLIC_SITE_URL, vercel && `https://${vercel}`, "http://localhost:3000"];
   for (const c of candidatas) {
     if (!c) continue;
     try {
