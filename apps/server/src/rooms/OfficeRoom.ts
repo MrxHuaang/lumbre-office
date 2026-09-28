@@ -1243,6 +1243,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Una oficina sin dueño no puede estar cerrada.
     office.locked = Boolean(r.ownerId) && r.locked;
     if (ownerChanged || !office.locked) office.guests.clear();
+    // La radio y la nota de la placa eran del dueño anterior: el nuevo empieza con la oficina callada.
+    if (ownerChanged) {
+      this.stopRadio(office);
+      office.note = "";
+    }
     office.floor = r.floor ?? "";
     office.wallpaper = r.wallpaper ?? "";
     office.customized = r.customized;
@@ -1592,6 +1597,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         if (!videoId) return fail("not-youtube");
         const info = await OfficeRoom.youtubeLookup(videoId).catch(() => ({ ok: true as const, title: FALLBACK_TITLE }));
         if (!info.ok) return fail(info.error);
+        // Mientras se buscaba el video la oficina pudo cambiar de dueño.
+        if (office.ownerId !== player.userId) return fail("not-owner");
         office.radioVideo = videoId;
         office.radioTitle = info.title.slice(0, CLUB_VIDEO.maxTitle);
         office.radioStartedAt = Date.now();
@@ -1612,14 +1619,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         office.radioPausedAt = 0;
         return;
       case "stop":
-        office.radioVideo = "";
-        office.radioTitle = "";
-        office.radioStartedAt = 0;
-        office.radioPaused = false;
-        office.radioPausedAt = 0;
-        office.radioDurationMs = 0;
+        this.stopRadio(office);
         return;
     }
+  }
+
+  private stopRadio(office: OfficeInfo) {
+    office.radioVideo = "";
+    office.radioTitle = "";
+    office.radioStartedAt = 0;
+    office.radioPaused = false;
+    office.radioPausedAt = 0;
+    office.radioDurationMs = 0;
   }
 
   /** La nota de la placa de la puerta: solo el dueño de la oficina, una línea corta. */
