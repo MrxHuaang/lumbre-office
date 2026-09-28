@@ -1,11 +1,14 @@
-// Red del escenario y de la cabina de grabación: copia `state.stage` y `state.podcast` al store y manda
+// Red del escenario y del estudio de grabación: copia `state.stage` y `state.podcast` al store y manda
 // lo que se hace (subir o bajar de la tarima, la mano, la palabra, aplaudir, grabar y dar permiso). Se
 // engancha solo a cada sala nueva (conexión y reconexiones) con `onRoom`.
 import {
   ESCENARIO_MSG,
   ESCENARIO_NOTICES,
+  PODCAST,
   PODCAST_MSG,
+  podcastBlock,
   podcastNoticeText,
+  type PodcastBlock,
   type ApplauseEvent,
   type EscenarioNotice,
   type HandView,
@@ -86,11 +89,22 @@ function bind(r: Room) {
   r.onMessage(ESCENARIO_MSG.notice, (n: EscenarioNotice) => useOfficeStore.getState().notify(ESCENARIO_NOTICES[n.code], "info"));
   r.onMessage(ESCENARIO_MSG.applause, (e: ApplauseEvent) => applauseListeners.forEach((cb) => cb(e)));
   r.onMessage(PODCAST_MSG.notice, (n: PodcastNotice) =>
-    useOfficeStore.getState().notify(podcastNoticeText(n), n.code === "started" ? "success" : n.code === "declined" || n.code === "joined" || n.code === "hostLeft" ? "warning" : "info"),
+    useOfficeStore.getState().notify(podcastNoticeText(n), n.code === "started" ? "success" : n.code === "declined" || n.code === "joined" || n.code === "hostLeft" || n.code === "full" || n.code === "onAir" ? "warning" : "info"),
   );
 }
 
 if (typeof window !== "undefined") onRoom(bind);
+
+/** ¿Me dejarían entrar al estudio? (lo mismo que valida el servidor, con lo que se ve del estado). */
+export function podcastBlockFor(myUserId: string | null): PodcastBlock | null {
+  const room = getRoom();
+  if (!room) return null;
+  let inside = 0;
+  (room.state as { players: { forEach(cb: (p: { area: string; userId: string }) => void): void } }).players.forEach((p) => {
+    if (p.area === PODCAST.area && p.userId !== myUserId) inside++;
+  });
+  return podcastBlock(inside, useEscenarioStore.getState().podcast.phase);
+}
 
 /** Subir a la tarima desde la escalerita (o bajar). */
 export const sendStage = (on: boolean) => getRoom()?.send(ESCENARIO_MSG.stage, { on });

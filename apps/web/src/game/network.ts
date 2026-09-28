@@ -539,7 +539,7 @@ export function activateInteractable(kind: Interactable) {
   useOfficeStore.getState().openPanel(kind, true);
 }
 
-/** La mesa de la cabina: pedir permiso para grabar (con el audio conectado) o, si ya se graba, detener. */
+/** La consola del estudio: pedir permiso para grabar (con el audio conectado) o, si ya se graba, detener. */
 function podcastAction() {
   if (useEscenarioStore.getState().podcast.phase !== "idle") return void room?.send(PODCAST_MSG.stop);
   if (!media.connected) return useOfficeStore.getState().notify("Para grabar hay que tener el audio conectado.", "warning");

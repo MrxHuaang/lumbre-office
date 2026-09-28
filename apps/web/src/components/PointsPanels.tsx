@@ -78,7 +78,7 @@ const PROMPT: Record<Interactable, string> = {
   trophies: "Ver la vitrina de trofeos",
   kitchen: "Cocinar en la estufa",
   stage: "Subir al escenario",
-  podcast: "Grabar en la cabina",
+  podcast: "Grabar en el estudio",
   sombrero: "Hablar con el Man del Sombrero",
   bus: "Subir al Megabús",
   grill: "Cocinar en el horno de barro",
@@ -154,7 +154,7 @@ export function InteractPrompt() {
   );
 }
 
-/** La escalerita dice "bajar" si ya estoy en la tarima; la mesa de la cabina, "detener" si ya se graba. */
+/** La escalerita dice "bajar" si ya estoy en la tarima; la consola del estudio, "detener" si ya se graba. */
 function EscenarioPromptLabel({ kind }: { kind: "stage" | "podcast" }) {
   const onStage = useEscenarioStore((s) => s.here.onStage);
   const busy = useEscenarioStore((s) => s.podcast.phase !== "idle");
