@@ -71,6 +71,7 @@ const PROMPT: Record<Interactable, string> = {
   orrery: "Ver el orrery",
   radar: "Usar el radar de señales",
   logbook: "Leer el diario de exploración",
+  sombrero: "Hablar con el Man del Sombrero",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

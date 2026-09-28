@@ -13,6 +13,7 @@ import { useAchievementStore } from "@/game/achievements";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
+import { GameClockChip } from "./GameClockChip";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
@@ -50,6 +51,7 @@ export function Hud(props: HudProps) {
       <MainMenu {...props} />
       <PointsCounter />
       <PlaceChip />
+      <GameClockChip />
       <GiftChip />
       <BirthdayChip />
       <CallChip />
@@ -102,8 +104,6 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
   const players = useOfficeStore((s) => s.players);
   const sessionId = useOfficeStore((s) => s.sessionId);
   const me = sessionId ? players[sessionId] : undefined;
-  const night = useOfficeStore((s) => s.night);
-  const setNight = useOfficeStore((s) => s.setNight);
   const walls = useOfficeStore((s) => s.privateWalls);
   const openPanel = useOfficeStore((s) => s.openPanel);
   const [open, setOpen] = useState(false);
@@ -206,9 +206,6 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
           </MenuGroup>
 
           <MenuGroup label="Ajustes">
-            <MenuToggle icon={night ? "moon" : "sun"} on={night} onClick={() => setNight(!night)}>
-              Modo noche
-            </MenuToggle>
             <MenuToggle icon="walls" on={walls} onClick={() => useOfficeStore.getState().setPrivateWalls(!walls)}>
               Paredes altas adentro
             </MenuToggle>

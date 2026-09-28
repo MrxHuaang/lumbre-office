@@ -46,3 +46,5 @@ export * from "./events";
 export * from "./focus";
 export * from "./phone";
 export * from "./observatorio";
+export * from "./sombrero";
+export * from "./npcs";

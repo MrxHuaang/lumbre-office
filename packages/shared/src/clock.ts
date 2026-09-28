@@ -54,6 +54,17 @@ export function formatGameTime(minuteOfDay: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
+/** El reloj del HUD avanza de a 10 minutos del juego, como el de Stardew Valley. */
+export const CLOCK_STEP = 10;
+export const clockStep = (minuteOfDay: number) => Math.floor(minuteOfDay / CLOCK_STEP) * CLOCK_STEP;
+
+/** Momento del cielo para el ícono del reloj: amanece de 5 a 7, atardece de 17 a 19 y el resto es noche. */
+export type SkyPhase = "amanecer" | "dia" | "atardecer" | "noche";
+export function skyPhase(minuteOfDay: number): SkyPhase {
+  if (isNightMinute(minuteOfDay)) return minuteOfDay >= 5 * 60 && minuteOfDay < NIGHT_UNTIL ? "amanecer" : "noche";
+  return minuteOfDay >= 17 * 60 ? "atardecer" : "dia";
+}
+
 /** Reloj que arranca con la hora de Bogotá del momento (así el primer día no empieza de madrugada). */
 export function initialClock(now: number): GameClockState {
   const bogota = new Date(now - 5 * 3_600_000);

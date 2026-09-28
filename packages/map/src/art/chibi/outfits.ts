@@ -4,7 +4,7 @@
 import type { Outfit, Swimwear } from "@hyvento/shared";
 import type { RGBA } from "../pixel";
 import { BUTTON, type Cloth } from "./clothes";
-import type { Ctx, Three, View } from "./kit";
+import { tone, type Ctx, type Three, type View } from "./kit";
 
 /** Filas de tela de cada traje de baño (columnas por fila), de frente y de espaldas. */
 type SwimCut = Record<number, readonly number[]>;
@@ -82,6 +82,21 @@ function slab(ctx: Ctx, x0: number, x1: number, r0: number, r1: number, k: Three
   const [k0, k1] = k;
   const k2 = k.length > 2 ? (k as Three)[2] : k1;
   for (let r = r0; r <= r1; r++) for (let x = x0; x <= x1; x++) ctx.c.set(x, ctx.y(r), x === x1 ? k0 : x === x0 + 1 && r <= r0 + 3 ? k2 : k1);
+}
+
+/**
+ * Cuello alzado del gabán: rodea el cuello y sube a los lados de la quijada. Va después de la cabeza (si
+ * no, la quijada lo taparía); el pelo largo cae por encima.
+ */
+export function drawCollar({ c, t, look, y }: Ctx) {
+  if (look.outfit !== "trenchcoat") return;
+  const [a0, a1, a2] = t.accent;
+  c.rect(4, y(12), 8, 1, a1);
+  c.rect(6, y(12), 4, 1, a0);
+  for (const x of [3, 4]) c.set(x, y(11), a1);
+  for (const x of [11, 12]) c.set(x, y(11), a0);
+  c.set(3, y(12), a2);
+  c.set(12, y(12), a0);
 }
 
 /** Conjuntos encima de la parte de arriba (el torso ya está dibujado; los que la tapan la pintan entera). */
@@ -405,6 +420,31 @@ const OUTFIT_DRAW: Record<Exclude<Outfit, Swimwear>, Draw> = {
     }
     // Flecos.
     for (let x = 2; x <= 13; x += 2) c.set(x, y(21), x >= 12 ? s0 : s1);
+  },
+
+  trenchcoat({ c, t, look, view, y }) {
+    // Gabán largo del color de acento, cerrado y cruzado: solapas, dos filas de botones, el cinturón
+    // amarrado y el faldón hasta la rodilla (abierto atrás). El cuello alzado va con la cabeza (drawCollar).
+    const [a0, a1, a2] = t.accent;
+    const deep = tone(look.accent, -0.55);
+    for (let r = 12; r <= 23; r++)
+      for (let x = r === 12 ? 5 : r >= 21 ? 3 : 4; x <= (r === 12 ? 10 : r >= 21 ? 12 : 11); x++)
+        c.set(x, y(r), x >= 11 ? a0 : x <= 5 && r <= 16 ? a2 : a1);
+    c.rect(4, y(20), 8, 1, deep);
+    if (view === "front") {
+      c.set(7, y(13), a0);
+      c.set(8, y(13), deep);
+      c.set(8, y(14), a0);
+      c.set(9, y(15), a0);
+      for (const [x, r] of [[6, 15], [9, 17], [6, 18]] as const) c.set(x, y(r), deep);
+      c.set(8, y(20), a2);
+      for (let r = 21; r <= 23; r++) c.set(9, y(r), a0);
+    } else {
+      c.rect(5, y(13), 6, 1, a2);
+      c.rect(7, y(14), 1, 6, a0);
+      for (let r = 21; r <= 23; r++) c.set(7, y(r), deep);
+    }
+    for (let x = 3; x <= 12; x++) c.set(x, y(23), a0);
   },
 
   "hi-vis"({ c, t, view, y }) {

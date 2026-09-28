@@ -155,32 +155,31 @@ const BY_ID = new Map(FISH.map((f) => [f.id, f]));
 export const fishById = (id: string): FishSpecies | undefined => BY_ID.get(id);
 export const isTrash = (f: FishSpecies) => f.rarity === "basura";
 
-// ---------- Horario (hora de Bogotá) ----------
+// ---------- Horario (hora del juego) ----------
 
-/** Hora de Bogotá (0 a 23) de `ts`. */
+/** Hora de Bogotá (0 a 23) de `ts`. Solo para lo que va con la hora real (logros de madrugador y búho). */
 export function bogotaHour(ts: number): number {
   return Math.floor((ts - dayStart(ts)) / 3_600_000);
 }
 
-/** ¿Es de día en Bogotá? (6:00 a 17:59). */
-export const isBogotaDay = (ts: number) => {
-  const h = bogotaHour(ts);
-  return h >= 6 && h < 18;
-};
+/** ¿Es de día para los peces? (6:00 a 17:59 del reloj del juego). */
+export const isFishDayHour = (hour: number) => hour >= 6 && hour < 18;
 
-/** ¿Pica este pez a esta hora y con este clima? (sin clima conocido, los que piden uno no pican). */
-export function fishAvailable(f: FishSpecies, ts: number, weather?: Weather): boolean {
+/**
+ * ¿Pica este pez a esta hora del juego (0 a 23, ver clock.ts) y con este clima? Sin clima conocido, los
+ * que piden uno no pican.
+ */
+export function fishAvailable(f: FishSpecies, hour: number, weather?: Weather): boolean {
   if (f.weather && !weatherMatches(f.weather, weather)) return false;
-  const h = bogotaHour(ts);
   switch (f.time) {
     case "siempre":
       return true;
     case "atardecer":
-      return h >= 17 && h < 20;
+      return hour >= 17 && hour < 20;
     case "madrugada":
-      return h < 4;
+      return hour < 4;
     default:
-      return (f.time === "dia") === isBogotaDay(ts);
+      return (f.time === "dia") === isFishDayHour(hour);
   }
 }
 
@@ -190,15 +189,16 @@ function weatherMatches(want: FishWeather, now: Weather | undefined): boolean {
 }
 
 /**
- * Lo que puede picar ahora, con su peso: cada especie pesa lo de su rareza. `random(n)` da un entero en
+ * Lo que puede picar a esta hora del juego, con su peso: cada especie pesa lo de su rareza. `random(n)` da un entero en
  * [0, n) (en el servidor, `crypto.randomInt`; en los tests, uno fijo).
  */
-export function fishPool(ts: number, weather?: Weather): { fish: FishSpecies; weight: number }[] {
-  return FISH.filter((f) => fishAvailable(f, ts, weather)).map((f) => ({ fish: f, weight: RARITY[f.rarity].weight }));
+export function fishPool(hour: number, weather?: Weather): { fish: FishSpecies; weight: number }[] {
+  return FISH.filter((f) => fishAvailable(f, hour, weather)).map((f) => ({ fish: f, weight: RARITY[f.rarity].weight }));
 }
 
-export function pickFish(ts: number, random: (n: number) => number, weather?: Weather): FishSpecies {
-  const pool = fishPool(ts, weather);
+/** Elige el pez que pica a esta hora del juego. */
+export function pickFish(hour: number, random: (n: number) => number, weather?: Weather): FishSpecies {
+  const pool = fishPool(hour, weather);
   const total = pool.reduce((a, p) => a + p.weight, 0);
   let r = random(total);
   for (const p of pool) {
