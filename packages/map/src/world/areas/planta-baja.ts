@@ -148,7 +148,8 @@ export const plantaBaja: AreaDef = {
     place("lamp", 8, 7),
     place("piano", 0, 5, "right"),
     place("guitar", 0, 8),
-    place("sideboard", 11, 5, "down"),
+    // El acuario contra la pared de la cafetería, mirando al salón: nadan los peces que sacó el equipo.
+    place("acuario", 12, 4, "left"),
     place("kentia", 12, 0),
     place("record-player", 12, 8),
     place("monstera", 12, 10),
@@ -353,6 +354,8 @@ export const plantaBaja: AreaDef = {
     { type: "cafe_counter", name: "Barra", x: 25, y: 3 },
     // Frente al tablón de fotos (ver la galería).
     { type: "photo_board", name: "Tablón de fotos", x: 17, y: 1 },
+    // Frente al acuario del salón (ver qué peces nadan y quién los sacó).
+    { type: "aquarium", name: "Acuario", x: 11, y: 6 },
     // Frente al mostrador (comprar) y a la cortina del probador del medio (probarse ropa).
     { type: "shop_counter", name: "Mostrador", x: 21, y: 16 },
     { type: "fitting_room", name: "Probador", x: 37, y: 16 },

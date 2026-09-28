@@ -8,7 +8,9 @@ import {
   casinoBet,
   getCasinoSettings,
   givenToday,
+  leaveDoorNote,
   listInventory,
+  unreadDoorNotes,
   type PresenceStatus as DbStatus,
   prisma,
   type Prisma,
@@ -310,5 +312,13 @@ export class PrismaRepository implements GameRepository {
 
   unlockAchievement(userId: string, achievementId: string) {
     return unlockAchievement(prisma, userId, achievementId);
+  }
+
+  saveDoorNote(input: { fromId: string; toId: string; zoneId: string; text: string }) {
+    return leaveDoorNote(prisma, input);
+  }
+
+  unreadDoorNotes(userIds: string[]) {
+    return unreadDoorNotes(prisma, userIds);
   }
 }

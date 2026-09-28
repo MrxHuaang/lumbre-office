@@ -153,6 +153,7 @@ import { Whiteboards, type BoardWho } from "./whiteboards";
 import { ChairRaces, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
+import { DoorNotes } from "./door-notes";
 
 interface UserData {
   lastMoveAt: number;
@@ -250,6 +251,17 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Se subió o se borró una foto (lo avisa la web): todos vuelven a pedir la lista del tablón. */
   static broadcastPhotosChanged() {
     for (const r of OfficeRoom.instances) r.broadcast(MSG.photosChanged, {});
+  }
+
+  /** Notas en la puerta: la cuenta de las sin leer de alguien en todas las salas (post-its de su puerta). */
+  static setDoorNotesEverywhere(ownerId: string, unread: number) {
+    for (const r of OfficeRoom.instances) r.setDoorNotes(ownerId, unread);
+  }
+
+  /** El dueño leyó o borró notas desde la web: se vuelven a contar. */
+  static async reloadDoorNotesEverywhere(userId: string) {
+    const counts = await OfficeRoom.repo.unreadDoorNotes([userId]);
+    OfficeRoom.setDoorNotesEverywhere(userId, counts[userId] ?? 0);
   }
 
   /** Cuenta regresiva y pausa entre fotos (los tests las acortan). */
@@ -415,6 +427,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
     messages: { countdown: MSG.photoCountdown, shot: MSG.photoShot, flash: MSG.photoFlash },
   });
+  /** Notas en la puerta de las oficinas (ver door-notes.ts). */
+  private doorNotes = new DoorNotes({
+    repo: () => this.repo,
+    author: (sessionId) => {
+      const p = this.state.players.get(sessionId);
+      return p ? { userId: p.userId, area: p.area, x: p.x, y: p.y } : null;
+    },
+    office: (zoneId) => {
+      const office = this.state.offices.get(zoneId);
+      const zone = this.zonesById.get(zoneId);
+      const area = this.areaOfZone.get(zoneId);
+      if (!office || !zone?.door || !area) return null;
+      return { ownerId: office.ownerId, ownerName: office.ownerName, area, door: officeDoor(zone) };
+    },
+    reply: (sessionId, result) => this.clients.getById(sessionId)?.send(MSG.doorNoteResult, result),
+    setUnread: (ownerId, unread) => OfficeRoom.setDoorNotesEverywhere(ownerId, unread),
+  });
   /** Intercambios en vivo entre dos personas cerca (fase 5). */
   private trades = new Trades({
     player: (sessionId) => this.state.players.get(sessionId),
@@ -480,6 +509,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.profileChanged, (client) => void this.handleProfileChanged(client));
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.officeNote, (client, raw) => this.handleOfficeNote(client, raw));
+    this.onMessage(MSG.doorNote, (client, raw) => void this.doorNotes.leave(client.sessionId, raw));
     this.onMessage(MSG.officeRadio, (client, raw) => void this.handleOfficeRadio(client, raw));
     this.onMessage(MSG.raceStart, (client, raw) => this.handleRaceStart(client, raw));
     this.onMessage(MSG.raceCancel, (client) => {
@@ -664,6 +694,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
       for (const areaId of new Set([...seen].map((z) => this.areaOfZone.get(z)!))) this.rebuildArea(areaId);
     });
+    await this.reloadDoorNotes();
+  }
+
+  /** Los post-its de cada puerta: las notas sin leer de cada dueño. */
+  private async reloadDoorNotes() {
+    const owners = [...new Set([...this.state.offices.values()].map((o) => o.ownerId).filter(Boolean))];
+    try {
+      const counts = await this.repo.unreadDoorNotes(owners);
+      for (const office of this.state.offices.values()) office.notes = Math.min(255, counts[office.ownerId] ?? 0);
+    } catch (err) {
+      console.error("unreadDoorNotes", err);
+    }
+  }
+
+  private setDoorNotes(ownerId: string, unread: number) {
+    for (const office of this.state.offices.values()) if (office.ownerId && office.ownerId === ownerId) office.notes = Math.min(255, unread);
   }
 
   private applyOfficeRecord(r: OfficeRecord) {

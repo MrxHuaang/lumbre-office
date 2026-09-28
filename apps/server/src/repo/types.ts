@@ -153,3 +153,17 @@ export interface SocialRepository {
 
 // Se funde con la declaración de arriba: el repositorio del juego también hace regalos e intercambios.
 export interface GameRepository extends SocialRepository {}
+
+/** Resultado de dejar una nota en una puerta: cuántas le quedan hoy a quien la dejó y cuántas sin leer tiene el dueño. */
+export type DoorNoteSaveResult = { ok: true; left: number; unread: number } | { ok: false; error: "limit" };
+
+/** Notas en la puerta (door-notes.ts de @hyvento/shared): el servidor las deja y cuenta las sin leer. */
+export interface DoorNotesRepository {
+  /** Guarda la nota si quien la deja no llegó al tope del día (contado en la misma transacción). */
+  saveDoorNote(input: { fromId: string; toId: string; zoneId: string; text: string }): Promise<DoorNoteSaveResult>;
+  /** Notas sin leer de cada persona (las que no tienen no vienen). */
+  unreadDoorNotes(userIds: string[]): Promise<Record<string, number>>;
+}
+
+// También se funde con GameRepository.
+export interface GameRepository extends DoorNotesRepository {}
