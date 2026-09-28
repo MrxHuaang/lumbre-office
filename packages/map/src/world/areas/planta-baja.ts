@@ -190,7 +190,7 @@ export const plantaBaja: AreaDef = {
     place("stool", 22, 9, "right"),
     place("succulents", 13, 10),
     place("column-cactus", 28, 10),
-    // ----- Cocina (detrás de la barra; de adorno): dos fogones y el lavaplatos al norte, otro lavaplatos
+    // ----- Cocina (detrás de la barra): dos fogones (se cocina en ellos: puntos `kitchen_stove`) y el lavaplatos al norte, otro lavaplatos
     // contra la pared de la barra, la isla al centro, los barriles de agua y la mesita del personal.
     place("kitchen-counter", 30, 0, "down"),
     place("stove", 31, 0, "down"),
@@ -356,5 +356,8 @@ export const plantaBaja: AreaDef = {
     // Frente al mostrador (comprar) y a la cortina del probador del medio (probarse ropa).
     { type: "shop_counter", name: "Mostrador", x: 21, y: 16 },
     { type: "fitting_room", name: "Probador", x: 37, y: 16 },
+    // Frente a los dos fogones de la cocina: ahí se cocina con lo del huerto y la miel.
+    { type: "kitchen_stove", name: "Estufa", x: 31, y: 1 },
+    { type: "kitchen_stove", name: "Estufa", x: 35, y: 1 },
   ],
 };

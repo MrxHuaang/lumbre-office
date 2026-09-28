@@ -33,6 +33,8 @@ export class Player extends Schema {
   @type("string") fishing = "";
   /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
   @type("uint8") drunk = 0;
+  /** Energía de un plato de la cocina (id de la receta; "" = nada): camina un poco más rápido un rato. */
+  @type("string") buff = "";
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */

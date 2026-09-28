@@ -1074,6 +1074,78 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { g: hex("#6f9a5e"), G: hex("#4a6e40") },
   },
+  // ---------- La cocina: los platos que se hacen en la estufa con lo del huerto ----------
+  // Arepita dulce de maíz, dorada, con un hilo de miel encima.
+  "pan-miel": {
+    crumb: hex("#fff0b8"),
+    rows: [
+      "..oooooo..", //
+      ".obbhhbbo.",
+      "obbbbhhbBo",
+      "obhhbbbbBo",
+      "oBbbhhbBBo",
+      ".oBBBBBBo.",
+      "..oooooo..",
+    ],
+    colors: { b: hex("#e8b04a"), B: hex("#b8782a"), h: hex("#ffd86a") },
+  },
+  // Platico hondo con fresas bañadas en miel: a cucharadas asoma la loza.
+  "fresas-miel": {
+    surface: { chars: "rRhy", inner: hex("#e8dccb") },
+    rows: [
+      ".oooooooo.", //
+      "orhrRyrhro",
+      "oRrhyrRhro",
+      ".owwwwwWo.",
+      "..owwwWo..",
+      "...oooo...",
+    ],
+    colors: { r: hex("#e8323c"), R: hex("#a8202a"), h: hex("#f7c040"), y: hex("#f7e27a"), w: hex("#f4ecdc"), W: hex("#cbbba2") },
+  },
+  // Lulada: el lulo machacado con hielo y miel, con trocitos verdes y pitillo.
+  lulada: juiceGlass({ a: "#e8b43a", A: "#b8841e", b: "#5a8a2a", f: "#ffd86a", F: "#f0b840", s: "#8fd0e0" }),
+  // Sopa de verduras en cuenco de barro: caldo con tomate y cilantro.
+  "sopa-verduras": {
+    fx: "steam",
+    surface: { chars: "sSgt", inner: hex("#e8d8c0") },
+    rows: [
+      ".oooooooo.", //
+      "ossgsstsso",
+      "osSsstsgSo",
+      ".occcccCo.",
+      "..occcCo..",
+      "...oooo...",
+    ],
+    colors: { s: hex("#e8a050"), S: hex("#c07a38"), g: hex("#5fa83e"), t: hex("#d8402a"), c: hex("#b86a3a"), C: hex("#8a4a2a") },
+  },
+  // Ajiaco en olla de barro negra: caldo amarillo, mazorca, cilantro y su cucharada de crema.
+  ajiaco: {
+    fx: "steam",
+    surface: { chars: "sSgkw", inner: hex("#8a7a6a") },
+    rows: [
+      ".oooooooo.", //
+      "oskswsgsSo",
+      "osgssksSSo",
+      "occcccccCo",
+      ".occcccCo.",
+      "..oooooo..",
+    ],
+    colors: { s: hex("#f0d060"), S: hex("#c8a83a"), g: hex("#4f9a3a"), k: hex("#fff0a0"), w: hex("#fff8e8"), c: hex("#4a4038"), C: hex("#2a241f") },
+  },
+  // Tarta redonda de lulo y fresa con brillo de miel sobre la masa dorada.
+  "tarta-lulo": {
+    crumb: hex("#f7d898"),
+    rows: [
+      ".oooooooo.", //
+      "ohlhfhlhho",
+      "oflhhlhfho",
+      "ohhlfhhlho",
+      "oPPPPPPPPo",
+      ".oppppppo.",
+      "..oooooo..",
+    ],
+    colors: { h: hex("#f4c04a"), l: hex("#f09a2a"), f: hex("#e8323c"), P: hex("#c8883a"), p: hex("#a86a2a") },
+  },
   ...Object.fromEntries(
     (
       [

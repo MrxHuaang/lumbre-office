@@ -18,6 +18,8 @@ export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvSc
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
+// Las estaciones (ver apps/web/src/game/seasons.ts).
+export { fallingLeaf, fallingPetal, flowerTuft, leafLitter, snowflake, snowPatch } from "./estaciones";
 export {
   drawBee,
   drawBird,

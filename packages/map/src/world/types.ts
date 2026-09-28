@@ -163,7 +163,9 @@ export interface PointDef {
     // Salida de la carrera de sillas (pasillo del piso 2, junto a la bandera).
     | "chair_race"
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
-    | "tool_shed";
+    | "tool_shed"
+    // Frente a cada estufa de la cocina (planta baja): ahí se cocina con lo del huerto.
+    | "kitchen_stove";
   name: string;
   x: number;
   y: number;

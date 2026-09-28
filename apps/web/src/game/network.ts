@@ -1,3 +1,4 @@
+import { bindCocina } from "./cocina";
 import { bindRace } from "./race";
 import {
   CLOSE_CODE,
@@ -102,6 +103,8 @@ export interface RemotePlayer {
   drunk: number;
   /** Corriendo la carrera de sillas. */
   racing: boolean;
+  /** Energía de un plato de la cocina (id de la receta; "" = nada). */
+  buff: string;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -765,6 +768,7 @@ function attach(r: OfficeRoom) {
   bindClub(r);
   bindCinema(r);
   bindRace(r);
+  bindCocina(r);
   bindArcade(r);
   bindHockey(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {

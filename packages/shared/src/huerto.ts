@@ -4,6 +4,7 @@
 // solo el cobertizo tiene su panel (`HUERTO_MSG.shedTake`).
 import { z } from "zod";
 import type { ConsumeAction, UsableSpec } from "./consumables";
+import { seasonGrowth, seasonOf } from "./estaciones";
 
 // ---------- Cultivos ----------
 
@@ -74,9 +75,21 @@ export interface PlotState {
   growthAt: number;
   /** Hasta cuándo está húmeda la tierra (0 = nunca se regó). */
   wateredUntil: number;
+  /** Bajo techo (el invernadero): la estación no la castiga (ver `seasonGrowth`). */
+  greenhouse?: boolean;
 }
 
-/** Crecimiento (ms) de la parcela en `now`: húmeda a ritmo 1 hasta `wateredUntil`, seca a `dryRate`. */
+/**
+ * Ritmo de la estación para la parcela: el de la estación en que arrancó el tramo (`growthAt`). Cada
+ * riego abre un tramo nuevo, así que un cambio de estación se nota desde el siguiente riego; la cuenta
+ * sigue siendo exacta y la misma en el servidor y en el cliente.
+ */
+export const plotSeasonRate = (p: PlotState): number => seasonGrowth(p.crop, seasonOf(p.growthAt), { greenhouse: p.greenhouse });
+
+/**
+ * Crecimiento (ms) de la parcela en `now`: húmeda a ritmo 1 hasta `wateredUntil`, seca a `dryRate`, y
+ * todo por el ritmo de la estación.
+ */
 export function plotGrowth(p: PlotState, now: number): number {
   const crop = cropById(p.crop);
   if (!crop) return 0;
@@ -84,7 +97,7 @@ export function plotGrowth(p: PlotState, now: number): number {
   const wetEnd = Math.min(t, Math.max(p.growthAt, p.wateredUntil));
   const wet = wetEnd - p.growthAt;
   const dry = t - wetEnd;
-  return Math.min(crop.growMs, p.growthMs + wet + dry * HUERTO.dryRate);
+  return Math.min(crop.growMs, p.growthMs + (wet + dry * HUERTO.dryRate) * plotSeasonRate(p));
 }
 
 /** Qué tanto creció (0 a 1). */
@@ -100,7 +113,8 @@ export function plotProgress(p: PlotState, now: number): number {
 export function plotReadyAt(p: PlotState): number {
   const crop = cropById(p.crop);
   if (!crop) return Infinity;
-  const need = crop.growMs - p.growthMs;
+  // Lo que falta, en tiempo "a ritmo de tierra húmeda" de esta estación.
+  const need = (crop.growMs - p.growthMs) / plotSeasonRate(p);
   if (need <= 0) return p.growthAt;
   const wetWindow = Math.max(0, p.wateredUntil - p.growthAt);
   if (need <= wetWindow) return p.growthAt + need;

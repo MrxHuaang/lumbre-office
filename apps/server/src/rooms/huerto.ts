@@ -170,6 +170,22 @@ export class Huerto<T extends PlotState> {
     return { ok: true, item: parsed.data.item };
   }
 
+  /**
+   * Llueve: se riegan solas las parcelas que lo necesitan (las de afuera; el invernadero tiene techo).
+   * `map` es el jardín (sus puntos `garden_plot` dicen cuántas parcelas hay). Devuelve cuántas regó.
+   */
+  rain(map: OfficeMap, now: number): number {
+    let n = 0;
+    const count = pointsOfType(map, "garden_plot").length;
+    for (let id = 0; id < count; id++) {
+      const p = this.plot(id);
+      if (!p || p.greenhouse || !canWater(p, now)) continue;
+      this.set(id, waterPlot(p, now));
+      n++;
+    }
+    return n;
+  }
+
   /** Pone o quita una parcela del estado y la guarda. */
   private set(id: number, plot: PlotState | null) {
     const key = String(id);

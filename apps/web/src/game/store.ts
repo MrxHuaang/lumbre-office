@@ -57,7 +57,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
-  | "shed";
+  | "shed"
+  // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
+  | "kitchen";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {

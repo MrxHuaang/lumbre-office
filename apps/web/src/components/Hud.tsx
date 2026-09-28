@@ -1,8 +1,9 @@
 "use client";
 
 import { placeLabel } from "@hyvento/map";
-import { PRESENCE_STATUSES, WEATHER_TEXT, type PresenceStatus, type Weather } from "@hyvento/shared";
-import { useState } from "react";
+import { PRESENCE_STATUSES, SEASON_TEXT, WEATHER_TEXT, recipeById, seasonOf, type PresenceStatus, type Season, type Weather } from "@hyvento/shared";
+import { useEffect, useMemo, useState } from "react";
+import { useCocinaStore } from "@/game/cocina";
 import { useShallow } from "zustand/react/shallow";
 import { useMediaStore } from "@/game/media";
 import { sendStatus } from "@/game/network";
@@ -165,18 +166,55 @@ const WEATHER_ICON: Record<Weather, { icon: PixelIconName; color: string }> = {
   lluvia: { icon: "rain", color: "var(--color-cozy-sky)" },
   tormenta: { icon: "storm", color: "#4a3f8a" },
   niebla: { icon: "fog", color: "#a8977f" },
+  nieve: { icon: "snow", color: "#6f93bf" },
 };
 
-/** El clima de afuera (lo decide el servidor: todos ven el mismo). */
+/** Ícono y color de cada estación. */
+const SEASON_ICON: Record<Season, { icon: PixelIconName; color: string }> = {
+  primavera: { icon: "flower", color: "#e088a4" },
+  verano: { icon: "sun", color: "var(--color-cozy-gold)" },
+  otono: { icon: "leaf", color: "#c0602a" },
+  invierno: { icon: "snow", color: "#6f93bf" },
+};
+
+/** La estación (por la fecha) y el clima de afuera (lo decide el servidor: todos ven el mismo). */
 function WeatherChip() {
   const weather = useOfficeStore((s) => s.weather);
   const night = useOfficeStore((s) => s.night);
+  // La estación cambia a fin de mes: basta con mirarla al montar y cuando cambia el clima.
+  const season = useMemo(() => seasonOf(Date.now()), [weather]);
   const { icon, color } = weather === "despejado" && night ? { icon: "moon" as const, color: "#4a3f8a" } : WEATHER_ICON[weather];
+  const s = SEASON_ICON[season];
   return (
-    <div className="cozy-chip flex items-center gap-1.5 px-3 py-1.5" title="El clima de afuera">
+    <div className="cozy-chip flex items-center gap-1.5 px-3 py-1.5" title={`${SEASON_TEXT[season]} · el clima de afuera`}>
+      <PixelIcon name={s.icon} size={13} color={s.color} />
+      <span className="max-sm:sr-only">{SEASON_TEXT[season]}</span>
+      <span aria-hidden className="text-cozy-ink-soft">·</span>
       <PixelIcon name={icon} size={14} color={color} />
       {WEATHER_TEXT[weather]}
+      <EnergyBadge />
     </div>
+  );
+}
+
+/** La energía de un plato de la cocina (camino más rápido un rato). */
+function EnergyBadge() {
+  const buff = useCocinaStore((s) => s.buff);
+  const until = useCocinaStore((s) => s.buffUntil);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!buff) return;
+    const t = window.setInterval(() => tick((n) => n + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [buff]);
+  if (!buff) return null;
+  const left = until > Date.now() ? Math.ceil((until - Date.now()) / 1000) : 0;
+  const name = recipeById(buff)?.name ?? "Un plato";
+  return (
+    <span className="ml-1 flex items-center gap-1 border-l-2 border-cozy-paper-dark pl-2 text-cozy-ink-soft" title={`${name}: caminas más rápido un rato`}>
+      <PixelIcon name="bolt" size={12} color="var(--color-cozy-gold)" />
+      {left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Energía"}
+    </span>
   );
 }
 
