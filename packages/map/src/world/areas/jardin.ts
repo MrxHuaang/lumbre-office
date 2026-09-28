@@ -1004,11 +1004,12 @@ put("log-seat", OBS_FIRE.x, OBS_FIRE.y - 2, "down");
 put("log-seat", OBS_FIRE.x, OBS_FIRE.y + 3, "up");
 put("woodpile", OBS_FIRE.x - 3, OBS_FIRE.y - 2);
 put("bunting", OBS_FIRE.x - 3, OBS_FIRE.y + 4, "down");
-// Los postes con cables que traen la luz por el sendero, el letrero chico de la salida del patio y el
+// Unas matas y un abedul junto al sendero, el letrero chico de la salida del patio y el
 // cartel grande de la entrada, junto al sendero, antes de la fogata.
-put("cable-pole", 95, 23);
-put("cable-pole", 95, 27);
-put("cable-pole-end", 95, 31);
+put("birch-1", 95, 24, "down");
+put("bush-berry", 94, 27);
+put("wildflowers", 96, 29);
+put("fern", 95, 31);
 put("observatory-sign", 98, 27, "down");
 put("observatory-board", OBS_FIRE.x - 5, OBS_FIRE.y - 6);
 // Faroles a lo largo del sendero y farolitos en el borde de la placita.
