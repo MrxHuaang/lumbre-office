@@ -182,7 +182,7 @@ export interface Notice {
   action?: { label: string; run: () => void };
 }
 
-export type WalkTarget = ({ kind: "zone"; zoneId: string } | { kind: "player"; sessionId: string }) & { nonce: number };
+export type WalkTarget = ({ kind: "zone"; zoneId: string } | { kind: "player"; sessionId: string } | { kind: "point"; x: number; y: number }) & { nonce: number };
 
 type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
@@ -325,6 +325,8 @@ interface OfficeStore {
   walkToZone: (zoneId: string) => void;
   /** Caminar hasta alguien (a un tile libre a su lado; si está en otro nivel, por los portales). */
   walkToPlayer: (sessionId: string) => void;
+  /** Caminar a un punto del nivel actual (px de mundo), p. ej. desde el minimapa. */
+  walkToPoint: (x: number, y: number) => void;
   addInvitation: (inv: Invitation) => void;
   removeInvitation: (inviteId: string) => void;
   handleInviteResult: (r: InviteResult) => void;
@@ -516,6 +518,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { kind: "zone", zoneId, nonce: Date.now() } }),
   walkToPlayer: (sessionId) => set({ walkTarget: { kind: "player", sessionId, nonce: Date.now() } }),
+  walkToPoint: (x, y) => set({ walkTarget: { kind: "point", x, y, nonce: Date.now() } }),
   addInvitation: (inv) => {
     const expiresAt = Date.now() + INVITE_TIMEOUT_MS;
     set((s) => ({

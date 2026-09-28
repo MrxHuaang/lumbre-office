@@ -15,6 +15,7 @@ import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { GameClockChip } from "./GameClockChip";
+import { Minimap } from "./Minimap";
 import { PersonMenu } from "./PersonMenu";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
@@ -353,6 +354,16 @@ function HearingChip() {
 }
 
 const PEOPLE_OPEN_KEY = "hyvento:conectados-abierto";
+const PEOPLE_TAB_KEY = "hyvento:conectados-vista";
+type PeopleTab = "lista" | "mapa";
+
+function loadPeopleTab(): PeopleTab {
+  try {
+    return localStorage.getItem(PEOPLE_TAB_KEY) === "mapa" ? "mapa" : "lista";
+  } catch {
+    return "lista";
+  }
+}
 
 function loadPeopleOpen(): boolean {
   if (typeof window === "undefined") return true;
@@ -372,6 +383,17 @@ export function PeoplePanel() {
   const place = useOfficeStore((s) => s.place);
   const labelOf = useLabelOf();
   const openProfile = useAchievementStore((s) => s.openProfile);
+  const walkToPlayer = useOfficeStore((s) => s.walkToPlayer);
+  // Lista o minimapa: se recuerda cuál se usó.
+  const [tab, setTabState] = useState<PeopleTab>(loadPeopleTab);
+  const setTab = (t: PeopleTab) => {
+    setTabState(t);
+    try {
+      localStorage.setItem(PEOPLE_TAB_KEY, t);
+    } catch {
+      // solo para esta visita
+    }
+  };
   // Abierto o plegado se recuerda; la primera vez, en pantallas angostas empieza plegado para no tapar el mapa.
   const [open, setOpenState] = useState(() => loadPeopleOpen());
   const setOpen = (fn: (v: boolean) => boolean) =>
@@ -403,6 +425,25 @@ export function PeoplePanel() {
         </span>
       </button>
       {open && (
+        <div role="tablist" className="flex gap-1 px-1 pt-1.5">
+          {(["lista", "mapa"] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              type="button"
+              aria-selected={tab === t}
+              data-on={tab === t || undefined}
+              onClick={() => setTab(t)}
+              className="cozy-btn flex flex-1 items-center justify-center gap-1.5 py-1 text-[13px]"
+            >
+              <PixelIcon name={t === "lista" ? "menu" : "steps"} size={12} color="var(--color-cozy-wood)" />
+              {t === "lista" ? "Lista" : "Minimapa"}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && tab === "mapa" && <Minimap />}
+      {open && tab === "lista" && (
         <ul className="cozy-scroll max-h-[45vh] overflow-y-auto">
           {people.map((p) => (
             <li key={p.sessionId} className="flex items-center border-b-2 border-cozy-paper-dark pr-2 last:border-b-0">
@@ -422,6 +463,17 @@ export function PeoplePanel() {
                   {labelOf(p.sessionId === sessionId ? place : p.place)}
                 </span>
               </button>
+              {p.sessionId !== sessionId && (
+                <button
+                  type="button"
+                  onClick={() => walkToPlayer(p.sessionId)}
+                  title={`Ir hasta ${p.name}`}
+                  aria-label={`Ir hasta ${p.name}`}
+                  className="p-1.5 hover:bg-cozy-paper-dark"
+                >
+                  <PixelIcon name="steps" size={14} color="var(--color-cozy-wood)" />
+                </button>
+              )}
               {p.sessionId !== sessionId && <PersonMenu person={p} onProfile={() => openProfile(p.userId)} />}
               {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>
