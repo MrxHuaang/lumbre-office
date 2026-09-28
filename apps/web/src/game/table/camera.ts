@@ -78,7 +78,8 @@ export class TableCamera {
     this.tween?.stop();
     this.tween = undefined;
     // Si se cortó a la mitad de la vuelta, el zoom queda en el de destino (entero: el pixel-art parejo).
-    if (this.returning !== null) this.cam.setZoom(this.returning);
+    // Al destruir la escena (reconexión) la cámara ya no existe: no hay zoom que dejar.
+    if (this.returning !== null) this.scene.cameras?.main?.setZoom(this.returning);
     this.returning = null;
   }
 
