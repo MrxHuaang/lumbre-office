@@ -63,7 +63,7 @@ export { trophyCase, trophyShelf, TROPHY_CASE_SLOTS } from "./trofeos";
 // Eventos del calendario y modo foco: lo de sobre la cabeza, el pastel, el micrófono y el neón del karaoke.
 export { CONFETTI_COLORS, eventOverlays, focusTomato, partyHat, singerMic, type EventOverlay } from "./eventos";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.
-export { BAR as FISHING_BAR, biteMark, bobber, drawFish, drawFishingBar, fishIcon, hasFishArt, treasureChest, FISH_H, FISH_W, ROD_COLORS, type BarState } from "./fish";
+export { BAR as FISHING_BAR, biteMark, bobber, drawFish, drawFishingBar, fishIcon, hasFishArt, treasureChest, FISH_H, FISH_W, ROD_COLORS, ROD_COLORS_BY, type BarState } from "./fish";
 // Club y arcade: los bailes del chibi y las capas que se encienden (pista, tarima, cabina, parlantes, pantallas).
 export {
   drawFloorDance,

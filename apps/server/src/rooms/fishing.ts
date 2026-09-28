@@ -1,14 +1,17 @@
 // La pesca del lago, autoritativa: el servidor decide cuándo pica, qué pez es, la semilla del minijuego,
 // si aparece el cofre y el tamaño; el cliente solo juega. Al terminar se repite la partida con los mismos
 // botones (`replayFishing`) y se revisa que el tiempo cuadre con el reloj del servidor. La sala le da el
-// reloj, el azar y cómo avisar; este módulo no conoce Colyseus.
+// reloj, el azar y cómo avisar; este módulo no conoce Colyseus. El equipo (la caña y la carnada del
+// puesto de pesca) lo elige la sala con lo que uno tiene en la mochila y llega en `cast`.
 import {
+  BAIT_TUNING,
   FISHING,
   FishFinishMessage,
   FishHookMessage,
   SIM_FRAME_MS,
   fishPoints,
   isTrash,
+  biteWindowWith,
   minReelMs,
   pickFish,
   replayFishing,
@@ -16,6 +19,7 @@ import {
   type FishCatchResult,
   type FishingChallenge,
   type FishingEvent,
+  type FishingGear,
   type FishingPhase,
   type FishingTimings,
   type FishOutcome,
@@ -31,6 +35,8 @@ interface Cast {
   x: number;
   y: number;
   phase: "wait" | "bite" | "reel";
+  /** La caña y la carnada de este lance (la carnada ya se descontó al lanzar). */
+  gear: FishingGear;
   timer?: { clear(): void };
   fish?: FishSpecies;
   challenge?: FishingChallenge;
@@ -72,20 +78,26 @@ export class Fishery {
     return this.casts.get(userId)?.phase ?? null;
   }
 
-  /** Lanzar: junto a un punto de pesca, de pie y sin otro lance en curso. */
-  cast(who: { userId: string; x: number; y: number; seated: boolean }, near: boolean) {
+  /**
+   * Lanzar: junto a un punto de pesca, de pie y sin otro lance en curso. Con carnada pica antes. Devuelve
+   * si se lanzó (la sala descuenta la carnada solo entonces).
+   */
+  cast(who: { userId: string; x: number; y: number; seated: boolean }, near: boolean, gear: FishingGear = { rod: "bambu", bait: null }): boolean {
     const { userId } = who;
-    if (!near) return this.deps.send(userId, { type: "refused", error: "far" });
-    if (who.seated) return this.deps.send(userId, { type: "refused", error: "seated" });
-    if (this.casts.has(userId)) return this.deps.send(userId, { type: "refused", error: "busy" });
+    const refuse = (error: "far" | "seated" | "busy") => (this.deps.send(userId, { type: "refused", error }), false);
+    if (!near) return refuse("far");
+    if (who.seated) return refuse("seated");
+    if (this.casts.has(userId)) return refuse("busy");
     this.clearShow(userId);
     const t = this.deps.timings();
-    const cast: Cast = { castId: this.deps.newId(), userId, x: who.x, y: who.y, phase: "wait" };
-    const wait = t.biteMinMs + this.deps.random(Math.max(1, t.biteMaxMs - t.biteMinMs + 1));
+    const cast: Cast = { castId: this.deps.newId(), userId, x: who.x, y: who.y, phase: "wait", gear };
+    const bite = biteWindowWith(gear.bait, t.biteMinMs, t.biteMaxMs);
+    const wait = bite.min + this.deps.random(Math.max(1, bite.max - bite.min + 1));
     cast.timer = this.deps.later(wait, () => this.bite(cast));
     this.casts.set(userId, cast);
     this.deps.setPhase(userId, "wait");
     this.deps.send(userId, { type: "cast", castId: cast.castId });
+    return true;
   }
 
   /** ¡Pica! Hay que responder dentro de la ventana o el pez se va. */
@@ -110,7 +122,8 @@ export class Fishery {
     if (cast.phase === "wait") return this.end(cast, "early");
     if (cast.phase !== "bite") return;
     cast.timer?.clear();
-    const fish = pickFish(this.deps.hour(), (n) => this.deps.random(n), this.deps.weather?.());
+    const luck = cast.gear.bait ? BAIT_TUNING[cast.gear.bait].luck : 1;
+    const fish = pickFish(this.deps.hour(), (n) => this.deps.random(n), this.deps.weather?.(), luck);
     cast.fish = fish;
     if (isTrash(fish)) return void this.land(cast, fish, false);
     const t = this.deps.timings();
@@ -120,6 +133,8 @@ export class Fishery {
       behavior: fish.behavior,
       rarity: fish.rarity,
       treasure: this.deps.random(1000) < FISHING.treasurePerMil,
+      // La caña que de verdad tiene: el minijuego se repite con ella al validar.
+      ...(cast.gear.rod !== "bambu" ? { rod: cast.gear.rod } : {}),
     };
     cast.phase = "reel";
     cast.reelAt = this.deps.now();

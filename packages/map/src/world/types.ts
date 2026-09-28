@@ -253,6 +253,8 @@ export interface PointDef {
     | "orrery"
     | "signal_radar"
     | "logbook"
+    // Frente al mostrador del puesto de pesca del lago (comprarle cañas y carnada a Don Evelio).
+    | "fishing_shop"
     // Delante de la astrónoma del observatorio: E le pregunta por el cielo (el servidor contesta a todos).
     | "astronomer";
   name: string;

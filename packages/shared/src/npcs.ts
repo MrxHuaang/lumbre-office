@@ -9,7 +9,8 @@ import { colorOf } from "./casino";
 import { NIGHT_FROM, NIGHT_UNTIL } from "./clock";
 import type { Weather } from "./weather";
 
-export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "astronoma";
+// El pescador del puesto de pesca del lago está en pesca-tienda.ts (mismo formato).
+export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "astronoma" | "pescador";
 
 export interface GameNpc {
   id: string;

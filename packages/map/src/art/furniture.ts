@@ -45,6 +45,7 @@ import { ESCENARIO_DRAW } from "./escenario";
 import { PODCAST_DRAW } from "./podcast";
 import { GRANJA_DRAW } from "./granja";
 import { OBSERVATORIO_DRAW } from "./observatorio";
+import { PESCA_DRAW } from "./pesca";
 
 export type { Variant } from "./kit";
 
@@ -775,6 +776,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...PODCAST_DRAW,
   ...GRANJA_DRAW,
   ...OBSERVATORIO_DRAW,
+  ...PESCA_DRAW,
   "photo-board": photoBoard,
   acuario,
   ...RACE_DRAW,
