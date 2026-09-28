@@ -38,7 +38,7 @@ export const CASINO_NPCS: readonly CasinoNpc[] = [
   {
     id: "crupier",
     role: "crupier",
-    name: "Don Aurelio",
+    name: "Don Chucho Ruletas",
     // En la cabecera del paño, al lado de la rueda (desde ahí la hace girar).
     area: "sotano",
     tile: { x: 7, y: 8 },
@@ -65,7 +65,7 @@ export const CASINO_NPCS: readonly CasinoNpc[] = [
   {
     id: "dealer",
     role: "dealer",
-    name: "Yesenia",
+    name: "Yurani Blackjack",
     // Del lado de la banca, frente a los cinco puestos.
     area: "sotano",
     tile: { x: 11, y: 10 },
@@ -105,7 +105,7 @@ export const CASINO_NPCS: readonly CasinoNpc[] = [
   {
     id: "portero",
     role: "portero",
-    name: "El Mono",
+    name: "Toño Tres Puertas",
     // En el vestíbulo, junto al cordón de la entrada del casino.
     area: "sotano",
     tile: { x: 18, y: 9 },
