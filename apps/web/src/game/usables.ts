@@ -3,7 +3,7 @@
 // (`OfficeState.switches`); tocar o acariciar llega como evento. La escena solo tiene ganchos chicos.
 import { catalogItem, footprint, INTERACT_REACH_TILES, usablesOf, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import { glowSprite, heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin, type Sprite } from "@hyvento/map/art";
-import { CURTAIN_TYPE, isSwitchedOn, stepsTo, USE_STEPS, usableSpec, type Direction, type FurnitureEvent, type UsableSpec } from "@hyvento/shared";
+import { CURTAIN_TYPE, isSwitchedOn, stepsTo, USE_STEPS, usableSpec, WALL_BOARD_TYPE, type Direction, type FurnitureEvent, type UsableSpec } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import type { Avatar } from "./Avatar";
@@ -11,6 +11,7 @@ import { CasaViva, CURTAIN_PENALTY_TILES } from "./casaViva";
 import { GranjaVivo } from "./granja";
 import { JardinVivo } from "./jardinVivo";
 import { Mascotas } from "./mascotas";
+import { MundoVivo } from "./mundoVivo";
 import { AreaView, DEPTH_OVERLAY, depthOf, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
 import { playGuitar, playPiano, playPurr, setRecordMusic, stopRecordMusic, volumeAt } from "./sound";
@@ -106,6 +107,8 @@ export class Usables {
   };
   /** La granja: los animales, la rueda del molino, los huevos y lo que está en el fuego. */
   private granja: GranjaVivo;
+  /** Mundo lleno: la impresora, la ducha, la casita del perro, el reloj de sol, las barandas y los paneles. */
+  private mundo: MundoVivo;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -123,6 +126,7 @@ export class Usables {
     this.pets = new Mascotas(scene, local);
     this.jardin = new JardinVivo(scene, { room: () => this.room, avatarOf, local });
     this.granja = new GranjaVivo(scene, { room: () => this.room, avatarOf, local });
+    this.mundo = new MundoVivo(scene, { avatarOf, mySession: () => this.room?.sessionId, tileSize: () => this.map?.tileSize ?? 32 });
     // Cada cuadro, aparte de update(): lo que se mueve en la casa viva (mascotas, fuego, lo de la mano).
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.onSceneUpdate);
   }
@@ -138,6 +142,7 @@ export class Usables {
     this.pets.setArea(map.id);
     this.jardin.setArea(map);
     this.granja.setArea(map, view);
+    this.mundo.setArea(map, view);
     for (const f of usablesOf(map)) if (usableSpec(f.type)?.action === "toggle") this.overlays.set(f, { f, images: [], frame: 0 });
     for (const o of this.overlays.values()) this.refresh(o);
   }
@@ -179,6 +184,7 @@ export class Usables {
     this.pets.destroy();
     this.jardin.destroy();
     this.granja.destroy();
+    this.mundo.destroy();
     this.unbind();
     this.clearOverlays();
     stopRecordMusic();
@@ -332,7 +338,7 @@ export class Usables {
         const spec = usableSpec(f.type);
         // Las cortinas no ocupan el piso: se prueban sobre el dibujo de la ventana (abajo). Van antes de
         // mirar el catálogo, porque no son un mueble de él.
-        if (!spec || f.type === CURTAIN_TYPE) return false;
+        if (!spec || f.type === CURTAIN_TYPE || f.type === WALL_BOARD_TYPE) return false;
         // Lo que se camina por dentro (el techo de la glorieta): un clic ahí es para entrar, no para usarlo.
         const walkIn = catalogItem(f.type).solid === false && !catalogItem(f.type).flat;
         return !walkIn && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
@@ -419,6 +425,7 @@ export class Usables {
     if (this.casa.handleEvent(e, f, vol)) return;
     if (this.jardin.handleEvent(e, f, vol)) return;
     if (this.granja.handleEvent(e, f, vol)) return;
+    if (this.mundo.handleEvent(e, f, vol)) return;
     if (who) who.perform(faceToward(f, map.tileSize, who.x, who.y), e.action === "play" ? PLAY_MS : 600);
     if (e.action === "play") {
       if (e.type === "guitar") playGuitar(e.seed, vol);

@@ -3,6 +3,9 @@
 import type { SpaKind } from "@hyvento/shared";
 import { useDoorNotesStore } from "@/game/doorNotes";
 import { respondInvite, respondKnock, sendKnock, sendSwivel } from "@/game/network";
+import { fishingSpotAction } from "@/game/fishing/net";
+import { useFishingStore } from "@/game/fishing/store";
+import { useMundoStore } from "@/game/mundo";
 import { useOfficeStore } from "@/game/store";
 import type { Invitation } from "@hyvento/shared";
 import { PixelIcon } from "./Cozy";
@@ -132,7 +135,8 @@ export function Notices() {
 }
 
 /** Lo que dice la ayuda "E": sentarse o levantarse, tomar el sol, meterse a la tina o entrar a la sauna. */
-function seatHelp(prompt: "sit" | "stand", sun: boolean, spa: SpaKind | null): string {
+function seatHelp(prompt: "sit" | "stand", sun: boolean, spa: SpaKind | null, boat = false): string {
+  if (boat) return prompt === "sit" ? "subirte al bote" : "bajarte del bote (o muévete)";
   if (prompt === "sit") return spa === "tub" ? "meterse a la tina" : spa === "sauna" ? "entrar a la sauna" : sun ? "tomar el sol" : "sentarte";
   if (spa === "tub") return "salir de la tina (o muévete)";
   if (spa === "sauna") return "salir de la sauna (o muévete)";
@@ -151,6 +155,9 @@ export function SeatPrompt() {
   const sun = useOfficeStore((s) => s.seatSun);
   const spa = useOfficeStore((s) => s.seatSpa);
   const atPhone = useOfficeStore((s) => s.atPhone);
+  // El bote del muelle (mundo lleno): sentado ahí se pesca con el botón (E baja del bote).
+  const boat = useMundoStore((s) => s.seat?.type === "rowboat");
+  const fishingIdle = useFishingStore((s) => s.phase === "idle");
   const openPanel = useOfficeStore((s) => s.openPanel);
   const pcOn = useOfficeStore((s) => s.pcOn);
   const setPcOn = useOfficeStore((s) => s.setPcOn);
@@ -161,15 +168,22 @@ export function SeatPrompt() {
   const spinButton = atSwivel && prompt === "stand";
   // Sentado junto al teléfono: E levanta, así que el teléfono va en su propio botón.
   const phoneButton = atPhone && prompt === "stand";
+  const fishButton = boat && prompt === "stand" && fishingIdle;
 
   return (
     <div
-      className={`flex items-center gap-2.5 ${pcButton || spinButton || phoneButton ? "pointer-events-auto" : "pointer-events-none max-md:hidden"}`}
+      className={`flex items-center gap-2.5 ${pcButton || spinButton || phoneButton || fishButton ? "pointer-events-auto" : "pointer-events-none max-md:hidden"}`}
     >
       {pcButton && (
         <button type="button" onClick={() => setPcOn(true)} className="cozy-btn cozy-btn-primary">
           <PixelIcon name="power" size={14} />
           Encender PC
+        </button>
+      )}
+      {fishButton && (
+        <button type="button" onClick={() => fishingSpotAction()} title="Pescar desde el bote (pican más los raros)" className="cozy-btn cozy-btn-primary">
+          <PixelIcon name="fish" size={14} />
+          Pescar
         </button>
       )}
       {phoneButton && (
@@ -187,7 +201,7 @@ export function SeatPrompt() {
       )}
       <div className="cozy-chip flex items-center gap-2 px-3 py-1.5 text-[13px] max-md:hidden">
         <kbd className="cozy-kbd">E</kbd>
-        {seatHelp(prompt, sun, spa)}
+        {seatHelp(prompt, sun, spa, boat)}
       </div>
     </div>
   );

@@ -110,7 +110,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "grill"
   | "coop"
   // El puesto de pesca del lago: el mostrador de Don Evelio (cañas y carnada).
-  | "pesca";
+  | "pesca"
+  // La recepción del recibidor: Doña Gloria dice dónde anda cada uno (mundo lleno).
+  | "reception";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
@@ -139,7 +141,12 @@ export type PanelKind =
   | "whiteboard"
   // Notas en la puerta: escribir una en la puerta de otra oficina, o leer las de la tuya.
   | "doorNote"
-  | "doorNotes";
+  | "doorNotes"
+  // Mundo lleno (se abren desde el mueble): tragamonedas, máquina de peluches, estante de premios y rueda.
+  | "slots"
+  | "claw"
+  | "prizes"
+  | "fortune";
 
 export interface OfficeView {
   zoneId: string;

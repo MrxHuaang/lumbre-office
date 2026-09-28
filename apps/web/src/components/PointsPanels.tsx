@@ -91,6 +91,7 @@ const PROMPT: Record<Interactable, string> = {
   bus: "Subir al Megabús",
   grill: "Cocinar en el horno de barro",
   coop: "Ver los nombres del gallinero",
+  reception: "Preguntarle a Doña Gloria",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
