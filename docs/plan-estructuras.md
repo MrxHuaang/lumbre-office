@@ -107,6 +107,7 @@ Cuando el dueño diga **"crea las estructuras"**, se construyen **todas** las de
   - "E · Grabar" empieza a grabar el audio de los de adentro en el navegador (MediaRecorder sobre las pistas de LiveKit, **solo con el permiso de todos los de adentro**, que tienen que aceptar) y al terminar baja un archivo.
   - Mientras graba, el cartel de afuera se prende para todos y la puerta no deja entrar.
 - **Servidor**: el estado "grabando" y el consentimiento de cada persona los lleva el servidor. No se guarda audio en el servidor.
+- **Cambio**: la cabañita del jardín se quitó. Ahora es el **estudio de grabación** del piso 3: la puerta del final del pasillo lleva al nivel `podcast` (mesa grande para ocho, cupo de 8). Ver `docs/plan-rediseno.md` (piso 3) y `CLAUDE.md`.
 
 ## 8. Parada del bus (basada en el Megabús de Pereira)
 
