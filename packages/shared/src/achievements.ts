@@ -108,6 +108,14 @@ export const STAT_KEYS = {
   focusBlocks: "focus_blocks",
   /** Máximo: cuántos logros tiene (para los logros de logros). */
   achievementsUnlocked: "achievements_unlocked",
+  // Observatorio: mirar el cielo de noche, estrellas fugaces vistas (y las vistas primero que nadie) y
+  // los malvaviscos de su fogata.
+  stargazing: "stargazing",
+  shootingStars: "shooting_stars",
+  shootingStarsFirst: "shooting_stars_first",
+  marshmallows: "marshmallows",
+  goldenMarshmallows: "marshmallows_golden",
+  burntMarshmallows: "marshmallows_burnt",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -214,6 +222,8 @@ export const BADGE_ICONS = [
   "guitar",
   "bulb",
   "star",
+  "telescope",
+  "marshmallow",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
@@ -255,7 +265,7 @@ const section = (category: AchievementCategory, list: Entry[]): Achievement[] =>
 export const ALBUM_SPECIES = FISH.filter((f) => f.rarity !== "basura").length;
 
 /** Niveles de la cabaña (el test del servidor revisa que "Turista" pida todos). */
-export const TOURIST_AREAS = 9;
+export const TOURIST_AREAS = 10;
 
 /** Logros de logros: cuántos hay que juntar (el último pide casi todo el catálogo). */
 export const COLLECTOR_TIERS = [10, 30, 60] as const;
@@ -346,7 +356,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("primer-dia", "Primer día", "clock", "comun", STAT_KEYS.secondsOnline, HOUR, "Pasa una hora activa en la cabaña", "Ya sabes dónde queda el baño."),
     a("veterano", "Veterano de la cabaña", "clock", "epico", STAT_KEYS.secondsOnline, 100 * HOUR, "Pasa 100 horas activas en la cabaña", "Conoces cada tabla que cruje."),
     a("parte-del-mobiliario", "Parte del mobiliario", "clock", "legendario", STAT_KEYS.secondsOnline, 500 * HOUR, "Pasa 500 horas activas en la cabaña", "Te iban a inventariar con los muebles."),
-    a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al estudio de grabación, y hasta el Megabús por dentro."),
+    a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al observatorio, y hasta el Megabús por dentro."),
     a("paseante", "Paseante", "shoe", "comun", STAT_KEYS.tilesWalked, 1000, "Camina 1.000 baldosas", "Estirar las piernas también es trabajo."),
     a("caminante", "Pantuflas gastadas", "shoe", "raro", STAT_KEYS.tilesWalked, 10_000, "Camina 10.000 baldosas", "Tus pantuflas piden jubilación."),
     a("maratonista", "Maratonista de pasillo", "shoe", "epico", STAT_KEYS.tilesWalked, 100_000, "Camina 100.000 baldosas", "Ya diste la vuelta a la cabaña… mil veces."),
@@ -365,6 +375,13 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("electricista", "Electricista", "bulb", "comun", STAT_KEYS.lightsToggled, 100, "Prende o apaga una lámpara 100 veces", "Prendido, apagado, prendido… ¿se arregló?", true),
     a("coleccionista-de-logros", "Coleccionista de logros", "trophy", "raro", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[0], `Consigue ${COLLECTOR_TIERS[0]} logros`, "La vitrina de tu oficina empieza a llenarse."),
     a("vitrina-llena", "Vitrina llena", "trophy", "epico", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[1], `Consigue ${COLLECTOR_TIERS[1]} logros`, "Ya hubo que comprar otra repisa."),
+    // Observatorio
+    a("astronomo-de-patio", "Astrónomo de patio", "telescope", "comun", STAT_KEYS.stargazing, 1, "Mira por el telescopio del observatorio de noche", "Resulta que las estrellas tienen nombre. Y chisme."),
+    a("cazaestrellas", "Cazaestrellas", "star", "raro", STAT_KEYS.shootingStars, 5, "Ve 5 estrellas fugaces por el telescopio", "Ya no pides deseos: los coleccionas."),
+    a("pide-un-deseo", "Pide un deseo", "star", "epico", STAT_KEYS.shootingStarsFirst, 1, "Sé el primero en ver una estrella fugaz", "La viste antes que nadie. El deseo es tuyo (no lo cuentes)."),
+    a("punto-exacto", "Punto exacto", "marshmallow", "comun", STAT_KEYS.goldenMarshmallows, 1, "Saca un malvavisco dorado de la fogata del observatorio", "Ni crudo ni carbón: el punto de la abuela."),
+    a("maestro-malvavisquero", "Maestro malvavisquero", "marshmallow", "raro", STAT_KEYS.goldenMarshmallows, 25, "Saca 25 malvaviscos dorados", "Tu palito ya tiene nombre propio."),
+    a("antorcha-humana", "Antorcha humana", "flame", "comun", STAT_KEYS.burntMarshmallows, 5, "Quema 5 malvaviscos", "Técnicamente también es cocinar.", true),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),
 ];

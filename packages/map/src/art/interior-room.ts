@@ -8,6 +8,7 @@ import { at, bayer, noise, ramp, smoothNoise, type Ramp, type RGBA } from "./pix
 import { boardsWall, cinderblockWall } from "./garaje-room";
 import { treehouseWall } from "./casa-arbol-room";
 import { estudioWall } from "./podcast-room";
+import { stoneworkWall } from "./observatorio-room";
 
 /** Verde bosque (papel de la biblioteca). */
 export const FOREST: Ramp = ramp("#132019", "#1b3024", "#264430", "#335a3e", "#4a7654", "#6f9a73");
@@ -421,6 +422,8 @@ export function interiorWall(kind: WallpaperKind | null, u: number, hv: number):
       return boardsWall(u, hv);
     case "estudio":
       return estudioWall(u, hv);
+    case "stonework":
+      return stoneworkWall(u, hv);
     default:
       return null;
   }

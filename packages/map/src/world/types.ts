@@ -89,7 +89,9 @@ export type WallpaperKind =
   | "megabus"
   | "fuelle"
   // Estudio de grabación: zócalo de madera y paneles acústicos de tela acolchada.
-  | "estudio";
+  | "estudio"
+  // Observatorio: piedra de la torre con vigas de madera (curva, como la torre por fuera).
+  | "stonework";
 
 export interface ZoneDef {
   id: string;
@@ -135,7 +137,9 @@ export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board"
   // la ventana de estrellas y los afiches del espacio, del viaje de los planetitas de madera, del mapa de
   // los tres carriles y de programación.
   | "onair-sign" | "studio-door" | "star-window" | "poster-planets" | "poster-nebula" | "poster-rocket" | "star-map"
-  | "poster-campfire" | "explore-log" | "lanes-map" | "sword-shield" | "poster-hello" | "poster-duck" | "diagram-board";
+  | "poster-campfire" | "explore-log" | "lanes-map" | "sword-shield" | "poster-hello" | "poster-duck" | "diagram-board"
+  // Observatorio: mapa estelar, el mural del cielo y la ventana redonda de ojo de buey.
+  | "star-chart" | "mural" | "porthole";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -241,7 +245,14 @@ export interface PointDef {
     // La granja del jardín: frente al horno y a la parrilla (el panel de cocinar) y el letrero del
     // gallinero (los nombres de los animales).
     | "grill"
-    | "farm_sign";
+    | "farm_sign"
+    // Observatorio: frente al telescopio, junto a la fogata de malvaviscos, frente al orrery (el modelo del
+    // sistema solar), frente al radar de señales y frente al escritorio con el diario de exploración.
+    | "telescope"
+    | "marshmallow_fire"
+    | "orrery"
+    | "signal_radar"
+    | "logbook";
   name: string;
   x: number;
   y: number;

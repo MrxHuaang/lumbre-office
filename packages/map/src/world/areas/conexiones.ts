@@ -29,6 +29,11 @@ export const CONEXIONES = {
      * (11, 54) y mide 4x4; la escalera cuelga frente al segundo tile).
      */
     casaArbol: { tiles: [{ x: 12, y: 58 }], llegada: { x: 12, y: 59, facing: "down" } },
+    /**
+     * La puerta del observatorio, en la lomita del noreste (la torre está en (82, 33) y mide 6x6): se
+     * sube por los escalones de piedra del frente y se entra por la puerta de la torre.
+     */
+    observatorio: { tiles: par(84, 39), llegada: { x: 84, y: 40, facing: "down" } },
   },
   plantaBaja: {
     /** La puerta de entrada del recibidor, al centro de la fachada sur (detrás del porche del jardín). */
@@ -77,6 +82,10 @@ export const CONEXIONES = {
      * se entra por un portal: se sube con E en la estación y se llega junto a la puerta más cercana.
      */
     puertas: { tiles: [{ x: 4, y: 5 }, { x: 13, y: 5 }, { x: 18, y: 5 }], llegada: { x: 13, y: 2, facing: "right" } },
+  },
+  observatorio: {
+    /** La puerta de la pared sur de la torre (se sale al jardín, al pie de los escalones). */
+    entrada: { tiles: par(6, 11), llegada: { x: 6, y: 10, facing: "up" } },
   },
 } satisfies Record<string, Record<string, Conexion>>;
 

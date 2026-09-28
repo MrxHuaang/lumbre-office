@@ -256,6 +256,8 @@ import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/share
 import { CasaArbol } from "./casaArbol";
 import { BusLine, type BusSchedule } from "./bus";
 import { Piscina } from "./piscina";
+import { Observatorio } from "./observatorio";
+import { MARSHMALLOW, OBS_MSG, SKY, type MarshmallowTimings, type SignalPing, type SkyTimings } from "@hyvento/shared";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
 import { Cocina, type CocinaResult } from "./cocina";
 import {
@@ -380,6 +382,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Reloj real para el reloj del juego y hora con la que arranca (los tests los fijan; null = la de Bogotá). */
   static gameClockNow: () => number = () => Date.now();
   static gameClockInitial: GameClockState | null = null;
+  /** Observatorio: el reloj y el azar de la fogata y de las estrellas fugaces, y sus tiempos (los tests los fijan). */
+  static observatorioNow: () => number = () => Date.now();
+  static observatorioRandom: (n: number) => number = (n) => randomInt(n);
+  static marshmallowTimings: MarshmallowTimings = { ...MARSHMALLOW };
+  static skyTimings: SkyTimings = { ...SKY };
   /** Man del Sombrero: el azar del escondite de cada día (entero en [0, n)) y cada cuánto se revisa. */
   static sombreroRandom: (n: number) => number = (n) => randomInt(n);
   static sombreroTickMs = 1000;
@@ -870,6 +877,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.move, (client, raw) => this.handleBagMove(client, raw));
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
+    this.startObservatorio();
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -2565,6 +2573,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
       this.sendToArea(player.area, MSG.furnitureEvent, event);
+      // El radar de señales del observatorio oye los instrumentos de toda la cabaña.
+      if (event.action === "play" && player.area !== "observatorio")
+        this.sendToArea("observatorio", OBS_MSG.signal, { area: player.area, type: event.type, x: event.x, y: event.y } satisfies SignalPing);
     }
     // Casa viva: lo gratis a la mano (el malvavisco, al terminar de asarse, si sigue junto a la fogata) y
     // el cubículo ocupado.
@@ -2932,6 +2943,48 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
                   ? STAT_KEYS.lightsToggled
                   : null;
     if (key) this.achievements.bump(userId, key);
+  }
+
+  // ---------- Observatorio ----------
+
+  /** El observatorio del jardín: la fogata de malvaviscos y el telescopio (ver observatorio.ts). */
+  private observatorio?: Observatorio;
+
+  private startObservatorio() {
+    const obs = new Observatorio({
+      now: () => OfficeRoom.observatorioNow(),
+      random: (n) => OfficeRoom.observatorioRandom(n),
+      marshmallowTimings: () => OfficeRoom.marshmallowTimings,
+      skyTimings: () => OfficeRoom.skyTimings,
+      isNight: () => isNightMinute(this.gameTimeNow().minuteOfDay),
+      player: (sessionId) => this.state.players.get(sessionId),
+      map: (area) => this.mapOf(area),
+      toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
+      toArea: (area, type, message) => this.sendToArea(area, type, message),
+      later: (ms, fn) => this.clock.setTimeout(fn, ms),
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      bump: (userId, key, by) => this.achievements.bump(userId, key, by),
+      held: { get: (userId) => this.held.get(userId), give: (userId, item) => this.held.give(userId, item) },
+    });
+    this.observatorio = obs;
+    const active = (client: Client<UserData>, fn: (sessionId: string) => void) => {
+      this.markActive(client);
+      fn(client.sessionId);
+    };
+    this.onMessage(OBS_MSG.marshmallowStart, (client) => active(client, (id) => obs.start(id)));
+    this.onMessage(OBS_MSG.marshmallowPull, (client) => active(client, (id) => obs.pull(id)));
+    this.onMessage(OBS_MSG.telescopeLook, (client) => active(client, (id) => obs.look(id)));
+    this.onMessage(OBS_MSG.telescopeClose, (client) => obs.close(client.sessionId));
+    this.onMessage(OBS_MSG.starSpot, (client, raw) => active(client, (id) => obs.spot(id, raw)));
+    this.clock.setInterval(() => obs.tick(), OfficeRoom.skyTimings.tickMs);
+  }
+
+  /** Para los tests: el observatorio y los contadores de alguien. */
+  observatorioState() {
+    return this.observatorio;
+  }
+  statsOf(userId: string) {
+    return this.achievements.snapshot(userId);
   }
 
   private sendToArea(area: string, type: string, message: unknown) {
@@ -3329,6 +3382,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   private removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
+    this.observatorio?.forget(sessionId);
     this.state.players.delete(sessionId);
     this.casaArbol?.sweep(Date.now());
     this.club?.forget(sessionId);

@@ -56,5 +56,6 @@ export * from "./focus";
 export * from "./phone";
 export * from "./escenario";
 export * from "./podcast";
+export * from "./observatorio";
 export * from "./sombrero";
 export * from "./npcs";

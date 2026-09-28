@@ -9,6 +9,7 @@ import { useClubStore } from "@/game/club/store";
 import { useEscenarioStore } from "@/game/escenario/store";
 import { ArcadePromptLabel } from "./arcade/ArcadePromptLabel";
 import { BusPromptLabel } from "./bus/BusPromptLabel";
+import { MarshmallowPromptLabel } from "./observatorio/MarshmallowStrip";
 import { useOfficeStore, type Interactable } from "@/game/store";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
@@ -79,6 +80,11 @@ const PROMPT: Record<Interactable, string> = {
   kitchen: "Cocinar en la estufa",
   stage: "Subir al escenario",
   podcast: "Grabar en el estudio",
+  telescope: "Mirar por el telescopio",
+  marshmallow: "Asar un malvavisco",
+  orrery: "Ver el orrery",
+  radar: "Usar el radar de señales",
+  logbook: "Leer el diario de exploración",
   sombrero: "Hablar con el Man del Sombrero",
   bus: "Subir al Megabús",
   grill: "Cocinar en el horno de barro",
@@ -150,6 +156,7 @@ export function InteractPrompt() {
     >
       <kbd className="cozy-kbd">E</kbd>
       {near === "arcade" ? <ArcadePromptLabel /> : near === "bus" ? <BusPromptLabel /> : near === "stage" || near === "podcast" ? <EscenarioPromptLabel kind={near} /> : PROMPT[near]}
+      {near === "arcade" ? <ArcadePromptLabel /> : near === "marshmallow" ? <MarshmallowPromptLabel /> : PROMPT[near]}
     </button>
   );
 }
