@@ -44,7 +44,7 @@ Linear es donde se lleva el trabajo: workspace **Hyvento**, team **Virtual-Offic
 
 - **Proyectos**: Fundación, Cabaña Lumbre y Estructuras del jardín (cerrados, lo ya hecho); Extras de la cabaña, Casa de cada persona y Lumbre para cualquier equipo (pendientes, cada uno con su plan en `docs/`); Mantenimiento (bugs, deuda y docs).
 - **Labels**: una del grupo **Área** (Mundo y niveles, Servidor y multijugador, Voz y video, Economía y puntos, Juegos, Vida en la cabaña, HUD e interfaz, Hyvento OS, Personajes, Marca y portada, Infra y despliegue, Rendimiento) y una de tipo (Feature, Improvement o Bug).
-- **Estados**: Backlog → Todo → In Progress → Done (o Canceled / Duplicate).
+- **Estados**: Backlog → Todo → In Progress → En revisión → Done (o Canceled / Duplicate). "En revisión" quiere decir que el PR ya está abierto y espera que lo revisen.
 
 **Qué hacer en Linear en cada paso**
 
@@ -52,7 +52,8 @@ Linear es donde se lleva el trabajo: workspace **Hyvento**, team **Virtual-Offic
 |---|---|
 | Se va a empezar algo | Buscar el issue (por título o palabras clave). Si no hay, crearlo en el proyecto que corresponde, con su label de Área y de tipo y una descripción corta del objetivo. |
 | Se crea la rama | Pasar el issue a **In Progress** y asignarlo a quien trabaja. |
-| Se abre el PR | Adjuntar el link del PR al issue y dejar un comentario corto (qué se hizo, cómo se probó, si trae migración). Sigue en In Progress. |
+| Se abre el PR | Pasar el issue a **En revisión**, adjuntar el link del PR y dejar un comentario corto (qué se hizo, cómo se probó, si trae migración). |
+| El revisor pide cambios | Volver el issue a **In Progress** mientras se corrigen; al subir los cambios, otra vez a **En revisión**. |
 | El PR se mezcla | Recién ahí pasar el issue a **Done** (comprobar el merge con `gh pr view`). |
 | El PR se cierra sin mezclar | Volver el issue a **Todo** con un comentario del porqué. |
 | Aparece un bug u otra idea fuera del alcance | Crear un issue nuevo (bugs en Mantenimiento con label Bug) y no arreglarlo en el mismo PR salvo que sea trivial. |
