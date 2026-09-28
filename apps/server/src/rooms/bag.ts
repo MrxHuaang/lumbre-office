@@ -11,6 +11,7 @@ import {
   WATERING_CAN,
   arrangeBag,
   bagItemInfo,
+  bagItemsOf,
   consumeActionOf,
   objIdOf,
   objItemId,
@@ -190,6 +191,21 @@ export class Bag {
     const saved = await this.enqueue(b, "addInventory", () => this.deps.repo().addInventory(userId, itemId, quantity));
     // No se guardó: la copia vuelve a lo que diga la base.
     if (saved === undefined) await this.load(userId);
+    return "ok";
+  }
+
+  /**
+   * Lo de antes de la mochila (`held.give(userId, id)`): da algo con un id de carta, de lo gratis o de un
+   * dibujo de items.ts (un combo, cada parte por separado) y queda en la mano si estaban libres. Para lo
+   * nuevo que se vende o se regala (la mercancía de un NPC): chequear antes `fits(userId, bagItemsOf(id)…)`
+   * si se cobra, y llamar a esto después de cobrar.
+   */
+  async give(userId: string, id: string): Promise<"ok" | "full" | "stack"> {
+    const parts = bagItemsOf(id);
+    const items = parts.length ? parts : [objItemId(id)];
+    const fits = this.fits(userId, items.map((i) => [i, 1] as const));
+    if (fits !== "ok") return fits;
+    for (const itemId of items) await this.add(userId, itemId, 1, { pick: true });
     return "ok";
   }
 

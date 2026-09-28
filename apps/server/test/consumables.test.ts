@@ -157,6 +157,18 @@ describe("mochila: lo que se lleva en la mano", () => {
     expect(repo.held("u", "obj:regadera")).toBe(1);
   });
 
+  it("give (lo de antes de la mochila) suma un combo por partes o un objeto nuevo, y avisa si no cabe", async () => {
+    const { bag, repo, hand } = bagFor();
+    expect(await bag.give("u", "onces")).toBe("ok");
+    expect(repo.held("u", "obj:tinto")).toBe(1);
+    expect(repo.held("u", "obj:pandebono")).toBe(1);
+    expect(hand()?.item).toBe("tinto");
+    expect(await bag.give("u", "llavero-casino")).toBe("ok");
+    expect(repo.held("u", "obj:llavero-casino")).toBe(1);
+    for (let i = 0; i < BAG.slots; i++) await bag.add("u", `obj:cosa-${i}`);
+    expect(await bag.give("u", "whisky")).toBe("full");
+  });
+
   it("cada bolsa de semillas siembra unas pocas veces y después sale de la mochila", async () => {
     const { bag, repo, hand } = bagFor();
     await bag.add("u", `obj:${seedsOf("papa")}`, 1, { pick: true });
