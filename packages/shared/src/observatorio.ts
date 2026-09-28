@@ -19,6 +19,8 @@ export const OBS_MSG = {
   starSpot: "obs:star:spot",
   /** Servidor → quien mira: el cielo, una estrella nueva o quién la vio primero (SkyEvent). */
   sky: "obs:sky",
+  /** Servidor → los del observatorio: alguien tocó un instrumento en otro nivel (SignalPing, para el radar). */
+  signal: "obs:signal",
 } as const;
 
 // ---------- Fogata de malvaviscos ----------
@@ -50,7 +52,7 @@ export const MARSHMALLOW = {
   reachTiles: 1.4,
 } as const;
 
-export type MarshmallowTimings = Pick<typeof MARSHMALLOW, "toastedAtMs" | "goldenAtMs" | "burntAtMs" | "dropAtMs" | "cooldownMs">;
+export type MarshmallowTimings = Record<"toastedAtMs" | "goldenAtMs" | "burntAtMs" | "dropAtMs" | "cooldownMs", number>;
 
 export const DONENESS = ["crudo", "tostado", "dorado", "quemado"] as const;
 export type Doneness = (typeof DONENESS)[number];
@@ -115,7 +117,7 @@ export const SKY = {
   reachTiles: 1.4,
 } as const;
 
-export type SkyTimings = Pick<typeof SKY, "starMinGapMs" | "starMaxGapMs" | "starFlightMs" | "starGraceMs" | "tickMs">;
+export type SkyTimings = Record<"starMinGapMs" | "starMaxGapMs" | "starFlightMs" | "starGraceMs" | "tickMs", number>;
 
 /** Una estrella fugaz: sale de (x, y) y cruza en la dirección `angle` (grados, 0 = derecha, 90 = abajo). */
 export interface ShootingStar {
@@ -329,7 +331,17 @@ export interface SignalSource {
   loudness: number;
 }
 
+/** Alguien tocó un instrumento (el piano, la guitarra): el radar lo oye un rato. */
+export interface SignalPing {
+  area: string;
+  type: string;
+  x: number;
+  y: number;
+}
+
 export const RADAR = {
+  /** Cuánto se oye un instrumento después de tocarlo (ms). */
+  pingMs: 8_000,
   /** Qué tan ancho "oye" el radar: a esta distancia angular (grados) la señal baja a ~37 %. */
   beamDeg: 28,
   /** A esta distancia (tiles) la señal llega a la mitad. */

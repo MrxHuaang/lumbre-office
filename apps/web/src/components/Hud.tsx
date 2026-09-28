@@ -200,6 +200,9 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
             <MenuItem icon="fish" onClick={act(() => openPanel("fishAlbum", false))}>
               Álbum de pesca
             </MenuItem>
+            <MenuItem icon="star" onClick={act(() => openPanel("logbook", false))}>
+              Diario de exploración
+            </MenuItem>
           </MenuGroup>
 
           <MenuGroup label="Ajustes">

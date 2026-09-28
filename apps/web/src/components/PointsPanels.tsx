@@ -7,6 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
 import { useClubStore } from "@/game/club/store";
 import { ArcadePromptLabel } from "./arcade/ArcadePromptLabel";
+import { MarshmallowPromptLabel } from "./observatorio/MarshmallowStrip";
 import { useOfficeStore, type Interactable } from "@/game/store";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
@@ -65,6 +66,11 @@ const PROMPT: Record<Interactable, string> = {
   shed: "Abrir el cobertizo",
   trophies: "Ver la vitrina de trofeos",
   kitchen: "Cocinar en la estufa",
+  telescope: "Mirar por el telescopio",
+  marshmallow: "Asar un malvavisco",
+  orrery: "Ver el orrery",
+  radar: "Usar el radar de señales",
+  logbook: "Leer el diario de exploración",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -131,7 +137,7 @@ export function InteractPrompt() {
       className="cozy-chip pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[14px]"
     >
       <kbd className="cozy-kbd">E</kbd>
-      {near === "arcade" ? <ArcadePromptLabel /> : PROMPT[near]}
+      {near === "arcade" ? <ArcadePromptLabel /> : near === "marshmallow" ? <MarshmallowPromptLabel /> : PROMPT[near]}
     </button>
   );
 }

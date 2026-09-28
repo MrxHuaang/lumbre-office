@@ -206,7 +206,7 @@ import { Phones } from "./phones";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
 import { Observatorio } from "./observatorio";
-import { isNightMinute, MARSHMALLOW, OBS_MSG, SKY, type MarshmallowTimings, type SkyTimings } from "@hyvento/shared";
+import { isNightMinute, MARSHMALLOW, OBS_MSG, SKY, type MarshmallowTimings, type SignalPing, type SkyTimings } from "@hyvento/shared";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
 import { Cocina, type CocinaResult } from "./cocina";
 
@@ -2182,6 +2182,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
       this.sendToArea(player.area, MSG.furnitureEvent, event);
+      // El radar de señales del observatorio oye los instrumentos de toda la cabaña.
+      if (event.action === "play" && player.area !== "observatorio")
+        this.sendToArea("observatorio", OBS_MSG.signal, { area: player.area, type: event.type, x: event.x, y: event.y } satisfies SignalPing);
     }
     // Casa viva: lo gratis a la mano (el malvavisco, al terminar de asarse, si sigue junto a la fogata) y
     // el cubículo ocupado.

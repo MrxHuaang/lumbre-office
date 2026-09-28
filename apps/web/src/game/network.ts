@@ -453,9 +453,20 @@ export function sendBlackjackAction(action: BlackjackAction) {
 }
 
 /** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
+/**
+ * Objetos que no abren un panel sino que hacen algo con E (la fogata de malvaviscos): los registra su
+ * módulo, así network.ts no lo importa (evita importaciones circulares).
+ */
+const interactActions = new Map<Interactable, () => void>();
+export function onInteract(kind: Interactable, fn: () => void) {
+  interactActions.set(kind, fn);
+}
+
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return togglePole();
   if (kind === "fishing") return fishingSpotAction();
+  const action = interactActions.get(kind);
+  if (action) return action();
   useOfficeStore.getState().openPanel(kind, true);
 }
 
