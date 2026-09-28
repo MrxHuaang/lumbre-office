@@ -1,5 +1,6 @@
 import {
   KNOCK_TIMEOUT_MS,
+  type GameClockState,
   type ChatEvent,
   type ChatScope,
   type Direction,
@@ -200,8 +201,9 @@ interface OfficeStore {
   walkTarget: { zoneId: string; nonce: number } | null;
   /** Nivel en el que está el jugador local. */
   area: string;
-  /** Modo noche (luces encendidas); arranca según la hora local. */
+  /** Modo noche (luces encendidas): lo manda solo el reloj del juego, que lleva el servidor. */
   night: boolean;
+  autoNight: boolean;
   /** Modo privado: dentro de una oficina o la sala de reuniones, paredes altas y lo de afuera a oscuras. */
   privateWalls: boolean;
   setPrivateWalls: (on: boolean) => void;
@@ -215,6 +217,9 @@ interface OfficeStore {
   /** Clima de afuera (lo decide el servidor: `state.weather`). */
   weather: Weather;
   setWeather: (weather: Weather) => void;
+  /** Reloj del juego (lo lleva el servidor: `state.clockAnchor*`); null hasta que llega. Ver game/gameClock.ts. */
+  gameClock: GameClockState | null;
+  setGameClock: (clock: GameClockState) => void;
   /** Quienes cumplen años hoy (userId → nombre) y si el club está en modo karaoke (`state.events`). */
   birthdays: Record<string, string>;
   karaoke: boolean;
@@ -276,7 +281,8 @@ interface OfficeStore {
   dismissNotice: (id: number) => void;
   walkToZone: (zoneId: string) => void;
   setArea: (area: string) => void;
-  setNight: (night: boolean) => void;
+  /** El reloj del juego cruzó las 19:00 o las 7:00 (o llegó por primera vez). */
+  setAutoNight: (auto: boolean) => void;
   setInteract: (i: Interactable | null) => void;
   setUsable: (u: UsableNear | null) => void;
   openPanel: (kind: PanelKind, atObject: boolean) => void;
@@ -302,7 +308,9 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
   "too-soon": () => ({ text: "Espera un momento antes de volver a tocar.", tone: "info" }),
 };
 
-const PRIVATE_WALLS_KEY = "hyvento:paredes-altas";
+// Clave nueva: al pasar las paredes altas a predeterminadas, todos arrancan con ellas una vez (lo que se
+// eligió con la clave vieja, "hyvento:paredes-altas", arrancaba apagado).
+const PRIVATE_WALLS_KEY = "hyvento:paredes-altas-v2";
 
 /**
  * Nombres sobre los personajes: completos, cortos ("Juan J.", sin el propio) u ocultos. En cualquier modo,
@@ -322,12 +330,12 @@ function loadNameTags(): NameTagMode {
   }
 }
 
-/** El modo privado se recuerda en este navegador (arranca apagado). */
+/** El modo privado se recuerda en este navegador: arranca prendido (paredes altas al entrar a la cabaña). */
 function loadPrivateWalls(): boolean {
   try {
-    return typeof localStorage !== "undefined" && localStorage.getItem(PRIVATE_WALLS_KEY) === "1";
+    return typeof localStorage === "undefined" || localStorage.getItem(PRIVATE_WALLS_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -359,10 +367,12 @@ const initial = {
   walkTarget: null,
   area: "",
   night: false,
+  autoNight: false,
   privateWalls: loadPrivateWalls(),
   nameTags: loadNameTags(),
   indoors: false,
   weather: "despejado" as Weather,
+  gameClock: null as GameClockState | null,
   birthdays: {} as Record<string, string>,
   karaoke: false,
   congratulated: {} as Record<string, true>,
@@ -443,7 +453,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
   setArea: (area) => set({ area }),
-  setNight: (night) => set({ night }),
+  setAutoNight: (auto) => set({ autoNight: auto, night: auto }),
   setIndoors: (indoors) => set({ indoors }),
   setPrivateWalls: (privateWalls) => {
     set({ privateWalls });
@@ -466,6 +476,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     get().setNameTags(NAME_TAG_MODES[(i + 1) % NAME_TAG_MODES.length]!);
   },
   setWeather: (weather) => set({ weather }),
+  setGameClock: (gameClock) => set({ gameClock }),
   setEvents: ({ birthdays, karaoke }) => set({ birthdays, karaoke }),
   markCongratulated: (userId) => set((s) => ({ congratulated: { ...s.congratulated, [userId]: true } })),
   throwConfetti: () => set({ confetti: Date.now() }),
@@ -482,7 +493,16 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
   setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),
   // Las felicitaciones de hoy sobreviven a una reconexión (el servidor igual las recuerda).
-  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls, nameTags: s.nameTags, congratulated: s.congratulated })),
+  reset: () =>
+    set((s) => ({
+      ...initial,
+      zoneNames: s.zoneNames,
+      night: s.night,
+      autoNight: s.autoNight,
+      privateWalls: s.privateWalls,
+      nameTags: s.nameTags,
+      congratulated: s.congratulated,
+    })),
 }));
 
 /** User.id del jugador local. */

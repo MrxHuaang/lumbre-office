@@ -87,6 +87,7 @@ import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { sfx } from "./sfx";
 import { bindPhone, resetPhone } from "./phone";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
@@ -195,6 +196,9 @@ export interface OfficeStateView {
   worldEdits: Map<string, string>;
   /** Clima de afuera (Weather de @hyvento/shared). */
   weather: string;
+  /** Reloj del juego (GameClockState de @hyvento/shared). */
+  clockAnchorReal: number;
+  clockAnchorMinute: number;
   /** Casa viva: contadores (ajedrez, puzle, pizarras), cubículos ocupados (clave → userId) y mascotas. */
   counters: Map<string, number>;
   stalls: Map<string, string>;
@@ -361,8 +365,12 @@ function handleAchievement(e: AchievementUnlockedEvent) {
   achievementListeners.forEach((cb) => cb(e));
   const ach = achievementById(e.achievementId);
   if (!ach) return;
-  if (e.sessionId === room?.sessionId) useAchievementStore.getState().pushToast(ach.id);
-  else useOfficeStore.getState().notify(`${e.name} desbloqueó «${ach.name}».`, "success");
+  if (e.sessionId === room?.sessionId) {
+    useAchievementStore.getState().pushToast(ach.id);
+    sfx.achievement(ach.rarity === "epico" || ach.rarity === "legendario");
+  }
+  // De los demás solo se avisan los épicos y legendarios: con tantos logros, los comunes llenarían la pantalla.
+  else if (ach.rarity === "epico" || ach.rarity === "legendario") useOfficeStore.getState().notify(`${e.name} desbloqueó «${ach.name}».`, "success");
 }
 
 /** Alguien de tu nivel tocó un instrumento o acarició al gato. */
@@ -806,6 +814,10 @@ function attach(r: OfficeRoom) {
   $(r.state).worldEdits.onAdd((json, area) => applyWorldEditsJson(area, json));
   $(r.state).worldEdits.onChange((json, area) => applyWorldEditsJson(area, json));
   $(r.state).listen("weather", (w) => useOfficeStore.getState().setWeather(isWeather(w) ? w : "despejado"));
+  // Las dos mitades del ancla cambian juntas (/time): se lee el par entero en cada aviso.
+  const syncClock = () => useOfficeStore.getState().setGameClock({ anchorReal: r.state.clockAnchorReal, anchorMinute: r.state.clockAnchorMinute });
+  $(r.state).listen("clockAnchorReal", syncClock);
+  $(r.state).listen("clockAnchorMinute", syncClock);
   // Eventos del calendario: la lista de cumpleaños de hoy y el karaoke (llega con el primer estado).
   $(r.state).listen("events", (events) => {
     if (!events) return;
