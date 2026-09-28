@@ -11,6 +11,7 @@ import { getArriveByBus } from "@/lib/arriveByBus";
 import { BusTrip } from "./bus/BusTrip";
 import { EntryLoader } from "./EntryLoader";
 import { waitForCozyFont } from "@/lib/cozy";
+import { warmPrerender } from "@/game/iso/prerender-paths";
 import { AdminDialog } from "./AdminDialog";
 import { ChatPanel } from "./ChatPanel";
 import { Hud, PeoplePanel } from "./Hud";
@@ -216,6 +217,12 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   useEffect(() => {
     let cancelled = false;
     let game: import("phaser").Game | undefined;
+    // El motor (Phaser, el chunk más pesado) y el arte pre-dibujado se empiezan a bajar ya, a la par del
+    // token y la conexión: antes se pedían recién con la sala conectada, uno detrás del otro. El error,
+    // si lo hay, se ve abajo al esperarlo.
+    const gameModule = import("@/game/createGame");
+    gameModule.catch(() => undefined);
+    warmPrerender();
 
     (async () => {
       try {
@@ -231,7 +238,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
       }
       if (cancelled || !gameRef.current) return;
       try {
-        const { createGame, waitForSize, waitForVisible } = await import("@/game/createGame"); // Phaser necesita `window`
+        const { createGame, waitForSize, waitForVisible } = await gameModule; // Phaser necesita `window`
         if (cancelled || !gameRef.current) return;
         await waitForVisible();
         await waitForSize(gameRef.current);

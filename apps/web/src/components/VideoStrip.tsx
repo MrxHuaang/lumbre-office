@@ -1,8 +1,8 @@
 "use client";
 
-import { Track } from "livekit-client";
+import type { Track } from "livekit-client";
 import { useEffect, useRef } from "react";
-import { media, useMediaStore, type Focus } from "@/game/media";
+import { media, useMediaStore } from "@/game/media";
 
 /**
  * Pantallas compartidas de quienes oyes (y la tuya). Las cámaras se ven sobre los avatares.
@@ -36,7 +36,7 @@ export function VideoStrip() {
 
 function ScreenTile({ identity, name }: { identity: string | null; name: string }) {
   const setFocused = useMediaStore((s) => s.setFocused);
-  const track = media.videoTrack(identity, Track.Source.ScreenShare);
+  const track = media.videoTrack(identity, "screen");
   return (
     <button
       onClick={() => setFocused({ identity, source: "screen" })}
@@ -73,8 +73,6 @@ function VideoView({ track, mirror = false, contain = false }: { track: Track; m
   );
 }
 
-const sourceOf = (f: Focus) => (f.source === "screen" ? Track.Source.ScreenShare : Track.Source.Camera);
-
 /** Vista grande de una cámara o pantalla compartida (Esc para cerrar, botón de pantalla completa). */
 export function ScreenFocus() {
   const focused = useMediaStore((s) => s.focused);
@@ -84,7 +82,7 @@ export function ScreenFocus() {
   useMediaStore((s) => s.trackVersion);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const track = focused ? media.videoTrack(focused.identity, sourceOf(focused)) : undefined;
+  const track = focused ? media.videoTrack(focused.identity, focused.source) : undefined;
   const name = focused?.identity ? (participants[focused.identity]?.name ?? "Alguien") : "Tú";
   const stillAvailable =
     !!focused && !!track && (focused.identity === null || hearing[focused.identity] !== undefined);

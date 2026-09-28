@@ -1,16 +1,5 @@
 import { nextVoiceLink, VOICE_LINK_IDLE, type VoiceLink } from "@hyvento/shared";
-import {
-  ConnectionState,
-  createLocalScreenTracks,
-  DisconnectReason,
-  type LocalTrack,
-  RemoteParticipant,
-  RemoteTrack,
-  Room,
-  RoomEvent,
-  Track,
-  type Participant,
-} from "livekit-client";
+import type { LocalTrack, Participant, RemoteParticipant, RemoteTrack, Room, Track } from "livekit-client";
 import { create } from "zustand";
 import { tokenUsable } from "./livekitToken";
 import { useOfficeStore } from "./store";
@@ -96,6 +85,23 @@ const RETRY_MAX_MS = 5 * 60_000;
 
 type Creds = { token: string; url: string };
 
+type LiveKit = typeof import("livekit-client");
+/**
+ * LiveKit (~550 kB) se baja aparte, no con la oficina: la sala se abre recién con alguien cerca, así que
+ * no hace falta para entrar. Se pide al abrir la sala o, por las dudas, un rato después de entrar (ver
+ * start): así ya está cuando se prende la pantalla, que se tiene que capturar mientras dura el clic.
+ */
+let lk: LiveKit | null = null;
+let lkLoading: Promise<LiveKit> | null = null;
+function loadLiveKit(): Promise<LiveKit> {
+  lkLoading ??= import("livekit-client").then((m) => (lk = m));
+  // Si falla (red), se vuelve a intentar la próxima vez que haga falta.
+  lkLoading.catch(() => (lkLoading = null));
+  return lkLoading;
+}
+/** Tras entrar, cuánto se espera para bajar LiveKit sin apuro. */
+const PRELOAD_LIVEKIT_MS = 4000;
+
 /** El servidor dijo que no hay audio/video (sin credenciales de LiveKit): no se reintenta en la sesión. */
 class NotConfigured extends Error {}
 
@@ -129,7 +135,8 @@ class MediaManager {
   private waiting = 0;
 
   get connected() {
-    return this.room?.state === ConnectionState.Connected;
+    // Con sala, LiveKit ya está cargado.
+    return Boolean(this.room && lk && this.room.state === lk.ConnectionState.Connected);
   }
 
   /** Al entrar a la cabaña: todavía no se conecta, solo empieza a revisar si hace falta. */
@@ -140,6 +147,12 @@ class MediaManager {
     useMediaStore.setState({ ...initialMedia, status: this.blocked ? "unavailable" : "idle" });
     this.timer = setInterval(() => this.check(), LINK_CHECK_MS);
     this.check();
+    // Cuando el navegador esté libre (armar el módulo es una tarea larga): no en medio de una caminata.
+    setTimeout(() => {
+      const load = () => this.active && loadLiveKit().catch(() => undefined);
+      if (typeof requestIdleCallback === "function") requestIdleCallback(load, { timeout: 5000 });
+      else load();
+    }, PRELOAD_LIVEKIT_MS);
   }
 
   /** Al salir de la cabaña. */
@@ -197,11 +210,12 @@ class MediaManager {
   private async open(): Promise<Room | null> {
     const gen = ++this.generation;
     useMediaStore.setState({ status: "connecting", participants: {}, speaking: [] });
-    const room = new Room({ adaptiveStream: true, dynacast: true });
+    let room: Room | null = null;
     try {
-      const creds = await this.credentials();
+      const [LK, creds] = await Promise.all([loadLiveKit(), this.credentials()]);
+      room = new LK.Room({ adaptiveStream: true, dynacast: true });
       if (gen !== this.generation) return null;
-      this.wire(room);
+      this.wire(LK, room);
       await room.connect(creds.url, creds.token, { autoSubscribe: false });
     } catch (err) {
       if (gen !== this.generation) return null;
@@ -214,7 +228,7 @@ class MediaManager {
         this.retryDelay = Math.min(RETRY_MAX_MS, this.retryDelay * 2);
       }
       useMediaStore.setState({ status: "unavailable" });
-      void room.disconnect();
+      void room?.disconnect();
       return null;
     }
     if (gen !== this.generation) {
@@ -287,12 +301,12 @@ class MediaManager {
   }
 
   /** Track de video de un participante (o del local con identity = null). */
-  videoTrack(identity: string | null, source: Track.Source.Camera | Track.Source.ScreenShare): Track | undefined {
+  videoTrack(identity: string | null, source: "camera" | "screen"): Track | undefined {
     const room = this.room;
-    if (!room) return undefined;
+    if (!room || !lk) return undefined;
     const participant: Participant | undefined =
       identity === null ? room.localParticipant : room.remoteParticipants.get(identity);
-    const pub = participant?.getTrackPublication(source);
+    const pub = participant?.getTrackPublication(source === "screen" ? lk.Track.Source.ScreenShare : lk.Track.Source.Camera);
     return pub && !pub.isMuted ? pub.track : undefined;
   }
 
@@ -302,9 +316,9 @@ class MediaManager {
    */
   audioTrack(identity: string | null): MediaStreamTrack | undefined {
     const room = this.room;
-    if (!room) return undefined;
+    if (!room || !lk) return undefined;
     const participant: Participant | undefined = identity === null ? room.localParticipant : room.remoteParticipants.get(identity);
-    const pub = participant?.getTrackPublication(Track.Source.Microphone);
+    const pub = participant?.getTrackPublication(lk.Track.Source.Microphone);
     return pub && !pub.isMuted ? pub.track?.mediaStreamTrack : undefined;
   }
 
@@ -318,9 +332,9 @@ class MediaManager {
     for (const pub of p.trackPublications.values()) {
       if (pub.isSubscribed !== hear) pub.setSubscribed(hear);
     }
-    if (hear) {
-      p.setVolume(volume, Track.Source.Microphone);
-      p.setVolume(volume, Track.Source.ScreenShareAudio);
+    if (hear && lk) {
+      p.setVolume(volume, lk.Track.Source.Microphone);
+      p.setVolume(volume, lk.Track.Source.ScreenShareAudio);
     }
   }
 
@@ -338,7 +352,7 @@ class MediaManager {
     let captured: LocalTrack[] | undefined;
     this.waiting++;
     try {
-      if (next && kind === "screen" && !this.room) captured = await createLocalScreenTracks();
+      if (next && kind === "screen" && !this.room) captured = await (lk ?? (await loadLiveKit())).createLocalScreenTracks();
       const room = next ? await this.ensureRoom() : this.room;
       if (!room) {
         if (next) useOfficeStore.getState().notify(`No se pudo conectar el audio y video para prender ${what}.`, "warning");
@@ -365,8 +379,9 @@ class MediaManager {
     }
   }
 
-  private wire(room: Room) {
-    bindRoom(room); // micrófono, cámara, parlantes y ayudas de audio elegidos (devices.ts)
+  private wire(LK: LiveKit, room: Room) {
+    const { RoomEvent, Track, DisconnectReason } = LK;
+    bindRoom(LK, room); // micrófono, cámara, parlantes y ayudas de audio elegidos (devices.ts)
     const sync = () => {
       if (this.room === room) this.syncParticipants();
     };
@@ -427,7 +442,7 @@ class MediaManager {
   }
 
   private attachAudio(track: RemoteTrack) {
-    if (track.kind !== Track.Kind.Audio || !track.sid) return;
+    if (track.kind !== "audio" || !track.sid) return;
     const el = track.attach();
     el.style.display = "none";
     document.body.appendChild(el);
@@ -435,7 +450,7 @@ class MediaManager {
   }
 
   private detachAudio(track: RemoteTrack) {
-    if (track.kind !== Track.Kind.Audio || !track.sid) return;
+    if (track.kind !== "audio" || !track.sid) return;
     track.detach().forEach((el) => el.remove());
     this.audioEls.delete(track.sid);
   }

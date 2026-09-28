@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { OfficeScene } from "./OfficeScene";
+import { guardDepthSort } from "./iso/depthGuard";
 import { PIXEL_RATIO } from "./pixelRatio";
 
 /**
@@ -33,6 +34,7 @@ export function waitForVisible(): Promise<void> {
 }
 
 export function createGame(parent: HTMLElement) {
+  guardDepthSort();
   const game = new Phaser.Game({
     // Canvas 2D en vez de WebGL: más compatible (GPUs integradas, Brave, pestañas en segundo plano)
     // y de sobra para un mapa pixel-art de este tamaño.
@@ -50,6 +52,10 @@ export function createGame(parent: HTMLElement) {
     // Contenedor DOM: burbujas de cámara y pantallas de la sala (siguen la cámara y el zoom del juego).
     dom: { createContainer: true },
     banner: false,
+    // Tope de cuadros: en pantallas de 120/144 Hz se dibujaba al doble (o más) sin que se note, y el
+    // pixel-art se mueve por píxeles enteros. 75 y no 60: con 60 exacto el temblor del reloj salta cuadros
+    // en pantallas de 60 Hz; así quedan 60 en 60/120/240 Hz y 72 en 144 Hz (el movimiento usa el delta).
+    fps: { limit: 75 },
     scene: [OfficeScene],
   });
   // Sin el modo RESIZE, el tamaño sigue al contenedor a mano.
