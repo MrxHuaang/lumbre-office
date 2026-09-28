@@ -151,18 +151,21 @@ describe("caballitos", () => {
     expect(mesaReturn("caballos", "h0", [2, 0, 1, 3, 4, 5], 10)).toBe(0);
   });
 
-  it("en la animación cruzan la meta en el orden que dijo el servidor", () => {
+  // Miles de cuadros por ronda: el mínimo se junta y se revisa una vez (un expect por cuadro era lento en CI).
+  it("en la animación cruzan la meta en el orden que dijo el servidor", { timeout: 20_000 }, () => {
     for (let round = 1; round < 40; round++) {
       const order = raceOrder(seeded(round));
       // Cuándo llega cada uno a la meta.
       const arrive = new Array(6).fill(Infinity);
+      let lowest = Infinity;
       for (let t = 0; t <= MESA.raceMs; t += 20) {
         const p = raceProgress(order, round, t);
         p.forEach((x, h) => {
           if (x >= 1 && arrive[h] === Infinity) arrive[h] = t;
-          expect(x).toBeGreaterThanOrEqual(0);
+          if (x < lowest) lowest = x;
         });
       }
+      expect(lowest).toBeGreaterThanOrEqual(0);
       for (let k = 1; k < 6; k++) expect(arrive[order[k]!]).toBeGreaterThan(arrive[order[k - 1]!]);
       expect(arrive[order[5]!]).toBeLessThanOrEqual(MESA.raceMs);
     }
