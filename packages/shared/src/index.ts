@@ -33,3 +33,4 @@ export * from "./clock";
 export * from "./photos";
 export * from "./photo-service";
 export * from "./achievements";
+export * from "./casa-arbol";

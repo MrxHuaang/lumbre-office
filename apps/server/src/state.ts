@@ -231,6 +231,17 @@ export class GardenPlotState extends Schema {
   @type("number") wateredUntil = 0;
 }
 
+/** La casa del árbol (CasaArbolView de @hyvento/shared): la escalera recogida y el modo foco de adentro. */
+export class TreeHouseState extends Schema {
+  @type("boolean") locked = false;
+  /** Quién recogió la escalera. */
+  @type("string") lockedBy = "";
+  /** "" apagado, "focus" o "break" (CasaArbolFocus). */
+  @type("string") focus = "";
+  /** Fin de la fase del modo foco, en ms de la hora del servidor. */
+  @type("float64") focusEndsAt = 0;
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -259,4 +270,6 @@ export class OfficeState extends Schema {
    */
   @type("float64") clockAnchorReal = 0;
   @type("float64") clockAnchorMinute = 0;
+  /** La casa del árbol del jardín (ver rooms/casaArbol.ts). */
+  @type(TreeHouseState) treeHouse = new TreeHouseState();
 }

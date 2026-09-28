@@ -2,6 +2,7 @@
 import { drawHouse, HOUSE_CHIMNEY_TOP } from "./exterior-casa";
 import { gazeboRoof } from "./exterior-patio";
 import { drawGarage } from "./garaje-exterior";
+import { drawTreeHouse } from "./casa-arbol-exterior";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -542,6 +543,7 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   fence,
   "gazebo-roof": gazeboRoof,
   garage: drawGarage,
+  treehouse: drawTreeHouse,
 };
 
 export function hasOutdoor(type: string): boolean {

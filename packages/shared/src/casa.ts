@@ -118,6 +118,10 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   "work-light": lamp("el reflector"),
   "dead-plant": { ...water, label: "Regar la planta seca" },
   "filing-dented": { ...read, label: "Hojear una carpeta vieja" },
+  // La casa del árbol: el farol de frasco, los libros de los cajones y la tetera de la mesita.
+  "treehouse-lantern": lamp("el farol"),
+  "treehouse-crates": { ...read, label: "Leer un libro de los cajones" },
+  "treehouse-table": { action: "take", label: "Servirse agua de panela de la tetera", cooldownMs: 1500, gives: ["aguapanela"] },
   // La fogata del jardín: se asa desde los troncos (un poco más lejos que el alcance normal).
   "fire-pit": { action: "roast", label: "Asar un malvavisco", cooldownMs: CASA.roastMs + 400, gives: ["malvavisco"], reachTiles: CASA.roastReachTiles },
 };

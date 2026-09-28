@@ -22,6 +22,7 @@ import {
 } from "./pixel";
 import { FOREST, interiorFeature, interiorFloor, interiorWall } from "./interior-room";
 import { CEMENT, concreteFloor, garajeFeature } from "./garaje-room";
+import { casaArbolFeature } from "./casa-arbol-room";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;
@@ -45,6 +46,7 @@ const WALLPAPER: Record<WallpaperKind, Ramp> = {
   slats: C.wood,
   colonial: C.cream,
   cinderblock: CEMENT,
+  treehouse: C.wood,
 };
 /** El alfombrado toma el color del papel de la sala. */
 const CARPET: Record<WallpaperKind, Ramp> = {
@@ -64,6 +66,7 @@ const CARPET: Record<WallpaperKind, Ramp> = {
   slats: C.cream,
   colonial: C.green,
   cinderblock: C.stone,
+  treehouse: C.cork,
 };
 
 // ---------- Pisos ----------
@@ -876,6 +879,10 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
     case "cobweb":
     case "grimy-window":
       return garajeFeature(f, u, hv, day);
+    // La casa del árbol (art/casa-arbol-room.ts).
+    case "treehouse-window":
+    case "bunting":
+      return casaArbolFeature(f, u, hv, day);
   }
 }
 
