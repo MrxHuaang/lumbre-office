@@ -13,6 +13,7 @@ import {
   type SombreroBuyResult,
   type Weather,
 } from "@hyvento/shared";
+import { canStandAt, canWalkBetween, getWorld } from "@hyvento/map";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
@@ -198,6 +199,82 @@ describe("el Man del Sombrero: los efectos", () => {
     await tick(80);
     await room.waitForNextPatch();
     expect(me().trip).toBe("yage");
+  });
+
+  it("el tusi pone rosado (efecto propio) y se pasa solo", async () => {
+    OfficeRoom.tripTimings = { scale: 0.01, maxMs: 5000 };
+    const { alice, room, buy, me, goToHim } = await setup(22, 100);
+    await goToHim();
+    expect(await buy("tusi")).toMatchObject({ ok: true, item: "tusi" });
+    alice.send(MSG.useHeld);
+    await tick(80);
+    await room.waitForNextPatch();
+    expect(me().trip).toBe("tusi");
+    expect(me().heldLeft).toBe(String(usesOf("tusi") - 1));
+    // 80 s al 1 %: menos de un segundo.
+    await tick(900);
+    await room.waitForNextPatch();
+    expect(me().trip).toBe("");
+  });
+
+  it("con la keta se camina en cámara lenta: el servidor no deja el paso de siempre", async () => {
+    OfficeRoom.tripTimings = { scale: 0.01, maxMs: 5000 };
+    const { alice, room, buy, me, goToHim } = await setup(22, 100);
+    await goToHim();
+    expect(await buy("keta")).toMatchObject({ ok: true, item: "keta" });
+    alice.send(MSG.useHeld);
+    await tick(80);
+    await room.waitForNextPatch();
+    expect(me().trip).toBe("keta");
+    // Un tramo que a paso normal se hace en ~0,3 s (más de lo que se tolera a media velocidad).
+    const map = getWorld().areas.get(me().area)!;
+    const from = { x: me().x, y: me().y };
+    const hop = 56;
+    const to = [
+      [hop, 0],
+      [-hop, 0],
+      [0, hop],
+      [0, -hop],
+    ]
+      .map(([dx, dy]) => ({ x: from.x + dx!, y: from.y + dy! }))
+      .find((p) => canStandAt(map, p.x, p.y) && canWalkBetween(map, from.x, from.y, p.x, p.y))!;
+    expect(to).toBeDefined();
+    // El servidor mide el tiempo desde el último paso: uno en el lugar arranca el reloj.
+    const hopAfter = async (ms: number) => {
+      alice.send(MSG.move, { x: from.x, y: from.y, dir: "down", moving: false });
+      await tick(ms);
+      alice.send(MSG.move, { x: to.x, y: to.y, dir: "down", moving: true });
+    };
+    await hopAfter(300);
+    await tick(60);
+    await room.waitForNextPatch();
+    expect([me().x, me().y]).toEqual([from.x, from.y]);
+    // Cuando se le pasa, el mismo tramo sí vale.
+    await tick(700);
+    await room.waitForNextPatch();
+    expect(me().trip).toBe("");
+    await hopAfter(300);
+    await tick(60);
+    await room.waitForNextPatch();
+    expect([me().x, me().y]).toEqual([to.x, to.y]);
+  });
+
+  it("el chicle de mambe acelera y la galleta de la abuela traba", async () => {
+    OfficeRoom.tripTimings = { scale: 0.05, maxMs: 20_000 };
+    OfficeRoom.consumeCooldownMs = 0;
+    const { alice, room, buy, me, goToHim } = await setup(22, 100);
+    await goToHim();
+    await buy("chicle-mambe");
+    alice.send(MSG.useHeld);
+    await tick(80);
+    await room.waitForNextPatch();
+    expect(me().trip).toBe("acelere");
+    await tick(1600);
+    await buy("galleta-abuela");
+    alice.send(MSG.useHeld);
+    await tick(80);
+    await room.waitForNextPatch();
+    expect(me().trip).toBe("trabado");
   });
 
   it("el chirrinchi emborracha más rápido que lo del bar: un sorbo y ya está alegre", async () => {

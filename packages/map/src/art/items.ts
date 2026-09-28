@@ -22,7 +22,7 @@ interface ItemArt {
   fx?: HeldEffect;
   from?: [number, number];
   /** Vaso de vidrio: letras del líquido (bajan con cada sorbo) y de la espuma (se va con el primero). */
-  liquid?: { chars: string; foam?: string };
+  liquid?: { chars: string; foam?: string; /** Color del vidrio ya vacío (por defecto, vidrio claro). */ empty?: RGBA };
   /**
    * Taza opaca: solo se ve la superficie (letras `chars` de la fila de arriba). Con cada sorbo una parte
    * se vuelve el interior de la taza (`inner`), como si el nivel bajara y asomara la loza.
@@ -32,6 +32,8 @@ interface ItemArt {
   crumb?: RGBA;
   /** Brasa (cigarro, habano): letras que titilan y brillan al pitar. El papel (`body`) se quema. */
   ember?: { chars: string; body: string };
+  /** Letras que no reciben la luz automática (etiquetas, rayas, pintas: detalles que ya van a mano). */
+  flat?: string;
 }
 
 type Hexes = Record<string, string>;
@@ -41,11 +43,13 @@ const legend = (h: Hexes): Legend => Object.fromEntries(Object.entries(h).map(([
 function popcorn(c: Hexes, crumb: string): ItemArt {
   return {
     crumb: hex(crumb),
+    // Las rayas de la caja van parejas (sin la luz automática, que las manchaba).
+    flat: "rw",
     rows: [
       "..oPpo..", //
-      ".oPpPpo.",
-      "opPpPpPo",
-      "oPpPpPpo",
+      ".oPHPpo.",
+      "opPpPHPo",
+      "oHpPpPpo",
       "orwrwrwo",
       "orwrwrwo",
       ".orwrwo.",
@@ -100,21 +104,33 @@ function goblet(c: Hexes & { top: string }): ItemArt {
   };
 }
 
-const ITEMS: Record<string, ItemArt> = {
-  tinto: {
+/**
+ * Pocillo blanco con asa y su platico (el tinto y sus parientes). La bebida es la superficie (`S` el brillo
+ * de la izquierda, `s` el resto y, si viene, `m` una gota de leche) y se va a sorbos dejando ver la loza.
+ */
+function pocillo(c: Hexes): ItemArt {
+  const milk = Boolean(c.m);
+  return {
     fx: "steam",
+    from: [3, 0],
     rows: [
-      ".ooooo.", //
-      ".occco.",
-      ".owwWoo",
-      ".owwWoo",
-      "ooooooo",
-      "oWwwwWo",
-      ".ooooo.",
+      ".oooooo..", //
+      milk ? ".oSmsso.." : ".oSssso..",
+      ".o1wwWooo",
+      ".o1wwWo.o",
+      ".o1wwWooo",
+      "oPPppppPo",
+      ".ooooooo.",
     ],
-    colors: { ...CUP, c: hex("#3b1f14") },
-    surface: { chars: "c", inner: hex("#a8977e") },
-  },
+    colors: { ...legend(c), 1: hex("#fffaf0"), w: hex("#f2e8d6"), W: hex("#cdbda2"), P: hex("#fffaf0"), p: hex("#ddd0b8") },
+    surface: { chars: "Ssm", inner: hex("#b8a88e") },
+    flat: "1Pp",
+  };
+}
+
+const ITEMS: Record<string, ItemArt> = {
+  // Negrito y cargado: casi negro, con el borde de crema rojiza.
+  tinto: pocillo({ S: "#6e3a22", s: "#2a140c" }),
   "cafe-leche": {
     fx: "steam",
     from: [2, 0],
@@ -144,21 +160,32 @@ const ITEMS: Record<string, ItemArt> = {
     // Es un vaso de vidrio: se ve bajar la infusión.
     liquid: { chars: "aAr" },
   },
+  // Taza ancha de franja roja, el chocolate espumoso y la tajada de queso hundiéndose.
   chocolate: {
     fx: "steam",
     from: [2, 0],
     rows: [
-      "oooooo...", //
-      "okkkko...",
-      "owwwWoo..",
-      "owwwWo.o.",
-      "owwwWoooo",
-      "owwwWoyyo",
-      ".ooooyYyo",
-      ".....oooo",
+      "ooooooo..", //
+      "oFfqQfo..",
+      "o1wwwWooo",
+      "orrrrRo.o",
+      "o1wwwWooo",
+      "o1wwwWo..",
+      ".ooooo...",
     ],
-    colors: { ...CUP, k: hex("#6b3a22"), y: hex("#f6e3a0"), Y: hex("#e0c270") },
-    surface: { chars: "k", inner: hex("#a8977e") },
+    colors: {
+      F: hex("#c8966a"),
+      f: hex("#7a4428"),
+      q: hex("#fff2c0"),
+      Q: hex("#e6c46e"),
+      1: hex("#fffaf0"),
+      w: hex("#f2e8d6"),
+      W: hex("#cdbda2"),
+      r: hex("#d0452e"),
+      R: hex("#8e2a1e"),
+    },
+    surface: { chars: "FfqQ", inner: hex("#b89a80") },
+    flat: "1",
   },
   pandebono: {
     crumb: hex("#fff0c4"),
@@ -173,18 +200,20 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { b: hex("#ecc070"), B: hex("#f8e0a0"), d: hex("#c98a3a"), D: hex("#b87a30") },
   },
+  // Bolita perfecta, más tostada que el pandebono y con el brillo del aceite.
   bunuelo: {
     crumb: hex("#f8dc9a"),
+    flat: "H",
     rows: [
       "..oooo..", //
-      ".obBbbo.",
+      ".oHBbbo.",
       "obBbbbbo",
       "obbbbbdo",
       "obbbbddo",
       ".odddDo.",
       "..oooo..",
     ],
-    colors: { b: hex("#d99a45"), B: hex("#f0c476"), d: hex("#b0702a"), D: hex("#8c5520") },
+    colors: { b: hex("#cf8a36"), B: hex("#eeb866"), H: hex("#fff2cc"), d: hex("#a4622a"), D: hex("#7a4418") },
   },
   torta: {
     crumb: hex("#fff8e4"),
@@ -213,41 +242,32 @@ const ITEMS: Record<string, ItemArt> = {
     fx: "smoke",
     ember: { chars: "e", body: "w" },
     rows: [
-      "ooooooo", //
-      "ofwwwwe",
-      "ooooooo",
+      "oooooooo", //
+      "offwwwwe",
+      "oooooooo",
     ],
     colors: { f: hex("#d9923e"), w: hex("#f4ecdc"), e: hex("#ff7a2a") },
+    flat: "fw",
   },
+  // La lata: tapa de aluminio, el rojo con su brillo a la izquierda y la cinta blanca en diagonal.
   "coca-cola": {
     rows: [
-      ".ooo.", //
-      "ossso",
-      "orrRo",
-      "owwro",
-      "orwwo",
-      "orrRo",
-      "ossso",
-      ".ooo.",
+      ".oooo.", //
+      "o1ssSo",
+      "ohrrRo",
+      "ohwwro",
+      "ohrwwo",
+      "ohrrwo",
+      "ohrrRo",
+      "o1ssSo",
+      ".oooo.",
     ],
-    colors: { s: hex("#c9c9d0"), r: hex("#d42a2a"), R: hex("#9c1c1c"), w: hex("#f4ecdc") },
+    colors: { 1: hex("#f4f4f8"), s: hex("#c4c4cc"), S: hex("#8c8c98"), h: hex("#ff8a78"), r: hex("#d8262a"), R: hex("#8e1418"), w: hex("#fff8f0") },
+    flat: "1sSw",
   },
   // ---------- La carta colombiana: bebidas calientes ----------
-  // El perico: el pocillo del tinto, con la leche que le aclara el color.
-  perico: {
-    fx: "steam",
-    rows: [
-      ".ooooo.", //
-      ".opPpo.",
-      ".owwWoo",
-      ".owwWoo",
-      "ooooooo",
-      "oWwwwWo",
-      ".ooooo.",
-    ],
-    colors: { ...CUP, p: hex("#a8703f"), P: hex("#e6c79a") },
-    surface: { chars: "pP", inner: hex("#a8977e") },
-  },
+  // El perico: el pocillo del tinto, café con leche claro y la gota de leche encima.
+  perico: pocillo({ S: "#e2b988", s: "#a8703f", m: "#fff4e0" }),
   // Pocillo de peltre (blanco con el borde azul y un desportillado) y su astilla de canela.
   "cafe-campesino": {
     fx: "steam",
@@ -282,7 +302,7 @@ const ITEMS: Record<string, ItemArt> = {
     colors: { p: hex("#c9862e"), P: hex("#e8a64a"), y: hex("#fff6d8"), Y: hex("#e6d4a0"), g: hex("#6a9a5a"), G: hex("#46704a") },
     surface: { chars: "pPyY", inner: hex("#355a38") },
   },
-  // Taza grande con franja amarilla; el milo con sus grumitos encima.
+  // Taza grande con la franja verde (como el tarro); el milo con sus grumitos encima.
   milo: {
     fx: "steam",
     from: [3, 0],
@@ -296,8 +316,9 @@ const ITEMS: Record<string, ItemArt> = {
       "owwwwWo..",
       ".ooooo...",
     ],
-    colors: { ...CUP, k: hex("#8a5634"), K: hex("#4e2c18"), r: hex("#e8b83a"), R: hex("#c0902a") },
+    colors: { ...CUP, k: hex("#a06a44"), K: hex("#4e2c18"), r: hex("#4f9a3a"), R: hex("#2e6a2a") },
     surface: { chars: "kK", inner: hex("#a8977e") },
+    flat: "K",
   },
   // ---------- Bebidas frías ----------
   // Botella de vidrio con la gaseosa roja, tapa dorada y la etiqueta con la hojita.
@@ -388,9 +409,9 @@ const ITEMS: Record<string, ItemArt> = {
   salpicon: goblet({ a: "#f04a60", A: "#b82a40", b: "#ffd84a", c: "#8cc653", top: "#c9c9d0" }),
   // ---------- Confitería del cine ----------
   // La caja de rayas rojas con el copete de crispetas: los mordiscos se llevan primero el copete.
-  crispetas: popcorn({ p: "#fff6d8", P: "#f3d27a", r: "#d93a2b", w: "#f4ecdc" }, "#fffbe8"),
+  crispetas: popcorn({ p: "#fff6d8", P: "#f3d27a", H: "#ffffff", r: "#d93a2b", w: "#f4ecdc" }, "#fffbe8"),
   // Las de caramelo, doradas, en la caja de rayas azules.
-  "crispetas-caramelo": popcorn({ p: "#e8a64a", P: "#c97a28", r: "#3a5fb0", w: "#f4ecdc" }, "#f6d49a"),
+  "crispetas-caramelo": popcorn({ p: "#e8a64a", P: "#c97a28", H: "#ffd890", r: "#3a5fb0", w: "#f4ecdc" }, "#f6d49a"),
   // ---------- Panadería ----------
   // En herradura, pálido y con el queso que se tuesta en las puntas.
   "pan-yuca": {
@@ -648,16 +669,19 @@ const ITEMS: Record<string, ItemArt> = {
     colors: { l: hex("#4a8a3a"), L: hex("#2e6a2a"), m: hex("#e8903a"), M: hex("#f4b868"), s: hex("#e0c890") },
   },
   // ---------- Postres y dulces ----------
+  // La cocada: montoncito de coco rallado con panela, tostado abajo y con hebras blancas arriba.
   cocada: {
     crumb: hex("#f4e0c0"),
     rows: [
-      "..ooo..", //
-      ".owcwo.",
-      "ocwcwco",
-      "ocCcCco",
-      ".ooooo.",
+      "..oooo..", //
+      ".owcwco.",
+      "ocwcwcwo",
+      "owcwcwco",
+      "ocCcCcCo",
+      ".oooooo.",
     ],
-    colors: { c: hex("#c89050"), C: hex("#a06a30"), w: hex("#fff4e0") },
+    colors: { c: hex("#c89050"), C: hex("#8a5a28"), w: hex("#fff4e0") },
+    flat: "w",
   },
   bocadillo: {
     crumb: hex("#d8485a"),
@@ -868,6 +892,242 @@ const ITEMS: Record<string, ItemArt> = {
       ".oooooooo",
     ],
     colors: { b: hex("#8a5530"), B: hex("#5e3620"), g: hex("#e8c050"), G: hex("#b88a24"), e: hex("#ff7a2a") },
+    flat: "gG",
+  },
+  // ---------- El bar del club: lo colombiano ----------
+  // La copita de guaro: vidrio grueso con la franja azul impresa y el anisado transparente.
+  aguardiente: {
+    liquid: { chars: "aA" },
+    rows: [
+      "oooooo", //
+      "ohaaAo",
+      "obbbBo",
+      "ohaaAo",
+      ".oggo.",
+      ".oooo.",
+    ],
+    colors: { a: alpha(hex("#e2f2f4"), 0.92), A: alpha(hex("#b4d4dc"), 0.92), b: hex("#3a6ac8"), B: hex("#24448a"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.95) },
+  },
+  // La media de ron: botella chata de vidrio oscuro, tapa dorada y etiqueta roja con su filete dorado.
+  "ron-viejo": {
+    liquid: { chars: "aA", empty: alpha(hex("#d8b890"), 0.55) },
+    rows: [
+      ".oyyo.", //
+      ".oaAo.",
+      "ooaAoo",
+      "ohaaAo",
+      "orrrRo",
+      "orggRo",
+      "ohaaAo",
+      "ohaaAo",
+      ".oooo.",
+    ],
+    colors: { y: hex("#e8c050"), a: hex("#9a4a14"), A: hex("#5e2a0a"), r: hex("#c0302a"), R: hex("#86201c"), g: hex("#f0cf6a"), h: alpha(hex("#f4d8b0"), 0.9) },
+    flat: "gyrR",
+  },
+  // El shot de tequila: la copita con el borde de sal y la cuña de limón pegada al lado.
+  tequila: {
+    liquid: { chars: "aA" },
+    rows: [
+      "ossssoo.", //
+      "ohaaAoLo",
+      "ohaaAolo",
+      "ohaaAoo.",
+      ".oggo...",
+      ".oooo...",
+    ],
+    colors: { s: hex("#fffcf4"), a: hex("#f2c24a"), A: hex("#c89020"), L: hex("#b8e060"), l: hex("#6aa83a"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.95) },
+    flat: "sLl",
+  },
+  // Refajo: el vaso cervecero con la mezcla naranja de cerveza y gaseosa, y la espuma.
+  refajo: {
+    liquid: { chars: "aAb", foam: "fF" },
+    rows: [
+      "ooooooo", //
+      "ofFfFfo",
+      "ohaaaAo",
+      "ohabaAo",
+      ".ohaAo.",
+      ".ohbAo.",
+      ".ohaAo.",
+      ".oggGo.",
+      ".ooooo.",
+    ],
+    colors: {
+      f: hex("#fffaf0"),
+      F: hex("#e8dcc4"),
+      a: hex("#f5982a"),
+      A: hex("#c46a16"),
+      b: hex("#ffd07a"),
+      h: GLASS.h,
+      g: alpha(hex("#d8eef6"), 0.85),
+      G: alpha(hex("#e8f6fb"), 0.95),
+    },
+  },
+  // Michelada: el borde de sal con ají, la cerveza oscura con limón y la rodaja pegada al vaso.
+  michelada: {
+    liquid: { chars: "aAb" },
+    rows: [
+      "......oo.", //
+      "orsrsroLo",
+      "ohaaaAolo",
+      "ohabaAoo.",
+      "ohaaaAo..",
+      "ohaaaAo..",
+      "ohabaAo..",
+      "oggggGo..",
+      ".ooooo...",
+    ],
+    colors: {
+      r: hex("#d8402a"),
+      s: hex("#fff8ec"),
+      a: hex("#d88a2a"),
+      A: hex("#a05a16"),
+      b: hex("#ffc870"),
+      L: hex("#b8e060"),
+      l: hex("#6aa83a"),
+      h: GLASS.h,
+      g: alpha(hex("#d8eef6"), 0.85),
+      G: alpha(hex("#e8f6fb"), 0.95),
+    },
+    flat: "rsLl",
+  },
+  // La lulada con ron de Cali: en copa, con sus pepitas, hielo y la cereza encima.
+  "lulada-ron": goblet({ a: "#d8c43a", A: "#a8962a", b: "#3a4a14", c: "#f4fbff", top: "#e0283a" }),
+  // Canelazo: pocillo de barro vidriado con la bebida caliente y la astilla de canela.
+  canelazo: {
+    fx: "steam",
+    from: [1, 1],
+    rows: [
+      ".....s..", //
+      "ooooso..",
+      "oCcsco..",
+      "oBBBBoo.",
+      "owwwWo.o",
+      "owkwWo.o",
+      "owwwWoo.",
+      "oBBBBo..",
+      ".oooo...",
+    ],
+    colors: { c: hex("#c8641e"), C: hex("#f0a050"), s: hex("#8a4a1e"), B: hex("#f0c070"), w: hex("#b8603a"), W: hex("#84401e"), k: hex("#5a2412") },
+    surface: { chars: "cC", inner: hex("#6a3018") },
+    flat: "Bk",
+  },
+  // Coco loco: el coco peludo abierto arriba, con el pitillo y la sombrillita rosada.
+  "coco-loco": {
+    rows: [
+      "....opPpo", //
+      "......s..",
+      "..ooooso.",
+      ".okKkkko.",
+      "obBbhbbbo",
+      "obhbbbhdo",
+      "obbbhbbdo",
+      ".odbbbddo",
+      "..oddDo..",
+      "...ooo...",
+    ],
+    colors: {
+      p: hex("#ff6a9a"),
+      P: hex("#ffd0e0"),
+      s: hex("#f4ecdc"),
+      k: hex("#fff6e6"),
+      K: hex("#e8dcc4"),
+      b: hex("#8a5a30"),
+      B: hex("#b47e48"),
+      h: hex("#a8703e"),
+      d: hex("#5e3a1e"),
+      D: hex("#48280f"),
+    },
+    surface: { chars: "kK", inner: hex("#d8c49a") },
+    flat: "pPsh",
+  },
+  // Chicha: la totuma grande con la chicha espumosa de maíz y el pirograbado de rayitas.
+  chicha: {
+    rows: [
+      ".ooooooo.", //
+      "ofFbffFfo",
+      "otttttTTo",
+      "otxtxtxTo",
+      ".otttTTo.",
+      "..ooooo..",
+    ],
+    colors: { f: hex("#f2e0a0"), F: hex("#d4ba6a"), b: hex("#fffbe0"), t: hex("#c09050"), T: hex("#8a6030"), x: hex("#6a4424") },
+    surface: { chars: "fFb", inner: hex("#e6c98a") },
+    flat: "x",
+  },
+  // La pola dorada: botella ámbar con la tapa y la etiqueta doradas (sin marca).
+  "pola-dorada": {
+    liquid: { chars: "nN", empty: alpha(hex("#c08850"), 0.7) },
+    rows: [
+      ".oyo.", //
+      ".ono.",
+      ".ono.",
+      "oonoo",
+      "ohnNo",
+      "oLLlo",
+      "oLrLo",
+      "ohnNo",
+      "ohnNo",
+      ".ooo.",
+    ],
+    colors: { y: hex("#e8c050"), n: hex("#6a3a14"), N: hex("#48240c"), L: hex("#f4d67a"), l: hex("#c8a040"), r: hex("#c83a2a"), h: alpha(hex("#f4d8b0"), 0.85) },
+    flat: "yLlr",
+  },
+  // Mojito: vaso alto con hierbabuena, limón y hielo; la ramita asoma arriba.
+  mojito: {
+    liquid: { chars: "aAiml" },
+    rows: [
+      "...oMo.", //
+      "ooooMoo",
+      "ohimaAo",
+      "ohaiaAo",
+      "ohmalAo",
+      "ohaamAo",
+      "ohiaaAo",
+      "ohmaaAo",
+      "oggggGo",
+      ".ooooo.",
+    ],
+    colors: {
+      a: alpha(hex("#eef8e4"), 0.92),
+      A: alpha(hex("#c8e0c0"), 0.92),
+      i: alpha(hex("#ffffff"), 0.95),
+      m: hex("#4f9a3a"),
+      M: hex("#7cc850"),
+      l: hex("#b8e060"),
+      h: GLASS.h,
+      g: alpha(hex("#d8eef6"), 0.85),
+      G: alpha(hex("#e8f6fb"), 0.95),
+    },
+    flat: "mMl",
+  },
+  // Cuba libre: vaso alto con ron y cola oscura, hielo y la rodaja de limón en el borde.
+  "cuba-libre": {
+    liquid: { chars: "cCi" },
+    rows: [
+      ".....oLo", //
+      "oooooolo",
+      "ohiccCo.",
+      "ohcicCo.",
+      "ohccCCo.",
+      "ohcicCo.",
+      "ohccCCo.",
+      "ohcccCo.",
+      "oggggGo.",
+      ".ooooo..",
+    ],
+    colors: {
+      c: hex("#5a2412"),
+      C: hex("#341208"),
+      i: alpha(hex("#e8f6ff"), 0.9),
+      L: hex("#d8f080"),
+      l: hex("#7ab83a"),
+      h: GLASS.h,
+      g: alpha(hex("#d8eef6"), 0.85),
+      G: alpha(hex("#e8f6fb"), 0.95),
+    },
+    flat: "Ll",
   },
   // ---------- Lo que vende el Man del Sombrero (todo de mentiras) ----------
   // La bareta: cono de papel con boquilla de cartón y pintas verdes; se quema como el cigarro.
@@ -930,18 +1190,20 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { c: hex("#c89a4a"), C: hex("#96702e"), d: hex("#f4e6c0"), s: hex("#efe4cc") },
   },
-  // El cartoncito con la mariposa amarilla.
+  // El cartoncito con la mariposa amarilla (la de Macondo) y la línea de puntos para partirlo.
   carton: {
     crumb: hex("#e8dcc4"),
     rows: [
-      "oooooo", //
-      "owwwwo",
-      "owyYwo",
-      "owYywo",
-      "owwwwo",
-      "oooooo",
+      "ooooooo", //
+      "oyywyyo",
+      "oyYkYyo",
+      "owykywo",
+      "owwkwwo",
+      "opwpwpo",
+      "ooooooo",
     ],
-    colors: { w: hex("#f4ecdc"), y: hex("#f4d35e"), Y: hex("#d99a2a") },
+    colors: { w: hex("#f4ecdc"), y: hex("#f4d35e"), Y: hex("#d99a2a"), k: hex("#3a2a1a"), p: hex("#c8b89c") },
+    flat: "yYkp",
   },
   // La totumita del yagé: se ve el brebaje oscuro y, al tomar, el fondo de la totuma.
   yage: {
@@ -986,6 +1248,109 @@ const ITEMS: Record<string, ItemArt> = {
       "oooooo",
     ],
     colors: { k: hex("#8a5a30"), a: hex("#d9b86a"), A: hex("#a8843a"), l: hex("#f4ecdc"), h: GLASS.h },
+    flat: "l",
+  },
+  // El popper: frasquito de vidrio café con la tapa amarilla y la etiqueta de rayas.
+  popper: {
+    liquid: { chars: "bB", empty: alpha(hex("#d0a070"), 0.6) },
+    rows: [
+      ".ooo.", //
+      "oyYyo",
+      "ooooo",
+      "ohbBo",
+      "oLlLo",
+      "ohbBo",
+      ".ooo.",
+    ],
+    colors: { y: hex("#f6d040"), Y: hex("#c89a1e"), b: hex("#8a4a1a"), B: hex("#5a2a0e"), L: hex("#f4ecdc"), l: hex("#d8322e"), h: alpha(hex("#f4d8b0"), 0.9) },
+    flat: "Ll",
+  },
+  // El tusi: la bolsita del cierre morado con el polvito rosado y la estrellita pegada.
+  tusi: {
+    liquid: { chars: "pP" },
+    rows: [
+      "ooooooo", //
+      "ovvvvVo",
+      "ohGGkGo",
+      "ohpppPo",
+      "ohpppPo",
+      "oppppPo",
+      ".ooooo.",
+    ],
+    colors: { v: hex("#9a4ac8"), V: hex("#6a2a98"), G: alpha(hex("#f4e8f4"), 0.55), k: hex("#fff27a"), p: hex("#ff8ac8"), P: hex("#d8569e"), h: GLASS.h },
+    flat: "k",
+  },
+  // La keta: frasquito de vidrio con la tapa azul, los cristalitos y la etiqueta del caballo.
+  keta: {
+    liquid: { chars: "wW" },
+    rows: [
+      ".ooo.", //
+      "oBbBo",
+      "ooooo",
+      "ohwWo",
+      "olLlo",
+      "ohwWo",
+      "ohwWo",
+      ".ooo.",
+    ],
+    colors: { B: hex("#6a9ae8"), b: hex("#3a5ab8"), w: hex("#f4f4f8"), W: hex("#c8cad8"), l: hex("#f4ecdc"), L: hex("#8a5a30"), h: GLASS.h },
+    flat: "wWlL",
+  },
+  // El chicle de mambe: la barrita envuelta en papel verde con la hojita y las puntas plateadas.
+  "chicle-mambe": {
+    crumb: hex("#9ab85a"),
+    rows: [
+      "oooooooo", //
+      "owggggwo",
+      "owgLlgwo",
+      "owggggwo",
+      "oooooooo",
+    ],
+    colors: { w: hex("#e8e8ec"), g: hex("#7a9a3a"), L: hex("#c8ec70"), l: hex("#3f7a2a") },
+    flat: "Ll",
+  },
+  // La aguapanela trucada: pocillo de peltre de borde rojo, dorada y con un hongo flotando.
+  "aguapanela-trucada": {
+    fx: "steam",
+    from: [2, 0],
+    rows: [
+      "ooooooo..", //
+      "oSsmMso..",
+      "orrrrRooo",
+      "o1wwwWo.o",
+      "o1wkwWooo",
+      "o1wwwWo..",
+      ".ooooo...",
+    ],
+    colors: {
+      S: hex("#f6d27a"),
+      s: hex("#d89a38"),
+      m: hex("#b8823a"),
+      M: hex("#fff0d0"),
+      r: hex("#d0402e"),
+      R: hex("#8e2a1e"),
+      1: hex("#ffffff"),
+      w: hex("#eef2f4"),
+      W: hex("#c0c8d4"),
+      k: hex("#2b3a55"),
+    },
+    surface: { chars: "SsmM", inner: hex("#dfe4ea") },
+    flat: "1kmM",
+  },
+  // La galleta de la abuela: redonda y dorada, con los chips verdes "de menta".
+  "galleta-abuela": {
+    crumb: hex("#e8c080"),
+    rows: [
+      "..oooo..", //
+      ".oBbgbo.",
+      "obgbbbgo",
+      "obbbgbbo",
+      "ogbbbbdo",
+      ".odgdDo.",
+      "..oooo..",
+    ],
+    colors: { b: hex("#d8a456"), B: hex("#f0c880"), g: hex("#4f9a3a"), d: hex("#a8703a"), D: hex("#7a4a24") },
+    flat: "g",
   },
   // ---------- Casa viva: lo gratis de la nevera y de la fogata ----------
   jugo: {
@@ -1002,21 +1367,23 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { a: hex("#ffa62b"), A: hex("#e07a18"), s: hex("#f25c7a"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
   },
-  // El agua de panela de la cafetera de la casa (no está en la carta): la taza del tinto, dorada y con
-  // una rodaja de limón.
+  // El agua de panela de la cafetera de la casa (no está en la carta): en jarrito de vidrio, dorada y con
+  // la rodaja de limón en el borde.
   aguapanela: {
     fx: "steam",
+    from: [2, 0],
+    liquid: { chars: "aAb" },
     rows: [
-      ".oooool", //
-      ".occcoL",
-      ".owwWoo",
-      ".owwWoo",
-      "ooooooo",
-      "oWwwwWo",
-      ".ooooo.",
+      "....olo.", //
+      "ooooLlo.",
+      "ohbbAooo",
+      "ohaaAo.o",
+      "ohaaAooo",
+      "oggggo..",
+      ".oooo...",
     ],
-    colors: { ...CUP, c: hex("#b8742e"), l: hex("#f3e36a"), L: hex("#9fc43a") },
-    surface: { chars: "c", inner: hex("#dca45a") },
+    colors: { a: hex("#e0a23a"), A: hex("#b0701c"), b: hex("#f6d27a"), l: hex("#f3e36a"), L: hex("#9fc43a"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85) },
+    flat: "lL",
   },
   manzana: {
     crumb: hex("#fff3d0"),
@@ -1267,19 +1634,20 @@ const ITEMS: Record<string, ItemArt> = {
   ...Object.fromEntries(
     (
       [
-        ["cilantro", "#6fbf4a", "#3f8a2e"],
-        ["fresa", "#e8323c", "#a8202a"],
-        ["tomate", "#e04030", "#a82820"],
-        ["papa", "#e8c24a", "#b8902a"],
-        ["maiz", "#f2c83a", "#d09a22"],
-        ["lulo", "#f09a2a", "#c06a18"],
+        // El dibujito del frente (4x3): c y C el fruto, g la hoja, "." el papel.
+        ["cilantro", "#6fbf4a", "#3f8a2e", ["g.g.", "CgCg", ".gC."]],
+        ["fresa", "#e8323c", "#a8202a", [".gg.", "cccC", ".cC."]],
+        ["tomate", "#e04030", "#a82820", [".g..", "cccC", "cCCC"]],
+        ["papa", "#e8c24a", "#b8902a", [".cc.", "cCcc", ".CC."]],
+        ["maiz", "#f2c83a", "#d09a22", [".cc.", "cCcC", "g..g"]],
+        ["lulo", "#f09a2a", "#c06a18", [".g..", "cccC", ".CC."]],
         // Las del invernadero.
-        ["uchuva", "#f2b233", "#b87a18"],
-        ["pitahaya", "#e8457a", "#a8205a"],
-        ["cacao", "#8a4a26", "#5a2a14"],
-        ["cafe", "#c8302a", "#6a3a1e"],
+        ["uchuva", "#f2b233", "#b87a18", ["g..g", ".cc.", ".C.."]],
+        ["pitahaya", "#e8457a", "#a8205a", ["g.cg", "cCcC", "gCCg"]],
+        ["cacao", "#8a4a26", "#5a2a14", [".cc.", "cCCc", ".cc."]],
+        ["cafe", "#c8302a", "#6a3a1e", ["g...", "c.c.", ".C.C"]],
       ] as const
-    ).map(([crop, c, C]) => [`semillas-${crop}`, seedPacket(c, C)]),
+    ).map(([crop, c, C, motif]) => [`semillas-${crop}`, seedPacket(c, C, motif)]),
   ),
   // ---------- Lo que se cosecha en el invernadero ----------
   uchuva: {
@@ -1327,20 +1695,23 @@ const ITEMS: Record<string, ItemArt> = {
 // El tinto que sale de la cosecha del invernadero: la misma taza del tinto de la cafetería.
 ITEMS["cafe-casa"] = { ...ITEMS.tinto! };
 
-/** Sobre de semillas de papel kraft con el dibujo del cultivo (su color) al frente. */
-function seedPacket(c: string, dark: string): ItemArt {
+/**
+ * Sobre de semillas de papel kraft con la solapa doblada y, al frente, el dibujito del cultivo (`motif`,
+ * 4x3): así cada sobre se distingue del otro aunque sean parecidos de color.
+ */
+function seedPacket(c: string, dark: string, motif: readonly string[]): ItemArt {
+  const front = motif.map((r) => `op${r.replaceAll(".", "p")}po`);
   return {
     rows: [
       ".oooooo.", //
       "oPPPPPPo",
       "oppppppo",
-      "opcccCpo",
-      "opcCccpo",
-      "opccCCpo",
+      ...front,
       "oppppppo",
       ".oooooo.",
     ],
-    colors: { p: hex("#e8d8b0"), P: hex("#c9b48a"), c: hex(c), C: hex(dark) },
+    colors: { p: hex("#e8d8b0"), P: hex("#c9b48a"), c: hex(c), C: hex(dark), g: hex("#5fa83e") },
+    flat: "cCg",
   };
 }
 
@@ -1397,19 +1768,77 @@ function rowsFor(item: ItemArt, id: string, left: number): string[] {
   return rows;
 }
 
+/** Mezcla dos colores (t = 0, el primero; t = 1, el segundo), con el alfa del primero. */
+const mix = (a: RGBA, b: RGBA, t: number): RGBA => [
+  Math.round(a[0] + (b[0] - a[0]) * t),
+  Math.round(a[1] + (b[1] - a[1]) * t),
+  Math.round(a[2] + (b[2] - a[2]) * t),
+  a[3],
+];
+/** Luz cálida y sombra violeta (el corrimiento de tono de Stardew: nada de blanco ni negro puros). */
+const LIGHT = hex("#fff2c8");
+const DUSK = hex("#3a1f3d");
+export const lighten = (c: RGBA, t: number) => mix(c, LIGHT, t);
+export const darken = (c: RGBA, t: number) => mix(c, DUSK, t);
+
+/**
+ * Pinta las filas. Cada material opaco recibe luz de arriba a la izquierda: el borde de arriba (o de la
+ * izquierda) se aclara y el de abajo (o de la derecha) se oscurece, así una pieza de dos tonos queda con
+ * cuatro. Lo de vidrio (con transparencia), la brasa y las letras de `flat` quedan como están.
+ */
 function paint(item: ItemArt, rows: string[], ember: number): PixelCanvas {
   const w = Math.max(...rows.map((r) => r.length));
   const c = new PixelCanvas(w, rows.length);
+  const chAt = (x: number, y: number) => rows[y]?.[x] ?? ".";
+  const edge = (x: number, y: number) => {
+    const ch = chAt(x, y);
+    return ch === "." || ch === "o" || ch === "e";
+  };
   rows.forEach((row, y) =>
     [...row].forEach((ch, x) => {
       if (ch === ".") return;
-      if (ch === "e" && !item.ember) return c.set(x, y, GLASS.empty);
+      if (ch === "e" && !item.ember) return c.set(x, y, item.liquid?.empty ?? GLASS.empty);
       if (ch === "i" && item.surface) return c.set(x, y, item.surface.inner);
-      const color = ch === "o" ? OUT : item.ember?.chars.includes(ch) ? EMBER[ember]! : item.colors[ch];
-      if (color) c.set(x, y, color);
+      const hot = item.ember?.chars.includes(ch);
+      let color = ch === "o" ? OUT : hot ? EMBER[ember]! : item.colors[ch];
+      if (!color) return;
+      if (ch !== "o" && !hot && color[3] === 255 && !item.flat?.includes(ch)) {
+        const lit = edge(x, y - 1) || edge(x - 1, y);
+        const dark = edge(x, y + 1) || edge(x + 1, y);
+        if (lit && !dark) color = lighten(color, 0.2);
+        else if (dark && !lit) color = darken(color, 0.13);
+      }
+      c.set(x, y, color);
     }),
   );
   return c;
+}
+
+/**
+ * Contorno de color (el "sel-out" del pixel-art): cada píxel del contorno toma un tono muy oscuro del
+ * material que tiene al lado, en vez del mismo café para todo. Se hace al final (después de morder e
+ * inclinar), que es cuando ya no se busca el contorno por su color exacto.
+ */
+function tintOutline(c: PixelCanvas): PixelCanvas {
+  const out = new PixelCanvas(c.width, c.height);
+  out.data.set(c.data);
+  const px = (x: number, y: number): RGBA | null => {
+    if (x < 0 || y < 0 || x >= c.width || y >= c.height) return null;
+    const i = (y * c.width + x) * 4;
+    if (c.data[i + 3]! < 90 || isOutAt(c, x, y)) return null;
+    return [c.data[i]!, c.data[i + 1]!, c.data[i + 2]!, 255];
+  };
+  const lum = (k: RGBA) => k[0] * 0.3 + k[1] * 0.59 + k[2] * 0.11;
+  for (let y = 0; y < c.height; y++)
+    for (let x = 0; x < c.width; x++) {
+      if (!isOutAt(c, x, y)) continue;
+      // El vecino más oscuro manda (el contorno no se aclara con un brillo).
+      const near = [px(x, y + 1), px(x + 1, y), px(x - 1, y), px(x, y - 1)].filter((k): k is RGBA => k !== null);
+      if (near.length === 0) continue;
+      const base = near.reduce((a, b) => (lum(b) < lum(a) ? b : a));
+      out.set(x, y, mix(OUT, darken(base, 0.5), 0.26));
+    }
+  return out;
 }
 
 /**
@@ -1526,7 +1955,7 @@ export function drawHeldItem(id: string, state: HeldArtState = {}): PixelCanvas 
   if (item.crumb) c = bite(c, uses - left, item.crumb);
   // Inclinado para el sorbo: hacia la boca, que queda del lado contrario a la mano.
   if (state.tilt) c = leaned(c, state.tilt);
-  return c;
+  return tintOutline(c);
 }
 
 /** Sprite de un producto entero (sin escalar). Un id desconocido devuelve un lienzo vacío de 1x1. */

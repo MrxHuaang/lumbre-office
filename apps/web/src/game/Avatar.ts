@@ -501,6 +501,14 @@ export class Avatar {
     } else if (this.trip === "yage") {
       this.nextTripFxAt = time + 8000 + Math.random() * 6000;
       this.floatText(Math.random() < 0.5 ? "todo es uno…" : "ayyy…", 8, 7);
+    } else if (this.trip === "tusi") {
+      // Le da por bailar solo (si está de pie y quieto), y lo ven todos.
+      this.nextTripFxAt = time + 6000 + Math.random() * 5000;
+      this.startDance();
+      this.floatText(Math.random() < 0.5 ? "¡uy, qué rico!" : "¡a perrear!", 8, 7);
+    } else if (this.trip === "keta") {
+      this.nextTripFxAt = time + 9000 + Math.random() * 6000;
+      this.floatText(Math.random() < 0.5 ? "¿dónde estoy…?" : "estoy en el hueco…", 8, 7);
     } else {
       this.nextTripFxAt = time + 6000 + Math.random() * 4000;
       this.floatText(Math.random() < 0.5 ? "¡de una!" : "¡hágale, hágale!", 8, 7);

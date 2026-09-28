@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALCOHOL_PER_SIP, CONSUMABLES, usesOf } from "./consumables";
-import { heldParts } from "./cafe";
+import { BAR_MENU, CAFE_MENU, CINEMA_MENU, heldParts } from "./cafe";
 import {
   addTrip,
   isSombreroHour,
@@ -11,7 +11,11 @@ import {
   SombreroBuyMessage,
   sombreroOut,
   TRIP,
+  TRIP_KINDS,
   TRIP_PER_USE,
+  TRIP_TEXT,
+  isTripKind,
+  tripSpeedMul,
 } from "./sombrero";
 
 describe("el Man del Sombrero", () => {
@@ -67,6 +71,36 @@ describe("el Man del Sombrero", () => {
     expect(ALCOHOL_PER_SIP.chirrinchi).toBeGreaterThan(ALCOHOL_PER_SIP.whisky!);
     // No pisa el perico de la cafetería (el tinto con leche).
     expect(CONSUMABLES.perico?.action).toBe("sip");
+  });
+
+  it("la mercancía nueva: ids que no se repiten con ninguna carta, precios enteros y efectos que existen", () => {
+    const all = [...CAFE_MENU, ...BAR_MENU, ...CINEMA_MENU, ...SOMBRERO_MENU].map((i) => i.id);
+    expect(new Set(all).size).toBe(all.length);
+    for (const item of SOMBRERO_MENU) {
+      expect(Number.isInteger(item.price) && item.price > 0, item.id).toBe(true);
+      expect(item.blurb.length, item.id).toBeGreaterThan(10);
+      expect(item.effect.length, item.id).toBeGreaterThan(5);
+    }
+    for (const id of ["popper", "tusi", "keta", "chicle-mambe", "aguapanela-trucada", "galleta-abuela"]) expect(SOMBRERO_ITEM_IDS).toContain(id);
+    for (const [art, use] of Object.entries(TRIP_PER_USE)) {
+      expect(isTripKind(use.kind), art).toBe(true);
+      expect(use.ms, art).toBeGreaterThan(0);
+      expect(use.ms, art).toBeLessThanOrEqual(TRIP.maxMs);
+    }
+    for (const kind of TRIP_KINDS) expect(TRIP_TEXT[kind], kind).toBeTruthy();
+    // Los efectos nuevos: el tusi y la keta tienen el suyo; el popper se esnifa y dura poquito.
+    expect(TRIP_PER_USE.tusi?.kind).toBe("tusi");
+    expect(TRIP_PER_USE.keta?.kind).toBe("keta");
+    expect(CONSUMABLES.popper?.action).toBe("sniff");
+    expect(TRIP_PER_USE.popper!.ms).toBeLessThan(TRIP_PER_USE["perico-bolsa"]!.ms);
+    expect(isTripKind("bazuco")).toBe(false);
+  });
+
+  it("trabado y con la keta se camina más despacio (la keta, más); lo demás no cambia el paso", () => {
+    expect(tripSpeedMul("trabado")).toBe(TRIP.slowSpeedMul);
+    expect(tripSpeedMul("keta")).toBe(TRIP.ketaSpeedMul);
+    expect(TRIP.ketaSpeedMul).toBeLessThan(TRIP.slowSpeedMul);
+    for (const kind of ["acelere", "colores", "yage", "tusi", "", null, undefined] as const) expect(tripSpeedMul(kind)).toBe(1);
   });
 
   it("el mensaje de compra solo acepta lo de su carta", () => {
