@@ -202,7 +202,11 @@ export interface PointDef {
     // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
     | "trophy_case"
     // Frente a cada estufa de la cocina (planta baja): ahí se cocina con lo del huerto.
-    | "kitchen_stove";
+    | "kitchen_stove"
+    // La granja del jardín: frente al horno y a la parrilla (el panel de cocinar) y el letrero del
+    // gallinero (los nombres de los animales).
+    | "grill"
+    | "farm_sign";
   name: string;
   x: number;
   y: number;

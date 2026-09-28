@@ -97,6 +97,11 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "greenhouse-bed",
   // Los fogones de la cocina: se cocina desde los puntos `kitchen_stove` de enfrente.
   "stove",
+  // La granja: el horno y la parrilla tienen sus puntos delante; el comedero y el letrero, su uso.
+  "clay-oven",
+  "brick-grill",
+  "chicken-feeder",
+  "farm-sign",
 ]);
 
 /** ¿Es un mueble del plano que el editor no toca? (fijo del catálogo, funcional o banqueta del blackjack). */

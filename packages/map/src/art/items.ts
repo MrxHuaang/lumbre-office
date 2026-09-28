@@ -1324,6 +1324,157 @@ const ITEMS: Record<string, ItemArt> = {
   },
 };
 
+// ---------- La granja del jardín: ingredientes y lo de la parrilla ----------
+// Los huevos criollos del nido: dos, uno más oscuro.
+ITEMS.huevo = {
+  rows: [
+    "..oo......", //
+    ".owwo.oo..",
+    "owwWwoccO.",
+    "owwwWoccco",
+    "owwwwocCco",
+    ".oWWo.oCo.",
+    "..oo...o..",
+  ],
+  colors: { w: hex("#fbf4e6"), W: hex("#e2d6c0"), c: hex("#e8c49a"), C: hex("#c89a6a"), O: hex("#e8c49a") },
+};
+// La bolsa de papel de la harina del molino, con la mazorca estampada.
+ITEMS.harina = {
+  rows: [
+    ".oooooo.", //
+    "oppPPppo",
+    "opppppPo",
+    "opyyYppo",
+    "opyYyppo",
+    "oppppPPo",
+    "oPPPPPPo",
+    ".oooooo.",
+  ],
+  colors: { p: hex("#f4ecd8"), P: hex("#d8ccb0"), y: hex("#f2c83a"), Y: hex("#c8961e") },
+};
+// Una tajada de queso campesino, blanca, con la corteza clarita.
+ITEMS.queso = {
+  rows: [
+    "....ooo..", //
+    "..oowwwo.",
+    ".owwwwwwo",
+    "owwWwwwWo",
+    "oWWWWWWWo",
+    ".ooooooo.",
+  ],
+  colors: { w: hex("#fffaee"), W: hex("#e8dcbc") },
+};
+// Una ristra de chorizos santarrosanos amarrados.
+ITEMS.chorizo = {
+  rows: [
+    ".oo...oo..", //
+    "orroo.orro",
+    "oRrrtoRrro",
+    "orRro.orRo",
+    ".ooo...oo.",
+  ],
+  colors: { r: hex("#b8402a"), R: hex("#7e2a1c"), t: hex("#e8d8b0") },
+};
+// La mazorca asada: granos dorados con las marcas de la brasa, en su hoja.
+ITEMS["mazorca-asada"] = {
+  crumb: hex("#fff0b0"),
+  rows: [
+    "..oooo..", //
+    ".okKbko.",
+    ".obkKbo.",
+    ".oKkbKo.",
+    ".okbKko.",
+    ".obKkbo.",
+    "oLokkoLo",
+    "oLLooLLo",
+    ".oLLLLo.",
+  ],
+  colors: { k: hex("#f0b83a"), K: hex("#c8861e"), b: hex("#7a4a20"), L: hex("#a8b860") },
+};
+// La arepa asada con la cuadrícula de la parrilla y el queso derretido saliendo.
+ITEMS["arepa-asada"] = {
+  crumb: hex("#fff8e0"),
+  rows: [
+    "..ooooo..", //
+    ".oaqaqao.",
+    "oagagagao",
+    "oaqqQqqao",
+    "odgdddgDo",
+    ".ooooooo.",
+  ],
+  colors: { a: hex("#f0d890"), g: hex("#8a5a2a"), q: hex("#fffaf0"), Q: hex("#e8dcbc"), d: hex("#d8b060"), D: hex("#b89040") },
+};
+// Chorizo a la brasa con dos papas criollas amarillas en su platico de hoja.
+ITEMS["chorizo-asado"] = {
+  crumb: hex("#e8a080"),
+  rows: [
+    "...oooo...", //
+    "..orRrro..",
+    ".oRrrrRyo.",
+    "oyoooooyYo",
+    "oYyloyyYlo",
+    ".olllllllo",
+    "..ooooooo.",
+  ],
+  colors: { r: hex("#b8402a"), R: hex("#7e2a1c"), y: hex("#f2c83a"), Y: hex("#c8961e"), l: hex("#6f9a4a") },
+};
+// Pan de bono de horno: tres bolitas doradas pegadas.
+ITEMS["pan-bono-horno"] = {
+  crumb: hex("#fff4cc"),
+  rows: [
+    "..ooo.ooo.", //
+    ".obBbobBbo",
+    "obbbdobbdo",
+    "obooooobbo",
+    "obBbbobDo.",
+    ".obbDDbo..",
+    "..oooooo..",
+  ],
+  colors: { b: hex("#e8b060"), B: hex("#f8dca0"), d: hex("#c98a3a"), D: hex("#a86a28") },
+};
+// La pizza del horno de barro, redonda, con tomate, queso y el borde tostado.
+ITEMS["pizza-horno"] = {
+  crumb: hex("#f8e0a0"),
+  rows: [
+    "..oooooo..", //
+    ".oBqrqqBo.",
+    "oBqrqqrqBo",
+    "oBqqrqqrBo",
+    "oBrqqrqqBo",
+    ".oBqqqrBo.",
+    "..oBBBBo..",
+    "...oooo...",
+  ],
+  colors: { B: hex("#c8883a"), q: hex("#f8e6a8"), r: hex("#d8402a") },
+};
+// Las porciones que se reparten: un pedazo de cada plato.
+ITEMS["porcion-mazorca-asada"] = {
+  crumb: hex("#fff0b0"),
+  rows: ["..oo..", ".okKo.", ".obko.", ".oKbo.", ".okKo.", "..oo.."],
+  colors: { k: hex("#f0b83a"), K: hex("#c8861e"), b: hex("#7a4a20") },
+};
+ITEMS["porcion-arepa-asada"] = {
+  crumb: hex("#fff8e0"),
+  rows: ["..ooo..", ".oagqo.", "oaqgqao", "odgddDo", ".ooooo."],
+  colors: { a: hex("#f0d890"), g: hex("#8a5a2a"), q: hex("#fffaf0"), d: hex("#d8b060"), D: hex("#b89040") },
+};
+ITEMS["porcion-chorizo-asado"] = {
+  crumb: hex("#e8a080"),
+  rows: ["..ooo.", ".orRro", "oRrrRo", "oyoooo", ".oYyo."],
+  colors: { r: hex("#b8402a"), R: hex("#7e2a1c"), y: hex("#f2c83a"), Y: hex("#c8961e") },
+};
+ITEMS["porcion-pan-bono-horno"] = {
+  crumb: hex("#fff4cc"),
+  rows: ["..ooo..", ".obBbo.", "obbbdbo", "obbbbDo", ".oDDbo.", "..ooo.."],
+  colors: { b: hex("#e8b060"), B: hex("#f8dca0"), d: hex("#c98a3a"), D: hex("#a86a28") },
+};
+// Una tajada triangular de la pizza, con la punta hacia abajo.
+ITEMS["porcion-pizza-horno"] = {
+  crumb: hex("#f8e0a0"),
+  rows: ["oBBBBBo", "oqrqqro", ".oqqrqo", ".orqqo.", "..oqo..", "..oo..."],
+  colors: { B: hex("#c8883a"), q: hex("#f8e6a8"), r: hex("#d8402a") },
+};
+
 // El tinto que sale de la cosecha del invernadero: la misma taza del tinto de la cafetería.
 ITEMS["cafe-casa"] = { ...ITEMS.tinto! };
 

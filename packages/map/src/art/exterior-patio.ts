@@ -834,6 +834,8 @@ function planter(): Sprite {
 
 /** La parte de arriba de la glorieta tiene versión de noche (la guirnalda encendida): va en outdoor.ts. */
 export { gazeboRoof };
+/** Piezas comunes que usa la granja (art/granja.ts): tablas, piedras de río, tejas y faroles. */
+export { lantern, planks, stones, tejas };
 
 export const YARD_DRAW: Record<string, (v: "front" | "back") => Sprite> = {
   greenhouse,
