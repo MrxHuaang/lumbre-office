@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { ConsumeAction, UsableSpec } from "./consumables";
 import { COCINA_HOLDS, COCINA_NAMES } from "./cocina";
 import { HUERTO_HOLDS, HUERTO_NAMES } from "./huerto";
+import { PARRILLA_HOLDS, PARRILLA_NAMES } from "./parrilla";
 
 /**
  * Lo nuevo que se hace con un mueble (además de prender, tocar y acariciar):
@@ -142,6 +143,8 @@ export const FREE_HOLDS: Record<string, readonly string[]> = {
   ...HUERTO_HOLDS,
   // La cocina: los platos que se cocinan en la estufa.
   ...COCINA_HOLDS,
+  // La parrilla del jardín: los platos y sus porciones (cocinados, no pagados).
+  ...PARRILLA_HOLDS,
 };
 
 /**
@@ -186,6 +189,7 @@ export const FREE_NAMES: Record<string, string> = {
   malvavisco: "Malvavisco asado",
   ...HUERTO_NAMES,
   ...COCINA_NAMES,
+  ...PARRILLA_NAMES,
 };
 
 /** ¿Es algo gratis de la casa? (se puede cambiar por otra cosa gratis sin perder nada). */
