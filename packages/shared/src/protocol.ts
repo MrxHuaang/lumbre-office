@@ -284,6 +284,17 @@ export const MSG = {
   hockeyLeave: "hockey:leave",
   hockeyFrame: "hockey:frame",
   hockeySettled: "hockey:settled",
+  /** Ajedrez y damas de la sala de juegos (boardgames.ts): listo en la silla (`BoardReadyMessage`), una
+   *  jugada (`BoardMoveMessage`), rendirse u ofrecer tablas (`BoardTableMessage`), un pedido rechazado
+   *  (`BoardResult`), cómo terminó (`BoardSettled`) y el ranking (`BoardRankingMessage` → `BoardRanking`). */
+  boardReady: "board:ready",
+  boardMove: "board:move",
+  boardResign: "board:resign",
+  boardDraw: "board:draw",
+  boardResult: "board:result",
+  boardSettled: "board:settled",
+  boardRanking: "board:ranking",
+  boardRankingResult: "board:ranking:result",
   /** Medir la hora del servidor descontando la latencia (`ClockPingMessage` → `ClockPong`): la música
    *  del club tiene que sonar a la vez para todos. */
   clockPing: "clock:ping",
