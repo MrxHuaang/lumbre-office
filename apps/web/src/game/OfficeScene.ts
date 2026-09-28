@@ -1,6 +1,7 @@
 import {
   allZones,
   BLACKJACK_SEATS,
+  BOARD_TABLES,
   applyDecorEdit,
   buildArea,
   canStandAt,
@@ -151,6 +152,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "snacks", point: MENUS.cine.point, furniture: [...MENUS.cine.furniture] },
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
   { kind: "hockey", point: "air_hockey", furniture: ["air-hockey"] },
+  { kind: "boardgame", point: "board_game", furniture: ["chess-table", "checkers-table"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
   { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
@@ -168,8 +170,9 @@ type Keys = Record<
 /** Teclas de un toque apretadas en este frame con el juego libre (ver `readTaps`). */
 type Taps = Record<"e" | "r" | "f" | "b" | "esc" | "del", boolean>;
 
-/** Paneles del casino (y el hockey del arcade) que se juegan en la mesa (modo mesa) en vez de en una ventana. */
-const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" | "hockey" => kind === "roulette" || kind === "blackjack" || kind === "hockey";
+/** Paneles del casino (el hockey del arcade y los juegos de mesa) que se juegan en la mesa (modo mesa) en vez de en una ventana. */
+const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" | "hockey" | "boardgame" =>
+  kind === "roulette" || kind === "blackjack" || kind === "hockey" || kind === "boardgame";
 
 /** Dirección del sprite según hacia dónde se mueve en pantalla (+x = sureste, +y = suroeste). */
 function facingFor(vx: number, vy: number): Direction {
@@ -486,8 +489,10 @@ export class OfficeScene extends Phaser.Scene {
     this.updateLocal(delta, this.readTaps());
     this.table.update();
     this.table.fadeAvatars([...this.avatars.values()].map((a) => a.sprite));
-    // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa.
-    for (const a of this.avatars.values()) a.setNameHidden(Boolean(this.table.kind));
+    // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa. En el ajedrez
+    // y las damas no (el tablero va en la tira y se quiere ver quién juega).
+    const hideNames = Boolean(this.table.kind) && this.table.kind !== "boardgame";
+    for (const a of this.avatars.values()) a.setNameHidden(hideNames);
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
       this.hearingElapsed = 0;
@@ -740,8 +745,8 @@ export class OfficeScene extends Phaser.Scene {
     if (this.seat) {
       this.seat = null;
       this.local?.setSeated(null);
-      // Si era una banqueta del blackjack, también se sale de la mesa.
-      if (this.table.kind === "blackjack") useOfficeStore.getState().closePanel();
+      // Si era una banqueta del blackjack o una silla de ajedrez o damas, también se sale de la mesa.
+      if (this.table.kind === "blackjack" || this.table.kind === "boardgame") useOfficeStore.getState().closePanel();
     }
     const cam = this.cameras.main;
     if (c.area && c.area !== this.map.id) {
@@ -1115,8 +1120,8 @@ export class OfficeScene extends Phaser.Scene {
     }
 
     if (vx !== 0 || vy !== 0) {
-      // Caminar te saca de la ruleta (del blackjack te saca al levantarte).
-      if (this.table.kind === "roulette") useOfficeStore.getState().closePanel();
+      // Caminar te saca de la ruleta y de mirar una partida (del blackjack y del ajedrez, al levantarte).
+      if (this.table.kind === "roulette" || (this.table.kind === "boardgame" && !this.seat)) useOfficeStore.getState().closePanel();
       this.clearPath(); // el teclado cancela el clic-para-caminar
       this.pendingZone = null;
       this.pendingInteract = null;
@@ -1197,7 +1202,12 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.updateDoorPrompt();
     // Sentado, E levanta: el aviso "E" de los objetos solo aparece de pie.
-    const near = this.seat ? null : this.interactableInReach();
+    let near = this.seat ? null : this.interactableInReach();
+    // Pegado a una silla libre de la mesa de ajedrez o damas, E sienta (para mirar, desde el norte o el sur).
+    if (near === "boardgame" && this.local) {
+      const s = this.nearestFreeSeat();
+      if (s && this.isBoardSeat(s) && Math.hypot(s.x - this.local.x, s.y - this.local.y) < 1.2 * this.map.tileSize) near = null;
+    }
     if (near !== useOfficeStore.getState().interact) useOfficeStore.getState().setInteract(near);
     this.updateUsable(near !== null);
     this.updateSeatPrompt();
@@ -1281,6 +1291,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setPosition(seat.x, seat.y);
     avatar.setMotion(seat.facing, false);
     if (this.isBlackjackSeat(seat)) useOfficeStore.getState().openPanel("blackjack", true);
+    else if (this.isBoardSeat(seat)) useOfficeStore.getState().openPanel("boardgame", true);
     avatar.setSeated(seat.facing, seat);
     this.updateZone();
     this.sendPosition(seat.facing, false);
@@ -1298,10 +1309,10 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     if (this.table.kind) this.table.exit(this.local?.sprite);
-    const atBlackjack = !!this.seat && this.isBlackjackSeat(this.seat);
-    if (kind || !atBlackjack) return;
-    if (prev === "blackjack") this.standUp();
-    else useOfficeStore.getState().openPanel("blackjack", true); // se cerró el otro panel: de vuelta a la mesa
+    const seatPanel = this.seat ? (this.isBlackjackSeat(this.seat) ? "blackjack" : this.isBoardSeat(this.seat) ? "boardgame" : null) : null;
+    if (kind || !seatPanel) return;
+    if (prev === seatPanel) this.standUp();
+    else useOfficeStore.getState().openPanel(seatPanel, true); // se cerró el otro panel: de vuelta a la mesa
   }
 
   /** Banqueta del blackjack donde estoy sentado (índice de BLACKJACK_SEATS), o null. */
@@ -1310,6 +1321,11 @@ export class OfficeScene extends Phaser.Scene {
     if (!seat || this.map.id !== "sotano") return null;
     const i = BLACKJACK_SEATS.findIndex((b) => b.x === seat.tileX && b.y === seat.tileY);
     return i >= 0 ? i : null;
+  }
+
+  /** ¿Es una silla de una mesa de ajedrez o de damas (BOARD_TABLES)? */
+  private isBoardSeat(seat: Seat): boolean {
+    return BOARD_TABLES.some((t) => t.area === this.map.id && t.seats.some((s) => s.x === seat.tileX && s.y === seat.tileY));
   }
 
   /** ¿Es una de las banquetas de la mesa de blackjack del sótano? */
@@ -1329,7 +1345,8 @@ export class OfficeScene extends Phaser.Scene {
     this.updateZone();
     this.sendPosition(avatar.direction, false);
     // Al final: cerrar el panel saca del modo mesa, que ya te encuentra de pie.
-    if (this.isBlackjackSeat(seat) && useOfficeStore.getState().panel?.kind === "blackjack") useOfficeStore.getState().closePanel();
+    const panel = useOfficeStore.getState().panel?.kind;
+    if ((this.isBlackjackSeat(seat) && panel === "blackjack") || (this.isBoardSeat(seat) && panel === "boardgame")) useOfficeStore.getState().closePanel();
   }
 
   private seatOccupied(seat: Seat) {

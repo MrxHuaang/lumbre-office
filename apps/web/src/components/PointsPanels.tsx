@@ -57,6 +57,7 @@ const PROMPT: Record<Interactable, string> = {
   snacks: "Pedir en la confitería",
   arcade: "Jugar en la máquina",
   hockey: "Jugar al hockey de mesa",
+  boardgame: "Mirar la partida",
   photos: "Ver las fotos del tablón",
   race: "Carrera de sillas",
   shed: "Abrir el cobertizo",

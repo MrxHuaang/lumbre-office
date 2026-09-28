@@ -67,6 +67,7 @@ import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
 import { bindHockey } from "./arcade/hockey";
+import { bindBoardGames } from "./boardgames";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
 import { useOfficeStore, type Interactable } from "./store";
@@ -767,6 +768,7 @@ function attach(r: OfficeRoom) {
   bindRace(r);
   bindArcade(r);
   bindHockey(r);
+  bindBoardGames(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
     if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");
