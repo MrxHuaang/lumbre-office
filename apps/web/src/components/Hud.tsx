@@ -144,7 +144,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
           <PixelIcon name="menu" size={16} />
         </button>
         {showMenu && (
-          <div className="cozy-panel absolute top-full right-0 z-30 mt-3 w-52 p-2" onClick={() => setShowMenu(false)}>
+          <div className="cozy-panel absolute top-full left-0 z-30 mt-3 w-52 p-2" onClick={() => setShowMenu(false)}>
             <MenuItem onClick={onMyProfile}>Mi perfil y logros</MenuItem>
             <MenuItem onClick={onEditCharacter}>Mi personaje</MenuItem>
             <MenuItem onClick={onEditProfile}>Editar perfil</MenuItem>

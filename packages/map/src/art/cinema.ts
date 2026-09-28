@@ -1,7 +1,8 @@
 // Muebles del cine del sótano: butacas de terciopelo, máquina de crispetas, proyector y afiche de
 // cartelera. La pantalla con el telón cuelga de la pared (ver room.ts).
 import { C, OUT } from "./palette";
-import { alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type Shader, type Sprite } from "./pixel";
+import { PixelCanvas, alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type Shader, type Sprite } from "./pixel";
+import { glyphOn } from "./room";
 import { cushion, shadowUnder, volume, type Variant } from "./kit";
 import { SOTANO_CATALOG } from "../world/catalog-sotano";
 
@@ -128,3 +129,59 @@ export const CINEMA_DRAW: Record<string, (v: Variant) => Sprite> = {
   projector,
   "poster-stand": posterStand,
 };
+
+// ---------- Marquesina ----------
+
+/** Separación de los postes de la marquesina (px de arte a lo largo de la pared: una puerta de 2 tiles). */
+export const MARQUEE_POSTS = 32;
+/** Largo de los postes, desde lo alto de la pared baja hasta el letrero. */
+export const MARQUEE_POST_H = 18;
+
+/**
+ * Marquesina sobre la puerta del cine: un tablero con bombillos alrededor y el texto en letras de 3x5
+ * ("EN FUNCION", "EN PAUSA", "SALA LIBRE"). Va inclinado como la pared norte (baja medio píxel por cada
+ * uno a la derecha) y con dos postes que bajan hasta la pared. Con `lit` las letras brillan y los
+ * bombillos corren según `frame` (0 o 1); apagada, todo queda a media luz.
+ *
+ * El origen (`ox`, `oy`) es el punto de la pared entre los dos postes, abajo.
+ */
+export function cinemaMarquee(text: string, frame: number, lit: boolean): Sprite {
+  const tw = text.length * 4 - 1;
+  const W = Math.max(tw + 10, MARQUEE_POSTS + 6);
+  const H = 13;
+  const flatC = new PixelCanvas(W, H);
+  const tx = Math.floor((W - tw) / 2);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) {
+        flatC.set(x, y, OUT);
+        continue;
+      }
+      if (x === 1 || y === 1 || x === W - 2 || y === H - 2) {
+        // El marco dorado con un bombillo cada dos píxeles, que se prenden salteados.
+        const bulb = (x + y) % 2 === 0;
+        const on = lit && ((x + y) / 2 + frame) % 2 === 0;
+        flatC.set(x, y, bulb ? at(C.gold, on ? 5 : lit ? 3 : 2) : at(C.gold, 1));
+        continue;
+      }
+      const gx = x - tx;
+      const k = Math.floor(gx / 4);
+      const on = gx >= 0 && k < text.length && gx % 4 < 3 && y >= 4 && y < 9 && glyphOn(text[k]!, gx % 4, y - 4);
+      flatC.set(x, y, on ? (lit ? at(C.cream, 5) : at(C.cream, 2)) : at(C.night, 0));
+    }
+  // Inclinado como la pared norte, con los postes debajo.
+  const out = new PixelCanvas(W, H + Math.ceil(W / 2) + MARQUEE_POST_H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      if (flatC.data[i + 3]) out.set(x, y + Math.floor(x / 2), [flatC.data[i]!, flatC.data[i + 1]!, flatC.data[i + 2]!, flatC.data[i + 3]!]);
+    }
+  const mid = Math.floor(W / 2);
+  for (const px of [mid - MARQUEE_POSTS / 2, mid + MARQUEE_POSTS / 2 - 1])
+    for (let y = 0; y < MARQUEE_POST_H; y++) {
+      const top = H + Math.floor(px / 2);
+      out.set(px, top + y, OUT);
+      out.set(px + 1, top + y, at(C.metal, 1));
+    }
+  return { canvas: out, ox: mid, oy: H + Math.floor(mid / 2) + MARQUEE_POST_H };
+}

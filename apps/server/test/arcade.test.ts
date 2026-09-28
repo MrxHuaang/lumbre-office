@@ -3,10 +3,13 @@ import { findPath, getWorld, isBlockedTile, pointsOfType } from "@hyvento/map";
 import {
   ARCADE,
   ARCADE_MACHINES,
+  ARCADE_PRICE,
   ARCADE_RECORD_MIN,
   ARCADE_STEP_MS,
   ArcadeRecorder,
+  BloquesSim,
   encodeInput,
+  noKeys,
   MSG,
   POINTS,
   ROOM_NAME,
@@ -89,9 +92,14 @@ const machinePoint = (i: number) => pointsOfType(sotano(), "arcade")[i]!;
 /** Alguien parado delante de la máquina `i`. */
 const atM = (i: number, userId = "u-a") => ({ userId, name: userId.slice(2), x: machinePoint(i).x, y: machinePoint(i).y });
 
-function arcade() {
+/** Saldo con el que arranca cada persona de las pruebas de reglas (alcanza para muchas partidas). */
+const FUNDS = 1000;
+
+async function arcade(funded = ["u-a", "u-b", "u-c", "u-d", "u-e"]) {
   const repo = new MemoryRepository();
+  for (const userId of funded) await repo.awardPoints({ userId, amount: FUNDS, reason: "ADMIN" });
   const awards: { userId: string; amount: number }[] = [];
+  const balances = new Map<string, number>();
   let n = 0;
   const a = new Arcade({
     repo: () => repo,
@@ -102,15 +110,16 @@ function arcade() {
       awards.push({ userId, amount: awarded });
       return awarded;
     },
+    setPoints: (userId, balance) => balances.set(userId, balance),
   });
   /** Empieza en la máquina 0 (Culebrita), juega hasta `target` y manda el resultado a su hora. */
   const playSnake = async (userId: string, target: number, machine = 0) => {
-    const started = a.start(sotano(), atM(machine, userId), { machine }, 0);
+    const started = await a.start(sotano(), atM(machine, userId), { machine }, 0);
     if ("ok" in started) throw new Error(started.error);
     const g = snakeGame(started.seed, target);
     return a.finish(atM(machine, userId), finishMsg(started.token, g), g.ms + 200);
   };
-  return { a, repo, awards, playSnake };
+  return { a, repo, awards, balances, playSnake };
 }
 
 describe("arcade (reglas)", () => {
@@ -126,36 +135,71 @@ describe("arcade (reglas)", () => {
     expect(ARCADE_MACHINES.slice(0, 3)).toEqual(["snake", "breakout", "flappy"]);
   });
 
-  it("se empieza delante de una máquina que funciona y el servidor da la semilla", () => {
-    const { a } = arcade();
+  it("se empieza delante de una máquina que funciona, se cobra y el servidor da la semilla", async () => {
+    const { a, repo, balances } = await arcade();
     const map = sotano();
-    expect(a.start(map, atM(0), { machine: 0 }, 0)).toEqual({ machine: 0, game: "snake", token: "t1", seed: SEED });
-    // Las máquinas de al lado quedan al alcance; las de más allá, no.
-    expect(a.start(map, atM(0), { machine: 5 }, 0)).toEqual({ ok: false, error: "far" });
+    const balance = FUNDS - ARCADE_PRICE.machine;
+    expect(await a.start(map, atM(0), { machine: 0 }, 0)).toEqual({ machine: 0, game: "snake", token: "t1", seed: SEED, balance });
+    expect(await repo.getPoints("u-a")).toBe(balance);
+    expect(balances.get("u-a")).toBe(balance);
+    // Las máquinas de al lado quedan al alcance; las de más allá, no (y no se cobra).
+    expect(await a.start(map, atM(0), { machine: 5 }, 0)).toEqual({ ok: false, error: "far" });
     const broken = ARCADE_MACHINES.indexOf(null);
-    expect(a.start(map, atM(broken), { machine: broken }, 0)).toEqual({ ok: false, error: "invalid" });
+    expect(await a.start(map, atM(broken), { machine: broken }, 0)).toEqual({ ok: false, error: "invalid" });
+    expect(await repo.getPoints("u-a")).toBe(balance);
     expect(atMachine(map, 2, atM(2).x, atM(2).y)).toBe(true);
   });
 
+  it("sin monedas para la partida no se juega (y no se abre ninguna partida)", async () => {
+    const { a, repo } = await arcade([]);
+    await repo.awardPoints({ userId: "u-a", amount: ARCADE_PRICE.machine - 1, reason: "ADMIN" });
+    expect(await a.start(sotano(), atM(0), { machine: 0 }, 0)).toEqual({ ok: false, error: "funds" });
+    expect(a.open).toBe(0);
+    expect(await repo.getPoints("u-a")).toBe(ARCADE_PRICE.machine - 1);
+    // Con justo lo que cuesta, sí.
+    await repo.awardPoints({ userId: "u-a", amount: 1, reason: "ADMIN" });
+    expect(await a.start(sotano(), atM(0), { machine: 0 }, 0)).toMatchObject({ game: "snake", balance: 0 });
+  });
+
+  it("Bloques también se valida repitiendo la partida con la semilla del servidor", async () => {
+    const { a } = await arcade();
+    const m = ARCADE_MACHINES.indexOf("bloques");
+    expect(m).toBeGreaterThanOrEqual(0);
+    const at = atM(m);
+    // Sin tocar nada, las piezas se apilan hasta arriba: una partida de 0 filas, pero de verdad.
+    const sim = new BloquesSim(SEED);
+    let steps = 0;
+    while (!sim.over) {
+      sim.step(noKeys());
+      steps++;
+    }
+    const played = { score: 0, steps, inputs: [] as number[], ms: steps * ARCADE_STEP_MS };
+    const s1 = (await a.start(sotano(), at, { machine: m }, 0)) as ArcadeStarted;
+    expect(s1.game).toBe("bloques");
+    expect(await a.finish(at, finishMsg(s1.token, played, { score: 3 }), played.ms + 200)).toEqual({ ok: false, error: "implausible" });
+    const s2 = (await a.start(sotano(), at, { machine: m }, 0)) as ArcadeStarted;
+    expect(await a.finish(at, finishMsg(s2.token, played), played.ms + 200)).toMatchObject({ ok: true, game: "bloques", score: 0 });
+  });
+
   it("una partida muy corta no cuenta (ni por las teclas ni por el reloj del servidor)", async () => {
-    const { a, repo } = arcade();
+    const { a, repo } = await arcade();
     // Sin girar, la culebrita se estrella en menos de 3 s.
     const crash = snakeGame(SEED, 0);
     expect(crash.ms).toBeLessThan(ARCADE.minMs);
-    a.start(sotano(), atM(0), { machine: 0 }, 0);
+    await a.start(sotano(), atM(0), { machine: 0 }, 0);
     expect(await a.finish(atM(0), finishMsg("t1", crash), 10_000)).toEqual({ ok: false, error: "short" });
     // Una partida larga que llega al servidor antes de la duración mínima.
     const g = snakeGame(SEED, 4);
-    a.start(sotano(), atM(0), { machine: 0 }, 0);
+    await a.start(sotano(), atM(0), { machine: 0 }, 0);
     expect(await a.finish(atM(0), finishMsg("t2", g), ARCADE.minMs - 1)).toEqual({ ok: false, error: "short" });
     expect(repo.arcade).toEqual([]);
   });
 
   it("el puntaje tiene que salir de repetir la partida con la semilla del servidor", async () => {
-    const { a, repo } = arcade();
+    const { a, repo } = await arcade();
     const g = snakeGame(SEED, 5);
     const tryFinish = async (patch: Parameters<typeof finishMsg>[2], at = g.ms + 200) => {
-      const s = a.start(sotano(), atM(0), { machine: 0 }, 0) as ArcadeStarted;
+      const s = (await a.start(sotano(), atM(0), { machine: 0 }, 0)) as ArcadeStarted;
       return a.finish(atM(0), finishMsg(s.token, g, patch), at);
     };
     // Un punto de más.
@@ -169,8 +213,8 @@ describe("arcade (reglas)", () => {
     // La partida no terminó (se cortó antes de perder).
     expect(await tryFinish({ steps: g.steps - 30 })).toEqual({ ok: false, error: "implausible" });
     // Con otra semilla las mismas teclas no dan ese puntaje.
-    const other = new Arcade({ repo: () => repo, seed: () => SEED + 1, token: () => "x", award: async () => 0 });
-    other.start(sotano(), atM(0), { machine: 0 }, 0);
+    const other = new Arcade({ repo: () => repo, seed: () => SEED + 1, token: () => "x", award: async () => 0, setPoints: () => undefined });
+    await other.start(sotano(), atM(0), { machine: 0 }, 0);
     expect(await other.finish(atM(0), finishMsg("x", g), g.ms + 200)).toEqual({ ok: false, error: "implausible" });
     expect(repo.arcade).toEqual([]);
     // La de verdad sí.
@@ -178,21 +222,21 @@ describe("arcade (reglas)", () => {
   });
 
   it("el token es de una sola partida y de esa persona; una partida vieja se vence", async () => {
-    const { a } = arcade();
+    const { a } = await arcade();
     const g = snakeGame(SEED, 3);
     const at = g.ms + 200;
-    a.start(sotano(), atM(0), { machine: 0 }, 0);
+    await a.start(sotano(), atM(0), { machine: 0 }, 0);
     expect(await a.finish(atM(0, "u-b"), finishMsg("t1", g), at)).toEqual({ ok: false, error: "expired" });
     expect(await a.finish(atM(0), finishMsg("otro", g), at)).toEqual({ ok: false, error: "expired" });
-    a.start(sotano(), atM(0), { machine: 0 }, 0);
+    await a.start(sotano(), atM(0), { machine: 0 }, 0);
     expect((await a.finish(atM(0), finishMsg("t2", g), at)).ok).toBe(true);
     expect(await a.finish(atM(0), finishMsg("t2", g), at + 1000)).toEqual({ ok: false, error: "expired" });
-    a.start(sotano(), atM(0), { machine: 0 }, 0);
+    await a.start(sotano(), atM(0), { machine: 0 }, 0);
     expect(await a.finish(atM(0), finishMsg("t3", g), ARCADE.sessionMs + 1)).toEqual({ ok: false, error: "expired" });
   });
 
   it("la primera partida del día da premio y el récord solo si le gana al de otra persona", async () => {
-    const { playSnake, awards } = arcade();
+    const { playSnake, awards } = await arcade();
     const min = ARCADE_RECORD_MIN.snake;
     // Primera del día y récord, pero muy chico para cobrarlo.
     expect(await playSnake("u-a", 3)).toMatchObject({ ok: true, firstToday: true, record: true, awarded: ARCADE.firstGameReward });
@@ -213,14 +257,14 @@ describe("arcade (reglas)", () => {
   });
 
   it("los premios respetan el tope diario de ocio", async () => {
-    const { repo, playSnake } = arcade();
+    const { repo, playSnake } = await arcade();
     await repo.awardPoints({ userId: "u-a", amount: POINTS.leisureDailyCap - 2, reason: "LEISURE" });
     expect(await playSnake("u-a", 3)).toMatchObject({ ok: true, awarded: 2 });
-    expect(await repo.getPoints("u-a")).toBe(POINTS.leisureDailyCap);
+    expect(await repo.getPoints("u-a")).toBe(FUNDS - ARCADE_PRICE.machine + POINTS.leisureDailyCap);
   });
 
   it("la tabla de récords muestra el mejor puntaje de cada persona y se guarda unos segundos", async () => {
-    const { a, repo, playSnake } = arcade();
+    const { a, repo, playSnake } = await arcade();
     const week = 0;
     repo.arcade.push(
       { userId: "u-a", name: "Ana", game: "breakout", score: 30, at: week },
@@ -232,7 +276,8 @@ describe("arcade (reglas)", () => {
       { name: "Ana", score: 50 },
       { name: "Beto", score: 40 },
     ];
-    expect(await a.board({ machine: 1 }, week)).toEqual({ machine: 1, game: "breakout", board });
+    // Todo es del mismo día: la tabla de hoy es igual a la de la semana.
+    expect(await a.board({ machine: 1 }, week)).toEqual({ machine: 1, game: "breakout", board, today: board });
     expect(await a.board({ machine: ARCADE_MACHINES.indexOf(null) }, week)).toBeNull();
     // Pedirla otra vez enseguida no vuelve a leer el repositorio.
     repo.arcade.push({ userId: "u-d", name: "Dani", game: "breakout", score: 60, at: week });
@@ -273,7 +318,8 @@ afterEach(() => {
   OfficeRoom.arcadeNow = defaultNow;
 });
 
-async function setup() {
+async function setup(points = 100) {
+  if (points > 0) await repo.awardPoints({ userId: "u-alice", amount: points, reason: "ADMIN" });
   const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
   const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
   await room.waitForNextPatch();
@@ -290,6 +336,16 @@ async function setup() {
 }
 
 describe("arcade (en la sala)", () => {
+  it("sin monedas no se empieza: se avisa y no llega semilla", async () => {
+    const { room, alice, got, send } = await setup(0);
+    await goToArea(alice, room, "sotano");
+    const p = machinePoint(1);
+    await walkToTile(alice, room, p.tileX, p.tileY);
+    await send(alice, MSG.arcadeStart, { machine: 1 });
+    expect(got.results).toEqual([{ ok: false, error: "funds" }]);
+    expect(got.started).toEqual([]);
+  });
+
   it("lejos de la máquina no se empieza", async () => {
     const { alice, got, send } = await setup();
     await send(alice, MSG.arcadeStart, { machine: 0 });
@@ -303,7 +359,10 @@ describe("arcade (en la sala)", () => {
     const p = machinePoint(0);
     await walkToTile(alice, room, p.tileX, p.tileY);
     await send(alice, MSG.arcadeStart, { machine: 0 });
-    expect(got.started).toEqual([{ machine: 0, game: "snake", token: expect.any(String), seed: 777 }]);
+    // Se cobró la partida: el saldo nuevo viene en la respuesta y en el jugador.
+    const fee = ARCADE_PRICE.machine;
+    expect(got.started).toEqual([{ machine: 0, game: "snake", token: expect.any(String), seed: 777, balance: 100 - fee }]);
+    expect(room.state.players.get(alice.sessionId)!.points).toBe(100 - fee);
     const target = ARCADE_RECORD_MIN.snake;
     const g = snakeGame(777, target);
     // Muy rápido para el reloj del servidor.
@@ -315,8 +374,8 @@ describe("arcade (en la sala)", () => {
     await send(alice, MSG.arcadeFinish, finishMsg(got.started[1]!.token, g), 120);
     expect(got.results.at(-1)).toMatchObject({ ok: true, score: target, firstToday: true, record: true, board: [{ name: "Alice", score: target }] });
     expect(got.awards).toEqual([ARCADE.firstGameReward + ARCADE.recordReward]);
-    expect(await repo.getPoints("u-alice")).toBe(ARCADE.firstGameReward + ARCADE.recordReward);
+    expect(await repo.getPoints("u-alice")).toBe(100 - 2 * fee + ARCADE.firstGameReward + ARCADE.recordReward);
     await send(alice, MSG.arcadeBoard, { machine: 3 });
-    expect(got.boards.at(-1)).toEqual({ machine: 3, game: "snake", board: [{ name: "Alice", score: target }] });
+    expect(got.boards.at(-1)).toEqual({ machine: 3, game: "snake", board: [{ name: "Alice", score: target }], today: [{ name: "Alice", score: target }] });
   });
 });

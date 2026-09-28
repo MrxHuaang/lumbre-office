@@ -1,5 +1,6 @@
-// Modo mesa del casino: al usar la ruleta o sentarse al blackjack, la cámara se acerca a la mesa y el
-// juego se dibuja sobre ella (en vez de abrir una ventana). OfficeScene solo lo prende, lo apaga y le
+// Modo mesa del casino (y del hockey del arcade): al usar la ruleta, sentarse al blackjack o pararse en
+// una punta del hockey, la cámara se acerca a la mesa y el juego se dibuja sobre ella (en vez de abrir
+// una ventana). OfficeScene solo lo prende, lo apaga y le
 // pasa los clics; la tira de abajo (components/casino/TableStrip.tsx) tiene fichas, saldo y botones.
 import type { OfficeMap, PlacedFurniture } from "@hyvento/map";
 import type * as Phaser from "phaser";
@@ -7,9 +8,10 @@ import { useCasinoStore } from "../casino";
 import { sfx } from "../sfx";
 import { BlackjackTableView } from "./blackjackTable";
 import { TableCamera } from "./camera";
+import { HockeyTableView } from "./hockeyTable";
 import { RouletteTableView } from "./rouletteTable";
 
-export type TableKind = "roulette" | "blackjack";
+export type TableKind = "roulette" | "blackjack" | "hockey";
 
 /** Mueble de ese tipo más cercano a (x, y) (px de mundo). */
 function nearest(map: OfficeMap, type: string, x: number, y: number): PlacedFurniture | undefined {
@@ -19,7 +21,7 @@ function nearest(map: OfficeMap, type: string, x: number, y: number): PlacedFurn
 }
 
 export class TableMode {
-  private view: RouletteTableView | BlackjackTableView | null = null;
+  private view: RouletteTableView | BlackjackTableView | HockeyTableView | null = null;
   private readonly cam: TableCamera;
   /** Personajes atenuados porque tapaban la mesa. */
   private faded = new Set<Phaser.GameObjects.Sprite>();
@@ -66,6 +68,10 @@ export class TableMode {
       const ts = map.tileSize;
       const wheel = nearest(map, "roulette-wheel", (table.x + table.w / 2) * ts, (table.y + table.d / 2) * ts);
       this.view = new RouletteTableView(this.scene, map, table, wheel, this.cam);
+    } else if (kind === "hockey") {
+      const table = nearest(map, "air-hockey", at.x, at.y);
+      if (!table) return false;
+      this.view = new HockeyTableView(this.scene, map, table, this.cam);
     } else {
       const table = nearest(map, "blackjack-table", at.x, at.y);
       if (!table) return false;

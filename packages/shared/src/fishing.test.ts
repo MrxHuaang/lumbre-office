@@ -19,9 +19,9 @@ const NOON = Date.UTC(2026, 8, 26, 17, 0);
 const MIDNIGHT = Date.UTC(2026, 8, 27, 5, 30);
 
 describe("catálogo de peces", () => {
-  it("unos 30 peces, cada uno con su rareza, tamaño, horario y dificultad dentro del rango", () => {
+  it("más de 60 peces, cada uno con su rareza, tamaño, horario y dificultad dentro del rango", () => {
     const fish = FISH.filter((f) => f.rarity !== "basura");
-    expect(fish.length).toBeGreaterThanOrEqual(28);
+    expect(fish.length).toBeGreaterThanOrEqual(60);
     expect(new Set(FISH.map((f) => f.id)).size).toBe(FISH.length);
     for (const f of FISH) {
       expect(f.id).toMatch(/^[a-z0-9-]+$/);
@@ -35,17 +35,25 @@ describe("catálogo de peces", () => {
     for (const r of FISH_RARITIES) expect(FISH.some((f) => f.rarity === r), r).toBe(true);
   });
 
-  it("hay 2 o 3 legendarios, uno de noche, y la basura no da puntos", () => {
+  it("hay unos 5 legendarios (uno de noche), pocos míticos y la basura no da puntos", () => {
     const legends = FISH.filter((f) => f.rarity === "legendario");
-    expect(legends.length).toBeGreaterThanOrEqual(2);
-    expect(legends.length).toBeLessThanOrEqual(3);
+    expect(legends.length).toBeGreaterThanOrEqual(4);
+    expect(legends.length).toBeLessThanOrEqual(6);
     expect(legends.some((f) => f.time === "noche")).toBe(true);
+    const myths = FISH.filter((f) => f.rarity === "mitico");
+    expect(myths.length).toBeGreaterThanOrEqual(2);
+    expect(myths.length).toBeLessThan(legends.length);
     expect(FISH.filter((f) => f.rarity === "basura").map((f) => f.id)).toEqual(expect.arrayContaining(["bota", "alga", "lata"]));
+    expect(FISH.at(-1)!.id).toBe("lata");
     expect(RARITY.basura.points).toBe(0);
   });
 
+  it("algunos peces piden lluvia, tormenta o niebla", () => {
+    for (const w of ["lluvia", "tormenta", "niebla"] as const) expect(FISH.some((f) => f.weather === w), w).toBe(true);
+  });
+
   it("a más rareza, más dificultad, más puntos y menos probabilidad", () => {
-    const order = ["comun", "poco-comun", "raro", "epico", "legendario"] as const;
+    const order = ["comun", "poco-comun", "raro", "epico", "legendario", "mitico"] as const;
     for (let i = 1; i < order.length; i++) {
       const a = RARITY[order[i - 1]!];
       const b = RARITY[order[i]!];
@@ -74,6 +82,44 @@ describe("horario de Bogotá", () => {
     expect(day.some((f) => f.time === "siempre")).toBe(true);
     expect(fishAvailable(fishById("luminaria")!, MIDNIGHT)).toBe(true);
     expect(fishAvailable(fishById("luminaria")!, NOON)).toBe(false);
+  });
+
+  it("los del atardecer y los de la madrugada pican solo en su rato", () => {
+    const at = (h: number) => Date.UTC(2026, 8, 26, h + 5, 30); // hora de Bogotá → UTC
+    const guabina = fishById("guabina")!;
+    const madre = fishById("madre-agua")!;
+    expect(fishAvailable(guabina, at(17))).toBe(true);
+    expect(fishAvailable(guabina, at(19))).toBe(true);
+    expect(fishAvailable(guabina, at(12))).toBe(false);
+    expect(fishAvailable(guabina, at(21))).toBe(false);
+    expect(fishAvailable(madre, MIDNIGHT)).toBe(true);
+    expect(fishAvailable(madre, at(3))).toBe(true);
+    expect(fishAvailable(madre, at(5))).toBe(false);
+    expect(fishAvailable(madre, NOON)).toBe(false);
+  });
+});
+
+describe("clima", () => {
+  it("los que piden clima solo pican con ese clima (la lluvia vale con tormenta)", () => {
+    const rain = fishById("arcoiris")!;
+    const storm = fishById("temblon")!;
+    const fog = fishById("pez-niebla")!;
+    expect(fishAvailable(rain, NOON)).toBe(false);
+    expect(fishAvailable(rain, NOON, "despejado")).toBe(false);
+    expect(fishAvailable(rain, NOON, "lluvia")).toBe(true);
+    expect(fishAvailable(rain, NOON, "tormenta")).toBe(true);
+    expect(fishAvailable(storm, NOON, "lluvia")).toBe(false);
+    expect(fishAvailable(storm, NOON, "tormenta")).toBe(true);
+    expect(fishAvailable(fog, NOON, "niebla")).toBe(true);
+    expect(fishAvailable(fog, NOON, "nublado")).toBe(false);
+  });
+
+  it("con tormenta el lago tiene más especies que despejado", () => {
+    const clear = fishPool(NOON, "despejado").map((p) => p.fish.id);
+    const storm = fishPool(NOON, "tormenta").map((p) => p.fish.id);
+    expect(storm.length).toBeGreaterThan(clear.length);
+    expect(storm).toContain("rey-tormenta");
+    expect(clear).not.toContain("rey-tormenta");
   });
 });
 
@@ -124,7 +170,7 @@ describe("minijuego", () => {
     expect(barHeightFor(110)).toBeLessThan(barHeightFor(15));
     expect(minReelFrames(110)).toBeGreaterThan(minReelFrames(15));
     expect(minReelMs(15)).toBeCloseTo(minReelFrames(15) * SIM_FRAME_MS);
-    // Llenar el medidor lleva casi 5 segundos como mínimo.
+    // Llenar el medidor lleva 5 segundos como mínimo.
     expect(minReelMs(0)).toBeGreaterThan(4500);
   });
 
@@ -155,7 +201,7 @@ describe("minijuego", () => {
       const r = autoplay({ seed: 99, difficulty: f.difficulty, behavior: f.behavior, treasure: false });
       expect(r.caught, f.id).toBe(true);
     }
-    for (const f of FISH.filter((f) => f.rarity === "legendario")) {
+    for (const f of FISH.filter((f) => f.rarity === "legendario" || f.rarity === "mitico")) {
       let won = 0;
       for (let seed = 1; seed <= 30; seed++) if (autoplay({ seed: seed * 7919, difficulty: f.difficulty, behavior: f.behavior, treasure: false }).caught) won++;
       expect(won, f.id).toBeGreaterThan(0);

@@ -38,9 +38,10 @@ describe("vitrina de trofeos", () => {
     expect(trophyShelf({ comun: 50 })).toHaveLength(TROPHY_CASE_SLOTS);
   });
 
-  it("hay una vitrina con su punto en cada oficina del piso 2, adentro de la oficina", () => {
-    const map = getWorld().areas.get("piso-2")!;
+  it.each(["piso-2", "garaje"])("hay una vitrina con su punto en cada oficina (%s), adentro de la oficina", (area) => {
+    const map = getWorld().areas.get(area)!;
     const offices = map.zones.filter((z) => z.type === "office");
+    expect(offices.length).toBeGreaterThan(0);
     const points = pointsOfType(map, "trophy_case");
     expect(points).toHaveLength(offices.length);
     for (const z of offices) {

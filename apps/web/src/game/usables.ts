@@ -8,6 +8,7 @@ import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import type { Avatar } from "./Avatar";
 import { CasaViva, CURTAIN_PENALTY_TILES } from "./casaViva";
+import { JardinVivo } from "./jardinVivo";
 import { Mascotas } from "./mascotas";
 import { AreaView, DEPTH_OVERLAY, depthOf, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
@@ -94,9 +95,12 @@ export class Usables {
   setPetVeil(rect: { x: number; y: number; w: number; h: number } | null) {
     this.pets.setVeil(rect);
   }
-  private readonly onSceneUpdate = (_time: number, delta: number) => {
+  /** Jardín vivo: el huerto, las abejas y la glorieta. */
+  private jardin: JardinVivo;
+  private readonly onSceneUpdate = (time: number, delta: number) => {
     this.casa.update();
     this.pets.update(delta);
+    this.jardin.update(time, delta);
   };
 
   constructor(
@@ -113,6 +117,7 @@ export class Usables {
       isOn: (f) => this.isOn(f),
     });
     this.pets = new Mascotas(scene, local);
+    this.jardin = new JardinVivo(scene, { room: () => this.room, avatarOf, local });
     // Cada cuadro, aparte de update(): lo que se mueve en la casa viva (mascotas, fuego, lo de la mano).
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.onSceneUpdate);
   }
@@ -126,6 +131,7 @@ export class Usables {
     // Con las cortinas de las ventanas (usablesOf), que no son muebles del catálogo.
     this.casa.setArea(map, view);
     this.pets.setArea(map.id);
+    this.jardin.setArea(map);
     for (const f of usablesOf(map)) if (usableSpec(f.type)?.action === "toggle") this.overlays.set(f, { f, images: [], frame: 0 });
     for (const o of this.overlays.values()) this.refresh(o);
   }
@@ -135,6 +141,7 @@ export class Usables {
     this.room = room;
     this.casa.bind(room);
     this.pets.bind(room);
+    this.jardin.bind(room);
     const $ = getStateCallbacks(room);
     const again = () => {
       for (const o of this.overlays.values()) this.refresh(o);
@@ -155,12 +162,14 @@ export class Usables {
     this.room = undefined;
     this.casa.unbind();
     this.pets.unbind();
+    this.jardin.unbind();
   }
 
   destroy() {
     this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.onSceneUpdate);
     this.casa.destroy();
     this.pets.destroy();
+    this.jardin.destroy();
     this.unbind();
     this.clearOverlays();
     stopRecordMusic();
@@ -308,7 +317,9 @@ export class Usables {
       const f = usablesOf(map).find((f) => {
         const spec = usableSpec(f.type);
         // Las cortinas no ocupan el piso: se prueban sobre el dibujo de la ventana (abajo).
-        return spec && f.type !== CURTAIN_TYPE && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
+        // Lo que se camina por dentro (el techo de la glorieta): un clic ahí es para entrar, no para usarlo.
+        const walkIn = catalogItem(f.type).solid === false && !catalogItem(f.type).flat;
+        return spec && f.type !== CURTAIN_TYPE && !walkIn && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
       });
       if (f) return f;
     }
@@ -318,7 +329,7 @@ export class Usables {
   /** Lo que dice la ayuda para ese mueble ("Prender la tele" o "Apagar la tele"). */
   label(f: PlacedFurniture): string {
     const spec = usableSpec(f.type)!;
-    const casa = this.casa.label(f);
+    const casa = this.casa.label(f) ?? this.jardin.label(f);
     if (casa) return casa;
     return spec.action === "toggle" && this.isOn(f) ? (spec.labelOn ?? spec.label) : spec.label;
   }
@@ -390,6 +401,7 @@ export class Usables {
     const vol = me ? this.hearVolume(f, me.x, me.y) : 0;
     // Casa viva: leer, girar, avivar, regar, lavarse, sacar algo gratis, el baño, asar y los contadores.
     if (this.casa.handleEvent(e, f, vol)) return;
+    if (this.jardin.handleEvent(e, f, vol)) return;
     if (who) who.perform(faceToward(f, map.tileSize, who.x, who.y), e.action === "play" ? PLAY_MS : 600);
     if (e.action === "play") {
       if (e.type === "guitar") playGuitar(e.seed, vol);

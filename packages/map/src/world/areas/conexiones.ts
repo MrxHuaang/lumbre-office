@@ -22,6 +22,8 @@ export const CONEXIONES = {
      * terraza cubierta (la casa termina en x = 59), baja hasta el pasto en y = 27.
      */
     escaleraTerraza: { tiles: [{ x: 59, y: 27 }], llegada: { x: 59, y: 28, facing: "down" } },
+    /** La puerta chica del garaje, pegado al oeste de la torre (el garaje está en (33, 22) y mide 5x5). */
+    garaje: { tiles: [{ x: 36, y: 27 }], llegada: { x: 36, y: 28, facing: "down" } },
   },
   plantaBaja: {
     /** La puerta de entrada del recibidor, al centro de la fachada sur (detrás del porche del jardín). */
@@ -46,6 +48,10 @@ export const CONEXIONES = {
   sotano: {
     /** La escalera del vestíbulo, contra la pared norte. */
     escalera: { tiles: par(28, 3), llegada: { x: 28, y: 4, facing: "down" } },
+  },
+  garaje: {
+    /** La puerta de la pared sur del taller (se sale al jardín, frente a la puerta chica). */
+    entrada: { tiles: par(6, 10), llegada: { x: 6, y: 9, facing: "up" } },
   },
 } satisfies Record<string, Record<string, Conexion>>;
 

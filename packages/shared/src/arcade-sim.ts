@@ -341,9 +341,242 @@ export class FlappySim implements ArcadeSim {
   }
 }
 
-export function createArcadeSim(game: ArcadeGame, seed: number): SnakeSim | BreakoutSim | FlappySim {
+// ---------- Bloques ----------
+
+/**
+ * Bloques (como el Tetris de bolsillo): caen piezas de cuatro cuadritos; se mueven con las flechas, se
+ * giran con arriba, abajo las baja más rápido y espacio las deja caer de golpe. Cada fila llena se borra
+ * y suma un punto (el puntaje son las filas). Todo en pasos enteros: el servidor la repite igual.
+ */
+export const BLOQUES = {
+  cols: 10,
+  rows: 20,
+  /** Tamaño de cada cuadrito en la pantalla y dónde va el tablero. */
+  cell: 7,
+  left: 10,
+  top: 2,
+  /** Pasos por fila al caer: arranca en `gravityStart` y baja `faster` por nivel, hasta `gravityMin`. */
+  gravityStart: 40,
+  gravityMin: 5,
+  faster: 3,
+  linesPerLevel: 5,
+  /** Con abajo apretado cae una fila cada tantos pasos. */
+  softDrop: 2,
+  /** Mantener izquierda o derecha: empieza a repetir a los `das` pasos, una vez cada `arr`. */
+  das: 10,
+  arr: 3,
+  /** Pasos que una pieza apoyada espera antes de quedar fija (para acomodarla). */
+  lockDelay: 20,
+  /** Pasos sin pieza después de fijar una (y más si borró filas): acota cuántas filas caben por minuto. */
+  spawnDelay: 12,
+  clearDelay: 18,
+} as const;
+
+/** Las siete piezas en su caja (N x N), con el color de cada una (índice 1..7). */
+const PIECES: readonly (readonly string[])[] = [
+  ["....", "####", "....", "...."], // I
+  ["##", "##"], // O
+  [".#.", "###", "..."], // T
+  [".##", "##.", "..."], // S
+  ["##.", ".##", "..."], // Z
+  ["#..", "###", "..."], // J
+  ["..#", "###", "..."], // L
+];
+
+/** Celdas de la pieza `kind` con `rot` giros a la derecha, relativas a la esquina de su caja. */
+export function bloquesCells(kind: number, rot: number): { x: number; y: number }[] {
+  const shape = PIECES[kind]!;
+  const n = shape.length;
+  const cells: { x: number; y: number }[] = [];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (shape[y]![x] === "#") cells.push({ x, y });
+  let out = cells;
+  for (let r = 0; r < ((rot % 4) + 4) % 4; r++) out = out.map((c) => ({ x: n - 1 - c.y, y: c.x }));
+  return out;
+}
+
+export interface BloquesPiece {
+  kind: number;
+  rot: number;
+  x: number;
+  y: number;
+}
+
+export class BloquesSim implements ArcadeSim {
+  score = 0;
+  over = false;
+  /** El tablero por filas: 0 = vacío, 1..7 = el color de la pieza que quedó ahí. */
+  board: number[] = Array.from({ length: BLOQUES.cols * BLOQUES.rows }, () => 0);
+  piece: BloquesPiece | null = null;
+  next = 0;
+  /** Filas que se acaban de borrar y cuántos pasos lleva el destello (para el dibujo). */
+  cleared: number[] = [];
+  clearedAge = 0;
+  private bag: number[] = [];
+  private wait = 0;
+  private fall = 0;
+  private lock = 0;
+  private repeat = 0;
+  private rand: () => number;
+
+  constructor(seed: number) {
+    this.rand = seeded(seed);
+    this.next = this.draw();
+    this.spawn();
+  }
+
+  get lines() {
+    return this.score;
+  }
+  get level() {
+    return Math.floor(this.score / BLOQUES.linesPerLevel);
+  }
+  get waiting() {
+    return false;
+  }
+
+  /** La siguiente pieza de la bolsa (salen las siete, mezcladas, antes de repetir). */
+  private draw(): number {
+    if (!this.bag.length) {
+      const bag = [0, 1, 2, 3, 4, 5, 6];
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(this.rand() * (i + 1));
+        [bag[i], bag[j]] = [bag[j]!, bag[i]!];
+      }
+      this.bag = bag;
+    }
+    return this.bag.shift()!;
+  }
+
+  private spawn() {
+    const kind = this.next;
+    this.next = this.draw();
+    const n = PIECES[kind]!.length;
+    const piece = { kind, rot: 0, x: Math.floor((BLOQUES.cols - n) / 2), y: kind === 0 ? -1 : 0 };
+    this.fall = 0;
+    this.lock = 0;
+    if (!this.fits(piece)) {
+      this.over = true;
+      this.piece = null;
+      return;
+    }
+    this.piece = piece;
+  }
+
+  /** ¿Entra la pieza ahí? (dentro del tablero, sin pisar nada; arriba del borde vale). */
+  fits(p: BloquesPiece): boolean {
+    for (const c of bloquesCells(p.kind, p.rot)) {
+      const x = p.x + c.x;
+      const y = p.y + c.y;
+      if (x < 0 || x >= BLOQUES.cols || y >= BLOQUES.rows) return false;
+      if (y >= 0 && this.board[y * BLOQUES.cols + x]) return false;
+    }
+    return true;
+  }
+
+  private shift(dx: number, dy: number): boolean {
+    const p = this.piece;
+    if (!p) return false;
+    const moved = { ...p, x: p.x + dx, y: p.y + dy };
+    if (!this.fits(moved)) return false;
+    this.piece = moved;
+    return true;
+  }
+
+  /** Gira a la derecha; si choca, prueba corrida uno o dos cuadritos a cada lado. */
+  private rotate() {
+    const p = this.piece;
+    if (!p) return;
+    for (const dx of [0, -1, 1, -2, 2]) {
+      const r = { ...p, rot: (p.rot + 1) % 4, x: p.x + dx };
+      if (this.fits(r)) {
+        this.piece = r;
+        this.lock = 0;
+        return;
+      }
+    }
+  }
+
+  /** Dónde caería la pieza si se soltara ahora (la sombra que se dibuja abajo). */
+  ghostY(): number {
+    const p = this.piece;
+    if (!p) return 0;
+    let y = p.y;
+    while (this.fits({ ...p, y: y + 1 })) y++;
+    return y;
+  }
+
+  press(k: ArcadeKey) {
+    if (this.over || !this.piece) return;
+    if (k === "left" || k === "right") {
+      if (this.shift(k === "left" ? -1 : 1, 0)) this.lock = 0;
+      this.repeat = 0;
+    } else if (k === "up") this.rotate();
+    else if (k === "action") {
+      this.piece = { ...this.piece, y: this.ghostY() };
+      this.settle();
+    }
+  }
+
+  step(held: HeldKeys) {
+    if (this.over) return;
+    if (this.cleared.length) this.clearedAge++;
+    if (!this.piece) {
+      if (--this.wait <= 0) this.spawn();
+      return;
+    }
+    // Mantener izquierda o derecha repite el paso.
+    const dir = (held.right ? 1 : 0) - (held.left ? 1 : 0);
+    if (dir) {
+      this.repeat++;
+      if (this.repeat >= BLOQUES.das && (this.repeat - BLOQUES.das) % BLOQUES.arr === 0 && this.shift(dir, 0)) this.lock = 0;
+    } else this.repeat = 0;
+    const every = held.down ? BLOQUES.softDrop : Math.max(BLOQUES.gravityMin, BLOQUES.gravityStart - this.level * BLOQUES.faster);
+    if (++this.fall >= every) {
+      this.fall = 0;
+      if (this.shift(0, 1)) this.lock = 0;
+    }
+    // Apoyada: después de un rato queda fija.
+    if (this.piece && !this.fits({ ...this.piece, y: this.piece.y + 1 })) {
+      if (++this.lock >= BLOQUES.lockDelay) this.settle();
+    }
+  }
+
+  /** La pieza queda fija: se borran las filas llenas y hay una pausa antes de la siguiente. */
+  private settle() {
+    const p = this.piece;
+    if (!p) return;
+    for (const c of bloquesCells(p.kind, p.rot)) {
+      const y = p.y + c.y;
+      if (y < 0) {
+        // Quedó asomada por arriba: se llenó el tablero.
+        this.over = true;
+        this.piece = null;
+        return;
+      }
+      this.board[y * BLOQUES.cols + p.x + c.x] = p.kind + 1;
+    }
+    this.piece = null;
+    const full: number[] = [];
+    for (let y = 0; y < BLOQUES.rows; y++) {
+      let n = 0;
+      for (let x = 0; x < BLOQUES.cols; x++) if (this.board[y * BLOQUES.cols + x]) n++;
+      if (n === BLOQUES.cols) full.push(y);
+    }
+    if (full.length) {
+      const keep = this.board.filter((_, i) => !full.includes(Math.floor(i / BLOQUES.cols)));
+      this.board = [...Array.from({ length: full.length * BLOQUES.cols }, () => 0), ...keep];
+      this.score += full.length;
+      this.cleared = full;
+      this.clearedAge = 0;
+    }
+    this.wait = BLOQUES.spawnDelay + (full.length ? BLOQUES.clearDelay : 0);
+  }
+}
+
+export function createArcadeSim(game: ArcadeGame, seed: number): SnakeSim | BreakoutSim | FlappySim | BloquesSim {
   if (game === "snake") return new SnakeSim(seed);
   if (game === "breakout") return new BreakoutSim(seed);
+  if (game === "bloques") return new BloquesSim(seed);
   return new FlappySim(seed);
 }
 

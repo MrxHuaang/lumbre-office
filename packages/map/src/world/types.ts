@@ -51,7 +51,9 @@ export type FloorKind =
   | "terrazzo"
   | "brick"
   | "moquette"
-  | "planks";
+  | "planks"
+  // Garaje: concreto gastado con manchas de aceite (adentro y en la entrada de afuera).
+  | "concrete";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
 // Variedad: rayas finas, damasco dorado, ladrillo visto, listones de madera clara y estuco con zócalo.
 export type WallpaperKind =
@@ -69,7 +71,9 @@ export type WallpaperKind =
   | "damask"
   | "brick"
   | "slats"
-  | "colonial";
+  | "colonial"
+  // Garaje: bloque de cemento sin pintar, con humedad y manchas.
+  | "cinderblock";
 
 export interface ZoneDef {
   id: string;
@@ -103,7 +107,9 @@ export interface DoorDef {
 }
 
 // Del rediseño de interiores: espejo, paneles acústicos, ventanal de piso a techo, repisa, mapamundi y retrato.
-export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "video-wall" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait";
+export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "video-wall" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait"
+  // Garaje: tablero de herramientas, portón enrollable por dentro, calendario viejo, telaraña y ventana sucia.
+  | "pegboard" | "rollup" | "calendar" | "cobweb" | "grimy-window";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -149,7 +155,11 @@ export interface PointDef {
     | "garden_plot"
     | "fishing_spot"
     | "arcade"
+    // Las dos puntas del hockey de mesa del arcade (primero la del norte: el lado 0).
+    | "air_hockey"
     | "cinema"
+    // Frente a la máquina de crispetas del cine: la confitería.
+    | "cinema_snacks"
     // Rediseño: frente a la barra del club, donde se piden tragos y cigarros.
     | "club_bar"
     // Club: delante de la cabina de DJ, donde se abre la consola para poner música.
@@ -158,6 +168,10 @@ export interface PointDef {
     | "photo_board"
     // Salida de la carrera de sillas (pasillo del piso 2, junto a la bandera).
     | "chair_race"
+    // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
+    | "tool_shed"
+    // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
+    | "greenhouse_plot"
     // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
     | "trophy_case";
   name: string;

@@ -28,7 +28,7 @@ export function bindArcade(r: Room) {
   r.onMessage(MSG.arcadeBoardResult, (board: ArcadeBoard) => useArcadeStore.setState({ board }));
   r.onMessage(MSG.arcadeStarted, (started: ArcadeStarted) => useArcadeStore.setState({ started }));
   r.onMessage(MSG.arcadeResult, (res: ArcadeResult) => {
-    useArcadeStore.setState((s) => ({ result: { ...res, seq: ++seq }, board: res.ok && s.board ? { ...s.board, board: res.board } : s.board }));
+    useArcadeStore.setState((s) => ({ result: { ...res, seq: ++seq }, board: res.ok && s.board ? { ...s.board, board: res.board, today: res.today } : s.board }));
   });
 }
 

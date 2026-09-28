@@ -99,6 +99,11 @@ describe("estadísticas de la caja", () => {
     expect(s.total).toEqual({ staked: 220, paid: 215, house: 5, bets: 16, players: 3 });
   });
 
+  it("el pozo del hockey de mesa usa el libro del casino pero no cuenta en sus estadísticas", () => {
+    const s = summarizeCasino([...rows, { userId: "a", game: "hockey", staked: 10, paid: 20, bets: 1, best: 20 }, { userId: "z", game: "hockey", staked: 10, paid: 0, bets: 1, best: 0 }]);
+    expect(s).toEqual(summarizeCasino(rows));
+  });
+
   it("rankings de ganancias, pérdidas y cobros más grandes", () => {
     const r = casinoRankings(summarizeCasino(rows).players);
     expect(r.winners.map((p) => p.userId)).toEqual(["a", "d"]);

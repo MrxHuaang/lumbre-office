@@ -93,6 +93,41 @@ export const FISH_ART: Record<string, FishArt> = {
   bigoton: { len: 20, h: 9, shape: "flathead", back: C.night, belly: at(C.stone, 3), fin: at(C.night, 3), tail: "round", tailLen: 4, dorsal: "tall", whiskers: 7, pattern: ["mottled"], patternColor: at(C.metal, 2) },
   "carpa-jade": { len: 15, h: 8, shape: "torpedo", back: C.green, belly: at(C.green, 5), fin: at(C.green, 4), tail: "veil", tailLen: 7, dorsal: "veil", whiskers: 2, pattern: ["scales"], patternColor: at(C.green, 5) },
   luminaria: { len: 14, h: 7, shape: "torpedo", back: C.cyan, belly: at(C.cyan, 5), fin: at(C.sky, 4), tail: "veil", tailLen: 7, dorsal: "veil", pattern: ["stars"], patternColor: at(C.white, 4), patternColor2: at(C.mustard, 4) },
+  // Comunes nuevos
+  sabaleta: { len: 14, h: 6, shape: "torpedo", back: SILVER, belly: at(C.white, 4), fin: at(C.rug, 3), tail: "fork", tailLen: 5, dorsal: "small", pattern: ["lateral", "redTail"], patternColor: at(C.rug, 3) },
+  "pez-cebra": { len: 9, h: 4, shape: "torpedo", back: C.cream, belly: at(C.cream, 5), fin: at(C.cream, 3), tail: "fork", dorsal: "small", pattern: ["stripeH", "lateral"], patternColor: at(C.blue, 1), patternColor2: at(C.blue, 2) },
+  moncholo: { len: 14, h: 7, shape: "flathead", back: C.leaf, belly: at(C.mustard, 4), fin: at(C.leaf, 1), tail: "round", dorsal: "small", teeth: true, pattern: ["mottled"], patternColor: at(C.leaf, 0) },
+  cucha: { len: 13, h: 6, shape: "flathead", back: C.stone, belly: at(C.stone, 4), fin: at(C.stone, 2), tail: "lyre", dorsal: "tall", sucker: true, pattern: ["bigSpots", "plates"], patternColor: at(C.stone, 0), patternColor2: at(C.stone, 1) },
+  tetra: { len: 8, h: 4, shape: "torpedo", back: C.navy, belly: at(C.rug, 3), fin: at(C.navy, 4), tail: "fork", dorsal: "small", pattern: ["stripeH"], patternColor: at(C.cyan, 3) },
+  renacuajo: { len: 8, h: 7, shape: "round", back: C.woodDark, belly: at(C.cork, 3), fin: at(C.woodDark, 3), tail: "taper", tailLen: 8, dorsal: "none", pattern: ["spots"], patternColor: at(C.woodDark, 1) },
+  // Poco comunes nuevos
+  "mojarra-azul": { len: 13, h: 8, shape: "tall", back: C.blue, belly: at(C.sky, 4), fin: at(C.blue, 4), tail: "fork", dorsal: "spiny", pattern: ["scales", "lateral"], patternColor: at(C.sky, 3), patternColor2: at(C.navy, 1) },
+  rubio: { len: 16, h: 7, shape: "torpedo", back: C.mustard, belly: at(C.cream, 5), fin: at(C.mustard, 1), tail: "fork", tailLen: 5, dorsal: "small", pattern: ["scales"], patternColor: at(C.mustard, 4) },
+  "pez-angel": { len: 9, h: 10, shape: "tall", back: SILVER, belly: at(C.white, 4), fin: at(C.stone, 4), tail: "fan", tailLen: 5, dorsal: "sail", pattern: ["stripesV"], patternColor: at(C.night, 1) },
+  blanquillo: { len: 18, h: 6, shape: "flathead", back: C.white, belly: at(C.white, 4), fin: at(C.stone, 3), tail: "fork", dorsal: "tall", whiskers: 5 },
+  guabina: { len: 14, h: 6, shape: "flathead", back: C.dirt, belly: at(C.mustard, 3), fin: at(C.dirt, 2), tail: "round", dorsal: "long", teeth: true, pattern: ["stripesV", "mottled"], patternColor: at(C.dirt, 0) },
+  "pez-hoja": { len: 11, h: 7, shape: "tall", back: C.cork, belly: at(C.cork, 4), fin: at(C.cork, 1), tail: "round", tailLen: 3, dorsal: "spiny", mouthUp: true, pattern: ["lateral", "mottled"], patternColor: at(C.dirt, 1) },
+  "bagre-sapo": { len: 13, h: 7, shape: "flathead", back: C.sage, belly: at(C.cream, 4), fin: at(C.sage, 1), tail: "round", dorsal: "small", whiskers: 3, pattern: ["bigSpots"], patternColor: at(C.sage, 0) },
+  // Raros nuevos
+  disco: { len: 12, h: 12, shape: "round", back: C.fire, belly: at(C.fire, 4), fin: at(C.cyan, 3), tail: "round", tailLen: 3, dorsal: "long", pattern: ["stripesV", "lateral"], patternColor: at(C.cyan, 2), patternColor2: at(C.cyan, 4) },
+  payara: { len: 18, h: 7, shape: "torpedo", back: SILVER, belly: at(C.white, 4), fin: at(C.stone, 1), tail: "fork", tailLen: 5, dorsal: "small", teeth: true, pattern: ["gillSpot"], patternColor2: at(C.night, 1) },
+  "bagre-amarillo": { len: 20, h: 7, shape: "flathead", back: C.mustard, belly: at(C.cream, 4), fin: at(C.mustard, 2), tail: "fork", dorsal: "tall", whiskers: 6, pattern: ["mottled"], patternColor: at(C.mustard, 0) },
+  "pez-mariposa": { len: 12, h: 6, shape: "torpedo", back: C.violet, belly: at(C.violet, 5), fin: at(C.neon, 4), tail: "fan", tailLen: 6, dorsal: "sail", mouthUp: true, pattern: ["spots"], patternColor: at(C.neon, 3), patternColor2: at(C.violet, 5) },
+  arcoiris: { len: 12, h: 7, shape: "tall", back: C.sky, belly: at(C.rose, 5), fin: at(C.neon, 3), tail: "fork", dorsal: "long", pattern: ["stripeH", "spots"], patternColor: at(C.fire, 3), patternColor2: at(C.leaf, 4) },
+  temblon: { len: 22, h: 4, shape: "eel", back: C.night, belly: at(C.fire, 3), fin: at(C.night, 3), tail: "taper", dorsal: "none", pattern: ["stars"], patternColor: at(C.mustard, 4), patternColor2: at(C.cyan, 4) },
+  // Épicos nuevos
+  "lau-lau": { len: 20, h: 8, shape: "flathead", back: C.metal, belly: at(C.cream, 4), fin: at(C.metal, 1), tail: "fork", tailLen: 5, dorsal: "tall", whiskers: 7, pattern: ["spots"], patternColor: at(C.metal, 4) },
+  "tiburon-toro": { len: 19, h: 7, shape: "snout", back: C.stone, belly: at(C.white, 4), fin: at(C.stone, 1), tail: "shark", tailLen: 5, dorsal: "tall", teeth: true },
+  "sol-poniente": { len: 12, h: 10, shape: "round", back: C.fire, belly: at(C.violet, 5), fin: at(C.violet, 4), tail: "veil", tailLen: 6, dorsal: "veil", pattern: ["stripeH"], patternColor: at(C.neon, 3) },
+  cuchillo: { len: 20, h: 5, shape: "eel", back: C.night, belly: at(C.night, 3), fin: at(C.stone, 2), tail: "taper", tailLen: 3, dorsal: "none", pattern: ["redTail"], patternColor: at(C.white, 4) },
+  "pez-niebla": { len: 15, h: 7, shape: "torpedo", back: C.white, belly: at(C.white, 4), fin: at(C.sky, 3), tail: "veil", tailLen: 6, dorsal: "small", ghost: true, pattern: ["mottled"], patternColor: at(C.sky, 4) },
+  // Legendarios nuevos
+  "rey-tormenta": { len: 18, h: 8, shape: "torpedo", back: C.metal, belly: at(C.white, 4), fin: at(C.mustard, 4), tail: "fork", tailLen: 6, dorsal: "sail", pattern: ["stripesV", "stars"], patternColor: at(C.mustard, 4), patternColor2: at(C.white, 4) },
+  "madre-agua": { len: 17, h: 8, shape: "torpedo", back: C.sky, belly: at(C.white, 4), fin: at(C.cyan, 4), tail: "veil", tailLen: 7, dorsal: "long", whiskers: 3, pattern: ["scales", "stars"], patternColor: at(C.cyan, 4), patternColor2: at(C.white, 4) },
+  // Míticos
+  guatavita: { len: 15, h: 9, shape: "tall", back: C.gold, belly: at(C.gold, 5), fin: at(C.gold, 4), tail: "fan", tailLen: 6, dorsal: "sail", whiskers: 2, pattern: ["scales", "stars"], patternColor: at(C.gold, 1), patternColor2: at(C.white, 4) },
+  "monstruo-tota": { len: 22, h: 6, shape: "eel", back: C.night, belly: at(C.leaf, 1), fin: at(C.leaf, 2), tail: "taper", dorsal: "spiny", teeth: true, whiskers: 2, pattern: ["plates"], patternColor: at(C.leaf, 3) },
+  "estrella-lluvia": { len: 12, h: 8, shape: "round", back: C.navy, belly: at(C.cyan, 4), fin: at(C.cyan, 5), tail: "veil", tailLen: 8, dorsal: "veil", pattern: ["stars"], patternColor: at(C.cyan, 5), patternColor2: at(C.neon, 4) },
 };
 
 // ---------- Cuerpo ----------
@@ -554,6 +589,48 @@ function drawTrash(c: PixelCanvas, id: string) {
     c.set(9, 11, at(C.sage, 5));
     return;
   }
+  if (id === "botella") {
+    // Botella de vidrio verde acostada, con el papelito enrollado adentro y el corcho.
+    c.rect(4, 6, 13, 7, alpha(at(C.green, 3), 0.85));
+    c.rect(4, 6, 13, 1, alpha(at(C.green, 5), 0.9));
+    c.rect(4, 12, 13, 1, alpha(at(C.green, 1), 0.9));
+    c.rect(17, 7, 2, 5, alpha(at(C.green, 3), 0.85));
+    c.rect(19, 8, 2, 3, alpha(at(C.green, 2), 0.9));
+    c.rect(21, 8, 2, 3, at(C.cork, 3));
+    c.set(22, 8, at(C.cork, 4));
+    c.rect(7, 8, 7, 3, at(C.cream, 4));
+    c.rect(7, 8, 1, 3, at(C.cream, 2));
+    c.rect(13, 8, 1, 3, at(C.cream, 2));
+    c.set(9, 9, at(C.woodDark, 2));
+    c.set(11, 9, at(C.woodDark, 2));
+    c.set(5, 7, at(C.white, 4));
+    c.set(6, 7, alpha(at(C.white, 4), 0.7));
+    return;
+  }
+  if (id === "calcetin") {
+    // Calcetín a rayas, mojado y medio caído.
+    for (let y = 2; y < 12; y++) c.rect(9, y, 6, 1, at(y % 3 === 0 ? C.rug : C.cream, y % 3 === 0 ? 3 : 4));
+    c.rect(9, 12, 11, 3, at(C.cream, 4));
+    c.rect(18, 12, 3, 3, at(C.rug, 3));
+    c.rect(9, 12, 3, 3, at(C.rug, 3));
+    c.rect(9, 2, 6, 1, at(C.cream, 5));
+    c.set(12, 15, at(C.sky, 3));
+    c.set(16, 16, at(C.sky, 2));
+    return;
+  }
+  if (id === "patito") {
+    // Patito de hule amarillo con el pico naranja.
+    c.ellipse(11, 11, 7, 4, at(C.mustard, 3));
+    c.ellipse(11, 10, 6, 3, at(C.mustard, 4));
+    c.ellipse(16, 6, 3, 3, at(C.mustard, 4));
+    c.rect(19, 6, 3, 2, at(C.fire, 2));
+    c.set(21, 7, at(C.fire, 1));
+    c.set(17, 5, OUT);
+    c.rect(6, 8, 2, 2, at(C.mustard, 2));
+    c.rect(9, 10, 4, 1, at(C.mustard, 2));
+    c.set(15, 4, at(C.white, 4));
+    return;
+  }
   // Lata oxidada con etiqueta.
   c.rect(8, 3, 9, 12, at(C.metal, 3));
   c.rect(8, 3, 9, 1, at(C.metal, 5));
@@ -572,6 +649,7 @@ const RARITY_GLOW: Record<string, { color: RGBA; halo: number; sparkles: number 
   raro: { color: at(C.sky, 4), halo: 0, sparkles: 2 },
   epico: { color: at(C.violet, 5), halo: 0.5, sparkles: 2 },
   legendario: { color: at(C.gold, 4), halo: 0.75, sparkles: 3 },
+  mitico: { color: at(C.neon, 4), halo: 0.9, sparkles: 3 },
 };
 
 function sparkle(c: PixelCanvas, x: number, y: number, col: RGBA) {
@@ -638,8 +716,10 @@ export function drawFish(id: string, rarity: string, opts: { silhouette?: boolea
   return c;
 }
 
-/** ¿Tiene dibujo propio? (la basura también: bota, alga, lata). */
-export const hasFishArt = (id: string) => Boolean(FISH_ART[id]) || id === "bota" || id === "alga" || id === "lata";
+const TRASH_ART = new Set(["bota", "alga", "botella", "calcetin", "patito", "lata"]);
+
+/** ¿Tiene dibujo propio? (la basura también: bota, alga, botella, calcetín, patito y lata). */
+export const hasFishArt = (id: string) => Boolean(FISH_ART[id]) || TRASH_ART.has(id);
 
 // ---------- Minijuego ----------
 
@@ -705,7 +785,7 @@ export function fishingFrame(): PixelCanvas {
 /** El pez chiquito del minijuego (9x7), del color de su rareza. */
 export function fishIcon(rarity: string): PixelCanvas {
   const c = new PixelCanvas(11, 9);
-  const body: Record<string, Ramp> = { comun: C.stone, "poco-comun": C.green, raro: C.blue, epico: C.violet, legendario: C.gold, basura: C.stone };
+  const body: Record<string, Ramp> = { comun: C.stone, "poco-comun": C.green, raro: C.blue, epico: C.violet, legendario: C.gold, mitico: C.neon, basura: C.stone };
   const r = body[rarity] ?? C.stone;
   const rows = ["...bb....", "..bbbb..t", ".bbbbbbtt", "bebbbbbtt", ".bbbbbbtt", "..bbbb..t", "...bb...."];
   rows.forEach((row, y) =>
@@ -799,7 +879,7 @@ export function drawFishingBar(s: BarState, into?: PixelCanvas): PixelCanvas {
   c.line(12, BAR.h - 10, hx, hy, at(C.metal, 5));
   c.rect(hx - 1, hy - 1, 2, 2, at(C.cream, 4));
   // Gema de la rareza arriba del medidor.
-  const gem: Record<string, RGBA> = { comun: at(C.stone, 4), "poco-comun": at(C.leaf, 4), raro: at(C.sky, 3), epico: at(C.violet, 4), legendario: at(C.gold, 4) };
+  const gem: Record<string, RGBA> = { comun: at(C.stone, 4), "poco-comun": at(C.leaf, 4), raro: at(C.sky, 3), epico: at(C.violet, 4), legendario: at(C.gold, 4), mitico: at(C.neon, 4) };
   c.rect(BAR.meterX, BAR.trackY + BAR.trackH + 3, BAR.meterW, 3, gem[s.rarity] ?? at(C.stone, 4));
   return c;
 }
