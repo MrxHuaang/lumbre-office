@@ -1,5 +1,5 @@
 import "server-only";
-import { INTERNAL_ROUTES, type GiftSentNotice } from "@hyvento/shared";
+import { INTERNAL_ROUTES, type GiftSentNotice, type SystemNotice } from "@hyvento/shared";
 
 /** URL HTTP del servidor de juego (por defecto, la misma de WebSocket con http/https). */
 function gameServerHttpUrl(): string | null {
@@ -67,4 +67,10 @@ export async function publishDoorNotesChanged(userId: string) {
 export async function publishGiftSent(notice: GiftSentNotice) {
   // Si el servidor no responde, el regalo igual espera en el buzón.
   await notifyGameServer(INTERNAL_ROUTES.giftSent, "regalo", notice);
+}
+
+/** Pide al servidor de juego un aviso del sistema en el chat global (p. ej. un PR mezclado en GitHub). */
+export async function publishSystemNotice(notice: SystemNotice) {
+  // Si el servidor no responde (dormido en Render), el aviso se pierde: no es importante.
+  await notifyGameServer(INTERNAL_ROUTES.systemNotice, "aviso del sistema", notice);
 }

@@ -5,7 +5,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { GameRepository } from "./repo/types";
 import { OfficeRoom } from "./rooms/OfficeRoom";
-import { GiftSentNotice } from "@hyvento/shared";
+import { GiftSentNotice, SystemNotice } from "@hyvento/shared";
 
 /** Compara el `Authorization: Bearer <secreto>` sin filtrar información por tiempos. */
 function authorized(req: IncomingMessage, secret: string | undefined): boolean {
@@ -29,6 +29,7 @@ function json(res: ServerResponse, status: number, body: unknown) {
  * - POST /internal/permissions-changed: un admin dio, quitó o abrió a todos un permiso.
  * - POST /internal/photos-changed: se subió o se borró una foto (el tablón de la cafetería se refresca).
  * - POST /internal/door-notes-changed: alguien leyó o borró las notas de su puerta (body `{ userId }`).
+ * - POST /internal/system-notice: aviso del sistema para el chat global (body `SystemNotice`, p. ej. GitHub).
  */
 async function handleHttp(req: IncomingMessage, res: ServerResponse) {
   const path = (req.url ?? "").split("?")[0];
@@ -99,6 +100,13 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
     const notice = GiftSentNotice.safeParse(await readJson(req));
     if (!notice.success) return json(res, 400, { error: "aviso de regalo inválido" });
     OfficeRoom.giftReceivedEverywhere(notice.data);
+    return json(res, 200, { ok: true });
+  }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.systemNotice) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    const notice = SystemNotice.safeParse(await readJson(req));
+    if (!notice.success) return json(res, 400, { error: "aviso inválido" });
+    OfficeRoom.systemNoticeEverywhere(notice.data);
     return json(res, 200, { ok: true });
   }
   json(res, 404, { error: "no encontrado" });

@@ -63,3 +63,4 @@ export * from "./npcs";
 export * from "./pesca-tienda";
 export * from "./libros";
 export * from "./permisos";
+export * from "./github";
