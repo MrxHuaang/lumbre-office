@@ -35,11 +35,12 @@ export { DEPTH_FLAT, DEPTH_OVERLAY, depthOf, screenToWorld, worldToScreen } from
 const DEPTH_FLOOR = -1e7;
 /**
  * La noche: color y fuerza de la penumbra (MULTIPLY) y cuánto más lejos que su brillo llega cada luz.
- * Adentro es suave (las luces de la casa están prendidas); afuera, azul de noche.
+ * Como en Stardew: afuera, azul de noche; adentro, penumbra ámbar de casa con velas (nunca fría ni gris),
+ * con las lámparas como islas de luz de color pleno.
  */
 const NIGHT = {
-  // Adentro la casa tiene su luz general prendida: apenas un toque de noche; las lámparas suman encima.
-  indoor: { color: 0xa597d6, alpha: 0.2, reach: 2.2 },
+  // El lila de antes apagaba la madera y la dejaba gris: el ámbar la oscurece sin quitarle calidez.
+  indoor: { color: 0xc8905e, alpha: 0.34, reach: 2.8 },
   outdoor: { color: 0x2c3570, alpha: 0.7, reach: 2.2 },
 } as const;
 /** La textura de la noche va a media resolución (es un degradado). */
@@ -449,6 +450,23 @@ export class AreaView {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = `rgba(${(n.color >> 16) & 255}, ${(n.color >> 8) & 255}, ${n.color & 255}, ${n.alpha})`;
     ctx.fillRect(0, 0, w, h);
+    if (!this.map.outdoor && this.base) {
+      // Adentro, solo sobre la casa: el lienzo es transparente alrededor y el velo quedaría como un
+      // rectángulo marrón sobre el fondo de la página.
+      const f = this.base.frame;
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.drawImage(
+        f.source.image as CanvasImageSource,
+        f.cutX,
+        f.cutY,
+        f.cutWidth,
+        f.cutHeight,
+        (this.base.x - b.x) / NIGHT_SCALE,
+        (this.base.y - b.y) / NIGHT_SCALE,
+        f.cutWidth / NIGHT_SCALE,
+        f.cutHeight / NIGHT_SCALE,
+      );
+    }
     ctx.globalCompositeOperation = "destination-out";
     for (const g of this.glows) {
       if (this.lightsOff.has(g)) continue;
@@ -477,7 +495,8 @@ export class AreaView {
         .setDepth(DEPTH_OVERLAY);
       this.objects.push(this.nightMask);
     }
-    this.nightOutside ??= this.outsideFrame(n);
+    // Adentro no hay nada alrededor que oscurecer (es el fondo de la página).
+    if (this.map.outdoor) this.nightOutside ??= this.outsideFrame(n);
   }
 
   /** Cuatro franjas de penumbra alrededor del nivel (lo que queda afuera de la textura de la noche). */

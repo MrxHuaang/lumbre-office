@@ -438,6 +438,7 @@ export class OfficeScene extends Phaser.Scene {
       present: () => [...this.areaOfSession].filter(([, area]) => area === this.map.id).map(([id]) => id),
     });
     this.weatherView = new WeatherView(this);
+    this.weatherView.setNight(useOfficeStore.getState().night);
     this.weatherView.setWeather(useOfficeStore.getState().weather, true);
     this.seasonView = new SeasonView(this);
     this.seasonView.setWeather(useOfficeStore.getState().weather, true);
@@ -2138,6 +2139,7 @@ export class OfficeScene extends Phaser.Scene {
   /** Pone en la vista la noche del store (y el fantasma del editor, que también cambia de textura). */
   private applyNight() {
     this.view?.setNight(useOfficeStore.getState().night);
+    this.weatherView.setNight(useOfficeStore.getState().night);
     // Los reflejos de la piscina también tienen versión de noche.
     this.pool.setNight(useOfficeStore.getState().night);
     this.updateGhost(true);
