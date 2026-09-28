@@ -21,7 +21,14 @@ export type HumanAvatar = (typeof HUMAN_AVATARS)[number];
 export const DIRECTIONS = ["down", "left", "right", "up"] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
-export const PRESENCE_STATUSES = ["available", "busy", "dnd", "away"] as const;
+/** Los estados que se eligen a mano (y se guardan en la base, `User.status`). */
+export const MANUAL_STATUSES = ["available", "busy", "dnd", "away"] as const;
+export type ManualStatus = (typeof MANUAL_STATUSES)[number];
+/**
+ * Todos los que se ven: los manuales más "En reunión", que lo pone solo el servidor (sala de reuniones
+ * con alguien más) y vive en memoria, así que no toca el enum de Prisma. Ver presence.ts.
+ */
+export const PRESENCE_STATUSES = [...MANUAL_STATUSES, "meeting"] as const;
 export type PresenceStatus = (typeof PRESENCE_STATUSES)[number];
 
 // ---------- Cliente → servidor ----------
@@ -67,8 +74,12 @@ export const ChatSendMessage = z.object({
 });
 export type ChatSendMessage = z.infer<typeof ChatSendMessage>;
 
-export const StatusMessage = z.object({ status: z.enum(PRESENCE_STATUSES) });
+export const StatusMessage = z.object({ status: z.enum(MANUAL_STATUSES) });
 export type StatusMessage = z.infer<typeof StatusMessage>;
+
+/** El navegador avisa si la persona está inactiva (sin mouse/teclado o con la pestaña oculta), ver presence.ts. */
+export const IdleMessage = z.object({ idle: z.boolean() });
+export type IdleMessage = z.infer<typeof IdleMessage>;
 
 
 // ---------- Servidor → cliente ----------
@@ -121,7 +132,7 @@ export interface KnockRequest {
   fromName: string;
 }
 
-export type KnockOutcome = "accepted" | "declined" | "timeout" | "owner-away" | "not-locked" | "too-soon";
+export type KnockOutcome = "accepted" | "declined" | "timeout" | "owner-away" | "not-locked" | "too-soon" | "dnd";
 
 /** Servidor → quien tocó: resultado. */
 export interface KnockResult {
@@ -188,6 +199,8 @@ export const MSG = {
   chatEvent: "chat:event",
   chatHistory: "chat:history",
   status: "status",
+  /** Inactividad del navegador (`IdleMessage`): el servidor pone o quita el "Ausente" automático. */
+  idle: "presence:idle",
   /** La web guardó el perfil (nombre o personaje): el servidor lo vuelve a leer de la base. */
   profileChanged: "profile:changed",
   officeLock: "office:lock",

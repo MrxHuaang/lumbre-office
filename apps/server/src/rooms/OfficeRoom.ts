@@ -49,6 +49,7 @@ import {
   JoinOptions,
   KNOCK_COOLDOWN_MS,
   KNOCK_TIMEOUT_MS,
+  IdleMessage,
   KnockMessage,
   KnockRespondMessage,
   MoveMessage,
@@ -162,7 +163,7 @@ import {
   type CongratsResult,
   type FocusEvent,
   type FocusPresetId,
-  type PresenceStatus,
+  type ManualStatus,
   PHONE,
   PhoneAnswerMessage,
   PhoneCallMessage,
@@ -216,6 +217,7 @@ import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento
 import { Cocina, type CocinaResult } from "./cocina";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
+import { PresenceTracker } from "./presence";
 
 interface UserData {
   lastMoveAt: number;
@@ -243,7 +245,7 @@ interface UserData {
 /** Lo que el modo foco cambió al empezar un bloque, para devolverlo al terminar (si nadie lo tocó). */
 interface FocusClaim {
   /** Estado de antes (no se toca si ya estaba en "No molestar"). */
-  status?: PresenceStatus;
+  status?: ManualStatus;
   /** Oficina que el foco cerró (estaba abierta). */
   lockedZone?: string;
   /** Nota que tenía la placa de su oficina. */
@@ -606,6 +608,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private events!: CabinEvents;
   /** Modo foco: el reloj de cada pomodoro y lo que cambió al empezar (ver focus.ts). */
   private focusClaims = new Map<string, FocusClaim>();
+  /** Estados automáticos: "Ausente" por inactividad y "En reunión" (ver presence.ts). */
+  private autoStatus = new PresenceTracker(
+    { get: (id) => this.state.players.get(id), entries: () => this.state.players.entries() },
+    (zoneId) => this.zonesById.get(zoneId)?.type === "meeting",
+  );
   private focus = new FocusTimers({
     later: (ms, fn) => this.clock.setTimeout(fn, ms),
     now: () => Date.now(),
@@ -737,6 +744,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
+    this.onMessage(MSG.idle, (client, raw) => {
+      const parsed = IdleMessage.safeParse(raw);
+      if (parsed.success) this.autoStatus.setIdle(client.sessionId, parsed.data.idle);
+    });
     this.onMessage(MSG.profileChanged, (client) => void this.handleProfileChanged(client));
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.officeNote, (client, raw) => this.handleOfficeNote(client, raw));
@@ -860,6 +871,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       // El foco se cancela si salió de su oficina por cualquier camino (desmayo, editor que lo corrió…).
       for (const p of this.state.players.values()) if (p.focus === "work") this.focus.moved(p.userId, p.zoneId);
       this.cinema.tick(Date.now());
+      // "En reunión" también para quien entró o salió sin caminar (portal, desmayo, se desconectó).
+      this.autoStatus.refreshMeetings();
     }, 500);
     // Cumpleaños del día y el karaoke de los viernes: se revisa seguido (cambian con la hora de Bogotá).
     this.clock.setInterval(() => void this.events.refresh(), OfficeRoom.eventsRefreshMs);
@@ -945,6 +958,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.trip = trip?.kind ?? "";
     player.tripUntil = trip?.until ?? 0;
     this.state.players.set(client.sessionId, player);
+    this.autoStatus.join(client.sessionId, player.status as ManualStatus);
     this.focus.joined(auth.sub);
     // Si recargó la página en medio de una llamada, la sesión nueva la retoma.
     this.phones.restore(auth.sub);
@@ -1431,6 +1445,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
     const owner = this.clientOfUser(office.ownerId);
     if (!owner) return reply("owner-away");
+    // En "No molestar" no le llegan toques (el que toca se entera y no queda esperando).
+    if (this.state.players.get(owner.sessionId)?.status === "dnd") return reply("dnd");
 
     const requestId = randomUUID();
     const timer = this.clock.setTimeout(() => {
@@ -1582,6 +1598,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(map, x, y)?.id ?? "";
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
+    if (previousZoneId !== player.zoneId) this.autoStatus.refreshMeetings();
     this.whiteboards.moved(client.sessionId, player.zoneId);
     this.focus.moved(player.userId, player.zoneId);
     this.fishery.moved(player.userId, x, y, seated);
@@ -1763,7 +1780,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const parsed = StatusMessage.safeParse(raw);
     const player = this.state.players.get(client.sessionId);
     if (!parsed.success || !player) return;
-    player.status = parsed.data.status;
+    this.autoStatus.setManual(client.sessionId, parsed.data.status, true);
     this.repo.setUserStatus(player.userId, parsed.data.status).catch((err) => console.error("setUserStatus", err));
   }
 
@@ -2747,12 +2764,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Empieza un bloque: no molestar y, si está en su oficina, la puerta cerrada y la placa. */
   private claimFocus(userId: string): string {
-    const mine = [...this.state.players.values()].filter((p) => p.userId === userId);
+    const sessions = [...this.state.players.entries()].filter(([, p]) => p.userId === userId);
     const claim: FocusClaim = {};
-    const first = mine[0];
-    if (first && first.status !== "dnd") {
-      claim.status = first.status as PresenceStatus;
-      for (const p of mine) p.status = "dnd";
+    const first = sessions[0]?.[1];
+    const manual = sessions[0] && this.autoStatus.manualOf(sessions[0][0]);
+    if (manual && manual !== "dnd") {
+      claim.status = manual;
+      for (const [sessionId] of sessions) this.autoStatus.setManual(sessionId, "dnd");
     }
     let zoneId = "";
     const office = first ? this.state.offices.get(first.zoneId) : undefined;
@@ -2774,7 +2792,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const claim = this.focusClaims.get(userId);
     if (!claim) return;
     this.focusClaims.delete(userId);
-    if (claim.status) for (const p of this.state.players.values()) if (p.userId === userId && p.status === "dnd") p.status = claim.status;
+    if (claim.status)
+      for (const [sessionId, p] of this.state.players.entries())
+        if (p.userId === userId && this.autoStatus.manualOf(sessionId) === "dnd") this.autoStatus.setManual(sessionId, claim.status);
     const locked = claim.lockedZone ? this.state.offices.get(claim.lockedZone) : undefined;
     if (locked?.locked && locked.ownerId === userId) this.setOfficeLocked(locked, false);
     const noted = claim.note ? this.state.offices.get(claim.note.zoneId) : undefined;

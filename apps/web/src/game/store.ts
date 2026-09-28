@@ -308,6 +308,7 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
   "owner-away": (o) => ({ text: `${o} no está conectado ahora.`, tone: "info" }),
   "not-locked": () => ({ text: "La puerta está abierta, puedes entrar.", tone: "info" }),
   "too-soon": () => ({ text: "Espera un momento antes de volver a tocar.", tone: "info" }),
+  dnd: (o) => ({ text: `${o} está en "No molestar". Prueba más tarde.`, tone: "warning" }),
 };
 
 // Clave nueva: al pasar las paredes altas a predeterminadas, todos arrancan con ellas una vez (lo que se

@@ -1,7 +1,7 @@
 "use client";
 
 import { placeLabel } from "@hyvento/map";
-import { PRESENCE_STATUSES, SEASON_TEXT, WEATHER_TEXT, recipeById, seasonOf, type PresenceStatus, type Season, type Weather } from "@hyvento/shared";
+import { MANUAL_STATUSES, SEASON_TEXT, WEATHER_TEXT, recipeById, seasonOf, type PresenceStatus, type Season, type Weather } from "@hyvento/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCocinaStore } from "@/game/cocina";
 import { useShallow } from "zustand/react/shallow";
@@ -24,6 +24,7 @@ const STATUS_LABEL: Record<PresenceStatus, string> = {
   busy: "Ocupado",
   dnd: "No molestar",
   away: "Ausente",
+  meeting: "En reunión",
 };
 
 interface HudProps {
@@ -163,7 +164,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
               <p className="truncate text-[15px] font-semibold">{me.name}</p>
               <p className="mt-1.5 mb-1 text-[12px] text-cozy-ink-soft">Tu estado</p>
               <div role="radiogroup" aria-label="Tu estado" className="grid grid-cols-2 gap-1">
-                {PRESENCE_STATUSES.map((s) => (
+                {MANUAL_STATUSES.map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -178,6 +179,12 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
                   </button>
                 ))}
               </div>
+              {me.status === "meeting" && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-cozy-ink-soft">
+                  <StatusDot status="meeting" size="sm" />
+                  En reunión (automático). Elige otro para quitarlo.
+                </p>
+              )}
             </div>
           )}
 

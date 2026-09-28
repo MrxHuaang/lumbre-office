@@ -110,7 +110,7 @@ import { playAnticSound } from "./antics-sound";
 import { ToastController } from "./toasts";
 
 /** Cómo se lee el estado del dueño en la placa de su puerta. */
-const DOOR_STATUS: Record<PresenceStatus, string> = { available: "Disponible", busy: "Ocupado", dnd: "No molestar", away: "Ausente" };
+const DOOR_STATUS: Record<PresenceStatus, string> = { available: "Disponible", busy: "Ocupado", dnd: "No molestar", away: "Ausente", meeting: "En reunión" };
 
 /** Avisos de dar muchas vueltas en la silla (van rotando) y de cuando se pasa el mareo. */
 const SWIVEL_DIZZY_NOTICE = [
@@ -2287,14 +2287,15 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /**
-   * La línea de estado de la placa: si el dueño está en su oficina con alguien, "En reunión"; si no, su
-   * estado (el Pomodoro lo pone en "Ocupado"). Con la nota que dejó al lado. Sin dueño, nada.
+   * La línea de estado de la placa: "No molestar" manda (no le llegan toques); si el dueño está en su
+   * oficina con alguien, "En reunión"; si no, su estado (el modo foco lo pone en "No molestar", la sala de
+   * reuniones en "En reunión"). Con la nota que dejó al lado. Sin dueño, nada.
    */
   private doorStatus(office: OfficeView): { text: string; color: string } | null {
     if (!office.ownerId) return null;
     const players = Object.values(useOfficeStore.getState().players);
     const owner = players.find((p) => p.userId === office.ownerId);
-    const meeting = owner && owner.zoneId === office.zoneId && players.some((p) => p.userId !== office.ownerId && p.zoneId === office.zoneId);
+    const meeting = owner && owner.status !== "dnd" && owner.zoneId === office.zoneId && players.some((p) => p.userId !== office.ownerId && p.zoneId === office.zoneId);
     const state = !owner ? { text: "Fuera de la cabaña", color: STATUS_HEX.away } : meeting ? { text: "En reunión", color: COZY.sky } : { text: DOOR_STATUS[owner.status], color: STATUS_HEX[owner.status] };
     return { text: office.note ? `${state.text} · ${office.note}` : state.text, color: state.color };
   }
