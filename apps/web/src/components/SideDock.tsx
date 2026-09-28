@@ -51,8 +51,8 @@ export function SideDock() {
   // En el celular no caben el chat y este panel abierto a la vez: el chat tiene prioridad.
   const chatOpen = useOfficeStore((s) => s.chatOpen);
 
-  const indoors = useOfficeStore((s) => s.indoors);
-  const room = inRoom(zoneType) || indoors;
+  // Solo en una oficina o la sala de reuniones (las paredes altas se cambian en el menú principal).
+  const room = inRoom(zoneType);
   if ((!inClub && !inCinema && !room) || decorating || worldEditing || pcOn || panel) return null;
   const title = inClub ? "Club" : inCinema ? "Cine" : roomTitle;
   const sounding = inClub ? clubPlaying : inCinema ? showing : radioOn;

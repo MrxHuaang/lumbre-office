@@ -60,3 +60,4 @@ export * from "./podcast";
 export * from "./observatorio";
 export * from "./sombrero";
 export * from "./npcs";
+export * from "./libros";
