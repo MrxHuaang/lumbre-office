@@ -325,6 +325,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Cuenta regresiva y pausa entre fotos (los tests las acortan). */
   static photoTimings: { countdownMs: number; cooldownMs: number } = { ...PHOTO_TIMINGS };
+  /** Reloj de la pausa entre fotos (los tests lo fijan: con la máquina cargada los mensajes llegan tarde). */
+  static photoNow: () => number = () => Date.now();
 
   /** Reloj de los eventos del calendario (los tests lo fijan en un cumpleaños o un viernes de noche). */
   static eventsNow: () => number = () => Date.now();
@@ -478,7 +480,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Fotos: la cuenta 3-2-1, quiénes salen y el ticket para subirla (ver photos.ts). */
   private photos = new PhotoBooth({
     later: (ms, fn) => this.clock.setTimeout(fn, ms),
-    now: () => Date.now(),
+    now: () => OfficeRoom.photoNow(),
     newId: () => randomUUID(),
     secret: gameTokenSecret,
     timings: () => OfficeRoom.photoTimings,
