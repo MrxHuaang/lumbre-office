@@ -194,6 +194,22 @@ import { HockeyTable } from "./hockey";
 import { Club, musicOf, type ClubWho } from "./club";
 import { ClubTips } from "./clubTips";
 import { Cinema } from "./cinema";
+import { Escenario } from "./escenario";
+import { Podcast, type Inside, type PodcastNotices } from "./podcast";
+import {
+  ESCENARIO,
+  ESCENARIO_MSG,
+  FloorMessage,
+  HandMessage,
+  PODCAST,
+  PODCAST_MSG,
+  PodcastConsentMessage,
+  StageMessage,
+  stageRole,
+  type ApplauseEvent,
+  type EscenarioNotice,
+  type EscenarioNoticeCode,
+} from "@hyvento/shared";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
 import { ChairRaces, type RaceOutcome } from "./races";
@@ -597,6 +613,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private arcade!: Arcade;
   /** El cine del sótano (la cola de la función). */
   private cinema!: Cinema;
+  /** El escenario del jardín (tarima, fila de turnos, palabra, aplausos) y la cabina de grabación. */
+  private escenario!: Escenario;
+  private podcast!: Podcast;
   /** Jardín vivo: el huerto, el cobertizo y la miel (ver huerto.ts). */
   private huerto!: Huerto<GardenPlotState>;
   /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
@@ -667,6 +686,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
     });
     this.cinema = new Cinema(this.state.cinema);
+    this.escenario = new Escenario(this.state.stage);
+    this.podcast = new Podcast(this.state.podcast);
     this.arcade = new Arcade({
       repo: () => this.repo,
       seed: () => OfficeRoom.arcadeSeed(),
@@ -755,6 +776,16 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       });
     });
     this.onMessage(MSG.emote, (client, raw) => this.handleEmote(client, raw));
+    this.onMessage(ESCENARIO_MSG.stage, (client, raw) => this.handleStage(client, raw));
+    this.onMessage(ESCENARIO_MSG.hand, (client, raw) => this.handleHand(client, raw));
+    this.onMessage(ESCENARIO_MSG.floor, (client, raw) => this.handleFloor(client, raw));
+    this.onMessage(ESCENARIO_MSG.clap, (client) => this.handleClap(client));
+    this.onMessage(PODCAST_MSG.start, (client) => this.withPodcast(client, (who, inside, now) => this.podcast.start(who, inside, now)));
+    this.onMessage(PODCAST_MSG.consent, (client, raw) => {
+      const parsed = PodcastConsentMessage.safeParse(raw);
+      if (parsed.success) this.withPodcast(client, (who, inside, now) => this.podcast.consent(who, parsed.data.accept, inside, now));
+    });
+    this.onMessage(PODCAST_MSG.stop, (client) => this.withPodcast(client, (who, inside) => this.podcast.stop(who, inside)));
     this.onMessage(MSG.photoTake, (client) => {
       this.markActive(client);
       this.photos.take(client.sessionId);
@@ -823,6 +854,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       // El foco se cancela si salió de su oficina por cualquier camino (desmayo, editor que lo corrió…).
       for (const p of this.state.players.values()) if (p.focus === "work") this.focus.moved(p.userId, p.zoneId);
       this.cinema.tick(Date.now());
+      // Escenario y cabina: la mano o la palabra de quien se fue, y el acuerdo para grabar.
+      this.escenario.sweep(this.state.players);
+      this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
     }, 500);
     // Cumpleaños del día y el karaoke de los viernes: se revisa seguido (cambian con la hora de Bogotá).
     this.clock.setInterval(() => void this.events.refresh(), OfficeRoom.eventsRefreshMs);
@@ -1245,7 +1279,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** ¿Puede este jugador estar en (x, y)? Bloquea oficinas cerradas a quien no es dueño ni invitado. */
   private canAccess(player: Player, x: number, y: number): boolean {
-    const zone = zoneAt(this.mapOf(player.area), x, y);
+    const map = this.mapOf(player.area);
+    // La tarima del escenario (dos como mucho) y la cabina de grabación (llena, o pidiendo permiso o grabando).
+    const sessionId = [...this.state.players.entries()].find(([, p]) => p === player)?.[0] ?? "";
+    if (!this.escenario.canEnter(map, sessionId, player, x, y, this.state.players)) return false;
+    if (!this.podcast.canEnter(map, player.zoneId, x, y, this.podcastInside())) return false;
+    const zone = zoneAt(map, x, y);
     if (zone?.type !== "office") return true;
     const office = this.state.offices.get(zone.id);
     if (!office?.locked || !office.ownerId) return true;
@@ -2697,6 +2736,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.whiteboards.forget(sessionId);
     this.races.forget(sessionId);
     if (this.houseEditLock?.sessionId === sessionId) this.houseEditLock = null;
+    this.escenario?.sweep(this.state.players);
+    if (this.podcast) this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
     if (!player) return;
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
@@ -2738,7 +2779,89 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   private positioned(p: Player): Positioned {
     const zone = p.zoneId ? this.zonesById.get(p.zoneId) : undefined;
-    return { area: p.area, x: p.x, y: p.y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false };
+    const stage = p.area === ESCENARIO.area ? stageRole(p.zoneId, p.userId, this.state.stage.floor) : undefined;
+    return { area: p.area, x: p.x, y: p.y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false, ...(stage ? { stage } : {}) };
+  }
+
+  // ---------- Escenario del jardín ----------
+
+  private stageNotice(client: Client<UserData>, code: EscenarioNoticeCode) {
+    client.send(ESCENARIO_MSG.notice, { code } satisfies EscenarioNotice);
+  }
+
+  /** "E · Subir al escenario" (lo deja en la tarima si hay lugar) o bajar (al pie de la escalerita). */
+  private handleStage(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = StageMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const map = this.mapOf(player.area);
+    const ts = map.tileSize;
+    const taken = (x: number, y: number) =>
+      [...this.state.players.entries()].some(([id, p]) => id !== client.sessionId && p.area === map.id && Math.hypot(p.x - x, p.y - y) < ts * 0.6);
+    const res = this.escenario.move(map, client.sessionId, player, parsed.data.on, this.state.players, taken);
+    if (!res.ok) return this.stageNotice(client, res.code);
+    // Al bajar: al pie de la escalerita o, si hay alguien, al lado (nunca de vuelta en la tarima).
+    const below = [0, 1, -1, 2, -2].flatMap((dy) => [0, 1, 2].map((dx) => ({ x: res.x + dx * ts, y: res.y + dy * ts })));
+    const pos = parsed.data.on ? res : (below.find((q) => canStandAt(map, q.x, q.y) && !taken(q.x, q.y) && zoneAt(map, q.x, q.y)?.id !== ESCENARIO.stageZone) ?? res);
+    player.x = pos.x;
+    player.y = pos.y;
+    if (parsed.data.on) player.dir = "right";
+    player.moving = false;
+    player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
+    player.place = placeAt(map, pos.x, pos.y);
+    client.userData.lastMoveAt = Date.now();
+    client.userData.lastActiveAt = Date.now();
+    client.send(MSG.moveCorrection, { x: pos.x, y: pos.y } satisfies MoveCorrection);
+    this.escenario.sweep(this.state.players);
+  }
+
+  private handleHand(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = HandMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    this.markActive(client);
+    const res = this.escenario.hand(client.sessionId, player, parsed.data.up, Date.now());
+    if (!res.ok) this.stageNotice(client, res.code);
+  }
+
+  private handleFloor(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = FloorMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    this.markActive(client);
+    const res = this.escenario.floor(player, parsed.data.userId, this.state.players);
+    if (!res.ok) this.stageNotice(client, res.code);
+  }
+
+  /** Aplaudir: el emote de aplausos para todo el nivel y cuántos aplauden a la vez (para la ovación). */
+  private handleClap(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const crowd = this.escenario.clap(player, Date.now());
+    if (crowd === null) return;
+    this.markActive(client);
+    this.sendToArea(player.area, MSG.emoteEvent, { sessionId: client.sessionId, emote: "clap" } satisfies EmoteEvent);
+    this.sendToArea(player.area, ESCENARIO_MSG.applause, { sessionId: client.sessionId, crowd } satisfies ApplauseEvent);
+  }
+
+  // ---------- Cabina de grabación ----------
+
+  /** Quiénes están adentro de la cabina ahora. */
+  private podcastInside(): Inside[] {
+    const out: Inside[] = [];
+    for (const [sessionId, p] of this.state.players) if (p.area === PODCAST.area && p.zoneId === PODCAST.zone) out.push({ sessionId, userId: p.userId, name: p.name });
+    return out;
+  }
+
+  private withPodcast(client: Client<UserData>, fn: (who: Inside, inside: Inside[], now: number) => PodcastNotices) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    this.markActive(client);
+    this.sendPodcastNotices(fn({ sessionId: client.sessionId, userId: player.userId, name: player.name }, this.podcastInside(), Date.now()));
+  }
+
+  private sendPodcastNotices(notices: PodcastNotices) {
+    for (const n of notices) for (const id of n.to) this.clients.getById(id)?.send(PODCAST_MSG.notice, n.notice);
   }
 
   private mapOf(area: string): OfficeMap {

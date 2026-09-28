@@ -21,6 +21,9 @@ export { ACUARIO_SWIM, aquariumBubble, miniFish, MINI_FISH_H, MINI_FISH_W } from
 export { doorNotesArt } from "./door-notes";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
+// Escenario y cabina de grabación del jardín: la tela de la pantalla y el cartel "EN EL AIRE".
+export { STAGE_SCREEN } from "./escenario";
+export { podcastSign } from "./podcast";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 // Las estaciones (ver apps/web/src/game/seasons.ts).

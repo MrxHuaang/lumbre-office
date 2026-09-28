@@ -23,6 +23,7 @@ export * from "./casa";
 export * from "./footsteps";
 export * from "./world/build";
 export * from "./world/catalog";
+export { GRADAS, GRADAS_ROWS } from "./world/catalog-escenario";
 export * from "./world/seats";
 export type * from "./world/types";
 export { AREAS, BLACKJACK_SEATS, BOARD_TABLES, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";

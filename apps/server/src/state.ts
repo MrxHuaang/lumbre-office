@@ -319,6 +319,37 @@ export class GardenPlotState extends Schema {
   @type("number") wateredUntil = 0;
 }
 
+/** Escenario del jardín: alguien de las gradas con la mano levantada (la fila de turnos, en orden). */
+export class StageHand extends Schema {
+  @type("string") sessionId = "";
+  @type("string") userId = "";
+  @type("string") name = "";
+  @type("number") at = 0;
+}
+
+/** Escenario del jardín: la fila de turnos y quién tiene la palabra (se oye como si estuviera en la tarima). */
+export class StageState extends Schema {
+  @type([StageHand]) hands = new ArraySchema<StageHand>();
+  /** userId de quien tiene la palabra ("" = nadie) y su nombre. */
+  @type("string") floor = "";
+  @type("string") floorName = "";
+}
+
+/**
+ * La cabina de grabación del jardín: "idle", "asking" (esperando el permiso de todos) o "recording" (EN
+ * EL AIRE). El audio nunca llega al servidor: lo graba el navegador de `host`.
+ */
+export class PodcastState extends Schema {
+  @type("string") phase = "idle";
+  @type("string") host = "";
+  @type("string") hostName = "";
+  /** Cuándo se pidió permiso y cuándo empezó a grabar (hora del servidor). */
+  @type("number") askedAt = 0;
+  @type("number") startedAt = 0;
+  /** Permiso de cada persona de adentro (userId → aceptó); quien pidió grabar ya aceptó. */
+  @type({ map: "boolean" }) consents = new MapSchema<boolean>();
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -339,6 +370,9 @@ export class OfficeState extends Schema {
   @type({ map: Pet }) pets = new MapSchema<Pet>();
   @type(ClubState) club = new ClubState();
   @type(CinemaState) cinema = new CinemaState();
+  /** El escenario y la cabina de grabación del jardín (ver rooms/escenario.ts y rooms/podcast.ts). */
+  @type(StageState) stage = new StageState();
+  @type(PodcastState) podcast = new PodcastState();
   /** Jardín vivo: las parcelas sembradas del huerto, por índice de parcela (las vacías no están). */
   @type({ map: GardenPlotState }) garden = new MapSchema<GardenPlotState>();
   /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
