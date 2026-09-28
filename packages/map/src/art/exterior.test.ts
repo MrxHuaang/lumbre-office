@@ -87,7 +87,8 @@ describe("arte del jardín", () => {
 
   // El margen del nivel termina en la misma copa de bosque que el cliente repite alrededor (desde la
   // esquina del fondo menos SURROUND_PAD, ver iso/view.ts): lo de afuera tiene que calzar píxel a píxel.
-  it("el margen del jardín empalma con el bosque de alrededor", { timeout: 30000 }, () => {
+  // Dibuja el jardín entero (132x122 desde el rediseño): tarda ~30 s en una máquina cargada o en el CI.
+  it("el margen del jardín empalma con el bosque de alrededor", { timeout: 120_000 }, () => {
     const base = drawAreaBase(jardin, true).base;
     const L = 16;
     let total = 0;
