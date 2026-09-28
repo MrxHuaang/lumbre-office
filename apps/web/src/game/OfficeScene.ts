@@ -143,6 +143,7 @@ import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } fro
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
+import { headOf, useMinimapStore, type MinimapPerson } from "./minimap";
 import { BusView } from "./bus";
 import { busDoorsOpenNow } from "./busStore";
 import { Aquariums } from "./aquarium";
@@ -162,7 +163,8 @@ import { NpcCast } from "./npcs/cast";
 import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
 import { isTripKind, SOMBRERO, type TripKind } from "@hyvento/shared";
 
-const MIN_ZOOM = 2;
+// 1 = la vista más abierta: se ve harto más de la cabaña alrededor.
+const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
 /** Distancia (px de mundo) a la puerta de una oficina cerrada para ofrecer "tocar". */
 const DOOR_PROMPT_RADIUS = 44;
@@ -589,6 +591,7 @@ export class OfficeScene extends Phaser.Scene {
         if ((prev.typing || prev.pcOn) && !s.typing && !s.pcOn) this.keysFreeAt = performance.now();
         if (s.walkTarget && s.walkTarget !== prev.walkTarget) {
           if (s.walkTarget.kind === "zone") this.walkToZone(s.walkTarget.zoneId);
+          else if (s.walkTarget.kind === "point") this.walkTo(s.walkTarget.x, s.walkTarget.y);
           else this.walkToPlayer(s.walkTarget.sessionId);
         }
         if (s.weather !== prev.weather) {
@@ -657,6 +660,7 @@ export class OfficeScene extends Phaser.Scene {
     this.shakePhones(time);
     this.drunkVision.update(time, delta, this.tripVision.update(time, delta));
     this.npcs.update(time);
+    this.publishMinimap(time);
     this.updateMunchies(time);
     this.weatherView.update(time, delta);
     this.seasonView.update(time, delta);
@@ -2029,6 +2033,32 @@ export class OfficeScene extends Phaser.Scene {
    * primero hasta el portal que lleva hacia allá y se sigue al llegar. Si está en una oficina cerrada donde
    * no puedo entrar, `walkTo` corta la ruta en la puerta (y ahí aparece "Tocar la puerta").
    */
+  private minimapAt = 0;
+
+  /** El minimapa (React) lee quién está en el nivel unas veces por segundo; no hace falta a cada frame. */
+  private publishMinimap(time: number) {
+    if (time < this.minimapAt || !this.map) return;
+    this.minimapAt = time + 250;
+    const players = useOfficeStore.getState().players;
+    const people: MinimapPerson[] = [];
+    for (const [id, a] of this.avatars) {
+      if (id === this.localId || this.areaOfSession.get(id) !== this.map.id || !a.sprite.visible) continue;
+      people.push({ sessionId: id, name: players[id]?.name ?? "", x: a.x, y: a.y, head: this.headFor(a) });
+    }
+    const me = this.local ? { x: this.local.x, y: this.local.y } : null;
+    const mine = this.local ? this.headFor(this.local) : null;
+    useMinimapStore.getState().publish({ map: this.map, me, people: me ? [{ sessionId: this.localId ?? "", name: "", ...me, head: mine }, ...people] : people });
+  }
+
+  private headFor(a: Avatar) {
+    // La hoja de caminata (sin "-sit"/"-swim"): su frame 0 es quieto mirando al frente.
+    const key = a.sprite.texture.key.replace(/-(sit|swim)$/, "");
+    if (!this.textures.exists(key)) return null;
+    const frame = this.textures.getFrame(key, 0);
+    if (!frame) return null;
+    return headOf(frame.source.image as HTMLCanvasElement, key, frame.cutX, frame.cutY, frame.cutWidth);
+  }
+
   private walkToPlayer(sessionId: string, tries = 0) {
     if (!this.local || this.travelling || this.fainted || sessionId === this.localId) return;
     const store = useOfficeStore.getState();
@@ -2645,6 +2675,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private defaultZoom() {
-    return window.innerHeight >= 860 ? 3 : 2;
+    // Un paso más lejos que antes: se ve más de la sala (la rueda acerca hasta MAX_ZOOM).
+    return window.innerHeight >= 1100 ? 3 : 2;
   }
 }
