@@ -119,7 +119,7 @@ export function ensureAnimations(scene: Phaser.Scene, key: string) {
  * así dos Juanes se distinguen sin ocupar media pantalla.
  */
 export function shortName(name: string): string {
-  const words = name.trim().split(/s+/).filter(Boolean);
+  const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length <= 1) return words[0] ?? name;
   return `${words[0]} ${words[1]![0]!.toUpperCase()}.`;
 }
