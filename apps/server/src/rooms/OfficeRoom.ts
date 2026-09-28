@@ -154,6 +154,7 @@ import { Pets, type PetUser } from "./mascotas";
 import { Arcade } from "./arcade";
 import { HockeyTable } from "./hockey";
 import { Club, musicOf, type ClubWho } from "./club";
+import { ClubTips } from "./clubTips";
 import { Cinema } from "./cinema";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
@@ -454,6 +455,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private pets!: Pets;
   /** El club del sótano (música, pista y tubo) y el arcade. */
   private club!: Club;
+  /** Las propinas a quien baila en el tubo. */
+  private clubTips!: ClubTips;
   private arcade!: Arcade;
   /** El cine del sótano (la cola de la función). */
   private cinema!: Cinema;
@@ -491,6 +494,19 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     this.startPets();
     this.club = new Club(this.state.club);
+    this.clubTips = new ClubTips(this.state.club, {
+      player: (sessionId) => this.state.players.get(sessionId),
+      map: (area) => this.mapOf(area),
+      repo: () => this.repo,
+      setPoints: (userId, balance) => {
+        for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+        this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
+      },
+      toArea: (area, type, message) => this.sendToArea(area, type, message),
+      toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
+      now: () => Date.now(),
+      newId: () => randomUUID(),
+    });
     this.cinema = new Cinema(this.state.cinema);
     this.arcade = new Arcade({
       repo: () => this.repo,
@@ -587,6 +603,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.clubPole, (client, raw) => this.handleClub(client, raw, "pole"));
     this.onMessage(MSG.clubQueue, (client, raw) => void this.handleClubQueue(client, raw));
     this.onMessage(MSG.clubReact, (client, raw) => this.handleClubReact(client, raw));
+    this.onMessage(MSG.clubTip, (client, raw) => {
+      if (client.userData) client.userData.lastActiveAt = Date.now();
+      void this.clubTips.tip(client.sessionId, raw);
+    });
     this.onMessage(MSG.cinemaQueue, (client, raw) => void this.handleCinema(client, raw));
     this.onMessage(MSG.arcadeBoard, (client, raw) => void this.handleArcadeBoard(client, raw));
     this.onMessage(MSG.arcadeStart, (client, raw) => void this.handleArcadeStart(client, raw));

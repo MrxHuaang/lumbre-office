@@ -364,6 +364,8 @@ export class OfficeScene extends Phaser.Scene {
       if (s.pcOn) return; // con el PC prendido no se camina
       if (this.fishing.pointerDown()) return; // pescando, el clic es para la caña
       if (this.table.pointerDown(p.worldX, p.worldY)) return; // en la mesa, el clic pone fichas
+      // Clic sobre quien baila en el tubo (cerca de la tarima): le tira un billete.
+      if (!s.decorating && !s.worldEditing && this.club.pointerDown(p.worldX, p.worldY)) return;
       // Clic sobre otra persona: su menú (regalar, intercambiar) en vez de caminar.
       const person = s.decorating || s.worldEditing ? null : personAt(this.avatars, this.localId, p.worldX, p.worldY);
       if (person) return useSocialStore.getState().openPersonMenu(person, ...clientPoint(this.game.canvas, this.scale.width, p.x, p.y));

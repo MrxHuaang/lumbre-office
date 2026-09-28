@@ -115,8 +115,10 @@ export function InteractPrompt() {
   const openPanel = useOfficeStore((s) => s.openPanel);
   // Bailando en el tubo, el club muestra su propio botón para soltarlo.
   const onPole = useClubStore((s) => s.here.dancing === "pole");
+  // Con alguien en el tubo, junto a la tarima va el botón de tirar billetes (ClubHud).
+  const canTip = useClubStore((s) => s.here.tipTarget !== null);
   if (!near || panel) return null;
-  if (near === "pole" && onPole) return null;
+  if (near === "pole" && (onPole || canTip)) return null;
   return (
     <button
       type="button"

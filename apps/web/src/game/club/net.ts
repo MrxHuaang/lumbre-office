@@ -2,19 +2,24 @@
 // network.ts llama a `bindClub` con cada sala nueva (conexión y reconexiones).
 import {
   CLUB_ERROR_TEXT,
+  CLUB_TIP,
+  CLUB_TIP_ERROR_TEXT,
   MSG,
   type ClubDjMessage,
   type ClubQueueMessage,
   type ClubReaction,
   type ClubReactionEvent,
   type ClubResult,
+  type ClubTipEvent,
+  type ClubTipResult,
   type ClubVideoView,
   type DanceMoveId,
+  type TipAmount,
 } from "@hyvento/shared";
 import { getStateCallbacks, type Room } from "colyseus.js";
 import { useOfficeStore } from "../store";
 import { startClockSync } from "./clock";
-import { useClubStore, type ClubDancerView } from "./store";
+import { useClubStore, type ClubDancerView, type ClubTipStatsView } from "./store";
 
 interface RemoteDancer {
   kind: string;
@@ -43,6 +48,7 @@ interface RemoteClub {
   pausedAt: number;
   dj: string;
   dancers: Map<string, RemoteDancer>;
+  tips?: ClubTipStatsView;
 }
 
 let room: Room | null = null;
@@ -59,6 +65,13 @@ const reactionListeners = new Set<(e: ClubReactionEvent) => void>();
 export function onClubReaction(cb: (e: ClubReactionEvent) => void) {
   reactionListeners.add(cb);
   return () => reactionListeners.delete(cb);
+}
+
+const tipListeners = new Set<(e: ClubTipEvent) => void>();
+/** Propinas en el tubo (la escena hace volar los billetes). */
+export function onClubTip(cb: (e: ClubTipEvent) => void) {
+  tipListeners.add(cb);
+  return () => tipListeners.delete(cb);
 }
 
 export function bindClub(r: Room) {
@@ -85,6 +98,10 @@ export function bindClub(r: Room) {
     });
     useClubStore.getState().setDancers(dancers);
   };
+  const syncTips = () => {
+    const t = state.club?.tips;
+    if (t) useClubStore.getState().setTipStats({ best: t.best, bestFrom: t.bestFrom, bestTo: t.bestTo, topName: t.topName, topTotal: t.topTotal });
+  };
   // El club llega con el primer estado: los callbacks se enganchan cuando aparece.
   $(r.state as { club: RemoteClub }).listen("club", (club) => {
     if (!club) return;
@@ -96,6 +113,10 @@ export function bindClub(r: Room) {
     });
     c$.dancers.onRemove(syncDancers);
     c$.listen("video", (v) => v && $(v).onChange(syncVideos));
+    c$.listen("tips", (t) => {
+      if (t) $(t).onChange(syncTips);
+      syncTips();
+    });
     // La cola y lo que sonó: el tipo de los callbacks de listas no se deduce de estas interfaces sueltas.
     type ListCallbacks = { onAdd(cb: (v: RemoteVideo) => void): void; onRemove(cb: () => void): void };
     for (const l of [c$.queue, c$.history] as unknown as ListCallbacks[]) {
@@ -110,6 +131,13 @@ export function bindClub(r: Room) {
     syncDancers();
   });
   r.onMessage(MSG.clubReaction, (e: ClubReactionEvent) => reactionListeners.forEach((cb) => cb(e)));
+  r.onMessage(MSG.clubTipped, (e: ClubTipEvent) => {
+    const me = useOfficeStore.getState().sessionId;
+    // A quien baila le avisa quién le tiró; los demás solo ven los billetes (y el "+5" sobre quien tira).
+    if (e.toSessionId === me) useOfficeStore.getState().notify(`+${e.amount} de ${e.fromName}`, "success");
+    tipListeners.forEach((cb) => cb(e));
+  });
+  r.onMessage(MSG.clubTipResult, (res: ClubTipResult) => useOfficeStore.getState().notify(CLUB_TIP_ERROR_TEXT[res.error], res.error === "busy" ? "info" : "warning"));
   r.onMessage(MSG.clubResult, (res: ClubResult) => useOfficeStore.getState().notify(CLUB_ERROR_TEXT[res.error], res.error === "busy" ? "info" : "warning"));
 }
 
@@ -141,4 +169,16 @@ export function togglePole() {
   const id = useOfficeStore.getState().sessionId;
   const mine = id ? useClubStore.getState().dancers[id] : undefined;
   sendClubPole(mine?.kind !== "pole");
+}
+
+/** Cuándo tiré la última propina (el clic repetido no manda más rápido de lo que el servidor acepta). */
+let lastTipAt = 0;
+
+/** Tirarle billetes a quien baila en el tubo. Devuelve si se mandó (false si fue demasiado seguido). */
+export function sendClubTip(to: string, amount: TipAmount): boolean {
+  const now = Date.now();
+  if (!room || now - lastTipAt < CLUB_TIP.cooldownMs) return false;
+  lastTipAt = now;
+  room.send(MSG.clubTip, { to, amount });
+  return true;
 }

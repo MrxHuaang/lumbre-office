@@ -186,6 +186,15 @@ export class ClubVideo extends Schema {
 }
 
 /** El club del sótano: lo que suena en la cabina (con la hora del servidor) y quién baila. */
+/** Propinas del tubo de hoy (día de Bogotá, en memoria de la sala): la mayor y quién recibió más. */
+export class ClubTipStats extends Schema {
+  @type("number") best = 0;
+  @type("string") bestFrom = "";
+  @type("string") bestTo = "";
+  @type("string") topName = "";
+  @type("number") topTotal = 0;
+}
+
 export class ClubState extends Schema {
   /** Pista que suena (CLUB_TRACKS; "" = nada). */
   @type("string") track = "";
@@ -204,6 +213,8 @@ export class ClubState extends Schema {
   @type("string") dj = "";
   /** Quién baila, por sessionId. */
   @type({ map: ClubDancer }) dancers = new MapSchema<ClubDancer>();
+  /** Las marcas de las propinas del tubo de hoy. */
+  @type(ClubTipStats) tips = new ClubTipStats();
 }
 
 /** El cine del sótano: la película que se proyecta (con la hora del servidor), la cola y lo que ya se vio. */

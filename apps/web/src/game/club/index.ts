@@ -23,11 +23,14 @@ import {
   FRAME,
   VIDEO_WALL_SCREEN,
   drawReaction,
+  billsFor,
+  BILL_FRAMES,
+  drawBill,
   type ArcadeScreenKind,
   type PixelCanvas,
   type Sprite,
 } from "@hyvento/map/art";
-import { ARCADE_MACHINES, CLUB, DANCE_MOVE_IDS, isPlaying, poleKey, type ClubReactionEvent, type DanceMoveId } from "@hyvento/shared";
+import { ARCADE_MACHINES, CLUB, CLUB_TIP, DANCE_MOVE_IDS, isPlaying, poleKey, type ClubReactionEvent, type ClubTipEvent, type DanceMoveId } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, depthOf, ensureTexture, toHtmlCanvas, worldToScreen } from "../iso/view";
@@ -37,7 +40,9 @@ import { useOfficeStore } from "../store";
 import { clubMusic, disposeClubMusic } from "./music";
 import { wallQuad, type Point } from "../wallMount";
 import { YoutubeScreen } from "../youtube";
-import { onClubReaction, sendClubDance, sendClubPole, sendClubQueue } from "./net";
+import { COZY, cozyFontFamily } from "@/lib/cozy";
+import { sfx, volAt } from "../sfx";
+import { onClubReaction, onClubTip, sendClubDance, sendClubPole, sendClubQueue, sendClubTip } from "./net";
 import { clubBeat, serverNow, useClubStore, type ClubDancerView } from "./store";
 
 /** El reproductor del club (uno solo, mientras estoy en el sótano). */
@@ -84,6 +89,26 @@ interface Layer {
 interface DanceImage {
   img: Phaser.GameObjects.Image;
   texture: string;
+}
+
+/** Cuánto quedan los billetes en la tarima antes de irse, y cuántos caben a la vez. */
+const BILL_PILE_MS = 90_000;
+const BILL_PILE_MAX = 48;
+/** Montoncitos alrededor del tubo (en tiles desde su centro): ahí caen los billetes y se apilan. */
+const PILE_SPOTS: readonly [number, number][] = [
+  [-0.9, -0.5],
+  [0.8, -0.8],
+  [1.0, 0.4],
+  [-0.4, 1.0],
+  [0.4, 1.1],
+  [-1.1, 0.5],
+];
+
+/** Un billete en el piso de la tarima. */
+interface LandedBill {
+  img: Phaser.GameObjects.Image;
+  at: number;
+  spot: number;
 }
 
 /** ¿Está el mueble dentro del club? (una pista o un parlante que un admin puso en otro lado no se encienden). */
@@ -138,6 +163,10 @@ export class ClubMode {
   private screenFrame = 0;
   private screenTimer?: Phaser.Time.TimerEvent;
   private offReaction: () => void;
+  private offTip: () => void;
+  /** Los billetes que quedaron en la tarima, y cuántos hay en cada montoncito. */
+  private pile: LandedBill[] = [];
+  private pileHeights = new Map<number, number>();
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -146,6 +175,7 @@ export class ClubMode {
     private readonly localId: () => string | null,
   ) {
     this.offReaction = onClubReaction((e) => this.floatReaction(e));
+    this.offTip = onClubTip((e) => this.throwBills(e));
   }
 
   /** Se dibujó un nivel: capas nuevas para sus muebles del club y del arcade. */
@@ -189,6 +219,7 @@ export class ClubMode {
   destroy() {
     this.clear();
     this.offReaction();
+    this.offTip();
     video?.destroy();
     video = null;
     disposeClubMusic();
@@ -219,8 +250,10 @@ export class ClubMode {
       inClub,
       onFloor: Boolean(me && map && !me.isSeated && onFloor(map, me.x, me.y)),
       dancing: mine ? mine.kind : null,
+      tipTarget: inClub && mine?.kind !== "pole" ? this.tipTargetFor(club.dancers, myId) : null,
     });
     if (!map) return;
+    this.agePile();
 
     this.updateLights(beat);
     this.updateDancers(club.dancers, beat);
@@ -427,6 +460,118 @@ export class ClubMode {
     return { key: characterKey(p.avatar, look), style: styleFor(p.avatar, look) };
   }
 
+  // ---------- Propinas ----------
+
+  /** El tubo con esa llave en este nivel. */
+  private poleOf(key: string) {
+    return this.map?.furniture.find((f) => f.type === "dance-pole" && poleKey(f.x, f.y) === key);
+  }
+
+  /** Quien baila en un tubo a mi alcance (la misma cuenta que el servidor), o null. */
+  private tipTargetFor(dancers: Record<string, ClubDancerView>, myId: string | null): string | null {
+    const me = this.local();
+    const map = this.map;
+    if (!me || !map) return null;
+    const ts = map.tileSize;
+    for (const [id, d] of Object.entries(dancers)) {
+      if (id === myId || d.kind !== "pole") continue;
+      const pole = this.poleOf(d.move);
+      if (pole && Math.hypot((pole.x + pole.w / 2) * ts - me.x, (pole.y + pole.d / 2) * ts - me.y) <= CLUB_TIP.reachPx) return id;
+    }
+    return null;
+  }
+
+  /**
+   * Alguien tiró billetes: vuelan en arco desde su mano hasta la tarima, dando vueltas, y quedan en uno de
+   * los montoncitos alrededor del tubo. Suena la caja al caer el primero; sobre quien baila sube el monto.
+   */
+  private throwBills(e: ClubTipEvent) {
+    const map = this.map;
+    if (!map || map.id !== CLUB.area) return;
+    const pole = this.poleOf(e.pole);
+    if (!pole) return;
+    const ts = map.tileSize;
+    const cx = (pole.x + pole.w / 2) * ts;
+    const cy = (pole.y + pole.d / 2) * ts;
+    const from = this.avatarOf(e.fromSessionId);
+    // Si no veo a quien tira, los billetes entran desde el borde de la tarima.
+    const start = from && !from.isHidden ? worldToScreen(from.x, from.y, 20) : worldToScreen(cx + ts * 2, cy + ts * 2, 40);
+    const n = billsFor(e.amount);
+    const frames = Array.from({ length: BILL_FRAMES }, (_, f) => ensureTexture(this.scene, `billete-${e.amount}-${f}`, () => drawBill(e.amount, f)));
+    for (let i = 0; i < n; i++) {
+      const spot = Math.floor(Math.random() * PILE_SPOTS.length);
+      const [dx, dy] = PILE_SPOTS[spot]!;
+      const end = worldToScreen(cx + (dx + (Math.random() - 0.5) * 0.3) * ts, cy + (dy + (Math.random() - 0.5) * 0.3) * ts);
+      const img = this.scene.add.image(Math.round(start.x), Math.round(start.y), frames[0]!).setDepth(DEPTH_OVERLAY + 5);
+      const lift = 26 + Math.random() * 14;
+      const spin = 6 + Math.floor(Math.random() * 4);
+      this.scene.tweens.addCounter({
+        from: 0,
+        to: 1,
+        delay: i * 90,
+        duration: 620 + Math.random() * 120,
+        onUpdate: (tw) => {
+          const t = tw.getValue() ?? 0;
+          img.setPosition(Math.round(start.x + (end.x - start.x) * t), Math.round(start.y + (end.y - start.y) * t - lift * 4 * t * (1 - t)));
+          img.setTexture(frames[Math.floor(t * spin) % BILL_FRAMES]!);
+        },
+        onComplete: () => this.land(img, frames[0]!, spot, end, i === 0 ? { x: cx, y: cy } : null),
+      });
+    }
+    // El aviso: a quien baila, de quién; a los demás, solo el monto (sobre quien baila).
+    const mine = e.toSessionId === this.localId();
+    const dancer = this.dances.get(e.toSessionId)?.img;
+    const top = dancer ? { x: dancer.x, y: dancer.getBounds().top } : worldToScreen(cx, cy, 56);
+    this.floatText(top.x, top.y - 2, mine ? `+${e.amount} de ${e.fromName}` : `+${e.amount}`, mine ? "10px" : "8px");
+  }
+
+  /** Un billete llega al piso: queda plano, un poco más arriba cuanto más alto es su montoncito. */
+  private land(img: Phaser.GameObjects.Image, flat: string, spot: number, end: Point, ring: Point | null) {
+    if (!this.map) return void img.destroy();
+    const height = this.pileHeights.get(spot) ?? 0;
+    this.pileHeights.set(spot, height + 1);
+    img
+      .setTexture(flat)
+      .setPosition(Math.round(end.x), Math.round(end.y) - Math.min(height, 8))
+      .setDepth(DEPTH_FLAT + 3 + this.pile.length * 1e-4);
+    this.pile.push({ img, at: this.scene.time.now, spot });
+    // La caja suena como cualquier otro ruido del nivel: más bajo cuanto más lejos del tubo.
+    if (ring) sfx.chaChing(volAt(ring.x, ring.y));
+    while (this.pile.length > BILL_PILE_MAX) this.dropBill(this.pile[0]!);
+  }
+
+  /** Los billetes viejos se desvanecen (y su montoncito baja). */
+  private agePile() {
+    const now = this.scene.time.now;
+    for (const b of [...this.pile]) if (now - b.at > BILL_PILE_MS) this.dropBill(b);
+  }
+
+  private dropBill(b: LandedBill) {
+    this.pile = this.pile.filter((x) => x !== b);
+    this.pileHeights.set(b.spot, Math.max(0, (this.pileHeights.get(b.spot) ?? 1) - 1));
+    this.scene.tweens.add({ targets: b.img, alpha: 0, duration: 600, onComplete: () => b.img.destroy() });
+  }
+
+  private floatText(x: number, y: number, text: string, size: string) {
+    const label = this.scene.add
+      .text(Math.round(x), Math.round(y), text, { fontFamily: cozyFontFamily(), fontSize: size, color: "#f3d672", stroke: COZY.frame, strokeThickness: 2, resolution: 6 })
+      .setOrigin(0.5, 1)
+      .setDepth(DEPTH_OVERLAY + 12);
+    this.scene.tweens.add({ targets: label, y: label.y - 18, alpha: 0, duration: 1800, ease: "Sine.out", onComplete: () => label.destroy() });
+  }
+
+  /**
+   * Clic sobre quien baila en el tubo (estando a su alcance): le tira un billete de 1. Devuelve si usó el
+   * clic (así no se abre el menú de la persona ni se camina).
+   */
+  pointerDown(worldX: number, worldY: number): boolean {
+    const target = useClubStore.getState().here.tipTarget;
+    const img = target ? this.dances.get(target)?.img : undefined;
+    if (!target || !img || !img.getBounds().contains(worldX, worldY)) return false;
+    sendClubTip(target, 1);
+    return true;
+  }
+
   // ---------- Teclas ----------
 
   /**
@@ -434,7 +579,12 @@ export class ClubMode {
    * objetos interactivos (la tarima), como antes.
    */
   tapE(near: string | null): boolean {
-    const { here, dancers, move } = useClubStore.getState();
+    const { here, dancers, move, tipOpen, setTipOpen } = useClubStore.getState();
+    // Junto a la tarima con alguien en el tubo, E abre (o cierra) los billetes.
+    if (here.tipTarget && (!near || near === "pole")) {
+      setTipOpen(!tipOpen);
+      return true;
+    }
     const id = this.localId();
     const mine = id ? dancers[id] : undefined;
     if (mine?.kind === "floor") {
@@ -453,6 +603,10 @@ export class ClubMode {
     // Primero se achica el video si está en grande.
     if (club.videoBig) {
       club.setVideoBig(false);
+      return true;
+    }
+    if (club.tipOpen) {
+      club.setTipOpen(false);
       return true;
     }
     const id = this.localId();
@@ -520,6 +674,9 @@ export class ClubMode {
     }
     this.dances.clear();
     this.lastPos.clear();
+    for (const b of this.pile) b.img.destroy();
+    this.pile = [];
+    this.pileHeights.clear();
     this.floorLayers = [];
     this.stageLayers = [];
     this.eqLayers = [];
