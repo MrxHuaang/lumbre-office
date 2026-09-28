@@ -287,11 +287,6 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return wornPlanksFloor(X, Y);
     case "gravel":
       return gravelFloor(X, Y);
-    // El relieve se dibuja con la altura del nivel (ver `outdoorColor`); sin ella, pasto oscuro y piedra.
-    case "slope":
-      return at(C.grass, 1);
-    case "steps":
-      return stonePath(X, Y);
   }
 }
 
@@ -398,8 +393,6 @@ const KIND_SET: Record<FloorKind, true> = {
   rubber: true,
   "planks-worn": true,
   gravel: true,
-  slope: true,
-  steps: true,
 };
 const KINDS = Object.keys(KIND_SET) as FloorKind[];
 
@@ -509,9 +502,7 @@ function outdoorColor(map: OfficeMap, X: number, Y: number): RGBA {
   const k = art.kindAt(X, Y);
   // Tile parejo (sin bordes cerca): el piso tal cual, sin buscar vecinos.
   const flatTile = art.uniform(Math.floor(X / L), Math.floor(Y / L));
-  const height = map.def.heightFine;
-  if (height && (k === "slope" || k === "steps")) return reliefColor(height, k, X, Y);
-  if (flatTile && k !== "forest" && k !== "water") return highGround(map, k, X, Y, outdoorFloor(k, X, Y));
+  if (flatTile && k !== "forest" && k !== "water") return outdoorFloor(k, X, Y);
   if (k === "forest") {
     const p = map.def.playable;
     const d = p ? Math.max(p.x * L - X, X - (p.x + p.w) * L, p.y * L - Y, Y - (p.y + p.h) * L) / L : 9;
@@ -542,73 +533,7 @@ function outdoorColor(map: OfficeMap, X: number, Y: number): RGBA {
   if (k === "path" && near(2.4, (n) => n === "grass")) c = mix(c, at(C.dirt, 3), 0.25);
   // La tierra del huerto lleva un marco de tablones contra el pasto.
   if (k === "soil" && near(2.6, (n) => n === "grass" || n === "path")) return at(C.wood, near(1.9, (n) => n === "grass" || n === "path") ? 3 : 4);
-  return highGround(map, k, X, Y, c);
-}
-
-/**
- * El relieve sobre el pasto: lo alto de una loma un poco más claro (con un filo de luz junto al talud) y,
- * al pie de un talud que da a la cámara, la sombra que echa sobre lo de abajo.
- */
-function highGround(map: OfficeMap, k: FloorKind, X: number, Y: number, c: RGBA): RGBA {
-  const height = map.def.heightFine;
-  if (!height || (k !== "grass" && k !== "path")) return c;
-  const x = X / L;
-  const y = Y / L;
-  const h = height(x, y);
-  // Sombra al pie: lo que queda atrás (arriba a la izquierda en pantalla) es más alto.
-  const back = height(x - 0.45, y - 0.45);
-  if (back > h + 0.25 && bayer(Math.floor(X), Math.floor(Y)) < Math.min(0.85, (back - h) * 1.4)) return mix(c, at(C.grass, 0), 0.55);
-  if (h < 0.99) return c;
-  const lift = Math.min(2, Math.floor(h + 0.01));
-  // Filo de luz en el borde de la meseta (antes de que empiece a bajar).
-  const edge = Math.min(height(x + 0.3, y), height(x, y + 0.3), height(x - 0.3, y), height(x, y - 0.3));
-  if (edge < h - 0.05) return mix(c, at(C.grass, 5), 0.4);
-  return mix(c, at(C.grass, 4), 0.1 * lift);
-}
-
-/**
- * El talud de una loma y sus escalones. `t` (0 abajo … 1 arriba) sale de la altura; la pendiente dice
- * hacia dónde mira: la cara que da a la cámara (hacia +x/+y) se ve de frente, como un barranco de tierra
- * con piedras y el filo de pasto arriba; la que mira para atrás se ve de lado, como una ladera de pasto
- * más oscura. Los escalones son lajas de piedra con la huella clara y la contrahuella en sombra.
- */
-function reliefColor(height: (x: number, y: number) => number, k: FloorKind, X: number, Y: number): RGBA {
-  const x = X / L;
-  const y = Y / L;
-  const e = 0.12;
-  const h = height(x, y);
-  const gx = height(x + e, y) - height(x - e, y);
-  const gy = height(x, y + e) - height(x, y - e);
-  const g = Math.hypot(gx, gy) || 1;
-  // 1 = la cara mira de lleno a la cámara (sube hacia -x/-y), 0 o menos = mira para atrás.
-  const facing = Math.max(0, Math.min(1, -(gx + gy) / (g * Math.SQRT2)));
-  const t = h - Math.floor(h + 1e-6);
-  const px = Math.floor(X);
-  const py = Math.floor(Y);
-  if (k === "steps") {
-    // Cuatro escalones por talud, con la huella a lo largo de la curva de nivel.
-    const s = t * 4;
-    const f = s - Math.floor(s);
-    const n = noise(Math.floor(X / 5), Math.floor(Y / 5), 83 + Math.floor(s));
-    if (f < 0.22) return at(C.stone, 1);
-    if (f < 0.36) return at(C.stone, facing > 0.3 ? 2 : 3);
-    return at(C.stone, n < 0.3 ? 3 : n < 0.9 ? 4 : 5);
-  }
-  if (t > 0.9) return at(C.grass, 4);
-  if (t > 0.82) return at(C.grass, 2);
-  const rock = noise(Math.floor(X / 3), Math.floor(Y / 3), 87);
-  // Cara de frente: tierra en vetas (más oscura abajo), piedritas y matitas que cuelgan del filo.
-  const earth = (() => {
-    const band = Math.floor(t * 7 + smoothNoise(X, Y, 9, 88) * 1.5);
-    let c = at(C.dirt, band % 3 === 0 ? 1 : 2);
-    if (rock > 0.93) c = at(C.stone, rock > 0.97 ? 4 : 3);
-    else if (t > 0.66 && bayer(px, py) < (t - 0.66) * 3) c = at(C.grass, 2);
-    if (t < 0.18) c = mix(c, at(C.dirt, 0), 0.4);
-    return c;
-  })();
-  // Cara de atrás: ladera de pasto en sombra, más oscura al pie.
-  const hill = mix(at(C.grass, t > 0.45 ? 2 : 1), at(C.grass, 0), (1 - t) * 0.35);
-  return facing >= 0.55 ? earth : facing <= 0.2 ? hill : bayer(px, py) < (facing - 0.2) / 0.35 ? earth : hill;
+  return c;
 }
 
 /**

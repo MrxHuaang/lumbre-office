@@ -6,8 +6,9 @@
 import { Escena, type Tinte } from "./exterior-escena";
 import type { Variant } from "./kit";
 import { C } from "./palette";
-import { alpha, at, bayer, noise, type Ramp, type RGBA, type Sprite } from "./pixel";
+import { alpha, at, bayer, noise, PixelCanvas, type Ramp, type RGBA, type Sprite } from "./pixel";
 import { WARM_STONE } from "./observatorio-exterior";
+import { glyphOn } from "./room";
 
 const scene = (w: number, d: number, h: number, pad = 6) => new Escena({ x0: -pad, y0: -pad, z0: -2, x1: w * 16 + pad, y1: d * 16 + pad, z1: h }, 2);
 const T = (c: RGBA): Tinte => () => c;
@@ -187,6 +188,95 @@ function observatorySign(): Sprite {
   };
   // La tabla va de canto a lo largo de y: la cara pintada mira a +x (y la de atrás, igual).
   s.box(6, 1, 16, 2, 14, 10, planks(C.wood, 4, 5, 97), T(at(C.wood, 2)), face);
+  return s.sprite();
+}
+
+/** Lo que dice el cartel grande de la entrada. */
+const BOARD_TEXT = "OBSERVATORIO";
+
+/**
+ * El cartel grande de la entrada, de frente a la cámara: dos palos en la diagonal (a la misma altura en
+ * pantalla) y encima la tabla de azul noche con marco de madera, las letras claras ("OBSERVATORIO", de
+ * 3x5) entre dos estrellitas de latón, un techito de tabla y un farolito. La tabla se pinta en 2D (así las
+ * letras no se tuercen con el isométrico).
+ */
+function observatoryBoard(): Sprite {
+  const s = scene(2, 2, 52);
+  s.shadow(2, 2, 28, 28, 0.18);
+  post(s, 5, 27, 30, 1.4);
+  post(s, 27, 5, 30, 1.4);
+  const c = new PixelCanvas(s.canvas.width, s.canvas.height);
+  const q = s.p(16, 16, 30);
+  const tw = BOARD_TEXT.length * 4 - 1;
+  const w = tw + 20;
+  const h = 13;
+  const x0 = Math.round(q.x - w / 2);
+  const y0 = Math.round(q.y - h + 3);
+  // El techito (más ancho que la tabla) y el farolito encima, al medio.
+  for (let x = -2; x < w + 2; x++) {
+    c.set(x0 + x, y0 - 2, at(C.woodDark, 1));
+    c.set(x0 + x, y0 - 1, at(C.woodDark, x % 5 === 0 ? 2 : 3));
+  }
+  const lx = x0 + Math.floor(w / 2) - 1;
+  for (let y = 0; y < 5; y++)
+    for (let x = 0; x < 3; x++) c.set(lx + x, y0 - 7 + y, y === 0 || y === 4 ? at(C.metal, 1) : x === 1 ? at(C.gold, 5) : at(C.gold, 4));
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const edge = x === 0 || y === 0 || x === w - 1 || y === h - 1;
+      const frame = x === 1 || y === 1 || x === w - 2 || y === h - 2;
+      let col = edge ? at(C.woodDark, 0) : frame ? at(C.wood, y === 1 ? 4 : 3) : at(C.navy, 2);
+      if (!edge && !frame && noise(x, y, 98) < 0.03) col = at(C.cream, 3);
+      // Las letras.
+      const tx = x - 10;
+      const gy = y - 4;
+      if (tx >= 0 && tx < tw && gy >= 0 && gy < 5 && tx % 4 < 3 && glyphOn(BOARD_TEXT[Math.floor(tx / 4)]!, tx % 4, gy)) col = at(C.cream, 5);
+      // Estrellitas a los costados.
+      for (const sx of [5, w - 6]) {
+        const dx = Math.abs(x - sx);
+        const dy = Math.abs(y - 6);
+        if ((dx === 0 && dy <= 2) || (dy === 0 && dx <= 2) || (dx === 1 && dy === 1)) col = at(C.gold, dx + dy === 0 ? 5 : 4);
+      }
+      c.set(x0 + x, y0 + y, col);
+    }
+  s.encima(c);
+  return s.sprite();
+}
+
+/** Reloj de sol: pedestal de piedra, la esfera con las horas y la aguja de latón. */
+function sundial(): Sprite {
+  const s = scene(1, 1, 24);
+  s.roundShadow(8, 8, 6, 0.25);
+  s.box(2.5, 2.5, 0, 11, 11, 2, () => at(WARM_STONE, 4), () => at(WARM_STONE, 3), () => at(WARM_STONE, 2));
+  s.cylinder(8, 8, 2, 3, 9, (_a, v, luz) => shade(WARM_STONE, luz, v > 7 ? 4 : 3));
+  s.cylinder(8, 8, 11, 5.8, 1.6, (_a, _v, luz) => shade(WARM_STONE, luz, 4));
+  s.disc(8, 8, 12.6, 5.8, (dx, dy) => {
+    const d = Math.hypot(dx, dy);
+    if (d > 5) return at(C.gold, 4);
+    const a = Math.atan2(dy, dx);
+    if (d > 3.6 && Math.abs(((a * 12) / Math.PI + 12.5) % 1 - 0.5) > 0.38) return at(C.woodDark, 2);
+    return at(WARM_STONE, 5);
+  });
+  // La aguja: un triángulo de latón parado sobre la esfera, apuntando al norte.
+  s.quad([8, 3.2, 12.7], [0, 1, 0], [0, 0, 1], 5, 5, (u, v) => (v < u ? at(C.gold, v > u - 0.8 ? 5 : 3) : null));
+  return s.sprite();
+}
+
+/** Telescopio chico en su trípode de madera, para mirar estrellas desde el prado (apunta hacia +x). */
+function stargazerScope(): Sprite {
+  const s = scene(1, 1, 36);
+  s.roundShadow(8, 8, 5, 0.22);
+  const head: [number, number, number] = [8, 8, 17];
+  for (const foot of [
+    [2.5, 4, 0],
+    [3.5, 13.5, 0],
+    [13.5, 8.5, 0],
+  ] as [number, number, number][])
+    stick(s, foot, head, 1.1, (k) => at(C.wood, k > 0.8 ? 4 : 3));
+  s.solid(6.8, 6.8, 16.5, 2.4, 2.4, 2, at(C.metal, 3), at(C.metal, 2), at(C.metal, 1));
+  // El tubo de latón con su anillo oscuro, la lente brillante y el ocular atrás.
+  stick(s, [3.5, 8, 14.5], [15, 8, 27], 2.6, (k) => (Math.abs(k - 0.62) < 0.05 ? at(C.woodDark, 2) : at(C.gold, k > 0.5 ? 4 : 3)));
+  ball(s, 15.3, 8, 27.3, 1.5, (luz) => (luz > 0.5 ? at(C.white, 4) : at(C.blue, 3)));
+  stick(s, [2.2, 8, 13], [3.6, 8, 14.6], 1.2, () => at(C.woodDark, 1));
   return s.sprite();
 }
 
@@ -453,6 +543,9 @@ export const OBSERVATORIO_DRAW: Record<string, (v: Variant) => Sprite> = {
   "cable-pole": cablePole(true),
   "cable-pole-end": cablePole(false),
   "observatory-sign": observatorySign,
+  "observatory-board": observatoryBoard,
+  sundial,
+  "stargazer-scope": stargazerScope,
   orrery: orreryBase,
   "brass-telescope": brassTelescope,
   "spiral-stairs": spiralStairs,

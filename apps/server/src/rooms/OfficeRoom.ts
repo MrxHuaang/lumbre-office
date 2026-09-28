@@ -2989,6 +2989,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       marshmallowTimings: () => OfficeRoom.marshmallowTimings,
       skyTimings: () => OfficeRoom.skyTimings,
       isNight: () => isNightMinute(this.gameTimeNow().minuteOfDay),
+      sky: () => ({ minuteOfDay: this.gameTimeNow().minuteOfDay, weather: this.state.weather as Weather }),
       player: (sessionId) => this.state.players.get(sessionId),
       map: (area) => this.mapOf(area),
       toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
@@ -3008,6 +3009,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(OBS_MSG.telescopeLook, (client) => active(client, (id) => obs.look(id)));
     this.onMessage(OBS_MSG.telescopeClose, (client) => obs.close(client.sessionId));
     this.onMessage(OBS_MSG.starSpot, (client, raw) => active(client, (id) => obs.spot(id, raw)));
+    this.onMessage(OBS_MSG.astronomerAsk, (client) => active(client, (id) => obs.ask(id)));
     this.clock.setInterval(() => obs.tick(), OfficeRoom.skyTimings.tickMs);
   }
 

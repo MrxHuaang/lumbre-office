@@ -3,6 +3,7 @@
 // decide la estrella y quién la vio primero; esto solo guarda lo que llega para los paneles y la escena.
 import {
   DONENESS_TEXT,
+  type AstronomerSay,
   MARSHMALLOW_ERROR_TEXT,
   OBS_MSG,
   type MarshmallowEvent,
@@ -32,9 +33,11 @@ interface ObservatorioStore {
   starNote: { text: string; mine: boolean; first: boolean } | null;
   /** Instrumentos que sonaron hace poco en otros niveles (para el radar), con la hora local. */
   pings: (SignalPing & { at: number })[];
+  /** Lo último que contestó la astrónoma (a quién y qué), con la hora local: la escena lo pone en su burbuja. */
+  astronomer: (AstronomerSay & { at: number }) | null;
 }
 
-export const useObservatorio = create<ObservatorioStore>(() => ({ roasts: {}, sky: null, star: null, starNote: null, pings: [] }));
+export const useObservatorio = create<ObservatorioStore>(() => ({ roasts: {}, sky: null, star: null, starNote: null, pings: [], astronomer: null }));
 
 const mySession = () => useOfficeStore.getState().sessionId;
 
@@ -56,6 +59,10 @@ export function telescopeLook() {
 export function telescopeClose() {
   getRoom()?.send(OBS_MSG.telescopeClose);
   useObservatorio.setState({ sky: null, star: null, starNote: null });
+}
+/** E junto a la astrónoma: le pregunta por el cielo (el servidor elige la frase y la oyen todos). */
+export function askAstronomer() {
+  getRoom()?.send(OBS_MSG.astronomerAsk);
 }
 export function spotStar(starId: string) {
   getRoom()?.send(OBS_MSG.starSpot, { starId });
@@ -97,10 +104,12 @@ function onSky(e: SkyEvent) {
 
 if (typeof window !== "undefined") {
   onInteract("marshmallow", marshmallowAction);
+  onInteract("astronomer", askAstronomer);
   onRoom((room) => {
     useObservatorio.setState({ roasts: {}, sky: null, star: null, starNote: null });
     room.onMessage(OBS_MSG.marshmallowEvent, onMarshmallow);
     room.onMessage(OBS_MSG.sky, onSky);
+    room.onMessage(OBS_MSG.astronomerSay, (e: AstronomerSay) => useObservatorio.setState({ astronomer: { ...e, at: performance.now() } }));
     room.onMessage(OBS_MSG.signal, (e: SignalPing) =>
       useObservatorio.setState((st) => ({ pings: [...st.pings.filter((q) => performance.now() - q.at < 15_000).slice(-20), { ...e, at: performance.now() }] })),
     );
