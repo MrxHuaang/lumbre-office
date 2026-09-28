@@ -69,6 +69,7 @@ import { useEscenarioStore } from "./escenario/store";
 import { ESCENARIO, PODCAST, listeners as listenersOf, stageRole } from "@hyvento/shared";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { queuePrerender } from "./iso/prerender";
+import { installCameraCulling } from "./iso/culling";
 import { ensureCharacterTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
 import {
@@ -420,6 +421,8 @@ export class OfficeScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setZoom(cameraZoom(this.defaultZoom()));
     cam.setRoundPixels(true);
+    // Solo se dibuja lo que cae en la vista (ver culling.ts).
+    this.cleanups.push(installCameraCulling(this));
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
     this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,F,B,ESC,DELETE,BACKSPACE", false) as Keys;
