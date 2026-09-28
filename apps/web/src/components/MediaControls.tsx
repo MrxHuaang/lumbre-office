@@ -21,7 +21,8 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
   // En modo foco el contador no se muestra (los mensajes se ven al terminar el bloque).
   const focusing = useOfficeStore(selectFocusing);
   const setChatOpen = useOfficeStore((s) => s.setChatOpen);
-  const ready = status === "connected";
+  // En espera (sin nadie cerca) también se puede prender: la sala de video se abre al hacerlo.
+  const ready = status === "connected" || status === "idle" || status === "connecting";
   const [emotes, setEmotes] = useState(false);
   useEmoteKey(useCallback(() => setEmotes((v) => !v), []));
   usePhotoKey();

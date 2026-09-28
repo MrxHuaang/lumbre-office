@@ -209,15 +209,16 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
         handleGameLoadError(err);
         return;
       }
-      // Audio/video: opcional; si LiveKit no está disponible la oficina funciona igual.
-      void media.connect();
+      // Audio/video: opcional; si LiveKit no está disponible la oficina funciona igual. No conecta todavía:
+      // la sala se abre sola cuando hay alguien cerca (LiveKit cobra por minuto conectado).
+      media.start();
     })();
 
     return () => {
       cancelled = true;
       useOfficeStore.getState().setMapReady(false);
       game?.destroy(true);
-      void media.disconnect();
+      void media.stop();
       void disconnect();
     };
   }, [attempt]);

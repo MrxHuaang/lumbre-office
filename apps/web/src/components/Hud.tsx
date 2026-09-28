@@ -235,6 +235,8 @@ function HearingChip() {
   );
   const zone = useOfficeStore((s) => s.zone);
 
+  // "idle": en espera, sin sala abierta porque no hay nadie cerca; se conecta sola (no es un error).
+  if (status === "off" || status === "idle") return null;
   if (status === "connecting") return <div className="cozy-chip px-3 py-1.5 text-cozy-ink-soft">Conectando audio…</div>;
   if (status === "unavailable") return <div className="cozy-chip px-3 py-1.5 text-cozy-ink-soft">Audio y video no disponibles</div>;
   if (names.length === 0) return null;

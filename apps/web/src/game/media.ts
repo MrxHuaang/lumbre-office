@@ -1,5 +1,9 @@
+import { nextVoiceLink, VOICE_LINK_IDLE, type VoiceLink } from "@hyvento/shared";
 import {
   ConnectionState,
+  createLocalScreenTracks,
+  DisconnectReason,
+  type LocalTrack,
   RemoteParticipant,
   RemoteTrack,
   Room,
@@ -8,9 +12,16 @@ import {
   type Participant,
 } from "livekit-client";
 import { create } from "zustand";
+import { tokenUsable } from "./livekitToken";
 import { useOfficeStore } from "./store";
 
-export type MediaStatus = "off" | "connecting" | "connected" | "unavailable";
+/**
+ * - off: fuera de la cabaña.
+ * - idle: en espera; sin sala abierta porque no hay nadie cerca (se abre sola cuando haga falta).
+ * - connecting / connected: la sala de LiveKit.
+ * - unavailable: sin credenciales de LiveKit o falló la conexión (se reintenta más tarde).
+ */
+export type MediaStatus = "off" | "idle" | "connecting" | "connected" | "unavailable";
 
 /** Vista ampliada: cámara o pantalla de alguien (identity = null → la propia). */
 export interface Focus {
@@ -62,7 +73,6 @@ export const useMediaStore = create<MediaStore>((set) => ({
 }));
 
 const initialMedia = {
-  status: "off" as MediaStatus,
   mic: false,
   cam: false,
   screen: false,
@@ -71,74 +81,184 @@ const initialMedia = {
   focused: null,
 };
 
+/** Cada cuánto se revisa si hace falta la sala (con la pestaña oculta el navegador lo espacia más). */
+const LINK_CHECK_MS = 1000;
+/** Espera antes de reintentar tras una conexión fallida: crece al repetirse (p. ej. sin cupo en LiveKit). */
+const RETRY_MIN_MS = 15_000;
+const RETRY_MAX_MS = 5 * 60_000;
+
+type Creds = { token: string; url: string };
+
+/** El servidor dijo que no hay audio/video (sin credenciales de LiveKit): no se reintenta en la sesión. */
+class NotConfigured extends Error {}
+
 /**
  * Audio/video por proximidad sobre una sola sala de LiveKit:
  * - nos suscribimos solo a quienes podemos oír (`hearing`), con volumen según la distancia;
  * - y le decimos al SFU que SOLO esas personas pueden suscribirse a nuestros tracks
  *   (setTrackSubscriptionPermissions): la privacidad de oficinas/salas la aplica el servidor de video.
+ *
+ * LiveKit cobra por minuto conectado, así que la sala se abre solo cuando hace falta (ver
+ * `voice-link.ts` en shared): alguien cerca o en llamada (lo dice la escena con `setDemand`), o
+ * mic/cámara/pantalla prendidos. Sin eso, tras `VOICE_IDLE_GRACE_MS` se desconecta y queda "idle".
  */
 class MediaManager {
   private room: Room | null = null;
   private generation = 0;
   private audioEls = new Map<string, HTMLMediaElement[]>(); // trackSid → elementos <audio>
   private lastAllowed = "";
+  /** En la cabaña (entre `start` y `stop`). */
+  private active = false;
+  private demand: (() => boolean) | null = null;
+  private link: VoiceLink = VOICE_LINK_IDLE;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private pending: Promise<Room | null> | null = null;
+  private creds: Creds | null = null;
+  /** Sin credenciales, o la sala se abrió en otra pestaña: no se reintenta hasta recargar. */
+  private blocked = false;
+  private retryAt = 0;
+  private retryDelay = RETRY_MIN_MS;
+  /** Toggles esperando la conexión: mientras tanto la sala hace falta. */
+  private waiting = 0;
 
   get connected() {
     return this.room?.state === ConnectionState.Connected;
   }
 
-  async connect() {
-    const gen = ++this.generation;
-    useMediaStore.setState({ ...initialMedia, status: "connecting" });
-    let creds: { token: string; url: string };
+  /** Al entrar a la cabaña: todavía no se conecta, solo empieza a revisar si hace falta. */
+  start() {
+    if (this.active) return;
+    this.active = true;
+    this.link = VOICE_LINK_IDLE;
+    useMediaStore.setState({ ...initialMedia, status: this.blocked ? "unavailable" : "idle" });
+    this.timer = setInterval(() => this.check(), LINK_CHECK_MS);
+    this.check();
+  }
+
+  /** Al salir de la cabaña. */
+  async stop() {
+    this.active = false;
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.link = VOICE_LINK_IDLE;
+    await this.release("off");
+  }
+
+  /** La escena dice si hay alguien cerca o en llamada (se consulta en cada revisión). */
+  setDemand(fn: (() => boolean) | null) {
+    this.demand = fn;
+    if (fn) this.check();
+  }
+
+  private publishing() {
+    const s = useMediaStore.getState();
+    return s.mic || s.cam || s.screen || this.waiting > 0;
+  }
+
+  /** Decide si abrir o soltar la sala. */
+  private check() {
+    if (!this.active) return;
+    const now = Date.now();
+    let needed = this.publishing();
     try {
-      const res = await fetch("/api/livekit/token", { cache: "no-store" });
-      if (!res.ok) throw new Error(`token ${res.status}`);
-      creds = await res.json();
+      needed ||= this.demand?.() ?? false;
     } catch {
-      if (gen === this.generation) useMediaStore.setState({ status: "unavailable" });
+      // La escena se está armando o desarmando: se revisa en la próxima vuelta.
+    }
+    this.link = nextVoiceLink(this.link, needed, now);
+    if (this.link.linked) {
+      if (!this.room && !this.pending && !this.blocked && now >= this.retryAt) void this.ensureRoom();
       return;
     }
-    if (gen !== this.generation) return;
+    if (this.room || this.pending) void this.release("idle");
+    // Tras un fallo y sin nadie cerca vuelve a "en espera" (reintenta cuando haga falta y pase la espera).
+    else if (!this.blocked && useMediaStore.getState().status === "unavailable") useMediaStore.setState({ status: "idle" });
+  }
 
+  /** La sala conectada, conectándose si hace falta (una sola conexión a la vez). */
+  private ensureRoom(): Promise<Room | null> {
+    if (this.room) return Promise.resolve(this.room); // conectada (o LiveKit reconectándola por su cuenta)
+    if (!this.active || this.blocked) return Promise.resolve(null);
+    if (this.pending) return this.pending;
+    const pending = this.open().finally(() => {
+      if (this.pending === pending) this.pending = null;
+    });
+    this.pending = pending;
+    return pending;
+  }
+
+  private async open(): Promise<Room | null> {
+    const gen = ++this.generation;
+    useMediaStore.setState({ status: "connecting", participants: {}, speaking: [] });
     const room = new Room({ adaptiveStream: true, dynacast: true });
-    this.wire(room);
     try {
+      const creds = await this.credentials();
+      if (gen !== this.generation) return null;
+      this.wire(room);
       await room.connect(creds.url, creds.token, { autoSubscribe: false });
     } catch (err) {
-      console.warn("LiveKit no disponible:", err);
-      if (gen === this.generation) useMediaStore.setState({ status: "unavailable" });
-      return;
+      if (gen !== this.generation) return null;
+      if (err instanceof NotConfigured) {
+        this.blocked = true;
+      } else {
+        console.warn("LiveKit no disponible:", err);
+        this.creds = null; // quizás el token ya no sirve: se pide otro en el próximo intento
+        this.retryAt = Date.now() + this.retryDelay;
+        this.retryDelay = Math.min(RETRY_MAX_MS, this.retryDelay * 2);
+      }
+      useMediaStore.setState({ status: "unavailable" });
+      void room.disconnect();
+      return null;
     }
     if (gen !== this.generation) {
       void room.disconnect();
-      return;
+      return null;
     }
     this.room = room;
     this.lastAllowed = "";
+    this.retryDelay = RETRY_MIN_MS;
     useMediaStore.setState({ status: "connected" });
     this.syncParticipants();
     this.applyHearing(useMediaStore.getState().hearing);
+    return room;
   }
 
-  async disconnect() {
-    this.generation++;
+  /** Token y URL de LiveKit; el token se reutiliza mientras no esté por vencer. */
+  private async credentials(): Promise<Creds> {
+    if (this.creds && tokenUsable(this.creds.token, Date.now())) return this.creds;
+    const res = await fetch("/api/livekit/token", { cache: "no-store" });
+    if (res.status === 503) throw new NotConfigured();
+    if (!res.ok) throw new Error(`token ${res.status}`);
+    this.creds = (await res.json()) as Creds;
+    return this.creds;
+  }
+
+  /** Suelta la sala (sin nadie cerca, o al salir de la cabaña). */
+  private async release(status: "idle" | "off") {
+    this.generation++; // una conexión a medio abrir se descarta sola al terminar
+    this.pending = null;
     const room = this.room;
     this.room = null;
-    for (const els of this.audioEls.values()) els.forEach((el) => el.remove());
-    this.audioEls.clear();
-    useMediaStore.setState({ ...initialMedia });
+    this.clearAudio();
+    useMediaStore.setState((s) => ({
+      ...initialMedia,
+      status: status === "idle" && this.blocked ? "unavailable" : status,
+      trackVersion: s.trackVersion + 1,
+    }));
     await room?.disconnect().catch(() => undefined);
   }
 
   async toggleMic() {
-    await this.toggle("mic", (on) => this.room!.localParticipant.setMicrophoneEnabled(on));
+    await this.toggle("mic", (room, on) => room.localParticipant.setMicrophoneEnabled(on));
   }
   async toggleCam() {
-    await this.toggle("cam", (on) => this.room!.localParticipant.setCameraEnabled(on));
+    await this.toggle("cam", (room, on) => room.localParticipant.setCameraEnabled(on));
   }
   async toggleScreen() {
-    await this.toggle("screen", (on) => this.room!.localParticipant.setScreenShareEnabled(on));
+    await this.toggle("screen", async (room, on, captured) => {
+      if (!captured) return room.localParticipant.setScreenShareEnabled(on);
+      for (const track of captured) await room.localParticipant.publishTrack(track);
+    });
   }
 
   /** Aplica suscripciones, permisos y volúmenes según a quién oye el jugador local. */
@@ -185,11 +305,28 @@ class MediaManager {
     }
   }
 
-  private async toggle(kind: "mic" | "cam" | "screen", fn: (on: boolean) => Promise<unknown>) {
-    if (!this.room || !this.connected) return;
+  /**
+   * Prende o apaga mic/cámara/pantalla. Prender sin sala la abre primero. La pantalla se captura antes
+   * de conectar: el navegador solo deja elegirla mientras dura el clic.
+   */
+  private async toggle(
+    kind: "mic" | "cam" | "screen",
+    fn: (room: Room, on: boolean, captured?: LocalTrack[]) => Promise<unknown>,
+  ) {
+    if (!this.active) return;
     const next = !useMediaStore.getState()[kind];
+    const what = kind === "mic" ? "el micrófono" : kind === "cam" ? "la cámara" : "la pantalla";
+    let captured: LocalTrack[] | undefined;
+    this.waiting++;
     try {
-      await fn(next);
+      if (next && kind === "screen" && !this.room) captured = await createLocalScreenTracks();
+      const room = next ? await this.ensureRoom() : this.room;
+      if (!room) {
+        if (next) useOfficeStore.getState().notify(`No se pudo conectar el audio y video para prender ${what}.`, "warning");
+        return;
+      }
+      await fn(room, next, captured);
+      captured = undefined;
       useMediaStore.setState({ [kind]: next } as Pick<MediaStore, typeof kind>);
     } catch (err) {
       const denied = err instanceof Error && /Permission|NotAllowed/i.test(err.name + err.message);
@@ -198,12 +335,15 @@ class MediaManager {
         .getState()
         .notify(
           denied
-            ? `El navegador bloqueó ${kind === "mic" ? "el micrófono" : kind === "cam" ? "la cámara" : "la pantalla"}. Revisa los permisos del sitio.`
-            : `No se pudo ${next ? "activar" : "desactivar"} ${kind === "mic" ? "el micrófono" : kind === "cam" ? "la cámara" : "la pantalla compartida"}.`,
+            ? `El navegador bloqueó ${what}. Revisa los permisos del sitio.`
+            : `No se pudo ${next ? "activar" : "desactivar"} ${kind === "screen" ? "la pantalla compartida" : what}.`,
           "warning",
         );
+    } finally {
+      this.waiting--;
+      captured?.forEach((t) => t.stop()); // capturada pero sin publicar
+      this.bump();
     }
-    this.bump();
   }
 
   private wire(room: Room) {
@@ -248,11 +388,22 @@ class MediaManager {
       .on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
         if (this.room === room) useMediaStore.setState({ speaking: speakers.map((s) => s.identity) });
       })
-      .on(RoomEvent.Disconnected, () => {
+      .on(RoomEvent.Disconnected, (reason) => {
+        // Se cayó sin que la soltáramos (LiveKit ya agotó sus reintentos): se vuelve a probar más tarde.
+        // Si entró la misma persona desde otra pestaña, esta se queda sin video: reintentar la echaría
+        // a ella, y así en bucle.
         if (this.room !== room) return;
         this.room = null;
-        useMediaStore.setState({ ...initialMedia, status: "unavailable" });
+        this.clearAudio();
+        if (reason === DisconnectReason.DUPLICATE_IDENTITY) this.blocked = true;
+        this.retryAt = Date.now() + this.retryDelay;
+        useMediaStore.setState((s) => ({ ...initialMedia, status: "unavailable", trackVersion: s.trackVersion + 1 }));
       });
+  }
+
+  private clearAudio() {
+    for (const els of this.audioEls.values()) els.forEach((el) => el.remove());
+    this.audioEls.clear();
   }
 
   private attachAudio(track: RemoteTrack) {
