@@ -5,7 +5,7 @@ import { logError, logInfo } from "../log";
 import type { ChatRetentionRepository } from "../repo/types";
 
 /** Cuántos días se guarda el chat global. */
-export const CHAT_RETENTION_DAYS = 30;
+export const CHAT_RETENTION_DAYS = 90;
 /** Cada cuánto se poda (la sala vive días: basta con unas pocas veces por día). */
 export const CHAT_PRUNE_EVERY_MS = 6 * 60 * 60 * 1000;
 

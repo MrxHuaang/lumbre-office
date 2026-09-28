@@ -93,7 +93,7 @@ describe.skipIf(!enabled)("PrismaRepository (Postgres real)", () => {
       zoneId: null,
       ts,
     });
-    await repo.saveChat(ev("viejo", now - 40 * DAY), ana);
+    await repo.saveChat(ev("viejo", now - 100 * DAY), ana);
     await repo.saveChat(ev("hola", now - 2000), ana);
     await repo.saveChat(ev("chao", now - 1000), ana);
     await repo.saveChat(ev("cerca", now - 500, "proximity"), ana); // efímero: no se guarda
@@ -101,8 +101,8 @@ describe.skipIf(!enabled)("PrismaRepository (Postgres real)", () => {
     expect(mine.map((m) => m.text)).toEqual(["viejo", "hola", "chao"]);
     expect(mine[1]).toMatchObject({ fromId: `user:${ana}`, fromName: "Ana", scope: "global" });
 
-    expect(await repo.pruneChatBefore(new Date(now - 30 * DAY))).toBeGreaterThanOrEqual(1);
-    expect(await repo.pruneChatBefore(new Date(now - 30 * DAY))).toBe(0); // idempotente
+    expect(await repo.pruneChatBefore(new Date(now - 90 * DAY))).toBeGreaterThanOrEqual(1);
+    expect(await repo.pruneChatBefore(new Date(now - 90 * DAY))).toBe(0); // idempotente
     const left = (await repo.loadGlobalChat(500)).filter((m) => m.id.startsWith(run));
     expect(left.map((m) => m.text)).toEqual(["hola", "chao"]);
   });

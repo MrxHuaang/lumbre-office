@@ -20,7 +20,7 @@ describe("retención del chat", () => {
 
   it("borra solo lo que pasó el límite, y dos veces seguidas no borra de más", async () => {
     const repo = new MemoryRepository();
-    repo.chat = [msg("viejo", NOW - 40 * DAY), msg("justo", NOW - CHAT_RETENTION_DAYS * DAY), msg("nuevo", NOW - DAY)];
+    repo.chat = [msg("viejo", NOW - 100 * DAY), msg("justo", NOW - CHAT_RETENTION_DAYS * DAY), msg("nuevo", NOW - DAY)];
     expect(await pruneOldChat(repo, NOW)).toBe(1);
     expect(repo.chat.map((m) => m.id)).toEqual(["justo", "nuevo"]);
     expect(await pruneOldChat(repo, NOW)).toBe(0);
@@ -72,7 +72,7 @@ describe("retención del chat en la sala", () => {
 
   it("al crear la sala se borran los mensajes viejos", async () => {
     const repo = new MemoryRepository();
-    repo.chat = [msg("viejo", Date.now() - 60 * DAY), msg("nuevo", Date.now() - DAY)];
+    repo.chat = [msg("viejo", Date.now() - 120 * DAY), msg("nuevo", Date.now() - DAY)];
     OfficeRoom.repo = repo;
     await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
     await until(() => repo.chat.length === 1, "que se pode el chat");
