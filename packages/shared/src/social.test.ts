@@ -38,7 +38,9 @@ describe("regalos", () => {
     expect(describeBundle(1, [{ itemId: "plant", quantity: 2 }])).toBe("1 punto y 2 × Planta");
     expect(describeBundle(0, [{ itemId: "sofa", quantity: 1 }, { itemId: "piano", quantity: 1 }])).toBe("Sofá y Piano");
     expect(describeBundle(0, [])).toBe("nada");
-    expect(itemName("algo-nuevo")).toBe("algo-nuevo");
+    expect(itemName("algo-nuevo")).toBe("Algo nuevo");
+    expect(itemName("obj:tinto")).toBe("Tinto");
+    expect(describeBundle(0, [{ itemId: "obj:fresa", quantity: 3 }])).toBe("3 × Fresas");
   });
 });
 

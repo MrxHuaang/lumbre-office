@@ -1,9 +1,10 @@
 import { ColyseusTestServer } from "@colyseus/testing";
 import { findPath, getWorld, officeDoor } from "@hyvento/map";
-import { MSG, signGameToken, type GameTokenClaims } from "@hyvento/shared";
+import { BAG_MSG, MSG, signGameToken, type GameTokenClaims } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { createGameServer } from "../src/app";
 import type { GameRepository } from "../src/repo/types";
+import type { Bag } from "../src/rooms/bag";
 import type { OfficeState } from "../src/state";
 
 export const SECRET = "test-secret-test-secret-test-secret-123";
@@ -136,4 +137,18 @@ export async function intoOffice(client: ClientRoom, room: ServerRoom, zoneId: s
   await toOfficeDoor(client, room, zoneId);
   const { inside } = officeTiles(zoneId);
   await walkToTile(client, room, inside.x, inside.y);
+}
+
+/** La mochila de la sala por dentro (para que los tests elijan casillas como lo haría la barra). */
+export const bagOf = (room: ServerRoom) => (room as unknown as { held: Bag }).held;
+
+/** Elige en la barra la casilla de esa cosa de la mochila (queda en la mano). */
+export async function holdItem(client: ClientRoom, room: ServerRoom, itemId: string) {
+  const userId = me(client, room).userId;
+  await bagOf(room).flush(userId);
+  const slot = bagOf(room).view(userId).slots.findIndex((s) => s?.itemId === itemId);
+  if (slot < 0) throw new Error(`No tiene ${itemId} en la mochila`);
+  client.send(BAG_MSG.select, { slot });
+  await room.waitForNextPatch();
+  await tick(20);
 }

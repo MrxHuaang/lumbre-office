@@ -16,7 +16,6 @@ import {
   cropById,
   cropOfSeeds,
   durationText,
-  isFreeHold,
   plotReadyAt,
   plotStage,
   plotWet,
@@ -237,9 +236,9 @@ export class JardinVivo {
     const can = held === WATERING_CAN;
     if (f.type === "water-barrel" || f.type === "well") {
       if (can || held === EMPTY_CAN) return "Llenar la regadera";
-      return f.type === "well" ? "Pozo (trae la regadera del cobertizo)" : "Barril de agua (trae la regadera del cobertizo)";
+      return f.type === "well" ? "Pozo (elige la regadera en la barra)" : "Barril de agua (elige la regadera en la barra)";
     }
-    if (f.type === "beehive") return held && !isFreeHold(held) ? "Tienes las manos ocupadas" : "Sacar miel";
+    if (f.type === "beehive") return "Sacar miel";
     if (f.type !== "garden-plot" && f.type !== "greenhouse-bed") return undefined;
     const plot = this.plotAt.get(`${f.x},${f.y}`);
     if (!plot) return undefined;
@@ -252,7 +251,7 @@ export class JardinVivo {
       const bed = isGreenhousePlot(plot.id);
       if (seeds && Boolean(seeds.indoor) !== bed) return bed ? `${seeds.name} va afuera, en el huerto` : `${seeds.name} va en el invernadero`;
       if (seeds) return `Sembrar ${seeds.name.toLowerCase()}`;
-      return bed ? "Bancal vacío (semillas de tierra caliente en el cobertizo)" : "Parcela vacía (saca semillas del cobertizo)";
+      return bed ? "Bancal vacío (elige semillas de tierra caliente en la barra)" : "Parcela vacía (elige unas semillas en la barra)";
     }
     const crop = cropById(st.crop)!;
     const now = serverNow();

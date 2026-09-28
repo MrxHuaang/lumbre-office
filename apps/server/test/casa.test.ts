@@ -31,12 +31,13 @@ const TEST_AREA: AreaDef = {
   points: [{ type: "spawn", name: "Inicio", x: 5, y: 6 }],
 };
 
-function rules(occupied = new Map<string, string>(), held = new Map<string, string>()) {
+/** `full`: a quién ya no le cabe nada en la mochila. */
+function rules(occupied = new Map<string, string>(), full = new Set<string>()) {
   const map = buildArea(TEST_AREA);
   const switches = new Map<string, boolean>();
   const counters = new Map<string, number>();
-  const uses = new FurnitureUses(switches, { counters, occupant: (k) => occupied.get(k), holding: (u) => held.get(u) });
-  return { map, switches, counters, uses, occupied, held };
+  const uses = new FurnitureUses(switches, { counters, occupant: (k) => occupied.get(k), bagFits: (u) => !full.has(u) });
+  return { map, switches, counters, uses, occupied, full };
 }
 
 const at = (tx: number, ty: number, userId = "u") => ({ userId, x: c(tx), y: c(ty) });
@@ -56,17 +57,17 @@ describe("casa viva: muebles que se usan (reglas)", () => {
     expect(uses.use(map, at(1, 1), { type: "coffee-station", x: 1, y: 0 }, CASA.freebieCooldownMs + 1)).toMatchObject({ ok: true, gives: { item: "aguapanela" } });
   });
 
-  it("lo gratis no reemplaza lo que se pagó: con un whisky en la mano, la nevera no da nada", () => {
-    const held = new Map<string, string>([["u", "whisky"], ["v", "jugo"]]);
-    const { map, uses } = rules(new Map(), held);
-    expect(uses.use(map, at(0, 1), { type: "fridge", x: 0, y: 0 }, 0)).toEqual({ ok: false, error: "hands" });
-    expect(uses.use(map, at(8, 4), { type: "fire-pit", x: 9, y: 4 }, 0)).toEqual({ ok: false, error: "hands" });
-    // Lo que no es gratis (una planta) se usa igual con las manos llenas.
+  it("lo gratis va a la mochila: si no cabe, la nevera no da nada (y no gasta la pausa)", () => {
+    const full = new Set(["u"]);
+    const { map, uses } = rules(new Map(), full);
+    expect(uses.use(map, at(0, 1), { type: "fridge", x: 0, y: 0 }, 0)).toEqual({ ok: false, error: "full" });
+    expect(uses.use(map, at(8, 4), { type: "fire-pit", x: 9, y: 4 }, 0)).toEqual({ ok: false, error: "full" });
+    // Lo que no da nada (una planta) se usa igual con la mochila llena.
     expect(uses.use(map, at(11, 1), { type: "plant", x: 11, y: 0 }, 0)).toMatchObject({ ok: true });
-    // Con algo gratis en la mano sí se cambia (no se pierde nada pagado).
+    // A otra persona sí le cabe.
     expect(uses.use(map, at(0, 1, "v"), { type: "fridge", x: 0, y: 0 }, 0)).toMatchObject({ ok: true, gives: {} });
-    // Con las manos vacías, también.
-    held.delete("u");
+    // Con espacio, también.
+    full.delete("u");
     expect(uses.use(map, at(0, 1), { type: "fridge", x: 0, y: 0 }, 5_000)).toMatchObject({ ok: true, gives: {} });
   });
 

@@ -119,6 +119,14 @@ export interface GameRepository {
   saveStats(userId: string, changes: StatChange[]): Promise<void>;
   /** Desbloquea un logro; true solo la primera vez. */
   unlockAchievement(userId: string, achievementId: string): Promise<boolean>;
+  /** Mochila: suma unidades de algo (crea la fila si no existía) y devuelve cuántas tiene ahora. */
+  addInventory(userId: string, itemId: string, quantity: number): Promise<number>;
+  /** Mochila: saca unidades solo si alcanzan (`false` = no tenía tantas y no se tocó nada). */
+  takeInventory(userId: string, itemId: string, quantity: number): Promise<boolean>;
+  /** Mochila: la casilla guardada de cada cosa (itemId → 0..35). */
+  loadBagSlots(userId: string): Promise<Record<string, number>>;
+  /** Mochila: guarda casillas nuevas o movidas y olvida las de lo que ya no está (`null`). */
+  saveBagSlots(userId: string, changes: Record<string, number | null>): Promise<void>;
   /** Jardín vivo: las parcelas sembradas del huerto (las vacías no vienen). */
   loadGarden(): Promise<GardenPlotRecord[]>;
   /** Guarda una parcela sembrada, o la deja vacía (`null`: se cosechó). */

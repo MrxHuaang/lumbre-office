@@ -202,7 +202,7 @@ export function usableMarker(spec: UsableSpec | undefined, night: boolean): bool
 /** Servidor → quien lo intentó (`CASA_MSG.notice`): por qué no se pudo (las manos llenas, ya comió…). */
 export const CASA_MSG = { notice: "casa:notice" } as const;
 
-export const CasaNoticeCode = z.enum(["hands", "stall", "fed", "petFar"]);
+export const CasaNoticeCode = z.enum(["hands", "stall", "fed", "petFar", "full"]);
 export type CasaNoticeCode = z.infer<typeof CasaNoticeCode>;
 
 export interface CasaNotice {
@@ -214,4 +214,5 @@ export const CASA_NOTICES: Record<CasaNoticeCode, string> = {
   stall: "Ese baño está ocupado.",
   fed: "Ya comió: espera un rato para darle otro premio.",
   petFar: "Acércate un poco más.",
+  full: "No te cabe en la mochila: haz espacio para llevártelo.",
 };

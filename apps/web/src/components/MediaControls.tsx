@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { media, useMediaStore } from "@/game/media";
 import { NAME_TAG_LABEL, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
@@ -8,10 +8,27 @@ import { EmotePicker, useEmoteKey } from "./EmotePicker";
 import { takePhoto, usePhotoCounting, usePhotoKey } from "./PhotoPanels";
 
 /**
- * Barra de herramientas (abajo al centro, estilo Stardew): micrófono, cámara, pantalla y chat. `children`
- * va al final de la barra (el casillero de lo que tienes en la mano), así no depende de su ancho.
+ * La barra de abajo al centro (estilo Stardew): arriba los botones (micrófono, cámara, pantalla, chat,
+ * emotes, foto, nombres) y lo que se hace con lo de la mano (`actions`); abajo la fila de la mochila
+ * (`children`). En pantallas anchas va todo en una línea. Publica su alto en `--cozy-bar-top` (en el
+ * <main>) para que el chat, los avisos y las tiras de las mesas se paren justo encima.
  */
-export function MediaControls({ children }: { children?: ReactNode } = {}) {
+export function MediaControls({ children, actions }: { children?: ReactNode; actions?: ReactNode } = {}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const host = el?.parentElement;
+    if (!el || !host) return;
+    const publish = () => host.style.setProperty("--cozy-bar-top", `${Math.ceil(host.getBoundingClientRect().bottom - el.getBoundingClientRect().top) + 12}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    ro.observe(host);
+    return () => {
+      ro.disconnect();
+      host.style.removeProperty("--cozy-bar-top");
+    };
+  }, []);
   const status = useMediaStore((s) => s.status);
   const mic = useMediaStore((s) => s.mic);
   const cam = useMediaStore((s) => s.cam);
@@ -29,10 +46,13 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
   useNameTagKey();
 
   return (
-    <div className="cozy-panel absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 p-2.5">
+    <div
+      ref={ref}
+      className="cozy-panel absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-1rem)] -translate-x-1/2 flex-col items-center gap-2 p-2 xl:flex-row xl:gap-3 max-sm:bottom-2 max-sm:p-1.5"
+    >
       {emotes && <EmotePicker onClose={() => setEmotes(false)} />}
+      <div className="flex items-center gap-1.5 max-sm:gap-1">
       <Slot
-        n={1}
         icon="mic"
         off={!mic}
         label={mic ? "Silenciar micrófono" : "Activar micrófono"}
@@ -42,7 +62,6 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         onClick={() => void media.toggleMic()}
       />
       <Slot
-        n={2}
         icon="cam"
         off={!cam}
         label={cam ? "Apagar cámara" : "Encender cámara"}
@@ -52,7 +71,6 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         onClick={() => void media.toggleCam()}
       />
       <Slot
-        n={3}
         icon="screen"
         label={screen ? "Dejar de compartir" : "Compartir pantalla"}
         text={screen ? "Compartiendo" : "Pantalla"}
@@ -61,7 +79,6 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         onClick={() => void media.toggleScreen()}
       />
       <Slot
-        n={4}
         icon="chat"
         label={chatOpen ? "Cerrar chat" : "Abrir chat (Enter)"}
         text="Chat"
@@ -71,7 +88,6 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         badge={!chatOpen && unread > 0 ? unread : undefined}
       />
       <Slot
-        n={5}
         icon="smile"
         label="Emotes (T)"
         text="Emotes"
@@ -80,7 +96,6 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         onClick={() => setEmotes((v) => !v)}
       />
       <Slot
-        n={6}
         icon="camera"
         label="Sacar una foto (P)"
         text={shooting.counting ? "3, 2, 1…" : "Foto"}
@@ -89,7 +104,6 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         onClick={takePhoto}
       />
       <Slot
-        n={7}
         icon="tag"
         off={nameTags === "oculto"}
         label={`${NAME_TAG_LABEL[nameTags]} (N para cambiar; al pasar el mouse se ve el nombre completo)`}
@@ -98,6 +112,8 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         disabled={false}
         onClick={cycleNameTags}
       />
+      {actions}
+      </div>
       {children}
     </div>
   );
@@ -120,7 +136,6 @@ function useNameTagKey() {
 }
 
 function Slot({
-  n,
   icon,
   off = false,
   label,
@@ -130,7 +145,6 @@ function Slot({
   onClick,
   badge,
 }: {
-  n: number;
   icon: PixelIconName;
   off?: boolean;
   label: string;
@@ -146,12 +160,10 @@ function Slot({
       disabled={disabled}
       aria-label={label}
       aria-pressed={active}
-      title={label}
-      className="cozy-btn relative h-[58px] w-[62px] flex-col gap-1 p-1 text-[12px] max-sm:h-12 max-sm:w-12"
+      title={`${text} · ${label}`}
+      className="cozy-btn relative h-10 w-10 p-0 max-sm:h-9 max-sm:w-9"
     >
-      <span className="absolute top-0.5 left-1 text-[10px] text-cozy-ink-soft">{n}</span>
-      <PixelIcon name={icon} off={off} size={22} />
-      <span className="max-w-full truncate max-sm:hidden">{text}</span>
+      <PixelIcon name={icon} off={off} size={18} />
       {badge !== undefined && (
         <span className="absolute -top-2.5 -right-2.5 grid h-5 min-w-5 place-items-center border-2 border-cozy-red-deep bg-cozy-red px-1 text-[11px] leading-none text-cozy-paper-light">
           {badge}

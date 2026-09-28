@@ -5,7 +5,7 @@ import {
   DRUNK,
   EMOTE,
   emoteInfo,
-  heldParts,
+  handParts,
   parseHeldLeft,
   spinMs,
   spinProgress,
@@ -391,7 +391,8 @@ export class Avatar {
       return;
     }
     this.clearHeld();
-    const parts = heldParts(id);
+    // Lo que no sale de ninguna carta (lo nuevo de la mochila) se lleva igual: su id es su dibujo.
+    const parts = handParts(id);
     if (parts.length === 0) return;
     this.held = { id, clearing: false, parts: parts.map((art, i) => this.makeHeldPart(art, i === 0 ? 0 : 1, counts[i] ?? usesOf(art))) };
     // Recién pedido un cigarro o un habano: se prende con el encendedor.

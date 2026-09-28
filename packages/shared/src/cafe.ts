@@ -263,4 +263,4 @@ export type CinemaOrderMessage = z.infer<typeof CinemaOrderMessage>;
 /** Servidor → cliente: resultado del pedido (en la cafetería o en el bar; `item` dice de cuál). */
 export type CafeOrderResult =
   | { ok: true; item: MenuItemId; balance: number }
-  | { ok: false; item: MenuItemId; error: "far" | "funds" | "busy" | "failed" };
+  | { ok: false; item: MenuItemId; error: "far" | "funds" | "busy" | "failed" | "full" };

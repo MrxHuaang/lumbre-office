@@ -2,11 +2,13 @@
 // regadera y la miel de las colmenas. El alcance a cada mueble ya lo validó FurnitureUses (`canUse`);
 // aquí van las reglas de cada cosa. Las parcelas sembradas viven en `OfficeState.garden` (las ven todos)
 // y se guardan en la tabla GardenPlot. Este módulo no conoce Colyseus: la sala le da el estado, la mano,
-// los puntos y el reloj, y manda los avisos y eventos que devuelve.
+// los puntos y el reloj, y manda los avisos y eventos que devuelve. Las semillas y la regadera se eligen
+// en la barra (la mochila); lo cosechado, la miel y lo del cobertizo van a la mochila.
 import { nearPointOfType, pointsOfType, type OfficeMap } from "@hyvento/map";
 import {
   EMPTY_CAN,
   HONEY,
+  objItemId,
   HUERTO,
   ShedTakeMessage,
   WATERING_CAN,
@@ -16,7 +18,6 @@ import {
   cropOfSeeds,
   GREENHOUSE_PLOT_BASE,
   isGreenhousePlot,
-  isFreeHold,
   plantPlot,
   plotReadyAt,
   plotReady,
@@ -41,12 +42,18 @@ export interface HuertoDeps<T extends PlotState> {
   /** Una parcela nueva para el estado (GardenPlotState). */
   create(): T;
   repo(): Pick<GameRepository, "loadGarden" | "saveGardenPlot">;
-  /** Lo que lleva en la mano (HeldItems): mirar, dar y gastar un uso de una herramienta. */
+  /** Lo que lleva en la mano (la casilla elegida de la mochila): mirar, gastar un uso de la herramienta y llenar la regadera. */
   held: {
     get(userId: string): { item: string; left: readonly number[] } | undefined;
-    give(userId: string, item: string): void;
-    /** Gasta un uso de la herramienta; `done` = se acabó (la bolsa vacía se va de la mano). */
+    /** Gasta un uso de la herramienta; `done` = se acabó (la bolsa de semillas sale de la mochila; la regadera queda vacía). */
     spend(userId: string, now: number): { done: boolean } | null;
+    /** Llena la regadera de la mano. */
+    fill(userId: string): boolean;
+  };
+  /** La mochila: si cabe algo y sumarlo (queda en la mano si estaban libres). */
+  bag: {
+    fits(userId: string, itemId: string): "ok" | "full" | "stack";
+    add(userId: string, itemId: string): Promise<unknown>;
   };
   /** Premio de ocio (LEISURE, con el tope diario): devuelve lo sumado. */
   award(userId: string, amount: number): Promise<number>;
@@ -109,7 +116,7 @@ export class Huerto<T extends PlotState> {
   async use(map: OfficeMap, who: HuertoWho, e: { type: string; x: number; y: number; action: string; seed: number }, now: number): Promise<HuertoResult> {
     const base = { type: e.type, x: e.x, y: e.y, seed: e.seed };
     if (e.action === "fill") return this.fill(who, base);
-    if (e.action === "honey") return this.honey(who, base, now);
+    if (e.action === "honey") return await this.honey(who, base, now);
     if (e.action !== "plot") return null;
     const id = Huerto.plotIndex(map, e.type, e.x, e.y);
     if (id < 0) return null;
@@ -135,11 +142,11 @@ export class Huerto<T extends PlotState> {
     if (plotReady(plot, now)) {
       if (!canHarvest(plot, who.userId, now))
         return { ok: false, notice: { code: "notYours", name: plot.plantedByName, waitMs: plotReadyAt(plot) + HUERTO.ownerHarvestMs - now } };
-      // Lo cosechado va a la mano: no pisa lo que se pagó con puntos.
-      if (held && !isFreeHold(held.item)) return { ok: false, notice: { code: "hands" } };
+      // Lo cosechado va a la mochila (si cabe: si no, la mata espera).
       const crop = cropById(plot.crop)!;
+      if (this.deps.bag.fits(who.userId, objItemId(crop.product)) !== "ok") return { ok: false, notice: { code: "full" } };
       this.set(id, null);
-      this.deps.held.give(who.userId, crop.product);
+      await this.deps.bag.add(who.userId, objItemId(crop.product));
       // Los puntos llegan aparte (el "+N" lo manda la sala al sumarlos).
       await this.deps.award(who.userId, crop.points);
       return event("harvest", crop.product);
@@ -149,9 +156,8 @@ export class Huerto<T extends PlotState> {
     if (held?.item === WATERING_CAN) {
       if (!canWater(plot, now)) return { ok: false, notice: { code: "wet" } };
       const spent = this.deps.held.spend(who.userId, now);
-      if (!spent) return null;
       // Con el último riego queda la regadera vacía en la mano (para volver a llenarla).
-      if (spent.done) this.deps.held.give(who.userId, EMPTY_CAN);
+      if (!spent) return null;
       this.set(id, waterPlot(plot, now));
       return event("water", plot.crop);
     }
@@ -163,29 +169,34 @@ export class Huerto<T extends PlotState> {
   private fill(who: HuertoWho, base: { type: string; x: number; y: number; seed: number }): HuertoResult {
     const held = this.deps.held.get(who.userId);
     if (held?.item !== WATERING_CAN && held?.item !== EMPTY_CAN) return { ok: false, notice: { code: "noCan" } };
-    this.deps.held.give(who.userId, WATERING_CAN);
+    if (!this.deps.held.fill(who.userId)) return null;
     return { ok: true, event: { ...base, action: "fill", item: WATERING_CAN } };
   }
 
-  /** Miel: una vez cada tanto por persona, a la mano (si no lleva algo pagado). */
-  private honey(who: HuertoWho, base: { type: string; x: number; y: number; seed: number }, now: number): HuertoResult {
+  /** Miel: una vez cada tanto por persona, a la mochila (si cabe). */
+  private async honey(who: HuertoWho, base: { type: string; x: number; y: number; seed: number }, now: number): Promise<HuertoResult> {
     const next = this.honeyAt.get(who.userId) ?? 0;
     if (now < next) return { ok: false, notice: { code: "honeyWait", waitMs: next - now } };
-    const held = this.deps.held.get(who.userId);
-    if (held && !isFreeHold(held.item)) return { ok: false, notice: { code: "hands" } };
+    if (this.deps.bag.fits(who.userId, objItemId(HONEY)) !== "ok") return { ok: false, notice: { code: "full" } };
     this.honeyAt.set(who.userId, now + HUERTO.honeyCooldownMs);
-    this.deps.held.give(who.userId, HONEY);
+    await this.deps.bag.add(who.userId, objItemId(HONEY));
     return { ok: true, event: { ...base, action: "honey", item: HONEY } };
   }
 
-  /** Sacar algo del cobertizo: hay que estar junto a él y no llevar algo pagado en la mano. */
-  shed(map: OfficeMap, who: HuertoWho, raw: unknown): { ok: true; item: string } | { ok: false; notice: HuertoNotice } | null {
+  /**
+   * Sacar algo del cobertizo (hay que estar junto a él): la regadera (vacía; una por persona) o una bolsa
+   * de semillas, a la mochila.
+   */
+  async shed(map: OfficeMap, who: HuertoWho, raw: unknown): Promise<{ ok: true; item: string } | { ok: false; notice: HuertoNotice } | null> {
     const parsed = ShedTakeMessage.safeParse(raw);
     if (!parsed.success) return null;
     if (!nearPointOfType(map, "tool_shed", who.x, who.y)) return { ok: false, notice: { code: "far" } };
-    const held = this.deps.held.get(who.userId);
-    if (held && !isFreeHold(held.item)) return { ok: false, notice: { code: "hands" } };
-    this.deps.held.give(who.userId, parsed.data.item);
+    // La regadera del cobertizo es la misma regadera (sale sin agua).
+    const can = parsed.data.item === EMPTY_CAN || parsed.data.item === WATERING_CAN;
+    const item = objItemId(can ? WATERING_CAN : parsed.data.item);
+    const fits = this.deps.bag.fits(who.userId, item);
+    if (fits !== "ok") return { ok: false, notice: { code: can && fits === "stack" ? "haveCan" : "full" } };
+    await this.deps.bag.add(who.userId, item);
     return { ok: true, item: parsed.data.item };
   }
 

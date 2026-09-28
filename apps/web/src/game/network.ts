@@ -73,6 +73,7 @@ import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { bindBag } from "./bag";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -92,9 +93,9 @@ export interface RemotePlayer {
   zoneId: string;
   place: string;
   points: number;
-  /** Lo que lleva en la mano (id de la carta de la cafetería o del bar; "" = nada). */
+  /** Lo que lleva en la mano (la casilla elegida de la mochila: el id de su dibujo; "" = nada). */
   held: string;
-  /** Usos que le quedan a cada mano ("4,5"). */
+  /** Usos que le quedan a lo de la mano ("4"). */
   heldLeft: string;
   /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
   fishing: string;
@@ -482,6 +483,7 @@ const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], stri
   funds: "No te alcanzan los puntos.",
   busy: "Un momento, ya viene tu pedido.",
   failed: "No se pudo hacer el pedido. Intenta de nuevo.",
+  full: "No te cabe en la mochila: haz espacio (tira algo o pon un mueble en tu oficina).",
 };
 
 function handleCafeResult(r: CafeOrderResult) {
@@ -491,7 +493,7 @@ function handleCafeResult(r: CafeOrderResult) {
   if (r.ok) {
     store.closePanel();
     const cheers = item?.menu === "bar" ? "¡Salud!" : item?.menu === "cine" ? "¡Buena función!" : "¡Buen provecho!";
-    store.notify(`Aquí tienes: ${name}. ${cheers}`, "success");
+    store.notify(`Aquí tienes: ${name} (quedó en tu mochila). ${cheers}`, "success");
   } else {
     store.notify(CAFE_ERRORS[r.error], "warning");
   }
@@ -774,6 +776,8 @@ function attach(r: OfficeRoom) {
   bindRace(r);
   bindArcade(r);
   bindHockey(r);
+  // La mochila y la barra de abajo.
+  bindBag(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
     if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");

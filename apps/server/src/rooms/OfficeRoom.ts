@@ -146,7 +146,7 @@ import { GardenPlotState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } fro
 import { acceptCasinoMessage } from "./casino/common";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
-import { HeldItems } from "./consumables";
+import { Bag } from "./bag";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
@@ -169,6 +169,7 @@ import { ChairRaces, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
+import { BAG_MSG, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
 
 interface UserData {
@@ -233,8 +234,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Cada cuánto se reparten puntos de presencia y cuánto dura la actividad (los tests los acortan). */
   static presenceTickMs: number = POINTS.tickMs;
   static idleMs: number = POINTS.idleMs;
-  /** Cuánto dura en la mano lo pedido en la cafetería (los tests lo acortan). */
-  static heldMs: number = CAFE.heldMs;
   /** Pausa entre dos usos de lo que se tiene en la mano (los tests la acortan). */
   static consumeCooldownMs: number = CONSUME.cooldownMs;
   /** Tiempos de la ruleta y de dónde sale el número (los tests los acortan y fijan el resultado). */
@@ -297,19 +296,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private pendingReconnections = new Map<string, Deferred<Client>>();
   private pendingKnocks = new Map<string, PendingKnock>();
   private lastKnockAt = new Map<string, number>(); // `${userId}:${zoneId}` → ts
-  /** Lo que cada persona lleva en la mano y sus usos (por userId: sobrevive a recargar la página). */
-  private held = new HeldItems(
-    { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
-    () => OfficeRoom.heldMs,
-    (userId, item, left) => {
+  /**
+   * La mochila de cada persona (ver bag.ts): lo que tiene, sus casillas y la elegida en la barra, que es
+   * lo que lleva en la mano (`Player.held`). Por userId: lo empezado sobrevive a recargar la página.
+   */
+  private held = new Bag({
+    repo: () => this.repo,
+    onHeld: (userId, item, left) => {
       for (const p of this.state.players.values())
         if (p.userId === userId) {
           p.held = item;
           p.heldLeft = formatHeldLeft(left);
         }
     },
-    () => OfficeRoom.consumeCooldownMs,
-  );
+    onBag: (userId, view) => this.sendToUser(userId, BAG_MSG.state, view satisfies BagView),
+    cooldownMs: () => OfficeRoom.consumeCooldownMs,
+  });
   /** Cuánto alcohol lleva cada persona (por userId: recargar no te deja sobrio). */
   private drunk = new Drunkenness(
     { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
@@ -447,6 +449,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     repo: () => this.repo,
     setPoints: (userId, balance) => {
       for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+      // Se hizo el intercambio: los objetos pasaron de una mochila a la otra.
+      void this.held.load(userId);
     },
     later: (ms, fn) => this.clock.setTimeout(fn, ms),
     inviteTimeoutMs: () => OfficeRoom.tradeInviteMs,
@@ -492,13 +496,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.casa = new CasaViva(
       this.state.stalls,
       { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
-      (userId, item) => this.held.give(userId, item),
+      (userId, item) => void this.held.add(userId, objItemId(item), 1, { pick: true }),
       () => OfficeRoom.stallMs,
     );
     this.furnitureUses = new FurnitureUses(this.state.switches, {
       counters: this.state.counters,
       occupant: this.casa.occupant,
-      holding: (userId) => this.held.get(userId)?.item,
+      bagFits: (userId, items) => items.every((item) => this.held.fits(userId, [[objItemId(item), 1]]) === "ok"),
     });
     this.startPets();
     this.club = new Club(this.state.club);
@@ -518,18 +522,25 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       repo: () => this.repo,
       held: {
         get: (userId) => this.held.get(userId),
-        give: (userId, item) => this.held.give(userId, item),
         spend: (userId, now) => {
-          const used = this.held.use(userId, now, 0, { skipCooldown: true, tool: true });
+          const used = this.held.use(userId, now, { skipCooldown: true, tool: true });
           return used.ok ? { done: used.done } : null;
         },
+        fill: (userId) => this.held.fill(userId),
+      },
+      bag: {
+        fits: (userId, itemId) => this.held.fits(userId, [[itemId, 1]]),
+        add: (userId, itemId) => this.held.add(userId, itemId, 1, { pick: true }),
       },
       award: (userId, amount) => this.awardLeisure(userId, amount),
     });
     this.startHockey();
     OfficeRoom.instances.add(this);
 
-    this.onMessage(HUERTO_MSG.shedTake, (client, raw) => this.handleShed(client, raw));
+    this.onMessage(HUERTO_MSG.shedTake, (client, raw) => void this.handleShed(client, raw));
+    this.onMessage(BAG_MSG.select, (client, raw) => this.handleBagSelect(client, raw));
+    this.onMessage(BAG_MSG.move, (client, raw) => this.handleBagMove(client, raw));
+    this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
@@ -681,6 +692,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
     const welcome = await this.repo.grantWelcome(auth.sub).catch(() => null);
     player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(() => 0));
+    // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
+    await this.held.load(auth.sub);
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
@@ -699,6 +712,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
     client.send(MSG.chatHistory, this.globalHistory);
+    // La mochila, con la casilla elegida (el cliente la adopta: por eso `pick`).
+    client.send(BAG_MSG.state, { ...this.held.view(auth.sub), pick: true } satisfies BagView);
     // La hora del servidor, para que el cliente calcule bien los conteos regresivos (la ruleta).
     client.send(MSG.clock, { now: Date.now() });
   }
@@ -1010,6 +1025,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     this.rebuildArea(areaId);
     this.achievements.bump(player.userId, STAT_KEYS.decorEdits);
+    // Poner saca un mueble de la mochila y quitarlo lo devuelve.
+    void this.held.load(player.userId);
     reply({ ok: true });
   }
 
@@ -1331,7 +1348,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Se pasó de tragos: se le cae lo que tenía en la mano, vomita y queda en el piso (lo ve su nivel). */
   private blackout(userId: string) {
     this.achievements.bump(userId, STAT_KEYS.blackouts);
-    this.held.drop(userId);
+    // Lo de la mano no se pierde: sigue en la mochila.
     this.fishery.cancel(userId);
     for (const [sessionId, p] of this.state.players) {
       if (p.userId !== userId) continue;
@@ -1579,6 +1596,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (players.length === 0) return;
     const balance = await this.repo.getPoints(userId);
     for (const p of players) p.points = balance;
+    // La web pudo cambiar la mochila (la tienda, un regalo abierto o mandado): se relee.
+    await this.held.load(userId);
     // La web pudo sumar estadísticas (racha del buzón, misiones): se releen y se revisan los logros.
     await this.achievements.refresh(userId).catch((err) => console.error("achievements.refresh", err));
     this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
@@ -1721,9 +1740,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!nearPointOfType(this.mapOf(player.area), MENUS[menu].point, player.x, player.y)) {
       return reply({ ok: false, item: item.id, error: "far" });
     }
+    const userId = player.userId;
+    // Lo pedido va a la mochila: tiene que caber antes de cobrar.
+    const parts = bagItemsOf(item.id);
+    if (this.held.fits(userId, parts.map((p) => [p, 1] as const)) !== "ok") return reply({ ok: false, item: item.id, error: "full" });
     client.userData.lastOrderAt = now;
 
-    const userId = player.userId;
     const refId = menuRefId(item.id);
     let result: { ok: boolean; balance: number };
     try {
@@ -1734,7 +1756,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     for (const p of this.state.players.values()) if (p.userId === userId) p.points = result.balance;
     if (!result.ok) return reply({ ok: false, item: item.id, error: "funds" });
-    this.held.give(userId, item.id);
+    // Cada parte a la mochila (el combo es dos cosas); la primera, a la mano si estaban libres.
+    for (const part of parts) await this.held.add(userId, part, 1, { pick: true });
     const a = this.achievements;
     // La confitería del cine cuenta como la cafetería (no es trago).
     a.bump(userId, menu === "bar" ? STAT_KEYS.barOrders : STAT_KEYS.cafeOrders);
@@ -1751,7 +1774,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const parsed = UseHeldMessage.safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
     const now = Date.now();
-    const used = this.held.use(player.userId, now, parsed.data?.part);
+    const used = this.held.use(player.userId, now);
     if (!used.ok) return;
     this.countUse(player.userId, used.art, used.action);
     this.drunk.consumed(player.userId, used.art);
@@ -1776,7 +1799,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const held = this.held.get(userId);
     const part = held ? drinkPart(held.item, held.left) : -1;
     if (!sessionId || !player || part < 0) return null;
-    const used = this.held.use(userId, Date.now(), part, { skipCooldown: true });
+    const used = this.held.use(userId, Date.now(), { skipCooldown: true });
     if (!used.ok) return null;
     this.drunk.consumed(userId, used.art);
     // Cada vaso que choca es un brindis (logro "¡Salud!") y un sorbo más.
@@ -1829,8 +1852,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const seed = Math.floor(Math.random() * 2 ** 31);
     const result = this.furnitureUses.use(this.mapOf(player.area), player, raw, now, seed);
     if (!result.ok) {
-      // Casa viva: por qué no (las manos llenas, el baño ocupado); lo demás se ignora como antes.
-      if (result.error === "hands" || result.error === "stall") client.send(CASA_MSG.notice, { code: result.error } satisfies CasaNotice);
+      // Casa viva: por qué no (no cabe en la mochila, el baño ocupado); lo demás se ignora como antes.
+      if (result.error === "full" || result.error === "stall") client.send(CASA_MSG.notice, { code: result.error } satisfies CasaNotice);
       return;
     }
     client.userData.lastActiveAt = now;
@@ -1864,13 +1887,48 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sendToArea(area, MSG.furnitureEvent, { sessionId: client.sessionId, ...result.event } satisfies FurnitureEvent);
   }
 
-  /** Sacar la regadera o semillas del cobertizo (junto a su puerta). */
-  private handleShed(client: Client<UserData>, raw: unknown) {
+  /** Sacar la regadera o semillas del cobertizo (junto a su puerta): van a la mochila. */
+  private async handleShed(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
     client.userData.lastActiveAt = Date.now();
-    const result = this.huerto.shed(this.mapOf(player.area), player, raw);
+    const result = await this.huerto.shed(this.mapOf(player.area), player, raw);
     if (result && !result.ok) client.send(HUERTO_MSG.notice, result.notice satisfies HuertoNotice);
+  }
+
+  // ---------- Mochila ----------
+
+  /** Elegir la casilla de la barra: lo que haya ahí queda en la mano (lo valida la mochila del servidor). */
+  private handleBagSelect(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = BagSelectMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    this.held.select(player.userId, parsed.data.slot);
+  }
+
+  /** Reordenar la mochila (arrastrar en el menú): la casilla nueva se guarda. */
+  private handleBagMove(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = BagMoveMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    this.held.move(player.userId, parsed.data.itemId, parsed.data.to);
+  }
+
+  /** Tirar unidades de un objeto (los muebles no se tiran: se ponen en la oficina). */
+  private async handleBagDrop(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = BagDropMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const { itemId, quantity } = parsed.data;
+    if (objIdOf(itemId) === null) return void client.send(BAG_MSG.notice, { code: "furniture" } satisfies BagNotice);
+    // "Tirar todo" pide de más: se tira lo que haya.
+    const n = Math.min(quantity, this.held.count(player.userId, itemId));
+    if (n > 0) await this.held.take(player.userId, itemId, n);
+  }
+
+  /** Manda algo a todas las conexiones de una persona. */
+  private sendToUser(userId: string, type: string, message: unknown) {
+    for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(type, message);
   }
 
   // ---------- Casa viva: mascotas ----------
