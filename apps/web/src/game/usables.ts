@@ -311,10 +311,12 @@ export class Usables {
       const night = useOfficeStore.getState().night;
       const f = usablesOf(map).find((f) => {
         const spec = usableSpec(f.type);
-        // Las cortinas no ocupan el piso: se prueban sobre el dibujo de la ventana (abajo).
+        // Las cortinas no ocupan el piso: se prueban sobre el dibujo de la ventana (abajo). Van antes de
+        // mirar el catálogo, porque no son un mueble de él.
+        if (!spec || f.type === CURTAIN_TYPE) return false;
         // Lo que se camina por dentro (el techo de la glorieta): un clic ahí es para entrar, no para usarlo.
         const walkIn = catalogItem(f.type).solid === false && !catalogItem(f.type).flat;
-        return spec && f.type !== CURTAIN_TYPE && !walkIn && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
+        return !walkIn && (!spec.nightOnly || night) && tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d;
       });
       if (f) return f;
     }
