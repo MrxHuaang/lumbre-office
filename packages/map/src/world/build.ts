@@ -166,10 +166,15 @@ export function buildArea(def: AreaDef): OfficeMap {
     for (let y = p.y; y < p.y + d; y++)
       for (let x = p.x; x < p.x + w; x++) {
         if (!inside(x, y)) throw new Error(`${p.type} en (${p.x}, ${p.y}) se sale de ${def.id}`);
-        if (item.solid !== false) blocked[idx(x, y)] = 1;
+        if (item.solid !== false && !item.blocks) blocked[idx(x, y)] = 1;
         if (item.computer) computers.add(idx(x, y));
       }
-    for (const [lx, ly] of item.seats ?? []) {
+    // Se camina por dentro (la glorieta): solo bloquean los tiles que dice el catálogo.
+    for (const [lx, ly] of item.solid === false ? [] : (item.blocks ?? [])) {
+      const [dx, dy] = localToWorld(item, facing, lx, ly);
+      blocked[idx(p.x + dx, p.y + dy)] = 1;
+    }
+    for (const [lx, ly, own] of item.seats ?? []) {
       const [dx, dy] = localToWorld(item, facing, lx, ly);
       const tx = p.x + dx;
       const ty = p.y + dy;
@@ -178,11 +183,11 @@ export function buildArea(def: AreaDef): OfficeMap {
         tileY: ty,
         x: tx * ts + ts / 2,
         y: ty * ts + ts / 2,
-        facing,
+        facing: own ?? facing,
         computer: false,
         type: p.type,
-        cx: (p.x + w / 2) * ts,
-        cy: (p.y + d / 2) * ts,
+        cx: own ? tx * ts + ts / 2 : (p.x + w / 2) * ts,
+        cy: own ? ty * ts + ts / 2 : (p.y + d / 2) * ts,
       });
     }
   }

@@ -20,6 +20,7 @@ import {
   type FishingTimings,
   type FishOutcome,
   type FishSpecies,
+  type Weather,
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
 
@@ -43,6 +44,8 @@ export interface FishingDeps {
   /** Entero al azar en [0, n) (`crypto.randomInt`; los tests lo fijan). */
   random(n: number): number;
   timings(): FishingTimings;
+  /** El clima de afuera (algunos peces solo pican con lluvia, tormenta o niebla). */
+  weather?(): Weather;
   repo(): Pick<GameRepository, "saveFishCatch">;
   newId(): string;
   /** Copia el estado de pesca a los `Player` de esa persona (lo ven todos). */
@@ -94,7 +97,8 @@ export class Fishery {
   }
 
   /**
-   * Responder a la picada: se elige el pez (según la rareza y la hora de Bogotá) y empieza el minijuego.
+   * Responder a la picada: se elige el pez (según la rareza, la hora de Bogotá y el clima) y empieza el
+   * minijuego.
    * Antes de que pique, el pez se asusta; la basura sale sin minijuego.
    */
   hook(userId: string, raw: unknown) {
@@ -104,7 +108,7 @@ export class Fishery {
     if (cast.phase === "wait") return this.end(cast, "early");
     if (cast.phase !== "bite") return;
     cast.timer?.clear();
-    const fish = pickFish(this.deps.now(), (n) => this.deps.random(n));
+    const fish = pickFish(this.deps.now(), (n) => this.deps.random(n), this.deps.weather?.());
     cast.fish = fish;
     if (isTrash(fish)) return void this.land(cast, fish, false);
     const t = this.deps.timings();

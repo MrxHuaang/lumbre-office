@@ -7,6 +7,11 @@ export const ROOM_NAME = "office";
 export const PLAYER_SPEED = 150;
 /** Radio de proximidad para chat (y luego audio/video), en px. */
 export const PROXIMITY_RADIUS = 5 * 32;
+/**
+ * Radio del audio/video por proximidad, en px: 14 tiles, para oír a alguien al otro lado de una sala
+ * grande (la cafetería mide 16x11) o en la sala de al lado. El volumen baja con la distancia.
+ */
+export const VOICE_RADIUS = 14 * 32;
 /** Frecuencia máxima con la que el cliente envía su posición. */
 export const MOVE_SEND_HZ = 15;
 
@@ -173,6 +178,9 @@ export const MSG = {
   /** Editor de la casa, solo admins (`WorldEditMessage`) y su respuesta (`WorldEditResult`). */
   worldEdit: "world:edit",
   worldEditResult: "world:edit:result",
+  /** Tomar o soltar el editor de la casa (una persona a la vez): `WorldEditLockMessage` → `WorldEditLockResult`. */
+  worldEditLock: "world:edit:lock",
+  worldEditLockResult: "world:edit:lock:result",
   /** Emote sobre la cabeza (`EmoteMessage`) y el aviso a los del mismo nivel (`EmoteEvent`). */
   emote: "emote",
   emoteEvent: "emote:event",
@@ -263,6 +271,12 @@ export const MSG = {
   clubQueue: "club:queue",
   clubReact: "club:react",
   clubReaction: "club:reaction",
+  /** Cine: la cola de la función, pausar y seguir (`CinemaMessage`) y el aviso cuando no se pudo
+   *  (`CinemaResult`). */
+  cinemaQueue: "cinema:queue",
+  cinemaResult: "cinema:result",
+  /** Pedir en la confitería del cine (`CinemaOrderMessage`); responde con `cafeResult`. */
+  cinemaOrder: "cinema:order",
   /** Arcade: récords de una máquina (`ArcadeBoardMessage` → `ArcadeBoard`), empezar (`ArcadeStartMessage`
    *  → `ArcadeStarted`) y terminar una partida (`ArcadeFinishMessage` → `ArcadeResult`). */
   arcadeBoard: "arcade:board",
@@ -271,6 +285,15 @@ export const MSG = {
   arcadeStarted: "arcade:started",
   arcadeFinish: "arcade:finish",
   arcadeResult: "arcade:result",
+  /** Hockey de mesa (hockey.ts): sumarse en una punta (`HockeyJoinMessage` → `HockeyResult`), mover el
+   *  mazo (`HockeyMoveMessage`), dejar la mesa, los cuadros del partido a los del sótano (`HockeyFrame`)
+   *  y cómo le fue a cada jugador al terminar (`HockeySettled`). */
+  hockeyJoin: "hockey:join",
+  hockeyResult: "hockey:result",
+  hockeyMove: "hockey:move",
+  hockeyLeave: "hockey:leave",
+  hockeyFrame: "hockey:frame",
+  hockeySettled: "hockey:settled",
   /** Medir la hora del servidor descontando la latencia (`ClockPingMessage` → `ClockPong`): la música
    *  del club tiene que sonar a la vez para todos. */
   clockPing: "clock:ping",

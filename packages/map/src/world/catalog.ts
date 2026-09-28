@@ -5,6 +5,7 @@ import { INTERIOR_CATALOG } from "./catalog-interior";
 import { SOTANO_CATALOG } from "./catalog-sotano";
 import { CASA_CATALOG } from "./catalog-casa";
 import { PLANTAS_CATALOG } from "./catalog-plantas";
+import { GARAJE_CATALOG } from "./catalog-garaje";
 import type { Facing } from "./types";
 
 export interface CatalogItem {
@@ -13,8 +14,23 @@ export interface CatalogItem {
   size: [w: number, d: number];
   /** Bloquea el paso (por defecto sí). */
   solid?: boolean;
-  /** Tiles de asiento en el marco local "right". Quien se sienta mira hacia el `facing` del mueble. */
-  seats?: [number, number][];
+  /**
+   * Tiles de asiento en el marco local "right". Quien se sienta mira hacia el `facing` del mueble, salvo
+   * que el asiento traiga el suyo (solo en muebles `fixed`, como las bancas de la glorieta que miran al
+   * centro): ese asiento además se ordena con su propio tile y no con el centro del mueble.
+   */
+  seats?: ([number, number] | [number, number, Facing])[];
+  /**
+   * Solo estos tiles (marco local "right") bloquean el paso; el resto del mueble se camina (la glorieta:
+   * se entra por el frente y las bancas y los rincones quedan bloqueados). Sin esto, bloquea todo (si es
+   * `solid`).
+   */
+  blocks?: [number, number][];
+  /**
+   * Techo o paredes de algo que se camina por dentro (glorieta, invernadero): el cliente lo transparenta
+   * cuando hay alguien adentro, así que puede tapar lo que queda bajo él.
+   */
+  seeThrough?: boolean;
   /** Escritorio con computador: la silla que lo mira permite prender el PC. */
   computer?: boolean;
   /** Tiene dibujo de espaldas (para mirar hacia "left"/"up"); si no, se usa el de frente. */
@@ -122,7 +138,8 @@ export const CATALOG = {
   "water-barrel": { name: "Barril de agua", size: [1, 1] },
   "arcade-cabinet": { name: "Máquina de arcade", size: [1, 1], light: { at: [14, 8, 22], color: "#8ef0f0", radius: 30 } },
   "claw-machine": { name: "Máquina de peluches", size: [1, 1], light: { at: [8, 8, 24], color: "#ff9ae6", radius: 30 } },
-  "air-hockey": { name: "Hockey de mesa", size: [1, 2] },
+  // Se juega de a dos (o contra la máquina) parado en cada punta: ver HOCKEY en @hyvento/shared.
+  "air-hockey": { name: "Hockey de mesa", size: [2, 3], light: { at: [16, 24, 16], color: "#8ef0f0", radius: 48 } },
   "stairs-up": { name: "Escalera", size: [2, 3], fixed: true },
   stairwell: { name: "Escalera", size: [2, 3], fixed: true },
   cabin: { name: "Cabaña", size: [16, 10], fixed: true, hasNight: true },
@@ -140,6 +157,7 @@ export const CATALOG = {
   ...SOTANO_CATALOG,
   ...CASA_CATALOG,
   ...PLANTAS_CATALOG,
+  ...GARAJE_CATALOG,
 } satisfies Record<string, CatalogItem>;
 
 export type FurnitureType = keyof typeof CATALOG;

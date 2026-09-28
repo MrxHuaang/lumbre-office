@@ -6,6 +6,7 @@ import {
   ROOM_NAME,
   menuItem,
   type BarItemId,
+  type CinemaMenuItemId,
   type CafeItemId,
   type DoorNoteResult,
   type FurnitureEvent,
@@ -16,6 +17,7 @@ import {
   type BoardStateEvent,
   type BoardStrokeEvent,
   type BoardStrokeInput,
+  type WorldEditLockResult,
   type OfficeRadioMessage,
   type OfficeRadioResult,
   OFFICE_RADIO_ERROR_TEXT,
@@ -51,6 +53,9 @@ import {
   CASA_MSG,
   CASA_NOTICES,
   type CasaNotice,
+  HUERTO_MSG,
+  huertoNoticeText,
+  type HuertoNotice,
   isWeather,
   type PhotoCountdownEvent,
   type PhotoFlashEvent,
@@ -62,7 +67,9 @@ import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map"
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
+import { bindHockey } from "./arcade/hockey";
 import { bindClub, togglePole } from "./club/net";
+import { bindCinema } from "./cinema/net";
 import { useOfficeStore, type Interactable } from "./store";
 import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
@@ -167,6 +174,19 @@ export interface OfficeStateView {
   counters: Map<string, number>;
   stalls: Map<string, string>;
   pets: Map<string, RemotePet>;
+  /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
+  garden: Map<string, RemoteGardenPlot>;
+}
+
+/** Una parcela sembrada como viaja en el estado (espejo de `GardenPlotState` en apps/server/src/state.ts). */
+export interface RemoteGardenPlot {
+  crop: string;
+  plantedBy: string;
+  plantedByName: string;
+  plantedAt: number;
+  growthMs: number;
+  growthAt: number;
+  wateredUntil: number;
 }
 
 /** Casa viva: una mascota como viaja en el estado (espejo de `Pet` en apps/server/src/state.ts). */
@@ -352,6 +372,11 @@ export function sendFurnitureUse(type: string, x: number, y: number) {
   room?.send(MSG.furnitureUse, { type, x, y });
 }
 
+/** Sacar la regadera o semillas del cobertizo: el servidor valida que estés junto a su puerta. */
+export function sendShedTake(item: string) {
+  room?.send(HUERTO_MSG.shedTake, { item });
+}
+
 /** Casa viva: alguien de tu nivel llamó, acarició o le dio un premio a una mascota. */
 export function onPetEvent(cb: (e: PetEvent) => void) {
   petListeners.add(cb);
@@ -447,6 +472,11 @@ export function sendBarOrder(item: BarItemId) {
   room?.send(MSG.barOrder, { item });
 }
 
+/** Pide algo en la confitería del cine (junto a la máquina de crispetas). */
+export function sendCinemaOrder(item: CinemaMenuItemId) {
+  room?.send(MSG.cinemaOrder, { item });
+}
+
 const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], string> = {
   far: "Acércate a la barra para pedir.",
   funds: "No te alcanzan los puntos.",
@@ -460,7 +490,8 @@ function handleCafeResult(r: CafeOrderResult) {
   const name = item?.name ?? "tu pedido";
   if (r.ok) {
     store.closePanel();
-    store.notify(item?.menu === "bar" ? `Aquí tienes: ${name}. ¡Salud!` : `Aquí tienes: ${name}. ¡Buen provecho!`, "success");
+    const cheers = item?.menu === "bar" ? "¡Salud!" : item?.menu === "cine" ? "¡Buena función!" : "¡Buen provecho!";
+    store.notify(`Aquí tienes: ${name}. ${cheers}`, "success");
   } else {
     store.notify(CAFE_ERRORS[r.error], "warning");
   }
@@ -497,9 +528,22 @@ export function sendWorldEdit(edit: WorldEditMessage) {
 
 const WORLD_EDIT_TEXT: Record<string, string> = {
   ...WORLD_EDIT_ERRORS,
-  admin: "Solo los admins pueden editar la casa.",
+  admin: "Solo el administrador de la casa puede editarla.",
+  busy: "Otra persona está editando la casa.",
   failed: "No se pudo guardar. Intenta de nuevo.",
 };
+
+/** Entrar o salir del editor de la casa (el servidor da el candado a una persona a la vez). */
+export function sendWorldEditLock(on: boolean) {
+  room?.send(MSG.worldEditLock, { on });
+}
+
+function handleWorldEditLockResult(r: WorldEditLockResult) {
+  if (r.ok) return;
+  const s = useOfficeStore.getState();
+  s.setWorldEditing(false);
+  s.notify(r.error === "busy" ? `${r.by} está editando la casa: una persona a la vez.` : "Solo el administrador de la casa puede editarla.", "warning");
+}
 
 function handleWorldEditResult(r: WorldEditResult) {
   if (!r.ok) useOfficeStore.getState().notify(WORLD_EDIT_TEXT[r.error] ?? WORLD_EDIT_TEXT.failed!, "warning");
@@ -729,8 +773,10 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
+  bindCinema(r);
   bindRace(r);
   bindArcade(r);
+  bindHockey(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
     if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");
@@ -756,6 +802,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.cafeResult, handleCafeResult);
   r.onMessage(MSG.officeEditResult, handleOfficeEditResult);
   r.onMessage(MSG.worldEditResult, handleWorldEditResult);
+  r.onMessage(MSG.worldEditLockResult, handleWorldEditLockResult);
   r.onMessage(MSG.emoteEvent, (e: EmoteEvent) => emoteListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.heldUsed, (e: HeldUsedEvent) => heldUsedListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.drunkBlackout, (e: DrunkBlackoutEvent) => blackoutListeners.forEach((cb) => cb(e)));
@@ -774,6 +821,8 @@ function attach(r: OfficeRoom) {
     const text = CASA_NOTICES[n.code];
     if (text) useOfficeStore.getState().notify(text, "info");
   });
+  // Jardín vivo: por qué no se pudo sembrar, regar, cosechar o sacar miel.
+  r.onMessage(HUERTO_MSG.notice, (n: HuertoNotice) => useOfficeStore.getState().notify(huertoNoticeText(n), "info"));
   r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));

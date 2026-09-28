@@ -19,14 +19,15 @@ describe("acuario", () => {
     entry("carpa", "2026-09-26T10:00:00Z"),
     entry("bigoton", "2026-09-01T10:00:00Z"),
     entry("no-existe", "2026-09-27T10:00:00Z"),
+    entry("guatavita", "2026-08-01T10:00:00Z"),
   ];
 
   it("deja afuera la basura y lo que ya no está en el catálogo", () => {
-    expect(aquariumEntries(entries).map((e) => e.species)).toEqual(["bigoton", "koi", "carpa", "mojarra"]);
+    expect(aquariumEntries(entries).map((e) => e.species)).toEqual(["guatavita", "bigoton", "koi", "carpa", "mojarra"]);
   });
 
   it("primero los más raros y, entre iguales, los más recientes; con tope", () => {
-    expect(pickAquariumFish(entries, 3)).toEqual(["bigoton", "koi", "carpa"]);
+    expect(pickAquariumFish(entries, 3)).toEqual(["guatavita", "bigoton", "koi"]);
     expect(pickAquariumFish([], 8)).toEqual([]);
     expect(pickAquariumFish(entries, 0)).toEqual([]);
   });

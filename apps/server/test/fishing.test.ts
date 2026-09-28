@@ -54,6 +54,7 @@ beforeEach(async () => {
   repo = new MemoryRepository();
   OfficeRoom.repo = repo;
   OfficeRoom.fishingNow = () => NOON;
+  OfficeRoom.weatherInitial = "despejado";
   OfficeRoom.fishingRandom = fixedRandom();
   // Tiempos cortos y margen amplio: el minijuego se "juega" al instante con el jugador automático.
   OfficeRoom.fishingTimings = { ...FISHING, biteMinMs: 40, biteMaxMs: 60, biteWindowMs: 500, slackMs: 60_000, showMs: 300 };

@@ -31,8 +31,8 @@ export interface TeamFishEntry {
   lastAt: string;
 }
 
-/** Legendario = 0, épico = 1… (para ordenar de lo más raro a lo más común). */
-const RARITY_RANK: Record<FishRarity, number> = { legendario: 0, epico: 1, raro: 2, "poco-comun": 3, comun: 4, basura: 5 };
+/** Mítico = 0, legendario = 1… (para ordenar de lo más raro a lo más común). */
+const RARITY_RANK: Record<FishRarity, number> = { mitico: 0, legendario: 1, epico: 2, raro: 3, "poco-comun": 4, comun: 5, basura: 6 };
 const rarityRank = (r: FishRarity) => RARITY_RANK[r];
 
 /** Solo peces de verdad y del catálogo actual (la basura no va al acuario). */

@@ -180,15 +180,42 @@ export function barItem(id: string): BarItem | undefined {
 }
 
 /**
- * Las dos cartas: dónde se pide cada una (tipo de punto del mapa) y en qué muebles se hace clic para
+ * La confitería del cine (sótano, junto a la máquina de crispetas): lo de ver la película. Los ids no se
+ * repiten con los de las otras cartas; la gaseosa es la misma lata de la cafetería.
+ */
+export const CINEMA_MENU = [
+  { id: "crispetas", name: "Crispetas", price: 6, kind: "food", holds: ["crispetas"], blurb: "Saladitas y con mantequilla, en su caja de rayas." },
+  { id: "crispetas-caramelo", name: "Crispetas de caramelo", price: 8, kind: "food", holds: ["crispetas-caramelo"], blurb: "Dulces y crocantes, pegadas de a dos." },
+  { id: "gaseosa-cine", name: "Gaseosa", price: 5, kind: "drink", holds: ["coca-cola"], blurb: "Bien fría, para no atorarse con las crispetas." },
+  {
+    id: "combo-cine",
+    name: "Combo función: crispetas y gaseosa",
+    price: 9,
+    kind: "combo",
+    holds: ["crispetas", "coca-cola"],
+    blurb: "Una en cada mano (sale más barato).",
+  },
+] as const;
+
+export type CinemaMenuItem = (typeof CINEMA_MENU)[number];
+export type CinemaMenuItemId = CinemaMenuItem["id"];
+export const CINEMA_MENU_IDS = CINEMA_MENU.map((i) => i.id) as [CinemaMenuItemId, ...CinemaMenuItemId[]];
+
+export function cinemaMenuItem(id: string): CinemaMenuItem | undefined {
+  return CINEMA_MENU.find((i) => i.id === id);
+}
+
+/**
+ * Las cartas: dónde se pide cada una (tipo de punto del mapa) y en qué muebles se hace clic para
  * abrirla (la barra nueva del club suma los grifos de cerveza, "bar-taps").
  */
 export const MENUS = {
   cafe: { point: "cafe_counter", items: CAFE_MENU, furniture: ["counter-coffee", "pastry-case", "counter"] },
   bar: { point: "club_bar", items: BAR_MENU, furniture: ["bar-counter", "bar-shelf", "bar-taps", "cigar-case"] },
+  cine: { point: "cinema_snacks", items: CINEMA_MENU, furniture: ["popcorn-machine"] },
 } as const;
 export type MenuId = keyof typeof MENUS;
-export type MenuItem = CafeItem | BarItem;
+export type MenuItem = CafeItem | BarItem | CinemaMenuItem;
 export type MenuItemId = MenuItem["id"];
 
 /** Un producto de cualquiera de las cartas, con la carta de la que sale. */
@@ -196,7 +223,9 @@ export function menuItem(id: string): (MenuItem & { menu: MenuId }) | undefined 
   const cafe = cafeItem(id);
   if (cafe) return { ...cafe, menu: "cafe" };
   const bar = barItem(id);
-  return bar ? { ...bar, menu: "bar" } : undefined;
+  if (bar) return { ...bar, menu: "bar" };
+  const cine = cinemaMenuItem(id);
+  return cine ? { ...cine, menu: "cine" } : undefined;
 }
 
 /** Lo que se ve en las manos por un pedido (vacío si el id no es de ninguna carta). */
@@ -226,6 +255,10 @@ export type CafeOrderMessage = z.infer<typeof CafeOrderMessage>;
 /** Cliente → servidor: pedir en la barra del club (hay que estar junto a ella). */
 export const BarOrderMessage = z.object({ item: z.enum(BAR_ITEM_IDS) });
 export type BarOrderMessage = z.infer<typeof BarOrderMessage>;
+
+/** Cliente → servidor: pedir en la confitería del cine (hay que estar junto a la máquina de crispetas). */
+export const CinemaOrderMessage = z.object({ item: z.enum(CINEMA_MENU_IDS) });
+export type CinemaOrderMessage = z.infer<typeof CinemaOrderMessage>;
 
 /** Servidor → cliente: resultado del pedido (en la cafetería o en el bar; `item` dice de cuál). */
 export type CafeOrderResult =

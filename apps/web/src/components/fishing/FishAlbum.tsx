@@ -1,16 +1,26 @@
 "use client";
 
-// Álbum de pesca: todas las especies del lago, con silueta las que todavía no sacaste, cuántas veces,
-// el más grande y la rareza. Los datos salen de GET /api/fishing (solo tus capturas).
+// Álbum de pesca: todas las especies del lago agrupadas por rareza, con silueta las que todavía no
+// sacaste, cuántas veces, el más grande y cuándo pican. Los datos salen de GET /api/fishing (solo tus capturas).
 import { drawFish } from "@hyvento/map/art";
-import { FISH, RARITY, type FishAlbumEntry, type FishSpecies, type FishTime } from "@hyvento/shared";
+import { FISH, FISH_RARITIES, RARITY, type FishAlbumEntry, type FishSpecies, type FishTime, type FishWeather } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { useFishingStore } from "@/game/fishing/store";
 import { ArtImage } from "../casino/PixelArt";
 import { api, PanelShell } from "../PointsPanels";
 import { RarityChip } from "./FishingHud";
 
-const TIME_LABEL: Record<FishTime, string> = { dia: "De día", noche: "De noche", siempre: "Día y noche" };
+const TIME_LABEL: Record<FishTime, string> = {
+  dia: "De día",
+  noche: "De noche",
+  siempre: "Día y noche",
+  atardecer: "Al atardecer",
+  madrugada: "De madrugada",
+};
+const WEATHER_LABEL: Record<FishWeather, string> = { lluvia: "con lluvia", tormenta: "con tormenta", niebla: "con niebla" };
+
+/** Cuándo pica, corto: "De noche con lluvia". */
+const whenLabel = (f: FishSpecies) => (f.weather ? `${TIME_LABEL[f.time]} ${WEATHER_LABEL[f.weather]}` : TIME_LABEL[f.time]);
 
 export function FishAlbum({ onClose }: { onClose: () => void }) {
   const version = useFishingStore((s) => s.albumVersion);
@@ -38,18 +48,33 @@ export function FishAlbum({ onClose }: { onClose: () => void }) {
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[14px]">
             <p className="text-cozy-ink-soft">
-              Se pesca en la punta del muelle y en la piedra plana del lago. Algunos solo pican de día, otros de noche (hora de Bogotá).
+              Se pesca en la punta del muelle y en la piedra plana del lago. Cada pez tiene su hora (de Bogotá) y algunos solo pican
+              con lluvia, tormenta o niebla.
             </p>
             <span className="cozy-chip shrink-0 px-2.5 py-1 tabular-nums">
               {caught} de {fish.length} especies
             </span>
           </div>
-          <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {fish.map((f) => (
-              <AlbumCell key={f.id} fish={f} entry={entries.get(f.id)} selected={selected === f.id} onSelect={() => setSelected(selected === f.id ? null : f.id)} />
-            ))}
-          </ul>
           {pick && <Detail fish={pick} entry={entries.get(pick.id)} />}
+          {FISH_RARITIES.filter((r) => r !== "basura").map((r) => {
+            const group = fish.filter((f) => f.rarity === r);
+            const have = group.filter((f) => entries.has(f.id)).length;
+            return (
+              <div key={r}>
+                <p className="mb-1.5 flex items-center gap-2 text-[13px] font-semibold text-cozy-ink-soft">
+                  <RarityChip rarity={r} />
+                  <span className="tabular-nums">
+                    {have} de {group.length}
+                  </span>
+                </p>
+                <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {group.map((f) => (
+                    <AlbumCell key={f.id} fish={f} entry={entries.get(f.id)} selected={selected === f.id} onSelect={() => setSelected(selected === f.id ? null : f.id)} />
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
           <div>
             <p className="mb-1.5 text-[13px] font-semibold text-cozy-ink-soft">Basura sacada del lago</p>
             <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">
@@ -84,7 +109,7 @@ function AlbumCell({ fish, entry, selected, onSelect }: { fish: FishSpecies; ent
           />
         </span>
         <span className="w-full truncate text-[13px] leading-tight font-semibold">{known ? fish.name : "???"}</span>
-        <span className="text-[12px] leading-none text-cozy-ink-soft tabular-nums">{entry ? `× ${entry.count} · ${entry.best} cm` : TIME_LABEL[fish.time]}</span>
+        <span className="text-[12px] leading-none text-cozy-ink-soft tabular-nums">{entry ? `× ${entry.count} · ${entry.best} cm` : whenLabel(fish)}</span>
       </button>
     </li>
   );
@@ -106,7 +131,7 @@ function Detail({ fish, entry }: { fish: FishSpecies; entry?: FishAlbumEntry }) 
         </p>
         <p className="mt-1 leading-snug text-cozy-ink-soft">{entry ? fish.description : "Todavía no lo sacas. Sigue intentando."}</p>
         <p className="mt-1 text-cozy-ink-soft">
-          {TIME_LABEL[fish.time]} · de {fish.size[0]} a {fish.size[1]} cm
+          {whenLabel(fish)} · de {fish.size[0]} a {fish.size[1]} cm
           {entry && ` · sacado ${entry.count} ${entry.count === 1 ? "vez" : "veces"}, el más grande de ${entry.best} cm`}
         </p>
       </div>

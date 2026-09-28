@@ -37,13 +37,20 @@ export function sceneToCss(scene: Phaser.Scene, p: Point): Point {
   return { x: (p.x - cam.worldView.x) * cam.zoom * k + canvas.offsetLeft, y: (p.y - cam.worldView.y) * cam.zoom * k + canvas.offsetTop };
 }
 
-/** Dónde se ve la imagen de una pantalla colgada en la pared norte (null si está fuera de la vista). */
+/**
+ * Dónde se ve la imagen de una pantalla colgada en la pared (null si está fuera de la vista). En una pared
+ * norte (`h`) la `u` del dibujo corre hacia +x; en una oeste (`v`) corre desde la punta sur hacia el
+ * norte (así la pinta room.ts), que en pantalla también es de izquierda a derecha.
+ */
 export function wallQuad(scene: Phaser.Scene, map: OfficeMap, f: WallFeature, inset: ScreenInset, parent: HTMLElement): ScreenQuad | null {
-  if (f.edge !== "h") return null;
-  const u1 = (f.width ?? 1) * L - inset.uPad;
+  const len = (f.width ?? 1) * L;
+  const u1 = len - inset.uPad;
   const x0 = f.x * map.tileSize;
   const y0 = f.y * map.tileSize;
-  const at = (u: number, hv: number) => sceneToCss(scene, worldToScreen(x0 + u / WORLD_TO_ART, y0, hv));
+  const at =
+    f.edge === "h"
+      ? (u: number, hv: number) => sceneToCss(scene, worldToScreen(x0 + u / WORLD_TO_ART, y0, hv))
+      : (u: number, hv: number) => sceneToCss(scene, worldToScreen(x0, y0 + (len - u) / WORLD_TO_ART, hv));
   const q = { tl: at(inset.u0, inset.hv1), tr: at(u1, inset.hv1), bl: at(inset.u0, inset.hv0), aspect: (u1 - inset.u0) / (inset.hv1 - inset.hv0) };
   const xs = [q.tl.x, q.tr.x, q.bl.x];
   const ys = [q.tl.y, q.tr.y, q.bl.y];

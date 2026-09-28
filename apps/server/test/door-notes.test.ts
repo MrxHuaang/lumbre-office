@@ -5,7 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { bootServer, SECRET, TEST_PORT, tick, token, toOfficeDoor } from "./helpers";
+import { getWorld, officeDoor } from "@hyvento/map";
+import { bootServer, goToArea, SECRET, TEST_PORT, TILE, tick, token, toOfficeDoor, walkToTile } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -77,6 +78,24 @@ describe("notas en la puerta", () => {
     expect(await leave(bob, "office-4", "La última de hoy")).toMatchObject({ ok: true, left: 0 });
     expect(await leave(bob, "office-4", "Una más")).toEqual({ ok: false, zoneId: "office-4", error: "limit" });
     expect(repo.doorNotes.filter((n) => n.toId === "u-alice")).toHaveLength(1);
+  });
+
+  it("la oficina del garaje (office-5) también recibe notas en su puerta", async () => {
+    const { room, bob } = await setup();
+    repo.assign("office-5", "u-alice", "Alice");
+    await OfficeRoom.reloadOfficesEverywhere();
+    // Desde la puerta del piso 2 no vale para la del garaje (otro nivel).
+    await toOfficeDoor(bob, room, "office-4");
+    expect(await leave(bob, "office-5", "Hola")).toEqual({ ok: false, zoneId: "office-5", error: "far" });
+    await goToArea(bob, room, "garaje");
+    const zone = getWorld().areas.get("garaje")!.zones.find((z) => z.id === "office-5")!;
+    const door = officeDoor(zone);
+    await walkToTile(bob, room, Math.floor(door.x / TILE), Math.floor(door.y / TILE));
+    expect(await leave(bob, "office-5", "Te dejé la llave en el taller")).toMatchObject({ ok: true, zoneId: "office-5", ownerName: "Alice" });
+    await room.waitForNextPatch();
+    // La cuenta es de la dueña: se ve en las puertas de sus dos oficinas.
+    expect(room.state.offices.get("office-5")!.notes).toBe(1);
+    expect(room.state.offices.get("office-4")!.notes).toBe(1);
   });
 
   it("al cargar las oficinas cuenta las notas sin leer, y el aviso de la web las vuelve a contar", async () => {

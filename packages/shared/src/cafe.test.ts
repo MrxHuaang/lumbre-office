@@ -4,7 +4,9 @@ import {
   BarOrderMessage,
   CAFE_CATEGORIES,
   CAFE_MENU,
+  CINEMA_MENU,
   CafeOrderMessage,
+  CinemaOrderMessage,
   MENUS,
   barRefId,
   cafeItem,
@@ -76,7 +78,7 @@ describe("combos", () => {
 
 describe("carta del bar del club", () => {
   it("ids únicos entre las dos cartas y precios enteros positivos", () => {
-    const all = [...CAFE_MENU, ...BAR_MENU];
+    const all = [...CAFE_MENU, ...BAR_MENU, ...CINEMA_MENU];
     expect(new Set(all.map((i) => i.id)).size).toBe(all.length);
     for (const i of BAR_MENU) expect(Number.isInteger(i.price) && i.price > 0, i.id).toBe(true);
   });
@@ -105,6 +107,20 @@ describe("carta del bar del club", () => {
   });
 
   it("todo lo que se lleva en la mano se puede usar", () => {
-    for (const item of [...CAFE_MENU, ...BAR_MENU]) for (const part of item.holds) expect(CONSUMABLES[part], part).toBeDefined();
+    for (const item of [...CAFE_MENU, ...BAR_MENU, ...CINEMA_MENU]) for (const part of item.holds) expect(CONSUMABLES[part], part).toBeDefined();
+  });
+});
+
+describe("confitería del cine", () => {
+  it("se pide junto a la máquina de crispetas, con su propio mensaje, y el combo sale más barato", () => {
+    expect(MENUS.cine.point).toBe("cinema_snacks");
+    expect(MENUS.cine.furniture).toContain("popcorn-machine");
+    expect(menuItem("crispetas")?.menu).toBe("cine");
+    expect(CinemaOrderMessage.safeParse({ item: "combo-cine" }).success).toBe(true);
+    expect(CinemaOrderMessage.safeParse({ item: "whisky" }).success).toBe(false);
+    expect(heldParts("combo-cine")).toEqual(["crispetas", "coca-cola"]);
+    const price = (id: string) => CINEMA_MENU.find((i) => i.id === id)!.price;
+    expect(price("combo-cine")).toBeLessThan(price("crispetas") + price("gaseosa-cine"));
+    for (const i of CINEMA_MENU) expect(Number.isInteger(i.price) && i.price > 0, i.id).toBe(true);
   });
 });
