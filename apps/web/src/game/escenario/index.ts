@@ -5,7 +5,7 @@
 import { zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import { podcastSign, STAGE_SCREEN, WORLD_TO_ART } from "@hyvento/map/art";
 import { ESCENARIO, PODCAST } from "@hyvento/shared";
-import { Track } from "livekit-client";
+import type { Track } from "livekit-client";
 import type * as Phaser from "phaser";
 import { COZY, cozyFontFamily } from "@/lib/cozy";
 import type { Avatar } from "../Avatar";
@@ -112,7 +112,7 @@ export class EscenarioMode {
     const m = useMediaStore.getState();
     const { floor, here } = useEscenarioStore.getState();
     if (m.screen && (here.onStage || (floor !== "" && floor === myId))) {
-      const track = media.videoTrack(null, Track.Source.ScreenShare);
+      const track = media.videoTrack(null, "screen");
       return track && { identity: null, track };
     }
     let found: { identity: string | null; track: Track } | undefined;
@@ -120,7 +120,7 @@ export class EscenarioMode {
       if (found || p.area !== ESCENARIO.area || p.userId === myId) return;
       if (p.zoneId !== ESCENARIO.stageZone && p.userId !== floor) return;
       if (!m.participants[p.userId]?.screen) return;
-      const track = media.videoTrack(p.userId, Track.Source.ScreenShare);
+      const track = media.videoTrack(p.userId, "screen");
       if (track) found = { identity: p.userId, track };
     });
     return found;

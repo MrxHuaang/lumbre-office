@@ -1,3 +1,4 @@
+import * as LK from "livekit-client";
 import { RoomEvent, type Room } from "livekit-client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_PREFS } from "./devicePrefs";
@@ -25,7 +26,7 @@ describe("dispositivos en la sala de LiveKit", () => {
   it("al armar la sala deja las ayudas de audio y el micrófono elegido como predeterminados", () => {
     useDeviceStore.setState({ prefs: { ...DEFAULT_PREFS, audioinput: "mic-usb", videoinput: "cam-2", noiseSuppression: false } });
     const room = fakeRoom();
-    bindRoom(room as unknown as Room);
+    bindRoom(LK, room as unknown as Room);
     expect(room.options.audioCaptureDefaults).toEqual({
       channelCount: 1, // lo que ya traía LiveKit se conserva
       deviceId: "mic-usb",
@@ -40,7 +41,7 @@ describe("dispositivos en la sala de LiveKit", () => {
   it("al conectar cambia a los dispositivos guardados sin fallar si ya no están", () => {
     useDeviceStore.setState({ prefs: { ...DEFAULT_PREFS, audioinput: "mic-usb" } });
     const room = fakeRoom();
-    bindRoom(room as unknown as Room);
+    bindRoom(LK, room as unknown as Room);
     room.emit(RoomEvent.Connected);
     expect(room.switchActiveDevice).toHaveBeenCalledWith("audioinput", "mic-usb", false);
     expect(room.switchActiveDevice).toHaveBeenCalledTimes(1); // cámara y salida: las del sistema
@@ -48,7 +49,7 @@ describe("dispositivos en la sala de LiveKit", () => {
 
   it("elegir un dispositivo con la sala abierta lo cambia en vivo", async () => {
     const room = fakeRoom();
-    bindRoom(room as unknown as Room);
+    bindRoom(LK, room as unknown as Room);
     await chooseDevice("videoinput", "cam-1");
     expect(useDeviceStore.getState().prefs.videoinput).toBe("cam-1");
     expect(room.switchActiveDevice).toHaveBeenCalledWith("videoinput", "cam-1");
@@ -57,7 +58,7 @@ describe("dispositivos en la sala de LiveKit", () => {
   it("cambiar las ayudas de audio reinicia el micrófono publicado", async () => {
     const mic = { isMuted: false, restartTrack: vi.fn(async () => undefined) };
     const room = fakeRoom(mic);
-    bindRoom(room as unknown as Room);
+    bindRoom(LK, room as unknown as Room);
     await setAudioProcessing({ echoCancellation: false });
     expect(mic.restartTrack).toHaveBeenCalledWith(expect.objectContaining({ echoCancellation: false, noiseSuppression: true }));
     expect(room.options.audioCaptureDefaults).toMatchObject({ echoCancellation: false });
@@ -65,7 +66,7 @@ describe("dispositivos en la sala de LiveKit", () => {
 
   it("sin sala solo guarda la preferencia", async () => {
     const room = fakeRoom();
-    bindRoom(room as unknown as Room);
+    bindRoom(LK, room as unknown as Room);
     room.emit(RoomEvent.Disconnected);
     await chooseDevice("audioinput", "mic-lap");
     expect(useDeviceStore.getState().prefs.audioinput).toBe("mic-lap");

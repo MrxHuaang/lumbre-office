@@ -1,4 +1,4 @@
-import { type LocalAudioTrack, type Room, RoomEvent, Track } from "livekit-client";
+import type { LocalAudioTrack, Room } from "livekit-client";
 import { create } from "zustand";
 import { audioCapture, type DeviceKind, type DevicePrefs, parsePrefs, PREFS_KEY } from "./devicePrefs";
 
@@ -35,13 +35,17 @@ export function canPickOutput(): boolean {
 
 /** Sala de LiveKit actual (la arma `media.ts`; puede no haber ninguna). */
 let current: Room | null = null;
+/** El módulo de LiveKit con el que se armó la sala (se carga aparte, ver media.ts). */
+let LK: typeof import("livekit-client") | null = null;
 
 /**
  * Deja la sala lista con lo elegido: las opciones de captura quedan como predeterminadas (así
  * `setMicrophoneEnabled` publica con ellas) y al conectar se cambia a los dispositivos guardados.
  * LiveKit mismo guarda el deviceId activo en `room.options`, así que ajustarlas acá es lo previsto.
  */
-export function bindRoom(room: Room) {
+export function bindRoom(lk: typeof import("livekit-client"), room: Room) {
+  const { RoomEvent } = lk;
+  LK = lk;
   current = room;
   const p = prefs();
   room.options.audioCaptureDefaults = { ...room.options.audioCaptureDefaults, ...audioCapture(p) };
@@ -87,10 +91,10 @@ export async function setAudioProcessing(
   useDeviceStore.setState({ prefs: next });
   savePrefs(next);
   const room = current;
-  if (!room) return;
+  if (!room || !LK) return;
   const opts = audioCapture(next);
   room.options.audioCaptureDefaults = { ...room.options.audioCaptureDefaults, ...opts };
-  const track = room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track as LocalAudioTrack | undefined;
+  const track = room.localParticipant.getTrackPublication(LK.Track.Source.Microphone)?.track as LocalAudioTrack | undefined;
   if (track && !track.isMuted) {
     try {
       await track.restartTrack({ ...room.options.audioCaptureDefaults, ...opts });

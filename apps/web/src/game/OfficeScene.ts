@@ -57,7 +57,7 @@ import {
   BUS_NOTICES,
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
-import { Track } from "livekit-client";
+import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
@@ -2420,10 +2420,10 @@ export class OfficeScene extends Phaser.Scene {
       const userId = this.userOfSession.get(sessionId) ?? "";
       const track = isLocal
         ? m.cam
-          ? media.videoTrack(null, Track.Source.Camera)
+          ? media.videoTrack(null, "camera")
           : undefined
         : m.hearing[userId] !== undefined
-          ? media.videoTrack(userId, Track.Source.Camera)
+          ? media.videoTrack(userId, "camera")
           : undefined;
       avatar.setVideo(track ?? null, {
         mirror: isLocal,
@@ -2458,12 +2458,12 @@ export class OfficeScene extends Phaser.Scene {
     for (const point of pointsOfType(this.map, "screen")) {
       let presenter: { identity: string | null; track: Track } | null = null;
       if (m.screen && myZone === point.zone) {
-        const t = media.videoTrack(null, Track.Source.ScreenShare);
+        const t = media.videoTrack(null, "screen");
         if (t) presenter = { identity: null, track: t };
       }
       room?.state.players.forEach((p, sessionId) => {
         if (presenter || sessionId === this.localId || p.zoneId !== point.zone || !m.participants[p.userId]?.screen) return;
-        const t = media.videoTrack(p.userId, Track.Source.ScreenShare);
+        const t = media.videoTrack(p.userId, "screen");
         if (t) presenter = { identity: p.userId, track: t };
       });
 
