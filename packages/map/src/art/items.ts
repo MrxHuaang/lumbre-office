@@ -1866,6 +1866,62 @@ function seedPacket(c: string, dark: string, motif: readonly string[]): ItemArt 
   };
 }
 
+// ---------- El puesto de pesca del lago ----------
+
+/**
+ * Caña de pescar en diagonal (el mango abajo a la izquierda, la punta arriba a la derecha) con su carrete
+ * dorado. `rod`/`tip`: la vara y la punta; `grip`: el mango; `ring`: un anillo de guía (la de carbono).
+ */
+function fishingRod(rod: string, tip: string, grip: string, ring?: string): ItemArt {
+  return {
+    rows: [
+      "........oo", //
+      ".......oto",
+      "......oRo.",
+      `.....o${ring ? "y" : "R"}o..`,
+      "....oRo...",
+      "..ooRo....",
+      ".ogGo.....",
+      "oggo......",
+      "ohho......",
+      ".oo.......",
+    ],
+    colors: legend({ R: rod, t: tip, h: grip, g: "#dcae3f", G: "#f3d672", y: ring ?? rod }),
+    flat: "y",
+  };
+}
+ITEMS["cana-fibra"] = fishingRod("#4f9a6a", "#bfe0c0", "#e6d0a6");
+ITEMS["cana-carbono"] = fishingRod("#34447c", "#7084b8", "#7a3a25", "#f3d672");
+// La carnada: una cajita de cartón con tierra negra y una lombriz rosada asomada.
+ITEMS.carnada = {
+  rows: [
+    ".oooooo.", //
+    "oDdWdDdo",
+    "odWWdwDo",
+    "okkkkkko",
+    "oKKKKKKo",
+    "okkkkkko",
+    ".oooooo.",
+  ],
+  colors: legend({ D: "#3b2418", d: "#5a3822", W: "#e8a0a8", w: "#c47d8a", k: "#c9a06a", K: "#a65132" }),
+  flat: "WwK",
+};
+// La carnada de la buena: frasco de vidrio con camarones de río y la tapa dorada.
+ITEMS["carnada-buena"] = {
+  rows: [
+    ".oooooo.", //
+    "oLLLLLLo",
+    ".oooooo.",
+    "oghsgsgo",
+    "osgssgso",
+    "ogssgsgo",
+    "osgsghso",
+    ".oooooo.",
+  ],
+  colors: legend({ L: "#dcae3f", g: "#cfe6f0", h: "#f4fbff", s: "#e39462" }),
+  flat: "sh",
+};
+
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 
 /** Brasa: apagada (0), titilando (1) o encendida al pitar (2). */

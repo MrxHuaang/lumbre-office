@@ -213,6 +213,8 @@ import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
 import { Fishery } from "./fishing";
+import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/shared";
+import { PescaStand } from "./pescaTienda";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 import { CasaViva } from "./casa";
@@ -369,6 +371,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static fishingRandom: (n: number) => number = (n) => randomInt(n);
   static fishingNow: () => number = () => Date.now();
   static fishingTimings: FishingTimings = { ...FISHING };
+  /** Reloj de las compras del puesto de pesca (los tests lo corren para saltarse la pausa). */
+  static pescaNow: () => number = () => Date.now();
   /** Casa viva: el azar de las mascotas y cuánto se está en el baño (los tests los fijan y acortan). */
   static petRandom: () => number = Math.random;
   static stallMs: number = CASA.stallMs;
@@ -600,6 +604,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
     caught: (userId, fish, size, first, treasure) => this.fishCaught(userId, fish, size, first, treasure),
   });
+  /** El puesto de pesca del lago: las compras y el equipo de cada lance (ver pescaTienda.ts). */
+  private pesca = new PescaStand({ repo: () => this.repo, held: this.held, now: () => OfficeRoom.pescaNow() });
   /** Estadísticas y logros (ver achievements.ts): se suman en memoria y se guardan juntas. */
   private achievements = new AchievementTracker({
     repo: () => this.repo,
@@ -983,6 +989,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.fishHook, (client, raw) => this.withFisher(client, (userId) => this.fishery.hook(userId, raw)));
     this.onMessage(MSG.fishFinish, (client, raw) => this.withFisher(client, (userId) => void this.fishery.finish(userId, raw)));
     this.onMessage(MSG.fishCancel, (client) => this.withFisher(client, (userId) => this.fishery.cancel(userId)));
+    this.onMessage(PESCA_MSG.buy, (client, raw) => void this.handlePescaBuy(client, raw));
     this.onMessage(MSG.tradeRequest, (client, raw) => this.trades.request(client.sessionId, raw));
     this.onMessage(MSG.tradeRespond, (client, raw) => this.trades.respond(client.sessionId, raw));
     this.onMessage(MSG.tradeOffer, (client, raw) => void this.trades.offer(client.sessionId, raw));
@@ -3031,7 +3038,27 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !client.userData) return;
     client.userData.lastActiveAt = Date.now();
     const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
-    this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near);
+    // La caña y la carnada que tiene (lo de la mano o lo mejor de la mochila); la carnada se gasta al lanzar.
+    const gear = this.pesca.gear(player.userId);
+    if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near, gear)) return;
+    this.pesca.spendBait(player.userId, gear);
+    for (const p of this.state.players.values()) if (p.userId === player.userId) p.fishingRod = gear.rod;
+  }
+
+  /** Comprar en el puesto de pesca: junto al mostrador; si sale bien, Don Evelio lo dice para todos. */
+  private async handlePescaBuy(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const near = nearPointOfType(this.mapOf(player.area), "fishing_shop", player.x, player.y) && !this.drunk.fainted(player.userId);
+    const result = await this.pesca.buy(player.userId, raw, near);
+    if (!result) return;
+    if (result.ok) {
+      for (const p of this.state.players.values()) if (p.userId === player.userId) p.points = result.balance;
+      this.achievements.bump(player.userId, `${STAT_PREFIX.order}${result.item}`);
+      this.sendToArea(player.area, PESCA_MSG.sold, { sessionId: client.sessionId, item: result.item, at: Date.now() } satisfies PescaSoldEvent);
+    }
+    client.send(PESCA_MSG.result, result satisfies PescaBuyResult);
   }
 
   /** Sacó algo del lago: peces, basura, botas, legendarios, míticos, especies nuevas y el más grande. */
@@ -3426,6 +3453,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
     this.fishery.forget(player.userId);
+    this.pesca.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);

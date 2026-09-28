@@ -4,7 +4,7 @@
 import { z } from "zod";
 import type { Weather } from "./weather";
 import { dayStart } from "./points";
-import { SIM_FRAME_MS, SIM_MAX_FRAMES, minReelFrames } from "./fishing-sim";
+import { SIM_FRAME_MS, SIM_MAX_FRAMES, minReelFrames, type FishingRod } from "./fishing-sim";
 
 export const FISH_RARITIES = ["comun", "poco-comun", "raro", "epico", "legendario", "mitico", "basura"] as const;
 export type FishRarity = (typeof FISH_RARITIES)[number];
@@ -188,17 +188,27 @@ function weatherMatches(want: FishWeather, now: Weather | undefined): boolean {
   return now === want;
 }
 
+/** Las rarezas que la carnada hace picar más (ver `luck`). */
+export const LUCKY_RARITIES: readonly FishRarity[] = ["raro", "epico", "legendario", "mitico"];
+
 /**
  * Lo que puede picar a esta hora del juego, con su peso: cada especie pesa lo de su rareza. `random(n)` da un entero en
- * [0, n) (en el servidor, `crypto.randomInt`; en los tests, uno fijo).
+ * [0, n) (en el servidor, `crypto.randomInt`; en los tests, uno fijo). Con `luck` > 1 (la carnada del
+ * puesto de pesca) los raros y lo de más arriba pesan más: los pesos se pasan a décimas para que hasta el
+ * mítico (peso 1) note la diferencia. Sin carnada (`luck` = 1) quedan los pesos de siempre.
  */
-export function fishPool(hour: number, weather?: Weather): { fish: FishSpecies; weight: number }[] {
-  return FISH.filter((f) => fishAvailable(f, hour, weather)).map((f) => ({ fish: f, weight: RARITY[f.rarity].weight }));
+export function fishPool(hour: number, weather?: Weather, luck = 1): { fish: FishSpecies; weight: number }[] {
+  const weightOf = (f: FishSpecies) => {
+    const w = RARITY[f.rarity].weight;
+    if (luck === 1) return w;
+    return Math.round(w * 10 * (LUCKY_RARITIES.includes(f.rarity) ? luck : 1));
+  };
+  return FISH.filter((f) => fishAvailable(f, hour, weather)).map((f) => ({ fish: f, weight: weightOf(f) }));
 }
 
-/** Elige el pez que pica a esta hora del juego. */
-export function pickFish(hour: number, random: (n: number) => number, weather?: Weather): FishSpecies {
-  const pool = fishPool(hour, weather);
+/** Elige el pez que pica a esta hora del juego (`luck`: la carnada, ver `fishPool`). */
+export function pickFish(hour: number, random: (n: number) => number, weather?: Weather, luck = 1): FishSpecies {
+  const pool = fishPool(hour, weather, luck);
   const total = pool.reduce((a, p) => a + p.weight, 0);
   let r = random(total);
   for (const p of pool) {
@@ -284,6 +294,8 @@ export interface FishingChallenge {
   rarity: FishRarity;
   /** Si aparece el cofre de tesoro (lo sortea el servidor). */
   treasure: boolean;
+  /** La caña con que se pesca (la decide el servidor con lo que uno tiene; sin esto, la de bambú). */
+  rod?: FishingRod;
 }
 
 export interface FishCatchResult {

@@ -106,7 +106,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "bus"
   // La granja del jardín: el horno y la parrilla (cocinar) y el letrero del gallinero (los nombres).
   | "grill"
-  | "coop";
+  | "coop"
+  // El puesto de pesca del lago: el mostrador de Don Evelio (cañas y carnada).
+  | "pesca";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";

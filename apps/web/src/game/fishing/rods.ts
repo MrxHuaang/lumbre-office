@@ -2,8 +2,8 @@
 // cuando pica, el tirón del minijuego y el pez levantado al sacarlo. Sale de `Player.fishing` (el servidor
 // lo cambia); la escena solo avisa los cambios y llama `update` en cada frame.
 import type { OfficeMap } from "@hyvento/map";
-import { biteMark, bobber, BODY_UP, drawFish, ROD_COLORS } from "@hyvento/map/art";
-import { fishById, type Direction } from "@hyvento/shared";
+import { biteMark, bobber, BODY_UP, drawFish, ROD_COLORS, ROD_COLORS_BY } from "@hyvento/map/art";
+import { fishById, isFishingRod, type Direction, type FishingRod } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
 import { depthOf, ensureTexture, worldToScreen } from "../iso/view";
@@ -33,14 +33,17 @@ interface Rod {
 }
 
 const hexInt = (c: readonly number[]) => (c[0]! << 16) | (c[1]! << 8) | c[2]!;
-const ROD = hexInt(ROD_COLORS.rod);
-const ROD_LIGHT = hexInt(ROD_COLORS.rodLight);
-const GRIP = hexInt(ROD_COLORS.grip);
+/** Vara, punta y mango de cada caña (la de bambú, la de fibra y la de carbono del puesto de pesca). */
+const ROD_TONES = Object.fromEntries(
+  Object.entries(ROD_COLORS_BY).map(([id, c]) => [id, { rod: hexInt(c.rod), light: hexInt(c.rodLight), grip: hexInt(c.grip) }]),
+) as Record<FishingRod, { rod: number; light: number; grip: number }>;
 const LINE = hexInt(ROD_COLORS.line);
 const RIPPLE = hexInt(ROD_COLORS.ripple);
 
 export class FishingRods {
   private rods = new Map<string, Rod>();
+  /** Con qué caña pesca cada uno (`Player.fishingRod`). */
+  private rodOf = new Map<string, FishingRod>();
   private map?: OfficeMap;
 
   constructor(
@@ -77,6 +80,11 @@ export class FishingRods {
     const next: Rod = { phase, since: this.scene.time.now, dir: "right", target: { x: 0, y: 0 }, g, bob };
     this.retarget(sessionId, next);
     this.rods.set(sessionId, next);
+  }
+
+  /** Cambió `Player.fishingRod` de alguien (el color de su caña). */
+  setRod(sessionId: string, rod: string) {
+    this.rodOf.set(sessionId, isFishingRod(rod) ? rod : "bambu");
   }
 
   remove(sessionId: string) {
@@ -119,12 +127,12 @@ export class FishingRods {
         continue;
       }
       if (rod.phase.startsWith("show:")) this.drawShow(rod, avatar, now);
-      else this.drawCast(rod, avatar, now);
+      else this.drawCast(rod, avatar, now, ROD_TONES[this.rodOf.get(id) ?? "bambu"]);
     }
   }
 
   /** La caña en el agua: lance, espera, picada o minijuego. */
-  private drawCast(rod: Rod, avatar: Avatar, now: number) {
+  private drawCast(rod: Rod, avatar: Avatar, now: number, tone: { rod: number; light: number; grip: number }) {
     rod.fish?.setVisible(false);
     const s = worldToScreen(avatar.x, avatar.y);
     const sv = SCREEN_DIR[rod.dir];
@@ -143,8 +151,8 @@ export class FishingRods {
     };
     const depth = depthOf(avatar.x, avatar.y) + (rod.dir === "right" || rod.dir === "down" ? 0.56 : 0.44);
     rod.g.setDepth(depth);
-    // La caña: mango rojo, vara oscura y la punta clara.
-    this.pixelLine(rod.g, hand.x, hand.y, tip.x, tip.y, (k, n) => (k < 3 ? GRIP : k > n - 3 ? ROD_LIGHT : ROD));
+    // La caña: el mango, la vara y la punta clara (con los colores de la caña que tiene).
+    this.pixelLine(rod.g, hand.x, hand.y, tip.x, tip.y, (k, n) => (k < 3 ? tone.grip : k > n - 3 ? tone.light : tone.rod));
     // La boya: vuela en arco hasta el agua y después flota (se hunde cuando pica).
     const t = worldToScreen(rod.target.x, rod.target.y);
     const bob = casting

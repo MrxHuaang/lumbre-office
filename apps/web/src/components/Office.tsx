@@ -56,6 +56,7 @@ import { OrreryPanel } from "./observatorio/OrreryPanel";
 import { RadarPanel } from "./observatorio/RadarPanel";
 import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
+import { PescaPanel } from "./PescaPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -386,6 +387,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "radar" && <RadarPanel onClose={closePanel} />}
           {panel?.kind === "logbook" && <DiarioPanel onClose={closePanel} />}
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}
 

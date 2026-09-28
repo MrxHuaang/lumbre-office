@@ -8,6 +8,7 @@ import { BAR_MENU, CAFE_MENU, CINEMA_MENU, heldParts } from "./cafe";
 import { FREE_NAMES } from "./casa";
 import { RECIPES } from "./cocina";
 import { GRANJA_BAG_OBJECTS } from "./parrilla";
+import { PESCA_BAG_OBJECTS } from "./pesca-tienda";
 import { CONSUMABLES } from "./consumables";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
 import { shopItem } from "./shop";
@@ -129,6 +130,8 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   // ---------- Lo que agreguen otras ramas va acá ----------
   // La granja del jardín: huevos, harina, queso y chorizo, y los platos de la parrilla (parrilla.ts).
   ...GRANJA_BAG_OBJECTS,
+  // El puesto de pesca del lago: las cañas de fibra y de carbono y la carnada (pesca-tienda.ts).
+  ...PESCA_BAG_OBJECTS,
 };
 
 /** "huevo-criollo" → "Huevo criollo": el nombre de algo que no está en el registro. */

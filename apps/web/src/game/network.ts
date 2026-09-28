@@ -105,6 +105,7 @@ import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
 import { bindBag } from "./bag";
 import { bindCasaArbol } from "./casaArbol";
+import { bindPesca } from "./pesca";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
@@ -134,6 +135,8 @@ export interface RemotePlayer {
   heldLeft: string;
   /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
   fishing: string;
+  /** Con qué caña pesca ("" o "bambu", "fibra", "carbono"): el color de la caña. */
+  fishingRod: string;
   /** Borrachera: 0 sobrio … 3 borracho (DrunkStage). */
   drunk: number;
   /** Corriendo la carrera de sillas. */
@@ -857,6 +860,7 @@ function attach(r: OfficeRoom) {
 
   const $ = getStateCallbacks(r);
   bindCasaArbol(r);
+  bindPesca(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({

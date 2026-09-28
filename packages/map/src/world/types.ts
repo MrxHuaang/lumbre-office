@@ -256,7 +256,9 @@ export interface PointDef {
     | "marshmallow_fire"
     | "orrery"
     | "signal_radar"
-    | "logbook";
+    | "logbook"
+    // Frente al mostrador del puesto de pesca del lago (comprarle cañas y carnada a Don Evelio).
+    | "fishing_shop";
   name: string;
   x: number;
   y: number;

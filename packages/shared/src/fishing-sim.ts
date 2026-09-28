@@ -32,6 +32,23 @@ export const SIM = {
   gravity: 0.25,
 } as const;
 
+/** Las cañas: la de bambú es la de siempre (gratis); las otras se compran en el puesto de pesca. */
+export const FISHING_RODS = ["bambu", "fibra", "carbono"] as const;
+export type FishingRod = (typeof FISHING_RODS)[number];
+
+/**
+ * Cuánto ayuda cada caña en el minijuego: la barra verde más larga (`bar`) y el pez más lento (`move`,
+ * multiplica la dificultad con que se mueve). El medidor sube igual con todas: el tiempo mínimo de una
+ * partida no cambia. La de bambú deja todo como estaba (multiplicar por 1 no cambia ninguna partida).
+ */
+export const ROD_TUNING: Record<FishingRod, { bar: number; move: number }> = {
+  bambu: { bar: 1, move: 1 },
+  fibra: { bar: 1.18, move: 0.9 },
+  carbono: { bar: 1.36, move: 0.8 },
+};
+
+export const isFishingRod = (id: unknown): id is FishingRod => typeof id === "string" && (FISHING_RODS as readonly string[]).includes(id);
+
 /** La barra verde es más corta en los peces difíciles. */
 export function barHeightFor(difficulty: number): number {
   return Math.max(100, Math.min(144, Math.round(150 - difficulty * 0.38)));
@@ -72,6 +89,8 @@ export interface SimSetup {
   difficulty: number;
   behavior: FishBehavior;
   treasure: boolean;
+  /** Con qué caña se pesca (sin esto, la de bambú). */
+  rod?: FishingRod;
 }
 
 export class FishingSim {
@@ -97,9 +116,13 @@ export class FishingSim {
   private speed = 0;
   private sinkFloat = 0;
   private readonly rand: () => number;
+  /** Cuánto frena la caña al pez (1 = nada). */
+  private readonly move: number;
 
   constructor(readonly setup: SimSetup) {
-    this.barHeight = barHeightFor(setup.difficulty);
+    const tuning = ROD_TUNING[isFishingRod(setup.rod) ? setup.rod : "bambu"];
+    this.move = tuning.move;
+    this.barHeight = Math.min(SIM.track - 40, Math.round(barHeightFor(setup.difficulty) * tuning.bar));
     this.gain = gainFor(setup.difficulty);
     this.barPos = SIM.track - this.barHeight;
     this.rand = fishSimRandom(setup.seed);
@@ -131,7 +154,8 @@ export class FishingSim {
     const { behavior } = this.setup;
     // Cerca de sacarlo, el pez pelea más (sube su dificultad hasta un 12 %).
     const rage = Math.max(0, this.meter - SIM.rageFrom) / (1 - SIM.rageFrom);
-    const d = Math.min(SIM.maxMove, moveDifficulty(this.setup.difficulty) * (1 + rage * SIM.rage));
+    // La caña buena frena al pez: su dificultad de movimiento baja (con la de bambú, `move` = 1).
+    const d = Math.min(SIM.maxMove, moveDifficulty(this.setup.difficulty) * (1 + rage * SIM.rage)) * this.move;
     const top = SIM.track - SIM.fish;
     if (this.rand() < (d * (behavior === "smooth" ? 20 : 1)) / 4000 && (behavior !== "smooth" || this.target === -1)) {
       const below = SIM.track - this.fishPos;

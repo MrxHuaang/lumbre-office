@@ -7,6 +7,8 @@ import { CONEXIONES, hacia } from "./conexiones";
 import { BUS_DOOR_X, PARADA_M, ROAD, STATION, TURNSTILES } from "./parada";
 import { POOL_BASIN, POOL_SIZE, POOL_STEPS } from "../catalog-agua";
 import { SPA } from "../catalog-tina";
+import { PESCA_NPC } from "@hyvento/shared";
+import { PUESTO_PESCA, PUESTO_PESCA_MUEBLES, PUESTO_PESCA_PUNTO } from "./puesto-pesca";
 
 // ---------- Jardín ----------
 // Una zona jugable de 132x122 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
@@ -243,6 +245,8 @@ const PATHS: Seg[] = [
   // Hacia el lago (este) hasta la raíz del muelle, y de la orilla norte al molino, por el este del lago.
   { a: [54, 33], b: [DOCK.x0 + 0.4, 52], w: 2 },
   { a: [DOCK.x0 + 0.4, 52], b: [DOCK.x0 + 0.4, DOCK.y0 - 0.8], w: 2 },
+  // Senderito de la playita del muelle al mostrador del puesto de pesca (ver puesto-pesca.ts).
+  { a: [PUESTO_PESCA.punto.x - M + 2.6, PUESTO_PESCA.punto.y - M + 0.5], b: [PUESTO_PESCA.punto.x - M + 0.6, PUESTO_PESCA.punto.y - M + 0.5], w: 1.4 },
   { a: [DOCK.x0 + 1, 50.5], b: [76, 46.5], w: 1.6 },
   { a: [76, 46.5], b: [88, 46.5], w: 1.6 },
   { a: [88, 46.5], b: [100, 54], w: 1.6 },
@@ -701,6 +705,8 @@ put("picnic-table", 60, 74);
 put("picnic-bench", 59, 74, "right");
 put("picnic-bench", 61, 74, "left");
 put("bench", 74, 48, "down");
+// El puesto de pesca de Don Evelio, en la orilla oeste junto a la playita (ya en tiles del nivel).
+items.push(...PUESTO_PESCA_MUEBLES);
 // Juncos en el agua junto a la orilla y nenúfares más adentro (elegidos con ruido, siempre en el agua).
 const nearLand = (x: number, y: number) => [-1, 0, 1].some((dx) => [-1, 0, 1].some((dy) => !isWater(x + dx, y + dy) && ground(x + dx, y + dy) !== "dock"));
 const farFromLand = (x: number, y: number, r: number) => {
@@ -1070,6 +1076,8 @@ const POINTS: PointDef[] = [
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0),
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0 + 1),
   ...FLAT_ROCKS.map((r) => pt("fishing_spot", r.name, r.x, r.y)),
+  // El mostrador del puesto de pesca (ya en tiles del nivel).
+  PUESTO_PESCA_PUNTO,
   // Uno frente a cada puerta de la estación, en la fila de la plataforma pegada al bus.
   ...BUS_DOOR_X.map((dx) => pt("bus_stop", "Estación Hyvento", Math.floor(dx) - M, STATION.y + STATION.d - 1 - M)),
   // La piscina: junto a cada escalerita (al sur de la del suroeste y al este de la del noreste) y detrás
@@ -1263,6 +1271,8 @@ export const jardin: AreaDef = {
   ],
   features: [],
   furniture: items,
+  // Don Evelio, detrás del mostrador del puesto de pesca.
+  npcTiles: [PESCA_NPC.tile],
   portals: [
     {
       id: "jardin-casa",

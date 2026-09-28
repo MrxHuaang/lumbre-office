@@ -5,7 +5,8 @@
 import type { Look } from "./look";
 import { colorOf } from "./casino";
 
-export type NpcRole = "crupier" | "dealer" | "cajera" | "portero";
+// El pescador del puesto de pesca del lago está en pesca-tienda.ts (mismo formato).
+export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "pescador";
 
 export interface CasinoNpc {
   id: string;
