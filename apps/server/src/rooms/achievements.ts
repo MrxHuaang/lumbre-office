@@ -159,15 +159,19 @@ export class AchievementTracker {
   }
 
   private check(userId: string, e: Entry, list: Achievement[]) {
+    let added = false;
     for (const a of list) {
       if (e.unlocked.has(a.id)) continue;
       e.unlocked.add(a.id);
+      added = true;
       this.deps.onUnlock(userId, a);
       this.deps
         .repo()
         .unlockAchievement(userId, a.id)
         .catch((err) => console.error("unlockAchievement", err));
     }
+    // Los logros de logros: cuántos tiene (puede destrabar otro, que vuelve a pasar por aquí).
+    if (added || (e.unlocked.size > 0 && !e.stats.has(STAT_KEYS.achievementsUnlocked))) this.max(userId, STAT_KEYS.achievementsUnlocked, e.unlocked.size);
   }
 
   /** Guarda lo pendiente de alguien (si falla, queda para el próximo intento). */

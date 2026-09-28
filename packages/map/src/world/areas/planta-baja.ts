@@ -148,7 +148,8 @@ export const plantaBaja: AreaDef = {
     place("lamp", 8, 7),
     place("piano", 0, 5, "right"),
     place("guitar", 0, 8),
-    place("sideboard", 11, 5, "down"),
+    // El acuario contra la pared de la cafetería, mirando al salón: nadan los peces que sacó el equipo.
+    place("acuario", 12, 4, "left"),
     place("kentia", 12, 0),
     place("record-player", 12, 8),
     place("monstera", 12, 10),
@@ -190,7 +191,7 @@ export const plantaBaja: AreaDef = {
     place("stool", 22, 9, "right"),
     place("succulents", 13, 10),
     place("column-cactus", 28, 10),
-    // ----- Cocina (detrás de la barra; de adorno): dos fogones y el lavaplatos al norte, otro lavaplatos
+    // ----- Cocina (detrás de la barra): dos fogones (se cocina en ellos: puntos `kitchen_stove`) y el lavaplatos al norte, otro lavaplatos
     // contra la pared de la barra, la isla al centro, los barriles de agua y la mesita del personal.
     place("kitchen-counter", 30, 0, "down"),
     place("stove", 31, 0, "down"),
@@ -267,6 +268,8 @@ export const plantaBaja: AreaDef = {
     place("kentia", 16, 14),
     place("rug-persian", 12, 20, "down"),
     place("reception-desk", 13, 21, "down"),
+    // El teléfono de la recepción, sobre la repisa (para llamar a alguien a su oficina desde la entrada).
+    place("desk-phone-counter", 15, 21, "down"),
     place("lamp", 18, 22),
     place("entry-bench", 11, 24, "right"),
     place("monstera", 13, 25),
@@ -353,8 +356,13 @@ export const plantaBaja: AreaDef = {
     { type: "cafe_counter", name: "Barra", x: 25, y: 3 },
     // Frente al tablón de fotos (ver la galería).
     { type: "photo_board", name: "Tablón de fotos", x: 17, y: 1 },
+    // Frente al acuario del salón (ver qué peces nadan y quién los sacó).
+    { type: "aquarium", name: "Acuario", x: 11, y: 6 },
     // Frente al mostrador (comprar) y a la cortina del probador del medio (probarse ropa).
     { type: "shop_counter", name: "Mostrador", x: 21, y: 16 },
     { type: "fitting_room", name: "Probador", x: 37, y: 16 },
+    // Frente a los dos fogones de la cocina: ahí se cocina con lo del huerto y la miel.
+    { type: "kitchen_stove", name: "Estufa", x: 31, y: 1 },
+    { type: "kitchen_stove", name: "Estufa", x: 35, y: 1 },
   ],
 };

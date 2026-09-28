@@ -275,6 +275,11 @@ export class Usables {
 
   // ---------- Qué hay cerca ----------
 
+  /** La mascota de mi nivel al alcance para acariciarla (la más cercana que se ve), o null. */
+  petNear(x: number, y: number): { id: string; name: string; dist: number } | null {
+    return this.pets.nearest(x, y);
+  }
+
   /** El mueble que se usa más cercano al alcance de (x, y), o null. */
   nearest(x: number, y: number): UsableHit | null {
     const map = this.map;

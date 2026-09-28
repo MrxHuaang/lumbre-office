@@ -1,6 +1,6 @@
 // Gestos cortos del personaje al hacer un emote (saltito, balanceo, temblor, asentir, saludar). No se
 // rehacen las hojas del chibi: el sprite se corre unos píxeles y el saludo suma un brazo como capa.
-import { drawEmote, emoteFrames, wavingArm, type RGBA } from "@hyvento/map/art";
+import { BODY_UP, BODY_X, BODY_Y, drawEmote, emoteFrames, wavingArm, type RGBA } from "@hyvento/map/art";
 import type { Direction, EmoteGesture } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { ensureTexture } from "./iso/view";
@@ -41,22 +41,22 @@ export const WAVE_SIDE: Record<Direction, { side: -1 | 1; dx: number }> = {
   up: { side: 1, dx: 5 },
 };
 
-/** Hombro respecto de los pies (px): de pie 10 arriba; sentado, 3 menos. */
-export const SHOULDER_UP = 10;
+/** Hombro respecto de los pies (px), de pie; sentado, SIT_DROP menos. */
+export const SHOULDER_UP = BODY_UP.shoulder;
 
 const FALLBACK_SLEEVE: RGBA = [231, 111, 81, 255];
 const FALLBACK_SKIN: RGBA = [241, 194, 125, 255];
 
 /**
  * Colores de la manga y de la mano, leídos de la hoja del personaje (frame quieto mirando a la derecha:
- * el brazo de adelante está en la columna 20, la manga en la fila 20 y la mano en la 23).
+ * el brazo de adelante es la columna 12 del cuerpo, con la manga en la fila 15 y la mano en la 20).
  */
 function armColors(scene: Phaser.Scene, sheetKey: string): { sleeve: RGBA; skin: RGBA } {
   const read = (x: number, y: number, fallback: RGBA): RGBA => {
     const c = scene.textures.getPixel(x, y, sheetKey, 6);
     return c && c.alpha > 0 ? [c.red, c.green, c.blue, 255] : fallback;
   };
-  return { sleeve: read(20, 20, FALLBACK_SLEEVE), skin: read(20, 23, FALLBACK_SKIN) };
+  return { sleeve: read(BODY_X + 12, BODY_Y + 15, FALLBACK_SLEEVE), skin: read(BODY_X + 12, BODY_Y + 20, FALLBACK_SKIN) };
 }
 
 /** Textura del brazo que saluda para un personaje (por colores, lado y frame) y dónde queda su hombro. */

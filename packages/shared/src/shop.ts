@@ -51,6 +51,7 @@ export const SHOP_FURNITURE: readonly ShopItem[] = [
   furniture("tv-retro", "Tele con consola", 150, "Para la hora del almuerzo."),
   furniture("aquarium", "Pecera", 180, "Con peces de colores; brilla de noche."),
   furniture("piano", "Piano", 250, "Vertical, de madera."),
+  furniture("acuario", "Acuario", 320, "Largo, de madera: nadan los peces que sacó el equipo."),
 ];
 
 export function shopItem(id: string): ShopItem | undefined {

@@ -7,8 +7,8 @@ import { consumeActionOf, EMPTY_CAN, FREE_NAMES, heldParts, isHuertoTool, menuIt
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toHtmlCanvas } from "@/game/iso/canvas";
-import { sendFurnitureUse, sendToast, sendUseHeld } from "@/game/network";
-import { useOfficeStore } from "@/game/store";
+import { sendFurnitureUse, sendPetAction, sendToast, sendUseHeld } from "@/game/network";
+import { PET_USABLE_PREFIX, useOfficeStore } from "@/game/store";
 
 const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer", spoon: "Comer" } as const;
 
@@ -110,7 +110,10 @@ export function UsablePrompt() {
   return (
     <button
       type="button"
-      onClick={() => sendFurnitureUse(usable.type, usable.x, usable.y)}
+      onClick={() =>
+        // La "E" de una mascota (acariciarla) va por su propio mensaje.
+        usable.type.startsWith(PET_USABLE_PREFIX) ? sendPetAction(usable.type.slice(PET_USABLE_PREFIX.length), "pet") : sendFurnitureUse(usable.type, usable.x, usable.y)
+      }
       className="cozy-chip pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[14px]"
     >
       <kbd className="cozy-kbd">E</kbd>

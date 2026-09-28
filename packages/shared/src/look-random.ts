@@ -2,11 +2,10 @@
 // combinan (piel natural, pelo natural y a veces de fantasía, ropa de la paleta cozy de la cabaña) y
 // no sale nada que se vea roto: dos corbatas, un sombrero aplastando una cresta, una flor en una
 // cabeza calva, la ropa del mismo color que el pantalón, unos zapatos que se funden con la pierna…
+import { COSTUME_IDS } from "./costume-ids";
 import {
-  BACK_ITEMS,
   BOTTOMS,
   EYE_STYLES,
-  FACE_ITEMS,
   FACIAL_HAIR,
   HAIR_STYLES,
   HEAD_ITEMS,
@@ -101,28 +100,57 @@ export function seededRandom(seed: number): Random {
 /** Peinados altos: un sombrero o una gorra los aplastaría. */
 export const TALL_HAIR: readonly HairStyle[] = ["mohawk", "afro", "top-knot", "spiky"];
 /** Lo de la cabeza que tapa (o aplasta) el peinado. */
-export const HATS: readonly HeadItem[] = ["cap", "beanie", "straw-hat", "crown", "bandana"];
+export const HATS: readonly HeadItem[] = [
+  "cap",
+  "beanie",
+  "straw-hat",
+  "crown",
+  "bandana",
+  "chef-hat",
+  "top-hat",
+  "fire-helmet",
+  "hard-hat",
+  "rain-hat",
+  "sailor-hat",
+  "bee-hat",
+  "space-helmet",
+  "beret",
+  "bucket-hat",
+  "vueltiao",
+  "nightcap",
+  "pompom-beanie",
+  "pirate-hat",
+  "wizard-hat",
+];
 /** Lo que se prende en el pelo: sin pelo no tiene dónde ir. */
 export const HAIR_CLIPS: readonly HeadItem[] = ["bow", "flower"];
 /** Corbatas de cuello: no van con la camisa que ya trae corbata, ni con esqueleto o capucha. */
 export const NECK_TIES: readonly NeckItem[] = ["tie", "bowtie"];
-export const NO_TIE_TOPS: readonly Top[] = ["shirt-tie", "tank", "hoodie"];
+export const NO_TIE_TOPS: readonly Top[] = ["shirt-tie", "tank", "hoodie", "turtleneck", "sailor", "jersey", "hawaiian"];
 /** Conjuntos que no son traje de baño. */
 export const EVERYDAY_OUTFITS: readonly Outfit[] = OUTFITS.filter((o) => !isSwimwear(o));
+
+// "Al azar" saca ropa de todos los días: lo de disfraz (el casco espacial, la filipina…) viene con los
+// trajes completos, que salen de vez en cuando enteros.
+const RANDOM_HEAD: readonly HeadItem[] = ["none", "cap", "beanie", "straw-hat", "headphones", "bow", "crown", "flower", "bandana", "beret", "bucket-hat", "headband", "pompom-beanie"];
+const RANDOM_OUTFITS: readonly Outfit[] = ["overalls", "dress", "jacket", "apron", "gown", "blazer", "vest", "coat"];
+const RANDOM_FACE = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch"] as const;
+const RANDOM_NECK: readonly NeckItem[] = ["none", "scarf", "tie", "bowtie", "necklace", "neckerchief", "pearls", "chain"];
+const RANDOM_BACK = ["none", "backpack", "cape", "guitar"] as const;
 /** Con traje de baño (el pecho al aire) en el cuello solo va el collar. */
 export const SWIM_NECK_ITEMS: readonly NeckItem[] = ["none", "necklace"];
 
 /** Lo que se puede poner en la cabeza con cierto peinado. */
-export function headItemsFor(hairStyle: HairStyle): HeadItem[] {
-  return HEAD_ITEMS.filter(
+export function headItemsFor(hairStyle: HairStyle, from: readonly HeadItem[] = HEAD_ITEMS): HeadItem[] {
+  return from.filter(
     (h) => !(TALL_HAIR.includes(hairStyle) && HATS.includes(h)) && !(hairStyle === "bald" && HAIR_CLIPS.includes(h)),
   );
 }
 
 /** Lo que se puede poner en el cuello con cierta parte de arriba (y, si hay, cierto conjunto). */
-export function neckItemsFor(top: Top, outfit?: Outfit): NeckItem[] {
+export function neckItemsFor(top: Top, outfit?: Outfit, from: readonly NeckItem[] = NECK_ITEMS): NeckItem[] {
   if (isSwimwear(outfit)) return [...SWIM_NECK_ITEMS];
-  return NECK_ITEMS.filter((n) => !(NO_TIE_TOPS.includes(top) && NECK_TIES.includes(n)));
+  return from.filter((n) => !(NO_TIE_TOPS.includes(top) && NECK_TIES.includes(n)));
 }
 
 /**
@@ -173,7 +201,7 @@ export function randomLook(r: Random = Math.random): Look {
 
   const top = pick(r, TOPS);
   // Conjunto en uno de cada cuatro; el traje de baño casi nunca (al pulsar "Al azar" no debe salir seguido).
-  const outfit = chance(r, 0.02) ? pick(r, SWIMWEAR) : chance(r, 0.25) ? pick(r, EVERYDAY_OUTFITS) : undefined;
+  const outfit = chance(r, 0.02) ? pick(r, SWIMWEAR) : chance(r, 0.25) ? pick(r, RANDOM_OUTFITS) : undefined;
   // El traje de baño va sobre la piel: su color (el de arriba o, el bañador, el de abajo) se distingue de ella.
   const shirt = outfit === "swimsuit" || outfit === "bikini" ? pickApart(r, LOOK_CLOTHES, [skin]) : pick(r, LOOK_CLOTHES);
   const pants = pickApart(r, LOOK_BOTTOMS, outfit === "trunks" ? [shirt, skin] : [shirt]);
@@ -190,7 +218,10 @@ export function randomLook(r: Random = Math.random): Look {
   // El zapato no se puede fundir con lo que tiene al lado: el pantalón y, si se ve, la piel.
   const shoeColor = pickApart(r, LOOK_SHOES, shoesTouchSkin({ bottom, shoes, outfit }) ? [pants, skin] : [pants]);
 
+  // De vez en cuando, un traje completo (encima de lo demás, que queda para cuando se lo quite).
+  const costume = chance(r, 0.08) ? pick(r, COSTUME_IDS) : undefined;
   return {
+    ...(costume && { costume, costumeGear: true }),
     skin,
     hair,
     shirt,
@@ -210,9 +241,9 @@ export function randomLook(r: Random = Math.random): Look {
     bottom,
     shoes,
     shoeColor,
-    head: maybe(r, headItemsFor(hairStyle), 0.5),
-    face: maybe(r, FACE_ITEMS, 0.7),
-    neck: maybe(r, neckItemsFor(top, outfit), 0.65),
-    back: maybe(r, BACK_ITEMS, 0.75),
+    head: maybe(r, headItemsFor(hairStyle, RANDOM_HEAD), 0.5),
+    face: maybe(r, RANDOM_FACE, 0.7),
+    neck: maybe(r, neckItemsFor(top, outfit, RANDOM_NECK), 0.65),
+    back: maybe(r, RANDOM_BACK, 0.75),
   };
 }
