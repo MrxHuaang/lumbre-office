@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { media, useMediaStore } from "@/game/media";
 import { NAME_TAG_LABEL, selectFocusing, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
+import { DevicePanel } from "./DevicePanel";
 import { EmotePicker, useEmoteKey } from "./EmotePicker";
 import { takePhoto, usePhotoCounting, usePhotoKey } from "./PhotoPanels";
 
@@ -31,10 +32,13 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
   const nameTags = useOfficeStore((s) => s.nameTags);
   const cycleNameTags = useOfficeStore((s) => s.cycleNameTags);
   useNameTagKey();
+  const [devicesOpen, setDevicesOpen] = useState(false);
+  const closeDevices = useCallback(() => setDevicesOpen(false), []);
 
   return (
     <div className="cozy-panel absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 p-2.5">
       {emotes && <EmotePicker onClose={() => setEmotes(false)} />}
+      {devicesOpen && <DevicePanel onClose={closeDevices} />}
       <Slot
         n={1}
         icon="mic"
@@ -55,6 +59,17 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         disabled={!ready}
         onClick={() => void media.toggleCam()}
       />
+      {/* Audio y video: funciona sin LiveKit (la prueba es local), por eso nunca se deshabilita. */}
+      <button
+        type="button"
+        onClick={() => setDevicesOpen(true)}
+        aria-label="Audio y video: elegir y probar micrófono, cámara y parlantes"
+        aria-haspopup="dialog"
+        title="Audio y video"
+        className="cozy-btn h-[58px] w-7 p-0 max-sm:h-12 max-sm:w-6"
+      >
+        <PixelIcon name="gear" size={14} />
+      </button>
       <Slot
         n={3}
         icon="screen"

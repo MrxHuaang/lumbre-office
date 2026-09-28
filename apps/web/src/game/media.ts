@@ -9,6 +9,7 @@ import {
 } from "livekit-client";
 import { create } from "zustand";
 import { useOfficeStore } from "./store";
+import { bindRoom } from "./devices";
 
 export type MediaStatus = "off" | "connecting" | "connected" | "unavailable";
 
@@ -207,6 +208,7 @@ class MediaManager {
   }
 
   private wire(room: Room) {
+    bindRoom(room); // micrófono, cámara, parlantes y ayudas de audio elegidos (devices.ts)
     const sync = () => {
       if (this.room === room) this.syncParticipants();
     };
