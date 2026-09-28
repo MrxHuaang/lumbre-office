@@ -58,6 +58,20 @@ export { CINEMA_SCREEN, drawAreaBase, drawDoorPost, drawLowWall, drawRoomWalls, 
 // Casino: tipografía de números, geometría de las mesas, el arte del modo mesa y su encuadre. Con
 // nombres explícitos (no `export *`): así un nombre genérico no choca con lo que agreguen otras partes.
 export { textMask } from "./digits";
+// Ajedrez y damas de la sala de juegos: el tablero del panel de la mesa, con sus piezas y marcas.
+export {
+  boardArt,
+  cellOfSquare,
+  checkersPieceArt,
+  chessPieceArt,
+  squareAtCell,
+  squareAtPoint,
+  BOARD_FRAME,
+  BOARD_PX,
+  BOARD_SQ,
+  type BoardArtGame,
+  type BoardArtOptions,
+} from "./boardgames";
 export {
   betKey,
   rouletteCellAt,

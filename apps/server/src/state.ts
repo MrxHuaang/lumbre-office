@@ -147,6 +147,48 @@ export class HockeyState extends Schema {
   @type([HockeyPlayer]) sides = new ArraySchema<HockeyPlayer>(new HockeyPlayer(), new HockeyPlayer());
 }
 
+/** Una silla de una mesa de ajedrez o damas (0 = blancas, 1 = negras). */
+export class BoardSeatState extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** Dijo "listo" (antes de empezar). */
+  @type("boolean") ready = false;
+  /** Jugando: desde cuándo no está sentado en su silla (0 = está). Si pasa BOARD.awayMs, pierde. */
+  @type("number") awaySince = 0;
+}
+
+/**
+ * Mesa de ajedrez o de damas de la sala de juegos (boardGames.ts). La posición va entera: los que miran
+ * la ven en vivo y el navegador saca de ahí las jugadas legales para resaltarlas.
+ */
+export class BoardTableState extends Schema {
+  @type("string") id = "";
+  /** "ajedrez" o "damas". */
+  @type("string") game = "";
+  /** "idle" (esperando que los dos digan listo), "playing" u "over" (se ve el resultado). */
+  @type("string") phase = "idle";
+  @type("number") match = 0;
+  /** FEN (ajedrez) o las 64 casillas (damas). */
+  @type("string") position = "";
+  /** Quién mueve: 0 = blancas, 1 = negras. */
+  @type("number") turn = 0;
+  /** Última jugada: las casillas del recorrido separadas por comas ("" si no hubo). */
+  @type("string") last = "";
+  /** El rey del que mueve está en jaque. */
+  @type("boolean") check = false;
+  @type("number") plies = 0;
+  /** Reloj por jugada (segundos; 0 = sin reloj) y cuándo se acaba el turno (0 = sin reloj). */
+  @type("number") clock = 0;
+  @type("number") turnEndsAt = 0;
+  /** Quién ofreció tablas (-1 = nadie). */
+  @type("number") drawOffer = -1;
+  /** Al terminar: quién ganó (-1 = tablas), por qué (BoardReason) y cuándo queda libre la mesa. */
+  @type("number") winner = -1;
+  @type("string") reason = "";
+  @type("number") endsAt = 0;
+  @type([BoardSeatState]) seats = new ArraySchema<BoardSeatState>(new BoardSeatState(), new BoardSeatState());
+}
+
 /** Casa viva: una mascota de la casa (la mueve el servidor; ver rooms/mascotas.ts). */
 export class Pet extends Schema {
   @type("string") id = "";
@@ -237,6 +279,8 @@ export class OfficeState extends Schema {
   @type(RouletteState) roulette = new RouletteState();
   @type(BlackjackState) blackjack = new BlackjackState();
   @type(HockeyState) hockey = new HockeyState();
+  /** Mesas de ajedrez y damas de la sala de juegos, por id (ver BOARD_TABLES de @hyvento/map). */
+  @type({ map: BoardTableState }) boards = new MapSchema<BoardTableState>();
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`; los que no están siguen como arrancan. */
   @type({ map: "boolean" }) switches = new MapSchema<boolean>();
   /** Cambios del editor de la casa por nivel (JSON de WorldEdits de @hyvento/map); sin entrada, el plano. */

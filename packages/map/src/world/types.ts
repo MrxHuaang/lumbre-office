@@ -138,6 +138,24 @@ export interface PortalDef {
   label: string;
 }
 
+/** Una mesa de ajedrez o de damas con sus dos sillas (la primera juega con blancas). */
+export interface BoardTableDef {
+  id: string;
+  game: "ajedrez" | "damas";
+  area: string;
+  /** Tipo del mueble de la mesa (1x1). */
+  type: string;
+  x: number;
+  y: number;
+  seats: readonly [BoardSeatDef, BoardSeatDef];
+}
+
+export interface BoardSeatDef {
+  x: number;
+  y: number;
+  facing: "left" | "right";
+}
+
 export interface PointDef {
   type:
     | "spawn"
@@ -170,6 +188,8 @@ export interface PointDef {
     | "chair_race"
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
     | "tool_shed"
+    // Junto a una mesa de ajedrez o de damas de la sala de juegos: desde ahí se mira la partida.
+    | "board_game"
     // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
     | "greenhouse_plot";
   name: string;

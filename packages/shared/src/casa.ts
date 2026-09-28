@@ -1,5 +1,5 @@
 // Casa viva: los muebles chicos que se usan en todos los niveles (lámparas, libros, nevera, cafetera,
-// radio, globo, chimeneas, plantas, cortinas, ajedrez, puzle, pizarra, baños y la fogata). Se suman a
+// radio, globo, chimeneas, plantas, cortinas, puzle, pizarra, baños y la fogata). Se suman a
 // USABLE_FURNITURE (consumables.ts): mismo mensaje (`MSG.furnitureUse`), mismas reglas de alcance.
 // El servidor valida y avisa; lo que ven todos queda en el estado (interruptores, contadores y
 // cubículos ocupados) o llega como evento.
@@ -13,7 +13,7 @@ import { HUERTO_HOLDS, HUERTO_NAMES } from "./huerto";
  * - `spin`: girar el globo terráqueo;
  * - `stoke`: avivar el fuego (más llama por un rato);
  * - `water`: regar una planta;
- * - `count`: ajedrez, puzle y pizarra: cada uso avanza un contador que ven todos (y vuelve a empezar);
+ * - `count`: puzle y pizarra: cada uso avanza un contador que ven todos (y vuelve a empezar);
  * - `take`: sacar algo gratis (la nevera, la cafetera): queda en la mano como consumible;
  * - `wash`: lavarse las manos;
  * - `stall`: entrar al cubículo del baño un rato (se ve ocupado);
@@ -41,7 +41,6 @@ export const CASA = {
 
 /** Tope de cada contador: al llegar vuelve a 0 (partida nueva, puzle nuevo, pizarra borrada). */
 export const COUNTER_MAX: Record<string, number> = {
-  "chess-table": 12,
   "puzzle-table": 20,
   "cafe-sign": 6,
   easel: 6,
@@ -103,8 +102,7 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   "balcony-planter": water,
   // Las cortinas de las ventanas: prendida = cerrada.
   [CURTAIN_TYPE]: { action: "toggle", label: "Cerrar la cortina", labelOn: "Abrir la cortina", defaultOn: false, cooldownMs: 600, marker: false },
-  // Juegos de mesa y pizarras: un contador que avanza para todos.
-  "chess-table": { action: "count", label: "Mover una pieza", cooldownMs: 1200 },
+  // Puzle y pizarras: un contador que avanza para todos (el ajedrez se juega de verdad: boardgames.ts).
   "puzzle-table": { action: "count", label: "Poner una pieza", cooldownMs: 1200 },
   "cafe-sign": { action: "count", label: "Garabatear en la pizarra", cooldownMs: 1500 },
   easel: { action: "count", label: "Pintar un poco", cooldownMs: 1500 },

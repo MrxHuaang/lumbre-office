@@ -54,6 +54,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "snacks"
   // El hockey de mesa del arcade (se juega en modo mesa, parado en una punta).
   | "hockey"
+  // Ajedrez y damas de la sala de juegos (piso 3): se juega sentado en una silla de la mesa o se mira.
+  | "boardgame"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
