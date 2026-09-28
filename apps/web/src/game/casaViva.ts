@@ -32,7 +32,6 @@ import { COZY, cozyFontFamily } from "@/lib/cozy";
 import type { Avatar } from "./Avatar";
 import {
   playChalk,
-  playClack,
   playCoffee,
   playCurtain,
   playFridge,
@@ -628,11 +627,8 @@ export class CasaViva {
       }
       case "count": {
         who?.perform(face, 700);
-        const p = top(f.type === "chess-table" || f.type === "puzzle-table" ? 14 : 24);
-        if (f.type === "chess-table") {
-          playClack(vol);
-          this.hop(p.x, p.y, e.seed % 2 ? 0xf0f0f2 : 0x30374b, 2, 4);
-        } else if (f.type === "puzzle-table") {
+        const p = top(f.type === "puzzle-table" ? 14 : 24);
+        if (f.type === "puzzle-table") {
           playSnap(vol);
           this.hop(p.x, p.y, [0xee7a22, 0xdcae3f, 0x6e3a96, 0x5ea247][e.seed % 4]!, 3, 3);
         } else {

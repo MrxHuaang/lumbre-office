@@ -4,7 +4,7 @@
 import type { FloorKind, WallFeature, WallpaperKind } from "../world/types";
 import { C, OUT, inRect, mix } from "./palette";
 import { at, bayer, noise, ramp, smoothNoise, type Ramp, type RGBA } from "./pixel";
-import { cinderblockWall } from "./garaje-room";
+import { boardsWall, cinderblockWall } from "./garaje-room";
 import { treehouseWall } from "./casa-arbol-room";
 
 /** Verde bosque (papel de la biblioteca). */
@@ -412,6 +412,8 @@ export function interiorWall(kind: WallpaperKind | null, u: number, hv: number):
       return cinderblockWall(u, hv);
     case "treehouse":
       return treehouseWall(u, hv);
+    case "boards":
+      return boardsWall(u, hv);
     default:
       return null;
   }

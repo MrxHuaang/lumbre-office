@@ -14,3 +14,5 @@ export * from "./fishing";
 export * from "./social";
 export * from "./photos";
 export * from "./achievements";
+export * from "./door-notes";
+export * from "./aquarium";

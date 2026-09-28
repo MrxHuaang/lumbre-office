@@ -1,10 +1,19 @@
 // Piezas comunes del dibujo del chibi: tonos de color, filas y el contexto que reciben las capas.
-import type { FullLook } from "@hyvento/shared";
+import type { FullLook, WornLook } from "@hyvento/shared";
 import { hex, type PixelCanvas, type RGBA } from "../pixel";
 
-/** Margen arriba del cuerpo para el moño y los audífonos; los pies quedan en la fila 24 + TOP. */
-export const TOP = 2;
-export const BODY_H = 26 + TOP;
+/**
+ * Filas del cuerpo (de pie): cabeza 3-11, cuello 12, torso 13-19, cintura 20, piernas 21-24 y zapatos
+ * 25-26 (las suelas en SOLE). Sentado, el torso baja SIT_DROP y las piernas se doblan hacia adelante.
+ * Arriba queda un margen de TOP filas para lo que va sobre la cabeza (el gorro de chef, la chistera…).
+ */
+export const TOP = 8;
+/** Fila de las suelas. */
+export const SOLE = 26;
+/** Cuánto baja el torso al sentarse (la cadera queda a la altura del asiento). */
+export const SIT_DROP = 4;
+/** Alto del lienzo de un frame del cuerpo: dos filas más que las suelas para los pies de sentado. */
+export const BODY_H = SOLE + 3 + TOP;
 
 const DARK = hex("#2b1b3a");
 const LIGHT = hex("#fff2c0");
@@ -16,6 +25,11 @@ export const PETAL = hex("#f28fad");
 export const PETAL_DARK = hex("#d9607f");
 export const POLLEN = hex("#f4d35e");
 export const LEAF = hex("#5ea247");
+/** Tela blanca de la bata, la filipina y los sombreros blancos; metal, oro y negro de lo que no se tiñe. */
+export const WHITE = "#f4f2ee";
+export const METAL = "#a9b1c4";
+export const GOLD_HEX = "#e8b84a";
+export const INK = "#2b2530";
 
 /** Tono de un color: negativo oscurece hacia morado, positivo aclara hacia amarillo. */
 export function tone(base: string, k: number): RGBA {
@@ -47,9 +61,15 @@ export interface Tones {
   straw: Three;
   cream: Three;
   ribbon: Three;
+  white: Three;
+  metal: Three;
+  gold: Three;
+  ink: Three;
+  /** Guantes del traje (null = manos al aire). */
+  gloves: Three | null;
 }
 
-export function tones(l: FullLook): Tones {
+export function tones(l: FullLook & { gloves?: string | null }): Tones {
   return {
     skin: three(l.skin),
     hair: three(l.hair),
@@ -62,6 +82,11 @@ export function tones(l: FullLook): Tones {
     straw: three(STRAW),
     cream: three(CREAM),
     ribbon: three(RIBBON),
+    white: three(WHITE),
+    metal: three(METAL),
+    gold: three(GOLD_HEX),
+    ink: three(INK),
+    gloves: l.gloves ? three(l.gloves) : null,
   };
 }
 
@@ -75,13 +100,14 @@ export type Row = (row: number) => number;
  */
 export interface Ctx {
   c: PixelCanvas;
-  look: FullLook;
+  /** Lo que se ve puesto (con el traje ya aplicado, ver wornLook). */
+  look: WornLook;
   t: Tones;
   view: View;
   /** 0 = quieto, 1 y 2 = pasos. */
   frame: 0 | 1 | 2;
   sit: boolean;
-  /** Fila de torso y cabeza: sube y baja con el paso, y baja 3 al sentarse. */
+  /** Fila de torso y cabeza: sube y baja con el paso, y baja SIT_DROP al sentarse. */
   y: Row;
   /** Fila de las piernas (sin balanceo). */
   Y: Row;

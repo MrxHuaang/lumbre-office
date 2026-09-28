@@ -47,6 +47,7 @@ export function OptionGrid<T extends string>({
   crop,
   dir,
   disabled = false,
+  tall = false,
 }: {
   options: Option<T>[];
   isOn: (id: T) => boolean;
@@ -54,6 +55,8 @@ export function OptionGrid<T extends string>({
   crop: Crop;
   dir?: SheetDirection;
   disabled?: boolean;
+  /** Miniaturas del personaje entero, sombrero incluido (los trajes). */
+  tall?: boolean;
 }) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(70px,1fr))] gap-2">
@@ -66,7 +69,7 @@ export function OptionGrid<T extends string>({
           onClick={() => onPick(o.id)}
           className="cozy-btn flex-col justify-start gap-1 px-1 pt-1 pb-1.5"
         >
-          <span className="grid h-[60px] w-full place-items-center bg-cozy-paper-light">
+          <span className={`grid w-full place-items-center bg-cozy-paper-light ${tall ? "h-[76px]" : "h-[60px]"}`}>
             <ChibiThumb look={o.look} crop={crop} dir={dir} />
           </span>
           <span className="text-center text-[12px] leading-[1.15] text-balance">{o.label}</span>

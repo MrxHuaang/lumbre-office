@@ -51,6 +51,12 @@ export async function publishPointsChanged(userId: string) {
   await notifyGameServer(INTERNAL_ROUTES.pointsChanged, "puntos", { userId });
 }
 
+/** Avisa al servidor de juego que alguien leyó o borró las notas de su puerta (se recuentan los post-its). */
+export async function publishDoorNotesChanged(userId: string) {
+  // Si el servidor no responde, los post-its se recuentan cuando vuelva a cargar las oficinas.
+  await notifyGameServer(INTERNAL_ROUTES.doorNotesChanged, "notas de la puerta", { userId });
+}
+
 /** Avisa al servidor de juego que alguien recibió un regalo (si está conectado, le llega el aviso). */
 export async function publishGiftSent(notice: GiftSentNotice) {
   // Si el servidor no responde, el regalo igual espera en el buzón.
