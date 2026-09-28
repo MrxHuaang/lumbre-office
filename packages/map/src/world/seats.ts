@@ -27,19 +27,28 @@ export function seatZ(type: string): number {
   return (SEAT_Z[type] ?? (type.startsWith("cinema-seat") ? SEAT_Z["cinema-seat"]! : SIT_BASE_Z)) + (catalogItem(type).lift ?? 0);
 }
 
-/** Cuánto bajar (positivo) o subir (negativo) la hoja de sentado en ese asiento, en px de arte. */
-export function seatLift(type: string): number {
-  return SIT_BASE_Z - seatZ(type);
+/**
+ * De espaldas no se ven las piernas colgando: la hoja sube estos px para que la cadera quede sobre el
+ * asiento (si no, en una banca angosta el cuerpo cuelga por delante de la tabla).
+ */
+export const SIT_BACK_RAISE = 3;
+
+/**
+ * Cuánto bajar (positivo) o subir (negativo) la hoja de sentado en ese asiento, en px de arte. Con
+ * `facing`, de espaldas sube un poco más (ver SIT_BACK_RAISE).
+ */
+export function seatLift(type: string, facing?: Facing): number {
+  return SIT_BASE_Z - seatZ(type) - (facing === "left" || facing === "up" ? SIT_BACK_RAISE : 0);
 }
 
 /**
- * Sentado de espaldas a la cámara en un asiento con respaldo: el respaldo queda delante. Se dibuja la
- * persona encima del mueble pero solo hasta los hombros (filas de la hoja < SIT_BACK_ROWS), para que la
- * cabeza asome sobre el respaldo y el resto quede tapado.
+ * Sentado de espaldas a la cámara en un asiento con respaldo: el respaldo queda delante. El cuerpo se
+ * dibuja debajo del mueble (el respaldo lo tapa de verdad) y encima va solo la cabeza (filas de la hoja
+ * < SIT_BACK_ROWS), para que se vea quién es aunque el respaldo sea más alto que el personaje.
  */
 export function seatBehind(type: string, facing: Facing): boolean {
   return Boolean(catalogItem(type).hasBack) && (facing === "left" || facing === "up");
 }
 
-/** Filas de la hoja de sentado (de arriba) que se ven sobre el respaldo: cabeza y hombros. */
-export const SIT_BACK_ROWS = 23;
+/** Filas de la hoja de sentado (de arriba) que van sobre el respaldo: la cabeza hasta el cuello. */
+export const SIT_BACK_ROWS = 21;
