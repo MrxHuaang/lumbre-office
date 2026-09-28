@@ -45,8 +45,6 @@ const NIGHT = {
 } as const;
 /** La textura de la noche va a media resolución (es un degradado). */
 const NIGHT_SCALE = 2;
-/** Alto libre (px) sobre las paredes de la sala enfocada para los globos de diálogo. */
-const HEADROOM = 64;
 
 function spriteTexture(scene: Phaser.Scene, key: string, make: () => Sprite): Sprite {
   const s = make();
@@ -574,8 +572,9 @@ export class AreaView {
     const y0 = rect.y * ts;
     const x1 = (rect.x + rect.w) * ts;
     const y1 = (rect.y + rect.h) * ts;
-    // Sobre las paredes del fondo queda aire: los nombres y globos de quien está junto a ellas no se cortan.
-    const top = WALL_H + 2 + HEADROOM;
+    // El hueco llega justo al borde de las paredes; los nombres y globos de los de adentro van sobre el
+    // oscurecido (Avatar.setOverShade), así no hace falta aclarar el aire de encima.
+    const top = WALL_H + 2;
     const hole = [
       worldToScreen(x0 - pad, y1),
       worldToScreen(x0 - pad, y1, top),

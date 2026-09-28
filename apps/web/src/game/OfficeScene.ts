@@ -742,7 +742,9 @@ export class OfficeScene extends Phaser.Scene {
     for (const [id, a] of this.avatars) {
       const inside = !rect || id === this.localId || (a.x >= rect.x * ts && a.x < (rect.x + rect.w) * ts && a.y >= rect.y * ts && a.y < (rect.y + rect.h) * ts);
       a.setVeiled(!inside);
+      a.setOverShade(Boolean(rect) && inside);
     }
+    this.npcs.setOverShade(rect, ts);
   }
 
   // ---------- Fotos ----------

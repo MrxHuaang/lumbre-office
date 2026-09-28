@@ -94,6 +94,11 @@ const HANDS: Record<Direction, [{ dx: number; front: boolean }, { dx: number; fr
  */
 /** Tope de una animación de uso (la más larga, la pitada, dura ~1,1 s): después se libera la mano igual. */
 const USE_SAFETY_MS = 2500;
+/**
+ * Cuánto suben el nombre y los globos de quien está en la sala enfocada del modo privado: así quedan
+ * sobre el oscurecido (7e7 en iso/view.ts) aunque asomen por encima de la pared del fondo.
+ */
+const OVER_SHADE = 2.5e7;
 const MOUTH_STANDING = BODY_UP.mouth - 1;
 const MOUTH_SEATED = MOUTH_STANDING - SIT_DROP;
 const MOUTH: Record<Direction, { dx: number }> = { down: { dx: -1 }, right: { dx: 1 }, left: { dx: -4 }, up: { dx: 4 } };
@@ -348,6 +353,15 @@ export class Avatar {
     this.syncSeatHead();
   }
   private veiled = false;
+
+  /** En la sala enfocada del modo privado: nombre y globos sobre el oscurecido (ver OVER_SHADE). */
+  setOverShade(on: boolean) {
+    const lift = on ? OVER_SHADE : 0;
+    if (lift === this.lift) return;
+    this.lift = lift;
+    this.layout();
+  }
+  private lift = 0;
 
   /** La insignia destacada ("" o un id que no es de un logro = ninguna). */
   setBadge(achievementId: string) {
@@ -1863,20 +1877,20 @@ export class Avatar {
     const head = HEAD - (this.seated && !this.soaking ? SIT_DROP : 0) - (this.swimming || this.soaking ? SWIM_DROP - 2 : 0);
     const top = this.video ? head + VIDEO_SIZE + 2 : head;
     this.video?.dom.setPosition(x, y - head + 2).setDepth(depth + 0.6);
-    this.label.setPosition(x + 3, y - top).setDepth((this.hovered ? 5.5e7 : 5e7) + depth);
-    this.statusDot.setPosition(x + 3 - this.label.width / 2 - 4, y - top - this.label.height / 2).setDepth(5e7 + depth + 0.1);
+    this.label.setPosition(x + 3, y - top).setDepth((this.hovered ? 5.5e7 : 5e7) + this.lift + depth);
+    this.statusDot.setPosition(x + 3 - this.label.width / 2 - 4, y - top - this.label.height / 2).setDepth(5e7 + this.lift + depth + 0.1);
     // La insignia, pegada al otro lado del nombre (a píxel entero, para que el dibujo quede nítido).
-    this.badge?.img.setPosition(Math.round(x + 3 + this.label.width / 2 + 1), Math.round(y - top - this.label.height / 2)).setDepth(5e7 + depth + 0.1);
+    this.badge?.img.setPosition(Math.round(x + 3 + this.label.width / 2 + 1), Math.round(y - top - this.label.height / 2)).setDepth(5e7 + this.lift + depth + 0.1);
     // Las insignias van justo sobre el nombre; los globos, encima de ellas.
     const badgeH = this.badgeRow ? BADGE_ROW_H : 0;
-    this.badgeRow?.container.setPosition(x + 3, y - top - this.label.height - 1).setDepth(5e7 + depth + 0.2);
-    this.bubble?.setPosition(x, y - top - this.label.height - 1 - badgeH).setDepth(6e7 + depth);
+    this.badgeRow?.container.setPosition(x + 3, y - top - this.label.height - 1).setDepth(5e7 + this.lift + depth + 0.2);
+    this.bubble?.setPosition(x, y - top - this.label.height - 1 - badgeH).setDepth(6e7 + this.lift + depth);
     if (this.emoteBubble) {
       // Sobre el nombre; si hay globo de chat, encima de él.
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       this.emoteBubble.container
         .setPosition(x, y - top - this.label.height - 1 - badgeH - chat - this.emoteBubble.lift)
-        .setDepth(6e7 + depth + 0.1);
+        .setDepth(6e7 + this.lift + depth + 0.1);
     }
     if (this.phone) {
       const face = this.spinning?.face ?? this.seated ?? this.dir;
@@ -1887,20 +1901,20 @@ export class Avatar {
       // El globo, sobre el nombre (a la derecha del emote, si hay uno).
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       const beside = this.emoteBubble ? 14 : 0;
-      this.phone.bubble?.setPosition(x + beside + this.phone.shake, y - top - this.label.height - 1 - badgeH - chat).setDepth(6e7 + depth + 0.12);
+      this.phone.bubble?.setPosition(x + beside + this.phone.shake, y - top - this.label.height - 1 - badgeH - chat).setDepth(6e7 + this.lift + depth + 0.12);
     }
     this.shiftOverlays();
     if (this.countdownBubble) {
       // Encima del emote y del globo de chat, si hay.
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       const emote = this.emoteBubble ? 14 : 0;
-      this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - badgeH - chat - emote).setDepth(6e7 + depth + 0.15);
+      this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - badgeH - chat - emote).setDepth(6e7 + this.lift + depth + 0.15);
     }
     if (this.handBubble) {
       // La mano, sobre el nombre (a la izquierda del emote, si hay uno, para que no se tapen).
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       const beside = this.emoteBubble ? -14 : 0;
-      this.handBubble.container.setPosition(x + beside, y - top - this.label.height - 1 - badgeH - chat).setDepth(6e7 + depth + 0.11);
+      this.handBubble.container.setPosition(x + beside, y - top - this.label.height - 1 - badgeH - chat).setDepth(6e7 + this.lift + depth + 0.11);
     }
   }
 }
