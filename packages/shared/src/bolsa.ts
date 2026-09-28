@@ -10,6 +10,7 @@ import { RECIPES } from "./cocina";
 import { CONSUMABLES } from "./consumables";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
 import { shopItem } from "./shop";
+import { SOMBRERO_MENU, sombreroItem } from "./sombrero";
 import type { ItemStack } from "./social";
 
 export const BAG = {
@@ -65,6 +66,11 @@ function fromMenus(): Record<string, BagObject> {
     if (holds.length !== 1 || out[holds[0]!]) continue;
     const art = holds[0]!;
     out[art] = { name: item.name, blurb: item.blurb, kind: KIND_OF_MENU[item.kind] };
+  }
+  // La mercancía del Man del Sombrero (sin `kind` en su carta: se deduce de cómo se usa).
+  for (const item of SOMBRERO_MENU) {
+    const art = item.holds[0];
+    if (art && !out[art]) out[art] = { name: item.name, blurb: item.blurb, kind: "objeto" };
   }
   return out;
 }
@@ -186,7 +192,8 @@ export function handParts(id: string): readonly string[] {
  * combo de las onces es un tinto y un pandebono).
  */
 export function bagItemsOf(menuOrFreeId: string): string[] {
-  return heldParts(menuOrFreeId).map(objItemId);
+  const parts: readonly string[] = heldParts(menuOrFreeId).length ? heldParts(menuOrFreeId) : (sombreroItem(menuOrFreeId)?.holds ?? []);
+  return parts.map(objItemId);
 }
 
 // ---------- Casillas ----------

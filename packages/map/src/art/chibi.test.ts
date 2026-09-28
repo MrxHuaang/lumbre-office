@@ -73,7 +73,7 @@ describe("personajes chibi", () => {
     const accentAccessories: Accessory[] = ["cap", "headphones", "beanie", "scarf"];
     // El vestido, el entero y el bikini tapan la parte de abajo; la chaqueta y el bañador usan el acento.
     const noPants: Outfit[] = ["dress", "swimsuit", "bikini", "gown", "pajamas"];
-    const withAccent: Outfit[] = ["jacket", "trunks"];
+    const withAccent: Outfit[] = ["jacket", "trunks", "trenchcoat"];
     // El color secundario se fija: si no viene, sigue al de acento (y el ribete del pijama lo usa).
     const noAccent: CharacterStyle[] = [
       { ...base, top2: "#f7ebc8", accessories: [] },

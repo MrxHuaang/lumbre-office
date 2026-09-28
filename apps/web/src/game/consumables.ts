@@ -100,6 +100,15 @@ export function idleWisp(scene: Phaser.Scene, x: number, y: number, depth: numbe
   });
 }
 
+/** El polvito de la esnifada: tres motas blancas que suben hacia la nariz y se desvanecen. */
+function snort(scene: Phaser.Scene, x: number, y: number, depth: number) {
+  const key = ensureTexture(scene, "mota-polvo", () => crumb([246, 244, 238, 255]));
+  for (let k = 0; k < 3; k++) {
+    const img = scene.add.image(x + (Math.random() - 0.5) * 4, y + 4, key).setDepth(ABOVE_LABELS + depth).setAlpha(0.9);
+    scene.tweens.add({ targets: img, y: y - 1, x: x, alpha: 0, duration: 240 + k * 60, ease: "Quad.in", onComplete: () => img.destroy() });
+  }
+}
+
 /** Halo de la brasa al pitar (luz que se suma). */
 export function emberHalo(scene: Phaser.Scene): Phaser.GameObjects.Image {
   const key = ensureTexture(scene, "halo-brasa", () => emberGlow());
@@ -205,6 +214,16 @@ async function animateUse(scene: Phaser.Scene, action: ConsumeAction, target: Us
     await step(scene, USE_MS.sip, (v) => target.setPose(1, Math.round(Math.sin(v * Math.PI * 2)) === 1 ? -1 : 0));
     target.setTilt(0);
     target.applyLeft();
+    await step(scene, USE_MS.lower, (v) => target.setPose(1 - v, 0));
+  } else if (action === "sniff") {
+    // La bolsita sube a la nariz, dos esnifadas (saltitos hacia atrás) y se ve un polvito que sube.
+    sfx.sniff(target.volume());
+    for (let k = 0; k < 2; k++) {
+      await step(scene, USE_MS.chomp * 1.4, (v) => target.setPose(1, v > 0.5 ? -1 : 0));
+      const m = target.mouth();
+      if (!target.hidden()) snort(scene, m.x, m.y - 2, m.depth);
+      if (k === 0) target.applyLeft();
+    }
     await step(scene, USE_MS.lower, (v) => target.setPose(1 - v, 0));
   } else if (action === "spoon") {
     // Cucharadas: el plato o la taza sube hasta el pecho (no se inclina ni se muerde) y dos cucharaditas

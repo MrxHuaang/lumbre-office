@@ -147,6 +147,7 @@ export const HEAD_LABEL: Record<HeadItem, string> = {
   tiara: "Tiara",
   "pirate-hat": "Sombrero pirata",
   "wizard-hat": "Sombrero de mago",
+  fedora: "Sombrero de fieltro",
 };
 
 export const FACE_LABEL: Record<FaceItem, string> = {
@@ -199,6 +200,7 @@ export const OUTFIT_LABEL: Record<Outfit, string> = {
   robe: "Bata",
   ruana: "Ruana",
   "hi-vis": "Chaleco reflectivo",
+  trenchcoat: "Gabán",
 };
 
 /**
@@ -233,7 +235,7 @@ const ACCENT_NECK: Partial<Record<NeckItem, string>> = {
   medal: "la cinta de la medalla",
   whistle: "el cordón del silbato",
 };
-const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta", trunks: "los detalles del bañador" };
+const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta", trunks: "los detalles del bañador", trenchcoat: "el gabán" };
 const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "el morral", cape: "la capa", "air-tank": "el tanque" };
 
 /** Lo que lleva puesto y usa el color de acento, en el orden de la cabeza a la espalda. */
@@ -272,7 +274,7 @@ export function top2Users(look: FullLook): string[] {
 }
 
 /** Conjuntos que tapan toda la tela de arriba: con ellos el color secundario no se ve. */
-const TOP2_HIDDEN: readonly Outfit[] = ["trunks", "coveralls", "coat", "raincoat", "chef-coat"];
+const TOP2_HIDDEN: readonly Outfit[] = ["trunks", "coveralls", "coat", "raincoat", "chef-coat", "trenchcoat"];
 
 /** Ayuda del color secundario cuando no se ve: qué estampado o parte de arriba lo mostraría. */
 export function top2Hint(look: FullLook): string {

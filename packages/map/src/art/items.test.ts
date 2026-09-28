@@ -1,4 +1,4 @@
-import { BAR_MENU, CAFE_MENU, CONSUMABLES, usesOf } from "@hyvento/shared";
+import { BAR_MENU, CAFE_MENU, CONSUMABLES, SOMBRERO_MENU, usesOf } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { drawFurniture } from "./furniture";
 import { CAFE_ITEM_ART, drawHeldItem, drawMenuItem, heldEffect } from "./items";
@@ -13,7 +13,7 @@ const opaque = (c: { data: Uint8ClampedArray }) => {
 describe("lo que se lleva en la mano", () => {
   it("todo lo que se puede consumir tiene dibujo, y todo lo de las cartas también", () => {
     for (const art of Object.keys(CONSUMABLES)) expect(CAFE_ITEM_ART, art).toContain(art);
-    for (const item of [...CAFE_MENU, ...BAR_MENU]) {
+    for (const item of [...CAFE_MENU, ...BAR_MENU, ...SOMBRERO_MENU]) {
       for (const part of item.holds) expect(CAFE_ITEM_ART, `${item.id}: ${part}`).toContain(part);
       expect(opaque(drawMenuItem(item.id)), item.id).toBeGreaterThan(8);
     }
@@ -57,6 +57,17 @@ describe("lo que se lleva en la mano", () => {
     const fx = heldEffect("cigarro", 1)!;
     expect(fx.fx).toBe("smoke");
     expect(fx.from[0]).toBe(short.width - 1);
+  });
+
+  it("lo del Man del Sombrero cambia con el uso: la bareta se quema, la bolsita se vacía y la totuma deja ver el fondo", () => {
+    expect(drawHeldItem("bareta", { left: 1 }).width).toBeLessThan(drawHeldItem("bareta").width);
+    expect(heldEffect("bareta")?.fx).toBe("smoke");
+    for (const art of ["perico-bolsa", "yage", "chirrinchi", "viche"]) {
+      const full = drawHeldItem(art);
+      const last = drawHeldItem(art, { left: 1 });
+      expect([last.width, last.height], art).toEqual([full.width, full.height]);
+      expect(full.data.some((v, i) => v !== last.data[i]), art).toBe(true);
+    }
   });
 
   it("inclinado para el sorbo sigue siendo el mismo vaso, corrido hacia un lado", () => {

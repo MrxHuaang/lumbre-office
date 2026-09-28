@@ -13,7 +13,7 @@ import { sendToast, sendUseHeld } from "@/game/network";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { ItemIcon } from "./ItemIcon";
 
-const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer", spoon: "Comer" } as const;
+const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer", spoon: "Comer", sniff: "Esnifar" } as const;
 
 /** ¿Es un campo donde se escribe? (ahí Tab y los números son del texto). */
 const isField = (el: EventTarget | null) =>
