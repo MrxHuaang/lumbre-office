@@ -39,9 +39,11 @@ interface EntryLoaderProps {
   onExit?: () => void;
   /** Terminó de irse (la cabaña ya está detrás). */
   onGone?: () => void;
+  /** Solo para vistas previas: un momento y una estación fijos. */
+  previewMood?: EntryMood;
 }
 
-export function EntryLoader({ profile, error = null, onRetry, onExit, onGone }: EntryLoaderProps) {
+export function EntryLoader({ profile, error = null, onRetry, onExit, onGone, previewMood }: EntryLoaderProps) {
   const [shown, setShown] = useState(0);
   const [label, setLabel] = useState<string>("Buscando tu llave");
   const [slow, setSlow] = useState(false);
@@ -98,11 +100,11 @@ export function EntryLoader({ profile, error = null, onRetry, onExit, onGone }: 
 
   // El momento del día: la hora local mientras no llegue el reloj del juego; al llegar, la del juego.
   const gameClock = useOfficeStore((s) => s.gameClock);
-  const [mood, setMood] = useState<EntryMood>(() => entryMood(Date.now(), null, 12 * 60));
+  const [mood, setMood] = useState<EntryMood>(() => previewMood ?? entryMood(Date.now(), null, 12 * 60));
   useEffect(() => {
-    const next = entryMood(Date.now(), currentGameTime()?.minuteOfDay ?? null, localMinute());
-    setMood((m) => (m.phase === next.phase && m.season === next.season ? m : next));
-  }, [gameClock]);
+    const next = previewMood ?? entryMood(Date.now(), currentGameTime()?.minuteOfDay ?? null, localMinute());
+    setMood((m) => (m.phase === next.phase && m.season === next.season && m.minuteOfDay === next.minuteOfDay ? m : next));
+  }, [gameClock, previewMood]);
 
   const avatar = profile?.avatar ?? "carla";
   const look = useMemo(() => profile?.look ?? null, [profile?.look]);
@@ -145,7 +147,7 @@ export function EntryLoader({ profile, error = null, onRetry, onExit, onGone }: 
         ) : (
           <>
             <EntryBar shown={shown} label={done ? "¡Adentro!" : `${label}…`} />
-            <div className="mt-3 min-h-[44px]" aria-live="polite">
+            <div className="mt-2 min-h-[36px]" aria-live="polite">
               {slow && !done && (
                 <div className="entry-slow flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-[14px] text-cozy-paper-light">
                   <span>Esto está tardando más de lo normal.</span>
@@ -166,7 +168,7 @@ export function EntryLoader({ profile, error = null, onRetry, onExit, onGone }: 
 /** La barra pixel con el nombre de la etapa y el porcentaje. */
 function EntryBar({ shown, label }: { shown: number; label: string }) {
   return (
-    <div className="mt-5 w-[min(100%,480px)]">
+    <div className="mt-5 w-[min(100%,540px)]">
       <div className="flex items-baseline justify-between gap-3 text-[15px] text-cozy-paper-light">
         <span className="truncate">{label}</span>
         <span className="shrink-0 tabular-nums">{shown}%</span>
@@ -209,7 +211,7 @@ function EntryTips() {
   }, []);
   const tip = ENTRY_TIPS[order[pos % order.length]!]!;
   return (
-    <div className="cozy-chip mt-2 flex w-[min(100%,480px)] items-start gap-2.5 px-3.5 py-2.5">
+    <div className="cozy-chip mt-2 flex w-[min(100%,540px)] items-start gap-2.5 px-3.5 py-2.5">
       <span className="cozy-kbd mt-[1px] shrink-0 text-[12px]">Consejo</span>
       <p className="entry-tip min-h-[2.6em] text-[14px] leading-snug" data-show={visible}>
         {tip}

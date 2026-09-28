@@ -269,8 +269,8 @@ function drawPath({ phase, season }: Mood): Strip {
       c.rect(x - 1, 48, 3, 5, lit ? at(C.gold, 5) : at(C.gold, 2));
       c.rect(x - 3, 45, 7, 1, at(C.roof, 2));
       if (lit) {
-        lights.glow(x + 0.5, 50, 16, 14, at(C.gold, 4), night ? 110 : 60, 3);
-        lights.glow(x + 0.5, 88, 18, 5, at(C.gold, 4), night ? 70 : 35, 2);
+        lights.glow(x + 0.5, 50, 12, 10, at(C.gold, 4), night ? 0.4 : 0.22, 3);
+        lights.glow(x + 0.5, 88, 16, 4, at(C.gold, 4), night ? 0.3 : 0.16, 2);
         lights.rect(x - 1, 48, 3, 5, at(C.gold, 5));
       }
     });
@@ -334,7 +334,7 @@ function drawSun(phase: SkyPhase): string {
       for (let x = 0; x < 14; x++) if (Math.hypot(x + 0.5 - 9.5, y + 0.5 - 5.5) < 4.5) c.data[(y * 14 + x) * 4 + 3] = 0;
     return url(c);
   }
-  c.glow(7, 7, 7, 7, at(C.gold, 5), 90, 2);
+  c.glow(7, 7, 7, 7, at(C.gold, 5), 0.35, 2);
   c.ellipse(7, 7, 4.5, 4.5, at(C.gold, 4));
   c.ellipse(6, 6, 2.5, 2.5, at(C.gold, 5));
   return url(c);
@@ -412,7 +412,7 @@ function drawCabin({ phase, season }: Mood) {
       lights.rect(wx + 7, 38, 5, 4, at(C.gold, 5));
       lights.rect(wx, 44, 5, 4, at(C.gold, 4));
       lights.rect(wx + 7, 44, 5, 4, at(C.gold, 4));
-      lights.glow(wx + 6, 43, 11, 9, at(C.gold, 4), night ? 70 : 35, 2);
+      lights.glow(wx + 6, 43, 10, 8, at(C.gold, 4), night ? 0.3 : 0.15, 2);
     }
   }
   c.outline(OUT);
