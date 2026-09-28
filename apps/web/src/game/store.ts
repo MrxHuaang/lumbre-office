@@ -308,7 +308,9 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
   "too-soon": () => ({ text: "Espera un momento antes de volver a tocar.", tone: "info" }),
 };
 
-const PRIVATE_WALLS_KEY = "hyvento:paredes-altas";
+// Clave nueva: al pasar las paredes altas a predeterminadas, todos arrancan con ellas una vez (lo que se
+// eligió con la clave vieja, "hyvento:paredes-altas", arrancaba apagado).
+const PRIVATE_WALLS_KEY = "hyvento:paredes-altas-v2";
 
 /**
  * Nombres sobre los personajes: completos, cortos ("Juan J.", sin el propio) u ocultos. En cualquier modo,
@@ -328,12 +330,12 @@ function loadNameTags(): NameTagMode {
   }
 }
 
-/** El modo privado se recuerda en este navegador (arranca apagado). */
+/** El modo privado se recuerda en este navegador: arranca prendido (paredes altas al entrar a la cabaña). */
 function loadPrivateWalls(): boolean {
   try {
-    return typeof localStorage !== "undefined" && localStorage.getItem(PRIVATE_WALLS_KEY) === "1";
+    return typeof localStorage === "undefined" || localStorage.getItem(PRIVATE_WALLS_KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
