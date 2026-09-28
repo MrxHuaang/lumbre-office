@@ -20,6 +20,7 @@ import {
   type OfficeRadioState,
   type PointsAwarded,
   type PresenceStatus,
+  type SpaKind,
   type Weather,
 } from "@hyvento/shared";
 import { create } from "zustand";
@@ -90,7 +91,7 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "trophies"
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
   | "kitchen"
-  // Escenario del jardín: la escalerita de la tarima (subir o bajar) y la mesa de la cabina de grabación.
+  // Escenario del jardín: la escalerita de la tarima (subir o bajar); estudio de grabación: la consola.
   | "stage"
   | "podcast"
   // Observatorio: el telescopio, la fogata de malvaviscos, el orrery, el radar de señales y el diario.
@@ -99,6 +100,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "orrery"
   | "radar"
   | "logbook"
+  // La astrónoma del observatorio: E le pregunta por el cielo (contesta con una burbuja que ven todos).
+  | "astronomer"
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
   | "sombrero"
   // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).
@@ -182,7 +185,7 @@ export interface Notice {
   action?: { label: string; run: () => void };
 }
 
-export type WalkTarget = ({ kind: "zone"; zoneId: string } | { kind: "player"; sessionId: string }) & { nonce: number };
+export type WalkTarget = ({ kind: "zone"; zoneId: string } | { kind: "player"; sessionId: string } | { kind: "point"; x: number; y: number }) & { nonce: number };
 
 type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error";
 
@@ -218,6 +221,8 @@ interface OfficeStore {
   atSwivel: boolean;
   /** El asiento de la ayuda "E" es una reposera de la piscina (se lee "tomar el sol"). */
   seatSun: boolean;
+  /** El asiento de la ayuda "E" es de la tina o de la sauna del lago (se lee "meterse a la tina"…). */
+  seatSpa: SpaKind | null;
   /** Sentado con un teléfono al alcance (de pie, el teléfono sale como objeto con "E"). */
   atPhone: boolean;
   /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
@@ -312,6 +317,7 @@ interface OfficeStore {
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
   setAtSwivel: (at: boolean) => void;
+  setSeatSpa: (spa: SpaKind | null) => void;
   setSeatSun: (sun: boolean) => void;
   setAtPhone: (at: boolean) => void;
   setToastPrompt: (prompt: ToastPrompt | null) => void;
@@ -325,6 +331,8 @@ interface OfficeStore {
   walkToZone: (zoneId: string) => void;
   /** Caminar hasta alguien (a un tile libre a su lado; si está en otro nivel, por los portales). */
   walkToPlayer: (sessionId: string) => void;
+  /** Caminar a un punto del nivel actual (px de mundo), p. ej. desde el minimapa. */
+  walkToPoint: (x: number, y: number) => void;
   addInvitation: (inv: Invitation) => void;
   removeInvitation: (inviteId: string) => void;
   handleInviteResult: (r: InviteResult) => void;
@@ -418,6 +426,7 @@ const initial = {
   atComputer: false,
   atSwivel: false,
   seatSun: false,
+  seatSpa: null as SpaKind | null,
   atPhone: false,
   toastPrompt: null as ToastPrompt | null,
   pcOn: false,
@@ -492,6 +501,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setAtComputer: (atComputer) => set({ atComputer }),
   setAtSwivel: (atSwivel) => set({ atSwivel }),
   setSeatSun: (seatSun) => set({ seatSun }),
+  setSeatSpa: (seatSpa) => set({ seatSpa }),
   setAtPhone: (atPhone) => set({ atPhone }),
   setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),
@@ -516,6 +526,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { kind: "zone", zoneId, nonce: Date.now() } }),
   walkToPlayer: (sessionId) => set({ walkTarget: { kind: "player", sessionId, nonce: Date.now() } }),
+  walkToPoint: (x, y) => set({ walkTarget: { kind: "point", x, y, nonce: Date.now() } }),
   addInvitation: (inv) => {
     const expiresAt = Date.now() + INVITE_TIMEOUT_MS;
     set((s) => ({

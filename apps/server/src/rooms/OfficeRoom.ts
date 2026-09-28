@@ -166,6 +166,7 @@ import {
   type BusNotice,
   type BusTimings,
   AGUA,
+  TINA,
   AGUA_MSG,
   isNightMinute,
   type AguaNotice,
@@ -237,6 +238,7 @@ import {
   type ApplauseEvent,
   type EscenarioNotice,
   type EscenarioNoticeCode,
+  type PodcastNotice,
 } from "@hyvento/shared";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
@@ -255,6 +257,7 @@ import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/share
 import { CasaArbol } from "./casaArbol";
 import { BusLine, type BusSchedule } from "./bus";
 import { Piscina } from "./piscina";
+import { Tina } from "./tina";
 import { Observatorio } from "./observatorio";
 import { MARSHMALLOW, OBS_MSG, SKY, type MarshmallowTimings, type SignalPing, type SkyTimings } from "@hyvento/shared";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
@@ -403,6 +406,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     diveCooldownMs: AGUA.diveCooldownMs,
     checkMs: AGUA.checkMs,
   };
+  /** La tina y la sauna del lago: cada cuánto da puntos el descanso y cada cuánto se revisa (los tests los acortan). */
+  static tinaTimings: { tickMs: number; checkMs: number } = { tickMs: TINA.tickMs, checkMs: TINA.checkMs };
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
@@ -746,7 +751,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private arcade!: Arcade;
   /** El cine del sótano (la cola de la función). */
   private cinema!: Cinema;
-  /** El escenario del jardín (tarima, fila de turnos, palabra, aplausos) y la cabina de grabación. */
+  /** El escenario del jardín (tarima, fila de turnos, palabra, aplausos) y el estudio de grabación. */
   private escenario!: Escenario;
   private podcast!: Podcast;
   /** Jardín vivo: el huerto, el cobertizo y la miel (ver huerto.ts). */
@@ -758,6 +763,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   bus!: BusLine;
   /** La piscina del jardín: nadar, el trampolín, las reposeras al sol y quedar mojado (ver piscina.ts). */
   private piscina?: Piscina;
+  /** La tina caliente y la sauna del lago: los puntos del descanso y quedar mojado al salir (ver tina.ts). */
+  private tina?: Tina;
   /** Ajedrez y damas de la sala de juegos (ver boardGames.ts). */
   private boardGames!: BoardGames;
   /** Reloj de la cocina (los tests lo adelantan para que se acabe la energía). */
@@ -868,6 +875,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.startHockey();
     this.startBus();
     this.startPiscina();
+    this.startTina();
     this.startBoardGames();
     OfficeRoom.instances.add(this);
 
@@ -1488,10 +1496,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** ¿Puede este jugador estar en (x, y)? Bloquea oficinas cerradas a quien no es dueño ni invitado. */
   private canAccess(player: Player, x: number, y: number): boolean {
     const map = this.mapOf(player.area);
-    // La tarima del escenario (dos como mucho) y la cabina de grabación (llena, o pidiendo permiso o grabando).
+    // La tarima del escenario (dos como mucho).
     const sessionId = [...this.state.players.entries()].find(([, p]) => p === player)?.[0] ?? "";
     if (!this.escenario.canEnter(map, sessionId, player, x, y, this.state.players)) return false;
-    if (!this.podcast.canEnter(map, player.zoneId, x, y, this.podcastInside())) return false;
     const zone = zoneAt(map, x, y);
     if (zone?.type !== "office") return true;
     const office = this.state.offices.get(zone.id);
@@ -1776,6 +1783,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
 
     const previousZoneId = player.zoneId;
+    // El asiento que deja (si se para o se cambia a otro): al salir de la tina o de la sauna, mojado.
+    const leftSeat = player.seated && (!seated || x !== player.x || y !== player.y) ? seatAtPoint(map, player.x, player.y)?.type : undefined;
     if (x !== player.x || y !== player.y) {
       client.userData.lastActiveAt = now;
       // Casa viva: moverse te saca del cubículo del baño.
@@ -1797,6 +1806,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
     if (player.racing) void this.raceOutcome(client.sessionId, this.races.moved(map, client.sessionId, player, now));
     if (!seated && !fromSeat && dist > 0) this.achievements.walk(player.userId, dist / map.tileSize);
+    if (leftSeat && leftSeat !== seat?.type) this.tina?.stoodUp(player.userId, leftSeat);
   }
 
   /** Pasar a otro nivel por un portal: hay que estar parado junto a él. */
@@ -1815,6 +1825,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (blocked) {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       client.send(CASA_ARBOL_MSG.notice, { code: blocked } satisfies CasaArbolNotice);
+      return;
+    }
+    // El estudio de grabación: lleno, o pidiendo permiso o grabando (el cartel de la puerta prendido).
+    const onAir = portal.to.area === PODCAST.area ? this.podcast.canEnter(player.userId, this.podcastInside()) : null;
+    if (onAir) {
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
+      client.send(PODCAST_MSG.notice, { code: onAir } satisfies PodcastNotice);
       return;
     }
     // Del Megabús solo se baja con el bus en la estación y las puertas abiertas (nunca en ruta).
@@ -1845,6 +1862,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.trades.moved(client.sessionId);
     void this.raceOutcome(client.sessionId, this.races.cancel(client.sessionId, player, "lane"));
     this.casaArbol.sweep(Date.now());
+    // Salir del estudio (o entrar) cambia a quiénes cuenta el acuerdo para grabar: se revisa ya.
+    this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
   }
 
   /** Algo de la casa del árbol (la escalera, el modo foco): solo desde adentro; cuenta como actividad. */
@@ -2445,7 +2464,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const now = Date.now();
     const used = this.held.use(player.userId, now);
     if (!used.ok) return;
-    this.countUse(player.userId, used.art, used.action);
+    this.countUse(player.userId, used.art, used.action, used.done);
     this.drunk.consumed(player.userId, used.art);
     this.trips.consumed(player.userId, used.art);
     client.userData.lastActiveAt = now;
@@ -2503,7 +2522,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.trips.consumed(userId, used.art);
     // Cada vaso que choca es un brindis (logro "¡Salud!") y un sorbo más.
     this.achievements.bump(userId, STAT_KEYS.toasts);
-    this.countUse(userId, used.art, used.action);
+    this.countUse(userId, used.art, used.action, used.done);
     return { sessionId, part: used.part, left: used.left };
   }
 
@@ -2534,8 +2553,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sendToArea(player.area, MSG.swivelEvent, event);
   }
 
-  private countUse(userId: string, art: string, action: string) {
+  private countUse(userId: string, art: string, action: string, done = false) {
     const a = this.achievements;
+    // Fumado hasta el final (la última pitada acaba la unidad).
+    if (action === "smoke" && done) a.bump(userId, STAT_KEYS.smoked);
     a.bump(userId, action === "smoke" ? STAT_KEYS.puffs : action === "sip" ? STAT_KEYS.sips : STAT_KEYS.bites);
     a.bump(userId, `${STAT_PREFIX.use}${art}`);
     if (ALCOHOL_PER_SIP[art]) a.bump(userId, STAT_KEYS.alcoholSips);
@@ -2659,6 +2680,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       timings: () => OfficeRoom.aguaTimings,
     });
     this.clock.setInterval(() => void this.piscina?.sunTick().catch((err) => console.error("piscina", err)), OfficeRoom.aguaTimings.checkMs);
+  }
+
+  // ---------- La tina y la sauna ----------
+
+  /** La tina caliente y la sauna del lago: los puntos del descanso (con actividad) y el mojado de la piscina. */
+  private startTina() {
+    this.tina = new Tina({
+      now: () => Date.now(),
+      map: (area) => this.mapOf(area),
+      people: () => this.state.players.entries(),
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      active: (sessionId) => {
+        const data = this.clients.getById(sessionId)?.userData as UserData | undefined;
+        return Boolean(data) && Date.now() - data!.lastActiveAt <= OfficeRoom.idleMs;
+      },
+      rested: (userId) => this.achievements.bump(userId, STAT_KEYS.spaRests),
+      soak: (userId) => this.piscina?.soak(userId),
+      timings: () => OfficeRoom.tinaTimings,
+    });
+    this.clock.setInterval(() => void this.tina?.tick().catch((err) => console.error("tina", err)), OfficeRoom.tinaTimings.checkMs);
   }
 
   /** Meterse, tirarse del trampolín o salir del agua (con E junto a la piscina). */
@@ -2948,6 +2989,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       marshmallowTimings: () => OfficeRoom.marshmallowTimings,
       skyTimings: () => OfficeRoom.skyTimings,
       isNight: () => isNightMinute(this.gameTimeNow().minuteOfDay),
+      sky: () => ({ minuteOfDay: this.gameTimeNow().minuteOfDay, weather: this.state.weather as Weather }),
       player: (sessionId) => this.state.players.get(sessionId),
       map: (area) => this.mapOf(area),
       toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
@@ -2967,6 +3009,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(OBS_MSG.telescopeLook, (client) => active(client, (id) => obs.look(id)));
     this.onMessage(OBS_MSG.telescopeClose, (client) => obs.close(client.sessionId));
     this.onMessage(OBS_MSG.starSpot, (client, raw) => active(client, (id) => obs.spot(id, raw)));
+    this.onMessage(OBS_MSG.astronomerAsk, (client) => active(client, (id) => obs.ask(id)));
     this.clock.setInterval(() => obs.tick(), OfficeRoom.skyTimings.tickMs);
   }
 
@@ -3396,6 +3439,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.casa.forget(player.userId);
     this.swivels.forget(player.userId);
     this.piscina?.forget(player.userId);
+    this.tina?.forget(player.userId);
     void this.achievements.forget(player.userId);
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
@@ -3558,12 +3602,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sendToArea(player.area, ESCENARIO_MSG.applause, { sessionId: client.sessionId, crowd } satisfies ApplauseEvent);
   }
 
-  // ---------- Cabina de grabación ----------
+  // ---------- Estudio de grabación ----------
 
-  /** Quiénes están adentro de la cabina ahora. */
+  /** Quiénes están adentro del estudio ahora (todo el nivel es la sala). */
   private podcastInside(): Inside[] {
     const out: Inside[] = [];
-    for (const [sessionId, p] of this.state.players) if (p.area === PODCAST.area && p.zoneId === PODCAST.zone) out.push({ sessionId, userId: p.userId, name: p.name });
+    for (const [sessionId, p] of this.state.players) if (p.area === PODCAST.area) out.push({ sessionId, userId: p.userId, name: p.name });
     return out;
   }
 

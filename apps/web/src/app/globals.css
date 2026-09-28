@@ -182,6 +182,44 @@ body {
   .cozy-btn-danger:not(:disabled):hover {
     background: #e24b3c;
   }
+  /* Botones chicos de la barra de abajo: al aire en verde, apagado con el ícono en rojo. */
+  .bar-slot[data-live="true"] {
+    background: #5ea247;
+    color: var(--color-cozy-paper-light);
+    border-color: #2e5a40;
+    box-shadow:
+      inset 2px 2px 0 var(--color-cozy-green-light),
+      2px 2px 0 rgb(20 10 24 / 0.35);
+  }
+  .bar-slot[data-live="true"]:not(:disabled):hover {
+    background: #6fb354;
+  }
+  .bar-slot[data-off="true"] {
+    color: var(--color-cozy-red-deep);
+  }
+  /* El atajo, chiquito en la esquina (como el número de las casillas de la mochila). */
+  .bar-slot-key {
+    position: absolute;
+    top: 0;
+    left: 2px;
+    font-size: 9px;
+    line-height: 1;
+    color: var(--color-cozy-ink-soft);
+    pointer-events: none;
+  }
+  .bar-slot[data-live="true"] .bar-slot-key {
+    color: var(--color-cozy-paper-light);
+  }
+  /* Al aire ya se nota por el verde: sin el recuadro rojo encima. */
+  .bar-slot[data-live="true"][aria-pressed="true"] {
+    outline: none;
+  }
+  /* Foco con teclado: un recuadro azul por fuera, distinto del rojo de "encendido" (va al final para ganar). */
+  .cozy-btn:focus-visible,
+  .cozy-btn.bar-slot:focus-visible {
+    outline: 3px solid var(--color-cozy-sky);
+    outline-offset: 1px;
+  }
 
   .cozy-input {
     font-family: var(--font-pixel);
@@ -740,6 +778,11 @@ body {
   outline: 3px solid var(--color-cozy-red);
   outline-offset: -1px;
   z-index: 1;
+}
+.bag-slot:focus-visible {
+  outline: 3px solid var(--color-cozy-sky);
+  outline-offset: 1px;
+  z-index: 2;
 }
 .bag-slot[data-drop="true"] {
   background: #fdeec4;

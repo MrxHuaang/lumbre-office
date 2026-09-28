@@ -88,7 +88,7 @@ export function BirthdayChip() {
   const text = names.length === 1 ? (people[0]![0] === me ? "¡Hoy es tu cumpleaños!" : `Hoy cumple ${names[0]}`) : `Hoy cumplen ${names.slice(0, -1).join(", ")} y ${names.at(-1)}`;
   const toCongratulate = people.filter(([id]) => id !== me && !congratulated[id]);
   return (
-    <div className="cozy-chip flex items-center gap-2 px-2.5 py-1" role="status">
+    <div className="cozy-chip flex h-[34px] items-center gap-2 px-2.5" role="status">
       <ArtImage id="hud-gorrito" make={partyHat} scale={2} alt="" />
       <span>{text}</span>
       {toCongratulate.map(([id, name]) => (

@@ -17,7 +17,7 @@ export function GameClockChip() {
   const time = formatGameTime(shown);
   return (
     <div
-      className="cozy-chip flex items-center gap-2 py-1 pr-3 pl-1.5"
+      className="cozy-chip flex h-[34px] items-center gap-2 pr-3 pl-1.5"
       title={`Reloj de la cabaña: día ${t.day + 1}, ${time} (${PHASE_TEXT[skyPhase(t.minuteOfDay)].toLowerCase()}). Un día dura ${Math.round(GAME_DAY_REAL_MS / 60_000)} minutos.`}
       aria-label={`Día ${t.day + 1}, ${time}`}
     >

@@ -9,7 +9,9 @@ import { GARAJE_CATALOG } from "./catalog-garaje";
 import { CASA_ARBOL_CATALOG } from "./catalog-casa-arbol";
 import { BUS_CATALOG } from "./catalog-bus";
 import { AGUA_CATALOG } from "./catalog-agua";
+import { TINA_CATALOG } from "./catalog-tina";
 import { ESCENARIO_CATALOG } from "./catalog-escenario";
+import { PODCAST_CATALOG } from "./catalog-podcast";
 import { GRANJA_CATALOG } from "./catalog-granja";
 import { OBSERVATORIO_CATALOG } from "./catalog-observatorio";
 import type { Facing } from "./types";
@@ -64,6 +66,13 @@ export interface CatalogItem {
    * solo nadando (ver agua.ts).
    */
   swim?: boolean;
+  /** Asientos dentro del agua (la tina caliente): quien se sienta se dibuja de medio cuerpo en el agua. */
+  soak?: boolean;
+  /**
+   * Quien se sienta se ordena con el mueble entero (encima de él), aunque el asiento traiga su dirección:
+   * la tina (todos encima de la tinaja) y la sauna (encima de la base y debajo del barril, que va aparte).
+   */
+  sortWhole?: boolean;
 }
 
 export const CATALOG = {
@@ -185,7 +194,9 @@ export const CATALOG = {
   ...CASA_ARBOL_CATALOG,
   ...BUS_CATALOG,
   ...AGUA_CATALOG,
+  ...TINA_CATALOG,
   ...ESCENARIO_CATALOG,
+  ...PODCAST_CATALOG,
   ...GRANJA_CATALOG,
   ...OBSERVATORIO_CATALOG,
 } satisfies Record<string, CatalogItem>;

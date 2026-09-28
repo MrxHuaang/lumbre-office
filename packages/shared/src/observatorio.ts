@@ -1,4 +1,4 @@
-// El observatorio del jardín (lomita del noreste): la fogata de malvaviscos con su minijuego, el
+// El observatorio del jardín (al este): la fogata de malvaviscos con su minijuego, el
 // telescopio con el cielo y las estrellas fugaces, el radar de señales y el diario de exploración.
 // Todo es puro: lo usan el servidor (las reglas, con el azar y la hora como parámetros), el cliente
 // (qué dibujar) y los tests. "De noche" es la noche del reloj del juego (clock.ts), no la hora real.
@@ -21,7 +21,17 @@ export const OBS_MSG = {
   sky: "obs:sky",
   /** Servidor → los del observatorio: alguien tocó un instrumento en otro nivel (SignalPing, para el radar). */
   signal: "obs:signal",
+  /** Cliente → servidor: E junto a la astrónoma (le pregunta por el cielo). */
+  astronomerAsk: "obs:astronomer:ask",
+  /** Servidor → los del observatorio: lo que contestó la astrónoma (AstronomerSay; todos ven la misma frase). */
+  astronomerSay: "obs:astronomer:say",
 } as const;
+
+/** Lo que dijo la astrónoma y a quién (para que lo mire). */
+export interface AstronomerSay {
+  sessionId: string;
+  text: string;
+}
 
 // ---------- Fogata de malvaviscos ----------
 
@@ -402,6 +412,7 @@ export const LOG_AREAS: readonly { id: string; name: string; note: string }[] = 
   { id: "garaje", name: "El garaje", note: "Llantas, herramientas y un carro tapado que nadie destapa." },
   { id: "casa-arbol", name: "La casa del árbol", note: "Tres cojines, una escalera de cuerda y silencio para concentrarse." },
   { id: "megabus", name: "El Megabús", note: "Verde lima, vidrios oscuros y un fuelle que se dobla en las curvas." },
+  { id: "podcast", name: "El estudio de grabación", note: "Ocho micrófonos, una mesa larga y el cartel de EN EL AIRE." },
   { id: "observatorio", name: "El observatorio", note: "Una torre de piedra que mira al cielo desde la lomita." },
 ];
 

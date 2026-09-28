@@ -8,6 +8,8 @@ export * from "./chibi";
 // La piscina: la hoja de nado y lo que se anima sobre el agua.
 export { drawSwimming, SWIM_DROP } from "./chibi-agua";
 export { poolCover, poolFloat, poolShimmer, POOL_SHIMMER_FRAMES, waterDroplet, waterRing, type PoolFloatKind } from "./agua";
+// La tina y la sauna del lago: el agua de la tina (para la hoja de medio cuerpo) y lo que se anima encima.
+export { spaGlints, SPA_GLINT_FRAMES, steamPuff, TUB_RIPPLE_FRAMES, TUB_WATER, tubRipples } from "./tina";
 export { drawFurniture, type Variant } from "./furniture";
 export { handsetSprite, phoneBubble } from "./phone";
 export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";
@@ -28,9 +30,9 @@ export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 export { drawTreeLadder } from "./casa-arbol-exterior";
 // El Megabús de la parada del jardín: el bus que arma el cliente, las puertas y la pantalla de la estación.
 export { BUS_CAR_LEN, busCarSprite, busJointSprite, busScreenText, stationDoorsSprite, type BusCar } from "./bus";
-// Escenario y cabina de grabación del jardín: la tela de la pantalla y el cartel "EN EL AIRE".
+// El escenario del jardín (la tela de la pantalla) y el cartel "EN EL AIRE" prendido del estudio.
 export { STAGE_SCREEN } from "./escenario";
-export { podcastSign } from "./podcast";
+export { onAirSignSprite } from "./podcast-room";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 // Las estaciones (ver apps/web/src/game/seasons.ts).
@@ -227,5 +229,5 @@ export {
   FLAME_FRAMES,
   type FlameSize,
 } from "./casa-fx";
-export { drawPet, petBowl, petTreat, sleepZ, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
+export { drawPet, petBowl, petMenuIcon, petTreat, sleepZ, type PetMenuIcon, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
 export { orreryArms, ORRERY_FRAMES } from "./observatorio";

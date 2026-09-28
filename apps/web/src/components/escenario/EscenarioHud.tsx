@@ -1,9 +1,9 @@
 "use client";
 
-// El escenario y la cabina de grabación en el HUD (van en la pila de avisos de abajo):
+// El escenario y el estudio de grabación en el HUD (van en la pila de avisos de abajo):
 // - en las gradas: aplaudir, levantar o bajar la mano y, si me dieron la palabra, devolverla;
 // - en la tarima: la fila de turnos con "Dar la palabra", quién la tiene y bajar del escenario;
-// - en la cabina: grabar (pide permiso a todos), el estado "EN EL AIRE" con su reloj y detener.
+// - en el estudio: grabar (pide permiso a todos), el estado "EN EL AIRE" con su reloj y detener.
 // El diálogo del permiso para grabar va aparte, bien a la vista (`PodcastConsent`).
 import type { HandView } from "@hyvento/shared";
 import { useEffect, useState } from "react";
@@ -138,7 +138,7 @@ function useElapsed(since: number) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-/** Adentro de la cabina: grabar, esperar los permisos o el "EN EL AIRE". */
+/** Adentro del estudio: grabar, esperar los permisos o el "EN EL AIRE". */
 function BoothControls() {
   const me = useMyUserId();
   const podcast = useEscenarioStore((s) => s.podcast);
@@ -179,7 +179,7 @@ function BoothControls() {
   }
   return (
     <div className="cozy-chip pointer-events-auto flex flex-wrap items-center justify-center gap-2 px-3 py-1.5 text-[13px]">
-      <span>Cabina de grabación · solo se graba si todos los de adentro aceptan</span>
+      <span>Estudio de grabación · solo se graba si todos los de adentro aceptan</span>
       <button
         type="button"
         onClick={() => (audio ? sendPodcastStart() : useOfficeStore.getState().notify("Para grabar hay que tener el audio conectado.", "warning"))}
@@ -193,7 +193,7 @@ function BoothControls() {
 }
 
 /**
- * El permiso para grabar: a cada persona de la cabina que todavía no respondió, bien a la vista. La voz
+ * El permiso para grabar: a cada persona del estudio que todavía no respondió, bien a la vista. La voz
  * de nadie se graba sin que acepte aquí.
  */
 export function PodcastConsent() {
@@ -209,7 +209,7 @@ export function PodcastConsent() {
           ¿Grabamos?
         </p>
         <p className="mt-2 text-[14px] leading-relaxed">
-          <strong>{podcast.hostName}</strong> quiere grabar la conversación de la cabina. Es solo audio: el archivo se arma y se
+          <strong>{podcast.hostName}</strong> quiere grabar la conversación del estudio. Es solo audio: el archivo se arma y se
           guarda en el computador de {podcast.hostName}, no en el servidor. Puedes detenerla cuando quieras.
         </p>
         <p className="mt-2 text-[14px]">¿Aceptas que se grabe tu voz?</p>

@@ -70,6 +70,14 @@ export const poolSfx = {
     if (!a || vol <= 0.02 || !gated("stroke", 380)) return;
     wash(a, a.ctx.currentTime + 0.01, 0.28, 900, 500, 0.05 * vol, 0.06);
   },
+  /** El agua sobre las piedras calientes de la sauna: un siseo que se apaga (al entrar). */
+  hiss(vol = 1) {
+    const a = sfxOut();
+    if (!a || vol <= 0.02 || !gated("hiss", 800)) return;
+    const t = a.ctx.currentTime + 0.05;
+    wash(a, t, 1.1, 5200, 2600, 0.05 * vol, 0.04, "highpass");
+    wash(a, t + 0.02, 0.5, 1600, 900, 0.03 * vol, 0.02);
+  },
   /** Salir o entrar por la escalera: un chapoteo corto. */
   slosh(vol = 1) {
     const a = sfxOut();

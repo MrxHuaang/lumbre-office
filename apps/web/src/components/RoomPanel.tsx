@@ -1,8 +1,9 @@
 "use client";
 
-// Lo de la sala donde estoy (va en el panel lateral, SideDock): la pizarra y las paredes altas en
-// cualquier oficina o en la sala de reuniones; y en tu oficina, además, decorar, el candado, la nota de
-// la placa y la radio; en la casa del árbol, la escalera y el modo foco. La radio de una oficina ajena se ve (y se le baja el volumen) desde aquí también.
+// Lo de la sala donde estoy (va en el panel lateral, SideDock): la pizarra en cualquier oficina o en la
+// sala de reuniones (las paredes altas están en el menú principal); y en tu oficina, además, decorar, el
+// candado, la nota de la placa y la radio; en la casa del árbol, la escalera y el modo foco. La radio de
+// una oficina ajena se ve (y se le baja el volumen) desde aquí también.
 import { CASA_ARBOL, OFFICE_NOTE_MAX, parseYoutubeId, type OfficeRadioState } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { sendOfficeLock, sendOfficeNote, sendOfficeRadio } from "@/game/network";
@@ -29,9 +30,7 @@ export function RoomSection() {
   const zone = useOfficeStore((s) => s.zone);
   const office = useOfficeStore((s) => (s.zone?.type === "office" ? s.offices[s.zone.id] : undefined));
   const me = useOfficeStore(selectMyUserId);
-  const indoors = useOfficeStore((s) => s.indoors);
-  // Fuera de una oficina o la sala de reuniones (en cualquier sala de adentro) solo están las paredes.
-  if (!zone || !inRoom(zone.type)) return indoors ? <WallsRow /> : null;
+  if (!zone || !inRoom(zone.type)) return null;
   const mine = Boolean(office?.ownerId && office.ownerId === me);
 
   return (
@@ -59,44 +58,14 @@ export function RadioTapPrompt() {
   );
 }
 
-/** En una sala sin pizarra: solo el botón de las paredes altas. */
-function WallsRow() {
-  const walls = useOfficeStore((s) => s.privateWalls);
-  return (
-    <button
-      type="button"
-      onClick={() => useOfficeStore.getState().setPrivateWalls(!walls)}
-      aria-pressed={walls}
-      className="cozy-btn h-[32px] self-start px-2"
-      title={walls ? "Bajar las paredes (ver toda la casa)" : "Subir las paredes: solo se ve la sala donde estás"}
-    >
-      <PixelIcon name="walls" size={14} />
-      {walls ? "Paredes altas" : "Paredes bajas"}
-    </button>
-  );
-}
-
-/** Pizarra y paredes altas: para cualquiera en la sala. */
+/** La pizarra: para cualquiera en la sala. */
 function RoomTools() {
-  const walls = useOfficeStore((s) => s.privateWalls);
-  const { openPanel, setPrivateWalls } = useOfficeStore.getState();
+  const { openPanel } = useOfficeStore.getState();
   return (
-    <div className="flex shrink-0 gap-1.5">
-      <button type="button" onClick={() => openPanel("whiteboard", true)} className="cozy-btn h-[32px] px-2" title="Pizarra de la sala: dibujar con los que están aquí">
-        <PixelIcon name="board" size={14} />
-        Pizarra
-      </button>
-      <button
-        type="button"
-        onClick={() => setPrivateWalls(!walls)}
-        aria-pressed={walls}
-        className="cozy-btn h-[32px] w-[32px] p-0"
-        title={walls ? "Bajar las paredes (ver toda la casa)" : "Subir las paredes: más privacidad, solo se ve esta sala"}
-        aria-label={walls ? "Bajar las paredes" : "Subir las paredes"}
-      >
-        <PixelIcon name="walls" size={14} />
-      </button>
-    </div>
+    <button type="button" onClick={() => openPanel("whiteboard", true)} className="cozy-btn h-[32px] shrink-0 px-2" title="Pizarra de la sala: dibujar con los que están aquí">
+      <PixelIcon name="board" size={14} />
+      Pizarra
+    </button>
   );
 }
 

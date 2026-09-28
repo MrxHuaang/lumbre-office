@@ -1,4 +1,4 @@
-// El grabador de la cabina: mezcla en el navegador de quien pidió grabar las voces de los de adentro (su
+// El grabador del estudio: mezcla en el navegador de quien pidió grabar las voces de los de adentro (su
 // micrófono y las pistas de LiveKit de los demás, que ya oye) y las graba con MediaRecorder. Al detenerse
 // arma el archivo y lo descarga ahí mismo: el audio nunca sale del navegador ni pasa por el servidor.
 import { podcastFileName } from "@hyvento/shared";

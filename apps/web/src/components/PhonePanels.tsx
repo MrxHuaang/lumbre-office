@@ -144,7 +144,7 @@ export function CallChip() {
   }, [talking]);
   if (!call || call.phase === "ringing") return null;
   return (
-    <div className="cozy-chip flex items-center gap-2 py-1 pr-1 pl-2.5" role="status">
+    <div className="cozy-chip flex h-[34px] items-center gap-2 pr-1 pl-2.5" role="status">
       <PixelIcon name="phone" size={14} color="#a8463d" />
       <span className="truncate">
         {talking ? (

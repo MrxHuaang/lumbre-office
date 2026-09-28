@@ -186,8 +186,9 @@ export function buildArea(def: AreaDef): OfficeMap {
         facing: own ?? facing,
         computer: false,
         type: p.type,
-        cx: own ? tx * ts + ts / 2 : (p.x + w / 2) * ts,
-        cy: own ? ty * ts + ts / 2 : (p.y + d / 2) * ts,
+        // La tina y la sauna: se ordena con el mueble entero, aunque el asiento mire a otro lado.
+        cx: own && !item.sortWhole ? tx * ts + ts / 2 : (p.x + w / 2) * ts,
+        cy: own && !item.sortWhole ? ty * ts + ts / 2 : (p.y + d / 2) * ts,
       });
     }
   }

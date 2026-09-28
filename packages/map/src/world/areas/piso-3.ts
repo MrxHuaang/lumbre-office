@@ -7,7 +7,9 @@ import { CONEXIONES, hacia } from "./conexiones";
 // piso y todas las salas se abren a él: arriba la biblioteca (con las estanterías altas contra las
 // paredes del fondo) y la sala de estar; abajo el rincón de lectura (con el ventanal en la pared oeste),
 // el rellano de la escalera (el mismo lugar que en los otros pisos), la sala de juegos de mesa y la
-// terraza al aire libre, en la esquina sureste (sobre el techo del ala de abajo).
+// terraza al aire libre, en la esquina sureste (sobre el techo del ala de abajo). Al final del pasillo,
+// en la pared oeste, la puerta acolchada del estudio de grabación (un nivel aparte, `podcast`, más grande
+// por dentro que el hueco de la puerta) con el cartel "EN EL AIRE" encima.
 
 const W = 32;
 const H = 21;
@@ -95,7 +97,8 @@ export const piso3: AreaDef = {
     { kind: "portrait", edge: "h", x: 21, y: 0 },
     { kind: "picture", edge: "h", x: 28, y: 0 },
     { kind: "window", edge: "h", x: 29, y: 0, width: 2 },
-    { kind: "window", edge: "v", x: 0, y: 12 },
+    // Pasillo: la puerta del estudio de grabación con su cartel, en el muro del final.
+    { kind: "studio-door", edge: "v", x: 0, y: 11, width: 3 },
     // Rincón de lectura: el ventanal de piso a techo en la pared oeste.
     { kind: "ventanal", edge: "v", x: 0, y: 15, width: 5 },
   ],
@@ -235,6 +238,12 @@ export const piso3: AreaDef = {
       label: "Bajar al piso 2",
       tiles: CONEXIONES.piso3.escaleraAbajo.tiles,
       to: hacia("piso-2", CONEXIONES.piso2.escaleraArriba),
+    },
+    {
+      id: "piso-3-estudio",
+      label: "Entrar al estudio de grabación",
+      tiles: CONEXIONES.piso3.estudio.tiles,
+      to: hacia("podcast", CONEXIONES.podcast.puerta),
     },
   ],
   points: [

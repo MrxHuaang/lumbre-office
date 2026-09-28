@@ -15,6 +15,7 @@ import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { GameClockChip } from "./GameClockChip";
+import { Minimap } from "./Minimap";
 import { PersonMenu } from "./PersonMenu";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
@@ -47,10 +48,28 @@ const useLabelOf = () => {
  * Arriba a la izquierda, en una sola fila corta: el menú (marca, estado y todo lo que no se usa a cada
  * rato), los puntos, dónde estás con el clima, lo del momento (regalos, cumpleaños, llamada, a quién oyes)
  * y los atajos de siempre (mi oficina, foco y paredes). Lo demás vive dentro del menú.
+ * Publica dónde termina en `--cozy-hud-bottom` (en el <main>): en pantallas angostas la fila se parte
+ * en dos o tres y el chat y los avisos se acomodan debajo sin taparla.
  */
 export function Hud(props: HudProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    const host = el?.parentElement;
+    if (!el || !host) return;
+    const publish = () => host.style.setProperty("--cozy-hud-bottom", `${Math.ceil(el.getBoundingClientRect().bottom - host.getBoundingClientRect().top)}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    ro.observe(host);
+    return () => {
+      ro.disconnect();
+      host.style.removeProperty("--cozy-hud-bottom");
+    };
+  }, []);
   return (
-    <div className="absolute top-3 left-3 flex max-w-[calc(100%-13rem)] flex-wrap items-center gap-2 text-[14px] md:max-w-[calc(100%-20rem)]">
+    // Todo a 34 px de alto. En el celular los conectados quedan como una ficha chica: la fila tiene más ancho.
+    <div ref={ref} className="absolute top-3 left-3 flex max-w-[calc(100%-6.5rem)] flex-wrap items-center gap-1.5 text-[14px] md:max-w-[calc(100%-19.5rem)]">
       <MainMenu {...props} />
       <PointsCounter />
       <PlaceChip />
@@ -145,7 +164,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
         aria-haspopup="menu"
         aria-label="Menú"
         title={me ? `Menú · ${STATUS_LABEL[me.status]}` : "Menú"}
-        className="cozy-panel flex h-[38px] items-center gap-2 px-3 hover:brightness-105"
+        className="cozy-panel flex h-[34px] items-center gap-2 px-2.5 hover:brightness-105"
       >
         <span className="relative">
           <PixelIcon name="cabin" size={18} color="var(--color-cozy-wood)" />
@@ -155,7 +174,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
             </span>
           )}
         </span>
-        <span className="text-[18px] leading-none font-semibold max-sm:sr-only">Hyvento</span>
+        <span className="text-[17px] leading-none font-semibold max-sm:sr-only">Hyvento</span>
         <PixelIcon name="chevron" size={12} className={open ? "rotate-180" : ""} />
       </button>
 
@@ -353,6 +372,16 @@ function HearingChip() {
 }
 
 const PEOPLE_OPEN_KEY = "hyvento:conectados-abierto";
+const PEOPLE_TAB_KEY = "hyvento:conectados-vista";
+type PeopleTab = "lista" | "mapa";
+
+function loadPeopleTab(): PeopleTab {
+  try {
+    return localStorage.getItem(PEOPLE_TAB_KEY) === "mapa" ? "mapa" : "lista";
+  } catch {
+    return "lista";
+  }
+}
 
 function loadPeopleOpen(): boolean {
   if (typeof window === "undefined") return true;
@@ -372,6 +401,17 @@ export function PeoplePanel() {
   const place = useOfficeStore((s) => s.place);
   const labelOf = useLabelOf();
   const openProfile = useAchievementStore((s) => s.openProfile);
+  const walkToPlayer = useOfficeStore((s) => s.walkToPlayer);
+  // Lista o minimapa: se recuerda cuál se usó.
+  const [tab, setTabState] = useState<PeopleTab>(loadPeopleTab);
+  const setTab = (t: PeopleTab) => {
+    setTabState(t);
+    try {
+      localStorage.setItem(PEOPLE_TAB_KEY, t);
+    } catch {
+      // solo para esta visita
+    }
+  };
   // Abierto o plegado se recuerda; la primera vez, en pantallas angostas empieza plegado para no tapar el mapa.
   const [open, setOpenState] = useState(() => loadPeopleOpen());
   const setOpen = (fn: (v: boolean) => boolean) =>
@@ -390,19 +430,46 @@ export function PeoplePanel() {
   );
 
   return (
-    <section className="cozy-panel pointer-events-auto w-full p-1.5">
+    // Plegado en el celular es solo una ficha con la cantidad, para no quitarle ancho al HUD de arriba.
+    <section className={`cozy-panel pointer-events-auto p-1 ${open ? "w-full max-md:w-[min(270px,calc(100vw-1.5rem))]" : "w-full max-md:w-auto"}`}>
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 bg-cozy-wood px-3 py-2 text-cozy-paper-light"
+        aria-label={`Conectados: ${people.length}`}
+        title="Conectados"
+        className="flex h-5 w-full items-center justify-between gap-3 bg-cozy-wood px-2 text-cozy-paper-light max-md:gap-2"
       >
-        <span className="text-[16px] font-semibold">Conectados</span>
+        <span className={`text-[14px] leading-none font-semibold ${open ? "" : "max-md:hidden"}`}>Conectados</span>
+        {!open && (
+          <span aria-hidden className="md:hidden">
+            <PixelIcon name="smile" size={14} />
+          </span>
+        )}
         <span className="flex items-center gap-2 text-[14px]">
           {people.length}
           <PixelIcon name="chevron" size={12} className={open ? "rotate-180" : ""} />
         </span>
       </button>
       {open && (
+        <div role="tablist" className="flex gap-1 px-1 pt-1.5">
+          {(["lista", "mapa"] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              type="button"
+              aria-selected={tab === t}
+              data-on={tab === t || undefined}
+              onClick={() => setTab(t)}
+              className="cozy-btn flex flex-1 items-center justify-center gap-1.5 py-1 text-[13px]"
+            >
+              <PixelIcon name={t === "lista" ? "menu" : "steps"} size={12} color="var(--color-cozy-wood)" />
+              {t === "lista" ? "Lista" : "Minimapa"}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && tab === "mapa" && <Minimap />}
+      {open && tab === "lista" && (
         <ul className="cozy-scroll max-h-[45vh] overflow-y-auto">
           {people.map((p) => (
             <li key={p.sessionId} className="flex items-center border-b-2 border-cozy-paper-dark pr-2 last:border-b-0">
@@ -411,7 +478,7 @@ export function PeoplePanel() {
                 type="button"
                 onClick={() => openProfile(p.sessionId === sessionId ? "me" : p.userId)}
                 title={`Ver el perfil de ${p.name}`}
-                className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-2 text-left hover:bg-cozy-paper-dark"
+                className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-1.5 text-left hover:bg-cozy-paper-dark"
               >
                 <StatusDot status={p.status} title={STATUS_LABEL[p.status]} />
                 <span className="min-w-0 flex-1 truncate text-[14px]">
@@ -422,6 +489,17 @@ export function PeoplePanel() {
                   {labelOf(p.sessionId === sessionId ? place : p.place)}
                 </span>
               </button>
+              {p.sessionId !== sessionId && (
+                <button
+                  type="button"
+                  onClick={() => walkToPlayer(p.sessionId)}
+                  title={`Ir hasta ${p.name}`}
+                  aria-label={`Ir hasta ${p.name}`}
+                  className="p-1.5 hover:bg-cozy-paper-dark"
+                >
+                  <PixelIcon name="steps" size={14} color="var(--color-cozy-wood)" />
+                </button>
+              )}
               {p.sessionId !== sessionId && <PersonMenu person={p} onProfile={() => openProfile(p.userId)} />}
               {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>

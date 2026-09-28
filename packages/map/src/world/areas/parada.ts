@@ -1,6 +1,7 @@
 // La parada del bus del jardín (docs/plan-estructuras.md, estructura 8), en tiles del NIVEL (la zona
-// jugable del jardín empieza en el margen M = 10). Afuera del portón de la cerca baja un sendero corto a
-// la "Estación Hyvento" (una plataforma de vidrio estilo Megabús) y detrás pasa la calle de este a oeste,
+// jugable del jardín empieza en el margen M = 10). Afuera del portón de la cerca baja el sendero largo de
+// la entrada hasta la vereda y sigue por ella hacia el este hasta la "Estación Hyvento" (una plataforma de
+// vidrio estilo Megabús), lejos del portón. Detrás pasa la calle de este a oeste,
 // con el carril exclusivo pintado pegado a la plataforma y un carril mixto del otro lado. La calle va más
 // baja que la plataforma (el cordón se dibuja como un escalón): así el piso del bus queda al nivel de la
 // plataforma, como en el Megabús. Lo usan jardin.ts (terreno y muebles), el arte (art/bus.ts), el
@@ -11,16 +12,16 @@ import { BUS, BUS_LENGTH } from "@hyvento/shared";
 export const PARADA_M = 10;
 
 /** Plataforma de la estación: 18x3 tiles; la fila del norte es el vidrio con los torniquetes. */
-export const STATION = { x: 40, y: 77, w: 18, d: 3 } as const;
-/** Columnas de los torniquetes (en la fila del norte), frente al sendero del portón. */
-export const TURNSTILES = [48, 49] as const;
+export const STATION = { x: 84, y: 129, w: 18, d: 3 } as const;
+/** Columnas de los torniquetes (en la fila del norte), donde llega el sendero del portón. */
+export const TURNSTILES = [STATION.x + 8, STATION.x + 9] as const;
 
 /**
  * La calle (y en tiles del nivel): el cordón de la plataforma en `y0`, el carril exclusivo hasta
  * `laneY`, el carril mixto hasta `y1` y el cordón de enfrente hasta `curbY`. A lo largo de x va de
  * `x0` a `x1` (en las puntas se pierde en el bosque).
  */
-export const ROAD = { y0: 80, laneY: 84, y1: 87, curbY: 87.6, x0: 3.5, x1: 96.5 } as const;
+export const ROAD = { y0: 132, laneY: 136, y1: 139, curbY: 139.6, x0: 3.5, x1: 148.5 } as const;
 
 /** Cuánto más abajo va la calzada que la plataforma (unidades de arte): el alto del cordón. */
 export const CURB_DROP = 12;
