@@ -42,7 +42,7 @@ const useLabelOf = () => {
 
 /**
  * Arriba a la izquierda, en una sola fila corta: el menú (marca, estado y todo lo que no se usa a cada
- * rato), los puntos, dónde estás con el clima, la hora del juego, lo del momento (regalos, cumpleaños, llamada, a quién oyes)
+ * rato), los puntos, dónde estás con el clima, lo del momento (regalos, cumpleaños, llamada, a quién oyes)
  * y los atajos de siempre (mi oficina, foco y paredes). Lo demás vive dentro del menú.
  */
 export function Hud(props: HudProps) {
@@ -105,8 +105,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
   const sessionId = useOfficeStore((s) => s.sessionId);
   const me = sessionId ? players[sessionId] : undefined;
   const night = useOfficeStore((s) => s.night);
-  // La noche sigue al reloj del juego; el ajuste la fuerza y otro clic vuelve al reloj.
-  const forcedNight = useOfficeStore((s) => s.nightOverride !== null);
+  const forced = useOfficeStore((s) => s.nightOverride !== null);
   const toggleNight = useOfficeStore((s) => s.toggleNight);
   const walls = useOfficeStore((s) => s.privateWalls);
   const openPanel = useOfficeStore((s) => s.openPanel);
@@ -207,8 +206,9 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
           </MenuGroup>
 
           <MenuGroup label="Ajustes">
-            <MenuToggle icon={night ? "moon" : "sun"} on={night} onClick={toggleNight}>
-              {forcedNight ? `${night ? "Noche" : "Día"} forzado` : "Modo noche (sigue el reloj)"}
+            {/* La noche sigue al reloj del juego; esto la fuerza y otro clic vuelve al reloj. */}
+            <MenuToggle icon={night ? "moon" : "sun"} on={forced} onClick={toggleNight}>
+              {forced ? `${night ? "Noche" : "Día"} forzado (vuelve al reloj)` : night ? "Forzar el día" : "Forzar la noche"}
             </MenuToggle>
             <MenuToggle icon="walls" on={walls} onClick={() => useOfficeStore.getState().setPrivateWalls(!walls)}>
               Paredes altas adentro
