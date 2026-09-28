@@ -20,7 +20,7 @@ import { RadioTapPrompt } from "./RoomPanel";
 import { SideDock } from "./SideDock";
 import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
-import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
+import { DoorPrompt, InvitationRequests, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
 import { UsablePrompt } from "./UsePrompt";
@@ -274,6 +274,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <CatchCard />
           </div>
           <KnockRequests />
+          <InvitationRequests />
           <IncomingCall />
           <SocialOverlays />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}

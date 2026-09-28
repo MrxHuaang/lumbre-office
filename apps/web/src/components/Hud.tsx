@@ -14,6 +14,7 @@ import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { GameClockChip } from "./GameClockChip";
+import { PersonMenu } from "./PersonMenu";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
@@ -409,6 +410,7 @@ export function PeoplePanel() {
                   {labelOf(p.sessionId === sessionId ? place : p.place)}
                 </span>
               </button>
+              {p.sessionId !== sessionId && <PersonMenu person={p} onProfile={() => openProfile(p.userId)} />}
               {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>
           ))}

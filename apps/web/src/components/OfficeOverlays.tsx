@@ -1,8 +1,9 @@
 "use client";
 
 import { useDoorNotesStore } from "@/game/doorNotes";
-import { respondKnock, sendKnock, sendSwivel } from "@/game/network";
+import { respondInvite, respondKnock, sendKnock, sendSwivel } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import type { Invitation } from "@hyvento/shared";
 import { PixelIcon } from "./Cozy";
 
 /** Frente a la puerta de una oficina cerrada: ofrecer tocar. */
@@ -47,6 +48,42 @@ export function KnockRequests() {
               Dejar pasar
             </button>
             <button onClick={() => respondKnock(r.requestId, false)} className="cozy-btn">
+              Ahora no
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** "a su oficina", "a Sala de reuniones" o "a donde está". */
+function invitePlaceText(inv: Invitation): string {
+  if (inv.place === "office") return "a su oficina";
+  if (inv.place === "zone" && inv.placeName) return `a ${inv.placeName}`;
+  return "a donde está";
+}
+
+/** Invitaciones recibidas desde la lista de Conectados: "Ir" camina hasta quien invitó. */
+export function InvitationRequests() {
+  const invitations = useOfficeStore((s) => s.invitations);
+  if (invitations.length === 0) return null;
+  return (
+    <div className="absolute top-1/4 left-1/2 z-20 flex w-[min(360px,calc(100%-1.5rem))] -translate-x-1/2 flex-col gap-3">
+      {invitations.map((inv) => (
+        <div key={inv.inviteId} role="alertdialog" aria-label={`Invitación de ${inv.fromName}`} className="cozy-panel pointer-events-auto px-5 py-4">
+          <p className="flex items-center gap-2.5 text-[15px]">
+            <PixelIcon name="mail" size={16} color="var(--color-cozy-wood)" />
+            <span>
+              <strong>{inv.fromName}</strong> te invita {invitePlaceText(inv)}
+            </span>
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <button onClick={() => respondInvite(inv, true)} className="cozy-btn cozy-btn-primary">
+              <PixelIcon name="steps" size={14} />
+              Ir
+            </button>
+            <button onClick={() => respondInvite(inv, false)} className="cozy-btn">
               Ahora no
             </button>
           </div>

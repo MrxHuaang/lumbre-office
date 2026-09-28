@@ -38,6 +38,8 @@ import {
   type EmoteEvent,
   type EmoteId,
   type JoinOptions,
+  type Invitation,
+  type InviteResult,
   type KnockRequest,
   type KnockResult,
   type MoveCorrection,
@@ -769,6 +771,20 @@ export function respondKnock(requestId: string, accept: boolean) {
   room?.send(MSG.knockRespond, { requestId, accept });
 }
 
+/** Invitar a alguien a donde estoy (el servidor valida que esté conectado y el ritmo). */
+export function sendInvite(toUserId: string) {
+  room?.send(MSG.invite, { toUserId });
+}
+
+/** Responder una invitación: "Ir" camina hasta quien invitó, esté donde esté. */
+export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId">, accept: boolean) {
+  const store = useOfficeStore.getState();
+  store.removeInvitation(inv.inviteId);
+  room?.send(MSG.inviteRespond, { inviteId: inv.inviteId, accept });
+  // Un respiro para que llegue el parche que me deja pasar a su oficina cerrada (si no, la ruta para en la puerta).
+  if (accept) setTimeout(() => useOfficeStore.getState().walkToPlayer(inv.fromSessionId), 300);
+}
+
 function attach(r: OfficeRoom) {
   room = r;
   const store = useOfficeStore.getState();
@@ -1002,6 +1018,8 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
+  r.onMessage(MSG.inviteRequest, (inv: Invitation) => useOfficeStore.getState().addInvitation(inv));
+  r.onMessage(MSG.inviteResult, (res: InviteResult) => useOfficeStore.getState().handleInviteResult(res));
   r.onMessage(MSG.doorNoteResult, (res: DoorNoteResult) => useDoorNotesStore.getState().handleResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
