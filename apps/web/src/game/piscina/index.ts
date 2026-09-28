@@ -5,7 +5,7 @@ import { catalogItem, isSwimTile, type OfficeMap, type PlacedFurniture } from "@
 import { poolCover, poolFloat, poolShimmer, POOL_SHIMMER_FRAMES, waterDroplet, waterRing, type PoolFloatKind } from "@hyvento/map/art";
 import { poolCovered, type Weather } from "@hyvento/shared";
 import type * as Phaser from "phaser";
-import { DEPTH_FLAT, DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "../iso/view";
+import { DEPTH_FLAT, DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen, type AreaView } from "../iso/view";
 
 /** Cada cuánto cambia el cuadro de los reflejos. */
 const SHIMMER_MS = 320;
@@ -22,6 +22,7 @@ interface Float {
 
 export class PoolView {
   private map?: OfficeMap;
+  private view?: AreaView;
   private pool?: PlacedFurniture;
   /** Esquina del dibujo de la piscina en pantalla (todas las capas van ahí). */
   private at = { x: 0, y: 0 };
@@ -37,9 +38,10 @@ export class PoolView {
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  setArea(map: OfficeMap, weather: Weather, night: boolean) {
+  setArea(map: OfficeMap, view: AreaView | undefined, weather: Weather, night: boolean) {
     this.clear();
     this.map = map;
+    this.view = view;
     this.night = night;
     this.covered = poolCovered(weather);
     this.pool = map.furniture.find((f) => catalogItem(f.type).swim);
@@ -104,8 +106,9 @@ export class PoolView {
     this.nextFrameAt = 0;
   }
 
-  /** Con lona: sin reflejos ni flotadores (quedan guardados). */
+  /** Con lona: sin reflejos ni flotadores (quedan guardados) y con las luces del agua apagadas. */
   private applyCover() {
+    if (this.pool) this.view?.setLight(this.pool, !this.covered);
     this.cover?.setVisible(this.covered);
     this.shimmer?.setVisible(!this.covered);
     for (const f of this.floats) f.img.setVisible(!this.covered);

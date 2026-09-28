@@ -5,7 +5,7 @@
 import { POOL_BASIN, POOL_SIZE, POOL_STEPS } from "../world/catalog-agua";
 import { Escena, type Tinte } from "./exterior-escena";
 import { C, OUT, mix } from "./palette";
-import { PixelCanvas, alpha, at, bayer, noise, smoothNoise, type RGBA, type Ramp, type Sprite } from "./pixel";
+import { PixelCanvas, alpha, at, bayer, noise, smoothNoise, toScreen, type RGBA, type Ramp, type Sprite } from "./pixel";
 
 const L = 16;
 const scene = (w: number, d: number, h: number, pad = 6, z0 = -2) => new Escena({ x0: -pad, y0: -pad, z0, x1: w * L + pad, y1: d * L + pad, z1: h }, 2);
@@ -148,27 +148,38 @@ export function drawPool(night: boolean): Sprite {
  */
 export const POOL_SHIMMER_FRAMES = 4;
 export function poolShimmer(frame: number, night = false): Sprite {
-  const [w, d] = POOL_SIZE;
-  const s = scene(w, d, 14, 4, -10);
+  // Sin contorno (son brillos sobre el agua, no un objeto): se pinta directo en un lienzo propio.
   const ix0 = B.x0 + LIP;
   const iy0 = B.y0 + LIP;
   const ix1 = B.x1 - LIP;
   const iy1 = B.y1 - LIP;
+  const corners = [toScreen(ix0, iy0, WATER_Z), toScreen(ix1, iy0, WATER_Z), toScreen(ix0, iy1, WATER_Z), toScreen(ix1, iy1, WATER_Z)];
+  const minX = Math.floor(Math.min(...corners.map((c) => c.x))) - 1;
+  const minY = Math.floor(Math.min(...corners.map((c) => c.y))) - 1;
+  const maxX = Math.ceil(Math.max(...corners.map((c) => c.x))) + 1;
+  const maxY = Math.ceil(Math.max(...corners.map((c) => c.y))) + 1;
+  const canvas = new PixelCanvas(maxX - minX + 1, maxY - minY + 1);
+  const ox = -minX;
+  const oy = -minY;
   const ph = (frame / POOL_SHIMMER_FRAMES) * Math.PI * 2;
-  s.borde = false;
-  // Reserva el lienzo entero (mismo recorte que el dibujo de la piscina).
-  s.plot(0, 0, 0, alpha(at(POOL_WATER, 5), 0.01));
-  s.plot(w * L, d * L, DECK_Z, alpha(at(POOL_WATER, 5), 0.01));
-  for (let y = iy0 + 3; y < iy1 - 1; y += 0.5)
-    for (let x = ix0 + 3; x < ix1 - 1; x += 0.5) {
+  const bright = alpha(at(POOL_WATER, 5), night ? 0.8 : 0.65);
+  const soft = alpha(at(POOL_WATER, 4), night ? 0.6 : 0.45);
+  for (let py = 0; py < canvas.height; py++)
+    for (let px = 0; px < canvas.width; px++) {
+      // Del píxel al punto del agua (z = WATER_Z) que se ve ahí.
+      const sx = px + 0.5 - ox;
+      const sy = py + 0.5 - oy + WATER_Z;
+      const x = sy + sx / 2;
+      const y = sy - sx / 2;
+      if (x < ix0 + 3 || x > ix1 - 1 || y < iy0 + 3 || y > iy1 - 1) continue;
       // Cáusticas: dos ondas cruzadas que se corren con el cuadro.
       const a = Math.sin(x * 0.45 + ph + Math.sin(y * 0.3 + ph) * 1.6);
       const b = Math.sin(y * 0.55 - ph * 0.7 + Math.sin(x * 0.25 - ph) * 1.4);
       const v = a * b;
-      if (v > 0.82) s.plot(x, y, WATER_Z + 0.1, alpha(at(POOL_WATER, 5), night ? 0.75 : 0.6));
-      else if (v > 0.7 && bayer(Math.floor(x * 2), Math.floor(y * 2)) < 0.4) s.plot(x, y, WATER_Z + 0.1, alpha(at(POOL_WATER, 4), 0.5));
+      if (v > 0.84) canvas.set(px, py, bright);
+      else if (v > 0.72 && bayer(px, py) < 0.35) canvas.set(px, py, soft);
     }
-  return s.sprite();
+  return { canvas, ox, oy };
 }
 
 /** La lona de la lluvia sobre la pileta: tela verde oliva atada al borde, con charcos y la tela que se hunde. */

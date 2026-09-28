@@ -703,7 +703,7 @@ export class OfficeScene extends Phaser.Scene {
       this.club.setArea(map, this.view);
       this.eventsView.setArea(map, this.view);
       this.cinema.setArea(map);
-    this.pool.setArea(map, useOfficeStore.getState().weather, useOfficeStore.getState().night);
+    this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -777,7 +777,7 @@ export class OfficeScene extends Phaser.Scene {
     this.club.setArea(map, this.view);
     this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);
-    this.pool.setArea(map, useOfficeStore.getState().weather, useOfficeStore.getState().night);
+    this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
@@ -1112,7 +1112,11 @@ export class OfficeScene extends Phaser.Scene {
   private handleDive(e: DiveEvent) {
     const avatar = this.avatars.get(e.sessionId);
     if (!avatar || this.areaOfSession.get(e.sessionId) !== this.map.id) return;
-    if (e.sessionId === this.localId) this.clearPath();
+    if (e.sessionId === this.localId) {
+      this.clearPath();
+      // En el aire no se ofrece nada (la ayuda vuelve al caer al agua).
+      useOfficeStore.getState().setInteract(null);
+    }
     avatar.diveFrom({ x: e.fromX, y: e.fromY }, { x: e.toX, y: e.toY }, AGUA.diveMs, () => {
       this.pool.splash(e.toX, e.toY);
       const me = this.local;
