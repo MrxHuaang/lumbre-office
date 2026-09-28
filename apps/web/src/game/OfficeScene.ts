@@ -70,6 +70,7 @@ import { useEscenarioStore } from "./escenario/store";
 import { ESCENARIO, PODCAST, listeners as listenersOf, podcastNoticeText, stageRole } from "@hyvento/shared";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { queuePrerender } from "./iso/prerender";
+import { entryStage } from "./entryStore";
 import { installCameraCulling } from "./iso/culling";
 import { ensureCharacterTextures, parseLook } from "./looks";
 import { media, useMediaStore } from "./media";
@@ -389,10 +390,18 @@ export class OfficeScene extends Phaser.Scene {
 
   /** El arte pre-dibujado en el build (fondos, muebles, bosque): lo que falte se dibuja después. */
   preload() {
+    // La pantalla de carga cuenta los archivos (el manifiesto agrega el resto al llegar: antes no se sabe).
+    entryStage.start("arte");
+    this.load.on("progress", () => {
+      if (this.load.totalToLoad > 1) entryStage.progress("arte", this.load.totalComplete / this.load.totalToLoad);
+    });
+    this.load.once("complete", () => entryStage.done("arte"));
     queuePrerender(this);
   }
 
   create() {
+    entryStage.done("arte");
+    entryStage.start("mundo");
     try {
       this.setupScene();
     } catch (err) {
@@ -407,6 +416,18 @@ export class OfficeScene extends Phaser.Scene {
   private failMap(err: unknown) {
     console.error("No se pudo cargar el mapa", err);
     if (!this.disposed) useOfficeStore.getState().setConnection("error", "No se pudo cargar el mapa. Reintenta o recarga la página.");
+  }
+
+  /**
+   * El nivel quedó armado: la pantalla de carga espera además el primer cuadro dibujado, así al irse ya
+   * está el juego detrás (sin pantallazo del fondo vacío).
+   */
+  private markMapReady() {
+    if (useOfficeStore.getState().mapReady) return;
+    useOfficeStore.getState().setMapReady(true);
+    entryStage.done("mundo");
+    entryStage.start("cuadro");
+    this.game.events.once(Phaser.Core.Events.POST_RENDER, () => entryStage.done("cuadro"));
   }
 
   private setupScene() {
@@ -809,7 +830,7 @@ export class OfficeScene extends Phaser.Scene {
       this.aquariums.setArea(map, this.view);
       this.postIts.setArea(map);
       this.trophyCases.setArea(map);
-      if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
+      this.markMapReady();
       this.rods.setArea(map);
       this.observatorio.setArea(map);
       this.fishing.reset();
@@ -900,7 +921,7 @@ export class OfficeScene extends Phaser.Scene {
     this.tina.setArea(map, useOfficeStore.getState().night);
     this.escenario.setArea(map);
     AreaView.dropStaleBases(this, map);
-    if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
+    this.markMapReady();
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
     const goal = this.path.at(-1);
     if (goal && this.local) {

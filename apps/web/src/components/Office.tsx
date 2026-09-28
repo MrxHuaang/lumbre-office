@@ -10,6 +10,7 @@ import { useOfficeStore, type Profile } from "@/game/store";
 import { getArriveByBus } from "@/lib/arriveByBus";
 import { BusTrip } from "./bus/BusTrip";
 import { EntryLoader } from "./EntryLoader";
+import { useEntryStore } from "@/game/entryStore";
 import { waitForCozyFont } from "@/lib/cozy";
 import { warmPrerender } from "@/game/iso/prerender-paths";
 import { AdminDialog } from "./AdminDialog";
@@ -57,7 +58,6 @@ import { OrreryPanel } from "./observatorio/OrreryPanel";
 import { RadarPanel } from "./observatorio/RadarPanel";
 import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
-import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
@@ -195,6 +195,11 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   }, []);
   const error = useOfficeStore((s) => s.error);
   const onExit = () => void logout();
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  // La pantalla de carga se va sola (con la cabaña que llega y la puerta que se abre) después del primer
+  // cuadro del juego; cada intento la vuelve a mostrar.
+  const [loaderGone, setLoaderGone] = useState(false);
+  const onLoaderGone = useCallback(() => setLoaderGone(true), []);
 
   // Conectado pero sin mapa después de un rato: algo se trabó al dibujar. Mejor el error con
   // "Reintentar" que "Entrando…" para siempre (la escena también avisa si el dibujo falla).
@@ -220,16 +225,26 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
     // El motor (Phaser, el chunk más pesado) y el arte pre-dibujado se empiezan a bajar ya, a la par del
     // token y la conexión: antes se pedían recién con la sala conectada, uno detrás del otro. El error,
     // si lo hay, se ve abajo al esperarlo.
+    setLoaderGone(false);
+    // Las etapas de la barra de carga (lib/entry.ts): el token, la conexión y el motor se marcan acá; el
+    // arte, el nivel y el primer cuadro, en la escena.
+    const entry = useEntryStore.getState();
+    entry.reset();
+    entry.start("sesion");
+    entry.start("motor");
     const gameModule = import("@/game/createGame");
-    gameModule.catch(() => undefined);
+    gameModule.then(() => !cancelled && useEntryStore.getState().done("motor")).catch(() => undefined);
     warmPrerender();
 
     (async () => {
       try {
         const token = await fetchGameToken();
         if (cancelled) return;
+        useEntryStore.getState().done("sesion");
+        useEntryStore.getState().start("conexion");
         // "Llegar en bus" (Mi personaje): solo al entrar; al reconectar se sigue donde se estaba.
         await connect({ token, arriveByBus: getArriveByBus() || undefined });
+        if (!cancelled) useEntryStore.getState().done("conexion");
       } catch (err) {
         if (!cancelled && useOfficeStore.getState().connection !== "error") {
           useOfficeStore.getState().setConnection("error", err instanceof Error ? err.message : String(err));
@@ -397,27 +412,15 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
       ) : null}
 
 
-      {(connection === "connecting" || connection === "idle" || (connection === "connected" && !mapReady)) && (
-        <CozyOverlay>
-          <EntryLoader profile={profile} />
-        </CozyOverlay>
-      )}
-
-      {connection === "error" && (
-        <CozyOverlay>
-          <div className="cozy-panel flex max-w-md flex-col items-center px-8 py-7 text-center">
-            <p className="text-[26px] font-semibold">Uy.</p>
-            <p className="mt-3 text-[15px] leading-relaxed">{error ?? "Algo salió mal."}</p>
-            <div className="mt-6 flex items-center gap-3">
-              <button onClick={() => setAttempt((n) => n + 1)} className="cozy-btn cozy-btn-primary px-5 py-2.5 text-[15px]">
-                Reintentar
-              </button>
-              <button onClick={onExit} className="cozy-btn px-5 py-2.5 text-[15px]">
-                Cerrar sesión
-              </button>
-            </div>
-          </div>
-        </CozyOverlay>
+      {(connection === "error" || !loaderGone) && (
+        <EntryLoader
+          key={attempt}
+          profile={profile}
+          error={connection === "error" ? (error ?? "Algo salió mal.") : null}
+          onRetry={retry}
+          onExit={onExit}
+          onGone={onLoaderGone}
+        />
       )}
     </main>
   );
