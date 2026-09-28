@@ -18,6 +18,8 @@ interface YTPlayer {
   getCurrentTime(): number;
   getDuration(): number;
   getPlayerState(): number;
+  /** No está en la documentación, pero el reproductor la trae: `isLive` marca un video en vivo. */
+  getVideoData?(): { isLive?: boolean; isWindowedLive?: boolean };
   setVolume(v: number): void;
   mute(): void;
   unMute(): void;
@@ -108,6 +110,10 @@ const SYNC_MS = 700;
 const DRIFT_MS = 2000;
 /** Si en este tiempo el video no arrancó solo, el navegador lo bloqueó: se pide un toque. */
 const BLOCKED_MS = 3500;
+/** Un video en vivo más atrás que esto del borde en directo se lleva al directo (una vez). */
+const LIVE_BEHIND_S = 30;
+/** YouTube no deja subir videos de más de 12 h: una "duración" mayor es lo que lleva una transmisión. */
+const MAX_VOD_S = 12 * 3600;
 
 export class YoutubeScreen {
   private mount: WallMount;
@@ -117,6 +123,13 @@ export class YoutubeScreen {
   /** La entrada que tiene cargada el reproductor. */
   private loaded: string | null = null;
   private loadedAt = 0;
+  /**
+   * El video cargado es en vivo: no tiene un "segundo del servidor" (su tiempo es el de la transmisión),
+   * así que no se sincroniza; si no, cada revisión lo haría saltar y re-bufferear.
+   */
+  private live = false;
+  /** La primera duración que dio el video cargado (la de uno en vivo crece: así se reconoce). */
+  private firstDuration = 0;
   private reported = new Set<string>();
   private lastSync = 0;
   private lastVolume = -1;
@@ -163,12 +176,15 @@ export class YoutubeScreen {
     if (this.loaded !== want.entry.id) {
       this.loaded = want.entry.id;
       this.loadedAt = now;
+      this.live = false;
+      this.firstDuration = 0;
       this.player.loadVideoById({ videoId: want.entry.videoId, startSeconds: Math.max(0, expected / 1000) });
       if (want.paused) this.player.pauseVideo();
       return;
     }
     const state = this.player.getPlayerState();
-    const drift = Math.abs(this.player.getCurrentTime() * 1000 - expected);
+    const live = this.checkLive(state);
+    const drift = live ? 0 : Math.abs(this.player.getCurrentTime() * 1000 - expected);
     if (want.paused) {
       if (state === YT_STATE.playing || state === YT_STATE.buffering) this.player.pauseVideo();
       if (drift > DRIFT_MS) this.player.seekTo(expected / 1000, true);
@@ -223,13 +239,30 @@ export class YoutubeScreen {
     });
   }
 
+  /**
+   * ¿Es en vivo el video cargado? Lo dice el reproductor o, si no, su duración (enorme, o que crece). Al
+   * saberlo, si quedó atrás del directo (arrancó en el segundo del servidor), salta una vez al directo: ahí
+   * están todos.
+   */
+  private checkLive(state: number): boolean {
+    if (this.live || !this.player || state !== YT_STATE.playing) return this.live;
+    const d = this.player.getDuration();
+    const data = this.player.getVideoData?.();
+    if (data?.isLive || data?.isWindowedLive || d > MAX_VOD_S || (this.firstDuration > 0 && d - this.firstDuration > 1)) {
+      this.live = true;
+      if (d - this.player.getCurrentTime() > LIVE_BEHIND_S) this.player.seekTo(d, true);
+    } else if (this.firstDuration <= 0 && d > 0) this.firstDuration = d;
+    return this.live;
+  }
+
   private onState(state: number) {
     const id = this.loaded;
     if (!id || !this.player) return;
     if (state === YT_STATE.playing) {
       this.hooks.onNeedsTap?.(false);
       const d = this.player.getDuration();
-      if (d > 0 && !this.reported.has(id)) {
+      // Un video en vivo no tiene duración: la que da es lo que lleva la transmisión.
+      if (d > 0 && !this.reported.has(id) && !this.checkLive(state)) {
         this.reported.add(id);
         this.hooks.onDuration?.(id, Math.round(d * 1000));
       }

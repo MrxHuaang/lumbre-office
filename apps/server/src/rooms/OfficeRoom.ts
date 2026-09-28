@@ -216,7 +216,7 @@ import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyv
 import { Fishery } from "./fishing";
 import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
-import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
+import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice, type SystemNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 import { CasaViva } from "./casa";
 import { Pets, type PetUser } from "./mascotas";
@@ -723,6 +723,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const { toId, ...gift } = notice;
     for (const room of OfficeRoom.instances)
       for (const c of room.clients) if (room.state.players.get(c.sessionId)?.userId === toId) c.send(MSG.giftReceived, gift satisfies GiftReceived);
+  }
+  /**
+   * La web mandó un aviso del sistema (p. ej. un PR mezclado en GitHub): va al chat global de todas las
+   * salas. Sin autor (fromId vacío) y sin guardar en la base, que exige autor; queda en el historial en memoria.
+   */
+  static systemNoticeEverywhere(notice: SystemNotice) {
+    const event: ChatEvent = { id: randomUUID(), fromId: "", fromName: notice.from, text: notice.text, scope: "global", zoneId: null, ts: Date.now() };
+    for (const room of OfficeRoom.instances) {
+      room.globalHistory.push(event);
+      if (room.globalHistory.length > CHAT_HISTORY_SIZE) room.globalHistory.shift();
+      room.broadcast(MSG.chatEvent, event);
+    }
   }
   /** Cumpleaños y viernes de karaoke (ver events.ts). */
   private events!: CabinEvents;
@@ -1250,6 +1262,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Una oficina sin dueño no puede estar cerrada.
     office.locked = Boolean(r.ownerId) && r.locked;
     if (ownerChanged || !office.locked) office.guests.clear();
+    // La radio y la nota de la placa eran del dueño anterior: el nuevo empieza con la oficina callada.
+    if (ownerChanged) {
+      this.stopRadio(office);
+      office.note = "";
+    }
     office.floor = r.floor ?? "";
     office.wallpaper = r.wallpaper ?? "";
     office.customized = r.customized;
@@ -1599,6 +1616,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         if (!videoId) return fail("not-youtube");
         const info = await OfficeRoom.youtubeLookup(videoId).catch(() => ({ ok: true as const, title: FALLBACK_TITLE }));
         if (!info.ok) return fail(info.error);
+        // Mientras se buscaba el video la oficina pudo cambiar de dueño.
+        if (office.ownerId !== player.userId) return fail("not-owner");
         office.radioVideo = videoId;
         office.radioTitle = info.title.slice(0, CLUB_VIDEO.maxTitle);
         office.radioStartedAt = Date.now();
@@ -1619,14 +1638,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         office.radioPausedAt = 0;
         return;
       case "stop":
-        office.radioVideo = "";
-        office.radioTitle = "";
-        office.radioStartedAt = 0;
-        office.radioPaused = false;
-        office.radioPausedAt = 0;
-        office.radioDurationMs = 0;
+        this.stopRadio(office);
         return;
     }
+  }
+
+  private stopRadio(office: OfficeInfo) {
+    office.radioVideo = "";
+    office.radioTitle = "";
+    office.radioStartedAt = 0;
+    office.radioPaused = false;
+    office.radioPausedAt = 0;
+    office.radioDurationMs = 0;
   }
 
   /** La nota de la placa de la puerta: solo el dueño de la oficina, una línea corta. */
