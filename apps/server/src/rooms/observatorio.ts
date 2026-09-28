@@ -1,9 +1,12 @@
 // El observatorio del jardín: la fogata de malvaviscos (el minijuego se valida por tiempos medidos aquí,
 // con un calor sorteado por malvavisco y un tope diario de puntos) y el telescopio (quién está mirando,
 // las estrellas fugaces que decide el servidor de noche y quién dice primero "¡la vi!"). La noche es la
-// del reloj del juego. Este módulo no conoce Colyseus: la sala le da el reloj, el azar y cómo avisar.
+// del reloj del juego. Adentro, la astrónoma contesta con E lo que se ve del cielo a esa hora y con ese
+// clima: la frase la elige el servidor y la oyen todos los del nivel. Este módulo no conoce Colyseus: la sala le da el reloj, el azar y cómo avisar.
 import { nearPointOfType, type OfficeMap } from "@hyvento/map";
 import {
+  ASTRONOMA,
+  astronomerLine,
   bogotaDay,
   doneness,
   isFreeHold,
@@ -13,7 +16,9 @@ import {
   rollStar,
   StarSpotMessage,
   STAT_KEYS,
+  type AstronomerSay,
   type MarshmallowEvent,
+  type SkyContext,
   type MarshmallowTimings,
   type ShootingStar,
   type SkyEvent,
@@ -36,6 +41,8 @@ export interface ObservatorioDeps {
   marshmallowTimings(): MarshmallowTimings;
   skyTimings(): SkyTimings;
   isNight(): boolean;
+  /** La hora del juego y el clima de afuera (lo que la astrónoma mira para hablar del cielo). */
+  sky(): SkyContext;
   player(sessionId: string): ObsPlayer | undefined;
   map(area: string): OfficeMap;
   toSession(sessionId: string, type: string, message: unknown): void;
@@ -68,6 +75,8 @@ export class Observatorio {
   private star: LiveStar | null = null;
   private nextStarAt: number | null = null;
   private starSeq = 0;
+  /** Hasta cuándo cada sesión espera para volver a preguntarle a la astrónoma. */
+  private askUntil = new Map<string, number>();
 
   constructor(private readonly deps: ObservatorioDeps) {}
 
@@ -216,12 +225,26 @@ export class Observatorio {
       if (this.watchers.has(id)) this.sky(id, { kind: "spotted", starId: s.id, name: p.name, first, mine: id === sessionId });
   }
 
+  // ---------- La astrónoma ----------
+
+  /** E junto a la astrónoma: contesta algo del cielo de ahora (lo oyen todos los del nivel). */
+  ask(sessionId: string) {
+    const p = this.deps.player(sessionId);
+    if (!p || !nearPointOfType(this.deps.map(p.area), "astronomer", p.x, p.y)) return;
+    const now = this.deps.now();
+    if (now < (this.askUntil.get(sessionId) ?? 0)) return;
+    this.askUntil.set(sessionId, now + ASTRONOMA.cooldownMs);
+    const text = astronomerLine(this.deps.sky(), this.deps.random(1_000_000));
+    this.deps.toArea(p.area, OBS_MSG.astronomerSay, { sessionId, text } satisfies AstronomerSay);
+  }
+
   /** Se fue de la sala o cambió de nivel: se le apaga el fuego y deja de mirar. */
   forget(sessionId: string) {
     this.roasts.get(sessionId)?.timer.clear();
     this.roasts.delete(sessionId);
     this.watchers.delete(sessionId);
     this.cooldownUntil.delete(sessionId);
+    this.askUntil.delete(sessionId);
   }
 
 }

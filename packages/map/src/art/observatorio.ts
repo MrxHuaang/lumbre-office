@@ -8,6 +8,7 @@ import type { Variant } from "./kit";
 import { C } from "./palette";
 import { alpha, at, bayer, noise, type Ramp, type RGBA, type Sprite } from "./pixel";
 import { WARM_STONE } from "./observatorio-exterior";
+import { glyphOn } from "./room";
 
 const scene = (w: number, d: number, h: number, pad = 6) => new Escena({ x0: -pad, y0: -pad, z0: -2, x1: w * 16 + pad, y1: d * 16 + pad, z1: h }, 2);
 const T = (c: RGBA): Tinte => () => c;
@@ -187,6 +188,87 @@ function observatorySign(): Sprite {
   };
   // La tabla va de canto a lo largo de y: la cara pintada mira a +x (y la de atrás, igual).
   s.box(6, 1, 16, 2, 14, 10, planks(C.wood, 4, 5, 97), T(at(C.wood, 2)), face);
+  return s.sprite();
+}
+
+/** Lo que dice el cartel grande de la entrada. */
+const BOARD_TEXT = "OBSERVATORIO";
+
+/**
+ * El cartel grande de la entrada: una tabla larga de azul noche con marco de madera en dos palos, las
+ * letras claras ("OBSERVATORIO", de 3x5) entre dos estrellitas de latón y un farolito colgado arriba.
+ */
+function observatoryBoard(): Sprite {
+  const s = scene(1, 4, 48);
+  s.shadow(5, 2, 6, 60, 0.22);
+  post(s, 8, 6, 30, 1.4);
+  post(s, 8, 58, 30, 1.4);
+  const len = 60;
+  const tw = BOARD_TEXT.length * 4 - 1;
+  const margin = (len - tw) / 2;
+  const face: Tinte = (u, v) => {
+    if (u < 1.2 || u > len - 1.2 || v < 1.2 || v > 12.8) return at(C.wood, v > 12.8 ? 4 : 2);
+    // u crece hacia atrás en pantalla: el texto se lee con u al revés.
+    const tx = len - u - margin;
+    const gy = Math.floor(9.6 - v);
+    if (gy >= 0 && gy < 5 && tx >= 0 && tx < tw) {
+      const k = Math.floor(tx / 4);
+      const gx = Math.floor(tx) % 4;
+      if (gx < 3 && glyphOn(BOARD_TEXT[k]!, gx, gy)) return at(C.cream, 5);
+    }
+    // Estrellitas a los costados del texto.
+    for (const sx of [-3.2, tw + 2.2]) {
+      const dx = tx - sx;
+      const dy = v - 7;
+      if (Math.abs(dx) + Math.abs(dy) < 1.6 || (Math.abs(dx) < 0.5 && Math.abs(dy) < 2.3) || (Math.abs(dy) < 0.5 && Math.abs(dx) < 2.3)) return at(C.gold, 5);
+    }
+    if (noise(Math.floor(u), Math.floor(v), 98) < 0.02) return at(C.cream, 3);
+    return at(C.navy, 2);
+  };
+  s.box(7, 2, 15, 2, len, 14, planks(C.wood, 4, 5, 97), T(at(C.wood, 2)), face);
+  // Techito de tabla encima y el farolito colgado en la mitad.
+  s.box(6, 1, 29, 4, len + 2, 1.5, planks(C.woodDark, 4, 6, 99), T(at(C.woodDark, 2)), T(at(C.woodDark, 3)));
+  s.solid(7.5, 31.5, 30.5, 1, 1, 3, at(C.metal, 3), at(C.metal, 2), at(C.metal, 1));
+  s.box(6.3, 30.3, 33.5, 3.4, 3.4, 4, () => at(C.metal, 2), (_u, v) => at(C.gold, v > 1 ? 5 : 4), (_u, v) => at(C.gold, v > 1 ? 4 : 3));
+  s.solid(5.8, 29.8, 37.5, 4.4, 4.4, 1.2, at(C.metal, 3), at(C.metal, 1), at(C.metal, 0));
+  return s.sprite();
+}
+
+/** Reloj de sol: pedestal de piedra, la esfera con las horas y la aguja de latón. */
+function sundial(): Sprite {
+  const s = scene(1, 1, 24);
+  s.roundShadow(8, 8, 6, 0.25);
+  s.box(2.5, 2.5, 0, 11, 11, 2, () => at(WARM_STONE, 4), () => at(WARM_STONE, 3), () => at(WARM_STONE, 2));
+  s.cylinder(8, 8, 2, 3, 9, (_a, v, luz) => shade(WARM_STONE, luz, v > 7 ? 4 : 3));
+  s.cylinder(8, 8, 11, 5.8, 1.6, (_a, _v, luz) => shade(WARM_STONE, luz, 4));
+  s.disc(8, 8, 12.6, 5.8, (dx, dy) => {
+    const d = Math.hypot(dx, dy);
+    if (d > 5) return at(C.gold, 4);
+    const a = Math.atan2(dy, dx);
+    if (d > 3.6 && Math.abs(((a * 12) / Math.PI + 12.5) % 1 - 0.5) > 0.38) return at(C.woodDark, 2);
+    return at(WARM_STONE, 5);
+  });
+  // La aguja: un triángulo de latón parado sobre la esfera, apuntando al norte.
+  s.quad([8, 3.2, 12.7], [0, 1, 0], [0, 0, 1], 5, 5, (u, v) => (v < u ? at(C.gold, v > u - 0.8 ? 5 : 3) : null));
+  return s.sprite();
+}
+
+/** Telescopio chico en su trípode de madera, para mirar estrellas desde el prado (apunta hacia +x). */
+function stargazerScope(): Sprite {
+  const s = scene(1, 1, 36);
+  s.roundShadow(8, 8, 5, 0.22);
+  const head: [number, number, number] = [8, 8, 17];
+  for (const foot of [
+    [2.5, 4, 0],
+    [3.5, 13.5, 0],
+    [13.5, 8.5, 0],
+  ] as [number, number, number][])
+    stick(s, foot, head, 1.1, (k) => at(C.wood, k > 0.8 ? 4 : 3));
+  s.solid(6.8, 6.8, 16.5, 2.4, 2.4, 2, at(C.metal, 3), at(C.metal, 2), at(C.metal, 1));
+  // El tubo de latón con su anillo oscuro, la lente brillante y el ocular atrás.
+  stick(s, [3.5, 8, 14.5], [15, 8, 27], 2.6, (k) => (Math.abs(k - 0.62) < 0.05 ? at(C.woodDark, 2) : at(C.gold, k > 0.5 ? 4 : 3)));
+  ball(s, 15.3, 8, 27.3, 1.5, (luz) => (luz > 0.5 ? at(C.white, 4) : at(C.blue, 3)));
+  stick(s, [2.2, 8, 13], [3.6, 8, 14.6], 1.2, () => at(C.woodDark, 1));
   return s.sprite();
 }
 
@@ -453,6 +535,9 @@ export const OBSERVATORIO_DRAW: Record<string, (v: Variant) => Sprite> = {
   "cable-pole": cablePole(true),
   "cable-pole-end": cablePole(false),
   "observatory-sign": observatorySign,
+  "observatory-board": observatoryBoard,
+  sundial,
+  "stargazer-scope": stargazerScope,
   orrery: orreryBase,
   "brass-telescope": brassTelescope,
   "spiral-stairs": spiralStairs,

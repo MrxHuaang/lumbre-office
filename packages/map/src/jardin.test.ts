@@ -16,6 +16,8 @@ import {
   type OfficeMap,
 } from "./index";
 import { SPA } from "./world/catalog-tina";
+import { catalogItem } from "./world/catalog";
+import { onGardenPath } from "./world/areas/jardin";
 
 const jardin = getWorld().areas.get("jardin") as OfficeMap;
 const floorAt = (x: number, y: number) => jardin.floors[y * jardin.width + x];
@@ -84,18 +86,47 @@ describe("jardín", () => {
     expect(Math.hypot(platform.x - gate.x, platform.y - gate.y)).toBeGreaterThanOrEqual(25);
   });
 
-  it("hay lomas: su talud no se pisa y los senderos las suben por escalones", () => {
+  it("ninguna decoración queda en medio de un sendero", () => {
+    // Solo el portón y la estación del bus (su techo y su plataforma cubren el sendero a propósito).
+    const over = new Set(["garden-gate", "bus-station", "bus-platform"]);
+    const problems: string[] = [];
+    for (const f of jardin.furniture) {
+      if (over.has(f.type) || catalogItem(f.type).flat) continue;
+      for (let y = f.y; y < f.y + f.d; y++)
+        for (let x = f.x; x < f.x + f.w; x++) if (onGardenPath(x, y)) problems.push(`${f.type} en (${x - 10}, ${y - 10})`);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("el observatorio: la placita frente a la puerta, la fogata, el jardín de piedras y el prado de las bancas", () => {
     const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
-    const slopes = jardin.floors.filter((k) => k === "slope").length;
-    expect(slopes).toBeGreaterThan(100);
-    for (let i = 0; i < jardin.floors.length; i++) if (jardin.floors[i] === "slope") expect(isBlockedTile(jardin, i % jardin.width, Math.floor(i / jardin.width))).toBe(true);
-    const steps: { x: number; y: number }[] = [];
-    for (let i = 0; i < jardin.floors.length; i++) if (jardin.floors[i] === "steps") steps.push({ x: i % jardin.width, y: Math.floor(i / jardin.width) });
-    expect(steps.length).toBeGreaterThan(4);
-    for (const s of steps) if (!isBlockedTile(jardin, s.x, s.y)) expect(findPath(jardin, start, s), `${s.x},${s.y}`).not.toBeNull();
-    // El observatorio queda arriba de su loma (dos pisos) y se llega caminando.
     const obs = jardin.furniture.find((f) => f.type === "observatory")!;
-    expect(jardin.def.heightFine!(obs.x + obs.w / 2, obs.y + obs.d / 2)).toBeGreaterThanOrEqual(2);
+    expect([obs.w, obs.d]).toEqual([8, 8]);
+    // El portal (la puerta) queda en la placita de piedra y se llega caminando por el sendero.
+    const door = jardin.portals.find((p) => p.id === "jardin-observatorio")!;
+    for (const t of door.tiles) {
+      expect(floorAt(t.x, t.y), `puerta ${t.x},${t.y}`).toBe("path");
+      expect(findPath(jardin, start, t)).not.toBeNull();
+    }
+    const near = (type: string, r: number) => jardin.furniture.filter((f) => f.type === type && Math.hypot(f.x - (obs.x + 4), f.y - (obs.y + 8)) <= r);
+    // Lo de alrededor: el cartel, el reloj de sol, los telescopios chicos, bancas, faroles y flores.
+    expect(near("observatory-board", 20)).toHaveLength(1);
+    expect(near("sundial", 8)).toHaveLength(1);
+    expect(near("stargazer-scope", 10).length).toBeGreaterThanOrEqual(2);
+    expect(near("bench", 10).length).toBeGreaterThanOrEqual(2);
+    expect(near("garden-lantern", 12).length).toBeGreaterThanOrEqual(3);
+    expect(near("lamp-post", 24).length).toBeGreaterThanOrEqual(2);
+    // El jardín de piedras: gravilla al este de la torre, que se camina entre las rocas.
+    const gravel: { x: number; y: number }[] = [];
+    for (let y = obs.y; y < obs.y + 10; y++) for (let x = obs.x + obs.w; x < obs.x + obs.w + 7; x++) if (floorAt(x, y) === "gravel") gravel.push({ x, y });
+    expect(gravel.length).toBeGreaterThan(20);
+    const free = gravel.filter((t) => !isBlockedTile(jardin, t.x, t.y));
+    expect(free.length).toBeGreaterThan(8);
+    for (const t of free) expect(findPath(jardin, start, t), `gravilla ${t.x},${t.y}`).not.toBeNull();
+    // Las bancas del prado miran a la torre (al norte) y se sientan desde el pasto.
+    const benches = [...jardin.seats.values()].filter((s) => s.type === "bench" && Math.hypot(s.tileX - (obs.x + 4), s.tileY - (obs.y + 12)) < 6);
+    expect(benches.length).toBeGreaterThanOrEqual(4);
+    for (const s of benches) expect(s.facing, `${s.tileX},${s.tileY}`).toBe("up");
   });
 
   it("no quedan tiles libres a los que no se llega (el islote, detrás de la casa)", () => {
