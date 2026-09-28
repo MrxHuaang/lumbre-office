@@ -1,4 +1,4 @@
-import { catalogItem, seatBehind, seatLift, SIT_BACK_ROWS, TUB_WATER_Z, type Seat } from "@hyvento/map";
+import { catalogItem, seatBehind, seatBodyRows, seatLift, seatShift, SIT_BACK_ROWS, TUB_WATER_Z, type Seat } from "@hyvento/map";
 import {
   BODY_UP,
   bubble,
@@ -170,6 +170,8 @@ export function shortName(name: string): string {
 /** Avatar en la cabaña: sprite chibi + sombra + nombre + estado + globo de chat. Posición en px de mundo. */
 export class Avatar {
   readonly sprite: Phaser.GameObjects.Sprite;
+  /** La cabeza, copiada del cuerpo, encima del respaldo cuando está sentado de espaldas (ver syncSeatHead). */
+  private readonly seatHead: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
   private readonly statusDot: Phaser.GameObjects.Arc;
@@ -186,6 +188,8 @@ export class Avatar {
   private badgeRow?: { key: string; container: Phaser.GameObjects.Container };
   /** Cuenta regresiva de una foto (3-2-1) sobre la cabeza. */
   private countdownBubble?: { container: Phaser.GameObjects.Container; timer: Phaser.Time.TimerEvent };
+  /** Escenario: la mano levantada sobre la cabeza, con el turno en la fila. */
+  private handBubble?: { container: Phaser.GameObjects.Container; text: Phaser.GameObjects.Text; order: number; tween: Phaser.Tweens.Tween };
   /** Lo que lleva en las manos (pedido en la cafetería o el bar); `clearing` = se quita al terminar de usarlo. */
   private held?: { id: string; parts: HeldPart[]; clearing: boolean };
   /** Tocando un instrumento: lleva el ritmo con saltitos. */
@@ -198,7 +202,8 @@ export class Avatar {
   private moving = false;
   private seated: Direction | null = null;
   /** Cómo va sentado: cuánto bajar el dibujo, con qué profundidad y si el respaldo lo tapa. */
-  private seatPose: { lift: number; depth: number; behind: boolean } | null = null;
+  /** Sentado: altura, orden, si el respaldo tapa y el corrimiento hacia el cojín (dx, dy) en ese asiento. */
+  private seatPose: { lift: number; depth: number; behind: boolean; dx: number; dy: number } | null = null;
   private wx: number;
   private wy: number;
   private hidden = false;
@@ -248,6 +253,7 @@ export class Avatar {
     this.shadow = scene.add.image(0, 0, "sombra-personaje");
     this.sprite = scene.add.sprite(0, 0, textureKey, 0).setOrigin(0.5, FEET_Y / FRAME);
     this.fullName = name;
+    this.seatHead = scene.add.image(0, 0, textureKey, 0).setOrigin(0.5, FEET_Y / FRAME).setVisible(false);
     this.label = scene.add
       .text(0, 0, name, {
         fontFamily: cozyFontFamily(),
@@ -314,10 +320,12 @@ export class Avatar {
     this.emoteBubble?.container.setVisible(!hidden);
     this.gesture?.arm?.setVisible(!hidden);
     this.countdownBubble?.container.setVisible(!hidden);
+    this.handBubble?.container.setVisible(!hidden);
     this.badgeRow?.container.setVisible(!hidden);
     this.phone?.bubble?.setVisible(!hidden);
     this.phone?.handset?.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
+    this.syncSeatHead();
   }
 
   /**
@@ -337,6 +345,7 @@ export class Avatar {
     this.gesture?.arm?.setAlpha(a);
     this.phone?.bubble?.setAlpha(a);
     this.phone?.handset?.setAlpha(a);
+    this.syncSeatHead();
   }
   private veiled = false;
 
@@ -500,6 +509,14 @@ export class Avatar {
     } else if (this.trip === "yage") {
       this.nextTripFxAt = time + 8000 + Math.random() * 6000;
       this.floatText(Math.random() < 0.5 ? "todo es uno…" : "ayyy…", 8, 7);
+    } else if (this.trip === "tusi") {
+      // Le da por bailar solo (si está de pie y quieto), y lo ven todos.
+      this.nextTripFxAt = time + 6000 + Math.random() * 5000;
+      this.startDance();
+      this.floatText(Math.random() < 0.5 ? "¡uy, qué rico!" : "¡a perrear!", 8, 7);
+    } else if (this.trip === "keta") {
+      this.nextTripFxAt = time + 9000 + Math.random() * 6000;
+      this.floatText(Math.random() < 0.5 ? "¿dónde estoy…?" : "estoy en el hueco…", 8, 7);
     } else {
       this.nextTripFxAt = time + 6000 + Math.random() * 4000;
       this.floatText(Math.random() < 0.5 ? "¡de una!" : "¡hágale, hágale!", 8, 7);
@@ -725,8 +742,13 @@ export class Avatar {
   private mouthPoint() {
     const s = worldToScreen(this.wx, this.wy);
     const face = this.seated ?? this.dir;
-    const y = Math.round(s.y) + 1 - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
-    return { x: Math.round(s.x) + MOUTH[face].dx, y, depth: depthOf(this.wx, this.wy) + 0.6, floorY: Math.round(s.y) };
+    // Sentado, la boca va con el cuerpo: a la altura del asiento y corrida hacia el cojín (como en layout).
+    const pose = this.seated ? this.seatPose : null;
+    // En la tina, como nadando: la boca baja con el cuerpo metido en el agua.
+    const sit = this.seated && !this.soaking;
+    const drop = this.soaking ? SWIM_DROP - 3 : 0;
+    const y = Math.round(s.y) + (pose ? pose.dy + pose.lift : 0) + 1 - (sit ? MOUTH_SEATED : MOUTH_STANDING) + drop;
+    return { x: Math.round(s.x) + (pose?.dx ?? 0) + MOUTH[face].dx, y, depth: depthOf(this.wx, this.wy) + 0.6, floorY: Math.round(s.y) };
   }
 
   /** De dónde sale el humo o el vapor de esa mano (la brasa, o el borde de la taza). */
@@ -801,7 +823,7 @@ export class Avatar {
       this.applySwim();
     } else if (this.seated) {
       this.applySeatTexture();
-      this.applySeatCrop();
+      this.syncSeatHead();
     } else if (this.moving) {
       this.sprite.play(`${textureKey}-walk-${this.dir}`, true);
     } else {
@@ -820,12 +842,27 @@ export class Avatar {
     const soak = Boolean(facing && seat && catalogItem(seat.type).soak);
     // Los de la tina (y la sauna) se ordenan con el mueble entero; entre ellos, el de más adelante encima.
     const nudge = seat && catalogItem(seat.type).sortWhole ? (seat.x + seat.y - seat.cx - seat.cy) * 1e-5 : 0;
+    // En la tina el cuerpo va centrado en su lugar (nada de corrimiento hacia un cojín).
+    const shift = facing && seat ? (soak ? { x: 0, y: 0 } : seatShift(seat.type, facing)) : null;
     const pose =
-      facing && seat
-        ? { lift: soak ? -(TUB_WATER_Z + 2) : seatLift(seat.type), depth: depthOf(seat.cx, seat.cy) + nudge, behind: !soak && seatBehind(seat.type, facing) }
+      facing && seat && shift
+        ? {
+            lift: soak ? -(TUB_WATER_Z + 2) : seatLift(seat.type, facing),
+            depth: depthOf(seat.cx, seat.cy) + nudge,
+            behind: !soak && seatBehind(seat.type, facing),
+            dx: shift.x,
+            dy: shift.y,
+          }
         : null;
+    const old = this.seatPose;
     const same =
-      facing === this.seated && soak === this.soaking && pose?.lift === this.seatPose?.lift && pose?.depth === this.seatPose?.depth && pose?.behind === this.seatPose?.behind;
+      facing === this.seated &&
+      soak === this.soaking &&
+      pose?.lift === old?.lift &&
+      pose?.depth === old?.depth &&
+      pose?.behind === old?.behind &&
+      pose?.dx === old?.dx &&
+      pose?.dy === old?.dy;
     if (same) return;
     this.seatPose = pose;
     const wasSoaking = this.soaking;
@@ -848,7 +885,7 @@ export class Avatar {
         this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES);
       }
     } else if (facing && soak !== wasSoaking) this.applySeatTexture();
-    this.applySeatCrop();
+    this.syncSeatHead();
     this.layout();
   }
 
@@ -865,12 +902,31 @@ export class Avatar {
     return this.soaking;
   }
 
-  /** De espaldas en un asiento con respaldo solo se ven la cabeza y los hombros (el resto lo tapa el respaldo). */
-  private applySeatCrop() {
-    // Girando, el respaldo tapa según hacia dónde mira en ese momento.
-    const behind = this.spinning ? Boolean(this.seatType) && seatBehind(this.seatType, this.spinning.face) : this.seatPose?.behind;
-    if (this.seated && behind) this.sprite.setCrop(0, 0, FRAME, SIT_BACK_ROWS);
-    else this.sprite.setCrop();
+  /** Si ahora el respaldo queda delante del cuerpo (girando, según hacia dónde mira en ese momento del giro). */
+  private behindBack(): boolean {
+    if (this.ride) return seatBehind(RIDE_CHAIR, this.ride.facing);
+    if (!this.seated) return false;
+    return this.spinning ? Boolean(this.seatType) && seatBehind(this.seatType, this.spinning.face) : Boolean(this.seatPose?.behind);
+  }
+
+  /**
+   * De espaldas tras un respaldo el cuerpo va debajo del mueble y la cabeza (una copia recortada del
+   * cuerpo) encima, para que se vea quién es. Copia cuadro, posición, giro y transparencia del cuerpo;
+   * se llama en cada frame (sway) porque otros módulos cambian la transparencia del cuerpo.
+   */
+  private syncSeatHead() {
+    const s = this.sprite;
+    // De espaldas en un asiento sin respaldo el cuerpo se corta en la cintura (seatBodyRows). En la tina
+    // no: la hoja de medio cuerpo ya viene cortada en la línea del agua.
+    const face = this.spinning?.face ?? this.seated;
+    const rows = face && this.seatType && !this.ride && !this.soaking ? seatBodyRows(this.seatType, face) : null;
+    if (rows) s.setCrop(0, 0, FRAME, rows);
+    else if (s.isCropped) s.setCrop();
+    const on = s.visible && this.behindBack();
+    this.seatHead.setVisible(on);
+    if (!on) return;
+    if (this.seatHead.texture.key !== s.texture.key || this.seatHead.frame.name !== s.frame.name) this.seatHead.setTexture(s.texture.key, s.frame.name);
+    this.seatHead.setCrop(0, 0, FRAME, SIT_BACK_ROWS).setPosition(s.x, s.y).setAngle(s.angle).setAlpha(s.alpha);
   }
 
   get isSeated() {
@@ -889,6 +945,7 @@ export class Avatar {
   setBodyVisible(visible: boolean) {
     const show = visible && !this.hidden;
     this.sprite.setVisible(show);
+    this.syncSeatHead();
     this.shadow.setVisible(show && !this.seated);
     for (const part of this.held?.parts ?? []) part.image.setVisible(show && part.left > 0);
   }
@@ -929,7 +986,6 @@ export class Avatar {
     if (!on) {
       this.ride?.img.destroy();
       this.ride = undefined;
-      this.sprite.setCrop();
       this.shadow.setVisible(!this.hidden);
       if (!this.seated) this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES);
       this.layout();
@@ -955,9 +1011,6 @@ export class Avatar {
     img.setVisible(!this.hidden);
     this.ride = { img, facing, dx: img.x - anchor.x, dy: img.y - anchor.y };
     this.sprite.setTexture(`${this.textureKey}-sit`, ROW[facing]);
-    // De espaldas, el respaldo tapa el cuerpo: se ve de los hombros para arriba (como sentado).
-    if (seatBehind(RIDE_CHAIR, facing)) this.sprite.setCrop(0, 0, FRAME, SIT_BACK_ROWS);
-    else this.sprite.setCrop();
     this.layout();
   }
 
@@ -1061,6 +1114,7 @@ export class Avatar {
   /** Cada frame: el tambaleo (desde los pies) y, mareado o más, algún "¡hic!". */
   sway(time: number) {
     if (this.destroyed) return;
+    this.syncSeatHead();
     this.waterFx(time);
     if (this.drunk === 4) return this.faintPose(time);
     this.tripFx(time);
@@ -1271,7 +1325,7 @@ export class Avatar {
         if (face === state.face || this.spinning !== state) return;
         state.face = face;
         this.sprite.setFrame(ROW[face]);
-        this.applySeatCrop();
+        this.syncSeatHead();
         this.layout();
       },
       onComplete: () => {
@@ -1288,7 +1342,7 @@ export class Avatar {
     this.spinning = undefined;
     spinning.tween.remove();
     if (this.seated) this.sprite.setFrame(ROW[this.seated]);
-    this.applySeatCrop();
+    this.syncSeatHead();
     this.layout();
   }
 
@@ -1412,6 +1466,36 @@ export class Avatar {
       },
     });
     this.countdownBubble = { container, timer };
+    this.layout();
+  }
+
+  /**
+   * Escenario: la mano levantada (un globo con la mano, que se mece) y su turno en la fila; null la baja.
+   * La ven todos los del nivel: quien está en la tarima sabe a quién darle la palabra.
+   */
+  setHand(order: number | null) {
+    if (order === null) {
+      this.handBubble?.tween.remove();
+      this.handBubble?.container.destroy();
+      this.handBubble = undefined;
+      return;
+    }
+    if (this.handBubble?.order === order) return;
+    if (!this.handBubble) {
+      ensureTexture(this.scene, "globo-emote-2", () => bubble(15, 13));
+      ensureEmoteTextures(this.scene, "wave");
+      const bg = this.scene.add.image(0, 0, "globo-emote-2").setOrigin(0.5, 1);
+      const icon = this.scene.add.image(0, -bg.height + 1, "emote-wave-0").setOrigin(0.5, 0);
+      const text = this.scene.add
+        .text(bg.width / 2, -bg.height, "", { fontFamily: cozyFontFamily(), fontSize: "7px", color: COZY.red, backgroundColor: COZY.paperLight, padding: { x: 1, y: 0 }, resolution: 6 })
+        .setOrigin(0.5, 0.5);
+      const container = this.scene.add.container(0, 0, [bg, icon, text]).setVisible(!this.hidden);
+      // Se mece un poco, como quien agita la mano para que lo vean.
+      const tween = this.scene.tweens.add({ targets: icon, angle: { from: -8, to: 8 }, duration: 420, yoyo: true, repeat: -1, ease: "Sine.inOut" });
+      this.handBubble = { container, text, order, tween };
+    }
+    this.handBubble.order = order;
+    this.handBubble.text.setText(String(order));
     this.layout();
   }
 
@@ -1701,11 +1785,13 @@ export class Avatar {
     this.emoteBubble?.tween.remove();
     this.emoteBubble?.container.destroy();
     this.clearCountdown();
+    this.setHand(null);
     this.badgeRow?.container.destroy();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
     this.ride?.img.destroy();
     this.sprite.destroy();
+    this.seatHead.destroy();
     this.shadow.destroy();
     this.label.destroy();
     this.statusDot.destroy();
@@ -1717,24 +1803,30 @@ export class Avatar {
     // En pleno chapuzón del trampolín el cuerpo va por el aire, del tablón al agua.
     const arc = this.diveArc();
     const s = arc ?? worldToScreen(this.wx, this.wy);
-    const x = Math.round(s.x);
     const pose = this.seated ? this.seatPose : null;
+    // Sentado, el cuerpo se corre hacia el cojín del asiento (seatShift) y sube o baja a su altura.
     // Nadando, la línea del agua queda un poco más abajo que el deck (la pileta está hundida).
-    const y = Math.round(s.y) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0) + (this.swimming && !arc ? 2 : 0);
+    const x = Math.round(s.x) + (pose?.dx ?? 0);
+    const y = Math.round(s.y) + (pose?.dy ?? 0) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0) + (this.swimming && !arc ? 2 : 0);
     if (this.ride) {
       // La silla va debajo (o delante, de espaldas: el respaldo tapa) y rueda con el personaje.
       const a = worldToScreen(this.wx - 16, this.wy - 16);
       const d = depthOf(this.wx, this.wy);
       this.ride.img.setPosition(Math.round(a.x + this.ride.dx), Math.round(a.y + this.ride.dy)).setDepth(seatBehind(RIDE_CHAIR, this.ride.facing) ? d + 0.6 : d + 0.4);
     }
-    // Sentado se ordena con el mueble (+0.5: encima de él); así un tronco largo no lo tapa. Saltando del
+    // Sentado se ordena con el mueble (+0.5: encima de él); así un tronco largo no lo tapa. De espaldas
+    // tras un respaldo, el cuerpo va debajo del mueble y la cabeza encima (syncSeatHead). Saltando del
     // trampolín, por encima del agua y del tablón.
-    const depth = pose ? pose.depth : arc ? depthOf(this.wx, this.wy) + 64 : depthOf(this.wx, this.wy);
+    const behind = this.behindBack();
+    const base = pose ? pose.depth : arc ? depthOf(this.wx, this.wy) + 64 : depthOf(this.wx, this.wy);
+    const depth = pose && behind ? base - 1 : base;
     // Bailando da saltitos de 2 px; tocando un instrumento, de 1 px.
     // Un gesto de emote corre al personaje unos píxeles (lo de las manos lo sigue).
     const g = this.gesture ? gestureOffset(this.gesture.kind, this.gesture.t) : { x: 0, lift: 0 };
     const hop = (this.dance && this.dance.step % 2 ? 2 : this.playing && this.playing.step % 2 ? 1 : 0) + g.lift;
     this.sprite.setPosition(x + g.x + this.shiver, y + 1 - hop).setDepth(depth + 0.5);
+    this.seatHead.setDepth(this.ride ? depth + 0.7 : base + 0.5);
+    this.syncSeatHead();
     this.layoutArm(x + g.x, y - hop, depth);
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);
@@ -1789,7 +1881,7 @@ export class Avatar {
       const face = this.spinning?.face ?? this.seated ?? this.dir;
       // El auricular va pegado a la cabeza, del lado de la oreja que se ve.
       const side = face === "left" || face === "down" ? -1 : 1;
-      const ear = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING) - 4;
+      const ear = y + 1 - hop - (this.seated && !this.soaking ? MOUTH_SEATED : MOUTH_STANDING) - 4 + (this.soaking ? SWIM_DROP - 3 : 0);
       this.phone.handset?.setPosition(x + g.x + side * 6, ear).setFlipX(side < 0).setDepth(depth + 0.56);
       // El globo, sobre el nombre (a la derecha del emote, si hay uno).
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
@@ -1802,6 +1894,12 @@ export class Avatar {
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       const emote = this.emoteBubble ? 14 : 0;
       this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - badgeH - chat - emote).setDepth(6e7 + depth + 0.15);
+    }
+    if (this.handBubble) {
+      // La mano, sobre el nombre (a la izquierda del emote, si hay uno, para que no se tapen).
+      const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
+      const beside = this.emoteBubble ? -14 : 0;
+      this.handBubble.container.setPosition(x + beside, y - top - this.label.height - 1 - badgeH - chat).setDepth(6e7 + depth + 0.11);
     }
   }
 }

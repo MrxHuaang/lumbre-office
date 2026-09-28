@@ -131,7 +131,10 @@ describe("jardín", () => {
   });
 
   it("la fogata es una burbuja de charla con los cuatro troncos adentro", () => {
-    const logs = [...jardin.seats.values()].filter((s) => s.type === "log-seat");
+    // Los troncos de la fogata del observatorio tienen su propia burbuja.
+    const all = [...jardin.seats.values()].filter((s) => s.type === "log-seat");
+    const logs = all.filter((s) => zoneAt(jardin, s.x, s.y)?.id !== "fogata-observatorio");
+    expect(all.length - logs.length).toBe(8);
     expect(logs.length).toBe(8);
     for (const s of logs) expect(zoneAt(jardin, s.x, s.y), `${s.tileX},${s.tileY}`).toMatchObject({ id: "fogata", isolated: true });
     const fire = jardin.furniture.find((f) => f.type === "fire-pit")!;

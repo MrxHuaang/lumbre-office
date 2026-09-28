@@ -47,7 +47,7 @@ export function felt(u: number, v: number): RGBA {
   return at(FELT, noise(Math.floor(u), Math.floor(v), 41) < 0.035 ? 2 : 3);
 }
 
-function woodSide(u: number, v: number, _fw: number, fh: number): RGBA {
+export function woodSide(u: number, v: number, _fw: number, fh: number): RGBA {
   if (v >= fh - 1) return at(C.woodDark, 4);
   if (v < 1) return at(C.woodDark, 1);
   return at(C.woodDark, Math.floor(u) % 7 === 0 ? 2 : 3);
@@ -139,7 +139,7 @@ function railShader(along: "u" | "v"): Shader {
 }
 
 /** Faldón de caoba con paneles tallados y un filete de bronce arriba. */
-const apron: Shader = (u, v, fw, fh) => {
+export const apron: Shader = (u, v, fw, fh) => {
   if (v >= fh - 1) return at(C.gold, 3);
   if (v < 0.8) return at(C.wood, 1);
   const k = u % 12;
@@ -149,7 +149,7 @@ const apron: Shader = (u, v, fw, fh) => {
 };
 
 /** Pata torneada: bulbo al medio y pie de bronce. */
-function turnedLeg(x: number, y: number, h: number): Box[] {
+export function turnedLeg(x: number, y: number, h: number): Box[] {
   return [
     solidBox({ x: x - 0.5, y: y - 0.5, z: 0, w: 3, d: 3, h: 1 }, C.gold, 3),
     solidBox({ x, y, z: 1, w: 2, d: 2, h: h - 1 }, C.wood, 3),

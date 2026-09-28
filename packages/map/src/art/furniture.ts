@@ -23,6 +23,7 @@ import { cushion, leg, shadowSpace, shadowUnder, volume, type Variant } from "./
 import { drawOutdoor, hasOutdoor } from "./outdoor";
 import { SHOP } from "./shop";
 import { CASINO_DRAW } from "./casino";
+import { MESAS_DRAW } from "./mesas";
 import { CINEMA_DRAW } from "./cinema";
 import { CLUB_DRAW } from "./club";
 import { EXTERIOR_DRAW } from "./exterior";
@@ -40,6 +41,10 @@ import { CASA_ARBOL_DRAW } from "./casa-arbol";
 import { BUS_DRAW } from "./bus";
 import { BUS_INSIDE_DRAW } from "./bus-adentro";
 import { AGUA_DRAW } from "./agua";
+import { ESCENARIO_DRAW } from "./escenario";
+import { podcastBooth, podcastDesk } from "./podcast";
+import { GRANJA_DRAW } from "./granja";
+import { OBSERVATORIO_DRAW } from "./observatorio";
 
 export type { Variant } from "./kit";
 
@@ -753,6 +758,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...DECOR,
   ...SHOP,
   ...CASINO_DRAW,
+  ...MESAS_DRAW,
   ...CLUB_DRAW,
   ...CINEMA_DRAW,
   ...LEISURE_DRAW,
@@ -765,6 +771,11 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...CASA_ARBOL_DRAW,
   ...BUS_DRAW,
   ...BUS_INSIDE_DRAW,
+  ...ESCENARIO_DRAW,
+  "podcast-booth": podcastBooth,
+  "podcast-desk": podcastDesk,
+  ...GRANJA_DRAW,
+  ...OBSERVATORIO_DRAW,
   "photo-board": photoBoard,
   acuario,
   ...RACE_DRAW,

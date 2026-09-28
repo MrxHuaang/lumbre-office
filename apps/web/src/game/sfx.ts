@@ -582,6 +582,20 @@ export const sfx = {
   countdown(last: boolean, vol = 1) {
     play("countdown", 400, 120, vol, (a, t, v) => tone(a, t, 0.08, last ? 1320 : 880, last ? 1320 : 880, 0.035 * v, { type: "sine" }));
   },
+  /**
+   * Aplausos en el escenario: palmadas cortas de ruido filtrado, más y más seguidas cuanta más gente
+   * aplaude a la vez (`crowd`), hasta sonar como una ovación.
+   */
+  applause(vol = 1, crowd = 1) {
+    const n = Math.min(24, 4 + crowd * 4);
+    const dur = 0.5 + Math.min(1.5, crowd * 0.25);
+    play("applause", 250, dur * 1000, vol, (a, t, v) => {
+      for (let i = 0; i < n; i++) {
+        const at = t + Math.random() * dur;
+        noise(a, at, 0.035, { type: "bandpass", freq: 1500 * jitter(0.35), q: 1.4, vol: (0.07 / Math.sqrt(Math.max(1, crowd * 0.6))) * v, attack: 0.002 });
+      }
+    });
+  },
 
   // ---- Clima ----
   /** Trueno: un retumbo grave que rueda; cerca, antes un chasquido. Adentro se oye apagado. */

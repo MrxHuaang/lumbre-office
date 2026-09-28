@@ -32,15 +32,20 @@ import { selectMyUserId, useOfficeStore } from "../store";
 import type { TableCamera } from "./camera";
 import { furnitureDepth, overlayImage, pieceImage } from "./draw";
 
-/** Cuánto en el pasado se dibuja lo que manda el servidor (dos cuadros): así siempre hay entre qué interpolar. */
-const INTERP_MS = 100;
-/** Cada cuánto se manda a dónde va el mazo (como mucho). */
-const SEND_MS = 50;
+/**
+ * Cuánto en el pasado se dibuja lo que manda el servidor (cuadro y medio a 30 por segundo): siempre hay
+ * entre qué interpolar, y el disco no se ve tan atrasado respecto de tu mazo (con 100 ms se veía pasar
+ * a través del mazo y los golpes no coincidían).
+ */
+const INTERP_MS = 50;
+/** Cada cuánto se manda a dónde va el mazo (como mucho): casi cada cuadro, así el servidor no se atrasa. */
+const SEND_MS = 30;
 /**
  * Si mi mazo adelantado se aleja más que esto del que simula el servidor, se lo acerca. El del servidor
- * se ve 100 ms tarde (a toda velocidad, ~10 unidades atrás): con menos margen el mazo tironearía.
+ * se ve ~50 ms tarde más la ida y vuelta (a toda velocidad, unas 6 unidades atrás): con menos margen el
+ * mazo tironearía.
  */
-const DRIFT = 12;
+const DRIFT = 9;
 /** Teclas que mueven el mazo, con su dirección en la pantalla. */
 const KEY_DIR: Record<string, Pt> = {
   ArrowUp: { x: 0, y: -1 },
@@ -179,11 +184,19 @@ export class HockeyTableView {
       this.target = null;
     }
 
-    for (const side of [0, 1] as const) {
-      const p = side === me && this.mine ? this.mine : (pose?.mallets[side] ?? malletHome(side));
-      this.place(this.mallets[side], p);
+    const mallets = ([0, 1] as const).map((side) => (side === me && this.mine ? this.mine : (pose?.mallets[side] ?? malletHome(side))));
+    mallets.forEach((p, side) => this.place(this.mallets[side], p));
+    // El disco se ve un poco en el pasado y tu mazo en el presente: si se enciman, se dibuja apoyado en
+    // el borde del mazo (nunca atravesándolo); el golpe de verdad llega en el cuadro siguiente.
+    let puck = pose?.puck ?? { x: HOCKEY.width / 2, y: HOCKEY_MID };
+    if (me !== null && this.mine) {
+      const R = HOCKEY.puckR + HOCKEY.malletR;
+      const dx = puck.x - this.mine.x;
+      const dy = puck.y - this.mine.y;
+      const d = Math.hypot(dx, dy);
+      if (d < R) puck = d > 0 ? { x: this.mine.x + (dx / d) * R, y: this.mine.y + (dy / d) * R } : { x: puck.x, y: puck.y + (me === 0 ? R : -R) };
     }
-    this.place(this.puck, pose?.puck ?? { x: HOCKEY.width / 2, y: HOCKEY_MID });
+    this.place(this.puck, puck);
     this.puck?.setVisible(table.phase !== "goal");
 
     this.syncBoard(table);

@@ -1,4 +1,4 @@
-import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus, StatChange } from "@hyvento/shared";
+import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, ManualStatus, StatChange } from "@hyvento/shared";
 import type { ItemStack, PetBondRecord } from "@hyvento/shared";
 
 export interface AwardOnceInput {
@@ -70,10 +70,10 @@ export interface GameRepository {
   editOfficeItems(input: OfficeItemsInput): Promise<OfficeItemsResult>;
   /** Cambia piso y/o papel tapiz (lo que no venga queda igual). */
   setOfficeStyle(zoneId: string, style: { floor?: string; wallpaper?: string }): Promise<void>;
-  getUserStatus(userId: string): Promise<PresenceStatus | null>;
+  getUserStatus(userId: string): Promise<ManualStatus | null>;
   /** Perfil guardado (para reflejar cambios hechos desde la web sin reconectar). */
   getUserProfile(userId: string): Promise<UserProfile | null>;
-  setUserStatus(userId: string, status: PresenceStatus): Promise<void>;
+  setUserStatus(userId: string, status: ManualStatus): Promise<void>;
   /** Últimos mensajes globales, del más antiguo al más reciente. */
   loadGlobalChat(limit: number): Promise<ChatEvent[]>;
   saveChat(event: ChatEvent, authorUserId: string): Promise<void>;
@@ -143,6 +143,11 @@ export interface GameRepository {
   addInventory(userId: string, itemId: string, quantity: number): Promise<number>;
   /** Mochila: saca unidades solo si alcanzan (`false` = no tenía tantas y no se tocó nada). */
   takeInventory(userId: string, itemId: string, quantity: number): Promise<boolean>;
+  /**
+   * Contadores de todos con una clave que empieza así (los votos de los nombres del gallinero, que se
+   * guardan como UserStat: ver `voteValue` de @hyvento/shared/granja).
+   */
+  loadStatsByPrefix(prefix: string): Promise<{ userId: string; key: string; value: number }[]>;
   /** Mochila: la casilla guardada de cada cosa (itemId → 0..35). */
   loadBagSlots(userId: string): Promise<Record<string, number>>;
   /** Mochila: guarda casillas nuevas o movidas y olvida las de lo que ya no está (`null`). */

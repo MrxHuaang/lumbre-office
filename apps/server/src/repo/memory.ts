@@ -17,7 +17,7 @@ import {
   type OfficeItemDTO,
   type PetBondRecord,
   type PointReason,
-  type PresenceStatus,
+  type ManualStatus,
   type StatChange,
 } from "@hyvento/shared";
 import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
@@ -25,7 +25,7 @@ import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
   offices = new Map<string, OfficeRecord>();
-  statuses = new Map<string, PresenceStatus>();
+  statuses = new Map<string, ManualStatus>();
   profiles = new Map<string, UserProfile>();
   chat: ChatEvent[] = [];
   /** Libro de puntos en memoria. */
@@ -107,7 +107,7 @@ export class MemoryRepository implements GameRepository {
   async getUserProfile(userId: string) {
     return this.profiles.get(userId) ?? null;
   }
-  async setUserStatus(userId: string, status: PresenceStatus) {
+  async setUserStatus(userId: string, status: ManualStatus) {
     this.statuses.set(userId, status);
   }
   async loadGlobalChat(limit: number) {
@@ -360,6 +360,12 @@ export class MemoryRepository implements GameRepository {
     if (have < quantity) return false;
     this.inventory.set(`${userId}:${itemId}`, have - quantity);
     return true;
+  }
+
+  async loadStatsByPrefix(prefix: string) {
+    const out: { userId: string; key: string; value: number }[] = [];
+    for (const [userId, stats] of this.userStats) for (const [key, value] of stats) if (key.startsWith(prefix)) out.push({ userId, key, value });
+    return out;
   }
 
   async loadBagSlots(userId: string) {

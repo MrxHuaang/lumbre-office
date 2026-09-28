@@ -45,6 +45,11 @@ interface MediaStore {
   screen: boolean;
   /** userId → volumen (0–1) de quienes el jugador local puede oír. Lo calcula la escena. */
   hearing: Record<string, number>;
+  /**
+   * Quienes me oyen aunque yo no los oiga (el público del escenario oye a la tarima): también pueden
+   * suscribirse a mis pistas. Lo calcula la escena con `listeners` de @hyvento/shared.
+   */
+  listeners: string[];
   /** Participantes conectados a LiveKit (todos, se oigan o no). */
   participants: Record<string, MediaParticipant>;
   /** Identidades hablando ahora (incluida la local). */
@@ -52,7 +57,7 @@ interface MediaStore {
   /** Sube cuando cambian los tracks suscritos, para re-renderizar los videos. */
   trackVersion: number;
   focused: Focus | null;
-  setHearing: (h: Record<string, number>) => void;
+  setHearing: (h: Record<string, number>, listeners?: string[]) => void;
   setFocused: (focus: Focus | null) => void;
 }
 
@@ -62,13 +67,14 @@ export const useMediaStore = create<MediaStore>((set) => ({
   cam: false,
   screen: false,
   hearing: {},
+  listeners: [],
   participants: {},
   speaking: [],
   trackVersion: 0,
   focused: null as Focus | null,
-  setHearing: (hearing) => {
-    set({ hearing });
-    media.applyHearing(hearing);
+  setHearing: (hearing, listeners = []) => {
+    set({ hearing, listeners });
+    media.applyHearing(hearing, listeners);
   },
   setFocused: (focused) => set({ focused }),
 }));
@@ -220,7 +226,7 @@ class MediaManager {
     this.retryDelay = RETRY_MIN_MS;
     useMediaStore.setState({ status: "connected" });
     this.syncParticipants();
-    this.applyHearing(useMediaStore.getState().hearing);
+    this.applyHearing(useMediaStore.getState().hearing, useMediaStore.getState().listeners);
     return room;
   }
 
@@ -263,11 +269,11 @@ class MediaManager {
   }
 
   /** Aplica suscripciones, permisos y volúmenes según a quién oye el jugador local. */
-  applyHearing(hearing: Record<string, number>) {
+  applyHearing(hearing: Record<string, number>, listeners: string[] = []) {
     const room = this.room;
     if (!room || !this.connected) return;
 
-    const allowed = Object.keys(hearing).sort();
+    const allowed = [...new Set([...Object.keys(hearing), ...listeners])].sort();
     const key = allowed.join(",");
     if (key !== this.lastAllowed) {
       this.lastAllowed = key;
@@ -288,6 +294,18 @@ class MediaManager {
       identity === null ? room.localParticipant : room.remoteParticipants.get(identity);
     const pub = participant?.getTrackPublication(source);
     return pub && !pub.isMuted ? pub.track : undefined;
+  }
+
+  /**
+   * La pista de audio del micrófono de alguien (o la mía con identity = null), para grabarla en la cabina
+   * de grabación. Solo están las de quienes oigo (a los demás no estoy suscrito).
+   */
+  audioTrack(identity: string | null): MediaStreamTrack | undefined {
+    const room = this.room;
+    if (!room) return undefined;
+    const participant: Participant | undefined = identity === null ? room.localParticipant : room.remoteParticipants.get(identity);
+    const pub = participant?.getTrackPublication(Track.Source.Microphone);
+    return pub && !pub.isMuted ? pub.track?.mediaStreamTrack : undefined;
   }
 
   get localIdentity() {

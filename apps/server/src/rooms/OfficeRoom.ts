@@ -52,6 +52,7 @@ import {
   JoinOptions,
   KNOCK_COOLDOWN_MS,
   KNOCK_TIMEOUT_MS,
+  IdleMessage,
   KnockMessage,
   KnockRespondMessage,
   MoveMessage,
@@ -68,11 +69,16 @@ import {
   TravelMessage,
   POINTS,
   type PointReason,
+  type PresenceStatus,
   type PointsAwarded,
   verifyGameToken,
   type CafeOrderResult,
   type CasinoSettingsDTO,
   type RouletteSettled,
+  MESA_POINT,
+  MESAS,
+  type MesaId,
+  type MesaSettled,
   type BlackjackSettled,
   BLACKJACK,
   type EmoteEvent,
@@ -176,7 +182,7 @@ import {
   type CongratsResult,
   type FocusEvent,
   type FocusPresetId,
-  type PresenceStatus,
+  type ManualStatus,
   PHONE,
   PhoneAnswerMessage,
   PhoneCallMessage,
@@ -187,16 +193,18 @@ import {
   sombreroItem,
   sombreroRefId,
   TRIP,
+  tripSpeedMul,
   type SombreroBuyResult,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
-import { GardenPlotState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
+import { FarmAnimal, GardenPlotState, GrillJob, MesaState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
 import { acceptCasinoMessage } from "./casino/common";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { Bag } from "./bag";
+import { DEFAULT_MESA_TIMINGS, MesaTable, parseMesaBet, randomMesaDraw, type MesaTimings } from "./casino/mesas";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
@@ -215,6 +223,22 @@ import { HockeyTable } from "./hockey";
 import { Club, musicOf, type ClubWho } from "./club";
 import { ClubTips } from "./clubTips";
 import { Cinema } from "./cinema";
+import { Escenario } from "./escenario";
+import { Podcast, type Inside, type PodcastNotices } from "./podcast";
+import {
+  ESCENARIO,
+  ESCENARIO_MSG,
+  FloorMessage,
+  HandMessage,
+  PODCAST,
+  PODCAST_MSG,
+  PodcastConsentMessage,
+  StageMessage,
+  stageRole,
+  type ApplauseEvent,
+  type EscenarioNotice,
+  type EscenarioNoticeCode,
+} from "@hyvento/shared";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
 import { ChairRaces, type RaceOutcome } from "./races";
@@ -233,10 +257,28 @@ import { CasaArbol } from "./casaArbol";
 import { BusLine, type BusSchedule } from "./bus";
 import { Piscina } from "./piscina";
 import { Tina } from "./tina";
+import { Observatorio } from "./observatorio";
+import { MARSHMALLOW, OBS_MSG, SKY, type MarshmallowTimings, type SignalPing, type SkyTimings } from "@hyvento/shared";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
 import { Cocina, type CocinaResult } from "./cocina";
+import {
+  GALLINERO,
+  GRANJA_MSG,
+  GRANJA_STATS,
+  isGameNight,
+  isGranjaAction,
+  PARRILLA_MSG,
+  type CoopState,
+  type GranjaNotice,
+  type GrillNotice,
+  type GrillState,
+  type PortionShared,
+} from "@hyvento/shared";
+import { Granja } from "./granja";
+import { Parrilla, type GrillWho } from "./parrilla";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
+import { PresenceTracker } from "./presence";
 
 interface UserData {
   lastMoveAt: number;
@@ -264,7 +306,7 @@ interface UserData {
 /** Lo que el modo foco cambió al empezar un bloque, para devolverlo al terminar (si nadie lo tocó). */
 interface FocusClaim {
   /** Estado de antes (no se toca si ya estaba en "No molestar"). */
-  status?: PresenceStatus;
+  status?: ManualStatus;
   /** Oficina que el foco cerró (estaba abierta). */
   lockedZone?: string;
   /** Nota que tenía la placa de su oficina. */
@@ -319,6 +361,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static rouletteSpin: () => number = randomSpin;
   static blackjackTimings: BlackjackTimings = { ...BLACKJACK };
   static blackjackShuffle: () => number[] = randomShoe;
+  /** Baccarat, dados y caballitos: tiempos y resultado (los tests los acortan y los fijan). */
+  static mesaTimings: MesaTimings = { ...DEFAULT_MESA_TIMINGS };
+  static mesaDraw: (table: MesaId) => number[] = randomMesaDraw((n) => randomInt(n));
   /** Pesca: el azar (entero en [0, n)), el reloj real (para los tiempos del minijuego) y los tiempos del lance. */
   static fishingRandom: (n: number) => number = (n) => randomInt(n);
   static fishingNow: () => number = () => Date.now();
@@ -338,6 +383,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Reloj real para el reloj del juego y hora con la que arranca (los tests los fijan; null = la de Bogotá). */
   static gameClockNow: () => number = () => Date.now();
   static gameClockInitial: GameClockState | null = null;
+  /** Observatorio: el reloj y el azar de la fogata y de las estrellas fugaces, y sus tiempos (los tests los fijan). */
+  static observatorioNow: () => number = () => Date.now();
+  static observatorioRandom: (n: number) => number = (n) => randomInt(n);
+  static marshmallowTimings: MarshmallowTimings = { ...MARSHMALLOW };
+  static skyTimings: SkyTimings = { ...SKY };
   /** Man del Sombrero: el azar del escondite de cada día (entero en [0, n)) y cada cuánto se revisa. */
   static sombreroRandom: (n: number) => number = (n) => randomInt(n);
   static sombreroTickMs = 1000;
@@ -668,6 +718,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private events!: CabinEvents;
   /** Modo foco: el reloj de cada pomodoro y lo que cambió al empezar (ver focus.ts). */
   private focusClaims = new Map<string, FocusClaim>();
+  /** Estados automáticos: "Ausente" por inactividad y "En reunión" (ver presence.ts). */
+  private autoStatus = new PresenceTracker(
+    { get: (id) => this.state.players.get(id), entries: () => this.state.players.entries() },
+    (zoneId) => this.zonesById.get(zoneId)?.type === "meeting",
+  );
   private focus = new FocusTimers({
     later: (ms, fn) => this.clock.setTimeout(fn, ms),
     now: () => Date.now(),
@@ -695,6 +750,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private arcade!: Arcade;
   /** El cine del sótano (la cola de la función). */
   private cinema!: Cinema;
+  /** El escenario del jardín (tarima, fila de turnos, palabra, aplausos) y la cabina de grabación. */
+  private escenario!: Escenario;
+  private podcast!: Podcast;
   /** Jardín vivo: el huerto, el cobertizo y la miel (ver huerto.ts). */
   private huerto!: Huerto<GardenPlotState>;
   private casaArbol!: CasaArbol;
@@ -725,6 +783,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
   });
 
+  /** La granja: el azar de los animales, su reloj y cuánto tarda cada receta (los tests los fijan y acortan). */
+  static granjaRandom: () => number = Math.random;
+  static granjaNow: () => number = () => Date.now();
+  static parrillaTimeScale = 1;
+  static molinoTimeScale = 1;
+  /** El gallinero, el corral y el molino (ver granja.ts) y la parrilla (parrilla.ts). */
+  private granja!: Granja;
+  private parrilla!: Parrilla;
+
   /**
    * El repositorio con el que nació la sala: un tic que quedó en vuelo al cerrarla no escribe en el de
    * la sala siguiente (en los tests, cada uno trae su repositorio en memoria).
@@ -754,6 +821,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       bagFits: (userId, items) => items.every((item) => this.held.fits(userId, [[objItemId(item), 1]]) === "ok"),
     });
     this.startPets();
+    this.startGranja();
     this.club = new Club(this.state.club);
     this.clubTips = new ClubTips(this.state.club, {
       player: (sessionId) => this.state.players.get(sessionId),
@@ -773,6 +841,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
     });
     this.cinema = new Cinema(this.state.cinema);
+    this.escenario = new Escenario(this.state.stage);
+    this.podcast = new Podcast(this.state.podcast);
     this.arcade = new Arcade({
       repo: () => this.repo,
       seed: () => OfficeRoom.arcadeSeed(),
@@ -813,12 +883,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.move, (client, raw) => this.handleBagMove(client, raw));
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
+    this.startObservatorio();
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
+    this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
+    this.onMessage(GRANJA_MSG.vote, (client, raw) => void this.handleCoopVote(client, raw));
+    this.onMessage(PARRILLA_MSG.open, (client) => void this.withGrill(client, (who) => ({ state: this.parrilla.state(who.userId) })));
+    this.onMessage(PARRILLA_MSG.cook, (client, raw) => void this.withGrill(client, (who, now) => this.parrilla.cook(who, raw, now)));
+    this.onMessage(PARRILLA_MSG.buy, (client, raw) => void this.withGrill(client, (who, now) => this.parrilla.buy(who, raw, now)));
+    this.onMessage(PARRILLA_MSG.portion, (client, raw) => void this.handlePortion(client, raw));
     this.onMessage(COCINA_MSG.cook, (client, raw) => void this.withCook(client, (p, now) => this.cocina.cook(this.mapOf(p.area), p, raw, now)));
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
+    this.onMessage(MSG.idle, (client, raw) => {
+      const parsed = IdleMessage.safeParse(raw);
+      if (parsed.success) this.autoStatus.setIdle(client.sessionId, parsed.data.idle);
+    });
     this.onMessage(MSG.profileChanged, (client) => void this.handleProfileChanged(client));
     this.onMessage(MSG.officeLock, (client, raw) => this.handleLock(client, raw));
     this.onMessage(MSG.officeNote, (client, raw) => this.handleOfficeNote(client, raw));
@@ -879,11 +960,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       });
     });
     this.onMessage(MSG.emote, (client, raw) => this.handleEmote(client, raw));
+    this.onMessage(ESCENARIO_MSG.stage, (client, raw) => this.handleStage(client, raw));
+    this.onMessage(ESCENARIO_MSG.hand, (client, raw) => this.handleHand(client, raw));
+    this.onMessage(ESCENARIO_MSG.floor, (client, raw) => this.handleFloor(client, raw));
+    this.onMessage(ESCENARIO_MSG.clap, (client) => this.handleClap(client));
+    this.onMessage(PODCAST_MSG.start, (client) => this.withPodcast(client, (who, inside, now) => this.podcast.start(who, inside, now)));
+    this.onMessage(PODCAST_MSG.consent, (client, raw) => {
+      const parsed = PodcastConsentMessage.safeParse(raw);
+      if (parsed.success) this.withPodcast(client, (who, inside, now) => this.podcast.consent(who, parsed.data.accept, inside, now));
+    });
+    this.onMessage(PODCAST_MSG.stop, (client) => this.withPodcast(client, (who, inside) => this.podcast.stop(who, inside)));
     this.onMessage(MSG.photoTake, (client) => {
       this.markActive(client);
       this.photos.take(client.sessionId);
     });
     this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
+    this.onMessage(MSG.mesaBet, (client, raw) => void this.handleMesaBet(client, raw));
     this.onMessage(MSG.blackjackBet, (client, raw) => void this.handleBlackjack(client, raw, "bet"));
     this.onMessage(MSG.blackjackAction, (client, raw) => void this.handleBlackjack(client, raw, "action"));
     this.onMessage(MSG.fishCast, (client) => this.handleFishCast(client));
@@ -949,6 +1041,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.cinema.tick(Date.now());
       // La casa del árbol que se vació (por donde sea) baja la escalera, y el modo foco cambia de fase.
       this.casaArbol.sweep(Date.now());
+      // "En reunión" también para quien entró o salió sin caminar (portal, desmayo, se desconectó).
+      this.autoStatus.refreshMeetings();
+      // Escenario y cabina: la mano o la palabra de quien se fue, y el acuerdo para grabar.
+      this.escenario.sweep(this.state.players);
+      this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
     }, 500);
     // Cumpleaños del día y el karaoke de los viernes: se revisa seguido (cambian con la hora de Bogotá).
     this.clock.setInterval(() => void this.events.refresh(), OfficeRoom.eventsRefreshMs);
@@ -1041,6 +1138,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.trip = trip?.kind ?? "";
     player.tripUntil = trip?.until ?? 0;
     this.state.players.set(client.sessionId, player);
+    this.autoStatus.join(client.sessionId, player.status as ManualStatus);
     this.focus.joined(auth.sub);
     // Si recargó la página en medio de una llamada, la sesión nueva la retoma.
     this.phones.restore(auth.sub);
@@ -1396,7 +1494,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** ¿Puede este jugador estar en (x, y)? Bloquea oficinas cerradas a quien no es dueño ni invitado. */
   private canAccess(player: Player, x: number, y: number): boolean {
-    const zone = zoneAt(this.mapOf(player.area), x, y);
+    const map = this.mapOf(player.area);
+    // La tarima del escenario (dos como mucho) y la cabina de grabación (llena, o pidiendo permiso o grabando).
+    const sessionId = [...this.state.players.entries()].find(([, p]) => p === player)?.[0] ?? "";
+    if (!this.escenario.canEnter(map, sessionId, player, x, y, this.state.players)) return false;
+    if (!this.podcast.canEnter(map, player.zoneId, x, y, this.podcastInside())) return false;
+    const zone = zoneAt(map, x, y);
     if (zone?.type !== "office") return true;
     const office = this.state.offices.get(zone.id);
     if (!office?.locked || !office.ownerId) return true;
@@ -1533,6 +1636,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
     const owner = this.clientOfUser(office.ownerId);
     if (!owner) return reply("owner-away");
+    // En "No molestar" no le llegan toques (el que toca se entera y no queda esperando).
+    if (this.state.players.get(owner.sessionId)?.status === "dnd") return reply("dnd");
 
     const requestId = randomUUID();
     const timer = this.clock.setTimeout(() => {
@@ -1647,13 +1752,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // el asiento (p. ej. del tile de enfrente a la silla), así que ahí se permite algo más.
     const snap = seated !== player.seated ? map.tileSize * SEAT_REACH_TILES : 0;
     // En la carrera de sillas se va más rápido; con la energía de un plato de la cocina, también; trabado
-    // (lo del Man del Sombrero) o nadando, más lento.
-    const stoned = this.trips.get(player.userId)?.kind === "trabado";
+    // (lo del Man del Sombrero: trabado o con la keta) o nadando, más lento.
+    const tripMul = tripSpeedMul(this.trips.get(player.userId)?.kind);
     const swim = player.swimming;
     const speed =
       PLAYER_SPEED *
       (player.racing ? CHAIR_RACE.speedMul : this.cocina.speedMul(player.userId, OfficeRoom.cocinaNow())) *
-      (stoned ? TRIP.slowSpeedMul : 1) *
+      tripMul *
       (swim ? AGUA.swimSpeedMul : 1);
     const maxDist = Math.max(map.tileSize * 0.75, dt * speed * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
@@ -1693,6 +1798,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.zoneId = zoneAt(map, x, y)?.id ?? "";
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
+    if (previousZoneId !== player.zoneId) this.autoStatus.refreshMeetings();
     this.whiteboards.moved(client.sessionId, player.zoneId);
     this.focus.moved(player.userId, player.zoneId);
     this.fishery.moved(player.userId, x, y, seated);
@@ -1897,7 +2003,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const parsed = StatusMessage.safeParse(raw);
     const player = this.state.players.get(client.sessionId);
     if (!parsed.success || !player) return;
-    player.status = parsed.data.status;
+    this.autoStatus.setManual(client.sessionId, parsed.data.status, true);
     this.repo.setUserStatus(player.userId, parsed.data.status).catch((err) => console.error("setUserStatus", err));
   }
 
@@ -2108,6 +2214,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private casinoSettings: CasinoSettingsDTO = { enabled: true };
   private roulette?: RouletteTable;
   private blackjack?: BlackjackTable;
+  private readonly mesas = new Map<MesaId, MesaTable>();
 
   private async reloadCasinoSettings() {
     this.casinoSettings = await this.repo.getCasinoSettings().catch((err) => {
@@ -2135,6 +2242,28 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       spin: () => OfficeRoom.rouletteSpin(),
     });
     this.roulette.start();
+    for (const id of MESAS) {
+      const state = new MesaState();
+      this.state.mesas.set(id, state);
+      const table = new MesaTable({
+        id,
+        state,
+        repo: () => this.repo,
+        settings: () => this.casinoSettings,
+        later: (ms, fn) => void this.clock.setTimeout(fn, ms),
+        setPoints: (userId, balance) => {
+          for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+        },
+        notify: (userId, settled: MesaSettled) => {
+          for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.mesaSettled, settled);
+          this.casinoSettled(userId, settled.staked, settled.won);
+        },
+        timings: () => OfficeRoom.mesaTimings,
+        draw: (t) => OfficeRoom.mesaDraw(t),
+      });
+      this.mesas.set(id, table);
+      table.start();
+    }
     this.blackjack = new BlackjackTable({
       state: this.state.blackjack,
       repo: () => this.repo,
@@ -2197,6 +2326,16 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const near = nearPointOfType(this.mapOf(player.area), "roulette", player.x, player.y);
     const result = await this.roulette.bet({ userId: player.userId, name: player.name }, raw, near);
     if (result) client.send(MSG.casinoResult, result);
+  }
+
+  private async handleMesaBet(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const msg = parseMesaBet(raw);
+    const table = msg && this.mesas.get(msg.table);
+    if (!player || !msg || !table || !this.acceptCasino(client)) return;
+    const near = nearPointOfType(this.mapOf(player.area), MESA_POINT[msg.table], player.x, player.y);
+    const result = await table.bet({ userId: player.userId, name: player.name }, msg, near);
+    client.send(MSG.casinoResult, result);
   }
 
   // ---------- Emotes ----------
@@ -2429,10 +2568,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastActiveAt = now;
     // Jardín vivo: las parcelas, el barril y el pozo y las colmenas tienen sus reglas (huerto.ts).
     if (result.kind === "event" && isHuertoAction(result.event.action)) return void this.handleHuerto(client, player, result.event);
+    // La granja: el comedero, el nido y el molino (granja.ts).
+    if (result.kind === "event" && isGranjaAction(result.event.action)) return void this.handleGranja(client, player, result.event);
     this.countFurniture(player.userId, result);
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
       this.sendToArea(player.area, MSG.furnitureEvent, event);
+      // El radar de señales del observatorio oye los instrumentos de toda la cabaña.
+      if (event.action === "play" && player.area !== "observatorio")
+        this.sendToArea("observatorio", OBS_MSG.signal, { area: player.area, type: event.type, x: event.x, y: event.y } satisfies SignalPing);
     }
     // Casa viva: lo gratis a la mano (el malvavisco, al terminar de asarse, si sigue junto a la fogata) y
     // el cubículo ocupado.
@@ -2579,6 +2723,162 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   // ---------- Casa viva: mascotas ----------
 
   /** Las mascotas aparecen durmiendo en sus camas y el servidor las mueve seguido. */
+  // ---------- La granja ----------
+
+  /** Los animales aparecen en su patio y el servidor los mueve; la parrilla revisa lo que está en el fuego. */
+  private startGranja() {
+    const jardin = () => this.mapOf("jardin");
+    const bag = {
+      count: (userId: string, itemId: string) => this.held.count(userId, itemId),
+      fits: (userId: string, items: readonly (readonly [string, number])[]) => this.held.fits(userId, items),
+      take: (userId: string, itemId: string, n: number) => this.held.take(userId, itemId, n),
+      add: (userId: string, itemId: string, n: number, opts: { pick?: boolean }) => this.held.add(userId, itemId, n, opts),
+    };
+    this.granja = new Granja({
+      animals: this.state.granja.animals,
+      create: () => new FarmAnimal(),
+      setEggs: (n) => {
+        this.state.granja.eggs = n;
+      },
+      map: jardin,
+      rng: () => OfficeRoom.granjaRandom(),
+      bag,
+      stats: {
+        isLoaded: (userId) => this.achievements.isLoaded(userId),
+        stat: (userId, key) => this.achievements.stat(userId, key),
+        max: (userId, key, value) => this.achievements.max(userId, key, value),
+        bump: (userId, key, by) => this.achievements.bump(userId, key, by),
+      },
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      loadVotes: () => this.repo.loadStatsByPrefix(GRANJA_STATS.votePrefix),
+      gameClock: () => this.gameClock(),
+      gameNight: () => isGameNight(this.gameClock(), OfficeRoom.gameClockNow()),
+      later: (ms, fn) => this.clock.setTimeout(fn, ms * OfficeRoom.molinoTimeScale),
+      notify: (userId, notice) => this.clientOfUser(userId)?.send(GRANJA_MSG.notice, notice satisfies GranjaNotice),
+    });
+    this.parrilla = new Parrilla({
+      jobs: this.state.granja.grill,
+      create: () => new GrillJob(),
+      map: jardin,
+      bag: {
+        ...bag,
+        get: (userId) => this.held.get(userId),
+        use: (userId, now, opts) => this.held.use(userId, now, opts),
+      },
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      spend: async (userId, amount, refId) => {
+        const r = await this.repo.spendPoints({ userId, amount, reason: "PURCHASE", refId });
+        for (const p of this.state.players.values()) if (p.userId === userId) p.points = r.balance;
+        return r;
+      },
+      where: (userId) => {
+        const c = this.clientOfUser(userId);
+        return c ? this.grillWho(c) : undefined;
+      },
+      bump: (userId, key, by) => this.achievements.bump(userId, key, by),
+      notify: (userId, notice) => this.clientOfUser(userId)?.send(PARRILLA_MSG.notice, notice satisfies GrillNotice),
+      timeScale: () => OfficeRoom.parrillaTimeScale,
+    });
+    let last = OfficeRoom.granjaNow();
+    this.granja.start(last);
+    void this.granja.loadNames();
+    this.clock.setInterval(() => {
+      const now = OfficeRoom.granjaNow();
+      this.granja.tick(now, Math.min(600, Math.max(0, now - last)));
+      this.parrilla.tick(now);
+      last = now;
+    }, GALLINERO.tickMs);
+  }
+
+  private grillWho(client: Client): GrillWho | undefined {
+    const p = this.state.players.get(client.sessionId);
+    return p && { userId: p.userId, sessionId: client.sessionId, name: p.name, area: p.area, x: p.x, y: p.y };
+  }
+
+  /** Dar de comer, buscar huevos o moler: el aviso a quien lo hizo y la animación a los del nivel. */
+  private async handleGranja(client: Client<UserData>, player: Player, e: Omit<FurnitureEvent, "sessionId">) {
+    const now = OfficeRoom.granjaNow();
+    const who = { userId: player.userId, name: player.name };
+    let notice: GranjaNotice;
+    let event = e;
+    let ok = false;
+    try {
+      if (e.action === "feed") {
+        notice = await this.granja.feed(who, now);
+        ok = notice.code === "fed";
+      } else if (e.action === "eggs") {
+        notice = await this.granja.collectEggs(who, now);
+        ok = notice.code === "eggs";
+      } else {
+        const r = await this.granja.grind(who, isWet(this.weather.weather), now);
+        notice = r.notice;
+        ok = r.ms !== undefined;
+        // La semilla lleva lo que tarda: todos ven moler lo mismo.
+        if (ok) event = { ...e, seed: r.ms! };
+      }
+    } catch (err) {
+      console.error("granja", err);
+      notice = { code: "failed" };
+    }
+    client.send(GRANJA_MSG.notice, notice satisfies GranjaNotice);
+    if (ok) this.sendToArea(player.area, MSG.furnitureEvent, { sessionId: client.sessionId, ...event } satisfies FurnitureEvent);
+  }
+
+  /** El letrero del gallinero: cómo está hoy y los votos (solo a quien lo abrió). */
+  private async handleCoop(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const state = await this.granja.coopState({ userId: player.userId, name: player.name }, OfficeRoom.granjaNow());
+    client.send(GRANJA_MSG.coopState, state satisfies CoopState);
+  }
+
+  private async handleCoopVote(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const notice = await this.granja.vote({ userId: player.userId, name: player.name }, raw, OfficeRoom.granjaNow());
+    if (!notice) return;
+    client.send(GRANJA_MSG.notice, notice satisfies GranjaNotice);
+    await this.handleCoop(client);
+  }
+
+  /** Cocinar, mirar la despensa o traer de la cafetería: el estado y el aviso solo a quien lo pidió. */
+  private async withGrill(
+    client: Client<UserData>,
+    fn: (who: GrillWho, now: number) => GrillResult | Promise<GrillResult>,
+  ) {
+    const who = this.grillWho(client);
+    if (!who || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const result = await Promise.resolve()
+      .then(() => fn(who, OfficeRoom.granjaNow()))
+      .catch((err): GrillResult => {
+        console.error("parrilla", err);
+        return { notice: { code: "failed" } };
+      });
+    if (!result) return;
+    if (result.state) client.send(PARRILLA_MSG.state, result.state satisfies GrillState);
+    if (result.notice) client.send(PARRILLA_MSG.notice, result.notice satisfies GrillNotice);
+  }
+
+  /** Pedir una porción del plato que lleva otra persona: lo ven los del nivel. */
+  private async handlePortion(client: Client<UserData>, raw: unknown) {
+    const who = this.grillWho(client);
+    if (!who || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const target = (raw as { sessionId?: unknown } | null)?.sessionId;
+    const holderClient = typeof target === "string" ? this.clients.getById(target) : undefined;
+    const holder = holderClient ? this.grillWho(holderClient) : undefined;
+    const result = await this.parrilla.portion(who, holder, raw, OfficeRoom.granjaNow()).catch((err) => {
+      console.error("porción", err);
+      return { notice: { code: "failed" } satisfies GrillNotice };
+    });
+    if (!result) return;
+    client.send(PARRILLA_MSG.notice, result.notice satisfies GrillNotice);
+    if ("holderNotice" in result && result.holderNotice) holderClient?.send(PARRILLA_MSG.notice, result.holderNotice satisfies GrillNotice);
+    if ("shared" in result && result.shared) this.sendToArea(who.area, PARRILLA_MSG.shared, result.shared satisfies PortionShared);
+  }
+
   private startPets() {
     this.pets = new Pets({
       pets: this.state.pets,
@@ -2664,6 +2964,48 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
                   ? STAT_KEYS.lightsToggled
                   : null;
     if (key) this.achievements.bump(userId, key);
+  }
+
+  // ---------- Observatorio ----------
+
+  /** El observatorio del jardín: la fogata de malvaviscos y el telescopio (ver observatorio.ts). */
+  private observatorio?: Observatorio;
+
+  private startObservatorio() {
+    const obs = new Observatorio({
+      now: () => OfficeRoom.observatorioNow(),
+      random: (n) => OfficeRoom.observatorioRandom(n),
+      marshmallowTimings: () => OfficeRoom.marshmallowTimings,
+      skyTimings: () => OfficeRoom.skyTimings,
+      isNight: () => isNightMinute(this.gameTimeNow().minuteOfDay),
+      player: (sessionId) => this.state.players.get(sessionId),
+      map: (area) => this.mapOf(area),
+      toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
+      toArea: (area, type, message) => this.sendToArea(area, type, message),
+      later: (ms, fn) => this.clock.setTimeout(fn, ms),
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      bump: (userId, key, by) => this.achievements.bump(userId, key, by),
+      held: { get: (userId) => this.held.get(userId), give: (userId, item) => this.held.give(userId, item) },
+    });
+    this.observatorio = obs;
+    const active = (client: Client<UserData>, fn: (sessionId: string) => void) => {
+      this.markActive(client);
+      fn(client.sessionId);
+    };
+    this.onMessage(OBS_MSG.marshmallowStart, (client) => active(client, (id) => obs.start(id)));
+    this.onMessage(OBS_MSG.marshmallowPull, (client) => active(client, (id) => obs.pull(id)));
+    this.onMessage(OBS_MSG.telescopeLook, (client) => active(client, (id) => obs.look(id)));
+    this.onMessage(OBS_MSG.telescopeClose, (client) => obs.close(client.sessionId));
+    this.onMessage(OBS_MSG.starSpot, (client, raw) => active(client, (id) => obs.spot(id, raw)));
+    this.clock.setInterval(() => obs.tick(), OfficeRoom.skyTimings.tickMs);
+  }
+
+  /** Para los tests: el observatorio y los contadores de alguien. */
+  observatorioState() {
+    return this.observatorio;
+  }
+  statsOf(userId: string) {
+    return this.achievements.snapshot(userId);
   }
 
   private sendToArea(area: string, type: string, message: unknown) {
@@ -2998,12 +3340,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Empieza un bloque: no molestar y, si está en su oficina, la puerta cerrada y la placa. */
   private claimFocus(userId: string): string {
-    const mine = [...this.state.players.values()].filter((p) => p.userId === userId);
+    const sessions = [...this.state.players.entries()].filter(([, p]) => p.userId === userId);
     const claim: FocusClaim = {};
-    const first = mine[0];
-    if (first && first.status !== "dnd") {
-      claim.status = first.status as PresenceStatus;
-      for (const p of mine) p.status = "dnd";
+    const first = sessions[0]?.[1];
+    const manual = sessions[0] && this.autoStatus.manualOf(sessions[0][0]);
+    if (manual && manual !== "dnd") {
+      claim.status = manual;
+      for (const [sessionId] of sessions) this.autoStatus.setManual(sessionId, "dnd");
     }
     let zoneId = "";
     const office = first ? this.state.offices.get(first.zoneId) : undefined;
@@ -3025,7 +3368,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const claim = this.focusClaims.get(userId);
     if (!claim) return;
     this.focusClaims.delete(userId);
-    if (claim.status) for (const p of this.state.players.values()) if (p.userId === userId && p.status === "dnd") p.status = claim.status;
+    if (claim.status)
+      for (const [sessionId, p] of this.state.players.entries())
+        if (p.userId === userId && this.autoStatus.manualOf(sessionId) === "dnd") this.autoStatus.setManual(sessionId, claim.status);
     const locked = claim.lockedZone ? this.state.offices.get(claim.lockedZone) : undefined;
     if (locked?.locked && locked.ownerId === userId) this.setOfficeLocked(locked, false);
     const noted = claim.note ? this.state.offices.get(claim.note.zoneId) : undefined;
@@ -3058,17 +3403,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   private removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
+    this.observatorio?.forget(sessionId);
     this.state.players.delete(sessionId);
     this.casaArbol?.sweep(Date.now());
     this.club?.forget(sessionId);
     this.whiteboards.forget(sessionId);
     this.races.forget(sessionId);
     if (this.houseEditLock?.sessionId === sessionId) this.houseEditLock = null;
+    this.escenario?.sweep(this.state.players);
+    if (this.podcast) this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
     if (!player) return;
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
     this.fishery.forget(player.userId);
+    this.granja.forget(player.userId);
+    this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
     this.phones.left(player.userId);
     this.invites.forget(player.userId);
@@ -3174,7 +3524,89 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   private positioned(p: Player): Positioned {
     const zone = p.zoneId ? this.zonesById.get(p.zoneId) : undefined;
-    return { area: p.area, x: p.x, y: p.y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false };
+    const stage = p.area === ESCENARIO.area ? stageRole(p.zoneId, p.userId, this.state.stage.floor) : undefined;
+    return { area: p.area, x: p.x, y: p.y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false, ...(stage ? { stage } : {}) };
+  }
+
+  // ---------- Escenario del jardín ----------
+
+  private stageNotice(client: Client<UserData>, code: EscenarioNoticeCode) {
+    client.send(ESCENARIO_MSG.notice, { code } satisfies EscenarioNotice);
+  }
+
+  /** "E · Subir al escenario" (lo deja en la tarima si hay lugar) o bajar (al pie de la escalerita). */
+  private handleStage(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = StageMessage.safeParse(raw);
+    if (!player || !parsed.success || !client.userData) return;
+    const map = this.mapOf(player.area);
+    const ts = map.tileSize;
+    const taken = (x: number, y: number) =>
+      [...this.state.players.entries()].some(([id, p]) => id !== client.sessionId && p.area === map.id && Math.hypot(p.x - x, p.y - y) < ts * 0.6);
+    const res = this.escenario.move(map, client.sessionId, player, parsed.data.on, this.state.players, taken);
+    if (!res.ok) return this.stageNotice(client, res.code);
+    // Al bajar: al pie de la escalerita o, si hay alguien, al lado (nunca de vuelta en la tarima).
+    const below = [0, 1, -1, 2, -2].flatMap((dy) => [0, 1, 2].map((dx) => ({ x: res.x + dx * ts, y: res.y + dy * ts })));
+    const pos = parsed.data.on ? res : (below.find((q) => canStandAt(map, q.x, q.y) && !taken(q.x, q.y) && zoneAt(map, q.x, q.y)?.id !== ESCENARIO.stageZone) ?? res);
+    player.x = pos.x;
+    player.y = pos.y;
+    if (parsed.data.on) player.dir = "right";
+    player.moving = false;
+    player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
+    player.place = placeAt(map, pos.x, pos.y);
+    client.userData.lastMoveAt = Date.now();
+    client.userData.lastActiveAt = Date.now();
+    client.send(MSG.moveCorrection, { x: pos.x, y: pos.y } satisfies MoveCorrection);
+    this.escenario.sweep(this.state.players);
+  }
+
+  private handleHand(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = HandMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    this.markActive(client);
+    const res = this.escenario.hand(client.sessionId, player, parsed.data.up, Date.now());
+    if (!res.ok) this.stageNotice(client, res.code);
+  }
+
+  private handleFloor(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = FloorMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    this.markActive(client);
+    const res = this.escenario.floor(player, parsed.data.userId, this.state.players);
+    if (!res.ok) this.stageNotice(client, res.code);
+  }
+
+  /** Aplaudir: el emote de aplausos para todo el nivel y cuántos aplauden a la vez (para la ovación). */
+  private handleClap(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const crowd = this.escenario.clap(player, Date.now());
+    if (crowd === null) return;
+    this.markActive(client);
+    this.sendToArea(player.area, MSG.emoteEvent, { sessionId: client.sessionId, emote: "clap" } satisfies EmoteEvent);
+    this.sendToArea(player.area, ESCENARIO_MSG.applause, { sessionId: client.sessionId, crowd } satisfies ApplauseEvent);
+  }
+
+  // ---------- Cabina de grabación ----------
+
+  /** Quiénes están adentro de la cabina ahora. */
+  private podcastInside(): Inside[] {
+    const out: Inside[] = [];
+    for (const [sessionId, p] of this.state.players) if (p.area === PODCAST.area && p.zoneId === PODCAST.zone) out.push({ sessionId, userId: p.userId, name: p.name });
+    return out;
+  }
+
+  private withPodcast(client: Client<UserData>, fn: (who: Inside, inside: Inside[], now: number) => PodcastNotices) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    this.markActive(client);
+    this.sendPodcastNotices(fn({ sessionId: client.sessionId, userId: player.userId, name: player.name }, this.podcastInside(), Date.now()));
+  }
+
+  private sendPodcastNotices(notices: PodcastNotices) {
+    for (const n of notices) for (const id of n.to) this.clients.getById(id)?.send(PODCAST_MSG.notice, n.notice);
   }
 
   private mapOf(area: string): OfficeMap {
@@ -3194,3 +3626,5 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return { x, y };
   }
 }
+/** Lo que responde la parrilla a quien la usó (o nada: se ignora). */
+type GrillResult = { state?: GrillState; notice?: GrillNotice } | null;

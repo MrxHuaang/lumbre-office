@@ -3,16 +3,22 @@
 // una ventana). OfficeScene solo lo prende, lo apaga y le
 // pasa los clics; la tira de abajo (components/casino/TableStrip.tsx) tiene fichas, saldo y botones.
 import type { OfficeMap, PlacedFurniture } from "@hyvento/map";
+import { MESA_FURNITURE } from "@hyvento/map/art";
+import { MESAS, type MesaId } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { useCasinoStore } from "../casino";
+import { useMesasStore } from "../mesas";
 import { sfx } from "../sfx";
 import { BlackjackTableView } from "./blackjackTable";
 import { BoardTableView } from "./boardTable";
 import { TableCamera } from "./camera";
 import { HockeyTableView } from "./hockeyTable";
+import { MesaTableView } from "./mesaTable";
 import { RouletteTableView } from "./rouletteTable";
 
-export type TableKind = "roulette" | "blackjack" | "hockey" | "boardgame";
+export type TableKind = "roulette" | "blackjack" | "hockey" | "boardgame" | MesaId;
+
+const isMesa = (kind: TableKind): kind is MesaId => (MESAS as readonly string[]).includes(kind);
 
 /** Mueble de ese tipo más cercano a (x, y) (px de mundo). */
 function nearest(map: OfficeMap, type: string, x: number, y: number): PlacedFurniture | undefined {
@@ -22,12 +28,13 @@ function nearest(map: OfficeMap, type: string, x: number, y: number): PlacedFurn
 }
 
 export class TableMode {
-  private view: RouletteTableView | BlackjackTableView | HockeyTableView | BoardTableView | null = null;
+  private view: RouletteTableView | BlackjackTableView | HockeyTableView | BoardTableView | MesaTableView | null = null;
   private readonly cam: TableCamera;
-  /** Personajes atenuados porque tapaban la mesa. */
-  private faded = new Set<Phaser.GameObjects.Sprite>();
+  /** Personajes y muebles atenuados porque tapaban la mesa. */
+  private faded = new Set<Phaser.GameObjects.Sprite | Phaser.GameObjects.Image>();
 
   private readonly unsub: () => void;
+  private readonly unsubMesas: () => void;
 
   constructor(private readonly scene: Phaser.Scene) {
     this.cam = new TableCamera(scene);
@@ -48,6 +55,14 @@ export class TableMode {
         else sfx.lose();
       }
     });
+    // Baccarat, dados y caballitos: cómo te fue en la ronda (solo llega si apostaste).
+    this.unsubMesas = useMesasStore.subscribe((s, prev) => {
+      if (!s.lastSettled || s.lastSettled === prev.lastSettled) return;
+      const { won, staked } = s.lastSettled;
+      if (won > staked) sfx.win();
+      else if (won > 0) sfx.push();
+      else sfx.lose();
+    });
   }
 
   /** Mesa que se está jugando (o null). */
@@ -63,7 +78,11 @@ export class TableMode {
     if (this.view?.kind === kind) return true;
     this.view?.destroy();
     this.view = null;
-    if (kind === "roulette") {
+    if (isMesa(kind)) {
+      const table = nearest(map, MESA_FURNITURE[kind], at.x, at.y);
+      if (!table) return false;
+      this.view = new MesaTableView(this.scene, map, table, kind, this.cam);
+    } else if (kind === "roulette") {
       const table = nearest(map, "roulette-table", at.x, at.y);
       if (!table) return false;
       const ts = map.tileSize;
@@ -101,6 +120,7 @@ export class TableMode {
   /** Al destruir la escena: sin transiciones. */
   dispose() {
     this.unsub();
+    this.unsubMesas();
     this.view?.destroy();
     this.view = null;
     this.cam.stop();
@@ -112,9 +132,9 @@ export class TableMode {
 
   /**
    * Atenúa a quien esté parado delante de la mesa (con la cámara tan cerca, un personaje tapa medio
-   * paño); al salir, todos vuelven a verse.
+   * paño) y a los muebles que la tapen; al salir, todos vuelven a verse.
    */
-  fadeAvatars(sprites: Iterable<Phaser.GameObjects.Sprite>) {
+  fadeAvatars(sprites: Iterable<Phaser.GameObjects.Sprite | Phaser.GameObjects.Image>) {
     const view = this.view;
     if (!view) {
       if (this.faded.size) for (const s of this.faded) if (s.active) s.setAlpha(1);

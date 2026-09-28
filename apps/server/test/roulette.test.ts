@@ -134,4 +134,16 @@ describe("ruleta", () => {
     expect(await bet({ kind: "number", n: 40 }, 10)).toEqual({ ok: false, error: "disabled" }); // la última respuesta sigue siendo la anterior
     expect(await repo.getPoints("u-alice")).toBe(50);
   });
+
+  it("el historial llega entero al cliente aunque el resultado se repita", async () => {
+    OfficeRoom.rouletteTimings = { bettingMs: 100, spinMs: 50, resultMs: 50 };
+    OfficeRoom.rouletteSpin = () => 7;
+    const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
+    const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
+    await tick(1_500);
+    const server = [...room.state.roulette.history];
+    expect(server.length).toBeGreaterThan(2);
+    expect(new Set(server).size).toBe(1);
+    expect([...(alice.state as unknown as OfficeState).roulette.history]).toEqual(server);
+  });
 });

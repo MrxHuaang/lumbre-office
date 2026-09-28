@@ -1,11 +1,11 @@
 "use client";
 
-import { ACTIVITY_PING_MS } from "@hyvento/shared";
+import { ACTIVITY_PING_MS, AUTO_AWAY, IdleTimer } from "@hyvento/shared";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
 import { media } from "@/game/media";
-import { connect, disconnect, sendActivity } from "@/game/network";
+import { connect, disconnect, sendActivity, sendIdle } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
 import { getArriveByBus } from "@/lib/arriveByBus";
 import { BusTrip } from "./bus/BusTrip";
@@ -29,6 +29,7 @@ import { HandActions, Hotbar } from "./bag/Hotbar";
 import { PlayerMenu } from "./bag/PlayerMenu";
 import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
+import { MesaStrip } from "./casino/MesaStrip";
 import { ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
@@ -39,13 +40,20 @@ import { HockeyStrip } from "./arcade/HockeyStrip";
 import { ClubHud } from "./club/ClubHud";
 import { DjConsole } from "./club/DjConsole";
 import { CinemaHud, CinemaPanel } from "./cinema/CinemaPanel";
+import { EscenarioHud, PodcastConsent } from "./escenario/EscenarioHud";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
 import { AquariumPanel } from "./AquariumPanel";
 import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
 import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ShedPanel } from "./ShedPanel";
+import { CoopPanel, GrillPanel } from "./GranjaPanels";
 import { KitchenPanel } from "./KitchenPanel";
+import { DiarioPanel } from "./observatorio/DiarioPanel";
+import { MarshmallowStrip } from "./observatorio/MarshmallowStrip";
+import { OrreryPanel } from "./observatorio/OrreryPanel";
+import { RadarPanel } from "./observatorio/RadarPanel";
+import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
@@ -164,6 +172,25 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
       for (const e of events) window.removeEventListener(e, onActivity);
     };
   }, []);
+  // "Ausente" automático: sin mouse ni teclado un rato, o con la pestaña oculta. El servidor decide el
+  // estado (si lo pusiste a mano, o estás en "No molestar", no lo toca) y lo quita al volver.
+  useEffect(() => {
+    const timer = new IdleTimer(Date.now());
+    const report = (changed: boolean) => changed && sendIdle(timer.idle);
+    const onInput = () => report(timer.activity(Date.now()));
+    const onVisibility = () => report(timer.visibility(document.visibilityState === "hidden", Date.now()));
+    onVisibility();
+    const events = ["pointerdown", "pointermove", "keydown", "wheel"] as const;
+    for (const e of events) window.addEventListener(e, onInput, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
+    const id = setInterval(() => report(timer.check(Date.now())), AUTO_AWAY.checkMs);
+    return () => {
+      clearInterval(id);
+      for (const e of events) window.removeEventListener(e, onInput);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (timer.idle) sendIdle(false);
+    };
+  }, []);
   const error = useOfficeStore((s) => s.error);
   const onExit = () => void logout();
 
@@ -262,12 +289,14 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotePrompt />
             <SeatPrompt />
             <InteractPrompt />
+            <MarshmallowStrip />
             <UsablePrompt />
             <FishingHint />
             <RaceTimer />
             <RadioTapPrompt />
             <ClubHud />
             <CinemaHud />
+            <EscenarioHud />
           </div>
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
           <div className="pointer-events-none absolute top-16 left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
@@ -277,6 +306,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </div>
           <KnockRequests />
           <InvitationRequests />
+          <PodcastConsent />
           <IncomingCall />
           <SocialOverlays />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}
@@ -309,6 +339,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "bar" && <BarPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "cashier" && <CashierPanel onClose={closePanel} />}
           {panel?.kind === "blackjack" && <BlackjackStrip />}
+          {(panel?.kind === "baccarat" || panel?.kind === "dados" || panel?.kind === "caballos") && <MesaStrip table={panel.kind} />}
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "backpack" && (
             <PlayerMenu
@@ -343,7 +374,13 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "doorNotes" && <DoorNotesPanel onClose={closePanel} />}
           {panel?.kind === "phone" && <PhonePanel onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "grill" && <GrillPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "coop" && <CoopPanel onClose={closePanel} />}
           {panel?.kind === "kitchen" && <KitchenPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "telescope" && <TelescopePanel onClose={closePanel} />}
+          {panel?.kind === "orrery" && <OrreryPanel onClose={closePanel} />}
+          {panel?.kind === "radar" && <RadarPanel onClose={closePanel} />}
+          {panel?.kind === "logbook" && <DiarioPanel onClose={closePanel} />}
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}

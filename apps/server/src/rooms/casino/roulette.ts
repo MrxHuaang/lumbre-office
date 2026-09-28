@@ -11,6 +11,7 @@ import {
   type RouletteBetSpec,
   type RouletteSettled,
 } from "@hyvento/shared";
+import { ArraySchema } from "@colyseus/schema";
 import { randomInt } from "node:crypto";
 import type { GameRepository } from "../../repo/types";
 import { RouletteBet, type RouletteState } from "../../state";
@@ -90,8 +91,9 @@ export class RouletteTable {
     const round = s.round;
     const result = s.result;
     s.phase = "result";
-    s.history.unshift(result);
-    while (s.history.length > CASINO.roulette.historySize) s.history.pop();
+    // Se reemplaza el arreglo entero: con @colyseus/schema 3, un unshift de un número igual al anterior
+    // hace que la copia del cliente pierda entradas (el servidor tiene [7,7,7] y el cliente [7]).
+    s.history = new ArraySchema<number>(...[result, ...s.history].slice(0, CASINO.roulette.historySize));
     s.endsAt = Date.now() + this.d.timings().resultMs;
     this.d.later(this.d.timings().resultMs, () => this.beginBetting());
 

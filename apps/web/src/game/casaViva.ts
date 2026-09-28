@@ -66,7 +66,9 @@ export interface CasaHost {
   isOn(f: PlacedFurniture): boolean;
 }
 
-const FIRE_TYPES = new Set(["fire-pit", "fireplace", "fireplace-stone"]);
+const FIRE_TYPES = new Set(["fire-pit", "fireplace", "fireplace-stone", "marshmallow-fire"]);
+/** Fogatas de afuera (llama grande de fogata; las demás son de chimenea). La del observatorio también. */
+const PIT_TYPES = new Set(["fire-pit", "marshmallow-fire"]);
 const STALL_TYPES = new Set(["toilet-stall", "bath-stall"]);
 const PROGRESS_TYPES = new Set(["puzzle-table", "cafe-sign", "easel"]);
 const LAMP_SOUND = new Set(["lamp", "lamp-mushroom", "reading-lamp", "lamp-post", "garden-lantern", "dock-lamp", "wall-sconce", "record-player", "radio", "work-light"]);
@@ -258,7 +260,7 @@ export class CasaViva {
 
   private addFire(f: PlacedFurniture) {
     if (this.isBack(f)) return;
-    const pit = f.type === "fire-pit";
+    const pit = PIT_TYPES.has(f.type);
     const light = catalogItem(f.type).light;
     const [lx, ly] = pit ? [16, 16] : (light?.at ?? [8, 8]);
     const base = this.localPoint(f, lx, ly, pit ? 3 : 2);
@@ -280,7 +282,7 @@ export class CasaViva {
     const night = useOfficeStore.getState().night;
     for (const fire of this.fires) {
       fire.frame = (fire.frame + 1) % FLAME_FRAMES;
-      const pit = fire.f.type === "fire-pit";
+      const pit = PIT_TYPES.has(fire.f.type);
       const stoked = now < fire.stokedUntil;
       const size: FlameSize = pit ? (stoked ? "stoked" : "pit") : stoked ? "hearth-stoked" : "hearth";
       const key = this.flameKey(size, fire.frame);

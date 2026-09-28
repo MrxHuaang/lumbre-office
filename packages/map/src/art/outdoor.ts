@@ -6,6 +6,9 @@ import { drawTreeHouse } from "./casa-arbol-exterior";
 import { drawBusStation } from "./bus";
 import { drawPool } from "./agua";
 import { SAUNA_CHIMNEY_TOP, TINA_NIGHT, TUB_CHIMNEY_TOP } from "./tina";
+import { stageShell } from "./escenario";
+import { podcastBoothRoof } from "./podcast";
+import { drawObservatory } from "./observatorio-exterior";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -555,6 +558,9 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   pool: drawPool,
   // La tina y la sauna del lago (de noche, las estufas y la ventanita prendidas).
   ...TINA_NIGHT,
+  "stage-shell": stageShell,
+  "podcast-booth-roof": podcastBoothRoof,
+  observatory: drawObservatory,
 };
 
 export function hasOutdoor(type: string): boolean {

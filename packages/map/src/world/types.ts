@@ -87,7 +87,9 @@ export type WallpaperKind =
   | "treehouse"
   // El Megabús por dentro: paneles claros con la franja verde lima, y los pliegues grises del fuelle.
   | "megabus"
-  | "fuelle";
+  | "fuelle"
+  // Observatorio: piedra de la torre con vigas de madera (curva, como la torre por fuera).
+  | "stonework";
 
 export interface ZoneDef {
   id: string;
@@ -128,7 +130,9 @@ export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board"
   // Casa del árbol: la ventana a la copa y la guirnalda de banderines.
   | "treehouse-window" | "bunting"
   // Megabús: las ventanas oscuras de piso a techo (con `text`, la pantalla de ruta encima).
-  | "bus-window";
+  | "bus-window"
+  // Observatorio: mapa estelar, el mural del cielo y la ventana redonda de ojo de buey.
+  | "star-chart" | "mural" | "porthole";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -194,6 +198,11 @@ export interface PointDef {
     | "arcade"
     // Las dos puntas del hockey de mesa del arcade (primero la del norte: el lado 0).
     | "air_hockey"
+    // Alrededor de las mesas de rondas compartidas del casino: el baccarat, los dados y la carrera de
+    // caballitos (desde ahí se apuesta).
+    | "baccarat"
+    | "sicbo"
+    | "horse_race"
     | "cinema"
     // Frente a la máquina de crispetas del cine: la confitería.
     | "cinema_snacks"
@@ -221,7 +230,22 @@ export interface PointDef {
     // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
     | "trophy_case"
     // Frente a cada estufa de la cocina (planta baja): ahí se cocina con lo del huerto.
-    | "kitchen_stove";
+    | "kitchen_stove"
+    // Escenario del jardín: frente a la escalerita de la tarima ("Subir al escenario").
+    | "stage"
+    // Cabina de grabación del jardín: la mesa de los micrófonos ("Grabar").
+    | "podcast"
+    // La granja del jardín: frente al horno y a la parrilla (el panel de cocinar) y el letrero del
+    // gallinero (los nombres de los animales).
+    | "grill"
+    | "farm_sign"
+    // Observatorio: frente al telescopio, junto a la fogata de malvaviscos, frente al orrery (el modelo del
+    // sistema solar), frente al radar de señales y frente al escritorio con el diario de exploración.
+    | "telescope"
+    | "marshmallow_fire"
+    | "orrery"
+    | "signal_radar"
+    | "logbook";
   name: string;
   x: number;
   y: number;

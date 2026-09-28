@@ -22,13 +22,15 @@ export * from "./worldEdits";
 export * from "./casa";
 export * from "./footsteps";
 export * from "./agua";
+export * from "./radar";
 export * from "./world/build";
 export * from "./world/catalog";
+export { GRADAS, GRADAS_ROWS } from "./world/catalog-escenario";
 export * from "./world/seats";
 export { SPA, TUB_WATER_Z } from "./world/catalog-tina";
 export type * from "./world/types";
 export { BUS_DOOR_X, BUS_ROUTE, BUS_STOP, CURB_DROP, ROAD, STATION } from "./world/areas/parada";
-export { AREAS, BLACKJACK_SEATS, BOARD_TABLES, CONEXIONES, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
+export { AREAS, BLACKJACK_SEATS, BOARD_TABLES, CONEXIONES, GRANJA_LAYOUT, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
 
 /** Todos los niveles de la cabaña, ya construidos. */
 export interface World {

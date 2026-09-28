@@ -5,6 +5,8 @@ import { CASA_CONSUMABLES, CASA_USABLES, type CasaAction } from "./casa";
 import { COCINA_CONSUMABLES } from "./cocina";
 import { HUERTO_CONSUMABLES, HUERTO_TOOLS, JARDIN_USABLES, type GardenStep, type JardinAction } from "./huerto";
 import { SOMBRERO_ALCOHOL, SOMBRERO_CONSUMABLES } from "./sombrero";
+import { GRANJA_USABLES, type GranjaAction } from "./granja";
+import { PARRILLA_CONSUMABLES } from "./parrilla";
 
 /**
  * Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas), mordisco (comida en la mano),
@@ -78,6 +80,19 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   coctel: { action: "sip", uses: 4 },
   whisky: { action: "sip", uses: 3 },
   habano: { action: "smoke", uses: 8 },
+  // Lo colombiano del bar: la copita y el shot rinden poco; la media de ron, bastante.
+  aguardiente: { action: "sip", uses: 2 },
+  "ron-viejo": { action: "sip", uses: 6 },
+  tequila: { action: "sip", uses: 2 },
+  refajo: { action: "sip", uses: 5 },
+  michelada: { action: "sip", uses: 5 },
+  chicha: { action: "sip", uses: 4 },
+  "pola-dorada": { action: "sip", uses: 5 },
+  mojito: { action: "sip", uses: 4 },
+  "cuba-libre": { action: "sip", uses: 4 },
+  "lulada-ron": { action: "sip", uses: 4 },
+  "coco-loco": { action: "sip", uses: 5 },
+  canelazo: { action: "sip", uses: 3 },
   // Casa viva: lo gratis de la nevera, la cafetera y la fogata.
   ...CASA_CONSUMABLES,
   // Jardín vivo: lo que se cosecha en el huerto y la miel.
@@ -86,6 +101,8 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   ...COCINA_CONSUMABLES,
   // Lo que vende el Man del Sombrero (sombrero.ts).
   ...SOMBRERO_CONSUMABLES,
+  // La parrilla del jardín: los platos (por porciones) y las porciones que se reparten.
+  ...PARRILLA_CONSUMABLES,
 };
 
 /** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). Las herramientas del huerto, los suyos. */
@@ -108,6 +125,19 @@ export const ALCOHOL_PER_SIP: Record<string, number> = {
   vino: 0.7,
   coctel: 0.8,
   whisky: 1.2,
+  // Según lo fuerte: el refajo y la chicha casi no; el guaro, el tequila y el ron de la media, harto.
+  aguardiente: 1.1,
+  "ron-viejo": 1,
+  tequila: 1.2,
+  refajo: 0.3,
+  michelada: 0.45,
+  chicha: 0.35,
+  "pola-dorada": 0.5,
+  mojito: 0.7,
+  "cuba-libre": 0.75,
+  "lulada-ron": 0.65,
+  "coco-loco": 0.7,
+  canelazo: 0.6,
   // El chirrinchi y el viche del Man del Sombrero: más fuertes que lo del bar.
   ...SOMBRERO_ALCOHOL,
 };
@@ -187,7 +217,7 @@ export interface HeldUsedEvent {
  * `toggle`: se prende y apaga, y lo ven todos (el estado lo guarda el servidor). `play` (instrumentos) y
  * `pet` (el gato) son un evento: una animación y un sonido para los del mismo nivel.
  */
-export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction | JardinAction;
+export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction | JardinAction | GranjaAction;
 
 export interface UsableSpec {
   action: FurnitureAction;
@@ -229,6 +259,8 @@ export const USABLE_FURNITURE: Record<string, UsableSpec> = {
   ...CASA_USABLES,
   // Jardín vivo (huerto.ts): parcelas, barriles y pozo, colmenas y la campanita de la glorieta.
   ...JARDIN_USABLES,
+  // La granja (granja.ts): el comedero y el nido del gallinero y el molino de agua.
+  ...GRANJA_USABLES,
 };
 
 export const usableSpec = (type: string): UsableSpec | undefined => USABLE_FURNITURE[type];

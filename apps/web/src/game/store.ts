@@ -69,6 +69,10 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "snacks"
   // El hockey de mesa del arcade (se juega en modo mesa, parado en una punta).
   | "hockey"
+  // Las mesas de rondas compartidas del casino: baccarat, dados y carrera de caballitos (modo mesa).
+  | "baccarat"
+  | "dados"
+  | "caballos"
   // Ajedrez y damas de la sala de juegos (piso 3): se juega sentado en una silla de la mesa o se mira.
   | "boardgame"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
@@ -87,10 +91,22 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "trophies"
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
   | "kitchen"
+  // Escenario del jardín: la escalerita de la tarima (subir o bajar) y la mesa de la cabina de grabación.
+  | "stage"
+  | "podcast"
+  // Observatorio: el telescopio, la fogata de malvaviscos, el orrery, el radar de señales y el diario.
+  | "telescope"
+  | "marshmallow"
+  | "orrery"
+  | "radar"
+  | "logbook"
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
   | "sombrero"
   // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).
-  | "bus";
+  | "bus"
+  // La granja del jardín: el horno y la parrilla (cocinar) y el letrero del gallinero (los nombres).
+  | "grill"
+  | "coop";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
@@ -342,6 +358,7 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
   "owner-away": (o) => ({ text: `${o} no está conectado ahora.`, tone: "info" }),
   "not-locked": () => ({ text: "La puerta está abierta, puedes entrar.", tone: "info" }),
   "too-soon": () => ({ text: "Espera un momento antes de volver a tocar.", tone: "info" }),
+  dnd: (o) => ({ text: `${o} está en "No molestar". Prueba más tarde.`, tone: "warning" }),
 };
 
 const INVITE_TEXT: Record<InviteOutcome, (name: string) => { text: string; tone: Notice["tone"] }> = {

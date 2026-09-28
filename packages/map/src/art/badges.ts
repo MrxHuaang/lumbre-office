@@ -82,6 +82,9 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   star: ["....y....", "....y....", "...yYy...", "yyyYYYyyy", ".yYYYYYy.", "..yYYYy..", "..yYyYy..", ".yY...Yy.", ".y.....y."],
   // La tina con vapor: tres volutas sobre el agua y las duelas con sus aros.
   tub: [".x..x..x..", "x..x..x...", ".x..x..x..", "..........", "WeeeeeeeeW", "WWWWWWWWWW", "wwwwwwwwww", "yyyyyyyyyy", "wwwwwwwwww", ".wwwwwwww."],
+  // Observatorio: el telescopio de latón en su trípode y el malvavisco en el palito.
+  telescope: ["......yy.", ".....yYy.", "....yYy..", "...yYy...", "..yYy....", ".nyy.....", ".n.n.....", "n...n....", "n...n...."],
+  marshmallow: [".cccc....", "cCccCc...", "cccccc...", "cCcccC...", ".cccc....", "....ww...", ".....ww..", "......ww.", ".......ww"],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],
 };
 
