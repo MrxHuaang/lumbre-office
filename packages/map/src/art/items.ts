@@ -1872,10 +1872,10 @@ function seedPacket(c: string, dark: string, motif: readonly string[]): ItemArt 
  * Caña de pescar en diagonal (el mango abajo a la izquierda, la punta arriba a la derecha) con su carrete
  * dorado. `rod`/`tip`: la vara y la punta; `grip`: el mango; `ring`: un anillo de guía (la de carbono).
  */
-function fishingRod(rod: string, tip: string, grip: string, ring?: string): ItemArt {
+function fishingRod(rod: string, tip: string, grip: string, ring?: string, shine = false): ItemArt {
   return {
     rows: [
-      "........oo", //
+      shine ? ".....w..oo" : "........oo", //
       ".......oto",
       "......oRo.",
       `.....o${ring ? "y" : "R"}o..`,
@@ -1886,12 +1886,14 @@ function fishingRod(rod: string, tip: string, grip: string, ring?: string): Item
       "ohho......",
       ".oo.......",
     ],
-    colors: legend({ R: rod, t: tip, h: grip, g: "#dcae3f", G: "#f3d672", y: ring ?? rod }),
-    flat: "y",
+    colors: legend({ R: rod, t: tip, h: grip, g: "#dcae3f", G: "#f3d672", y: ring ?? rod, w: "#fffaf0" }),
+    flat: "yw",
   };
 }
 ITEMS["cana-fibra"] = fishingRod("#4f9a6a", "#bfe0c0", "#e6d0a6");
 ITEMS["cana-carbono"] = fishingRod("#34447c", "#7084b8", "#7a3a25", "#f3d672");
+// La legendaria: dorada entera, con el anillo rojo y un brillito al lado de la punta.
+ITEMS["cana-dorada"] = fishingRod("#dcae3f", "#fff0b0", "#7a1f2b", "#b8402a", true);
 // La carnada: una cajita de cartón con tierra negra y una lombriz rosada asomada.
 ITEMS.carnada = {
   rows: [

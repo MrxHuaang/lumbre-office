@@ -25,6 +25,7 @@ export const PESCA_ROD_TONES = {
   bambu: { rod: hex("#c9a25a"), ring: hex("#8a6a34"), grip: hex("#a65132") },
   fibra: { rod: hex("#4f9a6a"), ring: hex("#2e6a48"), grip: hex("#e6d0a6") },
   carbono: { rod: hex("#34447c"), ring: hex("#f3d672"), grip: hex("#7a3a25") },
+  dorada: { rod: hex("#f3d672"), ring: hex("#b8402a"), grip: hex("#7a1f2b") },
 } as const;
 type RodTone = (typeof PESCA_ROD_TONES)[keyof typeof PESCA_ROD_TONES];
 
@@ -211,18 +212,28 @@ function mostrador(): Sprite {
 
 // ---------- Las cañas en su soporte ----------
 
-/** Soporte de tablas con tres cañas paradas (bambú, fibra y carbono) y la nasa de aro rojo. */
+/** Soporte de tablas con las cuatro cañas paradas (bambú, fibra, carbono y la dorada) y la nasa de aro rojo. */
 function canas(): Sprite {
   const s = scene(1, 1, 50, 8);
   s.shadow(2, 2, 13, 13, 0.25);
   // La base: una tabla gruesa con tres huecos, y el travesaño de arriba.
-  s.box(3, 2, 0, 9, 12, 3, (u, v) => ([3, 6, 9].some((y) => Math.hypot(u - 4.5, v - y) < 1) ? at(C.woodDark, 1) : at(C.wood, 4)), flatT(at(C.wood, 3)), flatT(at(C.wood, 2)));
+  s.box(3, 2, 0, 9, 12, 3, (u, v) => ([2, 4.5, 7, 9.5].some((y) => Math.hypot(u - 4.5, v - y) < 0.9) ? at(C.woodDark, 1) : at(C.wood, 4)), flatT(at(C.wood, 3)), flatT(at(C.wood, 2)));
   for (const y of [2.5, 12.5]) s.box(3.2, y - 0.6, 3, 1.2, 1.2, 22, flatT(at(C.logs, 4)), flatT(at(C.logs, 3)), flatT(at(C.logs, 2)));
   s.box(2.8, 1.6, 25, 1.6, 11.8, 1.4, flatT(at(C.logs, 5)), flatT(at(C.logs, 3)), flatT(at(C.logs, 2)));
-  // Las cañas, un poco recostadas hacia atrás contra el travesaño.
-  rodLine(s, [7.5, 5, 2], [2.5, 4.2, 44], PESCA_ROD_TONES.bambu, true);
-  rodLine(s, [7.5, 8, 2], [2.8, 8.6, 46], PESCA_ROD_TONES.fibra);
-  rodLine(s, [7.5, 11, 2], [2.5, 12.2, 45], PESCA_ROD_TONES.carbono);
+  // Las cuatro cañas, un poco recostadas hacia atrás contra el travesaño: bambú, fibra de vidrio,
+  // carbono y la dorada (la legendaria, adelante y con su brillito en la punta).
+  rodLine(s, [7.5, 4, 2], [2.5, 3.4, 44], PESCA_ROD_TONES.bambu, true);
+  rodLine(s, [7.5, 6.5, 2], [2.8, 6.6, 46], PESCA_ROD_TONES.fibra);
+  rodLine(s, [7.5, 9, 2], [2.5, 9.6, 45], PESCA_ROD_TONES.carbono);
+  rodLine(s, [8, 11.5, 2], [3, 12.6, 47], PESCA_ROD_TONES.dorada);
+  for (const [dy, dz] of [
+    [0, 0],
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const)
+    s.plot(3.4, 14.2 + dy, 44 + dz, at(C.cream, 5));
   // La nasa: mango de palo y aro rojo con la red crema, recostada al lado.
   for (let t = 0; t <= 1; t += 0.03) s.plot(12 + t * 1.5, 13 - t * 0.5, 1 + t * 16, at(C.logs, 3));
   for (let a = 0; a < Math.PI * 2; a += 0.06) {

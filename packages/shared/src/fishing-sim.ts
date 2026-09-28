@@ -32,8 +32,11 @@ export const SIM = {
   gravity: 0.25,
 } as const;
 
-/** Las cañas: la de bambú es la de siempre (gratis); las otras se compran en el puesto de pesca. */
-export const FISHING_RODS = ["bambu", "fibra", "carbono"] as const;
+/**
+ * Las cañas, de la más básica a la mejor: la de bambú es la de siempre (gratis); la de fibra de vidrio, la
+ * de carbono y la dorada (la legendaria) se compran en el puesto de pesca.
+ */
+export const FISHING_RODS = ["bambu", "fibra", "carbono", "dorada"] as const;
 export type FishingRod = (typeof FISHING_RODS)[number];
 
 /**
@@ -45,6 +48,7 @@ export const ROD_TUNING: Record<FishingRod, { bar: number; move: number }> = {
   bambu: { bar: 1, move: 1 },
   fibra: { bar: 1.18, move: 0.9 },
   carbono: { bar: 1.36, move: 0.8 },
+  dorada: { bar: 1.55, move: 0.7 },
 };
 
 export const isFishingRod = (id: unknown): id is FishingRod => typeof id === "string" && (FISHING_RODS as readonly string[]).includes(id);

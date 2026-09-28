@@ -926,12 +926,13 @@ export function biteMark(): PixelCanvas {
 export const ROD_COLORS = { rod: at(C.woodDark, 3), rodLight: at(C.wood, 4), grip: at(C.rug, 2), line: alpha(at(C.cream, 5), 0.85), ripple: alpha(at(C.sky, 4), 0.85) };
 
 /**
- * Los colores de cada caña (la de bambú es la de siempre; la de fibra y la de carbono se compran en el
- * puesto de pesca): la vara, la punta clara y el mango. El sedal y las ondas son los mismos.
+ * Los colores de cada caña (la de bambú es la de siempre; la de fibra de vidrio, la de carbono y la dorada
+ * se compran en el puesto de pesca): la vara, la punta clara y el mango. El sedal y las ondas son los mismos.
  */
 export const ROD_COLORS_BY = {
   bambu: ROD_COLORS,
   fibra: { ...ROD_COLORS, rod: hex("#3f8a5c"), rodLight: hex("#8abd92"), grip: hex("#e6d0a6") },
   carbono: { ...ROD_COLORS, rod: hex("#263262"), rodLight: hex("#f3d672"), grip: hex("#7a3a25") },
+  dorada: { ...ROD_COLORS, rod: hex("#dcae3f"), rodLight: hex("#fff0b0"), grip: hex("#7a1f2b") },
 } as const;
 

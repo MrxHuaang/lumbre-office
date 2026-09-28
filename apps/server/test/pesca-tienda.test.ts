@@ -2,6 +2,7 @@ import type { ColyseusTestServer } from "@colyseus/testing";
 import { getWorld, pointsOfType } from "@hyvento/map";
 import {
   BAG,
+  BAG_MSG,
   FISHING,
   MSG,
   PESCA,
@@ -188,6 +189,17 @@ describe("el puesto de pesca: pescar con lo comprado", () => {
     s.alice.send(MSG.fishFinish, { castId, frames: run.frames, inputs: run.inputs });
     const end = await waitFor(() => s.fishing.slice(from).find((e): e is Extract<FishingEvent, { type: "end" }> => e.type === "end"));
     expect(end.outcome).toBe("caught");
+  });
+
+  it("la dorada (la legendaria) es la mejor: con ella en la mochila el reto trae la dorada", async () => {
+    const s = await setup(0, { at: spot, stock: { "obj:cana-carbono": 1, "obj:cana-dorada": 1 } });
+    // Al entrar, lo de la mano es la primera casilla (la carbono): se elige una casilla vacía para usar lo mejor.
+    s.alice.send(BAG_MSG.select, { slot: BAG.slots - 1 });
+    await s.room.waitForNextPatch();
+    const { challenge } = await hooked(s);
+    expect(challenge.rod).toBe("dorada");
+    await s.room.waitForNextPatch();
+    expect(s.me().fishingRod).toBe("dorada");
   });
 
   it("con la de fibra en la mano se pesca con esa aunque tenga la de carbono", async () => {

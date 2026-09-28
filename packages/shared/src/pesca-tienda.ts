@@ -1,8 +1,9 @@
 // El puesto de pesca de la orilla oeste del lago: una caseta con su mostrador y Don Evelio, el pescador
-// que atiende. Vende cañas (la de bambú sigue siendo gratis y la de siempre; la de fibra y la de carbono
-// se compran una vez y hacen más fácil el minijuego) y carnada (se gasta una por lance: pica antes y
-// suben un poco los raros). Todo va a la mochila (`obj:<id>`). Aquí están los precios, los efectos, qué
-// equipo se usa al lanzar, los mensajes y lo que dice Don Evelio según la hora del juego y el clima.
+// pastuso que atiende. Vende cañas (la de bambú sigue siendo gratis y la de siempre; la de fibra de
+// vidrio, la de carbono y la dorada se compran una vez y cada una hace más fácil el minijuego) y carnada
+// (se gasta una por lance: pica antes y suben un poco los raros). Todo va a la mochila (`obj:<id>`). Aquí
+// están los precios, los efectos, qué equipo se usa al lanzar, los mensajes y lo que dice Don Evelio
+// según la hora del juego y el clima.
 import { z } from "zod";
 import type { BagObject } from "./bolsa";
 import { FISHING_RODS, ROD_TUNING, isFishingRod, type FishingRod } from "./fishing-sim";
@@ -16,6 +17,7 @@ import type { Weather } from "./weather";
 export const ROD_ITEM: Record<Exclude<FishingRod, "bambu">, string> = {
   fibra: "cana-fibra",
   carbono: "cana-carbono",
+  dorada: "cana-dorada",
 };
 
 /** La caña de un objeto de la mochila ("cana-fibra" → "fibra"), o null si no es una caña. */
@@ -27,8 +29,9 @@ export function rodOfItem(art: string): FishingRod | null {
 /** Nombre de cada caña (el bambú no se vende: es la de siempre). */
 export const ROD_NAME: Record<FishingRod, string> = {
   bambu: "Caña de bambú",
-  fibra: "Caña de fibra",
+  fibra: "Caña de fibra de vidrio",
   carbono: "Caña de carbono",
+  dorada: "Caña dorada",
 };
 
 export const BAITS = ["carnada", "carnada-buena"] as const;
@@ -95,7 +98,7 @@ export const PESCA_SHOP = [
     kind: "rod",
     price: 150,
     gives: 1,
-    blurb: "Verde, liviana y flexible. Una vez comprada es suya para siempre.",
+    blurb: "Fibra de vidrio verde, liviana y flexible. Una vez comprada es suya para siempre.",
     effect: `Barra ${pct(ROD_TUNING.fibra.bar)} más larga y el pez ${pct(ROD_TUNING.fibra.move)} más lento.`,
   },
   {
@@ -106,6 +109,15 @@ export const PESCA_SHOP = [
     gives: 1,
     blurb: "Azul noche con anillos dorados: la de los que saben. Se compra una vez.",
     effect: `Barra ${pct(ROD_TUNING.carbono.bar)} más larga y el pez ${pct(ROD_TUNING.carbono.move)} más lento.`,
+  },
+  {
+    id: ROD_ITEM.dorada,
+    name: ROD_NAME.dorada,
+    kind: "rod",
+    price: 1200,
+    gives: 1,
+    blurb: "La legendaria: dorada de punta a punta y con su brillito. Dicen que con ella se saca al Bigotón.",
+    effect: `Barra ${pct(ROD_TUNING.dorada.bar)} más larga y el pez ${pct(ROD_TUNING.dorada.move)} más lento.`,
   },
   {
     id: "carnada",
@@ -171,14 +183,15 @@ export type PescaBuyError = "far" | "funds" | "full" | "stack" | "owned" | "busy
 
 export type PescaBuyResult = { ok: true; item: PescaItemId; balance: number } | { ok: false; item: PescaItemId; error: PescaBuyError };
 
+/** Los motivos, en boca de Don Evelio (pastuso). */
 export const PESCA_ERROR_TEXT: Record<PescaBuyError, string> = {
-  far: "Arrímese al mostrador, que desde allá no le oigo.",
-  funds: "No le alcanza, mijo. Pesque un rato y vuelve.",
-  full: "No le cabe en la mochila: haga espacio primero.",
-  stack: "Ya lleva toda la carnada que cabe. Gástela primero.",
-  owned: "Esa caña ya es suya. Una basta, ¿oyó?",
-  busy: "Con calma, que no se me van los peces.",
-  failed: "Se me enredó la cuenta. Intente otra vez.",
+  far: "Arrímese al mostradorcito, mijo, que desde allá no le oigo, pues.",
+  funds: "No le alcanza, longo. Pesque un ratico y vuelve, pues.",
+  full: "No le cabe en la mochila, mijo: haga campito primero, pues.",
+  stack: "Ya lleva toda la carnadita que cabe. Gástela primero, pues.",
+  owned: "Esa cañita ya es suya, mijo. Una basta, ¿ve?",
+  busy: "Con calmita, que no se me van los pescaditos, pues.",
+  failed: "Chuta, se me enredó la cuenta. Intente otra vez, pues.",
 };
 
 /** Servidor → los del nivel (`PESCA_MSG.sold`). */
@@ -194,16 +207,19 @@ export interface PescaSoldEvent {
 /** Tile del nivel del jardín donde se para Don Evelio (detrás del mostrador; ver puesto-pesca.ts del mapa). */
 const EVELIO_TILE = { x: 70, y: 77 };
 
+/**
+ * Don Evelio es de Pasto: ruana de lana pastusa café con franjas rojas sobre la ropa, su sombrero de
+ * pescador, bigote canoso y botas de caucho.
+ */
 const EVELIO_LOOK: Look = {
   skin: "#c68642",
   hair: "#ece6da",
-  shirt: "#b8483a",
-  pants: "#6a5a3e",
+  shirt: "#7a4a2a",
+  pants: "#5a4a34",
   accent: "#6f7d3c",
   hairStyle: "short",
-  top: "flannel",
-  top2: "#e9d8b0",
-  outfit: "vest",
+  top2: "#b8402a",
+  outfit: "ruana",
   bottom: "cargo",
   head: "bucket-hat",
   facialHair: "mustache",
@@ -224,9 +240,9 @@ export const PESCA_NPC: CasinoNpc = {
   solid: true,
   look: EVELIO_LOOK,
   idle: [
-    "El que madruga pesca, y el que no, pues también, pero menos.",
-    "Aquí el lago da pa' todos. Paciencia es lo que hay que traer.",
-    "¿Sí vio la bota que sacaron ayer? Nadie la reclamó.",
+    "¡Ve, mijo! A la final el que tiene paciencia saca el pescado, pues.",
+    "Esto no es la laguna de la Cocha, pero bien bonito es, ¿no?",
+    "¿Ya comió? Pescar con hambre no sale, pues.",
   ],
 };
 
@@ -241,23 +257,69 @@ export function pescaMood(hour: number): PescaMood {
   return "noche";
 }
 
+/**
+ * Lo que dice Don Evelio, con el habla de Pasto (cariñosa: "achichay" es frío, "ananay" qué bonito,
+ * "atatay" qué feo, "longo" muchacho, "guagua" niño) y sus recuerdos de la laguna de la Cocha, el cuy, el
+ * hervido y el Galeras.
+ */
 export const PESCA_LINES = {
   /** Lo que dice suelto, según la hora del juego. */
-  madrugada: ["A esta hora pica la Madre de agua, dicen. Yo no la he visto… todavía.", "Madrugada fría, pez juicioso.", "Shhh, que el lago está dormido."],
-  manana: ["Buenos días, mijo. El agua está quietecita.", "Tintico y caña: así empieza un buen día.", "Temprano pican las mojarras, ¿sí sabía?"],
-  tarde: ["Con este solazo los peces se van al fondo.", "Póngale sombrero, que el sol de la tarde pica más que los peces.", "Hora del almuerzo: la tilapia roja anda con hambre."],
-  atardecer: ["Al caer el sol sale la guabina. Pilas.", "Qué atardecer tan bonito pa' tirar la línea.", "El pez sol poniente solo pica ahorita, ¿oyó?"],
-  noche: ["De noche salen los bagres bigotones.", "Traiga linterna, que los de noche son bravos.", "La luna alumbra el lago y la Luminaria anda por ahí."],
+  madrugada: [
+    "¡Achichay, qué frío! A esta hora pica la Madre de agua, dicen, pues.",
+    "Madrugada fría como en las faldas del Galeras, mijo. El pescado anda juicioso.",
+    "Shhh, longo, que el lago está dormidito, pues.",
+  ],
+  manana: [
+    "Buenos días, mijo. El agüita está quietecita, bien bonito, pues.",
+    "Un tintico calientito y la cañita al agua: así empieza el día, ¿ve?",
+    "Tempranito pican las mojarritas, ¿sí sabía, pues?",
+  ],
+  tarde: [
+    "¡Atatay, qué solazo! Los pescaditos se van al fondo, pues.",
+    "Póngase el sombrerito, mijo, que el sol de la tarde pica más que el pescado.",
+    "¿Ya almorzó? Un cuycito asado y a pescar, vea pues.",
+  ],
+  atardecer: [
+    "¡Ananay, qué atardecer tan bonito! Tire la línea ahí no más, pues.",
+    "Al caer el sol sale la guabina. Pilas, mijo.",
+    "El pez sol poniente solo pica ahoritica, ¿ve?",
+  ],
+  noche: [
+    "De noche salen los bagres bigotones, longo. Abríguese, pues.",
+    "¡Achichay, ya entró el frío! Un hervidito caería bien bonito.",
+    "La luna alumbra el lago como a la Cocha en diciembre, pues.",
+  ],
   /** Lo que dice según el clima (manda sobre la hora). */
-  lluvia: ["¡Llueve! Los peces salen a jugar con el aguacero.", "Con lluvia pica el renacuajo y el arcoíris. Aproveche.", "Uy, qué aguacero. Mejor para la pesca."],
-  tormenta: ["Con truenos sale el Rey de la tormenta… y el que se moja.", "¡Qué tormenta! Los temblones están contentos.", "Cuidado con los rayos, mijo. Pero el pez bueno sale ahora."],
-  niebla: ["Con esta neblina ni se ve la boya… ni el pez niebla.", "Neblina espesa: el pez hoja casi ni se nota.", "En la niebla hay que pescar al oído."],
-  nieve: ["Hace un frío… hasta los peces tiritan.", "Nieve en el lago: esto no lo veía desde niño.", "Con este frío la carnada buena es la que funciona."],
+  lluvia: [
+    "¡Ve, está lloviendo! A la final es mejor para pescar, pues.",
+    "Con aguacero pica el renacuajo y el arcoíris. Aproveche, mijo.",
+    "Chuta, qué aguacero. Póngase la ruanita y siga pescando, pues.",
+  ],
+  tormenta: [
+    "¡Atatay, qué truenos! Pero con tormenta sale el Rey, pues.",
+    "Chuta, qué tormenta. Los temblones están contentos, ¿ve?",
+    "Cuidadito con los rayos, guagua. Pero el pescado bueno sale ahora.",
+  ],
+  niebla: [
+    "Neblina como en Pasto, mijo: ni se ve la boyita, pues.",
+    "Con esta neblina el pez hoja casi ni se nota, ¿ve?",
+    "En la neblina hay que pescar al oído, vea pues.",
+  ],
+  nieve: [
+    "¡Achichay, achichay! Ni en el Galeras hace este frío, pues.",
+    "Nieve en el lago: esto no lo veía ni de guagua.",
+    "Con este frío la carnadita buena es la que funciona, mijo.",
+  ],
   /** Al que se arrima al mostrador (`{name}` = su nombre corto). */
-  greet: ["¡Quiubo, {name}! ¿Qué va a llevar?", "Siga, {name}, a la orden.", "¿Qué más, {name}? Tengo carnada fresquita.", "Bien pueda, {name}. ¿Se va a tirar la línea?"],
+  greet: [
+    "¡Ve, {name}! ¿Qué le doy vendiendo, pues?",
+    "Siga, {name}, siga no más. A la orden, pues.",
+    "¿Qué más, {name}? Tengo carnadita fresquita.",
+    "¡Ala, {name}! ¿Se va a tirar la línea un ratico?",
+  ],
   /** Al vender, según qué se lleva. */
-  soldRod: ["¡Esa caña es una belleza! Me la cuida.", "Con esa sí saca al Bigotón, ¿oyó?", "Buena elección, mijo. Esa no se revienta."],
-  soldBait: ["Carnada fresquita, recién sacada.", "Una por lance, no las bote.", "Con eso pican hasta los tímidos."],
+  soldRod: ["¡Ananay, qué cañita tan bonita! Me la cuida, pues.", "Con esa sí saca al Bigotón, mijo, ¿ve?", "Bien bonita la escogió. Esa no se revienta ni a la final."],
+  soldBait: ["Carnadita fresquita, recién sacadita, pues.", "Una por lance, mijo, no me la bote.", "Con eso pican hasta los tímidos, vea pues."],
 } as const;
 
 /** Lo que dice suelto según la hora del juego y el clima (el clima raro manda), fijo para una semilla. */

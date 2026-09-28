@@ -5,12 +5,12 @@
 import type { CatalogItem } from "./catalog";
 
 export const PESCA_CATALOG = {
-  // Caseta de tablas con techito de lona a rayas que sale hacia el frente, cañas colgadas en la pared y
-  // el letrero "PESCA" encima.
-  "pesca-caseta": { name: "Caseta de pesca", size: [2, 3], fixed: true, light: { at: [30, 24, 30], color: "#ffc77a", radius: 46 } },
-  // Mostrador de tablas con el balde de lombrices, el frasco de la carnada buena y una pesita.
+  // Caseta de tablas con techito de lona a rayas que sale hacia el frente, cañas colgadas en la pared, el
+  // salvavidas, el letrero "PESCA" encima y el farolito de la esquina (de noche alumbra el mostrador).
+  "pesca-caseta": { name: "Caseta de pesca", size: [2, 3], fixed: true, light: { at: [27, 5, 27], color: "#ffc77a", radius: 46 } },
+  // Mostrador de tablas con el balde de lombrices, el frasco de la carnada buena y la caja de aparejos.
   "pesca-mostrador": { name: "Mostrador de pesca", size: [1, 3], fixed: true },
-  // Cañas paradas en su soporte (bambú, fibra y carbono) y la nasa.
+  // Cañas paradas en su soporte (bambú, fibra, carbono y la dorada) y la nasa.
   "pesca-canas": { name: "Cañas de pesca", size: [1, 1], fixed: true },
   // La nevera de icopor con hielo (y la cola de un pescado que se asoma).
   "pesca-nevera": { name: "Nevera de icopor", size: [1, 1], fixed: true },

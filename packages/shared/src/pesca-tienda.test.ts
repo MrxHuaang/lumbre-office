@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BAG_OBJECTS, bagItemInfo } from "./bolsa";
 import { FISH, fishPool, pickFish, LUCKY_RARITIES } from "./fishing";
-import { FishingSim, ROD_TUNING, autoplay, barHeightFor, replayFishing } from "./fishing-sim";
+import { FISHING_RODS, FishingSim, ROD_TUNING, autoplay, barHeightFor, replayFishing } from "./fishing-sim";
 import {
   BAIT_TUNING,
   PESCA,
@@ -24,14 +24,15 @@ import {
 const have = (stock: Record<string, number>) => (art: string) => stock[art] ?? 0;
 
 describe("lo que vende el puesto de pesca", () => {
-  it("cañas de fibra y de carbono (de a una) y dos carnadas (de a 10), con precios en puntos", () => {
-    expect(PESCA_SHOP.map((i) => i.id)).toEqual(["cana-fibra", "cana-carbono", "carnada", "carnada-buena"]);
+  it("tres cañas (fibra de vidrio, carbono y la dorada, de a una) y dos carnadas (de a 10), con precios en puntos", () => {
+    expect(PESCA_SHOP.map((i) => i.id)).toEqual(["cana-fibra", "cana-carbono", "cana-dorada", "carnada", "carnada-buena"]);
     for (const i of PESCA_SHOP) {
       expect(Number.isInteger(i.price) && i.price > 0, i.id).toBe(true);
       expect(i.gives, i.id).toBe(i.kind === "rod" ? 1 : 10);
     }
-    // La de carbono vale más que la de fibra, y la carnada buena más que la común.
+    // Cada caña vale más que la anterior (la dorada es la meta de largo plazo), y la carnada buena más que la común.
     expect(pescaItem("cana-carbono")!.price).toBeGreaterThan(pescaItem("cana-fibra")!.price);
+    expect(pescaItem("cana-dorada")!.price).toBeGreaterThanOrEqual(pescaItem("cana-carbono")!.price * 2);
     expect(pescaItem("carnada-buena")!.price).toBeGreaterThan(pescaItem("carnada")!.price);
     expect(pescaRefId("carnada")).toBe("pesca:carnada");
     // La de bambú no se vende: es la de siempre.
@@ -51,6 +52,7 @@ describe("lo que vende el puesto de pesca", () => {
     }
     expect(rodOfItem("cana-fibra")).toBe("fibra");
     expect(rodOfItem("cana-carbono")).toBe("carbono");
+    expect(rodOfItem("cana-dorada")).toBe("dorada");
     expect(rodOfItem("carnada")).toBeNull();
   });
 });
@@ -63,6 +65,7 @@ describe("con qué se pesca", () => {
   it("la mejor que se tenga, salvo que lo de la mano sea una caña o una carnada", () => {
     const all = have({ [ROD_ITEM.fibra]: 1, [ROD_ITEM.carbono]: 1, carnada: 5, "carnada-buena": 3 });
     expect(fishingGear(all)).toEqual({ rod: "carbono", bait: "carnada-buena" });
+    expect(fishingGear(have({ [ROD_ITEM.carbono]: 1, [ROD_ITEM.dorada]: 1 }))).toEqual({ rod: "dorada", bait: null });
     expect(fishingGear(all, "cana-fibra")).toEqual({ rod: "fibra", bait: "carnada-buena" });
     expect(fishingGear(all, "carnada")).toEqual({ rod: "carbono", bait: "carnada" });
     expect(fishingGear(have({ [ROD_ITEM.fibra]: 1, carnada: 2 }), "tinto")).toEqual({ rod: "fibra", bait: "carnada" });
@@ -74,7 +77,12 @@ describe("con qué se pesca", () => {
 describe("las cañas en el minijuego", () => {
   const hard = FISH.filter((f) => f.rarity === "legendario" || f.rarity === "mitico");
 
-  it("la de bambú deja el minijuego igual que antes; las otras alargan la barra", () => {
+  it("la de bambú deja el minijuego igual que antes; cada una de las otras alarga más la barra y frena más al pez", () => {
+    for (let i = 1; i < FISHING_RODS.length; i++) {
+      const [a, b] = [ROD_TUNING[FISHING_RODS[i - 1]!], ROD_TUNING[FISHING_RODS[i]!]];
+      expect(b.bar).toBeGreaterThan(a.bar);
+      expect(b.move).toBeLessThan(a.move);
+    }
     const setup = { seed: 4242, difficulty: 90, behavior: "mixed" as const, treasure: false };
     const run = autoplay(setup);
     expect(replayFishing({ ...setup, rod: "bambu" }, run.inputs, run.frames)).toEqual(replayFishing(setup, run.inputs, run.frames));
@@ -84,10 +92,11 @@ describe("las cañas en el minijuego", () => {
     expect(fibra).toBe(Math.round(barHeightFor(90) * ROD_TUNING.fibra.bar));
     expect(carbono).toBeGreaterThan(fibra);
     expect(fibra).toBeGreaterThan(barHeightFor(90));
+    expect(new FishingSim({ ...setup, rod: "dorada" }).barHeight).toBeGreaterThan(carbono);
   });
 
   it("con la caña buena el jugador automático saca más legendarios y míticos", () => {
-    const wins = (rod: "bambu" | "fibra" | "carbono") => {
+    const wins = (rod: (typeof FISHING_RODS)[number]) => {
       let won = 0;
       for (const f of hard)
         for (let seed = 1; seed <= 20; seed++) if (autoplay({ seed: seed * 7919, difficulty: f.difficulty, behavior: f.behavior, treasure: false, rod }).caught) won++;
@@ -96,8 +105,10 @@ describe("las cañas en el minijuego", () => {
     const bambu = wins("bambu");
     const fibra = wins("fibra");
     const carbono = wins("carbono");
+    const dorada = wins("dorada");
     expect(fibra).toBeGreaterThan(bambu);
     expect(carbono).toBeGreaterThan(fibra);
+    expect(dorada).toBeGreaterThan(carbono);
   });
 
   it("la partida se repite igual con la misma caña (el servidor la valida con la que uno tiene)", () => {
@@ -138,11 +149,14 @@ describe("la carnada", () => {
 });
 
 describe("Don Evelio", () => {
-  it("es un pescador del jardín con su look (sombrero de pescador, chaleco y botas)", () => {
+  it("es un pescador pastuso del jardín con su look (sombrero de pescador, ruana y botas de caucho)", () => {
     expect(PESCA_NPC.role).toBe("pescador");
     expect(PESCA_NPC.area).toBe("jardin");
     expect(PESCA_NPC.solid).toBe(true);
-    expect([PESCA_NPC.look.head, PESCA_NPC.look.outfit, PESCA_NPC.look.shoes]).toEqual(["bucket-hat", "vest", "rain-boots"]);
+    expect([PESCA_NPC.look.head, PESCA_NPC.look.outfit, PESCA_NPC.look.shoes]).toEqual(["bucket-hat", "ruana", "rain-boots"]);
+    // Habla como en Pasto: "pues" al final, "mijo", "achichay" con el frío…
+    const all = Object.values(PESCA_LINES).flat().join(" ");
+    for (const word of ["pues", "mijo", "Achichay", "Ananay", "Atatay", "longo", "guagua", "Cocha", "Galeras"]) expect(all, word).toContain(word);
   });
 
   it("lo que dice cambia con la hora del juego y el clima (y es el mismo para una semilla)", () => {
