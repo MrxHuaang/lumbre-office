@@ -11,6 +11,7 @@ import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { useAchievementStore } from "@/game/achievements";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon, type PixelIconName } from "./Cozy";
+import { GameClockChip } from "./GameClockChip";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundControl } from "./SoundControl";
@@ -36,7 +37,7 @@ const useLabelOf = () => {
   return (p: string) => placeLabel(p, (id) => zoneNames[id]);
 };
 
-/** Fichas de arriba a la izquierda: marca, puntos, dónde estás, a quién oyes, estado, mochila, noche y menú. */
+/** Fichas de arriba a la izquierda: marca, puntos, dónde estás, reloj, clima, a quién oyes, estado, mochila, noche y menú. */
 export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmin, onLogout }: HudProps) {
   const zone = useOfficeStore((s) => s.zone);
   const players = useOfficeStore((s) => s.players);
@@ -47,7 +48,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
   const walkToZone = useOfficeStore((s) => s.walkToZone);
   const place = useOfficeStore((s) => s.place);
   const night = useOfficeStore((s) => s.night);
-  const setNight = useOfficeStore((s) => s.setNight);
+  const forced = useOfficeStore((s) => s.nightOverride !== null);
+  const toggleNight = useOfficeStore((s) => s.toggleNight);
   const openPanel = useOfficeStore((s) => s.openPanel);
   const labelOf = useLabelOf();
 
@@ -69,6 +71,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
         {zone?.isolated && <PixelIcon name="lock" size={13} color="var(--color-cozy-wood)" />}
         {labelOf(place)}
       </div>
+
+      <GameClockChip />
 
       <WeatherChip />
 
@@ -117,12 +121,19 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
         <PixelIcon name="fish" size={16} color="var(--color-cozy-sky)" />
       </button>
 
+      {/* La noche sigue al reloj del juego; este botón la fuerza (recuadro rojo) y otro clic vuelve al reloj. */}
       <button
-        onClick={() => setNight(!night)}
-        aria-pressed={night}
+        onClick={toggleNight}
+        aria-pressed={forced}
         className="cozy-btn h-[34px] w-[34px] p-0"
-        title={night ? "Volver al día" : "Encender las luces (noche)"}
-        aria-label={night ? "Volver al día" : "Modo noche"}
+        title={
+          forced
+            ? `${night ? "Noche" : "Día"} forzado: clic para volver al reloj del juego`
+            : night
+              ? "Es de noche en la cabaña: clic para forzar el día"
+              : "Es de día en la cabaña: clic para encender las luces (noche)"
+        }
+        aria-label={forced ? "Volver al reloj del juego" : night ? "Forzar el día" : "Forzar la noche"}
       >
         <PixelIcon name={night ? "moon" : "sun"} size={16} color={night ? "#4a3f8a" : "var(--color-cozy-gold)"} />
       </button>
