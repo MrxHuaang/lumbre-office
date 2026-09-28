@@ -38,7 +38,8 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
   // En modo foco el contador no se muestra (los mensajes se ven al terminar el bloque).
   const focusing = useOfficeStore(selectFocusing);
   const setChatOpen = useOfficeStore((s) => s.setChatOpen);
-  const ready = status === "connected";
+  // En espera (sin nadie cerca) también se puede prender: la sala de video se abre al hacerlo.
+  const ready = status === "connected" || status === "idle" || status === "connecting";
   // Sin conexión de audio/video, los tres primeros botones dicen por qué (antes era un chip arriba).
   const mediaDown = status === "unavailable" ? "Audio y video no disponibles" : status === "connecting" ? "Conectando audio y video…" : null;
   const [emotes, setEmotes] = useState(false);

@@ -49,6 +49,7 @@ import {
   type MoveMessage,
   type Positioned,
   MENUS,
+  voiceNearby,
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { Track } from "livekit-client";
@@ -232,6 +233,8 @@ export class OfficeScene extends Phaser.Scene {
   /** La escena fue destruida: ignorar cualquier evento tardío de la sala. */
   private disposed = false;
   private hearingElapsed = 0;
+  /** ¿Había alguien cerca en la última revisión de la sala de video? (histéresis de `voiceNearby`) */
+  private voiceNear = false;
   private zonesById = new Map<string, Zone>();
   /** sessionId → userId y nivel de cada avatar (LiveKit usa userId). */
   private userOfSession = new Map<string, string>();
@@ -480,6 +483,7 @@ export class OfficeScene extends Phaser.Scene {
       }),
       () => this.photoBoards.destroy(),
       () => this.treeLadder.destroy(),
+      this.bindVoiceDemand(),
       () => this.aquariums.destroy(),
       () => this.postIts.destroy(),
       () => this.trophyCases.destroy(),
@@ -2100,6 +2104,28 @@ export class OfficeScene extends Phaser.Scene {
     const dx = on ? (Math.floor(time / 45) % 2 ? 1 : -1) : 0;
     const dy = on && Math.floor(time / 90) % 2 ? -1 : 0;
     for (const f of this.ringingPhones) this.view?.nudgeFurniture(f, dx, dy);
+  }
+
+  /**
+   * La sala de LiveKit se abre solo si hace falta (ver media.ts): alguien cerca, un poco antes de que se
+   * oiga, o una llamada (también sonando, para que al contestar ya esté lista). Lo consulta media.ts con
+   * su propio reloj: el de Phaser se detiene con la pestaña oculta y la sala quedaría abierta.
+   */
+  private bindVoiceDemand() {
+    media.setDemand(() => {
+      const room = getRoom();
+      if (!room || !this.local || !this.localId) return (this.voiceNear = false);
+      const mine = room.state.players.get(this.localId);
+      if (mine?.call && mine.callWith) return true;
+      const me = this.positioned(this.map.id, this.local.x, this.local.y, zoneAt(this.map, this.local.x, this.local.y)?.id ?? null);
+      const others: Positioned[] = [];
+      room.state.players.forEach((p, sessionId) => {
+        if (sessionId !== this.localId && p.userId) others.push(this.positioned(p.area, p.x, p.y, p.zoneId || null));
+      });
+      this.voiceNear = voiceNearby(me, others, this.voiceNear);
+      return this.voiceNear;
+    });
+    return () => media.setDemand(null);
   }
 
   private updateHearing() {
