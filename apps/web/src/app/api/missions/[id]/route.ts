@@ -1,4 +1,4 @@
-import { awardPointsTx, bumpStat, prisma, type MissionStatus, type Prisma } from "@hyvento/db";
+import { awardPointsTx, bumpStatWithQuestsTx, prisma, type MissionStatus, type Prisma } from "@hyvento/db";
 import { MISSION_ACTIONS, missionRefundRef, STAT_KEYS, type MissionAction } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -60,8 +60,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     if (action === "approve" && mission.assigneeId) {
       await awardPointsTx(tx, { userId: mission.assigneeId, amount: mission.reward, reason: "MISSION", refId: mission.id });
-      // Para el logro "Manos a la obra" (el servidor de juego lo relee con el aviso de puntos).
-      await bumpStat(tx, mission.assigneeId, STAT_KEYS.missionsDone);
+      // Para el logro "Manos a la obra" y los encargos (el servidor de juego los relee con el aviso de puntos).
+      await bumpStatWithQuestsTx(tx, mission.assigneeId, STAT_KEYS.missionsDone);
     }
     return true;
   });

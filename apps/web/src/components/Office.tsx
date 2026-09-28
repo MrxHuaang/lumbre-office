@@ -59,6 +59,8 @@ import { RadarPanel } from "./observatorio/RadarPanel";
 import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
+import { QuestCard } from "./encargos/QuestCard";
+import { QuestTracker } from "./encargos/QuestTracker";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
@@ -304,6 +306,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             {/* En el celular la columna se ajusta a la ficha de conectados y los avisos bajan hasta debajo del HUD. */}
             <div className="flex w-full flex-col items-end gap-2 empty:hidden max-md:absolute max-md:top-[calc(var(--cozy-hud-bottom,3rem)_-_0.25rem)] max-md:right-0 max-md:w-[min(16rem,calc(100vw-1.5rem))]">
               <DoorNotesChip />
+              <QuestTracker />
               <Notices />
               <NotifyPrompt />
             </div>
@@ -330,6 +333,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             {connection === "reconnecting" && <div className="cozy-chip px-3.5 py-1.5 text-[13px]">Reconectando…</div>}
             <AchievementToasts />
             <CatchCard />
+          </div>
+          {/* Arriba a la izquierda y sobre los paneles (el tablón, el mostrador): lo que te pidió quien te habla. */}
+          <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-3 z-[45]">
+            <QuestCard />
           </div>
           <KnockRequests />
           <InvitationRequests />
