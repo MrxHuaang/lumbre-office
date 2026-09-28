@@ -7,6 +7,7 @@
 // pantalla y `v` de abajo hacia arriba; en `left` (la cara +y) igual. En `top`, (u, v) = (x, y) locales.
 import { BOOKS, C, OUT, mix } from "./palette";
 import { alpha, at, bayer, flat, hex, noise, ramp, renderSprite, solidBox, type Box, type PixelCanvas, type Project, type Ramp, type RGBA, type Shader, type Sprite } from "./pixel";
+import { trophyCase } from "./trofeos";
 import { blob, cushion, leg, roundShadow, roundTone, shadowSpace, shadowUnder, slant, volume, type Variant } from "./kit";
 
 const LEATHER: Ramp = ramp("#2a150e", "#472414", "#6a3820", "#8c512f", "#ab6c43", "#c78b5c");
@@ -1997,6 +1998,7 @@ function entryTable(): Sprite {
 export const INTERIOR_DRAW: Record<string, (v: Variant) => Sprite> = {
   "bookcase-tall": bookcaseTall,
   "curio-cabinet": curioCabinet,
+  "trophy-case": () => trophyCase(),
   "library-ladder": libraryLadder,
   "reading-table": readingTable,
   "fireplace-stone": fireplaceStone,

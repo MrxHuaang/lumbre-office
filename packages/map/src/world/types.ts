@@ -157,7 +157,9 @@ export interface PointDef {
     // Frente al tablón de fotos de la cafetería (ver la galería).
     | "photo_board"
     // Salida de la carrera de sillas (pasillo del piso 2, junto a la bandera).
-    | "chair_race";
+    | "chair_race"
+    // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
+    | "trophy_case";
   name: string;
   x: number;
   y: number;

@@ -34,6 +34,11 @@ export interface OfficeFurniture extends OfficeItemDTO {
  * propios la primera vez que se edita) y de los fijos, que no se guardan.
  */
 export const MAP_ITEM_PREFIX = "map-";
+/**
+ * Muebles de la oficina que el dueño no mueve ni quita (como el escritorio con PC): la vitrina de trofeos,
+ * que el juego usa desde su punto fijo (`trophy_case` del nivel).
+ */
+export const OFFICE_FIXED_TYPES: ReadonlySet<string> = new Set(["trophy-case"]);
 export const FIXED_ITEM_PREFIX = "fijo-";
 
 export type DecorEdit =
@@ -80,7 +85,7 @@ export function isPlaceable(type: string): boolean {
   // Solo claves propias: "constructor" o "toString" vienen del prototipo y no son muebles.
   if (!Object.hasOwn(CATALOG, type)) return false;
   const item = (CATALOG as Record<string, CatalogItem>)[type]!;
-  return !item.fixed && !item.computer;
+  return !item.fixed && !item.computer && !OFFICE_FIXED_TYPES.has(type);
 }
 
 /** Tiles que ocupa un mueble en el nivel. */
@@ -117,7 +122,7 @@ function fixedFlags(list: readonly Placement[]): boolean[] {
   }
   return list.map((p) => {
     const item = catalogItem(p.type);
-    if (item.computer) return true;
+    if (item.computer || OFFICE_FIXED_TYPES.has(p.type)) return true;
     const facing = p.facing ?? "right";
     return (item.seats ?? []).some(([lx, ly]) => {
       const [dx, dy] = localToWorld(item, facing, lx, ly);

@@ -50,7 +50,12 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "dj"
   | "arcade"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
-  | "race";
+  | "race"
+  // La vitrina de trofeos de cada oficina (los logros de su dueño).
+  | "trophies";
+
+/** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
+export const PET_USABLE_PREFIX = "mascota:";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {

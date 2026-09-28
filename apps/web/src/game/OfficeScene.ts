@@ -77,6 +77,7 @@ import {
   onRoom,
   sendFurnitureUse,
   sendMove,
+  sendPetAction,
   sendUseHeld,
   sendSwivel,
   sendToast,
@@ -85,7 +86,7 @@ import {
   type OfficeRoom,
   type RemotePlayer,
 } from "./network";
-import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
+import { canEnterOffice, PET_USABLE_PREFIX, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
 import { TableMode } from "./table";
 import { InteractMarkers } from "./markers";
 import { WorldEditor } from "./worldEditor";
@@ -119,6 +120,7 @@ import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } fro
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
+import { TrophyCases } from "./trofeos";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
 import { useAchievementStore } from "./achievements";
@@ -148,6 +150,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
+  { kind: "trophies", point: "trophy_case", furniture: ["trophy-case"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -239,6 +242,8 @@ export class OfficeScene extends Phaser.Scene {
   /** Muebles que se usan (tele, lámparas, instrumentos, gato) y el que está al alcance. */
   private usables!: Usables;
   private usableNear: UsableHit | null = null;
+  /** Mascota al alcance para acariciarla con E (si no hay un mueble ni un asiento más cerca). */
+  private petNear: string | null = null;
   /** Rombitos sobre lo que se puede usar (ver markers.ts). */
   private markers!: InteractMarkers;
   /** Editor de la casa (admins; ver worldEditor.ts). */
@@ -268,6 +273,7 @@ export class OfficeScene extends Phaser.Scene {
   private weatherKnown = false;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
+  private trophyCases!: TrophyCases;
 
   constructor() {
     super("office");
@@ -342,6 +348,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
+    this.trophyCases = new TrophyCases(this);
     // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
@@ -401,6 +408,7 @@ export class OfficeScene extends Phaser.Scene {
         usePhotoStore.getState().markStale(watching);
       }),
       () => this.photoBoards.destroy(),
+      () => this.trophyCases.destroy(),
       onAchievementUnlocked((e) => this.avatars.get(e.sessionId)?.celebrate()),
       () => this.usables.destroy(),
       () => this.fishing.destroy(),
@@ -610,6 +618,7 @@ export class OfficeScene extends Phaser.Scene {
       this.weatherView.setArea(map, this.view.bounds);
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
+      this.trophyCases.setArea(map);
       if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
       this.rods.setArea(map);
       this.fishing.reset();
@@ -680,6 +689,7 @@ export class OfficeScene extends Phaser.Scene {
     this.weatherView.setArea(map, this.view.bounds);
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
+    this.trophyCases.setArea(map);
     this.rods.setArea(map);
     this.club.setArea(map, this.view);
     AreaView.dropStaleBases(this, map);
@@ -899,6 +909,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setHeld(player.held, player.heldLeft);
     avatar.setDrunk((player.drunk ?? 0) as DrunkStage);
     avatar.setRiding(Boolean(player.racing));
+    avatar.setBadge(player.badge ?? "");
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -907,6 +918,7 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("look", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("avatar", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("name", (name) => avatar.setName(name));
+    p$.listen("badge", (badge) => avatar.setBadge(badge ?? ""));
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));
@@ -1077,6 +1089,7 @@ export class OfficeScene extends Phaser.Scene {
         const near = useOfficeStore.getState().interact;
         if (near && !this.seat) activateInteractable(near);
         else if (this.usableNear && !this.seat && !this.table.kind) this.useFurniture(this.usableNear.f);
+        else if (this.petNear && !this.seat && !this.table.kind) sendPetAction(this.petNear, "pet");
         else this.toggleSeat();
       }
       // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
@@ -1339,7 +1352,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private updateSeatPrompt() {
-    const prompt = this.seat ? "stand" : this.nearestFreeSeat() && !this.usableNear ? "sit" : null;
+    const prompt = this.seat ? "stand" : this.nearestFreeSeat() && !this.usableNear && !this.petNear ? "sit" : null;
     const s = useOfficeStore.getState();
     if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
     const atComputer = this.seat?.computer ?? false;
@@ -1495,8 +1508,17 @@ export class OfficeScene extends Phaser.Scene {
     const seat = hit && avatar ? this.nearestFreeSeat() : null;
     if (hit && seat && avatar && Math.hypot(seat.x - avatar.x, seat.y - avatar.y) < hit.dist + this.map.tileSize / 2) hit = null;
     this.usableNear = hit;
+    // Sin mueble al lado, E acaricia a la mascota de al lado (si está más cerca que el asiento libre).
+    const pet = avatar && !hit && !this.seat && !besideObject ? this.usables.petNear(avatar.x, avatar.y) : null;
+    const freeSeat = pet && avatar ? this.nearestFreeSeat() : null;
+    const petWins = pet && avatar && (!freeSeat || pet.dist < Math.hypot(freeSeat.x - avatar.x, freeSeat.y - avatar.y));
+    this.petNear = petWins ? pet.id : null;
     const s = useOfficeStore.getState();
-    const next = hit ? { type: hit.f.type, x: hit.f.x, y: hit.f.y, label: this.usables.label(hit.f) } : null;
+    const next = hit
+      ? { type: hit.f.type, x: hit.f.x, y: hit.f.y, label: this.usables.label(hit.f) }
+      : petWins
+        ? { type: `${PET_USABLE_PREFIX}${pet.id}`, x: 0, y: 0, label: `Acariciar a ${pet.name}` }
+        : null;
     const cur = s.usable;
     if (next?.type !== cur?.type || next?.x !== cur?.x || next?.y !== cur?.y || next?.label !== cur?.label) s.setUsable(next);
   }

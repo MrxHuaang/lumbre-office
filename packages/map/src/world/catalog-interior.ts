@@ -7,6 +7,8 @@ export const INTERIOR_CATALOG = {
   // Biblioteca y salas.
   "bookcase-tall": { name: "Estantería alta", size: [1, 2] },
   "curio-cabinet": { name: "Vitrina", size: [1, 2] },
+  // La vitrina de trofeos de cada oficina (los trofeos del dueño se pintan encima, en el cliente).
+  "trophy-case": { name: "Vitrina de trofeos", size: [1, 2] },
   "library-ladder": { name: "Escalerita", size: [1, 1] },
   "reading-table": { name: "Mesa de lectura", size: [2, 4], light: { at: [16, 32, 22], color: "#b8f08a", radius: 54 } },
   "fireplace-stone": { name: "Chimenea de piedra", size: [1, 3], light: { at: [8, 24, 8], color: "#ff9a4a", radius: 70 } },

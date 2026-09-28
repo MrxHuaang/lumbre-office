@@ -9,6 +9,7 @@ import {
   type ChatEvent,
   type ItemStack,
   type OfficeItemDTO,
+  type PetBondRecord,
   type PointReason,
   type PresenceStatus,
   type StatChange,
@@ -234,6 +235,21 @@ export class MemoryRepository implements GameRepository {
     set.add(achievementId);
     return true;
   }
+  /** Insignias destacadas y mascotas adoptadas (en memoria). */
+  featuredBadges = new Map<string, string>();
+  petBonds = new Map<string, PetBondRecord>();
+  async getFeaturedBadge(userId: string) {
+    return this.featuredBadges.get(userId) ?? null;
+  }
+  async loadPetBonds() {
+    return [...this.petBonds.values()].map((b) => ({ ...b }));
+  }
+  async savePetBond(bond: PetBondRecord) {
+    // Como en la base: una mascota por dueño.
+    for (const b of this.petBonds.values()) if (bond.ownerId && b.ownerId === bond.ownerId && b.petId !== bond.petId) throw new Error("ya tiene mascota");
+    this.petBonds.set(bond.petId, { ...bond });
+  }
+
   /** Helper de tests: un contador guardado. */
   savedStat(userId: string, key: string) {
     return this.userStats.get(userId)?.get(key) ?? 0;
