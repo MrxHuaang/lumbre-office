@@ -20,6 +20,8 @@ export const STAT_KEYS = {
   sips: "sips",
   bites: "bites",
   puffs: "puffs",
+  /** Cigarros, habanos y demás fumados hasta el final. */
+  smoked: "smoked",
   /** Sorbos de algo con alcohol. */
   alcoholSips: "alcohol_sips",
   // Borrachera
@@ -286,6 +288,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("buen-diente", "Buen diente", "bread", "raro", STAT_KEYS.bites, 300, "Da 300 mordiscos", "La cafetería ya hace pedidos pensando en ti."),
     a("fumador-de-habanos", "Fumador de habanos", "cigar", "raro", STAT_KEYS.habanos, 5, "Pide 5 habanos en el club", "Como un magnate, pero en pantuflas."),
     a("chimenea-humana", "Chimenea humana", "smoke", "raro", STAT_KEYS.puffs, 100, "Da 100 pitadas", "La chimenea de la cabaña te mira con envidia."),
+    a("cancer-de-pulmon", "Cáncer de pulmón", "smoke", "epico", STAT_KEYS.smoked, 50, "Fúmate 50 hasta la colilla", "El médico dijo que lo dejaras. Tú dijiste que otro y ya."),
     a("habitual-del-bar", "Habitual del bar", "glass", "comun", STAT_KEYS.barOrders, 25, "Pide 25 cosas en el bar del club", "El bartender ya te guarda la banqueta."),
     a("catador", "Catador de la casa", "glass", "raro", STAT_KEYS.alcoholSips, 100, "Dale 100 sorbos a algo con alcohol", "Notas de roble, vainilla y malas decisiones."),
     // Borrachera (secretos)
