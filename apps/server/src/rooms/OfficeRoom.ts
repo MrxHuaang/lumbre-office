@@ -213,6 +213,8 @@ import { Phones } from "./phones";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { BAG_MSG, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
+import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/shared";
+import { CasaArbol } from "./casaArbol";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
 import { Cocina, type CocinaResult } from "./cocina";
 import { ManDelSombrero } from "./sombrero";
@@ -639,6 +641,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private cinema!: Cinema;
   /** Jardín vivo: el huerto, el cobertizo y la miel (ver huerto.ts). */
   private huerto!: Huerto<GardenPlotState>;
+  private casaArbol!: CasaArbol;
   /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
   private hockey!: HockeyTable;
   /** Ajedrez y damas de la sala de juegos (ver boardGames.ts). */
@@ -717,6 +720,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
       },
     });
+    this.casaArbol = new CasaArbol(this.state.treeHouse, this.state.players);
     this.huerto = new Huerto({
       plots: this.state.garden,
       create: () => new GardenPlotState(),
@@ -778,6 +782,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     this.onMessage(MSG.knockRespond, (client, raw) => this.handleKnockRespond(client, raw));
     this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
+    this.onMessage(CASA_ARBOL_MSG.ladder, (client, raw) => this.withTreeHouse(client, (p) => this.casaArbol.ladder(p, raw)));
+    this.onMessage(CASA_ARBOL_MSG.focus, (client, raw) => this.withTreeHouse(client, (p) => this.casaArbol.focus(p, raw, Date.now())));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
@@ -872,6 +878,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       // El foco se cancela si salió de su oficina por cualquier camino (desmayo, editor que lo corrió…).
       for (const p of this.state.players.values()) if (p.focus === "work") this.focus.moved(p.userId, p.zoneId);
       this.cinema.tick(Date.now());
+      // La casa del árbol que se vació (por donde sea) baja la escalera, y el modo foco cambia de fase.
+      this.casaArbol.sweep(Date.now());
     }, 500);
     // Cumpleaños del día y el karaoke de los viernes: se revisa seguido (cambian con la hora de Bogotá).
     this.clock.setInterval(() => void this.events.refresh(), OfficeRoom.eventsRefreshMs);
@@ -1620,6 +1628,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       return;
     }
+    // La casa del árbol: cupo y escalera recogida (el cliente lo anticipa; aquí se decide).
+    const blocked = portal.to.area === CASA_ARBOL.area ? this.casaArbol.canEnter(player.userId) : null;
+    if (blocked) {
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
+      client.send(CASA_ARBOL_MSG.notice, { code: blocked } satisfies CasaArbolNotice);
+      return;
+    }
     const target = this.mapOf(portal.to.area);
     const ts = target.tileSize;
     const pos = this.freeSpotNear(target, portal.to.x * ts + ts / 2, portal.to.y * ts + ts / 2);
@@ -1641,6 +1656,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
     this.trades.moved(client.sessionId);
     void this.raceOutcome(client.sessionId, this.races.cancel(client.sessionId, player, "lane"));
+    this.casaArbol.sweep(Date.now());
+  }
+
+  /** Algo de la casa del árbol (la escalera, el modo foco): solo desde adentro; cuenta como actividad. */
+  private withTreeHouse(client: Client<UserData>, fn: (player: Player) => boolean) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    if (fn(player)) client.userData.lastActiveAt = Date.now();
   }
 
   // ---------- Carrera de sillas ----------
@@ -2865,6 +2888,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
     this.state.players.delete(sessionId);
+    this.casaArbol?.sweep(Date.now());
     this.club?.forget(sessionId);
     this.whiteboards.forget(sessionId);
     this.races.forget(sessionId);

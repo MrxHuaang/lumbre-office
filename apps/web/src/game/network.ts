@@ -93,6 +93,7 @@ import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
 import { bindBag } from "./bag";
+import { bindCasaArbol } from "./casaArbol";
 import { sfx } from "./sfx";
 import { bindPhone, resetPhone } from "./phone";
 import { useSombreroStore } from "./npcs/store";
@@ -756,6 +757,7 @@ function attach(r: OfficeRoom) {
   store.setConnection("connected");
 
   const $ = getStateCallbacks(r);
+  bindCasaArbol(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({

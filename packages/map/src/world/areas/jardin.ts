@@ -65,6 +65,12 @@ const DOCK = { x0: 43, x1: 50, y0: 40, y1: 42 };
 /** Fogata con troncos alrededor y la glorieta. */
 const FIRE = { x: 14, y: 36 };
 const GAZEBO = { x: 24, y: 44 };
+/**
+ * La casa del árbol (4x4) en el huerto de frutales, contra la cerca oeste: lo que su copa tapa queda del
+ * lado del bosque. La escalera de cuerda cuelga frente al segundo tile del frente (+y) y su pie es el portal.
+ */
+const TREEHOUSE = { x: 1, y: 44 };
+const TREEHOUSE_FOOT = { x: TREEHOUSE.x + 1, y: TREEHOUSE.y + 4 };
 /** Zona de charla de la fogata (en coordenadas del nivel): los troncos quedan adentro con un tile de aire. */
 const FIRE_ZONE = { x: FIRE.x - 3 + M, y: FIRE.y - 3 + M, w: 8, h: 8 };
 
@@ -93,6 +99,9 @@ const PATHS: Seg[] = [
   // Hacia el lago (este) hasta la raíz del muelle.
   { a: [40, 28], b: [43.6, 31.5], w: 2 },
   { a: [43.6, 31.5], b: [43.4, 39.2], w: 2 },
+  // Senderito de la casa del árbol a la fogata, entre los frutales.
+  { a: [TREEHOUSE_FOOT.x + 0.5, TREEHOUSE_FOOT.y + 1.2], b: [9.5, 46.2], w: 1.3 },
+  { a: [9.5, 46.2], b: [13.2, 39.6], w: 1.3 },
   // Senderitos a la fogata, a la glorieta y al patio.
   { a: [29, 28.9], b: [16.8, 34.8], w: 1.5 },
   { a: [38.8, 43.5], b: [30.2, 45.8], w: 1.5 },
@@ -185,6 +194,8 @@ const fine = (x: number, y: number) => localGround(x - M, y - M);
 // La puerta del porche tiene que coincidir con CONEXIONES.jardin.casa (tiles frente a la puerta).
 if (CONEXIONES.jardin.casa.tiles[0]!.x !== DOOR_X + M || CONEXIONES.jardin.casa.tiles[0]!.y !== PORCH_Y + M)
   throw new Error("CONEXIONES.jardin.casa no coincide con la puerta de la casa");
+if (CONEXIONES.jardin.casaArbol.tiles[0]!.x !== TREEHOUSE_FOOT.x + M || CONEXIONES.jardin.casaArbol.tiles[0]!.y !== TREEHOUSE_FOOT.y + M)
+  throw new Error("CONEXIONES.jardin.casaArbol no coincide con la escalera de la casa del árbol");
 if (CONEXIONES.jardin.garaje.tiles[0]!.x !== GARAGE_DOOR_X + M || CONEXIONES.jardin.garaje.tiles[0]!.y !== GARAGE.y + 5 + M)
   throw new Error("CONEXIONES.jardin.garaje no coincide con la puerta del garaje");
 
@@ -375,14 +386,28 @@ for (const [x, y, t] of [
 ] as const)
   put(t, x, y);
 
-// Huerto de frutales al suroeste.
+// Huerto de frutales al suroeste, con la casa del árbol contra la cerca (se sacaron los dos frutales que
+// quedaban encima de ella y de su senderito).
 const FRUIT = ["apple-tree", "peach-tree", "cherry-tree"];
 for (let i = 0; i < 3; i++)
   for (let j = 0; j < 4; j++) {
     const x = 4 + j * 4 + (i % 2) * 2;
     const y = 44 + i * 4;
+    if ((x === 4 && y === 44) || (x === 6 && y === 48)) continue;
     put(FRUIT[(i + j * 2) % 3]!, x, y);
   }
+put("treehouse", TREEHOUSE.x, TREEHOUSE.y);
+// Detrás de la casa del árbol (contra la cerca) su copa tapa a quien se pare ahí: matas, sin lugar libre.
+for (const [x, y, t] of [
+  [0, 41, "bush-round"],
+  [0, 42, "bush-berry"],
+  [1, 42, "bush-rose"],
+  [0, 43, "bush-hydrangea"],
+  [1, 43, "bush-round"],
+  [0, 44, "bush-berry"],
+] as const)
+  put(t, x, y, "down");
+put("treehouse-ladder", TREEHOUSE_FOOT.x, TREEHOUSE_FOOT.y - 1);
 
 // Lago: muelle con farol y bote, juncos, nenúfares, islote con un árbol, piedras, banca y picnic.
 // El farol sobre las tablas, junto a la punta (la punta queda libre para pescar).
@@ -548,6 +573,8 @@ const POINTS: PointDef[] = [
   }
   for (const p of POINTS) mark(p.x - M, p.y - M, p.type === "spawn" ? 3 : 1);
   mark(DOOR_X, PORCH_Y + 2, 2);
+  // El pie de la escalera de la casa del árbol, despejado (que ningún árbol la tape).
+  mark(TREEHOUSE_FOOT.x + 1, TREEHOUSE_FOOT.y + 1, 3);
   const soft = (x: number, y: number) => {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ground(x + dx, y + dy) !== "grass") return true;
     return false;
@@ -681,6 +708,12 @@ export const jardin: AreaDef = {
       label: "Subir al balcón del piso 2",
       tiles: CONEXIONES.jardin.escaleraTerraza.tiles,
       to: hacia("piso-2", CONEXIONES.piso2.terraza),
+    },
+    {
+      id: "jardin-casa-arbol",
+      label: "Subir a la casa del árbol",
+      tiles: CONEXIONES.jardin.casaArbol.tiles,
+      to: hacia("casa-arbol", CONEXIONES.casaArbol.trampilla),
     },
     {
       id: "jardin-garaje",

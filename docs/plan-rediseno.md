@@ -74,6 +74,7 @@ Tiene versión de noche, con las ventanas encendidas. La referencia es la imagen
 - **Terraza este**: cubierta de madera con mesas, pérgola con enredaderas y faroles, y la leñera.
 - **Naturaleza**: más variedad de árboles (robles, pinos, abedules, frutales), arbustos con flores, macizos de flores, rocas de varios tamaños, hongos y troncos caídos.
 - **Garaje** (agregado después del rediseño): pegado al oeste de la torre, de 5x5, de la misma familia que la casa: troncos sobre una basa de piedra, techo de tejas con musgo, el portón de tablas de dos hojas, la puerta chica con su farol, la ventana con postigos, hiedra y la entrada de gravilla hasta el sendero del huerto. Se usa poco, pero no está abandonado. La puerta chica lleva al nivel `garaje` (ver abajo). Detrás de él (lo que su dibujo tapa) hay matorral y cachivaches, sin lugar donde pararse.
+- **Casa del árbol** (estructura 2 de `docs/plan-estructuras.md`): en el huerto de frutales, contra la cerca oeste (4x4 en (1, 44) de la zona jugable; se sacaron dos frutales). Un roble viejo de copa enorme con la plataforma de tablas y su baranda, la cabañita de tablas con techo de tejas, la puerta, la ventanita (con luz de noche) y el ojo de buey, dos faroles colgados de las ramas y la polea con el balde. La escalera de cuerda (`treehouse-ladder`, aparte) lleva al nivel `casa-arbol`; un senderito la une con la fogata. Detrás (lo que tapa la copa) hay matas, sin lugar donde pararse.
 
 ## Planta baja: lo social y lo comercial (unos 40x26)
 
@@ -212,6 +213,12 @@ y 9   └─────────[  ]─────────────�
 - Nivel interior aparte (`garaje`), al que se entra desde la puerta chica del garaje del jardín.
 - **Taller** (zona común): tablones gastados, paredes de tablas sobre zócalo de piedra, el portón de tablas por dentro, el banco de trabajo bajo el tablero de herramientas, estantes metálicos, pilas de llantas, la caja de herramientas roja, el compresor, tambores, cajas, latas de pintura, la escoba, la hielera de madera, la radio y un carro tapado con lona. Descuidado apenas: se usa poco.
 - **Oficina del garaje** (`office-5`, aislada, puerta desde el taller): un rincón tibio: escritorio de madera con un computador de los noventa (prende Hyvento OS), la silla de oficina rota con cinta, archivador abollado, ventilador, planta seca, calendario viejo, un sillón, una lámpara de pie, la ventana con cortinas y un tapete gastado. Se asigna en /admin y su dueño la decora como las del piso 2.
+
+## Casa del árbol: un cuarto para tres (7x6)
+
+- Nivel interior aparte (`casa-arbol`): una sola sala aislada de tipo `meeting` (con su pizarra y los puntos de reunión) que ocupa todo el cuarto. Tablones horizontales clavados (papel `treehouse`) y piso de tablas claras.
+- El tronco del roble atraviesa el rincón del fondo (con el corazón tallado, una repisita y una rama con un farolito), la ventana a la copa (hojas de día, estrellas y luciérnagas de noche) con el catalejo, la hamaca, el globo, banderines, los cajones con libros, el farol de frasco, la radio vieja, el tapete trenzado con la mesita de tocón (tetera y temporizador de tomate) y tres cojines, la cesta de mantas y la trampilla del piso, que baja al pie del árbol.
+- Caben tres. "Subir la escalera" (panel de la sala) la cierra: nadie más sube hasta que la bajen o se vacíe la casa, y desde el jardín se ve recogida con el cartel "OCUPADO". Pomodoro compartido opcional (25 + 5 min, sin puntos) que ven los de adentro.
 
 ## Casino, más trabajado y jugado en la mesa
 

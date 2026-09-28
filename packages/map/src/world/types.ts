@@ -77,7 +77,9 @@ export type WallpaperKind =
   | "colonial"
   // Garaje: bloque de cemento sin pintar y tablas sobre zócalo de piedra (el taller).
   | "cinderblock"
-  | "boards";
+  | "boards"
+  // Casa del árbol: tablones horizontales clavados con la viga redonda arriba.
+  | "treehouse";
 
 export interface ZoneDef {
   id: string;
@@ -114,7 +116,9 @@ export interface DoorDef {
 export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "video-wall" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait"
   // Garaje: tablero de herramientas, el portón de tablas por dentro, calendario viejo, telaraña y la ventana
   // empolvada.
-  | "pegboard" | "barn-door" | "calendar" | "cobweb" | "dusty-window";
+  | "pegboard" | "barn-door" | "calendar" | "cobweb" | "dusty-window"
+  // Casa del árbol: la ventana a la copa y la guirnalda de banderines.
+  | "treehouse-window" | "bunting";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {

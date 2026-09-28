@@ -322,6 +322,17 @@ export class GardenPlotState extends Schema {
   @type("number") wateredUntil = 0;
 }
 
+/** La casa del árbol (CasaArbolView de @hyvento/shared): la escalera recogida y el modo foco de adentro. */
+export class TreeHouseState extends Schema {
+  @type("boolean") locked = false;
+  /** Quién recogió la escalera. */
+  @type("string") lockedBy = "";
+  /** "" apagado, "focus" o "break" (CasaArbolFocus). */
+  @type("string") focus = "";
+  /** Fin de la fase del modo foco, en ms de la hora del servidor. */
+  @type("float64") focusEndsAt = 0;
+}
+
 /** El Man del Sombrero (ver rooms/sombrero.ts): si anda por ahí y en qué escondite. */
 export class SombreroState extends Schema {
   @type("boolean") present = false;
@@ -363,6 +374,8 @@ export class OfficeState extends Schema {
    */
   @type("float64") clockAnchorReal = 0;
   @type("float64") clockAnchorMinute = 0;
+  /** La casa del árbol del jardín (ver rooms/casaArbol.ts). */
+  @type(TreeHouseState) treeHouse = new TreeHouseState();
   @type(EventsState) events = new EventsState();
   /** El Man del Sombrero: si anda por ahí y dónde (lo decide la sala con el reloj del juego y el clima). */
   @type(SombreroState) sombrero = new SombreroState();
