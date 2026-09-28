@@ -27,6 +27,8 @@ export const STATUS_HEX: Record<PresenceStatus, string> = {
   busy: "#e0923e",
   dnd: "#d93a2b",
   away: "#a8977f",
+  /** "En reunión" (automático): el azul cielo de la paleta (COZY.sky). */
+  meeting: "#5d93cf",
 };
 
 /** Tintas legibles sobre papel para los nombres en el chat. */
@@ -50,6 +52,22 @@ export async function waitForCozyFont(timeoutMs = 2000): Promise<void> {
   const sample = "Aa0123456789";
   const loads = Promise.all([document.fonts.load(`400 11px ${family}`, sample), document.fonts.load(`600 11px ${family}`, sample)]);
   await Promise.race([loads.catch(() => undefined), new Promise((r) => setTimeout(r, timeoutMs))]);
+}
+
+/** El atardecer del juego va de las 17:00 a las 19:00, cuando llega la noche (NIGHT_FROM del reloj). */
+const DUSK_FROM = 17;
+const DUSK_TO = 19;
+
+/**
+ * Cuánto atardeció (0..1) a esa hora del juego, como en Stardew: desde las 17:00 la luz se va dorando de
+ * a poco hasta la noche. Suave al empezar y al terminar (smoothstep); fuera del tramo, 0 (de noche manda
+ * la noche).
+ */
+export function duskAt(hour: number, minute = 0): number {
+  const h = hour + minute / 60;
+  if (h >= DUSK_TO) return 0;
+  const t = Math.min(1, Math.max(0, (h - DUSK_FROM) / (DUSK_TO - DUSK_FROM)));
+  return t * t * (3 - 2 * t);
 }
 
 /** ¿Es de noche según la hora local? (de 19:00 a 6:59). Solo fuera del juego (la portada): adentro manda el reloj del juego. */

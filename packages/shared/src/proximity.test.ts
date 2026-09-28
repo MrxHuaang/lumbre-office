@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canHear, hearing, HEARING_HYSTERESIS, type Positioned } from "./proximity";
+import { canHear, hearing, HEARING_HYSTERESIS, listeners, STAGE_NEIGHBOR_VOLUME, type Positioned } from "./proximity";
 import { PROXIMITY_RADIUS, VOICE_RADIUS } from "./protocol";
 
 const at = (x: number, y: number, zoneId: string | null = null, zoneIsolated = false): Positioned => ({
@@ -87,5 +87,79 @@ describe("hearing", () => {
     expect(Object.fromEntries(h)).toEqual({ llamada: 1, adentro: 1 });
     // Sin la llamada, vuelve a ser solo la proximidad.
     expect([...hearing(me, others, new Set(["llamada"]), R).keys()]).toEqual(["adentro"]);
+  });
+});
+
+describe("escenario del jardín", () => {
+  const T = 32;
+  /** Alguien en el anfiteatro (tile x, y) con su papel: la tarima y las gradas son zonas aisladas. */
+  const on = (x: number, y: number, stage: "speaker" | "audience", zoneId = stage === "speaker" ? "escenario" : "gradas"): Positioned => ({
+    area: "jardin",
+    x: x * T,
+    y: y * T,
+    zoneId,
+    zoneIsolated: true,
+    stage,
+  });
+  const outside = (x: number, y: number): Positioned => ({ area: "jardin", x: x * T, y: y * T, zoneId: "jardin", zoneIsolated: false });
+
+  it("quien está en la tarima se oye a volumen completo en todas las gradas, aunque estén lejos", () => {
+    const tarima = on(15, 59, "speaker");
+    const others = new Map([["tarima", tarima]]);
+    for (const seat of [on(20, 59, "audience"), on(25, 54, "audience"), on(24, 63, "audience")]) expect(hearing(seat, others).get("tarima")).toBe(1);
+  });
+
+  it("en las gradas se oye a los vecinos bajito y no a los de la otra punta", () => {
+    const me = on(20, 58, "audience");
+    const h = hearing(
+      me,
+      new Map([
+        ["vecino", on(21, 58, "audience")],
+        ["lejos", on(24, 62, "audience")],
+      ]),
+    );
+    expect(h.get("vecino")).toBe(STAGE_NEIGHBOR_VOLUME);
+    expect(h.get("vecino")!).toBeLessThan(0.5);
+    expect(h.has("lejos")).toBe(false);
+  });
+
+  it("la tarima oye a la otra persona de la tarima y al público solo de cerca", () => {
+    const me = on(15, 57, "speaker");
+    const h = hearing(
+      me,
+      new Map([
+        ["companero", on(16, 61, "speaker")],
+        ["primera-fila", on(17, 57, "audience")],
+        ["fondo", on(24, 59, "audience")],
+      ]),
+    );
+    expect(h.get("companero")).toBe(1);
+    expect(h.get("primera-fila")).toBe(STAGE_NEIGHBOR_VOLUME);
+    expect(h.has("fondo")).toBe(false);
+  });
+
+  it("quien tiene la palabra en las gradas se oye como si estuviera en la tarima", () => {
+    const pregunta = on(24, 62, "speaker", "gradas");
+    const h = hearing(on(19, 55, "audience"), new Map([["pregunta", pregunta]]));
+    expect(h.get("pregunta")).toBe(1);
+  });
+
+  it("el anfiteatro no se oye desde afuera ni al revés, aunque estén al lado", () => {
+    const tarima = on(15, 59, "speaker");
+    const paseante = outside(27, 59);
+    expect(hearing(paseante, new Map([["tarima", tarima]])).size).toBe(0);
+    expect(hearing(tarima, new Map([["paseante", paseante]])).size).toBe(0);
+    expect(canHear(tarima, paseante)).toBe(false);
+    // El chat de texto, en cambio, llega a todo el anfiteatro (para las preguntas).
+    expect(canHear(on(24, 63, "audience"), tarima)).toBe(true);
+  });
+
+  it("los que me oyen no son siempre los que oigo: el público oye a la tarima", () => {
+    const tarima = on(15, 59, "speaker");
+    const fondo = on(24, 59, "audience");
+    const others = new Map([["fondo", fondo]]);
+    expect(hearing(tarima, others).has("fondo")).toBe(false);
+    expect(listeners(tarima, "tarima", others)).toEqual(["fondo"]);
+    expect(listeners(fondo, "fondo", new Map([["tarima", tarima]]))).toEqual([]);
   });
 });

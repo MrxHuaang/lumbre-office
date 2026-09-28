@@ -121,6 +121,30 @@ export class RouletteState extends Schema {
   @type([RouletteBet]) bets = new ArraySchema<RouletteBet>();
 }
 
+/** Una apuesta en una mesa de rondas compartidas (baccarat, dados o caballitos). */
+export class MesaBet extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** La apuesta como la entiende la mesa ("banker", "t11", "h3"…). */
+  @type("string") bet = "";
+  @type("number") amount = 0;
+}
+
+/**
+ * Mesa de rondas compartidas: se apuesta ("betting"), se juega ("playing": el resultado ya está y el
+ * cliente lo anima) y se paga ("result").
+ */
+export class MesaState extends Schema {
+  @type("string") phase = "betting";
+  @type("number") round = 0;
+  @type("number") endsAt = 0;
+  /** Las cartas del baccarat, los dados o el orden de llegada de los caballitos (vacío mientras se apuesta). */
+  @type(["number"]) result = new ArraySchema<number>();
+  /** Resultados anteriores resumidos (ver `mesaSummary`), el más reciente primero. */
+  @type(["number"]) history = new ArraySchema<number>();
+  @type([MesaBet]) bets = new ArraySchema<MesaBet>();
+}
+
 /** Un asiento del blackjack (5 en total, en el orden de BLACKJACK_SEATS). */
 export class BlackjackSeat extends Schema {
   @type("string") userId = "";
@@ -337,6 +361,37 @@ export class TreeHouseState extends Schema {
   @type("float64") focusEndsAt = 0;
 }
 
+/** Escenario del jardín: alguien de las gradas con la mano levantada (la fila de turnos, en orden). */
+export class StageHand extends Schema {
+  @type("string") sessionId = "";
+  @type("string") userId = "";
+  @type("string") name = "";
+  @type("number") at = 0;
+}
+
+/** Escenario del jardín: la fila de turnos y quién tiene la palabra (se oye como si estuviera en la tarima). */
+export class StageState extends Schema {
+  @type([StageHand]) hands = new ArraySchema<StageHand>();
+  /** userId de quien tiene la palabra ("" = nadie) y su nombre. */
+  @type("string") floor = "";
+  @type("string") floorName = "";
+}
+
+/**
+ * La cabina de grabación del jardín: "idle", "asking" (esperando el permiso de todos) o "recording" (EN
+ * EL AIRE). El audio nunca llega al servidor: lo graba el navegador de `host`.
+ */
+export class PodcastState extends Schema {
+  @type("string") phase = "idle";
+  @type("string") host = "";
+  @type("string") hostName = "";
+  /** Cuándo se pidió permiso y cuándo empezó a grabar (hora del servidor). */
+  @type("number") askedAt = 0;
+  @type("number") startedAt = 0;
+  /** Permiso de cada persona de adentro (userId → aceptó); quien pidió grabar ya aceptó. */
+  @type({ map: "boolean" }) consents = new MapSchema<boolean>();
+}
+
 /** El Man del Sombrero (ver rooms/sombrero.ts): si anda por ahí y en qué escondite. */
 export class SombreroState extends Schema {
   @type("boolean") present = false;
@@ -359,12 +414,50 @@ export class BusState extends Schema {
   @type("uint32") run = 0;
 }
 
+/** La granja: una gallina o la cabra (las mueve el servidor; ver rooms/granja.ts). */
+export class FarmAnimal extends Schema {
+  @type("string") id = "";
+  /** "gallina" o "cabra", y el plumaje o pelaje (colores del dibujo). */
+  @type("string") kind = "";
+  @type("string") coat = "";
+  /** El nombre que va ganando en la votación. */
+  @type("string") name = "";
+  /** Posición en px de mundo del jardín. */
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") dir = "down";
+  /** "stand", "walk", "peck" o "sleep" (FarmArtPose). */
+  @type("string") pose = "stand";
+}
+
+/** La parrilla: lo que alguien tiene en el fuego (una receta por persona; la clave es el userId). */
+export class GrillJob extends Schema {
+  @type("string") name = "";
+  @type("string") recipe = "";
+  /** "horno" o "parrilla": sobre cuál sale la barra. */
+  @type("string") station = "";
+  /** Lo cocinado (0 a 1) hasta `at` (hora del servidor), y desde ahí a ritmo `rate` (ver grillProgress). */
+  @type("number") progress = 0;
+  @type("number") rate = 1;
+  @type("float64") at = 0;
+  @type("number") cookMs = 0;
+}
+
+/** La granja del jardín: los animales, lo que está en el fuego y los huevos que quedan en el nido. */
+export class GranjaState extends Schema {
+  @type({ map: FarmAnimal }) animals = new MapSchema<FarmAnimal>();
+  @type({ map: GrillJob }) grill = new MapSchema<GrillJob>();
+  @type("uint8") eggs = 0;
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
   @type(RouletteState) roulette = new RouletteState();
   @type(BlackjackState) blackjack = new BlackjackState();
   @type(HockeyState) hockey = new HockeyState();
+  /** Baccarat, dados y caballitos, por id de mesa (ver MESAS de @hyvento/shared). */
+  @type({ map: MesaState }) mesas = new MapSchema<MesaState>();
   /** Mesas de ajedrez y damas de la sala de juegos, por id (ver BOARD_TABLES de @hyvento/map). */
   @type({ map: BoardTableState }) boards = new MapSchema<BoardTableState>();
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`; los que no están siguen como arrancan. */
@@ -379,6 +472,9 @@ export class OfficeState extends Schema {
   @type({ map: Pet }) pets = new MapSchema<Pet>();
   @type(ClubState) club = new ClubState();
   @type(CinemaState) cinema = new CinemaState();
+  /** El escenario y la cabina de grabación del jardín (ver rooms/escenario.ts y rooms/podcast.ts). */
+  @type(StageState) stage = new StageState();
+  @type(PodcastState) podcast = new PodcastState();
   /** Jardín vivo: las parcelas sembradas del huerto, por índice de parcela (las vacías no están). */
   @type({ map: GardenPlotState }) garden = new MapSchema<GardenPlotState>();
   /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
@@ -395,4 +491,6 @@ export class OfficeState extends Schema {
   @type(EventsState) events = new EventsState();
   /** El Man del Sombrero: si anda por ahí y dónde (lo decide la sala con el reloj del juego y el clima). */
   @type(SombreroState) sombrero = new SombreroState();
+  /** La granja del jardín: el gallinero, la parrilla y lo que queda en el nido. */
+  @type(GranjaState) granja = new GranjaState();
 }

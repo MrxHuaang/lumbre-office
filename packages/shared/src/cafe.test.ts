@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BAR_CATEGORIES,
   BAR_MENU,
   BarOrderMessage,
   CAFE_CATEGORIES,
@@ -8,6 +9,7 @@ import {
   CafeOrderMessage,
   CinemaOrderMessage,
   MENUS,
+  barItemsIn,
   barRefId,
   cafeItem,
   cafeItemsIn,
@@ -16,7 +18,7 @@ import {
   menuItem,
 } from "./cafe";
 import { FREE_HOLDS } from "./casa";
-import { CONSUMABLES } from "./consumables";
+import { ALCOHOL_PER_SIP, CONSUMABLES } from "./consumables";
 
 describe("menú de la cafetería", () => {
   it("cada producto tiene id único y precio entero positivo", () => {
@@ -72,7 +74,7 @@ describe("combos", () => {
     }
     expect(heldParts("onces")).toEqual(["tinto", "pandebono"]);
     expect(heldParts("tinto")).toEqual(["tinto"]);
-    expect(heldParts("mojito")).toEqual([]);
+    expect(heldParts("sancocho")).toEqual([]);
   });
 });
 
@@ -104,6 +106,29 @@ describe("carta del bar del club", () => {
       const separate = combo.holds.reduce((sum, part) => sum + single(part), 0);
       expect(combo.price, combo.id).toBeLessThan(separate);
     }
+  });
+
+  it("la carta del bar va por secciones, todas con algo, y lo colombiano está", () => {
+    const ids = BAR_MENU.map((i) => i.id);
+    for (const id of ["aguardiente", "ron-viejo", "refajo", "michelada", "canelazo", "coco-loco", "chicha", "pola-dorada", "mojito", "cuba-libre", "lulada-ron", "tequila"])
+      expect(ids, id).toContain(id);
+    for (const i of BAR_MENU) expect(BAR_CATEGORIES.map((c) => c.id), i.id).toContain(i.category);
+    for (const c of BAR_CATEGORIES) expect(barItemsIn(c.id).length, c.id).toBeGreaterThan(0);
+    expect(barItemsIn("combos").every((i) => i.kind === "combo")).toBe(true);
+    expect(barItemsIn("humo").every((i) => i.kind === "smoke")).toBe(true);
+  });
+
+  it("todos los tragos emborrachan, según lo fuertes que son", () => {
+    for (const item of BAR_MENU.filter((i) => i.kind === "drink"))
+      for (const part of item.holds) expect(ALCOHOL_PER_SIP[part], part).toBeGreaterThan(0);
+    // Por sorbo: el guaro y el tequila pegan más que la pola; el refajo y la chicha, menos que la cerveza.
+    const sip = (id: string) => ALCOHOL_PER_SIP[id]!;
+    expect(sip("aguardiente")).toBeGreaterThan(sip("pola-dorada"));
+    expect(sip("tequila")).toBeGreaterThan(sip("cerveza"));
+    expect(sip("refajo")).toBeLessThan(sip("cerveza"));
+    expect(sip("chicha")).toBeLessThan(sip("cerveza"));
+    // Nada de la cafetería ni del cine emborracha.
+    for (const item of [...CAFE_MENU, ...CINEMA_MENU]) for (const part of item.holds) expect(ALCOHOL_PER_SIP[part], part).toBeUndefined();
   });
 
   it("todo lo que se lleva en la mano se puede usar", () => {

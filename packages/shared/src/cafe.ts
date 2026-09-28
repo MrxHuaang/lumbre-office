@@ -142,35 +142,76 @@ export function cafeItem(id: string): CafeItem | undefined {
   return CAFE_MENU.find((i) => i.id === id);
 }
 
+/** Las secciones de la carta del bar del club (pestañas del panel), en el orden en que se muestran. */
+export const BAR_CATEGORIES = [
+  { id: "polas", label: "Polas y chicha" },
+  { id: "copas", label: "Guaro y copas" },
+  { id: "cocteles", label: "Cócteles" },
+  { id: "humo", label: "Para fumar" },
+  { id: "combos", label: "Combos" },
+] as const;
+export type BarCategory = (typeof BAR_CATEGORIES)[number]["id"];
+
 /**
  * Rediseño: la carta del bar del club (sótano). Mismo sistema que la cafetería: se pide junto a la barra
  * (punto `club_bar`), se paga con puntos y queda en la mano. Los ids no se repiten con los de la cafetería
  * (lo que llevas en la mano se guarda por id, venga de donde venga).
  */
 export const BAR_MENU = [
-  { id: "cerveza", name: "Cerveza", price: 6, kind: "drink", holds: ["cerveza"], blurb: "Rubia, bien fría y con espuma." },
-  { id: "vino", name: "Copa de vino", price: 9, kind: "drink", holds: ["vino"], blurb: "Tinto de la casa, en copa." },
-  { id: "coctel", name: "Cóctel de la casa", price: 12, kind: "drink", holds: ["coctel"], blurb: "Con sombrillita y cereza." },
-  { id: "whisky", name: "Whisky en las rocas", price: 14, kind: "drink", holds: ["whisky"], blurb: "Dos hielos, sin prisa." },
-  { id: "cigarro-club", name: "Cigarro", price: 4, kind: "smoke", holds: ["cigarro"], blurb: "Para acompañar el trago." },
-  { id: "habano", name: "Habano", price: 20, kind: "smoke", holds: ["habano"], blurb: "Grande, de hoja oscura. Dura bastante." },
+  // ---------- Polas y chicha ----------
+  { id: "cerveza", name: "Cerveza", price: 6, kind: "drink", category: "polas", holds: ["cerveza"], blurb: "Rubia, bien fría y con espuma." },
+  { id: "pola-dorada", name: "Pola dorada", price: 7, kind: "drink", category: "polas", holds: ["pola-dorada"], blurb: "La del club, en botella. Pa' brindar con los amigos." },
+  { id: "refajo", name: "Refajo", price: 6, kind: "drink", category: "polas", holds: ["refajo"], blurb: "Cerveza con Colombiana, mitad y mitad. Sabe a paseo de olla." },
+  { id: "michelada", name: "Michelada", price: 9, kind: "drink", category: "polas", holds: ["michelada"], blurb: "Con limón, sal y ají en el borde. Pica rico." },
+  { id: "chicha", name: "Chicha", price: 5, kind: "drink", category: "polas", holds: ["chicha"], blurb: "De maíz, en totuma, como en el Chorro de Quevedo." },
+  // ---------- Guaro y copas ----------
+  { id: "aguardiente", name: "Copa de guaro", price: 5, kind: "drink", category: "copas", holds: ["aguardiente"], blurb: "Anisado, en copita. \"Una y ya\", dijo nadie nunca." },
+  { id: "ron-viejo", name: "Media de ron viejo", price: 28, kind: "drink", category: "copas", holds: ["ron-viejo"], blurb: "Ron de Caldas en botella chata, pa' la mesa (o pa' usted solo)." },
+  { id: "tequila", name: "Shot de tequila", price: 8, kind: "drink", category: "copas", holds: ["tequila"], blurb: "Sal, trago y limón. En ese orden, sin hacer caras." },
+  { id: "vino", name: "Copa de vino", price: 9, kind: "drink", category: "copas", holds: ["vino"], blurb: "Tinto de la casa, en copa." },
+  { id: "whisky", name: "Whisky en las rocas", price: 14, kind: "drink", category: "copas", holds: ["whisky"], blurb: "Dos hielos, sin prisa." },
+  // ---------- Cócteles ----------
+  { id: "coctel", name: "Cóctel de la casa", price: 12, kind: "drink", category: "cocteles", holds: ["coctel"], blurb: "Con sombrillita y cereza." },
+  { id: "mojito", name: "Mojito", price: 12, kind: "drink", category: "cocteles", holds: ["mojito"], blurb: "Ron, limón y hierbabuena machacada, con harto hielo." },
+  { id: "cuba-libre", name: "Cuba libre", price: 11, kind: "drink", category: "cocteles", holds: ["cuba-libre"], blurb: "Ron con cola y limón: el de las fiestas de quince." },
+  { id: "lulada-ron", name: "Lulada con ron", price: 11, kind: "drink", category: "cocteles", holds: ["lulada-ron"], blurb: "La lulada de Cali, con su chorrito de ron. Con pepitas." },
+  { id: "coco-loco", name: "Coco loco", price: 15, kind: "drink", category: "cocteles", holds: ["coco-loco"], blurb: "En el coco, como en San Andrés. Con sombrillita." },
+  { id: "canelazo", name: "Canelazo", price: 8, kind: "drink", category: "cocteles", holds: ["canelazo"], blurb: "Calientito, con aguapanela, canela y guaro. Pa' la sabana fría." },
+  // ---------- Para fumar ----------
+  { id: "cigarro-club", name: "Cigarro", price: 4, kind: "smoke", category: "humo", holds: ["cigarro"], blurb: "Para acompañar el trago." },
+  { id: "habano", name: "Habano", price: 20, kind: "smoke", category: "humo", holds: ["habano"], blurb: "Grande, de hoja oscura. Dura bastante." },
+  // ---------- Combos ----------
   {
     id: "previa",
     name: "La previa: cerveza y cigarro",
     price: 8,
     kind: "combo",
+    category: "combos",
     holds: ["cerveza", "cigarro"],
     blurb: "Una en cada mano (sale más barato).",
+  },
+  {
+    id: "ronda",
+    name: "La ronda: guaro y pola",
+    price: 10,
+    kind: "combo",
+    category: "combos",
+    holds: ["aguardiente", "pola-dorada"],
+    blurb: "La copita y la pola pa' bajarla (sale más barato).",
   },
   {
     id: "padrino",
     name: "El padrino: whisky y habano",
     price: 30,
     kind: "combo",
+    category: "combos",
     holds: ["whisky", "habano"],
     blurb: "Para cerrar la noche como se debe.",
   },
-] as const;
+] as const satisfies readonly ({ category: BarCategory } & Record<string, unknown>)[];
+
+/** Los productos de una sección de la carta del bar, en su orden. */
+export const barItemsIn = (category: BarCategory): BarItem[] => BAR_MENU.filter((i) => i.category === category);
 
 export type BarItem = (typeof BAR_MENU)[number];
 export type BarItemId = BarItem["id"];

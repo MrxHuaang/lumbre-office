@@ -85,10 +85,36 @@ describe("hockey: física", () => {
     // El disco quieto en la mitad norte y el mazo del norte que va hacia él desde atrás.
     w.puck = { x: HOCKEY.width / 2, y: 14, vx: 0, vy: 0 };
     aimMallet(w, 0, HOCKEY.width / 2, 20);
-    const r = runUntilGoal(w, 20);
+    // Pocos pasos: sin llegar al mazo del otro lado (que lo devolvería).
+    const r = runUntilGoal(w, 10);
     expect(r.all).toContain("hit");
     expect(w.puck.vy).toBeGreaterThan(20);
     expect(Math.hypot(w.puck.vx, w.puck.vy)).toBeLessThanOrEqual(HOCKEY.puckMax + 1e-9);
+  });
+
+  it("se le puede ganar a la máquina: con reflejos de persona (una decisión cada 250 ms) se meten más goles", () => {
+    const goals = [0, 0];
+    for (let game = 0; game < 6; game++) {
+      const w = newHockeyWorld((game % 2) as 0 | 1);
+      // Lado 1 = la persona: piensa como la máquina pero reacciona más lento y mueve su mazo a su velocidad.
+      for (let i = 0; i < 60 * 60; i++) {
+        if (i % Math.round(HOCKEY.botReactMs / HOCKEY.stepMs) === 0) {
+          const a = botAim(w, 0);
+          aimMallet(w, 0, a.x, a.y);
+        }
+        if (i % 15 === 0) {
+          const b = botAim(w, 1);
+          aimMallet(w, 1, b.x, b.y);
+        }
+        const ev = stepHockey(w, true, [HOCKEY.botSpeed, HOCKEY.malletSpeed]);
+        const goal = ev.find((e): e is { goal: 0 | 1 } => typeof e === "object");
+        if (goal) {
+          goals[goal.goal]!++;
+          Object.assign(w, newHockeyWorld(goal.goal === 0 ? 1 : 0));
+        }
+      }
+    }
+    expect(goals[1]).toBeGreaterThan(goals[0]!);
   });
 
   it("es determinista: la misma partida da exactamente lo mismo", () => {

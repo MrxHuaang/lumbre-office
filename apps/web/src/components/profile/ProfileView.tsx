@@ -27,7 +27,7 @@ import { CharacterSprite } from "../CharacterSprite";
 import { PixelIcon } from "../Cozy";
 import { Badge, BadgeGlyph } from "./Badge";
 
-const STATUS_LABEL: Record<PresenceStatus, string> = { available: "Disponible", busy: "Ocupado", dnd: "No molestar", away: "Ausente" };
+const STATUS_LABEL: Record<PresenceStatus, string> = { available: "Disponible", busy: "Ocupado", dnd: "No molestar", away: "Ausente", meeting: "En reunión" };
 
 const n = (v: number) => Math.round(v).toLocaleString("es-CO");
 const plural = (v: number, one: string, many: string) => `${n(v)} ${Math.round(v) === 1 ? one : many}`;

@@ -8,6 +8,7 @@ import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import type { Avatar } from "./Avatar";
 import { CasaViva, CURTAIN_PENALTY_TILES } from "./casaViva";
+import { GranjaVivo } from "./granja";
 import { JardinVivo } from "./jardinVivo";
 import { Mascotas } from "./mascotas";
 import { AreaView, DEPTH_OVERLAY, depthOf, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
@@ -101,7 +102,10 @@ export class Usables {
     this.casa.update();
     this.pets.update(delta);
     this.jardin.update(time, delta);
+    this.granja.update(time, delta);
   };
+  /** La granja: los animales, la rueda del molino, los huevos y lo que está en el fuego. */
+  private granja: GranjaVivo;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -118,6 +122,7 @@ export class Usables {
     });
     this.pets = new Mascotas(scene, local);
     this.jardin = new JardinVivo(scene, { room: () => this.room, avatarOf, local });
+    this.granja = new GranjaVivo(scene, { room: () => this.room, avatarOf, local });
     // Cada cuadro, aparte de update(): lo que se mueve en la casa viva (mascotas, fuego, lo de la mano).
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.onSceneUpdate);
   }
@@ -132,6 +137,7 @@ export class Usables {
     this.casa.setArea(map, view);
     this.pets.setArea(map.id);
     this.jardin.setArea(map);
+    this.granja.setArea(map, view);
     for (const f of usablesOf(map)) if (usableSpec(f.type)?.action === "toggle") this.overlays.set(f, { f, images: [], frame: 0 });
     for (const o of this.overlays.values()) this.refresh(o);
   }
@@ -142,6 +148,7 @@ export class Usables {
     this.casa.bind(room);
     this.pets.bind(room);
     this.jardin.bind(room);
+    this.granja.bind(room);
     const $ = getStateCallbacks(room);
     const again = () => {
       for (const o of this.overlays.values()) this.refresh(o);
@@ -163,6 +170,7 @@ export class Usables {
     this.casa.unbind();
     this.pets.unbind();
     this.jardin.unbind();
+    this.granja.unbind();
   }
 
   destroy() {
@@ -170,6 +178,7 @@ export class Usables {
     this.casa.destroy();
     this.pets.destroy();
     this.jardin.destroy();
+    this.granja.destroy();
     this.unbind();
     this.clearOverlays();
     stopRecordMusic();
@@ -276,6 +285,11 @@ export class Usables {
   // ---------- Qué hay cerca ----------
 
   /** La mascota de mi nivel al alcance para acariciarla (la más cercana que se ve), o null. */
+  /** La granja: alguien al lado con un plato de la parrilla al que pedirle una porción. */
+  portionNear() {
+    return this.granja.portionNear();
+  }
+
   petNear(x: number, y: number): { id: string; name: string; dist: number } | null {
     return this.pets.nearest(x, y);
   }
@@ -331,7 +345,7 @@ export class Usables {
   /** Lo que dice la ayuda para ese mueble ("Prender la tele" o "Apagar la tele"). */
   label(f: PlacedFurniture): string {
     const spec = usableSpec(f.type)!;
-    const casa = this.casa.label(f) ?? this.jardin.label(f);
+    const casa = this.casa.label(f) ?? this.jardin.label(f) ?? this.granja.label(f);
     if (casa) return casa;
     return spec.action === "toggle" && this.isOn(f) ? (spec.labelOn ?? spec.label) : spec.label;
   }
@@ -404,6 +418,7 @@ export class Usables {
     // Casa viva: leer, girar, avivar, regar, lavarse, sacar algo gratis, el baño, asar y los contadores.
     if (this.casa.handleEvent(e, f, vol)) return;
     if (this.jardin.handleEvent(e, f, vol)) return;
+    if (this.granja.handleEvent(e, f, vol)) return;
     if (who) who.perform(faceToward(f, map.tileSize, who.x, who.y), e.action === "play" ? PLAY_MS : 600);
     if (e.action === "play") {
       if (e.type === "guitar") playGuitar(e.seed, vol);

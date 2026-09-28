@@ -3,6 +3,7 @@ import { findPath, getWorld, pointsOfType, isBlockedTile, INTERACT_REACH_TILES }
 import {
   BAG,
   BAG_MSG,
+  CAFE,
   CONSUME,
   EMPTY_CAN,
   HUERTO,
@@ -297,6 +298,45 @@ describe("bar del club", () => {
     expect(await order("whisky", MSG.cafeOrder)).toBeUndefined();
     expect(await order("tinto")).toBeUndefined();
     expect(await repo.getPoints("u-alice")).toBe(50);
+  });
+
+  it("lo colombiano del bar se pide igual: la copita de guaro emborracha y la ronda deja guaro y pola", async () => {
+    const { room, alice, order, use } = await setup(60);
+    await walkNextTo(alice, room, "sotano", "club_bar");
+    const guaro = barItem("aguardiente")!.price;
+    expect(await order("aguardiente")).toEqual({ ok: true, item: "aguardiente", balance: 60 - guaro });
+    expect(repo.ledger.at(-1)).toMatchObject({ amount: -guaro, reason: "PURCHASE", refId: "bar:aguardiente" });
+    // Dos sorbos de guaro ya alegran (una cerveza entera, apenas).
+    for (let k = 0; k < usesOf("aguardiente"); k++) {
+      await use();
+      await tick(OfficeRoom.consumeCooldownMs);
+    }
+    expect(me(alice, room).held).toBe("");
+    expect(me(alice, room).drunk).toBeGreaterThanOrEqual(1);
+    await tick(CAFE.orderCooldownMs);
+    const ronda = barItem("ronda")!.price;
+    expect(await order("ronda")).toEqual({ ok: true, item: "ronda", balance: 60 - guaro - ronda });
+    // La ronda es un combo: cada parte va a la mochila por separado y la copita queda en la mano.
+    expect(me(alice, room).held).toBe("aguardiente");
+    expect(me(alice, room).heldLeft).toBe(String(usesOf("aguardiente")));
+    await bagOf(room).flush("u-alice");
+    expect(bagOf(room).view("u-alice").slots.some((s) => s?.itemId === "obj:pola-dorada")).toBe(true);
+  });
+
+  it("cada trago nuevo se puede pedir y se toma a sorbos", async () => {
+    const { room, alice, order, use, used } = await setup(500);
+    await walkNextTo(alice, room, "sotano", "club_bar");
+    for (const id of ["michelada", "canelazo", "ron-viejo"]) {
+      await tick(CAFE.orderCooldownMs);
+      expect(await order(id), id).toMatchObject({ ok: true, item: id });
+      // Con la mano ocupada por el trago anterior, lo nuevo queda en la mochila: se elige en la barra.
+      await holdItem(alice, room, `obj:${id}`);
+      expect(me(alice, room).heldLeft, id).toBe(String(usesOf(id)));
+      await tick(OfficeRoom.consumeCooldownMs);
+      await use();
+      expect(used.alice.at(-1), id).toMatchObject({ art: id, action: "sip", left: usesOf(id) - 1 });
+      await tick(OfficeRoom.consumeCooldownMs);
+    }
   });
 
   it("sin saldo suficiente no se cobra", async () => {

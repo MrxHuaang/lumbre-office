@@ -28,6 +28,9 @@ export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 export { drawTreeLadder } from "./casa-arbol-exterior";
 // El Megabús de la parada del jardín: el bus que arma el cliente, las puertas y la pantalla de la estación.
 export { BUS_CAR_LEN, busCarSprite, busJointSprite, busScreenText, stationDoorsSprite, type BusCar } from "./bus";
+// Escenario y cabina de grabación del jardín: la tela de la pantalla y el cartel "EN EL AIRE".
+export { STAGE_SCREEN } from "./escenario";
+export { podcastSign } from "./podcast";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 // Las estaciones (ver apps/web/src/game/seasons.ts).
@@ -48,6 +51,8 @@ export {
 } from "./fauna";
 // Jardín vivo: lo que crece en las parcelas del huerto y la tierra mojada.
 export { bedCropSprite, cropSprite, wetSoil, type CropStage } from "./huerto";
+// La granja: los animales, la rueda del molino que gira, los huevos del nido y las nubecitas.
+export { coopEggs, cornGrain, drawGoat, drawHen, FARM_POSE_FRAMES, GOAT_FRAME, HEN_FRAME, MILL_WHEEL_FRAMES, millWheel, puffBall, type FarmArtPose } from "./granja";
 // Logros: las insignias del perfil y el destello al desbloquear uno.
 export { BADGE_SIZE, drawBadge, drawBadgeGlyph, hasBadgeArt, sparkleSprite } from "./badges";
 // Logros a la vista: la insignia chica del nombre y los trofeos de la vitrina de las oficinas.
@@ -125,8 +130,12 @@ export {
   type BallPose,
   type MesaFrame,
   type Overlay,
+  type PieceSprite,
   type ScreenBox,
 } from "./casino-mesa";
+// Baccarat, dados y caballitos: las mesas de rondas compartidas (geometría y arte del modo mesa).
+export { horseU, laneV, mesaCellAt, mesaCellOf, MESA_CELLS, MESA_FURNITURE, MESA_TOP_Z, type MesaCell } from "./mesas-layout";
+export { baccaratCardPlan, dieFaces, dieSprite, domeOverlay, horseSprite, mesaCellMark, mesaFeltOverlay, mesaRect, DICE_SPOTS, HORSE_RAMPS, PIPS } from "./mesas";
 export {
   blackjackFeltRect,
   rouletteFeltRect,

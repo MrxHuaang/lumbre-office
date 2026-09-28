@@ -46,8 +46,18 @@ export const BLACKJACK_SEATS: readonly { x: number; y: number; facing: "left" | 
   { x: BLACKJACK.x + 2, y: BLACKJACK.y + 2, facing: "left" },
   { x: BLACKJACK.x + 1, y: BLACKJACK.y + 3, facing: "up" },
 ];
-/** Póker de adorno, atravesado (3x2), con banquetas arriba y abajo. */
-const POKER = { x: 2, y: 15 };
+/**
+ * Baccarat atravesado (3x2): el crupier (automático) del lado de la pared de los tragamonedas y la gente
+ * apuesta parada al sur y a los costados.
+ */
+const BACCARAT = { x: 2, y: 15 };
+/** Dados (2x2) en el medio de la parte de abajo, con lugar para apostar a los cuatro lados. */
+const DADOS = { x: 9, y: 15 };
+/**
+ * Carrera de caballitos (3x2, los carriles a lo largo de x) arriba, entre la rueda de la ruleta y el
+ * blackjack: se apuesta parado al sur y a los costados, y por debajo sigue el paso entre las mesas.
+ */
+const CABALLOS = { x: 8, y: 6 };
 
 // ---- Club ----
 /** Barra larga contra la pared norte: estante de botellas detrás, pasillo del barman y la barra. */
@@ -192,11 +202,10 @@ export const sotano: AreaDef = {
     place("blackjack-table", BLACKJACK.x, BLACKJACK.y),
     // Banquetas del blackjack (ver BLACKJACK_SEATS), mirando a la mesa.
     ...BLACKJACK_SEATS.map((s) => place("stool", s.x, s.y, s.facing)),
-    // Póker de adorno, con banquetas a los dos lados para sentarse a conversar.
-    place("poker-table", POKER.x, POKER.y, "down"),
-    ...[0, 2].map((dx) => place("stool", POKER.x + dx, POKER.y - 1, "down")),
-    ...[0, 1].map((dx) => place("stool", POKER.x + dx, POKER.y + 2, "up")),
-    place("coin-fountain", 9, 15),
+    place("baccarat-table", BACCARAT.x, BACCARAT.y, "down"),
+    place("coin-fountain", 6, 15),
+    place("sicbo-table", DADOS.x, DADOS.y),
+    place("horse-race-table", CABALLOS.x, CABALLOS.y),
     // Rincón de sofás frente a frente con una mesita, junto a la puerta.
     place("lounge-sofa", 13, 14, "down"),
     place("cocktail-table", 13, 15),
@@ -307,6 +316,19 @@ export const sotano: AreaDef = {
     ...[0, 1, 2, 3].map((dy) => ruleta(ROULETTE.x - 1, ROULETTE.y + dy)),
     ...[0, 1, 2, 3].map((dy) => ruleta(ROULETTE.x + 3, ROULETTE.y + dy)),
     ...[0, 1, 2].map((dx) => ruleta(ROULETTE.x + dx, ROULETTE.y + 4)),
+    // Baccarat: al sur (del lado de la gente) y a los dos costados.
+    ...[0, 1, 2].map((dx) => ({ type: "baccarat" as const, name: "Baccarat", x: BACCARAT.x + dx, y: BACCARAT.y + 2 })),
+    ...[0, 1].flatMap((dy) => [BACCARAT.x - 1, BACCARAT.x + 3].map((x) => ({ type: "baccarat" as const, name: "Baccarat", x, y: BACCARAT.y + dy }))),
+    // Dados: los cuatro lados de la mesa.
+    ...[0, 1].flatMap((d) => [
+      { type: "sicbo" as const, name: "Dados", x: DADOS.x + d, y: DADOS.y - 1 },
+      { type: "sicbo" as const, name: "Dados", x: DADOS.x + d, y: DADOS.y + 2 },
+      { type: "sicbo" as const, name: "Dados", x: DADOS.x - 1, y: DADOS.y + d },
+      { type: "sicbo" as const, name: "Dados", x: DADOS.x + 2, y: DADOS.y + d },
+    ]),
+    // Carrera de caballitos: delante de la botonera (sur) y a los dos costados.
+    ...[0, 1, 2].map((dx) => ({ type: "horse_race" as const, name: "Caballitos", x: CABALLOS.x + dx, y: CABALLOS.y + 2 })),
+    ...[0, 1].flatMap((dy) => [CABALLOS.x - 1, CABALLOS.x + 3].map((x) => ({ type: "horse_race" as const, name: "Caballitos", x, y: CABALLOS.y + dy }))),
     // Sobre la tarima, alrededor del tubo: ahí se baila.
     ...[
       [0, 0],

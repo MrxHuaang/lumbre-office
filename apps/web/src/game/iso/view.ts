@@ -21,44 +21,30 @@ import {
   WALL_H,
   glowSprite,
   SURROUND_PAD,
-  toScreen,
-  toWorld,
   type Sprite,
 } from "@hyvento/map/art";
 import * as Phaser from "phaser";
 import { ensureTexture } from "./canvas";
 import { prerenderedBase, prerenderedFurniture, prerenderedSurroundings } from "./prerender";
 import { furnitureKey } from "./prerender-keys";
+import { DEPTH_FLAT, DEPTH_OVERLAY, depthOf, worldToScreen } from "./projection";
 
 export { ensureTexture, toHtmlCanvas } from "./canvas";
+export { DEPTH_FLAT, DEPTH_OVERLAY, depthOf, screenToWorld, worldToScreen } from "./projection";
 
-/** Punto del mundo (px de juego, z en px de pantalla) → coordenadas de pantalla del juego. */
-export function worldToScreen(x: number, y: number, z = 0) {
-  return toScreen(x * WORLD_TO_ART, y * WORLD_TO_ART, z);
-}
-
-/** Pantalla → mundo sobre el piso (z = 0). */
-export function screenToWorld(sx: number, sy: number) {
-  const a = toWorld(sx, sy);
-  return { x: a.x / WORLD_TO_ART, y: a.y / WORLD_TO_ART };
-}
-
-/** Profundidad isométrica: lo que está más abajo-adelante (mayor x + y) se dibuja encima. */
-export const depthOf = (x: number, y: number) => x + y;
 const DEPTH_FLOOR = -1e7;
 /**
  * La noche: color y fuerza de la penumbra (MULTIPLY) y cuánto más lejos que su brillo llega cada luz.
- * Adentro es suave (las luces de la casa están prendidas); afuera, azul de noche.
+ * Como en Stardew: afuera, azul de noche; adentro, penumbra ámbar de casa con velas (nunca fría ni gris),
+ * con las lámparas como islas de luz de color pleno.
  */
 const NIGHT = {
-  // Adentro la casa tiene su luz general prendida: apenas un toque de noche; las lámparas suman encima.
-  indoor: { color: 0xa597d6, alpha: 0.2, reach: 2.2 },
+  // El lila de antes apagaba la madera y la dejaba gris: el ámbar la oscurece sin quitarle calidez.
+  indoor: { color: 0xc8905e, alpha: 0.34, reach: 2.8 },
   outdoor: { color: 0x2c3570, alpha: 0.7, reach: 2.2 },
 } as const;
 /** La textura de la noche va a media resolución (es un degradado). */
 const NIGHT_SCALE = 2;
-export const DEPTH_FLAT = -1e6;
-export const DEPTH_OVERLAY = 1e7;
 
 function spriteTexture(scene: Phaser.Scene, key: string, make: () => Sprite): Sprite {
   const s = make();
@@ -348,6 +334,11 @@ export class AreaView {
     }
   }
 
+  /** La imagen de un mueble (la granja le cambia la textura a la rueda del molino para que gire). */
+  imageOf(f: PlacedFurniture): Phaser.GameObjects.Image | undefined {
+    return this.furnitureImages.find((e) => e.f === f)?.img;
+  }
+
   /** Punto de pantalla justo arriba del dibujo de un mueble (para los indicadores de interacción). */
   furnitureTop(f: PlacedFurniture): { x: number; y: number; depth: number } | null {
     const hit = this.furnitureImages.find((e) => e.f === f);
@@ -372,6 +363,11 @@ export class AreaView {
     if (!base) this.nudged.set(hit.img, (base = { x: hit.img.x, y: hit.img.y }));
     hit.img.setPosition(base.x + dx, base.y + dy);
     if (dx === 0 && dy === 0) this.nudged.delete(hit.img);
+  }
+
+  /** Los dibujos de los muebles (el modo mesa atenúa los que tapan la mesa). */
+  furnitureSprites(): Phaser.GameObjects.Image[] {
+    return this.furnitureImages.map((e) => e.img);
   }
 
   /** Atenúa los muebles que cumplen `match` (el que se está moviendo en el editor); null = ninguno. */
@@ -454,6 +450,23 @@ export class AreaView {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = `rgba(${(n.color >> 16) & 255}, ${(n.color >> 8) & 255}, ${n.color & 255}, ${n.alpha})`;
     ctx.fillRect(0, 0, w, h);
+    if (!this.map.outdoor && this.base) {
+      // Adentro, solo sobre la casa: el lienzo es transparente alrededor y el velo quedaría como un
+      // rectángulo marrón sobre el fondo de la página.
+      const f = this.base.frame;
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.drawImage(
+        f.source.image as CanvasImageSource,
+        f.cutX,
+        f.cutY,
+        f.cutWidth,
+        f.cutHeight,
+        (this.base.x - b.x) / NIGHT_SCALE,
+        (this.base.y - b.y) / NIGHT_SCALE,
+        f.cutWidth / NIGHT_SCALE,
+        f.cutHeight / NIGHT_SCALE,
+      );
+    }
     ctx.globalCompositeOperation = "destination-out";
     for (const g of this.glows) {
       if (this.lightsOff.has(g)) continue;
@@ -482,7 +495,8 @@ export class AreaView {
         .setDepth(DEPTH_OVERLAY);
       this.objects.push(this.nightMask);
     }
-    this.nightOutside ??= this.outsideFrame(n);
+    // Adentro no hay nada alrededor que oscurecer (es el fondo de la página).
+    if (this.map.outdoor) this.nightOutside ??= this.outsideFrame(n);
   }
 
   /** Cuatro franjas de penumbra alrededor del nivel (lo que queda afuera de la textura de la noche). */

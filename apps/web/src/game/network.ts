@@ -1,4 +1,5 @@
 import { bindCocina } from "./cocina";
+import { bindGranja } from "./granjaNet";
 import { bindRace } from "./race";
 import {
   CLOSE_CODE,
@@ -89,11 +90,15 @@ import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
 import { bindHockey } from "./arcade/hockey";
+import { bindMesas } from "./mesas";
 import { bindBoardGames } from "./boardgames";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
 import { bindPiscina, sendAgua } from "./piscina/net";
 import { selectMyUserId, useOfficeStore, type Interactable } from "./store";
+import { ESCENARIO, ESCENARIO_MSG, PODCAST_MSG } from "@hyvento/shared";
+import { media } from "./media";
+import { useEscenarioStore } from "./escenario/store";
 import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
@@ -237,10 +242,38 @@ export interface OfficeStateView {
   events?: RemoteEvents;
   /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
   garden: Map<string, RemoteGardenPlot>;
+  /** La granja del jardín: los animales, lo que está en el fuego y los huevos del nido. */
+  granja: RemoteGranja;
   /** El Man del Sombrero: si anda por ahí y en qué escondite. */
   sombrero: RemoteSombrero;
   /** El Megabús de la parada del jardín (BusState en apps/server/src/state.ts). */
   bus: { phase: string; since: number; nextAt: number; run: number };
+}
+
+/** La granja como viaja en el estado (espejo de `GranjaState` en apps/server/src/state.ts). */
+export interface RemoteGranja {
+  animals: Map<string, RemoteFarmAnimal>;
+  grill: Map<string, RemoteGrillJob>;
+  eggs: number;
+}
+export interface RemoteFarmAnimal {
+  id: string;
+  kind: string;
+  coat: string;
+  name: string;
+  x: number;
+  y: number;
+  dir: string;
+  pose: string;
+}
+export interface RemoteGrillJob {
+  name: string;
+  recipe: string;
+  station: string;
+  progress: number;
+  rate: number;
+  at: number;
+  cookMs: number;
 }
 
 /** Una parcela sembrada como viaja en el estado (espejo de `GardenPlotState` en apps/server/src/state.ts). */
@@ -495,12 +528,22 @@ export function sendBusBoard() {
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return togglePole();
   if (kind === "bus") return sendBusBoard();
+  // La escalerita: sube a la tarima o, si ya estoy arriba, baja (lo valida el servidor).
+  if (kind === "stage") return void room?.send(ESCENARIO_MSG.stage, { on: useOfficeStore.getState().zone?.id !== ESCENARIO.stageZone });
+  if (kind === "podcast") return podcastAction();
   if (kind === "fishing") return fishingSpotAction();
   // La piscina no abre panel: se mete, salta o sale (el servidor valida y avisa si no).
   if (kind === "pool") return sendAgua("swim");
   if (kind === "dive") return sendAgua("dive");
   if (kind === "swimOut") return sendAgua("out");
   useOfficeStore.getState().openPanel(kind, true);
+}
+
+/** La mesa de la cabina: pedir permiso para grabar (con el audio conectado) o, si ya se graba, detener. */
+function podcastAction() {
+  if (useEscenarioStore.getState().podcast.phase !== "idle") return void room?.send(PODCAST_MSG.stop);
+  if (!media.connected) return useOfficeStore.getState().notify("Para grabar hay que tener el audio conectado.", "warning");
+  room?.send(PODCAST_MSG.start);
 }
 
 export class ConnectionCancelled extends Error {}
@@ -679,6 +722,14 @@ export function sendActivity() {
   room?.send(MSG.activity);
 }
 
+/** Último aviso de inactividad: se repite al reconectar (la sesión nueva empieza activa). */
+let idleNow = false;
+/** El navegador lleva rato sin uso (o volvió): el servidor pone o quita el "Ausente" automático. */
+export function sendIdle(idle: boolean) {
+  idleNow = idle;
+  room?.send(MSG.idle, { idle });
+}
+
 export function sendChat(text: string, scope: ChatScope) {
   room?.send(MSG.chatSend, { text, scope });
 }
@@ -788,6 +839,7 @@ export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId"
 
 function attach(r: OfficeRoom) {
   room = r;
+  if (idleNow) r.send(MSG.idle, { idle: true });
   const store = useOfficeStore.getState();
   store.setSessionId(r.sessionId);
   store.setConnection("connected");
@@ -994,6 +1046,7 @@ function attach(r: OfficeRoom) {
   bindPiscina(r);
   bindRace(r);
   bindCocina(r);
+  bindGranja(r);
   bindArcade(r);
   bindPhone(r);
   // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).
@@ -1001,6 +1054,7 @@ function attach(r: OfficeRoom) {
   bindHockey(r);
   // La mochila y la barra de abajo.
   bindBag(r);
+  bindMesas(r);
   bindBoardGames(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);

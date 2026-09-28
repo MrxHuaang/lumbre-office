@@ -3,6 +3,7 @@
 // Rediseño: la ayuda "E" junto a un mueble que se usa (tele, lámparas, tocadiscos, piano…). Lo de la mano
 // (F) y el brindis (B) están en la barra de abajo (bag/Hotbar.tsx).
 import { sendFurnitureUse, sendPetAction } from "@/game/network";
+import { PORTION_USABLE_PREFIX, sendPortion } from "@/game/granjaNet";
 import { PET_USABLE_PREFIX, useOfficeStore } from "@/game/store";
 
 /** Ayuda junto a un mueble que se usa: tecla E o clic. */
@@ -17,7 +18,12 @@ export function UsablePrompt() {
       type="button"
       onClick={() =>
         // La "E" de una mascota (acariciarla) va por su propio mensaje.
-        usable.type.startsWith(PET_USABLE_PREFIX) ? sendPetAction(usable.type.slice(PET_USABLE_PREFIX.length), "pet") : sendFurnitureUse(usable.type, usable.x, usable.y)
+        usable.type.startsWith(PET_USABLE_PREFIX)
+          ? sendPetAction(usable.type.slice(PET_USABLE_PREFIX.length), "pet")
+          : // La de pedir una porción (granja) va a quien lleva el plato.
+            usable.type.startsWith(PORTION_USABLE_PREFIX)
+            ? sendPortion(usable.type.slice(PORTION_USABLE_PREFIX.length))
+            : sendFurnitureUse(usable.type, usable.x, usable.y)
       }
       className="cozy-chip pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[14px]"
     >
