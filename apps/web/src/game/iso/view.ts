@@ -356,6 +356,11 @@ export class AreaView {
     return { x: b.centerX, y: b.y, depth: hit.img.depth };
   }
 
+  /** Muestra o esconde el dibujo de un mueble (la escalera de la casa del árbol, recogida). */
+  setFurnitureVisible(f: PlacedFurniture, visible: boolean) {
+    for (const e of this.furnitureImages) if (e.f === f) e.img.setVisible(visible);
+  }
+
   /** Atenúa los muebles que cumplen `match` (el que se está moviendo en el editor); null = ninguno. */
   dimFurniture(match: ((f: PlacedFurniture) => boolean) | null) {
     for (const { f, img } of this.furnitureImages) img.setAlpha(match?.(f) ? 0.3 : 1);

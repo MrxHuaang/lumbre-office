@@ -73,6 +73,7 @@ import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { bindCasaArbol } from "./casaArbol";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -611,6 +612,7 @@ function attach(r: OfficeRoom) {
   store.setConnection("connected");
 
   const $ = getStateCallbacks(r);
+  bindCasaArbol(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({

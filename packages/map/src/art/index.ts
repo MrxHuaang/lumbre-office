@@ -16,6 +16,8 @@ export { giftBox, wavingArm, GIFT_BOX_FRAMES, GIFT_BOX_H, GIFT_BOX_W } from "./s
 export { photoBoardPhotos, PHOTO_BOARD_PIC, PHOTO_BOARD_SLOTS, type PhotoThumb } from "./photos";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
+// La casa del árbol: la escalera de cuerda recogida con el cartel "OCUPADO" (la cambia el cliente).
+export { drawTreeLadder } from "./casa-arbol-exterior";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 export {

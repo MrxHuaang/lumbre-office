@@ -123,6 +123,8 @@ import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
+import { casaArbolBlockFor, TreeLadderLayer } from "./casaArbol";
+import { CASA_ARBOL, CASA_ARBOL_BLOCK_TEXT } from "@hyvento/shared";
 import { useAchievementStore } from "./achievements";
 
 const MIN_ZOOM = 2;
@@ -276,6 +278,7 @@ export class OfficeScene extends Phaser.Scene {
   private weatherKnown = false;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
+  private treeLadder!: TreeLadderLayer;
 
   constructor() {
     super("office");
@@ -351,6 +354,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
+    this.treeLadder = new TreeLadderLayer(this);
     // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
@@ -412,6 +416,7 @@ export class OfficeScene extends Phaser.Scene {
         usePhotoStore.getState().markStale(watching);
       }),
       () => this.photoBoards.destroy(),
+      () => this.treeLadder.destroy(),
       onAchievementUnlocked((e) => this.avatars.get(e.sessionId)?.celebrate()),
       () => this.usables.destroy(),
       () => this.fishing.destroy(),
@@ -628,6 +633,7 @@ export class OfficeScene extends Phaser.Scene {
       this.weatherView.setArea(map, this.view.bounds);
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
+      this.treeLadder.setArea(map, this.view);
       if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
       this.rods.setArea(map);
       this.fishing.reset();
@@ -699,6 +705,7 @@ export class OfficeScene extends Phaser.Scene {
     this.weatherView.setArea(map, this.view.bounds);
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
+    this.treeLadder.setArea(map, this.view);
     this.rods.setArea(map);
     this.club.setArea(map, this.view);
     this.cinema.setArea(map);
@@ -798,6 +805,12 @@ export class OfficeScene extends Phaser.Scene {
     this.arrivedAt = null;
     this.clickedPortal = null;
     this.portalTile = key;
+    // La casa del árbol llena o con la escalera recogida: ni se intenta (el servidor igual lo rechaza).
+    const block = portal.to.area === CASA_ARBOL.area ? casaArbolBlockFor(selectMyUserId(useOfficeStore.getState())) : null;
+    if (block) {
+      useOfficeStore.getState().notify(CASA_ARBOL_BLOCK_TEXT[block], "warning");
+      return;
+    }
     this.travelling = true;
     this.path = [];
     this.pathMarker?.destroy();
