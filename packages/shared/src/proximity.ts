@@ -17,6 +17,13 @@ export interface Positioned {
   zoneIsolated: boolean;
   /** En el anfiteatro del jardín: si habla o escucha (ver `stageRole`). */
   stage?: StageRole;
+  /**
+   * Id de la llamada en la que está hablando (solo contestada; ver comunicacion.ts): todos los de la
+   * misma llamada se oyen entre sí, en cualquier nivel y a cualquier distancia.
+   */
+  call?: string;
+  /** Un admin hablándole a toda la cabaña (papel "broadcast"): lo oyen todos, encima de salas y reuniones. */
+  broadcast?: boolean;
 }
 
 /** En las gradas se oye a los vecinos de asiento: hasta esta distancia (px, dos tiles y medio)… */
@@ -56,6 +63,10 @@ const MIN_VOLUME = 0.15;
  *   hasta `radius + HEARING_HYSTERESIS`.
  * - `inCall`: con quien estoy hablando por teléfono (lo dice el servidor en `Player.callWith`) se oye
  *   siempre a volumen completo, en cualquier nivel y a cualquier distancia; el resto sigue igual.
+ * - En una llamada grupal (`call`), los de la misma llamada se oyen igual: a volumen completo y en todas partes.
+ * - Quien anuncia por voz a toda la cabaña (`broadcast`) se oye siempre, a volumen completo, aunque
+ *   esté en otro nivel, en una reunión o en una sala aislada. Es de una sola vía: el que anuncia oye
+ *   a los demás con las reglas de siempre (por eso `listeners` no es simétrico).
  */
 export function hearing(
   me: Positioned,
@@ -66,7 +77,7 @@ export function hearing(
 ): Map<string, number> {
   const result = new Map<string, number>();
   for (const [id, other] of others) {
-    if (inCall.has(id)) {
+    if (inCall.has(id) || other.broadcast || (me.call && other.call === me.call)) {
       result.set(id, 1);
       continue;
     }
