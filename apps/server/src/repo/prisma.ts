@@ -41,6 +41,9 @@ import {
 import { executeTip, executeTrade } from "./social";
 import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
+/** Fila de WorldLayout donde se guarda el reloj del juego (no es un nivel). */
+const GAME_CLOCK_ROW = "__reloj__";
+
 const toDbStatus = (s: ManualStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as ManualStatus;
 
@@ -226,13 +229,28 @@ export class PrismaRepository implements GameRepository {
   }
 
   async loadWorldEdits() {
-    const rows = await prisma.worldLayout.findMany();
+    const rows = await prisma.worldLayout.findMany({ where: { area: { not: GAME_CLOCK_ROW } } });
     return Object.fromEntries(rows.map((r) => [r.area, r.edits as unknown]));
   }
 
   async saveWorldEdits(area: string, edits: unknown, userId: string) {
     const json = edits as Prisma.InputJsonValue;
     await prisma.worldLayout.upsert({ where: { area }, create: { area, edits: json, updatedBy: userId }, update: { edits: json, updatedBy: userId } });
+  }
+
+  // El reloj del juego va en una fila aparte de WorldLayout (sin migración); loadWorldEdits la salta
+  // porque no es un nivel.
+  async loadGameClock() {
+    return (await prisma.worldLayout.findUnique({ where: { area: GAME_CLOCK_ROW } }))?.edits ?? null;
+  }
+
+  async saveGameClock(clock: { anchorReal: number; anchorMinute: number }, userId: string) {
+    const json = { ...clock } as Prisma.InputJsonValue;
+    await prisma.worldLayout.upsert({
+      where: { area: GAME_CLOCK_ROW },
+      create: { area: GAME_CLOCK_ROW, edits: json, updatedBy: userId },
+      update: { edits: json, updatedBy: userId },
+    });
   }
 
   async loadBoard(zoneId: string) {
