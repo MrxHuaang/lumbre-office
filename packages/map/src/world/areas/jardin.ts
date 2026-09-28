@@ -16,9 +16,9 @@ import { PUESTO_PESCA, PUESTO_PESCA_MUEBLES, PUESTO_PESCA_PUNTO } from "./puesto
 // 0..121) y se corre en M al ubicarlo en el nivel. Se lee de adentro hacia afuera: lo de la casa junto
 // (la cabaña, el garaje, el huerto, el gallinero, el patio, la parrilla y la piscina), el ocio al aire
 // libre más allá (la fogata, la glorieta, la casa del árbol, el lago grande con su muelle) y lo de
-// excursión lejos (el observatorio en su loma, el escenario, el molino), con pasto y senderos entre todo.
-// No es plano: hay lomas (HILLS) con su talud, que no se pisa, y escalones de piedra donde las cruza un
-// sendero. La cerca va en y = 100: afuera queda la pradera de la entrada, con el sendero largo que sube
+// excursión lejos (el observatorio con su placita, el escenario, el molino), con pasto y senderos entre
+// todo. El terreno es plano (las lomas con talud se sacaron: en el isométrico no daban la ilusión). La
+// cerca va en y = 100: afuera queda la pradera de la entrada, con el sendero largo que sube
 // desde la vereda (donde se aparece) hasta el portón, y más al este la parada del bus
 // (world/areas/parada.ts); la calle pasa por el margen.
 //
@@ -26,8 +26,9 @@ import { PUESTO_PESCA, PUESTO_PESCA_MUEBLES, PUESTO_PESCA_PUNTO } from "./puesto
 //          parrilla y la piscina al este;
 //   centro: el camino de piedra del porche al portón, bifurcado hacia el huerto, la fogata, la glorieta
 //           y el lago; la casa del árbol en los frutales del oeste;
-//   lejos: el observatorio en la loma del este, el escenario al suroeste, el molino en el arroyo del
-//          sureste y el mirador en una lomita al sur del lago.
+//   lejos: el observatorio al este (con su placita, la fogata, el jardín de piedras y las bancas para
+//          mirar estrellas), el escenario al suroeste, el molino en el arroyo del sureste y el mirador, un
+//          rincón con banca al sur del lago.
 
 /** Margen de bosque alrededor de la zona jugable. */
 const M = 10;
@@ -122,11 +123,13 @@ const STREAM: Seg[] = [
   { a: [96, 83.5], b: [92, 79.5], w: 1.8 },
   { a: [92, 79.5], b: [88.4, 75.4], w: 2 },
 ];
-/** Rectángulos que la naturaleza suelta no toca (el patio de la parrilla, el gallinero, el molino). */
+/** Rectángulos que la naturaleza suelta no toca (el patio de la parrilla, el gallinero, el molino, el observatorio). */
 const KEEP_CLEAR = [
   { x0: 70, y0: 26, x1: 83, y1: 35 },
   { x0: 0, y0: 31, x1: 12, y1: 42 },
   { x0: 105, y0: 88, x1: 119, y1: 98 },
+  // El observatorio y lo de alrededor (se decora a mano, abajo).
+  { x0: 101, y0: 20, x1: 131, y1: 47 },
 ];
 
 /**
@@ -149,46 +152,10 @@ const TREEHOUSE = { x: 1, y: 70 };
 const TREEHOUSE_FOOT = { x: TREEHOUSE.x + 1, y: TREEHOUSE.y + 4 };
 /** Primer torniquete de la estación (en coordenadas de la zona jugable): ahí llega el sendero del portón. */
 const TURNSTILE_X = TURNSTILES[0] - M;
-/** El mirador: una lomita al sur del lago con una banca arriba. */
-const MIRADOR = { cx: 64, cy: 88, rx: 5, ry: 4 };
-
-/**
- * Las lomas: mesetas ovaladas (con el borde que ondula) más altas que el pasto de alrededor. Una loma
- * encima de otra hace dos pisos (la del observatorio). Alrededor de cada una va el talud (`TALUD` tiles
- * de ancho), que no se pisa; donde lo cruza un sendero hay escalones de piedra. El relieve es solo del
- * dibujo (el isométrico no se levanta): la altura sirve para sombrear el talud y aclarar lo de arriba.
- */
-const HILLS = [
-  // La loma del observatorio (abajo, pegada a la cerca del este, y arriba, con la torre).
-  { cx: 118, cy: 33, rx: 16, ry: 16, seed: 61 },
-  { cx: 118.5, cy: 34, rx: 10.5, ry: 10, seed: 62 },
-  { ...MIRADOR, seed: 63 },
-  // La lomita de la pradera de la entrada, que el sendero rodea.
-  { cx: 59, cy: FENCE_Y + 11, rx: 5, ry: 3.6, seed: 64 },
-];
-const TALUD = 1.9;
-type Hill = (typeof HILLS)[number];
-/** Cuánto afuera del borde de la loma queda el punto (en tiles; negativo = arriba de la loma). */
-function hillOut(h: Hill, x: number, y: number): number {
-  const n = Math.hypot((x - h.cx) / h.rx, (y - h.cy) / h.ry);
-  if (n > 1 + (TALUD + 1) / Math.min(h.rx, h.ry)) return 99;
-  return (n - 1) * Math.min(h.rx, h.ry) + (smoothNoise(x, y, 3, h.seed) - 0.5) * 1.2;
-}
-/** Altura del terreno: cuántas lomas hay debajo (con el talud en rampa entre un piso y el otro). */
-function heightAt(x: number, y: number): number {
-  let z = 0;
-  for (const h of HILLS) {
-    const d = hillOut(h, x, y);
-    if (d < 0) z += 1;
-    else if (d < TALUD) z += 1 - d / TALUD;
-  }
-  return z;
-}
-const onTalud = (x: number, y: number) =>
-  HILLS.some((h) => {
-    const d = hillOut(h, x, y);
-    return d >= 0 && d < TALUD;
-  });
+/** El mirador: un rincón con una banca mirando al lago, al sur de la orilla. */
+const MIRADOR = { cx: 64, cy: 88 };
+/** El bosquecito de la pradera de la entrada, que el sendero rodea (un óvalo de árboles y matas). */
+const ENTRY_COPSE = { cx: 59, cy: FENCE_Y + 11, rx: 5, ry: 3.6 };
 /**
  * Escenario (franja sur, ver catalog-escenario.ts): la concha al oeste, la tarima delante (mirando al este)
  * y las gradas en semicírculo hacia el camino. Al lado, un prado de flores bajas (el estudio de grabación
@@ -202,13 +169,18 @@ const MEADOW = { x: 40, y: 86 };
 const FIRE_ZONE = { x: FIRE.x - 3 + M, y: FIRE.y - 3 + M, w: 8, h: 8 };
 
 /**
- * El observatorio (6x6) arriba de la loma del este, lejos de la casa: la puerta de la torre da a la fila
- * y = 36 (ver CONEXIONES.jardin.observatorio). Delante, la placita de piedra con la fogata de malvaviscos
- * al oeste y el cohete de madera al este.
+ * El observatorio (8x8) al este, lejos de la casa: la puerta de la torre da a la fila y = 36 (ver
+ * CONEXIONES.jardin.observatorio). Delante, la placita de piedra; al oeste, la fogata de malvaviscos en su
+ * círculo de arena; al este, el jardín de piedras en su gravilla, y al sur, el prado con las bancas y los
+ * telescopios chicos para mirar estrellas.
  */
-const OBS = { x: 118, y: 30 };
-const OBS_DOOR_X = OBS.x + 2;
-const OBS_FIRE = { x: 113, y: 36 };
+const OBS = { x: 117, y: 28 };
+const OBS_DOOR_X = OBS.x + 3;
+const OBS_FIRE = { x: 110, y: 37 };
+/** La placita de piedra frente a la puerta (óvalo que ondula). */
+const OBS_PLAZA = { cx: OBS_DOOR_X + 1, cy: OBS.y + 10.4, rx: 3.9, ry: 2.9 };
+/** El jardín de piedras: gravilla rastrillada al costado este de la torre. */
+const OBS_GARDEN = { cx: 127.6, cy: 32.5, rx: 3.1, ry: 4.6 };
 /** Zona de charla de la fogata del observatorio (coordenadas del nivel), como la de la fogata grande. */
 const OBS_FIRE_ZONE = { x: OBS_FIRE.x - 3 + M, y: OBS_FIRE.y - 3 + M, w: 8, h: 7 };
 
@@ -228,7 +200,7 @@ const PATHS: Seg[] = [
   { a: [53, 36], b: [52.4, 55], w: 2.6 },
   { a: [52.4, 55], b: [53, 75], w: 2.6 },
   { a: [53, 75], b: [53, FENCE_Y + 3.5], w: 2.6 },
-  // Afuera: el sendero largo de la entrada baja por la pradera, rodea la lomita y llega a la vereda (ahí
+  // Afuera: el sendero largo de la entrada baja por la pradera, rodea el bosquecito y llega a la vereda (ahí
   // se aparece); por la vereda sigue al este hasta los torniquetes de la estación.
   { a: [53, FENCE_Y + 3.5], b: [47.5, FENCE_Y + 7.5], w: 2.4 },
   { a: [47.5, FENCE_Y + 7.5], b: [46, FENCE_Y + 12], w: 2.4 },
@@ -249,7 +221,9 @@ const PATHS: Seg[] = [
   { a: [PUESTO_PESCA.punto.x - M + 2.6, PUESTO_PESCA.punto.y - M + 0.5], b: [PUESTO_PESCA.punto.x - M + 0.6, PUESTO_PESCA.punto.y - M + 0.5], w: 1.4 },
   { a: [DOCK.x0 + 1, 50.5], b: [76, 46.5], w: 1.6 },
   { a: [76, 46.5], b: [88, 46.5], w: 1.6 },
-  { a: [88, 46.5], b: [100, 54], w: 1.6 },
+  // Por detrás de la sauna (sin rozar su seto ni el deck) y bajando por la orilla este.
+  { a: [88, 46.5], b: [96.5, 47.8], w: 1.6 },
+  { a: [96.5, 47.8], b: [100, 54], w: 1.6 },
   { a: [100, 54], b: [104.5, 70], w: 1.6 },
   { a: [104.5, 70], b: [112.5, 89.5], w: 1.6 },
   // Senderito de la casa del árbol a la fogata, entre los frutales.
@@ -263,7 +237,7 @@ const PATHS: Seg[] = [
   { a: [76.5, 18], b: [76.5, 27.2], w: 1.6 },
   // Del patio al deck de la piscina.
   { a: [82, 10.5], b: [91.4, 10.5], w: 1.8 },
-  // Al mirador: sube a la lomita por sus escalones.
+  // Al mirador, el rincón con banca al sur del lago.
   { a: [53.5, 86.5], b: [MIRADOR.cx - 1, MIRADOR.cy - 0.5], w: 2.2 },
   // Senderito del camino al escenario: bordea el prado de flores y entra por el pasillo del
   // medio de las gradas hasta la escalerita de la tarima.
@@ -271,14 +245,15 @@ const PATHS: Seg[] = [
   { a: [MEADOW.x + 3.5, MEADOW.y + 6.2], b: [STAGE.x + 23.5, STAGE.y + 3.6], w: 1.4 },
   { a: [STAGE.x + 23.5, STAGE.y + 3.6], b: [STAGE.x + 15.5, STAGE.y + 3.6], w: 1.2 },
   { a: [STAGE.x + 15.5, STAGE.y + 3.6], b: [STAGE.x + 6.4, STAGE.y + 3.5], w: 1.1 },
-  // El sendero de la excursión al observatorio: sale de la esquina del patio, cruza el pasto y sube la
-  // loma por sus dos tramos de escalones hasta la placita de la torre.
+  // El sendero de la excursión al observatorio: sale de la esquina del patio, cruza el pasto, pasa junto
+  // al letrero y a la fogata y llega a la placita de la torre; un ramal corto une la placita con la arena
+  // de la fogata.
   { a: [81.5, 18.2], b: [92, 20.5], w: 1.6 },
   { a: [92, 20.5], b: [100, 24.5], w: 1.8 },
-  { a: [100, 24.5], b: [106, 28.5], w: 2.4 },
-  { a: [106, 28.5], b: [110.5, 31], w: 2.4 },
-  { a: [110.5, 31], b: [OBS.x - 2.5, OBS.y + 3], w: 1.8 },
-  { a: [OBS.x - 2.5, OBS.y + 3], b: [OBS.x + 2.5, OBS.y + 6.6], w: 1.6 },
+  { a: [100, 24.5], b: [106, 29], w: 2 },
+  { a: [106, 29], b: [112, 33.6], w: 2 },
+  { a: [112, 33.6], b: [OBS_PLAZA.cx - 3, OBS_PLAZA.cy - 1.2], w: 2 },
+  { a: [OBS_FIRE.x + 3.8, OBS_FIRE.y + 2.4], b: [OBS_PLAZA.cx - 3.4, OBS_PLAZA.cy + 1], w: 1.4 },
 ];
 
 function segDist(px: number, py: number, s: Seg): number {
@@ -349,9 +324,11 @@ const onHenYard = (x: number, y: number) =>
 const onSand = (x: number, y: number) =>
   Math.hypot(x - (DOCK.x0 + 0.4), (y - (DOCK.y0 + 1)) * 0.8) < 2.9 + wobble(x, y, 13, 0.3) ||
   Math.hypot(x - (FIRE.x + 1), y - (FIRE.y + 1)) < 3.3 + wobble(x, y, 17, 0.2) ||
-  Math.hypot(x - (OBS_FIRE.x + 1), y - (OBS_FIRE.y + 1)) < 2.7 + wobble(x, y, 51, 0.2);
-/** La placita de piedra al pie de los escalones del observatorio. */
-const onObsPlaza = (x: number, y: number) => Math.hypot(x - (OBS_DOOR_X + 1), (y - (OBS.y + 7.3)) * 1.3) < 2.6 + wobble(x, y, 53, 0.2);
+  Math.hypot(x - (OBS_FIRE.x + 1), y - (OBS_FIRE.y + 1)) < 3 + wobble(x, y, 51, 0.2);
+/** La placita de piedra frente a la puerta del observatorio. */
+const onObsPlaza = (x: number, y: number) => Math.hypot((x - OBS_PLAZA.cx) / OBS_PLAZA.rx, (y - OBS_PLAZA.cy) / OBS_PLAZA.ry) < 1 + wobble(x, y, 53, 0.06);
+/** La gravilla del jardín de piedras, al este de la torre. */
+const onObsGarden = (x: number, y: number) => Math.hypot((x - OBS_GARDEN.cx) / OBS_GARDEN.rx, (y - OBS_GARDEN.cy) / OBS_GARDEN.ry) < 1 + wobble(x, y, 59, 0.08);
 /** Entrada de gravilla del garaje: el borde de adelante se come el pasto a mordiscos. */
 const onDriveway = (x: number, y: number) =>
   x > DRIVEWAY.x0 + wobble(x, y, 31, 0.45) && x < DRIVEWAY.x1 + wobble(x, y, 32, 0.45) && y > DRIVEWAY.y0 && y < DRIVEWAY.y1 + wobble(x, y, 33, 0.5);
@@ -379,7 +356,6 @@ function localGround(x: number, y: number): FloorKind {
   }
   // Afuera de la cerca: la vereda de piedra a lo largo de la calle y el sendero del portón.
   if (y >= FENCE_Y) {
-    if (onTalud(x, y)) return onPath(x, y) ? "steps" : "slope";
     if (onPath(x, y)) return "path";
     if (y > ROAD.y0 - M - 1.15 + wobble(x, y, 25, 0.08)) return "path";
     return "grass";
@@ -387,12 +363,11 @@ function localGround(x: number, y: number): FloorKind {
   if (onDock(x, y) || onPoolDeck(x, y) || onSpaDeck(x, y)) return "dock";
   if (inStream(x, y)) return onBridge(x, y) ? "dock" : "water";
   if (inLake(x, y) && !onIslet(x, y)) return "water";
-  // El talud de las lomas: no se pisa, salvo por los escalones donde lo cruza un sendero.
-  if (onTalud(x, y)) return onPath(x, y) ? "steps" : "slope";
   if (onGrillPad(x, y)) return "path";
   if (onHenYard(x, y)) return "sand";
   if (onPatio(x, y)) return "path";
   if (onObsPlaza(x, y)) return "path";
+  if (onObsGarden(x, y)) return "gravel";
   if (onGazeboBase(x, y)) return "path";
   if (onSand(x, y)) return "sand";
   if (onPath(x, y)) return "path";
@@ -403,6 +378,12 @@ function localGround(x: number, y: number): FloorKind {
 
 const fine = (x: number, y: number) => localGround(x - M, y - M);
 
+/**
+ * ¿El centro del tile (del nivel) cae sobre un sendero? Solo los tramos de `PATHS`, no las plazas ni el
+ * patio: lo usa el test que revisa que ninguna decoración quede en medio del camino.
+ */
+export const onGardenPath = (x: number, y: number) => onPath(x + 0.5 - M, y + 0.5 - M);
+
 // La puerta del porche tiene que coincidir con CONEXIONES.jardin.casa (tiles frente a la puerta).
 if (CONEXIONES.jardin.casa.tiles[0]!.x !== DOOR_X + M || CONEXIONES.jardin.casa.tiles[0]!.y !== PORCH_Y + M)
   throw new Error("CONEXIONES.jardin.casa no coincide con la puerta de la casa");
@@ -410,7 +391,7 @@ if (CONEXIONES.jardin.casaArbol.tiles[0]!.x !== TREEHOUSE_FOOT.x + M || CONEXION
   throw new Error("CONEXIONES.jardin.casaArbol no coincide con la escalera de la casa del árbol");
 if (CONEXIONES.jardin.garaje.tiles[0]!.x !== GARAGE_DOOR_X + M || CONEXIONES.jardin.garaje.tiles[0]!.y !== GARAGE.y + 5 + M)
   throw new Error("CONEXIONES.jardin.garaje no coincide con la puerta del garaje");
-if (CONEXIONES.jardin.observatorio.tiles[0]!.x !== OBS_DOOR_X + M || CONEXIONES.jardin.observatorio.tiles[0]!.y !== OBS.y + 6 + M)
+if (CONEXIONES.jardin.observatorio.tiles[0]!.x !== OBS_DOOR_X + M || CONEXIONES.jardin.observatorio.tiles[0]!.y !== OBS.y + 8 + M)
   throw new Error("CONEXIONES.jardin.observatorio no coincide con la puerta del observatorio");
 
 // ---------- Muebles ----------
@@ -500,7 +481,7 @@ put("mailbox", 50, 22, "down");
 put("notice-board", 56, 22, "down");
 for (const [x, y] of [
   [50, 26],
-  [57, 37],
+  [58, 36],
   [50, 46],
   [56, 56],
   [50, 66],
@@ -509,7 +490,7 @@ for (const [x, y] of [
   [56, 95],
   [40, 35],
   [70, 17],
-  [64, 49],
+  [62, 50],
   [90, 22],
 ])
   put("lamp-post", x!, y!);
@@ -558,8 +539,8 @@ for (const [x, y, t] of [
 for (const [x, y] of [
   [71, 6],
   [81, 6],
-  [81, 18],
-  [71, 18],
+  [80, 18],
+  [70, 16],
 ])
   put("garden-lantern", x!, y!);
 
@@ -748,7 +729,7 @@ for (const [x, y, t] of [
 ] as const)
   if (!isWater(x, y)) put(t, x, y);
 
-// El mirador, arriba de su lomita: una banca mirando al lago, un farol y flores.
+// El mirador, al sur del lago: una banca mirando al agua, un farol y flores.
 put("bench", MIRADOR.cx, MIRADOR.cy - 2, "up");
 put("lamp-post", MIRADOR.cx + 2, MIRADOR.cy - 1);
 put("wildflowers", MIRADOR.cx - 2, MIRADOR.cy + 1);
@@ -815,7 +796,7 @@ put("prep-table", 80, 28);
 put("menu-board", 71, 29, "down");
 put("woodpile", 82, 27);
 put("garden-lantern", 72, 27);
-put("garden-lantern", 81, 31);
+put("garden-lantern", 83, 31);
 for (const [tx, ty] of [
   [75, 33],
   [79, 33],
@@ -1005,53 +986,125 @@ for (const [x, y, t, f] of [
   [128, 102, "bush-round", "down"],
 ] as const)
   put(t, x, y, f);
-// Observatorio (arriba de la loma del este): la torre, la fogata de malvaviscos con sus troncos, el cohete de
-// madera en su plataforma, los banderines, los postes con cables que suben por el sendero y el letrero.
+// El bosquecito de la pradera de la entrada (el sendero lo rodea): árboles y matas apretados.
+{
+  const COPSE = ["oak-1", "bush-round", "pine-2", "bush-berry", "birch-1", "bush-rose", "oak-3", "bush-hydrangea"];
+  const c = ENTRY_COPSE;
+  for (let y = Math.floor(c.cy - c.ry); y <= c.cy + c.ry; y++)
+    for (let x = Math.floor(c.cx - c.rx); x <= c.cx + c.rx; x++)
+      if (ground(x, y) === "grass" && Math.hypot((x + 0.5 - c.cx) / c.rx, (y + 0.5 - c.cy) / c.ry) < 1 + wobble(x, y, 64, 0.12))
+        put(COPSE[Math.floor(noise(x, y, 57) * COPSE.length)]!, x, y, noise(x, y, 58) < 0.5 ? "right" : "down");
+}
+
+// ---------- El observatorio ----------
+
+/** La placita en tiles enteros (para ubicar lo de alrededor). */
+const PZ = { x: OBS_PLAZA.cx, y: Math.floor(OBS_PLAZA.cy) };
+
+// La torre y, al oeste de la placita, la fogata de malvaviscos con sus cuatro troncos en su círculo de arena.
 put("observatory", OBS.x, OBS.y);
 put("marshmallow-fire", OBS_FIRE.x, OBS_FIRE.y);
 put("log-seat", OBS_FIRE.x - 2, OBS_FIRE.y, "right");
 put("log-seat", OBS_FIRE.x + 3, OBS_FIRE.y, "left");
 put("log-seat", OBS_FIRE.x, OBS_FIRE.y - 2, "down");
 put("log-seat", OBS_FIRE.x, OBS_FIRE.y + 3, "up");
-put("toy-rocket", 124, 36);
-put("bunting", 122, 39, "down");
-put("cable-pole", 95, 23);
-put("cable-pole", 95, 27);
-put("cable-pole-end", 95, 31);
-// La lomita de la entrada es un bosquecito cerrado (no se sube: el sendero la rodea).
-{
-  const COPSE = ["oak-1", "bush-round", "pine-2", "bush-berry", "birch-1", "bush-rose", "oak-3", "bush-hydrangea"];
-  const hill = HILLS[3]!;
-  for (let y = Math.floor(hill.cy - hill.ry - 1); y <= hill.cy + hill.ry + 1; y++)
-    for (let x = Math.floor(hill.cx - hill.rx - 1); x <= hill.cx + hill.rx + 1; x++)
-      if (ground(x, y) === "grass" && hillOut(hill, x + 0.5, y + 0.5) < 0)
-        put(COPSE[Math.floor(noise(x, y, 57) * COPSE.length)]!, x, y, noise(x, y, 58) < 0.5 ? "right" : "down");
-}
+put("woodpile", OBS_FIRE.x - 3, OBS_FIRE.y - 2);
+put("bunting", OBS_FIRE.x - 3, OBS_FIRE.y + 4, "down");
+// Unas matas y un abedul junto al sendero, el letrero chico de la salida del patio y el
+// cartel grande de la entrada, junto al sendero, antes de la fogata.
+put("birch-1", 95, 24, "down");
+put("bush-berry", 94, 27);
+put("wildflowers", 96, 29);
+put("fern", 95, 31);
 put("observatory-sign", 98, 27, "down");
-// La lomita: rocas y matas al pie de la torre, a los costados.
-for (const [x, y, t, f] of [
-  [117, 31, "rock-mossy", "right"],
-  [117, 34, "rock-mossy", "down"],
-  [124, 34, "rock-medium", "down"],
-  [125, 33, "fern", "down"],
-  [118, 38, "rock-small", "right"],
-  [116, 39, "wildflowers", "down"],
-  [125, 40, "rock-mossy", "right"],
+put("observatory-board", OBS_FIRE.x - 5, OBS_FIRE.y - 6);
+// Faroles a lo largo del sendero y farolitos en el borde de la placita.
+put("lamp-post", 102, 28);
+put("lamp-post", 111, 30);
+put("garden-lantern", PZ.x + 4, PZ.y - 1);
+put("garden-lantern", PZ.x - 5, PZ.y + 2);
+// El borde de la placita: macizos de flores y rosales (el frente queda abierto hacia el prado).
+for (const [dx, dy, t] of [
+  [4, 1, "flower-patch"],
+  [4, 2, "bush-rose"],
+  [-2, 3, "flower-patch"],
+  [2, 3, "flower-patch"],
 ] as const)
-  put(t, x, y, f);
-// Detrás de la torre (lo que su dibujo tapa, medido con el test de oclusión) la lomita es un matorral de
-// rocas, matas y pinos chicos: ahí nadie se para y nadie queda escondido.
+  put(t, PZ.x + dx, PZ.y + dy);
+// El prado de mirar estrellas, al sur de la placita: el reloj de sol al medio, bancas que miran al cielo
+// (hacia la torre) y dos telescopios chicos en su trípode, con farolitos bajos en las puntas.
+put("sundial", PZ.x, PZ.y + 4);
+put("bench", PZ.x - 4, PZ.y + 6, "up");
+put("bench", PZ.x + 2, PZ.y + 6, "up");
+put("stargazer-scope", PZ.x - 6, PZ.y + 5);
+put("stargazer-scope", PZ.x + 5, PZ.y + 5, "down");
+put("garden-lantern", PZ.x - 7, PZ.y + 7);
+put("garden-lantern", PZ.x + 6, PZ.y + 7);
+put("toy-rocket", PZ.x + 7, PZ.y + 2);
+for (const [dx, dy, t] of [
+  [-1, 7, "wildflowers"],
+  [1, 8, "wildflowers"],
+  [-3, 8, "tall-grass"],
+  [4, 8, "wildflowers"],
+  [-6, 8, "bush-hydrangea"],
+  [7, 5, "bush-round"],
+  [-8, 4, "flower-patch"],
+] as const)
+  put(t, PZ.x + dx, PZ.y + dy);
+// El jardín de piedras, al este de la torre: la gravilla rastrillada con peñascos, rocas con musgo,
+// helechos y un farolito (se camina entre ellas).
+for (const [x, y, t] of [
+  [126, 29, "boulder"],
+  [129, 31, "rock-mossy"],
+  [126, 32, "rock-small"],
+  [128, 34, "rock-medium"],
+  [130, 33, "fern"],
+  [127, 36, "fern"],
+  [129, 36, "garden-lantern"],
+  [125, 34, "wildflowers"],
+  [130, 29, "rock-small"],
+] as const)
+  put(t, x, y, noise(x, y, 97) < 0.5 ? "right" : "down");
+// Contra la cerca del este, unos árboles enmarcan el rincón.
+for (const [x, y, t] of [
+  [131, 27, "pine-2"],
+  [131, 30, "birch-1"],
+  [131, 35, "pine-3"],
+  [131, 38, "pine-1"],
+  [131, 42, "oak-1"],
+  [131, 45, "pine-2"],
+] as const)
+  put(t, x, y, noise(x, y, 98) < 0.5 ? "right" : "down");
+// Detrás de la torre (lo que su dibujo tapa, medido con el test de oclusión) crece un bosquecito cerrado de
+// pinos, robles y matas: ahí nadie se para y nadie queda escondido. Unos árboles más en el borde le dan forma.
 {
   const BEHIND_OBS: [number, number[]][] = [
-    [26, [114, 115, 116]],
-    [27, [114, 115, 116, 117]],
-    [28, [114, 115, 116, 117, 118]],
-    [29, [115, 116, 117, 118, 119]],
-    [30, [116, 117]],
+    [19, [111, 112]],
+    [20, [109, 110, 111, 112, 113, 114]],
+    [21, [108, 109, 110, 111, 112, 113, 114]],
+    [22, [108, 109, 110, 111, 112, 113, 114, 115, 116]],
+    [23, [109, 110, 111, 112, 113, 114, 115, 116]],
+    [24, [110, 111, 112, 113, 114, 115, 116, 117]],
+    [25, [111, 112, 113, 114, 115, 116, 117, 118]],
+    [26, [112, 113, 114, 115, 116, 117, 118]],
+    [27, [113, 114, 115, 116, 117, 118, 119]],
+    [28, [114, 115, 116]],
+    [29, [115, 116]],
+    [30, [116]],
   ];
-  const KINDS = ["rock-mossy", "bush-round", "pine-2", "bush-berry", "rock-medium", "pine-3", "bush-round", "birch-1"];
+  const KINDS = ["pine-2", "bush-round", "oak-1", "bush-berry", "pine-3", "birch-1", "bush-hydrangea", "pine-1", "rock-mossy", "oak-3"];
   for (const [y, xs] of BEHIND_OBS) for (const x of xs) put(KINDS[Math.floor(noise(x, y, 55) * KINDS.length)]!, x, y, noise(x, y, 56) < 0.5 ? "right" : "down");
 }
+// Flores y matas sueltas junto al sendero de la excursión (nunca encima).
+for (const [x, y, t] of [
+  [100, 27, "bush-rose"],
+  [104, 31, "flower-patch"],
+  [99, 22, "wildflowers"],
+  [108, 28, "wildflowers"],
+  [113, 31, "bush-hydrangea"],
+  [105, 26, "tall-grass"],
+] as const)
+  put(t, x, y, noise(x, y, 99) < 0.5 ? "right" : "down");
 
 // ---------- Puntos ----------
 
@@ -1248,7 +1301,6 @@ export const jardin: AreaDef = {
   surroundings: "forest",
   ground: (x, y) => fine(x + 0.5, y + 0.5),
   groundFine: fine,
-  heightFine: (x, y) => heightAt(x - M, y - M),
   rooms: [],
   doors: [],
   zones: [

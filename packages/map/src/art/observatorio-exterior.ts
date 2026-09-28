@@ -1,7 +1,7 @@
-// El observatorio del jardín por fuera (6x6 tiles = 96x96 unidades de arte), en la lomita de piedra del
-// noreste. Una lomita de rocas con pasto y musgo, los escalones de piedra que suben a la puerta, la torre
-// redonda de piedra cálida con ventanitas en arco, la galería de tablas con su baranda y la cúpula de
-// duelas de madera con aros de latón. De día la cúpula está cerrada (la compuerta de tablas se ve como una
+// El observatorio del jardín por fuera (8x8 tiles = 128x128 unidades de arte), al este del jardín. Un
+// zócalo redondo de piedra con lajas encima, los escalones que bajan de la puerta a la placita, la torre
+// redonda de piedra cálida con ventanitas en arco y una cornisa a media altura, la galería de tablas con
+// su baranda y la cúpula de duelas de madera con aros de latón. De día la cúpula está cerrada (la compuerta de tablas se ve como una
 // franja más clara); de noche se abre y asoma el telescopio de latón, con luz cálida adentro. Arte propio,
 // hecho a mano en código. Se registra en outdoor.ts (tiene versión de noche).
 import { Escena, type Tinte } from "./exterior-escena";
@@ -12,20 +12,22 @@ import { at, bayer, noise, ramp, smoothNoise, type Ramp, type RGBA, type Sprite 
 export const WARM_STONE: Ramp = ramp("#3d3130", "#5e4c45", "#806b5c", "#a18a74", "#c0a98c", "#dcc8a8");
 
 /** Centro de la torre y medidas (la torre va un poco hacia atrás, así caben los escalones). */
-const CX = 48;
-const CY = 45;
-/** La lomita: radio al pie, radio arriba y alto. */
-const HILL = { r0: 46, r1: 32, h: 9 };
-/** La torre. */
-const TW = { r: 28, z0: HILL.h - 1, top: 90 };
+const CX = 64;
+const CY = 56;
+/** El zócalo de piedra: radio al pie, radio arriba y alto. */
+const BASE = { r0: 55, r1: 52, h: 7 };
+/** La torre (con la cornisa de piedra a media altura). */
+const TW = { r: 41, z0: BASE.h, top: 146, belt: 74 };
 /** La galería de tablas al pie de la cúpula. */
-const GAL = { z: TW.top, r: 34 };
+const GAL = { z: TW.top, r: 48 };
 /** La cúpula (media esfera). */
-const DOME = { r: 28, z0: TW.top + 3 };
+const DOME = { r: 41, z0: TW.top + 3 };
 /** La compuerta: su ángulo (casi +x, así el telescopio asoma de perfil) y su medio ancho. */
-const SLIT = { az: 0.3, half: 0.26 };
+const SLIT = { az: 0.3, half: 0.24 };
+/** Largo del telescopio que asoma de noche. */
+const TELE_LEN = 70;
 /** Puerta en arco, de frente (+y). */
-const DOOR = { half: 7.5, h: 22 };
+const DOOR = { half: 9, h: 28 };
 
 /** Piedras de la torre: hiladas irregulares con mortero, alguna piedra más clara y manchas de musgo. */
 function towerStone(u: number, v: number, dark: number): RGBA {
@@ -65,12 +67,12 @@ function door(u: number, v: number, night: boolean): RGBA | null {
   if (!inArch(DOOR.half)) return at(WARM_STONE, v > top ? 4 : 2);
   // Estrella de latón a la altura de la cara (la aldaba).
   const sx = u;
-  const sy = v - 14;
+  const sy = v - 17;
   const ang = Math.atan2(sy, sx);
   const rr = Math.hypot(sx, sy);
   if (rr < 1.6 + Math.cos(ang * 5) * 0.9) return at(C.gold, night ? 5 : 4);
   // Bisagras.
-  if ((Math.abs(v - 5) < 0.8 || Math.abs(v - 16) < 0.8) && u < -1) return at(C.metal, 1);
+  if ((Math.abs(v - 6) < 0.8 || Math.abs(v - 20) < 0.8) && u < -1) return at(C.metal, 1);
   // Tablas verticales.
   const plank = Math.floor((u + DOOR.half) / 3);
   if ((u + DOOR.half) % 3 < 0.6) return at(C.woodDark, 1);
@@ -79,11 +81,14 @@ function door(u: number, v: number, night: boolean): RGBA | null {
 
 /** Las ventanitas de la torre: (ángulo, altura del alféizar). La puerta va en π/2. */
 const WINDOWS: [number, number][] = [
-  [0.15, 22],
-  [0.95, 52],
-  [2.3, 26],
-  [2.05, 60],
-  [-0.35, 58],
+  [0.15, 30],
+  [0.95, 84],
+  [2.3, 36],
+  [2.05, 94],
+  [-0.35, 88],
+  [1.25, 42],
+  [0.5, 108],
+  [1.75, 110],
 ];
 
 /** La torre: piedra, ventanas, la puerta y la viga de arriba. */
@@ -96,28 +101,45 @@ function towerWall(night: boolean) {
       if (d) return d;
     }
     for (const [a, v0] of WINDOWS) {
-      const c = archWindow((ang - a) * TW.r, v, v0, 13, 6, night);
+      const c = archWindow((ang - a) * TW.r, v, v0, 16, 7, night);
       if (c) return lz > 1 ? mix(c, at(C.night, 1), 0.2) : c;
     }
     // Viga de madera arriba, donde apoya la galería.
-    if (v > TW.top - TW.z0 - 4) return at(C.woodDark, 3 - lz);
+    if (v > TW.top - TW.z0 - 5) return at(C.woodDark, 3 - lz);
+    // La cornisa de piedra clara a media altura (sombra debajo).
+    const belt = v - (TW.belt - TW.z0);
+    if (belt >= 0 && belt < 3) return at(WARM_STONE, (belt > 1.8 ? 5 : 4) - lz);
+    if (belt < 0 && belt > -1.2) return at(WARM_STONE, 1);
     return towerStone(ang * TW.r, v, lz > 1 ? 1 : 0);
   };
 }
 
-/** La lomita: rocas al pie, pasto y musgo arriba (u = vuelta, t = 0 al pie a 1 arriba). */
-function hillColor(ang: number, t: number, luz: number): RGBA {
-  const u = ang * 40;
+/** El zócalo: dos hiladas de sillares con mortero y algo de musgo al pie (u = vuelta, v = altura). */
+function baseStone(ang: number, v: number, luz: number): RGBA {
+  const u = ang * BASE.r0;
   const lz = luz > 0.3 ? 0 : luz > -0.3 ? 1 : 2;
-  const grass = smoothNoise(u, t * 10, 4, 65) + t * 0.5;
-  if (grass > 0.85) return at(C.grass, 4 - lz);
-  if (grass > 0.72) return at(C.grass, 3 - lz);
-  const row = Math.floor(t * 3);
-  const col = Math.floor((u + noise(row, 1, 66) * 8) / 7);
-  const k = (u + noise(row, 1, 66) * 8) % 7;
-  if (k < 0.8) return at(WARM_STONE, 1);
-  const n = noise(col, row, 67);
-  return at(WARM_STONE, 3 - lz + (n > 0.7 ? 1 : n < 0.2 ? -1 : 0));
+  const row = Math.floor(v / 3.5);
+  const off = noise(row, 1, 66) * 9;
+  const k = (u + off) % 9;
+  if (k < 0.8 || v % 3.5 < 0.7) return at(WARM_STONE, 1);
+  const n = noise(Math.floor((u + off) / 9), row, 67);
+  let c = at(WARM_STONE, 3 - lz + (n > 0.7 ? 1 : n < 0.2 ? -1 : 0));
+  if (v < 2 && smoothNoise(u, v, 4, 65) > 0.6) c = mix(c, at(C.sage, 3 - lz), 0.55);
+  return c;
+}
+
+/** Lajas del zócalo alrededor de la torre (dx, dy desde el centro). */
+function flagstone(dx: number, dy: number): RGBA | null {
+  const d = Math.hypot(dx, dy);
+  if (d < TW.r - 1) return null;
+  if (d > BASE.r1 - 1.2) return at(WARM_STONE, 5);
+  const ring = Math.floor((d - TW.r) / 5);
+  const seg = Math.floor(((Math.atan2(dy, dx) + Math.PI) * (TW.r + ring * 5)) / 9 + noise(ring, 2, 68) * 3);
+  const kr = (d - TW.r) % 5;
+  const ka = (((Math.atan2(dy, dx) + Math.PI) * (TW.r + ring * 5)) / 9 + noise(ring, 2, 68) * 3) % 1;
+  if (kr < 0.7 || ka < 0.08) return at(WARM_STONE, 2);
+  const n = noise(seg, ring, 69);
+  return at(WARM_STONE, n < 0.25 ? 3 : n > 0.85 ? 5 : 4);
 }
 
 /** Duelas de la cúpula con aros de latón (az, el en radianes; luz de -1 a 1). */
@@ -170,43 +192,42 @@ function wallLantern(s: Escena, x: number, y: number, z: number, night: boolean)
 }
 
 export function drawObservatory(night: boolean): Sprite {
-  const s = new Escena({ x0: -4, y0: -4, z0: -2, x1: 100, y1: 100, z1: DOME.z0 + DOME.r + 16 }, 2);
-  s.roundShadow(CX + 2, CY + 3, HILL.r0 + 1, 0.28);
+  const s = new Escena({ x0: -4, y0: -4, z0: -2, x1: 132, y1: 132, z1: DOME.z0 + DOME.r + 16 }, 2);
+  s.roundShadow(CX + 2, CY + 3, BASE.r0 + 1, 0.28);
 
-  // ----- La lomita (tronco de cono de rocas y pasto) y su tapa.
-  for (let t = 0; t <= 1; t += 0.035) {
-    const r = HILL.r0 + (HILL.r1 - HILL.r0) * t;
-    const z = HILL.h * Math.sin((t * Math.PI) / 2);
+  // ----- El zócalo de piedra (apenas en talud) con las lajas encima.
+  for (let v = 0; v <= BASE.h; v += 0.4) {
+    const r = BASE.r0 + ((BASE.r1 - BASE.r0) * v) / BASE.h;
     for (let a = -Math.PI / 4 - 0.3; a <= (3 * Math.PI) / 4 + 0.3; a += 0.45 / r) {
       const nx = Math.cos(a);
       const ny = Math.sin(a);
-      // El borde ondula un poco: no es un plato.
-      const wob = 1 + (noise(Math.floor(a * 12), 3, 69) - 0.5) * 0.08 * (1 - t);
-      s.plot(CX + nx * r * wob, CY + ny * r * wob, z, hillColor(a, t, ny * 0.8 - nx * 0.3 + t * 0.3));
+      s.plot(CX + nx * r, CY + ny * r, v, baseStone(a, v, ny * 0.8 - nx * 0.3));
     }
   }
-  s.disc(CX, CY, HILL.h, HILL.r1, (dx, dy) => at(C.grass, 3 + (noise(Math.floor(dx), Math.floor(dy), 70) < 0.2 ? 1 : 0)));
-  // Rocas grandes sueltas en la ladera.
-  for (const [a, r, sz] of [
-    [-0.2, 40, 5],
-    [0.55, 42, 4],
-    [1.05, 41, 3.5],
-    [2.2, 40, 5],
-    [2.65, 38, 3.5],
-    [-0.55, 37, 3],
-  ] as const) {
+  s.disc(CX, CY, BASE.h, BASE.r1, flagstone);
+  // Matas de pasto y flores al pie del zócalo.
+  for (let i = 0; i < 26; i++) {
+    const a = -0.6 + noise(i, 1, 72) * 3.4;
+    const r = BASE.r0 + 0.5 + noise(i, 2, 72) * 2;
     const x = CX + Math.cos(a) * r;
     const y = CY + Math.sin(a) * r;
-    s.box(x - sz, y - sz * 0.8, 0, sz * 2, sz * 1.6, sz * 1.1, () => at(WARM_STONE, 4), () => at(WARM_STONE, 3), () => at(WARM_STONE, 2));
-    s.box(x - sz * 0.6, y - sz * 0.5, sz * 1.1, sz * 1.2, sz, sz * 0.5, () => at(C.sage, 3), () => at(WARM_STONE, 3), () => at(WARM_STONE, 2));
+    for (let k = 0; k < 5; k++) s.plot(x + (k - 2) * 0.6, y, 0.5 + (k % 2) * 1.2, at(C.grass, 3 + (k % 2)));
+    if (noise(i, 3, 72) < 0.3) s.plot(x, y, 2.4, at(i % 2 ? C.rose : C.gold, 4));
   }
 
-  // ----- Los escalones de piedra que suben a la puerta.
-  for (let k = 0; k < 4; k++) {
-    const y0 = CY + TW.r - 1 + k * 5.2;
-    const top = HILL.h - k * 2.2;
-    const w = 16 + k * 1.5;
-    s.box(CX - w / 2, y0, 0, w, 5.2, top, (u) => at(WARM_STONE, u % 5 < 0.6 ? 2 : 4), (u, v) => at(WARM_STONE, v > top - 1 ? 4 : u % 6 < 0.6 ? 1 : 3), (u, v) => at(WARM_STONE, v > top - 1 ? 3 : 2));
+  // ----- Los escalones de piedra que bajan de la puerta a la placita.
+  for (let k = 0; k < 3; k++) {
+    const y0 = CY + BASE.r1 - 5 + k * 6;
+    const top = BASE.h - k * 2.3;
+    const w = 22 + k * 2.5;
+    s.box(CX - w / 2, y0, 0, w, 6, top, (u) => at(WARM_STONE, u % 6 < 0.6 ? 2 : 4), (u, v) => at(WARM_STONE, v > top - 1 ? 4 : u % 7 < 0.6 ? 1 : 3), (u, v) => at(WARM_STONE, v > top - 1 ? 3 : 2));
+  }
+  // Maceteros de piedra con lavanda a los lados de los escalones.
+  for (const side of [-1, 1]) {
+    const x = CX + side * 16;
+    const y = CY + BASE.r1 - 1;
+    s.box(x - 3, y - 3, BASE.h, 6, 6, 5, () => at(WARM_STONE, 4), () => at(WARM_STONE, 3), () => at(WARM_STONE, 2));
+    for (let k = 0; k < 18; k++) s.plot(x - 2 + noise(k, side, 73) * 4, y - 2 + noise(k, 4, 73) * 4, BASE.h + 5.5 + noise(k, 5, 73) * 3, at(k % 3 ? C.sage : C.rose, 3 + (k % 2)));
   }
 
   // ----- La torre.
@@ -214,7 +235,7 @@ export function drawObservatory(night: boolean): Sprite {
   // Faroles a los lados de la puerta.
   for (const side of [-1, 1]) {
     const a = Math.PI / 2 + side * 0.48;
-    wallLantern(s, CX + Math.cos(a) * (TW.r + 2), CY + Math.sin(a) * (TW.r + 2), TW.z0 + 16, night);
+    wallLantern(s, CX + Math.cos(a) * (TW.r + 2), CY + Math.sin(a) * (TW.r + 2), TW.z0 + 20, night);
   }
 
   // ----- La galería: tablas en anillo, el borde y la baranda.
@@ -225,16 +246,16 @@ export function drawObservatory(night: boolean): Sprite {
   });
   s.cylinder(CX, CY, GAL.z - 3, GAL.r, 3, (_a, _v, luz) => at(C.woodDark, luz > 0 ? 3 : 2));
   // Ménsulas bajo la galería.
-  for (let a = -Math.PI / 4; a <= (3 * Math.PI) / 4; a += 0.5)
-    for (let k = 0; k < 6; k += 0.4) s.plot(CX + Math.cos(a) * (TW.r + k), CY + Math.sin(a) * (TW.r + k), GAL.z - 3 - (6 - k) * 0.9, at(C.woodDark, 2));
+  for (let a = -Math.PI / 4; a <= (3 * Math.PI) / 4; a += 0.4)
+    for (let k = 0; k < 7; k += 0.4) s.plot(CX + Math.cos(a) * (TW.r + k), CY + Math.sin(a) * (TW.r + k), GAL.z - 3 - (7 - k) * 0.9, at(C.woodDark, 2));
   for (let a = -Math.PI / 4 - 0.2; a <= (3 * Math.PI) / 4 + 0.2; a += 0.02) {
     const x = CX + Math.cos(a) * (GAL.r - 0.8);
     const y = CY + Math.sin(a) * (GAL.r - 0.8);
     s.borde = false;
-    if (Math.floor(a * 50) % 3 === 0) for (let v = 0; v < 7; v += 0.5) s.plot(x, y, GAL.z + v, at(C.wood, 2));
+    if (Math.floor(a * 60) % 3 === 0) for (let v = 0; v < 8; v += 0.5) s.plot(x, y, GAL.z + v, at(C.wood, 2));
     s.borde = true;
-    s.plot(x, y, GAL.z + 7.5, at(C.wood, 5));
-    s.plot(x, y, GAL.z + 7, at(C.wood, 4));
+    s.plot(x, y, GAL.z + 8.5, at(C.wood, 5));
+    s.plot(x, y, GAL.z + 8, at(C.wood, 4));
   }
 
   // ----- La cúpula: media esfera de duelas. De noche la compuerta abierta deja ver el hueco (más adentro,
@@ -265,31 +286,31 @@ export function drawObservatory(night: boolean): Sprite {
   }
   // Remate de latón con una estrellita.
   const tip = DOME.z0 + R;
-  s.solid(CX - 1, CY - 1, tip - 1, 2, 2, 7, at(C.gold, 4), at(C.gold, 3), at(C.gold, 2));
-  s.disc(CX, CY, tip + 6, 1.8, () => at(C.gold, 5));
+  s.solid(CX - 1, CY - 1, tip - 1, 2, 2, 8, at(C.gold, 4), at(C.gold, 3), at(C.gold, 2));
+  s.disc(CX, CY, tip + 7, 2, () => at(C.gold, 5));
   for (let a = 0; a < Math.PI * 2; a += Math.PI / 2.5)
-    for (let k = 0; k < 4; k += 0.5) s.plot(CX + Math.cos(a) * k * 0.55, CY - Math.cos(a) * k * 0.55, tip + 9 + Math.sin(a) * k, at(C.gold, 5));
+    for (let k = 0; k < 4.5; k += 0.5) s.plot(CX + Math.cos(a) * k * 0.55, CY - Math.cos(a) * k * 0.55, tip + 10 + Math.sin(a) * k, at(C.gold, 5));
 
   // ----- De noche, el telescopio de latón asomando por la compuerta.
   if (night) {
     const el = 0.72;
     const dir: [number, number, number] = [Math.cos(SLIT.az) * Math.cos(el), Math.sin(SLIT.az) * Math.cos(el), Math.sin(el)];
-    const base: [number, number, number] = [CX, CY, DOME.z0 + 8];
-    const end: [number, number, number] = [base[0] + dir[0] * 50, base[1] + dir[1] * 50, base[2] + dir[2] * 50];
-    tube(s, base, end, 4, (t, luz) => {
+    const base: [number, number, number] = [CX, CY, DOME.z0 + 10];
+    const end: [number, number, number] = [base[0] + dir[0] * TELE_LEN, base[1] + dir[1] * TELE_LEN, base[2] + dir[2] * TELE_LEN];
+    tube(s, base, end, 5, (t, luz) => {
       const k = luz > 0.4 ? 5 : luz > -0.1 ? 4 : 3;
       if (t > 0.94) return at(C.woodDark, 2);
       if (Math.abs(t - 0.55) < 0.025 || Math.abs(t - 0.85) < 0.025) return at(C.woodDark, 3);
       return at(C.gold, k - (t < 0.3 ? 1 : 0));
     });
     // La lente, con un brillo.
-    s.disc(end[0], end[1], end[2], 3, (dx, dy) => (Math.hypot(dx + 0.8, dy - 0.8) < 0.9 ? at(C.white, 4) : at(C.blue, 3)));
+    s.disc(end[0], end[1], end[2], 4, (dx, dy) => (Math.hypot(dx + 0.8, dy - 0.8) < 0.9 ? at(C.white, 4) : at(C.blue, 3)));
   }
 
   // ----- Hiedra que trepa por la torre al lado oeste de la puerta.
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 110; i++) {
     const a = 2.25 + noise(i, 1, 71) * 0.45;
-    const v = TW.z0 + noise(i, 2, 71) * 40;
+    const v = TW.z0 + noise(i, 2, 71) * 52;
     const x = CX + Math.cos(a) * (TW.r + 0.4);
     const y = CY + Math.sin(a) * (TW.r + 0.4);
     s.plot(x, y, v, at(C.leaf, noise(i, 3, 71) < 0.5 ? 3 : 2));
@@ -302,8 +323,8 @@ export function drawObservatory(night: boolean): Sprite {
 export const OBSERVATORY_LENS = (() => {
   const el = 0.72;
   return {
-    x: CX + Math.cos(SLIT.az) * Math.cos(el) * 50,
-    y: CY + Math.sin(SLIT.az) * Math.cos(el) * 50,
-    z: DOME.z0 + 8 + Math.sin(el) * 50,
+    x: CX + Math.cos(SLIT.az) * Math.cos(el) * TELE_LEN,
+    y: CY + Math.sin(SLIT.az) * Math.cos(el) * TELE_LEN,
+    z: DOME.z0 + 10 + Math.sin(el) * TELE_LEN,
   };
 })();

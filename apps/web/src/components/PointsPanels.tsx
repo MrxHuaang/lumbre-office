@@ -86,6 +86,7 @@ const PROMPT: Record<Interactable, string> = {
   orrery: "Ver el orrery",
   radar: "Usar el radar de señales",
   logbook: "Leer el diario de exploración",
+  astronomer: "Hablar con la astrónoma",
   sombrero: "Hablar con el Man del Sombrero",
   bus: "Subir al Megabús",
   grill: "Cocinar en el horno de barro",

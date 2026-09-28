@@ -1,12 +1,15 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { getWorld, pointsOfType } from "@hyvento/map";
 import {
+  ASTRONOMA,
+  astronomerLine,
   MARSHMALLOW,
   OBS_MSG,
   ROOM_NAME,
   SKY,
   STAT_KEYS,
   TOURIST_AREAS,
+  type AstronomerSay,
   type MarshmallowEvent,
   type SkyEvent,
 } from "@hyvento/shared";
@@ -19,7 +22,8 @@ import { bootServer, goToArea, tick, token, walkToTile, type ServerRoom } from "
 
 // El observatorio en la sala: la fogata de malvaviscos (se valida por tiempos medidos en el servidor, con
 // tope diario de puntos) y el telescopio (de día "vuelve de noche"; de noche, las estrellas fugaces que
-// decide el servidor y el primero que la ve se lleva el logro).
+// decide el servidor y el primero que la ve se lleva el logro). Adentro, la astrónoma contesta con E lo
+// que se ve del cielo a esa hora, y lo oyen todos los del nivel.
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -29,6 +33,7 @@ const jardin = getWorld().areas.get("jardin")!;
 const obs = getWorld().areas.get("observatorio")!;
 const firePoint = pointsOfType(jardin, "marshmallow_fire")[0]!;
 const telescope = pointsOfType(obs, "telescope")[0]!;
+const astronomer = pointsOfType(obs, "astronomer")[0]!;
 
 /** Hora del juego del primer día a las `h` en punto (el reloj queda quieto: `now` no avanza solo). */
 const clockAt = (h: number) => ({ anchorReal: now, anchorMinute: 1440 + h * 60 });
@@ -60,16 +65,19 @@ afterEach(() => {
   OfficeRoom.marshmallowTimings = { ...MARSHMALLOW };
   OfficeRoom.skyTimings = { ...SKY };
   OfficeRoom.gameClockInitial = null;
+  OfficeRoom.weatherInitial = null;
 });
 
 async function join(room: ServerRoom, id: string, name: string) {
   const client = await colyseus.connectTo(room, { token: await token(id, name) });
   const roast: MarshmallowEvent[] = [];
   const sky: SkyEvent[] = [];
+  const said: AstronomerSay[] = [];
   client.onMessage(OBS_MSG.marshmallowEvent, (e: MarshmallowEvent) => roast.push(e));
+  client.onMessage(OBS_MSG.astronomerSay, (e: AstronomerSay) => said.push(e));
   client.onMessage(OBS_MSG.sky, (e: SkyEvent) => sky.push(e));
   await room.waitForNextPatch();
-  return { client, roast, sky };
+  return { client, roast, sky, said };
 }
 
 const toFire = (client: ClientRoom, room: ServerRoom) => walkToTile(client, room, firePoint.tileX, firePoint.tileY);
@@ -190,5 +198,49 @@ describe("observatorio", () => {
     await tick(60);
     expect(bob.sky.filter((e) => e.kind === "spotted")).toHaveLength(bobSpots);
     expect(bob.sky.at(-1)?.kind === "missed" || bob.sky.at(-1)?.kind === "star").toBe(true);
+  });
+
+  it("la astrónoma contesta con E lo que se ve a esa hora, igual para todos los del nivel, y solo de cerca", async () => {
+    OfficeRoom.gameClockInitial = clockAt(22);
+    OfficeRoom.weatherInitial = "despejado";
+    const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
+    const alice = await join(room, "u-alice", "Alice");
+    const bob = await join(room, "u-bob", "Bob");
+    const carol = await join(room, "u-carol", "Carol");
+    await goToArea(alice.client, room, "observatorio");
+    await goToArea(bob.client, room, "observatorio");
+    // Bob está adentro pero lejos: no le contesta.
+    bob.client.send(OBS_MSG.astronomerAsk);
+    await tick(60);
+    expect(bob.said).toHaveLength(0);
+    await walkToTile(alice.client, room, astronomer.tileX, astronomer.tileY);
+    alice.client.send(OBS_MSG.astronomerAsk);
+    await tick(80);
+    const expected = astronomerLine({ minuteOfDay: 22 * 60, weather: "despejado" }, 20);
+    expect(expected).toContain("las 10:00 de la noche");
+    expect(alice.said).toEqual([{ sessionId: alice.client.sessionId, text: expected }]);
+    // Bob, en el mismo nivel, ve la misma frase; Carol (en el jardín) no.
+    expect(bob.said).toEqual(alice.said);
+    expect(carol.said).toHaveLength(0);
+    // Otra vez enseguida no (la pausa); pasada la pausa, sí.
+    alice.client.send(OBS_MSG.astronomerAsk);
+    await tick(60);
+    expect(alice.said).toHaveLength(1);
+    now += ASTRONOMA.cooldownMs;
+    alice.client.send(OBS_MSG.astronomerAsk);
+    await tick(80);
+    expect(alice.said).toHaveLength(2);
+  });
+
+  it("de día la astrónoma dice que vuelvan de noche", async () => {
+    OfficeRoom.weatherInitial = "despejado";
+    const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
+    const alice = await join(room, "u-alice", "Alice");
+    await goToArea(alice.client, room, "observatorio");
+    await walkToTile(alice.client, room, astronomer.tileX, astronomer.tileY);
+    alice.client.send(OBS_MSG.astronomerAsk);
+    await tick(80);
+    expect(alice.said.at(-1)?.text).toBe(astronomerLine({ minuteOfDay: 12 * 60, weather: "despejado" }, 20));
+    expect(alice.said.at(-1)?.text).toMatch(/vuelva de noche/i);
   });
 });

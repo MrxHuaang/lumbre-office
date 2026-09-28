@@ -193,7 +193,7 @@ export function checkWorldEdit(
   for (const t of tiles) {
     if (t.x < 0 || t.y < 0 || t.x >= W || t.y >= map.height) return fail("outside");
     const floor = map.floors[t.y * W + t.x];
-    if (!floor || floor === "water" || floor === "slope" || !inPlay(t.x, t.y)) return fail("outside");
+    if (!floor || floor === "water" || !inPlay(t.x, t.y)) return fail("outside");
     if (map.zones.some((z) => z.type === "office" && t.x * TILE_SIZE >= z.x && t.y * TILE_SIZE >= z.y && t.x * TILE_SIZE < z.x + z.width && t.y * TILE_SIZE < z.y + z.height))
       return fail("office");
   }

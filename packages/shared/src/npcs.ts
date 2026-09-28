@@ -1,14 +1,18 @@
-// El personal del casino del sótano: crupier de la ruleta, dealer del blackjack, cajera y portero. Son
-// personajes fijos (no se mueven ni se les compra nada): los dibuja el cliente como chibis en su puesto y
-// reaccionan a lo que ya llega de las mesas (la ronda que abre, el número que cae, la banca que gana o
-// pierde) y a la gente que entra o se arrima a la caja. Sus tiles no se caminan (ver sotano.ts).
+// Los personajes fijos del juego. El personal del casino del sótano: crupier de la ruleta, dealer del
+// blackjack, cajera y portero; y la astrónoma del observatorio. No se mueven ni se les compra nada: los
+// dibuja el cliente como chibis en su puesto. Los del casino reaccionan a lo que ya llega de las mesas (la
+// ronda que abre, el número que cae, la banca que gana o pierde) y a la gente que entra o se arrima a la
+// caja; la astrónoma saluda a quien se le arrima y, con E, habla del cielo según la hora del juego y el
+// clima. Sus tiles no se caminan (ver `npcTiles` en sotano.ts y observatorio.ts).
 import type { Look } from "./look";
 import { colorOf } from "./casino";
+import { NIGHT_FROM, NIGHT_UNTIL } from "./clock";
+import type { Weather } from "./weather";
 
 // El pescador del puesto de pesca del lago está en pesca-tienda.ts (mismo formato).
-export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "pescador";
+export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "astronoma" | "pescador";
 
-export interface CasinoNpc {
+export interface GameNpc {
   id: string;
   role: NpcRole;
   name: string;
@@ -35,7 +39,10 @@ const staff = (look: Omit<Look, "shirt" | "accessories" | "top" | "outfit" | "ne
   ...look,
 });
 
-export const CASINO_NPCS: readonly CasinoNpc[] = [
+/** El personal del casino (el nombre viejo de la ficha de un personaje fijo). */
+export type CasinoNpc = GameNpc;
+
+export const CASINO_NPCS: readonly GameNpc[] = [
   {
     id: "crupier",
     role: "crupier",
@@ -131,10 +138,51 @@ export const CASINO_NPCS: readonly CasinoNpc[] = [
   },
 ];
 
+/** La astrónoma del observatorio: bata, cuello de tortuga azul noche, gafas redondas y boina. */
+export const OBSERVATORIO_NPCS: readonly GameNpc[] = [
+  {
+    id: "astronoma",
+    role: "astronoma",
+    name: "Profe Celeste",
+    // Bajo el mural del cielo, junto a la estantería baja (delante está su punto `astronomer`).
+    area: "observatorio",
+    tile: { x: 8, y: 1 },
+    facing: "down",
+    solid: true,
+    look: {
+      skin: "#d9a066",
+      hair: "#b8b2ac",
+      shirt: "#263262",
+      pants: "#3a3040",
+      accent: "#34447c",
+      top: "turtleneck",
+      outfit: "lab-coat",
+      face: "round-glasses",
+      head: "beret",
+      neck: "scarf",
+      hairStyle: "bun",
+      eyes: "happy",
+      blush: true,
+      accessories: [],
+      shoes: "boots",
+      shoeColor: "#4a3020",
+    },
+    idle: [
+      "Uy, qué rico este silencio pa' mirar el cielo.",
+      "¿Sabía que la luz de algunas estrellas salió antes de que existiera la cabaña?",
+      "Anote en el diario lo que vea, ¿oyó?",
+      "Ese orrery lo armé con puntillas y paciencia.",
+    ],
+  },
+];
+
+/** Todos los personajes fijos (el casino y el observatorio). */
+export const ALL_NPCS: readonly GameNpc[] = [...CASINO_NPCS, ...OBSERVATORIO_NPCS];
+
 export const casinoNpc = (id: string) => CASINO_NPCS.find((n) => n.id === id);
 
 /** Tiles del nivel donde está parado alguien del personal (no se caminan). */
-export const npcSolidTiles = (area: string) => CASINO_NPCS.filter((n) => n.area === area && n.solid).map((n) => n.tile);
+export const npcSolidTiles = (area: string) => ALL_NPCS.filter((n) => n.area === area && n.solid).map((n) => n.tile);
 
 // ---------- Lo que dicen ----------
 
@@ -195,3 +243,123 @@ export const NPC = {
   idleEveryMs: 45_000,
   idleNearTiles: 5,
 } as const;
+
+// ---------- La astrónoma ----------
+
+export const ASTRONOMA = {
+  /** Pausa mínima entre dos preguntas de la misma persona (el servidor la aplica). */
+  cooldownMs: 2500,
+  /** A qué distancia (tiles) saluda a quien se le arrima. */
+  greetTiles: 2.4,
+  /** Cuánto hay que alejarse (tiles) para que vuelva a saludar. */
+  greetResetTiles: 5,
+} as const;
+
+/** Qué se ve del cielo: el momento del día del juego y el clima de afuera. */
+export interface SkyContext {
+  minuteOfDay: number;
+  weather: Weather;
+}
+
+/** La hora dicha como en la calle: "las 9:40 de la noche", "la 1:05 de la madrugada", "las 12:00 del día". */
+export function spokenHour(minuteOfDay: number): string {
+  const m = ((Math.floor(minuteOfDay) % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60);
+  const h12 = h % 12 || 12;
+  const part = h < 5 ? "de la madrugada" : h < 12 ? "de la mañana" : h < 13 ? "del día" : h < 19 ? "de la tarde" : "de la noche";
+  return `${h12 === 1 ? "la" : "las"} ${h12}:${String(m % 60).padStart(2, "0")} ${part}`;
+}
+
+/** Saludos a quien se arrima (`{name}` = el nombre corto). */
+export const ASTRONOMA_GREET = [
+  "¡Quiubo, {name}! Bienvenido al observatorio.",
+  "Siga, {name}, que el cielo es de todos.",
+  "¡Ay, qué bueno verlo, {name}! ¿Viene a mirar estrellas?",
+  "Buenas, {name}. Hable pasito, que las estrellas se asustan… mentiras.",
+  "¡Hola, {name}! Arrímese, que le cuento qué hay hoy en el cielo.",
+] as const;
+
+/**
+ * Lo que dice del cielo según la hora del juego y el clima (`{hora}` = la hora dicha). De noche y
+ * despejado, lo que se ve a esa hora; con nubes, lluvia, niebla o nieve, que así no se ve nada; de día,
+ * que vuelvan de noche.
+ */
+export const ASTRONOMA_LINES = {
+  tarde: [
+    "Son {hora}: ya casi. Apenas se oculte el sol sale el lucero de la tarde.",
+    "Espere un ratico, que a las siete se abre la cúpula y empieza la función.",
+    "El atardecer es el mejor momento pa' limpiar las lentes. Quédese pa' la noche.",
+  ],
+  dia: [
+    "Son {hora}: de día el telescopio descansa. Vuelva de noche, mijo.",
+    "El sol también es una estrella, la más cercana… pero no la mire de frente, ¿oyó?",
+    "De día no se ve ni una estrella. Vuelva después de las siete y le muestro Orión.",
+    "Ahorita el cielo está muy azul pa' mirar estrellas. ¡Vuelva de noche, que vale la pena!",
+  ],
+  prima: [
+    "Son {hora} y ya salieron las Tres Marías: el cinturón de Orión, mírelas en fila.",
+    "¿Ve esa estrella bien brillante? Es Sirio, la más brillante de la noche.",
+    "Orión viene subiendo por el oriente, con su espada y todo. ¡Qué belleza!",
+    "Desde Colombia se ven los dos hemisferios: somos unos privilegiados, parce.",
+  ],
+  noche: [
+    "Son {hora}: ya se ve la Cruz del Sur, bajita, hacia el sur.",
+    "Mire esa franja clarita: es la Vía Láctea, nuestra galaxia vista de canto.",
+    "Esa lucecita que no titila es Júpiter. Por el telescopio se le ven las lunas.",
+    "Escorpión se está asomando: busque la estrella rojiza, Antares, el corazón.",
+  ],
+  madrugada: [
+    "Son {hora}: a esta hora pasan más estrellas fugaces. Arrímese al telescopio y pida un deseo.",
+    "Las siete cabritas están arriba: las Pléyades, un racimo de estrellas bien juntas.",
+    "La madrugada es la hora de los astrónomos serios… y de los trasnochados, como yo.",
+  ],
+  amanecer: [
+    "Son {hora}: ese puntico brillante es el lucero de la mañana, que en verdad es Venus.",
+    "Ya se van apagando las estrellas. Qué pesar, pero vuelven esta noche.",
+    "Madrugó o trasnochó, ¿cierto? Alcanza a ver las últimas estrellas por el oriente.",
+  ],
+  nublado: [
+    "Son {hora} y con este nublado no se ve ni el lucero. Toca esperar a que despeje.",
+    "Las nubes nos taparon el cielo, qué embarrada. Mientras tanto, mire el orrery.",
+  ],
+  lluvia: [
+    "Con este aguacero cerramos la cúpula, no se me vaya a mojar el telescopio.",
+    "Llueve y llueve… aproveche y lea el diario de exploración mientras escampa.",
+  ],
+  tormenta: [
+    "¡Uy, qué tormenta! Esos rayos también son un espectáculo, pero mejor desde aquí adentro.",
+    "Con estos truenos ni se le ocurra subir a la cúpula, ¿oyó?",
+  ],
+  niebla: [
+    "Con esta neblina no se ve ni la torre desde la placita. Esperemos que levante.",
+    "Neblina cerrada: el cielo está ahí, pero escondido. Paciencia.",
+  ],
+  nieve: [
+    "¡Está nevando! Qué cosa tan rara por estos lados. Así no se ve el cielo, pero qué bonito.",
+    "Con la nieve el telescopio se congela. Tómese algo calientico mientras tanto.",
+  ],
+} as const satisfies Record<string, readonly string[]>;
+
+export type SkyTopic = keyof typeof ASTRONOMA_LINES;
+
+/** Qué parte de las frases toca según la hora y el clima. */
+export function skyTopic(ctx: SkyContext): SkyTopic {
+  const m = ((Math.floor(ctx.minuteOfDay) % 1440) + 1440) % 1440;
+  if (ctx.weather !== "despejado") return ctx.weather;
+  if (m >= NIGHT_FROM && m < 22 * 60) return "prima";
+  if (m >= 22 * 60 || m < 2 * 60) return "noche";
+  if (m < 5 * 60) return "madrugada";
+  if (m < NIGHT_UNTIL) return "amanecer";
+  if (m >= 17 * 60) return "tarde";
+  return "dia";
+}
+
+/** Lo que contesta con E: una frase del cielo de ahora, fija para la semilla (todos ven la misma). */
+export function astronomerLine(ctx: SkyContext, seed: number): string {
+  return pickLine(ASTRONOMA_LINES[skyTopic(ctx)], seed).replace("{hora}", spokenHour(ctx.minuteOfDay));
+}
+
+/** El saludo a quien se arrima (`name` = el nombre corto), fijo para la semilla. */
+export function astronomerGreeting(name: string, seed: number): string {
+  return pickLine(ASTRONOMA_GREET, seed).replace("{name}", name);
+}

@@ -1,12 +1,15 @@
 // Los personajes del juego que no son personas: el personal del casino (crupier, dealer, cajera y
-// portero, fijos en su puesto), Don Evelio en el puesto de pesca del lago y el Man del Sombrero (cuando
-// el servidor dice que anda por ahí). Se
-// dibujan como chibis con el mismo Avatar de los jugadores y hablan con burbujas. Las frases y los looks
-// están en @hyvento/shared (npcs.ts y sombrero.ts); lo que los hace hablar llega de las mesas del casino
-// (useCasinoStore) y de quién está dónde.
+// portero, fijos en su puesto), la astrónoma del observatorio, Don Evelio en el puesto de pesca del lago
+// y el Man del Sombrero (cuando el servidor dice que anda por ahí). Se dibujan como chibis con el mismo
+// Avatar de los jugadores y hablan con burbujas. Las frases y los looks están en @hyvento/shared (npcs.ts,
+// pesca-tienda.ts y sombrero.ts); lo que los hace hablar llega de las mesas del casino (useCasinoStore),
+// de lo que contesta la astrónoma (useObservatorio, la frase la elige el servidor), de las ventas del
+// puesto de pesca y de quién está dónde.
 import { pointsOfType, type OfficeMap } from "@hyvento/map";
 import {
-  CASINO_NPCS,
+  ALL_NPCS,
+  ASTRONOMA,
+  astronomerGreeting,
   handValue,
   lineSeed,
   NPC,
@@ -19,19 +22,20 @@ import {
   SOMBRERO_LOOK,
   SOMBRERO_NAME,
   SOMBRERO_WHISPERS,
-  type CasinoNpc,
   type Direction,
+  type GameNpc,
 } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { Avatar, shortName } from "../Avatar";
 import { useCasinoStore, type BlackjackView, type RouletteView } from "../casino";
 import { spawnWisp } from "../consumables";
-import { worldToScreen } from "../iso/view";
 import { currentGameTime } from "../gameClock";
+import { worldToScreen } from "../iso/view";
 import { ensureCharacterTextures } from "../looks";
 import { usePescaStore } from "../pesca";
 import { sfx, volAt } from "../sfx";
 import { useOfficeStore } from "../store";
+import { useObservatorio } from "../observatorio";
 import { useSombreroStore, type SombreroView } from "./store";
 
 /** Alguien del nivel que se está viendo (para el portero y la cajera). */
@@ -51,7 +55,7 @@ export interface CastDeps {
 }
 
 interface Staff {
-  npc: CasinoNpc;
+  npc: GameNpc;
   avatar: Avatar;
   quietUntil: number;
   nextIdleAt: number;
@@ -60,7 +64,7 @@ interface Staff {
 /** A qué distancia (tiles) de la caja la cajera saluda (y Don Evelio, del mostrador), y el Man susurra. */
 const CASHIER_TILES = 1.6;
 /** Todos los que atienden en un puesto fijo: el personal del casino y el pescador del lago. */
-const STAFF: readonly CasinoNpc[] = [...CASINO_NPCS, PESCA_NPC];
+const STAFF: readonly GameNpc[] = [...ALL_NPCS, PESCA_NPC];
 /** Color de la placa del nombre de cada uno (el pescador, verde de monte). */
 const TAG_COLOR: Record<string, string> = { [PESCA_NPC.id]: "#4a6b34" };
 const WHISPER_TILES = 3.5;
@@ -82,6 +86,8 @@ export class NpcCast {
   private zoneOf = new Map<string, string>();
   private atCashier = new Set<string>();
   private atShop = new Set<string>();
+  /** Quiénes ya saludó la astrónoma (hasta que se alejen). */
+  private greeted = new Set<string>();
   private whispered = false;
   private scanAt = 0;
   private unsubs: (() => void)[] = [];
@@ -103,6 +109,9 @@ export class NpcCast {
           blackjack = s.blackjack;
         }
       }),
+      useObservatorio.subscribe((s, prev) => {
+        if (s.astronomer && s.astronomer !== prev.astronomer) this.onAstronomer(s.astronomer.sessionId, s.astronomer.text);
+      }),
       useSombreroStore.subscribe((s, prev) => {
         if (s.man !== prev.man) this.syncMan(s.man, prev.man);
         if (s.speech && s.speech !== prev.speech) this.man?.say(s.speech.text);
@@ -116,13 +125,14 @@ export class NpcCast {
     );
   }
 
-  /** Cambió el nivel que se ve: el personal está solo en el sótano; el Man, donde tenga su escondite. */
+  /** Cambió el nivel que se ve: el personal del casino en el sótano, la astrónoma en el observatorio; el Man, donde tenga su escondite. */
   setArea(map: OfficeMap) {
     this.map = map;
     for (const s of this.staff.values()) s.avatar.destroy();
     this.staff.clear();
     this.zoneOf.clear();
     this.atCashier.clear();
+    this.greeted.clear();
     this.atShop.clear();
     const ts = map.tileSize;
     const now = this.scene.time.now;
@@ -131,7 +141,7 @@ export class NpcCast {
       const x = (npc.tile.x + 0.5 + (npc.offset?.x ?? 0)) * ts;
       const y = (npc.tile.y + 0.5 + (npc.offset?.y ?? 0)) * ts;
       const avatar = new Avatar(this.scene, key, npc.name, x, y, false);
-      avatar.asNpc(TAG_COLOR[npc.id] ?? "#7a1f2b");
+      avatar.asNpc(TAG_COLOR[npc.id] ?? (npc.role === "astronoma" ? "#34447c" : "#7a1f2b"));
       avatar.face(npc.facing);
       this.staff.set(npc.id, { npc, avatar, quietUntil: 0, nextIdleAt: now + 8000 + Math.random() * NPC.idleEveryMs });
     }
@@ -278,9 +288,39 @@ export class NpcCast {
         this.say(PESCA_NPC.id, pescaGreetLine(name, currentGameTime()?.hour ?? 12, useOfficeStore.getState().weather, seed));
         this.staff.get(PESCA_NPC.id)?.avatar.playGesture("wave");
       } else if (!atShop) this.atShop.delete(p.sessionId);
+      this.greetAstronomer(p, name);
     }
-    for (const id of [...this.zoneOf.keys()]) if (!seen.has(id)) this.zoneOf.delete(id);
     for (const id of [...this.atShop]) if (!seen.has(id)) this.atShop.delete(id);
+    for (const id of [...this.zoneOf.keys()]) if (!seen.has(id)) this.zoneOf.delete(id);
+    for (const id of [...this.greeted]) if (!seen.has(id)) this.greeted.delete(id);
+  }
+
+  /**
+   * La astrónoma saluda a quien se le arrima (una vez, hasta que se aleje) y lo mira. Todos ven el mismo
+   * saludo: sale de quién es y de la hora del juego.
+   */
+  private greetAstronomer(p: CastPerson, name: string) {
+    const s = this.staff.get("astronoma");
+    const ts = this.map?.tileSize ?? 32;
+    if (!s) return;
+    const d = Math.hypot(p.x - s.avatar.x, p.y - s.avatar.y);
+    if (d > ASTRONOMA.greetResetTiles * ts) this.greeted.delete(p.sessionId);
+    if (d > ASTRONOMA.greetTiles * ts || this.greeted.has(p.sessionId)) return;
+    this.greeted.add(p.sessionId);
+    const t = currentGameTime();
+    s.avatar.face(facingTo(p.x - s.avatar.x, p.y - s.avatar.y));
+    this.say("astronoma", astronomerGreeting(name, lineSeed(`${p.sessionId}:${t?.day ?? 0}:${t?.hour ?? 0}`)));
+    s.avatar.playGesture("wave");
+  }
+
+  /** Lo que contestó la astrónoma (llega del servidor, igual para todos): lo dice mirando a quien preguntó. */
+  private onAstronomer(sessionId: string, text: string) {
+    const s = this.staff.get("astronoma");
+    if (!s) return;
+    const who = this.deps.people().find((p) => p.sessionId === sessionId);
+    if (who) s.avatar.face(facingTo(who.x - s.avatar.x, who.y - s.avatar.y));
+    this.say("astronoma", text, true);
+    s.avatar.playGesture("nod");
   }
 
   /** De vez en cuando, si estoy cerca, alguno dice algo suelto. */

@@ -216,6 +216,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "orrery", point: "orrery", furniture: ["orrery"] },
   { kind: "radar", point: "signal_radar", furniture: ["signal-radar"] },
   { kind: "logbook", point: "logbook", furniture: ["log-desk"] },
+  // La astrónoma (un personaje, no un mueble: se le habla desde el punto de delante).
+  { kind: "astronomer", point: "astronomer", furniture: [] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */

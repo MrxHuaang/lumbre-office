@@ -100,6 +100,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "orrery"
   | "radar"
   | "logbook"
+  // La astrónoma del observatorio: E le pregunta por el cielo (contesta con una burbuja que ven todos).
+  | "astronomer"
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
   | "sombrero"
   // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).

@@ -1,4 +1,4 @@
-// El observatorio del jardín (lomita del noreste): la fogata de malvaviscos con su minijuego, el
+// El observatorio del jardín (al este): la fogata de malvaviscos con su minijuego, el
 // telescopio con el cielo y las estrellas fugaces, el radar de señales y el diario de exploración.
 // Todo es puro: lo usan el servidor (las reglas, con el azar y la hora como parámetros), el cliente
 // (qué dibujar) y los tests. "De noche" es la noche del reloj del juego (clock.ts), no la hora real.
@@ -21,7 +21,17 @@ export const OBS_MSG = {
   sky: "obs:sky",
   /** Servidor → los del observatorio: alguien tocó un instrumento en otro nivel (SignalPing, para el radar). */
   signal: "obs:signal",
+  /** Cliente → servidor: E junto a la astrónoma (le pregunta por el cielo). */
+  astronomerAsk: "obs:astronomer:ask",
+  /** Servidor → los del observatorio: lo que contestó la astrónoma (AstronomerSay; todos ven la misma frase). */
+  astronomerSay: "obs:astronomer:say",
 } as const;
+
+/** Lo que dijo la astrónoma y a quién (para que lo mire). */
+export interface AstronomerSay {
+  sessionId: string;
+  text: string;
+}
 
 // ---------- Fogata de malvaviscos ----------
 
