@@ -4,7 +4,7 @@
 // puro: el servidor lo usa para decidir y el cliente para anticipar el fantasma verde o rojo.
 import { feetTiles, furnitureTiles } from "./decor";
 import { buildArea, TILE_SIZE, wallBetween, type OfficeMap } from "./world/build";
-import { BLACKJACK_SEATS } from "./world/areas";
+import { BLACKJACK_SEATS, BOARD_TABLES } from "./world/areas";
 import { CATALOG, catalogItem, type CatalogItem } from "./world/catalog";
 import type { AreaDef, Facing, Placement } from "./world/types";
 
@@ -84,6 +84,8 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "dj-booth",
   "arcade-cabinet",
   "air-hockey",
+  "chess-table",
+  "checkers-table",
   "projector",
   "popcorn-machine",
   "garden-plot",
@@ -101,9 +103,10 @@ export function isWorldPlaceable(type: string): boolean {
   return !(CATALOG as Record<string, CatalogItem>)[type]!.fixed && !LOCKED_TYPES.has(type);
 }
 
-/** Banquetas del blackjack (tiles fijos que usa el servidor): no se tocan. */
+/** Banquetas del blackjack y sillas de las mesas de juego (tiles fijos que usa el servidor): no se tocan. */
 const BLACKJACK_STOOLS = new Set(BLACKJACK_SEATS.map((s) => `stool@${s.x},${s.y}`));
-const lockedSpotsOf = (def: AreaDef): ReadonlySet<string> => (def.id === "sotano" ? BLACKJACK_STOOLS : new Set());
+const BOARD_CHAIRS = (area: string) => new Set(BOARD_TABLES.filter((t) => t.area === area).flatMap((t) => t.seats.map((s) => `chair@${s.x},${s.y}`)));
+const lockedSpotsOf = (def: AreaDef): ReadonlySet<string> => (def.id === "sotano" ? BLACKJACK_STOOLS : BOARD_CHAIRS(def.id));
 
 /** Muebles del nivel con los cambios aplicados, con su clave. */
 export function worldFurniture(def: AreaDef, edits: WorldEdits = EMPTY_EDITS): WorldFurniture[] {

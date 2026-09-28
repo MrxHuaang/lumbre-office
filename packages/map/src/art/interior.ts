@@ -660,6 +660,53 @@ function chessTable(): Sprite {
   );
 }
 
+/** Mesa de damas: tablero rojo y crema en la tapa, con las fichas rojas y negras (y una dama apilada). */
+function checkersTable(): Sprite {
+  const board: Shader = (u, v, fw, fh) => {
+    const e = edgeOf(u, v, fw, fh);
+    if (e < 1.2) return at(C.wood, 1);
+    const i = Math.floor(((u - 1.2) / (fw - 2.4)) * 8);
+    const j = Math.floor(((v - 1.2) / (fh - 2.4)) * 8);
+    return (i + j) % 2 ? at(C.rug, 1) : at(C.cream, 4);
+  };
+  // Fichas redondas y chatas: un cilindro de puntos (el motor dibuja cajas; así se ve un disco).
+  const disc = (i: number, j: number, red: boolean, stack = 1): Box => {
+    const cell = 11.6 / 8;
+    const cu = 2.2 + (i + 0.5) * cell;
+    const cv = 2.2 + (j + 0.5) * cell;
+    const tone = red ? C.rug : C.metal;
+    const top: Shader = (u, v) => (Math.hypot(u - 0.6, v - 0.6) < 0.3 ? at(tone, red ? 5 : 3) : at(tone, red ? 4 : 2));
+    return { x: cu - 0.6, y: cv - 0.6, z: 12.8, w: 1.2, d: 1.2, h: 0.7 * stack, top, left: flat(at(tone, red ? 2 : 0)), right: flat(at(tone, red ? 3 : 1)) };
+  };
+  // Casillas oscuras: (i + j) impar. Las rojas arriba (j chico), las negras abajo, con huecos de partida.
+  const pieces: [number, number, boolean, number?][] = [
+    [1, 0, true],
+    [5, 0, true],
+    [0, 1, true],
+    [2, 1, true],
+    [6, 1, true],
+    [3, 2, true],
+    [7, 2, true],
+    [4, 3, false, 2],
+    [2, 5, false],
+    [6, 5, false],
+    [1, 6, false],
+    [3, 6, false],
+    [5, 6, false],
+    [0, 7, false],
+    [4, 7, false],
+  ];
+  return renderSprite(
+    [
+      solidBox({ x: 4, y: 4, z: 0, w: 8, d: 8, h: 1.5 }, C.wood, 2),
+      solidBox({ x: 7, y: 7, z: 1.5, w: 2, d: 2, h: 9 }, C.wood, 3),
+      { x: 1, y: 1, z: 10.5, w: 14, d: 14, h: 2.3, top: board, left: flat(at(C.wood, 2)), right: flat(at(C.wood, 3)) },
+      ...pieces.sort((a, b) => a[0] + a[1] - (b[0] + b[1])).map(([i, j, red, stack]) => disc(i, j, red, stack)),
+    ],
+    { outline: OUT, under: shadowUnder(1, 1, 14, 14) },
+  );
+}
+
 /** Mesa con un puzle a medio armar: el borde listo, parches de color y piezas sueltas; la caja al lado. */
 function puzzleTable(): Sprite {
   const wd = C.wood;
@@ -2007,6 +2054,7 @@ export const INTERIOR_DRAW: Record<string, (v: Variant) => Sprite> = {
   "grandfather-clock": grandfatherClock,
   hammock,
   "chess-table": chessTable,
+  "checkers-table": checkersTable,
   "puzzle-table": puzzleTable,
   "game-shelf": gameShelf,
   sideboard,

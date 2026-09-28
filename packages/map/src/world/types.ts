@@ -132,6 +132,24 @@ export interface PortalDef {
   label: string;
 }
 
+/** Una mesa de ajedrez o de damas con sus dos sillas (la primera juega con blancas). */
+export interface BoardTableDef {
+  id: string;
+  game: "ajedrez" | "damas";
+  area: string;
+  /** Tipo del mueble de la mesa (1x1). */
+  type: string;
+  x: number;
+  y: number;
+  seats: readonly [BoardSeatDef, BoardSeatDef];
+}
+
+export interface BoardSeatDef {
+  x: number;
+  y: number;
+  facing: "left" | "right";
+}
+
 export interface PointDef {
   type:
     | "spawn"
@@ -163,7 +181,9 @@ export interface PointDef {
     // Salida de la carrera de sillas (pasillo del piso 2, junto a la bandera).
     | "chair_race"
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
-    | "tool_shed";
+    | "tool_shed"
+    // Junto a una mesa de ajedrez o de damas de la sala de juegos: desde ahí se mira la partida.
+    | "board_game";
   name: string;
   x: number;
   y: number;

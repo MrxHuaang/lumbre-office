@@ -12,7 +12,7 @@ export * from "./world/build";
 export * from "./world/catalog";
 export * from "./world/seats";
 export type * from "./world/types";
-export { AREAS, BLACKJACK_SEATS, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
+export { AREAS, BLACKJACK_SEATS, BOARD_TABLES, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
 
 /** Todos los niveles de la cabaña, ya construidos. */
 export interface World {

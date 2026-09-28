@@ -17,6 +17,7 @@ export const INTERIOR_CATALOG = {
   "grandfather-clock": { name: "Reloj de pie", size: [1, 1] },
   hammock: { name: "Hamaca", size: [1, 2], seats: [[0, 0], [0, 1]] },
   "chess-table": { name: "Mesa de ajedrez", size: [1, 1] },
+  "checkers-table": { name: "Mesa de damas", size: [1, 1] },
   "puzzle-table": { name: "Mesa con puzle", size: [1, 2] },
   "game-shelf": { name: "Estante de juegos", size: [1, 2] },
   sideboard: { name: "Aparador", size: [1, 2] },
