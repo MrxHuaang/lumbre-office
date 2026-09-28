@@ -28,6 +28,9 @@ export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 export { drawTreeLadder } from "./casa-arbol-exterior";
 // El Megabús de la parada del jardín: el bus que arma el cliente, las puertas y la pantalla de la estación.
 export { BUS_CAR_LEN, busCarSprite, busJointSprite, busScreenText, stationDoorsSprite, type BusCar } from "./bus";
+// Escenario y cabina de grabación del jardín: la tela de la pantalla y el cartel "EN EL AIRE".
+export { STAGE_SCREEN } from "./escenario";
+export { podcastSign } from "./podcast";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 // Las estaciones (ver apps/web/src/game/seasons.ts).

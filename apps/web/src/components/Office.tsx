@@ -40,6 +40,7 @@ import { HockeyStrip } from "./arcade/HockeyStrip";
 import { ClubHud } from "./club/ClubHud";
 import { DjConsole } from "./club/DjConsole";
 import { CinemaHud, CinemaPanel } from "./cinema/CinemaPanel";
+import { EscenarioHud, PodcastConsent } from "./escenario/EscenarioHud";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
 import { AquariumPanel } from "./AquariumPanel";
@@ -288,6 +289,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <RadioTapPrompt />
             <ClubHud />
             <CinemaHud />
+            <EscenarioHud />
           </div>
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
           <div className="pointer-events-none absolute top-16 left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
@@ -297,6 +299,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </div>
           <KnockRequests />
           <InvitationRequests />
+          <PodcastConsent />
           <IncomingCall />
           <SocialOverlays />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}

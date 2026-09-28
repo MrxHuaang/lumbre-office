@@ -1,5 +1,6 @@
 import { noise, smoothNoise } from "./ruido";
 import { catalogItem, footprint } from "../catalog";
+import { GRADAS, GRADAS_ROWS } from "../catalog-escenario";
 import type { AreaDef, FloorKind, Placement, PointDef } from "../types";
 import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
@@ -86,6 +87,13 @@ const GAZEBO = { x: 24, y: 44 };
  */
 const TREEHOUSE = { x: 1, y: 44 };
 const TREEHOUSE_FOOT = { x: TREEHOUSE.x + 1, y: TREEHOUSE.y + 4 };
+/**
+ * Escenario (franja sur, ver catalog-escenario.ts): la concha al oeste, la tarima delante (mirando al este)
+ * y las gradas en semicírculo hacia el camino. La cabina de grabación (5x5, puerta al sur) al lado.
+ */
+const STAGE = { x: 12, y: 56 };
+const DECK = { x: STAGE.x + 3, y: STAGE.y, w: 3, h: 7 };
+const BOOTH = { x: 30, y: 54 };
 /** Zona de charla de la fogata (en coordenadas del nivel): los troncos quedan adentro con un tile de aire. */
 const FIRE_ZONE = { x: FIRE.x - 3 + M, y: FIRE.y - 3 + M, w: 8, h: 8 };
 
@@ -123,6 +131,11 @@ const PATHS: Seg[] = [
   { a: [41.5, 18.6], b: [52.6, 16.4], w: 2 },
   // Del patio al deck de la piscina.
   { a: [62, 8.5], b: [64.4, 8.5], w: 1.8 },
+  // Senderito del camino al escenario: pasa frente a la puerta de la cabina y entra por el pasillo del
+  // medio de las gradas hasta la escalerita de la tarima.
+  { a: [38.6, 60.8], b: [33.5, 60.2], w: 1.5 },
+  { a: [33.5, 60.2], b: [27.5, 59.6], w: 1.4 },
+  { a: [27.5, 59.6], b: [18.4, 59.5], w: 1.1 },
 ];
 
 function segDist(px: number, py: number, s: Seg): number {
@@ -413,6 +426,61 @@ for (const [x, y, t] of [
 ] as const)
   put(t, x, y);
 
+// Escenario: la concha, la tarima con el atril (al lado de la escalerita), los faroles y las gradas.
+put("stage-shell", STAGE.x, STAGE.y);
+put("stage-deck", DECK.x, DECK.y);
+put("stage-lectern", DECK.x + 2, DECK.y + 2);
+put("stage-lantern", DECK.x + 2, DECK.y - 1);
+put("stage-lantern", DECK.x + 2, DECK.y + DECK.h);
+GRADAS_ROWS.forEach((r, k) => put(`gradas-${k + 1}`, GRADAS.origin.x + r.dx, GRADAS.origin.y + r.dy));
+// Detrás de la concha (al oeste y al norte) su dibujo tapa a quien se pare: matorral cerrado, sin lugar
+// donde pararse (árboles al fondo, matas más cerca).
+for (let y = 53; y < 64; y++)
+  for (let x = 8; x < DECK.x + 2; x++) {
+    if (x >= STAGE.x && y >= STAGE.y) continue;
+    // Delante de la tarima en pantalla (al suroeste) solo matas: un árbol taparía la esquina del escenario.
+    const back = (x < 10 && y < 60) || y < 54;
+    const t = back ? ["pine-1", "oak-1", "pine-3", "birch-1", "oak-3"][(x * 7 + y * 3) % 5]! : ["bush-round", "bush-hydrangea", "bush-berry", "bush-rose", "bush-round"][(x * 5 + y) % 5]!;
+    put(t, x, y, (x + y) % 2 ? "right" : "down");
+  }
+// La cabina de grabación: la base, las paredes con el techo, la mesa de los micrófonos y dos banquitos.
+put("podcast-booth", BOOTH.x, BOOTH.y);
+put("podcast-booth-roof", BOOTH.x, BOOTH.y);
+put("podcast-desk", BOOTH.x + 2, BOOTH.y + 1);
+put("stool", BOOTH.x + 1, BOOTH.y + 1, "right");
+put("stool", BOOTH.x + 3, BOOTH.y + 1, "left");
+// Detrás de la cabina (al norte y al oeste) y entre las gradas y la cabina: un seto con flores.
+for (const [x, y, t] of [
+  [28, 53, "bush-rose"],
+  [29, 53, "bush-hydrangea"],
+  [30, 53, "flower-patch"],
+  [31, 53, "bush-round"],
+  [32, 53, "bush-rose"],
+  [33, 53, "flower-patch"],
+  [34, 53, "bush-hydrangea"],
+  [35, 53, "bush-round"],
+  [28, 54, "bush-hydrangea"],
+  [29, 54, "bush-rose"],
+  [28, 55, "flower-patch"],
+  [29, 55, "bush-round"],
+  [28, 56, "bush-rose"],
+  [29, 56, "bush-hydrangea"],
+  [28, 57, "bush-round"],
+  [29, 57, "flower-patch"],
+  [29, 58, "bush-rose"],
+] as const)
+  put(t, x, y);
+// Flores sueltas junto al senderito (cosas bajas: nada tapa la cabina ni las gradas).
+for (const [x, y, t] of [
+  [35, 55, "wildflowers"],
+  [36, 56, "flower-patch"],
+  [28, 62, "wildflowers"],
+  [31, 62, "flower-patch"],
+  [35, 62, "wildflowers"],
+  [26, 62, "rock-small"],
+] as const)
+  put(t, x, y);
+
 // Huerto de frutales al suroeste, con la casa del árbol contra la cerca (se sacaron los dos frutales que
 // quedaban encima de ella y de su senderito).
 const FRUIT = ["apple-tree", "peach-tree", "cherry-tree"];
@@ -543,9 +611,7 @@ for (const [x, y, t, f] of [
   [24, 38, "fern", "down"],
   [18, 30, "bush-berry", "down"],
   [32, 52, "oak-1", "right"],
-  [26, 53, "pine-2", "down"],
   [20, 52, "bush-round", "right"],
-  [35, 54, "fern", "right"],
   [44, 54, "birch-2", "down"],
   [41, 24, "bush-round", "right"],
   [34, 17, "bush-round", "down"],
@@ -636,6 +702,9 @@ const POINTS: PointDef[] = [
   pt("pool_steps", "Escalera de la piscina", POOL.x + POOL_STEPS[0]![0], POOL.y + POOL_STEPS[0]![1] + 1),
   pt("pool_steps", "Escalera de la piscina", POOL.x + POOL_STEPS[1]![0] + 1, POOL.y + POOL_STEPS[1]![1]),
   pt("diving_board", "Trampolín", BOARD.x - 1, BOARD.y),
+  // Frente a la escalerita de la tarima y frente a la mesa de los micrófonos de la cabina.
+  pt("stage", "Escenario", DECK.x + DECK.w, DECK.y + 3),
+  pt("podcast", "Cabina de grabación", BOOTH.x + 2, BOOTH.y + 2),
 ];
 
 // Naturaleza suelta en el pasto libre: manchones de árboles junto a la cerca y en algunos bosquecitos,
@@ -655,6 +724,8 @@ const POINTS: PointDef[] = [
   mark(DOOR_X, PORCH_Y + 2, 2);
   // El pie de la escalera de la casa del árbol, despejado (que ningún árbol la tape).
   mark(TREEHOUSE_FOOT.x + 1, TREEHOUSE_FOOT.y + 1, 3);
+  // El anfiteatro y la cabina se decoran a mano (arriba): que no crezcan árboles en los pasillos.
+  for (let y = 53; y < PH; y++) for (let x = 8; x <= 36; x++) reserved.add(`${x},${y}`);
   const soft = (x: number, y: number) => {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ground(x + dx, y + dy) !== "grass") return true;
     return false;
@@ -774,6 +845,12 @@ export const jardin: AreaDef = {
     { id: "glorieta", name: "Glorieta", type: "table", rect: { x: GAZEBO.x + M, y: GAZEBO.y + M, w: 4, h: 4 }, isolated: true },
     // La piscina: se oye como el resto del jardín (es para estar en grupo), pero tiene su nombre.
     { id: "piscina", name: "Piscina", type: "common", rect: { x: POOL_BOX.x0 + M, y: POOL_BOX.y0 + M, w: POOL_SIZE[0], h: POOL_SIZE[1] }, isolated: false },
+    // El escenario: quien está en la tarima se oye en todo el anfiteatro y en las gradas se oye además a
+    // los vecinos (ver `hearing` en @hyvento/shared). De afuera no se oye nada, como en la fogata.
+    { id: "escenario", name: "Escenario", type: "table", rect: { x: DECK.x + M, y: DECK.y + M, w: DECK.w, h: DECK.h }, isolated: true },
+    { id: "gradas", name: "Gradas", type: "table", rect: { x: GRADAS.origin.x + M, y: GRADAS.origin.y + M, w: GRADAS.size.w + 1, h: GRADAS.size.h }, isolated: true },
+    // Adentro de la cabina de grabación (3x3): una sala aislada para tres.
+    { id: "podcast", name: "Cabina de grabación", type: "table", rect: { x: BOOTH.x + 1 + M, y: BOOTH.y + 1 + M, w: 3, h: 3 }, isolated: true },
   ],
   features: [],
   furniture: items,

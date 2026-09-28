@@ -90,6 +90,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "trophies"
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
   | "kitchen"
+  // Escenario del jardín: la escalerita de la tarima (subir o bajar) y la mesa de la cabina de grabación.
+  | "stage"
+  | "podcast"
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
   | "sombrero"
   // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).

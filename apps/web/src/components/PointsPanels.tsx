@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
 import { useClubStore } from "@/game/club/store";
+import { useEscenarioStore } from "@/game/escenario/store";
 import { ArcadePromptLabel } from "./arcade/ArcadePromptLabel";
 import { BusPromptLabel } from "./bus/BusPromptLabel";
 import { useOfficeStore, type Interactable } from "@/game/store";
@@ -76,6 +77,8 @@ const PROMPT: Record<Interactable, string> = {
   swimOut: "Salir del agua",
   trophies: "Ver la vitrina de trofeos",
   kitchen: "Cocinar en la estufa",
+  stage: "Subir al escenario",
+  podcast: "Grabar en la cabina",
   sombrero: "Hablar con el Man del Sombrero",
   bus: "Subir al Megabús",
 };
@@ -144,9 +147,17 @@ export function InteractPrompt() {
       className="cozy-chip pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[14px]"
     >
       <kbd className="cozy-kbd">E</kbd>
-      {near === "arcade" ? <ArcadePromptLabel /> : near === "bus" ? <BusPromptLabel /> : PROMPT[near]}
+      {near === "arcade" ? <ArcadePromptLabel /> : near === "bus" ? <BusPromptLabel /> : near === "stage" || near === "podcast" ? <EscenarioPromptLabel kind={near} /> : PROMPT[near]}
     </button>
   );
+}
+
+/** La escalerita dice "bajar" si ya estoy en la tarima; la mesa de la cabina, "detener" si ya se graba. */
+function EscenarioPromptLabel({ kind }: { kind: "stage" | "podcast" }) {
+  const onStage = useEscenarioStore((s) => s.here.onStage);
+  const busy = useEscenarioStore((s) => s.podcast.phase !== "idle");
+  if (kind === "stage") return <>{onStage ? "Bajar del escenario" : PROMPT.stage}</>;
+  return <>{busy ? "Detener la grabación" : PROMPT.podcast}</>;
 }
 
 /** Ventana de panel (buzón, tablón, barra): se cierra con Esc; mientras está abierta el teclado no mueve al personaje. */

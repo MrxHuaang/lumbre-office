@@ -184,6 +184,8 @@ export class Avatar {
   private badgeRow?: { key: string; container: Phaser.GameObjects.Container };
   /** Cuenta regresiva de una foto (3-2-1) sobre la cabeza. */
   private countdownBubble?: { container: Phaser.GameObjects.Container; timer: Phaser.Time.TimerEvent };
+  /** Escenario: la mano levantada sobre la cabeza, con el turno en la fila. */
+  private handBubble?: { container: Phaser.GameObjects.Container; text: Phaser.GameObjects.Text; order: number; tween: Phaser.Tweens.Tween };
   /** Lo que lleva en las manos (pedido en la cafetería o el bar); `clearing` = se quita al terminar de usarlo. */
   private held?: { id: string; parts: HeldPart[]; clearing: boolean };
   /** Tocando un instrumento: lleva el ritmo con saltitos. */
@@ -312,6 +314,7 @@ export class Avatar {
     this.emoteBubble?.container.setVisible(!hidden);
     this.gesture?.arm?.setVisible(!hidden);
     this.countdownBubble?.container.setVisible(!hidden);
+    this.handBubble?.container.setVisible(!hidden);
     this.badgeRow?.container.setVisible(!hidden);
     this.phone?.bubble?.setVisible(!hidden);
     this.phone?.handset?.setVisible(!hidden);
@@ -1387,6 +1390,36 @@ export class Avatar {
     this.layout();
   }
 
+  /**
+   * Escenario: la mano levantada (un globo con la mano, que se mece) y su turno en la fila; null la baja.
+   * La ven todos los del nivel: quien está en la tarima sabe a quién darle la palabra.
+   */
+  setHand(order: number | null) {
+    if (order === null) {
+      this.handBubble?.tween.remove();
+      this.handBubble?.container.destroy();
+      this.handBubble = undefined;
+      return;
+    }
+    if (this.handBubble?.order === order) return;
+    if (!this.handBubble) {
+      ensureTexture(this.scene, "globo-emote-2", () => bubble(15, 13));
+      ensureEmoteTextures(this.scene, "wave");
+      const bg = this.scene.add.image(0, 0, "globo-emote-2").setOrigin(0.5, 1);
+      const icon = this.scene.add.image(0, -bg.height + 1, "emote-wave-0").setOrigin(0.5, 0);
+      const text = this.scene.add
+        .text(bg.width / 2, -bg.height, "", { fontFamily: cozyFontFamily(), fontSize: "7px", color: COZY.red, backgroundColor: COZY.paperLight, padding: { x: 1, y: 0 }, resolution: 6 })
+        .setOrigin(0.5, 0.5);
+      const container = this.scene.add.container(0, 0, [bg, icon, text]).setVisible(!this.hidden);
+      // Se mece un poco, como quien agita la mano para que lo vean.
+      const tween = this.scene.tweens.add({ targets: icon, angle: { from: -8, to: 8 }, duration: 420, yoyo: true, repeat: -1, ease: "Sine.inOut" });
+      this.handBubble = { container, text, order, tween };
+    }
+    this.handBubble.order = order;
+    this.handBubble.text.setText(String(order));
+    this.layout();
+  }
+
   /** Quita el globo de la cuenta (también justo antes de capturar la foto, para que no salga en ella). */
   clearCountdown() {
     this.countdownBubble?.timer.remove();
@@ -1649,6 +1682,7 @@ export class Avatar {
     this.emoteBubble?.tween.remove();
     this.emoteBubble?.container.destroy();
     this.clearCountdown();
+    this.setHand(null);
     this.badgeRow?.container.destroy();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
@@ -1749,6 +1783,12 @@ export class Avatar {
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       const emote = this.emoteBubble ? 14 : 0;
       this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - badgeH - chat - emote).setDepth(6e7 + depth + 0.15);
+    }
+    if (this.handBubble) {
+      // La mano, sobre el nombre (a la izquierda del emote, si hay uno, para que no se tapen).
+      const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
+      const beside = this.emoteBubble ? -14 : 0;
+      this.handBubble.container.setPosition(x + beside, y - top - this.label.height - 1 - badgeH - chat).setDepth(6e7 + depth + 0.11);
     }
   }
 }

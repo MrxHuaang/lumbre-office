@@ -226,7 +226,11 @@ export interface PointDef {
     // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
     | "trophy_case"
     // Frente a cada estufa de la cocina (planta baja): ahí se cocina con lo del huerto.
-    | "kitchen_stove";
+    | "kitchen_stove"
+    // Escenario del jardín: frente a la escalerita de la tarima ("Subir al escenario").
+    | "stage"
+    // Cabina de grabación del jardín: la mesa de los micrófonos ("Grabar").
+    | "podcast";
   name: string;
   x: number;
   y: number;
