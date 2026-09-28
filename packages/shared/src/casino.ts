@@ -38,7 +38,7 @@ export const CASINO_ERROR_TEXT: Record<CasinoError, string> = {
 };
 
 /** `refId` de un movimiento de puntos del casino (p. ej. "ruleta:12"). */
-export const casinoRefId = (game: "ruleta" | "blackjack", round: number) => `${game}:${round}`;
+export const casinoRefId = (game: CasinoGame, round: number) => `${game}:${round}`;
 
 // ---------- Ruleta (europea: un solo cero) ----------
 
@@ -161,11 +161,14 @@ export const CasinoSettingsBody = z.object({
 
 // ---------- Estadísticas y rankings de la caja ----------
 
-export const CASINO_GAMES = ["ruleta", "blackjack"] as const;
+export const CASINO_GAMES = ["ruleta", "blackjack", "baccarat", "dados", "caballos"] as const;
 export type CasinoGame = (typeof CASINO_GAMES)[number];
 export const CASINO_GAME_NAMES: Record<CasinoGame, string> = {
   ruleta: "Ruleta",
   blackjack: "Blackjack",
+  baccarat: "Baccarat",
+  dados: "Dados",
+  caballos: "Caballitos",
 };
 
 /** Período de las estadísticas: los últimos `CASINO.rankingDays` días o desde siempre. */

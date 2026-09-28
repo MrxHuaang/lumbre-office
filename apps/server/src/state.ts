@@ -114,6 +114,30 @@ export class RouletteState extends Schema {
   @type([RouletteBet]) bets = new ArraySchema<RouletteBet>();
 }
 
+/** Una apuesta en una mesa de rondas compartidas (baccarat, dados o caballitos). */
+export class MesaBet extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** La apuesta como la entiende la mesa ("banker", "t11", "h3"…). */
+  @type("string") bet = "";
+  @type("number") amount = 0;
+}
+
+/**
+ * Mesa de rondas compartidas: se apuesta ("betting"), se juega ("playing": el resultado ya está y el
+ * cliente lo anima) y se paga ("result").
+ */
+export class MesaState extends Schema {
+  @type("string") phase = "betting";
+  @type("number") round = 0;
+  @type("number") endsAt = 0;
+  /** Las cartas del baccarat, los dados o el orden de llegada de los caballitos (vacío mientras se apuesta). */
+  @type(["number"]) result = new ArraySchema<number>();
+  /** Resultados anteriores resumidos (ver `mesaSummary`), el más reciente primero. */
+  @type(["number"]) history = new ArraySchema<number>();
+  @type([MesaBet]) bets = new ArraySchema<MesaBet>();
+}
+
 /** Un asiento del blackjack (5 en total, en el orden de BLACKJACK_SEATS). */
 export class BlackjackSeat extends Schema {
   @type("string") userId = "";
@@ -325,6 +349,8 @@ export class OfficeState extends Schema {
   @type(RouletteState) roulette = new RouletteState();
   @type(BlackjackState) blackjack = new BlackjackState();
   @type(HockeyState) hockey = new HockeyState();
+  /** Baccarat, dados y caballitos, por id de mesa (ver MESAS de @hyvento/shared). */
+  @type({ map: MesaState }) mesas = new MapSchema<MesaState>();
   /** Mesas de ajedrez y damas de la sala de juegos, por id (ver BOARD_TABLES de @hyvento/map). */
   @type({ map: BoardTableState }) boards = new MapSchema<BoardTableState>();
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`; los que no están siguen como arrancan. */

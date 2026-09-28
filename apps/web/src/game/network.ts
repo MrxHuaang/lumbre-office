@@ -79,6 +79,7 @@ import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
 import { bindHockey } from "./arcade/hockey";
+import { bindMesas } from "./mesas";
 import { bindBoardGames } from "./boardgames";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
@@ -913,6 +914,7 @@ function attach(r: OfficeRoom) {
   bindArcade(r);
   bindPhone(r);
   bindHockey(r);
+  bindMesas(r);
   bindBoardGames(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);

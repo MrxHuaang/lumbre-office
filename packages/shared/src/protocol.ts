@@ -170,6 +170,9 @@ export const MSG = {
   blackjackBet: "casino:blackjack:bet",
   blackjackAction: "casino:blackjack:action",
   blackjackSettled: "casino:blackjack:settled",
+  /** Baccarat, dados y caballitos: apostar en una mesa (`MesaBetMessage`) y lo ganado al cerrar la ronda (`MesaSettled`). */
+  mesaBet: "casino:mesa:bet",
+  mesaSettled: "casino:mesa:settled",
   /** Servidor → cliente al entrar: la hora del servidor (`{ now }`) para los conteos regresivos. */
   clock: "clock",
   /** Editor de oficina (`OfficeEditMessage`) y su respuesta (`OfficeEditResult`). */

@@ -24,6 +24,7 @@ import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
 import { HeldSlot, UsablePrompt } from "./UsePrompt";
 import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
+import { MesaStrip } from "./casino/MesaStrip";
 import { BackpackPanel, ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
@@ -296,6 +297,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "bar" && <BarPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "cashier" && <CashierPanel onClose={closePanel} />}
           {panel?.kind === "blackjack" && <BlackjackStrip />}
+          {(panel?.kind === "baccarat" || panel?.kind === "dados" || panel?.kind === "caballos") && <MesaStrip table={panel.kind} />}
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
           {panel?.kind === "fishAlbum" && <FishAlbum onClose={closePanel} />}

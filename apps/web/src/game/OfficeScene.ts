@@ -94,7 +94,7 @@ import {
 } from "./network";
 import { followGameNight } from "./gameClock";
 import { canEnterOffice, PET_USABLE_PREFIX, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
-import { TableMode } from "./table";
+import { TableMode, type TableKind } from "./table";
 import { InteractMarkers } from "./markers";
 import { WorldEditor } from "./worldEditor";
 import { clientPoint, personAt, useSocialStore } from "./social";
@@ -163,6 +163,9 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "snacks", point: MENUS.cine.point, furniture: [...MENUS.cine.furniture] },
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
   { kind: "hockey", point: "air_hockey", furniture: ["air-hockey"] },
+  { kind: "baccarat", point: "baccarat", furniture: ["baccarat-table"] },
+  { kind: "dados", point: "sicbo", furniture: ["sicbo-table"] },
+  { kind: "caballos", point: "horse_race", furniture: ["horse-race-table"] },
   { kind: "boardgame", point: "board_game", furniture: ["chess-table", "checkers-table"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
@@ -185,8 +188,10 @@ type Keys = Record<
 type Taps = Record<"e" | "r" | "f" | "b" | "esc" | "del", boolean>;
 
 /** Paneles del casino (el hockey del arcade y los juegos de mesa) que se juegan en la mesa (modo mesa) en vez de en una ventana. */
-const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" | "hockey" | "boardgame" =>
-  kind === "roulette" || kind === "blackjack" || kind === "hockey" || kind === "boardgame";
+const isTablePanel = (kind: PanelKind | undefined): kind is TableKind =>
+  kind === "roulette" || kind === "blackjack" || kind === "hockey" || kind === "boardgame" || isStandingTable(kind);
+/** Mesas donde se apuesta parado (caminar te saca de ellas, como de la ruleta). */
+const isStandingTable = (kind: PanelKind | TableKind | null | undefined): boolean => kind === "roulette" || kind === "baccarat" || kind === "dados" || kind === "caballos";
 
 /** Dirección del sprite según hacia dónde se mueve en pantalla (+x = sureste, +y = suroeste). */
 function facingFor(vx: number, vy: number): Direction {
@@ -529,7 +534,10 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.updateLocal(delta, this.readTaps());
     this.table.update();
-    this.table.fadeAvatars([...this.avatars.values()].map((a) => a.sprite));
+    // En la mesa se atenúa a quien la tape, y también los muebles de adelante (un pinball junto a los caballitos).
+    const covering: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [...this.avatars.values()].map((a) => a.sprite);
+    if (this.table.kind && this.view) covering.push(...this.view.furnitureSprites());
+    this.table.fadeAvatars(covering);
     // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa. En el ajedrez
     // y las damas no (el tablero va en la tira y se quiere ver quién juega).
     const hideNames = Boolean(this.table.kind) && this.table.kind !== "boardgame";
@@ -1185,7 +1193,7 @@ export class OfficeScene extends Phaser.Scene {
 
     if (vx !== 0 || vy !== 0) {
       // Caminar te saca de la ruleta y de mirar una partida (del blackjack y del ajedrez, al levantarte).
-      if (this.table.kind === "roulette" || (this.table.kind === "boardgame" && !this.seat)) useOfficeStore.getState().closePanel();
+      if (isStandingTable(this.table.kind) || (this.table.kind === "boardgame" && !this.seat)) useOfficeStore.getState().closePanel();
       this.clearPath(); // el teclado cancela el clic-para-caminar
       this.pendingZone = null;
       this.pendingInteract = null;

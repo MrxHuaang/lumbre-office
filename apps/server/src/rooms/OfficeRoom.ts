@@ -70,6 +70,10 @@ import {
   type CafeOrderResult,
   type CasinoSettingsDTO,
   type RouletteSettled,
+  MESA_POINT,
+  MESAS,
+  type MesaId,
+  type MesaSettled,
   type BlackjackSettled,
   BLACKJACK,
   type EmoteEvent,
@@ -172,10 +176,11 @@ import {
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
-import { GardenPlotState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
+import { GardenPlotState, MesaState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
 import { acceptCasinoMessage } from "./casino/common";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
+import { DEFAULT_MESA_TIMINGS, MesaTable, parseMesaBet, randomMesaDraw, type MesaTimings } from "./casino/mesas";
 import { HeldItems } from "./consumables";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
@@ -290,6 +295,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static rouletteSpin: () => number = randomSpin;
   static blackjackTimings: BlackjackTimings = { ...BLACKJACK };
   static blackjackShuffle: () => number[] = randomShoe;
+  /** Baccarat, dados y caballitos: tiempos y resultado (los tests los acortan y los fijan). */
+  static mesaTimings: MesaTimings = { ...DEFAULT_MESA_TIMINGS };
+  static mesaDraw: (table: MesaId) => number[] = randomMesaDraw((n) => randomInt(n));
   /** Pesca: el azar (entero en [0, n)), el reloj real (para los tiempos del minijuego) y los tiempos del lance. */
   static fishingRandom: (n: number) => number = (n) => randomInt(n);
   static fishingNow: () => number = () => Date.now();
@@ -764,6 +772,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.photos.take(client.sessionId);
     });
     this.onMessage(MSG.rouletteBet, (client, raw) => void this.handleRouletteBet(client, raw));
+    this.onMessage(MSG.mesaBet, (client, raw) => void this.handleMesaBet(client, raw));
     this.onMessage(MSG.blackjackBet, (client, raw) => void this.handleBlackjack(client, raw, "bet"));
     this.onMessage(MSG.blackjackAction, (client, raw) => void this.handleBlackjack(client, raw, "action"));
     this.onMessage(MSG.fishCast, (client) => this.handleFishCast(client));
@@ -1900,6 +1909,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private casinoSettings: CasinoSettingsDTO = { enabled: true };
   private roulette?: RouletteTable;
   private blackjack?: BlackjackTable;
+  private readonly mesas = new Map<MesaId, MesaTable>();
 
   private async reloadCasinoSettings() {
     this.casinoSettings = await this.repo.getCasinoSettings().catch((err) => {
@@ -1927,6 +1937,28 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       spin: () => OfficeRoom.rouletteSpin(),
     });
     this.roulette.start();
+    for (const id of MESAS) {
+      const state = new MesaState();
+      this.state.mesas.set(id, state);
+      const table = new MesaTable({
+        id,
+        state,
+        repo: () => this.repo,
+        settings: () => this.casinoSettings,
+        later: (ms, fn) => void this.clock.setTimeout(fn, ms),
+        setPoints: (userId, balance) => {
+          for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+        },
+        notify: (userId, settled: MesaSettled) => {
+          for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.mesaSettled, settled);
+          this.casinoSettled(userId, settled.staked, settled.won);
+        },
+        timings: () => OfficeRoom.mesaTimings,
+        draw: (t) => OfficeRoom.mesaDraw(t),
+      });
+      this.mesas.set(id, table);
+      table.start();
+    }
     this.blackjack = new BlackjackTable({
       state: this.state.blackjack,
       repo: () => this.repo,
@@ -1989,6 +2021,16 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const near = nearPointOfType(this.mapOf(player.area), "roulette", player.x, player.y);
     const result = await this.roulette.bet({ userId: player.userId, name: player.name }, raw, near);
     if (result) client.send(MSG.casinoResult, result);
+  }
+
+  private async handleMesaBet(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const msg = parseMesaBet(raw);
+    const table = msg && this.mesas.get(msg.table);
+    if (!player || !msg || !table || !this.acceptCasino(client)) return;
+    const near = nearPointOfType(this.mapOf(player.area), MESA_POINT[msg.table], player.x, player.y);
+    const result = await table.bet({ userId: player.userId, name: player.name }, msg, near);
+    client.send(MSG.casinoResult, result);
   }
 
   // ---------- Emotes ----------

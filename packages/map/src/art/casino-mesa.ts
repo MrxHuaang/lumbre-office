@@ -63,7 +63,7 @@ export interface Overlay {
   R: number;
 }
 
-function overlayFor(points: { x: number; y: number }[], R: number, pad = 0): Overlay {
+export function overlayFor(points: { x: number; y: number }[], R: number, pad = 0): Overlay {
   const minX = Math.min(...points.map((p) => p.x)) - pad;
   const minY = Math.min(...points.map((p) => p.y)) - pad;
   const maxX = Math.max(...points.map((p) => p.x)) + pad;
@@ -77,7 +77,7 @@ function overlayFor(points: { x: number; y: number }[], R: number, pad = 0): Ove
 export const toCanvas = (ov: Overlay, s: { x: number; y: number }) => ({ x: (s.x - ov.sx) * ov.R, y: (s.y - ov.sy) * ov.R });
 
 /** Pinta un rectángulo local del mueble, sobre el plano z, punto por punto. */
-function paintLocalPlane(fr: MesaFrame, z: number, u0: number, v0: number, u1: number, v1: number, R: number, shade: (u: number, v: number) => RGBA | null): Overlay {
+export function paintLocalPlane(fr: MesaFrame, z: number, u0: number, v0: number, u1: number, v1: number, R: number, shade: (u: number, v: number) => RGBA | null): Overlay {
   const corners = [localToScreen(fr, u0, v0, z), localToScreen(fr, u1, v0, z), localToScreen(fr, u0, v1, z), localToScreen(fr, u1, v1, z)];
   const ov = overlayFor(corners, R);
   const { canvas } = ov;
@@ -598,7 +598,7 @@ export function blackjackSpotMark(fr: MesaFrame, R: number, spot: { u: number; v
  * Cajas locales → sprite en alta resolución (R puntos por unidad), con el origen del sprite en el punto
  * local (0, 0, 0). Con el mueble espejado se cruzan u y v (y las caras izquierda y derecha).
  */
-function hiResPiece(fr: MesaFrame, boxes: Box[], R: number): Sprite {
+export function hiResPiece(fr: MesaFrame, boxes: Box[], R: number): Sprite {
   // Los sombreadores siguen recibiendo unidades de arte (se dividen por R).
   const unscale = (f: Shader | undefined): Shader | undefined => f && ((u, v, fw, fh) => f(u / R, v / R, fw / R, fh / R));
   const scaled = boxes.map((b): Box => {
