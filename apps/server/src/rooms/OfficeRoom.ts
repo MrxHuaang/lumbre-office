@@ -217,7 +217,7 @@ import { Fishery } from "./fishing";
 import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
 import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
-import { Encargos } from "./encargos";
+import { encargosDeSala, type Encargos } from "./encargos";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 import { CasaViva } from "./casa";
@@ -624,27 +624,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     quests: { onStat: (u, key, by) => this.encargos.onStat(u, key, by), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
   });
   /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
-  private encargos: Encargos = new Encargos({
-    repo: () => this.repo,
-    now: () => OfficeRoom.encargosNow(),
-    pick: (userId, now) => OfficeRoom.encargosPick(userId, now),
-    context: () => ({ night: isNightMinute(this.gameTimeNow().minuteOfDay), weather: this.state.weather as Weather }),
-    place: (userId) => {
-      const c = this.clientOfUser(userId);
-      const p = c && this.state.players.get(c.sessionId);
-      return p ? { area: p.area, x: p.x, y: p.y } : null;
-    },
-    map: (area) => this.mapOf(area),
-    send: (userId, type, message) => this.sendToUser(userId, type, message),
-    later: (ms, fn) => this.clock.setTimeout(fn, ms),
-    held: this.held,
-    flushStats: (userId) => this.achievements.flush(userId),
-    paid: (userId, amount, balance) => {
-      for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
-      if (amount > 0) this.sendToUser(userId, MSG.pointsAwarded, { amount, reason: "QUEST", balance } satisfies PointsAwarded);
-      this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
-    },
-  });
+  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t) });
 
   /** Fotos: la cuenta 3-2-1, quiénes salen y el ticket para subirla (ver photos.ts). */
   private photos = new PhotoBooth({
@@ -1197,7 +1177,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
-    void this.encargos.load(auth.sub);
+    void this.encargos.load(auth.sub, { join: true });
     if (byBus) this.bus.requestRide();
     void this.refreshBadge(auth.sub);
     client.send(MSG.chatHistory, this.globalHistory);
@@ -2271,7 +2251,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await this.achievements.refresh(userId).catch((err) => console.error("achievements.refresh", err));
     this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
     // Y los encargos (una misión o una foto de la web pudieron avanzarlos).
-    await this.encargos.load(userId);
+    await this.encargos.load(userId, { force: true });
   }
 
   // ---------- Casino ----------
@@ -3517,7 +3497,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.swivels.forget(player.userId);
     this.piscina?.forget(player.userId);
     this.tina?.forget(player.userId);
-    void this.achievements.forget(player.userId).then(() => this.encargos.forget(player.userId));
+    // Los encargos se olvidan después de guardar, y solo si no volvió a entrar mientras tanto (`gen`).
+    const questGen = this.encargos.generation(player.userId);
+    void this.achievements.forget(player.userId).then(() => this.encargos.forget(player.userId, questGen));
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);

@@ -255,6 +255,8 @@ export class FakeDb {
         },
         async create({ data }: { data: Partial<QuestRow> & { userId: string; questId: string; period: string; goal: number } }) {
           const key = { userId: data.userId, questId: data.questId, period: data.period };
+          // Como la llave única de Postgres: quien inserta la misma fila espera a que la otra transacción termine.
+          await db.lock(tx, `quest:${data.userId}:${data.questId}:${data.period}`);
           if (rows(db.t.quests, key).length) throw new Error("P2002: ya existe");
           const row: QuestRow = { progress: 0, status: "ACTIVE", createdAt: new Date(), doneAt: null, claimedAt: null, ...data };
           insert(db.t.quests, row);
@@ -263,6 +265,7 @@ export class FakeDb {
         async createMany({ data, skipDuplicates }: { data: (Partial<QuestRow> & { userId: string; questId: string; period: string; goal: number })[]; skipDuplicates?: boolean }) {
           let count = 0;
           for (const d of data) {
+            await db.lock(tx, `quest:${d.userId}:${d.questId}:${d.period}`);
             if (rows(db.t.quests, { userId: d.userId, questId: d.questId, period: d.period }).length) {
               if (skipDuplicates) continue;
               throw new Error("P2002: ya existe");

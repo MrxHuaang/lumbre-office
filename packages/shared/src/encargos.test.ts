@@ -60,12 +60,20 @@ describe("el catálogo de encargos", () => {
     }
   });
 
-  it("un día bien jugado no pasa mucho del tope de QUEST (100): los diarios pagan poco y el semanal más", () => {
+  it("el peor día (los 3 diarios más caros y el semanal más caro) nunca pasa del tope de QUEST (100)", () => {
     expect(DAILY_CAPS.QUEST).toBe(POINTS.questDailyCap);
     expect(POINTS.questDailyCap).toBe(100);
-    for (const q of QUESTS) {
-      if (q.kind === "daily") expect(q.reward.points, q.id).toBeLessThanOrEqual(25);
-      if (q.kind === "weekly") expect(q.reward.points, q.id).toBeGreaterThan(40);
+    const worst = (defs: readonly QuestDef[]) => [...defs].sort((a, b) => b.reward.points - a.reward.points);
+    const days = QUESTS.filter((q) => q.kind === "daily");
+    const weeks = QUESTS.filter((q) => q.kind === "weekly");
+    // Sobre todo el catálogo (sin mirar la estación ni el sorteo: lo más caro que podría tocar).
+    const top = worst(days).slice(0, 3).reduce((t, q) => t + q.reward.points, 0) + worst(weeks)[0]!.reward.points;
+    expect(top).toBeLessThanOrEqual(POINTS.questDailyCap);
+    // Y en un año de días de verdad, con lo que le tocó a alguien.
+    for (let i = 0; i < 365; i++) {
+      const t = MON + i * DAY;
+      const sum = currentQuests("u-alice", t).reduce((s, q) => s + q.def.reward.points, 0);
+      expect(sum, `día ${i}`).toBeLessThanOrEqual(POINTS.questDailyCap);
     }
   });
 });

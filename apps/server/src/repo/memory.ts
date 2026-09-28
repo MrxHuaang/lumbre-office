@@ -310,11 +310,12 @@ export class MemoryRepository implements GameRepository {
     const { userId, questId, period, now } = input;
     const row = this.quests.get(`${userId}|${questKey(questId, period)}`);
     if (!row || row.status !== "DONE") return { ok: false, error: row?.status === "CLAIMED" ? "claimed" : "not-done" };
-    row.status = "CLAIMED";
-    // El tope de QUEST se cuenta con la hora que manda la sala (los tests mueven el día).
+    // Como claimQuestTx: si no cabe entero bajo el tope de hoy (con la hora que manda la sala), no se entrega.
     const cap = DAILY_CAPS.QUEST ?? Infinity;
     const today = this.ledger.filter((m) => m.userId === userId && m.reason === "QUEST" && m.at >= dayStart(now)).reduce((a, m) => a + m.amount, 0);
-    const awarded = Math.max(0, Math.min(input.points, cap - today));
+    if (input.points > 0 && today + input.points > cap) return { ok: false, error: "capped" };
+    row.status = "CLAIMED";
+    const awarded = Math.max(0, input.points);
     if (awarded > 0) this.ledger.push({ userId, amount: awarded, reason: "QUEST", at: now, refId: `encargo:${questId}:${period}` });
     if (input.xp > 0) this.skillXp.set(`${userId}:${input.skill}`, (this.skillXp.get(`${userId}:${input.skill}`) ?? 0) + input.xp);
     if (input.next) {

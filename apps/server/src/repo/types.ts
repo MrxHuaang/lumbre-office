@@ -263,7 +263,7 @@ export interface QuestClaimInput {
 }
 
 /** Lo pagado (menos que lo prometido si llegó al tope diario) o por qué no se entregó. */
-export type QuestClaimOutcome = { ok: true; awarded: number; balance: number } | { ok: false; error: "not-done" | "claimed" };
+export type QuestClaimOutcome = { ok: true; awarded: number; balance: number } | { ok: false; error: "not-done" | "claimed" | "capped" };
 
 /** Encargos: su propia interfaz, sumada a GameRepository. */
 export interface QuestRepository {
