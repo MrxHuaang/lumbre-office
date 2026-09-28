@@ -33,6 +33,10 @@ export class Player extends Schema {
   @type("string") fishing = "";
   /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
   @type("uint8") drunk = 0;
+  /** Nadando en la piscina del jardín (se dibuja de medio cuerpo; el servidor valida contra el agua). */
+  @type("boolean") swimming = false;
+  /** Recién salió del agua: gotea un rato (ver AGUA.wetMs). */
+  @type("boolean") wet = false;
   /** Insignia destacada junto al nombre (id de un logro que tiene; "" = ninguna). La valida el servidor. */
   @type("string") badge = "";
   /** Energía de un plato de la cocina (id de la receta; "" = nada): camina un poco más rápido un rato. */
@@ -322,6 +326,17 @@ export class GardenPlotState extends Schema {
   @type("number") wateredUntil = 0;
 }
 
+/** La casa del árbol (CasaArbolView de @hyvento/shared): la escalera recogida y el modo foco de adentro. */
+export class TreeHouseState extends Schema {
+  @type("boolean") locked = false;
+  /** Quién recogió la escalera. */
+  @type("string") lockedBy = "";
+  /** "" apagado, "focus" o "break" (CasaArbolFocus). */
+  @type("string") focus = "";
+  /** Fin de la fase del modo foco, en ms de la hora del servidor. */
+  @type("float64") focusEndsAt = 0;
+}
+
 /** El Man del Sombrero (ver rooms/sombrero.ts): si anda por ahí y en qué escondite. */
 export class SombreroState extends Schema {
   @type("boolean") present = false;
@@ -331,6 +346,17 @@ export class SombreroState extends Schema {
   @type("uint8") x = 0;
   @type("uint8") y = 0;
   @type("string") facing = "down";
+}
+
+/** El Megabús de la parada del jardín (ver rooms/bus.ts): la fase y cuándo empezó, con la hora del servidor. */
+export class BusState extends Schema {
+  /** BusPhase de @hyvento/shared: "away", "arriving", "open", "closing", "route" o "leaving". */
+  @type("string") phase = "away";
+  @type("float64") since = 0;
+  /** Cuándo empieza a llegar el próximo bus del horario. */
+  @type("float64") nextAt = 0;
+  /** Número de pasada (para que el cliente note una llegada nueva). */
+  @type("uint32") run = 0;
 }
 
 export class OfficeState extends Schema {
@@ -363,6 +389,9 @@ export class OfficeState extends Schema {
    */
   @type("float64") clockAnchorReal = 0;
   @type("float64") clockAnchorMinute = 0;
+  /** La casa del árbol del jardín (ver rooms/casaArbol.ts). */
+  @type(TreeHouseState) treeHouse = new TreeHouseState();
+  @type(BusState) bus = new BusState();
   @type(EventsState) events = new EventsState();
   /** El Man del Sombrero: si anda por ahí y dónde (lo decide la sala con el reloj del juego y el clima). */
   @type(SombreroState) sombrero = new SombreroState();

@@ -2,13 +2,14 @@
 
 // Lo de la sala donde estoy (va en el panel lateral, SideDock): la pizarra y las paredes altas en
 // cualquier oficina o en la sala de reuniones; y en tu oficina, además, decorar, el candado, la nota de
-// la placa y la radio. La radio de una oficina ajena se ve (y se le baja el volumen) desde aquí también.
-import { OFFICE_NOTE_MAX, parseYoutubeId, type OfficeRadioState } from "@hyvento/shared";
+// la placa y la radio; en la casa del árbol, la escalera y el modo foco. La radio de una oficina ajena se ve (y se le baja el volumen) desde aquí también.
+import { CASA_ARBOL, OFFICE_NOTE_MAX, parseYoutubeId, type OfficeRadioState } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { sendOfficeLock, sendOfficeNote, sendOfficeRadio } from "@/game/network";
 import { useRadioStore } from "@/game/radio";
 import { selectMyUserId, useOfficeStore, type OfficeView } from "@/game/store";
 import { tapVideos } from "@/game/youtube";
+import { CasaArbolRow } from "./CasaArbolRow";
 import { PixelIcon } from "./Cozy";
 
 /** ¿Hay sala (oficina o de reuniones) donde estoy? El panel lateral la muestra si sí. */
@@ -39,6 +40,7 @@ export function RoomSection() {
         {mine && office ? <p className="min-w-0 flex-1 truncate text-[16px] font-semibold">{office.name}</p> : <span className="flex-1" />}
         <RoomTools />
       </div>
+      {zone.id === CASA_ARBOL.zone && <CasaArbolRow />}
       {mine && office && <OwnerRow office={office} />}
       {office && (mine || office.radio) && <RadioRow radio={office.radio} mine={mine} />}
     </div>

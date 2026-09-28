@@ -1,8 +1,7 @@
-// La cocina en el servidor: la despensa de cada persona (lo cosechado y la miel que dejó en el cobertizo
-// o en la cocina), cocinar en la estufa y la energía de los platos. Las reglas están en
-// @hyvento/shared/cocina. Este módulo no conoce Colyseus: la sala le da la mano, los puntos y el reloj, y
-// manda lo que devuelve. Como lo que se lleva en la mano, la despensa vive en la memoria del servidor
-// (por userId: sobrevive a recargar la página, no a reiniciar el servidor).
+// La cocina en el servidor: cocinar en la estufa con lo que se tiene en la mochila (lo cosechado y la
+// miel: la "despensa" es la mochila, ver bag.ts) y la energía de los platos. Las reglas están en
+// @hyvento/shared/cocina. Este módulo no conoce Colyseus: la sala le da la mochila, los puntos y el reloj,
+// y manda lo que devuelve.
 import { nearPointOfType, type OfficeMap } from "@hyvento/map";
 import {
   COCINA,
@@ -10,9 +9,9 @@ import {
   canCook,
   dayStart,
   dishSpeedMul,
+  INGREDIENTS,
   isDish,
-  isFreeHold,
-  isIngredient,
+  objItemId,
   recipeById,
   takeIngredients,
   type CocinaNotice,
@@ -21,11 +20,12 @@ import {
 } from "@hyvento/shared";
 
 export interface CocinaDeps {
-  /** Lo que lleva en la mano (HeldItems). */
-  held: {
-    get(userId: string): { item: string; left: readonly number[] } | undefined;
-    give(userId: string, item: string): void;
-    drop(userId: string): void;
+  /** La mochila (Bag): de ahí salen los ingredientes y ahí va el plato (a la mano, si estaban libres). */
+  bag: {
+    count(userId: string, itemId: string): number;
+    fits(userId: string, items: readonly (readonly [string, number])[]): "ok" | "full" | "stack";
+    take(userId: string, itemId: string, quantity: number): Promise<boolean>;
+    add(userId: string, itemId: string, quantity: number, opts: { pick?: boolean }): Promise<"ok" | "full" | "stack">;
   };
   /** Premio de ocio (LEISURE, con su tope diario): devuelve lo sumado. */
   award(userId: string, amount: number): Promise<number>;
@@ -50,7 +50,6 @@ interface Buff {
 }
 
 export class Cocina {
-  private pantries = new Map<string, Record<string, number>>();
   /** Puntos que dio la cocina hoy a cada persona (el día de Bogotá). */
   private today = new Map<string, { day: number; points: number }>();
   private buffs = new Map<string, Buff>();
@@ -58,8 +57,14 @@ export class Cocina {
 
   constructor(private readonly deps: CocinaDeps) {}
 
+  /** Los ingredientes que tiene en la mochila (lo que no tiene no aparece). */
   pantry(userId: string): Pantry {
-    return this.pantries.get(userId) ?? {};
+    const out: Record<string, number> = {};
+    for (const id of INGREDIENTS) {
+      const n = this.deps.bag.count(userId, objItemId(id));
+      if (n > 0) out[id] = n;
+    }
+    return out;
   }
 
   /** La despensa, lo de hoy y la energía de esa persona (para el panel). */
@@ -73,23 +78,18 @@ export class Cocina {
     };
   }
 
-  /** Guardar en la despensa lo que se lleva en la mano: junto al cobertizo del jardín o a una estufa. */
+  /**
+   * "Guardar en la despensa" (de antes de la mochila): lo cosechado ya queda en la mochila, así que solo
+   * se avisa (y se manda cómo está).
+   */
   store(map: OfficeMap, who: CocinaWho, now: number): CocinaResult {
     if (!Cocina.atPantry(map, who)) return { notice: { code: "far" } };
-    const held = this.deps.held.get(who.userId);
-    if (!held) return { notice: { code: "nothing" } };
-    if (!isIngredient(held.item)) return { notice: { code: "notIngredient" } };
-    const pantry = { ...this.pantry(who.userId) };
-    if ((pantry[held.item] ?? 0) >= COCINA.pantryMax) return { notice: { code: "full", item: held.item } };
-    pantry[held.item] = (pantry[held.item] ?? 0) + 1;
-    this.pantries.set(who.userId, pantry);
-    this.deps.held.drop(who.userId);
-    return { state: this.state(who.userId, now), notice: { code: "stored", item: held.item } };
+    return { state: this.state(who.userId, now), notice: { code: "inBag" } };
   }
 
   /**
-   * Cocinar junto a la estufa: la receta tiene que alcanzar con la despensa (más lo que se lleve en la
-   * mano, que se guarda primero). El plato queda en la mano; si da puntos, se suman con su tope.
+   * Cocinar junto a la estufa: la receta tiene que alcanzar con lo que hay en la mochila, que se gasta. El
+   * plato va a la mochila (y a la mano si estaban libres); si da puntos, se suman con su tope.
    */
   async cook(map: OfficeMap, who: CocinaWho, raw: unknown, now: number): Promise<CocinaResult> {
     const parsed = CookMessage.safeParse(raw);
@@ -97,21 +97,23 @@ export class Cocina {
     const recipe = recipeById(parsed.data.recipe)!;
     if (!nearPointOfType(map, "kitchen_stove", who.x, who.y)) return { notice: { code: "far" } };
     if (now - (this.lastCookAt.get(who.userId) ?? 0) < COCINA.cookCooldownMs) return { notice: { code: "busy" } };
-    const held = this.deps.held.get(who.userId);
-    // El plato va a la mano: no pisa lo que se pagó con puntos.
-    if (held && !isFreeHold(held.item)) return { notice: { code: "hands" } };
-    const pantry: Record<string, number> = { ...this.pantry(who.userId) };
-    // Lo que trae en la mano cuenta (si es un ingrediente, se usa o queda guardado).
-    const carried = held && isIngredient(held.item) ? held.item : undefined;
-    if (carried) pantry[carried] = (pantry[carried] ?? 0) + 1;
+    const pantry = this.pantry(who.userId);
     if (!canCook(recipe, pantry)) return { notice: { code: "missing" } };
+    // El plato tiene que caber: con lo que se gasta se liberan casillas, así que se cuenta después.
+    const freed = Object.entries(takeIngredients(recipe, pantry)).length < Object.keys(pantry).length;
+    if (!freed && this.deps.bag.fits(who.userId, [[objItemId(recipe.id), 1]]) !== "ok") return { notice: { code: "bagFull" } };
 
     this.lastCookAt.set(who.userId, now);
-    const left = takeIngredients(recipe, pantry);
-    // Si lo de la mano sobró y ya no cabe, queda en el tope (no se pierde más de la cuenta).
-    if (carried && (left[carried] ?? 0) > COCINA.pantryMax) left[carried] = COCINA.pantryMax;
-    this.pantries.set(who.userId, left);
-    this.deps.held.give(who.userId, recipe.id);
+    // Se gastan los ingredientes de a uno; si alguno ya no estaba (se regaló justo), se devuelve lo sacado.
+    const taken: [string, number][] = [];
+    for (const [item, n] of Object.entries(recipe.needs)) {
+      if (!(await this.deps.bag.take(who.userId, objItemId(item), n))) {
+        for (const [back, m] of taken) await this.deps.bag.add(who.userId, objItemId(back), m, {});
+        return { state: this.state(who.userId, now), notice: { code: "missing" } };
+      }
+      taken.push([item, n]);
+    }
+    await this.deps.bag.add(who.userId, objItemId(recipe.id), 1, { pick: true });
 
     let points = 0;
     if (recipe.effect.kind === "points") {
@@ -163,11 +165,6 @@ export class Cocina {
   /** ¿Está junto a la despensa (el cobertizo del huerto o una estufa de la cocina)? */
   static atPantry(map: OfficeMap, who: { x: number; y: number }): boolean {
     return nearPointOfType(map, "tool_shed", who.x, who.y) || nearPointOfType(map, "kitchen_stove", who.x, who.y);
-  }
-
-  /** Para los tests: llena la despensa. */
-  fill(userId: string, pantry: Pantry) {
-    this.pantries.set(userId, { ...pantry });
   }
 
   dispose() {

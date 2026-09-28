@@ -7,6 +7,7 @@ import { useCocinaStore } from "@/game/cocina";
 import { useShallow } from "zustand/react/shallow";
 import { useMediaStore } from "@/game/media";
 import { sendStatus } from "@/game/network";
+import { notificationsSupported, selectNotifyOn, setNotificationsEnabled, useNotifyStore } from "@/game/notify";
 import { sfx } from "@/game/sfx";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { useAchievementStore } from "@/game/achievements";
@@ -14,6 +15,7 @@ import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { GameClockChip } from "./GameClockChip";
+import { PersonMenu } from "./PersonMenu";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
@@ -194,8 +196,10 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
           </MenuGroup>
 
           <MenuGroup label="Mis cosas">
+            {/* La mochila, las estadísticas y el personaje (bag/PlayerMenu.tsx); también con la tecla I. */}
             <MenuItem icon="bag" onClick={act(() => openPanel("backpack", false))}>
-              Mochila
+              <span className="flex-1">Mochila y estadísticas</span>
+              <kbd className="cozy-kbd text-[11px]">I</kbd>
             </MenuItem>
             <MenuItem icon="fish" onClick={act(() => openPanel("fishAlbum", false))}>
               Álbum de pesca
@@ -206,6 +210,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
             <MenuToggle icon="walls" on={walls} onClick={() => useOfficeStore.getState().setPrivateWalls(!walls)}>
               Paredes altas adentro
             </MenuToggle>
+            <NotifyToggle />
             <div className="px-2 pt-1.5 pb-1">
               <SoundSettings />
             </div>
@@ -407,6 +412,7 @@ export function PeoplePanel() {
                   {labelOf(p.sessionId === sessionId ? place : p.place)}
                 </span>
               </button>
+              {p.sessionId !== sessionId && <PersonMenu person={p} onProfile={() => openProfile(p.userId)} />}
               {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>
           ))}
@@ -432,6 +438,30 @@ function MenuItem({ children, icon, onClick }: { children: React.ReactNode; icon
       <PixelIcon name={icon} size={14} color="var(--color-cozy-wood)" />
       {children}
     </button>
+  );
+}
+
+/** Avisos del navegador con Lumbre en segundo plano (ver game/notify.ts). El clic pide el permiso. */
+function NotifyToggle() {
+  const on = useNotifyStore(selectNotifyOn);
+  const denied = useNotifyStore((s) => s.permission === "denied");
+  if (!notificationsSupported()) return null;
+  return (
+    <MenuToggle
+      icon="bell"
+      on={on}
+      onClick={() => {
+        if (denied) {
+          useOfficeStore.getState().notify("El navegador bloqueó los avisos: actívalos desde el candado de la barra de direcciones.", "warning");
+          return;
+        }
+        void setNotificationsEnabled(!on).then((ok) => {
+          if (!on && !ok) useOfficeStore.getState().notify("Sin permiso del navegador no podemos avisarte.", "warning");
+        });
+      }}
+    >
+      Avisos en segundo plano
+    </MenuToggle>
   );
 }
 

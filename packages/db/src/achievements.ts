@@ -1,6 +1,6 @@
 // Logros y estadísticas del perfil: contadores por persona (UserStat) y logros desbloqueados
 // (UserAchievement). El catálogo y las reglas están en @hyvento/shared (achievements.ts); acá solo se guarda.
-import type { StatChange } from "@hyvento/shared";
+import { BAG_SLOT_PREFIX, type StatChange } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 type Client = PrismaClient | Prisma.TransactionClient;
@@ -60,7 +60,8 @@ export interface AchievementRecord {
 /** Contadores y logros de alguien (para el perfil y para que el servidor de juego sepa desde dónde sigue). */
 export async function loadAchievementRecord(client: Client, userId: string): Promise<AchievementRecord> {
   const [stats, unlocked] = await Promise.all([
-    client.userStat.findMany({ where: { userId }, select: { key: true, value: true } }),
+    // Las casillas de la mochila también viven en UserStat, pero no son estadísticas.
+    client.userStat.findMany({ where: { userId, NOT: { key: { startsWith: BAG_SLOT_PREFIX } } }, select: { key: true, value: true } }),
     client.userAchievement.findMany({ where: { userId }, select: { achievementId: true, unlockedAt: true } }),
   ]);
   return {

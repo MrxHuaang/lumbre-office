@@ -14,6 +14,7 @@ import { LumbreLogo } from "./lumbre/Logo";
 const TIPS = [
   "Acércate a algo con un rombito dorado y aprieta E.",
   "Con F usas lo que tienes en la mano: un tinto, un trago, un cigarro…",
+  "Tab cambia la fila de la barra y los números eligen la casilla: lo elegido va en la mano.",
   "T abre los emotes. Enter, el chat.",
   "En la tienda de la planta baja se compran muebles para tu oficina.",
   "El casino, el club, el cine y el arcade están en el sótano.",

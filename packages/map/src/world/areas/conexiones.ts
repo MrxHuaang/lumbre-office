@@ -24,6 +24,11 @@ export const CONEXIONES = {
     escaleraTerraza: { tiles: [{ x: 59, y: 27 }], llegada: { x: 59, y: 28, facing: "down" } },
     /** La puerta chica del garaje, pegado al oeste de la torre (el garaje está en (33, 22) y mide 5x5). */
     garaje: { tiles: [{ x: 36, y: 27 }], llegada: { x: 36, y: 28, facing: "down" } },
+    /**
+     * El pie de la escalera de cuerda de la casa del árbol, en el huerto de frutales (el árbol está en
+     * (11, 54) y mide 4x4; la escalera cuelga frente al segundo tile).
+     */
+    casaArbol: { tiles: [{ x: 12, y: 58 }], llegada: { x: 12, y: 59, facing: "down" } },
   },
   plantaBaja: {
     /** La puerta de entrada del recibidor, al centro de la fachada sur (detrás del porche del jardín). */
@@ -52,6 +57,17 @@ export const CONEXIONES = {
   garaje: {
     /** La puerta de la pared sur del taller (se sale al jardín, frente a la puerta chica). */
     entrada: { tiles: par(6, 10), llegada: { x: 6, y: 9, facing: "up" } },
+  },
+  casaArbol: {
+    /** La trampilla del piso, cerca del rincón del frente: se llega a su lado, mirando a la mesita. */
+    trampilla: { tiles: [{ x: 5, y: 4 }], llegada: { x: 5, y: 3, facing: "left" } },
+  },
+  megabus: {
+    /**
+     * Las tres puertas del bus por dentro (en la pared baja del sur: la de atrás y las dos de adelante). No
+     * se entra por un portal: se sube con E en la estación y se llega junto a la puerta más cercana.
+     */
+    puertas: { tiles: [{ x: 4, y: 5 }, { x: 13, y: 5 }, { x: 18, y: 5 }], llegada: { x: 13, y: 2, facing: "right" } },
   },
 } satisfies Record<string, Record<string, Conexion>>;
 

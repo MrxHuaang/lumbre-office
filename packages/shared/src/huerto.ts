@@ -276,7 +276,7 @@ export const JARDIN_USABLES: Record<string, UsableSpec> = {
 
 export const HUERTO_MSG = { shedTake: "huerto:shed", notice: "huerto:notice" } as const;
 
-export const HuertoNoticeCode = z.enum(["seeds", "noCan", "emptyCan", "wet", "growing", "notYours", "tooMany", "honeyWait", "hands", "far", "indoor", "outdoor", "noWater", "inside"]);
+export const HuertoNoticeCode = z.enum(["seeds", "noCan", "emptyCan", "wet", "growing", "notYours", "tooMany", "honeyWait", "hands", "far", "indoor", "outdoor", "noWater", "inside", "full", "haveCan"]);
 export type HuertoNoticeCode = z.infer<typeof HuertoNoticeCode>;
 
 /** Servidor → quien lo intentó: por qué no se pudo (con cuánto falta o de quién es, si aplica). */
@@ -292,9 +292,9 @@ export function huertoNoticeText(n: HuertoNotice): string {
   const wait = n.waitMs !== undefined ? durationText(n.waitMs) : "";
   switch (n.code) {
     case "seeds":
-      return "La parcela está vacía: saca semillas del cobertizo para sembrar.";
+      return "La parcela está vacía: elige unas semillas en la barra (se sacan del cobertizo) para sembrar.";
     case "noCan":
-      return "Para llenarla necesitas la regadera del cobertizo.";
+      return "Para llenarla, elige en la barra la regadera del cobertizo.";
     case "emptyCan":
       return "La regadera está vacía: llénala en el barril de agua o en el pozo.";
     case "wet":
@@ -319,5 +319,9 @@ export function huertoNoticeText(n: HuertoNotice): string {
       return "En los bancales del invernadero va lo de tierra caliente (uchuva, pitahaya, cacao, café).";
     case "noWater":
       return "En el invernadero la tierra siempre está húmeda: no hace falta regar.";
+    case "full":
+      return "No te cabe en la mochila: haz espacio (tira algo o pon un mueble en tu oficina).";
+    case "haveCan":
+      return "Ya tienes una regadera en la mochila.";
   }
 }

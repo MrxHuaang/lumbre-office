@@ -5,6 +5,9 @@ import { PixelCanvas, alpha, at, hex } from "./pixel";
 export * from "./pixel";
 export * from "./palette";
 export * from "./chibi";
+// La piscina: la hoja de nado y lo que se anima sobre el agua.
+export { drawSwimming, SWIM_DROP } from "./chibi-agua";
+export { poolCover, poolFloat, poolShimmer, POOL_SHIMMER_FRAMES, waterDroplet, waterRing, type PoolFloatKind } from "./agua";
 export { drawFurniture, type Variant } from "./furniture";
 export { handsetSprite, phoneBubble } from "./phone";
 export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";
@@ -21,6 +24,10 @@ export { ACUARIO_SWIM, aquariumBubble, miniFish, MINI_FISH_H, MINI_FISH_W } from
 export { doorNotesArt } from "./door-notes";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
+// La casa del árbol: la escalera de cuerda recogida con el cartel "OCUPADO" (la cambia el cliente).
+export { drawTreeLadder } from "./casa-arbol-exterior";
+// El Megabús de la parada del jardín: el bus que arma el cliente, las puertas y la pantalla de la estación.
+export { BUS_CAR_LEN, busCarSprite, busJointSprite, busScreenText, stationDoorsSprite, type BusCar } from "./bus";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 // Las estaciones (ver apps/web/src/game/seasons.ts).

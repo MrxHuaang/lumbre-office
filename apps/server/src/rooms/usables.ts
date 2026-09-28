@@ -6,7 +6,6 @@ import {
   FurnitureUseMessage,
   counterMax,
   furnitureKey,
-  isFreeHold,
   isSwitchedOn,
   pickGift,
   stepsTo,
@@ -36,8 +35,8 @@ export interface CasaOptions {
   counters?: Counters;
   /** userId de quien está en el cubículo con esa clave (o undefined si está libre). */
   occupant?: (key: string) => string | undefined;
-  /** Lo que lleva en la mano esa persona (HeldItems.get): lo gratis no reemplaza lo que se pagó. */
-  holding?: (userId: string) => string | undefined;
+  /** ¿Le cabe en la mochila algo de lo que da el mueble? (lo gratis va a la mochila). */
+  bagFits?: (userId: string, items: readonly string[]) => boolean;
 }
 
 export type FurnitureUseResult =
@@ -53,8 +52,8 @@ export type FurnitureUseResult =
       /** Casa viva: el cubículo del baño al que se entra. */
       stall?: string;
     }
-  /** `hands`: lleva algo pagado en la mano (lo gratis lo reemplazaría); `stall`: el baño está ocupado. */
-  | { ok: false; error: "invalid" | "far" | "busy" | "hands" | "stall" };
+  /** `full`: lo gratis no le cabe en la mochila; `stall`: el baño está ocupado. */
+  | { ok: false; error: "invalid" | "far" | "busy" | "full" | "stall" };
 
 /** El mueble usable de ese tipo con esquina en (x, y), si existe en el nivel. */
 export function usableAt(map: OfficeMap, type: string, x: number, y: number): PlacedFurniture | undefined {
@@ -125,9 +124,8 @@ export class FurnitureUses {
     // Lo gratis tiene su propia pausa (más larga), y a un cubículo ocupado no se entra.
     const freebie = spec.action === "take" || spec.action === "roast";
     if (freebie && now < (this.freebieAt.get(who.userId) ?? 0)) return { ok: false, error: "busy" };
-    // Lo gratis no pisa lo que se compró con puntos (un whisky, un combo): hay que terminarlo primero.
-    const held = freebie ? this.casa.holding?.(who.userId) : undefined;
-    if (held && !isFreeHold(held)) return { ok: false, error: "hands" };
+    // Lo gratis va a la mochila: tiene que caber (sin pisar nada de lo que se lleva).
+    if (freebie && spec.gives?.length && this.casa.bagFits && !this.casa.bagFits(who.userId, spec.gives)) return { ok: false, error: "full" };
     if (spec.action === "stall") {
       const inside = this.casa.occupant?.(key);
       if (inside && inside !== who.userId) return { ok: false, error: "stall" };

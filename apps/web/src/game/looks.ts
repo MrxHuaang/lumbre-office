@@ -1,4 +1,4 @@
-import { drawCharacter, drawSitting, FRAME, styleFor, type CharacterStyle } from "@hyvento/map/art";
+import { drawCharacter, drawSitting, drawSwimming, FRAME, PixelCanvas, styleFor, type CharacterStyle } from "@hyvento/map/art";
 import { Look } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { toHtmlCanvas } from "./iso/canvas";
@@ -38,6 +38,22 @@ export function ensureCharacterTextures(scene: Phaser.Scene, avatar: string, loo
   if (!scene.textures.exists(key)) addSheet(scene, key, drawCharacter(style));
   if (!scene.textures.exists(`${key}-sit`)) addSheet(scene, `${key}-sit`, drawSitting(style));
   return key;
+}
+
+/**
+ * Hoja de nado de un personaje (`<clave>-swim`, medio cuerpo en el agua): se arma la primera vez que
+ * alguien con esa pinta se mete a la piscina, desde su hoja de caminata ya dibujada.
+ */
+export function ensureSwimTexture(scene: Phaser.Scene, key: string): string {
+  const swimKey = `${key}-swim`;
+  if (scene.textures.exists(swimKey)) return swimKey;
+  const src = scene.textures.exists(key) ? (scene.textures.get(key).getSourceImage() as HTMLCanvasElement) : null;
+  const ctx = src && "getContext" in src ? src.getContext("2d") : null;
+  if (!src || !ctx) return key;
+  const walk = new PixelCanvas(src.width, src.height);
+  walk.data.set(ctx.getImageData(0, 0, src.width, src.height).data);
+  addSheet(scene, swimKey, drawSwimming(walk));
+  return swimKey;
 }
 
 const urlCache = new Map<string, string>();

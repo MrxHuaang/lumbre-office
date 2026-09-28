@@ -17,7 +17,8 @@ function garden() {
     plots,
     create: () => ({}) as PlotState,
     repo: () => ({ loadGarden: async () => [], saveGardenPlot: async (id) => void saved.push(id) }),
-    held: { get: () => undefined, give: () => {}, spend: () => null },
+    held: { get: () => undefined, spend: () => null, fill: () => false },
+    bag: { fits: () => "ok", add: async () => "ok" },
     award: async () => 0,
   });
   return { plots, huerto, saved };

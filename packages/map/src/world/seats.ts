@@ -24,6 +24,8 @@ const SEAT_Z: Record<string, number> = {
   "deck-chair": 10,
   // La banca en herradura de la glorieta (sobre la plataforma de piedra).
   gazebo: 12,
+  // La reposera de la piscina, casi a ras del deck.
+  "sun-lounger": 7,
 };
 
 /** Altura del asiento de un tipo, contando la grada donde está (butacas del cine). */

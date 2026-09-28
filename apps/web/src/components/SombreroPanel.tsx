@@ -2,7 +2,7 @@
 
 // El menú del Man del Sombrero: un diálogo en susurros y su "tienda" de contrabando (todo ficticio, con
 // efectos cómicos). Cozy pero turbio: luz tenue de bombillo, papel manchado y letra de susurro. Lo que se
-// compra queda en la mano como lo de la cafetería y se usa con F; el servidor valida que esté, que uno esté
+// compra va a la mochila (y a la mano) como lo de la cafetería y se usa con F; el servidor valida que esté, que uno esté
 // junto a él y el saldo.
 import { drawMenuItem } from "@hyvento/map/art";
 import {

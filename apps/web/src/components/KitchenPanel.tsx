@@ -1,15 +1,14 @@
 "use client";
 
-// La cocina de la planta baja (E frente a una estufa): la despensa de cada persona y las recetas con lo
-// del huerto y la miel. Lo cosechado se guarda en la despensa (aquí o en el cobertizo del huerto); el
-// plato queda en la mano y da puntos o, al primer bocado, un rato de energía. El servidor valida que
-// estés junto a la estufa y que alcancen los ingredientes; aquí solo se muestra.
+// La cocina de la planta baja (E frente a una estufa): las recetas con lo del huerto y la miel que tienes
+// en la mochila (tu despensa). El plato va a la mochila (y a la mano) y da puntos o, al primer bocado, un
+// rato de energía. El servidor valida que estés junto a la estufa y que alcancen los ingredientes; aquí
+// solo se muestra.
 import { drawHeldItem } from "@hyvento/map/art";
-import { COCINA, INGREDIENTS, RECIPES, canCook, ingredientName, isIngredient, type Pantry, type Recipe } from "@hyvento/shared";
+import { COCINA, INGREDIENTS, RECIPES, canCook, ingredientName, type Recipe } from "@hyvento/shared";
 import { useEffect, useMemo } from "react";
-import { requestPantry, sendCook, sendPantryStore, useCocinaStore } from "@/game/cocina";
+import { requestPantry, sendCook, useCocinaStore } from "@/game/cocina";
 import { toHtmlCanvas } from "@/game/iso/canvas";
-import { useOfficeStore } from "@/game/store";
 import { PixelIcon } from "./Cozy";
 import { PanelShell } from "./PointsPanels";
 
@@ -19,43 +18,17 @@ export function ItemArt({ id, size = 8 }: { id: string; size?: 6 | 8 }) {
   return src ? <img src={src} alt="" className={`${box} shrink-0 object-contain [image-rendering:pixelated]`} /> : <span className={`${box} shrink-0`} />;
 }
 
-/** Lo que llevo en la mano ("" = nada). */
-function useHeldItem() {
-  return useOfficeStore((s) => (s.sessionId ? (s.players[s.sessionId]?.held ?? "") : ""));
-}
-
 function effectText(r: Recipe): string {
   if (r.effect.kind === "points") return `+${r.effect.amount} pts`;
   const min = r.effect.ms / 60_000;
   return `Energía ${Math.round((r.effect.mul - 1) * 100)} % · ${min >= 1 ? `${Math.round(min * 10) / 10} min` : `${Math.round(r.effect.ms / 1000)} s`}`;
 }
 
-/** Guardar lo que llevo en la mano en la despensa (en la cocina o en el cobertizo). */
-export function PantryStoreButton({ atObject }: { atObject: boolean }) {
-  const held = useHeldItem();
-  const can = atObject && isIngredient(held);
-  return (
-    <button type="button" disabled={!can} onClick={sendPantryStore} className="cozy-btn flex items-center gap-3 px-3 py-2 text-left">
-      {isIngredient(held) ? <ItemArt id={held} /> : <PixelIcon name="bag" size={16} color="var(--color-cozy-wood)" />}
-      <span className="flex-1">
-        <span className="block font-semibold">{isIngredient(held) ? `Guardar ${ingredientName(held).toLowerCase()} en la despensa` : "Guardar en la despensa"}</span>
-        <span className="block text-[12px] text-cozy-ink-soft">Lo del huerto y la miel esperan en la cocina para cocinar (hasta {COCINA.pantryMax} de cada uno).</span>
-      </span>
-    </button>
-  );
-}
-
 export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose: () => void }) {
   const pantry = useCocinaStore((s) => s.pantry);
   const pointsToday = useCocinaStore((s) => s.pointsToday);
-  const held = useHeldItem();
   useEffect(() => requestPantry(), []);
-  // Lo de la mano también cuenta al cocinar (el servidor lo guarda primero).
-  const available: Pantry = useMemo(() => {
-    const p: Record<string, number> = { ...(pantry ?? {}) };
-    if (isIngredient(held)) p[held] = (p[held] ?? 0) + 1;
-    return p;
-  }, [pantry, held]);
+  const available = pantry ?? {};
 
   return (
     <PanelShell title="Cocina" icon="pot" onClose={onClose} wide>
@@ -67,7 +40,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
 
         <section aria-label="Tu despensa" className="flex flex-col gap-2">
           <p className="flex items-baseline justify-between font-semibold">
-            Tu despensa
+            Tu despensa (lo de tu mochila)
             <span className="text-[12px] font-normal text-cozy-ink-soft">
               Hoy: {pointsToday}/{COCINA.pointsDailyCap} pts
             </span>
@@ -87,7 +60,6 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
               })}
             </ul>
           )}
-          <PantryStoreButton atObject={atObject} />
         </section>
 
         <section aria-label="Recetas" className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">

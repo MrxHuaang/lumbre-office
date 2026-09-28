@@ -3,7 +3,7 @@ import { drinkPart, MSG, ROOM_NAME, TOAST, usesOf, type ToastEvent, type ToastRe
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
-import type { HeldItems } from "../src/rooms/consumables";
+import type { Bag } from "../src/rooms/bag";
 import type { Drunkenness } from "../src/rooms/drunk";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import { Toasts, type Toaster } from "../src/rooms/toasts";
@@ -182,8 +182,8 @@ afterEach(() => {
   OfficeRoom.toastTimings = { ...TOAST };
 });
 
-/** Lo de la sala que el test toca por dentro (dar algo en la mano, mirar la borrachera). */
-type RoomInside = { held: HeldItems; drunk: Drunkenness };
+/** Lo de la sala que el test toca por dentro (poner algo en la mochila y la mano, mirar la borrachera). */
+type RoomInside = { held: Bag; drunk: Drunkenness };
 
 async function inRoom() {
   const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
@@ -219,8 +219,8 @@ describe("brindis en la sala", () => {
 
   it("brindan los dos: cada uno toma un sorbo de su vaso y el alcohol cuenta", async () => {
     const { room, alice, bob, inside, events } = await inRoom();
-    inside.held.give("u-alice", "whisky");
-    inside.held.give("u-bob", "desayuno-tinto"); // en el combo, brinda con el tinto
+    await inside.held.add("u-alice", "obj:whisky", 1, { pick: true });
+    await inside.held.add("u-bob", "obj:tinto", 1, { pick: true });
     await room.waitForNextPatch();
     alice.send(MSG.toast);
     await tick(40);
@@ -234,7 +234,7 @@ describe("brindis en la sala", () => {
       { sessionId: bob.sessionId, part: 0, left: usesOf("tinto") - 1 },
     ]);
     expect(room.state.players.get(alice.sessionId)!.heldLeft).toBe(String(usesOf("whisky") - 1));
-    expect(room.state.players.get(bob.sessionId)!.heldLeft).toBe(`${usesOf("tinto") - 1},${usesOf("cigarro")}`);
+    expect(room.state.players.get(bob.sessionId)!.heldLeft).toBe(String(usesOf("tinto") - 1));
     // Un sorbo de whisky no alcanza para "alegre", pero quedó anotado.
     expect(inside.drunk.stage("u-alice")).toBe(0);
     inside.drunk.consumed("u-alice", "whisky");
@@ -243,8 +243,8 @@ describe("brindis en la sala", () => {
 
   it("si el otro no responde, se vence solo", async () => {
     const { room, alice, inside, events } = await inRoom();
-    inside.held.give("u-alice", "cerveza");
-    inside.held.give("u-bob", "cerveza");
+    await inside.held.add("u-alice", "obj:cerveza", 1, { pick: true });
+    await inside.held.add("u-bob", "obj:cerveza", 1, { pick: true });
     await room.waitForNextPatch();
     alice.send(MSG.toast);
     await tick(550);

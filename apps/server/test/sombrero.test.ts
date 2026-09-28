@@ -17,7 +17,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { bootServer, tick, token, walkToTile } from "./helpers";
+import { bootServer, tick, token, walkToTile, holdItem } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -192,6 +192,8 @@ describe("el Man del Sombrero: los efectos", () => {
     expect(me().trip).toBe("acelere");
     await tick(1600);
     await buy("yage");
+    // Con el perico todavía en la mano, el yagé va a la mochila: se elige en la barra.
+    await holdItem(alice, room, "obj:yage");
     alice.send(MSG.useHeld);
     await tick(80);
     await room.waitForNextPatch();

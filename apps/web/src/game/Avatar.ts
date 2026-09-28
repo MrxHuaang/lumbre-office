@@ -17,6 +17,9 @@ import {
   singerMic,
   SIT_DROP,
   sparkleSprite,
+  SWIM_DROP,
+  waterDroplet,
+  waterRing,
 } from "@hyvento/map/art";
 import {
   achievementById,
@@ -24,7 +27,7 @@ import {
   DRUNK,
   EMOTE,
   emoteInfo,
-  heldParts,
+  handParts,
   parseHeldLeft,
   spinMs,
   spinProgress,
@@ -47,6 +50,8 @@ import { SWAY_DEG } from "./drunk";
 import { sfx, volAt } from "./sfx";
 import type { NameTagMode } from "./store";
 import { depthOf, ensureTexture, furnitureImage, worldToScreen } from "./iso/view";
+import { ensureSwimTexture } from "./looks";
+import { poolSfx } from "./piscina/sound";
 
 /** La silla de la carrera de sillas. */
 const RIDE_CHAIR = "office-chair";
@@ -124,6 +129,16 @@ interface HeldPart {
 export const STATUS_COLORS = Object.fromEntries(
   Object.entries(STATUS_HEX).map(([k, v]) => [k, hexToInt(v)]),
 ) as Record<PresenceStatus, number>;
+
+/** Brazadas de la hoja de nado (`<clave>-swim`): los mismos cuadros que la caminata, más lentos. */
+function ensureSwimAnimations(scene: Phaser.Scene, swimKey: string) {
+  for (const dir of SHEET_DIRECTIONS) {
+    const animKey = `${swimKey}-${dir}`;
+    if (scene.anims.exists(animKey)) continue;
+    const base = ROW[dir] * FRAMES;
+    scene.anims.create({ key: animKey, frames: scene.anims.generateFrameNumbers(swimKey, { frames: [base + 1, base, base + 2, base] }), frameRate: 5, repeat: -1 });
+  }
+}
 
 /** Registra las animaciones de caminata de una hoja de personaje (idempotente). */
 export function ensureAnimations(scene: Phaser.Scene, key: string) {
@@ -250,7 +265,10 @@ export class Avatar {
     this.speakingRing = scene.add.ellipse(0, 0, 18, 8).setStrokeStyle(1.5, hexToInt(SPEAKING_COLOR), 0.95).setVisible(false);
     // Los pasos, al ritmo de la caminata: la hoja va 1-0-2-0 y el pie apoya en los cuadros 1 y 2.
     this.sprite.on(Phaser.Animations.Events.ANIMATION_UPDATE, (_anim: unknown, frame: Phaser.Animations.AnimationFrame) => {
-      if (frame.index % 2 === 1 && this.moving && !this.seated) sfx.stepAt(this.wx, this.wy, this.soundVol() * (this.isLocal ? 1 : 0.8), this.isLocal);
+      if (frame.index % 2 !== 1 || !this.moving || this.seated) return;
+      // Nadando, en vez de pasos, brazadas.
+      if (this.swimming) poolSfx.stroke(this.soundVol() * (this.isLocal ? 1 : 0.7));
+      else sfx.stepAt(this.wx, this.wy, this.soundVol() * (this.isLocal ? 1 : 0.8), this.isLocal);
     });
     this.layout();
   }
@@ -288,6 +306,7 @@ export class Avatar {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
+    if (this.swimming) this.shadow.setVisible(false);
     this.badge?.img.setVisible(!hidden);
     this.ride?.img.setVisible(!hidden);
     if (this.ride) this.shadow.setVisible(false);
@@ -572,7 +591,8 @@ export class Avatar {
       return;
     }
     this.clearHeld();
-    const parts = heldParts(id);
+    // Lo que no sale de ninguna carta (lo nuevo de la mochila) se lleva igual: su id es su dibujo.
+    const parts = handParts(id);
     if (parts.length === 0) return;
     this.held = { id, clearing: false, parts: parts.map((art, i) => this.makeHeldPart(art, i === 0 ? 0 : 1, counts[i] ?? usesOf(art))) };
     // Recién pedido un cigarro o un habano: se prende con el encendedor.
@@ -783,7 +803,9 @@ export class Avatar {
     if (textureKey === this.textureKey) return;
     ensureAnimations(this.scene, textureKey);
     this.textureKey = textureKey;
-    if (this.seated) {
+    if (this.swimming) {
+      this.applySwim();
+    } else if (this.seated) {
       this.sprite.setTexture(`${textureKey}-sit`, ROW[this.seated]);
       this.syncSeatHead();
     } else if (this.moving) {
@@ -951,6 +973,13 @@ export class Avatar {
       this.dir = dir;
       return;
     }
+    if (this.swimming) {
+      const changed = dir !== this.dir || moving !== this.moving;
+      this.dir = dir;
+      this.moving = moving;
+      if (changed && !this.dive) this.applySwim();
+      return;
+    }
     if (dir === this.dir && moving === this.moving) return;
     this.dir = dir;
     this.moving = moving;
@@ -1029,6 +1058,7 @@ export class Avatar {
   sway(time: number) {
     if (this.destroyed) return;
     this.syncSeatHead();
+    this.waterFx(time);
     if (this.drunk === 4) return this.faintPose(time);
     this.tripFx(time);
     if (!this.drunk) return;
@@ -1462,6 +1492,131 @@ export class Avatar {
     });
   }
 
+  // ---------- La piscina ----------
+
+  private swimming = false;
+  private wet = false;
+  private nextDripAt = 0;
+  private nextRippleAt = 0;
+  /** El chapuzón en curso: de dónde a dónde (px de mundo) y el avance (0..1). */
+  private dive?: { from: { x: number; y: number }; to: { x: number; y: number }; k: number; tween?: Phaser.Tweens.Tween };
+
+  get isSwimming() {
+    return this.swimming;
+  }
+
+  get isDiving() {
+    return Boolean(this.dive);
+  }
+
+  /** Nadando en la piscina: medio cuerpo con el agua alrededor (hoja `-swim`) y sin sombra. */
+  setSwimming(on: boolean) {
+    if (on === this.swimming) return;
+    this.swimming = on;
+    if (on) {
+      this.stopDance();
+      this.stopPerform();
+      this.stopGesture();
+    }
+    // Entrar o salir por la escalera chapotea (el trampolín ya suena al caer).
+    if (this.settled && !this.dive) poolSfx.slosh(this.soundVol());
+    if (this.dive) return; // al terminar el salto se pone la hoja que toque
+    this.shadow.setVisible(!on && !this.seated && !this.hidden && !this.ride);
+    if (on) this.applySwim();
+    else {
+      this.sprite.anims.timeScale = 1;
+      this.sprite.stop();
+      this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES);
+      if (this.moving) this.sprite.play(`${this.textureKey}-walk-${this.dir}`, true);
+    }
+    this.layout();
+  }
+
+  /** La hoja de nado en la dirección de ahora: brazadas (más lentas si está quieto, flotando). */
+  private applySwim() {
+    const swimKey = ensureSwimTexture(this.scene, this.textureKey);
+    ensureSwimAnimations(this.scene, swimKey);
+    this.sprite.play(`${swimKey}-${this.dir}`, true);
+    this.sprite.anims.timeScale = this.moving ? 1.3 : 0.5;
+  }
+
+  /** Recién salido del agua: gotea un rato. */
+  setWet(on: boolean) {
+    this.wet = on;
+  }
+
+  /**
+   * Se tira del trampolín: sube un poco desde la punta del tablón, da media vuelta en el aire y cae al
+   * agua con salpicadura. Lo ven todos los del nivel; la posición real ya es la de donde cae.
+   */
+  diveFrom(from: { x: number; y: number }, to: { x: number; y: number }, ms: number, onSplash: () => void) {
+    this.dive?.tween?.remove();
+    this.stopDance();
+    this.stopPerform();
+    this.stopGesture();
+    this.shadow.setVisible(false);
+    this.sprite.stop();
+    // Los brazos arriba (el cuadro del paso) mirando hacia donde salta.
+    const dir: Direction = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y) ? (to.x > from.x ? "right" : "left") : to.y > from.y ? "down" : "up";
+    this.dir = dir;
+    this.sprite.setTexture(this.textureKey, ROW[dir] * FRAMES + 1);
+    const state: NonNullable<Avatar["dive"]> = { from, to, k: 0 };
+    this.dive = state;
+    state.tween = this.scene.tweens.add({
+      targets: state,
+      k: 1,
+      duration: ms,
+      ease: "Linear",
+      onUpdate: () => this.layout(),
+      onComplete: () => {
+        if (this.dive === state) this.dive = undefined;
+        this.sprite.setAngle(0);
+        if (this.destroyed) return;
+        onSplash();
+        if (this.swimming) this.applySwim();
+        else this.sprite.setTexture(this.textureKey, ROW[this.dir] * FRAMES);
+        this.shadow.setVisible(!this.swimming && !this.seated && !this.hidden);
+        this.layout();
+      },
+    });
+    this.layout();
+  }
+
+  /** Dónde va el cuerpo en el salto (pantalla) y cómo gira; null si no está saltando. */
+  private diveArc(): { x: number; y: number } | null {
+    const d = this.dive;
+    if (!d) return null;
+    const k = d.k;
+    const p = worldToScreen(d.from.x + (d.to.x - d.from.x) * k, d.from.y + (d.to.y - d.from.y) * k);
+    // Sale del tablón (un poco más alto que el deck), sube y cae de cabeza al agua.
+    const z = 10 + Math.sin(k * Math.PI) * 20 - k * 16;
+    const side = this.dir === "left" || this.dir === "up" ? -1 : 1;
+    this.sprite.setAngle(side * Math.max(0, (k - 0.35) / 0.65) * 160);
+    return { x: p.x, y: p.y - z };
+  }
+
+  /** Gotas de quien sale mojado y ondas alrededor de quien nada (cada tanto). */
+  private waterFx(time: number) {
+    if (this.hidden || this.veiled || this.dive) return;
+    const s = worldToScreen(this.wx, this.wy);
+    if (this.swimming) {
+      if (time < this.nextRippleAt) return;
+      this.nextRippleAt = time + (this.moving ? 420 : 1500) + Math.random() * 300;
+      const key = ensureTexture(this.scene, "onda-piscina", () => waterRing(8, 3));
+      const ring = this.scene.add.image(Math.round(s.x), Math.round(s.y) + 3, key).setDepth(depthOf(this.wx, this.wy) + 0.3).setAlpha(0.9);
+      this.scene.tweens.add({ targets: ring, scaleX: 2, scaleY: 2, alpha: 0, duration: 1100, ease: "Sine.out", onComplete: () => ring.destroy() });
+      return;
+    }
+    if (!this.wet || time < this.nextDripAt) return;
+    this.nextDripAt = time + 260 + Math.random() * 420;
+    const key = ensureTexture(this.scene, "gota-piscina", () => waterDroplet());
+    const top = BODY_UP.shoulder - (this.seated ? SIT_DROP : 0);
+    const drop = this.scene.add
+      .image(Math.round(s.x) + Math.round((Math.random() - 0.5) * 10), Math.round(s.y) - top + Math.round(Math.random() * 10), key)
+      .setDepth(depthOf(this.wx, this.wy) + 0.62);
+    this.scene.tweens.add({ targets: drop, y: Math.round(s.y) + 1, alpha: 0.3, duration: 420 + Math.random() * 200, ease: "Quad.in", onComplete: () => drop.destroy() });
+  }
+
   /** Fase del teléfono (CallPhase del servidor): "", "calling", "ringing" o "talking". */
   setCall(phase: string) {
     if ((this.phone?.phase ?? "") === phase) return;
@@ -1508,6 +1663,7 @@ export class Avatar {
 
   destroy() {
     this.destroyed = true;
+    this.dive?.tween?.remove();
     this.clearPhone();
     this.spinning?.tween.remove();
     this.clearVideo();
@@ -1532,11 +1688,14 @@ export class Avatar {
   }
 
   private layout() {
-    const s = worldToScreen(this.wx, this.wy);
+    // En pleno chapuzón del trampolín el cuerpo va por el aire, del tablón al agua.
+    const arc = this.diveArc();
+    const s = arc ?? worldToScreen(this.wx, this.wy);
     const pose = this.seated ? this.seatPose : null;
     // Sentado, el cuerpo se corre hacia el cojín del asiento (seatShift) y sube o baja a su altura.
+    // Nadando, la línea del agua queda un poco más abajo que el deck (la pileta está hundida).
     const x = Math.round(s.x) + (pose?.dx ?? 0);
-    const y = Math.round(s.y) + (pose?.dy ?? 0) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0);
+    const y = Math.round(s.y) + (pose?.dy ?? 0) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0) + (this.swimming && !arc ? 2 : 0);
     if (this.ride) {
       // La silla va debajo (o delante, de espaldas: el respaldo tapa) y rueda con el personaje.
       const a = worldToScreen(this.wx - 16, this.wy - 16);
@@ -1544,9 +1703,10 @@ export class Avatar {
       this.ride.img.setPosition(Math.round(a.x + this.ride.dx), Math.round(a.y + this.ride.dy)).setDepth(seatBehind(RIDE_CHAIR, this.ride.facing) ? d + 0.6 : d + 0.4);
     }
     // Sentado se ordena con el mueble (+0.5: encima de él); así un tronco largo no lo tapa. De espaldas
-    // tras un respaldo, el cuerpo va debajo del mueble y la cabeza encima (syncSeatHead).
+    // tras un respaldo, el cuerpo va debajo del mueble y la cabeza encima (syncSeatHead). Saltando del
+    // trampolín, por encima del agua y del tablón.
     const behind = this.behindBack();
-    const base = pose ? pose.depth : depthOf(this.wx, this.wy);
+    const base = pose ? pose.depth : arc ? depthOf(this.wx, this.wy) + 64 : depthOf(this.wx, this.wy);
     const depth = pose && behind ? base - 1 : base;
     // Bailando da saltitos de 2 px; tocando un instrumento, de 1 px.
     // Un gesto de emote corre al personaje unos píxeles (lo de las manos lo sigue).
@@ -1562,10 +1722,12 @@ export class Avatar {
       const face = this.spinning?.face ?? this.seated ?? this.dir;
       const hands = HANDS[face];
       const front = face === "down" || face === "right";
-      // Sentado, las manos quedan más abajo (sobre las piernas) y la boca también.
-      const bottom = y + 1 - hop - (BODY_UP.hand - 1 - (this.seated ? SIT_DROP : 0));
+      // Sentado, las manos quedan más abajo (sobre las piernas) y la boca también. Nadando, todo baja con
+      // el cuerpo (el vaso asoma sobre el agua).
+      const drop = this.swimming ? SWIM_DROP - 3 : 0;
+      const bottom = y + 1 - hop - (BODY_UP.hand - 1 - (this.seated ? SIT_DROP : 0)) + drop;
       const mouthX = x + g.x + MOUTH[face].dx;
-      const mouthY = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
+      const mouthY = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING) + drop;
       for (const part of this.held.parts) {
         const hand = hands[part.hand];
         const img = part.image;
@@ -1584,7 +1746,7 @@ export class Avatar {
       }
     }
     // Con cámara, el nombre va sobre la burbuja de video. Los textos van por encima de todo.
-    const head = HEAD - (this.seated ? SIT_DROP : 0);
+    const head = HEAD - (this.seated ? SIT_DROP : 0) - (this.swimming ? SWIM_DROP - 2 : 0);
     const top = this.video ? head + VIDEO_SIZE + 2 : head;
     this.video?.dom.setPosition(x, y - head + 2).setDepth(depth + 0.6);
     this.label.setPosition(x + 3, y - top).setDepth((this.hovered ? 5.5e7 : 5e7) + depth);

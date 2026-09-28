@@ -21,7 +21,10 @@ import {
   type Sprite,
 } from "./pixel";
 import { FOREST, interiorFeature, interiorFloor, interiorWall } from "./interior-room";
+import { roadFloor } from "./bus-calle";
+import { busWallFeature, rubberFloor } from "./bus-adentro";
 import { CEMENT, concreteFloor, garajeFeature, gravelFloor, wornPlanksFloor } from "./garaje-room";
+import { casaArbolFeature } from "./casa-arbol-room";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;
@@ -45,6 +48,9 @@ const WALLPAPER: Record<WallpaperKind, Ramp> = {
   slats: C.wood,
   colonial: C.cream,
   cinderblock: CEMENT,
+  treehouse: C.wood,
+  megabus: C.cream,
+  fuelle: C.stone,
   boards: C.logs,
 };
 /** El alfombrado toma el color del papel de la sala. */
@@ -65,6 +71,9 @@ const CARPET: Record<WallpaperKind, Ramp> = {
   slats: C.cream,
   colonial: C.green,
   cinderblock: C.stone,
+  treehouse: C.cork,
+  megabus: C.green,
+  fuelle: C.stone,
   boards: C.rug,
 };
 
@@ -263,6 +272,10 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return loungeFloor(X, Y);
     case "concrete":
       return concreteFloor(X, Y);
+    case "road":
+      return roadFloor(X, Y);
+    case "rubber":
+      return rubberFloor(X, Y);
     case "planks-worn":
       return wornPlanksFloor(X, Y);
     case "gravel":
@@ -369,6 +382,8 @@ const KIND_SET: Record<FloorKind, true> = {
   moquette: true,
   planks: true,
   concrete: true,
+  road: true,
+  rubber: true,
   "planks-worn": true,
   gravel: true,
 };
@@ -886,6 +901,12 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
     case "cobweb":
     case "dusty-window":
       return garajeFeature(f, u, hv, day);
+    // La casa del árbol (art/casa-arbol-room.ts).
+    case "treehouse-window":
+    case "bunting":
+      return casaArbolFeature(f, u, hv, day);
+    case "bus-window":
+      return busWallFeature(f, u, hv, day);
   }
 }
 
