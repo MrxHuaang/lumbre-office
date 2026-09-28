@@ -13,6 +13,7 @@ import {
   defaultOfficeItems,
   storedEdit,
   BLACKJACK_SEATS,
+  BOARD_TABLES,
   getWorld,
   nearPointOfType,
   nearPortal,
@@ -31,6 +32,11 @@ import {
   type Zone,
 } from "@hyvento/map";
 import {
+  BOARD_GAME,
+  BoardRankingMessage,
+  type BoardGameKind,
+  type BoardRanking,
+  type BoardResult,
   CAFE,
   CASINO,
   CafeOrderMessage,
@@ -152,6 +158,7 @@ import { Trades } from "./trades";
 import { CasaViva } from "./casa";
 import { Pets, type PetUser } from "./mascotas";
 import { Arcade } from "./arcade";
+import { BoardGames } from "./boardGames";
 import { HockeyTable } from "./hockey";
 import { Club, musicOf, type ClubWho } from "./club";
 import { Cinema } from "./cinema";
@@ -460,6 +467,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private huerto!: Huerto<GardenPlotState>;
   /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
   private hockey!: HockeyTable;
+  /** Ajedrez y damas de la sala de juegos (ver boardGames.ts). */
+  private boardGames!: BoardGames;
 
   private get repo() {
     return OfficeRoom.repo;
@@ -510,6 +519,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       award: (userId, amount) => this.awardLeisure(userId, amount),
     });
     this.startHockey();
+    this.startBoardGames();
     OfficeRoom.instances.add(this);
 
     this.onMessage(HUERTO_MSG.shedTake, (client, raw) => this.handleShed(client, raw));
@@ -594,6 +604,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const p = this.state.players.get(client.sessionId);
       if (p) this.hockey.leave(p.userId);
     });
+    this.onMessage(MSG.boardReady, (client, raw) => this.handleBoard(client, raw, "ready"));
+    this.onMessage(MSG.boardMove, (client, raw) => this.handleBoard(client, raw, "move"));
+    this.onMessage(MSG.boardResign, (client, raw) => this.handleBoard(client, raw, "resign"));
+    this.onMessage(MSG.boardDraw, (client, raw) => this.handleBoard(client, raw, "draw"));
+    this.onMessage(MSG.boardRanking, (client, raw) => void this.sendBoardRanking(client, raw));
     this.onMessage(MSG.clockPing, (client, raw) => {
       const parsed = ClockPingMessage.safeParse(raw);
       if (parsed.success) client.send(MSG.clockPong, { id: parsed.data.id, now: Date.now() } satisfies ClockPong);
@@ -2078,6 +2093,62 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       settled: (userId, settled) => this.clientOfUser(userId)?.send(MSG.hockeySettled, settled),
       bonus: (userId, amount) => this.awardLeisure(userId, amount),
     });
+  }
+
+  /** Ajedrez y damas: las mesas se revisan con el reloj de la sala; las victorias van al ranking. */
+  private startBoardGames() {
+    this.boardGames = new BoardGames({
+      state: this.state.boards,
+      tables: BOARD_TABLES,
+      now: () => Date.now(),
+      every: (ms, fn) => this.clock.setInterval(fn, ms),
+      sitterAt: (area, tx, ty) => {
+        const ts = this.mapOf(area).tileSize;
+        for (const p of this.state.players.values())
+          if (p.area === area && p.seated && Math.floor(p.x / ts) === tx && Math.floor(p.y / ts) === ty) return { userId: p.userId, name: p.name };
+        return null;
+      },
+      saveWin: async (win) => {
+        await this.repo.saveBoardWin(win);
+        this.boardRankings.delete(win.game);
+      },
+      settled: (userId, settled) => {
+        for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.boardSettled, settled);
+      },
+    });
+    this.boardGames.start();
+  }
+
+  private handleBoard(client: Client<UserData>, raw: unknown, kind: "ready" | "move" | "resign" | "draw") {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const g = this.boardGames;
+    const result = kind === "ready" ? g.ready(player.userId, raw) : kind === "move" ? g.move(player.userId, raw) : kind === "resign" ? g.resign(player.userId, raw) : g.draw(player.userId, raw);
+    if (result && !result.ok) client.send(MSG.boardResult, result satisfies BoardResult);
+  }
+
+  /** Rankings de victorias leídos hace poco (pedirlos en bucle no le pega a la base). */
+  private boardRankings = new Map<BoardGameKind, { at: number; ranking: BoardRanking }>();
+
+  private async sendBoardRanking(client: Client<UserData>, raw: unknown) {
+    const parsed = BoardRankingMessage.safeParse(raw);
+    if (!parsed.success) return;
+    const { game } = parsed.data;
+    const now = Date.now();
+    const cached = this.boardRankings.get(game);
+    if (cached && now - cached.at < BOARD_GAME.rankingCacheMs) return client.send(MSG.boardRankingResult, cached.ranking);
+    try {
+      const [week, all] = await Promise.all([
+        this.repo.boardRanking({ game, since: weekStart(now), limit: BOARD_GAME.rankingSize }),
+        this.repo.boardRanking({ game, since: 0, limit: BOARD_GAME.rankingSize }),
+      ]);
+      const ranking: BoardRanking = { game, week, all };
+      this.boardRankings.set(game, { at: now, ranking });
+      client.send(MSG.boardRankingResult, ranking);
+    } catch (err) {
+      console.error("boardRanking", err);
+    }
   }
 
   private async handleHockeyJoin(client: Client<UserData>, raw: unknown) {

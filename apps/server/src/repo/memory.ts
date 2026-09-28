@@ -5,6 +5,7 @@ import {
   stackUnits,
   tradeGap,
   type ArcadeGame,
+  type BoardGameKind,
   type CasinoSettingsDTO,
   type ChatEvent,
   type ItemStack,
@@ -202,6 +203,21 @@ export class MemoryRepository implements GameRepository {
       if (!b || r.ms < b.ms) best.set(r.userId, { name: r.name, ms: r.ms });
     }
     return { entries: [...best.values()].sort((a, b) => a.ms - b.ms).slice(0, limit), myBest: best.get(userId)?.ms ?? null };
+  }
+  /** Victorias de ajedrez y damas. */
+  boardWins: { userId: string; name: string; game: BoardGameKind; at: number }[] = [];
+  async saveBoardWin({ userId, name, game }: { userId: string; name: string; game: BoardGameKind }) {
+    this.boardWins.push({ userId, name, game, at: Date.now() });
+  }
+  async boardRanking({ game, since, limit }: { game: BoardGameKind; since: number; limit: number }) {
+    const wins = new Map<string, { name: string; wins: number }>();
+    for (const w of this.boardWins) {
+      if (w.game !== game || w.at < since) continue;
+      const e = wins.get(w.userId) ?? { name: w.name, wins: 0 };
+      e.wins += 1;
+      wins.set(w.userId, e);
+    }
+    return [...wins.values()].sort((a, b) => b.wins - a.wins).slice(0, limit);
   }
   async arcadeBoard({ game, since, limit }: { game: ArcadeGame; since: number; limit: number }) {
     const best = new Map<string, { name: string; score: number }>();
