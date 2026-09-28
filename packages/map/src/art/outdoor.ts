@@ -7,6 +7,7 @@ import { drawBusStation } from "./bus";
 import { drawPool } from "./agua";
 import { stageShell } from "./escenario";
 import { podcastBoothRoof } from "./podcast";
+import { drawObservatory } from "./observatorio-exterior";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -553,6 +554,7 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   pool: drawPool,
   "stage-shell": stageShell,
   "podcast-booth-roof": podcastBoothRoof,
+  observatory: drawObservatory,
 };
 
 export function hasOutdoor(type: string): boolean {

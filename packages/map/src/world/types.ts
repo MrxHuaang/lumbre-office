@@ -87,7 +87,9 @@ export type WallpaperKind =
   | "treehouse"
   // El Megabús por dentro: paneles claros con la franja verde lima, y los pliegues grises del fuelle.
   | "megabus"
-  | "fuelle";
+  | "fuelle"
+  // Observatorio: piedra de la torre con vigas de madera (curva, como la torre por fuera).
+  | "stonework";
 
 export interface ZoneDef {
   id: string;
@@ -128,7 +130,9 @@ export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board"
   // Casa del árbol: la ventana a la copa y la guirnalda de banderines.
   | "treehouse-window" | "bunting"
   // Megabús: las ventanas oscuras de piso a techo (con `text`, la pantalla de ruta encima).
-  | "bus-window";
+  | "bus-window"
+  // Observatorio: mapa estelar, el mural del cielo y la ventana redonda de ojo de buey.
+  | "star-chart" | "mural" | "porthole";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -234,7 +238,14 @@ export interface PointDef {
     // La granja del jardín: frente al horno y a la parrilla (el panel de cocinar) y el letrero del
     // gallinero (los nombres de los animales).
     | "grill"
-    | "farm_sign";
+    | "farm_sign"
+    // Observatorio: frente al telescopio, junto a la fogata de malvaviscos, frente al orrery (el modelo del
+    // sistema solar), frente al radar de señales y frente al escritorio con el diario de exploración.
+    | "telescope"
+    | "marshmallow_fire"
+    | "orrery"
+    | "signal_radar"
+    | "logbook";
   name: string;
   x: number;
   y: number;

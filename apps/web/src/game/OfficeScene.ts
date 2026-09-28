@@ -109,6 +109,7 @@ import { WorldEditor } from "./worldEditor";
 import { clientPoint, personAt, useSocialStore } from "./social";
 import { Usables, type UsableHit } from "./usables";
 import { FishingController } from "./fishing/controller";
+import { ObservatorioVivo } from "./observatorioVivo";
 import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
 import { setSfxArea, setSfxListener, sfx } from "./sfx";
@@ -204,6 +205,12 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "bus", point: "bus_stop", furniture: [] },
   { kind: "stage", point: "stage", furniture: ["stage-lectern", "stage-deck"] },
   { kind: "podcast", point: "podcast", furniture: ["podcast-desk"] },
+  // El observatorio: la fogata de malvaviscos del jardín y lo de adentro de la torre.
+  { kind: "marshmallow", point: "marshmallow_fire", furniture: ["marshmallow-fire"] },
+  { kind: "telescope", point: "telescope", furniture: ["brass-telescope"] },
+  { kind: "orrery", point: "orrery", furniture: ["orrery"] },
+  { kind: "radar", point: "signal_radar", furniture: ["signal-radar"] },
+  { kind: "logbook", point: "logbook", furniture: ["log-desk"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -315,6 +322,8 @@ export class OfficeScene extends Phaser.Scene {
   /** Pesca: la caña y el minijuego del jugador local, y las cañas de todos. */
   private fishing!: FishingController;
   private rods!: FishingRods;
+  /** El observatorio: el orrery que gira y el palito del malvavisco en la mano. */
+  private observatorio!: ObservatorioVivo;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
   /** Cumpleaños, karaoke y foco: el pastel, el neón y lo de sobre el nombre (ver eventos.ts). */
@@ -425,6 +434,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cleanups.push(onWorldEdits((area) => this.rebuildFromWorld(area)));
     this.fishing = new FishingController(this, () => this.local, () => this.map);
     this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
+    this.observatorio = new ObservatorioVivo(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
     this.club = new ClubMode(this, (id) => this.avatars.get(id), () => this.local, () => this.localId);
     this.eventsView = new EventsView(this, () => this.avatars, (id) => this.userOfSession.get(id));
     this.cinema = new CinemaMode(this, () => this.local);
@@ -539,6 +549,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.usables.destroy(),
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
+      () => this.observatorio.destroy(),
       () => this.club.destroy(),
       () => this.eventsView.destroy(),
       () => this.cinema.destroy(),
@@ -648,6 +659,7 @@ export class OfficeScene extends Phaser.Scene {
     this.busView.update(delta);
     this.fishing.update(delta);
     this.rods.update();
+    this.observatorio.update(time);
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
     this.eventsView.update();
@@ -781,6 +793,7 @@ export class OfficeScene extends Phaser.Scene {
       this.trophyCases.setArea(map);
       if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
       this.rods.setArea(map);
+      this.observatorio.setArea(map);
       this.fishing.reset();
       this.club.setArea(map, this.view);
       this.eventsView.setArea(map, this.view);
@@ -860,6 +873,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aquariums.setArea(map, this.view);
     this.trophyCases.setArea(map);
     this.rods.setArea(map);
+    this.observatorio.setArea(map);
     this.club.setArea(map, this.view);
     this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);

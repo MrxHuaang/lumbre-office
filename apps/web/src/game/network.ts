@@ -519,6 +519,15 @@ export function sendBlackjackAction(action: BlackjackAction) {
   room?.send(MSG.blackjackAction, { action });
 }
 
+/**
+ * Objetos que no abren un panel sino que hacen algo con E (la fogata de malvaviscos): los registra su
+ * módulo, así network.ts no lo importa (evita importaciones circulares).
+ */
+const interactActions = new Map<Interactable, () => void>();
+export function onInteract(kind: Interactable, fn: () => void) {
+  interactActions.set(kind, fn);
+}
+
 /** Usar un objeto interactivo: casi todos abren su panel (el Man del Sombrero, su menú); el tubo del sótano hace bailar. */
 /** E en la estación: subirse al Megabús (el servidor valida que esté parado con las puertas abiertas). */
 export function sendBusBoard() {
@@ -536,6 +545,8 @@ export function activateInteractable(kind: Interactable) {
   if (kind === "pool") return sendAgua("swim");
   if (kind === "dive") return sendAgua("dive");
   if (kind === "swimOut") return sendAgua("out");
+  const action = interactActions.get(kind);
+  if (action) return action();
   useOfficeStore.getState().openPanel(kind, true);
 }
 

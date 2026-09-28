@@ -14,6 +14,7 @@ const PISOS: { nombre: string; icono: PixelIconName; que: string }[] = [
   { nombre: "Piso 2", icono: "lock", que: "Las oficinas de cada persona, la sala de reuniones y las cabinas para llamadas." },
   { nombre: "Piso 3", icono: "moon", que: "Biblioteca, chimenea y una terraza con vista al lago, para bajar el ritmo." },
   { nombre: "Sótano", icono: "spade", que: "Casino con ruleta y blackjack, el club, el cine y el arcade." },
+  { nombre: "Observatorio", icono: "star", que: "En la lomita del jardín: una torre de piedra con cúpula que se abre de noche, un telescopio, estrellas fugaces y malvaviscos en la fogata." },
   { nombre: "Garaje", icono: "home", que: "Al lado de la casa: un taller con llantas y herramientas, y una oficina descuidada con su computador viejo." },
 ];
 
