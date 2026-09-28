@@ -16,8 +16,10 @@ const SEAT_Z: Record<string, number> = {
   "log-seat": 8,
   "picnic-bench": 9,
   "patio-chair": 10,
-  "armchair-wing": 11,
-  hammock: 10,
+  // El cojín del orejero queda a 9,5 (más bajo que el del sillón): con 11 flotaba.
+  "armchair-wing": 10,
+  // La tela cuelga en curva: donde se sienta (a un cuarto de cada punta) queda a ~13.
+  hammock: 12,
   "entry-bench": 13,
   "deck-chair": 10,
   // La banca en herradura de la glorieta (sobre la plataforma de piedra).
@@ -27,6 +29,37 @@ const SEAT_Z: Record<string, number> = {
 /** Altura del asiento de un tipo, contando la grada donde está (butacas del cine). */
 export function seatZ(type: string): number {
   return (SEAT_Z[type] ?? (type.startsWith("cinema-seat") ? SEAT_Z["cinema-seat"]! : SIT_BASE_Z)) + (catalogItem(type).lift ?? 0);
+}
+
+/**
+ * Cuánto se corre el cuerpo hacia donde mira (unidades de arte), para que la cadera caiga en el centro
+ * del cojín y no sobre el respaldo: en los muebles con respaldo grueso el cojín queda por delante del
+ * centro del tile. En la glorieta, la banca está más adentro que el centro de los tiles del borde.
+ */
+const SEAT_FORWARD: Record<string, number> = {
+  sofa: 4,
+  "lounge-sofa": 4,
+  "sofa-leather": 2,
+  armchair: 2,
+  "armchair-wing": 2,
+  "cinema-seat": 2,
+  beanbag: 2,
+  gazebo: 4,
+};
+
+/** Paso de pantalla (px de arte) por unidad hacia cada lado del mundo: toScreen de (±1, 0) y (0, ±1). */
+const SCREEN_STEP: Record<Facing, { x: number; y: number }> = {
+  right: { x: 1, y: 0.5 },
+  left: { x: -1, y: -0.5 },
+  down: { x: -1, y: 0.5 },
+  up: { x: 1, y: -0.5 },
+};
+
+/** Corrimiento en pantalla (px de arte, enteros) del cuerpo sentado en ese asiento mirando a `facing`. */
+export function seatShift(type: string, facing: Facing): { x: number; y: number } {
+  const n = SEAT_FORWARD[type] ?? (type.startsWith("cinema-seat") ? SEAT_FORWARD["cinema-seat"]! : 0);
+  const step = SCREEN_STEP[facing];
+  return { x: Math.round(step.x * n) || 0, y: Math.round(step.y * n) || 0 };
 }
 
 /**

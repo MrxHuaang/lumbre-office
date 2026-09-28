@@ -1,4 +1,4 @@
-import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
+import { seatBehind, seatLift, seatShift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
 import {
   BODY_UP,
   bubble,
@@ -182,7 +182,8 @@ export class Avatar {
   private moving = false;
   private seated: Direction | null = null;
   /** Cómo va sentado: cuánto bajar el dibujo, con qué profundidad y si el respaldo lo tapa. */
-  private seatPose: { lift: number; depth: number; behind: boolean } | null = null;
+  /** Sentado: altura, orden, si el respaldo tapa y el corrimiento hacia el cojín (dx, dy) en ese asiento. */
+  private seatPose: { lift: number; depth: number; behind: boolean; dx: number; dy: number } | null = null;
   private wx: number;
   private wy: number;
   private hidden = false;
@@ -641,8 +642,10 @@ export class Avatar {
   private mouthPoint() {
     const s = worldToScreen(this.wx, this.wy);
     const face = this.seated ?? this.dir;
-    const y = Math.round(s.y) + 1 - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
-    return { x: Math.round(s.x) + MOUTH[face].dx, y, depth: depthOf(this.wx, this.wy) + 0.6, floorY: Math.round(s.y) };
+    // Sentado, la boca va con el cuerpo: a la altura del asiento y corrida hacia el cojín (como en layout).
+    const pose = this.seated ? this.seatPose : null;
+    const y = Math.round(s.y) + (pose ? pose.dy + pose.lift : 0) + 1 - (this.seated ? MOUTH_SEATED : MOUTH_STANDING);
+    return { x: Math.round(s.x) + (pose?.dx ?? 0) + MOUTH[face].dx, y, depth: depthOf(this.wx, this.wy) + 0.6, floorY: Math.round(s.y) };
   }
 
   /** De dónde sale el humo o el vapor de esa mano (la brasa, o el borde de la taza). */
@@ -730,8 +733,14 @@ export class Avatar {
   setSeated(facing: Direction | null, seat?: Seat | null) {
     if (this.spinning && (facing !== this.seated || !seat)) this.stopSpin();
     this.seatType = facing && seat ? seat.type : "";
-    const pose = facing && seat ? { lift: seatLift(seat.type, facing), depth: depthOf(seat.cx, seat.cy), behind: seatBehind(seat.type, facing) } : null;
-    const same = facing === this.seated && pose?.lift === this.seatPose?.lift && pose?.depth === this.seatPose?.depth && pose?.behind === this.seatPose?.behind;
+    const shift = facing && seat ? seatShift(seat.type, facing) : null;
+    const pose =
+      facing && seat && shift
+        ? { lift: seatLift(seat.type, facing), depth: depthOf(seat.cx, seat.cy), behind: seatBehind(seat.type, facing), dx: shift.x, dy: shift.y }
+        : null;
+    const old = this.seatPose;
+    const same =
+      facing === this.seated && pose?.lift === old?.lift && pose?.depth === old?.depth && pose?.behind === old?.behind && pose?.dx === old?.dx && pose?.dy === old?.dy;
     if (same) return;
     this.seatPose = pose;
     if (facing !== this.seated) {
@@ -1453,9 +1462,10 @@ export class Avatar {
 
   private layout() {
     const s = worldToScreen(this.wx, this.wy);
-    const x = Math.round(s.x);
     const pose = this.seated ? this.seatPose : null;
-    const y = Math.round(s.y) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0);
+    // Sentado, el cuerpo se corre hacia el cojín del asiento (seatShift) y sube o baja a su altura.
+    const x = Math.round(s.x) + (pose?.dx ?? 0);
+    const y = Math.round(s.y) + (pose?.dy ?? 0) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0);
     if (this.ride) {
       // La silla va debajo (o delante, de espaldas: el respaldo tapa) y rueda con el personaje.
       const a = worldToScreen(this.wx - 16, this.wy - 16);
