@@ -1,8 +1,12 @@
 // El clima de afuera. Lo decide el servidor (todos ven el mismo) con una cadena de Markov simple: cada
 // tanto se sortea el siguiente según el actual. La niebla es más probable temprano en la mañana (hora del
-// reloj del juego, ver clock.ts). Todo es puro y el azar entra como parámetro, para poder probarlo.
+// reloj del juego, ver clock.ts). La estación (del mes real de Bogotá) también pesa: en primavera y otoño
+// llueve más, en verano menos, y solo en invierno nieva. Todo es puro y el azar entra como parámetro, para
+// poder probarlo.
+import type { Season } from "./estaciones";
 
-export const WEATHERS = ["despejado", "nublado", "lluvia", "tormenta", "niebla"] as const;
+// La nieve va al final: fuera del invierno no tiene peso y el sorteo queda igual que antes.
+export const WEATHERS = ["despejado", "nublado", "lluvia", "tormenta", "niebla", "nieve"] as const;
 export type Weather = (typeof WEATHERS)[number];
 
 export const WEATHER = {
@@ -25,18 +29,25 @@ export const WEATHER_TEXT: Record<Weather, string> = {
   lluvia: "Lluvia",
   tormenta: "Tormenta",
   niebla: "Niebla",
+  nieve: "Nieve",
 };
+
+/** Cuánto más (o menos) llueve en cada estación: multiplica el peso de la lluvia y de la tormenta. */
+export const SEASON_RAIN: Record<Season, number> = { primavera: 1.3, verano: 0.7, otono: 1.4, invierno: 0.6 };
 
 /**
  * Pesos de la cadena: desde cada clima, qué tan probable es cada siguiente (se normalizan). El mismo
  * clima puede repetirse. La tormenta solo llega desde nubes o lluvia y siempre se calma a lluvia o nubes.
  */
 const TRANSITIONS: Record<Weather, Record<Weather, number>> = {
-  despejado: { despejado: 5, nublado: 3, lluvia: 0.5, tormenta: 0, niebla: 1 },
-  nublado: { despejado: 3, nublado: 2, lluvia: 2.5, tormenta: 0.6, niebla: 0.8 },
-  lluvia: { despejado: 1, nublado: 3, lluvia: 2, tormenta: 1, niebla: 0.5 },
-  tormenta: { despejado: 0, nublado: 1, lluvia: 3, tormenta: 0.5, niebla: 0 },
-  niebla: { despejado: 3, nublado: 2, lluvia: 0.5, tormenta: 0, niebla: 1.5 },
+  // La nieve solo cuenta en invierno (fuera de él su peso es 0, ver `transitionWeights`).
+  despejado: { despejado: 5, nublado: 3, lluvia: 0.5, tormenta: 0, niebla: 1, nieve: 0.6 },
+  nublado: { despejado: 3, nublado: 2, lluvia: 2.5, tormenta: 0.6, niebla: 0.8, nieve: 2 },
+  lluvia: { despejado: 1, nublado: 3, lluvia: 2, tormenta: 1, niebla: 0.5, nieve: 1.2 },
+  tormenta: { despejado: 0, nublado: 1, lluvia: 3, tormenta: 0.5, niebla: 0, nieve: 0.5 },
+  niebla: { despejado: 3, nublado: 2, lluvia: 0.5, tormenta: 0, niebla: 1.5, nieve: 0.5 },
+  // Deja de nevar a nubes o a sol (si ya no es invierno, nunca sigue nevando).
+  nieve: { despejado: 1.5, nublado: 3, lluvia: 0.3, tormenta: 0, niebla: 0.5, nieve: 3 },
 };
 
 export function isWeather(x: unknown): x is Weather {
@@ -49,16 +60,24 @@ export const isWet = (w: Weather) => w === "lluvia" || w === "tormenta";
 /** ¿Es temprano en la mañana (la hora de la niebla)? */
 export const isFogHour = (hour: number) => hour >= WEATHER.fogHours[0] && hour < WEATHER.fogHours[1];
 
-/** Pesos (sin normalizar) del siguiente clima desde `from` a la hora `hour` del juego. */
-export function transitionWeights(from: Weather, hour: number): Record<Weather, number> {
+/**
+ * Pesos (sin normalizar) del siguiente clima desde `from` a la hora `hour` del juego. Sin `season` no
+ * hay nieve ni ajuste de la lluvia por estación.
+ */
+export function transitionWeights(from: Weather, hour: number, season?: Season): Record<Weather, number> {
   const w = { ...TRANSITIONS[from] };
   w.niebla *= isFogHour(hour) ? WEATHER.fogMorningBoost : WEATHER.fogLaterFactor;
+  if (season !== "invierno") w.nieve = 0;
+  if (season) {
+    w.lluvia *= SEASON_RAIN[season];
+    w.tormenta *= SEASON_RAIN[season];
+  }
   return w;
 }
 
 /** Sortea el siguiente clima. `random` devuelve un número en [0, 1). */
-export function nextWeather(from: Weather, hour: number, random: () => number): Weather {
-  const w = transitionWeights(from, hour);
+export function nextWeather(from: Weather, hour: number, random: () => number, season?: Season): Weather {
+  const w = transitionWeights(from, hour, season);
   const total = WEATHERS.reduce((a, k) => a + w[k], 0);
   let r = random() * total;
   for (const k of WEATHERS) {

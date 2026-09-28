@@ -34,7 +34,7 @@ function fakeTime(start = Date.UTC(2026, 8, 27, 20, 0)) {
 function setup(random: () => number, initial: Weather = "despejado", hour = () => 15) {
   const time = fakeTime();
   const changes: Weather[] = [];
-  const cycle = new WeatherCycle({ clock: time.clock, hour, random, onChange: (w) => changes.push(w) }, initial);
+  const cycle = new WeatherCycle({ clock: time.clock, hour, now: time.now, random, onChange: (w) => changes.push(w) }, initial);
   return { time, cycle, changes };
 }
 

@@ -1,12 +1,15 @@
 // El clima de afuera: el servidor lo sortea (reglas en @hyvento/shared/weather) y lo pone en el estado,
-// así todos ven llover al mismo tiempo. Un temporizador de la sala lo vuelve a sortear cuando se acaba.
-import { nextWeather, weatherDurationMs, type Weather } from "@hyvento/shared";
+// así todos ven llover al mismo tiempo. Un temporizador de la sala lo vuelve a sortear cuando se acaba
+// (con la hora del reloj del juego y la estación del mes real: solo en invierno puede nevar).
+import { nextWeather, seasonOf, weatherDurationMs, type Weather } from "@hyvento/shared";
 import type { HeldClock } from "./consumables";
 
 export interface WeatherDeps {
   clock: HeldClock;
   /** Hora del reloj del juego (0 a 23): la niebla es más probable temprano en la mañana del juego. */
   hour: () => number;
+  /** Hora real (para la estación, que sale del mes de Bogotá). */
+  now: () => number;
   /** Número en [0, 1) (los tests lo fijan). */
   random: () => number;
   /** Cambió el clima: la sala lo copia a su estado. */
@@ -50,7 +53,7 @@ export class WeatherCycle {
   }
 
   private roll() {
-    this.set(nextWeather(this.current, this.deps.hour(), this.deps.random));
+    this.set(nextWeather(this.current, this.deps.hour(), this.deps.random, seasonOf(this.deps.now())));
   }
 
   private set(weather: Weather) {

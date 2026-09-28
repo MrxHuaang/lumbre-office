@@ -26,11 +26,11 @@ cp .env.example .env
 
 Completa tu `.env`:
 
-- `AUTH_SECRET` y `GAME_TOKEN_SECRET`: genera cada uno con
+- `GAME_TOKEN_SECRET`: genéralo con
   `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`
 - `ADMIN_EMAILS`: tu correo (así entras como admin en tu entorno local).
 - `DATABASE_URL` y las variables de LiveKit ya apuntan a Docker: no hay que tocarlas.
-- `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`: opcionales, ver el paso 4.
+- `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`: opcionales (login con Google vía Supabase), ver el paso 4.
 
 Con Docker Desktop abierto:
 
@@ -55,12 +55,12 @@ pnpm --filter @hyvento/web dev:session "Tu Nombre" --admin
 Imprime un valor de sesión. En el navegador, en http://localhost:3000/login, abre la consola (F12) y pega:
 
 ```js
-document.cookie = "authjs.session-token=<valor>; path=/"
+document.cookie = "lumbre-dev-session=<valor>; path=/"
 ```
 
 Recarga y entras. Para probar con varias personas, repite con otro nombre en otra ventana o perfil del navegador (sirve `http://127.0.0.1:3000` como segunda "persona").
 
-**Con Google de verdad:** pídele a Juan José que agregue tu correo como usuario de prueba en el proyecto de Google Cloud y que te pase en privado el ID y el secreto del cliente de **desarrollo** para tu `.env`.
+**Con Google de verdad:** pídele al dueño del proyecto de Supabase la URL y la anon key (son públicas) para tu `.env`, y que agregue tu correo como usuario de prueba en Google Cloud. `http://localhost:3000/auth/callback` ya está en los Redirect URLs de Supabase.
 
 ## 5. Cómo trabajamos
 

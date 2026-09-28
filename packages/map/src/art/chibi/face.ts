@@ -170,6 +170,51 @@ export function drawFaceGear({ c, look, view, y }: Ctx) {
       c.set(6, y(7), SUN_GLINT);
       c.set(10, y(7), SUN_GLINT);
       return;
+    case "3d-glasses":
+      // Gafas 3D del cine: marco de cartón claro, un lente rojo y uno celeste.
+      c.rect(5, y(6), 8, 1, CARD[1]);
+      c.rect(6, y(7), 2, 2, LENS_RED);
+      c.rect(10, y(7), 2, 2, LENS_CYAN);
+      c.set(5, y(7), CARD[1]);
+      c.rect(8, y(7), 2, 1, CARD[1]);
+      c.set(12, y(7), CARD[0]);
+      c.set(12, y(8), CARD[0]);
+      c.set(5, y(8), CARD[0]);
+      return;
+    case "hero-mask": {
+      // Antifaz: una banda oscura sobre los ojos, con los ojos a la vista, y las puntas del nudo atrás.
+      const eye = new Set(EYES[look.eyes].map(([x, r]) => `${x},${r}`));
+      for (let r = 6; r <= 8; r++)
+        for (let x = 4; x <= 12; x++) {
+          if (eye.has(`${x},${r}`)) continue;
+          c.set(x, y(r), r === 6 || x === 12 ? MASK[0] : MASK[1]);
+        }
+      c.set(3, y(7), MASK[1]);
+      c.set(2, y(8), MASK[0]);
+      c.set(2, y(9), MASK[1]);
+      return;
+    }
+    case "star-glasses":
+      // Gafas de fiesta: dos estrellas doradas alrededor de los ojos, con lentes rosados.
+      for (const x0 of [6, 10]) {
+        c.rect(x0, y(7), 2, 2, STAR_LENS);
+        c.set(x0, y(6), GOLD[2]);
+        c.set(x0 + 1, y(6), GOLD[1]);
+        c.set(x0 - 1, y(7), GOLD[2]);
+        c.set(x0 + 2, y(7), GOLD[1]);
+        c.set(x0 - 1, y(9), GOLD[1]);
+        c.set(x0 + 2, y(9), GOLD[0]);
+        c.set(x0, y(5), GOLD[2]);
+      }
+      return;
+    case "monocle":
+      // Monóculo dorado en el ojo de adelante, con la cadenita que baja al cuello.
+      for (const [x, r] of [[10, 6], [11, 6], [9, 7], [12, 7], [9, 8], [12, 8], [10, 9], [11, 9]] as const) c.set(x, y(r), GOLD[1]);
+      c.set(10, y(6), GOLD[2]);
+      for (const [x, r, paint] of EYES[look.eyes]) if (x >= 10 && x <= 11 && OPEN.has(paint)) c.set(x, y(r), LENS);
+      c.set(12, y(10), GOLD[0]);
+      c.set(12, y(11), GOLD[1]);
+      return;
     case "eyepatch":
       // Parche en el ojo de adelante y la cinta que cruza la frente hacia atrás.
       c.rect(9, y(7), 3, 2, PATCH[1]);
@@ -197,6 +242,12 @@ const SUN_FRAME = hex("#1d1a26");
 const SUN_LENS = hex("#232638");
 const SUN_GLINT = hex("#6d7396");
 const PATCH: Three = [hex("#1d1622"), hex("#2e2433"), hex("#4a3d52")];
+const CARD: [RGBA, RGBA] = [hex("#c9b89a"), hex("#f3ead6")];
+const LENS_RED = alpha(hex("#e0413a"), 0.8);
+const LENS_CYAN = alpha(hex("#3fc6dd"), 0.8);
+const MASK: [RGBA, RGBA] = [hex("#15121c"), hex("#2a2536")];
+const STAR_LENS = alpha(hex("#ff8fc8"), 0.6);
+const GOLD: Three = [hex("#b98424"), hex("#dcae3f"), hex("#f3d672")];
 
 /**
  * Gafas de marco fino o redondas. El marco rodea cada ojo (los grandes son más anchos y altos) y nunca
@@ -243,6 +294,22 @@ function drawGlasses(c: PixelCanvas, face: "glasses" | "round-glasses", style: E
 }
 
 function drawFaceGearBack(c: PixelCanvas, face: Exclude<FaceItem, "none">, y: Row) {
+  if (face === "hero-mask") {
+    // La banda rodea la cabeza y el nudo queda en la nuca con sus dos puntas.
+    c.rect(3, y(6), 10, 2, MASK[1]);
+    c.rect(3, y(6), 10, 1, MASK[0]);
+    c.set(7, y(8), MASK[1]);
+    c.set(8, y(8), MASK[0]);
+    c.set(7, y(9), MASK[0]);
+    c.set(9, y(9), MASK[1]);
+    return;
+  }
+  if (face === "monocle") {
+    // De espaldas solo se ve la cadenita que cuelga del costado.
+    c.set(12, y(10), GOLD[0]);
+    c.set(12, y(11), GOLD[1]);
+    return;
+  }
   if (face === "eyepatch") {
     // La cinta cruza la nuca en diagonal.
     for (const [x, r] of [
@@ -262,7 +329,8 @@ function drawFaceGearBack(c: PixelCanvas, face: Exclude<FaceItem, "none">, y: Ro
   }
   // Patillas de las gafas a los dos lados de la cabeza. Las redondas van en el dorado claro: el oscuro
   // se pierde sobre el pelo castaño.
-  const frameC = face === "glasses" ? GLASSES : face === "round-glasses" ? ROUND_FRAME[1] : SUN_FRAME;
+  const frameC =
+    face === "glasses" ? GLASSES : face === "round-glasses" ? ROUND_FRAME[1] : face === "3d-glasses" ? CARD[1] : face === "star-glasses" ? GOLD[2] : SUN_FRAME;
   c.set(3, y(7), frameC);
   c.set(12, y(7), frameC);
 }

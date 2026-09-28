@@ -1,6 +1,6 @@
 "use client";
 
-import { clockStep, formatGameTime, skyPhase, type SkyPhase } from "@hyvento/shared";
+import { GAME_DAY_REAL_MS, clockStep, formatGameTime, skyPhase, type SkyPhase } from "@hyvento/shared";
 import { useGameTime } from "@/game/gameClock";
 import { SKY_H, SKY_W, skyPixels } from "@/lib/sky";
 
@@ -18,7 +18,7 @@ export function GameClockChip() {
   return (
     <div
       className="cozy-chip flex items-center gap-2 py-1 pr-3 pl-1.5"
-      title={`Reloj de la cabaña: día ${t.day + 1}, ${time} (${PHASE_TEXT[skyPhase(t.minuteOfDay)].toLowerCase()}). Un día dura 24 minutos.`}
+      title={`Reloj de la cabaña: día ${t.day + 1}, ${time} (${PHASE_TEXT[skyPhase(t.minuteOfDay)].toLowerCase()}). Un día dura ${Math.round(GAME_DAY_REAL_MS / 60_000)} minutos.`}
       aria-label={`Día ${t.day + 1}, ${time}`}
     >
       <SkyWindow minuteOfDay={shown} />

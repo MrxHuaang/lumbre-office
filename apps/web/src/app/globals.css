@@ -61,6 +61,16 @@ body {
 }
 
 /* El contador de puntos da un saltito al ganar puntos (en pasos, como pixel-art). */
+/* El teléfono que suena: tiembla de lado a lado (con steps, a saltos de píxel). */
+@keyframes cozy-ring {
+  0% {
+    transform: translateX(-2px) rotate(-6deg);
+  }
+  100% {
+    transform: translateX(2px) rotate(6deg);
+  }
+}
+
 @keyframes cozy-pop {
   0% {
     transform: translateY(0);

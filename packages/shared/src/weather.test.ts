@@ -76,15 +76,37 @@ describe("clima", () => {
     expect(count(6)).toBeGreaterThan(count(15) * 4);
   });
 
-  it("la cadena pasa por todos los climas", () => {
+  it("la cadena pasa por todos los climas (la nieve, en invierno)", () => {
     const r = lcg(11);
     const seen = new Set<Weather>();
     let w: Weather = "despejado";
     for (let i = 0; i < 500; i++) {
-      w = nextWeather(w, i % 24, r);
+      w = nextWeather(w, i % 24, r, "invierno");
       seen.add(w);
     }
     expect(seen.size).toBe(WEATHERS.length);
+  });
+
+  it("solo nieva en invierno, y si deja de ser invierno la nieve se va", () => {
+    const r = lcg(5);
+    for (const season of ["primavera", "verano", "otono"] as const) {
+      for (let i = 0; i < 1500; i++) expect(nextWeather("nublado", 14, r, season)).not.toBe("nieve");
+      expect(nextWeather("nieve", 14, () => 0.999999, season)).not.toBe("nieve");
+    }
+    expect(transitionWeights("nublado", 14, "invierno").nieve).toBeGreaterThan(0);
+    // Sin estación (como antes), tampoco.
+    expect(transitionWeights("nublado", 14).nieve).toBe(0);
+    expect(isWet("nieve")).toBe(false);
+  });
+
+  it("en otoño llueve más que en verano", () => {
+    const rainy = (season: "verano" | "otono") => {
+      const r = lcg(9);
+      let n = 0;
+      for (let i = 0; i < 4000; i++) if (isWet(nextWeather("nublado", 14, r, season))) n++;
+      return n;
+    };
+    expect(rainy("otono")).toBeGreaterThan(rainy("verano") * 1.3);
   });
 
   it("cada clima dura entre 10 y 25 minutos (la tormenta la mitad)", () => {

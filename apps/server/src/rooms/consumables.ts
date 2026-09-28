@@ -55,6 +55,15 @@ export class HeldItems {
     this.onChange(userId, "", []);
   }
 
+  /** Se va una mano entera (se la dio a una mascota); si no queda nada, se va todo. */
+  takePart(userId: string, part: number) {
+    const held = this.byUser.get(userId);
+    if (!held || !(held.left[part]! > 0)) return;
+    held.left[part] = 0;
+    if (held.left.every((v) => v <= 0)) this.drop(userId);
+    else this.onChange(userId, held.item, held.left);
+  }
+
   /**
    * Usar lo que se tiene: hace falta tener algo con usos y respetar la pausa entre usos. Sin `part` se
    * alterna entre las manos que tienen usos. Al gastar todo, se va de la mano.

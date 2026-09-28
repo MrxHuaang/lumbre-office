@@ -2,6 +2,8 @@
 
 import type { Editor } from "@tiptap/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { birthdayKey, isKaraokeDay, KARAOKE, parseBirthday } from "@hyvento/shared";
+import { loadBirthdays } from "@/lib/birthdays";
 import { NOTE_BODY_MAX, NOTE_TITLE_MAX, type NoteDTO } from "@/lib/notes";
 import { NoteEditor, textToDoc } from "./editor/NoteEditor";
 import { NotesIcon, TrashIcon } from "./icons";
@@ -358,13 +360,57 @@ const monthFmt = new Intl.DateTimeFormat("es-CO", { month: "long", year: "numeri
 const longDateFmt = new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long" });
 const timeFmt = new Intl.DateTimeFormat("es-CO", { hour: "2-digit", minute: "2-digit" });
 
+/** Cumpleaños del equipo por "MM-DD" (el 29 de febrero, en los años no bisiestos, el 28). */
+function useTeamBirthdays() {
+  const [byDay, setByDay] = useState<Map<string, string[]>>(new Map());
+  useEffect(() => {
+    let alive = true;
+    loadBirthdays().then(
+      (b) => {
+        if (!alive) return;
+        const m = new Map<string, string[]>();
+        for (const p of b.people) {
+          if (!parseBirthday(p.birthday)) continue;
+          m.set(p.birthday, [...(m.get(p.birthday) ?? []), p.name]);
+        }
+        setByDay(m);
+      },
+      () => undefined, // sin conexión: el calendario sigue funcionando sin los cumpleaños
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return byDay;
+}
+
+const isLeap = (y: number) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+
+/** Eventos de un día: los cumpleaños (con nombres) y si es viernes de karaoke. */
+function eventsOn(byDay: Map<string, string[]>, year: number, month: number, day: number) {
+  const names = [...(byDay.get(birthdayKey(month, day)) ?? [])];
+  if (month === 2 && day === 28 && !isLeap(year)) names.push(...(byDay.get("02-29") ?? []));
+  return { birthdays: names, karaoke: isKaraokeDay(year, month, day) };
+}
+
 export function CalendarApp() {
   const now = useNow();
   const [offset, setOffset] = useState(0); // meses desde el actual
+  const [picked, setPicked] = useState<number | null>(null);
+  const byDay = useTeamBirthdays();
   const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-  const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const year = first.getFullYear();
+  const month = first.getMonth() + 1;
+  const daysInMonth = new Date(year, month, 0).getDate();
   const lead = (first.getDay() + 6) % 7; // la semana empieza el lunes
   const isToday = (d: number) => offset === 0 && d === now.getDate();
+  // El día que se mira abajo: el elegido, o hoy en el mes actual.
+  const shownDay = picked ?? (offset === 0 ? now.getDate() : null);
+  const shown = shownDay ? eventsOn(byDay, year, month, shownDay) : null;
+  const move = (d: number) => {
+    setOffset((o) => o + d);
+    setPicked(null);
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-cozy-paper-light">
@@ -373,13 +419,13 @@ export function CalendarApp() {
         <p className="mt-1 text-xs first-letter:uppercase">{longDateFmt.format(now)}</p>
       </div>
       <div className="flex items-center justify-between px-3 py-2">
-        <ToolButton onClick={() => setOffset((o) => o - 1)}>‹</ToolButton>
-        <button type="button" onClick={() => setOffset(0)} className="font-semibold text-sm first-letter:uppercase" title="Volver a hoy">
+        <ToolButton onClick={() => move(-1)}>‹</ToolButton>
+        <button type="button" onClick={() => (setOffset(0), setPicked(null))} className="font-semibold text-sm first-letter:uppercase" title="Volver a hoy">
           {monthFmt.format(first)}
         </button>
-        <ToolButton onClick={() => setOffset((o) => o + 1)}>›</ToolButton>
+        <ToolButton onClick={() => move(1)}>›</ToolButton>
       </div>
-      <div className="grid grid-cols-7 gap-1 px-3 pb-3 text-center text-xs">
+      <div className="grid grid-cols-7 gap-1 px-3 pb-2 text-center text-xs">
         {WEEKDAYS.map((d) => (
           <span key={d} className="py-1 font-semibold text-cozy-ink-soft">
             {d}
@@ -388,16 +434,53 @@ export function CalendarApp() {
         {Array.from({ length: lead }, (_, i) => (
           <span key={`e${i}`} />
         ))}
-        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => (
-          <span
-            key={d}
-            className={`grid aspect-square place-items-center ${
-              isToday(d) ? "rounded-full border-2 border-cozy-frame bg-cozy-red font-semibold" : ""
-            }`}
-          >
-            {d}
-          </span>
-        ))}
+        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
+          const ev = eventsOn(byDay, year, month, d);
+          const title = [ev.birthdays.length ? `Cumpleaños: ${ev.birthdays.join(", ")}` : "", ev.karaoke ? `Karaoke en el club desde las ${KARAOKE.fromHour}:00` : ""].filter(Boolean).join(" · ");
+          return (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setPicked(d)}
+              title={title || undefined}
+              aria-pressed={shownDay === d}
+              className={`relative grid aspect-square place-items-center ${
+                isToday(d) ? "rounded-full border-2 border-cozy-frame bg-cozy-red font-semibold" : shownDay === d ? "border-2 border-cozy-frame bg-cozy-paper-dark" : ""
+              }`}
+            >
+              {d}
+              {/* Marquitas: dorada = cumpleaños, rosada = karaoke. */}
+              <span className="absolute bottom-0.5 left-1/2 flex -translate-x-1/2 gap-[2px]" aria-hidden>
+                {ev.birthdays.length > 0 && <span className="h-[4px] w-[4px] bg-cozy-gold outline outline-1 outline-cozy-frame" />}
+                {ev.karaoke && <span className="h-[4px] w-[4px] bg-[#ff5fd2] outline outline-1 outline-cozy-frame" />}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto border-t-2 border-dashed border-cozy-frame/30 px-3 py-2 text-xs leading-snug">
+        {shown && shownDay ? (
+          shown.birthdays.length || shown.karaoke ? (
+            <ul className="space-y-1">
+              {shown.birthdays.map((n) => (
+                <li key={n} className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 bg-cozy-gold outline outline-1 outline-cozy-frame" />
+                  Cumpleaños de <b className="font-semibold">{n}</b>: pastel en la cafetería
+                </li>
+              ))}
+              {shown.karaoke && (
+                <li className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 shrink-0 bg-[#ff5fd2] outline outline-1 outline-cozy-frame" />
+                  Viernes de karaoke en el club, desde las {KARAOKE.fromHour}:00
+                </li>
+              )}
+            </ul>
+          ) : (
+            <p className="text-cozy-ink-soft">Nada especial el {shownDay}. Toca un día con marquita para ver qué hay.</p>
+          )
+        ) : (
+          <p className="text-cozy-ink-soft">Toca un día para ver sus eventos.</p>
+        )}
       </div>
     </div>
   );
