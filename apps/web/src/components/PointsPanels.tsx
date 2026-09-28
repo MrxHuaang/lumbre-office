@@ -68,6 +68,7 @@ const PROMPT: Record<Interactable, string> = {
   kitchen: "Cocinar en la estufa",
   stage: "Subir al escenario",
   podcast: "Grabar en la cabina",
+  sombrero: "Hablar con el Man del Sombrero",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

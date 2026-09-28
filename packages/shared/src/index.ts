@@ -47,3 +47,5 @@ export * from "./focus";
 export * from "./phone";
 export * from "./escenario";
 export * from "./podcast";
+export * from "./sombrero";
+export * from "./npcs";

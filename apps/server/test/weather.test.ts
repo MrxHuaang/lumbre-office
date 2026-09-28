@@ -31,10 +31,10 @@ function fakeTime(start = Date.UTC(2026, 8, 27, 20, 0)) {
   };
 }
 
-function setup(random: () => number, initial: Weather = "despejado") {
+function setup(random: () => number, initial: Weather = "despejado", hour = () => 15) {
   const time = fakeTime();
   const changes: Weather[] = [];
-  const cycle = new WeatherCycle({ clock: time.clock, now: time.now, random, onChange: (w) => changes.push(w) }, initial);
+  const cycle = new WeatherCycle({ clock: time.clock, hour, now: time.now, random, onChange: (w) => changes.push(w) }, initial);
   return { time, cycle, changes };
 }
 
@@ -76,6 +76,21 @@ describe("clima en la sala", () => {
     expect(cycle.weather).toBe("tormenta");
     time.advance(WEATHER.minMs / 2);
     expect(cycle.weather).toBe("nublado");
+  });
+
+  it("la niebla sigue la hora del juego (no la real) al volver a sortear", () => {
+    // Con azar 0.75 desde despejado: a las 15:00 del juego sale nublado; a las 6:00, niebla.
+    let hour = 15;
+    const { cycle, changes, time } = setup(() => 0.75, "despejado", () => hour);
+    cycle.start();
+    time.advance(weatherDurationMs("despejado", () => 0.75));
+    expect(cycle.weather).toBe("nublado");
+    const again = setup(() => 0.75, "despejado", () => hour);
+    hour = 6;
+    again.cycle.start();
+    again.time.advance(weatherDurationMs("despejado", () => 0.75));
+    expect(again.cycle.weather).toBe("niebla");
+    expect(changes).toEqual(["despejado", "nublado"]);
   });
 
   it("al cerrar la sala no queda nada pendiente", () => {

@@ -53,7 +53,7 @@ import {
 import { getStateCallbacks } from "colyseus.js";
 import { Track } from "livekit-client";
 import * as Phaser from "phaser";
-import { COZY, cozyFontFamily, isNightNow, STATUS_HEX } from "@/lib/cozy";
+import { COZY, cozyFontFamily, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
 import { EventsView } from "./eventos";
@@ -95,6 +95,7 @@ import {
   type OfficeRoom,
   type RemotePlayer,
 } from "./network";
+import { followGameNight } from "./gameClock";
 import { canEnterOffice, PET_USABLE_PREFIX, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
 import { TableMode } from "./table";
 import { InteractMarkers } from "./markers";
@@ -138,6 +139,9 @@ import { usePhotoStore } from "./photos/store";
 import { useAchievementStore } from "./achievements";
 import { localSpeedMul, useCocinaStore } from "./cocina";
 import { SeasonView } from "./seasons";
+import { NpcCast } from "./npcs/cast";
+import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
+import { isTripKind, SOMBRERO, type TripKind } from "@hyvento/shared";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -303,12 +307,22 @@ export class OfficeScene extends Phaser.Scene {
   private critters!: Critters;
   /** Ya llegó el clima de esta conexión (el primero se pone de una, sin transición). */
   private weatherKnown = false;
+  /** Velo del cambio de día a noche (y cuándo se armó la vista: recién llegado no hace falta fundido). */
+  private nightVeil?: Phaser.GameObjects.Rectangle;
+  private viewBuiltAt = 0;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
   private aquariums!: Aquariums;
   private postIts!: DoorPostIts;
   private trophyCases!: TrophyCases;
+  /** El personal del casino y el Man del Sombrero (ver npcs/cast.ts). */
+  private npcs!: NpcCast;
+  /** Lo que ve quien tomó algo del Man del Sombrero (ver trip.ts). */
+  private tripVision!: TripVision;
+  private tripKind: TripKind | "" = "";
+  /** Cuándo toca el próximo antojo (trabado). */
+  private munchiesAt = 0;
 
   constructor() {
     super("office");
@@ -342,7 +356,8 @@ export class OfficeScene extends Phaser.Scene {
     this.world = { ...base, areas: new Map(base.areas) };
     for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
     useOfficeStore.getState().setZoneNames(Object.fromEntries(allZones(this.world).map((z) => [z.id, z.name])));
-    if (!useOfficeStore.getState().area) useOfficeStore.getState().setNight(isNightNow());
+    // La noche la manda el reloj del juego (el botón del HUD solo la fuerza un rato).
+    this.cleanups.push(followGameNight());
     // Hasta saber dónde está el jugador se muestra el jardín.
     this.map = this.world.areas.get(this.world.spawnArea)!;
     // Las oficinas pueden haber llegado antes que la escena: su decoración ya se aplica.
@@ -391,6 +406,19 @@ export class OfficeScene extends Phaser.Scene {
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
+    this.tripVision = new TripVision(() => this.game.canvas.parentElement);
+    this.npcs = new NpcCast(this, {
+      local: () => (this.local ? { x: this.local.x, y: this.local.y } : null),
+      people: () => {
+        const players = useOfficeStore.getState().players;
+        const out: { sessionId: string; name: string; x: number; y: number; zoneId: string }[] = [];
+        for (const [id, a] of this.avatars) {
+          const info = players[id];
+          if (info && this.areaOfSession.get(id) === this.map.id) out.push({ sessionId: id, name: info.name, x: a.x, y: a.y, zoneId: info.zoneId });
+        }
+        return out;
+      },
+    });
     // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
@@ -467,6 +495,8 @@ export class OfficeScene extends Phaser.Scene {
       () => this.escenario.destroy(),
       () => disposeRadio(),
       () => this.drunkVision.destroy(),
+      () => this.tripVision.destroy(),
+      () => this.npcs.destroy(),
       bindUiSounds(),
       bindWeatherSounds(),
       () => this.toasts.destroy(),
@@ -497,10 +527,7 @@ export class OfficeScene extends Phaser.Scene {
           this.weatherKnown = true;
         }
         if (s.weather !== prev.weather || s.night !== prev.night) this.critters.setConditions(s.night, s.weather);
-        if (s.night !== prev.night) {
-          this.view?.setNight(s.night);
-          this.updateGhost(true); // el fantasma también cambia de textura
-        }
+        if (s.night !== prev.night) this.changeNight();
         if (s.lastAward && s.lastAward !== prev.lastAward) this.floatAward(s.lastAward.amount);
         if (s.panel?.kind !== prev.panel?.kind) this.syncTable(s.panel?.kind, prev.panel?.kind);
         if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
@@ -554,7 +581,9 @@ export class OfficeScene extends Phaser.Scene {
       avatar.sway(time);
     }
     this.shakePhones(time);
-    this.drunkVision.update(time, delta);
+    this.drunkVision.update(time, delta, this.tripVision.update(time, delta));
+    this.npcs.update(time);
+    this.updateMunchies(time);
     this.weatherView.update(time, delta);
     this.seasonView.update(time, delta);
     this.critters.update(time, delta);
@@ -679,6 +708,7 @@ export class OfficeScene extends Phaser.Scene {
     if (changed) {
       this.view?.destroy();
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
+      this.viewBuiltAt = performance.now();
       this.usables.setArea(map, this.view);
       this.markers.setArea(map, this.view, INTERACTABLES);
       this.weatherView.setArea(map, this.view.bounds);
@@ -695,6 +725,7 @@ export class OfficeScene extends Phaser.Scene {
       this.eventsView.setArea(map, this.view);
       this.cinema.setArea(map);
       this.escenario.setArea(map);
+      this.npcs.setArea(map);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -1007,6 +1038,14 @@ export class OfficeScene extends Phaser.Scene {
       avatar.setRiding(Boolean(racing));
       if (isLocal) useRaceStore.getState().setSince(racing ? Date.now() : null);
     });
+    // Lo del Man del Sombrero: los ojos cambian (otra textura) y se ríe, tiembla o se marea.
+    avatar.setTrip(isTripKind(player.trip) ? player.trip : "");
+    p$.listen("trip", (value) => {
+      const kind = isTripKind(value) ? value : "";
+      avatar.setTrip(kind);
+      avatar.setAppearance(this.textureFor(player));
+      if (isLocal) this.setTripKind(kind);
+    });
     p$.listen("drunk", (value) => {
       const stage = (value ?? 0) as DrunkStage;
       avatar.setDrunk(stage);
@@ -1018,6 +1057,8 @@ export class OfficeScene extends Phaser.Scene {
     if (isLocal) {
       this.local = avatar;
       this.setDrunkStage((player.drunk ?? 0) as DrunkStage);
+      this.tripKind = isTripKind(player.trip) ? player.trip : "";
+      this.tripVision.setTrip(this.tripKind);
       this.enterArea(player.area);
       // Al reconectar se conserva el asiento que el servidor recuerda.
       this.seat = player.seated ? (seatAtPoint(this.map, player.x, player.y) ?? null) : null;
@@ -1112,7 +1153,26 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Textura del personaje (fijo o personalizado), dibujada en el navegador. */
   private textureFor(player: RemotePlayer): string {
-    return ensureCharacterTextures(this, player.avatar, parseLook(player.look));
+    const trip = isTripKind(player.trip) ? player.trip : "";
+    return ensureCharacterTextures(this, player.avatar, tripLook(parseLook(player.look), player.avatar, trip));
+  }
+
+  /** Cambió lo que me hizo la mercancía: la visión cambia de a poco y un aviso cuenta qué pasa. */
+  private setTripKind(kind: TripKind | "") {
+    if (kind === this.tripKind) return;
+    this.tripKind = kind;
+    this.tripVision.setTrip(kind);
+    this.munchiesAt = 0;
+    useOfficeStore.getState().notify(TRIP_NOTICE[kind], "info");
+  }
+
+  /** Trabado, de vez en cuando da antojo (un aviso con algo de la cafetería). */
+  private updateMunchies(time: number) {
+    if (this.tripKind !== "trabado") return;
+    if (!this.munchiesAt) this.munchiesAt = time + 20_000;
+    if (time < this.munchiesAt) return;
+    this.munchiesAt = time + 35_000 + Math.random() * 25_000;
+    useOfficeStore.getState().notify(MUNCHIES[Math.floor(Math.random() * MUNCHIES.length)]!, "info");
   }
 
   private showNewBubbles(messages: { fromId: string; text: string; ts: number }[]) {
@@ -1228,6 +1288,8 @@ export class OfficeScene extends Phaser.Scene {
 
     // Mareado se camina en zigzag (misma velocidad, la dirección va de lado a lado).
     [vx, vy] = this.drunkVision.drift(this.time.now, vx, vy);
+    // Con el yagé también se camina ladeado.
+    [vx, vy] = this.tripVision.drift(this.time.now, vx, vy);
     // Carrera de sillas: la silla avanza sola hacia la meta (+x) con el impulso de los clics, y las teclas
     // solo cambian de carril (y del mundo).
     if (avatar.isRiding) {
@@ -1255,8 +1317,9 @@ export class OfficeScene extends Phaser.Scene {
     let dir: Direction = avatar.direction;
     if (vx !== 0 || vy !== 0) {
       const len = Math.hypot(vx, vy);
-      // Con la energía de un plato de la cocina se camina un poco más rápido (el servidor lo acepta).
-      const step = Math.min(PLAYER_SPEED * localSpeedMul() * dt, 12);
+      // Con la energía de un plato de la cocina se camina un poco más rápido (el servidor lo acepta);
+      // trabado, más despacio (el servidor tampoco deja ir más rápido).
+      const step = Math.min(PLAYER_SPEED * localSpeedMul() * this.tripVision.speedMul() * dt, 12);
       const nx = avatar.x + (vx / len) * step;
       const ny = avatar.y + (vy / len) * step;
       let x = avatar.x;
@@ -1519,6 +1582,14 @@ export class OfficeScene extends Phaser.Scene {
     this.pendingInteract = null;
     this.pendingUse = null;
     // Clic sobre otra persona: su perfil (sin caminar).
+    // Clic sobre el Man del Sombrero: ir hasta él y hablarle al llegar.
+    const man = this.local && !this.seat ? this.npcs.sombreroUnder(sx, sy) : null;
+    if (man) {
+      if (this.interactableInReach() === "sombrero") return activateInteractable("sombrero");
+      this.walkTo(man.x, man.y);
+      this.pendingInteract = "sombrero";
+      return;
+    }
     const person = this.personUnder(sx, sy);
     if (person) {
       useAchievementStore.getState().openProfile(person);
@@ -1596,6 +1667,8 @@ export class OfficeScene extends Phaser.Scene {
   private interactableInReach(): Interactable | null {
     const avatar = this.local;
     if (!avatar) return null;
+    // El Man del Sombrero, si está en su escondite de hoy (no tiene rombito: se tiene que encontrar).
+    if (this.npcs.sombreroNear(avatar.x, avatar.y, Math.min(INTERACT_REACH_TILES, SOMBRERO.reachTiles))) return "sombrero";
     const reach = INTERACT_REACH_TILES * this.map.tileSize;
     for (const spec of INTERACTABLES) {
       for (const p of pointsOfType(this.map, spec.point)) {
@@ -1824,6 +1897,53 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /** Fantasma del mueble elegido bajo el puntero: verde si se puede poner ahí, rojo si no. */
+  /** Pone en la vista la noche del store (y el fantasma del editor, que también cambia de textura). */
+  private applyNight() {
+    this.view?.setNight(useOfficeStore.getState().night);
+    this.updateGhost(true);
+  }
+
+  /**
+   * Cambió la noche (el reloj del juego cruzó las 19:00 o las 7:00, o el botón del HUD): un velo azul
+   * oscurece la pantalla, se cambian las luces por debajo y se aclara. Recién armada la vista, sin velo.
+   * El velo es propio (no el fundido de la cámara) para no pisarse con el de los portales.
+   */
+  private changeNight() {
+    if (!this.view || performance.now() - this.viewBuiltAt < 1500) {
+      this.nightVeil?.destroy();
+      this.nightVeil = undefined;
+      return this.applyNight();
+    }
+    const cam = this.cameras.main;
+    // Con scrollFactor 0 igual lo agranda el zoom (alrededor del centro): se hace de sobra.
+    const k = 3 / Math.min(cam.zoom, 1);
+    const veil = (this.nightVeil ??= this.add
+      .rectangle(cam.width / 2, cam.height / 2, cam.width * k, cam.height * k, 0x1b1633, 0)
+      .setScrollFactor(0)
+      .setDepth(1e9));
+    this.tweens.killTweensOf(veil);
+    const PEAK = 0.85;
+    this.tweens.add({
+      targets: veil,
+      alpha: PEAK,
+      duration: 500 * (1 - veil.alpha / PEAK),
+      ease: "Sine.easeIn",
+      onComplete: () => {
+        this.applyNight();
+        this.tweens.add({
+          targets: veil,
+          alpha: 0,
+          duration: 900,
+          ease: "Sine.easeOut",
+          onComplete: () => {
+            veil.destroy();
+            if (this.nightVeil === veil) this.nightVeil = undefined;
+          },
+        });
+      },
+    });
+  }
+
   private updateGhost(redraw = false) {
     const zone = this.decorZone();
     const pose = zone && this.decorHover ? this.ghostPose(this.decorHover) : null;

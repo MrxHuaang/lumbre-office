@@ -28,3 +28,26 @@ export function useGameTime(): GameTime | null {
   }, []);
   return clock ? gameTime(clock, serverNow()) : null;
 }
+
+/**
+ * La noche automática sigue al reloj del juego: revisa cada segundo real (un minuto del juego) y en cuanto
+ * llega o cambia el reloj (un /time). El store solo cambia al cruzar las 19:00 o las 7:00. Devuelve cómo
+ * parar.
+ */
+export function followGameNight(): () => void {
+  const check = () => {
+    const t = currentGameTime();
+    if (!t) return;
+    const auto = isNightMinute(t.minuteOfDay);
+    if (auto !== useOfficeStore.getState().autoNight) useOfficeStore.getState().setAutoNight(auto);
+  };
+  check();
+  const id = setInterval(check, 1000);
+  const unsub = useOfficeStore.subscribe((s, prev) => {
+    if (s.gameClock !== prev.gameClock) check();
+  });
+  return () => {
+    clearInterval(id);
+    unsub();
+  };
+}

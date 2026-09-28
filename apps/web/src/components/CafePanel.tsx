@@ -28,7 +28,7 @@ import { PanelShell, useMyPoints } from "./PointsPanels";
 /** Si no llega respuesta del servidor en este tiempo, el botón vuelve a estar disponible. */
 const PENDING_MS = 3000;
 
-const USE_WORD = { smoke: "pitadas", sip: "sorbos", bite: "mordiscos", spoon: "cucharadas" } as const;
+const USE_WORD = { smoke: "pitadas", sip: "sorbos", bite: "mordiscos", spoon: "cucharadas", sniff: "esnifadas" } as const;
 
 /** "4 sorbos", "5 pitadas y 3 sorbos": cuánto rinde lo que se pide. */
 function usesText(item: MenuItem) {

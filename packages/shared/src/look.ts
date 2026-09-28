@@ -90,6 +90,8 @@ export type Shoes = (typeof SHOES)[number];
  * - robe: bata cruzada del color `shirt` con cinturón, hasta la rodilla.
  * - ruana: ruana de lana del color `shirt` con franjas del color `top2`.
  * - hi-vis: chaleco reflectivo naranja.
+ * - trenchcoat: gabán largo cerrado del color `accent`, con cinturón y el cuello alzado (el del Man del
+ *   Sombrero); tapa la parte de arriba y llega a la rodilla.
  */
 export const OUTFITS = [
   "overalls",
@@ -111,6 +113,7 @@ export const OUTFITS = [
   "robe",
   "ruana",
   "hi-vis",
+  "trenchcoat",
 ] as const;
 export type Outfit = (typeof OUTFITS)[number];
 
@@ -149,6 +152,8 @@ export const HEAD_ITEMS = [
   "tiara",
   "pirate-hat",
   "wizard-hat",
+  // Sombrero de fieltro gris con cinta oscura (el del Man del Sombrero); color propio.
+  "fedora",
 ] as const;
 export type HeadItem = (typeof HEAD_ITEMS)[number];
 export const FACE_ITEMS = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch", "3d-glasses", "hero-mask", "star-glasses", "monocle"] as const;
