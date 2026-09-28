@@ -52,7 +52,7 @@ export async function waitForCozyFont(timeoutMs = 2000): Promise<void> {
   await Promise.race([loads.catch(() => undefined), new Promise((r) => setTimeout(r, timeoutMs))]);
 }
 
-/** ¿Es de noche según la hora local? (de 19:00 a 6:59). */
+/** ¿Es de noche según la hora local? (de 19:00 a 6:59). Solo fuera del juego (la portada): adentro manda el reloj del juego. */
 export function isNightNow(d = new Date()): boolean {
   const h = d.getHours();
   return h >= 19 || h < 7;

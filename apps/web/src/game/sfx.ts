@@ -482,6 +482,15 @@ export const sfx = {
   lose() {
     play("result", 800, 400, 1, (a, t) => arpeggio(a, t, [392, 311], 0.13, 0.2, 0.045));
   },
+  /** ¡Logro desbloqueado!: un arpegio que sube; los raros llevan una nota más arriba y un brillo al final. */
+  achievement(rare: boolean) {
+    play("achievement", 1200, 900, 1, (a, t) => {
+      const notes = rare ? [523, 659, 784, 1047, 1319] : [587, 740, 880, 1175];
+      arpeggio(a, t, notes, 0.07, 0.22, 0.045);
+      const end = t + notes.length * 0.07;
+      tone(a, end, 0.5, 2637, 2637, rare ? 0.014 : 0.008, { type: "sine" });
+    });
+  },
   push() {
     play("result", 800, 200, 1, (a, t) => tone(a, t, 0.16, 587, 587, 0.045));
   },
