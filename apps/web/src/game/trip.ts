@@ -2,7 +2,7 @@
 // (`Player.trip`); acá solo se dibuja, como la borrachera (ver drunk.ts): filtros CSS sobre el canvas del
 // juego y, para la bruma y las visiones, una capa encima (sin tocar el HUD, que sigue legible).
 import { styleFor } from "@hyvento/map/art";
-import { TRIP, TRIP_TEXT, type EyeStyle, type Look, type TripKind } from "@hyvento/shared";
+import { TRIP_TEXT, tripSpeedMul, type EyeStyle, type Look, type TripKind } from "@hyvento/shared";
 
 /** Filtro y transformación que se suman a los de la borrachera (los aplica DrunkVision). */
 export interface CanvasFx {
@@ -17,6 +17,8 @@ export const TRIP_NOTICE: Record<TripKind | "", string> = {
   acelere: `${TRIP_TEXT.acelere}: no puedes quedarte quieto, ¡hágale, hágale!`,
   colores: `${TRIP_TEXT.colores}: la cabaña respira y los colores bailan.`,
   yage: `${TRIP_TEXT.yage}: los patrones se abren… siéntate, que marea.`,
+  tusi: `${TRIP_TEXT.tusi}: todo se puso rosado y el cuerpo pide perreo.`,
+  keta: `${TRIP_TEXT.keta}: todo va en cámara lenta y se ve lejísimos…`,
 };
 
 /** Antojos del trabado (van rotando en los avisos). */
@@ -27,8 +29,11 @@ export const MUNCHIES = [
   "Mataría por una arepa de huevo.",
 ];
 
-/** Los ojos de cada efecto: entrecerrados trabado, pelados acelerado, felices con los colores, cerrados con el yagé. */
-const TRIP_EYES: Record<TripKind, EyeStyle> = { trabado: "sleepy", acelere: "big", colores: "happy", yage: "closed" };
+/**
+ * Los ojos de cada efecto: entrecerrados trabado, pelados acelerado, felices con los colores, cerrados con
+ * el yagé, guiñando con el tusi y perdidos (bien abiertos) con la keta.
+ */
+const TRIP_EYES: Record<TripKind, EyeStyle> = { trabado: "sleepy", acelere: "big", colores: "happy", yage: "closed", tusi: "wink", keta: "big" };
 
 /** El look con los ojos del efecto (los personajes fijos también: se parte de su preset). */
 export function tripLook(look: Look | null, avatar: string, trip: TripKind | ""): Look | null {
@@ -57,9 +62,9 @@ export class TripVision {
     return this.kind;
   }
 
-  /** Cuánto se camina: trabado, más despacio (el servidor tampoco deja ir más rápido). */
+  /** Cuánto se camina: trabado o con la keta, más despacio (el servidor tampoco deja ir más rápido). */
   speedMul(): number {
-    return this.kind === "trabado" ? TRIP.slowSpeedMul : 1;
+    return tripSpeedMul(this.kind);
   }
 
   /** Con el yagé se camina ladeado, como mareado (la misma velocidad). */
@@ -124,6 +129,34 @@ export class TripVision {
         );
         const rot = calm ? 0 : Math.sin(t * 0.6) * 1.8 * k;
         return { filter: `saturate(${(1 + 0.5 * k).toFixed(2)})`, transform: `rotate(${rot.toFixed(2)}deg) scale(${(1 + 0.03 * k).toFixed(3)})` };
+      }
+      case "tusi": {
+        // Todo rosado chicle, que late al ritmo del perreo (~124 golpes por minuto).
+        const beat = calm ? 0 : Math.max(0, Math.sin(t * Math.PI * 2 * (124 / 60))) ** 6;
+        this.paintOverlay(
+          `radial-gradient(ellipse at center, rgba(255, 120, 200, ${((0.3 + 0.12 * beat) * k).toFixed(3)}) 20%, rgba(255, 60, 170, ${(0.6 * k).toFixed(3)}) 100%)`,
+          "color",
+          1,
+        );
+        return {
+          filter: `saturate(${(1 + 0.35 * k).toFixed(2)}) brightness(${(1 + (0.04 + 0.05 * beat) * k).toFixed(3)})`,
+          transform: calm ? "" : `scale(${(1 + 0.008 * beat * k).toFixed(4)})`,
+        };
+      }
+      case "keta": {
+        // Cámara lenta: el mundo se aleja (como mirado desde el fondo de un hueco), pierde color y respira
+        // despacito; los bordes se oscurecen como un túnel.
+        const breathe = calm ? 0 : Math.sin(t * 0.35) * 0.02;
+        this.paintOverlay(
+          `radial-gradient(circle at center, transparent 30%, rgba(12, 10, 24, ${(0.8 * k).toFixed(3)}) 88%)`,
+          "normal",
+          1,
+        );
+        return {
+          // Y una estela azulada que se arrastra detrás de todo, como si la imagen llegara tarde.
+          filter: `saturate(${(1 - 0.55 * k).toFixed(2)}) blur(${(0.6 * k).toFixed(2)}px) contrast(${(1 - 0.1 * k).toFixed(2)})${calm ? "" : ` drop-shadow(${(Math.sin(t * 0.4) * 5 * k).toFixed(1)}px ${(Math.cos(t * 0.3) * 3 * k).toFixed(1)}px 0 rgba(170, 190, 255, ${(0.35 * k).toFixed(2)}))`}`,
+          transform: `scale(${(1 - (0.16 - breathe) * k).toFixed(3)})`,
+        };
       }
       default:
         this.clearOverlay();

@@ -96,8 +96,10 @@ export const SOMBRERO = {
  * - acelere: tiembla, habla rápido (burbujas cortas) y con los ojos bien abiertos.
  * - colores: los colores giran y el mundo ondula (hongos y cartón).
  * - yage: visión de patrones que dan vueltas y mareo.
+ * - tusi: todo se pone rosado y al personaje le da por bailar solo.
+ * - keta: cámara lenta: camina despacito (validado) y todo se ve lejos, como desde el fondo de un hueco.
  */
-export const TRIP_KINDS = ["trabado", "acelere", "colores", "yage"] as const;
+export const TRIP_KINDS = ["trabado", "acelere", "colores", "yage", "tusi", "keta"] as const;
 export type TripKind = (typeof TRIP_KINDS)[number];
 export const isTripKind = (x: unknown): x is TripKind => typeof x === "string" && (TRIP_KINDS as readonly string[]).includes(x);
 
@@ -106,14 +108,23 @@ export const TRIP_TEXT: Record<TripKind, string> = {
   acelere: "Acelerado",
   colores: "Viendo colores",
   yage: "En la pinta del yagé",
+  tusi: "Entusado",
+  keta: "En el hueco de la keta",
 };
 
 export const TRIP = {
   /** Cuánto se camina trabado (el servidor lo valida: más lento sí, más rápido nunca). */
   slowSpeedMul: 0.7,
+  /** Cuánto se camina con la keta: en cámara lenta, más despacio que trabado. */
+  ketaSpeedMul: 0.5,
   /** Lo más que dura un efecto sumando usos. */
   maxMs: 6 * 60_000,
 } as const;
+
+/** Cuánto se camina con cada efecto (1 = normal). El servidor usa lo mismo para validar el movimiento. */
+export function tripSpeedMul(kind: TripKind | "" | null | undefined): number {
+  return kind === "trabado" ? TRIP.slowSpeedMul : kind === "keta" ? TRIP.ketaSpeedMul : 1;
+}
 
 /** Qué efecto da cada uso de algo (y cuánto suma). Lo que no está acá no hace nada raro. */
 export const TRIP_PER_USE: Record<string, { kind: TripKind; ms: number }> = {
@@ -123,6 +134,13 @@ export const TRIP_PER_USE: Record<string, { kind: TripKind; ms: number }> = {
   "hongos-quindio": { kind: "colores", ms: 100_000 },
   carton: { kind: "colores", ms: 150_000 },
   yage: { kind: "yage", ms: 120_000 },
+  // El popper dura un suspiro; el chicle de mambe, un acelere suavecito.
+  popper: { kind: "acelere", ms: 20_000 },
+  "chicle-mambe": { kind: "acelere", ms: 35_000 },
+  tusi: { kind: "tusi", ms: 80_000 },
+  keta: { kind: "keta", ms: 70_000 },
+  "aguapanela-trucada": { kind: "colores", ms: 70_000 },
+  "galleta-abuela": { kind: "trabado", ms: 80_000 },
 };
 
 /**
@@ -205,6 +223,54 @@ export const SOMBRERO_MENU = [
     blurb: "Destilado de caña de Guapi, en botellita reciclada. Pa' levantar muertos.",
     effect: "Emborracha rápido, con sabor a fiesta.",
   },
+  {
+    id: "popper",
+    name: "Popper de la Zona T",
+    price: 15,
+    holds: ["popper"],
+    blurb: "Frasquito de olor raro de las rumbas de la Zona T. Dura lo que un suspiro.",
+    effect: "Un corrientazo cortico: se acelera y se pone colorado.",
+  },
+  {
+    id: "tusi",
+    name: "Tusi rosadito",
+    price: 38,
+    holds: ["tusi"],
+    blurb: "El polvito rosado de las discotecas de Medellín. Todo queda color chicle.",
+    effect: "Todo rosado y le da por bailar solo.",
+  },
+  {
+    id: "keta",
+    name: "Keta del veterinario",
+    price: 32,
+    holds: ["keta"],
+    blurb: "Dizque es pa' los caballos de una finca en Rionegro. Suavecito, mijo.",
+    effect: "Cámara lenta: todo se aleja y camina como en la Luna.",
+  },
+  {
+    id: "chicle-mambe",
+    name: "Chicle de mambe",
+    price: 12,
+    holds: ["chicle-mambe"],
+    blurb: "Mambe del Amazonas en chicle, pa' mascar y hablar de la vida con el taita.",
+    effect: "Un acelere suavecito, pa' aguantar la jornada.",
+  },
+  {
+    id: "aguapanela-trucada",
+    name: "Aguapanela trucada",
+    price: 28,
+    holds: ["aguapanela-trucada"],
+    blurb: "Igualita a la de la abuela, pero con unos hongos del potrero de sorpresa.",
+    effect: "Los colores dan vueltas un buen rato.",
+  },
+  {
+    id: "galleta-abuela",
+    name: "Galleta de la abuela",
+    price: 22,
+    holds: ["galleta-abuela"],
+    blurb: "Con chips de algo verde. La abuela jura que son de menta.",
+    effect: "Trabado, despacito y con antojo.",
+  },
 ] as const;
 
 export type SombreroItem = (typeof SOMBRERO_MENU)[number];
@@ -226,6 +292,12 @@ export const SOMBRERO_CONSUMABLES: Record<string, { action: ConsumeAction; uses:
   yage: { action: "sip", uses: 2 },
   chirrinchi: { action: "sip", uses: 3 },
   viche: { action: "sip", uses: 4 },
+  popper: { action: "sniff", uses: 2 },
+  tusi: { action: "sniff", uses: 3 },
+  keta: { action: "sniff", uses: 2 },
+  "chicle-mambe": { action: "bite", uses: 3 },
+  "aguapanela-trucada": { action: "sip", uses: 3 },
+  "galleta-abuela": { action: "bite", uses: 3 },
 };
 
 /** Tragos de más por sorbo de los licores de contrabando (ver ALCOHOL_PER_SIP). */

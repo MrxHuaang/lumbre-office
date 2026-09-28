@@ -5,7 +5,8 @@
 // La cafetería tiene carta colombiana larga: va por pestañas (bebidas, panadería, fritos, postres…).
 import { drawMenuItem } from "@hyvento/map/art";
 import {
-  BAR_MENU,
+  BAR_CATEGORIES,
+  barItemsIn,
   CAFE,
   CINEMA_MENU,
   CAFE_CATEGORIES,
@@ -13,6 +14,7 @@ import {
   consumeActionOf,
   heldParts,
   usesOf,
+  type BarCategory,
   type BarItemId,
   type CinemaMenuItemId,
   type CafeCategory,
@@ -61,7 +63,19 @@ const CAFE_SECTIONS: MenuSection[] = CAFE_CATEGORIES.map((c) => ({ id: c.id, lab
   (s) => s.items.length > 0,
 );
 
-const BAR_SECTIONS: MenuSection[] = [{ id: "bar", label: "Carta", icon: "coctel", items: BAR_MENU }];
+/** El dibujo de cada pestaña del bar (un trago típico de la sección). */
+const BAR_TAB_ICON: Record<BarCategory, string> = {
+  polas: "pola-dorada",
+  copas: "aguardiente",
+  cocteles: "coctel",
+  humo: "habano",
+  combos: "ronda",
+};
+
+// La carta del bar ya es larga: va por pestañas, como la de la cafetería.
+const BAR_SECTIONS: MenuSection[] = BAR_CATEGORIES.map((c) => ({ id: c.id, label: c.label, icon: BAR_TAB_ICON[c.id], items: barItemsIn(c.id) })).filter(
+  (s) => s.items.length > 0,
+);
 const CINEMA_SECTIONS: MenuSection[] = [{ id: "cine", label: "Confitería", icon: "crispetas", items: CINEMA_MENU }];
 
 /** Última pestaña abierta en cada carta: al volver a la barra sigue donde la dejaste. */
@@ -175,7 +189,9 @@ function MenuPanel({
   // Pestañas pegadas arriba mientras se baja por la lista. En pantallas anchas se envuelven; en el
   // celular van en una sola fila que se desliza de lado (si no, se comían media carta).
   const tabs = sections.length > 1 && (
-    <div className="sticky -top-4 z-10 -mx-4 border-b-2 border-cozy-paper-dark bg-cozy-paper px-4 pt-1 pb-2">
+    <div
+      className={`sticky -top-4 z-10 -mx-4 border-b-2 px-4 pt-1 pb-2 ${night ? "border-[#6e3a96] bg-[#1e1030]" : "border-cozy-paper-dark bg-cozy-paper"}`}
+    >
       <div
         role="tablist"
         aria-label="Secciones de la carta"
@@ -192,7 +208,7 @@ function MenuPanel({
             aria-controls="carta-lista"
             tabIndex={s.id === section.id ? 0 : -1}
             onClick={() => pick(s.id)}
-            className="cozy-btn shrink-0 gap-1.5 px-2 py-1 text-[13px] whitespace-nowrap"
+            className={`cozy-btn shrink-0 gap-1.5 px-2 py-1 text-[13px] whitespace-nowrap ${night ? "border-[#ff5fd2] bg-[#34194f] text-[#ffe0f6] aria-selected:bg-[#5a1f6e] shadow-[inset_2px_2px_0_#5a2a7a,2px_2px_0_rgb(20_10_24/0.35)]" : ""}`}
           >
             <ItemArt id={s.icon} night={false} small />
             {s.label}
@@ -255,6 +271,7 @@ function MenuPanel({
             BAR
           </p>
           {intro}
+          {tabs}
           {list}
         </div>
       ) : (

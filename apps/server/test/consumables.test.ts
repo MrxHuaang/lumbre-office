@@ -210,6 +210,40 @@ describe("bar del club", () => {
     expect(await repo.getPoints("u-alice")).toBe(50);
   });
 
+  it("lo colombiano del bar se pide igual: la copita de guaro emborracha y la ronda deja guaro y pola", async () => {
+    const { room, alice, order, use } = await setup(60);
+    await walkNextTo(alice, room, "sotano", "club_bar");
+    const guaro = barItem("aguardiente")!.price;
+    expect(await order("aguardiente")).toEqual({ ok: true, item: "aguardiente", balance: 60 - guaro });
+    expect(repo.ledger.at(-1)).toMatchObject({ amount: -guaro, reason: "PURCHASE", refId: "bar:aguardiente" });
+    // Dos sorbos de guaro ya alegran (una cerveza entera, apenas).
+    for (let k = 0; k < usesOf("aguardiente"); k++) {
+      await use();
+      await tick(OfficeRoom.consumeCooldownMs);
+    }
+    expect(me(alice, room).held).toBe("");
+    expect(me(alice, room).drunk).toBeGreaterThanOrEqual(1);
+    await tick(CAFE.orderCooldownMs);
+    const ronda = barItem("ronda")!.price;
+    expect(await order("ronda")).toEqual({ ok: true, item: "ronda", balance: 60 - guaro - ronda });
+    expect(me(alice, room).held).toBe("ronda");
+    expect(me(alice, room).heldLeft).toBe(`${usesOf("aguardiente")},${usesOf("pola-dorada")}`);
+  });
+
+  it("cada trago nuevo se puede pedir y se toma a sorbos", async () => {
+    const { room, alice, order, use, used } = await setup(500);
+    await walkNextTo(alice, room, "sotano", "club_bar");
+    for (const id of ["michelada", "canelazo", "ron-viejo"]) {
+      await tick(CAFE.orderCooldownMs);
+      expect(await order(id), id).toMatchObject({ ok: true, item: id });
+      expect(me(alice, room).heldLeft, id).toBe(String(usesOf(id)));
+      await tick(OfficeRoom.consumeCooldownMs);
+      await use();
+      expect(used.alice.at(-1), id).toMatchObject({ art: id, action: "sip", left: usesOf(id) - 1 });
+      await tick(OfficeRoom.consumeCooldownMs);
+    }
+  });
+
   it("sin saldo suficiente no se cobra", async () => {
     const { room, alice, order } = await setup(barItem("habano")!.price - 1);
     await walkNextTo(alice, room, "sotano", "club_bar");

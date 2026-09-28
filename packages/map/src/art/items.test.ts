@@ -1,4 +1,4 @@
-import { BAR_MENU, CAFE_MENU, CONSUMABLES, SOMBRERO_MENU, usesOf } from "@hyvento/shared";
+import { BAR_MENU, CAFE_MENU, CINEMA_MENU, CONSUMABLES, SOMBRERO_MENU, usesOf } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { drawFurniture } from "./furniture";
 import { CAFE_ITEM_ART, drawHeldItem, drawMenuItem, heldEffect } from "./items";
@@ -13,7 +13,7 @@ const opaque = (c: { data: Uint8ClampedArray }) => {
 describe("lo que se lleva en la mano", () => {
   it("todo lo que se puede consumir tiene dibujo, y todo lo de las cartas también", () => {
     for (const art of Object.keys(CONSUMABLES)) expect(CAFE_ITEM_ART, art).toContain(art);
-    for (const item of [...CAFE_MENU, ...BAR_MENU, ...SOMBRERO_MENU]) {
+    for (const item of [...CAFE_MENU, ...BAR_MENU, ...CINEMA_MENU, ...SOMBRERO_MENU]) {
       for (const part of item.holds) expect(CAFE_ITEM_ART, `${item.id}: ${part}`).toContain(part);
       expect(opaque(drawMenuItem(item.id)), item.id).toBeGreaterThan(8);
     }
@@ -59,15 +59,39 @@ describe("lo que se lleva en la mano", () => {
     expect(fx.from[0]).toBe(short.width - 1);
   });
 
-  it("lo del Man del Sombrero cambia con el uso: la bareta se quema, la bolsita se vacía y la totuma deja ver el fondo", () => {
+  it("lo del Man del Sombrero y los tragos nuevos cambian con el uso: la bareta se quema, las bolsitas y frascos se vacían y la totuma deja ver el fondo", () => {
     expect(drawHeldItem("bareta", { left: 1 }).width).toBeLessThan(drawHeldItem("bareta").width);
     expect(heldEffect("bareta")?.fx).toBe("smoke");
-    for (const art of ["perico-bolsa", "yage", "chirrinchi", "viche"]) {
+    for (const art of ["perico-bolsa", "yage", "chirrinchi", "viche", "tusi", "keta", "popper", "aguapanela-trucada", "coco-loco", "chicha", "pola-dorada"]) {
       const full = drawHeldItem(art);
       const last = drawHeldItem(art, { left: 1 });
       expect([last.width, last.height], art).toEqual([full.width, full.height]);
       expect(full.data.some((v, i) => v !== last.data[i]), art).toBe(true);
     }
+  });
+
+  it("los parecidos no se confunden: cada bebida caliente, cada trago y cada sobre de semillas tiene su dibujo", () => {
+    const key = (art: string) => {
+      const c = drawHeldItem(art);
+      return `${c.width}x${c.height}:${Array.from(c.data).join(",")}`;
+    };
+    const groups = [
+      ["tinto", "perico", "chocolate", "milo", "cafe-leche", "aguapanela", "agua-panela-queso", "canelazo", "aguapanela-trucada"],
+      ["aguardiente", "tequila", "ron-viejo", "whisky", "cerveza", "pola-dorada", "refajo", "michelada", "mojito", "cuba-libre", "lulada-ron"],
+      ["perico-bolsa", "tusi", "keta", "popper"],
+      CAFE_ITEM_ART.filter((a) => a.startsWith("semillas-")),
+    ];
+    for (const g of groups) expect(new Set(g.map(key)).size, g.join(", ")).toBe(g.length);
+  });
+
+  it("el contorno toma el tono del material (no es el mismo café para todo)", () => {
+    const outlineColors = (art: string) => {
+      const c = drawHeldItem(art);
+      const seen = new Set<string>();
+      for (let i = 0; i < c.data.length; i += 4) if (c.data[i + 3] === 255 && c.data[i]! + c.data[i + 1]! + c.data[i + 2]! < 200) seen.add(`${c.data[i]},${c.data[i + 1]},${c.data[i + 2]}`);
+      return seen.size;
+    };
+    expect(outlineColors("coca-cola")).toBeGreaterThan(2);
   });
 
   it("inclinado para el sorbo sigue siendo el mismo vaso, corrido hacia un lado", () => {

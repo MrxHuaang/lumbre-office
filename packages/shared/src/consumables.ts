@@ -78,6 +78,19 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   coctel: { action: "sip", uses: 4 },
   whisky: { action: "sip", uses: 3 },
   habano: { action: "smoke", uses: 8 },
+  // Lo colombiano del bar: la copita y el shot rinden poco; la media de ron, bastante.
+  aguardiente: { action: "sip", uses: 2 },
+  "ron-viejo": { action: "sip", uses: 6 },
+  tequila: { action: "sip", uses: 2 },
+  refajo: { action: "sip", uses: 5 },
+  michelada: { action: "sip", uses: 5 },
+  chicha: { action: "sip", uses: 4 },
+  "pola-dorada": { action: "sip", uses: 5 },
+  mojito: { action: "sip", uses: 4 },
+  "cuba-libre": { action: "sip", uses: 4 },
+  "lulada-ron": { action: "sip", uses: 4 },
+  "coco-loco": { action: "sip", uses: 5 },
+  canelazo: { action: "sip", uses: 3 },
   // Casa viva: lo gratis de la nevera, la cafetera y la fogata.
   ...CASA_CONSUMABLES,
   // Jardín vivo: lo que se cosecha en el huerto y la miel.
@@ -108,6 +121,19 @@ export const ALCOHOL_PER_SIP: Record<string, number> = {
   vino: 0.7,
   coctel: 0.8,
   whisky: 1.2,
+  // Según lo fuerte: el refajo y la chicha casi no; el guaro, el tequila y el ron de la media, harto.
+  aguardiente: 1.1,
+  "ron-viejo": 1,
+  tequila: 1.2,
+  refajo: 0.3,
+  michelada: 0.45,
+  chicha: 0.35,
+  "pola-dorada": 0.5,
+  mojito: 0.7,
+  "cuba-libre": 0.75,
+  "lulada-ron": 0.65,
+  "coco-loco": 0.7,
+  canelazo: 0.6,
   // El chirrinchi y el viche del Man del Sombrero: más fuertes que lo del bar.
   ...SOMBRERO_ALCOHOL,
 };

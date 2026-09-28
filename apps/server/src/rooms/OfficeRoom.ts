@@ -172,6 +172,7 @@ import {
   sombreroItem,
   sombreroRefId,
   TRIP,
+  tripSpeedMul,
   type SombreroBuyResult,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
@@ -1541,10 +1542,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // el asiento (p. ej. del tile de enfrente a la silla), así que ahí se permite algo más.
     const snap = seated !== player.seated ? map.tileSize * SEAT_REACH_TILES : 0;
     // En la carrera de sillas se va más rápido; con la energía de un plato de la cocina, también; trabado
-    // (lo del Man del Sombrero), más lento.
-    const stoned = this.trips.get(player.userId)?.kind === "trabado";
-    const speed =
-      PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : this.cocina.speedMul(player.userId, OfficeRoom.cocinaNow())) * (stoned ? TRIP.slowSpeedMul : 1);
+    // o con la keta (lo del Man del Sombrero), más lento.
+    const tripMul = tripSpeedMul(this.trips.get(player.userId)?.kind);
+    const speed = PLAYER_SPEED * (player.racing ? CHAIR_RACE.speedMul : this.cocina.speedMul(player.userId, OfficeRoom.cocinaNow())) * tripMul;
     const maxDist = Math.max(map.tileSize * 0.75, dt * speed * 1.6, snap);
     const dist = Math.hypot(x - player.x, y - player.y);
 
