@@ -196,6 +196,8 @@ export const INTERNAL_ROUTES = {
   pointsChanged: "/internal/points-changed",
   /** Cambiaron los ajustes del casino en /admin (límite diario, abierto/cerrado). */
   casinoSettingsChanged: "/internal/casino-settings-changed",
+  /** Un admin dio o quitó un permiso, o abrió uno a todos: se releen los de todos los conectados. */
+  permissionsChanged: "/internal/permissions-changed",
   /** Alguien mandó un regalo desde la web (body `GiftSentNotice`): avisar a quien lo recibe. */
   giftSent: "/internal/gift-sent",
   /** Se subió o se borró una foto: el servidor avisa a todos para que el tablón se refresque. */

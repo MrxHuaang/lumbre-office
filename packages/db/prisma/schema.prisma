@@ -60,28 +60,30 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  office          Office?
-  chatMessages    ChatMessage[]
-  notes           Note[]
-  invitesSent     Invite[]           @relation("InvitedBy")
-  pointMoves      PointTransaction[]
-  missionsCreated Mission[]          @relation("MissionCreator")
-  missionsTaken   Mission[]          @relation("MissionAssignee")
-  inventory       InventoryItem[]
-  giftsSent       Gift[]             @relation("GiftsSent")
-  giftsReceived   Gift[]             @relation("GiftsReceived")
-  itemsGiven      ItemTransfer[]     @relation("ItemsGiven")
-  itemsReceived   ItemTransfer[]     @relation("ItemsReceived")
-  gardenPlots     GardenPlot[]
-  fishCatches     FishCatch[]
-  arcadeScores    ArcadeScore[]
-  photos          Photo[]
-  stats           UserStat[]
-  achievements    UserAchievement[]
-  doorNotesIn     DoorNote[]         @relation("DoorNotesReceived")
-  doorNotesOut    DoorNote[]         @relation("DoorNotesSent")
-  featuredBadge   FeaturedBadge?
-  pet             PetBond?
+  office           Office?
+  chatMessages     ChatMessage[]
+  notes            Note[]
+  invitesSent      Invite[]           @relation("InvitedBy")
+  pointMoves       PointTransaction[]
+  missionsCreated  Mission[]          @relation("MissionCreator")
+  missionsTaken    Mission[]          @relation("MissionAssignee")
+  inventory        InventoryItem[]
+  giftsSent        Gift[]             @relation("GiftsSent")
+  giftsReceived    Gift[]             @relation("GiftsReceived")
+  itemsGiven       ItemTransfer[]     @relation("ItemsGiven")
+  itemsReceived    ItemTransfer[]     @relation("ItemsReceived")
+  gardenPlots      GardenPlot[]
+  fishCatches      FishCatch[]
+  arcadeScores     ArcadeScore[]
+  photos           Photo[]
+  stats            UserStat[]
+  achievements     UserAchievement[]
+  doorNotesIn      DoorNote[]         @relation("DoorNotesReceived")
+  doorNotesOut     DoorNote[]         @relation("DoorNotesSent")
+  featuredBadge    FeaturedBadge?
+  pet              PetBond?
+  permissions      UserPermission[]   @relation("PermissionsHeld")
+  permissionsGiven UserPermission[]   @relation("PermissionsGranted")
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -99,6 +101,30 @@ model Invite {
   invitedBy   User?     @relation("InvitedBy", fields: [invitedById], references: [id])
   acceptedAt  DateTime?
   createdAt   DateTime  @default(now())
+}
+
+/**
+ * Permiso que un admin le dio a una persona (id del catálogo `permisos.ts` de @hyvento/shared, p. ej.
+ * "anunciar"). Un admin los tiene todos sin fila; un id que salga del catálogo se ignora.
+ */
+model UserPermission {
+  userId      String
+  permiso     String
+  grantedById String?
+  createdAt   DateTime @default(now())
+  user        User     @relation("PermissionsHeld", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy   User?    @relation("PermissionsGranted", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, permiso])
+}
+
+/**
+ * "Todos pueden": un permiso abierto a todo el equipo (sin fila = cerrado, solo quien lo tenga).
+ */
+model PermissionSetting {
+  permiso   String   @id
+  everyone  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
 }
 
 /**
@@ -314,11 +340,13 @@ model OfficeItem {
 
 // ---------- Casino (fase 4) ----------
 
-/** Ajustes del casino (una sola fila, id = 1). Los cambia un admin en /admin. */
+/**
+ * Ajustes del casino (una sola fila, id = 1). Los cambia un admin en /admin.
+ */
 model CasinoSettings {
-  id             Int      @id @default(1)
-  enabled        Boolean  @default(true)
-  updatedAt      DateTime @updatedAt
+  id        Int      @id @default(1)
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
 }
 
 /**
@@ -377,7 +405,9 @@ model GardenPlot {
   updatedAt    DateTime  @updatedAt
 }
 
-/** Pez atrapado en el estanque del jardín (fase 5): la colección de cada persona. */
+/**
+ * Pez atrapado en el estanque del jardín (fase 5): la colección de cada persona.
+ */
 model FishCatch {
   id       String   @id @default(cuid())
   userId   String
@@ -390,7 +420,9 @@ model FishCatch {
   @@index([userId, species])
 }
 
-/** Puntaje de una partida en una máquina del arcade del sótano (fase 5). */
+/**
+ * Puntaje de una partida en una máquina del arcade del sótano (fase 5).
+ */
 model ArcadeScore {
   id        String   @id @default(cuid())
   userId    String
@@ -462,7 +494,9 @@ model UserStat {
   @@id([userId, key])
 }
 
-/** Logro desbloqueado (el catálogo está en @hyvento/shared: ACHIEVEMENTS). Una fila por persona y logro. */
+/**
+ * Logro desbloqueado (el catálogo está en @hyvento/shared: ACHIEVEMENTS). Una fila por persona y logro.
+ */
 model UserAchievement {
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)

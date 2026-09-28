@@ -26,6 +26,7 @@ function json(res: ServerResponse, status: number, body: unknown) {
  * - GET  /health: chequeo de salud del hosting.
  * - POST /internal/offices-changed: la web avisa que cambiaron dueños/nombres de oficinas.
  * - POST /internal/points-changed: la web cambió el saldo de alguien (body `{ userId }`).
+ * - POST /internal/permissions-changed: un admin dio, quitó o abrió a todos un permiso.
  * - POST /internal/photos-changed: se subió o se borró una foto (el tablón de la cafetería se refresca).
  * - POST /internal/door-notes-changed: alguien leyó o borró las notas de su puerta (body `{ userId }`).
  */
@@ -52,6 +53,16 @@ async function handleHttp(req: IncomingMessage, res: ServerResponse) {
     } catch (err) {
       console.error("reloadCasinoSettings", err);
       return json(res, 500, { error: "no se pudieron recargar los ajustes del casino" });
+    }
+  }
+  if (req.method === "POST" && path === INTERNAL_ROUTES.permissionsChanged) {
+    if (!authorized(req, process.env.GAME_TOKEN_SECRET)) return json(res, 401, { error: "no autorizado" });
+    try {
+      await OfficeRoom.reloadPermisosEverywhere();
+      return json(res, 200, { ok: true });
+    } catch (err) {
+      console.error("reloadPermisos", err);
+      return json(res, 500, { error: "no se pudieron recargar los permisos" });
     }
   }
   if (req.method === "POST" && path === INTERNAL_ROUTES.photosChanged) {

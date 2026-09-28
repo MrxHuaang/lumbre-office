@@ -109,6 +109,7 @@ import { bindPesca } from "./pesca";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
+import { bindPermisos } from "./permisos";
 import { useSombreroStore } from "./npcs/store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
@@ -692,7 +693,7 @@ export function sendWorldEdit(edit: WorldEditMessage) {
 
 const WORLD_EDIT_TEXT: Record<string, string> = {
   ...WORLD_EDIT_ERRORS,
-  admin: "Solo el administrador de la casa puede editarla.",
+  admin: "Necesitas el permiso para editar la casa (se lo pides a un admin).",
   busy: "Otra persona está editando la casa.",
   failed: "No se pudo guardar. Intenta de nuevo.",
 };
@@ -706,7 +707,7 @@ function handleWorldEditLockResult(r: WorldEditLockResult) {
   if (r.ok) return;
   const s = useOfficeStore.getState();
   s.setWorldEditing(false);
-  s.notify(r.error === "busy" ? `${r.by} está editando la casa: una persona a la vez.` : "Solo el administrador de la casa puede editarla.", "warning");
+  s.notify(r.error === "busy" ? `${r.by} está editando la casa: una persona a la vez.` : "Necesitas el permiso para editar la casa (se lo pides a un admin).", "warning");
 }
 
 function handleWorldEditResult(r: WorldEditResult) {
@@ -1055,6 +1056,7 @@ function attach(r: OfficeRoom) {
     useOfficeStore.getState().notify(text, s.outcome === "lose" ? "info" : "success");
   });
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
+  bindPermisos(r);
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
   bindCinema(r);

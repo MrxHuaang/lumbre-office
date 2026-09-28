@@ -62,6 +62,7 @@ import { PescaPanel } from "./PescaPanel";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
+import { PermisosPanel } from "./PermisosPanel";
 import { AchievementToasts } from "./profile/AchievementToasts";
 import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
 import { TrophyPanel } from "./profile/TrophyPanel";
@@ -336,6 +337,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <PodcastConsent />
           <IncomingCall />
           <SocialOverlays />
+          <PermisosPanel />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}
           <MediaControls actions={<HandActions />} tail={<ControlsHint />}>
             <Hotbar />

@@ -1,4 +1,4 @@
-import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, ManualStatus, StatChange } from "@hyvento/shared";
+import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Permiso, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, ManualStatus, StatChange } from "@hyvento/shared";
 import type { ItemStack, PetBondRecord } from "@hyvento/shared";
 
 export interface AwardOnceInput {
@@ -94,6 +94,8 @@ export interface GameRepository {
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }): Promise<{ ok: boolean; balance: number }>;
   /** Ajustes del casino (límite diario de pérdidas, abierto o cerrado). */
   getCasinoSettings(): Promise<CasinoSettingsDTO>;
+  /** Permisos dados a cada persona y los abiertos a todos (ver permisos.ts de @hyvento/shared). */
+  loadPermisos(userIds: string[]): Promise<{ everyone: Permiso[]; byUser: Record<string, Permiso[]> }>;
   /** Cambios del editor de la casa, por nivel (JSON crudo: se valida al leer). */
   loadWorldEdits(): Promise<Record<string, unknown>>;
   saveWorldEdits(area: string, edits: unknown, userId: string): Promise<void>;

@@ -12,6 +12,7 @@ import {
   type ArcadeGame,
   type BoardGameKind,
   type CasinoSettingsDTO,
+  type Permiso,
   type ChatEvent,
   type ItemStack,
   type OfficeItemDTO,
@@ -162,6 +163,15 @@ export class MemoryRepository implements GameRepository {
     if (balance < amount) return { ok: false, balance };
     this.ledger.push({ userId, amount: -amount, reason, at: Date.now(), refId });
     return { ok: true, balance: balance - amount };
+  }
+
+  /** Permisos en memoria (los tests los cambian directo): los dados por persona y los abiertos a todos. */
+  permisos = new Map<string, Permiso[]>();
+  permisosTodos: Permiso[] = [];
+  async loadPermisos(userIds: string[]) {
+    const byUser: Record<string, Permiso[]> = {};
+    for (const id of userIds) if (this.permisos.has(id)) byUser[id] = [...this.permisos.get(id)!];
+    return { everyone: [...this.permisosTodos], byUser };
   }
 
   /** Ajustes del casino en memoria (los tests los cambian directo). */

@@ -6,6 +6,7 @@
 import { tradeReach } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { getRoom } from "@/game/network";
+import { usePermisosStore } from "@/game/permisos";
 import { respondTrade, sendTradeRequest, useSocialStore, type GiftTarget } from "@/game/social";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon } from "../Cozy";
@@ -39,6 +40,7 @@ function PersonMenu() {
   const openGift = useSocialStore((s) => s.openGift);
   const person = useOfficeStore((s) => (menu ? s.players[menu.sessionId] : undefined));
   const near = useNearMe(menu?.sessionId ?? null);
+  const admin = usePermisosStore((s) => s.admin);
 
   useEffect(() => {
     if (!menu) return;
@@ -81,6 +83,20 @@ function PersonMenu() {
         Intercambiar
         {!near && <span className="ml-auto text-[11px] text-cozy-ink-soft">lejos</span>}
       </button>
+      {admin && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            usePermisosStore.getState().openEditor({ userId: person.userId, name: person.name });
+            close();
+          }}
+          className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-[14px] hover:bg-cozy-paper-dark"
+        >
+          <PixelIcon name="unlock" size={13} color="var(--color-cozy-wood)" />
+          Dar permiso…
+        </button>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { sendInvite } from "@/game/network";
+import { usePermisosStore } from "@/game/permisos";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 
@@ -33,6 +34,7 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
   const menu = useRef<HTMLDivElement>(null);
   const inviteLabel = useInviteLabel();
   const walkToPlayer = useOfficeStore((s) => s.walkToPlayer);
+  const admin = usePermisosStore((s) => s.admin);
 
   const close = (focusButton = true) => {
     setOpen(false);
@@ -134,6 +136,11 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
           <Item icon="smile" onClick={run(onProfile)}>
             Ver perfil
           </Item>
+          {admin && (
+            <Item icon="unlock" onClick={run(() => usePermisosStore.getState().openEditor({ userId: person.userId, name: person.name }))}>
+              Dar permiso…
+            </Item>
+          )}
         </div>
       )}
     </>
