@@ -1,3 +1,4 @@
+import { npcSolidTiles } from "@hyvento/shared";
 import type { AreaDef, PointDef, Rect } from "../types";
 import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
@@ -300,6 +301,8 @@ export const sotano: AreaDef = {
     place("bath-sink", 43, CABALLEROS.y, "down"),
     place("bath-sink", 44, CABALLEROS.y, "down"),
   ],
+  // El crupier, el dealer, la cajera y el portero, en sus puestos.
+  npcTiles: npcSolidTiles("sotano"),
   portals: [
     {
       id: "sotano-escalera",

@@ -248,4 +248,6 @@ export interface AreaDef {
   furniture: Placement[];
   portals: PortalDef[];
   points: PointDef[];
+  /** Tiles donde está parado alguien del personal (los NPC del casino, ver npcs.ts de shared): no se caminan. */
+  npcTiles?: readonly { x: number; y: number }[];
 }

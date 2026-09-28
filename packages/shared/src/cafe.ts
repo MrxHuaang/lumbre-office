@@ -3,6 +3,7 @@
 // (ver consumables.ts). Solo es decorativo: no da puntos ni ventajas.
 import { z } from "zod";
 import { FREE_HOLDS } from "./casa";
+import { sombreroItem } from "./sombrero";
 
 /** Las secciones de la carta de la cafetería (pestañas del panel), en el orden en que se muestran. */
 export const CAFE_CATEGORIES = [
@@ -231,7 +232,8 @@ export function menuItem(id: string): (MenuItem & { menu: MenuId }) | undefined 
 /** Lo que se ve en las manos por un pedido (vacío si el id no es de ninguna carta). */
 export function heldParts(id: string): readonly string[] {
   // Lo gratis de la casa (la nevera, la fogata) no sale de ninguna carta.
-  return menuItem(id)?.holds ?? FREE_HOLDS[id] ?? [];
+  // Ni lo que vende el Man del Sombrero (sombrero.ts).
+  return menuItem(id)?.holds ?? FREE_HOLDS[id] ?? sombreroItem(id)?.holds ?? [];
 }
 
 export const CAFE = {

@@ -343,4 +343,7 @@ export const MSG = {
   focusStart: "focus:start",
   focusStop: "focus:stop",
   focusEvent: "focus:event",
+  /** Comprarle al Man del Sombrero (`SombreroBuyMessage`) y la respuesta a quien compró (`SombreroBuyResult`). */
+  sombreroBuy: "sombrero:buy",
+  sombreroResult: "sombrero:result",
 } as const;

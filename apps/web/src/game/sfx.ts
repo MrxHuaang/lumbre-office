@@ -409,6 +409,24 @@ export const sfx = {
     });
   },
 
+  /** La esnifada (lo del Man del Sombrero): dos soplidos cortos hacia adentro por la nariz. */
+  sniff(vol = 1) {
+    play("sniff", 300, 420, vol, (a, t, v) => {
+      noise(a, t, 0.13, { type: "highpass", freq: 3000, to: 5200, vol: 0.05 * v, attack: 0.05 });
+      noise(a, t + 0.2, 0.18, { type: "highpass", freq: 3200, to: 6000, vol: 0.06 * v, attack: 0.06 });
+    });
+  },
+  /** Risita de trabado: "je je je", tres tonos que suben y bajan. */
+  giggle(vol = 1) {
+    play("giggle", 600, 420, vol, (a, t, v) => {
+      for (let i = 0; i < 3; i++) tone(a, t + i * 0.11, 0.08, 520 + i * 40, 420, 0.05 * v, { type: "sine" });
+    });
+  },
+  /** El humito del Man del Sombrero al llegar o irse. */
+  poof(vol = 1) {
+    play("poof", 300, 600, vol, (a, t, v) => noise(a, t, 0.55, { type: "lowpass", freq: 1400, to: 300, vol: 0.08 * v, attack: 0.02 }));
+  },
+
   // ---- Borrachera ----
   hic(vol = 1) {
     play("hic", 300, 120, vol, (a, t, v) => {

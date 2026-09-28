@@ -41,7 +41,7 @@ export const TOPS_WITH_TOP2: readonly Top[] = [
 ];
 
 /** Conjuntos que tapan la parte de arriba entera (no se dibujan su cuello, su corbata ni su cintura). */
-export const HIDES_TOP: ReadonlySet<Outfit> = new Set(["dress", "gown", "coveralls", "coat", "raincoat", "chef-coat", "pajamas", "robe", "ruana"]);
+export const HIDES_TOP: ReadonlySet<Outfit> = new Set(["dress", "gown", "coveralls", "coat", "raincoat", "chef-coat", "pajamas", "robe", "ruana", "trenchcoat"]);
 /** Conjuntos que tapan la parte de abajo: las piernas son del conjunto o de piel. */
 export const HIDES_BOTTOM: ReadonlySet<Outfit> = new Set(["dress", "gown", "coveralls", "pajamas", "trunks", "swimsuit", "bikini"]);
 
@@ -52,6 +52,7 @@ export const OWN_SLEEVES: ReadonlySet<Outfit> = new Set([
   "coveralls",
   "coat",
   "raincoat",
+  "trenchcoat",
   "robe",
   "lab-coat",
   "chef-coat",
@@ -295,7 +296,7 @@ function drawLap(ctx: Ctx) {
       : bareLap || (bottomShown && wear.rows === 0 && look.bottom !== "skirt" && look.bottom !== "long-skirt")
         ? [t.skin[0], t.skin[1]]
         : t.pants;
-  const coat = o === "raincoat" || o === "robe" ? t.shirt : o === "lab-coat" ? t.white : null;
+  const coat = o === "raincoat" || o === "robe" ? t.shirt : o === "lab-coat" ? t.white : o === "trenchcoat" ? t.accent : null;
   if (view === "back") {
     c.rect(4, Y(23), 8, 2, (coat ?? lap)[0]);
     return;
@@ -400,6 +401,8 @@ export function armWear(look: WornLook, t: Tones): ArmWear {
       return { kind: "long", paint: (_x, r) => (r % 3 === 0 ? t.shirt[0] : t.shirt[1]), cuff: t.shirt[0] };
     case "raincoat":
       return solid(t.shirt[0], t.shirt[1]);
+    case "trenchcoat":
+      return solid(t.accent[0], t.accent[1]);
     case "robe":
       return solid(t.shirt[0], t.top2[1]);
     case "lab-coat":

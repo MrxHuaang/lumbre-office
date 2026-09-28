@@ -81,7 +81,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // La vitrina de trofeos de cada oficina (los logros de su dueño).
   | "trophies"
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
-  | "kitchen";
+  | "kitchen"
+  // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
+  | "sombrero";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
