@@ -1155,10 +1155,59 @@ const ITEMS: Record<string, ItemArt> = {
         ["papa", "#e8c24a", "#b8902a"],
         ["maiz", "#f2c83a", "#d09a22"],
         ["lulo", "#f09a2a", "#c06a18"],
+        // Las del invernadero.
+        ["uchuva", "#f2b233", "#b87a18"],
+        ["pitahaya", "#e8457a", "#a8205a"],
+        ["cacao", "#8a4a26", "#5a2a14"],
+        ["cafe", "#c8302a", "#6a3a1e"],
       ] as const
     ).map(([crop, c, C]) => [`semillas-${crop}`, seedPacket(c, C)]),
   ),
+  // ---------- Lo que se cosecha en el invernadero ----------
+  uchuva: {
+    crumb: hex("#fff0a0"),
+    rows: [
+      "..hHh...", //
+      ".hHohHh.",
+      "..oyyo..",
+      ".oyYyyo.",
+      ".oyyyYo.",
+      "..oYYo..",
+      "...oo...",
+    ],
+    colors: { y: hex("#f7b733"), Y: hex("#c8861a"), h: hex("#e8d8a0"), H: hex("#b8a070") },
+  },
+  pitahaya: {
+    crumb: hex("#fffaf2"),
+    rows: [
+      "...ol...", //
+      "..oppo..",
+      ".lpppPo.",
+      "oppwpppo",
+      "opppwPPo",
+      "olpppPlo",
+      ".oPPPPo.",
+      "..oooo..",
+    ],
+    colors: { p: hex("#e8457a"), P: hex("#a8205a"), w: hex("#fff4f0"), l: hex("#7fbf4a") },
+  },
+  // La chocolatina hecha con el cacao de la casa: una barra con su papel dorado.
+  chocolatina: {
+    crumb: hex("#b87a4a"),
+    rows: [
+      "ooooooo.", //
+      "occCccgo",
+      "oCcccCgo",
+      "occCccgo",
+      "oCcccCgo",
+      "ooooooo.",
+    ],
+    colors: { c: hex("#6a3a1e"), C: hex("#4a2410"), g: hex("#e8c050") },
+  },
 };
+
+// El tinto que sale de la cosecha del invernadero: la misma taza del tinto de la cafetería.
+ITEMS["cafe-casa"] = { ...ITEMS.tinto! };
 
 /** Sobre de semillas de papel kraft con el dibujo del cultivo (su color) al frente. */
 function seedPacket(c: string, dark: string): ItemArt {

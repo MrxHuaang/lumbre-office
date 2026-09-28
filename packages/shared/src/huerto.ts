@@ -18,6 +18,11 @@ export interface Crop {
   /** Lo que queda en la mano al cosechar y cómo se llama. */
   product: string;
   productName: string;
+  /**
+   * Del invernadero: solo se siembra en sus bancales (afuera no se da) y allá adentro la tierra siempre
+   * está húmeda, así que crece a ritmo completo sin regar.
+   */
+  indoor?: true;
 }
 
 const MIN = 60_000;
@@ -30,6 +35,11 @@ export const CROPS: readonly Crop[] = [
   { id: "papa", name: "Papa criolla", growMs: 60 * MIN, points: 6, product: "papa", productName: "Papas criollas" },
   { id: "maiz", name: "Maíz", growMs: 90 * MIN, points: 8, product: "mazorca", productName: "Mazorca" },
   { id: "lulo", name: "Lulo", growMs: 150 * MIN, points: 10, product: "lulo", productName: "Lulo" },
+  // Invernadero: lo de tierra caliente, que en el frío del jardín no se da.
+  { id: "uchuva", name: "Uchuva", growMs: 15 * MIN, points: 3, product: "uchuva", productName: "Uchuvas", indoor: true },
+  { id: "pitahaya", name: "Pitahaya", growMs: 40 * MIN, points: 6, product: "pitahaya", productName: "Pitahaya", indoor: true },
+  { id: "cacao", name: "Cacao", growMs: 70 * MIN, points: 9, product: "chocolatina", productName: "Chocolatina de la casa", indoor: true },
+  { id: "cafe", name: "Café", growMs: 100 * MIN, points: 12, product: "cafe-casa", productName: "Tinto de la cosecha", indoor: true },
 ];
 
 const CROP_BY_ID = new Map(CROPS.map((c) => [c.id, c]));
@@ -75,25 +85,33 @@ export interface PlotState {
   growthAt: number;
   /** Hasta cuándo está húmeda la tierra (0 = nunca se regó). */
   wateredUntil: number;
-  /** Bajo techo (el invernadero): la estación no la castiga (ver `seasonGrowth`). */
+  /**
+   * Bajo techo (el invernadero): la estación no la castiga (ver `seasonGrowth`). Sin el campo se deduce
+   * del cultivo: lo `indoor` solo se siembra en los bancales. Así no hace falta guardarlo ni sincronizarlo.
+   */
   greenhouse?: boolean;
 }
+
+/** ¿Está bajo techo? (el campo si lo trae; si no, los cultivos del invernadero). */
+export const plotUnderRoof = (p: PlotState): boolean => p.greenhouse ?? Boolean(cropById(p.crop)?.indoor);
 
 /**
  * Ritmo de la estación para la parcela: el de la estación en que arrancó el tramo (`growthAt`). Cada
  * riego abre un tramo nuevo, así que un cambio de estación se nota desde el siguiente riego; la cuenta
  * sigue siendo exacta y la misma en el servidor y en el cliente.
  */
-export const plotSeasonRate = (p: PlotState): number => seasonGrowth(p.crop, seasonOf(p.growthAt), { greenhouse: p.greenhouse });
+export const plotSeasonRate = (p: PlotState): number => seasonGrowth(p.crop, seasonOf(p.growthAt), { greenhouse: plotUnderRoof(p) });
 
 /**
  * Crecimiento (ms) de la parcela en `now`: húmeda a ritmo 1 hasta `wateredUntil`, seca a `dryRate`, y
- * todo por el ritmo de la estación.
+ * todo por el ritmo de la estación. En el invernadero la tierra siempre está húmeda (y la estación no
+ * castiga).
  */
 export function plotGrowth(p: PlotState, now: number): number {
   const crop = cropById(p.crop);
   if (!crop) return 0;
   const t = Math.max(now, p.growthAt);
+  if (crop.indoor) return Math.min(crop.growMs, p.growthMs + (t - p.growthAt) * plotSeasonRate(p));
   const wetEnd = Math.min(t, Math.max(p.growthAt, p.wateredUntil));
   const wet = wetEnd - p.growthAt;
   const dry = t - wetEnd;
@@ -116,6 +134,7 @@ export function plotReadyAt(p: PlotState): number {
   // Lo que falta, en tiempo "a ritmo de tierra húmeda" de esta estación.
   const need = (crop.growMs - p.growthMs) / plotSeasonRate(p);
   if (need <= 0) return p.growthAt;
+  if (crop.indoor) return p.growthAt + need;
   const wetWindow = Math.max(0, p.wateredUntil - p.growthAt);
   if (need <= wetWindow) return p.growthAt + need;
   return p.growthAt + wetWindow + (need - wetWindow) / HUERTO.dryRate;
@@ -123,6 +142,10 @@ export function plotReadyAt(p: PlotState): number {
 
 export const plotReady = (p: PlotState, now: number) => now >= plotReadyAt(p);
 export const plotWet = (p: PlotState, now: number) => now < p.wateredUntil;
+
+/** Las parcelas del invernadero (bancales) tienen ids desde aquí; las del huerto, 0..19. */
+export const GREENHOUSE_PLOT_BASE = 100;
+export const isGreenhousePlot = (id: number) => id >= GREENHOUSE_PLOT_BASE;
 
 /** Etapa del dibujo: 0 recién sembrada, 1 brote, 2 creciendo, 3 lista para cosechar. */
 export type PlotStage = 0 | 1 | 2 | 3;
@@ -140,7 +163,8 @@ export function plantPlot(crop: string, who: { userId: string; name: string }, n
 /** ¿Tiene sentido regar ahora? No si está lista o si todavía le queda buena parte de la humedad. */
 export function canWater(p: PlotState, now: number): boolean {
   const crop = cropById(p.crop);
-  if (!crop || plotReady(p, now)) return false;
+  // En el invernadero no hace falta regar.
+  if (!crop || crop.indoor || plotReady(p, now)) return false;
   return p.wateredUntil - now <= wetMsOf(crop) * HUERTO.rewaterShare;
 }
 
@@ -194,6 +218,10 @@ export const HUERTO_CONSUMABLES: Record<string, { action: ConsumeAction; uses: n
   papa: { action: "bite", uses: 3 },
   mazorca: { action: "bite", uses: 4 },
   lulo: { action: "bite", uses: 3 },
+  uchuva: { action: "bite", uses: 3 },
+  pitahaya: { action: "bite", uses: 4 },
+  chocolatina: { action: "bite", uses: 3 },
+  "cafe-casa": { action: "sip", uses: 3 },
   [HONEY]: { action: "spoon", uses: 3 },
 };
 
@@ -236,6 +264,8 @@ const fill: UsableSpec = { action: "fill", label: "Llenar la regadera", cooldown
 export const JARDIN_USABLES: Record<string, UsableSpec> = {
   // La ayuda de la parcela cambia según lo que tengas en la mano y cómo esté (ver el cliente).
   "garden-plot": { action: "plot", label: "Parcela del huerto", cooldownMs: HUERTO.plotCooldownMs, marker: false },
+  // Los bancales del invernadero son parcelas más (con sus propios ids, ver GREENHOUSE_PLOT_BASE).
+  "greenhouse-bed": { action: "plot", label: "Bancal del invernadero", cooldownMs: HUERTO.plotCooldownMs, marker: false },
   "water-barrel": fill,
   well: fill,
   beehive: { action: "honey", label: "Sacar miel", cooldownMs: 1500 },
@@ -246,7 +276,7 @@ export const JARDIN_USABLES: Record<string, UsableSpec> = {
 
 export const HUERTO_MSG = { shedTake: "huerto:shed", notice: "huerto:notice" } as const;
 
-export const HuertoNoticeCode = z.enum(["seeds", "noCan", "emptyCan", "wet", "growing", "notYours", "tooMany", "honeyWait", "hands", "far"]);
+export const HuertoNoticeCode = z.enum(["seeds", "noCan", "emptyCan", "wet", "growing", "notYours", "tooMany", "honeyWait", "hands", "far", "indoor", "outdoor", "noWater", "inside"]);
 export type HuertoNoticeCode = z.infer<typeof HuertoNoticeCode>;
 
 /** Servidor → quien lo intentó: por qué no se pudo (con cuánto falta o de quién es, si aplica). */
@@ -281,5 +311,13 @@ export function huertoNoticeText(n: HuertoNotice): string {
       return "Tienes las manos ocupadas: termina primero lo que llevas.";
     case "far":
       return "Acércate un poco más.";
+    case "inside":
+      return "A los bancales se llega desde adentro: entra al invernadero por la puerta.";
+    case "indoor":
+      return `${(n.crop && cropById(n.crop)?.name) || "Eso"} no se da afuera: va en los bancales del invernadero.`;
+    case "outdoor":
+      return "En los bancales del invernadero va lo de tierra caliente (uchuva, pitahaya, cacao, café).";
+    case "noWater":
+      return "En el invernadero la tierra siempre está húmeda: no hace falta regar.";
   }
 }

@@ -87,6 +87,7 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "projector",
   "popcorn-machine",
   "garden-plot",
+  "greenhouse-bed",
   // Los fogones de la cocina: se cocina desde los puntos `kitchen_stove` de enfrente.
   "stove",
 ]);

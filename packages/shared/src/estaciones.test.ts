@@ -45,4 +45,12 @@ describe("estaciones", () => {
     expect(readyIn(summer)).toBeLessThan(readyIn(winter));
     expect(readyIn(winter, true)).toBeLessThan(readyIn(winter));
   });
+
+  it("lo del invernadero no sufre el invierno (se sabe por el cultivo) y el verano le ayuda", () => {
+    const uchuva = CROPS.find((c) => c.id === "uchuva")!;
+    const inBed = (t: number) => plotReadyAt(plantPlot("uchuva", alice, t)) - t;
+    expect(seasonGrowth("uchuva", "invierno")).toBeLessThan(1);
+    expect(inBed(at(2026, 0, 10))).toBe(uchuva.growMs);
+    expect(inBed(at(2026, 6, 10))).toBeLessThan(uchuva.growMs);
+  });
 });

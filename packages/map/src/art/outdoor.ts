@@ -1,6 +1,7 @@
 // Arte del jardín: la cabaña, árboles y objetos de afuera. Coordenadas locales de arte (tile = 16).
 import { drawHouse, HOUSE_CHIMNEY_TOP } from "./exterior-casa";
 import { gazeboRoof } from "./exterior-patio";
+import { drawGarage } from "./garaje-exterior";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -540,6 +541,7 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   "lamp-post": lampPost,
   fence,
   "gazebo-roof": gazeboRoof,
+  garage: drawGarage,
 };
 
 export function hasOutdoor(type: string): boolean {

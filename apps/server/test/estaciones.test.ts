@@ -1,5 +1,5 @@
 import { getWorld } from "@hyvento/map";
-import { cropById, plantPlot, plotReadyAt, waterPlot, type PlotState, type Weather } from "@hyvento/shared";
+import { GREENHOUSE_PLOT_BASE, cropById, plantPlot, plotReadyAt, waterPlot, type PlotState, type Weather } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { Huerto } from "../src/rooms/huerto";
 import { WeatherCycle } from "../src/rooms/weather";
@@ -85,7 +85,10 @@ describe("estaciones en la sala", () => {
     plots.set("2", waterPlot(plantPlot("papa", alice, t - 1000), t - 1000));
     // Lista para cosechar.
     plots.set("3", { ...plantPlot("papa", alice, t - papa.growMs), growthMs: papa.growMs });
+    // Un bancal del invernadero (ids desde GREENHOUSE_PLOT_BASE): tiene techo.
+    plots.set(String(GREENHOUSE_PLOT_BASE), plantPlot("uchuva", alice, t - 60_000));
     expect(huerto.rain(jardin, t)).toBe(1);
+    expect(plots.get(String(GREENHOUSE_PLOT_BASE))!.wateredUntil).toBe(0);
     expect(plots.get("0")!.wateredUntil).toBeGreaterThan(t);
     expect(plots.get("1")!.wateredUntil).toBe(0);
     expect(plots.get("2")!.wateredUntil).toBeLessThan(t + papa.growMs);

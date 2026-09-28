@@ -47,6 +47,11 @@ export const SEASON_GROWTH: Record<string, Record<Season, number>> = {
   papa: { primavera: 1, verano: 0.9, otono: 1.3, invierno: 0.8 },
   maiz: { primavera: 1.1, verano: 1.3, otono: 0.9, invierno: 0.5 },
   lulo: { primavera: 0.9, verano: 1, otono: 1.4, invierno: 0.7 },
+  // Los del invernadero (van siempre bajo techo: el frío no los castiga, el calor del verano sí ayuda).
+  uchuva: { primavera: 1.1, verano: 1.2, otono: 1, invierno: 0.8 },
+  pitahaya: { primavera: 1, verano: 1.3, otono: 1, invierno: 0.7 },
+  cacao: { primavera: 1.1, verano: 1.2, otono: 1, invierno: 0.8 },
+  cafe: { primavera: 1.2, verano: 1, otono: 1, invierno: 0.9 },
 };
 
 export interface SeasonGrowthOptions {
@@ -68,8 +73,8 @@ export function bestSeasonOf(crop: string): Season | undefined {
 }
 
 /** "Crece mejor", "normal" o "le cuesta" en esta estación (texto corto para la ayuda). */
-export function seasonGrowthText(crop: string, season: Season): string {
-  const k = seasonGrowth(crop, season);
+export function seasonGrowthText(crop: string, season: Season, opts: SeasonGrowthOptions = {}): string {
+  const k = seasonGrowth(crop, season, opts);
   if (k > 1.05) return "en su temporada";
   if (k < 0.95) return "fuera de temporada";
   return "crece normal";
