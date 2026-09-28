@@ -156,6 +156,12 @@ export class NpcCast {
     this.man = undefined;
   }
 
+  /** El modo privado enfocó una sala (tiles; null = ninguna): los de adentro hablan sobre el oscurecido. */
+  setOverShade(rect: { x: number; y: number; w: number; h: number } | null, ts: number) {
+    for (const a of this.avatars())
+      a.setOverShade(Boolean(rect) && a.x >= rect!.x * ts && a.x < (rect!.x + rect!.w) * ts && a.y >= rect!.y * ts && a.y < (rect!.y + rect!.h) * ts);
+  }
+
   private *avatars(): Iterable<Avatar> {
     for (const s of this.staff.values()) yield s.avatar;
     if (this.man) yield this.man;
