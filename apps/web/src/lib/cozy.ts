@@ -27,6 +27,8 @@ export const STATUS_HEX: Record<PresenceStatus, string> = {
   busy: "#e0923e",
   dnd: "#d93a2b",
   away: "#a8977f",
+  /** "En reunión" (automático): el azul cielo de la paleta (COZY.sky). */
+  meeting: "#5d93cf",
 };
 
 /** Tintas legibles sobre papel para los nombres en el chat. */

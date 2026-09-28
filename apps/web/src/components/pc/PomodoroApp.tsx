@@ -25,6 +25,7 @@ const STATUS_LABEL: Record<PresenceStatus, string> = {
   busy: "Ocupado",
   dnd: "No molestar",
   away: "Ausente",
+  meeting: "En reunión",
 };
 
 /** Tinta de cada fase: rojo tomate para enfocarse, verde para descansar. */

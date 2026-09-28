@@ -35,14 +35,14 @@ import {
   type OfficeItemDTO,
   type PetBondRecord,
   type PointReason,
-  type PresenceStatus,
+  type ManualStatus,
   type StatChange,
 } from "@hyvento/shared";
 import { executeTip, executeTrade } from "./social";
 import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
-const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
-const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
+const toDbStatus = (s: ManualStatus) => s.toUpperCase() as DbStatus;
+const fromDbStatus = (s: DbStatus) => s.toLowerCase() as ManualStatus;
 
 const toItemDTO = (i: { id: string; type: string; x: number; y: number; facing: string }): OfficeItemDTO => ({
   id: i.id,
@@ -157,7 +157,7 @@ export class PrismaRepository implements GameRepository {
     return user ? fromDbStatus(user.status) : null;
   }
 
-  async setUserStatus(userId: string, status: PresenceStatus) {
+  async setUserStatus(userId: string, status: ManualStatus) {
     await prisma.user.update({ where: { id: userId }, data: { status: toDbStatus(status) } });
   }
 

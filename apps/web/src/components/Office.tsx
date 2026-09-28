@@ -1,11 +1,11 @@
 "use client";
 
-import { ACTIVITY_PING_MS } from "@hyvento/shared";
+import { ACTIVITY_PING_MS, AUTO_AWAY, IdleTimer } from "@hyvento/shared";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
 import { media } from "@/game/media";
-import { connect, disconnect, sendActivity } from "@/game/network";
+import { connect, disconnect, sendActivity, sendIdle } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
 import { getArriveByBus } from "@/lib/arriveByBus";
 import { BusTrip } from "./bus/BusTrip";
@@ -162,6 +162,25 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
     for (const e of events) window.addEventListener(e, onActivity, { passive: true });
     return () => {
       for (const e of events) window.removeEventListener(e, onActivity);
+    };
+  }, []);
+  // "Ausente" automático: sin mouse ni teclado un rato, o con la pestaña oculta. El servidor decide el
+  // estado (si lo pusiste a mano, o estás en "No molestar", no lo toca) y lo quita al volver.
+  useEffect(() => {
+    const timer = new IdleTimer(Date.now());
+    const report = (changed: boolean) => changed && sendIdle(timer.idle);
+    const onInput = () => report(timer.activity(Date.now()));
+    const onVisibility = () => report(timer.visibility(document.visibilityState === "hidden", Date.now()));
+    onVisibility();
+    const events = ["pointerdown", "pointermove", "keydown", "wheel"] as const;
+    for (const e of events) window.addEventListener(e, onInput, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
+    const id = setInterval(() => report(timer.check(Date.now())), AUTO_AWAY.checkMs);
+    return () => {
+      clearInterval(id);
+      for (const e of events) window.removeEventListener(e, onInput);
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (timer.idle) sendIdle(false);
     };
   }, []);
   const error = useOfficeStore((s) => s.error);

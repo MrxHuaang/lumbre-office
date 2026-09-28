@@ -1,4 +1,5 @@
 export * from "./protocol";
+export * from "./presence";
 export * from "./look";
 export * from "./look-random";
 export * from "./costumes";

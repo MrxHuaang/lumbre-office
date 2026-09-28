@@ -679,6 +679,14 @@ export function sendActivity() {
   room?.send(MSG.activity);
 }
 
+/** Último aviso de inactividad: se repite al reconectar (la sesión nueva empieza activa). */
+let idleNow = false;
+/** El navegador lleva rato sin uso (o volvió): el servidor pone o quita el "Ausente" automático. */
+export function sendIdle(idle: boolean) {
+  idleNow = idle;
+  room?.send(MSG.idle, { idle });
+}
+
 export function sendChat(text: string, scope: ChatScope) {
   room?.send(MSG.chatSend, { text, scope });
 }
@@ -788,6 +796,7 @@ export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId"
 
 function attach(r: OfficeRoom) {
   room = r;
+  if (idleNow) r.send(MSG.idle, { idle: true });
   const store = useOfficeStore.getState();
   store.setSessionId(r.sessionId);
   store.setConnection("connected");
