@@ -185,7 +185,7 @@ import { HeldItems } from "./consumables";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
-import { devToolsEnabled, parseDevJump, parseDevWeather } from "./devtools";
+import { devToolsEnabled, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
 import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
@@ -1772,9 +1772,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       client.send(MSG.chatEvent, note);
       return true;
     }
-    const target = this.mapOf(jump.area);
+    this.devTeleport(client, player, jump.area, jump.x, jump.y);
+    return true;
+  }
+
+  /** Solo desarrollo: lleva a alguien junto a un tile de un nivel (sin caminar ni portal). */
+  private devTeleport(client: Client<UserData>, player: Player, area: string, tx: number, ty: number) {
+    const target = this.mapOf(area);
     const ts = target.tileSize;
-    const pos = this.freeSpotNear(target, jump.x * ts + ts / 2, jump.y * ts + ts / 2);
+    const pos = this.freeSpotNear(target, tx * ts + ts / 2, ty * ts + ts / 2);
     player.area = target.id;
     player.x = pos.x;
     player.y = pos.y;
@@ -1785,6 +1791,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData!.lastMoveAt = Date.now();
     this.achievements.visit(player.userId, target.id);
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
+  }
+
+  /** Solo en desarrollo: "/sombrero [escondite]" lo hace salir ya y lleva ahí a quien lo pidió. */
+  private devSombrero(client: Client<UserData>, player: Player, text: string): boolean {
+    const cmd = parseDevSombrero(text);
+    if (cmd === false) return false;
+    const note = (msg: string) =>
+      client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Dev", text: msg, scope: "proximity", zoneId: null, ts: Date.now() } satisfies ChatEvent);
+    if ("error" in cmd) {
+      note(cmd.error);
+      return true;
+    }
+    const h = this.sombrero.summon(cmd.hideout);
+    // Al lado (un tile al frente de donde mira), no encima.
+    this.devTeleport(client, player, h.area, h.x + (h.facing === "right" ? 1 : 0), h.y + (h.facing === "down" ? 1 : 0));
+    note(`El Man del Sombrero está ${h.place} (${h.area}). Se queda hasta el próximo día del juego.`);
     return true;
   }
 
@@ -1849,7 +1871,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (times.length >= CHAT_RATE.max) return;
     times.push(now);
     client.userData.chatTimes = times;
-    if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text))) return;
+    if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text) || this.devSombrero(client, player, parsed.data.text))) return;
     if (this.timeCommand(client, parsed.data.text)) return;
     this.achievements.bump(player.userId, STAT_KEYS.chatMessages);
 

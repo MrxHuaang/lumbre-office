@@ -210,3 +210,32 @@ describe("el Man del Sombrero: los efectos", () => {
     expect(me().trip).toBe("");
   });
 });
+
+describe("el Man del Sombrero: /sombrero (solo desarrollo)", () => {
+  afterEach(() => {
+    delete process.env.HYVENTO_DEV_TOOLS;
+  });
+
+  it("lo hace salir fuera de sus horas, en el escondite pedido, y lleva ahí a quien lo pidió", async () => {
+    process.env.HYVENTO_DEV_TOOLS = "1";
+    const { room, alice, me } = await setup(10);
+    expect(room.state.sombrero.present).toBe(false);
+    alice.send(MSG.chatSend, { text: "/sombrero garaje", scope: "proximity" });
+    await tick(120);
+    await room.waitForNextPatch();
+    const garaje = SOMBRERO_HIDEOUTS.findIndex((h) => h.id === "garaje");
+    expect(room.state.sombrero.present).toBe(true);
+    expect(room.state.sombrero.hideout).toBe(garaje);
+    expect(me().area).toBe("garaje");
+    // Y se queda aunque sigan pasando los ticks fuera de sus horas.
+    await tick(120);
+    expect(room.state.sombrero.present).toBe(true);
+  });
+
+  it("sin herramientas de desarrollo es solo un mensaje del chat", async () => {
+    const { room, alice } = await setup(10);
+    alice.send(MSG.chatSend, { text: "/sombrero", scope: "proximity" });
+    await tick(120);
+    expect(room.state.sombrero.present).toBe(false);
+  });
+});
