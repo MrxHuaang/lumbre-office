@@ -151,6 +151,8 @@ import {
   STAT_PREFIX,
   type AchievementUnlockedEvent,
   type FishSpecies,
+  type FishingRod,
+  rodCatchesKey,
   addGameTime,
   formatGameTime,
   gameTime,
@@ -603,7 +605,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
       this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
     },
-    caught: (userId, fish, size, first, treasure) => this.fishCaught(userId, fish, size, first, treasure),
+    rodCatches: (userId, rod) => this.achievements.stat(userId, rodCatchesKey(rod)) ?? 0,
+    caught: (userId, fish, size, first, treasure, rod) => this.fishCaught(userId, fish, size, first, treasure, rod),
   });
   /** El puesto de pesca del lago: las compras y el equipo de cada lance (ver pescaTienda.ts). */
   private pesca = new PescaStand({ repo: () => this.repo, held: this.held, now: () => OfficeRoom.pescaNow() });
@@ -3057,7 +3060,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
     // La caña y la carnada que tiene (lo de la mano o lo mejor de la mochila); la carnada se gasta al lanzar.
     const gear = this.pesca.gear(player.userId);
-    if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near, gear)) return;
+    if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated, area: player.area }, near, gear)) return;
     this.pesca.spendBait(player.userId, gear);
     for (const p of this.state.players.values()) if (p.userId === player.userId) p.fishingRod = gear.rod;
   }
@@ -3079,7 +3082,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   /** Sacó algo del lago: peces, basura, botas, legendarios, míticos, especies nuevas y el más grande. */
-  private fishCaught(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean) {
+  private fishCaught(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean, rod: FishingRod) {
     const a = this.achievements;
     if (fish.rarity === "basura") {
       a.bump(userId, STAT_KEYS.fishTrash);
@@ -3087,6 +3090,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       return;
     }
     a.bump(userId, STAT_KEYS.fishCaught);
+    a.bump(userId, rodCatchesKey(rod)); // la maestría de esa caña
     if (first) a.bump(userId, STAT_KEYS.fishSpecies);
     if (fish.rarity === "legendario") a.bump(userId, STAT_KEYS.legendaryFish);
     if (fish.rarity === "mitico") a.bump(userId, STAT_KEYS.mythicFish);

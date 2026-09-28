@@ -267,7 +267,7 @@ export const fishPoints = (f: FishSpecies) => RARITY[f.rarity].points;
 export const minReelMs = (difficulty: number) => minReelFrames(difficulty) * SIM_FRAME_MS;
 
 /** Estado de pesca de cada persona como viaja en `Player.fishing` (lo ven todos los del nivel). */
-export type FishingPhase = "" | "wait" | "bite" | "reel" | `show:${string}`;
+export type FishingPhase = "" | "wait" | "nibble" | "bite" | "reel" | `show:${string}`;
 
 // ---------- Mensajes ----------
 
@@ -296,6 +296,8 @@ export interface FishingChallenge {
   treasure: boolean;
   /** La caña con que se pesca (la decide el servidor con lo que uno tiene; sin esto, la de bambú). */
   rod?: FishingRod;
+  /** Nivel de maestría de esa caña (sin esto, 0): la barra se alarga un poco más. */
+  mastery?: number;
 }
 
 export interface FishCatchResult {
@@ -308,16 +310,31 @@ export interface FishCatchResult {
   /** Puntos que se sumaron de verdad (pez + tesoro, con el tope diario). */
   points: number;
   treasure: boolean;
+  /** Pescaba en grupo (alguien más con la caña en el agua cerca: suerte extra). */
+  group?: boolean;
+  /** Si con este pez la caña subió de nivel de maestría, el nivel nuevo. */
+  masteryUp?: number;
 }
 
-export type FishOutcome = "caught" | "escaped" | "missed" | "early" | "cancelled" | "invalid" | "timeout";
+/** `stolen`: respondió a un mordisqueo y el pez se llevó la carnada (sin carnada es `early`). */
+export type FishOutcome = "caught" | "escaped" | "missed" | "early" | "stolen" | "cancelled" | "invalid" | "timeout";
 export type FishRefusal = "far" | "busy" | "seated";
+
+/** La maestría de la caña con que se lanzó: nivel y cuántos peces faltan para el siguiente (null = el máximo). */
+export interface FishingMastery {
+  rod: FishingRod;
+  level: number;
+  next: number | null;
+}
 
 /** Servidor → quien pesca (`MSG.fishEvent`). */
 export type FishingEvent =
-  | { type: "cast"; castId: string }
+  | { type: "cast"; castId: string; mastery?: FishingMastery }
+  /** Un mordisqueo: la boya tiembla pero todavía no es la picada (responder ahora asusta al pez). */
+  | { type: "nibble"; castId: string }
   | { type: "bite"; castId: string; windowMs: number }
-  | { type: "start"; castId: string; challenge: FishingChallenge }
+  /** `group`: había alguien más pescando cerca (suerte extra). */
+  | { type: "start"; castId: string; challenge: FishingChallenge; group?: boolean }
   | { type: "end"; castId: string; outcome: FishOutcome; catch?: FishCatchResult }
   | { type: "refused"; error: FishRefusal };
 
