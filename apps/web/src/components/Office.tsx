@@ -49,6 +49,7 @@ import { AquariumPanel } from "./AquariumPanel";
 import { BookReader } from "./BookReader";
 import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
 import { IncomingCall, PhonePanel } from "./PhonePanels";
+import { ComunicacionOverlays } from "./comunicacion/ComunicacionOverlays";
 import { ShedPanel } from "./ShedPanel";
 import { CoopPanel, GrillPanel } from "./GranjaPanels";
 import { KitchenPanel } from "./KitchenPanel";
@@ -335,6 +336,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <InvitationRequests />
           <PodcastConsent />
           <IncomingCall />
+          <ComunicacionOverlays isAdmin={isAdmin} />
           <SocialOverlays />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}
           <MediaControls actions={<HandActions />} tail={<ControlsHint />}>

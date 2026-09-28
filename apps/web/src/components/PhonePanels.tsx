@@ -2,13 +2,14 @@
 
 // El teléfono de escritorio: el directorio de oficinas para llamar (se abre con E junto al teléfono), la
 // llamada que te suena (Contestar / Colgar) y el chip de la llamada en curso en el HUD.
-import { callClock, canCallStatus, DIRECTORY_TEXT, directoryStatus, type DirectoryStatus } from "@hyvento/shared";
+import { callClock, canCallStatus, DIRECTORY_TEXT, directoryStatus, namesList, type DirectoryStatus } from "@hyvento/shared";
 import { useEffect, useMemo, useState } from "react";
 import { answerPhone, hangUpPhone, sendPhoneCall, usePhoneStore } from "@/game/phone";
 import { selectMyUserId, useOfficeStore } from "@/game/store";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon } from "./Cozy";
 import { PanelShell } from "./PointsPanels";
+import { AddToCallButton } from "./comunicacion/ComunicacionChips";
 
 /** Color del puntito de cada estado del directorio (los mismos del estado de presencia). */
 const DOT: Record<DirectoryStatus, string> = {
@@ -117,6 +118,12 @@ export function IncomingCall() {
           </span>
           <p className="text-[15px]">
             <strong>{call.withName}</strong> te llama desde {call.from}
+            {/* Si te suman a una llamada en curso: con quiénes vas a hablar. */}
+            {call.members.length > 1 && (
+              <span className="block text-[13px] text-cozy-ink-soft">
+                Para sumarte a la llamada con {namesList(call.members.filter((m) => m.phase !== "ringing").map((m) => m.name))}
+              </span>
+            )}
           </p>
         </div>
         <div className="mt-3 flex items-center gap-3">
@@ -143,18 +150,25 @@ export function CallChip() {
     return () => clearInterval(t);
   }, [talking]);
   if (!call || call.phase === "ringing") return null;
+  // En una llamada grupal: los que hablan (y a quiénes les está sonando, entre paréntesis).
+  const talkers = call.members.filter((m) => m.phase !== "ringing").map((m) => m.name);
+  const ringing = call.members.filter((m) => m.phase === "ringing").map((m) => m.name);
+  const withWho = talkers.length ? namesList(talkers) : call.withName;
   return (
     <div className="cozy-chip flex h-[34px] items-center gap-2 pr-1 pl-2.5" role="status">
       <PixelIcon name="phone" size={14} color="#a8463d" />
-      <span className="truncate">
+      <span className="max-w-[20rem] truncate" title={ringing.length ? `Le está sonando a ${namesList(ringing)}` : undefined}>
         {talking ? (
           <>
-            En llamada con {call.withName} · <span className="tabular-nums">{callClock(now - call.since)}</span>
+            En llamada con {withWho}
+            {ringing.length > 0 && <span className="text-cozy-ink-soft"> (+{ringing.length} sonando)</span>} ·{" "}
+            <span className="tabular-nums">{callClock(now - call.since)}</span>
           </>
         ) : (
           `Llamando a ${call.withName}…`
         )}
       </span>
+      <AddToCallButton />
       <button type="button" onClick={hangUpPhone} className="cozy-btn cozy-btn-danger px-2 py-0.5 text-[13px]">
         Colgar
       </button>
