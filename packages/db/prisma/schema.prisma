@@ -82,6 +82,8 @@ model User {
   doorNotesOut    DoorNote[]         @relation("DoorNotesSent")
   featuredBadge   FeaturedBadge?
   pet             PetBond?
+  quests          QuestProgress[]
+  skills          SkillXp[]
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -192,6 +194,8 @@ enum PointReason {
   GIFT
   /// Ocio de la fase 5: cosechas del huerto, pesca y arcade (premios chicos con tope diario).
   LEISURE
+  /// Encargos (diarios, semanales y de historia) entregados a quien los dio. Con tope diario.
+  QUEST
 }
 
 /**
@@ -521,4 +525,47 @@ model PetBond {
   loveAt    DateTime  @default(now())
   adoptedAt DateTime?
   updatedAt DateTime  @updatedAt
+}
+
+// ---------- Encargos y oficios ----------
+
+enum QuestStatus {
+  /// Asignado y en curso.
+  ACTIVE
+  /// Cumplido: falta entregarlo a quien lo dio.
+  DONE
+  /// Entregado (ya se pagó la recompensa).
+  CLAIMED
+}
+
+/// Progreso de un encargo (ver encargos.ts de @hyvento/shared). El catálogo está en código: acá solo va
+/// cuánto lleva cada persona. `period` dice de cuándo es: "d:2026-09-28" (diario, día de Bogotá),
+/// "w:2026-W40" (semanal) o "historia" (los pasos de una historia, sin fecha).
+model QuestProgress {
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questId   String
+  period    String
+  progress  Int         @default(0)
+  goal      Int
+  status    QuestStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  doneAt    DateTime?
+  claimedAt DateTime?
+
+  @@id([userId, questId, period])
+  @@index([userId, period])
+  @@index([userId, status])
+}
+
+/// Experiencia de cada oficio (pesca, huerta, cocina, social, exploración). El nivel lo calcula el juego.
+model SkillXp {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill     String
+  xp        Int      @default(0)
+  level     Int      @default(1)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@id([userId, skill])
 }

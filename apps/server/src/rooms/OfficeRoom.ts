@@ -216,6 +216,8 @@ import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyv
 import { Fishery } from "./fishing";
 import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
+import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
+import { Encargos } from "./encargos";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 import { CasaViva } from "./casa";
@@ -374,6 +376,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static fishingTimings: FishingTimings = { ...FISHING };
   /** Reloj de las compras del puesto de pesca (los tests lo corren para saltarse la pausa). */
   static pescaNow: () => number = () => Date.now();
+  /** Encargos: el reloj (día de Bogotá) y qué le toca a cada quien (los tests lo fijan). */
+  static encargosNow: () => number = () => Date.now();
+  static encargosPick: (userId: string, now: number) => ActiveQuest[] = currentQuests;
   /** Casa viva: el azar de las mascotas y cuánto se está en el baño (los tests los fijan y acortan). */
   static petRandom: () => number = Math.random;
   static stallMs: number = CASA.stallMs;
@@ -608,13 +613,36 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** El puesto de pesca del lago: las compras y el equipo de cada lance (ver pescaTienda.ts). */
   private pesca = new PescaStand({ repo: () => this.repo, held: this.held, now: () => OfficeRoom.pescaNow() });
   /** Estadísticas y logros (ver achievements.ts): se suman en memoria y se guardan juntas. */
-  private achievements = new AchievementTracker({
+  private achievements: AchievementTracker = new AchievementTracker({
     repo: () => this.repo,
     onUnlock: (userId, achievement) => {
       for (const [sessionId, p] of this.state.players) {
         if (p.userId !== userId) continue;
         this.sendToArea(p.area, MSG.achievementUnlocked, { sessionId, name: p.name, achievementId: achievement.id } satisfies AchievementUnlockedEvent);
       }
+    },
+    quests: { onStat: (u, key, by) => this.encargos.onStat(u, key, by), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
+  });
+  /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
+  private encargos: Encargos = new Encargos({
+    repo: () => this.repo,
+    now: () => OfficeRoom.encargosNow(),
+    pick: (userId, now) => OfficeRoom.encargosPick(userId, now),
+    context: () => ({ night: isNightMinute(this.gameTimeNow().minuteOfDay), weather: this.state.weather as Weather }),
+    place: (userId) => {
+      const c = this.clientOfUser(userId);
+      const p = c && this.state.players.get(c.sessionId);
+      return p ? { area: p.area, x: p.x, y: p.y } : null;
+    },
+    map: (area) => this.mapOf(area),
+    send: (userId, type, message) => this.sendToUser(userId, type, message),
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    held: this.held,
+    flushStats: (userId) => this.achievements.flush(userId),
+    paid: (userId, amount, balance) => {
+      for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+      if (amount > 0) this.sendToUser(userId, MSG.pointsAwarded, { amount, reason: "QUEST", balance } satisfies PointsAwarded);
+      this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
     },
   });
 
@@ -991,6 +1019,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.fishFinish, (client, raw) => this.withFisher(client, (userId) => void this.fishery.finish(userId, raw)));
     this.onMessage(MSG.fishCancel, (client) => this.withFisher(client, (userId) => this.fishery.cancel(userId)));
     this.onMessage(PESCA_MSG.buy, (client, raw) => void this.handlePescaBuy(client, raw));
+    this.onMessage(QUEST_MSG.claim, (client, raw) => {
+      const p = this.state.players.get(client.sessionId);
+      this.markActive(client);
+      if (p) void this.encargos.claim(p.userId, raw).then((r) => r && client.send(QUEST_MSG.result, r satisfies QuestClaimResult));
+    });
     this.onMessage(MSG.tradeRequest, (client, raw) => this.trades.request(client.sessionId, raw));
     this.onMessage(MSG.tradeRespond, (client, raw) => this.trades.respond(client.sessionId, raw));
     this.onMessage(MSG.tradeOffer, (client, raw) => void this.trades.offer(client.sessionId, raw));
@@ -1164,6 +1197,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
+    void this.encargos.load(auth.sub);
     if (byBus) this.bus.requestRide();
     void this.refreshBadge(auth.sub);
     client.send(MSG.chatHistory, this.globalHistory);
@@ -2236,6 +2270,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // La web pudo sumar estadísticas (racha del buzón, misiones): se releen y se revisan los logros.
     await this.achievements.refresh(userId).catch((err) => console.error("achievements.refresh", err));
     this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
+    // Y los encargos (una misión o una foto de la web pudieron avanzarlos).
+    await this.encargos.load(userId);
   }
 
   // ---------- Casino ----------
@@ -3481,7 +3517,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.swivels.forget(player.userId);
     this.piscina?.forget(player.userId);
     this.tina?.forget(player.userId);
-    void this.achievements.forget(player.userId);
+    void this.achievements.forget(player.userId).then(() => this.encargos.forget(player.userId));
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);
