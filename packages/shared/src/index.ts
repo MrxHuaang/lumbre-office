@@ -1,6 +1,7 @@
 export * from "./protocol";
 export * from "./look";
 export * from "./look-random";
+export * from "./costumes";
 export * from "./proximity";
 export * from "./game-token";
 export * from "./points";

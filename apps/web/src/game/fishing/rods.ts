@@ -2,7 +2,7 @@
 // cuando pica, el tirón del minijuego y el pez levantado al sacarlo. Sale de `Player.fishing` (el servidor
 // lo cambia); la escena solo avisa los cambios y llama `update` en cada frame.
 import type { OfficeMap } from "@hyvento/map";
-import { biteMark, bobber, drawFish, ROD_COLORS } from "@hyvento/map/art";
+import { biteMark, bobber, BODY_UP, drawFish, ROD_COLORS } from "@hyvento/map/art";
 import { fishById, type Direction } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
@@ -13,12 +13,12 @@ import { castTarget, SCREEN_DIR } from "./water";
 const CAST_MS = 420;
 /** El "!" y el pez levantado van sobre los nombres (5e7), como los globos. */
 const OVER_NAMES = 6.5e7;
-/** Mano que sostiene la caña respecto de los pies, según hacia dónde mira. */
+/** Mano que sostiene la caña respecto de los pies, según hacia dónde mira (un poco sobre la mano del chibi). */
 const HAND: Record<Direction, { x: number; y: number }> = {
-  right: { x: 3, y: -8 },
-  down: { x: -3, y: -8 },
-  left: { x: -4, y: -9 },
-  up: { x: 4, y: -9 },
+  right: { x: 3, y: -(BODY_UP.hand + 2) },
+  down: { x: -3, y: -(BODY_UP.hand + 2) },
+  left: { x: -4, y: -(BODY_UP.hand + 3) },
+  up: { x: 4, y: -(BODY_UP.hand + 3) },
 };
 
 interface Rod {

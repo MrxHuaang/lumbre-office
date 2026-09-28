@@ -60,7 +60,7 @@ export function FittingPanel({
       {/* El -1rem deja la vista previa pegada arriba del todo al desplazar (compensa el relleno del panel). */}
       <div className="flex flex-col gap-4 [--editor-sticky-top:-1rem]">
         <p className="text-[14px] leading-snug text-cozy-ink-soft">
-          Pruébate peinados, ropa y accesorios: mira cómo te quedan en la vista previa (arrástrala para girarte) y guarda el look que más te guste.
+          Pruébate peinados, ropa, accesorios y trajes completos (en «Trajes», uno para cada rincón de la cabaña): mira cómo te quedan en la vista previa (arrástrala para girarte) y guarda el look que más te guste.
         </p>
         <CharacterEditor value={appearance} onChange={setAppearance} />
       </div>
