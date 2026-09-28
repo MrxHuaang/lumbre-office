@@ -118,6 +118,7 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   "work-light": lamp("el reflector"),
   "dead-plant": { ...water, label: "Regar la planta seca" },
   "filing-dented": { ...read, label: "Hojear una carpeta vieja" },
+  icebox: { action: "take", label: "Abrir la hielera", cooldownMs: 1500, gives: ["jugo", "manzana"] },
   // La fogata del jardín: se asa desde los troncos (un poco más lejos que el alcance normal).
   "fire-pit": { action: "roast", label: "Asar un malvavisco", cooldownMs: CASA.roastMs + 400, gives: ["malvavisco"], reachTiles: CASA.roastReachTiles },
 };

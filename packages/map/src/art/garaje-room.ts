@@ -49,6 +49,51 @@ export function concreteFloor(X: number, Y: number): RGBA {
   return at(CEMENT, t < 0.3 ? 3 : t > 0.75 && bayer(x, y) < 0.12 ? 5 : 4);
 }
 
+/**
+ * Tablones anchos y gastados del taller: madera tibia, juntas, clavos, el claro de donde más se pisa y
+ * alguna mancha vieja de aceite (pocas). También lo pueden elegir las oficinas.
+ */
+export function wornPlanksFloor(X: number, Y: number): RGBA {
+  const x = Math.floor(X);
+  const y = Math.floor(Y);
+  const row = Math.floor(Y / 7);
+  const v = mod(Y, 7);
+  const off = Math.floor(noise(row, 3, 71) * 40);
+  const seg = Math.floor((X + off) / 40);
+  const along = mod(X + off, 40);
+  if (v < 0.8 || along < 0.7) return at(C.woodDark, 1);
+  // Clavos en las puntas.
+  if ((along > 1.5 && along < 2.4) || (along > 37.6 && along < 38.5)) if ((v > 1.6 && v < 2.4) || (v > 4.6 && v < 5.4)) return at(C.woodDark, 0);
+  const tone = noise(seg, row, 73);
+  // Más oscuros que las tablas de la pared, para que la sala no se vuelva un solo café.
+  let c = at(C.woodDark, tone < 0.3 ? 3 : tone < 0.8 ? 4 : 5);
+  // Veta y algún nudo.
+  const grain = Math.sin((X + off) * 0.21 + row * 1.7) * 1.3 + 3.5;
+  if (Math.abs(v - grain) < 0.3 && noise(Math.floor((X + off) / 5), row, 75) < 0.5) c = at(C.woodDark, 3);
+  if (noise(x, y, 77) > 0.985) c = at(C.woodDark, 2);
+  // Gastado: donde más se pisa, la madera pierde el barniz y se aclara.
+  if (smoothNoise(X, Y, 18, 79) > 0.68 && bayer(x, y) < 0.35) c = mix(c, at(C.wood, 4), 0.35);
+  // Manchas viejas de aceite, pocas y chicas.
+  const oil = smoothNoise(X, Y, 9, 81);
+  if (oil > 0.86) c = mix(c, at(C.woodDark, 0), oil > 0.9 ? 0.5 : 0.3);
+  return c;
+}
+
+/** Gravilla apisonada de la entrada del garaje: tierra tibia con piedritas y alguna brizna de pasto. */
+export function gravelFloor(X: number, Y: number): RGBA {
+  const x = Math.floor(X);
+  const y = Math.floor(Y);
+  const n = noise(x, y, 83);
+  const pebble = noise(Math.floor(X / 1.5), Math.floor(Y / 1.5), 85);
+  if (pebble > 0.86) return at(C.stone, n < 0.5 ? 3 : 4);
+  if (pebble > 0.8) return at(C.stone, 2);
+  if (n > 0.985) return at(C.grass, 3);
+  const t = smoothNoise(X, Y, 10, 87);
+  // Por donde pasan las ruedas la tierra está más apisonada y oscura.
+  const worn = smoothNoise(X, Y, 6, 89) > 0.62;
+  return mix(at(C.dirt, worn ? 2 : t < 0.35 ? 3 : 4), at(C.cream, 2), bayer(x, y) < 0.3 ? 0.22 : 0.1);
+}
+
 // ---------- Pared ----------
 
 /**
@@ -87,6 +132,33 @@ export function cinderblockWall(u: number, hv: number): RGBA {
   // Manchones de hollín y grasa a la altura de las manos.
   if (hv > 14 && hv < 34 && smoothNoise(u, hv, 10, 43) > 0.74) c = mix(c, at(CEMENT, 0), 0.3);
   return c;
+}
+
+/**
+ * Tablas de madera horizontales sobre un zócalo de piedra, con la viga de arriba: la pared del taller, de
+ * la misma familia que la casa. Alguna tabla más clara (de un arreglo) y otra más oscura.
+ */
+export function boardsWall(u: number, hv: number): RGBA {
+  if (hv < 0) return at(C.stone, 1);
+  if (hv >= 52) return at(C.woodDark, hv >= 55 ? 3 : hv < 53 ? 1 : 2);
+  // Zócalo de piedras.
+  if (hv < 10) {
+    const row = Math.floor(hv / 5);
+    const o = noise(row, 3, 91) * 9;
+    const k = mod(u + o, 9);
+    if (mod(hv, 5) < 0.8 || k < 0.8) return at(C.stone, 1);
+    return at(C.stone, 2 + (noise(Math.floor((u + o) / 9), row, 93) < 0.3 ? 0 : 1));
+  }
+  if (hv < 11.5) return at(C.woodDark, 2);
+  const row = Math.floor((hv - 11.5) / 5);
+  const k = mod(hv - 11.5, 5);
+  if (k < 0.7) return at(C.woodDark, 1);
+  const shift = noise(row, 1, 95) * 48;
+  if (mod(u + shift, 48) < 0.7) return at(C.woodDark, 2);
+  const t = noise(Math.floor((u + shift) / 48), row, 97);
+  const base = t > 0.93 ? 5 : t < 0.12 ? 2 : t < 0.55 ? 3 : 4;
+  if (k < 1.5) return at(C.logs, Math.min(5, base + 1));
+  return at(C.logs, k > 4.2 ? base - 1 : base);
 }
 
 // ---------- Cosas colgadas ----------
@@ -149,32 +221,33 @@ function toolOn(x: number, y: number, seed: number): RGBA | null {
   return null;
 }
 
-/** Portón enrollable visto desde adentro: láminas con óxido, la caja del rollo arriba, rieles y la luz de abajo. */
-function rollupAt(u: number, hv: number, u1: number, day: boolean): RGBA | null {
-  if (u < 1 || u >= u1 - 1 || hv >= 52) return null;
-  // Rieles de los costados.
-  if (u < 4 || u >= u1 - 4) return at(ZINC, u < 2.5 || u >= u1 - 2.5 ? 1 : 3);
-  // Caja del rollo arriba.
-  if (hv >= 44) return at(ZINC, hv >= 50 ? 4 : hv < 45 ? 1 : 2 + (Math.floor(u) % 9 === 0 ? -1 : 0));
-  // Rendija abajo (el portón no cierra del todo): de día entra luz y se ve el pasto; de noche, oscuro.
-  if (hv < 3) {
-    if (!day) return at(C.night, hv < 1.5 ? 0 : 1);
-    return hv < 1.2 ? at(C.grass, 3) : at(C.cream, 5);
-  }
-  // Láminas horizontales con canal: brillo arriba, sombra abajo.
-  const k = mod(hv - 3, 4);
-  const slat = Math.floor((hv - 3) / 4);
-  const rust = smoothNoise(u, hv, 7, 51) + (hv < 12 ? 0.18 : 0);
-  let c = at(ZINC, k < 0.8 ? 1 : k > 3.2 ? 4 : 3);
-  if (rust > 0.66) c = at(RUST, k < 0.8 ? 1 : k > 3.2 ? 4 : 3 - (rust > 0.8 ? 1 : 0));
-  // Una abolladura (una lámina hundida y más oscura).
-  if (slat === 6 && Math.abs(u - u1 * 0.62) < 6) c = at(ZINC, k < 2 ? 1 : 2);
-  // Manija y cerrojo al medio abajo.
-  if (inRect(u, hv, u1 / 2 - 3, 6, u1 / 2 + 3, 8)) return at(C.metal, 1);
-  if (inRect(u, hv, u1 / 2 + 5, 5, u1 / 2 + 7, 10)) return at(C.metal, 4);
-  // Cadena de mano al costado derecho.
-  if (Math.abs(u - (u1 - 6)) < 0.6 && hv > 8 && hv < 44 && Math.floor(hv) % 2 === 0) return at(C.metal, 4);
-  return c;
+/**
+ * El portón de tablas visto desde adentro: dos hojas con la cruz en Z, la tranca atravesada y la luz que
+ * entra por la rendija de abajo y entre las hojas.
+ */
+function barnDoorAt(u: number, hv: number, u1: number, day: boolean): RGBA | null {
+  if (u < 1 || u >= u1 - 1 || hv >= 46) return null;
+  const mid = u1 / 2;
+  // Marco.
+  if (u < 3 || u >= u1 - 3 || hv >= 43) return at(C.woodDark, hv >= 45 || u < 2 ? 3 : 2);
+  // Rendijas: de día entra un hilo de sol; de noche, oscuro.
+  if (hv < 1.5 || Math.abs(u - mid) < 0.5) return day ? at(C.gold, 5) : at(C.night, 1);
+  // Tranca de madera atravesada en sus soportes de fierro.
+  if (hv >= 22 && hv < 25) return at(C.woodDark, hv >= 24 ? 4 : 2);
+  if ((Math.abs(u - 8) < 1.5 || Math.abs(u - (u1 - 8)) < 1.5) && hv >= 20 && hv < 27) return at(C.night, 2);
+  const lu = u < mid ? u - 3 : u - mid;
+  const half = mid - 3;
+  // Travesaños y la diagonal de cada hoja.
+  if (Math.abs(hv - 6) < 1.2 || Math.abs(hv - 38) < 1.2) return at(C.wood, 2);
+  const diag = 6 + (lu / half) * 32;
+  if (hv > 6 && hv < 38 && Math.abs(hv - diag) < 1.4) return at(C.wood, 2);
+  // Tablas verticales con su veta.
+  const k = mod(lu, 4);
+  if (k < 0.6) return at(C.woodDark, 2);
+  const plank = Math.floor(lu / 4) + (u < mid ? 0 : 20);
+  // Pintado de rojo como por fuera, gastado hasta la madera abajo.
+  if (smoothNoise(u, hv, 4, 53) + (hv < 8 ? 0.25 : 0) > 0.72) return at(C.wood, 3);
+  return at(C.curtain, noise(plank, Math.floor(hv / 12), 51) < 0.35 ? 1 : 2);
 }
 
 /**
@@ -226,28 +299,21 @@ function cobwebAt(f: WallFeature, u: number, hv: number, u1: number): RGBA | nul
   return null;
 }
 
-/** Ventana sucia con malla: marco de fierro, vidrio empolvado, un vidrio roto tapado con cartón. */
-function grimyWindowAt(u: number, hv: number, u1: number, day: boolean): RGBA | null {
+/** Ventana de marco de madera, con el vidrio un poco empolvado abajo (se limpia de vez en cuando). */
+function dustyWindowAt(u: number, hv: number, u1: number, day: boolean): RGBA | null {
   const x0 = 3;
   const x1 = u1 - 3;
-  if (!inRect(u, hv, x0 - 1, 25, x1 + 1, 45)) return null;
-  // Alféizar de cemento.
-  if (hv < 27) return at(CEMENT, hv < 26 ? 2 : 5);
-  if (u < x0 || u >= x1 || hv >= 44) return at(C.metal, hv >= 44 ? 3 : 1);
+  if (!inRect(u, hv, x0 - 2, 23, x1 + 2, 46)) return null;
+  // Alféizar de tabla y el marco.
+  if (hv < 25) return at(C.wood, hv < 24 ? 2 : 4);
+  if (u < x0 || u >= x1 || hv >= 44) return at(C.woodDark, hv >= 45 || u < x0 - 1 ? 4 : 2);
   const mid = (x0 + x1) / 2;
-  if (Math.abs(u - mid) < 0.7 || Math.abs(hv - 35.5) < 0.6) return at(C.metal, 2);
-  // El vidrio de abajo a la derecha, roto: un cartón con cinta.
-  if (u > mid && hv < 35) {
-    if (Math.abs(hv - 31 - (u - mid) * 0.15) < 0.8) return at(C.cream, 4);
-    return at(C.cork, noise(Math.floor(u), Math.floor(hv / 2), 61) < 0.2 ? 2 : 3);
-  }
-  // Malla de alambre y la mugre que se junta abajo.
-  if (mod(u - hv, 3) < 0.35 || mod(u + hv, 3) < 0.35) return at(C.metal, day ? 3 : 1);
-  const dirt = (44 - hv) / 17 + smoothNoise(u, hv, 4, 63) * 0.5;
+  if (Math.abs(u - mid) < 0.7 || Math.abs(hv - 34.5) < 0.6) return at(C.woodDark, 3);
   const glass = day ? at(C.sky, hv > 38 ? 3 : 2) : at(C.night, 1);
-  if (bayer(Math.floor(u), Math.floor(hv)) < dirt * 0.55) return mix(glass, at(C.dirt, 2), 0.7);
-  // Una grieta en el vidrio de arriba.
-  if (hv > 37 && Math.abs(u - x0 - 3 - (hv - 37) * 0.8) < 0.4) return at(C.white, 4);
+  // Reflejo en diagonal.
+  if (day && Math.abs(u - x0 - 2 - (hv - 26) * 0.6) < 0.8) return at(C.sky, 4);
+  const dust = (36 - hv) / 20 + smoothNoise(u, hv, 4, 63) * 0.3;
+  if (bayer(Math.floor(u), Math.floor(hv)) < dust * 0.45) return mix(glass, at(C.cream, 2), 0.45);
   return glass;
 }
 
@@ -257,14 +323,14 @@ export function garajeFeature(f: WallFeature, u: number, hv: number, day: boolea
   switch (f.kind) {
     case "pegboard":
       return pegboardAt(f, u, hv, u1);
-    case "rollup":
-      return rollupAt(u, hv, u1, day);
+    case "barn-door":
+      return barnDoorAt(u, hv, u1, day);
     case "calendar":
       return calendarAt(u, hv, u1);
     case "cobweb":
       return cobwebAt(f, u, hv, u1);
-    case "grimy-window":
-      return grimyWindowAt(u, hv, u1, day);
+    case "dusty-window":
+      return dustyWindowAt(u, hv, u1, day);
     default:
       return null;
   }
