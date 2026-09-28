@@ -135,6 +135,7 @@ import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
 import { useAchievementStore } from "./achievements";
 import { localSpeedMul, useCocinaStore } from "./cocina";
+import { PORTION_USABLE_PREFIX, sendPortion } from "./granjaNet";
 import { SeasonView } from "./seasons";
 import { NpcCast } from "./npcs/cast";
 import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
@@ -171,6 +172,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
   { kind: "aquarium", point: "aquarium", furniture: ["acuario"] },
   { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
+  { kind: "grill", point: "grill", furniture: ["clay-oven", "brick-grill", "prep-table", "menu-board"] },
+  { kind: "coop", point: "farm_sign", furniture: ["farm-sign"] },
   { kind: "trophies", point: "trophy_case", furniture: ["trophy-case"] },
   { kind: "kitchen", point: "kitchen_stove", furniture: ["stove", "pantry-shelf"] },
 ];
@@ -267,6 +270,8 @@ export class OfficeScene extends Phaser.Scene {
   private usableNear: UsableHit | null = null;
   /** Mascota al alcance para acariciarla con E (si no hay un mueble ni un asiento más cerca). */
   private petNear: string | null = null;
+  /** La granja: a quién le pido una porción con E (sessionId), si alguien con un plato está al lado. */
+  private portionNear: string | null = null;
   /** Rombitos sobre lo que se puede usar (ver markers.ts). */
   private markers!: InteractMarkers;
   /** Editor de la casa (admins; ver worldEditor.ts). */
@@ -1222,6 +1227,7 @@ export class OfficeScene extends Phaser.Scene {
         if (near && !this.seat) activateInteractable(near);
         else if (this.usableNear && !this.seat && !this.table.kind) this.useFurniture(this.usableNear.f);
         else if (this.petNear && !this.seat && !this.table.kind) sendPetAction(this.petNear, "pet");
+        else if (this.portionNear && !this.seat && !this.table.kind) sendPortion(this.portionNear);
         else this.toggleSeat();
       }
       // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
@@ -1697,12 +1703,18 @@ export class OfficeScene extends Phaser.Scene {
     const freeSeat = pet && avatar ? this.nearestFreeSeat() : null;
     const petWins = pet && avatar && (!freeSeat || pet.dist < Math.hypot(freeSeat.x - avatar.x, freeSeat.y - avatar.y));
     this.petNear = petWins ? pet.id : null;
+    // La granja: con alguien al lado que lleva un plato de la parrilla, E le pide una porción (si no hay
+    // mueble ni mascota más a la mano).
+    const portion = avatar && !hit && !petWins && !this.seat && !besideObject ? this.usables.portionNear() : null;
+    this.portionNear = portion?.sessionId ?? null;
     const s = useOfficeStore.getState();
     const next = hit
       ? { type: hit.f.type, x: hit.f.x, y: hit.f.y, label: this.usables.label(hit.f) }
       : petWins
         ? { type: `${PET_USABLE_PREFIX}${pet.id}`, x: 0, y: 0, label: `Acariciar a ${pet.name}` }
-        : null;
+        : portion
+          ? { type: `${PORTION_USABLE_PREFIX}${portion.sessionId}`, x: 0, y: 0, label: portion.label }
+          : null;
     const cur = s.usable;
     if (next?.type !== cur?.type || next?.x !== cur?.x || next?.y !== cur?.y || next?.label !== cur?.label) s.setUsable(next);
   }

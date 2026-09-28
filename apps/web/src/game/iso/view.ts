@@ -348,6 +348,11 @@ export class AreaView {
     }
   }
 
+  /** La imagen de un mueble (la granja le cambia la textura a la rueda del molino para que gire). */
+  imageOf(f: PlacedFurniture): Phaser.GameObjects.Image | undefined {
+    return this.furnitureImages.find((e) => e.f === f)?.img;
+  }
+
   /** Punto de pantalla justo arriba del dibujo de un mueble (para los indicadores de interacción). */
   furnitureTop(f: PlacedFurniture): { x: number; y: number; depth: number } | null {
     const hit = this.furnitureImages.find((e) => e.f === f);

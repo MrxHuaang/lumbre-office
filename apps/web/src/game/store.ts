@@ -79,7 +79,10 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
   | "kitchen"
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
-  | "sombrero";
+  | "sombrero"
+  // La granja del jardín: el horno y la parrilla (cocinar) y el letrero del gallinero (los nombres).
+  | "grill"
+  | "coop";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
