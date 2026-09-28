@@ -147,8 +147,11 @@ class MediaManager {
     useMediaStore.setState({ ...initialMedia, status: this.blocked ? "unavailable" : "idle" });
     this.timer = setInterval(() => this.check(), LINK_CHECK_MS);
     this.check();
+    // Cuando el navegador esté libre (armar el módulo es una tarea larga): no en medio de una caminata.
     setTimeout(() => {
-      if (this.active) loadLiveKit().catch(() => undefined);
+      const load = () => this.active && loadLiveKit().catch(() => undefined);
+      if (typeof requestIdleCallback === "function") requestIdleCallback(load, { timeout: 5000 });
+      else load();
     }, PRELOAD_LIVEKIT_MS);
   }
 
