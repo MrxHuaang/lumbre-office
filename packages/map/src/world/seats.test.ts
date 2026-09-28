@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getWorld } from "../index";
 import { CATALOG, type CatalogItem } from "./catalog";
-import { seatBehind, seatLift, seatZ } from "./seats";
+import { SIT_BACK_RAISE, seatBehind, seatLift, seatZ } from "./seats";
 
 describe("asientos", () => {
   it("cada asiento tiene una altura razonable y la silla es la base", () => {
@@ -13,6 +13,13 @@ describe("asientos", () => {
       expect(seatZ(type), type).toBeGreaterThanOrEqual(5);
       expect(seatZ(type), type).toBeLessThanOrEqual(20);
     }
+  });
+
+  it("de espaldas la hoja sube para que la cadera quede sobre el asiento; de frente, no", () => {
+    expect(seatLift("picnic-bench", "left")).toBe(seatLift("picnic-bench") - SIT_BACK_RAISE);
+    expect(seatLift("chair", "up")).toBe(-SIT_BACK_RAISE);
+    expect(seatLift("chair", "right")).toBe(seatLift("chair"));
+    expect(seatLift("chair", "down")).toBe(seatLift("chair"));
   });
 
   it("de espaldas solo tapa el respaldo, y cada asiento sabe de qué mueble es", () => {
