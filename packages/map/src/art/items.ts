@@ -37,6 +37,25 @@ interface ItemArt {
 type Hexes = Record<string, string>;
 const legend = (h: Hexes): Legend => Object.fromEntries(Object.entries(h).map(([k, v]) => [k, hex(v)]));
 
+/** Caja de crispetas: el copete (`p`, `P`) sobre la caja de rayas (`r`, `w`) que se angosta abajo. */
+function popcorn(c: Hexes, crumb: string): ItemArt {
+  return {
+    crumb: hex(crumb),
+    rows: [
+      "..oPpo..", //
+      ".oPpPpo.",
+      "opPpPpPo",
+      "oPpPpPpo",
+      "orwrwrwo",
+      "orwrwrwo",
+      ".orwrwo.",
+      ".orwrwo.",
+      ".oooooo.",
+    ],
+    colors: legend(c),
+  };
+}
+
 /**
  * Vaso alto de jugo con pitillo (`s`): el jugo (`a`, sombra `A`, pepitas o trocitos `b`) y, si trae
  * `f`/`F`, la espuma de arriba (se va con el primer sorbo). `flakes`: la espuma lleva coco rallado.
@@ -367,6 +386,11 @@ const ITEMS: Record<string, ItemArt> = {
   champus: goblet({ a: "#f2b43c", A: "#c88a1e", b: "#fff09a", c: "#f2b43c", top: "#6fb34a" }),
   // En copa: el salpicón rojo de sandía con los cuadritos de fruta y la cuchara.
   salpicon: goblet({ a: "#f04a60", A: "#b82a40", b: "#ffd84a", c: "#8cc653", top: "#c9c9d0" }),
+  // ---------- Confitería del cine ----------
+  // La caja de rayas rojas con el copete de crispetas: los mordiscos se llevan primero el copete.
+  crispetas: popcorn({ p: "#fff6d8", P: "#f3d27a", r: "#d93a2b", w: "#f4ecdc" }, "#fffbe8"),
+  // Las de caramelo, doradas, en la caja de rayas azules.
+  "crispetas-caramelo": popcorn({ p: "#e8a64a", P: "#c97a28", r: "#3a5fb0", w: "#f4ecdc" }, "#f6d49a"),
   // ---------- Panadería ----------
   // En herradura, pálido y con el queso que se tuesta en las puntas.
   "pan-yuca": {
@@ -920,7 +944,215 @@ const ITEMS: Record<string, ItemArt> = {
     // Dorado por fuera (asado en la fogata) y blanco por dentro; el palito de madera abajo.
     colors: { b: hex("#d9923e"), B: hex("#f3c47a"), w: hex("#fff4e0"), s: hex("#8a5530") },
   },
+  // ---------- Jardín vivo: lo que se cosecha, la miel y las herramientas del cobertizo ----------
+  cilantro: {
+    crumb: hex("#b8e89a"),
+    rows: [
+      ".o.o.o..", //
+      "olololo.",
+      "olLlLlLo",
+      ".olLlLo.",
+      "..oggo..",
+      "..obbo..",
+      "..oggo..",
+      "...oo...",
+    ],
+    colors: { l: hex("#6fbf4a"), L: hex("#3f8a2e"), g: hex("#8fcf5a"), b: hex("#e8d08a") },
+  },
+  fresa: {
+    crumb: hex("#fbd0c8"),
+    rows: [
+      "..olLo..", //
+      ".olLlLo.",
+      "orrrrrro",
+      "oryrrryo",
+      "orrryrRo",
+      ".oryrRo.",
+      "..orRo..",
+      "...oo...",
+    ],
+    colors: { r: hex("#e8323c"), R: hex("#a8202a"), y: hex("#f7e27a"), l: hex("#5fa83e"), L: hex("#3f7a2e") },
+  },
+  tomate: {
+    crumb: hex("#f6b0a0"),
+    rows: [
+      "...lL...", //
+      "..olLlo.",
+      ".orrrRro",
+      "orHrrrRo",
+      "orrrrrRo",
+      "orrrrRRo",
+      ".oRRRRo.",
+      "..oooo..",
+    ],
+    colors: { r: hex("#e04030"), R: hex("#a82820"), H: hex("#ff9a80"), l: hex("#6fb34a"), L: hex("#3f7a2e") },
+  },
+  papa: {
+    crumb: hex("#fff0b8"),
+    rows: [
+      "..oooo..", //
+      ".oyHyyo.",
+      "oyyyyyYo",
+      "oyydyyYo",
+      "oyyyydYo",
+      "oyyyyYYo",
+      ".oYYYYo.",
+      "..oooo..",
+    ],
+    colors: { y: hex("#e8c24a"), Y: hex("#b8902a"), H: hex("#f7e08a"), d: hex("#8a6a2a") },
+  },
+  mazorca: {
+    crumb: hex("#fff6c8"),
+    rows: [
+      "..oooo..", //
+      ".okKkko.",
+      ".okkKko.",
+      ".oKkkKo.",
+      ".okkKko.",
+      ".okKkko.",
+      "oLokkoLo",
+      "oLLooLLo",
+      ".oLLLLo.",
+      "..oooo..",
+    ],
+    colors: { k: hex("#f2c83a"), K: hex("#d09a22"), L: hex("#8fbf5a") },
+  },
+  lulo: {
+    crumb: hex("#e8e26a"),
+    rows: [
+      "...oLo..", //
+      "..oLlLo.",
+      ".oaaaAo.",
+      "oaHaaaAo",
+      "oaaaaaAo",
+      "oaaaaAAo",
+      ".oAAAAo.",
+      "..oooo..",
+    ],
+    colors: { a: hex("#f09a2a"), A: hex("#c06a18"), H: hex("#ffd08a"), l: hex("#6fb34a"), L: hex("#3f7a2e") },
+  },
+  // Frasco de miel con la tapa de tela a cuadros: se come a cucharadas y el nivel baja.
+  miel: {
+    liquid: { chars: "aA" },
+    rows: [
+      ".oooooo.", //
+      ".ocCcCo.",
+      "oooooooo",
+      "ohaaaaAo",
+      "ohaaaaAo",
+      "oaaaaaAo",
+      "oaaaaAAo",
+      ".oooooo.",
+    ],
+    colors: { a: hex("#f0a830"), A: hex("#c07a18"), c: hex("#d9533a"), C: hex("#f4ecdc"), h: GLASS.h },
+  },
+  // La regadera verde: llena, con una gota que asoma por la flor; vacía, sin gota.
+  regadera: {
+    rows: [
+      ".........w", //
+      "...ooo..oo",
+      "..o...o.oo",
+      ".ooooooogo",
+      ".oGgggGoo.",
+      ".oGgggGgo.",
+      ".oGgggGo..",
+      ".oGGGGGo..",
+      "..ooooo...",
+    ],
+    colors: { g: hex("#5aa04a"), G: hex("#3f7a34"), w: hex("#7fd0ff") },
+  },
+  "regadera-vacia": {
+    rows: [
+      "...ooo..oo", //
+      "..o...o.oo",
+      ".ooooooogo",
+      ".oGgggGoo.",
+      ".oGgggGgo.",
+      ".oGgggGo..",
+      ".oGGGGGo..",
+      "..ooooo...",
+    ],
+    colors: { g: hex("#6f9a5e"), G: hex("#4a6e40") },
+  },
+  ...Object.fromEntries(
+    (
+      [
+        ["cilantro", "#6fbf4a", "#3f8a2e"],
+        ["fresa", "#e8323c", "#a8202a"],
+        ["tomate", "#e04030", "#a82820"],
+        ["papa", "#e8c24a", "#b8902a"],
+        ["maiz", "#f2c83a", "#d09a22"],
+        ["lulo", "#f09a2a", "#c06a18"],
+        // Las del invernadero.
+        ["uchuva", "#f2b233", "#b87a18"],
+        ["pitahaya", "#e8457a", "#a8205a"],
+        ["cacao", "#8a4a26", "#5a2a14"],
+        ["cafe", "#c8302a", "#6a3a1e"],
+      ] as const
+    ).map(([crop, c, C]) => [`semillas-${crop}`, seedPacket(c, C)]),
+  ),
+  // ---------- Lo que se cosecha en el invernadero ----------
+  uchuva: {
+    crumb: hex("#fff0a0"),
+    rows: [
+      "..hHh...", //
+      ".hHohHh.",
+      "..oyyo..",
+      ".oyYyyo.",
+      ".oyyyYo.",
+      "..oYYo..",
+      "...oo...",
+    ],
+    colors: { y: hex("#f7b733"), Y: hex("#c8861a"), h: hex("#e8d8a0"), H: hex("#b8a070") },
+  },
+  pitahaya: {
+    crumb: hex("#fffaf2"),
+    rows: [
+      "...ol...", //
+      "..oppo..",
+      ".lpppPo.",
+      "oppwpppo",
+      "opppwPPo",
+      "olpppPlo",
+      ".oPPPPo.",
+      "..oooo..",
+    ],
+    colors: { p: hex("#e8457a"), P: hex("#a8205a"), w: hex("#fff4f0"), l: hex("#7fbf4a") },
+  },
+  // La chocolatina hecha con el cacao de la casa: una barra con su papel dorado.
+  chocolatina: {
+    crumb: hex("#b87a4a"),
+    rows: [
+      "ooooooo.", //
+      "occCccgo",
+      "oCcccCgo",
+      "occCccgo",
+      "oCcccCgo",
+      "ooooooo.",
+    ],
+    colors: { c: hex("#6a3a1e"), C: hex("#4a2410"), g: hex("#e8c050") },
+  },
 };
+
+// El tinto que sale de la cosecha del invernadero: la misma taza del tinto de la cafetería.
+ITEMS["cafe-casa"] = { ...ITEMS.tinto! };
+
+/** Sobre de semillas de papel kraft con el dibujo del cultivo (su color) al frente. */
+function seedPacket(c: string, dark: string): ItemArt {
+  return {
+    rows: [
+      ".oooooo.", //
+      "oPPPPPPo",
+      "oppppppo",
+      "opcccCpo",
+      "opcCccpo",
+      "opccCCpo",
+      "oppppppo",
+      ".oooooo.",
+    ],
+    colors: { p: hex("#e8d8b0"), P: hex("#c9b48a"), c: hex(c), C: hex(dark) },
+  };
+}
 
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 

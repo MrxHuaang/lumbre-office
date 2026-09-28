@@ -1,15 +1,20 @@
 "use client";
 
 // La pantalla de una máquina del arcade, con su gabinete alrededor: el juego se juega con el teclado
-// (flechas y espacio) y Esc sale. Al terminar se manda el puntaje con las teclas grabadas: el servidor
-// repite la partida, la guarda y, si corresponde, da el premio de ocio. Arriba, la tabla de la semana.
-import { ARCADE_ERROR_TEXT, ARCADE_GAME_INFO, ARCADE_KEYS, ARCADE_STEP_MS, arcadeGameOf, ArcadeRecorder, type ArcadeGame } from "@hyvento/shared";
+// (flechas y espacio) y Esc sale. Cada partida cuesta monedas (las cobra el servidor al empezar); al
+// terminar se manda el puntaje con las teclas grabadas: el servidor repite la partida, la guarda y, si
+// corresponde, da el premio de ocio. Entre partidas, los récords de hoy y de la semana.
+import { ARCADE, ARCADE_ERROR_TEXT, ARCADE_GAME_INFO, ARCADE_KEYS, ARCADE_PRICE, ARCADE_STEP_MS, arcadeGameOf, ArcadeRecorder, type ArcadeBoardEntry, type ArcadeGame } from "@hyvento/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createGame, drawStatic } from "@/game/arcade/games";
 import { SCREEN_H, SCREEN_W, type ArcadeKey, type HeldKeys, type MiniGame } from "@/game/arcade/kit";
 import { localMachine } from "@/game/arcade/local";
 import { sendArcadeBoard, sendArcadeFinish, sendArcadeStart, useArcadeStore } from "@/game/arcade/net";
 import { useOfficeStore } from "@/game/store";
+import { PixelIcon } from "../Cozy";
+import { PixelNumber } from "../casino/PixelArt";
+import { NEON } from "../club/neon";
+import { useMyPoints } from "../PointsPanels";
 
 /** Después de perder, cuánto hay que esperar para volver a jugar (así el Espacio del último aleteo no cuenta). */
 const RESTART_MS = 700;
@@ -33,6 +38,7 @@ const CABINET: Record<ArcadeGame | "off", { body: string; glow: string }> = {
   snake: { body: "#2e5a40", glow: "#8cc653" },
   breakout: { body: "#34194f", glow: "#ff5fd2" },
   flappy: { body: "#12627a", glow: "#f3d672" },
+  bloques: { body: "#4f2672", glow: "#8ef0f0" },
   off: { body: "#3c3a44", glow: "#9a95a0" },
 };
 
@@ -52,7 +58,9 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<Phase>("attract");
   const [score, setScore] = useState(0);
   const [waiting, setWaiting] = useState(false);
-  const board = useArcadeStore((s) => (s.board && s.board.machine === machine ? s.board.board : null));
+  const boards = useArcadeStore((s) => (s.board && s.board.machine === machine ? s.board : null));
+  const points = useMyPoints();
+  const poor = points < ARCADE_PRICE.machine;
   const started = useArcadeStore((s) => s.started);
   const result = useArcadeStore((s) => s.result);
   const [shownResult, setShownResult] = useState<number>(result?.seq ?? 0);
@@ -73,10 +81,12 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
   const start = useCallback(() => {
     if (machine === null || !game) return;
     if (phase === "over" && performance.now() - overAt.current < RESTART_MS) return;
+    // Sin monedas ni se pide (el servidor igual lo revisa al cobrar).
+    if (poor) return useOfficeStore.getState().notify(ARCADE_ERROR_TEXT.funds, "warning");
     startSeq.current = useArcadeStore.getState().result?.seq ?? 0;
     setPhase("starting");
     sendArcadeStart(machine);
-  }, [machine, game, phase]);
+  }, [machine, game, phase, poor]);
 
   // El servidor dio la semilla: empieza la partida (con las teclas que ya estaban apretadas).
   useEffect(() => {
@@ -92,7 +102,8 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!result || result.seq === shownResult) return;
     setShownResult(result.seq);
-    if (!result.ok && phase === "starting" && result.seq > startSeq.current && (result.error === "far" || result.error === "invalid")) {
+    const startErrors: readonly string[] = ["far", "invalid", "funds", "failed"];
+    if (!result.ok && phase === "starting" && result.seq > startSeq.current && startErrors.includes(result.error)) {
       useOfficeStore.getState().notify(ARCADE_ERROR_TEXT[result.error], "warning");
       setPhase("attract");
     }
@@ -235,43 +246,81 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
                   <ResultLine result={lastResult} />
                 </>
               )}
-              <Board board={board} />
-              <p className="mt-1 animate-pulse text-[15px] text-[#f3d672]">{phase === "starting" ? "Insertando moneda…" : canStart ? "Espacio para jugar" : "Espera un momento…"}</p>
+              <Boards today={boards?.today ?? null} week={boards?.board ?? null} />
+              <p className="mt-1 animate-pulse text-[15px] text-[#f3d672]">
+                {phase === "starting" ? "Insertando moneda…" : !canStart ? "Espera un momento…" : poor ? `Te faltan monedas (cuesta ${ARCADE_PRICE.machine})` : `Espacio: insertar moneda (${ARCADE_PRICE.machine})`}
+              </p>
               <p className="text-[12px] text-[#c0e377]">{info?.controls}</p>
             </div>
           )}
         </div>
-        {/* Tablero de controles, de adorno. */}
-        <div className="mt-3 flex items-center justify-between border-4 border-[#1d1128] bg-[#1e1030] px-5 py-2">
-          <span className="relative block h-8 w-8" aria-hidden>
+        {/* Tablero de controles: la palanca y los botones (de adorno) a los lados de la ranura de monedas. */}
+        <div className="mt-3 flex items-center justify-between gap-3 border-4 border-[#1d1128] bg-[#1e1030] px-4 py-2">
+          <span className="relative block h-8 w-8 shrink-0" aria-hidden>
             <span className="absolute bottom-0 left-1/2 h-5 w-2 -translate-x-1/2 bg-[#6e7a98]" />
             <span className="absolute top-0 left-1/2 h-5 w-5 -translate-x-1/2 bg-[#e0359f] shadow-[inset_-2px_-2px_0_#9c1a78]" />
           </span>
-          <span className="text-[12px] text-[#9a95a0]">Flechas · Espacio · Esc para salir</span>
-          <span className="flex gap-2" aria-hidden>
+          <CoinSlot price={ARCADE_PRICE.machine} points={points} glow={colors.glow} />
+          <span className="flex shrink-0 gap-2" aria-hidden>
             <span className="h-5 w-5 bg-[#3fd0dd] shadow-[inset_-2px_-2px_0_#1a95ad]" />
             <span className="h-5 w-5 bg-[#f3d672] shadow-[inset_-2px_-2px_0_#b98424]" />
           </span>
         </div>
+        <p className="mt-1.5 text-center text-[12px] text-[#c9b8e0]">
+          Flechas · Espacio · Esc para salir · la primera partida del día paga +{ARCADE.firstGameReward} y el récord de la semana +{ARCADE.recordReward}
+        </p>
       </section>
     </div>
   );
 }
 
-function Board({ board }: { board: { name: string; score: number }[] | null }) {
+/** La ranura de monedas: el precio de la partida y el saldo, con el aviso cuando no alcanza. */
+function CoinSlot({ price, points, glow }: { price: number; points: number; glow: string }) {
+  const poor = points < price;
   return (
-    <div className="w-[min(240px,90%)]">
-      <p className="mb-1 text-[13px] text-[#8ef0f0]">Récords de la semana</p>
-      {!board || board.length === 0 ? (
-        <p className="text-[12px] text-[#9a95a0]">Nadie ha jugado esta semana. ¡Sé la primera persona!</p>
+    <div className="flex min-w-0 flex-1 items-center justify-center gap-3" aria-label={`Cada partida cuesta ${price}. Tienes ${points}.`}>
+      <span className="flex items-center gap-1.5 border-2 border-[#1d1128] bg-[#0c1024] px-2 py-1" title="Lo que cuesta cada partida">
+        <span aria-hidden className="block h-4 w-1.5 bg-[#0a0612] shadow-[0_0_0_2px_#6e7a98]" />
+        <PixelIcon name="coin" size={16} color="var(--color-cozy-gold)" />
+        <PixelNumber value={price} scale={2} color={NEON.gold} />
+        <span className="text-[12px] text-[#c9b8e0]">por partida</span>
+      </span>
+      <span className="flex items-center gap-1" title="Tu saldo">
+        <span className="text-[12px] text-[#c9b8e0]">Tienes</span>
+        <PixelNumber value={points} scale={2} color={poor ? NEON.pink : glow} />
+      </span>
+    </div>
+  );
+}
+
+/** Récords de hoy y de la semana, uno al lado del otro (a lo ancho de la pantalla). */
+function Boards({ today, week }: { today: ArcadeBoardEntry[] | null; week: ArcadeBoardEntry[] | null }) {
+  return (
+    <div className="grid w-[min(300px,95%)] grid-cols-2 gap-3 text-left">
+      <BoardColumn title="HOY" color={NEON.gold} board={today} empty="Nadie jugó hoy." />
+      <BoardColumn title="SEMANA" color={NEON.cyan} board={week} empty="¡Sé la primera persona!" />
+    </div>
+  );
+}
+
+function BoardColumn({ title, color, board, empty }: { title: string; color: string; board: ArcadeBoardEntry[] | null; empty: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1 border-b-2 text-center text-[13px] tracking-wider" style={{ color, borderColor: `${color}66`, textShadow: `0 0 4px ${color}` }}>
+        {title}
+      </p>
+      {!board ? (
+        <p className="text-center text-[11px] text-[#9a95a0]">…</p>
+      ) : board.length === 0 ? (
+        <p className="text-center text-[11px] text-[#9a95a0]">{empty}</p>
       ) : (
-        <ol className="text-[13px]">
+        <ol className="text-[12px] leading-snug">
           {board.map((b, i) => (
-            <li key={`${b.name}-${i}`} className="flex justify-between gap-3">
+            <li key={`${b.name}-${i}`} className="flex justify-between gap-2">
               <span className="truncate">
-                {i + 1}. {b.name}
+                <span style={{ color: i === 0 ? color : "#9a95a0" }}>{i + 1}.</span> {b.name}
               </span>
-              <span className="text-[#f3d672]">{b.score}</span>
+              <span style={{ color: i === 0 ? color : "#fdf0c8" }}>{b.score}</span>
             </li>
           ))}
         </ol>
@@ -283,6 +332,6 @@ function Board({ board }: { board: { name: string; score: number }[] | null }) {
 function ResultLine({ result }: { result: ReturnType<typeof useArcadeStore.getState>["result"] }) {
   if (!result) return <p className="text-[12px] text-[#9a95a0]">Guardando…</p>;
   if (!result.ok) return <p className="text-[12px] text-[#ff9ae6]">{ARCADE_ERROR_TEXT[result.error]}</p>;
-  const parts = [result.record ? "¡Récord de la semana!" : null, result.awarded > 0 ? `+${result.awarded} puntos` : null].filter(Boolean);
+  const parts = [result.record ? "¡Récord de la semana!" : result.bestToday ? "¡Lo mejor de hoy!" : null, result.awarded > 0 ? `+${result.awarded} puntos` : null].filter(Boolean);
   return <p className="text-[13px] text-[#c0e377]">{parts.length ? parts.join(" · ") : "Puntaje guardado."}</p>;
 }

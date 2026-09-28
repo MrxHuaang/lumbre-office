@@ -5,6 +5,7 @@
 // cubículos ocupados) o llega como evento.
 import { z } from "zod";
 import type { ConsumeAction, UsableSpec } from "./consumables";
+import { HUERTO_HOLDS, HUERTO_NAMES } from "./huerto";
 
 /**
  * Lo nuevo que se hace con un mueble (además de prender, tocar y acariciar):
@@ -113,6 +114,10 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   vanity: wash,
   "bath-sink": wash,
   "kitchen-sink": wash,
+  // El garaje: el reflector de obra, la planta seca (regarla ya no sirve de mucho) y el archivador.
+  "work-light": lamp("el reflector"),
+  "dead-plant": { ...water, label: "Regar la planta seca" },
+  "filing-dented": { ...read, label: "Hojear una carpeta vieja" },
   // La fogata del jardín: se asa desde los troncos (un poco más lejos que el alcance normal).
   "fire-pit": { action: "roast", label: "Asar un malvavisco", cooldownMs: CASA.roastMs + 400, gives: ["malvavisco"], reachTiles: CASA.roastReachTiles },
 };
@@ -133,6 +138,8 @@ export const FREE_HOLDS: Record<string, readonly string[]> = {
   manzana: ["manzana"],
   banano: ["banano"],
   malvavisco: ["malvavisco"],
+  // Jardín vivo: las herramientas del cobertizo, lo cosechado y la miel.
+  ...HUERTO_HOLDS,
 };
 
 /**
@@ -175,6 +182,7 @@ export const FREE_NAMES: Record<string, string> = {
   manzana: "Manzana",
   banano: "Banano",
   malvavisco: "Malvavisco asado",
+  ...HUERTO_NAMES,
 };
 
 /** ¿Es algo gratis de la casa? (se puede cambiar por otra cosa gratis sin perder nada). */

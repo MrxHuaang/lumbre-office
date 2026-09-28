@@ -24,6 +24,7 @@ const FLOOR_LABEL: Record<OfficeFloor, string> = {
   terrazzo: "Terrazo",
   brick: "Barro cocido",
   moquette: "Moqueta",
+  concrete: "Concreto",
 };
 const WALLPAPER_LABEL: Record<OfficeWallpaper, string> = {
   cream: "Crema",
@@ -35,6 +36,7 @@ const WALLPAPER_LABEL: Record<OfficeWallpaper, string> = {
   brick: "Ladrillo",
   slats: "Listones",
   colonial: "Colonial",
+  cinderblock: "Bloque",
 };
 
 const css = (c: RGBA | undefined) => (c ? `rgb(${c[0]} ${c[1]} ${c[2]})` : "transparent");
@@ -49,6 +51,7 @@ const CARPET_RAMP: Record<OfficeWallpaper, readonly RGBA[]> = {
   brick: C.terracotta,
   slats: C.cream,
   colonial: C.green,
+  cinderblock: C.stone,
 };
 
 function floorSwatch(floor: OfficeFloor, wallpaper: OfficeWallpaper): string {
@@ -76,6 +79,9 @@ function floorSwatch(floor: OfficeFloor, wallpaper: OfficeWallpaper): string {
       return `repeating-linear-gradient(0deg, ${css(C.stone[2])} 0 1px, ${css(C.terracotta[3])} 1px 5px)`;
     case "moquette":
       return `repeating-linear-gradient(45deg, ${css(C.mustard[2])} 0 1px, transparent 1px 6px), repeating-linear-gradient(-45deg, ${css(C.mustard[2])} 0 1px, ${css(C.green[2])} 1px 6px)`;
+    case "concrete":
+      // Gris con una mancha de aceite.
+      return `radial-gradient(circle at 70% 35%, ${css(C.stone[0])} 18%, transparent 22%), ${css(C.stone[2])}`;
   }
 }
 
@@ -91,6 +97,8 @@ function wallpaperSwatch(w: OfficeWallpaper): string {
       return `repeating-linear-gradient(90deg, ${css(C.woodDark[1])} 0 1px, ${css(C.cream[3])} 1px 4px)`;
     case "colonial":
       return `linear-gradient(0deg, ${css(C.sage[1])} 0 40%, ${css(C.mustard[3])} 40% 48%, ${css(C.cream[5])} 48%)`;
+    case "cinderblock":
+      return `repeating-linear-gradient(0deg, ${css(C.stone[1])} 0 1px, transparent 1px 5px), repeating-linear-gradient(90deg, ${css(C.stone[1])} 0 1px, ${css(C.stone[2])} 1px 10px)`;
     default: {
       const r = { cream: C.cream, blue: C.blue, rose: C.rose, sage: C.sage }[w];
       return `repeating-linear-gradient(90deg, ${css(r[2])} 0 2px, ${css(r[3])} 2px 10px)`;

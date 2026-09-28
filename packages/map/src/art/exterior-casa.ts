@@ -4,7 +4,7 @@
 //  - un frontón cruzado sobre la entrada, con el porche y su techito;
 //  - la torre redonda con el mirador en la esquina oeste (a la izquierda en pantalla);
 //  - el ala este, más baja, con la terraza cubierta (su techo es el balcón del piso 2), la escalera
-//    exterior que sube a ese balcón y la pérgola con glicinas.
+//    exterior que sube a ese balcón y un cantero con un rosal trepador.
 import { Escena, type Tinte } from "./exterior-escena";
 import { C, OUT, mix } from "./palette";
 import { at, bayer, noise, smoothNoise, type RGBA, type Sprite } from "./pixel";
@@ -41,7 +41,7 @@ const roofE = (y: number) => E_RIDGE_Z - Math.abs(y - E_RIDGE_Y) * E_SLOPE;
 const TR = { x0: 256, x1: 336, y0: 150, y1: 210, z: 50 };
 /** Escalera exterior al balcón, pegada al costado este de la terraza. */
 const ST = { x0: 337, x1: 350, yTop: 156, yBottom: 218 };
-/** Pérgola al este del ala. */
+/** Cantero al este del ala (donde termina la casa). */
 const PG = { x0: 332, x1: 350, y0: 62, y1: 146, h: 64 };
 
 /** Porche de la entrada. */
@@ -371,7 +371,7 @@ export function drawHouse(night: boolean): Sprite {
   drawEastWing(s, night);
   drawTerrace(s, night);
   drawStair(s);
-  drawPergola(s);
+  drawEastBed(s);
   drawGardenBeds(s);
   return s.sprite();
 }
@@ -777,41 +777,34 @@ function drawStair(s: Escena) {
   }
 }
 
-function drawPergola(s: Escena) {
-  const { x0, x1, y0, y1, h } = PG;
-  // Banca de listones bajo la pérgola, con dos cojines.
-  for (const py of [90, 110]) s.solid(338, py, 0, 8, 2, 6, at(C.woodDark, 4), at(C.woodDark, 3), at(C.woodDark, 2));
-  s.box(337, 88, 6, 9, 26, 1.5, (u) => at(C.wood, Math.floor(u) % 3 === 0 ? 2 : 5), () => at(C.wood, 3), () => at(C.wood, 2));
-  s.box(344, 88, 7.5, 2, 26, 9, () => at(C.wood, 5), null, (_u, v) => at(C.wood, Math.floor(v) % 3 === 0 ? 2 : 4));
-  s.solid(339, 92, 7.5, 5, 7, 2.5, at(C.rose, 4), at(C.rose, 3), at(C.rose, 2));
-  s.solid(339, 103, 7.5, 5, 7, 2.5, at(C.fabric, 4), at(C.fabric, 3), at(C.fabric, 2));
-  // Postes, vigas a lo largo de y y listones cruzados.
-  for (const px of [x0 + 1, x1 - 4]) for (const py of [y0 + 1, y1 - 4]) s.solid(px, py, 0, 3, 3, h, at(C.wood, 5), at(C.wood, 3), at(C.wood, 2));
-  for (const px of [x0 + 1, x1 - 4]) s.solid(px, y0 - 4, h, 3, y1 - y0 + 8, 4, at(C.wood, 5), at(C.wood, 3), at(C.wood, 2));
-  for (let y = y0; y < y1; y += 7) s.solid(x0 - 4, y, h + 4, x1 - x0 + 8, 2, 2.5, at(C.wood, 5), at(C.wood, 4), at(C.wood, 3));
-  // Glicina: follaje sobre los listones, racimos morados que cuelgan y enredaderas por los postes.
-  for (let y = y0 - 4; y < y1 + 4; y += 0.8)
-    for (let x = x0 - 4; x < x1 + 4; x += 0.8) {
-      const n = smoothNoise(x, y, 7, 3);
-      if (n < 0.42) continue;
-      const z = h + 6 + n * 4;
-      s.plot(x, y, z, at(C.leaf, n > 0.72 ? 4 : n > 0.55 ? 3 : 2));
-      if (noise(Math.floor(x), Math.floor(y), 9) < 0.07) {
-        const len = 5 + noise(Math.floor(x), Math.floor(y), 10) * 9;
-        for (let k = 0; k < len; k += 0.5) {
-          const lilac = mix(at(C.violet, 4), at(C.white, 4), k / len < 0.3 ? 0.35 : 0);
-          s.plot(x, y + 0.5, z - 2 - k, k > len - 1.5 ? at(C.violet, 3) : lilac);
-          if (k < len * 0.6) s.plot(x + 0.5, y + 0.5, z - 2 - k, at(C.violet, 5));
-        }
-      }
+/**
+ * Cantero al este del ala: flores, dos arbustos redondos y un rosal que trepa por la pared. (Antes había
+ * una pérgola aquí, repetida con la del patio: la pérgola del jardín es una sola.)
+ */
+function drawEastBed(s: Escena) {
+  const { x0, x1, y0, y1 } = PG;
+  s.box(x0 - 4, y0 + 2, 0, x1 - x0 + 2, y1 - y0 - 4, 3, (u, v) => at(C.dirt, 1 + (noise(u, v, 104) < 0.3 ? 1 : 0)), (u, v) => stones(u, v + 1, 104), (u, v) => stones(u, v + 1, 104, 1));
+  flowers(s, x0 - 3, y0 + 3, x1 - 3, y1 - 3, 3, 105, 1.2);
+  for (const [bx, by, br] of [
+    [x0 + 4, y0 + 12, 6],
+    [x0 + 5, y1 - 14, 7],
+  ] as const) {
+    for (let a = 0; a < 240; a++) {
+      const th = noise(a, 1, bx + by) * Math.PI * 2;
+      const ph = noise(a, 2, bx + by) * Math.PI * 0.5;
+      const lit = Math.sin(th) * 0.5 - Math.cos(th) * 0.3 + Math.sin(ph);
+      s.plot(bx + Math.cos(th) * Math.cos(ph) * br, by + Math.sin(th) * Math.cos(ph) * br, 3 + Math.sin(ph) * br * 1.1, at(C.leaf, lit > 1 ? 4 : lit > 0.3 ? 3 : 2));
     }
-  for (const px of [x0 + 2.5, x1 - 2.5])
-    for (const py of [y0 + 2.5, y1 - 2.5])
-      for (let z = 0; z < h; z += 0.5) {
-        const a = z * 0.5 + px;
-        s.plot(px + Math.cos(a) * 2.2, py + Math.sin(a) * 2.2, z, at(C.leaf, 2 + (Math.floor(z) % 3 === 0 ? 1 : 0)));
-        if (noise(Math.floor(z), Math.floor(px + py), 4) < 0.18) s.plot(px + Math.cos(a) * 2.8, py + Math.sin(a) * 2.8, z, at(C.leaf, 4));
-      }
+    s.disc(bx, by, 3 + br * 1.15, br * 0.7, (dx, dy) => at(C.leaf, dx + dy < -2 ? 4 : 3));
+  }
+  // Rosal trepador contra la pared del ala (hojas en zigzag y rosas rojas sueltas).
+  for (let y = y0 + 22; y < y1 - 26; y += 0.7)
+    for (let z = 3; z < 40; z += 0.7) {
+      const n = smoothNoise(y, z, 5, 106);
+      if (n < 0.5 - (z > 30 ? (z - 30) * 0.03 : 0)) continue;
+      s.plot(E.x1 + 0.6, y, z, at(C.leaf, n > 0.75 ? 4 : n > 0.6 ? 3 : 2));
+      if (noise(Math.floor(y), Math.floor(z), 107) < 0.05) s.plot(E.x1 + 1, y, z, at(C.rug, 4));
+    }
 }
 
 /** Canteros con flores y arbustos pegados a la casa (entre la torre, el frente y la terraza). */

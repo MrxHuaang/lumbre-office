@@ -135,11 +135,12 @@ export function speakerPulse(push: number): Sprite {
 
 // ---------- Pantallas del arcade ----------
 
-export type ArcadeScreenKind = "snake" | "breakout" | "flappy" | "off";
+export type ArcadeScreenKind = "snake" | "breakout" | "flappy" | "bloques" | "off";
 
 /**
  * Pantalla de una máquina del arcade (como `arcadeCabinet` de leisure.ts), en modo demostración: la
- * culebrita que avanza, los ladrillos con la pelota, el pajarito entre tubos, o "fuera de servicio"
+ * culebrita que avanza, los ladrillos con la pelota, el pajarito entre tubos, una pieza de Bloques que
+ * cae sobre la pila, o "fuera de servicio"
  * (estática y una franja roja). `frame` anima la demo.
  */
 export function arcadeScreen(kind: ArcadeScreenKind, frame: number): Sprite {
@@ -171,6 +172,15 @@ export function arcadeScreen(kind: ArcadeScreenKind, frame: number): Sprite {
         if ((x === tube || x === tube + 1) && (y < gap || y > gap + 3)) return at(C.leaf, x === tube ? 4 : 3);
         if (x === 1 && y === 3 + (frame % 2)) return at(C.gold, 5);
         return at(C.blue, y > 6 ? 2 : 3);
+      }
+      case "bloques": {
+        // La pila de abajo (dos filas con huecos) y una "T" que baja por el medio.
+        const H = 8;
+        if (y >= H - 2) return (x + y) % 3 === 0 ? at(C.night, 0) : at([C.cyan, C.neon, C.gold][(x + y) % 3]!, 4);
+        const py = mod(frame, H - 3);
+        const cx = Math.floor(W / 2);
+        if ((y === py && x >= cx - 1 && x <= cx + 1) || (y === py + 1 && x === cx)) return at(C.violet, 5);
+        return at(C.night, 1);
       }
       default: {
         // Estática con una franja roja y el cartel apagado.

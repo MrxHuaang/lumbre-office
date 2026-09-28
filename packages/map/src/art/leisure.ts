@@ -3,6 +3,7 @@
 // cliente encima, según el estado del huerto.
 import { C, OUT } from "./palette";
 import { alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type Shader, type Sprite } from "./pixel";
+import { airHockeyTable } from "./hockey";
 import { leg, roundShadow, shadowUnder, volume } from "./kit";
 
 /** Tablas de madera clara (costados de la parcela y del barril). */
@@ -161,40 +162,6 @@ function clawMachine(): Sprite {
   );
 }
 
-/** Hockey de mesa: superficie celeste con agujeritos, línea roja al medio, arcos y los dos mazos. */
-function airHockey(): Sprite {
-  const top: Shader = (u, v, fw, fh) => {
-    const e = Math.min(u, v, fw - 1 - u, fh - 1 - v);
-    if (e < 1.5) {
-      // Arcos en las puntas.
-      if ((v < 1.5 || v >= fh - 1.5) && Math.abs(u - fw / 2) < 3) return at(C.metal, 0);
-      return at(C.white, e < 0.8 ? 2 : 4);
-    }
-    if (Math.abs(v - fh / 2) < 0.6) return at(C.rug, 3);
-    if (Math.abs(Math.hypot(u - fw / 2, v - fh / 2) - 3.5) < 0.5) return at(C.rug, 3);
-    if (Math.floor(u) % 3 === 1 && Math.floor(v) % 3 === 1) return at(C.sky, 2);
-    return at(C.sky, 4);
-  };
-  const side: Shader = (u, v, _fw, fh) => (v >= fh - 1 ? at(C.cyan, 4) : at(C.blue, Math.floor(u) % 6 === 0 ? 1 : 2));
-  const mallet = (x: number, y: number, r: typeof C.rug): Box[] => [
-    solidBox({ x, y, z: 12, w: 3, d: 3, h: 1 }, r, 3),
-    solidBox({ x: x + 1, y: y + 1, z: 13, w: 1, d: 1, h: 1.5 }, r, 4),
-  ];
-  return renderSprite(
-    [
-      leg(2, 3, 8, C.metal),
-      leg(12, 3, 8, C.metal),
-      leg(2, 27, 8, C.metal),
-      leg(12, 27, 8, C.metal),
-      { x: 1, y: 1, z: 8, w: 14, d: 30, h: 4, top, left: side, right: side },
-      ...mallet(6.5, 5, C.rug),
-      ...mallet(6.5, 25, C.blue),
-      solidBox({ x: 9, y: 17, z: 12, w: 2, d: 2, h: 0.6 }, C.metal, 1),
-    ],
-    { outline: OUT, under: shadowUnder(1, 1, 14, 30) },
-  );
-}
-
 /** Dibujos de la fase 5, para registrar en DRAW de furniture.ts. */
 export const LEISURE_DRAW: Record<string, () => Sprite> = {
   "garden-plot": gardenPlot,
@@ -202,5 +169,6 @@ export const LEISURE_DRAW: Record<string, () => Sprite> = {
   "water-barrel": waterBarrel,
   "arcade-cabinet": arcadeCabinet,
   "claw-machine": clawMachine,
-  "air-hockey": airHockey,
+  // El hockey de mesa se juega (modo mesa): su dibujo está con el resto de su arte.
+  "air-hockey": airHockeyTable,
 };

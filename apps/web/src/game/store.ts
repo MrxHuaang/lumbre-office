@@ -52,10 +52,17 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Club y arcade del sótano: la consola de la cabina de DJ y las máquinas.
   | "dj"
   | "arcade"
+  // Cine del sótano: la cabina del proyector (programar, pausar y seguir la función) y la confitería.
+  | "cinema"
+  | "snacks"
+  // El hockey de mesa del arcade (se juega en modo mesa, parado en una punta).
+  | "hockey"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race"
   // El teléfono de escritorio (oficinas y recepción): el directorio para llamar.
-  | "phone";
+  | "phone"
+  // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
+  | "shed";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {

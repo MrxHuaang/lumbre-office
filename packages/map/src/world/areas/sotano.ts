@@ -70,6 +70,16 @@ const ARCADE_CABINETS: { x: number; y: number; facing: "down" | "right" }[] = [
   ...[23, 24, 25, 26, 27, 28].map((y) => ({ x: ARCADE_ROOM.x, y, facing: "right" as const })),
 ];
 
+/**
+ * Hockey de mesa (2x3, largo en y) en el medio del arcade. Se juega parado en cada punta: la del norte
+ * (lado 0) y la del sur (lado 1), con un tile libre alrededor para pasar.
+ */
+const HOCKEY_TABLE = { x: 23, y: 25 };
+const HOCKEY_ENDS: readonly { x: number; y: number }[] = [
+  { x: HOCKEY_TABLE.x, y: HOCKEY_TABLE.y - 1 },
+  { x: HOCKEY_TABLE.x + 1, y: HOCKEY_TABLE.y + 3 },
+];
+
 const ruleta = (x: number, y: number): PointDef => ({ type: "roulette", name: "Ruleta", x, y });
 
 export const sotano: AreaDef = {
@@ -259,7 +269,7 @@ export const sotano: AreaDef = {
     place("claw-machine", 29, ARCADE_ROOM.y, "down"),
     place("claw-machine", 30, ARCADE_ROOM.y, "down"),
     place("prize-shelf", 31, ARCADE_ROOM.y, "down"),
-    place("air-hockey", 23, 25),
+    place("air-hockey", HOCKEY_TABLE.x, HOCKEY_TABLE.y),
     // Pinballs en fila; se juega parado del lado +x.
     place("pinball", 29, 24),
     place("pinball", 29, 26),
@@ -319,7 +329,11 @@ export const sotano: AreaDef = {
       x: c.facing === "down" ? c.x : c.x + 1,
       y: c.facing === "down" ? c.y + 1 : c.y,
     })),
+    // Las dos puntas del hockey de mesa (en el orden de los lados: norte y sur).
+    ...HOCKEY_ENDS.map((p, i) => ({ type: "air_hockey" as const, name: i === 0 ? "Hockey (norte)" : "Hockey (sur)", x: p.x, y: p.y })),
     // Junto al proyector: desde ahí se elige qué se ve en el cine.
     { type: "cinema", name: "Proyector", x: 13, y: 24 },
+    // Delante de la máquina de crispetas: la confitería del cine.
+    { type: "cinema_snacks", name: "Confitería", x: 15, y: CINEMA_ROOM.y + 1 },
   ],
 };

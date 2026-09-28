@@ -116,3 +116,26 @@ export function drawFirefly(): PixelCanvas {
     c.set(x, y, alpha(halo, 0.2));
   return c;
 }
+
+/**
+ * Abeja del apiario, mirando a la derecha: cuerpo a rayas amarillas y negras y las alas translúcidas
+ * (arriba o abajo según el cuadro, así titilan al volar). Sin contorno: es tan chica que se comería.
+ */
+export const BEE_FRAMES = [0, 1] as const;
+export type BeeFrame = (typeof BEE_FRAMES)[number];
+
+export function drawBee(frame: BeeFrame): PixelCanvas {
+  const c = new PixelCanvas(5, 4);
+  const wing = alpha(hex("#f4fbff"), 0.8);
+  const y = frame === 0 ? 0 : 1;
+  c.set(1, y, wing);
+  c.set(2, y, wing);
+  c.set(0, 2, OUT);
+  c.set(1, 2, at(C.gold, 4));
+  c.set(2, 2, OUT);
+  c.set(3, 2, at(C.gold, 4));
+  c.set(4, 2, OUT);
+  c.set(1, 3, alpha(OUT, 0.5));
+  c.set(3, 3, alpha(OUT, 0.5));
+  return c;
+}

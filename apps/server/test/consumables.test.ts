@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { findPath, getWorld, pointsOfType, isBlockedTile, INTERACT_REACH_TILES } from "@hyvento/map";
-import { CAFE, CONSUME, MENUS, MSG, ROOM_NAME, barItem, usesOf, type CafeOrderResult, type HeldUsedEvent } from "@hyvento/shared";
+import { CAFE, CONSUME, MENUS, MSG, ROOM_NAME, barItem, menuItem, usesOf, type CafeOrderResult, type HeldUsedEvent } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -215,6 +215,28 @@ describe("bar del club", () => {
     await walkNextTo(alice, room, "sotano", "club_bar");
     expect(await order("habano")).toMatchObject({ ok: false, error: "funds" });
     expect(me(alice, room).held).toBe("");
+  });
+});
+
+describe("confitería del cine", () => {
+  it("junto a la máquina de crispetas se pide el combo: crispetas en una mano y gaseosa en la otra", async () => {
+    const { room, alice, order } = await setup(30);
+    await walkNextTo(alice, room, "sotano", "cinema_snacks");
+    const price = menuItem("combo-cine")!.price;
+    expect(await order("combo-cine", MSG.cinemaOrder)).toEqual({ ok: true, item: "combo-cine", balance: 30 - price });
+    expect(me(alice, room).held).toBe("combo-cine");
+    expect(me(alice, room).heldLeft).toBe(`${usesOf("crispetas")},${usesOf("coca-cola")}`);
+    expect(repo.ledger.at(-1)).toMatchObject({ amount: -price, reason: "PURCHASE", refId: "cine:combo-cine" });
+  });
+
+  it("en la barra del club no se piden crispetas, ni un trago en la confitería", async () => {
+    const { room, alice, order } = await setup(30);
+    await walkNextTo(alice, room, "sotano", "club_bar");
+    expect(await order("crispetas", MSG.cinemaOrder)).toEqual({ ok: false, item: "crispetas", error: "far" });
+    await walkNextTo(alice, room, "sotano", "cinema_snacks");
+    // Un trago no es de esta carta: el mensaje ni se acepta (la última respuesta sigue siendo la de antes).
+    expect(await order("whisky", MSG.cinemaOrder)).toEqual({ ok: false, item: "crispetas", error: "far" });
+    expect(await repo.getPoints("u-alice")).toBe(30);
   });
 });
 

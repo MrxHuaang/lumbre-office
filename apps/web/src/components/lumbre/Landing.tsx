@@ -14,6 +14,7 @@ const PISOS: { nombre: string; icono: PixelIconName; que: string }[] = [
   { nombre: "Piso 2", icono: "lock", que: "Las oficinas de cada persona, la sala de reuniones y las cabinas para llamadas." },
   { nombre: "Piso 3", icono: "moon", que: "Biblioteca, chimenea y una terraza con vista al lago, para bajar el ritmo." },
   { nombre: "Sótano", icono: "spade", que: "Casino con ruleta y blackjack, el club, el cine y el arcade." },
+  { nombre: "Garaje", icono: "home", que: "Al lado de la casa: un taller con llantas y herramientas, y una oficina descuidada con su computador viejo." },
 ];
 
 export function Landing() {
@@ -77,7 +78,7 @@ export function Landing() {
                 En Lumbre el equipo se ve la cara sin agendar nada: cada quien está en su oficina, se cruza con los demás en la cafetería y, si quiere conversar, camina hasta donde está la otra persona.
               </p>
               <p className="max-w-[46ch] text-[18px] leading-relaxed text-cozy-ink-soft">
-                Es la cabaña donde trabaja el equipo de Hyvento: tres pisos, un sótano y un jardín grande, todo dibujado a mano en código, píxel por píxel.
+                Es la cabaña donde trabaja el equipo de Hyvento: tres pisos, un sótano, un jardín grande y el garaje de al lado, todo dibujado a mano en código, píxel por píxel.
               </p>
             </div>
             {/* El directorio de la casa, como el letrero del recibidor. */}

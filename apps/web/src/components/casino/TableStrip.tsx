@@ -60,7 +60,7 @@ function useStripHeight() {
  * Marco común, abajo al centro y encima de los controles de micrófono y cámara (que siguen a mano):
  * una línea chica con datos (`info`) y la fila principal.
  */
-function Strip({ children, info, label }: { children: React.ReactNode; info: React.ReactNode; label: string }) {
+export function Strip({ children, info, label }: { children: React.ReactNode; info: React.ReactNode; label: string }) {
   const ref = useStripHeight();
   return (
     <section
@@ -74,7 +74,7 @@ function Strip({ children, info, label }: { children: React.ReactNode; info: Rea
   );
 }
 
-function Divider() {
+export function Divider() {
   return <span aria-hidden className="h-9 w-[3px] bg-cozy-wood max-sm:hidden" />;
 }
 
@@ -110,7 +110,7 @@ function ChipPicker({ disabled = false }: { disabled?: boolean }) {
   );
 }
 
-function Balance() {
+export function Balance() {
   const points = useMyPoints();
   return (
     <div className="flex items-center gap-1.5" title="Tu saldo">
@@ -120,7 +120,7 @@ function Balance() {
   );
 }
 
-function LeaveButton({ text }: { text: string }) {
+export function LeaveButton({ text }: { text: string }) {
   const closePanel = useOfficeStore((s) => s.closePanel);
   return (
     <button type="button" onClick={closePanel} className="cozy-btn px-3 py-1.5 text-[14px]">
@@ -131,7 +131,7 @@ function LeaveButton({ text }: { text: string }) {
 }
 
 /** Estado de la mesa: una línea de texto y, si corre el tiempo, los segundos en grande. */
-function Status({ text, seconds, children }: { text: string; seconds?: number; children?: React.ReactNode }) {
+export function Status({ text, seconds, children }: { text: string; seconds?: number; children?: React.ReactNode }) {
   return (
     <div className="flex min-w-[9rem] items-center gap-2" aria-live="polite">
       {seconds !== undefined && (

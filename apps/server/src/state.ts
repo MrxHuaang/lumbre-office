@@ -128,6 +128,31 @@ export class BlackjackState extends Schema {
   @type([BlackjackSeat]) seats = new ArraySchema<BlackjackSeat>();
 }
 
+/** Un lado del hockey de mesa del arcade (0 = la punta del norte, 1 = la del sur). */
+export class HockeyPlayer extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  @type("number") score = 0;
+  /** Lo juega la máquina. */
+  @type("boolean") bot = false;
+}
+
+/**
+ * Hockey de mesa: lo que cambia poco (fase, jugadores, goles). El disco y los mazos van aparte, en
+ * cuadros (`MSG.hockeyFrame`) solo a los del sótano.
+ */
+export class HockeyState extends Schema {
+  /** "idle", "waiting" (uno pagó y espera rival), "countdown", "playing", "goal" (pausa) u "over". */
+  @type("string") phase = "idle";
+  @type("number") match = 0;
+  /** Fin de la fase (o del partido, jugando), en ms de la hora del servidor. */
+  @type("number") endsAt = 0;
+  /** Al terminar: el lado que ganó (-1 = empate) y si fue porque el otro se fue. */
+  @type("number") winner = -1;
+  @type("boolean") forfeit = false;
+  @type([HockeyPlayer]) sides = new ArraySchema<HockeyPlayer>(new HockeyPlayer(), new HockeyPlayer());
+}
+
 /** Casa viva: una mascota de la casa (la mueve el servidor; ver rooms/mascotas.ts). */
 export class Pet extends Schema {
   @type("string") id = "";
@@ -187,11 +212,37 @@ export class ClubState extends Schema {
   @type({ map: ClubDancer }) dancers = new MapSchema<ClubDancer>();
 }
 
+/** El cine del sótano: la película que se proyecta (con la hora del servidor), la cola y lo que ya se vio. */
+export class CinemaState extends Schema {
+  /** La función de ahora (`videoId` "" = ninguna). */
+  @type(ClubVideo) video = new ClubVideo();
+  @type([ClubVideo]) queue = new ArraySchema<ClubVideo>();
+  /** Lo que ya se vio, lo último primero (para volver a ponerlo). */
+  @type([ClubVideo]) history = new ArraySchema<ClubVideo>();
+  /** Hora del servidor en la que el video estaba en 0. */
+  @type("number") startedAt = 0;
+  @type("boolean") paused = false;
+  /** En pausa: en qué punto del video quedó (ms). */
+  @type("number") pausedAt = 0;
+}
+
+/** Jardín vivo: una parcela sembrada del huerto (PlotState de @hyvento/shared). La clave es su índice. */
+export class GardenPlotState extends Schema {
+  @type("string") crop = "";
+  @type("string") plantedBy = "";
+  @type("string") plantedByName = "";
+  @type("number") plantedAt = 0;
+  @type("number") growthMs = 0;
+  @type("number") growthAt = 0;
+  @type("number") wateredUntil = 0;
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
   @type(RouletteState) roulette = new RouletteState();
   @type(BlackjackState) blackjack = new BlackjackState();
+  @type(HockeyState) hockey = new HockeyState();
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`; los que no están siguen como arrancan. */
   @type({ map: "boolean" }) switches = new MapSchema<boolean>();
   /** Cambios del editor de la casa por nivel (JSON de WorldEdits de @hyvento/map); sin entrada, el plano. */
@@ -203,6 +254,9 @@ export class OfficeState extends Schema {
   /** Casa viva: las mascotas, por id. */
   @type({ map: Pet }) pets = new MapSchema<Pet>();
   @type(ClubState) club = new ClubState();
+  @type(CinemaState) cinema = new CinemaState();
+  /** Jardín vivo: las parcelas sembradas del huerto, por índice de parcela (las vacías no están). */
+  @type({ map: GardenPlotState }) garden = new MapSchema<GardenPlotState>();
   /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
   @type("string") weather = "despejado";
 }

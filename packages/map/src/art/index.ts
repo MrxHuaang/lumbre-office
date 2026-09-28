@@ -20,16 +20,21 @@ export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 export {
+  drawBee,
   drawBird,
   drawFirefly,
   drawSquirrel,
+  BEE_FRAMES,
   BIRD_FRAMES,
   BIRD_KINDS,
   SQUIRREL_FRAMES,
+  type BeeFrame,
   type BirdFrame,
   type BirdKind,
   type SquirrelFrame,
 } from "./fauna";
+// Jardín vivo: lo que crece en las parcelas del huerto y la tierra mojada.
+export { bedCropSprite, cropSprite, wetSoil, type CropStage } from "./huerto";
 // Logros: las insignias del perfil y el destello al desbloquear uno.
 export { BADGE_SIZE, drawBadge, drawBadgeGlyph, hasBadgeArt, sparkleSprite } from "./badges";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.
@@ -49,7 +54,8 @@ export {
   type PoleFrame,
 } from "./chibi-baile";
 export { arcadeScreen, danceFloorLights, djBoothEq, FLOOR_LIGHT_PATTERNS, poleStageLights, speakerPulse, type ArcadeScreenKind } from "./club-vivo";
-export { drawAreaBase, drawDoorPost, drawLowWall, drawRoomWalls, LOW_WALL_H, SCREEN_INSET, VIDEO_WALL_SCREEN, WALL_H, type AreaArt } from "./room";
+export { cinemaMarquee, MARQUEE_POSTS } from "./cinema";
+export { CINEMA_SCREEN, drawAreaBase, drawDoorPost, drawLowWall, drawRoomWalls, LOW_WALL_H, SCREEN_INSET, VIDEO_WALL_SCREEN, WALL_H, type AreaArt } from "./room";
 // Casino: tipografía de números, geometría de las mesas, el arte del modo mesa y su encuadre. Con
 // nombres explícitos (no `export *`): así un nombre genérico no choca con lo que agreguen otras partes.
 export { textMask } from "./digits";
@@ -99,6 +105,21 @@ export {
   TABLE_MIN_ZOOM,
   type TableViewport,
 } from "./casino-camara";
+// Hockey de mesa del arcade: la cancha del modo mesa, el disco, los mazos y el marcador.
+export {
+  hockeyBanner,
+  hockeyRinkOverlay,
+  hockeyRinkRect,
+  malletPiece,
+  puckPiece,
+  rinkToScreen,
+  scoreboardPiece,
+  screenToRink,
+  HOCKEY_BOARD,
+  HOCKEY_SIDE_COLOR,
+  HOCKEY_TOP_Z,
+  type HockeyPiece,
+} from "./hockey";
 
 /** Halo de luz en bandas tramadas (se suma de noche). */
 export function glowSprite(rx: number, ry: number, color: string, maxAlpha: number): PixelCanvas {

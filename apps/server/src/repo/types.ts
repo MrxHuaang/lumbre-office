@@ -119,6 +119,22 @@ export interface GameRepository {
   saveStats(userId: string, changes: StatChange[]): Promise<void>;
   /** Desbloquea un logro; true solo la primera vez. */
   unlockAchievement(userId: string, achievementId: string): Promise<boolean>;
+  /** Jardín vivo: las parcelas sembradas del huerto (las vacías no vienen). */
+  loadGarden(): Promise<GardenPlotRecord[]>;
+  /** Guarda una parcela sembrada, o la deja vacía (`null`: se cosechó). */
+  saveGardenPlot(id: number, plot: Omit<GardenPlotRecord, "id"> | null): Promise<void>;
+}
+
+/** Una parcela del huerto como se guarda (tabla GardenPlot): `id` es el índice de la parcela. */
+export interface GardenPlotRecord {
+  id: number;
+  crop: string;
+  plantedBy: string;
+  plantedByName: string;
+  plantedAt: number;
+  growthMs: number;
+  growthAt: number;
+  wateredUntil: number;
 }
 
 /** Un lado de un intercambio: lo que da esa persona (a la otra). */

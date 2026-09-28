@@ -267,7 +267,8 @@ export class Avatar {
     if (veiled === this.veiled) return;
     this.veiled = veiled;
     const a = veiled ? 0 : 1;
-    for (const o of [this.sprite, this.shadow, this.label, this.statusDot, this.speakingRing]) o.setAlpha(a);
+    for (const o of [this.sprite, this.shadow, this.speakingRing]) o.setAlpha(a);
+    for (const o of [this.label, this.statusDot]) o.setAlpha(veiled || this.nameHidden ? 0 : 1);
     this.ride?.img.setAlpha(a);
     for (const part of this.held?.parts ?? []) part.image.setAlpha(a);
     this.bubble?.setAlpha(a);
@@ -277,6 +278,18 @@ export class Avatar {
     this.phone?.handset?.setAlpha(a);
   }
   private veiled = false;
+
+  /**
+   * Sin nombre ni punto de estado: en el modo mesa la cámara se acerca tanto que el nombre (que crece con
+   * ella) taparía la mesa. Con transparencia, así no pelea con el ocultado por nivel.
+   */
+  setNameHidden(hidden: boolean) {
+    if (hidden === this.nameHidden) return;
+    this.nameHidden = hidden;
+    this.label.setAlpha(hidden || this.veiled ? 0 : 1);
+    this.statusDot.setAlpha(hidden || this.veiled ? 0 : 1);
+  }
+  private nameHidden = false;
 
   setStatus(status: PresenceStatus) {
     this.statusDot.setFillStyle(STATUS_COLORS[status] ?? STATUS_COLORS.available);
