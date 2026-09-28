@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findPath, getWorld, isBlockedTile, pointsOfType, spawnPoint, type OfficeMap } from "./index";
+import { findPath, getWorld, isBlockedTile, pointsOfType, seatStandSpot, spawnPoint, zoneAt, type OfficeMap } from "./index";
 
 const jardin = getWorld().areas.get("jardin") as OfficeMap;
 const floorAt = (x: number, y: number) => jardin.floors[y * jardin.width + x];
@@ -83,5 +83,69 @@ describe("jardín", () => {
     for (let y = p.y; y < p.y + p.h; y++)
       for (let x = p.x; x < p.x + p.w; x++) if (!isBlockedTile(jardin, x, y) && !seen.has(y * jardin.width + x)) lost.push(`${x - p.x},${y - p.y}`);
     expect(lost).toEqual([]);
+  });
+  it("a la glorieta se entra por el frente, adentro se camina y la banca mira al centro", () => {
+    const g = jardin.furniture.find((f) => f.type === "gazebo")!;
+    expect(jardin.furniture.some((f) => f.type === "gazebo-roof" && f.x === g.x && f.y === g.y)).toBe(true);
+    const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
+    // El centro (2x2) y la entrada (+x) se caminan; se llega desde el portón.
+    for (const [dx, dy] of [
+      [1, 1],
+      [2, 1],
+      [1, 2],
+      [2, 2],
+      [3, 1],
+      [3, 2],
+    ] as const) {
+      expect(isBlockedTile(jardin, g.x + dx, g.y + dy), `(${dx}, ${dy})`).toBe(false);
+      expect(findPath(jardin, start, { x: g.x + dx, y: g.y + dy }), `(${dx}, ${dy})`).not.toBeNull();
+    }
+    const cx = (g.x + 2) * jardin.tileSize;
+    const cy = (g.y + 2) * jardin.tileSize;
+    const seats = [...jardin.seats.values()].filter((s) => s.type === "gazebo");
+    expect(seats).toHaveLength(6);
+    for (const seat of seats) {
+      // Mira hacia el centro de la glorieta y, al pararse, queda adentro.
+      const dir = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] }[seat.facing];
+      expect((cx - seat.x) * dir[0]! + (cy - seat.y) * dir[1]!, `${seat.tileX},${seat.tileY}`).toBeGreaterThan(0);
+      const spot = seatStandSpot(jardin, seat);
+      expect(zoneAt(jardin, spot.x, spot.y)?.id, `${seat.tileX},${seat.tileY}`).toBe("glorieta");
+    }
+    expect(zoneAt(jardin, cx, cy)).toMatchObject({ id: "glorieta", isolated: true });
+  });
+
+  it("la fogata es una burbuja de charla con los cuatro troncos adentro", () => {
+    const logs = [...jardin.seats.values()].filter((s) => s.type === "log-seat");
+    expect(logs.length).toBe(8);
+    for (const s of logs) expect(zoneAt(jardin, s.x, s.y), `${s.tileX},${s.tileY}`).toMatchObject({ id: "fogata", isolated: true });
+    const fire = jardin.furniture.find((f) => f.type === "fire-pit")!;
+    expect(zoneAt(jardin, (fire.x + 1) * jardin.tileSize, (fire.y + 1) * jardin.tileSize)?.id).toBe("fogata");
+  });
+
+  it("hay una sola pérgola y ninguna terraza de tablas suelta (la terraza es la cubierta de la casa)", () => {
+    expect(jardin.furniture.filter((f) => f.type === "pergola")).toHaveLength(1);
+    expect(jardin.floors.some((k) => k === "deck")).toBe(false);
+  });
+
+  it("al invernadero se entra por la puerta y cada bancal tiene su punto y se alcanza desde el pasillo", () => {
+    const g = jardin.furniture.find((f) => f.type === "greenhouse")!;
+    expect(jardin.furniture.some((f) => f.type === "greenhouse-roof" && f.x === g.x && f.y === g.y)).toBe(true);
+    const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
+    // La puerta (al frente, tile x = 2) y el pasillo de adentro se caminan y se llega desde el portón.
+    const inside = [[2, 3], [1, 1], [2, 1], [3, 1], [1, 2], [2, 2], [3, 2]] as const;
+    for (const [dx, dy] of inside) {
+      expect(isBlockedTile(jardin, g.x + dx, g.y + dy), `(${dx}, ${dy})`).toBe(false);
+      expect(findPath(jardin, start, { x: g.x + dx, y: g.y + dy }), `(${dx}, ${dy})`).not.toBeNull();
+    }
+    // Afuera, los costados de la puerta están cerrados (se entra solo por ella).
+    for (const dx of [0, 1, 3, 4]) expect(isBlockedTile(jardin, g.x + dx, g.y + 3), `frente ${dx}`).toBe(true);
+    const beds = pointsOfType(jardin, "greenhouse_plot");
+    expect(beds).toHaveLength(6);
+    for (const b of beds) {
+      expect(furnitureAt("greenhouse-bed", b.tileX, b.tileY), b.name).toBe(true);
+      // Al lado o en diagonal (el del rincón): dentro del alcance de E.
+      const near = inside.some(([dx, dy]) => Math.max(Math.abs(g.x + dx - b.tileX), Math.abs(g.y + dy - b.tileY)) === 1);
+      expect(near, b.name).toBe(true);
+    }
   });
 });

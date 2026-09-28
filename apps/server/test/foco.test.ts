@@ -5,7 +5,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { bootServer, intoOffice, officeTiles, tick, token, walkToTile, type ServerRoom } from "./helpers";
+import { getWorld, officeDoor } from "@hyvento/map";
+import { bootServer, goToArea, intoOffice, officeTiles, TILE, tick, token, walkToTile, type ServerRoom } from "./helpers";
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -127,6 +128,30 @@ describe("modo foco", () => {
     await bob.leave(true);
     await tick(WORK_MS + 60);
     expect(await repo.getPoints("u-bob")).toBe(0);
+  });
+
+  it("en la oficina del garaje (office-5) también cierra la puerta", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    repo.assign("office-5", "u-alice", "Alice");
+    await OfficeRoom.reloadOfficesEverywhere();
+    const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
+    alice.onMessage(MSG.focusEvent, () => undefined);
+    alice.onMessage(MSG.pointsAwarded, () => undefined);
+    await room.waitForNextPatch();
+    const zone = getWorld().areas.get("garaje")!.zones.find((z) => z.id === "office-5")!;
+    const door = officeDoor(zone);
+    const outside = { x: Math.floor(door.x / TILE), y: Math.floor(door.y / TILE) };
+    await goToArea(alice, room, "garaje");
+    await walkToTile(alice, room, outside.x, outside.y);
+    await walkToTile(alice, room, outside.x + 2, outside.y);
+    expect(room.state.players.get(alice.sessionId)!.zoneId).toBe("office-5");
+    await start(alice, room);
+    const office = room.state.offices.get("office-5")!;
+    expect(office.locked).toBe(true);
+    expect(office.note).toBe(FOCUS.note);
+    await tick(WORK_MS + 60);
+    expect(office.locked).toBe(false);
+    expect(await repo.getPoints("u-alice")).toBe(FOCUS.points);
   });
 
   it("no se empieza con un preset que no existe", async () => {

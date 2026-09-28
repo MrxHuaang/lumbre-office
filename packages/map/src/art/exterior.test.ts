@@ -43,14 +43,18 @@ describe("arte del jardín", () => {
     const py = jardin.def.playable!.y;
     for (const f of jardin.furniture) {
       const item = catalogItem(f.type);
-      if (!item.fixed || f.w * f.d < 9) continue;
+      // Lo plano (la base de la glorieta) se dibuja debajo de todos: no tapa a nadie.
+      if (!item.fixed || item.flat || f.w * f.d < 9) continue;
       const s = drawFurniture(f.type, "front", false);
       const a = toScreen(f.x * ts * WORLD_TO_ART, f.y * ts * WORLD_TO_ART);
       const left = a.x - s.ox;
       const top = a.y - s.oy;
       const depth = (f.x + f.w / 2 + f.y + f.d / 2) * ts;
       // Fracción del cuerpo (12x24 px sobre los pies) tapada si el personaje se dibuja detrás.
+      // Lo que se transparenta con alguien adentro (glorieta, invernadero) puede tapar lo de su interior.
+      const within = (x: number, y: number) => Boolean(item.seeThrough) && x >= f.x && x < f.x + f.w && y >= f.y && y < f.y + f.d;
       const covered = (x: number, y: number) => {
+        if (within(Math.floor(x), Math.floor(y))) return 0;
         const wx = (x + 0.5) * ts;
         const wy = (y + 0.5) * ts;
         if (wx + wy >= depth) return 0;

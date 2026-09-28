@@ -54,6 +54,7 @@ import { COZY, cozyFontFamily, isNightNow, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
 import { EventsView } from "./eventos";
+import { CinemaMode } from "./cinema";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { queuePrerender } from "./iso/prerender";
 import { ensureCharacterTextures, parseLook } from "./looks";
@@ -80,6 +81,7 @@ import {
   sendMove,
   sendUseHeld,
   sendSwivel,
+  sendWorldEditLock,
   sendToast,
   sendOfficeEdit,
   sendTravel,
@@ -146,9 +148,13 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "bar", point: MENUS.bar.point, furniture: [...MENUS.bar.furniture] },
   { kind: "fishing", point: "fishing_spot", furniture: ["flat-rock"] },
   { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
+  { kind: "cinema", point: "cinema", furniture: ["projector"] },
+  { kind: "snacks", point: MENUS.cine.point, furniture: [...MENUS.cine.furniture] },
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
+  { kind: "hockey", point: "air_hockey", furniture: ["air-hockey"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
+  { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -163,8 +169,8 @@ type Keys = Record<
 /** Teclas de un toque apretadas en este frame con el juego libre (ver `readTaps`). */
 type Taps = Record<"e" | "r" | "f" | "b" | "esc" | "del", boolean>;
 
-/** Paneles del casino que se juegan en la mesa (modo mesa) en vez de en una ventana. */
-const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" => kind === "roulette" || kind === "blackjack";
+/** Paneles del casino (y el hockey del arcade) que se juegan en la mesa (modo mesa) en vez de en una ventana. */
+const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" | "hockey" => kind === "roulette" || kind === "blackjack" || kind === "hockey";
 
 /** Dirección del sprite según hacia dónde se mueve en pantalla (+x = sureste, +y = suroeste). */
 function facingFor(vx: number, vy: number): Direction {
@@ -253,6 +259,8 @@ export class OfficeScene extends Phaser.Scene {
   private club!: ClubMode;
   /** Cumpleaños, karaoke y foco: el pastel, el neón y lo de sobre el nombre (ver eventos.ts). */
   private eventsView!: EventsView;
+  /** El cine del sótano (la función en la pantalla, las luces y el haz del proyector). */
+  private cinema!: CinemaMode;
   /** Lo que ve quien tomó de más (filtros sobre el canvas) y su zigzag al caminar. */
   private drunkVision!: DrunkVision;
   private drunkStage: DrunkStage = 0;
@@ -333,6 +341,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
     this.club = new ClubMode(this, (id) => this.avatars.get(id), () => this.local, () => this.localId);
     this.eventsView = new EventsView(this, () => this.avatars, (id) => this.userOfSession.get(id));
+    this.cinema = new CinemaMode(this, () => this.local);
     this.drunkVision = new DrunkVision(() => this.game.canvas);
     this.toasts = new ToastController(this, {
       avatar: (id) => this.avatars.get(id),
@@ -350,6 +359,8 @@ export class OfficeScene extends Phaser.Scene {
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
     });
+    this.input.on("gameout", () => (this.pointerOutside = true));
+    this.input.on("gameover", () => (this.pointerOutside = false));
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       const s = useOfficeStore.getState();
       // En la carrera, el clic es impulso (no caminar).
@@ -411,6 +422,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.rods.destroy(),
       () => this.club.destroy(),
       () => this.eventsView.destroy(),
+      () => this.cinema.destroy(),
       () => disposeRadio(),
       () => this.drunkVision.destroy(),
       bindUiSounds(),
@@ -450,6 +462,8 @@ export class OfficeScene extends Phaser.Scene {
         if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
           this.refreshDecor();
         }
+        // Entrar o salir del editor de la casa pide o suelta el candado (una persona a la vez).
+        if (s.worldEditing !== prev.worldEditing) sendWorldEditLock(s.worldEditing);
         if (s.worldEditing !== prev.worldEditing || (s.worldEditing && (s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing))) {
           this.worldEditor.refresh(true);
         }
@@ -479,6 +493,9 @@ export class OfficeScene extends Phaser.Scene {
     this.updateLocal(delta, this.readTaps());
     this.table.update();
     this.table.fadeAvatars([...this.avatars.values()].map((a) => a.sprite));
+    // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa.
+    for (const a of this.avatars.values()) a.setNameHidden(Boolean(this.table.kind));
+    this.updateNameTags();
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
       this.hearingElapsed = 0;
@@ -499,6 +516,7 @@ export class OfficeScene extends Phaser.Scene {
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
     this.eventsView.update();
+    this.cinema.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
     this.updateOfficeRadio();
@@ -621,6 +639,7 @@ export class OfficeScene extends Phaser.Scene {
       this.fishing.reset();
       this.club.setArea(map, this.view);
       this.eventsView.setArea(map, this.view);
+      this.cinema.setArea(map);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -690,6 +709,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.setArea(map);
     this.club.setArea(map, this.view);
     this.eventsView.setArea(map, this.view);
+    this.cinema.setArea(map);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
@@ -1077,6 +1097,8 @@ export class OfficeScene extends Phaser.Scene {
       const right = k.D.isDown || k.RIGHT.isDown ? 1 : 0;
       vx = down - up + right - left;
       vy = down - up - right + left;
+      // En el hockey las flechas mueven el mazo (lo lee la mesa), no al personaje.
+      if (this.table.kind === "hockey") vx = vy = 0;
       // En el club, E sobre la pista baila o deja de bailar (si no hay otro objeto al lado).
       if (taps.e && !this.seat && !this.table.kind && this.club.tapE(useOfficeStore.getState().interact)) taps.e = false;
       if (taps.e) {
@@ -1100,7 +1122,7 @@ export class OfficeScene extends Phaser.Scene {
       if (taps.esc && this.table.kind) useOfficeStore.getState().closePanel();
       // Esc suelta el tubo o deja de bailar en la pista.
       else if (taps.esc && this.local?.isRiding) sendRaceCancel();
-      else if (taps.esc && !useOfficeStore.getState().decorating) this.club.esc();
+      else if (taps.esc && !useOfficeStore.getState().decorating && !this.cinema.esc()) this.club.esc();
     }
 
     if (vx !== 0 || vy !== 0) {
@@ -1781,6 +1803,26 @@ export class OfficeScene extends Phaser.Scene {
       sendOfficeEdit({ action: "remove", zoneId: zone.id, itemId: pick.itemId });
       s.pickDecor(null);
     }
+  }
+
+  // ---------- Nombres ----------
+
+  /** El mouse salió del lienzo: nadie queda resaltado. */
+  private pointerOutside = false;
+
+  /**
+   * Aplica la preferencia de nombres (completos, cortos u ocultos) y muestra completo el de quien está bajo
+   * el mouse (uno solo: el de más adelante, que es el que se ve encima).
+   */
+  private updateNameTags() {
+    const mode = useOfficeStore.getState().nameTags;
+    let hovered: Avatar | null = null;
+    if (!this.pointerOutside) {
+      const p = this.input.activePointer;
+      const w = this.cameras.main.getWorldPoint(p.x, p.y);
+      for (const a of this.avatars.values()) if (a.hitTest(w.x, w.y) && (!hovered || a.y > hovered.y)) hovered = a;
+    }
+    for (const a of this.avatars.values()) a.setNameMode(mode, a === hovered);
   }
 
   // ---------- Audio/video por proximidad ----------

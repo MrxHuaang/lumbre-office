@@ -32,7 +32,7 @@ import {
   type StatChange,
 } from "@hyvento/shared";
 import { executeTrade } from "./social";
-import type { AwardOnceInput, GameRepository, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
+import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
@@ -319,5 +319,37 @@ export class PrismaRepository implements GameRepository {
 
   unlockAchievement(userId: string, achievementId: string) {
     return unlockAchievement(prisma, userId, achievementId);
+  }
+
+  // ---------- Jardín vivo: el huerto ----------
+
+  async loadGarden(): Promise<GardenPlotRecord[]> {
+    const rows = await prisma.gardenPlot.findMany({ where: { crop: { not: null } }, include: { plantedBy: { select: { name: true } } } });
+    return rows.map((r) => ({
+      id: r.id,
+      crop: r.crop!,
+      plantedBy: r.plantedById ?? "",
+      plantedByName: r.plantedBy?.name ?? "",
+      plantedAt: r.plantedAt?.getTime() ?? 0,
+      growthMs: r.growthMs,
+      growthAt: r.growthAt?.getTime() ?? 0,
+      wateredUntil: r.wateredUntil?.getTime() ?? 0,
+    }));
+  }
+
+  async saveGardenPlot(id: number, plot: Omit<GardenPlotRecord, "id"> | null) {
+    // Vacía: la fila queda sin cultivo (así se ve que la parcela existió).
+    const date = (ms: number) => (ms > 0 ? new Date(ms) : null);
+    const data = plot
+      ? {
+          crop: plot.crop,
+          plantedById: plot.plantedBy || null,
+          plantedAt: date(plot.plantedAt),
+          growthMs: Math.round(plot.growthMs),
+          growthAt: date(plot.growthAt),
+          wateredUntil: date(plot.wateredUntil),
+        }
+      : { crop: null, plantedById: null, plantedAt: null, growthMs: 0, growthAt: null, wateredUntil: null };
+    await prisma.gardenPlot.upsert({ where: { id }, create: { id, ...data }, update: data });
   }
 }

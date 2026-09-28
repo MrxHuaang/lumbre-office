@@ -20,7 +20,7 @@ import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
-import { BarPanel, CafePanel } from "./CafePanel";
+import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
 import { HeldSlot, UsablePrompt } from "./UsePrompt";
 import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
@@ -29,10 +29,13 @@ import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
 import { ProfileDialog } from "./ProfileDialog";
 import { ArcadePanel } from "./arcade/ArcadePanel";
+import { HockeyStrip } from "./arcade/HockeyStrip";
 import { ClubHud } from "./club/ClubHud";
 import { DjConsole } from "./club/DjConsole";
+import { CinemaHud, CinemaPanel } from "./cinema/CinemaPanel";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
+import { ShedPanel } from "./ShedPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -245,6 +248,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <RaceTimer />
             <RadioTapPrompt />
             <ClubHud />
+            <CinemaHud />
           </div>
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
           <div className="pointer-events-none absolute top-16 left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
@@ -293,9 +297,14 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
           )}
           {panel?.kind === "dj" && <DjConsole atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "cinema" && <CinemaPanel onClose={closePanel} />}
+          {panel?.kind === "snacks" && <SnacksPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "arcade" && <ArcadePanel onClose={closePanel} />}
+          {/* El hockey de mesa también se juega sobre la mesa: solo la tira de abajo. */}
+          {panel?.kind === "hockey" && <HockeyStrip />}
           {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
           {panel?.kind === "race" && <RacePanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}
 
@@ -326,14 +335,62 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   );
 }
 
-/** Recordatorio de controles (abajo a la derecha, solo en pantallas anchas). */
+/** Teclas del juego y del editor: se muestran en la lista de controles. */
+const CONTROLS: [string, string][] = [
+  ["WASD", "caminar (o clic en el piso)"],
+  ["E", "sentarte o usar"],
+  ["F", "usar lo de la mano"],
+  ["T", "emotes"],
+  ["P", "foto"],
+  ["Enter", "chatear"],
+  ["1-6", "botones de la barra"],
+];
+const DECOR_CONTROLS: [string, string][] = [
+  ["Clic", "poner o elegir"],
+  ["R", "girar"],
+  ["Supr", "guardar"],
+  ["Esc", "soltar o terminar"],
+];
+
+/**
+ * Recordatorio de controles (abajo a la derecha): un chip corto que abre la lista. Una línea larga con
+ * todo se metía debajo de la barra de medios en pantallas medianas.
+ */
 function ControlsHint() {
   const decorating = useOfficeStore((s) => s.decorating);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  const rows = decorating ? DECOR_CONTROLS : CONTROLS;
   return (
-    <div className="cozy-chip absolute right-3 bottom-4 hidden px-2.5 py-1.5 text-[12px] text-cozy-ink-soft xl:block">
-      {decorating
-        ? "Clic para poner o elegir · R para girar · Supr para guardar · Esc para soltar o terminar"
-        : "WASD / flechas · clic para caminar · E sentarte o usar · F lo de la mano · T emotes · P foto · Enter chatear"}
+    <div className="absolute right-3 bottom-4 hidden md:block">
+      {open && (
+        <div id="lista-controles" className="cozy-panel absolute right-0 bottom-full mb-2 w-60 px-3 py-2.5">
+          <p className="mb-1.5 text-[12px] text-cozy-ink-soft">{decorating ? "Decorando" : "Controles"}</p>
+          <ul className="flex flex-col gap-1.5 text-[13px]">
+            {rows.map(([key, what]) => (
+              <li key={key} className="flex items-center gap-2">
+                <kbd className="cozy-kbd min-w-[3.25rem] text-center">{key}</kbd>
+                <span>{what}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="lista-controles"
+        className="cozy-chip flex items-center gap-1.5 px-2.5 py-1 text-[12px] text-cozy-ink-soft"
+      >
+        <kbd className="cozy-kbd">?</kbd>
+        {decorating ? "Teclas del editor" : "Controles"}
+      </button>
     </div>
   );
 }

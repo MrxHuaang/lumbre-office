@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { media, useMediaStore } from "@/game/media";
-import { selectFocusing, useOfficeStore } from "@/game/store";
+import { NAME_TAG_LABEL, selectFocusing, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { EmotePicker, useEmoteKey } from "./EmotePicker";
 import { takePhoto, usePhotoCounting, usePhotoKey } from "./PhotoPanels";
@@ -26,6 +26,9 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
   useEmoteKey(useCallback(() => setEmotes((v) => !v), []));
   usePhotoKey();
   const shooting = usePhotoCounting();
+  const nameTags = useOfficeStore((s) => s.nameTags);
+  const cycleNameTags = useOfficeStore((s) => s.cycleNameTags);
+  useNameTagKey();
 
   return (
     <div className="cozy-panel absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 p-2.5">
@@ -87,9 +90,35 @@ export function MediaControls({ children }: { children?: ReactNode } = {}) {
         disabled={shooting.busy}
         onClick={takePhoto}
       />
+      <Slot
+        n={7}
+        icon="tag"
+        off={nameTags === "oculto"}
+        label={`${NAME_TAG_LABEL[nameTags]} (N para cambiar; al pasar el mouse se ve el nombre completo)`}
+        text={nameTags === "completo" ? "Nombres" : nameTags === "corto" ? "Cortos" : "Ocultos"}
+        active={nameTags !== "corto"}
+        disabled={false}
+        onClick={cycleNameTags}
+      />
       {children}
     </div>
   );
+}
+
+/** N cambia cómo se ven los nombres (completos, cortos, ocultos), salvo escribiendo o con el PC prendido. */
+function useNameTagKey() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "n" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      const s = useOfficeStore.getState();
+      const t = e.target as HTMLElement | null;
+      if (s.typing || s.pcOn || t?.isContentEditable || t?.tagName === "INPUT" || t?.tagName === "TEXTAREA") return;
+      e.preventDefault();
+      s.cycleNameTags();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 }
 
 function Slot({

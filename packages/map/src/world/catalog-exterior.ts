@@ -7,9 +7,57 @@ const LANTERN_LIGHT = { color: "#ffd98a", radius: 44 };
 export const EXTERIOR_CATALOG = {
   // La casa: 22x14, con el porche (y la puerta) hacia +y. La luz es el farol colgado del porche.
   house: { name: "Casa", size: [22, 14], fixed: true, hasNight: true, light: { at: [180, 226, 34], color: "#ffd98a", radius: 64 } },
-  greenhouse: { name: "Invernadero", size: [5, 4], fixed: true },
+  // El invernadero se entra por la puerta del frente (+y, tile x = 2): la base va plana, las paredes y el
+  // techo de vidrio son otra pieza encima (se transparenta con alguien adentro) y los bancales, muebles
+  // aparte. Bloquean los rincones del frente, a los lados de la puerta, y la columna este (macetas).
+  greenhouse: {
+    name: "Invernadero",
+    size: [5, 4],
+    fixed: true,
+    flat: true,
+    blocks: [
+      [0, 3],
+      [1, 3],
+      [3, 3],
+      [4, 3],
+      [4, 0],
+      [4, 1],
+      [4, 2],
+    ],
+  },
+  "greenhouse-roof": { name: "Vidrio del invernadero", size: [5, 4], fixed: true, solid: false, seeThrough: true },
+  "greenhouse-bed": { name: "Bancal del invernadero", size: [1, 1] },
   "tool-shed": { name: "Cobertizo", size: [3, 3], fixed: true },
-  gazebo: { name: "Glorieta", size: [4, 4], fixed: true, light: { at: [32, 32, 28], ...LANTERN_LIGHT } },
+  // La glorieta se entra por el frente (+x): la base (piso y bancas) va plana y el techo con los postes
+  // es otra pieza encima, en el mismo lugar. Bloquean los rincones (fuera de la baranda) y la banca en
+  // herradura, cuyos asientos miran al centro.
+  gazebo: {
+    name: "Glorieta",
+    size: [4, 4],
+    fixed: true,
+    flat: true,
+    blocks: [
+      [0, 0],
+      [3, 0],
+      [0, 3],
+      [3, 3],
+      [0, 1],
+      [0, 2],
+      [1, 0],
+      [2, 0],
+      [1, 3],
+      [2, 3],
+    ],
+    seats: [
+      [0, 1, "right"],
+      [0, 2, "right"],
+      [1, 0, "down"],
+      [2, 0, "down"],
+      [1, 3, "up"],
+      [2, 3, "up"],
+    ],
+  },
+  "gazebo-roof": { name: "Techo de la glorieta", size: [4, 4], fixed: true, solid: false, seeThrough: true, hasNight: true, light: { at: [32, 32, 30], ...LANTERN_LIGHT } },
   pergola: { name: "Pérgola", size: [3, 3], fixed: true, light: { at: [24, 24, 40], ...LANTERN_LIGHT } },
   "garden-gate": { name: "Portón", size: [2, 1], fixed: true, light: { at: [16, 7, 28], ...LANTERN_LIGHT } },
   "fence-post": { name: "Poste de la cerca", size: [1, 1] },
