@@ -96,6 +96,7 @@ export function SeatPrompt() {
   const doorPrompt = useOfficeStore((s) => s.doorPrompt);
   const atComputer = useOfficeStore((s) => s.atComputer);
   const atSwivel = useOfficeStore((s) => s.atSwivel);
+  const sun = useOfficeStore((s) => s.seatSun);
   const pcOn = useOfficeStore((s) => s.pcOn);
   const setPcOn = useOfficeStore((s) => s.setPcOn);
   // En la mesa de blackjack, la tira del modo mesa ya tiene "Levantarse".
@@ -123,7 +124,7 @@ export function SeatPrompt() {
       )}
       <div className="cozy-chip flex items-center gap-2 px-3 py-1.5 text-[13px] max-md:hidden">
         <kbd className="cozy-kbd">E</kbd>
-        {prompt === "sit" ? "sentarte" : "levantarte (o muévete)"}
+        {prompt === "sit" ? (sun ? "tomar el sol" : "sentarte") : sun ? "levantarte de la reposera (o muévete)" : "levantarte (o muévete)"}
       </div>
     </div>
   );

@@ -60,6 +60,9 @@ const PROMPT: Record<Interactable, string> = {
   photos: "Ver las fotos del tablón",
   race: "Carrera de sillas",
   shed: "Abrir el cobertizo",
+  pool: "Meterse a la piscina",
+  dive: "Tirarse del trampolín",
+  swimOut: "Salir del agua",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

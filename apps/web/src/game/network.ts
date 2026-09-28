@@ -69,6 +69,7 @@ import { bindArcade } from "./arcade/net";
 import { bindHockey } from "./arcade/hockey";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
+import { bindPiscina, sendAgua } from "./piscina/net";
 import { useOfficeStore, type Interactable } from "./store";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
@@ -102,6 +103,9 @@ export interface RemotePlayer {
   drunk: number;
   /** Corriendo la carrera de sillas. */
   racing: boolean;
+  /** Nadando en la piscina del jardín y recién salido del agua (gotea). */
+  swimming: boolean;
+  wet: boolean;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -410,6 +414,10 @@ export function sendBlackjackAction(action: BlackjackAction) {
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return togglePole();
   if (kind === "fishing") return fishingSpotAction();
+  // La piscina no abre panel: se mete, salta o sale (el servidor valida y avisa si no).
+  if (kind === "pool") return sendAgua("swim");
+  if (kind === "dive") return sendAgua("dive");
+  if (kind === "swimOut") return sendAgua("out");
   useOfficeStore.getState().openPanel(kind, true);
 }
 
@@ -771,6 +779,7 @@ function attach(r: OfficeRoom) {
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
   bindCinema(r);
+  bindPiscina(r);
   bindRace(r);
   bindArcade(r);
   bindHockey(r);

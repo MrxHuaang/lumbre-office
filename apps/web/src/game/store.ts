@@ -58,7 +58,11 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
-  | "shed";
+  | "shed"
+  // La piscina: meterse por la escalera, tirarse del trampolín y (nadando, junto al borde) salir.
+  | "pool"
+  | "dive"
+  | "swimOut";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {
@@ -155,6 +159,8 @@ interface OfficeStore {
   atComputer: boolean;
   /** Sentado en una silla que gira (la del escritorio con PC): R da unas vueltas. */
   atSwivel: boolean;
+  /** El asiento de la ayuda "E" es una reposera de la piscina (se lee "tomar el sol"). */
+  seatSun: boolean;
   /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
   toastPrompt: ToastPrompt | null;
   /** El PC está prendido: el mapa no responde a clics ni teclas. */
@@ -226,6 +232,7 @@ interface OfficeStore {
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
   setAtSwivel: (at: boolean) => void;
+  setSeatSun: (sun: boolean) => void;
   setToastPrompt: (prompt: ToastPrompt | null) => void;
   setPcOn: (on: boolean) => void;
   setPendingKnock: (zoneId: string | null) => void;
@@ -310,6 +317,7 @@ const initial = {
   seatPrompt: null as "sit" | "stand" | null,
   atComputer: false,
   atSwivel: false,
+  seatSun: false,
   toastPrompt: null as ToastPrompt | null,
   pcOn: false,
   pendingKnock: null,
@@ -375,6 +383,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setAtComputer: (atComputer) => set({ atComputer }),
   setAtSwivel: (atSwivel) => set({ atSwivel }),
+  setSeatSun: (seatSun) => set({ seatSun }),
   setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),
   setPendingKnock: (pendingKnock) => set({ pendingKnock }),
