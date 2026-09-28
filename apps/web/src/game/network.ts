@@ -88,6 +88,7 @@ import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { sfx } from "./sfx";
 import { bindPhone, resetPhone } from "./phone";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
@@ -368,8 +369,12 @@ function handleAchievement(e: AchievementUnlockedEvent) {
   achievementListeners.forEach((cb) => cb(e));
   const ach = achievementById(e.achievementId);
   if (!ach) return;
-  if (e.sessionId === room?.sessionId) useAchievementStore.getState().pushToast(ach.id);
-  else useOfficeStore.getState().notify(`${e.name} desbloqueó «${ach.name}».`, "success");
+  if (e.sessionId === room?.sessionId) {
+    useAchievementStore.getState().pushToast(ach.id);
+    sfx.achievement(ach.rarity === "epico" || ach.rarity === "legendario");
+  }
+  // De los demás solo se avisan los épicos y legendarios: con tantos logros, los comunes llenarían la pantalla.
+  else if (ach.rarity === "epico" || ach.rarity === "legendario") useOfficeStore.getState().notify(`${e.name} desbloqueó «${ach.name}».`, "success");
 }
 
 /** Alguien de tu nivel tocó un instrumento o acarició al gato. */

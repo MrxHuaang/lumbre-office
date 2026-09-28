@@ -7,16 +7,16 @@ import {
   fishAvailable,
   fishById,
   fishPool,
-  isBogotaDay,
+  isFishDayHour,
   minReelMs,
   pickFish,
   rollSize,
 } from "./fishing";
 import { FishingSim, SIM_FRAME_MS, autoplay, barHeightFor, minReelFrames, replayFishing } from "./fishing-sim";
 
-// 12:00 y 00:30 de Bogotá (UTC-5) del 26 de septiembre de 2026.
-const NOON = Date.UTC(2026, 8, 26, 17, 0);
-const MIDNIGHT = Date.UTC(2026, 8, 27, 5, 30);
+// Horas del reloj del juego: mediodía y medianoche.
+const NOON = 12;
+const MIDNIGHT = 0;
 
 describe("catálogo de peces", () => {
   it("más de 60 peces, cada uno con su rareza, tamaño, horario y dificultad dentro del rango", () => {
@@ -64,14 +64,14 @@ describe("catálogo de peces", () => {
   });
 });
 
-describe("horario de Bogotá", () => {
-  it("calcula la hora de Bogotá", () => {
-    expect(bogotaHour(NOON)).toBe(12);
-    expect(bogotaHour(MIDNIGHT)).toBe(0);
-    expect(isBogotaDay(NOON)).toBe(true);
-    expect(isBogotaDay(MIDNIGHT)).toBe(false);
-    expect(isBogotaDay(Date.UTC(2026, 8, 26, 11, 0))).toBe(true); // 6:00
-    expect(isBogotaDay(Date.UTC(2026, 8, 26, 23, 0))).toBe(false); // 18:00
+describe("horario (reloj del juego)", () => {
+  it("calcula la hora de Bogotá (la real, para los logros) y el día de los peces", () => {
+    expect(bogotaHour(Date.UTC(2026, 8, 26, 17, 0))).toBe(12);
+    expect(bogotaHour(Date.UTC(2026, 8, 27, 5, 30))).toBe(0);
+    expect(isFishDayHour(NOON)).toBe(true);
+    expect(isFishDayHour(MIDNIGHT)).toBe(false);
+    expect(isFishDayHour(6)).toBe(true);
+    expect(isFishDayHour(18)).toBe(false);
   });
 
   it("de día no pican los de noche y de noche no pican los de día", () => {
@@ -85,7 +85,7 @@ describe("horario de Bogotá", () => {
   });
 
   it("los del atardecer y los de la madrugada pican solo en su rato", () => {
-    const at = (h: number) => Date.UTC(2026, 8, 26, h + 5, 30); // hora de Bogotá → UTC
+    const at = (h: number) => h;
     const guabina = fishById("guabina")!;
     const madre = fishById("madre-agua")!;
     expect(fishAvailable(guabina, at(17))).toBe(true);

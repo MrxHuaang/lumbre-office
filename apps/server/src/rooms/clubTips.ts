@@ -25,6 +25,8 @@ export interface ClubTipsDeps {
   toSession(sessionId: string, type: string, message: unknown): void;
   now(): number;
   newId(): string;
+  /** Salió una propina (para los logros de quien la tira y de quien baila). */
+  tipped?(fromId: string, toId: string, amount: number): void;
 }
 
 /** El tubo con esa llave, si está en el club. */
@@ -82,6 +84,7 @@ export class ClubTips {
     if (!result.ok) return fail(result.error);
     for (const [userId, balance] of Object.entries(result.balances)) this.deps.setPoints(userId, balance);
     this.count(me.name, target.userId, target.name, amount, now);
+    this.deps.tipped?.(me.userId, target.userId, amount);
     const event: ClubTipEvent = { fromSessionId: sessionId, fromName: me.name, toSessionId: to, toName: target.name, amount: amount as TipAmount, pole: dancer.move };
     this.deps.toArea(target.area, MSG.clubTipped, event);
   }
