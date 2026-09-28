@@ -1,7 +1,5 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import "server-only";
 import { prisma } from "@hyvento/db";
-import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
 
 /** Correos con acceso de administrador (y que no necesitan invitación). Separados por coma. */
 export function adminEmails(): string[] {
@@ -22,48 +20,33 @@ export async function isAllowedEmail(email: string): Promise<boolean> {
   return Boolean(user || invite);
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  // Lee AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET del entorno.
-  providers: [Google],
-  // JWT: la sesión no consulta la DB en cada request; los usuarios/cuentas sí se guardan con el adapter.
-  session: { strategy: "jwt" },
-  // Detrás del proxy del hosting (Vercel u otro) el host viene en las cabeceras.
-  trustHost: true,
-  pages: { signIn: "/login", error: "/login" },
-  callbacks: {
-    async signIn({ user, profile }) {
-      const email = (profile?.email ?? user.email)?.toLowerCase();
-      if (!email || profile?.email_verified === false) return false;
-      return isAllowedEmail(email);
+/**
+ * Tras entrar con Supabase: crea el usuario en Neon la primera vez (rol según ADMIN_EMAILS o la
+ * invitación, que queda aceptada) y, si ya existía, lo promueve si se agregó a ADMIN_EMAILS después.
+ * El usuario se enlaza por correo: Supabase solo da la identidad.
+ */
+export async function syncUser(identity: { email: string; name?: string | null; image?: string | null }) {
+  const email = identity.email.toLowerCase();
+  const isAdmin = adminEmails().includes(email);
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    if (isAdmin && existing.role !== "ADMIN") {
+      return prisma.user.update({ where: { id: existing.id }, data: { role: "ADMIN" } });
+    }
+    return existing;
+  }
+  const invite = await prisma.invite.findUnique({ where: { email } });
+  const user = await prisma.user.create({
+    data: {
+      email,
+      name: identity.name ?? "",
+      image: identity.image ?? null,
+      emailVerified: new Date(),
+      role: isAdmin ? "ADMIN" : (invite?.role ?? "MEMBER"),
     },
-    jwt({ token, user }) {
-      if (user?.id) token.uid = user.id;
-      return token;
-    },
-    session({ session, token }) {
-      if (typeof token.uid === "string") session.user.id = token.uid;
-      return session;
-    },
-  },
-  events: {
-    async createUser({ user }) {
-      if (!user.id || !user.email) return;
-      const email = user.email.toLowerCase();
-      const invite = await prisma.invite.findUnique({ where: { email } });
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { role: adminEmails().includes(email) ? "ADMIN" : (invite?.role ?? "MEMBER") },
-      });
-      if (invite && !invite.acceptedAt) {
-        await prisma.invite.update({ where: { email }, data: { acceptedAt: new Date() } });
-      }
-    },
-    async signIn({ user }) {
-      // Si alguien se agrega a ADMIN_EMAILS después de su primer ingreso, se promueve aquí.
-      if (user.id && user.email && adminEmails().includes(user.email.toLowerCase())) {
-        await prisma.user.updateMany({ where: { id: user.id, role: { not: "ADMIN" } }, data: { role: "ADMIN" } });
-      }
-    },
-  },
-});
+  });
+  if (invite && !invite.acceptedAt) {
+    await prisma.invite.update({ where: { email }, data: { acceptedAt: new Date() } });
+  }
+  return user;
+}
