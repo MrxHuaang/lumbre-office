@@ -23,12 +23,21 @@ function tripProgress(phase: string, elapsed: number): { p: number; title: strin
   return { p: 0, title: "Esperando la salida" };
 }
 
+/**
+ * Solo se arma adentro del bus en ruta: el reloj de 200 ms y el dibujo del bus (un toDataURL) corrían
+ * todo el tiempo aunque no se viera, y cada tic volvía a pasar React por la oficina entera.
+ */
 export function BusTrip() {
+  const inBus = useOfficeStore((s) => s.area === BUS.area);
+  const traveling = useBusStore((s) => busTraveling(s.phase));
+  return inBus && traveling ? <BusTripScreen /> : null;
+}
+
+function BusTripScreen() {
   useBusTick(200);
-  const area = useOfficeStore((s) => s.area);
-  const { phase, since } = useBusStore();
+  const phase = useBusStore((s) => s.phase);
+  const since = useBusStore((s) => s.since);
   const busArt = useMemo(() => (typeof document === "undefined" ? "" : toHtmlCanvas(busCarSprite("front", false, 0).canvas).toDataURL()), []);
-  if (area !== BUS.area || !busTraveling(phase)) return null;
   const { p, title } = tripProgress(phase, serverNow() - since);
   const stops = BUS_ROUTE_STOPS;
   // La parada que sigue: la primera que el bus todavía no pasó (la última es la nuestra).
