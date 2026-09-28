@@ -53,7 +53,7 @@ import {
 import { getStateCallbacks } from "colyseus.js";
 import { Track } from "livekit-client";
 import * as Phaser from "phaser";
-import { COZY, cozyFontFamily, isNightNow, STATUS_HEX } from "@/lib/cozy";
+import { COZY, cozyFontFamily, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
 import { EventsView } from "./eventos";
@@ -92,6 +92,7 @@ import {
   type OfficeRoom,
   type RemotePlayer,
 } from "./network";
+import { followGameNight } from "./gameClock";
 import { canEnterOffice, PET_USABLE_PREFIX, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
 import { TableMode } from "./table";
 import { InteractMarkers } from "./markers";
@@ -296,6 +297,9 @@ export class OfficeScene extends Phaser.Scene {
   private critters!: Critters;
   /** Ya llegó el clima de esta conexión (el primero se pone de una, sin transición). */
   private weatherKnown = false;
+  /** Velo del cambio de día a noche (y cuándo se armó la vista: recién llegado no hace falta fundido). */
+  private nightVeil?: Phaser.GameObjects.Rectangle;
+  private viewBuiltAt = 0;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
@@ -335,7 +339,8 @@ export class OfficeScene extends Phaser.Scene {
     this.world = { ...base, areas: new Map(base.areas) };
     for (const z of allZones(this.world)) this.zonesById.set(z.id, z);
     useOfficeStore.getState().setZoneNames(Object.fromEntries(allZones(this.world).map((z) => [z.id, z.name])));
-    if (!useOfficeStore.getState().area) useOfficeStore.getState().setNight(isNightNow());
+    // La noche la manda el reloj del juego (el botón del HUD solo la fuerza un rato).
+    this.cleanups.push(followGameNight());
     // Hasta saber dónde está el jugador se muestra el jardín.
     this.map = this.world.areas.get(this.world.spawnArea)!;
     // Las oficinas pueden haber llegado antes que la escena: su decoración ya se aplica.
@@ -488,10 +493,7 @@ export class OfficeScene extends Phaser.Scene {
           this.weatherKnown = true;
         }
         if (s.weather !== prev.weather || s.night !== prev.night) this.critters.setConditions(s.night, s.weather);
-        if (s.night !== prev.night) {
-          this.view?.setNight(s.night);
-          this.updateGhost(true); // el fantasma también cambia de textura
-        }
+        if (s.night !== prev.night) this.changeNight();
         if (s.lastAward && s.lastAward !== prev.lastAward) this.floatAward(s.lastAward.amount);
         if (s.panel?.kind !== prev.panel?.kind) this.syncTable(s.panel?.kind, prev.panel?.kind);
         if (s.decorating !== prev.decorating || s.decorPick !== prev.decorPick || s.decorFacing !== prev.decorFacing) {
@@ -669,6 +671,7 @@ export class OfficeScene extends Phaser.Scene {
     if (changed) {
       this.view?.destroy();
       this.view = new AreaView(this, map, useOfficeStore.getState().night);
+      this.viewBuiltAt = performance.now();
       this.usables.setArea(map, this.view);
       this.markers.setArea(map, this.view, INTERACTABLES);
       this.weatherView.setArea(map, this.view.bounds);
@@ -1812,6 +1815,53 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   /** Fantasma del mueble elegido bajo el puntero: verde si se puede poner ahí, rojo si no. */
+  /** Pone en la vista la noche del store (y el fantasma del editor, que también cambia de textura). */
+  private applyNight() {
+    this.view?.setNight(useOfficeStore.getState().night);
+    this.updateGhost(true);
+  }
+
+  /**
+   * Cambió la noche (el reloj del juego cruzó las 19:00 o las 7:00, o el botón del HUD): un velo azul
+   * oscurece la pantalla, se cambian las luces por debajo y se aclara. Recién armada la vista, sin velo.
+   * El velo es propio (no el fundido de la cámara) para no pisarse con el de los portales.
+   */
+  private changeNight() {
+    if (!this.view || performance.now() - this.viewBuiltAt < 1500) {
+      this.nightVeil?.destroy();
+      this.nightVeil = undefined;
+      return this.applyNight();
+    }
+    const cam = this.cameras.main;
+    // Con scrollFactor 0 igual lo agranda el zoom (alrededor del centro): se hace de sobra.
+    const k = 3 / Math.min(cam.zoom, 1);
+    const veil = (this.nightVeil ??= this.add
+      .rectangle(cam.width / 2, cam.height / 2, cam.width * k, cam.height * k, 0x1b1633, 0)
+      .setScrollFactor(0)
+      .setDepth(1e9));
+    this.tweens.killTweensOf(veil);
+    const PEAK = 0.85;
+    this.tweens.add({
+      targets: veil,
+      alpha: PEAK,
+      duration: 500 * (1 - veil.alpha / PEAK),
+      ease: "Sine.easeIn",
+      onComplete: () => {
+        this.applyNight();
+        this.tweens.add({
+          targets: veil,
+          alpha: 0,
+          duration: 900,
+          ease: "Sine.easeOut",
+          onComplete: () => {
+            veil.destroy();
+            if (this.nightVeil === veil) this.nightVeil = undefined;
+          },
+        });
+      },
+    });
+  }
+
   private updateGhost(redraw = false) {
     const zone = this.decorZone();
     const pose = zone && this.decorHover ? this.ghostPose(this.decorHover) : null;

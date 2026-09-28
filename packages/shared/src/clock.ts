@@ -1,11 +1,12 @@
-// Reloj propio del juego, como el de Minecraft: un día del juego dura 24 minutos reales (un segundo real
-// es un minuto del juego). Lo lleva el servidor de juego y llega a todos por el estado; el cliente solo lo
+// Reloj propio del juego, como el de Minecraft: un día del juego dura una hora real (una hora del juego son
+// 2,5 minutos reales). Así cada clima (10-25 min reales, ver weather.ts) cabe en una parte del día: la
+// niebla de la mañana (5:00-9:00) dura lo mismo que el clima más corto. Lo lleva el servidor de juego y llega a todos por el estado; el cliente solo lo
 // proyecta con su propio reloj. Los admins lo cambian en el chat con /time (ver parseTimeCommand).
 // La noche del juego manda sobre todo lo que depende de la hora: luces, faroles, peces de noche, el
 // telescopio, los buses nocturnos y cuándo sale el Man del Sombrero.
 
 /** Duración real de un día del juego. */
-export const GAME_DAY_REAL_MS = 24 * 60_000;
+export const GAME_DAY_REAL_MS = 60 * 60_000;
 export const GAME_MINUTES_PER_DAY = 24 * 60;
 /** Minutos del juego por milisegundo real. */
 const SPEED = GAME_MINUTES_PER_DAY / GAME_DAY_REAL_MS;
@@ -51,6 +52,17 @@ export const isGameNight = (c: GameClockState, now: number) => isNightMinute(gam
 export function formatGameTime(minuteOfDay: number): string {
   const m = ((Math.floor(minuteOfDay) % GAME_MINUTES_PER_DAY) + GAME_MINUTES_PER_DAY) % GAME_MINUTES_PER_DAY;
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/** El reloj del HUD avanza de a 10 minutos del juego, como el de Stardew Valley. */
+export const CLOCK_STEP = 10;
+export const clockStep = (minuteOfDay: number) => Math.floor(minuteOfDay / CLOCK_STEP) * CLOCK_STEP;
+
+/** Momento del cielo para el ícono del reloj: amanece de 5 a 7, atardece de 17 a 19 y el resto es noche. */
+export type SkyPhase = "amanecer" | "dia" | "atardecer" | "noche";
+export function skyPhase(minuteOfDay: number): SkyPhase {
+  if (isNightMinute(minuteOfDay)) return minuteOfDay >= 5 * 60 && minuteOfDay < NIGHT_UNTIL ? "amanecer" : "noche";
+  return minuteOfDay >= 17 * 60 ? "atardecer" : "dia";
 }
 
 /** Reloj que arranca con la hora de Bogotá del momento (así el primer día no empieza de madrugada). */

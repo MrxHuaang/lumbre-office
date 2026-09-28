@@ -2,23 +2,26 @@ import { describe, expect, it } from "vitest";
 import {
   GAME_DAY_REAL_MS,
   addGameTime,
+  clockStep,
   formatGameTime,
   gameTime,
   initialClock,
   isGameNight,
   parseTimeCommand,
   setGameTime,
+  skyPhase,
   type GameClockState,
 } from "./clock";
 
 const at = (minute: number): GameClockState => ({ anchorReal: 0, anchorMinute: minute });
 
 describe("reloj del juego", () => {
-  it("un día del juego dura 24 minutos reales", () => {
+  it("un día del juego dura una hora real", () => {
     const c = at(0);
+    expect(GAME_DAY_REAL_MS).toBe(60 * 60_000);
     expect(gameTime(c, GAME_DAY_REAL_MS)).toMatchObject({ day: 1, minuteOfDay: 0 });
-    // Un segundo real es un minuto del juego.
-    expect(gameTime(c, 90_000)).toMatchObject({ day: 0, hour: 1, minute: 30 });
+    // Una hora del juego son 2,5 minutos reales.
+    expect(gameTime(c, 150_000 + 75_000)).toMatchObject({ day: 0, hour: 1, minute: 30 });
   });
 
   it("la noche va de 19:00 a 6:59", () => {
@@ -71,5 +74,26 @@ describe("parseTimeCommand", () => {
     expect(parseTimeCommand("/time set pronto")).toBeNull();
     expect(parseTimeCommand("/time add -3")).toBeNull();
     expect(parseTimeCommand("/time add")).toBeNull();
+  });
+});
+
+describe("reloj del HUD", () => {
+  it("avanza de a 10 minutos", () => {
+    expect(formatGameTime(clockStep(18 * 60 + 47))).toBe("18:40");
+    expect(clockStep(0)).toBe(0);
+    expect(clockStep(9)).toBe(0);
+    expect(clockStep(10)).toBe(10);
+  });
+
+  it("el cielo: amanecer, día, atardecer y noche (la noche es la del juego)", () => {
+    expect(skyPhase(4 * 60 + 59)).toBe("noche");
+    expect(skyPhase(5 * 60)).toBe("amanecer");
+    expect(skyPhase(6 * 60 + 59)).toBe("amanecer");
+    expect(skyPhase(7 * 60)).toBe("dia");
+    expect(skyPhase(16 * 60 + 59)).toBe("dia");
+    expect(skyPhase(17 * 60)).toBe("atardecer");
+    expect(skyPhase(18 * 60 + 59)).toBe("atardecer");
+    expect(skyPhase(19 * 60)).toBe("noche");
+    expect(skyPhase(0)).toBe("noche");
   });
 });

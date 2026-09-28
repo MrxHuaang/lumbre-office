@@ -24,8 +24,9 @@ import { bootServer, c, tick, token, walkTo, walkToTile, type ServerRoom } from 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
 
-// 12:00 de Bogotá: la hora fija de los peces.
+// Reloj real fijo (para los tiempos del minijuego). La hora de los peces es la del juego: mediodía.
 const NOON = Date.UTC(2026, 8, 26, 17, 0);
+const gameAt = (hour: number) => ({ anchorReal: NOON, anchorMinute: 3 * 1440 + hour * 60 });
 const SEED = 12345;
 
 /**
@@ -54,6 +55,8 @@ beforeEach(async () => {
   repo = new MemoryRepository();
   OfficeRoom.repo = repo;
   OfficeRoom.fishingNow = () => NOON;
+  OfficeRoom.gameClockNow = () => NOON;
+  OfficeRoom.gameClockInitial = gameAt(12);
   OfficeRoom.weatherInitial = "despejado";
   OfficeRoom.fishingRandom = fixedRandom();
   // Tiempos cortos y margen amplio: el minijuego se "juega" al instante con el jugador automático.
@@ -61,6 +64,8 @@ beforeEach(async () => {
 });
 afterEach(() => {
   OfficeRoom.fishingNow = () => Date.now();
+  OfficeRoom.gameClockNow = () => Date.now();
+  OfficeRoom.gameClockInitial = null;
   OfficeRoom.fishingTimings = { ...FISHING };
 });
 
@@ -155,6 +160,23 @@ describe("pesca", () => {
     await tick(400);
     await s.room.waitForNextPatch();
     expect(s.me().fishing).toBe("");
+  });
+
+  it("los peces siguen la hora del juego, no la real: a medianoche del juego pican los de noche", async () => {
+    OfficeRoom.gameClockInitial = gameAt(0);
+    // El azar cae justo en el primer pez que solo pica de noche (el reloj real sigue en el mediodía).
+    const pool = fishPool(0);
+    const i = pool.findIndex((p) => p.fish.time === "noche");
+    const night = pool[i]!.fish;
+    OfficeRoom.fishingRandom = fixedRandom({ pick: pool.slice(0, i).reduce((a, p) => a + p.weight, 0) });
+    expect(fishPool(12).some((p) => p.fish.id === night.id)).toBe(false);
+    const s = await setup();
+    const h = await hooked(s);
+    expect(h.challenge.difficulty).toBe(night.difficulty);
+    const run = play(h.challenge);
+    s.alice.send(MSG.fishFinish, { castId: h.castId, frames: run.frames, inputs: run.inputs });
+    const end = await s.next("end");
+    expect(end.catch?.species).toBe(night.id);
   });
 
   it("un pez más grande que el anterior es récord; uno más chico no", async () => {
@@ -320,7 +342,7 @@ describe("pesca", () => {
   });
 
   it("la basura sale sin minijuego y sin puntos", async () => {
-    const pool = fishPool(NOON);
+    const pool = fishPool(12);
     const total = pool.reduce((a, p) => a + p.weight, 0);
     expect(pool.at(-1)!.fish.id).toBe("lata");
     OfficeRoom.fishingRandom = fixedRandom({ pick: total - 1 });

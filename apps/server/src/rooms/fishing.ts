@@ -44,6 +44,8 @@ export interface FishingDeps {
   /** Entero al azar en [0, n) (`crypto.randomInt`; los tests lo fijan). */
   random(n: number): number;
   timings(): FishingTimings;
+  /** Hora del reloj del juego (0 a 23): decide qué peces pican (los de noche, del atardecer…). */
+  hour(): number;
   /** El clima de afuera (algunos peces solo pican con lluvia, tormenta o niebla). */
   weather?(): Weather;
   repo(): Pick<GameRepository, "saveFishCatch">;
@@ -97,7 +99,7 @@ export class Fishery {
   }
 
   /**
-   * Responder a la picada: se elige el pez (según la rareza, la hora de Bogotá y el clima) y empieza el
+   * Responder a la picada: se elige el pez (según la rareza, la hora del juego y el clima) y empieza el
    * minijuego.
    * Antes de que pique, el pez se asusta; la basura sale sin minijuego.
    */
@@ -108,7 +110,7 @@ export class Fishery {
     if (cast.phase === "wait") return this.end(cast, "early");
     if (cast.phase !== "bite") return;
     cast.timer?.clear();
-    const fish = pickFish(this.deps.now(), (n) => this.deps.random(n), this.deps.weather?.());
+    const fish = pickFish(this.deps.hour(), (n) => this.deps.random(n), this.deps.weather?.());
     cast.fish = fish;
     if (isTrash(fish)) return void this.land(cast, fish, false);
     const t = this.deps.timings();
