@@ -4,7 +4,7 @@
 // de adelante encima). Los cuadros de la brazada son los del paso (los brazos ya se mueven).
 import { BODY_Y, FEET_Y, FRAME, FRAMES, SHEET_DIRECTIONS } from "./chibi";
 import { POOL_WATER } from "./agua";
-import { PixelCanvas, alpha, at, type RGBA } from "./pixel";
+import { PixelCanvas, alpha, at, type RGBA, type Ramp } from "./pixel";
 
 /** Fila de la hoja de caminata donde se corta (a la altura del pecho: la fila 16 del cuerpo, ver kit.ts). */
 export const SWIM_CUT = BODY_Y + 16;
@@ -14,7 +14,7 @@ export const SWIM_WATERLINE = FEET_Y + 1;
 export const SWIM_DROP = SWIM_WATERLINE - SWIM_CUT;
 
 /** Onda alrededor del cuerpo: `front` = la mitad de adelante (debajo de la línea del agua). */
-function ring(c: PixelCanvas, ox: number, frame: number, front: boolean) {
+function ring(c: PixelCanvas, ox: number, frame: number, front: boolean, water: Ramp) {
   const cx = ox + FRAME / 2;
   const cy = SWIM_WATERLINE;
   const rx = 8.5;
@@ -28,26 +28,29 @@ function ring(c: PixelCanvas, ox: number, frame: number, front: boolean) {
       // En la brazada, un poco de espuma de un lado o del otro.
       const side = x < cx ? -1 : 1;
       const foam = (frame === 1 && side < 0) || (frame === 2 && side > 0);
-      const col: RGBA = foam ? at(POOL_WATER, 5) : alpha(at(POOL_WATER, 5), front ? 0.9 : 0.6);
+      const col: RGBA = foam ? at(water, 5) : alpha(at(water, 5), front ? 0.9 : 0.6);
       c.set(x, y, col);
     }
   // Agua turbia justo debajo de la línea: lo que queda del cuerpo se ve a través.
   if (front)
     for (let x = cx - 6; x <= cx + 6; x++) {
-      c.set(x, cy, alpha(at(POOL_WATER, 3), 0.55));
-      if (Math.abs(x - cx) < 5) c.set(x, cy + 1, alpha(at(POOL_WATER, 2), 0.45));
+      c.set(x, cy, alpha(at(water, 3), 0.55));
+      if (Math.abs(x - cx) < 5) c.set(x, cy + 1, alpha(at(water, 2), 0.45));
     }
 }
 
-/** Hoja de nado (3 columnas x 4 filas, como la de caminata) a partir de la hoja de caminata. */
-export function drawSwimming(walk: PixelCanvas): PixelCanvas {
+/**
+ * Hoja de nado (3 columnas x 4 filas, como la de caminata) a partir de la hoja de caminata. `water`: el
+ * color del agua de la onda (el turquesa de la piscina o el agua de la tina).
+ */
+export function drawSwimming(walk: PixelCanvas, water: Ramp = POOL_WATER): PixelCanvas {
   const sheet = new PixelCanvas(FRAME * FRAMES, FRAME * SHEET_DIRECTIONS.length);
   for (let row = 0; row < SHEET_DIRECTIONS.length; row++)
     for (let col = 0; col < FRAMES; col++) {
       const ox = col * FRAME;
       const oy = row * FRAME;
       const cell = new PixelCanvas(FRAME * FRAMES, FRAME);
-      ring(cell, ox, col, false);
+      ring(cell, ox, col, false, water);
       for (let y = 0; y < SWIM_CUT; y++)
         for (let x = 0; x < FRAME; x++) {
           const i = ((oy + y) * walk.width + ox + x) * 4;
@@ -56,7 +59,7 @@ export function drawSwimming(walk: PixelCanvas): PixelCanvas {
           if (ty > SWIM_WATERLINE) continue;
           cell.set(ox + x, ty, [walk.data[i]!, walk.data[i + 1]!, walk.data[i + 2]!, walk.data[i + 3]!]);
         }
-      ring(cell, ox, col, true);
+      ring(cell, ox, col, true, water);
       for (let y = 0; y < FRAME; y++)
         for (let x = 0; x < FRAME; x++) {
           const i = (y * cell.width + ox + x) * 4;

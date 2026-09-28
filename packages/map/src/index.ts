@@ -25,6 +25,7 @@ export * from "./agua";
 export * from "./world/build";
 export * from "./world/catalog";
 export * from "./world/seats";
+export { SPA, TUB_WATER_Z } from "./world/catalog-tina";
 export type * from "./world/types";
 export { AREAS, BLACKJACK_SEATS, BOARD_TABLES, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
 

@@ -153,6 +153,7 @@ import {
   type GameClockState,
   type GameTime,
   AGUA,
+  TINA,
   AGUA_MSG,
   isNightMinute,
   type AguaNotice,
@@ -213,6 +214,7 @@ import { Phones } from "./phones";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
 import { Piscina } from "./piscina";
+import { Tina } from "./tina";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
 import { Cocina, type CocinaResult } from "./cocina";
 
@@ -325,6 +327,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     diveCooldownMs: AGUA.diveCooldownMs,
     checkMs: AGUA.checkMs,
   };
+  /** La tina y la sauna del lago: cada cuánto da puntos el descanso y cada cuánto se revisa (los tests los acortan). */
+  static tinaTimings: { tickMs: number; checkMs: number } = { tickMs: TINA.tickMs, checkMs: TINA.checkMs };
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
@@ -623,6 +627,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private hockey!: HockeyTable;
   /** La piscina del jardín: nadar, el trampolín, las reposeras al sol y quedar mojado (ver piscina.ts). */
   private piscina?: Piscina;
+  /** La tina caliente y la sauna del lago: los puntos del descanso y quedar mojado al salir (ver tina.ts). */
+  private tina?: Tina;
   /** Ajedrez y damas de la sala de juegos (ver boardGames.ts). */
   private boardGames!: BoardGames;
   /** Reloj de la cocina (los tests lo adelantan para que se acabe la energía). */
@@ -714,6 +720,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     this.startHockey();
     this.startPiscina();
+    this.startTina();
     this.startBoardGames();
     OfficeRoom.instances.add(this);
 
@@ -1550,6 +1557,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
 
     const previousZoneId = player.zoneId;
+    // El asiento que deja (si se para o se cambia a otro): al salir de la tina o de la sauna, mojado.
+    const leftSeat = player.seated && (!seated || x !== player.x || y !== player.y) ? seatAtPoint(map, player.x, player.y)?.type : undefined;
     if (x !== player.x || y !== player.y) {
       client.userData.lastActiveAt = now;
       // Casa viva: moverse te saca del cubículo del baño.
@@ -1570,6 +1579,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
     if (player.racing) void this.raceOutcome(client.sessionId, this.races.moved(map, client.sessionId, player, now));
     if (!seated && !fromSeat && dist > 0) this.achievements.walk(player.userId, dist / map.tileSize);
+    if (leftSeat && leftSeat !== seat?.type) this.tina?.stoodUp(player.userId, leftSeat);
   }
 
   /** Pasar a otro nivel por un portal: hay que estar parado junto a él. */
@@ -2274,6 +2284,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.clock.setInterval(() => void this.piscina?.sunTick().catch((err) => console.error("piscina", err)), OfficeRoom.aguaTimings.checkMs);
   }
 
+  // ---------- La tina y la sauna ----------
+
+  /** La tina caliente y la sauna del lago: los puntos del descanso (con actividad) y el mojado de la piscina. */
+  private startTina() {
+    this.tina = new Tina({
+      now: () => Date.now(),
+      map: (area) => this.mapOf(area),
+      people: () => this.state.players.entries(),
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      active: (sessionId) => {
+        const data = this.clients.getById(sessionId)?.userData as UserData | undefined;
+        return Boolean(data) && Date.now() - data!.lastActiveAt <= OfficeRoom.idleMs;
+      },
+      rested: (userId) => this.achievements.bump(userId, STAT_KEYS.spaRests),
+      soak: (userId) => this.piscina?.soak(userId),
+      timings: () => OfficeRoom.tinaTimings,
+    });
+    this.clock.setInterval(() => void this.tina?.tick().catch((err) => console.error("tina", err)), OfficeRoom.tinaTimings.checkMs);
+  }
+
   /** Meterse, tirarse del trampolín o salir del agua (con E junto a la piscina). */
   private handleAgua(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
@@ -2801,6 +2831,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.casa.forget(player.userId);
     this.swivels.forget(player.userId);
     this.piscina?.forget(player.userId);
+    this.tina?.forget(player.userId);
     void this.achievements.forget(player.userId);
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);

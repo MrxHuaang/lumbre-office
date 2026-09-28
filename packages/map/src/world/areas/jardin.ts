@@ -4,6 +4,7 @@ import type { AreaDef, FloorKind, Placement, PointDef } from "../types";
 import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
 import { POOL_BASIN, POOL_SIZE, POOL_STEPS } from "../catalog-agua";
+import { SPA } from "../catalog-tina";
 
 // ---------- Jardín ----------
 // Una zona jugable de 80x64 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
@@ -71,6 +72,15 @@ const POOL = { x: 64, y: 1 };
 const POOL_BOX = { x0: POOL.x, y0: POOL.y, x1: POOL.x + POOL_SIZE[0], y1: POOL.y + POOL_SIZE[1] };
 /** El trampolín, en el borde oeste de la pileta mirando hacia el agua. */
 const BOARD = { x: POOL.x + POOL_BASIN.x - 1, y: POOL.y + POOL_BASIN.y + Math.floor(POOL_BASIN.d / 2) };
+
+/**
+ * La tina caliente y la sauna de barril, en la orilla este del lago (x 60..72, y 34..50): un deck de tablas
+ * de 10x9 que se mete un poco sobre el agua, con la tina junto al lago y la sauna al fondo (ver
+ * catalog-tina.ts: SPA). El reflejo de las luces lo dibuja el deck, en el agua de al lado.
+ */
+const SPA_DECK = { x: 62, y: 38 };
+const SPA_BOX = { x0: SPA_DECK.x, y0: SPA_DECK.y, x1: SPA_DECK.x + SPA.deck[0], y1: SPA_DECK.y + SPA.deck[1] };
+const spaAt = ([dx, dy]: readonly [number, number]) => ({ x: SPA_DECK.x + dx, y: SPA_DECK.y + dy });
 
 /** Fogata con troncos alrededor y la glorieta. */
 const FIRE = { x: 14, y: 36 };
@@ -152,6 +162,8 @@ const onIslet = (x: number, y: number) => Math.hypot(x - ISLET.cx, (y - ISLET.cy
 const onDock = (x: number, y: number) => x >= DOCK.x0 && x < DOCK.x1 && y >= DOCK.y0 && y < DOCK.y1;
 /** El deck de la piscina: tablas como las del muelle (se pisa y suena a madera). */
 const onPoolDeck = (x: number, y: number) => x >= POOL_BOX.x0 && x < POOL_BOX.x1 && y >= POOL_BOX.y0 && y < POOL_BOX.y1;
+/** El deck de la tina: tablas sobre la orilla (se pisa aunque abajo sea agua). */
+const onSpaDeck = (x: number, y: number) => x >= SPA_BOX.x0 && x < SPA_BOX.x1 && y >= SPA_BOX.y0 && y < SPA_BOX.y1;
 /** Patio: rectángulo de esquinas redondeadas con el borde que ondula (como la tierra del huerto). */
 function onPatio(x: number, y: number): boolean {
   const { x0, y0, x1, y1, r } = PATIO;
@@ -183,7 +195,7 @@ function localGround(x: number, y: number): FloorKind {
     if (y >= PH && y < PH + 6 && Math.abs(x - (GATE_X + 1)) < 1.3 - (y - PH) * 0.12 + wobble(x, y, 23, 0.2)) return "path";
     return "forest";
   }
-  if (onDock(x, y) || onPoolDeck(x, y)) return "dock";
+  if (onDock(x, y) || onPoolDeck(x, y) || onSpaDeck(x, y)) return "dock";
   if (inLake(x, y) && !onIslet(x, y)) return "water";
   if (onPatio(x, y)) return "path";
   if (onGazeboBase(x, y)) return "path";
@@ -441,7 +453,6 @@ put("flat-rock", FLAT_ROCK.x, FLAT_ROCK.y);
 for (const [x, y, t] of [
   [FLAT_ROCK.x + 1, FLAT_ROCK.y - 1, "rock-small"],
   [FLAT_ROCK.x - 2, FLAT_ROCK.y - 1, "rock-mossy"],
-  [61, 36, "rock-medium"],
   [47, 53, "rock-small"],
   [60, 52, "boulder"],
   [42, 44, "rock-small"],
@@ -470,6 +481,33 @@ put("garden-lantern", POOL.x + POOL_SIZE[0] - 1, POOL.y);
 {
   const HEDGE = ["bush-hydrangea", "bush-round", "bush-rose", "bush-round", "bush-berry"];
   for (let x = POOL.x; x < POOL.x + POOL_SIZE[0]; x++) put(HEDGE[x % HEDGE.length]!, x, POOL.y - 1, x % 2 ? "down" : "right");
+}
+
+// ---------- La tina caliente y la sauna ----------
+
+// La tina junto al agua y la sauna al fondo del deck, con la leñera pegada a su costado oeste y un seto
+// detrás (lo que queda detrás del barril se taparía: ahí no se para nadie). Farolitos en el borde del lago
+// (se reflejan en el agua), el toallero junto a la sauna y una banca mirando a la tina.
+{
+  put("spa-deck", SPA_DECK.x, SPA_DECK.y);
+  const tub = spaAt(SPA.tub);
+  const sauna = spaAt(SPA.sauna);
+  put("hot-tub", tub.x, tub.y);
+  put("sauna", sauna.x, sauna.y);
+  put("sauna-shell", sauna.x, sauna.y + 2);
+  put("woodpile", sauna.x - 1, sauna.y);
+  for (const [dx, t] of [
+    [-1, "bush-round"],
+    [0, "bush-hydrangea"],
+    [1, "bush-berry"],
+    [2, "bush-round"],
+  ] as const)
+    put(t, sauna.x + dx, sauna.y - 1, dx % 2 ? "down" : "right");
+  put("towel-rack", sauna.x + 2, sauna.y);
+  put("bench", sauna.x + 1, SPA_DECK.y + 5, "left");
+  for (const l of [...SPA.shoreLanterns, ...SPA.deckLanterns]) put("garden-lantern", spaAt(l).x, spaAt(l).y);
+  put("planter", SPA_BOX.x1 - 1, SPA_DECK.y + 3);
+  put("planter", SPA_DECK.x + 3, SPA_BOX.y1 - 1);
 }
 
 // Rincón de rocas al noreste y naturaleza suelta (tipos y posiciones fijos: nada se repite en fila).
@@ -520,7 +558,6 @@ for (const [x, y, t, f] of [
   [45, 35, "wildflowers", "right"],
   [16, 50, "wildflowers", "down"],
   [49, 34, "fern", "down"],
-  [62, 42, "pine-3", "right"],
   [62, 30, "oak-3", "down"],
   [50, 55, "oak-1", "right"],
 ] as const)
@@ -590,6 +627,10 @@ const POINTS: PointDef[] = [
     for (let y = 0; y < d; y++) for (let x = 0; x < w; x++) mark(f.x - M + x, f.y - M + y, item.flat ? 0 : 1);
   }
   for (const p of POINTS) mark(p.x - M, p.y - M, p.type === "spawn" ? 3 : 1);
+  // Alrededor del deck de la tina, pasto abierto: que ningún árbol quede pegado a las tablas (sin salirse
+  // de la orilla este del lago, x 60..72, y 34..50).
+  for (let y = Math.max(34, SPA_BOX.y0 - 2); y < Math.min(51, SPA_BOX.y1 + 2); y++)
+    for (let x = Math.max(60, SPA_BOX.x0 - 2); x < Math.min(73, SPA_BOX.x1 + 2); x++) reserved.add(`${x},${y}`);
   mark(DOOR_X, PORCH_Y + 2, 2);
   const soft = (x: number, y: number) => {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ground(x + dx, y + dy) !== "grass") return true;
@@ -711,6 +752,8 @@ export const jardin: AreaDef = {
     { id: "glorieta", name: "Glorieta", type: "table", rect: { x: GAZEBO.x + M, y: GAZEBO.y + M, w: 4, h: 4 }, isolated: true },
     // La piscina: se oye como el resto del jardín (es para estar en grupo), pero tiene su nombre.
     { id: "piscina", name: "Piscina", type: "common", rect: { x: POOL_BOX.x0 + M, y: POOL_BOX.y0 + M, w: POOL_SIZE[0], h: POOL_SIZE[1] }, isolated: false },
+    // La tina y la sauna: como la fogata, lo que se dice en el deck queda en el deck.
+    { id: "tina", name: "Tina y sauna", type: "table", rect: { x: SPA_BOX.x0 + M, y: SPA_BOX.y0 + M, w: SPA.deck[0], h: SPA.deck[1] }, isolated: true },
   ],
   features: [],
   furniture: items,

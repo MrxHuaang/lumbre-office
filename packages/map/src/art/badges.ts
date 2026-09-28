@@ -80,6 +80,8 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   guitar: [".......nn", "......nn.", ".....nn..", "....nn...", ".oOon....", "oOOOo....", "OOkOO....", "oOOOo....", ".ooo....."],
   bulb: ["..yyyy..", ".yYYYYy.", "yYYxYYYy", "yYYYYYYy", ".yYYYYy.", "..yYYy..", "..ssss..", "..SSSS..", "...ss..."],
   star: ["....y....", "....y....", "...yYy...", "yyyYYYyyy", ".yYYYYYy.", "..yYYYy..", "..yYyYy..", ".yY...Yy.", ".y.....y."],
+  // La tina con vapor: tres volutas sobre el agua y las duelas con sus aros.
+  tub: [".x..x..x..", "x..x..x...", ".x..x..x..", "..........", "WeeeeeeeeW", "WWWWWWWWWW", "wwwwwwwwww", "yyyyyyyyyy", "wwwwwwwwww", ".wwwwwwww."],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],
 };
 

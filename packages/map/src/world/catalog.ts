@@ -7,6 +7,7 @@ import { CASA_CATALOG } from "./catalog-casa";
 import { PLANTAS_CATALOG } from "./catalog-plantas";
 import { GARAJE_CATALOG } from "./catalog-garaje";
 import { AGUA_CATALOG } from "./catalog-agua";
+import { TINA_CATALOG } from "./catalog-tina";
 import type { Facing } from "./types";
 
 export interface CatalogItem {
@@ -59,6 +60,13 @@ export interface CatalogItem {
    * solo nadando (ver agua.ts).
    */
   swim?: boolean;
+  /** Asientos dentro del agua (la tina caliente): quien se sienta se dibuja de medio cuerpo en el agua. */
+  soak?: boolean;
+  /**
+   * Quien se sienta se ordena con el mueble entero (encima de él), aunque el asiento traiga su dirección:
+   * la tina (todos encima de la tinaja) y la sauna (encima de la base y debajo del barril, que va aparte).
+   */
+  sortWhole?: boolean;
 }
 
 export const CATALOG = {
@@ -174,6 +182,7 @@ export const CATALOG = {
   ...PLANTAS_CATALOG,
   ...GARAJE_CATALOG,
   ...AGUA_CATALOG,
+  ...TINA_CATALOG,
 } satisfies Record<string, CatalogItem>;
 
 export type FurnitureType = keyof typeof CATALOG;

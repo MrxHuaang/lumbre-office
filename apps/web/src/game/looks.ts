@@ -1,4 +1,4 @@
-import { drawCharacter, drawSitting, drawSwimming, FRAME, PixelCanvas, styleFor, type CharacterStyle } from "@hyvento/map/art";
+import { drawCharacter, drawSitting, drawSwimming, FRAME, PixelCanvas, styleFor, TUB_WATER, type CharacterStyle } from "@hyvento/map/art";
 import { Look } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { toHtmlCanvas } from "./iso/canvas";
@@ -42,17 +42,18 @@ export function ensureCharacterTextures(scene: Phaser.Scene, avatar: string, loo
 
 /**
  * Hoja de nado de un personaje (`<clave>-swim`, medio cuerpo en el agua): se arma la primera vez que
- * alguien con esa pinta se mete a la piscina, desde su hoja de caminata ya dibujada.
+ * alguien con esa pinta se mete a la piscina, desde su hoja de caminata ya dibujada. En la tina caliente
+ * (`<clave>-tina`) es la misma, con el agua de la tina alrededor.
  */
-export function ensureSwimTexture(scene: Phaser.Scene, key: string): string {
-  const swimKey = `${key}-swim`;
+export function ensureSwimTexture(scene: Phaser.Scene, key: string, water: "piscina" | "tina" = "piscina"): string {
+  const swimKey = `${key}-${water === "tina" ? "tina" : "swim"}`;
   if (scene.textures.exists(swimKey)) return swimKey;
   const src = scene.textures.exists(key) ? (scene.textures.get(key).getSourceImage() as HTMLCanvasElement) : null;
   const ctx = src && "getContext" in src ? src.getContext("2d") : null;
   if (!src || !ctx) return key;
   const walk = new PixelCanvas(src.width, src.height);
   walk.data.set(ctx.getImageData(0, 0, src.width, src.height).data);
-  addSheet(scene, swimKey, drawSwimming(walk));
+  addSheet(scene, swimKey, drawSwimming(walk, water === "tina" ? TUB_WATER : undefined));
   return swimKey;
 }
 

@@ -3,6 +3,7 @@ import { drawHouse, HOUSE_CHIMNEY_TOP } from "./exterior-casa";
 import { gazeboRoof } from "./exterior-patio";
 import { drawGarage } from "./garaje-exterior";
 import { drawPool } from "./agua";
+import { SAUNA_CHIMNEY_TOP, TINA_NIGHT, TUB_CHIMNEY_TOP } from "./tina";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -69,6 +70,9 @@ export const CABIN_CHIMNEY_TOP = { x: CHIMNEY.x + CHIMNEY.w / 2, y: CHIMNEY.y + 
 export const CHIMNEY_TOPS: Record<string, { x: number; y: number; z: number }> = {
   cabin: CABIN_CHIMNEY_TOP,
   house: HOUSE_CHIMNEY_TOP,
+  // La tina y la sauna del lago: sus estufas de leña.
+  "hot-tub": TUB_CHIMNEY_TOP,
+  "sauna-shell": SAUNA_CHIMNEY_TOP,
 };
 
 /** Troncos horizontales: bandas con luz arriba y sombra abajo, y basa de piedra. */
@@ -545,6 +549,8 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   garage: drawGarage,
   // La piscina: de noche, con las luces de adentro del agua.
   pool: drawPool,
+  // La tina y la sauna del lago (de noche, las estufas y la ventanita prendidas).
+  ...TINA_NIGHT,
 };
 
 export function hasOutdoor(type: string): boolean {

@@ -40,6 +40,7 @@ export * from "./photos";
 export * from "./photo-service";
 export * from "./achievements";
 export * from "./agua";
+export * from "./tina";
 export * from "./door-notes";
 export * from "./aquarium";
 export * from "./insignias";

@@ -15,6 +15,7 @@ import {
   zoneAt,
   type OfficeMap,
 } from "./index";
+import { SPA } from "./world/catalog-tina";
 
 const jardin = getWorld().areas.get("jardin") as OfficeMap;
 const floorAt = (x: number, y: number) => jardin.floors[y * jardin.width + x];
@@ -210,5 +211,67 @@ describe("jardín", () => {
       expect(findPath(jardin, start, { x: Math.floor(spot.x / ts), y: Math.floor(spot.y / ts) })).not.toBeNull();
     }
     expect(zoneAt(jardin, water[0]!.x * ts + ts / 2, water[0]!.y * ts + ts / 2)).toMatchObject({ id: "piscina", isolated: false });
+  });
+
+  it("la tina y la sauna: en la orilla este del lago, en su zona aislada y se entra sentándose", () => {
+    const ts = jardin.tileSize;
+    const p = jardin.def.playable!;
+    const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
+    const inRegion = (x: number, y: number) => x - p.x >= 60 && x - p.x <= 72 && y - p.y >= 34 && y - p.y <= 50;
+    for (const t of ["spa-deck", "hot-tub", "sauna", "sauna-shell"]) {
+      const f = jardin.furniture.filter((g) => g.type === t);
+      expect(f, t).toHaveLength(1);
+      expect(inRegion(f[0]!.x, f[0]!.y) && inRegion(f[0]!.x + f[0]!.w - 1, f[0]!.y + f[0]!.d - 1), t).toBe(true);
+    }
+    const deck = jardin.furniture.find((f) => f.type === "spa-deck")!;
+    // Tablas (suenan a madera) sobre la orilla: una parte del deck queda encima del agua del lago.
+    for (let y = deck.y; y < deck.y + deck.d; y++) for (let x = deck.x; x < deck.x + deck.w; x++) expect(floorAt(x, y), `${x},${y}`).toBe("dock");
+    expect(zoneAt(jardin, (deck.x + 1) * ts, (deck.y + 1) * ts)).toMatchObject({ id: "tina", isolated: true });
+    // El reflejo de las luces (lo dibuja el deck) va sobre el agua de al lado, sin salirse de la orilla este.
+    const [rx, ry] = SPA.reflection;
+    const [rw, rd] = SPA.reflectionSize;
+    expect(rx + rw).toBe(0);
+    for (let y = deck.y + ry; y < deck.y + ry + rd; y++)
+      for (let x = deck.x + rx; x < deck.x + rx + rw; x++) {
+        expect(floorAt(x, y), `reflejo ${x},${y}`).toBe("water");
+        expect(inRegion(x, y), `reflejo ${x},${y}`).toBe(true);
+      }
+
+    const tub = jardin.furniture.find((f) => f.type === "hot-tub")!;
+    const tubSeats = [...jardin.seats.values()].filter((s) => s.type === "hot-tub");
+    expect(tubSeats).toHaveLength(4);
+    const cx = (tub.x + tub.w / 2) * ts;
+    const cy = (tub.y + tub.d / 2) * ts;
+    const dirs = { right: [1, 0], left: [-1, 0], down: [0, 1], up: [0, -1] } as const;
+    const sauna = jardin.furniture.find((f) => f.type === "sauna")!;
+    const shell = jardin.furniture.find((f) => f.type === "sauna-shell")!;
+    const saunaSeats = [...jardin.seats.values()].filter((s) => s.type === "sauna");
+    expect(saunaSeats).toHaveLength(2);
+    for (const seat of [...tubSeats, ...saunaSeats]) {
+      const at = `${seat.type} ${seat.tileX},${seat.tileY}`;
+      // Adentro de la zona; al pararse se queda en el deck, del que se llega desde el portón.
+      expect(zoneAt(jardin, seat.x, seat.y)?.id, at).toBe("tina");
+      const spot = seatStandSpot(jardin, seat);
+      expect(zoneAt(jardin, spot.x, spot.y)?.id, at).toBe("tina");
+      expect(Math.hypot(spot.x - seat.x, spot.y - seat.y) / ts, at).toBeLessThanOrEqual(1);
+      expect(findPath(jardin, start, { x: Math.floor(spot.x / ts), y: Math.floor(spot.y / ts) }), at).not.toBeNull();
+    }
+    for (const seat of tubSeats) {
+      // Mira al centro de la tina y se ordena con la tina entera (se dibuja encima, en el agua).
+      const [dx, dy] = dirs[seat.facing];
+      expect((cx - seat.x) * dx + (cy - seat.y) * dy, `${seat.tileX},${seat.tileY}`).toBeGreaterThan(0);
+      expect([seat.cx, seat.cy]).toEqual([cx, cy]);
+    }
+    // La sauna: la banca mira a la puerta (al sur) y el barril, que se transparenta, cubre la banca y va
+    // delante de quien se sienta (que se ordena con la base, encima de ella).
+    for (const seat of saunaSeats) {
+      expect(seat.facing).toBe("down");
+      expect([seat.cx, seat.cy]).toEqual([(sauna.x + sauna.w / 2) * ts, (sauna.y + sauna.d / 2) * ts]);
+      expect(seat.tileX >= shell.x && seat.tileX < shell.x + shell.w && seat.tileY >= shell.y && seat.tileY < shell.y + shell.d).toBe(true);
+      expect(shell.x + shell.w / 2 + shell.y + shell.d / 2).toBeGreaterThan((seat.cx + seat.cy) / ts);
+    }
+    // Detrás del barril (al norte y al oeste) no se para nadie: se taparía.
+    for (let x = sauna.x - 1; x <= sauna.x + sauna.w; x++) expect(isBlockedTile(jardin, x, sauna.y - 1), `norte ${x}`).toBe(true);
+    for (let y = sauna.y; y < sauna.y + sauna.d; y++) expect(isBlockedTile(jardin, sauna.x - 1, y), `oeste ${y}`).toBe(true);
   });
 });

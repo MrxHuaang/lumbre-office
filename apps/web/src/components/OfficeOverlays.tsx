@@ -1,5 +1,6 @@
 "use client";
 
+import type { SpaKind } from "@hyvento/shared";
 import { useDoorNotesStore } from "@/game/doorNotes";
 import { respondKnock, sendKnock, sendSwivel } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
@@ -93,6 +94,14 @@ export function Notices() {
   );
 }
 
+/** Lo que dice la ayuda "E": sentarse o levantarse, tomar el sol, meterse a la tina o entrar a la sauna. */
+function seatHelp(prompt: "sit" | "stand", sun: boolean, spa: SpaKind | null): string {
+  if (prompt === "sit") return spa === "tub" ? "meterse a la tina" : spa === "sauna" ? "entrar a la sauna" : sun ? "tomar el sol" : "sentarte";
+  if (spa === "tub") return "salir de la tina (o muévete)";
+  if (spa === "sauna") return "salir de la sauna (o muévete)";
+  return sun ? "levantarte de la reposera (o muévete)" : "levantarte (o muévete)";
+}
+
 /**
  * Ayuda de la tecla E junto a un asiento libre o estando sentado. Frente a un computador,
  * además el botón para prenderlo (este sí también en el celular).
@@ -103,6 +112,7 @@ export function SeatPrompt() {
   const atComputer = useOfficeStore((s) => s.atComputer);
   const atSwivel = useOfficeStore((s) => s.atSwivel);
   const sun = useOfficeStore((s) => s.seatSun);
+  const spa = useOfficeStore((s) => s.seatSpa);
   const atPhone = useOfficeStore((s) => s.atPhone);
   const openPanel = useOfficeStore((s) => s.openPanel);
   const pcOn = useOfficeStore((s) => s.pcOn);
@@ -140,7 +150,7 @@ export function SeatPrompt() {
       )}
       <div className="cozy-chip flex items-center gap-2 px-3 py-1.5 text-[13px] max-md:hidden">
         <kbd className="cozy-kbd">E</kbd>
-        {prompt === "sit" ? (sun ? "tomar el sol" : "sentarte") : sun ? "levantarte de la reposera (o muévete)" : "levantarte (o muévete)"}
+        {seatHelp(prompt, sun, spa)}
       </div>
     </div>
   );

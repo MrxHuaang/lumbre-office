@@ -109,8 +109,9 @@ import { setSfxArea, setSfxListener, sfx } from "./sfx";
 import { bindUiSounds } from "./sfxBindings";
 import { bindWeatherSounds } from "./weatherSound";
 import { ALCOHOL_PER_SIP, DRUNK, isSwivelSeat, spinMs, type DrunkStage, type SwivelEvent } from "@hyvento/shared";
-import { AGUA, isSunSeat, type DiveEvent } from "@hyvento/shared";
+import { AGUA, isSunSeat, spaKindOf, type DiveEvent } from "@hyvento/shared";
 import { PoolView } from "./piscina";
+import { TinaView } from "./tina";
 import { onDive } from "./piscina/net";
 import { poolSfx } from "./piscina/sound";
 import { playAnticSound } from "./antics-sound";
@@ -314,6 +315,8 @@ export class OfficeScene extends Phaser.Scene {
   private photoBoards!: PhotoBoards;
   /** La piscina del jardín (reflejos, flotadores, la lona y las salpicaduras) y si estoy nadando. */
   private pool!: PoolView;
+  /** La tina y la sauna del lago: el agua que se mueve, el vapor y los destellos del reflejo. */
+  private tina!: TinaView;
   private swimming = false;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
   private aquariums!: Aquariums;
@@ -399,6 +402,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
     this.pool = new PoolView(this);
+    this.tina = new TinaView(this);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
@@ -462,6 +466,7 @@ export class OfficeScene extends Phaser.Scene {
       onPhotoShot((shot) => this.takePhoto(shot)),
       onDive((e) => this.handleDive(e)),
       () => this.pool.destroy(),
+      () => this.tina.destroy(),
       onPhotosChanged(() => {
         const watching = PhotoBoards.hasBoard(this.map) || useOfficeStore.getState().panel?.kind === "photos";
         usePhotoStore.getState().markStale(watching);
@@ -576,6 +581,7 @@ export class OfficeScene extends Phaser.Scene {
     this.eventsView.update();
     this.cinema.update(time);
     this.pool.update(time);
+    this.tina.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
     this.updateOfficeRadio();
@@ -706,6 +712,7 @@ export class OfficeScene extends Phaser.Scene {
       this.eventsView.setArea(map, this.view);
       this.cinema.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
+    this.tina.setArea(map, useOfficeStore.getState().night);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -780,6 +787,7 @@ export class OfficeScene extends Phaser.Scene {
     this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
+    this.tina.setArea(map, useOfficeStore.getState().night);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
@@ -910,12 +918,16 @@ export class OfficeScene extends Phaser.Scene {
   private startAmbient() {
     this.ambient.forEach((t) => t.remove());
     this.ambient = [];
-    // La casa del jardín (o la cabaña vieja): la que tenga chimenea.
-    const cabin = this.map.furniture.find((f) => Object.hasOwn(CHIMNEY_TOPS, f.type));
-    if (!cabin) return;
+    // Lo que tenga chimenea: la casa del jardín (o la cabaña vieja) y las estufas de la tina y la sauna.
     const ts = this.map.tileSize;
-    const c = CHIMNEY_TOPS[cabin.type]!;
-    const top = worldToScreen(cabin.x * ts + c.x / WORLD_TO_ART, cabin.y * ts + c.y / WORLD_TO_ART, c.z);
+    for (const cabin of this.map.furniture.filter((f) => Object.hasOwn(CHIMNEY_TOPS, f.type))) {
+      const c = CHIMNEY_TOPS[cabin.type]!;
+      this.smokeFrom(worldToScreen(cabin.x * ts + c.x / WORLD_TO_ART, cabin.y * ts + c.y / WORLD_TO_ART, c.z));
+    }
+  }
+
+  /** Humo que sube de una chimenea (en pantalla). */
+  private smokeFrom(top: { x: number; y: number }) {
     this.ambient.push(
       this.time.addEvent({
         delay: 700,
@@ -1507,9 +1519,11 @@ export class OfficeScene extends Phaser.Scene {
     const prompt = this.seat ? "stand" : free && !this.usableNear && !this.petNear ? "sit" : null;
     const s = useOfficeStore.getState();
     if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
-    // En las reposeras de la piscina la ayuda dice "tomar el sol".
+    // En las reposeras de la piscina la ayuda dice "tomar el sol"; en la tina y la sauna, "meterse".
     const sun = Boolean((this.seat ?? free) && isSunSeat((this.seat ?? free)!.type));
     if (sun !== s.seatSun) s.setSeatSun(sun);
+    const spa = this.seat ?? free ? spaKindOf((this.seat ?? free)!.type) : null;
+    if (spa !== s.seatSpa) s.setSeatSpa(spa);
     const atComputer = this.seat?.computer ?? false;
     if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
     const atSwivel = this.seat ? isSwivelSeat(this.seat) : false;
@@ -1897,6 +1911,7 @@ export class OfficeScene extends Phaser.Scene {
     this.view?.setNight(useOfficeStore.getState().night);
     // Los reflejos de la piscina también tienen versión de noche.
     this.pool.setNight(useOfficeStore.getState().night);
+    this.tina.setNight(useOfficeStore.getState().night);
     this.updateGhost(true);
   }
 
