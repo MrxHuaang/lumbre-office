@@ -1,0 +1,37 @@
+# Mantiene despierto el servidor de juego (Render free lo duerme tras ~15 min sin visitas y al volver
+# tarda hasta un minuto en arrancar). Gratis: un curl a /health cada 10 minutos.
+# La URL va en la variable del repo GAME_SERVER_URL (o en un secret con el mismo nombre), por ejemplo
+# https://hyvento-game.onrender.com. Sin ella, el job termina sin fallar.
+name: Keep-alive del servidor de juego
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Tocar /health
+        env:
+          GAME_SERVER_URL: ${{ vars.GAME_SERVER_URL || secrets.GAME_SERVER_URL }}
+        run: |
+          if [ -z "$GAME_SERVER_URL" ]; then
+            echo "GAME_SERVER_URL no está definida: no hay nada que despertar."
+            exit 0
+          fi
+          # Acepta también la URL del WebSocket (wss://…) y quita la barra final.
+          base="${GAME_SERVER_URL%/}"
+          base="${base/#wss:\/\//https://}"
+          base="${base/#ws:\/\//http://}"
+          # Un servidor dormido tarda en contestar: se espera hasta 90 s y un fallo no rompe nada.
+          if curl -fsS --max-time 90 --retry 2 --retry-delay 10 "$base/health"; then
+            echo
+            echo "Servidor despierto."
+          else
+            echo "::warning::El servidor de juego no contestó en $base/health"
+          fi

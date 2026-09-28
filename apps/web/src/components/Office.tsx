@@ -4,6 +4,9 @@ import { ACTIVITY_PING_MS, AUTO_AWAY, IdleTimer } from "@hyvento/shared";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
+import { fetchGameToken } from "@/game/gameToken";
+import { wakeGameServer } from "@/game/reconexion";
+import { ReconnectChip } from "./ReconnectChip";
 import { media } from "@/game/media";
 import { connect, disconnect, sendActivity, sendIdle } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
@@ -112,17 +115,6 @@ function handleGameLoadError(err: unknown) {
     return;
   }
   useOfficeStore.getState().setConnection("error", "No se pudo cargar la cabaña. Recarga la página.");
-}
-
-async function fetchGameToken(): Promise<string> {
-  const res = await fetch("/api/game-token", { cache: "no-store" });
-  if (res.status === 401) {
-    window.location.href = "/login";
-    throw new Error("Sesión expirada");
-  }
-  const body = (await res.json().catch(() => null)) as { token?: string; error?: string } | null;
-  if (!res.ok || !body?.token) throw new Error(body?.error ?? "No se pudo obtener el acceso a la cabaña");
-  return body.token;
 }
 
 interface OfficeProps {
@@ -236,12 +228,17 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
     const gameModule = import("@/game/createGame");
     gameModule.then(() => !cancelled && useEntryStore.getState().done("motor")).catch(() => undefined);
     warmPrerender();
+    // A la par del token: despertar al servidor de juego si está dormido (Render free tarda hasta ~1 min).
+    entry.start("despertar");
+    const awake = wakeGameServer(() => cancelled).finally(() => !cancelled && useEntryStore.getState().done("despertar"));
 
     (async () => {
       try {
         const token = await fetchGameToken();
         if (cancelled) return;
         useEntryStore.getState().done("sesion");
+        await awake;
+        if (cancelled) return;
         useEntryStore.getState().start("conexion");
         // "Llegar en bus" (Mi personaje): solo al entrar; al reconectar se sigue donde se estaba.
         await connect({ token, arriveByBus: getArriveByBus() || undefined });
@@ -327,7 +324,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </div>
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
           <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
-            {connection === "reconnecting" && <div className="cozy-chip px-3.5 py-1.5 text-[13px]">Reconectando…</div>}
+            {connection === "reconnecting" && <ReconnectChip />}
             <AchievementToasts />
             <CatchCard />
           </div>
