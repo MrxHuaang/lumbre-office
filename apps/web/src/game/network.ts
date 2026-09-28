@@ -113,6 +113,7 @@ import { RESTART_MSG } from "@hyvento/shared";
 import { isDeadReconnection, isServerUnavailable, leaveAction, RECONNECT_BUDGET_MS, reconnectDelays, RESTART_BUDGET_MS, unreachableText, withJitter } from "@/lib/reconnect";
 import { GAME_SERVER_URL, IS_DEV, useReconnectStore } from "./reconexion";
 import { fetchGameToken, SessionExpiredError } from "./gameToken";
+import { forgetOldSession } from "./sesionNueva";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -1185,6 +1186,11 @@ async function reconnect(token: string, restart: boolean) {
       if (gen !== generation) {
         void r.leave(true).catch(() => undefined);
         return;
+      }
+      // Sesión nueva: lo de la sala vieja (jugadores, llamada, paneles) no debe quedar como fantasma.
+      if (r.sessionId !== useOfficeStore.getState().sessionId) {
+        forgetOldSession();
+        resetPhone();
       }
       attach(r);
       return;
