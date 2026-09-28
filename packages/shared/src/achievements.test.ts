@@ -5,7 +5,13 @@ import {
   MAX_STATS,
   STAT_KEYS,
   STAT_PREFIX,
+  ACHIEVEMENT_CATEGORIES,
+  ACHIEVEMENT_SCORE,
+  COLLECTOR_TIERS,
+  MAX_ACHIEVEMENT_SCORE,
   achievementById,
+  achievementScore,
+  nearestAchievements,
   achievementProgress,
   achievementsOfStat,
   bogotaDay,
@@ -20,10 +26,10 @@ const KEYS = new Set<string>(Object.values(STAT_KEYS));
 const PREFIXES = Object.values(STAT_PREFIX);
 
 describe("catálogo de logros", () => {
-  it("ids únicos, textos en su lugar y entre 25 y 40 logros", () => {
+  it("ids únicos, textos en su lugar y entre 60 y 120 logros", () => {
     expect(new Set(ACHIEVEMENTS.map((x) => x.id)).size).toBe(ACHIEVEMENTS.length);
-    expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(25);
-    expect(ACHIEVEMENTS.length).toBeLessThanOrEqual(40);
+    expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(60);
+    expect(ACHIEVEMENTS.length).toBeLessThanOrEqual(120);
     for (const x of ACHIEVEMENTS) {
       expect(x.id, x.id).toMatch(/^[a-z0-9-]+$/);
       expect(x.name.length, x.id).toBeGreaterThan(2);
@@ -39,6 +45,41 @@ describe("catálogo de logros", () => {
       expect(Number.isInteger(x.min) && x.min > 0, x.id).toBe(true);
       expect(BADGE_ICONS as readonly string[], x.id).toContain(x.icon);
     }
+  });
+
+  it("cada logro tiene su grupo y ningún grupo queda vacío", () => {
+    for (const x of ACHIEVEMENTS) expect(ACHIEVEMENT_CATEGORIES as readonly string[], x.id).toContain(x.category);
+    for (const c of ACHIEVEMENT_CATEGORIES) expect(ACHIEVEMENTS.filter((x) => x.category === c).length, c).toBeGreaterThanOrEqual(5);
+  });
+
+  it("los ids que ya están guardados en la base siguen existiendo", () => {
+    for (const id of ["buenos-dias", "adicto-al-tinto", "primera-borrachera", "album-completo", "turista", "veterano", "mareo-voluntario", "paparazzi"])
+      expect(achievementById(id), id).toBeDefined();
+  });
+
+  it("el último logro de logros se puede conseguir (hay de sobra en el catálogo)", () => {
+    const collectors = achievementsOfStat(STAT_KEYS.achievementsUnlocked);
+    expect(collectors.map((x) => x.min)).toEqual([...COLLECTOR_TIERS]);
+    expect(Math.max(...COLLECTOR_TIERS)).toBeLessThan(ACHIEVEMENTS.length - collectors.length);
+  });
+
+  it("las funciones nuevas (mascotas, huerto, cocina, juegos, foco, teléfono, propinas) tienen logro", () => {
+    for (const key of [
+      STAT_KEYS.petCares,
+      STAT_KEYS.petTreats,
+      STAT_KEYS.plantings,
+      STAT_KEYS.harvests,
+      STAT_KEYS.dishesCooked,
+      STAT_KEYS.arcadeGames,
+      STAT_KEYS.arcadeRecords,
+      STAT_KEYS.boardWins,
+      STAT_KEYS.racesFinished,
+      STAT_KEYS.focusBlocks,
+      STAT_KEYS.phoneCalls,
+      STAT_KEYS.tipsGiven,
+      STAT_KEYS.tipsReceived,
+    ])
+      expect(achievementsOfStat(key).length, key).toBeGreaterThan(0);
   });
 
   it("hay de todas las rarezas y algunos secretos", () => {
@@ -71,6 +112,22 @@ describe("reglas", () => {
     expect(achievementProgress(cats, {})).toBe(0);
     expect(achievementProgress(cats, { [STAT_KEYS.catPets]: 5 })).toBe(0.25);
     expect(achievementProgress(cats, { [STAT_KEYS.catPets]: 500 })).toBe(1);
+  });
+
+  it("el puntaje suma según la rareza e ignora ids viejos", () => {
+    expect(achievementScore([])).toBe(0);
+    expect(achievementScore(["buenos-dias", "no-existe"])).toBe(ACHIEVEMENT_SCORE.comun);
+    expect(achievementScore(ACHIEVEMENTS.map((x) => x.id))).toBe(MAX_ACHIEVEMENT_SCORE);
+  });
+
+  it("lo más cercano: sin secretos, sin lo que ya tiene y de más avanzado a menos", () => {
+    const stats = { [STAT_KEYS.catPets]: 15, [STAT_KEYS.fishCaught]: 10, [STAT_KEYS.blackouts]: 9 };
+    const near = nearestAchievements(stats, new Set(["primera-picada"]), 5).map((r) => r.achievement.id);
+    expect(near[0]).toBe("amigo-de-los-gatos");
+    expect(near).toContain("pescador");
+    expect(near).not.toContain("primera-picada");
+    expect(near).not.toContain("higado-de-acero");
+    expect(nearestAchievements({}, new Set())).toEqual([]);
   });
 
   it("los usos por tipo cuentan para el tinto", () => {

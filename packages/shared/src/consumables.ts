@@ -2,6 +2,7 @@
 // avisa a los del mismo nivel; cada cliente dibuja la animación.
 import { z } from "zod";
 import { CASA_CONSUMABLES, CASA_USABLES, type CasaAction } from "./casa";
+import { COCINA_CONSUMABLES } from "./cocina";
 import { HUERTO_CONSUMABLES, HUERTO_TOOLS, JARDIN_USABLES, type GardenStep, type JardinAction } from "./huerto";
 
 /**
@@ -79,6 +80,8 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   ...CASA_CONSUMABLES,
   // Jardín vivo: lo que se cosecha en el huerto y la miel.
   ...HUERTO_CONSUMABLES,
+  // La cocina: los platos hechos con lo del huerto.
+  ...COCINA_CONSUMABLES,
 };
 
 /** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). Las herramientas del huerto, los suyos. */

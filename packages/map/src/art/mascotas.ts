@@ -336,6 +336,23 @@ export function petTreat(kind: PetArtKind): PixelCanvas {
   return c;
 }
 
+/** El plato de croquetas: un tazón azul con el nombre de la casa en rojo y las croquetas asomando. */
+export function petBowl(): PixelCanvas {
+  const rows = [
+    "..kk.kk...", //
+    ".kWnWWnk..",
+    "kWnWWnWWk.",
+    "kbbbbbbbbk",
+    "kBBrrrBBBk",
+    ".kBBBBBBk.",
+    "..kkkkkk..",
+  ];
+  const col: Record<string, RGBA> = { k: OUT, W: hex("#b8733a"), n: hex("#6e3b22"), b: hex("#9cb9da"), B: hex("#4a70a0"), r: hex("#d9433f") };
+  const c = new PixelCanvas(10, rows.length);
+  rows.forEach((r, y) => [...r].forEach((ch, x) => ch !== "." && c.set(x, y, col[ch]!)));
+  return c;
+}
+
 /** Una "z" chiquita de 4x4 (salen al dormir). */
 export function sleepZ(): PixelCanvas {
   const c = new PixelCanvas(6, 6);

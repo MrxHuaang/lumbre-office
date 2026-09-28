@@ -69,9 +69,18 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   glass: ["xxxxxx..", "xYYYYx..", "xyyyyxxx", "xyyyyx.x", "xyyyyx.x", "xyyyyxxx", "xyyyyx..", "xxxxxx.."],
   chair: ["..bbbb..", "..bBBb..", "..bBBb..", "..bbbb..", "bbbbbbbb", "...ss...", "...ss...", ".ssssss.", "s..s..s."],
   scroll: ["nWWWWWWn", ".cccccc.", ".cCCCCc.", ".cccccc.", ".cCCCcc.", ".cccccc.", "nWWWWWWn"],
-  // Observatorio: la estrella fugaz con su estela, el telescopio de latón en su trípode y el malvavisco
-  // en el palito.
-  star: ["........Y.", ".......YYY", "....c.YYYY", "...c...YY.", "..c....Y..", ".c........", "c........."],
+  paw: ["..w...w...", ".www.www..", ".www.www..", "..w...w...", "w...ww...w", "ww.wwww.ww", "...wwwww..", "..wwwwww..", "..wwwwww..", "...wwww..."],
+  sprout: ["..g....g..", ".ggg..ggg.", "ggGg..gGgg", ".ggGggGgg.", "...gGGg...", "....GG....", "....GG....", "tttttttttt", "tnntnntnnt"],
+  pan: ["...cc.....", "..c.c.....", "...cc.....", "ssssssss..", "sOOYYOOsnn", "sOYxxYOsnn", ".ssssss..."],
+  pawn: ["...kk...", "..kxxk..", "..kxxk..", "...kk...", "..kxxk..", "..kxxk..", ".kxxxxk.", "kxxxxxxk", "kkkkkkkk"],
+  joystick: ["....rr....", "...rRRr...", "....rr....", "....ss....", "....ss....", ".vvvvvvvv.", "vVVVVVVVVv", "vVyVVVrVVv", "vvvvvvvvvv"],
+  tomato: ["....g.....", "..gggg....", ".rrggrr...", "rrRrrrrr..", "rRrrrrrrr.", "rrrrrrrrr.", "rrrrrrrrr.", ".rrrrrrr..", "..rrrrr..."],
+  phone: ["rrrrrrrrrr", "rRRRRRRRRr", "rr......rr", "..rrrrrr..", ".rrxxxxrr.", ".rrxkkxrr.", ".rrxxxxrr.", ".rrrrrrrr."],
+  trophy: ["yyyyyyyyy", "yYYYYYYYy", "yYyYYYYYy", ".yYYYYYy.", "..yYYYy..", "...yYy...", "....y....", "..nnnnn..", "..nWWWn..", ".nnnnnnn."],
+  guitar: [".......nn", "......nn.", ".....nn..", "....nn...", ".oOon....", "oOOOo....", "OOkOO....", "oOOOo....", ".ooo....."],
+  bulb: ["..yyyy..", ".yYYYYy.", "yYYxYYYy", "yYYYYYYy", ".yYYYYy.", "..yYYy..", "..ssss..", "..SSSS..", "...ss..."],
+  star: ["....y....", "....y....", "...yYy...", "yyyYYYyyy", ".yYYYYYy.", "..yYYYy..", "..yYyYy..", ".yY...Yy.", ".y.....y."],
+  // Observatorio: el telescopio de latón en su trípode y el malvavisco en el palito.
   telescope: ["......yy.", ".....yYy.", "....yYy..", "...yYy...", "..yYy....", ".nyy.....", ".n.n.....", "n...n....", "n...n...."],
   marshmallow: [".cccc....", "cCccCc...", "cccccc...", "cCcccC...", ".cccc....", "....ww...", ".....ww..", "......ww.", ".......ww"],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],

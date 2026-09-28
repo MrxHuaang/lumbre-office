@@ -47,6 +47,21 @@ describe("rastreador de logros", () => {
     expect([...repo.achievements.get("u")!]).toEqual(["amigo-de-los-gatos"]);
   });
 
+  it("cuenta cuántos logros tiene y destraba los logros de logros", async () => {
+    const repo = new MemoryRepository();
+    // Nueve de antes (sin el contador, como quien los ganó antes de que existiera).
+    const before = ACHIEVEMENTS.filter((a) => a.stat !== STAT_KEYS.achievementsUnlocked && a.stat !== STAT_KEYS.catPets).slice(0, 9);
+    for (const a of before) await repo.unlockAchievement("u", a.id);
+    const { t, unlocked } = tracker(repo);
+    await t.load("u");
+    expect(t.snapshot("u")!.stats[STAT_KEYS.achievementsUnlocked]).toBe(9);
+    expect(unlocked).toEqual([]);
+    for (let i = 0; i < 20; i++) t.bump("u", STAT_KEYS.catPets);
+    expect(unlocked).toEqual(["u:amigo-de-los-gatos", "u:coleccionista-de-logros"]);
+    // El décimo más el de logros: once.
+    expect(t.snapshot("u")!.stats[STAT_KEYS.achievementsUnlocked]).toBe(11);
+  });
+
   it("lo que ya tenía en la base cuenta, y lo ya desbloqueado no se avisa de nuevo", async () => {
     const repo = new MemoryRepository();
     await repo.saveStats("u", [{ key: STAT_KEYS.pianoPlays, op: "inc", value: 24 }]);

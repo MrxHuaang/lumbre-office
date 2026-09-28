@@ -11,13 +11,19 @@ import { clearEditorSprites } from "./sprites";
 const TABS: { id: TabId; label: string; icon: MiniIconName }[] = [
   { id: "body", label: "Cuerpo", icon: "face" },
   { id: "hair", label: "Pelo", icon: "comb" },
+  { id: "costume", label: "Trajes", icon: "suit" },
   { id: "clothes", label: "Ropa", icon: "shirt" },
   { id: "gear", label: "Accesorios", icon: "hat" },
 ];
 
+/** Lo de la pestaña Ropa: elegirlo quita el traje (si no, no se vería). */
+const CLOTHES: ReadonlySet<keyof FullLook> = new Set(["top", "bottom", "outfit", "shoes", "pattern", "shirt", "top2", "pants", "shoeColor"]);
+/** Lo de Accesorios: elegirlo con el traje puesto deja el traje pero con los accesorios propios. */
+const GEAR: ReadonlySet<keyof FullLook> = new Set(["head", "face", "neck", "back"]);
+
 /**
- * Editor de un look personalizado, estilo Terraria: vista previa que camina y gira, y cuatro pestañas
- * (cuerpo, pelo, ropa, accesorios) con miniaturas de cada opción y color por parte. Lee cualquier look
+ * Editor de un look personalizado, estilo Terraria: vista previa que camina y gira, y cinco pestañas
+ * (cuerpo, pelo, trajes completos, ropa, accesorios) con miniaturas de cada opción y color por parte. Lee cualquier look
  * (también los del formato viejo, vía `normalizeLook`) y escribe siempre el formato nuevo.
  */
 export function LookEditor({
@@ -45,13 +51,25 @@ export function LookEditor({
     latest.current = { full, onChange, onPreset };
   });
   const act = useMemo<LookActions>(() => {
-    const put = (patch: Partial<FullLook>, merge?: string) =>
-      latest.current.onChange(lookFromFull({ ...latest.current.full, ...patch }), merge);
+    const put = (patch: Partial<FullLook>, merge?: string) => {
+      const cur = latest.current.full;
+      const keys = Object.keys(patch) as (keyof FullLook)[];
+      // Con un traje puesto, lo que se elige en Ropa lo quita y lo de Accesorios cambia a los propios.
+      const off: Partial<FullLook> = !cur.costume
+        ? {}
+        : keys.some((k) => CLOTHES.has(k))
+          ? { costume: null, costumeColor: null }
+          : keys.some((k) => GEAR.has(k))
+            ? { costumeGear: false }
+            : {};
+      latest.current.onChange(lookFromFull({ ...cur, ...patch, ...off }), merge);
+    };
     return {
       set: (key, v) => put({ [key]: v }),
       toggle: (key) => put({ [key]: !latest.current.full[key] }),
       color: (key) => (hex) => put({ [key]: hex }, key),
       preset: (avatar) => latest.current.onPreset(avatar),
+      wear: (costume) => latest.current.onChange(lookFromFull({ ...latest.current.full, costume, costumeColor: null })),
     };
   }, []);
 
@@ -76,7 +94,7 @@ export function LookEditor({
       {/* Las pestañas se acomodan al ancho de su columna (no al del editor): muy angosta, 2 x 2 con el ícono
           al lado; mediana, 4 con el ícono arriba; ancha, 4 con el ícono al lado. Así ninguna se corta. */}
       <div className="@container/tabs flex min-w-0 flex-col gap-4">
-        <div role="tablist" aria-label="Partes del personaje" className="grid grid-cols-2 gap-1.5 @[21rem]/tabs:grid-cols-4">
+        <div role="tablist" aria-label="Partes del personaje" className="grid grid-cols-3 gap-1.5 @[26rem]/tabs:grid-cols-5">
           {TABS.map((t, i) => (
             <button
               key={t.id}
@@ -88,7 +106,7 @@ export function LookEditor({
               tabIndex={t.id === tab ? 0 : -1}
               onClick={() => setTab(t.id)}
               onKeyDown={(e) => onTabKey(e, i)}
-              className="cozy-btn min-w-0 gap-1 px-1 py-1.5 text-[12px] @[21rem]/tabs:flex-col @md/tabs:flex-row @md/tabs:text-[14px]"
+              className="cozy-btn min-w-0 gap-1 px-1 py-1.5 text-[12px] @[26rem]/tabs:flex-col @xl/tabs:flex-row @xl/tabs:text-[14px]"
             >
               <MiniIcon name={t.icon} size={14} className="shrink-0" />
               <span className="min-w-0 text-center leading-tight break-words">{t.label}</span>

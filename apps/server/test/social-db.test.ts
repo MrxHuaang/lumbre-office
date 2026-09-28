@@ -1,9 +1,9 @@
 // Regalos e intercambios contra la base (los helpers de `@hyvento/db` que usan la web y el repositorio de
 // Prisma del servidor), con una base de mentira que deshace la transacción si algo lanza.
-import { executeTradeTx, givenToday, openGiftTx, sendGiftTx, SocialAborted, type SocialAbortCode } from "@hyvento/db";
-import { GIFT } from "@hyvento/shared";
+import { executeTipTx, executeTradeTx, givenToday, openGiftTx, sendGiftTx, SocialAborted, tippedToday, type SocialAbortCode } from "@hyvento/db";
+import { CLUB_TIP, GIFT } from "@hyvento/shared";
 import { beforeEach, describe, expect, it } from "vitest";
-import { executeTrade, tradeAbortResult } from "../src/repo/social";
+import { executeTip, executeTrade, tradeAbortResult } from "../src/repo/social";
 import { FakeDb } from "./fake-db";
 
 let db: FakeDb;
@@ -257,5 +257,51 @@ describe("repositorio de Prisma: intercambios", () => {
     expect(tradeAbortResult(new SocialAborted("opened", "x"))).toBeNull();
     expect(tradeAbortResult(new Error("se cayó la base"))).toBeNull();
     expect(tradeAbortResult(new SocialAborted("limit-points", "x"))).toEqual({ ok: false, error: "limit", userId: "x" });
+  });
+});
+
+describe("propinas del tubo en la base", () => {
+  const tip = (refId: string, amount: number, fromId = "ana", toId = "beto") => ({ refId, fromId, toId, amount });
+
+  it("quien tira paga y quien baila recibe, en la misma transacción y con el mismo refId", async () => {
+    const { balances } = await db.transaction((tx) => executeTipTx(tx, tip("tip:1", 25)));
+    expect(balances).toEqual({ ana: 275, beto: 75 });
+    expect(db.t.moves.filter((m) => m.refId?.startsWith("tip:")).map((m) => [m.userId, m.amount, m.reason, m.refId])).toEqual([
+      ["ana", -25, "GIFT", "tip:1"],
+      ["beto", 25, "GIFT", "tip:1"],
+    ]);
+    // Cuentan como propina y también como puntos dados hoy (el tope común de los regalos).
+    expect(await db.transaction((tx) => tippedToday(tx, "ana"))).toBe(25);
+    expect((await db.transaction((tx) => givenToday(tx, "ana"))).points).toBe(25);
+  });
+
+  it("sin saldo, o por encima del tope, no se mueve nada", async () => {
+    await aborted(db.transaction((tx) => executeTipTx(tx, tip("tip:2", 60, "beto", "ana"))), "funds");
+    expect(db.points("beto")).toBe(50);
+    expect(db.points("ana")).toBe(300);
+    db.addUser("rica", 5000);
+    for (let i = 0; i < CLUB_TIP.dailyMax / 25; i++) await db.transaction((tx) => executeTipTx(tx, tip(`tip:r${i}`, 25, "rica")));
+    await aborted(db.transaction((tx) => executeTipTx(tx, tip("tip:r-extra", 1, "rica"))), "limit-tips");
+    expect(db.points("rica")).toBe(5000 - CLUB_TIP.dailyMax);
+    // El tope común de dar: con los regalos de hoy casi en el tope, la propina tampoco pasa.
+    db.addUser("dora", 5000);
+    await db.transaction((tx) => sendGiftTx(tx, "dora", gift({ points: GIFT.dailyPoints - 3 })));
+    await aborted(db.transaction((tx) => executeTipTx(tx, tip("tip:d1", 5, "dora"))), "limit-points");
+    expect(db.points("dora")).toBe(5000 - (GIFT.dailyPoints - 3));
+  });
+
+  it("dos propinas a la vez no pasan el tope (se bloquea la fila de quien tira)", async () => {
+    db.addUser("rica", 5000);
+    for (let i = 0; i < CLUB_TIP.dailyMax / 25 - 1; i++) await db.transaction((tx) => executeTipTx(tx, tip(`tip:c${i}`, 25, "rica")));
+    const results = await Promise.allSettled([db.transaction((tx) => executeTipTx(tx, tip("tip:x1", 25, "rica"))), db.transaction((tx) => executeTipTx(tx, tip("tip:x2", 25, "rica")))]);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(db.points("rica")).toBe(5000 - CLUB_TIP.dailyMax);
+    expect(db.waits).toBeGreaterThan(0);
+  });
+
+  it("el repositorio de Prisma traduce los cortes al error de la sala", async () => {
+    expect(await executeTip(db, tip("tip:p1", 5))).toEqual({ ok: true, balances: { ana: 295, beto: 55 } });
+    expect(await executeTip(db, tip("tip:p2", 100, "beto", "ana"))).toEqual({ ok: false, error: "funds" });
+    await expect(executeTip(db, tip("tip:p3", 5, "nadie"))).rejects.toMatchObject({ code: "missing" });
   });
 });
