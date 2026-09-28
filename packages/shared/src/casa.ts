@@ -112,6 +112,10 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   vanity: wash,
   "bath-sink": wash,
   "kitchen-sink": wash,
+  // El garaje: el reflector de obra, la planta seca (regarla ya no sirve de mucho) y el archivador.
+  "work-light": lamp("el reflector"),
+  "dead-plant": { ...water, label: "Regar la planta seca" },
+  "filing-dented": { ...read, label: "Hojear una carpeta vieja" },
   // La fogata del jardín: se asa desde los troncos (un poco más lejos que el alcance normal).
   "fire-pit": { action: "roast", label: "Asar un malvavisco", cooldownMs: CASA.roastMs + 400, gives: ["malvavisco"], reachTiles: CASA.roastReachTiles },
 };

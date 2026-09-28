@@ -3,11 +3,13 @@
 // (de día y sin lluvia; alborotadas al sacar miel), la campanita de la glorieta y su techo, que se
 // transparenta cuando hay alguien adentro. Lo usa usables.ts: aquí no hay reglas, solo dibujo y sonido
 // (las reglas las valida el servidor, ver apps/server/src/rooms/huerto.ts).
-import { pointsOfType, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
-import { BEE_FRAMES, cropSprite, drawBee, drawHeldItem, musicNote, NOTE_COLORS, sparkleSprite, waterDrop, wetSoil, type CropStage } from "@hyvento/map/art";
+import { catalogItem, pointsOfType, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
+import { BEE_FRAMES, bedCropSprite, cropSprite, drawBee, drawHeldItem, musicNote, NOTE_COLORS, sparkleSprite, waterDrop, wetSoil, type CropStage } from "@hyvento/map/art";
 import {
   EMPTY_CAN,
   FREE_NAMES,
+  GREENHOUSE_PLOT_BASE,
+  isGreenhousePlot,
   WATERING_CAN,
   canHarvest,
   canWater,
@@ -95,8 +97,8 @@ export class JardinVivo {
   private bees: Bee[] = [];
   private flowers: { x: number; y: number }[] = [];
   private swarmUntil = new Map<PlacedFurniture, number>();
-  private gazebo?: PlacedFurniture;
-  private roof?: Phaser.GameObjects.Image;
+  /** Lo que se transparenta con alguien adentro (el techo de la glorieta, el vidrio del invernadero). */
+  private roofs: { f: PlacedFurniture; img?: Phaser.GameObjects.Image }[] = [];
   private growIn = 0;
   private detach: (() => void)[] = [];
 
@@ -113,14 +115,19 @@ export class JardinVivo {
     this.clear();
     this.map = map;
     const ts = map.tileSize;
-    pointsOfType(map, "garden_plot").forEach((p, id) => {
-      const f = map.furniture.find((g) => g.type === "garden-plot" && g.x === p.tileX && g.y === p.tileY);
-      if (!f) return;
-      const plot: Plot = { id, f, shown: "" };
-      this.plots.push(plot);
-      this.plotAt.set(`${f.x},${f.y}`, plot);
-    });
-    this.gazebo = map.furniture.find((f) => f.type === "gazebo-roof");
+    // Las parcelas del huerto (ids 0..) y los bancales del invernadero (desde GREENHOUSE_PLOT_BASE).
+    for (const [point, type, base] of [
+      ["garden_plot", "garden-plot", 0],
+      ["greenhouse_plot", "greenhouse-bed", GREENHOUSE_PLOT_BASE],
+    ] as const)
+      pointsOfType(map, point).forEach((p, i) => {
+        const f = map.furniture.find((g) => g.type === type && g.x === p.tileX && g.y === p.tileY);
+        if (!f) return;
+        const plot: Plot = { id: base + i, f, shown: "" };
+        this.plots.push(plot);
+        this.plotAt.set(`${f.x},${f.y}`, plot);
+      });
+    this.roofs = map.furniture.filter((f) => catalogItem(f.type).seeThrough).map((f) => ({ f }));
     const hives = map.furniture.filter((f) => f.type === "beehive");
     if (hives.length) {
       for (const f of map.furniture) {
@@ -175,8 +182,7 @@ export class JardinVivo {
     this.bees = [];
     this.flowers = [];
     this.swarmUntil.clear();
-    this.gazebo = undefined;
-    this.roof = undefined;
+    this.roofs = [];
   }
 
   private stateOf(id: number): PlotState | undefined {
@@ -212,7 +218,9 @@ export class JardinVivo {
       if (!st) continue;
       // La tierra mojada va sobre la parcela (plana) y las matas se ordenan con su centro.
       if (wet) p.wet = this.layer(p.f, "huerto-mojada", wetSoil, DEPTH_FLAT + 1);
-      p.crop = this.layer(p.f, `huerto-${st.crop}-${stage}`, () => cropSprite(st.crop, stage as CropStage), depthOf((p.f.x + 0.5) * ts, (p.f.y + 0.5) * ts) + 0.01);
+      const bed = isGreenhousePlot(p.id);
+      const draw = () => (bed ? bedCropSprite : cropSprite)(st.crop, stage as CropStage);
+      p.crop = this.layer(p.f, `${bed ? "bancal" : "huerto"}-${st.crop}-${stage}`, draw, depthOf((p.f.x + 0.5) * ts, (p.f.y + 0.5) * ts) + 0.01);
     }
   }
 
@@ -232,13 +240,19 @@ export class JardinVivo {
       return f.type === "well" ? "Pozo (trae la regadera del cobertizo)" : "Barril de agua (trae la regadera del cobertizo)";
     }
     if (f.type === "beehive") return held && !isFreeHold(held) ? "Tienes las manos ocupadas" : "Sacar miel";
-    if (f.type !== "garden-plot") return undefined;
+    if (f.type !== "garden-plot" && f.type !== "greenhouse-bed") return undefined;
     const plot = this.plotAt.get(`${f.x},${f.y}`);
     if (!plot) return undefined;
+    // A los bancales se llega desde adentro (el servidor tampoco deja a través del vidrio).
+    const me = this.host.local();
+    if (isGreenhousePlot(plot.id) && me && !this.insideGreenhouse(me.x, me.y)) return "Entra al invernadero por la puerta";
     const st = this.stateOf(plot.id);
     if (!st) {
       const seeds = cropOfSeeds(held);
-      return seeds ? `Sembrar ${seeds.name.toLowerCase()}` : "Parcela vacía (saca semillas del cobertizo)";
+      const bed = isGreenhousePlot(plot.id);
+      if (seeds && Boolean(seeds.indoor) !== bed) return bed ? `${seeds.name} va afuera, en el huerto` : `${seeds.name} va en el invernadero`;
+      if (seeds) return `Sembrar ${seeds.name.toLowerCase()}`;
+      return bed ? "Bancal vacío (semillas de tierra caliente en el cobertizo)" : "Parcela vacía (saca semillas del cobertizo)";
     }
     const crop = cropById(st.crop)!;
     const now = serverNow();
@@ -247,6 +261,7 @@ export class JardinVivo {
       if (canHarvest(st, userId, now)) return `Cosechar: ${FREE_NAMES[crop.product] ?? crop.name}`;
       return `${crop.name} lista · la sembró ${st.plantedByName || "alguien más"}`;
     }
+    if (crop.indoor) return `${crop.name} · lista en ${durationText(left)} (aquí no hace falta regar)`;
     if (can) return canWater(st, now) ? `Regar ${crop.name.toLowerCase()} (lista en ${durationText(left)})` : `${crop.name} · tierra húmeda, lista en ${durationText(left)}`;
     if (held === EMPTY_CAN) return "La regadera está vacía: llénala en el barril";
     return `${crop.name} · lista en ${durationText(left)}${plotWet(st, now) ? "" : " (riégala para que crezca más rápido)"}`;
@@ -469,32 +484,44 @@ export class JardinVivo {
     this.bees = keep;
   }
 
-  // ---------- La glorieta ----------
+  // ---------- La glorieta y el invernadero ----------
 
-  /** El techo de la glorieta lo dibuja el nivel: se busca su imagen para transparentarlo. */
-  private roofImage(): Phaser.GameObjects.Image | undefined {
-    if (this.roof?.active) return this.roof;
-    this.roof = this.scene.children.list.find(
-      (o): o is Phaser.GameObjects.Image => o instanceof Phaser.GameObjects.Image && o.texture.key.startsWith("mueble-gazebo-roof-"),
-    );
-    return this.roof;
+  private insideGreenhouse(px: number, py: number): boolean {
+    const map = this.map;
+    if (!map) return false;
+    const ts = map.tileSize;
+    return map.furniture.some((f) => f.type === "greenhouse" && px >= f.x * ts && px < (f.x + f.w) * ts && py >= f.y * ts && py < (f.y + f.d) * ts);
   }
 
-  private updateRoof(delta: number) {
-    const g = this.gazebo;
+  /** El techo (o el vidrio) lo dibuja el nivel: se busca su imagen, por su textura y su lugar, para transparentarla. */
+  private roofImage(r: { f: PlacedFurniture; img?: Phaser.GameObjects.Image }): Phaser.GameObjects.Image | undefined {
+    if (r.img?.active) return r.img;
+    const prefix = `mueble-${r.f.type}-`;
+    const ts = this.map!.tileSize;
+    const d = depthOf((r.f.x + r.f.w / 2) * ts, (r.f.y + r.f.d / 2) * ts);
+    r.img = this.scene.children.list.find(
+      (o): o is Phaser.GameObjects.Image => o instanceof Phaser.GameObjects.Image && o.texture.key.startsWith(prefix) && Math.abs(o.depth - d) < 0.5,
+    );
+    return r.img;
+  }
+
+  private updateRoofs(delta: number) {
     const map = this.map;
     const room = this.host.room();
-    if (!g || !map || !room) return;
-    const img = this.roofImage();
-    if (!img) return;
+    if (!map || !room) return;
     const ts = map.tileSize;
-    let inside = false;
-    for (const p of room.state.players.values()) {
-      if (p.area !== map.id) continue;
-      if (p.x >= g.x * ts && p.x < (g.x + g.w) * ts && p.y >= g.y * ts && p.y < (g.y + g.d) * ts) inside = true;
+    for (const r of this.roofs) {
+      const img = this.roofImage(r);
+      if (!img) continue;
+      const g = r.f;
+      let inside = false;
+      for (const p of room.state.players.values()) {
+        if (p.area !== map.id) continue;
+        if (p.x >= g.x * ts && p.x < (g.x + g.w) * ts && p.y >= g.y * ts && p.y < (g.y + g.d) * ts) inside = true;
+      }
+      const target = inside ? ROOF_SEE_THROUGH : 1;
+      img.setAlpha(img.alpha + (target - img.alpha) * Math.min(1, delta / 180));
     }
-    const target = inside ? ROOF_SEE_THROUGH : 1;
-    img.setAlpha(img.alpha + (target - img.alpha) * Math.min(1, delta / 180));
   }
 
   // ---------- Cada cuadro ----------
@@ -507,6 +534,6 @@ export class JardinVivo {
       this.refreshPlots();
     }
     if (this.bees.length) this.updateBees(time, delta);
-    this.updateRoof(delta);
+    this.updateRoofs(delta);
   }
 }

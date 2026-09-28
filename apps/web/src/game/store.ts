@@ -174,6 +174,10 @@ interface OfficeStore {
   /** Modo privado: dentro de una oficina o la sala de reuniones, paredes altas y lo de afuera a oscuras. */
   privateWalls: boolean;
   setPrivateWalls: (on: boolean) => void;
+  /** Cómo se ven los nombres sobre los personajes (se recuerda en este navegador; tecla N para cambiar). */
+  nameTags: NameTagMode;
+  setNameTags: (mode: NameTagMode) => void;
+  cycleNameTags: () => void;
   /** Estoy en un nivel de adentro de la casa (el modo privado sirve en cualquier sala). */
   indoors: boolean;
   setIndoors: (on: boolean) => void;
@@ -258,6 +262,24 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
 
 const PRIVATE_WALLS_KEY = "hyvento:paredes-altas";
 
+/**
+ * Nombres sobre los personajes: completos, cortos ("Juan J.", sin el propio) u ocultos. En cualquier modo,
+ * al pasar el mouse por encima de alguien se ve su nombre completo.
+ */
+export const NAME_TAG_MODES = ["corto", "completo", "oculto"] as const;
+export type NameTagMode = (typeof NAME_TAG_MODES)[number];
+export const NAME_TAG_LABEL: Record<NameTagMode, string> = { corto: "Nombres cortos", completo: "Nombres completos", oculto: "Nombres ocultos" };
+const NAME_TAGS_KEY = "hyvento:nombres";
+
+function loadNameTags(): NameTagMode {
+  try {
+    const v = typeof localStorage !== "undefined" ? localStorage.getItem(NAME_TAGS_KEY) : null;
+    return (NAME_TAG_MODES as readonly string[]).includes(v ?? "") ? (v as NameTagMode) : "corto";
+  } catch {
+    return "corto";
+  }
+}
+
 /** El modo privado se recuerda en este navegador (arranca apagado). */
 function loadPrivateWalls(): boolean {
   try {
@@ -295,6 +317,7 @@ const initial = {
   area: "",
   night: false,
   privateWalls: loadPrivateWalls(),
+  nameTags: loadNameTags(),
   indoors: false,
   weather: "despejado" as Weather,
   mapReady: false,
@@ -382,6 +405,18 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
       // sin almacenamiento: vale solo para esta visita
     }
   },
+  setNameTags: (nameTags) => {
+    set({ nameTags });
+    try {
+      localStorage.setItem(NAME_TAGS_KEY, nameTags);
+    } catch {
+      // sin almacenamiento: vale solo para esta visita
+    }
+  },
+  cycleNameTags: () => {
+    const i = NAME_TAG_MODES.indexOf(get().nameTags);
+    get().setNameTags(NAME_TAG_MODES[(i + 1) % NAME_TAG_MODES.length]!);
+  },
   setWeather: (weather) => set({ weather }),
   setMapReady: (mapReady) => set({ mapReady }),
   setInteract: (interact) => set({ interact }),
@@ -395,7 +430,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   pickDecor: (decorPick, facing) => set((s) => ({ decorPick, decorFacing: facing ?? s.decorFacing })),
   rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
   setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),
-  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls })),
+  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls, nameTags: s.nameTags })),
 }));
 
 /** User.id del jugador local. */

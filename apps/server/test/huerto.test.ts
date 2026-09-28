@@ -2,6 +2,7 @@ import type { ColyseusTestServer } from "@colyseus/testing";
 import { findPath, getWorld, isBlockedTile, pointsOfType, spawnPoint } from "@hyvento/map";
 import {
   EMPTY_CAN,
+  GREENHOUSE_PLOT_BASE,
   HUERTO,
   HUERTO_MSG,
   MSG,
@@ -27,6 +28,8 @@ const plots = pointsOfType(jardin, "garden_plot");
 const shedPoint = pointsOfType(jardin, "tool_shed")[0]!;
 const barrel = jardin.furniture.find((f) => f.type === "water-barrel")!;
 const hive = jardin.furniture.find((f) => f.type === "beehive")!;
+const beds = pointsOfType(jardin, "greenhouse_plot");
+const greenhouse = jardin.furniture.find((f) => f.type === "greenhouse")!;
 const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
 
 /** Un tile libre al lado del mueble al que se llega caminando. */
@@ -114,7 +117,7 @@ describe("huerto (en la sala)", () => {
     expect(me(client, room).heldLeft).toBe(String(HUERTO.seedUses));
   });
 
-  it("se siembra con semillas, se riega con la regadera llena y se cosecha con puntos", async () => {
+  it("se siembra con semillas, se riega con la regadera llena y se cosecha con puntos", { timeout: 30_000 }, async () => {
     const { room, client, notices, events } = await join();
     const plot = plots[0]!;
     // Sin semillas, la parcela vacía avisa qué hace falta.
@@ -216,6 +219,47 @@ describe("huerto (en la sala)", () => {
     await use(client, room, "beehive", hive.x, hive.y);
     expect(events.filter((e) => e.action === "honey")).toHaveLength(2);
   });
+
+  it("en el invernadero se siembra lo de tierra caliente, crece sin regar y se cosecha", async () => {
+    const { room, client, notices, events } = await join();
+    const bed = beds[4]!; // el primero del costado oeste
+    const aisle = { x: greenhouse.x + 1, y: greenhouse.y + 1 };
+    // Lo de tierra caliente no se da afuera.
+    await takeFromShed(client, room, seedsOf("pitahaya"));
+    await walkToTile(client, room, plots[0]!.tileX, plots[0]!.tileY);
+    await use(client, room, "garden-plot", plots[0]!.tileX, plots[0]!.tileY);
+    expect(notices.at(-1)).toMatchObject({ code: "indoor", crop: "pitahaya" });
+    expect(room.state.garden.size).toBe(0);
+    // Desde afuera, a través del vidrio, no se alcanza.
+    await walkToTile(client, room, greenhouse.x - 1, bed.tileY);
+    await use(client, room, "greenhouse-bed", bed.tileX, bed.tileY);
+    expect(notices.at(-1)?.code).toBe("inside");
+    expect(room.state.garden.size).toBe(0);
+    // Se entra por la puerta y se siembra en el bancal.
+    await walkToTile(client, room, aisle.x, aisle.y);
+    await use(client, room, "greenhouse-bed", bed.tileX, bed.tileY);
+    const key = String(GREENHOUSE_PLOT_BASE + 4);
+    expect(room.state.garden.get(key)?.crop).toBe("pitahaya");
+    expect(events.at(-1)).toMatchObject({ type: "greenhouse-bed", garden: "plant", item: "pitahaya" });
+    await tick(50);
+    expect(repo.garden.get(GREENHOUSE_PLOT_BASE + 4)?.crop).toBe("pitahaya");
+    // Lo del huerto no va en los bancales.
+    await takeFromShed(client, room, seedsOf("papa"));
+    await walkToTile(client, room, aisle.x, aisle.y);
+    await use(client, room, "greenhouse-bed", beds[0]!.tileX, beds[0]!.tileY);
+    expect(notices.at(-1)?.code).toBe("outdoor");
+    // Con la regadera avisa que no hace falta, y sin regar queda lista a tiempo.
+    await takeFromShed(client, room, EMPTY_CAN);
+    await walkToTile(client, room, aisle.x, aisle.y);
+    await use(client, room, "greenhouse-bed", bed.tileX, bed.tileY);
+    expect(notices.at(-1)?.code).toBe("noWater");
+    const before = me(client, room).points;
+    clock += cropById("pitahaya")!.growMs;
+    await use(client, room, "greenhouse-bed", bed.tileX, bed.tileY);
+    expect(room.state.garden.has(key)).toBe(false);
+    expect(me(client, room).held).toBe("pitahaya");
+    expect(me(client, room).points).toBe(before + cropById("pitahaya")!.points);
+  }, 30_000);
 
   it("desde lejos no se usa la parcela", async () => {
     const { room, client, events } = await join();

@@ -24,8 +24,8 @@ export function ShedPanel({ atObject, onClose }: { atObject: boolean; onClose: (
     <PanelShell title="Cobertizo" icon="bag" onClose={onClose}>
       <div className="flex flex-col gap-3 text-[14px]">
         <p className="text-cozy-ink-soft">
-          Siembra con E sobre una parcela vacía llevando semillas; riega con la regadera llena (crece cuatro veces más rápido) y cosecha
-          cuando brille. Cada bolsa siembra {HUERTO.seedUses} parcelas.
+          Siembra con E sobre una parcela vacía llevando semillas; riega con la regadera llena (crece cuatro veces más rápido) y cosecha cuando brille. Cada
+          bolsa siembra {HUERTO.seedUses} parcelas.
         </p>
         <button type="button" disabled={!atObject} onClick={() => take(EMPTY_CAN)} className="cozy-btn flex items-center gap-3 px-3 py-2 text-left">
           <ItemArt id="regadera" />
@@ -34,19 +34,37 @@ export function ShedPanel({ atObject, onClose }: { atObject: boolean; onClose: (
             <span className="block text-[12px] text-cozy-ink-soft">Sale vacía: llénala en el barril de agua o en el pozo ({HUERTO.canUses} riegos).</span>
           </span>
         </button>
-        <section aria-label="Semillas" className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
-          {CROPS.map((c) => (
-            <button key={c.id} type="button" disabled={!atObject} onClick={() => take(seedsOf(c.id))} className="cozy-btn flex items-center gap-2 px-2 py-1.5 text-left">
-              <ItemArt id={seedsOf(c.id)} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">{c.name}</span>
-                <span className="block text-[12px] text-cozy-ink-soft">
-                  {durationText(c.growMs)} regado · {c.points} pts
-                </span>
-              </span>
-            </button>
-          ))}
-        </section>
+        {(
+          [
+            ["Semillas para el huerto", CROPS.filter((c) => !c.indoor), ""],
+            ["Para el invernadero", CROPS.filter((c) => c.indoor), "Tierra caliente: van en los bancales de adentro y crecen sin regar."],
+          ] as const
+        ).map(([title, crops, hint]) => (
+          <section key={title} aria-label={title} className="flex flex-col gap-1.5">
+            <h3 className="text-[13px] font-semibold text-cozy-ink-soft">{title}</h3>
+            {hint && <p className="text-[12px] text-cozy-ink-soft">{hint}</p>}
+            <div className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
+              {crops.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  disabled={!atObject}
+                  onClick={() => take(seedsOf(c.id))}
+                  className="cozy-btn flex items-center gap-2 px-2 py-1.5 text-left"
+                >
+                  <ItemArt id={seedsOf(c.id)} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold">{c.name}</span>
+                    <span className="block text-[12px] text-cozy-ink-soft">
+                      {durationText(c.growMs)}
+                      {c.indoor ? "" : " regado"} · {c.points} pts
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
         {!atObject && <p className="text-center text-[12px] text-cozy-ink-soft">El cobertizo está en la esquina del huerto, al noroeste del jardín.</p>}
       </div>
     </PanelShell>

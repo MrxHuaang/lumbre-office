@@ -63,10 +63,15 @@ describe("puntos de presencia", () => {
   it("no se ganan sin actividad ni estando ausente", async () => {
     const { room, bob, alice } = await setup();
     bob.send(MSG.status, { status: "away" });
+    // Entrar cuenta como actividad: si un tic cae justo después de entrar, da puntos. Se mide desde que
+    // esa actividad venció (si no, el test fallaba de vez en cuando con la máquina cargada).
+    await tick(OfficeRoom.idleMs + OfficeRoom.presenceTickMs);
+    const bob0 = await repo.getPoints("u-bob");
+    const alice0 = await repo.getPoints("u-alice");
     await stayActive([bob], 500); // ausente aunque se mueva el mouse
-    expect(await repo.getPoints("u-bob")).toBe(0);
-    expect(await repo.getPoints("u-alice")).toBe(0); // Alice no hizo nada desde que entró
-    expect(room.state.players.get(alice.sessionId)!.points).toBe(0);
+    expect(await repo.getPoints("u-bob")).toBe(bob0);
+    expect(await repo.getPoints("u-alice")).toBe(alice0); // Alice no hizo nada desde que entró
+    expect(room.state.players.get(alice.sessionId)!.points).toBe(alice0);
   });
 
   it("en la sala de reuniones con alguien más se gana el extra de reunión", async () => {

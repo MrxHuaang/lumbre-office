@@ -33,7 +33,7 @@ export {
   type SquirrelFrame,
 } from "./fauna";
 // Jardín vivo: lo que crece en las parcelas del huerto y la tierra mojada.
-export { cropSprite, wetSoil, type CropStage } from "./huerto";
+export { bedCropSprite, cropSprite, wetSoil, type CropStage } from "./huerto";
 // Logros: las insignias del perfil y el destello al desbloquear uno.
 export { BADGE_SIZE, drawBadge, drawBadgeGlyph, hasBadgeArt, sparkleSprite } from "./badges";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.
