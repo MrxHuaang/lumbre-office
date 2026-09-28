@@ -9,21 +9,21 @@ import { C, mix } from "./palette";
 import { at, bayer, noise, ramp, smoothNoise, type Ramp, type RGBA, type Sprite } from "./pixel";
 
 /** Piedra de la torre: gris cálido, casi arena, para que no se vea como cemento. */
-export const WARM_STONE: Ramp = ramp("#3b3033", "#5a4b4a", "#7a6a63", "#9b8a7d", "#bba996", "#d9cab2");
+export const WARM_STONE: Ramp = ramp("#3d3130", "#5e4c45", "#806b5c", "#a18a74", "#c0a98c", "#dcc8a8");
 
 /** Centro de la torre y medidas (la torre va un poco hacia atrás, así caben los escalones). */
 const CX = 48;
 const CY = 45;
 /** La lomita: radio al pie, radio arriba y alto. */
-const HILL = { r0: 46, r1: 29, h: 9 };
+const HILL = { r0: 46, r1: 32, h: 9 };
 /** La torre. */
-const TW = { r: 25, z0: HILL.h - 1, top: 78 };
+const TW = { r: 28, z0: HILL.h - 1, top: 90 };
 /** La galería de tablas al pie de la cúpula. */
-const GAL = { z: TW.top, r: 31 };
+const GAL = { z: TW.top, r: 34 };
 /** La cúpula (media esfera). */
-const DOME = { r: 25, z0: TW.top + 3 };
+const DOME = { r: 28, z0: TW.top + 3 };
 /** La compuerta: su ángulo (casi +x, así el telescopio asoma de perfil) y su medio ancho. */
-const SLIT = { az: 0.2, half: 0.2 };
+const SLIT = { az: 0.3, half: 0.26 };
 /** Puerta en arco, de frente (+y). */
 const DOOR = { half: 7.5, h: 22 };
 
@@ -80,10 +80,10 @@ function door(u: number, v: number, night: boolean): RGBA | null {
 /** Las ventanitas de la torre: (ángulo, altura del alféizar). La puerta va en π/2. */
 const WINDOWS: [number, number][] = [
   [0.15, 22],
-  [0.95, 48],
+  [0.95, 52],
   [2.3, 26],
-  [2.05, 54],
-  [-0.35, 52],
+  [2.05, 60],
+  [-0.35, 58],
 ];
 
 /** La torre: piedra, ventanas, la puerta y la viga de arriba. */
@@ -146,7 +146,7 @@ function tube(s: Escena, p0: [number, number, number], p1: [number, number, numb
   const len = Math.hypot(d[0], d[1], d[2]);
   const ax = [d[0] / len, d[1] / len, d[2] / len] as const;
   // Dos vectores perpendiculares al eje.
-  const ref = Math.abs(ax[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+  const ref: readonly [number, number, number] = Math.abs(ax[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
   const a = [ax[1] * ref[2] - ax[2] * ref[1], ax[2] * ref[0] - ax[0] * ref[2], ax[0] * ref[1] - ax[1] * ref[0]];
   const al = Math.hypot(a[0]!, a[1]!, a[2]!);
   const e1 = [a[0]! / al, a[1]! / al, a[2]! / al];
@@ -249,11 +249,14 @@ export function drawObservatory(night: boolean): Sprite {
       const nz = Math.sin(el);
       const open = night && Math.abs(az - SLIT.az) < SLIT.half && el < 1.35;
       if (open) {
-        // Fondo del hueco: la cara de adentro de la cúpula, oscura, con el resplandor de la lámpara.
-        const k = 0.45;
-        const glow = 1 - el / 1.35;
-        const c = bayer(Math.floor(az * 60), Math.floor(el * 60)) < glow * 0.55 ? at(C.fire, 3) : at(C.woodDark, glow > 0.5 ? 2 : 1);
-        s.plot(CX + nx * R * k, CY + ny * R * k, DOME.z0 + nz * R * k, c);
+        // Fondo del hueco: por el hueco se ve la cara de adentro del otro lado de la cúpula (donde sale la
+        // visual hacia atrás), oscura, con el resplandor de la lámpara abajo.
+        const t = (2 * R * (nx + ny + nz)) / Math.sqrt(3);
+        const back = -t / Math.sqrt(3);
+        const qz = nz * R + back;
+        const glow = 1 - Math.max(0, qz) / R;
+        const c = bayer(Math.floor(az * 60), Math.floor(el * 60)) < (glow - 0.55) * 0.5 ? at(C.gold, 3) : at(C.woodDark, glow > 0.75 ? 1 : 0);
+        s.plot(CX + nx * R + back, CY + ny * R + back, DOME.z0 + qz, c);
         continue;
       }
       const luz = ny * 0.6 - nx * 0.35 + nz * 0.55;
@@ -269,18 +272,18 @@ export function drawObservatory(night: boolean): Sprite {
 
   // ----- De noche, el telescopio de latón asomando por la compuerta.
   if (night) {
-    const el = 0.62;
+    const el = 0.72;
     const dir: [number, number, number] = [Math.cos(SLIT.az) * Math.cos(el), Math.sin(SLIT.az) * Math.cos(el), Math.sin(el)];
-    const base: [number, number, number] = [CX, CY, DOME.z0 + 6];
-    const end: [number, number, number] = [base[0] + dir[0] * 40, base[1] + dir[1] * 40, base[2] + dir[2] * 40];
-    tube(s, base, end, 3.3, (t, luz) => {
+    const base: [number, number, number] = [CX, CY, DOME.z0 + 8];
+    const end: [number, number, number] = [base[0] + dir[0] * 50, base[1] + dir[1] * 50, base[2] + dir[2] * 50];
+    tube(s, base, end, 4, (t, luz) => {
       const k = luz > 0.4 ? 5 : luz > -0.1 ? 4 : 3;
       if (t > 0.94) return at(C.woodDark, 2);
       if (Math.abs(t - 0.55) < 0.025 || Math.abs(t - 0.85) < 0.025) return at(C.woodDark, 3);
       return at(C.gold, k - (t < 0.3 ? 1 : 0));
     });
     // La lente, con un brillo.
-    s.disc(end[0], end[1], end[2], 2.4, (dx, dy) => (Math.hypot(dx + 0.8, dy - 0.8) < 0.9 ? at(C.white, 4) : at(C.blue, 3)));
+    s.disc(end[0], end[1], end[2], 3, (dx, dy) => (Math.hypot(dx + 0.8, dy - 0.8) < 0.9 ? at(C.white, 4) : at(C.blue, 3)));
   }
 
   // ----- Hiedra que trepa por la torre al lado oeste de la puerta.
@@ -297,10 +300,10 @@ export function drawObservatory(night: boolean): Sprite {
 
 /** Dónde queda la lente del telescopio de afuera (para que el cliente le ponga un brillo de noche). */
 export const OBSERVATORY_LENS = (() => {
-  const el = 0.62;
+  const el = 0.72;
   return {
-    x: CX + Math.cos(SLIT.az) * Math.cos(el) * 40,
-    y: CY + Math.sin(SLIT.az) * Math.cos(el) * 40,
-    z: DOME.z0 + 6 + Math.sin(el) * 40,
+    x: CX + Math.cos(SLIT.az) * Math.cos(el) * 50,
+    y: CY + Math.sin(SLIT.az) * Math.cos(el) * 50,
+    z: DOME.z0 + 8 + Math.sin(el) * 50,
   };
 })();

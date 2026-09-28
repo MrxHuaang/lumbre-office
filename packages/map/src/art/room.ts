@@ -22,6 +22,8 @@ import {
 } from "./pixel";
 import { FOREST, interiorFeature, interiorFloor, interiorWall } from "./interior-room";
 import { CEMENT, concreteFloor, garajeFeature, gravelFloor, wornPlanksFloor } from "./garaje-room";
+import { WARM_STONE } from "./observatorio-exterior";
+import { observatorioFeature } from "./observatorio-room";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;
@@ -46,6 +48,7 @@ const WALLPAPER: Record<WallpaperKind, Ramp> = {
   colonial: C.cream,
   cinderblock: CEMENT,
   boards: C.logs,
+  stonework: WARM_STONE,
 };
 /** El alfombrado toma el color del papel de la sala. */
 const CARPET: Record<WallpaperKind, Ramp> = {
@@ -66,6 +69,7 @@ const CARPET: Record<WallpaperKind, Ramp> = {
   colonial: C.green,
   cinderblock: C.stone,
   boards: C.rug,
+  stonework: C.rug,
 };
 
 // ---------- Pisos ----------
@@ -886,6 +890,11 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
     case "cobweb":
     case "dusty-window":
       return garajeFeature(f, u, hv, day);
+    // El observatorio (art/observatorio-room.ts).
+    case "star-chart":
+    case "mural":
+    case "porthole":
+      return observatorioFeature(f, u, hv, day);
   }
 }
 
