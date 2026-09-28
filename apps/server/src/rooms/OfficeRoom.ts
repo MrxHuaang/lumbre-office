@@ -2471,7 +2471,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const now = Date.now();
     const used = this.held.use(player.userId, now);
     if (!used.ok) return;
-    this.countUse(player.userId, used.art, used.action);
+    this.countUse(player.userId, used.art, used.action, used.done);
     this.drunk.consumed(player.userId, used.art);
     this.trips.consumed(player.userId, used.art);
     client.userData.lastActiveAt = now;
@@ -2529,7 +2529,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.trips.consumed(userId, used.art);
     // Cada vaso que choca es un brindis (logro "¡Salud!") y un sorbo más.
     this.achievements.bump(userId, STAT_KEYS.toasts);
-    this.countUse(userId, used.art, used.action);
+    this.countUse(userId, used.art, used.action, used.done);
     return { sessionId, part: used.part, left: used.left };
   }
 
@@ -2560,8 +2560,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sendToArea(player.area, MSG.swivelEvent, event);
   }
 
-  private countUse(userId: string, art: string, action: string) {
+  private countUse(userId: string, art: string, action: string, done = false) {
     const a = this.achievements;
+    // Fumado hasta el final (la última pitada acaba la unidad).
+    if (action === "smoke" && done) a.bump(userId, STAT_KEYS.smoked);
     a.bump(userId, action === "smoke" ? STAT_KEYS.puffs : action === "sip" ? STAT_KEYS.sips : STAT_KEYS.bites);
     a.bump(userId, `${STAT_PREFIX.use}${art}`);
     if (ALCOHOL_PER_SIP[art]) a.bump(userId, STAT_KEYS.alcoholSips);
