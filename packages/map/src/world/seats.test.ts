@@ -34,25 +34,55 @@ describe("asientos", () => {
     expect(seatBodyRows("chair", "up")).toBeNull();
   });
 
-  it("en las sillas de respaldo delgado el cuerpo va contra el respaldo, en todas las variantes", () => {
-    // Mirando a +x el respaldo queda atrás (izquierda y arriba en pantalla); de espaldas, delante.
-    expect(seatShift("chair", "right")).toEqual({ x: -4, y: -2 });
+  it("en las sillas de respaldo delgado: de espaldas contra el respaldo, de frente centrado", () => {
+    const thin = ["chair", "office-chair", "office-chair-mustard", "office-chair-blue", "office-chair-rose", "office-chair-sage", "office-chair-broken", "bus-seat", "bus-seat-blue", "bench", "patio-chair"];
+    for (const type of thin) {
+      // De frente queda en el centro del cojín, como siempre.
+      expect(seatShift(type, "right"), type).toEqual({ x: 0, y: 0 });
+      expect(seatShift(type, "down"), type).toEqual({ x: 0, y: 0 });
+    }
+    // De espaldas el respaldo queda delante (derecha y abajo en pantalla mirando a -x).
     expect(seatShift("chair", "left")).toEqual({ x: 4, y: 2 });
     expect(seatShift("chair", "up")).toEqual({ x: -4, y: 2 });
-    for (const type of ["office-chair", "office-chair-mustard", "office-chair-sage", "office-chair-broken", "bus-seat", "bus-seat-blue", "bench"])
+    for (const type of thin.filter((t) => t !== "patio-chair")) {
       expect(seatShift(type, "left"), type).toEqual(seatShift("chair", "left"));
+      expect(seatShift(type, "up"), type).toEqual(seatShift("chair", "up"));
+    }
     expect(seatShift("patio-chair", "left")).toEqual({ x: 2, y: 1 });
+    expect(seatShift("patio-chair", "up")).toEqual({ x: -2, y: 1 });
   });
 
-  it("en los muebles de cojín por delante el cuerpo se corre hacia donde mira, a píxel entero", () => {
+  it("sin respaldo, de frente la altura no cambia: solo de espaldas se corta el cuerpo", () => {
+    for (const type of ["stool", "picnic-bench", "log-seat", "entry-bench", "hammock", "treehouse-cushion", "treehouse-cushion-sage"]) {
+      expect(seatLift(type, "right"), type).toBe(seatLift(type));
+      expect(seatLift(type, "down"), type).toBe(seatLift(type));
+      expect(seatShift(type, "right"), type).toEqual({ x: 0, y: 0 });
+      expect(seatShift(type, "down"), type).toEqual({ x: 0, y: 0 });
+    }
+    expect(seatLift("stool", "right")).toBe(-3);
+  });
+
+  it("de frente todo asiento queda centrado en el tile, salvo la banca inset de la glorieta", () => {
+    for (const [type, item] of Object.entries(CATALOG as Record<string, CatalogItem>)) {
+      if (!item.seats?.length || type === "gazebo") continue;
+      expect(seatShift(type, "right"), type).toEqual({ x: 0, y: 0 });
+      expect(seatShift(type, "down"), type).toEqual({ x: 0, y: 0 });
+    }
+    // La glorieta, hacia el centro en todas las orientaciones (hacia +x es derecha y abajo).
+    expect(seatShift("gazebo", "right")).toEqual({ x: 4, y: 2 });
+    expect(seatShift("gazebo", "down")).toEqual({ x: -4, y: 2 });
+    expect(seatShift("gazebo", "up")).toEqual({ x: 4, y: -2 });
+  });
+
+  it("de espaldas, en los muebles de respaldo grueso el cuerpo va hacia el cojín, a píxel entero", () => {
     expect(seatShift("stool", "up")).toEqual({ x: 0, y: 0 });
-    // Hacia +x en pantalla es derecha y abajo; hacia -y, derecha y arriba.
-    expect(seatShift("sofa", "right")).toEqual({ x: 4, y: 2 });
+    // Hacia -x en pantalla es izquierda y arriba; hacia -y, derecha y arriba.
     expect(seatShift("sofa", "left")).toEqual({ x: -4, y: -2 });
-    expect(seatShift("sofa", "down")).toEqual({ x: -4, y: 2 });
     expect(seatShift("sofa", "up")).toEqual({ x: 4, y: -2 });
+    expect(seatShift("armchair", "left")).toEqual({ x: -2, y: -1 });
     // Las butacas de cada grada del cine se corren igual que la del sótano.
-    expect(seatShift("cinema-seat-3", "right")).toEqual(seatShift("cinema-seat", "right"));
+    expect(seatShift("cinema-seat-3", "left")).toEqual(seatShift("cinema-seat", "left"));
+    expect(seatShift("cinema-seat", "left")).toEqual({ x: -2, y: -1 });
     for (const [type, item] of Object.entries(CATALOG as Record<string, CatalogItem>)) {
       if (!item.seats?.length) continue;
       for (const f of ["right", "left", "down", "up"] as const) {

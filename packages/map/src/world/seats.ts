@@ -34,11 +34,9 @@ export function seatZ(type: string): number {
 }
 
 /**
- * Cuánto se corre el cuerpo hacia donde mira (unidades de arte; negativo: hacia el respaldo), para que la
- * cadera caiga en el centro del cojín. En los muebles con respaldo grueso el cojín queda por delante del
- * centro del tile; en las sillas de respaldo delgado (en el borde del tile) el cuerpo va pegado a él, y
- * así de espaldas el respaldo le tapa la espalda y solo asoma la cabeza. En la glorieta, la banca está
- * más adentro que el centro de los tiles del borde.
+ * Solo de espaldas: cuánto se corre el cuerpo hacia donde mira (unidades de arte), para que la cadera
+ * caiga en el cojín y no sobre el respaldo grueso, que es lo que queda delante. De frente el cuerpo va
+ * centrado en el tile: así se lee centrado sobre el asiento.
  */
 const SEAT_FORWARD: Record<string, number> = {
   sofa: 4,
@@ -48,14 +46,28 @@ const SEAT_FORWARD: Record<string, number> = {
   "armchair-wing": 2,
   "cinema-seat": 2,
   beanbag: 2,
+};
+
+/**
+ * En todas las orientaciones: la banca en herradura de la glorieta está más adentro que el centro de los
+ * tiles del borde (unidades de arte hacia donde mira).
+ */
+const SEAT_INSET: Record<string, number> = {
   gazebo: 4,
-  // Respaldo de 2 de grueso en el borde del tile (x 2..4): el cuerpo va contra él.
-  chair: -4,
-  "office-chair": -4,
-  "office-chair-broken": -4,
-  "bus-seat": -4,
-  bench: -4,
-  "patio-chair": -2,
+};
+
+/**
+ * Solo de espaldas: cuánto va el cuerpo hacia el respaldo delgado (unidades de arte). El respaldo está en
+ * el borde del tile (x 2..4) y el cuerpo en el centro quedaba a un lado de él; corrido, el respaldo le
+ * tapa la espalda y la cabeza asoma justo encima. De frente no se corre: queda centrado en el cojín.
+ */
+const SEAT_AGAINST_BACK: Record<string, number> = {
+  chair: 4,
+  "office-chair": 4,
+  "office-chair-broken": 4,
+  "bus-seat": 4,
+  bench: 4,
+  "patio-chair": 2,
 };
 
 /** Tipo del que un asiento toma sus medidas: las variantes de color y las gradas del cine son el mismo mueble. */
@@ -74,9 +86,15 @@ const SCREEN_STEP: Record<Facing, { x: number; y: number }> = {
   up: { x: 1, y: -0.5 },
 };
 
-/** Corrimiento en pantalla (px de arte, enteros) del cuerpo sentado en ese asiento mirando a `facing`. */
+/**
+ * Corrimiento en pantalla (px de arte, enteros) del cuerpo sentado en ese asiento mirando a `facing`:
+ * de frente, centrado (salvo la glorieta, SEAT_INSET); de espaldas, hacia el cojín delante del respaldo
+ * grueso (SEAT_FORWARD) o contra el respaldo delgado (SEAT_AGAINST_BACK).
+ */
 export function seatShift(type: string, facing: Facing): { x: number; y: number } {
-  const n = SEAT_FORWARD[type] ?? SEAT_FORWARD[seatFamily(type)] ?? 0;
+  const family = seatFamily(type);
+  const behind = facing === "left" || facing === "up";
+  const n = (SEAT_INSET[family] ?? 0) + (behind ? (SEAT_FORWARD[family] ?? 0) - (SEAT_AGAINST_BACK[family] ?? 0) : 0);
   const step = SCREEN_STEP[facing];
   return { x: Math.round(step.x * n) || 0, y: Math.round(step.y * n) || 0 };
 }
