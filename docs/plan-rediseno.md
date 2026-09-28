@@ -252,6 +252,7 @@ y 9   └─────────[  ]─────────────�
 - **`areas.ts` se divide en un archivo por nivel** (`world/areas/jardin.ts`, `planta-baja.ts`, `piso-2.ts`, `piso-3.ts`, `sotano.ts`) y **el catálogo por tema**, para que los agentes no se pisen.
 - **Nivel `piso-3`** nuevo, con escaleras apiladas: los portales se conectan en el mismo lugar en cada piso.
 - **Límite jugable**: cada nivel exterior tiene un rectángulo jugable y un margen que solo se dibuja. La cámara queda dentro del dibujo y nunca muestra el vacío.
+- **Escondites del Man del Sombrero en el jardín** (`SOMBRERO_HIDEOUTS` en `packages/shared/src/sombrero.ts`, en tiles del nivel): detrás del huerto (4, 1), el rincón del noreste (70, 2), entre los árboles del centro (30, 37) y junto al camino del lago (47, 22), en coordenadas de la zona jugable. No ocupan tiles (se le puede pasar por encima); si algo se construye ahí, conviene mover el escondite (un test revisa que se pueda llegar y que no caigan en las franjas de las estructuras).
 - **Decoración de oficinas en coordenadas relativas a la oficina**: así un rediseño futuro no corre los muebles de nadie. La fase 3c todavía no está en producción, así que no hay datos que migrar.
 
 ## Cómo se ejecuta

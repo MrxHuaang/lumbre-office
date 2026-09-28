@@ -41,6 +41,7 @@ import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } fro
 import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ShedPanel } from "./ShedPanel";
 import { KitchenPanel } from "./KitchenPanel";
+import { SombreroPanel } from "./SombreroPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -243,7 +244,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotesChip />
             <Notices />
           </div>
-          <ChatPanel />
+          <ChatPanel isAdmin={isAdmin} />
           <SideDock />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
@@ -322,6 +323,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "phone" && <PhonePanel onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "kitchen" && <KitchenPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}
 
@@ -360,6 +362,7 @@ const CONTROLS: [string, string][] = [
   ["T", "emotes"],
   ["P", "foto"],
   ["Enter", "chatear"],
+  ["/time", "la hora del juego (/ muestra los comandos)"],
   ["1-6", "botones de la barra"],
 ];
 const DECOR_CONTROLS: [string, string][] = [
