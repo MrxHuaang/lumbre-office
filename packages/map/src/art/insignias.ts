@@ -60,6 +60,17 @@ const MINI: Record<BadgeIcon, readonly string[]> = {
   glass: ["xxxx.", "yyyyx", "yyyyx", "yyyy.", "....."],
   chair: [".bbb.", ".bbb.", "bbbbb", "..s..", ".s.s."],
   scroll: ["nWWWn", ".ccc.", ".ccc.", ".ccc.", "nWWWn"],
+  paw: ["W.W.W", ".....", ".WWW.", "WWWWW", ".WWW."],
+  sprout: ["g...g", "gg.gg", ".ggg.", "..g..", "ttttt"],
+  pan: [".....", "sssss", "syYys", ".sssn", "....n"],
+  pawn: ["..k..", ".kxk.", "..k..", ".kxk.", "kkkkk"],
+  joystick: ["..r..", "..s..", "..s..", "vvvvv", "vyvrv"],
+  tomato: ["..g..", ".rgr.", "rrrrr", "rrrrr", ".rrr."],
+  phone: ["rrrrr", "r...r", ".rrr.", "rrxrr", "rrrrr"],
+  trophy: ["yyyyy", ".yYy.", "..y..", ".nnn.", "nnnnn"],
+  guitar: ["....n", "...n.", ".on..", "oOo..", ".o..."],
+  bulb: [".yyy.", "yyxyy", ".yyy.", ".sss.", "..s.."],
+  star: ["..y..", "yyyyy", ".yyy.", ".y.y.", "y...y"],
 };
 
 const RING: Record<AchievementRarity, Ramp> = { comun: C.wood, raro: C.blue, epico: C.violet, legendario: C.gold };
