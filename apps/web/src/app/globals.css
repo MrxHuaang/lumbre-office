@@ -1035,15 +1035,13 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  /* Sin la cinta que se corre: se desliza a mano. */
-  .lumbre-cinta {
-    overflow-x: auto;
-  }
+  /* La cinta sigue corriendo (es la marquesina de la portada), pero mucho más despacio; se pausa con el
+     mouse encima o con el foco adentro. */
   .lumbre-cinta-pista {
-    animation: none;
+    animation-duration: 240s;
   }
-  .lumbre-cinta-fila[aria-hidden] {
-    display: none;
+  .lumbre-cinta:focus-within .lumbre-cinta-pista {
+    animation-play-state: paused;
   }
 }
 @media (prefers-reduced-motion: reduce) {
