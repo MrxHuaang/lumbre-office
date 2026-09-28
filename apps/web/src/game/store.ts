@@ -203,8 +203,9 @@ interface OfficeStore {
   walkTarget: { zoneId: string; nonce: number } | null;
   /** Nivel en el que está el jugador local. */
   area: string;
-  /** Modo noche (luces encendidas); arranca según la hora local. */
+  /** Modo noche (luces encendidas): lo manda solo el reloj del juego, que lleva el servidor. */
   night: boolean;
+  autoNight: boolean;
   /** Modo privado: dentro de una oficina o la sala de reuniones, paredes altas y lo de afuera a oscuras. */
   privateWalls: boolean;
   setPrivateWalls: (on: boolean) => void;
@@ -282,7 +283,8 @@ interface OfficeStore {
   dismissNotice: (id: number) => void;
   walkToZone: (zoneId: string) => void;
   setArea: (area: string) => void;
-  setNight: (night: boolean) => void;
+  /** El reloj del juego cruzó las 19:00 o las 7:00 (o llegó por primera vez). */
+  setAutoNight: (auto: boolean) => void;
   setInteract: (i: Interactable | null) => void;
   setUsable: (u: UsableNear | null) => void;
   openPanel: (kind: PanelKind, atObject: boolean) => void;
@@ -367,6 +369,7 @@ const initial = {
   walkTarget: null,
   area: "",
   night: false,
+  autoNight: false,
   privateWalls: loadPrivateWalls(),
   nameTags: loadNameTags(),
   indoors: false,
@@ -452,7 +455,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
   walkToZone: (zoneId) => set({ walkTarget: { zoneId, nonce: Date.now() } }),
   setArea: (area) => set({ area }),
-  setNight: (night) => set({ night }),
+  setAutoNight: (auto) => set({ autoNight: auto, night: auto }),
   setIndoors: (indoors) => set({ indoors }),
   setPrivateWalls: (privateWalls) => {
     set({ privateWalls });
@@ -492,7 +495,16 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
   setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),
   // Las felicitaciones de hoy sobreviven a una reconexión (el servidor igual las recuerda).
-  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls, nameTags: s.nameTags, congratulated: s.congratulated })),
+  reset: () =>
+    set((s) => ({
+      ...initial,
+      zoneNames: s.zoneNames,
+      night: s.night,
+      autoNight: s.autoNight,
+      privateWalls: s.privateWalls,
+      nameTags: s.nameTags,
+      congratulated: s.congratulated,
+    })),
 }));
 
 /** User.id del jugador local. */
