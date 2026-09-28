@@ -48,7 +48,9 @@ describe("jardín", () => {
 
   it("se pesca junto al agua: en la punta del muelle y en la piedra plana de la orilla", () => {
     const spots = pointsOfType(jardin, "fishing_spot");
-    expect(spots.length).toBeGreaterThanOrEqual(2);
+    // El lago es grande: la punta del muelle y una piedra plana en cada orilla.
+    expect(spots.length).toBeGreaterThanOrEqual(6);
+    expect(spots.filter((s) => furnitureAt("flat-rock", s.tileX, s.tileY)).length).toBeGreaterThanOrEqual(4);
     const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
     for (const s of spots) {
       expect(isBlockedTile(jardin, s.tileX, s.tileY), s.name).toBe(false);
@@ -65,13 +67,34 @@ describe("jardín", () => {
     expect(spots.some((s) => furnitureAt("flat-rock", s.tileX, s.tileY))).toBe(true);
   });
 
-  it("se aparece junto al portón de la cerca", () => {
+  it("se aparece al pie del sendero de la entrada, lejos del portón, y el sendero lleva hasta él", () => {
     const spawn = spawnPoint(jardin);
     const gate = jardin.furniture.find((f) => f.type === "garden-gate")!;
     expect(gate).toBeDefined();
-    const dx = spawn.tileX - (gate.x + gate.w / 2);
-    const dy = spawn.tileY - gate.y;
-    expect(Math.hypot(dx, dy)).toBeLessThanOrEqual(4);
+    // Afuera de la cerca, sobre el sendero, y con un buen tramo hasta el portón.
+    expect(spawn.tileY).toBeGreaterThan(gate.y);
+    expect(floorAt(spawn.tileX, spawn.tileY)).toBe("path");
+    expect(Math.hypot(spawn.tileX - (gate.x + gate.w / 2), spawn.tileY - gate.y)).toBeGreaterThanOrEqual(12);
+    const route = findPath(jardin, { x: spawn.tileX, y: spawn.tileY }, { x: gate.x, y: gate.y - 1 });
+    expect(route).not.toBeNull();
+    expect(route!.length).toBeGreaterThanOrEqual(15);
+    // La estación del Megabús queda todavía más lejos del portón que la entrada.
+    const platform = jardin.furniture.find((f) => f.type === "bus-platform")!;
+    expect(Math.hypot(platform.x - gate.x, platform.y - gate.y)).toBeGreaterThanOrEqual(25);
+  });
+
+  it("hay lomas: su talud no se pisa y los senderos las suben por escalones", () => {
+    const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
+    const slopes = jardin.floors.filter((k) => k === "slope").length;
+    expect(slopes).toBeGreaterThan(100);
+    for (let i = 0; i < jardin.floors.length; i++) if (jardin.floors[i] === "slope") expect(isBlockedTile(jardin, i % jardin.width, Math.floor(i / jardin.width))).toBe(true);
+    const steps: { x: number; y: number }[] = [];
+    for (let i = 0; i < jardin.floors.length; i++) if (jardin.floors[i] === "steps") steps.push({ x: i % jardin.width, y: Math.floor(i / jardin.width) });
+    expect(steps.length).toBeGreaterThan(4);
+    for (const s of steps) if (!isBlockedTile(jardin, s.x, s.y)) expect(findPath(jardin, start, s), `${s.x},${s.y}`).not.toBeNull();
+    // El observatorio queda arriba de su loma (dos pisos) y se llega caminando.
+    const obs = jardin.furniture.find((f) => f.type === "observatory")!;
+    expect(jardin.def.heightFine!(obs.x + obs.w / 2, obs.y + obs.d / 2)).toBeGreaterThanOrEqual(2);
   });
 
   it("no quedan tiles libres a los que no se llega (el islote, detrás de la casa)", () => {

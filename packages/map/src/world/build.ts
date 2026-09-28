@@ -143,9 +143,9 @@ export function buildArea(def: AreaDef): OfficeMap {
       }
   }
 
-  // Colisión: fuera del edificio, el agua del estanque y muebles sólidos.
+  // Colisión: fuera del edificio, el agua del estanque, el talud de las lomas y muebles sólidos.
   const blocked = new Uint8Array(width * height);
-  for (let i = 0; i < blocked.length; i++) if (floors[i] === null || floors[i] === "water") blocked[i] = 1;
+  for (let i = 0; i < blocked.length; i++) if (floors[i] === null || floors[i] === "water" || floors[i] === "slope") blocked[i] = 1;
   // Fuera de la zona jugable se dibuja pero no se camina (límite invisible).
   const play = def.playable;
   if (play)

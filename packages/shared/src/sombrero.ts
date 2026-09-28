@@ -59,12 +59,12 @@ export interface Hideout {
 export const SOMBRERO_HIDEOUTS: readonly Hideout[] = [
   // Jardín (zona jugable + 10): detrás del huerto contra el bosque del noroeste.
   { id: "huerto", area: "jardin", x: 14, y: 11, facing: "down", place: "detrás del huerto" },
-  // Jardín: el rincón del noreste, contra el bosque, al lado de la piscina (que ocupa el rincón de antes).
-  { id: "noreste", area: "jardin", x: 71, y: 10, facing: "down", place: "en el rincón del noreste, junto a la piscina" },
-  // Jardín: entre los árboles, a medio camino entre la fogata y el camino al portón.
-  { id: "arboles", area: "jardin", x: 40, y: 47, facing: "right", place: "entre los árboles del centro" },
-  // Jardín: junto al árbol del camino al lago.
-  { id: "lago", area: "jardin", x: 57, y: 32, facing: "down", place: "junto al camino del lago" },
+  // Jardín: contra la cerca del norte, al oeste de la piscina.
+  { id: "noreste", area: "jardin", x: 98, y: 11, facing: "down", place: "en el rincón del noreste, junto a la piscina" },
+  // Jardín: entre los árboles, a medio camino entre el sendero de la fogata y el camino al portón.
+  { id: "arboles", area: "jardin", x: 51, y: 57, facing: "right", place: "entre los árboles del centro" },
+  // Jardín: al borde del camino del lago, antes de la orilla.
+  { id: "lago", area: "jardin", x: 67, y: 51, facing: "down", place: "junto al camino del lago" },
   // Garaje: entre el estante y las cajas, en el rincón oscuro del taller.
   { id: "garaje", area: "garaje", x: 1, y: 8, facing: "right", place: "en el rincón del garaje" },
   // Sótano: detrás de la palmera del vestíbulo.

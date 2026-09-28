@@ -15,25 +15,25 @@ const par = (x: number, y: number) => [
 
 export const CONEXIONES = {
   jardin: {
-    /** La puerta principal de la casa: el porche (la casa está en (38, 13) y mide 22x14). */
-    casa: { tiles: par(48, 27), llegada: { x: 48, y: 29, facing: "down" } },
+    /** La puerta principal de la casa: el porche (la casa está en (52, 14) y mide 22x14). */
+    casa: { tiles: par(62, 28), llegada: { x: 62, y: 30, facing: "down" } },
     /**
      * El pie de la escalera exterior de madera que sube al balcón del piso 2: pegada al costado este de la
-     * terraza cubierta (la casa termina en x = 59), baja hasta el pasto en y = 27.
+     * terraza cubierta (la casa termina en x = 73), baja hasta el pasto en y = 28.
      */
-    escaleraTerraza: { tiles: [{ x: 59, y: 27 }], llegada: { x: 59, y: 28, facing: "down" } },
-    /** La puerta chica del garaje, pegado al oeste de la torre (el garaje está en (33, 22) y mide 5x5). */
-    garaje: { tiles: [{ x: 36, y: 27 }], llegada: { x: 36, y: 28, facing: "down" } },
+    escaleraTerraza: { tiles: [{ x: 73, y: 28 }], llegada: { x: 73, y: 29, facing: "down" } },
+    /** La puerta chica del garaje, pegado al oeste de la torre (el garaje está en (47, 23) y mide 5x5). */
+    garaje: { tiles: [{ x: 50, y: 28 }], llegada: { x: 50, y: 29, facing: "down" } },
     /**
      * El pie de la escalera de cuerda de la casa del árbol, en el huerto de frutales (el árbol está en
-     * (11, 54) y mide 4x4; la escalera cuelga frente al segundo tile).
+     * (11, 80) y mide 4x4; la escalera cuelga frente al segundo tile).
      */
-    casaArbol: { tiles: [{ x: 12, y: 58 }], llegada: { x: 12, y: 59, facing: "down" } },
+    casaArbol: { tiles: [{ x: 12, y: 84 }], llegada: { x: 12, y: 85, facing: "down" } },
     /**
-     * La puerta del observatorio, en la lomita del noreste (la torre está en (82, 33) y mide 6x6): se
+     * La puerta del observatorio, arriba de la loma del este (la torre está en (128, 40) y mide 6x6): se
      * sube por los escalones de piedra del frente y se entra por la puerta de la torre.
      */
-    observatorio: { tiles: par(84, 39), llegada: { x: 84, y: 40, facing: "down" } },
+    observatorio: { tiles: par(130, 46), llegada: { x: 130, y: 47, facing: "down" } },
   },
   plantaBaja: {
     /** La puerta de entrada del recibidor, al centro de la fachada sur (detrás del porche del jardín). */

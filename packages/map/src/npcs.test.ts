@@ -48,10 +48,17 @@ describe("escondites del Man del Sombrero", () => {
     }
   });
 
-  it("en el jardín quedan fuera de las franjas de las estructuras nuevas", () => {
-    // En coordenadas de la zona jugable (el nivel lleva 10 de margen).
+  it("en el jardín quedan fuera de las estructuras (la granja, el lago, el observatorio, el escenario…)", () => {
+    // En coordenadas de la zona jugable (el nivel lleva 10 de margen): la parrilla, la loma del
+    // observatorio, el lago, el molino y todo lo del sur, los frutales y el gallinero.
     const reserved = (x: number, y: number) =>
-      (x >= 50 && y >= 17) || y >= 54 || (x <= 22 && y >= 40 && y <= 53) || (x <= 12 && y >= 23 && y <= 34);
+      (x >= 70 && x <= 83 && y >= 26 && y <= 35) ||
+      (x >= 100 && y >= 15 && y <= 50) ||
+      (x >= 66 && x <= 95 && y >= 50 && y <= 82) ||
+      (x >= 84 && y >= 82) ||
+      y >= 84 ||
+      (x <= 20 && y >= 66 && y <= 82) ||
+      (x <= 12 && y >= 31 && y <= 42);
     for (const h of SOMBRERO_HIDEOUTS.filter((h) => h.area === "jardin")) expect(reserved(h.x - 10, h.y - 10), h.id).toBe(false);
   });
 });

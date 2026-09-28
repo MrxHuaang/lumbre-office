@@ -4,51 +4,60 @@ import { GRADAS, GRADAS_ROWS } from "../catalog-escenario";
 import type { AreaDef, FloorKind, Placement, PointDef } from "../types";
 import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
-import { BUS_DOOR_X, PARADA_M, ROAD, STATION } from "./parada";
+import { BUS_DOOR_X, PARADA_M, ROAD, STATION, TURNSTILES } from "./parada";
 import { POOL_BASIN, POOL_SIZE, POOL_STEPS } from "../catalog-agua";
 
 // ---------- Jardín ----------
-// Una zona jugable de 80x70 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
-// pisa (ver docs/plan-rediseno.md). Todo lo de abajo está en coordenadas de la zona jugable (0..79,
-// 0..69) y se corre en M al ubicarlo en el nivel. Las franjas nuevas (x 64..79 al este, y 56..63 al sur)
-// son para las estructuras de docs/plan-estructuras.md. La cerca va en y = 64: afuera del portón quedan
-// el sendero, la vereda y la parada del bus (world/areas/parada.ts), y la calle pasa por el margen.
+// Una zona jugable de 132x122 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
+// pisa (ver docs/plan-rediseno.md). Todo lo de abajo está en coordenadas de la zona jugable (0..131,
+// 0..121) y se corre en M al ubicarlo en el nivel. Se lee de adentro hacia afuera: lo de la casa junto
+// (la cabaña, el garaje, el huerto, el gallinero, el patio, la parrilla y la piscina), el ocio al aire
+// libre más allá (la fogata, la glorieta, la casa del árbol, el lago grande con su muelle) y lo de
+// excursión lejos (el observatorio en su loma, el escenario, el molino), con pasto y senderos entre todo.
+// No es plano: hay lomas (HILLS) con su talud, que no se pisa, y escalones de piedra donde las cruza un
+// sendero. La cerca va en y = 100: afuera queda la pradera de la entrada, con el sendero largo que sube
+// desde la vereda (donde se aparece) hasta el portón, y más al este la parada del bus
+// (world/areas/parada.ts); la calle pasa por el margen.
 //
-//   norte: la casa al centro, el huerto con el cobertizo y el invernadero al oeste, el patio al este;
-//   centro: el camino de piedra del porche al portón, bifurcado hacia el huerto y hacia el lago;
-//   sur: la fogata, la glorieta y el huerto de frutales al oeste; el lago con el muelle al sureste.
+//   norte: la casa al centro, el huerto con el cobertizo y el invernadero al oeste, el patio, la
+//          parrilla y la piscina al este;
+//   centro: el camino de piedra del porche al portón, bifurcado hacia el huerto, la fogata, la glorieta
+//           y el lago; la casa del árbol en los frutales del oeste;
+//   lejos: el observatorio en la loma del este, el escenario al suroeste, el molino en el arroyo del
+//          sureste y el mirador en una lomita al sur del lago.
 
 /** Margen de bosque alrededor de la zona jugable. */
 const M = 10;
-const PW = 80;
-const PH = 70;
+const PW = 132;
+const PH = 122;
 /** La cerca del sur (con el portón): lo de más abajo es la vereda de la parada del bus. */
-const FENCE_Y = 64;
+const FENCE_Y = 100;
 if (PARADA_M !== M) throw new Error("parada.ts tiene otro margen que el jardín");
+if (ROAD.y0 !== PH + M) throw new Error("la calle de parada.ts no empieza donde termina la zona jugable del jardín");
 const W = PW + M * 2;
 const H = PH + M * 2;
 
-/** La casa (22x14) y su puerta: el porche da a la fila y = 17. */
-const HOUSE = { x: 28, y: 3 };
+/** La casa (22x14) y su puerta: el porche da a la fila y = 18. */
+const HOUSE = { x: 42, y: 4 };
 const DOOR_X = HOUSE.x + 10;
 const PORCH_Y = HOUSE.y + 14;
 /**
  * El garaje (5x5), pegado al oeste de la torre de la casa (donde antes había bosquecito): la puerta chica
- * da a la fila y = 17, como el porche, y de su frente baja la entrada de gravilla hasta el sendero del
+ * da a la fila y = 18, como el porche, y de su frente baja la entrada de gravilla hasta el sendero del
  * huerto.
  */
-const GARAGE = { x: 23, y: 12 };
+const GARAGE = { x: 37, y: 13 };
 const GARAGE_DOOR_X = GARAGE.x + 3;
-const DRIVEWAY = { x0: 23.1, x1: 27.4, y0: 15, y1: 25.6 };
+const DRIVEWAY = { x0: 37.1, x1: 41.4, y0: 16, y1: 26.6 };
 const inGarage = (x: number, y: number) => x >= GARAGE.x && x < GARAGE.x + 5 && y >= GARAGE.y && y < GARAGE.y + 5;
 /** El portón de la cerca, al sur, donde llega el camino. */
-const GATE_X = 38;
+const GATE_X = 52;
 
 /**
  * Invernadero (5x4) y sus seis bancales, en L contra los vidrios del fondo (en este orden: el índice es su
  * id). Van detrás del centro del invernadero: así el vidrio del frente no les queda por detrás.
  */
-const GREENHOUSE = { x: 2, y: 17 };
+const GREENHOUSE = { x: 2, y: 22 };
 const BEDS = [
   ...[0, 1, 2, 3].map((dx) => ({ x: GREENHOUSE.x + dx, y: GREENHOUSE.y })),
   ...[1, 2].map((dy) => ({ x: GREENHOUSE.x, y: GREENHOUSE.y + dy })),
@@ -62,86 +71,130 @@ const SOIL = { x0: 6.6, y0: 4.6, x1: 18.4, y1: 13.4 };
  * Patio de piedra al este de la casa, con la pérgola y las mesas. La terraza es una sola: la cubierta
  * del ala este (dibujada con la casa, bajo el balcón del piso 2); por eso el patio no es de tablas.
  */
-const PATIO = { x0: 51, y0: 5, x1: 62, y1: 16.6, r: 2.2 };
+const PATIO = { x0: 71, y0: 7, x1: 82, y1: 18.6, r: 2.2 };
 
 /** Lago al sureste: una elipse deformada con ruido, con un islote y el muelle desde la orilla oeste. */
-const LAKE = { cx: 52.8, cy: 42.3, rx: 8.6, ry: 10.8 };
-const ISLET = { cx: 56.2, cy: 45.8, r: 1.9 };
-const DOCK = { x0: 43, x1: 50, y0: 40, y1: 42 };
+const LAKE = { cx: 80, cy: 66, rx: 13, ry: 14 };
+const ISLET = { cx: 84.5, cy: 70, r: 2.4 };
+const DOCK = { x0: 66, x1: 75, y0: 65, y1: 67 };
 
 /**
- * La piscina, "atrás" de la cabaña pero a la vista: al este del patio (x 64..78), donde no la tapa nada de
+ * La piscina, "atrás" de la cabaña pero a la vista: al este del patio (x 91..105), donde no la tapa nada de
  * la casa. Un deck de tablas de 15x13 con la pileta de piedra en el medio (ver catalog-agua.ts).
  */
-const POOL = { x: 64, y: 1 };
+const POOL = { x: 91, y: 1 };
 const POOL_BOX = { x0: POOL.x, y0: POOL.y, x1: POOL.x + POOL_SIZE[0], y1: POOL.y + POOL_SIZE[1] };
 /** El trampolín, en el borde oeste de la pileta mirando hacia el agua. */
 const BOARD = { x: POOL.x + POOL_BASIN.x - 1, y: POOL.y + POOL_BASIN.y + Math.floor(POOL_BASIN.d / 2) };
 /**
  * La granja (docs/plan-estructuras.md, 4, 5 y 9). La parrilla con el horno de barro va en el rincón de
- * rocas al sur del patio, sobre un piso de piedra; el gallinero, al oeste, contra la cerca (detrás no
- * queda nadie), con su patio de tierra y el corral de la cabra al lado, y el molino, sobre un arroyo
- * angosto que entra del bosque por el este y baja al lago por el sur.
+ * rocas al sur del patio (con su propio sendero), sobre un piso de piedra; el gallinero, al oeste, contra
+ * la cerca (detrás no queda nadie), con su patio de tierra y el corral de la cabra al lado, y el molino,
+ * lejos, sobre un arroyo angosto que entra del bosque por el este y baja al lago.
  */
-const GRILL_PAD = { cx: 56.8, cy: 21.2, rx: 5.6, ry: 3.3 };
-const OVEN = { x: 53, y: 19 };
-const BRICK_GRILL = { x: 57, y: 19 };
+const GRILL_PAD = { cx: 76.8, cy: 30.2, rx: 5.6, ry: 3.3 };
+const OVEN = { x: 73, y: 28 };
+const BRICK_GRILL = { x: 77, y: 28 };
 /** El patio de las gallinas (adentro de la cerca) y el corral de la cabra, al lado. */
-const HEN_YARD = { x: 0, y: 24, w: 8, h: 7 };
-const CORRAL = { x: 9, y: 24, w: 3, h: 7 };
-const COOP = { x: 0, y: 24 };
+const HEN_YARD = { x: 0, y: 33, w: 8, h: 7 };
+const CORRAL = { x: 9, y: 33, w: 3, h: 7 };
+const COOP = { x: 0, y: 33 };
 /** Los huecos de la cerca por donde se entra al patio y al corral (fila de abajo). */
 const YARD_GATE_X = 4;
 const CORRAL_GATE_X = 10;
 /** El molino (3x3) en la orilla norte del arroyo, con la rueda en el agua; el puentecito, más al este. */
-const MILL = { x: 65, y: 55 };
-const WHEEL = { x: 66, y: 58 };
-const BRIDGE = { x: 71, y: 58, w: 2, d: 3 };
+const MILL = { x: 108, y: 90 };
+const WHEEL = { x: 109, y: 93 };
+const BRIDGE = { x: 114, y: 93, w: 2, d: 3 };
 /** El arroyo: tramos desde el bosque del este hasta la orilla sur del lago (angosto, con su ancho). */
 const STREAM: Seg[] = [
-  { a: [85, 61.2], b: [79, 60.6], w: 1.7 },
-  { a: [79, 60.6], b: [74, 60.1], w: 1.7 },
-  { a: [74, 60.1], b: [69.5, 59.1], w: 1.7 },
-  { a: [69.5, 59.1], b: [65.5, 58.4], w: 1.6 },
-  { a: [65.5, 58.4], b: [62.2, 56.8], w: 1.6 },
-  { a: [62.2, 56.8], b: [59.6, 54.4], w: 1.7 },
-  { a: [59.6, 54.4], b: [57.4, 52], w: 1.8 },
-  { a: [57.4, 52], b: [55.6, 49.8], w: 2 },
+  { a: [137, 96.6], b: [128, 96.2], w: 1.7 },
+  { a: [128, 96.2], b: [122, 95.6], w: 1.7 },
+  { a: [122, 95.6], b: [117, 95.1], w: 1.7 },
+  { a: [117, 95.1], b: [112.5, 94.1], w: 1.7 },
+  { a: [112.5, 94.1], b: [108.5, 93.4], w: 1.6 },
+  { a: [108.5, 93.4], b: [105.2, 91.8], w: 1.6 },
+  { a: [105.2, 91.8], b: [101, 88], w: 1.7 },
+  { a: [101, 88], b: [96, 83.5], w: 1.7 },
+  { a: [96, 83.5], b: [92, 79.5], w: 1.8 },
+  { a: [92, 79.5], b: [88.4, 75.4], w: 2 },
 ];
 /** Rectángulos que la naturaleza suelta no toca (el patio de la parrilla, el gallinero, el molino). */
 const KEEP_CLEAR = [
-  { x0: 50, y0: 17, x1: 63, y1: 26 },
-  { x0: 0, y0: 22, x1: 12, y1: 33 },
-  { x0: 62, y0: 53, x1: 76, y1: 63 },
+  { x0: 70, y0: 26, x1: 83, y1: 35 },
+  { x0: 0, y0: 31, x1: 12, y1: 42 },
+  { x0: 105, y0: 88, x1: 119, y1: 98 },
 ];
 
 /** Fogata con troncos alrededor y la glorieta. */
-const FIRE = { x: 14, y: 36 };
-const GAZEBO = { x: 24, y: 44 };
+const FIRE = { x: 24, y: 56 };
+const GAZEBO = { x: 36, y: 66 };
 /**
  * La casa del árbol (4x4) en el huerto de frutales, contra la cerca oeste: lo que su copa tapa queda del
  * lado del bosque. La escalera de cuerda cuelga frente al segundo tile del frente (+y) y su pie es el portal.
  */
-const TREEHOUSE = { x: 1, y: 44 };
+const TREEHOUSE = { x: 1, y: 70 };
 const TREEHOUSE_FOOT = { x: TREEHOUSE.x + 1, y: TREEHOUSE.y + 4 };
+/** Primer torniquete de la estación (en coordenadas de la zona jugable): ahí llega el sendero del portón. */
+const TURNSTILE_X = TURNSTILES[0] - M;
+/** El mirador: una lomita al sur del lago con una banca arriba. */
+const MIRADOR = { cx: 64, cy: 88, rx: 5, ry: 4 };
+
+/**
+ * Las lomas: mesetas ovaladas (con el borde que ondula) más altas que el pasto de alrededor. Una loma
+ * encima de otra hace dos pisos (la del observatorio). Alrededor de cada una va el talud (`TALUD` tiles
+ * de ancho), que no se pisa; donde lo cruza un sendero hay escalones de piedra. El relieve es solo del
+ * dibujo (el isométrico no se levanta): la altura sirve para sombrear el talud y aclarar lo de arriba.
+ */
+const HILLS = [
+  // La loma del observatorio (abajo, pegada a la cerca del este, y arriba, con la torre).
+  { cx: 118, cy: 33, rx: 16, ry: 16, seed: 61 },
+  { cx: 118.5, cy: 34, rx: 10.5, ry: 10, seed: 62 },
+  { ...MIRADOR, seed: 63 },
+  // La lomita de la pradera de la entrada, que el sendero rodea.
+  { cx: 59, cy: FENCE_Y + 11, rx: 5, ry: 3.6, seed: 64 },
+];
+const TALUD = 1.9;
+type Hill = (typeof HILLS)[number];
+/** Cuánto afuera del borde de la loma queda el punto (en tiles; negativo = arriba de la loma). */
+function hillOut(h: Hill, x: number, y: number): number {
+  const n = Math.hypot((x - h.cx) / h.rx, (y - h.cy) / h.ry);
+  if (n > 1 + (TALUD + 1) / Math.min(h.rx, h.ry)) return 99;
+  return (n - 1) * Math.min(h.rx, h.ry) + (smoothNoise(x, y, 3, h.seed) - 0.5) * 1.2;
+}
+/** Altura del terreno: cuántas lomas hay debajo (con el talud en rampa entre un piso y el otro). */
+function heightAt(x: number, y: number): number {
+  let z = 0;
+  for (const h of HILLS) {
+    const d = hillOut(h, x, y);
+    if (d < 0) z += 1;
+    else if (d < TALUD) z += 1 - d / TALUD;
+  }
+  return z;
+}
+const onTalud = (x: number, y: number) =>
+  HILLS.some((h) => {
+    const d = hillOut(h, x, y);
+    return d >= 0 && d < TALUD;
+  });
 /**
  * Escenario (franja sur, ver catalog-escenario.ts): la concha al oeste, la tarima delante (mirando al este)
  * y las gradas en semicírculo hacia el camino. La cabina de grabación (5x5, puerta al sur) al lado.
  */
-const STAGE = { x: 12, y: 56 };
+const STAGE = { x: 14, y: 88 };
 const DECK = { x: STAGE.x + 3, y: STAGE.y, w: 3, h: 7 };
-const BOOTH = { x: 30, y: 54 };
+const BOOTH = { x: 40, y: 86 };
 /** Zona de charla de la fogata (en coordenadas del nivel): los troncos quedan adentro con un tile de aire. */
 const FIRE_ZONE = { x: FIRE.x - 3 + M, y: FIRE.y - 3 + M, w: 8, h: 8 };
 
 /**
- * El observatorio (6x6) en la lomita del noreste, en la franja nueva: la puerta de la torre da a la fila
- * y = 29 (ver CONEXIONES.jardin.observatorio). Delante, la placita de piedra con la fogata de malvaviscos
+ * El observatorio (6x6) arriba de la loma del este, lejos de la casa: la puerta de la torre da a la fila
+ * y = 36 (ver CONEXIONES.jardin.observatorio). Delante, la placita de piedra con la fogata de malvaviscos
  * al oeste y el cohete de madera al este.
  */
-const OBS = { x: 72, y: 23 };
+const OBS = { x: 118, y: 30 };
 const OBS_DOOR_X = OBS.x + 2;
-const OBS_FIRE = { x: 67, y: 29 };
+const OBS_FIRE = { x: 113, y: 36 };
 /** Zona de charla de la fogata del observatorio (coordenadas del nivel), como la de la fogata grande. */
 const OBS_FIRE_ZONE = { x: OBS_FIRE.x - 3 + M, y: OBS_FIRE.y - 3 + M, w: 8, h: 7 };
 
@@ -156,38 +209,60 @@ interface Seg {
 /** Senderos de piedra: tramos con su ancho. */
 const PATHS: Seg[] = [
   // Explanada frente al porche y el camino al portón (con una leve curva).
-  { a: [36.2, 18.6], b: [41.8, 18.6], w: 3.2 },
-  { a: [39, 18], b: [39, 27], w: 2.6 },
-  { a: [39, 27], b: [38.4, 37], w: 2.6 },
-  { a: [38.4, 37], b: [39, 47], w: 2.6 },
-  { a: [39, 47], b: [39, FENCE_Y + 3], w: 2.6 },
-  // Hacia el huerto (oeste): bordea el jardín de flores y sube por el lado del pozo.
-  { a: [38, 27.8], b: [31, 29.2], w: 2 },
-  { a: [31, 29.2], b: [24, 27.6], w: 2 },
-  { a: [24, 27.6], b: [20.4, 22.5], w: 2 },
-  { a: [20.4, 22.5], b: [19.6, 14.5], w: 2 },
-  { a: [19.6, 14.5], b: [17.6, 13.8], w: 1.6 },
-  // Hacia el lago (este) hasta la raíz del muelle.
-  { a: [40, 28], b: [43.6, 31.5], w: 2 },
-  { a: [43.6, 31.5], b: [43.4, 39.2], w: 2 },
+  { a: [50.2, 19.6], b: [55.8, 19.6], w: 3.2 },
+  { a: [53, 19], b: [53, 36], w: 2.6 },
+  { a: [53, 36], b: [52.4, 55], w: 2.6 },
+  { a: [52.4, 55], b: [53, 75], w: 2.6 },
+  { a: [53, 75], b: [53, FENCE_Y + 3.5], w: 2.6 },
+  // Afuera: el sendero largo de la entrada baja por la pradera, rodea la lomita y llega a la vereda (ahí
+  // se aparece); por la vereda sigue al este hasta los torniquetes de la estación.
+  { a: [53, FENCE_Y + 3.5], b: [47.5, FENCE_Y + 7.5], w: 2.4 },
+  { a: [47.5, FENCE_Y + 7.5], b: [46, FENCE_Y + 12], w: 2.4 },
+  { a: [46, FENCE_Y + 12], b: [48.5, FENCE_Y + 16], w: 2.4 },
+  { a: [48.5, FENCE_Y + 16], b: [48.5, FENCE_Y + 18.5], w: 2.4 },
+  { a: [48.5, FENCE_Y + 18.5], b: [TURNSTILE_X + 1, FENCE_Y + 18.5], w: 2 },
+  { a: [TURNSTILE_X + 1, FENCE_Y + 18.5], b: [TURNSTILE_X + 1, FENCE_Y + 19.5], w: 2 },
+  // Hacia el huerto (oeste): bordea el jardín de flores, sube por el lado del pozo y cruza al huerto.
+  { a: [52, 31], b: [45, 33.2], w: 2 },
+  { a: [45, 33.2], b: [38, 31.6], w: 2 },
+  { a: [38, 31.6], b: [34.4, 23.5], w: 2 },
+  { a: [34.4, 23.5], b: [33.6, 15.5], w: 2 },
+  { a: [33.6, 15.5], b: [18.2, 14.2], w: 1.8 },
+  // Hacia el lago (este) hasta la raíz del muelle, y de la orilla norte al molino, por el este del lago.
+  { a: [54, 33], b: [DOCK.x0 + 0.4, 52], w: 2 },
+  { a: [DOCK.x0 + 0.4, 52], b: [DOCK.x0 + 0.4, DOCK.y0 - 0.8], w: 2 },
+  { a: [DOCK.x0 + 1, 50.5], b: [76, 46.5], w: 1.6 },
+  { a: [76, 46.5], b: [88, 46.5], w: 1.6 },
+  { a: [88, 46.5], b: [100, 54], w: 1.6 },
+  { a: [100, 54], b: [104.5, 70], w: 1.6 },
+  { a: [104.5, 70], b: [112.5, 89.5], w: 1.6 },
   // Senderito de la casa del árbol a la fogata, entre los frutales.
-  { a: [TREEHOUSE_FOOT.x + 0.5, TREEHOUSE_FOOT.y + 1.2], b: [9.5, 46.2], w: 1.3 },
-  { a: [9.5, 46.2], b: [13.2, 39.6], w: 1.3 },
-  // Senderitos a la fogata, a la glorieta y al patio.
-  { a: [29, 28.9], b: [16.8, 34.8], w: 1.5 },
-  { a: [38.8, 43.5], b: [30.2, 45.8], w: 1.5 },
-  { a: [41.5, 18.6], b: [52.6, 16.4], w: 2 },
+  { a: [TREEHOUSE_FOOT.x + 0.5, TREEHOUSE_FOOT.y + 1.2], b: [9.5, TREEHOUSE.y + 2.2], w: 1.3 },
+  { a: [9.5, TREEHOUSE.y + 2.2], b: [10.5, TREEHOUSE.y - 2.5], w: 1.3 },
+  { a: [10.5, TREEHOUSE.y - 2.5], b: [FIRE.x - 0.8, FIRE.y + 3.6], w: 1.3 },
+  // Senderitos a la fogata, a la glorieta, al patio y a la parrilla.
+  { a: [38.5, 32.2], b: [FIRE.x + 2.8, FIRE.y - 1.2], w: 1.5 },
+  { a: [52.6, 64], b: [GAZEBO.x + 6.2, GAZEBO.y + 1.8], w: 1.5 },
+  { a: [55.5, 19.6], b: [72.6, 18.4], w: 2 },
+  { a: [76.5, 18], b: [76.5, 27.2], w: 1.6 },
   // Del patio al deck de la piscina.
-  { a: [62, 8.5], b: [64.4, 8.5], w: 1.8 },
+  { a: [82, 10.5], b: [91.4, 10.5], w: 1.8 },
+  // Al mirador: sube a la lomita por sus escalones.
+  { a: [53.5, 86.5], b: [MIRADOR.cx - 1, MIRADOR.cy - 0.5], w: 2.2 },
   // Senderito del camino al escenario: pasa frente a la puerta de la cabina y entra por el pasillo del
   // medio de las gradas hasta la escalerita de la tarima.
-  { a: [38.6, 60.8], b: [33.5, 60.2], w: 1.5 },
-  { a: [33.5, 60.2], b: [27.5, 59.6], w: 1.4 },
-  { a: [27.5, 59.6], b: [18.4, 59.5], w: 1.1 },
-  // Sendero de piedras que sube desde la esquina del patio y el rincón de rocas hasta el observatorio.
-  { a: [61.5, 16.2], b: [65, 21], w: 1.6 },
-  { a: [65, 21], b: [69.5, 26], w: 1.6 },
-  { a: [69.5, 26], b: [74.5, 29.6], w: 1.6 },
+  { a: [52.6, BOOTH.y + 6.8], b: [BOOTH.x + 3.5, BOOTH.y + 6.2], w: 1.5 },
+  { a: [BOOTH.x + 3.5, BOOTH.y + 6.2], b: [STAGE.x + 23.5, STAGE.y + 3.6], w: 1.4 },
+  { a: [STAGE.x + 23.5, STAGE.y + 3.6], b: [STAGE.x + 15.5, STAGE.y + 3.6], w: 1.2 },
+  { a: [STAGE.x + 15.5, STAGE.y + 3.6], b: [STAGE.x + 6.4, STAGE.y + 3.5], w: 1.1 },
+  // El sendero de la excursión al observatorio: sale de la esquina del patio, cruza el pasto y sube la
+  // loma por sus dos tramos de escalones hasta la placita de la torre.
+  { a: [81.5, 18.2], b: [92, 20.5], w: 1.6 },
+  { a: [92, 20.5], b: [100, 24.5], w: 1.8 },
+  { a: [100, 24.5], b: [106, 28.5], w: 2.4 },
+  { a: [106, 28.5], b: [110.5, 31], w: 2.4 },
+  { a: [110.5, 31], b: [OBS.x - 2.5, OBS.y + 3], w: 1.8 },
+  { a: [OBS.x - 2.5, OBS.y + 3], b: [OBS.x + 2.5, OBS.y + 6.6], w: 1.6 },
 ];
 
 function segDist(px: number, py: number, s: Seg): number {
@@ -240,7 +315,7 @@ function onPatio(x: number, y: number): boolean {
 }
 /** El arroyo del molino (también se asoma en el bosque del este, de donde viene). */
 function inStream(x: number, y: number): boolean {
-  if (x < 54 || y < 48) return false;
+  if (x < 86 || y < 72) return false;
   const wb = wobble(x, y, 51, 0.12);
   return STREAM.some((s) => segDist(x, y, s) < s.w / 2 + wb);
 }
@@ -254,7 +329,7 @@ const onHenYard = (x: number, y: number) =>
 
 /** Arena: la playita donde nace el muelle, el círculo de la fogata y el de la fogata del observatorio. */
 const onSand = (x: number, y: number) =>
-  Math.hypot(x - 43.4, (y - 41) * 0.8) < 2.9 + wobble(x, y, 13, 0.3) ||
+  Math.hypot(x - (DOCK.x0 + 0.4), (y - (DOCK.y0 + 1)) * 0.8) < 2.9 + wobble(x, y, 13, 0.3) ||
   Math.hypot(x - (FIRE.x + 1), y - (FIRE.y + 1)) < 3.3 + wobble(x, y, 17, 0.2) ||
   Math.hypot(x - (OBS_FIRE.x + 1), y - (OBS_FIRE.y + 1)) < 2.7 + wobble(x, y, 51, 0.2);
 /** La placita de piedra al pie de los escalones del observatorio. */
@@ -286,6 +361,7 @@ function localGround(x: number, y: number): FloorKind {
   }
   // Afuera de la cerca: la vereda de piedra a lo largo de la calle y el sendero del portón.
   if (y >= FENCE_Y) {
+    if (onTalud(x, y)) return onPath(x, y) ? "steps" : "slope";
     if (onPath(x, y)) return "path";
     if (y > ROAD.y0 - M - 1.15 + wobble(x, y, 25, 0.08)) return "path";
     return "grass";
@@ -293,6 +369,8 @@ function localGround(x: number, y: number): FloorKind {
   if (onDock(x, y) || onPoolDeck(x, y)) return "dock";
   if (inStream(x, y)) return onBridge(x, y) ? "dock" : "water";
   if (inLake(x, y) && !onIslet(x, y)) return "water";
+  // El talud de las lomas: no se pisa, salvo por los escalones donde lo cruza un sendero.
+  if (onTalud(x, y)) return onPath(x, y) ? "steps" : "slope";
   if (onGrillPad(x, y)) return "path";
   if (onHenYard(x, y)) return "sand";
   if (onPatio(x, y)) return "path";
@@ -331,22 +409,22 @@ put("garage", GARAGE.x, GARAGE.y);
 // Detrás del garaje (al noroeste) su dibujo tapa a quien se pare ahí: matorral y cachivaches tirados, sin
 // lugar donde pararse (como el bosquecito detrás de la torre).
 for (const [x, y, t] of [
-  [20, 12, "bush-berry"],
-  [21, 10, "oak-1"],
-  [22, 10, "pine-2"],
-  [23, 10, "bush-round"],
-  [21, 11, "birch-1"],
-  [22, 11, "oak-3"],
-  [23, 11, "bush-berry"],
-  [24, 11, "crates"],
-  [21, 12, "bush-round"],
-  [22, 12, "tire-stack"],
-  [21, 13, "bush-berry"],
-  [22, 13, "oil-drum"],
-  [21, 14, "bush-round"],
-  [22, 14, "barrel"],
-  [21, 15, "bush-hydrangea"],
-  [22, 15, "tire-stack"],
+  [34, 13, "bush-berry"],
+  [35, 11, "oak-1"],
+  [36, 11, "pine-2"],
+  [37, 11, "bush-round"],
+  [35, 12, "birch-1"],
+  [36, 12, "oak-3"],
+  [37, 12, "bush-berry"],
+  [38, 12, "crates"],
+  [35, 13, "bush-round"],
+  [36, 13, "tire-stack"],
+  [35, 14, "bush-berry"],
+  [36, 14, "oil-drum"],
+  [35, 15, "bush-round"],
+  [36, 15, "barrel"],
+  [35, 16, "bush-hydrangea"],
+  [36, 16, "tire-stack"],
 ] as const)
   put(t, x, y, "down");
 
@@ -364,7 +442,7 @@ put("greenhouse", GREENHOUSE.x, GREENHOUSE.y);
 put("greenhouse-roof", GREENHOUSE.x, GREENHOUSE.y);
 for (const b of BEDS) put("greenhouse-bed", b.x, b.y);
 // El pozo junto al sendero del huerto, a la vista (no detrás de la torre ni del garaje).
-put("well", 21, 16);
+put("well", 35, 17);
 put("water-barrel", 18, 8);
 put("water-barrel", 18, 11);
 put("scarecrow", 13, 9, "down");
@@ -382,47 +460,52 @@ for (const [x, y] of [
   [5, 13],
 ])
   put("wildflowers", x!, y!);
-put("signpost", 21, 21, "down");
+put("signpost", 41, 30, "down");
 
 // Jardín de flores entre el garaje y el camino, y canteros junto a la casa.
 for (const [x, y, t] of [
-  [28, 22, "bush-hydrangea"],
-  [29, 24, "flower-patch"],
-  [30, 26, "bush-rose"],
-  [30, 21, "flower-patch"],
-  [31, 23, "bush-rose"],
-  [33, 21, "flower-patch"],
-  [34, 23, "flower-patch"],
-  [44, 21, "flower-patch"],
-  [46, 22, "bush-hydrangea"],
-  [48, 21, "flower-patch"],
+  [42, 23, "bush-hydrangea"],
+  [43, 25, "flower-patch"],
+  [44, 27, "bush-rose"],
+  [44, 22, "flower-patch"],
+  [45, 24, "bush-rose"],
+  [47, 22, "flower-patch"],
+  [48, 24, "flower-patch"],
+  [58, 22, "flower-patch"],
+  [60, 23, "bush-hydrangea"],
+  [62, 22, "flower-patch"],
 ] as const)
   put(t, x, y);
 
 // Buzón y tablón junto al camino, frente al porche; farolas a lo largo del camino.
-put("mailbox", 36, 21, "down");
-put("notice-board", 42, 21, "down");
+put("mailbox", 50, 22, "down");
+put("notice-board", 56, 22, "down");
 for (const [x, y] of [
-  [36, 25],
-  [44, 29],
-  [36, 34],
-  [41, 40],
-  [36, 47],
-  [42, 52],
-  [22, 30],
+  [50, 26],
+  [57, 37],
+  [50, 46],
+  [56, 56],
+  [50, 66],
+  [56, 76],
+  [50, 86],
+  [56, 95],
+  [40, 35],
+  [70, 17],
+  [64, 49],
+  [90, 22],
 ])
   put("lamp-post", x!, y!);
 
 // La casita de Tobi, el perro, camino al lago, con su cama delante: así la casita no lo tapa al dormir
 // (ver PETS en @hyvento/shared).
-put("dog-house", 48, 28, "down");
-put("pet-bed", 48, 29);
+put("dog-house", 62, 40, "down");
+put("pet-bed", 62, 41);
 
 // Patio este: mesas con sillas, la pérgola, farolitos y la leñera.
-put("pergola", 57, 5);
+put("pergola", 77, 7);
 for (const [tx, ty] of [
-  [53, 8],
-  [54, 13],
+  [73, 10],
+  [74, 15],
 ])
   // Tres sillas por mesa (la de adelante queda libre: se ve la mesa y se pasa).
   for (const [dx, dy, f] of [
@@ -431,34 +514,34 @@ for (const [tx, ty] of [
     [0, -1, "down"],
   ] as const)
     put("patio-chair", tx! + dx, ty! + dy, f);
-put("patio-table", 53, 8);
-put("patio-table", 54, 13);
-put("woodpile", 61, 10);
-put("bench", 59, 12, "left");
+put("patio-table", 73, 10);
+put("patio-table", 74, 15);
+put("woodpile", 81, 12);
+put("bench", 79, 14, "left");
 // Jardineras al borde norte del patio y un seto detrás: la pérgola tapa esos tiles.
 for (const [x, y] of [
-  [51, 7],
-  [51, 11],
-  [55, 16],
-  [58, 16],
-  [61, 14],
-  [54, 4],
-  [55, 4],
-  [56, 4],
-  [57, 4],
+  [71, 9],
+  [71, 13],
+  [75, 18],
+  [78, 18],
+  [81, 16],
+  [74, 6],
+  [75, 6],
+  [76, 6],
+  [77, 6],
 ])
   put("planter", x!, y!);
 for (const [x, y, t] of [
-  [55, 3, "bush-hydrangea"],
-  [56, 3, "bush-round"],
-  [57, 3, "bush-rose"],
+  [75, 5, "bush-hydrangea"],
+  [76, 5, "bush-round"],
+  [77, 5, "bush-rose"],
 ] as const)
   put(t, x, y);
 for (const [x, y] of [
-  [51, 4],
-  [61, 4],
-  [61, 16],
-  [51, 16],
+  [71, 6],
+  [81, 6],
+  [81, 18],
+  [71, 18],
 ])
   put("garden-lantern", x!, y!);
 
@@ -468,39 +551,39 @@ put("log-seat", FIRE.x - 2, FIRE.y, "right");
 put("log-seat", FIRE.x + 3, FIRE.y, "left");
 put("log-seat", FIRE.x, FIRE.y - 2, "down");
 put("log-seat", FIRE.x, FIRE.y + 3, "up");
-put("woodpile", 9, 35);
-put("stump", 19, 39);
+put("woodpile", 19, 55);
+put("stump", 29, 59);
 
 // Glorieta: se entra por el frente (+x, desde el sendero) y adentro hay una banca en herradura. La base
 // va plana y el techo es otra pieza en el mismo lugar (ver el catálogo). Afuera, bancas mirando al camino.
 put("gazebo", GAZEBO.x, GAZEBO.y);
 put("gazebo-roof", GAZEBO.x, GAZEBO.y);
-put("bench", 29, 43, "down");
-put("bench", 29, 48, "up");
+put("bench", 41, 65, "down");
+put("bench", 41, 70, "up");
 // Alrededor de la glorieta (detrás, lo que tapa su techo, y pegado a la baranda) va un macizo de rosales
 // y hortensias: ahí nadie se para, y quien se levanta de la banca queda adentro y no del otro lado.
 for (const [x, y, t] of [
-  [22, 42, "bush-rose"],
-  [23, 42, "flower-patch"],
-  [24, 42, "bush-hydrangea"],
-  [22, 43, "bush-hydrangea"],
-  [23, 43, "bush-rose"],
-  [24, 43, "flower-patch"],
-  [25, 43, "bush-rose"],
-  [26, 43, "bush-hydrangea"],
-  [27, 43, "flower-patch"],
-  [22, 44, "flower-patch"],
-  [23, 44, "bush-hydrangea"],
-  [23, 45, "bush-rose"],
-  [23, 46, "flower-patch"],
-  [23, 47, "bush-hydrangea"],
-  [22, 48, "bush-rose"],
-  [24, 48, "flower-patch"],
-  [25, 48, "bush-rose"],
-  [26, 48, "flower-patch"],
-  [27, 48, "bush-hydrangea"],
-  [28, 42, "flower-patch"],
-  [28, 49, "flower-patch"],
+  [34, 64, "bush-rose"],
+  [35, 64, "flower-patch"],
+  [36, 64, "bush-hydrangea"],
+  [34, 65, "bush-hydrangea"],
+  [35, 65, "bush-rose"],
+  [36, 65, "flower-patch"],
+  [37, 65, "bush-rose"],
+  [38, 65, "bush-hydrangea"],
+  [39, 65, "flower-patch"],
+  [34, 66, "flower-patch"],
+  [35, 66, "bush-hydrangea"],
+  [35, 67, "bush-rose"],
+  [35, 68, "flower-patch"],
+  [35, 69, "bush-hydrangea"],
+  [34, 70, "bush-rose"],
+  [36, 70, "flower-patch"],
+  [37, 70, "bush-rose"],
+  [38, 70, "flower-patch"],
+  [39, 70, "bush-hydrangea"],
+  [40, 64, "flower-patch"],
+  [40, 71, "flower-patch"],
 ] as const)
   put(t, x, y);
 
@@ -513,11 +596,11 @@ put("stage-lantern", DECK.x + 2, DECK.y + DECK.h);
 GRADAS_ROWS.forEach((r, k) => put(`gradas-${k + 1}`, GRADAS.origin.x + r.dx, GRADAS.origin.y + r.dy));
 // Detrás de la concha (al oeste y al norte) su dibujo tapa a quien se pare: matorral cerrado, sin lugar
 // donde pararse (árboles al fondo, matas más cerca).
-for (let y = 53; y < 64; y++)
-  for (let x = 8; x < DECK.x + 2; x++) {
+for (let y = STAGE.y - 3; y < STAGE.y + 8; y++)
+  for (let x = STAGE.x - 4; x < DECK.x + 2; x++) {
     if (x >= STAGE.x && y >= STAGE.y) continue;
     // Delante de la tarima en pantalla (al suroeste) solo matas: un árbol taparía la esquina del escenario.
-    const back = (x < 10 && y < 60) || y < 54;
+    const back = (x < STAGE.x - 2 && y < STAGE.y + 4) || y < STAGE.y - 2;
     const t = back ? ["pine-1", "oak-1", "pine-3", "birch-1", "oak-3"][(x * 7 + y * 3) % 5]! : ["bush-round", "bush-hydrangea", "bush-berry", "bush-rose", "bush-round"][(x * 5 + y) % 5]!;
     put(t, x, y, (x + y) % 2 ? "right" : "down");
   }
@@ -529,33 +612,33 @@ put("stool", BOOTH.x + 1, BOOTH.y + 1, "right");
 put("stool", BOOTH.x + 3, BOOTH.y + 1, "left");
 // Detrás de la cabina (al norte y al oeste) y entre las gradas y la cabina: un seto con flores.
 for (const [x, y, t] of [
-  [28, 53, "bush-rose"],
-  [29, 53, "bush-hydrangea"],
-  [30, 53, "flower-patch"],
-  [31, 53, "bush-round"],
-  [32, 53, "bush-rose"],
-  [33, 53, "flower-patch"],
-  [34, 53, "bush-hydrangea"],
-  [35, 53, "bush-round"],
-  [28, 54, "bush-hydrangea"],
-  [29, 54, "bush-rose"],
-  [28, 55, "flower-patch"],
-  [29, 55, "bush-round"],
-  [28, 56, "bush-rose"],
-  [29, 56, "bush-hydrangea"],
-  [28, 57, "bush-round"],
-  [29, 57, "flower-patch"],
-  [29, 58, "bush-rose"],
+  [38, 85, "bush-rose"],
+  [39, 85, "bush-hydrangea"],
+  [40, 85, "flower-patch"],
+  [41, 85, "bush-round"],
+  [42, 85, "bush-rose"],
+  [43, 85, "flower-patch"],
+  [44, 85, "bush-hydrangea"],
+  [45, 85, "bush-round"],
+  [38, 86, "bush-hydrangea"],
+  [39, 86, "bush-rose"],
+  [38, 87, "flower-patch"],
+  [39, 87, "bush-round"],
+  [38, 88, "bush-rose"],
+  [39, 88, "bush-hydrangea"],
+  [38, 89, "bush-round"],
+  [39, 89, "flower-patch"],
+  [39, 90, "bush-rose"],
 ] as const)
   put(t, x, y);
 // Flores sueltas junto al senderito (cosas bajas: nada tapa la cabina ni las gradas).
 for (const [x, y, t] of [
-  [35, 55, "wildflowers"],
-  [36, 56, "flower-patch"],
-  [28, 62, "wildflowers"],
-  [31, 62, "flower-patch"],
-  [35, 62, "wildflowers"],
-  [26, 62, "rock-small"],
+  [45, 87, "wildflowers"],
+  [46, 88, "flower-patch"],
+  [38, 94, "wildflowers"],
+  [41, 94, "flower-patch"],
+  [45, 94, "wildflowers"],
+  [36, 94, "rock-small"],
 ] as const)
   put(t, x, y);
 
@@ -565,19 +648,19 @@ const FRUIT = ["apple-tree", "peach-tree", "cherry-tree"];
 for (let i = 0; i < 3; i++)
   for (let j = 0; j < 4; j++) {
     const x = 4 + j * 4 + (i % 2) * 2;
-    const y = 44 + i * 4;
-    if ((x === 4 && y === 44) || (x === 6 && y === 48)) continue;
+    const y = TREEHOUSE.y + i * 4;
+    if ((x === 4 && y === TREEHOUSE.y) || (x === 6 && y === TREEHOUSE.y + 4)) continue;
     put(FRUIT[(i + j * 2) % 3]!, x, y);
   }
 put("treehouse", TREEHOUSE.x, TREEHOUSE.y);
 // Detrás de la casa del árbol (contra la cerca) su copa tapa a quien se pare ahí: matas, sin lugar libre.
 for (const [x, y, t] of [
-  [0, 41, "bush-round"],
-  [0, 42, "bush-berry"],
-  [1, 42, "bush-rose"],
-  [0, 43, "bush-hydrangea"],
-  [1, 43, "bush-round"],
-  [0, 44, "bush-berry"],
+  [0, 67, "bush-round"],
+  [0, 68, "bush-berry"],
+  [1, 68, "bush-rose"],
+  [0, 69, "bush-hydrangea"],
+  [1, 69, "bush-round"],
+  [0, 70, "bush-berry"],
 ] as const)
   put(t, x, y, "down");
 put("treehouse-ladder", TREEHOUSE_FOOT.x, TREEHOUSE_FOOT.y - 1);
@@ -599,39 +682,56 @@ put("oak-2", Math.floor(ISLET.cx), Math.floor(ISLET.cy));
       put(DECOR[k++ % DECOR.length]!, x, y, noise(x, y, 45) < 0.5 ? "right" : "down");
     }
 }
-put("picnic-table", 42, 48);
-put("picnic-bench", 41, 48, "right");
-put("picnic-bench", 43, 48, "left");
-put("bench", 50, 29, "down");
+put("picnic-table", 60, 74);
+put("picnic-bench", 59, 74, "right");
+put("picnic-bench", 61, 74, "left");
+put("bench", 74, 48, "down");
 // Juncos en el agua junto a la orilla y nenúfares más adentro (elegidos con ruido, siempre en el agua).
 const nearLand = (x: number, y: number) => [-1, 0, 1].some((dx) => [-1, 0, 1].some((dy) => !isWater(x + dx, y + dy) && ground(x + dx, y + dy) !== "dock"));
 const farFromLand = (x: number, y: number, r: number) => {
   for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (!isWater(x + dx, y + dy)) return false;
   return true;
 };
-for (let y = 28; y < PH; y++)
-  for (let x = 42; x < PW; x++) {
+for (let y = 48; y < PH; y++)
+  for (let x = 64; x < PW; x++) {
     // El arroyo lleva sus propios juncos (ver la granja, más abajo).
     if (!isWater(x, y) || inStream(x + 0.5, y + 0.5) || (y >= DOCK.y0 - 1 && y <= DOCK.y1 && x < DOCK.x1 + 1)) continue;
     if (nearLand(x, y) && noise(x, y, 41) < 0.14) put("reeds", x, y, noise(x, y, 42) < 0.5 ? "right" : "down");
     else if (farFromLand(x, y, 1) && noise(x, y, 43) < 0.07) put("lily-pad", x, y, noise(x, y, 44) < 0.5 ? "right" : "down");
   }
-/** La piedra plana de la orilla (norte del lago), donde también se pesca. */
-const FLAT_ROCK = (() => {
-  for (let x = 54; x < 60; x++)
-    for (let y = 29; y < 36; y++) if (!isWater(x, y) && isWater(x, y + 1) && ground(x, y) === "grass") return { x, y };
-  throw new Error("No hay orilla para la piedra plana");
-})();
-put("flat-rock", FLAT_ROCK.x, FLAT_ROCK.y);
+/**
+ * Las piedras planas de la orilla, donde también se pesca: el primer pasto del recuadro que tiene agua
+ * del lado (dx, dy). Una por orilla, así hay dónde pescar sin hacer fila en el muelle.
+ */
+function shoreRock(x0: number, x1: number, y0: number, y1: number, dx: number, dy: number) {
+  for (let x = x0; x < x1; x++)
+    for (let y = y0; y < y1; y++) if (!isWater(x, y) && isWater(x + dx, y + dy) && ground(x, y) === "grass") return { x, y };
+  throw new Error(`No hay orilla para la piedra plana en (${x0}, ${y0})`);
+}
+const FLAT_ROCKS = [
+  { name: "Piedra de la orilla norte", ...shoreRock(76, 84, 48, 56, 0, 1) },
+  { name: "Piedra de la orilla este", ...shoreRock(88, 98, 60, 68, -1, 0) },
+  { name: "Piedra de la orilla sur", ...shoreRock(74, 84, 76, 84, 0, -1) },
+  { name: "Piedra de la orilla oeste", ...shoreRock(64, 72, 71, 79, 1, 0) },
+];
+const FLAT_ROCK = FLAT_ROCKS[0]!;
+for (const r of FLAT_ROCKS) put("flat-rock", r.x, r.y);
 for (const [x, y, t] of [
   [FLAT_ROCK.x + 1, FLAT_ROCK.y - 1, "rock-small"],
   [FLAT_ROCK.x - 2, FLAT_ROCK.y - 1, "rock-mossy"],
-  [61, 36, "rock-medium"],
-  [47, 53, "rock-small"],
-  [60, 52, "boulder"],
-  [42, 44, "rock-small"],
+  [96, 57, "rock-medium"],
+  [72, 83, "rock-small"],
+  [95, 74, "boulder"],
+  [63, 61, "rock-small"],
+  [99, 66, "rock-mossy"],
 ] as const)
   if (!isWater(x, y)) put(t, x, y);
+
+// El mirador, arriba de su lomita: una banca mirando al lago, un farol y flores.
+put("bench", MIRADOR.cx, MIRADOR.cy - 2, "up");
+put("lamp-post", MIRADOR.cx + 2, MIRADOR.cy - 1);
+put("wildflowers", MIRADOR.cx - 2, MIRADOR.cy + 1);
+put("flower-patch", MIRADOR.cx + 1, MIRADOR.cy + 2);
 
 // ---------- La piscina ----------
 
@@ -641,9 +741,9 @@ for (const [x, y, t] of [
 // y los toalleros en el costado este. Delante (al sur) solo reposeras: son bajas y no tapan a quien nada.
 put("pool", POOL.x, POOL.y);
 put("diving-board", BOARD.x, BOARD.y, "right");
-for (const x of [68, 70, 72, 74]) put("sun-lounger", x, POOL.y, "down");
-for (const x of [69, 73]) put("parasol", x, POOL.y);
-for (const x of [69, 71, 73]) put("sun-lounger", x, POOL.y + POOL_SIZE[1] - 3, "up");
+for (const x of [4, 6, 8, 10].map((dx) => POOL.x + dx)) put("sun-lounger", x, POOL.y, "down");
+for (const x of [5, 9].map((dx) => POOL.x + dx)) put("parasol", x, POOL.y);
+for (const x of [5, 7, 9].map((dx) => POOL.x + dx)) put("sun-lounger", x, POOL.y + POOL_SIZE[1] - 3, "up");
 put("towel-rack", POOL.x + POOL_SIZE[0] - 1, POOL.y + 2);
 put("garden-shower", POOL.x + POOL_SIZE[0] - 1, POOL.y + POOL_SIZE[1] - 2);
 put("planter", POOL.x + POOL_SIZE[0] - 1, POOL.y + 7);
@@ -663,14 +763,14 @@ put("garden-lantern", POOL.x + POOL_SIZE[0] - 1, POOL.y);
 // la mesa de preparación, la pizarra con el menú, leña y dos mesas de picnic para comer juntos.
 put("clay-oven", OVEN.x, OVEN.y);
 put("brick-grill", BRICK_GRILL.x, BRICK_GRILL.y);
-put("prep-table", 60, 19);
-put("menu-board", 51, 20, "down");
-put("woodpile", 62, 18);
-put("garden-lantern", 52, 18);
-put("garden-lantern", 61, 22);
+put("prep-table", 80, 28);
+put("menu-board", 71, 29, "down");
+put("woodpile", 82, 27);
+put("garden-lantern", 72, 27);
+put("garden-lantern", 81, 31);
 for (const [tx, ty] of [
-  [55, 24],
-  [59, 24],
+  [75, 33],
+  [79, 33],
 ] as const) {
   put("picnic-table", tx, ty);
   put("picnic-bench", tx - 1, ty, "right");
@@ -682,16 +782,16 @@ for (const [tx, ty] of [
 // saco de maíz. La cerca de palos rodea el patio y el corral de la cabra, cada uno con su hueco abajo.
 put("chicken-coop", COOP.x, COOP.y);
 for (const [x, y] of [
-  [0, 23],
-  [1, 23],
-  [2, 23],
-  [0, 22],
-  [1, 22],
+  [0, 32],
+  [1, 32],
+  [2, 32],
+  [0, 31],
+  [1, 31],
 ] as const)
   put("hay-bale", x, y, noise(x, y, 91) < 0.5 ? "right" : "down");
-put("chicken-feeder", 4, 28);
-put("water-trough", 6, 26);
-put("feed-sack", 7, 24);
+put("chicken-feeder", 4, 37);
+put("water-trough", 6, 35);
+put("feed-sack", 7, 33);
 put("goat-shed", CORRAL.x + 1, CORRAL.y);
 put("hay-rack", CORRAL.x, CORRAL.y + CORRAL.h - 1);
 put("water-trough", CORRAL.x + 2, CORRAL.y + 4);
@@ -719,89 +819,90 @@ put("footbridge", BRIDGE.x, BRIDGE.y);
 put("flour-sacks", MILL.x + 3, MILL.y - 1);
 put("millstone", MILL.x + 5, MILL.y + 1);
 put("garden-lantern", BRIDGE.x - 1, BRIDGE.y - 1);
-put("bench", 75, 62, "up");
+put("bench", 118, 97, "up");
 for (const [x, y, t] of [
-  [63, 54, "oak-2"],
-  [64, 54, "pine-2"],
-  [64, 53, "birch-1"],
-  [65, 53, "bush-round"],
-  [66, 53, "pine-3"],
-  [63, 55, "bush-berry"],
-  [62, 54, "fern"],
-  [67, 54, "bush-hydrangea"],
-  [64, 55, "bush-rose"],
-  [65, 54, "bush-berry"],
-  [66, 54, "bush-round"],
-  [63, 56, "bush-hydrangea"],
-  [64, 56, "bush-round"],
+  [106, 89, "oak-2"],
+  [107, 89, "pine-2"],
+  [107, 88, "birch-1"],
+  [108, 88, "bush-round"],
+  [109, 88, "pine-3"],
+  [106, 90, "bush-berry"],
+  [105, 89, "fern"],
+  [110, 89, "bush-hydrangea"],
+  [107, 90, "bush-rose"],
+  [108, 89, "bush-berry"],
+  [109, 89, "bush-round"],
+  [106, 91, "bush-hydrangea"],
+  [107, 91, "bush-round"],
 ] as const)
   put(t, x, y, noise(x, y, 93) < 0.5 ? "right" : "down");
-for (let y = 48; y < PH; y++)
-  for (let x = 54; x < PW; x++) {
+for (let y = 72; y < PH; y++)
+  for (let x = 86; x < PW; x++) {
     if (!isWater(x, y) || !inStream(x + 0.5, y + 0.5)) continue;
     if (x >= WHEEL.x - 1 && x <= WHEEL.x + 2 && y >= WHEEL.y && y <= WHEEL.y + 1) continue;
     if (onBridge(x, y) || x === BRIDGE.x - 1 || x === BRIDGE.x + BRIDGE.w) continue;
     if (nearLand(x, y) && noise(x, y, 95) < 0.32) put("reeds", x, y, noise(x, y, 96) < 0.5 ? "right" : "down");
   }
 
-// Rincón de rocas al noreste (lo que dejó la parrilla) y naturaleza suelta (tipos y posiciones fijos:
-// nada se repite en fila).
-// Rincón de rocas al noreste y naturaleza suelta (tipos y posiciones fijos: nada se repite en fila).
+// Rincón de rocas junto a la parrilla y naturaleza suelta (tipos y posiciones fijos: nada se repite en fila).
 for (const [x, y, t, f] of [
-  [51, 24, "rock-mossy", "right"],
-  [52, 26, "fallen-log", "down"],
-  [54, 26, "mushrooms", "right"],
-  [60, 27, "pine-2", "right"],
-  [63, 24, "oak-1", "down"],
-  [48, 25, "birch-1", "right"],
-  [46, 27, "fern", "right"],
+  [70, 33, "rock-mossy", "right"],
+  [72, 36, "fallen-log", "down"],
+  [74, 36, "mushrooms", "right"],
+  [83, 37, "pine-2", "right"],
+  [87, 33, "oak-1", "down"],
+  [66, 34, "birch-1", "right"],
+  [63, 37, "fern", "right"],
   // Detrás del ala este y al borde del huerto.
-  [52, 1, "pine-1", "down"],
-  [56, 2, "birch-2", "right"],
-  [8, 1, "pine-3", "right"],
-  [13, 1, "oak-1", "down"],
-  [1, 12, "pine-2", "right"],
-  [2, 38, "pine-1", "down"],
-  [6, 33, "mushrooms", "down"],
-  [8, 40, "fern", "right"],
-  [26, 34, "birch-1", "down"],
-  [31, 37, "oak-3", "right"],
-  [33, 31, "bush-round", "down"],
-  [24, 38, "fern", "down"],
-  [18, 30, "bush-berry", "down"],
-  [32, 52, "oak-1", "right"],
-  [20, 52, "bush-round", "right"],
-  [44, 54, "birch-2", "down"],
-  [41, 24, "bush-round", "right"],
-  [34, 17, "bush-round", "down"],
-  [11, 20, "fallen-log", "right"],
-  [16, 23, "rock-medium", "down"],
-  [6, 22, "stump", "right"],
-  [13, 42, "mushrooms", "right"],
-  [36, 39, "wildflowers", "right"],
-  [33, 44, "wildflowers", "down"],
-  [45, 35, "wildflowers", "right"],
-  [16, 50, "wildflowers", "down"],
-  [49, 34, "fern", "down"],
-  [62, 42, "pine-3", "right"],
-  [62, 30, "oak-3", "down"],
-  [50, 55, "oak-1", "right"],
+  [72, 1, "pine-1", "down"],
+  [77, 3, "birch-2", "right"],
+  [11, 1, "pine-3", "right"],
+  [18, 1, "oak-1", "down"],
+  [1, 17, "pine-2", "right"],
+  [3, 52, "pine-1", "down"],
+  [8, 45, "mushrooms", "down"],
+  [11, 55, "fern", "right"],
+  [36, 47, "birch-1", "down"],
+  [43, 51, "oak-3", "right"],
+  [45, 43, "bush-round", "down"],
+  [33, 52, "fern", "down"],
+  [25, 41, "bush-berry", "down"],
+  [44, 72, "oak-1", "right"],
+  [28, 72, "bush-round", "right"],
+  [56, 33, "bush-round", "right"],
+  [47, 23, "bush-round", "down"],
+  [15, 28, "fallen-log", "right"],
+  [22, 32, "rock-medium", "down"],
+  [8, 30, "stump", "right"],
+  [18, 58, "mushrooms", "right"],
+  [50, 54, "wildflowers", "right"],
+  [45, 61, "wildflowers", "down"],
+  [62, 48, "wildflowers", "right"],
+  [22, 69, "wildflowers", "down"],
+  [67, 47, "fern", "down"],
+  [85, 58, "pine-3", "right"],
+  [85, 41, "oak-3", "down"],
+  [69, 76, "oak-1", "right"],
 ] as const)
   // Lo que cae en el agua (la orilla ondula con ruido) se omite: nada de helechos flotando.
   if (!isWater(x, y)) put(t, x, y, f);
 
 // Detrás de la casa y de la torre no se vería a nadie (el dibujo de la casa lo tapa entero): el pasillo
 // del fondo y el rincón entre el huerto y la torre son un bosquecito cerrado, sin lugar donde pararse.
-/** Primer x tapado por la torre en cada fila y = 3..13 (medido proyectando el dibujo de la casa). */
-const TOWER_SHADOW = [19, 19, 20, 20, 21, 22, 23, 24, 25, 26, 27];
+/**
+ * Primer x tapado por la torre en cada fila desde la del fondo de la casa (medido proyectando el dibujo
+ * de la casa, relativo a su esquina).
+ */
+const TOWER_SHADOW = [-9, -9, -8, -8, -7, -6, -5, -4, -3, -2, -1];
 const behindHouse = (x: number, y: number) =>
-  (y >= 0 && y <= 2 && x >= 18 && x <= 42) || (y >= 3 && y <= 13 && x >= TOWER_SHADOW[y - 3]! && x < HOUSE.x);
+  (y >= 0 && y < HOUSE.y && x >= HOUSE.x - 10 && x <= HOUSE.x + 14) ||
+  (y >= HOUSE.y && y < HOUSE.y + TOWER_SHADOW.length && x >= HOUSE.x + TOWER_SHADOW[y - HOUSE.y]! && x < HOUSE.x);
 {
   const THICKET = ["oak-1", "pine-2", "birch-1", "oak-3", "pine-1", "bush-round", "oak-2", "pine-3", "birch-2", "bush-berry"];
   const used = new Set<string>();
   const free = (x: number, y: number) => behindHouse(x, y) && !inGarage(x, y) && !used.has(`${x},${y}`);
-  for (let y = 0; y <= 13; y++)
-    for (let x = 18; x < HOUSE.x + 15; x++) {
+  for (let y = 0; y < HOUSE.y + TOWER_SHADOW.length; y++)
+    for (let x = HOUSE.x - 10; x < HOUSE.x + 15; x++) {
       if (!free(x, y)) continue;
       // Robles viejos donde entran (menos dibujos) y árboles sueltos en el resto: todo tile queda ocupado.
       if (free(x + 1, y) && free(x, y + 1) && free(x + 1, y + 1) && noise(x, y, 81) < 0.45) {
@@ -814,28 +915,50 @@ const behindHouse = (x: number, y: number) =>
     }
 }
 
-// Parada del bus, afuera del portón: la plataforma (plana: el piso, los torniquetes y el vidrio del
-// fondo) y encima la estación de vidrio con su techo, que se transparenta con alguien adentro. El techo
-// cubre también el sendero que llega del portón (su dibujo lo tapa desde atrás). La vereda lleva faroles,
-// una banca y matas bajas contra la cerca (nada alto: el portón y la estación se ven desde el jardín).
+// Parada del bus, afuera del portón y más al este (se llega por el sendero de la vereda): la plataforma
+// (plana: el piso, los torniquetes y el vidrio del fondo) y encima la estación de vidrio con su techo, que
+// se transparenta con alguien adentro. El techo cubre también el tramo del sendero que llega a los
+// torniquetes (su dibujo lo tapa desde atrás). La vereda lleva faroles, una banca y matas bajas contra la
+// cerca (nada alto: el portón y la estación se ven desde el jardín).
 put("bus-platform", STATION.x - M, STATION.y - M);
 put("bus-station", STATION.x - M - 3, STATION.y - M - 2);
 for (const [x, y, t, f] of [
-  [16, 68, "lamp-post", "right"],
-  [64, 68, "lamp-post", "right"],
-  [56, 66, "bench", "down"],
-  [6, 65, "bush-hydrangea", "right"],
-  [11, 65, "flower-patch", "right"],
-  [22, 65, "bush-rose", "down"],
-  [24, 65, "flower-patch", "down"],
-  [60, 65, "flower-patch", "right"],
-  [68, 65, "bush-hydrangea", "down"],
-  [73, 65, "flower-patch", "down"],
-  [2, 66, "bush-round", "right"],
-  [77, 66, "bush-round", "down"],
+  // La vereda, junto a la calle.
+  [18, 120, "lamp-post", "right"],
+  [36, 120, "lamp-post", "right"],
+  [62, 120, "lamp-post", "right"],
+  [100, 120, "lamp-post", "right"],
+  [118, 120, "lamp-post", "right"],
+  [44, 117, "bench", "right"],
+  // El sendero de la entrada: faroles, el letrero de bienvenida y canteros.
+  [51, 116, "signpost", "down"],
+  [51, 108, "lamp-post", "right"],
+  [43, 111, "lamp-post", "right"],
+  [51, 114, "lamp-post", "right"],
+  [44, 106, "flower-patch", "right"],
+  [50, 110, "wildflowers", "down"],
+  [43, 114, "bush-rose", "down"],
+  [44, 115, "flower-patch", "right"],
+  [56, 104, "flower-patch", "down"],
+  [49, 104, "bush-hydrangea", "right"],
+  // Matas bajas contra la cerca (nada alto: el portón se ve desde la vereda).
+  [6, 101, "bush-hydrangea", "right"],
+  [11, 101, "flower-patch", "right"],
+  [22, 101, "bush-rose", "down"],
+  [24, 101, "flower-patch", "down"],
+  [34, 101, "bush-round", "down"],
+  [44, 101, "flower-patch", "right"],
+  [60, 101, "flower-patch", "right"],
+  [70, 101, "bush-hydrangea", "down"],
+  [78, 101, "flower-patch", "down"],
+  [88, 101, "bush-rose", "right"],
+  [95, 101, "flower-patch", "down"],
+  [108, 101, "bush-hydrangea", "down"],
+  [2, 102, "bush-round", "right"],
+  [128, 102, "bush-round", "down"],
 ] as const)
   put(t, x, y, f);
-// Observatorio (lomita del noreste): la torre, la fogata de malvaviscos con sus troncos, el cohete de
+// Observatorio (arriba de la loma del este): la torre, la fogata de malvaviscos con sus troncos, el cohete de
 // madera en su plataforma, los banderines, los postes con cables que suben por el sendero y el letrero.
 put("observatory", OBS.x, OBS.y);
 put("marshmallow-fire", OBS_FIRE.x, OBS_FIRE.y);
@@ -843,32 +966,41 @@ put("log-seat", OBS_FIRE.x - 2, OBS_FIRE.y, "right");
 put("log-seat", OBS_FIRE.x + 3, OBS_FIRE.y, "left");
 put("log-seat", OBS_FIRE.x, OBS_FIRE.y - 2, "down");
 put("log-seat", OBS_FIRE.x, OBS_FIRE.y + 3, "up");
-put("toy-rocket", 78, 29);
-put("bunting", 76, 32, "down");
-put("cable-pole", 64, 18);
-put("cable-pole", 64, 22);
-put("cable-pole-end", 64, 26);
-put("observatory-sign", 66, 20, "down");
+put("toy-rocket", 124, 36);
+put("bunting", 122, 39, "down");
+put("cable-pole", 95, 23);
+put("cable-pole", 95, 27);
+put("cable-pole-end", 95, 31);
+// La lomita de la entrada es un bosquecito cerrado (no se sube: el sendero la rodea).
+{
+  const COPSE = ["oak-1", "bush-round", "pine-2", "bush-berry", "birch-1", "bush-rose", "oak-3", "bush-hydrangea"];
+  const hill = HILLS[3]!;
+  for (let y = Math.floor(hill.cy - hill.ry - 1); y <= hill.cy + hill.ry + 1; y++)
+    for (let x = Math.floor(hill.cx - hill.rx - 1); x <= hill.cx + hill.rx + 1; x++)
+      if (ground(x, y) === "grass" && hillOut(hill, x + 0.5, y + 0.5) < 0)
+        put(COPSE[Math.floor(noise(x, y, 57) * COPSE.length)]!, x, y, noise(x, y, 58) < 0.5 ? "right" : "down");
+}
+put("observatory-sign", 98, 27, "down");
 // La lomita: rocas y matas al pie de la torre, a los costados.
 for (const [x, y, t, f] of [
-  [71, 24, "rock-mossy", "right"],
-  [71, 27, "rock-mossy", "down"],
-  [78, 27, "rock-medium", "down"],
-  [79, 26, "fern", "down"],
-  [72, 31, "rock-small", "right"],
-  [70, 32, "wildflowers", "down"],
-  [79, 33, "rock-mossy", "right"],
+  [117, 31, "rock-mossy", "right"],
+  [117, 34, "rock-mossy", "down"],
+  [124, 34, "rock-medium", "down"],
+  [125, 33, "fern", "down"],
+  [118, 38, "rock-small", "right"],
+  [116, 39, "wildflowers", "down"],
+  [125, 40, "rock-mossy", "right"],
 ] as const)
   put(t, x, y, f);
 // Detrás de la torre (lo que su dibujo tapa, medido con el test de oclusión) la lomita es un matorral de
 // rocas, matas y pinos chicos: ahí nadie se para y nadie queda escondido.
 {
   const BEHIND_OBS: [number, number[]][] = [
-    [19, [68, 69, 70]],
-    [20, [68, 69, 70, 71]],
-    [21, [68, 69, 70, 71, 72]],
-    [22, [69, 70, 71, 72, 73]],
-    [23, [70, 71]],
+    [26, [114, 115, 116]],
+    [27, [114, 115, 116, 117]],
+    [28, [114, 115, 116, 117, 118]],
+    [29, [115, 116, 117, 118, 119]],
+    [30, [116, 117]],
   ];
   const KINDS = ["rock-mossy", "bush-round", "pine-2", "bush-berry", "rock-medium", "pine-3", "bush-round", "birch-1"];
   for (const [y, xs] of BEHIND_OBS) for (const x of xs) put(KINDS[Math.floor(noise(x, y, 55) * KINDS.length)]!, x, y, noise(x, y, 56) < 0.5 ? "right" : "down");
@@ -879,13 +1011,14 @@ for (const [x, y, t, f] of [
 const pt = (type: PointDef["type"], name: string, x: number, y: number): PointDef => ({ type, name, x: x + M, y: y + M });
 
 const POINTS: PointDef[] = [
-  pt("spawn", "Portón del jardín", GATE_X, FENCE_Y - 3),
+  // Se aparece al pie del sendero de la entrada, junto a la vereda: de ahí se sube al portón.
+  pt("spawn", "Entrada del jardín", 48, FENCE_Y + 17),
   // La granja: frente a la boca del horno y a la parrilla, y junto al letrero del gallinero.
   pt("grill", "Horno de barro", OVEN.x + 1, OVEN.y + 2),
   pt("grill", "Parrilla", BRICK_GRILL.x + 1, BRICK_GRILL.y + 1),
   pt("farm_sign", "Letrero del gallinero", YARD_GATE_X, HEN_YARD.y + HEN_YARD.h + 1),
-  pt("mailbox", "Buzón", 36, 22),
-  pt("task_board", "Tablón", 42, 22),
+  pt("mailbox", "Buzón", 50, 23),
+  pt("task_board", "Tablón", 56, 23),
   // Una por parcela, en el mismo orden que PLOTS (el índice es el id de la parcela): sobre la parcela.
   ...PLOTS.map((p, i) => pt("garden_plot", `Parcela ${i + 1}`, p.x, p.y)),
   // Frente a la puerta del cobertizo: la regadera y las semillas.
@@ -895,7 +1028,7 @@ const POINTS: PointDef[] = [
   // La punta del muelle y la piedra plana de la orilla norte.
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0),
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0 + 1),
-  pt("fishing_spot", "Piedra de la orilla", FLAT_ROCK.x, FLAT_ROCK.y),
+  ...FLAT_ROCKS.map((r) => pt("fishing_spot", r.name, r.x, r.y)),
   // Uno frente a cada puerta de la estación, en la fila de la plataforma pegada al bus.
   ...BUS_DOOR_X.map((dx) => pt("bus_stop", "Estación Hyvento", Math.floor(dx) - M, STATION.y + STATION.d - 1 - M)),
   // La piscina: junto a cada escalerita (al sur de la del suroeste y al este de la del noreste) y detrás
@@ -932,7 +1065,7 @@ const POINTS: PointDef[] = [
   // El pie de la escalera de la casa del árbol, despejado (que ningún árbol la tape).
   mark(TREEHOUSE_FOOT.x + 1, TREEHOUSE_FOOT.y + 1, 3);
   // El anfiteatro y la cabina se decoran a mano (arriba): que no crezcan árboles en los pasillos.
-  for (let y = 53; y < PH; y++) for (let x = 8; x <= 36; x++) reserved.add(`${x},${y}`);
+  for (let y = STAGE.y - 3; y < PH; y++) for (let x = STAGE.x - 4; x <= BOOTH.x + 6; x++) reserved.add(`${x},${y}`);
   const soft = (x: number, y: number) => {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ground(x + dx, y + dy) !== "grass") return true;
     return false;
@@ -942,9 +1075,10 @@ const POINTS: PointDef[] = [
   for (let y = 0; y < PH; y++)
     for (let x = 0; x < PW; x++) {
       if (reserved.has(`${x},${y}`) || ground(x, y) !== "grass" || soft(x, y)) continue;
-      // Afuera de la cerca (la vereda de la parada) no crece nada suelto: ahí va lo que se ubica a mano.
-      if (y >= FENCE_Y) continue;
-      const edge = Math.min(x, y, PW - 1 - x, FENCE_Y - 1 - y);
+      // Afuera de la cerca crece la pradera de la entrada, salvo junto a la cerca y cerca de la vereda (ahí
+      // va lo que se ubica a mano y no se tapa la estación).
+      if (y >= FENCE_Y && (y < FENCE_Y + 3 || y > PH - 7)) continue;
+      const edge = y >= FENCE_Y ? Math.min(x, PW - 1 - x, 9) : Math.min(x, y, PW - 1 - x, FENCE_Y - 1 - y);
       const grove = smoothNoise(x, y, 7, 71);
       const pTree = edge < 2 ? 0.3 : edge < 4 ? 0.12 : grove > 0.72 ? 0.34 : 0.004;
       const n = noise(x, y, 72);
@@ -1045,7 +1179,7 @@ export const GRANJA_LAYOUT = {
   /** Al pie de la rampa del gallinero (ahí duermen de noche) y delante del establo. */
   coopDoor: { x: COOP.x + 1 + M, y: COOP.y + 3 + M },
   shedDoor: { x: CORRAL.x + 1 + M, y: CORRAL.y + 2 + M },
-  feeder: { x: 4 + M, y: 28 + M },
+  feeder: { x: 4 + M, y: HEN_YARD.y + 4 + M },
   hayRack: { x: CORRAL.x + M, y: CORRAL.y + CORRAL.h - 1 + M },
   mill: { x: MILL.x + M, y: MILL.y + M },
   wheel: { x: WHEEL.x + M, y: WHEEL.y + M },
@@ -1062,6 +1196,7 @@ export const jardin: AreaDef = {
   surroundings: "forest",
   ground: (x, y) => fine(x + 0.5, y + 0.5),
   groundFine: fine,
+  heightFine: (x, y) => heightAt(x - M, y - M),
   rooms: [],
   doors: [],
   zones: [
