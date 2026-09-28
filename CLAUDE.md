@@ -24,6 +24,48 @@ La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, mu
 - **Orden de las carpetas**: Prisma las aplica por nombre. Algunas migraciones existentes tienen hora "adelantada" (`20260926180000`, `…190000`, `…200000`). Una migración nueva debe quedar **después** de la última carpeta de `packages/db/prisma/migrations`; si Prisma genera una con fecha anterior, renombrar la carpeta (y revisar que no quede un duplicado).
 - Cambios que borran columnas: primero dejar de usarlas y borrarlas en una migración posterior (conviven versiones mientras se despliega).
 
+## Subir cambios al repo
+
+El repo principal es `MrxHuaang/lumbre-office` (fork de `poethy/hyvento-office`). Quien no es dueño trabaja siempre así:
+
+1. **Antes de tocar código**, buscar el issue en Linear (ver abajo). Si no existe, crearlo.
+2. Rama nueva desde `main` actualizado, con el id del issue: `feat/vir-123-lo-que-hagas` (o `fix/…`, `chore/…`, `docs/…`). Nunca push directo a `main`.
+3. Commits chicos en español (`feat: …`); el id del issue puede ir en el cuerpo, no en el título. Sin `Co-Authored-By`.
+4. Antes de subir: `pnpm typecheck && pnpm test`; si cambia algo visible, probarlo en el navegador; si agrega arte o niveles, también `pnpm --filter @hyvento/web build`.
+5. PR hacia `main` de `MrxHuaang/lumbre-office`, título en estilo de commit y en la descripción: qué cambia, cómo se probó, `VIR-123` y, si trae migración, **"⚠️ Trae migración"** en la primera línea.
+6. Si el cambio vuelve viejo algo de `CLAUDE.md`, `README.md` o `docs/`, actualizarlo en el mismo PR.
+7. No mezclar el PR: lo revisa y lo mezcla el dueño.
+
+## Linear (team Virtual-Office)
+
+Linear es donde se lleva el trabajo: workspace **Hyvento**, team **Virtual-Office** (ids `VIR-…`). Cada cambio del repo tiene su issue.
+
+**Cómo está organizado**
+
+- **Proyectos**: Fundación, Cabaña Lumbre y Estructuras del jardín (cerrados, lo ya hecho); Extras de la cabaña, Casa de cada persona y Lumbre para cualquier equipo (pendientes, cada uno con su plan en `docs/`); Mantenimiento (bugs, deuda y docs).
+- **Labels**: una del grupo **Área** (Mundo y niveles, Servidor y multijugador, Voz y video, Economía y puntos, Juegos, Vida en la cabaña, HUD e interfaz, Hyvento OS, Personajes, Marca y portada, Infra y despliegue, Rendimiento) y una de tipo (Feature, Improvement o Bug).
+- **Estados**: Backlog → Todo → In Progress → Done (o Canceled / Duplicate).
+
+**Qué hacer en Linear en cada paso**
+
+| Momento | Cambio en Linear |
+|---|---|
+| Se va a empezar algo | Buscar el issue (por título o palabras clave). Si no hay, crearlo en el proyecto que corresponde, con su label de Área y de tipo y una descripción corta del objetivo. |
+| Se crea la rama | Pasar el issue a **In Progress** y asignarlo a quien trabaja. |
+| Se abre el PR | Adjuntar el link del PR al issue y dejar un comentario corto (qué se hizo, cómo se probó, si trae migración). Sigue en In Progress. |
+| El PR se mezcla | Recién ahí pasar el issue a **Done** (comprobar el merge con `gh pr view`). |
+| El PR se cierra sin mezclar | Volver el issue a **Todo** con un comentario del porqué. |
+| Aparece un bug u otra idea fuera del alcance | Crear un issue nuevo (bugs en Mantenimiento con label Bug) y no arreglarlo en el mismo PR salvo que sea trivial. |
+| Un issue depende de otro | Marcarlo con "blocked by", no mezclar los dos en un PR. |
+| Se completa todo un proyecto | Avisar al dueño; él cierra el proyecto. |
+
+**Reglas**
+
+- No borrar issues ni proyectos, ni cambiar los de otra persona más allá del estado y los links: si algo sobra, **Canceled** o **Duplicate** con comentario.
+- No pasar a Done algo que no está en `main`.
+- Si una decisión es del dueño (precios, contenido, lo marcado "decidir"), dejar la pregunta en el issue y no inventar la respuesta.
+- Títulos en español y en positivo, como los commits ("La radio re-bufferea con videos en vivo", "Standup diario en el tablón"), sin prefijos de grupo ni números de paso ("Equipos 2:", "Fase 3:"): el orden se marca con "blocked by". No hay equipos repartiéndose el trabajo: cada issue lo toma una persona, que se lo asigna al empezar.
+
 ## Mapa del código
 
 | Carpeta | Qué hay |
