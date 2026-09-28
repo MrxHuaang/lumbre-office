@@ -74,6 +74,7 @@ Tiene versión de noche, con las ventanas encendidas. La referencia es la imagen
 - **Terraza este**: cubierta de madera con mesas, pérgola con enredaderas y faroles, y la leñera.
 - **Naturaleza**: más variedad de árboles (robles, pinos, abedules, frutales), arbustos con flores, macizos de flores, rocas de varios tamaños, hongos y troncos caídos.
 - **Garaje** (agregado después del rediseño): pegado al oeste de la torre, de 5x5, de la misma familia que la casa: troncos sobre una basa de piedra, techo de tejas con musgo, el portón de tablas de dos hojas, la puerta chica con su farol, la ventana con postigos, hiedra y la entrada de gravilla hasta el sendero del huerto. Se usa poco, pero no está abandonado. La puerta chica lleva al nivel `garaje` (ver abajo). Detrás de él (lo que su dibujo tapa) hay matorral y cachivaches, sin lugar donde pararse.
+- **Parada del Megabús** (agregada con las estructuras): la cerca y el portón siguen en y = 64 (el portón ahora está abierto) y la zona jugable baja hasta y = 70. Afuera del portón hay un sendero corto, una vereda de piedra con faroles, una banca y matas bajas, la **Estación Hyvento** (plataforma de 18x3 con vidrio, postes verde lima, techo gris con el letrero, la pantalla de "Próximo bus" y los torniquetes frente al sendero) y, detrás, la calle de este a oeste por el margen del sur: el cordón como escalón, el carril exclusivo rojo teja con "SOLO BUS", la doble línea amarilla, el carril mixto y el cordón de enfrente, que se pierde en el bosque en las dos puntas. Al subir al bus se pasa al nivel `megabus` (ver abajo).
 
 ## Planta baja: lo social y lo comercial (unos 40x26)
 
@@ -212,6 +213,12 @@ y 9   └─────────[  ]─────────────�
 - Nivel interior aparte (`garaje`), al que se entra desde la puerta chica del garaje del jardín.
 - **Taller** (zona común): tablones gastados, paredes de tablas sobre zócalo de piedra, el portón de tablas por dentro, el banco de trabajo bajo el tablero de herramientas, estantes metálicos, pilas de llantas, la caja de herramientas roja, el compresor, tambores, cajas, latas de pintura, la escoba, la hielera de madera, la radio y un carro tapado con lona. Descuidado apenas: se usa poco.
 - **Oficina del garaje** (`office-5`, aislada, puerta desde el taller): un rincón tibio: escritorio de madera con un computador de los noventa (prende Hyvento OS), la silla de oficina rota con cinta, archivador abollado, ventilador, planta seca, calendario viejo, un sillón, una lámpara de pie, la ventana con cortinas y un tapete gastado. Se asigna en /admin y su dueño la decora como las del piso 2.
+
+## Megabús: el bus por dentro (22x6)
+
+- Nivel interior aparte (`megabus`): el cuerpo de atrás (8 tiles), el fuelle (2, papel `fuelle` de pliegues grises y el plato giratorio) y el de adelante (12, con la cabina del conductor). Piso `rubber` (caucho antideslizante), papel `megabus` (paneles claros con la franja lima y el pasamanos amarillo) y ventanas `bus-window` de piso a techo; la de adelante lleva la pantalla de ruta.
+- Asientos mirando hacia adelante (los preferenciales azules), barras amarillas con timbre junto a las tres puertas (en la pared baja del sur). Zona común: se habla por proximidad como en cualquier nivel.
+- Se entra con E en la estación con las puertas abiertas; se baja por cualquier puerta solo con el bus parado en la estación. En la vuelta (30 s) los de adentro ven la pantalla del viaje con las paradas de Pereira.
 
 ## Casino, más trabajado y jugado en la mesa
 

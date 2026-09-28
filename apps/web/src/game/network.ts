@@ -59,6 +59,9 @@ import {
   type PetNotice,
   HUERTO_MSG,
   huertoNoticeText,
+  BUS_MSG,
+  BUS_NOTICES,
+  type BusNotice,
   type HuertoNotice,
   isWeather,
   type PhotoCountdownEvent,
@@ -206,6 +209,8 @@ export interface OfficeStateView {
   events?: RemoteEvents;
   /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
   garden: Map<string, RemoteGardenPlot>;
+  /** El Megabús de la parada del jardín (BusState en apps/server/src/state.ts). */
+  bus: { phase: string; since: number; nextAt: number; run: number };
 }
 
 /** Una parcela sembrada como viaja en el estado (espejo de `GardenPlotState` en apps/server/src/state.ts). */
@@ -448,8 +453,14 @@ export function sendBlackjackAction(action: BlackjackAction) {
 }
 
 /** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
+/** E en la estación: subirse al Megabús (el servidor valida que esté parado con las puertas abiertas). */
+export function sendBusBoard() {
+  room?.send(BUS_MSG.board, {});
+}
+
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return togglePole();
+  if (kind === "bus") return sendBusBoard();
   if (kind === "fishing") return fishingSpotAction();
   useOfficeStore.getState().openPanel(kind, true);
 }
@@ -959,6 +970,11 @@ function attach(r: OfficeRoom) {
   });
   // Jardín vivo: por qué no se pudo sembrar, regar, cosechar o sacar miel.
   r.onMessage(HUERTO_MSG.notice, (n: HuertoNotice) => useOfficeStore.getState().notify(huertoNoticeText(n), "info"));
+  // Megabús: por qué no se pudo subir o bajar.
+  r.onMessage(BUS_MSG.notice, (n: BusNotice) => {
+    const text = BUS_NOTICES[n.code];
+    if (text) useOfficeStore.getState().notify(text, "info");
+  });
   r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));
