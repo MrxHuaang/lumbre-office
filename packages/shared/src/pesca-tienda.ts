@@ -51,6 +51,8 @@ export const BAIT_TUNING: Record<BaitId, { biteMul: number; luck: number }> = {
 export interface FishingGear {
   rod: FishingRod;
   bait: BaitId | null;
+  /** Barra más larga por el oficio (Pesca nivel 5; ver OFICIO_PERKS en oficios.ts). */
+  barBonus?: number;
 }
 
 /**

@@ -296,6 +296,8 @@ export interface FishingChallenge {
   treasure: boolean;
   /** La caña con que se pesca (la decide el servidor con lo que uno tiene; sin esto, la de bambú). */
   rod?: FishingRod;
+  /** Barra más larga por el oficio de Pesca (lo decide el servidor con el nivel; ver oficios.ts). */
+  barBonus?: number;
 }
 
 export interface FishCatchResult {

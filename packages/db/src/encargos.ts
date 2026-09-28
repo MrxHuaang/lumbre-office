@@ -5,6 +5,7 @@
 import { currentQuests, questDeltas, STORY_PERIOD, type QuestDelta, type QuestRecord } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { bumpStat } from "./achievements";
+import { creditSkillXpTx } from "./oficios";
 import { awardPointsTx } from "./points";
 
 type Client = PrismaClient | Prisma.TransactionClient;
@@ -109,13 +110,8 @@ export async function claimQuestTx(tx: Prisma.TransactionClient, input: ClaimQue
     input.points > 0
       ? await awardPointsTx(tx, { userId, amount: input.points, reason: "QUEST", refId: `encargo:${questId}:${period}`, now })
       : { awarded: 0, balance: (await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { points: true } })).points };
-  if (input.xp > 0) {
-    await tx.skillXp.upsert({
-      where: { userId_skill: { userId, skill: input.skill } },
-      create: { userId, skill: input.skill, xp: input.xp },
-      update: { xp: { increment: input.xp } },
-    });
-  }
+  // La experiencia del oficio (con el nivel al día; ver oficios.ts).
+  await creditSkillXpTx(tx, userId, input.skill, input.xp);
   if (input.next) {
     await tx.questProgress.createMany({ data: [{ userId, questId: input.next.questId, period: STORY_PERIOD, goal: input.next.goal }], skipDuplicates: true });
   }
