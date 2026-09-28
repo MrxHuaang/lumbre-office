@@ -362,6 +362,12 @@ export class MemoryRepository implements GameRepository {
     return true;
   }
 
+  async loadStatsByPrefix(prefix: string) {
+    const out: { userId: string; key: string; value: number }[] = [];
+    for (const [userId, stats] of this.userStats) for (const [key, value] of stats) if (key.startsWith(prefix)) out.push({ userId, key, value });
+    return out;
+  }
+
   async loadBagSlots(userId: string) {
     return Object.fromEntries(this.bagSlots.get(userId) ?? []);
   }

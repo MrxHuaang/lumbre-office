@@ -333,6 +333,42 @@ export class SombreroState extends Schema {
   @type("string") facing = "down";
 }
 
+/** La granja: una gallina o la cabra (las mueve el servidor; ver rooms/granja.ts). */
+export class FarmAnimal extends Schema {
+  @type("string") id = "";
+  /** "gallina" o "cabra", y el plumaje o pelaje (colores del dibujo). */
+  @type("string") kind = "";
+  @type("string") coat = "";
+  /** El nombre que va ganando en la votación. */
+  @type("string") name = "";
+  /** Posición en px de mundo del jardín. */
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") dir = "down";
+  /** "stand", "walk", "peck" o "sleep" (FarmArtPose). */
+  @type("string") pose = "stand";
+}
+
+/** La parrilla: lo que alguien tiene en el fuego (una receta por persona; la clave es el userId). */
+export class GrillJob extends Schema {
+  @type("string") name = "";
+  @type("string") recipe = "";
+  /** "horno" o "parrilla": sobre cuál sale la barra. */
+  @type("string") station = "";
+  /** Lo cocinado (0 a 1) hasta `at` (hora del servidor), y desde ahí a ritmo `rate` (ver grillProgress). */
+  @type("number") progress = 0;
+  @type("number") rate = 1;
+  @type("float64") at = 0;
+  @type("number") cookMs = 0;
+}
+
+/** La granja del jardín: los animales, lo que está en el fuego y los huevos que quedan en el nido. */
+export class GranjaState extends Schema {
+  @type({ map: FarmAnimal }) animals = new MapSchema<FarmAnimal>();
+  @type({ map: GrillJob }) grill = new MapSchema<GrillJob>();
+  @type("uint8") eggs = 0;
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -366,4 +402,6 @@ export class OfficeState extends Schema {
   @type(EventsState) events = new EventsState();
   /** El Man del Sombrero: si anda por ahí y dónde (lo decide la sala con el reloj del juego y el clima). */
   @type(SombreroState) sombrero = new SombreroState();
+  /** La granja del jardín: el gallinero, la parrilla y lo que queda en el nido. */
+  @type(GranjaState) granja = new GranjaState();
 }

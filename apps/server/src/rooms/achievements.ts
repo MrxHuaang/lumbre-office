@@ -206,6 +206,16 @@ export class AchievementTracker {
     if (e && e.pending.size === 0) this.users.delete(userId);
   }
 
+  /** ¿Ya se leyó de la base lo que tenía? (sin eso no se sabe, p. ej., si hoy ya dio de comer). */
+  isLoaded(userId: string): boolean {
+    return this.users.get(userId)?.loaded ?? false;
+  }
+
+  /** Un contador de alguien (lo de la base más lo pendiente), o undefined si no lo tiene. */
+  stat(userId: string, key: string): number | undefined {
+    return this.users.get(userId)?.stats.get(key);
+  }
+
   /** Para los tests: lo que se sabe de alguien. */
   snapshot(userId: string): { stats: Record<string, number>; unlocked: string[] } | null {
     const e = this.users.get(userId);

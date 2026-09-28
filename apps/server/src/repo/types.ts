@@ -143,6 +143,11 @@ export interface GameRepository {
   addInventory(userId: string, itemId: string, quantity: number): Promise<number>;
   /** Mochila: saca unidades solo si alcanzan (`false` = no tenía tantas y no se tocó nada). */
   takeInventory(userId: string, itemId: string, quantity: number): Promise<boolean>;
+  /**
+   * Contadores de todos con una clave que empieza así (los votos de los nombres del gallinero, que se
+   * guardan como UserStat: ver `voteValue` de @hyvento/shared/granja).
+   */
+  loadStatsByPrefix(prefix: string): Promise<{ userId: string; key: string; value: number }[]>;
   /** Mochila: la casilla guardada de cada cosa (itemId → 0..35). */
   loadBagSlots(userId: string): Promise<Record<string, number>>;
   /** Mochila: guarda casillas nuevas o movidas y olvida las de lo que ya no está (`null`). */
