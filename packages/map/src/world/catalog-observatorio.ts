@@ -22,8 +22,9 @@ export const OBSERVATORIO_CATALOG = {
   "cable-pole-end": { name: "Poste", size: [1, 1] },
   // Letrero de tabla del sendero.
   "observatory-sign": { name: "Letrero del observatorio", size: [1, 1] },
-  // El cartel grande de la entrada ("OBSERVATORIO" sobre azul noche), en dos palos, con un farolito arriba.
-  "observatory-board": { name: "Cartel del observatorio", size: [1, 4], fixed: true, light: { at: [8, 32, 40], ...WARM, radius: 40 } },
+  // El cartel grande de la entrada ("OBSERVATORIO" sobre azul noche, de frente a la cámara), en dos palos
+  // en la diagonal, con un farolito arriba.
+  "observatory-board": { name: "Cartel del observatorio", size: [2, 2], fixed: true, light: { at: [16, 16, 40], ...WARM, radius: 40 } },
   // Reloj de sol de piedra y latón, y el telescopio chico en su trípode para mirar estrellas en el prado.
   sundial: { name: "Reloj de sol", size: [1, 1] },
   "stargazer-scope": { name: "Telescopio de trípode", size: [1, 1] },

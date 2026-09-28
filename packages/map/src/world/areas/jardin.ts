@@ -1010,7 +1010,7 @@ put("cable-pole", 95, 23);
 put("cable-pole", 95, 27);
 put("cable-pole-end", 95, 31);
 put("observatory-sign", 98, 27, "down");
-put("observatory-board", OBS_FIRE.x - 4, OBS_FIRE.y - 6);
+put("observatory-board", OBS_FIRE.x - 5, OBS_FIRE.y - 6);
 // Faroles a lo largo del sendero y farolitos en el borde de la placita.
 put("lamp-post", 102, 28);
 put("lamp-post", 111, 30);
@@ -1072,15 +1072,18 @@ for (const [x, y, t] of [
 // pinos, robles y matas: ahí nadie se para y nadie queda escondido. Unos árboles más en el borde le dan forma.
 {
   const BEHIND_OBS: [number, number[]][] = [
-    [21, [110, 112, 113, 114]],
-    [22, [110, 111, 112, 113, 114, 115, 116]],
-    [23, [111, 112, 113, 114, 115, 116]],
-    [24, [111, 112, 113, 114, 115, 116, 117]],
-    [25, [112, 113, 114, 115, 116, 117, 118]],
+    [19, [111, 112]],
+    [20, [109, 110, 111, 112, 113, 114]],
+    [21, [108, 109, 110, 111, 112, 113, 114]],
+    [22, [108, 109, 110, 111, 112, 113, 114, 115, 116]],
+    [23, [109, 110, 111, 112, 113, 114, 115, 116]],
+    [24, [110, 111, 112, 113, 114, 115, 116, 117]],
+    [25, [111, 112, 113, 114, 115, 116, 117, 118]],
     [26, [112, 113, 114, 115, 116, 117, 118]],
     [27, [113, 114, 115, 116, 117, 118, 119]],
-    [28, [115, 116]],
-    [29, [116]],
+    [28, [114, 115, 116]],
+    [29, [115, 116]],
+    [30, [116]],
   ];
   const KINDS = ["pine-2", "bush-round", "oak-1", "bush-berry", "pine-3", "birch-1", "bush-hydrangea", "pine-1", "rock-mossy", "oak-3"];
   for (const [y, xs] of BEHIND_OBS) for (const x of xs) put(KINDS[Math.floor(noise(x, y, 55) * KINDS.length)]!, x, y, noise(x, y, 56) < 0.5 ? "right" : "down");

@@ -13,19 +13,19 @@ export const WARM_STONE: Ramp = ramp("#3d3130", "#5e4c45", "#806b5c", "#a18a74",
 
 /** Centro de la torre y medidas (la torre va un poco hacia atrás, así caben los escalones). */
 const CX = 64;
-const CY = 57;
+const CY = 56;
 /** El zócalo de piedra: radio al pie, radio arriba y alto. */
-const BASE = { r0: 50, r1: 47, h: 7 };
+const BASE = { r0: 55, r1: 52, h: 7 };
 /** La torre (con la cornisa de piedra a media altura). */
-const TW = { r: 36, z0: BASE.h, top: 126, belt: 64 };
+const TW = { r: 41, z0: BASE.h, top: 146, belt: 74 };
 /** La galería de tablas al pie de la cúpula. */
-const GAL = { z: TW.top, r: 43 };
+const GAL = { z: TW.top, r: 48 };
 /** La cúpula (media esfera). */
-const DOME = { r: 36, z0: TW.top + 3 };
+const DOME = { r: 41, z0: TW.top + 3 };
 /** La compuerta: su ángulo (casi +x, así el telescopio asoma de perfil) y su medio ancho. */
 const SLIT = { az: 0.3, half: 0.24 };
 /** Largo del telescopio que asoma de noche. */
-const TELE_LEN = 62;
+const TELE_LEN = 70;
 /** Puerta en arco, de frente (+y). */
 const DOOR = { half: 9, h: 28 };
 
@@ -81,13 +81,14 @@ function door(u: number, v: number, night: boolean): RGBA | null {
 
 /** Las ventanitas de la torre: (ángulo, altura del alféizar). La puerta va en π/2. */
 const WINDOWS: [number, number][] = [
-  [0.15, 28],
-  [0.95, 72],
-  [2.3, 32],
-  [2.05, 80],
-  [-0.35, 76],
-  [1.25, 38],
-  [0.5, 92],
+  [0.15, 30],
+  [0.95, 84],
+  [2.3, 36],
+  [2.05, 94],
+  [-0.35, 88],
+  [1.25, 42],
+  [0.5, 108],
+  [1.75, 110],
 ];
 
 /** La torre: piedra, ventanas, la puerta y la viga de arriba. */

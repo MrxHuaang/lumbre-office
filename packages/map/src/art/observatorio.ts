@@ -6,7 +6,7 @@
 import { Escena, type Tinte } from "./exterior-escena";
 import type { Variant } from "./kit";
 import { C } from "./palette";
-import { alpha, at, bayer, noise, type Ramp, type RGBA, type Sprite } from "./pixel";
+import { alpha, at, bayer, noise, PixelCanvas, type Ramp, type RGBA, type Sprite } from "./pixel";
 import { WARM_STONE } from "./observatorio-exterior";
 import { glyphOn } from "./room";
 
@@ -195,42 +195,50 @@ function observatorySign(): Sprite {
 const BOARD_TEXT = "OBSERVATORIO";
 
 /**
- * El cartel grande de la entrada: una tabla larga de azul noche con marco de madera en dos palos, las
- * letras claras ("OBSERVATORIO", de 3x5) entre dos estrellitas de latón y un farolito colgado arriba.
+ * El cartel grande de la entrada, de frente a la cámara: dos palos en la diagonal (a la misma altura en
+ * pantalla) y encima la tabla de azul noche con marco de madera, las letras claras ("OBSERVATORIO", de
+ * 3x5) entre dos estrellitas de latón, un techito de tabla y un farolito. La tabla se pinta en 2D (así las
+ * letras no se tuercen con el isométrico).
  */
 function observatoryBoard(): Sprite {
-  const s = scene(1, 4, 48);
-  s.shadow(5, 2, 6, 60, 0.22);
-  post(s, 8, 6, 30, 1.4);
-  post(s, 8, 58, 30, 1.4);
-  const len = 60;
+  const s = scene(2, 2, 52);
+  s.shadow(2, 2, 28, 28, 0.18);
+  post(s, 5, 27, 30, 1.4);
+  post(s, 27, 5, 30, 1.4);
+  const c = new PixelCanvas(s.canvas.width, s.canvas.height);
+  const q = s.p(16, 16, 30);
   const tw = BOARD_TEXT.length * 4 - 1;
-  const margin = (len - tw) / 2;
-  const face: Tinte = (u, v) => {
-    if (u < 1.2 || u > len - 1.2 || v < 1.2 || v > 12.8) return at(C.wood, v > 12.8 ? 4 : 2);
-    // u crece hacia atrás en pantalla: el texto se lee con u al revés.
-    const tx = len - u - margin;
-    const gy = Math.floor(9.6 - v);
-    if (gy >= 0 && gy < 5 && tx >= 0 && tx < tw) {
-      const k = Math.floor(tx / 4);
-      const gx = Math.floor(tx) % 4;
-      if (gx < 3 && glyphOn(BOARD_TEXT[k]!, gx, gy)) return at(C.cream, 5);
+  const w = tw + 20;
+  const h = 13;
+  const x0 = Math.round(q.x - w / 2);
+  const y0 = Math.round(q.y - h + 3);
+  // El techito (más ancho que la tabla) y el farolito encima, al medio.
+  for (let x = -2; x < w + 2; x++) {
+    c.set(x0 + x, y0 - 2, at(C.woodDark, 1));
+    c.set(x0 + x, y0 - 1, at(C.woodDark, x % 5 === 0 ? 2 : 3));
+  }
+  const lx = x0 + Math.floor(w / 2) - 1;
+  for (let y = 0; y < 5; y++)
+    for (let x = 0; x < 3; x++) c.set(lx + x, y0 - 7 + y, y === 0 || y === 4 ? at(C.metal, 1) : x === 1 ? at(C.gold, 5) : at(C.gold, 4));
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const edge = x === 0 || y === 0 || x === w - 1 || y === h - 1;
+      const frame = x === 1 || y === 1 || x === w - 2 || y === h - 2;
+      let col = edge ? at(C.woodDark, 0) : frame ? at(C.wood, y === 1 ? 4 : 3) : at(C.navy, 2);
+      if (!edge && !frame && noise(x, y, 98) < 0.03) col = at(C.cream, 3);
+      // Las letras.
+      const tx = x - 10;
+      const gy = y - 4;
+      if (tx >= 0 && tx < tw && gy >= 0 && gy < 5 && tx % 4 < 3 && glyphOn(BOARD_TEXT[Math.floor(tx / 4)]!, tx % 4, gy)) col = at(C.cream, 5);
+      // Estrellitas a los costados.
+      for (const sx of [5, w - 6]) {
+        const dx = Math.abs(x - sx);
+        const dy = Math.abs(y - 6);
+        if ((dx === 0 && dy <= 2) || (dy === 0 && dx <= 2) || (dx === 1 && dy === 1)) col = at(C.gold, dx + dy === 0 ? 5 : 4);
+      }
+      c.set(x0 + x, y0 + y, col);
     }
-    // Estrellitas a los costados del texto.
-    for (const sx of [-3.2, tw + 2.2]) {
-      const dx = tx - sx;
-      const dy = v - 7;
-      if (Math.abs(dx) + Math.abs(dy) < 1.6 || (Math.abs(dx) < 0.5 && Math.abs(dy) < 2.3) || (Math.abs(dy) < 0.5 && Math.abs(dx) < 2.3)) return at(C.gold, 5);
-    }
-    if (noise(Math.floor(u), Math.floor(v), 98) < 0.02) return at(C.cream, 3);
-    return at(C.navy, 2);
-  };
-  s.box(7, 2, 15, 2, len, 14, planks(C.wood, 4, 5, 97), T(at(C.wood, 2)), face);
-  // Techito de tabla encima y el farolito colgado en la mitad.
-  s.box(6, 1, 29, 4, len + 2, 1.5, planks(C.woodDark, 4, 6, 99), T(at(C.woodDark, 2)), T(at(C.woodDark, 3)));
-  s.solid(7.5, 31.5, 30.5, 1, 1, 3, at(C.metal, 3), at(C.metal, 2), at(C.metal, 1));
-  s.box(6.3, 30.3, 33.5, 3.4, 3.4, 4, () => at(C.metal, 2), (_u, v) => at(C.gold, v > 1 ? 5 : 4), (_u, v) => at(C.gold, v > 1 ? 4 : 3));
-  s.solid(5.8, 29.8, 37.5, 4.4, 4.4, 1.2, at(C.metal, 3), at(C.metal, 1), at(C.metal, 0));
+  s.encima(c);
   return s.sprite();
 }
 
