@@ -254,7 +254,7 @@ import { CabinEvents } from "./events";
 import { FocusTimers } from "./focus";
 import { Phones } from "./phones";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
-import { BAG_MSG, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
+import { BAG, BAG_MSG, CELULAR_ITEM, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
 import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/shared";
 import { CasaArbol } from "./casaArbol";
@@ -401,6 +401,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static tripTimings: TripTimings = { scale: 1, maxMs: TRIP.maxMs };
   /** Cada cuánto se guardan juntas las estadísticas de los logros (los tests lo acortan). */
   static statsFlushMs = 20_000;
+  /**
+   * Dar el celular al entrar a quien no lo tiene. Los tests lo apagan (test/setup.ts) para que la mochila
+   * tenga solo lo que cada uno pone; test/celular.test.ts lo prende.
+   */
+  static celularAlEntrar = true;
   /** Tiempos y horario del Megabús (los tests los acortan). */
   static busTimings: BusTimings = { ...BUS_TIMINGS };
   static busSchedule: BusSchedule = { firstInMs: BUS.firstInMs, maxWaitMs: BUS.maxWaitMs };
@@ -1138,6 +1143,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(() => 0));
     // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
     await this.held.load(auth.sub);
+    // El celular (el chat vive en él) lo tiene todo el mundo: al que le falta se le da gratis, en la
+    // última casilla para no ocupar la mano (la primera casilla es la que queda elegida al entrar).
+    if (OfficeRoom.celularAlEntrar && this.held.count(auth.sub, CELULAR_ITEM) === 0) {
+      const given = await this.held.add(auth.sub, CELULAR_ITEM).catch(() => "full" as const);
+      if (given === "ok") this.held.move(auth.sub, CELULAR_ITEM, BAG.slots - 1);
+    }
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
@@ -2669,6 +2680,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !parsed.success) return;
     const { itemId, quantity } = parsed.data;
     if (objIdOf(itemId) === null) return void client.send(BAG_MSG.notice, { code: "furniture" } satisfies BagNotice);
+    if (itemId === CELULAR_ITEM) return void client.send(BAG_MSG.notice, { code: "keep" } satisfies BagNotice);
     // "Tirar todo" pide de más: se tira lo que haya.
     const n = Math.min(quantity, this.held.count(player.userId, itemId));
     if (n > 0) await this.held.take(player.userId, itemId, n);

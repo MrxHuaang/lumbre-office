@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { media, useMediaStore } from "@/game/media";
 import { NAME_TAG_LABEL, selectFocusing, useOfficeStore } from "@/game/store";
+import { usePhoneStore, useUnread } from "@/game/phone/state";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { DevicePanel } from "./DevicePanel";
 import { EmotePicker, useEmoteKey } from "./EmotePicker";
@@ -36,11 +37,11 @@ export function MediaControls({ children, actions, tail }: { children?: ReactNod
   const mic = useMediaStore((s) => s.mic);
   const cam = useMediaStore((s) => s.cam);
   const screen = useMediaStore((s) => s.screen);
-  const chatOpen = useOfficeStore((s) => s.chatOpen);
-  const unread = useOfficeStore((s) => s.unread);
+  // El chat vive en el celular: este botón lo abre en Mensajes (o lo guarda si ya está afuera).
+  const phoneOpen = usePhoneStore((s) => s.open);
+  const unread = useUnread();
   // En modo foco el contador no se muestra (los mensajes se ven al terminar el bloque).
   const focusing = useOfficeStore(selectFocusing);
-  const setChatOpen = useOfficeStore((s) => s.setChatOpen);
   // En espera (sin nadie cerca) también se puede prender: la sala de video se abre al hacerlo.
   const ready = status === "connected" || status === "idle" || status === "connecting";
   // Sin conexión de audio/video, los tres primeros botones dicen por qué (antes era un chip arriba).
@@ -134,11 +135,11 @@ export function MediaControls({ children, actions, tail }: { children?: ReactNod
         >
           <Slot
             icon="chat"
-            label={chatOpen ? "Cerrar chat" : "Abrir chat"}
+            label={phoneOpen ? "Guardar el celular" : "Chat en el celular"}
             hotkey="↵"
-            active={chatOpen}
-            onClick={() => setChatOpen(!chatOpen)}
-            badge={!chatOpen && !focusing && unread > 0 ? unread : undefined}
+            active={phoneOpen}
+            onClick={() => (phoneOpen ? usePhoneStore.getState().hide() : usePhoneStore.getState().show({ app: "mensajes" }))}
+            badge={!phoneOpen && !focusing && unread > 0 ? unread : undefined}
           />
           <span className="flex items-center gap-1 max-sm:hidden">{extras}</span>
           <span className="sm:hidden">

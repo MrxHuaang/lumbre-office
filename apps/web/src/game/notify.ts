@@ -17,6 +17,7 @@ import {
 import type { Room } from "colyseus.js";
 import { create } from "zustand";
 import { answerPhone } from "./phone";
+import { usePhoneStore } from "./phone/state";
 import { getSfxSettings } from "./sfx";
 import { sharedAudio } from "./sound";
 import { useOfficeStore } from "./store";
@@ -312,11 +313,8 @@ export function bindNotify(r: Room) {
     if (!me || e.fromId === me.userId || !mentionsName(e.text, me.name)) return;
     browserNotify("mention", e.text.length > 140 ? `${e.text.slice(0, 139)}…` : e.text, {
       title: `${e.fromName} te mencionó`,
-      onClick: () => {
-        const s = useOfficeStore.getState();
-        s.setChatScope(e.scope);
-        s.setChatOpen(true);
-      },
+      // El chat vive en el celular: se abre en Mensajes, en la pestaña del mensaje.
+      onClick: () => usePhoneStore.getState().show({ app: "mensajes", scope: e.scope }),
     });
   });
 

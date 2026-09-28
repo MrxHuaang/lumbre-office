@@ -1532,6 +1532,23 @@ const ITEMS: Record<string, ItemArt> = {
     colors: { a: hex("#f0a830"), A: hex("#c07a18"), c: hex("#d9533a"), C: hex("#f4ecdc"), h: GLASS.h },
   },
   // La regadera verde: llena, con una gota que asoma por la flor; vacía, sin gota.
+  // El celular de tapa, abierto: la tapa con la pantalla verdosa, la bisagra y el teclado (vinotinto).
+  celular: {
+    rows: [
+      ".ooooo.", //
+      "ovvvvvo",
+      "ovsssvo",
+      "ovsSsvo",
+      "ovvhvvo",
+      ".ooooo.",
+      "ovkvkvo",
+      "ovvvvvo",
+      "ovkvkvo",
+      ".ooooo.",
+    ],
+    colors: { v: hex("#7c2638"), s: hex("#b9cba4"), S: hex("#dce8cf"), h: hex("#ff86ae"), k: hex("#fbd6df") },
+    flat: "sShk",
+  },
   regadera: {
     rows: [
       ".........w", //

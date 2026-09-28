@@ -15,6 +15,13 @@ import { shopItem } from "./shop";
 import { SOMBRERO_MENU, sombreroItem } from "./sombrero";
 import type { ItemStack } from "./social";
 
+/**
+ * El celular de tapa. Lo tiene todo el mundo (el servidor lo da gratis al entrar si falta) y no se tira,
+ * porque el chat vive en él. El navegador lo saca a la pantalla solo si está en la mochila.
+ */
+export const CELULAR = "celular";
+export const CELULAR_ITEM = `obj:${CELULAR}`;
+
 export const BAG = {
   cols: 12,
   rows: 3,
@@ -132,6 +139,14 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   ...GRANJA_BAG_OBJECTS,
   // El puesto de pesca del lago: las cañas de fibra y de carbono y la carnada (pesca-tienda.ts).
   ...PESCA_BAG_OBJECTS,
+  // El celular de tapa (components/phone): con C sale a la pantalla.
+  [CELULAR]: {
+    name: "Celular",
+    blurb: "Tu celular de tapa: C lo saca. Ahí están el chat, tus contactos, la culebrita y más.",
+    kind: "herramienta",
+    max: 1,
+    durable: true,
+  },
 };
 
 /** "huevo-criollo" → "Huevo criollo": el nombre de algo que no está en el registro. */
@@ -292,12 +307,13 @@ export interface BagView {
   pick?: true;
 }
 
-export type BagNoticeCode = "full" | "stack" | "furniture";
+export type BagNoticeCode = "full" | "stack" | "furniture" | "keep";
 
 export const BAG_NOTICES: Record<BagNoticeCode, string> = {
   full: "No te cabe en la mochila: haz espacio (tira algo o pon un mueble en tu oficina).",
   stack: "Ya llevas lo más que se puede de eso.",
   furniture: "Los muebles no se tiran: ponlos en tu oficina con Decorar.",
+  keep: "El celular no se tira: ahí están el chat y tus contactos.",
 };
 
 export interface BagNotice {

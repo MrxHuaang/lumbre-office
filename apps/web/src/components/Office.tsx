@@ -14,8 +14,8 @@ import { useEntryStore } from "@/game/entryStore";
 import { waitForCozyFont } from "@/lib/cozy";
 import { warmPrerender } from "@/game/iso/prerender-paths";
 import { AdminDialog } from "./AdminDialog";
-import { ChatPanel } from "./ChatPanel";
-import { Hud, PeoplePanel } from "./Hud";
+import { Hud, MinimapPanel } from "./Hud";
+import { MessageToasts } from "./phone/PhoneToasts";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { RadioTapPrompt } from "./RoomPanel";
@@ -66,9 +66,12 @@ import { AchievementToasts } from "./profile/AchievementToasts";
 import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
 import { TrophyPanel } from "./profile/TrophyPanel";
 import { useAchievementStore } from "@/game/achievements";
+import { usePhoneStore } from "@/game/phone/state";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
+// El celular (con sus apps) igual: se descarga recién al sacarlo con el botón del HUD o la tecla C.
+const Phone = dynamic(() => import("./phone/Phone").then((m) => m.Phone), { ssr: false });
 
 const RELOAD_FLAG = "hyvento:reloaded-after-update";
 /** Cuánto se espera el mapa ya conectado antes de ofrecer "Reintentar". */
@@ -142,6 +145,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const pcOn = useOfficeStore((s) => s.pcOn);
   const atComputer = useOfficeStore((s) => s.atComputer);
   const setPcOn = useOfficeStore((s) => s.setPcOn);
+  const phoneOut = usePhoneStore((s) => s.mounted);
 
   // Si dejas de estar frente al computador (p. ej. el servidor te levantó), el PC se apaga.
   useEffect(() => {
@@ -149,6 +153,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   }, [pcOn, atComputer, setPcOn]);
   // Al salir de la oficina el PC queda apagado.
   useEffect(() => () => useOfficeStore.getState().setPcOn(false), []);
+  // Y el celular, guardado.
+  useEffect(() => () => usePhoneStore.getState().closed(), []);
   const panel = useOfficeStore((s) => s.panel);
   const closePanel = useOfficeStore((s) => s.closePanel);
   const connection = useOfficeStore((s) => s.connection);
@@ -296,19 +302,21 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             onAdmin={() => setDialog("admin")}
             onLogout={onExit}
           />
-          {/* Decorando tu oficina, el panel del editor toma el lugar de los conectados. */}
+          {/* Arriba a la derecha: los avisos, los mensajes que llegan con el celular guardado y, decorando, el editor. */}
           <div
             className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-2 ${decorating || worldEditing ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-auto"}`}
           >
-            {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <PeoplePanel />}
-            {/* En el celular la columna se ajusta a la ficha de conectados y los avisos bajan hasta debajo del HUD. */}
+            {/* Los conectados están en Contactos del celular: aquí queda el minimapa (o el editor, decorando). */}
+            {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <MinimapPanel />}
+            {/* En pantallas angostas la columna se ajusta a la ficha del minimapa y los avisos bajan hasta debajo del HUD. */}
             <div className="flex w-full flex-col items-end gap-2 empty:hidden max-md:absolute max-md:top-[calc(var(--cozy-hud-bottom,3rem)_-_0.25rem)] max-md:right-0 max-md:w-[min(16rem,calc(100vw-1.5rem))]">
               <DoorNotesChip />
               <Notices />
               <NotifyPrompt />
+              {/* Los mensajes que llegan con el celular guardado. */}
+              <MessageToasts />
             </div>
           </div>
-          <ChatPanel isAdmin={isAdmin} />
           <SideDock />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
@@ -343,6 +351,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <VideoStrip />
           <ScreenFocus />
           {pcOn && <Computer profile={profile} onOff={() => setPcOn(false)} />}
+          {phoneOut && <Phone profile={profile} />}
           {(dialog === "profile" || dialog === "character") && (
             <ProfileDialog profile={profile} withName={dialog === "profile"} onClose={closeDialog} onSaved={onProfileChange} />
           )}
@@ -435,6 +444,7 @@ const CONTROLS: [string, string][] = [
   ["F", "usar lo de la mano"],
   ["T", "emotes"],
   ["P", "foto"],
+  ["C", "el celular (Enter: Mensajes)"],
   ["N", "nombres: completos, cortos u ocultos"],
   ["Enter", "chatear"],
   ["Tab", "cambiar la fila de la barra"],
