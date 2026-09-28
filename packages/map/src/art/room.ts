@@ -21,9 +21,9 @@ import {
   type Sprite,
 } from "./pixel";
 import { FOREST, interiorFeature, interiorFloor, interiorWall } from "./interior-room";
-import { CEMENT, concreteFloor, garajeFeature } from "./garaje-room";
 import { roadFloor } from "./bus-calle";
 import { busWallFeature, rubberFloor } from "./bus-adentro";
+import { CEMENT, concreteFloor, garajeFeature, gravelFloor, wornPlanksFloor } from "./garaje-room";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;
@@ -49,6 +49,7 @@ const WALLPAPER: Record<WallpaperKind, Ramp> = {
   cinderblock: CEMENT,
   megabus: C.cream,
   fuelle: C.stone,
+  boards: C.logs,
 };
 /** El alfombrado toma el color del papel de la sala. */
 const CARPET: Record<WallpaperKind, Ramp> = {
@@ -70,6 +71,7 @@ const CARPET: Record<WallpaperKind, Ramp> = {
   cinderblock: C.stone,
   megabus: C.green,
   fuelle: C.stone,
+  boards: C.rug,
 };
 
 // ---------- Pisos ----------
@@ -271,6 +273,10 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return roadFloor(X, Y);
     case "rubber":
       return rubberFloor(X, Y);
+    case "planks-worn":
+      return wornPlanksFloor(X, Y);
+    case "gravel":
+      return gravelFloor(X, Y);
   }
 }
 
@@ -375,6 +381,8 @@ const KIND_SET: Record<FloorKind, true> = {
   concrete: true,
   road: true,
   rubber: true,
+  "planks-worn": true,
+  gravel: true,
 };
 const KINDS = Object.keys(KIND_SET) as FloorKind[];
 
@@ -683,12 +691,14 @@ export function glyphOn(ch: string, gx: number, gy: number): boolean {
   return GLYPHS[ch]?.split(" ")[gy]?.[gx] === "#";
 }
 
-/** Letrero de neón: tablero oscuro con letras de tubo rosado (3x5 a escala 2) y su halo, centradas. */
-function neonAt(text: string, u: number, hv: number, u1: number): RGBA | null {
+/**
+ * Letrero de neón: tablero oscuro con letras de tubo rosado (3x5 a escala 2) y su halo, centradas. `top`
+ * es la altura de arriba de las letras (el del karaoke va más alto, sobre los estantes del bar).
+ */
+export function neonAt(text: string, u: number, hv: number, u1: number, top = 46): RGBA | null {
   const s = 2;
   const tw = text.length * 4 * s - s;
   const x0 = Math.floor((u1 - tw) / 2);
-  const top = 46;
   const bottom = top - 5 * s;
   if (!inRect(u, hv, 2, bottom - 5, u1 - 2, top + 4)) return null;
   const lit = (x: number, y: number) => {
@@ -883,10 +893,10 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
       return interiorFeature(f, u, hv, day);
     // El garaje (art/garaje-room.ts).
     case "pegboard":
-    case "rollup":
+    case "barn-door":
     case "calendar":
     case "cobweb":
-    case "grimy-window":
+    case "dusty-window":
       return garajeFeature(f, u, hv, day);
     case "bus-window":
       return busWallFeature(f, u, hv, day);

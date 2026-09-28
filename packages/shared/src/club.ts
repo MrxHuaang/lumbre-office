@@ -4,6 +4,7 @@
 // Además de las pistas generadas suena una cola de videos de YouTube (se ven en la pantalla sobre la
 // cabina): cualquiera en el club agrega, reordena, quita o salta, y el servidor lleva el reloj.
 import { z } from "zod";
+import { GIFT } from "./social";
 
 /** Pistas de la cabina: cada una es un loop de `bars` compases de 4 tiempos, generado por código. */
 export const CLUB_TRACKS = [
@@ -144,6 +145,8 @@ export interface ClubVideoView {
   title: string;
   /** Quién lo puso. */
   by: string;
+  /** User.id de quien lo puso (en el karaoke, quien canta; "" si no se sabe). */
+  byId?: string;
   /** Duración (ms) si algún reproductor ya la dijo; 0 si no se sabe. */
   durationMs: number;
 }
@@ -251,6 +254,77 @@ export const CLUB_ERROR_TEXT: Record<ClubError, string> = {
 
 /** Llave de un tubo (su tile), para saber quién baila en cuál. */
 export const poleKey = (x: number, y: number) => `${x},${y}`;
+
+// ---------- Propinas en el tubo ----------
+
+/** Montos fijos de una propina (monedas): no se escribe un número, se elige un billete. */
+export const TIP_AMOUNTS = [1, 5, 10, 25] as const;
+export type TipAmount = (typeof TIP_AMOUNTS)[number];
+
+export const CLUB_TIP = {
+  /** Hasta dónde (px de mundo, desde el centro del tubo) se le tiran billetes a quien baila: la tarima y un poco más. */
+  reachPx: 3.5 * 32,
+  /** Pausa mínima entre dos propinas de la misma persona (deja el clic repetido, no la ráfaga). */
+  cooldownMs: 350,
+  /**
+   * Cuánto puede tirar alguien en propinas por día (de Bogotá). Además cuentan para el tope de dar de los
+   * regalos (`GIFT.dailyPoints`, salen con motivo GIFT): el tubo no es un atajo para pasar puntos.
+   */
+  dailyMax: 300,
+  /** Prefijo del `refId` de sus movimientos (así se cuentan aparte de los regalos, sin columna nueva). */
+  refPrefix: "tip:",
+} as const;
+
+/** `refId` de los dos movimientos (lo que sale y lo que llega) de una propina. */
+export const tipRefId = (id: string) => `${CLUB_TIP.refPrefix}${id}`;
+
+/**
+ * ¿Cabe tirar `amount` hoy? `tipped`: lo que ya tiró en propinas hoy; `given`: los puntos que ya dio hoy
+ * en regalos, intercambios y propinas (el tope común de dar).
+ */
+export function tipAllowedToday(tipped: number, given: number, amount: number): "ok" | "tips" | "points" {
+  if (tipped + amount > CLUB_TIP.dailyMax) return "tips";
+  if (given + amount > GIFT.dailyPoints) return "points";
+  return "ok";
+}
+
+/** Cliente → servidor (`MSG.clubTip`): tirarle billetes a quien baila en el tubo (`to` = su sessionId). */
+export const ClubTipMessage = z.object({
+  to: z.string().min(1).max(64),
+  amount: z.union([z.literal(1), z.literal(5), z.literal(10), z.literal(25)]),
+});
+export type ClubTipMessage = z.infer<typeof ClubTipMessage>;
+
+export type ClubTipError = "invalid" | "self" | "not-dancing" | "far" | "busy" | "funds" | "limit-tips" | "limit" | "failed";
+
+/** Servidor → cliente (`MSG.clubTipResult`) cuando la propina no salió. */
+export interface ClubTipResult {
+  ok: false;
+  error: ClubTipError;
+}
+
+export const CLUB_TIP_ERROR_TEXT: Record<ClubTipError, string> = {
+  invalid: "Eso no se puede tirar.",
+  self: "No te puedes tirar billetes a ti.",
+  "not-dancing": "Esa persona ya no está bailando en el tubo.",
+  far: "Acércate al escenario para tirar billetes.",
+  busy: "Un momento…",
+  funds: "No te alcanzan las monedas.",
+  "limit-tips": `Por hoy ya tiraste ${CLUB_TIP.dailyMax} monedas en propinas.`,
+  limit: "Llegaste al tope de puntos que se pueden dar por día.",
+  failed: "No se pudo tirar la propina. Prueba otra vez.",
+};
+
+/** Servidor → los del nivel (`MSG.clubTipped`): alguien tiró billetes (todos ven la animación). */
+export interface ClubTipEvent {
+  fromSessionId: string;
+  fromName: string;
+  toSessionId: string;
+  toName: string;
+  amount: TipAmount;
+  /** Llave del tubo (`poleKey`): ahí caen los billetes. */
+  pole: string;
+}
 
 // ---------- Hora del servidor ----------
 

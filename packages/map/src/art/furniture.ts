@@ -29,10 +29,12 @@ import { EXTERIOR_DRAW } from "./exterior";
 import { INTERIOR_DRAW } from "./interior";
 import { LEISURE_DRAW } from "./leisure";
 import { photoBoard } from "./photos";
+import { acuario } from "./acuario";
 import { RACE_DRAW } from "./race";
 import { SOTANO_DRAW } from "./sotano";
 import { CASA_DRAW } from "./casa-viva";
 import { PLANTAS_DRAW } from "./plantas";
+import { PHONE_DRAW } from "./phone";
 import { GARAJE_DRAW } from "./garaje";
 import { BUS_DRAW } from "./bus";
 import { BUS_INSIDE_DRAW } from "./bus-adentro";
@@ -761,7 +763,9 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...BUS_DRAW,
   ...BUS_INSIDE_DRAW,
   "photo-board": photoBoard,
+  acuario,
   ...RACE_DRAW,
+  ...PHONE_DRAW,
 };
 
 const cache = new Map<string, Sprite>();

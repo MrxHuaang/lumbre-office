@@ -33,6 +33,22 @@ export class Player extends Schema {
   @type("string") fishing = "";
   /** Borrachera (0 sobrio … 3 borracho; ver DRUNK en @hyvento/shared): los demás lo ven tambalearse. */
   @type("uint8") drunk = 0;
+  /** Insignia destacada junto al nombre (id de un logro que tiene; "" = ninguna). La valida el servidor. */
+  @type("string") badge = "";
+  /** Energía de un plato de la cocina (id de la receta; "" = nada): camina un poco más rápido un rato. */
+  @type("string") buff = "";
+  /** Modo foco (focus.ts): "" nada, "work" concentrado (lleva el tomatito), "break" descanso. */
+  @type("string") focus = "";
+  /** Cuándo termina la fase del foco, en ms de la hora del servidor (0 = sin foco). */
+  @type("number") focusEndsAt = 0;
+  /** Preset del foco ("25-5" o "50-10"). */
+  @type("string") focusPreset = "";
+  /** Teléfono (phones.ts; lo ven todos): "" nada, "calling" llamando, "ringing" le suena, "talking" hablando. */
+  @type("string") call = "";
+  /** userId de la otra persona de la llamada: con ella se oyen sin importar dónde estén. */
+  @type("string") callWith = "";
+  /** Hora del servidor en que contestaron (0 mientras suena), para el reloj de la llamada. */
+  @type("number") callSince = 0;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */
@@ -54,6 +70,8 @@ export class OfficeInfo extends Schema {
   @type("boolean") locked = false;
   /** Nota de la placa de la puerta (la pone el dueño; vive en la sala, no se guarda en la base). */
   @type("string") note = "";
+  /** Notas sin leer que le dejaron al dueño en la puerta (solo la cuenta: el texto lo lee él por la web). */
+  @type("uint8") notes = 0;
   /** La radio (office-radio.ts): video de YouTube que suena en bucle adentro ("" = apagada). */
   @type("string") radioVideo = "";
   @type("string") radioTitle = "";
@@ -147,6 +165,48 @@ export class HockeyState extends Schema {
   @type([HockeyPlayer]) sides = new ArraySchema<HockeyPlayer>(new HockeyPlayer(), new HockeyPlayer());
 }
 
+/** Una silla de una mesa de ajedrez o damas (0 = blancas, 1 = negras). */
+export class BoardSeatState extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** Dijo "listo" (antes de empezar). */
+  @type("boolean") ready = false;
+  /** Jugando: desde cuándo no está sentado en su silla (0 = está). Si pasa BOARD.awayMs, pierde. */
+  @type("number") awaySince = 0;
+}
+
+/**
+ * Mesa de ajedrez o de damas de la sala de juegos (boardGames.ts). La posición va entera: los que miran
+ * la ven en vivo y el navegador saca de ahí las jugadas legales para resaltarlas.
+ */
+export class BoardTableState extends Schema {
+  @type("string") id = "";
+  /** "ajedrez" o "damas". */
+  @type("string") game = "";
+  /** "idle" (esperando que los dos digan listo), "playing" u "over" (se ve el resultado). */
+  @type("string") phase = "idle";
+  @type("number") match = 0;
+  /** FEN (ajedrez) o las 64 casillas (damas). */
+  @type("string") position = "";
+  /** Quién mueve: 0 = blancas, 1 = negras. */
+  @type("number") turn = 0;
+  /** Última jugada: las casillas del recorrido separadas por comas ("" si no hubo). */
+  @type("string") last = "";
+  /** El rey del que mueve está en jaque. */
+  @type("boolean") check = false;
+  @type("number") plies = 0;
+  /** Reloj por jugada (segundos; 0 = sin reloj) y cuándo se acaba el turno (0 = sin reloj). */
+  @type("number") clock = 0;
+  @type("number") turnEndsAt = 0;
+  /** Quién ofreció tablas (-1 = nadie). */
+  @type("number") drawOffer = -1;
+  /** Al terminar: quién ganó (-1 = tablas), por qué (BoardReason) y cuándo queda libre la mesa. */
+  @type("number") winner = -1;
+  @type("string") reason = "";
+  @type("number") endsAt = 0;
+  @type([BoardSeatState]) seats = new ArraySchema<BoardSeatState>(new BoardSeatState(), new BoardSeatState());
+}
+
 /** Casa viva: una mascota de la casa (la mueve el servidor; ver rooms/mascotas.ts). */
 export class Pet extends Schema {
   @type("string") id = "";
@@ -161,6 +221,11 @@ export class Pet extends Schema {
   @type("string") dir = "down";
   /** "stand", "walk", "sit", "sleep" o "eat" (PetPose). */
   @type("string") pose = "stand";
+  /** Dueño si la adoptaron (User.id y nombre; "" = de la casa). */
+  @type("string") ownerId = "";
+  @type("string") ownerName = "";
+  /** Cariño (0 a PET_BOND.max). */
+  @type("uint8") love = 0;
 }
 
 /** Alguien bailando en el club: en la pista (con un paso) o en el tubo. */
@@ -181,11 +246,22 @@ export class ClubVideo extends Schema {
   @type("string") title = "";
   /** Quién lo puso. */
   @type("string") by = "";
+  /** User.id de quien lo puso (en el karaoke, quien canta). */
+  @type("string") byId = "";
   /** Duración que dio el primer reproductor (0 = no se sabe todavía). */
   @type("number") durationMs = 0;
 }
 
 /** El club del sótano: lo que suena en la cabina (con la hora del servidor) y quién baila. */
+/** Propinas del tubo de hoy (día de Bogotá, en memoria de la sala): la mayor y quién recibió más. */
+export class ClubTipStats extends Schema {
+  @type("number") best = 0;
+  @type("string") bestFrom = "";
+  @type("string") bestTo = "";
+  @type("string") topName = "";
+  @type("number") topTotal = 0;
+}
+
 export class ClubState extends Schema {
   /** Pista que suena (CLUB_TRACKS; "" = nada). */
   @type("string") track = "";
@@ -204,6 +280,18 @@ export class ClubState extends Schema {
   @type("string") dj = "";
   /** Quién baila, por sessionId. */
   @type({ map: ClubDancer }) dancers = new MapSchema<ClubDancer>();
+  /** Las marcas de las propinas del tubo de hoy. */
+  @type(ClubTipStats) tips = new ClubTipStats();
+}
+
+/** Eventos del calendario (rooms/events.ts): quién cumple hoy y si el club está en modo karaoke. */
+export class EventsState extends Schema {
+  /** Día de Bogotá al que corresponde (`eventDay`). */
+  @type("number") day = 0;
+  /** Quienes cumplen años hoy: userId → nombre (también los que no están conectados). */
+  @type({ map: "string" }) birthdays = new MapSchema<string>();
+  /** Viernes desde las 17:00 de Bogotá: el club es karaoke. */
+  @type("boolean") karaoke = false;
 }
 
 /** El cine del sótano: la película que se proyecta (con la hora del servidor), la cola y lo que ya se vio. */
@@ -248,6 +336,8 @@ export class OfficeState extends Schema {
   @type(RouletteState) roulette = new RouletteState();
   @type(BlackjackState) blackjack = new BlackjackState();
   @type(HockeyState) hockey = new HockeyState();
+  /** Mesas de ajedrez y damas de la sala de juegos, por id (ver BOARD_TABLES de @hyvento/map). */
+  @type({ map: BoardTableState }) boards = new MapSchema<BoardTableState>();
   /** Muebles prendidos o apagados (tele, lámparas, tocadiscos), por `furnitureKey`; los que no están siguen como arrancan. */
   @type({ map: "boolean" }) switches = new MapSchema<boolean>();
   /** Cambios del editor de la casa por nivel (JSON de WorldEdits de @hyvento/map); sin entrada, el plano. */
@@ -271,4 +361,5 @@ export class OfficeState extends Schema {
   @type("float64") clockAnchorReal = 0;
   @type("float64") clockAnchorMinute = 0;
   @type(BusState) bus = new BusState();
+  @type(EventsState) events = new EventsState();
 }

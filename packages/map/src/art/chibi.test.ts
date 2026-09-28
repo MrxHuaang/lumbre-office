@@ -5,7 +5,7 @@ import type { PixelCanvas } from "./pixel";
 
 const base: CharacterStyle = { skin: "#f1c27d", hair: "#3b2219", shirt: "#e76f51", pants: "#264653", accent: "#4660a0", hairStyle: "short" };
 
-/** Píxeles de una celda de 32x32 de una hoja. */
+/** Píxeles de una celda (FRAME x FRAME) de una hoja. */
 function cell(sheet: PixelCanvas, col: number, row: number): number[] {
   const out: number[] = [];
   for (let y = 0; y < FRAME; y++)
@@ -72,11 +72,12 @@ describe("personajes chibi", () => {
     // usa con accentUsers de look-palette).
     const accentAccessories: Accessory[] = ["cap", "headphones", "beanie", "scarf"];
     // El vestido, el entero y el bikini tapan la parte de abajo; la chaqueta y el bañador usan el acento.
-    const noPants: Outfit[] = ["dress", "swimsuit", "bikini"];
+    const noPants: Outfit[] = ["dress", "swimsuit", "bikini", "gown", "pajamas"];
     const withAccent: Outfit[] = ["jacket", "trunks"];
+    // El color secundario se fija: si no viene, sigue al de acento (y el ribete del pijama lo usa).
     const noAccent: CharacterStyle[] = [
-      { ...base, accessories: [] },
-      { ...base, hairStyle: "long", accessories: ACCESSORIES.filter((a) => !accentAccessories.includes(a)) },
+      { ...base, top2: "#f7ebc8", accessories: [] },
+      { ...base, top2: "#f7ebc8", hairStyle: "long", accessories: ACCESSORIES.filter((a) => !accentAccessories.includes(a)) },
     ];
     for (const plain of noAccent) {
       expect(usesColor(plain, "pants"), "sin conjunto, el pantalón").toBe(true);

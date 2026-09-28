@@ -52,10 +52,13 @@ export type FloorKind =
   | "brick"
   | "moquette"
   | "planks"
-  // Garaje: concreto gastado con manchas de aceite (adentro y en la entrada de afuera).
+  // Garaje: concreto gastado con manchas de aceite, los tablones gastados del taller y la gravilla de la
+  // entrada (afuera).
   | "concrete"
+  | "planks-worn"
+  | "gravel"
   // Parada del bus: la calle (asfalto, carril exclusivo pintado, líneas y cordones; el dibujo depende de
-  // dónde cae, ver art/bus.ts). No se camina: queda fuera de la zona jugable.
+  // dónde cae, ver art/bus-calle.ts). No se camina: queda fuera de la zona jugable.
   | "road"
   // El Megabús por dentro: piso de caucho antideslizante.
   | "rubber";
@@ -77,8 +80,9 @@ export type WallpaperKind =
   | "brick"
   | "slats"
   | "colonial"
-  // Garaje: bloque de cemento sin pintar, con humedad y manchas.
+  // Garaje: bloque de cemento sin pintar y tablas sobre zócalo de piedra (el taller).
   | "cinderblock"
+  | "boards"
   // El Megabús por dentro: paneles claros con la franja verde lima, y los pliegues grises del fuelle.
   | "megabus"
   | "fuelle";
@@ -116,8 +120,9 @@ export interface DoorDef {
 
 // Del rediseño de interiores: espejo, paneles acústicos, ventanal de piso a techo, repisa, mapamundi y retrato.
 export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "video-wall" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait"
-  // Garaje: tablero de herramientas, portón enrollable por dentro, calendario viejo, telaraña y ventana sucia.
-  | "pegboard" | "rollup" | "calendar" | "cobweb" | "grimy-window"
+  // Garaje: tablero de herramientas, el portón de tablas por dentro, calendario viejo, telaraña y la ventana
+  // empolvada.
+  | "pegboard" | "barn-door" | "calendar" | "cobweb" | "dusty-window"
   // Megabús: las ventanas oscuras de piso a techo (con `text`, la pantalla de ruta encima).
   | "bus-window";
 
@@ -148,6 +153,24 @@ export interface PortalDef {
   label: string;
 }
 
+/** Una mesa de ajedrez o de damas con sus dos sillas (la primera juega con blancas). */
+export interface BoardTableDef {
+  id: string;
+  game: "ajedrez" | "damas";
+  area: string;
+  /** Tipo del mueble de la mesa (1x1). */
+  type: string;
+  x: number;
+  y: number;
+  seats: readonly [BoardSeatDef, BoardSeatDef];
+}
+
+export interface BoardSeatDef {
+  x: number;
+  y: number;
+  facing: "left" | "right";
+}
+
 export interface PointDef {
   type:
     | "spawn"
@@ -176,14 +199,22 @@ export interface PointDef {
     | "dj_booth"
     // Frente al tablón de fotos de la cafetería (ver la galería).
     | "photo_board"
+    // Frente al acuario de la sala (ver qué peces nadan y quién los sacó).
+    | "aquarium"
     // Salida de la carrera de sillas (pasillo del piso 2, junto a la bandera).
     | "chair_race"
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
     | "tool_shed"
+    // Junto a una mesa de ajedrez o de damas de la sala de juegos: desde ahí se mira la partida.
+    | "board_game"
     // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
     | "greenhouse_plot"
     // Parada del bus: uno frente a cada puerta de la estación (ahí se toma el bus y ahí se baja la gente).
-    | "bus_stop";
+    | "bus_stop"
+    // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
+    | "trophy_case"
+    // Frente a cada estufa de la cocina (planta baja): ahí se cocina con lo del huerto.
+    | "kitchen_stove";
   name: string;
   x: number;
   y: number;

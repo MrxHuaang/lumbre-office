@@ -32,12 +32,12 @@ const DOOR_X = HOUSE.x + 10;
 const PORCH_Y = HOUSE.y + 14;
 /**
  * El garaje (5x5), pegado al oeste de la torre de la casa (donde antes había bosquecito): la puerta chica
- * da a la fila y = 17, como el porche, y de su frente baja la entrada de concreto hasta el sendero del
+ * da a la fila y = 17, como el porche, y de su frente baja la entrada de gravilla hasta el sendero del
  * huerto.
  */
 const GARAGE = { x: 23, y: 12 };
 const GARAGE_DOOR_X = GARAGE.x + 3;
-const DRIVEWAY = { x0: 22.9, x1: 27.7, y0: 15, y1: 25.6 };
+const DRIVEWAY = { x0: 23.1, x1: 27.4, y0: 15, y1: 25.6 };
 const inGarage = (x: number, y: number) => x >= GARAGE.x && x < GARAGE.x + 5 && y >= GARAGE.y && y < GARAGE.y + 5;
 /** El portón de la cerca, al sur, donde llega el camino. */
 const GATE_X = 38;
@@ -153,9 +153,9 @@ function onPatio(x: number, y: number): boolean {
 /** Arena: la playita donde nace el muelle y el círculo de la fogata. */
 const onSand = (x: number, y: number) =>
   Math.hypot(x - 43.4, (y - 41) * 0.8) < 2.9 + wobble(x, y, 13, 0.3) || Math.hypot(x - (FIRE.x + 1), y - (FIRE.y + 1)) < 3.3 + wobble(x, y, 17, 0.2);
-/** Entrada de concreto del garaje: el borde de adelante, gastado, se come el pasto a mordiscos. */
+/** Entrada de gravilla del garaje: el borde de adelante se come el pasto a mordiscos. */
 const onDriveway = (x: number, y: number) =>
-  x > DRIVEWAY.x0 + wobble(x, y, 31, 0.2) && x < DRIVEWAY.x1 + wobble(x, y, 32, 0.2) && y > DRIVEWAY.y0 && y < DRIVEWAY.y1 + wobble(x, y, 33, 0.5);
+  x > DRIVEWAY.x0 + wobble(x, y, 31, 0.45) && x < DRIVEWAY.x1 + wobble(x, y, 32, 0.45) && y > DRIVEWAY.y0 && y < DRIVEWAY.y1 + wobble(x, y, 33, 0.5);
 /** Tierra del huerto (rectángulo de esquinas redondeadas) y la base de la glorieta. */
 function onSoil(x: number, y: number): boolean {
   const r = 1;
@@ -188,7 +188,7 @@ function localGround(x: number, y: number): FloorKind {
   if (onGazeboBase(x, y)) return "path";
   if (onSand(x, y)) return "sand";
   if (onPath(x, y)) return "path";
-  if (onDriveway(x, y)) return "concrete";
+  if (onDriveway(x, y)) return "gravel";
   if (onSoil(x, y)) return "soil";
   return "grass";
 }
@@ -215,6 +215,7 @@ put("garage", GARAGE.x, GARAGE.y);
 // Detrás del garaje (al noroeste) su dibujo tapa a quien se pare ahí: matorral y cachivaches tirados, sin
 // lugar donde pararse (como el bosquecito detrás de la torre).
 for (const [x, y, t] of [
+  [20, 12, "bush-berry"],
   [21, 10, "oak-1"],
   [22, 10, "pine-2"],
   [23, 10, "bush-round"],

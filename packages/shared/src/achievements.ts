@@ -225,7 +225,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   a("suertudo", "Suertudo", "wheel", "epico", STAT_KEYS.rouletteStraights, 1, "Acierta un pleno en la ruleta", "Un número, una ficha, un grito."),
   a("blackjack-natural", "Blackjack natural", "cards", "raro", STAT_KEYS.blackjackNaturals, 1, "Saca 21 con las dos primeras cartas", "As y figura. El crupier suspira."),
   // Tiempo y lugares
-  a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al piso 3, el garaje y hasta el Megabús, con foto mental en cada uno."),
+  a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al piso 3, el garaje y hasta el Megabús por dentro."),
   a("caminante", "Pantuflas gastadas", "shoe", "raro", STAT_KEYS.tilesWalked, 10_000, "Camina 10.000 baldosas", "Tus pantuflas piden jubilación."),
   a("madrugador", "Madrugador", "sunrise", "raro", STAT_KEYS.earlyDays, 1, "Está activo antes de las 7 de la mañana (Bogotá)", "Llegaste antes que el café."),
   a("buho", "Búho", "owl", "raro", STAT_KEYS.owlDays, 1, "Está activo después de medianoche (Bogotá)", "¿Trabajando o huyendo del sueño?", true),

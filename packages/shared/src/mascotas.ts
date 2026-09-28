@@ -1,7 +1,10 @@
 // Casa viva: las mascotas de la casa. Las mueve el servidor (deambulan a paso lento por su nivel, con
 // rutas del A* del mundo, y a veces duermen en su cama); todos las ven por el estado de la sala. Se les
-// hace clic para llamarlas, y de cerca se acarician o se les da un premio.
+// hace clic para llamarlas, y de cerca se acarician, se alimentan o se adoptan (una por persona): la
+// adoptada sigue a su dueño por la casa, también de un nivel a otro.
 import { z } from "zod";
+import { heldParts } from "./cafe";
+import { consumeActionOf } from "./consumables";
 
 export type PetKind = "gato" | "perro";
 /** Pelaje: define los colores del dibujo (packages/map/src/art/mascotas.ts). */
@@ -74,16 +77,107 @@ export const PET_MSG = {
   action: "pet:action",
   /** Servidor → clientes del nivel: alguien acarició, dio un premio o llamó a una mascota. */
   event: "pet:event",
+  /** Servidor → quien lo intentó: por qué no se pudo (sin comida en la mano, ya tiene mascota…). */
+  notice: "pet:notice",
 } as const;
 
 export const PetCallMessage = z.object({ pet: z.string().min(1).max(24) });
 export type PetCallMessage = z.infer<typeof PetCallMessage>;
 
-export const PetActionMessage = z.object({ pet: z.string().min(1).max(24), action: z.enum(["pet", "treat"]) });
+/**
+ * Lo que se hace de cerca: acariciar, darle el plato de croquetas (`treat`), darle la comida que se tiene
+ * en la mano (`feed`), adoptarla o dejarla volver a la casa (`release`, solo su dueño).
+ */
+export const PET_ACTIONS = ["pet", "treat", "feed", "adopt", "release"] as const;
+export type PetAction = (typeof PET_ACTIONS)[number];
+
+export const PetActionMessage = z.object({ pet: z.string().min(1).max(24), action: z.enum(PET_ACTIONS) });
 export type PetActionMessage = z.infer<typeof PetActionMessage>;
 
 export interface PetEvent {
   pet: string;
   sessionId: string;
-  action: "pet" | "treat" | "call";
+  action: PetAction | "call";
+  /** Lo que se comió (el dibujo de lo que se tenía en la mano), si fue `feed`. */
+  food?: string;
+}
+
+// ---------- Cariño y dueños ----------
+
+export const PET_BOND = {
+  /** El cariño va de 0 a `max` (viaja redondeado en el estado). */
+  max: 100,
+  /** Cuánto sube con cada cosa. */
+  gain: { pet: 2, treat: 4, feed: 8 },
+  /** Cuánto cariño le puede dar una misma persona a una mascota en un día (Bogotá): lo demás no suma. */
+  dailyGainPerUser: 30,
+  /** Cuánto baja por hora (extraña a la gente). */
+  decayPerHour: 1,
+  /** Puntos (LEISURE) por cuidarla y cuántas veces al día le dan puntos a una persona. */
+  careReward: 1,
+  careRewardsPerDay: 5,
+  /** La adoptada se queda a esta distancia del dueño (tiles) y arranca a caminar si se aleja más de `catchUpTiles`. */
+  followTiles: 1.6,
+  catchUpTiles: 2.6,
+  /** Más lejos que esto (o sin ruta) aparece al lado del dueño. */
+  teleportTiles: 16,
+  /** Paso cuando sigue a su dueño (px de mundo por segundo): trota casi como una persona. */
+  followSpeed: 135,
+  /** Cada cuánto vuelve a calcular la ruta mientras el dueño camina. */
+  repathMs: 450,
+  /** El dueño lleva este rato quieto: se echa a dormir a su lado. */
+  napAfterMs: 45_000,
+  /** Cada cuánto se guarda el cariño que cambió. */
+  saveMs: 30_000,
+} as const;
+
+/** Dueño y cariño de una mascota, como los guarda la base (`PetBond`). */
+export interface PetBondRecord {
+  petId: string;
+  /** User.id del dueño (null = de la casa: se puede adoptar). */
+  ownerId: string | null;
+  ownerName: string;
+  love: number;
+  /** Hasta cuándo se contó la baja del cariño (ms). */
+  loveAt: number;
+}
+
+/** Cariño después de `ms` sin que nadie la cuide (baja de a poco, nunca menos de 0). */
+export function decayedLove(love: number, ms: number): number {
+  return Math.max(0, love - (Math.max(0, ms) / 3_600_000) * PET_BOND.decayPerHour);
+}
+
+/** ¿Este dibujo de lo que se lleva en la mano es comida? (se muerde o va con cuchara; no bebidas ni habanos). */
+export function isFoodArt(art: string): boolean {
+  const action = consumeActionOf(art);
+  return action === "bite" || action === "spoon";
+}
+
+/**
+ * La comida de lo que alguien lleva en la mano (la primera mano con comida y, si se dan los usos que le
+ * quedan a cada mano, que no esté vacía), o null.
+ */
+export function petFoodIn(held: string, left?: readonly number[]): { part: number; art: string } | null {
+  const parts = heldParts(held);
+  const part = parts.findIndex((art, i) => isFoodArt(art) && (!left || (left[i] ?? 0) > 0));
+  return part < 0 ? null : { part, art: parts[part]! };
+}
+
+/** Por qué no se pudo: sin comida en la mano, ya tiene una mascota, esta ya tiene dueño o no es suya. */
+export const PetNoticeCode = z.enum(["noFood", "hasPet", "taken", "notOwner"]);
+export type PetNoticeCode = z.infer<typeof PetNoticeCode>;
+
+/** Qué dice el aviso (con el nombre de la mascota). */
+export const PET_NOTICES: Record<PetNoticeCode, (pet: string) => string> = {
+  noFood: (pet) => `No tienes comida en la mano. Pide algo en la cafetería o saca algo de la nevera para ${pet}.`,
+  hasPet: () => "Ya tienes una mascota. Para adoptar otra, primero deja que la tuya vuelva a la casa.",
+  taken: (pet) => `${pet} ya tiene dueño.`,
+  notOwner: (pet) => `${pet} no es tu mascota.`,
+};
+
+/** Servidor → quien lo intentó (`PET_MSG.notice`). */
+export interface PetNotice {
+  code: PetNoticeCode;
+  /** Nombre de la mascota (para el aviso). */
+  pet: string;
 }

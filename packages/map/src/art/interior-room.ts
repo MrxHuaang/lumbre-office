@@ -5,7 +5,7 @@ import type { FloorKind, WallFeature, WallpaperKind } from "../world/types";
 import { busWallpaper } from "./bus-adentro";
 import { C, OUT, inRect, mix } from "./palette";
 import { at, bayer, noise, ramp, smoothNoise, type Ramp, type RGBA } from "./pixel";
-import { cinderblockWall } from "./garaje-room";
+import { boardsWall, cinderblockWall } from "./garaje-room";
 
 /** Verde bosque (papel de la biblioteca). */
 export const FOREST: Ramp = ramp("#132019", "#1b3024", "#264430", "#335a3e", "#4a7654", "#6f9a73");
@@ -413,6 +413,8 @@ export function interiorWall(kind: WallpaperKind | null, u: number, hv: number):
     case "megabus":
     case "fuelle":
       return busWallpaper(kind, u, hv);
+    case "boards":
+      return boardsWall(u, hv);
     default:
       return null;
   }

@@ -21,11 +21,12 @@ export type QueueOutcome = { ok: true } | { ok: false; error: ClubError };
 const fail = (error: ClubError): QueueOutcome => ({ ok: false, error });
 const OK: QueueOutcome = { ok: true };
 
-function assignVideo(to: ClubVideo, from: Pick<ClubVideo, "id" | "videoId" | "title" | "by" | "durationMs">): ClubVideo {
+function assignVideo(to: ClubVideo, from: Pick<ClubVideo, "id" | "videoId" | "title" | "by" | "byId" | "durationMs">): ClubVideo {
   to.id = from.id;
   to.videoId = from.videoId;
   to.title = from.title;
   to.by = from.by;
+  to.byId = from.byId;
   to.durationMs = from.durationMs;
   return to;
 }
@@ -36,7 +37,7 @@ export function copyVideo(v: ClubVideo): ClubVideo {
 }
 
 export function clearVideo(v: ClubVideo) {
-  assignVideo(v, { id: "", videoId: "", title: "", by: "", durationMs: 0 });
+  assignVideo(v, { id: "", videoId: "", title: "", by: "", byId: "", durationMs: 0 });
 }
 
 export class VideoQueue {
@@ -57,8 +58,11 @@ export class VideoQueue {
     return OK;
   }
 
-  /** Agrega un video al final de la cola; si no se está viendo ninguno, arranca ya. */
-  enqueue(video: { videoId: string; title: string; durationMs?: number }, by: string, now: number): QueueOutcome {
+  /**
+   * Agrega un video al final de la cola; si no se está viendo ninguno, arranca ya. `byId` es el User.id de
+   * quien lo puso (en el karaoke del club, quien canta).
+   */
+  enqueue(video: { videoId: string; title: string; durationMs?: number }, by: string, now: number, byId = ""): QueueOutcome {
     const check = this.canAdd(video.videoId);
     if (!check.ok) return check;
     const v = new ClubVideo();
@@ -66,6 +70,7 @@ export class VideoQueue {
     v.videoId = video.videoId;
     v.title = video.title.slice(0, CLUB_VIDEO.maxTitle);
     v.by = by.slice(0, 40);
+    v.byId = byId;
     v.durationMs = video.durationMs ?? 0;
     this.s.queue.push(v);
     if (!this.s.video.videoId) this.next(now);
@@ -73,10 +78,10 @@ export class VideoQueue {
   }
 
   /** Vuelve a poner uno de lo que ya se vio (al final de la cola). */
-  replay(id: string, by: string, now: number): QueueOutcome {
+  replay(id: string, by: string, now: number, byId = ""): QueueOutcome {
     const old = this.s.history.find((v) => v.id === id);
     if (!old) return fail("invalid");
-    return this.enqueue(old, by, now);
+    return this.enqueue(old, by, now, byId);
   }
 
   /** Mueve una entrada de la cola a la posición `to` (se recorta al largo de la cola). */
