@@ -61,6 +61,12 @@ export const CONEXIONES = {
   casaArbol: {
     /** La trampilla del piso, cerca del rincón del frente: se llega a su lado, mirando a la mesita. */
     trampilla: { tiles: [{ x: 5, y: 4 }], llegada: { x: 5, y: 3, facing: "left" } },
+  megabus: {
+    /**
+     * Las tres puertas del bus por dentro (en la pared baja del sur: la de atrás y las dos de adelante). No
+     * se entra por un portal: se sube con E en la estación y se llega junto a la puerta más cercana.
+     */
+    puertas: { tiles: [{ x: 4, y: 5 }, { x: 13, y: 5 }, { x: 18, y: 5 }], llegada: { x: 13, y: 2, facing: "right" } },
   },
 } satisfies Record<string, Record<string, Conexion>>;
 

@@ -148,4 +148,28 @@ describe("jardín", () => {
       expect(near, b.name).toBe(true);
     }
   });
+
+  it("afuera del portón: la vereda, la estación del Megabús (por los torniquetes) y la calle, que no se pisa", () => {
+    const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
+    const gate = jardin.furniture.find((f) => f.type === "garden-gate")!;
+    for (let dx = 0; dx < gate.w; dx++) expect(isBlockedTile(jardin, gate.x + dx, gate.y), "portón").toBe(false);
+    const stops = pointsOfType(jardin, "bus_stop");
+    expect(stops).toHaveLength(4);
+    const platform = jardin.furniture.find((f) => f.type === "bus-platform")!;
+    expect(jardin.furniture.some((f) => f.type === "bus-station")).toBe(true);
+    for (const s of stops) {
+      // En la fila de la plataforma pegada a la calle, y se llega caminando desde el portón.
+      expect(s.tileY, s.name).toBe(platform.y + platform.d - 1);
+      expect(isBlockedTile(jardin, s.tileX, s.tileY), s.name).toBe(false);
+      expect(findPath(jardin, start, { x: s.tileX, y: s.tileY }), s.name).not.toBeNull();
+      expect(floorAt(s.tileX, s.tileY + 1), s.name).toBe("road");
+      expect(isBlockedTile(jardin, s.tileX, s.tileY + 1), s.name).toBe(true);
+    }
+    // El vidrio del norte solo se cruza por los torniquetes.
+    const open = Array.from({ length: platform.w }, (_, i) => i).filter((i) => !isBlockedTile(jardin, platform.x + i, platform.y));
+    expect(open).toEqual([8, 9]);
+    // Las puertas del bus por dentro llevan a la plataforma.
+    const inside = getWorld().areas.get("megabus")!;
+    for (const portal of inside.portals) expect(stops.some((s) => s.tileX === portal.to.x && s.tileY === portal.to.y), portal.id).toBe(true);
+  });
 });

@@ -7,6 +7,8 @@ import { logout } from "@/app/actions";
 import { media } from "@/game/media";
 import { connect, disconnect, sendActivity } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
+import { getArriveByBus } from "@/lib/arriveByBus";
+import { BusTrip } from "./bus/BusTrip";
 import { EntryLoader } from "./EntryLoader";
 import { waitForCozyFont } from "@/lib/cozy";
 import { AdminDialog } from "./AdminDialog";
@@ -190,7 +192,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
       try {
         const token = await fetchGameToken();
         if (cancelled) return;
-        await connect({ token });
+        // "Llegar en bus" (Mi personaje): solo al entrar; al reconectar se sigue donde se estaba.
+        await connect({ token, arriveByBus: getArriveByBus() || undefined });
       } catch (err) {
         if (!cancelled && useOfficeStore.getState().connection !== "error") {
           useOfficeStore.getState().setConnection("error", err instanceof Error ? err.message : String(err));
@@ -229,6 +232,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   return (
     <main className="cozy-void relative h-full w-full overflow-hidden font-pixel text-cozy-ink">
       <div ref={gameRef} className="absolute inset-0" />
+      {/* Adentro del Megabús en ruta no se ve el mundo: la pantalla del viaje (el HUD queda encima). */}
+      {connection === "connected" && <BusTrip />}
       {connection === "connected" || connection === "reconnecting" ? (
         <>
           <Hud

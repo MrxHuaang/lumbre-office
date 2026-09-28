@@ -3,12 +3,14 @@ import { catalogItem, footprint } from "../catalog";
 import type { AreaDef, FloorKind, Placement, PointDef } from "../types";
 import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
+import { BUS_DOOR_X, PARADA_M, ROAD, STATION } from "./parada";
 
 // ---------- Jardín ----------
-// Una zona jugable de 80x64 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
+// Una zona jugable de 80x70 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
 // pisa (ver docs/plan-rediseno.md). Todo lo de abajo está en coordenadas de la zona jugable (0..79,
-// 0..63) y se corre en M al ubicarlo en el nivel. Las franjas nuevas (x 64..79 al este, y 56..63 al sur)
-// son para las estructuras de docs/plan-estructuras.md.
+// 0..69) y se corre en M al ubicarlo en el nivel. Las franjas nuevas (x 64..79 al este, y 56..63 al sur)
+// son para las estructuras de docs/plan-estructuras.md. La cerca va en y = 64: afuera del portón quedan
+// el sendero, la vereda y la parada del bus (world/areas/parada.ts), y la calle pasa por el margen.
 //
 //   norte: la casa al centro, el huerto con el cobertizo y el invernadero al oeste, el patio al este;
 //   centro: el camino de piedra del porche al portón, bifurcado hacia el huerto y hacia el lago;
@@ -17,7 +19,10 @@ import { CONEXIONES, hacia } from "./conexiones";
 /** Margen de bosque alrededor de la zona jugable. */
 const M = 10;
 const PW = 80;
-const PH = 64;
+const PH = 70;
+/** La cerca del sur (con el portón): lo de más abajo es la vereda de la parada del bus. */
+const FENCE_Y = 64;
+if (PARADA_M !== M) throw new Error("parada.ts tiene otro margen que el jardín");
 const W = PW + M * 2;
 const H = PH + M * 2;
 
@@ -89,7 +94,7 @@ const PATHS: Seg[] = [
   { a: [39, 18], b: [39, 27], w: 2.6 },
   { a: [39, 27], b: [38.4, 37], w: 2.6 },
   { a: [38.4, 37], b: [39, 47], w: 2.6 },
-  { a: [39, 47], b: [39, PH + 2], w: 2.6 },
+  { a: [39, 47], b: [39, FENCE_Y + 3], w: 2.6 },
   // Hacia el huerto (oeste): bordea el jardín de flores y sube por el lado del pozo.
   { a: [38, 27.8], b: [31, 29.2], w: 2 },
   { a: [31, 29.2], b: [24, 27.6], w: 2 },
@@ -174,9 +179,17 @@ const onGazeboBase = (x: number, y: number) => Math.hypot(x - (GAZEBO.x + 2.6), 
 function localGround(x: number, y: number): FloorKind {
   const outside = x < 0 || y < 0 || x >= PW || y >= PH;
   if (outside) {
-    // El camino sigue más allá del portón y se pierde entre los árboles.
-    if (y >= PH && y < PH + 6 && Math.abs(x - (GATE_X + 1)) < 1.3 - (y - PH) * 0.12 + wobble(x, y, 23, 0.2)) return "path";
+    // La calle de la parada cruza todo el margen del sur y en las puntas se pierde en el bosque.
+    const ry = y + M;
+    const rx = x + M;
+    if (ry >= ROAD.y0 && ry < ROAD.curbY && rx > ROAD.x0 + wobble(x, y, 23, 0.6) && rx < ROAD.x1 + wobble(x, y, 24, 0.6)) return "road";
     return "forest";
+  }
+  // Afuera de la cerca: la vereda de piedra a lo largo de la calle y el sendero del portón.
+  if (y >= FENCE_Y) {
+    if (onPath(x, y)) return "path";
+    if (y > ROAD.y0 - M - 1.15 + wobble(x, y, 25, 0.08)) return "path";
+    return "grass";
   }
   if (onDock(x, y)) return "dock";
   if (inLake(x, y) && !onIslet(x, y)) return "water";
@@ -538,12 +551,34 @@ const behindHouse = (x: number, y: number) =>
     }
 }
 
+// Parada del bus, afuera del portón: la plataforma (plana: el piso, los torniquetes y el vidrio del
+// fondo) y encima la estación de vidrio con su techo, que se transparenta con alguien adentro. El techo
+// cubre también el sendero que llega del portón (su dibujo lo tapa desde atrás). La vereda lleva faroles,
+// una banca y matas bajas contra la cerca (nada alto: el portón y la estación se ven desde el jardín).
+put("bus-platform", STATION.x - M, STATION.y - M);
+put("bus-station", STATION.x - M - 3, STATION.y - M - 2);
+for (const [x, y, t, f] of [
+  [16, 68, "lamp-post", "right"],
+  [64, 68, "lamp-post", "right"],
+  [56, 66, "bench", "down"],
+  [6, 65, "bush-hydrangea", "right"],
+  [11, 65, "flower-patch", "right"],
+  [22, 65, "bush-rose", "down"],
+  [24, 65, "flower-patch", "down"],
+  [60, 65, "flower-patch", "right"],
+  [68, 65, "bush-hydrangea", "down"],
+  [73, 65, "flower-patch", "down"],
+  [2, 66, "bush-round", "right"],
+  [77, 66, "bush-round", "down"],
+] as const)
+  put(t, x, y, f);
+
 // ---------- Puntos ----------
 
 const pt = (type: PointDef["type"], name: string, x: number, y: number): PointDef => ({ type, name, x: x + M, y: y + M });
 
 const POINTS: PointDef[] = [
-  pt("spawn", "Portón del jardín", GATE_X, PH - 3),
+  pt("spawn", "Portón del jardín", GATE_X, FENCE_Y - 3),
   pt("mailbox", "Buzón", 36, 22),
   pt("task_board", "Tablón", 42, 22),
   // Una por parcela, en el mismo orden que PLOTS (el índice es el id de la parcela): sobre la parcela.
@@ -556,6 +591,8 @@ const POINTS: PointDef[] = [
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0),
   pt("fishing_spot", "Muelle", DOCK.x1 - 1, DOCK.y0 + 1),
   pt("fishing_spot", "Piedra de la orilla", FLAT_ROCK.x, FLAT_ROCK.y),
+  // Uno frente a cada puerta de la estación, en la fila de la plataforma pegada al bus.
+  ...BUS_DOOR_X.map((dx) => pt("bus_stop", "Estación Hyvento", Math.floor(dx) - M, STATION.y + STATION.d - 1 - M)),
 ];
 
 // Naturaleza suelta en el pasto libre: manchones de árboles junto a la cerca y en algunos bosquecitos,
@@ -584,7 +621,9 @@ const POINTS: PointDef[] = [
   for (let y = 0; y < PH; y++)
     for (let x = 0; x < PW; x++) {
       if (reserved.has(`${x},${y}`) || ground(x, y) !== "grass" || soft(x, y)) continue;
-      const edge = Math.min(x, y, PW - 1 - x, PH - 1 - y);
+      // Afuera de la cerca (la vereda de la parada) no crece nada suelto: ahí va lo que se ubica a mano.
+      if (y >= FENCE_Y) continue;
+      const edge = Math.min(x, y, PW - 1 - x, FENCE_Y - 1 - y);
       const grove = smoothNoise(x, y, 7, 71);
       const pTree = edge < 2 ? 0.3 : edge < 4 ? 0.12 : grove > 0.72 ? 0.34 : 0.004;
       const n = noise(x, y, 72);
@@ -602,20 +641,20 @@ const POINTS: PointDef[] = [
 
 // La cerca rodea la zona jugable (en la primera fila del margen) con el portón al sur.
 const FENCE_Y0 = -1;
-const FENCE_Y1 = PH;
+const FENCE_Y1 = FENCE_Y;
 put("garden-gate", GATE_X, FENCE_Y1);
 for (let x = -1; x <= PW; x++) {
   const corner = x === -1 || x === PW;
   put(corner ? "fence-post" : "fence", x, FENCE_Y0, "down");
   if (x !== GATE_X && x !== GATE_X + 1) put(corner ? "fence-post" : "fence", x, FENCE_Y1, "down");
 }
-for (let y = 0; y < PH; y++) {
+for (let y = 0; y < FENCE_Y; y++) {
   put("fence", -1, y);
   put("fence", PW, y);
 }
 
 // Bosque del margen: tupido junto a la cerca y con árboles grandes más afuera. Un árbol por celda, en
-// una posición y de un tipo elegidos con ruido; el sendero que sale del portón queda despejado.
+// una posición y de un tipo elegidos con ruido; la calle de la parada (al sur) queda despejada.
 const MARGIN_TREES = ["pine-1", "pine-2", "pine-3", "oak-1", "oak-2", "oak-3", "birch-1", "pine-1", "pine-2", "oak-1"];
 const MARGIN_SMALL = ["bush-round", "fern", "rock-mossy", "bush-berry", "fern", "rock-small", "stump", "bush-round", "fern", "tall-grass"];
 {
@@ -626,10 +665,10 @@ const MARGIN_SMALL = ["bush-round", "fern", "rock-mossy", "bush-berry", "fern", 
         const tx = x + i;
         const ty = y + j;
         if (tx < -M || ty < -M || tx >= PW + M || ty >= PH + M) return false;
-        // Fuera de la cerca y lejos del sendero que se pierde en el bosque.
+        // Fuera de la cerca y de la vereda de la parada.
         if (tx >= -1 && tx <= PW && ty >= -1 && ty <= PH) return false;
-        // Junto al portón, más ancho: que ningún árbol tape sus pilares ni su farol.
-        if (ty > PH && Math.abs(tx - GATE_X - 0.5) < (ty <= PH + 2 ? 3.5 : 2.5) && ty < PH + 7) return false;
+        // Ni sobre la calle ni pegado a su cordón (el bus pasa por delante).
+        if (ty >= ROAD.y0 - M - 1) return false;
         if (taken.has(`${tx},${ty}`)) return false;
       }
     return true;
@@ -638,9 +677,6 @@ const MARGIN_SMALL = ["bush-round", "fern", "rock-mossy", "bush-berry", "fern", 
     for (let j = 0; j < d; j++) for (let i = 0; i < w; i++) taken.add(`${x + i},${y + j}`);
   };
   const dist = (x: number, y: number) => Math.max(-1 - x, x - PW, -1 - y, y - PH);
-  /** Delante del portón en pantalla (abajo a la derecha): solo cosas bajas, que no tapen sus pilares. */
-  const lowOnly = (x: number, y: number, w = 1) =>
-    y > PH && y <= PH + 6 && Math.abs(x + (w - 1) / 2 - GATE_X - 0.5 - (y - PH)) < 2.6;
   for (let cy = -M; cy < PH + M; cy += 2)
     for (let cx = -M; cx < PW + M; cx += 2) {
       const n = noise(cx, cy, 61);
@@ -650,13 +686,13 @@ const MARGIN_SMALL = ["bush-round", "fern", "rock-mossy", "bush-berry", "fern", 
       // Solo una fila de árboles de unos 4 tiles: más afuera el suelo ya es la copa del bosque.
       if (d < 1 || d > 4) continue;
       // Robles viejos más afuera; cerca de la cerca, árboles chicos y matas.
-      if (d > 2 && n < 0.34 && free(x, y, 2, 2) && !lowOnly(x, y, 2) && !lowOnly(x, y + 1, 2)) {
+      if (d > 2 && n < 0.34 && free(x, y, 2, 2)) {
         put("oak-big", x, y);
         take(x, y, 2, 2);
         continue;
       }
       if (!free(x, y)) continue;
-      if ((n < 0.86 || d > 2) && !lowOnly(x, y)) {
+      if (n < 0.86 || d > 2) {
         put(MARGIN_TREES[Math.floor(noise(cx, cy, 64) * MARGIN_TREES.length)]!, x, y, noise(cx, cy, 65) < 0.5 ? "right" : "down");
         take(x, y);
       } else {

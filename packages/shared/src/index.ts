@@ -42,6 +42,7 @@ export * from "./photo-service";
 export * from "./achievements";
 export * from "./bolsa";
 export * from "./casa-arbol";
+export * from "./bus";
 export * from "./door-notes";
 export * from "./aquarium";
 export * from "./insignias";

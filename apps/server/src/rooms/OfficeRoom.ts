@@ -13,6 +13,7 @@ import {
   defaultOfficeItems,
   storedEdit,
   BLACKJACK_SEATS,
+  CONEXIONES,
   BOARD_TABLES,
   getWorld,
   nearPointOfType,
@@ -150,6 +151,12 @@ import {
   setGameTime,
   type GameClockState,
   type GameTime,
+  BUS,
+  BUS_MSG,
+  BUS_TIMINGS,
+  BusBoardMessage,
+  type BusNotice,
+  type BusTimings,
   BIRTHDAY,
   CongratsMessage,
   congratsRef,
@@ -215,6 +222,7 @@ import { BAG_MSG, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, 
 import { Huerto, isHuertoAction } from "./huerto";
 import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/shared";
 import { CasaArbol } from "./casaArbol";
+import { BusLine, type BusSchedule } from "./bus";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
 import { Cocina, type CocinaResult } from "./cocina";
 import { ManDelSombrero } from "./sombrero";
@@ -327,6 +335,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static tripTimings: TripTimings = { scale: 1, maxMs: TRIP.maxMs };
   /** Cada cuánto se guardan juntas las estadísticas de los logros (los tests lo acortan). */
   static statsFlushMs = 20_000;
+  /** Tiempos y horario del Megabús (los tests los acortan). */
+  static busTimings: BusTimings = { ...BUS_TIMINGS };
+  static busSchedule: BusSchedule = { firstInMs: BUS.firstInMs, maxWaitMs: BUS.maxWaitMs };
 
   /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
@@ -644,6 +655,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private casaArbol!: CasaArbol;
   /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
   private hockey!: HockeyTable;
+  /** El Megabús de la parada del jardín (ver bus.ts): lo ven todos en `state.bus`. */
+  bus!: BusLine;
   /** Ajedrez y damas de la sala de juegos (ver boardGames.ts). */
   private boardGames!: BoardGames;
   /** Reloj de la cocina (los tests lo adelantan para que se acabe la energía). */
@@ -740,6 +753,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       award: (userId, amount) => this.awardLeisure(userId, amount),
     });
     this.startHockey();
+    this.startBus();
     this.startBoardGames();
     OfficeRoom.instances.add(this);
 
@@ -784,6 +798,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.travel, (client, raw) => this.handleTravel(client, raw));
     this.onMessage(CASA_ARBOL_MSG.ladder, (client, raw) => this.withTreeHouse(client, (p) => this.casaArbol.ladder(p, raw)));
     this.onMessage(CASA_ARBOL_MSG.focus, (client, raw) => this.withTreeHouse(client, (p) => this.casaArbol.focus(p, raw, Date.now())));
+    this.onMessage(BUS_MSG.board, (client, raw) => this.handleBusBoard(client, raw));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
@@ -915,6 +930,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.trips.dispose();
     this.toasts.dispose();
     this.weather.dispose();
+    this.bus?.dispose();
     this.cocina.dispose();
     this.phones.dispose();
     void this.achievements.flushAll();
@@ -932,14 +948,16 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
-  async onJoin(client: Client<UserData>, _options: unknown, auth: GameTokenClaims) {
+  async onJoin(client: Client<UserData>, options: unknown, auth: GameTokenClaims) {
     this.removeOtherPresences(auth.sub, client.sessionId);
     this.fishery.forget(auth.sub); // un lance de la sesión anterior no sigue en la nueva
 
-    // Todos aparecen en el jardín, frente a la cabaña.
-    const area = this.world.spawnArea;
+    // Todos aparecen en el jardín, frente a la cabaña; o, con "Llegar en bus", adentro del Megabús, que
+    // los trae hasta la estación (si el próximo tarda, sale uno de refuerzo).
+    const byBus = JoinOptions.safeParse(options).data?.arriveByBus === true;
+    const area = byBus ? BUS.area : this.world.spawnArea;
     const map = this.mapOf(area);
-    const spawn = spawnPoint(map);
+    const spawn = byBus ? this.busArrival() : spawnPoint(map);
     const pos = this.freeSpotNear(map, spawn.x, spawn.y);
 
     const player = new Player();
@@ -982,6 +1000,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
+    if (byBus) this.bus.requestRide();
     void this.refreshBadge(auth.sub);
     client.send(MSG.chatHistory, this.globalHistory);
     // La mochila, con la casilla elegida (el cliente la adopta: por eso `pick`).
@@ -1633,6 +1652,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (blocked) {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       client.send(CASA_ARBOL_MSG.notice, { code: blocked } satisfies CasaArbolNotice);
+    // Del Megabús solo se baja con el bus en la estación y las puertas abiertas (nunca en ruta).
+    if (map.id === BUS.area && !this.bus.doorsOpen()) {
+      client.send(BUS_MSG.notice, { code: "route" } satisfies BusNotice);
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       return;
     }
     const target = this.mapOf(portal.to.area);
@@ -2930,6 +2953,72 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   private clientOfUser(userId: string): Client | undefined {
     return this.clients.find((c) => this.state.players.get(c.sessionId)?.userId === userId);
+  }
+
+  // ---------- Megabús ----------
+
+  private startBus() {
+    const b = this.state.bus;
+    this.bus = new BusLine({
+      clock: { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
+      now: () => Date.now(),
+      minuteOfDay: () => this.gameTimeNow().minuteOfDay,
+      timings: () => OfficeRoom.busTimings,
+      schedule: () => OfficeRoom.busSchedule,
+      riders: () => [...this.state.players.values()].filter((p) => p.area === BUS.area).length,
+      onChange: (s) => {
+        b.phase = s.phase;
+        b.since = s.since;
+        b.nextAt = s.nextAt;
+        b.run = s.run;
+      },
+    });
+    this.bus.start();
+  }
+
+  /** Dónde queda quien llega en bus: en el pasillo, junto a la puerta del medio. */
+  private busArrival() {
+    const ts = this.mapOf(BUS.area).tileSize;
+    const t = CONEXIONES.megabus.puertas.llegada;
+    return { x: t.x * ts + ts / 2, y: t.y * ts + ts / 2 };
+  }
+
+  /**
+   * E en la estación: subirse al Megabús. Hay que estar en la plataforma, junto a una puerta, con el bus
+   * parado y las puertas del todo abiertas. Se entra al nivel del bus, junto a la puerta que corresponde.
+   */
+  private handleBusBoard(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData || !BusBoardMessage.safeParse(raw ?? {}).success) return;
+    const notice = (code: BusNotice["code"]) => client.send(BUS_MSG.notice, { code } satisfies BusNotice);
+    const map = this.mapOf(player.area);
+    if (player.seated || player.racing || this.drunk.fainted(player.userId)) return notice("busy");
+    if (player.area === BUS.area || !nearPointOfType(map, "bus_stop", player.x, player.y)) return notice("far");
+    if (!this.bus.doorsOpen()) return notice("noBus");
+    const inside = this.mapOf(BUS.area);
+    const ts = inside.tileSize;
+    // Se entra por la puerta de adentro cuya bajada queda más cerca de donde está.
+    const dist = (p: (typeof inside.portals)[number]) => Math.hypot((p.to.x + 0.5) * ts - player.x, (p.to.y + 0.5) * ts - player.y);
+    const door = [...inside.portals].sort((a, b) => dist(a) - dist(b))[0]!;
+    const t = door.tiles[0]!;
+    const pos = this.freeSpotNear(inside, t.x * ts + ts / 2, (t.y - 2) * ts + ts / 2);
+    this.casa.leaveStall(player.userId);
+    this.fishery.cancel(player.userId);
+    const previousZoneId = player.zoneId;
+    player.area = inside.id;
+    player.x = pos.x;
+    player.y = pos.y;
+    player.dir = "up";
+    player.moving = false;
+    player.zoneId = zoneAt(inside, pos.x, pos.y)?.id ?? "";
+    player.place = placeAt(inside, pos.x, pos.y);
+    this.revokeGuestOnExit(player, previousZoneId);
+    this.whiteboards.moved(client.sessionId, player.zoneId);
+    client.userData.lastMoveAt = Date.now();
+    client.userData.lastActiveAt = Date.now();
+    this.achievements.visit(player.userId, inside.id);
+    this.trades.moved(client.sessionId);
+    client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: inside.id } satisfies MoveCorrection);
   }
 
   private positioned(p: Player): Positioned {

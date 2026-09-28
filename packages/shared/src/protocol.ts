@@ -26,8 +26,11 @@ export type PresenceStatus = (typeof PRESENCE_STATUSES)[number];
 
 // ---------- Cliente → servidor ----------
 
-/** Se entra a la sala con un token firmado por la web (ver game-token.ts). */
-export const JoinOptions = z.object({ token: z.string().min(1) });
+/**
+ * Se entra a la sala con un token firmado por la web (ver game-token.ts). `arriveByBus`: aparecer bajando
+ * del bus en la estación (opción de "Mi personaje").
+ */
+export const JoinOptions = z.object({ token: z.string().min(1), arriveByBus: z.boolean().optional() });
 export type JoinOptions = z.infer<typeof JoinOptions>;
 
 /** Perfil editable por el usuario (onboarding / ajustes). `look: null` vuelve al personaje fijo. */

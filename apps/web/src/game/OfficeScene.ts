@@ -50,6 +50,8 @@ import {
   type Positioned,
   MENUS,
   voiceNearby,
+  BUS,
+  BUS_NOTICES,
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { Track } from "livekit-client";
@@ -128,6 +130,8 @@ import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } fro
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
+import { BusView } from "./bus";
+import { busDoorsOpenNow } from "./busStore";
 import { Aquariums } from "./aquarium";
 import { DoorPostIts } from "./doorPostIts";
 import { useDoorNotesStore } from "./doorNotes";
@@ -177,6 +181,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
   { kind: "trophies", point: "trophy_case", furniture: ["trophy-case"] },
   { kind: "kitchen", point: "kitchen_stove", furniture: ["stove", "pantry-shelf"] },
+  // La estación del Megabús: solo con E (un clic en la plataforma es para caminar por ella).
+  { kind: "bus", point: "bus_stop", furniture: [] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -312,6 +318,9 @@ export class OfficeScene extends Phaser.Scene {
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
   private treeLadder!: TreeLadderLayer;
+  /** El Megabús de la parada del jardín (el bus de la calle y los sonidos de adentro). */
+  private busView!: BusView;
+  private busNoticeAt = -1e9;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
   private aquariums!: Aquariums;
   private postIts!: DoorPostIts;
@@ -403,6 +412,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
     this.treeLadder = new TreeLadderLayer(this);
+    this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
@@ -484,6 +494,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.photoBoards.destroy(),
       () => this.treeLadder.destroy(),
       this.bindVoiceDemand(),
+      () => this.busView.destroy(),
       () => this.aquariums.destroy(),
       () => this.postIts.destroy(),
       () => this.trophyCases.destroy(),
@@ -589,6 +600,7 @@ export class OfficeScene extends Phaser.Scene {
     this.seasonView.update(time, delta);
     this.critters.update(time, delta);
     this.usables.update();
+    this.busView.update(delta);
     this.fishing.update(delta);
     this.rods.update();
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
@@ -716,6 +728,7 @@ export class OfficeScene extends Phaser.Scene {
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
       this.treeLadder.setArea(map, this.view);
+      this.busView.setArea(map);
       this.aquariums.setArea(map, this.view);
       this.postIts.setArea(map);
       this.trophyCases.setArea(map);
@@ -794,6 +807,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
     this.treeLadder.setArea(map, this.view);
+      this.busView.setArea(map);
     this.aquariums.setArea(map, this.view);
     this.trophyCases.setArea(map);
     this.rods.setArea(map);
@@ -891,6 +905,15 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     if (key === this.portalTile) return;
+    // Del Megabús solo se baja con el bus en la estación y las puertas abiertas (el servidor también lo valida).
+    // Parado en la puerta, se baja solo en cuanto abran (el aviso sale cada tanto, no en cada cuadro).
+    if (this.map.id === BUS.area && !busDoorsOpenNow()) {
+      if (performance.now() - this.busNoticeAt > 5000) {
+        this.busNoticeAt = performance.now();
+        useOfficeStore.getState().notify(BUS_NOTICES.route, "info");
+      }
+      return;
+    }
     // Recién llegado: el portal de vuelta no se dispara por seguir caminando, solo con un clic en él.
     if (this.arrivedAt && this.clickedPortal !== key) return;
     this.arrivedAt = null;
@@ -970,6 +993,7 @@ export class OfficeScene extends Phaser.Scene {
     // Reconstruye todo en cada (re)conexión.
     this.unbindRoom();
     this.usables.bind(room);
+    this.busView.bind(room);
     this.fishing.reset();
     this.rods.destroy();
     for (const a of this.avatars.values()) a.destroy();
@@ -1341,6 +1365,9 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setMotion(dir, moving);
     if (moving) {
       this.updateZone();
+      this.checkPortal();
+    } else if (this.map.id === BUS.area && busDoorsOpenNow()) {
+      // Quien esperaba parado en la puerta del Megabús se baja en cuanto se abre.
       this.checkPortal();
     }
     this.updateDoorPrompt();
