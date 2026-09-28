@@ -1,25 +1,27 @@
 # Desplegar Lumbre gratis
 
-Lumbre tiene cuatro piezas, y cada una tiene un plan gratis que alcanza para un equipo chico:
+Lumbre tiene cinco piezas, y cada una tiene un plan gratis que alcanza para un equipo chico:
 
 | Pieza | Dónde | Plan gratis | Qué hay que saber |
 |---|---|---|---|
 | Web (Next.js, `apps/web`) | **Vercel** | Hobby | Es gratis para uso personal o no comercial. Si Lumbre se vende, hay que pasar a Pro. |
 | Servidor de juego (Colyseus, `apps/server`) | **Render** | Free web service | Se duerme a los ~15 min sin uso y el primero que entra espera ~1 min. Se puede evitar (ver el paso 5). |
+| Login (identidad) | **Supabase Auth** | Free | Solo da la identidad (Google). Los usuarios, roles e invitaciones siguen en Neon. |
 | Base de datos (Postgres) | **Neon** | Free | 0,5 GB: sobra para usuarios, notas, puntos y decoración. |
 | Audio y video | **LiveKit Cloud** | Build (gratis) | Trae minutos de participante al mes. Sin LiveKit la cabaña funciona igual, sin voz ni cámara. |
 
-El login con Google (Google Cloud) también es gratis. No hace falta tarjeta en Vercel, Render ni Neon.
+El cliente OAuth de Google Cloud también es gratis. No hace falta tarjeta en Vercel, Render, Neon ni Supabase.
+
+En estos pasos el dominio es `https://lumbre.hyvento.co`; cámbialo si usas otro.
 
 ## 0. Antes de empezar
 
 - El código está en GitHub (el repo privado `MrxHuaang/lumbre`). Vercel y Render se conectan a GitHub y despliegan solos con cada push a `main`.
-- Genera dos secretos largos. Guárdalos: se usan en varios lugares.
+- Genera un secreto largo. Guárdalo: se usa en Vercel y en Render.
   ```bash
   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
   ```
-  - El primero es **`AUTH_SECRET`** (sesiones de la web).
-  - El segundo es **`GAME_TOKEN_SECRET`**. Tiene que ser **el mismo** en Vercel y en Render.
+  Es **`GAME_TOKEN_SECRET`**. Tiene que ser **el mismo** en Vercel y en Render. (Ya no hay `AUTH_SECRET`: la sesión la firma Supabase.)
 
 ## 1. Base de datos: Neon
 
@@ -33,13 +35,27 @@ El login con Google (Google Cloud) también es gratis. No hace falta tarjeta en 
    ```
    Repite este paso **cada vez** que llegue una migración nueva y **antes** de que el código llegue a `main`. Ni Vercel ni Render corren migraciones.
 
-## 2. Login con Google
+## 2. Login: Supabase Auth + Google
+
+Supabase solo da la identidad. Al volver de Google, la web (`/auth/callback`) revisa que el correo esté en `ADMIN_EMAILS`, tenga invitación o ya sea usuario, y crea o actualiza el usuario **en Neon** (se enlazan por correo).
+
+### 2a. Supabase
+
+1. En [supabase.com](https://supabase.com) crea un proyecto (región `us-east-1`). No uses su base de datos: con Auth basta.
+2. **Project Settings → API**: copia la **Project URL** (`https://<ref>.supabase.co`) y la llave **anon** (pública). Son `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`. La llave `service_role` **no** se usa: no la pongas en ningún lado.
+3. **Authentication → URL Configuration**:
+   - **Site URL**: `https://lumbre.hyvento.co`
+   - **Redirect URLs**: `https://lumbre.hyvento.co/auth/callback` y `http://localhost:3000/auth/callback`. Si quieres probar las previews de Vercel, agrega también `https://*-<tu-equipo>.vercel.app/auth/callback`.
+4. **Authentication → Sign In / Providers → Google**: actívalo y pega el Client ID y el secret del paso 2b. Copia la **Callback URL** que muestra ahí (`https://<ref>.supabase.co/auth/v1/callback`).
+5. (Recomendado) **Authentication → Sign In / Providers → Email**: desactívalo, para que nadie cree cuentas con correo y contraseña. De todos modos la web solo deja entrar a invitados.
+
+### 2b. Google Cloud
 
 1. En [console.cloud.google.com](https://console.cloud.google.com), crea un proyecto y entra a **APIs y servicios → Pantalla de consentimiento OAuth**. Elige tipo *Externo*, pon el nombre "Lumbre" y agrega tu correo.
 2. En **Credenciales → Crear credenciales → ID de cliente OAuth**, elige *Aplicación web*:
-   - **Orígenes autorizados**: `https://<tu-proyecto>.vercel.app`
-   - **URI de redirección**: `https://<tu-proyecto>.vercel.app/api/auth/callback/google`
-3. Guarda el **ID de cliente** (`AUTH_GOOGLE_ID`) y el **secreto** (`AUTH_GOOGLE_SECRET`).
+   - **Orígenes autorizados de JavaScript**: `https://lumbre.hyvento.co` (y `http://localhost:3000` para desarrollo).
+   - **URI de redirección autorizados**: **solo** la de Supabase, `https://<ref>.supabase.co/auth/v1/callback`. Google vuelve a Supabase, y Supabase a la web.
+3. Pega el **ID de cliente** y el **secreto** en Supabase (paso 2a.4). No van en Vercel.
 
 Hasta que publiques la app en la pantalla de consentimiento, solo entran los correos que agregues como usuarios de prueba. Para un equipo alcanza así.
 
@@ -74,8 +90,9 @@ Otra opción gratis y siempre prendida es una máquina virtual *Always Free* de 
    | Variable | Valor |
    |---|---|
    | `DATABASE_URL` | La URL **pooled** de Neon |
-   | `AUTH_SECRET` | El primer secreto del paso 0 |
-   | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Las del paso 2 |
+   | `NEXT_PUBLIC_SUPABASE_URL` | La Project URL de Supabase (paso 2a) |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | La llave anon de Supabase (paso 2a) |
+   | `NEXT_PUBLIC_SITE_URL` | `https://lumbre.hyvento.co` |
    | `ADMIN_EMAILS` | Tu correo (y el de otros admins, separados por coma) |
    | `GAME_TOKEN_SECRET` | El mismo que en Render |
    | `NEXT_PUBLIC_GAME_SERVER_URL` | `wss://hyvento-game.onrender.com` |
@@ -83,13 +100,15 @@ Otra opción gratis y siempre prendida es una máquina virtual *Always Free* de 
    | `LIVEKIT_URL` / `LIVEKIT_PUBLIC_URL` | La URL de LiveKit Cloud (`wss://…livekit.cloud`) |
    | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | Los del paso 3 |
 
-4. **Deploy**. Con la URL final (`https://<tu-proyecto>.vercel.app`), vuelve a Google Cloud y confirma que el origen y la redirección del paso 2 son esa URL exacta.
+4. **Deploy**. En **Settings → Domains** conecta `lumbre.hyvento.co` y confirma que coincide con la Site URL y los Redirect URLs de Supabase (paso 2a.3).
+
+Las variables `NEXT_PUBLIC_*` se meten en el build: si las cambias, vuelve a desplegar.
 
 **No pongas** `HYVENTO_DEV_TOOLS` en producción: es solo para desarrollo, y de todos modos se apaga fuera de desarrollo.
 
 ## 7. Probar
 
-1. Abre la URL de Vercel y entra con Google, con el correo que pusiste en `ADMIN_EMAILS`.
+1. Abre `https://lumbre.hyvento.co/login` y entra con Google, con el correo que pusiste en `ADMIN_EMAILS`.
 2. La primera vez, el servidor de juego puede tardar ~1 min en despertar si no usaste el paso 5.
 3. Desde el menú → **Administrar equipo**, invita al resto por correo.
 
@@ -101,4 +120,11 @@ Otra opción gratis y siempre prendida es una máquina virtual *Always Free* de 
 
 ## Dominio propio (opcional)
 
-Vercel conecta un dominio propio gratis (tú pagas solo el dominio, unos USD 10 al año). Si lo cambias, actualiza el origen y la redirección de Google.
+Vercel conecta un dominio propio gratis (tú pagas solo el dominio, unos USD 10 al año). Si lo cambias, actualiza la Site URL y los Redirect URLs de Supabase, el origen de Google y `NEXT_PUBLIC_SITE_URL`.
+
+## Si el login falla
+
+- Vuelve a `/login?error=AccessDenied`: el correo no está en `ADMIN_EMAILS` ni tiene invitación.
+- `error=Configuration`: faltan `NEXT_PUBLIC_SUPABASE_*` en Vercel (o no se volvió a desplegar).
+- Supabase muestra "redirect_to is not allowed" o te deja en la Site URL: falta `https://lumbre.hyvento.co/auth/callback` en Redirect URLs.
+- Google dice `redirect_uri_mismatch`: la URI de redirección de Google tiene que ser la de Supabase (`…supabase.co/auth/v1/callback`), no la de la web.

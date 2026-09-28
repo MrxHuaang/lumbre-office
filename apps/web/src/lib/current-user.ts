@@ -1,13 +1,19 @@
 import "server-only";
 import { prisma } from "@hyvento/db";
 import { HUMAN_AVATARS, Look, type HumanAvatar } from "@hyvento/shared";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { DEV_SESSION_COOKIE, readDevSession } from "@/lib/dev-login";
+import { supabaseServer } from "@/lib/supabase";
 
 export async function getCurrentUser() {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  return prisma.user.findUnique({ where: { id: session.user.id } });
+  const devUserId = readDevSession((await cookies()).get(DEV_SESSION_COOKIE)?.value);
+  if (devUserId) return prisma.user.findUnique({ where: { id: devUserId } });
+  // getUser (no getSession) valida el token con Supabase; el usuario de Neon se busca por correo.
+  const supabase = await supabaseServer();
+  const email = (await supabase?.auth.getUser())?.data.user?.email?.toLowerCase();
+  if (!email) return null;
+  return prisma.user.findUnique({ where: { email } });
 }
 
 export async function requireUser() {

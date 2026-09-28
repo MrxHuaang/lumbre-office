@@ -89,3 +89,32 @@ export async function grantWelcomeBonus(db: PrismaClient, userId: string, amount
     return { ...r, granted: true };
   });
 }
+
+export interface AwardOnceInput extends AwardInput {
+  refId: string;
+  /** Movimientos de hoy (día de Bogotá) cuyo `refId` empieza así: con `maxPerDay` de ellos ya no se da más. */
+  refPrefix: string;
+  maxPerDay: number;
+}
+
+/** "duplicate" = ese `refId` ya se pagó; "limit" = ya se dieron los `maxPerDay` de hoy. */
+export type AwardOnceResult = AwardResult & { status: "ok" | "duplicate" | "limit" };
+
+/**
+ * Premio que se da una sola vez por `refId` y hasta `maxPerDay` veces por día (felicitaciones de
+ * cumpleaños, bloques del modo foco). Bloquea la fila del usuario: dos premios a la vez no se saltan el tope.
+ */
+export function awardPointsOnce(db: PrismaClient, input: AwardOnceInput): Promise<AwardOnceResult> {
+  const now = input.now ?? Date.now();
+  const { userId, refId, refPrefix, maxPerDay } = input;
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT 1 FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    const balance = async () => (await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { points: true } })).points;
+    const done = await tx.pointTransaction.findFirst({ where: { userId, refId }, select: { id: true } });
+    if (done) return { status: "duplicate" as const, awarded: 0, balance: await balance() };
+    const today = await tx.pointTransaction.count({ where: { userId, refId: { startsWith: refPrefix }, createdAt: { gte: new Date(dayStart(now)) } } });
+    if (today >= maxPerDay) return { status: "limit" as const, awarded: 0, balance: await balance() };
+    const r = await awardPointsTx(tx, { userId, amount: input.amount, reason: input.reason, refId, now });
+    return { status: "ok" as const, ...r };
+  });
+}

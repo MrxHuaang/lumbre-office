@@ -1,11 +1,11 @@
-import { HAIR_STYLES, TOPS, PATTERNS, BOTTOMS, SHOES } from "@hyvento/shared";
+import { BOTTOMS, HAIR_STYLES, PATTERNS, SHOES, TOPS } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
-import { drawCharacter, drawSitting, FEET_Y, FRAME, SHEET_DIRECTIONS, type CharacterStyle } from "./chibi";
+import { BODY_X, BODY_Y, drawCharacter, drawSitting, FRAME, SHEET_DIRECTIONS, type CharacterStyle } from "./chibi";
 import { tone } from "./chibi/kit";
 import type { PixelCanvas } from "./pixel";
 
-// El gabán, el chaleco y el sombrero de fieltro (los del Man del Sombrero y los crupieres del casino, que
-// también puede ponerse cualquiera en el editor).
+// El gabán y el sombrero de fieltro (los del Man del Sombrero, que también puede ponerse cualquiera en el
+// editor).
 
 const base: CharacterStyle = { skin: "#f1c27d", hair: "#3b2219", shirt: "#e76f51", pants: "#264653", accent: "#7d7f86", hairStyle: "short" };
 const RIGHT = SHEET_DIRECTIONS.indexOf("right");
@@ -24,8 +24,8 @@ const same = (a: ArrayLike<number>, b: ArrayLike<number>) => a.length === b.leng
 
 /** Color de un píxel del cuerpo (x de 0 a 15, fila del cuerpo) en la celda (col, row). */
 function bodyPixel(sheet: PixelCanvas, col: number, row: number, x: number, bodyRow: number): string {
-  const sx = col * FRAME + (FRAME - 16) / 2 + x;
-  const sy = row * FRAME + FEET_Y - 24 + bodyRow;
+  const sx = col * FRAME + BODY_X + x;
+  const sy = row * FRAME + BODY_Y + bodyRow;
   const i = (sy * sheet.width + sx) * 4;
   return Array.from(sheet.data.slice(i, i + 4)).join();
 }
@@ -61,9 +61,9 @@ describe("gabán", () => {
   it("llega a las rodillas: de pie se ven las canillas con la parte de abajo y los zapatos", () => {
     const walk = drawCharacter(coat);
     const fabric = [tone(base.pants, -0.25), tone(base.pants, 0.1)].map((c) => c.join());
-    expect(fabric).toContain(bodyPixel(walk, 0, RIGHT, 6, 21));
-    // El faldón (fila 20) es del gabán, no del pantalón.
-    expect(fabric).not.toContain(bodyPixel(walk, 0, RIGHT, 6, 20));
+    expect(fabric).toContain(bodyPixel(walk, 0, RIGHT, 6, 24));
+    // El faldón (fila 23) es del gabán, no del pantalón.
+    expect(fabric).not.toContain(bodyPixel(walk, 0, RIGHT, 6, 23));
     for (const bottom of BOTTOMS)
       for (const shoes of SHOES) {
         const s = drawCharacter({ ...coat, bottom, shoes, shoeColor: "#ff00ff" });
@@ -75,19 +75,6 @@ describe("gabán", () => {
     const walk = drawCharacter(coat);
     const accent = [tone(base.accent!, -0.3), tone(base.accent!, 0), tone(base.accent!, 0.25)].map((c) => c.join());
     expect(accent).toContain(bodyPixel(walk, 0, RIGHT, 4, 11));
-  });
-});
-
-describe("chaleco", () => {
-  it("se ve de frente y de espaldas y deja ver la camisa en la V y en las mangas", () => {
-    const vest: CharacterStyle = { ...base, outfit: "vest", top: "longsleeve" };
-    const plain = views({ ...base, top: "longsleeve" });
-    views(vest).forEach((v, i) => expect(same(v, plain[i]!), `vista ${i}`).toBe(false));
-    const shirt = [tone(base.shirt!, -0.3), tone(base.shirt!, 0), tone(base.shirt!, 0.25)].map((c) => c.join());
-    const walk = drawCharacter(vest);
-    // La V (fila 14 del torso, dos más por el margen de arriba) y el brazo de atrás con la manga.
-    expect(shirt).toContain(bodyPixel(walk, 0, RIGHT, 7, 14));
-    expect(shirt).toContain(bodyPixel(walk, 0, RIGHT, 3, 15));
   });
 });
 

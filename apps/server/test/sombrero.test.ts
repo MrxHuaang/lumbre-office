@@ -1,6 +1,8 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import {
   CONSUME,
+  GAME_DAY_REAL_MS,
+  GAME_MINUTES_PER_DAY,
   MSG,
   ROOM_NAME,
   SOMBRERO_HIDEOUTS,
@@ -96,8 +98,8 @@ describe("el Man del Sombrero: cuándo y dónde", () => {
   it("se va cuando termina su hora y vuelve en la siguiente franja", async () => {
     const { room } = await setup(3);
     expect(room.state.sombrero.present).toBe(true);
-    // 1 s real = 1 min del juego: una hora y media después ya son las 4:30.
-    now += 90 * 60_000 / 60;
+    // Una hora y media del juego después ya son las 4:30.
+    now += (90 * GAME_DAY_REAL_MS) / GAME_MINUTES_PER_DAY;
     await tick(120);
     await room.waitForNextPatch();
     expect(room.state.sombrero.present).toBe(false);
@@ -106,8 +108,8 @@ describe("el Man del Sombrero: cuándo y dónde", () => {
   it("cada día del juego cambia de escondite (distinto al de ayer)", async () => {
     const { room } = await setup(22);
     expect(room.state.sombrero.hideout).toBe(LAGO);
-    // Un día del juego = 24 minutos reales.
-    now += 24 * 60_000;
+    // Un día entero del juego después.
+    now += GAME_DAY_REAL_MS;
     await tick(120);
     await room.waitForNextPatch();
     const expected = nextHideout(LAGO, () => LAGO);

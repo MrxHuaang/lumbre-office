@@ -16,8 +16,6 @@ const T = (c: RGBA): Tinte => () => c;
 export const RUBBER: Ramp = ramp("#121216", "#1c1c22", "#28282f", "#35353e", "#44444e", "#575762");
 /** Cartón de las cajas. */
 export const CARDBOARD: Ramp = ramp("#4a3220", "#6b4a2e", "#8c663f", "#a9804f", "#c49c66", "#dcbb86");
-/** Verde oliva de oficina pública (el escritorio y el archivador de lata). */
-const OLIVE: Ramp = ramp("#2a2f27", "#3d4538", "#535d4b", "#6b7661", "#86907a", "#a3ac95");
 /** Plástico beige amarillento de computador de los noventa. */
 const BEIGE: Ramp = ramp("#5b5140", "#7c6f58", "#9c8e73", "#b8aa8c", "#cfc3a5", "#e3d9bf");
 /** Cuerina café de la silla rota. */
@@ -26,10 +24,10 @@ const VINYL: Ramp = ramp("#2e1b12", "#4a2c1b", "#673f27", "#835434", "#9c6a44", 
 const FOAM: Ramp = ramp("#8a6a22", "#b8923a", "#dcbd5e", "#efdc8c");
 /** Cinta gris (la de arreglar todo). */
 const TAPE: Ramp = ramp("#5d636e", "#878d98", "#aeb3bb", "#d0d4d9");
-/** Lona verde militar descolorida. */
-const TARP: Ramp = ramp("#222b1d", "#303d28", "#435237", "#586a48", "#71845d", "#8fa077");
-/** Azul petróleo del tambor, desteñido. */
-const DRUM: Ramp = ramp("#131c2b", "#1b2a40", "#253a55", "#314d6b", "#42637f", "#5e7d96");
+/** Lona de algodón crudo, algo manchada. */
+const TARP: Ramp = ramp("#4a3a28", "#6b5439", "#8a6f4d", "#a88c63", "#c2a77c", "#d8c29a");
+/** Rojo ladrillo del tambor, desteñido por el sol. */
+const DRUM: Ramp = ramp("#2e1512", "#4a221b", "#6a3226", "#874534", "#a35d47", "#bd7b62");
 /** Rojo de herramienta (la caja, el compresor, el bidón), ya rayado. */
 const TOOLRED: Ramp = ramp("#3b1112", "#611a19", "#8a2620", "#b0372a", "#cc5a42", "#e1856a");
 
@@ -202,14 +200,14 @@ function workbench(): Sprite {
 }
 
 /**
- * Estante de ángulo metálico con cuatro repisas: cajas, latas, un galón de aceite, una llanta chica y un
- * rollo de manguera. La repisa de arriba está vencida hacia adelante y hay una telaraña en la esquina.
+ * Estante de madera con cuatro repisas: cajas, latas, un galón de aceite, una llanta chica y un rollo de
+ * manguera. La repisa de arriba está un poco vencida hacia adelante.
  */
 function metalShelf(): Sprite {
   const s = scene(1, 2, 52);
   s.shadow(0, 0, 14, 32, 0.28);
   const H = 44;
-  const post = (x: number, y: number) => s.solid(x, y, 0, 1.4, 1.4, H, at(C.sage, 2), at(C.sage, 1), at(C.sage, 0));
+  const post = (x: number, y: number) => s.solid(x, y, 0, 1.4, 1.4, H, at(C.wood, 2), at(C.wood, 1), at(C.wood, 0));
   post(0.5, 0.5);
   post(12, 0.5);
   post(0.5, 30);
@@ -218,8 +216,8 @@ function metalShelf(): Sprite {
   for (const [i, z] of shelves.entries()) {
     if (i === 3) {
       for (let x = 0.5; x < 13.4; x += 0.35)
-        for (let y = 0.5; y < 31.4; y += 0.35) s.plot(x, y, z + 1 - (x / 13.4) * 2.2 * Math.sin((y / 31) * Math.PI), at(C.sage, x > 12.8 ? 1 : 3));
-    } else s.box(0.5, 0.5, z, 13, 31, 1, (u, v) => at(C.sage, noise(Math.floor(u / 3), Math.floor(v / 3), i) < 0.12 ? 1 : 3), T(at(C.sage, 2)), T(at(C.sage, 1)));
+        for (let y = 0.5; y < 31.4; y += 0.35) s.plot(x, y, z + 1 - (x / 13.4) * 2.2 * Math.sin((y / 31) * Math.PI), at(C.wood, x > 12.8 ? 1 : 3));
+    } else s.box(0.5, 0.5, z, 13, 31, 1, (u, v) => at(C.wood, noise(Math.floor(u / 3), Math.floor(v / 3), i) < 0.12 ? 1 : 3), T(at(C.wood, 2)), T(at(C.wood, 1)));
   }
   // Abajo: una llanta de bicicleta vieja acostada y un bidón.
   tire(s, 6.5, 8, 3, 5, 2.4, 2);
@@ -242,12 +240,6 @@ function metalShelf(): Sprite {
   box(s, 2, 3, 38.5, 9, 11, 7, 4);
   can(s, 6, 22, 38.5, 2.4, 4, C.leaf, C.leaf, 5);
   can(s, 7.5, 27.5, 38, 2, 3.5, C.mustard, C.mustard, 6);
-  // Telaraña entre el poste de adelante y la repisa de arriba.
-  s.borde = false;
-  for (let a = 0; a < 1.4; a += 0.02)
-    for (const rr of [2, 3.5, 5]) s.plot(13.2, 31.2 - Math.cos(a) * rr, H - Math.sin(a) * rr, alpha(at(C.white, 4), 0.6));
-  for (const k of [0.2, 0.7, 1.2]) for (let rr = 0; rr < 5.5; rr += 0.3) s.plot(13.2, 31.2 - Math.cos(k) * rr, H - Math.sin(k) * rr, alpha(at(C.white, 4), 0.6));
-  s.borde = true;
   return s.sprite();
 }
 
@@ -327,7 +319,7 @@ function compressor(): Sprite {
   return s.sprite();
 }
 
-/** Tambor de aceite azul petróleo: óxido, abolladura, chorreados, el embudo arriba y el charco. */
+/** Tambor de aceite rojo ladrillo: óxido, abolladura, chorreados, el embudo arriba y el charco. */
 function oilDrum(): Sprite {
   const s = scene(1, 1, 30);
   s.roundShadow(8, 8, 7, 0.32);
@@ -536,7 +528,7 @@ const crtScreen: Tinte = (u, v) => {
 };
 
 /**
- * Escritorio metálico abollado con el computador de los noventa: el monitor de tubo beige, el teclado
+ * Escritorio viejo de madera con el computador de los noventa: el monitor de tubo beige, el teclado
  * amarillento, la torre al lado, dos tazas con manchas de café, papeles, un post-it en el monitor y la
  * lámpara de brazo. El frente (donde se sienta uno) mira hacia +x.
  */
@@ -545,22 +537,22 @@ function deskCrt(): Sprite {
   s.shadow(0, 0, 16, 32, 0.3);
   // Pedestal de cajones (hacia +y) y la pata del otro lado; un panel al fondo.
   const drawers: Tinte = (u, v) => {
-    if (Math.floor(v) % 5 === 0) return at(OLIVE, 1);
-    if (Math.floor(v) % 5 === 3 && u > 5 && u < 8) return u > 7 && v < 5 ? at(OLIVE, 1) : at(C.metal, 4);
-    if (Math.hypot(u - 3, v - 8) < 1.8) return at(OLIVE, 2);
-    return at(OLIVE, 3);
+    if (Math.floor(v) % 5 === 0) return at(C.wood, 1);
+    if (Math.floor(v) % 5 === 3 && u > 5 && u < 8) return u > 7 && v < 5 ? at(C.wood, 1) : at(C.metal, 4);
+    if (Math.hypot(u - 3, v - 8) < 1.8) return at(C.wood, 2);
+    return at(C.wood, 3);
   };
-  s.box(2, 18, 0, 12, 13, 14, T(at(OLIVE, 4)), (u, v) => at(OLIVE, smoothNoise(u, v, 3, 3) > 0.75 ? 2 : 3), drawers);
-  s.box(1, 1, 0, 2, 17, 14, T(at(OLIVE, 3)), T(at(OLIVE, 2)), T(at(OLIVE, 1)));
-  s.solid(12, 1.5, 0, 2, 2, 14, at(OLIVE, 3), at(OLIVE, 2), at(OLIVE, 1));
+  s.box(2, 18, 0, 12, 13, 14, T(at(C.wood, 4)), (u, v) => at(C.wood, smoothNoise(u, v, 3, 3) > 0.75 ? 2 : 3), drawers);
+  s.box(1, 1, 0, 2, 17, 14, T(at(C.wood, 3)), T(at(C.wood, 2)), T(at(C.wood, 1)));
+  s.solid(12, 1.5, 0, 2, 2, 14, at(C.wood, 3), at(C.wood, 2), at(C.wood, 1));
   // El tablero: lámina con el borde gastado y un forro de fórmica rayado.
   s.box(0, 0, 14, 16, 32, 2, (u, v) => {
-    if (u < 0.8 || v < 0.8 || u > 15.2 || v > 31.2) return at(OLIVE, 2);
+    if (u < 0.8 || v < 0.8 || u > 15.2 || v > 31.2) return at(C.wood, 2);
     // Aros de café.
     if (Math.abs(Math.hypot(u - 12, v - 25) - 2.2) < 0.4 || Math.abs(Math.hypot(u - 10.5, v - 8) - 1.8) < 0.35) return at(C.woodDark, 3);
-    if (noise(Math.floor(u * 2), Math.floor(v), 73) > 0.97) return at(C.cream, 2);
-    return at(C.cream, smoothNoise(u, v, 5, 75) > 0.65 ? 2 : 3);
-  }, T(at(OLIVE, 3)), T(at(OLIVE, 2)));
+    if (noise(Math.floor(u * 2), Math.floor(v), 73) > 0.97) return at(C.wood, 2);
+    return at(C.wood, smoothNoise(u, v, 5, 75) > 0.65 ? 3 : 4);
+  }, T(at(C.wood, 3)), T(at(C.wood, 2)));
   // Monitor de tubo: el cuerpo de atrás y la cara con la pantalla hacia +x.
   s.box(1, 5, 16, 6, 12, 10, T(at(BEIGE, 3)), T(at(BEIGE, 2)), T(at(BEIGE, 1)));
   s.box(7, 4, 16, 3.5, 14, 12, (u, v) => at(BEIGE, 4 - (noise(Math.floor(u), Math.floor(v), 77) > 0.9 ? 1 : 0)), T(at(BEIGE, 3)), (u, v) => (u > 1 && v > 1 ? crtScreen(u - 1, v - 1) : at(BEIGE, 3)));
@@ -663,16 +655,16 @@ function filingDented(): Sprite {
     // Tres cajones con su manija y el portaetiquetas; abolladura oscura en el de abajo.
     const k = Math.floor(v / 8);
     const dv = v % 8;
-    if (dv < 0.8) return at(OLIVE, 1);
-    if (Math.hypot(u - 4, v - 4) < 2.2) return at(OLIVE, 2);
+    if (dv < 0.8) return at(C.green, 1);
+    if (Math.hypot(u - 4, v - 4) < 2.2) return at(C.green, 2);
     if (dv > 5 && dv < 6.4 && u > 4 && u < 8) return at(C.metal, 4);
-    if (dv > 3 && dv < 4.5 && u > 4.5 && u < 7.5) return k === 1 ? at(C.cream, 5) : at(OLIVE, 1);
+    if (dv > 3 && dv < 4.5 && u > 4.5 && u < 7.5) return k === 1 ? at(C.cream, 5) : at(C.green, 1);
     if (smoothNoise(u, v, 3, 91) > 0.76) return at(RUST, 2);
-    return at(OLIVE, 3);
+    return at(C.green, 3);
   };
-  s.box(2, 2, 0, 12, 12, 25, T(at(OLIVE, 4)), (u, v) => at(OLIVE, smoothNoise(u, v, 4, 93) > 0.7 ? 2 : 3), front);
+  s.box(2, 2, 0, 12, 12, 25, T(at(C.green, 4)), (u, v) => at(C.green, smoothNoise(u, v, 4, 93) > 0.7 ? 2 : 3), front);
   // Cajón de arriba abierto hacia +x, con carpetas y papeles saliendo.
-  s.box(14, 3, 17, 3, 10, 7, (u, v) => (Math.floor(v) % 2 === 0 ? at(C.mustard, 4) : at(C.cream, 5)), T(at(OLIVE, 3)), T(at(OLIVE, 2)));
+  s.box(14, 3, 17, 3, 10, 7, (u, v) => (Math.floor(v) % 2 === 0 ? at(C.mustard, 4) : at(C.cream, 5)), T(at(C.green, 3)), T(at(C.green, 2)));
   s.quad([15, 4, 24], [0, 1, 0], [0.3, 0, 1], 8, 3, (u) => at(C.cream, Math.floor(u) % 3 === 0 ? 3 : 5));
   // Encima: una caja de cartón con carpetas y una taza con lápices.
   box(s, 3, 3, 25, 9, 8, 6, 21, true);
@@ -770,6 +762,42 @@ function wornRug(): Sprite {
   return renderSprite([{ x: 0.5, y: 0.5, z: 0, w: 31, d: 47, h: 1, top, left: flat(at(r, 0)), right: flat(at(r, 0)) }], { outline: OUT });
 }
 
+/**
+ * Hielera de madera de las de antes: cajón de roble con tapa, bisagras y cierre de bronce, la manija de
+ * cuero y un par de botellas asomando entre el hielo por la tapa entreabierta.
+ */
+function icebox(): Sprite {
+  const s = scene(1, 1, 34);
+  s.shadow(1, 1, 14, 14, 0.3);
+  // Patas cortas.
+  for (const [x, y] of [
+    [2, 2],
+    [11.5, 2],
+    [2, 11.5],
+    [11.5, 11.5],
+  ] as const)
+    s.solid(x, y, 0, 2.5, 2.5, 2.5, at(C.woodDark, 4), at(C.woodDark, 3), at(C.woodDark, 2));
+  const staves: Tinte = (u, v) => {
+    if (Math.floor(v) === 3 || Math.floor(v) === 14) return at(C.gold, 3);
+    if (u % 4 < 0.6) return at(C.wood, 2);
+    return at(C.wood, noise(Math.floor(u / 4), 1, 91) < 0.4 ? 3 : 4);
+  };
+  s.box(1.5, 1.5, 2.5, 13, 13, 17, T(at(C.wood, 4)), staves, (u, v) => {
+    // Frente (+x): el cierre de bronce y la placa.
+    if (Math.abs(u - 6.5) < 1 && v > 12 && v < 16) return at(C.gold, v > 14 ? 5 : 3);
+    if (Math.abs(u - 6.5) < 2.5 && Math.abs(v - 7) < 1.5) return at(C.cream, 4);
+    return mix(staves(u, v)!, at(C.woodDark, 2), 0.2);
+  });
+  // Tapa entreabierta: se ven el hielo y dos botellas.
+  s.box(2.5, 2.5, 19.5, 11, 11, 0.6, (u, v) => (noise(Math.floor(u), Math.floor(v), 93) < 0.3 ? at(C.white, 4) : at(C.sky, 4)), null, null);
+  s.cylinder(6, 6, 19.5, 1.2, 5, (_a, v, luz) => at(v > 3.5 ? C.gold : C.leaf, luz > 0 ? 4 : 2));
+  s.cylinder(9, 8, 19.5, 1.2, 4.5, (_a, v, luz) => at(v > 3 ? C.cream : C.rug, luz > 0 ? 4 : 2));
+  s.quad([1.5, 1.5, 20], [0, 1, 0], [0.45, 0, 0.9], 13, 13, (u, v) => (v > 12 ? at(C.wood, 5) : u % 4 < 0.6 ? at(C.wood, 2) : at(C.wood, 4)));
+  // Manija de cuero al costado.
+  for (let k = 0; k < 6; k += 0.3) s.plot(4 + k, 14.8, 13 - Math.sin((k / 6) * Math.PI) * 2, at(C.logs, 2));
+  return s.sprite();
+}
+
 /** Dibujos para registrar en DRAW de furniture.ts. */
 export const GARAJE_DRAW: Record<string, (v: Variant) => Sprite> = {
   workbench,
@@ -789,6 +817,7 @@ export const GARAJE_DRAW: Record<string, (v: Variant) => Sprite> = {
   "dead-plant": deadPlant,
   "floor-fan": floorFan,
   "worn-rug": wornRug,
+  icebox,
 };
 
 export { standingTire, tire, can, box as cardboardBox, rag, stick, TOOLRED };

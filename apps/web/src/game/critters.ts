@@ -22,6 +22,7 @@ const ALLOWED: Record<Weather, { birds: number; squirrels: number; fireflies: nu
   lluvia: { birds: 2, squirrels: 1, fireflies: 0 },
   tormenta: { birds: 0, squirrels: 0, fireflies: 0 },
   niebla: { birds: 4, squirrels: 2, fireflies: 6 },
+  nieve: { birds: 3, squirrels: 1, fireflies: 0 },
 };
 /** Profundidad de lo que vuela (sobre todo, debajo del clima). */
 const DEPTH_FLYING = DEPTH_OVERLAY - 6;

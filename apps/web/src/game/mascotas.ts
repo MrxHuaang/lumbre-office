@@ -1,9 +1,10 @@
 // Casa viva (cliente): las mascotas. El servidor las mueve (posición, dirección y pose viajan en el
 // estado); aquí se dibujan, se interpolan y se animan. Clic en una mascota lejos: se la llama ("ven");
-// de cerca: un menú chico para acariciarla o darle un premio. Los clics en la mascota y en el menú no
-// llegan a la escena (no se camina hacia allá).
-import { bubble, drawPet, heartSmall, PET_FRAME, PET_POSE_FRAMES, petTreat, sleepZ, type PetArtKind, type PetArtPose } from "@hyvento/map/art";
-import { PET, type Direction, type PetEvent } from "@hyvento/shared";
+// de cerca: un menú chico para acariciarla, darle croquetas o lo que se tiene en la mano, adoptarla o
+// dejarla volver a la casa (E la acaricia). Los clics en la mascota y en el menú no llegan a la escena
+// (no se camina hacia allá).
+import { bubble, drawHeldItem, drawPet, heartSmall, PET_FRAME, PET_POSE_FRAMES, petBowl, sleepZ, type PetArtKind, type PetArtPose } from "@hyvento/map/art";
+import { FREE_NAMES, menuItem, parseHeldLeft, PET, PET_BOND, petFoodIn, type Direction, type PetAction, type PetEvent } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt } from "@/lib/cozy";
@@ -12,6 +13,7 @@ import { playMeow, playMunch, playWoof } from "./casaSonidos";
 import { DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "./iso/view";
 import { onPetEvent, sendPetAction, sendPetCall, type OfficeRoom, type RemotePet } from "./network";
 import { playPurr, volumeAt } from "./sound";
+import { selectMyUserId, useOfficeStore } from "./store";
 
 /** Hasta dónde se oyen (px de mundo). */
 const HEAR_PX = 10 * 32;
@@ -35,6 +37,10 @@ interface PetSprite {
   frameAt: number;
   zAt: number;
   hover: boolean;
+  /** Dueño (User.id y nombre; "" = de la casa) y cariño. */
+  ownerId: string;
+  ownerName: string;
+  love: number;
   /** El globito "!" (la llamaron): sigue a la mascota mientras viene. */
   bang?: Phaser.GameObjects.Container;
 }
@@ -127,6 +133,12 @@ export class Mascotas {
       if (!s) s = this.create(p);
       s.tx = p.x;
       s.ty = p.y;
+      if (s.ownerId !== (p.ownerId ?? "") || s.ownerName !== (p.ownerName ?? "")) {
+        s.ownerId = p.ownerId ?? "";
+        s.ownerName = p.ownerName ?? "";
+        s.name.setText(this.tagOf(p.name, s.ownerName));
+      }
+      s.love = p.love ?? 0;
       s.dir = (["down", "left", "right", "up"].includes(p.dir) ? p.dir : "down") as Direction;
       const pose = POSES.has(p.pose as PetArtPose) ? (p.pose as PetArtPose) : "stand";
       if (pose !== s.pose) {
@@ -154,10 +166,10 @@ export class Mascotas {
     const kind: PetArtKind = p.kind === "perro" ? "perro" : "gato";
     const img = this.scene.add.image(0, 0, "__DEFAULT").setOrigin(PET_FRAME.feetX / PET_FRAME.w, PET_FRAME.feetY / PET_FRAME.h);
     const name = this.scene.add
-      .text(0, 0, p.name, { fontFamily: cozyFontFamily(), fontSize: "7px", color: COZY.ink, backgroundColor: COZY.paperLight, padding: { x: 2, y: 0 }, resolution: 6 })
+      .text(0, 0, this.tagOf(p.name, p.ownerName ?? ""), { fontFamily: cozyFontFamily(), fontSize: "7px", color: COZY.ink, backgroundColor: COZY.paperLight, padding: { x: 2, y: 0 }, resolution: 6 })
       .setOrigin(0.5, 1)
       .setVisible(false);
-    const s: PetSprite = { id: p.id, kind, coat: p.coat, img, name, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: "down", pose: "sleep", frame: 0, frameAt: 0, zAt: 0, hover: false };
+    const s: PetSprite = { id: p.id, kind, coat: p.coat, img, name, x: p.x, y: p.y, tx: p.x, ty: p.y, dir: "down", pose: "sleep", frame: 0, frameAt: 0, zAt: 0, hover: false, ownerId: p.ownerId ?? "", ownerName: p.ownerName ?? "", love: p.love ?? 0 };
     img.setTexture(this.texture(s));
     img.setInteractive({ useHandCursor: true });
     img.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
@@ -169,6 +181,26 @@ export class Mascotas {
     this.sprites.set(p.id, s);
     this.place(s);
     return s;
+  }
+
+  /** El cartelito: el nombre y, si tiene dueño, de quién es. */
+  private tagOf(name: string, owner: string) {
+    return owner ? `${name} · de ${owner}` : name;
+  }
+
+  /** La más cercana al alcance (la que acaricia la E), si se ve. */
+  nearest(x: number, y: number): { id: string; name: string; dist: number } | null {
+    let best: { id: string; name: string; dist: number } | null = null;
+    for (const s of this.sprites.values()) {
+      if (this.veiled(s)) continue;
+      const dist = Math.hypot(x - s.x, y - s.y);
+      if (dist <= PET.reachTiles * 32 && (!best || dist < best.dist)) best = { id: s.id, name: this.petName(s), dist };
+    }
+    return best;
+  }
+
+  private petName(s: PetSprite) {
+    return this.room?.state.pets.get(s.id)?.name ?? "";
   }
 
   private near(s: PetSprite, tiles: number) {
@@ -186,9 +218,30 @@ export class Mascotas {
     if (this.near(s, PET.callTiles)) sendPetCall(s.id);
   }
 
+  /** Lo que tengo en la mano para darle (el nombre de la comida), o null. */
+  private myFood(): string | null {
+    const st = useOfficeStore.getState();
+    const me = st.sessionId ? st.players[st.sessionId] : undefined;
+    if (!me?.held) return null;
+    const food = petFoodIn(me.held, parseHeldLeft(me.heldLeft));
+    if (!food) return null;
+    return menuItem(food.art)?.name ?? FREE_NAMES[food.art] ?? menuItem(me.held)?.name ?? "lo que tienes";
+  }
+
   private openMenu(s: PetSprite) {
     this.closeMenu();
-    const button = (label: string, action: "pet" | "treat", y: number) => {
+    const st = useOfficeStore.getState();
+    const myId = selectMyUserId(st);
+    const iHaveOne = [...(this.room?.state.pets.values() ?? [])].some((p) => p.ownerId && p.ownerId === myId);
+    const food = this.myFood();
+    const options: { label: string; action: PetAction }[] = [
+      { label: "Acariciar", action: "pet" },
+      { label: "Darle croquetas", action: "treat" },
+      ...(food ? [{ label: `Darle ${food.toLowerCase()}`, action: "feed" as const }] : []),
+      ...(!s.ownerId && !iHaveOne ? [{ label: "Adoptar", action: "adopt" as const }] : []),
+      ...(s.ownerId && s.ownerId === myId ? [{ label: "Dejar que vuelva a casa", action: "release" as const }] : []),
+    ];
+    const button = (label: string, action: PetAction, y: number) => {
       const t = this.scene.add
         .text(0, y, label, {
           fontFamily: cozyFontFamily(),
@@ -211,8 +264,19 @@ export class Mascotas {
       });
       return [frame, t];
     };
+    // El cariño arriba (no es un botón), y los botones de abajo hacia arriba.
+    const love = this.scene.add
+      .text(0, -12 * options.length, `Cariño ${Math.round(s.love)}/${PET_BOND.max}`, {
+        fontFamily: cozyFontFamily(),
+        fontSize: "7px",
+        color: COZY.red,
+        backgroundColor: COZY.paperLight,
+        padding: { x: 3, y: 0 },
+        resolution: 6,
+      })
+      .setOrigin(0.5, 1);
     const container = this.scene.add
-      .container(0, 0, [...button("Acariciar", "pet", -12), ...button(s.kind === "gato" ? "Darle un pescadito" : "Darle un hueso", "treat", 0)])
+      .container(0, 0, [love, ...options.flatMap((o, i) => button(o.label, o.action, -12 * (options.length - 1 - i)))])
       .setDepth(DEPTH_OVERLAY + 20);
     this.menu = { pet: s.id, container, until: this.scene.time.now + 6000 };
     this.placeMenu();
@@ -319,8 +383,15 @@ export class Mascotas {
       this.heart(s, 350);
       if (cat) playPurr(vol);
       else playWoof(vol * 0.7, true);
+    } else if (e.action === "adopt" || e.action === "release") {
+      // Contenta (adoptada) o de vuelta a la casa: corazones y su sonido.
+      this.heart(s, 0);
+      this.heart(s, 250);
+      if (e.action === "adopt") this.heart(s, 500);
+      if (cat) playMeow(vol, true);
+      else playWoof(vol * 0.8, true);
     } else {
-      this.treat(s);
+      this.treat(s, e.action === "feed" ? e.food : undefined);
       playMunch(vol);
       this.scene.time.delayedCall(PET.eatMs, () => {
         this.heart(s, 0);
@@ -354,9 +425,11 @@ export class Mascotas {
     });
   }
 
-  /** El premio frente a la boca, que se va achicando mientras come. */
-  private treat(s: PetSprite) {
-    const key = ensureTexture(this.scene, `mascota-premio-${s.kind}`, () => petTreat(s.kind));
+  /** Lo que come frente a la boca (las croquetas en su plato o la comida que le dieron), achicándose. */
+  private treat(s: PetSprite, food?: string) {
+    const key = food
+      ? ensureTexture(this.scene, `mascota-comida-${food}`, () => drawHeldItem(food))
+      : ensureTexture(this.scene, "mascota-croquetas", () => petBowl());
     const p = worldToScreen(s.x, s.y);
     const side = s.dir === "right" || s.dir === "up" ? 1 : -1;
     const img = this.scene.add

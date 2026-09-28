@@ -1,4 +1,4 @@
-import type { AreaDef, Rect } from "../types";
+import type { AreaDef, BoardTableDef, Rect } from "../types";
 import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
 
@@ -18,6 +18,38 @@ const LECTURA: Rect = { x: 0, y: 14, w: 10, h: 7 };
 const RELLANO: Rect = { x: 10, y: 14, w: 8, h: 7 };
 const JUEGOS: Rect = { x: 18, y: 14, w: 7, h: 7 };
 const TERRAZA: Rect = { x: 25, y: 14, w: 7, h: 7 };
+
+/**
+ * Mesas de juegos de mesa de la sala de juegos, cada una con dos sillas: la del oeste juega con
+ * blancas (lado 0) y la del este con negras (lado 1). El servidor reconoce a los jugadores por estar
+ * sentados en esas sillas; los espectadores miran desde los puntos "board_game" (al norte y al sur).
+ */
+export const BOARD_TABLES: readonly BoardTableDef[] = [
+  {
+    id: "ajedrez-1",
+    game: "ajedrez",
+    area: "piso-3",
+    type: "chess-table",
+    x: 19,
+    y: 16,
+    seats: [
+      { x: 18, y: 16, facing: "right" },
+      { x: 20, y: 16, facing: "left" },
+    ],
+  },
+  {
+    id: "damas-1",
+    game: "damas",
+    area: "piso-3",
+    type: "checkers-table",
+    x: 22,
+    y: 18,
+    seats: [
+      { x: 21, y: 18, facing: "right" },
+      { x: 23, y: 18, facing: "left" },
+    ],
+  },
+];
 
 export const piso3: AreaDef = {
   id: "piso-3",
@@ -169,19 +201,16 @@ export const piso3: AreaDef = {
     place("side-table", 16, 20),
     place("armchair-wing", 17, 20, "up"),
     place("snake-plant", 17, 17),
-    // ----- Sala de juegos de mesa: ajedrez, el puzle a medio armar y el estante de juegos.
+    // ----- Sala de juegos de mesa: la mesa de ajedrez y la de damas (se juegan de verdad, ver
+    // BOARD_TABLES), el puzle a medio armar y el estante de juegos.
     place("game-shelf", 22, 14, "down"),
     place("lamp", 24, 14),
     place("reading-lamp", 18, 14),
-    place("rug-3x3", 18, 16),
-    place("chair", 18, 17, "right"),
-    place("chess-table", 19, 17),
-    place("chair", 20, 17, "left"),
-    place("puzzle-table", 22, 17, "right"),
-    place("chair", 21, 17, "right"),
-    place("chair", 23, 18, "left"),
-    place("beanbag", 18, 20, "up"),
-    place("beanbag", 19, 20, "up"),
+    place("rug-3x3", 18, 15),
+    ...BOARD_TABLES.flatMap((t) => [place(t.type, t.x, t.y), ...t.seats.map((s) => place("chair", s.x, s.y, s.facing))]),
+    place("puzzle-table", 18, 19, "right"),
+    place("chair", 19, 19, "left"),
+    place("chair", 19, 20, "left"),
     place("kentia", 24, 20),
     // ----- Terraza: barandas (con la esquina en un mueble), jardinera, tumbonas, la mesita y el telescopio
     // mirando al lago. Lo alto va atrás (al norte) para no tapar las tumbonas.
@@ -208,5 +237,10 @@ export const piso3: AreaDef = {
       to: hacia("piso-2", CONEXIONES.piso2.escaleraArriba),
     },
   ],
-  points: [],
+  points: [
+    // Al norte y al sur de cada mesa de juego: desde ahí se mira la partida.
+    ...BOARD_TABLES.flatMap((t) =>
+      [-1, 1].map((dy) => ({ type: "board_game" as const, name: t.game === "ajedrez" ? "Mesa de ajedrez" : "Mesa de damas", x: t.x, y: t.y + dy })),
+    ),
+  ],
 };

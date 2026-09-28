@@ -1,6 +1,6 @@
 // Regalos e intercambios (fase 5): lo que mueve puntos y objetos entre dos personas. Vive aquí (y no en la
 // web o en el servidor de juego) para que el tope diario de "dar" sea uno solo y para poder probarlo.
-import { dayStart, giftAllowedToday, giftRefId, stackUnits, tradeGap, type GivenToday, type ItemStack } from "@hyvento/shared";
+import { CLUB_TIP, dayStart, giftAllowedToday, giftRefId, stackUnits, tipAllowedToday, tradeGap, type GivenToday, type ItemStack } from "@hyvento/shared";
 import type { Prisma } from "@prisma/client";
 import { addInventoryTx, takeInventoryTx } from "./inventory";
 import { awardPointsTx, spendPointsTx } from "./points";
@@ -11,9 +11,10 @@ type Db = Prisma.TransactionClient;
  * Por qué no se pudo (la transacción se deshace entera):
  * `funds`/`items`: no alcanzan los puntos o el objeto; `limit-gifts`/`limit-points`/`limit-items`: tope del día;
  * `missing`: el regalo o la persona no existen; `opened`: el regalo ya se abrió; `one-sided`: en un
- * intercambio, uno de los dos lados no pone nada (eso es un regalo, ver `tradeGap`).
+ * intercambio, uno de los dos lados no pone nada (eso es un regalo, ver `tradeGap`); `limit-tips`: tope
+ * diario de propinas del tubo.
  */
-export type SocialAbortCode = "funds" | "items" | "limit-gifts" | "limit-points" | "limit-items" | "missing" | "opened" | "one-sided";
+export type SocialAbortCode = "funds" | "items" | "limit-gifts" | "limit-points" | "limit-items" | "limit-tips" | "missing" | "opened" | "one-sided";
 
 const LIMIT_CODE = { gifts: "limit-gifts", points: "limit-points", items: "limit-items" } as const;
 
@@ -158,4 +159,42 @@ export async function executeTradeTx(tx: Db, input: { refId: string; a: TradeSid
   }
   const users = await tx.user.findMany({ where: { id: { in: [a.userId, b.userId] } }, select: { id: true, points: true } });
   return { balances: Object.fromEntries(users.map((u) => [u.id, u.points])) };
+}
+
+// ---------- Propinas del tubo ----------
+
+/**
+ * Cuánto tiró alguien hoy en propinas: los movimientos GIFT que salieron con `refId` "tip:…". Van con el
+ * motivo de los regalos (y cuentan para su tope de dar), sin columna ni motivo nuevos.
+ */
+export async function tippedToday(tx: Db, userId: string, now = Date.now()): Promise<number> {
+  const out = await tx.pointTransaction.aggregate({
+    where: { userId, reason: "GIFT", amount: { lt: 0 }, refId: { startsWith: CLUB_TIP.refPrefix }, createdAt: { gte: new Date(dayStart(now)) } },
+    _sum: { amount: true },
+  });
+  return -(out._sum.amount ?? 0);
+}
+
+/**
+ * Una propina en la transacción `tx`: bloquea a quien la tira (dos propinas a la vez leen el tope de a
+ * una), revisa el tope de propinas y el de dar, cobra (solo si alcanza) y se la suma a quien baila. GIFT
+ * no tiene tope al recibir: lo que sale llega entero, no se quema nada. Si algo no alcanza, lanza
+ * `SocialAborted` y no se mueve nada.
+ */
+export async function executeTipTx(
+  tx: Db,
+  input: { refId: string; fromId: string; toId: string; amount: number; now?: number },
+): Promise<{ balances: Record<string, number> }> {
+  const { refId, fromId, toId, amount } = input;
+  const now = input.now ?? Date.now();
+  if (fromId === toId) throw new SocialAborted("missing", fromId);
+  if (!(await lockUser(tx, fromId))) throw new SocialAborted("missing", fromId);
+  const [tipped, given] = await Promise.all([tippedToday(tx, fromId, now), givenToday(tx, fromId, now)]);
+  const allowed = tipAllowedToday(tipped, given.points, amount);
+  if (allowed === "tips") throw new SocialAborted("limit-tips", fromId);
+  if (allowed === "points") throw new SocialAborted("limit-points", fromId);
+  const spent = await spendPointsTx(tx, { userId: fromId, amount, reason: "GIFT", refId, now });
+  if (!spent.ok) throw new SocialAborted("funds", fromId);
+  const got = await awardPointsTx(tx, { userId: toId, amount, reason: "GIFT", refId, now });
+  return { balances: { [fromId]: spent.balance, [toId]: got.balance } };
 }

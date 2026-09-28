@@ -52,10 +52,37 @@ export const CROWN_W = 7;
  * Lo que va en la cabeza aplasta el pelo: la gorra, el gorro, la pañoleta y el sombrero esconden lo que
  * sobresaldría por encima (la cresta, el moño, las puntas) y la corona aparta el pelo donde se sienta.
  */
+/**
+ * Sombreros que tapan la coronilla: el pelo por encima de esta fila no se ve (la copa lo esconde). El casco
+ * de astronauta encierra la cabeza entera.
+ */
+export const HAT_HIDES: Partial<Record<HeadItem, number>> = {
+  cap: 1,
+  beanie: 1,
+  bandana: 1,
+  "straw-hat": 3,
+  "chef-hat": 1,
+  "top-hat": 2,
+  "fire-helmet": 3,
+  "hard-hat": 2,
+  "rain-hat": 3,
+  "sailor-hat": 2,
+  "bee-hat": 2,
+  "space-helmet": 99,
+  beret: 1,
+  "bucket-hat": 3,
+  vueltiao: 3,
+  nightcap: 1,
+  "pompom-beanie": 1,
+  "pirate-hat": 2,
+  "wizard-hat": 3,
+  fedora: 3,
+};
+
 function maskHair(c: PixelCanvas, head: HeadItem, style: HairStyle, y: Row): PixelCanvas {
   let hide: ((x: number, r: number) => boolean) | null = null;
-  if (head === "cap" || head === "beanie" || head === "bandana") hide = (_x, r) => r < 1;
-  else if (head === "straw-hat" || head === "fedora") hide = (_x, r) => r < 3;
+  const hat = HAT_HIDES[head];
+  if (hat !== undefined) hide = (_x, r) => r < hat;
   else if (head === "crown" && !KNOTS.has(style)) {
     // Arriba de la banda se ve el fondo entre las puntas (con una columna de margen a la sombra). Con moño
     // no se esconde nada: el moño es lo único que pasa por encima de la banda y tiene que asomar.

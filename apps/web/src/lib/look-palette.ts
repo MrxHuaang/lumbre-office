@@ -1,6 +1,5 @@
-import { HUMANS } from "@hyvento/map/art";
+import { HUMANS, top2Parts, TOPS_WITH_TOP2, type Top2Part } from "@hyvento/map/art";
 import {
-  isSwimwear,
   LOOK_BOTTOMS,
   LOOK_CLOTHES,
   LOOK_EYES,
@@ -10,8 +9,6 @@ import {
   LOOK_SHOES,
   LOOK_SKINS,
   normalizeLook,
-  PATTERNS,
-  TOPS,
   type BackItem,
   type Bottom,
   type EyeStyle,
@@ -90,13 +87,36 @@ export const TOP_LABEL: Record<Top, string> = {
   "shirt-tie": "Camisa y corbata",
   tank: "Esqueleto",
   polo: "Polo",
+  "dress-shirt": "Camisa",
+  flannel: "Camisa a cuadros",
+  turtleneck: "Cuello alto",
+  jersey: "Camiseta de equipo",
+  hawaiian: "Camisa hawaiana",
+  sailor: "Blusa marinera",
+  cardigan: "Cárdigan",
+  "graphic-tee": "Camiseta estampada",
 };
 
 export const PATTERN_LABEL: Record<Pattern, string> = { solid: "Liso", stripes: "Rayas", dots: "Puntos" };
 
-export const BOTTOM_LABEL: Record<Bottom, string> = { pants: "Pantalón", shorts: "Shorts", skirt: "Falda" };
+export const BOTTOM_LABEL: Record<Bottom, string> = {
+  pants: "Pantalón",
+  shorts: "Shorts",
+  skirt: "Falda",
+  "long-skirt": "Falda larga",
+  cargo: "Cargo",
+  joggers: "Jogger",
+};
 
-export const SHOES_LABEL: Record<Shoes, string> = { sneakers: "Tenis", boots: "Botas", sandals: "Sandalias" };
+export const SHOES_LABEL: Record<Shoes, string> = {
+  sneakers: "Tenis",
+  boots: "Botas",
+  sandals: "Sandalias",
+  "dress-shoes": "Zapatos",
+  "rain-boots": "Botas de caucho",
+  slippers: "Pantuflas",
+  heels: "Tacones",
+};
 
 export const HEAD_LABEL: Record<HeadItem, string> = {
   none: "Nada",
@@ -109,6 +129,24 @@ export const HEAD_LABEL: Record<HeadItem, string> = {
   crown: "Corona",
   flower: "Flor",
   bandana: "Pañoleta",
+  "chef-hat": "Gorro de chef",
+  "top-hat": "Sombrero de copa",
+  "fire-helmet": "Casco de bombero",
+  "hard-hat": "Casco de obra",
+  "rain-hat": "Sombrero de lluvia",
+  "sailor-hat": "Gorro de marinero",
+  "bee-hat": "Velo de apicultor",
+  "space-helmet": "Casco espacial",
+  "party-hat": "Gorro de fiesta",
+  beret: "Boina",
+  "bucket-hat": "Sombrero de tela",
+  vueltiao: "Sombrero vueltiao",
+  nightcap: "Gorro de dormir",
+  headband: "Cinta deportiva",
+  "pompom-beanie": "Gorro con pompón",
+  tiara: "Tiara",
+  "pirate-hat": "Sombrero pirata",
+  "wizard-hat": "Sombrero de mago",
   fedora: "Sombrero de fieltro",
 };
 
@@ -118,6 +156,10 @@ export const FACE_LABEL: Record<FaceItem, string> = {
   "round-glasses": "Gafas redondas",
   sunglasses: "Gafas de sol",
   eyepatch: "Parche",
+  "3d-glasses": "Gafas 3D",
+  "hero-mask": "Antifaz",
+  "star-glasses": "Gafas de fiesta",
+  monocle: "Monóculo",
 };
 
 export const NECK_LABEL: Record<NeckItem, string> = {
@@ -126,9 +168,16 @@ export const NECK_LABEL: Record<NeckItem, string> = {
   tie: "Corbata",
   bowtie: "Corbatín",
   necklace: "Collar",
+  lanyard: "Carnet",
+  neckerchief: "Pañuelo",
+  pearls: "Perlas",
+  chain: "Cadena",
+  stethoscope: "Estetoscopio",
+  medal: "Medalla",
+  whistle: "Silbato",
 };
 
-export const BACK_LABEL: Record<BackItem, string> = { none: "Nada", backpack: "Morral", cape: "Capa" };
+export const BACK_LABEL: Record<BackItem, string> = { none: "Nada", backpack: "Morral", cape: "Capa", "air-tank": "Tanque", wings: "Alas", guitar: "Guitarra" };
 
 export const OUTFIT_LABEL: Record<Outfit, string> = {
   overalls: "Overol",
@@ -139,8 +188,19 @@ export const OUTFIT_LABEL: Record<Outfit, string> = {
   trunks: "Bañador",
   swimsuit: "Entero",
   bikini: "Bikini",
-  trenchcoat: "Gabán",
+  coveralls: "Mono",
+  gown: "Vestido largo",
+  blazer: "Saco",
   vest: "Chaleco",
+  coat: "Abrigo",
+  raincoat: "Impermeable",
+  "lab-coat": "Bata blanca",
+  "chef-coat": "Filipina",
+  pajamas: "Pijama",
+  robe: "Bata",
+  ruana: "Ruana",
+  "hi-vis": "Chaleco reflectivo",
+  trenchcoat: "Gabán",
 };
 
 /**
@@ -153,20 +213,30 @@ const ACCENT_HEAD: Partial<Record<HeadItem, string>> = {
   headphones: "los audífonos",
   bow: "el lazo",
   bandana: "la pañoleta",
+  "top-hat": "la cinta del sombrero",
+  "fire-helmet": "el casco",
+  "hard-hat": "el casco",
+  "rain-hat": "el sombrero de lluvia",
+  "party-hat": "el gorro de fiesta",
+  beret: "la boina",
+  "bucket-hat": "el sombrero",
+  nightcap: "el gorro de dormir",
+  headband: "la cinta",
+  "pompom-beanie": "el gorro",
+  "wizard-hat": "el sombrero de mago",
 };
 const ACCENT_NECK: Partial<Record<NeckItem, string>> = {
   scarf: "la bufanda",
   tie: "la corbata",
   bowtie: "el corbatín",
   necklace: "el collar",
+  lanyard: "la cinta del carnet",
+  neckerchief: "el pañuelo",
+  medal: "la cinta de la medalla",
+  whistle: "el cordón del silbato",
 };
-const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = {
-  jacket: "la chaqueta",
-  trunks: "los detalles del bañador",
-  trenchcoat: "el gabán",
-  vest: "el chaleco",
-};
-const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "el morral", cape: "la capa" };
+const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta", trunks: "los detalles del bañador", trenchcoat: "el gabán" };
+const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "el morral", cape: "la capa", "air-tank": "el tanque" };
 
 /** Lo que lleva puesto y usa el color de acento, en el orden de la cabeza a la espalda. */
 export function accentUsers(look: FullLook): string[] {
@@ -178,41 +248,40 @@ export function accentUsers(look: FullLook): string[] {
 /** Ayuda del color de acento cuando no hay nada puesto que lo use: todo lo que lo usa (sale de los mismos mapas). */
 export const ACCENT_HINT = `Lo usan ${joinEs([ACCENT_HEAD, ACCENT_NECK, ACCENT_OUTFIT, ACCENT_BACK].flatMap((m) => Object.values(m)))}.`;
 
-/** Detalles de cada parte de arriba con el color secundario. */
-const TOP2_TOP: Partial<Record<Top, string[]>> = {
-  hoodie: ["la capucha"],
-  "shirt-tie": ["la corbata"],
-  sweater: ["el cuello", "los puños"],
-  polo: ["el cuello", "los puños"],
+/** Nombre (con su artículo) de cada lugar donde se ve el color secundario (ver top2Parts del chibi). */
+const TOP2_NAME: Record<Top2Part, string> = {
+  stripes: "las rayas",
+  dots: "los puntos",
+  hood: "la capucha",
+  collar: "el cuello",
+  tie: "la corbata",
+  cuffs: "los puños",
+  plaid: "los cuadros",
+  flowers: "las flores",
+  print: "el estampado",
+  number: "el número",
+  inner: "la camiseta de adentro",
+  trim: "los ribetes",
+  details: "los detalles",
 };
 
 /**
- * Lo que usa el color secundario de la parte de arriba (`top2`), con su artículo: el patrón y los detalles
- * de la parte de arriba. El vestido tapa la capucha, la corbata y el cuello (las mangas siguen a la vista)
- * y la chaqueta tapa los puños con sus mangas. Con traje de baño no hay parte de arriba: el entero y el
- * bikini llevan el patrón y el bañador nada.
+ * Lo que usa el color secundario de la parte de arriba (`top2`), con su artículo. Sale del dibujo
+ * (top2Parts): con tantos conjuntos que tapan una parte u otra, así nunca nombra algo que quedó tapado.
  */
 export function top2Users(look: FullLook): string[] {
-  const parts: string[] = [];
-  // El bañador no lleva la parte de arriba y el gabán cerrado la tapa entera.
-  if (look.outfit === "trunks" || look.outfit === "trenchcoat") return parts;
-  if (look.pattern === "stripes") parts.push("las rayas");
-  if (look.pattern === "dots") parts.push("los puntos");
-  if (isSwimwear(look.outfit)) return parts;
-  for (const part of TOP2_TOP[look.top] ?? []) {
-    if (look.outfit === "dress" && part !== "los puños") continue;
-    if (look.outfit === "jacket" && part === "los puños") continue;
-    parts.push(part);
-  }
-  return parts;
+  return [...new Set(top2Parts(look).map((p) => TOP2_NAME[p]))];
 }
 
-/** Ayuda del color secundario cuando no se ve: qué estampado o parte de arriba lo mostraría con lo demás puesto. */
+/** Conjuntos que tapan toda la tela de arriba: con ellos el color secundario no se ve. */
+const TOP2_HIDDEN: readonly Outfit[] = ["trunks", "coveralls", "coat", "raincoat", "chef-coat", "trenchcoat"];
+
+/** Ayuda del color secundario cuando no se ve: qué estampado o parte de arriba lo mostraría. */
 export function top2Hint(look: FullLook): string {
-  const patterns = PATTERNS.filter((pattern) => top2Users({ ...look, pattern }).length > 0).map((p) => PATTERN_LABEL[p].toLowerCase());
-  const tops = TOPS.filter((top) => top2Users({ ...look, top, pattern: "solid" }).length > 0).map((t) => TOP_LABEL[t].toLowerCase());
-  if (!patterns.length) return "Con este conjunto no se ve.";
-  return `Se ve con ${joinEs(patterns, "o")}${tops.length ? `, o con ${joinEs(tops, "o")}` : ""}.`;
+  if (look.costume) return "Con un traje puesto, los colores los pone el traje.";
+  if (look.outfit && TOP2_HIDDEN.includes(look.outfit)) return "Con este conjunto no se ve.";
+  const tops = TOPS_WITH_TOP2.map((t) => TOP_LABEL[t].toLowerCase());
+  return `Se ve con rayas o puntos, o con ${joinEs(tops.slice(0, 4), "o")}…`;
 }
 
 /** Ayuda del color de ojos cuando no se ve (los ojos cerrados son solo pestaña; las gafas de sol los tapan). */
@@ -234,10 +303,15 @@ export function joinEs(parts: string[], last: "y" | "o" = "y"): string {
   return `${parts.slice(0, -1).join(", ")} ${last} ${parts.at(-1)}`;
 }
 
-/** Un look completo en el formato nuevo: los lugares explícitos, `accessories: []` y sin conjunto si no hay. */
+/** Un look completo en el formato nuevo: los lugares explícitos, `accessories: []` y sin conjunto ni traje si no hay. */
 export function lookFromFull(full: FullLook): Look {
-  const { outfit, ...rest } = full;
-  return outfit ? { ...rest, outfit, accessories: [] } : { ...rest, accessories: [] };
+  const { outfit, costume, costumeColor, costumeGear, ...rest } = full;
+  return {
+    ...rest,
+    accessories: [],
+    ...(outfit && { outfit }),
+    ...(costume && { costume, costumeGear, ...(costumeColor && { costumeColor }) }),
+  };
 }
 
 /** Lo que escribe el editor: el formato nuevo con todo decidido, aunque se haya abierto un look viejo. */

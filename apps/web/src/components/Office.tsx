@@ -29,13 +29,18 @@ import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
 import { ProfileDialog } from "./ProfileDialog";
 import { ArcadePanel } from "./arcade/ArcadePanel";
+import { BoardGameStrip } from "./arcade/BoardGameStrip";
 import { HockeyStrip } from "./arcade/HockeyStrip";
 import { ClubHud } from "./club/ClubHud";
 import { DjConsole } from "./club/DjConsole";
 import { CinemaHud, CinemaPanel } from "./cinema/CinemaPanel";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
+import { AquariumPanel } from "./AquariumPanel";
+import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
+import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ShedPanel } from "./ShedPanel";
+import { KitchenPanel } from "./KitchenPanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
@@ -43,6 +48,7 @@ import { CatchCard, FishingHint } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
 import { AchievementToasts } from "./profile/AchievementToasts";
 import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
+import { TrophyPanel } from "./profile/TrophyPanel";
 import { useAchievementStore } from "@/game/achievements";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
@@ -235,6 +241,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-3 ${decorating || worldEditing ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-44"}`}
           >
             {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <PeoplePanel />}
+            <DoorNotesChip />
             <Notices />
           </div>
           <ChatPanel />
@@ -242,6 +249,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
             <DoorPrompt />
+            <DoorNotePrompt />
             <SeatPrompt />
             <InteractPrompt />
             <UsablePrompt />
@@ -258,6 +266,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <CatchCard />
           </div>
           <KnockRequests />
+          <IncomingCall />
           <SocialOverlays />
           <MediaControls>
             <HeldSlot />
@@ -292,6 +301,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
           {panel?.kind === "fishAlbum" && <FishAlbum onClose={closePanel} />}
           {panel?.kind === "photos" && <PhotoGallery onClose={closePanel} />}
+          {panel?.kind === "trophies" && <TrophyPanel onClose={closePanel} />}
           <PhotoPreview />
           <PhotoFlash />
           {panel?.kind === "fitting" && (
@@ -303,9 +313,16 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "arcade" && <ArcadePanel onClose={closePanel} />}
           {/* El hockey de mesa también se juega sobre la mesa: solo la tira de abajo. */}
           {panel?.kind === "hockey" && <HockeyStrip />}
+          {/* Ajedrez y damas: la cámara mira la mesa y el tablero va en la tira de abajo. */}
+          {panel?.kind === "boardgame" && <BoardGameStrip />}
           {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
           {panel?.kind === "race" && <RacePanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "aquarium" && <AquariumPanel onClose={closePanel} />}
+          {panel?.kind === "doorNote" && <DoorNoteWritePanel onClose={closePanel} />}
+          {panel?.kind === "doorNotes" && <DoorNotesPanel onClose={closePanel} />}
+          {panel?.kind === "phone" && <PhonePanel onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "kitchen" && <KitchenPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}

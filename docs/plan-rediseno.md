@@ -73,7 +73,7 @@ Tiene versión de noche, con las ventanas encendidas. La referencia es la imagen
 - **Frente**: el camino de piedra con farolas va del porche al portón y se bifurca hacia el huerto y el lago. El buzón y el tablón quedan junto al camino. Hay una **fogata** con troncos para sentarse (un punto de charla) y una glorieta con bancas.
 - **Terraza este**: cubierta de madera con mesas, pérgola con enredaderas y faroles, y la leñera.
 - **Naturaleza**: más variedad de árboles (robles, pinos, abedules, frutales), arbustos con flores, macizos de flores, rocas de varios tamaños, hongos y troncos caídos.
-- **Garaje** (agregado después del rediseño): pegado al oeste de la torre, de 5x5, de bloque de cemento gastado con techo de chapa oxidada, el portón enrollable a medio subir, la puerta chica con su foco y la entrada de concreto con manchas de aceite hasta el sendero del huerto. La puerta chica lleva al nivel `garaje` (ver abajo). Detrás de él (lo que su dibujo tapa) hay matorral y cachivaches, sin lugar donde pararse.
+- **Garaje** (agregado después del rediseño): pegado al oeste de la torre, de 5x5, de la misma familia que la casa: troncos sobre una basa de piedra, techo de tejas con musgo, el portón de tablas de dos hojas, la puerta chica con su farol, la ventana con postigos, hiedra y la entrada de gravilla hasta el sendero del huerto. Se usa poco, pero no está abandonado. La puerta chica lleva al nivel `garaje` (ver abajo). Detrás de él (lo que su dibujo tapa) hay matorral y cachivaches, sin lugar donde pararse.
 
 ## Planta baja: lo social y lo comercial (unos 40x26)
 
@@ -210,8 +210,8 @@ y 9   └─────────[  ]─────────────�
 ```
 
 - Nivel interior aparte (`garaje`), al que se entra desde la puerta chica del garaje del jardín.
-- **Taller** (zona común): concreto con manchas de aceite, bloque sin pintar, telarañas, el portón enrollable por dentro, el banco de trabajo bajo el tablero de herramientas, estantes metálicos, pilas de llantas, la caja de herramientas roja, el compresor, tambores, cajas, latas de pintura, la escoba, la nevera vieja, la radio y un carro tapado con lona. Todo descuidado a propósito.
-- **Oficina del garaje** (`office-5`, aislada, puerta desde el taller): escritorio metálico con un computador de los noventa (prende Hyvento OS), una silla de oficina rota con cinta, archivador abollado, ventilador, planta seca, calendario viejo y un tapete gastado. Se asigna en /admin y su dueño la decora como las del piso 2.
+- **Taller** (zona común): tablones gastados, paredes de tablas sobre zócalo de piedra, el portón de tablas por dentro, el banco de trabajo bajo el tablero de herramientas, estantes metálicos, pilas de llantas, la caja de herramientas roja, el compresor, tambores, cajas, latas de pintura, la escoba, la hielera de madera, la radio y un carro tapado con lona. Descuidado apenas: se usa poco.
+- **Oficina del garaje** (`office-5`, aislada, puerta desde el taller): un rincón tibio: escritorio de madera con un computador de los noventa (prende Hyvento OS), la silla de oficina rota con cinta, archivador abollado, ventilador, planta seca, calendario viejo, un sillón, una lámpara de pie, la ventana con cortinas y un tapete gastado. Se asigna en /admin y su dueño la decora como las del piso 2.
 
 ## Casino, más trabajado y jugado en la mesa
 
