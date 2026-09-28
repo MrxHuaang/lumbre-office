@@ -271,6 +271,8 @@ describe("el Man del Sombrero: los efectos", () => {
     expect(me().trip).toBe("acelere");
     await tick(1600);
     await buy("galleta-abuela");
+    // El chicle todavía tiene mordiscos: la galleta queda en la mochila y se elige en la barra.
+    await holdItem(alice, room, "obj:galleta-abuela");
     alice.send(MSG.useHeld);
     await tick(80);
     await room.waitForNextPatch();

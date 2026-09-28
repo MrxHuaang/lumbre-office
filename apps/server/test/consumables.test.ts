@@ -316,8 +316,11 @@ describe("bar del club", () => {
     await tick(CAFE.orderCooldownMs);
     const ronda = barItem("ronda")!.price;
     expect(await order("ronda")).toEqual({ ok: true, item: "ronda", balance: 60 - guaro - ronda });
-    expect(me(alice, room).held).toBe("ronda");
-    expect(me(alice, room).heldLeft).toBe(`${usesOf("aguardiente")},${usesOf("pola-dorada")}`);
+    // La ronda es un combo: cada parte va a la mochila por separado y la copita queda en la mano.
+    expect(me(alice, room).held).toBe("aguardiente");
+    expect(me(alice, room).heldLeft).toBe(String(usesOf("aguardiente")));
+    await bagOf(room).flush("u-alice");
+    expect(bagOf(room).view("u-alice").slots.some((s) => s?.itemId === "obj:pola-dorada")).toBe(true);
   });
 
   it("cada trago nuevo se puede pedir y se toma a sorbos", async () => {
@@ -326,6 +329,8 @@ describe("bar del club", () => {
     for (const id of ["michelada", "canelazo", "ron-viejo"]) {
       await tick(CAFE.orderCooldownMs);
       expect(await order(id), id).toMatchObject({ ok: true, item: id });
+      // Con la mano ocupada por el trago anterior, lo nuevo queda en la mochila: se elige en la barra.
+      await holdItem(alice, room, `obj:${id}`);
       expect(me(alice, room).heldLeft, id).toBe(String(usesOf(id)));
       await tick(OfficeRoom.consumeCooldownMs);
       await use();
