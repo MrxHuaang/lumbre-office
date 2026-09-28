@@ -74,6 +74,10 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "phone"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
   | "shed"
+  // La piscina: meterse por la escalera, tirarse del trampolín y (nadando, junto al borde) salir.
+  | "pool"
+  | "dive"
+  | "swimOut"
   // La vitrina de trofeos de cada oficina (los logros de su dueño).
   | "trophies"
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
@@ -190,6 +194,8 @@ interface OfficeStore {
   atComputer: boolean;
   /** Sentado en una silla que gira (la del escritorio con PC): R da unas vueltas. */
   atSwivel: boolean;
+  /** El asiento de la ayuda "E" es una reposera de la piscina (se lee "tomar el sol"). */
+  seatSun: boolean;
   /** Sentado con un teléfono al alcance (de pie, el teléfono sale como objeto con "E"). */
   atPhone: boolean;
   /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
@@ -274,6 +280,7 @@ interface OfficeStore {
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
   setAtSwivel: (at: boolean) => void;
+  setSeatSun: (sun: boolean) => void;
   setAtPhone: (at: boolean) => void;
   setToastPrompt: (prompt: ToastPrompt | null) => void;
   setPcOn: (on: boolean) => void;
@@ -362,6 +369,7 @@ const initial = {
   seatPrompt: null as "sit" | "stand" | null,
   atComputer: false,
   atSwivel: false,
+  seatSun: false,
   atPhone: false,
   toastPrompt: null as ToastPrompt | null,
   pcOn: false,
@@ -433,6 +441,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setAtComputer: (atComputer) => set({ atComputer }),
   setAtSwivel: (atSwivel) => set({ atSwivel }),
+  setSeatSun: (seatSun) => set({ seatSun }),
   setAtPhone: (atPhone) => set({ atPhone }),
   setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),

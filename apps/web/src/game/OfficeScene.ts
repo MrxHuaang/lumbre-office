@@ -5,6 +5,9 @@ import {
   applyDecorEdit,
   buildArea,
   canStandAt,
+  canSwimAt,
+  poolExitSpot,
+  swimMap,
   catalogItem,
   decorateAreaDef,
   findPath,
@@ -109,6 +112,10 @@ import { setSfxArea, setSfxListener, sfx } from "./sfx";
 import { bindUiSounds } from "./sfxBindings";
 import { bindWeatherSounds } from "./weatherSound";
 import { ALCOHOL_PER_SIP, DRUNK, isSwivelSeat, spinMs, type DrunkStage, type SwivelEvent } from "@hyvento/shared";
+import { AGUA, isSunSeat, type DiveEvent } from "@hyvento/shared";
+import { PoolView } from "./piscina";
+import { onDive } from "./piscina/net";
+import { poolSfx } from "./piscina/sound";
 import { playAnticSound } from "./antics-sound";
 import { ToastController } from "./toasts";
 
@@ -179,6 +186,9 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
   { kind: "aquarium", point: "aquarium", furniture: ["acuario"] },
   { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
+  // La piscina: la escalera (sin mueble: el destello quedaría en el medio del agua) y el trampolín.
+  { kind: "pool", point: "pool_steps", furniture: [] },
+  { kind: "dive", point: "diving_board", furniture: ["diving-board"] },
   { kind: "trophies", point: "trophy_case", furniture: ["trophy-case"] },
   { kind: "kitchen", point: "kitchen_stove", furniture: ["stove", "pantry-shelf"] },
   // La estación del Megabús: solo con E (un clic en la plataforma es para caminar por ella).
@@ -321,6 +331,9 @@ export class OfficeScene extends Phaser.Scene {
   /** El Megabús de la parada del jardín (el bus de la calle y los sonidos de adentro). */
   private busView!: BusView;
   private busNoticeAt = -1e9;
+  /** La piscina del jardín (reflejos, flotadores, la lona y las salpicaduras) y si estoy nadando. */
+  private pool!: PoolView;
+  private swimming = false;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
   private aquariums!: Aquariums;
   private postIts!: DoorPostIts;
@@ -413,6 +426,7 @@ export class OfficeScene extends Phaser.Scene {
     this.photoBoards = new PhotoBoards(this);
     this.treeLadder = new TreeLadderLayer(this);
     this.busView = new BusView(this, () => getRoom() ?? undefined);
+    this.pool = new PoolView(this);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
@@ -487,6 +501,8 @@ export class OfficeScene extends Phaser.Scene {
       // Quien la saca no ve su propio destello en la foto: su flash es la pantalla en blanco.
       onPhotoFlash((e) => e.sessionId !== this.localId && this.avatars.get(e.sessionId)?.photoFlash()),
       onPhotoShot((shot) => this.takePhoto(shot)),
+      onDive((e) => this.handleDive(e)),
+      () => this.pool.destroy(),
       onPhotosChanged(() => {
         const watching = PhotoBoards.hasBoard(this.map) || useOfficeStore.getState().panel?.kind === "photos";
         usePhotoStore.getState().markStale(watching);
@@ -534,6 +550,7 @@ export class OfficeScene extends Phaser.Scene {
         if ((prev.typing || prev.pcOn) && !s.typing && !s.pcOn) this.keysFreeAt = performance.now();
         if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
         if (s.weather !== prev.weather) {
+          this.pool.setWeather(s.weather);
           this.weatherView.setWeather(s.weather, !this.weatherKnown);
           this.seasonView.setWeather(s.weather, !this.weatherKnown);
           this.weatherKnown = true;
@@ -607,6 +624,7 @@ export class OfficeScene extends Phaser.Scene {
     this.club.update();
     this.eventsView.update();
     this.cinema.update(time);
+    this.pool.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
     this.updateOfficeRadio();
@@ -739,6 +757,7 @@ export class OfficeScene extends Phaser.Scene {
       this.eventsView.setArea(map, this.view);
       this.cinema.setArea(map);
       this.npcs.setArea(map);
+    this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -814,13 +833,14 @@ export class OfficeScene extends Phaser.Scene {
     this.club.setArea(map, this.view);
     this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);
+    this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
     const goal = this.path.at(-1);
     if (goal && this.local) {
       const ts = map.tileSize;
-      this.path = findPath(map, { x: Math.floor(this.local.x / ts), y: Math.floor(this.local.y / ts) }, goal) ?? [];
+      this.path = findPath(this.swimming ? swimMap(map) : map, { x: Math.floor(this.local.x / ts), y: Math.floor(this.local.y / ts) }, goal) ?? [];
       if (this.path.length === 0) this.clearPath();
     }
     if (this.seat) this.seat = seatAtPoint(map, this.seat.x, this.seat.y) ?? this.seat;
@@ -893,7 +913,7 @@ export class OfficeScene extends Phaser.Scene {
   /** Pisar un portal (puerta, escaleras): fundido a negro y se le pide el cambio al servidor. */
   private checkPortal() {
     const avatar = this.local;
-    if (!avatar || this.travelling || this.seat) return;
+    if (!avatar || this.travelling || this.seat || this.swimming) return;
     const tx = Math.floor(avatar.x / this.map.tileSize);
     const ty = Math.floor(avatar.y / this.map.tileSize);
     const key = `${tx},${ty}`;
@@ -1047,6 +1067,8 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setHeld(player.held, player.heldLeft);
     avatar.setDrunk((player.drunk ?? 0) as DrunkStage);
     avatar.setRiding(Boolean(player.racing));
+    avatar.setSwimming(Boolean(player.swimming));
+    avatar.setWet(Boolean(player.wet));
     avatar.setBadge(player.badge ?? "");
     avatar.setCall(player.call ?? "");
     this.avatars.set(sessionId, avatar);
@@ -1076,6 +1098,12 @@ export class OfficeScene extends Phaser.Scene {
       avatar.setAppearance(this.textureFor(player));
       if (isLocal) this.setTripKind(kind);
     });
+    // La piscina: nadando (medio cuerpo; si soy yo, me muevo por el agua) y mojado al salir.
+    p$.listen("swimming", (value) => {
+      avatar.setSwimming(Boolean(value));
+      if (isLocal) this.setSwimming(Boolean(value));
+    });
+    p$.listen("wet", (value) => avatar.setWet(Boolean(value)));
     p$.listen("drunk", (value) => {
       const stage = (value ?? 0) as DrunkStage;
       avatar.setDrunk(stage);
@@ -1086,6 +1114,7 @@ export class OfficeScene extends Phaser.Scene {
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
+      this.swimming = Boolean(player.swimming);
       this.setDrunkStage((player.drunk ?? 0) as DrunkStage);
       this.tripKind = isTripKind(player.trip) ? player.trip : "";
       this.tripVision.setTrip(this.tripKind);
@@ -1145,6 +1174,36 @@ export class OfficeScene extends Phaser.Scene {
     this.fainted = true;
     this.time.delayedCall(DRUNK.vomitMs + 400, () => {
       if (this.fainted) this.cameras.main.fadeOut(1400, 0, 0, 0);
+    });
+  }
+
+  // ---------- La piscina ----------
+
+  /** Entré o salí del agua: la ruta de antes ya no sirve (el agua y el deck no se cruzan). */
+  private setSwimming(on: boolean) {
+    if (on === this.swimming) return;
+    this.swimming = on;
+    this.clearPath();
+    this.pendingSeat = null;
+    this.pendingInteract = null;
+    this.pendingUse = null;
+    this.pendingZone = null;
+  }
+
+  /** Alguien de mi nivel se tiró del trampolín: el salto, la salpicadura y el chapuzón. */
+  private handleDive(e: DiveEvent) {
+    const avatar = this.avatars.get(e.sessionId);
+    if (!avatar || this.areaOfSession.get(e.sessionId) !== this.map.id) return;
+    if (e.sessionId === this.localId) {
+      this.clearPath();
+      // En el aire no se ofrece nada (la ayuda vuelve al caer al agua).
+      useOfficeStore.getState().setInteract(null);
+    }
+    avatar.diveFrom({ x: e.fromX, y: e.fromY }, { x: e.toX, y: e.toY }, AGUA.diveMs, () => {
+      this.pool.splash(e.toX, e.toY);
+      const me = this.local;
+      const dist = me ? Math.hypot(me.x - e.toX, me.y - e.toY) : 0;
+      poolSfx.splash(e.sessionId === this.localId ? 1 : Math.max(0, 1 - dist / (32 * 9)));
     });
   }
 
@@ -1239,6 +1298,8 @@ export class OfficeScene extends Phaser.Scene {
     const dt = delta / 1000;
     const ts = this.map.tileSize;
     if (this.fishing.busy) return this.updateFishing(avatar, delta, taps);
+    // Saltando del trampolín no se maneja nada hasta caer al agua.
+    if (avatar.isDiving) return;
 
     let vx = 0;
     let vy = 0;
@@ -1350,6 +1411,8 @@ export class OfficeScene extends Phaser.Scene {
       // Con la energía de un plato de la cocina se camina un poco más rápido (el servidor lo acepta);
       // trabado, más despacio (el servidor tampoco deja ir más rápido).
       const step = Math.min(PLAYER_SPEED * localSpeedMul() * this.tripVision.speedMul() * dt, 12);
+      // nadando, más despacio (el servidor usa la misma velocidad).
+      const step = Math.min(PLAYER_SPEED * localSpeedMul() * (this.swimming ? AGUA.swimSpeedMul : 1) * dt, 12);
       const nx = avatar.x + (vx / len) * step;
       const ny = avatar.y + (vy / len) * step;
       let x = avatar.x;
@@ -1439,6 +1502,7 @@ export class OfficeScene extends Phaser.Scene {
   // ---------- Sentarse ----------
 
   private toggleSeat() {
+    if (this.swimming) return;
     if (this.seat) {
       this.standUp();
       return;
@@ -1449,7 +1513,7 @@ export class OfficeScene extends Phaser.Scene {
 
   private sit(seat: Seat) {
     const avatar = this.local;
-    if (!avatar) return;
+    if (!avatar || this.swimming) return;
     const reach = SEAT_REACH_TILES * this.map.tileSize;
     if (Math.hypot(seat.x - avatar.x, seat.y - avatar.y) > reach || !this.canEnterZoneAt(seat.x, seat.y)) return;
     if (this.seatOccupied(seat)) {
@@ -1545,9 +1609,13 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private updateSeatPrompt() {
-    const prompt = this.seat ? "stand" : this.nearestFreeSeat() && !this.usableNear && !this.petNear ? "sit" : null;
+    const free = this.seat || this.swimming ? null : this.nearestFreeSeat();
+    const prompt = this.seat ? "stand" : free && !this.usableNear && !this.petNear ? "sit" : null;
     const s = useOfficeStore.getState();
     if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
+    // En las reposeras de la piscina la ayuda dice "tomar el sol".
+    const sun = Boolean((this.seat ?? free) && isSunSeat((this.seat ?? free)!.type));
+    if (sun !== s.seatSun) s.setSeatSun(sun);
     const atComputer = this.seat?.computer ?? false;
     if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
     const atSwivel = this.seat ? isSwivelSeat(this.seat) : false;
@@ -1599,7 +1667,7 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     const hit = this.tileUnder(sx, sy);
-    if (!hit || (isBlockedTile(this.map, hit.tile.x, hit.tile.y) && !hit.seat)) return cursor.setVisible(false);
+    if (!hit || (isBlockedTile(this.swimming ? swimMap(this.map) : this.map, hit.tile.x, hit.tile.y) && !hit.seat)) return cursor.setVisible(false);
     const ts = this.map.tileSize;
     const s = worldToScreen((hit.tile.x + 0.5) * ts, (hit.tile.y + 0.5) * ts);
     cursor.setPosition(s.x, s.y).setVisible(true);
@@ -1629,6 +1697,12 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     const ts = this.map.tileSize;
+    // Nadando, el clic solo lleva a otro lugar de la pileta.
+    if (this.swimming) {
+      const w = screenToWorld(sx, sy);
+      this.walkTo(w.x, w.y);
+      return;
+    }
     // Clic sobre el buzón, el tablón o la barra: caminar hasta su punto y abrirlo al llegar.
     const target = this.interactableUnder(sx, sy);
     if (target) {
@@ -1702,6 +1776,8 @@ export class OfficeScene extends Phaser.Scene {
     if (!avatar) return null;
     // El Man del Sombrero, si está en su escondite de hoy (no tiene rombito: se tiene que encontrar).
     if (this.npcs.sombreroNear(avatar.x, avatar.y, Math.min(INTERACT_REACH_TILES, SOMBRERO.reachTiles))) return "sombrero";
+    // Nadando solo se ofrece salir, y solo junto al borde (el servidor usa la misma cuenta).
+    if (this.swimming) return poolExitSpot(this.map, avatar.x, avatar.y, AGUA.exitReachTiles) ? "swimOut" : null;
     const reach = INTERACT_REACH_TILES * this.map.tileSize;
     for (const spec of INTERACTABLES) {
       for (const p of pointsOfType(this.map, spec.point)) {
@@ -1733,7 +1809,7 @@ export class OfficeScene extends Phaser.Scene {
    */
   private updateUsable(besideObject: boolean) {
     const avatar = this.local;
-    let hit = avatar && !this.seat && !besideObject ? this.usables.nearest(avatar.x, avatar.y) : null;
+    let hit = avatar && !this.seat && !besideObject && !this.swimming ? this.usables.nearest(avatar.x, avatar.y) : null;
     const seat = hit && avatar ? this.nearestFreeSeat() : null;
     if (hit && seat && avatar && Math.hypot(seat.x - avatar.x, seat.y - avatar.y) < hit.dist + this.map.tileSize / 2) hit = null;
     this.usableNear = hit;
@@ -1781,8 +1857,10 @@ export class OfficeScene extends Phaser.Scene {
     if (!this.local || this.travelling) return;
     const ts = this.map.tileSize;
     let goal: TilePos | null = { x: Math.floor(worldX / ts), y: Math.floor(worldY / ts) };
+    // Nadando, la ruta va por el agua (y no hay sillas).
+    const walkMap = this.swimming ? swimMap(this.map) : this.map;
     // Clic en una silla o sofá: caminar hasta al lado y sentarse al llegar.
-    const seat = seatAtTile(this.map, goal.x, goal.y);
+    const seat = this.swimming ? undefined : seatAtTile(this.map, goal.x, goal.y);
     if (seat && seat === this.seat) return;
     if (this.seat) this.standUp();
     if (seat) {
@@ -1793,10 +1871,10 @@ export class OfficeScene extends Phaser.Scene {
       const spot = seatStandSpot(this.map, seat);
       goal = { x: Math.floor(spot.x / ts), y: Math.floor(spot.y / ts) };
     }
-    if (isBlockedTile(this.map, goal.x, goal.y)) goal = nearestFreeTile(this.map, goal);
+    if (isBlockedTile(walkMap, goal.x, goal.y)) goal = nearestFreeTile(walkMap, goal);
     if (!goal) return;
     const start = { x: Math.floor(this.local.x / ts), y: Math.floor(this.local.y / ts) };
-    let path = findPath(this.map, start, goal);
+    let path = findPath(walkMap, start, goal);
     if (!path) return;
     // Si la ruta entra a una oficina cerrada sin permiso, llegar solo hasta la puerta.
     const blockedAt = path.findIndex((t) => !this.canEnterZoneAt(t.x * ts + ts / 2, t.y * ts + ts / 2));
@@ -1933,6 +2011,8 @@ export class OfficeScene extends Phaser.Scene {
   /** Pone en la vista la noche del store (y el fantasma del editor, que también cambia de textura). */
   private applyNight() {
     this.view?.setNight(useOfficeStore.getState().night);
+    // Los reflejos de la piscina también tienen versión de noche.
+    this.pool.setNight(useOfficeStore.getState().night);
     this.updateGhost(true);
   }
 
@@ -2275,6 +2355,7 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Colisión del nivel + oficinas cerradas a las que no tengo acceso (misma regla que el servidor). */
   private canMoveTo(x: number, y: number) {
+    if (this.swimming) return canSwimAt(this.map, x, y);
     return canStandAt(this.map, x, y) && this.canEnterZoneAt(x, y);
   }
 

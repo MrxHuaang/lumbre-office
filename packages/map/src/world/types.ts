@@ -215,6 +215,9 @@ export interface PointDef {
     | "greenhouse_plot"
     // Parada del bus: uno frente a cada puerta de la estación (ahí se toma el bus y ahí se baja la gente).
     | "bus_stop"
+    // La piscina del jardín: junto a las escaleritas y detrás del trampolín.
+    | "pool_steps"
+    | "diving_board"
     // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
     | "trophy_case"
     // Frente a cada estufa de la cocina (planta baja): ahí se cocina con lo del huerto.

@@ -102,6 +102,7 @@ export function SeatPrompt() {
   const doorPrompt = useOfficeStore((s) => s.doorPrompt);
   const atComputer = useOfficeStore((s) => s.atComputer);
   const atSwivel = useOfficeStore((s) => s.atSwivel);
+  const sun = useOfficeStore((s) => s.seatSun);
   const atPhone = useOfficeStore((s) => s.atPhone);
   const openPanel = useOfficeStore((s) => s.openPanel);
   const pcOn = useOfficeStore((s) => s.pcOn);
@@ -139,7 +140,7 @@ export function SeatPrompt() {
       )}
       <div className="cozy-chip flex items-center gap-2 px-3 py-1.5 text-[13px] max-md:hidden">
         <kbd className="cozy-kbd">E</kbd>
-        {prompt === "sit" ? "sentarte" : "levantarte (o muévete)"}
+        {prompt === "sit" ? (sun ? "tomar el sol" : "sentarte") : sun ? "levantarte de la reposera (o muévete)" : "levantarte (o muévete)"}
       </div>
     </div>
   );

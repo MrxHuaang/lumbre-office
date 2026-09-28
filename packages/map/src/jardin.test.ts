@@ -1,5 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { findPath, getWorld, isBlockedTile, pointsOfType, seatStandSpot, spawnPoint, zoneAt, type OfficeMap } from "./index";
+import {
+  canSwimAt,
+  diveLine,
+  findPath,
+  getWorld,
+  isBlockedTile,
+  isSwimTile,
+  pointsOfType,
+  poolEntrySpot,
+  poolExitSpot,
+  seatStandSpot,
+  spawnPoint,
+  swimMap,
+  zoneAt,
+  type OfficeMap,
+} from "./index";
 
 const jardin = getWorld().areas.get("jardin") as OfficeMap;
 const floorAt = (x: number, y: number) => jardin.floors[y * jardin.width + x];
@@ -171,5 +186,51 @@ describe("jardín", () => {
     // Las puertas del bus por dentro llevan a la plataforma.
     const inside = getWorld().areas.get("megabus")!;
     for (const portal of inside.portals) expect(stops.some((s) => s.tileX === portal.to.x && s.tileY === portal.to.y), portal.id).toBe(true);
+  it("la piscina: la pileta no se camina y se nada entera; se entra por las escaleras y se sale por cualquier borde", () => {
+    const pool = jardin.furniture.find((f) => f.type === "pool")!;
+    expect(pool).toBeDefined();
+    const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
+    const water: { x: number; y: number }[] = [];
+    for (let y = pool.y; y < pool.y + pool.d; y++) for (let x = pool.x; x < pool.x + pool.w; x++) if (isSwimTile(jardin, x, y)) water.push({ x, y });
+    expect(water.length).toBeGreaterThanOrEqual(40);
+    const ts = jardin.tileSize;
+    for (const t of water) expect(isBlockedTile(jardin, t.x, t.y), `${t.x},${t.y}`).toBe(true);
+    // Nadando se llega de una punta a la otra de la pileta.
+    const sm = swimMap(jardin);
+    expect(findPath(sm, water[0]!, water.at(-1)!)).not.toBeNull();
+    // Fuera de la pileta no se nada.
+    expect(canSwimAt(jardin, (pool.x + 0.5) * ts, (pool.y + 0.5) * ts)).toBe(false);
+    for (const t of water) expect(canSwimAt(jardin, t.x * ts + ts / 2, t.y * ts + ts / 2), `${t.x},${t.y}`).toBe(true);
+    // Cada escalera se alcanza caminando y tiene agua al lado donde entrar.
+    const steps = pointsOfType(jardin, "pool_steps");
+    expect(steps).toHaveLength(2);
+    for (const p of steps) {
+      expect(isBlockedTile(jardin, p.tileX, p.tileY), p.name).toBe(false);
+      expect(findPath(jardin, start, { x: p.tileX, y: p.tileY }), p.name).not.toBeNull();
+      const entry = poolEntrySpot(jardin, p.x, p.y);
+      expect(entry, p.name).not.toBeNull();
+      expect(Math.hypot(entry!.x - p.x, entry!.y - p.y) / ts).toBeLessThanOrEqual(1.5);
+    }
+    // Desde el agua pegada al borde se sale; desde el medio, no.
+    const edge = water.filter((t) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !isSwimTile(jardin, t.x + dx!, t.y + dy!)));
+    for (const t of edge) expect(poolExitSpot(jardin, t.x * ts + ts / 2, t.y * ts + ts / 2, 1.3), `${t.x},${t.y}`).not.toBeNull();
+    const middle = water.find((t) => !edge.includes(t) && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dy]) => !edge.some((e) => e.x === t.x + dx! && e.y === t.y + dy!)))!;
+    expect(poolExitSpot(jardin, middle.x * ts + ts / 2, middle.y * ts + ts / 2, 1.3)).toBeNull();
+    // El trampolín: se llega a su punto y el salto cae en el agua.
+    const board = jardin.furniture.find((f) => f.type === "diving-board")!;
+    const bp = pointsOfType(jardin, "diving_board")[0]!;
+    expect(findPath(jardin, start, { x: bp.tileX, y: bp.tileY })).not.toBeNull();
+    const dive = diveLine(jardin, board)!;
+    expect(dive).not.toBeNull();
+    expect(canSwimAt(jardin, dive.toX, dive.toY)).toBe(true);
+    // Las reposeras se usan desde el deck y al pararse se queda en el deck.
+    const loungers = [...jardin.seats.values()].filter((s) => s.type === "sun-lounger");
+    expect(loungers.length).toBeGreaterThanOrEqual(6);
+    for (const seat of loungers) {
+      const spot = seatStandSpot(jardin, seat);
+      expect(zoneAt(jardin, spot.x, spot.y)?.id, `${seat.tileX},${seat.tileY}`).toBe("piscina");
+      expect(findPath(jardin, start, { x: Math.floor(spot.x / ts), y: Math.floor(spot.y / ts) })).not.toBeNull();
+    }
+    expect(zoneAt(jardin, water[0]!.x * ts + ts / 2, water[0]!.y * ts + ts / 2)).toMatchObject({ id: "piscina", isolated: false });
   });
 });
