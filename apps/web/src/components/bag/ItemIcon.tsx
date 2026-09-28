@@ -28,7 +28,7 @@ export function itemArtUrl(itemId: string, art?: string, left?: number): string 
   return url;
 }
 
-export function ItemIcon({ itemId, art, left, className = "h-3/4 w-3/4" }: { itemId: string; art?: string; left?: number; className?: string }) {
+export function ItemIcon({ itemId, art, left, className = "absolute inset-0 m-auto h-[76%] w-[76%]" }: { itemId: string; art?: string; left?: number; className?: string }) {
   // Se dibuja en un <canvas>: solo en el navegador, después de montar.
   const [src, setSrc] = useState<string | null | undefined>(undefined);
   useEffect(() => setSrc(itemArtUrl(itemId, art, left)), [itemId, art, left]);

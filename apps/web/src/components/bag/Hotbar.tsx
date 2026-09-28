@@ -127,7 +127,9 @@ function HotbarSlot({
   const info = stack ? bagItemInfo(stack.itemId) : null;
   // La elegida se dibuja como está en la mano (el vaso a medio tomar, la regadera vacía).
   const inHand = selected && hand?.held ? hand : null;
-  const title = info ? `${info.name}${stack!.quantity > 1 ? ` ×${stack!.quantity}` : ""}${selected && info.use === "consume" ? " · clic o F para usar" : ""}` : "Casilla vacía";
+  const title = info
+    ? `${info.name}${stack!.quantity > 1 ? ` ×${stack!.quantity}` : ""}${selected && info.use === "consume" ? " · clic o F para usar" : ""}`
+    : "Casilla vacía";
   return (
     <button
       type="button"
@@ -216,7 +218,11 @@ const TOAST_LABEL = { invite: "Brindar", join: "¡Salud!", waiting: "Esperando�
 /** Brindar (B): con alguien cerca con bebida invita; si alguien de al lado invitó, se suma. */
 function ToastButton({ mode, name, disabled }: { mode: "invite" | "join" | "waiting"; name?: string; disabled: boolean }) {
   const title =
-    mode === "join" ? `Brindar con ${name ?? "los de al lado"} (B)` : mode === "waiting" ? "Esperando a que brinden contigo" : "Invitar a brindar a los de al lado (B)";
+    mode === "join"
+      ? `Brindar con ${name ?? "los de al lado"} (B)`
+      : mode === "waiting"
+        ? "Esperando a que brinden contigo"
+        : "Invitar a brindar a los de al lado (B)";
   return (
     <button
       type="button"

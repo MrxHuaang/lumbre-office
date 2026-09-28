@@ -50,71 +50,64 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
   return (
     <div
       ref={ref}
-      className="cozy-panel absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-1rem)] -translate-x-1/2 flex-col items-center gap-2 p-2 xl:flex-row xl:gap-3 max-sm:bottom-2 max-sm:p-1.5"
+      className="cozy-panel absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-1rem)] -translate-x-1/2 flex-col items-center gap-2 p-2 2xl:flex-row 2xl:gap-3 max-sm:bottom-2 max-sm:p-1.5"
     >
       {emotes && <EmotePicker onClose={() => setEmotes(false)} />}
-      <div className="flex items-center gap-1.5 max-sm:gap-1">
-      <Slot
-        icon="mic"
-        off={!mic}
-        label={mic ? "Silenciar micrófono" : "Activar micrófono"}
-        text={mic ? "Mic" : "Mic off"}
-        active={mic}
-        disabled={!ready}
-        onClick={() => void media.toggleMic()}
-      />
-      <Slot
-        icon="cam"
-        off={!cam}
-        label={cam ? "Apagar cámara" : "Encender cámara"}
-        text={cam ? "Cámara" : "Cam off"}
-        active={cam}
-        disabled={!ready}
-        onClick={() => void media.toggleCam()}
-      />
-      <Slot
-        icon="screen"
-        label={screen ? "Dejar de compartir" : "Compartir pantalla"}
-        text={screen ? "Compartiendo" : "Pantalla"}
-        active={screen}
-        disabled={!ready}
-        onClick={() => void media.toggleScreen()}
-      />
-      <Slot
-        icon="chat"
-        label={chatOpen ? "Cerrar chat" : "Abrir chat (Enter)"}
-        text="Chat"
-        active={chatOpen}
-        disabled={false}
-        onClick={() => setChatOpen(!chatOpen)}
-        badge={!chatOpen && !focusing && unread > 0 ? unread : undefined}
-      />
-      <Slot
-        icon="smile"
-        label="Emotes (T)"
-        text="Emotes"
-        active={emotes}
-        disabled={false}
-        onClick={() => setEmotes((v) => !v)}
-      />
-      <Slot
-        icon="camera"
-        label="Sacar una foto (P)"
-        text={shooting.counting ? "3, 2, 1…" : "Foto"}
-        active={shooting.counting}
-        disabled={shooting.busy}
-        onClick={takePhoto}
-      />
-      <Slot
-        icon="tag"
-        off={nameTags === "oculto"}
-        label={`${NAME_TAG_LABEL[nameTags]} (N para cambiar; al pasar el mouse se ve el nombre completo)`}
-        text={nameTags === "completo" ? "Nombres" : nameTags === "corto" ? "Cortos" : "Ocultos"}
-        active={nameTags !== "corto"}
-        disabled={false}
-        onClick={cycleNameTags}
-      />
-      {actions}
+      <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 max-sm:gap-1">
+        <Slot
+          icon="mic"
+          off={!mic}
+          label={mic ? "Silenciar micrófono" : "Activar micrófono"}
+          text={mic ? "Mic" : "Mic off"}
+          active={mic}
+          disabled={!ready}
+          onClick={() => void media.toggleMic()}
+        />
+        <Slot
+          icon="cam"
+          off={!cam}
+          label={cam ? "Apagar cámara" : "Encender cámara"}
+          text={cam ? "Cámara" : "Cam off"}
+          active={cam}
+          disabled={!ready}
+          onClick={() => void media.toggleCam()}
+        />
+        <Slot
+          icon="screen"
+          label={screen ? "Dejar de compartir" : "Compartir pantalla"}
+          text={screen ? "Compartiendo" : "Pantalla"}
+          active={screen}
+          disabled={!ready}
+          onClick={() => void media.toggleScreen()}
+        />
+        <Slot
+          icon="chat"
+          label={chatOpen ? "Cerrar chat" : "Abrir chat (Enter)"}
+          text="Chat"
+          active={chatOpen}
+          disabled={false}
+          onClick={() => setChatOpen(!chatOpen)}
+          badge={!chatOpen && !focusing && unread > 0 ? unread : undefined}
+        />
+        <Slot icon="smile" label="Emotes (T)" text="Emotes" active={emotes} disabled={false} onClick={() => setEmotes((v) => !v)} />
+        <Slot
+          icon="camera"
+          label="Sacar una foto (P)"
+          text={shooting.counting ? "3, 2, 1…" : "Foto"}
+          active={shooting.counting}
+          disabled={shooting.busy}
+          onClick={takePhoto}
+        />
+        <Slot
+          icon="tag"
+          off={nameTags === "oculto"}
+          label={`${NAME_TAG_LABEL[nameTags]} (N para cambiar; al pasar el mouse se ve el nombre completo)`}
+          text={nameTags === "completo" ? "Nombres" : nameTags === "corto" ? "Cortos" : "Ocultos"}
+          active={nameTags !== "corto"}
+          disabled={false}
+          onClick={cycleNameTags}
+        />
+        {actions}
       </div>
       {children}
     </div>

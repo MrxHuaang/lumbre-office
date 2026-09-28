@@ -33,9 +33,7 @@ export interface BagDeps {
   cooldownMs(): number;
 }
 
-export type UseResult =
-  | { ok: true; part: number; art: string; action: ConsumeAction; left: number; done: boolean }
-  | { ok: false; error: "empty" | "busy" };
+export type UseResult = { ok: true; part: number; art: string; action: ConsumeAction; left: number; done: boolean } | { ok: false; error: "empty" | "busy" };
 
 /** Lo que está en la mano: la cosa de la mochila, su dibujo y los usos de la unidad empezada. */
 export interface Hand {
@@ -72,7 +70,18 @@ export class Bag {
   private bag(userId: string): UserBag {
     let b = this.byUser.get(userId);
     if (!b) {
-      b = { stacks: new Map(), saved: {}, grid: Array(BAG.slots).fill(null), overflow: [], selected: 0, uses: new Map(), lastUseAt: 0, loaded: false, version: 0, queue: Promise.resolve() };
+      b = {
+        stacks: new Map(),
+        saved: {},
+        grid: Array(BAG.slots).fill(null),
+        overflow: [],
+        selected: 0,
+        uses: new Map(),
+        lastUseAt: 0,
+        loaded: false,
+        version: 0,
+        queue: Promise.resolve(),
+      };
       this.byUser.set(userId, b);
     }
     return b;

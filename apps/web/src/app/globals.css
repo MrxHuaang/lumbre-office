@@ -694,6 +694,8 @@ body {
   position: relative;
   display: grid;
   place-items: center;
+  /* Un mueble alto (la lámpara) no estira la casilla: el dibujo se achica adentro. */
+  overflow: hidden;
   background: #f7d9a0;
   border: 2px solid var(--color-cozy-frame);
   box-shadow:
@@ -712,6 +714,10 @@ body {
   box-shadow:
     inset 0 0 0 2px var(--color-cozy-green),
     inset -2px -2px 0 var(--color-cozy-paper-light);
+}
+.bag-slot-n,
+.bag-slot-q {
+  z-index: 1;
 }
 .bag-slot-n {
   position: absolute;

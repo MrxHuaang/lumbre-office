@@ -21,10 +21,12 @@ import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
-import { HeldSlot, UsablePrompt } from "./UsePrompt";
+import { UsablePrompt } from "./UsePrompt";
+import { HandActions, Hotbar } from "./bag/Hotbar";
+import { PlayerMenu } from "./bag/PlayerMenu";
 import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
-import { BackpackPanel, ShopPanel } from "./ShopPanel";
+import { ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
 import { ProfileDialog } from "./ProfileDialog";
@@ -246,7 +248,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <ChatPanel />
           <SideDock />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
-          <div className="pointer-events-none absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
+          <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
             <DoorPrompt />
             <DoorNotePrompt />
             <SeatPrompt />
@@ -267,8 +269,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <KnockRequests />
           <IncomingCall />
           <SocialOverlays />
-          <MediaControls>
-            <HeldSlot />
+          {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}
+          <MediaControls actions={<HandActions />}>
+            <Hotbar />
           </MediaControls>
           <ControlsHint />
           <VideoStrip />
@@ -297,7 +300,16 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "cashier" && <CashierPanel onClose={closePanel} />}
           {panel?.kind === "blackjack" && <BlackjackStrip />}
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
-          {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
+          {panel?.kind === "backpack" && (
+            <PlayerMenu
+              profile={profile}
+              onClose={closePanel}
+              onEditCharacter={() => {
+                closePanel();
+                setDialog("character");
+              }}
+            />
+          )}
           {panel?.kind === "fishAlbum" && <FishAlbum onClose={closePanel} />}
           {panel?.kind === "photos" && <PhotoGallery onClose={closePanel} />}
           {panel?.kind === "trophies" && <TrophyPanel onClose={closePanel} />}
@@ -360,7 +372,9 @@ const CONTROLS: [string, string][] = [
   ["T", "emotes"],
   ["P", "foto"],
   ["Enter", "chatear"],
-  ["1-6", "botones de la barra"],
+  ["Tab", "cambiar la fila de la barra"],
+  ["1-9 0 - =", "elegir la casilla (la mano)"],
+  ["I", "mochila, stats y personaje"],
 ];
 const DECOR_CONTROLS: [string, string][] = [
   ["Clic", "poner o elegir"],

@@ -111,7 +111,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
       <button
         onClick={() => openPanel("backpack", false)}
         className="cozy-btn h-[34px] w-[34px] p-0"
-        title="Mochila: tus muebles guardados"
+        title="Mochila, estadísticas y personaje (I)"
         aria-label="Mochila"
       >
         <PixelIcon name="bag" size={16} color="var(--color-cozy-wood)" />

@@ -57,7 +57,7 @@ function useStripHeight() {
 }
 
 /**
- * Marco común, abajo al centro y encima de los controles de micrófono y cámara (que siguen a mano):
+ * Marco común, abajo al centro y encima de la barra de abajo (micrófono, cámara y la mochila siguen a mano):
  * una línea chica con datos (`info`) y la fila principal.
  */
 export function Strip({ children, info, label }: { children: React.ReactNode; info: React.ReactNode; label: string }) {
@@ -66,7 +66,7 @@ export function Strip({ children, info, label }: { children: React.ReactNode; in
     <section
       ref={ref}
       aria-label={label}
-      className="cozy-panel absolute bottom-[4.75rem] left-1/2 z-20 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col gap-1.5 px-3 py-2"
+      className="cozy-panel absolute bottom-[var(--cozy-bar-top,4.75rem)] left-1/2 z-20 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col gap-1.5 px-3 py-2"
     >
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] leading-tight text-cozy-ink-soft">{info}</div>
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">{children}</div>

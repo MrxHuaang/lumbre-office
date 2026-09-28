@@ -383,3 +383,4 @@ function Meter({ value, className = "", label }: { value: number; className?: st
 
 /** Para los enlaces: la ruta pública del perfil. */
 export const profileHref = (id: string) => `/perfil/${encodeURIComponent(id)}`;
+export { Facts as ProfileFacts, Achievements as ProfileAchievements };

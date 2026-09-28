@@ -54,7 +54,7 @@ export function ChatPanel() {
   if (!open) return null;
 
   return (
-    <section className="cozy-panel absolute bottom-28 left-3 z-10 flex h-[min(380px,calc(100%-14rem))] w-[min(330px,calc(100%-1.5rem))] flex-col p-1.5">
+    <section className="cozy-panel absolute bottom-[var(--cozy-bar-top,7rem)] left-3 z-10 flex h-[min(380px,calc(100%_-_var(--cozy-bar-top,7rem)_-_7rem))] w-[min(330px,calc(100%-1.5rem))] flex-col p-1.5">
       <header className="flex items-center gap-2 bg-cozy-wood px-3 py-2 text-cozy-paper-light">
         <span className="text-[16px] font-semibold">Chat</span>
         <div className="ml-1 flex gap-1" role="tablist" aria-label="Canal">

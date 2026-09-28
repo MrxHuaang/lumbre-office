@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { BAR_MENU, CAFE_MENU, CINEMA_MENU, heldParts } from "./cafe";
 import { FREE_NAMES } from "./casa";
+import { RECIPES } from "./cocina";
 import { CONSUMABLES } from "./consumables";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
 import { shopItem } from "./shop";
@@ -77,7 +78,7 @@ const FREE_BLURB: Record<string, string> = {
   [HONEY]: "De las colmenas del apiario.",
 };
 
-/** Lo gratis de la casa y lo del huerto (menos la regadera vacía, que es la misma regadera sin agua). */
+/** Lo gratis de la casa, lo del huerto y los platos (menos la regadera vacía: es la misma regadera sin agua). */
 function fromHouseAndGarden(): Record<string, BagObject> {
   const out: Record<string, BagObject> = {};
   for (const [id, name] of Object.entries(FREE_NAMES)) {
@@ -85,7 +86,11 @@ function fromHouseAndGarden(): Record<string, BagObject> {
     out[id] = { name, blurb: FREE_BLURB[id], kind: "comida" };
   }
   for (const c of CROPS) {
-    out[c.product] = { name: c.productName, blurb: `Cosechado en ${c.indoor ? "el invernadero" : "el huerto"}.`, kind: c.product === "cafe-casa" ? "bebida" : "cosecha" };
+    out[c.product] = {
+      name: c.productName,
+      blurb: `Cosechado en ${c.indoor ? "el invernadero" : "el huerto"}.`,
+      kind: c.product === "cafe-casa" ? "bebida" : "cosecha",
+    };
     out[seedsOf(c.id)] = {
       name: `Semillas de ${c.name.toLowerCase()}`,
       blurb: `Cada bolsa siembra ${HUERTO.seedUses} ${c.indoor ? "bancales del invernadero" : "parcelas del huerto"}.`,
@@ -94,6 +99,8 @@ function fromHouseAndGarden(): Record<string, BagObject> {
     };
   }
   out[HONEY] = { name: FREE_NAMES[HONEY] ?? "Miel", blurb: FREE_BLURB[HONEY], kind: "comida" };
+  // Los platos de la cocina (la estufa de la planta baja).
+  for (const r of RECIPES) out[r.id] = { name: r.name, blurb: r.blurb, kind: r.action === "sip" ? "bebida" : "comida" };
   out[WATERING_CAN] = {
     name: "Regadera",
     blurb: `Se llena en el barril de agua o en el pozo y alcanza para ${HUERTO.canUses} riegos.`,
@@ -223,8 +230,7 @@ export const bagRow = (slot: number) => Math.floor(slot / BAG.cols);
 export const bagCol = (slot: number) => slot % BAG.cols;
 
 /** Tab: la misma columna en la fila siguiente (después de la última vuelve a la primera). */
-export const nextBagRow = (slot: number, step: 1 | -1 = 1) =>
-  ((bagRow(slot) + step + BAG.rows) % BAG.rows) * BAG.cols + bagCol(slot);
+export const nextBagRow = (slot: number, step: 1 | -1 = 1) => ((bagRow(slot) + step + BAG.rows) % BAG.rows) * BAG.cols + bagCol(slot);
 
 /** Las teclas de la barra: 1–9, 0, - e = eligen las casillas 1 a 12 de la fila que se ve. */
 export const BAG_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="] as const;
@@ -244,7 +250,11 @@ export const BAG_MSG = {
   notice: "bag:notice",
 } as const;
 
-const Slot = z.number().int().min(0).max(BAG.slots - 1);
+const Slot = z
+  .number()
+  .int()
+  .min(0)
+  .max(BAG.slots - 1);
 // Como `ItemId` de social.ts (que importa este archivo para los nombres: así no hay ciclo).
 const ItemId = z.string().regex(/^[a-z0-9][a-z0-9:_-]{0,63}$/, "Objeto inválido");
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { FEET_Y, FRAME, type SheetDirection } from "@hyvento/map/art";
+import { BODY_UP, FEET_Y, FRAME, SIT_DROP, drawHeldItem, type SheetDirection } from "@hyvento/map/art";
 import type { LookInput } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import { MiniIcon } from "./icons";
@@ -32,21 +32,50 @@ const STEP_MS = 125;
 const DRAG_STEP = 28;
 /** Alto del lienzo: el frame más 3 filas para que entren las patas del taburete. */
 const H = FRAME + 3;
+/**
+ * Dónde va lo de la mano según hacia dónde mira (como HANDS de game/Avatar.ts): corrimiento desde el
+ * centro y si queda delante del cuerpo (de frente) o detrás (de espaldas).
+ */
+const HAND: Record<SheetDirection, { dx: number; front: boolean }> = {
+  down: { dx: 4, front: true },
+  right: { dx: -5, front: true },
+  left: { dx: 7, front: false },
+  up: { dx: -7, front: false },
+};
+
+const heldCache = new Map<string, HTMLCanvasElement | null>();
+/** El dibujo de lo de la mano (items.ts) como lienzo, o null si no tiene. */
+function heldCanvas(art: string, left?: number): HTMLCanvasElement | null {
+  const key = `${art}|${left ?? ""}`;
+  const hit = heldCache.get(key);
+  if (hit !== undefined) return hit;
+  const px = drawHeldItem(art, left !== undefined ? { left } : {});
+  let el: HTMLCanvasElement | null = null;
+  if (px.width > 1) {
+    el = document.createElement("canvas");
+    el.width = px.width;
+    el.height = px.height;
+    el.getContext("2d")!.putImageData(new ImageData(new Uint8ClampedArray(px.data), px.width, px.height), 0, 0);
+  }
+  heldCache.set(key, el);
+  return el;
+}
 
 /**
  * Vista previa grande del personaje: camina en bucle (o se queda quieto, o se sienta en un taburete) y
- * se gira con los botones, arrastrando o con las flechas del teclado.
+ * se gira con los botones, arrastrando o con las flechas del teclado. `held` (un dibujo de items.ts) es
+ * lo que lleva en la mano, con `heldLeft` usos.
  */
-export function LookPreview({ look, className = "" }: { look: LookInput; className?: string }) {
+export function LookPreview({ look, held = "", heldLeft, className = "" }: { look: LookInput; held?: string; heldLeft?: number; className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dir, setDir] = useState<SheetDirection>("right");
   const [pose, setPose] = useState<Pose>("walk");
   const drag = useRef<{ id: number; x: number } | null>(null);
   const key = lookKey(look);
   // El bucle de animación lee lo último sin reiniciarse en cada cambio.
-  const live = useRef({ look, key, dir, pose });
+  const live = useRef({ look, key, dir, pose, held, heldLeft });
   useEffect(() => {
-    live.current = { look, key, dir, pose };
+    live.current = { look, key, dir, pose, held, heldLeft };
   });
 
   // Con "reducir movimiento" empieza quieto.
@@ -60,12 +89,23 @@ export function LookPreview({ look, className = "" }: { look: LookInput; classNa
     let raf = 0;
     let drawn = "";
     const paint = (now: number) => {
-      const { look, key, dir, pose } = live.current;
+      const { look, key, dir, pose, held, heldLeft } = live.current;
       const col = pose === "walk" ? WALK[Math.floor(now / STEP_MS) % WALK.length]! : 0;
-      const state = `${key}|${dir}|${pose}|${col}`;
+      const state = `${key}|${dir}|${pose}|${col}|${held}|${heldLeft ?? ""}`;
       if (state !== drawn) {
         drawn = state;
         ctx.clearRect(0, 0, FRAME, H);
+        // Lo de la mano: detrás del cuerpo de espaldas, delante de frente (y sube y baja con el paso).
+        const item = held ? heldCanvas(held, heldLeft) : null;
+        const hand = HAND[dir];
+        const bob = pose === "walk" && col !== 0 ? 1 : 0;
+        const drawHeld = () => {
+          if (!item) return;
+          // Como en la cabaña: a la altura de la mano (sentado, más abajo).
+          const bottom = FEET_Y + 1 - (BODY_UP.hand - 1 - (pose === "sit" ? SIT_DROP : 0)) - bob;
+          ctx.drawImage(item, Math.round(FRAME / 2 + hand.dx - item.width / 2), bottom - item.height);
+        };
+        if (!hand.front) drawHeld();
         if (pose === "sit") {
           // Como en la cabaña: el centro del tile del taburete (8, 8 en el piso) cae bajo los pies.
           const s = stoolSprite();
@@ -76,6 +116,7 @@ export function LookPreview({ look, className = "" }: { look: LookInput; classNa
           ctx.drawImage(sh, FRAME / 2 - sh.width / 2, FEET_Y - sh.height / 2);
           ctx.drawImage(walkSheet(look, key), col * FRAME, dirIndex(dir) * FRAME, FRAME, FRAME, 0, 0, FRAME, FRAME);
         }
+        if (hand.front) drawHeld();
       }
       raf = requestAnimationFrame(paint);
     };
