@@ -38,6 +38,8 @@ import {
   type EmoteEvent,
   type EmoteId,
   type JoinOptions,
+  type Invitation,
+  type InviteResult,
   type KnockRequest,
   type KnockResult,
   type MoveCorrection,
@@ -59,6 +61,9 @@ import {
   type PetNotice,
   HUERTO_MSG,
   huertoNoticeText,
+  BUS_MSG,
+  BUS_NOTICES,
+  type BusNotice,
   type HuertoNotice,
   isWeather,
   type PhotoCountdownEvent,
@@ -87,12 +92,16 @@ import { bindHockey } from "./arcade/hockey";
 import { bindBoardGames } from "./boardgames";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
+import { bindPiscina, sendAgua } from "./piscina/net";
 import { selectMyUserId, useOfficeStore, type Interactable } from "./store";
 import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { bindBag } from "./bag";
+import { bindCasaArbol } from "./casaArbol";
 import { sfx } from "./sfx";
+import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
 import { useSombreroStore } from "./npcs/store";
 
@@ -114,9 +123,9 @@ export interface RemotePlayer {
   zoneId: string;
   place: string;
   points: number;
-  /** Lo que lleva en la mano (id de la carta de la cafetería o del bar; "" = nada). */
+  /** Lo que lleva en la mano (la casilla elegida de la mochila: el id de su dibujo; "" = nada). */
   held: string;
-  /** Usos que le quedan a cada mano ("4,5"). */
+  /** Usos que le quedan a lo de la mano ("4"). */
   heldLeft: string;
   /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
   fishing: string;
@@ -124,6 +133,9 @@ export interface RemotePlayer {
   drunk: number;
   /** Corriendo la carrera de sillas. */
   racing: boolean;
+  /** Nadando en la piscina del jardín y recién salido del agua (gotea). */
+  swimming: boolean;
+  wet: boolean;
   /** Insignia destacada (id de un logro; "" = ninguna). */
   badge: string;
   /** Energía de un plato de la cocina (id de la receta; "" = nada). */
@@ -227,6 +239,8 @@ export interface OfficeStateView {
   garden: Map<string, RemoteGardenPlot>;
   /** El Man del Sombrero: si anda por ahí y en qué escondite. */
   sombrero: RemoteSombrero;
+  /** El Megabús de la parada del jardín (BusState en apps/server/src/state.ts). */
+  bus: { phase: string; since: number; nextAt: number; run: number };
 }
 
 /** Una parcela sembrada como viaja en el estado (espejo de `GardenPlotState` en apps/server/src/state.ts). */
@@ -473,9 +487,19 @@ export function sendBlackjackAction(action: BlackjackAction) {
 }
 
 /** Usar un objeto interactivo: casi todos abren su panel (el Man del Sombrero, su menú); el tubo del sótano hace bailar. */
+/** E en la estación: subirse al Megabús (el servidor valida que esté parado con las puertas abiertas). */
+export function sendBusBoard() {
+  room?.send(BUS_MSG.board, {});
+}
+
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return togglePole();
+  if (kind === "bus") return sendBusBoard();
   if (kind === "fishing") return fishingSpotAction();
+  // La piscina no abre panel: se mete, salta o sale (el servidor valida y avisa si no).
+  if (kind === "pool") return sendAgua("swim");
+  if (kind === "dive") return sendAgua("dive");
+  if (kind === "swimOut") return sendAgua("out");
   useOfficeStore.getState().openPanel(kind, true);
 }
 
@@ -564,6 +588,7 @@ const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], stri
   funds: "No te alcanzan los puntos.",
   busy: "Un momento, ya viene tu pedido.",
   failed: "No se pudo hacer el pedido. Intenta de nuevo.",
+  full: "No te cabe en la mochila: haz espacio (tira algo o pon un mueble en tu oficina).",
 };
 
 function handleCafeResult(r: CafeOrderResult) {
@@ -573,7 +598,7 @@ function handleCafeResult(r: CafeOrderResult) {
   if (r.ok) {
     store.closePanel();
     const cheers = item?.menu === "bar" ? "¡Salud!" : item?.menu === "cine" ? "¡Buena función!" : "¡Buen provecho!";
-    store.notify(`Aquí tienes: ${name}. ${cheers}`, "success");
+    store.notify(`Aquí tienes: ${name} (quedó en tu mochila). ${cheers}`, "success");
   } else {
     store.notify(CAFE_ERRORS[r.error], "warning");
   }
@@ -747,6 +772,20 @@ export function respondKnock(requestId: string, accept: boolean) {
   room?.send(MSG.knockRespond, { requestId, accept });
 }
 
+/** Invitar a alguien a donde estoy (el servidor valida que esté conectado y el ritmo). */
+export function sendInvite(toUserId: string) {
+  room?.send(MSG.invite, { toUserId });
+}
+
+/** Responder una invitación: "Ir" camina hasta quien invitó, esté donde esté. */
+export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId">, accept: boolean) {
+  const store = useOfficeStore.getState();
+  store.removeInvitation(inv.inviteId);
+  room?.send(MSG.inviteRespond, { inviteId: inv.inviteId, accept });
+  // Un respiro para que llegue el parche que me deja pasar a su oficina cerrada (si no, la ruta para en la puerta).
+  if (accept) setTimeout(() => useOfficeStore.getState().walkToPlayer(inv.fromSessionId), 300);
+}
+
 function attach(r: OfficeRoom) {
   room = r;
   const store = useOfficeStore.getState();
@@ -754,6 +793,7 @@ function attach(r: OfficeRoom) {
   store.setConnection("connected");
 
   const $ = getStateCallbacks(r);
+  bindCasaArbol(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({
@@ -951,11 +991,16 @@ function attach(r: OfficeRoom) {
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
   bindCinema(r);
+  bindPiscina(r);
   bindRace(r);
   bindCocina(r);
   bindArcade(r);
   bindPhone(r);
+  // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).
+  bindNotify(r);
   bindHockey(r);
+  // La mochila y la barra de abajo.
+  bindBag(r);
   bindBoardGames(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
@@ -976,6 +1021,8 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
+  r.onMessage(MSG.inviteRequest, (inv: Invitation) => useOfficeStore.getState().addInvitation(inv));
+  r.onMessage(MSG.inviteResult, (res: InviteResult) => useOfficeStore.getState().handleInviteResult(res));
   r.onMessage(MSG.doorNoteResult, (res: DoorNoteResult) => useDoorNotesStore.getState().handleResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
@@ -1008,6 +1055,11 @@ function attach(r: OfficeRoom) {
   });
   // Jardín vivo: por qué no se pudo sembrar, regar, cosechar o sacar miel.
   r.onMessage(HUERTO_MSG.notice, (n: HuertoNotice) => useOfficeStore.getState().notify(huertoNoticeText(n), "info"));
+  // Megabús: por qué no se pudo subir o bajar.
+  r.onMessage(BUS_MSG.notice, (n: BusNotice) => {
+    const text = BUS_NOTICES[n.code];
+    if (text) useOfficeStore.getState().notify(text, "info");
+  });
   r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));

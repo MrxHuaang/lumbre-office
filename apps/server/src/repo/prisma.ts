@@ -11,6 +11,8 @@ import {
   givenToday,
   leaveDoorNote,
   listInventory,
+  loadBagSlots,
+  saveBagSlots,
   unreadDoorNotes,
   type PresenceStatus as DbStatus,
   prisma,
@@ -253,6 +255,24 @@ export class PrismaRepository implements GameRepository {
 
   saveFishCatch(input: { userId: string; species: string; size: number; points: number }) {
     return recordFishCatch(prisma, input);
+  }
+
+  // ---------- Mochila ----------
+
+  addInventory(userId: string, itemId: string, quantity: number) {
+    return addInventoryTx(prisma, userId, itemId, quantity);
+  }
+
+  takeInventory(userId: string, itemId: string, quantity: number) {
+    return takeInventoryTx(prisma, userId, itemId, quantity);
+  }
+
+  loadBagSlots(userId: string) {
+    return loadBagSlots(prisma, userId);
+  }
+
+  saveBagSlots(userId: string, changes: Record<string, number | null>) {
+    return saveBagSlots(prisma, userId, changes);
   }
 
   // ---------- Regalos e intercambios ----------

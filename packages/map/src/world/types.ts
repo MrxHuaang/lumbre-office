@@ -56,7 +56,12 @@ export type FloorKind =
   // entrada (afuera).
   | "concrete"
   | "planks-worn"
-  | "gravel";
+  | "gravel"
+  // Parada del bus: la calle (asfalto, carril exclusivo pintado, líneas y cordones; el dibujo depende de
+  // dónde cae, ver art/bus-calle.ts). No se camina: queda fuera de la zona jugable.
+  | "road"
+  // El Megabús por dentro: piso de caucho antideslizante.
+  | "rubber";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
 // Variedad: rayas finas, damasco dorado, ladrillo visto, listones de madera clara y estuco con zócalo.
 export type WallpaperKind =
@@ -77,7 +82,12 @@ export type WallpaperKind =
   | "colonial"
   // Garaje: bloque de cemento sin pintar y tablas sobre zócalo de piedra (el taller).
   | "cinderblock"
-  | "boards";
+  | "boards"
+  // Casa del árbol: tablones horizontales clavados con la viga redonda arriba.
+  | "treehouse"
+  // El Megabús por dentro: paneles claros con la franja verde lima, y los pliegues grises del fuelle.
+  | "megabus"
+  | "fuelle";
 
 export interface ZoneDef {
   id: string;
@@ -114,7 +124,11 @@ export interface DoorDef {
 export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "video-wall" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait"
   // Garaje: tablero de herramientas, el portón de tablas por dentro, calendario viejo, telaraña y la ventana
   // empolvada.
-  | "pegboard" | "barn-door" | "calendar" | "cobweb" | "dusty-window";
+  | "pegboard" | "barn-door" | "calendar" | "cobweb" | "dusty-window"
+  // Casa del árbol: la ventana a la copa y la guirnalda de banderines.
+  | "treehouse-window" | "bunting"
+  // Megabús: las ventanas oscuras de piso a techo (con `text`, la pantalla de ruta encima).
+  | "bus-window";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -199,6 +213,11 @@ export interface PointDef {
     | "board_game"
     // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
     | "greenhouse_plot"
+    // Parada del bus: uno frente a cada puerta de la estación (ahí se toma el bus y ahí se baja la gente).
+    | "bus_stop"
+    // La piscina del jardín: junto a las escaleritas y detrás del trampolín.
+    | "pool_steps"
+    | "diving_board"
     // Frente a la vitrina de trofeos de cada oficina (los logros de su dueño).
     | "trophy_case"
     // Frente a cada estufa de la cocina (planta baja): ahí se cocina con lo del huerto.

@@ -1,7 +1,8 @@
-// Inventario: los muebles que cada persona tiene guardados (sin poner). La tienda suma; el editor de
-// oficina resta al poner un mueble y suma al quitarlo.
-import type { InventoryEntry } from "@hyvento/shared";
-import type { Prisma } from "@prisma/client";
+// Inventario (la mochila): los muebles guardados (sin poner) y lo que se agarra (`obj:<id>`, ver bolsa.ts
+// de @hyvento/shared). La tienda suma muebles; el editor de oficina resta al poner uno y suma al quitarlo;
+// el servidor de juego suma y resta los objetos (pedidos, cosechas, lo que se come).
+import { BAG_SLOT_PREFIX, type InventoryEntry } from "@hyvento/shared";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 // PrismaClient también sirve aquí: es un TransactionClient con más métodos.
 type Db = Prisma.TransactionClient;
@@ -42,4 +43,28 @@ export function listInventory(client: Db, userId: string): Promise<InventoryEntr
     select: { itemId: true, quantity: true },
     orderBy: { itemId: "asc" },
   });
+}
+
+// ---------- Casillas de la mochila ----------
+// El orden de la mochila (qué va en cada una de las 36 casillas) se guarda en UserStat con la clave
+// `bolsa:<itemId>` y la casilla como valor: así no hace falta una columna nueva en InventoryItem.
+
+/** La casilla guardada de cada cosa de la mochila (itemId → 0..35). */
+export async function loadBagSlots(client: Db, userId: string): Promise<Record<string, number>> {
+  const rows = await client.userStat.findMany({ where: { userId, key: { startsWith: BAG_SLOT_PREFIX } }, select: { key: true, value: true } });
+  return Object.fromEntries(rows.map((r) => [r.key.slice(BAG_SLOT_PREFIX.length), r.value]));
+}
+
+/** Guarda casillas nuevas o movidas y olvida las de lo que ya no está (`null`), todo junto. */
+export async function saveBagSlots(client: PrismaClient, userId: string, changes: Record<string, number | null>): Promise<void> {
+  const entries = Object.entries(changes);
+  if (entries.length === 0) return;
+  await client.$transaction(
+    entries.map(([itemId, slot]) => {
+      const key = `${BAG_SLOT_PREFIX}${itemId}`;
+      return slot === null
+        ? client.userStat.deleteMany({ where: { userId, key } })
+        : client.userStat.upsert({ where: { userId_key: { userId, key } }, create: { userId, key, value: slot }, update: { value: slot } });
+    }),
+  );
 }

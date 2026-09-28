@@ -357,6 +357,11 @@ export class AreaView {
     return { x: b.centerX, y: b.y, depth: hit.img.depth };
   }
 
+  /** Muestra o esconde el dibujo de un mueble (la escalera de la casa del árbol, recogida). */
+  setFurnitureVisible(f: PlacedFurniture, visible: boolean) {
+    for (const e of this.furnitureImages) if (e.f === f) e.img.setVisible(visible);
+  }
+
   /** Lugar original de los muebles corridos con `nudgeFurniture`. */
   private nudged = new Map<Phaser.GameObjects.Image, { x: number; y: number }>();
 

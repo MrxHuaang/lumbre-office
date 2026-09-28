@@ -1,5 +1,5 @@
 // Casa viva: lo que pasa después de usar un mueble nuevo. Lo gratis (nevera, cafetera, el malvavisco
-// de la fogata) queda en la mano; el cubículo del baño queda ocupado un rato y se libera solo (o al
+// de la fogata) va a la mochila (y a la mano si estaban libres); el cubículo del baño queda ocupado un rato y se libera solo (o al
 // moverse, o al irse). Los contadores ya los avanzó FurnitureUses; aquí no hay nada más que hacer.
 import { CASA } from "@hyvento/shared";
 import type { FurnitureUseResult } from "./usables";
@@ -23,7 +23,7 @@ export class CasaViva {
   constructor(
     private readonly stalls: Stalls,
     private readonly clock: CasaClock,
-    /** Pone algo en la mano (HeldItems.give). */
+    /** Suma lo gratis a la mochila (Bag.add, con la mano si está libre). */
     private readonly give: (userId: string, item: string) => void,
     /** Cuánto se está en el cubículo (los tests lo acortan). */
     private readonly stallMs: () => number = () => CASA.stallMs,

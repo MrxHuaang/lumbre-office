@@ -1,6 +1,7 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { findPath, getWorld, isBlockedTile, pointsOfType, spawnPoint } from "@hyvento/map";
 import {
+  BAG,
   EMPTY_CAN,
   GREENHOUSE_PLOT_BASE,
   HUERTO,
@@ -18,10 +19,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
-import { bootServer, tick, token, walkToTile, type ServerRoom } from "./helpers";
+import { bootServer, holdItem, tick, token, walkToTile, type ServerRoom } from "./helpers";
 
 // El huerto del jardín en la sala: el cobertizo, sembrar, regar (llenando la regadera en el barril),
-// cosechar con puntos, la miel de las colmenas y que las herramientas no se gasten con F.
+// cosechar con puntos, la miel de las colmenas y que las herramientas no se gasten con F. Todo pasa
+// por la mochila: lo del cobertizo y lo cosechado van ahí, y las herramientas se eligen en la barra.
 
 const jardin = getWorld().areas.get("jardin")!;
 const plots = pointsOfType(jardin, "garden_plot");
@@ -102,11 +104,20 @@ describe("huerto (en la sala)", () => {
     await takeFromShed(client, room, seedsOf("cilantro"));
     expect(me(client, room).held).toBe(seedsOf("cilantro"));
     expect(me(client, room).heldLeft).toBe(String(HUERTO.seedUses));
+    expect(repo.held("u-alice", `obj:${seedsOf("cilantro")}`)).toBe(1);
     // Lo que no está en el cobertizo no se saca.
     await send(client, room, HUERTO_MSG.shedTake, { item: "whisky" });
     expect(me(client, room).held).toBe(seedsOf("cilantro"));
+    // La regadera va a la mochila (sin agua) y la mano sigue con las semillas hasta elegirla en la barra.
     await send(client, room, HUERTO_MSG.shedTake, { item: EMPTY_CAN });
+    expect(me(client, room).held).toBe(seedsOf("cilantro"));
+    expect(repo.held("u-alice", "obj:regadera")).toBe(1);
+    await holdItem(client, room, "obj:regadera");
     expect(me(client, room).held).toBe(EMPTY_CAN);
+    // Una regadera por persona.
+    await send(client, room, HUERTO_MSG.shedTake, { item: EMPTY_CAN });
+    expect(notices.at(-1)?.code).toBe("haveCan");
+    expect(repo.held("u-alice", "obj:regadera")).toBe(1);
   });
 
   it("las herramientas no se gastan con F", async () => {
@@ -138,8 +149,9 @@ describe("huerto (en la sala)", () => {
     await use(client, room, "garden-plot", plot.tileX, plot.tileY);
     expect(notices.at(-1)?.code).toBe("growing");
 
-    // La regadera sale vacía: se llena en el barril.
+    // La regadera sale vacía: se elige en la barra y se llena en el barril.
     await takeFromShed(client, room, EMPTY_CAN);
+    await holdItem(client, room, "obj:regadera");
     await walkToTile(client, room, plot.tileX, plot.tileY);
     await use(client, room, "garden-plot", plot.tileX, plot.tileY);
     expect(notices.at(-1)?.code).toBe("emptyCan");
@@ -163,7 +175,9 @@ describe("huerto (en la sala)", () => {
     clock += cropById("cilantro")!.growMs;
     await use(client, room, "garden-plot", plot.tileX, plot.tileY);
     expect(room.state.garden.has("0")).toBe(false);
-    expect(me(client, room).held).toBe("cilantro");
+    // Va a la mochila; la mano sigue con la regadera.
+    expect(me(client, room).held).toBe(WATERING_CAN);
+    expect(repo.held("u-alice", "obj:cilantro")).toBe(1);
     expect(me(client, room).points).toBe(before + cropById("cilantro")!.points);
     expect(events.at(-1)).toMatchObject({ garden: "harvest", item: "cilantro" });
     await tick(50);
@@ -245,11 +259,13 @@ describe("huerto (en la sala)", () => {
     expect(repo.garden.get(GREENHOUSE_PLOT_BASE + 4)?.crop).toBe("pitahaya");
     // Lo del huerto no va en los bancales.
     await takeFromShed(client, room, seedsOf("papa"));
+    await holdItem(client, room, `obj:${seedsOf("papa")}`);
     await walkToTile(client, room, aisle.x, aisle.y);
     await use(client, room, "greenhouse-bed", beds[0]!.tileX, beds[0]!.tileY);
     expect(notices.at(-1)?.code).toBe("outdoor");
     // Con la regadera avisa que no hace falta, y sin regar queda lista a tiempo.
     await takeFromShed(client, room, EMPTY_CAN);
+    await holdItem(client, room, "obj:regadera");
     await walkToTile(client, room, aisle.x, aisle.y);
     await use(client, room, "greenhouse-bed", bed.tileX, bed.tileY);
     expect(notices.at(-1)?.code).toBe("noWater");
@@ -257,9 +273,26 @@ describe("huerto (en la sala)", () => {
     clock += cropById("pitahaya")!.growMs;
     await use(client, room, "greenhouse-bed", bed.tileX, bed.tileY);
     expect(room.state.garden.has(key)).toBe(false);
-    expect(me(client, room).held).toBe("pitahaya");
+    expect(repo.held("u-alice", "obj:pitahaya")).toBe(1);
     expect(me(client, room).points).toBe(before + cropById("pitahaya")!.points);
   }, 30_000);
+
+  it("con la mochila llena no se cosecha (la mata espera) ni se saca miel", async () => {
+    const lulo = cropById("lulo")!;
+    repo.garden.set(2, { id: 2, crop: "lulo", plantedBy: "u-alice", plantedByName: "Alice", plantedAt: clock - lulo.growMs, growthMs: lulo.growMs, growthAt: clock, wateredUntil: 0 });
+    for (let i = 0; i < BAG.slots; i++) repo.give("u-alice", `obj:cosa-${i}`);
+    const { room, client, notices } = await join();
+    const plot = plots[2]!;
+    await walkToTile(client, room, plot.tileX, plot.tileY);
+    await use(client, room, "garden-plot", plot.tileX, plot.tileY);
+    expect(notices.at(-1)?.code).toBe("full");
+    expect(room.state.garden.has("2")).toBe(true);
+    const spot = beside(hive);
+    await walkToTile(client, room, spot.x, spot.y);
+    await use(client, room, "beehive", hive.x, hive.y);
+    expect(notices.at(-1)?.code).toBe("full");
+    expect(repo.held("u-alice", "obj:miel")).toBe(0);
+  });
 
   it("desde lejos no se usa la parcela", async () => {
     const { room, client, events } = await join();

@@ -142,10 +142,11 @@ describe("POST /api/gifts/[id]/open", () => {
     expect(notify.points).toEqual(["beto"]);
   });
 
-  it("un regalo solo de objetos no avisa cambio de puntos", async () => {
+  it("un regalo solo de objetos también avisa (la cabaña relee la mochila de quien lo abre)", async () => {
     db.give("ana", "plant", 1);
     const id = await sent({ points: 0, itemId: "plant", quantity: 1 });
+    notify.points.length = 0;
     expect((await postOpenGift(base, "beto", id, notify)).status).toBe(200);
-    expect(notify.points).toEqual([]);
+    expect(notify.points).toEqual(["beto"]);
   });
 });

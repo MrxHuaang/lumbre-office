@@ -7,6 +7,8 @@ import { logout } from "@/app/actions";
 import { media } from "@/game/media";
 import { connect, disconnect, sendActivity } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
+import { getArriveByBus } from "@/lib/arriveByBus";
+import { BusTrip } from "./bus/BusTrip";
 import { EntryLoader } from "./EntryLoader";
 import { waitForCozyFont } from "@/lib/cozy";
 import { AdminDialog } from "./AdminDialog";
@@ -18,13 +20,16 @@ import { RadioTapPrompt } from "./RoomPanel";
 import { SideDock } from "./SideDock";
 import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
-import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
+import { DoorPrompt, InvitationRequests, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
+import { NotifyPrompt } from "./NotifyPrompt";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
-import { HeldSlot, UsablePrompt } from "./UsePrompt";
+import { UsablePrompt } from "./UsePrompt";
+import { HandActions, Hotbar } from "./bag/Hotbar";
+import { PlayerMenu } from "./bag/PlayerMenu";
 import { CashierPanel } from "./casino/CashierPanel";
 import { BlackjackStrip, RouletteStrip } from "./casino/TableStrip";
-import { BackpackPanel, ShopPanel } from "./ShopPanel";
+import { ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
 import { ProfileDialog } from "./ProfileDialog";
@@ -188,7 +193,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
       try {
         const token = await fetchGameToken();
         if (cancelled) return;
-        await connect({ token });
+        // "Llegar en bus" (Mi personaje): solo al entrar; al reconectar se sigue donde se estaba.
+        await connect({ token, arriveByBus: getArriveByBus() || undefined });
       } catch (err) {
         if (!cancelled && useOfficeStore.getState().connection !== "error") {
           useOfficeStore.getState().setConnection("error", err instanceof Error ? err.message : String(err));
@@ -210,15 +216,16 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
         handleGameLoadError(err);
         return;
       }
-      // Audio/video: opcional; si LiveKit no está disponible la oficina funciona igual.
-      void media.connect();
+      // Audio/video: opcional; si LiveKit no está disponible la oficina funciona igual. No conecta todavía:
+      // la sala se abre sola cuando hay alguien cerca (LiveKit cobra por minuto conectado).
+      media.start();
     })();
 
     return () => {
       cancelled = true;
       useOfficeStore.getState().setMapReady(false);
       game?.destroy(true);
-      void media.disconnect();
+      void media.stop();
       void disconnect();
     };
   }, [attempt]);
@@ -226,6 +233,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   return (
     <main className="cozy-void relative h-full w-full overflow-hidden font-pixel text-cozy-ink">
       <div ref={gameRef} className="absolute inset-0" />
+      {/* Adentro del Megabús en ruta no se ve el mundo: la pantalla del viaje (el HUD queda encima). */}
+      {connection === "connected" && <BusTrip />}
       {connection === "connected" || connection === "reconnecting" ? (
         <>
           <Hud
@@ -243,11 +252,12 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <PeoplePanel />}
             <DoorNotesChip />
             <Notices />
+            <NotifyPrompt />
           </div>
           <ChatPanel isAdmin={isAdmin} />
           <SideDock />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
-          <div className="pointer-events-none absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
+          <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
             <DoorPrompt />
             <DoorNotePrompt />
             <SeatPrompt />
@@ -266,10 +276,12 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <CatchCard />
           </div>
           <KnockRequests />
+          <InvitationRequests />
           <IncomingCall />
           <SocialOverlays />
-          <MediaControls>
-            <HeldSlot />
+          {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}
+          <MediaControls actions={<HandActions />}>
+            <Hotbar />
           </MediaControls>
           <ControlsHint />
           <VideoStrip />
@@ -298,7 +310,16 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "cashier" && <CashierPanel onClose={closePanel} />}
           {panel?.kind === "blackjack" && <BlackjackStrip />}
           {panel?.kind === "shop" && <ShopPanel atObject={panel.atObject} onClose={closePanel} />}
-          {panel?.kind === "backpack" && <BackpackPanel onClose={closePanel} />}
+          {panel?.kind === "backpack" && (
+            <PlayerMenu
+              profile={profile}
+              onClose={closePanel}
+              onEditCharacter={() => {
+                closePanel();
+                setDialog("character");
+              }}
+            />
+          )}
           {panel?.kind === "fishAlbum" && <FishAlbum onClose={closePanel} />}
           {panel?.kind === "photos" && <PhotoGallery onClose={closePanel} />}
           {panel?.kind === "trophies" && <TrophyPanel onClose={closePanel} />}
@@ -362,8 +383,10 @@ const CONTROLS: [string, string][] = [
   ["T", "emotes"],
   ["P", "foto"],
   ["Enter", "chatear"],
+  ["Tab", "cambiar la fila de la barra"],
+  ["1-9 0 - =", "elegir la casilla (la mano)"],
+  ["I", "mochila, stats y personaje"],
   ["/time", "la hora del juego (/ muestra los comandos)"],
-  ["1-6", "botones de la barra"],
 ];
 const DECOR_CONTROLS: [string, string][] = [
   ["Clic", "poner o elegir"],

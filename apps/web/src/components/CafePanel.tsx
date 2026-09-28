@@ -1,7 +1,7 @@
 "use client";
 
 // Fase 3a: la carta de la barra de la cafetería y, con el rediseño, la del bar del club (sótano). Se paga
-// con puntos, lo pedido se lleva en la mano y se usa con F (pitadas, sorbos, mordiscos, cucharadas).
+// con puntos, lo pedido va a la mochila (y a la mano) y se usa con F (pitadas, sorbos, mordiscos, cucharadas).
 // La cafetería tiene carta colombiana larga: va por pestañas (bebidas, panadería, fritos, postres…).
 import { drawMenuItem } from "@hyvento/map/art";
 import {
@@ -167,7 +167,8 @@ function MenuPanel({
 
   const intro = (
     <p className={`text-[14px] ${night ? "text-[#e9d8ff]" : "text-cozy-ink-soft"}`}>
-      Lo que pidas lo llevas en la mano {Math.round(CAFE.heldMs / 60_000)} minutos y todos lo ven. Con <kbd className="cozy-kbd">F</kbd> lo usas.
+      Lo que pidas va a tu mochila (los combos, cada cosa por su lado); elígelo en la barra de abajo y todos te lo ven en la mano. Con{" "}
+      <kbd className="cozy-kbd">F</kbd> lo usas.
       {!atObject && ` ${farHint}`}
     </p>
   );

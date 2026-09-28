@@ -140,7 +140,8 @@ export async function postGift(db: GiftDb, user: { id: string; name: string | nu
     if (err instanceof GiftFailed) return failure(err.message, err.status);
     throw err;
   }
-  if (body.points > 0) await afterCommit("cambio de puntos", () => notify.pointsChanged(user.id));
+  // El aviso de "puntos" también hace releer la mochila en la cabaña (salió un objeto).
+  if (body.points > 0 || body.itemId) await afterCommit("cambio de puntos", () => notify.pointsChanged(user.id));
   await afterCommit("regalo", () =>
     notify.giftSent({ toId: body.toId, fromName: user.name || "Alguien", points: body.points, itemId: body.itemId, quantity: body.quantity }),
   );
@@ -156,6 +157,6 @@ export async function postOpenGift(db: GiftDb, userId: string, giftId: string, n
     if (err instanceof GiftFailed) return failure(err.message, err.status);
     throw err;
   }
-  if (result.gift.points > 0) await afterCommit("cambio de puntos", () => notify.pointsChanged(userId));
+  if (result.gift.points > 0 || result.gift.itemId) await afterCommit("cambio de puntos", () => notify.pointsChanged(userId));
   return { status: 200, body: result };
 }

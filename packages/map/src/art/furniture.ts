@@ -36,6 +36,10 @@ import { CASA_DRAW } from "./casa-viva";
 import { PLANTAS_DRAW } from "./plantas";
 import { PHONE_DRAW } from "./phone";
 import { GARAJE_DRAW } from "./garaje";
+import { CASA_ARBOL_DRAW } from "./casa-arbol";
+import { BUS_DRAW } from "./bus";
+import { BUS_INSIDE_DRAW } from "./bus-adentro";
+import { AGUA_DRAW } from "./agua";
 
 export type { Variant } from "./kit";
 
@@ -758,9 +762,13 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...CASA_DRAW,
   ...PLANTAS_DRAW,
   ...GARAJE_DRAW,
+  ...CASA_ARBOL_DRAW,
+  ...BUS_DRAW,
+  ...BUS_INSIDE_DRAW,
   "photo-board": photoBoard,
   acuario,
   ...RACE_DRAW,
+  ...AGUA_DRAW,
   ...PHONE_DRAW,
 };
 
