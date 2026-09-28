@@ -73,7 +73,9 @@ export type WallpaperKind =
   | "slats"
   | "colonial"
   // Garaje: bloque de cemento sin pintar, con humedad y manchas.
-  | "cinderblock";
+  | "cinderblock"
+  // Observatorio: piedra de la torre con vigas de madera (curva, como la torre por fuera).
+  | "stonework";
 
 export interface ZoneDef {
   id: string;
@@ -109,7 +111,9 @@ export interface DoorDef {
 // Del rediseño de interiores: espejo, paneles acústicos, ventanal de piso a techo, repisa, mapamundi y retrato.
 export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "video-wall" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait"
   // Garaje: tablero de herramientas, portón enrollable por dentro, calendario viejo, telaraña y ventana sucia.
-  | "pegboard" | "rollup" | "calendar" | "cobweb" | "grimy-window";
+  | "pegboard" | "rollup" | "calendar" | "cobweb" | "grimy-window"
+  // Observatorio: mapa estelar, el mural del cielo y la ventana redonda de ojo de buey.
+  | "star-chart" | "mural" | "porthole";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -171,7 +175,14 @@ export interface PointDef {
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
     | "tool_shed"
     // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
-    | "greenhouse_plot";
+    | "greenhouse_plot"
+    // Observatorio: frente al telescopio, junto a la fogata de malvaviscos, frente al orrery (el modelo del
+    // sistema solar), frente al radar de señales y frente al escritorio con el diario de exploración.
+    | "telescope"
+    | "marshmallow_fire"
+    | "orrery"
+    | "signal_radar"
+    | "logbook";
   name: string;
   x: number;
   y: number;

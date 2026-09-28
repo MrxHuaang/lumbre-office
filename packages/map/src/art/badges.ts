@@ -69,6 +69,11 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   glass: ["xxxxxx..", "xYYYYx..", "xyyyyxxx", "xyyyyx.x", "xyyyyx.x", "xyyyyxxx", "xyyyyx..", "xxxxxx.."],
   chair: ["..bbbb..", "..bBBb..", "..bBBb..", "..bbbb..", "bbbbbbbb", "...ss...", "...ss...", ".ssssss.", "s..s..s."],
   scroll: ["nWWWWWWn", ".cccccc.", ".cCCCCc.", ".cccccc.", ".cCCCcc.", ".cccccc.", "nWWWWWWn"],
+  // Observatorio: la estrella fugaz con su estela, el telescopio de latón en su trípode y el malvavisco
+  // en el palito.
+  star: ["........Y.", ".......YYY", "....c.YYYY", "...c...YY.", "..c....Y..", ".c........", "c........."],
+  telescope: ["......yy.", ".....yYy.", "....yYy..", "...yYy...", "..yYy....", ".nyy.....", ".n.n.....", "n...n....", "n...n...."],
+  marshmallow: [".cccc....", "cCccCc...", "cccccc...", "cCcccC...", ".cccc....", "....ww...", ".....ww..", "......ww.", ".......ww"],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],
 };
 

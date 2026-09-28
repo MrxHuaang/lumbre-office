@@ -82,6 +82,14 @@ export const STAT_KEYS = {
   photosTaken: "photos_taken",
   toasts: "toasts",
   chairSpins: "chair_spins",
+  // Observatorio: mirar el cielo de noche, estrellas fugaces vistas (y las vistas primero que nadie) y
+  // los malvaviscos de su fogata.
+  stargazing: "stargazing",
+  shootingStars: "shooting_stars",
+  shootingStarsFirst: "shooting_stars_first",
+  marshmallows: "marshmallows",
+  goldenMarshmallows: "marshmallows_golden",
+  burntMarshmallows: "marshmallows_burnt",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -159,6 +167,9 @@ export const BADGE_ICONS = [
   "glass",
   "chair",
   "scroll",
+  "star",
+  "telescope",
+  "marshmallow",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
@@ -194,7 +205,7 @@ const a = (
 export const ALBUM_SPECIES = FISH.filter((f) => f.rarity !== "basura").length;
 
 /** Niveles de la cabaña (el test del servidor revisa que "Turista" pida todos). */
-export const TOURIST_AREAS = 6;
+export const TOURIST_AREAS = 7;
 
 export const ACHIEVEMENTS: readonly Achievement[] = [
   // Cafetería y bar
@@ -225,7 +236,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   a("suertudo", "Suertudo", "wheel", "epico", STAT_KEYS.rouletteStraights, 1, "Acierta un pleno en la ruleta", "Un número, una ficha, un grito."),
   a("blackjack-natural", "Blackjack natural", "cards", "raro", STAT_KEYS.blackjackNaturals, 1, "Saca 21 con las dos primeras cartas", "As y figura. El crupier suspira."),
   // Tiempo y lugares
-  a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al piso 3 y hasta el garaje, con foto mental en cada uno."),
+  a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al piso 3, el garaje y el observatorio, con foto mental en cada uno."),
   a("caminante", "Pantuflas gastadas", "shoe", "raro", STAT_KEYS.tilesWalked, 10_000, "Camina 10.000 baldosas", "Tus pantuflas piden jubilación."),
   a("madrugador", "Madrugador", "sunrise", "raro", STAT_KEYS.earlyDays, 1, "Está activo antes de las 7 de la mañana (Bogotá)", "Llegaste antes que el café."),
   a("buho", "Búho", "owl", "raro", STAT_KEYS.owlDays, 1, "Está activo después de medianoche (Bogotá)", "¿Trabajando o huyendo del sueño?", true),
@@ -241,6 +252,13 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   a("manos-a-la-obra", "Manos a la obra", "scroll", "raro", STAT_KEYS.missionsDone, 5, "Completa 5 misiones del tablón", "El tablón ya tiene tu nombre escrito a mano."),
   a("paparazzi", "Paparazzi", "camera", "raro", STAT_KEYS.photosTaken, 25, "Toma 25 fotos", "Nadie sale mal en tus fotos. Casi nadie."),
   a("salud", "¡Salud!", "glass", "comun", STAT_KEYS.toasts, 10, "Brinda 10 veces", "Chocar copas es tu idioma del amor."),
+  // Observatorio
+  a("astronomo-de-patio", "Astrónomo de patio", "telescope", "comun", STAT_KEYS.stargazing, 1, "Mira por el telescopio del observatorio de noche", "Resulta que las estrellas tienen nombre. Y chisme."),
+  a("cazaestrellas", "Cazaestrellas", "star", "raro", STAT_KEYS.shootingStars, 5, "Ve 5 estrellas fugaces por el telescopio", "Ya no pides deseos: los coleccionas."),
+  a("pide-un-deseo", "Pide un deseo", "star", "epico", STAT_KEYS.shootingStarsFirst, 1, "Sé el primero en ver una estrella fugaz", "La viste antes que nadie. El deseo es tuyo (no lo cuentes)."),
+  a("punto-exacto", "Punto exacto", "marshmallow", "comun", STAT_KEYS.goldenMarshmallows, 1, "Saca un malvavisco dorado de la fogata del observatorio", "Ni crudo ni carbón: el punto de la abuela."),
+  a("maestro-malvavisquero", "Maestro malvavisquero", "marshmallow", "raro", STAT_KEYS.goldenMarshmallows, 25, "Saca 25 malvaviscos dorados", "Tu palito ya tiene nombre propio."),
+  a("antorcha-humana", "Antorcha humana", "flame", "comun", STAT_KEYS.burntMarshmallows, 5, "Quema 5 malvaviscos", "Técnicamente también es cocinar.", true),
   a("mareo-voluntario", "Mareo voluntario", "chair", "comun", STAT_KEYS.chairSpins, 50, "Da 50 vueltas en la silla giratoria", "Productividad: 0. Diversión: toda.", true),
 ];
 

@@ -24,6 +24,11 @@ export const CONEXIONES = {
     escaleraTerraza: { tiles: [{ x: 59, y: 27 }], llegada: { x: 59, y: 28, facing: "down" } },
     /** La puerta chica del garaje, pegado al oeste de la torre (el garaje está en (33, 22) y mide 5x5). */
     garaje: { tiles: [{ x: 36, y: 27 }], llegada: { x: 36, y: 28, facing: "down" } },
+    /**
+     * La puerta del observatorio, en la lomita del noreste (la torre está en (82, 33) y mide 6x6): se
+     * sube por los escalones de piedra del frente y se entra por la puerta de la torre.
+     */
+    observatorio: { tiles: par(84, 39), llegada: { x: 84, y: 40, facing: "down" } },
   },
   plantaBaja: {
     /** La puerta de entrada del recibidor, al centro de la fachada sur (detrás del porche del jardín). */
@@ -52,6 +57,10 @@ export const CONEXIONES = {
   garaje: {
     /** La puerta de la pared sur del taller (se sale al jardín, frente a la puerta chica). */
     entrada: { tiles: par(6, 10), llegada: { x: 6, y: 9, facing: "up" } },
+  },
+  observatorio: {
+    /** La puerta de la pared sur de la torre (se sale al jardín, al pie de los escalones). */
+    entrada: { tiles: par(6, 11), llegada: { x: 6, y: 10, facing: "up" } },
   },
 } satisfies Record<string, Record<string, Conexion>>;
 
