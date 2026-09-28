@@ -14,6 +14,7 @@ import {
 import { create } from "zustand";
 import { tokenUsable } from "./livekitToken";
 import { useOfficeStore } from "./store";
+import { bindRoom } from "./devices";
 
 /**
  * - off: fuera de la cabaña.
@@ -347,6 +348,7 @@ class MediaManager {
   }
 
   private wire(room: Room) {
+    bindRoom(room); // micrófono, cámara, parlantes y ayudas de audio elegidos (devices.ts)
     const sync = () => {
       if (this.room === room) this.syncParticipants();
     };
