@@ -191,6 +191,19 @@ export class NpcCast {
       a.setOverShade(Boolean(rect) && a.x >= rect!.x * ts && a.x < (rect!.x + rect!.w) * ts && a.y >= rect!.y * ts && a.y < (rect!.y + rect!.h) * ts);
   }
 
+  /**
+   * Modo mesa: sin nombres, como los jugadores (con tanto zoom el nombre, que crece con la cámara, tapa la
+   * mesa). Los globos siguen: el crupier canta el número.
+   */
+  setNameHidden(hidden: boolean) {
+    for (const a of this.avatars()) a.setNameHidden(hidden);
+  }
+
+  /** Los cuerpos del personal y del Man, para atenuar al que tape la mesa en el modo mesa. */
+  sprites(): Phaser.GameObjects.Sprite[] {
+    return [...this.avatars()].map((a) => a.sprite);
+  }
+
   private *avatars(): Iterable<Avatar> {
     for (const s of this.staff.values()) yield s.avatar;
     if (this.man) yield this.man;
