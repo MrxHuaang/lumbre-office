@@ -14,21 +14,24 @@ export const HOCKEY = {
   goalWidth: 11,
   puckR: 1.6,
   malletR: 2.6,
-  /** Velocidad máxima del mazo de una persona y del de la máquina (u/s). */
-  malletSpeed: 95,
-  botSpeed: 52,
+  /**
+   * Velocidad máxima del mazo de una persona y del de la máquina (u/s). Con 95 y el disco a 115 la
+   * cancha se cruzaba en un tercio de segundo: no se alcanzaba a reaccionar.
+   */
+  malletSpeed: 80,
+  botSpeed: 34,
   /** La máquina vuelve a pensar a dónde ir cada tanto (no en cada paso): tiene reflejos, no es perfecta. */
-  botReactMs: 150,
-  /** Velocidad máxima del disco (u/s). */
-  puckMax: 115,
-  /** Parte de la velocidad que el disco pierde por segundo (la mesa sopla aire: casi nada). */
-  friction: 0.22,
+  botReactMs: 280,
+  /** Velocidad máxima del disco (u/s): cruza la cancha en poco más de medio segundo. */
+  puckMax: 72,
+  /** Parte de la velocidad que el disco pierde por segundo (la mesa sopla aire, pero algo frena). */
+  friction: 0.45,
   /** Cuánto rebota contra las bandas y contra un mazo. */
-  wallBounce: 0.86,
-  hitBounce: 0.9,
-  /** Paso fijo de la física y cada cuánto avanza y reparte la sala (3 pasos por vez). */
+  wallBounce: 0.82,
+  hitBounce: 0.8,
+  /** Paso fijo de la física y cada cuánto avanza y reparte la sala (2 pasos por vez: 30 cuadros por segundo). */
   stepMs: 1000 / 60,
-  tickMs: 50,
+  tickMs: 1000 / 30,
   /** Goles para ganar. */
   toWin: 7,
   countdownMs: 3000,
