@@ -296,6 +296,9 @@ export class OfficeScene extends Phaser.Scene {
   private critters!: Critters;
   /** Ya llegó el clima de esta conexión (el primero se pone de una, sin transición). */
   private weatherKnown = false;
+  /** Lo que decía el reloj la última vez: al cruzar las 19:00 (o las 7:00) se prende o apaga la noche sola. */
+  private nightByClock = isNightNow();
+  private clockElapsed = 0;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
@@ -374,6 +377,7 @@ export class OfficeScene extends Phaser.Scene {
       present: () => [...this.areaOfSession].filter(([, area]) => area === this.map.id).map(([id]) => id),
     });
     this.weatherView = new WeatherView(this);
+    this.weatherView.setNight(useOfficeStore.getState().night);
     this.weatherView.setWeather(useOfficeStore.getState().weather, true);
     this.seasonView = new SeasonView(this);
     this.seasonView.setWeather(useOfficeStore.getState().weather, true);
@@ -490,6 +494,7 @@ export class OfficeScene extends Phaser.Scene {
         if (s.weather !== prev.weather || s.night !== prev.night) this.critters.setConditions(s.night, s.weather);
         if (s.night !== prev.night) {
           this.view?.setNight(s.night);
+          this.weatherView.setNight(s.night);
           this.updateGhost(true); // el fantasma también cambia de textura
         }
         if (s.lastAward && s.lastAward !== prev.lastAward) this.floatAward(s.lastAward.amount);
@@ -546,6 +551,7 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.shakePhones(time);
     this.drunkVision.update(time, delta);
+    this.followClock(delta);
     this.weatherView.update(time, delta);
     this.seasonView.update(time, delta);
     this.critters.update(time, delta);
@@ -647,6 +653,20 @@ export class OfficeScene extends Phaser.Scene {
       usePhotoStore.getState().flash();
       usePhotoStore.getState().setPending({ shot: canvas, ticket: shot.ticket, area: shot.area, people: shot.people, takenAt: shot.takenAt });
     });
+  }
+
+  /**
+   * La noche llega sola a las 19:00 (después del atardecer) y se va a las 7:00. Solo al cruzar la hora:
+   * si alguien la cambió a mano con el botón, se respeta hasta el próximo cruce.
+   */
+  private followClock(delta: number) {
+    this.clockElapsed += delta;
+    if (this.clockElapsed < 10_000) return;
+    this.clockElapsed = 0;
+    const night = isNightNow();
+    if (night === this.nightByClock) return;
+    this.nightByClock = night;
+    useOfficeStore.getState().setNight(night);
   }
 
   // ---------- Niveles ----------

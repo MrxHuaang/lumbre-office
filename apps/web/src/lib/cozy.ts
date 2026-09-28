@@ -52,6 +52,22 @@ export async function waitForCozyFont(timeoutMs = 2000): Promise<void> {
   await Promise.race([loads.catch(() => undefined), new Promise((r) => setTimeout(r, timeoutMs))]);
 }
 
+/** El atardecer va de las 17:00 a las 19:00 (hora local), cuando llega la noche. */
+const DUSK_FROM = 17;
+const DUSK_TO = 19;
+
+/**
+ * Cuánto atardeció (0..1), como en Stardew: desde las 17:00 la luz se va dorando de a poco hasta la
+ * noche. Suave al empezar y al terminar (smoothstep); fuera del tramo, 0 (de noche manda la noche,
+ * aunque alguien vuelva al día con el botón).
+ */
+export function duskAt(d = new Date()): number {
+  const h = d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+  if (h >= DUSK_TO) return 0;
+  const t = Math.min(1, Math.max(0, (h - DUSK_FROM) / (DUSK_TO - DUSK_FROM)));
+  return t * t * (3 - 2 * t);
+}
+
 /** ¿Es de noche según la hora local? (de 19:00 a 6:59). */
 export function isNightNow(d = new Date()): boolean {
   const h = d.getHours();
