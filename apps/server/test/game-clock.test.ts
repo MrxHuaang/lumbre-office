@@ -47,10 +47,10 @@ async function join(role: "ADMIN" | "MEMBER") {
 }
 
 describe("reloj del juego en la sala", () => {
-  it("todos ven el reloj en el estado y corre un minuto por segundo", async () => {
+  it("todos ven el reloj en el estado y corre una hora del juego cada 2,5 minutos", async () => {
     const { clock } = await join("MEMBER");
     expect(clock()).toMatchObject({ day: 2, hour: 10, minute: 0 });
-    now += 90_000;
+    now += 225_000;
     expect(clock()).toMatchObject({ hour: 11, minute: 30 });
   });
 

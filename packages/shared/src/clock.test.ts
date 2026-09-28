@@ -16,11 +16,12 @@ import {
 const at = (minute: number): GameClockState => ({ anchorReal: 0, anchorMinute: minute });
 
 describe("reloj del juego", () => {
-  it("un día del juego dura 24 minutos reales", () => {
+  it("un día del juego dura una hora real", () => {
     const c = at(0);
+    expect(GAME_DAY_REAL_MS).toBe(60 * 60_000);
     expect(gameTime(c, GAME_DAY_REAL_MS)).toMatchObject({ day: 1, minuteOfDay: 0 });
-    // Un segundo real es un minuto del juego.
-    expect(gameTime(c, 90_000)).toMatchObject({ day: 0, hour: 1, minute: 30 });
+    // Una hora del juego son 2,5 minutos reales.
+    expect(gameTime(c, 150_000 + 75_000)).toMatchObject({ day: 0, hour: 1, minute: 30 });
   });
 
   it("la noche va de 19:00 a 6:59", () => {
