@@ -53,7 +53,12 @@ export type FloorKind =
   | "moquette"
   | "planks"
   // Garaje: concreto gastado con manchas de aceite (adentro y en la entrada de afuera).
-  | "concrete";
+  | "concrete"
+  // Parada del bus: la calle (asfalto, carril exclusivo pintado, líneas y cordones; el dibujo depende de
+  // dónde cae, ver art/bus.ts). No se camina: queda fuera de la zona jugable.
+  | "road"
+  // El Megabús por dentro: piso de caucho antideslizante.
+  | "rubber";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
 // Variedad: rayas finas, damasco dorado, ladrillo visto, listones de madera clara y estuco con zócalo.
 export type WallpaperKind =
@@ -73,7 +78,10 @@ export type WallpaperKind =
   | "slats"
   | "colonial"
   // Garaje: bloque de cemento sin pintar, con humedad y manchas.
-  | "cinderblock";
+  | "cinderblock"
+  // El Megabús por dentro: paneles claros con la franja verde lima, y los pliegues grises del fuelle.
+  | "megabus"
+  | "fuelle";
 
 export interface ZoneDef {
   id: string;
@@ -109,7 +117,9 @@ export interface DoorDef {
 // Del rediseño de interiores: espejo, paneles acústicos, ventanal de piso a techo, repisa, mapamundi y retrato.
 export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board" | "clock" | "whiteboard" | "neon" | "cinema-screen" | "video-wall" | "poster" | "mirror" | "acoustic" | "ventanal" | "shelf" | "map" | "portrait"
   // Garaje: tablero de herramientas, portón enrollable por dentro, calendario viejo, telaraña y ventana sucia.
-  | "pegboard" | "rollup" | "calendar" | "cobweb" | "grimy-window";
+  | "pegboard" | "rollup" | "calendar" | "cobweb" | "grimy-window"
+  // Megabús: las ventanas oscuras de piso a techo (con `text`, la pantalla de ruta encima).
+  | "bus-window";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -171,7 +181,9 @@ export interface PointDef {
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.
     | "tool_shed"
     // Uno por bancal del invernadero, en el orden de los bancales (ids GREENHOUSE_PLOT_BASE + índice).
-    | "greenhouse_plot";
+    | "greenhouse_plot"
+    // Parada del bus: uno frente a cada puerta de la estación (ahí se toma el bus y ahí se baja la gente).
+    | "bus_stop";
   name: string;
   x: number;
   y: number;

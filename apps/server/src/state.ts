@@ -231,6 +231,17 @@ export class GardenPlotState extends Schema {
   @type("number") wateredUntil = 0;
 }
 
+/** El Megabús de la parada del jardín (ver rooms/bus.ts): la fase y cuándo empezó, con la hora del servidor. */
+export class BusState extends Schema {
+  /** BusPhase de @hyvento/shared: "away", "arriving", "open", "closing", "route" o "leaving". */
+  @type("string") phase = "away";
+  @type("float64") since = 0;
+  /** Cuándo empieza a llegar el próximo bus del horario. */
+  @type("float64") nextAt = 0;
+  /** Número de pasada (para que el cliente note una llegada nueva). */
+  @type("uint32") run = 0;
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -259,4 +270,5 @@ export class OfficeState extends Schema {
    */
   @type("float64") clockAnchorReal = 0;
   @type("float64") clockAnchorMinute = 0;
+  @type(BusState) bus = new BusState();
 }

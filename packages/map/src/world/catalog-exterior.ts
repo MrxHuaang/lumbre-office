@@ -59,7 +59,8 @@ export const EXTERIOR_CATALOG = {
   },
   "gazebo-roof": { name: "Techo de la glorieta", size: [4, 4], fixed: true, solid: false, seeThrough: true, hasNight: true, light: { at: [32, 32, 30], ...LANTERN_LIGHT } },
   pergola: { name: "Pérgola", size: [3, 3], fixed: true, light: { at: [24, 24, 40], ...LANTERN_LIGHT } },
-  "garden-gate": { name: "Portón", size: [2, 1], fixed: true, light: { at: [16, 7, 28], ...LANTERN_LIGHT } },
+  // Abierto: afuera quedan la vereda y la parada del bus.
+  "garden-gate": { name: "Portón", size: [2, 1], fixed: true, solid: false, light: { at: [16, 7, 28], ...LANTERN_LIGHT } },
   "fence-post": { name: "Poste de la cerca", size: [1, 1] },
   // Huerto.
   well: { name: "Pozo", size: [2, 2] },

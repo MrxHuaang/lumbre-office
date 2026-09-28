@@ -2,6 +2,7 @@
 // room.ts los llama; viven aparte para que cada parte del rediseño toque lo menos posible de room.ts.
 // Unidades de arte (tile = 16). En las paredes `u` corre a lo largo del muro y `hv` es la altura.
 import type { FloorKind, WallFeature, WallpaperKind } from "../world/types";
+import { busWallpaper } from "./bus-adentro";
 import { C, OUT, inRect, mix } from "./palette";
 import { at, bayer, noise, ramp, smoothNoise, type Ramp, type RGBA } from "./pixel";
 import { cinderblockWall } from "./garaje-room";
@@ -409,6 +410,9 @@ export function interiorWall(kind: WallpaperKind | null, u: number, hv: number):
       return colonial(u, hv);
     case "cinderblock":
       return cinderblockWall(u, hv);
+    case "megabus":
+    case "fuelle":
+      return busWallpaper(kind, u, hv);
     default:
       return null;
   }

@@ -26,6 +26,8 @@ const SURFACE: Record<FloorKind, StepSurface> = {
   terrazzo: "stone",
   brick: "stone",
   concrete: "stone",
+  road: "stone",
+  rubber: "soft",
   stone: "stone",
   kitchen: "stone",
   mosaic: "stone",

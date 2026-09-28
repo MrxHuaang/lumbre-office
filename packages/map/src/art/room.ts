@@ -22,6 +22,8 @@ import {
 } from "./pixel";
 import { FOREST, interiorFeature, interiorFloor, interiorWall } from "./interior-room";
 import { CEMENT, concreteFloor, garajeFeature } from "./garaje-room";
+import { roadFloor } from "./bus-calle";
+import { busWallFeature, rubberFloor } from "./bus-adentro";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;
@@ -45,6 +47,8 @@ const WALLPAPER: Record<WallpaperKind, Ramp> = {
   slats: C.wood,
   colonial: C.cream,
   cinderblock: CEMENT,
+  megabus: C.cream,
+  fuelle: C.stone,
 };
 /** El alfombrado toma el color del papel de la sala. */
 const CARPET: Record<WallpaperKind, Ramp> = {
@@ -64,6 +68,8 @@ const CARPET: Record<WallpaperKind, Ramp> = {
   slats: C.cream,
   colonial: C.green,
   cinderblock: C.stone,
+  megabus: C.green,
+  fuelle: C.stone,
 };
 
 // ---------- Pisos ----------
@@ -261,6 +267,10 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return loungeFloor(X, Y);
     case "concrete":
       return concreteFloor(X, Y);
+    case "road":
+      return roadFloor(X, Y);
+    case "rubber":
+      return rubberFloor(X, Y);
   }
 }
 
@@ -363,6 +373,8 @@ const KIND_SET: Record<FloorKind, true> = {
   moquette: true,
   planks: true,
   concrete: true,
+  road: true,
+  rubber: true,
 };
 const KINDS = Object.keys(KIND_SET) as FloorKind[];
 
@@ -876,6 +888,8 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
     case "cobweb":
     case "grimy-window":
       return garajeFeature(f, u, hv, day);
+    case "bus-window":
+      return busWallFeature(f, u, hv, day);
   }
 }
 

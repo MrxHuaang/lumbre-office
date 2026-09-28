@@ -34,6 +34,8 @@ import { SOTANO_DRAW } from "./sotano";
 import { CASA_DRAW } from "./casa-viva";
 import { PLANTAS_DRAW } from "./plantas";
 import { GARAJE_DRAW } from "./garaje";
+import { BUS_DRAW } from "./bus";
+import { BUS_INSIDE_DRAW } from "./bus-adentro";
 
 export type { Variant } from "./kit";
 
@@ -756,6 +758,8 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...CASA_DRAW,
   ...PLANTAS_DRAW,
   ...GARAJE_DRAW,
+  ...BUS_DRAW,
+  ...BUS_INSIDE_DRAW,
   "photo-board": photoBoard,
   ...RACE_DRAW,
 };

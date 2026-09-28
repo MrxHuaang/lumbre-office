@@ -30,6 +30,7 @@ const STARTS: Record<string, { x: number; y: number }> = {
   "piso-3": CONEXIONES.piso3.escaleraAbajo.llegada,
   sotano: CONEXIONES.sotano.escalera.llegada,
   garaje: CONEXIONES.garaje.entrada.llegada,
+  megabus: CONEXIONES.megabus.puertas.llegada,
 };
 
 const world = getWorld();
@@ -47,7 +48,7 @@ const garaje = area("garaje");
 
 describe("mundo", () => {
   it("tiene el jardín, los pisos de la casa, el sótano y el garaje, y se aparece en el jardín", () => {
-    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje"]);
+    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje", "megabus"]);
     expect(world.spawnArea).toBe("jardin");
     const spawn = spawnPoint(jardin);
     expect(canStandAt(jardin, spawn.x, spawn.y)).toBe(true);

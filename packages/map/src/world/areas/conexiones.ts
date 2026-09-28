@@ -53,6 +53,13 @@ export const CONEXIONES = {
     /** La puerta de la pared sur del taller (se sale al jardín, frente a la puerta chica). */
     entrada: { tiles: par(6, 10), llegada: { x: 6, y: 9, facing: "up" } },
   },
+  megabus: {
+    /**
+     * Las tres puertas del bus por dentro (en la pared baja del sur: la de atrás y las dos de adelante). No
+     * se entra por un portal: se sube con E en la estación y se llega junto a la puerta más cercana.
+     */
+    puertas: { tiles: [{ x: 4, y: 5 }, { x: 13, y: 5 }, { x: 18, y: 5 }], llegada: { x: 13, y: 2, facing: "right" } },
+  },
 } satisfies Record<string, Record<string, Conexion>>;
 
 /** Destino de un portal: la llegada de `c` en el nivel `area`. */
