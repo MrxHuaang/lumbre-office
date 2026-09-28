@@ -1,6 +1,6 @@
 import { HEAD_ITEMS } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
-import { SIT_BACK_ROWS, SIT_BASE_Z } from "../world/seats";
+import { SIT_BACK_ROWS, SIT_BASE_Z, SIT_WAIST_ROWS } from "../world/seats";
 import { BODY_UP, BODY_X, BODY_Y, drawCharacter, drawSitting, FEET_Y, FRAME, HUMANS, SHEET_DIRECTIONS, SIT_DROP, type CharacterStyle } from "./chibi";
 import { tone } from "./chibi/kit";
 import type { PixelCanvas } from "./pixel";
@@ -70,6 +70,12 @@ describe("marco del chibi", () => {
     // Cuello: fila 12 del cuerpo; el torso empieza en la 13 y ya no entra en la copia de la cabeza.
     expect(SIT_BACK_ROWS).toBe(BODY_Y + SIT_DROP + 13);
     expect(SIT_BACK_ROWS).toBe(FEET_Y - 10);
+  });
+
+  it("sin respaldo, de espaldas el cuerpo se corta 2 filas sobre el cinturón", () => {
+    // El cinturón está en FEET_Y - 3 (ver arriba); el corte deja fuera también las 2 filas de encima.
+    expect(SIT_WAIST_ROWS).toBe(FEET_Y - 3 - 2);
+    expect(SIT_WAIST_ROWS).toBeGreaterThan(SIT_BACK_ROWS);
   });
 
   it("las alturas del cuerpo que usa la cabaña van de la mano a la coronilla", () => {

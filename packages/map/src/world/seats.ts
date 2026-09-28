@@ -34,9 +34,11 @@ export function seatZ(type: string): number {
 }
 
 /**
- * Cuánto se corre el cuerpo hacia donde mira (unidades de arte), para que la cadera caiga en el centro
- * del cojín y no sobre el respaldo: en los muebles con respaldo grueso el cojín queda por delante del
- * centro del tile. En la glorieta, la banca está más adentro que el centro de los tiles del borde.
+ * Cuánto se corre el cuerpo hacia donde mira (unidades de arte; negativo: hacia el respaldo), para que la
+ * cadera caiga en el centro del cojín. En los muebles con respaldo grueso el cojín queda por delante del
+ * centro del tile; en las sillas de respaldo delgado (en el borde del tile) el cuerpo va pegado a él, y
+ * así de espaldas el respaldo le tapa la espalda y solo asoma la cabeza. En la glorieta, la banca está
+ * más adentro que el centro de los tiles del borde.
  */
 const SEAT_FORWARD: Record<string, number> = {
   sofa: 4,
@@ -47,7 +49,22 @@ const SEAT_FORWARD: Record<string, number> = {
   "cinema-seat": 2,
   beanbag: 2,
   gazebo: 4,
+  // Respaldo de 2 de grueso en el borde del tile (x 2..4): el cuerpo va contra él.
+  chair: -4,
+  "office-chair": -4,
+  "office-chair-broken": -4,
+  "bus-seat": -4,
+  bench: -4,
+  "patio-chair": -2,
 };
+
+/** Tipo del que un asiento toma sus medidas: las variantes de color y las gradas del cine son el mismo mueble. */
+function seatFamily(type: string): string {
+  if (type.startsWith("cinema-seat")) return "cinema-seat";
+  if (type.startsWith("office-chair") && type !== "office-chair-broken") return "office-chair";
+  if (type.startsWith("bus-seat")) return "bus-seat";
+  return type;
+}
 
 /** Paso de pantalla (px de arte) por unidad hacia cada lado del mundo: toScreen de (±1, 0) y (0, ±1). */
 const SCREEN_STEP: Record<Facing, { x: number; y: number }> = {
@@ -59,23 +76,24 @@ const SCREEN_STEP: Record<Facing, { x: number; y: number }> = {
 
 /** Corrimiento en pantalla (px de arte, enteros) del cuerpo sentado en ese asiento mirando a `facing`. */
 export function seatShift(type: string, facing: Facing): { x: number; y: number } {
-  const n = SEAT_FORWARD[type] ?? (type.startsWith("cinema-seat") ? SEAT_FORWARD["cinema-seat"]! : 0);
+  const n = SEAT_FORWARD[type] ?? SEAT_FORWARD[seatFamily(type)] ?? 0;
   const step = SCREEN_STEP[facing];
   return { x: Math.round(step.x * n) || 0, y: Math.round(step.y * n) || 0 };
 }
 
 /**
- * De espaldas no se ven las piernas colgando: la hoja sube estos px para que la cadera quede sobre el
- * asiento (si no, en una banca angosta el cuerpo cuelga por delante de la tabla).
+ * De espaldas tras un respaldo no se ven las piernas colgando: la hoja sube estos px para que la cadera
+ * quede sobre el asiento y la cabeza asome sobre el respaldo. Sin respaldo no sube: el cuerpo se corta
+ * a la altura del asiento (ver seatBodyRows) y queda a la misma altura que de frente.
  */
 export const SIT_BACK_RAISE = 3;
 
 /**
  * Cuánto bajar (positivo) o subir (negativo) la hoja de sentado en ese asiento, en px de arte. Con
- * `facing`, de espaldas sube un poco más (ver SIT_BACK_RAISE).
+ * `facing`, de espaldas tras un respaldo sube un poco más (ver SIT_BACK_RAISE).
  */
 export function seatLift(type: string, facing?: Facing): number {
-  return SIT_BASE_Z - seatZ(type) - (facing === "left" || facing === "up" ? SIT_BACK_RAISE : 0);
+  return SIT_BASE_Z - seatZ(type) - (facing && seatBehind(type, facing) ? SIT_BACK_RAISE : 0);
 }
 
 /**
@@ -92,3 +110,17 @@ export function seatBehind(type: string, facing: Facing): boolean {
  * del chibi sentado cae en FEET_Y - 11; un test lo revisa). Lo alto (sombreros, peinados) entra siempre.
  */
 export const SIT_BACK_ROWS = 27;
+
+/**
+ * De espaldas en un asiento sin respaldo (banquetas, troncos, bancas de picnic, cojines, la hamaca) no
+ * hay nada que tape la cadera y el cuerpo parecía parado encima del asiento: se dibuja solo lo de arriba
+ * (filas de la hoja < SIT_WAIST_ROWS) y lo de abajo queda "dentro" del asiento. El corte cae 2 filas
+ * sobre el cinturón (FEET_Y - 3; un test lo revisa): justo en el borde del cojín que da a la cámara.
+ */
+export const SIT_WAIST_ROWS = 32;
+
+/** Filas de la hoja de sentado que se dibujan en ese asiento mirando a `facing` (null: todas). */
+export function seatBodyRows(type: string, facing: Facing): number | null {
+  if (facing !== "left" && facing !== "up") return null;
+  return catalogItem(type).hasBack ? null : SIT_WAIST_ROWS;
+}

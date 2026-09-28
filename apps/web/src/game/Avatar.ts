@@ -1,4 +1,4 @@
-import { seatBehind, seatLift, seatShift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
+import { seatBehind, seatBodyRows, seatLift, seatShift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
 import {
   BODY_UP,
   bubble,
@@ -865,6 +865,11 @@ export class Avatar {
    */
   private syncSeatHead() {
     const s = this.sprite;
+    // De espaldas en un asiento sin respaldo el cuerpo se corta en la cintura (seatBodyRows).
+    const face = this.spinning?.face ?? this.seated;
+    const rows = face && this.seatType && !this.ride ? seatBodyRows(this.seatType, face) : null;
+    if (rows) s.setCrop(0, 0, FRAME, rows);
+    else if (s.isCropped) s.setCrop();
     const on = s.visible && this.behindBack();
     this.seatHead.setVisible(on);
     if (!on) return;

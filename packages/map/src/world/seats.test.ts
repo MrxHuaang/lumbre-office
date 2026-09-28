@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getWorld } from "../index";
 import { CATALOG, type CatalogItem } from "./catalog";
-import { SIT_BACK_RAISE, seatBehind, seatLift, seatShift, seatZ } from "./seats";
+import { SIT_BACK_RAISE, SIT_WAIST_ROWS, seatBehind, seatBodyRows, seatLift, seatShift, seatZ } from "./seats";
 
 describe("asientos", () => {
   it("cada asiento tiene una altura razonable y la silla es la base", () => {
@@ -15,15 +15,36 @@ describe("asientos", () => {
     }
   });
 
-  it("de espaldas la hoja sube para que la cadera quede sobre el asiento; de frente, no", () => {
-    expect(seatLift("picnic-bench", "left")).toBe(seatLift("picnic-bench") - SIT_BACK_RAISE);
+  it("de espaldas tras un respaldo la hoja sube para que la cabeza asome; de frente, no", () => {
     expect(seatLift("chair", "up")).toBe(-SIT_BACK_RAISE);
+    expect(seatLift("office-chair-blue", "left")).toBe(-SIT_BACK_RAISE);
     expect(seatLift("chair", "right")).toBe(seatLift("chair"));
     expect(seatLift("chair", "down")).toBe(seatLift("chair"));
   });
 
+  it("sin respaldo, de espaldas no sube: el cuerpo se corta a la altura del asiento", () => {
+    for (const type of ["stool", "picnic-bench", "log-seat", "treehouse-cushion", "hammock", "gazebo"]) {
+      expect(seatLift(type, "left"), type).toBe(seatLift(type));
+      expect(seatBodyRows(type, "left"), type).toBe(SIT_WAIST_ROWS);
+      expect(seatBodyRows(type, "up"), type).toBe(SIT_WAIST_ROWS);
+      expect(seatBodyRows(type, "right"), type).toBeNull();
+      expect(seatBodyRows(type, "down"), type).toBeNull();
+    }
+    // Con respaldo lo tapa el mueble (el cuerpo va debajo y encima solo la cabeza): no se corta.
+    expect(seatBodyRows("chair", "up")).toBeNull();
+  });
+
+  it("en las sillas de respaldo delgado el cuerpo va contra el respaldo, en todas las variantes", () => {
+    // Mirando a +x el respaldo queda atrás (izquierda y arriba en pantalla); de espaldas, delante.
+    expect(seatShift("chair", "right")).toEqual({ x: -4, y: -2 });
+    expect(seatShift("chair", "left")).toEqual({ x: 4, y: 2 });
+    expect(seatShift("chair", "up")).toEqual({ x: -4, y: 2 });
+    for (const type of ["office-chair", "office-chair-mustard", "office-chair-sage", "office-chair-broken", "bus-seat", "bus-seat-blue", "bench"])
+      expect(seatShift(type, "left"), type).toEqual(seatShift("chair", "left"));
+    expect(seatShift("patio-chair", "left")).toEqual({ x: 2, y: 1 });
+  });
+
   it("en los muebles de cojín por delante el cuerpo se corre hacia donde mira, a píxel entero", () => {
-    expect(seatShift("chair", "right")).toEqual({ x: 0, y: 0 });
     expect(seatShift("stool", "up")).toEqual({ x: 0, y: 0 });
     // Hacia +x en pantalla es derecha y abajo; hacia -y, derecha y arriba.
     expect(seatShift("sofa", "right")).toEqual({ x: 4, y: 2 });
