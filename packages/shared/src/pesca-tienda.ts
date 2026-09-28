@@ -54,14 +54,12 @@ export interface FishingGear {
 }
 
 /**
- * Con qué se pesca: si lo de la mano es una caña o una carnada, eso; si no, lo mejor que se tenga (la
- * caña de carbono antes que la de fibra, y la carnada de la buena antes que la común). Sin nada comprado,
- * la caña de bambú y sin carnada, como siempre. `count(art)` = unidades de ese objeto en la mochila.
+ * Con qué se pesca: siempre la mejor caña que se tenga (así nadie pesca con la peor por descuido). La
+ * carnada, la de la mano si es una (para guardar la de la buena); si no, la mejor. Sin nada comprado, la
+ * caña de bambú y sin carnada, como siempre. `count(art)` = unidades de ese objeto en la mochila.
  */
 export function fishingGear(count: (art: string) => number, inHand = ""): FishingGear {
-  const handRod = rodOfItem(inHand);
-  const rod: FishingRod =
-    handRod && count(inHand) > 0 ? handRod : ([...FISHING_RODS].reverse().find((r) => r !== "bambu" && count(ROD_ITEM[r]) > 0) ?? "bambu");
+  const rod: FishingRod = [...FISHING_RODS].reverse().find((r) => r !== "bambu" && count(ROD_ITEM[r]) > 0) ?? "bambu";
   const bait: BaitId | null = isBait(inHand) && count(inHand) > 0 ? inHand : ([...BAITS].reverse().find((b) => count(b) > 0) ?? null);
   return { rod, bait };
 }

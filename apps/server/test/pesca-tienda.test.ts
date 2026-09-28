@@ -192,21 +192,19 @@ describe("el puesto de pesca: pescar con lo comprado", () => {
   });
 
   it("la dorada (la legendaria) es la mejor: con ella en la mochila el reto trae la dorada", async () => {
+    // Al entrar, lo de la mano es la primera casilla (la carbono): igual se pesca con la mejor.
     const s = await setup(0, { at: spot, stock: { "obj:cana-carbono": 1, "obj:cana-dorada": 1 } });
-    // Al entrar, lo de la mano es la primera casilla (la carbono): se elige una casilla vacía para usar lo mejor.
-    s.alice.send(BAG_MSG.select, { slot: BAG.slots - 1 });
-    await s.room.waitForNextPatch();
     const { challenge } = await hooked(s);
     expect(challenge.rod).toBe("dorada");
     await s.room.waitForNextPatch();
     expect(s.me().fishingRod).toBe("dorada");
   });
 
-  it("con la de fibra en la mano se pesca con esa aunque tenga la de carbono", async () => {
+  it("con la de fibra en la mano igual se pesca con la de carbono (siempre la mejor)", async () => {
     const s = await setup(0, { at: spot, stock: { "obj:cana-fibra": 1, "obj:cana-carbono": 1 } });
     await holdItem(s.alice, s.room, "obj:cana-fibra");
     const { challenge } = await hooked(s);
-    expect(challenge.rod).toBe("fibra");
+    expect(challenge.rod).toBe("carbono");
   });
 
   it("la carnada se gasta una por lance y hace picar antes", async () => {

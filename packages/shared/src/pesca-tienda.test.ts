@@ -62,11 +62,12 @@ describe("con qué se pesca", () => {
     expect(fishingGear(have({}))).toEqual({ rod: "bambu", bait: null });
   });
 
-  it("la mejor que se tenga, salvo que lo de la mano sea una caña o una carnada", () => {
+  it("siempre la mejor caña; la carnada, la de la mano si es una", () => {
     const all = have({ [ROD_ITEM.fibra]: 1, [ROD_ITEM.carbono]: 1, carnada: 5, "carnada-buena": 3 });
     expect(fishingGear(all)).toEqual({ rod: "carbono", bait: "carnada-buena" });
     expect(fishingGear(have({ [ROD_ITEM.carbono]: 1, [ROD_ITEM.dorada]: 1 }))).toEqual({ rod: "dorada", bait: null });
-    expect(fishingGear(all, "cana-fibra")).toEqual({ rod: "fibra", bait: "carnada-buena" });
+    // Con una caña peor en la mano, igual se pesca con la mejor.
+    expect(fishingGear(all, "cana-fibra")).toEqual({ rod: "carbono", bait: "carnada-buena" });
     expect(fishingGear(all, "carnada")).toEqual({ rod: "carbono", bait: "carnada" });
     expect(fishingGear(have({ [ROD_ITEM.fibra]: 1, carnada: 2 }), "tinto")).toEqual({ rod: "fibra", bait: "carnada" });
     // Lo de la mano tiene que tenerse de verdad.
