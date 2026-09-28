@@ -59,6 +59,7 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
       className="cozy-panel absolute bottom-3 left-1/2 z-10 flex max-w-[calc(100%-1rem)] -translate-x-1/2 flex-col items-center gap-2 p-2 2xl:flex-row 2xl:gap-3 max-sm:bottom-2 max-sm:p-1.5"
     >
       {emotes && <EmotePicker onClose={() => setEmotes(false)} />}
+      {devicesOpen && <DevicePanel onClose={closeDevices} />}
       <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5 max-sm:gap-1">
         <Slot
           icon="mic"
@@ -78,6 +79,17 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
           disabled={!ready}
           onClick={() => void media.toggleCam()}
         />
+        {/* Audio y video: funciona sin LiveKit (la prueba es local), por eso nunca se deshabilita. */}
+        <button
+          type="button"
+          onClick={() => setDevicesOpen(true)}
+          aria-label="Audio y video: elegir y probar micrófono, cámara y parlantes"
+          aria-haspopup="dialog"
+          title="Audio y video"
+          className="cozy-btn h-[58px] w-7 p-0 max-sm:h-12 max-sm:w-6"
+        >
+          <PixelIcon name="gear" size={14} />
+        </button>
         <Slot
           icon="screen"
           label={mediaDown ?? (screen ? "Dejar de compartir" : "Compartir pantalla")}
@@ -115,85 +127,6 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
         />
         {actions}
       </div>
-      {devicesOpen && <DevicePanel onClose={closeDevices} />}
-      <Slot
-        n={1}
-        icon="mic"
-        off={!mic}
-        label={mediaDown ?? (mic ? "Silenciar micrófono" : "Activar micrófono")}
-        text={mic ? "Mic" : "Mic off"}
-        active={mic}
-        disabled={!ready}
-        onClick={() => void media.toggleMic()}
-      />
-      <Slot
-        n={2}
-        icon="cam"
-        off={!cam}
-        label={mediaDown ?? (cam ? "Apagar cámara" : "Encender cámara")}
-        text={cam ? "Cámara" : "Cam off"}
-        active={cam}
-        disabled={!ready}
-        onClick={() => void media.toggleCam()}
-      />
-      {/* Audio y video: funciona sin LiveKit (la prueba es local), por eso nunca se deshabilita. */}
-      <button
-        type="button"
-        onClick={() => setDevicesOpen(true)}
-        aria-label="Audio y video: elegir y probar micrófono, cámara y parlantes"
-        aria-haspopup="dialog"
-        title="Audio y video"
-        className="cozy-btn h-[58px] w-7 p-0 max-sm:h-12 max-sm:w-6"
-      >
-        <PixelIcon name="gear" size={14} />
-      </button>
-      <Slot
-        n={3}
-        icon="screen"
-        label={mediaDown ?? (screen ? "Dejar de compartir" : "Compartir pantalla")}
-        text={screen ? "Compartiendo" : "Pantalla"}
-        active={screen}
-        disabled={!ready}
-        onClick={() => void media.toggleScreen()}
-      />
-      <Slot
-        n={4}
-        icon="chat"
-        label={chatOpen ? "Cerrar chat" : "Abrir chat (Enter)"}
-        text="Chat"
-        active={chatOpen}
-        disabled={false}
-        onClick={() => setChatOpen(!chatOpen)}
-        badge={!chatOpen && !focusing && unread > 0 ? unread : undefined}
-      />
-      <Slot
-        n={5}
-        icon="smile"
-        label="Emotes (T)"
-        text="Emotes"
-        active={emotes}
-        disabled={false}
-        onClick={() => setEmotes((v) => !v)}
-      />
-      <Slot
-        n={6}
-        icon="camera"
-        label="Sacar una foto (P)"
-        text={shooting.counting ? "3, 2, 1…" : "Foto"}
-        active={shooting.counting}
-        disabled={shooting.busy}
-        onClick={takePhoto}
-      />
-      <Slot
-        n={7}
-        icon="tag"
-        off={nameTags === "oculto"}
-        label={`${NAME_TAG_LABEL[nameTags]} (N para cambiar; al pasar el mouse se ve el nombre completo)`}
-        text={nameTags === "completo" ? "Nombres" : nameTags === "corto" ? "Cortos" : "Ocultos"}
-        active={nameTags !== "corto"}
-        disabled={false}
-        onClick={cycleNameTags}
-      />
       {children}
     </div>
   );

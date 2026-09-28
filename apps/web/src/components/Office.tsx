@@ -21,7 +21,6 @@ import { SideDock } from "./SideDock";
 import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, InvitationRequests, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
-import { DoorPrompt, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
 import { NotifyPrompt } from "./NotifyPrompt";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
