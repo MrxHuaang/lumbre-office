@@ -21,6 +21,7 @@ describe("casa viva", () => {
   });
 
   it("en todos los niveles hay cosas que se usan", () => {
-    for (const map of world.areas.values()) expect(usablesOf(map).length, map.id).toBeGreaterThan(5);
+    // El Megabús no es parte de la casa: adentro solo hay asientos y barras.
+    for (const map of world.areas.values()) if (map.id !== "megabus") expect(usablesOf(map).length, map.id).toBeGreaterThan(5);
   });
 });

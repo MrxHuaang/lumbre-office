@@ -52,6 +52,9 @@ import {
   type MoveMessage,
   type Positioned,
   MENUS,
+  voiceNearby,
+  BUS,
+  BUS_NOTICES,
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { Track } from "livekit-client";
@@ -135,15 +138,23 @@ import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } fro
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
+import { BusView } from "./bus";
+import { busDoorsOpenNow } from "./busStore";
 import { Aquariums } from "./aquarium";
 import { DoorPostIts } from "./doorPostIts";
 import { useDoorNotesStore } from "./doorNotes";
 import { TrophyCases } from "./trofeos";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
+import { casaArbolBlockFor } from "./casaArbol";
+import { TreeLadderLayer } from "./casaArbolLayer";
+import { CASA_ARBOL, CASA_ARBOL_BLOCK_TEXT } from "@hyvento/shared";
 import { useAchievementStore } from "./achievements";
 import { localSpeedMul, useCocinaStore } from "./cocina";
 import { SeasonView } from "./seasons";
+import { NpcCast } from "./npcs/cast";
+import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
+import { isTripKind, SOMBRERO, type TripKind } from "@hyvento/shared";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -181,6 +192,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "dive", point: "diving_board", furniture: ["diving-board"] },
   { kind: "trophies", point: "trophy_case", furniture: ["trophy-case"] },
   { kind: "kitchen", point: "kitchen_stove", furniture: ["stove", "pantry-shelf"] },
+  // La estación del Megabús: solo con E (un clic en la plataforma es para caminar por ella).
+  { kind: "bus", point: "bus_stop", furniture: [] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -222,6 +235,8 @@ export class OfficeScene extends Phaser.Scene {
   private pendingSeat: Seat | null = null;
   /** Zona a la que voy, aunque esté en otro nivel ("ir a mi oficina"). */
   private pendingZone: string | null = null;
+  /** Persona hasta la que voy ("Ir hasta" en Conectados o "Ir" en una invitación), aunque esté en otro nivel. */
+  private pendingPerson: { sessionId: string; tries: number } | null = null;
   /** Objeto al que voy caminando (clic en el buzón o el tablón): al llegar se abre. */
   private pendingInteract: Interactable | null = null;
   private pathMarker?: Phaser.GameObjects.Image;
@@ -237,6 +252,8 @@ export class OfficeScene extends Phaser.Scene {
   /** La escena fue destruida: ignorar cualquier evento tardío de la sala. */
   private disposed = false;
   private hearingElapsed = 0;
+  /** ¿Había alguien cerca en la última revisión de la sala de video? (histéresis de `voiceNearby`) */
+  private voiceNear = false;
   private zonesById = new Map<string, Zone>();
   /** sessionId → userId y nivel de cada avatar (LiveKit usa userId). */
   private userOfSession = new Map<string, string>();
@@ -313,6 +330,10 @@ export class OfficeScene extends Phaser.Scene {
   private viewBuiltAt = 0;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
+  private treeLadder!: TreeLadderLayer;
+  /** El Megabús de la parada del jardín (el bus de la calle y los sonidos de adentro). */
+  private busView!: BusView;
+  private busNoticeAt = -1e9;
   /** La piscina del jardín (reflejos, flotadores, la lona y las salpicaduras) y si estoy nadando. */
   private pool!: PoolView;
   /** La tina y la sauna del lago: el agua que se mueve, el vapor y los destellos del reflejo. */
@@ -322,6 +343,13 @@ export class OfficeScene extends Phaser.Scene {
   private aquariums!: Aquariums;
   private postIts!: DoorPostIts;
   private trophyCases!: TrophyCases;
+  /** El personal del casino y el Man del Sombrero (ver npcs/cast.ts). */
+  private npcs!: NpcCast;
+  /** Lo que ve quien tomó algo del Man del Sombrero (ver trip.ts). */
+  private tripVision!: TripVision;
+  private tripKind: TripKind | "" = "";
+  /** Cuándo toca el próximo antojo (trabado). */
+  private munchiesAt = 0;
 
   constructor() {
     super("office");
@@ -401,11 +429,26 @@ export class OfficeScene extends Phaser.Scene {
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
+    this.treeLadder = new TreeLadderLayer(this);
+    this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.pool = new PoolView(this);
     this.tina = new TinaView(this);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
+    this.tripVision = new TripVision(() => this.game.canvas.parentElement);
+    this.npcs = new NpcCast(this, {
+      local: () => (this.local ? { x: this.local.x, y: this.local.y } : null),
+      people: () => {
+        const players = useOfficeStore.getState().players;
+        const out: { sessionId: string; name: string; x: number; y: number; zoneId: string }[] = [];
+        for (const [id, a] of this.avatars) {
+          const info = players[id];
+          if (info && this.areaOfSession.get(id) === this.map.id) out.push({ sessionId: id, name: info.name, x: a.x, y: a.y, zoneId: info.zoneId });
+        }
+        return out;
+      },
+    });
     // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
@@ -472,6 +515,9 @@ export class OfficeScene extends Phaser.Scene {
         usePhotoStore.getState().markStale(watching);
       }),
       () => this.photoBoards.destroy(),
+      () => this.treeLadder.destroy(),
+      this.bindVoiceDemand(),
+      () => this.busView.destroy(),
       () => this.aquariums.destroy(),
       () => this.postIts.destroy(),
       () => this.trophyCases.destroy(),
@@ -484,6 +530,8 @@ export class OfficeScene extends Phaser.Scene {
       () => this.cinema.destroy(),
       () => disposeRadio(),
       () => this.drunkVision.destroy(),
+      () => this.tripVision.destroy(),
+      () => this.npcs.destroy(),
       bindUiSounds(),
       bindWeatherSounds(),
       () => this.toasts.destroy(),
@@ -507,7 +555,10 @@ export class OfficeScene extends Phaser.Scene {
           this.updateNameplates(s.offices);
         }
         if ((prev.typing || prev.pcOn) && !s.typing && !s.pcOn) this.keysFreeAt = performance.now();
-        if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
+        if (s.walkTarget && s.walkTarget !== prev.walkTarget) {
+          if (s.walkTarget.kind === "zone") this.walkToZone(s.walkTarget.zoneId);
+          else this.walkToPlayer(s.walkTarget.sessionId);
+        }
         if (s.weather !== prev.weather) {
           this.pool.setWeather(s.weather);
           this.weatherView.setWeather(s.weather, !this.weatherKnown);
@@ -569,11 +620,14 @@ export class OfficeScene extends Phaser.Scene {
       avatar.sway(time);
     }
     this.shakePhones(time);
-    this.drunkVision.update(time, delta);
+    this.drunkVision.update(time, delta, this.tripVision.update(time, delta));
+    this.npcs.update(time);
+    this.updateMunchies(time);
     this.weatherView.update(time, delta);
     this.seasonView.update(time, delta);
     this.critters.update(time, delta);
     this.usables.update();
+    this.busView.update(delta);
     this.fishing.update(delta);
     this.rods.update();
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
@@ -702,6 +756,8 @@ export class OfficeScene extends Phaser.Scene {
       this.seasonView.setArea(map, this.view.bounds);
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
+      this.treeLadder.setArea(map, this.view);
+      this.busView.setArea(map);
       this.aquariums.setArea(map, this.view);
       this.postIts.setArea(map);
       this.trophyCases.setArea(map);
@@ -711,6 +767,7 @@ export class OfficeScene extends Phaser.Scene {
       this.club.setArea(map, this.view);
       this.eventsView.setArea(map, this.view);
       this.cinema.setArea(map);
+      this.npcs.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     this.tina.setArea(map, useOfficeStore.getState().night);
       this.createNameplates();
@@ -780,6 +837,8 @@ export class OfficeScene extends Phaser.Scene {
     this.seasonView.setArea(map, this.view.bounds);
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
+    this.treeLadder.setArea(map, this.view);
+      this.busView.setArea(map);
     this.aquariums.setArea(map, this.view);
     this.trophyCases.setArea(map);
     this.rods.setArea(map);
@@ -844,6 +903,11 @@ export class OfficeScene extends Phaser.Scene {
       if (this.pendingZone) {
         const zone = this.pendingZone;
         this.time.delayedCall(FADE_MS, () => this.walkToZone(zone));
+      } else if (this.pendingPerson) {
+        const who = this.pendingPerson;
+        this.time.delayedCall(FADE_MS, () => {
+          if (this.pendingPerson === who) this.walkToPlayer(who.sessionId, who.tries);
+        });
       }
     } else {
       this.local?.setPosition(c.x, c.y);
@@ -879,11 +943,26 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     if (key === this.portalTile) return;
+    // Del Megabús solo se baja con el bus en la estación y las puertas abiertas (el servidor también lo valida).
+    // Parado en la puerta, se baja solo en cuanto abran (el aviso sale cada tanto, no en cada cuadro).
+    if (this.map.id === BUS.area && !busDoorsOpenNow()) {
+      if (performance.now() - this.busNoticeAt > 5000) {
+        this.busNoticeAt = performance.now();
+        useOfficeStore.getState().notify(BUS_NOTICES.route, "info");
+      }
+      return;
+    }
     // Recién llegado: el portal de vuelta no se dispara por seguir caminando, solo con un clic en él.
     if (this.arrivedAt && this.clickedPortal !== key) return;
     this.arrivedAt = null;
     this.clickedPortal = null;
     this.portalTile = key;
+    // La casa del árbol llena o con la escalera recogida: ni se intenta (el servidor igual lo rechaza).
+    const block = portal.to.area === CASA_ARBOL.area ? casaArbolBlockFor(selectMyUserId(useOfficeStore.getState())) : null;
+    if (block) {
+      useOfficeStore.getState().notify(CASA_ARBOL_BLOCK_TEXT[block], "warning");
+      return;
+    }
     this.travelling = true;
     this.path = [];
     this.pathMarker?.destroy();
@@ -956,6 +1035,7 @@ export class OfficeScene extends Phaser.Scene {
     // Reconstruye todo en cada (re)conexión.
     this.unbindRoom();
     this.usables.bind(room);
+    this.busView.bind(room);
     this.fishing.reset();
     this.rods.destroy();
     for (const a of this.avatars.values()) a.destroy();
@@ -1032,6 +1112,14 @@ export class OfficeScene extends Phaser.Scene {
       avatar.setRiding(Boolean(racing));
       if (isLocal) useRaceStore.getState().setSince(racing ? Date.now() : null);
     });
+    // Lo del Man del Sombrero: los ojos cambian (otra textura) y se ríe, tiembla o se marea.
+    avatar.setTrip(isTripKind(player.trip) ? player.trip : "");
+    p$.listen("trip", (value) => {
+      const kind = isTripKind(value) ? value : "";
+      avatar.setTrip(kind);
+      avatar.setAppearance(this.textureFor(player));
+      if (isLocal) this.setTripKind(kind);
+    });
     // La piscina: nadando (medio cuerpo; si soy yo, me muevo por el agua) y mojado al salir.
     p$.listen("swimming", (value) => {
       avatar.setSwimming(Boolean(value));
@@ -1050,6 +1138,8 @@ export class OfficeScene extends Phaser.Scene {
       this.local = avatar;
       this.swimming = Boolean(player.swimming);
       this.setDrunkStage((player.drunk ?? 0) as DrunkStage);
+      this.tripKind = isTripKind(player.trip) ? player.trip : "";
+      this.tripVision.setTrip(this.tripKind);
       this.enterArea(player.area);
       // Al reconectar se conserva el asiento que el servidor recuerda.
       this.seat = player.seated ? (seatAtPoint(this.map, player.x, player.y) ?? null) : null;
@@ -1098,6 +1188,7 @@ export class OfficeScene extends Phaser.Scene {
     this.pendingInteract = null;
     this.pendingUse = null;
     this.pendingZone = null;
+    this.pendingPerson = null;
     if (this.seat) {
       this.seat = null;
       this.local?.setSeated(null);
@@ -1174,7 +1265,26 @@ export class OfficeScene extends Phaser.Scene {
 
   /** Textura del personaje (fijo o personalizado), dibujada en el navegador. */
   private textureFor(player: RemotePlayer): string {
-    return ensureCharacterTextures(this, player.avatar, parseLook(player.look));
+    const trip = isTripKind(player.trip) ? player.trip : "";
+    return ensureCharacterTextures(this, player.avatar, tripLook(parseLook(player.look), player.avatar, trip));
+  }
+
+  /** Cambió lo que me hizo la mercancía: la visión cambia de a poco y un aviso cuenta qué pasa. */
+  private setTripKind(kind: TripKind | "") {
+    if (kind === this.tripKind) return;
+    this.tripKind = kind;
+    this.tripVision.setTrip(kind);
+    this.munchiesAt = 0;
+    useOfficeStore.getState().notify(TRIP_NOTICE[kind], "info");
+  }
+
+  /** Trabado, de vez en cuando da antojo (un aviso con algo de la cafetería). */
+  private updateMunchies(time: number) {
+    if (this.tripKind !== "trabado") return;
+    if (!this.munchiesAt) this.munchiesAt = time + 20_000;
+    if (time < this.munchiesAt) return;
+    this.munchiesAt = time + 35_000 + Math.random() * 25_000;
+    useOfficeStore.getState().notify(MUNCHIES[Math.floor(Math.random() * MUNCHIES.length)]!, "info");
   }
 
   private showNewBubbles(messages: { fromId: string; text: string; ts: number }[]) {
@@ -1261,6 +1371,7 @@ export class OfficeScene extends Phaser.Scene {
       if (this.table.kind === "roulette" || (this.table.kind === "boardgame" && !this.seat)) useOfficeStore.getState().closePanel();
       this.clearPath(); // el teclado cancela el clic-para-caminar
       this.pendingZone = null;
+      this.pendingPerson = null;
       this.pendingInteract = null;
       this.pendingUse = null;
       if (this.seat) this.standUp(); // caminar te levanta
@@ -1283,6 +1394,7 @@ export class OfficeScene extends Phaser.Scene {
           const use = this.pendingUse;
           this.pendingUse = null;
           if (use && this.usables.reaches(use, avatar.x, avatar.y)) this.useFurniture(use);
+          this.arrivedNearPerson();
         }
       } else {
         vx = dx / dist;
@@ -1292,6 +1404,8 @@ export class OfficeScene extends Phaser.Scene {
 
     // Mareado se camina en zigzag (misma velocidad, la dirección va de lado a lado).
     [vx, vy] = this.drunkVision.drift(this.time.now, vx, vy);
+    // Con el yagé también se camina ladeado.
+    [vx, vy] = this.tripVision.drift(this.time.now, vx, vy);
     // Carrera de sillas: la silla avanza sola hacia la meta (+x) con el impulso de los clics, y las teclas
     // solo cambian de carril (y del mundo).
     if (avatar.isRiding) {
@@ -1320,8 +1434,8 @@ export class OfficeScene extends Phaser.Scene {
     if (vx !== 0 || vy !== 0) {
       const len = Math.hypot(vx, vy);
       // Con la energía de un plato de la cocina se camina un poco más rápido (el servidor lo acepta);
-      // nadando, más despacio (el servidor usa la misma velocidad).
-      const step = Math.min(PLAYER_SPEED * localSpeedMul() * (this.swimming ? AGUA.swimSpeedMul : 1) * dt, 12);
+      // trabado o nadando, más despacio (el servidor usa la misma velocidad).
+      const step = Math.min(PLAYER_SPEED * localSpeedMul() * this.tripVision.speedMul() * (this.swimming ? AGUA.swimSpeedMul : 1) * dt, 12);
       const nx = avatar.x + (vx / len) * step;
       const ny = avatar.y + (vy / len) * step;
       let x = avatar.x;
@@ -1337,6 +1451,9 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setMotion(dir, moving);
     if (moving) {
       this.updateZone();
+      this.checkPortal();
+    } else if (this.map.id === BUS.area && busDoorsOpenNow()) {
+      // Quien esperaba parado en la puerta del Megabús se baja en cuanto se abre.
       this.checkPortal();
     }
     this.updateDoorPrompt();
@@ -1366,6 +1483,7 @@ export class OfficeScene extends Phaser.Scene {
       this.pendingInteract = null;
       this.pendingUse = null;
       this.pendingZone = null;
+      this.pendingPerson = null;
     }
     const { typing, pcOn } = useOfficeStore.getState();
     if (!typing && !pcOn) {
@@ -1588,9 +1706,18 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     this.pendingZone = null;
+    this.pendingPerson = null;
     this.pendingInteract = null;
     this.pendingUse = null;
     // Clic sobre otra persona: su perfil (sin caminar).
+    // Clic sobre el Man del Sombrero: ir hasta él y hablarle al llegar.
+    const man = this.local && !this.seat ? this.npcs.sombreroUnder(sx, sy) : null;
+    if (man) {
+      if (this.interactableInReach() === "sombrero") return activateInteractable("sombrero");
+      this.walkTo(man.x, man.y);
+      this.pendingInteract = "sombrero";
+      return;
+    }
     const person = this.personUnder(sx, sy);
     if (person) {
       useAchievementStore.getState().openProfile(person);
@@ -1674,6 +1801,8 @@ export class OfficeScene extends Phaser.Scene {
   private interactableInReach(): Interactable | null {
     const avatar = this.local;
     if (!avatar) return null;
+    // El Man del Sombrero, si está en su escondite de hoy (no tiene rombito: se tiene que encontrar).
+    if (this.npcs.sombreroNear(avatar.x, avatar.y, Math.min(INTERACT_REACH_TILES, SOMBRERO.reachTiles))) return "sombrero";
     // Nadando solo se ofrece salir, y solo junto al borde (el servidor usa la misma cuenta).
     if (this.swimming) return poolExitSpot(this.map, avatar.x, avatar.y, AGUA.exitReachTiles) ? "swimOut" : null;
     const reach = INTERACT_REACH_TILES * this.map.tileSize;
@@ -1802,6 +1931,7 @@ export class OfficeScene extends Phaser.Scene {
   private walkToZone(zoneId: string) {
     const target = [...this.world.areas.values()].find((a) => a.zones.some((z) => z.id === zoneId));
     if (!target || !this.local) return;
+    this.pendingPerson = null;
     const ts = this.map.tileSize;
     if (target.id === this.map.id) {
       this.pendingZone = null;
@@ -1810,7 +1940,15 @@ export class OfficeScene extends Phaser.Scene {
       this.walkTo(center.x * ts + ts / 2, center.y * ts + ts / 2);
       return;
     }
-    // Siguiente salto por el grafo de portales (BFS entre niveles).
+    if (this.walkTowardArea(target.id)) this.pendingZone = zoneId;
+  }
+
+  /**
+   * Camina hasta el portal que lleva hacia `areaId` (siguiente salto por el grafo de portales, BFS entre
+   * niveles). Al llegar al otro lado, `handleCorrection` retoma lo pendiente. false = no hay camino.
+   */
+  private walkTowardArea(areaId: string): boolean {
+    const ts = this.map.tileSize;
     const prev = new Map<string, { from: string; portal: string } | null>([[this.map.id, null]]);
     const queue = [this.map.id];
     while (queue.length) {
@@ -1821,13 +1959,86 @@ export class OfficeScene extends Phaser.Scene {
           queue.push(portal.to.area);
         }
     }
-    let hop = prev.get(target.id);
+    let hop = prev.get(areaId);
     while (hop && hop.from !== this.map.id) hop = prev.get(hop.from);
     const portal = hop && this.map.portals.find((p) => p.id === hop!.portal);
-    if (!portal) return;
-    this.pendingZone = zoneId;
+    if (!portal) return false;
     const t = portal.tiles[0]!;
     this.walkTo(t.x * ts + ts / 2, t.y * ts + ts / 2);
+    return true;
+  }
+
+  /**
+   * Camina hasta un tile libre junto a otra persona (el más cercano a mí con ruta). Si está en otro nivel,
+   * primero hasta el portal que lleva hacia allá y se sigue al llegar. Si está en una oficina cerrada donde
+   * no puedo entrar, `walkTo` corta la ruta en la puerta (y ahí aparece "Tocar la puerta").
+   */
+  private walkToPlayer(sessionId: string, tries = 0) {
+    if (!this.local || this.travelling || this.fainted || sessionId === this.localId) return;
+    const store = useOfficeStore.getState();
+    const info = store.players[sessionId];
+    const area = this.areaOfSession.get(sessionId) ?? info?.area;
+    if (!info || !area) {
+      this.pendingPerson = null;
+      store.notify("Esa persona ya no está conectada.", "info");
+      return;
+    }
+    this.pendingZone = null;
+    this.pendingInteract = null;
+    this.pendingUse = null;
+    if (area !== this.map.id) {
+      if (this.walkTowardArea(area)) this.pendingPerson = { sessionId, tries };
+      else {
+        this.pendingPerson = null;
+        store.notify(`No encuentro cómo llegar hasta ${info.name}.`, "warning");
+      }
+      return;
+    }
+    const other = this.avatars.get(sessionId);
+    if (!other) return;
+    const ts = this.map.tileSize;
+    const me = { x: Math.floor(this.local.x / ts), y: Math.floor(this.local.y / ts) };
+    const at = { x: Math.floor(other.x / ts), y: Math.floor(other.y / ts) };
+    if (Math.max(Math.abs(me.x - at.x), Math.abs(me.y - at.y)) <= 1) {
+      this.pendingPerson = null;
+      return; // ya estoy a su lado
+    }
+    // Vecinos libres (primero los de al lado, luego a dos tiles), del más cercano a mí al más lejano.
+    const spots: TilePos[] = [];
+    for (const r of [1, 2])
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const t = { x: at.x + dx, y: at.y + dy };
+          if (!isBlockedTile(this.map, t.x, t.y) && canStandAt(this.map, t.x * ts + ts / 2, t.y * ts + ts / 2)) spots.push(t);
+        }
+    const dist = (t: TilePos) => Math.hypot(t.x - me.x, t.y - me.y);
+    // Los de al lado ganan a los de dos tiles; entre iguales, el más cercano a mí.
+    const ring = (t: TilePos) => Math.max(Math.abs(t.x - at.x), Math.abs(t.y - at.y));
+    spots.sort((a, b) => ring(a) - ring(b) || dist(a) - dist(b));
+    const goal = spots.find((t) => findPath(this.map, me, t)) ?? nearestFreeTile(this.map, at);
+    if (!goal) return;
+    this.pendingPerson = { sessionId, tries };
+    if (this.seat) this.standUp();
+    this.walkTo(goal.x * ts + ts / 2, goal.y * ts + ts / 2);
+    // La ruta para en la puerta si está en una oficina cerrada donde no puedo entrar: avisar por qué.
+    if (!this.canEnterZoneAt(goal.x * ts + ts / 2, goal.y * ts + ts / 2)) {
+      this.pendingPerson = null;
+      store.notify(`${info.name} está en una oficina cerrada: te llevo hasta la puerta.`, "info");
+    }
+  }
+
+  /** Llegué al final de la ruta: si iba hacia alguien que se movió, lo sigo un par de veces más. */
+  private arrivedNearPerson() {
+    const who = this.pendingPerson;
+    if (!who || !this.local) return;
+    const other = this.avatars.get(who.sessionId);
+    const ts = this.map.tileSize;
+    // En otro nivel: esta ruta era hasta el portal; al cruzar, `handleCorrection` sigue.
+    if (this.areaOfSession.get(who.sessionId) !== this.map.id) return;
+    const far = !other || Math.hypot(other.x - this.local.x, other.y - this.local.y) > ts * 2.5;
+    if (far && who.tries < 3) this.walkToPlayer(who.sessionId, who.tries + 1);
+    else this.pendingPerson = null;
   }
 
   // ---------- Editor de oficina (modo decorar) ----------
@@ -2110,6 +2321,28 @@ export class OfficeScene extends Phaser.Scene {
     const dx = on ? (Math.floor(time / 45) % 2 ? 1 : -1) : 0;
     const dy = on && Math.floor(time / 90) % 2 ? -1 : 0;
     for (const f of this.ringingPhones) this.view?.nudgeFurniture(f, dx, dy);
+  }
+
+  /**
+   * La sala de LiveKit se abre solo si hace falta (ver media.ts): alguien cerca, un poco antes de que se
+   * oiga, o una llamada (también sonando, para que al contestar ya esté lista). Lo consulta media.ts con
+   * su propio reloj: el de Phaser se detiene con la pestaña oculta y la sala quedaría abierta.
+   */
+  private bindVoiceDemand() {
+    media.setDemand(() => {
+      const room = getRoom();
+      if (!room || !this.local || !this.localId) return (this.voiceNear = false);
+      const mine = room.state.players.get(this.localId);
+      if (mine?.call && mine.callWith) return true;
+      const me = this.positioned(this.map.id, this.local.x, this.local.y, zoneAt(this.map, this.local.x, this.local.y)?.id ?? null);
+      const others: Positioned[] = [];
+      room.state.players.forEach((p, sessionId) => {
+        if (sessionId !== this.localId && p.userId) others.push(this.positioned(p.area, p.x, p.y, p.zoneId || null));
+      });
+      this.voiceNear = voiceNearby(me, others, this.voiceNear);
+      return this.voiceNear;
+    });
+    return () => media.setDemand(null);
   }
 
   private updateHearing() {

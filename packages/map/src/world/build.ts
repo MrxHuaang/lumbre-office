@@ -192,6 +192,8 @@ export function buildArea(def: AreaDef): OfficeMap {
       });
     }
   }
+  // El personal del casino está parado en su puesto: no se le pasa por encima.
+  for (const t of def.npcTiles ?? []) if (inside(t.x, t.y)) blocked[idx(t.x, t.y)] = 1;
   // Una silla que mira a un escritorio con computador permite prender el PC.
   for (const seat of seats.values()) {
     const [ax, ay] = step(seat.tileX, seat.tileY, seat.facing);

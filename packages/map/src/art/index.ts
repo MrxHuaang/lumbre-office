@@ -26,6 +26,10 @@ export { ACUARIO_SWIM, aquariumBubble, miniFish, MINI_FISH_H, MINI_FISH_W } from
 export { doorNotesArt } from "./door-notes";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
+// La casa del árbol: la escalera de cuerda recogida con el cartel "OCUPADO" (la cambia el cliente).
+export { drawTreeLadder } from "./casa-arbol-exterior";
+// El Megabús de la parada del jardín: el bus que arma el cliente, las puertas y la pantalla de la estación.
+export { BUS_CAR_LEN, busCarSprite, busJointSprite, busScreenText, stationDoorsSprite, type BusCar } from "./bus";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
 // Las estaciones (ver apps/web/src/game/seasons.ts).

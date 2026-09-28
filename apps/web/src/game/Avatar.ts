@@ -28,7 +28,7 @@ import {
   DRUNK,
   EMOTE,
   emoteInfo,
-  heldParts,
+  handParts,
   parseHeldLeft,
   spinMs,
   spinProgress,
@@ -41,6 +41,7 @@ import {
   type EmoteGesture,
   type EmoteId,
   type PresenceStatus,
+  type TripKind,
 } from "@hyvento/shared";
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
@@ -216,6 +217,13 @@ export class Avatar {
    * la oreja y (hablando) un globo con ondas de voz.
    */
   private phone?: { phase: string; bubble?: Phaser.GameObjects.Image; handset?: Phaser.GameObjects.Image; timer: Phaser.Time.TimerEvent; frame: 0 | 1; shake: number };
+  /** Personaje del juego (el personal del casino, el Man del Sombrero): sin punto de estado. */
+  private npc = false;
+  /** Lo que le hizo la mercancía del Man del Sombrero: risitas, temblor, ojos… (lo ven todos). */
+  private trip: TripKind | "" = "";
+  private nextTripFxAt = 0;
+  /** Temblor del acelerado (px de lado), recalculado cada cuadro. */
+  private shiver = 0;
   /** Girando en la silla: hacia dónde mira en este momento del giro. */
   private spinning?: { tween: Phaser.Tweens.Tween; face: Direction };
 
@@ -431,12 +439,71 @@ export class Avatar {
     this.label.setPadding(full ? 3 : 2, full ? 1 : 0);
     // Los cortos van un poco transparentes para no tapar muebles ni a otros; el del mouse, encima de todo.
     this.label.setAlpha(shown ? (full ? 1 : 0.82) : 0);
-    this.statusDot.setAlpha(shown ? 1 : 0);
+    this.statusDot.setAlpha(shown && !this.npc ? 1 : 0);
     // La insignia va con el nombre: se esconde con él (modo mesa, velo, nombres ocultos).
     this.badge?.img.setAlpha(shown ? 1 : 0);
     // Las insignias (gorrito, tomatito, micrófono) siguen al nombre: sin él (modo mesa, velo, nombres
     // ocultos) tampoco se ven; al pasar el mouse, sí.
     this.badgeRow?.container.setAlpha(!this.nameHidden && !this.veiled && (this.nameMode !== "oculto" || this.hovered) ? 1 : 0);
+  }
+
+  /** Lo vuelve personaje del juego: sin punto de estado y con el nombre de otro color. */
+  asNpc(labelBg: string = COZY.wood) {
+    this.npc = true;
+    this.label.setBackgroundColor(labelBg).setColor(COZY.paperLight);
+    this.refreshLabel();
+  }
+
+  /** Un gesto corto sin globo (el crupier que reparte, el portero que saluda). */
+  playGesture(kind: EmoteGesture) {
+    this.startGesture(kind);
+  }
+
+  /** Mira hacia un lado sin caminar. */
+  face(dir: Direction) {
+    this.setMotion(dir, false);
+  }
+
+  /** Lo que le hizo la mercancía (el dibujo de los ojos lo cambia la escena con otra textura). */
+  setTrip(kind: TripKind | "") {
+    this.trip = kind;
+    this.nextTripFxAt = 0;
+    if (kind !== "acelere") this.shiver = 0;
+    // Se le pasó el mareo del yagé: vuelve derecho (si no está borracho, que tiene su propio vaivén).
+    if (kind !== "yage" && !this.drunk) this.sprite.setAngle(0);
+    this.layout();
+  }
+
+  /**
+   * Cada cuadro, lo que se ve de afuera: trabado se ríe solo y le da antojo, acelerado tiembla, con los
+   * colores suelta un "¡uoo!" y con el yagé se tambalea un poco.
+   */
+  private tripFx(time: number) {
+    if (!this.trip || this.hidden || this.destroyed) return;
+    if (this.trip === "acelere") {
+      const next = Math.floor(time / 50) % 2 ? 1 : -1;
+      if (next !== this.shiver) {
+        this.shiver = next;
+        this.layout();
+      }
+    }
+    if (this.trip === "yage" && !this.drunk) this.sprite.setAngle(Math.sin(time / 520 + this.swayPhase) * 2.5);
+    if (!this.nextTripFxAt) this.nextTripFxAt = time + 1500 + Math.random() * 3000;
+    if (time < this.nextTripFxAt) return;
+    if (this.trip === "trabado") {
+      this.nextTripFxAt = time + 5000 + Math.random() * 5000;
+      this.floatText(Math.random() < 0.8 ? "jajaja" : "qué hambre…", 8, 7);
+      sfx.giggle(this.soundVol());
+    } else if (this.trip === "colores") {
+      this.nextTripFxAt = time + 7000 + Math.random() * 6000;
+      this.floatText(Math.random() < 0.5 ? "¡uoo!" : "qué colores…", 8, 7);
+    } else if (this.trip === "yage") {
+      this.nextTripFxAt = time + 8000 + Math.random() * 6000;
+      this.floatText(Math.random() < 0.5 ? "todo es uno…" : "ayyy…", 8, 7);
+    } else {
+      this.nextTripFxAt = time + 6000 + Math.random() * 4000;
+      this.floatText(Math.random() < 0.5 ? "¡de una!" : "¡hágale, hágale!", 8, 7);
+    }
   }
 
   setStatus(status: PresenceStatus) {
@@ -520,7 +587,8 @@ export class Avatar {
       return;
     }
     this.clearHeld();
-    const parts = heldParts(id);
+    // Lo que no sale de ninguna carta (lo nuevo de la mochila) se lleva igual: su id es su dibujo.
+    const parts = handParts(id);
     if (parts.length === 0) return;
     this.held = { id, clearing: false, parts: parts.map((art, i) => this.makeHeldPart(art, i === 0 ? 0 : 1, counts[i] ?? usesOf(art))) };
     // Recién pedido un cigarro o un habano: se prende con el encendedor.
@@ -995,6 +1063,7 @@ export class Avatar {
     if (this.destroyed) return;
     this.waterFx(time);
     if (this.drunk === 4) return this.faintPose(time);
+    this.tripFx(time);
     if (!this.drunk) return;
     // Sentado se mueve menos (y no se sale del asiento).
     const deg = SWAY_DEG[this.drunk] * (this.seated ? 0.35 : 1);
@@ -1398,7 +1467,10 @@ export class Avatar {
   say(text: string) {
     this.bubble?.destroy();
     this.bubbleTimer?.remove();
-    const shown = text.length > 80 ? `${text.slice(0, 77)}…` : text;
+    // Acelerado habla rapidito: burbujas cortas que duran poco.
+    const fast = this.trip === "acelere";
+    const max = fast ? 30 : 80;
+    const shown = text.length > max ? `${text.slice(0, max - 3)}…` : text;
     const content = this.scene.add
       .text(0, 0, shown, {
         fontFamily: cozyFontFamily(),
@@ -1417,7 +1489,7 @@ export class Avatar {
     content.setPosition(0, -bg.height + h / 2 + 1);
     this.bubble = this.scene.add.container(0, 0, [bg, content]).setVisible(!this.hidden);
     this.layout();
-    this.bubbleTimer = this.scene.time.delayedCall(BUBBLE_MS, () => {
+    this.bubbleTimer = this.scene.time.delayedCall(fast ? BUBBLE_MS / 2 : BUBBLE_MS, () => {
       this.bubble?.destroy();
       this.bubble = undefined;
     });
@@ -1662,7 +1734,7 @@ export class Avatar {
     // Un gesto de emote corre al personaje unos píxeles (lo de las manos lo sigue).
     const g = this.gesture ? gestureOffset(this.gesture.kind, this.gesture.t) : { x: 0, lift: 0 };
     const hop = (this.dance && this.dance.step % 2 ? 2 : this.playing && this.playing.step % 2 ? 1 : 0) + g.lift;
-    this.sprite.setPosition(x + g.x, y + 1 - hop).setDepth(depth + 0.5);
+    this.sprite.setPosition(x + g.x + this.shiver, y + 1 - hop).setDepth(depth + 0.5);
     this.layoutArm(x + g.x, y - hop, depth);
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);

@@ -1,14 +1,13 @@
 "use client";
 
 // Jardín vivo: el cobertizo del huerto (E junto a su puerta). Se saca la regadera (vacía: se llena en el
-// barril de agua o en el pozo) o una bolsa de semillas; va en la mano y el huerto la usa con E sobre
-// cada parcela. El servidor valida que estés junto al cobertizo y que no lleves algo pagado.
+// barril de agua o en el pozo) o una bolsa de semillas; va a la mochila, se elige en la barra y el huerto
+// la usa con E sobre cada parcela. El servidor valida que estés junto al cobertizo y que te quepa.
 import { drawHeldItem } from "@hyvento/map/art";
 import { CROPS, EMPTY_CAN, HUERTO, SEASON_TEXT, durationText, seasonGrowth, seasonGrowthText, seasonOf, seedsOf } from "@hyvento/shared";
 import { useMemo } from "react";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendShedTake } from "@/game/network";
-import { PantryStoreButton } from "./KitchenPanel";
 import { PanelShell } from "./PointsPanels";
 
 function ItemArt({ id }: { id: string }) {
@@ -27,16 +26,15 @@ export function ShedPanel({ atObject, onClose }: { atObject: boolean; onClose: (
     <PanelShell title="Cobertizo" icon="bag" onClose={onClose}>
       <div className="flex flex-col gap-3 text-[14px]">
         <p className="text-cozy-ink-soft">
-          Siembra con E sobre una parcela vacía llevando semillas; riega con la regadera llena (crece cuatro veces más rápido) y cosecha
-          cuando brille. Cada bolsa siembra {HUERTO.seedUses} parcelas. En {SEASON_TEXT[season].toLowerCase()} unos cultivos crecen más rápido que otros, y
-          la lluvia riega sola.
+          Lo que saques va a tu mochila: elígelo en la barra de abajo. Siembra con E sobre una parcela vacía llevando semillas; riega con la
+          regadera llena (crece cuatro veces más rápido) y cosecha cuando brille. Cada bolsa siembra {HUERTO.seedUses} parcelas. En{" "}
+          {SEASON_TEXT[season].toLowerCase()} unos cultivos crecen más rápido que otros, y la lluvia riega sola.
         </p>
-        <PantryStoreButton atObject={atObject} />
         <button type="button" disabled={!atObject} onClick={() => take(EMPTY_CAN)} className="cozy-btn flex items-center gap-3 px-3 py-2 text-left">
           <ItemArt id="regadera" />
           <span className="flex-1">
             <span className="block font-semibold">Regadera</span>
-            <span className="block text-[12px] text-cozy-ink-soft">Sale vacía: llénala en el barril de agua o en el pozo ({HUERTO.canUses} riegos).</span>
+            <span className="block text-[12px] text-cozy-ink-soft">Sale vacía: llénala en el barril de agua o en el pozo ({HUERTO.canUses} riegos). Una por persona.</span>
           </span>
         </button>
         {(

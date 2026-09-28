@@ -2,6 +2,8 @@
 import { drawHouse, HOUSE_CHIMNEY_TOP } from "./exterior-casa";
 import { gazeboRoof } from "./exterior-patio";
 import { drawGarage } from "./garaje-exterior";
+import { drawTreeHouse } from "./casa-arbol-exterior";
+import { drawBusStation } from "./bus";
 import { drawPool } from "./agua";
 import { SAUNA_CHIMNEY_TOP, TINA_NIGHT, TUB_CHIMNEY_TOP } from "./tina";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
@@ -547,6 +549,8 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   fence,
   "gazebo-roof": gazeboRoof,
   garage: drawGarage,
+  treehouse: drawTreeHouse,
+  "bus-station": drawBusStation,
   // La piscina: de noche, con las luces de adentro del agua.
   pool: drawPool,
   // La tina y la sauna del lago (de noche, las estufas y la ventanita prendidas).

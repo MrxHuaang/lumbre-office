@@ -717,3 +717,81 @@ body {
     display: none;
   }
 }
+
+/*
+ * La mochila (estilo Stardew): casillas con marco de madera y fondo de papel, el número arriba a la
+ * izquierda y la cantidad abajo a la derecha. La elegida lleva el recuadro rojo de selección.
+ */
+.bag-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  /* Un mueble alto (la lámpara) no estira la casilla: el dibujo se achica adentro. */
+  overflow: hidden;
+  background: #f7d9a0;
+  border: 2px solid var(--color-cozy-frame);
+  box-shadow:
+    inset 2px 2px 0 #c98b4e,
+    inset -2px -2px 0 var(--color-cozy-paper-light);
+  color: var(--color-cozy-ink);
+  font-family: var(--font-pixel);
+}
+.bag-slot[data-selected="true"] {
+  outline: 3px solid var(--color-cozy-red);
+  outline-offset: -1px;
+  z-index: 1;
+}
+.bag-slot[data-drop="true"] {
+  background: #fdeec4;
+  box-shadow:
+    inset 0 0 0 2px var(--color-cozy-green),
+    inset -2px -2px 0 var(--color-cozy-paper-light);
+}
+.bag-slot-n,
+.bag-slot-q {
+  z-index: 1;
+}
+.bag-slot-n {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--color-cozy-ink-soft);
+}
+.bag-slot-q {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 600;
+  text-shadow:
+    1px 1px 0 var(--color-cozy-paper-light),
+    -1px 0 0 var(--color-cozy-paper-light);
+}
+/* Tab: la fila nueva entra a saltos desde abajo (o desde arriba con Mayús+Tab). */
+@keyframes bag-row-up {
+  from {
+    transform: translateY(8px);
+    opacity: 0.2;
+  }
+}
+@keyframes bag-row-down {
+  from {
+    transform: translateY(-8px);
+    opacity: 0.2;
+  }
+}
+.bag-row-up {
+  animation: bag-row-up 160ms steps(4) both;
+}
+.bag-row-down {
+  animation: bag-row-down 160ms steps(4) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bag-row-up,
+  .bag-row-down {
+    animation: none;
+  }
+}

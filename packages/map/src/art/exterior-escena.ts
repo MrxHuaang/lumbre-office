@@ -157,6 +157,19 @@ export class Escena {
     }
   }
 
+  /**
+   * Pinta un dibujo 2D del tamaño del lienzo encima de todo (las hojas de adelante de un árbol): sus
+   * píxeles quedan sin profundidad, así los contornos de lo que tapan no se marcan encima.
+   */
+  encima(c: PixelCanvas) {
+    for (let i = 0; i < c.data.length; i += 4) {
+      if (!c.data[i + 3]) continue;
+      const k = i / 4;
+      this.canvas.set(k % c.width, Math.floor(k / c.width), [c.data[i]!, c.data[i + 1]!, c.data[i + 2]!, c.data[i + 3]!]);
+      this.depth[k] = -Infinity;
+    }
+  }
+
   /** Sombra en el piso (rombo tramado), debajo de todo y sin contorno. */
   shadow(x: number, y: number, w: number, d: number, a = 0.3) {
     const col = alpha(SHADOW, a);

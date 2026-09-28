@@ -30,6 +30,8 @@ const STARTS: Record<string, { x: number; y: number }> = {
   "piso-3": CONEXIONES.piso3.escaleraAbajo.llegada,
   sotano: CONEXIONES.sotano.escalera.llegada,
   garaje: CONEXIONES.garaje.entrada.llegada,
+  "casa-arbol": CONEXIONES.casaArbol.trampilla.llegada,
+  megabus: CONEXIONES.megabus.puertas.llegada,
 };
 
 const world = getWorld();
@@ -47,7 +49,7 @@ const garaje = area("garaje");
 
 describe("mundo", () => {
   it("tiene el jardín, los pisos de la casa, el sótano y el garaje, y se aparece en el jardín", () => {
-    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje"]);
+    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje", "casa-arbol", "megabus"]);
     expect(world.spawnArea).toBe("jardin");
     const spawn = spawnPoint(jardin);
     expect(canStandAt(jardin, spawn.x, spawn.y)).toBe(true);
@@ -171,7 +173,7 @@ describe("portales", () => {
   it("se puede ir y volver entre todos los niveles", () => {
     const links = [...world.areas.values()].flatMap((m) => m.portals.map((p) => `${m.id}→${p.to.area}`));
     expect(links).toEqual(
-      expect.arrayContaining(["jardin→planta-baja", "planta-baja→jardin", "planta-baja→piso-2", "piso-2→planta-baja", "jardin→piso-2", "piso-2→jardin", "jardin→garaje", "garaje→jardin"]),
+      expect.arrayContaining(["jardin→planta-baja", "planta-baja→jardin", "planta-baja→piso-2", "piso-2→planta-baja", "jardin→piso-2", "piso-2→jardin", "jardin→garaje", "garaje→jardin", "jardin→casa-arbol", "casa-arbol→jardin"]),
     );
   });
 
@@ -209,6 +211,24 @@ describe("portales", () => {
     expect(zoneAt(garaje, center(garaje, into.to.x), center(garaje, into.to.y))?.id).toBe("taller");
     // Se llega caminando desde el portón del jardín hasta el garaje.
     expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, t)).not.toBeNull();
+  });
+
+  it("la escalera de cuerda de la casa del árbol sube a su cuarto y la trampilla baja al mismo lugar", () => {
+    const up = jardin.portals.find((p) => p.id === "jardin-casa-arbol")!;
+    const casa = area("casa-arbol");
+    const down = casa.portals.find((p) => p.id === "casa-arbol-bajar")!;
+    expect(up.to.area).toBe("casa-arbol");
+    expect(down.to.area).toBe("jardin");
+    // El pie de la escalera queda justo delante del árbol, bajo la escalera dibujada.
+    const tree = jardin.furniture.find((f) => f.type === "treehouse")!;
+    const ladder = jardin.furniture.find((f) => f.type === "treehouse-ladder")!;
+    const foot = up.tiles[0]!;
+    expect(foot).toEqual({ x: ladder.x, y: tree.y + tree.d });
+    expect(ladder.y).toBe(tree.y + tree.d - 1);
+    // Arriba se llega a la sala aislada, que ocupa todo el cuarto.
+    expect(zoneAt(casa, center(casa, up.to.x), center(casa, up.to.y))).toMatchObject({ id: "casa-arbol", isolated: true });
+    // Y abajo se llega caminando desde el portón.
+    expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, foot)).not.toBeNull();
   });
 
   it("solo se usa un portal estando cerca", () => {
@@ -367,6 +387,7 @@ describe("circulación (docs/plan-rediseno.md)", () => {
     "piso-2": ["pasillo", "rellano"],
     "piso-3": ["pasillo-3", "rellano-3"],
     garaje: ["taller"],
+    "casa-arbol": ["casa-arbol"],
   };
   /** Lo que es parte de otra sala y solo se abre a ella. */
   const PART_OF: Record<string, string> = {
@@ -390,7 +411,7 @@ describe("circulación (docs/plan-rediseno.md)", () => {
       }
     return out;
   };
-  const levels = [plantaBaja, piso2, piso3, garaje];
+  const levels = [plantaBaja, piso2, piso3, garaje, area("casa-arbol")];
 
   it("cada sala se abre a un pasillo o vestíbulo (o a la sala de la que es parte)", () => {
     for (const map of levels) {

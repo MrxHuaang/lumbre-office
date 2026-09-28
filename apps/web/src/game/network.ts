@@ -38,6 +38,8 @@ import {
   type EmoteEvent,
   type EmoteId,
   type JoinOptions,
+  type Invitation,
+  type InviteResult,
   type KnockRequest,
   type KnockResult,
   type MoveCorrection,
@@ -59,6 +61,9 @@ import {
   type PetNotice,
   HUERTO_MSG,
   huertoNoticeText,
+  BUS_MSG,
+  BUS_NOTICES,
+  type BusNotice,
   type HuertoNotice,
   isWeather,
   type PhotoCountdownEvent,
@@ -73,6 +78,11 @@ import {
   type FocusEvent,
   type FocusPhase,
   type FocusPresetId,
+  SOMBRERO_ERROR_TEXT,
+  SOMBRERO_THANKS,
+  sombreroItem,
+  type SombreroBuyResult,
+  type SombreroItemId,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
@@ -88,8 +98,12 @@ import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { bindBag } from "./bag";
+import { bindCasaArbol } from "./casaArbol";
 import { sfx } from "./sfx";
+import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
+import { useSombreroStore } from "./npcs/store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -109,9 +123,9 @@ export interface RemotePlayer {
   zoneId: string;
   place: string;
   points: number;
-  /** Lo que lleva en la mano (id de la carta de la cafetería o del bar; "" = nada). */
+  /** Lo que lleva en la mano (la casilla elegida de la mochila: el id de su dibujo; "" = nada). */
   held: string;
-  /** Usos que le quedan a cada mano ("4,5"). */
+  /** Usos que le quedan a lo de la mano ("4"). */
   heldLeft: string;
   /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
   fishing: string;
@@ -134,6 +148,18 @@ export interface RemotePlayer {
   call: string;
   callWith: string;
   callSince: number;
+  /** Lo que le hizo la mercancía del Man del Sombrero (TripKind; "" = nada) y hasta cuándo (hora del servidor). */
+  trip: string;
+  tripUntil: number;
+}
+/** El Man del Sombrero como viaja en el estado (espejo de `SombreroState` en apps/server/src/state.ts). */
+export interface RemoteSombrero {
+  present: boolean;
+  hideout: number;
+  area: string;
+  x: number;
+  y: number;
+  facing: string;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -211,6 +237,10 @@ export interface OfficeStateView {
   events?: RemoteEvents;
   /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
   garden: Map<string, RemoteGardenPlot>;
+  /** El Man del Sombrero: si anda por ahí y en qué escondite. */
+  sombrero: RemoteSombrero;
+  /** El Megabús de la parada del jardín (BusState en apps/server/src/state.ts). */
+  bus: { phase: string; since: number; nextAt: number; run: number };
 }
 
 /** Una parcela sembrada como viaja en el estado (espejo de `GardenPlotState` en apps/server/src/state.ts). */
@@ -456,9 +486,15 @@ export function sendBlackjackAction(action: BlackjackAction) {
   room?.send(MSG.blackjackAction, { action });
 }
 
-/** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
+/** Usar un objeto interactivo: casi todos abren su panel (el Man del Sombrero, su menú); el tubo del sótano hace bailar. */
+/** E en la estación: subirse al Megabús (el servidor valida que esté parado con las puertas abiertas). */
+export function sendBusBoard() {
+  room?.send(BUS_MSG.board, {});
+}
+
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return togglePole();
+  if (kind === "bus") return sendBusBoard();
   if (kind === "fishing") return fishingSpotAction();
   // La piscina no abre panel: se mete, salta o sale (el servidor valida y avisa si no).
   if (kind === "pool") return sendAgua("swim");
@@ -532,11 +568,27 @@ export function sendCinemaOrder(item: CinemaMenuItemId) {
   room?.send(MSG.cinemaOrder, { item });
 }
 
+/** Comprarle al Man del Sombrero (el servidor valida que esté, que estés junto a él y el saldo). */
+export function sendSombreroBuy(item: SombreroItemId) {
+  room?.send(MSG.sombreroBuy, { item });
+}
+
+function handleSombreroResult(r: SombreroBuyResult) {
+  useSombreroStore.getState().setResult(r);
+  const store = useOfficeStore.getState();
+  if (!r.ok) return store.notify(SOMBRERO_ERROR_TEXT[r.error], "warning");
+  const name = sombreroItem(r.item)?.name ?? "la mercancía";
+  const thanks = SOMBRERO_THANKS[Math.floor(Math.random() * SOMBRERO_THANKS.length)]!;
+  useSombreroStore.getState().speak(thanks);
+  store.notify(`${name} en la mano. Con F la usas.`, "success");
+}
+
 const CAFE_ERRORS: Record<Extract<CafeOrderResult, { ok: false }>["error"], string> = {
   far: "Acércate a la barra para pedir.",
   funds: "No te alcanzan los puntos.",
   busy: "Un momento, ya viene tu pedido.",
   failed: "No se pudo hacer el pedido. Intenta de nuevo.",
+  full: "No te cabe en la mochila: haz espacio (tira algo o pon un mueble en tu oficina).",
 };
 
 function handleCafeResult(r: CafeOrderResult) {
@@ -546,7 +598,7 @@ function handleCafeResult(r: CafeOrderResult) {
   if (r.ok) {
     store.closePanel();
     const cheers = item?.menu === "bar" ? "¡Salud!" : item?.menu === "cine" ? "¡Buena función!" : "¡Buen provecho!";
-    store.notify(`Aquí tienes: ${name}. ${cheers}`, "success");
+    store.notify(`Aquí tienes: ${name} (quedó en tu mochila). ${cheers}`, "success");
   } else {
     store.notify(CAFE_ERRORS[r.error], "warning");
   }
@@ -720,6 +772,20 @@ export function respondKnock(requestId: string, accept: boolean) {
   room?.send(MSG.knockRespond, { requestId, accept });
 }
 
+/** Invitar a alguien a donde estoy (el servidor valida que esté conectado y el ritmo). */
+export function sendInvite(toUserId: string) {
+  room?.send(MSG.invite, { toUserId });
+}
+
+/** Responder una invitación: "Ir" camina hasta quien invitó, esté donde esté. */
+export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId">, accept: boolean) {
+  const store = useOfficeStore.getState();
+  store.removeInvitation(inv.inviteId);
+  room?.send(MSG.inviteRespond, { inviteId: inv.inviteId, accept });
+  // Un respiro para que llegue el parche que me deja pasar a su oficina cerrada (si no, la ruta para en la puerta).
+  if (accept) setTimeout(() => useOfficeStore.getState().walkToPlayer(inv.fromSessionId), 300);
+}
+
 function attach(r: OfficeRoom) {
   room = r;
   const store = useOfficeStore.getState();
@@ -727,6 +793,7 @@ function attach(r: OfficeRoom) {
   store.setConnection("connected");
 
   const $ = getStateCallbacks(r);
+  bindCasaArbol(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({
@@ -822,6 +889,14 @@ function attach(r: OfficeRoom) {
   $(r.state).worldEdits.onAdd((json, area) => applyWorldEditsJson(area, json));
   $(r.state).worldEdits.onChange((json, area) => applyWorldEditsJson(area, json));
   $(r.state).listen("weather", (w) => useOfficeStore.getState().setWeather(isWeather(w) ? w : "despejado"));
+  // El Man del Sombrero: una copia para la escena y el panel (llega con el primer estado).
+  $(r.state).listen("sombrero", (man) => {
+    if (!man) return;
+    const sync = () =>
+      useSombreroStore.getState().setMan({ present: man.present, hideout: man.hideout, area: man.area, x: man.x, y: man.y, facing: man.facing });
+    $(man).onChange(sync);
+    sync();
+  });
   // Las dos mitades del ancla cambian juntas (/time): se lee el par entero en cada aviso.
   const syncClock = () => useOfficeStore.getState().setGameClock({ anchorReal: r.state.clockAnchorReal, anchorMinute: r.state.clockAnchorMinute });
   $(r.state).listen("clockAnchorReal", syncClock);
@@ -921,7 +996,11 @@ function attach(r: OfficeRoom) {
   bindCocina(r);
   bindArcade(r);
   bindPhone(r);
+  // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).
+  bindNotify(r);
   bindHockey(r);
+  // La mochila y la barra de abajo.
+  bindBag(r);
   bindBoardGames(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
@@ -942,10 +1021,13 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
+  r.onMessage(MSG.inviteRequest, (inv: Invitation) => useOfficeStore.getState().addInvitation(inv));
+  r.onMessage(MSG.inviteResult, (res: InviteResult) => useOfficeStore.getState().handleInviteResult(res));
   r.onMessage(MSG.doorNoteResult, (res: DoorNoteResult) => useDoorNotesStore.getState().handleResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
   r.onMessage(MSG.cafeResult, handleCafeResult);
+  r.onMessage(MSG.sombreroResult, handleSombreroResult);
   r.onMessage(MSG.officeEditResult, handleOfficeEditResult);
   r.onMessage(MSG.worldEditResult, handleWorldEditResult);
   r.onMessage(MSG.worldEditLockResult, handleWorldEditLockResult);
@@ -973,6 +1055,11 @@ function attach(r: OfficeRoom) {
   });
   // Jardín vivo: por qué no se pudo sembrar, regar, cosechar o sacar miel.
   r.onMessage(HUERTO_MSG.notice, (n: HuertoNotice) => useOfficeStore.getState().notify(huertoNoticeText(n), "info"));
+  // Megabús: por qué no se pudo subir o bajar.
+  r.onMessage(BUS_MSG.notice, (n: BusNotice) => {
+    const text = BUS_NOTICES[n.code];
+    if (text) useOfficeStore.getState().notify(text, "info");
+  });
   r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));

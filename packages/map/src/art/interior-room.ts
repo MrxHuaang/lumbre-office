@@ -2,9 +2,11 @@
 // room.ts los llama; viven aparte para que cada parte del rediseño toque lo menos posible de room.ts.
 // Unidades de arte (tile = 16). En las paredes `u` corre a lo largo del muro y `hv` es la altura.
 import type { FloorKind, WallFeature, WallpaperKind } from "../world/types";
+import { busWallpaper } from "./bus-adentro";
 import { C, OUT, inRect, mix } from "./palette";
 import { at, bayer, noise, ramp, smoothNoise, type Ramp, type RGBA } from "./pixel";
 import { boardsWall, cinderblockWall } from "./garaje-room";
+import { treehouseWall } from "./casa-arbol-room";
 
 /** Verde bosque (papel de la biblioteca). */
 export const FOREST: Ramp = ramp("#132019", "#1b3024", "#264430", "#335a3e", "#4a7654", "#6f9a73");
@@ -409,6 +411,11 @@ export function interiorWall(kind: WallpaperKind | null, u: number, hv: number):
       return colonial(u, hv);
     case "cinderblock":
       return cinderblockWall(u, hv);
+    case "treehouse":
+      return treehouseWall(u, hv);
+    case "megabus":
+    case "fuelle":
+      return busWallpaper(kind, u, hv);
     case "boards":
       return boardsWall(u, hv);
     default:

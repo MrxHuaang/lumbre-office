@@ -50,11 +50,6 @@ export function requestPantry() {
   room?.send(COCINA_MSG.open);
 }
 
-/** Guardar en la despensa lo que llevo en la mano (junto al cobertizo o a la estufa). */
-export function sendPantryStore() {
-  room?.send(COCINA_MSG.store);
-}
-
 /** Cocinar una receta (junto a la estufa). */
 export function sendCook(recipe: string) {
   room?.send(COCINA_MSG.cook, { recipe });
