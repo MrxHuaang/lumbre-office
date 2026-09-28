@@ -21,6 +21,7 @@ import {
   type Sprite,
 } from "./pixel";
 import { FOREST, interiorFeature, interiorFloor, interiorWall } from "./interior-room";
+import { CEMENT, concreteFloor, garajeFeature } from "./garaje-room";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;
@@ -43,6 +44,7 @@ const WALLPAPER: Record<WallpaperKind, Ramp> = {
   brick: C.terracotta,
   slats: C.wood,
   colonial: C.cream,
+  cinderblock: CEMENT,
 };
 /** El alfombrado toma el color del papel de la sala. */
 const CARPET: Record<WallpaperKind, Ramp> = {
@@ -61,6 +63,7 @@ const CARPET: Record<WallpaperKind, Ramp> = {
   brick: C.terracotta,
   slats: C.cream,
   colonial: C.green,
+  cinderblock: C.stone,
 };
 
 // ---------- Pisos ----------
@@ -256,6 +259,8 @@ function floorColor(kind: FloorKind, X: number, Y: number, wallpaper: WallpaperK
       return bathFloor(X, Y, WALLPAPER[wallpaper ?? "blue"]);
     case "lounge":
       return loungeFloor(X, Y);
+    case "concrete":
+      return concreteFloor(X, Y);
   }
 }
 
@@ -357,6 +362,7 @@ const KIND_SET: Record<FloorKind, true> = {
   brick: true,
   moquette: true,
   planks: true,
+  concrete: true,
 };
 const KINDS = Object.keys(KIND_SET) as FloorKind[];
 
@@ -863,7 +869,20 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
     case "map":
     case "portrait":
       return interiorFeature(f, u, hv, day);
+    // El garaje (art/garaje-room.ts).
+    case "pegboard":
+    case "rollup":
+    case "calendar":
+    case "cobweb":
+    case "grimy-window":
+      return garajeFeature(f, u, hv, day);
   }
+}
+
+/** Lo colgado sobre el muro: si es translúcido (una telaraña) se mezcla con la pared de atrás. */
+function over(fc: RGBA | null | undefined, wall: () => RGBA): RGBA {
+  if (!fc) return wall();
+  return fc[3] >= 255 ? fc : mix(wall(), fc, fc[3] / 255);
 }
 
 /** Sombra suave del piso junto a las paredes altas (tramada, sin degradados). */
@@ -963,7 +982,7 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
           const X = tx * L + u;
           const hv = v - SLAB;
           const fc = f && featureAt(f, X - f.x * L, hv, day);
-          return fc ?? interiorWall(roomWallpaper(tx, ty), X, hv) ?? wallpaper(X, hv, r, 0);
+          return over(fc, () => interiorWall(roomWallpaper(tx, ty), X, hv) ?? wallpaper(X, hv, r, 0));
         },
       });
     }
@@ -986,7 +1005,7 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
           const Y = ty * L + (L - u);
           const hv = v - SLAB;
           const fc = f && featureAt(f, (f.y + (f.width ?? 1)) * L - Y, hv, day);
-          return fc ?? interiorWall(roomWallpaper(tx, ty), Y, hv) ?? wallpaper(Y, hv, r, -1);
+          return over(fc, () => interiorWall(roomWallpaper(tx, ty), Y, hv) ?? wallpaper(Y, hv, r, -1));
         },
       });
     }

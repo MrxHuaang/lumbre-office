@@ -49,7 +49,8 @@ const zoneOf = (room: { state: OfficeState }, client: ClientRoom) => room.state.
 describe("oficinas personales", () => {
   it("crea las oficinas de la cabaña y publica dueño y nombre en el estado", async () => {
     const { room } = await setup();
-    expect([...room.state.offices.keys()].sort()).toEqual(["office-1", "office-2", "office-3", "office-4"]);
+    // Las cuatro del piso 2 y la del garaje.
+    expect([...room.state.offices.keys()].sort()).toEqual(["office-1", "office-2", "office-3", "office-4", "office-5"]);
     const office = room.state.offices.get("office-4")!;
     expect(office.ownerId).toBe("u-alice");
     expect(office.ownerName).toBe("Alice");
