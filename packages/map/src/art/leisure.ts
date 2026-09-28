@@ -5,6 +5,7 @@ import { C, OUT } from "./palette";
 import { alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type Shader, type Sprite } from "./pixel";
 import { airHockeyTable } from "./hockey";
 import { leg, roundShadow, shadowUnder, volume } from "./kit";
+import type { Season } from "@hyvento/shared";
 
 /** Tablas de madera clara (costados de la parcela y del barril). */
 const planks: Shader = (u, v, _fw, fh) => {
@@ -26,33 +27,74 @@ function gardenPlot(): Sprite {
   });
 }
 
-/** Espantapájaros: palo en cruz, camisa a cuadros, cabeza de costal y sombrero de paja. */
-function scarecrow(): Sprite {
-  const plaid: Shader = (u, v) => (Math.floor(u) % 3 === 0 || Math.floor(v) % 3 === 0 ? at(C.rug, 1) : at(C.rug, 3));
+/**
+ * Espantapájaros: palo en cruz, camisa a cuadros, cabeza de costal y sombrero de paja. Se viste según la
+ * estación (el cliente cambia el dibujo, ver game/seasons.ts): en primavera, camisa verde y corona de
+ * flores; en verano, la de siempre; en otoño, camisa naranja, bufanda y una ahuyama a los pies; en
+ * invierno, gorro de lana, bufanda y nieve en los hombros.
+ */
+export function scarecrow(season: Season = "verano"): Sprite {
+  const shirt = season === "primavera" ? C.leaf : season === "otono" ? C.terracotta : season === "invierno" ? C.fabric : C.rug;
+  const plaid: Shader = (u, v) => (Math.floor(u) % 3 === 0 || Math.floor(v) % 3 === 0 ? at(shirt, 1) : at(shirt, 3));
   const face: Shader = (u, v) => {
     if (Math.floor(v) === 2 && (Math.floor(u) === 1 || Math.floor(u) === 3)) return OUT;
     if (Math.floor(v) === 0 && u >= 1 && u < 3) return at(C.woodDark, 2);
     return at(C.cork, 3);
   };
+  // El sombrero de paja, o en invierno el gorro de lana roja con pompón.
+  const hat: Box[] =
+    season === "invierno"
+      ? [solidBox({ x: 5.5, y: 5.5, z: 24.5, w: 5, d: 5, h: 2.5 }, C.rug, 3), solidBox({ x: 7, y: 7, z: 27, w: 2, d: 2, h: 1.5 }, C.white, 4)]
+      : [solidBox({ x: 4, y: 4, z: 25, w: 8, d: 8, h: 1 }, C.mustard, 3), solidBox({ x: 6, y: 6, z: 26, w: 4, d: 4, h: 2.5 }, C.mustard, 3)];
+  const extras: Box[] = [];
+  // Bufanda (otoño e invierno) y la ahuyama a los pies (otoño).
+  if (season === "otono" || season === "invierno") extras.push(solidBox({ x: 5.8, y: 5.8, z: 18.6, w: 4.4, d: 4.4, h: 1.6 }, season === "otono" ? C.mustard : C.sage, 3));
+  if (season === "otono") extras.push(solidBox({ x: 10, y: 9, z: 0, w: 4, d: 4, h: 3 }, C.terracotta, 4));
   return renderSprite(
     [
       solidBox({ x: 7, y: 7, z: 0, w: 2, d: 2, h: 22 }, C.woodDark, 3),
       { x: 7, y: 1, z: 17, w: 2, d: 14, h: 2, top: flat(at(C.wood, 4)), left: flat(at(C.wood, 2)), right: flat(at(C.wood, 3)) },
-      { x: 5.5, y: 4.5, z: 10, w: 5, d: 7, h: 9, top: flat(at(C.rug, 4)), left: plaid, right: plaid },
+      { x: 5.5, y: 4.5, z: 10, w: 5, d: 7, h: 9, top: flat(at(shirt, 4)), left: plaid, right: plaid },
       { x: 6, y: 6, z: 20, w: 4, d: 4, h: 5, top: flat(at(C.cork, 4)), left: flat(at(C.cork, 2)), right: face },
-      solidBox({ x: 4, y: 4, z: 25, w: 8, d: 8, h: 1 }, C.mustard, 3),
-      solidBox({ x: 6, y: 6, z: 26, w: 4, d: 4, h: 2.5 }, C.mustard, 3),
+      ...hat,
+      ...extras,
       volume(0, 0, 0, 16, 16, 30),
     ],
     {
       outline: OUT,
       under: roundShadow(8, 8, 4),
-      // Paja que asoma por las mangas.
+      // Paja que asoma por las mangas; flores en el sombrero (primavera), nieve en los hombros (invierno) y
+      // el palito de la ahuyama (otoño).
       extra: (c, p) => {
         for (const y of [1, 15]) {
           const s = p(8, y, 18);
           c.set(s.x, s.y + 1, at(C.mustard, 4));
           c.set(s.x + (y < 8 ? -1 : 1), s.y + 2, at(C.mustard, 3));
+          if (season === "invierno") c.set(s.x, s.y - 1, at(C.white, 4));
+        }
+        // La corona de flores: rosadas y blancas con el centro amarillo, alrededor del sombrero.
+        if (season === "primavera")
+          for (const [x, y, col] of [
+            [4.5, 8, at(C.neon, 4)],
+            [8, 4.5, at(C.white, 4)],
+            [11.5, 8, at(C.neon, 4)],
+            [8, 11.5, at(C.white, 4)],
+            [5, 5, at(C.rose, 4)],
+            [11, 11, at(C.rose, 4)],
+          ] as const) {
+            const f = p(x, y, 26.6);
+            c.set(f.x - 1, f.y, col);
+            c.set(f.x + 1, f.y, col);
+            c.set(f.x, f.y - 1, col);
+            c.set(f.x, f.y, at(C.mustard, 4));
+          }
+        if (season === "invierno") {
+          const top = p(8, 8, 30);
+          c.set(top.x, top.y, at(C.white, 4));
+        }
+        if (season === "otono") {
+          const st = p(12, 11, 3.5);
+          c.set(st.x, st.y - 1, at(C.leaf, 2));
         }
       },
     },
@@ -165,7 +207,7 @@ function clawMachine(): Sprite {
 /** Dibujos de la fase 5, para registrar en DRAW de furniture.ts. */
 export const LEISURE_DRAW: Record<string, () => Sprite> = {
   "garden-plot": gardenPlot,
-  scarecrow,
+  scarecrow: () => scarecrow(),
   "water-barrel": waterBarrel,
   "arcade-cabinet": arcadeCabinet,
   "claw-machine": clawMachine,

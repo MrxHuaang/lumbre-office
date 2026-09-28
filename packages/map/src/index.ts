@@ -20,6 +20,7 @@ export * from "./pathfinding";
 export * from "./decor";
 export * from "./worldEdits";
 export * from "./casa";
+export * from "./mundo";
 export * from "./footsteps";
 export * from "./agua";
 export * from "./radar";

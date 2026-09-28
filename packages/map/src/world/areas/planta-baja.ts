@@ -1,3 +1,4 @@
+import { RECEPCION_NPC } from "@hyvento/shared";
 import type { AreaDef, Placement, ZoneDef } from "../types";
 import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
@@ -364,5 +365,9 @@ export const plantaBaja: AreaDef = {
     // Frente a los dos fogones de la cocina: ahí se cocina con lo del huerto y la miel.
     { type: "kitchen_stove", name: "Estufa", x: 31, y: 1 },
     { type: "kitchen_stove", name: "Estufa", x: 35, y: 1 },
+    // Delante del mostrador de la recepción: Doña Gloria dice dónde anda cada uno.
+    { type: "reception", name: "Recepción", x: 14, y: 22 },
   ],
+  // Doña Gloria, detrás del mostrador de la recepción.
+  npcTiles: [RECEPCION_NPC.tile],
 };
