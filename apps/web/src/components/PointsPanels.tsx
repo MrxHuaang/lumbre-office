@@ -61,6 +61,7 @@ const PROMPT: Record<Interactable, string> = {
   photos: "Ver las fotos del tablón",
   race: "Carrera de sillas",
   aquarium: "Mirar el acuario",
+  phone: "Usar el teléfono",
   shed: "Abrir el cobertizo",
   trophies: "Ver la vitrina de trofeos",
   kitchen: "Cocinar en la estufa",

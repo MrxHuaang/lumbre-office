@@ -87,6 +87,7 @@ import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
+import { bindPhone, resetPhone } from "./phone";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -124,6 +125,10 @@ export interface RemotePlayer {
   focus?: string;
   focusEndsAt?: number;
   focusPreset?: string;
+  /** Teléfono: "", "calling", "ringing" o "talking" (CallPhase), con quién (userId) y desde cuándo. */
+  call: string;
+  callWith: string;
+  callSince: number;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -478,6 +483,7 @@ export async function disconnect() {
   room = null;
   // Reset síncrono: si se reconecta enseguida (StrictMode), no debe borrar la sesión nueva.
   useOfficeStore.getState().reset();
+  resetPhone();
   await current?.leave(true).catch(() => undefined);
 }
 
@@ -543,7 +549,7 @@ export const DECOR_ERRORS: Record<OfficeEditError, string> = {
   blocked: "Ahí choca con otro mueble.",
   door: "Así taparías la puerta o el paso hasta tu escritorio.",
   occupied: "Hay alguien ahí.",
-  fixed: "El escritorio con el PC y su silla no se mueven.",
+  fixed: "El escritorio con el PC, su teléfono y su silla no se mueven.",
   unknown: "Ese mueble no existe.",
   failed: "No se pudo guardar. Intenta de nuevo.",
 };
@@ -722,10 +728,14 @@ function attach(r: OfficeRoom) {
         focus: (player.focus ?? "") as FocusPhase,
         focusEndsAt: player.focusEndsAt ?? 0,
         focusPreset: (player.focusPreset ?? "") as FocusPresetId | "",
+        call: player.call ?? "",
+        callWith: player.callWith ?? "",
       });
     sync();
     $(player).listen("focus", sync);
     $(player).listen("focusEndsAt", sync);
+    $(player).listen("call", sync);
+    $(player).listen("callWith", sync);
     $(player).listen("held", sync);
     $(player).listen("heldLeft", sync);
     $(player).listen("area", sync);
@@ -889,6 +899,7 @@ function attach(r: OfficeRoom) {
   bindRace(r);
   bindCocina(r);
   bindArcade(r);
+  bindPhone(r);
   bindHockey(r);
   bindBoardGames(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {

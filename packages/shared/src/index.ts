@@ -43,3 +43,4 @@ export * from "./aquarium";
 export * from "./insignias";
 export * from "./events";
 export * from "./focus";
+export * from "./phone";

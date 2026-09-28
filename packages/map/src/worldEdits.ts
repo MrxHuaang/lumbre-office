@@ -91,6 +91,9 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "projector",
   "popcorn-machine",
   "garden-plot",
+  // Los teléfonos van encima de un mueble (el escritorio, la recepción): solos quedarían en el aire.
+  "desk-phone",
+  "desk-phone-counter",
   "greenhouse-bed",
   // Los fogones de la cocina: se cocina desde los puntos `kitchen_stove` de enfrente.
   "stove",

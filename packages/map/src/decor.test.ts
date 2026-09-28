@@ -35,7 +35,7 @@ const snapshot = (m: OfficeMap) => ({
 // map-2 archivador (33,0) · map-3 impresora (30,0) · map-4 lámpara de lectura (30,3) · map-5 alfombra (36,5) ·
 // map-6 sofá (39,5) · map-7 mesa (37,6) · map-8 sillón (36,5) · map-9 sillón (36,7) · map-10 aparador (39,8) ·
 // map-11 lámpara (39,10) · map-12 helecho (30,10) · map-13 palmera de salón (30,7). La vitrina de trofeos (30,1)
-// también es fija (fijo-2): el juego la usa desde su punto.
+// también es fija (fijo-3): el juego la usa desde su punto.
 const edit = (e: DecorEdit, decor: AreaDecor = {}, people: { x: number; y: number }[] = []) =>
   applyDecorEdit({ def, decor, zoneId: "office-2", people }, e);
 const place = (type: string, x: number, y: number, facing: Facing = "right"): DecorEdit =>
@@ -59,12 +59,13 @@ describe("nivel decorado", () => {
     expect(snapshot(decorateArea(def, { "office-2": { items: null }, "office-4": { items: null } }))).toEqual(snapshot(piso2));
   });
 
-  it("el escritorio con PC, su silla y la vitrina de trofeos son fijos; el resto del mapa se puede mover", () => {
+  it("el escritorio con PC, su teléfono, su silla y la vitrina de trofeos son fijos; el resto del mapa se puede mover", () => {
     const all = officeFurniture(def, "office-2");
     expect(all.filter((f) => f.fixed).map((f) => [f.id, f.type, f.x, f.y])).toEqual([
       ["fijo-0", "desk-pc", 34, 0],
-      ["fijo-1", "office-chair-blue", 35, 1],
-      ["fijo-2", "trophy-case", 30, 1],
+      ["fijo-1", "desk-phone", 35, 0],
+      ["fijo-2", "office-chair-blue", 35, 1],
+      ["fijo-3", "trophy-case", 30, 1],
     ]);
     expect(defaultOfficeItems(def, "office-2").some((f) => f.type === "trophy-case")).toBe(false);
     const defaults = defaultOfficeItems(def, "office-2");
@@ -77,7 +78,7 @@ describe("nivel decorado", () => {
     // Lo guardado va relativo a la oficina: la 2 empieza en (30, 0), así que (2, 6) es el tile (32, 6).
     const map = decorateArea(def, { "office-2": { items: [{ id: "a", type: "plant", x: 2, y: 6, facing: "right" }] } });
     const inOffice2 = (f: { x: number; y: number }) => f.x >= 30 && f.y < 11;
-    expect(map.furniture.filter(inOffice2).map((f) => f.type).sort()).toEqual(["desk-pc", "office-chair-blue", "plant", "trophy-case"]);
+    expect(map.furniture.filter(inOffice2).map((f) => f.type).sort()).toEqual(["desk-pc", "desk-phone", "office-chair-blue", "plant", "trophy-case"]);
     expect(isBlockedTile(map, 32, 6)).toBe(true);
     expect(isBlockedTile(map, 37, 0)).toBe(false); // la estantería del mapa ya no está
     expect([...map.seats.values()].filter((s) => s.computer && inOffice2({ x: s.tileX, y: s.tileY }))).toHaveLength(1);
@@ -179,9 +180,11 @@ describe("validar cambios", () => {
     expect(edit({ action: "move", itemId: "fijo-0", x: 32, y: 6, facing: "right" })).toEqual({ ok: false, error: "fixed" });
     expect(edit({ action: "remove", itemId: "fijo-1" })).toEqual({ ok: false, error: "fixed" });
     expect(edit({ action: "remove", itemId: "fijo-2" })).toEqual({ ok: false, error: "fixed" });
+    expect(edit({ action: "remove", itemId: "fijo-3" })).toEqual({ ok: false, error: "fixed" });
     expect(edit(place("trophy-case", 32, 6))).toEqual({ ok: false, error: "unknown" });
     expect(edit({ action: "remove", itemId: "no-existe" })).toEqual({ ok: false, error: "unknown" });
     expect(edit(place("desk-pc", 32, 6))).toEqual({ ok: false, error: "unknown" });
+    expect(edit(place("desk-phone", 32, 6))).toEqual({ ok: false, error: "unknown" });
     expect(edit(place("hair:braids", 32, 6))).toEqual({ ok: false, error: "unknown" });
     // Claves del prototipo del catálogo: no son muebles (antes rompían con un TypeError).
     for (const type of ["constructor", "toString", "hasOwnProperty", "__proto__"]) {

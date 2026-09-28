@@ -16,6 +16,7 @@ import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundControl } from "./SoundControl";
+import { CallChip } from "./PhonePanels";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -77,6 +78,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
       <BirthdayChip />
 
       <HearingChip />
+
+      <CallChip />
 
       {me && (
         <label className="cozy-chip flex items-center gap-2 px-2.5 py-1">

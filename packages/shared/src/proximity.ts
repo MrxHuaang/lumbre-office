@@ -37,15 +37,22 @@ const MIN_VOLUME = 0.15;
  * - En zonas aisladas (oficina, sala): todos los de la misma zona, a volumen completo.
  * - En zonas abiertas: dentro del radio, con volumen decreciente; quien ya se oía se sigue oyendo
  *   hasta `radius + HEARING_HYSTERESIS`.
+ * - `inCall`: con quien estoy hablando por teléfono (lo dice el servidor en `Player.callWith`) se oye
+ *   siempre a volumen completo, en cualquier nivel y a cualquier distancia; el resto sigue igual.
  */
 export function hearing(
   me: Positioned,
   others: Map<string, Positioned>,
   previous: ReadonlySet<string> = new Set(),
   radius = VOICE_RADIUS,
+  inCall: ReadonlySet<string> = new Set(),
 ): Map<string, number> {
   const result = new Map<string, number>();
   for (const [id, other] of others) {
+    if (inCall.has(id)) {
+      result.set(id, 1);
+      continue;
+    }
     if ((me.area ?? "") !== (other.area ?? "")) continue;
     if (me.zoneIsolated || other.zoneIsolated) {
       if (canHear(me, other, radius)) result.set(id, 1);

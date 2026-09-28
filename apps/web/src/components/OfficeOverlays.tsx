@@ -102,6 +102,8 @@ export function SeatPrompt() {
   const doorPrompt = useOfficeStore((s) => s.doorPrompt);
   const atComputer = useOfficeStore((s) => s.atComputer);
   const atSwivel = useOfficeStore((s) => s.atSwivel);
+  const atPhone = useOfficeStore((s) => s.atPhone);
+  const openPanel = useOfficeStore((s) => s.openPanel);
   const pcOn = useOfficeStore((s) => s.pcOn);
   const setPcOn = useOfficeStore((s) => s.setPcOn);
   // En la mesa de blackjack, la tira del modo mesa ya tiene "Levantarse".
@@ -109,15 +111,23 @@ export function SeatPrompt() {
   if (!prompt || doorPrompt || pcOn || atTable) return null;
   const pcButton = atComputer && prompt === "stand";
   const spinButton = atSwivel && prompt === "stand";
+  // Sentado junto al teléfono: E levanta, así que el teléfono va en su propio botón.
+  const phoneButton = atPhone && prompt === "stand";
 
   return (
     <div
-      className={`flex items-center gap-2.5 ${pcButton || spinButton ? "pointer-events-auto" : "pointer-events-none max-md:hidden"}`}
+      className={`flex items-center gap-2.5 ${pcButton || spinButton || phoneButton ? "pointer-events-auto" : "pointer-events-none max-md:hidden"}`}
     >
       {pcButton && (
         <button type="button" onClick={() => setPcOn(true)} className="cozy-btn cozy-btn-primary">
           <PixelIcon name="power" size={14} />
           Encender PC
+        </button>
+      )}
+      {phoneButton && (
+        <button type="button" onClick={() => openPanel("phone", true)} title="Llamar a una oficina (o clic en el teléfono)" className="cozy-btn">
+          <PixelIcon name="phone" size={14} />
+          Teléfono
         </button>
       )}
       {/* La silla de oficina gira: R, el botón o clic en tu personaje. */}

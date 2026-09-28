@@ -45,6 +45,9 @@ export interface PlayerInfo {
   focus: FocusPhase;
   focusEndsAt: number;
   focusPreset: FocusPresetId | "";
+  /** Teléfono (CallPhase: "", "calling", "ringing", "talking") y con quién (userId). */
+  call: string;
+  callWith: string;
 }
 
 /**
@@ -66,6 +69,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "race"
   // El acuario del salón (planta baja): qué peces nadan y quién los sacó.
   | "aquarium"
+  // El teléfono de escritorio (oficinas y recepción): el directorio para llamar.
+  | "phone"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
   | "shed"
   // La vitrina de trofeos de cada oficina (los logros de su dueño).
@@ -180,6 +185,8 @@ interface OfficeStore {
   atComputer: boolean;
   /** Sentado en una silla que gira (la del escritorio con PC): R da unas vueltas. */
   atSwivel: boolean;
+  /** Sentado con un teléfono al alcance (de pie, el teléfono sale como objeto con "E"). */
+  atPhone: boolean;
   /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
   toastPrompt: ToastPrompt | null;
   /** El PC está prendido: el mapa no responde a clics ni teclas. */
@@ -258,6 +265,7 @@ interface OfficeStore {
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
   setAtComputer: (at: boolean) => void;
   setAtSwivel: (at: boolean) => void;
+  setAtPhone: (at: boolean) => void;
   setToastPrompt: (prompt: ToastPrompt | null) => void;
   setPcOn: (on: boolean) => void;
   setPendingKnock: (zoneId: string | null) => void;
@@ -342,6 +350,7 @@ const initial = {
   seatPrompt: null as "sit" | "stand" | null,
   atComputer: false,
   atSwivel: false,
+  atPhone: false,
   toastPrompt: null as ToastPrompt | null,
   pcOn: false,
   pendingKnock: null,
@@ -410,6 +419,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setSeatPrompt: (seatPrompt) => set({ seatPrompt }),
   setAtComputer: (atComputer) => set({ atComputer }),
   setAtSwivel: (atSwivel) => set({ atSwivel }),
+  setAtPhone: (atPhone) => set({ atPhone }),
   setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),
   setPendingKnock: (pendingKnock) => set({ pendingKnock }),

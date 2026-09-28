@@ -38,6 +38,7 @@ import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
 import { AquariumPanel } from "./AquariumPanel";
 import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
+import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ShedPanel } from "./ShedPanel";
 import { KitchenPanel } from "./KitchenPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
@@ -264,6 +265,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <CatchCard />
           </div>
           <KnockRequests />
+          <IncomingCall />
           <SocialOverlays />
           <MediaControls>
             <HeldSlot />
@@ -317,6 +319,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "aquarium" && <AquariumPanel onClose={closePanel} />}
           {panel?.kind === "doorNote" && <DoorNoteWritePanel onClose={closePanel} />}
           {panel?.kind === "doorNotes" && <DoorNotesPanel onClose={closePanel} />}
+          {panel?.kind === "phone" && <PhonePanel onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "kitchen" && <KitchenPanel atObject={panel.atObject} onClose={closePanel} />}
         </>

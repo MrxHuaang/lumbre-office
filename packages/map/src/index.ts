@@ -1,7 +1,20 @@
 import { AREAS, SPAWN_AREA } from "./world/areas";
+import { catalogItem } from "./world/catalog";
 import type { AreaDef } from "./world/types";
 import { buildEditedArea, type WorldEdits } from "./worldEdits";
-import { buildArea, FEET_BOX, isBlockedTile, wallAbove, wallLeftOf, type OfficeMap, type PointType, type Portal, type Seat, type Zone } from "./world/build";
+import {
+  buildArea,
+  FEET_BOX,
+  isBlockedTile,
+  wallAbove,
+  wallLeftOf,
+  type OfficeMap,
+  type PlacedFurniture,
+  type PointType,
+  type Portal,
+  type Seat,
+  type Zone,
+} from "./world/build";
 
 export * from "./pathfinding";
 export * from "./decor";
@@ -165,6 +178,37 @@ export function pointsOfType(map: OfficeMap, type: string) {
 export function nearPointOfType(map: OfficeMap, type: PointType, x: number, y: number): boolean {
   const reach = INTERACT_REACH_TILES * map.tileSize;
   return pointsOfType(map, type).some((p) => Math.hypot(p.x - x, p.y - y) <= reach);
+}
+
+// ---------- Teléfonos de escritorio ----------
+// Desde dónde se puede llamar: lo usan el servidor (valida la llamada) y el cliente (la "E" y el botón
+// del teléfono), así los dos dicen lo mismo.
+
+/** Hasta dónde (en tiles, al borde del mueble) se alcanza el teléfono: sentado en la silla del escritorio llega. */
+export const PHONE_REACH_TILES = 1.3;
+
+export const isPhone = (type: string) => catalogItem(type).phone === true;
+
+/**
+ * El teléfono al alcance de alguien parado (o sentado) en (x, y), o undefined. Se mide al borde de lo que
+ * ocupa el teléfono; el de una oficina no se alcanza desde afuera (la pared está en medio aunque quede
+ * cerca: el pasillo pasa pegado a los escritorios de las oficinas de abajo) ni al revés.
+ */
+export function phoneInReach(map: OfficeMap, x: number, y: number): PlacedFurniture | undefined {
+  const ts = map.tileSize;
+  const here = zoneAt(map, x, y);
+  let best: { f: PlacedFurniture; d: number } | undefined;
+  for (const f of map.furniture) {
+    if (!isPhone(f.type)) continue;
+    const dx = Math.max(f.x * ts - x, 0, x - (f.x + f.w) * ts);
+    const dy = Math.max(f.y * ts - y, 0, y - (f.y + f.d) * ts);
+    const d = Math.hypot(dx, dy);
+    if (d > PHONE_REACH_TILES * ts || (best && best.d <= d)) continue;
+    const there = zoneAt(map, (f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts);
+    if ((here?.type === "office" || there?.type === "office") && here?.id !== there?.id) continue;
+    best = { f, d };
+  }
+  return best?.f;
 }
 
 export function spawnPoint(map: OfficeMap) {

@@ -1,5 +1,23 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
-import { BODY_UP, bubble, characterShadow, crumbColor, drawMiniBadge, FEET_Y, focusTomato, FRAME, FRAMES, heldEffect, partyHat, SHEET_DIRECTIONS, singerMic, SIT_DROP, sparkleSprite } from "@hyvento/map/art";
+import {
+  BODY_UP,
+  bubble,
+  characterShadow,
+  crumbColor,
+  drawMiniBadge,
+  FEET_Y,
+  focusTomato,
+  FRAME,
+  FRAMES,
+  handsetSprite,
+  heldEffect,
+  partyHat,
+  phoneBubble,
+  SHEET_DIRECTIONS,
+  singerMic,
+  SIT_DROP,
+  sparkleSprite,
+} from "@hyvento/map/art";
 import {
   achievementById,
   consumeActionOf,
@@ -176,6 +194,11 @@ export class Avatar {
   private readonly bornAt = performance.now();
   /** Tipo del asiento en el que está (para saber si el respaldo lo tapa mientras gira). */
   private seatType = "";
+  /**
+   * Teléfono: a quien le suena, un globo con el teléfono que vibra; llamando o hablando, el auricular en
+   * la oreja y (hablando) un globo con ondas de voz.
+   */
+  private phone?: { phase: string; bubble?: Phaser.GameObjects.Image; handset?: Phaser.GameObjects.Image; timer: Phaser.Time.TimerEvent; frame: 0 | 1; shake: number };
   /** Girando en la silla: hacia dónde mira en este momento del giro. */
   private spinning?: { tween: Phaser.Tweens.Tween; face: Direction };
 
@@ -263,6 +286,8 @@ export class Avatar {
     this.gesture?.arm?.setVisible(!hidden);
     this.countdownBubble?.container.setVisible(!hidden);
     this.badgeRow?.container.setVisible(!hidden);
+    this.phone?.bubble?.setVisible(!hidden);
+    this.phone?.handset?.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
   }
 
@@ -281,6 +306,8 @@ export class Avatar {
     this.bubble?.setAlpha(a);
     this.emoteBubble?.container.setAlpha(a);
     this.gesture?.arm?.setAlpha(a);
+    this.phone?.bubble?.setAlpha(a);
+    this.phone?.handset?.setAlpha(a);
   }
   private veiled = false;
 
@@ -1339,8 +1366,53 @@ export class Avatar {
     });
   }
 
+  /** Fase del teléfono (CallPhase del servidor): "", "calling", "ringing" o "talking". */
+  setCall(phase: string) {
+    if ((this.phone?.phase ?? "") === phase) return;
+    this.clearPhone();
+    if (!phase) return this.layout();
+    const scene = this.scene;
+    for (const f of [0, 1] as const) {
+      ensureTexture(scene, `telefono-globo-${f}`, () => phoneBubble(f));
+      ensureTexture(scene, `telefono-voz-${f}`, () => phoneBubble(f, true));
+    }
+    ensureTexture(scene, "telefono-auricular", () => handsetSprite());
+    const ringing = phase === "ringing";
+    const bubbleImg = ringing || phase === "talking" ? scene.add.image(0, 0, ringing ? "telefono-globo-0" : "telefono-voz-0").setOrigin(0.5, 1) : undefined;
+    const handset = ringing ? undefined : scene.add.image(0, 0, "telefono-auricular").setOrigin(0.5, 0.5);
+    const phone: NonNullable<Avatar["phone"]> = {
+      phase,
+      bubble: bubbleImg,
+      handset,
+      frame: 0,
+      shake: 0,
+      // Sonando, vibra rápido; hablando, las ondas van más lento.
+      timer: scene.time.addEvent({
+        delay: ringing ? 70 : 400,
+        loop: true,
+        callback: () => {
+          phone.frame = phone.frame ? 0 : 1;
+          phone.shake = ringing ? (phone.frame ? 1 : -1) : 0;
+          phone.bubble?.setTexture(`${ringing ? "telefono-globo" : "telefono-voz"}-${phone.frame}`);
+          this.layout();
+        },
+      }),
+    };
+    for (const o of [bubbleImg, handset]) o?.setVisible(!this.hidden).setAlpha(this.veiled ? 0 : 1);
+    this.phone = phone;
+    this.layout();
+  }
+
+  private clearPhone() {
+    this.phone?.timer.remove();
+    this.phone?.bubble?.destroy();
+    this.phone?.handset?.destroy();
+    this.phone = undefined;
+  }
+
   destroy() {
     this.destroyed = true;
+    this.clearPhone();
     this.spinning?.tween.remove();
     this.clearVideo();
     this.clearHeld();
@@ -1426,6 +1498,17 @@ export class Avatar {
       this.emoteBubble.container
         .setPosition(x, y - top - this.label.height - 1 - badgeH - chat - this.emoteBubble.lift)
         .setDepth(6e7 + depth + 0.1);
+    }
+    if (this.phone) {
+      const face = this.spinning?.face ?? this.seated ?? this.dir;
+      // El auricular va pegado a la cabeza, del lado de la oreja que se ve.
+      const side = face === "left" || face === "down" ? -1 : 1;
+      const ear = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING) - 4;
+      this.phone.handset?.setPosition(x + g.x + side * 6, ear).setFlipX(side < 0).setDepth(depth + 0.56);
+      // El globo, sobre el nombre (a la derecha del emote, si hay uno).
+      const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
+      const beside = this.emoteBubble ? 14 : 0;
+      this.phone.bubble?.setPosition(x + beside + this.phone.shake, y - top - this.label.height - 1 - chat).setDepth(6e7 + depth + 0.12);
     }
     this.shiftOverlays();
     if (this.countdownBubble) {
