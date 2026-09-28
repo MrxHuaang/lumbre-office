@@ -67,6 +67,16 @@ export class Piscina {
     if (!was) this.deps.setWet(userId, true);
   }
 
+  /** Se secó (la ducha del jardín, mundo lleno): deja de gotear ya. Devuelve si estaba mojado. */
+  dry(userId: string): boolean {
+    const timer = this.wet.get(userId);
+    if (!timer) return false;
+    timer.clear();
+    this.wet.delete(userId);
+    this.deps.setWet(userId, false);
+    return true;
+  }
+
   /** ¿Hay otra persona (de pie o nadando) en ese lugar? */
   private taken(sessionId: string, area: string) {
     const ts = this.deps.map(area).tileSize;

@@ -447,4 +447,10 @@ export class PrismaRepository implements GameRepository {
       : { crop: null, plantedById: null, plantedAt: null, growthMs: 0, growthAt: null, wateredUntil: null };
     await prisma.gardenPlot.upsert({ where: { id }, create: { id, ...data }, update: data });
   }
+
+  async latestNoteTitle(userId: string) {
+    // Solo las notas de esa persona (siempre filtrando por userId) y fuera de la papelera.
+    const row = await prisma.note.findFirst({ where: { userId, deletedAt: null }, orderBy: { updatedAt: "desc" }, select: { title: true } });
+    return row ? row.title.trim() || "Sin título" : null;
+  }
 }

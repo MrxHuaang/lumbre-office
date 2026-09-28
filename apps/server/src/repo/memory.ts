@@ -470,4 +470,11 @@ export class MemoryRepository implements GameRepository {
     this.ledger.push({ userId: fromId, amount: -amount, reason: "GIFT", at: now, refId }, { userId: toId, amount, reason: "GIFT", at: now, refId });
     return { ok: true, balances: { [fromId]: await this.getPoints(fromId), [toId]: await this.getPoints(toId) } };
   }
+
+  /** Notas de cada persona (la más reciente al final), para la impresora. */
+  notes = new Map<string, string[]>();
+  async latestNoteTitle(userId: string) {
+    const list = this.notes.get(userId);
+    return list?.length ? list.at(-1)!.trim() || "Sin título" : null;
+  }
 }

@@ -245,3 +245,11 @@ export interface ShowcaseRepository {
 }
 
 export interface GameRepository extends ShowcaseRepository {}
+
+/** Mundo lleno: la impresora de las oficinas imprime la nota más reciente de quien la usa. */
+export interface MundoRepository {
+  /** Título de la nota más reciente (sin las de la papelera) de esa persona, o null si no tiene. */
+  latestNoteTitle(userId: string): Promise<string | null>;
+}
+
+export interface GameRepository extends MundoRepository {}

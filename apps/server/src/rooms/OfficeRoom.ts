@@ -283,6 +283,12 @@ import { Parrilla, type GrillWho } from "./parrilla";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
+import { MundoVivo, nearUsable } from "./mundo";
+import { SlotMachines } from "./casino/slots";
+import { ClawMachines } from "./garra";
+import { FortuneWheel } from "./fortuna";
+import { DECOR_SCOPES, FORTUNE_MSG, GARRA_MSG, isMundoAction, MUNDO, SLOTS_MSG } from "@hyvento/shared";
+import { inRowboat } from "@hyvento/map";
 
 interface UserData {
   lastMoveAt: number;
@@ -892,6 +898,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
+    this.startMundo();
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -2601,6 +2608,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result.kind === "event" && isHuertoAction(result.event.action)) return void this.handleHuerto(client, player, result.event);
     // La granja: el comedero, el nido y el molino (granja.ts).
     if (result.kind === "event" && isGranjaAction(result.event.action)) return void this.handleGranja(client, player, result.event);
+    // Mundo lleno: la impresora, la ducha, la casita del perro, el reloj de sol, las barandas y los paneles (mundo.ts).
+    if (result.kind === "event" && isMundoAction(result.event.action)) return void this.mundo?.use(client.sessionId, result.event);
     this.countFurniture(player.userId, result);
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
@@ -3018,6 +3027,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       award: (userId, amount) => this.awardLeisure(userId, amount),
       bump: (userId, key, by) => this.achievements.bump(userId, key, by),
       held: { get: (userId) => this.held.get(userId), give: (userId, item) => this.held.give(userId, item) },
+      scopeNear: (p) => Boolean(nearUsable(this.mapOf(p.area), DECOR_SCOPES, p.x, p.y)),
     });
     this.observatorio = obs;
     const active = (client: Client<UserData>, fn: (sessionId: string) => void) => {
@@ -3047,6 +3057,102 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
+  // ---------- Mundo lleno ----------
+
+  /** El azar y el reloj de lo nuevo del sótano (tragamonedas, garra y rueda): los tests los fijan. */
+  static mundoRandom: (n: number) => number = (n) => randomInt(n);
+  static mundoNow: () => number = () => Date.now();
+  private mundo?: MundoVivo;
+  private slots?: SlotMachines;
+  private claw?: ClawMachines;
+  private fortune?: FortuneWheel;
+
+  /** Los muebles que antes eran de adorno (ver mundo.ts, casino/slots.ts, garra.ts y fortuna.ts). */
+  private startMundo() {
+    const setPoints = (userId: string, balance: number) => {
+      for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+    };
+    const bag = { fits: this.held.fits.bind(this.held), add: this.held.add.bind(this.held) };
+    this.mundo = new MundoVivo({
+      now: () => OfficeRoom.mundoNow(),
+      player: (sessionId) => this.state.players.get(sessionId),
+      map: (area) => this.mapOf(area),
+      toArea: (area, type, message) => this.sendToArea(area, type, message),
+      toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
+      later: (ms, fn) => this.clock.setTimeout(fn, ms),
+      noteTitle: (userId) => this.repo.latestNoteTitle(userId),
+      bag,
+      dry: (userId) => this.piscina?.dry(userId) ?? false,
+      restPet: (userId, house, now) => this.pets.restAt(userId, house, now, { love: MUNDO.doghouseLove, reachTiles: MUNDO.doghouseReachTiles }),
+      bump: (userId, key, by) => this.achievements.bump(userId, key, by),
+    });
+    this.slots = new SlotMachines({
+      repo: () => this.repo,
+      settings: () => this.casinoSettings,
+      random: (n) => OfficeRoom.mundoRandom(n),
+      now: () => OfficeRoom.mundoNow(),
+      setPoints,
+      settled: (userId, staked, won, jackpot) => {
+        this.casinoSettled(userId, staked, won);
+        this.achievements.bump(userId, STAT_KEYS.slotSpins);
+        if (jackpot) this.achievements.bump(userId, STAT_KEYS.slotJackpots);
+      },
+    });
+    this.claw = new ClawMachines({
+      repo: () => this.repo,
+      now: () => OfficeRoom.mundoNow(),
+      random: (n) => OfficeRoom.mundoRandom(n),
+      token: () => randomUUID(),
+      setPoints,
+      bag,
+      bump: (userId, key) => this.achievements.bump(userId, key),
+    });
+    this.fortune = new FortuneWheel({
+      now: () => OfficeRoom.mundoNow(),
+      random: (n) => OfficeRoom.mundoRandom(n),
+      stats: this.achievements,
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      give: (userId, id) => this.held.give(userId, id),
+    });
+    const near = (client: Client<UserData>, type: string) => {
+      const p = this.state.players.get(client.sessionId);
+      return Boolean(p && !this.drunk.fainted(p.userId) && nearUsable(this.mapOf(p.area), type, p.x, p.y));
+    };
+    const who = (client: Client<UserData>) => {
+      this.markActive(client);
+      return this.state.players.get(client.sessionId);
+    };
+    this.onMessage(SLOTS_MSG.spin, async (client, raw) => {
+      const p = who(client);
+      if (!p || !this.slots || !this.acceptCasino(client)) return;
+      const result = await this.slots.spin(p, raw, near(client, "slot-machine"));
+      if (result) client.send(SLOTS_MSG.result, result);
+    });
+    this.onMessage(GARRA_MSG.start, async (client) => {
+      const p = who(client);
+      if (p && this.claw) client.send(GARRA_MSG.event, await this.claw.start(p.userId, near(client, "claw-machine")));
+    });
+    this.onMessage(GARRA_MSG.drop, async (client, raw) => {
+      const p = who(client);
+      const e = p && this.claw ? await this.claw.drop(p.userId, raw) : null;
+      if (e) client.send(GARRA_MSG.event, e);
+    });
+    this.onMessage(FORTUNE_MSG.status, (client) => {
+      const p = who(client);
+      if (p && this.fortune) client.send(FORTUNE_MSG.result, this.fortune.status(p.userId));
+    });
+    this.onMessage(FORTUNE_MSG.spin, async (client) => {
+      const p = who(client);
+      if (p && this.fortune) client.send(FORTUNE_MSG.result, await this.fortune.spin(p.userId, near(client, "fortune-wheel")));
+    });
+  }
+
+  private forgetMundo(userId: string) {
+    this.mundo?.forget(userId);
+    this.slots?.forget(userId);
+    this.claw?.forget(userId);
+  }
+
   // ---------- Pesca ----------
 
   /** Lanzar la caña: el servidor valida que estés junto a un punto de pesca del lago y de pie. */
@@ -3054,9 +3160,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
     client.userData.lastActiveAt = Date.now();
-    const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
+    // Sentado en el bote del muelle también se pesca (y con más suerte: mundo lleno).
+    const boat = player.seated && inRowboat(this.mapOf(player.area), player.x, player.y);
+    const near = boat || nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
     // La caña y la carnada que tiene (lo de la mano o lo mejor de la mochila); la carnada se gasta al lanzar.
-    const gear = this.pesca.gear(player.userId);
+    const gear = { ...this.pesca.gear(player.userId), ...(boat ? { boat } : {}) };
     if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near, gear)) return;
     this.pesca.spendBait(player.userId, gear);
     for (const p of this.state.players.values()) if (p.userId === player.userId) p.fishingRod = gear.rod;
@@ -3457,6 +3565,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
     this.observatorio?.forget(sessionId);
+    if (player) this.forgetMundo(player.userId);
     this.state.players.delete(sessionId);
     this.casaArbol?.sweep(Date.now());
     this.club?.forget(sessionId);
