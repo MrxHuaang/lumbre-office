@@ -58,6 +58,9 @@ import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
 import { EventsView } from "./eventos";
 import { CinemaMode } from "./cinema";
+import { EscenarioMode } from "./escenario";
+import { useEscenarioStore } from "./escenario/store";
+import { ESCENARIO, PODCAST, listeners as listenersOf, stageRole } from "@hyvento/shared";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { queuePrerender } from "./iso/prerender";
 import { ensureCharacterTextures, parseLook } from "./looks";
@@ -169,6 +172,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
   { kind: "trophies", point: "trophy_case", furniture: ["trophy-case"] },
   { kind: "kitchen", point: "kitchen_stove", furniture: ["stove", "pantry-shelf"] },
+  { kind: "stage", point: "stage", furniture: ["stage-lectern", "stage-deck"] },
+  { kind: "podcast", point: "podcast", furniture: ["podcast-desk"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -278,6 +283,8 @@ export class OfficeScene extends Phaser.Scene {
   private eventsView!: EventsView;
   /** El cine del sótano (la función en la pantalla, las luces y el haz del proyector). */
   private cinema!: CinemaMode;
+  /** El escenario y la cabina de grabación del jardín (pantalla grande, manos, cartel, grabador). */
+  private escenario!: EscenarioMode;
   /** Lo que ve quien tomó de más (filtros sobre el canvas) y su zigzag al caminar. */
   private drunkVision!: DrunkVision;
   private drunkStage: DrunkStage = 0;
@@ -365,6 +372,7 @@ export class OfficeScene extends Phaser.Scene {
     this.club = new ClubMode(this, (id) => this.avatars.get(id), () => this.local, () => this.localId);
     this.eventsView = new EventsView(this, () => this.avatars, (id) => this.userOfSession.get(id));
     this.cinema = new CinemaMode(this, () => this.local);
+    this.escenario = new EscenarioMode({ scene: this, local: () => this.local, avatars: () => this.avatars });
     this.drunkVision = new DrunkVision(() => this.game.canvas);
     this.toasts = new ToastController(this, {
       avatar: (id) => this.avatars.get(id),
@@ -456,6 +464,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.club.destroy(),
       () => this.eventsView.destroy(),
       () => this.cinema.destroy(),
+      () => this.escenario.destroy(),
       () => disposeRadio(),
       () => this.drunkVision.destroy(),
       bindUiSounds(),
@@ -556,6 +565,7 @@ export class OfficeScene extends Phaser.Scene {
     this.club.update();
     this.eventsView.update();
     this.cinema.update(time);
+    this.escenario.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
     this.updateOfficeRadio();
@@ -684,6 +694,7 @@ export class OfficeScene extends Phaser.Scene {
       this.club.setArea(map, this.view);
       this.eventsView.setArea(map, this.view);
       this.cinema.setArea(map);
+      this.escenario.setArea(map);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -757,6 +768,7 @@ export class OfficeScene extends Phaser.Scene {
     this.club.setArea(map, this.view);
     this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);
+    this.escenario.setArea(map);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
@@ -1930,9 +1942,11 @@ export class OfficeScene extends Phaser.Scene {
 
   // ---------- Audio/video por proximidad ----------
 
-  private positioned(area: string, x: number, y: number, zoneId: string | null): Positioned {
+  private positioned(area: string, x: number, y: number, zoneId: string | null, userId = ""): Positioned {
     const zone = zoneId ? this.zonesById.get(zoneId) : undefined;
-    return { area, x, y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false };
+    // En el anfiteatro del jardín: quien está en la tarima (o tiene la palabra) se oye en todo el anfiteatro.
+    const stage = area === ESCENARIO.area ? stageRole(zoneId, userId, useEscenarioStore.getState().floor) : undefined;
+    return { area, x, y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false, ...(stage ? { stage } : {}) };
   }
 
   /** Teléfonos del nivel que están sonando (el de la oficina de quien recibe una llamada). */
@@ -1971,10 +1985,11 @@ export class OfficeScene extends Phaser.Scene {
   private updateHearing() {
     const room = getRoom();
     if (!room || !this.local) return;
-    const me = this.positioned(this.map.id, this.local.x, this.local.y, zoneAt(this.map, this.local.x, this.local.y)?.id ?? null);
+    const myUserId = selectMyUserId(useOfficeStore.getState()) ?? "";
+    const me = this.positioned(this.map.id, this.local.x, this.local.y, zoneAt(this.map, this.local.x, this.local.y)?.id ?? null, myUserId);
     const others = new Map<string, Positioned>();
     room.state.players.forEach((p, sessionId) => {
-      if (sessionId !== this.localId && p.userId) others.set(p.userId, this.positioned(p.area, p.x, p.y, p.zoneId || null));
+      if (sessionId !== this.localId && p.userId) others.set(p.userId, this.positioned(p.area, p.x, p.y, p.zoneId || null, p.userId));
     });
 
     // En una llamada (lo decide el servidor: `callWith` de mi jugador), la otra persona se oye siempre.
@@ -1983,10 +1998,14 @@ export class OfficeScene extends Phaser.Scene {
     const current = useMediaStore.getState().hearing;
     const next = hearing(me, others, new Set(Object.keys(current)), undefined, inCall);
     // Solo publicar si cambió quién se oye o algún volumen cambió de forma perceptible.
+    // Quienes me oyen sin que yo los oiga (el público, si estoy en la tarima) también pueden suscribirse.
+    const prevListeners = useMediaStore.getState().listeners;
+    const heard = listenersOf(me, myUserId, others, new Set(prevListeners)).filter((id) => !next.has(id)).sort();
     const changed =
       next.size !== Object.keys(current).length ||
-      [...next].some(([id, v]) => current[id] === undefined || Math.abs(current[id]! - v) > 0.05);
-    if (changed) useMediaStore.getState().setHearing(Object.fromEntries(next));
+      [...next].some(([id, v]) => current[id] === undefined || Math.abs(current[id]! - v) > 0.05) ||
+      heard.join(",") !== [...prevListeners].sort().join(",");
+    if (changed) useMediaStore.getState().setHearing(Object.fromEntries(next), heard);
     // Alguien pudo entrar/salir de la sala: revisar las pantallas de presentación.
     this.syncScreens();
     this.findRingingPhones();
@@ -2094,6 +2113,20 @@ export class OfficeScene extends Phaser.Scene {
   /** Oficinas cerradas: solo su dueño y los invitados pueden estar adentro. */
   private canEnterZoneAt(x: number, y: number) {
     const zone = zoneAt(this.map, x, y);
+    // La tarima (dos como mucho) y la cabina de grabación (llena, o pidiendo permiso o grabando): la misma
+    // regla que el servidor, para no chocar contra la corrección.
+    if (zone && this.local && this.map.id === ESCENARIO.area) {
+      const here = zoneAt(this.map, this.local.x, this.local.y)?.id;
+      const inZone = (id: string) => {
+        let n = 0;
+        getRoom()?.state.players.forEach((p, sessionId) => {
+          if (sessionId !== this.localId && p.area === ESCENARIO.area && p.zoneId === id) n++;
+        });
+        return n;
+      };
+      if (zone.id === ESCENARIO.stageZone && here !== zone.id && inZone(zone.id) >= ESCENARIO.maxOnStage) return false;
+      if (zone.id === PODCAST.zone && here !== zone.id && (useEscenarioStore.getState().podcast.phase !== "idle" || inZone(zone.id) >= PODCAST.capacity)) return false;
+    }
     if (zone?.type !== "office") return true;
     const s = useOfficeStore.getState();
     return canEnterOffice(s.offices[zone.id], selectMyUserId(s));

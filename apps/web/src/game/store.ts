@@ -77,7 +77,10 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // La vitrina de trofeos de cada oficina (los logros de su dueño).
   | "trophies"
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
-  | "kitchen";
+  | "kitchen"
+  // Escenario del jardín: la escalerita de la tarima (subir o bajar) y la mesa de la cabina de grabación.
+  | "stage"
+  | "podcast";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";

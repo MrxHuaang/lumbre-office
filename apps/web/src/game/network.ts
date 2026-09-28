@@ -83,6 +83,9 @@ import { bindBoardGames } from "./boardgames";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
 import { selectMyUserId, useOfficeStore, type Interactable } from "./store";
+import { ESCENARIO, ESCENARIO_MSG, PODCAST_MSG } from "@hyvento/shared";
+import { media } from "./media";
+import { useEscenarioStore } from "./escenario/store";
 import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
@@ -455,8 +458,18 @@ export function sendBlackjackAction(action: BlackjackAction) {
 /** Usar un objeto interactivo: casi todos abren su panel; el tubo del sótano hace bailar. */
 export function activateInteractable(kind: Interactable) {
   if (kind === "pole") return togglePole();
+  // La escalerita: sube a la tarima o, si ya estoy arriba, baja (lo valida el servidor).
+  if (kind === "stage") return void room?.send(ESCENARIO_MSG.stage, { on: useOfficeStore.getState().zone?.id !== ESCENARIO.stageZone });
+  if (kind === "podcast") return podcastAction();
   if (kind === "fishing") return fishingSpotAction();
   useOfficeStore.getState().openPanel(kind, true);
+}
+
+/** La mesa de la cabina: pedir permiso para grabar (con el audio conectado) o, si ya se graba, detener. */
+function podcastAction() {
+  if (useEscenarioStore.getState().podcast.phase !== "idle") return void room?.send(PODCAST_MSG.stop);
+  if (!media.connected) return useOfficeStore.getState().notify("Para grabar hay que tener el audio conectado.", "warning");
+  room?.send(PODCAST_MSG.start);
 }
 
 export class ConnectionCancelled extends Error {}
