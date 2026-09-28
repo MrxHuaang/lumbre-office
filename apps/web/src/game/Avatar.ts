@@ -440,7 +440,8 @@ export class Avatar {
 
   /** Texto, tamaño y transparencia del nombre según el modo, el mouse, el modo mesa y el velo. */
   private refreshLabel() {
-    const full = this.nameMode === "completo" || this.hovered;
+    // Los NPC son pocos y con nombre de personaje: siempre completo.
+    const full = this.npc || this.nameMode === "completo" || this.hovered;
     // En corto, el propio nombre no se muestra (ya sabes quién eres; el color café lo marca al pasar el mouse).
     const shown = !this.nameHidden && !this.veiled && (full || (this.nameMode === "corto" && !this.isLocal));
     const text = full ? (this.isLocal ? `${this.fullName} (tú)` : this.fullName) : shortName(this.fullName);
