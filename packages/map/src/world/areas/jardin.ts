@@ -574,7 +574,7 @@ const POINTS: PointDef[] = [
   for (const p of POINTS) mark(p.x - M, p.y - M, p.type === "spawn" ? 3 : 1);
   mark(DOOR_X, PORCH_Y + 2, 2);
   // El pie de la escalera de la casa del árbol, despejado (que ningún árbol la tape).
-  mark(TREEHOUSE_FOOT.x, TREEHOUSE_FOOT.y + 1, 2);
+  mark(TREEHOUSE_FOOT.x + 1, TREEHOUSE_FOOT.y + 1, 3);
   const soft = (x: number, y: number) => {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ground(x + dx, y + dy) !== "grass") return true;
     return false;
