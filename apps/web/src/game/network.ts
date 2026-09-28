@@ -8,6 +8,7 @@ import {
   type BarItemId,
   type CinemaMenuItemId,
   type CafeItemId,
+  type DoorNoteResult,
   type FurnitureEvent,
   type HeldUsedEvent,
   type DrunkBlackoutEvent,
@@ -71,6 +72,7 @@ import { bindBoardGames } from "./boardgames";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
 import { useOfficeStore, type Interactable } from "./store";
+import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
@@ -118,6 +120,7 @@ export interface RemoteOffice {
   ownerName: string;
   locked: boolean;
   note: string;
+  notes: number;
   radioVideo: string;
   radioTitle: string;
   radioStartedAt: number;
@@ -592,6 +595,12 @@ export function sendOfficeLock(locked: boolean) {
   room?.send(MSG.officeLock, { locked });
 }
 
+/** Dejar una nota en la puerta de una oficina (el servidor valida la puerta y el tope del día). */
+export function sendDoorNote(zoneId: string, text: string) {
+  useDoorNotesStore.getState().setSending(true);
+  room?.send(MSG.doorNote, { zoneId, text });
+}
+
 export function sendKnock(zoneId: string) {
   useOfficeStore.getState().setPendingKnock(zoneId);
   room?.send(MSG.knock, { zoneId });
@@ -645,6 +654,7 @@ function attach(r: OfficeRoom) {
         ownerName: office.ownerName,
         locked: office.locked,
         note: office.note ?? "",
+        notes: office.notes ?? 0,
         radio: office.radioVideo
           ? {
               videoId: office.radioVideo,
@@ -788,6 +798,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
+  r.onMessage(MSG.doorNoteResult, (res: DoorNoteResult) => useDoorNotesStore.getState().handleResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
   r.onMessage(MSG.cafeResult, handleCafeResult);

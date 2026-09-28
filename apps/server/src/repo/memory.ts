@@ -1,6 +1,9 @@
 import {
   DAILY_CAPS,
+  DOOR_NOTES,
   dayStart,
+  doorNotesDayStart,
+  doorNotesLeft,
   giftAllowedToday,
   stackUnits,
   tradeGap,
@@ -263,6 +266,22 @@ export class MemoryRepository implements GameRepository {
   /** Helper de tests: un contador guardado. */
   savedStat(userId: string, key: string) {
     return this.userStats.get(userId)?.get(key) ?? 0;
+  }
+
+  /** Notas en la puerta (como DoorNote). */
+  doorNotes: { id: string; fromId: string; toId: string; zoneId: string; text: string; at: number; read: boolean }[] = [];
+  async saveDoorNote({ fromId, toId, zoneId, text }: { fromId: string; toId: string; zoneId: string; text: string }) {
+    const now = Date.now();
+    const sent = this.doorNotes.filter((n) => n.fromId === fromId && n.at >= doorNotesDayStart(now)).length;
+    if (sent >= DOOR_NOTES.perDay) return { ok: false as const, error: "limit" as const };
+    this.doorNotes.push({ id: `nota-${this.doorNotes.length + 1}`, fromId, toId, zoneId, text, at: now, read: false });
+    const unread = this.doorNotes.filter((n) => n.toId === toId && !n.read).length;
+    return { ok: true as const, left: doorNotesLeft(sent + 1), unread };
+  }
+  async unreadDoorNotes(userIds: string[]) {
+    const out: Record<string, number> = {};
+    for (const n of this.doorNotes) if (!n.read && userIds.includes(n.toId)) out[n.toId] = (out[n.toId] ?? 0) + 1;
+    return out;
   }
 
   /** Helper de tests: asigna una oficina. */

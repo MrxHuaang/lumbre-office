@@ -60,6 +60,7 @@ const PROMPT: Record<Interactable, string> = {
   boardgame: "Mirar la partida",
   photos: "Ver las fotos del tablón",
   race: "Carrera de sillas",
+  aquarium: "Mirar el acuario",
   shed: "Abrir el cobertizo",
 };
 

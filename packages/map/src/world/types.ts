@@ -184,6 +184,8 @@ export interface PointDef {
     | "dj_booth"
     // Frente al tablón de fotos de la cafetería (ver la galería).
     | "photo_board"
+    // Frente al acuario de la sala (ver qué peces nadan y quién los sacó).
+    | "aquarium"
     // Salida de la carrera de sillas (pasillo del piso 2, junto a la bandera).
     | "chair_race"
     // Frente al cobertizo del huerto, donde se sacan la regadera y las semillas.

@@ -36,3 +36,5 @@ export * from "./weather";
 export * from "./photos";
 export * from "./photo-service";
 export * from "./achievements";
+export * from "./door-notes";
+export * from "./aquarium";

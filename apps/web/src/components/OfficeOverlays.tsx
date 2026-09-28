@@ -1,5 +1,6 @@
 "use client";
 
+import { useDoorNotesStore } from "@/game/doorNotes";
 import { respondKnock, sendKnock, sendSwivel } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon } from "./Cozy";
@@ -20,6 +21,11 @@ export function DoorPrompt() {
       </span>
       <button onClick={() => sendKnock(zoneId)} disabled={waiting} className="cozy-btn cozy-btn-primary">
         {waiting ? "Esperando respuesta…" : "Tocar la puerta"}
+      </button>
+      {/* Si no está (o no puede abrir), se le deja una nota en la puerta. */}
+      <button onClick={() => useDoorNotesStore.getState().write(zoneId)} className="cozy-btn">
+        <PixelIcon name="mail" size={14} />
+        Dejar una nota
       </button>
     </div>
   );

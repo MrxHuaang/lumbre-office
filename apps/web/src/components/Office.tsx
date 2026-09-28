@@ -36,6 +36,8 @@ import { DjConsole } from "./club/DjConsole";
 import { CinemaHud, CinemaPanel } from "./cinema/CinemaPanel";
 import { WhiteboardPanel } from "./WhiteboardPanel";
 import { RacePanel, RaceTimer } from "./RacePanel";
+import { AquariumPanel } from "./AquariumPanel";
+import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
 import { ShedPanel } from "./ShedPanel";
 import { CozyOverlay, CozyTitle } from "./Cozy";
 import { FishAlbum } from "./fishing/FishAlbum";
@@ -235,6 +237,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-3 ${decorating || worldEditing ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-44"}`}
           >
             {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <PeoplePanel />}
+            <DoorNotesChip />
             <Notices />
           </div>
           <ChatPanel />
@@ -242,6 +245,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-28 left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
             <DoorPrompt />
+            <DoorNotePrompt />
             <SeatPrompt />
             <InteractPrompt />
             <UsablePrompt />
@@ -307,6 +311,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "boardgame" && <BoardGameStrip />}
           {panel?.kind === "whiteboard" && <WhiteboardPanel onClose={closePanel} />}
           {panel?.kind === "race" && <RacePanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "aquarium" && <AquariumPanel onClose={closePanel} />}
+          {panel?.kind === "doorNote" && <DoorNoteWritePanel onClose={closePanel} />}
+          {panel?.kind === "doorNotes" && <DoorNotesPanel onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
         </>
       ) : null}

@@ -14,6 +14,9 @@ export { drawReaction, REACTION_ART, REACTION_SIZE } from "./reactions";
 export { emoteFrames, EMOTE_H, EMOTE_W } from "./emotes";
 export { giftBox, wavingArm, GIFT_BOX_FRAMES, GIFT_BOX_H, GIFT_BOX_W } from "./social";
 export { photoBoardPhotos, PHOTO_BOARD_PIC, PHOTO_BOARD_SLOTS, type PhotoThumb } from "./photos";
+// El acuario de la sala (los peces que nadan son capas) y los post-its de las puertas de las oficinas.
+export { ACUARIO_SWIM, aquariumBubble, miniFish, MINI_FISH_H, MINI_FISH_W } from "./acuario";
+export { doorNotesArt } from "./door-notes";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).

@@ -9,6 +9,8 @@ export const INTERIOR_CATALOG = {
   "curio-cabinet": { name: "Vitrina", size: [1, 2] },
   "library-ladder": { name: "Escalerita", size: [1, 1] },
   "reading-table": { name: "Mesa de lectura", size: [2, 4], light: { at: [16, 32, 22], color: "#b8f08a", radius: 54 } },
+  // El acuario grande de la sala: nadan los peces que sacó el equipo (capas, ver art/acuario.ts).
+  acuario: { name: "Acuario", size: [1, 4], light: { at: [8, 32, 26], color: "#7fd4ff", radius: 64 } },
   "fireplace-stone": { name: "Chimenea de piedra", size: [1, 3], light: { at: [8, 24, 8], color: "#ff9a4a", radius: 70 } },
   "sofa-leather": { name: "Sofá de cuero", size: [1, 3], seats: [[0, 0], [0, 1], [0, 2]], hasBack: true },
   "armchair-wing": { name: "Sillón orejero", size: [1, 1], seats: [[0, 0]], hasBack: true },

@@ -54,6 +54,8 @@ export class OfficeInfo extends Schema {
   @type("boolean") locked = false;
   /** Nota de la placa de la puerta (la pone el dueño; vive en la sala, no se guarda en la base). */
   @type("string") note = "";
+  /** Notas sin leer que le dejaron al dueño en la puerta (solo la cuenta: el texto lo lee él por la web). */
+  @type("uint8") notes = 0;
   /** La radio (office-radio.ts): video de YouTube que suena en bucle adentro ("" = apagada). */
   @type("string") radioVideo = "";
   @type("string") radioTitle = "";

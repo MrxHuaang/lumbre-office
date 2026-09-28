@@ -122,6 +122,9 @@ import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } fro
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
+import { Aquariums } from "./aquarium";
+import { DoorPostIts } from "./doorPostIts";
+import { useDoorNotesStore } from "./doorNotes";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
 import { useAchievementStore } from "./achievements";
@@ -155,6 +158,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "boardgame", point: "board_game", furniture: ["chess-table", "checkers-table"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
+  { kind: "aquarium", point: "aquarium", furniture: ["acuario"] },
   { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
@@ -279,6 +283,9 @@ export class OfficeScene extends Phaser.Scene {
   private weatherKnown = false;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
+  /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
+  private aquariums!: Aquariums;
+  private postIts!: DoorPostIts;
 
   constructor() {
     super("office");
@@ -354,6 +361,8 @@ export class OfficeScene extends Phaser.Scene {
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
+    this.aquariums = new Aquariums(this);
+    this.postIts = new DoorPostIts(this);
     // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
@@ -415,6 +424,8 @@ export class OfficeScene extends Phaser.Scene {
         usePhotoStore.getState().markStale(watching);
       }),
       () => this.photoBoards.destroy(),
+      () => this.aquariums.destroy(),
+      () => this.postIts.destroy(),
       onAchievementUnlocked((e) => this.avatars.get(e.sessionId)?.celebrate()),
       () => this.usables.destroy(),
       () => this.fishing.destroy(),
@@ -576,6 +587,7 @@ export class OfficeScene extends Phaser.Scene {
       if (room) rect = room.rect;
     }
     this.view?.setPrivateRoom(rect);
+    this.postIts.setVeil(rect);
     // El panel lateral ofrece el botón de las paredes en cualquier sala interior.
     const indoors = Boolean(this.map && !this.map.outdoor);
     if (s.indoors !== indoors) s.setIndoors(indoors);
@@ -633,6 +645,8 @@ export class OfficeScene extends Phaser.Scene {
       this.weatherView.setArea(map, this.view.bounds);
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
+      this.aquariums.setArea(map, this.view);
+      this.postIts.setArea(map);
       if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
       this.rods.setArea(map);
       this.fishing.reset();
@@ -704,6 +718,7 @@ export class OfficeScene extends Phaser.Scene {
     this.weatherView.setArea(map, this.view.bounds);
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
+    this.aquariums.setArea(map, this.view);
     this.rods.setArea(map);
     this.club.setArea(map, this.view);
     this.cinema.setArea(map);
@@ -1973,17 +1988,20 @@ export class OfficeScene extends Phaser.Scene {
     const s = useOfficeStore.getState();
     const me = selectMyUserId(s);
     let prompt: string | null = null;
+    // Puerta de una oficina ajena con dueño: se le puede dejar una nota (esté cerrada o no).
+    let noteDoor: string | null = null;
     for (const zone of this.map.zones) {
       if (zone.type !== "office") continue;
       const office = s.offices[zone.id];
-      if (!office || canEnterOffice(office, me)) continue;
+      if (!office) continue;
       const door = officeDoor(zone);
-      if (Math.hypot(door.x - this.local.x, door.y - this.local.y) < DOOR_PROMPT_RADIUS) {
-        prompt = zone.id;
-        break;
-      }
+      if (Math.hypot(door.x - this.local.x, door.y - this.local.y) >= DOOR_PROMPT_RADIUS) continue;
+      if (office.ownerId && office.ownerId !== me) noteDoor ??= zone.id;
+      if (!canEnterOffice(office, me)) prompt ??= zone.id;
     }
     if (prompt !== s.doorPrompt) s.setDoorPrompt(prompt);
+    // Adentro de la oficina no se ofrece (la puerta queda a un paso, pero ya entraste).
+    useDoorNotesStore.getState().setDoor(s.zone?.id === noteDoor ? null : noteDoor);
   }
 
   /** Placas con el nombre del dueño sobre la puerta de cada oficina del nivel. */
@@ -2028,6 +2046,7 @@ export class OfficeScene extends Phaser.Scene {
       status?.setVisible(Boolean(line));
       if (line && status) status.setText(line.text).setBackgroundColor(line.color);
     }
+    this.postIts.update(offices);
     this.updateDoorPrompt();
   }
 

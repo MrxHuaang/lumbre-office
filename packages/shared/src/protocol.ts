@@ -147,6 +147,8 @@ export const INTERNAL_ROUTES = {
   giftSent: "/internal/gift-sent",
   /** Se subió o se borró una foto: el servidor avisa a todos para que el tablón se refresque. */
   photosChanged: "/internal/photos-changed",
+  /** El dueño leyó o borró notas de su puerta (body `{ userId }`): se recuentan los post-its. */
+  doorNotesChanged: "/internal/door-notes-changed",
 } as const;
 
 /** Nombres de mensajes Colyseus. */
@@ -216,6 +218,9 @@ export const MSG = {
   knockRequest: "office:knock:request",
   knockRespond: "office:knock:respond",
   knockResult: "office:knock:result",
+  /** Dejar una nota en la puerta de una oficina (`DoorNoteMessage`) y la respuesta (`DoorNoteResult`). */
+  doorNote: "office:door-note",
+  doorNoteResult: "office:door-note:result",
   /** Pedir en la barra del club (`BarOrderMessage`); responde con `cafeResult`. */
   barOrder: "bar:order",
   /** Usar lo que tengo en la mano (`UseHeldMessage`) y el aviso a los del mismo nivel (`HeldUsedEvent`). */

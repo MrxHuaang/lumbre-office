@@ -58,6 +58,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "boardgame"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race"
+  // El acuario del salón (planta baja): qué peces nadan y quién los sacó.
+  | "aquarium"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
   | "shed";
 
@@ -78,7 +80,14 @@ export interface ToastPrompt {
 }
 
 /** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
-export type PanelKind = Interactable | "backpack" | "fishAlbum" | "whiteboard";
+export type PanelKind =
+  | Interactable
+  | "backpack"
+  | "fishAlbum"
+  | "whiteboard"
+  // Notas en la puerta: escribir una en la puerta de otra oficina, o leer las de la tuya.
+  | "doorNote"
+  | "doorNotes";
 
 export interface OfficeView {
   zoneId: string;
@@ -88,6 +97,8 @@ export interface OfficeView {
   locked: boolean;
   /** Nota de la placa de la puerta (la pone el dueño). */
   note: string;
+  /** Notas sin leer que le dejaron al dueño en la puerta (se ven como post-its). */
+  notes: number;
   /** La radio de la oficina (suena solo adentro), o null si está apagada. */
   radio: OfficeRadioState | null;
   guests: string[];
