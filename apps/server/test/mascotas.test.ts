@@ -17,7 +17,7 @@ function seeded(seed: number) {
 
 const world = getWorld();
 const mapOf = (area: string): OfficeMap => world.areas.get(area)!;
-const blank = (): PetView => ({ id: "", name: "", kind: "", coat: "", area: "", x: 0, y: 0, dir: "down", pose: "stand" });
+const blank = (): PetView => ({ id: "", name: "", kind: "", coat: "", area: "", x: 0, y: 0, dir: "down", pose: "stand", ownerId: "", ownerName: "", love: 0 });
 
 function setup(seed = 1) {
   const pets = new Map<string, PetView>();
@@ -100,7 +100,7 @@ describe("mascotas", () => {
     const tobi = pets.get("tobi")!;
     const who = { userId: "u", area: "jardin", x: tobi.x - 5 * 32, y: tobi.y + 1 * 32 };
     expect(sim.call({ ...who, area: "planta-baja" }, { pet: "tobi" }, 0)).toMatchObject({ ok: false });
-    expect(sim.call(who, { pet: "tobi" }, 0)).toEqual({ ok: true, action: "call" });
+    expect(sim.call(who, { pet: "tobi" }, 0)).toMatchObject({ ok: true, action: "call" });
     let now = 0;
     for (let i = 0; i < 200 && sim.modeOf("tobi") === "walk"; i++) sim.tick((now += PET.tickMs), PET.tickMs);
     expect(Math.hypot(tobi.x - who.x, tobi.y - who.y)).toBeLessThanOrEqual(1.5 * 32);
@@ -115,13 +115,13 @@ describe("mascotas", () => {
     const canela = pets.get("canela")!;
     const near = { userId: "u", area: "planta-baja", x: canela.x + 32, y: canela.y };
     expect(sim.act({ ...near, x: canela.x + 5 * 32 }, { pet: "canela", action: "pet" }, 0)).toEqual({ ok: false, error: "far" });
-    expect(sim.act(near, { pet: "canela", action: "pet" }, 0)).toEqual({ ok: true, action: "pet" });
+    expect(sim.act(near, { pet: "canela", action: "pet" }, 0)).toMatchObject({ ok: true, action: "pet" });
     // Muy seguido, no (la pausa de acariciar).
     expect(sim.act(near, { pet: "canela", action: "pet" }, 500)).toMatchObject({ ok: false });
-    expect(sim.act(near, { pet: "canela", action: "treat" }, 2_000)).toEqual({ ok: true, action: "treat" });
+    expect(sim.act(near, { pet: "canela", action: "treat" }, 2_000)).toMatchObject({ ok: true, action: "treat" });
     expect(canela.pose).toBe("eat");
     expect(sim.act(near, { pet: "canela", action: "treat" }, 5_000)).toEqual({ ok: false, error: "fed" });
-    expect(sim.act(near, { pet: "canela", action: "treat" }, 2_000 + PET.treatCooldownMs)).toEqual({ ok: true, action: "treat" });
+    expect(sim.act(near, { pet: "canela", action: "treat" }, 2_000 + PET.treatCooldownMs)).toMatchObject({ ok: true, action: "treat" });
     expect(sim.act(near, { pet: "canela", action: "bailar" }, 60_000)).toMatchObject({ ok: false });
   });
 
@@ -129,11 +129,11 @@ describe("mascotas", () => {
     const { pets, sim } = setup(2);
     const tobi = pets.get("tobi")!;
     const who = { userId: "u", area: "jardin", x: tobi.x - 4 * 32, y: tobi.y + 32 };
-    expect(sim.call(who, { pet: "tobi" }, 0)).toEqual({ ok: true, action: "call" });
+    expect(sim.call(who, { pet: "tobi" }, 0)).toMatchObject({ ok: true, action: "call" });
     expect(sim.call(who, { pet: "tobi" }, 500)).toEqual({ ok: false, error: "busy" });
     // Otra persona sí puede, y la misma pasada la pausa.
-    expect(sim.call({ ...who, userId: "v" }, { pet: "tobi" }, 500)).toEqual({ ok: true, action: "call" });
-    expect(sim.call(who, { pet: "tobi" }, PET.callCooldownMs)).toEqual({ ok: true, action: "call" });
+    expect(sim.call({ ...who, userId: "v" }, { pet: "tobi" }, 500)).toMatchObject({ ok: true, action: "call" });
+    expect(sim.call(who, { pet: "tobi" }, PET.callCooldownMs)).toMatchObject({ ok: true, action: "call" });
     // Muchas personas que pasaron no quedan guardadas para siempre.
     for (let i = 0; i < 200; i++) sim.call({ ...who, userId: `p${i}` }, { pet: "tobi" }, 10_000 + i * PET.callCooldownMs);
     expect(sim.pending).toBeLessThan(80);
@@ -186,7 +186,7 @@ describe("mascotas", () => {
     const tobi = pets.get("tobi")!;
     const jardin = world.areas.get("jardin")!;
     const who = { userId: "u", area: "jardin", x: tobi.x - 6 * 32, y: tobi.y + 32 };
-    expect(sim.call(who, { pet: "tobi" }, 0)).toEqual({ ok: true, action: "call" });
+    expect(sim.call(who, { pet: "tobi" }, 0)).toMatchObject({ ok: true, action: "call" });
     let now = 0;
     sim.tick((now += PET.tickMs), PET.tickMs);
     expect(sim.modeOf("tobi")).toBe("walk");

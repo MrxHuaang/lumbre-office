@@ -1,7 +1,7 @@
 "use client";
 
 // Lo que suena en el club, para el panel lateral: el video o la pista, quién la puso, las reacciones, la
-// cola, ver el video en grande y mi volumen.
+// cola, ver el video en grande, mi volumen y las marcas de las propinas del tubo de hoy.
 import { clubTrack, isPlaying } from "@hyvento/shared";
 import { useShallow } from "zustand/react/shallow";
 import { useClubStore } from "@/game/club/store";
@@ -16,6 +16,7 @@ export function ClubSection() {
   const dj = useClubStore((s) => s.dj);
   const queued = useClubStore((s) => s.queue.length);
   const big = useClubStore((s) => s.videoBig);
+  const tips = useClubStore((s) => s.tipStats);
   const playing = isPlaying(music);
   const current = clubTrack(music.track);
   const title = video ? video.title : current?.name;
@@ -57,6 +58,19 @@ export function ClubSection() {
         )}
       </div>
       {title && <LocalVolume compact />}
+      {tips.best > 0 && (
+        <div className="border-t-2 pt-1.5 leading-tight" style={{ borderColor: NEON.edge }}>
+          <p style={{ color: NEON.pink }}>Propinas de hoy en el tubo</p>
+          <p className="opacity-90">
+            La mayor: {tips.best} de {tips.bestFrom} a {tips.bestTo}
+          </p>
+          {tips.topName && (
+            <p className="opacity-90">
+              Más recibió: {tips.topName} ({tips.topTotal})
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

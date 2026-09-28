@@ -1,19 +1,26 @@
 import {
+  CLUB_TIP,
   DAILY_CAPS,
+  DOOR_NOTES,
   dayStart,
+  doorNotesDayStart,
+  doorNotesLeft,
   giftAllowedToday,
   stackUnits,
+  tipAllowedToday,
   tradeGap,
   type ArcadeGame,
+  type BoardGameKind,
   type CasinoSettingsDTO,
   type ChatEvent,
   type ItemStack,
   type OfficeItemDTO,
+  type PetBondRecord,
   type PointReason,
   type PresenceStatus,
   type StatChange,
 } from "@hyvento/shared";
-import type { GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TradeResult, TradeSideInput, UserProfile } from "./types";
+import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -125,6 +132,22 @@ export class MemoryRepository implements GameRepository {
     if (amount > 0) this.ledger.push({ userId, amount, reason, at: now });
     return { awarded: Math.max(0, amount), balance: await this.getPoints(userId) };
   }
+  async awardPointsOnce({ userId, amount, reason, refId, refPrefix, maxPerDay }: AwardOnceInput) {
+    const now = Date.now();
+    const mine = this.ledger.filter((m) => m.userId === userId);
+    if (mine.some((m) => m.refId === refId)) return { status: "duplicate" as const, awarded: 0, balance: await this.getPoints(userId) };
+    if (mine.filter((m) => m.refId?.startsWith(refPrefix) && m.at >= dayStart(now)).length >= maxPerDay)
+      return { status: "limit" as const, awarded: 0, balance: await this.getPoints(userId) };
+    const r = await this.awardPoints({ userId, amount, reason });
+    // Como en la base: el movimiento queda con su refId (awardPoints lo acaba de agregar al final).
+    if (r.awarded > 0) this.ledger[this.ledger.length - 1]!.refId = refId;
+    return { status: "ok" as const, ...r };
+  }
+  /** Cumpleaños de los tests: userId → { nombre, "MM-DD" }. */
+  birthdays = new Map<string, { name: string; birthday: string }>();
+  async listBirthdays() {
+    return [...this.birthdays].map(([userId, b]) => ({ userId, ...b }));
+  }
   /** Bono de bienvenida de los tests: 0 (apagado) salvo que un test lo prenda. */
   welcomeBonus = 0;
   private welcomed = new Set<string>();
@@ -203,6 +226,21 @@ export class MemoryRepository implements GameRepository {
     }
     return { entries: [...best.values()].sort((a, b) => a.ms - b.ms).slice(0, limit), myBest: best.get(userId)?.ms ?? null };
   }
+  /** Victorias de ajedrez y damas. */
+  boardWins: { userId: string; name: string; game: BoardGameKind; at: number }[] = [];
+  async saveBoardWin({ userId, name, game }: { userId: string; name: string; game: BoardGameKind }) {
+    this.boardWins.push({ userId, name, game, at: Date.now() });
+  }
+  async boardRanking({ game, since, limit }: { game: BoardGameKind; since: number; limit: number }) {
+    const wins = new Map<string, { name: string; wins: number }>();
+    for (const w of this.boardWins) {
+      if (w.game !== game || w.at < since) continue;
+      const e = wins.get(w.userId) ?? { name: w.name, wins: 0 };
+      e.wins += 1;
+      wins.set(w.userId, e);
+    }
+    return [...wins.values()].sort((a, b) => b.wins - a.wins).slice(0, limit);
+  }
   async arcadeBoard({ game, since, limit }: { game: ArcadeGame; since: number; limit: number }) {
     const best = new Map<string, { name: string; score: number }>();
     for (const a of this.arcade) {
@@ -244,9 +282,40 @@ export class MemoryRepository implements GameRepository {
     set.add(achievementId);
     return true;
   }
+  /** Insignias destacadas y mascotas adoptadas (en memoria). */
+  featuredBadges = new Map<string, string>();
+  petBonds = new Map<string, PetBondRecord>();
+  async getFeaturedBadge(userId: string) {
+    return this.featuredBadges.get(userId) ?? null;
+  }
+  async loadPetBonds() {
+    return [...this.petBonds.values()].map((b) => ({ ...b }));
+  }
+  async savePetBond(bond: PetBondRecord) {
+    // Como en la base: una mascota por dueño.
+    for (const b of this.petBonds.values()) if (bond.ownerId && b.ownerId === bond.ownerId && b.petId !== bond.petId) throw new Error("ya tiene mascota");
+    this.petBonds.set(bond.petId, { ...bond });
+  }
+
   /** Helper de tests: un contador guardado. */
   savedStat(userId: string, key: string) {
     return this.userStats.get(userId)?.get(key) ?? 0;
+  }
+
+  /** Notas en la puerta (como DoorNote). */
+  doorNotes: { id: string; fromId: string; toId: string; zoneId: string; text: string; at: number; read: boolean }[] = [];
+  async saveDoorNote({ fromId, toId, zoneId, text }: { fromId: string; toId: string; zoneId: string; text: string }) {
+    const now = Date.now();
+    const sent = this.doorNotes.filter((n) => n.fromId === fromId && n.at >= doorNotesDayStart(now)).length;
+    if (sent >= DOOR_NOTES.perDay) return { ok: false as const, error: "limit" as const };
+    this.doorNotes.push({ id: `nota-${this.doorNotes.length + 1}`, fromId, toId, zoneId, text, at: now, read: false });
+    const unread = this.doorNotes.filter((n) => n.toId === toId && !n.read).length;
+    return { ok: true as const, left: doorNotesLeft(sent + 1), unread };
+  }
+  async unreadDoorNotes(userIds: string[]) {
+    const out: Record<string, number> = {};
+    for (const n of this.doorNotes) if (!n.read && userIds.includes(n.toId)) out[n.toId] = (out[n.toId] ?? 0) + 1;
+    return out;
   }
 
   /** Helper de tests: asigna una oficina. */
@@ -366,5 +435,25 @@ export class MemoryRepository implements GameRepository {
     this.inventory = inventory;
     this.ledger.push(...moves);
     return { ok: true, balances: { [a.userId]: await this.getPoints(a.userId), [b.userId]: await this.getPoints(b.userId) } };
+  }
+
+  // ---------- Propinas del tubo ----------
+
+  /** Lo que alguien tiró hoy en propinas (GIFT con refId "tip:…"), como `tippedToday` de @hyvento/db. */
+  tippedToday(userId: string, now = Date.now()) {
+    const since = dayStart(now);
+    return -this.ledger
+      .filter((m) => m.userId === userId && m.reason === "GIFT" && m.amount < 0 && m.at >= since && m.refId?.startsWith(CLUB_TIP.refPrefix))
+      .reduce((sum, m) => sum + m.amount, 0);
+  }
+
+  async tip({ refId, fromId, toId, amount }: TipInput): Promise<TipResult> {
+    const now = Date.now();
+    const allowed = tipAllowedToday(this.tippedToday(fromId, now), (await this.givenToday(fromId, now)).points, amount);
+    if (allowed === "tips") return { ok: false, error: "limit-tips" };
+    if (allowed === "points") return { ok: false, error: "limit" };
+    if ((await this.getPoints(fromId)) < amount) return { ok: false, error: "funds" };
+    this.ledger.push({ userId: fromId, amount: -amount, reason: "GIFT", at: now, refId }, { userId: toId, amount, reason: "GIFT", at: now, refId });
+    return { ok: true, balances: { [fromId]: await this.getPoints(fromId), [toId]: await this.getPoints(toId) } };
   }
 }

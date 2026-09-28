@@ -39,6 +39,18 @@ export const token = (
 
 export const tick = (ms = 50) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Espera hasta que se cumpla `cond` (la revisa cada 10 ms). Mejor que una espera fija: con la máquina
+ * cargada los mensajes tardan más, y los de dos clientes distintos no llegan en un orden fijo.
+ */
+export async function until(cond: () => unknown, what = "la condición", timeoutMs = 5_000) {
+  const end = Date.now() + timeoutMs;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error(`No se cumplió a tiempo: ${what}`);
+    await tick(10);
+  }
+}
+
 export type ServerRoom = Awaited<ReturnType<ColyseusTestServer["createRoom"]>> & { state: OfficeState };
 
 const me = (client: ClientRoom, room: ServerRoom) => room.state.players.get(client.sessionId)!;

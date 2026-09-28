@@ -147,6 +147,8 @@ export const INTERNAL_ROUTES = {
   giftSent: "/internal/gift-sent",
   /** Se subió o se borró una foto: el servidor avisa a todos para que el tablón se refresque. */
   photosChanged: "/internal/photos-changed",
+  /** El dueño leyó o borró notas de su puerta (body `{ userId }`): se recuentan los post-its. */
+  doorNotesChanged: "/internal/door-notes-changed",
 } as const;
 
 /** Nombres de mensajes Colyseus. */
@@ -216,6 +218,9 @@ export const MSG = {
   knockRequest: "office:knock:request",
   knockRespond: "office:knock:respond",
   knockResult: "office:knock:result",
+  /** Dejar una nota en la puerta de una oficina (`DoorNoteMessage`) y la respuesta (`DoorNoteResult`). */
+  doorNote: "office:door-note",
+  doorNoteResult: "office:door-note:result",
   /** Pedir en la barra del club (`BarOrderMessage`); responde con `cafeResult`. */
   barOrder: "bar:order",
   /** Usar lo que tengo en la mano (`UseHeldMessage`) y el aviso a los del mismo nivel (`HeldUsedEvent`). */
@@ -266,6 +271,11 @@ export const MSG = {
   clubQueue: "club:queue",
   clubReact: "club:react",
   clubReaction: "club:reaction",
+  /** Propinas en el tubo: tirar billetes (`ClubTipMessage`), el aviso a los del nivel (`ClubTipEvent`) y
+   *  por qué no salió (`ClubTipResult`). */
+  clubTip: "club:tip",
+  clubTipped: "club:tipped",
+  clubTipResult: "club:tip:result",
   /** Cine: la cola de la función, pausar y seguir (`CinemaMessage`) y el aviso cuando no se pudo
    *  (`CinemaResult`). */
   cinemaQueue: "cinema:queue",
@@ -289,6 +299,17 @@ export const MSG = {
   hockeyLeave: "hockey:leave",
   hockeyFrame: "hockey:frame",
   hockeySettled: "hockey:settled",
+  /** Ajedrez y damas de la sala de juegos (boardgames.ts): listo en la silla (`BoardReadyMessage`), una
+   *  jugada (`BoardMoveMessage`), rendirse u ofrecer tablas (`BoardTableMessage`), un pedido rechazado
+   *  (`BoardResult`), cómo terminó (`BoardSettled`) y el ranking (`BoardRankingMessage` → `BoardRanking`). */
+  boardReady: "board:ready",
+  boardMove: "board:move",
+  boardResign: "board:resign",
+  boardDraw: "board:draw",
+  boardResult: "board:result",
+  boardSettled: "board:settled",
+  boardRanking: "board:ranking",
+  boardRankingResult: "board:ranking:result",
   /** Medir la hora del servidor descontando la latencia (`ClockPingMessage` → `ClockPong`): la música
    *  del club tiene que sonar a la vez para todos. */
   clockPing: "clock:ping",
@@ -301,6 +322,22 @@ export const MSG = {
   photoShot: "photo:shot",
   photoFlash: "photo:flash",
   photosChanged: "photo:changed",
+  /** Teléfono (phone.ts): llamar a una oficina (`PhoneCallMessage`), contestar o rechazar
+   *  (`PhoneAnswerMessage`), colgar, y lo que avisa el servidor (`PhoneEvent`). */
+  phoneCall: "phone:call",
+  phoneAnswer: "phone:answer",
+  phoneHangup: "phone:hangup",
+  phoneEvent: "phone:event",
   /** Servidor → los del nivel: alguien desbloqueó un logro (ver achievements.ts). */
   achievementUnlocked: "achievement:unlocked",
+  /** Cumpleaños (events.ts): felicitar a quien cumple (`CongratsMessage`), la respuesta a quien felicita
+   *  (`CongratsResult`) y el aviso a todos (`CongratsEvent`). */
+  congrats: "birthday:congrats",
+  congratsResult: "birthday:congrats:result",
+  congratsEvent: "birthday:congrats:event",
+  /** Modo foco (focus.ts): empezar (`FocusStartMessage`), dejarlo o saltar el descanso, y cómo le fue
+   *  (`FocusEvent`, solo a la persona). */
+  focusStart: "focus:start",
+  focusStop: "focus:stop",
+  focusEvent: "focus:event",
 } as const;

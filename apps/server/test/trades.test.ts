@@ -2,11 +2,17 @@ import type { ColyseusTestServer } from "@colyseus/testing";
 import { findPath, getWorld } from "@hyvento/map";
 import { GIFT, MSG, ROOM_NAME, TRADE, type TradeClosed, type TradeInvite, type TradeProblem, type TradeView } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
+import type { Trades } from "../src/rooms/trades";
 import type { OfficeState } from "../src/state";
-import { bootServer, tick, TILE, token, walkToTile, type ServerRoom } from "./helpers";
+import { bootServer, tick, TILE, token, until, walkToTile, type ServerRoom } from "./helpers";
+
+// Nada de esperas fijas: con la máquina cargada 80 ms no alcanzan, y lo que mandan dos clientes distintos
+// no llega en un orden fijo (el "Listo" de Bob puede ganarle a la oferta de Alice). Cada paso espera a ver
+// su efecto (`until`); lo que no deja rastro (una oferta repetida, cancelar mientras se guarda) se
+// confirma con algo que el servidor procesa después o espiando el método de la sala.
 
 let colyseus: ColyseusTestServer;
 let repo: MemoryRepository;
@@ -22,6 +28,9 @@ beforeEach(async () => {
   repo = new MemoryRepository();
   OfficeRoom.repo = repo;
 });
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 /** Lo que le llega a cada cliente sobre intercambios. */
 function inbox(client: ClientRoom) {
@@ -34,6 +43,7 @@ function inbox(client: ClientRoom) {
     return box.views[box.views.length - 1];
   } };
 }
+type Inbox = ReturnType<typeof inbox>;
 
 async function setup() {
   const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
@@ -47,15 +57,25 @@ async function setup() {
 async function openTrade() {
   const s = await setup();
   s.alice.send(MSG.tradeRequest, { sessionId: s.bob.sessionId });
-  await tick(80);
+  await until(() => s.b.invites.length, "la invitación");
   expect(s.b.invites).toHaveLength(1);
   expect(s.b.invites[0]!.fromName).toBe("Alice");
   s.bob.send(MSG.tradeRespond, { requestId: s.b.invites[0]!.requestId, accept: true });
-  await tick(80);
+  await until(() => s.a.view && s.b.view, "el intercambio abierto");
   expect(s.a.view?.them.name).toBe("Bob");
   expect(s.b.view?.them.name).toBe("Alice");
   return s;
 }
+
+/** Los dos marcan "Listo" y se espera a que los dos lo vean. */
+async function bothReady({ alice, bob, a, b }: { alice: ClientRoom; bob: ClientRoom; a: Inbox; b: Inbox }) {
+  alice.send(MSG.tradeReady, { ready: true });
+  bob.send(MSG.tradeReady, { ready: true });
+  await until(() => a.view?.stage === "confirm" && b.view?.stage === "confirm", "los dos listos");
+}
+
+/** Espía un método de los intercambios de la sala (para saber cuándo lo procesó el servidor). */
+const spyTrades = (room: ServerRoom, method: "cancel" | "left") => vi.spyOn((room as unknown as { trades: Trades }).trades, method);
 
 const points = (userId: string) => repo.getPoints(userId);
 
@@ -68,26 +88,24 @@ describe("intercambios", () => {
 
     alice.send(MSG.tradeOffer, { points: 30, items: [{ itemId: "plant", quantity: 1 }] });
     bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
-    await tick(80);
+    await until(() => b.view?.them.points === 30 && a.view?.them.items.length && a.view.you.points === 30, "las dos ofertas");
     expect(b.view?.them).toMatchObject({ points: 30, items: [{ itemId: "plant", quantity: 1 }] });
     expect(a.view?.them.items).toEqual([{ itemId: "sofa", quantity: 1 }]);
 
-    // Sin los dos listos, confirmar no hace nada.
+    // Sin los dos listos, confirmar no hace nada (el "Listo" de Alice se procesa después de su confirmar).
     alice.send(MSG.tradeConfirm);
     alice.send(MSG.tradeReady, { ready: true });
-    await tick(60);
+    await until(() => a.view?.you.ready, "el Listo de Alice");
     expect(a.view?.stage).toBe("offer");
     expect(a.view?.you.confirmed).toBe(false);
     bob.send(MSG.tradeReady, { ready: true });
-    await tick(60);
-    expect(a.view?.stage).toBe("confirm");
+    await until(() => a.view?.stage === "confirm" && b.view?.stage === "confirm", "los dos listos");
 
     alice.send(MSG.tradeConfirm);
-    await tick(60);
-    expect(b.view?.them.confirmed).toBe(true);
+    await until(() => b.view?.them.confirmed, "el confirmar de Alice");
     expect(await points("u-alice")).toBe(50); // falta Bob: todavía nada
     bob.send(MSG.tradeConfirm);
-    await tick(100);
+    await until(() => a.closed.length && b.closed.length, "el cierre");
 
     expect(a.closed.at(-1)).toMatchObject({ reason: "done", with: "Bob", got: { points: 0, items: [{ itemId: "sofa", quantity: 1 }] }, balance: 20 });
     expect(b.closed.at(-1)).toMatchObject({ reason: "done", with: "Alice", got: { points: 30, items: [{ itemId: "plant", quantity: 1 }] }, balance: 30 });
@@ -113,21 +131,20 @@ describe("intercambios", () => {
     const { alice, bob, a, b } = await openTrade();
 
     alice.send(MSG.tradeOffer, { points: 100, items: [] });
-    await tick(80);
+    await until(() => a.problems.length, "el aviso de fondos");
     expect(a.problems.at(-1)).toEqual({ error: "funds" });
     expect(b.view?.them.points).toBe(0);
 
     alice.send(MSG.tradeOffer, { points: 20, items: [] });
     bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
-    await tick(80); // cada oferta desmarca a los dos: se marca "Listo" después
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
+    // Cada oferta desmarca a los dos: se marca "Listo" cuando ya llegaron las dos.
+    await until(() => b.view?.them.points === 20 && a.view?.them.items.length, "las dos ofertas");
+    await bothReady({ alice, bob, a, b });
     // Mientras tanto gastó en la cafetería: al confirmar se revalida y no se mueve nada.
     await repo.spendPoints({ userId: "u-alice", amount: 15, reason: "PURCHASE" });
     alice.send(MSG.tradeConfirm);
     bob.send(MSG.tradeConfirm);
-    await tick(120);
+    await until(() => a.problems.length === 2 && b.problems.length && a.view?.stage === "offer" && b.view?.stage === "offer", "el rechazo");
     expect(a.problems.at(-1)).toEqual({ error: "funds", who: "Alice" });
     expect(b.problems.at(-1)).toEqual({ error: "funds", who: "Alice" });
     expect(a.closed).toEqual([]);
@@ -144,20 +161,18 @@ describe("intercambios", () => {
     const { alice, bob, a, b } = await openTrade();
 
     alice.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "plant", quantity: 2 }] });
-    await tick(80);
+    await until(() => a.problems.length, "el aviso de objetos");
     expect(a.problems.at(-1)).toEqual({ error: "items" });
 
     alice.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "plant", quantity: 1 }] });
     bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "piano", quantity: 1 }] });
-    await tick(80);
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
+    await until(() => b.view?.them.items.length && a.view?.them.items.length, "las dos ofertas");
+    await bothReady({ alice, bob, a, b });
     // Puso la planta en su oficina antes de confirmar.
     repo.inventory.set("u-alice:plant", 0);
     alice.send(MSG.tradeConfirm);
     bob.send(MSG.tradeConfirm);
-    await tick(120);
+    await until(() => a.problems.length === 2 && b.problems.length, "el rechazo");
     expect(b.problems.at(-1)).toEqual({ error: "items", who: "Alice" });
     expect(a.closed).toEqual([]);
     expect(repo.held("u-bob", "piano")).toBe(1);
@@ -168,22 +183,25 @@ describe("intercambios", () => {
     await repo.awardPoints({ userId: "u-alice", amount: 40, reason: "ADMIN" });
     const { alice, bob, a, b } = await openTrade();
     alice.send(MSG.tradeOffer, { points: 10, items: [] });
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
+    // El "Listo" de Bob va después de ver la oferta: si no, podía llegar antes y la oferta lo desmarcaba.
+    await until(() => b.view?.them.points === 10, "la oferta de Alice");
+    await bothReady({ alice, bob, a, b });
     expect(b.view).toMatchObject({ stage: "confirm", you: { ready: true }, them: { ready: true } });
 
     alice.send(MSG.tradeOffer, { points: 15, items: [] });
-    await tick(80);
+    await until(() => b.view?.them.points === 15 && a.view?.you.points === 15, "la oferta nueva");
     expect(b.view).toMatchObject({ stage: "offer", you: { ready: false }, them: { ready: false, points: 15 } });
     expect(a.view?.you.ready).toBe(false);
 
     // Repetir la misma oferta no cambia nada (no desmarca).
     bob.send(MSG.tradeReady, { ready: true });
-    await tick(60);
+    await until(() => a.view?.them.ready, "el Listo de Bob");
     alice.send(MSG.tradeOffer, { points: 15, items: [] });
-    await tick(60);
+    // El "Listo" de Alice se procesa después de la oferta repetida: si esta hubiera desmarcado a Bob, se vería.
+    alice.send(MSG.tradeReady, { ready: true });
+    await until(() => a.view?.you.ready, "el Listo de Alice");
     expect(a.view?.them.ready).toBe(true);
+    expect(a.view?.stage).toBe("confirm");
   });
 
   it("se cancela si alguien se aleja", async () => {
@@ -203,16 +221,14 @@ describe("intercambios", () => {
       }
     expect(far).not.toBeNull();
     await walkToTile(alice, room, far!.x, far!.y);
-    await tick(60);
+    await until(() => a.closed.length && b.closed.length, "el cierre");
     expect(a.closed.at(-1)).toMatchObject({ reason: "far", with: "Bob" });
     expect(b.closed.at(-1)).toMatchObject({ reason: "far", with: "Alice" });
-    // Ya no está abierto: otra oferta no hace nada.
+    // Ya no está abierto: otra oferta no hace nada. Y de lejos tampoco se puede invitar.
     alice.send(MSG.tradeOffer, { points: 0, items: [] });
-    await tick(40);
-    expect(a.views.length).toBe(1);
-    // Y de lejos tampoco se puede invitar.
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => a.problems.length, "el aviso de lejos");
+    expect(a.views.length).toBe(1);
     expect(a.problems.at(-1)).toEqual({ error: "far" });
     expect(b.invites).toHaveLength(1);
   });
@@ -220,18 +236,18 @@ describe("intercambios", () => {
   it("se cancela si alguien se desconecta o lo cierra", async () => {
     const first = await openTrade();
     first.bob.send(MSG.tradeCancel);
-    await tick(80);
+    await until(() => first.a.closed.length, "el cierre");
     expect(first.a.closed.at(-1)).toMatchObject({ reason: "cancelled", with: "Bob" });
 
     first.alice.send(MSG.tradeRequest, { sessionId: first.bob.sessionId });
-    await tick(80);
+    await until(() => first.a.problems.length, "el aviso");
     // Pausa entre invitaciones a la misma persona.
     expect(first.a.problems.at(-1)).toEqual({ error: "too-soon" });
 
     await colyseus.cleanup();
     const second = await openTrade();
     await second.bob.leave(true);
-    await tick(120);
+    await until(() => second.a.closed.length, "el cierre");
     expect(second.a.closed.at(-1)).toMatchObject({ reason: "left", with: "Bob" });
   });
 
@@ -239,13 +255,13 @@ describe("intercambios", () => {
     const { room, alice, bob, a, b } = await setup();
     alice.send(MSG.tradeRequest, { sessionId: alice.sessionId });
     alice.send(MSG.tradeRequest, { sessionId: "nadie" });
-    await tick(80);
+    await until(() => a.problems.length === 2, "los dos avisos");
     expect(a.problems).toEqual([{ error: "self" }, { error: "unknown" }]);
 
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => b.invites.length, "la invitación");
     bob.send(MSG.tradeRespond, { requestId: b.invites[0]!.requestId, accept: false });
-    await tick(80);
+    await until(() => a.closed.length, "el rechazo");
     expect(a.closed.at(-1)).toMatchObject({ reason: "declined", with: "Bob" });
     expect(b.views).toEqual([]);
 
@@ -254,13 +270,13 @@ describe("intercambios", () => {
     const cBox = inbox(carla);
     await room.waitForNextPatch();
     carla.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => b.invites.length === 2, "la invitación de Carla");
     bob.send(MSG.tradeRespond, { requestId: b.invites.at(-1)!.requestId, accept: true });
-    await tick(80);
+    await until(() => cBox.view, "el intercambio con Carla");
     expect(cBox.view?.them.name).toBe("Bob");
     await tick(TRADE.requestCooldownMs - 100);
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => a.problems.length === 3, "el aviso de ocupado");
     expect(a.problems.at(-1)).toEqual({ error: "busy" });
   });
 });
@@ -271,28 +287,37 @@ describe("intercambios: bordes", () => {
     repo.tradeGate = null;
   });
 
+  /** Confirman los dos con la base trabada: vuelve cuando el servidor ya empezó a guardar. */
+  async function confirmWhileSaving({ alice, bob, b }: { alice: ClientRoom; bob: ClientRoom; b: Inbox }) {
+    let release!: () => void;
+    repo.tradeGate = new Promise<void>((r) => (release = r));
+    const saving = vi.spyOn(repo, "executeTrade");
+    // Primero el de Alice: si el de Bob (y lo que manda después) llegaba antes, se cerraba sin guardar.
+    alice.send(MSG.tradeConfirm);
+    await until(() => b.view?.them.confirmed, "el confirmar de Alice");
+    bob.send(MSG.tradeConfirm);
+    await until(() => saving.mock.calls.length, "que empiece a guardarse");
+    return release;
+  }
+
   it("si alguien cancela mientras se guarda, igual termina como hecho y el saldo llega a los dos", async () => {
     await repo.awardPoints({ userId: "u-alice", amount: 40, reason: "ADMIN" });
     repo.give("u-bob", "sofa", 1);
-    const { alice, bob, a, b, room } = await openTrade();
+    const s = await openTrade();
+    const { alice, bob, a, b, room } = s;
     alice.send(MSG.tradeOffer, { points: 25, items: [] });
     bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
-    await tick(80);
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
+    await until(() => b.view?.them.points === 25 && a.view?.them.items.length, "las dos ofertas");
+    await bothReady(s);
 
     // La base tarda: el intercambio queda "guardándose" hasta que se suelta la puerta.
-    let release!: () => void;
-    repo.tradeGate = new Promise<void>((r) => (release = r));
-    alice.send(MSG.tradeConfirm);
-    bob.send(MSG.tradeConfirm);
-    await tick(80);
+    const release = await confirmWhileSaving(s);
+    const cancels = spyTrades(room, "cancel");
     bob.send(MSG.tradeCancel);
-    await tick(60);
+    await until(() => cancels.mock.calls.length, "que el servidor lea el cancelar");
     expect(a.closed).toEqual([]); // el cierre espera a ver cómo sale
     release();
-    await tick(100);
+    await until(() => a.closed.length && b.closed.length, "el cierre");
 
     expect(a.closed).toHaveLength(1);
     expect(a.closed[0]).toMatchObject({ reason: "done", balance: 15 });
@@ -305,23 +330,19 @@ describe("intercambios: bordes", () => {
   it("si no se pudo hacer y alguien había cancelado mientras tanto, se cierra con ese motivo", async () => {
     await repo.awardPoints({ userId: "u-alice", amount: 10, reason: "ADMIN" });
     repo.give("u-bob", "sofa", 1);
-    const { alice, bob, a, b } = await openTrade();
+    const s = await openTrade();
+    const { alice, bob, a, b, room } = s;
     alice.send(MSG.tradeOffer, { points: 10, items: [] });
     bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
-    await tick(80);
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
-    let release!: () => void;
-    repo.tradeGate = new Promise<void>((r) => (release = r));
-    alice.send(MSG.tradeConfirm);
-    bob.send(MSG.tradeConfirm);
-    await tick(80);
+    await until(() => b.view?.them.points === 10 && a.view?.them.items.length, "las dos ofertas");
+    await bothReady(s);
+    const release = await confirmWhileSaving(s);
     await repo.spendPoints({ userId: "u-alice", amount: 5, reason: "PURCHASE" });
+    const cancels = spyTrades(room, "cancel");
     alice.send(MSG.tradeCancel);
-    await tick(40);
+    await until(() => cancels.mock.calls.length, "que el servidor lea el cancelar");
     release();
-    await tick(100);
+    await until(() => a.closed.length && b.closed.length, "el cierre");
     expect(a.closed.at(-1)).toMatchObject({ reason: "cancelled" });
     expect(b.closed.at(-1)).toMatchObject({ reason: "cancelled", with: "Alice" });
     expect(b.problems).toEqual([]);
@@ -331,25 +352,21 @@ describe("intercambios: bordes", () => {
   it("si alguien se desconecta mientras se guarda, se hace igual y una oferta nueva en el medio no cambia nada", async () => {
     await repo.awardPoints({ userId: "u-alice", amount: 40, reason: "ADMIN" });
     repo.give("u-bob", "sofa", 1);
-    const { alice, bob, a, room } = await openTrade();
+    const s = await openTrade();
+    const { alice, bob, a, b, room } = s;
     alice.send(MSG.tradeOffer, { points: 25, items: [] });
     bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
-    await tick(80);
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
-    let release!: () => void;
-    repo.tradeGate = new Promise<void>((r) => (release = r));
-    alice.send(MSG.tradeConfirm);
-    bob.send(MSG.tradeConfirm);
-    await tick(80);
+    await until(() => b.view?.them.points === 25 && a.view?.them.items.length, "las dos ofertas");
+    await bothReady(s);
+    const release = await confirmWhileSaving(s);
+    const lefts = spyTrades(room, "left");
     // Alice cambia la oferta (queda en la cola) y Bob se va: nada de eso corre durante el guardado.
     alice.send(MSG.tradeOffer, { points: 40, items: [] });
     await bob.leave(true);
-    await tick(80);
+    await until(() => lefts.mock.calls.length, "que el servidor vea que Bob se fue");
     expect(a.closed).toEqual([]);
     release();
-    await tick(120);
+    await until(() => a.closed.length, "el cierre");
 
     expect(a.closed).toHaveLength(1);
     expect(a.closed[0]).toMatchObject({ reason: "done", with: "Bob", gave: { points: 25 }, balance: 15 });
@@ -365,14 +382,14 @@ describe("intercambios: bordes", () => {
     OfficeRoom.tradeInviteMs = 150;
     const { alice, bob, a, b } = await setup();
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => b.invites.length, "la invitación");
     expect(b.invites).toHaveLength(1);
-    await tick(300);
+    await until(() => a.closed.length, "el vencimiento");
     expect(a.closed.at(-1)).toMatchObject({ id: b.invites[0]!.requestId, reason: "timeout", with: "Bob" });
     expect(b.invites[0]!.ttlMs).toBe(150);
     // Aceptar tarde no abre nada, y se avisa que venció.
     bob.send(MSG.tradeRespond, { requestId: b.invites[0]!.requestId, accept: true });
-    await tick(80);
+    await until(() => b.problems.length, "el aviso de vencida");
     expect(a.views).toEqual([]);
     expect(b.views).toEqual([]);
     expect(b.problems.at(-1)).toEqual({ error: "expired" });
@@ -381,10 +398,9 @@ describe("intercambios: bordes", () => {
   it("no se invita a alguien en No molestar", async () => {
     const { room, alice, bob, a, b } = await setup();
     bob.send(MSG.status, { status: "dnd" });
-    await room.waitForNextPatch();
-    await tick();
+    await until(() => room.state.players.get(bob.sessionId)?.status === "dnd", "el No molestar");
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => a.problems.length, "el aviso");
     expect(a.problems.at(-1)).toEqual({ error: "dnd" });
     expect(b.invites).toEqual([]);
   });
@@ -405,14 +421,13 @@ describe("intercambios: bordes", () => {
     expect(near).toBeDefined();
     await walkToTile(bob, room, near!.x, near!.y);
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => b.invites.length, "la invitación");
     bob.send(MSG.tradeRespond, { requestId: b.invites[0]!.requestId, accept: true });
-    await tick(80);
+    await until(() => a.view, "el intercambio abierto");
     expect(a.view?.them.name).toBe("Bob");
 
     alice.send(MSG.travel, { portal: portal.id });
-    await room.waitForNextPatch();
-    await tick(60);
+    await until(() => a.closed.length && b.closed.length, "el cierre");
     expect(room.state.players.get(alice.sessionId)!.area).toBe(portal.to.area);
     expect(a.closed.at(-1)).toMatchObject({ reason: "far", with: "Bob" });
     expect(b.closed.at(-1)).toMatchObject({ reason: "far", with: "Alice" });
@@ -421,17 +436,16 @@ describe("intercambios: bordes", () => {
   it("se cancela si se corta la conexión (sin cerrar la pestaña)", async () => {
     const { bob, a } = await openTrade();
     await bob.leave(false);
-    await tick(120);
+    await until(() => a.closed.length, "el cierre");
     expect(a.closed.at(-1)).toMatchObject({ reason: "left", with: "Bob" });
   });
 
   it("abrir otra pestaña con la misma persona cierra su intercambio", async () => {
     const { room, b } = await openTrade();
     await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
-    await room.waitForNextPatch();
-    await tick(120);
+    await until(() => b.closed.length, "el cierre");
     expect(b.closed.at(-1)).toMatchObject({ reason: "left", with: "Alice" });
-    expect([...room.state.players.values()].filter((p) => p.userId === "u-alice")).toHaveLength(1);
+    await until(() => [...room.state.players.values()].filter((p) => p.userId === "u-alice").length === 1, "que se vaya la pestaña vieja");
   });
 
   it("una invitación nueva retira la anterior y a quien la tenía le llega el aviso", async () => {
@@ -440,16 +454,16 @@ describe("intercambios: bordes", () => {
     const c = inbox(carla);
     await room.waitForNextPatch();
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => b.invites.length, "la invitación a Bob");
     alice.send(MSG.tradeRequest, { sessionId: carla.sessionId });
-    await tick(80);
+    await until(() => b.closed.length && c.invites.length, "la invitación a Carla");
     expect(b.closed.at(-1)).toMatchObject({ id: b.invites[0]!.requestId, reason: "cancelled", with: "Alice" });
-    // La de Bob ya no sirve; la de Carla sí.
+    // La de Bob ya no sirve (se avisa que venció); la de Carla sí.
     bob.send(MSG.tradeRespond, { requestId: b.invites[0]!.requestId, accept: true });
-    await tick(80);
+    await until(() => b.problems.length, "el aviso de vencida");
     expect(b.views).toEqual([]);
     carla.send(MSG.tradeRespond, { requestId: c.invites[0]!.requestId, accept: true });
-    await tick(80);
+    await until(() => c.view, "el intercambio con Carla");
     expect(c.view?.them.name).toBe("Alice");
   });
 
@@ -460,10 +474,10 @@ describe("intercambios: bordes", () => {
     await room.waitForNextPatch();
     carla.send(MSG.tradeRequest, { sessionId: bob.sessionId });
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
-    await tick(80);
+    await until(() => b.invites.length === 2, "las dos invitaciones");
     const fromAlice = b.invites.find((i) => i.fromName === "Alice")!;
     bob.send(MSG.tradeRespond, { requestId: fromAlice.requestId, accept: true });
-    await tick(80);
+    await until(() => a.view && b.view && c.closed.length, "el intercambio y el aviso a Carla");
     expect(a.view?.them.name).toBe("Bob");
     expect(c.closed.at(-1)).toMatchObject({ reason: "cancelled", with: "Bob" });
     expect(a.closed).toEqual([]);
@@ -475,23 +489,22 @@ describe("intercambios: bordes", () => {
     repo.give("u-bob", "sofa", 1);
     // Ya regaló casi todo el tope hoy.
     repo.ledger.push({ userId: "u-alice", amount: -(GIFT.dailyPoints - 100), reason: "GIFT", at: Date.now(), refId: "gift:x" });
-    const { alice, bob, a, b } = await openTrade();
+    const s = await openTrade();
+    const { alice, bob, a, b } = s;
     bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 1 }] });
     alice.send(MSG.tradeOffer, { points: 150, items: [] });
-    await tick(80);
+    await until(() => a.problems.length && b.view?.you.items.length, "el aviso del tope");
     expect(a.problems.at(-1)).toEqual({ error: "limit" });
     expect(b.view?.them.points).toBe(0);
 
     alice.send(MSG.tradeOffer, { points: 100, items: [] });
-    await tick(80);
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
+    await until(() => b.view?.them.points === 100 && a.view?.you.points === 100, "la oferta");
+    await bothReady(s);
     // Mandó otro regalo antes de confirmar: se revalida y no se mueve nada.
     repo.ledger.push({ userId: "u-alice", amount: -1, reason: "GIFT", at: Date.now(), refId: "gift:y" });
     alice.send(MSG.tradeConfirm);
     bob.send(MSG.tradeConfirm);
-    await tick(120);
+    await until(() => a.problems.length === 2 && b.problems.length, "el rechazo");
     expect(b.problems.at(-1)).toEqual({ error: "limit", who: "Alice" });
     expect(a.closed).toEqual([]);
     expect(await points("u-bob")).toBe(0);
@@ -502,25 +515,23 @@ describe("intercambios: bordes", () => {
     await repo.awardPoints({ userId: "u-bob", amount: 10, reason: "ADMIN" });
     // Ya dio 15 muebles hoy en otro intercambio.
     repo.itemTransfers.push({ fromId: "u-alice", toId: "u-carla", itemId: "sofa", quantity: GIFT.dailyItems - 5, at: Date.now() });
-    const { alice, bob, a, b } = await openTrade();
+    const s = await openTrade();
+    const { alice, bob, a, b } = s;
     bob.send(MSG.tradeOffer, { points: 1, items: [] });
-    // Más de TRADE.maxUnits no pasa ni la validación del mensaje (se ignora).
+    // Más de TRADE.maxUnits no pasa ni la validación del mensaje (se ignora): lo muestra la oferta que va
+    // detrás (el servidor las lee en orden), que se rechaza por el tope del día y deja todo vacío.
     alice.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: TRADE.maxUnits + 1 }] });
-    await tick(80);
-    expect(b.view?.them.items).toEqual([]);
     alice.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 6 }] });
-    await tick(80);
+    await until(() => a.problems.length && b.view?.you.points === 1, "el aviso del tope");
     expect(a.problems.at(-1)).toEqual({ error: "limit-items" });
     expect(b.view?.them.items).toEqual([]);
 
     alice.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "sofa", quantity: 5 }] });
-    await tick(80);
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
+    await until(() => b.view?.them.items.length && a.view?.you.items.length, "la oferta");
+    await bothReady(s);
     alice.send(MSG.tradeConfirm);
     bob.send(MSG.tradeConfirm);
-    await tick(120);
+    await until(() => a.closed.length, "el cierre");
     expect(a.closed.at(-1)?.reason).toBe("done");
     expect(repo.itemTransfers.at(-1)).toMatchObject({ fromId: "u-alice", toId: "u-bob", itemId: "sofa", quantity: 5 });
     expect(await repo.givenToday("u-alice")).toMatchObject({ items: GIFT.dailyItems });
@@ -529,16 +540,15 @@ describe("intercambios: bordes", () => {
   it("un intercambio de un solo lado no se confirma: dar sin recibir es un regalo (con sus topes)", async () => {
     await repo.awardPoints({ userId: "u-alice", amount: 900, reason: "ADMIN" });
     repo.give("u-alice", "sofa", 10);
-    const { alice, bob, a, b } = await openTrade();
+    const s = await openTrade();
+    const { alice, bob, a, b } = s;
     alice.send(MSG.tradeOffer, { points: 900, items: [{ itemId: "sofa", quantity: 10 }] });
-    await tick(80);
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
+    await until(() => b.view?.them.points === 900, "la oferta");
+    await bothReady(s);
     expect(a.view?.stage).toBe("confirm");
     alice.send(MSG.tradeConfirm);
     bob.send(MSG.tradeConfirm);
-    await tick(120);
+    await until(() => a.problems.length && b.problems.length, "el rechazo");
     expect(a.problems.at(-1)).toEqual({ error: "one-sided" });
     expect(b.problems.at(-1)).toEqual({ error: "one-sided" });
     expect(a.view?.you.confirmed).toBe(false);
@@ -549,13 +559,11 @@ describe("intercambios: bordes", () => {
     // Con algo del otro lado, sí.
     repo.give("u-bob", "plant", 1);
     bob.send(MSG.tradeOffer, { points: 0, items: [{ itemId: "plant", quantity: 1 }] });
-    await tick(80);
-    alice.send(MSG.tradeReady, { ready: true });
-    bob.send(MSG.tradeReady, { ready: true });
-    await tick(80);
+    await until(() => a.view?.them.items.length && b.view?.you.items.length, "la oferta de Bob");
+    await bothReady(s);
     alice.send(MSG.tradeConfirm);
     bob.send(MSG.tradeConfirm);
-    await tick(120);
+    await until(() => a.closed.length, "el cierre");
     expect(a.closed.at(-1)).toMatchObject({ reason: "done" });
     expect(repo.held("u-bob", "sofa")).toBe(10);
   });
@@ -572,11 +580,9 @@ describe("intercambios: bordes", () => {
     const trades = (room as unknown as { trades: { cooldownsTracked(): number } }).trades;
     alice.send(MSG.tradeRequest, { sessionId: bob.sessionId });
     bob.send(MSG.tradeRequest, { sessionId: alice.sessionId });
-    await tick(80);
+    await until(() => trades.cooldownsTracked() === 2 && b.invites.length, "las dos invitaciones");
     expect(b.invites).toHaveLength(1);
-    expect(trades.cooldownsTracked()).toBe(2);
     await bob.leave(true);
-    await tick(120);
-    expect(trades.cooldownsTracked()).toBe(0);
+    await until(() => trades.cooldownsTracked() === 0, "que se olviden las pausas");
   });
 });

@@ -1,3 +1,4 @@
+import { bindCocina } from "./cocina";
 import { bindRace } from "./race";
 import {
   CLOSE_CODE,
@@ -8,6 +9,7 @@ import {
   type BarItemId,
   type CinemaMenuItemId,
   type CafeItemId,
+  type DoorNoteResult,
   type FurnitureEvent,
   type HeldUsedEvent,
   type DrunkBlackoutEvent,
@@ -52,6 +54,9 @@ import {
   CASA_MSG,
   CASA_NOTICES,
   type CasaNotice,
+  PET_NOTICES,
+  type PetAction,
+  type PetNotice,
   HUERTO_MSG,
   huertoNoticeText,
   type HuertoNotice,
@@ -61,19 +66,29 @@ import {
   type PhotoShot,
   achievementById,
   type AchievementUnlockedEvent,
+  CONGRATS_ERROR_TEXT,
+  FOCUS_CANCEL_TEXT,
+  type CongratsEvent,
+  type CongratsResult,
+  type FocusEvent,
+  type FocusPhase,
+  type FocusPresetId,
 } from "@hyvento/shared";
 import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
 import { bindHockey } from "./arcade/hockey";
+import { bindBoardGames } from "./boardgames";
 import { bindClub, togglePole } from "./club/net";
 import { bindCinema } from "./cinema/net";
-import { useOfficeStore, type Interactable } from "./store";
+import { selectMyUserId, useOfficeStore, type Interactable } from "./store";
+import { useDoorNotesStore } from "./doorNotes";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
 import { bindBag } from "./bag";
+import { bindPhone, resetPhone } from "./phone";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -103,6 +118,18 @@ export interface RemotePlayer {
   drunk: number;
   /** Corriendo la carrera de sillas. */
   racing: boolean;
+  /** Insignia destacada (id de un logro; "" = ninguna). */
+  badge: string;
+  /** Energía de un plato de la cocina (id de la receta; "" = nada). */
+  buff: string;
+  /** Modo foco: "" nada, "work" o "break"; cuándo termina (hora del servidor) y el preset. */
+  focus?: string;
+  focusEndsAt?: number;
+  focusPreset?: string;
+  /** Teléfono: "", "calling", "ringing" o "talking" (CallPhase), con quién (userId) y desde cuándo. */
+  call: string;
+  callWith: string;
+  callSince: number;
 }
 export interface RemoteOfficeItem {
   id: string;
@@ -118,6 +145,7 @@ export interface RemoteOffice {
   ownerName: string;
   locked: boolean;
   note: string;
+  notes: number;
   radioVideo: string;
   radioTitle: string;
   radioStartedAt: number;
@@ -175,6 +203,8 @@ export interface OfficeStateView {
   counters: Map<string, number>;
   stalls: Map<string, string>;
   pets: Map<string, RemotePet>;
+  /** Eventos del calendario: quién cumple hoy (userId → nombre) y el karaoke de los viernes. */
+  events?: RemoteEvents;
   /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
   garden: Map<string, RemoteGardenPlot>;
 }
@@ -190,6 +220,12 @@ export interface RemoteGardenPlot {
   wateredUntil: number;
 }
 
+export interface RemoteEvents {
+  day: number;
+  birthdays: Map<string, string>;
+  karaoke: boolean;
+}
+
 /** Casa viva: una mascota como viaja en el estado (espejo de `Pet` en apps/server/src/state.ts). */
 export interface RemotePet {
   id: string;
@@ -201,6 +237,11 @@ export interface RemotePet {
   y: number;
   dir: string;
   pose: string;
+  /** Dueño si la adoptaron ("" = de la casa) y su nombre. */
+  ownerId: string;
+  ownerName: string;
+  /** Cariño (0 a PET_BOND.max). */
+  love: number;
 }
 
 export type OfficeRoom = Room<OfficeStateView>;
@@ -389,8 +430,8 @@ export function sendPetCall(pet: string) {
   room?.send(PET_MSG.call, { pet });
 }
 
-/** Acariciar o dar un premio a una mascota (de cerca). */
-export function sendPetAction(pet: string, action: "pet" | "treat") {
+/** Acariciar, darle croquetas o la comida de la mano, adoptarla o soltarla (de cerca). */
+export function sendPetAction(pet: string, action: PetAction) {
   room?.send(PET_MSG.action, { pet, action });
 }
 
@@ -446,6 +487,7 @@ export async function disconnect() {
   room = null;
   // Reset síncrono: si se reconecta enseguida (StrictMode), no debe borrar la sesión nueva.
   useOfficeStore.getState().reset();
+  resetPhone();
   await current?.leave(true).catch(() => undefined);
 }
 
@@ -512,7 +554,7 @@ export const DECOR_ERRORS: Record<OfficeEditError, string> = {
   blocked: "Ahí choca con otro mueble.",
   door: "Así taparías la puerta o el paso hasta tu escritorio.",
   occupied: "Hay alguien ahí.",
-  fixed: "El escritorio con el PC y su silla no se mueven.",
+  fixed: "El escritorio con el PC, su teléfono y su silla no se mueven.",
   unknown: "Ese mueble no existe.",
   failed: "No se pudo guardar. Intenta de nuevo.",
 };
@@ -582,6 +624,61 @@ export function sendStatus(status: PresenceStatus) {
   room?.send(MSG.status, { status });
 }
 
+/** Felicitar a quien cumple hoy (el servidor valida que sea hoy y que no lo hayas felicitado ya). */
+export function sendCongrats(userId: string) {
+  room?.send(MSG.congrats, { userId });
+}
+
+/** Empezar un bloque de enfoque (el servidor lleva el reloj) o dejarlo / saltar el descanso. */
+export function sendFocusStart(preset: FocusPresetId) {
+  room?.send(MSG.focusStart, { preset });
+}
+export function sendFocusStop() {
+  room?.send(MSG.focusStop);
+}
+
+const congratsListeners = new Set<(e: CongratsEvent) => void>();
+/** Alguien felicitó a quien cumple (la escena tira confeti sobre su avatar). */
+export function onCongrats(cb: (e: CongratsEvent) => void) {
+  congratsListeners.add(cb);
+  return () => congratsListeners.delete(cb);
+}
+
+const focusListeners = new Set<(e: FocusEvent) => void>();
+/** Cómo va mi pomodoro (lo avisa el servidor: completo, descanso terminado o cancelado). */
+export function onFocusEvent(cb: (e: FocusEvent) => void) {
+  focusListeners.add(cb);
+  return () => focusListeners.delete(cb);
+}
+
+function handleCongratsResult(r: CongratsResult) {
+  const store = useOfficeStore.getState();
+  if (r.ok) store.notify(`Le deseaste feliz cumpleaños a ${r.toName || "quien cumple"}.`, "success");
+  else store.notify(CONGRATS_ERROR_TEXT[r.error], "info");
+}
+
+function handleCongratsEvent(e: CongratsEvent) {
+  const store = useOfficeStore.getState();
+  const mine = selectMyUserId(store) === e.toUserId;
+  if (mine) {
+    store.notify(`¡${e.fromName} te deseó feliz cumpleaños!${e.points > 0 ? ` +${e.points}` : ""}`, "success");
+    store.throwConfetti();
+  }
+  congratsListeners.forEach((cb) => cb(e));
+}
+
+function handleFocusEvent(e: FocusEvent) {
+  const store = useOfficeStore.getState();
+  if (e.kind === "done")
+    store.notify(
+      e.points > 0 ? `¡Bloque de enfoque completo! +${e.points}. Tómate un descanso.` : e.capped ? "Bloque completo. Ya sumaste los pomodoros con puntos de hoy." : "Bloque completo. Tómate un descanso.",
+      "success",
+    );
+  else if (e.kind === "break-over") store.notify("Se acabó el descanso: cuando quieras, empieza otro bloque.", "info");
+  else store.notify(FOCUS_CANCEL_TEXT[e.reason], e.reason === "left" ? "warning" : "info");
+  focusListeners.forEach((cb) => cb(e));
+}
+
 /** La radio de mi oficina (poner un link, pausar, seguir, apagar) o la duración que dio el reproductor. */
 export function sendOfficeRadio(msg: OfficeRadioMessage) {
   room?.send(MSG.officeRadio, msg);
@@ -594,6 +691,12 @@ export function sendOfficeNote(note: string) {
 
 export function sendOfficeLock(locked: boolean) {
   room?.send(MSG.officeLock, { locked });
+}
+
+/** Dejar una nota en la puerta de una oficina (el servidor valida la puerta y el tope del día). */
+export function sendDoorNote(zoneId: string, text: string) {
+  useDoorNotesStore.getState().setSending(true);
+  room?.send(MSG.doorNote, { zoneId, text });
 }
 
 export function sendKnock(zoneId: string) {
@@ -627,8 +730,17 @@ function attach(r: OfficeRoom) {
         points: player.points,
         held: player.held,
         heldLeft: player.heldLeft,
+        focus: (player.focus ?? "") as FocusPhase,
+        focusEndsAt: player.focusEndsAt ?? 0,
+        focusPreset: (player.focusPreset ?? "") as FocusPresetId | "",
+        call: player.call ?? "",
+        callWith: player.callWith ?? "",
       });
     sync();
+    $(player).listen("focus", sync);
+    $(player).listen("focusEndsAt", sync);
+    $(player).listen("call", sync);
+    $(player).listen("callWith", sync);
     $(player).listen("held", sync);
     $(player).listen("heldLeft", sync);
     $(player).listen("area", sync);
@@ -649,6 +761,7 @@ function attach(r: OfficeRoom) {
         ownerName: office.ownerName,
         locked: office.locked,
         note: office.note ?? "",
+        notes: office.notes ?? 0,
         radio: office.radioVideo
           ? {
               videoId: office.radioVideo,
@@ -702,6 +815,25 @@ function attach(r: OfficeRoom) {
   const syncClock = () => useOfficeStore.getState().setGameClock({ anchorReal: r.state.clockAnchorReal, anchorMinute: r.state.clockAnchorMinute });
   $(r.state).listen("clockAnchorReal", syncClock);
   $(r.state).listen("clockAnchorMinute", syncClock);
+  // Eventos del calendario: la lista de cumpleaños de hoy y el karaoke (llega con el primer estado).
+  $(r.state).listen("events", (events) => {
+    if (!events) return;
+    const push = () => {
+      const current = r.state.events;
+      if (!current) return;
+      const prev = useOfficeStore.getState();
+      const birthdays = Object.fromEntries(current.birthdays.entries());
+      const first = Object.keys(prev.birthdays).length === 0 && Object.keys(birthdays).length > 0;
+      prev.setEvents({ birthdays, karaoke: current.karaoke });
+      // Al entrar (o cuando empieza el día) con alguien de cumpleaños: confeti.
+      if (first) prev.throwConfetti();
+    };
+    const e$ = $(events);
+    e$.listen("karaoke", push);
+    e$.birthdays.onAdd(push);
+    e$.birthdays.onRemove(push);
+    push();
+  });
 
   // Ruleta del sótano: una copia simple para React (fase, cuenta regresiva, apuestas y números).
   const syncRoulette = () => {
@@ -774,10 +906,13 @@ function attach(r: OfficeRoom) {
   bindClub(r);
   bindCinema(r);
   bindRace(r);
+  bindCocina(r);
   bindArcade(r);
+  bindPhone(r);
   bindHockey(r);
   // La mochila y la barra de abajo.
   bindBag(r);
+  bindBoardGames(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
     if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");
@@ -797,6 +932,7 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
+  r.onMessage(MSG.doorNoteResult, (res: DoorNoteResult) => useDoorNotesStore.getState().handleResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
   r.onMessage(MSG.cafeResult, handleCafeResult);
@@ -821,6 +957,10 @@ function attach(r: OfficeRoom) {
     const text = CASA_NOTICES[n.code];
     if (text) useOfficeStore.getState().notify(text, "info");
   });
+  r.onMessage(PET_MSG.notice, (n: PetNotice) => {
+    const text = PET_NOTICES[n.code]?.(n.pet);
+    if (text) useOfficeStore.getState().notify(text, "info");
+  });
   // Jardín vivo: por qué no se pudo sembrar, regar, cosechar o sacar miel.
   r.onMessage(HUERTO_MSG.notice, (n: HuertoNotice) => useOfficeStore.getState().notify(huertoNoticeText(n), "info"));
   r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
@@ -828,6 +968,9 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photosChanged, () => photosChangedListeners.forEach((cb) => cb()));
   r.onMessage(MSG.achievementUnlocked, handleAchievement);
+  r.onMessage(MSG.congratsResult, handleCongratsResult);
+  r.onMessage(MSG.congratsEvent, handleCongratsEvent);
+  r.onMessage(MSG.focusEvent, handleFocusEvent);
 
   r.onLeave((code) => {
     if (room !== r) return; // salida voluntaria (disconnect)

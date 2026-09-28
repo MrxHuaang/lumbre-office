@@ -4,13 +4,16 @@ import {
   loadAchievementRecord,
   unlockAchievement,
   awardPoints,
+  awardPointsOnce,
   grantWelcomeBonus,
   casinoBet,
   getCasinoSettings,
   givenToday,
+  leaveDoorNote,
   listInventory,
   loadBagSlots,
   saveBagSlots,
+  unreadDoorNotes,
   type PresenceStatus as DbStatus,
   prisma,
   type Prisma,
@@ -19,21 +22,24 @@ import {
   takeInventoryTx,
 } from "@hyvento/db";
 import {
+  ARCADE_GAMES,
   CHAIR_RACE,
   DIRECTIONS,
   HUMAN_AVATARS,
   Look,
   type ArcadeGame,
+  type BoardGameKind,
   type ChatEvent,
   type Direction,
   type HumanAvatar,
   type OfficeItemDTO,
+  type PetBondRecord,
   type PointReason,
   type PresenceStatus,
   type StatChange,
 } from "@hyvento/shared";
-import { executeTrade } from "./social";
-import type { GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
+import { executeTip, executeTrade } from "./social";
+import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
@@ -202,6 +208,14 @@ export class PrismaRepository implements GameRepository {
   grantWelcome(userId: string) {
     return grantWelcomeBonus(prisma, userId);
   }
+  awardPointsOnce(input: AwardOnceInput) {
+    return awardPointsOnce(prisma, input);
+  }
+  async listBirthdays() {
+    const users = await prisma.user.findMany({ where: { birthday: { not: null } }, select: { id: true, name: true, email: true, birthday: true } });
+    // Mismo nombre que en la cabaña: sin nombre visible, el correo.
+    return users.map((u) => ({ userId: u.id, name: u.name || u.email.split("@")[0]!, birthday: u.birthday! }));
+  }
 
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }) {
     return spendPoints(prisma, input);
@@ -276,12 +290,16 @@ export class PrismaRepository implements GameRepository {
     return executeTrade(prisma, input);
   }
 
+  tip(input: TipInput): Promise<TipResult> {
+    return executeTip(prisma, input);
+  }
+
   saveArcadeScore({ userId, game, score, dayStart, weekStart }: { userId: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }) {
     return prisma.$transaction(async (tx) => {
       // Un candado de la transacción para todo el arcade: dos partidas que terminan a la vez (aunque haya
       // más de un servidor) no leen el mismo récord ni cuentan las dos como la primera del día.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('hyvento:arcade'))`;
-      const today = await tx.arcadeScore.count({ where: { userId, createdAt: { gte: new Date(dayStart) } } });
+      const today = await tx.arcadeScore.count({ where: { userId, game: { in: [...ARCADE_GAMES] }, createdAt: { gte: new Date(dayStart) } } });
       const best = await tx.arcadeScore.findFirst({
         where: { game, createdAt: { gte: new Date(weekStart) } },
         orderBy: [{ score: "desc" }, { createdAt: "asc" }],
@@ -319,6 +337,24 @@ export class PrismaRepository implements GameRepository {
     return { entries: rows.map((r) => ({ name: names.get(r.userId) || "Alguien", ms: r._min.score ?? 0 })), myBest: mine._min.score ?? null };
   }
 
+  async saveBoardWin({ userId, game }: { userId: string; name: string; game: BoardGameKind }) {
+    // Las victorias van en la tabla de récords del arcade con su propio "juego": un punto cada una.
+    await prisma.arcadeScore.create({ data: { userId, game, score: 1 } });
+  }
+
+  async boardRanking({ game, since, limit }: { game: BoardGameKind; since: number; limit: number }) {
+    const rows = await prisma.arcadeScore.groupBy({
+      by: ["userId"],
+      where: { game, createdAt: { gte: new Date(since) } },
+      _sum: { score: true },
+      orderBy: { _sum: { score: "desc" } },
+      take: limit,
+    });
+    const users = await prisma.user.findMany({ where: { id: { in: rows.map((r) => r.userId) } }, select: { id: true, name: true } });
+    const names = new Map(users.map((u) => [u.id, u.name]));
+    return rows.map((r) => ({ name: names.get(r.userId) || "Alguien", wins: r._sum.score ?? 0 }));
+  }
+
   async loadAchievements(userId: string) {
     const r = await loadAchievementRecord(prisma, userId);
     return { stats: r.stats, unlocked: Object.keys(r.unlocked) };
@@ -330,6 +366,32 @@ export class PrismaRepository implements GameRepository {
 
   unlockAchievement(userId: string, achievementId: string) {
     return unlockAchievement(prisma, userId, achievementId);
+  }
+
+  saveDoorNote(input: { fromId: string; toId: string; zoneId: string; text: string }) {
+    return leaveDoorNote(prisma, input);
+  }
+
+  unreadDoorNotes(userIds: string[]) {
+    return unreadDoorNotes(prisma, userIds);
+  }
+
+  async getFeaturedBadge(userId: string) {
+    const row = await prisma.featuredBadge.findUnique({ where: { userId }, select: { achievementId: true } });
+    return row?.achievementId ?? null;
+  }
+
+  async loadPetBonds(): Promise<PetBondRecord[]> {
+    const rows = await prisma.petBond.findMany({ include: { owner: { select: { name: true } } } });
+    return rows.map((r) => ({ petId: r.petId, ownerId: r.ownerId, ownerName: r.owner?.name ?? "", love: r.love, loveAt: r.loveAt.getTime() }));
+  }
+
+  async savePetBond(bond: PetBondRecord) {
+    const data = { ownerId: bond.ownerId, love: Math.round(bond.love), loveAt: new Date(bond.loveAt) };
+    // Al adoptar se anota cuándo (la primera vez que aparece este dueño).
+    const prev = await prisma.petBond.findUnique({ where: { petId: bond.petId }, select: { ownerId: true } });
+    const adoptedAt = bond.ownerId && prev?.ownerId !== bond.ownerId ? { adoptedAt: new Date() } : bond.ownerId ? {} : { adoptedAt: null };
+    await prisma.petBond.upsert({ where: { petId: bond.petId }, create: { petId: bond.petId, ...data, ...adoptedAt }, update: { ...data, ...adoptedAt } });
   }
 
   // ---------- Jardín vivo: el huerto ----------

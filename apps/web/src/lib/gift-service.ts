@@ -3,7 +3,7 @@
 // objetos está en `@hyvento/db` (sendGiftTx/openGiftTx); aquí se valida el pedido, se arma el DTO, se
 // traducen los errores a HTTP y se avisa al servidor de juego. Solo lo usan las rutas (ver `gifts.ts`).
 import { givenToday, openGiftTx as openGift, sendGiftTx as sendGift, SocialAborted, type Prisma, type SocialAbortCode } from "@hyvento/db";
-import { GIFT, GiftCreateBody, type GiftDTO, type GiftSentNotice } from "@hyvento/shared";
+import { CLUB_TIP, GIFT, GiftCreateBody, type GiftDTO, type GiftSentNotice } from "@hyvento/shared";
 
 export { givenToday };
 
@@ -49,6 +49,8 @@ const ABORT_TEXT: Record<SocialAbortCode, [string, number]> = {
   opened: ["Ese regalo ya lo abriste.", 409],
   // Solo lo usan los intercambios; está para que la tabla cubra todos los motivos.
   "one-sided": ["Un intercambio lleva algo de los dos lados.", 409],
+  // Solo lo usan las propinas del tubo (en el servidor de juego).
+  "limit-tips": [`Por hoy ya tiraste ${CLUB_TIP.dailyMax} monedas en propinas.`, 429],
 };
 
 /** Convierte el corte de la transacción (de `@hyvento/db`) en el error que ve la persona. */

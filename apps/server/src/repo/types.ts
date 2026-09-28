@@ -1,5 +1,14 @@
-import type { ArcadeBoardEntry, ArcadeGame, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus, StatChange } from "@hyvento/shared";
-import type { ItemStack } from "@hyvento/shared";
+import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, PresenceStatus, StatChange } from "@hyvento/shared";
+import type { ItemStack, PetBondRecord } from "@hyvento/shared";
+
+export interface AwardOnceInput {
+  userId: string;
+  amount: number;
+  reason: PointReason;
+  refId: string;
+  refPrefix: string;
+  maxPerDay: number;
+}
 
 /** Nombre visible y personaje de una persona, como están guardados. */
 export interface UserProfile {
@@ -72,6 +81,13 @@ export interface GameRepository {
   getPoints(userId: string): Promise<number>;
   /** Suma puntos respetando el tope diario del motivo; devuelve lo sumado y el saldo nuevo. */
   awardPoints(input: { userId: string; amount: number; reason: PointReason }): Promise<{ awarded: number; balance: number }>;
+  /**
+   * Premio que se paga una sola vez por `refId` y hasta `maxPerDay` veces por día entre los que empiezan
+   * con `refPrefix` (felicitaciones de cumpleaños, bloques del modo foco). También respeta el tope del motivo.
+   */
+  awardPointsOnce(input: AwardOnceInput): Promise<{ status: "ok" | "duplicate" | "limit"; awarded: number; balance: number }>;
+  /** Quienes pusieron su cumpleaños ("MM-DD"), para saber quién cumple hoy. */
+  listBirthdays(): Promise<{ userId: string; name: string; birthday: string }[]>;
   /** Bono de bienvenida: una sola vez por persona (`granted` = se dio ahora). */
   grantWelcome(userId: string): Promise<{ granted: boolean; balance: number }>;
   /** Gasta puntos solo si alcanzan (`ok: false` = no se cobró nada). */
@@ -113,6 +129,10 @@ export interface GameRepository {
   /** Carrera de sillas: guarda un tiempo (ms) y la tabla de la semana (el menor tiempo de cada uno). */
   saveRaceTime(input: { userId: string; name: string; ms: number }): Promise<void>;
   raceBoard(input: { since: number; limit: number; userId: string }): Promise<RaceBoard>;
+  /** Ajedrez y damas: guarda una victoria (en la tabla de récords del arcade, un punto por victoria). */
+  saveBoardWin(input: { userId: string; name: string; game: BoardGameKind }): Promise<void>;
+  /** Ranking de victorias de un juego desde `since`, de más a menos. */
+  boardRanking(input: { game: BoardGameKind; since: number; limit: number }): Promise<BoardRankingEntry[]>;
   /** Logros: los contadores y los logros que ya tiene alguien. */
   loadAchievements(userId: string): Promise<{ stats: Record<string, number>; unlocked: string[] }>;
   /** Guarda varios cambios de contadores juntos (`inc` suma, `max` se queda con el mayor), todo o nada. */
@@ -173,7 +193,47 @@ export interface SocialRepository {
    * mueve nada.
    */
   executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult>;
+  /**
+   * Propina del tubo en una sola transacción: quien la tira paga (GIFT, refId "tip:…", dentro del tope de
+   * propinas y del de dar) y quien baila la recibe entera.
+   */
+  tip(input: TipInput): Promise<TipResult>;
 }
+
+export interface TipInput {
+  refId: string;
+  fromId: string;
+  toId: string;
+  amount: number;
+}
+
+/** Los saldos nuevos de los dos, o por qué no se movió nada (`limit-tips`: tope de propinas; `limit`: tope de dar). */
+export type TipResult = { ok: true; balances: Record<string, number> } | { ok: false; error: "funds" | "limit" | "limit-tips" };
 
 // Se funde con la declaración de arriba: el repositorio del juego también hace regalos e intercambios.
 export interface GameRepository extends SocialRepository {}
+
+/** Resultado de dejar una nota en una puerta: cuántas le quedan hoy a quien la dejó y cuántas sin leer tiene el dueño. */
+export type DoorNoteSaveResult = { ok: true; left: number; unread: number } | { ok: false; error: "limit" };
+
+/** Notas en la puerta (door-notes.ts de @hyvento/shared): el servidor las deja y cuenta las sin leer. */
+export interface DoorNotesRepository {
+  /** Guarda la nota si quien la deja no llegó al tope del día (contado en la misma transacción). */
+  saveDoorNote(input: { fromId: string; toId: string; zoneId: string; text: string }): Promise<DoorNoteSaveResult>;
+  /** Notas sin leer de cada persona (las que no tienen no vienen). */
+  unreadDoorNotes(userIds: string[]): Promise<Record<string, number>>;
+}
+
+// También se funde con GameRepository.
+export interface GameRepository extends DoorNotesRepository {}
+/** Logros a la vista (la insignia del nombre) y las mascotas adoptadas: su propia interfaz, sumada a GameRepository. */
+export interface ShowcaseRepository {
+  /** La insignia destacada guardada (id de un logro), o null. El servidor igual revisa que la tenga. */
+  getFeaturedBadge(userId: string): Promise<string | null>;
+  /** Dueños y cariño de las mascotas. */
+  loadPetBonds(): Promise<PetBondRecord[]>;
+  /** Guarda dueño y cariño de una mascota (dueño null = vuelve a ser de la casa). */
+  savePetBond(bond: PetBondRecord): Promise<void>;
+}
+
+export interface GameRepository extends ShowcaseRepository {}

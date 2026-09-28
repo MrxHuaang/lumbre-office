@@ -5,6 +5,7 @@
 import type { ProfileDTO } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { useAchievementStore } from "@/game/achievements";
+import { sendProfileChanged } from "@/game/network";
 import { api } from "../PointsPanels";
 import { OfficeDialog } from "../OfficeDialog";
 import { profileHref, ProfileView } from "./ProfileView";
@@ -50,7 +51,7 @@ export function PlayerProfileDialog({ userId, onClose, onEditProfile }: { userId
     >
       <div className="cozy-scroll min-h-0 overflow-y-auto px-4 py-4">
         {profile ? (
-          <ProfileView profile={profile} />
+          <ProfileView profile={profile} onBadgeChanged={sendProfileChanged} />
         ) : (
           <p className={`py-10 text-center text-[15px] ${error ? "text-cozy-red-deep" : "cozy-dots text-cozy-ink-soft"}`}>{error ?? "Abriendo el perfil"}</p>
         )}

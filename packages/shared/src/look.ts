@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COSTUME_IDS, type CostumeId } from "./costume-ids";
 
 // Apariencia de los personajes (todo gratis). Estilo Terraria: color por parte, muchos peinados, cara,
 // ropa por capas y accesorios por lugar. Los campos nuevos son opcionales para que los looks guardados
@@ -39,17 +40,33 @@ export const FACIAL_HAIR = ["none", "beard", "mustache", "goatee", "stubble"] as
 export type FacialHair = (typeof FACIAL_HAIR)[number];
 
 /** Parte de arriba (color `shirt`; `top2` es el color secundario: rayas, puntos, capucha, corbata…). */
-export const TOPS = ["tshirt", "longsleeve", "hoodie", "sweater", "shirt-tie", "tank", "polo"] as const;
+export const TOPS = [
+  "tshirt",
+  "longsleeve",
+  "hoodie",
+  "sweater",
+  "shirt-tie",
+  "tank",
+  "polo",
+  "dress-shirt",
+  "flannel",
+  "turtleneck",
+  "jersey",
+  "hawaiian",
+  "sailor",
+  "cardigan",
+  "graphic-tee",
+] as const;
 export type Top = (typeof TOPS)[number];
 export const PATTERNS = ["solid", "stripes", "dots"] as const;
 export type Pattern = (typeof PATTERNS)[number];
 
 /** Parte de abajo (color `pants`). */
-export const BOTTOMS = ["pants", "shorts", "skirt"] as const;
+export const BOTTOMS = ["pants", "shorts", "skirt", "long-skirt", "cargo", "joggers"] as const;
 export type Bottom = (typeof BOTTOMS)[number];
 
 /** Zapatos (color `shoeColor`). */
-export const SHOES = ["sneakers", "boots", "sandals"] as const;
+export const SHOES = ["sneakers", "boots", "sandals", "dress-shoes", "rain-boots", "slippers", "heels"] as const;
 export type Shoes = (typeof SHOES)[number];
 
 /**
@@ -61,8 +78,40 @@ export type Shoes = (typeof SHOES)[number];
  * - trunks: bañador de hombre con el color `pants` (franja y cordón con `accent`); pecho y brazos al aire.
  * - swimsuit: traje de baño entero con el color `shirt` (lleva el patrón); brazos y piernas al aire.
  * - bikini: parte de arriba y de abajo con el color `shirt` (lleva el patrón); barriga al aire.
+ * - coveralls: mono entero con el color `pants` (tapa arriba y abajo; mangas largas).
+ * - gown: vestido largo hasta el suelo con el color `shirt` (lleva el patrón), sin mangas.
+ * - blazer: saco con solapas del color `pants` (de traje); la parte de arriba asoma en el escote.
+ * - vest: chaleco del color `pants`; se ven las mangas y el escote de la parte de arriba.
+ * - coat: abrigo acolchado del color `shirt`, hasta la cadera.
+ * - raincoat: impermeable largo del color `shirt`, con botones.
+ * - lab-coat: bata blanca abierta, hasta la rodilla.
+ * - chef-coat: filipina blanca cruzada, con dos filas de botones.
+ * - pajamas: pijama del color `shirt` (lleva el patrón) con ribetes del color `top2`.
+ * - robe: bata cruzada del color `shirt` con cinturón, hasta la rodilla.
+ * - ruana: ruana de lana del color `shirt` con franjas del color `top2`.
+ * - hi-vis: chaleco reflectivo naranja.
  */
-export const OUTFITS = ["overalls", "dress", "jacket", "apron", "trunks", "swimsuit", "bikini"] as const;
+export const OUTFITS = [
+  "overalls",
+  "dress",
+  "jacket",
+  "apron",
+  "trunks",
+  "swimsuit",
+  "bikini",
+  "coveralls",
+  "gown",
+  "blazer",
+  "vest",
+  "coat",
+  "raincoat",
+  "lab-coat",
+  "chef-coat",
+  "pajamas",
+  "robe",
+  "ruana",
+  "hi-vis",
+] as const;
 export type Outfit = (typeof OUTFITS)[number];
 
 /** Trajes de baño: con ellos no se dibujan la parte de arriba ni la de abajo, se ve la piel. */
@@ -72,13 +121,41 @@ export const isSwimwear = (outfit: Outfit | null | undefined): outfit is Swimwea
   (SWIMWEAR as readonly (Outfit | null | undefined)[]).includes(outfit);
 
 /** Accesorios por lugar (uno por lugar). Los que llevan color usan `accent`. */
-export const HEAD_ITEMS = ["none", "cap", "beanie", "straw-hat", "headphones", "bow", "crown", "flower", "bandana"] as const;
+export const HEAD_ITEMS = [
+  "none",
+  "cap",
+  "beanie",
+  "straw-hat",
+  "headphones",
+  "bow",
+  "crown",
+  "flower",
+  "bandana",
+  "chef-hat",
+  "top-hat",
+  "fire-helmet",
+  "hard-hat",
+  "rain-hat",
+  "sailor-hat",
+  "bee-hat",
+  "space-helmet",
+  "party-hat",
+  "beret",
+  "bucket-hat",
+  "vueltiao",
+  "nightcap",
+  "headband",
+  "pompom-beanie",
+  "tiara",
+  "pirate-hat",
+  "wizard-hat",
+] as const;
 export type HeadItem = (typeof HEAD_ITEMS)[number];
-export const FACE_ITEMS = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch"] as const;
+export const FACE_ITEMS = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch", "3d-glasses", "hero-mask", "star-glasses", "monocle"] as const;
 export type FaceItem = (typeof FACE_ITEMS)[number];
-export const NECK_ITEMS = ["none", "scarf", "tie", "bowtie", "necklace"] as const;
+export const NECK_ITEMS = ["none", "scarf", "tie", "bowtie", "necklace", "lanyard", "neckerchief", "pearls", "chain", "stethoscope", "medal", "whistle"] as const;
 export type NeckItem = (typeof NECK_ITEMS)[number];
-export const BACK_ITEMS = ["none", "backpack", "cape"] as const;
+export const BACK_ITEMS = ["none", "backpack", "cape", "air-tank", "wings", "guitar"] as const;
 export type BackItem = (typeof BACK_ITEMS)[number];
 
 /**
@@ -129,6 +206,15 @@ export const Look = z.object({
   face: z.enum(FACE_ITEMS).optional(),
   neck: z.enum(NECK_ITEMS).optional(),
   back: z.enum(BACK_ITEMS).optional(),
+  /**
+   * Traje completo (ver costumes.ts): reemplaza de una vez la ropa y, con `costumeGear`, también lo de
+   * la cabeza, la cara, el cuello y la espalda. Un traje que ya no existe se ignora (no invalida el look).
+   */
+  costume: z.enum(COSTUME_IDS).optional().catch(undefined),
+  /** El color que se puede cambiar del traje (cada traje dice cuál es). */
+  costumeColor: Color.optional().catch(undefined),
+  /** Con el traje, su sombrero y sus accesorios (si es false, quedan los propios). */
+  costumeGear: z.boolean().optional().catch(undefined),
 });
 export type Look = z.infer<typeof Look>;
 
@@ -156,6 +242,9 @@ export interface FullLook {
   face: FaceItem;
   neck: NeckItem;
   back: BackItem;
+  costume: CostumeId | null;
+  costumeColor: string | null;
+  costumeGear: boolean;
 }
 
 /** Valores por defecto de lo que no venga en el look (así se veían los personajes antes). */
@@ -206,5 +295,8 @@ export function normalizeLook(look: LookInput): FullLook {
     face: look.face ?? (legacy.has("glasses") ? "glasses" : "none"),
     neck: look.neck ?? (legacy.has("scarf") ? "scarf" : "none"),
     back: look.back ?? "none",
+    costume: look.costume ?? null,
+    costumeColor: look.costume ? (look.costumeColor ?? null) : null,
+    costumeGear: look.costumeGear ?? true,
   };
 }

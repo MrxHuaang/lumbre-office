@@ -271,6 +271,16 @@ export class Bag {
     return result;
   }
 
+  /** Se da entero lo de la mano (a una mascota): sale una unidad de la mochila. */
+  takePart(userId: string, _part = 0) {
+    const b = this.byUser.get(userId);
+    const h = b && this.handOf(b);
+    if (!b || !h || bagItemInfo(h.itemId).durable) return;
+    b.uses.delete(h.id);
+    void this.enqueue(b, "takeInventory", () => this.deps.repo().takeInventory(userId, h.itemId, 1));
+    this.remove(userId, b, h.itemId, 1);
+  }
+
   /** Llenar la regadera que se lleva en la mano (en el barril o el pozo). */
   fill(userId: string): boolean {
     const b = this.byUser.get(userId);

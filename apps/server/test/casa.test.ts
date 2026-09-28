@@ -20,7 +20,7 @@ const TEST_AREA: AreaDef = {
   furniture: [
     { type: "fridge", x: 0, y: 0 },
     { type: "coffee-station", x: 1, y: 0 },
-    { type: "chess-table", x: 4, y: 3 },
+    { type: "puzzle-table", x: 4, y: 3 },
     { type: "toilet-stall", x: 6, y: 0 },
     { type: "fire-pit", x: 9, y: 4 },
     { type: "log-seat", x: 7, y: 4 },
@@ -71,15 +71,15 @@ describe("casa viva: muebles que se usan (reglas)", () => {
     expect(uses.use(map, at(0, 1), { type: "fridge", x: 0, y: 0 }, 5_000)).toMatchObject({ ok: true, gives: {} });
   });
 
-  it("el ajedrez avanza un contador para todos y vuelve a empezar al llegar al tope", () => {
+  it("el puzle avanza un contador para todos y vuelve a empezar al llegar al tope", () => {
     const { map, counters, uses } = rules();
-    const key = furnitureKey("prueba-casa", "chess-table", 4, 3);
-    const max = COUNTER_MAX["chess-table"]!;
+    const key = furnitureKey("prueba-casa", "puzzle-table", 4, 3);
+    const max = COUNTER_MAX["puzzle-table"]!;
     for (let i = 1; i <= max; i++) {
       // El valor nuevo también va en el evento (el cliente no espera al parche del estado).
-      expect(uses.use(map, at(4, 4, `u${i}`), { type: "chess-table", x: 4, y: 3 }, 0)).toMatchObject({ counter: { key, value: i }, event: { count: i } });
+      expect(uses.use(map, at(4, 5, `u${i}`), { type: "puzzle-table", x: 4, y: 3 }, 0)).toMatchObject({ counter: { key, value: i }, event: { count: i } });
     }
-    expect(uses.use(map, at(4, 4, "otra"), { type: "chess-table", x: 4, y: 3 }, 0)).toMatchObject({ counter: { key, value: 0 } });
+    expect(uses.use(map, at(4, 5, "otra"), { type: "puzzle-table", x: 4, y: 3 }, 0)).toMatchObject({ counter: { key, value: 0 } });
     expect(counters.get(key)).toBe(0);
   });
 

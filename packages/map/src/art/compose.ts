@@ -4,9 +4,11 @@ import { catalogItem } from "../world/catalog";
 import type { OfficeMap } from "../world/build";
 import { drawFurniture } from "./furniture";
 import { PixelCanvas, toScreen, WORLD_TO_ART, type Sprite } from "./pixel";
+import type { EventOverlay } from "./eventos";
 import { drawAreaBase, drawLowWall } from "./room";
 
-export function composeArea(map: OfficeMap, day = true, pad = 80): PixelCanvas {
+/** `extras`: lo que ponen los eventos encima (ver `eventOverlays`), para verlo en la vista previa. */
+export function composeArea(map: OfficeMap, day = true, pad = 80, extras: EventOverlay[] = []): PixelCanvas {
   const ts = map.tileSize;
   const base = drawAreaBase(map, day).base;
   const canvas = new PixelCanvas(base.canvas.width + pad * 2, base.canvas.height + pad * 2);
@@ -35,6 +37,15 @@ export function composeArea(map: OfficeMap, day = true, pad = 80): PixelCanvas {
       depth: item.flat ? -1e9 : (f.x + f.w / 2) * ts + (f.y + f.d / 2) * ts,
       draw: () => blit(s, Math.round(ox + a.x - (flip ? s.canvas.width - s.ox : s.ox)), Math.round(oy + a.y - s.oy), flip),
     });
+  }
+  for (const e of extras) {
+    const s = e.sprite;
+    if (!e.tile) {
+      items.push({ depth: -1e9 + 1, draw: () => blit(s, ox - s.ox, oy - s.oy, false) });
+      continue;
+    }
+    const a = toScreen(e.tile.x * ts * WORLD_TO_ART, e.tile.y * ts * WORLD_TO_ART);
+    items.push({ depth: (e.tile.x + 0.5) * ts + (e.tile.y + 0.5) * ts + 0.01, draw: () => blit(s, Math.round(ox + a.x - s.ox), Math.round(oy + a.y - s.oy), false) });
   }
   const low = { h: drawLowWall("h"), v: drawLowWall("v") };
   for (let ty = 0; ty <= map.height; ty++)

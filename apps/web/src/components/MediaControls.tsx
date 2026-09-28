@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { media, useMediaStore } from "@/game/media";
-import { NAME_TAG_LABEL, useOfficeStore } from "@/game/store";
+import { NAME_TAG_LABEL, selectFocusing, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { EmotePicker, useEmoteKey } from "./EmotePicker";
 import { takePhoto, usePhotoCounting, usePhotoKey } from "./PhotoPanels";
@@ -35,6 +35,8 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
   const screen = useMediaStore((s) => s.screen);
   const chatOpen = useOfficeStore((s) => s.chatOpen);
   const unread = useOfficeStore((s) => s.unread);
+  // En modo foco el contador no se muestra (los mensajes se ven al terminar el bloque).
+  const focusing = useOfficeStore(selectFocusing);
   const setChatOpen = useOfficeStore((s) => s.setChatOpen);
   const ready = status === "connected";
   const [emotes, setEmotes] = useState(false);
@@ -85,7 +87,7 @@ export function MediaControls({ children, actions }: { children?: ReactNode; act
         active={chatOpen}
         disabled={false}
         onClick={() => setChatOpen(!chatOpen)}
-        badge={!chatOpen && unread > 0 ? unread : undefined}
+        badge={!chatOpen && !focusing && unread > 0 ? unread : undefined}
       />
       <Slot
         icon="smile"

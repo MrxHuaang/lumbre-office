@@ -1,11 +1,13 @@
 // Dibujos del editor de personaje, cacheados por look. Al arrastrar un selector de color cambian
-// decenas de miniaturas por segundo: los cachés tienen tope para no crecer sin fin, cada look se
-// dibuja una sola vez mientras siga en uso y al cerrar el editor se vacían (la cabaña sigue corriendo).
+// decenas de miniaturas por segundo: los cachÃ©s tienen tope para no crecer sin fin, cada look se
+// dibuja una sola vez mientras siga en uso y al cerrar el editor se vacÃ­an (la cabaÃ±a sigue corriendo).
 import {
   characterShadow,
   drawCharacter,
   drawFurniture,
   drawSitting,
+  BODY_X,
+  BODY_Y,
   FRAME,
   SHEET_DIRECTIONS,
   type PixelCanvas,
@@ -14,7 +16,7 @@ import {
 import { normalizeLook, type LookInput } from "@hyvento/shared";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 
-/** Caché con tope: al pasarse, se borra lo que hace más tiempo que no se usa. */
+/** CachÃ© con tope: al pasarse, se borra lo que hace mÃ¡s tiempo que no se usa. */
 function lru<T>(limit: number) {
   const map = new Map<string, T>();
   const get = (key: string, make: () => T): T => {
@@ -33,35 +35,40 @@ function lru<T>(limit: number) {
 }
 
 /**
- * Recortes del frame de 32x32 (el cuerpo va de x=8 a 24 y de y=3 a 30) y su escala entera en la
- * miniatura: así cada píxel del chibi mide lo mismo y no se ve borroso.
+ * Recortes del frame (el cuerpo mide 16 de ancho desde BODY_X y su fila r cae en BODY_Y + r de la celda) y
+ * su escala entera en la miniatura: asÃ­ cada pÃ­xel del chibi mide lo mismo y no se ve borroso. `hat` deja
+ * lugar arriba para lo alto (la chistera, el gorro de chef) y `full` es el personaje entero, sombreros
+ * incluidos (los trajes).
  */
+const crop = (x: number, row: number, w: number, h: number, scale: number) => ({ x: BODY_X + x, y: BODY_Y + row, w, h, scale });
 export const CROPS = {
-  head: { x: 7, y: 2, w: 18, h: 18, scale: 3 },
-  torso: { x: 6, y: 5, w: 20, h: 20, scale: 3 },
-  body: { x: 5, y: 2, w: 22, h: 30, scale: 2 },
-  legs: { x: 6, y: 19, w: 20, h: 13, scale: 3 },
+  head: crop(-1, -3, 18, 18, 3),
+  hat: crop(-1, -6, 18, 20, 3),
+  torso: crop(-2, 1, 20, 20, 3),
+  body: crop(-3, -3, 22, 30, 2),
+  full: crop(-3, -7, 22, 36, 2),
+  legs: crop(-2, 16, 20, 13, 3),
 } as const;
 export type Crop = keyof typeof CROPS;
 
-// Las miniaturas guardan solo su recorte (1–3 KB cada uno; una pestaña tiene unas 30). Las hojas completas
+// Las miniaturas guardan solo su recorte (1â€“3 KB cada uno; una pestaÃ±a tiene unas 30). Las hojas completas
 // (~48 KB) quedan pocas: las del look actual y las que se piden varias veces seguidas con otro recorte.
 const thumbs = lru<ImageData>(400);
 const sheets = lru<PixelCanvas>(16);
 // Los <canvas> de la vista previa (uno por look a la vez).
 const canvases = lru<HTMLCanvasElement>(24);
 
-/** Clave estable de un look: el look completo (mismo dibujo → misma clave, venga viejo o nuevo). */
+/** Clave estable de un look: el look completo (mismo dibujo â†’ misma clave, venga viejo o nuevo). */
 export function lookKey(look: LookInput): string {
   return JSON.stringify(normalizeLook(look));
 }
 
-/** Hoja de caminata en píxeles: 3 columnas (quieto, paso A, paso B) x 4 filas (SHEET_DIRECTIONS). */
+/** Hoja de caminata en pÃ­xeles: 3 columnas (quieto, paso A, paso B) x 4 filas (SHEET_DIRECTIONS). */
 function walkPixels(look: LookInput, key: string): PixelCanvas {
   return sheets(key, () => drawCharacter(look));
 }
 
-/** Miniatura: el frame quieto de una dirección, recortado a la parte que interesa. */
+/** Miniatura: el frame quieto de una direcciÃ³n, recortado a la parte que interesa. */
 export function thumbImage(look: LookInput, key: string, dir: SheetDirection, crop: Crop): ImageData {
   return thumbs(`${key}|${dir}|${crop}`, () => {
     const r = CROPS[crop];
@@ -96,7 +103,7 @@ export function clearEditorSprites() {
 export const dirIndex = (dir: SheetDirection) => SHEET_DIRECTIONS.indexOf(dir);
 
 let stool: { canvas: HTMLCanvasElement; ox: number; oy: number } | null = null;
-/** El taburete de la cabaña, para la vista previa "sentado". */
+/** El taburete de la cabaÃ±a, para la vista previa "sentado". */
 export function stoolSprite() {
   if (!stool) {
     const s = drawFurniture("stool");

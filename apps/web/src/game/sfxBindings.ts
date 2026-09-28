@@ -1,7 +1,7 @@
 // Sonidos de la interfaz que salen del estado (paneles, chat, avisos, toques de puerta) y el clic de los
 // botones cozy. OfficeScene lo engancha al crearse y lo suelta al destruirse.
 import { sfx } from "./sfx";
-import { useOfficeStore } from "./store";
+import { selectFocusing, useOfficeStore } from "./store";
 
 export function bindUiSounds(): () => void {
   const unsub = useOfficeStore.subscribe((s, prev) => {
@@ -17,8 +17,8 @@ export function bindUiSounds(): () => void {
     // Un aviso nuevo (los que se van no suenan).
     const notice = s.notices.at(-1);
     if (notice && !prev.notices.some((n) => n.id === notice.id)) sfx.notice(notice.tone);
-    // Mensaje nuevo de otra persona (el historial al conectar llega viejo: no suena).
-    if (s.messages.length > prev.messages.length) {
+    // Mensaje nuevo de otra persona (el historial al conectar llega viejo: no suena). En modo foco, silencio.
+    if (s.messages.length > prev.messages.length && !selectFocusing(s)) {
       const m = s.messages.at(-1);
       if (m && m.fromId !== s.sessionId && Date.now() - m.ts < 10_000) sfx.chat();
     }

@@ -57,9 +57,14 @@ const PROMPT: Record<Interactable, string> = {
   snacks: "Pedir en la confitería",
   arcade: "Jugar en la máquina",
   hockey: "Jugar al hockey de mesa",
+  boardgame: "Mirar la partida",
   photos: "Ver las fotos del tablón",
   race: "Carrera de sillas",
+  aquarium: "Mirar el acuario",
+  phone: "Usar el teléfono",
   shed: "Abrir el cobertizo",
+  trophies: "Ver la vitrina de trofeos",
+  kitchen: "Cocinar en la estufa",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -115,8 +120,10 @@ export function InteractPrompt() {
   const openPanel = useOfficeStore((s) => s.openPanel);
   // Bailando en el tubo, el club muestra su propio botón para soltarlo.
   const onPole = useClubStore((s) => s.here.dancing === "pole");
+  // Con alguien en el tubo, junto a la tarima va el botón de tirar billetes (ClubHud).
+  const canTip = useClubStore((s) => s.here.tipTarget !== null);
   if (!near || panel) return null;
-  if (near === "pole" && onPole) return null;
+  if (near === "pole" && (onPole || canTip)) return null;
   return (
     <button
       type="button"

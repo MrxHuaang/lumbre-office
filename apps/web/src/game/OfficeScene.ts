@@ -1,6 +1,7 @@
 import {
   allZones,
   BLACKJACK_SEATS,
+  BOARD_TABLES,
   applyDecorEdit,
   buildArea,
   canStandAt,
@@ -16,6 +17,8 @@ import {
   officeFurniture,
   placeAt,
   INTERACT_REACH_TILES,
+  phoneInReach,
+  isPhone,
   pointsOfType,
   portalAtTile,
   SEAT_REACH_TILES,
@@ -53,6 +56,7 @@ import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, isNightNow, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
+import { EventsView } from "./eventos";
 import { CinemaMode } from "./cinema";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { queuePrerender } from "./iso/prerender";
@@ -78,6 +82,7 @@ import {
   onRoom,
   sendFurnitureUse,
   sendMove,
+  sendPetAction,
   sendUseHeld,
   sendSwivel,
   sendWorldEditLock,
@@ -87,7 +92,7 @@ import {
   type OfficeRoom,
   type RemotePlayer,
 } from "./network";
-import { canEnterOffice, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
+import { canEnterOffice, PET_USABLE_PREFIX, selectMyOffice, selectMyUserId, useOfficeStore, type Interactable, type OfficeView, type PanelKind } from "./store";
 import { TableMode } from "./table";
 import { InteractMarkers } from "./markers";
 import { WorldEditor } from "./worldEditor";
@@ -121,9 +126,15 @@ import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } fro
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
+import { Aquariums } from "./aquarium";
+import { DoorPostIts } from "./doorPostIts";
+import { useDoorNotesStore } from "./doorNotes";
+import { TrophyCases } from "./trofeos";
 import { captureShot } from "./photos/capture";
 import { usePhotoStore } from "./photos/store";
 import { useAchievementStore } from "./achievements";
+import { localSpeedMul, useCocinaStore } from "./cocina";
+import { SeasonView } from "./seasons";
 
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 5;
@@ -151,9 +162,13 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "snacks", point: MENUS.cine.point, furniture: [...MENUS.cine.furniture] },
   { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
   { kind: "hockey", point: "air_hockey", furniture: ["air-hockey"] },
+  { kind: "boardgame", point: "board_game", furniture: ["chess-table", "checkers-table"] },
   { kind: "photos", point: "photo_board", furniture: ["photo-board"] },
   { kind: "race", point: "chair_race", furniture: ["race-flag"] },
+  { kind: "aquarium", point: "aquarium", furniture: ["acuario"] },
   { kind: "shed", point: "tool_shed", furniture: ["tool-shed"] },
+  { kind: "trophies", point: "trophy_case", furniture: ["trophy-case"] },
+  { kind: "kitchen", point: "kitchen_stove", furniture: ["stove", "pantry-shelf"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -168,8 +183,9 @@ type Keys = Record<
 /** Teclas de un toque apretadas en este frame con el juego libre (ver `readTaps`). */
 type Taps = Record<"e" | "r" | "f" | "b" | "esc" | "del", boolean>;
 
-/** Paneles del casino (y el hockey del arcade) que se juegan en la mesa (modo mesa) en vez de en una ventana. */
-const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" | "hockey" => kind === "roulette" || kind === "blackjack" || kind === "hockey";
+/** Paneles del casino (el hockey del arcade y los juegos de mesa) que se juegan en la mesa (modo mesa) en vez de en una ventana. */
+const isTablePanel = (kind: PanelKind | undefined): kind is "roulette" | "blackjack" | "hockey" | "boardgame" =>
+  kind === "roulette" || kind === "blackjack" || kind === "hockey" || kind === "boardgame";
 
 /** Dirección del sprite según hacia dónde se mueve en pantalla (+x = sureste, +y = suroeste). */
 function facingFor(vx: number, vy: number): Direction {
@@ -245,6 +261,8 @@ export class OfficeScene extends Phaser.Scene {
   /** Muebles que se usan (tele, lámparas, instrumentos, gato) y el que está al alcance. */
   private usables!: Usables;
   private usableNear: UsableHit | null = null;
+  /** Mascota al alcance para acariciarla con E (si no hay un mueble ni un asiento más cerca). */
+  private petNear: string | null = null;
   /** Rombitos sobre lo que se puede usar (ver markers.ts). */
   private markers!: InteractMarkers;
   /** Editor de la casa (admins; ver worldEditor.ts). */
@@ -256,6 +274,8 @@ export class OfficeScene extends Phaser.Scene {
   private rods!: FishingRods;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
+  /** Cumpleaños, karaoke y foco: el pastel, el neón y lo de sobre el nombre (ver eventos.ts). */
+  private eventsView!: EventsView;
   /** El cine del sótano (la función en la pantalla, las luces y el haz del proyector). */
   private cinema!: CinemaMode;
   /** Lo que ve quien tomó de más (filtros sobre el canvas) y su zigzag al caminar. */
@@ -271,11 +291,17 @@ export class OfficeScene extends Phaser.Scene {
   private dizzySpins = 0;
   /** El clima de afuera (lluvia, nubes, niebla, relámpagos) y la fauna del jardín. */
   private weatherView!: WeatherView;
+  /** Las estaciones afuera: tono del pasto, hojas, pétalos y nieve (ver seasons.ts). */
+  private seasonView!: SeasonView;
   private critters!: Critters;
   /** Ya llegó el clima de esta conexión (el primero se pone de una, sin transición). */
   private weatherKnown = false;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
+  /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
+  private aquariums!: Aquariums;
+  private postIts!: DoorPostIts;
+  private trophyCases!: TrophyCases;
 
   constructor() {
     super("office");
@@ -337,6 +363,7 @@ export class OfficeScene extends Phaser.Scene {
     this.fishing = new FishingController(this, () => this.local, () => this.map);
     this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
     this.club = new ClubMode(this, (id) => this.avatars.get(id), () => this.local, () => this.localId);
+    this.eventsView = new EventsView(this, () => this.avatars, (id) => this.userOfSession.get(id));
     this.cinema = new CinemaMode(this, () => this.local);
     this.drunkVision = new DrunkVision(() => this.game.canvas);
     this.toasts = new ToastController(this, {
@@ -348,9 +375,14 @@ export class OfficeScene extends Phaser.Scene {
     });
     this.weatherView = new WeatherView(this);
     this.weatherView.setWeather(useOfficeStore.getState().weather, true);
+    this.seasonView = new SeasonView(this);
+    this.seasonView.setWeather(useOfficeStore.getState().weather, true);
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
+    this.aquariums = new Aquariums(this);
+    this.postIts = new DoorPostIts(this);
+    this.trophyCases = new TrophyCases(this);
     // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
@@ -364,6 +396,8 @@ export class OfficeScene extends Phaser.Scene {
       if (s.pcOn) return; // con el PC prendido no se camina
       if (this.fishing.pointerDown()) return; // pescando, el clic es para la caña
       if (this.table.pointerDown(p.worldX, p.worldY)) return; // en la mesa, el clic pone fichas
+      // Clic sobre quien baila en el tubo (cerca de la tarima): le tira un billete.
+      if (!s.decorating && !s.worldEditing && this.club.pointerDown(p.worldX, p.worldY)) return;
       // Clic sobre otra persona: su menú (regalar, intercambiar) en vez de caminar.
       const person = s.decorating || s.worldEditing ? null : personAt(this.avatars, this.localId, p.worldX, p.worldY);
       if (person) return useSocialStore.getState().openPersonMenu(person, ...clientPoint(this.game.canvas, this.scale.width, p.x, p.y));
@@ -412,11 +446,15 @@ export class OfficeScene extends Phaser.Scene {
         usePhotoStore.getState().markStale(watching);
       }),
       () => this.photoBoards.destroy(),
+      () => this.aquariums.destroy(),
+      () => this.postIts.destroy(),
+      () => this.trophyCases.destroy(),
       onAchievementUnlocked((e) => this.avatars.get(e.sessionId)?.celebrate()),
       () => this.usables.destroy(),
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
       () => this.club.destroy(),
+      () => this.eventsView.destroy(),
       () => this.cinema.destroy(),
       () => disposeRadio(),
       () => this.drunkVision.destroy(),
@@ -424,6 +462,7 @@ export class OfficeScene extends Phaser.Scene {
       bindWeatherSounds(),
       () => this.toasts.destroy(),
       () => this.weatherView.destroy(),
+      () => this.seasonView.destroy(),
       () => this.critters.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
@@ -445,6 +484,7 @@ export class OfficeScene extends Phaser.Scene {
         if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
         if (s.weather !== prev.weather) {
           this.weatherView.setWeather(s.weather, !this.weatherKnown);
+          this.seasonView.setWeather(s.weather, !this.weatherKnown);
           this.weatherKnown = true;
         }
         if (s.weather !== prev.weather || s.night !== prev.night) this.critters.setConditions(s.night, s.weather);
@@ -488,8 +528,10 @@ export class OfficeScene extends Phaser.Scene {
     this.updateLocal(delta, this.readTaps());
     this.table.update();
     this.table.fadeAvatars([...this.avatars.values()].map((a) => a.sprite));
-    // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa.
-    for (const a of this.avatars.values()) a.setNameHidden(Boolean(this.table.kind));
+    // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa. En el ajedrez
+    // y las damas no (el tablero va en la tira y se quiere ver quién juega).
+    const hideNames = Boolean(this.table.kind) && this.table.kind !== "boardgame";
+    for (const a of this.avatars.values()) a.setNameHidden(hideNames);
     this.updateNameTags();
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
@@ -502,14 +544,17 @@ export class OfficeScene extends Phaser.Scene {
       if (id !== this.localId) avatar.interpolate(delta);
       avatar.sway(time);
     }
+    this.shakePhones(time);
     this.drunkVision.update(time, delta);
     this.weatherView.update(time, delta);
+    this.seasonView.update(time, delta);
     this.critters.update(time, delta);
     this.usables.update();
     this.fishing.update(delta);
     this.rods.update();
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
+    this.eventsView.update();
     this.cinema.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
@@ -571,6 +616,7 @@ export class OfficeScene extends Phaser.Scene {
       if (room) rect = room.rect;
     }
     this.view?.setPrivateRoom(rect);
+    this.postIts.setVeil(rect);
     // El panel lateral ofrece el botón de las paredes en cualquier sala interior.
     const indoors = Boolean(this.map && !this.map.outdoor);
     if (s.indoors !== indoors) s.setIndoors(indoors);
@@ -626,12 +672,17 @@ export class OfficeScene extends Phaser.Scene {
       this.usables.setArea(map, this.view);
       this.markers.setArea(map, this.view, INTERACTABLES);
       this.weatherView.setArea(map, this.view.bounds);
+      this.seasonView.setArea(map, this.view.bounds);
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
+      this.aquariums.setArea(map, this.view);
+      this.postIts.setArea(map);
+      this.trophyCases.setArea(map);
       if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
       this.rods.setArea(map);
       this.fishing.reset();
       this.club.setArea(map, this.view);
+      this.eventsView.setArea(map, this.view);
       this.cinema.setArea(map);
       this.createNameplates();
       this.clearScreens();
@@ -697,10 +748,14 @@ export class OfficeScene extends Phaser.Scene {
     this.usables.setArea(map, this.view);
     this.markers.setArea(map, this.view, INTERACTABLES);
     this.weatherView.setArea(map, this.view.bounds);
+    this.seasonView.setArea(map, this.view.bounds);
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
+    this.aquariums.setArea(map, this.view);
+    this.trophyCases.setArea(map);
     this.rods.setArea(map);
     this.club.setArea(map, this.view);
+    this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
@@ -743,8 +798,8 @@ export class OfficeScene extends Phaser.Scene {
     if (this.seat) {
       this.seat = null;
       this.local?.setSeated(null);
-      // Si era una banqueta del blackjack, también se sale de la mesa.
-      if (this.table.kind === "blackjack") useOfficeStore.getState().closePanel();
+      // Si era una banqueta del blackjack o una silla de ajedrez o damas, también se sale de la mesa.
+      if (this.table.kind === "blackjack" || this.table.kind === "boardgame") useOfficeStore.getState().closePanel();
     }
     const cam = this.cameras.main;
     if (c.area && c.area !== this.map.id) {
@@ -919,6 +974,8 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setHeld(player.held, player.heldLeft);
     avatar.setDrunk((player.drunk ?? 0) as DrunkStage);
     avatar.setRiding(Boolean(player.racing));
+    avatar.setBadge(player.badge ?? "");
+    avatar.setCall(player.call ?? "");
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -927,9 +984,12 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("look", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("avatar", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("name", (name) => avatar.setName(name));
+    p$.listen("badge", (badge) => avatar.setBadge(badge ?? ""));
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));
+    // Teléfono: el globo que vibra (le suenan) o el auricular en la mano (llamando o hablando).
+    p$.listen("call", (phase) => avatar.setCall(phase ?? ""));
     // Carrera de sillas: montado en la silla; si soy yo, arranca el cronómetro.
     p$.listen("racing", (racing) => {
       avatar.setRiding(Boolean(racing));
@@ -940,6 +1000,8 @@ export class OfficeScene extends Phaser.Scene {
       avatar.setDrunk(stage);
       if (isLocal) this.setDrunkStage(stage);
     });
+    // La energía de un plato de la cocina: mi paso va a la velocidad que acepta el servidor.
+    if (isLocal) p$.listen("buff", (dish) => useCocinaStore.getState().setBuff(dish ?? ""));
     this.syncVideos();
     if (isLocal) {
       this.local = avatar;
@@ -1099,6 +1161,7 @@ export class OfficeScene extends Phaser.Scene {
         const near = useOfficeStore.getState().interact;
         if (near && !this.seat) activateInteractable(near);
         else if (this.usableNear && !this.seat && !this.table.kind) this.useFurniture(this.usableNear.f);
+        else if (this.petNear && !this.seat && !this.table.kind) sendPetAction(this.petNear, "pet");
         else this.toggleSeat();
       }
       // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
@@ -1118,8 +1181,8 @@ export class OfficeScene extends Phaser.Scene {
     }
 
     if (vx !== 0 || vy !== 0) {
-      // Caminar te saca de la ruleta (del blackjack te saca al levantarte).
-      if (this.table.kind === "roulette") useOfficeStore.getState().closePanel();
+      // Caminar te saca de la ruleta y de mirar una partida (del blackjack y del ajedrez, al levantarte).
+      if (this.table.kind === "roulette" || (this.table.kind === "boardgame" && !this.seat)) useOfficeStore.getState().closePanel();
       this.clearPath(); // el teclado cancela el clic-para-caminar
       this.pendingZone = null;
       this.pendingInteract = null;
@@ -1180,7 +1243,8 @@ export class OfficeScene extends Phaser.Scene {
     let dir: Direction = avatar.direction;
     if (vx !== 0 || vy !== 0) {
       const len = Math.hypot(vx, vy);
-      const step = Math.min(PLAYER_SPEED * dt, 12);
+      // Con la energía de un plato de la cocina se camina un poco más rápido (el servidor lo acepta).
+      const step = Math.min(PLAYER_SPEED * localSpeedMul() * dt, 12);
       const nx = avatar.x + (vx / len) * step;
       const ny = avatar.y + (vy / len) * step;
       let x = avatar.x;
@@ -1200,7 +1264,12 @@ export class OfficeScene extends Phaser.Scene {
     }
     this.updateDoorPrompt();
     // Sentado, E levanta: el aviso "E" de los objetos solo aparece de pie.
-    const near = this.seat ? null : this.interactableInReach();
+    let near = this.seat ? null : this.interactableInReach();
+    // Pegado a una silla libre de la mesa de ajedrez o damas, E sienta (para mirar, desde el norte o el sur).
+    if (near === "boardgame" && this.local) {
+      const s = this.nearestFreeSeat();
+      if (s && this.isBoardSeat(s) && Math.hypot(s.x - this.local.x, s.y - this.local.y) < 1.2 * this.map.tileSize) near = null;
+    }
     if (near !== useOfficeStore.getState().interact) useOfficeStore.getState().setInteract(near);
     this.updateUsable(near !== null);
     this.updateSeatPrompt();
@@ -1284,6 +1353,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setPosition(seat.x, seat.y);
     avatar.setMotion(seat.facing, false);
     if (this.isBlackjackSeat(seat)) useOfficeStore.getState().openPanel("blackjack", true);
+    else if (this.isBoardSeat(seat)) useOfficeStore.getState().openPanel("boardgame", true);
     avatar.setSeated(seat.facing, seat);
     this.updateZone();
     this.sendPosition(seat.facing, false);
@@ -1301,10 +1371,10 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     if (this.table.kind) this.table.exit(this.local?.sprite);
-    const atBlackjack = !!this.seat && this.isBlackjackSeat(this.seat);
-    if (kind || !atBlackjack) return;
-    if (prev === "blackjack") this.standUp();
-    else useOfficeStore.getState().openPanel("blackjack", true); // se cerró el otro panel: de vuelta a la mesa
+    const seatPanel = this.seat ? (this.isBlackjackSeat(this.seat) ? "blackjack" : this.isBoardSeat(this.seat) ? "boardgame" : null) : null;
+    if (kind || !seatPanel) return;
+    if (prev === seatPanel) this.standUp();
+    else useOfficeStore.getState().openPanel(seatPanel, true); // se cerró el otro panel: de vuelta a la mesa
   }
 
   /** Banqueta del blackjack donde estoy sentado (índice de BLACKJACK_SEATS), o null. */
@@ -1313,6 +1383,11 @@ export class OfficeScene extends Phaser.Scene {
     if (!seat || this.map.id !== "sotano") return null;
     const i = BLACKJACK_SEATS.findIndex((b) => b.x === seat.tileX && b.y === seat.tileY);
     return i >= 0 ? i : null;
+  }
+
+  /** ¿Es una silla de una mesa de ajedrez o de damas (BOARD_TABLES)? */
+  private isBoardSeat(seat: Seat): boolean {
+    return BOARD_TABLES.some((t) => t.area === this.map.id && t.seats.some((s) => s.x === seat.tileX && s.y === seat.tileY));
   }
 
   /** ¿Es una de las banquetas de la mesa de blackjack del sótano? */
@@ -1332,7 +1407,8 @@ export class OfficeScene extends Phaser.Scene {
     this.updateZone();
     this.sendPosition(avatar.direction, false);
     // Al final: cerrar el panel saca del modo mesa, que ya te encuentra de pie.
-    if (this.isBlackjackSeat(seat) && useOfficeStore.getState().panel?.kind === "blackjack") useOfficeStore.getState().closePanel();
+    const panel = useOfficeStore.getState().panel?.kind;
+    if ((this.isBlackjackSeat(seat) && panel === "blackjack") || (this.isBoardSeat(seat) && panel === "boardgame")) useOfficeStore.getState().closePanel();
   }
 
   private seatOccupied(seat: Seat) {
@@ -1361,13 +1437,16 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private updateSeatPrompt() {
-    const prompt = this.seat ? "stand" : this.nearestFreeSeat() && !this.usableNear ? "sit" : null;
+    const prompt = this.seat ? "stand" : this.nearestFreeSeat() && !this.usableNear && !this.petNear ? "sit" : null;
     const s = useOfficeStore.getState();
     if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
     const atComputer = this.seat?.computer ?? false;
     if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
     const atSwivel = this.seat ? isSwivelSeat(this.seat) : false;
     if (atSwivel !== s.atSwivel) s.setAtSwivel(atSwivel);
+    // Sentado en el escritorio, E levanta: el teléfono queda en un botón junto a "Encender PC".
+    const atPhone = Boolean(this.seat && this.local && phoneInReach(this.map, this.local.x, this.local.y));
+    if (atPhone !== s.atPhone) s.setAtPhone(atPhone);
   }
 
   // ---------- Clic para caminar ----------
@@ -1482,7 +1561,14 @@ export class OfficeScene extends Phaser.Scene {
       const w = screenToWorld(sx, sy + lift);
       const tx = Math.floor(w.x / ts);
       const ty = Math.floor(w.y / ts);
-      const f = this.map.furniture.find((f) => tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d);
+      // El teléfono va encima del escritorio: si el tile tiene uno, gana él.
+      const onTile = this.map.furniture.filter((f) => tx >= f.x && tx < f.x + f.w && ty >= f.y && ty < f.y + f.d);
+      const phone = onTile.find((f) => isPhone(f.type));
+      if (phone) {
+        const spot = this.phoneStandSpot(phone);
+        if (spot) return { kind: "phone", ...spot };
+      }
+      const f = onTile[0];
       const spec = f && INTERACTABLES.find((i) => i.furniture.includes(f.type));
       if (!f || !spec) continue;
       // El punto más cercano al mueble (la barra tiene dos).
@@ -1504,7 +1590,23 @@ export class OfficeScene extends Phaser.Scene {
         if (Math.hypot(p.x - avatar.x, p.y - avatar.y) <= reach) return spec.kind;
       }
     }
+    // El teléfono es un mueble fijo (no un punto del mapa): se alcanza igual que lo valida el servidor.
+    if (phoneInReach(this.map, avatar.x, avatar.y)) return "phone";
     return null;
+  }
+
+  /** Dónde pararse para usar un teléfono: un tile libre pegado a él, del mismo lado de la pared. */
+  private phoneStandSpot(f: PlacedFurniture): { x: number; y: number } | null {
+    const ts = this.map.tileSize;
+    const around: TilePos[] = [];
+    for (let x = f.x - 1; x <= f.x + f.w; x++) around.push({ x, y: f.y + f.d }, { x, y: f.y - 1 });
+    for (let y = f.y; y < f.y + f.d; y++) around.push({ x: f.x - 1, y }, { x: f.x + f.w, y });
+    const me = this.local;
+    const spots = around
+      .filter((t) => !isBlockedTile(this.map, t.x, t.y) && phoneInReach(this.map, (t.x + 0.5) * ts, (t.y + 0.5) * ts) === f)
+      .sort((a, b) => (me ? Math.hypot(a.x * ts - me.x, a.y * ts - me.y) - Math.hypot(b.x * ts - me.x, b.y * ts - me.y) : 0));
+    const t = spots[0];
+    return t ? { x: (t.x + 0.5) * ts, y: (t.y + 0.5) * ts } : null;
   }
 
   /**
@@ -1517,8 +1619,17 @@ export class OfficeScene extends Phaser.Scene {
     const seat = hit && avatar ? this.nearestFreeSeat() : null;
     if (hit && seat && avatar && Math.hypot(seat.x - avatar.x, seat.y - avatar.y) < hit.dist + this.map.tileSize / 2) hit = null;
     this.usableNear = hit;
+    // Sin mueble al lado, E acaricia a la mascota de al lado (si está más cerca que el asiento libre).
+    const pet = avatar && !hit && !this.seat && !besideObject ? this.usables.petNear(avatar.x, avatar.y) : null;
+    const freeSeat = pet && avatar ? this.nearestFreeSeat() : null;
+    const petWins = pet && avatar && (!freeSeat || pet.dist < Math.hypot(freeSeat.x - avatar.x, freeSeat.y - avatar.y));
+    this.petNear = petWins ? pet.id : null;
     const s = useOfficeStore.getState();
-    const next = hit ? { type: hit.f.type, x: hit.f.x, y: hit.f.y, label: this.usables.label(hit.f) } : null;
+    const next = hit
+      ? { type: hit.f.type, x: hit.f.x, y: hit.f.y, label: this.usables.label(hit.f) }
+      : petWins
+        ? { type: `${PET_USABLE_PREFIX}${pet.id}`, x: 0, y: 0, label: `Acariciar a ${pet.name}` }
+        : null;
     const cur = s.usable;
     if (next?.type !== cur?.type || next?.x !== cur?.x || next?.y !== cur?.y || next?.label !== cur?.label) s.setUsable(next);
   }
@@ -1824,6 +1935,39 @@ export class OfficeScene extends Phaser.Scene {
     return { area, x, y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false };
   }
 
+  /** Teléfonos del nivel que están sonando (el de la oficina de quien recibe una llamada). */
+  private ringingPhones: PlacedFurniture[] = [];
+
+  /** Busca los teléfonos que suenan: el de la oficina de cada persona a la que le están llamando. */
+  private findRingingPhones() {
+    const room = getRoom();
+    const offices = useOfficeStore.getState().offices;
+    const ts = this.map.tileSize;
+    const ringing = new Set<string>();
+    room?.state.players.forEach((p) => {
+      if (p.call === "ringing") ringing.add(p.userId);
+    });
+    const next: PlacedFurniture[] = [];
+    if (ringing.size)
+      for (const zone of this.map.zones) {
+        const office = offices[zone.id];
+        if (zone.type !== "office" || !office || !ringing.has(office.ownerId)) continue;
+        for (const f of this.map.furniture)
+          if (isPhone(f.type) && zoneAt(this.map, (f.x + f.w / 2) * ts, (f.y + f.d / 2) * ts)?.id === zone.id) next.push(f);
+      }
+    for (const f of this.ringingPhones) if (!next.includes(f)) this.view?.nudgeFurniture(f, 0);
+    this.ringingPhones = next;
+  }
+
+  /** El teléfono que suena tiembla sobre el escritorio (a ráfagas, como el timbre). */
+  private shakePhones(time: number) {
+    if (!this.ringingPhones.length) return;
+    const on = time % 1500 < 900;
+    const dx = on ? (Math.floor(time / 45) % 2 ? 1 : -1) : 0;
+    const dy = on && Math.floor(time / 90) % 2 ? -1 : 0;
+    for (const f of this.ringingPhones) this.view?.nudgeFurniture(f, dx, dy);
+  }
+
   private updateHearing() {
     const room = getRoom();
     if (!room || !this.local) return;
@@ -1833,8 +1977,11 @@ export class OfficeScene extends Phaser.Scene {
       if (sessionId !== this.localId && p.userId) others.set(p.userId, this.positioned(p.area, p.x, p.y, p.zoneId || null));
     });
 
+    // En una llamada (lo decide el servidor: `callWith` de mi jugador), la otra persona se oye siempre.
+    const mine = this.localId ? room.state.players.get(this.localId) : undefined;
+    const inCall = new Set(mine?.call === "talking" && mine.callWith ? [mine.callWith] : []);
     const current = useMediaStore.getState().hearing;
-    const next = hearing(me, others, new Set(Object.keys(current)));
+    const next = hearing(me, others, new Set(Object.keys(current)), undefined, inCall);
     // Solo publicar si cambió quién se oye o algún volumen cambió de forma perceptible.
     const changed =
       next.size !== Object.keys(current).length ||
@@ -1842,6 +1989,7 @@ export class OfficeScene extends Phaser.Scene {
     if (changed) useMediaStore.getState().setHearing(Object.fromEntries(next));
     // Alguien pudo entrar/salir de la sala: revisar las pantallas de presentación.
     this.syncScreens();
+    this.findRingingPhones();
   }
 
   /** Cámara sobre la cabeza: la mía si la tengo encendida, y la de quienes oigo con cámara. */
@@ -1956,17 +2104,20 @@ export class OfficeScene extends Phaser.Scene {
     const s = useOfficeStore.getState();
     const me = selectMyUserId(s);
     let prompt: string | null = null;
+    // Puerta de una oficina ajena con dueño: se le puede dejar una nota (esté cerrada o no).
+    let noteDoor: string | null = null;
     for (const zone of this.map.zones) {
       if (zone.type !== "office") continue;
       const office = s.offices[zone.id];
-      if (!office || canEnterOffice(office, me)) continue;
+      if (!office) continue;
       const door = officeDoor(zone);
-      if (Math.hypot(door.x - this.local.x, door.y - this.local.y) < DOOR_PROMPT_RADIUS) {
-        prompt = zone.id;
-        break;
-      }
+      if (Math.hypot(door.x - this.local.x, door.y - this.local.y) >= DOOR_PROMPT_RADIUS) continue;
+      if (office.ownerId && office.ownerId !== me) noteDoor ??= zone.id;
+      if (!canEnterOffice(office, me)) prompt ??= zone.id;
     }
     if (prompt !== s.doorPrompt) s.setDoorPrompt(prompt);
+    // Adentro de la oficina no se ofrece (la puerta queda a un paso, pero ya entraste).
+    useDoorNotesStore.getState().setDoor(s.zone?.id === noteDoor ? null : noteDoor);
   }
 
   /** Placas con el nombre del dueño sobre la puerta de cada oficina del nivel. */
@@ -2011,6 +2162,7 @@ export class OfficeScene extends Phaser.Scene {
       status?.setVisible(Boolean(line));
       if (line && status) status.setText(line.text).setBackgroundColor(line.color);
     }
+    this.postIts.update(offices);
     this.updateDoorPrompt();
   }
 

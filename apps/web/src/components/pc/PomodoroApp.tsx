@@ -1,6 +1,6 @@
 "use client";
 
-import type { PresenceStatus } from "@hyvento/shared";
+import { FOCUS, type PresenceStatus } from "@hyvento/shared";
 import { useState } from "react";
 import { useOfficeStore } from "@/game/store";
 import { COZY, STATUS_HEX } from "@/lib/cozy";
@@ -12,6 +12,8 @@ import {
   askNotificationPermission,
   formatClock,
   notificationsSupported,
+  startFocus,
+  stopFocus,
   usePomodoro,
   usePomodoroClock,
   type PomodoroPhase,
@@ -34,8 +36,8 @@ type Permission = NotificationPermission | "unsupported";
 const readPermission = (): Permission => (notificationsSupported() ? Notification.permission : "unsupported");
 
 export function PomodoroApp() {
-  const { phase, preset, running, leftMs, totalMs, started } = usePomodoroClock();
-  const { completed, alert, start, pause, reset, skip, setPreset, dismissAlert } = usePomodoro();
+  const { phase, preset, running, leftMs, totalMs } = usePomodoroClock();
+  const { completed, alert, setPreset, dismissAlert } = usePomodoro();
   const myStatus = useOfficeStore((s) => (s.sessionId ? s.players[s.sessionId]?.status : undefined));
   const [permission, setPermission] = useState<Permission>(readPermission);
 
@@ -63,7 +65,7 @@ export function PomodoroApp() {
           style={{ background: ink }}
         >
           {PHASE_LABEL[phase]}
-          {!running && started && " · en pausa"}
+          {!running && " · listo para empezar"}
         </span>
 
         <p className="text-[64px] leading-none font-semibold tabular-nums" aria-live="off" style={{ textShadow: `3px 3px 0 ${COZY.paperDark}` }}>
@@ -85,19 +87,21 @@ export function PomodoroApp() {
         </div>
 
         <div className="mt-1 flex flex-wrap justify-center gap-2">
-          <button
-            type="button"
-            onClick={running ? pause : start}
-            className={`cozy-btn min-w-24 px-4 py-1.5 text-[14px] ${running ? "" : "cozy-btn-primary"}`}
-          >
-            {running ? "Pausar" : started ? "Seguir" : "Iniciar"}
-          </button>
-          <button type="button" onClick={reset} disabled={!started && phase === "work"} className="cozy-btn px-3 py-1.5 text-[13px]">
-            Reiniciar
-          </button>
-          <button type="button" onClick={skip} title={phase === "work" ? "Pasar al descanso" : "Pasar al enfoque"} className="cozy-btn px-3 py-1.5 text-[13px]">
-            Saltar
-          </button>
+          {!running || phase === "break" ? (
+            <button type="button" onClick={startFocus} className="cozy-btn cozy-btn-primary min-w-24 px-4 py-1.5 text-[14px]">
+              {phase === "break" ? "Otro bloque" : "Iniciar"}
+            </button>
+          ) : null}
+          {running && (
+            <button
+              type="button"
+              onClick={stopFocus}
+              title={phase === "work" ? "Dejar el bloque (no da puntos)" : "Terminar el descanso"}
+              className="cozy-btn px-3 py-1.5 text-[13px]"
+            >
+              {phase === "work" ? "Dejar" : "Saltar descanso"}
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 text-[12px]" role="group" aria-label="Duración">
@@ -107,8 +111,8 @@ export function PomodoroApp() {
               key={id}
               type="button"
               aria-pressed={preset === id}
-              disabled={running}
-              title={running ? "Pausa el reloj para cambiar la duración" : `${POMODORO_PRESETS[id].workMin} min de enfoque y ${POMODORO_PRESETS[id].breakMin} de descanso`}
+              disabled={running && phase === "work"}
+              title={`${POMODORO_PRESETS[id].workMin} min de enfoque y ${POMODORO_PRESETS[id].breakMin} de descanso`}
               onClick={() => setPreset(id)}
               className="cozy-btn px-2.5 py-1 text-[12px]"
             >
@@ -120,14 +124,15 @@ export function PomodoroApp() {
 
       <div className="shrink-0 space-y-1 border-t-2 border-dashed border-cozy-frame/30 px-3 py-2 text-[11.5px] leading-snug text-cozy-ink-soft">
         {myStatus && (
-          <>
-            <p className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 shrink-0 border-[1.5px] border-cozy-frame" style={{ background: STATUS_HEX[myStatus] }} />
-              Tu estado: <b className="font-semibold text-cozy-ink">{STATUS_LABEL[myStatus]}</b>
-            </p>
-            <p>Mientras te enfocas quedas en &quot;Ocupado&quot;; al pausar o terminar vuelve el estado de antes.</p>
-          </>
+          <p className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 border-[1.5px] border-cozy-frame" style={{ background: STATUS_HEX[myStatus] }} />
+            Tu estado: <b className="font-semibold text-cozy-ink">{STATUS_LABEL[myStatus]}</b>
+          </p>
         )}
+        <p>
+          Mientras te enfocas quedas en &quot;No molestar&quot;, el chat no suena y, en tu oficina, la puerta se cierra. Cada bloque completo da{" "}
+          {FOCUS.points} puntos (hasta {FOCUS.dailyCap} por día). Si sales de tu oficina, el bloque se cancela.
+        </p>
         {permission === "default" && (
           <button
             type="button"
@@ -156,11 +161,11 @@ export function PomodoroApp() {
   );
 }
 
-/** Reloj de la barra de tareas: aparece mientras hay un bloque empezado (corriendo o en pausa). */
+/** Reloj de la barra de tareas: aparece mientras hay un bloque (o su descanso) en curso. */
 export function PomodoroTaskbarClock({ onOpen }: { onOpen: () => void }) {
-  const { phase, running, leftMs, started } = usePomodoroClock();
-  if (!started) return null;
-  const label = `${PHASE_LABEL[phase]}: quedan ${formatClock(leftMs)}${running ? "" : " (en pausa)"}`;
+  const { phase, running, leftMs } = usePomodoroClock();
+  if (!running) return null;
+  const label = `${PHASE_LABEL[phase]}: quedan ${formatClock(leftMs)}`;
   return (
     <button
       type="button"
@@ -171,7 +176,7 @@ export function PomodoroTaskbarClock({ onOpen }: { onOpen: () => void }) {
       style={{ boxShadow: `inset 0 -3px 0 ${PHASE_INK[phase]}, 2px 2px 0 rgb(20 10 24 / 0.4)` }}
     >
       <TomatoIcon size={16} />
-      <span className={running ? "" : "opacity-60"}>{formatClock(leftMs)}</span>
+      <span>{formatClock(leftMs)}</span>
     </button>
   );
 }
