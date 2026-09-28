@@ -665,12 +665,14 @@ function glyphOn(ch: string, gx: number, gy: number): boolean {
   return GLYPHS[ch]?.split(" ")[gy]?.[gx] === "#";
 }
 
-/** Letrero de neón: tablero oscuro con letras de tubo rosado (3x5 a escala 2) y su halo, centradas. */
-function neonAt(text: string, u: number, hv: number, u1: number): RGBA | null {
+/**
+ * Letrero de neón: tablero oscuro con letras de tubo rosado (3x5 a escala 2) y su halo, centradas. `top`
+ * es la altura de arriba de las letras (el del karaoke va más alto, sobre los estantes del bar).
+ */
+export function neonAt(text: string, u: number, hv: number, u1: number, top = 46): RGBA | null {
   const s = 2;
   const tw = text.length * 4 * s - s;
   const x0 = Math.floor((u1 - tw) / 2);
-  const top = 46;
   const bottom = top - 5 * s;
   if (!inRect(u, hv, 2, bottom - 5, u1 - 2, top + 4)) return null;
   const lit = (x: number, y: number) => {
