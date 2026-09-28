@@ -7,6 +7,7 @@ import { BIRD_FRAMES, BIRD_KINDS, SQUIRREL_FRAMES, drawBird, drawFirefly, drawSq
 import { dayStart, type Weather } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import { DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "./iso/view";
+import { lessMotion } from "@/lib/prefs";
 
 /** A cuántos tiles se asustan. */
 const SCARE_TILES = 3;
@@ -219,8 +220,10 @@ export class Critters {
   update(time: number, delta: number) {
     if (!this.map?.outdoor) return;
     const allowed = ALLOWED[this.weather];
-    const birdsOk = this.night ? 0 : allowed.birds;
-    const squirrelsOk = this.night ? 0 : allowed.squirrels;
+    // Con menos movimiento, un tercio de los bichos (se mueven solos por la pantalla).
+    const calm = lessMotion() ? 3 : 1;
+    const birdsOk = this.night ? 0 : Math.ceil(allowed.birds / calm);
+    const squirrelsOk = this.night ? 0 : Math.ceil(allowed.squirrels / calm);
     let scared: Point[] | null = null;
     this.checkIn -= delta;
     if (this.checkIn <= 0) {

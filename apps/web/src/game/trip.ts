@@ -3,6 +3,7 @@
 // juego y, para la bruma y las visiones, una capa encima (sin tocar el HUD, que sigue legible).
 import { styleFor } from "@hyvento/map/art";
 import { TRIP_TEXT, tripSpeedMul, type EyeStyle, type Look, type TripKind } from "@hyvento/shared";
+import { lessMotion } from "@/lib/prefs";
 
 /** Filtro y transformación que se suman a los de la borrachera (los aplica DrunkVision). */
 export interface CanvasFx {
@@ -42,7 +43,6 @@ export function tripLook(look: Look | null, avatar: string, trip: TripKind | "")
   return { ...base, accessories: base.accessories ?? [], eyes: TRIP_EYES[trip] } as Look;
 }
 
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 export class TripVision {
   private kind: TripKind | "" = "";
@@ -89,7 +89,7 @@ export class TripVision {
     }
     const k = this.level;
     const t = time / 1000;
-    const calm = reducedMotion();
+    const calm = lessMotion();
     switch (this.shown) {
       case "trabado": {
         // Bruma verdosa por los bordes que respira despacio, y todo un poquito borroso y lento.

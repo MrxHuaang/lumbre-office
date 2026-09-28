@@ -4,6 +4,7 @@
 // pared inclinada y, en grande, se centra (ver wallMount.ts). Va al segundo que le digan (la hora del
 // servidor): todos ven lo mismo.
 import { WallMount, type ScreenQuad } from "./wallMount";
+import { mediaScale } from "./mixer";
 
 export type { Point, ScreenQuad } from "./wallMount";
 
@@ -148,12 +149,14 @@ export class YoutubeScreen {
       return;
     }
     if (!this.ready) return;
-    if (this.lastVolume !== want.volume) {
-      this.lastVolume = want.volume;
-      if (want.volume <= 0) this.player.mute();
+    // El volumen de la pantalla (su control propio y la distancia) por el de la música del mezclador.
+    const volume = want.volume * mediaScale("music");
+    if (this.lastVolume !== volume) {
+      this.lastVolume = volume;
+      if (volume <= 0) this.player.mute();
       else {
         this.player.unMute();
-        this.player.setVolume(Math.round(want.volume * 100));
+        this.player.setVolume(Math.round(volume * 100));
       }
     }
     const now = performance.now();
