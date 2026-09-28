@@ -49,6 +49,11 @@ export const CONEXIONES = {
   },
   piso3: {
     escaleraAbajo: { tiles: par(14, 17), llegada: { x: 15, y: 18, facing: "down" } },
+    /**
+     * La puerta acolchada del estudio de grabación, al final del pasillo (en la pared oeste, con el cartel
+     * "EN EL AIRE" encima): se pisa el tile de delante y se llega a su lado, mirando al pasillo.
+     */
+    estudio: { tiles: [{ x: 0, y: 12 }], llegada: { x: 1, y: 12, facing: "right" } },
   },
   sotano: {
     /** La escalera del vestíbulo, contra la pared norte. */
@@ -61,6 +66,10 @@ export const CONEXIONES = {
   casaArbol: {
     /** La trampilla del piso, cerca del rincón del frente: se llega a su lado, mirando a la mesita. */
     trampilla: { tiles: [{ x: 5, y: 4 }], llegada: { x: 5, y: 3, facing: "left" } },
+  },
+  podcast: {
+    /** La puerta del estudio, en la pared sur (se sale al pasillo del piso 3). */
+    puerta: { tiles: par(9, 10), llegada: { x: 9, y: 9, facing: "up" } },
   },
   megabus: {
     /**

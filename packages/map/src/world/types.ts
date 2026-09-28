@@ -87,7 +87,9 @@ export type WallpaperKind =
   | "treehouse"
   // El Megabús por dentro: paneles claros con la franja verde lima, y los pliegues grises del fuelle.
   | "megabus"
-  | "fuelle";
+  | "fuelle"
+  // Estudio de grabación: zócalo de madera y paneles acústicos de tela acolchada.
+  | "estudio";
 
 export interface ZoneDef {
   id: string;
@@ -128,7 +130,12 @@ export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board"
   // Casa del árbol: la ventana a la copa y la guirnalda de banderines.
   | "treehouse-window" | "bunting"
   // Megabús: las ventanas oscuras de piso a techo (con `text`, la pantalla de ruta encima).
-  | "bus-window";
+  | "bus-window"
+  // Estudio de grabación (art/podcast-room.ts): el cartel "EN EL AIRE", la puerta del pasillo del piso 3,
+  // la ventana de estrellas y los afiches del espacio, del viaje de los planetitas de madera, del mapa de
+  // los tres carriles y de programación.
+  | "onair-sign" | "studio-door" | "star-window" | "poster-planets" | "poster-nebula" | "poster-rocket" | "star-map"
+  | "poster-campfire" | "explore-log" | "lanes-map" | "sword-shield" | "poster-hello" | "poster-duck" | "diagram-board";
 
 /** Algo colgado en una pared alta (solo las del fondo: norte `h` y oeste `v`). */
 export interface WallFeature {
@@ -229,7 +236,7 @@ export interface PointDef {
     | "kitchen_stove"
     // Escenario del jardín: frente a la escalerita de la tarima ("Subir al escenario").
     | "stage"
-    // Cabina de grabación del jardín: la mesa de los micrófonos ("Grabar").
+    // Estudio de grabación: la consola de la mesa ("Grabar").
     | "podcast"
     // La granja del jardín: frente al horno y a la parrilla (el panel de cocinar) y el letrero del
     // gallinero (los nombres de los animales).

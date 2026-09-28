@@ -25,6 +25,7 @@ import { roadFloor } from "./bus-calle";
 import { busWallFeature, rubberFloor } from "./bus-adentro";
 import { CEMENT, concreteFloor, garajeFeature, gravelFloor, wornPlanksFloor } from "./garaje-room";
 import { casaArbolFeature } from "./casa-arbol-room";
+import { podcastFeature } from "./podcast-room";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;
@@ -52,6 +53,7 @@ const WALLPAPER: Record<WallpaperKind, Ramp> = {
   megabus: C.cream,
   fuelle: C.stone,
   boards: C.logs,
+  estudio: C.curtain,
 };
 /** El alfombrado toma el color del papel de la sala. */
 const CARPET: Record<WallpaperKind, Ramp> = {
@@ -75,6 +77,7 @@ const CARPET: Record<WallpaperKind, Ramp> = {
   megabus: C.green,
   fuelle: C.stone,
   boards: C.rug,
+  estudio: C.curtain,
 };
 
 // ---------- Pisos ----------
@@ -907,6 +910,22 @@ function featureAt(f: WallFeature, u: number, hv: number, day: boolean): RGBA | 
       return casaArbolFeature(f, u, hv, day);
     case "bus-window":
       return busWallFeature(f, u, hv, day);
+    // El estudio de grabación y su puerta (art/podcast-room.ts).
+    case "onair-sign":
+    case "studio-door":
+    case "star-window":
+    case "poster-planets":
+    case "poster-nebula":
+    case "poster-rocket":
+    case "star-map":
+    case "poster-campfire":
+    case "explore-log":
+    case "lanes-map":
+    case "sword-shield":
+    case "poster-hello":
+    case "poster-duck":
+    case "diagram-board":
+      return podcastFeature(f, u, hv, day);
   }
 }
 
