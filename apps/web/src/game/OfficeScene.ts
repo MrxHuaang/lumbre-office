@@ -65,8 +65,9 @@ import { ClubMode } from "./club";
 import { EventsView } from "./eventos";
 import { CinemaMode } from "./cinema";
 import { EscenarioMode } from "./escenario";
+import { podcastBlockFor } from "./escenario/net";
 import { useEscenarioStore } from "./escenario/store";
-import { ESCENARIO, PODCAST, listeners as listenersOf, stageRole } from "@hyvento/shared";
+import { ESCENARIO, PODCAST, listeners as listenersOf, podcastNoticeText, stageRole } from "@hyvento/shared";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { queuePrerender } from "./iso/prerender";
 import { ensureCharacterTextures, parseLook } from "./looks";
@@ -204,7 +205,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   // La estación del Megabús: solo con E (un clic en la plataforma es para caminar por ella).
   { kind: "bus", point: "bus_stop", furniture: [] },
   { kind: "stage", point: "stage", furniture: ["stage-lectern", "stage-deck"] },
-  { kind: "podcast", point: "podcast", furniture: ["podcast-desk"] },
+  { kind: "podcast", point: "podcast", furniture: ["podcast-console"] },
   // El observatorio: la fogata de malvaviscos del jardín y lo de adentro de la torre.
   { kind: "marshmallow", point: "marshmallow_fire", furniture: ["marshmallow-fire"] },
   { kind: "telescope", point: "telescope", furniture: ["brass-telescope"] },
@@ -330,7 +331,7 @@ export class OfficeScene extends Phaser.Scene {
   private eventsView!: EventsView;
   /** El cine del sótano (la función en la pantalla, las luces y el haz del proyector). */
   private cinema!: CinemaMode;
-  /** El escenario y la cabina de grabación del jardín (pantalla grande, manos, cartel, grabador). */
+  /** El escenario del jardín y el estudio de grabación (pantalla grande, manos, carteles, grabador). */
   private escenario!: EscenarioMode;
   /** Lo que ve quien tomó de más (filtros sobre el canvas) y su zigzag al caminar. */
   private drunkVision!: DrunkVision;
@@ -993,6 +994,12 @@ export class OfficeScene extends Phaser.Scene {
     const block = portal.to.area === CASA_ARBOL.area ? casaArbolBlockFor(selectMyUserId(useOfficeStore.getState())) : null;
     if (block) {
       useOfficeStore.getState().notify(CASA_ARBOL_BLOCK_TEXT[block], "warning");
+      return;
+    }
+    // El estudio de grabación lleno, o pidiendo permiso o grabando (el cartel prendido): tampoco.
+    const onAir = portal.to.area === PODCAST.area ? podcastBlockFor(selectMyUserId(useOfficeStore.getState())) : null;
+    if (onAir) {
+      useOfficeStore.getState().notify(podcastNoticeText({ code: onAir }), "warning");
       return;
     }
     this.travelling = true;
@@ -2512,8 +2519,7 @@ export class OfficeScene extends Phaser.Scene {
   /** Oficinas cerradas: solo su dueño y los invitados pueden estar adentro. */
   private canEnterZoneAt(x: number, y: number) {
     const zone = zoneAt(this.map, x, y);
-    // La tarima (dos como mucho) y la cabina de grabación (llena, o pidiendo permiso o grabando): la misma
-    // regla que el servidor, para no chocar contra la corrección.
+    // La tarima (dos como mucho): la misma regla que el servidor, para no chocar contra la corrección.
     if (zone && this.local && this.map.id === ESCENARIO.area) {
       const here = zoneAt(this.map, this.local.x, this.local.y)?.id;
       const inZone = (id: string) => {
@@ -2524,7 +2530,6 @@ export class OfficeScene extends Phaser.Scene {
         return n;
       };
       if (zone.id === ESCENARIO.stageZone && here !== zone.id && inZone(zone.id) >= ESCENARIO.maxOnStage) return false;
-      if (zone.id === PODCAST.zone && here !== zone.id && (useEscenarioStore.getState().podcast.phase !== "idle" || inZone(zone.id) >= PODCAST.capacity)) return false;
     }
     if (zone?.type !== "office") return true;
     const s = useOfficeStore.getState();

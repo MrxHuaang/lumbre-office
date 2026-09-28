@@ -90,7 +90,7 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "trophies"
   // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
   | "kitchen"
-  // Escenario del jardín: la escalerita de la tarima (subir o bajar) y la mesa de la cabina de grabación.
+  // Escenario del jardín: la escalerita de la tarima (subir o bajar); estudio de grabación: la consola.
   | "stage"
   | "podcast"
   // Observatorio: el telescopio, la fogata de malvaviscos, el orrery, el radar de señales y el diario.

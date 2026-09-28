@@ -10,6 +10,7 @@ import { CASA_ARBOL_CATALOG } from "./catalog-casa-arbol";
 import { BUS_CATALOG } from "./catalog-bus";
 import { AGUA_CATALOG } from "./catalog-agua";
 import { ESCENARIO_CATALOG } from "./catalog-escenario";
+import { PODCAST_CATALOG } from "./catalog-podcast";
 import { GRANJA_CATALOG } from "./catalog-granja";
 import { OBSERVATORIO_CATALOG } from "./catalog-observatorio";
 import type { Facing } from "./types";
@@ -186,6 +187,7 @@ export const CATALOG = {
   ...BUS_CATALOG,
   ...AGUA_CATALOG,
   ...ESCENARIO_CATALOG,
+  ...PODCAST_CATALOG,
   ...GRANJA_CATALOG,
   ...OBSERVATORIO_CATALOG,
 } satisfies Record<string, CatalogItem>;

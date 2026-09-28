@@ -15,6 +15,8 @@ import { GARAJE_CATALOG } from "./catalog-garaje";
 import { GARAJE_DRAW } from "../art/garaje";
 import { CASA_ARBOL_CATALOG } from "./catalog-casa-arbol";
 import { CASA_ARBOL_DRAW } from "../art/casa-arbol";
+import { PODCAST_CATALOG } from "./catalog-podcast";
+import { PODCAST_DRAW } from "../art/podcast";
 import { OBSERVATORIO_CATALOG } from "./catalog-observatorio";
 import { OBSERVATORIO_DRAW } from "../art/observatorio";
 
@@ -35,7 +37,7 @@ function repeated(groups: Record<string, object>): string[] {
 // (otro tamaño, otra colisión, otro dibujo). Cada parte del rediseño tiene que usar ids propios.
 describe("registro de muebles", () => {
   it("los catálogos del rediseño no comparten ids", () => {
-    expect(repeated({ exterior: EXTERIOR_CATALOG, interior: INTERIOR_CATALOG, sotano: SOTANO_CATALOG, garaje: GARAJE_CATALOG, casaArbol: CASA_ARBOL_CATALOG, observatorio: OBSERVATORIO_CATALOG })).toEqual([]);
+    expect(repeated({ exterior: EXTERIOR_CATALOG, interior: INTERIOR_CATALOG, sotano: SOTANO_CATALOG, garaje: GARAJE_CATALOG, casaArbol: CASA_ARBOL_CATALOG, podcast: PODCAST_CATALOG, observatorio: OBSERVATORIO_CATALOG })).toEqual([]);
   });
 
   it("los grupos de dibujos no comparten ids", () => {
@@ -52,6 +54,7 @@ describe("registro de muebles", () => {
         sotano: SOTANO_DRAW,
         garaje: GARAJE_DRAW,
         casaArbol: CASA_ARBOL_DRAW,
+        podcast: PODCAST_DRAW,
         observatorio: OBSERVATORIO_DRAW,
       }),
     ).toEqual([]);

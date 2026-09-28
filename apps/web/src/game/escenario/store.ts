@@ -1,4 +1,4 @@
-// Estado del escenario y de la cabina de grabación en el cliente: copia de lo que sincroniza el servidor
+// Estado del escenario y del estudio de grabación en el cliente: copia de lo que sincroniza el servidor
 // (la fila de turnos, la palabra, la grabación y los permisos) y dónde estoy yo (lo calcula la escena).
 import type { HandView, PodcastPhase } from "@hyvento/shared";
 import { create } from "zustand";
@@ -8,7 +8,7 @@ export interface EscenarioHere {
   onStage: boolean;
   /** En las gradas (el público). */
   inSeats: boolean;
-  /** Adentro de la cabina de grabación. */
+  /** Adentro del estudio de grabación (el nivel `podcast`). */
   inBooth: boolean;
 }
 

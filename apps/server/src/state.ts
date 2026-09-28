@@ -378,7 +378,7 @@ export class StageState extends Schema {
 }
 
 /**
- * La cabina de grabación del jardín: "idle", "asking" (esperando el permiso de todos) o "recording" (EN
+ * El estudio de grabación (nivel `podcast`): "idle", "asking" (esperando el permiso de todos) o "recording" (EN
  * EL AIRE). El audio nunca llega al servidor: lo graba el navegador de `host`.
  */
 export class PodcastState extends Schema {
@@ -472,7 +472,7 @@ export class OfficeState extends Schema {
   @type({ map: Pet }) pets = new MapSchema<Pet>();
   @type(ClubState) club = new ClubState();
   @type(CinemaState) cinema = new CinemaState();
-  /** El escenario y la cabina de grabación del jardín (ver rooms/escenario.ts y rooms/podcast.ts). */
+  /** El escenario del jardín y el estudio de grabación del piso 3 (ver rooms/escenario.ts y rooms/podcast.ts). */
   @type(StageState) stage = new StageState();
   @type(PodcastState) podcast = new PodcastState();
   /** Jardín vivo: las parcelas sembradas del huerto, por índice de parcela (las vacías no están). */

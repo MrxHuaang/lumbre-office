@@ -237,6 +237,7 @@ import {
   type ApplauseEvent,
   type EscenarioNotice,
   type EscenarioNoticeCode,
+  type PodcastNotice,
 } from "@hyvento/shared";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
@@ -746,7 +747,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private arcade!: Arcade;
   /** El cine del sótano (la cola de la función). */
   private cinema!: Cinema;
-  /** El escenario del jardín (tarima, fila de turnos, palabra, aplausos) y la cabina de grabación. */
+  /** El escenario del jardín (tarima, fila de turnos, palabra, aplausos) y el estudio de grabación. */
   private escenario!: Escenario;
   private podcast!: Podcast;
   /** Jardín vivo: el huerto, el cobertizo y la miel (ver huerto.ts). */
@@ -1488,10 +1489,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** ¿Puede este jugador estar en (x, y)? Bloquea oficinas cerradas a quien no es dueño ni invitado. */
   private canAccess(player: Player, x: number, y: number): boolean {
     const map = this.mapOf(player.area);
-    // La tarima del escenario (dos como mucho) y la cabina de grabación (llena, o pidiendo permiso o grabando).
+    // La tarima del escenario (dos como mucho).
     const sessionId = [...this.state.players.entries()].find(([, p]) => p === player)?.[0] ?? "";
     if (!this.escenario.canEnter(map, sessionId, player, x, y, this.state.players)) return false;
-    if (!this.podcast.canEnter(map, player.zoneId, x, y, this.podcastInside())) return false;
     const zone = zoneAt(map, x, y);
     if (zone?.type !== "office") return true;
     const office = this.state.offices.get(zone.id);
@@ -1817,6 +1817,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       client.send(CASA_ARBOL_MSG.notice, { code: blocked } satisfies CasaArbolNotice);
       return;
     }
+    // El estudio de grabación: lleno, o pidiendo permiso o grabando (el cartel de la puerta prendido).
+    const onAir = portal.to.area === PODCAST.area ? this.podcast.canEnter(player.userId, this.podcastInside()) : null;
+    if (onAir) {
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
+      client.send(PODCAST_MSG.notice, { code: onAir } satisfies PodcastNotice);
+      return;
+    }
     // Del Megabús solo se baja con el bus en la estación y las puertas abiertas (nunca en ruta).
     if (map.id === BUS.area && !this.bus.doorsOpen()) {
       client.send(BUS_MSG.notice, { code: "route" } satisfies BusNotice);
@@ -1845,6 +1852,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.trades.moved(client.sessionId);
     void this.raceOutcome(client.sessionId, this.races.cancel(client.sessionId, player, "lane"));
     this.casaArbol.sweep(Date.now());
+    // Salir del estudio (o entrar) cambia a quiénes cuenta el acuerdo para grabar: se revisa ya.
+    this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
   }
 
   /** Algo de la casa del árbol (la escalera, el modo foco): solo desde adentro; cuenta como actividad. */
@@ -3558,12 +3567,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sendToArea(player.area, ESCENARIO_MSG.applause, { sessionId: client.sessionId, crowd } satisfies ApplauseEvent);
   }
 
-  // ---------- Cabina de grabación ----------
+  // ---------- Estudio de grabación ----------
 
-  /** Quiénes están adentro de la cabina ahora. */
+  /** Quiénes están adentro del estudio ahora (todo el nivel es la sala). */
   private podcastInside(): Inside[] {
     const out: Inside[] = [];
-    for (const [sessionId, p] of this.state.players) if (p.area === PODCAST.area && p.zoneId === PODCAST.zone) out.push({ sessionId, userId: p.userId, name: p.name });
+    for (const [sessionId, p] of this.state.players) if (p.area === PODCAST.area) out.push({ sessionId, userId: p.userId, name: p.name });
     return out;
   }
 

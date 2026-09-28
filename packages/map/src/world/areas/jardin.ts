@@ -179,11 +179,13 @@ const onTalud = (x: number, y: number) =>
   });
 /**
  * Escenario (franja sur, ver catalog-escenario.ts): la concha al oeste, la tarima delante (mirando al este)
- * y las gradas en semicírculo hacia el camino. La cabina de grabación (5x5, puerta al sur) al lado.
+ * y las gradas en semicírculo hacia el camino. Al lado, un prado de flores bajas (el estudio de grabación
+ * está adentro de la casa, al final del pasillo del piso 3).
  */
 const STAGE = { x: 14, y: 88 };
 const DECK = { x: STAGE.x + 3, y: STAGE.y, w: 3, h: 7 };
-const BOOTH = { x: 40, y: 86 };
+/** Donde estaba la cabina de grabación (ahora es el estudio del piso 3): un prado de flores junto al escenario. */
+const MEADOW = { x: 40, y: 86 };
 /** Zona de charla de la fogata (en coordenadas del nivel): los troncos quedan adentro con un tile de aire. */
 const FIRE_ZONE = { x: FIRE.x - 3 + M, y: FIRE.y - 3 + M, w: 8, h: 8 };
 
@@ -249,10 +251,10 @@ const PATHS: Seg[] = [
   { a: [82, 10.5], b: [91.4, 10.5], w: 1.8 },
   // Al mirador: sube a la lomita por sus escalones.
   { a: [53.5, 86.5], b: [MIRADOR.cx - 1, MIRADOR.cy - 0.5], w: 2.2 },
-  // Senderito del camino al escenario: pasa frente a la puerta de la cabina y entra por el pasillo del
+  // Senderito del camino al escenario: bordea el prado de flores y entra por el pasillo del
   // medio de las gradas hasta la escalerita de la tarima.
-  { a: [52.6, BOOTH.y + 6.8], b: [BOOTH.x + 3.5, BOOTH.y + 6.2], w: 1.5 },
-  { a: [BOOTH.x + 3.5, BOOTH.y + 6.2], b: [STAGE.x + 23.5, STAGE.y + 3.6], w: 1.4 },
+  { a: [52.6, MEADOW.y + 6.8], b: [MEADOW.x + 3.5, MEADOW.y + 6.2], w: 1.5 },
+  { a: [MEADOW.x + 3.5, MEADOW.y + 6.2], b: [STAGE.x + 23.5, STAGE.y + 3.6], w: 1.4 },
   { a: [STAGE.x + 23.5, STAGE.y + 3.6], b: [STAGE.x + 15.5, STAGE.y + 3.6], w: 1.2 },
   { a: [STAGE.x + 15.5, STAGE.y + 3.6], b: [STAGE.x + 6.4, STAGE.y + 3.5], w: 1.1 },
   // El sendero de la excursión al observatorio: sale de la esquina del patio, cruza el pasto y sube la
@@ -604,13 +606,8 @@ for (let y = STAGE.y - 3; y < STAGE.y + 8; y++)
     const t = back ? ["pine-1", "oak-1", "pine-3", "birch-1", "oak-3"][(x * 7 + y * 3) % 5]! : ["bush-round", "bush-hydrangea", "bush-berry", "bush-rose", "bush-round"][(x * 5 + y) % 5]!;
     put(t, x, y, (x + y) % 2 ? "right" : "down");
   }
-// La cabina de grabación: la base, las paredes con el techo, la mesa de los micrófonos y dos banquitos.
-put("podcast-booth", BOOTH.x, BOOTH.y);
-put("podcast-booth-roof", BOOTH.x, BOOTH.y);
-put("podcast-desk", BOOTH.x + 2, BOOTH.y + 1);
-put("stool", BOOTH.x + 1, BOOTH.y + 1, "right");
-put("stool", BOOTH.x + 3, BOOTH.y + 1, "left");
-// Detrás de la cabina (al norte y al oeste) y entre las gradas y la cabina: un seto con flores.
+// Entre las gradas y el camino, un prado de flores silvestres: todo bajo (nada tapa las gradas ni a quien
+// pasea por ahí), con matas en el borde del bosque y alguna piedra con hongos.
 for (const [x, y, t] of [
   [38, 85, "bush-rose"],
   [39, 85, "bush-hydrangea"],
@@ -631,7 +628,13 @@ for (const [x, y, t] of [
   [39, 90, "bush-rose"],
 ] as const)
   put(t, x, y);
-// Flores sueltas junto al senderito (cosas bajas: nada tapa la cabina ni las gradas).
+// El prado donde estaba la cabina: flores y pasto alto, bajitos, en damero (se camina entre ellos).
+{
+  const MEADOW_FLOWERS = ["wildflowers", "flower-patch", "tall-grass", "wildflowers", "flower-patch"];
+  for (let y = MEADOW.y; y < MEADOW.y + 5; y++)
+    for (let x = MEADOW.x; x < MEADOW.x + 5; x++) if ((x + y) % 2 === 0) put(MEADOW_FLOWERS[(x * 3 + y) % MEADOW_FLOWERS.length]!, x, y);
+}
+// Flores sueltas junto al senderito (cosas bajas: nada tapa las gradas).
 for (const [x, y, t] of [
   [45, 87, "wildflowers"],
   [46, 88, "flower-patch"],
@@ -1036,9 +1039,8 @@ const POINTS: PointDef[] = [
   pt("pool_steps", "Escalera de la piscina", POOL.x + POOL_STEPS[0]![0], POOL.y + POOL_STEPS[0]![1] + 1),
   pt("pool_steps", "Escalera de la piscina", POOL.x + POOL_STEPS[1]![0] + 1, POOL.y + POOL_STEPS[1]![1]),
   pt("diving_board", "Trampolín", BOARD.x - 1, BOARD.y),
-  // Frente a la escalerita de la tarima y frente a la mesa de los micrófonos de la cabina.
+  // Frente a la escalerita de la tarima.
   pt("stage", "Escenario", DECK.x + DECK.w, DECK.y + 3),
-  pt("podcast", "Cabina de grabación", BOOTH.x + 2, BOOTH.y + 2),
   // Alrededor de la fogata del observatorio (entre los troncos): meter el malvavisco y sacarlo.
   pt("marshmallow_fire", "Fogata de malvaviscos", OBS_FIRE.x - 1, OBS_FIRE.y - 1),
   pt("marshmallow_fire", "Fogata de malvaviscos", OBS_FIRE.x + 2, OBS_FIRE.y - 1),
@@ -1064,8 +1066,8 @@ const POINTS: PointDef[] = [
   mark(DOOR_X, PORCH_Y + 2, 2);
   // El pie de la escalera de la casa del árbol, despejado (que ningún árbol la tape).
   mark(TREEHOUSE_FOOT.x + 1, TREEHOUSE_FOOT.y + 1, 3);
-  // El anfiteatro y la cabina se decoran a mano (arriba): que no crezcan árboles en los pasillos.
-  for (let y = STAGE.y - 3; y < PH; y++) for (let x = STAGE.x - 4; x <= BOOTH.x + 6; x++) reserved.add(`${x},${y}`);
+  // El anfiteatro y el prado se decoran a mano (arriba): que no crezcan árboles en los pasillos.
+  for (let y = STAGE.y - 3; y < PH; y++) for (let x = STAGE.x - 4; x <= MEADOW.x + 6; x++) reserved.add(`${x},${y}`);
   const soft = (x: number, y: number) => {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ground(x + dx, y + dy) !== "grass") return true;
     return false;
@@ -1212,8 +1214,6 @@ export const jardin: AreaDef = {
     // los vecinos (ver `hearing` en @hyvento/shared). De afuera no se oye nada, como en la fogata.
     { id: "escenario", name: "Escenario", type: "table", rect: { x: DECK.x + M, y: DECK.y + M, w: DECK.w, h: DECK.h }, isolated: true },
     { id: "gradas", name: "Gradas", type: "table", rect: { x: GRADAS.origin.x + M, y: GRADAS.origin.y + M, w: GRADAS.size.w + 1, h: GRADAS.size.h }, isolated: true },
-    // Adentro de la cabina de grabación (3x3): una sala aislada para tres.
-    { id: "podcast", name: "Cabina de grabación", type: "table", rect: { x: BOOTH.x + 1 + M, y: BOOTH.y + 1 + M, w: 3, h: 3 }, isolated: true },
     // La fogata del observatorio también es una burbuja de charla.
     { id: "fogata-observatorio", name: "Fogata del observatorio", type: "table", rect: OBS_FIRE_ZONE, isolated: true },
   ],

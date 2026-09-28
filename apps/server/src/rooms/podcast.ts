@@ -1,12 +1,11 @@
-// La cabina de grabación del jardín: el estado ("pidiendo permiso", "grabando") y el permiso de cada uno
-// de los de adentro. El audio no pasa por aquí: lo graba el navegador de quien pidió grabar. Cualquier
-// cambio que rompa el acuerdo (alguien dice que no, lo retira, entra alguien nuevo, sale quien graba)
-// deja de grabar al instante; mientras se pide permiso o se graba la puerta no deja entrar.
-import { zoneAt, type OfficeMap } from "@hyvento/map";
-import { PODCAST, type PodcastNotice, type PodcastPhase } from "@hyvento/shared";
+// El estudio de grabación (nivel `podcast`): el estado ("pidiendo permiso", "grabando") y el permiso de
+// cada uno de los de adentro. El audio no pasa por aquí: lo graba el navegador de quien pidió grabar.
+// Cualquier cambio que rompa el acuerdo (alguien dice que no, lo retira, entra alguien nuevo, sale quien
+// graba) deja de grabar al instante; mientras se pide permiso o se graba la puerta no deja entrar.
+import { PODCAST, podcastBlock, type PodcastBlock, type PodcastNotice, type PodcastPhase } from "@hyvento/shared";
 import type { PodcastState } from "../state";
 
-/** Alguien que está adentro de la cabina. */
+/** Alguien que está adentro del estudio. */
 export interface Inside {
   sessionId: string;
   userId: string;
@@ -26,11 +25,9 @@ export class Podcast {
     return this.state.phase as PodcastPhase;
   }
 
-  /** ¿Puede pisar (x, y)? A la cabina no se entra llena ni mientras se pide permiso o se graba. */
-  canEnter(map: OfficeMap, zoneId: string, x: number, y: number, inside: Inside[]): boolean {
-    if (map.id !== PODCAST.area || zoneId === PODCAST.zone) return true;
-    if (zoneAt(map, x, y)?.id !== PODCAST.zone) return true;
-    return this.phase === "idle" && inside.length < PODCAST.capacity;
+  /** ¿Puede entrar `userId` por la puerta? Al estudio no se entra lleno ni mientras se pide permiso o se graba. */
+  canEnter(userId: string, inside: Inside[]): PodcastBlock | null {
+    return podcastBlock(inside.filter((p) => p.userId !== userId).length, this.phase);
   }
 
   /** "E · Grabar": pide permiso a todos los de adentro (quien lo pide ya aceptó). */

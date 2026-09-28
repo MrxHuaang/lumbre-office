@@ -265,7 +265,7 @@ const section = (category: AchievementCategory, list: Entry[]): Achievement[] =>
 export const ALBUM_SPECIES = FISH.filter((f) => f.rarity !== "basura").length;
 
 /** Niveles de la cabaña (el test del servidor revisa que "Turista" pida todos). */
-export const TOURIST_AREAS = 9;
+export const TOURIST_AREAS = 10;
 
 /** Logros de logros: cuántos hay que juntar (el último pide casi todo el catálogo). */
 export const COLLECTOR_TIERS = [10, 30, 60] as const;
