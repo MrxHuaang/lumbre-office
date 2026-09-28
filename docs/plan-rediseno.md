@@ -75,6 +75,8 @@ Tiene versión de noche, con las ventanas encendidas. La referencia es la imagen
 - **Naturaleza**: más variedad de árboles (robles, pinos, abedules, frutales), arbustos con flores, macizos de flores, rocas de varios tamaños, hongos y troncos caídos.
 - **Garaje** (agregado después del rediseño): pegado al oeste de la torre, de 5x5, de la misma familia que la casa: troncos sobre una basa de piedra, techo de tejas con musgo, el portón de tablas de dos hojas, la puerta chica con su farol, la ventana con postigos, hiedra y la entrada de gravilla hasta el sendero del huerto. Se usa poco, pero no está abandonado. La puerta chica lleva al nivel `garaje` (ver abajo). Detrás de él (lo que su dibujo tapa) hay matorral y cachivaches, sin lugar donde pararse.
 
+- **Observatorio** (estructura 6 de `docs/plan-estructuras.md`, franja nueva del noreste, x 64..79, y 17..33): una lomita de rocas con pasto y musgo y, encima, la torre redonda de piedra cálida con ventanitas en arco, la galería de tablas y la cúpula de duelas con aros de latón, que de noche (del reloj del juego) se abre y deja asomar el telescopio. Sube hasta ella un sendero de piedras desde la esquina del patio, con postes de madera y sus cables. Delante, la placita de piedra con la fogata de malvaviscos (troncos alrededor, zona de charla aislada), el cohete de madera en su plataforma y los banderines. Detrás de la torre (lo que su dibujo tapa) hay rocas, matas y pinos chicos, sin lugar donde pararse. La puerta lleva al nivel `observatorio` (ver abajo).
+
 ## Planta baja: lo social y lo comercial (unos 40x26)
 
 ```
@@ -212,6 +214,10 @@ y 9   └─────────[  ]─────────────�
 - Nivel interior aparte (`garaje`), al que se entra desde la puerta chica del garaje del jardín.
 - **Taller** (zona común): tablones gastados, paredes de tablas sobre zócalo de piedra, el portón de tablas por dentro, el banco de trabajo bajo el tablero de herramientas, estantes metálicos, pilas de llantas, la caja de herramientas roja, el compresor, tambores, cajas, latas de pintura, la escoba, la hielera de madera, la radio y un carro tapado con lona. Descuidado apenas: se usa poco.
 - **Oficina del garaje** (`office-5`, aislada, puerta desde el taller): un rincón tibio: escritorio de madera con un computador de los noventa (prende Hyvento OS), la silla de oficina rota con cinta, archivador abollado, ventilador, planta seca, calendario viejo, un sillón, una lámpara de pie, la ventana con cortinas y un tapete gastado. Se asigna en /admin y su dueño la decora como las del piso 2.
+
+## Observatorio: la torre por dentro (14x12)
+
+- Nivel interior aparte (`observatorio`), una sola sala de piedra (papel `stonework`) con piso de tablas: al medio el **orrery** que gira (E: la hora del reloj de la cabaña y el clima como planetas), al fondo el **telescopio de latón** junto a la **escalera de caracol** que sube a la cúpula (E: el cielo de noche con las constelaciones de la cabaña y las estrellas fugaces; de día, "vuelve de noche"), las **vitrinas** de piedras y de "fósiles" de planetas en la pared oeste, el **radar de señales** contra la pared este (E: se gira el plato y se oye más fuerte lo que suena hacia allá, con una flechita), el **escritorio del diario de exploración** (E) y en las paredes los mapas estelares, el mural del cielo y ventanas de ojo de buey.
 
 ## Casino, más trabajado y jugado en la mesa
 
