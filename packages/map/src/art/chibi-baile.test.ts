@@ -1,6 +1,6 @@
 import { DANCE_MOVE_IDS } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
-import { HUMANS } from "./chibi";
+import { FRAME, HUMANS } from "./chibi";
 import { DANCE_FRAMES, drawFloorDance, drawPoleDance, FLOOR_MOVES, POLE_FRAME_H, POLE_FRAME_W, POLE_ROUTINE } from "./chibi-baile";
 import { arcadeScreen, danceFloorLights, djBoothEq, FLOOR_LIGHT_PATTERNS, poleStageLights, speakerPulse } from "./club-vivo";
 import type { PixelCanvas } from "./pixel";
@@ -32,11 +32,11 @@ describe("bailes del chibi", () => {
 
   it("cada paso de la pista tiene sus frames y no son todos iguales", () => {
     const sheet = drawFloorDance(HUMANS.dario);
-    expect(sheet.width).toBe(32 * DANCE_FRAMES);
-    expect(sheet.height).toBe(32 * DANCE_MOVE_IDS.length);
+    expect(sheet.width).toBe(FRAME * DANCE_FRAMES);
+    expect(sheet.height).toBe(FRAME * DANCE_MOVE_IDS.length);
     DANCE_MOVE_IDS.forEach((id, row) => {
       expect(FLOOR_MOVES[id]).toHaveLength(DANCE_FRAMES);
-      const counts = [0, 1, 2, 3].map((col) => opaque(sheet, col * 32, row * 32, 32, 32));
+      const counts = [0, 1, 2, 3].map((col) => opaque(sheet, col * FRAME, row * FRAME, FRAME, FRAME));
       for (const n of counts) expect(n, id).toBeGreaterThan(150);
     });
   });

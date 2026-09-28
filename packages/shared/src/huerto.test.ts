@@ -29,9 +29,12 @@ import {
   waterPlot,
   wetMsOf,
 } from "./huerto";
+import { seasonGrowth, seasonOf } from "./estaciones";
 
 const T0 = Date.UTC(2026, 8, 27, 15, 0, 0);
 const alice = { userId: "u-alice", name: "Alice" };
+/** Ritmo de la estación de T0 (otoño) para cada cultivo: las cuentas de abajo lo llevan. */
+const k = (crop: string) => seasonGrowth(crop, seasonOf(T0), { greenhouse: Boolean(cropById(crop)?.indoor) });
 
 describe("huerto: cómo crece", () => {
   const tomate = cropById("tomate")!;
@@ -39,13 +42,13 @@ describe("huerto: cómo crece", () => {
   it("seca crece despacio y húmeda a ritmo completo", () => {
     const p = plantPlot("tomate", alice, T0);
     expect(plotGrowth(p, T0)).toBe(0);
-    expect(plotGrowth(p, T0 + 60_000)).toBeCloseTo(60_000 * HUERTO.dryRate);
+    expect(plotGrowth(p, T0 + 60_000)).toBeCloseTo(60_000 * HUERTO.dryRate * k("tomate"));
     const wet = waterPlot(p, T0);
     expect(wet.wateredUntil).toBe(T0 + wetMsOf(tomate));
-    expect(plotGrowth(wet, T0 + 60_000)).toBe(60_000);
+    expect(plotGrowth(wet, T0 + 60_000)).toBeCloseTo(60_000 * k("tomate"));
     // Pasada la humedad vuelve al ritmo seco.
     const after = T0 + wetMsOf(tomate) + 60_000;
-    expect(plotGrowth(wet, after)).toBeCloseTo(wetMsOf(tomate) + 60_000 * HUERTO.dryRate);
+    expect(plotGrowth(wet, after)).toBeCloseTo((wetMsOf(tomate) + 60_000 * HUERTO.dryRate) * k("tomate"));
   });
 
   it("nunca pasa de lo que tarda el cultivo, y el momento en que queda lista es exacto", () => {
@@ -57,7 +60,7 @@ describe("huerto: cómo crece", () => {
       expect(plotGrowth(p, ready + 10 * 60 * 60_000), crop.id).toBe(crop.growMs);
       // Regando lo más posible tarda lo de la tabla; sin regar, 1/dryRate veces más (en el invernadero, igual).
       const dry = plantPlot(crop.id, alice, T0);
-      expect(plotReadyAt(dry) - T0, crop.id).toBeCloseTo(crop.indoor ? crop.growMs : crop.growMs / HUERTO.dryRate);
+      expect(plotReadyAt(dry) - T0, crop.id).toBeCloseTo((crop.indoor ? crop.growMs : crop.growMs / HUERTO.dryRate) / k(crop.id));
     }
   });
 
@@ -72,7 +75,7 @@ describe("huerto: cómo crece", () => {
     const later = T0 + 20 * 60_000;
     expect(canWater(p, later)).toBe(true);
     const wet = waterPlot(p, later);
-    expect(wet.growthMs).toBeCloseTo(20 * 60_000 * HUERTO.dryRate);
+    expect(wet.growthMs).toBeCloseTo(20 * 60_000 * HUERTO.dryRate * k("papa"));
     expect(canWater(wet, later + 60_000)).toBe(false);
     const wetMs = wetMsOf(cropById("papa")!);
     expect(canWater(wet, later + wetMs * (1 - HUERTO.rewaterShare) + 1)).toBe(true);

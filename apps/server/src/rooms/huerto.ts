@@ -20,6 +20,7 @@ import {
   plantPlot,
   plotReadyAt,
   plotReady,
+  plotUnderRoof,
   waterPlot,
   type FurnitureEvent,
   type HuertoNotice,
@@ -187,6 +188,24 @@ export class Huerto<T extends PlotState> {
     if (held && !isFreeHold(held.item)) return { ok: false, notice: { code: "hands" } };
     this.deps.held.give(who.userId, parsed.data.item);
     return { ok: true, item: parsed.data.item };
+  }
+
+  /**
+   * Llueve: se riegan solas las parcelas que lo necesitan (las de afuera; el invernadero tiene techo).
+   * Solo recorre las parcelas del huerto (ids 0.., según los puntos `garden_plot` del jardín): los bancales
+   * (ids desde GREENHOUSE_PLOT_BASE) nunca se mojan, y por si acaso tampoco lo que está bajo techo. Devuelve
+   * cuántas regó.
+   */
+  rain(map: OfficeMap, now: number): number {
+    let n = 0;
+    const count = pointsOfType(map, "garden_plot").length;
+    for (let id = 0; id < count; id++) {
+      const p = this.plot(id);
+      if (!p || isGreenhousePlot(id) || plotUnderRoof(p) || !canWater(p, now)) continue;
+      this.set(id, waterPlot(p, now));
+      n++;
+    }
+    return n;
   }
 
   /** Pone o quita una parcela del estado y la guarda. */
