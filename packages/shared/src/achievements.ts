@@ -356,7 +356,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("primer-dia", "Primer día", "clock", "comun", STAT_KEYS.secondsOnline, HOUR, "Pasa una hora activa en la cabaña", "Ya sabes dónde queda el baño."),
     a("veterano", "Veterano de la cabaña", "clock", "epico", STAT_KEYS.secondsOnline, 100 * HOUR, "Pasa 100 horas activas en la cabaña", "Conoces cada tabla que cruje."),
     a("parte-del-mobiliario", "Parte del mobiliario", "clock", "legendario", STAT_KEYS.secondsOnline, 500 * HOUR, "Pasa 500 horas activas en la cabaña", "Te iban a inventariar con los muebles."),
-    a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al observatorio, la casa del árbol y hasta el Megabús por dentro."),
+    a("turista", "Turista", "map", "comun", STAT_KEYS.areasVisited, TOURIST_AREAS, "Visita todos los niveles de la cabaña", "Del sótano al observatorio, y hasta el Megabús por dentro."),
     a("paseante", "Paseante", "shoe", "comun", STAT_KEYS.tilesWalked, 1000, "Camina 1.000 baldosas", "Estirar las piernas también es trabajo."),
     a("caminante", "Pantuflas gastadas", "shoe", "raro", STAT_KEYS.tilesWalked, 10_000, "Camina 10.000 baldosas", "Tus pantuflas piden jubilación."),
     a("maratonista", "Maratonista de pasillo", "shoe", "epico", STAT_KEYS.tilesWalked, 100_000, "Camina 100.000 baldosas", "Ya diste la vuelta a la cabaña… mil veces."),
