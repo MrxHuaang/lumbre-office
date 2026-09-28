@@ -131,7 +131,7 @@ const KEEP_CLEAR = [
 ];
 
 /**
- * La tina caliente y la sauna de barril, en la orilla este del lago: un deck de tablas
+ * La tina caliente y la sauna de barril, en la orilla noreste del lago: un deck de tablas
  * de 10x9 que se mete un poco sobre el agua, con la tina junto al lago y la sauna al fondo (ver
  * catalog-tina.ts: SPA). El reflejo de las luces lo dibuja el deck, en el agua de al lado.
  */

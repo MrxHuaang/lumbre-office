@@ -294,11 +294,12 @@ describe("jardín", () => {
     expect(zoneAt(jardin, water[0]!.x * ts + ts / 2, water[0]!.y * ts + ts / 2)).toMatchObject({ id: "piscina", isolated: false });
   });
 
-  it("la tina y la sauna: en la orilla este del lago, en su zona aislada y se entra sentándose", () => {
+  it("la tina y la sauna: en la orilla noreste del lago, en su zona aislada y se entra sentándose", () => {
     const ts = jardin.tileSize;
     const p = jardin.def.playable!;
     const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
-    const inRegion = (x: number, y: number) => x - p.x >= 60 && x - p.x <= 72 && y - p.y >= 34 && y - p.y <= 50;
+    // La orilla noreste del lago grande (el sureste es del arroyo del molino).
+    const inRegion = (x: number, y: number) => x - p.x >= 78 && x - p.x <= 96 && y - p.y >= 46 && y - p.y <= 62;
     for (const t of ["spa-deck", "hot-tub", "sauna", "sauna-shell"]) {
       const f = jardin.furniture.filter((g) => g.type === t);
       expect(f, t).toHaveLength(1);

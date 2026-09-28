@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { findPath, getWorld, isBlockedTile, pointsOfType, spawnPoint, zoneAt } from "@hyvento/map";
+import { findPath, getWorld, GRADAS, isBlockedTile, pointsOfType, spawnPoint, zoneAt } from "@hyvento/map";
 import {
   ESCENARIO,
   ESCENARIO_MSG,
@@ -26,12 +26,14 @@ const M = jardin.def.playable!.x;
 const at = (x: number, y: number) => ({ x: x + M, y: y + M });
 const zoneOf = (t: { x: number; y: number }) => zoneAt(jardin, c(t.x), c(t.y))?.id;
 const stagePoint = pointsOfType(jardin, ESCENARIO.stagePoint)[0]!;
-const DECK_A = at(16, 57);
-const DECK_B = at(16, 61);
-const DECK_C = at(15, 59);
-const SEAT_AISLE = at(19, 59);
-const BACK_ROW = at(26, 59);
-const OUTSIDE = at(33, 61);
+/** Relativo a la esquina del anfiteatro: si el escenario se muda en el jardín, el test lo sigue. */
+const rel = (dx: number, dy: number) => at(GRADAS.origin.x + dx, GRADAS.origin.y + dy);
+const DECK_A = rel(-2, 4);
+const DECK_B = rel(-2, 8);
+const DECK_C = rel(-3, 6);
+const SEAT_AISLE = rel(1, 6);
+const BACK_ROW = rel(8, 6);
+const OUTSIDE = rel(15, 8);
 
 let colyseus: ColyseusTestServer;
 let room: ServerRoom;
