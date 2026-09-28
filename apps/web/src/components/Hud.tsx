@@ -104,9 +104,6 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
   const players = useOfficeStore((s) => s.players);
   const sessionId = useOfficeStore((s) => s.sessionId);
   const me = sessionId ? players[sessionId] : undefined;
-  const night = useOfficeStore((s) => s.night);
-  const forced = useOfficeStore((s) => s.nightOverride !== null);
-  const toggleNight = useOfficeStore((s) => s.toggleNight);
   const walls = useOfficeStore((s) => s.privateWalls);
   const openPanel = useOfficeStore((s) => s.openPanel);
   const [open, setOpen] = useState(false);
@@ -206,10 +203,6 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
           </MenuGroup>
 
           <MenuGroup label="Ajustes">
-            {/* La noche sigue al reloj del juego; esto la fuerza y otro clic vuelve al reloj. */}
-            <MenuToggle icon={night ? "moon" : "sun"} on={forced} onClick={toggleNight}>
-              {forced ? `${night ? "Noche" : "Día"} forzado (vuelve al reloj)` : night ? "Forzar el día" : "Forzar la noche"}
-            </MenuToggle>
             <MenuToggle icon="walls" on={walls} onClick={() => useOfficeStore.getState().setPrivateWalls(!walls)}>
               Paredes altas adentro
             </MenuToggle>
