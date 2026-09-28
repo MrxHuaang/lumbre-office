@@ -101,6 +101,7 @@ import { useAchievementStore } from "./achievements";
 import { bindBag } from "./bag";
 import { bindCasaArbol } from "./casaArbol";
 import { sfx } from "./sfx";
+import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
 import { useSombreroStore } from "./npcs/store";
 
@@ -995,6 +996,8 @@ function attach(r: OfficeRoom) {
   bindCocina(r);
   bindArcade(r);
   bindPhone(r);
+  // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).
+  bindNotify(r);
   bindHockey(r);
   // La mochila y la barra de abajo.
   bindBag(r);

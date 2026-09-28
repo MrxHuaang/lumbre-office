@@ -56,6 +56,8 @@ const ICONS = {
   dots: ["........", "........", "........", "##.##.##", "##.##.##", "........", "........", "........"],
   // Engranaje: ajustes de audio y video.
   gear: [".#.##.#.", "########", ".##..##.", "###..###", "###..###", ".##..##.", "########", ".#.##.#."],
+  // Avisos del navegador (menú y aviso de "Activar avisos").
+  bell: ["...##...", "..####..", ".######.", ".######.", ".######.", "########", "........", "...##..."],
 } as const;
 
 export type PixelIconName = keyof typeof ICONS;
