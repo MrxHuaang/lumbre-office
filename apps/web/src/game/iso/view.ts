@@ -45,6 +45,8 @@ const NIGHT = {
 } as const;
 /** La textura de la noche va a media resolución (es un degradado). */
 const NIGHT_SCALE = 2;
+/** Alto libre (px) sobre las paredes de la sala enfocada para los globos de diálogo. */
+const HEADROOM = 64;
 
 function spriteTexture(scene: Phaser.Scene, key: string, make: () => Sprite): Sprite {
   const s = make();
@@ -572,11 +574,13 @@ export class AreaView {
     const y0 = rect.y * ts;
     const x1 = (rect.x + rect.w) * ts;
     const y1 = (rect.y + rect.h) * ts;
+    // Sobre las paredes del fondo queda aire: los nombres y globos de quien está junto a ellas no se cortan.
+    const top = WALL_H + 2 + HEADROOM;
     const hole = [
       worldToScreen(x0 - pad, y1),
-      worldToScreen(x0 - pad, y1, WALL_H + 2),
-      worldToScreen(x0 - pad, y0 - pad, WALL_H + 2),
-      worldToScreen(x1, y0 - pad, WALL_H + 2),
+      worldToScreen(x0 - pad, y1, top),
+      worldToScreen(x0 - pad, y0 - pad, top),
+      worldToScreen(x1, y0 - pad, top),
       worldToScreen(x1, y0 - pad),
       worldToScreen(x1 + 2, y1 + 2),
     ].map((p) => new Phaser.Math.Vector2(p.x, p.y));
