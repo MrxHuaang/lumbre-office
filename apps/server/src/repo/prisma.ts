@@ -36,8 +36,8 @@ import {
   type PresenceStatus,
   type StatChange,
 } from "@hyvento/shared";
-import { executeTrade } from "./social";
-import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TradeResult, TradeSideInput } from "./types";
+import { executeTip, executeTrade } from "./social";
+import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
 const toDbStatus = (s: PresenceStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as PresenceStatus;
@@ -268,6 +268,10 @@ export class PrismaRepository implements GameRepository {
 
   executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult> {
     return executeTrade(prisma, input);
+  }
+
+  tip(input: TipInput): Promise<TipResult> {
+    return executeTip(prisma, input);
   }
 
   saveArcadeScore({ userId, game, score, dayStart, weekStart }: { userId: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }) {

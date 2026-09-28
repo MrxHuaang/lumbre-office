@@ -185,7 +185,22 @@ export interface SocialRepository {
    * mueve nada.
    */
   executeTrade(input: { refId: string; a: TradeSideInput; b: TradeSideInput }): Promise<TradeResult>;
+  /**
+   * Propina del tubo en una sola transacción: quien la tira paga (GIFT, refId "tip:…", dentro del tope de
+   * propinas y del de dar) y quien baila la recibe entera.
+   */
+  tip(input: TipInput): Promise<TipResult>;
 }
+
+export interface TipInput {
+  refId: string;
+  fromId: string;
+  toId: string;
+  amount: number;
+}
+
+/** Los saldos nuevos de los dos, o por qué no se movió nada (`limit-tips`: tope de propinas; `limit`: tope de dar). */
+export type TipResult = { ok: true; balances: Record<string, number> } | { ok: false; error: "funds" | "limit" | "limit-tips" };
 
 // Se funde con la declaración de arriba: el repositorio del juego también hace regalos e intercambios.
 export interface GameRepository extends SocialRepository {}

@@ -1,4 +1,5 @@
 import {
+  CLUB_TIP,
   DAILY_CAPS,
   DOOR_NOTES,
   dayStart,
@@ -6,6 +7,7 @@ import {
   doorNotesLeft,
   giftAllowedToday,
   stackUnits,
+  tipAllowedToday,
   tradeGap,
   type ArcadeGame,
   type BoardGameKind,
@@ -18,7 +20,7 @@ import {
   type PresenceStatus,
   type StatChange,
 } from "@hyvento/shared";
-import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TradeResult, TradeSideInput, UserProfile } from "./types";
+import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -403,5 +405,25 @@ export class MemoryRepository implements GameRepository {
     this.inventory = inventory;
     this.ledger.push(...moves);
     return { ok: true, balances: { [a.userId]: await this.getPoints(a.userId), [b.userId]: await this.getPoints(b.userId) } };
+  }
+
+  // ---------- Propinas del tubo ----------
+
+  /** Lo que alguien tiró hoy en propinas (GIFT con refId "tip:…"), como `tippedToday` de @hyvento/db. */
+  tippedToday(userId: string, now = Date.now()) {
+    const since = dayStart(now);
+    return -this.ledger
+      .filter((m) => m.userId === userId && m.reason === "GIFT" && m.amount < 0 && m.at >= since && m.refId?.startsWith(CLUB_TIP.refPrefix))
+      .reduce((sum, m) => sum + m.amount, 0);
+  }
+
+  async tip({ refId, fromId, toId, amount }: TipInput): Promise<TipResult> {
+    const now = Date.now();
+    const allowed = tipAllowedToday(this.tippedToday(fromId, now), (await this.givenToday(fromId, now)).points, amount);
+    if (allowed === "tips") return { ok: false, error: "limit-tips" };
+    if (allowed === "points") return { ok: false, error: "limit" };
+    if ((await this.getPoints(fromId)) < amount) return { ok: false, error: "funds" };
+    this.ledger.push({ userId: fromId, amount: -amount, reason: "GIFT", at: now, refId }, { userId: toId, amount, reason: "GIFT", at: now, refId });
+    return { ok: true, balances: { [fromId]: await this.getPoints(fromId), [toId]: await this.getPoints(toId) } };
   }
 }

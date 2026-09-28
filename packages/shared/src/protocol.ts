@@ -271,6 +271,11 @@ export const MSG = {
   clubQueue: "club:queue",
   clubReact: "club:react",
   clubReaction: "club:reaction",
+  /** Propinas en el tubo: tirar billetes (`ClubTipMessage`), el aviso a los del nivel (`ClubTipEvent`) y
+   *  por qué no salió (`ClubTipResult`). */
+  clubTip: "club:tip",
+  clubTipped: "club:tipped",
+  clubTipResult: "club:tip:result",
   /** Cine: la cola de la función, pausar y seguir (`CinemaMessage`) y el aviso cuando no se pudo
    *  (`CinemaResult`). */
   cinemaQueue: "cinema:queue",
