@@ -645,12 +645,15 @@ export class OfficeScene extends Phaser.Scene {
     this.table.update();
     // En la mesa se atenúa a quien la tape, y también los muebles de adelante (un pinball junto a los caballitos).
     const covering: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [...this.avatars.values()].map((a) => a.sprite);
+    covering.push(...this.npcs.sprites());
     if (this.table.kind && this.view) covering.push(...this.view.furnitureSprites());
     this.table.fadeAvatars(covering);
     // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa. En el ajedrez
     // y las damas no (el tablero va en la tira y se quiere ver quién juega).
     const hideNames = Boolean(this.table.kind) && this.table.kind !== "boardgame";
     for (const a of this.avatars.values()) a.setNameHidden(hideNames);
+    // Los NPC (crupier, dealer, cajera, portero) también: su nombre tapaba la mesa igual que el de los jugadores.
+    this.npcs.setNameHidden(hideNames);
     this.updateNameTags();
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
