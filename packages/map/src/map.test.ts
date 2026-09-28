@@ -33,6 +33,7 @@ const STARTS: Record<string, { x: number; y: number }> = {
   garaje: CONEXIONES.garaje.entrada.llegada,
   "casa-arbol": CONEXIONES.casaArbol.trampilla.llegada,
   megabus: CONEXIONES.megabus.puertas.llegada,
+  podcast: CONEXIONES.podcast.puerta.llegada,
   observatorio: CONEXIONES.observatorio.entrada.llegada,
 };
 
@@ -43,6 +44,11 @@ const area = (id: string): OfficeMap => {
   return a;
 };
 const center = (map: OfficeMap, t: number) => t * map.tileSize + map.tileSize / 2;
+/** Tile desde donde se sienta alguien en un asiento. */
+const seatStandSpotTile = (map: OfficeMap, seat: Parameters<typeof seatStandSpot>[1]) => {
+  const p = seatStandSpot(map, seat);
+  return { x: Math.floor(p.x / map.tileSize), y: Math.floor(p.y / map.tileSize) };
+};
 const jardin = area("jardin");
 const plantaBaja = area("planta-baja");
 const piso2 = area("piso-2");
@@ -51,7 +57,7 @@ const garaje = area("garaje");
 
 describe("mundo", () => {
   it("tiene el jardín, los pisos de la casa, el sótano y el garaje, y se aparece en el jardín", () => {
-    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje", "casa-arbol", "megabus", "observatorio"]);
+    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje", "casa-arbol", "megabus", "observatorio", "podcast"]);
     expect(world.spawnArea).toBe("jardin");
     const spawn = spawnPoint(jardin);
     expect(canStandAt(jardin, spawn.x, spawn.y)).toBe(true);
@@ -179,7 +185,7 @@ describe("portales", () => {
   it("se puede ir y volver entre todos los niveles", () => {
     const links = [...world.areas.values()].flatMap((m) => m.portals.map((p) => `${m.id}→${p.to.area}`));
     expect(links).toEqual(
-      expect.arrayContaining(["jardin→planta-baja", "planta-baja→jardin", "planta-baja→piso-2", "piso-2→planta-baja", "jardin→piso-2", "piso-2→jardin", "jardin→garaje", "garaje→jardin", "jardin→casa-arbol", "casa-arbol→jardin"]),
+      expect.arrayContaining(["jardin→planta-baja", "planta-baja→jardin", "planta-baja→piso-2", "piso-2→planta-baja", "jardin→piso-2", "piso-2→jardin", "jardin→garaje", "garaje→jardin", "jardin→casa-arbol", "casa-arbol→jardin", "piso-3→podcast", "podcast→piso-3"]),
     );
   });
 
@@ -235,6 +241,33 @@ describe("portales", () => {
     expect(zoneAt(casa, center(casa, up.to.x), center(casa, up.to.y))).toMatchObject({ id: "casa-arbol", isolated: true });
     // Y abajo se llega caminando desde el portón.
     expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, foot)).not.toBeNull();
+  });
+
+  it("la puerta del final del pasillo del piso 3 entra al estudio de grabación y se sale por el mismo lado", () => {
+    const into = piso3.portals.find((p) => p.id === "piso-3-estudio")!;
+    const estudio = area("podcast");
+    const out = estudio.portals.find((p) => p.id === "podcast-salida")!;
+    expect(into.to.area).toBe("podcast");
+    expect(out.to.area).toBe("piso-3");
+    // La puerta (con su cartel) está en el muro del final del pasillo, frente al tile del portal.
+    const door = piso3.def.features.find((f) => f.kind === "studio-door")!;
+    const t = into.tiles[0]!;
+    expect(door.edge).toBe("v");
+    expect(t.x).toBe(door.x);
+    expect(t.y).toBe(door.y + 1);
+    expect(zoneAt(piso3, center(piso3, t.x), center(piso3, t.y))?.id).toBe("pasillo-3");
+    // Se llega caminando desde la escalera del piso 3 hasta la puerta.
+    expect(findPath(piso3, STARTS["piso-3"]!, t)).not.toBeNull();
+    // Adentro: todo el estudio es una sala aislada, con sus ocho sillas y la consola al alcance.
+    expect(zoneAt(estudio, center(estudio, into.to.x), center(estudio, into.to.y))).toMatchObject({ id: "podcast", isolated: true });
+    const seats = [...estudio.seats.values()].filter((s) => s.type === "chair");
+    expect(seats).toHaveLength(8);
+    const start = STARTS.podcast!;
+    for (const s of seats) expect(findPath(estudio, start, seatStandSpotTile(estudio, s)), `${s.tileX},${s.tileY}`).not.toBeNull();
+    const console = pointsOfType(estudio, "podcast");
+    expect(console).toHaveLength(1);
+    expect(isBlockedTile(estudio, console[0]!.tileX, console[0]!.tileY)).toBe(false);
+    expect(findPath(estudio, start, { x: console[0]!.tileX, y: console[0]!.tileY })).not.toBeNull();
   });
 
   it("la puerta del observatorio de la lomita lleva adentro de la torre y se sale al pie de los escalones", () => {

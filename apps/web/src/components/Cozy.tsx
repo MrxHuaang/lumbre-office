@@ -61,7 +61,7 @@ const ICONS = {
   gear: [".#.##.#.", "########", ".##..##.", "###..###", "###..###", ".##..##.", "########", ".#.##.#."],
   // Avisos del navegador (menú y aviso de "Activar avisos").
   bell: ["...##...", "..####..", ".######.", ".######.", ".######.", "########", "........", "...##..."],
-  // Escenario y cabina de grabación: la mano levantada, los aplausos y el punto rojo de grabar.
+  // Escenario y estudio de grabación: la mano levantada, los aplausos y el punto rojo de grabar.
   hand: ["..#.#...", ".##.##..", ".##.##.#", ".#####.#", ".######.", ".######.", "..####..", "..####.."],
   clap: ["#.#..#.#", "........", ".##..##.", ".###.##.", "..#####.", "..####..", "...###..", "...##..."],
   record: ["..####..", ".######.", "########", "########", "########", "########", ".######.", "..####.."],

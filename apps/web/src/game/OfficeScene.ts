@@ -65,8 +65,9 @@ import { ClubMode } from "./club";
 import { EventsView } from "./eventos";
 import { CinemaMode } from "./cinema";
 import { EscenarioMode } from "./escenario";
+import { podcastBlockFor } from "./escenario/net";
 import { useEscenarioStore } from "./escenario/store";
-import { ESCENARIO, PODCAST, listeners as listenersOf, stageRole } from "@hyvento/shared";
+import { ESCENARIO, PODCAST, listeners as listenersOf, podcastNoticeText, stageRole } from "@hyvento/shared";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { queuePrerender } from "./iso/prerender";
 import { ensureCharacterTextures, parseLook } from "./looks";
@@ -116,8 +117,9 @@ import { setSfxArea, setSfxListener, sfx } from "./sfx";
 import { bindUiSounds } from "./sfxBindings";
 import { bindWeatherSounds } from "./weatherSound";
 import { ALCOHOL_PER_SIP, DRUNK, isSwivelSeat, spinMs, type DrunkStage, type SwivelEvent } from "@hyvento/shared";
-import { AGUA, isSunSeat, type DiveEvent } from "@hyvento/shared";
+import { AGUA, isSunSeat, spaKindOf, type DiveEvent } from "@hyvento/shared";
 import { PoolView } from "./piscina";
+import { TinaView } from "./tina";
 import { onDive } from "./piscina/net";
 import { poolSfx } from "./piscina/sound";
 import { playAnticSound } from "./antics-sound";
@@ -204,7 +206,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   // La estación del Megabús: solo con E (un clic en la plataforma es para caminar por ella).
   { kind: "bus", point: "bus_stop", furniture: [] },
   { kind: "stage", point: "stage", furniture: ["stage-lectern", "stage-deck"] },
-  { kind: "podcast", point: "podcast", furniture: ["podcast-desk"] },
+  { kind: "podcast", point: "podcast", furniture: ["podcast-console"] },
   // El observatorio: la fogata de malvaviscos del jardín y lo de adentro de la torre.
   { kind: "marshmallow", point: "marshmallow_fire", furniture: ["marshmallow-fire"] },
   { kind: "telescope", point: "telescope", furniture: ["brass-telescope"] },
@@ -330,7 +332,7 @@ export class OfficeScene extends Phaser.Scene {
   private eventsView!: EventsView;
   /** El cine del sótano (la función en la pantalla, las luces y el haz del proyector). */
   private cinema!: CinemaMode;
-  /** El escenario y la cabina de grabación del jardín (pantalla grande, manos, cartel, grabador). */
+  /** El escenario del jardín y el estudio de grabación (pantalla grande, manos, carteles, grabador). */
   private escenario!: EscenarioMode;
   /** Lo que ve quien tomó de más (filtros sobre el canvas) y su zigzag al caminar. */
   private drunkVision!: DrunkVision;
@@ -361,6 +363,8 @@ export class OfficeScene extends Phaser.Scene {
   private busNoticeAt = -1e9;
   /** La piscina del jardín (reflejos, flotadores, la lona y las salpicaduras) y si estoy nadando. */
   private pool!: PoolView;
+  /** La tina y la sauna del lago: el agua que se mueve, el vapor y los destellos del reflejo. */
+  private tina!: TinaView;
   private swimming = false;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
   private aquariums!: Aquariums;
@@ -458,6 +462,7 @@ export class OfficeScene extends Phaser.Scene {
     this.treeLadder = new TreeLadderLayer(this);
     this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.pool = new PoolView(this);
+    this.tina = new TinaView(this);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
@@ -534,6 +539,7 @@ export class OfficeScene extends Phaser.Scene {
       onPhotoShot((shot) => this.takePhoto(shot)),
       onDive((e) => this.handleDive(e)),
       () => this.pool.destroy(),
+      () => this.tina.destroy(),
       onPhotosChanged(() => {
         const watching = PhotoBoards.hasBoard(this.map) || useOfficeStore.getState().panel?.kind === "photos";
         usePhotoStore.getState().markStale(watching);
@@ -665,6 +671,7 @@ export class OfficeScene extends Phaser.Scene {
     this.eventsView.update();
     this.cinema.update(time);
     this.pool.update(time);
+    this.tina.update(time);
     this.escenario.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
@@ -801,6 +808,7 @@ export class OfficeScene extends Phaser.Scene {
       this.escenario.setArea(map);
       this.npcs.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
+    this.tina.setArea(map, useOfficeStore.getState().night);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -878,6 +886,7 @@ export class OfficeScene extends Phaser.Scene {
     this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
+    this.tina.setArea(map, useOfficeStore.getState().night);
     this.escenario.setArea(map);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
@@ -995,6 +1004,12 @@ export class OfficeScene extends Phaser.Scene {
       useOfficeStore.getState().notify(CASA_ARBOL_BLOCK_TEXT[block], "warning");
       return;
     }
+    // El estudio de grabación lleno, o pidiendo permiso o grabando (el cartel prendido): tampoco.
+    const onAir = portal.to.area === PODCAST.area ? podcastBlockFor(selectMyUserId(useOfficeStore.getState())) : null;
+    if (onAir) {
+      useOfficeStore.getState().notify(podcastNoticeText({ code: onAir }), "warning");
+      return;
+    }
     this.travelling = true;
     this.path = [];
     this.pathMarker?.destroy();
@@ -1029,12 +1044,16 @@ export class OfficeScene extends Phaser.Scene {
   private startAmbient() {
     this.ambient.forEach((t) => t.remove());
     this.ambient = [];
-    // La casa del jardín (o la cabaña vieja): la que tenga chimenea.
-    const cabin = this.map.furniture.find((f) => Object.hasOwn(CHIMNEY_TOPS, f.type));
-    if (!cabin) return;
+    // Lo que tenga chimenea: la casa del jardín (o la cabaña vieja) y las estufas de la tina y la sauna.
     const ts = this.map.tileSize;
-    const c = CHIMNEY_TOPS[cabin.type]!;
-    const top = worldToScreen(cabin.x * ts + c.x / WORLD_TO_ART, cabin.y * ts + c.y / WORLD_TO_ART, c.z);
+    for (const cabin of this.map.furniture.filter((f) => Object.hasOwn(CHIMNEY_TOPS, f.type))) {
+      const c = CHIMNEY_TOPS[cabin.type]!;
+      this.smokeFrom(worldToScreen(cabin.x * ts + c.x / WORLD_TO_ART, cabin.y * ts + c.y / WORLD_TO_ART, c.z));
+    }
+  }
+
+  /** Humo que sube de una chimenea (en pantalla). */
+  private smokeFrom(top: { x: number; y: number }) {
     this.ambient.push(
       this.time.addEvent({
         delay: 700,
@@ -1666,9 +1685,11 @@ export class OfficeScene extends Phaser.Scene {
     const prompt = this.seat ? "stand" : free && !this.usableNear && !this.petNear ? "sit" : null;
     const s = useOfficeStore.getState();
     if (prompt !== s.seatPrompt) s.setSeatPrompt(prompt);
-    // En las reposeras de la piscina la ayuda dice "tomar el sol".
+    // En las reposeras de la piscina la ayuda dice "tomar el sol"; en la tina y la sauna, "meterse".
     const sun = Boolean((this.seat ?? free) && isSunSeat((this.seat ?? free)!.type));
     if (sun !== s.seatSun) s.setSeatSun(sun);
+    const spa = this.seat ?? free ? spaKindOf((this.seat ?? free)!.type) : null;
+    if (spa !== s.seatSpa) s.setSeatSpa(spa);
     const atComputer = this.seat?.computer ?? false;
     if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
     const atSwivel = this.seat ? isSwivelSeat(this.seat) : false;
@@ -2156,6 +2177,7 @@ export class OfficeScene extends Phaser.Scene {
     this.weatherView.setNight(useOfficeStore.getState().night);
     // Los reflejos de la piscina también tienen versión de noche.
     this.pool.setNight(useOfficeStore.getState().night);
+    this.tina.setNight(useOfficeStore.getState().night);
     this.updateGhost(true);
   }
 
@@ -2512,8 +2534,7 @@ export class OfficeScene extends Phaser.Scene {
   /** Oficinas cerradas: solo su dueño y los invitados pueden estar adentro. */
   private canEnterZoneAt(x: number, y: number) {
     const zone = zoneAt(this.map, x, y);
-    // La tarima (dos como mucho) y la cabina de grabación (llena, o pidiendo permiso o grabando): la misma
-    // regla que el servidor, para no chocar contra la corrección.
+    // La tarima (dos como mucho): la misma regla que el servidor, para no chocar contra la corrección.
     if (zone && this.local && this.map.id === ESCENARIO.area) {
       const here = zoneAt(this.map, this.local.x, this.local.y)?.id;
       const inZone = (id: string) => {
@@ -2524,7 +2545,6 @@ export class OfficeScene extends Phaser.Scene {
         return n;
       };
       if (zone.id === ESCENARIO.stageZone && here !== zone.id && inZone(zone.id) >= ESCENARIO.maxOnStage) return false;
-      if (zone.id === PODCAST.zone && here !== zone.id && (useEscenarioStore.getState().podcast.phase !== "idle" || inZone(zone.id) >= PODCAST.capacity)) return false;
     }
     if (zone?.type !== "office") return true;
     const s = useOfficeStore.getState();

@@ -402,6 +402,7 @@ export const LOG_AREAS: readonly { id: string; name: string; note: string }[] = 
   { id: "garaje", name: "El garaje", note: "Llantas, herramientas y un carro tapado que nadie destapa." },
   { id: "casa-arbol", name: "La casa del árbol", note: "Tres cojines, una escalera de cuerda y silencio para concentrarse." },
   { id: "megabus", name: "El Megabús", note: "Verde lima, vidrios oscuros y un fuelle que se dobla en las curvas." },
+  { id: "podcast", name: "El estudio de grabación", note: "Ocho micrófonos, una mesa larga y el cartel de EN EL AIRE." },
   { id: "observatorio", name: "El observatorio", note: "Una torre de piedra que mira al cielo desde la lomita." },
 ];
 

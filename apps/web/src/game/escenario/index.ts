@@ -1,15 +1,16 @@
-// El escenario y la cabina de grabación en la escena: la pantalla compartida de quien habla en la tarima
+// El escenario y el estudio de grabación en la escena: la pantalla compartida de quien habla en la tarima
 // proyectada sobre la tela de la concha, las manos levantadas sobre las cabezas, los aplausos (y la
-// ovación), el cartel "EN EL AIRE" prendido para todos mientras se graba y el grabador del navegador de
-// quien pidió grabar. La escena solo tiene ganchos chicos: setArea, update y destroy.
-import { zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
-import { podcastSign, STAGE_SCREEN, WORLD_TO_ART } from "@hyvento/map/art";
-import { ESCENARIO, PODCAST } from "@hyvento/shared";
+// ovación), los carteles "EN EL AIRE" (el de la puerta del pasillo del piso 3 y el de adentro del
+// estudio) prendidos para todos mientras se graba y titilando mientras se pide permiso, y el grabador del
+// navegador de quien pidió grabar. La escena solo tiene ganchos chicos: setArea, update y destroy.
+import { zoneAt, type OfficeMap, type PlacedFurniture, type WallFeature } from "@hyvento/map";
+import { onAirSignSprite, STAGE_SCREEN, WORLD_TO_ART } from "@hyvento/map/art";
+import { ESCENARIO, PODCAST, podcastSignLit } from "@hyvento/shared";
 import { Track } from "livekit-client";
 import type * as Phaser from "phaser";
 import { COZY, cozyFontFamily } from "@/lib/cozy";
 import type { Avatar } from "../Avatar";
-import { depthOf, ensureTexture, worldToScreen } from "../iso/view";
+import { DEPTH_FLAT, ensureTexture, worldToScreen } from "../iso/view";
 import { media, useMediaStore } from "../media";
 import { getRoom } from "../network";
 import { sfx } from "../sfx";
@@ -33,10 +34,10 @@ interface Hosts {
 export class EscenarioMode {
   private map?: OfficeMap;
   private shell?: PlacedFurniture;
-  private booth?: PlacedFurniture;
   /** La pantalla compartida montada sobre la tela (de quién es, la pista, el <video> y el recuadro). */
   private screen: { track: Track; el: HTMLVideoElement; mount: WallMount } | null = null;
-  private sign?: { img: Phaser.GameObjects.Image; key: string };
+  /** Los carteles "EN EL AIRE" del nivel (se prenden encima de la pared). */
+  private signs: { f: WallFeature; img: Phaser.GameObjects.Image; key: string }[] = [];
   private recorder: PodcastRecorder | null = null;
   private recorderSyncIn = 0;
   private lastOvation = 0;
@@ -60,14 +61,12 @@ export class EscenarioMode {
   setArea(map: OfficeMap) {
     this.clear();
     this.map = map;
+    // Sobre la pared, debajo de todo lo que está parado delante (y encima del fondo del nivel).
+    for (const f of map.def.features)
+      if (f.kind === "onair-sign" || f.kind === "studio-door")
+        this.signs.push({ f, img: this.h.scene.add.image(0, 0, "__DEFAULT").setVisible(false).setOrigin(0, 0).setDepth(DEPTH_FLAT - 10), key: "" });
     if (map.id !== ESCENARIO.area) return;
     this.shell = map.furniture.find((f) => f.type === "stage-shell");
-    this.booth = map.furniture.find((f) => f.type === "podcast-booth-roof");
-    if (this.booth) {
-      const ts = map.tileSize;
-      const img = this.h.scene.add.image(0, 0, "__DEFAULT").setVisible(false).setDepth(depthOf((this.booth.x + this.booth.w / 2) * ts, (this.booth.y + this.booth.d / 2) * ts) + 0.05);
-      this.sign = { img, key: "" };
-    }
   }
 
   update(time: number) {
@@ -83,18 +82,18 @@ export class EscenarioMode {
     const inJardin = map?.id === ESCENARIO.area;
     const boothNames: string[] = [];
     room?.state.players.forEach((p) => {
-      if (p.area === PODCAST.area && p.zoneId === PODCAST.zone) boothNames.push(p.name);
+      if (p.area === PODCAST.area) boothNames.push(p.name);
     });
-    store.setHere({ onStage: inJardin && zone === ESCENARIO.stageZone, inSeats: inJardin && zone === ESCENARIO.seatsZone, inBooth: inJardin && zone === PODCAST.zone }, boothNames);
+    store.setHere({ onStage: inJardin && zone === ESCENARIO.stageZone, inSeats: inJardin && zone === ESCENARIO.seatsZone, inBooth: map?.id === PODCAST.area }, boothNames);
 
     // Las manos levantadas, con su turno (solo se ven en el jardín: los avatares de otros niveles se ocultan).
     const order = new Map(store.hands.map((hand, i) => [hand.sessionId, i + 1]));
     for (const [sessionId, avatar] of this.h.avatars()) avatar.setHand(inJardin ? (order.get(sessionId) ?? null) : null);
 
     this.updateRecorder(dt, myId);
+    this.updateSigns(time);
     if (!inJardin || !map) return;
     this.updateScreen(map, myId);
-    this.updateSign(time);
   }
 
   destroy() {
@@ -175,22 +174,25 @@ export class EscenarioMode {
 
   // ---------- Cartel y ovación ----------
 
-  private updateSign(time: number) {
-    const sign = this.sign;
-    const booth = this.booth;
-    if (!sign || !booth || !this.map) return;
-    const lit = useEscenarioStore.getState().podcast.phase === "recording";
-    sign.img.setVisible(lit);
-    if (!lit) return;
+  /** Los carteles "EN EL AIRE": prendidos grabando y titilando mientras se pide permiso. */
+  private updateSigns(time: number) {
+    const map = this.map;
+    if (!map || !this.signs.length) return;
     const frame = Math.floor(time / 700) % 2;
-    const key = `podcast-cartel-${frame}`;
-    if (sign.key === key) return;
-    const s = podcastSign(true, frame);
-    ensureTexture(this.h.scene, key, () => s.canvas);
-    const ts = this.map.tileSize;
-    const a = worldToScreen(booth.x * ts, booth.y * ts);
-    sign.img.setTexture(key).setOrigin(0, 0).setPosition(Math.round(a.x - s.ox), Math.round(a.y - s.oy));
-    sign.key = key;
+    const lit = podcastSignLit(useEscenarioStore.getState().podcast.phase, frame);
+    const ts = map.tileSize;
+    for (const sign of this.signs) {
+      sign.img.setVisible(lit);
+      if (!lit) continue;
+      const { f } = sign;
+      const key = `podcast-cartel-${f.kind}-${f.edge}-${f.width ?? 1}-${frame}`;
+      if (sign.key === key) continue;
+      const s = onAirSignSprite(f, frame);
+      ensureTexture(this.h.scene, key, () => s.canvas);
+      const a = worldToScreen(f.x * ts, f.y * ts);
+      sign.img.setTexture(key).setPosition(Math.round(a.x - s.ox), Math.round(a.y - s.oy));
+      sign.key = key;
+    }
   }
 
   /** "¡Bravo!" sobre la tarima cuando aplaude mucha gente a la vez. */
@@ -243,17 +245,16 @@ export class EscenarioMode {
     // Mi voz y las de los demás de adentro (a ellos los oigo: estamos en la misma sala aislada).
     const voices: (string | null)[] = [null];
     getRoom()?.state.players.forEach((p) => {
-      if (p.userId !== myId && p.area === PODCAST.area && p.zoneId === PODCAST.zone) voices.push(p.userId);
+      if (p.userId !== myId && p.area === PODCAST.area) voices.push(p.userId);
     });
     this.recorder.sync(voices);
   }
 
   private clear() {
     this.dropScreen();
-    this.sign?.img.destroy();
-    this.sign = undefined;
+    for (const sign of this.signs) sign.img.destroy();
+    this.signs = [];
     this.shell = undefined;
-    this.booth = undefined;
     for (const avatar of this.h.avatars().values()) avatar.setHand(null);
   }
 }

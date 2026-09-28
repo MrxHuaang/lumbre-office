@@ -3,7 +3,7 @@
 // de cerca: un menú chico para acariciarla, darle croquetas o lo que se tiene en la mano, adoptarla o
 // dejarla volver a la casa (E la acaricia). Los clics en la mascota y en el menú no llegan a la escena
 // (no se camina hacia allá).
-import { bubble, drawHeldItem, drawPet, heartSmall, PET_FRAME, PET_POSE_FRAMES, petBowl, sleepZ, type PetArtKind, type PetArtPose } from "@hyvento/map/art";
+import { bubble, drawHeldItem, drawPet, heartSmall, PET_FRAME, PET_POSE_FRAMES, petBowl, petMenuIcon, sleepZ, type PetArtKind, type PetArtPose } from "@hyvento/map/art";
 import { FREE_NAMES, menuItem, parseHeldLeft, PET, PET_BOND, petFoodIn, type Direction, type PetAction, type PetEvent } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
@@ -234,50 +234,88 @@ export class Mascotas {
     const myId = selectMyUserId(st);
     const iHaveOne = [...(this.room?.state.pets.values() ?? [])].some((p) => p.ownerId && p.ownerId === myId);
     const food = this.myFood();
-    const options: { label: string; action: PetAction }[] = [
-      { label: "Acariciar", action: "pet" },
-      { label: "Darle croquetas", action: "treat" },
-      ...(food ? [{ label: `Darle ${food.toLowerCase()}`, action: "feed" as const }] : []),
-      ...(!s.ownerId && !iHaveOne ? [{ label: "Adoptar", action: "adopt" as const }] : []),
-      ...(s.ownerId && s.ownerId === myId ? [{ label: "Dejar que vuelva a casa", action: "release" as const }] : []),
+    const held = st.sessionId ? st.players[st.sessionId]?.held : undefined;
+    // Cada acción es un botón con ícono; el nombre sale abajo al pasar el mouse.
+    const options: { label: string; action: PetAction; icon: string }[] = [
+      { label: "Acariciar", action: "pet", icon: ensureTexture(this.scene, "mascota-menu-paw", () => petMenuIcon("paw")) },
+      { label: "Croquetas", action: "treat", icon: ensureTexture(this.scene, "mascota-croquetas", () => petBowl()) },
+      ...(food && held ? [{ label: `Darle ${food.toLowerCase()}`, action: "feed" as const, icon: ensureTexture(this.scene, `mascota-comida-${held}`, () => drawHeldItem(held)) }] : []),
+      ...(!s.ownerId && !iHaveOne ? [{ label: "Adoptar", action: "adopt" as const, icon: ensureTexture(this.scene, "mascota-menu-heart", () => petMenuIcon("heart")) }] : []),
+      ...(s.ownerId && s.ownerId === myId ? [{ label: "Volver a casa", action: "release" as const, icon: ensureTexture(this.scene, "mascota-menu-home", () => petMenuIcon("home")) }] : []),
     ];
-    const button = (label: string, action: PetAction, y: number) => {
-      const t = this.scene.add
-        .text(0, y, label, {
-          fontFamily: cozyFontFamily(),
-          fontSize: "8px",
-          color: COZY.ink,
-          backgroundColor: COZY.paperLight,
-          padding: { x: 4, y: 1 },
-          resolution: 6,
-        })
-        .setOrigin(0.5, 1);
-      const frame = this.scene.add.rectangle(0, y, t.width + 2, t.height + 2).setOrigin(0.5, 1).setStrokeStyle(1, hexToInt(COZY.frame));
-      frame.setY(y + 1);
-      t.setInteractive({ useHandCursor: true });
-      t.on("pointerover", () => t.setBackgroundColor(COZY.paperDark));
-      t.on("pointerout", () => t.setBackgroundColor(COZY.paperLight));
-      t.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
+    const B = 14; // lado de un botón
+    const GAP = 2;
+    const PAD = 3;
+    const TAIL = 4;
+    const text = (label: string, color: string) =>
+      this.scene.add.text(0, 0, label, { fontFamily: cozyFontFamily(), fontSize: "7px", color, resolution: 6 }).setOrigin(0, 0.5);
+    // Cabecera: el nombre y cinco corazones de cariño (cada uno vale un quinto).
+    const name = text(this.petName(s), COZY.ink);
+    const filled = Math.round((s.love / PET_BOND.max) * 5);
+    const heartFull = ensureTexture(this.scene, "mascota-menu-heart", () => petMenuIcon("heart"));
+    const heartEmpty = ensureTexture(this.scene, "mascota-menu-heart-empty", () => petMenuIcon("heart-empty"));
+    const heartsW = 5 * 6 + 1;
+    const rowW = options.length * (B + GAP) - GAP;
+    // Pie: el cariño exacto, o la acción bajo el mouse; la tarjeta mide lo que ocupe la etiqueta más larga.
+    const idle = `Cariño ${Math.round(s.love)}/${PET_BOND.max}`;
+    const hint = text(idle, COZY.inkSoft).setOrigin(0.5, 0.5);
+    const labelW = Math.max(...[...options.map((o) => o.label), idle].map((l) => hint.setText(l).width));
+    hint.setText(idle);
+    const W = Math.ceil(Math.max(rowW, name.width + 4 + heartsW, labelW)) + PAD * 2;
+    const H = PAD + 8 + 3 + B + 2 + 8 + 2;
+    const left = -Math.floor(W / 2);
+    const top = -TAIL - H;
+    // La tarjeta: sombra sólida, papel, marco de madera y la colita que apunta a la mascota.
+    const g = this.scene.add.graphics();
+    const frame = hexToInt(COZY.frame);
+    g.fillStyle(frame, 0.35).fillRect(left + 1, top + 1, W, H);
+    g.fillStyle(frame).fillRect(left - 1, top - 1, W + 2, H + 2);
+    g.fillStyle(hexToInt(COZY.paper)).fillRect(left, top, W, H);
+    g.fillStyle(hexToInt(COZY.paperLight)).fillRect(left, top, W, 1);
+    g.fillStyle(frame).fillTriangle(-4, top + H, 4, top + H, 0, 0);
+    g.fillStyle(hexToInt(COZY.paper)).fillTriangle(-3, top + H - 1, 3, top + H - 1, 0, -2);
+    // El fondo también se traga el clic (no se camina hacia la tarjeta).
+    const hit = this.scene.add.zone(left, top, W, H).setOrigin(0, 0).setInteractive();
+    hit.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => ev.stopPropagation());
+    name.setPosition(left + PAD, top + PAD + 4);
+    const hearts = Array.from({ length: 5 }, (_, i) =>
+      this.scene.add.image(left + W - PAD - heartsW + i * 6, top + PAD + 1, i < filled ? heartFull : heartEmpty).setOrigin(0, 0),
+    );
+    hint.setPosition(0, top + H - 2 - 4);
+    const rowTop = top + PAD + 8 + 3;
+    const rowLeft = -Math.floor(rowW / 2);
+    const buttons = options.flatMap((o, i) => {
+      const x = rowLeft + i * (B + GAP);
+      const bg = this.scene.add.graphics();
+      const paint = (on: boolean) => {
+        bg.clear();
+        bg.fillStyle(frame).fillRect(x, rowTop, B, B);
+        bg.fillStyle(hexToInt(on ? COZY.paperDark : COZY.paperLight)).fillRect(x + 1, rowTop + 1, B - 2, B - 2);
+        if (!on) bg.fillStyle(hexToInt(COZY.paperDark)).fillRect(x + 1, rowTop + B - 2, B - 2, 1);
+      };
+      paint(false);
+      const icon = this.scene.add.image(x + B / 2, rowTop + B / 2, o.icon);
+      icon.setScale(Math.min(1, 11 / Math.max(icon.width, icon.height)));
+      const zone = this.scene.add.zone(x, rowTop, B, B).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+      zone.on("pointerover", () => {
+        paint(true);
+        icon.setY(rowTop + B / 2 + 1);
+        hint.setText(o.label).setColor(COZY.ink);
+      });
+      zone.on("pointerout", () => {
+        paint(false);
+        icon.setY(rowTop + B / 2);
+        hint.setText(idle).setColor(COZY.inkSoft);
+      });
+      zone.on("pointerdown", (_p: Phaser.Input.Pointer, _x: number, _y: number, ev: Phaser.Types.Input.EventData) => {
         ev.stopPropagation();
-        sendPetAction(s.id, action);
+        sendPetAction(s.id, o.action);
         this.closeMenu();
       });
-      return [frame, t];
-    };
-    // El cariño arriba (no es un botón), y los botones de abajo hacia arriba.
-    const love = this.scene.add
-      .text(0, -12 * options.length, `Cariño ${Math.round(s.love)}/${PET_BOND.max}`, {
-        fontFamily: cozyFontFamily(),
-        fontSize: "7px",
-        color: COZY.red,
-        backgroundColor: COZY.paperLight,
-        padding: { x: 3, y: 0 },
-        resolution: 6,
-      })
-      .setOrigin(0.5, 1);
-    const container = this.scene.add
-      .container(0, 0, [love, ...options.flatMap((o, i) => button(o.label, o.action, -12 * (options.length - 1 - i)))])
-      .setDepth(DEPTH_OVERLAY + 20);
+      return [bg, icon, zone];
+    });
+    // Sobre los nombres y globitos de la escena (que van en 5e7 y 6e7).
+    const container = this.scene.add.container(0, 0, [g, hit, name, ...hearts, hint, ...buttons]).setDepth(6e7 + 10);
     this.menu = { pet: s.id, container, until: this.scene.time.now + 6000 };
     this.placeMenu();
   }
@@ -328,7 +366,7 @@ export class Mascotas {
       this.place(s);
       const hidden = this.veiled(s);
       s.img.setAlpha(hidden ? 0 : 1);
-      s.name.setVisible(!hidden && (s.hover || this.near(s, NAME_TILES)));
+      s.name.setVisible(!hidden && this.menu?.pet !== s.id && (s.hover || this.near(s, NAME_TILES)));
       // Durmiendo: sale una "z" cada tanto.
       if (!hidden && s.pose === "sleep" && now - s.zAt > 1600) {
         s.zAt = now;

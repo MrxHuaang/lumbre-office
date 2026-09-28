@@ -324,22 +324,28 @@ function frontFace(uy: number, z: number, night: boolean, front: boolean): RGBA 
 }
 
 /**
- * El fuelle gris entre los dos cuerpos: un acordeón de `JOINT` de largo cuyo lado de atrás está corrido
- * `dy` (unidades de arte, hacia +y) respecto del de adelante: así se dobla cuando el bus se arrima.
+ * El fuelle gris entre los dos cuerpos: un acordeón de `BUS.jointLen` de largo, del mismo ancho y alto que
+ * los cuerpos (el faldón negro abajo, el techo a ras del de ellos), con el origen como el de `busCarSprite`
+ * (así, con el bus recto, queda en línea con los dos). Su lado de atrás está corrido `dy` (unidades de
+ * arte, hacia +y) respecto del de adelante: así se dobla cuando un cuerpo va por el carril y el otro no.
  */
 export function busJointSprite(dy: number): Sprite {
   const len = BUS.jointLen * L;
-  const s = new Escena({ x0: -3, y0: Math.min(0, dy) - 3, z0: Z.wheel, x1: len + 3, y1: BW + Math.max(0, dy) + 3, z1: Z.roof + 2 }, 2);
-  const off = (u: number) => dy * (1 - u / len);
-  // Costado y techo del fuelle, recorridos a lo largo del acordeón.
-  for (let u = 0.2; u < len; u += 0.35) {
-    const pleat = Math.floor(u / 2) % 2;
-    const c = at(GREY, pleat ? 2 : 4);
-    for (let z = Z.skirt1; z < Z.roof - 1; z += 0.5) s.plot(u, BW + off(u), z, z > Z.roof - 3 ? at(GREY, 1) : c);
-    for (let y = 1; y < BW; y += 0.5) s.plot(u, y + off(u), Z.roof - 1, at(GREY, pleat ? 3 : 4));
-  }
-  // El plato de abajo, en sombra.
-  s.solid(1, off(len / 2) + 4, Z.skirt0, len - 2, BW - 8, 4, at(BLACK, 3), at(BLACK, 1), at(BLACK, 2));
+  const s = new Escena({ x0: -3, y0: Math.min(0, dy) - 3, z0: Z.wheel - 2, x1: len + 3, y1: BW + Math.max(0, dy) + 3, z1: Z.ac + 3 }, 3);
+  // A lo largo del fuelle se pasa del corrimiento de atrás (u = 0) al de adelante (u = len): caras torcidas.
+  const du: [number, number, number] = [1, -dy / len, 0];
+  const pleat = (u: number) => Math.floor(u / 2) % 2;
+  // Costado visible (+y): faldón negro como el de los cuerpos y el acordeón gris con sus pliegues.
+  s.quad([0, BW + dy, Z.skirt0], du, [0, 0, 1], len, Z.roof - Z.skirt0, (u, v) => {
+    const z = v + Z.skirt0;
+    if (z < Z.skirt1) return at(BLACK, z < Z.skirt0 + 1 ? 1 : 2);
+    if (z > Z.roof - 1.5) return at(GREY, 1);
+    if (u < 0.8 || u > len - 0.8) return at(BLACK, 2);
+    return at(GREY, pleat(u) ? 2 : 4);
+  });
+  // Techo del acordeón, a la altura del de los cuerpos.
+  s.quad([0, dy, Z.roof], du, [0, 1, 0], len, BW, (u, v) => (v < 1 || v > BW - 1 ? at(GREY, 2) : at(GREY, pleat(u) ? 3 : 4)));
+  s.shadow(0, Math.min(0, dy), len, BW + Math.abs(dy), 0.3);
   return s.sprite();
 }
 

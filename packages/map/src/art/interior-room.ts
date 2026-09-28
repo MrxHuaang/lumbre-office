@@ -7,6 +7,7 @@ import { C, OUT, inRect, mix } from "./palette";
 import { at, bayer, noise, ramp, smoothNoise, type Ramp, type RGBA } from "./pixel";
 import { boardsWall, cinderblockWall } from "./garaje-room";
 import { treehouseWall } from "./casa-arbol-room";
+import { estudioWall } from "./podcast-room";
 import { stoneworkWall } from "./observatorio-room";
 
 /** Verde bosque (papel de la biblioteca). */
@@ -419,6 +420,8 @@ export function interiorWall(kind: WallpaperKind | null, u: number, hv: number):
       return busWallpaper(kind, u, hv);
     case "boards":
       return boardsWall(u, hv);
+    case "estudio":
+      return estudioWall(u, hv);
     case "stonework":
       return stoneworkWall(u, hv);
     default:

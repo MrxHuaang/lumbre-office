@@ -61,7 +61,11 @@ export type FloorKind =
   // dónde cae, ver art/bus-calle.ts). No se camina: queda fuera de la zona jugable.
   | "road"
   // El Megabús por dentro: piso de caucho antideslizante.
-  | "rubber";
+  | "rubber"
+  // Relieve del jardín: el talud de una loma (no se camina, ver build.ts) y los escalones de piedra donde
+  // lo cruza un sendero.
+  | "slope"
+  | "steps";
 // Del rediseño de interiores: machimbre de madera, azulejos (cocina y baños) y verde bosque (biblioteca).
 // Variedad: rayas finas, damasco dorado, ladrillo visto, listones de madera clara y estuco con zócalo.
 export type WallpaperKind =
@@ -88,6 +92,8 @@ export type WallpaperKind =
   // El Megabús por dentro: paneles claros con la franja verde lima, y los pliegues grises del fuelle.
   | "megabus"
   | "fuelle"
+  // Estudio de grabación: zócalo de madera y paneles acústicos de tela acolchada.
+  | "estudio"
   // Observatorio: piedra de la torre con vigas de madera (curva, como la torre por fuera).
   | "stonework";
 
@@ -131,6 +137,11 @@ export type WallFeatureKind = "window" | "picture" | "screen" | "menu" | "board"
   | "treehouse-window" | "bunting"
   // Megabús: las ventanas oscuras de piso a techo (con `text`, la pantalla de ruta encima).
   | "bus-window"
+  // Estudio de grabación (art/podcast-room.ts): el cartel "EN EL AIRE", la puerta del pasillo del piso 3,
+  // la ventana de estrellas y los afiches del espacio, del viaje de los planetitas de madera, del mapa de
+  // los tres carriles y de programación.
+  | "onair-sign" | "studio-door" | "star-window" | "poster-planets" | "poster-nebula" | "poster-rocket" | "star-map"
+  | "poster-campfire" | "explore-log" | "lanes-map" | "sword-shield" | "poster-hello" | "poster-duck" | "diagram-board"
   // Observatorio: mapa estelar, el mural del cielo y la ventana redonda de ojo de buey.
   | "star-chart" | "mural" | "porthole";
 
@@ -233,7 +244,7 @@ export interface PointDef {
     | "kitchen_stove"
     // Escenario del jardín: frente a la escalerita de la tarima ("Subir al escenario").
     | "stage"
-    // Cabina de grabación del jardín: la mesa de los micrófonos ("Grabar").
+    // Estudio de grabación: la consola de la mesa ("Grabar").
     | "podcast"
     // La granja del jardín: frente al horno y a la parrilla (el panel de cocinar) y el letrero del
     // gallinero (los nombres de los animales).
@@ -277,6 +288,11 @@ export interface AreaDef {
    * `ground` (por tile).
    */
   groundFine?: (x: number, y: number) => FloorKind;
+  /**
+   * Altura del terreno de un exterior (en pisos, con decimales en los taludes), en tiles del nivel con
+   * decimales. Solo la usa el dibujo: sombrea los taludes y aclara lo alto (el isométrico no se levanta).
+   */
+  heightFine?: (x: number, y: number) => number;
   rooms: RoomDef[];
   doors: DoorDef[];
   /** Tiles transitables fuera de las habitaciones (umbral de la puerta de entrada). */

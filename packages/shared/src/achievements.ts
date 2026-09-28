@@ -106,6 +106,8 @@ export const STAT_KEYS = {
   racesFinished: "races_finished",
   /** Bloques de foco (pomodoro) completos. */
   focusBlocks: "focus_blocks",
+  /** Ratos de descanso (los que dan puntos) en la tina caliente o la sauna del lago. */
+  spaRests: "spa_rests",
   /** Máximo: cuántos logros tiene (para los logros de logros). */
   achievementsUnlocked: "achievements_unlocked",
   // Observatorio: mirar el cielo de noche, estrellas fugaces vistas (y las vistas primero que nadie) y
@@ -222,6 +224,7 @@ export const BADGE_ICONS = [
   "guitar",
   "bulb",
   "star",
+  "tub",
   "telescope",
   "marshmallow",
 ] as const;
@@ -265,7 +268,7 @@ const section = (category: AchievementCategory, list: Entry[]): Achievement[] =>
 export const ALBUM_SPECIES = FISH.filter((f) => f.rarity !== "basura").length;
 
 /** Niveles de la cabaña (el test del servidor revisa que "Turista" pida todos). */
-export const TOURIST_AREAS = 9;
+export const TOURIST_AREAS = 10;
 
 /** Logros de logros: cuántos hay que juntar (el último pide casi todo el catálogo). */
 export const COLLECTOR_TIERS = [10, 30, 60] as const;
@@ -365,6 +368,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("siete-de-siete", "Siete de siete", "flame", "raro", STAT_KEYS.streakBest, 7, "Reclama el buzón 7 días seguidos", "Una semana entera sin fallarle al buzón."),
     a("inquilino-fijo", "Inquilino fijo", "flame", "legendario", STAT_KEYS.streakBest, 30, "Reclama el buzón 30 días seguidos", "A esta altura ya pagas arriendo."),
     a("concentrado", "Concentrado", "tomato", "comun", STAT_KEYS.focusBlocks, 1, "Completa un bloque de foco (pomodoro)", "25 minutos sin mirar el chat. Heroico."),
+    a("relajado", "Relajado", "tub", "comun", STAT_KEYS.spaRests, 1, "Descansa un rato en la tina caliente o en la sauna del lago", "Los hombros te bajaron dos centímetros."),
     a("monje-del-foco", "Monje del foco", "tomato", "epico", STAT_KEYS.focusBlocks, 50, "Completa 50 bloques de foco", "El ruido del mundo ya no te alcanza."),
     a("ahorrador", "Ahorrador", "coin", "raro", STAT_KEYS.pointsPeak, 1000, "Junta 1000 puntos a la vez", "La alcancía ya pesa."),
     a("millonario", "Millonario", "coin", "epico", STAT_KEYS.pointsPeak, 5000, "Junta 5000 puntos a la vez", "Contar monedas ya es tu cardio."),

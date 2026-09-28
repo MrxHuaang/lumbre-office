@@ -1,6 +1,6 @@
-// El escenario al aire libre (anfiteatro) y la cabina de grabación del jardín. Dibujos en art/escenario.ts
-// y art/podcast.ts. Las reglas (quién habla para quién, la fila de turnos, grabar con permiso de todos)
-// están en @hyvento/shared (escenario.ts, podcast.ts) y las valida el servidor.
+// El escenario al aire libre (anfiteatro) del jardín. Dibujos en art/escenario.ts. Las reglas (quién habla
+// para quién, la fila de turnos, las manos) están en @hyvento/shared (escenario.ts) y las valida el
+// servidor. El estudio de grabación está en catalog-podcast.ts.
 //
 // La cámara mira desde el sureste: un escenario de espaldas a ella (mirando al norte) mostraría el revés
 // de la pantalla y su techo taparía a las gradas. Por eso mira al este (como la pantalla del cine, en la
@@ -17,7 +17,7 @@ const WARM = { color: "#ffd98a" };
  */
 export const GRADAS = {
   /** Esquina del anfiteatro en el jardín (coordenadas de la zona jugable) y su tamaño. */
-  origin: { x: 18, y: 53 },
+  origin: { x: 20, y: 85 },
   size: { w: 9, h: 11 },
   /** Centro del semicírculo (el frente de la tarima), relativo al origen. */
   center: { x: -2, y: 6.5 },
@@ -97,33 +97,4 @@ export const ESCENARIO_CATALOG = {
   "gradas-1": gradasRow(0),
   "gradas-2": gradasRow(1),
   "gradas-3": gradasRow(2),
-  // La cabina de grabación (5x5, la puerta al sur): la base (piso, alfombra y paneles) va plana y las
-  // paredes, el techo y el cartel "EN EL AIRE" son otra pieza encima que se transparenta con alguien
-  // adentro (como el invernadero). Bloquea las paredes salvo la puerta.
-  "podcast-booth": {
-    name: "Cabina de grabación",
-    size: [5, 5],
-    fixed: true,
-    flat: true,
-    blocks: [
-      [0, 0],
-      [1, 0],
-      [2, 0],
-      [3, 0],
-      [4, 0],
-      [0, 1],
-      [4, 1],
-      [0, 2],
-      [4, 2],
-      [0, 3],
-      [4, 3],
-      [0, 4],
-      [1, 4],
-      [3, 4],
-      [4, 4],
-    ],
-  },
-  "podcast-booth-roof": { name: "Techo de la cabina", size: [5, 5], fixed: true, solid: false, seeThrough: true, hasNight: true, light: { at: [40, 72, 30], ...WARM, radius: 46 } },
-  // La mesa con los dos micrófonos de brazo y los audífonos: "E · Grabar".
-  "podcast-desk": { name: "Mesa de grabación", size: [1, 1], fixed: true, light: { at: [8, 8, 16], color: "#ffb45a", radius: 26 } },
 } satisfies Record<string, CatalogItem>;
