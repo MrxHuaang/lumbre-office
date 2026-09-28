@@ -9,6 +9,8 @@ import { isBlockedTile, type OfficeMap } from "@hyvento/map";
 import { cloudShadow, fogBank, noise, puddle, rainSplash, raindrop, RAIN_SLANT, SURROUND_PAD } from "@hyvento/map/art";
 import type { Weather } from "@hyvento/shared";
 import * as Phaser from "phaser";
+import { duskAt } from "@/lib/cozy";
+import { currentGameTime } from "./gameClock";
 import { DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, worldToScreen } from "./iso/view";
 import { emitAmbience, emitLightning, emitThunder } from "./weatherEvents";
 
@@ -22,10 +24,21 @@ const OUTDOOR: Record<Weather, { rain: number; cloud: number; fog: number; dim: 
   // Nieve: los copos los dibuja seasons.ts; acá, nubes y un poco de bruma.
   nieve: { rain: 0, cloud: 0.7, fog: 0.25, dim: 0.14 },
 };
-/** Adentro: solo un toque más oscuro con nubes o lluvia. */
-const INDOOR_DIM: Record<Weather, number> = { despejado: 0, nublado: 0.05, lluvia: 0.1, tormenta: 0.16, niebla: 0, nieve: 0.06 };
-/** Color del tono gris azulado (MULTIPLY). */
+/**
+ * Adentro, de día: solo un toque más oscuro con nubes o lluvia, en un tono tibio (el gris azulado de
+ * afuera deja la madera triste). De noche nada: la casa ya tiene sus luces prendidas.
+ */
+const INDOOR_DIM: Record<Weather, number> = { despejado: 0, nublado: 0.04, lluvia: 0.08, tormenta: 0.12, niebla: 0, nieve: 0.05 };
+/** Color del tono de afuera (gris azulado de día nublado) y del de adentro (sombra tibia), para el MULTIPLY. */
 const DIM_COLOR = 0x6c7690;
+const INDOOR_DIM_COLOR = 0x9a7a62;
+/**
+ * El atardecer (MULTIPLY): empieza dorado y termina anaranjado rosado, cada vez más oscuro, justo antes
+ * del azul de la noche. Adentro llega apenas (entra por las ventanas).
+ */
+const DUSK = { from: 0xffd08a, to: 0xe8875a, alpha: 0.42, indoor: 0.3 };
+/** Cada cuánto se vuelve a mirar la hora del juego para el atardecer (ms reales; 1 s = 1 minuto del juego). */
+const DUSK_EVERY_MS = 1000;
 /** Tope de gotas a la vez, y cuántos px² de vista toca a cada una. */
 const MAX_DROPS = 320;
 const PX_PER_DROP = 1500;
@@ -72,6 +85,11 @@ export class WeatherView {
   private map?: OfficeMap;
   private bounds?: Phaser.Geom.Rectangle;
   private outdoor = false;
+  private night = false;
+  /** Atardecer de la hora (0..1) y lo que se ve ahora (va hacia él de a poco, como el clima). */
+  private duskTarget = 0;
+  private dusk = 0;
+  private duskElapsed = DUSK_EVERY_MS;
   private readonly calm = reducedMotion();
   /** Lo que se ve ahora de cada efecto (va hacia el objetivo del clima de a poco). */
   private level = { rain: 0, cloud: 0, fog: 0, dim: 0 };
@@ -84,6 +102,7 @@ export class WeatherView {
   private splashes: Splash[] = [];
   /** Objetos del nivel actual (se rehacen al cambiar de nivel). */
   private tint?: Phaser.GameObjects.Rectangle;
+  private duskTint?: Phaser.GameObjects.Rectangle;
   private haze?: Phaser.GameObjects.Rectangle;
   private puddles: Phaser.GameObjects.Image[] = [];
   private clouds: Drifter[] = [];
@@ -110,9 +129,17 @@ export class WeatherView {
     const P = SURROUND_PAD;
     this.tint = this.keep(
       this.scene.add
-        .rectangle(bounds.centerX, bounds.centerY, bounds.width + P * 2, bounds.height + P * 2, DIM_COLOR, 1)
+        .rectangle(bounds.centerX, bounds.centerY, bounds.width + P * 2, bounds.height + P * 2, this.outdoor ? DIM_COLOR : INDOOR_DIM_COLOR, 1)
         .setBlendMode(Phaser.BlendModes.MULTIPLY)
         .setDepth(DEPTH_OVERLAY - 2)
+        .setAlpha(0)
+        .setVisible(false),
+    );
+    this.duskTint = this.keep(
+      this.scene.add
+        .rectangle(bounds.centerX, bounds.centerY, bounds.width + P * 2, bounds.height + P * 2, DUSK.from, 1)
+        .setBlendMode(Phaser.BlendModes.MULTIPLY)
+        .setDepth(DEPTH_OVERLAY - 1)
         .setAlpha(0)
         .setVisible(false),
     );
@@ -142,14 +169,25 @@ export class WeatherView {
     emitAmbience({ weather: w, outdoor: this.outdoor });
   }
 
+  /**
+   * De noche adentro no se oscurece por el clima (las lámparas mandan); ese cambio entra de a poco. El
+   * atardecer se apaga de una: la escena llama esto debajo del velo del cambio de noche, que lo tapa.
+   */
+  setNight(on: boolean) {
+    this.night = on;
+    if (on) this.dusk = this.duskTarget = 0;
+  }
+
   private target() {
     if (this.outdoor) return OUTDOOR[this.weather];
-    return { rain: 0, cloud: 0, fog: 0, dim: INDOOR_DIM[this.weather] };
+    return { rain: 0, cloud: 0, fog: 0, dim: this.night ? 0 : INDOOR_DIM[this.weather] };
   }
 
   /** Pone todo en su objetivo de una (al cambiar de nivel o al conectarse). */
   private snap() {
     this.level = { ...this.target() };
+    this.duskTarget = this.duskNow();
+    this.dusk = this.duskTarget;
   }
 
   private keep<T extends Phaser.GameObjects.GameObject>(o: T): T {
@@ -225,10 +263,40 @@ export class WeatherView {
 
     const dim = Math.min(0.75, this.level.dim + this.flashDim);
     this.tint?.setVisible(dim > 0.002).setAlpha(dim);
+    this.updateDusk(delta);
     this.updateRain(delta);
     this.updatePuddles(delta);
     this.updateDrifters(time, delta);
     if (this.weather === "tormenta") this.updateLightning(time);
+  }
+
+  // ---------- Atardecer ----------
+
+  /** Atardecer según la hora del juego (la del servidor); sin reloj todavía o de noche, nada. */
+  private duskNow(): number {
+    const t = currentGameTime();
+    return this.night || !t ? 0 : duskAt(t.hour, t.minute);
+  }
+
+  private updateDusk(delta: number) {
+    this.duskElapsed += delta;
+    if (this.duskElapsed >= DUSK_EVERY_MS) {
+      this.duskElapsed = 0;
+      this.duskTarget = this.duskNow();
+    }
+    this.dusk = approach(this.dusk, this.night ? 0 : this.duskTarget, delta * EASE_PER_MS);
+    const a = this.dusk * DUSK.alpha * (this.outdoor ? 1 : DUSK.indoor);
+    if (!this.duskTint) return;
+    this.duskTint.setVisible(a > 0.002);
+    if (a <= 0.002) return;
+    this.duskTint.setAlpha(a).setFillStyle(Phaser.Display.Color.ObjectToColor(
+      Phaser.Display.Color.Interpolate.ColorWithColor(
+        Phaser.Display.Color.ValueToColor(DUSK.from),
+        Phaser.Display.Color.ValueToColor(DUSK.to),
+        100,
+        Math.round(this.dusk * 100),
+      ),
+    ).color, 1);
   }
 
   // ---------- Lluvia ----------
