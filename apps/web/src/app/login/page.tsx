@@ -12,7 +12,8 @@ export const metadata: Metadata = { title: "Entrar" };
 
 const ERRORS: Record<string, string> = {
   AccessDenied: "Tu correo no tiene invitación a la cabaña. Pídele a un administrador que te invite.",
-  Configuration: "El login con Google no está configurado todavía (faltan credenciales en el .env).",
+  Configuration: "El login con Google no está configurado todavía (faltan NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY).",
+  Callback: "Google no devolvió la sesión. Intenta de nuevo.",
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
