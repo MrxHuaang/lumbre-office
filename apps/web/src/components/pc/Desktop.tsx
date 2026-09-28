@@ -40,7 +40,7 @@ interface AppInfo {
 const APPS: Record<AppId, AppInfo> = {
   notes: { title: "Notas", ink: COZY.paperDark, size: { w: 780, h: 500 } },
   trash: { title: "Papelera", ink: COZY.sky, inkText: COZY.paper, size: { w: 560, h: 360 } },
-  calendar: { title: "Calendario", ink: COZY.green, size: { w: 340, h: 420 } },
+  calendar: { title: "Calendario", ink: COZY.green, size: { w: 340, h: 500 } },
   pomodoro: { title: "Enfoque", ink: COZY.red, inkText: COZY.paperLight, size: { w: 340, h: 450 } },
   minesweeper: { title: "Buscaminas", ink: COZY.woodLight, size: { w: 440, h: 540 }, keepAlive: true },
   browser: { title: "Favoritos", ink: COZY.sky, inkText: COZY.paperLight, size: { w: 820, h: 540 }, keepAlive: true },

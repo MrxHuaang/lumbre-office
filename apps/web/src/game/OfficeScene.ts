@@ -53,6 +53,7 @@ import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, isNightNow, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
+import { EventsView } from "./eventos";
 import { AreaView, DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, furnitureImage, screenToWorld, tileDiamond, worldToScreen, type FurniturePose } from "./iso/view";
 import { queuePrerender } from "./iso/prerender";
 import { ensureCharacterTextures, parseLook } from "./looks";
@@ -250,6 +251,8 @@ export class OfficeScene extends Phaser.Scene {
   private rods!: FishingRods;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
+  /** Cumpleaños, karaoke y foco: el pastel, el neón y lo de sobre el nombre (ver eventos.ts). */
+  private eventsView!: EventsView;
   /** Lo que ve quien tomó de más (filtros sobre el canvas) y su zigzag al caminar. */
   private drunkVision!: DrunkVision;
   private drunkStage: DrunkStage = 0;
@@ -329,6 +332,7 @@ export class OfficeScene extends Phaser.Scene {
     this.fishing = new FishingController(this, () => this.local, () => this.map);
     this.rods = new FishingRods(this, (id) => this.avatars.get(id), (id) => this.areaOfSession.get(id) === this.map.id);
     this.club = new ClubMode(this, (id) => this.avatars.get(id), () => this.local, () => this.localId);
+    this.eventsView = new EventsView(this, () => this.avatars, (id) => this.userOfSession.get(id));
     this.drunkVision = new DrunkVision(() => this.game.canvas);
     this.toasts = new ToastController(this, {
       avatar: (id) => this.avatars.get(id),
@@ -406,6 +410,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.fishing.destroy(),
       () => this.rods.destroy(),
       () => this.club.destroy(),
+      () => this.eventsView.destroy(),
       () => disposeRadio(),
       () => this.drunkVision.destroy(),
       bindUiSounds(),
@@ -493,6 +498,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.update();
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
+    this.eventsView.update();
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
     this.updateOfficeRadio();
@@ -614,6 +620,7 @@ export class OfficeScene extends Phaser.Scene {
       this.rods.setArea(map);
       this.fishing.reset();
       this.club.setArea(map, this.view);
+      this.eventsView.setArea(map, this.view);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -682,6 +689,7 @@ export class OfficeScene extends Phaser.Scene {
     this.photoBoards.setArea(map);
     this.rods.setArea(map);
     this.club.setArea(map, this.view);
+    this.eventsView.setArea(map, this.view);
     AreaView.dropStaleBases(this, map);
     if (!useOfficeStore.getState().mapReady) useOfficeStore.getState().setMapReady(true);
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.

@@ -375,14 +375,16 @@ export class ClubMode {
       this.avatarOf(id)?.setBodyVisible(true);
       this.avatarOf(id)?.setOverlayAnchor(null);
     }
-    // La tarima se enciende con alguien en el tubo: los bombillos corren y el tubo brilla.
-    const lit = polesInUse.size > 0;
+    // La tarima se enciende con alguien en el tubo (o toda la noche en el karaoke de los viernes: es el
+    // escenario): los bombillos corren y el tubo brilla.
+    const karaoke = useOfficeStore.getState().karaoke;
+    const lit = polesInUse.size > 0 || karaoke;
     const phase = Math.floor((beat ?? now / 400) * 2) % 6;
     for (const l of this.stageLayers) {
       l.img.setVisible(lit);
       if (lit) this.setLayer(l, `club-tarima-${phase}`, () => poleStageLights(phase));
     }
-    for (const [pole, glow] of this.poleGlows) glow.setVisible(polesInUse.has(poleKey(pole.x, pole.y))).setAlpha(0.7 + 0.3 * Math.sin(now / 300));
+    for (const [pole, glow] of this.poleGlows) glow.setVisible(karaoke || polesInUse.has(poleKey(pole.x, pole.y))).setAlpha(0.7 + 0.3 * Math.sin(now / 300));
   }
 
   /**

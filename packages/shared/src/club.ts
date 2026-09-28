@@ -144,6 +144,8 @@ export interface ClubVideoView {
   title: string;
   /** Quién lo puso. */
   by: string;
+  /** User.id de quien lo puso (en el karaoke, quien canta; "" si no se sabe). */
+  byId?: string;
   /** Duración (ms) si algún reproductor ya la dijo; 0 si no se sabe. */
   durationMs: number;
 }

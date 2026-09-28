@@ -4,10 +4,11 @@
 // ordenar lo que viene arrastrando (o con las flechas), quitar, y volver a poner lo que ya sonó. Lo
 // valida el servidor: cualquiera dentro del club puede tocar la cola.
 import { drawReaction } from "@hyvento/map/art";
-import { CLUB_REACTION_NAMES, CLUB_REACTIONS, CLUB_VIDEO, parseYoutubeId, type ClubVideoView } from "@hyvento/shared";
+import { CLUB_REACTION_NAMES, CLUB_REACTIONS, CLUB_VIDEO, KARAOKE, karaokeSearchUrl, parseYoutubeId, type ClubVideoView } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { sendClubQueue, sendClubReact } from "@/game/club/net";
 import { clubElapsed, useClubStore } from "@/game/club/store";
+import { useOfficeStore } from "@/game/store";
 import { ArtImage } from "../casino/PixelArt";
 import { NEON } from "./neon";
 
@@ -31,6 +32,7 @@ export function YoutubeQueue({ inClub }: { inClub: boolean }) {
   const [url, setUrl] = useState("");
   const [bad, setBad] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const karaoke = useOfficeStore((s) => s.karaoke);
 
   const add = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +48,8 @@ export function YoutubeQueue({ inClub }: { inClub: boolean }) {
     <div className="flex flex-col gap-3">
       {!inClub && <p className="text-[13px]" style={{ color: NEON.gold }}>Entra al club (sótano) para poner videos o tocar la cola.</p>}
 
+      {karaoke && <KaraokeSearch />}
+
       <form onSubmit={add} className="flex gap-2">
         <input
           value={url}
@@ -53,7 +57,7 @@ export function YoutubeQueue({ inClub }: { inClub: boolean }) {
             setUrl(e.target.value);
             setBad(false);
           }}
-          placeholder="Pega un link de YouTube"
+          placeholder={karaoke ? "Pega el link de tu canción (karaoke)" : "Pega un link de YouTube"}
           aria-label="Link de YouTube"
           aria-invalid={bad}
           disabled={!inClub}
@@ -116,8 +120,50 @@ export function YoutubeQueue({ inClub }: { inClub: boolean }) {
   );
 }
 
+/**
+ * Viernes de karaoke: se busca la canción en YouTube con "karaoke" (se abre en otra pestaña) y se pega
+ * el link abajo. Quien la pone canta: lleva el micrófono mientras suena.
+ */
+function KaraokeSearch() {
+  const [song, setSong] = useState("");
+  const search = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!song.trim()) return;
+    window.open(karaokeSearchUrl(song), "_blank", "noopener,noreferrer");
+  };
+  return (
+    <div className="flex flex-col gap-2 border-4 px-3 py-2" style={{ background: "#0c1024", borderColor: NEON.pink }}>
+      <p className="text-[14px] tracking-wide" style={{ color: NEON.pink }}>
+        VIERNES DE KARAOKE
+      </p>
+      <p className="text-[12px] leading-snug opacity-85">
+        Busca tu canción en versión «{KARAOKE.searchSuffix}», copia el link y pégalo abajo. Mientras suena, tú cantas: llevas el micrófono.
+      </p>
+      <form onSubmit={search} className="flex gap-2">
+        <input
+          value={song}
+          onChange={(e) => setSong(e.target.value)}
+          placeholder="Canción o artista"
+          aria-label="Buscar canción de karaoke en YouTube"
+          className="min-w-0 flex-1 border-2 px-2 py-1.5 text-[14px] outline-none"
+          style={{ background: NEON.ink, borderColor: NEON.edge, color: NEON.paper }}
+        />
+        <button
+          type="submit"
+          disabled={!song.trim()}
+          className="border-2 px-3 py-1.5 text-[14px] disabled:opacity-40"
+          style={{ borderColor: NEON.cyan, background: "#4f2672", color: NEON.paper, boxShadow: `2px 2px 0 ${NEON.edge}` }}
+        >
+          Buscar
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function NowPlaying({ now, paused, inClub }: { now: ClubVideoView | null; paused: boolean; inClub: boolean }) {
   const [elapsed, setElapsed] = useState(0);
+  const karaoke = useOfficeStore((s) => s.karaoke);
   useEffect(() => {
     if (!now) return;
     const tick = () => setElapsed(clubElapsed() ?? 0);
@@ -145,7 +191,7 @@ function NowPlaying({ now, paused, inClub }: { now: ClubVideoView | null; paused
             {now.title}
           </p>
           <p className="truncate text-[11px] opacity-75">
-            la puso {now.by} · {clock(elapsed)}
+            {karaoke ? "canta" : "la puso"} {now.by} · {clock(elapsed)}
             {total ? ` / ${clock(total)}` : ""}
           </p>
         </div>

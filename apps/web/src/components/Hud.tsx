@@ -11,6 +11,7 @@ import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { useAchievementStore } from "@/game/achievements";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon, type PixelIconName } from "./Cozy";
+import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundControl } from "./SoundControl";
@@ -72,6 +73,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
 
       <WeatherChip />
 
+      <BirthdayChip />
+
       <HearingChip />
 
       {me && (
@@ -98,6 +101,8 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
           Mi oficina
         </button>
       )}
+
+      <FocusChip />
 
       <button
         onClick={() => openPanel("backpack", false)}
@@ -154,6 +159,7 @@ export function Hud({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAd
           </div>
         )}
       </div>
+      <Confetti />
     </div>
   );
 }
