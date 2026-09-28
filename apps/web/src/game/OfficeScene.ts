@@ -214,6 +214,8 @@ export class OfficeScene extends Phaser.Scene {
   private pendingSeat: Seat | null = null;
   /** Zona a la que voy, aunque esté en otro nivel ("ir a mi oficina"). */
   private pendingZone: string | null = null;
+  /** Persona hasta la que voy ("Ir hasta" en Conectados o "Ir" en una invitación), aunque esté en otro nivel. */
+  private pendingPerson: { sessionId: string; tries: number } | null = null;
   /** Objeto al que voy caminando (clic en el buzón o el tablón): al llegar se abre. */
   private pendingInteract: Interactable | null = null;
   private pathMarker?: Phaser.GameObjects.Image;
@@ -511,7 +513,10 @@ export class OfficeScene extends Phaser.Scene {
           this.updateNameplates(s.offices);
         }
         if ((prev.typing || prev.pcOn) && !s.typing && !s.pcOn) this.keysFreeAt = performance.now();
-        if (s.walkTarget && s.walkTarget !== prev.walkTarget) this.walkToZone(s.walkTarget.zoneId);
+        if (s.walkTarget && s.walkTarget !== prev.walkTarget) {
+          if (s.walkTarget.kind === "zone") this.walkToZone(s.walkTarget.zoneId);
+          else this.walkToPlayer(s.walkTarget.sessionId);
+        }
         if (s.weather !== prev.weather) {
           this.weatherView.setWeather(s.weather, !this.weatherKnown);
           this.seasonView.setWeather(s.weather, !this.weatherKnown);
@@ -844,6 +849,11 @@ export class OfficeScene extends Phaser.Scene {
       if (this.pendingZone) {
         const zone = this.pendingZone;
         this.time.delayedCall(FADE_MS, () => this.walkToZone(zone));
+      } else if (this.pendingPerson) {
+        const who = this.pendingPerson;
+        this.time.delayedCall(FADE_MS, () => {
+          if (this.pendingPerson === who) this.walkToPlayer(who.sessionId, who.tries);
+        });
       }
     } else {
       this.local?.setPosition(c.x, c.y);
@@ -1095,6 +1105,7 @@ export class OfficeScene extends Phaser.Scene {
     this.pendingInteract = null;
     this.pendingUse = null;
     this.pendingZone = null;
+    this.pendingPerson = null;
     if (this.seat) {
       this.seat = null;
       this.local?.setSeated(null);
@@ -1245,6 +1256,7 @@ export class OfficeScene extends Phaser.Scene {
       if (this.table.kind === "roulette" || (this.table.kind === "boardgame" && !this.seat)) useOfficeStore.getState().closePanel();
       this.clearPath(); // el teclado cancela el clic-para-caminar
       this.pendingZone = null;
+      this.pendingPerson = null;
       this.pendingInteract = null;
       this.pendingUse = null;
       if (this.seat) this.standUp(); // caminar te levanta
@@ -1267,6 +1279,7 @@ export class OfficeScene extends Phaser.Scene {
           const use = this.pendingUse;
           this.pendingUse = null;
           if (use && this.usables.reaches(use, avatar.x, avatar.y)) this.useFurniture(use);
+          this.arrivedNearPerson();
         }
       } else {
         vx = dx / dist;
@@ -1352,6 +1365,7 @@ export class OfficeScene extends Phaser.Scene {
       this.pendingInteract = null;
       this.pendingUse = null;
       this.pendingZone = null;
+      this.pendingPerson = null;
     }
     const { typing, pcOn } = useOfficeStore.getState();
     if (!typing && !pcOn) {
@@ -1567,6 +1581,7 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     this.pendingZone = null;
+    this.pendingPerson = null;
     this.pendingInteract = null;
     this.pendingUse = null;
     // Clic sobre otra persona: su perfil (sin caminar).
@@ -1781,6 +1796,7 @@ export class OfficeScene extends Phaser.Scene {
   private walkToZone(zoneId: string) {
     const target = [...this.world.areas.values()].find((a) => a.zones.some((z) => z.id === zoneId));
     if (!target || !this.local) return;
+    this.pendingPerson = null;
     const ts = this.map.tileSize;
     if (target.id === this.map.id) {
       this.pendingZone = null;
@@ -1789,7 +1805,15 @@ export class OfficeScene extends Phaser.Scene {
       this.walkTo(center.x * ts + ts / 2, center.y * ts + ts / 2);
       return;
     }
-    // Siguiente salto por el grafo de portales (BFS entre niveles).
+    if (this.walkTowardArea(target.id)) this.pendingZone = zoneId;
+  }
+
+  /**
+   * Camina hasta el portal que lleva hacia `areaId` (siguiente salto por el grafo de portales, BFS entre
+   * niveles). Al llegar al otro lado, `handleCorrection` retoma lo pendiente. false = no hay camino.
+   */
+  private walkTowardArea(areaId: string): boolean {
+    const ts = this.map.tileSize;
     const prev = new Map<string, { from: string; portal: string } | null>([[this.map.id, null]]);
     const queue = [this.map.id];
     while (queue.length) {
@@ -1800,13 +1824,86 @@ export class OfficeScene extends Phaser.Scene {
           queue.push(portal.to.area);
         }
     }
-    let hop = prev.get(target.id);
+    let hop = prev.get(areaId);
     while (hop && hop.from !== this.map.id) hop = prev.get(hop.from);
     const portal = hop && this.map.portals.find((p) => p.id === hop!.portal);
-    if (!portal) return;
-    this.pendingZone = zoneId;
+    if (!portal) return false;
     const t = portal.tiles[0]!;
     this.walkTo(t.x * ts + ts / 2, t.y * ts + ts / 2);
+    return true;
+  }
+
+  /**
+   * Camina hasta un tile libre junto a otra persona (el más cercano a mí con ruta). Si está en otro nivel,
+   * primero hasta el portal que lleva hacia allá y se sigue al llegar. Si está en una oficina cerrada donde
+   * no puedo entrar, `walkTo` corta la ruta en la puerta (y ahí aparece "Tocar la puerta").
+   */
+  private walkToPlayer(sessionId: string, tries = 0) {
+    if (!this.local || this.travelling || this.fainted || sessionId === this.localId) return;
+    const store = useOfficeStore.getState();
+    const info = store.players[sessionId];
+    const area = this.areaOfSession.get(sessionId) ?? info?.area;
+    if (!info || !area) {
+      this.pendingPerson = null;
+      store.notify("Esa persona ya no está conectada.", "info");
+      return;
+    }
+    this.pendingZone = null;
+    this.pendingInteract = null;
+    this.pendingUse = null;
+    if (area !== this.map.id) {
+      if (this.walkTowardArea(area)) this.pendingPerson = { sessionId, tries };
+      else {
+        this.pendingPerson = null;
+        store.notify(`No encuentro cómo llegar hasta ${info.name}.`, "warning");
+      }
+      return;
+    }
+    const other = this.avatars.get(sessionId);
+    if (!other) return;
+    const ts = this.map.tileSize;
+    const me = { x: Math.floor(this.local.x / ts), y: Math.floor(this.local.y / ts) };
+    const at = { x: Math.floor(other.x / ts), y: Math.floor(other.y / ts) };
+    if (Math.max(Math.abs(me.x - at.x), Math.abs(me.y - at.y)) <= 1) {
+      this.pendingPerson = null;
+      return; // ya estoy a su lado
+    }
+    // Vecinos libres (primero los de al lado, luego a dos tiles), del más cercano a mí al más lejano.
+    const spots: TilePos[] = [];
+    for (const r of [1, 2])
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const t = { x: at.x + dx, y: at.y + dy };
+          if (!isBlockedTile(this.map, t.x, t.y) && canStandAt(this.map, t.x * ts + ts / 2, t.y * ts + ts / 2)) spots.push(t);
+        }
+    const dist = (t: TilePos) => Math.hypot(t.x - me.x, t.y - me.y);
+    // Los de al lado ganan a los de dos tiles; entre iguales, el más cercano a mí.
+    const ring = (t: TilePos) => Math.max(Math.abs(t.x - at.x), Math.abs(t.y - at.y));
+    spots.sort((a, b) => ring(a) - ring(b) || dist(a) - dist(b));
+    const goal = spots.find((t) => findPath(this.map, me, t)) ?? nearestFreeTile(this.map, at);
+    if (!goal) return;
+    this.pendingPerson = { sessionId, tries };
+    if (this.seat) this.standUp();
+    this.walkTo(goal.x * ts + ts / 2, goal.y * ts + ts / 2);
+    // La ruta para en la puerta si está en una oficina cerrada donde no puedo entrar: avisar por qué.
+    if (!this.canEnterZoneAt(goal.x * ts + ts / 2, goal.y * ts + ts / 2)) {
+      this.pendingPerson = null;
+      store.notify(`${info.name} está en una oficina cerrada: te llevo hasta la puerta.`, "info");
+    }
+  }
+
+  /** Llegué al final de la ruta: si iba hacia alguien que se movió, lo sigo un par de veces más. */
+  private arrivedNearPerson() {
+    const who = this.pendingPerson;
+    if (!who || !this.local) return;
+    const other = this.avatars.get(who.sessionId);
+    const ts = this.map.tileSize;
+    // En otro nivel: esta ruta era hasta el portal; al cruzar, `handleCorrection` sigue.
+    if (this.areaOfSession.get(who.sessionId) !== this.map.id) return;
+    const far = !other || Math.hypot(other.x - this.local.x, other.y - this.local.y) > ts * 2.5;
+    if (far && who.tries < 3) this.walkToPlayer(who.sessionId, who.tries + 1);
+    else this.pendingPerson = null;
   }
 
   // ---------- Editor de oficina (modo decorar) ----------

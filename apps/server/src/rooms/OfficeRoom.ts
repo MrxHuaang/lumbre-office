@@ -207,6 +207,7 @@ import { ChairRaces, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 import { DoorNotes } from "./door-notes";
+import { Invites } from "./invites";
 import { CabinEvents } from "./events";
 import { FocusTimers } from "./focus";
 import { Phones } from "./phones";
@@ -546,6 +547,30 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     messages: { countdown: MSG.photoCountdown, shot: MSG.photoShot, flash: MSG.photoFlash },
   });
   /** Notas en la puerta de las oficinas (ver door-notes.ts). */
+  /** Invitaciones desde la lista de Conectados ("te invita a su oficina"). */
+  private invites = new Invites({
+    person: (sessionId) => {
+      const p = this.state.players.get(sessionId);
+      return p ? { userId: p.userId, name: p.name, status: p.status as PresenceStatus } : null;
+    },
+    sessionOfUser: (userId) => this.clientOfUser(userId)?.sessionId ?? null,
+    placeOf: (sessionId) => {
+      const p = this.state.players.get(sessionId);
+      const zone = p?.zoneId ? this.zonesById.get(p.zoneId) : undefined;
+      if (!p || !zone) return { place: "here", placeName: "" };
+      const office = zone.type === "office" ? this.state.offices.get(zone.id) : undefined;
+      if (office?.ownerId === p.userId) return { place: "office", placeName: zone.name, officeZoneId: zone.id };
+      return { place: "zone", placeName: zone.name };
+    },
+    send: (sessionId, type, payload) => this.clients.getById(sessionId)?.send(type, payload),
+    letIn: (zoneId, ownerUserId, userId) => {
+      const office = this.state.offices.get(zoneId);
+      if (office?.ownerId === ownerUserId && office.locked && !office.guests.includes(userId)) office.guests.push(userId);
+    },
+    setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms),
+    now: () => Date.now(),
+  });
+
   private doorNotes = new DoorNotes({
     repo: () => this.repo,
     author: (sessionId) => {
@@ -754,6 +779,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.boardUndo, (client, raw) => this.withBoard(client, (who) => this.whiteboards.undo(who, raw)));
     this.onMessage(MSG.boardClear, (client, raw) => this.withBoard(client, (who) => this.whiteboards.clear(who, raw)));
     this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
+    this.onMessage(MSG.invite, (client, raw) => this.invites.invite(client.sessionId, raw));
+    this.onMessage(MSG.inviteRespond, (client, raw) => this.invites.respond(client.sessionId, raw));
     this.onMessage(MSG.phoneCall, (client, raw) => this.handlePhoneCall(client, raw));
     this.onMessage(MSG.phoneAnswer, (client, raw) => {
       const player = this.state.players.get(client.sessionId);
@@ -2819,6 +2846,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.fishery.forget(player.userId);
     this.focus.forget(player.userId);
     this.phones.left(player.userId);
+    this.invites.forget(player.userId);
     this.hockey?.leave(player.userId);
     this.casa.forget(player.userId);
     this.swivels.forget(player.userId);

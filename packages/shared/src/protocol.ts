@@ -135,6 +135,45 @@ export const KNOCK_TIMEOUT_MS = 30_000;
 /** Mínimo entre toques de la misma persona a la misma oficina. */
 export const KNOCK_COOLDOWN_MS = 8_000;
 
+/** Cliente → servidor (`MSG.invite`): invitar a alguien a donde estoy (mi oficina, la sala de reuniones…). */
+export const InviteMessage = z.object({ toUserId: z.string().min(1).max(64) });
+export type InviteMessage = z.infer<typeof InviteMessage>;
+
+/** Invitado → servidor (`MSG.inviteRespond`): "Ir" (accept) o "Ahora no". */
+export const InviteRespondMessage = z.object({ inviteId: z.string().min(1).max(64), accept: z.boolean() });
+export type InviteRespondMessage = z.infer<typeof InviteRespondMessage>;
+
+/**
+ * A dónde invita: su propia oficina, una sala con nombre (la de reuniones, la cafetería…) o simplemente
+ * donde está (el jardín, un pasillo sin nombre).
+ */
+export type InvitePlace = "office" | "zone" | "here";
+
+/** Servidor → invitado (`MSG.inviteRequest`). "Ir" camina hasta `fromSessionId`, esté donde esté. */
+export interface Invitation {
+  inviteId: string;
+  fromUserId: string;
+  fromSessionId: string;
+  fromName: string;
+  place: InvitePlace;
+  /** Nombre de la sala ("" si `place` es "here"). */
+  placeName: string;
+}
+
+export type InviteOutcome = "sent" | "accepted" | "declined" | "timeout" | "offline" | "too-soon" | "dnd";
+
+/** Servidor → quien invitó (`MSG.inviteResult`). */
+export interface InviteResult {
+  toUserId: string;
+  toName: string;
+  outcome: InviteOutcome;
+}
+
+/** Tiempo que el invitado tiene para responder. */
+export const INVITE_TIMEOUT_MS = 60_000;
+/** Mínimo entre dos invitaciones a la misma persona (una cada 30 s, para no llenarla de avisos). */
+export const INVITE_COOLDOWN_MS = 30_000;
+
 /** Rutas HTTP del servidor de juego (la web avisa cambios con `Authorization: Bearer GAME_TOKEN_SECRET`). */
 export const INTERNAL_ROUTES = {
   health: "/health",
@@ -218,6 +257,12 @@ export const MSG = {
   knockRequest: "office:knock:request",
   knockRespond: "office:knock:respond",
   knockResult: "office:knock:result",
+  /** Invitar a alguien a donde estoy (`InviteMessage`), el aviso al invitado (`Invitation`), su
+   *  respuesta (`InviteRespondMessage`) y cómo salió, a quien invitó (`InviteResult`). */
+  invite: "invite",
+  inviteRequest: "invite:request",
+  inviteRespond: "invite:respond",
+  inviteResult: "invite:result",
   /** Dejar una nota en la puerta de una oficina (`DoorNoteMessage`) y la respuesta (`DoorNoteResult`). */
   doorNote: "office:door-note",
   doorNoteResult: "office:door-note:result",
