@@ -41,6 +41,9 @@ export const observatorio: AreaDef = {
     // Pared norte: el escritorio del diario bajo el mapa estelar y una estantería.
     place("log-desk", 1, 0, "down"),
     place("bookshelf", 3, 0, "down"),
+    // Bajo el mural, una estantería baja; y en el rincón, la radio vieja (la que capta el radar).
+    place("bookshelf-low", 6, 0, "down"),
+    place("radio", 11, 0, "down"),
     // Pared oeste: las vitrinas (piedras y fósiles de planetas) y un farolito.
     place("rock-case", 0, 2),
     place("fossil-case", 0, 5),
@@ -57,6 +60,7 @@ export const observatorio: AreaDef = {
     place("crates", 13, 9),
     place("stool", 12, 7),
     place("plant", 1, 9),
+    place("globe", 3, 9),
   ],
   portals: [
     {

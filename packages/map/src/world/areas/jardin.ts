@@ -553,7 +553,6 @@ put("observatory-sign", 66, 20, "down");
 for (const [x, y, t, f] of [
   [71, 24, "rock-mossy", "right"],
   [71, 27, "rock-mossy", "down"],
-  [70, 23, "fern", "right"],
   [78, 27, "rock-medium", "down"],
   [79, 26, "fern", "down"],
   [72, 31, "rock-small", "right"],
@@ -561,6 +560,19 @@ for (const [x, y, t, f] of [
   [79, 33, "rock-mossy", "right"],
 ] as const)
   put(t, x, y, f);
+// Detrás de la torre (lo que su dibujo tapa, medido con el test de oclusión) la lomita es un matorral de
+// rocas, matas y pinos chicos: ahí nadie se para y nadie queda escondido.
+{
+  const BEHIND_OBS: [number, number[]][] = [
+    [19, [68, 69, 70]],
+    [20, [68, 69, 70, 71]],
+    [21, [68, 69, 70, 71, 72]],
+    [22, [69, 70, 71, 72, 73]],
+    [23, [70, 71]],
+  ];
+  const KINDS = ["rock-mossy", "bush-round", "pine-2", "bush-berry", "rock-medium", "pine-3", "bush-round", "birch-1"];
+  for (const [y, xs] of BEHIND_OBS) for (const x of xs) put(KINDS[Math.floor(noise(x, y, 55) * KINDS.length)]!, x, y, noise(x, y, 56) < 0.5 ? "right" : "down");
+}
 
 // ---------- Puntos ----------
 

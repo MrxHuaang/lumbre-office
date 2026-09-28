@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LOG_AREAS } from "@hyvento/shared";
 import { CONEXIONES } from "./world/areas/conexiones";
 import {
   allZones,
@@ -30,6 +31,7 @@ const STARTS: Record<string, { x: number; y: number }> = {
   "piso-3": CONEXIONES.piso3.escaleraAbajo.llegada,
   sotano: CONEXIONES.sotano.escalera.llegada,
   garaje: CONEXIONES.garaje.entrada.llegada,
+  observatorio: CONEXIONES.observatorio.entrada.llegada,
 };
 
 const world = getWorld();
@@ -47,10 +49,14 @@ const garaje = area("garaje");
 
 describe("mundo", () => {
   it("tiene el jardín, los pisos de la casa, el sótano y el garaje, y se aparece en el jardín", () => {
-    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje"]);
+    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje", "observatorio"]);
     expect(world.spawnArea).toBe("jardin");
     const spawn = spawnPoint(jardin);
     expect(canStandAt(jardin, spawn.x, spawn.y)).toBe(true);
+  });
+
+  it("el diario de exploración tiene una página por cada nivel", () => {
+    expect(LOG_AREAS.map((a) => a.id).sort()).toEqual([...world.areas.keys()].sort());
   });
 
   it("las zonas tienen ids únicos en toda la cabaña", () => {
@@ -211,6 +217,31 @@ describe("portales", () => {
     expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, t)).not.toBeNull();
   });
 
+  it("la puerta del observatorio de la lomita lleva adentro de la torre y se sale al pie de los escalones", () => {
+    const obs = area("observatorio");
+    const into = jardin.portals.find((p) => p.id === "jardin-observatorio")!;
+    const out = obs.portals.find((p) => p.id === "observatorio-salida")!;
+    expect(into.to.area).toBe("observatorio");
+    expect(out.to.area).toBe("jardin");
+    // El portal queda justo delante de la torre, frente a su puerta.
+    const o = jardin.furniture.find((f) => f.type === "observatory")!;
+    const t = into.tiles[0]!;
+    expect(t.y).toBe(o.y + o.d);
+    expect(t.x >= o.x && t.x < o.x + o.w).toBe(true);
+    expect(zoneAt(obs, center(obs, into.to.x), center(obs, into.to.y))?.id).toBe("observatorio");
+    expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, t)).not.toBeNull();
+    // Adentro se llega a cada cosa que se usa con E (telescopio, orrery, radar y diario).
+    for (const type of ["telescope", "orrery", "signal_radar", "logbook"] as const) {
+      const pts = pointsOfType(obs, type);
+      expect(pts.length, type).toBeGreaterThan(0);
+      for (const p of pts) expect(findPath(obs, STARTS.observatorio!, { x: p.tileX, y: p.tileY }), `${type} ${p.name}`).not.toBeNull();
+    }
+    // Y afuera, a los cuatro puntos de la fogata de malvaviscos.
+    const fire = pointsOfType(jardin, "marshmallow_fire");
+    expect(fire).toHaveLength(4);
+    for (const p of fire) expect(findPath(jardin, { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY }, { x: p.tileX, y: p.tileY })).not.toBeNull();
+  });
+
   it("solo se usa un portal estando cerca", () => {
     const portal = jardin.portals[0]!;
     const t = portal.tiles[0]!;
@@ -367,6 +398,7 @@ describe("circulación (docs/plan-rediseno.md)", () => {
     "piso-2": ["pasillo", "rellano"],
     "piso-3": ["pasillo-3", "rellano-3"],
     garaje: ["taller"],
+    observatorio: ["observatorio"],
   };
   /** Lo que es parte de otra sala y solo se abre a ella. */
   const PART_OF: Record<string, string> = {
