@@ -130,6 +130,13 @@ function facts(p: ProfileDTO): Fact[] {
       note: `y ${plural(s(STAT_KEYS.bites), "mordisco", "mordiscos")}, ${plural(s(STAT_KEYS.puffs), "pitada", "pitadas")}`,
     },
     {
+      icon: "smoke",
+      value: n(s(STAT_KEYS.smoked)),
+      label: s(STAT_KEYS.smoked) === 1 ? "fumado entero" : "fumados enteros",
+      note: s(STAT_KEYS.smoked) ? `${plural(s(STAT_KEYS.puffs), "pitada", "pitadas")} en total. Los pulmones piden tregua.` : "Pulmones de bebé.",
+      tone: s(STAT_KEYS.smoked) >= 50 ? "bad" : undefined,
+    },
+    {
       icon: "bottle",
       value: n(s(STAT_KEYS.blackouts)),
       label: s(STAT_KEYS.blackouts) === 1 ? "vez desmayado" : "veces desmayado",
