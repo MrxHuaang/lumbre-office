@@ -60,7 +60,7 @@ export const HOUSE_CHIMNEY_TOP = { x: CHIMNEY.x + CHIMNEY.w / 2, y: CHIMNEY.y + 
 const STONE_H = 14;
 
 /** Piedras de río irregulares, con juntas de mortero. */
-function stones(u: number, v: number, seed: number, dark = 0): RGBA {
+export function stones(u: number, v: number, seed: number, dark = 0): RGBA {
   const row = Math.floor(v / 5);
   const off = noise(row, 3, seed) * 9;
   const col = Math.floor((u + off) / 9);
@@ -77,7 +77,7 @@ function stones(u: number, v: number, seed: number, dark = 0): RGBA {
  * Pared de troncos horizontales sobre basa de piedra: cada tronco con su brillo arriba, sombra abajo y
  * junta oscura; vetas y nudos sueltos. `luz` = 0 (cara al frente, iluminada) o -1 (costado en sombra).
  */
-function logWall(u: number, v: number, seed: number, luz = 0): RGBA {
+export function logWall(u: number, v: number, seed: number, luz = 0): RGBA {
   if (v < STONE_H) return stones(u, v, seed, luz < 0 ? 1 : 0);
   if (v < STONE_H + 2) return at(C.woodDark, luz < 0 ? 1 : 2);
   const w = v - STONE_H - 2;
@@ -99,7 +99,7 @@ function logWall(u: number, v: number, seed: number, luz = 0): RGBA {
 const beam = (v: number, at0: number, luz = 0) => v >= at0 && v < at0 + 4 && at(C.woodDark, v >= at0 + 3 ? 4 + luz : 2 + luz);
 
 /** Tejas rojas: hileras escalonadas, borde inferior con luz, alguna teja distinta y manchas de musgo. */
-function tejas(u: number, t: number, luz: number, seed: number): RGBA {
+export function tejas(u: number, t: number, luz: number, seed: number): RGBA {
   const row = Math.floor(t / 5);
   const k = t - row * 5;
   const off = row % 2 ? 4 : 0;
@@ -126,7 +126,7 @@ function tejasAtras(u: number, t: number, seed: number): RGBA {
 }
 
 /** Tejuelas de madera en escama (para los hastiales). */
-function escamas(u: number, v: number, luz: number): RGBA {
+export function escamas(u: number, v: number, luz: number): RGBA {
   const row = Math.floor(v / 4);
   const off = row % 2 ? 3 : 0;
   const cu = ((u + off) % 6) - 3;
@@ -138,8 +138,8 @@ function escamas(u: number, v: number, luz: number): RGBA {
 
 // ---------- Ventanas ----------
 
-type Kind = "ventana" | "puerta" | "balcon" | "arco";
-interface Win {
+export type Kind = "ventana" | "puerta" | "balcon" | "arco";
+export interface Win {
   u0: number;
   u1: number;
   v0: number;
@@ -168,7 +168,7 @@ function glass(u: number, v: number, w: Win, night: boolean): RGBA {
 }
 
 /** Color de una ventana o puerta en la pared (o null si (u, v) no cae en ella). */
-function windowAt(u: number, v: number, w: Win, night: boolean): RGBA | null {
+export function windowAt(u: number, v: number, w: Win, night: boolean): RGBA | null {
   const { u0, u1, v0, v1, kind } = w;
   const mid = (u0 + u1) / 2;
   const arch = kind === "arco" || kind === "puerta";
@@ -259,7 +259,7 @@ function planter(s: Escena, x0: number, y0: number, w: number, d: number, z: num
 }
 
 /** Farol de pared o de poste: caja de fierro con vidrios dorados (encendidos de noche). */
-function lantern(s: Escena, x: number, y: number, z: number, night: boolean) {
+export function lantern(s: Escena, x: number, y: number, z: number, night: boolean) {
   const glow = (u: number, v: number) => (u < 0.8 || u > 3.2 ? at(C.metal, 1) : at(C.gold, night ? 5 : v > 3 ? 4 : 3));
   s.box(x - 2, y - 2, z, 4, 4, 5, () => at(C.metal, 2), glow, (u, v) => (u < 0.8 || u > 3.2 ? at(C.metal, 0) : at(C.gold, night ? 4 : 3)));
   s.solid(x - 2.5, y - 2.5, z + 5, 5, 5, 1.2, at(C.metal, 3), at(C.metal, 1), at(C.metal, 0));
@@ -270,7 +270,7 @@ function lantern(s: Escena, x: number, y: number, z: number, night: boolean) {
  * Puntas de troncos cruzados en una esquina (cada hilera sobresale y se ve la veta en la punta).
  * `dir` = hacia dónde sobresalen: +x (a la derecha) o +y (a la izquierda).
  */
-function logEnds(s: Escena, x: number, y: number, z0: number, z1: number, dir: "x" | "y", seed: number) {
+export function logEnds(s: Escena, x: number, y: number, z0: number, z1: number, dir: "x" | "y", seed: number) {
   for (let z = z0; z < z1 - 3; z += 7) {
     const len = 4 + noise(Math.floor(z), 1, seed) * 2;
     const ring = (u: number, v: number) => {
@@ -317,7 +317,7 @@ function railing(s: Escena, from: [number, number], to: [number, number], z: num
  * Techo a dos aguas con la cumbrera a lo largo de x (faldones hacia -y y +y), sus tapacanes y la
  * cumbrera. `zAt(y)` da la altura de la teja; el faldón +y está iluminado y el -y en sombra.
  */
-function gableX(s: Escena, x0: number, x1: number, yBack: number, ridgeY: number, yFront: number, ridgeZ: number, slope: number, seed: number) {
+export function gableX(s: Escena, x0: number, x1: number, yBack: number, ridgeY: number, yFront: number, ridgeZ: number, slope: number, seed: number) {
   const k = Math.hypot(1, slope);
   s.quad([x0, ridgeY, ridgeZ], [1, 0, 0], [0, -1, -slope], x1 - x0, ridgeY - yBack, (u, v) => tejasAtras(u, v * k, seed));
   s.quad([x0, ridgeY, ridgeZ], [1, 0, 0], [0, 1, -slope], x1 - x0, yFront - ridgeY, (u, v) => tejas(u, v * k, 1, seed + 1));

@@ -26,6 +26,8 @@ const officeChair = (wallpaper: WallpaperKind) => OFFICE_CHAIR[wallpaper] ?? "of
 
 interface OfficeSpec {
   rect: Rect;
+  /** Tile de adelante de la vitrina de trofeos (el punto donde aparece la "E"). */
+  trophies: { x: number; y: number };
   /** Tile del pasillo justo afuera de la puerta (la puerta es el borde horizontal que da al pasillo). */
   door: { x: number; y: number };
   wallpaper: WallpaperKind;
@@ -44,6 +46,7 @@ function northOffice(ox: number, wallpaper: WallpaperKind, plants: [string, stri
   return {
     rect: { x: ox, y: 0, w: 10, h: 11 },
     door: { x: ox + 4, y: 11 },
+    trophies: { x: mirror ? ox + 1 : ox + 8, y: 1 },
     wallpaper,
     features: [
       { kind: "window", edge: "h", x: X(3, 2), y: 0, width: 2 },
@@ -53,9 +56,13 @@ function northOffice(ox: number, wallpaper: WallpaperKind, plants: [string, stri
       place(plants[0], X(0), 0),
       place("bookcase-tall", X(1, 2), 0, "down"),
       place("desk-pc", X(4, 2), 0, "down"),
+      // El teléfono va en el tile del escritorio de más adelante (se dibuja encima de él).
+      place("desk-phone", X(4, 2) + 1, 0, "down"),
       place(officeChair(wallpaper), X(4), 1, "up"),
       place("filing-cabinet", X(6), 0),
       place("printer", X(9), 0),
+      // La vitrina de trofeos contra la pared del costado, entre la impresora y la lámpara de lectura.
+      place("trophy-case", X(9), 1, mirror ? "right" : "left"),
       place("reading-lamp", X(9), 3),
       place("rug-3x3", X(1, 3), 5),
       place("sofa", mirror ? ox + 9 : ox, 5, mirror ? "left" : "right"),
@@ -77,6 +84,7 @@ function southOffice(ox: number, wallpaper: WallpaperKind, plants: [string, stri
   return {
     rect: { x: ox, y: oy, w: 10, h: 10 },
     door: { x: ox + 4, y: oy - 1 },
+    trophies: { x: mirror ? ox + 1 : ox + 8, y: oy + 4 },
     wallpaper,
     features:
       ox === 0
@@ -89,9 +97,12 @@ function southOffice(ox: number, wallpaper: WallpaperKind, plants: [string, stri
       place("bookcase-tall", X(0, 2), oy, "down"),
       place(plants[0], X(2), oy),
       place("desk-pc", X(6, 2), oy, "down"),
+      place("desk-phone", X(6, 2) + 1, oy, "down"),
       place(officeChair(wallpaper), X(6), oy + 1, "up"),
       place("filing-cabinet", X(8), oy),
       place(plants[1], X(9), oy + 3),
+      // La vitrina de trofeos contra la pared del otro lado de la ventana, entre las dos plantas.
+      place("trophy-case", X(9), oy + 4, mirror ? "right" : "left"),
       place("rug-3x3", X(3, 3), oy + 5),
       place("sofa", X(2), oy + 5, mirror ? "left" : "right"),
       place("coffee-table", X(4), oy + 6),
@@ -326,5 +337,7 @@ export const piso2: AreaDef = {
     { type: "screen", name: "Pantalla de la sala", x: 23, y: 0, zone: "meeting-main" },
     // Detrás de la línea de salida, junto a la bandera: E abre la carrera de sillas.
     { type: "chair_race", name: "Carrera de sillas", x: 0, y: 12 },
+    // Delante de la vitrina de trofeos de cada oficina.
+    ...OFFICES.map((o, i) => ({ type: "trophy_case" as const, name: "Vitrina de trofeos", x: o.trophies.x, y: o.trophies.y, zone: `office-${i + 1}` })),
   ],
 };

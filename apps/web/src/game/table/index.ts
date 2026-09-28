@@ -7,11 +7,12 @@ import type * as Phaser from "phaser";
 import { useCasinoStore } from "../casino";
 import { sfx } from "../sfx";
 import { BlackjackTableView } from "./blackjackTable";
+import { BoardTableView } from "./boardTable";
 import { TableCamera } from "./camera";
 import { HockeyTableView } from "./hockeyTable";
 import { RouletteTableView } from "./rouletteTable";
 
-export type TableKind = "roulette" | "blackjack" | "hockey";
+export type TableKind = "roulette" | "blackjack" | "hockey" | "boardgame";
 
 /** Mueble de ese tipo más cercano a (x, y) (px de mundo). */
 function nearest(map: OfficeMap, type: string, x: number, y: number): PlacedFurniture | undefined {
@@ -21,7 +22,7 @@ function nearest(map: OfficeMap, type: string, x: number, y: number): PlacedFurn
 }
 
 export class TableMode {
-  private view: RouletteTableView | BlackjackTableView | HockeyTableView | null = null;
+  private view: RouletteTableView | BlackjackTableView | HockeyTableView | BoardTableView | null = null;
   private readonly cam: TableCamera;
   /** Personajes atenuados porque tapaban la mesa. */
   private faded = new Set<Phaser.GameObjects.Sprite>();
@@ -68,6 +69,14 @@ export class TableMode {
       const ts = map.tileSize;
       const wheel = nearest(map, "roulette-wheel", (table.x + table.w / 2) * ts, (table.y + table.d / 2) * ts);
       this.view = new RouletteTableView(this.scene, map, table, wheel, this.cam);
+    } else if (kind === "boardgame") {
+      // La mesa de ajedrez o de damas más cercana (se juega en la tira de abajo).
+      const near = [nearest(map, "chess-table", at.x, at.y), nearest(map, "checkers-table", at.x, at.y)].filter((f): f is PlacedFurniture => Boolean(f));
+      const ts = map.tileSize;
+      const dist = (f: PlacedFurniture) => Math.hypot((f.x + 0.5) * ts - at.x, (f.y + 0.5) * ts - at.y);
+      const table = near.sort((a, b) => dist(a) - dist(b))[0];
+      if (!table) return false;
+      this.view = new BoardTableView(this.scene, map, table, this.cam);
     } else if (kind === "hockey") {
       const table = nearest(map, "air-hockey", at.x, at.y);
       if (!table) return false;

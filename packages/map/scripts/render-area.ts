@@ -1,14 +1,17 @@
 // Dibuja un nivel completo a un PNG para revisar el arte sin abrir el juego.
-// Uso: pnpm --filter @hyvento/map render <nivel> [salida.png] [noche]
+// Uso: pnpm --filter @hyvento/map render <nivel> [salida.png] [noche] [cumple,karaoke]
+// (el último, para ver lo que ponen los eventos: el pastel de cumpleaños o el club en modo karaoke).
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { composeArea } from "../src/art/compose";
+import { eventOverlays } from "../src/art/eventos";
 import { getWorld } from "../src/index";
 
-const [areaId = "jardin", out = `${areaId}.png`, mode = "dia"] = process.argv.slice(2);
+const [areaId = "jardin", out = `${areaId}.png`, mode = "dia", events = ""] = process.argv.slice(2);
 const map = getWorld().areas.get(areaId);
 if (!map) throw new Error(`No existe el nivel ${areaId} (hay: ${[...getWorld().areas.keys()].join(", ")})`);
-const canvas = composeArea(map, mode !== "noche");
+const on = events.split(",");
+const canvas = composeArea(map, mode !== "noche", 80, eventOverlays(areaId, { birthday: on.includes("cumple"), karaoke: on.includes("karaoke") }));
 
 // Escala x2 sobre el fondo de la noche de afuera.
 const scale = 2;

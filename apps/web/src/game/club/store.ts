@@ -1,6 +1,6 @@
 // Estado del club en el cliente: copia de lo que sincroniza el servidor (qué suena, desde cuándo y quién
 // baila) y lo que es solo de esta persona (volumen y silencio de la música, guardados en el navegador).
-import { beatAt, DANCE_MOVE_IDS, isPlaying, trackElapsed, type ClubMusicState, type ClubVideoView, type DanceMoveId } from "@hyvento/shared";
+import { beatAt, DANCE_MOVE_IDS, isPlaying, TIP_AMOUNTS, trackElapsed, type ClubMusicState, type ClubVideoView, type DanceMoveId, type TipAmount } from "@hyvento/shared";
 import { create } from "zustand";
 import { useCasinoStore } from "../casino";
 import { measuredOffset } from "./clock";
@@ -16,6 +16,17 @@ export interface ClubHere {
   inClub: boolean;
   onFloor: boolean;
   dancing: "floor" | "pole" | null;
+  /** A quién le puedo tirar billetes ahora (sessionId de quien baila en el tubo, cerca de mí), o null. */
+  tipTarget: string | null;
+}
+
+/** Las marcas de las propinas de hoy (espejo de `ClubTipStats`). */
+export interface ClubTipStatsView {
+  best: number;
+  bestFrom: string;
+  bestTo: string;
+  topName: string;
+  topTotal: number;
 }
 
 interface ClubStore extends ClubMusicState {
@@ -45,12 +56,21 @@ interface ClubStore extends ClubMusicState {
   setVolume: (v: number) => void;
   setMuted: (m: boolean) => void;
   setMove: (m: DanceMoveId) => void;
+  /** El billete elegido para las propinas (el último que tiré) y si el selector está abierto. */
+  tipAmount: TipAmount;
+  tipOpen: boolean;
+  tipStats: ClubTipStatsView;
+  setTipAmount: (a: TipAmount) => void;
+  setTipOpen: (open: boolean) => void;
+  setTipStats: (s: ClubTipStatsView) => void;
 }
 
 const PREFS_KEY = "hyvento:club";
 
-function loadPrefs(): { volume: number; muted: boolean; move: DanceMoveId } {
-  const fallback = { volume: 0.7, muted: false, move: "vaiven" as DanceMoveId };
+type Prefs = { volume: number; muted: boolean; move: DanceMoveId; tipAmount: TipAmount };
+
+function loadPrefs(): Prefs {
+  const fallback: Prefs = { volume: 0.7, muted: false, move: "vaiven", tipAmount: 5 };
   try {
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem(PREFS_KEY) : null;
     if (!raw) return fallback;
@@ -60,13 +80,14 @@ function loadPrefs(): { volume: number; muted: boolean; move: DanceMoveId } {
       muted: typeof p.muted === "boolean" ? p.muted : fallback.muted,
       // Un paso guardado que ya no existe haría que "Bailar" mande algo que el servidor rechaza.
       move: DANCE_MOVE_IDS.includes(p.move as DanceMoveId) ? (p.move as DanceMoveId) : fallback.move,
+      tipAmount: TIP_AMOUNTS.includes(p.tipAmount as TipAmount) ? (p.tipAmount as TipAmount) : fallback.tipAmount,
     };
   } catch {
     return fallback;
   }
 }
 
-function savePrefs(p: { volume: number; muted: boolean; move: DanceMoveId }) {
+function savePrefs(p: Prefs) {
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(p));
   } catch {
@@ -91,26 +112,40 @@ export const useClubStore = create<ClubStore>((set, get) => ({
   setVideoBig: (videoBig) => set({ videoBig }),
   dancers: {},
   ...loadPrefs(),
-  here: { inClub: false, onFloor: false, dancing: null },
+  here: { inClub: false, onFloor: false, dancing: null, tipTarget: null },
   setHere: (here) => {
     const h = get().here;
-    if (h.inClub !== here.inClub || h.onFloor !== here.onFloor || h.dancing !== here.dancing) set({ here });
+    if (h.inClub !== here.inClub || h.onFloor !== here.onFloor || h.dancing !== here.dancing || h.tipTarget !== here.tipTarget)
+      // Sin a quién tirarle, el selector de billetes se cierra solo.
+      set(here.tipTarget ? { here } : { here, tipOpen: false });
   },
   setMusic: (m) => set(m),
   setDancers: (dancers) => set({ dancers }),
   setVolume: (volume) => {
     set({ volume });
-    savePrefs({ volume, muted: get().muted, move: get().move });
+    savePrefs({ ...prefsOf(get()), volume });
   },
   setMuted: (muted) => {
     set({ muted });
-    savePrefs({ volume: get().volume, muted, move: get().move });
+    savePrefs({ ...prefsOf(get()), muted });
   },
   setMove: (move) => {
     set({ move });
-    savePrefs({ volume: get().volume, muted: get().muted, move });
+    savePrefs({ ...prefsOf(get()), move });
   },
+  tipOpen: false,
+  tipStats: { best: 0, bestFrom: "", bestTo: "", topName: "", topTotal: 0 },
+  setTipAmount: (tipAmount) => {
+    set({ tipAmount });
+    savePrefs({ ...prefsOf(get()), tipAmount });
+  },
+  setTipOpen: (tipOpen) => get().tipOpen !== tipOpen && set({ tipOpen }),
+  setTipStats: (tipStats) => set({ tipStats }),
 }));
+
+function prefsOf(s: Prefs): Prefs {
+  return { volume: s.volume, muted: s.muted, move: s.move, tipAmount: s.tipAmount };
+}
 
 /** Hora del servidor ahora (ms): con la medida del ping/pong si ya hay, o con la que llegó al entrar. */
 export const serverNow = () => Date.now() + (measuredOffset() ?? useCasinoStore.getState().offset);
