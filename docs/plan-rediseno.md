@@ -218,7 +218,7 @@ y 9   └─────────[  ]─────────────�
 
 - Nivel interior aparte (`casa-arbol`): una sola sala aislada de tipo `meeting` (con su pizarra y los puntos de reunión) que ocupa todo el cuarto. Tablones horizontales clavados (papel `treehouse`) y piso de tablas claras.
 - El tronco del roble atraviesa el rincón del fondo (con el corazón tallado, una repisita y una rama con un farolito), la ventana a la copa (hojas de día, estrellas y luciérnagas de noche) con el catalejo, la hamaca, el globo, banderines, los cajones con libros, el farol de frasco, la radio vieja, el tapete trenzado con la mesita de tocón (tetera y temporizador de tomate) y tres cojines, la cesta de mantas y la trampilla del piso, que baja al pie del árbol.
-- Caben tres. "Subir la escalera" (panel de la sala) la cierra: nadie más sube hasta que la bajen o se vacíe la casa, y desde el jardín se ve recogida con el cartel "OCUPADO". Modo foco opcional (25 + 5 min) que ven los de adentro.
+- Caben tres. "Subir la escalera" (panel de la sala) la cierra: nadie más sube hasta que la bajen o se vacíe la casa, y desde el jardín se ve recogida con el cartel "OCUPADO". Pomodoro compartido opcional (25 + 5 min, sin puntos) que ven los de adentro.
 
 ## Casino, más trabajado y jugado en la mesa
 

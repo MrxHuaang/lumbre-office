@@ -48,7 +48,7 @@ export function bindCasaArbol(r: OfficeRoom) {
     // A los de adentro, el aviso de que cambió la fase del modo foco.
     if (before !== focus && useOfficeStore.getState().area === CASA_ARBOL.area) {
       if (focus === "break") useOfficeStore.getState().notify(`Terminó el bloque de foco: ${CASA_ARBOL.breakMs / 60_000} minutos de descanso.`, "success");
-      else if (focus === "focus" && before === "") useOfficeStore.getState().notify(`Modo foco: ${CASA_ARBOL.focusMs / 60_000} minutos de concentración.`, "info");
+      else if (focus === "focus" && before === "") useOfficeStore.getState().notify(`Pomodoro de la casa: ${CASA_ARBOL.focusMs / 60_000} minutos de concentración.`, "info");
       else if (focus === "" && before === "break") useOfficeStore.getState().notify("Terminó el descanso.", "info");
     }
   };

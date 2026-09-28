@@ -1,8 +1,8 @@
 "use client";
 
 // Lo de la casa del árbol (va en la sección de la sala del panel lateral, estando arriba): la escalera
-// (recogerla cierra la casa hasta que alguien la baje o se vacíe) y el modo foco, que ven todos los de
-// adentro. Las reglas las valida el servidor (CASA_ARBOL de @hyvento/shared).
+// (recogerla cierra la casa hasta que alguien la baje o se vacíe) y el pomodoro compartido, que ven todos
+// los de adentro (aparte del modo foco personal de focus.ts). Las reglas las valida el servidor (CASA_ARBOL de @hyvento/shared).
 import { CASA_ARBOL, focusLeftText } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { sendCasaArbolFocus, sendCasaArbolLadder, useCasaArbolStore } from "@/game/casaArbol";
@@ -35,9 +35,9 @@ export function CasaArbolRow() {
       </div>
       <div className="flex items-center gap-1.5">
         {!focus ? (
-          <button type="button" onClick={() => sendCasaArbolFocus("start")} className="cozy-btn h-[32px] px-2" title="Un bloque de concentración para los de adentro, con descanso al final">
+          <button type="button" onClick={() => sendCasaArbolFocus("start")} className="cozy-btn h-[32px] px-2" title="Pomodoro compartido: un bloque de concentración con descanso al final, que ven todos los de adentro">
             <PixelIcon name="star" size={14} />
-            Modo foco · {minutes} min
+            Pomodoro · {minutes} min
           </button>
         ) : (
           <>
@@ -53,7 +53,7 @@ export function CasaArbolRow() {
               <PixelIcon name={focus === "focus" ? "cup" : "star"} size={14} />
               {focus === "focus" ? "Descanso" : "Otro foco"}
             </button>
-            <button type="button" onClick={() => sendCasaArbolFocus("stop")} className="cozy-btn h-[32px] w-[32px] p-0" title="Terminar el modo foco" aria-label="Terminar el modo foco">
+            <button type="button" onClick={() => sendCasaArbolFocus("stop")} className="cozy-btn h-[32px] w-[32px] p-0" title="Terminar el pomodoro" aria-label="Terminar el pomodoro">
               <PixelIcon name="close" size={14} />
             </button>
           </>

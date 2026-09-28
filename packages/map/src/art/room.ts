@@ -21,9 +21,8 @@ import {
   type Sprite,
 } from "./pixel";
 import { FOREST, interiorFeature, interiorFloor, interiorWall } from "./interior-room";
-import { CEMENT, concreteFloor, garajeFeature } from "./garaje-room";
-import { casaArbolFeature } from "./casa-arbol-room";
 import { CEMENT, concreteFloor, garajeFeature, gravelFloor, wornPlanksFloor } from "./garaje-room";
+import { casaArbolFeature } from "./casa-arbol-room";
 
 export const WALL_H = 56;
 export const LOW_WALL_H = 10;

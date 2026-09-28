@@ -2,7 +2,8 @@
 // concentrarse. Se sube por la escalera de cuerda (un portal) y caben tres. Adentro, "Subir la escalera"
 // la cierra: nadie más sube hasta que alguien la baje o se vacíe la casa (entonces se baja sola). Hay un
 // modo foco opcional (pomodoro) que ven los de adentro. El servidor valida el cupo y el cierre al usar el
-// portal; el cliente solo lo anticipa (para no fundirse a negro y rebotar).
+// portal; el cliente solo lo anticipa (para no fundirse a negro y rebotar). El "modo foco" de aquí es un
+// pomodoro compartido de la sala, sin puntos: el modo foco personal (con puntos) es el de focus.ts.
 import { z } from "zod";
 
 export const CASA_ARBOL = {
