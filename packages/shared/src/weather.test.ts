@@ -28,16 +28,16 @@ function lcg(seed = 1) {
   };
 }
 
-// 2026-09-27 a las 12:00 UTC = 7:00 en Bogotá.
-const MORNING = Date.UTC(2026, 8, 27, 12, 0);
-// 20:00 UTC = 15:00 en Bogotá.
-const AFTERNOON = Date.UTC(2026, 8, 27, 20, 0);
+// Horas del reloj del juego.
+const MORNING = 7;
+const AFTERNOON = 15;
 
 describe("clima", () => {
-  it("la hora de Bogotá es UTC-5", () => {
-    expect(bogotaHour(MORNING)).toBe(7);
-    expect(bogotaHour(AFTERNOON)).toBe(15);
+  it("la hora de Bogotá es UTC-5 y la niebla va con la hora del juego", () => {
+    expect(bogotaHour(Date.UTC(2026, 8, 27, 12, 0))).toBe(7);
     expect(bogotaHour(Date.UTC(2026, 8, 27, 2, 30))).toBe(21); // 2:30 UTC = 21:30 del día anterior
+    expect(isFogHour(MORNING)).toBe(true);
+    expect(isFogHour(AFTERNOON)).toBe(false);
     expect(isFogHour(6)).toBe(true);
     expect(isFogHour(12)).toBe(false);
   });

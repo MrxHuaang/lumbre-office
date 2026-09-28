@@ -1,7 +1,6 @@
 // El clima de afuera. Lo decide el servidor (todos ven el mismo) con una cadena de Markov simple: cada
-// tanto se sortea el siguiente según el actual. La niebla es más probable temprano en la mañana (hora de
-// Bogotá). Todo es puro y el azar entra como parámetro, para poder probarlo.
-import { bogotaHour } from "./fishing";
+// tanto se sortea el siguiente según el actual. La niebla es más probable temprano en la mañana (hora del
+// reloj del juego, ver clock.ts). Todo es puro y el azar entra como parámetro, para poder probarlo.
 
 export const WEATHERS = ["despejado", "nublado", "lluvia", "tormenta", "niebla"] as const;
 export type Weather = (typeof WEATHERS)[number];
@@ -12,7 +11,7 @@ export const WEATHER = {
   /** Cuánto dura cada clima (se sortea entre los dos; la tormenta dura menos, ver `weatherDurationMs`). */
   minMs: 10 * 60_000,
   maxMs: 25 * 60_000,
-  /** Horas de Bogotá (desde, hasta sin incluir) en las que la niebla es más probable. */
+  /** Horas del juego (desde, hasta sin incluir) en las que la niebla es más probable. */
   fogHours: [5, 9] as const,
   /** Cuánto pesa la niebla de mañana (multiplica su peso) y el resto del día. */
   fogMorningBoost: 4,
@@ -50,7 +49,7 @@ export const isWet = (w: Weather) => w === "lluvia" || w === "tormenta";
 /** ¿Es temprano en la mañana (la hora de la niebla)? */
 export const isFogHour = (hour: number) => hour >= WEATHER.fogHours[0] && hour < WEATHER.fogHours[1];
 
-/** Pesos (sin normalizar) del siguiente clima desde `from` a la hora `hour` de Bogotá. */
+/** Pesos (sin normalizar) del siguiente clima desde `from` a la hora `hour` del juego. */
 export function transitionWeights(from: Weather, hour: number): Record<Weather, number> {
   const w = { ...TRANSITIONS[from] };
   w.niebla *= isFogHour(hour) ? WEATHER.fogMorningBoost : WEATHER.fogLaterFactor;
@@ -77,7 +76,7 @@ export function weatherDurationMs(weather: Weather, random: () => number): numbe
   return Math.round(weather === "tormenta" ? ms / 2 : ms);
 }
 
-/** Clima con el que arranca el servidor: de mañana, niebla; si no, el inicial. */
-export function initialWeather(ts: number): Weather {
-  return isFogHour(bogotaHour(ts)) ? "niebla" : WEATHER.initial;
+/** Clima con el que arranca el servidor según la hora del juego: de mañana, niebla; si no, el inicial. */
+export function initialWeather(hour: number): Weather {
+  return isFogHour(hour) ? "niebla" : WEATHER.initial;
 }

@@ -25,6 +25,7 @@ beforeEach(async () => {
   OfficeRoom.gameClockNow = () => now;
   // Arranca el día 2 a las 10:00.
   OfficeRoom.gameClockInitial = { anchorReal: now, anchorMinute: 2 * 1440 + 10 * 60 };
+  OfficeRoom.weatherInitial = null;
 });
 afterEach(() => {
   OfficeRoom.gameClockNow = () => Date.now();
@@ -35,10 +36,14 @@ async function join(role: "ADMIN" | "MEMBER") {
   const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
   const client = await colyseus.connectTo(room, { token: await token(`u-${role}`, role, "ada", role) });
   const notes: string[] = [];
-  client.onMessage(MSG.chatEvent, (e: ChatEvent) => notes.push(e.text));
+  const events: ChatEvent[] = [];
+  client.onMessage(MSG.chatEvent, (e: ChatEvent) => {
+    notes.push(e.text);
+    events.push(e);
+  });
   await room.waitForNextPatch();
   const clock = () => gameTime({ anchorReal: room.state.clockAnchorReal, anchorMinute: room.state.clockAnchorMinute }, now);
-  return { room, client, notes, clock };
+  return { room, client, notes, events, clock };
 }
 
 describe("reloj del juego en la sala", () => {
@@ -71,5 +76,22 @@ describe("reloj del juego en la sala", () => {
     client.send(MSG.chatSend, { text: "/hora", scope: "proximity" });
     await tick(80);
     expect(notes.at(-1)).toBe("Día 3, 10:00.");
+  });
+
+  it("el aviso del reloj es del sistema y llega en la pestaña donde se escribió", async () => {
+    const { client, events } = await join("MEMBER");
+    client.send(MSG.chatSend, { text: "/time", scope: "global" });
+    await tick(80);
+    expect(events.at(-1)).toMatchObject({ fromId: "", fromName: "Reloj", scope: "global", text: "Día 3, 10:00." });
+  });
+
+  it("el clima con que arranca la sala sigue la hora del juego (niebla de mañana)", async () => {
+    OfficeRoom.gameClockInitial = { anchorReal: now, anchorMinute: 6 * 60 };
+    const morning = await join("MEMBER");
+    expect(morning.room.state.weather).toBe("niebla");
+    await colyseus.cleanup();
+    OfficeRoom.gameClockInitial = { anchorReal: now, anchorMinute: 13 * 60 };
+    const noon = await join("MEMBER");
+    expect(noon.room.state.weather).toBe("despejado");
   });
 });

@@ -67,6 +67,7 @@ import {
   BLACKJACK,
   type EmoteEvent,
   type ChatEvent,
+  type ChatScope,
   type Direction,
   type GameTokenClaims,
   type KnockOutcome,
@@ -242,7 +243,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static rouletteSpin: () => number = randomSpin;
   static blackjackTimings: BlackjackTimings = { ...BLACKJACK };
   static blackjackShuffle: () => number[] = randomShoe;
-  /** Pesca: el azar (entero en [0, n)), la hora (para el horario de los peces) y los tiempos del lance. */
+  /** Pesca: el azar (entero en [0, n)), el reloj real (para los tiempos del minijuego) y los tiempos del lance. */
   static fishingRandom: (n: number) => number = (n) => randomInt(n);
   static fishingNow: () => number = () => Date.now();
   static fishingTimings: FishingTimings = { ...FISHING };
@@ -255,9 +256,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static arcadeSeed: () => number = () => randomInt(2 ** 31);
   /** Reloj del arcade (los tests lo adelantan para no esperar la duración mínima de una partida). */
   static arcadeNow: () => number = () => Date.now();
-  /** Azar y reloj del clima (los tests los fijan); `weatherInitial` null = según la hora de Bogotá. */
+  /** Azar del clima y con cuál arranca (los tests los fijan); `weatherInitial` null = según la hora del juego. */
   static weatherRandom: () => number = () => randomInt(2 ** 30) / 2 ** 30;
-  static weatherNow: () => number = () => Date.now();
   static weatherInitial: Weather | null = null;
   /** Reloj real para el reloj del juego y hora con la que arranca (los tests los fijan; null = la de Bogotá). */
   static gameClockNow: () => number = () => Date.now();
@@ -323,17 +323,19 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
     () => OfficeRoom.faintMs,
   );
-  /** El clima de afuera (lo ven todos: `state.weather`). */
+  /** Con qué hora del juego arranca la sala (el clima inicial ya la necesita, antes de onCreate). */
+  private readonly startClock: GameClockState = OfficeRoom.gameClockInitial ?? initialClock(OfficeRoom.gameClockNow());
+  /** El clima de afuera (lo ven todos: `state.weather`); la niebla sigue la hora del juego. */
   private weather = new WeatherCycle(
     {
       clock: { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
-      now: () => OfficeRoom.weatherNow(),
+      hour: () => this.gameTimeNow().hour,
       random: () => OfficeRoom.weatherRandom(),
       onChange: (w) => {
         this.state.weather = w;
       },
     },
-    OfficeRoom.weatherInitial ?? initialWeather(OfficeRoom.weatherNow()),
+    OfficeRoom.weatherInitial ?? initialWeather(gameTime(this.startClock, OfficeRoom.gameClockNow()).hour),
   );
   /** Lo que dura un desmayo (los tests lo acortan). */
   static faintMs: number = DRUNK.faintMs;
@@ -388,6 +390,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     now: () => OfficeRoom.fishingNow(),
     random: (n) => OfficeRoom.fishingRandom(n),
     timings: () => OfficeRoom.fishingTimings,
+    hour: () => this.gameTimeNow().hour,
     weather: () => this.state.weather as Weather,
     repo: () => this.repo,
     newId: () => randomUUID(),
@@ -624,8 +627,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.cinema.tick(Date.now());
     }, 500);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
+    this.setGameClock(this.startClock);
     this.weather.start();
-    this.setGameClock(OfficeRoom.gameClockInitial ?? initialClock(OfficeRoom.gameClockNow()));
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -1468,11 +1471,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
    * "/time" (o "/hora"): cualquiera pregunta la hora; solo los admins la cambian (set/add, como en
    * Minecraft). La respuesta le llega solo a quien escribió. Devuelve si era el comando.
    */
-  private timeCommand(client: Client<UserData>, text: string): boolean {
+  private timeCommand(client: Client<UserData>, text: string, scope: ChatScope): boolean {
     const cmd = parseTimeCommand(text);
     if (!cmd) return false;
+    // Aviso del sistema (fromId vacío): se responde en la pestaña donde se escribió el comando.
     const note = (msg: string) =>
-      client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Reloj", text: msg, scope: "proximity", zoneId: null, ts: Date.now() } satisfies ChatEvent);
+      client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Reloj", text: msg, scope, zoneId: null, ts: Date.now() } satisfies ChatEvent);
     if (cmd.kind !== "query") {
       if (!client.userData?.admin) {
         note("Solo un admin puede cambiar la hora.");
@@ -1497,7 +1501,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     times.push(now);
     client.userData.chatTimes = times;
     if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text))) return;
-    if (this.timeCommand(client, parsed.data.text)) return;
+    if (this.timeCommand(client, parsed.data.text, parsed.data.scope)) return;
     this.achievements.bump(player.userId, STAT_KEYS.chatMessages);
 
     const event: ChatEvent = {
