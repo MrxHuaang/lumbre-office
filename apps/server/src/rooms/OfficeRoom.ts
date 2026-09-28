@@ -245,7 +245,7 @@ import {
 } from "@hyvento/shared";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
-import { ChairRaces, type RaceOutcome } from "./races";
+import { ChairRaces, RaceBoards, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 import { DoorNotes } from "./door-notes";
@@ -567,6 +567,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** La carrera de sillas del pasillo del piso 2 (ver races.ts). */
   private races = new ChairRaces();
+  private raceBoards = new RaceBoards((userId, since) => this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId }));
   /** Cuándo puede volver a reaccionar cada persona en el club. */
   private reactAt = new Map<string, number>();
   /** Tiempos de las sillas giratorias y cuántas vueltas da cada giro (los tests los fijan). */
@@ -1925,10 +1926,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     if (!player) return;
     this.achievements.bump(player.userId, STAT_KEYS.racesFinished);
-    const since = weekStart(Date.now());
-    const before = await this.repo.raceBoard({ since, limit: 1, userId: player.userId }).catch(() => null);
+    const before = await this.raceBoards.get(player.userId, Date.now()).catch(() => null);
     await this.repo.saveRaceTime({ userId: player.userId, name: player.name, ms: outcome.ms }).catch((err) => console.error("saveRaceTime", err));
-    const board = await this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => ({ entries: [], myBest: outcome.ms }));
+    this.raceBoards.invalidate();
+    const board = await this.raceBoards.get(player.userId, Date.now()).catch(() => ({ entries: [], myBest: outcome.ms }));
     const best = before?.myBest == null || outcome.ms < before.myBest;
     const record = !before?.entries[0] || outcome.ms < before.entries[0].ms;
     client?.send(MSG.raceResult, { ok: true, ms: outcome.ms, best, board } satisfies RaceResult);
@@ -1939,7 +1940,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private async sendRaceBoard(client: Client<UserData>) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const board = await this.repo.raceBoard({ since: weekStart(Date.now()), limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => null);
+    const board = await this.raceBoards.get(player.userId, Date.now()).catch(() => null);
     if (board) client.send(MSG.raceBoardResult, board);
   }
 
