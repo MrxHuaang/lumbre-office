@@ -1,4 +1,5 @@
 import { bindCocina } from "./cocina";
+import { bindGranja } from "./granjaNet";
 import { bindRace } from "./race";
 import {
   CLOSE_CODE,
@@ -241,10 +242,38 @@ export interface OfficeStateView {
   events?: RemoteEvents;
   /** Jardín vivo: las parcelas sembradas del huerto, por índice (PlotState de @hyvento/shared). */
   garden: Map<string, RemoteGardenPlot>;
+  /** La granja del jardín: los animales, lo que está en el fuego y los huevos del nido. */
+  granja: RemoteGranja;
   /** El Man del Sombrero: si anda por ahí y en qué escondite. */
   sombrero: RemoteSombrero;
   /** El Megabús de la parada del jardín (BusState en apps/server/src/state.ts). */
   bus: { phase: string; since: number; nextAt: number; run: number };
+}
+
+/** La granja como viaja en el estado (espejo de `GranjaState` en apps/server/src/state.ts). */
+export interface RemoteGranja {
+  animals: Map<string, RemoteFarmAnimal>;
+  grill: Map<string, RemoteGrillJob>;
+  eggs: number;
+}
+export interface RemoteFarmAnimal {
+  id: string;
+  kind: string;
+  coat: string;
+  name: string;
+  x: number;
+  y: number;
+  dir: string;
+  pose: string;
+}
+export interface RemoteGrillJob {
+  name: string;
+  recipe: string;
+  station: string;
+  progress: number;
+  rate: number;
+  at: number;
+  cookMs: number;
 }
 
 /** Una parcela sembrada como viaja en el estado (espejo de `GardenPlotState` en apps/server/src/state.ts). */
@@ -1017,6 +1046,7 @@ function attach(r: OfficeRoom) {
   bindPiscina(r);
   bindRace(r);
   bindCocina(r);
+  bindGranja(r);
   bindArcade(r);
   bindPhone(r);
   // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).

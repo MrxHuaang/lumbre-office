@@ -1,6 +1,8 @@
 // Los niveles de la cabaña, uno por archivo. Ver docs/plan-rediseno.md para qué hace cada sala.
 import type { AreaDef } from "../types";
 import { jardin } from "./jardin";
+
+export { GRANJA_LAYOUT } from "./jardin";
 import { piso2 } from "./piso-2";
 import { piso3 } from "./piso-3";
 import { plantaBaja } from "./planta-baja";

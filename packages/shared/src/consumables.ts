@@ -5,6 +5,8 @@ import { CASA_CONSUMABLES, CASA_USABLES, type CasaAction } from "./casa";
 import { COCINA_CONSUMABLES } from "./cocina";
 import { HUERTO_CONSUMABLES, HUERTO_TOOLS, JARDIN_USABLES, type GardenStep, type JardinAction } from "./huerto";
 import { SOMBRERO_ALCOHOL, SOMBRERO_CONSUMABLES } from "./sombrero";
+import { GRANJA_USABLES, type GranjaAction } from "./granja";
+import { PARRILLA_CONSUMABLES } from "./parrilla";
 
 /**
  * Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas), mordisco (comida en la mano),
@@ -99,6 +101,8 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   ...COCINA_CONSUMABLES,
   // Lo que vende el Man del Sombrero (sombrero.ts).
   ...SOMBRERO_CONSUMABLES,
+  // La parrilla del jardín: los platos (por porciones) y las porciones que se reparten.
+  ...PARRILLA_CONSUMABLES,
 };
 
 /** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). Las herramientas del huerto, los suyos. */
@@ -213,7 +217,7 @@ export interface HeldUsedEvent {
  * `toggle`: se prende y apaga, y lo ven todos (el estado lo guarda el servidor). `play` (instrumentos) y
  * `pet` (el gato) son un evento: una animación y un sonido para los del mismo nivel.
  */
-export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction | JardinAction;
+export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction | JardinAction | GranjaAction;
 
 export interface UsableSpec {
   action: FurnitureAction;
@@ -255,6 +259,8 @@ export const USABLE_FURNITURE: Record<string, UsableSpec> = {
   ...CASA_USABLES,
   // Jardín vivo (huerto.ts): parcelas, barriles y pozo, colmenas y la campanita de la glorieta.
   ...JARDIN_USABLES,
+  // La granja (granja.ts): el comedero y el nido del gallinero y el molino de agua.
+  ...GRANJA_USABLES,
 };
 
 export const usableSpec = (type: string): UsableSpec | undefined => USABLE_FURNITURE[type];

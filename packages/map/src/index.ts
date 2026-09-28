@@ -28,7 +28,7 @@ export { GRADAS, GRADAS_ROWS } from "./world/catalog-escenario";
 export * from "./world/seats";
 export type * from "./world/types";
 export { BUS_DOOR_X, BUS_ROUTE, BUS_STOP, CURB_DROP, ROAD, STATION } from "./world/areas/parada";
-export { AREAS, BLACKJACK_SEATS, BOARD_TABLES, CONEXIONES, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
+export { AREAS, BLACKJACK_SEATS, BOARD_TABLES, CONEXIONES, GRANJA_LAYOUT, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
 
 /** Todos los niveles de la cabaña, ya construidos. */
 export interface World {

@@ -267,6 +267,10 @@ export class PrismaRepository implements GameRepository {
     return takeInventoryTx(prisma, userId, itemId, quantity);
   }
 
+  loadStatsByPrefix(prefix: string) {
+    return prisma.userStat.findMany({ where: { key: { startsWith: prefix } }, select: { userId: true, key: true, value: true } });
+  }
+
   loadBagSlots(userId: string) {
     return loadBagSlots(prisma, userId);
   }

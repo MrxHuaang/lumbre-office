@@ -230,7 +230,11 @@ export interface PointDef {
     // Escenario del jardín: frente a la escalerita de la tarima ("Subir al escenario").
     | "stage"
     // Cabina de grabación del jardín: la mesa de los micrófonos ("Grabar").
-    | "podcast";
+    | "podcast"
+    // La granja del jardín: frente al horno y a la parrilla (el panel de cocinar) y el letrero del
+    // gallinero (los nombres de los animales).
+    | "grill"
+    | "farm_sign";
   name: string;
   x: number;
   y: number;

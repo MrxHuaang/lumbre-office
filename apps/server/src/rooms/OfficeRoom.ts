@@ -198,7 +198,7 @@ import {
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
-import { GardenPlotState, MesaState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
+import { FarmAnimal, GardenPlotState, GrillJob, MesaState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
 import { acceptCasinoMessage } from "./casino/common";
 import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blackjack";
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
@@ -257,6 +257,21 @@ import { BusLine, type BusSchedule } from "./bus";
 import { Piscina } from "./piscina";
 import { COCINA_MSG, isWet, type CocinaNotice, type CocinaState } from "@hyvento/shared";
 import { Cocina, type CocinaResult } from "./cocina";
+import {
+  GALLINERO,
+  GRANJA_MSG,
+  GRANJA_STATS,
+  isGameNight,
+  isGranjaAction,
+  PARRILLA_MSG,
+  type CoopState,
+  type GranjaNotice,
+  type GrillNotice,
+  type GrillState,
+  type PortionShared,
+} from "@hyvento/shared";
+import { Granja } from "./granja";
+import { Parrilla, type GrillWho } from "./parrilla";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
@@ -755,6 +770,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
   });
 
+  /** La granja: el azar de los animales, su reloj y cuánto tarda cada receta (los tests los fijan y acortan). */
+  static granjaRandom: () => number = Math.random;
+  static granjaNow: () => number = () => Date.now();
+  static parrillaTimeScale = 1;
+  static molinoTimeScale = 1;
+  /** El gallinero, el corral y el molino (ver granja.ts) y la parrilla (parrilla.ts). */
+  private granja!: Granja;
+  private parrilla!: Parrilla;
+
   /**
    * El repositorio con el que nació la sala: un tic que quedó en vuelo al cerrarla no escribe en el de
    * la sala siguiente (en los tests, cada uno trae su repositorio en memoria).
@@ -784,6 +808,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       bagFits: (userId, items) => items.every((item) => this.held.fits(userId, [[objItemId(item), 1]]) === "ok"),
     });
     this.startPets();
+    this.startGranja();
     this.club = new Club(this.state.club);
     this.clubTips = new ClubTips(this.state.club, {
       player: (sessionId) => this.state.players.get(sessionId),
@@ -846,6 +871,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
+    this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
+    this.onMessage(GRANJA_MSG.vote, (client, raw) => void this.handleCoopVote(client, raw));
+    this.onMessage(PARRILLA_MSG.open, (client) => void this.withGrill(client, (who) => ({ state: this.parrilla.state(who.userId) })));
+    this.onMessage(PARRILLA_MSG.cook, (client, raw) => void this.withGrill(client, (who, now) => this.parrilla.cook(who, raw, now)));
+    this.onMessage(PARRILLA_MSG.buy, (client, raw) => void this.withGrill(client, (who, now) => this.parrilla.buy(who, raw, now)));
+    this.onMessage(PARRILLA_MSG.portion, (client, raw) => void this.handlePortion(client, raw));
     this.onMessage(COCINA_MSG.cook, (client, raw) => void this.withCook(client, (p, now) => this.cocina.cook(this.mapOf(p.area), p, raw, now)));
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
@@ -2519,6 +2550,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastActiveAt = now;
     // Jardín vivo: las parcelas, el barril y el pozo y las colmenas tienen sus reglas (huerto.ts).
     if (result.kind === "event" && isHuertoAction(result.event.action)) return void this.handleHuerto(client, player, result.event);
+    // La granja: el comedero, el nido y el molino (granja.ts).
+    if (result.kind === "event" && isGranjaAction(result.event.action)) return void this.handleGranja(client, player, result.event);
     this.countFurniture(player.userId, result);
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
@@ -2649,6 +2682,162 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   // ---------- Casa viva: mascotas ----------
 
   /** Las mascotas aparecen durmiendo en sus camas y el servidor las mueve seguido. */
+  // ---------- La granja ----------
+
+  /** Los animales aparecen en su patio y el servidor los mueve; la parrilla revisa lo que está en el fuego. */
+  private startGranja() {
+    const jardin = () => this.mapOf("jardin");
+    const bag = {
+      count: (userId: string, itemId: string) => this.held.count(userId, itemId),
+      fits: (userId: string, items: readonly (readonly [string, number])[]) => this.held.fits(userId, items),
+      take: (userId: string, itemId: string, n: number) => this.held.take(userId, itemId, n),
+      add: (userId: string, itemId: string, n: number, opts: { pick?: boolean }) => this.held.add(userId, itemId, n, opts),
+    };
+    this.granja = new Granja({
+      animals: this.state.granja.animals,
+      create: () => new FarmAnimal(),
+      setEggs: (n) => {
+        this.state.granja.eggs = n;
+      },
+      map: jardin,
+      rng: () => OfficeRoom.granjaRandom(),
+      bag,
+      stats: {
+        isLoaded: (userId) => this.achievements.isLoaded(userId),
+        stat: (userId, key) => this.achievements.stat(userId, key),
+        max: (userId, key, value) => this.achievements.max(userId, key, value),
+        bump: (userId, key, by) => this.achievements.bump(userId, key, by),
+      },
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      loadVotes: () => this.repo.loadStatsByPrefix(GRANJA_STATS.votePrefix),
+      gameClock: () => this.gameClock(),
+      gameNight: () => isGameNight(this.gameClock(), OfficeRoom.gameClockNow()),
+      later: (ms, fn) => this.clock.setTimeout(fn, ms * OfficeRoom.molinoTimeScale),
+      notify: (userId, notice) => this.clientOfUser(userId)?.send(GRANJA_MSG.notice, notice satisfies GranjaNotice),
+    });
+    this.parrilla = new Parrilla({
+      jobs: this.state.granja.grill,
+      create: () => new GrillJob(),
+      map: jardin,
+      bag: {
+        ...bag,
+        get: (userId) => this.held.get(userId),
+        use: (userId, now, opts) => this.held.use(userId, now, opts),
+      },
+      award: (userId, amount) => this.awardLeisure(userId, amount),
+      spend: async (userId, amount, refId) => {
+        const r = await this.repo.spendPoints({ userId, amount, reason: "PURCHASE", refId });
+        for (const p of this.state.players.values()) if (p.userId === userId) p.points = r.balance;
+        return r;
+      },
+      where: (userId) => {
+        const c = this.clientOfUser(userId);
+        return c ? this.grillWho(c) : undefined;
+      },
+      bump: (userId, key, by) => this.achievements.bump(userId, key, by),
+      notify: (userId, notice) => this.clientOfUser(userId)?.send(PARRILLA_MSG.notice, notice satisfies GrillNotice),
+      timeScale: () => OfficeRoom.parrillaTimeScale,
+    });
+    let last = OfficeRoom.granjaNow();
+    this.granja.start(last);
+    void this.granja.loadNames();
+    this.clock.setInterval(() => {
+      const now = OfficeRoom.granjaNow();
+      this.granja.tick(now, Math.min(600, Math.max(0, now - last)));
+      this.parrilla.tick(now);
+      last = now;
+    }, GALLINERO.tickMs);
+  }
+
+  private grillWho(client: Client): GrillWho | undefined {
+    const p = this.state.players.get(client.sessionId);
+    return p && { userId: p.userId, sessionId: client.sessionId, name: p.name, area: p.area, x: p.x, y: p.y };
+  }
+
+  /** Dar de comer, buscar huevos o moler: el aviso a quien lo hizo y la animación a los del nivel. */
+  private async handleGranja(client: Client<UserData>, player: Player, e: Omit<FurnitureEvent, "sessionId">) {
+    const now = OfficeRoom.granjaNow();
+    const who = { userId: player.userId, name: player.name };
+    let notice: GranjaNotice;
+    let event = e;
+    let ok = false;
+    try {
+      if (e.action === "feed") {
+        notice = await this.granja.feed(who, now);
+        ok = notice.code === "fed";
+      } else if (e.action === "eggs") {
+        notice = await this.granja.collectEggs(who, now);
+        ok = notice.code === "eggs";
+      } else {
+        const r = await this.granja.grind(who, isWet(this.weather.weather), now);
+        notice = r.notice;
+        ok = r.ms !== undefined;
+        // La semilla lleva lo que tarda: todos ven moler lo mismo.
+        if (ok) event = { ...e, seed: r.ms! };
+      }
+    } catch (err) {
+      console.error("granja", err);
+      notice = { code: "failed" };
+    }
+    client.send(GRANJA_MSG.notice, notice satisfies GranjaNotice);
+    if (ok) this.sendToArea(player.area, MSG.furnitureEvent, { sessionId: client.sessionId, ...event } satisfies FurnitureEvent);
+  }
+
+  /** El letrero del gallinero: cómo está hoy y los votos (solo a quien lo abrió). */
+  private async handleCoop(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const state = await this.granja.coopState({ userId: player.userId, name: player.name }, OfficeRoom.granjaNow());
+    client.send(GRANJA_MSG.coopState, state satisfies CoopState);
+  }
+
+  private async handleCoopVote(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const notice = await this.granja.vote({ userId: player.userId, name: player.name }, raw, OfficeRoom.granjaNow());
+    if (!notice) return;
+    client.send(GRANJA_MSG.notice, notice satisfies GranjaNotice);
+    await this.handleCoop(client);
+  }
+
+  /** Cocinar, mirar la despensa o traer de la cafetería: el estado y el aviso solo a quien lo pidió. */
+  private async withGrill(
+    client: Client<UserData>,
+    fn: (who: GrillWho, now: number) => GrillResult | Promise<GrillResult>,
+  ) {
+    const who = this.grillWho(client);
+    if (!who || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const result = await Promise.resolve()
+      .then(() => fn(who, OfficeRoom.granjaNow()))
+      .catch((err): GrillResult => {
+        console.error("parrilla", err);
+        return { notice: { code: "failed" } };
+      });
+    if (!result) return;
+    if (result.state) client.send(PARRILLA_MSG.state, result.state satisfies GrillState);
+    if (result.notice) client.send(PARRILLA_MSG.notice, result.notice satisfies GrillNotice);
+  }
+
+  /** Pedir una porción del plato que lleva otra persona: lo ven los del nivel. */
+  private async handlePortion(client: Client<UserData>, raw: unknown) {
+    const who = this.grillWho(client);
+    if (!who || !client.userData) return;
+    client.userData.lastActiveAt = Date.now();
+    const target = (raw as { sessionId?: unknown } | null)?.sessionId;
+    const holderClient = typeof target === "string" ? this.clients.getById(target) : undefined;
+    const holder = holderClient ? this.grillWho(holderClient) : undefined;
+    const result = await this.parrilla.portion(who, holder, raw, OfficeRoom.granjaNow()).catch((err) => {
+      console.error("porción", err);
+      return { notice: { code: "failed" } satisfies GrillNotice };
+    });
+    if (!result) return;
+    client.send(PARRILLA_MSG.notice, result.notice satisfies GrillNotice);
+    if ("holderNotice" in result && result.holderNotice) holderClient?.send(PARRILLA_MSG.notice, result.holderNotice satisfies GrillNotice);
+    if ("shared" in result && result.shared) this.sendToArea(who.area, PARRILLA_MSG.shared, result.shared satisfies PortionShared);
+  }
+
   private startPets() {
     this.pets = new Pets({
       pets: this.state.pets,
@@ -3144,6 +3333,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
     this.fishery.forget(player.userId);
+    this.granja.forget(player.userId);
+    this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
     this.phones.left(player.userId);
     this.invites.forget(player.userId);
@@ -3350,3 +3541,5 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return { x, y };
   }
 }
+/** Lo que responde la parrilla a quien la usó (o nada: se ignora). */
+type GrillResult = { state?: GrillState; notice?: GrillNotice } | null;

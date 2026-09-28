@@ -96,7 +96,10 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // El Man del Sombrero (cuando está, en su escondite del día): su menú de diálogo y tienda.
   | "sombrero"
   // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).
-  | "bus";
+  | "bus"
+  // La granja del jardín: el horno y la parrilla (cocinar) y el letrero del gallinero (los nombres).
+  | "grill"
+  | "coop";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
