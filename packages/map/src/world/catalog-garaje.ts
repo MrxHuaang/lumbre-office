@@ -6,12 +6,15 @@ import type { CatalogItem } from "./catalog";
 const BULB = { color: "#ffc76a" };
 
 export const GARAJE_CATALOG = {
-  // El edificio: bloque de cemento con techo de chapa, el portón enrollable y la puerta chica al frente
-  // (+y). La luz es el foco sobre la puerta chica.
-  garage: { name: "Garaje", size: [5, 5], fixed: true, hasNight: true, light: { at: [54, 79, 31], ...BULB, radius: 52 } },
+  // El edificio: troncos sobre piedra con techo de tejas, el portón de tablas y la puerta chica al frente
+  // (+y). La luz es el farol sobre la puerta chica.
+  garage: { name: "Garaje", size: [5, 5], fixed: true, hasNight: true, light: { at: [54, 79, 34], color: "#ffd98a", radius: 56 } },
   // Taller.
   workbench: { name: "Banco de trabajo", size: [1, 3] },
-  "metal-shelf": { name: "Estante metálico", size: [1, 2] },
+  // Se llama así desde que era de metal: ahora es de madera, pero el id se guarda en las decoraciones.
+  "metal-shelf": { name: "Estante de madera", size: [1, 2] },
+  // La hielera de madera con lo frío (reemplaza a la nevera de la cocina, que desentonaba).
+  icebox: { name: "Hielera de madera", size: [1, 1] },
   "tire-stack": { name: "Pila de llantas", size: [1, 1] },
   "tool-chest": { name: "Caja de herramientas", size: [1, 1] },
   compressor: { name: "Compresor", size: [1, 1] },

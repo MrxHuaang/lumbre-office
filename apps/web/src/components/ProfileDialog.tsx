@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { birthdayKey, MONTH_NAMES, parseBirthday } from "@hyvento/shared";
+import { useEffect, useState } from "react";
 import { sendProfileChanged } from "@/game/network";
 import type { Profile } from "@/game/store";
+import { loadBirthdays, saveBirthday } from "@/lib/birthdays";
 import { saveProfile } from "@/lib/profile";
 import { CharacterEditor, type Appearance } from "./CharacterEditor";
 import { OfficeDialog } from "./OfficeDialog";
@@ -28,6 +30,24 @@ export function ProfileDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const trimmed = name.trim();
+  // Cumpleaños (solo en "Editar perfil"): día y mes; "" = sin poner. `saved` es lo que había al abrir.
+  const [birthday, setBirthday] = useState<{ month: string; day: string; saved: string | null } | null>(null);
+  useEffect(() => {
+    if (!withName) return;
+    let alive = true;
+    loadBirthdays().then(
+      (b) => {
+        const parsed = parseBirthday(b.me);
+        if (alive) setBirthday({ month: parsed ? String(parsed.month) : "", day: parsed ? String(parsed.day) : "", saved: b.me });
+      },
+      () => alive && setBirthday({ month: "", day: "", saved: null }),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [withName]);
+  const birthdayValue = birthday?.month && birthday.day ? birthdayKey(Number(birthday.month), Number(birthday.day)) : null;
+  const birthdayInvalid = Boolean(birthday && (birthday.month || birthday.day) && !parseBirthday(birthdayValue));
 
   const save = async () => {
     if (!trimmed) return;
@@ -36,6 +56,7 @@ export function ProfileDialog({
     try {
       const next = { name: trimmed, ...appearance };
       await saveProfile(next);
+      if (birthday && !birthdayInvalid && birthdayValue !== birthday.saved) await saveBirthday(birthdayValue);
       sendProfileChanged();
       onSaved(next);
       onClose();
@@ -54,7 +75,7 @@ export function ProfileDialog({
           <button
             type="button"
             onClick={() => void save()}
-            disabled={saving || !trimmed}
+            disabled={saving || !trimmed || birthdayInvalid}
             className="cozy-btn cozy-btn-primary px-5 py-2.5 text-[15px]"
           >
             {saving ? "Guardando…" : "Guardar"}
@@ -85,6 +106,47 @@ export function ProfileDialog({
               className="cozy-input px-3.5 py-2.5 text-[16px] font-normal"
             />
           </label>
+        )}
+        {withName && birthday && (
+          <fieldset className="mb-5 flex max-w-sm flex-col gap-2 text-[14px] font-semibold">
+            <legend className="mb-2">Tu cumpleaños</legend>
+            <div className="flex gap-2 font-normal">
+              <select
+                aria-label="Día"
+                value={birthday.day}
+                onChange={(e) => setBirthday({ ...birthday, day: e.target.value })}
+                className="cozy-input px-2.5 py-2 text-[15px]"
+              >
+                <option value="">Día</option>
+                {Array.from({ length: 31 }, (_, i) => (
+                  <option key={i} value={String(i + 1)}>
+                    {i + 1}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Mes"
+                value={birthday.month}
+                onChange={(e) => setBirthday({ ...birthday, month: e.target.value })}
+                className="cozy-input flex-1 px-2.5 py-2 text-[15px]"
+              >
+                <option value="">Mes</option>
+                {MONTH_NAMES.map((m, i) => (
+                  <option key={m} value={String(i + 1)}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              {(birthday.day || birthday.month) && (
+                <button type="button" onClick={() => setBirthday({ ...birthday, day: "", month: "" })} className="cozy-btn px-3 text-[13px]">
+                  Quitar
+                </button>
+              )}
+            </div>
+            <p className={`text-[12px] font-normal ${birthdayInvalid ? "text-cozy-red-deep" : "text-cozy-ink-soft"}`}>
+              {birthdayInvalid ? (birthdayValue ? "Esa fecha no existe." : "Elige el día y el mes.") : "Sin año. Ese día llevas gorrito, hay pastel en la cafetería y te pueden felicitar."}
+            </p>
+          </fieldset>
         )}
         <CharacterEditor value={appearance} onChange={setAppearance} />
       </div>

@@ -34,6 +34,11 @@ export interface CatalogItem {
   seeThrough?: boolean;
   /** Escritorio con computador: la silla que lo mira permite prender el PC. */
   computer?: boolean;
+  /**
+   * Teléfono de escritorio: desde aquí se llama a las oficinas (ver phones en @hyvento/shared). Va encima
+   * de otro mueble (sin colisión propia) y es fijo, como el escritorio con PC.
+   */
+  phone?: boolean;
   /** Tiene dibujo de espaldas (para mirar hacia "left"/"up"); si no, se usa el de frente. */
   hasBack?: boolean;
   /** Plano sobre el piso (alfombras): se dibuja debajo de todo. */
@@ -58,6 +63,10 @@ export interface CatalogItem {
 
 export const CATALOG = {
   "desk-pc": { name: "Escritorio con PC", size: [1, 2], computer: true },
+  // Teléfonos de disco (dibujos en art/phone.ts): van encima del escritorio con PC o de la recepción, en
+  // el tile de ese mueble que queda libre, así que no bloquean (ya bloquea el mueble de abajo).
+  "desk-phone": { name: "Teléfono", size: [1, 1], solid: false, phone: true },
+  "desk-phone-counter": { name: "Teléfono de la recepción", size: [1, 1], solid: false, phone: true },
   chair: { name: "Silla", size: [1, 1], seats: [[0, 0]], hasBack: true },
   // Sillas de oficina con ruedas (las únicas que giran, ver swivel.ts), una por color de tapiz.
   "office-chair": { name: "Silla de oficina", size: [1, 1], seats: [[0, 0]], hasBack: true },

@@ -137,13 +137,13 @@ export class Club {
    * Agrega un video al final de la cola. Si no suena ningún video (nada, o una pista generada), arranca
    * ya: los videos mandan sobre los loops.
    */
-  enqueue(video: { videoId: string; title: string; durationMs?: number }, by: string, now: number): ClubOutcome {
-    return this.videos.enqueue(video, by, now);
+  enqueue(video: { videoId: string; title: string; durationMs?: number }, by: string, now: number, byId = ""): ClubOutcome {
+    return this.videos.enqueue(video, by, now, byId);
   }
 
   /** Vuelve a poner uno de lo que sonó (al final de la cola). */
-  replay(id: string, by: string, now: number): ClubOutcome {
-    return this.videos.replay(id, by, now);
+  replay(id: string, by: string, now: number, byId = ""): ClubOutcome {
+    return this.videos.replay(id, by, now, byId);
   }
 
   /** Mueve una entrada de la cola a la posición `to` (se recorta al largo de la cola). */

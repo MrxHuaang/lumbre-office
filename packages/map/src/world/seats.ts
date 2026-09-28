@@ -45,5 +45,9 @@ export function seatBehind(type: string, facing: Facing): boolean {
   return Boolean(catalogItem(type).hasBack) && (facing === "left" || facing === "up");
 }
 
-/** Filas de la hoja de sentado (de arriba) que se ven sobre el respaldo: cabeza y hombros. */
-export const SIT_BACK_ROWS = 23;
+/**
+ * Filas de la hoja de sentado (de arriba) que se ven sobre el respaldo: cabeza y hombros. El respaldo
+ * tapa desde 6 filas sobre los pies de la hoja (FEET_Y - 6 del chibi; un test lo revisa): la cadera
+ * del chibi sentado queda siempre a la misma altura, aunque el personaje crezca hacia arriba.
+ */
+export const SIT_BACK_ROWS = 31;

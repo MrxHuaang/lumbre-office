@@ -2,9 +2,14 @@
 
 // Contenido de las pestañas del editor de personaje. Se dibuja con el look "diferido" (ver LookEditor):
 // al arrastrar un color, la vista previa responde al instante y las miniaturas se ponen al día después.
+import { HIDES_BOTTOM } from "@hyvento/map/art";
 import {
   BACK_ITEMS,
   BOTTOMS,
+  COSTUME_CATEGORIES,
+  COSTUME_IDS,
+  COSTUMES,
+  costumeTint,
   EVERYDAY_OUTFITS,
   EYE_STYLES,
   FACE_ITEMS,
@@ -20,6 +25,7 @@ import {
   TOPS,
   type FullLook,
   type HumanAvatar,
+  type CostumeId,
   type Look,
   type Outfit,
 } from "@hyvento/shared";
@@ -54,8 +60,8 @@ import {
 import { CharacterSprite } from "../CharacterSprite";
 import { Group, OptionGrid, Section, Swatches, type Option } from "./controls";
 
-export type TabId = "body" | "hair" | "clothes" | "gear";
-export type ColorKey = "skin" | "hair" | "eyeColor" | "shirt" | "top2" | "pants" | "shoeColor" | "accent";
+export type TabId = "body" | "hair" | "costume" | "clothes" | "gear";
+export type ColorKey = "skin" | "hair" | "eyeColor" | "shirt" | "top2" | "pants" | "shoeColor" | "accent" | "costumeColor";
 
 /** Lo que se puede cambiar desde las pestañas (funciones estables: no hacen redibujar el panel). */
 export interface LookActions {
@@ -63,22 +69,48 @@ export interface LookActions {
   toggle: (key: "blush" | "freckles") => void;
   color: (key: ColorKey) => (hex: string) => void;
   preset: (avatar: HumanAvatar) => void;
+  /** Ponerse un traje (con su color por defecto). */
+  wear: (costume: CostumeId) => void;
 }
 
-const PANTS_TITLE = { pants: "Color del pantalón", shorts: "Color de los shorts", skirt: "Color de la falda" } as const;
+const PANTS_TITLE = {
+  pants: "Color del pantalón",
+  shorts: "Color de los shorts",
+  skirt: "Color de la falda",
+  "long-skirt": "Color de la falda",
+  cargo: "Color del pantalón",
+  joggers: "Color del jogger",
+} as const;
+/** Título del color de abajo cuando lo lleva un conjunto. */
+const PANTS_OUTFIT_TITLE: Partial<Record<Outfit, string>> = {
+  overalls: "Color del overol",
+  trunks: "Color del bañador",
+  coveralls: "Color del mono",
+  blazer: "Color del traje",
+  vest: "Color del chaleco y el pantalón",
+};
 /** Título del color principal según lo que lo lleva. */
 const SHIRT_TITLE: Partial<Record<Outfit, string>> = {
   dress: "Color del vestido",
+  gown: "Color del vestido",
   swimsuit: "Color del traje de baño",
   bikini: "Color del bikini",
+  coat: "Color del abrigo",
+  raincoat: "Color del impermeable",
+  pajamas: "Color del pijama",
+  robe: "Color de la bata",
+  ruana: "Color de la ruana",
 };
 
 export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabId; full: FullLook; act: LookActions }) {
-  const thumb = (patch: Partial<FullLook>): Look => lookFromFull({ ...full, ...patch });
+  // Las miniaturas muestran la opción sobre la ropa propia (sin el traje, que la taparía).
+  const thumb = (patch: Partial<FullLook>): Look => lookFromFull({ ...full, costume: null, ...patch });
   const options = <T extends string>(ids: readonly T[], label: Record<T, string>, patch: (id: T) => Partial<FullLook>): Option<T>[] =>
     ids.map((id) => ({ id, label: label[id], look: thumb(patch(id)) }));
+  const costume = full.costume ? COSTUMES[full.costume] : null;
 
-  const dress = full.outfit === "dress";
+  // El vestido (y lo que va en lugar de la ropa) tapa la parte de abajo.
+  const dress = Boolean(full.outfit && HIDES_BOTTOM.has(full.outfit)) && !isSwimwear(full.outfit);
   // Con traje de baño no se ven la parte de arriba ni la de abajo; el bañador tampoco usa los colores de arriba.
   const swim = isSwimwear(full.outfit);
   const trunks = full.outfit === "trunks";
@@ -171,8 +203,74 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
         </>
       )}
 
+      {tab === "costume" && (
+        <>
+          <Group>
+            <Section title="Traje completo" hint="Te cambia toda la ropa de una vez. Los hay para cada rincón de la cabaña.">
+              <OptionGrid
+                crop="full"
+                tall
+                options={[{ id: "none" as const, label: "Sin traje", look: thumb({}) }]}
+                isOn={() => !full.costume}
+                onPick={() => act.set("costume", null)}
+              />
+            </Section>
+          </Group>
+          {COSTUME_CATEGORIES.map((cat) => (
+            <Group key={cat.id}>
+              <Section title={cat.label}>
+                <OptionGrid
+                  crop="full"
+                  tall
+                  options={COSTUME_IDS.filter((id) => COSTUMES[id].category === cat.id).map((id) => ({
+                    id,
+                    label: COSTUMES[id].label,
+                    look: lookFromFull({ ...full, costume: id, costumeColor: null, costumeGear: true }),
+                  }))}
+                  isOn={(id) => id === full.costume}
+                  onPick={(id: CostumeId) => act.wear(id)}
+                />
+              </Section>
+            </Group>
+          ))}
+          {costume && (
+            <Group>
+              {costume.tint && (
+                <Section title={costume.tint.label}>
+                  <Swatches
+                    label={costume.tint.label}
+                    colors={INK_COLORS}
+                    value={costumeTint(full.costume!, full.costumeColor) ?? INK_COLORS[0]!}
+                    onChange={act.color("costumeColor")}
+                  />
+                </Section>
+              )}
+              <Section title="Sombrero y accesorios" hint="Los del traje, o los tuyos (se eligen en «Accesorios»).">
+                <div role="group" aria-label="Sombrero y accesorios" className="flex flex-wrap gap-2">
+                  {[
+                    { on: true, label: "Los del traje" },
+                    { on: false, label: "Los míos" },
+                  ].map((o) => (
+                    <button
+                      key={o.label}
+                      type="button"
+                      aria-pressed={full.costumeGear === o.on}
+                      onClick={() => act.set("costumeGear", o.on)}
+                      className="cozy-btn px-3 py-1.5 text-[14px]"
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </Section>
+            </Group>
+          )}
+        </>
+      )}
+
       {tab === "clothes" && (
         <>
+          {costume && <CostumeNote name={costume.label} what="La ropa y sus colores los pone el traje" onRemove={() => act.set("costume", null)} />}
           <Group>
             <Section title="Parte de arriba" hint={swim ? "Con traje de baño no se ve." : undefined}>
               <OptionGrid
@@ -214,7 +312,7 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
               />
             </Section>
             {!dress && !patterned && (
-              <Section title={full.outfit === "overalls" ? "Color del overol" : trunks ? "Color del bañador" : PANTS_TITLE[full.bottom]}>
+              <Section title={(full.outfit && PANTS_OUTFIT_TITLE[full.outfit]) ?? PANTS_TITLE[full.bottom]}>
                 <Swatches label="Color de la parte de abajo" colors={PANTS_COLORS} value={full.pants} onChange={act.color("pants")} />
               </Section>
             )}
@@ -258,10 +356,13 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
 
       {tab === "gear" && (
         <>
+          {costume && full.costumeGear && (
+            <CostumeNote name={costume.label} what="El sombrero y los accesorios son los del traje" onRemove={() => act.set("costumeGear", false)} removeLabel="Usar los míos" />
+          )}
           <Group>
             <Section title="Cabeza">
               <OptionGrid
-                crop="head"
+                crop="hat"
                 options={options(HEAD_ITEMS, HEAD_LABEL, (head) => ({ head }))}
                 isOn={(h) => h === full.head}
                 onPick={(h) => act.set("head", h)}
@@ -303,3 +404,17 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
     </>
   );
 });
+
+/** Aviso de que el traje tapa lo que se elige en esta pestaña, con un botón para quitárselo. */
+function CostumeNote({ name, what, onRemove, removeLabel = "Quitar el traje" }: { name: string; what: string; onRemove: () => void; removeLabel?: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-2 border-dashed border-cozy-paper-dark bg-cozy-paper-light px-3 py-2">
+      <p className="min-w-40 flex-1 text-[13px] leading-snug text-cozy-ink-soft">
+        Llevas el traje de <strong className="font-semibold">{name}</strong>. {what}; si eliges algo aquí, te lo quitas.
+      </p>
+      <button type="button" onClick={onRemove} className="cozy-btn px-3 py-1.5 text-[13px]">
+        {removeLabel}
+      </button>
+    </div>
+  );
+}

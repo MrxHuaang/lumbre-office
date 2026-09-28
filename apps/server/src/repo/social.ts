@@ -1,8 +1,8 @@
 // Intercambios contra la base (el repositorio de Prisma): corre `executeTradeTx` en una transacción y
 // traduce su corte (`SocialAborted`) al resultado que entiende la sala. Aparte para poder probarlo con
 // una base de mentira.
-import { executeTradeTx, SocialAborted, type Prisma } from "@hyvento/db";
-import type { TradeResult, TradeSideInput } from "./types";
+import { executeTipTx, executeTradeTx, SocialAborted, type Prisma } from "@hyvento/db";
+import type { TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
 /** Lo que hace falta del cliente de Prisma: abrir una transacción. */
 export interface TradeDb {
@@ -33,5 +33,19 @@ export async function executeTrade(db: TradeDb, input: { refId: string; a: Trade
     const result = tradeAbortResult(err);
     if (!result) throw err;
     return result;
+  }
+}
+
+/** Una propina contra la base: lo que se puede arreglar (saldo, topes) vuelve como error; lo demás sube. */
+export async function executeTip(db: TradeDb, input: TipInput): Promise<TipResult> {
+  try {
+    const { balances } = await db.$transaction((tx) => executeTipTx(tx, input));
+    return { ok: true, balances };
+  } catch (err) {
+    if (err instanceof SocialAborted) {
+      if (err.code === "funds" || err.code === "limit-tips") return { ok: false, error: err.code };
+      if (err.code === "limit-points") return { ok: false, error: "limit" };
+    }
+    throw err;
   }
 }

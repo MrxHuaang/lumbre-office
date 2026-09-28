@@ -221,6 +221,17 @@ describe("la piscina", () => {
   });
 });
 
+describe("la piscina con nieve", () => {
+  it("también se tapa y saca a todos", async () => {
+    const { room, client, notices } = await join();
+    await intoPool(client, room);
+    await send(client, room, MSG.chatSend, { text: "/clima nieve", scope: "proximity" });
+    expect(room.state.weather).toBe("nieve");
+    expect(me(client, room).swimming).toBe(false);
+    expect(notices.map((n) => n.code)).toContain("rain");
+  });
+});
+
 describe("las reposeras", () => {
   const lounger = [...jardin.seats.values()].find((s) => s.type === "sun-lounger")!;
 

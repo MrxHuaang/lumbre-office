@@ -1,6 +1,28 @@
 import { seatBehind, seatLift, SIT_BACK_ROWS, type Seat } from "@hyvento/map";
-import { bubble, characterShadow, crumbColor, FEET_Y, FRAME, FRAMES, heldEffect, SHEET_DIRECTIONS, sparkleSprite, SWIM_DROP, waterDroplet, waterRing } from "@hyvento/map/art";
 import {
+  BODY_UP,
+  bubble,
+  characterShadow,
+  crumbColor,
+  drawMiniBadge,
+  FEET_Y,
+  focusTomato,
+  FRAME,
+  FRAMES,
+  handsetSprite,
+  heldEffect,
+  partyHat,
+  phoneBubble,
+  SHEET_DIRECTIONS,
+  singerMic,
+  SIT_DROP,
+  sparkleSprite,
+  SWIM_DROP,
+  waterDroplet,
+  waterRing,
+} from "@hyvento/map/art";
+import {
+  achievementById,
   consumeActionOf,
   DRUNK,
   EMOTE,
@@ -36,8 +58,8 @@ const ROW = Object.fromEntries(SHEET_DIRECTIONS.map((d, i) => [d, i])) as Record
 const BUBBLE_MS = 4500;
 /** Diámetro (px de pantalla del juego) de la burbuja de cámara sobre la cabeza. */
 const VIDEO_SIZE = 30;
-/** Altura del nombre sobre los pies. */
-const HEAD = 30;
+/** Altura del nombre sobre los pies (un poco más arriba de la coronilla). */
+const HEAD = BODY_UP.crown + 7;
 const SPEAKING_COLOR = "#5ea247";
 /**
  * Dónde va lo que lleva en cada mano, según hacia dónde mira: desplazamiento horizontal desde el centro
@@ -69,9 +91,15 @@ const HANDS: Record<Direction, [{ dx: number; front: boolean }, { dx: number; fr
  */
 /** Tope de una animación de uso (la más larga, la pitada, dura ~1,1 s): después se libera la mano igual. */
 const USE_SAFETY_MS = 2500;
-const MOUTH_STANDING = 13;
-const MOUTH_SEATED = 10;
+const MOUTH_STANDING = BODY_UP.mouth - 1;
+const MOUTH_SEATED = MOUTH_STANDING - SIT_DROP;
 const MOUTH: Record<Direction, { dx: number }> = { down: { dx: -1 }, right: { dx: 1 }, left: { dx: -4 }, up: { dx: 4 } };
+
+/** Lo que se lleva sobre el nombre: el gorrito de cumpleaños, el tomatito del foco o el micrófono del karaoke. */
+export type AvatarBadge = "hat" | "tomato" | "mic";
+const BADGE_ART = { hat: partyHat, tomato: focusTomato, mic: singerMic } as const;
+/** Alto de la fila de insignias (lo que se corren hacia arriba los globos). */
+const BADGE_ROW_H = 12;
 
 /** Algo en una mano: su sprite, los usos que le quedan y cómo está en la animación de uso. */
 interface HeldPart {
@@ -142,6 +170,8 @@ export class Avatar {
   private readonly shadow: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
   private readonly statusDot: Phaser.GameObjects.Arc;
+  /** Insignia destacada junto al nombre (un logro que tiene; la valida el servidor). */
+  private badge?: { id: string; img: Phaser.GameObjects.Image };
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
   /** Emote sobre la cabeza (un globo con dibujo) y el baile, si está bailando. */
@@ -149,6 +179,8 @@ export class Avatar {
   private dance?: { timer: Phaser.Time.TimerEvent; step: number };
   /** Gesto de un emote en curso (`t` = ms desde que empezó) y el brazo que saluda, si va. */
   private gesture?: { kind: EmoteGesture; t: number; timer: Phaser.Time.TimerEvent; arm?: Phaser.GameObjects.Image };
+  /** Insignias sobre el nombre (ver setBadges) y cuáles son, para no rearmarlas si no cambian. */
+  private badgeRow?: { key: string; container: Phaser.GameObjects.Container };
   /** Cuenta regresiva de una foto (3-2-1) sobre la cabeza. */
   private countdownBubble?: { container: Phaser.GameObjects.Container; timer: Phaser.Time.TimerEvent };
   /** Lo que lleva en las manos (pedido en la cafetería o el bar); `clearing` = se quita al terminar de usarlo. */
@@ -177,6 +209,11 @@ export class Avatar {
   private readonly bornAt = performance.now();
   /** Tipo del asiento en el que está (para saber si el respaldo lo tapa mientras gira). */
   private seatType = "";
+  /**
+   * Teléfono: a quien le suena, un globo con el teléfono que vibra; llamando o hablando, el auricular en
+   * la oreja y (hablando) un globo con ondas de voz.
+   */
+  private phone?: { phase: string; bubble?: Phaser.GameObjects.Image; handset?: Phaser.GameObjects.Image; timer: Phaser.Time.TimerEvent; frame: 0 | 1; shake: number };
   /** Girando en la silla: hacia dónde mira en este momento del giro. */
   private spinning?: { tween: Phaser.Tweens.Tween; face: Direction };
 
@@ -258,6 +295,7 @@ export class Avatar {
     this.hidden = hidden;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
     if (this.swimming) this.shadow.setVisible(false);
+    this.badge?.img.setVisible(!hidden);
     this.ride?.img.setVisible(!hidden);
     if (this.ride) this.shadow.setVisible(false);
     for (const part of this.held?.parts ?? []) part.image.setVisible(!hidden && part.left > 0);
@@ -266,6 +304,9 @@ export class Avatar {
     this.emoteBubble?.container.setVisible(!hidden);
     this.gesture?.arm?.setVisible(!hidden);
     this.countdownBubble?.container.setVisible(!hidden);
+    this.badgeRow?.container.setVisible(!hidden);
+    this.phone?.bubble?.setVisible(!hidden);
+    this.phone?.handset?.setVisible(!hidden);
     this.video?.dom.setVisible(!hidden);
   }
 
@@ -284,8 +325,73 @@ export class Avatar {
     this.bubble?.setAlpha(a);
     this.emoteBubble?.container.setAlpha(a);
     this.gesture?.arm?.setAlpha(a);
+    this.phone?.bubble?.setAlpha(a);
+    this.phone?.handset?.setAlpha(a);
   }
   private veiled = false;
+
+  /** La insignia destacada ("" o un id que no es de un logro = ninguna). */
+  setBadge(achievementId: string) {
+    if ((this.badge?.id ?? "") === achievementId) return;
+    this.badge?.img.destroy();
+    this.badge = undefined;
+    const a = achievementId ? achievementById(achievementId) : undefined;
+    if (a) {
+      const key = ensureTexture(this.scene, `insignia-chica-${a.icon}-${a.rarity}`, () => drawMiniBadge(a.icon, a.rarity));
+      const img = this.scene.add.image(0, 0, key).setOrigin(0, 0.5).setVisible(!this.hidden);
+      this.badge = { id: achievementId, img };
+    }
+    this.refreshLabel();
+    this.layout();
+  }
+
+  /**
+   * Insignias sobre el nombre: el gorrito de quien cumple años, el tomatito de quien está en foco y el
+   * micrófono de quien canta en el karaoke. Se mecen un poquito, en fila.
+   */
+  setBadges(badges: AvatarBadge[]) {
+    const key = badges.join(",");
+    if (key === (this.badgeRow?.key ?? "")) return;
+    this.badgeRow?.container.destroy();
+    this.badgeRow = undefined;
+    if (badges.length > 0) {
+      const images = badges.map((b, i) => {
+        const tex = ensureTexture(this.scene, `insignia-${b}`, () => BADGE_ART[b]());
+        return this.scene.add.image((i - (badges.length - 1) / 2) * 10, 0, tex).setOrigin(0.5, 1);
+      });
+      const container = this.scene.add.container(0, 0, images).setVisible(!this.hidden);
+      this.scene.tweens.add({ targets: images, y: -1, duration: 700, yoyo: true, repeat: -1, ease: "Sine.inOut", delay: (_t: unknown, _k: unknown, _v: unknown, i: number) => i * 180 });
+      this.badgeRow = { key, container };
+      this.refreshLabel();
+    }
+    this.layout();
+  }
+
+  /** Confeti que salta sobre la cabeza (lo felicitaron por su cumpleaños). */
+  confetti(colors: readonly (readonly number[])[]) {
+    if (this.hidden) return;
+    const s = worldToScreen(this.wx, this.wy);
+    const depth = 6e7 + depthOf(this.wx, this.wy) + 0.3;
+    for (let i = 0; i < 24; i++) {
+      const c = colors[i % colors.length]!;
+      const bit = this.scene.add
+        .rectangle(Math.round(s.x), Math.round(s.y) - HEAD, i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 1 : 2, (c[0]! << 16) | (c[1]! << 8) | c[2]!)
+        .setDepth(depth)
+        .setAlpha(this.veiled ? 0 : 1);
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+      const speed = 18 + Math.random() * 22;
+      this.scene.tweens.add({
+        targets: bit,
+        x: bit.x + Math.cos(angle) * speed,
+        y: bit.y + Math.sin(angle) * speed + 26,
+        angle: Math.random() * 360,
+        alpha: 0,
+        duration: 1200 + Math.random() * 700,
+        ease: "Quad.out",
+        onComplete: () => bit.destroy(),
+      });
+    }
+  }
 
   /**
    * Sin nombre ni punto de estado: en el modo mesa la cámara se acerca tanto que el nombre (que crece con
@@ -324,6 +430,11 @@ export class Avatar {
     // Los cortos van un poco transparentes para no tapar muebles ni a otros; el del mouse, encima de todo.
     this.label.setAlpha(shown ? (full ? 1 : 0.82) : 0);
     this.statusDot.setAlpha(shown ? 1 : 0);
+    // La insignia va con el nombre: se esconde con él (modo mesa, velo, nombres ocultos).
+    this.badge?.img.setAlpha(shown ? 1 : 0);
+    // Las insignias (gorrito, tomatito, micrófono) siguen al nombre: sin él (modo mesa, velo, nombres
+    // ocultos) tampoco se ven; al pasar el mouse, sí.
+    this.badgeRow?.container.setAlpha(!this.nameHidden && !this.veiled && (this.nameMode !== "oculto" || this.hovered) ? 1 : 0);
   }
 
   setStatus(status: PresenceStatus) {
@@ -707,7 +818,7 @@ export class Avatar {
     const to = worldToScreen(a.x, a.y);
     const dx = Math.round(to.x) - Math.round(from.x);
     const dy = Math.round(to.y) - Math.round(from.y);
-    const objects = [this.label, this.statusDot, this.speakingRing, this.bubble, this.emoteBubble?.container, this.video?.dom];
+    const objects = [this.label, this.statusDot, this.badge?.img, this.speakingRing, this.bubble, this.emoteBubble?.container, this.badgeRow?.container, this.phone?.bubble, this.phone?.handset, this.video?.dom];
     for (const o of objects) if (o) o.setPosition(o.x + dx, o.y + dy);
   }
 
@@ -1166,7 +1277,7 @@ export class Avatar {
     const face = this.seated ?? this.dir;
     const { side, dx } = WAVE_SIDE[face];
     const { key, shoulder } = armTexture(this.scene, this.textureKey, side, Math.floor(g.t / 200));
-    const up = SHOULDER_UP - (this.seated ? 3 : 0);
+    const up = SHOULDER_UP - (this.seated ? SIT_DROP : 0);
     g.arm
       .setTexture(key)
       .setPosition(x + dx - shoulder.x, y + 1 - up - shoulder.y)
@@ -1402,16 +1513,61 @@ export class Avatar {
     if (!this.wet || time < this.nextDripAt) return;
     this.nextDripAt = time + 260 + Math.random() * 420;
     const key = ensureTexture(this.scene, "gota-piscina", () => waterDroplet());
-    const top = this.seated ? 18 : 22;
+    const top = BODY_UP.shoulder - (this.seated ? SIT_DROP : 0);
     const drop = this.scene.add
       .image(Math.round(s.x) + Math.round((Math.random() - 0.5) * 10), Math.round(s.y) - top + Math.round(Math.random() * 10), key)
       .setDepth(depthOf(this.wx, this.wy) + 0.62);
     this.scene.tweens.add({ targets: drop, y: Math.round(s.y) + 1, alpha: 0.3, duration: 420 + Math.random() * 200, ease: "Quad.in", onComplete: () => drop.destroy() });
   }
 
+  /** Fase del teléfono (CallPhase del servidor): "", "calling", "ringing" o "talking". */
+  setCall(phase: string) {
+    if ((this.phone?.phase ?? "") === phase) return;
+    this.clearPhone();
+    if (!phase) return this.layout();
+    const scene = this.scene;
+    for (const f of [0, 1] as const) {
+      ensureTexture(scene, `telefono-globo-${f}`, () => phoneBubble(f));
+      ensureTexture(scene, `telefono-voz-${f}`, () => phoneBubble(f, true));
+    }
+    ensureTexture(scene, "telefono-auricular", () => handsetSprite());
+    const ringing = phase === "ringing";
+    const bubbleImg = ringing || phase === "talking" ? scene.add.image(0, 0, ringing ? "telefono-globo-0" : "telefono-voz-0").setOrigin(0.5, 1) : undefined;
+    const handset = ringing ? undefined : scene.add.image(0, 0, "telefono-auricular").setOrigin(0.5, 0.5);
+    const phone: NonNullable<Avatar["phone"]> = {
+      phase,
+      bubble: bubbleImg,
+      handset,
+      frame: 0,
+      shake: 0,
+      // Sonando, vibra rápido; hablando, las ondas van más lento.
+      timer: scene.time.addEvent({
+        delay: ringing ? 70 : 400,
+        loop: true,
+        callback: () => {
+          phone.frame = phone.frame ? 0 : 1;
+          phone.shake = ringing ? (phone.frame ? 1 : -1) : 0;
+          phone.bubble?.setTexture(`${ringing ? "telefono-globo" : "telefono-voz"}-${phone.frame}`);
+          this.layout();
+        },
+      }),
+    };
+    for (const o of [bubbleImg, handset]) o?.setVisible(!this.hidden).setAlpha(this.veiled ? 0 : 1);
+    this.phone = phone;
+    this.layout();
+  }
+
+  private clearPhone() {
+    this.phone?.timer.remove();
+    this.phone?.bubble?.destroy();
+    this.phone?.handset?.destroy();
+    this.phone = undefined;
+  }
+
   destroy() {
     this.destroyed = true;
     this.dive?.tween?.remove();
+    this.clearPhone();
     this.spinning?.tween.remove();
     this.clearVideo();
     this.clearHeld();
@@ -1421,6 +1577,7 @@ export class Avatar {
     this.emoteBubble?.tween.remove();
     this.emoteBubble?.container.destroy();
     this.clearCountdown();
+    this.badgeRow?.container.destroy();
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
     this.ride?.img.destroy();
@@ -1428,6 +1585,7 @@ export class Avatar {
     this.shadow.destroy();
     this.label.destroy();
     this.statusDot.destroy();
+    this.badge?.img.destroy();
     this.speakingRing.destroy();
   }
 
@@ -1460,10 +1618,10 @@ export class Avatar {
       const face = this.spinning?.face ?? this.seated ?? this.dir;
       const hands = HANDS[face];
       const front = face === "down" || face === "right";
-      // Sentado, las manos quedan 3 px más abajo (sobre las piernas) y la boca también. Nadando, todo baja
-      // con el cuerpo (el vaso asoma sobre el agua).
+      // Sentado, las manos quedan más abajo (sobre las piernas) y la boca también. Nadando, todo baja con
+      // el cuerpo (el vaso asoma sobre el agua).
       const drop = this.swimming ? SWIM_DROP - 3 : 0;
-      const bottom = y + 1 - hop - (this.seated ? 2 : 5) + drop;
+      const bottom = y + 1 - hop - (BODY_UP.hand - 1 - (this.seated ? SIT_DROP : 0)) + drop;
       const mouthX = x + g.x + MOUTH[face].dx;
       const mouthY = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING) + drop;
       for (const part of this.held.parts) {
@@ -1484,25 +1642,41 @@ export class Avatar {
       }
     }
     // Con cámara, el nombre va sobre la burbuja de video. Los textos van por encima de todo.
-    const head = HEAD - (this.seated ? 3 : 0) - (this.swimming ? SWIM_DROP - 2 : 0);
+    const head = HEAD - (this.seated ? SIT_DROP : 0) - (this.swimming ? SWIM_DROP - 2 : 0);
     const top = this.video ? head + VIDEO_SIZE + 2 : head;
     this.video?.dom.setPosition(x, y - head + 2).setDepth(depth + 0.6);
     this.label.setPosition(x + 3, y - top).setDepth((this.hovered ? 5.5e7 : 5e7) + depth);
     this.statusDot.setPosition(x + 3 - this.label.width / 2 - 4, y - top - this.label.height / 2).setDepth(5e7 + depth + 0.1);
-    this.bubble?.setPosition(x, y - top - this.label.height - 1).setDepth(6e7 + depth);
+    // La insignia, pegada al otro lado del nombre (a píxel entero, para que el dibujo quede nítido).
+    this.badge?.img.setPosition(Math.round(x + 3 + this.label.width / 2 + 1), Math.round(y - top - this.label.height / 2)).setDepth(5e7 + depth + 0.1);
+    // Las insignias van justo sobre el nombre; los globos, encima de ellas.
+    const badgeH = this.badgeRow ? BADGE_ROW_H : 0;
+    this.badgeRow?.container.setPosition(x + 3, y - top - this.label.height - 1).setDepth(5e7 + depth + 0.2);
+    this.bubble?.setPosition(x, y - top - this.label.height - 1 - badgeH).setDepth(6e7 + depth);
     if (this.emoteBubble) {
       // Sobre el nombre; si hay globo de chat, encima de él.
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       this.emoteBubble.container
-        .setPosition(x, y - top - this.label.height - 1 - chat - this.emoteBubble.lift)
+        .setPosition(x, y - top - this.label.height - 1 - badgeH - chat - this.emoteBubble.lift)
         .setDepth(6e7 + depth + 0.1);
+    }
+    if (this.phone) {
+      const face = this.spinning?.face ?? this.seated ?? this.dir;
+      // El auricular va pegado a la cabeza, del lado de la oreja que se ve.
+      const side = face === "left" || face === "down" ? -1 : 1;
+      const ear = y + 1 - hop - (this.seated ? MOUTH_SEATED : MOUTH_STANDING) - 4;
+      this.phone.handset?.setPosition(x + g.x + side * 6, ear).setFlipX(side < 0).setDepth(depth + 0.56);
+      // El globo, sobre el nombre (a la derecha del emote, si hay uno).
+      const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
+      const beside = this.emoteBubble ? 14 : 0;
+      this.phone.bubble?.setPosition(x + beside + this.phone.shake, y - top - this.label.height - 1 - badgeH - chat).setDepth(6e7 + depth + 0.12);
     }
     this.shiftOverlays();
     if (this.countdownBubble) {
       // Encima del emote y del globo de chat, si hay.
       const chat = this.bubble ? (this.bubble.list[0] as Phaser.GameObjects.Image).height : 0;
       const emote = this.emoteBubble ? 14 : 0;
-      this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - chat - emote).setDepth(6e7 + depth + 0.15);
+      this.countdownBubble.container.setPosition(x, y - top - this.label.height - 1 - badgeH - chat - emote).setDepth(6e7 + depth + 0.15);
     }
   }
 }

@@ -119,7 +119,7 @@ export function LookPreview({ look, className = "" }: { look: LookInput; classNa
         className="relative cursor-grab touch-pan-y border-2 border-cozy-frame bg-[#5d9c46] shadow-[inset_0_0_0_2px_#4f8a3c] outline-none select-none focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-cozy-red active:cursor-grabbing"
       >
         {/* Escala entera (x4, o x6 si hay lugar) para que los píxeles midan todos lo mismo. */}
-        <canvas ref={canvasRef} width={FRAME} height={H} className="pixelated block h-auto w-32 @xl:[@media(min-height:560px)]:w-48" />
+        <canvas ref={canvasRef} width={FRAME} height={H} className="pixelated block h-auto w-40 @xl:[@media(min-height:560px)]:w-60" />
       </div>
 
       <div className="flex flex-col gap-2 @max-xl:w-40">

@@ -9,18 +9,25 @@ export * from "./chibi";
 export { drawSwimming, SWIM_DROP } from "./chibi-agua";
 export { poolCover, poolFloat, poolShimmer, POOL_SHIMMER_FRAMES, waterDroplet, waterRing, type PoolFloatKind } from "./agua";
 export { drawFurniture, type Variant } from "./furniture";
+export { handsetSprite, phoneBubble } from "./phone";
 export { CABIN_CHIMNEY_TOP, CHIMNEY_TOPS } from "./outdoor";
 export { composeArea } from "./compose";
 export { CAFE_ITEM_ART, crumb, crumbColor, drawCafeItem, drawHeldItem, drawMenuItem, emberGlow, heldEffect, puff, wisp, type HeldArtState, type HeldEffect } from "./items";
 export { drawEmote, EMOTE_ART } from "./emotes";
 export { drawReaction, REACTION_ART, REACTION_SIZE } from "./reactions";
+export { BILL_DENOMINATIONS, BILL_FRAMES, BILL_H, BILL_W, billsFor, drawBill } from "./tips";
 export { emoteFrames, EMOTE_H, EMOTE_W } from "./emotes";
 export { giftBox, wavingArm, GIFT_BOX_FRAMES, GIFT_BOX_H, GIFT_BOX_W } from "./social";
 export { photoBoardPhotos, PHOTO_BOARD_PIC, PHOTO_BOARD_SLOTS, type PhotoThumb } from "./photos";
+// El acuario de la sala (los peces que nadan son capas) y los post-its de las puertas de las oficinas.
+export { ACUARIO_SWIM, aquariumBubble, miniFish, MINI_FISH_H, MINI_FISH_W } from "./acuario";
+export { doorNotesArt } from "./door-notes";
 export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvScreenOn, vinylSpin } from "./usables";
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // Clima y fauna del jardín (ver apps/web/src/game/weather.ts y critters.ts).
 export { cloudShadow, fogBank, puddle, rainSplash, raindrop, RAIN_SLANT } from "./weather";
+// Las estaciones (ver apps/web/src/game/seasons.ts).
+export { fallingLeaf, fallingPetal, flowerTuft, leafLitter, snowflake, snowPatch } from "./estaciones";
 export {
   drawBee,
   drawBird,
@@ -39,6 +46,11 @@ export {
 export { bedCropSprite, cropSprite, wetSoil, type CropStage } from "./huerto";
 // Logros: las insignias del perfil y el destello al desbloquear uno.
 export { BADGE_SIZE, drawBadge, drawBadgeGlyph, hasBadgeArt, sparkleSprite } from "./badges";
+// Logros a la vista: la insignia chica del nombre y los trofeos de la vitrina de las oficinas.
+export { drawMiniBadge, hasMiniBadge, MINI_BADGE_SIZE } from "./insignias";
+export { trophyCase, trophyShelf, TROPHY_CASE_SLOTS } from "./trofeos";
+// Eventos del calendario y modo foco: lo de sobre la cabeza, el pastel, el micrófono y el neón del karaoke.
+export { CONFETTI_COLORS, eventOverlays, focusTomato, partyHat, singerMic, type EventOverlay } from "./eventos";
 // Pesca: los peces del catálogo, la basura y las piezas del minijuego.
 export { BAR as FISHING_BAR, biteMark, bobber, drawFish, drawFishingBar, fishIcon, hasFishArt, treasureChest, FISH_H, FISH_W, ROD_COLORS, type BarState } from "./fish";
 // Club y arcade: los bailes del chibi y las capas que se encienden (pista, tarima, cabina, parlantes, pantallas).
@@ -61,6 +73,20 @@ export { CINEMA_SCREEN, drawAreaBase, drawDoorPost, drawLowWall, drawRoomWalls, 
 // Casino: tipografía de números, geometría de las mesas, el arte del modo mesa y su encuadre. Con
 // nombres explícitos (no `export *`): así un nombre genérico no choca con lo que agreguen otras partes.
 export { textMask } from "./digits";
+// Ajedrez y damas de la sala de juegos: el tablero del panel de la mesa, con sus piezas y marcas.
+export {
+  boardArt,
+  cellOfSquare,
+  checkersPieceArt,
+  chessPieceArt,
+  squareAtCell,
+  squareAtPoint,
+  BOARD_FRAME,
+  BOARD_PX,
+  BOARD_SQ,
+  type BoardArtGame,
+  type BoardArtOptions,
+} from "./boardgames";
 export {
   betKey,
   rouletteCellAt,
@@ -188,4 +214,4 @@ export {
   FLAME_FRAMES,
   type FlameSize,
 } from "./casa-fx";
-export { drawPet, petTreat, sleepZ, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
+export { drawPet, petBowl, petTreat, sleepZ, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";

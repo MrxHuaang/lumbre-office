@@ -11,6 +11,8 @@ import {
   type KnockResult,
   type OfficeEditResult,
   type OfficeItemDTO,
+  type FocusPhase,
+  type FocusPresetId,
   type OfficeRadioState,
   type PointsAwarded,
   type PresenceStatus,
@@ -40,6 +42,13 @@ export interface PlayerInfo {
   /** Lo que lleva en la mano (id de la carta) y los usos que le quedan a cada mano ("4,5"). */
   held: string;
   heldLeft: string;
+  /** Modo foco: la fase ("" sin foco), cuándo termina (hora del servidor) y el preset. */
+  focus: FocusPhase;
+  focusEndsAt: number;
+  focusPreset: FocusPresetId | "";
+  /** Teléfono (CallPhase: "", "calling", "ringing", "talking") y con quién (userId). */
+  call: string;
+  callWith: string;
 }
 
 /**
@@ -55,14 +64,27 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "snacks"
   // El hockey de mesa del arcade (se juega en modo mesa, parado en una punta).
   | "hockey"
+  // Ajedrez y damas de la sala de juegos (piso 3): se juega sentado en una silla de la mesa o se mira.
+  | "boardgame"
   // Carrera de sillas: la salida junto a la bandera del pasillo del piso 2.
   | "race"
+  // El acuario del salón (planta baja): qué peces nadan y quién los sacó.
+  | "aquarium"
+  // El teléfono de escritorio (oficinas y recepción): el directorio para llamar.
+  | "phone"
   // Jardín vivo: el cobertizo del huerto (la regadera y las semillas).
   | "shed"
   // La piscina: meterse por la escalera, tirarse del trampolín y (nadando, junto al borde) salir.
   | "pool"
   | "dive"
-  | "swimOut";
+  | "swimOut"
+  // La vitrina de trofeos de cada oficina (los logros de su dueño).
+  | "trophies"
+  // La cocina de la planta baja: la estufa (cocinar con lo del huerto y la miel).
+  | "kitchen";
+
+/** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
+export const PET_USABLE_PREFIX = "mascota:";
 
 /** Mueble que se usa al alcance (tele, lámpara, piano…): para la ayuda "E" y el botón. */
 export interface UsableNear {
@@ -81,7 +103,14 @@ export interface ToastPrompt {
 }
 
 /** Paneles sobre la cabaña: los de los objetos y la mochila (se abre desde el HUD). */
-export type PanelKind = Interactable | "backpack" | "fishAlbum" | "whiteboard";
+export type PanelKind =
+  | Interactable
+  | "backpack"
+  | "fishAlbum"
+  | "whiteboard"
+  // Notas en la puerta: escribir una en la puerta de otra oficina, o leer las de la tuya.
+  | "doorNote"
+  | "doorNotes";
 
 export interface OfficeView {
   zoneId: string;
@@ -91,6 +120,8 @@ export interface OfficeView {
   locked: boolean;
   /** Nota de la placa de la puerta (la pone el dueño). */
   note: string;
+  /** Notas sin leer que le dejaron al dueño en la puerta (se ven como post-its). */
+  notes: number;
   /** La radio de la oficina (suena solo adentro), o null si está apagada. */
   radio: OfficeRadioState | null;
   guests: string[];
@@ -161,6 +192,8 @@ interface OfficeStore {
   atSwivel: boolean;
   /** El asiento de la ayuda "E" es una reposera de la piscina (se lee "tomar el sol"). */
   seatSun: boolean;
+  /** Sentado con un teléfono al alcance (de pie, el teléfono sale como objeto con "E"). */
+  atPhone: boolean;
   /** Se puede brindar (B): invitar a alguien cerca con bebida, o sumarse al brindis de al lado. */
   toastPrompt: ToastPrompt | null;
   /** El PC está prendido: el mapa no responde a clics ni teclas. */
@@ -192,6 +225,16 @@ interface OfficeStore {
   /** Reloj del juego (lo lleva el servidor: `state.clockAnchor*`); null hasta que llega. Ver game/gameClock.ts. */
   gameClock: GameClockState | null;
   setGameClock: (clock: GameClockState) => void;
+  /** Quienes cumplen años hoy (userId → nombre) y si el club está en modo karaoke (`state.events`). */
+  birthdays: Record<string, string>;
+  karaoke: boolean;
+  setEvents: (e: { birthdays: Record<string, string>; karaoke: boolean }) => void;
+  /** A quiénes ya felicité hoy (para no ofrecer el botón otra vez). */
+  congratulated: Record<string, true>;
+  markCongratulated: (userId: string) => void;
+  /** Confeti en pantalla: cambia cada vez que hay que tirarlo (0 = nunca). */
+  confetti: number;
+  throwConfetti: () => void;
   /** Ya se dibujó el primer nivel (el jardín grande tarda un poco: mientras, el cartel de "Entrando"). */
   mapReady: boolean;
   setMapReady: (ready: boolean) => void;
@@ -233,6 +276,7 @@ interface OfficeStore {
   setAtComputer: (at: boolean) => void;
   setAtSwivel: (at: boolean) => void;
   setSeatSun: (sun: boolean) => void;
+  setAtPhone: (at: boolean) => void;
   setToastPrompt: (prompt: ToastPrompt | null) => void;
   setPcOn: (on: boolean) => void;
   setPendingKnock: (zoneId: string | null) => void;
@@ -318,6 +362,7 @@ const initial = {
   atComputer: false,
   atSwivel: false,
   seatSun: false,
+  atPhone: false,
   toastPrompt: null as ToastPrompt | null,
   pcOn: false,
   pendingKnock: null,
@@ -331,6 +376,10 @@ const initial = {
   indoors: false,
   weather: "despejado" as Weather,
   gameClock: null as GameClockState | null,
+  birthdays: {} as Record<string, string>,
+  karaoke: false,
+  congratulated: {} as Record<string, true>,
+  confetti: 0,
   mapReady: false,
   interact: null as Interactable | null,
   usable: null as UsableNear | null,
@@ -384,6 +433,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   setAtComputer: (atComputer) => set({ atComputer }),
   setAtSwivel: (atSwivel) => set({ atSwivel }),
   setSeatSun: (seatSun) => set({ seatSun }),
+  setAtPhone: (atPhone) => set({ atPhone }),
   setToastPrompt: (toastPrompt) => set({ toastPrompt }),
   setPcOn: (pcOn) => set({ pcOn }),
   setPendingKnock: (pendingKnock) => set({ pendingKnock }),
@@ -431,6 +481,9 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   },
   setWeather: (weather) => set({ weather }),
   setGameClock: (gameClock) => set({ gameClock }),
+  setEvents: ({ birthdays, karaoke }) => set({ birthdays, karaoke }),
+  markCongratulated: (userId) => set((s) => ({ congratulated: { ...s.congratulated, [userId]: true } })),
+  throwConfetti: () => set({ confetti: Date.now() }),
   setMapReady: (mapReady) => set({ mapReady }),
   setInteract: (interact) => set({ interact }),
   setUsable: (usable) => set({ usable }),
@@ -443,12 +496,18 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   pickDecor: (decorPick, facing) => set((s) => ({ decorPick, decorFacing: facing ?? s.decorFacing })),
   rotateDecor: () => set((s) => ({ decorFacing: TURN[s.decorFacing] })),
   setDecorResult: (r) => set({ decorResult: { ...r, id: ++noticeId } }),
-  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls, nameTags: s.nameTags })),
+  // Las felicitaciones de hoy sobreviven a una reconexión (el servidor igual las recuerda).
+  reset: () => set((s) => ({ ...initial, zoneNames: s.zoneNames, night: s.night, privateWalls: s.privateWalls, nameTags: s.nameTags, congratulated: s.congratulated })),
 }));
 
 /** User.id del jugador local. */
 export function selectMyUserId(s: Pick<OfficeStore, "sessionId" | "players">): string | null {
   return s.sessionId ? (s.players[s.sessionId]?.userId ?? null) : null;
+}
+
+/** ¿Estoy en un bloque de enfoque? (el chat no suena ni muestra el contador mientras tanto). */
+export function selectFocusing(s: Pick<OfficeStore, "sessionId" | "players">): boolean {
+  return Boolean(s.sessionId && s.players[s.sessionId]?.focus === "work");
 }
 
 /** Oficina de la que el jugador local es dueño. */

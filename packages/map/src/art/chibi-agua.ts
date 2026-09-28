@@ -2,12 +2,12 @@
 // hoja de caminata ya dibujada (cualquier Look sirve): se recorta a la altura del pecho, se baja para que
 // la línea del agua quede junto a los pies y se le pone la onda (la mitad de atrás detrás del cuerpo y la
 // de adelante encima). Los cuadros de la brazada son los del paso (los brazos ya se mueven).
-import { FEET_Y, FRAME, FRAMES, SHEET_DIRECTIONS } from "./chibi";
+import { BODY_Y, FEET_Y, FRAME, FRAMES, SHEET_DIRECTIONS } from "./chibi";
 import { POOL_WATER } from "./agua";
 import { PixelCanvas, alpha, at, type RGBA } from "./pixel";
 
-/** Fila de la hoja de caminata donde se corta (a la altura del pecho). */
-export const SWIM_CUT = 21;
+/** Fila de la hoja de caminata donde se corta (a la altura del pecho: la fila 16 del cuerpo, ver kit.ts). */
+export const SWIM_CUT = BODY_Y + 16;
 /** Fila de la hoja de nado donde queda la línea del agua (un poco más abajo que los pies). */
 export const SWIM_WATERLINE = FEET_Y + 1;
 /** Cuánto baja el dibujo nadando: el nombre y las burbujas bajan lo mismo. */
@@ -15,7 +15,7 @@ export const SWIM_DROP = SWIM_WATERLINE - SWIM_CUT;
 
 /** Onda alrededor del cuerpo: `front` = la mitad de adelante (debajo de la línea del agua). */
 function ring(c: PixelCanvas, ox: number, frame: number, front: boolean) {
-  const cx = ox + 16;
+  const cx = ox + FRAME / 2;
   const cy = SWIM_WATERLINE;
   const rx = 8.5;
   const ry = 2.6;

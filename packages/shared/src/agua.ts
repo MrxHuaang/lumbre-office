@@ -27,8 +27,8 @@ export const AGUA = {
 export const SUN_SEATS: readonly string[] = ["sun-lounger"];
 export const isSunSeat = (type: string) => SUN_SEATS.includes(type);
 
-/** Con lluvia o tormenta la piscina se tapa con la lona: nadie nada. */
-export const poolCovered = (w: Weather) => isWet(w);
+/** Con lluvia, tormenta o nieve la piscina se tapa con la lona: nadie nada. */
+export const poolCovered = (w: Weather) => isWet(w) || w === "nieve";
 /** Se toma el sol solo con el cielo despejado y de día (del juego). */
 export const sunny = (w: Weather, night: boolean) => w === "despejado" && !night;
 
@@ -65,10 +65,10 @@ export interface AguaNotice {
 }
 
 export const AGUA_NOTICES: Record<AguaNoticeCode, string> = {
-  covered: "La piscina está tapada con la lona mientras llueve.",
+  covered: "La piscina está tapada con la lona mientras llueve o nieva.",
   far: "Acércate un poco más.",
   busy: "Primero levántate o sal del agua.",
   edge: "Nada hasta el borde para salir.",
   wait: "Toma aire un segundo antes de volver a saltar.",
-  rain: "Empezó a llover: todos fuera de la piscina. La taparon con la lona.",
+  rain: "Se dañó el tiempo: todos fuera de la piscina. La taparon con la lona.",
 };
