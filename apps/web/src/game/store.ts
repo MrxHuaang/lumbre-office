@@ -1,5 +1,6 @@
 import {
   KNOCK_TIMEOUT_MS,
+  type GameClockState,
   type ChatEvent,
   type ChatScope,
   type Direction,
@@ -182,6 +183,9 @@ interface OfficeStore {
   /** Clima de afuera (lo decide el servidor: `state.weather`). */
   weather: Weather;
   setWeather: (weather: Weather) => void;
+  /** Reloj del juego (lo lleva el servidor: `state.clockAnchor*`); null hasta que llega. Ver game/gameClock.ts. */
+  gameClock: GameClockState | null;
+  setGameClock: (clock: GameClockState) => void;
   /** Ya se dibujó el primer nivel (el jardín grande tarda un poco: mientras, el cartel de "Entrando"). */
   mapReady: boolean;
   setMapReady: (ready: boolean) => void;
@@ -318,6 +322,7 @@ const initial = {
   nameTags: loadNameTags(),
   indoors: false,
   weather: "despejado" as Weather,
+  gameClock: null as GameClockState | null,
   mapReady: false,
   interact: null as Interactable | null,
   usable: null as UsableNear | null,
@@ -416,6 +421,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     get().setNameTags(NAME_TAG_MODES[(i + 1) % NAME_TAG_MODES.length]!);
   },
   setWeather: (weather) => set({ weather }),
+  setGameClock: (gameClock) => set({ gameClock }),
   setMapReady: (mapReady) => set({ mapReady }),
   setInteract: (interact) => set({ interact }),
   setUsable: (usable) => set({ usable }),

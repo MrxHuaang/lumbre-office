@@ -130,6 +130,14 @@ import {
   STAT_PREFIX,
   type AchievementUnlockedEvent,
   type FishSpecies,
+  addGameTime,
+  formatGameTime,
+  gameTime,
+  initialClock,
+  parseTimeCommand,
+  setGameTime,
+  type GameClockState,
+  type GameTime,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
 import { randomInt, randomUUID } from "node:crypto";
@@ -251,6 +259,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static weatherRandom: () => number = () => randomInt(2 ** 30) / 2 ** 30;
   static weatherNow: () => number = () => Date.now();
   static weatherInitial: Weather | null = null;
+  /** Reloj real para el reloj del juego y hora con la que arranca (los tests los fijan; null = la de Bogotá). */
+  static gameClockNow: () => number = () => Date.now();
+  static gameClockInitial: GameClockState | null = null;
   /** Cada cuánto se guardan juntas las estadísticas de los logros (los tests lo acortan). */
   static statsFlushMs = 20_000;
 
@@ -614,6 +625,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }, 500);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
     this.weather.start();
+    this.setGameClock(OfficeRoom.gameClockInitial ?? initialClock(OfficeRoom.gameClockNow()));
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
@@ -1437,6 +1449,43 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return true;
   }
 
+  /** Reloj del juego de la sala (el mismo que ven todos en `state`). */
+  gameClock(): GameClockState {
+    return { anchorReal: this.state.clockAnchorReal, anchorMinute: this.state.clockAnchorMinute };
+  }
+
+  /** Hora del juego ahora. */
+  gameTimeNow(): GameTime {
+    return gameTime(this.gameClock(), OfficeRoom.gameClockNow());
+  }
+
+  private setGameClock(c: GameClockState) {
+    this.state.clockAnchorReal = c.anchorReal;
+    this.state.clockAnchorMinute = c.anchorMinute;
+  }
+
+  /**
+   * "/time" (o "/hora"): cualquiera pregunta la hora; solo los admins la cambian (set/add, como en
+   * Minecraft). La respuesta le llega solo a quien escribió. Devuelve si era el comando.
+   */
+  private timeCommand(client: Client<UserData>, text: string): boolean {
+    const cmd = parseTimeCommand(text);
+    if (!cmd) return false;
+    const note = (msg: string) =>
+      client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Reloj", text: msg, scope: "proximity", zoneId: null, ts: Date.now() } satisfies ChatEvent);
+    if (cmd.kind !== "query") {
+      if (!client.userData?.admin) {
+        note("Solo un admin puede cambiar la hora.");
+        return true;
+      }
+      const now = OfficeRoom.gameClockNow();
+      this.setGameClock(cmd.kind === "set" ? setGameTime(this.gameClock(), now, cmd.minuteOfDay) : addGameTime(this.gameClock(), now, cmd.minutes));
+    }
+    const t = this.gameTimeNow();
+    note(`Día ${t.day + 1}, ${formatGameTime(t.minuteOfDay)}.`);
+    return true;
+  }
+
   private handleChat(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = ChatSendMessage.safeParse(raw);
@@ -1448,6 +1497,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     times.push(now);
     client.userData.chatTimes = times;
     if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text))) return;
+    if (this.timeCommand(client, parsed.data.text)) return;
     this.achievements.bump(player.userId, STAT_KEYS.chatMessages);
 
     const event: ChatEvent = {

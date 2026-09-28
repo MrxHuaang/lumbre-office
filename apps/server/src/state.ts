@@ -253,4 +253,10 @@ export class OfficeState extends Schema {
   @type({ map: GardenPlotState }) garden = new MapSchema<GardenPlotState>();
   /** Clima de afuera (Weather de @hyvento/shared); lo sortea la sala cada 10-25 min (ver rooms/weather.ts). */
   @type("string") weather = "despejado";
+  /**
+   * Reloj del juego (GameClockState de @hyvento/shared): en el instante real `clockAnchorReal` iban
+   * `clockAnchorMinute` minutos del juego. El cliente calcula la hora con su reloj; /time mueve el ancla.
+   */
+  @type("float64") clockAnchorReal = 0;
+  @type("float64") clockAnchorMinute = 0;
 }
