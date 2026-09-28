@@ -5,9 +5,10 @@ import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Jardín ----------
-// Una zona jugable de 64x56 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
-// pisa (ver docs/plan-rediseno.md). Todo lo de abajo está en coordenadas de la zona jugable (0..63,
-// 0..55) y se corre en M al ubicarlo en el nivel.
+// Una zona jugable de 80x64 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
+// pisa (ver docs/plan-rediseno.md). Todo lo de abajo está en coordenadas de la zona jugable (0..79,
+// 0..63) y se corre en M al ubicarlo en el nivel. Las franjas nuevas (x 64..79 al este, y 56..63 al sur)
+// son para las estructuras de docs/plan-estructuras.md.
 //
 //   norte: la casa al centro, el huerto con el cobertizo y el invernadero al oeste, el patio al este;
 //   centro: el camino de piedra del porche al portón, bifurcado hacia el huerto y hacia el lago;
@@ -15,8 +16,8 @@ import { CONEXIONES, hacia } from "./conexiones";
 
 /** Margen de bosque alrededor de la zona jugable. */
 const M = 10;
-const PW = 64;
-const PH = 56;
+const PW = 80;
+const PH = 64;
 const W = PW + M * 2;
 const H = PH + M * 2;
 
@@ -82,7 +83,7 @@ const PATHS: Seg[] = [
   { a: [39, 18], b: [39, 27], w: 2.6 },
   { a: [39, 27], b: [38.4, 37], w: 2.6 },
   { a: [38.4, 37], b: [39, 47], w: 2.6 },
-  { a: [39, 47], b: [39, 58], w: 2.6 },
+  { a: [39, 47], b: [39, PH + 2], w: 2.6 },
   // Hacia el huerto (oeste): bordea el jardín de flores y sube por el lado del pozo.
   { a: [38, 27.8], b: [31, 29.2], w: 2 },
   { a: [31, 29.2], b: [24, 27.6], w: 2 },
