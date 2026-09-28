@@ -33,6 +33,7 @@ export * from "./whiteboard";
 export * from "./office-radio";
 export * from "./chair-race";
 export * from "./weather";
+export * from "./clock";
 export * from "./estaciones";
 export * from "./cocina";
 export * from "./photos";

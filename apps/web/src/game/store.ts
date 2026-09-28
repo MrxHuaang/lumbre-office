@@ -1,5 +1,6 @@
 import {
   KNOCK_TIMEOUT_MS,
+  type GameClockState,
   type ChatEvent,
   type ChatScope,
   type Direction,
@@ -215,6 +216,9 @@ interface OfficeStore {
   /** Clima de afuera (lo decide el servidor: `state.weather`). */
   weather: Weather;
   setWeather: (weather: Weather) => void;
+  /** Reloj del juego (lo lleva el servidor: `state.clockAnchor*`); null hasta que llega. Ver game/gameClock.ts. */
+  gameClock: GameClockState | null;
+  setGameClock: (clock: GameClockState) => void;
   /** Quienes cumplen años hoy (userId → nombre) y si el club está en modo karaoke (`state.events`). */
   birthdays: Record<string, string>;
   karaoke: boolean;
@@ -363,6 +367,7 @@ const initial = {
   nameTags: loadNameTags(),
   indoors: false,
   weather: "despejado" as Weather,
+  gameClock: null as GameClockState | null,
   birthdays: {} as Record<string, string>,
   karaoke: false,
   congratulated: {} as Record<string, true>,
@@ -466,6 +471,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     get().setNameTags(NAME_TAG_MODES[(i + 1) % NAME_TAG_MODES.length]!);
   },
   setWeather: (weather) => set({ weather }),
+  setGameClock: (gameClock) => set({ gameClock }),
   setEvents: ({ birthdays, karaoke }) => set({ birthdays, karaoke }),
   markCongratulated: (userId) => set((s) => ({ congratulated: { ...s.congratulated, [userId]: true } })),
   throwConfetti: () => set({ confetti: Date.now() }),
