@@ -134,6 +134,13 @@ export function furnitureImage(scene: Phaser.Scene, f: FurniturePose, night: boo
   return { img, variant, flip, anchor };
 }
 
+/** Tiles de portal pegados a la sala (dentro o a un tile del borde): sus salidas en el modo privado. */
+function exitTiles(map: OfficeMap, rect: { x: number; y: number; w: number; h: number }) {
+  return map.portals
+    .flatMap((p) => p.tiles)
+    .filter((t) => t.x >= rect.x - 1 && t.x <= rect.x + rect.w && t.y >= rect.y - 1 && t.y <= rect.y + rect.h);
+}
+
 /** Rombo de un tile en pantalla (para la grilla y la huella del editor). */
 export function tileDiamond(tx: number, ty: number, ts: number): Phaser.Geom.Point[] {
   return [
@@ -599,6 +606,13 @@ export class AreaView {
       hole.map((p) => new Phaser.Math.Vector2(p.x - (b.x - m), p.y - (b.y - m))),
       true,
     );
+    // Las salidas de la sala (el tapete de la puerta, afuera del rectángulo) también se ven: si no, la
+    // puerta queda en la sombra y no se sabe por dónde salir.
+    for (const t of exitTiles(this.map, rect))
+      shape.fillPoints(
+        tileDiamond(t.x, t.y, ts).map((p) => new Phaser.Math.Vector2(p.x - (b.x - m), p.y - (b.y - m))),
+        true,
+      );
     shade.erase(shape);
     shape.destroy();
     objects.push(shade);
