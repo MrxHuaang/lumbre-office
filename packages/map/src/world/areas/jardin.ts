@@ -536,7 +536,7 @@ for (const [x, y] of [
   [71, 6],
   [81, 6],
   [80, 18],
-  [71, 16],
+  [70, 16],
 ])
   put("garden-lantern", x!, y!);
 
@@ -790,7 +790,7 @@ put("prep-table", 80, 28);
 put("menu-board", 71, 29, "down");
 put("woodpile", 82, 27);
 put("garden-lantern", 72, 27);
-put("garden-lantern", 81, 31);
+put("garden-lantern", 83, 31);
 for (const [tx, ty] of [
   [75, 33],
   [79, 33],

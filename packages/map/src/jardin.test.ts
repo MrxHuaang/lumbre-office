@@ -98,6 +98,22 @@ describe("jardín", () => {
     expect(problems).toEqual([]);
   });
 
+  it("ningún farol ni piedra suelta queda sobre el piso de piedra (senderos, placitas, patio), en ningún exterior", () => {
+    // Los faroles van a los costados del camino; los del muelle y los decks van sobre tablas (piso "dock").
+    const lamps = new Set(["lamp-post", "garden-lantern", "stage-lantern", "dock-lamp"]);
+    const rocks = new Set(["rock-small", "rock-medium", "rock-mossy", "boulder"]);
+    const problems: string[] = [];
+    for (const map of getWorld().areas.values()) {
+      if (!map.def.outdoor) continue;
+      for (const f of map.furniture) {
+        if (!lamps.has(f.type) && !rocks.has(f.type)) continue;
+        for (let y = f.y; y < f.y + f.d; y++)
+          for (let x = f.x; x < f.x + f.w; x++) if (map.floors[y * map.width + x] === "path") problems.push(`${map.id}: ${f.type} en (${x}, ${y})`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
   it("el observatorio: la placita frente a la puerta, la fogata, el jardín de piedras y el prado de las bancas", () => {
     const start = { x: spawnPoint(jardin).tileX, y: spawnPoint(jardin).tileY };
     const obs = jardin.furniture.find((f) => f.type === "observatory")!;
