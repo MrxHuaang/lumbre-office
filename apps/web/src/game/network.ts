@@ -1192,6 +1192,12 @@ async function reconnect(token: string, restart: boolean) {
         forgetOldSession();
         resetPhone();
       }
+      // La escena ya está andando y lee room.state cada cuadro: no se engancha hasta tener el primer estado.
+      await firstState(r);
+      if (gen !== generation) {
+        void r.leave(true).catch(() => undefined);
+        return;
+      }
       attach(r);
       return;
     } catch (err) {
@@ -1204,6 +1210,18 @@ async function reconnect(token: string, restart: boolean) {
     }
   }
   store.setConnection("error", "Se perdió la conexión con la cabaña.");
+}
+
+/** Espera el primer estado de una sala recién unida (con tope, para no colgar la reconexión). */
+function firstState(r: OfficeRoom): Promise<void> {
+  if (r.state?.players) return Promise.resolve();
+  return new Promise((res) => {
+    const timer = setTimeout(res, 5_000);
+    r.onStateChange.once(() => {
+      clearTimeout(timer);
+      res();
+    });
+  });
 }
 
 /** Entrar de nuevo con token nuevo (sesión nueva: aparece en el jardín, como al entrar). */
