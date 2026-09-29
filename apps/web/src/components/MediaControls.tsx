@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useFacilidadStore } from "@/game/facilidad";
 import { media, useMediaStore } from "@/game/media";
 import { NAME_TAG_LABEL, selectFocusing, useOfficeStore } from "@/game/store";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { DevicePanel } from "./DevicePanel";
 import { EmotePicker, useEmoteKey } from "./EmotePicker";
@@ -125,7 +126,7 @@ export function MediaControls({ children, actions, tail }: { children?: ReactNod
             aria-label="Audio y video: elegir y probar micrófono, cámara y parlantes"
             aria-haspopup="dialog"
             title="Audio y video: elegir y probar"
-            className="cozy-btn size-9 p-0 max-sm:size-8"
+            className="cozy-btn cozy-hit size-9 p-0 max-sm:size-8"
           >
             <PixelIcon name="gear" size={14} />
           </button>
@@ -189,7 +190,7 @@ function MoreMenu({ open, setOpen, active, children }: { open: boolean; setOpen:
         aria-label="Más: emotes, foto y nombres"
         title="Más: emotes, foto y nombres"
         data-on={active || undefined}
-        className="cozy-btn size-8 p-0"
+        className="cozy-btn cozy-hit size-8 p-0"
       >
         <PixelIcon name="dots" size={16} />
       </button>
@@ -208,8 +209,7 @@ function useNameTagKey() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "n" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       const s = useOfficeStore.getState();
-      const t = e.target as HTMLElement | null;
-      if (s.typing || s.pcOn || t?.isContentEditable || t?.tagName === "INPUT" || t?.tagName === "TEXTAREA") return;
+      if (s.typing || s.pcOn || focusOwnsKey(e.key)) return;
       e.preventDefault();
       s.cycleNameTags();
     };
@@ -255,12 +255,12 @@ function Slot({
       title={key ? `${label} (${key})` : label}
       data-off={off || undefined}
       data-live={live || undefined}
-      className="cozy-btn bar-slot relative size-9 p-0 max-sm:size-8"
+      className="cozy-btn cozy-hit bar-slot relative size-9 p-0 max-sm:size-8"
     >
       <PixelIcon name={icon} off={off} size={16} />
       {hotkey && <span className="bar-slot-key max-sm:hidden">{hotkey}</span>}
       {badge !== undefined && (
-        <span className="absolute -top-2 -right-2 z-10 grid h-4 min-w-4 place-items-center border-2 border-cozy-red-deep bg-cozy-red px-0.5 text-[10px] leading-none text-cozy-paper-light">
+        <span className="absolute -top-2 -right-2 z-10 grid h-[18px] min-w-[18px] place-items-center border-2 border-cozy-red-deep bg-cozy-red px-0.5 text-[11px] leading-none text-cozy-paper-light">
           {badge}
         </span>
       )}

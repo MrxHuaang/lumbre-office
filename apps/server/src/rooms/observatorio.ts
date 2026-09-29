@@ -51,6 +51,8 @@ export interface ObservatorioDeps {
   award(userId: string, amount: number): Promise<number>;
   bump(userId: string, key: string, by?: number): void;
   held: { get(userId: string): { item: string } | undefined; give(userId: string, item: string): void };
+  /** Mundo lleno: ¿está junto a un telescopio de adorno (terraza, casa del árbol, la placita)? También sirven de noche. */
+  scopeNear?(p: ObsPlayer): boolean;
 }
 
 interface Roast {
@@ -148,7 +150,7 @@ export class Observatorio {
   // ---------- Telescopio ----------
 
   private nearTelescope(p: ObsPlayer) {
-    return nearPointOfType(this.deps.map(p.area), "telescope", p.x, p.y);
+    return nearPointOfType(this.deps.map(p.area), "telescope", p.x, p.y) || Boolean(this.deps.scopeNear?.(p));
   }
 
   private sky(sessionId: string, e: SkyEvent) {

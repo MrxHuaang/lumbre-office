@@ -53,6 +53,8 @@ export interface FishingGear {
   bait: BaitId | null;
   /** Barra más larga por el oficio (Pesca nivel 5; ver OFICIO_PERKS en oficios.ts). */
   barBonus?: number;
+  /** Mundo lleno: pesca sentado en el bote del muelle (se puede sentado y con más suerte, `BOAT_LUCK` de pesca-maestria.ts). */
+  boat?: boolean;
 }
 
 /**

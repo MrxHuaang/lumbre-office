@@ -11,13 +11,12 @@ import { useShallow } from "zustand/react/shallow";
 import { selectColumn, selectSlot, stepColumn, turnRow, useBagStore } from "@/game/bag";
 import { sendToast, sendUseHeld } from "@/game/network";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { ItemIcon } from "./ItemIcon";
 
 const VERB = { smoke: "Fumar", sip: "Tomar", bite: "Comer", spoon: "Comer", sniff: "Esnifar" } as const;
 
 /** ¿Es un campo donde se escribe? (ahí Tab y los números son del texto). */
-const isField = (el: EventTarget | null) =>
-  el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el instanceof HTMLElement && el.isContentEditable);
 
 /** Lo que llevo en la mano según el servidor (el dibujo y sus usos). */
 export function useMyHand() {
@@ -36,7 +35,7 @@ export function useMyHand() {
 function useBagKeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || isField(e.target)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || focusOwnsKey(e.key)) return;
       const s = useOfficeStore.getState();
       if (s.typing || s.pcOn || s.panel || s.decorating || s.worldEditing) return;
       if (e.key === "Tab") {
@@ -199,7 +198,7 @@ export function HandActions() {
         }
         className="cozy-btn h-9 gap-1.5 px-2 text-[13px] disabled:opacity-100 max-sm:h-8"
       >
-        {(info.use === "consume" || tool) && <kbd className="cozy-kbd px-1 text-[10px] leading-none">{tool ? "E" : "F"}</kbd>}
+        {(info.use === "consume" || tool) && <kbd className="cozy-kbd px-1 text-[11px] leading-none">{tool ? "E" : "F"}</kbd>}
         <span className="max-w-24 truncate max-sm:hidden">{verb}</span>
         {info.use && <span className="text-[12px] text-cozy-ink-soft tabular-nums">×{uses}</span>}
       </button>
@@ -235,7 +234,7 @@ function ToastButton({ mode, name, disabled }: { mode: "invite" | "join" | "wait
       data-on={mode === "join" ? "" : undefined}
       className={`cozy-btn h-9 gap-1.5 px-2 text-[13px] max-sm:h-8 ${mode === "join" ? "cozy-btn-primary animate-pulse" : ""}`}
     >
-      <kbd className="cozy-kbd px-1 text-[10px] leading-none">B</kbd>
+      <kbd className="cozy-kbd px-1 text-[11px] leading-none">B</kbd>
       <span className="max-sm:hidden">{TOAST_LABEL[mode]}</span>
     </button>
   );

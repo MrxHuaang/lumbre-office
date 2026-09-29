@@ -5,6 +5,7 @@
 // de duración. Anuncia quien tenga el permiso `anunciar` (los admins siempre; ver permisos.ts de shared).
 // Además de la pausa por persona hay una global: con varias personas habilitadas, un anuncio no pisa a otro.
 import {
+  ANNOUNCE_REJOIN_GRACE_MS,
   puede,
   AnnounceMessage,
   cleanAnnouncement,
@@ -36,9 +37,14 @@ export interface AnuncioDeps {
   maxMs: () => number;
   /** Pausa entre avisos de texto y entre un anuncio por voz y el siguiente (`COMUNICACION.announceCooldownMs`). */
   cooldownMs: () => number;
+  /** Cuánto se espera a quien anuncia si se va (por defecto `REJOIN_TIMINGS.graceMs`). */
+  graceMs?: () => number;
   /** Pausa global entre anuncios de cualquiera (texto o que empiece una voz); sin ella, 0. */
   gapMs?: () => number;
 }
+
+/** La espera a quien anuncia si se va (`ANNOUNCE_REJOIN_GRACE_MS`; los tests la acortan). */
+export const REJOIN_TIMINGS = { graceMs: ANNOUNCE_REJOIN_GRACE_MS as number };
 
 /** ¿Puede anunciar a toda la cabaña (texto y voz)? Es el único lugar donde se decide. */
 export function canAnnounce(person: AnuncioPerson): boolean {
@@ -50,6 +56,8 @@ interface Live {
   name: string;
   endsAt: number;
   timer: { clear(): void };
+  /** Quien anuncia se fue y se lo está esperando (recargó la página): se corta si no vuelve a tiempo. */
+  away?: { clear(): void };
 }
 
 export class Anuncio {
@@ -117,20 +125,38 @@ export class Anuncio {
     const live = this.live;
     if (!live) return;
     const me = this.deps.person(sessionId);
-    if (me?.userId === live.userId) this.deps.setBroadcast(live.userId, live.endsAt);
+    if (me?.userId === live.userId) {
+      // Volvió a tiempo: el anuncio sigue (los demás no se enteran de nada; su chip nunca se fue).
+      live.away?.clear();
+      live.away = undefined;
+      this.deps.setBroadcast(live.userId, live.endsAt);
+    }
     // `resumed`: ya estaba sonando; el navegador no vuelve a tocar el timbre ni prende el micrófono solo.
     this.deps.toSession(sessionId, COM_MSG.broadcastEvent, { kind: "start", userId: live.userId, name: live.name, endsAt: live.endsAt, resumed: true } satisfies BroadcastEvent);
   }
 
-  /** Quien anunciaba se fue del todo: se corta, y sus pausas se olvidan (así los mapas no crecen sin límite). */
+  /**
+   * Quien anunciaba se fue del todo: se lo espera `graceMs` (por si recargó la página) y, si no vuelve,
+   * se corta. Sus pausas se olvidan (así los mapas no crecen sin límite).
+   */
   forget(userId: string) {
-    if (this.live?.userId === userId) this.end("left");
+    const live = this.live;
+    if (live?.userId === userId) {
+      live.away?.clear();
+      const grace = this.deps.graceMs?.() ?? REJOIN_TIMINGS.graceMs;
+      if (grace <= 0) this.end("left");
+      else
+        live.away = this.deps.later(grace, () => {
+          if (this.live === live && live.away) this.end("left");
+        });
+    }
     this.lastTextAt.delete(userId);
     this.lastVoiceAt.delete(userId);
   }
 
   dispose() {
     this.live?.timer.clear();
+    this.live?.away?.clear();
     this.live = null;
   }
 
@@ -138,6 +164,7 @@ export class Anuncio {
     const live = this.live;
     if (!live) return;
     live.timer.clear();
+    live.away?.clear();
     this.live = null;
     this.lastVoiceAt.set(live.userId, this.deps.now());
     this.lastAnyAt = this.deps.now();

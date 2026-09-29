@@ -25,7 +25,7 @@ export function SoundSettings() {
         aria-pressed={m.muted}
         aria-label={m.muted ? "Activar el sonido" : "Silenciar todo el sonido"}
         title={m.muted ? "Activar sonidos" : "Silenciar"}
-        className="cozy-btn h-7 w-7 shrink-0 p-0"
+        className="cozy-btn cozy-hit h-7 w-7 shrink-0 p-0"
       >
         <PixelIcon name="sound" size={14} off={silent} />
       </button>

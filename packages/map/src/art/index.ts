@@ -231,5 +231,8 @@ export {
 } from "./casa-fx";
 export { drawPet, petBowl, petMenuIcon, petTreat, sleepZ, type PetMenuIcon, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
 export { orreryArms, ORRERY_FRAMES } from "./observatorio";
+// Mundo lleno: los símbolos de los rodillos del tragamonedas y el espantapájaros de cada estación.
+export { SLOT_GLYPH, slotSymbol } from "./tragamonedas";
+export { scarecrow } from "./leisure";
 export { questMark, type QuestMarkKind } from "./encargos";
 export { levelSpark, neighborPlate } from "./oficios";
