@@ -289,6 +289,8 @@ export interface SpriteOptions {
   pad?: number;
   /** Cajas que van delante de lo que pinta `extra` (p. ej. el porche delante del techo). */
   overlay?: Box[];
+  /** Solo quedan los píxeles que cubren estas cajas (sus caras, pinten o no): un recorte del dibujo. */
+  clip?: Box[];
 }
 
 /** Arma un sprite con cajas en coordenadas absolutas del mundo, dibujadas en el orden dado (de atrás hacia adelante). */
@@ -314,6 +316,12 @@ export function renderSprite(boxes: Box[], opts: SpriteOptions = {}): Sprite {
   for (const b of boxes) drawBox(body, b, ox, oy);
   opts.extra?.(body, project);
   for (const b of opts.overlay ?? []) drawBox(body, b, ox, oy);
+  if (opts.clip) {
+    const mask = new PixelCanvas(canvas.width, canvas.height);
+    const on: Shader = () => [0, 0, 0, 255];
+    for (const b of opts.clip) drawBox(mask, { ...b, top: b.top && on, left: b.left && on, right: b.right && on }, ox, oy);
+    for (let i = 3; i < body.data.length; i += 4) if (mask.data[i] === 0) body.data[i - 3] = body.data[i - 2] = body.data[i - 1] = body.data[i] = 0;
+  }
   if (opts.outline) body.outline(opts.outline);
   for (let i = 0; i < body.data.length; i += 4) {
     if (body.data[i + 3] === 0) continue;
