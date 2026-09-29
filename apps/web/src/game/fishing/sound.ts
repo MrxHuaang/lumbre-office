@@ -43,7 +43,7 @@ function splash(at: number, dur: number, vol: number, freq = 900) {
   src.start(t0);
 }
 
-export type FishSound = "cast" | "bite" | "reel" | "catch" | "record" | "escape" | "treasure" | "trash";
+export type FishSound = "cast" | "nibble" | "bite" | "reel" | "catch" | "record" | "escape" | "treasure" | "trash";
 
 export function playFishSound(kind: FishSound) {
   switch (kind) {
@@ -52,6 +52,11 @@ export function playFishSound(kind: FishSound) {
       tone(0, 0.28, 1400, 500, 0.05, "sine");
       splash(0.32, 0.18, 0.5, 700);
       tone(0.32, 0.12, 320, 140, 0.12, "sine");
+      return;
+    case "nibble":
+      // Un toquecito en la boya: parecido a la picada pero más suave (para tentar).
+      splash(0, 0.08, 0.3, 1000);
+      tone(0, 0.06, 740, 700, 0.06);
       return;
     case "bite":
       splash(0, 0.12, 0.6, 1200);

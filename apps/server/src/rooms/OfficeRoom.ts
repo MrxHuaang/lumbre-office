@@ -151,6 +151,8 @@ import {
   STAT_PREFIX,
   type AchievementUnlockedEvent,
   type FishSpecies,
+  type FishingRod,
+  rodCatchesKey,
   addGameTime,
   formatGameTime,
   gameTime,
@@ -608,7 +610,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
       this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
     },
-    caught: (userId, fish, size, first, treasure) => this.fishCaught(userId, fish, size, first, treasure),
+    rodCatches: (userId, rod) => this.achievements.stat(userId, rodCatchesKey(rod)) ?? 0,
+    caught: (userId, fish, size, first, treasure, rod) => this.fishCaught(userId, fish, size, first, treasure, rod),
   });
   /** El puesto de pesca del lago: las compras y el equipo de cada lance (ver pescaTienda.ts). */
   private pesca = new PescaStand({ repo: () => this.repo, held: this.held, now: () => OfficeRoom.pescaNow() });
@@ -1269,6 +1272,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Una oficina sin dueño no puede estar cerrada.
     office.locked = Boolean(r.ownerId) && r.locked;
     if (ownerChanged || !office.locked) office.guests.clear();
+    // La radio y la nota de la placa eran del dueño anterior: el nuevo empieza con la oficina callada.
+    if (ownerChanged) {
+      this.stopRadio(office);
+      office.note = "";
+    }
     office.floor = r.floor ?? "";
     office.wallpaper = r.wallpaper ?? "";
     office.customized = r.customized;
@@ -1618,6 +1626,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         if (!videoId) return fail("not-youtube");
         const info = await OfficeRoom.youtubeLookup(videoId).catch(() => ({ ok: true as const, title: FALLBACK_TITLE }));
         if (!info.ok) return fail(info.error);
+        // Mientras se buscaba el video la oficina pudo cambiar de dueño.
+        if (office.ownerId !== player.userId) return fail("not-owner");
         office.radioVideo = videoId;
         office.radioTitle = info.title.slice(0, CLUB_VIDEO.maxTitle);
         office.radioStartedAt = Date.now();
@@ -1638,14 +1648,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         office.radioPausedAt = 0;
         return;
       case "stop":
-        office.radioVideo = "";
-        office.radioTitle = "";
-        office.radioStartedAt = 0;
-        office.radioPaused = false;
-        office.radioPausedAt = 0;
-        office.radioDurationMs = 0;
+        this.stopRadio(office);
         return;
     }
+  }
+
+  private stopRadio(office: OfficeInfo) {
+    office.radioVideo = "";
+    office.radioTitle = "";
+    office.radioStartedAt = 0;
+    office.radioPaused = false;
+    office.radioPausedAt = 0;
+    office.radioDurationMs = 0;
   }
 
   /** La nota de la placa de la puerta: solo el dueño de la oficina, una línea corta. */
@@ -3085,7 +3099,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
     // La caña y la carnada que tiene (lo de la mano o lo mejor de la mochila); la carnada se gasta al lanzar.
     const gear = this.pesca.gear(player.userId);
-    if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near, gear)) return;
+    if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated, area: player.area }, near, gear)) return;
     this.pesca.spendBait(player.userId, gear);
     for (const p of this.state.players.values()) if (p.userId === player.userId) p.fishingRod = gear.rod;
   }
@@ -3107,7 +3121,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   /** Sacó algo del lago: peces, basura, botas, legendarios, míticos, especies nuevas y el más grande. */
-  private fishCaught(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean) {
+  private fishCaught(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean, rod: FishingRod) {
     const a = this.achievements;
     if (fish.rarity === "basura") {
       a.bump(userId, STAT_KEYS.fishTrash);
@@ -3115,6 +3129,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       return;
     }
     a.bump(userId, STAT_KEYS.fishCaught);
+    a.bump(userId, rodCatchesKey(rod)); // la maestría de esa caña
     if (first) a.bump(userId, STAT_KEYS.fishSpecies);
     if (fish.rarity === "legendario") a.bump(userId, STAT_KEYS.legendaryFish);
     if (fish.rarity === "mitico") a.bump(userId, STAT_KEYS.mythicFish);
