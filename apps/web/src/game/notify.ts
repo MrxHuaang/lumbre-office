@@ -23,7 +23,7 @@ import { useOfficeStore } from "./store";
 
 // ---------- Reglas puras ----------
 
-export type NotifyKind = "phone" | "knock" | "mention" | "invite" | "nearby";
+export type NotifyKind = "phone" | "knock" | "mention" | "invite" | "nearby" | "wave" | "announce";
 
 export interface NotifyContext {
   /** La persona activó los avisos en Lumbre. */
@@ -185,6 +185,8 @@ const TITLE: Record<NotifyKind, string> = {
   mention: "Te mencionaron",
   invite: "Te invitan",
   nearby: "Alguien se acercó",
+  wave: "Te saludan",
+  announce: "Aviso para toda la cabaña",
 };
 
 /** Los avisos abiertos por tipo (la misma `tag` reemplaza al anterior; se cierran cuando ya no valen). */
