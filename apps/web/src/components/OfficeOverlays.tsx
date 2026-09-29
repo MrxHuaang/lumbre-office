@@ -125,7 +125,7 @@ export function Notices() {
               {n.action.label}
             </button>
           )}
-          <button onClick={() => dismiss(n.id)} aria-label="Cerrar aviso" className="shrink-0 p-1 text-cozy-ink-soft hover:text-cozy-ink">
+          <button onClick={() => dismiss(n.id)} aria-label="Cerrar aviso" className="cozy-hit shrink-0 p-1 text-cozy-ink-soft hover:text-cozy-ink">
             <PixelIcon name="close" size={10} />
           </button>
         </div>

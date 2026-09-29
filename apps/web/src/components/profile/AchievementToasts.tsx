@@ -52,7 +52,7 @@ export function AchievementToasts() {
                 <span className="text-cozy-ink-soft"> · {ACHIEVEMENT_CATEGORY[a.category].label}</span>
               </span>
             </button>
-            <button type="button" onClick={() => dismiss(t.key)} aria-label="Cerrar aviso" className="shrink-0 self-start p-1 text-cozy-ink-soft hover:text-cozy-ink">
+            <button type="button" onClick={() => dismiss(t.key)} aria-label="Cerrar aviso" className="cozy-hit shrink-0 self-start p-1 text-cozy-ink-soft hover:text-cozy-ink">
               <PixelIcon name="close" size={10} />
             </button>
           </div>

@@ -166,7 +166,7 @@ function Board({ t, me }: { t: BoardTableView; me: BoardSide | null }) {
                 <button
                   key={p}
                   type="button"
-                  className="cozy-btn grid place-items-center p-1"
+                  className="cozy-btn cozy-hit grid place-items-center p-1"
                   title={{ q: "Dama", r: "Torre", b: "Alfil", n: "Caballo" }[p]}
                   onClick={() => {
                     sendBoardMove(t.id, promo.path, p);

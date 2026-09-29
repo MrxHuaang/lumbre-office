@@ -129,7 +129,7 @@ export function ShopPanel({ atObject, onClose }: { atObject: boolean; onClose: (
 function Quantity({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
   return (
     <div role="group" aria-label={`Cantidad de ${label}`} className="flex items-center">
-      <button type="button" onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Una menos" className="cozy-btn h-6 w-6 p-0 text-[15px]">
+      <button type="button" onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Una menos" className="cozy-btn cozy-hit h-6 w-6 p-0 text-[15px]">
         −
       </button>
       <span className="w-7 text-center text-[14px] tabular-nums">{value}</span>
@@ -138,7 +138,7 @@ function Quantity({ value, onChange, label }: { value: number; onChange: (n: num
         onClick={() => onChange(value + 1)}
         disabled={value >= SHOP_MAX_QUANTITY}
         aria-label="Una más"
-        className="cozy-btn h-6 w-6 p-0 text-[15px]"
+        className="cozy-btn cozy-hit h-6 w-6 p-0 text-[15px]"
       >
         +
       </button>

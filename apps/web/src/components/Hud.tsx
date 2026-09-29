@@ -473,7 +473,8 @@ export function PeoplePanel() {
         aria-expanded={open}
         aria-label={`Conectados: ${people.length}`}
         title="Conectados"
-        className="flex h-5 w-full items-center justify-between gap-3 bg-cozy-wood px-2 text-cozy-paper-light max-md:gap-2"
+        // Plegada, la ficha mide 34 px como los botones de al lado: el área de toque llega a 40 sin agrandarla.
+        className={`flex h-5 w-full items-center justify-between gap-3 bg-cozy-wood px-2 text-cozy-paper-light max-md:gap-2 ${open ? "" : "cozy-hit"}`}
       >
         <span className={`text-[14px] leading-none font-semibold ${open ? "" : "max-md:hidden"}`}>Conectados</span>
         {!open && (
@@ -531,7 +532,7 @@ export function PeoplePanel() {
                   onClick={() => walkToPlayer(p.sessionId)}
                   title={`Ir hasta ${p.name}`}
                   aria-label={`Ir hasta ${p.name}`}
-                  className="p-1.5 hover:bg-cozy-paper-dark"
+                  className="grid size-7 shrink-0 place-items-center pointer-coarse:size-10 hover:bg-cozy-paper-dark"
                 >
                   <PixelIcon name="steps" size={14} color="var(--color-cozy-wood)" />
                 </button>

@@ -9,6 +9,7 @@ import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendEmote } from "@/game/network";
 import { useSocialStore } from "@/game/social";
 import { useOfficeStore } from "@/game/store";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 
 /** La tecla T abre y cierra el selector (no mientras se escribe, con el PC prendido o un panel abierto). */
 export function useEmoteKey(toggle: () => void) {
@@ -16,7 +17,7 @@ export function useEmoteKey(toggle: () => void) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "t" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       const { typing, pcOn, panel } = useOfficeStore.getState();
-      if (typing || pcOn || panel) return;
+      if (typing || pcOn || panel || focusOwnsKey(e.key)) return;
       e.preventDefault();
       toggle();
     };
@@ -24,10 +25,6 @@ export function useEmoteKey(toggle: () => void) {
     return () => window.removeEventListener("keydown", onKey);
   }, [toggle]);
 }
-
-/** ¿Es un campo donde se escribe? (ahí las teclas son del texto, no del selector). */
-const isField = (el: EventTarget | Element | null) =>
-  el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable);
 
 /** Columnas de la grilla según el ancho (las flechas arriba/abajo saltan de a una fila). */
 const columns = () => (typeof window !== "undefined" && window.innerWidth < 640 ? 4 : 8);
@@ -62,7 +59,8 @@ export function EmotePicker({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isField(e.target)) return;
+      // Escribiendo, o Enter/Espacio sobre un botón con foco: la tecla es de ese control.
+      if (focusOwnsKey(e.key)) return;
       if (e.key === "Escape") return onClose();
       // La T también lo cierra (el atajo general la ignora mientras está marcado "escribiendo").
       if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -110,7 +108,7 @@ export function EmotePicker({ onClose }: { onClose: () => void }) {
             data-on={i === active || undefined}
             className="cozy-btn relative h-11 w-11 p-0"
           >
-            {i < 9 && <span className="absolute top-0 left-1 text-[10px] leading-tight text-cozy-ink-soft">{i + 1}</span>}
+            {i < 9 && <span className="absolute top-0 left-1 text-[11px] leading-tight text-cozy-ink-soft">{i + 1}</span>}
             <EmoteArt id={e.id} animate={i === active} />
           </button>
         ))}
