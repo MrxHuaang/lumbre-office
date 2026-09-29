@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { findPath, getWorld, isBlockedTile, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
-import { MSG, ROOM_NAME, TALLER, TALLER_USABLES, type FurnitureEvent } from "@hyvento/shared";
+import { MSG, RECHAZO_MSG, ROOM_NAME, TALLER, TALLER_USABLES, type FurnitureEvent, type RechazoNotice } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -92,7 +92,7 @@ beforeEach(async () => {
 const me = (client: ClientRoom, room: ServerRoom) => room.state.players.get(client.sessionId)!;
 
 describe("el taller del garaje (en la sala)", () => {
-  it("manejar el carro lo ven los del garaje, nadie más se sube y no cambia los puntos", async () => {
+  it("manejar el carro lo ven los del garaje, nadie más se sube (con aviso) y no cambia los puntos", async () => {
     const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
     const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
     const bob = await colyseus.connectTo(room, { token: await token("u-bob", "Bob", "bruno") });
@@ -100,6 +100,8 @@ describe("el taller del garaje (en la sala)", () => {
     const events = { alice: [] as FurnitureEvent[], bob: [] as FurnitureEvent[] };
     alice.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => events.alice.push(e));
     bob.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => events.bob.push(e));
+    const notices: RechazoNotice[] = [];
+    bob.onMessage(RECHAZO_MSG.notice, (n: RechazoNotice) => notices.push(n));
 
     const map = garaje();
     const car = piece(map, "tarp-car");
@@ -119,6 +121,8 @@ describe("el taller del garaje (en la sala)", () => {
     const drives = (list: FurnitureEvent[]) => list.filter((e) => e.action === "drive").map((e) => e.sessionId);
     expect(drives(events.alice)).toEqual([alice.sessionId]);
     expect(drives(events.bob)).toEqual([alice.sessionId]);
+    // A Bob le dicen por qué no se pudo subir.
+    expect(notices).toEqual([{ code: "carTaken" }]);
     await room.waitForNextPatch();
     expect({ alice: me(alice, room).points, bob: me(bob, room).points }).toEqual(points);
   });
