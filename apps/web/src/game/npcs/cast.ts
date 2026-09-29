@@ -170,6 +170,12 @@ export class NpcCast {
     return this.man.sprite.getBounds().contains(sx, sy) ? { x: this.man.x, y: this.man.y } : null;
   }
 
+  /** Id del personal (crupier, astrónoma…) dibujado bajo el puntero, o null (clic para ir a hablarle). */
+  staffUnder(sx: number, sy: number): string | null {
+    for (const [id, s] of this.staff) if (s.avatar.sprite.visible && s.avatar.sprite.getBounds().contains(sx, sy)) return id;
+    return null;
+  }
+
   update(time: number) {
     for (const a of this.avatars()) a.sway(time);
     if (time < this.scanAt) return;

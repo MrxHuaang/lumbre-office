@@ -24,6 +24,7 @@ export * from "./mundo";
 export * from "./footsteps";
 export * from "./agua";
 export * from "./radar";
+export * from "./viaje";
 export * from "./world/build";
 export * from "./world/catalog";
 export { GRADAS, GRADAS_ROWS } from "./world/catalog-escenario";
@@ -233,3 +234,4 @@ export function nearPortal(map: OfficeMap, portal: Portal, x: number, y: number)
   const ts = map.tileSize;
   return portal.tiles.some((t) => Math.hypot(t.x * ts + ts / 2 - x, t.y * ts + ts / 2 - y) <= ts * PORTAL_REACH_TILES);
 }
+export * from "./encargos";

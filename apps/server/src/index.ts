@@ -15,6 +15,18 @@ for (const key of ["GAME_TOKEN_SECRET", "DATABASE_URL"]) {
   }
 }
 
+// Colyseus ya atiende `uncaughtException` (anota y apaga ordenado). Una promesa rechazada sin `.catch`
+// (p. ej. un guardado en la base que falló) solo se anota: no vale tumbar la cabaña de todos por eso.
+process.on("unhandledRejection", (reason) => {
+  console.error("[juego] promesa rechazada sin atender", reason);
+});
+// Una excepción sin atrapar sí deja el proceso en un estado dudoso: solo se anota aquí (el monitor no cambia
+// qué pasa después). Colyseus apaga ordenado (cierra las salas, que devuelven y guardan) y sale con error;
+// antes de que exista el servidor, Node sale como siempre.
+process.on("uncaughtExceptionMonitor", (err, origin) => {
+  console.error(`❌ Excepción sin atrapar (${origin}): el servidor se apaga`, err);
+});
+
 const { createGameServer } = await import("./app");
 const { PrismaRepository } = await import("./repo/prisma");
 
@@ -23,7 +35,13 @@ const { allZones } = await import("@hyvento/map");
 const repo = new PrismaRepository();
 // Las oficinas de la cabaña existen en la DB desde el arranque (el panel /admin las lista y asigna).
 const officeZones = allZones().filter((z) => z.type === "office");
-await repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
+try {
+  await repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
+} catch (err) {
+  // Sin base no hay cabaña: se dice claro por qué antes de salir (Render reintenta el arranque).
+  console.error("[juego] no se pudo conectar con la base al arrancar (ensureOffices)", err);
+  process.exit(1);
+}
 
 // Render (y otros hostings) asignan el puerto en PORT.
 const port = Number(process.env.PORT ?? process.env.GAME_SERVER_PORT ?? 2567);

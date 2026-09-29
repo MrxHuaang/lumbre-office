@@ -108,6 +108,8 @@ export class Granja {
   private lastVoteAt = new Map<string, number>();
   /** Moliendo: hasta cuándo, por persona. */
   private grinding = new Map<string, number>();
+  /** La sala se cerró: una molienda que termina tarde no entrega la harina (la mazorca ya volvió). */
+  private closed = false;
 
   constructor(private readonly deps: GranjaDeps) {}
 
@@ -364,6 +366,7 @@ export class Granja {
       return { notice: { code: "noCorn" } };
     }
     this.deps.later(ms, () => {
+      if (this.closed) return;
       this.grinding.delete(who.userId);
       void this.deps.bag.add(who.userId, objItemId(FLOUR), MOLINO.flourPerCorn, {}).then((r) => {
         if (r === "ok") {
@@ -377,6 +380,17 @@ export class Granja {
       });
     });
     return { notice: { code: "grinding" }, ms };
+  }
+
+  /** La sala se cierra: la mazorca de cada molienda sin terminar vuelve a la mochila (directo a la base). */
+  async close(restore: (userId: string, itemId: string, quantity: number) => Promise<unknown>): Promise<void> {
+    this.closed = true;
+    const users = [...this.grinding.keys()];
+    this.grinding.clear();
+    const results = await Promise.allSettled(users.map((userId) => restore(userId, objItemId(CORN), 1)));
+    results.forEach((r, i) => {
+      if (r.status === "rejected") console.error("MOLINO: no se pudo devolver la mazorca (conciliar)", users[i], r.reason);
+    });
   }
 
   // ---------- Votos de los nombres ----------

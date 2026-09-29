@@ -7,6 +7,8 @@ import { create } from "zustand";
 import { useCasinoStore } from "./casino";
 import { onFocusEvent, sendFocusStart, sendFocusStop } from "./network";
 import { useOfficeStore } from "./store";
+import { audible } from "./mixer";
+import { sharedAudio } from "./sound";
 
 export type FocusUiPhase = "work" | "break";
 
@@ -67,17 +69,14 @@ export function stopFocus() {
 
 // ---------- Sonido y aviso ----------
 
-let audioCtx: AudioContext | null = null;
-
-/** El navegador solo deja sonar audio si el contexto se crea/reanuda con un clic: se llama al iniciar. */
-function unlockAudio(): AudioContext | null {
+/**
+ * El navegador solo deja sonar audio si el contexto se crea/reanuda con un clic: se llama al iniciar. Es el
+ * contexto compartido (sound.ts), con la salida de avisos del mezclador.
+ */
+function unlockAudio(): { ctx: AudioContext; out: GainNode } | null {
   if (typeof window === "undefined") return null;
   try {
-    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AC) return null;
-    audioCtx ??= new AC();
-    if (audioCtx.state === "suspended") void audioCtx.resume();
-    return audioCtx;
+    return sharedAudio("notify");
   } catch {
     return null;
   }
@@ -85,15 +84,18 @@ function unlockAudio(): AudioContext | null {
 
 /** "Ding" de campanita generado con WebAudio: la nota y dos parciales que se apagan solos. */
 export function ding(times = 2) {
-  const ac = unlockAudio();
-  if (!ac) return;
+  if (!audible("notify")) return;
+  const a = unlockAudio();
+  if (!a) return;
+  const ac = a.ctx;
   const t0 = ac.currentTime + 0.03;
   for (let i = 0; i < times; i++) {
     const t = t0 + i * 0.32;
     for (const [freq, peak] of [
-      [988, 0.2],
-      [1976, 0.06],
-      [2964, 0.025],
+      // El doble de antes: la salida de avisos lo baja a la mitad con el volumen de fábrica.
+      [988, 0.4],
+      [1976, 0.12],
+      [2964, 0.05],
     ] as const) {
       const osc = ac.createOscillator();
       const gain = ac.createGain();
@@ -102,7 +104,7 @@ export function ding(times = 2) {
       gain.gain.setValueAtTime(0.0001, t);
       gain.gain.exponentialRampToValueAtTime(peak, t + 0.012);
       gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
-      osc.connect(gain).connect(ac.destination);
+      osc.connect(gain).connect(a.out);
       osc.start(t);
       osc.stop(t + 1.15);
     }

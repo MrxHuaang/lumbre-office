@@ -9,6 +9,7 @@ import { formatClock, PHASE_LABEL, startFocus, stopFocus, useFocusClock, useFocu
 import { sendCongrats } from "@/game/network";
 import { selectMyUserId, useOfficeStore } from "@/game/store";
 import { ArtImage } from "./casino/PixelArt";
+import { lessMotion } from "@/lib/prefs";
 
 /** El tomate del HUD: sin foco abre las duraciones; con foco, el contador discreto y "Dejar". */
 export function FocusChip() {
@@ -118,7 +119,7 @@ export function Confetti() {
   useEffect(() => {
     const root = ref.current;
     if (!at || !root) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    if (lessMotion()) return;
     const bits: HTMLSpanElement[] = [];
     for (let i = 0; i < 70; i++) {
       const el = document.createElement("span");

@@ -1,11 +1,11 @@
 // El teléfono de escritorio en el navegador: la llamada en curso (lo que manda el servidor en
 // `MSG.phoneEvent`), los botones (llamar, contestar, colgar) y el timbre retro, sintetizado con WebAudio.
 // Quién se oye durante la llamada no sale de aquí: lo dice el estado (`Player.callWith`), ver OfficeScene.
-import { callEndText, MSG, PHONE_ERROR_TEXT, type PhoneEvent } from "@hyvento/shared";
+import { CALL_MEMBER_TEXT, callEndText, MSG, PHONE_ERROR_TEXT, type CallMember, type PhoneEvent } from "@hyvento/shared";
 import type { Room } from "colyseus.js";
 import { create } from "zustand";
 import { useCasinoStore } from "./casino";
-import { getSfxSettings } from "./sfx";
+import { audible, mixerBus } from "./mixer";
 import { sharedAudio } from "./sound";
 import { useOfficeStore } from "./store";
 
@@ -19,6 +19,8 @@ export interface PhoneCall {
   /** Hora local en que contestaron (el reloj del chip) o en que deja de sonar. */
   since: number;
   endsAt: number;
+  /** Los demás de la llamada (en una grupal, varios; hablando o sonándoles). */
+  members: CallMember[];
 }
 
 interface PhoneStore {
@@ -42,20 +44,31 @@ export function bindPhone(r: Room) {
 
 function handlePhoneEvent(e: PhoneEvent) {
   const notify = useOfficeStore.getState().notify;
-  const base = e.kind === "failed" || e.kind === "ended" ? null : { callId: e.callId, withUserId: e.withUserId, withName: e.withName };
+  const base = e.kind === "failed" || e.kind === "ended" || e.kind === "member" ? null : { callId: e.callId, withUserId: e.withUserId, withName: e.withName };
   switch (e.kind) {
-    case "ringing":
-      usePhoneStore.setState({ call: { ...base!, phase: "ringing", from: e.from, since: 0, endsAt: localTime(e.endsAt) }, dialing: null });
-      ring.start();
+    case "ringing": {
+      // En una llamada grupal el aviso se repite cuando cambia quién está: el timbre no vuelve a empezar.
+      const again = usePhoneStore.getState().call?.callId === e.callId;
+      usePhoneStore.setState({ call: { ...base!, phase: "ringing", from: e.from, since: 0, endsAt: localTime(e.endsAt), members: e.members ?? [] }, dialing: null });
+      if (!again) ring.start();
       break;
-    case "calling":
-      usePhoneStore.setState({ call: { ...base!, phase: "calling", from: "", since: 0, endsAt: localTime(e.endsAt) }, dialing: null });
+    }
+    case "calling": {
+      const again = usePhoneStore.getState().call?.callId === e.callId;
+      usePhoneStore.setState({ call: { ...base!, phase: "calling", from: "", since: 0, endsAt: localTime(e.endsAt), members: e.members ?? [] }, dialing: null });
+      if (again) break;
       useOfficeStore.getState().closePanel();
       ring.back();
       break;
-    case "connected":
-      usePhoneStore.setState({ call: { ...base!, phase: "talking", from: "", since: localTime(e.since), endsAt: 0 }, dialing: null });
-      ring.stop();
+    }
+    case "connected": {
+      const was = usePhoneStore.getState().call;
+      usePhoneStore.setState({ call: { ...base!, phase: "talking", from: "", since: localTime(e.since), endsAt: 0, members: e.members ?? [] }, dialing: null });
+      if (was?.callId !== e.callId || was.phase !== "talking") ring.stop();
+      break;
+    }
+    case "member":
+      if (usePhoneStore.getState().call?.callId === e.callId) notify(CALL_MEMBER_TEXT[e.change](e.name), "info");
       break;
     case "ended": {
       const cur = usePhoneStore.getState().call;
@@ -77,12 +90,20 @@ function handlePhoneEvent(e: PhoneEvent) {
 
 /** Llamar a la oficina `zoneId` (el servidor valida el teléfono, ocupado, "No molestar"…). */
 export function sendPhoneCall(zoneId: string) {
+  dial(zoneId, MSG.phoneCall, { zoneId });
+}
+
+/**
+ * Marca: `key` identifica el botón que dice "Marcando…" (la oficina o la persona); `type`/`payload` es el
+ * mensaje (el del teléfono o el de llamar sin teléfono, ver game/comunicacion.ts).
+ */
+export function dial(key: string, type: string, payload: unknown) {
   if (!room || usePhoneStore.getState().dialing) return;
-  usePhoneStore.setState({ dialing: zoneId });
-  room.send(MSG.phoneCall, { zoneId });
-  // Si el servidor no responde, el botón vuelve.
+  usePhoneStore.setState({ dialing: key });
+  room.send(type, payload);
+  // Si el servidor no responde (o respondió que no), el botón vuelve.
   setTimeout(() => {
-    if (usePhoneStore.getState().dialing === zoneId) usePhoneStore.setState({ dialing: null });
+    if (usePhoneStore.getState().dialing === key) usePhoneStore.setState({ dialing: null });
   }, 4000);
 }
 
@@ -125,13 +146,13 @@ class Ringer {
   }
 
   private out(): { ctx: AudioContext; out: AudioNode; vol: number } | null {
-    const s = getSfxSettings();
-    if (s.muted || s.volume <= 0) return null;
+    if (!audible("notify")) return null;
     const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
     if (activation && !activation.hasBeenActive) return null;
-    const a = sharedAudio();
+    const a = sharedAudio("notify");
     if (!a || a.ctx.state !== "running") return null;
-    return { ctx: a.ctx, out: a.ctx.destination, vol: 0.5 * s.volume ** 2 };
+    // El timbre sale por la salida de avisos del mezclador (su volumen ya va en la ganancia de esa salida).
+    return { ctx: a.ctx, out: mixerBus(a.ctx, "notify"), vol: 0.5 };
   }
 
   /** Una ráfaga de campanilla de `dur` segundos desde `at`. */

@@ -63,7 +63,7 @@ export interface PetsOptions {
   /** La comida que alguien tiene en la mano (la mano y su dibujo) y cómo se la da. */
   food?: { peek(userId: string): { part: number; art: string } | null; take(userId: string, part: number): void };
   /** Guardar dueño y cariño (se llama al adoptar o soltar, y con `flush`). */
-  save?: (bond: PetBondRecord) => void;
+  save?: (bond: PetBondRecord) => unknown;
 }
 
 /**
@@ -181,16 +181,19 @@ export class Pets {
   }
 
   /** Guarda lo que cambió (el cariño de a poco; dueños al momento, en `act`). */
-  flush(now: number) {
-    for (const brain of this.brains.values()) if (brain.dirty) this.persist(brain, now);
+  flush(now: number): Promise<unknown> {
+    const saves: unknown[] = [];
+    for (const brain of this.brains.values()) if (brain.dirty) saves.push(this.persist(brain, now));
+    // Se puede esperar (al cerrar la sala) si `save` devuelve la promesa de la escritura.
+    return Promise.all(saves);
   }
 
-  private persist(brain: Brain, now: number) {
+  private persist(brain: Brain, now: number): unknown {
     const pet = this.o.pets.get(brain.def.id);
     if (!pet) return;
     this.decay(brain, pet, now);
     brain.dirty = false;
-    this.o.save?.({ petId: brain.def.id, ownerId: brain.ownerId ?? null, ownerName: pet.ownerName, love: Math.round(brain.love), loveAt: brain.loveAt });
+    return this.o.save?.({ petId: brain.def.id, ownerId: brain.ownerId ?? null, ownerName: pet.ownerName, love: Math.round(brain.love), loveAt: brain.loveAt });
   }
 
   /**

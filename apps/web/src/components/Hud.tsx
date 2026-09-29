@@ -17,10 +17,16 @@ import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { GameClockChip } from "./GameClockChip";
 import { Minimap } from "./Minimap";
 import { PersonMenu } from "./PersonMenu";
+import { usePuedo } from "@/game/permisos";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
 import { CallChip } from "./PhonePanels";
+import { GameOnly, PaletteButton } from "./facilidad/FacilidadLayer";
+import { useFacilidadStore } from "@/game/facilidad";
+import { usePrefsStore } from "@/lib/prefs";
+import { CallPersonButton, ComunicacionChips } from "./comunicacion/ComunicacionChips";
+import { openAnnounce } from "@/game/comunicacion";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -71,14 +77,18 @@ export function Hud(props: HudProps) {
     // Todo a 34 px de alto. En el celular los conectados quedan como una ficha chica: la fila tiene más ancho.
     <div ref={ref} className="absolute top-3 left-3 flex max-w-[calc(100%-6.5rem)] flex-wrap items-center gap-1.5 text-[14px] md:max-w-[calc(100%-19.5rem)]">
       <MainMenu {...props} />
-      <PointsCounter />
+      <GameOnly>
+        <PointsCounter />
+      </GameOnly>
       <PlaceChip />
       <GameClockChip />
       <GiftChip />
       <BirthdayChip />
       <CallChip />
+      <ComunicacionChips />
       <HearingChip />
       <QuickTools />
+      <PaletteButton />
       <Confetti />
     </div>
   );
@@ -128,6 +138,10 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
   const me = sessionId ? players[sessionId] : undefined;
   const walls = useOfficeStore((s) => s.privateWalls);
   const openPanel = useOfficeStore((s) => s.openPanel);
+  const workMode = usePrefsStore((s) => s.workMode);
+  // Editar la casa: admins y quien tenga el permiso (lo manda el servidor, que además lo valida).
+  const houseEditor = usePuedo("editar-casa");
+  const announcer = usePuedo("anunciar");
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -233,6 +247,9 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
             <MenuItem icon="star" onClick={act(() => openPanel("logbook", false))}>
               Diario de exploración
             </MenuItem>
+            <MenuItem icon="map" onClick={act(() => useFacilidadStore.getState().show("worldmap"))}>
+              Mapa de la cabaña
+            </MenuItem>
           </MenuGroup>
 
           <MenuGroup label="Ajustes">
@@ -240,19 +257,38 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
               Paredes altas adentro
             </MenuToggle>
             <NotifyToggle />
+            <MenuToggle icon="briefcase" on={workMode} onClick={() => usePrefsStore.getState().setWorkMode(!workMode)}>
+              Modo trabajo
+            </MenuToggle>
             <div className="px-2 pt-1.5 pb-1">
               <SoundSettings />
             </div>
+            <MenuItem icon="gear" onClick={act(() => useFacilidadStore.getState().show("settings"))}>
+              Más ajustes: sonido, movimiento…
+            </MenuItem>
+            <MenuItem icon="keyboard" onClick={act(() => useFacilidadStore.getState().show("shortcuts"))}>
+              <span className="flex-1">Atajos y ayuda</span>
+              <kbd className="cozy-kbd text-[11px]">?</kbd>
+            </MenuItem>
           </MenuGroup>
 
-          {isAdmin && (
+          {(isAdmin || houseEditor || announcer) && (
             <MenuGroup label="Administración">
-              <MenuItem icon="board" onClick={act(onAdmin)}>
-                Administrar equipo
-              </MenuItem>
-              <MenuItem icon="home" onClick={act(() => useOfficeStore.getState().setWorldEditing(true))}>
-                Editar la casa
-              </MenuItem>
+              {isAdmin && (
+                <MenuItem icon="board" onClick={act(onAdmin)}>
+                  Administrar equipo
+                </MenuItem>
+              )}
+              {houseEditor && (
+                <MenuItem icon="home" onClick={act(() => useOfficeStore.getState().setWorldEditing(true))}>
+                  Editar la casa
+                </MenuItem>
+              )}
+              {announcer && (
+                <MenuItem icon="megaphone" onClick={act(() => openAnnounce())}>
+                  Anuncio a toda la cabaña
+                </MenuItem>
+              )}
             </MenuGroup>
           )}
 
@@ -500,6 +536,7 @@ export function PeoplePanel() {
                   <PixelIcon name="steps" size={14} color="var(--color-cozy-wood)" />
                 </button>
               )}
+              {p.sessionId !== sessionId && <CallPersonButton person={p} />}
               {p.sessionId !== sessionId && <PersonMenu person={p} onProfile={() => openProfile(p.userId)} />}
               {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>
