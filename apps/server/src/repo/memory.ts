@@ -541,4 +541,25 @@ export class MemoryRepository implements GameRepository {
     this.ledger.push({ userId: fromId, amount: -amount, reason: "GIFT", at: now, refId }, { userId: toId, amount, reason: "GIFT", at: now, refId });
     return { ok: true, balances: { [fromId]: await this.getPoints(fromId), [toId]: await this.getPoints(toId) } };
   }
+
+  // ---------- Rondas abiertas del casino ----------
+
+  casinoOpen = new Map<string, { refIds: string[]; updatedAt: number }>();
+  async loadCasinoOpenRounds() {
+    return [...this.casinoOpen].map(([run, r]) => ({ run, refIds: [...r.refIds], updatedAt: r.updatedAt }));
+  }
+  async saveCasinoOpenRounds(run: string, refIds: string[]) {
+    if (refIds.length) this.casinoOpen.set(run, { refIds: [...refIds], updatedAt: Date.now() });
+    else this.casinoOpen.delete(run);
+  }
+  async claimCasinoOpenRounds(run: string, updatedAt: number) {
+    if (this.casinoOpen.get(run)?.updatedAt !== updatedAt) return false;
+    return this.casinoOpen.delete(run);
+  }
+  async casinoMovements(refIds: string[]) {
+    const wanted = new Set(refIds);
+    return this.ledger
+      .filter((m) => m.reason === "CASINO" && m.refId !== undefined && wanted.has(m.refId))
+      .map((m) => ({ userId: m.userId, refId: m.refId!, amount: m.amount }));
+  }
 }

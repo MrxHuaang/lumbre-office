@@ -251,6 +251,28 @@ export interface ShowcaseRepository {
 
 export interface GameRepository extends ShowcaseRepository {}
 
+/** Rondas del casino con apuestas cobradas que no alcanzaron a cerrarse, de una corrida del servidor. */
+export interface CasinoOpenRoundsRecord {
+  run: string;
+  refIds: string[];
+  /** Última vez que esa corrida las anotó (ms). */
+  updatedAt: number;
+}
+
+/**
+ * Devolver apuestas del casino si el servidor se cae con rondas abiertas (ver casino/recovery.ts): cada
+ * corrida anota qué rondas tienen apuestas cobradas y, al arrancar, otra devuelve las de una corrida muerta.
+ */
+export interface CasinoRecoveryRepository {
+  loadCasinoOpenRounds(): Promise<CasinoOpenRoundsRecord[]>;
+  /** Anota las rondas abiertas de una corrida (sin rondas, borra la fila). */
+  saveCasinoOpenRounds(run: string, refIds: string[]): Promise<void>;
+  /** Se queda con las rondas de una corrida muerta: true solo para quien la borró (dos servidores no las devuelven dos veces). */
+  claimCasinoOpenRounds(run: string, updatedAt: number): Promise<boolean>;
+  /** Movimientos del casino (apuestas negativas, premios y devoluciones positivos) con esos refId. */
+  casinoMovements(refIds: string[]): Promise<{ userId: string; refId: string; amount: number }[]>;
+}
+
 /** Entregar un encargo (ver encargos.ts de @hyvento/shared): lo que paga, ya decidido por la sala. */
 export interface QuestClaimInput {
   userId: string;
@@ -283,4 +305,4 @@ export interface ChatRetentionRepository {
   pruneChatBefore(cutoff: Date): Promise<number>;
 }
 
-export interface GameRepository extends ChatRetentionRepository {}
+export interface GameRepository extends ChatRetentionRepository, CasinoRecoveryRepository {}
