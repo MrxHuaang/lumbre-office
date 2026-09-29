@@ -22,6 +22,8 @@ import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
 import { CallChip } from "./PhonePanels";
+import { CallPersonButton, ComunicacionChips } from "./comunicacion/ComunicacionChips";
+import { openAnnounce } from "@/game/comunicacion";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -78,6 +80,7 @@ export function Hud(props: HudProps) {
       <GiftChip />
       <BirthdayChip />
       <CallChip />
+      <ComunicacionChips />
       <HearingChip />
       <QuickTools />
       <Confetti />
@@ -131,6 +134,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
   const openPanel = useOfficeStore((s) => s.openPanel);
   // Editar la casa: admins y quien tenga el permiso (lo manda el servidor, que además lo valida).
   const houseEditor = usePuedo("editar-casa");
+  const announcer = usePuedo("anunciar");
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -248,7 +252,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
             </div>
           </MenuGroup>
 
-          {(isAdmin || houseEditor) && (
+          {(isAdmin || houseEditor || announcer) && (
             <MenuGroup label="Administración">
               {isAdmin && (
                 <MenuItem icon="board" onClick={act(onAdmin)}>
@@ -258,6 +262,11 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
               {houseEditor && (
                 <MenuItem icon="home" onClick={act(() => useOfficeStore.getState().setWorldEditing(true))}>
                   Editar la casa
+                </MenuItem>
+              )}
+              {announcer && (
+                <MenuItem icon="megaphone" onClick={act(() => openAnnounce())}>
+                  Anuncio a toda la cabaña
                 </MenuItem>
               )}
             </MenuGroup>
@@ -507,6 +516,7 @@ export function PeoplePanel() {
                   <PixelIcon name="steps" size={14} color="var(--color-cozy-wood)" />
                 </button>
               )}
+              {p.sessionId !== sessionId && <CallPersonButton person={p} />}
               {p.sessionId !== sessionId && <PersonMenu person={p} onProfile={() => openProfile(p.userId)} />}
               {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
             </li>

@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { sendInvite } from "@/game/network";
 import { usePermisosStore } from "@/game/permisos";
+import { callPerson, followPerson, stopFollowing, useComStore, wavePerson } from "@/game/comunicacion";
+import { usePhoneStore } from "@/game/phone";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 
@@ -11,6 +13,9 @@ interface Person {
   sessionId: string;
   userId: string;
   name: string;
+  /** Para apagar "Llamar" si no se puede (el servidor igual lo valida). */
+  status?: string;
+  call?: string;
 }
 
 /** A dónde invito según dónde estoy: mi oficina, la sala con nombre o simplemente "aquí". */
@@ -23,8 +28,8 @@ function useInviteLabel(): string {
 }
 
 /**
- * Menú chico junto a cada nombre de Conectados: ir caminando hasta la persona, invitarla a donde estoy o
- * ver su perfil. Se abre con clic o teclado (Enter/espacio/flecha abajo); flechas, Inicio y Fin recorren
+ * Menú chico junto a cada nombre de Conectados: ir caminando hasta la persona, llamarla (o sumarla a mi
+ * llamada), saludarla, seguirla, invitarla a donde estoy o ver su perfil. Se abre con clic o teclado (Enter/espacio/flecha abajo); flechas, Inicio y Fin recorren
  * las opciones; Esc lo cierra y devuelve el foco al botón.
  */
 export function PersonMenu({ person, onProfile }: { person: Person; onProfile: () => void }) {
@@ -35,6 +40,10 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
   const inviteLabel = useInviteLabel();
   const walkToPlayer = useOfficeStore((s) => s.walkToPlayer);
   const admin = usePermisosStore((s) => s.admin);
+  const following = useComStore((s) => s.following?.userId === person.userId);
+  const call = usePhoneStore((s) => s.call);
+  const inMyCall = Boolean(call?.members.some((m) => m.userId === person.userId));
+  const canCall = !inMyCall && person.status !== "dnd" && !person.call && (!call || call.phase === "talking");
 
   const close = (focusButton = true) => {
     setOpen(false);
@@ -58,7 +67,7 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
 
   useEffect(() => {
     if (!open) return;
-    menu.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+    menu.current?.querySelector<HTMLElement>("[role=menuitem]:not(:disabled)")?.focus();
     const onDown = (e: PointerEvent) => {
       if (!menu.current?.contains(e.target as Node) && !button.current?.contains(e.target as Node)) close(false);
     };
@@ -75,7 +84,7 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
   }, [open]);
 
   const onMenuKey = (e: React.KeyboardEvent) => {
-    const items = [...(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+    const items = [...(menu.current?.querySelectorAll<HTMLElement>("[role=menuitem]:not(:disabled)") ?? [])];
     const i = items.indexOf(document.activeElement as HTMLElement);
     const go = (n: number) => {
       e.preventDefault();
@@ -130,6 +139,20 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
           <Item icon="steps" onClick={run(() => walkToPlayer(person.sessionId))}>
             Ir hasta {person.name}
           </Item>
+          {!inMyCall && (
+            <Item icon="phone" disabled={!canCall} onClick={run(() => callPerson(person.userId))}>
+              {call?.phase === "talking" ? `Sumar a ${person.name} a la llamada` : `Llamar a ${person.name}`}
+            </Item>
+          )}
+          <Item icon="wave" disabled={person.status === "dnd"} onClick={run(() => wavePerson(person.userId))}>
+            Saludar
+          </Item>
+          <Item
+            icon="steps"
+            onClick={run(() => (following ? stopFollowing(`Dejaste de seguir a ${person.name}.`) : followPerson(person.userId)))}
+          >
+            {following ? "Dejar de seguir" : `Seguir a ${person.name}`}
+          </Item>
           <Item icon="mail" onClick={run(() => sendInvite(person.userId))}>
             {inviteLabel}
           </Item>
@@ -147,14 +170,15 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
   );
 }
 
-function Item({ children, icon, onClick }: { children: React.ReactNode; icon: PixelIconName; onClick: () => void }) {
+function Item({ children, icon, onClick, disabled }: { children: React.ReactNode; icon: PixelIconName; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
       role="menuitem"
       tabIndex={-1}
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 px-2 py-1.5 text-left text-[14px] outline-none hover:bg-cozy-paper-dark focus-visible:bg-cozy-paper-dark"
+      disabled={disabled}
+      className="flex w-full items-center gap-2.5 px-2 py-1.5 text-left text-[14px] outline-none hover:bg-cozy-paper-dark focus-visible:bg-cozy-paper-dark disabled:opacity-45 disabled:hover:bg-transparent"
     >
       <PixelIcon name={icon} size={14} color="var(--color-cozy-wood)" />
       <span className="truncate">{children}</span>
