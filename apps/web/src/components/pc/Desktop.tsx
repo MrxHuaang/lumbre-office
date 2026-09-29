@@ -15,18 +15,20 @@ import {
   MineIcon,
   MusicIcon,
   NotesIcon,
+  PaintIcon,
   PowerIcon,
   TomatoIcon,
   TrashIcon,
   WhiteboardIcon,
 } from "./icons";
 import { MinesweeperApp } from "./MinesweeperApp";
+import { PaintApp } from "./PaintApp";
 import { ALERT_TEXT, usePomodoro } from "./pomodoro";
 import { PomodoroApp, PomodoroTaskbarClock } from "./PomodoroApp";
 import type { NotesStore } from "./useNotes";
 import { Window, type WindowBox } from "./Window";
 
-type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper" | "browser";
+type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper" | "browser" | "paint";
 
 interface AppInfo {
   title: string;
@@ -44,6 +46,8 @@ const APPS: Record<AppId, AppInfo> = {
   pomodoro: { title: "Enfoque", ink: COZY.red, inkText: COZY.paperLight, size: { w: 340, h: 450 } },
   minesweeper: { title: "Buscaminas", ink: COZY.woodLight, size: { w: 440, h: 540 }, keepAlive: true },
   browser: { title: "Favoritos", ink: COZY.sky, inkText: COZY.paperLight, size: { w: 820, h: 540 }, keepAlive: true },
+  // Minimizada no se pierde el dibujo a medio hacer.
+  paint: { title: "Pintura", ink: COZY.gold, inkText: COZY.paperLight, size: { w: 660, h: 560 }, keepAlive: true },
 };
 
 /** Apps que aún no existen: se ven en el escritorio para mostrar hacia dónde va el PC. */
@@ -209,6 +213,7 @@ export function Desktop({
     { id: "pomodoro", label: "Enfoque", icon: <TomatoIcon />, onOpen: () => open("pomodoro") },
     { id: "minesweeper", label: "Buscaminas", icon: <MineIcon />, onOpen: () => open("minesweeper") },
     { id: "browser", label: "Favoritos", icon: <BrowserIcon />, onOpen: () => open("browser") },
+    { id: "paint", label: "Pintura", icon: <PaintIcon />, onOpen: () => open("paint") },
     ...FUTURE.map((f) => ({ id: f.id, label: f.label, icon: <f.Icon />, onOpen: () => soon(f.label), disabled: true })),
   ];
 
@@ -226,6 +231,8 @@ export function Desktop({
         return <MineIcon size={size} />;
       case "browser":
         return <BrowserIcon size={size} />;
+      case "paint":
+        return <PaintIcon size={size} />;
     }
   };
 
@@ -343,6 +350,7 @@ export function Desktop({
               {w.app === "pomodoro" && <PomodoroApp />}
               {w.app === "minesweeper" && <MinesweeperApp />}
               {w.app === "browser" && <BrowserApp active={top === "browser"} />}
+              {w.app === "paint" && <PaintApp />}
             </Window>
           );
           // `contents` no cambia el acomodo de la ventana; `none` la esconde sin desmontarla.

@@ -16,3 +16,4 @@ export * from "./photos";
 export * from "./achievements";
 export * from "./door-notes";
 export * from "./aquarium";
+export * from "./paintings";

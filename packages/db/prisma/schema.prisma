@@ -82,6 +82,7 @@ model User {
   doorNotesOut    DoorNote[]         @relation("DoorNotesSent")
   featuredBadge   FeaturedBadge?
   pet             PetBond?
+  paintings       Painting[]
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -422,6 +423,22 @@ model WorldLayout {
   edits     Json
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+/**
+ * Cuadro de pixel art pintado en la app Pintura del PC (16x16). `pixels` son 256 dígitos hexadecimales,
+ * uno por píxel (índice de la paleta cozy, ver PAINTING_PALETTE en @hyvento/shared). El cuadro va a la
+ * mochila como el mueble `cuadro:<id>` y se cuelga en la oficina con el editor de decoración.
+ */
+model Painting {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  pixels    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 /**

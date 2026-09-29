@@ -1,6 +1,7 @@
 // Nombres compartidos entre el script que pre-dibuja el arte en el build (scripts/prerender.ts) y el
 // juego que lo carga (prerender.ts): si no coinciden, el juego no encuentra la imagen y la dibuja.
 import { CATALOG, catalogItem, type OfficeMap } from "@hyvento/map";
+import { PAINTING_BASE_TYPE, paintingIdOf } from "@hyvento/shared";
 
 export { GAME_MANIFEST, PRERENDER_DIR } from "./prerender-paths";
 
@@ -8,6 +9,8 @@ export type FurnitureVariant = "front" | "back";
 
 /** Clave de textura (o de cuadro del atlas) de un mueble: la noche solo cuenta si tiene versión nocturna. */
 export function furnitureKey(type: string, variant: FurnitureVariant, night: boolean) {
+  // Todos los cuadros de la Pintura comparten el marco (los píxeles van en otra capa, ver game/paintings.ts).
+  if (paintingIdOf(type)) type = PAINTING_BASE_TYPE;
   return catalogItem(type).hasNight ? `mueble-${type}-${variant}-${night ? "noche" : "dia"}` : `mueble-${type}-${variant}`;
 }
 

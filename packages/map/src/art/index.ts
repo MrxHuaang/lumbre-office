@@ -21,6 +21,7 @@ export { BILL_DENOMINATIONS, BILL_FRAMES, BILL_H, BILL_W, billsFor, drawBill } f
 export { emoteFrames, EMOTE_H, EMOTE_W } from "./emotes";
 export { giftBox, wavingArm, GIFT_BOX_FRAMES, GIFT_BOX_H, GIFT_BOX_W } from "./social";
 export { photoBoardPhotos, PHOTO_BOARD_PIC, PHOTO_BOARD_SLOTS, type PhotoThumb } from "./photos";
+export { paintingSprite } from "./painting";
 // El acuario de la sala (los peces que nadan son capas) y los post-its de las puertas de las oficinas.
 export { ACUARIO_SWIM, aquariumBubble, miniFish, MINI_FISH_H, MINI_FISH_W } from "./acuario";
 export { doorNotesArt } from "./door-notes";

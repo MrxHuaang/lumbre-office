@@ -62,3 +62,5 @@ export * from "./sombrero";
 export * from "./npcs";
 export * from "./pesca-tienda";
 export * from "./libros";
+export * from "./painting";
+export * from "./painting-service";

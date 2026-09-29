@@ -92,7 +92,7 @@ Cosas chicas que le dan vida a la cabaña. Se hacen cuando no chocan con la fase
 | Creador de personajes | Mucho más personalizable, estilo Terraria / Guilty Gear: color por parte (piel, ojos, pelo, camisa, pantalón, zapatos, accesorios), muchos peinados, ojos, vello facial, prendas por capas y accesorios por lugar (cabeza, cara, cuello). Todo gratis. | Pendiente (sigue después de la 3b) |
 | Emotes | T (o el botón de la barra) abre el selector; 1–7 manda saludo, corazón, jaja, ¡bien!, idea, ¿qué? o bailar. Globo sobre la cabeza; lo ven los del mismo nivel. | ✅ |
 | Apps del PC | Enfoque (pomodoro que te pone "Ocupado"), Buscaminas y un navegador de favoritos (abre adentro lo que se deja incrustar: YouTube, Figma, Excalidraw, Wikipedia…; lo demás en otra pestaña). | En curso |
-| Pintura | App del PC para dibujar pixel art de 16x16 que se guarda como un cuadro para colgar en tu oficina (usa el editor de la fase 3c). | Pendiente |
+| Pintura | App del PC para dibujar pixel art de 16x16 con la paleta cozy; el cuadro (tabla `Painting`) va a la mochila como `cuadro:<id>` y se cuelga en tu oficina con Decorar. | ✅ |
 | Tocadiscos compartido | Pones un video o una playlist y todos en tu oficina lo escuchan sincronizado (con el tocadiscos de la tienda). | Pendiente |
 | Pizarra | Excalidraw en tiempo real, también en la pared de la sala de reuniones. | Pendiente |
 | Sonidos cozy | Pasos, puertas, caja registradora y música ambiente generados por código (WebAudio), sin archivos. | Pendiente |

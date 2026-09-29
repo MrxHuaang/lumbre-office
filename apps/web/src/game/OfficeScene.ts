@@ -145,6 +145,7 @@ import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } fro
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom, cssZoomOf } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
+import { PaintingLayers } from "./paintings";
 import { headOf, useMinimapStore, type MinimapPerson } from "./minimap";
 import { BusView } from "./bus";
 import { busDoorsOpenNow } from "./busStore";
@@ -364,6 +365,8 @@ export class OfficeScene extends Phaser.Scene {
   private viewBuiltAt = 0;
   /** Las fotos pinchadas en el tablón de la cafetería. */
   private photoBoards!: PhotoBoards;
+  /** Los cuadros de la Pintura colgados en las oficinas (sus píxeles, encima del marco). */
+  private paintings!: PaintingLayers;
   private treeLadder!: TreeLadderLayer;
   /** El Megabús de la parada del jardín (el bus de la calle y los sonidos de adentro). */
   private busView!: BusView;
@@ -488,6 +491,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
+    this.paintings = new PaintingLayers(this);
     this.treeLadder = new TreeLadderLayer(this);
     this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.pool = new PoolView(this);
@@ -574,6 +578,7 @@ export class OfficeScene extends Phaser.Scene {
         usePhotoStore.getState().markStale(watching);
       }),
       () => this.photoBoards.destroy(),
+      () => this.paintings.destroy(),
       () => this.treeLadder.destroy(),
       this.bindVoiceDemand(),
       () => this.busView.destroy(),
@@ -829,6 +834,7 @@ export class OfficeScene extends Phaser.Scene {
       this.seasonView.setArea(map, this.view.bounds);
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
+      this.paintings.setArea(map);
       this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
       this.aquariums.setArea(map, this.view);
@@ -912,6 +918,7 @@ export class OfficeScene extends Phaser.Scene {
     this.seasonView.setArea(map, this.view.bounds);
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
+    this.paintings.setArea(map);
     this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
     this.aquariums.setArea(map, this.view);
