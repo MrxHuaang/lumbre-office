@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { screenToWorld, worldToScreen } from "@/game/iso/projection";
 import { useMinimapStore, type MinimapPerson } from "@/game/minimap";
 import { useOfficeStore } from "@/game/store";
+import { useFacilidadStore } from "@/game/facilidad";
 import { COZY } from "@/lib/cozy";
 import { PixelIcon } from "./Cozy";
 
@@ -47,6 +48,11 @@ const FLOOR_COLOR: Partial<Record<string, string>> = {
 
 /** El nivel dibujado entero (rombos del piso y paredes) a una escala; se guarda por nivel y zoom. */
 const backgrounds = new Map<string, { canvas: HTMLCanvasElement; ox: number; oy: number }>();
+
+/** El nivel entero dibujado (también lo usa el mapa de la cabaña: facilidad/WorldMap.tsx). */
+export function minimapBackground(map: OfficeMap, scale: number) {
+  return background(map, scale);
+}
 
 function background(map: OfficeMap, scale: number) {
   const key = `${map.id}:${map.width}x${map.height}:${scale}`;
@@ -213,6 +219,15 @@ export function Minimap() {
         <span className="cozy-chip pointer-events-none absolute top-2 left-2 px-2 py-0.5 text-[12px]">Ir hasta {hover.name}</span>
       )}
       <div className="absolute right-2 bottom-2 flex flex-col gap-1">
+        <button
+          type="button"
+          className="cozy-btn px-1 py-0.5 leading-none"
+          onClick={() => useFacilidadStore.getState().show("worldmap")}
+          title="Mapa de toda la cabaña"
+          aria-label="Abrir el mapa de toda la cabaña"
+        >
+          <PixelIcon name="map" size={12} />
+        </button>
         <button type="button" className="cozy-btn px-1.5 py-0.5 text-[14px] leading-none" disabled={zoom >= ZOOMS.length - 1} onClick={() => setZoom(zoom + 1)} title="Acercar" aria-label="Acercar el minimapa">
           +
         </button>

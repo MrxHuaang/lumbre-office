@@ -1,6 +1,7 @@
 // Casa viva: los sonidos cortos de los muebles chicos y de las mascotas, generados con WebAudio (sin
-// archivos), más dos que siguen sonando: el crepitar del fuego y la música de la radio. Usan la misma
-// salida que sound.ts (el piano, la guitarra y el tocadiscos). `vol` según la distancia (0..1).
+// archivos), más dos que siguen sonando: el crepitar del fuego y la música de la radio. Salen por el
+// mezclador: los cortos como efectos, el fuego como ambiente y la radio como música. `vol` según la
+// distancia (0..1).
 import { audioOut } from "./sound";
 
 type Out = NonNullable<ReturnType<typeof audioOut>>;
@@ -47,7 +48,7 @@ function tone(a: Out, t: number, len: number, o: { freq: number; freqEnd?: numbe
 /** Corre `play` si hay audio y se oye: le pasa la salida y el momento de arranque. */
 function at(vol: number, play: (a: Out, t: number) => void) {
   if (vol <= 0.01) return;
-  const a = audioOut();
+  const a = audioOut("effects");
   if (!a) return;
   play(a, a.ctx.currentTime + 0.02);
 }
@@ -264,7 +265,7 @@ let crackle: Crackle | null = null;
 
 /** El fuego al volumen dado (0 = no se oye): la escena lo llama seguido con la fogata o chimenea más cercana. */
 export function setFireCrackle(vol: number) {
-  const a = crackle || vol > 0.02 ? audioOut() : null;
+  const a = crackle || vol > 0.02 ? audioOut("ambient") : null;
   if (!a) return;
   if (!crackle) crackle = new Crackle(a);
   crackle.setVolume(vol * 0.5, a.ctx);
@@ -273,7 +274,7 @@ export function setFireCrackle(vol: number) {
 export function stopFireCrackle() {
   const c = crackle;
   crackle = null;
-  const a = audioOut();
+  const a = audioOut("ambient");
   if (c && a) {
     c.setVolume(0, a.ctx);
     setTimeout(() => c.stop(), 700);
@@ -380,7 +381,7 @@ let radioQuietSince = 0;
 export function setRadioMusic(vol: number) {
   if (!radio) {
     if (vol <= 0.03) return;
-    const a = audioOut();
+    const a = audioOut("music");
     if (!a) return;
     radio = new Radio(a);
     radio.start();
@@ -411,7 +412,7 @@ if (typeof document !== "undefined") {
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) return;
     stopRadioMusic();
-    const a = crackle ? audioOut() : null;
+    const a = crackle ? audioOut("ambient") : null;
     if (a) crackle!.setVolume(0, a.ctx);
   });
 }

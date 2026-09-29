@@ -143,9 +143,15 @@ import { CHAIR_RACE, type PhotoShot, type PresenceStatus } from "@hyvento/shared
 import { disposeRadio, updateRadio } from "./radio";
 import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } from "./race";
 import { WallMount, wallQuad } from "./wallMount";
-import { cameraZoom, cssZoomOf } from "./pixelRatio";
+import { cameraZoom } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
 import { headOf, useMinimapStore, type MinimapPerson } from "./minimap";
+// Facilidad de uso: viaje rápido, zoom suave y con dos dedos, joystick y botones táctiles, zonas de clic.
+import { bindViajeScene } from "./viaje";
+import { bindZoom } from "./zoomControl";
+import { joystickVector, takeTouchTaps } from "./touchInput";
+import { pointSpotUnder } from "./clickSpots";
+import { lessMotion } from "@/lib/prefs";
 import { BusView } from "./bus";
 import { busDoorsOpenNow } from "./busStore";
 import { Aquariums } from "./aquarium";
@@ -293,6 +299,8 @@ export class OfficeScene extends Phaser.Scene {
   private screens = new Map<number, { identity: string | null; track: Track; el: HTMLVideoElement; mount: WallMount; feature: WallFeature }>();
   /** Esperando la respuesta del servidor tras pisar un portal. */
   private travelling = false;
+  /** El "si no llega respuesta, volver la imagen" del viaje rápido: se cancela al empezar otro fundido. */
+  private quickTravelTimer?: Phaser.Time.TimerEvent;
   /** Tile de portal en el que quedé (no se vuelve a usar hasta salir de él). */
   private portalTile = "";
   /**
@@ -540,10 +548,10 @@ export class OfficeScene extends Phaser.Scene {
       if (this.table.pointerMove(p.worldX, p.worldY)) this.hoverCursor?.setVisible(false);
       else this.hoverAt(p.worldX, p.worldY);
     });
-    this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
-      if (this.table.kind) return; // en la mesa el zoom lo maneja el modo mesa
-      cam.setZoom(cameraZoom(Phaser.Math.Clamp(Math.round(cssZoomOf(cam.zoom)) + (dy > 0 ? -1 : 1), MIN_ZOOM, MAX_ZOOM)));
-    });
+    // La rueda y los dos dedos (en la mesa el zoom lo maneja el modo mesa).
+    this.cleanups.push(bindZoom(this, { min: MIN_ZOOM, max: MAX_ZOOM, blocked: () => Boolean(this.table.kind), onPinch: () => this.clearPath() }));
+    // Viaje rápido (game/viaje.ts): fundido a negro mientras el servidor decide.
+    this.cleanups.push(bindViajeScene({ begin: () => this.beginQuickTravel(), cancel: () => this.endQuickTravel() }));
 
     this.cleanups.push(
       onRoom((room) => this.bindRoom(room)),
@@ -1058,6 +1066,8 @@ export class OfficeScene extends Phaser.Scene {
     this.pathMarker?.destroy();
     this.pathMarker = undefined;
     this.sendPosition(avatar.direction, false);
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = undefined;
     this.cameras.main.fadeOut(FADE_MS, 0, 0, 0);
     this.portalSound(portal.to.area);
     sendTravel(portal.id);
@@ -1067,6 +1077,30 @@ export class OfficeScene extends Phaser.Scene {
       this.travelling = false;
       this.cameras.main.fadeIn(FADE_MS, 0, 0, 0);
     });
+  }
+
+  /** Viaje rápido: fundido a negro hasta que llega la corrección (o el aviso de que no se pudo). */
+  private beginQuickTravel(): boolean {
+    if (!this.local || this.travelling || this.fainted) return false;
+    this.clearPath();
+    this.pendingZone = null;
+    this.pendingPerson = null;
+    this.pendingInteract = null;
+    this.pendingUse = null;
+    this.travelling = true;
+    this.cameras.main.fadeOut(FADE_MS, 0, 0, 0);
+    sfx.door();
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = this.time.delayedCall(TRAVEL_TIMEOUT_MS, () => this.endQuickTravel());
+    return true;
+  }
+
+  private endQuickTravel() {
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = undefined;
+    if (!this.travelling) return;
+    this.travelling = false;
+    this.cameras.main.fadeIn(FADE_MS, 0, 0, 0);
   }
 
   /** La puerta si se entra o se sale de la casa; si no, la escalera (subiendo o bajando). */
@@ -1406,7 +1440,10 @@ export class OfficeScene extends Phaser.Scene {
     const k = this.keys;
     const del = tap(k.DELETE);
     const backspace = tap(k.BACKSPACE);
-    return { e: tap(k.E), r: tap(k.R), f: tap(k.F), b: tap(k.B), esc: tap(k.ESC), del: del || backspace };
+    // Los botones táctiles de E y F cuentan como la tecla (si el juego está libre).
+    const touch = takeTouchTaps();
+    const free = !typing && !pcOn;
+    return { e: tap(k.E) || (free && touch.e), r: tap(k.R), f: tap(k.F) || (free && touch.f), b: tap(k.B), esc: tap(k.ESC), del: del || backspace };
   }
 
   private updateLocal(delta: number, taps: Taps) {
@@ -1431,6 +1468,9 @@ export class OfficeScene extends Phaser.Scene {
       const right = k.D.isDown || k.RIGHT.isDown ? 1 : 0;
       vx = down - up + right - left;
       vy = down - up - right + left;
+      // El joystick táctil, como las flechas.
+      const joy = joystickVector();
+      if (joy && vx === 0 && vy === 0) ({ vx, vy } = joy);
       // En el hockey las flechas mueven el mazo (lo lee la mesa), no al personaje.
       if (this.table.kind === "hockey") vx = vy = 0;
       // En el club, E sobre la pista baila o deja de bailar (si no hay otro objeto al lado).
@@ -1895,7 +1935,8 @@ export class OfficeScene extends Phaser.Scene {
       const point = pointsOfType(this.map, spec.point).sort((a, b) => Math.hypot(a.x - fx, a.y - fy) - Math.hypot(b.x - fx, b.y - fy))[0];
       if (point) return { kind: spec.kind, x: point.x, y: point.y };
     }
-    return null;
+    // Los que no tienen mueble: la escalera de la piscina, la estación del bus y la astrónoma.
+    return pointSpotUnder(this.map, sx, sy, INTERACTABLES, this.npcs.staffUnder(sx, sy));
   }
 
   /** Objeto interactivo al alcance del jugador local (o null). */
@@ -2455,7 +2496,8 @@ export class OfficeScene extends Phaser.Scene {
 
   /** El teléfono que suena tiembla sobre el escritorio (a ráfagas, como el timbre). */
   private shakePhones(time: number) {
-    if (!this.ringingPhones.length) return;
+    // Con menos movimiento no tiembla (igual suena y se ve la burbuja del teléfono).
+    if (!this.ringingPhones.length || lessMotion()) return;
     const on = time % 1500 < 900;
     const dx = on ? (Math.floor(time / 45) % 2 ? 1 : -1) : 0;
     const dy = on && Math.floor(time / 90) % 2 ? -1 : 0;

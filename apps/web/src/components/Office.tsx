@@ -74,6 +74,8 @@ import { AchievementToasts } from "./profile/AchievementToasts";
 import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
 import { TrophyPanel } from "./profile/TrophyPanel";
 import { useAchievementStore } from "@/game/achievements";
+import { DECOR_CONTROLS, gameControls } from "@/lib/shortcuts";
+import { FacilidadLayer, GameOnly } from "./facilidad/FacilidadLayer";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
@@ -340,8 +342,11 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
           <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
             {connection === "reconnecting" && <ReconnectChip />}
-            <AchievementToasts />
-            <CatchCard />
+            {/* En el modo trabajo no salen los avisos de juego (logros, el pez recién sacado). */}
+            <GameOnly>
+              <AchievementToasts />
+              <CatchCard />
+            </GameOnly>
           </div>
           {/* Arriba a la izquierda y sobre los paneles (el tablón, el mostrador): lo que te pidió quien te habla. */}
           <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-3 z-[45]">
@@ -432,6 +437,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "logbook" && <DiarioPanel onClose={closePanel} />}
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
+          {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}
+          <FacilidadLayer isAdmin={isAdmin} onEditProfile={() => setDialog("profile")} onEditCharacter={() => setDialog("character")} onAdmin={() => setDialog("admin")} />
           </ErrorBoundary>
         </>
       ) : null}
@@ -451,26 +458,6 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   );
 }
 
-/** Teclas del juego y del editor: se muestran en la lista de controles. */
-const CONTROLS: [string, string][] = [
-  ["WASD", "caminar (o clic en el piso)"],
-  ["E", "sentarte o usar"],
-  ["F", "usar lo de la mano"],
-  ["T", "emotes"],
-  ["P", "foto"],
-  ["N", "nombres: completos, cortos u ocultos"],
-  ["Enter", "chatear"],
-  ["Tab", "cambiar la fila de la barra"],
-  ["1-9 0 - =", "elegir la casilla (la mano)"],
-  ["I", "mochila, stats y personaje"],
-  ["/time", "la hora del juego (/ muestra los comandos)"],
-];
-const DECOR_CONTROLS: [string, string][] = [
-  ["Clic", "poner o elegir"],
-  ["R", "girar"],
-  ["Supr", "guardar"],
-  ["Esc", "soltar o terminar"],
-];
 
 /**
  * Recordatorio de controles: un botón "?" chico al final de la barra de abajo que abre la lista hacia
@@ -493,7 +480,8 @@ function ControlsHint() {
       window.removeEventListener("pointerdown", onDown);
     };
   }, [open]);
-  const rows = decorating ? DECOR_CONTROLS : CONTROLS;
+  // Las teclas están en lib/shortcuts.ts (también las muestra la ayuda de atajos del menú y la paleta).
+  const rows = decorating ? DECOR_CONTROLS : gameControls();
   const label = decorating ? "Teclas del editor" : "Controles";
   return (
     <div ref={box} className="relative max-md:hidden">

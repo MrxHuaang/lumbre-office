@@ -295,6 +295,8 @@ import { Parrilla, type GrillWho } from "./parrilla";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
+import { VIAJE, VIAJE_MSG, type ViajeNotice } from "@hyvento/shared";
+import { QuickTravel } from "./viaje";
 import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
 import { closeForRestart } from "./reinicio";
 import { startChatRetention } from "./chatRetention";
@@ -921,6 +923,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.startPiscina();
     this.startTina();
     this.startBoardGames();
+    this.startViaje();
     OfficeRoom.instances.add(this);
 
     this.onMessage(HUERTO_MSG.shedTake, (client, raw) => void this.handleShed(client, raw));
@@ -2013,6 +2016,64 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
     if (fn(player)) client.userData.lastActiveAt = Date.now();
+  }
+
+  // ---------- Viaje rápido (viaje.ts) ----------
+
+  /** Reloj y pausa del viaje rápido (los tests los fijan). */
+  static viajeNow: () => number = () => Date.now();
+  static viajeCooldownMs: number = VIAJE.cooldownMs;
+  private quickTravel!: QuickTravel;
+
+  private startViaje() {
+    this.quickTravel = new QuickTravel({
+      players: this.state.players,
+      offices: this.state.offices,
+      map: (area) => this.mapOf(area),
+      areas: () => this.world.areas.values(),
+      now: () => OfficeRoom.viajeNow(),
+      cooldownMs: () => OfficeRoom.viajeCooldownMs,
+      fainted: (userId) => this.drunk.fainted(userId),
+      playing: (_sessionId, p) => this.hockey.sideOf(p.userId) !== null,
+      busDoorsOpen: () => this.bus.doorsOpen(),
+      treeHouse: (userId) => this.casaArbol.canEnter(userId),
+      studio: (userId) => this.podcast.canEnter(userId, this.podcastInside()),
+    });
+    this.onMessage(VIAJE_MSG.go, (client, raw) => this.handleQuickTravel(client, raw));
+  }
+
+  /** Ir de una a un lugar o junto a alguien: lo mismo que al llegar por un portal, pero a cualquier punto. */
+  private handleQuickTravel(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const plan = this.quickTravel.plan(client.sessionId, player, raw);
+    if (!plan.ok) return client.send(VIAJE_MSG.notice, plan.notice satisfies ViajeNotice);
+    this.quickTravel.done(player.userId);
+    const target = this.mapOf(plan.area);
+    const previousZoneId = player.zoneId;
+    this.casa.leaveStall(player.userId);
+    this.fishery.cancel(player.userId);
+    player.area = target.id;
+    player.x = plan.x;
+    player.y = plan.y;
+    player.dir = plan.dir;
+    player.moving = false;
+    player.seated = false;
+    player.zoneId = zoneAt(target, plan.x, plan.y)?.id ?? "";
+    player.place = placeAt(target, plan.x, plan.y);
+    this.revokeGuestOnExit(player, previousZoneId);
+    if (previousZoneId !== player.zoneId) this.autoStatus.refreshMeetings();
+    this.whiteboards.moved(client.sessionId, player.zoneId);
+    this.focus.moved(player.userId, player.zoneId);
+    this.club.moved({ sessionId: client.sessionId, area: player.area, x: plan.x, y: plan.y, seated: false });
+    client.userData.lastMoveAt = Date.now();
+    client.userData.lastActiveAt = Date.now();
+    this.achievements.visit(player.userId, target.id);
+    client.send(MSG.moveCorrection, { x: plan.x, y: plan.y, area: target.id } satisfies MoveCorrection);
+    this.trades.moved(client.sessionId);
+    this.escenario.sweep(this.state.players);
+    this.casaArbol.sweep(Date.now());
+    this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
   }
 
   // ---------- Carrera de sillas ----------
@@ -3599,6 +3660,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
+    this.quickTravel?.forget(player.userId);
     this.fishery.forget(player.userId);
     this.pesca.forget(player.userId);
     this.granja.forget(player.userId);
