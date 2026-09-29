@@ -21,3 +21,114 @@ jobs:
       - run: pnpm --filter @hyvento/db generate
       - run: pnpm typecheck
       - run: pnpm test
+      # El build de producción (como Vercel). Las variables son de mentira: el build no se conecta a nada.
+      - name: Build de la web
+        run: pnpm --filter @hyvento/web build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          GAME_TOKEN_SECRET: ci-secreto-de-mentira-ci-secreto-de-mentira
+          NEXT_PUBLIC_GAME_SERVER_URL: ws://localhost:2567
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+  # Base de datos real: las migraciones se aplican de cero, coinciden con schema.prisma y el repositorio
+  # del servidor de juego funciona contra Postgres.
+  db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: hyvento_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d hyvento_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      # Base vacía para que `migrate diff` arme el esquema de las migraciones.
+      shadow:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: shadow
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d shadow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/hyvento_ci
+      SHADOW_DATABASE_URL: postgresql://ci:ci@localhost:5433/shadow
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @hyvento/db generate
+      - name: Aplicar las migraciones
+        run: pnpm --filter @hyvento/db migrate:deploy
+      # Falla si schema.prisma tiene cambios sin migración (o una migración que no está en el schema).
+      - name: Las migraciones coinciden con schema.prisma
+        working-directory: packages/db
+        run: >-
+          pnpm exec prisma migrate diff
+          --from-migrations prisma/migrations
+          --to-schema-datamodel prisma/schema.prisma
+          --shadow-database-url "$SHADOW_DATABASE_URL"
+          --exit-code
+      - name: Tests del repositorio contra Postgres
+        run: pnpm --filter @hyvento/server exec vitest run test/prisma-repo.int.test.ts
+        env:
+          PRISMA_INT: "1"
+
+  # Smoke de punta a punta: entrar de prueba, esperar la cabaña, caminar y chatear.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: hyvento_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d hyvento_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/hyvento_e2e
+      E2E_WEB_PORT: "3100"
+      E2E_GAME_PORT: "2667"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @hyvento/db generate
+      - run: pnpm --filter @hyvento/db migrate:deploy
+      # El arte pre-dibujado (lo mismo que hace `predev`).
+      - run: pnpm --filter @hyvento/web prerender
+      - run: pnpm --filter @hyvento/web exec playwright install --with-deps chromium
+      - name: Smoke con Playwright
+        run: pnpm --filter @hyvento/web e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7

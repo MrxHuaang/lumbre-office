@@ -11,6 +11,7 @@
     "start": "node --env-file-if-exists=../../.env ./node_modules/next/dist/bin/next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "e2e": "playwright test",
     "prerender": "node ./node_modules/tsx/dist/cli.mjs scripts/prerender.ts",
     "banner": "node ./node_modules/tsx/dist/cli.mjs scripts/banner-lumbre.ts",
     "dev:session": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs scripts/dev-session.ts"
@@ -53,6 +54,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.1.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
