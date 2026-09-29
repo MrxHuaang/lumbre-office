@@ -10,19 +10,34 @@ Oficina virtual isométrica en pixel-art para equipos remotos: caminas por una c
 [![Phaser](https://img.shields.io/badge/Phaser-3.90-8b5cf6?style=for-the-badge)](https://phaser.io/)
 [![Colyseus](https://img.shields.io/badge/Colyseus-0.16-f4b93c?style=for-the-badge&logoColor=111)](https://colyseus.io/)
 [![LiveKit](https://img.shields.io/badge/LiveKit-WebRTC-000?style=for-the-badge&logo=webrtc)](https://livekit.io/)
+[![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-Postgres-2d3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![Node](https://img.shields.io/badge/Node-22-5fa04e?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 
 <br />
 
-[Recorrido](#recorrido) · [Stack](#stack) · [Funcionamiento](#funcionamiento) · [Desarrollo](#desarrollo-local) · [Deploy](#deploy)
+[Propósito](#propósito) · [Recorrido](#recorrido) · [Stack](#stack) · [Funcionamiento](#funcionamiento) · [Desarrollo](#desarrollo-local) · [Deploy](#deploy)
 
 </div>
 
 ---
 
-![Lumbre: un personaje caminando por el jardín de noche](docs/img/lumbre-caminando.gif)
+![Recorrido de Lumbre: del jardín a la cabaña, con la cafetería, el piso 2 y el sótano](docs/img/lumbre-recorrido.webp)
+
+<sub>Un recorrido real por el juego: lago y puesto de pesca, fogata, escenario, la casa, cafetería, tienda, oficinas del piso 2 y el casino y el club del sótano.</sub>
 
 Lumbre convierte la oficina remota en un lugar al que se entra. Cada persona tiene un chibi personalizable, una oficina propia que decora con muebles comprados con puntos y un PC con su propio sistema operativo. La voz y el video funcionan **por proximidad**: si te acercas a alguien, lo escuchas; si entras a una sala, solo te escucha quien está adentro. Todo es multijugador en tiempo real con un servidor autoritativo, y **todo el arte se genera por código**: no hay un solo PNG dibujado a mano en el repo.
+
+## Propósito
+
+Las videollamadas de agenda no se parecen a trabajar juntos: para hablar con alguien hay que citarlo, y la conversación de pasillo, la que resuelve dudas y crea equipo, desaparece. Lumbre existe para devolverla a los equipos remotos:
+
+- **Presencia, no reuniones.** Ves quién está, dónde y qué hace; te acercas y hablas, sin agendar nada.
+- **Un lugar propio.** Oficina, personaje y decoración hacen que el equipo tenga un sitio con identidad, no una lista de contactos.
+- **Vida más allá del trabajo.** Cafetería, casino, club, piscina, huerto, pesca o un pomodoro en la casa del árbol dan motivos para pasar por ahí y conocerse.
+- **Gratis de operar.** Cabe en planes gratuitos y no depende de APIs de IA de pago.
+
+Hoy es la cabaña del equipo de [Hyvento](https://hyvento.co); la idea de abrirla a cualquier equipo está en [`docs/plan-equipos.md`](docs/plan-equipos.md).
 
 ## Recorrido
 
@@ -41,11 +56,37 @@ Lumbre convierte la oficina remota en un lugar al que se entra. Cada persona tie
 <summary><b>Los niveles completos, dibujados por el motor pixel</b></summary>
 <br />
 
-![Jardín](docs/img/jardin.webp)
+**Jardín**, de día y de noche: casa, escenario, piscina, granja, lago con tina y sauna, observatorio, casa del árbol y la parada del Megabús.
+
+![Jardín de día](docs/img/jardin.webp)
+![Jardín de noche](docs/img/jardin-noche.webp)
+
+**Planta baja, piso 2 y piso 3**
+
 ![Planta baja](docs/img/planta-baja.webp)
 ![Piso 2](docs/img/piso-2.webp)
+![Piso 3](docs/img/piso-3.webp)
 
-Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png`, sin abrir el juego.
+**Sótano** (casino, club y cine)
+
+![Sótano](docs/img/sotano.webp)
+
+**Niveles pequeños**
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/img/garaje.webp" alt="Garaje" /><br /><sub><b>Garaje</b>: taller y oficina extra.</sub></td>
+    <td width="33%"><img src="docs/img/casa-arbol.webp" alt="Casa del árbol" /><br /><sub><b>Casa del árbol</b>: cupo de 3 y pomodoro compartido.</sub></td>
+    <td width="33%"><img src="docs/img/megabus.webp" alt="Megabús" /><br /><sub><b>Megabús</b>: por dentro, con viaje de 30 s.</sub></td>
+  </tr>
+  <tr>
+    <td width="33%"><img src="docs/img/observatorio.webp" alt="Observatorio" /><br /><sub><b>Observatorio</b>: telescopio, orrery y fogata de malvaviscos.</sub></td>
+    <td width="33%"><img src="docs/img/podcast.webp" alt="Estudio de grabación" /><br /><sub><b>Estudio</b>: se graba solo si todos aceptan.</sub></td>
+    <td width="33%"></td>
+  </tr>
+</table>
+
+Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png [noche]`, sin abrir el juego.
 </details>
 
 ### Qué hay adentro
@@ -53,12 +94,19 @@ Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png`, sin 
 | | |
 | --- | --- |
 | **Proximidad** | Chat y video por cercanía; las salas cerradas aíslan el audio. Suscripción selectiva en el SFU: solo recibes las pistas de quien tienes cerca. |
+| **Presencia** | Disponible, ocupado, no molestar y ausente (automático por inactividad); "En reunión" lo calcula el servidor. Mascotas que te siguen entre niveles y fotos con polaroid. |
 | **Oficinas** | Una por persona, con placa, estado, puerta que se cierra y toque de puerta. Decoración en vivo que sobrevive a un rediseño del plano. |
-| **Hyvento OS** | Un PC dentro del juego con escritorio, ventanas y apps: notas estilo Notion (TipTap), papelera y calendario. |
+| **Hyvento OS** | Un PC dentro del juego con escritorio, ventanas y apps: notas estilo Notion (TipTap), papelera, calendario y pintura de cuadros que se cuelgan en la oficina; fondos de escritorio a elección. |
+| **Reuniones** | Escenario con anfiteatro (habla uno, oyen todos, mano levantada y ovación), estudio de grabación con consentimiento de todos y casa del árbol con pomodoro compartido. |
+| **Progreso** | Encargos, oficios con nivel (pesca, huerta, cocina, social y exploración), el capítulo 1 de la historia con Doña Aurora y el standup diario del tablón. |
 | **Economía** | Puntos por presencia y reuniones, buzón con racha diaria, tablón de misiones y ranking semanal. Cada movimiento queda en un libro contable. |
-| **Tienda y vestidor** | Muebles con inventario y ropa gratis. El personaje se arma por piezas (rostro, pelo, ropa) y se dibuja en el navegador. |
-| **Sótano** | Casino, club y cine. Azar con `crypto.randomInt` y apuestas en transacciones que bloquean la fila del usuario. |
-| **Afuera** | Jardín con huerto, pesca con minijuego, fogata y un bosque infinito que se repite más allá del borde. |
+| **Tienda, vestidor y mochila** | Muebles con inventario, ropa gratis y una mochila estilo Stardew con barra de acceso rápido. El personaje se arma por piezas y se dibuja en el navegador. |
+| **Sótano** | Casino, club con propinas al tubo y cine. Azar con `crypto.randomInt` y apuestas en transacciones que bloquean la fila del usuario. |
+| **Afuera** | Jardín con huerto, granja (gallinero, molino y parrilla), piscina, tina caliente y sauna, pesca con minijuego y puesto de Don Evelio, observatorio, fogata y un bosque infinito que se repite más allá del borde. |
+| **Megabús** | Un bus con horario que pasa por la estación, con viaje, puertas y pantalla de recorrido; se puede llegar a la cabaña en él. |
+| **Mundo vivo** | Reloj del juego (1 día = 1 hora real), clima, estaciones, noche y NPC con frases colombianas. Logros, insignias y un diario de exploración. |
+| **Juegos** | Ajedrez y damas con reloj, arcade y minijuegos de mesa. |
+| **Acciones rápidas** | Paleta Ctrl+K para llamar, saludar, seguir o anunciar, permisos por persona que da el admin y avisos de GitHub en el chat global. |
 | **Editor de la casa** | Los admins mueven, giran, quitan y agregan muebles en cualquier nivel; se guarda como diferencia sobre el plano. |
 
 ## Stack
@@ -66,14 +114,17 @@ Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png`, sin 
 | Capa | Tecnología | Uso |
 | --- | --- | --- |
 | Web | Next.js 15 App Router, React 19, TypeScript strict | Login, perfil, cabaña, `/admin` y API |
-| Juego | Phaser 3, proyección isométrica propia | Render de niveles, chibis, luces de noche e interacción |
+| Juego | Phaser 3.90, proyección isométrica propia | Render de niveles, chibis, luces, clima y estaciones |
 | UI | Tailwind CSS v4, zustand, Pixelify Sans | HUD "cozy" con sombras sólidas y esquinas rectas |
-| Multijugador | Colyseus 0.16 | Estado autoritativo: movimiento, paredes, asientos, portales, casino y cafetería |
-| Medios | LiveKit (WebRTC SFU) | Voz, video y pantalla compartida por proximidad, con permisos en el servidor |
+| Editor | TipTap 3 | Notas de Hyvento OS |
+| Multijugador | Colyseus 0.16 (`@colyseus/schema` 3) | Estado autoritativo: movimiento, paredes, asientos, portales, casino, bus, granja, escenario y más |
+| Medios | LiveKit (WebRTC SFU), cargado aparte del bundle | Voz, video y pantalla compartida por proximidad, con permisos en el servidor |
 | Mundo | `packages/map` | Niveles, catálogo de muebles, colisión, A* y el motor pixel |
-| Datos | Prisma + Postgres | Usuarios, notas, inventario, decoración y libro de puntos |
+| Contratos | `packages/shared`, Zod | Protocolo, reglas de proximidad, puntos, tienda y personajes: iguales en cliente y servidor |
+| Datos | Prisma 6 + Postgres (16 en local, Neon en producción) | Usuarios, notas, inventario, decoración y libro de puntos |
 | Auth | Supabase Auth (Google), solo por invitación; usuarios en Neon | Admins por correo e invitaciones desde `/admin` |
-| Calidad | Vitest, Turborepo, GitHub Actions | Typecheck y tests en cada PR |
+| Calidad | Vitest 3, Playwright, Turborepo, GitHub Actions (Node 22, pnpm 10) | Typecheck y tests en cada PR; pruebas e2e con `pnpm --filter @hyvento/web e2e` |
+| Infra | Vercel, Render, Neon, LiveKit Cloud; Docker en local | Todo en planes gratis |
 
 ## Funcionamiento
 
@@ -129,12 +180,12 @@ pnpm --filter @hyvento/web build               # build de producción
 ```text
 apps/
   web/        Next.js + Phaser: escena, HUD, Hyvento OS, API y /admin
-  server/     Colyseus: sala, reglas, casino, cafetería y tests
+  server/     Colyseus: sala y reglas por sistema (bus, casino, granja, escenario…) y tests
 packages/
   map/        Mundo en código, colisión, A* y motor pixel (src/art)
   shared/     Protocolo (zod), Look del personaje, reglas de puntos, tienda y casino
   db/         Prisma, migraciones y libro de puntos
-docs/         Plan de la cabaña, rediseño y guía de despliegue
+docs/         Planes (cabaña, rediseño, estructuras, casas, equipos), despliegue e imágenes
 ```
 
 ## Deploy
@@ -155,6 +206,8 @@ Todo cabe en planes gratis: **Vercel** (web), **Render** (servidor de juego, `re
 
 - [Plan de la cabaña](docs/plan-cabana.md): salas y fases.
 - [Plan del rediseño](docs/plan-rediseno.md): el plano actual.
+- [Plan de estructuras](docs/plan-estructuras.md): las construcciones del jardín.
+- [La casa de cada persona](docs/plan-casas.md) y [Lumbre para cualquier equipo](docs/plan-equipos.md): ideas documentadas, aún sin desarrollar.
 - [Despliegue gratis](docs/despliegue.md).
 - [Onboarding](ONBOARDING.md) y [convenciones](CLAUDE.md).
 
