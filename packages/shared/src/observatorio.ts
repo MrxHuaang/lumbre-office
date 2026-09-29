@@ -414,6 +414,9 @@ export const LOG_AREAS: readonly { id: string; name: string; note: string }[] = 
   { id: "megabus", name: "El Megabús", note: "Verde lima, vidrios oscuros y un fuelle que se dobla en las curvas." },
   { id: "podcast", name: "El estudio de grabación", note: "Ocho micrófonos, una mesa larga y el cartel de EN EL AIRE." },
   { id: "observatorio", name: "El observatorio", note: "Una torre de piedra que mira al cielo desde la lomita." },
+  { id: "barrio", name: "El barrio", note: "Cuatro casitas en fila, faroles y un buzón en cada puerta." },
+  // Todas las casas cuentan como una (ver CASA_PROPIA.statArea en casa-propia.ts).
+  { id: "casa-propia", name: "Tu casa", note: "Una cama, una cocinita y todo el espacio para hacerla tuya." },
 ];
 
 export interface LogEntry {

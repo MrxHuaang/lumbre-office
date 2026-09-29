@@ -15,6 +15,7 @@ import { PODCAST_CATALOG } from "./catalog-podcast";
 import { GRANJA_CATALOG } from "./catalog-granja";
 import { OBSERVATORIO_CATALOG } from "./catalog-observatorio";
 import { PESCA_CATALOG } from "./catalog-pesca";
+import { CASA_PROPIA_CATALOG } from "./catalog-casa-propia";
 import type { Facing } from "./types";
 
 export interface CatalogItem {
@@ -201,6 +202,7 @@ export const CATALOG = {
   ...GRANJA_CATALOG,
   ...OBSERVATORIO_CATALOG,
   ...PESCA_CATALOG,
+  ...CASA_PROPIA_CATALOG,
 } satisfies Record<string, CatalogItem>;
 
 export type FurnitureType = keyof typeof CATALOG;
