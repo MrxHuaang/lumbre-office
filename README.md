@@ -22,7 +22,9 @@ Oficina virtual isométrica en pixel-art para equipos remotos: caminas por una c
 
 ---
 
-![Lumbre: un personaje caminando por el jardín de noche](docs/img/lumbre-caminando.gif)
+![Recorrido de Lumbre: del jardín a la cabaña, con la cafetería, el piso 2 y el sótano](docs/img/lumbre-recorrido.webp)
+
+<sub>Un recorrido real por el juego: lago y puesto de pesca, fogata, escenario, la casa, cafetería, tienda, oficinas del piso 2 y el casino y el club del sótano.</sub>
 
 Lumbre convierte la oficina remota en un lugar al que se entra. Cada persona tiene un chibi personalizable, una oficina propia que decora con muebles comprados con puntos y un PC con su propio sistema operativo. La voz y el video funcionan **por proximidad**: si te acercas a alguien, lo escuchas; si entras a una sala, solo te escucha quien está adentro. Todo es multijugador en tiempo real con un servidor autoritativo, y **todo el arte se genera por código**: no hay un solo PNG dibujado a mano en el repo.
 
