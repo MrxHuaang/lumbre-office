@@ -14,6 +14,7 @@ import { useOfficeStore, type Interactable } from "@/game/store";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { GiftsSection } from "./social/GiftsSection";
+import { StandupPanel } from "./StandupPanel";
 
 const REASON_LABEL: Record<PointReason, string> = {
   PRESENCE: "Presencia",
@@ -42,6 +43,7 @@ function moveLabel(m: { reason: PointReason; refId: string | null }) {
     if (kind === "hockey") return "Arcade · Hockey de mesa";
     return `Casino · ${CASINO_GAME_NAMES[kind as CasinoGame] ?? "Ruleta"}`;
   }
+  if (m.reason === "DAILY" && kind === "standup") return "Standup del día";
   if (m.reason === "ADMIN" && ref === WELCOME_REF) return "Bono de bienvenida";
   if (m.reason === "GIFT" && kind === "trade") return "Intercambio";
   return REASON_LABEL[m.reason];
@@ -345,10 +347,13 @@ interface RankingState {
 }
 
 export function BoardPanel({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<"missions" | "ranking">("missions");
+  const [tab, setTab] = useState<"standup" | "missions" | "ranking">("standup");
   return (
     <PanelShell title="Tablón" icon="board" onClose={onClose} wide>
       <div role="tablist" className="mb-4 flex gap-2">
+        <button type="button" role="tab" aria-selected={tab === "standup"} onClick={() => setTab("standup")} className="cozy-btn">
+          Standup
+        </button>
         <button type="button" role="tab" aria-selected={tab === "missions"} onClick={() => setTab("missions")} className="cozy-btn">
           Misiones
         </button>
@@ -357,7 +362,7 @@ export function BoardPanel({ onClose }: { onClose: () => void }) {
           Ranking
         </button>
       </div>
-      {tab === "missions" ? <Missions /> : <Ranking />}
+      {tab === "standup" ? <StandupPanel /> : tab === "missions" ? <Missions /> : <Ranking />}
     </PanelShell>
   );
 }
