@@ -42,17 +42,18 @@ async function lock(client: ClientRoom, on = true): Promise<WorldEditLockResult>
 describe("editor de la casa", () => {
   it("solo quien tiene el permiso de la casa edita, y una persona a la vez", async () => {
     const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
-    const ana = await colyseus.connectTo(room, { token: await token("u-ana", "Ana", "ada", "ADMIN", { houseEditor: true }) });
-    const otro = await colyseus.connectTo(room, { token: await token("u-otro", "Otro", "bruno", "ADMIN", { houseEditor: false }) });
-    const eva = await colyseus.connectTo(room, { token: await token("u-eva", "Eva", "ada", "ADMIN") });
+    repo.permisos.set("u-eva", ["editar-casa"]);
+    const ana = await colyseus.connectTo(room, { token: await token("u-ana", "Ana", "ada", "ADMIN") });
+    const otro = await colyseus.connectTo(room, { token: await token("u-otro", "Otro", "bruno") });
+    const eva = await colyseus.connectTo(room, { token: await token("u-eva", "Eva", "ada") });
     await room.waitForNextPatch();
     const plant = worldFurniture(planDef("planta-baja")!).find((f) => f.type === "plant")!;
     const quitar = { area: "planta-baja", op: { action: "remove", key: plant.key } };
 
-    // Un admin sin el permiso de la casa (HOUSE_EDITOR_EMAIL) no entra ni edita.
+    // Sin el permiso de la casa no entra ni edita.
     expect(await lock(otro)).toEqual({ ok: false, error: "not-allowed" });
     expect(await send(otro, quitar)).toEqual({ ok: false, error: "admin" });
-    // Ana toma el editor; Eva (admin con token viejo, sin el campo) tiene que esperar.
+    // Ana (admin) toma el editor; Eva (con el permiso) tiene que esperar.
     expect(await lock(ana)).toEqual({ ok: true });
     expect(await lock(eva)).toEqual({ ok: false, error: "busy", by: "Ana" });
     expect(await send(eva, quitar)).toEqual({ ok: false, error: "busy" });

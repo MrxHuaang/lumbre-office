@@ -72,6 +72,11 @@ import {
   type PresenceStatus,
   type PointsAwarded,
   verifyGameToken,
+  PERMISOS_MSG,
+  permisosEfectivos,
+  puede,
+  type Permiso,
+  type PermisosView,
   type CafeOrderResult,
   type CasinoSettingsDTO,
   type RouletteSettled,
@@ -208,6 +213,8 @@ import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blac
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { Bag } from "./bag";
 import { DEFAULT_MESA_TIMINGS, MesaTable, parseMesaBet, randomMesaDraw, type MesaTimings } from "./casino/mesas";
+import { OpenRounds } from "./casino/recovery";
+import { settleAll } from "./shutdown";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
@@ -306,10 +313,10 @@ interface UserData {
   editTimes?: number[];
   /** Último emote (para que no se puedan mandar en ráfaga). */
   lastEmoteAt?: number;
-  /** Admin del equipo (puede usar el editor de la casa). */
+  /** Admin del equipo (tiene todos los permisos y además /time). */
   admin?: boolean;
-  /** Puede usar el editor de la casa (ver `houseEditor` del token). */
-  houseEditor?: boolean;
+  /** Permisos efectivos (ver permisos.ts de @hyvento/shared); se releen en caliente si un admin los cambia. */
+  permisos?: Permiso[];
   /** Emotes aceptados hace poco (pausa entre uno y otro y tope por ráfaga, ver `acceptEmote`). */
   emoteTimes?: number[];
   /** Mensajes recientes al casino (tope por ráfaga, ver `acceptCasinoMessage`). */
@@ -428,7 +435,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** La tina y la sauna del lago: cada cuánto da puntos el descanso y cada cuánto se revisa (los tests los acortan). */
   static tinaTimings: { tickMs: number; checkMs: number } = { tickMs: TINA.tickMs, checkMs: TINA.checkMs };
 
-  /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
   static applyWorldEditsEverywhere(area: string, edits: WorldEdits) {
     for (const r of OfficeRoom.instances) r.applyWorldEdits(area, edits);
@@ -462,6 +468,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Duración de las fases del modo foco (los tests la acortan). */
   static focusPhaseMs: (preset: FocusPresetId, phase: "work" | "break") => number = focusMs;
 
+  /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   static async reloadCasinoSettingsEverywhere() {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadCasinoSettings()));
   }
@@ -1112,17 +1119,28 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.clock.setInterval(() => this.sombrero.refresh(), OfficeRoom.sombreroTickMs);
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
 
-    const officeZones = allZones(this.world).filter((z) => z.type === "office");
-    await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
-    await this.reloadCasinoSettings();
-    await this.loadWorldEdits();
-    await this.loadGameClock();
-    await this.huerto.load().catch((err) => console.error("loadGarden", err));
-    this.startCasino();
-    await this.reloadOffices();
-    await this.events.refresh();
-    this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
-    startChatRetention(this.clock, () => this.repo);
+    try {
+      const officeZones = allZones(this.world).filter((z) => z.type === "office");
+      await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
+      await this.reloadCasinoSettings();
+      await this.loadWorldEdits();
+      await this.loadGameClock();
+      await this.huerto.load().catch((err) => console.error("loadGarden", err));
+      this.startCasino();
+      // Apuestas de una corrida anterior que se cayó sin pagarlas (y cada tanto, por si era reciente).
+      await this.casinoRounds.recover();
+      this.clock.setInterval(() => void this.casinoRounds.recover(), OpenRounds.recoverEveryMs);
+      await this.reloadOffices();
+      await this.events.refresh();
+      this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
+      startChatRetention(this.clock, () => this.repo);
+    } catch (err) {
+      // Colyseus no cierra una sala que falló al crearse: se paran sus relojes para que no quede viva a medias.
+      console.error("OfficeRoom.onCreate: no se pudo abrir la sala", err);
+      OfficeRoom.instances.delete(this);
+      this.clock.clear();
+      throw err;
+    }
   }
 
   // Apagado por deploy: avisar y cerrar con el código de reinicio (ver reinicio.ts).
@@ -1130,7 +1148,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     void closeForRestart(this);
   }
 
-  onDispose() {
+  async onDispose() {
     OfficeRoom.instances.delete(this);
     this.piscina?.dispose();
     this.drunk.dispose();
@@ -1141,9 +1159,24 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.cocina.dispose();
     this.phones.dispose();
     this.comunicacion?.dispose();
-    void this.achievements.flushAll();
-    void this.whiteboards.flush();
-    this.pets?.flush(Date.now());
+    // Primero se devuelve lo cobrado o sacado de la mochila que no alcanzó a terminar (Colyseus espera
+    // esta promesa antes de apagar el proceso)...
+    const restore = (userId: string, itemId: string, n: number) => this.repo.addInventory(userId, itemId, n);
+    await settleAll("devoluciones", {
+      casino: () => this.casinoRounds.close(),
+      parrilla: () => this.parrilla?.close(restore),
+      molino: () => this.granja?.close(restore),
+    });
+    // ...y después se guarda lo pendiente (las devoluciones pudieron sumar contadores).
+    await settleAll("guardado", {
+      logros: () => this.achievements.flushAll(),
+      pizarras: () => this.whiteboards.flush(),
+      mascotas: () => this.pets?.flush(Date.now()),
+      huerto: () => this.huerto?.flush(),
+      mochilas: () => this.held.flushAll(),
+      arcade: () => this.arcade?.flush(),
+      decoracion: () => this.decorQueue,
+    });
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -1200,12 +1233,17 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.phones.restore(auth.sub);
     this.comunicacion?.greet(client.sessionId);
 
+    const admin = auth.role === "ADMIN";
+    const permisos = await this.repo.loadPermisos([auth.sub]).catch((err) => {
+      console.error("loadPermisos", err);
+      return { everyone: [] as Permiso[], byUser: {} as Record<string, Permiso[]> };
+    });
     client.userData = {
       lastMoveAt: Date.now(),
       chatTimes: [],
       lastActiveAt: Date.now(),
-      admin: auth.role === "ADMIN",
-      houseEditor: auth.houseEditor ?? auth.role === "ADMIN",
+      admin,
+      permisos: permisosEfectivos({ admin, granted: permisos.byUser[auth.sub] ?? [], everyone: permisos.everyone }),
     };
     void this.achievements.load(auth.sub).then(() => {
       this.achievements.visit(auth.sub, area);
@@ -1219,6 +1257,33 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.send(BAG_MSG.state, { ...this.held.view(auth.sub), pick: true } satisfies BagView);
     // La hora del servidor, para que el cliente calcule bien los conteos regresivos (la ruleta).
     client.send(MSG.clock, { now: Date.now() });
+    this.sendPermisos(client);
+  }
+
+  // ---------- Permisos ----------
+
+  private sendPermisos(client: Client<UserData>) {
+    const d = client.userData;
+    if (d) client.send(PERMISOS_MSG.state, { admin: Boolean(d.admin), permisos: d.permisos ?? [] } satisfies PermisosView);
+  }
+
+  /** Un admin cambió permisos desde la web: se releen los de todos los conectados y se les avisa. */
+  static async reloadPermisosEverywhere() {
+    await Promise.all([...OfficeRoom.instances].map((r) => r.reloadPermisos()));
+  }
+
+  private async reloadPermisos() {
+    const clients = this.clients.filter((c) => c.userData && this.state.players.has(c.sessionId));
+    const userIds = [...new Set(clients.map((c) => this.state.players.get(c.sessionId)!.userId))];
+    const { everyone, byUser } = await this.repo.loadPermisos(userIds);
+    for (const c of clients) {
+      const player = this.state.players.get(c.sessionId);
+      if (!player || !c.userData) continue;
+      c.userData.permisos = permisosEfectivos({ admin: Boolean(c.userData.admin), granted: byUser[player.userId] ?? [], everyone });
+      // Si le quitaron el editor de la casa mientras lo tenía, lo suelta (el cliente cierra el panel).
+      if (this.houseEditLock?.sessionId === c.sessionId && !puede(c.userData, "editar-casa")) this.houseEditLock = null;
+      this.sendPermisos(c);
+    }
   }
 
   async onLeave(client: Client<UserData>, consented: boolean) {
@@ -1368,7 +1433,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.rebuildArea(area);
   }
 
-  /** Editor de la casa (solo admins): valida el cambio, lo guarda y lo aplica en todas las salas. */
   /** Quién tiene el editor de la casa (una persona a la vez). */
   private houseEditLock: { sessionId: string; name: string } | null = null;
 
@@ -1382,19 +1446,20 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       if (this.houseEditLock?.sessionId === client.sessionId) this.houseEditLock = null;
       return;
     }
-    if (!client.userData.houseEditor) return reply({ ok: false, error: "not-allowed" });
+    if (!puede(client.userData, "editar-casa")) return reply({ ok: false, error: "not-allowed" });
     const lock = this.houseEditLock;
     if (lock && lock.sessionId !== client.sessionId && this.state.players.has(lock.sessionId)) return reply({ ok: false, error: "busy", by: lock.name });
     this.houseEditLock = { sessionId: client.sessionId, name: player.name };
     reply({ ok: true });
   }
 
+  /** Editor de la casa (permiso `editar-casa`): valida el cambio, lo guarda y lo aplica en todas las salas. */
   private async handleWorldEdit(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = WorldEditMessage.safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
     const reply = (r: WorldEditResult) => client.send(MSG.worldEditResult, r);
-    if (!client.userData.houseEditor) return reply({ ok: false, error: "admin" });
+    if (!puede(client.userData, "editar-casa")) return reply({ ok: false, error: "admin" });
     // Una sola persona edita la casa a la vez: la que tiene el candado (lo toma si está libre).
     if (this.houseEditLock && this.houseEditLock.sessionId !== client.sessionId) return reply({ ok: false, error: "busy" });
     this.houseEditLock ??= { sessionId: client.sessionId, name: player.name };
@@ -2391,6 +2456,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
       timings: () => OfficeRoom.rouletteTimings,
       spin: () => OfficeRoom.rouletteSpin(),
+      rounds: this.casinoRounds,
     });
     this.roulette.start();
     for (const id of MESAS) {
@@ -2411,6 +2477,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         },
         timings: () => OfficeRoom.mesaTimings,
         draw: (t) => OfficeRoom.mesaDraw(t),
+        rounds: this.casinoRounds,
       });
       this.mesas.set(id, table);
       table.start();
@@ -2430,6 +2497,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
       timings: () => OfficeRoom.blackjackTimings,
       shuffle: () => OfficeRoom.blackjackShuffle(),
+      rounds: this.casinoRounds,
     });
   }
 
@@ -3050,7 +3118,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         },
         take: (userId, part) => this.held.takePart(userId, part),
       },
-      save: (bond) => void this.repo.savePetBond(bond).catch((err) => console.error("savePetBond", err)),
+      save: (bond) => this.repo.savePetBond(bond).catch((err) => console.error("savePetBond", err)),
     });
     let last = Date.now();
     this.pets.start(last);
@@ -3806,6 +3874,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     return { x, y };
   }
+
+  /** Rondas del casino con apuestas cobradas y sin pagar (se devuelven al cerrar; ver casino/recovery.ts). */
+  private readonly casinoRounds = new OpenRounds({
+    repo: () => this.repo,
+    run: randomUUID().slice(0, 8),
+    setPoints: (userId, balance) => {
+      for (const p of this.state?.players.values() ?? []) if (p.userId === userId) p.points = balance;
+    },
+  });
 }
 /** Lo que responde la parrilla a quien la usó (o nada: se ignora). */
 type GrillResult = { state?: GrillState; notice?: GrillNotice } | null;

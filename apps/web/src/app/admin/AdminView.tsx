@@ -1,4 +1,4 @@
-import type { CasinoSettingsDTO } from "@hyvento/shared";
+import type { CasinoSettingsDTO, Permiso } from "@hyvento/shared";
 import Link from "next/link";
 import { CharacterSprite } from "@/components/CharacterSprite";
 import { CozyTitle, PixelIcon } from "@/components/Cozy";
@@ -6,16 +6,18 @@ import { asAvatar, asLook } from "@/lib/current-user";
 import { revokeInvite, saveCasinoSettingsAction } from "./actions";
 import { InviteForm } from "./InviteForm";
 import { OfficeAssign } from "./OfficeAssign";
+import { PermisosAdmin } from "./PermisosAdmin";
 
 export interface AdminData {
   users: { id: string; name: string; email: string; role: string; avatar: string; look: unknown; onboardedAt: Date | null }[];
   invites: { id: string; email: string; role: string }[];
   offices: { zoneId: string; name: string; ownerId: string | null; isLocked: boolean }[];
   casino: CasinoSettingsDTO;
+  permisos: { everyone: Permiso[]; byUser: Record<string, Permiso[]> };
 }
 
 /** Vista de administración del equipo (los datos los carga la página). */
-export function AdminView({ users, invites, offices, casino, embedded = false }: AdminData & { embedded?: boolean }) {
+export function AdminView({ users, invites, offices, casino, permisos, embedded = false }: AdminData & { embedded?: boolean }) {
   return (
     <main className={`cozy-void min-h-full font-pixel text-cozy-ink ${embedded ? "px-5 py-6 sm:px-8" : "px-6 py-8 sm:px-10 md:px-14 md:py-10"}`}>
       <div className="mx-auto flex max-w-3xl flex-col gap-8">
@@ -57,6 +59,10 @@ export function AdminView({ users, invites, offices, casino, embedded = false }:
             </ul>
           </Section>
         )}
+
+        <Section title="Permisos">
+          <PermisosAdmin users={users} everyone={permisos.everyone} byUser={permisos.byUser} />
+        </Section>
 
         <Section title="Casino">
           <form action={saveCasinoSettingsAction} className="flex flex-wrap items-end gap-4">

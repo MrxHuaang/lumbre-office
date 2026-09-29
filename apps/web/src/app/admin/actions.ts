@@ -1,11 +1,11 @@
 "use server";
 
-import { prisma, saveCasinoSettings } from "@hyvento/db";
-import { CasinoSettingsBody } from "@hyvento/shared";
+import { prisma, saveCasinoSettings, setPermiso, setPermisoTodos } from "@hyvento/db";
+import { CasinoSettingsBody, SetPermisoBody, SetPermisoTodosBody } from "@hyvento/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/current-user";
-import { publishCasinoSettingsChanged, publishOfficesChanged } from "@/lib/events";
+import { publishCasinoSettingsChanged, publishOfficesChanged, publishPermissionsChanged } from "@/lib/events";
 import { assignOffice } from "@/lib/offices";
 
 const InviteInput = z.object({
@@ -64,4 +64,36 @@ export async function saveCasinoSettingsAction(form: FormData) {
   await saveCasinoSettings(prisma, parsed.data);
   await publishCasinoSettingsChanged();
   revalidatePath("/admin");
+}
+
+/** Permisos: dar o quitar uno a una persona (a un admin no hace falta: los tiene todos). */
+export async function setPermisoAction(userId: string, permiso: string, on: boolean): Promise<{ error?: string }> {
+  const admin = await requireAdmin();
+  const parsed = SetPermisoBody.safeParse({ userId, permiso, on });
+  if (!parsed.success) return { error: "Datos inválidos" };
+  try {
+    await setPermiso(prisma, { ...parsed.data, grantedById: admin.id });
+  } catch (err) {
+    console.error("setPermiso", err);
+    return { error: "No se pudo guardar el permiso" };
+  }
+  await publishPermissionsChanged();
+  revalidatePath("/admin");
+  return {};
+}
+
+/** Permisos: "todos pueden" (abrirlo o cerrarlo para todo el equipo). */
+export async function setPermisoTodosAction(permiso: string, on: boolean): Promise<{ error?: string }> {
+  await requireAdmin();
+  const parsed = SetPermisoTodosBody.safeParse({ permiso, on });
+  if (!parsed.success) return { error: "Datos inválidos" };
+  try {
+    await setPermisoTodos(prisma, parsed.data);
+  } catch (err) {
+    console.error("setPermisoTodos", err);
+    return { error: "No se pudo guardar el permiso" };
+  }
+  await publishPermissionsChanged();
+  revalidatePath("/admin");
+  return {};
 }
