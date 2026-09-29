@@ -143,10 +143,16 @@ import { CHAIR_RACE, type PhotoShot, type PresenceStatus } from "@hyvento/shared
 import { disposeRadio, updateRadio } from "./radio";
 import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } from "./race";
 import { WallMount, wallQuad } from "./wallMount";
-import { cameraZoom, cssZoomOf } from "./pixelRatio";
+import { cameraZoom } from "./pixelRatio";
 import { PhotoBoards } from "./photos/board";
 import { PaintingLayers } from "./paintings";
 import { headOf, useMinimapStore, type MinimapPerson } from "./minimap";
+// Facilidad de uso: viaje rápido, zoom suave y con dos dedos, joystick y botones táctiles, zonas de clic.
+import { bindViajeScene } from "./viaje";
+import { bindZoom } from "./zoomControl";
+import { joystickVector, takeTouchTaps } from "./touchInput";
+import { pointSpotUnder } from "./clickSpots";
+import { lessMotion } from "@/lib/prefs";
 import { BusView } from "./bus";
 import { busDoorsOpenNow } from "./busStore";
 import { Aquariums } from "./aquarium";
@@ -163,10 +169,14 @@ import { localSpeedMul, useCocinaStore } from "./cocina";
 import { PORTION_USABLE_PREFIX, sendPortion } from "./granjaNet";
 import { SeasonView } from "./seasons";
 import { NpcCast } from "./npcs/cast";
+import { syncSeat } from "./mundo";
 import { QuestMarkers, questGiverToTalk } from "./encargosMarcas";
+import { useOficios } from "./oficios";
 import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
 import { isTripKind, SOMBRERO, type TripKind } from "@hyvento/shared";
 import { broadcastActive, noteManualMove, voiceFlags } from "./comunicacion";
+import { focusOwnsKey, isEditableFocus } from "@/lib/keyboardFocus";
+import { TextResolution } from "./textResolution";
 
 // 1 = la vista más abierta: se ve harto más de la cabaña alrededor.
 const MIN_ZOOM = 1;
@@ -194,7 +204,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
   { kind: "cinema", point: "cinema", furniture: ["projector"] },
   { kind: "snacks", point: MENUS.cine.point, furniture: [...MENUS.cine.furniture] },
-  { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
+  { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet", "pinball"] },
   { kind: "hockey", point: "air_hockey", furniture: ["air-hockey"] },
   { kind: "baccarat", point: "baccarat", furniture: ["baccarat-table"] },
   { kind: "dados", point: "sicbo", furniture: ["sicbo-table"] },
@@ -223,6 +233,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "logbook", point: "logbook", furniture: ["log-desk"] },
   // La astrónoma (un personaje, no un mueble: se le habla desde el punto de delante).
   { kind: "astronomer", point: "astronomer", furniture: [] },
+  // Doña Gloria en la recepción del recibidor (mundo lleno).
+  { kind: "reception", point: "reception", furniture: ["reception-desk"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -294,6 +306,8 @@ export class OfficeScene extends Phaser.Scene {
   private screens = new Map<number, { identity: string | null; track: Track; el: HTMLVideoElement; mount: WallMount; feature: WallFeature }>();
   /** Esperando la respuesta del servidor tras pisar un portal. */
   private travelling = false;
+  /** El "si no llega respuesta, volver la imagen" del viaje rápido: se cancela al empezar otro fundido. */
+  private quickTravelTimer?: Phaser.Time.TimerEvent;
   /** Tile de portal en el que quedé (no se vuelve a usar hasta salir de él). */
   private portalTile = "";
   /**
@@ -316,6 +330,12 @@ export class OfficeScene extends Phaser.Scene {
   private decorDirty = false;
   /** Cuándo se dejó de escribir o se apagó el PC (mismo reloj que `event.timeStamp`). */
   private keysFreeAt = 0;
+  /** Sprites que pueden tapar la mesa (se reutiliza cada cuadro). */
+  private covering: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [];
+  /** Resolución de los textos del canvas según el zoom (ver textResolution.ts). */
+  private textRes!: TextResolution;
+  /** ¿Había un campo de la UI con foco en el cuadro anterior? */
+  private fieldFocus = false;
   /** Modo mesa del casino (ruleta o blackjack con la cámara sobre la mesa). */
   private table!: TableMode;
   /** Muebles que se usan (tele, lámparas, instrumentos, gato) y el que está al alcance. */
@@ -460,6 +480,8 @@ export class OfficeScene extends Phaser.Scene {
     cam.setRoundPixels(true);
     // Solo se dibuja lo que cae en la vista (ver culling.ts).
     this.cleanups.push(installCameraCulling(this));
+    this.textRes = new TextResolution(this);
+    this.cleanups.push(() => this.textRes.dispose());
 
     // Sin captura: el teclado sigue funcionando en los inputs de la UI.
     this.keys = this.input.keyboard!.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,R,F,B,ESC,DELETE,BACKSPACE", false) as Keys;
@@ -505,6 +527,8 @@ export class OfficeScene extends Phaser.Scene {
     this.trophyCases = new TrophyCases(this);
     this.tripVision = new TripVision(() => this.game.canvas.parentElement);
     this.questMarks = new QuestMarkers(this, { local: () => (this.local ? { x: this.local.x, y: this.local.y } : null) });
+    // Alguien del nivel subió de nivel en un oficio: chispas sobre su personaje.
+    useOficios.subscribe((st, prev) => st.levelUp && st.levelUp !== prev.levelUp && this.avatars.get(st.levelUp.sessionId)?.sparkle());
     this.npcs = new NpcCast(this, {
       local: () => (this.local ? { x: this.local.x, y: this.local.y } : null),
       people: () => {
@@ -519,7 +543,7 @@ export class OfficeScene extends Phaser.Scene {
     });
     // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
-      if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing) pumpRace();
+      if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing && !focusOwnsKey(" ")) pumpRace();
     });
     this.input.on("gameout", () => (this.pointerOutside = true));
     this.input.on("gameover", () => (this.pointerOutside = false));
@@ -544,10 +568,10 @@ export class OfficeScene extends Phaser.Scene {
       if (this.table.pointerMove(p.worldX, p.worldY)) this.hoverCursor?.setVisible(false);
       else this.hoverAt(p.worldX, p.worldY);
     });
-    this.input.on("wheel", (_p: unknown, _o: unknown, _dx: number, dy: number) => {
-      if (this.table.kind) return; // en la mesa el zoom lo maneja el modo mesa
-      cam.setZoom(cameraZoom(Phaser.Math.Clamp(Math.round(cssZoomOf(cam.zoom)) + (dy > 0 ? -1 : 1), MIN_ZOOM, MAX_ZOOM)));
-    });
+    // La rueda y los dos dedos (en la mesa el zoom lo maneja el modo mesa).
+    this.cleanups.push(bindZoom(this, { min: MIN_ZOOM, max: MAX_ZOOM, blocked: () => Boolean(this.table.kind), onPinch: () => this.clearPath() }));
+    // Viaje rápido (game/viaje.ts): fundido a negro mientras el servidor decide.
+    this.cleanups.push(bindViajeScene({ begin: () => this.beginQuickTravel(), cancel: () => this.endQuickTravel() }));
 
     this.cleanups.push(
       onRoom((room) => this.bindRoom(room)),
@@ -675,9 +699,12 @@ export class OfficeScene extends Phaser.Scene {
     this.updateLocal(delta, this.readTaps());
     this.table.update();
     // En la mesa se atenúa a quien la tape, y también los muebles de adelante (un pinball junto a los caballitos).
-    const covering: (Phaser.GameObjects.Sprite | Phaser.GameObjects.Image)[] = [...this.avatars.values()].map((a) => a.sprite);
-    covering.push(...this.npcs.sprites());
-    if (this.table.kind && this.view) covering.push(...this.view.furnitureSprites());
+    // El mismo arreglo cada cuadro (antes se armaban dos o tres nuevos por cuadro).
+    const covering = this.covering;
+    covering.length = 0;
+    for (const a of this.avatars.values()) covering.push(a.sprite);
+    this.npcs.collectSprites(covering);
+    if (this.table.kind && this.view) for (const img of this.view.furnitureSprites()) covering.push(img);
     this.table.fadeAvatars(covering);
     // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa. En el ajedrez
     // y las damas no (el tablero va en la tira y se quiere ver quién juega).
@@ -722,34 +749,7 @@ export class OfficeScene extends Phaser.Scene {
     this.updatePrivateRoom();
     this.updateOfficeRadio();
     this.updateScreenMounts();
-    this.syncTextResolution(time);
-  }
-
-  private textRes = 0;
-  private textScanAt = 0;
-
-  /**
-   * Los textos del canvas (nombres, placas, burbujas) se rasterizan a la escala a la que se ven: cada
-   * píxel del texto cae en un píxel de pantalla. Con una resolución fija más alta, la cámara los achicaba
-   * saltando filas de píxeles (se veían borrosos o comidos). Se revisa cada tanto por los textos nuevos.
-   */
-  private syncTextResolution(time: number) {
-    const r = Math.max(1, Math.round(this.cameras.main.zoom));
-    if (r === this.textRes && time < this.textScanAt) return;
-    this.textRes = r;
-    this.textScanAt = time + 300;
-    const visit = (list: Phaser.GameObjects.GameObject[]) => {
-      for (const o of list) {
-        if (o instanceof Phaser.GameObjects.Text) {
-          // Phaser solo copia la resolución a la textura al crear el texto: sin esto se dibuja achicado.
-          if (o.style.resolution !== r) {
-            o.frame.source.resolution = r;
-            o.setResolution(r);
-          }
-        } else if (o instanceof Phaser.GameObjects.Container) visit(o.list);
-      }
-    };
-    visit(this.children.list);
+    this.textRes.sync(this.cameras.main.zoom);
   }
 
   /** La radio de la oficina donde estoy (si tiene): suena solo adentro, al segundo del servidor. */
@@ -1065,6 +1065,8 @@ export class OfficeScene extends Phaser.Scene {
     this.pathMarker?.destroy();
     this.pathMarker = undefined;
     this.sendPosition(avatar.direction, false);
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = undefined;
     this.cameras.main.fadeOut(FADE_MS, 0, 0, 0);
     this.portalSound(portal.to.area);
     sendTravel(portal.id);
@@ -1074,6 +1076,30 @@ export class OfficeScene extends Phaser.Scene {
       this.travelling = false;
       this.cameras.main.fadeIn(FADE_MS, 0, 0, 0);
     });
+  }
+
+  /** Viaje rápido: fundido a negro hasta que llega la corrección (o el aviso de que no se pudo). */
+  private beginQuickTravel(): boolean {
+    if (!this.local || this.travelling || this.fainted) return false;
+    this.clearPath();
+    this.pendingZone = null;
+    this.pendingPerson = null;
+    this.pendingInteract = null;
+    this.pendingUse = null;
+    this.travelling = true;
+    this.cameras.main.fadeOut(FADE_MS, 0, 0, 0);
+    sfx.door();
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = this.time.delayedCall(TRAVEL_TIMEOUT_MS, () => this.endQuickTravel());
+    return true;
+  }
+
+  private endQuickTravel() {
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = undefined;
+    if (!this.travelling) return;
+    this.travelling = false;
+    this.cameras.main.fadeIn(FADE_MS, 0, 0, 0);
   }
 
   /** La puerta si se entra o se sale de la casa; si no, la escalera (subiendo o bajando). */
@@ -1192,6 +1218,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setSwimming(Boolean(player.swimming));
     avatar.setWet(Boolean(player.wet));
     avatar.setBadge(player.badge ?? "");
+    avatar.setNeighborLevel(player.vecino ?? 0);
     avatar.setCall(player.call ?? "");
     this.avatars.set(sessionId, avatar);
 
@@ -1202,6 +1229,7 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("avatar", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("name", (name) => avatar.setName(name));
     p$.listen("badge", (badge) => avatar.setBadge(badge ?? ""));
+    p$.listen("vecino", (level) => avatar.setNeighborLevel(level ?? 0));
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));
@@ -1408,12 +1436,25 @@ export class OfficeScene extends Phaser.Scene {
    */
   private readTaps(): Taps {
     const { typing, pcOn } = useOfficeStore.getState();
+    // Un campo con foco que no avisa `typing` (un buscador, un select) también se queda con las teclas;
+    // al soltarlo, lo apretado mientras tanto no cuenta (como al terminar de escribir).
+    const fieldFocus = isEditableFocus();
+    if (this.fieldFocus && !fieldFocus) this.keysFreeAt = performance.now();
+    this.fieldFocus = fieldFocus;
     const tap = (key: Phaser.Input.Keyboard.Key) =>
-      Phaser.Input.Keyboard.JustDown(key) && !typing && !pcOn && key.timeDown > this.keysFreeAt;
+      Phaser.Input.Keyboard.JustDown(key) && !typing && !pcOn && !fieldFocus && key.timeDown > this.keysFreeAt;
     const k = this.keys;
     const del = tap(k.DELETE);
     const backspace = tap(k.BACKSPACE);
-    return { e: tap(k.E), r: tap(k.R), f: tap(k.F), b: tap(k.B), esc: tap(k.ESC), del: del || backspace };
+    // Los botones táctiles de E y F cuentan como la tecla (si el juego está libre).
+    const touch = takeTouchTaps();
+    const free = !typing && !pcOn && !fieldFocus;
+    return { e: tap(k.E) || (free && touch.e), r: tap(k.R), f: tap(k.F) || (free && touch.f), b: tap(k.B), esc: tap(k.ESC), del: del || backspace };
+  }
+
+  /** WASD y flechas, ¿son del juego? (no si las usa el control con foco: un campo, un deslizador). */
+  private moveKeysFree() {
+    return { letters: !focusOwnsKey("w"), arrows: !focusOwnsKey("ArrowUp") };
   }
 
   private updateLocal(delta: number, taps: Taps) {
@@ -1431,13 +1472,17 @@ export class OfficeScene extends Phaser.Scene {
     // Escribiendo en la UI o usando el PC: el teclado no mueve al personaje.
     if (!typing && !pcOn) {
       const k = this.keys;
+      const { letters, arrows } = this.moveKeysFree();
       // Las teclas van alineadas a la pantalla: arriba = noroeste+noreste del mundo, etc.
-      const up = k.W.isDown || k.UP.isDown ? 1 : 0;
-      const down = k.S.isDown || k.DOWN.isDown ? 1 : 0;
-      const left = k.A.isDown || k.LEFT.isDown ? 1 : 0;
-      const right = k.D.isDown || k.RIGHT.isDown ? 1 : 0;
+      const up = (letters && k.W.isDown) || (arrows && k.UP.isDown) ? 1 : 0;
+      const down = (letters && k.S.isDown) || (arrows && k.DOWN.isDown) ? 1 : 0;
+      const left = (letters && k.A.isDown) || (arrows && k.LEFT.isDown) ? 1 : 0;
+      const right = (letters && k.D.isDown) || (arrows && k.RIGHT.isDown) ? 1 : 0;
       vx = down - up + right - left;
       vy = down - up - right + left;
+      // El joystick táctil, como las flechas.
+      const joy = joystickVector();
+      if (joy && vx === 0 && vy === 0) ({ vx, vy } = joy);
       // En el hockey las flechas mueven el mazo (lo lee la mesa), no al personaje.
       if (this.table.kind === "hockey") vx = vy = 0;
       // En el club, E sobre la pista baila o deja de bailar (si no hay otro objeto al lado).
@@ -1591,7 +1636,9 @@ export class OfficeScene extends Phaser.Scene {
     const { typing, pcOn } = useOfficeStore.getState();
     if (!typing && !pcOn) {
       const k = this.keys;
-      const moving = [k.W, k.A, k.S, k.D, k.UP, k.DOWN, k.LEFT, k.RIGHT].some((key) => key.isDown);
+      const { letters, arrows } = this.moveKeysFree();
+      const moving =
+        (letters && [k.W, k.A, k.S, k.D].some((key) => key.isDown)) || (arrows && [k.UP, k.DOWN, k.LEFT, k.RIGHT].some((key) => key.isDown));
       this.fishing.control(taps, moving);
     }
     const face = this.fishing.facing();
@@ -1745,6 +1792,8 @@ export class OfficeScene extends Phaser.Scene {
     if (sun !== s.seatSun) s.setSeatSun(sun);
     const spa = this.seat ?? free ? spaKindOf((this.seat ?? free)!.type) : null;
     if (spa !== s.seatSpa) s.setSeatSpa(spa);
+    // Mundo lleno: el bote del muelle (la ayuda dice "subirte al bote" y, sentado, sale "Pescar").
+    syncSeat((this.seat ?? free)?.type ?? null, this.seat !== null);
     const atComputer = this.seat?.computer ?? false;
     if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
     const atSwivel = this.seat ? isSwivelSeat(this.seat) : false;
@@ -1902,7 +1951,8 @@ export class OfficeScene extends Phaser.Scene {
       const point = pointsOfType(this.map, spec.point).sort((a, b) => Math.hypot(a.x - fx, a.y - fy) - Math.hypot(b.x - fx, b.y - fy))[0];
       if (point) return { kind: spec.kind, x: point.x, y: point.y };
     }
-    return null;
+    // Los que no tienen mueble: la escalera de la piscina, la estación del bus y la astrónoma.
+    return pointSpotUnder(this.map, sx, sy, INTERACTABLES, this.npcs.staffUnder(sx, sy));
   }
 
   /** Objeto interactivo al alcance del jugador local (o null). */
@@ -2462,7 +2512,8 @@ export class OfficeScene extends Phaser.Scene {
 
   /** El teléfono que suena tiembla sobre el escritorio (a ráfagas, como el timbre). */
   private shakePhones(time: number) {
-    if (!this.ringingPhones.length) return;
+    // Con menos movimiento no tiembla (igual suena y se ve la burbuja del teléfono).
+    if (!this.ringingPhones.length || lessMotion()) return;
     const on = time % 1500 < 900;
     const dx = on ? (Math.floor(time / 45) % 2 ? 1 : -1) : 0;
     const dy = on && Math.floor(time / 90) % 2 ? -1 : 0;

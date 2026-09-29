@@ -205,7 +205,7 @@ function OfferList({ items, onRemove }: { items: ItemStack[]; onRemove?: (itemId
           <span className="min-w-0 flex-1 truncate">{itemName(it.itemId)}</span>
           <span className="tabular-nums">× {it.quantity}</span>
           {onRemove && (
-            <button type="button" onClick={() => onRemove(it.itemId)} aria-label={`Sacar un ${itemName(it.itemId)}`} className="cozy-btn h-6 w-6 p-0">
+            <button type="button" onClick={() => onRemove(it.itemId)} aria-label={`Sacar un ${itemName(it.itemId)}`} className="cozy-btn cozy-hit h-6 w-6 p-0">
               −
             </button>
           )}

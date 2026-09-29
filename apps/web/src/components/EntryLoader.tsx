@@ -16,6 +16,7 @@ import { CharacterSprite } from "./CharacterSprite";
 import { CozyTitle } from "./Cozy";
 import { drawScenery, FEET_Y, MEADOW_Y, SCENE_H, type Scenery, type Strip } from "./entry/scenery";
 import { LumbreLogo } from "./lumbre/Logo";
+import { lessMotion } from "@/lib/prefs";
 
 /** Qué está haciendo la pantalla: cargando, llegando a la cabaña (la puerta se abre) o fundiéndose. */
 type Exit = "loading" | "arrive" | "leave";
@@ -25,7 +26,7 @@ const ARRIVE_MS = 900;
 const LEAVE_MS = 450;
 const REDUCED_LEAVE_MS = 200;
 
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const reducedMotion = () => typeof window !== "undefined" && lessMotion();
 const localMinute = () => {
   const d = new Date();
   return d.getHours() * 60 + d.getMinutes();

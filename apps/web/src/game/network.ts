@@ -108,6 +108,7 @@ import { bindPesca } from "./pesca";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
+import { bindPermisos } from "./permisos";
 import { bindComunicacion, resetComunicacion } from "./comunicacion";
 import { useSombreroStore } from "./npcs/store";
 import { RESTART_MSG } from "@hyvento/shared";
@@ -151,6 +152,8 @@ export interface RemotePlayer {
   wet: boolean;
   /** Insignia destacada (id de un logro; "" = ninguna). */
   badge: string;
+  /** Nivel de vecino (la suma de los niveles de los oficios; 0 = todavía no llegó). */
+  vecino?: number;
   /** Energía de un plato de la cocina (id de la receta; "" = nada). */
   buff: string;
   /** Modo foco: "" nada, "work" o "break"; cuándo termina (hora del servidor) y el preset. */
@@ -708,7 +711,7 @@ export function sendWorldEdit(edit: WorldEditMessage) {
 
 const WORLD_EDIT_TEXT: Record<string, string> = {
   ...WORLD_EDIT_ERRORS,
-  admin: "Solo el administrador de la casa puede editarla.",
+  admin: "Necesitas el permiso para editar la casa (se lo pides a un admin).",
   busy: "Otra persona está editando la casa.",
   failed: "No se pudo guardar. Intenta de nuevo.",
 };
@@ -722,7 +725,7 @@ function handleWorldEditLockResult(r: WorldEditLockResult) {
   if (r.ok) return;
   const s = useOfficeStore.getState();
   s.setWorldEditing(false);
-  s.notify(r.error === "busy" ? `${r.by} está editando la casa: una persona a la vez.` : "Solo el administrador de la casa puede editarla.", "warning");
+  s.notify(r.error === "busy" ? `${r.by} está editando la casa: una persona a la vez.` : "Necesitas el permiso para editar la casa (se lo pides a un admin).", "warning");
 }
 
 function handleWorldEditResult(r: WorldEditResult) {
@@ -1071,6 +1074,7 @@ function attach(r: OfficeRoom) {
     useOfficeStore.getState().notify(text, s.outcome === "lose" ? "info" : "success");
   });
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
+  bindPermisos(r);
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
   bindCinema(r);

@@ -34,6 +34,8 @@ export interface Option<T extends string> {
   label: string;
   /** El look con esta opción puesta, para la miniatura. */
   look: LookInput;
+  /** Bloqueada (los trajes de los oficios): qué pide, dicho corto ("Pesca nivel 2"). */
+  locked?: string;
 }
 
 /**
@@ -65,14 +67,16 @@ export function OptionGrid<T extends string>({
           key={o.id}
           type="button"
           aria-pressed={isOn(o.id)}
-          disabled={disabled}
+          disabled={disabled || Boolean(o.locked)}
+          title={o.locked ? `Se desbloquea con ${o.locked}` : undefined}
           onClick={() => onPick(o.id)}
-          className="cozy-btn flex-col justify-start gap-1 px-1 pt-1 pb-1.5"
+          className={`cozy-btn flex-col justify-start gap-1 px-1 pt-1 pb-1.5 ${o.locked ? "opacity-60" : ""}`}
         >
           <span className={`grid w-full place-items-center bg-cozy-paper-light ${tall ? "h-[76px]" : "h-[60px]"}`}>
             <ChibiThumb look={o.look} crop={crop} dir={dir} />
           </span>
           <span className="text-center text-[12px] leading-[1.15] text-balance">{o.label}</span>
+          {o.locked && <span className="text-center text-[11px] leading-[1.1] text-cozy-ink-soft">{o.locked}</span>}
         </button>
       ))}
     </div>

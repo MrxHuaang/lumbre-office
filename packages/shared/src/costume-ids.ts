@@ -32,5 +32,16 @@ export const COSTUME_IDS = [
   "pirata",
   "superheroe",
   "mago",
+  // Los de los oficios (se desbloquean con el nivel: ver oficios.ts).
+  "pescador-lago",
+  "lobo-lago",
+  "hortelano",
+  "maestro-huerta",
+  "cocinero",
+  "chef-mayor",
+  "anfitrion",
+  "alma-fiesta",
+  "explorador",
+  "cartografo",
 ] as const;
 export type CostumeId = (typeof COSTUME_IDS)[number];

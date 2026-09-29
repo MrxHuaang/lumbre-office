@@ -21,8 +21,9 @@ import {
   type ArcadeKey,
   type ArcadeSim,
 } from "./arcade-sim";
+import { PINBALL, PinballSim } from "./pinball-sim";
 
-type Sim = SnakeSim | BreakoutSim | FlappySim | BloquesSim;
+type Sim = SnakeSim | BreakoutSim | FlappySim | BloquesSim | PinballSim;
 
 /** Juega como lo haría el navegador (grabando las teclas) con un bot que decide en cada paso. */
 function play(game: ArcadeGame, seed: number, bot: (sim: Sim, held: Record<ArcadeKey, boolean>) => { press?: ArcadeKey[]; hold?: Partial<Record<ArcadeKey, boolean>> }, maxSteps = 60 * 60 * 5) {
@@ -141,7 +142,18 @@ function bloquesBot() {
   };
 }
 
-const BOTS: Record<ArcadeGame, () => Parameters<typeof play>[2]> = { snake: snakeBot, breakout: () => breakoutBot, flappy: () => flappyBot, bloques: bloquesBot };
+/** Pinball: lanza cuando la bola espera y levanta el flipper del lado donde viene cayendo la bola. */
+function pinballBot() {
+  return (sim: Sim) => {
+    const p = sim as PinballSim;
+    if (p.waiting) return { press: ["action" as ArcadeKey], hold: { left: false, right: false } };
+    const low = p.ball.y > PINBALL.flipper.left.y - 12 && p.ball.vy > 0;
+    const mid = (PINBALL.flipper.left.x + PINBALL.flipper.right.x) / 2;
+    return { hold: { left: low && p.ball.x < mid + 2, right: low && p.ball.x >= mid - 2 } };
+  };
+}
+
+const BOTS: Record<ArcadeGame, () => Parameters<typeof play>[2]> = { snake: snakeBot, breakout: () => breakoutBot, flappy: () => flappyBot, bloques: bloquesBot, pinball: pinballBot };
 
 describe("simulación del arcade", () => {
   it("la semilla da siempre el mismo azar", () => {
@@ -159,12 +171,22 @@ describe("simulación del arcade", () => {
     expect(decodeInput(-1)).toBeNull();
   });
 
-  it.each(["snake", "breakout", "flappy", "bloques"] as const)("%s: la misma semilla y las mismas teclas dan la misma partida", (game) => {
+  it.each(["snake", "breakout", "flappy", "bloques", "pinball"] as const)("%s: la misma semilla y las mismas teclas dan la misma partida", (game) => {
     const run = play(game, 99, BOTS[game](), 60 * 90);
     expect(run.sim.score).toBeGreaterThan(0);
     expect(replayArcade(game, 99, run.inputs, run.steps)).toEqual({ valid: true, score: run.sim.score, over: run.sim.over });
     // Con otra semilla sale otra partida (las teclas ya no calzan).
     expect(replayArcade(game, 100, run.inputs, run.steps)).not.toEqual(replayArcade(game, 99, run.inputs, run.steps));
+  });
+
+  it("pinball: sin lanzar la bola espera; sin tocar los flippers, las tres bolas se van", () => {
+    const idle = new PinballSim(3);
+    for (let i = 0; i < 600; i++) idle.step(noKeys());
+    expect([idle.waiting, idle.over, idle.balls]).toEqual([true, false, PINBALL.balls]);
+    // Un bot que solo lanza: la partida termina sola y la repetición da lo mismo.
+    const run = play("pinball", 3, (sim) => ((sim as PinballSim).waiting ? { press: ["action"] } : {}), 60 * 60 * 3);
+    expect(run.sim.over).toBe(true);
+    expect(replayArcade("pinball", 3, run.inputs, run.steps)).toEqual({ valid: true, score: run.sim.score, over: true });
   });
 
   it("sin teclas cada juego termina solo y la culebrita cuenta manzanas", () => {
@@ -188,7 +210,7 @@ describe("simulación del arcade", () => {
     expect(replayArcade("snake", 1, [15], 100).valid).toBe(false);
   });
 
-  it.each(["snake", "breakout", "flappy", "bloques"] as const)("%s: un bot jugando lo mejor que puede queda dentro del tope del juego", (game) => {
+  it.each(["snake", "breakout", "flappy", "bloques", "pinball"] as const)("%s: un bot jugando lo mejor que puede queda dentro del tope del juego", (game) => {
     for (const seed of [1, 2, 3, 4, 5]) {
       const run = play(game, seed, BOTS[game]());
       const ms = run.steps * ARCADE_STEP_MS;

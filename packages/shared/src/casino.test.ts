@@ -99,6 +99,7 @@ describe("estadísticas de la caja", () => {
       { game: "baccarat", staked: 0, paid: 0, bets: 0, players: 0 },
       { game: "dados", staked: 0, paid: 0, bets: 0, players: 0 },
       { game: "caballos", staked: 0, paid: 0, bets: 0, players: 0 },
+      { game: "tragamonedas", staked: 0, paid: 0, bets: 0, players: 0 },
     ]);
     expect(s.total).toEqual({ staked: 220, paid: 215, house: 5, bets: 16, players: 3 });
   });

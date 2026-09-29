@@ -135,7 +135,11 @@ async function setup(opts: { stock?: Record<string, number>; at?: { tileX: numbe
 describe("encargos: avanzar", () => {
   it("la libreta llega al entrar, con lo asignado en cero (y queda asignado en la base)", async () => {
     const s = await setup();
-    expect(s.latest()).toEqual([{ questId: OLLA.id, period: dailyPeriod(MON), progress: 0, goal: 3, status: "ACTIVE", shared: false, late: false }]);
+    // Lo del día, y el primer paso de la historia con Doña Aurora (lo tienen todos).
+    expect(s.latest()).toEqual([
+      { questId: OLLA.id, period: dailyPeriod(MON), progress: 0, goal: 3, status: "ACTIVE", shared: false, late: false },
+      { questId: "llegada-1", period: "historia", progress: 0, goal: 1, status: "ACTIVE", shared: false, late: false },
+    ]);
     expect(repo.quest("u-alice", OLLA.id, dailyPeriod(MON))).toMatchObject({ progress: 0, status: "ACTIVE" });
   });
 
@@ -274,7 +278,7 @@ describe("encargos: el cambio de día", () => {
     expect(repo.quest("u-alice", OLLA.id, dailyPeriod(MON))).toMatchObject({ progress: 3, status: "DONE" });
     // La libreta muestra los dos: el de hoy y el de ayer, marcado "de ayer".
     await waitFor(() => (s.latest().some((q) => q.late) ? true : undefined));
-    expect(s.latest().map((q) => [q.period, q.status, q.late])).toEqual([
+    expect(s.latest().filter((q) => q.period !== "historia").map((q) => [q.period, q.status, q.late])).toEqual([
       [dailyPeriod(MON + DAY), "ACTIVE", false],
       [dailyPeriod(MON), "DONE", true],
     ]);

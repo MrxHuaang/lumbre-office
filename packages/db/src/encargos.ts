@@ -2,10 +2,11 @@
 // catálogo, quién recibe qué y las reglas están en @hyvento/shared (encargos.ts); acá solo se guarda. El
 // servidor de juego avanza los encargos junto con los contadores (misma transacción que `applyStatChanges`)
 // y la web, cuando suma un contador por su lado (`bumpStatWithQuests`).
-import { DAILY_CAPS, currentQuests, dayStart, questDeltas, STORY_PERIOD, type QuestDelta, type QuestRecord } from "@hyvento/shared";
+import { DAILY_CAPS, currentQuests, questDeltas, STORY_PERIOD, type QuestDelta, type QuestRecord } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { bumpStat } from "./achievements";
-import { awardPointsTx } from "./points";
+import { creditSkillXpTx } from "./oficios";
+import { awardPointsTx, cappedMovesWhere } from "./points";
 
 type Client = PrismaClient | Prisma.TransactionClient;
 
@@ -96,10 +97,12 @@ export async function claimQuestTx(tx: Prisma.TransactionClient, input: ClaimQue
   const { userId, questId, period } = input;
   const now = input.now ?? Date.now();
   const cap = DAILY_CAPS.QUEST;
-  if (cap !== null && input.points > 0) {
+  // La historia paga aparte del tope (ver historia.ts): así nunca le quita espacio a los diarios.
+  const story = period === STORY_PERIOD;
+  if (cap !== null && input.points > 0 && !story) {
     // Se bloquea la fila: dos entregas a la vez no leen la misma suma.
     await tx.$executeRaw`SELECT 1 FROM "User" WHERE id = ${userId} FOR UPDATE`;
-    const today = await tx.pointTransaction.aggregate({ where: { userId, reason: "QUEST", createdAt: { gte: new Date(dayStart(now)) } }, _sum: { amount: true } });
+    const today = await tx.pointTransaction.aggregate({ where: cappedMovesWhere(userId, "QUEST", now), _sum: { amount: true } });
     if ((today._sum.amount ?? 0) + input.points > cap) {
       const row = await tx.questProgress.findUnique({ where: { userId_questId_period: { userId, questId, period } }, select: { status: true } });
       if (row?.status === "DONE") return { ok: false, error: "capped" };
@@ -112,15 +115,10 @@ export async function claimQuestTx(tx: Prisma.TransactionClient, input: ClaimQue
   }
   const paid =
     input.points > 0
-      ? await awardPointsTx(tx, { userId, amount: input.points, reason: "QUEST", refId: `encargo:${questId}:${period}`, now })
+      ? await awardPointsTx(tx, { userId, amount: input.points, reason: "QUEST", refId: `encargo:${questId}:${period}`, now, uncapped: story })
       : { awarded: 0, balance: (await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { points: true } })).points };
-  if (input.xp > 0) {
-    await tx.skillXp.upsert({
-      where: { userId_skill: { userId, skill: input.skill } },
-      create: { userId, skill: input.skill, xp: input.xp },
-      update: { xp: { increment: input.xp } },
-    });
-  }
+  // La experiencia del oficio (con el nivel al día; ver oficios.ts).
+  await creditSkillXpTx(tx, userId, input.skill, input.xp);
   if (input.next) {
     await tx.questProgress.createMany({ data: [{ userId, questId: input.next.questId, period: STORY_PERIOD, goal: input.next.goal }], skipDuplicates: true });
   }
@@ -135,4 +133,23 @@ export function claimQuest(client: PrismaClient, input: ClaimQuestInput): Promis
 export async function loadSkillXp(client: Client, userId: string): Promise<Record<string, number>> {
   const rows = await client.skillXp.findMany({ where: { userId }, select: { skill: true, xp: true } });
   return Object.fromEntries(rows.map((r) => [r.skill, r.xp]));
+}
+
+/**
+ * Saltar la historia: los pasos que falten quedan entregados (sin pagar). Devuelve cuántos cambió (0 = ya
+ * estaba terminada o saltada).
+ */
+export async function skipStoryTx(tx: Prisma.TransactionClient, userId: string, steps: readonly { questId: string; goal: number }[], now = Date.now()): Promise<number> {
+  let changed = 0;
+  for (const s of steps) {
+    const key = { userId, questId: s.questId, period: STORY_PERIOD };
+    await tx.questProgress.createMany({ data: [{ ...key, goal: s.goal, createdAt: new Date(now) }], skipDuplicates: true });
+    const r = await tx.questProgress.updateMany({ where: { ...key, status: { in: ["ACTIVE", "DONE"] } }, data: { status: "CLAIMED", progress: s.goal, claimedAt: new Date(now) } });
+    changed += r.count;
+  }
+  return changed;
+}
+
+export function skipStory(client: PrismaClient, userId: string, steps: readonly { questId: string; goal: number }[], now = Date.now()): Promise<number> {
+  return client.$transaction((tx) => skipStoryTx(tx, userId, steps, now));
 }

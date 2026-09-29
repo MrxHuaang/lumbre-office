@@ -1,5 +1,5 @@
-import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, ManualStatus, StatChange } from "@hyvento/shared";
-import type { ItemStack, PetBondRecord, QuestDelta, QuestRecord } from "@hyvento/shared";
+import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Permiso, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, ManualStatus, StatChange } from "@hyvento/shared";
+import type { ItemStack, Oficio, PetBondRecord, QuestDelta, QuestRecord } from "@hyvento/shared";
 
 export interface AwardOnceInput {
   userId: string;
@@ -94,6 +94,8 @@ export interface GameRepository {
   spendPoints(input: { userId: string; amount: number; reason: PointReason; refId?: string }): Promise<{ ok: boolean; balance: number }>;
   /** Ajustes del casino (límite diario de pérdidas, abierto o cerrado). */
   getCasinoSettings(): Promise<CasinoSettingsDTO>;
+  /** Permisos dados a cada persona y los abiertos a todos (ver permisos.ts de @hyvento/shared). */
+  loadPermisos(userIds: string[]): Promise<{ everyone: Permiso[]; byUser: Record<string, Permiso[]> }>;
   /** Cambios del editor de la casa, por nivel (JSON crudo: se valida al leer). */
   loadWorldEdits(): Promise<Record<string, unknown>>;
   saveWorldEdits(area: string, edits: unknown, userId: string): Promise<void>;
@@ -249,6 +251,35 @@ export interface ShowcaseRepository {
 
 export interface GameRepository extends ShowcaseRepository {}
 
+/** Mundo lleno: la impresora de las oficinas imprime la nota más reciente de quien la usa. */
+export interface MundoRepository {
+  /** Título de la nota más reciente (sin las de la papelera) de esa persona, o null si no tiene. */
+  latestNoteTitle(userId: string): Promise<string | null>;
+}
+
+export interface GameRepository extends MundoRepository {}
+/** Rondas del casino con apuestas cobradas que no alcanzaron a cerrarse, de una corrida del servidor. */
+export interface CasinoOpenRoundsRecord {
+  run: string;
+  refIds: string[];
+  /** Última vez que esa corrida las anotó (ms). */
+  updatedAt: number;
+}
+
+/**
+ * Devolver apuestas del casino si el servidor se cae con rondas abiertas (ver casino/recovery.ts): cada
+ * corrida anota qué rondas tienen apuestas cobradas y, al arrancar, otra devuelve las de una corrida muerta.
+ */
+export interface CasinoRecoveryRepository {
+  loadCasinoOpenRounds(): Promise<CasinoOpenRoundsRecord[]>;
+  /** Anota las rondas abiertas de una corrida (sin rondas, borra la fila). */
+  saveCasinoOpenRounds(run: string, refIds: string[]): Promise<void>;
+  /** Se queda con las rondas de una corrida muerta: true solo para quien la borró (dos servidores no las devuelven dos veces). */
+  claimCasinoOpenRounds(run: string, updatedAt: number): Promise<boolean>;
+  /** Movimientos del casino (apuestas negativas, premios y devoluciones positivos) con esos refId. */
+  casinoMovements(refIds: string[]): Promise<{ userId: string; refId: string; amount: number }[]>;
+}
+
 /** Entregar un encargo (ver encargos.ts de @hyvento/shared): lo que paga, ya decidido por la sala. */
 export interface QuestClaimInput {
   userId: string;
@@ -271,6 +302,8 @@ export interface QuestRepository {
   loadQuests(userId: string, periods: string[], assign: { questId: string; period: string; goal: number }[]): Promise<QuestRecord[]>;
   /** Entrega un encargo cumplido en una transacción: lo marca, paga (QUEST, con tope) y suma la experiencia. */
   claimQuest(input: QuestClaimInput): Promise<QuestClaimOutcome>;
+  /** Saltar la historia: los pasos que falten quedan entregados sin pagar; devuelve cuántos cambió. */
+  skipStory(userId: string, steps: readonly { questId: string; goal: number }[], now: number): Promise<number>;
 }
 
 export interface GameRepository extends QuestRepository {}
@@ -281,4 +314,12 @@ export interface ChatRetentionRepository {
   pruneChatBefore(cutoff: Date): Promise<number>;
 }
 
-export interface GameRepository extends ChatRetentionRepository {}
+/** Oficios (oficios.ts de @hyvento/shared): experiencia de cada uno y lo que las acciones dieron hoy. */
+export interface OficioRepository {
+  /** La experiencia de alguien (la primera vez calcula la inicial desde sus contadores, una sola vez). */
+  loadSkills(userId: string, now: number): Promise<{ xp: Record<Oficio, number>; today: Record<Oficio, number> }>;
+  /** Suma la experiencia de las acciones (con el tope diario por oficio); devuelve lo que entró. */
+  addSkillXp(userId: string, gains: Partial<Record<Oficio, number>>, now: number): Promise<Partial<Record<Oficio, number>>>;
+}
+
+export interface GameRepository extends ChatRetentionRepository, CasinoRecoveryRepository, OficioRepository {}

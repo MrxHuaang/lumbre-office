@@ -72,6 +72,11 @@ import {
   type PresenceStatus,
   type PointsAwarded,
   verifyGameToken,
+  PERMISOS_MSG,
+  permisosEfectivos,
+  puede,
+  type Permiso,
+  type PermisosView,
   type CafeOrderResult,
   type CasinoSettingsDTO,
   type RouletteSettled,
@@ -208,6 +213,8 @@ import { BlackjackTable, randomShoe, type BlackjackTimings } from "./casino/blac
 import { randomSpin, RouletteTable, type RouletteTimings } from "./casino/roulette";
 import { Bag } from "./bag";
 import { DEFAULT_MESA_TIMINGS, MesaTable, parseMesaBet, randomMesaDraw, type MesaTimings } from "./casino/mesas";
+import { OpenRounds } from "./casino/recovery";
+import { settleAll } from "./shutdown";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
@@ -220,6 +227,9 @@ import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/sh
 import { PescaStand } from "./pescaTienda";
 import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
 import { encargosDeSala, type Encargos } from "./encargos";
+import { bindHistoria } from "./historia";
+import { isNewcomer } from "@hyvento/shared";
+import { bindOficios, oficiosDeSala, type Oficios } from "./oficios";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice, type SystemNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 import { CasaViva } from "./casa";
@@ -288,6 +298,11 @@ import { Parrilla, type GrillWho } from "./parrilla";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
+import { nearUsable, registerMundo, type MundoHandle, type MundoRoom } from "./mundo";
+import { DECOR_SCOPES, isMundoAction } from "@hyvento/shared";
+import { inRowboat } from "@hyvento/map";
+import { VIAJE, VIAJE_MSG, type ViajeNotice } from "@hyvento/shared";
+import { QuickTravel } from "./viaje";
 import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
 import { closeForRestart } from "./reinicio";
 import { startChatRetention } from "./chatRetention";
@@ -304,10 +319,10 @@ interface UserData {
   editTimes?: number[];
   /** Último emote (para que no se puedan mandar en ráfaga). */
   lastEmoteAt?: number;
-  /** Admin del equipo (puede usar el editor de la casa). */
+  /** Admin del equipo (tiene todos los permisos y además /time). */
   admin?: boolean;
-  /** Puede usar el editor de la casa (ver `houseEditor` del token). */
-  houseEditor?: boolean;
+  /** Permisos efectivos (ver permisos.ts de @hyvento/shared); se releen en caliente si un admin los cambia. */
+  permisos?: Permiso[];
   /** Emotes aceptados hace poco (pausa entre uno y otro y tope por ráfaga, ver `acceptEmote`). */
   emoteTimes?: number[];
   /** Mensajes recientes al casino (tope por ráfaga, ver `acceptCasinoMessage`). */
@@ -386,6 +401,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Encargos: el reloj (día de Bogotá) y qué le toca a cada quien (los tests lo fijan). */
   static encargosNow: () => number = () => Date.now();
   static encargosPick: (userId: string, now: number) => ActiveQuest[] = currentQuests;
+  /** Oficios: el azar de las ventajas (la cosecha doble) y el reloj (los tests lo fijan). */
+  static oficiosRandom: (n: number) => number = (n) => randomInt(n);
+  static oficiosNow: () => number = () => Date.now();
   /** Casa viva: el azar de las mascotas y cuánto se está en el baño (los tests los fijan y acortan). */
   static petRandom: () => number = Math.random;
   static stallMs: number = CASA.stallMs;
@@ -426,7 +444,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** La tina y la sauna del lago: cada cuánto da puntos el descanso y cada cuánto se revisa (los tests los acortan). */
   static tinaTimings: { tickMs: number; checkMs: number } = { tickMs: TINA.tickMs, checkMs: TINA.checkMs };
 
-  /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
   static applyWorldEditsEverywhere(area: string, edits: WorldEdits) {
     for (const r of OfficeRoom.instances) r.applyWorldEdits(area, edits);
@@ -460,6 +477,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Duración de las fases del modo foco (los tests la acortan). */
   static focusPhaseMs: (preset: FocusPresetId, phase: "work" | "break") => number = focusMs;
 
+  /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   static async reloadCasinoSettingsEverywhere() {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadCasinoSettings()));
   }
@@ -630,10 +648,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         this.sendToArea(p.area, MSG.achievementUnlocked, { sessionId, name: p.name, achievementId: achievement.id } satisfies AchievementUnlockedEvent);
       }
     },
-    quests: { onStat: (u, key, by) => this.encargos.onStat(u, key, by), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
+    quests: { onStat: (u, key, by) => (this.encargos.onStat(u, key, by), this.oficios.onStat(u, key, by)), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
   });
   /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
-  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t) });
+  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t), xp: (u, o, xp) => this.oficios.credit(u, o, xp) });
+  /** Oficios con nivel (ver oficios.ts): la experiencia de las acciones y los encargos, y las ventajas. */
+  private oficios: Oficios = oficiosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, now: () => OfficeRoom.oficiosNow(), random: (n) => OfficeRoom.oficiosRandom(n), hideout: () => this.sombrero?.hideout?.place ?? null, areas: () => [...this.world.areas.values()].map((a) => ({ id: a.id, name: a.name })), tileSize: 32 });
 
   /** Fotos: la cuenta 3-2-1, quiénes salen y el ticket para subirla (ver photos.ts). */
   private photos = new PhotoBooth({
@@ -819,6 +839,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     onBuff: (userId, dish) => {
       for (const p of this.state.players.values()) if (p.userId === userId) p.buff = dish;
     },
+    level: (userId, oficio) => this.oficios.level(userId, oficio),
   });
 
   /** La granja: el azar de los animales, su reloj y cuánto tarda cada receta (los tests los fijan y acortan). */
@@ -914,6 +935,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.startPiscina();
     this.startTina();
     this.startBoardGames();
+    this.startViaje();
     OfficeRoom.instances.add(this);
 
     this.onMessage(HUERTO_MSG.shedTake, (client, raw) => void this.handleShed(client, raw));
@@ -922,6 +944,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
+    bindOficios(this, this.oficios, (id) => this.state.players.get(id)?.userId ?? null);
+    bindHistoria(this, { encargos: this.encargos, who: (id) => this.state.players.get(id), mapOf: (a) => this.mapOf(a), bump: (u, k) => this.achievements.bump(u, k) });
+    this.mundo = registerMundo(this as unknown as MundoRoom);
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
@@ -1108,18 +1133,30 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sombrero.refresh();
     this.clock.setInterval(() => this.sombrero.refresh(), OfficeRoom.sombreroTickMs);
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
+    this.clock.setInterval(() => void this.oficios.flushAll(), OfficeRoom.statsFlushMs);
 
-    const officeZones = allZones(this.world).filter((z) => z.type === "office");
-    await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
-    await this.reloadCasinoSettings();
-    await this.loadWorldEdits();
-    await this.loadGameClock();
-    await this.huerto.load().catch((err) => console.error("loadGarden", err));
-    this.startCasino();
-    await this.reloadOffices();
-    await this.events.refresh();
-    this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
-    startChatRetention(this.clock, () => this.repo);
+    try {
+      const officeZones = allZones(this.world).filter((z) => z.type === "office");
+      await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
+      await this.reloadCasinoSettings();
+      await this.loadWorldEdits();
+      await this.loadGameClock();
+      await this.huerto.load().catch((err) => console.error("loadGarden", err));
+      this.startCasino();
+      // Apuestas de una corrida anterior que se cayó sin pagarlas (y cada tanto, por si era reciente).
+      await this.casinoRounds.recover();
+      this.clock.setInterval(() => void this.casinoRounds.recover(), OpenRounds.recoverEveryMs);
+      await this.reloadOffices();
+      await this.events.refresh();
+      this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
+      startChatRetention(this.clock, () => this.repo);
+    } catch (err) {
+      // Colyseus no cierra una sala que falló al crearse: se paran sus relojes para que no quede viva a medias.
+      console.error("OfficeRoom.onCreate: no se pudo abrir la sala", err);
+      OfficeRoom.instances.delete(this);
+      this.clock.clear();
+      throw err;
+    }
   }
 
   // Apagado por deploy: avisar y cerrar con el código de reinicio (ver reinicio.ts).
@@ -1127,7 +1164,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     void closeForRestart(this);
   }
 
-  onDispose() {
+  async onDispose() {
     OfficeRoom.instances.delete(this);
     this.piscina?.dispose();
     this.drunk.dispose();
@@ -1138,9 +1175,25 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.cocina.dispose();
     this.phones.dispose();
     this.comunicacion?.dispose();
-    void this.achievements.flushAll();
-    void this.whiteboards.flush();
-    this.pets?.flush(Date.now());
+    // Primero se devuelve lo cobrado o sacado de la mochila que no alcanzó a terminar (Colyseus espera
+    // esta promesa antes de apagar el proceso)...
+    const restore = (userId: string, itemId: string, n: number) => this.repo.addInventory(userId, itemId, n);
+    await settleAll("devoluciones", {
+      casino: () => this.casinoRounds.close(),
+      parrilla: () => this.parrilla?.close(restore),
+      molino: () => this.granja?.close(restore),
+    });
+    // ...y después se guarda lo pendiente (las devoluciones pudieron sumar contadores).
+    await settleAll("guardado", {
+      logros: () => this.achievements.flushAll(),
+      oficios: () => this.oficios.flushAll(),
+      pizarras: () => this.whiteboards.flush(),
+      mascotas: () => this.pets?.flush(Date.now()),
+      huerto: () => this.huerto?.flush(),
+      mochilas: () => this.held.flushAll(),
+      arcade: () => this.arcade?.flush(),
+      decoracion: () => this.decorQueue,
+    });
   }
 
   async onAuth(_client: Client, options: unknown): Promise<GameTokenClaims> {
@@ -1197,18 +1250,24 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.phones.restore(auth.sub);
     this.comunicacion?.greet(client.sessionId);
 
+    const admin = auth.role === "ADMIN";
+    const permisos = await this.repo.loadPermisos([auth.sub]).catch((err) => {
+      console.error("loadPermisos", err);
+      return { everyone: [] as Permiso[], byUser: {} as Record<string, Permiso[]> };
+    });
     client.userData = {
       lastMoveAt: Date.now(),
       chatTimes: [],
       lastActiveAt: Date.now(),
-      admin: auth.role === "ADMIN",
-      houseEditor: auth.houseEditor ?? auth.role === "ADMIN",
+      admin,
+      permisos: permisosEfectivos({ admin, granted: permisos.byUser[auth.sub] ?? [], everyone: permisos.everyone }),
     };
     void this.achievements.load(auth.sub).then(() => {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
-    void this.encargos.load(auth.sub, { join: true });
+    void this.encargos.load(auth.sub, { join: true, newcomer: isNewcomer(auth.onboardedAt, Date.now()), byBus });
+    void this.oficios.load(auth.sub, { join: true });
     if (byBus) this.bus.requestRide();
     void this.refreshBadge(auth.sub);
     client.send(MSG.chatHistory, this.globalHistory);
@@ -1216,6 +1275,33 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.send(BAG_MSG.state, { ...this.held.view(auth.sub), pick: true } satisfies BagView);
     // La hora del servidor, para que el cliente calcule bien los conteos regresivos (la ruleta).
     client.send(MSG.clock, { now: Date.now() });
+    this.sendPermisos(client);
+  }
+
+  // ---------- Permisos ----------
+
+  private sendPermisos(client: Client<UserData>) {
+    const d = client.userData;
+    if (d) client.send(PERMISOS_MSG.state, { admin: Boolean(d.admin), permisos: d.permisos ?? [] } satisfies PermisosView);
+  }
+
+  /** Un admin cambió permisos desde la web: se releen los de todos los conectados y se les avisa. */
+  static async reloadPermisosEverywhere() {
+    await Promise.all([...OfficeRoom.instances].map((r) => r.reloadPermisos()));
+  }
+
+  private async reloadPermisos() {
+    const clients = this.clients.filter((c) => c.userData && this.state.players.has(c.sessionId));
+    const userIds = [...new Set(clients.map((c) => this.state.players.get(c.sessionId)!.userId))];
+    const { everyone, byUser } = await this.repo.loadPermisos(userIds);
+    for (const c of clients) {
+      const player = this.state.players.get(c.sessionId);
+      if (!player || !c.userData) continue;
+      c.userData.permisos = permisosEfectivos({ admin: Boolean(c.userData.admin), granted: byUser[player.userId] ?? [], everyone });
+      // Si le quitaron el editor de la casa mientras lo tenía, lo suelta (el cliente cierra el panel).
+      if (this.houseEditLock?.sessionId === c.sessionId && !puede(c.userData, "editar-casa")) this.houseEditLock = null;
+      this.sendPermisos(c);
+    }
   }
 
   async onLeave(client: Client<UserData>, consented: boolean) {
@@ -1365,7 +1451,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.rebuildArea(area);
   }
 
-  /** Editor de la casa (solo admins): valida el cambio, lo guarda y lo aplica en todas las salas. */
   /** Quién tiene el editor de la casa (una persona a la vez). */
   private houseEditLock: { sessionId: string; name: string } | null = null;
 
@@ -1379,19 +1464,20 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       if (this.houseEditLock?.sessionId === client.sessionId) this.houseEditLock = null;
       return;
     }
-    if (!client.userData.houseEditor) return reply({ ok: false, error: "not-allowed" });
+    if (!puede(client.userData, "editar-casa")) return reply({ ok: false, error: "not-allowed" });
     const lock = this.houseEditLock;
     if (lock && lock.sessionId !== client.sessionId && this.state.players.has(lock.sessionId)) return reply({ ok: false, error: "busy", by: lock.name });
     this.houseEditLock = { sessionId: client.sessionId, name: player.name };
     reply({ ok: true });
   }
 
+  /** Editor de la casa (permiso `editar-casa`): valida el cambio, lo guarda y lo aplica en todas las salas. */
   private async handleWorldEdit(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = WorldEditMessage.safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
     const reply = (r: WorldEditResult) => client.send(MSG.worldEditResult, r);
-    if (!client.userData.houseEditor) return reply({ ok: false, error: "admin" });
+    if (!puede(client.userData, "editar-casa")) return reply({ ok: false, error: "admin" });
     // Una sola persona edita la casa a la vez: la que tiene el candado (lo toma si está libre).
     if (this.houseEditLock && this.houseEditLock.sessionId !== client.sessionId) return reply({ ok: false, error: "busy" });
     this.houseEditLock ??= { sessionId: client.sessionId, name: player.name };
@@ -1756,24 +1842,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /**
    * Llamar a la oficina `zoneId`: hay que estar junto a un teléfono y la oficina tiene que tener dueño; le
-   * suena a esa persona esté donde esté (ocupado, "No molestar" y desconectado los decide `Phones`).
+   * suena a esa persona esté donde esté (ocupado, "No molestar" y desconectado los decide `Phones`). Con
+   * `userId`, a una persona del directorio (las reglas y la pausa son las de comunicacion.ts).
    */
   private handlePhoneCall(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = PhoneCallMessage.safeParse(raw);
     if (!player || !parsed.success) return;
     this.markActive(client);
-    const office = this.state.offices.get(parsed.data.zoneId);
+    const office = "zoneId" in parsed.data ? this.state.offices.get(parsed.data.zoneId) : undefined;
     const fail = (error: PhoneError) =>
       client.send(MSG.phoneEvent, { kind: "failed", error, withName: office?.ownerName ?? "" } satisfies PhoneEvent);
     const map = this.mapOf(player.area);
     const phone = phoneInReach(map, player.x, player.y);
     if (!phone) return fail("far");
+    const ts = map.tileSize;
+    const zone = zoneAt(map, (phone.x + phone.w / 2) * ts, (phone.y + phone.d / 2) * ts);
+    if ("userId" in parsed.data) return this.comunicacion?.phoneCall(client.sessionId, parsed.data.userId, this.phoneOrigin(player.userId, zone, phone.type));
     if (!office?.ownerId) return fail("invalid");
     if (office.ownerId === player.userId) return fail("self");
     const owner = [...this.state.players.values()].find((p) => p.userId === office.ownerId);
-    const ts = map.tileSize;
-    const zone = zoneAt(map, (phone.x + phone.w / 2) * ts, (phone.y + phone.d / 2) * ts);
     const error = this.phones.call(
       { userId: player.userId, name: player.name, status: player.status },
       owner && { userId: owner.userId, name: owner.name, status: owner.status },
@@ -1871,8 +1959,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.y = y;
     player.dir = dir;
     player.moving = seated ? false : moving;
+    const wasSeated = player.seated;
     player.seated = seated;
     player.zoneId = zoneAt(map, x, y)?.id ?? "";
+    // La historia (paso 2): sentarse en la oficina propia.
+    if (seated && !wasSeated && this.state.offices.get(player.zoneId)?.ownerId === player.userId) this.achievements.bump(player.userId, STAT_KEYS.ownOfficeSits);
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
     if (previousZoneId !== player.zoneId) this.autoStatus.refreshMeetings();
@@ -1948,6 +2039,64 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
     if (fn(player)) client.userData.lastActiveAt = Date.now();
+  }
+
+  // ---------- Viaje rápido (viaje.ts) ----------
+
+  /** Reloj y pausa del viaje rápido (los tests los fijan). */
+  static viajeNow: () => number = () => Date.now();
+  static viajeCooldownMs: number = VIAJE.cooldownMs;
+  private quickTravel!: QuickTravel;
+
+  private startViaje() {
+    this.quickTravel = new QuickTravel({
+      players: this.state.players,
+      offices: this.state.offices,
+      map: (area) => this.mapOf(area),
+      areas: () => this.world.areas.values(),
+      now: () => OfficeRoom.viajeNow(),
+      cooldownMs: () => OfficeRoom.viajeCooldownMs,
+      fainted: (userId) => this.drunk.fainted(userId),
+      playing: (_sessionId, p) => this.hockey.sideOf(p.userId) !== null,
+      busDoorsOpen: () => this.bus.doorsOpen(),
+      treeHouse: (userId) => this.casaArbol.canEnter(userId),
+      studio: (userId) => this.podcast.canEnter(userId, this.podcastInside()),
+    });
+    this.onMessage(VIAJE_MSG.go, (client, raw) => this.handleQuickTravel(client, raw));
+  }
+
+  /** Ir de una a un lugar o junto a alguien: lo mismo que al llegar por un portal, pero a cualquier punto. */
+  private handleQuickTravel(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const plan = this.quickTravel.plan(client.sessionId, player, raw);
+    if (!plan.ok) return client.send(VIAJE_MSG.notice, plan.notice satisfies ViajeNotice);
+    this.quickTravel.done(player.userId);
+    const target = this.mapOf(plan.area);
+    const previousZoneId = player.zoneId;
+    this.casa.leaveStall(player.userId);
+    this.fishery.cancel(player.userId);
+    player.area = target.id;
+    player.x = plan.x;
+    player.y = plan.y;
+    player.dir = plan.dir;
+    player.moving = false;
+    player.seated = false;
+    player.zoneId = zoneAt(target, plan.x, plan.y)?.id ?? "";
+    player.place = placeAt(target, plan.x, plan.y);
+    this.revokeGuestOnExit(player, previousZoneId);
+    if (previousZoneId !== player.zoneId) this.autoStatus.refreshMeetings();
+    this.whiteboards.moved(client.sessionId, player.zoneId);
+    this.focus.moved(player.userId, player.zoneId);
+    this.club.moved({ sessionId: client.sessionId, area: player.area, x: plan.x, y: plan.y, seated: false });
+    client.userData.lastMoveAt = Date.now();
+    client.userData.lastActiveAt = Date.now();
+    this.achievements.visit(player.userId, target.id);
+    client.send(MSG.moveCorrection, { x: plan.x, y: plan.y, area: target.id } satisfies MoveCorrection);
+    this.trades.moved(client.sessionId);
+    this.escenario.sweep(this.state.players);
+    this.casaArbol.sweep(Date.now());
+    this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
   }
 
   // ---------- Carrera de sillas ----------
@@ -2330,6 +2479,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
       timings: () => OfficeRoom.rouletteTimings,
       spin: () => OfficeRoom.rouletteSpin(),
+      rounds: this.casinoRounds,
     });
     this.roulette.start();
     for (const id of MESAS) {
@@ -2350,6 +2500,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         },
         timings: () => OfficeRoom.mesaTimings,
         draw: (t) => OfficeRoom.mesaDraw(t),
+        rounds: this.casinoRounds,
       });
       this.mesas.set(id, table);
       table.start();
@@ -2369,6 +2520,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       },
       timings: () => OfficeRoom.blackjackTimings,
       shuffle: () => OfficeRoom.blackjackShuffle(),
+      rounds: this.casinoRounds,
     });
   }
 
@@ -2662,6 +2814,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result.kind === "event" && isHuertoAction(result.event.action)) return void this.handleHuerto(client, player, result.event);
     // La granja: el comedero, el nido y el molino (granja.ts).
     if (result.kind === "event" && isGranjaAction(result.event.action)) return void this.handleGranja(client, player, result.event);
+    // Mundo lleno: la impresora, la ducha, la casita del perro, el reloj de sol, las barandas y los paneles (mundo.ts).
+    if (result.kind === "event" && isMundoAction(result.event.action)) return void this.mundo?.use(client.sessionId, result.event);
     this.countFurniture(player.userId, result);
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
@@ -2693,6 +2847,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const step = result.event.garden;
     if (step === "plant") this.achievements.bump(player.userId, STAT_KEYS.plantings);
     else if (step === "harvest") this.achievements.bump(player.userId, STAT_KEYS.harvests);
+    if (step === "harvest" && result.event.item) void this.oficios.extraHarvest(player.userId, result.event.item);
     this.sendToArea(area, MSG.furnitureEvent, { sessionId: client.sessionId, ...result.event } satisfies FurnitureEvent);
   }
 
@@ -2868,7 +3023,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         return c ? this.grillWho(c) : undefined;
       },
       bump: (userId, key, by) => this.achievements.bump(userId, key, by),
-      notify: (userId, notice) => this.clientOfUser(userId)?.send(PARRILLA_MSG.notice, notice satisfies GrillNotice),
+      notify: (userId, notice) => {
+        this.clientOfUser(userId)?.send(PARRILLA_MSG.notice, notice satisfies GrillNotice);
+        // Cocina nivel 5: el plato trae una porción de más.
+        if ((notice.code === "done" || notice.code === "doneBag") && notice.item) void this.oficios.extraPortion(userId, notice.item);
+      },
       timeScale: () => OfficeRoom.parrillaTimeScale,
     });
     let last = OfficeRoom.granjaNow();
@@ -2989,7 +3148,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         },
         take: (userId, part) => this.held.takePart(userId, part),
       },
-      save: (bond) => void this.repo.savePetBond(bond).catch((err) => console.error("savePetBond", err)),
+      save: (bond) => this.repo.savePetBond(bond).catch((err) => console.error("savePetBond", err)),
     });
     let last = Date.now();
     this.pets.start(last);
@@ -3079,6 +3238,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       award: (userId, amount) => this.awardLeisure(userId, amount),
       bump: (userId, key, by) => this.achievements.bump(userId, key, by),
       held: { get: (userId) => this.held.get(userId), give: (userId, item) => this.held.give(userId, item) },
+      scopeNear: (p) => Boolean(nearUsable(this.mapOf(p.area), DECOR_SCOPES, p.x, p.y)),
     });
     this.observatorio = obs;
     const active = (client: Client<UserData>, fn: (sessionId: string) => void) => {
@@ -3108,6 +3268,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
+  // ---------- Mundo lleno ----------
+
+  /** Los muebles que antes eran de adorno: todo en mundo.ts (la sala solo le presta lo suyo). */
+  private mundo?: MundoHandle;
+
   // ---------- Pesca ----------
 
   /** Lanzar la caña: el servidor valida que estés junto a un punto de pesca del lago y de pie. */
@@ -3115,9 +3280,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!player || !client.userData) return;
     client.userData.lastActiveAt = Date.now();
-    const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
+    // Sentado en el bote del muelle también se pesca (y con más suerte: mundo lleno).
+    const boat = player.seated && inRowboat(this.mapOf(player.area), player.x, player.y);
+    const near = boat || nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
     // La caña y la carnada que tiene (lo de la mano o lo mejor de la mochila); la carnada se gasta al lanzar.
-    const gear = this.pesca.gear(player.userId);
+    const gear = { ...this.pesca.gear(player.userId), ...this.oficios.fishingBonus(player.userId), ...(boat ? { boat } : {}) };
     if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated, area: player.area }, near, gear)) return;
     this.pesca.spendBait(player.userId, gear);
     for (const p of this.state.players.values()) if (p.userId === player.userId) p.fishingRod = gear.rod;
@@ -3519,6 +3686,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
     this.observatorio?.forget(sessionId);
+    if (player) this.mundo?.forget(player.userId);
     this.state.players.delete(sessionId);
     this.casaArbol?.sweep(Date.now());
     this.club?.forget(sessionId);
@@ -3531,6 +3699,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
+    this.quickTravel?.forget(player.userId);
     this.fishery.forget(player.userId);
     this.pesca.forget(player.userId);
     this.granja.forget(player.userId);
@@ -3547,6 +3716,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Los encargos se olvidan después de guardar, y solo si no volvió a entrar mientras tanto (`gen`).
     const questGen = this.encargos.generation(player.userId);
     void this.achievements.forget(player.userId).then(() => this.encargos.forget(player.userId, questGen));
+    void this.oficios.forget(player.userId, this.oficios.generation(player.userId));
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);
@@ -3744,6 +3914,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     return { x, y };
   }
+
+  /** Rondas del casino con apuestas cobradas y sin pagar (se devuelven al cerrar; ver casino/recovery.ts). */
+  private readonly casinoRounds = new OpenRounds({
+    repo: () => this.repo,
+    run: randomUUID().slice(0, 8),
+    setPoints: (userId, balance) => {
+      for (const p of this.state?.players.values() ?? []) if (p.userId === userId) p.points = balance;
+    },
+  });
 }
 /** Lo que responde la parrilla a quien la usó (o nada: se ignora). */
 type GrillResult = { state?: GrillState; notice?: GrillNotice } | null;

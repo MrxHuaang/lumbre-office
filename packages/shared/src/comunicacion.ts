@@ -16,7 +16,7 @@ export const COM_MSG = {
   waved: "com:waved",
   /** Servidor → cliente: cómo le fue a mi saludo (`WaveResult`). */
   waveResult: "com:wave-result",
-  /** Cliente → servidor (admins): aviso de texto a toda la cabaña (`AnnounceMessage`). */
+  /** Cliente → servidor (permiso `anunciar`): aviso de texto a toda la cabaña (`AnnounceMessage`). */
   announce: "com:announce",
   /** Servidor → todos: el aviso grande en pantalla (`Announcement`). */
   announcement: "com:announcement",
@@ -25,7 +25,7 @@ export const COM_MSG = {
   broadcastStop: "com:broadcast-stop",
   /** Servidor → todos: empezó o terminó el anuncio por voz (`BroadcastEvent`). */
   broadcastEvent: "com:broadcast",
-  /** Servidor → admin: por qué no salió el anuncio (`AnnounceResult`). */
+  /** Servidor → quien anuncia: por qué no salió el anuncio (`AnnounceResult`). */
   announceResult: "com:announce-result",
 } as const;
 
@@ -40,8 +40,10 @@ export const COMUNICACION = {
   waveShowMs: 20_000,
   /** Largo máximo del aviso de texto. */
   announceMaxChars: 280,
-  /** Pausa entre avisos de texto del mismo admin, y entre un anuncio por voz y el siguiente. */
+  /** Pausa entre avisos de texto de la misma persona, y entre un anuncio por voz y el siguiente. */
   announceCooldownMs: 10_000,
+  /** Pausa global: entre un anuncio de cualquiera y el siguiente (texto, o que empiece una voz). */
+  announceGapMs: 20_000,
   /** Cuánto se ve el aviso grande (se puede cerrar antes). */
   announceShowMs: 15_000,
   /** Tope del anuncio por voz: pasado este tiempo se corta solo. */
@@ -109,7 +111,7 @@ export type BroadcastEvent =
 /** Terminó a mano, se venció el tope o quien anunciaba se fue. */
 export type BroadcastEndReason = "stop" | "timeout" | "left";
 
-export type AnnounceError = "admin" | "too-soon" | "empty" | "busy";
+export type AnnounceError = "admin" | "too-soon" | "recent" | "empty" | "busy";
 export interface AnnounceResult {
   error: AnnounceError;
   /** En "busy": quién está anunciando. */
@@ -117,8 +119,9 @@ export interface AnnounceResult {
 }
 
 export const ANNOUNCE_ERROR_TEXT: Record<AnnounceError, (name: string) => string> = {
-  admin: () => "Solo un admin puede hablarle a toda la cabaña.",
+  admin: () => "Necesitas el permiso para anunciar (se lo pides a un admin).",
   "too-soon": () => "Espera unos segundos antes de mandar otro anuncio.",
+  recent: () => "Hace un momento hubo otro anuncio: espera unos segundos.",
   empty: () => "Escribe algo para el aviso.",
   busy: (n) => `${n || "Otra persona"} ya le está hablando a toda la cabaña.`,
 };
@@ -149,4 +152,35 @@ export const callHasRoom = (size: number) => size < COMUNICACION.maxCallMembers;
 export function followNeedsWalk(me: { area: string; x: number; y: number }, target: { area: string; x: number; y: number }, nearPx = 2.5 * 32): boolean {
   if (me.area !== target.area) return true;
   return Math.hypot(me.x - target.x, me.y - target.y) > nearPx;
+}
+
+/**
+ * Si quien anuncia se va (recargó la página, se le cayó la red), el anuncio lo espera este rato: si vuelve
+ * la misma persona, sigue como si nada; si no, termina.
+ */
+export const ANNOUNCE_REJOIN_GRACE_MS = 15_000;
+
+/** El anuncio por voz como lo ve el navegador (un solo chip: hay un anuncio a la vez). */
+export interface BroadcastView {
+  userId: string;
+  name: string;
+  /** Hora local en que se corta sola. */
+  endsAt: number;
+}
+
+/**
+ * Cómo queda el anuncio al llegar un evento. `fresh`: es un inicio de verdad (suena el timbre, se prende el
+ * micrófono de quien anuncia, sale el aviso); un `resumed` o un inicio repetido del mismo anuncio solo
+ * actualiza el chip, nunca lo duplica. `ended`: terminó el que se estaba viendo.
+ */
+export function reduceBroadcast(
+  cur: BroadcastView | null,
+  e: BroadcastEvent,
+  toLocal: (serverMs: number) => number = (t) => t,
+): { next: BroadcastView | null; fresh: boolean; ended: boolean } {
+  if (e.kind === "start") {
+    return { next: { userId: e.userId, name: e.name, endsAt: toLocal(e.endsAt) }, fresh: !e.resumed && cur?.userId !== e.userId, ended: false };
+  }
+  const ended = cur?.userId === e.userId;
+  return { next: ended ? null : cur, fresh: false, ended };
 }

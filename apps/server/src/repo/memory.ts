@@ -12,6 +12,7 @@ import {
   type ArcadeGame,
   type BoardGameKind,
   type CasinoSettingsDTO,
+  type Permiso,
   type ChatEvent,
   type ItemStack,
   type OfficeItemDTO,
@@ -20,9 +21,14 @@ import {
   type ManualStatus,
   type StatChange,
   STORY_PERIOD,
+  STORY_REF_SUFFIX,
   questKey,
   type QuestDelta,
   type QuestRecord,
+  OFICIO,
+  OFICIOS,
+  veteranXp,
+  type Oficio,
 } from "@hyvento/shared";
 import type { AwardOnceInput, QuestClaimInput, QuestClaimOutcome, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
 
@@ -173,6 +179,15 @@ export class MemoryRepository implements GameRepository {
     return { ok: true, balance: balance - amount };
   }
 
+  /** Permisos en memoria (los tests los cambian directo): los dados por persona y los abiertos a todos. */
+  permisos = new Map<string, Permiso[]>();
+  permisosTodos: Permiso[] = [];
+  async loadPermisos(userIds: string[]) {
+    const byUser: Record<string, Permiso[]> = {};
+    for (const id of userIds) if (this.permisos.has(id)) byUser[id] = [...this.permisos.get(id)!];
+    return { everyone: [...this.permisosTodos], byUser };
+  }
+
   /** Ajustes del casino en memoria (los tests los cambian directo). */
   casinoSettings: CasinoSettingsDTO = { enabled: true };
   /** Cambios del editor de la casa en memoria. */
@@ -317,8 +332,12 @@ export class MemoryRepository implements GameRepository {
     if (!row || row.status !== "DONE") return { ok: false, error: row?.status === "CLAIMED" ? "claimed" : "not-done" };
     // Como claimQuestTx: si no cabe entero bajo el tope de hoy (con la hora que manda la sala), no se entrega.
     const cap = DAILY_CAPS.QUEST ?? Infinity;
-    const today = this.ledger.filter((m) => m.userId === userId && m.reason === "QUEST" && m.at >= dayStart(now)).reduce((a, m) => a + m.amount, 0);
-    if (input.points > 0 && today + input.points > cap) return { ok: false, error: "capped" };
+    // La historia paga aparte: ni cuenta para el tope ni lo mira.
+    const story = period === STORY_PERIOD;
+    const today = this.ledger
+      .filter((m) => m.userId === userId && m.reason === "QUEST" && m.at >= dayStart(now) && !m.refId?.endsWith(STORY_REF_SUFFIX))
+      .reduce((a, m) => a + m.amount, 0);
+    if (!story && input.points > 0 && today + input.points > cap) return { ok: false, error: "capped" };
     row.status = "CLAIMED";
     const awarded = Math.max(0, input.points);
     if (awarded > 0) this.ledger.push({ userId, amount: awarded, reason: "QUEST", at: now, refId: `encargo:${questId}:${period}` });
@@ -328,6 +347,59 @@ export class MemoryRepository implements GameRepository {
       if (!this.quests.has(key)) this.quests.set(key, { questId: input.next.questId, period: STORY_PERIOD, progress: 0, goal: input.next.goal, status: "ACTIVE" });
     }
     return { ok: true, awarded, balance: await this.getPoints(userId) };
+  }
+
+  // ---------- Oficios ----------
+
+  /** Quiénes ya tienen su experiencia inicial calculada (como la fila `_veterano`), y cuántas veces se calculó. */
+  veterans = new Set<string>();
+  veteranSeeds = 0;
+  /** Lo que las acciones dieron hoy: `${userId}:${oficio}` → { xp, día de Bogotá }. */
+  skillToday = new Map<string, { xp: number; day: number }>();
+
+  async loadSkills(userId: string, now: number) {
+    if (!this.veterans.has(userId)) {
+      this.veterans.add(userId);
+      this.veteranSeeds++;
+      const start = veteranXp(Object.fromEntries(this.userStats.get(userId) ?? []));
+      for (const o of OFICIOS) if (start[o] > 0) this.skillXp.set(`${userId}:${o}`, (this.skillXp.get(`${userId}:${o}`) ?? 0) + start[o]);
+    }
+    const day = dayStart(now);
+    const xp = Object.fromEntries(OFICIOS.map((o) => [o, this.skillXp.get(`${userId}:${o}`) ?? 0])) as Record<Oficio, number>;
+    const today = Object.fromEntries(OFICIOS.map((o) => {
+      const t = this.skillToday.get(`${userId}:${o}`);
+      return [o, t && t.day === day ? t.xp : 0];
+    })) as Record<Oficio, number>;
+    return { xp, today };
+  }
+
+  async addSkillXp(userId: string, gains: Partial<Record<Oficio, number>>, now: number) {
+    const day = dayStart(now);
+    const added: Partial<Record<Oficio, number>> = {};
+    for (const o of OFICIOS) {
+      const want = Math.floor(gains[o] ?? 0);
+      if (want < 1) continue;
+      const t = this.skillToday.get(`${userId}:${o}`);
+      const today = t && t.day === day ? t.xp : 0;
+      const amount = Math.min(want, OFICIO.dailyActionCap - today);
+      if (amount <= 0) continue;
+      this.skillToday.set(`${userId}:${o}`, { xp: today + amount, day });
+      this.skillXp.set(`${userId}:${o}`, (this.skillXp.get(`${userId}:${o}`) ?? 0) + amount);
+      added[o] = amount;
+    }
+    return added;
+  }
+
+  async skipStory(userId: string, steps: readonly { questId: string; goal: number }[]) {
+    let changed = 0;
+    for (const st of steps) {
+      const key = `${userId}|${questKey(st.questId, STORY_PERIOD)}`;
+      const row = this.quests.get(key) ?? { questId: st.questId, period: STORY_PERIOD, progress: 0, goal: st.goal, status: "ACTIVE" as const };
+      if (row.status === "CLAIMED") continue;
+      this.quests.set(key, { ...row, progress: st.goal, status: "CLAIMED" });
+      changed++;
+    }
+    return changed;
   }
 
   /** Helper de tests: la fila de un encargo. */
@@ -530,5 +602,33 @@ export class MemoryRepository implements GameRepository {
     if ((await this.getPoints(fromId)) < amount) return { ok: false, error: "funds" };
     this.ledger.push({ userId: fromId, amount: -amount, reason: "GIFT", at: now, refId }, { userId: toId, amount, reason: "GIFT", at: now, refId });
     return { ok: true, balances: { [fromId]: await this.getPoints(fromId), [toId]: await this.getPoints(toId) } };
+  }
+
+  /** Notas de cada persona (la más reciente al final), para la impresora. */
+  notes = new Map<string, string[]>();
+  async latestNoteTitle(userId: string) {
+    const list = this.notes.get(userId);
+    return list?.length ? list.at(-1)!.trim() || "Sin título" : null;
+  }
+
+  // ---------- Rondas abiertas del casino ----------
+
+  casinoOpen = new Map<string, { refIds: string[]; updatedAt: number }>();
+  async loadCasinoOpenRounds() {
+    return [...this.casinoOpen].map(([run, r]) => ({ run, refIds: [...r.refIds], updatedAt: r.updatedAt }));
+  }
+  async saveCasinoOpenRounds(run: string, refIds: string[]) {
+    if (refIds.length) this.casinoOpen.set(run, { refIds: [...refIds], updatedAt: Date.now() });
+    else this.casinoOpen.delete(run);
+  }
+  async claimCasinoOpenRounds(run: string, updatedAt: number) {
+    if (this.casinoOpen.get(run)?.updatedAt !== updatedAt) return false;
+    return this.casinoOpen.delete(run);
+  }
+  async casinoMovements(refIds: string[]) {
+    const wanted = new Set(refIds);
+    return this.ledger
+      .filter((m) => m.reason === "CASINO" && m.refId !== undefined && wanted.has(m.refId))
+      .map((m) => ({ userId: m.userId, refId: m.refId!, amount: m.amount }));
   }
 }

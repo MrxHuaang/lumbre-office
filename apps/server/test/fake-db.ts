@@ -65,7 +65,7 @@ interface Tables {
   gifts: GiftRow[];
   transfers: TransferRow[];
   quests: QuestRow[];
-  skills: { userId: string; skill: string; xp: number; level: number }[];
+  skills: { userId: string; skill: string; xp: number; level: number; updatedAt?: Date }[];
   stats: { userId: string; key: string; value: number }[];
 }
 
@@ -74,6 +74,8 @@ type Where = Record<string, unknown>;
 /** ¿La fila cumple el `where`? (igualdad, `gte`, `gt`, `lt`, `in`, `startsWith`, `not` y `null`, lo que usan los helpers). */
 function matches(row: object, where: Where = {}): boolean {
   return Object.entries(where).every(([key, cond]) => {
+    if (key === "OR") return (cond as Where[]).some((w) => matches(row, w));
+    if (key === "NOT") return !matches(row, cond as Where);
     const value = (row as Record<string, unknown>)[key];
     if (cond === null) return value === null || value === undefined;
     if (cond instanceof Date) return value instanceof Date && value.getTime() === cond.getTime();
@@ -86,6 +88,7 @@ function matches(row: object, where: Where = {}): boolean {
       if ("lt" in c && !(v < n(c.lt))) return false;
       if ("in" in c && !(c.in as unknown[]).includes(value)) return false;
       if ("startsWith" in c && !(typeof value === "string" && value.startsWith(c.startsWith as string))) return false;
+      if ("endsWith" in c && !(typeof value === "string" && value.endsWith(c.endsWith as string))) return false;
       if ("not" in c) {
         if (c.not === null) return value !== null && value !== undefined;
         if (value === c.not) return false;
@@ -277,15 +280,46 @@ export class FakeDb {
         },
       },
       skillXp: {
-        async upsert({ where, create, update: data }: { where: { userId_skill: { userId: string; skill: string } }; create: { userId: string; skill: string; xp: number }; update: Record<string, unknown> }) {
+        async upsert({ where, create, update: data }: { where: { userId_skill: { userId: string; skill: string } }; create: { userId: string; skill: string; xp: number; level?: number; updatedAt?: Date }; update: Record<string, unknown> }) {
           await db.lock(tx, `skill:${where.userId_skill.userId}:${where.userId_skill.skill}`);
           const row = rows(db.t.skills, where.userId_skill)[0];
-          if (row) change(row, data);
-          else insert(db.t.skills, { level: 1, ...create });
-          return { ...(row ?? create) };
+          if (row) change(row, { updatedAt: new Date(), ...data });
+          else insert(db.t.skills, { level: 1, updatedAt: new Date(), ...create });
+          return { level: 1, ...(row ?? create) };
+        },
+        async createMany({ data, skipDuplicates }: { data: { userId: string; skill: string; xp: number; level: number }[]; skipDuplicates?: boolean }) {
+          let count = 0;
+          for (const d of data) {
+            await db.lock(tx, `skill:${d.userId}:${d.skill}`);
+            if (rows(db.t.skills, { userId: d.userId, skill: d.skill }).length) {
+              if (skipDuplicates) continue;
+              throw new Error("P2002: ya existe");
+            }
+            insert(db.t.skills, { updatedAt: new Date(), ...d });
+            count++;
+          }
+          return { count };
+        },
+        async findMany({ where }: { where: Where }) {
+          return rows(db.t.skills, where).map((r) => ({ updatedAt: new Date(0), ...r }));
+        },
+        async findUnique({ where }: { where: { userId_skill: Where } }) {
+          const r = rows(db.t.skills, where.userId_skill)[0];
+          return r ? { updatedAt: new Date(0), ...r } : null;
+        },
+        async update({ where, data }: { where: { userId_skill: { userId: string; skill: string } }; data: Record<string, unknown> }) {
+          const [r] = await update(db.t.skills, (x) => `skill:${x.userId}:${x.skill}`, where.userId_skill, data);
+          if (!r) throw new Error("no existe");
+          return { ...r };
         },
       },
       userStat: {
+        async findMany({ where }: { where: { userId: string; NOT?: { key: { startsWith: string } } } }) {
+          const skip = where.NOT?.key.startsWith;
+          return rows(db.t.stats, { userId: where.userId })
+            .filter((r) => !skip || !r.key.startsWith(skip))
+            .map((r) => ({ key: r.key, value: r.value }));
+        },
         async upsert({ where, create, update: data }: { where: { userId_key: { userId: string; key: string } }; create: { userId: string; key: string; value: number }; update: Record<string, unknown> }) {
           await db.lock(tx, `stat:${where.userId_key.userId}:${where.userId_key.key}`);
           const row = rows(db.t.stats, where.userId_key)[0];

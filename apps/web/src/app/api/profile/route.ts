@@ -1,5 +1,5 @@
-import { Prisma, prisma } from "@hyvento/db";
-import { ProfileUpdate } from "@hyvento/shared";
+import { Prisma, loadSkillLevels, prisma } from "@hyvento/db";
+import { ProfileUpdate, lockedCostume, unlockText } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { publishOfficesChanged } from "@/lib/events";
@@ -14,6 +14,11 @@ export async function PATCH(req: Request) {
 
   const firstTime = !user.onboardedAt;
   const { look, ...profile } = parsed.data;
+  // Los trajes de los oficios se ponen solo con el nivel (oficios.ts): lo decide el servidor, no el editor.
+  if (look?.costume) {
+    const locked = lockedCostume(look, await loadSkillLevels(prisma, user.id));
+    if (locked) return NextResponse.json({ error: `Ese traje se desbloquea con ${unlockText(locked)}.` }, { status: 403 });
+  }
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: {

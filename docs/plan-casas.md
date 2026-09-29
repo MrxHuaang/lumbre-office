@@ -39,8 +39,8 @@ Primera versión (lo mínimo para que tenga sentido):
   `/time set`, con fundido a negro y el aviso "Amaneció". Se muestra "Durmiendo 2/4". Como cada casa es
   un nivel propio, dormir cuenta para la regla aunque cada uno esté en su casa. Hay que revisar lo que
   depende de la hora: huevos al amanecer, el Man del Sombrero, el bus y la pesca.
-- **Habitaciones**: sala, cuarto y cocinita (a planear el tamaño y la distribución; empezar con una casa
-  chica de 2–3 cuartos y crecerla después).
+- **Un cuarto para empezar**: cama, cocinita y espacio para decorar; los cuartos extra se compran con
+  puntos (ver "Decisiones").
 - **Decoración libre**, reutilizando lo que ya existe:
   - el editor de oficina (`decor.ts`, decoración guardada relativa a la sala) aplicado a la casa;
   - los muebles de la tienda y la mochila (lo comprado se pone en la casa igual que en la oficina);
@@ -52,24 +52,27 @@ Ideas para versiones siguientes (priorizar cuando se retome):
 | Idea | Qué es | Reutiliza |
 |---|---|---|
 | Visitas | Invitar a alguien a tu casa (entra a tu instancia); tocar el timbre | Invitaciones (#24) y toques de puerta |
-| Casa cerrada / abierta | Como las oficinas: abierta, solo invitados, cerrada | Reglas de oficinas cerradas del servidor |
+| Casa cerrada / abierta | Como las oficinas: abierta, solo invitados (por defecto), cerrada | Reglas de oficinas cerradas del servidor |
 | Cocina propia | Cocinar lo de la mochila en tu estufa | `cocina.ts` |
 | Huertico o matas | Una maceta o jardincito propio que se riega | Huerto (`huerto.ts`) |
 | Mascota en casa | La mascota adoptada duerme y come en tu casa | Mascotas (`mascotas.ts`) |
 | Armario | Cambiarse de ropa en casa | Vestidor / editor de personaje |
 | Baúl | Guardar lo que no cabe en la mochila | Mochila (`bag.ts`) |
 | Vitrina y cuadros | Trofeos, fotos del tablón, peces del álbum | Trofeos, fotos, acuario |
-| Ampliaciones | Comprar un cuarto más o un segundo piso con puntos | Puntos (`spendPoints`) |
+| Ampliaciones | Comprar cuartos extra con puntos: 400 / 800 / 1500 | Puntos (`spendPoints`) |
 | Luz y clima | Ventanas que muestran el día, la noche y la lluvia | Reloj del juego y clima |
 | Descanso | Dormir en tu cama da el bono "descansado" al día siguiente | Buff de la cocina (`Player.buff`) |
 
-## Preguntas abiertas
+## Decisiones (28-09, VIR-80)
 
-- ¿La casa se ve desde afuera (una calle con fachadas) o es solo un interior tras la puerta de la parada?
-  Recomendación: una calle corta con 3–4 fachadas decorativas y una sola puerta que lleva a tu instancia.
-- ¿Se puede entrar a la casa de otros sin invitación si está abierta? (privacidad frente a lo social)
-- ¿Cuántos puntos cuestan las ampliaciones y qué tamaño tiene la casa inicial?
-- ¿Proximidad y video dentro de la casa? Solo con quien esté de visita.
+- **Afuera**: una calle corta con 3–4 fachadas decorativas y una sola puerta que lleva a la casa de cada
+  quien (su instancia).
+- **Visitas**: como las oficinas (abierta, solo invitados o cerrada). Si está abierta, cualquiera entra sin
+  invitación; por defecto queda en "solo invitados".
+- **Tamaño**: se empieza con un cuarto (cama, cocinita y espacio para decorar). Cada cuarto extra se compra
+  con puntos: 400, 800 y 1500.
+- **Proximidad y video**: solo con quien esté de visita (sale solo, porque la proximidad cuenta dentro del
+  mismo `area`).
 
 ## Técnica (borrador)
 

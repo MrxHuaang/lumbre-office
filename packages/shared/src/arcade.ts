@@ -6,7 +6,7 @@ import { z } from "zod";
 import { ARCADE_STEP_MS, BLOQUES, FLAPPY, SCREEN_W, SNAKE } from "./arcade-sim";
 import { dayStart } from "./points";
 
-export const ARCADE_GAMES = ["snake", "breakout", "flappy", "bloques"] as const;
+export const ARCADE_GAMES = ["snake", "breakout", "flappy", "bloques", "pinball"] as const;
 export type ArcadeGame = (typeof ARCADE_GAMES)[number];
 
 export const ARCADE_GAME_INFO: Record<ArcadeGame, { name: string; controls: string }> = {
@@ -14,6 +14,7 @@ export const ARCADE_GAME_INFO: Record<ArcadeGame, { name: string; controls: stri
   breakout: { name: "Rompeladrillos", controls: "Flechas para mover · Espacio para lanzar" },
   flappy: { name: "Aleteo", controls: "Espacio o flecha arriba para aletear" },
   bloques: { name: "Bloques", controls: "Flechas para mover · Arriba gira · Espacio la suelta" },
+  pinball: { name: "Pinball", controls: "Espacio lanza · Flechas izquierda y derecha mueven los flippers" },
 };
 
 /**
@@ -34,6 +35,10 @@ export const ARCADE_MACHINES: readonly (ArcadeGame | null)[] = [
   "bloques",
   "flappy",
   null,
+  // Los tres pinballs de la pared este del arcade (mundo lleno): sus puntos van después de los gabinetes.
+  "pinball",
+  "pinball",
+  "pinball",
 ];
 
 /** Juego de la máquina `i` (null = fuera de servicio o no existe). */
@@ -86,7 +91,7 @@ export const hockeyRefId = (match: number) => `hockey:${match}`;
 export const ARCADE_MAX_STEPS = Math.ceil(ARCADE.sessionMs / ARCADE_STEP_MS);
 
 /** Puntaje mínimo para cobrar el premio por récord (si no, el primero de la semana lo gana con 1). */
-export const ARCADE_RECORD_MIN: Record<ArcadeGame, number> = { snake: 8, breakout: 12, flappy: 5, bloques: 4 };
+export const ARCADE_RECORD_MIN: Record<ArcadeGame, number> = { snake: 8, breakout: 12, flappy: 5, bloques: 4, pinball: 200 };
 
 /**
  * Lo máximo posible de cada juego en `elapsedMs` de partida, sacado de las constantes de cada uno. Es una
@@ -109,6 +114,8 @@ export function maxArcadeScore(game: ArcadeGame, elapsedMs: number): number {
     const pieces = Math.floor(ms / ARCADE_STEP_MS / BLOQUES.spawnDelay) + 1;
     return Math.floor((pieces * 4) / BLOQUES.cols);
   }
+  // Pinball: cota gruesa, 250 puntos por segundo (una bola atrapada entre bumpers da unos 140).
+  if (game === "pinball") return 10 + Math.floor((250 * ms) / 1000);
   return 6 + Math.floor((2 * ms) / 1000);
 }
 

@@ -1,9 +1,12 @@
-// El anuncio de un admin a toda la cabaña (ver packages/shared/src/comunicacion.ts): un aviso de texto
+// El anuncio a toda la cabaña (ver packages/shared/src/comunicacion.ts): un aviso de texto
 // grande para todos los conectados, en todos los niveles, y la voz: mientras dura, quien anuncia tiene el
 // papel "broadcast" (`Player.broadcastUntil`) y todos lo oyen encima de reuniones y salas aisladas
 // (`hearing`/`listeners` de proximity.ts; de ahí salen los permisos de LiveKit). Uno a la vez y con tope
-// de duración. Solo admins: lo decide la sala con el rol del token.
+// de duración. Anuncia quien tenga el permiso `anunciar` (los admins siempre; ver permisos.ts de shared).
+// Además de la pausa por persona hay una global: con varias personas habilitadas, un anuncio no pisa a otro.
 import {
+  ANNOUNCE_REJOIN_GRACE_MS,
+  puede,
   AnnounceMessage,
   cleanAnnouncement,
   COM_MSG,
@@ -18,6 +21,8 @@ export interface AnuncioPerson {
   userId: string;
   name: string;
   admin: boolean;
+  /** Permisos efectivos (los de `UserData.permisos`). */
+  permisos?: readonly string[];
 }
 
 export interface AnuncioDeps {
@@ -32,14 +37,18 @@ export interface AnuncioDeps {
   maxMs: () => number;
   /** Pausa entre avisos de texto y entre un anuncio por voz y el siguiente (`COMUNICACION.announceCooldownMs`). */
   cooldownMs: () => number;
+  /** Cuánto se espera a quien anuncia si se va (por defecto `REJOIN_TIMINGS.graceMs`). */
+  graceMs?: () => number;
+  /** Pausa global entre anuncios de cualquiera (texto o que empiece una voz); sin ella, 0. */
+  gapMs?: () => number;
 }
 
-/**
- * ¿Puede anunciar a toda la cabaña (texto y voz)? Hoy, solo los admins (el rol del token). Es el único
- * lugar donde se decide: si llega un sistema de permisos por persona, se cambia aquí.
- */
+/** La espera a quien anuncia si se va (`ANNOUNCE_REJOIN_GRACE_MS`; los tests la acortan). */
+export const REJOIN_TIMINGS = { graceMs: ANNOUNCE_REJOIN_GRACE_MS as number };
+
+/** ¿Puede anunciar a toda la cabaña (texto y voz)? Es el único lugar donde se decide. */
 export function canAnnounce(person: AnuncioPerson): boolean {
-  return person.admin;
+  return puede(person, "anunciar");
 }
 
 interface Live {
@@ -47,13 +56,17 @@ interface Live {
   name: string;
   endsAt: number;
   timer: { clear(): void };
+  /** Quien anuncia se fue y se lo está esperando (recargó la página): se corta si no vuelve a tiempo. */
+  away?: { clear(): void };
 }
 
 export class Anuncio {
   private lastTextAt = new Map<string, number>();
-  /** Cuándo empezó o terminó el último anuncio por voz de cada admin (para que prender y apagar no sea spam). */
+  /** Cuándo empezó o terminó el último anuncio por voz de cada persona (para que prender y apagar no sea spam). */
   private lastVoiceAt = new Map<string, number>();
   private live: Live | null = null;
+  /** Último anuncio de cualquiera (texto, o una voz que empieza o termina), para la pausa global. */
+  private lastAnyAt = -Infinity;
 
   constructor(private readonly deps: AnuncioDeps) {}
 
@@ -72,7 +85,10 @@ export class Anuncio {
     if (!text) return this.fail(sessionId, "empty");
     const now = this.deps.now();
     if (now - (this.lastTextAt.get(me.userId) ?? -Infinity) < this.deps.cooldownMs()) return this.fail(sessionId, "too-soon");
+    if (this.live && this.live.userId !== me.userId) return this.fail(sessionId, "busy", this.live.name);
+    if (this.tooRecent(now)) return this.fail(sessionId, "recent");
     this.lastTextAt.set(me.userId, now);
+    this.lastAnyAt = now;
     this.deps.toAll(COM_MSG.announcement, { id: this.deps.newId(), fromUserId: me.userId, fromName: me.name, text, at: now } satisfies Announcement);
   }
 
@@ -86,7 +102,9 @@ export class Anuncio {
     const now = this.deps.now();
     // Cada inicio le suena a toda la cabaña: prender y apagar seguido lleva pausa.
     if (now - (this.lastVoiceAt.get(me.userId) ?? -Infinity) < this.deps.cooldownMs()) return this.fail(sessionId, "too-soon");
+    if (this.tooRecent(now)) return this.fail(sessionId, "recent");
     this.lastVoiceAt.set(me.userId, now);
+    this.lastAnyAt = now;
     const endsAt = now + this.deps.maxMs();
     const timer = this.deps.later(this.deps.maxMs(), () => {
       if (this.live?.userId === me.userId) this.end("timeout");
@@ -107,20 +125,38 @@ export class Anuncio {
     const live = this.live;
     if (!live) return;
     const me = this.deps.person(sessionId);
-    if (me?.userId === live.userId) this.deps.setBroadcast(live.userId, live.endsAt);
+    if (me?.userId === live.userId) {
+      // Volvió a tiempo: el anuncio sigue (los demás no se enteran de nada; su chip nunca se fue).
+      live.away?.clear();
+      live.away = undefined;
+      this.deps.setBroadcast(live.userId, live.endsAt);
+    }
     // `resumed`: ya estaba sonando; el navegador no vuelve a tocar el timbre ni prende el micrófono solo.
     this.deps.toSession(sessionId, COM_MSG.broadcastEvent, { kind: "start", userId: live.userId, name: live.name, endsAt: live.endsAt, resumed: true } satisfies BroadcastEvent);
   }
 
-  /** Quien anunciaba se fue del todo: se corta, y sus pausas se olvidan (así los mapas no crecen sin límite). */
+  /**
+   * Quien anunciaba se fue del todo: se lo espera `graceMs` (por si recargó la página) y, si no vuelve,
+   * se corta. Sus pausas se olvidan (así los mapas no crecen sin límite).
+   */
   forget(userId: string) {
-    if (this.live?.userId === userId) this.end("left");
+    const live = this.live;
+    if (live?.userId === userId) {
+      live.away?.clear();
+      const grace = this.deps.graceMs?.() ?? REJOIN_TIMINGS.graceMs;
+      if (grace <= 0) this.end("left");
+      else
+        live.away = this.deps.later(grace, () => {
+          if (this.live === live && live.away) this.end("left");
+        });
+    }
     this.lastTextAt.delete(userId);
     this.lastVoiceAt.delete(userId);
   }
 
   dispose() {
     this.live?.timer.clear();
+    this.live?.away?.clear();
     this.live = null;
   }
 
@@ -128,10 +164,16 @@ export class Anuncio {
     const live = this.live;
     if (!live) return;
     live.timer.clear();
+    live.away?.clear();
     this.live = null;
     this.lastVoiceAt.set(live.userId, this.deps.now());
+    this.lastAnyAt = this.deps.now();
     this.deps.setBroadcast(live.userId, 0);
     this.deps.toAll(COM_MSG.broadcastEvent, { kind: "end", userId: live.userId, name: live.name, reason } satisfies BroadcastEvent);
+  }
+
+  private tooRecent(now: number) {
+    return now - this.lastAnyAt < (this.deps.gapMs?.() ?? 0);
   }
 
   private fail(sessionId: string, error: AnnounceError, name?: string) {

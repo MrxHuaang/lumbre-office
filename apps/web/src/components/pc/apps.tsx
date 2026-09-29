@@ -144,7 +144,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
             type="button"
             aria-label={isOpen ? "Contraer" : "Desplegar"}
             onClick={() => toggle(n.id)}
-            className={`grid h-5 w-4 shrink-0 place-items-center text-[10px] text-cozy-ink-soft ${kids.length ? "" : "invisible"}`}
+            className={`grid h-5 w-4 shrink-0 place-items-center text-[11px] text-cozy-ink-soft ${kids.length ? "" : "invisible"}`}
           >
             <span className={`transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
           </button>
@@ -289,7 +289,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
 }
 
 function SideLabel({ children }: { children: React.ReactNode }) {
-  return <p className="px-3 pt-1.5 pb-1 text-[10px] font-semibold tracking-[0.12em] text-cozy-ink-soft uppercase">{children}</p>;
+  return <p className="px-3 pt-1.5 pb-1 text-[11px] font-semibold tracking-[0.12em] text-cozy-ink-soft uppercase">{children}</p>;
 }
 
 // ---------- Papelera ----------

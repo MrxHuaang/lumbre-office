@@ -89,17 +89,17 @@ Cosas chicas que le dan vida a la cabaña. Se hacen cuando no chocan con la fase
 
 | Extra | Qué es | Estado |
 |---|---|---|
-| Creador de personajes | Mucho más personalizable, estilo Terraria / Guilty Gear: color por parte (piel, ojos, pelo, camisa, pantalón, zapatos, accesorios), muchos peinados, ojos, vello facial, prendas por capas y accesorios por lugar (cabeza, cara, cuello). Todo gratis. | Pendiente (sigue después de la 3b) |
+| Creador de personajes | Mucho más personalizable, estilo Terraria / Guilty Gear: color por parte (piel, ojos, pelo, camisa, pantalón, zapatos, accesorios), muchos peinados, ojos, vello facial, prendas por capas y accesorios por lugar (cabeza, cara, cuello). Todo gratis. | ✅ |
 | Emotes | T (o el botón de la barra) abre el selector; 1–7 manda saludo, corazón, jaja, ¡bien!, idea, ¿qué? o bailar. Globo sobre la cabeza; lo ven los del mismo nivel. | ✅ |
-| Apps del PC | Enfoque (pomodoro que te pone "Ocupado"), Buscaminas y un navegador de favoritos (abre adentro lo que se deja incrustar: YouTube, Figma, Excalidraw, Wikipedia…; lo demás en otra pestaña). | En curso |
+| Apps del PC | Enfoque (el modo foco: pomodoro de 25/5 o 50/10 que lleva el servidor; te pone en "No molestar", cierra la puerta de tu oficina y da puntos al completar el bloque), Buscaminas y un navegador de favoritos (abre adentro lo que se deja incrustar: YouTube, Figma, Excalidraw, Wikipedia…; lo demás en otra pestaña). | ✅ |
 | Pintura | App del PC para dibujar pixel art de 16x16 con la paleta cozy; el cuadro (tabla `Painting`) va a la mochila como `cuadro:<id>` y se cuelga en tu oficina con Decorar. | ✅ |
-| Tocadiscos compartido | Pones un video o una playlist y todos en tu oficina lo escuchan sincronizado (con el tocadiscos de la tienda). | Pendiente |
-| Pizarra | Excalidraw en tiempo real, también en la pared de la sala de reuniones. | Pendiente |
-| Sonidos cozy | Pasos, puertas, caja registradora y música ambiente generados por código (WebAudio), sin archivos. | Pendiente |
-| Clima y estaciones | Lluvia, otoño, nieve en diciembre, y la noche según la hora de Bogotá. | Pendiente |
-| Mascota | Un gato o un perro que te sigue (se compra en la tienda). | Pendiente |
+| Tocadiscos compartido | La radio de la oficina: el dueño pone un video de YouTube y todos adentro lo escuchan en el mismo segundo (`office-radio.ts`). | ✅ |
+| Pizarra | Pizarras compartidas en tiempo real en las oficinas y la sala de reuniones (`whiteboard.ts`, `WhiteboardPanel`). | ✅ |
+| Sonidos cozy | Pasos, puertas, caja registradora y música ambiente generados por código (WebAudio), sin archivos. | ✅ |
+| Clima y estaciones | Lluvia, otoño, nieve en invierno (la estación sale del mes de Bogotá) y la noche según el reloj del juego. | ✅ |
+| Mascota | Las mascotas de la casa: se adoptan (una por persona), te siguen de un nivel a otro, se acarician y se alimentan (`mascotas.ts`). | ✅ |
 | Standup diario | En el tablón, cada persona escribe qué hará hoy; da un bono pequeño de puntos. | Pendiente |
-| Logros | Insignias que se ven en tu placa (primera misión, racha de 30 días…). | Pendiente |
+| Logros | Insignias que se ven en tu placa (primera misión, racha de 30 días…). | ✅ |
 | Avisos de GitHub | Un webhook anuncia en el chat global cuando se mezcla (o se abre) un PR (`/api/github/webhook`, ver `docs/despliegue.md`). | ✅ |
 
 ## A futuro: Hyvento para cualquier equipo (fase 6)

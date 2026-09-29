@@ -4,6 +4,7 @@ import type { ChatScope } from "@hyvento/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { sendChat } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { PixelIcon } from "./Cozy";
 import { chatSuggestions } from "@/lib/chatCommands";
 import { COZY, nameInk } from "@/lib/cozy";
@@ -34,9 +35,8 @@ export function ChatPanel({ isAdmin = false }: { isAdmin?: boolean }) {
     const onKey = (e: KeyboardEvent) => {
       const { typing, pcOn } = useOfficeStore.getState();
       if (e.key !== "Enter" || typing || pcOn || e.defaultPrevented) return;
-      const active = document.activeElement as HTMLElement | null;
-      const tag = (active?.tagName ?? "").toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select" || active?.isContentEditable) return;
+      // Un campo, o un botón con foco (Enter lo aprieta): no se roba el Enter.
+      if (focusOwnsKey(e.key)) return;
       e.preventDefault();
       setChatOpen(true);
       requestAnimationFrame(() => inputRef.current?.focus());
@@ -78,7 +78,7 @@ export function ChatPanel({ isAdmin = false }: { isAdmin?: boolean }) {
             </button>
           ))}
         </div>
-        <button onClick={() => setChatOpen(false)} className="ml-auto p-1" aria-label="Cerrar chat" title="Cerrar chat">
+        <button onClick={() => setChatOpen(false)} className="cozy-hit ml-auto p-1" aria-label="Cerrar chat" title="Cerrar chat">
           <PixelIcon name="close" size={12} />
         </button>
       </header>

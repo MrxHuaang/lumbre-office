@@ -20,6 +20,7 @@ import { randomInt } from "node:crypto";
 import type { GameRepository } from "../../repo/types";
 import { BlackjackSeat, type BlackjackState } from "../../state";
 import { payoutWithRetry, TableQueue } from "./common";
+import type { OpenRounds } from "./recovery";
 
 export interface BlackjackTimings {
   bettingMs: number;
@@ -38,6 +39,8 @@ interface Deps {
   timings: () => BlackjackTimings;
   /** Baraja un sabot nuevo (en los tests, un orden fijo). */
   shuffle: () => Card[];
+  /** Rondas abiertas (para devolver lo apostado si la sala se cierra antes de pagar). */
+  rounds?: OpenRounds;
 }
 
 /** Sabot de 6 mazos barajado con el generador criptográfico (Fisher-Yates). */
@@ -61,9 +64,24 @@ export class BlackjackTable {
   private turnToken = 0;
   /** Apuestas y jugadas de a una (ver `TableQueue`). */
   private readonly queue = new TableQueue();
+  /** El pago de la ronda en curso (al cerrar la sala se espera a que termine). */
+  private settling: Promise<void> = Promise.resolve();
+  private closed = false;
 
   constructor(private readonly d: Deps) {
     for (let i = 0; i < BLACKJACK.seats; i++) d.state.seats.push(new BlackjackSeat());
+    d.rounds?.attach(this);
+  }
+
+  private ref(round: number) {
+    return this.d.rounds?.ref("blackjack", round) ?? casinoRefId("blackjack", round);
+  }
+
+  /** La sala se cierra: no más apuestas; se esperan las que se estaban cobrando y el pago en curso. */
+  async close() {
+    this.closed = true;
+    await this.queue.run(async () => undefined);
+    await this.settling;
   }
 
   private get s() {
@@ -86,16 +104,16 @@ export class BlackjackTable {
     const settings = this.d.settings();
     if (!settings.enabled) return { ok: false, error: "disabled" };
     if (seat === null) return { ok: false, error: "seat" };
-    if (this.s.phase !== "waiting" && this.s.phase !== "betting") return { ok: false, error: "closed" };
+    if ((this.s.phase !== "waiting" && this.s.phase !== "betting") || this.closed) return { ok: false, error: "closed" };
     const place = this.s.seats[seat]!;
     if (place.bet > 0) return { ok: false, error: place.userId === player.userId ? "max-bets" : "seat" };
 
     const round = this.s.round + (this.s.phase === "waiting" ? 1 : 0);
     const { amount } = parsed.data;
-    const refId = casinoRefId("blackjack", round);
+    const refId = this.ref(round);
     const outcome = await this.charge(player.userId, amount, refId);
     if (!outcome.ok) return outcome;
-    const stillOpen = (this.s.phase === "waiting" || this.s.phase === "betting") && place.bet === 0;
+    const stillOpen = (this.s.phase === "waiting" || this.s.phase === "betting") && place.bet === 0 && !this.closed;
     if (!stillOpen) {
       await this.refund(player.userId, amount, refId);
       return { ok: false, error: "closed" };
@@ -130,11 +148,11 @@ export class BlackjackTable {
       if (place.cards.length !== 2 || place.doubled) return { ok: false, error: "turn" };
       // Lo que cobra *esta* jugada: si hay que devolver, se devuelve esto y no `place.bet`.
       const extra = place.bet;
-      const refId = casinoRefId("blackjack", this.s.round);
+      const refId = this.ref(this.s.round);
       const outcome = await this.charge(player.userId, extra, refId);
       if (!outcome.ok) return outcome;
-      // Mientras se cobraba pudo vencer el turno: se devuelve.
-      if (token !== this.turnToken || place.doubled) {
+      // Mientras se cobraba pudo vencer el turno (o cerrarse la sala): se devuelve.
+      if (token !== this.turnToken || place.doubled || this.closed) {
         await this.refund(player.userId, extra, refId);
         return { ok: false, error: "turn" };
       }
@@ -160,6 +178,8 @@ export class BlackjackTable {
   }
 
   private async charge(userId: string, amount: number, refId: string): Promise<CasinoResult> {
+    // La ronda queda anotada antes de cobrar: si el servidor se cae, la próxima corrida la devuelve.
+    if (this.d.rounds && !(await this.d.rounds.opening(refId))) return { ok: false, error: this.closed ? "closed" : "failed" };
     try {
       const outcome = await this.d.repo().casinoBet({ userId, amount, refId });
       this.d.setPoints(userId, outcome.balance);
@@ -236,7 +256,7 @@ export class BlackjackTable {
         this.d.later(this.d.timings().dealerStepMs, step);
         return;
       }
-      void this.settle();
+      this.settling = this.settle();
     };
     this.d.later(this.d.timings().dealerStepMs, step);
   }
@@ -258,11 +278,12 @@ export class BlackjackTable {
       });
     for (const r of results) {
       if (r.won > 0) {
-        const paid = await payoutWithRetry(this.d.repo, { userId: r.userId, amount: r.won, refId: casinoRefId("blackjack", round) }, "premio");
+        const paid = await payoutWithRetry(this.d.repo, { userId: r.userId, amount: r.won, refId: this.ref(round) }, "premio");
         if (paid) this.d.setPoints(r.userId, paid.balance);
       }
       this.d.notify(r.userId, { round, outcome: r.outcome, won: r.won, staked: r.staked });
     }
+    this.d.rounds?.settled(this.ref(round));
   }
 
   private reset() {

@@ -74,7 +74,7 @@ const STALL_TYPES = new Set(["toilet-stall", "bath-stall"]);
 const PROGRESS_TYPES = new Set(["puzzle-table", "cafe-sign", "easel"]);
 const LAMP_SOUND = new Set(["lamp", "lamp-mushroom", "reading-lamp", "lamp-post", "garden-lantern", "dock-lamp", "wall-sconce", "record-player", "radio", "work-light"]);
 /** Cómo se dice lo que salió de la nevera o la cafetera. */
-const GIFT_TEXT: Record<string, string> = { jugo: "¡Un jugo!", manzana: "¡Una manzana!", banano: "¡Un banano!", aguapanela: "¡Un agua de panela!", malvavisco: "¡Malvavisco dorado!" };
+const GIFT_TEXT: Record<string, string> = { jugo: "¡Un jugo!", manzana: "¡Una manzana!", banano: "¡Un banano!", aguapanela: "¡Un agua de panela!", malvavisco: "¡Malvavisco dorado!", "vaso-agua": "¡Agüita fresca!" };
 /** Cuánto "más lejos" cuenta una cortina al elegir qué ofrece E (tiles; ver `nearest` en usables.ts). */
 export const CURTAIN_PENALTY_TILES = 0.75;
 /** Hasta dónde se oye el fuego (el volumen de `hear` se eleva a esta potencia: se oye de más cerca). */
@@ -589,7 +589,8 @@ export class CasaViva {
           playCoffee(vol);
           const p = top(14);
           for (let k = 0; k < 4; k++) this.scene.time.delayedCall(k * 220, () => this.puff(p.x + Phaser.Math.Between(-2, 2), p.y));
-        } else playFridge(vol);
+        } else if (f.type === "water-cooler") playWater(vol);
+        else playFridge(vol);
         if (who && e.item) this.scene.time.delayedCall(500, () => this.floatText(who, GIFT_TEXT[e.item!] ?? "¡Listo!"));
         return true;
       }

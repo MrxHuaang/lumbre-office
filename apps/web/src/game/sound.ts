@@ -1,29 +1,37 @@
 // Sonidos de los muebles que se usan, generados con WebAudio (sin archivos de audio): el piano, la
 // guitarra (cuerdas pulsadas con Karplus-Strong), el ronroneo del gato y un lofi para el tocadiscos.
 // El navegador solo deja sonar después de que la persona tocó algo: el contexto se crea recién al usarlo.
+// Cada sonido sale por una de las salidas del mezclador (mixer.ts): música, ambiente, efectos o avisos.
+import { mixerBus, type SoundCategory } from "./mixer";
 
 let ctx: AudioContext | null = null;
-let master: GainNode | null = null;
+/** La entrada de cada salida del mezclador en este contexto (el volumen lo pone el mezclador). */
+const outs = new Map<SoundCategory, GainNode>();
 
-function audio(): { ctx: AudioContext; out: GainNode } | null {
+function audio(cat: SoundCategory = "effects"): { ctx: AudioContext; out: GainNode } | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
     const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
     ctx = new Ctor();
-    master = ctx.createGain();
-    master.gain.value = 0.5;
-    master.connect(ctx.destination);
     // Si el navegador lo dejó suspendido, se reanuda con la próxima tecla o clic.
     const resume = () => void ctx?.resume().catch(() => undefined);
     window.addEventListener("pointerdown", resume);
     window.addEventListener("keydown", resume);
   }
   if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
-  return { ctx, out: master! };
+  let out = outs.get(cat);
+  if (!out) {
+    out = ctx.createGain();
+    // Con el volumen de fábrica el mezclador deja pasar la mitad: suena como antes de tenerlo.
+    out.gain.value = 1;
+    out.connect(mixerBus(ctx, cat));
+    outs.set(cat, out);
+  }
+  return { ctx, out };
 }
 
-/** El contexto de audio compartido (lo usan los efectos de sfx.ts, la pesca y la música del club). */
+/** El contexto de audio compartido, con la salida del mezclador que corresponde (efectos si no se dice). */
 export const sharedAudio = audio;
 
 /** Generador pseudoaleatorio con semilla: todos oyen la misma melodía. */
@@ -350,7 +358,7 @@ let lofiQuietSince = 0;
 export function setRecordMusic(vol: number) {
   if (!lofi) {
     if (vol <= LOFI_START) return;
-    const a = audio();
+    const a = audio("music");
     if (!a) return;
     lofi = new Lofi(a);
     lofi.start();
@@ -383,5 +391,5 @@ export function volumeAt(dist: number, reach: number) {
   return t * t;
 }
 
-/** El contexto de audio compartido (casa viva: casaSonidos.ts suma sus sonidos a la misma salida). */
+/** El contexto de audio compartido (casa viva, la granja y el huerto suman sus sonidos al mezclador). */
 export const audioOut = audio;
