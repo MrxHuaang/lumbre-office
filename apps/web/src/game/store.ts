@@ -193,6 +193,8 @@ export interface Notice {
   id: number;
   text: string;
   tone: "info" | "success" | "warning";
+  /** Cuántas veces seguidas salió el mismo aviso (se muestra "×N" desde 2). */
+  count?: number;
   action?: { label: string; run: () => void };
 }
 
@@ -523,7 +525,14 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   },
   notify: (text, tone = "info", action) => {
     const id = ++noticeId;
-    set((s) => ({ notices: [...s.notices.slice(-3), { id, text, tone, action }] }));
+    set((s) => {
+      // El mismo aviso seguido no se apila: sube el "×N" y se renueva el tiempo (el id nuevo evita que
+      // el temporizador del anterior lo cierre antes).
+      const last = s.notices[s.notices.length - 1];
+      if (last && !action && !last.action && last.text === text && last.tone === tone)
+        return { notices: [...s.notices.slice(0, -1), { id, text, tone, count: (last.count ?? 1) + 1 }] };
+      return { notices: [...s.notices.slice(-3), { id, text, tone, action }] };
+    });
     setTimeout(() => get().dismissNotice(id), action ? NOTICE_MS * 2 : NOTICE_MS);
   },
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),

@@ -57,6 +57,9 @@ import {
   PET_MSG,
   type PetEvent,
   CASA_MSG,
+  RECHAZO_MSG,
+  RECHAZO_TEXT,
+  type RechazoNotice,
   CASA_NOTICES,
   type CasaNotice,
   PET_NOTICES,
@@ -1162,6 +1165,13 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.fishEvent, handleFishEvent);
   r.onMessage(PET_MSG.event, (e: PetEvent) => petListeners.forEach((cb) => cb(e)));
+  // Rechazos genéricos (chat con límite, mueble lejos o en pausa, silla ocupada): aviso y "tuc".
+  r.onMessage(RECHAZO_MSG.notice, (n: RechazoNotice) => {
+    const text = RECHAZO_TEXT[n.code];
+    if (!text) return;
+    sfx.deny();
+    useOfficeStore.getState().notify(text, "warning");
+  });
   // Casa viva: por qué no se pudo (las manos llenas, el baño ocupado, la mascota ya comió…).
   r.onMessage(CASA_MSG.notice, (n: CasaNotice) => {
     const text = CASA_NOTICES[n.code];
