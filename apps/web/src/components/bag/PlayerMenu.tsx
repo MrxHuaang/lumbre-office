@@ -9,6 +9,7 @@ import { useEffect, useId, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useAchievementStore } from "@/game/achievements";
 import { dropItem, moveItem, selectSlot, useBagStore } from "@/game/bag";
+import { clearQuestLogRequest, questLogRequested } from "@/game/encargos";
 import { sendProfileChanged } from "@/game/network";
 import { selectMyOffice, useOfficeStore, type Profile } from "@/game/store";
 import { presetLook } from "@/lib/look-palette";
@@ -17,13 +18,15 @@ import { PixelIcon } from "../Cozy";
 import { OfficeDialog } from "../OfficeDialog";
 import { api } from "../PointsPanels";
 import { BadgeGlyph } from "../profile/Badge";
+import { QuestLog } from "../encargos/QuestLog";
 import { ProfileAchievements, ProfileFacts } from "../profile/ProfileView";
 import { useMyHand } from "./Hotbar";
 import { ItemIcon } from "./ItemIcon";
 
-type Tab = "mochila" | "stats" | "personaje";
+type Tab = "mochila" | "encargos" | "stats" | "personaje";
 const TABS: { id: Tab; label: string; wideHidden?: true }[] = [
   { id: "mochila", label: "Mochila" },
+  { id: "encargos", label: "Encargos" },
   { id: "stats", label: "Estadísticas" },
   // En pantallas anchas el personaje va siempre a la derecha: la pestaña sobra.
   { id: "personaje", label: "Personaje", wideHidden: true },
@@ -52,7 +55,9 @@ function useMyProfile() {
 
 export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Profile; onClose: () => void; onEditCharacter: () => void }) {
   const uid = useId();
-  const [tab, setTab] = useState<Tab>("mochila");
+  // El rastreador de encargos abre la mochila directo en la libreta.
+  const [tab, setTab] = useState<Tab>(() => (questLogRequested() ? "encargos" : "mochila"));
+  useEffect(clearQuestLogRequest, []);
   const me = useMyProfile();
 
   // La I también lo cierra (como la abre), salvo escribiendo.
@@ -101,6 +106,8 @@ export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Pro
         <div role="tabpanel" className="min-w-0">
           {tab === "stats" ? (
             <StatsTab data={me.profile} error={me.error} />
+          ) : tab === "encargos" ? (
+            <QuestLog />
           ) : tab === "personaje" ? (
             <>
               <div className="lg:hidden">

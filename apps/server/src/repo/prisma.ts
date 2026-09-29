@@ -1,12 +1,15 @@
 import {
   addInventoryTx,
   applyStatChanges,
+  claimQuest,
+  loadQuests,
   loadAchievementRecord,
   unlockAchievement,
   awardPoints,
   awardPointsOnce,
   grantWelcomeBonus,
   casinoBet,
+  ChatScope,
   getCasinoSettings,
   givenToday,
   leaveDoorNote,
@@ -37,9 +40,10 @@ import {
   type PointReason,
   type ManualStatus,
   type StatChange,
+  type QuestDelta,
 } from "@hyvento/shared";
 import { executeTip, executeTrade } from "./social";
-import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
+import type { AwardOnceInput, QuestClaimInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
 /** Fila de WorldLayout donde se guarda el reloj del juego (no es un nivel). */
 const GAME_CLOCK_ROW = "__reloj__";
@@ -198,6 +202,12 @@ export class PrismaRepository implements GameRepository {
         createdAt: new Date(event.ts),
       },
     });
+  }
+
+  async pruneChatBefore(cutoff: Date) {
+    // Con el scope en la condición, Postgres usa el índice (scope, createdAt) en vez de recorrer la tabla.
+    const { count } = await prisma.chatMessage.deleteMany({ where: { scope: { in: Object.values(ChatScope) }, createdAt: { lt: cutoff } } });
+    return count;
   }
 
   async getPoints(userId: string) {
@@ -382,12 +392,20 @@ export class PrismaRepository implements GameRepository {
     return { stats: r.stats, unlocked: Object.keys(r.unlocked) };
   }
 
-  saveStats(userId: string, changes: StatChange[]) {
-    return applyStatChanges(prisma, userId, changes);
+  saveStats(userId: string, changes: StatChange[], quests: QuestDelta[] = []) {
+    return applyStatChanges(prisma, userId, changes, quests);
   }
 
   unlockAchievement(userId: string, achievementId: string) {
     return unlockAchievement(prisma, userId, achievementId);
+  }
+
+  loadQuests(userId: string, periods: string[], assign: { questId: string; period: string; goal: number }[]) {
+    return loadQuests(prisma, userId, periods, assign);
+  }
+
+  claimQuest(input: QuestClaimInput) {
+    return claimQuest(prisma, input);
   }
 
   saveDoorNote(input: { fromId: string; toId: string; zoneId: string; text: string }) {

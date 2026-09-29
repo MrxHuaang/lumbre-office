@@ -218,6 +218,8 @@ import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyv
 import { Fishery } from "./fishing";
 import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
+import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
+import { encargosDeSala, type Encargos } from "./encargos";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice, type SystemNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 import { CasaViva } from "./casa";
@@ -247,7 +249,7 @@ import {
 } from "@hyvento/shared";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
-import { ChairRaces, type RaceOutcome } from "./races";
+import { ChairRaces, RaceBoards, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 import { DoorNotes } from "./door-notes";
@@ -255,6 +257,7 @@ import { Invites } from "./invites";
 import { CabinEvents } from "./events";
 import { FocusTimers } from "./focus";
 import { Phones } from "./phones";
+import { registerComunicacion, type Comunicacion } from "./comunicacion";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { BAG_MSG, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
@@ -287,6 +290,8 @@ import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
 import { VIAJE, VIAJE_MSG, type ViajeNotice } from "@hyvento/shared";
 import { QuickTravel } from "./viaje";
+import { startChatRetention } from "./chatRetention";
+import { orElse } from "../log";
 
 interface UserData {
   lastMoveAt: number;
@@ -378,6 +383,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static fishingTimings: FishingTimings = { ...FISHING };
   /** Reloj de las compras del puesto de pesca (los tests lo corren para saltarse la pausa). */
   static pescaNow: () => number = () => Date.now();
+  /** Encargos: el reloj (día de Bogotá) y qué le toca a cada quien (los tests lo fijan). */
+  static encargosNow: () => number = () => Date.now();
+  static encargosPick: (userId: string, now: number) => ActiveQuest[] = currentQuests;
   /** Casa viva: el azar de las mascotas y cuánto se está en el baño (los tests los fijan y acortan). */
   static petRandom: () => number = Math.random;
   static stallMs: number = CASA.stallMs;
@@ -571,6 +579,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** La carrera de sillas del pasillo del piso 2 (ver races.ts). */
   private races = new ChairRaces();
+  private raceBoards = new RaceBoards((userId, since) => this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId }));
   /** Cuándo puede volver a reaccionar cada persona en el club. */
   private reactAt = new Map<string, number>();
   /** Tiempos de las sillas giratorias y cuántas vueltas da cada giro (los tests los fijan). */
@@ -613,7 +622,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** El puesto de pesca del lago: las compras y el equipo de cada lance (ver pescaTienda.ts). */
   private pesca = new PescaStand({ repo: () => this.repo, held: this.held, now: () => OfficeRoom.pescaNow() });
   /** Estadísticas y logros (ver achievements.ts): se suman en memoria y se guardan juntas. */
-  private achievements = new AchievementTracker({
+  private achievements: AchievementTracker = new AchievementTracker({
     repo: () => this.repo,
     onUnlock: (userId, achievement) => {
       for (const [sessionId, p] of this.state.players) {
@@ -621,7 +630,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         this.sendToArea(p.area, MSG.achievementUnlocked, { sessionId, name: p.name, achievementId: achievement.id } satisfies AchievementUnlockedEvent);
       }
     },
+    quests: { onStat: (u, key, by) => this.encargos.onStat(u, key, by), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
   });
+  /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
+  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t) });
 
   /** Fotos: la cuenta 3-2-1, quiénes salen y el ticket para subirla (ver photos.ts). */
   private photos = new PhotoBooth({
@@ -709,12 +721,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     send: (userId, event) => {
       for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.phoneEvent, event);
     },
-    setPhase: (userId, phase, withUserId, since) => {
+    setPhase: (userId, phase, withUserId, since, callId) => {
       for (const p of this.state.players.values())
         if (p.userId === userId) {
           p.call = phase;
           p.callWith = withUserId;
           p.callSince = since;
+          p.callId = callId;
         }
     },
   });
@@ -910,6 +923,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
+    this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1009,6 +1023,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.fishFinish, (client, raw) => this.withFisher(client, (userId) => void this.fishery.finish(userId, raw)));
     this.onMessage(MSG.fishCancel, (client) => this.withFisher(client, (userId) => this.fishery.cancel(userId)));
     this.onMessage(PESCA_MSG.buy, (client, raw) => void this.handlePescaBuy(client, raw));
+    this.onMessage(QUEST_MSG.claim, (client, raw) => {
+      const p = this.state.players.get(client.sessionId);
+      this.markActive(client);
+      if (p) void this.encargos.claim(p.userId, raw).then((r) => r && client.send(QUEST_MSG.result, r satisfies QuestClaimResult));
+    });
     this.onMessage(MSG.tradeRequest, (client, raw) => this.trades.request(client.sessionId, raw));
     this.onMessage(MSG.tradeRespond, (client, raw) => this.trades.respond(client.sessionId, raw));
     this.onMessage(MSG.tradeOffer, (client, raw) => void this.trades.offer(client.sessionId, raw));
@@ -1101,6 +1120,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await this.reloadOffices();
     await this.events.refresh();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
+    startChatRetention(this.clock, () => this.repo);
   }
 
   onDispose() {
@@ -1113,6 +1133,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.bus?.dispose();
     this.cocina.dispose();
     this.phones.dispose();
+    this.comunicacion?.dispose();
     void this.achievements.flushAll();
     void this.whiteboards.flush();
     this.pets?.flush(Date.now());
@@ -1150,10 +1171,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.y = pos.y;
     player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(map, pos.x, pos.y);
-    player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
+    player.status = (await this.repo.getUserStatus(auth.sub).catch(orElse("onJoin.getUserStatus", null, { userId: auth.sub }))) ?? "available";
     // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
-    const welcome = await this.repo.grantWelcome(auth.sub).catch(() => null);
-    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(() => 0));
+    const welcome = await this.repo.grantWelcome(auth.sub).catch(orElse("onJoin.grantWelcome", null, { userId: auth.sub }));
+    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(orElse("onJoin.getPoints", 0, { userId: auth.sub })));
     // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
     await this.held.load(auth.sub);
     const held = this.held.get(auth.sub);
@@ -1170,6 +1191,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.focus.joined(auth.sub);
     // Si recargó la página en medio de una llamada, la sesión nueva la retoma.
     this.phones.restore(auth.sub);
+    this.comunicacion?.greet(client.sessionId);
 
     client.userData = {
       lastMoveAt: Date.now(),
@@ -1182,6 +1204,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
+    void this.encargos.load(auth.sub, { join: true });
     if (byBus) this.bus.requestRide();
     void this.refreshBadge(auth.sub);
     client.send(MSG.chatHistory, this.globalHistory);
@@ -1756,6 +1779,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     else this.achievements.bump(player.userId, STAT_KEYS.phoneCalls);
   }
 
+  /** Llamar sin teléfono, llamadas grupales, saludar y el anuncio del admin (ver rooms/comunicacion.ts). */
+  private comunicacion?: Comunicacion;
+
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
     if (zone?.type === "office") {
@@ -2000,10 +2026,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     if (!player) return;
     this.achievements.bump(player.userId, STAT_KEYS.racesFinished);
-    const since = weekStart(Date.now());
-    const before = await this.repo.raceBoard({ since, limit: 1, userId: player.userId }).catch(() => null);
+    const before = await this.raceBoards.get(player.userId, Date.now()).catch(orElse("raceBoard", null, { userId: player.userId }));
     await this.repo.saveRaceTime({ userId: player.userId, name: player.name, ms: outcome.ms }).catch((err) => console.error("saveRaceTime", err));
-    const board = await this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => ({ entries: [], myBest: outcome.ms }));
+    this.raceBoards.invalidate();
+    const board = await this.raceBoards.get(player.userId, Date.now()).catch(orElse("raceBoard", { entries: [], myBest: outcome.ms }, { userId: player.userId }));
     const best = before?.myBest == null || outcome.ms < before.myBest;
     const record = !before?.entries[0] || outcome.ms < before.entries[0].ms;
     client?.send(MSG.raceResult, { ok: true, ms: outcome.ms, best, board } satisfies RaceResult);
@@ -2014,7 +2040,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private async sendRaceBoard(client: Client<UserData>) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const board = await this.repo.raceBoard({ since: weekStart(Date.now()), limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => null);
+    const board = await this.raceBoards.get(player.userId, Date.now()).catch(orElse("raceBoard", null, { userId: player.userId }));
     if (board) client.send(MSG.raceBoardResult, board);
   }
 
@@ -2323,6 +2349,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // La web pudo sumar estadísticas (racha del buzón, misiones): se releen y se revisan los logros.
     await this.achievements.refresh(userId).catch((err) => console.error("achievements.refresh", err));
     this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
+    // Y los encargos (una misión o una foto de la web pudieron avanzarlos).
+    await this.encargos.load(userId, { force: true });
   }
 
   // ---------- Casino ----------
@@ -3564,13 +3592,16 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
     this.phones.left(player.userId);
+    this.comunicacion?.forget(player.userId);
     this.invites.forget(player.userId);
     this.hockey?.leave(player.userId);
     this.casa.forget(player.userId);
     this.swivels.forget(player.userId);
     this.piscina?.forget(player.userId);
     this.tina?.forget(player.userId);
-    void this.achievements.forget(player.userId);
+    // Los encargos se olvidan después de guardar, y solo si no volvió a entrar mientras tanto (`gen`).
+    const questGen = this.encargos.generation(player.userId);
+    void this.achievements.forget(player.userId).then(() => this.encargos.forget(player.userId, questGen));
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);

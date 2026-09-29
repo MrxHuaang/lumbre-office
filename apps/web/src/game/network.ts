@@ -109,6 +109,7 @@ import { bindPesca } from "./pesca";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
+import { bindComunicacion, resetComunicacion } from "./comunicacion";
 import { useSombreroStore } from "./npcs/store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
@@ -159,6 +160,9 @@ export interface RemotePlayer {
   /** Lo que le hizo la mercancía del Man del Sombrero (TripKind; "" = nada) y hasta cuándo (hora del servidor). */
   trip: string;
   tripUntil: number;
+  /** Id de la llamada (los que hablan en la misma se oyen entre todos) y el anuncio por voz del admin (ver comunicacion.ts). */
+  callId?: string;
+  broadcastUntil?: number;
 }
 /** El Man del Sombrero como viaja en el estado (espejo de `SombreroState` en apps/server/src/state.ts). */
 export interface RemoteSombrero {
@@ -531,6 +535,13 @@ export function onInteract(kind: Interactable, fn: () => void) {
   interactActions.set(kind, fn);
 }
 
+/** Quienes se enteran de cada E, además de lo que hace el objeto (los encargos de ese personaje). */
+const interactListeners = new Set<(kind: Interactable) => void>();
+export function onAnyInteract(fn: (kind: Interactable) => void) {
+  interactListeners.add(fn);
+  return () => interactListeners.delete(fn);
+}
+
 /** Usar un objeto interactivo: casi todos abren su panel (el Man del Sombrero, su menú); el tubo del sótano hace bailar. */
 /** E en la estación: subirse al Megabús (el servidor valida que esté parado con las puertas abiertas). */
 export function sendBusBoard() {
@@ -538,6 +549,7 @@ export function sendBusBoard() {
 }
 
 export function activateInteractable(kind: Interactable) {
+  for (const fn of interactListeners) fn(kind);
   if (kind === "pole") return togglePole();
   if (kind === "bus") return sendBusBoard();
   // La escalerita: sube a la tarima o, si ya estoy arriba, baja (lo valida el servidor).
@@ -593,6 +605,7 @@ export async function disconnect() {
   // Reset síncrono: si se reconecta enseguida (StrictMode), no debe borrar la sesión nueva.
   useOfficeStore.getState().reset();
   resetPhone();
+  resetComunicacion();
   await current?.leave(true).catch(() => undefined);
 }
 
@@ -1064,6 +1077,7 @@ function attach(r: OfficeRoom) {
   bindGranja(r);
   bindArcade(r);
   bindPhone(r);
+  bindComunicacion(r);
   // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).
   bindNotify(r);
   bindHockey(r);

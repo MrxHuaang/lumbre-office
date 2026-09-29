@@ -10,6 +10,7 @@ import { useOfficeStore, type Profile } from "@/game/store";
 import { getArriveByBus } from "@/lib/arriveByBus";
 import { BusTrip } from "./bus/BusTrip";
 import { EntryLoader } from "./EntryLoader";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { useEntryStore } from "@/game/entryStore";
 import { waitForCozyFont } from "@/lib/cozy";
 import { warmPrerender } from "@/game/iso/prerender-paths";
@@ -49,6 +50,7 @@ import { AquariumPanel } from "./AquariumPanel";
 import { BookReader } from "./BookReader";
 import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
 import { IncomingCall, PhonePanel } from "./PhonePanels";
+import { ComunicacionOverlays } from "./comunicacion/ComunicacionOverlays";
 import { ShedPanel } from "./ShedPanel";
 import { CoopPanel, GrillPanel } from "./GranjaPanels";
 import { KitchenPanel } from "./KitchenPanel";
@@ -59,6 +61,8 @@ import { RadarPanel } from "./observatorio/RadarPanel";
 import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
+import { QuestCard } from "./encargos/QuestCard";
+import { QuestTracker } from "./encargos/QuestTracker";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
@@ -161,6 +165,13 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const closeProfile = useAchievementStore((s) => s.closeProfile);
   // Al salir de la cabaña no queda un perfil abierto para la próxima vez.
   useEffect(() => () => useAchievementStore.getState().closeProfile(), []);
+  // "Cerrar" del aviso de un panel roto: se cierra todo lo que estaba abierto encima de la oficina.
+  const closeOverlays = useCallback(() => {
+    closePanel();
+    setDialog(null);
+    setPcOn(false);
+    closeProfile();
+  }, [closePanel, setPcOn, closeProfile]);
 
   // Actividad real (mouse, teclado): cuenta para los puntos de presencia. Como mucho un aviso por minuto.
   useEffect(() => {
@@ -290,6 +301,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
       {connection === "connected" && <BusTrip />}
       {connection === "connected" || connection === "reconnecting" ? (
         <>
+          {/* Cada grupo con su ErrorBoundary: un panel que se rompe no tumba la cabaña (el juego sigue). */}
+          <ErrorBoundary name="hud">
           <Hud
             isAdmin={isAdmin}
             onEditProfile={() => setDialog("profile")}
@@ -306,6 +319,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             {/* En el celular la columna se ajusta a la ficha de conectados y los avisos bajan hasta debajo del HUD. */}
             <div className="flex w-full flex-col items-end gap-2 empty:hidden max-md:absolute max-md:top-[calc(var(--cozy-hud-bottom,3rem)_-_0.25rem)] max-md:right-0 max-md:w-[min(16rem,calc(100vw-1.5rem))]">
               <DoorNotesChip />
+              <QuestTracker />
               <Notices />
               <NotifyPrompt />
             </div>
@@ -336,10 +350,17 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
               <CatchCard />
             </GameOnly>
           </div>
+          {/* Arriba a la izquierda y sobre los paneles (el tablón, el mostrador): lo que te pidió quien te habla. */}
+          <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-3 z-[45]">
+            <QuestCard />
+          </div>
+          </ErrorBoundary>
+          <ErrorBoundary name="avisos">
           <KnockRequests />
           <InvitationRequests />
           <PodcastConsent />
           <IncomingCall />
+          <ComunicacionOverlays isAdmin={isAdmin} />
           <SocialOverlays />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}
           <MediaControls actions={<HandActions />} tail={<ControlsHint />}>
@@ -347,6 +368,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </MediaControls>
           <VideoStrip />
           <ScreenFocus />
+          </ErrorBoundary>
+          <ErrorBoundary name="paneles" resetKey={`${panel?.kind}|${dialog}|${pcOn}|${profileId}`} onClose={closeOverlays}>
           {pcOn && <Computer profile={profile} onOff={() => setPcOn(false)} />}
           {(dialog === "profile" || dialog === "character") && (
             <ProfileDialog profile={profile} withName={dialog === "profile"} onClose={closeDialog} onSaved={onProfileChange} />
@@ -417,6 +440,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
           {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}
           <FacilidadLayer isAdmin={isAdmin} onEditProfile={() => setDialog("profile")} onEditCharacter={() => setDialog("character")} onAdmin={() => setDialog("admin")} />
+          </ErrorBoundary>
         </>
       ) : null}
 
