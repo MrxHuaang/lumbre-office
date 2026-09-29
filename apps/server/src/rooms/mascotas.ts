@@ -78,8 +78,9 @@ export type PetResult =
 /** Camas donde duermen (la "pet-bed"; la casita del perro es sólida, se duerme delante). */
 const BED_TYPES = new Set(["pet-bed"]);
 
-type Mode = "idle" | "walk" | "sleep" | "eat";
-type Goal = "wander" | "bed" | "come";
+// `rest`: echada junto a la casita del perro (mundo lleno), un rato, aunque el dueño se mueva.
+type Mode = "idle" | "walk" | "sleep" | "eat" | "rest";
+type Goal = "wander" | "bed" | "come" | "rest";
 
 interface Brain {
   def: PetDef;
@@ -340,6 +341,9 @@ export class Pets {
     const ts = map.tileSize;
     const dist = Math.hypot(owner.x - pet.x, owner.y - pet.y);
     if (pet.area !== owner.area || dist > PET_BOND.teleportTiles * ts) return this.appearNear(brain, pet, owner, map);
+    // Va a la casita del perro o está echada ahí: no lo sigue hasta que termine de descansar.
+    if (brain.goal === "rest" && brain.mode === "walk") return this.walk(brain, pet, now, dtMs, PET_BOND.followSpeed);
+    if (brain.mode === "rest" && now < brain.until) return;
     const still = brain.still;
     if (!still || Math.hypot(owner.x - still.x, owner.y - still.y) > ts / 2) brain.still = { x: owner.x, y: owner.y, since: now };
     if (brain.mode === "eat" && now < brain.until) return;
@@ -472,6 +476,11 @@ export class Pets {
       brain.mode = "idle";
       pet.pose = "sit";
       brain.until = now + PET.followMs;
+    } else if (brain.goal === "rest") {
+      brain.mode = "rest";
+      pet.pose = "sleep";
+      brain.until = now + this.restMs;
+      brain.goal = "come";
     } else {
       brain.mode = "idle";
       pet.pose = this.o.rng() < 0.6 ? "sit" : "stand";
@@ -516,6 +525,57 @@ export class Pets {
       const [a, b] = goal === "bed" ? PET.sleepMs : PET.idleMs;
       brain.until = now + this.between(a, b);
     }
+  }
+
+  /** Lo que dura echada en la casita del perro (los tests lo cambian). */
+  restMs = 12_000;
+
+  /**
+   * Mundo lleno: la casita del perro. La mascota del dueño (si lo está siguiendo y quedó cerca de la casita)
+   * camina hasta un tile libre pegado a ella y se echa un rato. Suma un poco de cariño, con el tope diario de
+   * cada persona (`gained` = si sumó algo).
+   */
+  restAt(
+    ownerId: string,
+    house: { area: string; x: number; y: number; w: number; d: number },
+    now: number,
+    opts: { love: number; reachTiles: number },
+  ): { ok: true; pet: string; name: string; gained: boolean } | { ok: false; error: "noPet" | "far" } {
+    const id = this.petOf(ownerId);
+    const brain = id ? this.brains.get(id) : undefined;
+    const pet = id ? this.o.pets.get(id) : undefined;
+    if (!id || !brain || !pet || !brain.following) return { ok: false, error: "noPet" };
+    const map = this.o.map(house.area);
+    const ts = map.tileSize;
+    const cx = (house.x + house.w / 2) * ts;
+    const cy = (house.y + house.d / 2) * ts;
+    if (pet.area !== house.area || Math.hypot(pet.x - cx, pet.y - cy) > opts.reachTiles * ts) return { ok: false, error: "far" };
+    // El tile libre pegado a la casita más cercano a la mascota (el de la puerta, si está libre).
+    const around: TilePos[] = [];
+    for (let x = house.x - 1; x <= house.x + house.w; x++) around.push({ x, y: house.y + house.d }, { x, y: house.y - 1 });
+    for (let y = house.y; y < house.y + house.d; y++) around.push({ x: house.x - 1, y }, { x: house.x + house.w, y });
+    const from = this.tileOf(pet, ts);
+    const spot = around
+      .filter((t) => t.x >= 0 && t.y >= 0 && t.x < map.width && t.y < map.height && this.followable(map, t.x, t.y))
+      .sort((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y))[0];
+    this.decay(brain, pet, now);
+    const before = brain.love;
+    this.gain(brain, pet, ownerId, opts.love, now);
+    const path = spot && (spot.x !== from.x || spot.y !== from.y) ? findPath(map, from, spot) : null;
+    brain.lookAt = { x: cx, y: cy };
+    if (path?.length) {
+      brain.path = path;
+      brain.goal = "rest";
+      brain.mode = "walk";
+    } else {
+      brain.path = [];
+      brain.goal = "come";
+      brain.mode = "rest";
+      pet.pose = "sleep";
+      pet.dir = facingOf(cx - pet.x, cy - pet.y);
+      brain.until = now + this.restMs;
+    }
+    return { ok: true, pet: id, name: pet.name, gained: brain.love > before };
   }
 
   private near(pet: PetView, who: PetUser, tiles: number) {

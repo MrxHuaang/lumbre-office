@@ -1924,6 +1924,58 @@ ITEMS["carnada-buena"] = {
   flat: "sh",
 };
 
+// ---------- Mundo lleno: el vaso de agua, la hoja impresa y los peluches de la máquina de garra ----------
+
+// El vaso del dispensador de las oficinas: vidrio liso (sin pitillo, a diferencia del jugo) y agua clarita.
+ITEMS["vaso-agua"] = {
+  liquid: { chars: "aA" },
+  rows: ["ooooooo", "ohaaaAo", "ohaaaAo", "ohaaAAo", "ohaaaAo", "oggggGo", ".ooooo."],
+  colors: { a: hex("#bfe6f5"), A: hex("#86c3dc"), h: GLASS.h, g: alpha(hex("#d8eef6"), 0.85), G: alpha(hex("#e8f6fb"), 0.95) },
+};
+// La hoja de la impresora: papel con renglones y la esquina doblada.
+ITEMS.hoja = {
+  rows: ["oooooo..", "owwwwFo.", "owlllFFo", "owwwwwwo", "owllllwo", "owwwwwwo", "owlllwwo", "owwwwwwo", "oooooooo"],
+  colors: legend({ w: "#fbf7ea", F: "#d8ccb0", l: "#8aa0c8" }),
+  flat: "l",
+};
+// Los peluches: de frente, cabezones y con ojitos de botón (`e`), cada uno con su silueta.
+ITEMS["peluche-oso"] = {
+  rows: [".oo...oo.", "obBo.oBbo", "obbbbbbbo", "obebbbebo", "obbmnmbbo", ".obRRRbo.", "obbbbbbbo", "obbbbbbbo", ".oo...oo."],
+  colors: legend({ b: "#a8703e", B: "#e0b07a", e: "#2a1810", m: "#f0d6a8", n: "#3a2014", R: "#c8402e" }),
+  flat: "enR",
+};
+ITEMS["peluche-gato"] = {
+  rows: ["o.......o", "oPo...oPo", "ogPoooPgo", "ogegggego", "oggwnwggo", ".ogwwwgo.", "ogGgggGgo", "oggGgGggo", ".oo...oo."],
+  colors: legend({ g: "#a8a4b0", G: "#6e6a78", P: "#f0a8b8", e: "#4f9a4a", w: "#f4f0ea", n: "#e87890" }),
+  flat: "ePnG",
+};
+ITEMS["peluche-rana"] = {
+  rows: [".oo...oo.", "owko.okwo", "olllllllo", "oplllllpo", "ollmmmllo", ".olyyylo.", "olLyyyLlo", ".oo...oo."],
+  colors: legend({ l: "#6fb34a", L: "#3f7a2e", w: "#fffaf0", k: "#1a1a1a", p: "#f0909a", m: "#2e5a22", y: "#e8e08a" }),
+  flat: "wkpm",
+};
+ITEMS["peluche-conejo"] = {
+  rows: ["..o...o..", ".oPo.oPo.", ".oPo.oPo.", "oowooowoo", "owwwwwwwo", "owewwwewo", "owwwnwwwo", ".owwwwwo.", "owwcwcwwo", ".oo...oo."],
+  colors: legend({ w: "#f6f0e4", P: "#f0a8b8", e: "#3a2a30", n: "#e87890", c: "#e0d0b8" }),
+  flat: "Pen",
+};
+ITEMS["peluche-pulpo"] = {
+  rows: ["..ooooo..", ".ovvpvvo.", "ovvvvvpvo", "ovevvvevo", "ovvvmvvvo", "ovVvvvVvo", "ovovovovo", ".o.o.o.o."],
+  colors: legend({ v: "#b060c0", V: "#7a3a8e", p: "#e0a8ea", e: "#1a1420", m: "#5a2a66" }),
+  flat: "pem",
+};
+ITEMS["peluche-oveja"] = {
+  rows: ["..o.o.o..", ".owowowo.", "owWwwwWwo", "owwfffwwo", "owfefefwo", "owwfnfwwo", "owWwwwWwo", ".owwwwwo.", ".ofo.ofo."],
+  colors: legend({ w: "#f8f4ea", W: "#d8d0c0", f: "#5a3a2a", e: "#f8f4ea", n: "#f0a0a0" }),
+  flat: "en",
+};
+// El chigüiro (capibara), el especial: ancho, cuadrado y tranquilo.
+ITEMS["peluche-capibara"] = {
+  rows: [".oo....oo.", "occoooocco", "occcccccco", "ocecccceco", "occcCCccco", "occCnnCcco", "occcccccco", "oCccccccCo", ".oCo..oCo."],
+  colors: legend({ c: "#b88a52", C: "#8a6038", e: "#1e140c", n: "#4a3020" }),
+  flat: "en",
+};
+
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 
 /** Brasa: apagada (0), titilando (1) o encendida al pitar (2). */

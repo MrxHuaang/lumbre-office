@@ -51,6 +51,8 @@ export const BAIT_TUNING: Record<BaitId, { biteMul: number; luck: number }> = {
 export interface FishingGear {
   rod: FishingRod;
   bait: BaitId | null;
+  /** Mundo lleno: pesca sentado en el bote del muelle (se puede sentado y con más suerte, `BOAT_LUCK` de pesca-maestria.ts). */
+  boat?: boolean;
 }
 
 /**

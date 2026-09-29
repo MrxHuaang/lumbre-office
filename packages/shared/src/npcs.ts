@@ -10,7 +10,8 @@ import { NIGHT_FROM, NIGHT_UNTIL } from "./clock";
 import type { Weather } from "./weather";
 
 // El pescador del puesto de pesca del lago está en pesca-tienda.ts (mismo formato).
-export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "astronoma" | "pescador";
+// La recepcionista del recibidor está en recepcion.ts.
+export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "astronoma" | "pescador" | "recepcionista";
 
 export interface GameNpc {
   id: string;

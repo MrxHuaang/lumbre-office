@@ -3,6 +3,8 @@
 // es determinista: pasos fijos de 1000/60 ms, azar con la semilla y solo sumas, productos y raíces (nada
 // de seno ni coseno, que pueden dar distinto en cada motor de JavaScript).
 import type { ArcadeGame } from "./arcade";
+// El pinball (mundo lleno) está en su archivo: es el más largo.
+import { PinballSim } from "./pinball-sim";
 
 /** Paso fijo de la simulación (ms). */
 export const ARCADE_STEP_MS = 1000 / 60;
@@ -573,7 +575,8 @@ export class BloquesSim implements ArcadeSim {
   }
 }
 
-export function createArcadeSim(game: ArcadeGame, seed: number): SnakeSim | BreakoutSim | FlappySim | BloquesSim {
+export function createArcadeSim(game: ArcadeGame, seed: number): SnakeSim | BreakoutSim | FlappySim | BloquesSim | PinballSim {
+  if (game === "pinball") return new PinballSim(seed);
   if (game === "snake") return new SnakeSim(seed);
   if (game === "breakout") return new BreakoutSim(seed);
   if (game === "bloques") return new BloquesSim(seed);

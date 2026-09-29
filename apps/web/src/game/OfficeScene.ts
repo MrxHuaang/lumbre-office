@@ -168,6 +168,7 @@ import { localSpeedMul, useCocinaStore } from "./cocina";
 import { PORTION_USABLE_PREFIX, sendPortion } from "./granjaNet";
 import { SeasonView } from "./seasons";
 import { NpcCast } from "./npcs/cast";
+import { syncSeat } from "./mundo";
 import { QuestMarkers, questGiverToTalk } from "./encargosMarcas";
 import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
 import { isTripKind, SOMBRERO, type TripKind } from "@hyvento/shared";
@@ -199,7 +200,7 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "dj", point: "dj_booth", furniture: ["dj-booth"] },
   { kind: "cinema", point: "cinema", furniture: ["projector"] },
   { kind: "snacks", point: MENUS.cine.point, furniture: [...MENUS.cine.furniture] },
-  { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet"] },
+  { kind: "arcade", point: "arcade", furniture: ["arcade-cabinet", "pinball"] },
   { kind: "hockey", point: "air_hockey", furniture: ["air-hockey"] },
   { kind: "baccarat", point: "baccarat", furniture: ["baccarat-table"] },
   { kind: "dados", point: "sicbo", furniture: ["sicbo-table"] },
@@ -228,6 +229,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "logbook", point: "logbook", furniture: ["log-desk"] },
   // La astrónoma (un personaje, no un mueble: se le habla desde el punto de delante).
   { kind: "astronomer", point: "astronomer", furniture: [] },
+  // Doña Gloria en la recepción del recibidor (mundo lleno).
+  { kind: "reception", point: "reception", furniture: ["reception-desk"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -1778,6 +1781,8 @@ export class OfficeScene extends Phaser.Scene {
     if (sun !== s.seatSun) s.setSeatSun(sun);
     const spa = this.seat ?? free ? spaKindOf((this.seat ?? free)!.type) : null;
     if (spa !== s.seatSpa) s.setSeatSpa(spa);
+    // Mundo lleno: el bote del muelle (la ayuda dice "subirte al bote" y, sentado, sale "Pescar").
+    syncSeat((this.seat ?? free)?.type ?? null, this.seat !== null);
     const atComputer = this.seat?.computer ?? false;
     if (atComputer !== s.atComputer) s.setAtComputer(atComputer);
     const atSwivel = this.seat ? isSwivelSeat(this.seat) : false;

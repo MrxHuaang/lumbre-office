@@ -582,10 +582,13 @@ describe("sótano", () => {
     expect(neons.map((n) => n.text).sort()).toEqual(["ARCADE", "CASINO", "CINE", "CLUB"]);
   });
 
-  it("hay un punto de arcade delante de cada máquina, en el mismo orden", () => {
+  it("hay un punto de arcade delante de cada máquina, en el mismo orden (y después, uno por pinball)", () => {
     const cabinets = sotano.furniture.filter((f) => f.type === "arcade-cabinet");
+    const pinballs = sotano.furniture.filter((f) => f.type === "pinball");
     const spots = pointsOfType(sotano, "arcade");
-    expect(spots).toHaveLength(cabinets.length);
+    expect(spots).toHaveLength(cabinets.length + pinballs.length);
+    // Los pinballs se juegan del lado +x.
+    pinballs.forEach((f, i) => expect([spots[cabinets.length + i]!.tileX, spots[cabinets.length + i]!.tileY]).toEqual([f.x + f.w, f.y]));
     cabinets.forEach((c, i) => {
       const s = spots[i]!;
       // Del lado al que mira la pantalla.

@@ -75,10 +75,21 @@ export function nibbleTimes(waitMs: number, random: (n: number) => number): numb
 
 // ---------- La suerte de un lance ----------
 
+/** Desde el bote del muelle (mundo lleno) los raros pesan más (ver `castLuck`). */
+export const BOAT_LUCK = 1.5;
+
+/**
+ * Tope de la suerte de un lance: lo mejor que se logra en la orilla (carnada de la buena, en grupo y con la
+ * maestría al máximo). El bote del muelle (mundo lleno) ayuda a quien no tiene todo eso, pero no lo pasa.
+ */
+export const MAX_CAST_LUCK = 2.7;
+
 /**
  * La suerte con que pica (multiplica el peso de los raros, ver `fishPool`): la de la carnada, por la
- * compañía y por la maestría al máximo. Sin nada de eso, 1 (los pesos de siempre).
+ * compañía, por la maestría al máximo y por pescar desde el bote (`BOAT_LUCK`), con el tope de
+ * `MAX_CAST_LUCK`. Sin nada de eso, 1 (los pesos de siempre).
  */
-export function castLuck(o: { bait: number; group: boolean; mastery: number }): number {
-  return o.bait * (o.group ? GROUP_FISHING.luck : 1) * (o.mastery >= MAX_ROD_MASTERY ? ROD_MASTERY.maxLevelLuck : 1);
+export function castLuck(o: { bait: number; group: boolean; mastery: number; boat?: boolean }): number {
+  const luck = o.bait * (o.group ? GROUP_FISHING.luck : 1) * (o.mastery >= MAX_ROD_MASTERY ? ROD_MASTERY.maxLevelLuck : 1) * (o.boat ? BOAT_LUCK : 1);
+  return Math.min(MAX_CAST_LUCK, luck);
 }

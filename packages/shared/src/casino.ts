@@ -161,7 +161,7 @@ export const CasinoSettingsBody = z.object({
 
 // ---------- Estadísticas y rankings de la caja ----------
 
-export const CASINO_GAMES = ["ruleta", "blackjack", "baccarat", "dados", "caballos"] as const;
+export const CASINO_GAMES = ["ruleta", "blackjack", "baccarat", "dados", "caballos", "tragamonedas"] as const;
 export type CasinoGame = (typeof CASINO_GAMES)[number];
 export const CASINO_GAME_NAMES: Record<CasinoGame, string> = {
   ruleta: "Ruleta",
@@ -169,6 +169,7 @@ export const CASINO_GAME_NAMES: Record<CasinoGame, string> = {
   baccarat: "Baccarat",
   dados: "Dados",
   caballos: "Caballitos",
+  tragamonedas: "Tragamonedas",
 };
 
 /** Período de las estadísticas: los últimos `CASINO.rankingDays` días o desde siempre. */
