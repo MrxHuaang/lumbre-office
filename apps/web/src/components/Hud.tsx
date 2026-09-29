@@ -17,6 +17,7 @@ import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { GameClockChip } from "./GameClockChip";
 import { Minimap } from "./Minimap";
 import { PersonMenu } from "./PersonMenu";
+import { usePuedo } from "@/game/permisos";
 import { PointsCounter } from "./PointsPanels";
 import { GiftChip, PersonActions } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
@@ -131,6 +132,9 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
   const me = sessionId ? players[sessionId] : undefined;
   const walls = useOfficeStore((s) => s.privateWalls);
   const openPanel = useOfficeStore((s) => s.openPanel);
+  // Editar la casa: admins y quien tenga el permiso (lo manda el servidor, que además lo valida).
+  const houseEditor = usePuedo("editar-casa");
+  const announcer = usePuedo("anunciar");
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -248,17 +252,23 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
             </div>
           </MenuGroup>
 
-          {isAdmin && (
+          {(isAdmin || houseEditor || announcer) && (
             <MenuGroup label="Administración">
-              <MenuItem icon="board" onClick={act(onAdmin)}>
-                Administrar equipo
-              </MenuItem>
-              <MenuItem icon="home" onClick={act(() => useOfficeStore.getState().setWorldEditing(true))}>
-                Editar la casa
-              </MenuItem>
-              <MenuItem icon="megaphone" onClick={act(() => openAnnounce())}>
-                Anuncio a toda la cabaña
-              </MenuItem>
+              {isAdmin && (
+                <MenuItem icon="board" onClick={act(onAdmin)}>
+                  Administrar equipo
+                </MenuItem>
+              )}
+              {houseEditor && (
+                <MenuItem icon="home" onClick={act(() => useOfficeStore.getState().setWorldEditing(true))}>
+                  Editar la casa
+                </MenuItem>
+              )}
+              {announcer && (
+                <MenuItem icon="megaphone" onClick={act(() => openAnnounce())}>
+                  Anuncio a toda la cabaña
+                </MenuItem>
+              )}
             </MenuGroup>
           )}
 

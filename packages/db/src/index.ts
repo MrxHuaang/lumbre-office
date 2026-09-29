@@ -17,4 +17,5 @@ export * from "./achievements";
 export * from "./door-notes";
 export * from "./standup";
 export * from "./aquarium";
+export * from "./permisos";
 export * from "./encargos";

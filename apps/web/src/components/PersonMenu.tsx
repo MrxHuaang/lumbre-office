@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { sendInvite } from "@/game/network";
+import { usePermisosStore } from "@/game/permisos";
 import { callPerson, followPerson, stopFollowing, useComStore, wavePerson } from "@/game/comunicacion";
 import { usePhoneStore } from "@/game/phone";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
@@ -38,6 +39,7 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
   const menu = useRef<HTMLDivElement>(null);
   const inviteLabel = useInviteLabel();
   const walkToPlayer = useOfficeStore((s) => s.walkToPlayer);
+  const admin = usePermisosStore((s) => s.admin);
   const following = useComStore((s) => s.following?.userId === person.userId);
   const call = usePhoneStore((s) => s.call);
   const inMyCall = Boolean(call?.members.some((m) => m.userId === person.userId));
@@ -157,6 +159,11 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
           <Item icon="smile" onClick={run(onProfile)}>
             Ver perfil
           </Item>
+          {admin && (
+            <Item icon="unlock" onClick={run(() => usePermisosStore.getState().openEditor({ userId: person.userId, name: person.name }))}>
+              Dar permiso…
+            </Item>
+          )}
         </div>
       )}
     </>

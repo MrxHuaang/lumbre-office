@@ -72,6 +72,11 @@ import {
   type PresenceStatus,
   type PointsAwarded,
   verifyGameToken,
+  PERMISOS_MSG,
+  permisosEfectivos,
+  puede,
+  type Permiso,
+  type PermisosView,
   type CafeOrderResult,
   type CasinoSettingsDTO,
   type RouletteSettled,
@@ -304,10 +309,10 @@ interface UserData {
   editTimes?: number[];
   /** Último emote (para que no se puedan mandar en ráfaga). */
   lastEmoteAt?: number;
-  /** Admin del equipo (puede usar el editor de la casa). */
+  /** Admin del equipo (tiene todos los permisos y además /time). */
   admin?: boolean;
-  /** Puede usar el editor de la casa (ver `houseEditor` del token). */
-  houseEditor?: boolean;
+  /** Permisos efectivos (ver permisos.ts de @hyvento/shared); se releen en caliente si un admin los cambia. */
+  permisos?: Permiso[];
   /** Emotes aceptados hace poco (pausa entre uno y otro y tope por ráfaga, ver `acceptEmote`). */
   emoteTimes?: number[];
   /** Mensajes recientes al casino (tope por ráfaga, ver `acceptCasinoMessage`). */
@@ -426,7 +431,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** La tina y la sauna del lago: cada cuánto da puntos el descanso y cada cuánto se revisa (los tests los acortan). */
   static tinaTimings: { tickMs: number; checkMs: number } = { tickMs: TINA.tickMs, checkMs: TINA.checkMs };
 
-  /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   /** Otra sala guardó un cambio del editor de la casa: se aplica acá también. */
   static applyWorldEditsEverywhere(area: string, edits: WorldEdits) {
     for (const r of OfficeRoom.instances) r.applyWorldEdits(area, edits);
@@ -460,6 +464,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Duración de las fases del modo foco (los tests la acortan). */
   static focusPhaseMs: (preset: FocusPresetId, phase: "work" | "break") => number = focusMs;
 
+  /** Relee los ajustes del casino en todas las salas (los cambió un admin en /admin). */
   static async reloadCasinoSettingsEverywhere() {
     await Promise.all([...OfficeRoom.instances].map((r) => r.reloadCasinoSettings()));
   }
@@ -1197,12 +1202,17 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.phones.restore(auth.sub);
     this.comunicacion?.greet(client.sessionId);
 
+    const admin = auth.role === "ADMIN";
+    const permisos = await this.repo.loadPermisos([auth.sub]).catch((err) => {
+      console.error("loadPermisos", err);
+      return { everyone: [] as Permiso[], byUser: {} as Record<string, Permiso[]> };
+    });
     client.userData = {
       lastMoveAt: Date.now(),
       chatTimes: [],
       lastActiveAt: Date.now(),
-      admin: auth.role === "ADMIN",
-      houseEditor: auth.houseEditor ?? auth.role === "ADMIN",
+      admin,
+      permisos: permisosEfectivos({ admin, granted: permisos.byUser[auth.sub] ?? [], everyone: permisos.everyone }),
     };
     void this.achievements.load(auth.sub).then(() => {
       this.achievements.visit(auth.sub, area);
@@ -1216,6 +1226,33 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.send(BAG_MSG.state, { ...this.held.view(auth.sub), pick: true } satisfies BagView);
     // La hora del servidor, para que el cliente calcule bien los conteos regresivos (la ruleta).
     client.send(MSG.clock, { now: Date.now() });
+    this.sendPermisos(client);
+  }
+
+  // ---------- Permisos ----------
+
+  private sendPermisos(client: Client<UserData>) {
+    const d = client.userData;
+    if (d) client.send(PERMISOS_MSG.state, { admin: Boolean(d.admin), permisos: d.permisos ?? [] } satisfies PermisosView);
+  }
+
+  /** Un admin cambió permisos desde la web: se releen los de todos los conectados y se les avisa. */
+  static async reloadPermisosEverywhere() {
+    await Promise.all([...OfficeRoom.instances].map((r) => r.reloadPermisos()));
+  }
+
+  private async reloadPermisos() {
+    const clients = this.clients.filter((c) => c.userData && this.state.players.has(c.sessionId));
+    const userIds = [...new Set(clients.map((c) => this.state.players.get(c.sessionId)!.userId))];
+    const { everyone, byUser } = await this.repo.loadPermisos(userIds);
+    for (const c of clients) {
+      const player = this.state.players.get(c.sessionId);
+      if (!player || !c.userData) continue;
+      c.userData.permisos = permisosEfectivos({ admin: Boolean(c.userData.admin), granted: byUser[player.userId] ?? [], everyone });
+      // Si le quitaron el editor de la casa mientras lo tenía, lo suelta (el cliente cierra el panel).
+      if (this.houseEditLock?.sessionId === c.sessionId && !puede(c.userData, "editar-casa")) this.houseEditLock = null;
+      this.sendPermisos(c);
+    }
   }
 
   async onLeave(client: Client<UserData>, consented: boolean) {
@@ -1365,7 +1402,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.rebuildArea(area);
   }
 
-  /** Editor de la casa (solo admins): valida el cambio, lo guarda y lo aplica en todas las salas. */
   /** Quién tiene el editor de la casa (una persona a la vez). */
   private houseEditLock: { sessionId: string; name: string } | null = null;
 
@@ -1379,19 +1415,20 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       if (this.houseEditLock?.sessionId === client.sessionId) this.houseEditLock = null;
       return;
     }
-    if (!client.userData.houseEditor) return reply({ ok: false, error: "not-allowed" });
+    if (!puede(client.userData, "editar-casa")) return reply({ ok: false, error: "not-allowed" });
     const lock = this.houseEditLock;
     if (lock && lock.sessionId !== client.sessionId && this.state.players.has(lock.sessionId)) return reply({ ok: false, error: "busy", by: lock.name });
     this.houseEditLock = { sessionId: client.sessionId, name: player.name };
     reply({ ok: true });
   }
 
+  /** Editor de la casa (permiso `editar-casa`): valida el cambio, lo guarda y lo aplica en todas las salas. */
   private async handleWorldEdit(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = WorldEditMessage.safeParse(raw);
     if (!player || !parsed.success || !client.userData) return;
     const reply = (r: WorldEditResult) => client.send(MSG.worldEditResult, r);
-    if (!client.userData.houseEditor) return reply({ ok: false, error: "admin" });
+    if (!puede(client.userData, "editar-casa")) return reply({ ok: false, error: "admin" });
     // Una sola persona edita la casa a la vez: la que tiene el candado (lo toma si está libre).
     if (this.houseEditLock && this.houseEditLock.sessionId !== client.sessionId) return reply({ ok: false, error: "busy" });
     this.houseEditLock ??= { sessionId: client.sessionId, name: player.name };

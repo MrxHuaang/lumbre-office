@@ -15,6 +15,8 @@ import {
   leaveDoorNote,
   listInventory,
   loadBagSlots,
+  permisosDados,
+  permisosDeTodos,
   saveBagSlots,
   unreadDoorNotes,
   type PresenceStatus as DbStatus,
@@ -236,6 +238,11 @@ export class PrismaRepository implements GameRepository {
 
   getCasinoSettings() {
     return getCasinoSettings(prisma);
+  }
+
+  async loadPermisos(userIds: string[]) {
+    const [everyone, byUser] = await Promise.all([permisosDeTodos(prisma), permisosDados(prisma, userIds)]);
+    return { everyone, byUser };
   }
 
   async loadWorldEdits() {
