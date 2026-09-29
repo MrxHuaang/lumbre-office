@@ -104,6 +104,8 @@ Otra opción gratis y siempre prendida es una máquina virtual *Always Free* de 
 
 Las variables `NEXT_PUBLIC_*` se meten en el build: si las cambias, vuelve a desplegar.
 
+Vercel despliega solo `main`: `apps/web/vercel.json` apaga los previews de las ramas de trabajo (`feat/`, `fix/`, `chore/`…). El plan Hobby corta en 100 despliegues por día, y con muchos PRs los previews se comían el cupo y producción quedaba vieja ("Deployment rate limited"). El CI ya prueba el build y el smoke de cada PR. Para ver una rama en Vercel, se despliega a mano desde el panel o con `vercel`.
+
 **No pongas** `HYVENTO_DEV_TOOLS` en producción: es solo para desarrollo, y de todos modos se apaga fuera de desarrollo.
 
 ## 7. Probar
