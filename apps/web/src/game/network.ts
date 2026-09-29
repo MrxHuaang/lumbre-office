@@ -110,6 +110,7 @@ import { bindPesca } from "./pesca";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
+import { bindComunicacion, resetComunicacion } from "./comunicacion";
 import { useSombreroStore } from "./npcs/store";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
@@ -134,7 +135,7 @@ export interface RemotePlayer {
   held: string;
   /** Usos que le quedan a lo de la mano ("4"). */
   heldLeft: string;
-  /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
+  /** Pesca: "", "wait", "nibble", "bite", "reel" o "show:<pez>". */
   fishing: string;
   /** Con qué caña pesca ("" o "bambu", "fibra", "carbono"): el color de la caña. */
   fishingRod: string;
@@ -160,6 +161,9 @@ export interface RemotePlayer {
   /** Lo que le hizo la mercancía del Man del Sombrero (TripKind; "" = nada) y hasta cuándo (hora del servidor). */
   trip: string;
   tripUntil: number;
+  /** Id de la llamada (los que hablan en la misma se oyen entre todos) y el anuncio por voz del admin (ver comunicacion.ts). */
+  callId?: string;
+  broadcastUntil?: number;
 }
 /** El Man del Sombrero como viaja en el estado (espejo de `SombreroState` en apps/server/src/state.ts). */
 export interface RemoteSombrero {
@@ -594,6 +598,7 @@ export async function disconnect() {
   // Reset síncrono: si se reconecta enseguida (StrictMode), no debe borrar la sesión nueva.
   useOfficeStore.getState().reset();
   resetPhone();
+  resetComunicacion();
   await current?.leave(true).catch(() => undefined);
 }
 
@@ -1070,6 +1075,7 @@ function attach(r: OfficeRoom) {
   bindGranja(r);
   bindArcade(r);
   bindPhone(r);
+  bindComunicacion(r);
   // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).
   bindNotify(r);
   bindHockey(r);

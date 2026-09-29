@@ -19,9 +19,16 @@ export function castLine() {
   room.send(MSG.fishCast);
 }
 
+/** ¿La boya está temblando por un mordisqueo? (responder ahí es caer en la trampa). */
+export const nibbling = () => {
+  const s = useFishingStore.getState();
+  return s.phase === "waiting" && performance.now() < s.nibbleUntil;
+};
+
 export function hookFish() {
   const { castId, phase } = useFishingStore.getState();
-  if (!castId || phase !== "bite") return;
+  // En un mordisqueo también se manda: el servidor dice si el pez se asustó (o se llevó la carnada).
+  if (!castId || (phase !== "bite" && !nibbling())) return;
   useFishingStore.getState().setPhase("hooking");
   getRoom()?.send(MSG.fishHook, { castId });
 }

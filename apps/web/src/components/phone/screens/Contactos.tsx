@@ -2,11 +2,14 @@
 
 // Contactos: todo el equipo (también quien no está conectado), con su estado y dónde anda en la
 // cabaña: hace las veces del panel de Conectados que había arriba a la derecha. Desde el contacto se le
-// escribe (al chat, con su nombre adelante), se le regala algo o se abre su perfil.
+// escribe (al chat, con su nombre adelante), se le llama (o se suma a la llamada), se saluda, se sigue,
+// se le regala algo o se abre su perfil.
 import { placeLabel } from "@hyvento/map";
 import type { PresenceStatus } from "@hyvento/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useAchievementStore } from "@/game/achievements";
+import { callPerson, followPerson, stopFollowing, useComStore, wavePerson } from "@/game/comunicacion";
+import { usePhoneStore as useCallStore } from "@/game/phone";
 import { useSocialStore } from "@/game/social";
 import { useOfficeStore, type PlayerInfo } from "@/game/store";
 import { STATUS_HEX } from "@/lib/cozy";
@@ -58,7 +61,10 @@ export function ContactosApp() {
   const team = useTeam();
   const [i, setI] = useState(0);
   const [open, setOpen] = useState<Contact | null>(null);
-  const [opt, setOpt] = useState(0);
+  const [rawOpt, setOpt] = useState(0);
+  const call = useCallStore((s) => s.call);
+  const dialing = useCallStore((s) => s.dialing);
+  const following = useComStore((s) => s.following?.userId);
 
   const contacts = useMemo(() => {
     const online = new Map(Object.values(players).filter((p) => p.sessionId !== sessionId).map((p) => [p.userId, p]));
@@ -78,12 +84,35 @@ export function ContactosApp() {
     go({ kind: "app", id: "mensajes", params: { compose: { scope: "global", text: `@${c.name.split(" ")[0]} ` } } });
   const profile = (c: Contact) => close(() => useAchievementStore.getState().openProfile(c.userId));
   const gift = (c: Contact) => close(() => useSocialStore.getState().openGift({ userId: c.userId, name: c.name }));
+  const current = open ? (contacts.find((c) => c.userId === open.userId) ?? open) : null;
+  // La comunicación rápida (game/comunicacion.ts) solo con quien está conectado; el servidor igual valida.
+  const quick = current?.online
+    ? [
+        ...(call?.members.some((m) => m.userId === current.userId)
+          ? []
+          : [{ label: call?.phase === "talking" ? "Sumar a la llamada" : "Llamar", run: (c: Contact) => ring(c, current.online!) }]),
+        { label: "Saludar", run: (c: Contact) => close(() => wavePerson(c.userId)) },
+        following === current.userId
+          ? { label: "Dejar de seguir", run: (c: Contact) => close(() => stopFollowing(`Dejaste de seguir a ${c.name}.`)) }
+          : { label: "Seguir", run: (c: Contact) => close(() => followPerson(c.userId)) },
+      ]
+    : [];
   const options = [
     { label: "Escribir mensaje", run: write },
+    ...quick,
     { label: "Regalar algo", run: gift },
     { label: "Ver perfil", run: profile },
   ];
-  const current = open ? (contacts.find((c) => c.userId === open.userId) ?? open) : null;
+  // Las opciones cambian con la llamada o el seguir: la elegida no se sale de la lista.
+  const opt = Math.min(rawOpt, options.length - 1);
+  // Como el telefonito que había en Conectados: si no se puede, se dice por qué en vez de marcar.
+  function ring(c: Contact, p: PlayerInfo) {
+    const talking = call?.phase === "talking";
+    const blocked =
+      p.status === "dnd" ? "Está en No molestar." : p.call ? "Está en otra llamada." : (call && !talking) || dialing ? "Ya estás en una llamada." : "";
+    if (blocked) return useOfficeStore.getState().notify(`${c.name}: ${blocked}`, "info");
+    close(() => callPerson(c.userId));
+  }
 
   usePhoneKeys(
     (k) => {

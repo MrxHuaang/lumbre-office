@@ -18,6 +18,8 @@ import { GiftChip } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
 import { CallChip } from "./PhonePanels";
 import { PhoneButton } from "./phone/PhoneButton";
+import { ComunicacionChips } from "./comunicacion/ComunicacionChips";
+import { openAnnounce } from "@/game/comunicacion";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -70,6 +72,7 @@ export function Hud(props: HudProps) {
       <GiftChip />
       <BirthdayChip />
       <CallChip />
+      <ComunicacionChips />
       <QuickTools />
       <Confetti />
     </div>
@@ -244,6 +247,9 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
               </MenuItem>
               <MenuItem icon="home" onClick={act(() => useOfficeStore.getState().setWorldEditing(true))}>
                 Editar la casa
+              </MenuItem>
+              <MenuItem icon="megaphone" onClick={act(() => openAnnounce())}>
+                Anuncio a toda la cabaña
               </MenuItem>
             </MenuGroup>
           )}
