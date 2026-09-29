@@ -99,6 +99,15 @@ export function mediaScale(cat: SoundCategory = "music"): number {
   return Math.min(1, categoryVolume(cat) / MIXER_DEFAULTS[cat]);
 }
 
+/**
+ * Volumen (0 a 1) de un `<audio>` que no pasa por WebAudio (la prueba de parlantes, que tiene que salir por
+ * la salida elegida con `setSinkId`): la misma curva que las salidas del mezclador, con el control donde
+ * viene de fábrica al 100 % como antes, y sin pasar de 1.
+ */
+export function elementVolume(cat: SoundCategory): number {
+  return Math.min(1, categoryGain(cat) / MIXER_DEFAULTS[cat] ** 2);
+}
+
 /** ¿Se oye algo de esa salida? (si no, ni se arma el sonido). */
 export const audible = (cat: SoundCategory) => categoryVolume(cat) > 0;
 
