@@ -58,6 +58,10 @@ export class Player extends Schema {
   /** Lo que le hizo la mercancía del Man del Sombrero (TripKind; "" = nada) y hasta cuándo (ms del servidor). */
   @type("string") trip = "";
   @type("number") tripUntil = 0;
+  /** Id de la llamada (phones.ts; "" = ninguna): los que hablan en la misma llamada se oyen entre todos. */
+  @type("string") callId = "";
+  /** Anuncio por voz de un admin (anuncio.ts): hasta cuándo lo oye toda la cabaña (ms del servidor; 0 = no). */
+  @type("float64") broadcastUntil = 0;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */

@@ -274,3 +274,11 @@ export interface QuestRepository {
 }
 
 export interface GameRepository extends QuestRepository {}
+
+/** Retención del chat global (rooms/chatRetention.ts). */
+export interface ChatRetentionRepository {
+  /** Borra los mensajes guardados creados antes de `cutoff`; devuelve cuántos se borraron. */
+  pruneChatBefore(cutoff: Date): Promise<number>;
+}
+
+export interface GameRepository extends ChatRetentionRepository {}
