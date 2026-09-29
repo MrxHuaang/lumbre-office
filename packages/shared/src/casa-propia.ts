@@ -16,6 +16,8 @@ export const CASA_PROPIA = {
   street: "barrio",
   /** Portal de la puerta del barrio. */
   portal: "barrio-casa",
+  /** Cómo se nombra una casa vista desde afuera (el perfil, las fotos): no dice de quién es. */
+  label: "Casa del barrio",
   /** Id con el que las casas cuentan para los logros y el diario (una sola, no una por casa). */
   statArea: "casa-propia",
 } as const;
