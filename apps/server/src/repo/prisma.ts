@@ -496,10 +496,17 @@ export class PrismaRepository implements GameRepository {
     await prisma.gardenPlot.upsert({ where: { id }, create: { id, ...data }, update: data });
   }
 
-  async latestNoteTitle(userId: string) {
+  async latestNote(userId: string) {
     // Solo las notas de esa persona (siempre filtrando por userId) y fuera de la papelera.
-    const row = await prisma.note.findFirst({ where: { userId, deletedAt: null }, orderBy: { updatedAt: "desc" }, select: { title: true } });
-    return row ? row.title.trim() || "Sin título" : null;
+    const row = await prisma.note.findFirst({ where: { userId, deletedAt: null }, orderBy: { updatedAt: "desc" }, select: { id: true, title: true } });
+    return row ? { id: row.id, title: row.title.trim() || "Sin título" } : null;
+  }
+
+  async noteTitles(userId: string, noteIds: readonly string[]) {
+    if (!noteIds.length) return {};
+    // Siempre filtrando por userId: la hoja de otra persona no encuentra nada (y se ve genérica).
+    const rows = await prisma.note.findMany({ where: { userId, id: { in: [...noteIds] } }, select: { id: true, title: true } });
+    return Object.fromEntries(rows.map((r) => [r.id, r.title.trim() || "Sin título"]));
   }
 
   // ---------- Rondas abiertas del casino ----------

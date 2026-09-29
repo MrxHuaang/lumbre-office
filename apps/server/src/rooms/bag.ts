@@ -15,6 +15,7 @@ import {
   consumeActionOf,
   objIdOf,
   objItemId,
+  sheetNoteIdOf,
   usesOf,
   type BagView,
   type ConsumeAction,
@@ -22,7 +23,7 @@ import {
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
 
-export type BagRepo = Pick<GameRepository, "getInventory" | "addInventory" | "takeInventory" | "loadBagSlots" | "saveBagSlots">;
+export type BagRepo = Pick<GameRepository, "getInventory" | "addInventory" | "takeInventory" | "loadBagSlots" | "saveBagSlots" | "noteTitles">;
 
 export interface BagDeps {
   repo(): BagRepo;
@@ -53,6 +54,8 @@ interface UserBag {
   grid: (ItemStack | null)[];
   overflow: ItemStack[];
   selected: number;
+  /** Título de las hojas impresas de sus propias notas (itemId → título); las ajenas no están. */
+  titles: Map<string, string>;
   /** Usos que le quedan a la unidad empezada de cada cosa (lo que no está: entera). La regadera: su agua. */
   uses: Map<string, number>;
   lastUseAt: number;
@@ -77,6 +80,7 @@ export class Bag {
         grid: Array(BAG.slots).fill(null),
         overflow: [],
         selected: 0,
+        titles: new Map(),
         uses: new Map(),
         lastUseAt: 0,
         loaded: false,
@@ -109,6 +113,8 @@ export class Bag {
       if (b.version !== version) return void this.load(userId);
       b.stacks = new Map(stacks.filter((s) => s.quantity > 0).map((s) => [s.itemId, s.quantity]));
       b.saved = { ...saved };
+      b.titles = await this.sheetTitles(userId, [...b.stacks.keys()]);
+      if (b.version !== version) return void this.load(userId);
       // Lo empezado de algo que ya no se tiene (se regaló, se cambió) se olvida.
       for (const id of [...b.uses.keys()]) if (!b.stacks.has(objItemId(id))) b.uses.delete(id);
       const first = !b.loaded;
@@ -116,6 +122,28 @@ export class Bag {
       this.arrange(userId, b);
       this.emit(userId, b, first);
     }).then(() => undefined);
+  }
+
+  /**
+   * Títulos de las hojas impresas entre estas cosas, en una sola consulta y solo de las notas de `userId`:
+   * una hoja regalada, cambiada o de una nota borrada no encuentra nada y se ve genérica. Si falla, genéricas.
+   */
+  private async sheetTitles(userId: string, itemIds: readonly string[]): Promise<Map<string, string>> {
+    const byNote = new Map<string, string>();
+    for (const itemId of itemIds) {
+      const id = objIdOf(itemId);
+      const noteId = id === null ? null : sheetNoteIdOf(id);
+      if (noteId) byNote.set(noteId, itemId);
+    }
+    if (!byNote.size) return new Map();
+    const found = await this.deps
+      .repo()
+      .noteTitles(userId, [...byNote.keys()])
+      .catch((err) => {
+        console.error("noteTitles", err);
+        return {} as Record<string, string>;
+      });
+    return new Map(Object.entries(found).flatMap(([noteId, title]) => (byNote.has(noteId) ? [[byNote.get(noteId)!, title] as const] : [])));
   }
 
   /** Espera lo pendiente contra la base (tests). */
@@ -130,7 +158,11 @@ export class Bag {
 
   view(userId: string): BagView {
     const b = this.bag(userId);
-    return { slots: b.grid.map((s) => s && { ...s }), overflow: b.overflow.map((s) => ({ ...s })), selected: b.selected };
+    const view: BagView = { slots: b.grid.map((s) => s && { ...s }), overflow: b.overflow.map((s) => ({ ...s })), selected: b.selected };
+    // Solo los títulos de lo que sigue en la mochila.
+    const titles = [...b.titles].filter(([itemId]) => b.stacks.has(itemId));
+    if (titles.length) view.titles = Object.fromEntries(titles);
+    return view;
   }
 
   /** Unidades de algo (0 si no tiene). */
@@ -159,7 +191,8 @@ export class Bag {
       // Sin agua se ve la regadera vacía (con un "uso" solo para que se dibuje en la mano).
       return water > 0 ? { itemId, id, art: WATERING_CAN, left: water } : { itemId, id, art: EMPTY_CAN, left: 1 };
     }
-    return { itemId, id, art: id, left: b.uses.get(id) ?? usesOf(id) };
+    // El dibujo: una hoja de nota (`hoja:<noteId>`) se ve como la hoja impresa.
+    return { itemId, id, art: bagItemInfo(itemId).art, left: b.uses.get(id) ?? usesOf(id) };
   }
 
   /** ¿Caben estas cosas (itemId, unidades)? Lo nuevo necesita una casilla libre; lo que ya hay, no pasar su tope. */
@@ -178,15 +211,17 @@ export class Bag {
 
   /**
    * Suma algo a la mochila (lo pedido, lo cosechado, lo gratis). Con `pick` y las manos libres (la casilla
-   * elegida vacía) queda en la mano. Devuelve por qué no, si no cabe.
+   * elegida vacía) queda en la mano. `title`: el de la nota de una hoja recién impresa (la impresora ya lo
+   * leyó de las notas de esa persona). Devuelve por qué no, si no cabe.
    */
-  async add(userId: string, itemId: string, quantity = 1, opts: { pick?: boolean } = {}): Promise<"ok" | "full" | "stack"> {
+  async add(userId: string, itemId: string, quantity = 1, opts: { pick?: boolean; title?: string } = {}): Promise<"ok" | "full" | "stack"> {
     const b = this.bag(userId);
     const fits = this.fits(userId, [[itemId, quantity]]);
     if (fits !== "ok") return fits;
     // La copia cambia ya (un segundo pedido seguido ve este); la base, en la cola.
     const free = !b.grid[b.selected];
     b.stacks.set(itemId, (b.stacks.get(itemId) ?? 0) + quantity);
+    if (opts.title !== undefined) b.titles.set(itemId, opts.title);
     b.version += 1;
     this.arrange(userId, b);
     const slot = b.grid.findIndex((s) => s?.itemId === itemId);
