@@ -1,6 +1,7 @@
 // Los atajos de teclado y los gestos de la cabaña, en un solo lugar: los muestran el "?" de la barra, la
 // ayuda de atajos (menú y paleta) y la paleta de comandos al lado de cada comando. Antes de sumar una
 // tecla nueva, mirar que no esté aquí (Tab ya es de la barra de la mochila y Enter del chat).
+import { isEditableFocus, type FocusLike } from "./keyboardFocus";
 
 /** ¿Mac? (ahí la paleta es ⌘K; en el resto, Ctrl K). */
 export const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -44,4 +45,4 @@ export const TOUCH_CONTROLS: [string, string][] = [
 
 /** ¿Es un campo donde se escribe? (ahí las teclas son del texto, no del juego). */
 export const isTypingTarget = (el: EventTarget | null) =>
-  el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el instanceof HTMLElement && el.isContentEditable);
+  typeof Element !== "undefined" && el instanceof Element && isEditableFocus(el as unknown as FocusLike);

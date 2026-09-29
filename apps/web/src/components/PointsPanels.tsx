@@ -2,7 +2,7 @@
 
 // Fase 2: el buzón (recompensa diaria y movimientos) y el tablón (misiones y ranking) del jardín.
 import { barItem, cafeItem, CASINO_GAME_NAMES, POINTS, questById, shopItem, WELCOME_REF, type HumanAvatar, type CasinoGame, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
 import { useClubStore } from "@/game/club/store";
@@ -12,6 +12,7 @@ import { BusPromptLabel } from "./bus/BusPromptLabel";
 import { MarshmallowPromptLabel } from "./observatorio/MarshmallowStrip";
 import { QuestPromptLabel } from "./encargos/QuestCard";
 import { useOfficeStore, type Interactable } from "@/game/store";
+import { useFocusTrap } from "@/lib/focusTrap";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { GiftsSection } from "./social/GiftsSection";
@@ -203,6 +204,8 @@ export function PanelShell({
   children: React.ReactNode;
   wide?: boolean;
 }) {
+  const box = useRef<HTMLElement>(null);
+  useFocusTrap(box);
   useEffect(() => {
     const { setTyping } = useOfficeStore.getState();
     setTyping(true);
@@ -215,11 +218,11 @@ export function PanelShell({
   }, [onClose]);
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[rgb(42_32_51/0.55)] p-3" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <section role="dialog" aria-modal aria-label={title} className={`cozy-panel flex max-h-full w-full flex-col p-1.5 ${wide ? "max-w-2xl" : "max-w-md"}`}>
+      <section ref={box} role="dialog" aria-modal aria-label={title} className={`cozy-panel flex max-h-full w-full flex-col p-1.5 outline-none ${wide ? "max-w-2xl" : "max-w-md"}`}>
         <header className="flex items-center gap-2 bg-cozy-wood px-4 py-2.5 text-cozy-paper-light">
           <PixelIcon name={icon} size={16} />
           <h2 className="flex-1 text-[18px] font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} className="p-1" aria-label="Cerrar">
+          <button type="button" onClick={onClose} className="cozy-hit p-1" aria-label="Cerrar">
             <PixelIcon name="close" size={12} />
           </button>
         </header>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useOfficeStore } from "@/game/store";
+import { useFocusTrap } from "@/lib/focusTrap";
 import { PixelIcon } from "./Cozy";
 
 /**
@@ -22,6 +23,8 @@ export function OfficeDialog({
   footer?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const box = useRef<HTMLElement>(null);
+  useFocusTrap(box);
   useEffect(() => {
     const { setTyping } = useOfficeStore.getState();
     setTyping(true);
@@ -40,10 +43,10 @@ export function OfficeDialog({
       className="absolute inset-0 z-40 flex items-center justify-center bg-[rgb(42_32_51/0.6)] p-3 sm:p-6"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <section role="dialog" aria-modal aria-label={title} className={`cozy-panel flex max-h-full w-full flex-col p-1.5 ${className}`}>
+      <section ref={box} role="dialog" aria-modal aria-label={title} className={`cozy-panel flex outline-none max-h-full w-full flex-col p-1.5 ${className}`}>
         <header className="flex shrink-0 items-center justify-between gap-3 bg-cozy-wood px-4 py-2.5 text-cozy-paper-light">
           <h2 className="text-[18px] font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} className="p-1" aria-label="Cerrar">
+          <button type="button" onClick={onClose} className="cozy-hit p-1" aria-label="Cerrar">
             <PixelIcon name="close" size={12} />
           </button>
         </header>

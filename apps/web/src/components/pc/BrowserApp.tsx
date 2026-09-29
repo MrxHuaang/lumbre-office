@@ -316,7 +316,7 @@ function Home({ own, onOpen, onRemove }: { own: Favorite[]; onOpen: (url: string
 }
 
 function HomeLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mt-3 mb-1.5 text-[10px] font-semibold tracking-[0.12em] text-cozy-ink-soft uppercase first:mt-0">{children}</p>;
+  return <p className="mt-3 mb-1.5 text-[11px] font-semibold tracking-[0.12em] text-cozy-ink-soft uppercase first:mt-0">{children}</p>;
 }
 
 function FavoriteCard({ fav, onOpen, onRemove }: { fav: Favorite; onOpen: (url: string) => void; onRemove?: () => void }) {

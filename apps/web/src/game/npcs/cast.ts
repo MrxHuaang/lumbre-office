@@ -210,6 +210,12 @@ export class NpcCast {
     return [...this.avatars()].map((a) => a.sprite);
   }
 
+  /** Como `sprites()`, pero los agrega a `out` (sin arreglos nuevos: se llama cada cuadro). */
+  collectSprites(out: { push(s: Phaser.GameObjects.Sprite): unknown }) {
+    for (const s of this.staff.values()) out.push(s.avatar.sprite);
+    if (this.man) out.push(this.man.sprite);
+  }
+
   private *avatars(): Iterable<Avatar> {
     for (const s of this.staff.values()) yield s.avatar;
     if (this.man) yield this.man;

@@ -74,7 +74,7 @@ export function CallPersonButton({ person }: { person: { userId: string; name: s
       disabled={Boolean(blocked) || dialing !== null}
       title={blocked || label}
       aria-label={label}
-      className="p-1.5 hover:bg-cozy-paper-dark disabled:opacity-40"
+      className="grid size-10 shrink-0 place-items-center hover:bg-cozy-paper-dark disabled:opacity-40"
     >
       <PixelIcon name="phone" size={14} color="var(--color-cozy-wood)" />
     </button>

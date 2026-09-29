@@ -12,6 +12,7 @@ import { dropItem, moveItem, selectSlot, useBagStore } from "@/game/bag";
 import { clearQuestLogRequest, questLogRequested } from "@/game/encargos";
 import { sendProfileChanged } from "@/game/network";
 import { selectMyOffice, useOfficeStore, type Profile } from "@/game/store";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { presetLook } from "@/lib/look-palette";
 import { LookPreview } from "../character/LookPreview";
 import { PixelIcon } from "../Cozy";
@@ -32,8 +33,6 @@ const TABS: { id: Tab; label: string; wideHidden?: true }[] = [
   { id: "personaje", label: "Personaje", wideHidden: true },
 ];
 
-const isField = (el: EventTarget | null) =>
-  el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el instanceof HTMLElement && el.isContentEditable);
 
 /** Mi perfil (puntos, racha, título, logros): se pide al abrir y cuando desbloqueo algo. */
 function useMyProfile() {
@@ -63,7 +62,7 @@ export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Pro
   // La I también lo cierra (como la abre), salvo escribiendo.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "i" || e.ctrlKey || e.metaKey || e.altKey || isField(e.target)) return;
+      if (e.key.toLowerCase() !== "i" || e.ctrlKey || e.metaKey || e.altKey || focusOwnsKey(e.key)) return;
       e.preventDefault();
       if (!e.repeat) onClose();
     };

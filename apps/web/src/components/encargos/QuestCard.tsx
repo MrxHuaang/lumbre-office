@@ -40,7 +40,7 @@ export function QuestCard() {
             {talking.line}
           </p>
         </div>
-        <button type="button" onClick={stopTalking} aria-label="Cerrar" className="shrink-0 p-1 text-cozy-ink-soft hover:text-cozy-ink">
+        <button type="button" onClick={stopTalking} aria-label="Cerrar" className="cozy-hit shrink-0 p-1 text-cozy-ink-soft hover:text-cozy-ink">
           <PixelIcon name="close" size={10} />
         </button>
       </header>

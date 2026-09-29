@@ -57,7 +57,7 @@ function WaveCard({ wave }: { wave: WaveEvent }) {
         <p className="min-w-0 flex-1 text-[15px]">
           <strong>{wave.fromName}</strong> te saluda
         </p>
-        <button type="button" onClick={() => dismissWave(wave.waveId)} className="p-1 opacity-70 hover:opacity-100" aria-label="Cerrar el saludo">
+        <button type="button" onClick={() => dismissWave(wave.waveId)} className="cozy-hit p-1 opacity-70 hover:opacity-100" aria-label="Cerrar el saludo">
           <PixelIcon name="close" size={11} color="var(--color-cozy-wood)" />
         </button>
       </div>

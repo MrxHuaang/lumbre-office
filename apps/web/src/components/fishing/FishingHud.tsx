@@ -93,7 +93,7 @@ export function CatchCard() {
     >
       <header className="flex items-center justify-between gap-2 bg-cozy-wood px-3 py-1.5 text-cozy-paper-light">
         <span className="text-[15px] font-semibold">{trash ? "Sacaste algo…" : card.first ? "¡Especie nueva!" : card.record ? "¡Nuevo récord!" : "¡Lo sacaste!"}</span>
-        <button type="button" onClick={dismiss} aria-label="Cerrar" className="p-1">
+        <button type="button" onClick={dismiss} aria-label="Cerrar" className="cozy-hit p-1">
           <PixelIcon name="close" size={12} />
         </button>
       </header>

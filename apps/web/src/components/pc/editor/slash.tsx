@@ -92,7 +92,7 @@ const SlashMenu = forwardRef<SlashMenuHandle, SuggestionProps<SlashItem, SlashIt
 
   return (
     <div ref={listRef} className="cozy-panel max-h-72 w-64 overflow-y-auto py-1 font-pixel text-cozy-ink">
-      <p className="px-3 pt-1 pb-1.5 text-[10px] font-semibold tracking-[0.12em] text-cozy-ink-soft uppercase">Bloques</p>
+      <p className="px-3 pt-1 pb-1.5 text-[11px] font-semibold tracking-[0.12em] text-cozy-ink-soft uppercase">Bloques</p>
       {items.length === 0 && <p className="px-3 pb-2 text-xs text-cozy-ink-soft">Sin resultados</p>}
       {items.map((item, i) => (
         <button
