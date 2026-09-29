@@ -7,5 +7,6 @@ export default defineConfig({
     testTimeout: 15_000,
     // Cada archivo levanta un servidor de prueba en el mismo puerto: correrlos en serie.
     fileParallelism: false,
+    setupFiles: ["./test/setup.ts"],
   },
 });

@@ -1,11 +1,9 @@
 "use client";
 
-import { placeLabel } from "@hyvento/map";
-import { MANUAL_STATUSES, SEASON_TEXT, WEATHER_TEXT, recipeById, seasonOf, type PresenceStatus, type Season, type Weather } from "@hyvento/shared";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { MANUAL_STATUSES, recipeById, type PresenceStatus } from "@hyvento/shared";
+import { useEffect, useRef, useState } from "react";
 import { useCocinaStore } from "@/game/cocina";
 import { useShallow } from "zustand/react/shallow";
-import { useMediaStore } from "@/game/media";
 import { sendStatus } from "@/game/network";
 import { notificationsSupported, selectNotifyOn, setNotificationsEnabled, useNotifyStore } from "@/game/notify";
 import { sfx } from "@/game/sfx";
@@ -16,16 +14,15 @@ import { PixelIcon, type PixelIconName } from "./Cozy";
 import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { GameClockChip } from "./GameClockChip";
 import { Minimap } from "./Minimap";
-import { PersonMenu } from "./PersonMenu";
 import { usePuedo } from "@/game/permisos";
-import { PointsCounter } from "./PointsPanels";
-import { GiftChip, PersonActions } from "./social/SocialOverlays";
+import { GiftChip } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
 import { CallChip } from "./PhonePanels";
-import { GameOnly, PaletteButton } from "./facilidad/FacilidadLayer";
+import { PhoneButton } from "./phone/PhoneButton";
+import { PaletteButton } from "./facilidad/FacilidadLayer";
 import { useFacilidadStore } from "@/game/facilidad";
 import { usePrefsStore } from "@/lib/prefs";
-import { CallPersonButton, ComunicacionChips } from "./comunicacion/ComunicacionChips";
+import { ComunicacionChips } from "./comunicacion/ComunicacionChips";
 import { openAnnounce } from "@/game/comunicacion";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
@@ -45,15 +42,11 @@ interface HudProps {
   onLogout: () => void;
 }
 
-const useLabelOf = () => {
-  const zoneNames = useOfficeStore((s) => s.zoneNames);
-  return (p: string) => placeLabel(p, (id) => zoneNames[id]);
-};
-
 /**
  * Arriba a la izquierda, en una sola fila corta: el menú (marca, estado y todo lo que no se usa a cada
- * rato), los puntos, dónde estás con el clima, lo del momento (regalos, cumpleaños, llamada, a quién oyes)
- * y los atajos de siempre (mi oficina, foco y paredes). Lo demás vive dentro del menú.
+ * rato), el celular, la hora del juego, lo del momento (energía, regalos, cumpleaños, llamada) y los atajos
+ * de siempre (mi oficina, foco y paredes). Los puntos, dónde estás con el clima, a quién oyes, los
+ * conectados y el chat viven en el celular (components/phone).
  * Publica dónde termina en `--cozy-hud-bottom` (en el <main>): en pantallas angostas la fila se parte
  * en dos o tres y el chat y los avisos se acomodan debajo sin taparla.
  */
@@ -77,16 +70,13 @@ export function Hud(props: HudProps) {
     // Todo a 34 px de alto. En el celular los conectados quedan como una ficha chica: la fila tiene más ancho.
     <div ref={ref} className="absolute top-3 left-3 flex max-w-[calc(100%-6.5rem)] flex-wrap items-center gap-1.5 text-[14px] md:max-w-[calc(100%-19.5rem)]">
       <MainMenu {...props} />
-      <GameOnly>
-        <PointsCounter />
-      </GameOnly>
-      <PlaceChip />
+      <PhoneButton />
       <GameClockChip />
+      <EnergyChip />
       <GiftChip />
       <BirthdayChip />
       <CallChip />
       <ComunicacionChips />
-      <HearingChip />
       <QuickTools />
       <PaletteButton />
       <Confetti />
@@ -312,57 +302,8 @@ function MenuGroup({ label, children }: { label?: string; children: React.ReactN
   );
 }
 
-/** Ícono y color de cada clima (despejado de noche es la luna). */
-const WEATHER_ICON: Record<Weather, { icon: PixelIconName; color: string }> = {
-  despejado: { icon: "sun", color: "var(--color-cozy-gold)" },
-  nublado: { icon: "cloud", color: "#8a8a96" },
-  lluvia: { icon: "rain", color: "var(--color-cozy-sky)" },
-  tormenta: { icon: "storm", color: "#4a3f8a" },
-  niebla: { icon: "fog", color: "#a8977f" },
-  nieve: { icon: "snow", color: "#6f93bf" },
-};
-
-/** Ícono y color de cada estación. */
-const SEASON_ICON: Record<Season, { icon: PixelIconName; color: string }> = {
-  primavera: { icon: "flower", color: "#e088a4" },
-  verano: { icon: "sun", color: "var(--color-cozy-gold)" },
-  otono: { icon: "leaf", color: "#c0602a" },
-  invierno: { icon: "snow", color: "#6f93bf" },
-};
-
-/**
- * Dónde estás, con la estación y el clima de afuera en íconos (lo decide el servidor: todos ven el mismo).
- * El texto del clima solo se ve en pantallas anchas; siempre está al pasar el mouse.
- */
-function PlaceChip() {
-  const zone = useOfficeStore((s) => s.zone);
-  const place = useOfficeStore((s) => s.place);
-  const weather = useOfficeStore((s) => s.weather);
-  const night = useOfficeStore((s) => s.night);
-  const labelOf = useLabelOf();
-  // La estación cambia a fin de mes: basta con mirarla al montar y cuando cambia el clima.
-  const season = useMemo(() => seasonOf(Date.now()), [weather]);
-  const w = weather === "despejado" && night ? { icon: "moon" as const, color: "#4a3f8a" } : WEATHER_ICON[weather];
-  const s = SEASON_ICON[season];
-  const where = labelOf(place);
-  return (
-    <div
-      className="cozy-chip flex h-[34px] items-center gap-1.5 px-3"
-      title={`${where}${zone?.isolated ? " (zona privada: solo te oyen quienes están aquí)" : ""} · ${SEASON_TEXT[season]} · ${WEATHER_TEXT[weather]}`}
-    >
-      {zone?.isolated && <PixelIcon name="lock" size={13} color="var(--color-cozy-wood)" />}
-      <span className="max-w-[12rem] truncate">{where}</span>
-      <span aria-hidden className="h-4 border-l-2 border-cozy-paper-dark" />
-      <PixelIcon name={s.icon} size={13} color={s.color} />
-      <PixelIcon name={w.icon} size={14} color={w.color} />
-      <span className="max-xl:sr-only">{WEATHER_TEXT[weather]}</span>
-      <EnergyBadge />
-    </div>
-  );
-}
-
-/** La energía de un plato de la cocina (camino más rápido un rato). */
-function EnergyBadge() {
+/** La energía de un plato de la cocina (caminas más rápido un rato): solo se ve mientras dura. */
+function EnergyChip() {
   const buff = useCocinaStore((s) => s.buff);
   const until = useCocinaStore((s) => s.buffUntil);
   const [, tick] = useState(0);
@@ -375,54 +316,19 @@ function EnergyBadge() {
   const left = until > Date.now() ? Math.ceil((until - Date.now()) / 1000) : 0;
   const name = recipeById(buff)?.name ?? "Un plato";
   return (
-    <span className="ml-1 flex items-center gap-1 border-l-2 border-cozy-paper-dark pl-2 text-cozy-ink-soft" title={`${name}: caminas más rápido un rato`}>
+    <div className="cozy-chip flex h-[34px] items-center gap-1.5 px-3 text-cozy-ink-soft" title={`${name}: caminas más rápido un rato`}>
       <PixelIcon name="bolt" size={12} color="var(--color-cozy-gold)" />
       {left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Energía"}
-    </span>
-  );
-}
-
-/** Con quién tienes audio ahora mismo (el estado de la conexión se ve en los botones de la barra). */
-function HearingChip() {
-  const names = useMediaStore(
-    useShallow((s) => Object.keys(s.hearing).map((id) => s.participants[id]?.name ?? "Alguien")),
-  );
-  const zone = useOfficeStore((s) => s.zone);
-
-  if (names.length === 0) return null;
-
-  const shown = names.length > 3 ? `${names.slice(0, 2).join(", ")} y ${names.length - 2} más` : names.join(", ");
-  return (
-    <div
-      className="cozy-chip flex h-[34px] max-w-[16rem] items-center gap-2 truncate px-3"
-      title={
-        zone?.isolated
-          ? `En ${zone.name} se oye a todos los que están adentro, sin importar la distancia`
-          : "Personas que te pueden oír y ver"
-      }
-    >
-      <span className="h-2.5 w-2.5 shrink-0 bg-[#5ea247] outline-2 outline-cozy-frame" />
-      <span className="truncate">{zone?.isolated ? `En ${zone.name} con ${shown}` : `Cerca de ${shown}`}</span>
     </div>
   );
 }
 
-const PEOPLE_OPEN_KEY = "hyvento:conectados-abierto";
-const PEOPLE_TAB_KEY = "hyvento:conectados-vista";
-type PeopleTab = "lista" | "mapa";
+const MAP_OPEN_KEY = "hyvento:minimapa-abierto";
 
-function loadPeopleTab(): PeopleTab {
-  try {
-    return localStorage.getItem(PEOPLE_TAB_KEY) === "mapa" ? "mapa" : "lista";
-  } catch {
-    return "lista";
-  }
-}
-
-function loadPeopleOpen(): boolean {
+function loadMapOpen(): boolean {
   if (typeof window === "undefined") return true;
   try {
-    const v = localStorage.getItem(PEOPLE_OPEN_KEY);
+    const v = localStorage.getItem(MAP_OPEN_KEY);
     if (v === "1" || v === "0") return v === "1";
   } catch {
     // sin almacenamiento: lo de siempre
@@ -430,120 +336,41 @@ function loadPeopleOpen(): boolean {
   return window.innerWidth >= 900;
 }
 
-/** Panel de conectados (arriba a la derecha): quién está y dónde. */
-export function PeoplePanel() {
-  const players = useOfficeStore((s) => s.players);
-  const sessionId = useOfficeStore((s) => s.sessionId);
-  const place = useOfficeStore((s) => s.place);
-  const labelOf = useLabelOf();
-  const openProfile = useAchievementStore((s) => s.openProfile);
-  const walkToPlayer = useOfficeStore((s) => s.walkToPlayer);
-  // Lista o minimapa: se recuerda cuál se usó.
-  const [tab, setTabState] = useState<PeopleTab>(loadPeopleTab);
-  const setTab = (t: PeopleTab) => {
-    setTabState(t);
-    try {
-      localStorage.setItem(PEOPLE_TAB_KEY, t);
-    } catch {
-      // solo para esta visita
-    }
-  };
-  // Abierto o plegado se recuerda; la primera vez, en pantallas angostas empieza plegado para no tapar el mapa.
-  const [open, setOpenState] = useState(() => loadPeopleOpen());
-  const setOpen = (fn: (v: boolean) => boolean) =>
+/**
+ * Arriba a la derecha: el minimapa, plegable. La lista de conectados vive en Contactos del celular; el
+ * mapa queda afuera porque sirve mientras se camina (clic en alguien = ir hasta esa persona).
+ */
+export function MinimapPanel() {
+  const count = useOfficeStore((s) => Object.keys(s.players).length);
+  const [open, setOpenState] = useState(loadMapOpen);
+  const toggle = () =>
     setOpenState((v) => {
-      const next = fn(v);
       try {
-        localStorage.setItem(PEOPLE_OPEN_KEY, next ? "1" : "0");
+        localStorage.setItem(MAP_OPEN_KEY, v ? "0" : "1");
       } catch {
         // sin almacenamiento: vale solo para esta visita
       }
-      return next;
+      return !v;
     });
-  // Yo primero; el resto por nombre.
-  const people = Object.values(players).sort((a, b) =>
-    a.sessionId === sessionId ? -1 : b.sessionId === sessionId ? 1 : a.name.localeCompare(b.name),
-  );
-
   return (
-    // Plegado en el celular es solo una ficha con la cantidad, para no quitarle ancho al HUD de arriba.
     <section className={`cozy-panel pointer-events-auto p-1 ${open ? "w-full max-md:w-[min(270px,calc(100vw-1.5rem))]" : "w-full max-md:w-auto"}`}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
-        aria-label={`Conectados: ${people.length}`}
-        title="Conectados"
-        // Plegada, la ficha mide 34 px como los botones de al lado: el área de toque llega a 40 sin agrandarla.
+        aria-label={`Minimapa: ${count} conectados`}
+        title="Minimapa"
         className={`flex h-5 w-full items-center justify-between gap-3 bg-cozy-wood px-2 text-cozy-paper-light max-md:gap-2 ${open ? "" : "cozy-hit"}`}
       >
-        <span className={`text-[14px] leading-none font-semibold ${open ? "" : "max-md:hidden"}`}>Conectados</span>
-        {!open && (
-          <span aria-hidden className="md:hidden">
-            <PixelIcon name="smile" size={14} />
-          </span>
-        )}
+        <span className={`flex items-center gap-1.5 text-[14px] leading-none font-semibold ${open ? "" : "max-md:hidden"}`}>
+          <PixelIcon name="steps" size={12} />
+          Minimapa
+        </span>
         <span className="flex items-center gap-2 text-[14px]">
-          {people.length}
+          {count}
           <PixelIcon name="chevron" size={12} className={open ? "rotate-180" : ""} />
         </span>
       </button>
-      {open && (
-        <div role="tablist" className="flex gap-1 px-1 pt-1.5">
-          {(["lista", "mapa"] as const).map((t) => (
-            <button
-              key={t}
-              role="tab"
-              type="button"
-              aria-selected={tab === t}
-              data-on={tab === t || undefined}
-              onClick={() => setTab(t)}
-              className="cozy-btn flex flex-1 items-center justify-center gap-1.5 py-1 text-[13px]"
-            >
-              <PixelIcon name={t === "lista" ? "menu" : "steps"} size={12} color="var(--color-cozy-wood)" />
-              {t === "lista" ? "Lista" : "Minimapa"}
-            </button>
-          ))}
-        </div>
-      )}
-      {open && tab === "mapa" && <Minimap />}
-      {open && tab === "lista" && (
-        <ul className="cozy-scroll max-h-[45vh] overflow-y-auto">
-          {people.map((p) => (
-            <li key={p.sessionId} className="flex items-center border-b-2 border-cozy-paper-dark pr-2 last:border-b-0">
-              {/* Clic en alguien: su perfil (estadísticas y logros). */}
-              <button
-                type="button"
-                onClick={() => openProfile(p.sessionId === sessionId ? "me" : p.userId)}
-                title={`Ver el perfil de ${p.name}`}
-                className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-1.5 text-left hover:bg-cozy-paper-dark"
-              >
-                <StatusDot status={p.status} title={STATUS_LABEL[p.status]} />
-                <span className="min-w-0 flex-1 truncate text-[14px]">
-                  {p.name}
-                  {p.sessionId === sessionId && " (tú)"}
-                </span>
-                <span className="max-w-[45%] truncate text-[12px] text-cozy-ink-soft">
-                  {labelOf(p.sessionId === sessionId ? place : p.place)}
-                </span>
-              </button>
-              {p.sessionId !== sessionId && (
-                <button
-                  type="button"
-                  onClick={() => walkToPlayer(p.sessionId)}
-                  title={`Ir hasta ${p.name}`}
-                  aria-label={`Ir hasta ${p.name}`}
-                  className="grid size-7 shrink-0 place-items-center pointer-coarse:size-10 hover:bg-cozy-paper-dark"
-                >
-                  <PixelIcon name="steps" size={14} color="var(--color-cozy-wood)" />
-                </button>
-              )}
-              {p.sessionId !== sessionId && <CallPersonButton person={p} />}
-              {p.sessionId !== sessionId && <PersonMenu person={p} onProfile={() => openProfile(p.userId)} />}
-              {p.sessionId !== sessionId && <PersonActions to={{ userId: p.userId, name: p.name }} />}
-            </li>
-          ))}
-        </ul>
-      )}
+      {open && <Minimap />}
     </section>
   );
 }

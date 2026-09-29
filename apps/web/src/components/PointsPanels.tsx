@@ -121,33 +121,6 @@ const ago = (iso: string) => {
 export const useMyPoints = () =>
   useOfficeStore(useShallow((s) => (s.sessionId ? (s.players[s.sessionId]?.points ?? 0) : 0)));
 
-/** Contador de puntos del HUD, con casillas como el dinero de Stardew. Clic: ver tus movimientos. */
-export function PointsCounter() {
-  const points = useMyPoints();
-  const openPanel = useOfficeStore((s) => s.openPanel);
-  const award = useOfficeStore((s) => s.lastAward);
-  const digits = String(Math.max(0, points)).padStart(5, "0").slice(-6);
-  return (
-    <button
-      type="button"
-      onClick={() => openPanel("mailbox", false)}
-      title="Tus puntos (ver movimientos)"
-      aria-label={`${points} puntos`}
-      className="cozy-panel flex h-[34px] items-center gap-1.5 px-2 hover:brightness-105"
-    >
-      <PixelIcon name="coin" size={16} color="var(--color-cozy-gold)" />
-      {/* La key cambia con cada premio: reinicia el "salto" de los números. */}
-      <span key={award?.id ?? 0} className={`flex gap-0.5 ${award ? "animate-[cozy-pop_0.35s_steps(3)]" : ""}`}>
-        {[...digits].map((d, i) => (
-          <span key={i} className="grid h-5 w-[15px] place-items-center border-2 border-cozy-wood bg-cozy-paper-dark text-[14px] leading-none text-[#7a2a0e]">
-            {d}
-          </span>
-        ))}
-      </span>
-    </button>
-  );
-}
-
 /** Ayuda junto al buzón, el tablón o la barra: tecla E o botón para abrirlo. */
 export function InteractPrompt() {
   const near = useOfficeStore((s) => s.interact);

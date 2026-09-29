@@ -6,7 +6,6 @@ import {
   type InviteResult,
   type GameClockState,
   type ChatEvent,
-  type ChatScope,
   type Direction,
   type HumanAvatar,
   type Look,
@@ -211,10 +210,8 @@ interface OfficeStore {
   place: string;
   /** Nombres de las zonas del mapa, por id. */
   zoneNames: Record<string, string>;
+  /** El chat de la cabaña (se lee y se escribe en Mensajes del celular). */
   messages: ChatEvent[];
-  unread: number;
-  chatScope: ChatScope;
-  chatOpen: boolean;
   /** Hay un input de texto enfocado: el juego no debe leer el teclado. */
   typing: boolean;
   /**
@@ -321,8 +318,6 @@ interface OfficeStore {
   setPlace: (place: string) => void;
   setZoneNames: (names: Record<string, string>) => void;
   addMessages: (m: ChatEvent[]) => void;
-  setChatScope: (s: ChatScope) => void;
-  setChatOpen: (open: boolean) => void;
   setTyping: (t: boolean) => void;
   setDoorPrompt: (zoneId: string | null) => void;
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
@@ -427,9 +422,6 @@ const initial = {
   place: "",
   zoneNames: {},
   messages: [],
-  unread: 0,
-  chatScope: "proximity" as ChatScope,
-  chatOpen: true,
   typing: false,
   typingHolds: 0,
   doorPrompt: null,
@@ -494,13 +486,8 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     set((s) => {
       const known = new Set(s.messages.map((x) => x.id));
       const fresh = m.filter((x) => !known.has(x.id));
-      return {
-        messages: [...s.messages, ...fresh].slice(-MAX_MESSAGES),
-        unread: s.chatOpen ? 0 : s.unread + fresh.length,
-      };
+      return { messages: [...s.messages, ...fresh].slice(-MAX_MESSAGES) };
     }),
-  setChatScope: (chatScope) => set({ chatScope }),
-  setChatOpen: (chatOpen) => set((s) => ({ chatOpen, unread: chatOpen ? 0 : s.unread })),
   // Cada `true` se suelta con un `false` (foco y blur, montar y desmontar).
   setTyping: (on) =>
     set((s) => {

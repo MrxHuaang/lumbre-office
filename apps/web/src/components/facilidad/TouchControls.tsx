@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { isTouchScreen, setJoystick, tapTouch } from "@/game/touchInput";
 import { useFacilidadStore } from "@/game/facilidad";
 import { useOfficeStore } from "@/game/store";
+import { usePhoneStore } from "@/game/phone/state";
 
 /** Radio del joystick (px): hasta dónde se mueve la perilla. */
 const RADIUS = 38;
@@ -24,7 +25,8 @@ export function TouchControls() {
   }, []);
   const panel = useOfficeStore((s) => s.panel);
   const pcOn = useOfficeStore((s) => s.pcOn);
-  const chatOpen = useOfficeStore((s) => s.chatOpen);
+  // Con el celular afuera, el joystick no tapa la pantallita.
+  const chatOpen = usePhoneStore((s) => s.open);
   const decorating = useOfficeStore((s) => s.decorating || s.worldEditing);
   const open = useFacilidadStore((s) => s.open);
   const hidden = !touch || Boolean(panel) || pcOn || decorating || open !== null;

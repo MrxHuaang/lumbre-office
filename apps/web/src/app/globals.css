@@ -1158,6 +1158,60 @@ body {
   }
 }
 
+/* ---------- Celular de tapa ---------- */
+
+/* Vibra: sacudidas cortas en pasos de un píxel (mensaje nuevo, alarma). */
+@keyframes phone-buzz {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  20%,
+  60% {
+    translate: -2px 0;
+  }
+  40%,
+  80% {
+    translate: 2px 0;
+  }
+}
+.phone-buzz {
+  animation: phone-buzz 0.16s steps(1) 4;
+}
+
+/* La cartita de un mensaje enviado sale volando hacia arriba. */
+@keyframes phone-fly {
+  to {
+    translate: -30px -90px;
+    opacity: 0;
+  }
+}
+.phone-fly {
+  animation: phone-fly 0.5s steps(5) forwards;
+}
+
+/* El ícono elegido del menú da saltitos. */
+@keyframes phone-bob {
+  50% {
+    translate: 0 -1px;
+  }
+}
+.phone-bob {
+  animation: phone-bob 0.6s steps(1) infinite;
+}
+
+/* Listas de la pantallita: barra de desplazamiento fina con los colores cozy. */
+.phone-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-cozy-wood) transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .phone-buzz,
+  .phone-bob,
+  .phone-fly {
+    animation: none;
+  }
+}
 /* ---------- "Menos movimiento" elegido en Ajustes (lib/prefs.ts) ----------
    Lo mismo que hacen las media queries del sistema, pero con `<html data-motion="reduce">`: una media
    query no se puede prender desde la app. */

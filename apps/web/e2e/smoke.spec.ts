@@ -46,13 +46,16 @@ test("entrar de prueba, caminar y chatear", async ({ page }) => {
   }
   expect(moved, "el personaje debería caminar con el teclado").toBe(true);
 
-  // Chat: Enter lo abre, se elige el canal global y el mensaje vuelve del servidor.
+  // Chat: Enter saca el celular en Mensajes; con las flechas se pasa al canal global, se escribe con el
+  // teclado y el mensaje vuelve del servidor.
   const text = `hola desde el smoke ${Date.now()}`;
   await page.keyboard.press("Enter");
-  await page.getByRole("tab", { name: "Global" }).click();
-  const input = page.getByPlaceholder("Mensaje para toda la cabaña");
-  await input.fill(text);
-  await input.press("Enter");
+  const global = page.getByRole("tablist", { name: "Canal" }).getByRole("tab", { name: "Global" });
+  await expect(global).toBeVisible();
+  for (let i = 0; i < 3 && (await global.getAttribute("aria-selected")) !== "true"; i++) await page.keyboard.press("ArrowRight");
+  await expect(global).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.type(text);
+  await page.keyboard.press("Enter");
   await expect(page.getByText(text)).toBeVisible();
 
   expect(errors, "sin errores sin atrapar en la página").toEqual([]);

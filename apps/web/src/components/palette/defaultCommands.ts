@@ -10,6 +10,7 @@ import { sendEmote, sendInvite, sendStatus } from "@/game/network";
 import { NAME_TAG_LABEL, selectMyOffice, useOfficeStore } from "@/game/store";
 import { destinations, officeOpenFor, goToPlace, travelBlockFor, travelBlockText, travelToPerson } from "@/game/viaje";
 import { useCommands, type Command } from "@/lib/commands";
+import { usePhoneStore } from "@/game/phone/state";
 import { lessMotion, usePrefsStore } from "@/lib/prefs";
 
 export const STATUS_TEXT: Record<PresenceStatus, string> = {
@@ -115,7 +116,7 @@ export function useDefaultCommands(props: DefaultCommandProps) {
       { id: "abrir:editar-perfil", group: "Abrir", title: "Editar perfil", keywords: ["nombre", "cumpleaños"], icon: "tag", run: props.onEditProfile },
       { id: "abrir:ajustes", group: "Abrir", title: "Ajustes", subtitle: "Sonido, movimiento, modo trabajo, avisos", keywords: ["volumen", "configuracion", "opciones"], icon: "gear", run: () => f.show("settings") },
       { id: "abrir:atajos", group: "Abrir", title: "Atajos del teclado y ayuda", keywords: ["teclas", "controles", "ayuda"], icon: "keyboard", hint: "?", run: () => f.show("shortcuts") },
-      { id: "abrir:chat", group: "Abrir", title: s.chatOpen ? "Cerrar el chat" : "Abrir el chat", keywords: ["mensajes"], icon: "chat", hint: "Enter", run: () => s.setChatOpen(!useOfficeStore.getState().chatOpen) },
+      { id: "abrir:chat", group: "Abrir", title: "Mensajes del celular", keywords: ["chat", "mensajes", "celular"], icon: "chat", hint: "Enter", run: () => usePhoneStore.getState().show({ app: "mensajes" }) },
       { id: "abrir:dispositivos", group: "Abrir", title: "Audio y video", subtitle: "Micrófono, cámara y parlantes", keywords: ["microfono", "camara", "parlantes", "dispositivos"], icon: "mic", run: () => f.setDevices(true) },
       { id: "abrir:pesca", group: "Abrir", title: "Álbum de pesca", keywords: ["peces"], icon: "fish", run: () => s.openPanel("fishAlbum", false) },
       { id: "abrir:diario", group: "Abrir", title: "Diario de exploración", keywords: ["observatorio"], icon: "star", run: () => s.openPanel("logbook", false) },

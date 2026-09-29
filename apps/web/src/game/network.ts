@@ -99,6 +99,7 @@ import { ESCENARIO, ESCENARIO_MSG, PODCAST_MSG } from "@hyvento/shared";
 import { media } from "./media";
 import { useEscenarioStore } from "./escenario/store";
 import { useDoorNotesStore } from "./doorNotes";
+import { usePhoneStore as useCelularStore } from "./phone/state";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
@@ -763,8 +764,13 @@ export function sendIdle(idle: boolean) {
   room?.send(MSG.idle, { idle });
 }
 
+/** Sin sala (el laboratorio del celular, /laboratorio/celular): lo que se escribe en Mensajes va aquí. */
+let offlineChat: ((text: string, scope: ChatScope) => void) | null = null;
+export const setOfflineChat = (fn: typeof offlineChat) => void (offlineChat = fn);
+
 export function sendChat(text: string, scope: ChatScope) {
-  room?.send(MSG.chatSend, { text, scope });
+  if (room) room.send(MSG.chatSend, { text, scope });
+  else offlineChat?.(text, scope);
 }
 
 export function sendStatus(status: PresenceStatus) {
@@ -1107,7 +1113,11 @@ function attach(r: OfficeRoom) {
       );
   });
 
-  r.onMessage(MSG.chatHistory, (history: ChatEvent[]) => useOfficeStore.getState().addMessages(history));
+  r.onMessage(MSG.chatHistory, (history: ChatEvent[]) => {
+    useOfficeStore.getState().addMessages(history);
+    // Lo que ya estaba escrito al entrar no cuenta como "sin leer" en el celular.
+    useCelularStore.getState().markRead(history.reduce((t, m) => Math.max(t, m.ts), 0));
+  });
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
