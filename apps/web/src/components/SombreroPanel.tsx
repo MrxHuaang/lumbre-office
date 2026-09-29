@@ -110,7 +110,7 @@ export function SombreroPanel({ atObject, onClose }: { atObject: boolean; onClos
           <PixelIcon name="coin" size={14} color="var(--color-cozy-gold)" />
           <h2 className="flex-1 text-[17px] tracking-wide">{SOMBRERO_NAME}</h2>
           <span className="text-[13px] text-[#b8b0a0]">{points} pts</span>
-          <button type="button" onClick={leave} className="p-1" aria-label="Irse disimulando">
+          <button type="button" onClick={leave} className="cozy-hit p-1" aria-label="Irse disimulando">
             <PixelIcon name="close" size={12} />
           </button>
         </header>

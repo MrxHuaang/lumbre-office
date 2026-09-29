@@ -1,5 +1,6 @@
 // Catálogo de muebles: solo lo que importa al juego (tamaño, colisión, asientos). El dibujo de cada
 // uno vive en art/ (furniture.ts los registra todos en DRAW), así el servidor no carga arte.
+import { PAINTING_BASE_TYPE, paintingIdOf } from "@hyvento/shared";
 import { EXTERIOR_CATALOG } from "./catalog-exterior";
 import { INTERIOR_CATALOG } from "./catalog-interior";
 import { SOTANO_CATALOG } from "./catalog-sotano";
@@ -120,6 +121,8 @@ export const CATALOG = {
   beanbag: { name: "Puf", size: [1, 1], seats: [[0, 0]], hasBack: true },
   "lamp-mushroom": { name: "Lámpara hongo", size: [1, 1], light: { at: [8, 8, 14], color: "#ff9ad0", radius: 36 } },
   easel: { name: "Caballete", size: [1, 1] },
+  // Cuadro de la app Pintura: todos los `cuadro:<id>` usan esta entrada (ver catalogItem).
+  cuadro: { name: "Cuadro", size: [1, 1] },
   bonsai: { name: "Bonsái", size: [1, 1] },
   "record-player": { name: "Tocadiscos", size: [1, 1] },
   guitar: { name: "Guitarra", size: [1, 1] },
@@ -206,7 +209,8 @@ export const CATALOG = {
 export type FurnitureType = keyof typeof CATALOG;
 
 export function catalogItem(type: string): CatalogItem {
-  const item = (CATALOG as Record<string, CatalogItem>)[type];
+  // Los cuadros de la Pintura son `cuadro:<id>`: el mismo mueble con otros píxeles.
+  const item = (CATALOG as Record<string, CatalogItem>)[paintingIdOf(type) ? PAINTING_BASE_TYPE : type];
   if (!item) throw new Error(`Mueble desconocido: ${type}`);
   return item;
 }

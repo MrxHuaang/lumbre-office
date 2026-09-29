@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FishingSim, autoplay, replayFishing } from "./fishing-sim";
-import { GROUP_FISHING, MAX_ROD_MASTERY, NIBBLES, ROD_MASTERY, castLuck, fishingTogether, masteryBar, nibbleTimes, rodMastery } from "./pesca-maestria";
+import { BOAT_LUCK, GROUP_FISHING, MAX_CAST_LUCK, MAX_ROD_MASTERY, NIBBLES, ROD_MASTERY, castLuck, fishingTogether, masteryBar, nibbleTimes, rodMastery } from "./pesca-maestria";
 
 describe("maestría de la caña", () => {
   it("sube de nivel con los peces y dice cuántos faltan", () => {
@@ -43,6 +43,11 @@ describe("pesca en grupo y suerte", () => {
     expect(castLuck({ bait: 1, group: true, mastery: 0 })).toBe(GROUP_FISHING.luck);
     expect(castLuck({ bait: 1, group: false, mastery: MAX_ROD_MASTERY - 1 })).toBe(1);
     expect(castLuck({ bait: 1.3, group: true, mastery: MAX_ROD_MASTERY })).toBeCloseTo(1.3 * GROUP_FISHING.luck * ROD_MASTERY.maxLevelLuck);
+    // El bote del muelle (mundo lleno) suma, pero todo junto no pasa el tope.
+    expect(castLuck({ bait: 1, group: false, mastery: 0, boat: true })).toBe(BOAT_LUCK);
+    expect(castLuck({ bait: 1.8, group: true, mastery: MAX_ROD_MASTERY })).toBeCloseTo(MAX_CAST_LUCK);
+    expect(castLuck({ bait: 1.8, group: true, mastery: MAX_ROD_MASTERY, boat: true })).toBe(MAX_CAST_LUCK);
+    expect(castLuck({ bait: 1.3, group: true, mastery: 0, boat: true })).toBeLessThanOrEqual(MAX_CAST_LUCK);
   });
 });
 

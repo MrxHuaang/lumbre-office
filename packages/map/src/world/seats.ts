@@ -28,6 +28,8 @@ const SEAT_Z: Record<string, number> = {
   "sun-lounger": 7,
   // La banca de adentro de la sauna (el piso del barril va alto, sobre la cuna).
   sauna: 15,
+  // El banco de atrás del bote, bajito dentro del casco.
+  rowboat: 6,
 };
 
 /** Altura del asiento de un tipo, contando la grada donde está (butacas del cine). */

@@ -9,28 +9,32 @@ import { useEffect, useId, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useAchievementStore } from "@/game/achievements";
 import { dropItem, moveItem, selectSlot, useBagStore } from "@/game/bag";
+import { clearQuestLogRequest, questLogRequested } from "@/game/encargos";
 import { sendProfileChanged } from "@/game/network";
 import { selectMyOffice, useOfficeStore, type Profile } from "@/game/store";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { presetLook } from "@/lib/look-palette";
 import { LookPreview } from "../character/LookPreview";
 import { PixelIcon } from "../Cozy";
 import { OfficeDialog } from "../OfficeDialog";
 import { api } from "../PointsPanels";
 import { BadgeGlyph } from "../profile/Badge";
+import { QuestLog } from "../encargos/QuestLog";
+import { OficiosTab } from "../oficios/OficiosTab";
 import { ProfileAchievements, ProfileFacts } from "../profile/ProfileView";
 import { useMyHand } from "./Hotbar";
 import { ItemIcon } from "./ItemIcon";
 
-type Tab = "mochila" | "stats" | "personaje";
+type Tab = "mochila" | "encargos" | "oficios" | "stats" | "personaje";
 const TABS: { id: Tab; label: string; wideHidden?: true }[] = [
   { id: "mochila", label: "Mochila" },
+  { id: "encargos", label: "Encargos" },
+  { id: "oficios", label: "Oficios" },
   { id: "stats", label: "Estadísticas" },
   // En pantallas anchas el personaje va siempre a la derecha: la pestaña sobra.
   { id: "personaje", label: "Personaje", wideHidden: true },
 ];
 
-const isField = (el: EventTarget | null) =>
-  el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el instanceof HTMLElement && el.isContentEditable);
 
 /** Mi perfil (puntos, racha, título, logros): se pide al abrir y cuando desbloqueo algo. */
 function useMyProfile() {
@@ -52,13 +56,15 @@ function useMyProfile() {
 
 export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Profile; onClose: () => void; onEditCharacter: () => void }) {
   const uid = useId();
-  const [tab, setTab] = useState<Tab>("mochila");
+  // El rastreador de encargos abre la mochila directo en la libreta.
+  const [tab, setTab] = useState<Tab>(() => (questLogRequested() ? "encargos" : "mochila"));
+  useEffect(clearQuestLogRequest, []);
   const me = useMyProfile();
 
   // La I también lo cierra (como la abre), salvo escribiendo.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "i" || e.ctrlKey || e.metaKey || e.altKey || isField(e.target)) return;
+      if (e.key.toLowerCase() !== "i" || e.ctrlKey || e.metaKey || e.altKey || focusOwnsKey(e.key)) return;
       e.preventDefault();
       if (!e.repeat) onClose();
     };
@@ -101,6 +107,10 @@ export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Pro
         <div role="tabpanel" className="min-w-0">
           {tab === "stats" ? (
             <StatsTab data={me.profile} error={me.error} />
+          ) : tab === "encargos" ? (
+            <QuestLog />
+          ) : tab === "oficios" ? (
+            <OficiosTab />
           ) : tab === "personaje" ? (
             <>
               <div className="lg:hidden">
@@ -114,7 +124,7 @@ export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Pro
             <BagTab onClose={onClose} />
           )}
         </div>
-        <aside aria-label="Tu personaje" className="max-lg:hidden">
+        <aside aria-label="Tu personaje" className="sticky top-0 self-start max-lg:hidden">
           <CharacterCard profile={profile} me={me.profile} onEditCharacter={onEditCharacter} />
         </aside>
       </div>

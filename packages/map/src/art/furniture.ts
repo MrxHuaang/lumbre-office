@@ -17,6 +17,7 @@ import {
   type Shader,
   type Sprite,
 } from "./pixel";
+import { PAINTING_BASE_TYPE, paintingIdOf } from "@hyvento/shared";
 import { catalogItem } from "../world/catalog";
 import { DECOR } from "./decor";
 import { cushion, leg, shadowSpace, shadowUnder, volume, type Variant } from "./kit";
@@ -30,6 +31,7 @@ import { EXTERIOR_DRAW } from "./exterior";
 import { INTERIOR_DRAW } from "./interior";
 import { LEISURE_DRAW } from "./leisure";
 import { photoBoard } from "./photos";
+import { cuadro } from "./painting";
 import { acuario } from "./acuario";
 import { RACE_DRAW } from "./race";
 import { SOTANO_DRAW } from "./sotano";
@@ -778,6 +780,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...OBSERVATORIO_DRAW,
   ...PESCA_DRAW,
   "photo-board": photoBoard,
+  cuadro,
   acuario,
   ...RACE_DRAW,
   ...AGUA_DRAW,
@@ -791,6 +794,8 @@ const cache = new Map<string, Sprite>();
  * `night` solo cambia algo en lo que tiene versión nocturna (la cabaña con las ventanas encendidas).
  */
 export function drawFurniture(type: string, variant: Variant = "front", night = false): Sprite {
+  // Todos los cuadros de la Pintura (`cuadro:<id>`) comparten el marco; los píxeles van en otra capa.
+  if (paintingIdOf(type)) type = PAINTING_BASE_TYPE;
   const draw = DRAW[type];
   const key = draw ? `${type}:${variant}` : `${type}:${variant}:${night ? "noche" : "dia"}`;
   let s = cache.get(key);
@@ -803,6 +808,7 @@ export function drawFurniture(type: string, variant: Variant = "front", night = 
 
 /** Si el tipo tiene dibujo propio (si no, sale la caja rosada provisoria). */
 export function hasDrawing(type: string): boolean {
+  if (paintingIdOf(type)) return true;
   return type in DRAW || hasOutdoor(type);
 }
 

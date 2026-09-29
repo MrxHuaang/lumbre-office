@@ -1,6 +1,6 @@
 // Comunicación rápida en el navegador (reglas en packages/shared/src/comunicacion.ts): llamar a cualquiera
 // sin teléfono (o sumarlo a la llamada en curso), saludar con un toque en el hombro, seguir a alguien por
-// toda la cabaña y el anuncio de un admin (texto y voz). Las acciones de abajo son la API para el resto del
+// toda la cabaña y el anuncio (texto y voz, permiso `anunciar`). Las acciones de abajo son la API para el resto del
 // cliente (el menú de la persona, la lista de Conectados y, más adelante, la paleta de comandos):
 // `callPerson`, `addToCall`, `wavePerson`, `followPerson`, `stopFollowing`, `announce`,
 // `startBroadcast` y `stopBroadcast`. Todas reciben el userId de la persona.
@@ -12,6 +12,7 @@ import {
   COM_MSG,
   COMUNICACION,
   followNeedsWalk,
+  reduceBroadcast,
   PODCAST,
   WAVE_RESULT_TEXT,
   type Announcement,
@@ -68,7 +69,7 @@ interface ComStore {
   announcement: Announcement | null;
   /** Quién le está hablando por voz a toda la cabaña. */
   broadcast: LiveBroadcast | null;
-  /** El panel del admin para anunciar (texto y voz). */
+  /** El panel para anunciar (texto y voz; lo ve quien tenga el permiso `anunciar`). */
   announceOpen: boolean;
 }
 
@@ -312,11 +313,12 @@ let micByBroadcast = false;
 
 function handleBroadcast(e: BroadcastEvent) {
   const mine = e.userId === myUserId();
+  // Un solo chip: el reductor decide si es un inicio nuevo o el mismo anuncio que sigue (reduceBroadcast).
+  const { next, fresh, ended } = reduceBroadcast(useComStore.getState().broadcast, e, localTime);
+  useComStore.setState({ broadcast: next });
   if (e.kind === "start") {
-    const was = useComStore.getState().broadcast;
-    useComStore.setState({ broadcast: { userId: e.userId, name: e.name, endsAt: localTime(e.endsAt) } });
     // Ya estaba sonando (al entrar o recargar): sin timbre y sin prender nada solo.
-    if (was?.userId === e.userId || e.resumed) {
+    if (!fresh) {
       if (mine && e.resumed && !useMediaStore.getState().mic) notify("Sigues anunciando a toda la cabaña: prende el micrófono para que te oigan.", "warning");
       return;
     }
@@ -332,7 +334,7 @@ function handleBroadcast(e: BroadcastEvent) {
     }
     return;
   }
-  if (useComStore.getState().broadcast?.userId === e.userId) useComStore.setState({ broadcast: null });
+  if (!ended && !mine) return;
   if (mine && micByBroadcast && useMediaStore.getState().mic) void media.toggleMic();
   if (mine) micByBroadcast = false;
   notify(broadcastEndText(e, mine));

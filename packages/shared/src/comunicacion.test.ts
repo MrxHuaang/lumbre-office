@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { broadcastLeft, callHasRoom, cleanAnnouncement, COMUNICACION, followNeedsWalk } from "./comunicacion";
+import { broadcastLeft, callHasRoom, cleanAnnouncement, COMUNICACION, followNeedsWalk, reduceBroadcast } from "./comunicacion";
 import { namesList } from "./phone";
 import { hearing, listeners, type Positioned } from "./proximity";
 
@@ -72,6 +72,28 @@ describe("anuncio por voz (broadcast)", () => {
   it("sin anuncio, la reunión sigue aislada", () => {
     const quiet = { ...admin, broadcast: false };
     expect(hearing(at("piso-3", 400, 400, "meeting", true), new Map([["admin", quiet]])).size).toBe(0);
+  });
+});
+
+describe("el chip del anuncio", () => {
+  const start = { kind: "start", userId: "u-ana", name: "Ana", endsAt: 5000 } as const;
+
+  it("un solo chip: retomar (al recargar) o repetir el inicio no lo duplica ni vuelve a sonar", () => {
+    const first = reduceBroadcast(null, start);
+    expect(first).toMatchObject({ fresh: true, next: { userId: "u-ana", endsAt: 5000 } });
+    const again = reduceBroadcast(first.next, start);
+    expect(again.fresh).toBe(false);
+    expect(again.next).toEqual(first.next);
+    // Quien entra (o recarga) en pleno anuncio lo ve con `resumed`: chip sí, timbre no.
+    const resumed = reduceBroadcast(null, { ...start, resumed: true });
+    expect(resumed).toMatchObject({ fresh: false, next: { userId: "u-ana" } });
+  });
+
+  it("termina solo el que se estaba viendo, y la hora pasa a la local", () => {
+    const cur = reduceBroadcast(null, start, (t) => t - 1000).next;
+    expect(cur!.endsAt).toBe(4000);
+    expect(reduceBroadcast(cur, { kind: "end", userId: "u-otra", name: "Otra", reason: "left" })).toMatchObject({ ended: false, next: cur });
+    expect(reduceBroadcast(cur, { kind: "end", userId: "u-ana", name: "Ana", reason: "stop" })).toMatchObject({ ended: true, next: null });
   });
 });
 

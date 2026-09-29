@@ -5,6 +5,7 @@ import type { OfficeMap } from "@hyvento/map";
 import { drawFishingBar, FISHING_BAR, PixelCanvas } from "@hyvento/map/art";
 import { FishingSim, SIM, SIM_FRAME_MS, type Direction } from "@hyvento/shared";
 import * as Phaser from "phaser";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 import type { Avatar } from "../Avatar";
 import { worldToScreen } from "../iso/view";
 import { useOfficeStore } from "../store";
@@ -69,7 +70,7 @@ export class FishingController {
     const { phase } = useFishingStore.getState();
     if (taps.esc || (moving && (phase === "waiting" || phase === "bite"))) return cancelFishing();
     // Con la boya temblando por un mordisqueo, la tecla es responder (y el pez se asusta): hay que aguantarse.
-    if ((phase === "bite" || nibbling()) && (taps.e || Phaser.Input.Keyboard.JustDown(this.space))) return hookFish();
+    if ((phase === "bite" || nibbling()) && (taps.e || (Phaser.Input.Keyboard.JustDown(this.space) && !focusOwnsKey(" ")))) return hookFish();
     if (taps.e && phase === "waiting") return fishingSpotAction();
   }
 
@@ -97,7 +98,8 @@ export class FishingController {
     const sim = this.sim;
     if (!sim.done) {
       const { typing, pcOn } = useOfficeStore.getState();
-      const holding = !typing && !pcOn && (this.space.isDown || this.scene.input.activePointer.isDown);
+      // Espacio con un botón de la UI enfocado es del botón, no de la caña.
+      const holding = !typing && !pcOn && ((this.space.isDown && !focusOwnsKey(" ")) || this.scene.input.activePointer.isDown);
       this.acc += delta;
       let steps = 0;
       while (this.acc >= SIM_FRAME_MS && steps < MAX_STEPS && !sim.done) {

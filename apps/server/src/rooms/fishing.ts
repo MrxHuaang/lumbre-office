@@ -110,7 +110,8 @@ export class Fishery {
     const { userId } = who;
     const refuse = (error: "far" | "seated" | "busy") => (this.deps.send(userId, { type: "refused", error }), false);
     if (!near) return refuse("far");
-    if (who.seated) return refuse("seated");
+    // Sentado solo en el bote del muelle (mundo lleno).
+    if (who.seated && !gear.boat) return refuse("seated");
     if (this.casts.has(userId)) return refuse("busy");
     this.clearShow(userId);
     const t = this.deps.timings();
@@ -185,7 +186,8 @@ export class Fishery {
     if (cast.phase !== "bite") return;
     cast.timer?.clear();
     cast.group = this.inGroup(cast);
-    const luck = castLuck({ bait: cast.gear.bait ? BAIT_TUNING[cast.gear.bait].luck : 1, group: cast.group, mastery: cast.mastery });
+    // Desde el bote del muelle (mundo lleno) los raros pesan más; todo junto, con el tope de `castLuck`.
+    const luck = castLuck({ bait: cast.gear.bait ? BAIT_TUNING[cast.gear.bait].luck : 1, group: cast.group, mastery: cast.mastery, boat: cast.gear.boat });
     const fish = pickFish(this.deps.hour(), (n) => this.deps.random(n), this.deps.weather?.(), luck);
     cast.fish = fish;
     if (isTrash(fish)) return void this.land(cast, fish, false);
@@ -199,6 +201,8 @@ export class Fishery {
       // La caña que de verdad tiene: el minijuego se repite con ella al validar.
       ...(cast.gear.rod !== "bambu" ? { rod: cast.gear.rod } : {}),
       ...(cast.mastery > 0 ? { mastery: cast.mastery } : {}),
+      // El oficio de Pesca: la barra un poco más larga (la validación repite la partida con ella).
+      ...(cast.gear.barBonus && cast.gear.barBonus > 1 ? { barBonus: cast.gear.barBonus } : {}),
     };
     cast.phase = "reel";
     cast.reelAt = this.deps.now();
@@ -242,7 +246,8 @@ export class Fishery {
   /** La persona se movió o se sentó: si estaba pescando, se recoge el sedal. */
   moved(userId: string, x: number, y: number, seated: boolean) {
     const cast = this.casts.get(userId);
-    if (cast && (seated || Math.hypot(x - cast.x, y - cast.y) > FISHING.moveTolerancePx)) this.end(cast, "cancelled");
+    // En el bote se pesca sentado: pararse (o moverse) recoge el sedal.
+    if (cast && (seated !== Boolean(cast.gear.boat) || Math.hypot(x - cast.x, y - cast.y) > FISHING.moveTolerancePx)) this.end(cast, "cancelled");
   }
 
   /** Se fue de la sala: se olvida todo lo suyo. */

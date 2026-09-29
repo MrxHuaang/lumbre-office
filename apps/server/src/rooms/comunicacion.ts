@@ -14,6 +14,7 @@ export const COM_TIMINGS = {
   callCooldownMs: COMUNICACION.callCooldownMs as number,
   waveCooldownMs: COMUNICACION.waveCooldownMs as number,
   announceCooldownMs: COMUNICACION.announceCooldownMs as number,
+  announceGapMs: COMUNICACION.announceGapMs as number,
   broadcastMaxMs: COMUNICACION.broadcastMaxMs as number,
 };
 
@@ -27,14 +28,16 @@ export interface ComunicacionRoomDeps {
 }
 
 export interface Comunicacion {
+  /** Llamar desde el teléfono de escritorio a una persona (sin oficina) del directorio. */
+  phoneCall(sessionId: string, userId: string, from: string): void;
   /** Una sesión nueva: si hay anuncio por voz, que lo sepa. */
   greet(sessionId: string): void;
-  /** Alguien se fue del todo: se corta su anuncio y se olvidan sus pausas. */
+  /** Alguien se fue del todo: su anuncio lo espera un rato (por si recargó) y se olvidan sus pausas. */
   forget(userId: string): void;
   dispose(): void;
 }
 
-type AdminData = { admin?: boolean };
+type AnunciaData = { admin?: boolean; permisos?: readonly string[] };
 
 export function registerComunicacion(room: Room<OfficeState>, deps: ComunicacionRoomDeps): Comunicacion {
   const who = (p: Player | undefined) => p && { userId: p.userId, name: p.name, status: p.status };
@@ -65,8 +68,8 @@ export function registerComunicacion(room: Room<OfficeState>, deps: Comunicacion
   const anuncio = new Anuncio({
     person: (sessionId) => {
       const p = room.state.players.get(sessionId);
-      const admin = (room.clients.getById(sessionId)?.userData as AdminData | undefined)?.admin ?? false;
-      return p && { userId: p.userId, name: p.name, admin };
+      const data = room.clients.getById(sessionId)?.userData as AnunciaData | undefined;
+      return p && { userId: p.userId, name: p.name, admin: data?.admin ?? false, permisos: data?.permisos ?? [] };
     },
     toAll: (type, message) => room.broadcast(type, message),
     toSession: send,
@@ -78,6 +81,7 @@ export function registerComunicacion(room: Room<OfficeState>, deps: Comunicacion
     newId: () => randomUUID(),
     maxMs: () => COM_TIMINGS.broadcastMaxMs,
     cooldownMs: () => COM_TIMINGS.announceCooldownMs,
+    gapMs: () => COM_TIMINGS.announceGapMs,
   });
 
   const active = (client: Client, fn: (sessionId: string) => void) => {
@@ -92,6 +96,7 @@ export function registerComunicacion(room: Room<OfficeState>, deps: Comunicacion
   room.onMessage(COM_MSG.broadcastStop, (client) => anuncio.stop(client.sessionId));
 
   return {
+    phoneCall: (sessionId, userId, from) => llamadas.callFrom(sessionId, userId, from),
     greet: (sessionId) => anuncio.greet(sessionId),
     forget: (userId) => {
       anuncio.forget(userId);

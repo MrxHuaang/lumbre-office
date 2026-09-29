@@ -13,6 +13,7 @@ import { duskAt } from "@/lib/cozy";
 import { currentGameTime } from "./gameClock";
 import { DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, worldToScreen } from "./iso/view";
 import { emitAmbience, emitLightning, emitThunder } from "./weatherEvents";
+import { lessMotion } from "@/lib/prefs";
 
 /** Cuánto de cada efecto lleva cada clima afuera (0..1) y lo oscuro del tono (alpha del MULTIPLY). */
 const OUTDOOR: Record<Weather, { rain: number; cloud: number; fog: number; dim: number }> = {
@@ -59,7 +60,6 @@ const LIGHTNING_EVERY: [number, number] = [6_000, 20_000];
 /** Qué tan rápido va cada efecto hacia su objetivo (fracción por ms: ~8 s de punta a punta). */
 const EASE_PER_MS = 1 / 8000;
 
-const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 interface Drop {
   img: Phaser.GameObjects.Image;
@@ -90,7 +90,10 @@ export class WeatherView {
   private duskTarget = 0;
   private dusk = 0;
   private duskElapsed = DUSK_EVERY_MS;
-  private readonly calm = reducedMotion();
+  /** Menos movimiento (Ajustes o el sistema): se mira cada vez, así el cambio se ve sin recargar. */
+  private get calm() {
+    return lessMotion();
+  }
   /** Lo que se ve ahora de cada efecto (va hacia el objetivo del clima de a poco). */
   private level = { rain: 0, cloud: 0, fog: 0, dim: 0 };
   /** Lo que se llenaron los charcos (0 secos, 1 llenos). */

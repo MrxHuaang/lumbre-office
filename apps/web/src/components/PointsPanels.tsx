@@ -1,8 +1,8 @@
 "use client";
 
 // Fase 2: el buzón (recompensa diaria y movimientos) y el tablón (misiones y ranking) del jardín.
-import { barItem, cafeItem, CASINO_GAME_NAMES, POINTS, shopItem, WELCOME_REF, type HumanAvatar, type CasinoGame, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
-import { useCallback, useEffect, useState } from "react";
+import { type StoryLetter, barItem, cafeItem, CASINO_GAME_NAMES, POINTS, questById, shopItem, WELCOME_REF, type HumanAvatar, type CasinoGame, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
 import { useClubStore } from "@/game/club/store";
@@ -10,10 +10,13 @@ import { useEscenarioStore } from "@/game/escenario/store";
 import { ArcadePromptLabel } from "./arcade/ArcadePromptLabel";
 import { BusPromptLabel } from "./bus/BusPromptLabel";
 import { MarshmallowPromptLabel } from "./observatorio/MarshmallowStrip";
+import { QuestPromptLabel } from "./encargos/QuestCard";
 import { useOfficeStore, type Interactable } from "@/game/store";
+import { useFocusTrap } from "@/lib/focusTrap";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { GiftsSection } from "./social/GiftsSection";
+import { StandupPanel } from "./StandupPanel";
 
 const REASON_LABEL: Record<PointReason, string> = {
   PRESENCE: "Presencia",
@@ -25,6 +28,7 @@ const REASON_LABEL: Record<PointReason, string> = {
   CASINO: "Casino",
   GIFT: "Regalo",
   LEISURE: "Ocio",
+  QUEST: "Encargo",
 };
 
 /** Nombre de un movimiento: las compras dicen qué se compró ("Cafetería · Tinto", "Tienda · Planta"). */
@@ -42,8 +46,11 @@ function moveLabel(m: { reason: PointReason; refId: string | null }) {
     if (kind === "hockey") return "Arcade · Hockey de mesa";
     return `Casino · ${CASINO_GAME_NAMES[kind as CasinoGame] ?? "Ruleta"}`;
   }
+  if (m.reason === "DAILY" && kind === "standup") return "Standup del día";
   if (m.reason === "ADMIN" && ref === WELCOME_REF) return "Bono de bienvenida";
   if (m.reason === "GIFT" && kind === "trade") return "Intercambio";
+  // "encargo:<id>:<período>": el nombre del encargo.
+  if (m.reason === "QUEST" && kind === "encargo") return `Encargo · ${questById(id.split(":")[0] ?? "")?.title ?? "cumplido"}`;
   return REASON_LABEL[m.reason];
 }
 
@@ -91,6 +98,8 @@ const PROMPT: Record<Interactable, string> = {
   bus: "Subir al Megabús",
   grill: "Cocinar en el horno de barro",
   coop: "Ver los nombres del gallinero",
+  reception: "Preguntarle a Doña Gloria",
+  encargo: "Hablar del encargo",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -111,33 +120,6 @@ const ago = (iso: string) => {
 /** Saldo del jugador local (lo lleva el servidor de juego). */
 export const useMyPoints = () =>
   useOfficeStore(useShallow((s) => (s.sessionId ? (s.players[s.sessionId]?.points ?? 0) : 0)));
-
-/** Contador de puntos del HUD, con casillas como el dinero de Stardew. Clic: ver tus movimientos. */
-export function PointsCounter() {
-  const points = useMyPoints();
-  const openPanel = useOfficeStore((s) => s.openPanel);
-  const award = useOfficeStore((s) => s.lastAward);
-  const digits = String(Math.max(0, points)).padStart(5, "0").slice(-6);
-  return (
-    <button
-      type="button"
-      onClick={() => openPanel("mailbox", false)}
-      title="Tus puntos (ver movimientos)"
-      aria-label={`${points} puntos`}
-      className="cozy-panel flex h-[34px] items-center gap-1.5 px-2 hover:brightness-105"
-    >
-      <PixelIcon name="coin" size={16} color="var(--color-cozy-gold)" />
-      {/* La key cambia con cada premio: reinicia el "salto" de los números. */}
-      <span key={award?.id ?? 0} className={`flex gap-0.5 ${award ? "animate-[cozy-pop_0.35s_steps(3)]" : ""}`}>
-        {[...digits].map((d, i) => (
-          <span key={i} className="grid h-5 w-[15px] place-items-center border-2 border-cozy-wood bg-cozy-paper-dark text-[14px] leading-none text-[#7a2a0e]">
-            {d}
-          </span>
-        ))}
-      </span>
-    </button>
-  );
-}
 
 /** Ayuda junto al buzón, el tablón o la barra: tecla E o botón para abrirlo. */
 export function InteractPrompt() {
@@ -165,6 +147,8 @@ export function InteractPrompt() {
         <EscenarioPromptLabel kind={near} />
       ) : near === "marshmallow" ? (
         <MarshmallowPromptLabel />
+      ) : near === "encargo" ? (
+        <QuestPromptLabel />
       ) : (
         PROMPT[near]
       )}
@@ -194,6 +178,8 @@ export function PanelShell({
   children: React.ReactNode;
   wide?: boolean;
 }) {
+  const box = useRef<HTMLElement>(null);
+  useFocusTrap(box);
   useEffect(() => {
     const { setTyping } = useOfficeStore.getState();
     setTyping(true);
@@ -206,11 +192,11 @@ export function PanelShell({
   }, [onClose]);
   return (
     <div className="absolute inset-0 z-40 flex items-center justify-center bg-[rgb(42_32_51/0.55)] p-3" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <section role="dialog" aria-modal aria-label={title} className={`cozy-panel flex max-h-full w-full flex-col p-1.5 ${wide ? "max-w-2xl" : "max-w-md"}`}>
+      <section ref={box} role="dialog" aria-modal aria-label={title} className={`cozy-panel flex max-h-full w-full flex-col p-1.5 outline-none ${wide ? "max-w-2xl" : "max-w-md"}`}>
         <header className="flex items-center gap-2 bg-cozy-wood px-4 py-2.5 text-cozy-paper-light">
           <PixelIcon name={icon} size={16} />
           <h2 className="flex-1 text-[18px] font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} className="p-1" aria-label="Cerrar">
+          <button type="button" onClick={onClose} className="cozy-hit p-1" aria-label="Cerrar">
             <PixelIcon name="close" size={12} />
           </button>
         </header>
@@ -225,6 +211,8 @@ export function PanelShell({
 interface PointsState {
   balance: number;
   daily: { claimed: boolean; streak: number; reward: number };
+  /** Cartas del buzón (la del cuidador anterior, al terminar el capítulo 1). */
+  letters?: StoryLetter[];
   moves: { id: string; amount: number; reason: PointReason; refId: string | null; at: string }[];
 }
 
@@ -275,6 +263,7 @@ export function MailboxPanel({ atObject, onClose }: { atObject: boolean; onClose
             {error && <p className="text-[14px] font-semibold text-cozy-red-deep">{error}</p>}
           </section>
 
+          {data?.letters?.map((l) => <LetterCard key={l.id} letter={l} />)}
           <GiftsSection />
 
           <section className="flex flex-col gap-2">
@@ -345,10 +334,13 @@ interface RankingState {
 }
 
 export function BoardPanel({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<"missions" | "ranking">("missions");
+  const [tab, setTab] = useState<"standup" | "missions" | "ranking">("standup");
   return (
     <PanelShell title="Tablón" icon="board" onClose={onClose} wide>
       <div role="tablist" className="mb-4 flex gap-2">
+        <button type="button" role="tab" aria-selected={tab === "standup"} onClick={() => setTab("standup")} className="cozy-btn">
+          Standup
+        </button>
         <button type="button" role="tab" aria-selected={tab === "missions"} onClick={() => setTab("missions")} className="cozy-btn">
           Misiones
         </button>
@@ -357,7 +349,7 @@ export function BoardPanel({ onClose }: { onClose: () => void }) {
           Ranking
         </button>
       </div>
-      {tab === "missions" ? <Missions /> : <Ranking />}
+      {tab === "standup" ? <StandupPanel /> : tab === "missions" ? <Missions /> : <Ranking />}
     </PanelShell>
   );
 }
@@ -563,5 +555,27 @@ function Ranking() {
         ))}
       </ol>
     </div>
+  );
+}
+
+/** Una carta del buzón: cerrada con su remitente, se abre con un clic. */
+function LetterCard({ letter }: { letter: StoryLetter }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section aria-label="Carta" className="flex flex-col gap-2 border-2 border-cozy-wood bg-cozy-paper-light px-3 py-2.5">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex items-center gap-2 text-left">
+        <PixelIcon name="mail" size={16} color="var(--color-cozy-red)" />
+        <span className="flex-1 text-[14px] font-semibold">{letter.title}</span>
+        <span className="text-[12px] text-cozy-ink-soft">{open ? "Cerrar" : "Abrir"}</span>
+      </button>
+      {open && (
+        <div className="flex flex-col gap-2 font-serif text-[14px] leading-relaxed italic text-cozy-ink">
+          {letter.body.split(/\n\n/).map((p) => (
+            <p key={p}>{p}</p>
+          ))}
+          <p className="text-right not-italic font-semibold">— {letter.from}</p>
+        </div>
+      )}
+    </section>
   );
 }

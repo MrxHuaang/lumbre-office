@@ -1,7 +1,7 @@
 // Cuánto alcohol lleva cada persona (sorbos del bar del club). Se guarda por userId: recargar la página no
 // te deja sobrio. Solo se sincroniza la etapa (`Player.drunk`); un temporizador la baja cuando toca. Pasarse
 // de `DRUNK.blackout` desmaya: la sala hace vomitar y, al terminar, te lleva a descansar.
-import { ALCOHOL_PER_SIP, DRUNK, drunkDecay, drunkStage, msToNextDrunkStage, type DrunkStage } from "@hyvento/shared";
+import { ALCOHOL_PER_SIP, DRUNK, drunkDecay, drunkStage, msToNextDrunkStage, SOBER_PER_SIP, type DrunkStage } from "@hyvento/shared";
 import type { HeldClock } from "./consumables";
 
 interface Drunk {
@@ -41,8 +41,10 @@ export class Drunkenness {
     return this.byUser.get(userId)?.stage === 4;
   }
 
-  /** Un sorbo o una pitada de `art`: si lleva alcohol, suma. Desmayado no se toma nada. */
+  /** Un sorbo o una pitada de `art`: si lleva alcohol, suma; el agua (mundo lleno) baja un poco. Desmayado no se toma nada. */
   consumed(userId: string, art: string) {
+    const sober = SOBER_PER_SIP[art];
+    if (sober) return this.sober(userId, sober);
     const add = ALCOHOL_PER_SIP[art];
     if (!add || this.fainted(userId)) return;
     const now = this.now();
@@ -71,6 +73,14 @@ export class Drunkenness {
     if (current >= limit) return this.stage(userId);
     this.set(userId, Math.min(limit, current + units), now, d);
     return this.stage(userId);
+  }
+
+  /** Un sorbo de agua: baja `units` lo que lleva (sin bajar de 0); desmayado no hace nada. */
+  private sober(userId: string, units: number) {
+    const d = this.byUser.get(userId);
+    if (!d || d.stage === 4) return;
+    const now = this.now();
+    this.set(userId, Math.max(0, drunkDecay(d.units, now - d.at) - units), now, d);
   }
 
   private wake(userId: string) {

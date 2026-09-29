@@ -80,7 +80,9 @@ export const EXTERIOR_CATALOG = {
   "garden-lantern": { name: "Farolito", size: [1, 1], light: { at: [8, 8, 26], ...LANTERN_LIGHT } },
   "dock-lamp": { name: "Farol del muelle", size: [1, 1], light: { at: [13, 8, 20], ...LANTERN_LIGHT } },
   signpost: { name: "Letrero", size: [1, 1] },
-  rowboat: { name: "Bote", size: [1, 2] },
+  // El bote del muelle: se sube uno al banco de atrás (mira hacia donde apunta la proa) y se pesca con
+  // más suerte (ver mundo.ts).
+  rowboat: { name: "Bote", size: [1, 2], seats: [[0, 1]] },
   reeds: { name: "Juncos", size: [1, 1] },
   // Planos: se pisan (los nenúfares flotan en el agua, la piedra plana es para pescar).
   "lily-pad": { name: "Nenúfares", size: [1, 1], solid: false, flat: true },

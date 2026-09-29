@@ -9,8 +9,11 @@ export const PHONE = {
   ringMs: 30_000,
 } as const;
 
-/** Cliente → servidor (`MSG.phoneCall`): llamar a la oficina `zoneId` (a quien es su dueño). */
-export const PhoneCallMessage = z.object({ zoneId: z.string().min(1).max(64) });
+/**
+ * Cliente → servidor (`MSG.phoneCall`): llamar a la oficina `zoneId` (a quien es su dueño) o, desde el
+ * directorio, a una persona conectada sin oficina (`userId`).
+ */
+export const PhoneCallMessage = z.union([z.object({ zoneId: z.string().min(1).max(64) }), z.object({ userId: z.string().min(1).max(64) })]);
 export type PhoneCallMessage = z.infer<typeof PhoneCallMessage>;
 
 /** Cliente → servidor (`MSG.phoneAnswer`): contestar o colgar una llamada que me suena. */
@@ -128,6 +131,9 @@ export const DIRECTORY_TEXT: Record<DirectoryStatus, string> = {
   offline: "Desconectado",
 };
 
+/** Para quien no tiene oficina, "En otra parte" no dice nada: está en la cabaña. */
+export const DIRECTORY_PERSON_TEXT: Record<DirectoryStatus, string> = { ...DIRECTORY_TEXT, office: "En la cabaña", elsewhere: "En la cabaña" };
+
 /** ¿Se le puede llamar? (misma regla que el servidor, para apagar el botón "Llamar"). */
 export const canCallStatus = (s: DirectoryStatus) => s !== "offline" && s !== "dnd" && s !== "busy";
 
@@ -149,4 +155,38 @@ export function callClock(ms: number): string {
   const mm = String(Math.floor(s / 60) % 60).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return s >= 3600 ? `${Math.floor(s / 3600)}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+/** Un renglón del directorio del teléfono: la oficina de alguien (se llama al dueño) o una persona sin oficina. */
+export type DirectoryEntry =
+  | { kind: "office"; key: string; zoneId: string; office: string; userId: string; name: string; status: DirectoryStatus }
+  | { kind: "person"; key: string; userId: string; name: string; status: DirectoryStatus };
+
+/**
+ * El directorio del teléfono de escritorio: las oficinas con dueño (como siempre) y, además, todas las
+ * personas conectadas que no tienen oficina. Sin mí y ordenado por nombre.
+ */
+export function phoneDirectory(
+  offices: Iterable<{ zoneId: string; name: string; ownerId: string; ownerName: string }>,
+  players: Iterable<{ userId: string; name: string; status: string; zoneId: string; call: string }>,
+  me: string | null,
+): DirectoryEntry[] {
+  const byUser = new Map<string, { userId: string; name: string; status: string; zoneId: string; call: string }>();
+  for (const p of players) if (p.userId) byUser.set(p.userId, p);
+  const out: DirectoryEntry[] = [];
+  const owners = new Set<string>();
+  for (const o of offices) {
+    if (!o.ownerId) continue;
+    owners.add(o.ownerId);
+    if (o.ownerId === me) continue;
+    out.push({ kind: "office", key: o.zoneId, zoneId: o.zoneId, office: o.name, userId: o.ownerId, name: o.ownerName, status: directoryStatus(byUser.get(o.ownerId), o.zoneId) });
+  }
+  for (const p of byUser.values()) {
+    if (p.userId === me || owners.has(p.userId)) continue;
+    // Sin oficina no hay "en su oficina": disponible es "en la cabaña".
+    const seen = directoryStatus(p, "");
+    const status: DirectoryStatus = seen === "office" ? "elsewhere" : seen;
+    out.push({ kind: "person", key: `user:${p.userId}`, userId: p.userId, name: p.name, status });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key));
 }

@@ -62,6 +62,8 @@ export class Player extends Schema {
   @type("string") callId = "";
   /** Anuncio por voz de un admin (anuncio.ts): hasta cuándo lo oye toda la cabaña (ms del servidor; 0 = no). */
   @type("float64") broadcastUntil = 0;
+  /** Nivel de vecino (la suma de los niveles de los oficios, ver oficios.ts): se ve chiquito junto al nombre. */
+  @type("uint8") vecino = 0;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */

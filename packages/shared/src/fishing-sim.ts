@@ -98,6 +98,8 @@ export interface SimSetup {
   rod?: FishingRod;
   /** Nivel de maestría de esa caña (0 a 5, ver pesca-maestria.ts): alarga un poco más la barra. */
   mastery?: number;
+  /** Barra más larga por el oficio (Pesca nivel 5: 1,05); se multiplica sobre la de la caña. */
+  barBonus?: number;
 }
 
 export class FishingSim {
@@ -129,7 +131,9 @@ export class FishingSim {
   constructor(readonly setup: SimSetup) {
     const tuning = ROD_TUNING[isFishingRod(setup.rod) ? setup.rod : "bambu"];
     this.move = tuning.move;
-    this.barHeight = Math.min(SIM.track - 40, Math.round(barHeightFor(setup.difficulty) * (tuning.bar + masteryBar(setup.mastery ?? 0))));
+    // El extra del oficio se acota: el reto lo manda el servidor, pero nunca más de un 20%.
+    const bonus = Math.min(1.2, Math.max(1, setup.barBonus ?? 1));
+    this.barHeight = Math.min(SIM.track - 40, Math.round(barHeightFor(setup.difficulty) * (tuning.bar + masteryBar(setup.mastery ?? 0)) * bonus));
     this.gain = gainFor(setup.difficulty);
     this.barPos = SIM.track - this.barHeight;
     this.rand = fishSimRandom(setup.seed);

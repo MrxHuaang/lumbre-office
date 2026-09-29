@@ -39,6 +39,12 @@ export async function publishCasinoSettingsChanged() {
   await notifyGameServer(INTERNAL_ROUTES.casinoSettingsChanged, "casino");
 }
 
+/** Avisa al servidor de juego que un admin cambió permisos (se aplican sin que nadie reconecte). */
+export async function publishPermissionsChanged() {
+  // Si el servidor no responde, los permisos nuevos se leen cuando cada persona vuelva a entrar.
+  await notifyGameServer(INTERNAL_ROUTES.permissionsChanged, "permisos");
+}
+
 /** Avisa al servidor de juego que se subió o se borró una foto (el tablón de la cafetería se refresca). */
 export async function publishPhotosChanged() {
   // Si el servidor no responde, el tablón se actualiza la próxima vez que alguien lo mire.

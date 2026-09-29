@@ -5,6 +5,7 @@ import type { LookInput } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import { MiniIcon } from "./icons";
 import { dirIndex, lookKey, shadowSprite, sitSheet, stoolSprite, walkSheet } from "./sprites";
+import { lessMotion } from "@/lib/prefs";
 
 export type Pose = "walk" | "stand" | "sit";
 const POSES: { id: Pose; label: string }[] = [
@@ -80,7 +81,7 @@ export function LookPreview({ look, held = "", heldLeft, className = "" }: { loo
 
   // Con "reducir movimiento" empieza quieto.
   useEffect(() => {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) setPose("stand");
+    if (lessMotion()) setPose("stand");
   }, []);
 
   useEffect(() => {

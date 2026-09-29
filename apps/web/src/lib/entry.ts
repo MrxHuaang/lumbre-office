@@ -12,6 +12,9 @@ import { seasonOf, skyPhase, type Season, type SkyPhase } from "@hyvento/shared"
  */
 export const ENTRY_STAGES = [
   { id: "sesion", weight: 8, tau: 1200, label: "Buscando tu llave" },
+  // El servidor de juego dormido (Render free) tarda hasta un minuto en arrancar: se consulta /health antes
+  // de conectar. Despierto contesta enseguida y la etapa ni se nombra; dormida, no cuenta como "lenta".
+  { id: "despertar", weight: 5, tau: 20_000, label: "Despertando el servidor (hasta ~1 min)", slowMs: 75_000 },
   { id: "conexion", weight: 17, tau: 2200, label: "Tocando la puerta" },
   { id: "motor", weight: 25, tau: 3500, label: "Encendiendo la chimenea" },
   { id: "arte", weight: 30, tau: 3000, label: "Colgando los cuadros" },
@@ -38,6 +41,11 @@ const STAGE_CAP = 0.95;
 const CREEP_CAP = 0.85;
 /** Lo que se tarda la etapa actual para avisar que va lenta (con "Reintentar"). */
 export const ENTRY_SLOW_MS = 12_000;
+
+/** Lo que puede tardar una etapa antes de ofrecer "Reintentar" (despertar al servidor tiene su propio plazo). */
+export function stageSlowMs(stage: (typeof ENTRY_STAGES)[number] | null): number {
+  return stage && "slowMs" in stage ? stage.slowMs : ENTRY_SLOW_MS;
+}
 
 const TOTAL = ENTRY_STAGES.reduce((s, st) => s + st.weight, 0);
 

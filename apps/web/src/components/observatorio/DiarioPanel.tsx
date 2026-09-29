@@ -3,7 +3,8 @@
 // El diario de exploración (el escritorio del observatorio o el menú): una bitácora con lo descubierto
 // (cada nivel, las estrellas fugaces, el malvavisco perfecto, lo raro del lago), sacado de los
 // contadores del perfil. Cada página va con su logro; lo que falta se ve como "???" con una pista.
-import { achievementById, explorationLog, type LogEntry, type ProfileDTO } from "@hyvento/shared";
+import { achievementById, explorationLog, hasPerk, type LogEntry, type ProfileDTO } from "@hyvento/shared";
+import { askHints, useMyLevels, useOficios } from "@/game/oficios";
 import { useEffect, useState } from "react";
 import { useAchievementStore } from "@/game/achievements";
 import { api, PanelShell } from "../PointsPanels";
@@ -37,6 +38,7 @@ export function DiarioPanel({ onClose }: { onClose: () => void }) {
           <p className="text-cozy-ink-soft">
             {found} de {log.length} descubrimientos anotados. Lo que falta tiene pista: sal a buscarlo.
           </p>
+          <OlfatoHints />
           {GROUPS.map((g) => (
             <section key={g.id} aria-label={g.title} className="flex flex-col gap-2">
               <h3 className="border-b-2 border-cozy-paper-dark pb-1 text-[15px] font-semibold">{g.title}</h3>
@@ -61,5 +63,24 @@ export function DiarioPanel({ onClose }: { onClose: () => void }) {
         </div>
       )}
     </PanelShell>
+  );
+}
+
+/** Exploración nivel 5 ("Olfato"): pistas que da el servidor (dónde anda hoy el Man, qué niveles faltan). */
+function OlfatoHints() {
+  const hints = useOficios((s) => s.hints);
+  const levels = useMyLevels();
+  const has = hasPerk("exploracion", levels);
+  useEffect(() => {
+    if (has) askHints();
+  }, [has]);
+  if (!has) return <p className="text-[13px] italic text-cozy-ink-soft">Con Exploración nivel 5, el diario te susurra pistas.</p>;
+  if (!hints?.ok) return null;
+  return (
+    <section aria-label="Pistas" className="flex flex-col gap-1 border-2 border-cozy-gold bg-cozy-paper-light px-3 py-2 text-[13px]">
+      <h3 className="font-semibold">Olfato de explorador</h3>
+      {hints.hideout && <p>Hoy el Man del Sombrero anda por {hints.hideout} (cuando sale).</p>}
+      <p>{hints.unvisited.length ? `Te falta conocer: ${hints.unvisited.join(", ")}.` : "Ya conoces todos los rincones de la cabaña."}</p>
+    </section>
   );
 }

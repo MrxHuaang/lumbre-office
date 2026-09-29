@@ -2,9 +2,9 @@
 
 // El teléfono de escritorio: el directorio de oficinas para llamar (se abre con E junto al teléfono), la
 // llamada que te suena (Contestar / Colgar) y el chip de la llamada en curso en el HUD.
-import { callClock, canCallStatus, DIRECTORY_TEXT, directoryStatus, namesList, type DirectoryStatus } from "@hyvento/shared";
+import { callClock, canCallStatus, DIRECTORY_PERSON_TEXT, DIRECTORY_TEXT, namesList, phoneDirectory, type DirectoryEntry, type DirectoryStatus } from "@hyvento/shared";
 import { useEffect, useMemo, useState } from "react";
-import { answerPhone, hangUpPhone, sendPhoneCall, usePhoneStore } from "@/game/phone";
+import { answerPhone, hangUpPhone, sendPhoneCall, sendPhoneCallTo, usePhoneStore } from "@/game/phone";
 import { selectMyUserId, useOfficeStore } from "@/game/store";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon } from "./Cozy";
@@ -21,14 +21,7 @@ const DOT: Record<DirectoryStatus, string> = {
   offline: "transparent",
 };
 
-interface Entry {
-  zoneId: string;
-  office: string;
-  ownerName: string;
-  status: DirectoryStatus;
-}
-
-/** Directorio del teléfono: cada oficina con su dueño y cómo está, y el botón para llamar. */
+/** Directorio del teléfono: cada oficina con su dueño y la gente conectada sin oficina, y el botón para llamar. */
 export function PhonePanel({ onClose }: { onClose: () => void }) {
   const offices = useOfficeStore((s) => s.offices);
   const players = useOfficeStore((s) => s.players);
@@ -36,13 +29,8 @@ export function PhonePanel({ onClose }: { onClose: () => void }) {
   const call = usePhoneStore((s) => s.call);
   const dialing = usePhoneStore((s) => s.dialing);
 
-  const entries = useMemo<Entry[]>(() => {
-    const byUser = new Map(Object.values(players).map((p) => [p.userId, p]));
-    return Object.values(offices)
-      .filter((o) => o.ownerId && o.ownerId !== me)
-      .map((o) => ({ zoneId: o.zoneId, office: o.name, ownerName: o.ownerName, status: directoryStatus(byUser.get(o.ownerId), o.zoneId) }))
-      .sort((a, b) => a.ownerName.localeCompare(b.ownerName));
-  }, [offices, players, me]);
+  const entries = useMemo<DirectoryEntry[]>(() => phoneDirectory(Object.values(offices), Object.values(players), me), [offices, players, me]);
+  const callEntry = (e: DirectoryEntry) => (e.kind === "office" ? sendPhoneCall(e.zoneId) : sendPhoneCallTo(e.userId));
 
   return (
     <PanelShell title="Teléfono" icon="phone" onClose={onClose}>
@@ -59,10 +47,10 @@ export function PhonePanel({ onClose }: { onClose: () => void }) {
       ) : (
         <>
           <p className="mb-3 text-[13px] text-cozy-ink-soft">
-            Llama a la oficina de alguien: le suena esté donde esté en la cabaña, y mientras hablan se oyen a cualquier distancia.
+            Llama a quien quieras, tenga oficina o no: le suena esté donde esté en la cabaña, y mientras hablan se oyen a cualquier distancia.
           </p>
           {entries.length === 0 ? (
-            <p className="py-4 text-center text-[14px] text-cozy-ink-soft">Todavía no hay oficinas con dueño a las que llamar.</p>
+            <p className="py-4 text-center text-[14px] text-cozy-ink-soft">Todavía no hay nadie a quien llamar.</p>
           ) : (
             // El tarjetero del teléfono: renglones de libreta, una oficina por renglón.
             <ul className="border-2 border-cozy-wood bg-cozy-paper-light">
@@ -70,7 +58,7 @@ export function PhonePanel({ onClose }: { onClose: () => void }) {
                 const callable = canCallStatus(e.status);
                 return (
                   <li
-                    key={e.zoneId}
+                    key={e.key}
                     className="flex items-center gap-3 border-b-2 border-dashed border-cozy-paper-dark px-3 py-2.5 last:border-b-0"
                   >
                     <span
@@ -79,20 +67,20 @@ export function PhonePanel({ onClose }: { onClose: () => void }) {
                       aria-hidden
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px]">Oficina de {e.ownerName}</span>
+                      <span className="block truncate text-[15px]">{e.kind === "office" ? `Oficina de ${e.name}` : e.name}</span>
                       <span className="block truncate text-[12px] text-cozy-ink-soft">
-                        {e.office} · {DIRECTORY_TEXT[e.status]}
+                        {e.kind === "office" ? `${e.office} · ${DIRECTORY_TEXT[e.status]}` : DIRECTORY_PERSON_TEXT[e.status]}
                       </span>
                     </span>
                     <button
                       type="button"
-                      onClick={() => sendPhoneCall(e.zoneId)}
+                      onClick={() => callEntry(e)}
                       disabled={!callable || dialing !== null}
-                      title={callable ? `Llamar a ${e.ownerName}` : DIRECTORY_TEXT[e.status]}
+                      title={callable ? `Llamar a ${e.name}` : DIRECTORY_TEXT[e.status]}
                       className="cozy-btn cozy-btn-primary shrink-0"
                     >
                       <PixelIcon name="phone" size={14} />
-                      {dialing === e.zoneId ? "Marcando…" : "Llamar"}
+                      {dialing === e.key ? "Marcando…" : "Llamar"}
                     </button>
                   </li>
                 );

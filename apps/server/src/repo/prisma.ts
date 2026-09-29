@@ -1,9 +1,15 @@
 import {
   addInventoryTx,
   applyStatChanges,
+  claimQuest,
+  loadQuests,
+  skipStory,
+  loadSkills,
+  addSkillXp,
   loadAchievementRecord,
   unlockAchievement,
   awardPoints,
+  leisureToday,
   awardPointsOnce,
   grantWelcomeBonus,
   casinoBet,
@@ -13,6 +19,8 @@ import {
   leaveDoorNote,
   listInventory,
   loadBagSlots,
+  permisosDados,
+  permisosDeTodos,
   saveBagSlots,
   unreadDoorNotes,
   type PresenceStatus as DbStatus,
@@ -38,12 +46,16 @@ import {
   type PointReason,
   type ManualStatus,
   type StatChange,
+  type QuestDelta,
+  type Oficio,
 } from "@hyvento/shared";
 import { executeTip, executeTrade } from "./social";
-import type { AwardOnceInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
+import type { AwardOnceInput, QuestClaimInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
 /** Fila de WorldLayout donde se guarda el reloj del juego (no es un nivel). */
 const GAME_CLOCK_ROW = "__reloj__";
+/** Filas de WorldLayout con las rondas abiertas del casino de cada corrida (tampoco son niveles). */
+const CASINO_OPEN_PREFIX = "__casino__:";
 
 const toDbStatus = (s: ManualStatus) => s.toUpperCase() as DbStatus;
 const fromDbStatus = (s: DbStatus) => s.toLowerCase() as ManualStatus;
@@ -212,6 +224,10 @@ export class PrismaRepository implements GameRepository {
     return user?.points ?? 0;
   }
 
+  leisureToday(userId: string) {
+    return leisureToday(prisma, userId);
+  }
+
   awardPoints(input: { userId: string; amount: number; reason: PointReason }) {
     return awardPoints(prisma, input);
   }
@@ -235,8 +251,13 @@ export class PrismaRepository implements GameRepository {
     return getCasinoSettings(prisma);
   }
 
+  async loadPermisos(userIds: string[]) {
+    const [everyone, byUser] = await Promise.all([permisosDeTodos(prisma), permisosDados(prisma, userIds)]);
+    return { everyone, byUser };
+  }
+
   async loadWorldEdits() {
-    const rows = await prisma.worldLayout.findMany({ where: { area: { not: GAME_CLOCK_ROW } } });
+    const rows = await prisma.worldLayout.findMany({ where: { area: { not: GAME_CLOCK_ROW }, NOT: { area: { startsWith: CASINO_OPEN_PREFIX } } } });
     return Object.fromEntries(rows.map((r) => [r.area, r.edits as unknown]));
   }
 
@@ -389,12 +410,32 @@ export class PrismaRepository implements GameRepository {
     return { stats: r.stats, unlocked: Object.keys(r.unlocked) };
   }
 
-  saveStats(userId: string, changes: StatChange[]) {
-    return applyStatChanges(prisma, userId, changes);
+  saveStats(userId: string, changes: StatChange[], quests: QuestDelta[] = []) {
+    return applyStatChanges(prisma, userId, changes, quests);
   }
 
   unlockAchievement(userId: string, achievementId: string) {
     return unlockAchievement(prisma, userId, achievementId);
+  }
+
+  loadQuests(userId: string, periods: string[], assign: { questId: string; period: string; goal: number }[]) {
+    return loadQuests(prisma, userId, periods, assign);
+  }
+
+  claimQuest(input: QuestClaimInput) {
+    return claimQuest(prisma, input);
+  }
+
+  skipStory(userId: string, steps: readonly { questId: string; goal: number }[], now: number) {
+    return skipStory(prisma, userId, steps, now);
+  }
+
+  loadSkills(userId: string, now: number) {
+    return loadSkills(prisma, userId, now);
+  }
+
+  addSkillXp(userId: string, gains: Partial<Record<Oficio, number>>, now: number) {
+    return addSkillXp(prisma, userId, gains, now);
   }
 
   saveDoorNote(input: { fromId: string; toId: string; zoneId: string; text: string }) {
@@ -453,5 +494,43 @@ export class PrismaRepository implements GameRepository {
         }
       : { crop: null, plantedById: null, plantedAt: null, growthMs: 0, growthAt: null, wateredUntil: null };
     await prisma.gardenPlot.upsert({ where: { id }, create: { id, ...data }, update: data });
+  }
+
+  async latestNoteTitle(userId: string) {
+    // Solo las notas de esa persona (siempre filtrando por userId) y fuera de la papelera.
+    const row = await prisma.note.findFirst({ where: { userId, deletedAt: null }, orderBy: { updatedAt: "desc" }, select: { title: true } });
+    return row ? row.title.trim() || "Sin título" : null;
+  }
+
+  // ---------- Rondas abiertas del casino ----------
+  // Van en filas de WorldLayout (sin migración), como el reloj del juego.
+
+  async loadCasinoOpenRounds() {
+    const rows = await prisma.worldLayout.findMany({ where: { area: { startsWith: CASINO_OPEN_PREFIX } } });
+    return rows.map((r) => ({
+      run: r.area.slice(CASINO_OPEN_PREFIX.length),
+      refIds: Array.isArray(r.edits) ? r.edits.filter((x): x is string => typeof x === "string") : [],
+      updatedAt: r.updatedAt.getTime(),
+    }));
+  }
+
+  async saveCasinoOpenRounds(run: string, refIds: string[]) {
+    const area = CASINO_OPEN_PREFIX + run;
+    if (!refIds.length) {
+      await prisma.worldLayout.deleteMany({ where: { area } });
+      return;
+    }
+    await prisma.worldLayout.upsert({ where: { area }, create: { area, edits: refIds }, update: { edits: refIds } });
+  }
+
+  async claimCasinoOpenRounds(run: string, updatedAt: number) {
+    const { count } = await prisma.worldLayout.deleteMany({ where: { area: CASINO_OPEN_PREFIX + run, updatedAt: new Date(updatedAt) } });
+    return count === 1;
+  }
+
+  async casinoMovements(refIds: string[]) {
+    if (!refIds.length) return [];
+    const rows = await prisma.pointTransaction.findMany({ where: { reason: "CASINO", refId: { in: refIds } }, select: { userId: true, refId: true, amount: true } });
+    return rows.map((r) => ({ userId: r.userId, refId: r.refId ?? "", amount: r.amount }));
   }
 }

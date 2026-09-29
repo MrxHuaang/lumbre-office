@@ -5,6 +5,7 @@
 // Lo valida el servidor (apps/server/src/rooms/cocina.ts); el cliente solo lo muestra.
 import { z } from "zod";
 import type { ConsumeAction } from "./consumables";
+import type { Oficio } from "./oficios";
 import { CROPS, HONEY } from "./huerto";
 
 /** Lo que se puede guardar en la despensa: lo que se cosecha y la miel. */
@@ -24,6 +25,8 @@ export interface Recipe {
   /** Cómo se come y cuántos bocados tiene (va a CONSUMABLES). */
   action: ConsumeAction;
   uses: number;
+  /** Receta de un oficio: se cocina desde ese nivel (ver OFICIO_REWARDS en oficios.ts). */
+  requires?: { oficio: Oficio; level: number };
 }
 
 const MIN = 60_000;
@@ -83,6 +86,17 @@ export const RECIPES: readonly Recipe[] = [
     effect: { kind: "points", amount: 10 },
     action: "bite",
     uses: 4,
+  },
+  {
+    // La de Cocina nivel 6 (oficios.ts): se ve en la estufa desde antes, pero se cocina con el nivel.
+    id: "sancocho-abuela",
+    name: "Sancocho de la abuela",
+    blurb: "Papa, mazorca, tomate y cilantro en olla grande: alcanza para todos.",
+    needs: { papa: 2, mazorca: 1, tomate: 1, cilantro: 1 },
+    effect: { kind: "points", amount: 16 },
+    action: "spoon",
+    uses: 5,
+    requires: { oficio: "cocina", level: 6 },
   },
 ];
 
@@ -169,7 +183,7 @@ export interface CocinaState {
   buffLeftMs: number;
 }
 
-export const CocinaNoticeCode = z.enum(["far", "nothing", "notIngredient", "full", "stored", "missing", "hands", "busy", "cooked", "capped", "energy", "inBag", "bagFull"]);
+export const CocinaNoticeCode = z.enum(["far", "nothing", "notIngredient", "full", "stored", "missing", "hands", "busy", "cooked", "capped", "energy", "inBag", "bagFull", "level"]);
 export type CocinaNoticeCode = z.infer<typeof CocinaNoticeCode>;
 
 export interface CocinaNotice {
@@ -201,6 +215,8 @@ export function cocinaNoticeText(n: CocinaNotice): string {
       return `${n.item ? ingredientName(n.item) : "Listo"}: guardado en tu despensa de la cocina.`;
     case "missing":
       return "Te faltan ingredientes en la despensa para esa receta.";
+    case "level":
+      return `${dish ?? "Esa receta"} se aprende con Cocina nivel ${(n.item && recipeById(n.item)?.requires?.level) || 6}.`;
     case "hands":
       return "Tienes las manos ocupadas con algo pagado: termínalo primero.";
     case "busy":

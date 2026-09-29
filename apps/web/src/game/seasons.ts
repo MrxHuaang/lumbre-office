@@ -10,6 +10,7 @@ import { fallingLeaf, fallingPetal, flowerTuft, leafLitter, noise, snowflake, sn
 import { seasonOf, type Season, type Weather } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import { DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, worldToScreen } from "./iso/view";
+import { lessMotion } from "@/lib/prefs";
 
 /** Tono del terreno por estación: color, modo y opacidad (0 = sin tono). */
 const TINT: Record<Season, { color: number; mode: "multiply" | "screen"; alpha: number }> = {
@@ -32,7 +33,6 @@ const SNOW_MELT_MS = 300_000;
 const WINTER_COVER = 0.3;
 const EASE_PER_MS = 1 / 8000;
 
-const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 type Kind = "snow" | "leaf" | "petal";
 interface Faller {
@@ -56,7 +56,9 @@ export class SeasonView {
   private season: Season = seasonOf(Date.now());
   private weather: Weather = "despejado";
   private outdoor = false;
-  private readonly calm = reducedMotion();
+  private get calm() {
+    return lessMotion();
+  }
   /** Cuánto se ve de la nieve que cae (va hacia el objetivo de a poco) y cuánto cubre el piso. */
   private snowing = 0;
   private cover = 0;
