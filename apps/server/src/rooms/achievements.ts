@@ -10,6 +10,7 @@ import {
   oddHour,
   STAT_KEYS,
   STAT_PREFIX,
+  statAreaOf,
   type Achievement,
   type StatChange,
 } from "@hyvento/shared";
@@ -120,10 +121,10 @@ export class AchievementTracker {
     this.bump(userId, STAT_KEYS.tilesWalked, whole);
   }
 
-  /** Entró a un nivel. */
+  /** Entró a un nivel (las casas de cada persona cuentan todas como una: `casa-propia`). */
   visit(userId: string, area: string) {
     const e = this.entry(userId);
-    const key = `${STAT_PREFIX.visit}${area}`;
+    const key = `${STAT_PREFIX.visit}${statAreaOf(area)}`;
     if (e.stats.has(key)) return;
     this.max(userId, key, 1);
     this.recountVisits(userId, e);
