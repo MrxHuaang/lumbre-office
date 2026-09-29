@@ -113,7 +113,10 @@ export function Notices() {
       {notices.map((n) => (
         <div key={n.id} className="cozy-panel pointer-events-auto flex items-center gap-2.5 px-4 py-3 text-[14px]">
           <span className="h-2.5 w-2.5 shrink-0 border-2 border-cozy-frame" style={{ background: TONE[n.tone] ?? TONE.info }} />
-          <span className="flex-1">{n.text}</span>
+          <span className="flex-1">
+            {n.text}
+            {n.count && n.count > 1 ? <span className="ml-1.5 text-cozy-ink-soft">×{n.count}</span> : null}
+          </span>
           {n.action && (
             <button
               onClick={() => {

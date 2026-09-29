@@ -2065,10 +2065,10 @@ export class OfficeScene extends Phaser.Scene {
       goal = { x: Math.floor(spot.x / ts), y: Math.floor(spot.y / ts) };
     }
     if (isBlockedTile(walkMap, goal.x, goal.y)) goal = nearestFreeTile(walkMap, goal);
-    if (!goal) return;
+    if (!goal) return void this.noRoute({ x: Math.floor(worldX / ts), y: Math.floor(worldY / ts) });
     const start = { x: Math.floor(this.local.x / ts), y: Math.floor(this.local.y / ts) };
     let path = findPath(walkMap, start, goal);
-    if (!path) return;
+    if (!path) return void this.noRoute(goal);
     // Si la ruta entra a una oficina cerrada sin permiso, llegar solo hasta la puerta.
     const blockedAt = path.findIndex((t) => !this.canEnterZoneAt(t.x * ts + ts / 2, t.y * ts + ts / 2));
     if (blockedAt >= 0) path = path.slice(0, blockedAt);
@@ -2083,6 +2083,15 @@ export class OfficeScene extends Phaser.Scene {
     this.pathMarker?.destroy();
     const m = worldToScreen(goal.x * ts + ts / 2, goal.y * ts + ts / 2);
     this.pathMarker = this.add.image(m.x, m.y, "cursor-tile").setDepth(-4e5).setTint(0xffe08a);
+  }
+
+  /** El clic no tiene camino: baldosa roja que se apaga y un "tuc", en vez de no hacer nada. */
+  private noRoute(tile: TilePos) {
+    const ts = this.map.tileSize;
+    const m = worldToScreen(tile.x * ts + ts / 2, tile.y * ts + ts / 2);
+    const mark = this.add.image(m.x, m.y, "cursor-tile").setDepth(-4e5).setTint(0xd9534f);
+    this.tweens.add({ targets: mark, alpha: 0, duration: 700, ease: "Sine.in", onComplete: () => mark.destroy() });
+    sfx.deny();
   }
 
   private clearPath() {

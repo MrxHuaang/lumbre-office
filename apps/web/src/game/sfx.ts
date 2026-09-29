@@ -282,6 +282,10 @@ export const sfx = {
   interact() {
     play("interact", 120, 120, 1, (a, t) => tone(a, t, 0.09, 520, 780, 0.06, { type: "sine" }));
   },
+  /** Algo no se pudo (sin ruta, mueble lejos, límite): un "tuc" sordo y corto. */
+  deny() {
+    play("deny", 180, 140, 1, (a, t) => tone(a, t, 0.08, 220, 150, 0.05, { type: "triangle", lowpass: 900 }));
+  },
   sit(vol = 1) {
     play("sit", 120, 160, vol, (a, t, v) => {
       noise(a, t, 0.13, { type: "lowpass", freq: 420, vol: 0.12 * v, attack: 0.01 });
