@@ -116,6 +116,19 @@ export function canWalkBetween(map: OfficeMap, ax: number, ay: number, bx: numbe
   return true;
 }
 
+/**
+ * Como `canWalkBetween`, pero también acepta el camino en "L" (primero x y luego y, o al revés). El
+ * cliente mueve cada eje por separado, así que en diagonal por un marco de puerta o la esquina de un
+ * mueble esquiva la esquina que la recta sí cortaría: el servidor no debe rechazar ese paso.
+ */
+export function canWalkBetweenAxes(map: OfficeMap, ax: number, ay: number, bx: number, by: number): boolean {
+  return (
+    canWalkBetween(map, ax, ay, bx, by) ||
+    (canWalkBetween(map, ax, ay, bx, ay) && canWalkBetween(map, bx, ay, bx, by)) ||
+    (canWalkBetween(map, ax, ay, ax, by) && canWalkBetween(map, ax, by, bx, by))
+  );
+}
+
 /** Zona que contiene el punto; si hay solapamiento gana la más pequeña. */
 export function zoneAt(map: OfficeMap, px: number, py: number): Zone | undefined {
   let best: Zone | undefined;

@@ -5,7 +5,7 @@ import {
   canStandAt,
   canSwimAt,
   canSwimBetween,
-  canWalkBetween,
+  canWalkBetweenAxes,
   decorateAreaDef,
   checkWorldEdit,
   parseWorldEdits,
@@ -1954,7 +1954,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       ? !seated && canSwimAt(map, x, y) && canSwimBetween(map, player.x, player.y, x, y)
       : seated
         ? Boolean(seat) && !this.seatTaken(client.sessionId, map.id, x, y)
-        : canStandAt(map, x, y) && (fromSeat || canWalkBetween(map, player.x, player.y, x, y));
+        : canStandAt(map, x, y) && (fromSeat || canWalkBetweenAxes(map, player.x, player.y, x, y));
     if (seat) dir = seat.facing;
 
     if (dist > maxDist || !validSpot || !this.canAccess(player, x, y)) {
