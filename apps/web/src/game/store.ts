@@ -18,6 +18,7 @@ import {
   type FocusPresetId,
   type OfficeRadioState,
   type PointsAwarded,
+  type LeisureState,
   type PresenceStatus,
   type SpaKind,
   type Weather,
@@ -296,6 +297,9 @@ interface OfficeStore {
   panel: { kind: PanelKind; atObject: boolean } | null;
   /** Último premio de puntos (cambia `id` en cada uno, para animarlo). */
   lastAward: (PointsAwarded & { id: number }) | null;
+  /** Ocio ganado hoy contra el tope diario (null hasta que el servidor lo diga). */
+  leisure: LeisureState | null;
+  setLeisure: (l: LeisureState) => void;
   /** Modo decorar tu oficina: el clic pone o elige muebles en vez de caminar. */
   decorating: boolean;
   /** Editor de la casa (solo admins): usa decorPick/decorFacing igual que el editor de oficina. */
@@ -456,6 +460,7 @@ const initial = {
   usable: null as UsableNear | null,
   panel: null as { kind: PanelKind; atObject: boolean } | null,
   lastAward: null as (PointsAwarded & { id: number }) | null,
+  leisure: null as LeisureState | null,
   decorating: false,
   worldEditing: false,
   decorPick: null as DecorPick | null,
@@ -573,6 +578,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   openPanel: (kind, atObject) => set({ panel: { kind, atObject } }),
   closePanel: () => set({ panel: null }),
   addAward: (a) => set({ lastAward: { ...a, id: ++noticeId } }),
+  setLeisure: (leisure) => set({ leisure }),
   // Al entrar o salir del modo decorar no queda nada elegido.
   setDecorating: (decorating) => set({ decorating, worldEditing: false, decorPick: null, panel: decorating ? null : get().panel }),
   setWorldEditing: (worldEditing) => set({ worldEditing, decorating: false, decorPick: null, panel: worldEditing ? null : get().panel }),

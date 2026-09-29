@@ -9,6 +9,7 @@ import {
   loadAchievementRecord,
   unlockAchievement,
   awardPoints,
+  leisureToday,
   awardPointsOnce,
   grantWelcomeBonus,
   casinoBet,
@@ -221,6 +222,10 @@ export class PrismaRepository implements GameRepository {
   async getPoints(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { points: true } });
     return user?.points ?? 0;
+  }
+
+  leisureToday(userId: string) {
+    return leisureToday(prisma, userId);
   }
 
   awardPoints(input: { userId: string; amount: number; reason: PointReason }) {

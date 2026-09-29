@@ -48,6 +48,9 @@ import {
   type OfficeEditMessage,
   type OfficeEditResult,
   type PointsAwarded,
+  LEISURE_FULL_TEXT,
+  LEISURE_MSG,
+  type LeisureState,
   type PresenceStatus,
   type WorldEditMessage,
   type WorldEditResult,
@@ -1126,6 +1129,13 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.doorNoteResult, (res: DoorNoteResult) => useDoorNotesStore.getState().handleResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
+  // Tope de ocio del día: el conteo va al celular y, al llenarse, un aviso igual para todas las actividades.
+  r.onMessage(LEISURE_MSG.state, (n: LeisureState) => {
+    const s = useOfficeStore.getState();
+    const before = s.leisure;
+    s.setLeisure(n);
+    if (n.capped || (before && before.today < n.cap && n.today >= n.cap)) s.notify(LEISURE_FULL_TEXT, "info");
+  });
   r.onMessage(MSG.cafeResult, handleCafeResult);
   r.onMessage(MSG.sombreroResult, handleSombreroResult);
   r.onMessage(MSG.officeEditResult, handleOfficeEditResult);

@@ -190,6 +190,7 @@ export function EstadoApp({ profile }: { profile: Profile }) {
   const { back, close } = usePhone();
   const me = useOfficeStore((s) => (s.sessionId ? s.players[s.sessionId] : undefined));
   const weather = useOfficeStore((s) => s.weather);
+  const leisure = useOfficeStore((s) => s.leisure);
   const place = usePlaceText();
   const hearing = useHearingText();
   const battery = useBattery();
@@ -218,6 +219,7 @@ export function EstadoApp({ profile }: { profile: Profile }) {
       hint: "OK o ◀ ▶ cambian el estado",
     },
     { k: "Puntos", v: me ? String(me.points) : "—", run: movements, hint: "OK: ver tus movimientos" },
+    { k: "Ocio hoy", v: leisure ? `${leisure.today}/${leisure.cap}` : "—", hint: "Tope diario de puntos por ocio" },
     { k: "Estás en", v: place || "La cabaña" },
     { k: "Con", v: hearing ?? "Nadie cerca" },
     {
