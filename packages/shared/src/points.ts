@@ -21,6 +21,11 @@ export const POINTS = {
   dailyBase: 10,
   dailyStreakBonus: 5,
   dailyStreakMaxDays: 7,
+  /**
+   * Bono del standup del tablón (standup.ts): el primero de cada día, motivo DAILY. Editarlo no vuelve a
+   * dar. Propuesta: el monto lo decide el dueño (VIR-72).
+   */
+  standupBonus: 5,
   /** Recompensa máxima de una misión según quién la crea. */
   missionMaxReward: { MEMBER: 50, ADMIN: 500 },
   missionMinReward: 5,
