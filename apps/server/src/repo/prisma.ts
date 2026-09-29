@@ -3,6 +3,7 @@ import {
   applyStatChanges,
   claimQuest,
   loadQuests,
+  skipStory,
   loadSkills,
   addSkillXp,
   loadAchievementRecord,
@@ -409,6 +410,10 @@ export class PrismaRepository implements GameRepository {
 
   claimQuest(input: QuestClaimInput) {
     return claimQuest(prisma, input);
+  }
+
+  skipStory(userId: string, steps: readonly { questId: string; goal: number }[], now: number) {
+    return skipStory(prisma, userId, steps, now);
   }
 
   loadSkills(userId: string, now: number) {

@@ -65,7 +65,8 @@ describe("encargos: la sala por dentro", () => {
     // Vuelve a entrar antes de que termine de guardarse lo de la sesión vieja.
     await q.load("u", { join: true });
     q.forget("u", old);
-    expect(q.rowsOf("u")).toHaveLength(1);
+    // Lo del día y el primer paso de la historia.
+    expect(q.rowsOf("u")).toHaveLength(2);
     // El de la sesión de ahora sí la olvida.
     q.forget("u", q.generation("u"));
     expect(q.rowsOf("u")).toHaveLength(0);

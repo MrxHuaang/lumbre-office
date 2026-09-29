@@ -65,6 +65,7 @@ import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
 import { QuestCard } from "./encargos/QuestCard";
+import { PrologueCard } from "./historia/HistoriaCard";
 import { QuestTracker } from "./encargos/QuestTracker";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -344,7 +345,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </div>
           {/* Arriba a la izquierda y sobre los paneles (el tablón, el mostrador): lo que te pidió quien te habla. */}
           <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-3 z-[45]">
-            <QuestCard />
+            <div className="flex flex-col gap-2">
+              <PrologueCard />
+              <QuestCard />
+            </div>
           </div>
           </ErrorBoundary>
           <ErrorBoundary name="avisos">

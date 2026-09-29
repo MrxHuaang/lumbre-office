@@ -126,6 +126,12 @@ export const STAT_KEYS = {
   levelCocina: "oficio_nivel:cocina",
   levelSocial: "oficio_nivel:social",
   levelExploracion: "oficio_nivel:exploracion",
+  // Historia (historia.ts): sentarse en la oficina propia, leer el tablón y el capítulo 1 (máximo: 1 = terminado o saltado).
+  ownOfficeSits: "own_office_sits",
+  boardReads: "board_reads",
+  storyCh1: "story_ch1",
+  /** Máximo: 1 = ya vio la bienvenida de Doña Aurora (el prólogo sale una sola vez). */
+  storyPrologue: "story_prologue",
   /** Máximo: último día de Bogotá en que regaló su detalle gratis (Social nivel 5). */
   oficioGiftDay: "oficio_regalo_dia",
 } as const;
@@ -168,6 +174,8 @@ export const MAX_STATS: ReadonlySet<string> = new Set([
   STAT_KEYS.levelSocial,
   STAT_KEYS.levelExploracion,
   STAT_KEYS.oficioGiftDay,
+  STAT_KEYS.storyCh1,
+  STAT_KEYS.storyPrologue,
 ]);
 
 export const ACHIEVEMENT_RARITIES = ["comun", "raro", "epico", "legendario"] as const;
@@ -377,6 +385,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("alma-de-la-cabana", "Alma de la cabaña", "glass", "legendario", STAT_KEYS.levelSocial, 10, "Llega al nivel 10 de Social", "Donde llegas, se arma el parche."),
   ]),
   ...section("cabana", [
+    a("recien-llegado", "Recién llegado a la cabaña", "scroll", "comun", STAT_KEYS.storyCh1, 1, "Termina (o salta) el capítulo 1 con Doña Aurora", "Ya sabes dónde queda el tinto. Y hay una carta esperándote."),
     a("primer-dia", "Primer día", "clock", "comun", STAT_KEYS.secondsOnline, HOUR, "Pasa una hora activa en la cabaña", "Ya sabes dónde queda el baño."),
     a("veterano", "Veterano de la cabaña", "clock", "epico", STAT_KEYS.secondsOnline, 100 * HOUR, "Pasa 100 horas activas en la cabaña", "Conoces cada tabla que cruje."),
     a("parte-del-mobiliario", "Parte del mobiliario", "clock", "legendario", STAT_KEYS.secondsOnline, 500 * HOUR, "Pasa 500 horas activas en la cabaña", "Te iban a inventariar con los muebles."),

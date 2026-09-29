@@ -19,6 +19,8 @@ export const GameTokenClaims = z.object({
    * `HOUSE_EDITOR_EMAIL`, solo esa persona. Sin el campo (tokens viejos) vale lo de admin.
    */
   houseEditor: z.boolean().optional(),
+  /** Cuándo entró por primera vez (ms): a quien recién llegó lo recibe Doña Aurora (historia.ts). */
+  onboardedAt: z.number().optional(),
 });
 export type GameTokenClaims = z.infer<typeof GameTokenClaims>;
 

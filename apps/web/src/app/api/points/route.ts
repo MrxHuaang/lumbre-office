@@ -1,5 +1,5 @@
 import { prisma } from "@hyvento/db";
-import { claimedToday, dailyReward, nextStreak, type PointReason } from "@hyvento/shared";
+import { STAT_KEYS, claimedToday, dailyReward, lettersFor, nextStreak, type PointReason } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 
@@ -13,6 +13,9 @@ export async function GET() {
     take: 15,
     select: { id: true, amount: true, reason: true, refId: true, createdAt: true },
   });
+  // Las cartas del buzón (la del cuidador anterior llega al terminar el capítulo 1, ver historia.ts).
+  const story = await prisma.userStat.findMany({ where: { userId: user.id, key: STAT_KEYS.storyCh1 }, select: { key: true, value: true } });
+  const letters = lettersFor(Object.fromEntries(story.map((s) => [s.key, s.value])));
   const claimed = claimedToday(user.lastDailyAt);
   // La racha que tendría al reclamar hoy (o la actual si ya reclamó).
   const streak = claimed ? user.streak : nextStreak(user.lastDailyAt, user.streak);
@@ -20,6 +23,7 @@ export async function GET() {
     {
       balance: user.points,
       daily: { claimed, streak, reward: dailyReward(streak) },
+      letters,
       moves: moves.map((m) => ({
         id: m.id,
         amount: m.amount,

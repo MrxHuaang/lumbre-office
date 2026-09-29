@@ -11,6 +11,7 @@ import { MAX_STATS, STAT_KEYS, STAT_PREFIX } from "./achievements";
 import { weekStart } from "./arcade";
 import { seasonOf, type Season } from "./estaciones";
 import { GRANJA_STATS } from "./granja";
+import { STORY_QUESTS } from "./historia";
 import { ALL_NPCS, type GameNpc } from "./npcs";
 import { PESCA_NPC } from "./pesca-tienda";
 import { dayStart } from "./points";
@@ -88,6 +89,13 @@ export const QUEST_GIVERS = {
     point: "casino_cashier",
     hello: ["Mijito, ya que está por aquí, hágame un mandado:", "Venga, que la caja no se mueve pero yo sí necesito cosas:"],
     thanks: ["Ay, bendito. Tome, que eso no se queda así.", "Cuadrado como la caja. Gracias, mi amor."],
+  },
+  aurora: {
+    id: "aurora",
+    name: "Doña Aurora",
+    npc: "aurora",
+    hello: ["Venga, mijo, siéntese un momentico que le cuento.", "Ay, qué bueno verlo. ¿Cómo le fue con lo que le dije?"],
+    thanks: ["¡Eso! Así se hace. Tome, pa' que se compre algo.", "Muy bien, mijo. Usted aprende rápido, no como el de antes."],
   },
   portero: {
     id: "portero",
@@ -221,6 +229,8 @@ export const QUESTS: readonly QuestDef[] = [
     { id: "semana-casino", giver: "crupier", title: "Cliente de la semana", text: "Haga 25 apuestas esta semana. Gane o pierda, la ruleta lo recuerda.", stat: STAT_KEYS.casinoBets, goal: 25, reward: r(40, "social", 80) },
     { id: "semana-foco", giver: "tablon", title: "Semana concentrada", text: "«Cinco bloques de foco esta semana. El chat sigue ahí cuando vuelvas.»", stat: STAT_KEYS.focusBlocks, goal: 5, reward: r(55, "social", 90) },
   ]),
+  // La historia (historia.ts): los pasos del capítulo 1 con Doña Aurora.
+  ...STORY_QUESTS,
 ];
 
 const BY_ID = new Map(QUESTS.map((q) => [q.id, q]));

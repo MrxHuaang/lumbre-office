@@ -271,6 +271,8 @@ export interface QuestRepository {
   loadQuests(userId: string, periods: string[], assign: { questId: string; period: string; goal: number }[]): Promise<QuestRecord[]>;
   /** Entrega un encargo cumplido en una transacción: lo marca, paga (QUEST, con tope) y suma la experiencia. */
   claimQuest(input: QuestClaimInput): Promise<QuestClaimOutcome>;
+  /** Saltar la historia: los pasos que falten quedan entregados sin pagar; devuelve cuántos cambió. */
+  skipStory(userId: string, steps: readonly { questId: string; goal: number }[], now: number): Promise<number>;
 }
 
 export interface GameRepository extends QuestRepository {}

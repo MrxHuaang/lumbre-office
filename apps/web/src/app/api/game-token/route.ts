@@ -32,6 +32,7 @@ export async function GET() {
       look: asLook(user.look) ?? undefined,
       role: user.role,
       houseEditor: canEditHouse(user),
+      onboardedAt: user.onboardedAt?.getTime(),
     },
     secret,
   );

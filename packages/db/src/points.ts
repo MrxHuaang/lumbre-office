@@ -1,6 +1,6 @@
 // Movimientos de puntos: la única forma de cambiar un saldo. La usan el servidor de juego (presencia,
 // reuniones, cafetería) y la web (buzón, misiones), así el tope diario y el libro quedan iguales en todos lados.
-import { DAILY_CAPS, dayStart, POINTS, WELCOME_REF, type PointReason } from "@hyvento/shared";
+import { DAILY_CAPS, dayStart, POINTS, STORY_REF_SUFFIX, WELCOME_REF, type PointReason } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 export interface AwardInput {
@@ -9,6 +9,15 @@ export interface AwardInput {
   reason: PointReason;
   refId?: string;
   now?: number;
+  /** Sin tope diario (los pasos de la historia: pagan QUEST pero no cuentan para el tope, ver historia.ts). */
+  uncapped?: boolean;
+}
+
+/** Los movimientos que cuentan para el tope de un motivo: los de QUEST de la historia no cuentan. */
+export function cappedMovesWhere(userId: string, reason: PointReason, now: number): Prisma.PointTransactionWhereInput {
+  const where: Prisma.PointTransactionWhereInput = { userId, reason, createdAt: { gte: new Date(dayStart(now)) } };
+  if (reason === "QUEST") where.OR = [{ refId: null }, { NOT: { refId: { endsWith: STORY_REF_SUFFIX } } }];
+  return where;
 }
 
 export interface AwardResult {
@@ -23,13 +32,10 @@ export async function awardPointsTx(tx: Prisma.TransactionClient, input: AwardIn
   const now = input.now ?? Date.now();
   let amount = input.amount;
   const cap = DAILY_CAPS[reason];
-  if (cap !== null && amount > 0) {
+  if (cap !== null && amount > 0 && !input.uncapped) {
     // Se bloquea la fila: dos premios con tope al mismo tiempo leerían la misma suma y juntos lo pasarían.
     await tx.$executeRaw`SELECT 1 FROM "User" WHERE id = ${userId} FOR UPDATE`;
-    const today = await tx.pointTransaction.aggregate({
-      where: { userId, reason, createdAt: { gte: new Date(dayStart(now)) } },
-      _sum: { amount: true },
-    });
+    const today = await tx.pointTransaction.aggregate({ where: cappedMovesWhere(userId, reason, now), _sum: { amount: true } });
     amount = Math.min(amount, cap - (today._sum.amount ?? 0));
   }
   if (amount <= 0) {

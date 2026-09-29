@@ -74,6 +74,8 @@ type Where = Record<string, unknown>;
 /** ¿La fila cumple el `where`? (igualdad, `gte`, `gt`, `lt`, `in`, `startsWith`, `not` y `null`, lo que usan los helpers). */
 function matches(row: object, where: Where = {}): boolean {
   return Object.entries(where).every(([key, cond]) => {
+    if (key === "OR") return (cond as Where[]).some((w) => matches(row, w));
+    if (key === "NOT") return !matches(row, cond as Where);
     const value = (row as Record<string, unknown>)[key];
     if (cond === null) return value === null || value === undefined;
     if (cond instanceof Date) return value instanceof Date && value.getTime() === cond.getTime();
@@ -86,6 +88,7 @@ function matches(row: object, where: Where = {}): boolean {
       if ("lt" in c && !(v < n(c.lt))) return false;
       if ("in" in c && !(c.in as unknown[]).includes(value)) return false;
       if ("startsWith" in c && !(typeof value === "string" && value.startsWith(c.startsWith as string))) return false;
+      if ("endsWith" in c && !(typeof value === "string" && value.endsWith(c.endsWith as string))) return false;
       if ("not" in c) {
         if (c.not === null) return value !== null && value !== undefined;
         if (value === c.not) return false;
