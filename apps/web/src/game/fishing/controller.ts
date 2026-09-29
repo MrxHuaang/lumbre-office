@@ -8,7 +8,7 @@ import * as Phaser from "phaser";
 import type { Avatar } from "../Avatar";
 import { worldToScreen } from "../iso/view";
 import { useOfficeStore } from "../store";
-import { cancelFishing, hookFish, sendFishResult, fishingSpotAction } from "./net";
+import { cancelFishing, hookFish, nibbling, sendFishResult, fishingSpotAction } from "./net";
 import { playFishSound } from "./sound";
 import { useFishingStore, type FishingLocalPhase } from "./store";
 import { castTarget, SCREEN_DIR } from "./water";
@@ -68,14 +68,15 @@ export class FishingController {
   control(taps: { e: boolean; esc: boolean }, moving: boolean) {
     const { phase } = useFishingStore.getState();
     if (taps.esc || (moving && (phase === "waiting" || phase === "bite"))) return cancelFishing();
-    if (phase === "bite" && (taps.e || Phaser.Input.Keyboard.JustDown(this.space))) return hookFish();
+    // Con la boya temblando por un mordisqueo, la tecla es responder (y el pez se asusta): hay que aguantarse.
+    if ((phase === "bite" || nibbling()) && (taps.e || Phaser.Input.Keyboard.JustDown(this.space))) return hookFish();
     if (taps.e && phase === "waiting") return fishingSpotAction();
   }
 
   /** Clic en el mapa: mientras se pesca no camina (en la picada, responde). */
   pointerDown(): boolean {
     if (!this.busy) return false;
-    if (useFishingStore.getState().phase === "bite") hookFish();
+    if (useFishingStore.getState().phase === "bite" || nibbling()) hookFish();
     return true;
   }
 
