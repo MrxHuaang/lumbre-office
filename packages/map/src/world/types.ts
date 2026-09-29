@@ -256,7 +256,9 @@ export interface PointDef {
     // Frente al mostrador del puesto de pesca del lago (comprarle cañas y carnada a Don Evelio).
     | "fishing_shop"
     // Delante de la astrónoma del observatorio: E le pregunta por el cielo (el servidor contesta a todos).
-    | "astronomer";
+    | "astronomer"
+    // Delante del mostrador de la recepción (planta baja): Doña Gloria dice dónde está cada uno.
+    | "reception";
   name: string;
   x: number;
   y: number;

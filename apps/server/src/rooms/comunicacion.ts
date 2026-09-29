@@ -28,9 +28,11 @@ export interface ComunicacionRoomDeps {
 }
 
 export interface Comunicacion {
+  /** Llamar desde el teléfono de escritorio a una persona (sin oficina) del directorio. */
+  phoneCall(sessionId: string, userId: string, from: string): void;
   /** Una sesión nueva: si hay anuncio por voz, que lo sepa. */
   greet(sessionId: string): void;
-  /** Alguien se fue del todo: se corta su anuncio y se olvidan sus pausas. */
+  /** Alguien se fue del todo: su anuncio lo espera un rato (por si recargó) y se olvidan sus pausas. */
   forget(userId: string): void;
   dispose(): void;
 }
@@ -94,6 +96,7 @@ export function registerComunicacion(room: Room<OfficeState>, deps: Comunicacion
   room.onMessage(COM_MSG.broadcastStop, (client) => anuncio.stop(client.sessionId));
 
   return {
+    phoneCall: (sessionId, userId, from) => llamadas.callFrom(sessionId, userId, from),
     greet: (sessionId) => anuncio.greet(sessionId),
     forget: (userId) => {
       anuncio.forget(userId);

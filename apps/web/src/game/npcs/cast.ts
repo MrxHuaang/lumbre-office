@@ -17,6 +17,9 @@ import {
   NPC_LINES,
   PESCA_NPC,
   pescaGreetLine,
+  RECEPCION,
+  RECEPCION_NPC,
+  recepcionGreeting,
   pescaIdleLine,
   pickLine,
   rouletteCall,
@@ -64,10 +67,10 @@ interface Staff {
 
 /** A qué distancia (tiles) de la caja la cajera saluda (y Don Evelio, del mostrador), y el Man susurra. */
 const CASHIER_TILES = 1.6;
-/** Todos los que atienden en un puesto fijo: el personal del casino y el pescador del lago. */
-const STAFF: readonly GameNpc[] = [...ALL_NPCS, PESCA_NPC];
-/** Color de la placa del nombre de cada uno (el pescador, verde de monte). */
-const TAG_COLOR: Record<string, string> = { [PESCA_NPC.id]: "#4a6b34", aurora: "#7a2a36" };
+/** Todos los que atienden en un puesto fijo: el personal del casino, el pescador del lago y la recepcionista. */
+const STAFF: readonly GameNpc[] = [...ALL_NPCS, PESCA_NPC, RECEPCION_NPC];
+/** Color de la placa del nombre de cada uno (el pescador, verde de monte; Doña Gloria, terracota). */
+const TAG_COLOR: Record<string, string> = { [PESCA_NPC.id]: "#4a6b34", [RECEPCION_NPC.id]: "#9a4a38", aurora: "#7a2a36" };
 const WHISPER_TILES = 3.5;
 const WHISPER_RESET_TILES = 6;
 /** Cada cuánto se revisa quién entró al casino o se arrimó a la caja. */
@@ -90,6 +93,8 @@ export class NpcCast {
   /** Quiénes ya saludó la astrónoma (hasta que se alejen). */
   private greeted = new Set<string>();
   private whispered = false;
+  /** Ya se miró quién está en el nivel una vez (los que aparecen después, llegaron). */
+  private scanned = false;
   private scanAt = 0;
   private unsubs: (() => void)[] = [];
 
@@ -135,6 +140,7 @@ export class NpcCast {
     this.atCashier.clear();
     this.greeted.clear();
     this.atShop.clear();
+    this.scanned = false;
     const ts = map.tileSize;
     const now = this.scene.time.now;
     for (const npc of STAFF.filter((n) => n.area === map.id)) {
@@ -209,6 +215,12 @@ export class NpcCast {
   /** Los cuerpos del personal y del Man, para atenuar al que tape la mesa en el modo mesa. */
   sprites(): Phaser.GameObjects.Sprite[] {
     return [...this.avatars()].map((a) => a.sprite);
+  }
+
+  /** Como `sprites()`, pero los agrega a `out` (sin arreglos nuevos: se llama cada cuadro). */
+  collectSprites(out: { push(s: Phaser.GameObjects.Sprite): unknown }) {
+    for (const s of this.staff.values()) out.push(s.avatar.sprite);
+    if (this.man) out.push(this.man.sprite);
   }
 
   private *avatars(): Iterable<Avatar> {
@@ -290,6 +302,14 @@ export class NpcCast {
       const name = shortName(p.name).split(" ")[0] ?? p.name;
       // Todos ven la misma frase: sale de quién es y de cuántas veces se ha ido y vuelto.
       const seed = lineSeed(`${p.sessionId}:${Math.floor(Date.now() / 60_000)}`);
+      // Doña Gloria saluda a quien entra al recibidor: desde el pasillo o las salas de al lado, o llegando al
+      // nivel por la puerta de la casa (yo, o alguien que aparece después de la primera mirada).
+      const arrived = before === undefined && (this.scanned || p.sessionId === useOfficeStore.getState().sessionId);
+      const walkedIn = before !== undefined && before !== RECEPCION.zone;
+      if ((arrived || walkedIn) && p.zoneId === RECEPCION.zone && this.staff.has(RECEPCION_NPC.id)) {
+        this.say(RECEPCION_NPC.id, recepcionGreeting(name, seed));
+        this.staff.get(RECEPCION_NPC.id)?.avatar.playGesture("wave");
+      }
       if (before === "vestibulo" && p.zoneId === "casino") {
         this.say("portero", pickLine(NPC_LINES.doorIn, seed).replace("{name}", name));
         this.staff.get("portero")?.avatar.playGesture("nod");
@@ -310,6 +330,7 @@ export class NpcCast {
       } else if (!atShop) this.atShop.delete(p.sessionId);
       this.greetAstronomer(p, name);
     }
+    this.scanned = true;
     for (const id of [...this.atShop]) if (!seen.has(id)) this.atShop.delete(id);
     for (const id of [...this.zoneOf.keys()]) if (!seen.has(id)) this.zoneOf.delete(id);
     for (const id of [...this.greeted]) if (!seen.has(id)) this.greeted.delete(id);

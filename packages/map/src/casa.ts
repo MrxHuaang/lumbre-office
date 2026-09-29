@@ -4,6 +4,7 @@
 import { CURTAIN_TYPE, usableSpec } from "@hyvento/shared";
 import type { OfficeMap, PlacedFurniture } from "./world/build";
 import type { WallFeature } from "./world/types";
+import { wallBoardsOf } from "./mundo";
 
 /** Ventanas con cortinas (las del ventanal también se cierran). */
 const CURTAINED = new Set<WallFeature["kind"]>(["window", "ventanal"]);
@@ -38,11 +39,11 @@ export function curtainFeature(map: OfficeMap, c: PlacedFurniture): WallFeature 
 
 const usableCache = new WeakMap<OfficeMap, PlacedFurniture[]>();
 
-/** Todo lo que se usa en el nivel: los muebles con acción y las cortinas. */
+/** Todo lo que se usa en el nivel: los muebles con acción, las cortinas y las pizarras de la pared. */
 export function usablesOf(map: OfficeMap): PlacedFurniture[] {
   let list = usableCache.get(map);
   if (!list) {
-    list = [...map.furniture.filter((f) => usableSpec(f.type)), ...curtainsOf(map)];
+    list = [...map.furniture.filter((f) => usableSpec(f.type)), ...curtainsOf(map), ...wallBoardsOf(map)];
     usableCache.set(map, list);
   }
   return list;

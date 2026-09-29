@@ -93,6 +93,11 @@ export function sendPhoneCall(zoneId: string) {
   dial(zoneId, MSG.phoneCall, { zoneId });
 }
 
+/** Desde el teléfono, a una persona del directorio que no tiene oficina. */
+export function sendPhoneCallTo(userId: string) {
+  dial(`user:${userId}`, MSG.phoneCall, { userId });
+}
+
 /**
  * Marca: `key` identifica el botón que dice "Marcando…" (la oficina o la persona); `type`/`payload` es el
  * mensaje (el del teléfono o el de llamar sin teléfono, ver game/comunicacion.ts).

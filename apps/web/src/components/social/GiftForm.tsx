@@ -127,11 +127,11 @@ export function GiftForm({ to, onSent, onCancel }: { to: GiftTarget | null; onSe
         {itemId && (
           <div className="flex items-center gap-2 text-[14px]">
             <span className="flex-1 font-semibold">{itemName(itemId)}</span>
-            <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} aria-label="Uno menos" className="cozy-btn h-6 w-6 p-0">
+            <button type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} aria-label="Uno menos" className="cozy-btn cozy-hit h-6 w-6 p-0">
               −
             </button>
             <span className="w-7 text-center tabular-nums">{quantity}</span>
-            <button type="button" onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))} disabled={quantity >= maxQuantity} aria-label="Uno más" className="cozy-btn h-6 w-6 p-0">
+            <button type="button" onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))} disabled={quantity >= maxQuantity} aria-label="Uno más" className="cozy-btn cozy-hit h-6 w-6 p-0">
               +
             </button>
           </div>

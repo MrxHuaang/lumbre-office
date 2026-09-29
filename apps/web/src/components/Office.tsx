@@ -75,6 +75,7 @@ import { AchievementToasts } from "./profile/AchievementToasts";
 import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
 import { TrophyPanel } from "./profile/TrophyPanel";
 import { useAchievementStore } from "@/game/achievements";
+import { MundoPanels } from "./mundo/MundoPanels";
 import { DECOR_CONTROLS, gameControls } from "@/lib/shortcuts";
 import { FacilidadLayer, GameOnly } from "./facilidad/FacilidadLayer";
 
@@ -441,6 +442,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "logbook" && <DiarioPanel onClose={closePanel} />}
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
+          {/* Mundo lleno: tragamonedas, garra, estante de premios, rueda y la recepción. */}
+          <MundoPanels />
           {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}
           <FacilidadLayer isAdmin={isAdmin} onEditProfile={() => setDialog("profile")} onEditCharacter={() => setDialog("character")} onAdmin={() => setDialog("admin")} />
           </ErrorBoundary>

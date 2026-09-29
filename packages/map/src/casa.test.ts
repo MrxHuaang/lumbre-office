@@ -1,4 +1,4 @@
-import { CURTAIN_TYPE, USABLE_FURNITURE } from "@hyvento/shared";
+import { CURTAIN_TYPE, USABLE_FURNITURE, WALL_BOARD_TYPE } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { curtainFeature, curtainsOf, getWorld, usablesOf } from "./index";
 import { CATALOG } from "./world/catalog";
@@ -6,8 +6,8 @@ import { CATALOG } from "./world/catalog";
 describe("casa viva", () => {
   const world = getWorld();
 
-  it("cada mueble que se usa existe en el catálogo (salvo las cortinas, que son las ventanas)", () => {
-    for (const type of Object.keys(USABLE_FURNITURE)) if (type !== CURTAIN_TYPE) expect(type in CATALOG, type).toBe(true);
+  it("cada mueble que se usa existe en el catálogo (salvo las cortinas y las pizarras, que están en las paredes)", () => {
+    for (const type of Object.keys(USABLE_FURNITURE)) if (type !== CURTAIN_TYPE && type !== WALL_BOARD_TYPE) expect(type in CATALOG, type).toBe(true);
   });
 
   it("cada ventana tiene su cortina, sin dos en la misma esquina, y se encuentra su ventana", () => {
