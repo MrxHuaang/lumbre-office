@@ -879,6 +879,9 @@ export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId"
   if (accept) setTimeout(() => useOfficeStore.getState().walkToPlayer(inv.fromSessionId), 300);
 }
 
+/** El aviso de "tope de ocio lleno" ya salió (se rearma cuando el conteo baja: día nuevo). */
+let leisureFullShown = false;
+
 function attach(r: OfficeRoom) {
   room = r;
   if (idleNow) r.send(MSG.idle, { idle: true });
@@ -1130,11 +1133,16 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
   // Tope de ocio del día: el conteo va al celular y, al llenarse, un aviso igual para todas las actividades.
+  // Una sola vez por día: las reposeras y la tina premian cada tick y con el tope lleno avisarían siempre.
   r.onMessage(LEISURE_MSG.state, (n: LeisureState) => {
     const s = useOfficeStore.getState();
     const before = s.leisure;
     s.setLeisure(n);
-    if (n.capped || (before && before.today < n.cap && n.today >= n.cap)) s.notify(LEISURE_FULL_TEXT, "info");
+    if (n.today < n.cap) leisureFullShown = false;
+    else if (!leisureFullShown && (n.capped || (before && before.today < n.cap))) {
+      leisureFullShown = true;
+      s.notify(LEISURE_FULL_TEXT, "info");
+    }
   });
   r.onMessage(MSG.cafeResult, handleCafeResult);
   r.onMessage(MSG.sombreroResult, handleSombreroResult);
