@@ -100,7 +100,7 @@ Cosas chicas que le dan vida a la cabaña. Se hacen cuando no chocan con la fase
 | Mascota | Un gato o un perro que te sigue (se compra en la tienda). | Pendiente |
 | Standup diario | En el tablón, cada persona escribe qué hará hoy; da un bono pequeño de puntos. | Pendiente |
 | Logros | Insignias que se ven en tu placa (primera misión, racha de 30 días…). | Pendiente |
-| Avisos de GitHub | Un webhook anuncia en el tablón o el chat cuando se mezcla un PR. | Pendiente |
+| Avisos de GitHub | Un webhook anuncia en el chat global cuando se mezcla (o se abre) un PR (`/api/github/webhook`, ver `docs/despliegue.md`). | ✅ |
 
 ## A futuro: Hyvento para cualquier equipo (fase 6)
 

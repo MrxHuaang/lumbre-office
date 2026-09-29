@@ -121,6 +121,47 @@ describe("oficinas personales", () => {
     expect(office().radioVideo).toBe("");
   });
 
+  it("al cambiar de dueño la oficina queda sin la radio ni la nota del anterior", async () => {
+    OfficeRoom.youtubeLookup = async (id) => ({ ok: true, title: `Radio ${id}` });
+    const { room, alice } = await setup();
+    const office = () => room.state.offices.get("office-4")!;
+    alice.send(MSG.officeRadio, { action: "set", url: "https://youtu.be/jfKfPfyJRdk" });
+    alice.send(MSG.officeNote, { note: "Pasen" });
+    await tick(60);
+    await room.waitForNextPatch();
+    expect(office()).toMatchObject({ radioVideo: "jfKfPfyJRdk", note: "Pasen" });
+    // Recargar sin cambios no la apaga.
+    await OfficeRoom.reloadOfficesEverywhere();
+    expect(office().radioVideo).toBe("jfKfPfyJRdk");
+    repo.assign("office-4", "u-carla", "Carla");
+    await OfficeRoom.reloadOfficesEverywhere();
+    expect(office()).toMatchObject({ ownerId: "u-carla", radioVideo: "", radioTitle: "", radioStartedAt: 0, radioDurationMs: 0, note: "" });
+    // Alice ya no la maneja.
+    const errors: OfficeRadioResult[] = [];
+    alice.onMessage(MSG.officeRadioResult, (r: OfficeRadioResult) => errors.push(r));
+    alice.send(MSG.officeRadio, { action: "set", url: "https://youtu.be/jfKfPfyJRdk" });
+    await tick(60);
+    expect(errors).toEqual([{ ok: false, error: "not-owner" }]);
+    expect(office().radioVideo).toBe("");
+  });
+
+  it("si la oficina cambia de dueño mientras se busca el video, la radio no se prende", async () => {
+    let release!: () => void;
+    OfficeRoom.youtubeLookup = (id) => new Promise((resolve) => (release = () => resolve({ ok: true, title: `Radio ${id}` })));
+    const { room, alice } = await setup();
+    const errors: OfficeRadioResult[] = [];
+    alice.onMessage(MSG.officeRadioResult, (r: OfficeRadioResult) => errors.push(r));
+    alice.send(MSG.officeRadio, { action: "set", url: "https://youtu.be/jfKfPfyJRdk" });
+    await tick(60);
+    repo.assign("office-4", "u-carla", "Carla");
+    await OfficeRoom.reloadOfficesEverywhere();
+    release();
+    await tick(60);
+    expect(room.state.offices.get("office-4")!.radioVideo).toBe("");
+    expect(errors).toEqual([{ ok: false, error: "not-owner" }]);
+    OfficeRoom.youtubeLookup = async (id) => ({ ok: true, title: `Radio ${id}` });
+  });
+
   it("la nota de la placa la pone solo la dueña, en una línea corta", async () => {
     const { room, alice, bob } = await setup();
     bob.send(MSG.officeNote, { note: "Pasen" });

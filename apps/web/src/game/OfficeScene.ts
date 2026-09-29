@@ -165,6 +165,7 @@ import { SeasonView } from "./seasons";
 import { NpcCast } from "./npcs/cast";
 import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
 import { isTripKind, SOMBRERO, type TripKind } from "@hyvento/shared";
+import { broadcastActive, noteManualMove, voiceFlags } from "./comunicacion";
 
 // 1 = la vista más abierta: se ve harto más de la cabaña alrededor.
 const MIN_ZOOM = 1;
@@ -1464,6 +1465,7 @@ export class OfficeScene extends Phaser.Scene {
       this.clearPath(); // el teclado cancela el clic-para-caminar
       this.pendingZone = null;
       this.pendingPerson = null;
+      noteManualMove(); // y deja de seguir a alguien
       this.pendingInteract = null;
       this.pendingUse = null;
       if (this.seat) this.standUp(); // caminar te levanta
@@ -1806,6 +1808,7 @@ export class OfficeScene extends Phaser.Scene {
     const man = this.local && !this.seat ? this.npcs.sombreroUnder(sx, sy) : null;
     if (man) {
       if (this.interactableInReach() === "sombrero") return activateInteractable("sombrero");
+      noteManualMove();
       this.walkTo(man.x, man.y);
       this.pendingInteract = "sombrero";
       return;
@@ -1819,6 +1822,7 @@ export class OfficeScene extends Phaser.Scene {
     // Nadando, el clic solo lleva a otro lugar de la pileta.
     if (this.swimming) {
       const w = screenToWorld(sx, sy);
+      noteManualMove(); // caminar a mano deja de seguir a alguien
       this.walkTo(w.x, w.y);
       return;
     }
@@ -1829,6 +1833,7 @@ export class OfficeScene extends Phaser.Scene {
         activateInteractable(target.kind);
         return;
       }
+      noteManualMove();
       this.walkTo(target.x, target.y);
       this.pendingInteract = target.kind;
       return;
@@ -1838,12 +1843,14 @@ export class OfficeScene extends Phaser.Scene {
     if (usable && this.local) {
       if (this.usables.reaches(usable, this.local.x, this.local.y)) return this.useFurniture(usable);
       const spot = this.usables.standSpot(usable);
+      noteManualMove();
       this.walkTo(spot.x, spot.y);
       this.pendingUse = usable;
       return;
     }
     const hit = this.tileUnder(sx, sy);
     if (!hit) return;
+    noteManualMove(); // clic en el suelo: caminar a mano deja de seguir a alguien
     this.walkTo((hit.tile.x + 0.5) * ts, (hit.tile.y + 0.5) * ts);
   }
 
@@ -2414,7 +2421,8 @@ export class OfficeScene extends Phaser.Scene {
     const zone = zoneId ? this.zonesById.get(zoneId) : undefined;
     // En el anfiteatro del jardín: quien está en la tarima (o tiene la palabra) se oye en todo el anfiteatro.
     const stage = area === ESCENARIO.area ? stageRole(zoneId, userId, useEscenarioStore.getState().floor) : undefined;
-    return { area, x, y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false, ...(stage ? { stage } : {}) };
+    // La llamada grupal y el anuncio del admin a toda la cabaña (comunicacion.ts).
+    return { area, x, y, zoneId: zone?.id ?? null, zoneIsolated: zone?.isolated ?? false, ...(stage ? { stage } : {}), ...voiceFlags(userId) };
   }
 
   /** Teléfonos del nivel que están sonando (el de la oficina de quien recibe una llamada). */
@@ -2461,6 +2469,7 @@ export class OfficeScene extends Phaser.Scene {
       if (!room || !this.local || !this.localId) return (this.voiceNear = false);
       const mine = room.state.players.get(this.localId);
       if (mine?.call && mine.callWith) return true;
+      if (broadcastActive()) return true;
       const me = this.positioned(this.map.id, this.local.x, this.local.y, zoneAt(this.map, this.local.x, this.local.y)?.id ?? null);
       const others: Positioned[] = [];
       room.state.players.forEach((p, sessionId) => {

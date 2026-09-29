@@ -31,6 +31,8 @@ export const CHAIR_RACE = {
   cooldownMs: 1500,
   /** "Juego" con el que se guardan los tiempos (tabla ArcadeScore; el puntaje son ms). */
   game: "carrera-sillas",
+  /** Cuánto vale el tablero guardado en la sala (se borra al terminar una carrera en ella). */
+  boardCacheMs: 60_000,
   /** Cuántos salen en la tabla de la semana. */
   boardSize: 8,
 } as const;
