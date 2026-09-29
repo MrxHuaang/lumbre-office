@@ -1130,6 +1130,9 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.destroy();
     for (const a of this.avatars.values()) a.destroy();
     this.avatars.clear();
+    // Con sesión nueva (tras un reinicio) la vieja no avisa que se fue: que no quede contada en ningún nivel.
+    this.userOfSession.clear();
+    this.areaOfSession.clear();
     this.local = undefined;
     this.seat = null;
     this.pendingSeat = null;

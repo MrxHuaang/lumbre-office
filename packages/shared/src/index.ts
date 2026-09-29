@@ -65,4 +65,5 @@ export * from "./pesca-maestria";
 export * from "./libros";
 export * from "./encargos";
 export * from "./github";
+export * from "./reconexion";
 export * from "./comunicacion";

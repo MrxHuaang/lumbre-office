@@ -10,7 +10,7 @@ import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useEntryStore } from "@/game/entryStore";
 import { currentGameTime } from "@/game/gameClock";
 import { useOfficeStore, type Profile } from "@/game/store";
-import { currentStage, ENTRY_SLOW_MS, ENTRY_TIPS, entryDone, entryMood, entryPercent, nextShown, skyArc, TIP_MS, tipOrder, type EntryMood } from "@/lib/entry";
+import { currentStage, ENTRY_TIPS, entryDone, entryMood, entryPercent, nextShown, skyArc, stageSlowMs, TIP_MS, tipOrder, type EntryMood } from "@/lib/entry";
 import { SKY_COLORS } from "@/lib/sky";
 import { CharacterSprite } from "./CharacterSprite";
 import { CozyTitle } from "./Cozy";
@@ -68,7 +68,7 @@ export function EntryLoader({ profile, error = null, onRetry, onExit, onGone, pr
         setSlow(false);
       } else if (document.visibilityState === "visible") {
         stuck += now - last;
-        if (stuck >= ENTRY_SLOW_MS) setSlow(true);
+        if (stuck >= stageSlowMs(cur)) setSlow(true);
       }
       last = now;
       setShown((p) => nextShown(p, entryPercent(stages, now)));
