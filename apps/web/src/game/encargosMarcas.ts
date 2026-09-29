@@ -3,8 +3,10 @@
 // su libreta (useEncargos). También mide quién da encargos al alcance del jugador (para la "E" y para
 // cerrar el cuadro al alejarse).
 import { questGiverSpot, questGiversNear, pointsOfType, type OfficeMap } from "@hyvento/map";
-import { BODY_UP, questMark, type QuestMarkKind } from "@hyvento/map/art";
-import { QUEST_GIVER_IDS, questGiver, type QuestGiverId } from "@hyvento/shared";
+import { BODY_UP, questMark, storyArrow, type QuestMarkKind } from "@hyvento/map/art";
+import { QUEST_GIVER_IDS, STORY_TARGET, questGiver, type QuestGiverId } from "@hyvento/shared";
+import { currentStoryStep } from "./historia";
+import { selectMyOffice, useOfficeStore } from "./store";
 import type * as Phaser from "phaser";
 import { giverMark, useEncargos } from "./encargos";
 import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
@@ -34,6 +36,8 @@ export class QuestMarkers {
   private marks: Mark[] = [];
   private scanAt = 0;
   private unsub: () => void;
+  /** La flechita de la historia: señala el objetivo del paso de ahora (si queda en este nivel). */
+  private arrow?: { img: Phaser.GameObjects.Image; y: number };
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -49,6 +53,8 @@ export class QuestMarkers {
     this.map = map;
     for (const m of this.marks) m.img.destroy();
     this.marks = [];
+    this.arrow?.img.destroy();
+    this.arrow = undefined;
     for (const giver of QUEST_GIVER_IDS) {
       const spots: { x: number; y: number; lift: number }[] = [];
       const npc = questGiverSpot(map, giver);
@@ -70,6 +76,44 @@ export class QuestMarkers {
     this.refresh();
   }
 
+  /** Dónde va la flechita: el objetivo del paso de la historia de ahora, o Doña Aurora si ya está para entregar. */
+  private storyTarget(): { x: number; y: number; lift: number } | null {
+    const map = this.map;
+    const step = currentStoryStep(useEncargos.getState().quests);
+    if (!map || !step) return null;
+    const aurora = questGiverSpot(map, "aurora");
+    const t = STORY_TARGET[step.questId];
+    if (step.status === "DONE" || step.questId === "llegada-3") return aurora ? { ...aurora, lift: OVER_HEAD + 14 } : null;
+    if (!t || t.area !== map.id) return null;
+    if (t.point) {
+      const p = pointsOfType(map, t.point)[0];
+      return p ? { x: p.x, y: p.y, lift: OVER_BOARD } : null;
+    }
+    if (t.office) {
+      const office = selectMyOffice(useOfficeStore.getState());
+      const zone = office ? map.zones.find((z) => z.id === office.zoneId) : undefined;
+      return zone ? { x: zone.x + zone.width / 2, y: zone.y + zone.height / 2, lift: 20 } : null;
+    }
+    return null;
+  }
+
+  private refreshArrow() {
+    const target = this.storyTarget();
+    if (!target) {
+      this.arrow?.img.destroy();
+      this.arrow = undefined;
+      return;
+    }
+    const at = worldToScreen(target.x, target.y);
+    const y = Math.round(at.y - target.lift);
+    if (!this.arrow) {
+      const key = ensureTexture(this.scene, "historia-flecha", () => storyArrow());
+      this.arrow = { img: this.scene.add.image(0, 0, key).setOrigin(0.5, 1), y };
+    }
+    this.arrow.y = y;
+    this.arrow.img.setPosition(Math.round(at.x), y).setDepth(5e7 + depthOf(target.x, target.y) + 0.45);
+  }
+
   update(time: number) {
     // Flotan suavecito (cada una a su ritmo); la dorada late un poco.
     for (const [i, m] of this.marks.entries()) {
@@ -78,8 +122,11 @@ export class QuestMarkers {
       m.img.setY(Math.round(m.y + bob));
       if (m.kind === "ready") m.img.setScale(1 + Math.max(0, Math.sin(time / 260)) * 0.08);
     }
+    // La flechita salta suave (como quien dice "¡por aquí!").
+    if (this.arrow) this.arrow.img.setY(this.arrow.y - Math.round(Math.abs(Math.sin(time / 300)) * 4));
     if (time < this.scanAt || !this.map) return;
     this.scanAt = time + SCAN_MS;
+    this.refreshArrow();
     const me = this.deps.local();
     const near = me ? questGiversNear(this.map, me.x, me.y) : [];
     const prev = useEncargos.getState().near;
@@ -91,6 +138,7 @@ export class QuestMarkers {
 
   destroy() {
     this.unsub();
+    this.arrow?.img.destroy();
     for (const m of this.marks) m.img.destroy();
     this.marks = [];
   }

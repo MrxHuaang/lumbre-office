@@ -21,6 +21,7 @@ import {
   type ManualStatus,
   type StatChange,
   STORY_PERIOD,
+  STORY_REF_SUFFIX,
   questKey,
   type QuestDelta,
   type QuestRecord,
@@ -331,8 +332,12 @@ export class MemoryRepository implements GameRepository {
     if (!row || row.status !== "DONE") return { ok: false, error: row?.status === "CLAIMED" ? "claimed" : "not-done" };
     // Como claimQuestTx: si no cabe entero bajo el tope de hoy (con la hora que manda la sala), no se entrega.
     const cap = DAILY_CAPS.QUEST ?? Infinity;
-    const today = this.ledger.filter((m) => m.userId === userId && m.reason === "QUEST" && m.at >= dayStart(now)).reduce((a, m) => a + m.amount, 0);
-    if (input.points > 0 && today + input.points > cap) return { ok: false, error: "capped" };
+    // La historia paga aparte: ni cuenta para el tope ni lo mira.
+    const story = period === STORY_PERIOD;
+    const today = this.ledger
+      .filter((m) => m.userId === userId && m.reason === "QUEST" && m.at >= dayStart(now) && !m.refId?.endsWith(STORY_REF_SUFFIX))
+      .reduce((a, m) => a + m.amount, 0);
+    if (!story && input.points > 0 && today + input.points > cap) return { ok: false, error: "capped" };
     row.status = "CLAIMED";
     const awarded = Math.max(0, input.points);
     if (awarded > 0) this.ledger.push({ userId, amount: awarded, reason: "QUEST", at: now, refId: `encargo:${questId}:${period}` });
@@ -383,6 +388,18 @@ export class MemoryRepository implements GameRepository {
       added[o] = amount;
     }
     return added;
+  }
+
+  async skipStory(userId: string, steps: readonly { questId: string; goal: number }[]) {
+    let changed = 0;
+    for (const st of steps) {
+      const key = `${userId}|${questKey(st.questId, STORY_PERIOD)}`;
+      const row = this.quests.get(key) ?? { questId: st.questId, period: STORY_PERIOD, progress: 0, goal: st.goal, status: "ACTIVE" as const };
+      if (row.status === "CLAIMED") continue;
+      this.quests.set(key, { ...row, progress: st.goal, status: "CLAIMED" });
+      changed++;
+    }
+    return changed;
   }
 
   /** Helper de tests: la fila de un encargo. */

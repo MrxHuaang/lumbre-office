@@ -234,5 +234,5 @@ export { orreryArms, ORRERY_FRAMES } from "./observatorio";
 // Mundo lleno: los símbolos de los rodillos del tragamonedas y el espantapájaros de cada estación.
 export { SLOT_GLYPH, slotSymbol } from "./tragamonedas";
 export { scarecrow } from "./leisure";
-export { questMark, type QuestMarkKind } from "./encargos";
+export { questMark, storyArrow, type QuestMarkKind } from "./encargos";
 export { levelSpark, neighborPlate } from "./oficios";

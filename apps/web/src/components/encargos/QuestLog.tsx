@@ -5,6 +5,7 @@
 // el rastreador. Se entregan junto a quien los dio (con E), no desde aquí.
 import { QUEST_GIVERS, questById, questKey, type QuestView } from "@hyvento/shared";
 import { pinQuest, trackedQuest, useEncargos } from "@/game/encargos";
+import { SkipStoryButton } from "../historia/HistoriaCard";
 import { QuestEntry, QuestTag } from "./QuestParts";
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -71,9 +72,12 @@ export function QuestLog() {
       <Section title="Semanal" hint="más grande, de lunes a domingo">
         {weekly.length ? weekly.map(entry) : <p className="text-[13px] text-cozy-ink-soft">Esta semana no hay encargo grande.</p>}
       </Section>
-      <Section title="Historia">
+      <Section title="Historia" hint="Capítulo 1 · La llegada, con Doña Aurora (recibidor de la planta baja)">
         {story.length ? (
-          story.map(entry)
+          <>
+            {story.map(entry)}
+            {story.some((q) => q.status !== "CLAIMED") && <SkipStoryButton className="self-end" />}
+          </>
         ) : (
           <p className="border-2 border-dashed border-cozy-paper-dark p-3 text-center text-[13px] italic text-cozy-ink-soft">
             Una página en blanco. Alguien va a llegar a la cabaña con una historia que contar…

@@ -67,3 +67,12 @@ export function questMark(kind: QuestMarkKind): PixelCanvas {
   );
   return c;
 }
+
+/** La flechita de la historia (apunta hacia abajo, al objetivo del paso): dorada, con contorno café. */
+export function storyArrow(): PixelCanvas {
+  const rows = [".ooooo.", ".oyyyo.", ".oyyyo.", "ooyyyoo", "oyyyyyo", ".oyyyo.", "..oyo..", "...o..."];
+  const col: Record<string, RGBA> = { o: hex("#3e2410"), y: hex("#f2c230") };
+  const c = new PixelCanvas(7, 8);
+  rows.forEach((r, y) => [...r].forEach((ch, x) => col[ch] && c.set(x, y, col[ch]!)));
+  return c;
+}

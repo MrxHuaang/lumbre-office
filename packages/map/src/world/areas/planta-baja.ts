@@ -1,3 +1,4 @@
+import { npcSolidTiles } from "@hyvento/shared";
 import { RECEPCION_NPC } from "@hyvento/shared";
 import type { AreaDef, Placement, ZoneDef } from "../types";
 import { place } from "./place";
@@ -331,6 +332,9 @@ export const plantaBaja: AreaDef = {
     place("lamp", 34, 25),
     place("coat-rack", 36, 25),
   ],
+  // Doña Aurora, la casera, junto a la escalera del recibidor (historia.ts): su tile no se pisa.
+  // Y Doña Gloria, detrás del mostrador de la recepción.
+  npcTiles: [...npcSolidTiles("planta-baja"), RECEPCION_NPC.tile],
   portals: [
     {
       id: "planta-baja-salida",
@@ -368,6 +372,4 @@ export const plantaBaja: AreaDef = {
     // Delante del mostrador de la recepción: Doña Gloria dice dónde anda cada uno.
     { type: "reception", name: "Recepción", x: 14, y: 22 },
   ],
-  // Doña Gloria, detrás del mostrador de la recepción.
-  npcTiles: [RECEPCION_NPC.tile],
 };

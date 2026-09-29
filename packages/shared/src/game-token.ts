@@ -14,6 +14,8 @@ export const GameTokenClaims = z.object({
   /** Personaje personalizado (si no hay, se usa `avatar`). */
   look: Look.optional(),
   role: z.enum(["ADMIN", "MEMBER"]),
+  /** Cuándo entró por primera vez (ms): a quien recién llegó lo recibe Doña Aurora (historia.ts). */
+  onboardedAt: z.number().optional(),
 });
 export type GameTokenClaims = z.infer<typeof GameTokenClaims>;
 

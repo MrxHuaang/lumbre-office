@@ -227,6 +227,8 @@ import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/sh
 import { PescaStand } from "./pescaTienda";
 import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
 import { encargosDeSala, type Encargos } from "./encargos";
+import { bindHistoria } from "./historia";
+import { isNewcomer } from "@hyvento/shared";
 import { bindOficios, oficiosDeSala, type Oficios } from "./oficios";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice, type SystemNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
@@ -943,6 +945,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
     bindOficios(this, this.oficios, (id) => this.state.players.get(id)?.userId ?? null);
+    bindHistoria(this, { encargos: this.encargos, who: (id) => this.state.players.get(id), mapOf: (a) => this.mapOf(a), bump: (u, k) => this.achievements.bump(u, k) });
     this.mundo = registerMundo(this as unknown as MundoRoom);
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
@@ -1263,7 +1266,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
-    void this.encargos.load(auth.sub, { join: true });
+    void this.encargos.load(auth.sub, { join: true, newcomer: isNewcomer(auth.onboardedAt, Date.now()), byBus });
     void this.oficios.load(auth.sub, { join: true });
     if (byBus) this.bus.requestRide();
     void this.refreshBadge(auth.sub);
@@ -1956,8 +1959,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.y = y;
     player.dir = dir;
     player.moving = seated ? false : moving;
+    const wasSeated = player.seated;
     player.seated = seated;
     player.zoneId = zoneAt(map, x, y)?.id ?? "";
+    // La historia (paso 2): sentarse en la oficina propia.
+    if (seated && !wasSeated && this.state.offices.get(player.zoneId)?.ownerId === player.userId) this.achievements.bump(player.userId, STAT_KEYS.ownOfficeSits);
     player.place = placeAt(map, x, y);
     this.revokeGuestOnExit(player, previousZoneId);
     if (previousZoneId !== player.zoneId) this.autoStatus.refreshMeetings();

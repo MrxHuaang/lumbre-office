@@ -10,6 +10,7 @@ import {
   ALL_NPCS,
   ASTRONOMA,
   astronomerGreeting,
+  auroraIdleLine,
   handValue,
   lineSeed,
   NPC,
@@ -69,7 +70,7 @@ const CASHIER_TILES = 1.6;
 /** Todos los que atienden en un puesto fijo: el personal del casino, el pescador del lago y la recepcionista. */
 const STAFF: readonly GameNpc[] = [...ALL_NPCS, PESCA_NPC, RECEPCION_NPC];
 /** Color de la placa del nombre de cada uno (el pescador, verde de monte; Doña Gloria, terracota). */
-const TAG_COLOR: Record<string, string> = { [PESCA_NPC.id]: "#4a6b34", [RECEPCION_NPC.id]: "#9a4a38" };
+const TAG_COLOR: Record<string, string> = { [PESCA_NPC.id]: "#4a6b34", [RECEPCION_NPC.id]: "#9a4a38", aurora: "#7a2a36" };
 const WHISPER_TILES = 3.5;
 const WHISPER_RESET_TILES = 6;
 /** Cada cuánto se revisa quién entró al casino o se arrimó a la caja. */
@@ -375,6 +376,12 @@ export class NpcCast {
         // El pescador comenta la hora del juego y el clima (la misma frase para todos en ese rato).
         const slot = Math.floor(Date.now() / NPC.idleEveryMs);
         this.say(s.npc.id, pescaIdleLine(currentGameTime()?.hour ?? 12, useOfficeStore.getState().weather, lineSeed(`evelio:${slot}`)));
+        continue;
+      }
+      if (s.npc.id === "aurora") {
+        // Doña Aurora, la casera: según la hora del juego y el clima (la misma frase para todos en ese rato).
+        const slot = Math.floor(Date.now() / NPC.idleEveryMs);
+        this.say(s.npc.id, auroraIdleLine(currentGameTime()?.hour ?? 12, useOfficeStore.getState().weather, lineSeed(`aurora:${slot}`)));
         continue;
       }
       this.say(s.npc.id, s.npc.idle[Math.floor(Math.random() * s.npc.idle.length)]!);

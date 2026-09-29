@@ -1,7 +1,7 @@
 "use client";
 
 // Fase 2: el buzón (recompensa diaria y movimientos) y el tablón (misiones y ranking) del jardín.
-import { barItem, cafeItem, CASINO_GAME_NAMES, POINTS, questById, shopItem, WELCOME_REF, type HumanAvatar, type CasinoGame, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
+import { type StoryLetter, barItem, cafeItem, CASINO_GAME_NAMES, POINTS, questById, shopItem, WELCOME_REF, type HumanAvatar, type CasinoGame, type Look, type MissionAction, type MissionDTO, type PointReason } from "@hyvento/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
@@ -238,6 +238,8 @@ export function PanelShell({
 interface PointsState {
   balance: number;
   daily: { claimed: boolean; streak: number; reward: number };
+  /** Cartas del buzón (la del cuidador anterior, al terminar el capítulo 1). */
+  letters?: StoryLetter[];
   moves: { id: string; amount: number; reason: PointReason; refId: string | null; at: string }[];
 }
 
@@ -288,6 +290,7 @@ export function MailboxPanel({ atObject, onClose }: { atObject: boolean; onClose
             {error && <p className="text-[14px] font-semibold text-cozy-red-deep">{error}</p>}
           </section>
 
+          {data?.letters?.map((l) => <LetterCard key={l.id} letter={l} />)}
           <GiftsSection />
 
           <section className="flex flex-col gap-2">
@@ -579,5 +582,27 @@ function Ranking() {
         ))}
       </ol>
     </div>
+  );
+}
+
+/** Una carta del buzón: cerrada con su remitente, se abre con un clic. */
+function LetterCard({ letter }: { letter: StoryLetter }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section aria-label="Carta" className="flex flex-col gap-2 border-2 border-cozy-wood bg-cozy-paper-light px-3 py-2.5">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex items-center gap-2 text-left">
+        <PixelIcon name="mail" size={16} color="var(--color-cozy-red)" />
+        <span className="flex-1 text-[14px] font-semibold">{letter.title}</span>
+        <span className="text-[12px] text-cozy-ink-soft">{open ? "Cerrar" : "Abrir"}</span>
+      </button>
+      {open && (
+        <div className="flex flex-col gap-2 font-serif text-[14px] leading-relaxed italic text-cozy-ink">
+          {letter.body.split(/\n\n/).map((p) => (
+            <p key={p}>{p}</p>
+          ))}
+          <p className="text-right not-italic font-semibold">— {letter.from}</p>
+        </div>
+      )}
+    </section>
   );
 }

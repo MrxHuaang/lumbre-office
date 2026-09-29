@@ -7,8 +7,12 @@
 // avisar; este módulo no conoce Colyseus.
 import { nearQuestGiver, type OfficeMap } from "@hyvento/map";
 import {
+  HISTORIA_MSG,
   MSG,
   QUEST,
+  STORY_FIRST,
+  STORY_QUESTS,
+  type HistoriaPrologue,
   QUEST_MSG,
   STAT_KEYS,
   isNightMinute,
@@ -38,7 +42,7 @@ import type { GameRepository } from "../repo/types";
 import type { Bag } from "./bag";
 
 export interface EncargosDeps {
-  repo(): Pick<GameRepository, "loadQuests" | "claimQuest">;
+  repo(): Pick<GameRepository, "loadQuests" | "claimQuest" | "skipStory">;
   now(): number;
   /** Lo que le toca a alguien ahora (los 3 diarios y el semanal; los tests lo fijan). */
   pick(userId: string, now: number): ActiveQuest[];
@@ -56,6 +60,10 @@ export interface EncargosDeps {
   paid(userId: string, awarded: number, balance: number): void;
   /** La experiencia de la entrega ya quedó guardada: el oficio la suma para el nivel (ver rooms/oficios.ts). */
   xp?(userId: string, skill: string, xp: number): void;
+  /** Los contadores de alguien (la historia marca sola lo que ya hizo, y el prólogo sale una vez). */
+  stats?: { load(userId: string): Promise<void>; stat(userId: string, key: string): number | undefined; max(userId: string, key: string, value: number): void };
+  /** Terminó (o saltó) el capítulo 1: el logro y la carta del buzón (ver historia.ts). */
+  storyDone?(userId: string): void;
 }
 
 interface Entry {
@@ -78,6 +86,8 @@ interface Entry {
   retryAt: number;
   /** Cambia en cada entrada (`load` con `join`): un `forget` de una sesión anterior no borra lo nuevo. */
   gen: number;
+  /** La bienvenida de Doña Aurora, pendiente para esta entrada (solo si recién llegó). */
+  prologue?: { byBus: boolean };
 }
 
 /** Cada cuánto, como mucho, se manda lo que avanzó (caminar suma de a baldosa). */
@@ -134,9 +144,10 @@ export class Encargos {
    * `join` (al entrar) empieza una sesión nueva: un `forget` de la anterior ya no la borra. Si la carga
    * viene fallando, entre intento e intento hay una pausa creciente (salvo al entrar o al pedirla la web).
    */
-  load(userId: string, opts: { join?: boolean; force?: boolean } = {}): Promise<void> {
+  load(userId: string, opts: { join?: boolean; force?: boolean; newcomer?: boolean; byBus?: boolean } = {}): Promise<void> {
     const e = this.entry(userId);
     if (opts.join) e.gen += 1;
+    if (opts.join && opts.newcomer) e.prologue = { byBus: Boolean(opts.byBus) };
     if (!opts.join && !opts.force && this.deps.now() < e.retryAt) return Promise.resolve();
     e.loading ??= this.fetch(userId, e).finally(() => (e.loading = undefined));
     return e.loading;
@@ -154,11 +165,12 @@ export class Encargos {
     const active = this.deps.pick(userId, now);
     let saved: QuestRecord[];
     try {
-      saved = await this.deps.repo().loadQuests(
-        userId,
-        questPeriods(now),
-        active.map((a) => ({ questId: a.def.id, period: a.period, goal: a.def.goal })),
-      );
+      // El primer paso de la historia queda asignado a todos (si ya existía, no se toca).
+      const first = questById(STORY_FIRST)!;
+      saved = await this.deps.repo().loadQuests(userId, questPeriods(now), [
+        ...active.map((a) => ({ questId: a.def.id, period: a.period, goal: a.def.goal })),
+        { questId: first.id, period: STORY_PERIOD, goal: first.goal },
+      ]);
     } catch (err) {
       console.error("loadQuests", err);
       e.failures += 1;
@@ -177,8 +189,55 @@ export class Encargos {
     e.loaded = true;
     e.day = dailyPeriod(now);
     e.assigned = undefined;
+    await this.storyFromStats(userId, e);
     for (const r of done.values()) this.deps.send(userId, QUEST_MSG.done, { questId: r.questId, period: r.period } satisfies QuestDoneEvent);
     this.sendList(userId);
+  }
+
+  /**
+   * La historia y lo que ya se hizo: un paso abierto cuyo contador ya llega a la meta (quien ya jugaba) se
+   * marca hecho solo. Y a quien recién llegó, la bienvenida de Doña Aurora, una sola vez.
+   */
+  private async storyFromStats(userId: string, e: Entry) {
+    const stats = this.deps.stats;
+    if (!stats) return;
+    await stats.load(userId).catch(() => {});
+    for (const row of [...e.rows.values()]) {
+      const def = row.period === STORY_PERIOD && row.status === "ACTIVE" ? questById(row.questId) : undefined;
+      if (!def) continue;
+      const need = def.goal - row.progress;
+      if (need > 0 && (stats.stat(userId, def.stat) ?? 0) >= def.goal) {
+        const d = { questId: def.id, period: STORY_PERIOD, delta: need, goal: def.goal };
+        addPending(e.pending, d);
+        applyDelta(e.rows, d);
+      }
+    }
+    const pending = e.prologue;
+    e.prologue = undefined;
+    const started = [...e.rows.values()].some((r) => r.period === STORY_PERIOD && (r.status !== "ACTIVE" || r.progress > 0 || r.questId !== STORY_FIRST));
+    if (pending && !started && !stats.stat(userId, STAT_KEYS.storyPrologue)) {
+      stats.max(userId, STAT_KEYS.storyPrologue, 1);
+      this.deps.send(userId, HISTORIA_MSG.prologue, pending satisfies HistoriaPrologue);
+    }
+  }
+
+  /** Saltar el capítulo: lo que falte queda entregado sin pagar, y llegan el logro y la carta igual. */
+  async skipStory(userId: string): Promise<boolean> {
+    const e = this.entry(userId);
+    const all = STORY_QUESTS.map((q) => ({ questId: q.id, goal: q.goal }));
+    if (all.every((q) => e.rows.get(questKey(q.questId, STORY_PERIOD))?.status === "CLAIMED")) return false;
+    try {
+      await this.deps.flushStats(userId);
+      await this.deps.repo().skipStory(userId, all, this.deps.now());
+    } catch (err) {
+      console.error("skipStory", err);
+      return false;
+    }
+    for (const q of all) e.rows.set(questKey(q.questId, STORY_PERIOD), { questId: q.questId, period: STORY_PERIOD, progress: q.goal, goal: q.goal, status: "CLAIMED" });
+    for (const k of [...e.pending.keys()]) if (k.endsWith("|" + STORY_PERIOD)) e.pending.delete(k);
+    this.deps.storyDone?.(userId);
+    this.sendList(userId);
+    return true;
   }
 
   /** Subió un contador de alguien (lo llama el rastreador de logros en cada suma). */
@@ -307,7 +366,9 @@ export class Encargos {
     if (next) {
       const nk = questKey(next.id, STORY_PERIOD);
       if (!e.rows.has(nk)) e.rows.set(nk, { questId: next.id, period: STORY_PERIOD, progress: 0, goal: next.goal, status: "ACTIVE" });
-    }
+      // Si eso ya lo había hecho antes (quien ya jugaba), queda hecho solo.
+      await this.storyFromStats(userId, e);
+    } else if (def.kind === "story") this.deps.storyDone?.(userId);
     this.deps.paid(userId, outcome.awarded, outcome.balance);
     this.deps.xp?.(userId, def.reward.skill, def.reward.xp);
     this.sendList(userId);
@@ -350,7 +411,12 @@ export interface EncargosRoomParts {
   };
   repo: EncargosDeps["repo"];
   held: EncargosDeps["held"];
-  stats: { flush(userId: string): Promise<void>; max(userId: string, key: string, value: number): void };
+  stats: {
+    flush(userId: string): Promise<void>;
+    max(userId: string, key: string, value: number): void;
+    load(userId: string): Promise<void>;
+    stat(userId: string, key: string): number | undefined;
+  };
   minuteOfDay(): number;
   mapOf(area: string): OfficeMap;
   now(): number;
@@ -393,5 +459,12 @@ export function encargosDeSala(parts: EncargosRoomParts): Encargos {
       parts.stats.max(userId, STAT_KEYS.pointsPeak, balance);
     },
     xp: parts.xp,
+    stats: parts.stats,
+    // El capítulo 1 terminado (o saltado): el logro (y su insignia) y, la primera vez, la carta del buzón.
+    storyDone: (userId) => {
+      const first = !parts.stats.stat(userId, STAT_KEYS.storyCh1);
+      parts.stats.max(userId, STAT_KEYS.storyCh1, 1);
+      if (first) send(userId, HISTORIA_MSG.letter, { id: "carta-1" });
+    },
   });
 }

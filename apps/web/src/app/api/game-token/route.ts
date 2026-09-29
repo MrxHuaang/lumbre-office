@@ -18,6 +18,7 @@ export async function GET() {
       avatar: asAvatar(user.avatar),
       look: asLook(user.look) ?? undefined,
       role: user.role,
+      onboardedAt: user.onboardedAt?.getTime(),
     },
     secret,
   );
