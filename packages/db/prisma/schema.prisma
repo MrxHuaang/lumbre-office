@@ -76,7 +76,8 @@ model User {
   fishCatches     FishCatch[]
   arcadeScores    ArcadeScore[]
   photos          Photo[]
-  stats           UserStat[]
+  standups        Standup[]
+  stats          UserStat[]
   achievements    UserAchievement[]
   doorNotesIn     DoorNote[]         @relation("DoorNotesReceived")
   doorNotesOut    DoorNote[]         @relation("DoorNotesSent")
@@ -494,6 +495,22 @@ model DoorNote {
 
   @@index([toId, createdAt])
   @@index([fromId, createdAt])
+}
+
+/**
+ * Standup del tablón del jardín: qué hará alguien hoy (hasta 280 letras). Uno por persona por día de
+ * Bogotá (`day` = "AAAA-MM-DD", ver standup.ts de @hyvento/shared); editarlo reemplaza el texto.
+ */
+model Standup {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, day])
+  @@index([day])
 }
 
 /**
