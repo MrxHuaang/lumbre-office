@@ -30,6 +30,14 @@ export class Llamadas {
     this.dial(sessionId, raw, (me, target) => this.deps.phones.call(me, target, CELL_ORIGIN));
   }
 
+  /**
+   * Desde el teléfono de escritorio, a una persona sin oficina (el directorio las lista a todas): las
+   * mismas reglas de siempre, con "te llama desde …" del teléfono. La sala ya revisó que esté junto a uno.
+   */
+  callFrom(sessionId: string, userId: string, from: string) {
+    this.dial(sessionId, { userId }, (me, target) => this.deps.phones.call(me, target, from));
+  }
+
   /** Sumar a alguien a la llamada en la que estoy hablando. */
   add(sessionId: string, raw: unknown) {
     this.dial(sessionId, raw, (me, target) => this.deps.phones.add(me, target, CELL_ORIGIN));
