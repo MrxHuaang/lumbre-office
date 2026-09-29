@@ -162,6 +162,7 @@ import { localSpeedMul, useCocinaStore } from "./cocina";
 import { PORTION_USABLE_PREFIX, sendPortion } from "./granjaNet";
 import { SeasonView } from "./seasons";
 import { NpcCast } from "./npcs/cast";
+import { QuestMarkers, questGiverToTalk } from "./encargosMarcas";
 import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
 import { isTripKind, SOMBRERO, type TripKind } from "@hyvento/shared";
 import { broadcastActive, noteManualMove, voiceFlags } from "./comunicacion";
@@ -380,6 +381,8 @@ export class OfficeScene extends Phaser.Scene {
   private trophyCases!: TrophyCases;
   /** El personal del casino y el Man del Sombrero (ver npcs/cast.ts). */
   private npcs!: NpcCast;
+  /** Las marcas "!" y "?" de mis encargos sobre quien los da (ver encargosMarcas.ts). */
+  private questMarks!: QuestMarkers;
   /** Lo que ve quien tomó algo del Man del Sombrero (ver trip.ts). */
   private tripVision!: TripVision;
   private tripKind: TripKind | "" = "";
@@ -497,6 +500,7 @@ export class OfficeScene extends Phaser.Scene {
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
     this.tripVision = new TripVision(() => this.game.canvas.parentElement);
+    this.questMarks = new QuestMarkers(this, { local: () => (this.local ? { x: this.local.x, y: this.local.y } : null) });
     this.npcs = new NpcCast(this, {
       local: () => (this.local ? { x: this.local.x, y: this.local.y } : null),
       people: () => {
@@ -691,6 +695,7 @@ export class OfficeScene extends Phaser.Scene {
     this.shakePhones(time);
     this.drunkVision.update(time, delta, this.tripVision.update(time, delta));
     this.npcs.update(time);
+    this.questMarks.update(time);
     this.publishMinimap(time);
     this.updateMunchies(time);
     this.weatherView.update(time, delta);
@@ -844,6 +849,7 @@ export class OfficeScene extends Phaser.Scene {
       this.cinema.setArea(map);
       this.escenario.setArea(map);
       this.npcs.setArea(map);
+      this.questMarks.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     this.tina.setArea(map, useOfficeStore.getState().night);
       this.createNameplates();
@@ -1124,6 +1130,9 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.destroy();
     for (const a of this.avatars.values()) a.destroy();
     this.avatars.clear();
+    // Con sesión nueva (tras un reinicio) la vieja no avisa que se fue: que no quede contada en ningún nivel.
+    this.userOfSession.clear();
+    this.areaOfSession.clear();
     this.local = undefined;
     this.seat = null;
     this.pendingSeat = null;
@@ -1905,6 +1914,8 @@ export class OfficeScene extends Phaser.Scene {
     }
     // El teléfono es un mueble fijo (no un punto del mapa): se alcanza igual que lo valida el servidor.
     if (phoneInReach(this.map, avatar.x, avatar.y)) return "phone";
+    // Un personaje que me dio un encargo y no tiene otro objeto al lado (el portero, la dealer).
+    if (questGiverToTalk()) return "encargo";
     return null;
   }
 

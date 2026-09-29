@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentStage, ENTRY_STAGES, ENTRY_TIPS, entryDone, entryMood, entryPercent, nextShown, skyArc, tipOrder, type EntryState } from "./entry";
+import { currentStage, ENTRY_SLOW_MS, ENTRY_STAGES, ENTRY_TIPS, entryDone, entryMood, entryPercent, nextShown, skyArc, stageSlowMs, tipOrder, type EntryState } from "./entry";
 
 const T0 = 1_000_000;
 const allDone = (): EntryState => Object.fromEntries(ENTRY_STAGES.map((s) => [s.id, { startedAt: T0, doneAt: T0 + 10 }]));
@@ -38,9 +38,20 @@ describe("barra de carga por etapas", () => {
   it("nombra la primera etapa que falta, aunque otras ya hayan terminado", () => {
     expect(currentStage({})?.id).toBe("sesion");
     // El motor se bajó antes que la conexión: la barra sigue en "conexión".
-    const st: EntryState = { sesion: { doneAt: T0 }, motor: { doneAt: T0 }, conexion: { startedAt: T0 } };
+    const st: EntryState = { sesion: { doneAt: T0 }, despertar: { doneAt: T0 }, motor: { doneAt: T0 }, conexion: { startedAt: T0 } };
     expect(currentStage(st)?.id).toBe("conexion");
     expect(currentStage(allDone())).toBeNull();
+  });
+
+  it("despertar al servidor dormido tiene más plazo antes de ofrecer Reintentar", () => {
+    const despertar = ENTRY_STAGES.find((s) => s.id === "despertar")!;
+    const sesion = ENTRY_STAGES.find((s) => s.id === "sesion")!;
+    expect(despertar.label).toContain("1 min");
+    expect(stageSlowMs(despertar)).toBeGreaterThan(60_000);
+    expect(stageSlowMs(sesion)).toBe(ENTRY_SLOW_MS);
+    expect(stageSlowMs(null)).toBe(ENTRY_SLOW_MS);
+    // Va antes de conectar: con el token listo y el servidor dormido, la barra dice que lo está despertando.
+    expect(currentStage({ sesion: { doneAt: T0 }, despertar: { startedAt: T0 } })?.id).toBe("despertar");
   });
 
   it("lo que se muestra nunca vuelve atrás", () => {
