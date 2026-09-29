@@ -289,6 +289,8 @@ import { Parrilla, type GrillWho } from "./parrilla";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
+import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
+import { closeForRestart } from "./reinicio";
 import { startChatRetention } from "./chatRetention";
 import { orElse } from "../log";
 
@@ -336,7 +338,7 @@ interface PendingKnock {
 const CHAT_HISTORY_SIZE = 50;
 const CHAT_RATE = { max: 5, windowMs: 5_000 };
 const EDIT_RATE = { max: 10, windowMs: 3_000 };
-const RECONNECT_SECONDS = 15;
+const RECONNECT_SECONDS = RECONNECT_WINDOW_SECONDS;
 /** Hasta qué distancia (en tiles) se busca lugar para quien quedó dentro de un mueble. */
 const UNSTICK_RADIUS = 6;
 
@@ -1127,6 +1129,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await this.events.refresh();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
     startChatRetention(this.clock, () => this.repo);
+  }
+
+  // Apagado por deploy: avisar y cerrar con el código de reinicio (ver reinicio.ts).
+  onBeforeShutdown() {
+    void closeForRestart(this);
   }
 
   onDispose() {
