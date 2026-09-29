@@ -255,6 +255,7 @@ import { Invites } from "./invites";
 import { CabinEvents } from "./events";
 import { FocusTimers } from "./focus";
 import { Phones } from "./phones";
+import { registerComunicacion, type Comunicacion } from "./comunicacion";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { BAG_MSG, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
@@ -709,12 +710,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     send: (userId, event) => {
       for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.phoneEvent, event);
     },
-    setPhase: (userId, phase, withUserId, since) => {
+    setPhase: (userId, phase, withUserId, since, callId) => {
       for (const p of this.state.players.values())
         if (p.userId === userId) {
           p.call = phase;
           p.callWith = withUserId;
           p.callSince = since;
+          p.callId = callId;
         }
     },
   });
@@ -909,6 +911,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
+    this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1113,6 +1116,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.bus?.dispose();
     this.cocina.dispose();
     this.phones.dispose();
+    this.comunicacion?.dispose();
     void this.achievements.flushAll();
     void this.whiteboards.flush();
     this.pets?.flush(Date.now());
@@ -1170,6 +1174,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.focus.joined(auth.sub);
     // Si recargó la página en medio de una llamada, la sesión nueva la retoma.
     this.phones.restore(auth.sub);
+    this.comunicacion?.greet(client.sessionId);
 
     client.userData = {
       lastMoveAt: Date.now(),
@@ -1755,6 +1760,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (error) fail(error);
     else this.achievements.bump(player.userId, STAT_KEYS.phoneCalls);
   }
+
+  /** Llamar sin teléfono, llamadas grupales, saludar y el anuncio del admin (ver rooms/comunicacion.ts). */
+  private comunicacion?: Comunicacion;
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
@@ -3505,6 +3513,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
     this.phones.left(player.userId);
+    this.comunicacion?.forget(player.userId);
     this.invites.forget(player.userId);
     this.hockey?.leave(player.userId);
     this.casa.forget(player.userId);
