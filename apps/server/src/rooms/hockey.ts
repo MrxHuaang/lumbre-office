@@ -24,6 +24,7 @@ import {
   type HockeyWorld,
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
+import { orElse } from "../log";
 import type { HockeyState } from "../state";
 
 export interface Timer {
@@ -119,7 +120,7 @@ export class HockeyTable {
     if (mine !== null) {
       // Ya estaba esperando: pedir la máquina la pone del otro lado.
       if (this.phase === "waiting" && bot) this.seatBot(mine === 0 ? 1 : 0);
-      return { ok: true, balance: await this.d.repo().getPoints(who.userId).catch(() => 0) };
+      return { ok: true, balance: await this.d.repo().getPoints(who.userId).catch(orElse("hockey.getPoints", 0, { userId: who.userId })) };
     }
     if (!this.canTake(side)) return { ok: false, error: "busy" };
 
@@ -358,7 +359,7 @@ export class HockeyTable {
       } else if (winner === p.side) {
         outcome = "win";
         won = await this.pay(p.userId, vsBot ? fee : fee * 2, match);
-        if (vsBot && won > 0) bonus = await this.d.bonus(p.userId, ARCADE_PRICE.hockeyBotBonus).catch(() => 0);
+        if (vsBot && won > 0) bonus = await this.d.bonus(p.userId, ARCADE_PRICE.hockeyBotBonus).catch(orElse("hockey.bonus", 0, { userId: p.userId, match }));
       } else {
         outcome = "lose";
       }

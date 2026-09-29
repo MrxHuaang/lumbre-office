@@ -3,7 +3,7 @@
 // Lo de la pesca sobre la cabaña: la ayuda de las teclas mientras se pesca (va en la pila de avisos de
 // abajo) y la tarjeta del pez atrapado (en la de arriba). Office.tsx los ubica.
 import { drawFish } from "@hyvento/map/art";
-import { fishById, RARITY } from "@hyvento/shared";
+import { fishById, MAX_ROD_MASTERY, RARITY, ROD_NAME, type FishingMastery } from "@hyvento/shared";
 import { useEffect } from "react";
 import { cancelFishing, hookFish } from "@/game/fishing/net";
 import { useFishingStore } from "@/game/fishing/store";
@@ -16,10 +16,12 @@ const CARD_MS = 6500;
 /** La ayuda de abajo según el momento: esperando, ¡pica! o el minijuego. */
 export function FishingHint() {
   const phase = useFishingStore((s) => s.phase);
+  const mastery = useFishingStore((s) => s.mastery);
   if (phase === "waiting")
     return (
       <Hint>
         <span className="text-cozy-ink-soft">Esperando que pique…</span>
+        {mastery && <MasteryChip mastery={mastery} />}
         <button type="button" onClick={cancelFishing} className="flex items-center gap-1.5">
           <kbd className="cozy-kbd">E</kbd>
           Recoger
@@ -46,6 +48,16 @@ export function FishingHint() {
       </Hint>
     );
   return null;
+}
+
+/** La caña del lance y su nivel de maestría (cuántos peces faltan para el siguiente). */
+function MasteryChip({ mastery }: { mastery: FishingMastery }) {
+  const next = mastery.next === null ? "nivel máximo" : `faltan ${mastery.next} ${mastery.next === 1 ? "pez" : "peces"}`;
+  return (
+    <span className="text-[13px] text-cozy-ink-soft" title={`${ROD_NAME[mastery.rod]}: ${next}`}>
+      · {ROD_NAME[mastery.rod]}, nivel {mastery.level}/{MAX_ROD_MASTERY}
+    </span>
+  );
 }
 
 function Hint({ children, strong = false }: { children: React.ReactNode; strong?: boolean }) {
@@ -98,10 +110,17 @@ export function CatchCard() {
           <p className="mt-1.5 text-[13px] leading-snug text-cozy-ink-soft">{fish.description}</p>
         </div>
       </div>
+      {card.masteryUp && (
+        <p className="border-t-2 border-cozy-paper-dark px-3 py-1.5 text-[13px] font-semibold text-cozy-wood">
+          ¡Tu caña subió a nivel {card.masteryUp}!{" "}
+          {card.masteryUp >= MAX_ROD_MASTERY ? "Nivel máximo: la barra es más larga y pican más raros." : "La barra es un poco más larga."}
+        </p>
+      )}
       <footer className="flex items-center justify-between gap-2 border-t-2 border-cozy-paper-dark px-3 py-2 text-[13px]">
         <span className="font-semibold" style={{ color: card.points > 0 ? "var(--color-cozy-green)" : undefined }}>
           {card.points > 0 ? `+${card.points} puntos` : trash ? "Sin puntos, pero el lago quedó más limpio." : "Hoy ya llegaste al tope de puntos de ocio."}
           {card.treasure && " · ¡con cofre!"}
+          {card.group && " · en compañía"}
         </span>
         <button
           type="button"
