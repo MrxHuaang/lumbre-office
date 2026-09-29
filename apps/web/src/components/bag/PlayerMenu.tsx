@@ -4,7 +4,7 @@
 // filas de 12; se arrastra para reordenar e intercambiar con la barra), tus estadísticas y logros, y tu
 // personaje en grande con lo que llevas en la mano. Todo lo que cambia la mochila lo valida el servidor.
 import { isPlaceable } from "@hyvento/map";
-import { BAG, BAG_KEYS, BAG_KIND_LABEL, bagItemInfo, bagRow, type ItemStack, type ProfileDTO } from "@hyvento/shared";
+import { BAG, BAG_KEYS, BAG_KIND_LABEL, bagItemInfo, bagItemName, bagRow, type ItemStack, type ProfileDTO } from "@hyvento/shared";
 import { useEffect, useId, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useAchievementStore } from "@/game/achievements";
@@ -135,8 +135,8 @@ export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Pro
 // ---------- Mochila ----------
 
 function BagTab({ onClose }: { onClose: () => void }) {
-  const { slots, overflow, selected, loaded } = useBagStore(
-    useShallow((s) => ({ slots: s.slots, overflow: s.overflow, selected: s.selected, loaded: s.loaded })),
+  const { slots, overflow, selected, loaded, titles } = useBagStore(
+    useShallow((s) => ({ slots: s.slots, overflow: s.overflow, selected: s.selected, loaded: s.loaded, titles: s.titles })),
   );
   /** Casilla elegida para ver o mover (-1 = ninguna) y la que está bajo el mouse (manda en el detalle). */
   const [picked, setPicked] = useState(-1);
@@ -186,7 +186,7 @@ function BagTab({ onClose }: { onClose: () => void }) {
                     draggable={Boolean(stack)}
                     data-selected={slot === picked || (picked < 0 && slot === selected)}
                     data-drop={dropOver === slot}
-                    aria-label={stack ? `${bagItemInfo(stack.itemId).name}${stack.quantity > 1 ? `, ${stack.quantity}` : ""}` : `Casilla ${slot + 1}, vacía`}
+                    aria-label={stack ? `${bagItemName(stack.itemId, titles)}${stack.quantity > 1 ? `, ${stack.quantity}` : ""}` : `Casilla ${slot + 1}, vacía`}
                     onMouseEnter={() => setHover(stack)}
                     onFocus={() => setHover(stack)}
                     onClick={() => {
@@ -237,7 +237,7 @@ function BagTab({ onClose }: { onClose: () => void }) {
                 key={s.itemId}
                 type="button"
                 draggable
-                aria-label={`${bagItemInfo(s.itemId).name}: mover`}
+                aria-label={`${bagItemName(s.itemId, titles)}: mover`}
                 onDragStart={(e) => e.dataTransfer.setData("text/plain", s.itemId)}
                 onMouseEnter={() => setHover(s)}
                 onClick={() => setMoving(s.itemId)}
@@ -281,6 +281,7 @@ function ItemDetail({
 }) {
   const [confirm, setConfirm] = useState(false);
   useEffect(() => setConfirm(false), [stack?.itemId]);
+  const name = useBagStore((s) => (stack ? bagItemName(stack.itemId, s.titles) : ""));
   const inMyOffice = useOfficeStore((s) => {
     const mine = selectMyOffice(s);
     return Boolean(mine && s.zone?.id === mine.zoneId);
@@ -301,7 +302,7 @@ function ItemDetail({
       </span>
       <div className="min-w-0 flex-1 basis-48">
         <p className="flex flex-wrap items-baseline gap-x-2 text-[16px] leading-tight font-semibold">
-          {info.name}
+          {name}
           <span className="text-[12px] font-normal text-cozy-ink-soft">
             {BAG_KIND_LABEL[info.kind]} · {stack.quantity > 1 ? `${stack.quantity} unidades` : "1 unidad"}
             {inHand && " · en la mano"}
@@ -387,7 +388,7 @@ function CharacterCard({ profile, me, onEditCharacter }: { profile: Profile; me:
   const hand = useMyHand();
   const handName = useBagStore((s) => {
     const stack = s.slots[s.selected];
-    return stack && hand.held ? bagItemInfo(stack.itemId).name : "";
+    return stack && hand.held ? bagItemName(stack.itemId, s.titles) : "";
   });
   const n = (v: number) => Math.round(v).toLocaleString("es-CO");
   return (
