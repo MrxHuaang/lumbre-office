@@ -252,6 +252,28 @@ export class Parrilla {
     this.lastActionAt.delete(userId);
     this.lastPortionAt.delete(userId);
   }
+
+  /**
+   * La sala se cierra: lo que estaba en el fuego no alcanza a salir, así que sus ingredientes vuelven a la
+   * mochila; y el plato que ya salió pero no cupo, también. `restore` escribe directo en la base (la
+   * mochila de la sala ya no importa y así no depende de que haya espacio).
+   */
+  async close(restore: (userId: string, itemId: string, quantity: number) => Promise<unknown>): Promise<void> {
+    const back: [string, string, number][] = [];
+    const cooks: string[] = [];
+    this.deps.jobs.forEach((job, userId) => {
+      cooks.push(userId);
+      for (const [id, n] of Object.entries(grillRecipe(job.recipe)?.needs ?? {})) back.push([userId, objItemId(id), n]);
+    });
+    for (const userId of cooks) this.deps.jobs.delete(userId);
+    for (const [userId, recipe] of this.pending) if (!this.delivering.has(userId)) back.push([userId, objItemId(recipe), 1]);
+    this.pending.clear();
+    this.retryAt.clear();
+    const results = await Promise.allSettled(back.map(([userId, itemId, n]) => restore(userId, itemId, n)));
+    results.forEach((r, i) => {
+      if (r.status === "rejected") console.error("PARRILLA: no se pudo devolver a la mochila (conciliar)", JSON.stringify(back[i]), r.reason);
+    });
+  }
 }
 
 /** El punto del horno o de la parrilla más cercano. */

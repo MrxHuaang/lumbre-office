@@ -1,7 +1,8 @@
 // Logros y estadísticas del perfil: contadores por persona (UserStat) y logros desbloqueados
 // (UserAchievement). El catálogo y las reglas están en @hyvento/shared (achievements.ts); acá solo se guarda.
-import { BAG_SLOT_PREFIX, type StatChange } from "@hyvento/shared";
+import { BAG_SLOT_PREFIX, type QuestDelta, type StatChange } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { advanceQuestsTx } from "./encargos";
 
 type Client = PrismaClient | Prisma.TransactionClient;
 
@@ -31,14 +32,18 @@ export async function setStatMax(client: Client, userId: string, key: string, va
     WHERE "UserStat"."value" < EXCLUDED."value"`;
 }
 
-/** Varios cambios de una vez (lo que el servidor de juego juntó en unos segundos), en una transacción. */
-export async function applyStatChanges(client: PrismaClient, userId: string, changes: StatChange[]): Promise<void> {
-  if (changes.length === 0) return;
+/**
+ * Varios cambios de una vez (lo que el servidor de juego juntó en unos segundos), en una transacción, con
+ * el avance de los encargos que salió de esos mismos contadores (ver encargos.ts).
+ */
+export async function applyStatChanges(client: PrismaClient, userId: string, changes: StatChange[], quests: readonly QuestDelta[] = []): Promise<void> {
+  if (changes.length === 0 && quests.length === 0) return;
   await client.$transaction(async (tx) => {
     for (const c of changes) {
       if (c.op === "inc") await bumpStat(tx, userId, c.key, c.value);
       else await setStatMax(tx, userId, c.key, c.value);
     }
+    if (quests.length) await advanceQuestsTx(tx, userId, quests);
   });
 }
 

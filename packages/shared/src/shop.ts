@@ -1,15 +1,19 @@
 // Fase 3b: la tienda. Qué muebles se venden y a cuánto; el id de cada uno es su tipo en el catálogo de
 // packages/map (p. ej. "plant") y es también su id en el inventario. La ropa es toda gratis (vestidor).
 import { z } from "zod";
+import type { Oficio } from "./oficios";
 
 export interface ShopItem {
   id: string;
   name: string;
   price: number;
   blurb: string;
+  /** Exclusivo de un oficio: se vende desde ese nivel (ver OFICIO_REWARDS en oficios.ts). */
+  requires?: { oficio: Oficio; level: number };
 }
 
 const furniture = (id: string, name: string, price: number, blurb: string): ShopItem => ({ id, name, price, blurb });
+const exclusive = (id: string, name: string, price: number, blurb: string, oficio: Oficio, level: number): ShopItem => ({ id, name, price, blurb, requires: { oficio, level } });
 
 /** Muebles a la venta (para decorar tu oficina con el editor). */
 export const SHOP_FURNITURE: readonly ShopItem[] = [
@@ -52,6 +56,16 @@ export const SHOP_FURNITURE: readonly ShopItem[] = [
   furniture("aquarium", "Pecera", 180, "Con peces de colores; brilla de noche."),
   furniture("piano", "Piano", 250, "Vertical, de madera."),
   furniture("acuario", "Acuario", 320, "Largo, de madera: nadan los peces que sacó el equipo."),
+  // Exclusivos de los oficios (se compran desde su nivel; el test revisa que coincidan con oficios.ts).
+  exclusive("dock-lamp", "Farol del muelle", 70, "El que alumbra el muelle de Don Evelio.", "pesca", 4),
+  exclusive("rowboat", "Bote de madera", 160, "Remos incluidos. El lago, no.", "pesca", 8),
+  exclusive("wheelbarrow", "Carretilla", 60, "Para la tierra, las matas y el cansancio.", "huerta", 4),
+  exclusive("planter", "Jardinera", 90, "Flores de tu propia mano.", "huerta", 8),
+  exclusive("dish-hutch", "Alacena", 110, "Con la vajilla buena, la de las visitas.", "cocina", 4),
+  exclusive("hammock", "Hamaca", 120, "Para dos, o para uno bien estirado.", "social", 4),
+  exclusive("puzzle-table", "Mesa con puzle", 140, "Mil fichas y una conversación larga.", "social", 8),
+  exclusive("celestial-globe", "Globo celeste", 90, "Las constelaciones, a la mano.", "exploracion", 4),
+  exclusive("stargazer-scope", "Telescopio de trípode", 180, "Para mirar el cielo desde tu oficina.", "exploracion", 8),
 ];
 
 export function shopItem(id: string): ShopItem | undefined {

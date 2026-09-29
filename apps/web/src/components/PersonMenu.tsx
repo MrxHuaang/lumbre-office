@@ -3,8 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { sendInvite } from "@/game/network";
+import { usePermisosStore } from "@/game/permisos";
 import { callPerson, followPerson, stopFollowing, useComStore, wavePerson } from "@/game/comunicacion";
 import { usePhoneStore } from "@/game/phone";
+import { sendOficioGift, useMyLevels } from "@/game/oficios";
+import { hasPerk } from "@hyvento/shared";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 
@@ -33,11 +36,13 @@ function useInviteLabel(): string {
  */
 export function PersonMenu({ person, onProfile }: { person: Person; onProfile: () => void }) {
   const [open, setOpen] = useState(false);
+  const detallista = hasPerk("social", useMyLevels());
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const inviteLabel = useInviteLabel();
   const walkToPlayer = useOfficeStore((s) => s.walkToPlayer);
+  const admin = usePermisosStore((s) => s.admin);
   const following = useComStore((s) => s.following?.userId === person.userId);
   const call = usePhoneStore((s) => s.call);
   const inMyCall = Boolean(call?.members.some((m) => m.userId === person.userId));
@@ -121,7 +126,7 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
           }
         }}
         data-on={open || undefined}
-        className="shrink-0 p-1 opacity-70 hover:opacity-100 focus-visible:opacity-100 data-[on]:opacity-100"
+        className="grid size-7 shrink-0 place-items-center pointer-coarse:size-10 opacity-70 hover:opacity-100 focus-visible:opacity-100 data-[on]:opacity-100"
       >
         <PixelIcon name="dots" size={13} color="var(--color-cozy-wood)" />
       </button>
@@ -154,9 +159,20 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
           <Item icon="mail" onClick={run(() => sendInvite(person.userId))}>
             {inviteLabel}
           </Item>
+          {/* Social nivel 5: un detalle gratis al día para alguien de al lado (el servidor mide la distancia). */}
+          {detallista && (
+            <Item icon="gift" onClick={run(() => sendOficioGift(person.sessionId))}>
+              Darle un detalle (gratis)
+            </Item>
+          )}
           <Item icon="smile" onClick={run(onProfile)}>
             Ver perfil
           </Item>
+          {admin && (
+            <Item icon="unlock" onClick={run(() => usePermisosStore.getState().openEditor({ userId: person.userId, name: person.name }))}>
+              Dar permiso…
+            </Item>
+          )}
         </div>
       )}
     </>

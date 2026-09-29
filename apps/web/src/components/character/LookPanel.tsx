@@ -8,6 +8,8 @@ import {
   BOTTOMS,
   COSTUME_CATEGORIES,
   COSTUME_IDS,
+  lockedCostume,
+  unlockText,
   COSTUMES,
   costumeTint,
   EVERYDAY_OUTFITS,
@@ -30,6 +32,7 @@ import {
   type Outfit,
 } from "@hyvento/shared";
 import { memo } from "react";
+import { useMyLevels } from "@/game/oficios";
 import {
   ACCENT_HINT,
   accentUsers,
@@ -103,6 +106,7 @@ const SHIRT_TITLE: Partial<Record<Outfit, string>> = {
 };
 
 export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabId; full: FullLook; act: LookActions }) {
+  const levels = useMyLevels();
   // Las miniaturas muestran la opción sobre la ropa propia (sin el traje, que la taparía).
   const thumb = (patch: Partial<FullLook>): Look => lookFromFull({ ...full, costume: null, ...patch });
   const options = <T extends string>(ids: readonly T[], label: Record<T, string>, patch: (id: T) => Partial<FullLook>): Option<T>[] =>
@@ -222,11 +226,16 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
                 <OptionGrid
                   crop="full"
                   tall
-                  options={COSTUME_IDS.filter((id) => COSTUMES[id].category === cat.id).map((id) => ({
-                    id,
-                    label: COSTUMES[id].label,
-                    look: lookFromFull({ ...full, costume: id, costumeColor: null, costumeGear: true }),
-                  }))}
+                  options={COSTUME_IDS.filter((id) => COSTUMES[id].category === cat.id).map((id) => {
+                    // Los de los oficios, con el nivel (lo valida también la web al guardar).
+                    const lock = lockedCostume({ costume: id }, levels);
+                    return {
+                      id,
+                      label: COSTUMES[id].label,
+                      look: lookFromFull({ ...full, costume: id, costumeColor: null, costumeGear: true }),
+                      locked: lock ? unlockText(lock) : undefined,
+                    };
+                  })}
                   isOn={(id) => id === full.costume}
                   onPick={(id: CostumeId) => act.wear(id)}
                 />

@@ -60,28 +60,34 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  office          Office?
-  chatMessages    ChatMessage[]
-  notes           Note[]
-  invitesSent     Invite[]           @relation("InvitedBy")
-  pointMoves      PointTransaction[]
-  missionsCreated Mission[]          @relation("MissionCreator")
-  missionsTaken   Mission[]          @relation("MissionAssignee")
-  inventory       InventoryItem[]
-  giftsSent       Gift[]             @relation("GiftsSent")
-  giftsReceived   Gift[]             @relation("GiftsReceived")
-  itemsGiven      ItemTransfer[]     @relation("ItemsGiven")
-  itemsReceived   ItemTransfer[]     @relation("ItemsReceived")
-  gardenPlots     GardenPlot[]
-  fishCatches     FishCatch[]
-  arcadeScores    ArcadeScore[]
-  photos          Photo[]
-  stats           UserStat[]
-  achievements    UserAchievement[]
-  doorNotesIn     DoorNote[]         @relation("DoorNotesReceived")
-  doorNotesOut    DoorNote[]         @relation("DoorNotesSent")
-  featuredBadge   FeaturedBadge?
-  pet             PetBond?
+  office           Office?
+  chatMessages     ChatMessage[]
+  notes            Note[]
+  invitesSent      Invite[]           @relation("InvitedBy")
+  pointMoves       PointTransaction[]
+  missionsCreated  Mission[]          @relation("MissionCreator")
+  missionsTaken    Mission[]          @relation("MissionAssignee")
+  inventory        InventoryItem[]
+  giftsSent        Gift[]             @relation("GiftsSent")
+  giftsReceived    Gift[]             @relation("GiftsReceived")
+  itemsGiven       ItemTransfer[]     @relation("ItemsGiven")
+  itemsReceived    ItemTransfer[]     @relation("ItemsReceived")
+  gardenPlots      GardenPlot[]
+  fishCatches      FishCatch[]
+  arcadeScores     ArcadeScore[]
+  photos           Photo[]
+  standups         Standup[]
+  stats            UserStat[]
+  achievements     UserAchievement[]
+  doorNotesIn      DoorNote[]         @relation("DoorNotesReceived")
+  doorNotesOut     DoorNote[]         @relation("DoorNotesSent")
+  featuredBadge    FeaturedBadge?
+  pet              PetBond?
+  paintings        Painting[]
+  quests           QuestProgress[]
+  skills           SkillXp[]
+  permissions      UserPermission[]   @relation("PermissionsHeld")
+  permissionsGiven UserPermission[]   @relation("PermissionsGranted")
 
   // Auth.js (adapter de Prisma) — se conecta en la Fase 0 cuando haya Postgres.
   accounts Account[]
@@ -99,6 +105,30 @@ model Invite {
   invitedBy   User?     @relation("InvitedBy", fields: [invitedById], references: [id])
   acceptedAt  DateTime?
   createdAt   DateTime  @default(now())
+}
+
+/**
+ * Permiso que un admin le dio a una persona (id del catálogo `permisos.ts` de @hyvento/shared, p. ej.
+ * "anunciar"). Un admin los tiene todos sin fila; un id que salga del catálogo se ignora.
+ */
+model UserPermission {
+  userId      String
+  permiso     String
+  grantedById String?
+  createdAt   DateTime @default(now())
+  user        User     @relation("PermissionsHeld", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy   User?    @relation("PermissionsGranted", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, permiso])
+}
+
+/**
+ * "Todos pueden": un permiso abierto a todo el equipo (sin fila = cerrado, solo quien lo tenga).
+ */
+model PermissionSetting {
+  permiso   String   @id
+  everyone  Boolean  @default(false)
+  updatedAt DateTime @updatedAt
 }
 
 /**
@@ -192,6 +222,8 @@ enum PointReason {
   GIFT
   /// Ocio de la fase 5: cosechas del huerto, pesca y arcade (premios chicos con tope diario).
   LEISURE
+  /// Encargos (diarios, semanales y de historia) entregados a quien los dio. Con tope diario.
+  QUEST
 }
 
 /**
@@ -314,11 +346,13 @@ model OfficeItem {
 
 // ---------- Casino (fase 4) ----------
 
-/** Ajustes del casino (una sola fila, id = 1). Los cambia un admin en /admin. */
+/**
+ * Ajustes del casino (una sola fila, id = 1). Los cambia un admin en /admin.
+ */
 model CasinoSettings {
-  id             Int      @id @default(1)
-  enabled        Boolean  @default(true)
-  updatedAt      DateTime @updatedAt
+  id        Int      @id @default(1)
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
 }
 
 /**
@@ -377,7 +411,9 @@ model GardenPlot {
   updatedAt    DateTime  @updatedAt
 }
 
-/** Pez atrapado en el estanque del jardín (fase 5): la colección de cada persona. */
+/**
+ * Pez atrapado en el estanque del jardín (fase 5): la colección de cada persona.
+ */
 model FishCatch {
   id       String   @id @default(cuid())
   userId   String
@@ -390,7 +426,9 @@ model FishCatch {
   @@index([userId, species])
 }
 
-/** Puntaje de una partida en una máquina del arcade del sótano (fase 5). */
+/**
+ * Puntaje de una partida en una máquina del arcade del sótano (fase 5).
+ */
 model ArcadeScore {
   id        String   @id @default(cuid())
   userId    String
@@ -422,6 +460,22 @@ model WorldLayout {
   edits     Json
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+/**
+ * Cuadro de pixel art pintado en la app Pintura del PC (16x16). `pixels` son 256 dígitos hexadecimales,
+ * uno por píxel (índice de la paleta cozy, ver PAINTING_PALETTE en @hyvento/shared). El cuadro va a la
+ * mochila como el mueble `cuadro:<id>` y se cuelga en la oficina con el editor de decoración.
+ */
+model Painting {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  pixels    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 /**
@@ -462,7 +516,9 @@ model UserStat {
   @@id([userId, key])
 }
 
-/** Logro desbloqueado (el catálogo está en @hyvento/shared: ACHIEVEMENTS). Una fila por persona y logro. */
+/**
+ * Logro desbloqueado (el catálogo está en @hyvento/shared: ACHIEVEMENTS). Una fila por persona y logro.
+ */
 model UserAchievement {
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -497,6 +553,22 @@ model DoorNote {
 }
 
 /**
+ * Standup del tablón del jardín: qué hará alguien hoy (hasta 280 letras). Uno por persona por día de
+ * Bogotá (`day` = "AAAA-MM-DD", ver standup.ts de @hyvento/shared); editarlo reemplaza el texto.
+ */
+model Standup {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day       String
+  text      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, day])
+  @@index([day])
+}
+
+/**
  * La insignia destacada que alguien lleva junto a su nombre (un logro que ya tiene). En su propia tabla
  * (y no en User) para que leer usuarios no dependa de esta migración.
  */
@@ -521,4 +593,47 @@ model PetBond {
   loveAt    DateTime  @default(now())
   adoptedAt DateTime?
   updatedAt DateTime  @updatedAt
+}
+
+// ---------- Encargos y oficios ----------
+
+enum QuestStatus {
+  /// Asignado y en curso.
+  ACTIVE
+  /// Cumplido: falta entregarlo a quien lo dio.
+  DONE
+  /// Entregado (ya se pagó la recompensa).
+  CLAIMED
+}
+
+/// Progreso de un encargo (ver encargos.ts de @hyvento/shared). El catálogo está en código: acá solo va
+/// cuánto lleva cada persona. `period` dice de cuándo es: "d:2026-09-28" (diario, día de Bogotá),
+/// "w:2026-W40" (semanal) o "historia" (los pasos de una historia, sin fecha).
+model QuestProgress {
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questId   String
+  period    String
+  progress  Int         @default(0)
+  goal      Int
+  status    QuestStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  doneAt    DateTime?
+  claimedAt DateTime?
+
+  @@id([userId, questId, period])
+  @@index([userId, period])
+  @@index([userId, status])
+}
+
+/// Experiencia de cada oficio (pesca, huerta, cocina, social, exploración). El nivel lo calcula el juego.
+model SkillXp {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill     String
+  xp        Int      @default(0)
+  level     Int      @default(1)
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@id([userId, skill])
 }

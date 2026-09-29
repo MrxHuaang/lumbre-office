@@ -2,8 +2,10 @@
 // el bosque de alrededor. Se baja con el cargador de Phaser antes de crear la escena (el navegador
 // decodifica los PNG fuera del hilo principal). Si algo falta, quien lo pide lo dibuja como antes.
 import type { OfficeMap } from "@hyvento/map";
+import { drawAreaPatch } from "@hyvento/map/art";
 import type * as Phaser from "phaser";
-import { areaDecorSignature, GAME_MANIFEST, PRERENDER_DIR, type GameManifest } from "./prerender-keys";
+import { toHtmlCanvas } from "./canvas";
+import { areaDecorSignature, changedDecorRooms, GAME_MANIFEST, PRERENDER_DIR, type GameManifest } from "./prerender-keys";
 
 const MANIFEST_KEY = "prerender-manifiesto";
 let manifest: GameManifest | null = null;
@@ -41,6 +43,30 @@ export function prerenderedBase(scene: Phaser.Scene, map: OfficeMap, night: bool
   const key = a && fileTexture(night ? a.noche : a.dia);
   if (!a || !key || !scene.textures.exists(key) || a.decor !== areaDecorSignature(map)) return null;
   return { key, ox: a.ox, oy: a.oy };
+}
+
+/**
+ * Fondo de un nivel con oficinas decoradas (otro piso o papel): el del build y encima solo esas salas
+ * (drawAreaPatch), en un lienzo nuevo. Mucho más rápido que dibujar el nivel entero. Null si no hay fondo
+ * del build para ese nivel o no se puede comparar.
+ */
+export function patchedPrerenderedBase(scene: Phaser.Scene, map: OfficeMap, night: boolean): { canvas: HTMLCanvasElement; ox: number; oy: number } | null {
+  const a = manifest?.areas[map.id];
+  const key = a && fileTexture(night ? a.noche : a.dia);
+  if (!a || !key || !scene.textures.exists(key)) return null;
+  const rooms = changedDecorRooms(a.decor, map);
+  if (!rooms) return null;
+  const src = scene.textures.get(key).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+  const canvas = document.createElement("canvas");
+  canvas.width = src.width;
+  canvas.height = src.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(src, 0, 0);
+  const patch = drawAreaPatch(map, !night, rooms);
+  // El parche va en su propio origen: se corre para que caiga donde el del build tiene el suyo.
+  if (patch) ctx.drawImage(toHtmlCanvas(patch.canvas), a.ox - patch.ox, a.oy - patch.oy);
+  return { canvas, ox: a.ox, oy: a.oy };
 }
 
 /** Cuadro de un mueble en el atlas (el nombre del cuadro es la clave del mueble) con su tamaño y origen. */

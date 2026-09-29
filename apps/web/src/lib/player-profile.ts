@@ -1,9 +1,12 @@
 import "server-only";
 // El perfil público de una persona del equipo: personaje, oficina, puntos, estadísticas graciosas,
 // título y logros. Lo usan GET /api/profile/[id] (el perfil dentro de la cabaña) y la página /perfil/[id].
-import { achievementCounts, loadAchievementRecord, prisma } from "@hyvento/db";
+import { achievementCounts, loadAchievementRecord, loadSkills, prisma } from "@hyvento/db";
 import { allZones, getWorld } from "@hyvento/map";
 import {
+  OFICIOS,
+  levelOf,
+  neighborLevel,
   ACHIEVEMENTS,
   CASA_PROPIA,
   FISH,
@@ -45,19 +48,24 @@ export async function loadPlayerProfile(userId: string, viewerId: string): Promi
     },
   });
   if (!user) return null;
-  const [record, counts, teamSize, bestFish, casino] = await Promise.all([
+  const [record, counts, teamSize, bestFish, casino, skills] = await Promise.all([
     loadAchievementRecord(prisma, userId),
     achievementCounts(prisma),
     prisma.user.count(),
     prisma.fishCatch.findFirst({ where: { userId, species: { notIn: TRASH } }, orderBy: { size: "desc" }, select: { species: true, size: true } }),
     prisma.pointTransaction.aggregate({ where: { userId, reason: "CASINO" }, _sum: { amount: true } }),
+    // La primera vez también calcula la experiencia de los veteranos (oficios.ts).
+    loadSkills(prisma, userId),
   ]);
+  const oficios = Object.fromEntries(OFICIOS.map((o) => [o, { xp: skills.xp[o], level: levelOf(skills.xp[o]) }]));
   // Los marcadores internos (qué día ya contó para madrugador) no son estadísticas.
   const stats = Object.fromEntries(Object.entries(record.stats).filter(([k]) => !k.startsWith(STAT_PREFIX.lastDay)));
   const names = placeNames();
   const area = topByPrefix(stats, STAT_PREFIX.secArea);
   const zone = topByPrefix(stats, STAT_PREFIX.secZone);
   return {
+    oficios,
+    neighborLevel: neighborLevel(Object.fromEntries(OFICIOS.map((o) => [o, oficios[o]!.level]))),
     id: user.id,
     // Como en la cabaña: sin nombre visible, el correo (antes del onboarding).
     name: user.name || user.email.split("@")[0]!,

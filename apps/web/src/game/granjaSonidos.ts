@@ -1,6 +1,6 @@
 // La granja: los sonidos por código (WebAudio, sin archivos). El arroyo del molino suena mientras uno
 // está cerca (un ruido café filtrado con gorgoteos), y los cortos: el cacareo, la cabra, el maíz que cae y
-// las piedras del molino. Usan la misma salida que sound.ts. `vol` según la distancia (0..1).
+// las piedras del molino. Salen por el mezclador: el arroyo como ambiente y los cortos como efectos. `vol` según la distancia (0..1).
 import { audioOut } from "./sound";
 
 type Out = NonNullable<ReturnType<typeof audioOut>>;
@@ -157,7 +157,7 @@ let stream: Stream | null = null;
 
 /** El arroyo al volumen dado (0 = no se oye): la granja lo llama seguido según la distancia. */
 export function setStreamSound(vol: number) {
-  const a = stream || vol > 0.02 ? audioOut() : null;
+  const a = stream || vol > 0.02 ? audioOut("ambient") : null;
   if (!a) return;
   if (!stream) stream = new Stream(a);
   stream.setVolume(vol * 0.35, a.ctx);
@@ -166,7 +166,7 @@ export function setStreamSound(vol: number) {
 export function stopStreamSound() {
   const s = stream;
   stream = null;
-  const a = audioOut();
+  const a = audioOut("ambient");
   if (s && a) {
     s.setVolume(0, a.ctx);
     setTimeout(() => s.stop(), 900);

@@ -6,6 +6,7 @@ import {
   allZones,
   canStandAt,
   canWalkBetween,
+  canWalkBetweenAxes,
   findPath,
   getWorld,
   isBlockedTile,
@@ -164,6 +165,30 @@ describe("paredes", () => {
     expect(canStandAt(piso2, center(piso2, 10), 11 * ts)).toBe(false);
     expect(canWalkBetween(piso2, center(piso2, 10), center(piso2, 11), center(piso2, 10), center(piso2, 10))).toBe(false);
     expect(canWalkBetween(piso2, center(piso2, 12), center(piso2, 11), center(piso2, 12), center(piso2, 10))).toBe(true);
+  });
+
+  it("el camino en L acepta la esquina que la recta corta, sin cruzar paredes", () => {
+    const ts = piso2.tileSize;
+    // Alrededor de la puerta de la oficina 1 (columna 12, entre y = 10 y 11) hay pasos en diagonal
+    // que la recta rechaza y que el cliente sí puede hacer moviendo un eje y luego el otro.
+    let rescued = 0;
+    for (let ax = 11 * ts; ax <= 14 * ts; ax += 4) {
+      for (let ay = 9 * ts; ay <= 12 * ts; ay += 4) {
+        for (const [bx, by] of [[ax + 10, ay - 10], [ax - 10, ay - 10], [ax + 10, ay + 10], [ax - 10, ay + 10]] as const) {
+          if (!canStandAt(piso2, ax, ay) || !canStandAt(piso2, bx, by)) continue;
+          if (!canWalkBetween(piso2, ax, ay, bx, by) && canWalkBetweenAxes(piso2, ax, ay, bx, by)) rescued++;
+          // Lo que sigue siendo pared sigue siéndolo: nunca acepta más que una de las dos L.
+          if (canWalkBetweenAxes(piso2, ax, ay, bx, by)) {
+            const viaX = canWalkBetween(piso2, ax, ay, bx, ay) && canWalkBetween(piso2, bx, ay, bx, by);
+            const viaY = canWalkBetween(piso2, ax, ay, ax, by) && canWalkBetween(piso2, ax, by, bx, by);
+            expect(canWalkBetween(piso2, ax, ay, bx, by) || viaX || viaY).toBe(true);
+          }
+        }
+      }
+    }
+    expect(rescued).toBeGreaterThan(0);
+    // Y la pared entre la oficina 1 y el pasillo sigue sin poder cruzarse.
+    expect(canWalkBetweenAxes(piso2, center(piso2, 10), center(piso2, 11), center(piso2, 10), center(piso2, 10))).toBe(false);
   });
 
   it("fuera del edificio no se puede caminar", () => {
@@ -588,10 +613,13 @@ describe("sótano", () => {
     expect(neons.map((n) => n.text).sort()).toEqual(["ARCADE", "CASINO", "CINE", "CLUB"]);
   });
 
-  it("hay un punto de arcade delante de cada máquina, en el mismo orden", () => {
+  it("hay un punto de arcade delante de cada máquina, en el mismo orden (y después, uno por pinball)", () => {
     const cabinets = sotano.furniture.filter((f) => f.type === "arcade-cabinet");
+    const pinballs = sotano.furniture.filter((f) => f.type === "pinball");
     const spots = pointsOfType(sotano, "arcade");
-    expect(spots).toHaveLength(cabinets.length);
+    expect(spots).toHaveLength(cabinets.length + pinballs.length);
+    // Los pinballs se juegan del lado +x.
+    pinballs.forEach((f, i) => expect([spots[cabinets.length + i]!.tileX, spots[cabinets.length + i]!.tileY]).toEqual([f.x + f.w, f.y]));
     cabinets.forEach((c, i) => {
       const s = spots[i]!;
       // Del lado al que mira la pantalla.

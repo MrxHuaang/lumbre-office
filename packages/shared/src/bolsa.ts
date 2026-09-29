@@ -9,11 +9,21 @@ import { FREE_NAMES } from "./casa";
 import { RECIPES } from "./cocina";
 import { GRANJA_BAG_OBJECTS } from "./parrilla";
 import { PESCA_BAG_OBJECTS } from "./pesca-tienda";
+import { MUNDO_BLURBS } from "./mundo";
+import { MUNDO_BAG_OBJECTS } from "./garra";
 import { CONSUMABLES } from "./consumables";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
+import { paintingIdOf } from "./painting";
 import { shopItem } from "./shop";
 import { SOMBRERO_MENU, sombreroItem } from "./sombrero";
 import type { ItemStack } from "./social";
+
+/**
+ * El celular de tapa. Lo tiene todo el mundo (el servidor lo da gratis al entrar si falta) y no se tira,
+ * porque el chat vive en él. El navegador lo saca a la pantalla solo si está en la mochila.
+ */
+export const CELULAR = "celular";
+export const CELULAR_ITEM = `obj:${CELULAR}`;
 
 export const BAG = {
   cols: 12,
@@ -84,6 +94,7 @@ const FREE_BLURB: Record<string, string> = {
   banano: "Maduro, de la nevera.",
   malvavisco: "Dorado en la fogata del jardín.",
   [HONEY]: "De las colmenas del apiario.",
+  ...MUNDO_BLURBS,
 };
 
 /** Lo gratis de la casa, lo del huerto y los platos (menos la regadera vacía: es la misma regadera sin agua). */
@@ -132,6 +143,16 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   ...GRANJA_BAG_OBJECTS,
   // El puesto de pesca del lago: las cañas de fibra y de carbono y la carnada (pesca-tienda.ts).
   ...PESCA_BAG_OBJECTS,
+  // El celular de tapa (components/phone): con C sale a la pantalla.
+  [CELULAR]: {
+    name: "Celular",
+    blurb: "Tu celular de tapa: C lo saca. Ahí están el chat, tus contactos, la culebrita y más.",
+    kind: "herramienta",
+    max: 1,
+    durable: true,
+  },
+  // Mundo lleno: los peluches de la máquina de garra y la hoja de la impresora (garra.ts).
+  ...MUNDO_BAG_OBJECTS,
 };
 
 /** "huevo-criollo" → "Huevo criollo": el nombre de algo que no está en el registro. */
@@ -159,6 +180,9 @@ export interface BagItemInfo {
 export function bagItemInfo(itemId: string): BagItemInfo {
   const id = objIdOf(itemId);
   if (id === null) {
+    // Un cuadro de la Pintura: se cuelga en la oficina como un mueble (su título lo trae /api/paintings).
+    if (paintingIdOf(itemId))
+      return { itemId, name: "Cuadro", blurb: "Lo pintaste en el PC: cuélgalo en tu oficina con Decorar.", kind: "mueble", max: Infinity, furniture: true, art: itemId, use: null, durable: true };
     const shop = shopItem(itemId);
     return {
       itemId,
@@ -292,12 +316,13 @@ export interface BagView {
   pick?: true;
 }
 
-export type BagNoticeCode = "full" | "stack" | "furniture";
+export type BagNoticeCode = "full" | "stack" | "furniture" | "keep";
 
 export const BAG_NOTICES: Record<BagNoticeCode, string> = {
   full: "No te cabe en la mochila: haz espacio (tira algo o pon un mueble en tu oficina).",
   stack: "Ya llevas lo más que se puede de eso.",
   furniture: "Los muebles no se tiran: ponlos en tu oficina con Decorar.",
+  keep: "El celular no se tira: ahí están el chat y tus contactos.",
 };
 
 export interface BagNotice {

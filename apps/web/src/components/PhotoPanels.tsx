@@ -10,6 +10,7 @@ import { composePolaroid, encodePolaroid } from "@/game/photos/capture";
 import { photoErrorText, photoImageUrl, usePhotoStore, type PendingPhoto } from "@/game/photos/store";
 import { sendPhotoTake } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { PanelShell } from "./PointsPanels";
 
 // Las casas de cada persona no están en el mundo (y la foto no dice de quién era la casa).
@@ -32,7 +33,7 @@ export function usePhotoKey() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "p" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-      if (!canShoot()) return;
+      if (focusOwnsKey(e.key) || !canShoot()) return;
       e.preventDefault();
       sendPhotoTake();
     };

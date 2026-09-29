@@ -5,7 +5,8 @@
 // rato de energía. El servidor valida que estés junto a la estufa y que alcancen los ingredientes; aquí
 // solo se muestra.
 import { drawHeldItem } from "@hyvento/map/art";
-import { COCINA, INGREDIENTS, RECIPES, canCook, ingredientName, type Recipe } from "@hyvento/shared";
+import { COCINA, INGREDIENTS, RECIPES, canCook, ingredientName, unlockText, unlocked, type Recipe } from "@hyvento/shared";
+import { useMyLevels } from "@/game/oficios";
 import { useEffect, useMemo } from "react";
 import { requestPantry, sendCook, useCocinaStore } from "@/game/cocina";
 import { toHtmlCanvas } from "@/game/iso/canvas";
@@ -25,6 +26,7 @@ function effectText(r: Recipe): string {
 }
 
 export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose: () => void }) {
+  const levels = useMyLevels();
   const pantry = useCocinaStore((s) => s.pantry);
   const pointsToday = useCocinaStore((s) => s.pointsToday);
   useEffect(() => requestPantry(), []);
@@ -64,7 +66,9 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
 
         <section aria-label="Recetas" className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
           {RECIPES.map((r) => {
-            const ok = canCook(r, available);
+            // La receta de un oficio se ve, pero se cocina desde su nivel (lo valida el servidor).
+            const lockedBy = r.requires && !unlocked(r.requires, levels) ? unlockText(r.requires) : null;
+            const ok = canCook(r, available) && !lockedBy;
             return (
               <div key={r.id} className="cozy-chip flex flex-col gap-1.5 px-2 py-2">
                 <div className="flex items-center gap-2">
@@ -94,7 +98,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
                   onClick={() => sendCook(r.id)}
                   className={`cozy-btn px-3 py-1 text-[13px] ${ok && atObject ? "cozy-btn-primary" : ""}`}
                 >
-                  Cocinar
+                  {lockedBy ? `Con ${lockedBy}` : "Cocinar"}
                 </button>
               </div>
             );

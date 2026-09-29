@@ -4,6 +4,9 @@ import { ACTIVITY_PING_MS, AUTO_AWAY, IdleTimer } from "@hyvento/shared";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
+import { fetchGameToken } from "@/game/gameToken";
+import { wakeGameServer } from "@/game/reconexion";
+import { ReconnectChip } from "./ReconnectChip";
 import { media } from "@/game/media";
 import { connect, disconnect, sendActivity, sendIdle } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
@@ -15,8 +18,8 @@ import { useEntryStore } from "@/game/entryStore";
 import { waitForCozyFont } from "@/lib/cozy";
 import { warmPrerender } from "@/game/iso/prerender-paths";
 import { AdminDialog } from "./AdminDialog";
-import { ChatPanel } from "./ChatPanel";
-import { Hud, PeoplePanel } from "./Hud";
+import { Hud, MinimapPanel } from "./Hud";
+import { MessageToasts } from "./phone/PhoneToasts";
 import { MediaControls } from "./MediaControls";
 import { ScreenFocus, VideoStrip } from "./VideoStrip";
 import { RadioTapPrompt } from "./RoomPanel";
@@ -61,16 +64,26 @@ import { RadarPanel } from "./observatorio/RadarPanel";
 import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
+import { QuestCard } from "./encargos/QuestCard";
+import { PrologueCard } from "./historia/HistoriaCard";
+import { QuestTracker } from "./encargos/QuestTracker";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
 import { SocialOverlays } from "./social/SocialOverlays";
+import { PermisosPanel } from "./PermisosPanel";
 import { AchievementToasts } from "./profile/AchievementToasts";
 import { PlayerProfileDialog } from "./profile/PlayerProfileDialog";
 import { TrophyPanel } from "./profile/TrophyPanel";
 import { useAchievementStore } from "@/game/achievements";
+import { usePhoneStore } from "@/game/phone/state";
+import { MundoPanels } from "./mundo/MundoPanels";
+import { DECOR_CONTROLS, gameControls } from "@/lib/shortcuts";
+import { FacilidadLayer, GameOnly } from "./facilidad/FacilidadLayer";
 
 // El PC (con el editor de notas) se descarga recién al prenderlo: no pesa en la carga de la oficina.
 const Computer = dynamic(() => import("./pc/Computer").then((m) => m.Computer), { ssr: false });
+// El celular (con sus apps) igual: se descarga recién al sacarlo con el botón del HUD o la tecla C.
+const Phone = dynamic(() => import("./phone/Phone").then((m) => m.Phone), { ssr: false });
 
 const RELOAD_FLAG = "hyvento:reloaded-after-update";
 /** Cuánto se espera el mapa ya conectado antes de ofrecer "Reintentar". */
@@ -116,17 +129,6 @@ function handleGameLoadError(err: unknown) {
   useOfficeStore.getState().setConnection("error", "No se pudo cargar la cabaña. Recarga la página.");
 }
 
-async function fetchGameToken(): Promise<string> {
-  const res = await fetch("/api/game-token", { cache: "no-store" });
-  if (res.status === 401) {
-    window.location.href = "/login";
-    throw new Error("Sesión expirada");
-  }
-  const body = (await res.json().catch(() => null)) as { token?: string; error?: string } | null;
-  if (!res.ok || !body?.token) throw new Error(body?.error ?? "No se pudo obtener el acceso a la cabaña");
-  return body.token;
-}
-
 interface OfficeProps {
   isAdmin: boolean;
   profile: Profile;
@@ -144,6 +146,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   const pcOn = useOfficeStore((s) => s.pcOn);
   const atComputer = useOfficeStore((s) => s.atComputer);
   const setPcOn = useOfficeStore((s) => s.setPcOn);
+  const phoneOut = usePhoneStore((s) => s.mounted);
 
   // Si dejas de estar frente al computador (p. ej. el servidor te levantó), el PC se apaga.
   useEffect(() => {
@@ -151,6 +154,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   }, [pcOn, atComputer, setPcOn]);
   // Al salir de la oficina el PC queda apagado.
   useEffect(() => () => useOfficeStore.getState().setPcOn(false), []);
+  // Y el celular, guardado.
+  useEffect(() => () => usePhoneStore.getState().closed(), []);
   const panel = useOfficeStore((s) => s.panel);
   const closePanel = useOfficeStore((s) => s.closePanel);
   const connection = useOfficeStore((s) => s.connection);
@@ -245,12 +250,17 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
     const gameModule = import("@/game/createGame");
     gameModule.then(() => !cancelled && useEntryStore.getState().done("motor")).catch(() => undefined);
     warmPrerender();
+    // A la par del token: despertar al servidor de juego si está dormido (Render free tarda hasta ~1 min).
+    entry.start("despertar");
+    const awake = wakeGameServer(() => cancelled).finally(() => !cancelled && useEntryStore.getState().done("despertar"));
 
     (async () => {
       try {
         const token = await fetchGameToken();
         if (cancelled) return;
         useEntryStore.getState().done("sesion");
+        await awake;
+        if (cancelled) return;
         useEntryStore.getState().start("conexion");
         // "Llegar en bus" (Mi personaje): solo al entrar; al reconectar se sigue donde se estaba.
         await connect({ token, arriveByBus: getArriveByBus() || undefined });
@@ -307,19 +317,22 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             onAdmin={() => setDialog("admin")}
             onLogout={onExit}
           />
-          {/* Decorando tu oficina, el panel del editor toma el lugar de los conectados. */}
+          {/* Arriba a la derecha: los avisos, los mensajes que llegan con el celular guardado y, decorando, el editor. */}
           <div
             className={`pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-2 ${decorating || worldEditing ? "w-[min(300px,calc(100%-1.5rem))]" : "w-[min(270px,calc(100%-1.5rem))] max-md:w-auto"}`}
           >
-            {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <PeoplePanel />}
-            {/* En el celular la columna se ajusta a la ficha de conectados y los avisos bajan hasta debajo del HUD. */}
+            {/* Los conectados están en Contactos del celular: aquí queda el minimapa (o el editor, decorando). */}
+            {worldEditing ? <WorldEditPanel /> : decorating ? <DecorPanel /> : <MinimapPanel />}
+            {/* En pantallas angostas la columna se ajusta a la ficha del minimapa y los avisos bajan hasta debajo del HUD. */}
             <div className="flex w-full flex-col items-end gap-2 empty:hidden max-md:absolute max-md:top-[calc(var(--cozy-hud-bottom,3rem)_-_0.25rem)] max-md:right-0 max-md:w-[min(16rem,calc(100vw-1.5rem))]">
               <DoorNotesChip />
+              <QuestTracker />
               <Notices />
               <NotifyPrompt />
+              {/* Los mensajes que llegan con el celular guardado. */}
+              <MessageToasts />
             </div>
           </div>
-          <ChatPanel isAdmin={isAdmin} />
           <SideDock />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
@@ -338,9 +351,19 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </div>
           {/* Arriba al centro: la reconexión, los logros y el pez recién sacado, uno debajo del otro. */}
           <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-1/2 z-30 flex w-[min(340px,calc(100%-1.5rem))] -translate-x-1/2 flex-col items-center gap-2">
-            {connection === "reconnecting" && <div className="cozy-chip px-3.5 py-1.5 text-[13px]">Reconectando…</div>}
-            <AchievementToasts />
-            <CatchCard />
+            {connection === "reconnecting" && <ReconnectChip />}
+            {/* En el modo trabajo no salen los avisos de juego (logros, el pez recién sacado). */}
+            <GameOnly>
+              <AchievementToasts />
+              <CatchCard />
+            </GameOnly>
+          </div>
+          {/* Arriba a la izquierda y sobre los paneles (el tablón, el mostrador): lo que te pidió quien te habla. */}
+          <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-3 z-[45]">
+            <div className="flex flex-col gap-2">
+              <PrologueCard />
+              <QuestCard />
+            </div>
           </div>
           </ErrorBoundary>
           <ErrorBoundary name="avisos">
@@ -348,8 +371,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <InvitationRequests />
           <PodcastConsent />
           <IncomingCall />
-          <ComunicacionOverlays isAdmin={isAdmin} />
+          <ComunicacionOverlays />
           <SocialOverlays />
+          <PermisosPanel />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}
           <MediaControls actions={<HandActions />} tail={<ControlsHint />}>
             <Hotbar />
@@ -359,6 +383,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </ErrorBoundary>
           <ErrorBoundary name="paneles" resetKey={`${panel?.kind}|${dialog}|${pcOn}|${profileId}`} onClose={closeOverlays}>
           {pcOn && <Computer profile={profile} onOff={() => setPcOn(false)} />}
+          {phoneOut && <Phone profile={profile} />}
           {(dialog === "profile" || dialog === "character") && (
             <ProfileDialog profile={profile} withName={dialog === "profile"} onClose={closeDialog} onSaved={onProfileChange} />
           )}
@@ -426,6 +451,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "logbook" && <DiarioPanel onClose={closePanel} />}
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
+          {/* Mundo lleno: tragamonedas, garra, estante de premios, rueda y la recepción. */}
+          <MundoPanels />
+          {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}
+          <FacilidadLayer isAdmin={isAdmin} onEditProfile={() => setDialog("profile")} onEditCharacter={() => setDialog("character")} onAdmin={() => setDialog("admin")} />
           </ErrorBoundary>
         </>
       ) : null}
@@ -445,26 +474,6 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
   );
 }
 
-/** Teclas del juego y del editor: se muestran en la lista de controles. */
-const CONTROLS: [string, string][] = [
-  ["WASD", "caminar (o clic en el piso)"],
-  ["E", "sentarte o usar"],
-  ["F", "usar lo de la mano"],
-  ["T", "emotes"],
-  ["P", "foto"],
-  ["N", "nombres: completos, cortos u ocultos"],
-  ["Enter", "chatear"],
-  ["Tab", "cambiar la fila de la barra"],
-  ["1-9 0 - =", "elegir la casilla (la mano)"],
-  ["I", "mochila, stats y personaje"],
-  ["/time", "la hora del juego (/ muestra los comandos)"],
-];
-const DECOR_CONTROLS: [string, string][] = [
-  ["Clic", "poner o elegir"],
-  ["R", "girar"],
-  ["Supr", "guardar"],
-  ["Esc", "soltar o terminar"],
-];
 
 /**
  * Recordatorio de controles: un botón "?" chico al final de la barra de abajo que abre la lista hacia
@@ -487,7 +496,8 @@ function ControlsHint() {
       window.removeEventListener("pointerdown", onDown);
     };
   }, [open]);
-  const rows = decorating ? DECOR_CONTROLS : CONTROLS;
+  // Las teclas están en lib/shortcuts.ts (también las muestra la ayuda de atajos del menú y la paleta).
+  const rows = decorating ? DECOR_CONTROLS : gameControls();
   const label = decorating ? "Teclas del editor" : "Controles";
   return (
     <div ref={box} className="relative max-md:hidden">

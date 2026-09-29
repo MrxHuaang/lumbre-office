@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useClubStore } from "@/game/club/store";
 import { useOfficeStore } from "@/game/store";
 import { useCinemaStore } from "@/game/cinema/store";
+import { usePhoneStore } from "@/game/phone/state";
 import { ClubSection } from "./club/ClubDock";
 import { CinemaSection } from "./cinema/CinemaPanel";
 import { PixelIcon } from "./Cozy";
@@ -48,8 +49,8 @@ export function SideDock() {
   const worldEditing = useOfficeStore((s) => s.worldEditing);
   const pcOn = useOfficeStore((s) => s.pcOn);
   const panel = useOfficeStore((s) => s.panel);
-  // En el celular no caben el chat y este panel abierto a la vez: el chat tiene prioridad.
-  const chatOpen = useOfficeStore((s) => s.chatOpen);
+  // En pantallas chicas no caben el celular (con el chat) y este panel a la vez: el celular tiene prioridad.
+  const phoneOut = usePhoneStore((s) => s.mounted);
 
   // Solo en una oficina o la sala de reuniones (las paredes altas se cambian en el menú principal).
   const room = inRoom(zoneType);
@@ -58,7 +59,7 @@ export function SideDock() {
   const sounding = inClub ? clubPlaying : inCinema ? showing : radioOn;
 
   return (
-    <div className={`pointer-events-none absolute right-0 bottom-[var(--cozy-bar-top,7rem)] z-10 flex items-end ${chatOpen && open ? "max-md:hidden" : ""}`}>
+    <div className={`pointer-events-none absolute right-0 bottom-[var(--cozy-bar-top,7rem)] z-10 flex items-end ${phoneOut && open ? "max-md:hidden" : ""}`}>
       <button
         type="button"
         onClick={toggle}

@@ -6,6 +6,7 @@
 import { tradeReach } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { getRoom } from "@/game/network";
+import { usePermisosStore } from "@/game/permisos";
 import { callPerson, followPerson, wavePerson } from "@/game/comunicacion";
 import { respondTrade, sendTradeRequest, useSocialStore, type GiftTarget } from "@/game/social";
 import { useOfficeStore } from "@/game/store";
@@ -40,6 +41,7 @@ function PersonMenu() {
   const openGift = useSocialStore((s) => s.openGift);
   const person = useOfficeStore((s) => (menu ? s.players[menu.sessionId] : undefined));
   const near = useNearMe(menu?.sessionId ?? null);
+  const admin = usePermisosStore((s) => s.admin);
 
   useEffect(() => {
     if (!menu) return;
@@ -64,7 +66,7 @@ function PersonMenu() {
     <div role="menu" aria-label={`Acciones con ${person.name}`} className="cozy-panel fixed z-30 w-[180px] p-1.5" style={{ left, top }}>
       <p className="flex items-center gap-2 bg-cozy-wood px-2.5 py-1.5 text-[14px] font-semibold text-cozy-paper-light">
         <span className="min-w-0 flex-1 truncate">{person.name}</span>
-        <button type="button" onClick={close} aria-label="Cerrar" className="p-0.5">
+        <button type="button" onClick={close} aria-label="Cerrar" className="cozy-hit p-1">
           <PixelIcon name="close" size={10} />
         </button>
       </p>
@@ -100,6 +102,12 @@ function PersonMenu() {
         <PixelIcon name="steps" size={13} color="var(--color-cozy-wood)" />
         Seguir
       </button>
+      {admin && (
+        <button type="button" role="menuitem" onClick={act(() => usePermisosStore.getState().openEditor({ userId: person.userId, name: person.name }))} className={item}>
+          <PixelIcon name="unlock" size={13} color="var(--color-cozy-wood)" />
+          Dar permiso…
+        </button>
+      )}
     </div>
   );
 }
@@ -160,7 +168,7 @@ function TradeInvites() {
 export function PersonActions({ to }: { to: GiftTarget }) {
   const openGift = useSocialStore((s) => s.openGift);
   return (
-    <button type="button" onClick={() => openGift(to)} title={`Regalarle a ${to.name}`} aria-label={`Regalarle a ${to.name}`} className="shrink-0 p-0.5 opacity-70 hover:opacity-100">
+    <button type="button" onClick={() => openGift(to)} title={`Regalarle a ${to.name}`} aria-label={`Regalarle a ${to.name}`} className="grid size-7 shrink-0 place-items-center pointer-coarse:size-10 opacity-70 hover:opacity-100">
       <PixelIcon name="gift" size={13} color="var(--color-cozy-red)" />
     </button>
   );

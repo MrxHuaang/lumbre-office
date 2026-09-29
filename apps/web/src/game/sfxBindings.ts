@@ -1,5 +1,6 @@
-// Sonidos de la interfaz que salen del estado (paneles, chat, avisos, toques de puerta) y el clic de los
+// Sonidos de la interfaz que salen del estado (paneles, mensajes del chat, avisos, toques de puerta) y el clic de los
 // botones cozy. OfficeScene lo engancha al crearse y lo suelta al destruirse.
+import { playMessageTone } from "./phone/audio";
 import { sfx } from "./sfx";
 import { selectFocusing, useOfficeStore } from "./store";
 
@@ -10,10 +11,6 @@ export function bindUiSounds(): () => void {
       if (s.panel) sfx.uiOpen();
       else sfx.uiClose();
     }
-    if (s.chatOpen !== prev.chatOpen) {
-      if (s.chatOpen) sfx.uiOpen();
-      else sfx.uiClose();
-    }
     // Un aviso nuevo (los que se van no suenan).
     const notice = s.notices.at(-1);
     if (notice && !prev.notices.some((n) => n.id === notice.id)) sfx.notice(notice.tone);
@@ -21,7 +18,8 @@ export function bindUiSounds(): () => void {
     // suenan). En modo foco, silencio.
     if (s.messages.length > prev.messages.length && !selectFocusing(s)) {
       const m = s.messages.at(-1);
-      if (m && m.fromId && m.fromId !== s.sessionId && Date.now() - m.ts < 10_000) sfx.chat();
+      // Con un tono elegido en el celular suena ese; si no, el bip de siempre.
+      if (m && m.fromId && m.fromId !== s.sessionId && Date.now() - m.ts < 10_000 && !playMessageTone()) sfx.chat();
     }
     // Toqué la puerta de una oficina, o alguien toca la mía.
     if (s.pendingKnock && s.pendingKnock !== prev.pendingKnock) sfx.knock();

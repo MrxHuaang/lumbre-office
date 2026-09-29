@@ -32,6 +32,8 @@ export interface CocinaDeps {
   later(ms: number, fn: () => void): { clear(): void };
   /** Cambió la energía de alguien ("" = se le acabó): la sala la copia a sus `Player`. */
   onBuff(userId: string, dish: string): void;
+  /** Nivel de un oficio de alguien (las recetas de los oficios: ver `Recipe.requires`). */
+  level?(userId: string, oficio: string): number;
 }
 
 export interface CocinaWho {
@@ -96,6 +98,8 @@ export class Cocina {
     if (!parsed.success) return null;
     const recipe = recipeById(parsed.data.recipe)!;
     if (!nearPointOfType(map, "kitchen_stove", who.x, who.y)) return { notice: { code: "far" } };
+    // La receta de un oficio pide su nivel.
+    if (recipe.requires && (this.deps.level?.(who.userId, recipe.requires.oficio) ?? 1) < recipe.requires.level) return { notice: { code: "level", item: recipe.id } };
     if (now - (this.lastCookAt.get(who.userId) ?? 0) < COCINA.cookCooldownMs) return { notice: { code: "busy" } };
     const pantry = this.pantry(who.userId);
     if (!canCook(recipe, pantry)) return { notice: { code: "missing" } };

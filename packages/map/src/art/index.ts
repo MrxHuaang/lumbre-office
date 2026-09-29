@@ -21,6 +21,7 @@ export { BILL_DENOMINATIONS, BILL_FRAMES, BILL_H, BILL_W, billsFor, drawBill } f
 export { emoteFrames, EMOTE_H, EMOTE_W } from "./emotes";
 export { giftBox, wavingArm, GIFT_BOX_FRAMES, GIFT_BOX_H, GIFT_BOX_W } from "./social";
 export { photoBoardPhotos, PHOTO_BOARD_PIC, PHOTO_BOARD_SLOTS, type PhotoThumb } from "./photos";
+export { paintingSprite } from "./painting";
 // El acuario de la sala (los peces que nadan son capas) y los post-its de las puertas de las oficinas.
 export { ACUARIO_SWIM, aquariumBubble, miniFish, MINI_FISH_H, MINI_FISH_W } from "./acuario";
 export { doorNotesArt } from "./door-notes";
@@ -80,7 +81,7 @@ export {
 } from "./chibi-baile";
 export { arcadeScreen, danceFloorLights, djBoothEq, FLOOR_LIGHT_PATTERNS, poleStageLights, speakerPulse, type ArcadeScreenKind } from "./club-vivo";
 export { cinemaMarquee, MARQUEE_POSTS } from "./cinema";
-export { CINEMA_SCREEN, drawAreaBase, drawDoorPost, drawLowWall, drawRoomWalls, LOW_WALL_H, SCREEN_INSET, VIDEO_WALL_SCREEN, WALL_H, type AreaArt } from "./room";
+export { CINEMA_SCREEN, drawAreaBase, drawAreaPatch, drawDoorPost, drawLowWall, drawRoomWalls, LOW_WALL_H, SCREEN_INSET, VIDEO_WALL_SCREEN, WALL_H, type AreaArt } from "./room";
 // Casino: tipografía de números, geometría de las mesas, el arte del modo mesa y su encuadre. Con
 // nombres explícitos (no `export *`): así un nombre genérico no choca con lo que agreguen otras partes.
 export { textMask } from "./digits";
@@ -231,3 +232,8 @@ export {
 } from "./casa-fx";
 export { drawPet, petBowl, petMenuIcon, petTreat, sleepZ, type PetMenuIcon, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
 export { orreryArms, ORRERY_FRAMES } from "./observatorio";
+// Mundo lleno: los símbolos de los rodillos del tragamonedas y el espantapájaros de cada estación.
+export { SLOT_GLYPH, slotSymbol } from "./tragamonedas";
+export { scarecrow } from "./leisure";
+export { questMark, storyArrow, type QuestMarkKind } from "./encargos";
+export { levelSpark, neighborPlate } from "./oficios";

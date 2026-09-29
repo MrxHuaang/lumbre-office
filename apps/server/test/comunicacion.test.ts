@@ -1,5 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import {
+  ANNOUNCE_REJOIN_GRACE_MS,
   COM_MSG,
   COMUNICACION,
   MSG,
@@ -17,7 +18,7 @@ import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import { COM_TIMINGS } from "../src/rooms/comunicacion";
 import { Phones } from "../src/rooms/phones";
-import { Anuncio, canAnnounce } from "../src/rooms/anuncio";
+import { Anuncio, canAnnounce, REJOIN_TIMINGS } from "../src/rooms/anuncio";
 import type { OfficeState } from "../src/state";
 import { bootServer, tick, token, until, type ServerRoom } from "./helpers";
 
@@ -36,12 +37,16 @@ beforeEach(async () => {
   repo = new MemoryRepository();
   OfficeRoom.repo = repo;
   COM_TIMINGS.callCooldownMs = 0;
+  // La pausa global entre anuncios tiene su propio test; en los demás no estorba.
+  COM_TIMINGS.announceGapMs = 0;
 });
 afterEach(() => {
   COM_TIMINGS.callCooldownMs = COMUNICACION.callCooldownMs;
   COM_TIMINGS.waveCooldownMs = COMUNICACION.waveCooldownMs;
   COM_TIMINGS.announceCooldownMs = COMUNICACION.announceCooldownMs;
+  COM_TIMINGS.announceGapMs = COMUNICACION.announceGapMs;
   COM_TIMINGS.broadcastMaxMs = COMUNICACION.broadcastMaxMs;
+  REJOIN_TIMINGS.graceMs = ANNOUNCE_REJOIN_GRACE_MS;
 });
 
 const NAMES = ["Ana", "Bob", "Carla", "Dani", "Eva", "Fede", "Gabo"] as const;
@@ -213,6 +218,89 @@ describe("llamadas grupales", () => {
   });
 });
 
+describe("anuncio: si quien anuncia recarga la página", () => {
+  it("vuelve dentro de la gracia: el anuncio sigue y a los demás no les llega nada (ni fin ni otro inicio)", async () => {
+    REJOIN_TIMINGS.graceMs = 3_000;
+    const { room, people } = await setup(2, { admin: true });
+    const [admin, bob] = people as [ClientRoom, ClientRoom];
+    const toBob = collect<BroadcastEvent>(bob, COM_MSG.broadcastEvent);
+    admin.send(COM_MSG.broadcastStart);
+    await until(() => toBob.length === 1);
+    const endsAt = (toBob[0] as Extract<BroadcastEvent, { kind: "start" }>).endsAt;
+
+    await admin.leave(true);
+    await settle(room, 200);
+    expect(toBob).toHaveLength(1);
+    const back = await colyseus.connectTo(room, { token: await token(uid(0), "Ana", "ada", "ADMIN") });
+    await until(() => (room.state.players.get(back.sessionId)?.broadcastUntil ?? 0) > 0, "que retome el papel");
+    expect(room.state.players.get(back.sessionId)!.broadcastUntil).toBe(endsAt);
+    await settle(room, 3_200); // pasada la gracia, sigue
+    expect(toBob).toHaveLength(1);
+    expect(room.state.players.get(back.sessionId)!.broadcastUntil).toBe(endsAt);
+
+    back.send(COM_MSG.broadcastStop);
+    await until(() => toBob.length === 2);
+    expect(toBob[1]).toMatchObject({ kind: "end", reason: "stop" });
+  });
+
+  it("si no vuelve a tiempo, termina como siempre", async () => {
+    REJOIN_TIMINGS.graceMs = 150;
+    const { people } = await setup(2, { admin: true });
+    const [admin, bob] = people as [ClientRoom, ClientRoom];
+    const toBob = collect<BroadcastEvent>(bob, COM_MSG.broadcastEvent);
+    admin.send(COM_MSG.broadcastStart);
+    await until(() => toBob.length === 1);
+    await admin.leave(true);
+    await until(() => toBob.length === 2, "que se corte al vencer la gracia", 2_000);
+    expect(toBob[1]).toMatchObject({ kind: "end", reason: "left", name: "Ana" });
+  });
+
+  it("el orden de salir y volver da igual: vuelve antes o después de que se vaya la sesión vieja", () => {
+    const timers: { ms: number; fn: () => void; cleared: boolean }[] = [];
+    const toAll: BroadcastEvent[] = [];
+    const untilOf = new Map<string, number>();
+    const people: Record<string, { userId: string; name: string; admin: boolean }> = {
+      vieja: { userId: "u-ana", name: "Ana", admin: true },
+      nueva: { userId: "u-ana", name: "Ana", admin: true },
+      otra: { userId: "u-ana", name: "Ana", admin: true },
+    };
+    const anuncio = new Anuncio({
+      person: (sessionId) => people[sessionId],
+      toAll: (_type, msg) => toAll.push(msg as BroadcastEvent),
+      toSession: () => undefined,
+      setBroadcast: (userId, t) => untilOf.set(userId, t),
+      later: (ms, fn) => {
+        const t = { ms, fn, cleared: false };
+        timers.push(t);
+        return { clear: () => void (t.cleared = true) };
+      },
+      now: () => 1000,
+      newId: () => "a1",
+      maxMs: () => 60_000,
+      cooldownMs: () => 0,
+      graceMs: () => 15_000,
+    });
+    const fire = () => timers.filter((t) => !t.cleared && t.ms === 15_000).forEach((t) => t.fn());
+    anuncio.start("vieja");
+    // 1) Primero se va y después vuelve: la espera se cancela.
+    anuncio.forget("u-ana");
+    anuncio.greet("nueva");
+    fire();
+    expect(toAll.map((e) => e.kind)).toEqual(["start"]);
+    expect(anuncio.broadcaster).toBe("u-ana");
+    // 2) Primero entra la sesión nueva (la sala no llama a forget: la persona sigue): nada cambia.
+    anuncio.greet("otra");
+    expect(toAll.map((e) => e.kind)).toEqual(["start"]);
+    // 3) Se va y no vuelve: al vencer la gracia termina, una sola vez.
+    anuncio.forget("u-ana");
+    fire();
+    fire();
+    expect(toAll.map((e) => e.kind)).toEqual(["start", "end"]);
+    expect(toAll[1]).toMatchObject({ reason: "left" });
+    expect(untilOf.get("u-ana")).toBe(0);
+  });
+});
+
 describe("quien hace sonar a alguien va por userId", () => {
   it("si cambia de nombre, a quien le suena le llega el nombre nuevo", () => {
     const sent: PhoneEvent[] = [];
@@ -340,6 +428,7 @@ describe("anuncio a toda la cabaña", () => {
 
     other.send(COM_MSG.broadcastStart);
     await until(() => toBob.length === 3);
+    REJOIN_TIMINGS.graceMs = 0; // sin espera: se corta apenas se va
     await other.leave(true);
     await until(() => toBob.length === 4);
     expect(toBob[3]).toMatchObject({ kind: "end", reason: "left", name: "Otra" });
@@ -372,6 +461,35 @@ describe("anuncio a toda la cabaña", () => {
     expect(toBob[2]).toMatchObject({ kind: "start" });
   });
 
+  it("pausa global: con dos personas que pueden anunciar, un anuncio no pisa al otro", async () => {
+    COM_TIMINGS.announceGapMs = 60_000;
+    COM_TIMINGS.announceCooldownMs = 0; // solo la global, no la de cada persona
+    const { room, people } = await setup(2, { admin: true });
+    const [admin, bob] = people as [ClientRoom, ClientRoom];
+    const other = await colyseus.connectTo(room, { token: await token("u-otra", "Otra", "ada", "ADMIN") });
+    const seen = collect<Announcement>(bob, COM_MSG.announcement);
+    const otherErrors = collect<AnnounceResult>(other, COM_MSG.announceResult);
+
+    admin.send(COM_MSG.announce, { text: "Primero" });
+    await until(() => seen.length === 1);
+    other.send(COM_MSG.announce, { text: "Segundo" });
+    other.send(COM_MSG.broadcastStart);
+    await until(() => otherErrors.length === 2);
+    expect(otherErrors.map((e) => e.error)).toEqual(["recent", "recent"]);
+    await settle(room);
+    expect(seen).toHaveLength(1);
+    expect(player(room, other).broadcastUntil).toBe(0);
+
+    // Pasada la pausa, sí; y mientras alguien habla por voz, tampoco entra un aviso de texto de otro.
+    COM_TIMINGS.announceGapMs = 0;
+    other.send(COM_MSG.broadcastStart);
+    await until(() => player(room, other).broadcastUntil > 0, "que empiece la voz");
+    const adminErrors = collect<AnnounceResult>(admin, COM_MSG.announceResult);
+    admin.send(COM_MSG.announce, { text: "Encima" });
+    await until(() => adminErrors.length === 1);
+    expect(adminErrors[0]).toMatchObject({ error: "busy", name: "Otra" });
+  });
+
   it("quien vuelve a entrar en pleno anuncio lo recibe como retomado (sin timbre ni micrófono solo)", () => {
     const sent: { sessionId: string; msg: BroadcastEvent }[] = [];
     const untilOf = new Map<string, number>();
@@ -390,6 +508,7 @@ describe("anuncio a toda la cabaña", () => {
       newId: () => "a1",
       maxMs: () => 60_000,
       cooldownMs: () => 10_000,
+      graceMs: () => 15_000,
     });
     anuncio.start("s1");
     untilOf.clear();
@@ -401,8 +520,10 @@ describe("anuncio a toda la cabaña", () => {
     ]);
     // Su sesión nueva vuelve a tener el papel "broadcast" (el micrófono lo prende ella).
     expect(untilOf.get("u-ana")).toBe(61_000);
-    // Solo un admin puede anunciar: lo decide `canAnnounce`.
+    // Anuncia un admin o quien tenga el permiso: lo decide `canAnnounce`.
     expect(canAnnounce(people.s3!)).toBe(false);
     expect(canAnnounce(people.s1!)).toBe(true);
+    expect(canAnnounce({ ...people.s3!, permisos: ["anunciar"] })).toBe(true);
+    expect(canAnnounce({ ...people.s3!, permisos: ["editar-casa"] })).toBe(false);
   });
 });

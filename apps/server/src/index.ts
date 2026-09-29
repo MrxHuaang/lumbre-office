@@ -20,6 +20,12 @@ for (const key of ["GAME_TOKEN_SECRET", "DATABASE_URL"]) {
 process.on("unhandledRejection", (reason) => {
   console.error("[juego] promesa rechazada sin atender", reason);
 });
+// Una excepción sin atrapar sí deja el proceso en un estado dudoso: solo se anota aquí (el monitor no cambia
+// qué pasa después). Colyseus apaga ordenado (cierra las salas, que devuelven y guardan) y sale con error;
+// antes de que exista el servidor, Node sale como siempre.
+process.on("uncaughtExceptionMonitor", (err, origin) => {
+  console.error(`❌ Excepción sin atrapar (${origin}): el servidor se apaga`, err);
+});
 
 const { createGameServer } = await import("./app");
 const { PrismaRepository } = await import("./repo/prisma");

@@ -10,7 +10,8 @@ import { NIGHT_FROM, NIGHT_UNTIL } from "./clock";
 import type { Weather } from "./weather";
 
 // El pescador del puesto de pesca del lago está en pesca-tienda.ts (mismo formato).
-export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "astronoma" | "pescador";
+// La recepcionista del recibidor está en recepcion.ts.
+export type NpcRole = "crupier" | "dealer" | "cajera" | "portero" | "astronoma" | "pescador" | "recepcionista" | "casera";
 
 export interface GameNpc {
   id: string;
@@ -176,8 +177,47 @@ export const OBSERVATORIO_NPCS: readonly GameNpc[] = [
   },
 ];
 
-/** Todos los personajes fijos (el casino y el observatorio). */
-export const ALL_NPCS: readonly GameNpc[] = [...CASINO_NPCS, ...OBSERVATORIO_NPCS];
+/**
+ * Doña Aurora, la casera: abuela paisa que cuida la cabaña desde que el cuidador anterior se fue sin avisar.
+ * Vive en el recibidor de la planta baja, junto a la escalera (lejos del mostrador de la recepción), y guía
+ * el capítulo 1 de la historia (historia.ts). Ruana de lana sobre el delantal, pañoleta y el pelo blanco
+ * recogido en moño.
+ */
+export const HISTORIA_NPCS: readonly GameNpc[] = [
+  {
+    id: "aurora",
+    role: "casera",
+    name: "Doña Aurora",
+    area: "planta-baja",
+    tile: { x: 16, y: 16 },
+    facing: "down",
+    solid: true,
+    look: {
+      skin: "#c8946a",
+      hair: "#ece8e2",
+      shirt: "#7a2a36",
+      pants: "#4a3a2e",
+      accent: "#d8a94a",
+      top: "sweater",
+      outfit: "apron",
+      neck: "scarf",
+      hairStyle: "bun",
+      eyes: "happy",
+      blush: true,
+      accessories: [],
+      shoes: "boots",
+      shoeColor: "#3a2a1e",
+    },
+    idle: [
+      "Ay, mijo, ¿ya comió? Uno no trabaja bien con la barriga vacía.",
+      "Esta casa cruje de noche. Yo digo que es la madera. Yo digo.",
+      "El que cuidaba antes dejó todo tan ordenadito… menos una puerta.",
+    ],
+  },
+];
+
+/** Todos los personajes fijos (el casino, el observatorio y la casera). */
+export const ALL_NPCS: readonly GameNpc[] = [...CASINO_NPCS, ...OBSERVATORIO_NPCS, ...HISTORIA_NPCS];
 
 export const casinoNpc = (id: string) => CASINO_NPCS.find((n) => n.id === id);
 

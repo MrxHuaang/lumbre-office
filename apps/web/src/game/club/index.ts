@@ -192,8 +192,10 @@ export class ClubMode {
       else if (f.type === "speaker" && inClub(map, f))
         this.speakerLayers.push(this.layer(f, "club-parlante-0", speakerPulse(0)));
       else if (f.type === "arcade-cabinet") {
-        const kind = cabinetGame(map, f);
-        this.screens.push({ layer: this.layer(f, `arcade-pantalla-${kind ?? "off"}-0`, arcadeScreen(kind ?? "off", 0)), kind: kind ?? "off" });
+        // Los gabinetes tienen pantalla; el pinball (mundo lleno) no es un gabinete.
+        const game = cabinetGame(map, f);
+        const kind: ArcadeScreenKind = game && game !== "pinball" ? game : "off";
+        this.screens.push({ layer: this.layer(f, `arcade-pantalla-${kind}-0`, arcadeScreen(kind, 0)), kind });
       }
     }
     for (const l of [...this.floorLayers, ...this.stageLayers]) l.img.setVisible(false);

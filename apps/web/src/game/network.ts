@@ -2,7 +2,6 @@ import { bindCocina } from "./cocina";
 import { bindGranja } from "./granjaNet";
 import { bindRace } from "./race";
 import {
-  CLOSE_CODE,
   DIRECTIONS,
   MSG,
   ROOM_NAME,
@@ -49,12 +48,18 @@ import {
   type OfficeEditMessage,
   type OfficeEditResult,
   type PointsAwarded,
+  LEISURE_FULL_TEXT,
+  LEISURE_MSG,
+  type LeisureState,
   type PresenceStatus,
   type WorldEditMessage,
   type WorldEditResult,
   PET_MSG,
   type PetEvent,
   CASA_MSG,
+  RECHAZO_MSG,
+  RECHAZO_TEXT,
+  type RechazoNotice,
   CASA_NOTICES,
   type CasaNotice,
   PET_NOTICES,
@@ -103,6 +108,7 @@ import { ESCENARIO, ESCENARIO_MSG, PODCAST_MSG } from "@hyvento/shared";
 import { media } from "./media";
 import { useEscenarioStore } from "./escenario/store";
 import { useDoorNotesStore } from "./doorNotes";
+import { usePhoneStore as useCelularStore } from "./phone/state";
 import { fishingSpotAction } from "./fishing/net";
 import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
@@ -112,8 +118,14 @@ import { bindPesca } from "./pesca";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
+import { bindPermisos } from "./permisos";
 import { bindComunicacion, resetComunicacion } from "./comunicacion";
 import { useSombreroStore } from "./npcs/store";
+import { RESTART_MSG } from "@hyvento/shared";
+import { isDeadReconnection, isServerUnavailable, leaveAction, RECONNECT_BUDGET_MS, reconnectDelays, RESTART_BUDGET_MS, unreachableText, withJitter } from "@/lib/reconnect";
+import { GAME_SERVER_URL, IS_DEV, useReconnectStore } from "./reconexion";
+import { fetchGameToken, SessionExpiredError } from "./gameToken";
+import { forgetOldSession } from "./sesionNueva";
 
 /** Forma del estado sincronizado (espejo de apps/server/src/state.ts). */
 export interface RemotePlayer {
@@ -150,6 +162,8 @@ export interface RemotePlayer {
   wet: boolean;
   /** Insignia destacada (id de un logro; "" = ninguna). */
   badge: string;
+  /** Nivel de vecino (la suma de los niveles de los oficios; 0 = todavía no llegó). */
+  vecino?: number;
   /** Energía de un plato de la cocina (id de la receta; "" = nada). */
   buff: string;
   /** Modo foco: "" nada, "work" o "break"; cuándo termina (hora del servidor) y el preset. */
@@ -323,8 +337,7 @@ export interface RemotePet {
 
 export type OfficeRoom = Room<OfficeStateView>;
 
-const SERVER_URL = process.env.NEXT_PUBLIC_GAME_SERVER_URL ?? "ws://localhost:2567";
-const MAX_RECONNECT_ATTEMPTS = 5;
+const SERVER_URL = GAME_SERVER_URL;
 
 let client: Client | null = null;
 let room: OfficeRoom | null = null;
@@ -538,6 +551,13 @@ export function onInteract(kind: Interactable, fn: () => void) {
   interactActions.set(kind, fn);
 }
 
+/** Quienes se enteran de cada E, además de lo que hace el objeto (los encargos de ese personaje). */
+const interactListeners = new Set<(kind: Interactable) => void>();
+export function onAnyInteract(fn: (kind: Interactable) => void) {
+  interactListeners.add(fn);
+  return () => interactListeners.delete(fn);
+}
+
 /** Usar un objeto interactivo: casi todos abren su panel (el Man del Sombrero, su menú); el tubo del sótano hace bailar. */
 /** E en la estación: subirse al Megabús (el servidor valida que esté parado con las puertas abiertas). */
 export function sendBusBoard() {
@@ -545,6 +565,7 @@ export function sendBusBoard() {
 }
 
 export function activateInteractable(kind: Interactable) {
+  for (const fn of interactListeners) fn(kind);
   if (kind === "pole") return togglePole();
   if (kind === "bus") return sendBusBoard();
   // La escalerita: sube a la tarima o, si ya estoy arriba, baja (lo valida el servidor).
@@ -700,7 +721,7 @@ export function sendWorldEdit(edit: WorldEditMessage) {
 
 const WORLD_EDIT_TEXT: Record<string, string> = {
   ...WORLD_EDIT_ERRORS,
-  admin: "Solo el administrador de la casa puede editarla.",
+  admin: "Necesitas el permiso para editar la casa (se lo pides a un admin).",
   busy: "Otra persona está editando la casa.",
   failed: "No se pudo guardar. Intenta de nuevo.",
 };
@@ -714,7 +735,7 @@ function handleWorldEditLockResult(r: WorldEditLockResult) {
   if (r.ok) return;
   const s = useOfficeStore.getState();
   s.setWorldEditing(false);
-  s.notify(r.error === "busy" ? `${r.by} está editando la casa: una persona a la vez.` : "Solo el administrador de la casa puede editarla.", "warning");
+  s.notify(r.error === "busy" ? `${r.by} está editando la casa: una persona a la vez.` : "Necesitas el permiso para editar la casa (se lo pides a un admin).", "warning");
 }
 
 function handleWorldEditResult(r: WorldEditResult) {
@@ -752,8 +773,13 @@ export function sendIdle(idle: boolean) {
   room?.send(MSG.idle, { idle });
 }
 
+/** Sin sala (el laboratorio del celular, /laboratorio/celular): lo que se escribe en Mensajes va aquí. */
+let offlineChat: ((text: string, scope: ChatScope) => void) | null = null;
+export const setOfflineChat = (fn: typeof offlineChat) => void (offlineChat = fn);
+
 export function sendChat(text: string, scope: ChatScope) {
-  room?.send(MSG.chatSend, { text, scope });
+  if (room) room.send(MSG.chatSend, { text, scope });
+  else offlineChat?.(text, scope);
 }
 
 export function sendStatus(status: PresenceStatus) {
@@ -858,6 +884,9 @@ export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId"
   // Un respiro para que llegue el parche que me deja pasar a su oficina cerrada (si no, la ruta para en la puerta).
   if (accept) setTimeout(() => useOfficeStore.getState().walkToPlayer(inv.fromSessionId), 300);
 }
+
+/** El aviso de "tope de ocio lleno" ya salió (se rearma cuando el conteo baja: día nuevo). */
+let leisureFullShown = false;
 
 function attach(r: OfficeRoom) {
   room = r;
@@ -1063,6 +1092,7 @@ function attach(r: OfficeRoom) {
     useOfficeStore.getState().notify(text, s.outcome === "lose" ? "info" : "success");
   });
   r.onMessage(MSG.clock, (m: { now: number }) => useCasinoStore.getState().setOffset(m.now));
+  bindPermisos(r);
   // El club (música, pista y tubo) y el arcade tienen su propio módulo de red.
   bindClub(r);
   bindCinema(r);
@@ -1095,7 +1125,11 @@ function attach(r: OfficeRoom) {
       );
   });
 
-  r.onMessage(MSG.chatHistory, (history: ChatEvent[]) => useOfficeStore.getState().addMessages(history));
+  r.onMessage(MSG.chatHistory, (history: ChatEvent[]) => {
+    useOfficeStore.getState().addMessages(history);
+    // Lo que ya estaba escrito al entrar no cuenta como "sin leer" en el celular.
+    useCelularStore.getState().markRead(history.reduce((t, m) => Math.max(t, m.ts), 0));
+  });
   r.onMessage(MSG.chatEvent, (event: ChatEvent) => useOfficeStore.getState().addMessages([event]));
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => useOfficeStore.getState().addKnockRequest(req));
   r.onMessage(MSG.knockResult, (res: KnockResult) => useOfficeStore.getState().handleKnockResult(res));
@@ -1104,6 +1138,18 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.doorNoteResult, (res: DoorNoteResult) => useDoorNotesStore.getState().handleResult(res));
   r.onMessage(MSG.moveCorrection, (c: MoveCorrection) => correctionListeners.forEach((cb) => cb(c)));
   r.onMessage(MSG.pointsAwarded, (a: PointsAwarded) => useOfficeStore.getState().addAward(a));
+  // Tope de ocio del día: el conteo va al celular y, al llenarse, un aviso igual para todas las actividades.
+  // Una sola vez por día: las reposeras y la tina premian cada tick y con el tope lleno avisarían siempre.
+  r.onMessage(LEISURE_MSG.state, (n: LeisureState) => {
+    const s = useOfficeStore.getState();
+    const before = s.leisure;
+    s.setLeisure(n);
+    if (n.today < n.cap) leisureFullShown = false;
+    else if (!leisureFullShown && (n.capped || (before && before.today < n.cap))) {
+      leisureFullShown = true;
+      s.notify(LEISURE_FULL_TEXT, "info");
+    }
+  });
   r.onMessage(MSG.cafeResult, handleCafeResult);
   r.onMessage(MSG.sombreroResult, handleSombreroResult);
   r.onMessage(MSG.officeEditResult, handleOfficeEditResult);
@@ -1122,6 +1168,13 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.furnitureEvent, (e: FurnitureEvent) => furnitureListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.fishEvent, handleFishEvent);
   r.onMessage(PET_MSG.event, (e: PetEvent) => petListeners.forEach((cb) => cb(e)));
+  // Rechazos genéricos (chat con límite, mueble lejos o en pausa, silla ocupada): aviso y "tuc".
+  r.onMessage(RECHAZO_MSG.notice, (n: RechazoNotice) => {
+    const text = RECHAZO_TEXT[n.code];
+    if (!text) return;
+    sfx.deny();
+    useOfficeStore.getState().notify(text, "warning");
+  });
   // Casa viva: por qué no se pudo (las manos llenas, el baño ocupado, la mascota ya comió…).
   r.onMessage(CASA_MSG.notice, (n: CasaNotice) => {
     const text = CASA_NOTICES[n.code];
@@ -1152,51 +1205,98 @@ function attach(r: OfficeRoom) {
   r.onMessage(MSG.congratsEvent, handleCongratsEvent);
   r.onMessage(MSG.focusEvent, handleFocusEvent);
 
+  // El servidor se va a reiniciar (deploy): el cierre que sigue no es una caída cualquiera.
+  let restarting = false;
+  r.onMessage(RESTART_MSG, () => {
+    restarting = true;
+  });
   r.onLeave((code) => {
-    if (room !== r) return; // salida voluntaria (disconnect)
-    if (code === CLOSE_CODE.replaced) {
+    // Voluntario es solo nuestro disconnect() (o cerrar la pestaña): sueltan la sala antes de cerrarla.
+    // Un 1000/4000 con la sala todavía puesta es el servidor que se apagó (cada deploy): se reintenta.
+    if (room !== r) return;
+    const action = leaveAction(code);
+    if (action === "replaced") {
       // No reintentar: provocaría que las dos pestañas se expulsen mutuamente.
       room = null;
       useOfficeStore.getState().setConnection("error", "Entraste a la cabaña desde otra pestaña o dispositivo.");
       return;
     }
-    // 1000 = cierre normal, 4000 = consentido. Cualquier otro código: intentar reconectar.
-    if (code === 1000 || code === 4000) {
-      useOfficeStore.getState().setConnection("error", "Te desconectaste de la cabaña.");
-      return;
-    }
-    void reconnect(r.reconnectionToken);
+    void reconnect(r.reconnectionToken, restarting || action === "restart");
   });
 
   roomListeners.forEach((cb) => cb(r));
 }
 
-async function reconnect(token: string) {
+/**
+ * Vuelve a la cabaña: primero con el token de reconexión (el servidor guarda el lugar un rato) y, si la
+ * sala ya no existe —el servidor se reinició— o el lugar venció, entrando de nuevo con token nuevo. Tras
+ * un reinicio avisado se entra de nuevo directamente. Reintenta con esperas crecientes (lib/reconnect.ts).
+ */
+async function reconnect(token: string, restart: boolean) {
   const gen = generation;
   const store = useOfficeStore.getState();
   store.setConnection("reconnecting");
-  for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
-    await new Promise((res) => setTimeout(res, 500 * 2 ** (attempt - 1)));
+  useReconnectStore.getState().setReason(restart ? "restart" : "lost");
+  let fresh = restart;
+  const delays = reconnectDelays(restart ? RESTART_BUDGET_MS : RECONNECT_BUDGET_MS);
+  let next = 0;
+  let wait = true;
+  while (next < delays.length) {
+    if (wait) await new Promise((res) => setTimeout(res, withJitter(delays[next++]!, Math.random())));
+    wait = true;
     if (gen !== generation) return; // el usuario salió mientras reintentábamos
     try {
-      const r = await client!.reconnect<OfficeStateView>(token);
+      const r = fresh ? await joinAgain() : await client!.reconnect<OfficeStateView>(token);
+      if (gen !== generation) {
+        void r.leave(true).catch(() => undefined);
+        return;
+      }
+      // Sesión nueva: lo de la sala vieja (jugadores, llamada, paneles) no debe quedar como fantasma.
+      if (r.sessionId !== useOfficeStore.getState().sessionId) {
+        forgetOldSession();
+        resetPhone();
+      }
+      // La escena ya está andando y lee room.state cada cuadro: no se engancha hasta tener el primer estado.
+      await firstState(r);
       if (gen !== generation) {
         void r.leave(true).catch(() => undefined);
         return;
       }
       attach(r);
       return;
-    } catch {
-      // siguiente intento
+    } catch (err) {
+      if (err instanceof SessionExpiredError) return; // ya va para /login
+      // La reconexión ya no existe: entrar de nuevo, sin gastar la espera siguiente.
+      if (!fresh && isDeadReconnection(err)) {
+        fresh = true;
+        wait = false;
+      }
     }
   }
   store.setConnection("error", "Se perdió la conexión con la cabaña.");
 }
 
+/** Espera el primer estado de una sala recién unida (con tope, para no colgar la reconexión). */
+function firstState(r: OfficeRoom): Promise<void> {
+  if (r.state?.players) return Promise.resolve();
+  return new Promise((res) => {
+    const timer = setTimeout(res, 5_000);
+    r.onStateChange.once(() => {
+      clearTimeout(timer);
+      res();
+    });
+  });
+}
+
+/** Entrar de nuevo con token nuevo (sesión nueva: aparece en el jardín, como al entrar). */
+async function joinAgain(): Promise<OfficeRoom> {
+  const token = await fetchGameToken();
+  client ??= new Client(SERVER_URL);
+  return client.joinOrCreate<OfficeStateView>(ROOM_NAME, { token });
+}
+
 function describeError(err: unknown): string {
+  if (isServerUnavailable(err)) return unreachableText(IS_DEV);
   if (err instanceof Error && err.message) return err.message;
-  if (err && typeof err === "object" && "type" in err && (err as Event).type === "error") {
-    return "No se pudo conectar con el servidor de juego. ¿Está corriendo `pnpm dev`?";
-  }
   return "No se pudo conectar con la cabaña.";
 }

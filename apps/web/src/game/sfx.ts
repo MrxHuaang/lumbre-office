@@ -1,90 +1,74 @@
 // Efectos de sonido del juego, sintetizados con WebAudio (sin archivos): bleeps suaves y ruidos filtrados
-// cortos, estilo pixel. Usan el mismo AudioContext que los muebles (sound.ts) pero pasan por su propio
-// volumen, que se elige en el HUD y se guarda en el navegador. Lo que hace otra persona se oye solo si
-// está en tu nivel (los avatares de otros niveles están ocultos) y más bajo cuanto más lejos.
+// cortos, estilo pixel. Usan el mismo AudioContext que los muebles (sound.ts) y salen por el mezclador
+// (mixer.ts): los de la interfaz y el mundo por "efectos", los avisos por "avisos" y la lluvia y los
+// truenos por "ambiente". Lo que hace otra persona se oye solo si está en tu nivel (los avatares de otros
+// niveles están ocultos) y más bajo cuanto más lejos.
 import { surfaceAt, type OfficeMap, type StepSurface } from "@hyvento/map";
 import { SoundGate } from "@hyvento/shared";
+import { audible, getMixer, mixerBus, setMixer, subscribeMixer, type SoundCategory } from "./mixer";
 import { sharedAudio, volumeAt } from "./sound";
 
 // ---------- Ajustes (volumen y silencio) ----------
 
+/** El volumen general y el silencio del mezclador (lo de antes de tener una salida por tipo). */
 export interface SfxSettings {
   /** 0 a 1. */
   volume: number;
   muted: boolean;
 }
 
-const STORAGE_KEY = "hyvento:sfx";
-const DEFAULTS: SfxSettings = { volume: 0.7, muted: false };
-
-function loadSettings(): SfxSettings {
-  try {
-    const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
-    if (!raw) return { ...DEFAULTS };
-    const v = JSON.parse(raw) as Partial<SfxSettings>;
-    const volume = typeof v.volume === "number" && Number.isFinite(v.volume) ? Math.min(1, Math.max(0, v.volume)) : DEFAULTS.volume;
-    return { volume, muted: v.muted === true };
-  } catch {
-    return { ...DEFAULTS };
-  }
-}
-
-let settings: SfxSettings | null = null;
-const settingsListeners = new Set<(s: SfxSettings) => void>();
-
 export function getSfxSettings(): SfxSettings {
-  settings ??= loadSettings();
-  return settings;
+  const m = getMixer();
+  return { volume: m.master, muted: m.muted };
 }
 
 export function setSfxSettings(patch: Partial<SfxSettings>) {
-  settings = { ...getSfxSettings(), ...patch };
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch {
-    // Sin almacenamiento (incógnito, bloqueado): vale solo por esta visita.
-  }
-  if (bus) bus.gain.value = busGain();
-  for (const fn of settingsListeners) fn(settings);
+  setMixer({ ...(patch.volume !== undefined ? { master: patch.volume } : {}), ...(patch.muted !== undefined ? { muted: patch.muted } : {}) });
 }
 
+let snapshot: SfxSettings | null = null;
 export function subscribeSfx(fn: (s: SfxSettings) => void): () => void {
-  settingsListeners.add(fn);
-  return () => settingsListeners.delete(fn);
+  return subscribeMixer(() => {
+    snapshot = null;
+    fn(getSfxSettingsSnapshot());
+  });
+}
+
+/** Lo mismo que getSfxSettings pero el mismo objeto mientras no cambie (para useSyncExternalStore). */
+export function getSfxSettingsSnapshot(): SfxSettings {
+  snapshot ??= getSfxSettings();
+  return snapshot;
 }
 
 // ---------- Salida ----------
 
-/** Volumen general de los efectos (por debajo de la música de los muebles: que acompañen, no tapen). */
+/** Volumen de los efectos (por debajo de la música de los muebles: que acompañen, no tapen). */
 const BASE_GAIN = 0.55;
-let bus: GainNode | null = null;
-let busCtx: AudioContext | null = null;
-
-/** El volumen elegido se aplica al cuadrado: la mitad del control suena a "la mitad". */
-const busGain = () => BASE_GAIN * getSfxSettings().volume ** 2;
+const buses = new Map<SoundCategory, { ctx: AudioContext; gain: GainNode }>();
 
 type Out = { ctx: AudioContext; out: GainNode };
 
 /**
- * La salida de los efectos, o null si no deben sonar: pestaña oculta, en silencio, o antes de que la
- * persona haya tocado algo (el navegador no deja arrancar el audio sin un gesto, y lo que se programara
- * con el contexto suspendido sonaría todo junto al reanudarlo).
+ * La salida de los efectos (o de otra salida del mezclador), o null si no deben sonar: pestaña oculta,
+ * en silencio, o antes de que la persona haya tocado algo (el navegador no deja arrancar el audio sin un
+ * gesto, y lo que se programara con el contexto suspendido sonaría todo junto al reanudarlo).
  */
-export function sfxOut(): Out | null {
+export function sfxOut(cat: SoundCategory = "effects"): Out | null {
   if (typeof window === "undefined" || document.hidden) return null;
-  const s = getSfxSettings();
-  if (s.muted || s.volume <= 0) return null;
+  if (!audible(cat)) return null;
   const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
   if (activation && !activation.hasBeenActive) return null;
-  const a = sharedAudio();
+  const a = sharedAudio(cat);
   if (!a || a.ctx.state !== "running") return null;
-  if (!bus || busCtx !== a.ctx) {
-    busCtx = a.ctx;
-    bus = a.ctx.createGain();
-    bus.connect(a.ctx.destination);
+  let bus = buses.get(cat);
+  if (!bus || bus.ctx !== a.ctx) {
+    const gain = a.ctx.createGain();
+    gain.gain.value = BASE_GAIN;
+    gain.connect(mixerBus(a.ctx, cat));
+    bus = { ctx: a.ctx, gain };
+    buses.set(cat, bus);
   }
-  bus.gain.value = busGain();
-  return { ctx: a.ctx, out: bus };
+  return { ctx: a.ctx, out: bus.gain };
 }
 
 const gate = new SoundGate(12);
@@ -93,9 +77,9 @@ const gate = new SoundGate(12);
  * Hace sonar `fn` si el limitador lo deja: `key` no se repite antes de `gapMs` y la voz cuenta como
  * sonando `durMs`. `vol` (0 a 1) es la atenuación por distancia.
  */
-function play(key: string, gapMs: number, durMs: number, vol: number, fn: (a: Out, t: number, vol: number) => void) {
+function play(key: string, gapMs: number, durMs: number, vol: number, fn: (a: Out, t: number, vol: number) => void, cat: SoundCategory = "effects") {
   if (vol <= 0.02) return;
-  const a = sfxOut();
+  const a = sfxOut(cat);
   if (!a) return;
   if (!gate.allow(key, performance.now(), gapMs, durMs)) return;
   fn(a, a.ctx.currentTime + 0.01, Math.min(1, vol));
@@ -279,11 +263,11 @@ export const sfx = {
       if (kind === "success") arpeggio(a, t, [660, 990], 0.08, 0.14, 0.055);
       else if (kind === "warning") arpeggio(a, t, [440, 330], 0.1, 0.16, 0.06);
       else tone(a, t, 0.14, 880, 880, 0.045, { type: "sine" });
-    });
+    }, "notify");
   },
   /** Mensaje nuevo en el chat. */
   chat() {
-    play("chat", 400, 100, 1, (a, t) => tone(a, t, 0.06, 1046, 1175, 0.035, { type: "sine" }));
+    play("chat", 400, 100, 1, (a, t) => tone(a, t, 0.06, 1046, 1175, 0.035, { type: "sine" }), "notify");
   },
   /** Ganaste puntos: la monedita. */
   coin() {
@@ -297,6 +281,10 @@ export const sfx = {
   /** Usar un objeto o un mueble (E o clic). */
   interact() {
     play("interact", 120, 120, 1, (a, t) => tone(a, t, 0.09, 520, 780, 0.06, { type: "sine" }));
+  },
+  /** Algo no se pudo (sin ruta, mueble lejos, límite): un "tuc" sordo y corto. */
+  deny() {
+    play("deny", 180, 140, 1, (a, t) => tone(a, t, 0.08, 220, 150, 0.05, { type: "triangle", lowpass: 900 }));
   },
   sit(vol = 1) {
     play("sit", 120, 160, vol, (a, t, v) => {
@@ -507,7 +495,7 @@ export const sfx = {
       arpeggio(a, t, notes, 0.07, 0.22, 0.045);
       const end = t + notes.length * 0.07;
       tone(a, end, 0.5, 2637, 2637, rare ? 0.014 : 0.008, { type: "sine" });
-    });
+    }, "notify");
   },
   push() {
     play("result", 800, 200, 1, (a, t) => tone(a, t, 0.16, 587, 587, 0.045));
@@ -605,7 +593,7 @@ export const sfx = {
       if (strength > 0.6 && !indoor) noise(a, t, 0.25, { type: "highpass", freq: 1800, vol: 0.12 * k });
       noise(a, t + 0.05, 2.8, { type: "lowpass", freq: indoor ? 140 : 220, to: 60, vol: 0.32 * k, attack: 0.15 });
       noise(a, t + 0.6, 1.8, { type: "lowpass", freq: indoor ? 110 : 160, to: 50, vol: 0.2 * k, attack: 0.3 });
-    });
+    }, "ambient");
   },
 };
 
@@ -617,7 +605,7 @@ let rainTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Ajusta la lluvia al nivel pedido (o la baja si ahora no se debe oír nada: pestaña oculta, silencio). */
 function applyRain() {
-  const a = sfxOut();
+  const a = sfxOut("ambient");
   const target = a ? 0.07 * rainLevel : 0;
   if (!rain && a && rainLevel > 0) {
     // Ruido en bucle entre un pasaaltos y un pasabajos: el "shhh" parejo de la lluvia.

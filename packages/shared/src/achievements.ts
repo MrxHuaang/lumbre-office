@@ -120,6 +120,28 @@ export const STAT_KEYS = {
   marshmallows: "marshmallows",
   goldenMarshmallows: "marshmallows_golden",
   burntMarshmallows: "marshmallows_burnt",
+  // Oficios (máximo): el nivel de cada uno (ver oficios.ts; los pone el servidor al subir de nivel).
+  levelPesca: "oficio_nivel:pesca",
+  levelHuerta: "oficio_nivel:huerta",
+  levelCocina: "oficio_nivel:cocina",
+  levelSocial: "oficio_nivel:social",
+  levelExploracion: "oficio_nivel:exploracion",
+  // Historia (historia.ts): sentarse en la oficina propia, leer el tablón y el capítulo 1 (máximo: 1 = terminado o saltado).
+  ownOfficeSits: "own_office_sits",
+  boardReads: "board_reads",
+  storyCh1: "story_ch1",
+  /** Máximo: 1 = ya vio la bienvenida de Doña Aurora (el prólogo sale una sola vez). */
+  storyPrologue: "story_prologue",
+  /** Máximo: último día de Bogotá en que regaló su detalle gratis (Social nivel 5). */
+  oficioGiftDay: "oficio_regalo_dia",
+  // Mundo lleno: tragamonedas (tiradas y los tres sietes), máquina de peluches (intentos y peluches
+  // sacados), la rueda de la fortuna (días que giró) y la impresora.
+  slotSpins: "slot_spins",
+  slotJackpots: "slot_jackpots",
+  clawPlays: "claw_plays",
+  clawWins: "claw_wins",
+  fortuneSpins: "fortune_spins",
+  notesPrinted: "notes_printed",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -154,6 +176,14 @@ export const MAX_STATS: ReadonlySet<string> = new Set([
   STAT_KEYS.pointsPeak,
   STAT_KEYS.streakBest,
   STAT_KEYS.achievementsUnlocked,
+  STAT_KEYS.levelPesca,
+  STAT_KEYS.levelHuerta,
+  STAT_KEYS.levelCocina,
+  STAT_KEYS.levelSocial,
+  STAT_KEYS.levelExploracion,
+  STAT_KEYS.oficioGiftDay,
+  STAT_KEYS.storyCh1,
+  STAT_KEYS.storyPrologue,
 ]);
 
 export const ACHIEVEMENT_RARITIES = ["comun", "raro", "epico", "legendario"] as const;
@@ -308,6 +338,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("pescador-legendario", "Pescador legendario", "crown", "legendario", STAT_KEYS.legendaryFish, 1, "Saca un pez legendario", "Nadie te cree. Menos mal que hay álbum."),
     a("pescador-mitico", "Pescador de leyendas", "crown", "legendario", STAT_KEYS.mythicFish, 1, "Saca un pez mítico", "Los abuelos tenían razón. Y tú tienes la foto.", true),
     a("album-completo", "Álbum completo", "fish", "legendario", STAT_KEYS.fishSpecies, ALBUM_SPECIES, `Saca las ${ALBUM_SPECIES} especies del lago`, "Ya no queda nada nuevo en el lago. ¿O sí?"),
+    a("leyenda-del-lago", "Leyenda del lago", "fish", "legendario", STAT_KEYS.levelPesca, 10, "Llega al nivel 10 de Pesca", "Don Evelio ya le pide consejos a usted."),
   ]),
   ...section("casino", [
     a("hagan-sus-apuestas", "Hagan sus apuestas", "chip", "comun", STAT_KEYS.casinoBets, 1, "Apuesta en el casino", "Solo una, para probar. (Nunca es solo una.)"),
@@ -318,6 +349,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("suertudo", "Suertudo", "wheel", "epico", STAT_KEYS.rouletteStraights, 1, "Acierta un pleno en la ruleta", "Un número, una ficha, un grito."),
     a("blackjack-natural", "Blackjack natural", "cards", "raro", STAT_KEYS.blackjackNaturals, 1, "Saca 21 con las dos primeras cartas", "As y figura. El crupier suspira."),
     a("mano-caliente", "Mano caliente", "cards", "epico", STAT_KEYS.blackjackNaturals, 10, "Saca 10 blackjacks naturales", "Revisaron tus mangas. Nada. Todavía."),
+    a("palanquero", "Palanquero", "chip", "comun", STAT_KEYS.slotSpins, 50, "Juega 50 tiradas en el tragamonedas", "La palanca ya tiene la forma de tu mano."),
+    a("tres-sietes", "¡Tres sietes!", "coin", "epico", STAT_KEYS.slotJackpots, 1, "Saca tres sietes en el tragamonedas", "Sonó la campana, se prendieron las luces y nadie te cree."),
+    a("rueda-de-la-suerte", "Rueda de la suerte", "wheel", "raro", STAT_KEYS.fortuneSpins, 7, "Gira la rueda de la fortuna 7 días distintos", "Una vueltica diaria, como el tinto."),
   ]),
   ...section("vida", [
     a("mejor-amigo", "Mejor amigo", "paw", "comun", STAT_KEYS.petCares, 1, "Acaricia o consiente a una mascota", "Te ganaste una amistad con pelos."),
@@ -329,6 +363,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("granjero", "Granjero de la cabaña", "sprout", "epico", STAT_KEYS.harvests, 100, "Cosecha 100 veces", "Las abejas ya te consideran de la familia."),
     a("primer-plato", "Primer plato", "pan", "comun", STAT_KEYS.dishesCooked, 1, "Cocina un plato en la estufa", "Nadie se enfermó. Éxito rotundo."),
     a("chef-de-la-casa", "Chef de la casa", "pan", "epico", STAT_KEYS.dishesCooked, 50, "Cocina 50 platos", "Del huerto a la mesa, con delantal y todo."),
+    a("mano-verde", "Mano verde", "sprout", "legendario", STAT_KEYS.levelHuerta, 10, "Llega al nivel 10 de Huerta", "Las matas crecen solo de verte pasar."),
+    a("sazon-de-la-casa", "Sazón de la casa", "pan", "legendario", STAT_KEYS.levelCocina, 10, "Llega al nivel 10 de Cocina", "La abuela aprobaría. Y la abuela no aprueba nada."),
   ]),
   ...section("juegos", [
     a("ficha-uno", "Ficha uno", "joystick", "comun", STAT_KEYS.arcadeGames, 1, "Juega una partida en el arcade", "Soplaste el cartucho por si acaso."),
@@ -342,6 +378,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("pianista", "Pianista", "piano", "comun", STAT_KEYS.pianoPlays, 25, "Toca el piano 25 veces", "Para Elisa, pero con más entusiasmo."),
     a("concertista", "Concertista", "piano", "epico", STAT_KEYS.pianoPlays, 250, "Toca el piano 250 veces", "Los vecinos ya pidieron un bis. O silencio."),
     a("guitarrista", "Guitarrista de fogata", "guitar", "comun", STAT_KEYS.guitarPlays, 25, "Toca la guitarra 25 veces", "Wonderwall, obviamente."),
+    a("garra-de-oro", "Garra de oro", "joystick", "comun", STAT_KEYS.clawWins, 1, "Saca un peluche de la máquina de garra", "¡Lo agarró! Y ni se le resbaló."),
+    a("zoologico-de-peluche", "Zoológico de peluche", "paw", "raro", STAT_KEYS.clawWins, 10, "Saca 10 peluches de la máquina de garra", "Tu oficina ya parece una feria."),
     a("pinchadiscos", "Pinchadiscos", "record", "comun", STAT_KEYS.recordsPlayed, 20, "Pon 20 discos en el tocadiscos", "Solo vinilo. Lo digital no tiene alma."),
   ]),
   ...section("social", [
@@ -357,8 +395,10 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("paparazzi", "Paparazzi", "camera", "raro", STAT_KEYS.photosTaken, 25, "Toma 25 fotos", "Nadie sale mal en tus fotos. Casi nadie."),
     a("mecenas", "Mecenas del tubo", "coin", "raro", STAT_KEYS.tipsGiven, 100, "Tira 100 puntos en propinas en el tubo", "El arte hay que apoyarlo.", true),
     a("estrella-del-tubo", "Estrella del tubo", "star", "epico", STAT_KEYS.tipsReceived, 250, "Recibe 250 puntos en propinas bailando", "Llueven billetes. Literalmente.", true),
+    a("alma-de-la-cabana", "Alma de la cabaña", "glass", "legendario", STAT_KEYS.levelSocial, 10, "Llega al nivel 10 de Social", "Donde llegas, se arma el parche."),
   ]),
   ...section("cabana", [
+    a("recien-llegado", "Recién llegado a la cabaña", "scroll", "comun", STAT_KEYS.storyCh1, 1, "Termina (o salta) el capítulo 1 con Doña Aurora", "Ya sabes dónde queda el tinto. Y hay una carta esperándote."),
     a("primer-dia", "Primer día", "clock", "comun", STAT_KEYS.secondsOnline, HOUR, "Pasa una hora activa en la cabaña", "Ya sabes dónde queda el baño."),
     a("veterano", "Veterano de la cabaña", "clock", "epico", STAT_KEYS.secondsOnline, 100 * HOUR, "Pasa 100 horas activas en la cabaña", "Conoces cada tabla que cruje."),
     a("parte-del-mobiliario", "Parte del mobiliario", "clock", "legendario", STAT_KEYS.secondsOnline, 500 * HOUR, "Pasa 500 horas activas en la cabaña", "Te iban a inventariar con los muebles."),
@@ -389,6 +429,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("punto-exacto", "Punto exacto", "marshmallow", "comun", STAT_KEYS.goldenMarshmallows, 1, "Saca un malvavisco dorado de la fogata del observatorio", "Ni crudo ni carbón: el punto de la abuela."),
     a("maestro-malvavisquero", "Maestro malvavisquero", "marshmallow", "raro", STAT_KEYS.goldenMarshmallows, 25, "Saca 25 malvaviscos dorados", "Tu palito ya tiene nombre propio."),
     a("antorcha-humana", "Antorcha humana", "flame", "comun", STAT_KEYS.burntMarshmallows, 5, "Quema 5 malvaviscos", "Técnicamente también es cocinar.", true),
+    a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),
 ];
@@ -462,6 +503,12 @@ const sumPrefix = (stats: Readonly<Record<string, number>>, prefix: string) =>
  * Ninguno llega a 1: título de consolación.
  */
 const TITLES: { title: string; score: (s: Readonly<Record<string, number>>) => number }[] = [
+  // El nivel 10 de un oficio (oficios.ts) gana sobre cualquier otro título.
+  { title: "Leyenda del lago", score: (s) => ((s[STAT_KEYS.levelPesca] ?? 0) >= 10 ? 1000 : 0) },
+  { title: "Mano verde de la cabaña", score: (s) => ((s[STAT_KEYS.levelHuerta] ?? 0) >= 10 ? 1000 : 0) },
+  { title: "Sazón de la casa", score: (s) => ((s[STAT_KEYS.levelCocina] ?? 0) >= 10 ? 1000 : 0) },
+  { title: "Alma de la cabaña", score: (s) => ((s[STAT_KEYS.levelSocial] ?? 0) >= 10 ? 1000 : 0) },
+  { title: "Trotamundos de la cabaña", score: (s) => ((s[STAT_KEYS.levelExploracion] ?? 0) >= 10 ? 1000 : 0) },
   { title: "Adicto al tinto", score: (s) => (s[`${STAT_PREFIX.use}tinto`] ?? 0) / 40 },
   { title: "Barista honorario", score: (s) => (s[STAT_KEYS.coffees] ?? 0) / 25 },
   { title: "Alma de la fiesta", score: (s) => sum(s, [STAT_KEYS.dances, STAT_KEYS.toasts, STAT_KEYS.barOrders]) / 30 },
@@ -554,5 +601,8 @@ export interface ProfileDTO {
   achievements: ProfileAchievementDTO[];
   /** Cuántas personas hay en el equipo (para el % de cada logro). */
   teamSize: number;
+  /** Oficios (oficios.ts): experiencia y nivel de cada uno, y el nivel de vecino (la suma). */
+  oficios?: Record<string, { xp: number; level: number }>;
+  neighborLevel?: number;
   isMe: boolean;
 }

@@ -22,9 +22,11 @@ export * from "./decor";
 export * from "./worldEdits";
 export * from "./casa";
 export * from "./casa-propia";
+export * from "./mundo";
 export * from "./footsteps";
 export * from "./agua";
 export * from "./radar";
+export * from "./viaje";
 export * from "./world/build";
 export * from "./world/catalog";
 export { GRADAS, GRADAS_ROWS } from "./world/catalog-escenario";
@@ -114,6 +116,19 @@ export function canWalkBetween(map: OfficeMap, ax: number, ay: number, bx: numbe
     if (!canStandAt(map, ax + (bx - ax) * t, ay + (by - ay) * t)) return false;
   }
   return true;
+}
+
+/**
+ * Como `canWalkBetween`, pero también acepta el camino en "L" (primero x y luego y, o al revés). El
+ * cliente mueve cada eje por separado, así que en diagonal por un marco de puerta o la esquina de un
+ * mueble esquiva la esquina que la recta sí cortaría: el servidor no debe rechazar ese paso.
+ */
+export function canWalkBetweenAxes(map: OfficeMap, ax: number, ay: number, bx: number, by: number): boolean {
+  return (
+    canWalkBetween(map, ax, ay, bx, by) ||
+    (canWalkBetween(map, ax, ay, bx, ay) && canWalkBetween(map, bx, ay, bx, by)) ||
+    (canWalkBetween(map, ax, ay, ax, by) && canWalkBetween(map, ax, by, bx, by))
+  );
 }
 
 /** Zona que contiene el punto; si hay solapamiento gana la más pequeña. */
@@ -235,3 +250,4 @@ export function nearPortal(map: OfficeMap, portal: Portal, x: number, y: number)
   const ts = map.tileSize;
   return portal.tiles.some((t) => Math.hypot(t.x * ts + ts / 2 - x, t.y * ts + ts / 2 - y) <= ts * PORTAL_REACH_TILES);
 }
+export * from "./encargos";

@@ -6,7 +6,6 @@ import {
   type InviteResult,
   type GameClockState,
   type ChatEvent,
-  type ChatScope,
   type Direction,
   type HumanAvatar,
   type Look,
@@ -19,6 +18,7 @@ import {
   type FocusPresetId,
   type OfficeRadioState,
   type PointsAwarded,
+  type LeisureState,
   type PresenceStatus,
   type SpaKind,
   type Weather,
@@ -110,7 +110,11 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "grill"
   | "coop"
   // El puesto de pesca del lago: el mostrador de Don Evelio (cañas y carnada).
-  | "pesca";
+  | "pesca"
+  // La recepción del recibidor: Doña Gloria dice dónde anda cada uno (mundo lleno).
+  | "reception"
+  // Un personaje que te dio un encargo (y no tiene otro objeto al lado): E abre lo que te pidió.
+  | "encargo";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
@@ -139,7 +143,12 @@ export type PanelKind =
   | "whiteboard"
   // Notas en la puerta: escribir una en la puerta de otra oficina, o leer las de la tuya.
   | "doorNote"
-  | "doorNotes";
+  | "doorNotes"
+  // Mundo lleno (se abren desde el mueble): tragamonedas, máquina de peluches, estante de premios y rueda.
+  | "slots"
+  | "claw"
+  | "prizes"
+  | "fortune";
 
 export interface OfficeView {
   zoneId: string;
@@ -184,6 +193,8 @@ export interface Notice {
   id: number;
   text: string;
   tone: "info" | "success" | "warning";
+  /** Cuántas veces seguidas salió el mismo aviso (se muestra "×N" desde 2). */
+  count?: number;
   action?: { label: string; run: () => void };
 }
 
@@ -202,10 +213,8 @@ interface OfficeStore {
   place: string;
   /** Nombres de las zonas del mapa, por id. */
   zoneNames: Record<string, string>;
+  /** El chat de la cabaña (se lee y se escribe en Mensajes del celular). */
   messages: ChatEvent[];
-  unread: number;
-  chatScope: ChatScope;
-  chatOpen: boolean;
   /** Hay un input de texto enfocado: el juego no debe leer el teclado. */
   typing: boolean;
   /**
@@ -290,6 +299,9 @@ interface OfficeStore {
   panel: { kind: PanelKind; atObject: boolean } | null;
   /** Último premio de puntos (cambia `id` en cada uno, para animarlo). */
   lastAward: (PointsAwarded & { id: number }) | null;
+  /** Ocio ganado hoy contra el tope diario (null hasta que el servidor lo diga). */
+  leisure: LeisureState | null;
+  setLeisure: (l: LeisureState) => void;
   /** Modo decorar tu oficina: el clic pone o elige muebles en vez de caminar. */
   decorating: boolean;
   /** Editor de la casa (solo admins): usa decorPick/decorFacing igual que el editor de oficina. */
@@ -312,8 +324,6 @@ interface OfficeStore {
   setPlace: (place: string) => void;
   setZoneNames: (names: Record<string, string>) => void;
   addMessages: (m: ChatEvent[]) => void;
-  setChatScope: (s: ChatScope) => void;
-  setChatOpen: (open: boolean) => void;
   setTyping: (t: boolean) => void;
   setDoorPrompt: (zoneId: string | null) => void;
   setSeatPrompt: (prompt: "sit" | "stand" | null) => void;
@@ -418,9 +428,6 @@ const initial = {
   place: "",
   zoneNames: {},
   messages: [],
-  unread: 0,
-  chatScope: "proximity" as ChatScope,
-  chatOpen: true,
   typing: false,
   typingHolds: 0,
   doorPrompt: null,
@@ -455,6 +462,7 @@ const initial = {
   usable: null as UsableNear | null,
   panel: null as { kind: PanelKind; atObject: boolean } | null,
   lastAward: null as (PointsAwarded & { id: number }) | null,
+  leisure: null as LeisureState | null,
   decorating: false,
   worldEditing: false,
   decorPick: null as DecorPick | null,
@@ -485,13 +493,8 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
     set((s) => {
       const known = new Set(s.messages.map((x) => x.id));
       const fresh = m.filter((x) => !known.has(x.id));
-      return {
-        messages: [...s.messages, ...fresh].slice(-MAX_MESSAGES),
-        unread: s.chatOpen ? 0 : s.unread + fresh.length,
-      };
+      return { messages: [...s.messages, ...fresh].slice(-MAX_MESSAGES) };
     }),
-  setChatScope: (chatScope) => set({ chatScope }),
-  setChatOpen: (chatOpen) => set((s) => ({ chatOpen, unread: chatOpen ? 0 : s.unread })),
   // Cada `true` se suelta con un `false` (foco y blur, montar y desmontar).
   setTyping: (on) =>
     set((s) => {
@@ -522,7 +525,14 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   },
   notify: (text, tone = "info", action) => {
     const id = ++noticeId;
-    set((s) => ({ notices: [...s.notices.slice(-3), { id, text, tone, action }] }));
+    set((s) => {
+      // El mismo aviso seguido no se apila: sube el "×N" y se renueva el tiempo (el id nuevo evita que
+      // el temporizador del anterior lo cierre antes).
+      const last = s.notices[s.notices.length - 1];
+      if (last && !action && !last.action && last.text === text && last.tone === tone)
+        return { notices: [...s.notices.slice(0, -1), { id, text, tone, count: (last.count ?? 1) + 1 }] };
+      return { notices: [...s.notices.slice(-3), { id, text, tone, action }] };
+    });
     setTimeout(() => get().dismissNotice(id), action ? NOTICE_MS * 2 : NOTICE_MS);
   },
   dismissNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
@@ -577,6 +587,7 @@ export const useOfficeStore = create<OfficeStore>((set, get) => ({
   openPanel: (kind, atObject) => set({ panel: { kind, atObject } }),
   closePanel: () => set({ panel: null }),
   addAward: (a) => set({ lastAward: { ...a, id: ++noticeId } }),
+  setLeisure: (leisure) => set({ leisure }),
   // Al entrar o salir del modo decorar no queda nada elegido.
   setDecorating: (decorating) => set({ decorating, worldEditing: false, decorPick: null, panel: decorating ? null : get().panel }),
   setWorldEditing: (worldEditing) => set({ worldEditing, decorating: false, decorPick: null, panel: worldEditing ? null : get().panel }),

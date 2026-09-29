@@ -130,3 +130,18 @@ export function PowerIcon({ size = 16 }: { size?: number }) {
     </svg>
   );
 }
+
+/** Pintura: una paleta de madera con manchas de color y un pincel. */
+export function PaintIcon({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M5 16c0-7 6-11 12-11s10 4 10 9c0 4-3 5-6 5-2 0-3 1-3 3 0 3-2 5-5 5-5 0-8-5-8-11z" fill={COZY.woodLight} stroke={INK} strokeWidth="2" />
+      <rect x="9" y="11" width="4" height="4" fill={COZY.red} />
+      <rect x="15" y="8" width="4" height="4" fill={COZY.gold} />
+      <rect x="21" y="11" width="4" height="4" fill={COZY.sky} />
+      <rect x="9" y="18" width="4" height="4" fill={COZY.green} />
+      <path d="M29 3L17 17" stroke={INK} strokeWidth="3" />
+      <path d="M29 3L20 13.5" stroke={COZY.paperLight} strokeWidth="1" />
+    </Icon>
+  );
+}

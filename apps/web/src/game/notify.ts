@@ -17,7 +17,9 @@ import {
 import type { Room } from "colyseus.js";
 import { create } from "zustand";
 import { answerPhone } from "./phone";
+import { usePhoneStore } from "./phone/state";
 import { getSfxSettings } from "./sfx";
+import { audible, mixerBus } from "./mixer";
 import { sharedAudio } from "./sound";
 import { useOfficeStore } from "./store";
 
@@ -239,22 +241,21 @@ function closeNotification(kind: NotifyKind) {
 
 /**
  * Dos notas cortas y suaves. No usa `sfxOut` (que calla con la pestaña oculta, justo cuando este aviso
- * hace falta), pero respeta el volumen y el silencio de los efectos.
+ * hace falta), pero sale por la salida de avisos del mezclador (su volumen y el silencio).
  */
 function chime() {
-  const s = getSfxSettings();
-  if (s.muted || s.volume <= 0) return;
-  const a = sharedAudio();
+  if (!audible("notify")) return;
+  const a = sharedAudio("notify");
   if (!a || a.ctx.state !== "running") return;
   const { ctx } = a;
-  const vol = 0.18 * s.volume ** 2;
+  const vol = 0.18;
   [880, 1318.5].forEach((f, i) => {
     const at = ctx.currentTime + 0.02 + i * 0.12;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, at);
     g.gain.linearRampToValueAtTime(vol, at + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, at + 0.35);
-    g.connect(ctx.destination);
+    g.connect(mixerBus(ctx, "notify"));
     const osc = ctx.createOscillator();
     osc.type = "triangle";
     osc.frequency.value = f;
@@ -314,11 +315,8 @@ export function bindNotify(r: Room) {
     if (!me || e.fromId === me.userId || !mentionsName(e.text, me.name)) return;
     browserNotify("mention", e.text.length > 140 ? `${e.text.slice(0, 139)}…` : e.text, {
       title: `${e.fromName} te mencionó`,
-      onClick: () => {
-        const s = useOfficeStore.getState();
-        s.setChatScope(e.scope);
-        s.setChatOpen(true);
-      },
+      // El chat vive en el celular: se abre en Mensajes, en la pestaña del mensaje.
+      onClick: () => usePhoneStore.getState().show({ app: "mensajes", scope: e.scope }),
     });
   });
 
