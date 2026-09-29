@@ -50,6 +50,7 @@ export * from "./bus";
 export * from "./agua";
 export * from "./tina";
 export * from "./door-notes";
+export * from "./standup";
 export * from "./aquarium";
 export * from "./insignias";
 export * from "./events";
