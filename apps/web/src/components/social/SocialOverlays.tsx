@@ -6,6 +6,7 @@
 import { tradeReach } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { getRoom } from "@/game/network";
+import { callPerson, followPerson, wavePerson } from "@/game/comunicacion";
 import { respondTrade, sendTradeRequest, useSocialStore, type GiftTarget } from "@/game/social";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon } from "../Cozy";
@@ -32,7 +33,7 @@ export function SocialOverlays() {
   );
 }
 
-/** Menú junto a la persona en la que se hizo clic: su nombre, Regalar e Intercambiar. */
+/** Menú junto a la persona en la que se hizo clic: su nombre, Regalar, Intercambiar, Llamar, Saludar y Seguir. */
 function PersonMenu() {
   const menu = useSocialStore((s) => s.personMenu);
   const close = useSocialStore((s) => s.closePersonMenu);
@@ -53,7 +54,12 @@ function PersonMenu() {
   if (!menu || !person) return null;
 
   const left = Math.min(Math.max(8, menu.x - 90), window.innerWidth - 188);
-  const top = Math.min(Math.max(8, menu.y - 150), window.innerHeight - 170);
+  const top = Math.min(Math.max(8, menu.y - 150), window.innerHeight - 290);
+  const item = "flex w-full items-center gap-2 px-2.5 py-2 text-left text-[14px] hover:bg-cozy-paper-dark disabled:opacity-50";
+  const act = (fn: () => void) => () => {
+    fn();
+    close();
+  };
   return (
     <div role="menu" aria-label={`Acciones con ${person.name}`} className="cozy-panel fixed z-30 w-[180px] p-1.5" style={{ left, top }}>
       <p className="flex items-center gap-2 bg-cozy-wood px-2.5 py-1.5 text-[14px] font-semibold text-cozy-paper-light">
@@ -80,6 +86,19 @@ function PersonMenu() {
         <PixelIcon name="swap" size={13} color="var(--color-cozy-wood)" />
         Intercambiar
         {!near && <span className="ml-auto text-[11px] text-cozy-ink-soft">lejos</span>}
+      </button>
+      {/* Comunicación rápida (game/comunicacion.ts): el servidor valida "No molestar", ocupado y las pausas. */}
+      <button type="button" role="menuitem" disabled={person.status === "dnd"} onClick={act(() => callPerson(person.userId))} className={item}>
+        <PixelIcon name="phone" size={13} color="var(--color-cozy-wood)" />
+        Llamar
+      </button>
+      <button type="button" role="menuitem" disabled={person.status === "dnd"} onClick={act(() => wavePerson(person.userId))} className={item}>
+        <PixelIcon name="wave" size={13} color="var(--color-cozy-wood)" />
+        Saludar
+      </button>
+      <button type="button" role="menuitem" onClick={act(() => followPerson(person.userId))} className={item}>
+        <PixelIcon name="steps" size={13} color="var(--color-cozy-wood)" />
+        Seguir
       </button>
     </div>
   );

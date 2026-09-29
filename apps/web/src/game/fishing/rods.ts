@@ -68,7 +68,10 @@ export class FishingRods {
     if (!phase) return this.remove(sessionId);
     if (rod) {
       if (rod.phase !== phase) {
+        // Entre la espera y un mordisqueo sigue el mismo lance: ni se reinicia el vuelo de la boya ni se mueve.
+        const sameCast = (rod.phase === "nibble" && phase === "wait") || (rod.phase === "wait" && phase === "nibble");
         rod.phase = phase;
+        if (sameCast) return;
         rod.since = this.scene.time.now;
         // Un lance nuevo: la boya cae frente a donde está ahora.
         if (phase === "wait") this.retarget(sessionId, rod);
@@ -142,9 +145,11 @@ export class FishingRods {
     const f = casting ? age / CAST_MS : 1;
     const reel = rod.phase === "reel";
     const bite = rod.phase === "bite";
+    // Un mordisqueo: la boya da saltitos y la punta tiembla, pero sin hundirse del todo.
+    const nibble = rod.phase === "nibble";
     // La punta: hacia atrás al empezar el lance, adelante después; tirando (y temblando) en el minijuego.
     const swing = casting ? Math.min(1, f * 1.6) : 1;
-    const jitter = reel ? Math.round(Math.sin(now / 45) * 1.2) : bite ? Math.round(Math.sin(now / 30)) : 0;
+    const jitter = reel ? Math.round(Math.sin(now / 45) * 1.2) : bite || nibble ? Math.round(Math.sin(now / 30)) : 0;
     const tip = {
       x: hand.x + Math.round(sv.x * (-5 + swing * 15)),
       y: hand.y - Math.round(14 - swing * 5) + (reel ? 3 : 0) + jitter,
@@ -157,7 +162,10 @@ export class FishingRods {
     const t = worldToScreen(rod.target.x, rod.target.y);
     const bob = casting
       ? { x: tip.x + (t.x - tip.x) * f, y: tip.y + (t.y - tip.y) * f - Math.sin(f * Math.PI) * 14 }
-      : { x: t.x, y: t.y + (bite ? 1 : Math.round(Math.sin(now / 380) * 0.8)) + (reel ? Math.round(Math.sin(now / 70)) : 0) };
+      : {
+          x: t.x,
+          y: t.y + (bite ? 1 : nibble ? (Math.floor(now / 70) % 2) : Math.round(Math.sin(now / 380) * 0.8)) + (reel ? Math.round(Math.sin(now / 70)) : 0),
+        };
     const bx = Math.round(bob.x + (reel ? Math.sin(now / 90) * 2 : 0));
     const by = Math.round(bob.y);
     rod.bob
@@ -170,8 +178,8 @@ export class FishingRods {
     this.curve(rod.g, tip.x, tip.y, bx, by - 3, sag);
     // Ondas en el agua.
     if (!casting) {
-      const period = bite || reel ? 500 : 1600;
-      const r = ((now % period) / period) * (bite || reel ? 7 : 5) + 2;
+      const period = bite || reel ? 500 : nibble ? 380 : 1600;
+      const r = ((now % period) / period) * (bite || reel ? 7 : nibble ? 4 : 5) + 2;
       this.ripple(rod.g, bx, by + 1, r);
     }
     // "!" sobre la cabeza cuando pica.

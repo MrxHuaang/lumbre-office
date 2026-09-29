@@ -1,10 +1,10 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { getWorld, pointsOfType } from "@hyvento/map";
-import { CHAIR_RACE, minRaceMs, MSG, PLAYER_SPEED, ROOM_NAME, type RaceResult } from "@hyvento/shared";
+import { CHAIR_RACE, minRaceMs, MSG, PLAYER_SPEED, ROOM_NAME, weekStart, type RaceBoard, type RaceResult } from "@hyvento/shared";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
-import { ChairRaces, type Racer } from "../src/rooms/races";
+import { ChairRaces, RaceBoards, type Racer } from "../src/rooms/races";
 import type { OfficeState } from "../src/state";
 import { bootServer, c, goToArea, tick, token, walkToTile, type ServerRoom } from "./helpers";
 
@@ -61,6 +61,61 @@ describe("carrera de sillas (reglas)", () => {
   });
 });
 
+describe("tablero de la carrera (caché)", () => {
+  const monday = weekStart(Date.UTC(2026, 8, 30, 17));
+  const boards = () => {
+    const calls: { userId: string; since: number }[] = [];
+    let best = 9000;
+    const cache = new RaceBoards(async (userId, since) => {
+      calls.push({ userId, since });
+      return { entries: [{ name: "Ana", ms: best }], myBest: best } satisfies RaceBoard;
+    });
+    return { cache, calls, setBest: (ms: number) => (best = ms) };
+  };
+
+  it("pedirlo de nuevo no vuelve a la base hasta que vence o termina una carrera", async () => {
+    const { cache, calls, setBest } = boards();
+    const t = monday + 3600_000;
+    await cache.get("a", t);
+    await cache.get("a", t + 1000);
+    expect(calls).toEqual([{ userId: "a", since: monday }]);
+    // Cada persona lleva su mejor tiempo: la suya se lee aparte.
+    await cache.get("b", t + 1000);
+    expect(calls).toHaveLength(2);
+    setBest(7000);
+    cache.invalidate();
+    expect((await cache.get("a", t + 2000)).myBest).toBe(7000);
+    expect(calls).toHaveLength(3);
+    await cache.get("a", t + 2000 + CHAIR_RACE.boardCacheMs);
+    expect(calls).toHaveLength(4);
+  });
+
+  it("no pasa de una semana a otra", async () => {
+    const { cache, calls } = boards();
+    const nextMonday = weekStart(monday + 8 * 86_400_000);
+    await cache.get("a", nextMonday - 1000);
+    await cache.get("a", nextMonday + 1000);
+    expect(calls.map((c) => c.since)).toEqual([monday, nextMonday]);
+  });
+
+  it("lo que se leía cuando terminó una carrera no queda guardado", async () => {
+    let release!: () => void;
+    let n = 0;
+    const cache = new RaceBoards(async () => {
+      n++;
+      if (n === 1) await new Promise<void>((r) => (release = r));
+      return { entries: [], myBest: null };
+    });
+    const t = monday + 3600_000;
+    const pending = cache.get("a", t);
+    cache.invalidate();
+    release();
+    await pending;
+    await cache.get("a", t);
+    expect(n).toBe(2);
+  });
+});
+
 // ---------- En la sala ----------
 
 let colyseus: ColyseusTestServer;
@@ -106,6 +161,26 @@ describe("carrera de sillas (en la sala)", () => {
     await tick(60);
     expect(me().racing).toBe(false);
     expect(results.at(-1)).toEqual({ ok: false, problem: "lane" });
+  });
+
+  it("pedir la tabla seguido la lee de la base una sola vez", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    const alice = await colyseus.connectTo(room, { token: await token("u-alice", "Alice") });
+    const got: RaceBoard[] = [];
+    alice.onMessage(MSG.raceBoardResult, (b: RaceBoard) => got.push(b));
+    await room.waitForNextPatch();
+    await repo.saveRaceTime({ userId: "u-bob", name: "Bob", ms: 8000 });
+    let reads = 0;
+    const read = repo.raceBoard.bind(repo);
+    repo.raceBoard = (input) => {
+      reads++;
+      return read(input);
+    };
+    for (let i = 0; i < 3; i++) alice.send(MSG.raceBoard);
+    await tick(60);
+    expect(got).toHaveLength(3);
+    expect(got[2]).toEqual({ entries: [{ name: "Bob", ms: 8000 }], myBest: null });
+    expect(reads).toBe(1);
   });
 
   it("la tabla de la semana ordena por el menor tiempo", async () => {

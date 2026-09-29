@@ -25,6 +25,7 @@ import {
   type ArcadeStarted,
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
+import { orElse } from "../log";
 
 export interface ArcadeWho {
   userId: string;
@@ -158,7 +159,7 @@ export class Arcade {
   private async save(who: ArcadeWho, game: ArcadeGame, score: number, now: number): Promise<ArcadeResult> {
     const repo = this.deps.repo();
     // El mejor del día antes de esta partida (para avisar "¡lo mejor de hoy!").
-    const dayBest = (await repo.arcadeBoard({ game, since: dayStart(now), limit: 1 }).catch(() => []))[0]?.score ?? 0;
+    const dayBest = (await repo.arcadeBoard({ game, since: dayStart(now), limit: 1 }).catch(orElse("arcade.dayBest", [], { game })))[0]?.score ?? 0;
     let saved: { firstToday: boolean; weekBest: number; weekBestUserId: string | null };
     try {
       saved = await repo.saveArcadeScore({ userId: who.userId, name: who.name, game, score, dayStart: dayStart(now), weekStart: weekStart(now) });
@@ -172,7 +173,7 @@ export class Arcade {
     const recordPrize = record && saved.weekBestUserId !== who.userId && score >= ARCADE_RECORD_MIN[game];
     const prize = (saved.firstToday ? ARCADE.firstGameReward : 0) + (recordPrize ? ARCADE.recordReward : 0);
     const awarded = prize > 0 ? await this.deps.award(who.userId, prize) : 0;
-    const boards = await this.boardsOf(game, now).catch(() => ({ week: [], today: [] }));
+    const boards = await this.boardsOf(game, now).catch(orElse("arcade.boards", { week: [], today: [] }, { game }));
     return { ok: true, game, score, awarded, record, bestToday: score > 0 && score > dayBest, firstToday: saved.firstToday, board: boards.week, today: boards.today };
   }
 

@@ -7,6 +7,7 @@ import {
   awardPointsOnce,
   grantWelcomeBonus,
   casinoBet,
+  ChatScope,
   getCasinoSettings,
   givenToday,
   leaveDoorNote,
@@ -200,6 +201,12 @@ export class PrismaRepository implements GameRepository {
         createdAt: new Date(event.ts),
       },
     });
+  }
+
+  async pruneChatBefore(cutoff: Date) {
+    // Con el scope en la condición, Postgres usa el índice (scope, createdAt) en vez de recorrer la tabla.
+    const { count } = await prisma.chatMessage.deleteMany({ where: { scope: { in: Object.values(ChatScope) }, createdAt: { lt: cutoff } } });
+    return count;
   }
 
   async getPoints(userId: string) {

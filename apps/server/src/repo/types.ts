@@ -268,4 +268,10 @@ export interface CasinoRecoveryRepository {
   casinoMovements(refIds: string[]): Promise<{ userId: string; refId: string; amount: number }[]>;
 }
 
-export interface GameRepository extends CasinoRecoveryRepository {}
+/** Retención del chat global (rooms/chatRetention.ts). */
+export interface ChatRetentionRepository {
+  /** Borra los mensajes guardados creados antes de `cutoff`; devuelve cuántos se borraron. */
+  pruneChatBefore(cutoff: Date): Promise<number>;
+}
+
+export interface GameRepository extends ChatRetentionRepository, CasinoRecoveryRepository {}
