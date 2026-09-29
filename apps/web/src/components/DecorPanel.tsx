@@ -4,13 +4,14 @@
 // mochila para poner, el mueble elegido, y el piso y el papel tapiz. Todo lo valida el servidor.
 import { catalogItem, getWorld, isPlaceable } from "@hyvento/map";
 import { C, drawFurniture, type RGBA } from "@hyvento/map/art";
-import { OFFICE_FLOORS, OFFICE_WALLPAPERS, shopItem, type InventoryEntry, type OfficeFloor, type OfficeWallpaper } from "@hyvento/shared";
+import { OFFICE_FLOORS, OFFICE_WALLPAPERS, paintingIdOf, shopItem, type InventoryEntry, type OfficeFloor, type OfficeWallpaper } from "@hyvento/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendOfficeEdit } from "@/game/network";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { PixelIcon } from "./Cozy";
+import { PaintingItemArt, usePaintingTitle } from "./PaintingThumb";
 import { api } from "./PointsPanels";
 
 const FLOOR_LABEL: Record<OfficeFloor, string> = {
@@ -133,6 +134,12 @@ export function FurnitureArt({ type }: { type: string }) {
 
 const nameOf = (type: string) => shopItem(type)?.name ?? catalogItem(type).name;
 
+/** Nombre de un mueble de la mochila: los cuadros de la Pintura llevan su título. */
+function ItemName({ type }: { type: string }) {
+  const title = usePaintingTitle(type);
+  return <>{title ? `«${title}»` : nameOf(type)}</>;
+}
+
 export function DecorPanel() {
   const myOffice = useOfficeStore(useShallow(selectMyOffice));
   const zoneId = useOfficeStore((s) => s.zone?.id);
@@ -189,7 +196,7 @@ export function DecorPanel() {
         {pick ? (
           <div className="flex flex-col gap-2 border-2 border-cozy-wood bg-cozy-paper-light px-2.5 py-2">
             <p className="text-[14px] leading-tight">
-              {pick.itemId ? "Moviendo" : "Poniendo"}: <span className="font-semibold">{nameOf(pick.type)}</span>
+              {pick.itemId ? "Moviendo" : "Poniendo"}: <span className="font-semibold"><ItemName type={pick.type} /></span>
             </p>
             <p className="text-[12px] leading-snug text-cozy-ink-soft">Clic en tu oficina para dejarlo. Verde: se puede; rojo: no.</p>
             <div className="flex flex-wrap gap-1.5">
@@ -239,8 +246,10 @@ export function DecorPanel() {
                     title={nameOf(i.itemId)}
                     className="cozy-btn relative flex h-full w-full flex-col gap-1 px-1 py-1.5"
                   >
-                    <FurnitureArt type={i.itemId} />
-                    <span className="w-full truncate text-center text-[11px] leading-tight">{nameOf(i.itemId)}</span>
+                    {paintingIdOf(i.itemId) ? <PaintingItemArt itemId={i.itemId} /> : <FurnitureArt type={i.itemId} />}
+                    <span className="w-full truncate text-center text-[11px] leading-tight">
+                      <ItemName type={i.itemId} />
+                    </span>
                     {i.quantity > 1 && (
                       <span className="absolute top-0.5 right-1 text-[11px] leading-none text-cozy-ink-soft">×{i.quantity}</span>
                     )}

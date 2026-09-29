@@ -13,6 +13,7 @@ import { MUNDO_BLURBS } from "./mundo";
 import { MUNDO_BAG_OBJECTS } from "./garra";
 import { CONSUMABLES } from "./consumables";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
+import { paintingIdOf } from "./painting";
 import { shopItem } from "./shop";
 import { SOMBRERO_MENU, sombreroItem } from "./sombrero";
 import type { ItemStack } from "./social";
@@ -164,6 +165,9 @@ export interface BagItemInfo {
 export function bagItemInfo(itemId: string): BagItemInfo {
   const id = objIdOf(itemId);
   if (id === null) {
+    // Un cuadro de la Pintura: se cuelga en la oficina como un mueble (su título lo trae /api/paintings).
+    if (paintingIdOf(itemId))
+      return { itemId, name: "Cuadro", blurb: "Lo pintaste en el PC: cuélgalo en tu oficina con Decorar.", kind: "mueble", max: Infinity, furniture: true, art: itemId, use: null, durable: true };
     const shop = shopItem(itemId);
     return {
       itemId,
