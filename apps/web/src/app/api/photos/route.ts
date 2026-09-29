@@ -1,4 +1,4 @@
-import { bumpStat, prisma } from "@hyvento/db";
+import { bumpStatWithQuests, prisma } from "@hyvento/db";
 import { listPhotosFor, PHOTO, STAT_KEYS, uploadPhoto } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
@@ -33,9 +33,9 @@ export async function POST(req: Request) {
   const res = await uploadPhoto({ store: photoStore, secret }, user, { ticket: form?.get("ticket"), caption: form?.get("caption") ?? "", image });
   if (!res.ok) return photoFail(res.error);
 
-  // Cuenta para los logros (Paparazzi) solo lo que quedó guardado de verdad; el aviso de puntos hace que el
-  // servidor de juego relea las estadísticas y revise si se desbloqueó algo.
-  await bumpStat(prisma, user.id, STAT_KEYS.photosTaken).catch((err) => console.error("bumpStat photos", err));
+  // Cuenta para los logros (Paparazzi) y los encargos solo lo que quedó guardado de verdad; el aviso de
+  // puntos hace que el servidor de juego relea las estadísticas y los encargos.
+  await bumpStatWithQuests(prisma, user.id, STAT_KEYS.photosTaken).catch((err) => console.error("bumpStat photos", err));
   await Promise.all([publishPhotosChanged(), publishPointsChanged(user.id)]);
   return NextResponse.json({ photo: res.value }, { status: 201 });
 }

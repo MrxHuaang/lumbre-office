@@ -110,7 +110,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "grill"
   | "coop"
   // El puesto de pesca del lago: el mostrador de Don Evelio (cañas y carnada).
-  | "pesca";
+  | "pesca"
+  // Un personaje que te dio un encargo (y no tiene otro objeto al lado): E abre lo que te pidió.
+  | "encargo";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";

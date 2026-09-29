@@ -11,6 +11,7 @@ import {
   STAT_KEYS,
   STAT_PREFIX,
   type Achievement,
+  type QuestDelta,
   type StatChange,
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
@@ -31,6 +32,15 @@ export interface AchievementDeps {
   repo(): Pick<GameRepository, "loadAchievements" | "saveStats" | "unlockAchievement">;
   /** Se desbloqueó un logro (la sala avisa al jugador y a los de su nivel). */
   onUnlock(userId: string, achievement: Achievement): void;
+  /**
+   * Los encargos (encargos.ts): se enteran de cada suma y su avance se guarda junto con los contadores
+   * (misma transacción). `take` entrega lo pendiente y `restore` lo devuelve si el guardado falló.
+   */
+  quests?: {
+    onStat(userId: string, key: string, by: number): void;
+    take(userId: string): QuestDelta[];
+    restore(userId: string, deltas: QuestDelta[]): void;
+  };
 }
 
 export class AchievementTracker {
@@ -95,6 +105,7 @@ export class AchievementTracker {
     const p = e.pending.get(key);
     e.pending.set(key, { key, op: "inc", value: (p?.value ?? 0) + n });
     this.checkStat(userId, e, key);
+    this.deps.quests?.onStat(userId, key, n);
   }
 
   /** Guarda el máximo entre lo que había y `value`. */
@@ -124,6 +135,8 @@ export class AchievementTracker {
   visit(userId: string, area: string) {
     const e = this.entry(userId);
     const key = `${STAT_PREFIX.visit}${area}`;
+    // Para los encargos cuenta cada visita ("sube a la casa del árbol"), aunque el contador ya esté en 1.
+    this.deps.quests?.onStat(userId, key, 1);
     if (e.stats.has(key)) return;
     this.max(userId, key, 1);
     this.recountVisits(userId, e);
@@ -179,13 +192,15 @@ export class AchievementTracker {
     const e = this.users.get(userId);
     if (!e) return;
     if (!e.loaded && !e.loading) void this.load(userId); // la carga falló antes: se reintenta
-    if (e.pending.size === 0) return;
+    const quests = this.deps.quests?.take(userId) ?? [];
+    if (e.pending.size === 0 && quests.length === 0) return;
     const changes = [...e.pending.values()];
     e.pending.clear();
     try {
-      await this.deps.repo().saveStats(userId, changes);
+      await this.deps.repo().saveStats(userId, changes, quests);
     } catch (err) {
       console.error("saveStats", err);
+      if (quests.length) this.deps.quests?.restore(userId, quests);
       // Vuelven a la cola, juntándose con lo que llegó mientras tanto.
       for (const c of changes) {
         const p = e.pending.get(c.key);

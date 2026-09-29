@@ -34,6 +34,8 @@ function json(res: ServerResponse, status: number, body: unknown) {
 async function handleHttp(req: IncomingMessage, res: ServerResponse) {
   const path = (req.url ?? "").split("?")[0];
   if (req.method === "GET" && (path === INTERNAL_ROUTES.health || path === "/")) {
+    // El navegador lo consulta antes de entrar (para despertar el servidor dormido): sin CORS no lo puede leer.
+    res.setHeader("Access-Control-Allow-Origin", "*");
     return json(res, 200, { ok: true, rooms: OfficeRoom.instances.size });
   }
   if (req.method === "POST" && path === INTERNAL_ROUTES.officesChanged) {

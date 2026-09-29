@@ -25,7 +25,7 @@ import {
 } from "@hyvento/map/art";
 import * as Phaser from "phaser";
 import { ensureTexture } from "./canvas";
-import { prerenderedBase, prerenderedFurniture, prerenderedSurroundings } from "./prerender";
+import { patchedPrerenderedBase, prerenderedBase, prerenderedFurniture, prerenderedSurroundings } from "./prerender";
 import { furnitureKey } from "./prerender-keys";
 import { DEPTH_FLAT, DEPTH_OVERLAY, depthOf, worldToScreen } from "./projection";
 
@@ -293,13 +293,20 @@ export class AreaView {
   }
 
   private drawBase(night: boolean) {
-    // El del build si coincide con la decoración; si no (una oficina con otro piso), se dibuja aquí.
+    // El del build si coincide con la decoración; si no (una oficina con otro piso), el del build con esas
+    // salas pintadas encima, y sin build, se dibuja aquí.
     const pre = prerenderedBase(this.scene, this.map, night);
     const key = pre?.key ?? `area-${this.map.id}-${baseSignature(this.map)}-${night ? "noche" : "dia"}`;
     if (!pre && !this.scene.textures.exists(key)) {
-      const art = drawAreaBase(this.map, !night);
-      ensureTexture(this.scene, key, () => art.base.canvas);
-      this.scene.registry.set(`${key}-origin`, { ox: art.base.ox, oy: art.base.oy });
+      const patched = patchedPrerenderedBase(this.scene, this.map, night);
+      if (patched) {
+        this.scene.textures.addCanvas(key, patched.canvas);
+        this.scene.registry.set(`${key}-origin`, { ox: patched.ox, oy: patched.oy });
+      } else {
+        const art = drawAreaBase(this.map, !night);
+        ensureTexture(this.scene, key, () => art.base.canvas);
+        this.scene.registry.set(`${key}-origin`, { ox: art.base.ox, oy: art.base.oy });
+      }
     }
     const { ox, oy } = pre ?? (this.scene.registry.get(`${key}-origin`) as { ox: number; oy: number });
     if (this.base) {
