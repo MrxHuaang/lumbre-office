@@ -1,3 +1,4 @@
+import { CASA_PROPIA, isCasaArea } from "@hyvento/shared";
 import { AREAS, SPAWN_AREA } from "./world/areas";
 import { catalogItem } from "./world/catalog";
 import type { AreaDef } from "./world/types";
@@ -151,7 +152,8 @@ export function placeAt(map: OfficeMap, x: number, y: number): string {
 export function placeLabel(place: string, zoneName: (id: string) => string | undefined): string {
   if (!place) return "Pasillo";
   if (place.startsWith("door:")) return `Entrada · ${zoneName(place.slice(5)) ?? "sala"}`;
-  return zoneName(place) ?? "Pasillo";
+  // La casa de otra persona: el que mira no la tiene armada (la suya sí, con "Tu casa").
+  return zoneName(place) ?? (isCasaArea(place) ? CASA_PROPIA.label : "Pasillo");
 }
 
 /** Punto frente a la puerta de una zona cerrada (o su centro si no tiene puerta). */

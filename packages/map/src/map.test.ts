@@ -388,6 +388,8 @@ describe("lugares y zonas", () => {
     expect(placeLabel("", names)).toBe("Pasillo");
     expect(placeLabel("office-1", names)).toBe("Oficina 1");
     expect(placeLabel("door:office-1", names)).toBe("Entrada · Oficina 1");
+    // La casa de otra persona (el que mira no tiene su zona): sin decir de quién es.
+    expect(placeLabel("casa:u-ana", names)).toBe("Casa del barrio");
   });
 
   it("nearestFreeTile encuentra un tile libre cerca de un obstáculo", () => {
