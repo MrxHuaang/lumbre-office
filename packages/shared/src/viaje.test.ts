@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VIAJE, ViajeGoMessage, viajeAreaBlock, viajeNoticeText, viajeSelfBlock, type ViajeBlock, type ViajeSelf } from "./viaje";
+import { fishingBlocksTravel, VIAJE, ViajeGoMessage, viajeAreaBlock, viajeNoticeText, viajeSelfBlock, type ViajeBlock, type ViajeSelf } from "./viaje";
 
 const free: ViajeSelf = { gameSeat: false, swimming: false, fainted: false, playing: false, onBusInRoute: false, cooldownLeftMs: 0 };
 
@@ -12,6 +12,13 @@ describe("viaje rápido", () => {
     expect(viajeSelfBlock({ ...free, playing: true })).toBe("busy");
     expect(viajeSelfBlock({ ...free, onBusInRoute: true, cooldownLeftMs: 5 })).toBe("route");
     expect(viajeSelfBlock({ ...free, cooldownLeftMs: 1 })).toBe("cooldown");
+  });
+
+  it("la pesca frena, menos al levantar el pez recién sacado", () => {
+    expect(fishingBlocksTravel("")).toBe(false);
+    expect(fishingBlocksTravel("wait")).toBe(true);
+    expect(fishingBlocksTravel("reel")).toBe(true);
+    expect(fishingBlocksTravel("show:trucha")).toBe(false);
   });
 
   it("los niveles con cupo o cierre", () => {

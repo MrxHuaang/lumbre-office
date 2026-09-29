@@ -81,6 +81,12 @@ export function viajeSelfBlock(s: ViajeSelf): ViajeBlock | null {
   return null;
 }
 
+/**
+ * ¿La pesca frena el viaje? Con la caña en el agua o en el minijuego sí; levantando el pez recién sacado
+ * ("show:<pez>", unos segundos) no.
+ */
+export const fishingBlocksTravel = (fishing: string) => fishing !== "" && !fishing.startsWith("show:");
+
 /** Al Megabús no se viaja: se sube en la estación con las puertas abiertas (ver `BUS_MSG.board`). */
 export const VIAJE_NO_AREAS: readonly string[] = ["megabus"];
 

@@ -17,6 +17,7 @@ import {
 import {
   BUS,
   ESCENARIO,
+  fishingBlocksTravel,
   VIAJE,
   ViajeGoMessage,
   viajeAreaBlock,
@@ -71,7 +72,7 @@ export class QuickTravel {
       gameSeat: player.seated && isGameSeat(here, player.x, player.y, seat?.type),
       swimming: player.swimming,
       fainted: this.d.fainted(player.userId),
-      playing: player.racing || player.fishing !== "" || this.d.playing(sessionId, player),
+      playing: player.racing || fishingBlocksTravel(player.fishing) || this.d.playing(sessionId, player),
       onBusInRoute: player.area === BUS.area && !this.d.busDoorsOpen(),
       cooldownLeftMs: Math.max(0, (this.lastAt.get(player.userId) ?? -Infinity) + this.d.cooldownMs() - now),
     });

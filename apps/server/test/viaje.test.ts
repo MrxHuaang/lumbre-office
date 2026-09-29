@@ -210,6 +210,12 @@ describe("viaje rápido", () => {
     p.fishing = "wait";
     await room.waitForNextPatch();
     expect((await go(alice, room, { kind: "place", id: "zona:cafeteria" })).notice?.code).toBe("busy");
+    // Levantando el pez recién sacado ya no frena (y como no viajó, no corre la pausa).
+    p.fishing = "show:trucha";
+    await room.waitForNextPatch();
+    expect((await go(alice, room, { kind: "place", id: "zona:cafeteria" })).notice).toBeNull();
+    expect(p.area).toBe("planta-baja");
+    clock += VIAJE.cooldownMs;
     p.fishing = "";
     // Jugando al hockey de mesa (un lado de la mesa es suyo).
     room.state.hockey.sides[0]!.userId = p.userId;
@@ -221,8 +227,9 @@ describe("viaje rápido", () => {
     drunk.fainted = () => true;
     expect((await go(alice, room, { kind: "place", id: "zona:cafeteria" })).notice?.code).toBe("fainted");
     drunk.fainted = fainted;
-    // Nada de eso cobró la pausa: ahora sí viaja.
-    expect((await go(alice, room, { kind: "place", id: "zona:cafeteria" })).notice).toBeNull();
+    // Los rechazos no cobran la pausa: ahora sí viaja.
+    expect((await go(alice, room, { kind: "place", id: "nivel:jardin" })).notice).toBeNull();
+    expect(p.area).toBe("jardin");
   });
 
   it("sentado en una silla cualquiera sí viaja (y queda de pie)", { timeout: 20000 }, async () => {

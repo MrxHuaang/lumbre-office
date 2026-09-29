@@ -297,6 +297,8 @@ export class OfficeScene extends Phaser.Scene {
   private screens = new Map<number, { identity: string | null; track: Track; el: HTMLVideoElement; mount: WallMount; feature: WallFeature }>();
   /** Esperando la respuesta del servidor tras pisar un portal. */
   private travelling = false;
+  /** El "si no llega respuesta, volver la imagen" del viaje rápido: se cancela al empezar otro fundido. */
+  private quickTravelTimer?: Phaser.Time.TimerEvent;
   /** Tile de portal en el que quedé (no se vuelve a usar hasta salir de él). */
   private portalTile = "";
   /**
@@ -1057,6 +1059,8 @@ export class OfficeScene extends Phaser.Scene {
     this.pathMarker?.destroy();
     this.pathMarker = undefined;
     this.sendPosition(avatar.direction, false);
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = undefined;
     this.cameras.main.fadeOut(FADE_MS, 0, 0, 0);
     this.portalSound(portal.to.area);
     sendTravel(portal.id);
@@ -1079,11 +1083,14 @@ export class OfficeScene extends Phaser.Scene {
     this.travelling = true;
     this.cameras.main.fadeOut(FADE_MS, 0, 0, 0);
     sfx.door();
-    this.time.delayedCall(TRAVEL_TIMEOUT_MS, () => this.endQuickTravel());
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = this.time.delayedCall(TRAVEL_TIMEOUT_MS, () => this.endQuickTravel());
     return true;
   }
 
   private endQuickTravel() {
+    this.quickTravelTimer?.remove();
+    this.quickTravelTimer = undefined;
     if (!this.travelling) return;
     this.travelling = false;
     this.cameras.main.fadeIn(FADE_MS, 0, 0, 0);

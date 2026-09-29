@@ -6,6 +6,7 @@
 import {
   BUS,
   CASA_ARBOL,
+  fishingBlocksTravel,
   PODCAST,
   VIAJE,
   VIAJE_MSG,
@@ -81,7 +82,7 @@ function selfBlock(): ViajeBlock | null {
     gameSeat: Boolean(map && me.seated && isGameSeat(map, me.x, me.y, seat?.type)),
     swimming: me.swimming,
     fainted: false,
-    playing: me.racing || me.fishing !== "" || (s.panel !== null && PLAYING_PANELS.has(s.panel.kind)),
+    playing: me.racing || fishingBlocksTravel(me.fishing) || (s.panel !== null && PLAYING_PANELS.has(s.panel.kind)),
     onBusInRoute: me.area === BUS.area && !busDoorsOpenNow(),
     cooldownLeftMs: Math.max(0, lastAt + VIAJE.cooldownMs - performance.now()),
   });

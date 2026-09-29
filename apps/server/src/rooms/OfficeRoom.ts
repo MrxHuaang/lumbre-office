@@ -3557,6 +3557,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);
     if (stillHere) return;
+    this.quickTravel?.forget(player.userId);
     this.fishery.forget(player.userId);
     this.pesca.forget(player.userId);
     this.granja.forget(player.userId);
