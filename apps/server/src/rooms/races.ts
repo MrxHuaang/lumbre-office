@@ -2,7 +2,7 @@
 // 2 y termina al cruzar la meta. El tiempo lo cuenta el reloj del servidor; salirse del carril, sentarse,
 // cambiar de nivel o tardar demasiado la anulan.
 import { nearPointOfType, type OfficeMap } from "@hyvento/map";
-import { CHAIR_RACE, inRaceLane, minRaceMs, PLAYER_SPEED, type RaceProblem } from "@hyvento/shared";
+import { CHAIR_RACE, inRaceLane, minRaceMs, PLAYER_SPEED, weekStart, type RaceBoard, type RaceProblem } from "@hyvento/shared";
 
 /** Lo que la carrera necesita saber del jugador (y lo único que toca: `racing`). */
 export interface Racer {
@@ -69,5 +69,33 @@ export class ChairRaces {
   private stop(sessionId: string, p: Racer) {
     this.started.delete(sessionId);
     p.racing = false;
+  }
+}
+
+/**
+ * El tablero de la semana leído hace poco, por persona (lleva su mejor tiempo): abrirlo en bucle no le
+ * pega a la base. Cambia solo cuando alguien termina una carrera (`invalidate`); el tope de tiempo cubre
+ * las que terminan en otra sala, y nunca pasa de una semana a otra.
+ */
+export class RaceBoards {
+  /** La lectura de cada persona (la promesa: dos pedidos a la vez comparten la misma). */
+  private cached = new Map<string, { at: number; board: Promise<RaceBoard> }>();
+
+  constructor(private readonly load: (userId: string, since: number) => Promise<RaceBoard>) {}
+
+  get(userId: string, now: number): Promise<RaceBoard> {
+    const since = weekStart(now);
+    const hit = this.cached.get(userId);
+    if (hit && now - hit.at < CHAIR_RACE.boardCacheMs && hit.at >= since) return hit.board;
+    const entry = { at: now, board: this.load(userId, since) };
+    this.cached.set(userId, entry);
+    // Si falla, el próximo pedido vuelve a intentar.
+    entry.board.catch(() => this.cached.get(userId) === entry && this.cached.delete(userId));
+    return entry.board;
+  }
+
+  /** Alguien terminó una carrera: el tablero cambió para todos (lo que se estaba leyendo ya no vale). */
+  invalidate() {
+    this.cached.clear();
   }
 }

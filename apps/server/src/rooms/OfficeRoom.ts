@@ -151,6 +151,8 @@ import {
   STAT_PREFIX,
   type AchievementUnlockedEvent,
   type FishSpecies,
+  type FishingRod,
+  rodCatchesKey,
   addGameTime,
   formatGameTime,
   gameTime,
@@ -245,7 +247,7 @@ import {
 } from "@hyvento/shared";
 import { FALLBACK_TITLE, lookupYoutube, type YoutubeLookup } from "./youtube";
 import { Whiteboards, type BoardWho } from "./whiteboards";
-import { ChairRaces, type RaceOutcome } from "./races";
+import { ChairRaces, RaceBoards, type RaceOutcome } from "./races";
 import { PHOTO_TIMINGS, PhotoBooth } from "./photos";
 import { AchievementTracker } from "./achievements";
 import { DoorNotes } from "./door-notes";
@@ -253,6 +255,7 @@ import { Invites } from "./invites";
 import { CabinEvents } from "./events";
 import { FocusTimers } from "./focus";
 import { Phones } from "./phones";
+import { registerComunicacion, type Comunicacion } from "./comunicacion";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
 import { BAG_MSG, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
@@ -285,6 +288,8 @@ import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
 import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
 import { closeForRestart } from "./reinicio";
+import { startChatRetention } from "./chatRetention";
+import { orElse } from "../log";
 
 interface UserData {
   lastMoveAt: number;
@@ -569,6 +574,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   );
   /** La carrera de sillas del pasillo del piso 2 (ver races.ts). */
   private races = new ChairRaces();
+  private raceBoards = new RaceBoards((userId, since) => this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId }));
   /** Cuándo puede volver a reaccionar cada persona en el club. */
   private reactAt = new Map<string, number>();
   /** Tiempos de las sillas giratorias y cuántas vueltas da cada giro (los tests los fijan). */
@@ -605,7 +611,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
       this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
     },
-    caught: (userId, fish, size, first, treasure) => this.fishCaught(userId, fish, size, first, treasure),
+    rodCatches: (userId, rod) => this.achievements.stat(userId, rodCatchesKey(rod)) ?? 0,
+    caught: (userId, fish, size, first, treasure, rod) => this.fishCaught(userId, fish, size, first, treasure, rod),
   });
   /** El puesto de pesca del lago: las compras y el equipo de cada lance (ver pescaTienda.ts). */
   private pesca = new PescaStand({ repo: () => this.repo, held: this.held, now: () => OfficeRoom.pescaNow() });
@@ -706,12 +713,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     send: (userId, event) => {
       for (const c of this.clients) if (this.state.players.get(c.sessionId)?.userId === userId) c.send(MSG.phoneEvent, event);
     },
-    setPhase: (userId, phase, withUserId, since) => {
+    setPhase: (userId, phase, withUserId, since, callId) => {
       for (const p of this.state.players.values())
         if (p.userId === userId) {
           p.call = phase;
           p.callWith = withUserId;
           p.callSince = since;
+          p.callId = callId;
         }
     },
   });
@@ -906,6 +914,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
+    this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1097,6 +1106,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     await this.reloadOffices();
     await this.events.refresh();
     this.globalHistory = await this.repo.loadGlobalChat(CHAT_HISTORY_SIZE);
+    startChatRetention(this.clock, () => this.repo);
   }
 
   // Apagado por deploy: avisar y cerrar con el código de reinicio (ver reinicio.ts).
@@ -1114,6 +1124,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.bus?.dispose();
     this.cocina.dispose();
     this.phones.dispose();
+    this.comunicacion?.dispose();
     void this.achievements.flushAll();
     void this.whiteboards.flush();
     this.pets?.flush(Date.now());
@@ -1151,10 +1162,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.y = pos.y;
     player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(map, pos.x, pos.y);
-    player.status = (await this.repo.getUserStatus(auth.sub).catch(() => null)) ?? "available";
+    player.status = (await this.repo.getUserStatus(auth.sub).catch(orElse("onJoin.getUserStatus", null, { userId: auth.sub }))) ?? "available";
     // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
-    const welcome = await this.repo.grantWelcome(auth.sub).catch(() => null);
-    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(() => 0));
+    const welcome = await this.repo.grantWelcome(auth.sub).catch(orElse("onJoin.grantWelcome", null, { userId: auth.sub }));
+    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(orElse("onJoin.getPoints", 0, { userId: auth.sub })));
     // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
     await this.held.load(auth.sub);
     const held = this.held.get(auth.sub);
@@ -1171,6 +1182,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.focus.joined(auth.sub);
     // Si recargó la página en medio de una llamada, la sesión nueva la retoma.
     this.phones.restore(auth.sub);
+    this.comunicacion?.greet(client.sessionId);
 
     client.userData = {
       lastMoveAt: Date.now(),
@@ -1757,6 +1769,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     else this.achievements.bump(player.userId, STAT_KEYS.phoneCalls);
   }
 
+  /** Llamar sin teléfono, llamadas grupales, saludar y el anuncio del admin (ver rooms/comunicacion.ts). */
+  private comunicacion?: Comunicacion;
+
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
     if (zone?.type === "office") {
@@ -1943,10 +1958,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     if (!player) return;
     this.achievements.bump(player.userId, STAT_KEYS.racesFinished);
-    const since = weekStart(Date.now());
-    const before = await this.repo.raceBoard({ since, limit: 1, userId: player.userId }).catch(() => null);
+    const before = await this.raceBoards.get(player.userId, Date.now()).catch(orElse("raceBoard", null, { userId: player.userId }));
     await this.repo.saveRaceTime({ userId: player.userId, name: player.name, ms: outcome.ms }).catch((err) => console.error("saveRaceTime", err));
-    const board = await this.repo.raceBoard({ since, limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => ({ entries: [], myBest: outcome.ms }));
+    this.raceBoards.invalidate();
+    const board = await this.raceBoards.get(player.userId, Date.now()).catch(orElse("raceBoard", { entries: [], myBest: outcome.ms }, { userId: player.userId }));
     const best = before?.myBest == null || outcome.ms < before.myBest;
     const record = !before?.entries[0] || outcome.ms < before.entries[0].ms;
     client?.send(MSG.raceResult, { ok: true, ms: outcome.ms, best, board } satisfies RaceResult);
@@ -1957,7 +1972,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private async sendRaceBoard(client: Client<UserData>) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const board = await this.repo.raceBoard({ since: weekStart(Date.now()), limit: CHAIR_RACE.boardSize, userId: player.userId }).catch(() => null);
+    const board = await this.raceBoards.get(player.userId, Date.now()).catch(orElse("raceBoard", null, { userId: player.userId }));
     if (board) client.send(MSG.raceBoardResult, board);
   }
 
@@ -3087,7 +3102,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
     // La caña y la carnada que tiene (lo de la mano o lo mejor de la mochila); la carnada se gasta al lanzar.
     const gear = this.pesca.gear(player.userId);
-    if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated }, near, gear)) return;
+    if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated, area: player.area }, near, gear)) return;
     this.pesca.spendBait(player.userId, gear);
     for (const p of this.state.players.values()) if (p.userId === player.userId) p.fishingRod = gear.rod;
   }
@@ -3109,7 +3124,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   /** Sacó algo del lago: peces, basura, botas, legendarios, míticos, especies nuevas y el más grande. */
-  private fishCaught(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean) {
+  private fishCaught(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean, rod: FishingRod) {
     const a = this.achievements;
     if (fish.rarity === "basura") {
       a.bump(userId, STAT_KEYS.fishTrash);
@@ -3117,6 +3132,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       return;
     }
     a.bump(userId, STAT_KEYS.fishCaught);
+    a.bump(userId, rodCatchesKey(rod)); // la maestría de esa caña
     if (first) a.bump(userId, STAT_KEYS.fishSpecies);
     if (fish.rarity === "legendario") a.bump(userId, STAT_KEYS.legendaryFish);
     if (fish.rarity === "mitico") a.bump(userId, STAT_KEYS.mythicFish);
@@ -3505,6 +3521,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
     this.phones.left(player.userId);
+    this.comunicacion?.forget(player.userId);
     this.invites.forget(player.userId);
     this.hockey?.leave(player.userId);
     this.casa.forget(player.userId);

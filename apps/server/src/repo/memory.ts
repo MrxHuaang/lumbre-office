@@ -116,6 +116,11 @@ export class MemoryRepository implements GameRepository {
   async saveChat(event: ChatEvent) {
     if (event.scope === "global") this.chat.push(event);
   }
+  async pruneChatBefore(cutoff: Date) {
+    const before = this.chat.length;
+    this.chat = this.chat.filter((m) => m.ts >= cutoff.getTime());
+    return before - this.chat.length;
+  }
 
   async getPoints(userId: string) {
     return this.ledger.filter((m) => m.userId === userId).reduce((a, m) => a + m.amount, 0);
