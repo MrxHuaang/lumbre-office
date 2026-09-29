@@ -5,6 +5,8 @@ import {
   characterShadow,
   crumbColor,
   drawMiniBadge,
+  levelSpark,
+  neighborPlate,
   FEET_Y,
   focusTomato,
   FRAME,
@@ -182,6 +184,8 @@ export class Avatar {
   private readonly statusDot: Phaser.GameObjects.Arc;
   /** Insignia destacada junto al nombre (un logro que tiene; la valida el servidor). */
   private badge?: { id: string; img: Phaser.GameObjects.Image };
+  /** El nivel de vecino (oficios.ts), chiquito después de la insignia. */
+  private plate?: { level: number; img: Phaser.GameObjects.Image };
   private readonly speakingRing: Phaser.GameObjects.Ellipse;
   private bubble?: Phaser.GameObjects.Container;
   /** Emote sobre la cabeza (un globo con dibujo) y el baile, si está bailando. */
@@ -317,6 +321,7 @@ export class Avatar {
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
     if (this.swimming) this.shadow.setVisible(false);
     this.badge?.img.setVisible(!hidden);
+    this.plate?.img.setVisible(!hidden);
     this.ride?.img.setVisible(!hidden);
     if (this.ride) this.shadow.setVisible(false);
     for (const part of this.held?.parts ?? []) part.image.setVisible(!hidden && part.left > 0);
@@ -362,6 +367,43 @@ export class Avatar {
     this.layout();
   }
   private lift = 0;
+
+  /** El nivel de vecino junto al nombre (0 = sin placa: todavía no llegó). */
+  setNeighborLevel(level: number) {
+    if ((this.plate?.level ?? 0) === level) return;
+    this.plate?.img.destroy();
+    this.plate = undefined;
+    if (level > 0) {
+      const key = ensureTexture(this.scene, `vecino-${level}`, () => neighborPlate(level));
+      this.plate = { level, img: this.scene.add.image(0, 0, key).setOrigin(0, 0.5).setVisible(!this.hidden) };
+    }
+    this.refreshLabel();
+    this.layout();
+  }
+
+  /** Chispas doradas que suben alrededor (subió de nivel en un oficio: las ven todos los del nivel). */
+  sparkle() {
+    const key = ensureTexture(this.scene, "chispa-nivel", () => levelSpark());
+    const base = worldToScreen(this.wx, this.wy);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const img = this.scene.add
+        .image(base.x + Math.cos(a) * 10, base.y - 14 + Math.sin(a) * 6, key)
+        .setDepth(6e7 + depthOf(this.wx, this.wy))
+        .setScale(0.6 + (i % 3) * 0.2);
+      this.scene.tweens.add({
+        targets: img,
+        y: img.y - 22 - (i % 4) * 5,
+        x: img.x + Math.cos(a) * 8,
+        alpha: 0,
+        angle: 90,
+        duration: 900 + (i % 5) * 120,
+        delay: i * 35,
+        ease: "Quad.easeOut",
+        onComplete: () => img.destroy(),
+      });
+    }
+  }
 
   /** La insignia destacada ("" o un id que no es de un logro = ninguna). */
   setBadge(achievementId: string) {
@@ -466,6 +508,7 @@ export class Avatar {
     this.statusDot.setAlpha(shown && !this.npc ? 1 : 0);
     // La insignia va con el nombre: se esconde con él (modo mesa, velo, nombres ocultos).
     this.badge?.img.setAlpha(shown ? 1 : 0);
+    this.plate?.img.setAlpha(shown ? 1 : 0);
     // Las insignias (gorrito, tomatito, micrófono) siguen al nombre: sin él (modo mesa, velo, nombres
     // ocultos) tampoco se ven; al pasar el mouse, sí.
     this.badgeRow?.container.setAlpha(!this.nameHidden && !this.veiled && (this.nameMode !== "oculto" || this.hovered) ? 1 : 0);
@@ -986,7 +1029,7 @@ export class Avatar {
     const to = worldToScreen(a.x, a.y);
     const dx = Math.round(to.x) - Math.round(from.x);
     const dy = Math.round(to.y) - Math.round(from.y);
-    const objects = [this.label, this.statusDot, this.badge?.img, this.speakingRing, this.bubble, this.emoteBubble?.container, this.badgeRow?.container, this.phone?.bubble, this.phone?.handset, this.video?.dom];
+    const objects = [this.label, this.statusDot, this.badge?.img, this.plate?.img, this.speakingRing, this.bubble, this.emoteBubble?.container, this.badgeRow?.container, this.phone?.bubble, this.phone?.handset, this.video?.dom];
     for (const o of objects) if (o) o.setPosition(o.x + dx, o.y + dy);
   }
 
@@ -1810,6 +1853,7 @@ export class Avatar {
     this.shadow.destroy();
     this.label.destroy();
     this.statusDot.destroy();
+    this.plate?.img.destroy();
     this.badge?.img.destroy();
     this.speakingRing.destroy();
   }
@@ -1881,6 +1925,9 @@ export class Avatar {
     this.statusDot.setPosition(x + 3 - this.label.width / 2 - 4, y - top - this.label.height / 2).setDepth(5e7 + this.lift + depth + 0.1);
     // La insignia, pegada al otro lado del nombre (a píxel entero, para que el dibujo quede nítido).
     this.badge?.img.setPosition(Math.round(x + 3 + this.label.width / 2 + 1), Math.round(y - top - this.label.height / 2)).setDepth(5e7 + this.lift + depth + 0.1);
+    // El nivel de vecino, después de la insignia (o del nombre, si no lleva).
+    const afterBadge = this.badge ? this.badge.img.width + 1 : 0;
+    this.plate?.img.setPosition(Math.round(x + 3 + this.label.width / 2 + 1 + afterBadge), Math.round(y - top - this.label.height / 2)).setDepth(5e7 + this.lift + depth + 0.1);
     // Las insignias van justo sobre el nombre; los globos, encima de ellas.
     const badgeH = this.badgeRow ? BADGE_ROW_H : 0;
     this.badgeRow?.container.setPosition(x + 3, y - top - this.label.height - 1).setDepth(5e7 + this.lift + depth + 0.2);

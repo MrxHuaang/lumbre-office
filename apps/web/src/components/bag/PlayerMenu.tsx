@@ -19,14 +19,16 @@ import { OfficeDialog } from "../OfficeDialog";
 import { api } from "../PointsPanels";
 import { BadgeGlyph } from "../profile/Badge";
 import { QuestLog } from "../encargos/QuestLog";
+import { OficiosTab } from "../oficios/OficiosTab";
 import { ProfileAchievements, ProfileFacts } from "../profile/ProfileView";
 import { useMyHand } from "./Hotbar";
 import { ItemIcon } from "./ItemIcon";
 
-type Tab = "mochila" | "encargos" | "stats" | "personaje";
+type Tab = "mochila" | "encargos" | "oficios" | "stats" | "personaje";
 const TABS: { id: Tab; label: string; wideHidden?: true }[] = [
   { id: "mochila", label: "Mochila" },
   { id: "encargos", label: "Encargos" },
+  { id: "oficios", label: "Oficios" },
   { id: "stats", label: "Estadísticas" },
   // En pantallas anchas el personaje va siempre a la derecha: la pestaña sobra.
   { id: "personaje", label: "Personaje", wideHidden: true },
@@ -108,6 +110,8 @@ export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Pro
             <StatsTab data={me.profile} error={me.error} />
           ) : tab === "encargos" ? (
             <QuestLog />
+          ) : tab === "oficios" ? (
+            <OficiosTab />
           ) : tab === "personaje" ? (
             <>
               <div className="lg:hidden">

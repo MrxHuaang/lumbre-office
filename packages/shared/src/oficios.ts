@@ -280,7 +280,14 @@ export const OFICIO_MSG = {
   /** Cliente → servidor: las pistas del diario (exploración 5). */
   hints: "oficios:hints",
   hintsResult: "oficios:hintsResult",
+  /** Servidor → quien la tuvo: una ventaja que salió (cosecha doble, porción de más). */
+  notice: "oficios:notice",
 } as const;
+
+export interface OficioNotice {
+  code: "harvest" | "portion";
+  item: string;
+}
 
 export const OficioGiftMessage = z.object({ sessionId: z.string().min(1).max(64) });
 

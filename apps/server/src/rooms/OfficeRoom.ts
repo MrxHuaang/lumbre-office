@@ -220,6 +220,7 @@ import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/sh
 import { PescaStand } from "./pescaTienda";
 import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
 import { encargosDeSala, type Encargos } from "./encargos";
+import { bindOficios, oficiosDeSala, type Oficios } from "./oficios";
 import { acceptEmote, TRADE, type GiftReceived, type GiftSentNotice, type SystemNotice } from "@hyvento/shared";
 import { Trades } from "./trades";
 import { CasaViva } from "./casa";
@@ -384,6 +385,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Encargos: el reloj (día de Bogotá) y qué le toca a cada quien (los tests lo fijan). */
   static encargosNow: () => number = () => Date.now();
   static encargosPick: (userId: string, now: number) => ActiveQuest[] = currentQuests;
+  /** Oficios: el azar de las ventajas (la cosecha doble) y el reloj (los tests lo fijan). */
+  static oficiosRandom: (n: number) => number = (n) => randomInt(n);
+  static oficiosNow: () => number = () => Date.now();
   /** Casa viva: el azar de las mascotas y cuánto se está en el baño (los tests los fijan y acortan). */
   static petRandom: () => number = Math.random;
   static stallMs: number = CASA.stallMs;
@@ -628,10 +632,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         this.sendToArea(p.area, MSG.achievementUnlocked, { sessionId, name: p.name, achievementId: achievement.id } satisfies AchievementUnlockedEvent);
       }
     },
-    quests: { onStat: (u, key, by) => this.encargos.onStat(u, key, by), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
+    quests: { onStat: (u, key, by) => (this.encargos.onStat(u, key, by), this.oficios.onStat(u, key, by)), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
   });
   /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
-  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t) });
+  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t), xp: (u, o, xp) => this.oficios.credit(u, o, xp) });
+  /** Oficios con nivel (ver oficios.ts): la experiencia de las acciones y los encargos, y las ventajas. */
+  private oficios: Oficios = oficiosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, now: () => OfficeRoom.oficiosNow(), random: (n) => OfficeRoom.oficiosRandom(n), hideout: () => this.sombrero?.hideout?.place ?? null, areas: () => [...this.world.areas.values()].map((a) => ({ id: a.id, name: a.name })), tileSize: 32 });
 
   /** Fotos: la cuenta 3-2-1, quiénes salen y el ticket para subirla (ver photos.ts). */
   private photos = new PhotoBooth({
@@ -817,6 +823,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     onBuff: (userId, dish) => {
       for (const p of this.state.players.values()) if (p.userId === userId) p.buff = dish;
     },
+    level: (userId, oficio) => this.oficios.level(userId, oficio),
   });
 
   /** La granja: el azar de los animales, su reloj y cuánto tarda cada receta (los tests los fijan y acortan). */
@@ -920,6 +927,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
+    bindOficios(this, this.oficios, (id) => this.state.players.get(id)?.userId ?? null);
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
@@ -1106,6 +1114,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.sombrero.refresh();
     this.clock.setInterval(() => this.sombrero.refresh(), OfficeRoom.sombreroTickMs);
     this.clock.setInterval(() => void this.achievements.flushAll(), OfficeRoom.statsFlushMs);
+    this.clock.setInterval(() => void this.oficios.flushAll(), OfficeRoom.statsFlushMs);
 
     const officeZones = allZones(this.world).filter((z) => z.type === "office");
     await this.repo.ensureOffices(officeZones.map((z) => ({ zoneId: z.id, name: z.name })));
@@ -1132,6 +1141,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.phones.dispose();
     this.comunicacion?.dispose();
     void this.achievements.flushAll();
+    void this.oficios.flushAll();
     void this.whiteboards.flush();
     this.pets?.flush(Date.now());
   }
@@ -1202,6 +1212,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
     void this.encargos.load(auth.sub, { join: true });
+    void this.oficios.load(auth.sub, { join: true });
     if (byBus) this.bus.requestRide();
     void this.refreshBadge(auth.sub);
     client.send(MSG.chatHistory, this.globalHistory);
@@ -2686,6 +2697,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const step = result.event.garden;
     if (step === "plant") this.achievements.bump(player.userId, STAT_KEYS.plantings);
     else if (step === "harvest") this.achievements.bump(player.userId, STAT_KEYS.harvests);
+    if (step === "harvest" && result.event.item) void this.oficios.extraHarvest(player.userId, result.event.item);
     this.sendToArea(area, MSG.furnitureEvent, { sessionId: client.sessionId, ...result.event } satisfies FurnitureEvent);
   }
 
@@ -2861,7 +2873,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         return c ? this.grillWho(c) : undefined;
       },
       bump: (userId, key, by) => this.achievements.bump(userId, key, by),
-      notify: (userId, notice) => this.clientOfUser(userId)?.send(PARRILLA_MSG.notice, notice satisfies GrillNotice),
+      notify: (userId, notice) => {
+        this.clientOfUser(userId)?.send(PARRILLA_MSG.notice, notice satisfies GrillNotice);
+        // Cocina nivel 5: el plato trae una porción de más.
+        if ((notice.code === "done" || notice.code === "doneBag") && notice.item) void this.oficios.extraPortion(userId, notice.item);
+      },
       timeScale: () => OfficeRoom.parrillaTimeScale,
     });
     let last = OfficeRoom.granjaNow();
@@ -3110,7 +3126,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastActiveAt = Date.now();
     const near = nearPointOfType(this.mapOf(player.area), "fishing_spot", player.x, player.y);
     // La caña y la carnada que tiene (lo de la mano o lo mejor de la mochila); la carnada se gasta al lanzar.
-    const gear = this.pesca.gear(player.userId);
+    const gear = { ...this.pesca.gear(player.userId), ...this.oficios.fishingBonus(player.userId) };
     if (!this.fishery.cast({ userId: player.userId, x: player.x, y: player.y, seated: player.seated, area: player.area }, near, gear)) return;
     this.pesca.spendBait(player.userId, gear);
     for (const p of this.state.players.values()) if (p.userId === player.userId) p.fishingRod = gear.rod;
@@ -3540,6 +3556,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Los encargos se olvidan después de guardar, y solo si no volvió a entrar mientras tanto (`gen`).
     const questGen = this.encargos.generation(player.userId);
     void this.achievements.forget(player.userId).then(() => this.encargos.forget(player.userId, questGen));
+    void this.oficios.forget(player.userId, this.oficios.generation(player.userId));
     for (const office of this.state.offices.values()) {
       const i = office.guests.indexOf(player.userId);
       if (i >= 0) office.guests.splice(i, 1);

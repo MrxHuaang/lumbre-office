@@ -13,7 +13,6 @@ import {
   OFICIOS,
   OficioGiftMessage,
   bogotaDay,
-  dayStart,
   hasPerk,
   levelOf,
   neighborLevel,
@@ -28,6 +27,8 @@ import {
   type OficioLevelUpEvent,
   type OficioLevels,
   type OficioStateEvent,
+  type OficioNotice,
+  STAT_PREFIX,
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
 import type { Bag } from "./bag";
@@ -75,6 +76,8 @@ interface Entry {
   pending: PerOficio;
   loaded: boolean;
   loading?: Promise<void>;
+  /** Cambia en cada entrada: un `forget` de una sesión anterior no borra lo nuevo. */
+  gen: number;
 }
 
 export class Oficios {
@@ -86,15 +89,16 @@ export class Oficios {
   private entry(userId: string): Entry {
     let e = this.users.get(userId);
     if (!e) {
-      e = { xp: zero(), today: zero(), day: bogotaDay(this.deps.now()), carry: zero(), pending: zero(), loaded: false };
+      e = { xp: zero(), today: zero(), day: bogotaDay(this.deps.now()), carry: zero(), pending: zero(), loaded: false, gen: 0 };
       this.users.set(userId, e);
     }
     return e;
   }
 
   /** Lee de la base (la primera vez calcula la experiencia de los veteranos). Lo sumado mientras tanto no se pierde. */
-  load(userId: string): Promise<void> {
+  load(userId: string, opts: { join?: boolean } = {}): Promise<void> {
     const e = this.entry(userId);
+    if (opts.join) e.gen += 1;
     e.loading ??= this.fetch(userId, e).finally(() => (e.loading = undefined));
     return e.loading;
   }
@@ -204,10 +208,17 @@ export class Oficios {
     await Promise.all([...this.users.keys()].map((id) => this.flush(id)));
   }
 
-  async forget(userId: string) {
+  /** La sesión de ahora (para que `forget` sepa si sigue siendo la misma). */
+  generation(userId: string): number {
+    return this.users.get(userId)?.gen ?? 0;
+  }
+
+  /** Se fue: se guarda y se olvida, salvo que haya vuelto a entrar mientras tanto (`gen`). */
+  async forget(userId: string, gen?: number) {
     await this.flush(userId);
     const e = this.users.get(userId);
-    if (e && !OFICIOS.some((o) => e.pending[o] > 0)) this.users.delete(userId);
+    if (!e || (gen !== undefined && e.gen !== gen) || e.loading) return;
+    if (!OFICIOS.some((o) => e.pending[o] > 0)) this.users.delete(userId);
   }
 
   // ---------- Ventajas del nivel 5 ----------
@@ -224,7 +235,7 @@ export class Oficios {
     const itemId = objItemId(product);
     if (this.deps.held.fits(userId, [[itemId, 1]]) !== "ok") return false;
     await this.deps.held.add(userId, itemId, 1);
-    this.deps.send(userId, OFICIO_MSG.notice, { code: "harvest", item: product });
+    this.deps.send(userId, OFICIO_MSG.notice, { code: "harvest", item: product } satisfies OficioNotice);
     return true;
   }
 
@@ -235,7 +246,7 @@ export class Oficios {
     const n = OFICIO_PERKS.cocina.extraPortions;
     if (this.deps.held.fits(userId, [[itemId, n]]) !== "ok") return false;
     await this.deps.held.add(userId, itemId, n);
-    this.deps.send(userId, OFICIO_MSG.notice, { code: "portion", item: dish });
+    this.deps.send(userId, OFICIO_MSG.notice, { code: "portion", item: dish } satisfies OficioNotice);
     return true;
   }
 
@@ -283,4 +294,76 @@ export class Oficios {
   }
 }
 
-export { dayStart };
+
+/** Lo que la sala le presta a los oficios (así en OfficeRoom va una sola línea). */
+export interface OficiosRoomParts {
+  room: {
+    state: { players: { get(id: string): OficioPlayer | undefined; entries(): IterableIterator<[string, OficioPlayer]> } };
+    clients: Iterable<{ sessionId: string; send(type: string, message: unknown): void }>;
+  };
+  repo: OficiosDeps["repo"];
+  held: OficiosDeps["held"];
+  stats: OficiosDeps["stats"];
+  now(): number;
+  random(n: number): number;
+  /** Dónde se esconde hoy el Man del Sombrero (para las pistas), y los niveles del mundo (id y nombre). */
+  hideout(): string | null;
+  areas(): { id: string; name: string }[];
+  tileSize: number;
+}
+
+interface OficioPlayer {
+  userId: string;
+  name: string;
+  area: string;
+  x: number;
+  y: number;
+  vecino: number;
+}
+
+/** Los oficios de una sala: quién está dónde, cómo avisar y el nivel de vecino de cada `Player`. */
+export function oficiosDeSala(parts: OficiosRoomParts): Oficios {
+  const { room } = parts;
+  const who = (sessionId: string): OficioWho | null => {
+    const p = room.state.players.get(sessionId);
+    return p ? { sessionId, userId: p.userId, name: p.name, area: p.area, x: p.x, y: p.y } : null;
+  };
+  const sessionsOf = (userId: string) => [...room.state.players.entries()].filter(([, p]) => p.userId === userId).map(([id]) => who(id)!);
+  return new Oficios({
+    repo: parts.repo,
+    now: parts.now,
+    random: parts.random,
+    sessionsOf,
+    who,
+    send: (userId, type, message) => {
+      for (const c of room.clients) if (room.state.players.get(c.sessionId)?.userId === userId) c.send(type, message);
+    },
+    toArea: (area, type, message) => {
+      for (const c of room.clients) if (room.state.players.get(c.sessionId)?.area === area) c.send(type, message);
+    },
+    setNeighbor: (userId, level) => {
+      for (const [, p] of room.state.players.entries()) if (p.userId === userId) p.vecino = level;
+    },
+    stats: parts.stats,
+    held: parts.held,
+    hints: (userId) => ({
+      hideout: parts.hideout(),
+      unvisited: parts
+        .areas()
+        .filter((a) => !parts.stats.stat(userId, `${STAT_PREFIX.visit}${a.id}`))
+        .map((a) => a.name),
+    }),
+    tileSize: parts.tileSize,
+  });
+}
+
+/** Los mensajes de los oficios (el detalle gratis y las pistas del diario). */
+export function bindOficios(room: { onMessage(type: string, cb: (client: { sessionId: string; send(type: string, message: unknown): void }, raw: unknown) => void): unknown }, oficios: Oficios, userOf: (sessionId: string) => string | null) {
+  room.onMessage(OFICIO_MSG.gift, (client, raw) => {
+    void oficios.gift(client.sessionId, raw).then((r) => r && client.send(OFICIO_MSG.giftResult, r satisfies OficioGiftResult));
+  });
+  room.onMessage(OFICIO_MSG.hints, (client) => {
+    const userId = userOf(client.sessionId);
+    if (userId) client.send(OFICIO_MSG.hintsResult, oficios.hints(userId) satisfies OficioHints);
+  });
+}

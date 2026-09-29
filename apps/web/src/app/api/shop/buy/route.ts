@@ -1,5 +1,5 @@
-import { prisma } from "@hyvento/db";
-import { SHOP_MAX_QUANTITY, ShopBuyBody } from "@hyvento/shared";
+import { loadSkillLevels, prisma } from "@hyvento/db";
+import { SHOP_MAX_QUANTITY, ShopBuyBody, canBuyExclusive, unlockText } from "@hyvento/shared";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { publishPointsChanged } from "@/lib/events";
@@ -19,6 +19,10 @@ export async function POST(req: Request) {
   }
   const item = furnitureForSale(parsed.data.itemId);
   if (!item) return NextResponse.json({ error: "Ese mueble no está en la tienda." }, { status: 400 });
+  // Los exclusivos de los oficios se venden desde su nivel.
+  if (item.requires && !canBuyExclusive(item, await loadSkillLevels(prisma, user.id))) {
+    return NextResponse.json({ error: `Ese mueble es de ${unlockText(item.requires)}.` }, { status: 403 });
+  }
 
   try {
     const result = await prisma.$transaction((tx) => buyTx(tx, user.id, item, parsed.data.quantity));

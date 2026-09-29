@@ -52,7 +52,7 @@ describe("encargos en la base", () => {
     expect(await claim(18)).toEqual({ ok: true, awarded: 18, balance: 18 });
     expect(db.t.moves.at(-1)).toMatchObject({ userId: "ana", amount: 18, reason: "QUEST", refId: `encargo:evelio-olla:${DAY}` });
     expect(await claim(18)).toEqual({ ok: false, error: "claimed" });
-    expect(db.t.skills).toEqual([{ userId: "ana", skill: "pesca", xp: 25, level: 1 }]);
+    expect(db.t.skills).toMatchObject([{ userId: "ana", skill: "pesca", xp: 25, level: 1 }]);
     expect(await claim(18, "tablon-foto")).toEqual({ ok: false, error: "not-done" });
     expect(db.t.skills[0]!.xp).toBe(25);
   });

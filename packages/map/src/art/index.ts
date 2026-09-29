@@ -232,3 +232,4 @@ export {
 export { drawPet, petBowl, petMenuIcon, petTreat, sleepZ, type PetMenuIcon, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
 export { orreryArms, ORRERY_FRAMES } from "./observatorio";
 export { questMark, type QuestMarkKind } from "./encargos";
+export { levelSpark, neighborPlate } from "./oficios";

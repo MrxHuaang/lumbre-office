@@ -579,5 +579,8 @@ export interface ProfileDTO {
   achievements: ProfileAchievementDTO[];
   /** Cuántas personas hay en el equipo (para el % de cada logro). */
   teamSize: number;
+  /** Oficios (oficios.ts): experiencia y nivel de cada uno, y el nivel de vecino (la suma). */
+  oficios?: Record<string, { xp: number; level: number }>;
+  neighborLevel?: number;
   isMe: boolean;
 }
