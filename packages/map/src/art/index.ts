@@ -80,7 +80,7 @@ export {
 } from "./chibi-baile";
 export { arcadeScreen, danceFloorLights, djBoothEq, FLOOR_LIGHT_PATTERNS, poleStageLights, speakerPulse, type ArcadeScreenKind } from "./club-vivo";
 export { cinemaMarquee, MARQUEE_POSTS } from "./cinema";
-export { CINEMA_SCREEN, drawAreaBase, drawDoorPost, drawLowWall, drawRoomWalls, LOW_WALL_H, SCREEN_INSET, VIDEO_WALL_SCREEN, WALL_H, type AreaArt } from "./room";
+export { CINEMA_SCREEN, drawAreaBase, drawAreaPatch, drawDoorPost, drawLowWall, drawRoomWalls, LOW_WALL_H, SCREEN_INSET, VIDEO_WALL_SCREEN, WALL_H, type AreaArt } from "./room";
 // Casino: tipografía de números, geometría de las mesas, el arte del modo mesa y su encuadre. Con
 // nombres explícitos (no `export *`): así un nombre genérico no choca con lo que agreguen otras partes.
 export { textMask } from "./digits";
