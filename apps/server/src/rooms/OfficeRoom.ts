@@ -224,6 +224,7 @@ import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
 import { Fishery } from "./fishing";
 import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/shared";
+import { RECHAZO_MSG, type RechazoCode, type RechazoNotice } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
 import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
 import { encargosDeSala, type Encargos } from "./encargos";
@@ -1955,6 +1956,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (dist > maxDist || !validSpot || !this.canAccess(player, x, y)) {
       const correction: MoveCorrection = { x: player.x, y: player.y };
       client.send(MSG.moveCorrection, correction);
+      // Sentarse en una silla que ganó otra persona: la corrección sola dejaba de pie sin decir por qué.
+      if (seated && !player.seated && seat && this.seatTaken(client.sessionId, map.id, x, y)) this.rechazo(client, "seatTaken");
       return;
     }
 
@@ -2355,6 +2358,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return true;
   }
 
+  /** Le dice a quien lo intentó por qué no se hizo (el texto lo pone el cliente). */
+  private rechazo(client: Client<UserData>, code: RechazoCode) {
+    client.send(RECHAZO_MSG.notice, { code } satisfies RechazoNotice);
+  }
+
   private handleChat(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = ChatSendMessage.safeParse(raw);
@@ -2362,7 +2370,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
     const now = Date.now();
     const times = client.userData.chatTimes.filter((t) => now - t < CHAT_RATE.windowMs);
-    if (times.length >= CHAT_RATE.max) return;
+    if (times.length >= CHAT_RATE.max) return this.rechazo(client, "rate");
     times.push(now);
     client.userData.chatTimes = times;
     if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text) || this.devSombrero(client, player, parsed.data.text))) return;
@@ -2818,6 +2826,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!result.ok) {
       // Casa viva: por qué no (no cabe en la mochila, el baño ocupado); lo demás se ignora como antes.
       if (result.error === "full" || result.error === "stall") client.send(CASA_MSG.notice, { code: result.error } satisfies CasaNotice);
+      else if (result.error === "far") this.rechazo(client, "far");
+      else if (result.error === "busy") this.rechazo(client, "cooldown");
       return;
     }
     client.userData.lastActiveAt = now;
