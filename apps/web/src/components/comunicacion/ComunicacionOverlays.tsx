@@ -3,10 +3,15 @@
 // Lo que se ve de la comunicación rápida (game/comunicacion.ts): el saludo que te llega ("X te saluda",
 // con Ir y Llamar), el aviso grande para toda la cabaña y el panel para anunciar (texto y voz; permiso
 // `anunciar`). Los chips del HUD (seguir y anunciando) están en ComunicacionChips.tsx.
-import { announcementTime, broadcastLeft, COMUNICACION, type WaveEvent } from "@hyvento/shared";
+import { announcementTime, broadcastLeft, COMUNICACION, puede, type WaveEvent } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import {
+  addToCall,
   announce,
+  callPerson,
+  followPerson,
+  stopFollowing,
+  wavePerson,
   callBackWave,
   dismissAnnouncement,
   dismissWave,
@@ -16,12 +21,33 @@ import {
   stopBroadcast,
   useComStore,
 } from "@/game/comunicacion";
-import { usePuedo } from "@/game/permisos";
+import { usePermisosStore, usePuedo } from "@/game/permisos";
+import { usePhoneStore } from "@/game/phone";
+import { useCommands } from "@/lib/commands";
+import { comunicacionCommands } from "@/lib/comunicacionCommands";
 import { selectMyUserId, useOfficeStore } from "@/game/store";
 import { PixelIcon } from "../Cozy";
 import { PanelShell } from "../PointsPanels";
 
+/** Llamar, saludar, seguir, sumar a la llamada y anunciar, en la paleta Ctrl+K (lib/comunicacionCommands.ts). */
+function useComunicacionCommands() {
+  useCommands(() => {
+    const office = useOfficeStore.getState();
+    return comunicacionCommands(
+      {
+        mySessionId: office.sessionId,
+        people: Object.values(office.players),
+        call: usePhoneStore.getState().call,
+        following: useComStore.getState().following,
+        canAnnounce: puede(usePermisosStore.getState(), "anunciar"),
+      },
+      { callPerson, addToCall, wavePerson, followPerson, stopFollowing: () => stopFollowing(), openAnnounce: () => openAnnounce() },
+    );
+  });
+}
+
 export function ComunicacionOverlays() {
+  useComunicacionCommands();
   const announceOpen = useComStore((s) => s.announceOpen);
   // Quien tenga el permiso `anunciar` (los admins siempre); el servidor lo valida igual.
   const announcer = usePuedo("anunciar");
