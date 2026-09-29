@@ -3,6 +3,7 @@ import { getWorld, pointsOfType } from "@hyvento/map";
 import {
   BAG,
   QUEST,
+  QUEST_ERROR_TEXT,
   QUEST_MSG,
   ROOM_NAME,
   STAT_KEYS,
@@ -39,9 +40,9 @@ const jardin = getWorld().areas.get("jardin")!;
 const shop = pointsOfType(jardin, "fishing_shop")[0]!;
 const board = pointsOfType(jardin, "task_board")[0]!;
 
-const OLLA = questById("evelio-olla")!; // 3 pescados, 18 puntos, 3 de carnada
-const PACIENCIA = questById("evelio-paciencia")!; // 5 pescados, 25 puntos
-const LAGO = questById("semana-lago")!; // 20 pescados en la semana, 60 puntos
+const OLLA = questById("evelio-olla")!; // 3 pescados, 11 puntos, 3 de carnada
+const PACIENCIA = questById("evelio-paciencia")!; // 5 pescados, 15 puntos
+const LAGO = questById("semana-lago")!; // 20 pescados en la semana, 47 puntos
 const LUNA = questById("evelio-luna")!; // 2 pescados de noche
 
 const pickFixed = (_userId: string, t: number): ActiveQuest[] =>
@@ -96,7 +97,18 @@ async function setup(opts: { stock?: Record<string, number>; at?: { tileX: numbe
   const lists: QuestListEvent[] = [];
   const done: QuestDoneEvent[] = [];
   const results: QuestClaimResult[] = [];
-  alice.onMessage(QUEST_MSG.list, (e: QuestListEvent) => lists.push(e));
+  /** Lo que ve el cliente: la libreta entera y, encima, lo que avanzó (como lo junta game/encargos.ts). */
+  let view: QuestListEvent["quests"] = [];
+  const progress: QuestListEvent[] = [];
+  alice.onMessage(QUEST_MSG.list, (e: QuestListEvent) => {
+    lists.push(e);
+    view = e.quests;
+  });
+  alice.onMessage(QUEST_MSG.progress, (e: QuestListEvent) => {
+    progress.push(e);
+    view = view.map((q) => e.quests.find((x) => x.questId === q.questId && x.period === q.period) ?? q);
+    for (const q of e.quests) if (!view.some((x) => x.questId === q.questId && x.period === q.period)) view = [...view, q];
+  });
   alice.onMessage(QUEST_MSG.done, (e: QuestDoneEvent) => done.push(e));
   alice.onMessage(QUEST_MSG.result, (e: QuestClaimResult) => results.push(e));
   await room.waitForNextPatch();
@@ -116,8 +128,8 @@ async function setup(opts: { stock?: Record<string, number>; at?: { tileX: numbe
     return r;
   };
   const me = () => room.state.players.get(alice.sessionId)!;
-  const latest = () => lists.at(-1)!.quests;
-  return { room, alice, lists, done, results, bump, claim, me, latest, stats };
+  const latest = () => view;
+  return { room, alice, lists, progress, done, results, bump, claim, me, latest, stats };
 }
 
 describe("encargos: avanzar", () => {
@@ -161,6 +173,22 @@ describe("encargos: avanzar", () => {
   });
 });
 
+describe("encargos: los avisos de lo que avanza", () => {
+  it("caminar no manda la libreta entera: solo el encargo que avanzó y como mucho una vez por segundo", async () => {
+    picks = [questById("tablon-caminar")!.id, OLLA.id];
+    const s = await setup();
+    const lists = s.lists.length;
+    const t0 = Date.now();
+    for (let i = 0; i < 20; i++) await s.bump(STAT_KEYS.tilesWalked, 1);
+    await waitFor(() => (s.progress.length >= 1 && Date.now() - t0 > 1300 ? true : undefined), 6000);
+    const elapsed = (Date.now() - t0) / 1000;
+    expect(s.progress.length).toBeLessThanOrEqual(Math.ceil(elapsed) + 1);
+    for (const p of s.progress) expect(p.quests.map((q) => q.questId)).toEqual(["tablon-caminar"]);
+    expect(s.lists.length).toBe(lists);
+    expect(s.latest().find((q) => q.questId === "tablon-caminar")?.progress).toBe(20);
+  });
+});
+
 describe("encargos: entregar", () => {
   it("sin cumplir no se entrega; lejos de quien lo dio tampoco", async () => {
     const s = await setup({ at: shop });
@@ -176,15 +204,15 @@ describe("encargos: entregar", () => {
     const s = await setup({ at: shop });
     await s.bump(STAT_KEYS.fishCaught, 3);
     const r = await s.claim(OLLA.id, dailyPeriod(MON));
-    expect(r).toEqual({ ok: true, questId: OLLA.id, period: dailyPeriod(MON), points: 18, capped: false, skill: "pesca", xp: 25, item: "obj:carnada", balance: 18 });
-    expect(repo.ledger.at(-1)).toMatchObject({ amount: 18, reason: "QUEST", refId: `encargo:${OLLA.id}:${dailyPeriod(MON)}` });
+    expect(r).toEqual({ ok: true, questId: OLLA.id, period: dailyPeriod(MON), points: 11, capped: false, skill: "pesca", xp: 25, item: "obj:carnada", balance: 11 });
+    expect(repo.ledger.at(-1)).toMatchObject({ amount: 11, reason: "QUEST", refId: `encargo:${OLLA.id}:${dailyPeriod(MON)}` });
     expect(repo.skillXp.get("u-alice:pesca")).toBe(25);
     expect(bagOf(s.room).count("u-alice", "obj:carnada")).toBe(3);
     await s.room.waitForNextPatch();
-    expect(s.me().points).toBe(18);
+    expect(s.me().points).toBe(11);
     await waitFor(() => (s.latest()[0]!.status === "CLAIMED" ? true : undefined));
     expect(await s.claim(OLLA.id, dailyPeriod(MON))).toMatchObject({ ok: false, error: "claimed" });
-    expect(await repo.getPoints("u-alice")).toBe(18);
+    expect(await repo.getPoints("u-alice")).toBe(11);
     expect(repo.skillXp.get("u-alice:pesca")).toBe(25);
   });
 
@@ -195,19 +223,27 @@ describe("encargos: entregar", () => {
     s.alice.send(QUEST_MSG.claim, { questId: OLLA.id, period: dailyPeriod(MON) });
     await waitFor(() => s.results[1]);
     expect(s.results.filter((x) => x.ok)).toHaveLength(1);
-    expect(await repo.getPoints("u-alice")).toBe(18);
+    expect(await repo.getPoints("u-alice")).toBe(11);
   });
 
-  it("los encargos pagan hasta 100 puntos por día (QUEST); lo que pasa, no", async () => {
+  it("con los 3 diarios y el semanal del día se llega como mucho a 100; lo que ya no cabe se rechaza sin marcarlo", async () => {
     picks = [LAGO.id, PACIENCIA.id, OLLA.id];
     const s = await setup({ at: shop });
     await s.bump(STAT_KEYS.fishCaught, 20);
     await waitFor(() => (s.done.length === 3 ? true : undefined));
-    expect(await s.claim(LAGO.id, weeklyPeriod(MON))).toMatchObject({ ok: true, points: 60, capped: false });
-    expect(await s.claim(PACIENCIA.id, dailyPeriod(MON))).toMatchObject({ ok: true, points: 25, capped: false });
-    // 60 + 25 = 85: de los 18 de la olla solo caben 15.
-    expect(await s.claim(OLLA.id, dailyPeriod(MON))).toMatchObject({ ok: true, points: 15, capped: true, balance: 100 });
-    expect(await repo.getPoints("u-alice")).toBe(100);
+    expect(await s.claim(LAGO.id, weeklyPeriod(MON))).toMatchObject({ ok: true, points: 47, capped: false });
+    expect(await s.claim(PACIENCIA.id, dailyPeriod(MON))).toMatchObject({ ok: true, points: 15 });
+    // Otros 30 de hoy (p. ej. lo de ayer entregado hoy): 47 + 15 + 30 + 11 pasa de 100.
+    repo.ledger.push({ userId: "u-alice", amount: 30, reason: "QUEST", at: now });
+    expect(await s.claim(OLLA.id, dailyPeriod(MON))).toMatchObject({ ok: false, error: "capped" });
+    // No se marcó, no se pagó y la carnada apartada volvió a salir de la mochila.
+    expect(repo.quest("u-alice", OLLA.id, dailyPeriod(MON))).toMatchObject({ status: "DONE" });
+    expect(await repo.getPoints("u-alice")).toBe(92);
+    expect(bagOf(s.room).count("u-alice", "obj:carnada")).toBe(0);
+    // Mañana (con la gracia) sí se entrega.
+    now = MON + DAY;
+    expect(await s.claim(OLLA.id, dailyPeriod(MON))).toMatchObject({ ok: true, points: 11 });
+    expect(bagOf(s.room).count("u-alice", "obj:carnada")).toBe(3);
   });
 
   it("si la carnada no cabe en la mochila no se entrega (ni se paga) y queda para después", async () => {
@@ -216,7 +252,9 @@ describe("encargos: entregar", () => {
     for (let i = 0; i < BAG.slots; i++) stock[`obj:cosa-${i}`] = 1;
     const s = await setup({ stock, at: shop });
     await s.bump(STAT_KEYS.fishCaught, 3);
-    expect(await s.claim(OLLA.id, dailyPeriod(MON))).toMatchObject({ ok: false, error: "full" });
+    const full = await s.claim(OLLA.id, dailyPeriod(MON));
+    expect(full).toMatchObject({ ok: false, error: "full" });
+    expect(QUEST_ERROR_TEXT.full).toMatch(/Haz espacio en la mochila/);
     expect(await repo.getPoints("u-alice")).toBe(0);
     await s.stats.flush("u-alice");
     expect(repo.quest("u-alice", OLLA.id, dailyPeriod(MON))).toMatchObject({ status: "DONE" });
@@ -240,7 +278,7 @@ describe("encargos: el cambio de día", () => {
       [dailyPeriod(MON + DAY), "ACTIVE", false],
       [dailyPeriod(MON), "DONE", true],
     ]);
-    expect(await s.claim(OLLA.id, dailyPeriod(MON))).toMatchObject({ ok: true, points: 18 });
+    expect(await s.claim(OLLA.id, dailyPeriod(MON))).toMatchObject({ ok: true, points: 11 });
 
     // Otra persona que lo dejó para pasado mañana: ya venció.
     await colyseus.cleanup();

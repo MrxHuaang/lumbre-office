@@ -35,19 +35,44 @@ export type PhoneError =
   /** La persona está en "No molestar". */
   | "dnd"
   /** Tú ya estás en una llamada. */
-  | "in-call";
+  | "in-call"
+  /** Para sumar a alguien hay que estar hablando en una llamada (ver comunicacion.ts). */
+  | "not-in-call"
+  /** La llamada ya tiene el cupo lleno (`COMUNICACION.maxCallMembers`). */
+  | "full"
+  /** Llamaste hace un momento: una pausa corta para que no se llame en ráfaga. */
+  | "too-soon";
+
+/** Alguien de la llamada (para el chip y el aviso de "te suman a la llamada"): hablando o sonándole. */
+export interface CallMember {
+  userId: string;
+  name: string;
+  phase: "calling" | "ringing" | "talking";
+}
+
+/** Qué cambió en una llamada grupal, para los que siguen en ella. */
+export type CallMemberChange = "joined" | "left" | "declined" | "timeout" | "invited";
 
 /** Cómo terminó una llamada: colgaron, no contestó (rechazo o tiempo) o alguien se desconectó. */
 export type CallEndReason = "hangup" | "declined" | "timeout" | "left";
 
 /** Servidor → cliente (`MSG.phoneEvent`). */
 export type PhoneEvent =
-  /** A quien llaman: le suena. `from` completa "te llama desde …" ("su oficina", "la recepción"). */
-  | { kind: "ringing"; callId: string; withUserId: string; withName: string; from: string; endsAt: number }
+  /**
+   * A quien llaman: le suena. `from` completa "te llama desde …" ("su oficina", "la recepción"). Si lo
+   * suman a una llamada en curso, `members` trae a los que ya están hablando.
+   */
+  | { kind: "ringing"; callId: string; withUserId: string; withName: string; from: string; endsAt: number; members?: CallMember[] }
   /** A quien llama: está sonando del otro lado. */
-  | { kind: "calling"; callId: string; withUserId: string; withName: string; endsAt: number }
-  /** A los dos: contestaron (`since` = hora del servidor, para el reloj de la llamada). */
-  | { kind: "connected"; callId: string; withUserId: string; withName: string; since: number }
+  | { kind: "calling"; callId: string; withUserId: string; withName: string; endsAt: number; members?: CallMember[] }
+  /**
+   * A todos los de la llamada: contestaron (`since` = hora del servidor, para el reloj de la llamada).
+   * Se repite cada vez que alguien entra, sale o le empieza a sonar a alguien nuevo: `members` son los
+   * demás (sin mí).
+   */
+  | { kind: "connected"; callId: string; withUserId: string; withName: string; since: number; members?: CallMember[] }
+  /** A los que siguen en una llamada grupal: alguien entró, salió, no contestó o le está sonando. */
+  | { kind: "member"; callId: string; name: string; change: CallMemberChange }
   /** A los dos: terminó (`byMe` = la colgué yo; `caller` = yo era quien llamaba). */
   | { kind: "ended"; callId: string; withName: string; reason: CallEndReason; byMe: boolean; caller: boolean }
   /** A quien quiso llamar: por qué no se pudo. */
@@ -61,7 +86,25 @@ export const PHONE_ERROR_TEXT: Record<PhoneError, (name: string) => string> = {
   busy: (n) => `${n || "Esa persona"} está en otra llamada. Suena ocupado.`,
   dnd: (n) => `${n || "Esa persona"} está en "No molestar".`,
   "in-call": () => "Ya estás en una llamada.",
+  "not-in-call": () => "Para sumar a alguien tienes que estar hablando en una llamada.",
+  full: () => "La llamada ya está llena.",
+  "too-soon": () => "Espera un momentico antes de volver a llamar.",
 };
+
+/** Aviso de una llamada grupal para los que siguen en ella (a quien entra o sale ya le llega lo suyo). */
+export const CALL_MEMBER_TEXT: Record<CallMemberChange, (name: string) => string> = {
+  joined: (n) => `${n} se sumó a la llamada.`,
+  left: (n) => `${n} salió de la llamada.`,
+  declined: (n) => `${n} no quiso sumarse a la llamada.`,
+  timeout: (n) => `${n} no contestó.`,
+  invited: (n) => `Le está sonando a ${n}…`,
+};
+
+/** "Ana", "Ana y Bob", "Ana, Bob y Carla". */
+export function namesList(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} y ${names.at(-1)}`;
+}
 
 /** Aviso al terminar, para quien no colgó (a quien colgó le basta con que se cierre el chip). */
 export function callEndText(e: { reason: CallEndReason; withName: string; byMe: boolean; caller: boolean }): string | null {

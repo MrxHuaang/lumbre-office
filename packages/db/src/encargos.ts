@@ -2,7 +2,7 @@
 // catálogo, quién recibe qué y las reglas están en @hyvento/shared (encargos.ts); acá solo se guarda. El
 // servidor de juego avanza los encargos junto con los contadores (misma transacción que `applyStatChanges`)
 // y la web, cuando suma un contador por su lado (`bumpStatWithQuests`).
-import { currentQuests, questDeltas, STORY_PERIOD, type QuestDelta, type QuestRecord } from "@hyvento/shared";
+import { DAILY_CAPS, currentQuests, dayStart, questDeltas, STORY_PERIOD, type QuestDelta, type QuestRecord } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { bumpStat } from "./achievements";
 import { creditSkillXpTx } from "./oficios";
@@ -45,18 +45,12 @@ export async function advanceQuestsTx(tx: Prisma.TransactionClient, userId: stri
   for (const d of deltas) {
     if (!(d.delta > 0)) continue;
     const key = { userId, questId: d.questId, period: d.period };
+    // La fila se crea si falta sin chocar: si la web y el servidor la crean a la vez, la segunda espera
+    // a la primera y no hace nada (en vez de tumbar la transacción por la llave repetida).
+    await tx.questProgress.createMany({ data: [{ ...key, goal: d.goal, createdAt: new Date(now) }], skipDuplicates: true });
     // El UPDATE bloquea la fila hasta el final: dos avances a la vez se suman bien.
     const bumped = await tx.questProgress.updateMany({ where: { ...key, status: "ACTIVE" }, data: { progress: { increment: Math.round(d.delta) } } });
-    if (bumped.count === 0) {
-      const exists = await tx.questProgress.findUnique({ where: { userId_questId_period: key }, select: { status: true } });
-      if (exists) continue; // ya cumplido o entregado
-      const complete = d.delta >= d.goal;
-      await tx.questProgress.create({
-        data: { ...key, goal: d.goal, progress: Math.min(d.goal, Math.round(d.delta)), status: complete ? "DONE" : "ACTIVE", createdAt: new Date(now), doneAt: complete ? new Date(now) : null },
-      });
-      if (complete) done.push(d);
-      continue;
-    }
+    if (bumped.count === 0) continue; // ya cumplido o entregado
     const closed = await tx.questProgress.updateMany({
       where: { ...key, status: "ACTIVE", progress: { gte: d.goal } },
       data: { status: "DONE", progress: d.goal, doneAt: new Date(now) },
@@ -91,16 +85,27 @@ export interface ClaimQuestInput {
   now?: number;
 }
 
-export type ClaimQuestResult = { ok: true; awarded: number; balance: number } | { ok: false; error: "not-done" | "claimed" };
+export type ClaimQuestResult = { ok: true; awarded: number; balance: number } | { ok: false; error: "not-done" | "claimed" | "capped" };
 
 /**
  * Entrega un encargo cumplido, todo en una transacción: lo marca entregado (solo si estaba DONE: dos
  * entregas a la vez pagan una sola), paga los puntos (QUEST, con su tope diario), suma la experiencia del
- * oficio y, si es una historia, abre el paso siguiente.
+ * oficio y, si es una historia, abre el paso siguiente. Si los puntos no caben enteros bajo el tope de hoy
+ * no se entrega (`capped`): queda cumplido para mañana, dentro del día de gracia, en vez de perderse.
  */
 export async function claimQuestTx(tx: Prisma.TransactionClient, input: ClaimQuestInput): Promise<ClaimQuestResult> {
   const { userId, questId, period } = input;
   const now = input.now ?? Date.now();
+  const cap = DAILY_CAPS.QUEST;
+  if (cap !== null && input.points > 0) {
+    // Se bloquea la fila: dos entregas a la vez no leen la misma suma.
+    await tx.$executeRaw`SELECT 1 FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    const today = await tx.pointTransaction.aggregate({ where: { userId, reason: "QUEST", createdAt: { gte: new Date(dayStart(now)) } }, _sum: { amount: true } });
+    if ((today._sum.amount ?? 0) + input.points > cap) {
+      const row = await tx.questProgress.findUnique({ where: { userId_questId_period: { userId, questId, period } }, select: { status: true } });
+      if (row?.status === "DONE") return { ok: false, error: "capped" };
+    }
+  }
   const marked = await tx.questProgress.updateMany({ where: { userId, questId, period, status: "DONE" }, data: { status: "CLAIMED", claimedAt: new Date(now) } });
   if (marked.count === 0) {
     const row = await tx.questProgress.findUnique({ where: { userId_questId_period: { userId, questId, period } }, select: { status: true } });

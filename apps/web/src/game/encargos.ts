@@ -129,6 +129,16 @@ function onList(e: QuestListEvent) {
   useEncargos.setState({ quests: e.quests, loaded: true, claiming: null });
 }
 
+/** Solo lo que avanzó: se reemplaza en la libreta (lo que no estaba, se agrega). */
+function onProgress(e: QuestListEvent) {
+  useEncargos.setState((s) => {
+    const byKey = new Map(e.quests.map((q) => [questKey(q.questId, q.period), q]));
+    const quests = s.quests.map((q) => byKey.get(questKey(q.questId, q.period)) ?? q);
+    for (const [k, q] of byKey) if (!s.quests.some((x) => questKey(x.questId, x.period) === k)) quests.push(q);
+    return { quests };
+  });
+}
+
 function onDone(e: QuestDoneEvent) {
   const def = questById(e.questId);
   if (!def) return;
@@ -164,6 +174,7 @@ if (typeof window !== "undefined") {
   onRoom((room) => {
     useEncargos.setState({ quests: [], loaded: false, talking: null, claiming: null });
     room.onMessage(QUEST_MSG.list, onList);
+    room.onMessage(QUEST_MSG.progress, onProgress);
     room.onMessage(QUEST_MSG.done, onDone);
     room.onMessage(QUEST_MSG.result, onResult);
   });

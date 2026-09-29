@@ -5,6 +5,7 @@
 // para validar el resultado. Las medidas son las de Stardew (la barra mide 568), un poco más exigente: la
 // barra verde es más corta, el medidor se vacía más rápido y el pez se pone bravo cuando está por salir.
 import type { FishBehavior } from "./fishing";
+import { masteryBar } from "./pesca-maestria";
 
 export const SIM_HZ = 60;
 export const SIM_FRAME_MS = 1000 / SIM_HZ;
@@ -95,6 +96,8 @@ export interface SimSetup {
   treasure: boolean;
   /** Con qué caña se pesca (sin esto, la de bambú). */
   rod?: FishingRod;
+  /** Nivel de maestría de esa caña (0 a 5, ver pesca-maestria.ts): alarga un poco más la barra. */
+  mastery?: number;
   /** Barra más larga por el oficio (Pesca nivel 5: 1,05); se multiplica sobre la de la caña. */
   barBonus?: number;
 }
@@ -130,7 +133,7 @@ export class FishingSim {
     this.move = tuning.move;
     // El extra del oficio se acota: el reto lo manda el servidor, pero nunca más de un 20%.
     const bonus = Math.min(1.2, Math.max(1, setup.barBonus ?? 1));
-    this.barHeight = Math.min(SIM.track - 40, Math.round(barHeightFor(setup.difficulty) * tuning.bar * bonus));
+    this.barHeight = Math.min(SIM.track - 40, Math.round(barHeightFor(setup.difficulty) * (tuning.bar + masteryBar(setup.mastery ?? 0)) * bonus));
     this.gain = gainFor(setup.difficulty);
     this.barPos = SIM.track - this.barHeight;
     this.rand = fishSimRandom(setup.seed);

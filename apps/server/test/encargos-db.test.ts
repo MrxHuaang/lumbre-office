@@ -54,10 +54,31 @@ describe("encargos en la base", () => {
     expect(await claim(18)).toEqual({ ok: false, error: "claimed" });
     expect(db.t.skills).toEqual([{ userId: "ana", skill: "pesca", xp: 25, level: 1 }]);
     expect(await claim(18, "tablon-foto")).toEqual({ ok: false, error: "not-done" });
-    // El tope: 18 + 90 pasa de 100.
-    await db.transaction((tx) => advanceQuestsTx(tx, "ana", [{ questId: "semana-lago", period: DAY, delta: 20, goal: 20 }], MON));
-    expect(await claim(90, "semana-lago")).toEqual({ ok: true, awarded: 82, balance: 100 });
-    expect(db.t.skills[0]!.xp).toBe(50);
+    expect(db.t.skills[0]!.xp).toBe(25);
+  });
+
+  it("si no cabe entero bajo el tope de 100 no se entrega: queda cumplido (para mañana) y no se paga nada", async () => {
+    await db.transaction((tx) => advanceQuestsTx(tx, "ana", [olla(3), { questId: "semana-lago", period: DAY, delta: 20, goal: 20 }], MON));
+    const claim = (questId: string, points: number, now = MON) =>
+      db.transaction((tx) => claimQuestTx(tx, { userId: "ana", questId, period: DAY, points, skill: "pesca", xp: 25, now }));
+    expect(await claim("evelio-olla", 18)).toMatchObject({ ok: true, awarded: 18 });
+    // 18 + 90 pasa de 100: se rechaza antes de marcarlo.
+    expect(await claim("semana-lago", 90)).toEqual({ ok: false, error: "capped" });
+    expect(row("semana-lago")).toMatchObject({ status: "DONE", claimedAt: null });
+    expect(db.points("ana")).toBe(18);
+    expect(db.t.skills[0]!.xp).toBe(25);
+    // Al otro día (dentro de la gracia) sí cabe.
+    expect(await claim("semana-lago", 90, MON + 86_400_000)).toEqual({ ok: true, awarded: 90, balance: 108 });
+  });
+
+  it("dos creaciones de la misma fila a la vez (la web y el servidor) no chocan: la segunda solo suma", async () => {
+    const [a, b] = await Promise.all([
+      db.transaction((tx) => advanceQuestsTx(tx, "ana", [olla(1)], MON)),
+      db.transaction((tx) => advanceQuestsTx(tx, "ana", [olla(1)], MON)),
+    ]);
+    expect([a, b]).toEqual([[], []]);
+    expect(db.t.quests.filter((q) => q.questId === "evelio-olla")).toHaveLength(1);
+    expect(row("evelio-olla")).toMatchObject({ progress: 2, status: "ACTIVE" });
   });
 
   it("dos entregas a la vez pagan una sola", async () => {

@@ -7,8 +7,11 @@
 // avisar; este módulo no conoce Colyseus.
 import { nearQuestGiver, type OfficeMap } from "@hyvento/map";
 import {
+  MSG,
   QUEST,
   QUEST_MSG,
+  STAT_KEYS,
+  isNightMinute,
   QuestClaimMessage,
   STORY_PERIOD,
   claimWindow,
@@ -28,6 +31,8 @@ import {
   type QuestDoneEvent,
   type QuestListEvent,
   type QuestRecord,
+  type PointsAwarded,
+  type Weather,
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
 import type { Bag } from "./bag";
@@ -44,7 +49,7 @@ export interface EncargosDeps {
   map(area: string): OfficeMap;
   send(userId: string, type: string, message: unknown): void;
   later(ms: number, fn: () => void): void;
-  held: Pick<Bag, "fits" | "add">;
+  held: Pick<Bag, "fits" | "add" | "take">;
   /** Guarda ya los contadores pendientes (y con ellos el avance de los encargos). */
   flushStats(userId: string): Promise<void>;
   /** Se pagó una entrega: el saldo nuevo y lo sumado (para el "+N" y el contador). */
@@ -62,9 +67,21 @@ interface Entry {
   day: string;
   /** Lo asignado, guardado por período (se pide en cada suma: tiles caminados incluidos). */
   assigned?: { key: string; list: ActiveQuest[] };
-  listQueued: boolean;
+  /** Encargos que cambiaron y todavía no se avisaron (se mandan juntos, como mucho una vez por segundo). */
+  changed: Set<string>;
+  progressQueued: boolean;
   claiming: Set<string>;
+  /** Si la carga falló: cuántas veces seguidas y desde cuándo se puede reintentar (la pausa crece). */
+  failures: number;
+  retryAt: number;
+  /** Cambia en cada entrada (`load` con `join`): un `forget` de una sesión anterior no borra lo nuevo. */
+  gen: number;
 }
+
+/** Cada cuánto, como mucho, se manda lo que avanzó (caminar suma de a baldosa). */
+export const PROGRESS_EVERY_MS = 1000;
+/** La pausa antes de reintentar una carga que falló: 2 s, 4 s, 8 s… hasta un minuto. */
+export const retryDelayMs = (failures: number) => Math.min(60_000, 2000 * 2 ** Math.max(0, failures - 1));
 
 /** Suma un avance a una fila (sin pasarse de la meta). "done" = se cumplió ahora. */
 function applyDelta(rows: Map<string, QuestRecord>, d: QuestDelta): "done" | "progress" | null {
@@ -92,7 +109,7 @@ export class Encargos {
   private entry(userId: string): Entry {
     let e = this.users.get(userId);
     if (!e) {
-      e = { rows: new Map(), pending: new Map(), loaded: false, day: "", listQueued: false, claiming: new Set() };
+      e = { rows: new Map(), pending: new Map(), loaded: false, day: "", changed: new Set(), progressQueued: false, claiming: new Set(), failures: 0, retryAt: 0, gen: 0 };
       this.users.set(userId, e);
     }
     return e;
@@ -110,11 +127,22 @@ export class Encargos {
     return story.length ? [...e.assigned.list, ...story] : e.assigned.list;
   }
 
-  /** Lee de la base lo que tiene (y deja asignado lo de hoy). Lo sumado mientras tanto no se pierde. */
-  load(userId: string): Promise<void> {
+  /**
+   * Lee de la base lo que tiene (y deja asignado lo de hoy). Lo sumado mientras tanto no se pierde. Con
+   * `join` (al entrar) empieza una sesión nueva: un `forget` de la anterior ya no la borra. Si la carga
+   * viene fallando, entre intento e intento hay una pausa creciente (salvo al entrar o al pedirla la web).
+   */
+  load(userId: string, opts: { join?: boolean; force?: boolean } = {}): Promise<void> {
     const e = this.entry(userId);
+    if (opts.join) e.gen += 1;
+    if (!opts.join && !opts.force && this.deps.now() < e.retryAt) return Promise.resolve();
     e.loading ??= this.fetch(userId, e).finally(() => (e.loading = undefined));
     return e.loading;
+  }
+
+  /** La sesión de ahora (para que `forget` sepa si sigue siendo la misma). */
+  generation(userId: string): number {
+    return this.users.get(userId)?.gen ?? 0;
   }
 
   private async fetch(userId: string, e: Entry) {
@@ -131,8 +159,12 @@ export class Encargos {
       );
     } catch (err) {
       console.error("loadQuests", err);
+      e.failures += 1;
+      e.retryAt = this.deps.now() + retryDelayMs(e.failures);
       return;
     }
+    e.failures = 0;
+    e.retryAt = 0;
     const rows = new Map(saved.map((r) => [questKey(r.questId, r.period), { ...r }]));
     // Se avisa lo que se cumplió con lo sumado mientras se leía y, si ya se sabía lo de antes, lo que la
     // web cumplió por su lado (una misión, una foto).
@@ -158,14 +190,13 @@ export class Encargos {
     if (!e.loaded) return void this.load(userId);
     // Cambió el día: lo de hoy se asigna en la base (mientras, lo nuevo cuenta desde cero).
     if (e.day !== dailyPeriod(now) && !e.loading) void this.load(userId);
-    let changed = false;
     for (const d of deltas) {
       const r = applyDelta(e.rows, d);
       if (!r) continue;
-      changed = true;
+      e.changed.add(questKey(d.questId, d.period));
       if (r === "done") this.deps.send(userId, QUEST_MSG.done, { questId: d.questId, period: d.period } satisfies QuestDoneEvent);
     }
-    if (changed) this.queueList(userId, e);
+    if (e.changed.size) this.queueProgress(userId, e);
   }
 
   /** El avance pendiente de alguien, para guardarlo con los contadores (queda vacío). */
@@ -194,13 +225,16 @@ export class Encargos {
     this.deps.send(userId, QUEST_MSG.list, this.view(userId));
   }
 
-  /** Muchas sumas seguidas (caminar) mandan una sola libreta. */
-  private queueList(userId: string, e: Entry) {
-    if (e.listQueued) return;
-    e.listQueued = true;
-    this.deps.later(250, () => {
-      e.listQueued = false;
-      if (this.users.get(userId) === e) this.sendList(userId);
+  /** Lo que avanzó se manda solo (sin la libreta entera) y, con muchas sumas seguidas, una vez por segundo. */
+  private queueProgress(userId: string, e: Entry) {
+    if (e.progressQueued) return;
+    e.progressQueued = true;
+    this.deps.later(PROGRESS_EVERY_MS, () => {
+      e.progressQueued = false;
+      if (this.users.get(userId) !== e || e.changed.size === 0) return;
+      const quests = this.view(userId).quests.filter((q) => e.changed.has(questKey(q.questId, q.period)));
+      e.changed.clear();
+      if (quests.length) this.deps.send(userId, QUEST_MSG.progress, { quests } satisfies QuestListEvent);
     });
   }
 
@@ -233,9 +267,18 @@ export class Encargos {
     e.claiming.add(key);
     const next = def.next ? questById(def.next) : undefined;
     let outcome: Awaited<ReturnType<GameRepository["claimQuest"]>>;
+    /** El objeto ya está en la mochila (apartado antes de entregar): si la entrega no sale, se devuelve. */
+    let reserved = false;
+    const unreserve = () => (reserved && item ? void this.deps.held.take(userId, item.itemId, item.qty) : undefined);
     try {
       // Lo recién sumado tiene que estar en la base: la entrega la decide lo guardado.
       await this.deps.flushStats(userId);
+      // El objeto va primero a la mochila (sin marcar ni cobrar nada): si ya no cabe, no se entrega.
+      if (item) {
+        const added = await this.deps.held.add(userId, item.itemId, item.qty);
+        if (added !== "ok") return fail(added);
+        reserved = true;
+      }
       outcome = await this.deps.repo().claimQuest({
         userId,
         questId,
@@ -248,18 +291,21 @@ export class Encargos {
       });
     } catch (err) {
       console.error("claimQuest", err);
+      unreserve();
       return fail("failed");
     } finally {
       e.claiming.delete(key);
     }
-    if (!outcome.ok) return fail(outcome.error);
+    if (!outcome.ok) {
+      unreserve();
+      return fail(outcome.error);
+    }
     const row = e.rows.get(key) ?? { questId, period, progress: def.goal, goal: def.goal, status: "CLAIMED" as const };
     e.rows.set(key, { ...row, progress: row.goal, status: "CLAIMED" });
     if (next) {
       const nk = questKey(next.id, STORY_PERIOD);
       if (!e.rows.has(nk)) e.rows.set(nk, { questId: next.id, period: STORY_PERIOD, progress: 0, goal: next.goal, status: "ACTIVE" });
     }
-    if (item) await this.deps.held.add(userId, item.itemId, item.qty);
     this.deps.paid(userId, outcome.awarded, outcome.balance);
     this.sendList(userId);
     return {
@@ -280,10 +326,67 @@ export class Encargos {
     return [...(this.users.get(userId)?.rows.values() ?? [])].map((r) => ({ ...r }));
   }
 
-  /** Se fue: se olvida (si no le queda nada por guardar). */
-  forget(userId: string) {
-    this.lastClaimAt.delete(userId);
+  /**
+   * Se fue: se olvida (si no le queda nada por guardar). Con `gen` (la sesión que se fue), solo si no
+   * volvió a entrar mientras tanto: así un `forget` tardío no borra lo que acaba de cargar la sesión nueva.
+   */
+  forget(userId: string, gen?: number) {
     const e = this.users.get(userId);
+    if (gen !== undefined && e && e.gen !== gen) return;
+    this.lastClaimAt.delete(userId);
     if (e && e.pending.size === 0 && !e.loading) this.users.delete(userId);
   }
+}
+
+/** Lo que la sala le presta a los encargos (así en OfficeRoom va una sola línea). */
+export interface EncargosRoomParts {
+  room: {
+    state: { players: { values(): IterableIterator<{ userId: string; area: string; x: number; y: number; points: number }> }; weather: string };
+    clients: Iterable<{ sessionId: string; send(type: string, message: unknown): void }>;
+    clock: { setTimeout(fn: () => void, ms: number): unknown };
+  };
+  repo: EncargosDeps["repo"];
+  held: EncargosDeps["held"];
+  stats: { flush(userId: string): Promise<void>; max(userId: string, key: string, value: number): void };
+  minuteOfDay(): number;
+  mapOf(area: string): OfficeMap;
+  now(): number;
+  pick: EncargosDeps["pick"];
+}
+
+/** Los encargos de una sala: el reloj, el clima, dónde está cada quien, cómo avisar y el pago. */
+export function encargosDeSala(parts: EncargosRoomParts): Encargos {
+  const { room } = parts;
+  const players = () => [...room.state.players.values()];
+  const sessionsOf = (userId: string) => {
+    const out: { sessionId: string; send(type: string, message: unknown): void }[] = [];
+    const bySession = room.state.players as unknown as { get(id: string): { userId: string } | undefined };
+    for (const c of room.clients) if (bySession.get(c.sessionId)?.userId === userId) out.push(c);
+    return out;
+  };
+  const send = (userId: string, type: string, message: unknown) => {
+    for (const c of sessionsOf(userId)) c.send(type, message);
+  };
+  return new Encargos({
+    repo: parts.repo,
+    now: parts.now,
+    pick: parts.pick,
+    context: () => ({ night: isNightMinute(parts.minuteOfDay()), weather: room.state.weather as Weather }),
+    place: (userId) => {
+      const bySession = room.state.players as unknown as { get(id: string): { area: string; x: number; y: number } | undefined };
+      const c = sessionsOf(userId)[0];
+      const p = c && bySession.get(c.sessionId);
+      return p ? { area: p.area, x: p.x, y: p.y } : null;
+    },
+    map: parts.mapOf,
+    send,
+    later: (ms, fn) => void room.clock.setTimeout(fn, ms),
+    held: parts.held,
+    flushStats: (userId) => parts.stats.flush(userId),
+    paid: (userId, amount, balance) => {
+      for (const p of players()) if (p.userId === userId) p.points = balance;
+      if (amount > 0) send(userId, MSG.pointsAwarded, { amount, reason: "QUEST", balance } satisfies PointsAwarded);
+      parts.stats.max(userId, STAT_KEYS.pointsPeak, balance);
+    },
+  });
 }

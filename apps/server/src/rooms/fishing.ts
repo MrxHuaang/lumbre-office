@@ -2,10 +2,17 @@
 // si aparece el cofre y el tamaño; el cliente solo juega. Al terminar se repite la partida con los mismos
 // botones (`replayFishing`) y se revisa que el tiempo cuadre con el reloj del servidor. La sala le da el
 // reloj, el azar y cómo avisar; este módulo no conoce Colyseus. El equipo (la caña y la carnada del
-// puesto de pesca) lo elige la sala con lo que uno tiene en la mochila y llega en `cast`.
+// puesto de pesca) lo elige la sala con lo que uno tiene en la mochila y llega en `cast`. Además (ver
+// pesca-maestria.ts): la caña mejora con los peces que saca, pescar cerca de otro da suerte y antes de la
+// picada puede haber mordisqueos que hay que dejar pasar.
 import {
   BAIT_TUNING,
   FISHING,
+  castLuck,
+  fishingTogether,
+  nibbleTimes,
+  NIBBLES,
+  rodMastery,
   FishFinishMessage,
   FishHookMessage,
   SIM_FRAME_MS,
@@ -20,6 +27,8 @@ import {
   type FishingChallenge,
   type FishingEvent,
   type FishingGear,
+  type FishingMastery,
+  type FishingRod,
   type FishingPhase,
   type FishingTimings,
   type FishOutcome,
@@ -31,12 +40,21 @@ import type { GameRepository } from "../repo/types";
 interface Cast {
   castId: string;
   userId: string;
+  /** Nivel donde pesca (la compañía solo cuenta en el mismo). */
+  area: string;
   /** Dónde estaba al lanzar (si se mueve, se recoge el sedal). */
   x: number;
   y: number;
   phase: "wait" | "bite" | "reel";
   /** La caña y la carnada de este lance (la carnada ya se descontó al lanzar). */
   gear: FishingGear;
+  /** Nivel de maestría de la caña al lanzar. */
+  mastery: number;
+  /** Los mordisqueos programados y cuándo fue el último (responder justo ahí asusta al pez). */
+  nibbleTimers: { clear(): void }[];
+  nibbledAt: number;
+  /** Había alguien más pescando cerca al responder la picada. */
+  group?: boolean;
   timer?: { clear(): void };
   fish?: FishSpecies;
   challenge?: FishingChallenge;
@@ -58,12 +76,14 @@ export interface FishingDeps {
   newId(): string;
   /** Copia el estado de pesca a los `Player` de esa persona (lo ven todos). */
   setPhase(userId: string, phase: FishingPhase): void;
+  /** Cuántos peces sacó con esa caña (la maestría; sin esto, ninguno). */
+  rodCatches?(userId: string, rod: FishingRod): number;
   /** Avisa a quien pesca. */
   send(userId: string, event: FishingEvent): void;
   /** Cambió el saldo por un pez (`awarded` = lo que se sumó, para el "+N"). */
   points(userId: string, awarded: number, balance: number): void;
   /** Sacó algo del lago (para las estadísticas y los logros). `first` = primera vez de esa especie. */
-  caught?(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean): void;
+  caught?(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean, rod: FishingRod): void;
 }
 
 export class Fishery {
@@ -82,7 +102,11 @@ export class Fishery {
    * Lanzar: junto a un punto de pesca, de pie y sin otro lance en curso. Con carnada pica antes. Devuelve
    * si se lanzó (la sala descuenta la carnada solo entonces).
    */
-  cast(who: { userId: string; x: number; y: number; seated: boolean }, near: boolean, gear: FishingGear = { rod: "bambu", bait: null }): boolean {
+  cast(
+    who: { userId: string; x: number; y: number; seated: boolean; area?: string },
+    near: boolean,
+    gear: FishingGear = { rod: "bambu", bait: null },
+  ): boolean {
     const { userId } = who;
     const refuse = (error: "far" | "seated" | "busy") => (this.deps.send(userId, { type: "refused", error }), false);
     if (!near) return refuse("far");
@@ -90,14 +114,48 @@ export class Fishery {
     if (this.casts.has(userId)) return refuse("busy");
     this.clearShow(userId);
     const t = this.deps.timings();
-    const cast: Cast = { castId: this.deps.newId(), userId, x: who.x, y: who.y, phase: "wait", gear };
+    const catches = this.deps.rodCatches?.(userId, gear.rod) ?? 0;
+    const { level, next } = rodMastery(catches);
+    const cast: Cast = {
+      castId: this.deps.newId(),
+      userId,
+      area: who.area ?? "",
+      x: who.x,
+      y: who.y,
+      phase: "wait",
+      gear,
+      mastery: level,
+      nibbleTimers: [],
+      nibbledAt: -Infinity,
+    };
     const bite = biteWindowWith(gear.bait, t.biteMinMs, t.biteMaxMs);
     const wait = bite.min + this.deps.random(Math.max(1, bite.max - bite.min + 1));
     cast.timer = this.deps.later(wait, () => this.bite(cast));
+    for (const at of nibbleTimes(wait, (n) => this.deps.random(n))) cast.nibbleTimers.push(this.deps.later(at, () => this.nibble(cast)));
     this.casts.set(userId, cast);
     this.deps.setPhase(userId, "wait");
-    this.deps.send(userId, { type: "cast", castId: cast.castId });
+    const mastery: FishingMastery = { rod: gear.rod, level, next };
+    this.deps.send(userId, { type: "cast", castId: cast.castId, mastery });
     return true;
+  }
+
+  /** Un mordisqueo: la boya tiembla un momento (lo ven todos) pero todavía no es la picada. */
+  private nibble(cast: Cast) {
+    if (this.casts.get(cast.userId) !== cast || cast.phase !== "wait") return;
+    cast.nibbledAt = this.deps.now();
+    this.deps.setPhase(cast.userId, "nibble");
+    this.deps.send(cast.userId, { type: "nibble", castId: cast.castId });
+    cast.nibbleTimers.push(
+      this.deps.later(NIBBLES.showMs, () => {
+        if (this.casts.get(cast.userId) === cast && cast.phase === "wait") this.deps.setPhase(cast.userId, "wait");
+      }),
+    );
+  }
+
+  /** ¿Alguien más tiene la caña en el agua cerca, en el mismo nivel? */
+  private inGroup(cast: Cast): boolean {
+    for (const other of this.casts.values()) if (other !== cast && fishingTogether(other, cast)) return true;
+    return false;
   }
 
   /** ¡Pica! Hay que responder dentro de la ventana o el pez se va. */
@@ -119,10 +177,15 @@ export class Fishery {
     const parsed = FishHookMessage.safeParse(raw);
     const cast = this.casts.get(userId);
     if (!parsed.success || !cast || cast.castId !== parsed.data.castId) return;
-    if (cast.phase === "wait") return this.end(cast, "early");
+    if (cast.phase === "wait") {
+      // Respondió a un mordisqueo: con carnada, el pez se la llevó (ya se había gastado al lanzar).
+      const trapped = this.deps.now() - cast.nibbledAt <= NIBBLES.trapMs;
+      return this.end(cast, trapped && cast.gear.bait ? "stolen" : "early");
+    }
     if (cast.phase !== "bite") return;
     cast.timer?.clear();
-    const luck = cast.gear.bait ? BAIT_TUNING[cast.gear.bait].luck : 1;
+    cast.group = this.inGroup(cast);
+    const luck = castLuck({ bait: cast.gear.bait ? BAIT_TUNING[cast.gear.bait].luck : 1, group: cast.group, mastery: cast.mastery });
     const fish = pickFish(this.deps.hour(), (n) => this.deps.random(n), this.deps.weather?.(), luck);
     cast.fish = fish;
     if (isTrash(fish)) return void this.land(cast, fish, false);
@@ -135,6 +198,7 @@ export class Fishery {
       treasure: this.deps.random(1000) < FISHING.treasurePerMil,
       // La caña que de verdad tiene: el minijuego se repite con ella al validar.
       ...(cast.gear.rod !== "bambu" ? { rod: cast.gear.rod } : {}),
+      ...(cast.mastery > 0 ? { mastery: cast.mastery } : {}),
       // El oficio de Pesca: la barra un poco más larga (la validación repite la partida con ella).
       ...(cast.gear.barBonus && cast.gear.barBonus > 1 ? { barBonus: cast.gear.barBonus } : {}),
     };
@@ -142,7 +206,7 @@ export class Fishery {
     cast.reelAt = this.deps.now();
     cast.timer = this.deps.later(t.reelMaxMs + t.slackMs, () => this.end(cast, "timeout"));
     this.deps.setPhase(userId, "reel");
-    this.deps.send(userId, { type: "start", castId: cast.castId, challenge: cast.challenge });
+    this.deps.send(userId, { type: "start", castId: cast.castId, challenge: cast.challenge, ...(cast.group ? { group: true } : {}) });
   }
 
   /**
@@ -192,6 +256,7 @@ export class Fishery {
 
   private remove(cast: Cast) {
     cast.timer?.clear();
+    for (const t of cast.nibbleTimers) t.clear();
     if (this.casts.get(cast.userId) === cast) this.casts.delete(cast.userId);
   }
 
@@ -208,6 +273,10 @@ export class Fishery {
     const { userId } = cast;
     const size = rollSize(fish, (n) => this.deps.random(n));
     const points = fishPoints(fish) + (treasure ? FISHING.treasureBonus : 0);
+    // La maestría sube con cada pez (no con la basura) sacado con esa caña.
+    const before = this.deps.rodCatches?.(userId, cast.gear.rod) ?? 0;
+    const up = rodMastery(before + 1).level;
+    const masteryUp = !isTrash(fish) && up > rodMastery(before).level ? up : undefined;
     let saved: { previousBest: number | null; awarded: number; balance: number };
     try {
       saved = await this.deps.repo().saveFishCatch({ userId, species: fish.id, size, points });
@@ -217,7 +286,7 @@ export class Fishery {
       return this.deps.send(userId, { type: "end", castId: cast.castId, outcome: "invalid" });
     }
     this.deps.points(userId, saved.awarded, saved.balance);
-    this.deps.caught?.(userId, fish, size, saved.previousBest === null, treasure);
+    this.deps.caught?.(userId, fish, size, saved.previousBest === null, treasure, cast.gear.rod);
     const result: FishCatchResult = {
       species: fish.id,
       size,
@@ -225,6 +294,8 @@ export class Fishery {
       first: saved.previousBest === null,
       points: saved.awarded,
       treasure,
+      ...(cast.group ? { group: true } : {}),
+      ...(masteryUp ? { masteryUp } : {}),
     };
     if (!this.casts.has(userId)) {
       this.deps.setPhase(userId, `show:${fish.id}`);
