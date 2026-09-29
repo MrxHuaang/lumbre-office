@@ -135,6 +135,10 @@ export class MemoryRepository implements GameRepository {
   async getPoints(userId: string) {
     return this.ledger.filter((m) => m.userId === userId).reduce((a, m) => a + m.amount, 0);
   }
+  async leisureToday(userId: string) {
+    const start = dayStart(Date.now());
+    return this.ledger.filter((m) => m.userId === userId && m.reason === "LEISURE" && m.at >= start).reduce((a, m) => a + m.amount, 0);
+  }
   async awardPoints({ userId, amount, reason }: { userId: string; amount: number; reason: PointReason }) {
     const now = Date.now();
     const cap = DAILY_CAPS[reason];

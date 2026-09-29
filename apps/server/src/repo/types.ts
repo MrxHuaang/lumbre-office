@@ -79,6 +79,8 @@ export interface GameRepository {
   saveChat(event: ChatEvent, authorUserId: string): Promise<void>;
   /** Saldo de puntos de alguien (0 si no existe). */
   getPoints(userId: string): Promise<number>;
+  /** Lo ganado hoy (día de Bogotá) por ocio: para mostrar el tope diario. */
+  leisureToday(userId: string): Promise<number>;
   /** Suma puntos respetando el tope diario del motivo; devuelve lo sumado y el saldo nuevo. */
   awardPoints(input: { userId: string; amount: number; reason: PointReason }): Promise<{ awarded: number; balance: number }>;
   /**

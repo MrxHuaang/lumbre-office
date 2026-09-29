@@ -47,6 +47,12 @@ export async function awardPointsTx(tx: Prisma.TransactionClient, input: AwardIn
   return { awarded: amount, balance: user.points };
 }
 
+/** Lo ganado hoy por ocio (cuenta para el tope diario). */
+export async function leisureToday(client: PrismaClient, userId: string, now = Date.now()): Promise<number> {
+  const today = await client.pointTransaction.aggregate({ where: cappedMovesWhere(userId, "LEISURE", now), _sum: { amount: true } });
+  return today._sum.amount ?? 0;
+}
+
 /** Suma puntos a alguien respetando el tope diario de su motivo (para gastar: `spendPoints`). */
 export function awardPoints(client: PrismaClient, input: AwardInput): Promise<AwardResult> {
   return client.$transaction((tx) => awardPointsTx(tx, input));

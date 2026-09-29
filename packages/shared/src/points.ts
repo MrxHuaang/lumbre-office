@@ -98,6 +98,20 @@ export interface PointsAwarded {
   balance: number;
 }
 
+/** Servidor → dueño: cuánto ocio lleva hoy contra el tope diario (`LeisureState`). */
+export const LEISURE_MSG = { state: "ocio:state" } as const;
+
+export interface LeisureState {
+  /** Lo ganado hoy (día de Bogotá) por ocio. */
+  today: number;
+  cap: number;
+  /** Un premio de ocio se quedó corto o no sumó nada porque el tope ya estaba lleno. */
+  capped?: boolean;
+}
+
+/** Mismo texto para todas las actividades de ocio cuando el tope del día se llena. */
+export const LEISURE_FULL_TEXT = `Llegaste al tope de ocio de hoy (${POINTS.leisureDailyCap} puntos). Mañana vuelve a sumar.`;
+
 // ---------- Misiones ----------
 
 export const MISSION_STATUSES = ["OPEN", "TAKEN", "REVIEW", "DONE", "CANCELLED"] as const;

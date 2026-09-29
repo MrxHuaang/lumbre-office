@@ -224,6 +224,7 @@ import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
 import { Fishery } from "./fishing";
 import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/shared";
+import { LEISURE_MSG, type LeisureState } from "@hyvento/shared";
 import { RECHAZO_MSG, type RechazoCode, type RechazoNotice } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
 import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
@@ -639,6 +640,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         if (awarded > 0) c.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded);
       }
       this.achievements.max(userId, STAT_KEYS.pointsPeak, balance);
+      void this.sendLeisure(userId);
     },
     rodCatches: (userId, rod) => this.achievements.stat(userId, rodCatchesKey(rod)) ?? 0,
     caught: (userId, fish, size, first, treasure, rod) => this.fishCaught(userId, fish, size, first, treasure, rod),
@@ -1240,6 +1242,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(orElse("onJoin.getPoints", 0, { userId: auth.sub })));
     // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
     await this.held.load(auth.sub);
+    // Cuánto ocio lleva hoy (para el celular), sin esperar a que gane algo.
+    void this.sendLeisure(auth.sub);
     // El celular (el chat vive en él) lo tiene todo el mundo: al que le falta se le da gratis, en la
     // última casilla para no ocupar la mano (la primera casilla es la que queda elegida al entrar).
     if (OfficeRoom.celularAlEntrar && this.held.count(auth.sub, CELULAR_ITEM) === 0) {
@@ -3583,6 +3587,17 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result) client.send(MSG.hockeyResult, result);
   }
 
+  /** Cuánto ocio lleva hoy contra el tope, para el celular y el aviso de "tope lleno" (igual para todas las actividades). */
+  private async sendLeisure(userId: string, capped = false) {
+    try {
+      const today = await this.repo.leisureToday(userId);
+      const state: LeisureState = { today, cap: POINTS.leisureDailyCap, ...(capped ? { capped } : {}) };
+      this.sendToUser(userId, LEISURE_MSG.state, state);
+    } catch (err) {
+      console.error("leisureToday", err);
+    }
+  }
+
   /** Premio de ocio (con su tope diario) para todas las sesiones de esa persona; devuelve lo sumado. */
   private async awardLeisure(userId: string, amount: number): Promise<number> {
     const client = this.clientOfUser(userId);
@@ -3592,6 +3607,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const { awarded, balance } = await this.repo.awardPoints({ userId, amount, reason: "LEISURE" });
       for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
       if (awarded > 0) client.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded);
+      await this.sendLeisure(userId, amount > 0 && awarded < amount);
       return awarded;
     } catch (err) {
       console.error("awardPoints", err);
