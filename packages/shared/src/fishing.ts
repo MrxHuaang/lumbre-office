@@ -298,6 +298,8 @@ export interface FishingChallenge {
   rod?: FishingRod;
   /** Nivel de maestría de esa caña (sin esto, 0): la barra se alarga un poco más. */
   mastery?: number;
+  /** Barra más larga por el oficio de Pesca (lo decide el servidor con el nivel; ver oficios.ts). */
+  barBonus?: number;
 }
 
 export interface FishCatchResult {

@@ -961,16 +961,24 @@ export interface AreaArt {
   features: { feature: WallFeature; x: number; y: number; z: number }[];
 }
 
-/** Arma el fondo de un nivel: pisos, losa y paredes altas con lo que cuelga de ellas. */
-export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
+/**
+ * Una caja del fondo con las salas (índices en `def.rooms`) que contienen su tile: su piso o su papel la
+ * pintan (una sala puede estar dentro de otra, como la oficina del taller).
+ */
+interface BaseBox {
+  box: Box;
+  rooms: number[];
+}
+
+/** Las cajas del fondo de un nivel en el orden en que se pintan: pisos y losa, y después las paredes altas. */
+function areaBaseBoxes(map: OfficeMap, day: boolean): { boxes: BaseBox[]; features: AreaArt["features"] } {
   const W = map.width;
   const H = map.height;
-  const roomWallpaper = (tx: number, ty: number): WallpaperKind | null => {
-    const r = map.def.rooms.find((r) => tx >= r.rect.x && tx < r.rect.x + r.rect.w && ty >= r.rect.y && ty < r.rect.y + r.rect.h);
-    return r?.wallpaper ?? null;
-  };
+  const inRoom = (r: OfficeMap["def"]["rooms"][number], tx: number, ty: number) => tx >= r.rect.x && tx < r.rect.x + r.rect.w && ty >= r.rect.y && ty < r.rect.y + r.rect.h;
+  const roomsAt = (tx: number, ty: number) => map.def.rooms.flatMap((r, i) => (inRoom(r, tx, ty) ? [i] : []));
+  const roomWallpaper = (tx: number, ty: number): WallpaperKind | null => map.def.rooms.find((r) => inRoom(r, tx, ty))?.wallpaper ?? null;
 
-  const boxes: Box[] = [];
+  const boxes: BaseBox[] = [];
   // Con alrededores no se ve la losa: sin alto, el dibujo del fondo sale más rápido.
   const slabH = map.def.surroundings ? 0.5 : map.outdoor ? 9 : SLAB;
   const sideRamp = map.outdoor ? C.dirt : C.woodDark;
@@ -990,21 +998,24 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
       return at(sideRamp, v < 1 ? 0 : v < fh / 2 ? 1 : 2);
     };
     boxes.push({
-      x: x0,
-      y: y0,
-      z: -slabH,
-      w: L,
-      d: L,
-      h: slabH,
-      top: (u, v) => {
-        if (map.def.groundFine) return outdoorColor(map, x0 + u, y0 + v);
-        let c = floorColor(kind, x0 + u, y0 + v, wp);
-        if (kind === "water") c = shore(map, tx, ty, u, v, c);
-        const o = map.outdoor ? 0 : occlusion(map, tx, ty, u, v);
-        return o ? mix(c, at(C.woodDark, 0), o) : c;
+      rooms: roomsAt(tx, ty),
+      box: {
+        x: x0,
+        y: y0,
+        z: -slabH,
+        w: L,
+        d: L,
+        h: slabH,
+        top: (u, v) => {
+          if (map.def.groundFine) return outdoorColor(map, x0 + u, y0 + v);
+          let c = floorColor(kind, x0 + u, y0 + v, wp);
+          if (kind === "water") c = shore(map, tx, ty, u, v, c);
+          const o = map.outdoor ? 0 : occlusion(map, tx, ty, u, v);
+          return o ? mix(c, at(C.woodDark, 0), o) : c;
+        },
+        left: side,
+        right: side,
       },
-      left: side,
-      right: side,
     });
   }
 
@@ -1022,26 +1033,29 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
         : { feature: f, x: f.x * L, y: f.y * L + len / 2, z: 35 },
     );
   }
-  const walls: Box[] = [];
+  const walls: BaseBox[] = [];
   for (let ty = 0; ty <= H; ty++)
     for (let tx = 0; tx < W; tx++) {
       if (map.wallH[ty * W + tx] !== 2) continue;
       const r = WALLPAPER[roomWallpaper(tx, ty) ?? "sage"];
       const f = featureOn("h", tx, ty);
       walls.push({
-        x: tx * L,
-        y: ty * L - WALL_T,
-        z: -SLAB,
-        w: L,
-        d: WALL_T,
-        h: WALL_H + SLAB,
-        top: flat(at(C.cream, 1)),
-        right: flat(at(C.woodDark, 2)),
-        left: (u, v) => {
-          const X = tx * L + u;
-          const hv = v - SLAB;
-          const fc = f && featureAt(f, X - f.x * L, hv, day);
-          return over(fc, () => interiorWall(roomWallpaper(tx, ty), X, hv) ?? wallpaper(X, hv, r, 0));
+        rooms: roomsAt(tx, ty),
+        box: {
+          x: tx * L,
+          y: ty * L - WALL_T,
+          z: -SLAB,
+          w: L,
+          d: WALL_T,
+          h: WALL_H + SLAB,
+          top: flat(at(C.cream, 1)),
+          right: flat(at(C.woodDark, 2)),
+          left: (u, v) => {
+            const X = tx * L + u;
+            const hv = v - SLAB;
+            const fc = f && featureAt(f, X - f.x * L, hv, day);
+            return over(fc, () => interiorWall(roomWallpaper(tx, ty), X, hv) ?? wallpaper(X, hv, r, 0));
+          },
         },
       });
     }
@@ -1051,20 +1065,23 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
       const r = WALLPAPER[roomWallpaper(tx, ty) ?? "sage"];
       const f = featureOn("v", tx, ty);
       walls.push({
-        x: tx * L - WALL_T,
-        y: ty * L,
-        z: -SLAB,
-        w: WALL_T,
-        d: L,
-        h: WALL_H + SLAB,
-        top: flat(at(C.cream, 1)),
-        left: flat(at(C.woodDark, 2)),
-        // En las paredes oeste `u` crece hacia la izquierda de la pantalla: se invierte para el dibujo.
-        right: (u, v) => {
-          const Y = ty * L + (L - u);
-          const hv = v - SLAB;
-          const fc = f && featureAt(f, (f.y + (f.width ?? 1)) * L - Y, hv, day);
-          return over(fc, () => interiorWall(roomWallpaper(tx, ty), Y, hv) ?? wallpaper(Y, hv, r, -1));
+        rooms: roomsAt(tx, ty),
+        box: {
+          x: tx * L - WALL_T,
+          y: ty * L,
+          z: -SLAB,
+          w: WALL_T,
+          d: L,
+          h: WALL_H + SLAB,
+          top: flat(at(C.cream, 1)),
+          left: flat(at(C.woodDark, 2)),
+          // En las paredes oeste `u` crece hacia la izquierda de la pantalla: se invierte para el dibujo.
+          right: (u, v) => {
+            const Y = ty * L + (L - u);
+            const hv = v - SLAB;
+            const fc = f && featureAt(f, (f.y + (f.width ?? 1)) * L - Y, hv, day);
+            return over(fc, () => interiorWall(roomWallpaper(tx, ty), Y, hv) ?? wallpaper(Y, hv, r, -1));
+          },
         },
       });
     }
@@ -1072,19 +1089,62 @@ export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
   for (let ty = 0; ty < H; ty++)
     for (let tx = 0; tx < W; tx++) {
       if (map.wallH[ty * W + tx] === 2 && map.wallV[ty * (W + 1) + tx] === 2) {
-        walls.push({ x: tx * L - WALL_T, y: ty * L - WALL_T, z: -SLAB, w: WALL_T, d: WALL_T, h: WALL_H + SLAB, top: flat(at(C.cream, 1)), left: flat(at(C.woodDark, 2)), right: flat(at(C.woodDark, 2)) });
+        const box = { x: tx * L - WALL_T, y: ty * L - WALL_T, z: -SLAB, w: WALL_T, d: WALL_T, h: WALL_H + SLAB, top: flat(at(C.cream, 1)), left: flat(at(C.woodDark, 2)), right: flat(at(C.woodDark, 2)) };
+        walls.push({ rooms: [], box });
       }
     }
-  walls.sort((a, b) => a.x + a.y - (b.x + b.y));
+  walls.sort((a, b) => a.box.x + a.box.y - (b.box.x + b.box.y));
+  return { boxes: [...boxes, ...walls], features };
+}
 
+/** Arma el fondo de un nivel: pisos, losa y paredes altas con lo que cuelga de ellas. */
+export function drawAreaBase(map: OfficeMap, day: boolean): AreaArt {
+  const { boxes, features } = areaBaseBoxes(map, day);
   // Con alrededores el terreno sigue en el bosque de afuera: sin contorno, que marcaría el borde.
-  const base = renderSprite([...boxes, ...walls], { outline: map.def.surroundings ? undefined : OUT });
+  const base = renderSprite(boxes.map((b) => b.box), { outline: map.def.surroundings ? undefined : OUT });
   // Si renderSprite cambiara su relleno (o el fondo su forma), el margen quedaría corrido respecto del
   // bosque que el cliente repite alrededor y se vería la costura: mejor fallar aquí.
   const o = baseOrigin(map);
   if (map.def.surroundings && (base.ox !== o.ox || base.oy !== o.oy))
     throw new Error(`El fondo de ${map.id} no tiene el origen esperado (${base.ox}, ${base.oy}) ≠ (${o.ox}, ${o.oy})`);
   return { base, features };
+}
+
+/** Rectángulo de pantalla que ocupa una caja (como el de renderSprite). */
+function screenRect(b: Box) {
+  return { x0: b.x - (b.y + b.d), x1: b.x + b.w - b.y, y0: (b.x + b.y) / 2 - (b.z + b.h), y1: (b.x + b.w + b.y + b.d) / 2 - b.z };
+}
+
+/**
+ * Lo que cambia del fondo cuando unas salas (índices de `def.rooms`) tienen otro piso o papel tapiz que
+ * el fondo ya dibujado (la decoración de una oficina sobre el del build): sus cajas y las que se pintan
+ * después encima de ellas, recortado a lo que cubren esas salas. Pegado sobre el fondo viejo, en su
+ * origen, da el fondo nuevo sin volver a dibujar el nivel entero. Sin salas, null.
+ */
+export function drawAreaPatch(map: OfficeMap, day: boolean, rooms: ReadonlySet<number>): Sprite | null {
+  const { boxes } = areaBaseBoxes(map, day);
+  const hit = (b: BaseBox) => b.rooms.some((i) => rooms.has(i));
+  const first = boxes.findIndex(hit);
+  if (first < 0) return null;
+  // Lo que ocupa cada sala en pantalla (un rectángulo por sala: son pocas cajas por revisar).
+  const areas = new Map<number, ReturnType<typeof screenRect>>();
+  for (const b of boxes) {
+    const room = b.rooms.find((i) => rooms.has(i));
+    if (room === undefined) continue;
+    const r = screenRect(b.box);
+    const a = areas.get(room);
+    areas.set(room, a ? { x0: Math.min(a.x0, r.x0), x1: Math.max(a.x1, r.x1), y0: Math.min(a.y0, r.y0), y1: Math.max(a.y1, r.y1) } : r);
+  }
+  const touches = (b: Box) => {
+    const r = screenRect(b);
+    for (const a of areas.values()) if (r.x0 < a.x1 && r.x1 > a.x0 && r.y0 < a.y1 && r.y1 > a.y0) return true;
+    return false;
+  };
+  // Dentro del recorte, cada píxel es de la última caja que lo pinta: una de las salas o una posterior
+  // que la tapa (y por eso la toca). Las anteriores quedan debajo y no hacen falta.
+  const drawn = boxes.filter((b, i) => hit(b) || (i > first && touches(b.box))).map((b) => b.box);
+  const clip = boxes.filter(hit).map((b) => b.box);
+  return renderSprite(drawn, { clip });
 }
 
 /**

@@ -14,10 +14,14 @@ import { PixelIcon, type PixelIconName } from "./Cozy";
 import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
 import { GameClockChip } from "./GameClockChip";
 import { Minimap } from "./Minimap";
+import { usePuedo } from "@/game/permisos";
 import { GiftChip } from "./social/SocialOverlays";
 import { SoundSettings } from "./SoundControl";
 import { CallChip } from "./PhonePanels";
 import { PhoneButton } from "./phone/PhoneButton";
+import { PaletteButton } from "./facilidad/FacilidadLayer";
+import { useFacilidadStore } from "@/game/facilidad";
+import { usePrefsStore } from "@/lib/prefs";
 import { ComunicacionChips } from "./comunicacion/ComunicacionChips";
 import { openAnnounce } from "@/game/comunicacion";
 
@@ -74,6 +78,7 @@ export function Hud(props: HudProps) {
       <CallChip />
       <ComunicacionChips />
       <QuickTools />
+      <PaletteButton />
       <Confetti />
     </div>
   );
@@ -123,6 +128,10 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
   const me = sessionId ? players[sessionId] : undefined;
   const walls = useOfficeStore((s) => s.privateWalls);
   const openPanel = useOfficeStore((s) => s.openPanel);
+  const workMode = usePrefsStore((s) => s.workMode);
+  // Editar la casa: admins y quien tenga el permiso (lo manda el servidor, que además lo valida).
+  const houseEditor = usePuedo("editar-casa");
+  const announcer = usePuedo("anunciar");
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -228,6 +237,9 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
             <MenuItem icon="star" onClick={act(() => openPanel("logbook", false))}>
               Diario de exploración
             </MenuItem>
+            <MenuItem icon="map" onClick={act(() => useFacilidadStore.getState().show("worldmap"))}>
+              Mapa de la cabaña
+            </MenuItem>
           </MenuGroup>
 
           <MenuGroup label="Ajustes">
@@ -235,22 +247,38 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
               Paredes altas adentro
             </MenuToggle>
             <NotifyToggle />
+            <MenuToggle icon="briefcase" on={workMode} onClick={() => usePrefsStore.getState().setWorkMode(!workMode)}>
+              Modo trabajo
+            </MenuToggle>
             <div className="px-2 pt-1.5 pb-1">
               <SoundSettings />
             </div>
+            <MenuItem icon="gear" onClick={act(() => useFacilidadStore.getState().show("settings"))}>
+              Más ajustes: sonido, movimiento…
+            </MenuItem>
+            <MenuItem icon="keyboard" onClick={act(() => useFacilidadStore.getState().show("shortcuts"))}>
+              <span className="flex-1">Atajos y ayuda</span>
+              <kbd className="cozy-kbd text-[11px]">?</kbd>
+            </MenuItem>
           </MenuGroup>
 
-          {isAdmin && (
+          {(isAdmin || houseEditor || announcer) && (
             <MenuGroup label="Administración">
-              <MenuItem icon="board" onClick={act(onAdmin)}>
-                Administrar equipo
-              </MenuItem>
-              <MenuItem icon="home" onClick={act(() => useOfficeStore.getState().setWorldEditing(true))}>
-                Editar la casa
-              </MenuItem>
-              <MenuItem icon="megaphone" onClick={act(() => openAnnounce())}>
-                Anuncio a toda la cabaña
-              </MenuItem>
+              {isAdmin && (
+                <MenuItem icon="board" onClick={act(onAdmin)}>
+                  Administrar equipo
+                </MenuItem>
+              )}
+              {houseEditor && (
+                <MenuItem icon="home" onClick={act(() => useOfficeStore.getState().setWorldEditing(true))}>
+                  Editar la casa
+                </MenuItem>
+              )}
+              {announcer && (
+                <MenuItem icon="megaphone" onClick={act(() => openAnnounce())}>
+                  Anuncio a toda la cabaña
+                </MenuItem>
+              )}
             </MenuGroup>
           )}
 
@@ -331,7 +359,7 @@ export function MinimapPanel() {
         aria-expanded={open}
         aria-label={`Minimapa: ${count} conectados`}
         title="Minimapa"
-        className="flex h-5 w-full items-center justify-between gap-3 bg-cozy-wood px-2 text-cozy-paper-light max-md:gap-2"
+        className={`flex h-5 w-full items-center justify-between gap-3 bg-cozy-wood px-2 text-cozy-paper-light max-md:gap-2 ${open ? "" : "cozy-hit"}`}
       >
         <span className={`flex items-center gap-1.5 text-[14px] leading-none font-semibold ${open ? "" : "max-md:hidden"}`}>
           <PixelIcon name="steps" size={12} />

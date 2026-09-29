@@ -4,10 +4,12 @@ import type { ArcadeGame } from "@hyvento/shared";
 import { Bloques } from "./bloques";
 import { Breakout } from "./breakout";
 import { Flappy } from "./flappy";
+import { Pinball } from "./pinball";
 import { PAL, rect, SCREEN_H, SCREEN_W, type MiniGame } from "./kit";
 import { Snake } from "./snake";
 
 export function createGame(game: ArcadeGame, seed: number): MiniGame {
+  if (game === "pinball") return new Pinball(seed);
   if (game === "snake") return new Snake(seed);
   if (game === "breakout") return new Breakout(seed);
   if (game === "bloques") return new Bloques(seed);

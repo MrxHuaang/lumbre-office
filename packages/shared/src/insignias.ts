@@ -17,6 +17,18 @@ export function validFeaturedBadge(achievementId: string | null | undefined, unl
   return have.has(achievementId) ? achievementId : "";
 }
 
+/**
+ * La insignia de cada oficio: el logro legendario de llegar al nivel 10 (oficios.ts). Se destaca como
+ * cualquier otra (junto al nombre) y se valida igual, con los logros que tiene.
+ */
+export const OFICIO_BADGES = {
+  pesca: "leyenda-del-lago",
+  huerta: "mano-verde",
+  cocina: "sazon-de-la-casa",
+  social: "alma-de-la-cabana",
+  exploracion: "trotamundos",
+} as const;
+
 /** GET /api/trophies: cuántos logros tiene el dueño de cada oficina (para dibujar los trofeos de su vitrina). */
 export interface TrophyCaseDTO {
   zoneId: string;

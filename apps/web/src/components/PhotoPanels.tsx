@@ -10,6 +10,7 @@ import { composePolaroid, encodePolaroid } from "@/game/photos/capture";
 import { photoErrorText, photoImageUrl, usePhotoStore, type PendingPhoto } from "@/game/photos/store";
 import { sendPhotoTake } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { PanelShell } from "./PointsPanels";
 
 const areaName = (id: string) => getWorld().areas.get(id)?.def.name ?? id;
@@ -31,7 +32,7 @@ export function usePhotoKey() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "p" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-      if (!canShoot()) return;
+      if (focusOwnsKey(e.key) || !canShoot()) return;
       e.preventDefault();
       sendPhotoTake();
     };

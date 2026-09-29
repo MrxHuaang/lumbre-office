@@ -10,12 +10,13 @@ import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useEntryStore } from "@/game/entryStore";
 import { currentGameTime } from "@/game/gameClock";
 import { useOfficeStore, type Profile } from "@/game/store";
-import { currentStage, ENTRY_SLOW_MS, ENTRY_TIPS, entryDone, entryMood, entryPercent, nextShown, skyArc, TIP_MS, tipOrder, type EntryMood } from "@/lib/entry";
+import { currentStage, ENTRY_TIPS, entryDone, entryMood, entryPercent, nextShown, skyArc, stageSlowMs, TIP_MS, tipOrder, type EntryMood } from "@/lib/entry";
 import { SKY_COLORS } from "@/lib/sky";
 import { CharacterSprite } from "./CharacterSprite";
 import { CozyTitle } from "./Cozy";
 import { drawScenery, FEET_Y, MEADOW_Y, SCENE_H, type Scenery, type Strip } from "./entry/scenery";
 import { LumbreLogo } from "./lumbre/Logo";
+import { lessMotion } from "@/lib/prefs";
 
 /** Qué está haciendo la pantalla: cargando, llegando a la cabaña (la puerta se abre) o fundiéndose. */
 type Exit = "loading" | "arrive" | "leave";
@@ -25,7 +26,7 @@ const ARRIVE_MS = 900;
 const LEAVE_MS = 450;
 const REDUCED_LEAVE_MS = 200;
 
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const reducedMotion = () => typeof window !== "undefined" && lessMotion();
 const localMinute = () => {
   const d = new Date();
   return d.getHours() * 60 + d.getMinutes();
@@ -68,7 +69,7 @@ export function EntryLoader({ profile, error = null, onRetry, onExit, onGone, pr
         setSlow(false);
       } else if (document.visibilityState === "visible") {
         stuck += now - last;
-        if (stuck >= ENTRY_SLOW_MS) setSlow(true);
+        if (stuck >= stageSlowMs(cur)) setSlow(true);
       }
       last = now;
       setShown((p) => nextShown(p, entryPercent(stages, now)));

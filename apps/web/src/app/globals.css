@@ -120,6 +120,22 @@ body {
       2px 2px 0 rgb(20 10 24 / 0.4);
   }
 
+  /* Área de toque de al menos 40 px sin agrandar el dibujo (la X de cerrar, los +/-): un
+     pseudo-elemento invisible centrado recibe el clic. En la capa de componentes, así `absolute`
+     de Tailwind le gana al `relative`. */
+  .cozy-hit {
+    position: relative;
+  }
+  .cozy-hit::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 40px);
+    height: max(100%, 40px);
+    transform: translate(-50%, -50%);
+  }
+
   /* Botón tipo casilla de la barra de herramientas; se hunde al hacer clic. */
   .cozy-btn {
     display: inline-flex;
@@ -202,7 +218,7 @@ body {
     position: absolute;
     top: 0;
     left: 2px;
-    font-size: 9px;
+    font-size: 11px;
     line-height: 1;
     color: var(--color-cozy-ink-soft);
     pointer-events: none;
@@ -1101,7 +1117,7 @@ body {
   position: absolute;
   top: 1px;
   left: 3px;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   color: var(--color-cozy-ink-soft);
 }
@@ -1195,4 +1211,45 @@ body {
   .phone-fly {
     animation: none;
   }
+}
+/* ---------- "Menos movimiento" elegido en Ajustes (lib/prefs.ts) ----------
+   Lo mismo que hacen las media queries del sistema, pero con `<html data-motion="reduce">`: una media
+   query no se puede prender desde la app. */
+:root[data-motion="reduce"] :is(.entry-layer, .entry-stars, .entry-smoke, .entry-particle, .loader-scroll, .loader-bob, .cozy-cloud, .achievement-toast-badge, .bag-row-up, .bag-row-down, .sprite-walk, .palette-in),
+:root[data-motion="reduce"] .cozy-dots::after,
+:root[data-motion="reduce"] .achievement-toast-shiny::after {
+  animation: none;
+}
+:root[data-motion="reduce"] :is(.entry-particles, .entry-smoke),
+:root[data-motion="reduce"] .achievement-toast-shiny::after {
+  display: none;
+}
+:root[data-motion="reduce"] .achievement-toast {
+  animation-timing-function: steps(1);
+}
+:root[data-motion="reduce"] :is(.entry-cabin, .entry-door, .entry-fill, .entry-tip, .entry-scene .entry-walker) {
+  transition: none;
+}
+
+/* ---------- Paleta de comandos, joystick y botones táctiles ---------- */
+@keyframes palette-in {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+}
+.palette-in {
+  animation: palette-in 120ms steps(3) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .palette-in {
+    animation: none;
+  }
+}
+/* El joystick y los botones de E y F no dejan que el navegador haga scroll ni zoom al tocarlos. */
+.touch-pad {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }

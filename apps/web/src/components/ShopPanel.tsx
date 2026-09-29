@@ -3,7 +3,8 @@
 // Fase 3b: la tienda (mostrador de la planta baja). Se venden muebles con puntos y quedan en la mochila
 // (bag/PlayerMenu.tsx) hasta ponerlos con "Decorar" en tu oficina. La ropa es gratis: va en el probador.
 import { drawFurniture } from "@hyvento/map/art";
-import { SHOP_FURNITURE, SHOP_MAX_QUANTITY, type InventoryEntry, type ShopItem } from "@hyvento/shared";
+import { SHOP_FURNITURE, SHOP_MAX_QUANTITY, canBuyExclusive, unlockText, type InventoryEntry, type ShopItem } from "@hyvento/shared";
+import { useMyLevels } from "@/game/oficios";
 import { useEffect, useState } from "react";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { useOfficeStore } from "@/game/store";
@@ -62,6 +63,7 @@ export function ShopPanel({ atObject, onClose }: { atObject: boolean; onClose: (
     }
   };
 
+  const levels = useMyLevels();
   return (
     <PanelShell title="Tienda" icon="shop" onClose={onClose} wide>
       <div className="flex flex-col gap-3">
@@ -90,7 +92,9 @@ export function ShopPanel({ atObject, onClose }: { atObject: boolean; onClose: (
           {SHOP_FURNITURE.map((item) => {
             const quantity = quantities[item.id] ?? 1;
             const total = item.price * quantity;
-            const reason = !atObject ? "Acércate al mostrador de la tienda" : money < total ? "No te alcanzan los puntos" : null;
+            // Los exclusivos de los oficios: se ven, pero se compran desde su nivel (lo valida la web).
+            const locked = item.requires && !canBuyExclusive(item, levels) ? `Es de ${unlockText(item.requires)}` : null;
+            const reason = locked ?? (!atObject ? "Acércate al mostrador de la tienda" : money < total ? "No te alcanzan los puntos" : null);
             const have = owned(item.id);
             return (
               <li key={item.id} className="flex gap-3 border-2 border-cozy-paper-dark bg-cozy-paper-light px-3 py-2.5">
@@ -101,6 +105,12 @@ export function ShopPanel({ atObject, onClose }: { atObject: boolean; onClose: (
                     <p className="text-[15px] leading-tight font-semibold">{item.name}</p>
                     <p className="text-[12px] leading-snug text-cozy-ink-soft">{item.blurb}</p>
                     {have > 0 && <p className="mt-0.5 text-[12px] font-semibold text-cozy-green">En tu mochila: {have}</p>}
+                    {item.requires && (
+                      <p className={`mt-0.5 flex items-center gap-1 text-[12px] font-semibold ${locked ? "text-cozy-ink-soft" : "text-cozy-red-deep"}`}>
+                        <PixelIcon name={locked ? "lock" : "star"} size={10} color="currentColor" />
+                        Exclusivo de {unlockText(item.requires)}
+                      </p>
+                    )}
                   </div>
                   <div className="mt-auto flex items-center justify-end gap-2">
                     <Quantity value={quantity} onChange={(n) => setQuantities((q) => ({ ...q, [item.id]: n }))} label={item.name} />
@@ -129,7 +139,7 @@ export function ShopPanel({ atObject, onClose }: { atObject: boolean; onClose: (
 function Quantity({ value, onChange, label }: { value: number; onChange: (n: number) => void; label: string }) {
   return (
     <div role="group" aria-label={`Cantidad de ${label}`} className="flex items-center">
-      <button type="button" onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Una menos" className="cozy-btn h-6 w-6 p-0 text-[15px]">
+      <button type="button" onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Una menos" className="cozy-btn cozy-hit h-6 w-6 p-0 text-[15px]">
         −
       </button>
       <span className="w-7 text-center text-[14px] tabular-nums">{value}</span>
@@ -138,7 +148,7 @@ function Quantity({ value, onChange, label }: { value: number; onChange: (n: num
         onClick={() => onChange(value + 1)}
         disabled={value >= SHOP_MAX_QUANTITY}
         aria-label="Una más"
-        className="cozy-btn h-6 w-6 p-0 text-[15px]"
+        className="cozy-btn cozy-hit h-6 w-6 p-0 text-[15px]"
       >
         +
       </button>

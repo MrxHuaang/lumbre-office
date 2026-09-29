@@ -3,11 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Profile } from "@/game/store";
 import { COZY } from "@/lib/cozy";
-import { CabinShowcase } from "../CabinShowcase";
 import { CharacterSprite } from "../CharacterSprite";
 import { PixelIcon } from "../Cozy";
 import { CalendarApp, NotesApp, TrashApp, useNow, type Confirm } from "./apps";
 import { BrowserApp } from "./BrowserApp";
+import { FondoEscritorio, FondoIcon, FondosApp, MenuEscritorio, useFondo } from "./FondosApp";
 import {
   BrowserIcon,
   CalendarIcon,
@@ -15,18 +15,20 @@ import {
   MineIcon,
   MusicIcon,
   NotesIcon,
+  PaintIcon,
   PowerIcon,
   TomatoIcon,
   TrashIcon,
   WhiteboardIcon,
 } from "./icons";
 import { MinesweeperApp } from "./MinesweeperApp";
+import { PaintApp } from "./PaintApp";
 import { ALERT_TEXT, usePomodoro } from "./pomodoro";
 import { PomodoroApp, PomodoroTaskbarClock } from "./PomodoroApp";
 import type { NotesStore } from "./useNotes";
 import { Window, type WindowBox } from "./Window";
 
-type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper" | "browser";
+type AppId = "notes" | "trash" | "calendar" | "pomodoro" | "minesweeper" | "browser" | "fondos" | "paint";
 
 interface AppInfo {
   title: string;
@@ -44,6 +46,9 @@ const APPS: Record<AppId, AppInfo> = {
   pomodoro: { title: "Enfoque", ink: COZY.red, inkText: COZY.paperLight, size: { w: 340, h: 450 } },
   minesweeper: { title: "Buscaminas", ink: COZY.woodLight, size: { w: 440, h: 540 }, keepAlive: true },
   browser: { title: "Favoritos", ink: COZY.sky, inkText: COZY.paperLight, size: { w: 820, h: 540 }, keepAlive: true },
+  // Minimizada no se pierde el dibujo a medio hacer.
+  paint: { title: "Pintura", ink: COZY.gold, inkText: COZY.paperLight, size: { w: 660, h: 560 }, keepAlive: true },
+  fondos: { title: "Fondo de pantalla", ink: COZY.woodLight, size: { w: 560, h: 480 } },
 };
 
 /** Apps que aún no existen: se ven en el escritorio para mostrar hacia dónde va el PC. */
@@ -89,6 +94,8 @@ export function Desktop({
   const [dialog, setDialog] = useState<DialogState | null>(null);
   /** Menú contextual (clic derecho) de un ícono del escritorio, en coordenadas del escritorio. */
   const [iconMenu, setIconMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [deskMenu, setDeskMenu] = useState<{ x: number; y: number } | null>(null);
+  const [fondo, setFondo] = useFondo();
   const zTop = useRef(1);
   const now = useNow();
 
@@ -209,6 +216,7 @@ export function Desktop({
     { id: "pomodoro", label: "Enfoque", icon: <TomatoIcon />, onOpen: () => open("pomodoro") },
     { id: "minesweeper", label: "Buscaminas", icon: <MineIcon />, onOpen: () => open("minesweeper") },
     { id: "browser", label: "Favoritos", icon: <BrowserIcon />, onOpen: () => open("browser") },
+    { id: "paint", label: "Pintura", icon: <PaintIcon />, onOpen: () => open("paint") },
     ...FUTURE.map((f) => ({ id: f.id, label: f.label, icon: <f.Icon />, onOpen: () => soon(f.label), disabled: true })),
   ];
 
@@ -226,23 +234,28 @@ export function Desktop({
         return <MineIcon size={size} />;
       case "browser":
         return <BrowserIcon size={size} />;
+      case "paint":
+        return <PaintIcon size={size} />;
+      case "fondos":
+        return <FondoIcon size={size} />;
     }
   };
 
   return (
     <div className="flex h-full flex-col font-pixel text-cozy-ink">
-      {/* Escritorio: cielo pixel con la cabaña de fondo (la misma ilustración del login). */}
+      {/* Escritorio: el fondo elegido (por defecto, el cielo pixel con la cabaña del login). */}
       <div
         ref={areaRef}
         className="relative min-h-0 flex-1 overflow-hidden"
-        style={{ background: `radial-gradient(circle, rgb(255 255 255 / 0.16) 1px, transparent 1.4px) 0 0 / 16px 16px, ${COZY.sky}` }}
         onPointerDown={(e) => e.target === e.currentTarget && setSelectedIcon(null)}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (e.target !== e.currentTarget) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          setDeskMenu({ x: Math.min(e.clientX - r.left, r.width - 212), y: Math.min(e.clientY - r.top, r.height - 48) });
+        }}
       >
-        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <CabinShowcase className="absolute right-[-4%] bottom-[-10%] w-[72%] max-w-[760px]" />
-          <p className="absolute top-4 right-6 text-[15px] font-semibold text-cozy-paper-light">Hyvento OS</p>
-        </div>
+        <FondoEscritorio id={fondo} />
 
         <div className="absolute top-3 left-3 flex max-h-[calc(100%-1.5rem)] flex-col flex-wrap content-start gap-1">
           {icons.map((ic) => (
@@ -269,12 +282,13 @@ export function Desktop({
                 }
               }}
               title={ic.disabled ? "Próximamente" : `Abrir ${ic.label}`}
-              className={`flex w-[96px] flex-col items-center gap-1 p-1.5 ${ic.disabled ? "opacity-45" : ""}`}
+              className="flex w-[96px] flex-col items-center gap-1 p-1.5"
             >
-              {ic.icon}
+              {/* Los "Próximamente" van tenues, pero con la etiqueta en su papel para leerse sobre cualquier fondo. */}
+              <span className={ic.disabled ? "opacity-45" : undefined}>{ic.icon}</span>
               <span
                 className={`max-w-full truncate border-2 px-1 text-[12px] ${
-                  selectedIcon === ic.id ? "border-cozy-frame bg-cozy-frame text-cozy-paper-light" : "border-transparent bg-cozy-paper-light/90"
+                  selectedIcon === ic.id ? "border-cozy-frame bg-cozy-frame text-cozy-paper-light" : `border-transparent bg-cozy-paper-light/90 ${ic.disabled ? "text-cozy-ink-soft" : ""}`
                 }`}
               >
                 {ic.label}
@@ -316,6 +330,8 @@ export function Desktop({
             );
           })()}
 
+        {deskMenu && <MenuEscritorio at={deskMenu} onClose={() => setDeskMenu(null)} onCambiarFondo={() => open("fondos")} />}
+
         {windows.map((w) => {
           const info = APPS[w.app];
           if (w.minimized && !info.keepAlive) return null;
@@ -343,6 +359,8 @@ export function Desktop({
               {w.app === "pomodoro" && <PomodoroApp />}
               {w.app === "minesweeper" && <MinesweeperApp />}
               {w.app === "browser" && <BrowserApp active={top === "browser"} />}
+              {w.app === "paint" && <PaintApp />}
+              {w.app === "fondos" && <FondosApp actual={fondo} onElegir={setFondo} />}
             </Window>
           );
           // `contents` no cambia el acomodo de la ventana; `none` la esconde sin desmontarla.

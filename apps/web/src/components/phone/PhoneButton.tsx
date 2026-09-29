@@ -9,6 +9,7 @@ import { selectChatMuted, usePhoneStore, useUnread } from "@/game/phone/state";
 import { RINGTONES, ringtoneById } from "@/game/phone/tonos";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon } from "../Cozy";
+import { focusOwnsKey } from "@/lib/keyboardFocus";
 
 function stopAlarm() {
   stopRingtone();
@@ -44,9 +45,8 @@ export function PhoneButton() {
       if ((!chat && e.key.toLowerCase() !== "c") || e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.defaultPrevented) return;
       const { typing, pcOn, panel } = useOfficeStore.getState();
       if (typing || pcOn || panel || usePhoneStore.getState().mounted) return;
-      const active = document.activeElement as HTMLElement | null;
-      const tag = (active?.tagName ?? "").toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select" || active?.isContentEditable) return;
+      // Un campo, o un botón con foco (Enter lo aprieta): no se roba la tecla.
+      if (focusOwnsKey(e.key)) return;
       e.preventDefault();
       usePhoneStore.getState().show(chat ? { app: "mensajes", quick: true } : null);
     };

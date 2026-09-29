@@ -9,8 +9,11 @@ import { FREE_NAMES } from "./casa";
 import { RECIPES } from "./cocina";
 import { GRANJA_BAG_OBJECTS } from "./parrilla";
 import { PESCA_BAG_OBJECTS } from "./pesca-tienda";
+import { MUNDO_BLURBS } from "./mundo";
+import { MUNDO_BAG_OBJECTS } from "./garra";
 import { CONSUMABLES } from "./consumables";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
+import { paintingIdOf } from "./painting";
 import { shopItem } from "./shop";
 import { SOMBRERO_MENU, sombreroItem } from "./sombrero";
 import type { ItemStack } from "./social";
@@ -91,6 +94,7 @@ const FREE_BLURB: Record<string, string> = {
   banano: "Maduro, de la nevera.",
   malvavisco: "Dorado en la fogata del jardín.",
   [HONEY]: "De las colmenas del apiario.",
+  ...MUNDO_BLURBS,
 };
 
 /** Lo gratis de la casa, lo del huerto y los platos (menos la regadera vacía: es la misma regadera sin agua). */
@@ -147,6 +151,8 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
     max: 1,
     durable: true,
   },
+  // Mundo lleno: los peluches de la máquina de garra y la hoja de la impresora (garra.ts).
+  ...MUNDO_BAG_OBJECTS,
 };
 
 /** "huevo-criollo" → "Huevo criollo": el nombre de algo que no está en el registro. */
@@ -174,6 +180,9 @@ export interface BagItemInfo {
 export function bagItemInfo(itemId: string): BagItemInfo {
   const id = objIdOf(itemId);
   if (id === null) {
+    // Un cuadro de la Pintura: se cuelga en la oficina como un mueble (su título lo trae /api/paintings).
+    if (paintingIdOf(itemId))
+      return { itemId, name: "Cuadro", blurb: "Lo pintaste en el PC: cuélgalo en tu oficina con Decorar.", kind: "mueble", max: Infinity, furniture: true, art: itemId, use: null, durable: true };
     const shop = shopItem(itemId);
     return {
       itemId,

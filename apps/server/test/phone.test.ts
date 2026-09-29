@@ -1,10 +1,11 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { getWorld, phoneInReach } from "@hyvento/map";
-import { MSG, PHONE, ROOM_NAME, type PhoneEvent } from "@hyvento/shared";
+import { COMUNICACION, MSG, PHONE, ROOM_NAME, type PhoneEvent } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
+import { COM_TIMINGS } from "../src/rooms/comunicacion";
 import type { OfficeState } from "../src/state";
 import { bootServer, c, intoOffice, tick, token, walkToTile, type ServerRoom } from "./helpers";
 
@@ -25,6 +26,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   OfficeRoom.phoneRingMs = PHONE.ringMs;
+  COM_TIMINGS.callCooldownMs = COMUNICACION.callCooldownMs;
 });
 
 /** Junto al teléfono del escritorio de la oficina 1 (el escritorio va en x 12..13 de la pared norte). */
@@ -207,5 +209,49 @@ describe("teléfono entre oficinas", () => {
     await settle(room);
     expect(toBob.at(-1)).toMatchObject({ kind: "ended", reason: "left" });
     expect(player(room, bob).call).toBe("");
+  });
+
+  it("desde el teléfono se llama también a quien no tiene oficina (con las mismas reglas y la pausa)", async () => {
+    const { room, alice, bob } = await setup();
+    const carol = await colyseus.connectTo(room, { token: await token("u-carol", "Carol", "carla") });
+    await room.waitForNextPatch();
+    const toBob = events(bob);
+    const toCarol = events(carol);
+    const toAlice = events(alice);
+
+    // Lejos de un teléfono no se puede.
+    alice.send(MSG.phoneCall, { userId: "u-carol" });
+    await settle(room);
+    expect(toAlice.at(-1)).toMatchObject({ kind: "failed", error: "far" });
+
+    await toPhone(bob, room);
+    COM_TIMINGS.callCooldownMs = 0;
+    bob.send(MSG.phoneCall, { userId: "u-bob" });
+    await settle(room);
+    expect(toBob.at(-1)).toMatchObject({ kind: "failed", error: "self" });
+
+    carol.send(MSG.status, { status: "dnd" });
+    await settle(room);
+    bob.send(MSG.phoneCall, { userId: "u-carol" });
+    await settle(room);
+    expect(toBob.at(-1)).toMatchObject({ kind: "failed", error: "dnd", withName: "Carol" });
+    bob.send(MSG.phoneCall, { userId: "u-nadie" });
+    await settle(room);
+    expect(toBob.at(-1)).toMatchObject({ kind: "failed", error: "offline" });
+
+    carol.send(MSG.status, { status: "available" });
+    await settle(room);
+    bob.send(MSG.phoneCall, { userId: "u-carol" });
+    await settle(room);
+    expect(toCarol.at(-1)).toMatchObject({ kind: "ringing", withName: "Bob", from: "su oficina" });
+    expect(player(room, carol)).toMatchObject({ call: "ringing", callWith: "u-bob" });
+
+    // La pausa: Bob cuelga y vuelve a marcar enseguida.
+    COM_TIMINGS.callCooldownMs = 60_000;
+    bob.send(MSG.phoneHangup);
+    await settle(room);
+    bob.send(MSG.phoneCall, { userId: "u-carol" });
+    await settle(room);
+    expect(toBob.at(-1)).toMatchObject({ kind: "failed", error: "too-soon" });
   });
 });

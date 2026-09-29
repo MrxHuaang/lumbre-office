@@ -1,6 +1,7 @@
 // Nombres compartidos entre el script que pre-dibuja el arte en el build (scripts/prerender.ts) y el
 // juego que lo carga (prerender.ts): si no coinciden, el juego no encuentra la imagen y la dibuja.
 import { CATALOG, catalogItem, type OfficeMap } from "@hyvento/map";
+import { PAINTING_BASE_TYPE, paintingIdOf } from "@hyvento/shared";
 
 export { GAME_MANIFEST, PRERENDER_DIR } from "./prerender-paths";
 
@@ -8,6 +9,8 @@ export type FurnitureVariant = "front" | "back";
 
 /** Clave de textura (o de cuadro del atlas) de un mueble: la noche solo cuenta si tiene versión nocturna. */
 export function furnitureKey(type: string, variant: FurnitureVariant, night: boolean) {
+  // Todos los cuadros de la Pintura comparten el marco (los píxeles van en otra capa, ver game/paintings.ts).
+  if (paintingIdOf(type)) type = PAINTING_BASE_TYPE;
   return catalogItem(type).hasNight ? `mueble-${type}-${variant}-${night ? "noche" : "dia"}` : `mueble-${type}-${variant}`;
 }
 
@@ -28,6 +31,27 @@ export function allFurnitureVariants(): { type: string; variant: FurnitureVarian
  */
 export function areaDecorSignature(map: OfficeMap): string {
   return JSON.stringify(map.def.rooms.map((r) => [r.floor, r.wallpaper]));
+}
+
+/**
+ * Salas (índices de `def.rooms`) cuyo piso o papel no es el que tenían al pre-dibujar el nivel (`decor`
+ * es la firma de entonces): las que hay que pintar encima del fondo del build. Null si las salas no se
+ * pueden comparar (el nivel cambió).
+ */
+export function changedDecorRooms(decor: string, map: OfficeMap): Set<number> | null {
+  let before: unknown;
+  try {
+    before = JSON.parse(decor);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(before) || before.length !== map.def.rooms.length) return null;
+  const out = new Set<number>();
+  map.def.rooms.forEach((r, i) => {
+    const b: unknown = before[i];
+    if (!Array.isArray(b) || b[0] !== r.floor || b[1] !== r.wallpaper) out.add(i);
+  });
+  return out;
 }
 
 /** Uno de los cuadros del atlas de muebles: [atlas, x, y, ancho, alto, origen x, origen y]. */

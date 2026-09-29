@@ -5,7 +5,7 @@ import { CALL_MEMBER_TEXT, callEndText, MSG, PHONE_ERROR_TEXT, type CallMember, 
 import type { Room } from "colyseus.js";
 import { create } from "zustand";
 import { useCasinoStore } from "./casino";
-import { getSfxSettings } from "./sfx";
+import { audible, mixerBus } from "./mixer";
 import { sharedAudio } from "./sound";
 import { useOfficeStore } from "./store";
 
@@ -93,6 +93,11 @@ export function sendPhoneCall(zoneId: string) {
   dial(zoneId, MSG.phoneCall, { zoneId });
 }
 
+/** Desde el teléfono, a una persona del directorio que no tiene oficina. */
+export function sendPhoneCallTo(userId: string) {
+  dial(`user:${userId}`, MSG.phoneCall, { userId });
+}
+
 /**
  * Marca: `key` identifica el botón que dice "Marcando…" (la oficina o la persona); `type`/`payload` es el
  * mensaje (el del teléfono o el de llamar sin teléfono, ver game/comunicacion.ts).
@@ -146,13 +151,13 @@ class Ringer {
   }
 
   private out(): { ctx: AudioContext; out: AudioNode; vol: number } | null {
-    const s = getSfxSettings();
-    if (s.muted || s.volume <= 0) return null;
+    if (!audible("notify")) return null;
     const activation = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
     if (activation && !activation.hasBeenActive) return null;
-    const a = sharedAudio();
+    const a = sharedAudio("notify");
     if (!a || a.ctx.state !== "running") return null;
-    return { ctx: a.ctx, out: a.ctx.destination, vol: 0.5 * s.volume ** 2 };
+    // El timbre sale por la salida de avisos del mezclador (su volumen ya va en la ganancia de esa salida).
+    return { ctx: a.ctx, out: mixerBus(a.ctx, "notify"), vol: 0.5 };
   }
 
   /** Una ráfaga de campanilla de `dur` segundos desde `at`. */

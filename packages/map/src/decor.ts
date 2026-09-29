@@ -1,7 +1,7 @@
 // Fase 3c: la decoración de las oficinas. Rearma un nivel con los muebles que puso cada dueña o dueño y
 // valida cada cambio. Es código puro: el servidor lo usa para decidir y el cliente para anticipar (el
 // fantasma verde o rojo del editor), así los dos dicen lo mismo.
-import { OFFICE_FLOORS, OFFICE_WALLPAPERS, type OfficeItemDTO } from "@hyvento/shared";
+import { OFFICE_FLOORS, OFFICE_WALLPAPERS, PAINTING_BASE_TYPE, paintingIdOf, type OfficeItemDTO } from "@hyvento/shared";
 import { findPath, type TilePos } from "./pathfinding";
 import { buildArea, FEET_BOX, seatStandSpot, step, TILE_SIZE, wallBetween, type OfficeMap } from "./world/build";
 import { CATALOG, catalogItem, footprint, localToWorld, type CatalogItem } from "./world/catalog";
@@ -82,6 +82,8 @@ export function officeZoneDef(def: AreaDef, zoneId: string): ZoneDef | undefined
 
 /** ¿Se puede poner este tipo con el editor? (del catálogo, que rote y que no sea un escritorio con PC ni un teléfono). */
 export function isPlaceable(type: string): boolean {
+  // Un cuadro de la Pintura (`cuadro:<id>`) se pone como el mueble `cuadro`.
+  if (paintingIdOf(type)) type = PAINTING_BASE_TYPE;
   // Solo claves propias: "constructor" o "toString" vienen del prototipo y no son muebles.
   if (!Object.hasOwn(CATALOG, type)) return false;
   const item = (CATALOG as Record<string, CatalogItem>)[type]!;
