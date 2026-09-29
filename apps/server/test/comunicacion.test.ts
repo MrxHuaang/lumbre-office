@@ -37,11 +37,14 @@ beforeEach(async () => {
   repo = new MemoryRepository();
   OfficeRoom.repo = repo;
   COM_TIMINGS.callCooldownMs = 0;
+  // La pausa global entre anuncios tiene su propio test; en los demás no estorba.
+  COM_TIMINGS.announceGapMs = 0;
 });
 afterEach(() => {
   COM_TIMINGS.callCooldownMs = COMUNICACION.callCooldownMs;
   COM_TIMINGS.waveCooldownMs = COMUNICACION.waveCooldownMs;
   COM_TIMINGS.announceCooldownMs = COMUNICACION.announceCooldownMs;
+  COM_TIMINGS.announceGapMs = COMUNICACION.announceGapMs;
   COM_TIMINGS.broadcastMaxMs = COMUNICACION.broadcastMaxMs;
   REJOIN_TIMINGS.graceMs = ANNOUNCE_REJOIN_GRACE_MS;
 });
@@ -458,6 +461,35 @@ describe("anuncio a toda la cabaña", () => {
     expect(toBob[2]).toMatchObject({ kind: "start" });
   });
 
+  it("pausa global: con dos personas que pueden anunciar, un anuncio no pisa al otro", async () => {
+    COM_TIMINGS.announceGapMs = 60_000;
+    COM_TIMINGS.announceCooldownMs = 0; // solo la global, no la de cada persona
+    const { room, people } = await setup(2, { admin: true });
+    const [admin, bob] = people as [ClientRoom, ClientRoom];
+    const other = await colyseus.connectTo(room, { token: await token("u-otra", "Otra", "ada", "ADMIN") });
+    const seen = collect<Announcement>(bob, COM_MSG.announcement);
+    const otherErrors = collect<AnnounceResult>(other, COM_MSG.announceResult);
+
+    admin.send(COM_MSG.announce, { text: "Primero" });
+    await until(() => seen.length === 1);
+    other.send(COM_MSG.announce, { text: "Segundo" });
+    other.send(COM_MSG.broadcastStart);
+    await until(() => otherErrors.length === 2);
+    expect(otherErrors.map((e) => e.error)).toEqual(["recent", "recent"]);
+    await settle(room);
+    expect(seen).toHaveLength(1);
+    expect(player(room, other).broadcastUntil).toBe(0);
+
+    // Pasada la pausa, sí; y mientras alguien habla por voz, tampoco entra un aviso de texto de otro.
+    COM_TIMINGS.announceGapMs = 0;
+    other.send(COM_MSG.broadcastStart);
+    await until(() => player(room, other).broadcastUntil > 0, "que empiece la voz");
+    const adminErrors = collect<AnnounceResult>(admin, COM_MSG.announceResult);
+    admin.send(COM_MSG.announce, { text: "Encima" });
+    await until(() => adminErrors.length === 1);
+    expect(adminErrors[0]).toMatchObject({ error: "busy", name: "Otra" });
+  });
+
   it("quien vuelve a entrar en pleno anuncio lo recibe como retomado (sin timbre ni micrófono solo)", () => {
     const sent: { sessionId: string; msg: BroadcastEvent }[] = [];
     const untilOf = new Map<string, number>();
@@ -488,8 +520,10 @@ describe("anuncio a toda la cabaña", () => {
     ]);
     // Su sesión nueva vuelve a tener el papel "broadcast" (el micrófono lo prende ella).
     expect(untilOf.get("u-ana")).toBe(61_000);
-    // Solo un admin puede anunciar: lo decide `canAnnounce`.
+    // Anuncia un admin o quien tenga el permiso: lo decide `canAnnounce`.
     expect(canAnnounce(people.s3!)).toBe(false);
     expect(canAnnounce(people.s1!)).toBe(true);
+    expect(canAnnounce({ ...people.s3!, permisos: ["anunciar"] })).toBe(true);
+    expect(canAnnounce({ ...people.s3!, permisos: ["editar-casa"] })).toBe(false);
   });
 });

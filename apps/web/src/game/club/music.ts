@@ -493,7 +493,7 @@ let music: ClubMusic | null = null;
  */
 export function clubMusic(now: () => number, create: boolean): ClubMusic | null {
   if (music || !create) return music;
-  const a = sharedAudio();
+  const a = sharedAudio("music");
   if (!a) return null;
   music = new ClubMusic(a, now);
   return music;

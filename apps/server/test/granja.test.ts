@@ -266,6 +266,20 @@ describe("molino (reglas del servidor)", () => {
     expect(f.notices.at(-1)).toEqual(["u-alice", { code: "flour", count: MOLINO.flourPerCorn }]);
     expect((await f.g.grind(alice, true, T0 + MOLINO.grindMs + 1)).ms).toBe(MOLINO.grindWetMs);
   });
+
+  it("al cerrar la sala, la mazorca de la molienda sin terminar vuelve a la mochila y no sale harina", async () => {
+    const f = granja();
+    f.put("u-alice", "mazorca", 1);
+    await f.g.grind(alice, false, T0);
+    expect(f.n("u-alice", "mazorca")).toBe(0);
+    const restored: [string, string, number][] = [];
+    await f.g.close(async (u, itemId, n) => void restored.push([u, itemId, n]));
+    expect(restored).toEqual([["u-alice", "obj:mazorca", 1]]);
+    // El temporizador que quedó (si el reloj no se hubiera cancelado) ya no entrega nada.
+    f.fire();
+    await tick(0);
+    expect(f.n("u-alice", "harina")).toBe(0);
+  });
 });
 
 // ---------- Parrilla ----------
@@ -389,6 +403,35 @@ describe("parrilla (reglas del servidor)", () => {
     expect((await f.p.portion({ ...b, x: grill.x + 200 }, a, { sessionId: a.sessionId }, T0 + 9000))?.notice.code).toBe("far");
     f.hands.set("u-alice", { item: "tinto", left: 3 });
     expect((await f.p.portion(b, a, { sessionId: a.sessionId }, T0 + 12000))?.notice.code).toBe("noPortion");
+  });
+
+  it("al cerrar la sala, los ingredientes de lo que está en el fuego vuelven a la mochila", async () => {
+    const f = parrilla();
+    const a = at("u-alice", "Alice");
+    const b = at("u-bob", "Bob");
+    f.spots.set("u-alice", a);
+    f.spots.set("u-bob", b);
+    f.put("u-alice", "harina", 2);
+    f.put("u-alice", "queso", 1);
+    f.put("u-bob", "mazorca", 1);
+    expect((await f.p.cook(a, { recipe: "arepa-asada" }, T0))?.notice.code).toBe("cooking");
+    expect((await f.p.cook(b, { recipe: "mazorca-asada" }, T0))?.notice.code).toBe("cooking");
+    expect(f.n("u-alice", "harina")).toBe(0);
+    const restored: [string, string, number][] = [];
+    await f.p.close(async (u, itemId, n) => void restored.push([u, itemId, n]));
+    expect(restored).toEqual(
+      expect.arrayContaining([
+        ["u-alice", "obj:harina", 2],
+        ["u-alice", "obj:queso", 1],
+        ["u-bob", "obj:mazorca", 1],
+      ]),
+    );
+    expect(restored).toHaveLength(3);
+    expect(f.jobs.size).toBe(0);
+    // Ya no sale ningún plato (ni se dan puntos) aunque pase el tiempo.
+    f.p.tick(T0 + 10 * 60_000);
+    await tick(0);
+    expect(f.awarded).toEqual([]);
   });
 });
 

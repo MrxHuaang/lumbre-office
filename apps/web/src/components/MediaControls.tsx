@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useFacilidadStore } from "@/game/facilidad";
 import { media, useMediaStore } from "@/game/media";
 import { NAME_TAG_LABEL, selectFocusing, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
@@ -52,8 +53,10 @@ export function MediaControls({ children, actions, tail }: { children?: ReactNod
   const nameTags = useOfficeStore((s) => s.nameTags);
   const cycleNameTags = useOfficeStore((s) => s.cycleNameTags);
   useNameTagKey();
-  const [devicesOpen, setDevicesOpen] = useState(false);
-  const closeDevices = useCallback(() => setDevicesOpen(false), []);
+  // También se abre desde Ajustes y la paleta de comandos (game/facilidad.ts).
+  const devicesOpen = useFacilidadStore((s) => s.devices);
+  const setDevicesOpen = useFacilidadStore((s) => s.setDevices);
+  const closeDevices = useCallback(() => setDevicesOpen(false), [setDevicesOpen]);
   const [more, setMore] = useState(false);
 
   // Emotes, foto y nombres: en la barra desde tablet; en el celular, dentro de "⋯".

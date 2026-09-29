@@ -1,12 +1,17 @@
 "use client";
 
 // Lo que se ve de la comunicación rápida (game/comunicacion.ts): el saludo que te llega ("X te saluda",
-// con Ir y Llamar), el aviso grande de un admin para toda la cabaña y el panel del admin para anunciar
-// (texto y voz). Los chips del HUD (seguir y anunciando) están en ComunicacionChips.tsx.
-import { announcementTime, broadcastLeft, COMUNICACION, type WaveEvent } from "@hyvento/shared";
+// con Ir y Llamar), el aviso grande para toda la cabaña y el panel para anunciar (texto y voz; permiso
+// `anunciar`). Los chips del HUD (seguir y anunciando) están en ComunicacionChips.tsx.
+import { announcementTime, broadcastLeft, COMUNICACION, puede, type WaveEvent } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import {
+  addToCall,
   announce,
+  callPerson,
+  followPerson,
+  stopFollowing,
+  wavePerson,
   callBackWave,
   dismissAnnouncement,
   dismissWave,
@@ -16,17 +21,41 @@ import {
   stopBroadcast,
   useComStore,
 } from "@/game/comunicacion";
+import { usePermisosStore, usePuedo } from "@/game/permisos";
+import { usePhoneStore } from "@/game/phone";
+import { useCommands } from "@/lib/commands";
+import { comunicacionCommands } from "@/lib/comunicacionCommands";
 import { selectMyUserId, useOfficeStore } from "@/game/store";
 import { PixelIcon } from "../Cozy";
 import { PanelShell } from "../PointsPanels";
 
-export function ComunicacionOverlays({ isAdmin }: { isAdmin: boolean }) {
+/** Llamar, saludar, seguir, sumar a la llamada y anunciar, en la paleta Ctrl+K (lib/comunicacionCommands.ts). */
+function useComunicacionCommands() {
+  useCommands(() => {
+    const office = useOfficeStore.getState();
+    return comunicacionCommands(
+      {
+        mySessionId: office.sessionId,
+        people: Object.values(office.players),
+        call: usePhoneStore.getState().call,
+        following: useComStore.getState().following,
+        canAnnounce: puede(usePermisosStore.getState(), "anunciar"),
+      },
+      { callPerson, addToCall, wavePerson, followPerson, stopFollowing: () => stopFollowing(), openAnnounce: () => openAnnounce() },
+    );
+  });
+}
+
+export function ComunicacionOverlays() {
+  useComunicacionCommands();
   const announceOpen = useComStore((s) => s.announceOpen);
+  // Quien tenga el permiso `anunciar` (los admins siempre); el servidor lo valida igual.
+  const announcer = usePuedo("anunciar");
   return (
     <>
       <AnnouncementBanner />
       <WaveNotices />
-      {isAdmin && announceOpen && <AnnouncePanel onClose={() => openAnnounce(false)} />}
+      {announcer && announceOpen && <AnnouncePanel onClose={() => openAnnounce(false)} />}
     </>
   );
 }
@@ -72,7 +101,7 @@ function WaveCard({ wave }: { wave: WaveEvent }) {
   );
 }
 
-/** El aviso de un admin: grande, arriba al centro, con quién y a qué hora. Se va solo o con "Entendido". */
+/** El aviso para toda la cabaña: grande, arriba al centro, con quién y a qué hora. Se va solo o con "Entendido". */
 function AnnouncementBanner() {
   const a = useComStore((s) => s.announcement);
   if (!a) return null;
@@ -96,7 +125,7 @@ function AnnouncementBanner() {
   );
 }
 
-/** Panel del admin: un aviso de texto para todos y la voz a toda la cabaña (con tope de tiempo). */
+/** Panel para anunciar (permiso `anunciar`): un aviso de texto para todos y la voz a toda la cabaña (con tope de tiempo). */
 function AnnouncePanel({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState("");
   const broadcast = useComStore((s) => s.broadcast);

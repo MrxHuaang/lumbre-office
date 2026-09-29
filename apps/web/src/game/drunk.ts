@@ -2,6 +2,7 @@
 // pantalla de quien tomó se nubla, ondula y se ve doble, camina en zigzag, y los demás lo ven tambalearse.
 import { DRUNK_STAGE_TEXT, type DrunkStage } from "@hyvento/shared";
 import type { CanvasFx } from "./trip";
+import { lessMotion } from "@/lib/prefs";
 
 /** Cuánto pesa cada etapa en lo que se ve (0 = nada, 1 = lo más fuerte). */
 const INTENSITY: Record<DrunkStage, number> = { 0: 0, 1: 0.3, 2: 0.65, 3: 1, 4: 1 };
@@ -23,7 +24,6 @@ export const DRUNK_NOTICE: Record<DrunkStage, string> = {
 /** Al despertar del desmayo, descansando en la casa. */
 export const WAKE_NOTICE = "Despertaste en la zona de descanso. Todavía da vueltas todo…";
 
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /**
  * La visión de quien tomó: filtros CSS sobre el canvas del juego (sirve con el render Canvas 2D, sin
@@ -69,7 +69,7 @@ export class DrunkVision {
     const blur = (0.4 + 1.6 * k).toFixed(2);
     const sat = (1 + 0.5 * k).toFixed(2);
     // Con menos movimiento: solo nublado, sin ondas ni imagen doble que se mueva.
-    if (reducedMotion()) return { filter: `blur(${blur}px) saturate(${sat})`, transform: "" };
+    if (lessMotion()) return { filter: `blur(${blur}px) saturate(${sat})`, transform: "" };
     const hue = (Math.sin(t * 0.7) * 25 * k).toFixed(1);
     // La imagen doble: una copia rosada corrida que va y viene.
     const gx = (Math.sin(t * 1.3) * 7 * k).toFixed(1);

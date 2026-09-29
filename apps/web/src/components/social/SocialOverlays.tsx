@@ -6,6 +6,7 @@
 import { tradeReach } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { getRoom } from "@/game/network";
+import { usePermisosStore } from "@/game/permisos";
 import { callPerson, followPerson, wavePerson } from "@/game/comunicacion";
 import { respondTrade, sendTradeRequest, useSocialStore, type GiftTarget } from "@/game/social";
 import { useOfficeStore } from "@/game/store";
@@ -40,6 +41,7 @@ function PersonMenu() {
   const openGift = useSocialStore((s) => s.openGift);
   const person = useOfficeStore((s) => (menu ? s.players[menu.sessionId] : undefined));
   const near = useNearMe(menu?.sessionId ?? null);
+  const admin = usePermisosStore((s) => s.admin);
 
   useEffect(() => {
     if (!menu) return;
@@ -100,6 +102,12 @@ function PersonMenu() {
         <PixelIcon name="steps" size={13} color="var(--color-cozy-wood)" />
         Seguir
       </button>
+      {admin && (
+        <button type="button" role="menuitem" onClick={act(() => usePermisosStore.getState().openEditor({ userId: person.userId, name: person.name }))} className={item}>
+          <PixelIcon name="unlock" size={13} color="var(--color-cozy-wood)" />
+          Dar permiso…
+        </button>
+      )}
     </div>
   );
 }
