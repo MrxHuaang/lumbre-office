@@ -1617,6 +1617,20 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { s: hex("#f0d060"), S: hex("#c8a83a"), g: hex("#4f9a3a"), k: hex("#fff0a0"), w: hex("#fff8e8"), c: hex("#4a4038"), C: hex("#2a241f") },
   },
+  // Sancocho en olla de aluminio con orejas: caldo claro, mazorca, papa y cilantro por encima.
+  "sancocho-abuela": {
+    fx: "steam",
+    surface: { chars: "sSgpm", inner: hex("#b8bcc0") },
+    rows: [
+      "o.oooooo.o", //
+      "ooppsgmsoo",
+      ".osgmssgo.",
+      ".oaaaaaAo.",
+      ".oaaaaaAo.",
+      "..oooooo..",
+    ],
+    colors: { s: hex("#e8c880"), S: hex("#c8a060"), g: hex("#4f9a3a"), p: hex("#f0e0a0"), m: hex("#f2c230"), a: hex("#a8acb0"), A: hex("#787c80") },
+  },
   // Tarta redonda de lulo y fresa con brillo de miel sobre la masa dorada.
   "tarta-lulo": {
     crumb: hex("#f7d898"),

@@ -152,6 +152,8 @@ export interface RemotePlayer {
   wet: boolean;
   /** Insignia destacada (id de un logro; "" = ninguna). */
   badge: string;
+  /** Nivel de vecino (la suma de los niveles de los oficios; 0 = todavía no llegó). */
+  vecino?: number;
   /** Energía de un plato de la cocina (id de la receta; "" = nada). */
   buff: string;
   /** Modo foco: "" nada, "work" o "break"; cuándo termina (hora del servidor) y el preset. */

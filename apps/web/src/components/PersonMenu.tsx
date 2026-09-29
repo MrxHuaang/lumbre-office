@@ -6,6 +6,8 @@ import { sendInvite } from "@/game/network";
 import { usePermisosStore } from "@/game/permisos";
 import { callPerson, followPerson, stopFollowing, useComStore, wavePerson } from "@/game/comunicacion";
 import { usePhoneStore } from "@/game/phone";
+import { sendOficioGift, useMyLevels } from "@/game/oficios";
+import { hasPerk } from "@hyvento/shared";
 import { selectMyOffice, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 
@@ -34,6 +36,7 @@ function useInviteLabel(): string {
  */
 export function PersonMenu({ person, onProfile }: { person: Person; onProfile: () => void }) {
   const [open, setOpen] = useState(false);
+  const detallista = hasPerk("social", useMyLevels());
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -156,6 +159,12 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
           <Item icon="mail" onClick={run(() => sendInvite(person.userId))}>
             {inviteLabel}
           </Item>
+          {/* Social nivel 5: un detalle gratis al día para alguien de al lado (el servidor mide la distancia). */}
+          {detallista && (
+            <Item icon="gift" onClick={run(() => sendOficioGift(person.sessionId))}>
+              Darle un detalle (gratis)
+            </Item>
+          )}
           <Item icon="smile" onClick={run(onProfile)}>
             Ver perfil
           </Item>

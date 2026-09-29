@@ -170,6 +170,7 @@ import { SeasonView } from "./seasons";
 import { NpcCast } from "./npcs/cast";
 import { syncSeat } from "./mundo";
 import { QuestMarkers, questGiverToTalk } from "./encargosMarcas";
+import { useOficios } from "./oficios";
 import { MUNCHIES, TRIP_NOTICE, TripVision, tripLook } from "./trip";
 import { isTripKind, SOMBRERO, type TripKind } from "@hyvento/shared";
 import { broadcastActive, noteManualMove, voiceFlags } from "./comunicacion";
@@ -522,6 +523,8 @@ export class OfficeScene extends Phaser.Scene {
     this.trophyCases = new TrophyCases(this);
     this.tripVision = new TripVision(() => this.game.canvas.parentElement);
     this.questMarks = new QuestMarkers(this, { local: () => (this.local ? { x: this.local.x, y: this.local.y } : null) });
+    // Alguien del nivel subió de nivel en un oficio: chispas sobre su personaje.
+    useOficios.subscribe((st, prev) => st.levelUp && st.levelUp !== prev.levelUp && this.avatars.get(st.levelUp.sessionId)?.sparkle());
     this.npcs = new NpcCast(this, {
       local: () => (this.local ? { x: this.local.x, y: this.local.y } : null),
       people: () => {
@@ -1208,6 +1211,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setSwimming(Boolean(player.swimming));
     avatar.setWet(Boolean(player.wet));
     avatar.setBadge(player.badge ?? "");
+    avatar.setNeighborLevel(player.vecino ?? 0);
     avatar.setCall(player.call ?? "");
     this.avatars.set(sessionId, avatar);
 
@@ -1218,6 +1222,7 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("avatar", () => avatar.setAppearance(this.textureFor(player)));
     p$.listen("name", (name) => avatar.setName(name));
     p$.listen("badge", (badge) => avatar.setBadge(badge ?? ""));
+    p$.listen("vecino", (level) => avatar.setNeighborLevel(level ?? 0));
     p$.listen("held", (held) => avatar.setHeld(held, player.heldLeft));
     p$.listen("heldLeft", (left) => avatar.setHeld(player.held, left));
     p$.listen("fishing", (phase) => this.rods.set(sessionId, phase));

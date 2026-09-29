@@ -201,6 +201,8 @@ export class Fishery {
       // La caña que de verdad tiene: el minijuego se repite con ella al validar.
       ...(cast.gear.rod !== "bambu" ? { rod: cast.gear.rod } : {}),
       ...(cast.mastery > 0 ? { mastery: cast.mastery } : {}),
+      // El oficio de Pesca: la barra un poco más larga (la validación repite la partida con ella).
+      ...(cast.gear.barBonus && cast.gear.barBonus > 1 ? { barBonus: cast.gear.barBonus } : {}),
     };
     cast.phase = "reel";
     cast.reelAt = this.deps.now();

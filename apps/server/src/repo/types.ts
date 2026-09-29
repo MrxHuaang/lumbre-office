@@ -1,5 +1,5 @@
 import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Permiso, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, ManualStatus, StatChange } from "@hyvento/shared";
-import type { ItemStack, PetBondRecord, QuestDelta, QuestRecord } from "@hyvento/shared";
+import type { ItemStack, Oficio, PetBondRecord, QuestDelta, QuestRecord } from "@hyvento/shared";
 
 export interface AwardOnceInput {
   userId: string;
@@ -312,4 +312,12 @@ export interface ChatRetentionRepository {
   pruneChatBefore(cutoff: Date): Promise<number>;
 }
 
-export interface GameRepository extends ChatRetentionRepository, CasinoRecoveryRepository {}
+/** Oficios (oficios.ts de @hyvento/shared): experiencia de cada uno y lo que las acciones dieron hoy. */
+export interface OficioRepository {
+  /** La experiencia de alguien (la primera vez calcula la inicial desde sus contadores, una sola vez). */
+  loadSkills(userId: string, now: number): Promise<{ xp: Record<Oficio, number>; today: Record<Oficio, number> }>;
+  /** Suma la experiencia de las acciones (con el tope diario por oficio); devuelve lo que entró. */
+  addSkillXp(userId: string, gains: Partial<Record<Oficio, number>>, now: number): Promise<Partial<Record<Oficio, number>>>;
+}
+
+export interface GameRepository extends ChatRetentionRepository, CasinoRecoveryRepository, OficioRepository {}

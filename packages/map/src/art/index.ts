@@ -235,3 +235,4 @@ export { orreryArms, ORRERY_FRAMES } from "./observatorio";
 export { SLOT_GLYPH, slotSymbol } from "./tragamonedas";
 export { scarecrow } from "./leisure";
 export { questMark, type QuestMarkKind } from "./encargos";
+export { levelSpark, neighborPlate } from "./oficios";

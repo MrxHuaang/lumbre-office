@@ -19,3 +19,4 @@ export * from "./standup";
 export * from "./aquarium";
 export * from "./permisos";
 export * from "./encargos";
+export * from "./oficios";

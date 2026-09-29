@@ -24,6 +24,10 @@ import {
   questKey,
   type QuestDelta,
   type QuestRecord,
+  OFICIO,
+  OFICIOS,
+  veteranXp,
+  type Oficio,
 } from "@hyvento/shared";
 import type { AwardOnceInput, QuestClaimInput, QuestClaimOutcome, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
 
@@ -338,6 +342,47 @@ export class MemoryRepository implements GameRepository {
       if (!this.quests.has(key)) this.quests.set(key, { questId: input.next.questId, period: STORY_PERIOD, progress: 0, goal: input.next.goal, status: "ACTIVE" });
     }
     return { ok: true, awarded, balance: await this.getPoints(userId) };
+  }
+
+  // ---------- Oficios ----------
+
+  /** Quiénes ya tienen su experiencia inicial calculada (como la fila `_veterano`), y cuántas veces se calculó. */
+  veterans = new Set<string>();
+  veteranSeeds = 0;
+  /** Lo que las acciones dieron hoy: `${userId}:${oficio}` → { xp, día de Bogotá }. */
+  skillToday = new Map<string, { xp: number; day: number }>();
+
+  async loadSkills(userId: string, now: number) {
+    if (!this.veterans.has(userId)) {
+      this.veterans.add(userId);
+      this.veteranSeeds++;
+      const start = veteranXp(Object.fromEntries(this.userStats.get(userId) ?? []));
+      for (const o of OFICIOS) if (start[o] > 0) this.skillXp.set(`${userId}:${o}`, (this.skillXp.get(`${userId}:${o}`) ?? 0) + start[o]);
+    }
+    const day = dayStart(now);
+    const xp = Object.fromEntries(OFICIOS.map((o) => [o, this.skillXp.get(`${userId}:${o}`) ?? 0])) as Record<Oficio, number>;
+    const today = Object.fromEntries(OFICIOS.map((o) => {
+      const t = this.skillToday.get(`${userId}:${o}`);
+      return [o, t && t.day === day ? t.xp : 0];
+    })) as Record<Oficio, number>;
+    return { xp, today };
+  }
+
+  async addSkillXp(userId: string, gains: Partial<Record<Oficio, number>>, now: number) {
+    const day = dayStart(now);
+    const added: Partial<Record<Oficio, number>> = {};
+    for (const o of OFICIOS) {
+      const want = Math.floor(gains[o] ?? 0);
+      if (want < 1) continue;
+      const t = this.skillToday.get(`${userId}:${o}`);
+      const today = t && t.day === day ? t.xp : 0;
+      const amount = Math.min(want, OFICIO.dailyActionCap - today);
+      if (amount <= 0) continue;
+      this.skillToday.set(`${userId}:${o}`, { xp: today + amount, day });
+      this.skillXp.set(`${userId}:${o}`, (this.skillXp.get(`${userId}:${o}`) ?? 0) + amount);
+      added[o] = amount;
+    }
+    return added;
   }
 
   /** Helper de tests: la fila de un encargo. */

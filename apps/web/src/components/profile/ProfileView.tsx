@@ -20,6 +20,8 @@ import {
   type PresenceStatus,
   type ProfileAchievementDTO,
   type ProfileDTO,
+  OFICIOS,
+  OFICIO_INFO,
 } from "@hyvento/shared";
 import { useEffect, useMemo, useState } from "react";
 import { STATUS_HEX } from "@/lib/cozy";
@@ -67,6 +69,16 @@ function Identity({ profile: p }: { profile: ProfileDTO }) {
           <PixelIcon name="star" size={11} />
           {p.title}
         </p>
+        {p.neighborLevel !== undefined && (
+          <p className="mt-1.5 text-[13px]" title="La suma de los niveles de los cinco oficios">
+            Nivel de vecino <b className="tabular-nums">{p.neighborLevel}</b>
+            {p.oficios && (
+              <span className="mt-0.5 block text-[12px] text-cozy-ink-soft">
+                {OFICIOS.map((o) => `${OFICIO_INFO[o].name} ${p.oficios![o]?.level ?? 1}`).join(" · ")}
+              </span>
+            )}
+          </p>
+        )}
       </div>
       <dl className="grid w-full grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-left text-[13px]">
         <dt className="text-cozy-ink-soft">Estado</dt>

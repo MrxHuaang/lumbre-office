@@ -54,6 +54,8 @@ export interface EncargosDeps {
   flushStats(userId: string): Promise<void>;
   /** Se pagó una entrega: el saldo nuevo y lo sumado (para el "+N" y el contador). */
   paid(userId: string, awarded: number, balance: number): void;
+  /** La experiencia de la entrega ya quedó guardada: el oficio la suma para el nivel (ver rooms/oficios.ts). */
+  xp?(userId: string, skill: string, xp: number): void;
 }
 
 interface Entry {
@@ -307,6 +309,7 @@ export class Encargos {
       if (!e.rows.has(nk)) e.rows.set(nk, { questId: next.id, period: STORY_PERIOD, progress: 0, goal: next.goal, status: "ACTIVE" });
     }
     this.deps.paid(userId, outcome.awarded, outcome.balance);
+    this.deps.xp?.(userId, def.reward.skill, def.reward.xp);
     this.sendList(userId);
     return {
       ok: true,
@@ -352,6 +355,7 @@ export interface EncargosRoomParts {
   mapOf(area: string): OfficeMap;
   now(): number;
   pick: EncargosDeps["pick"];
+  xp?: EncargosDeps["xp"];
 }
 
 /** Los encargos de una sala: el reloj, el clima, dónde está cada quien, cómo avisar y el pago. */
@@ -388,5 +392,6 @@ export function encargosDeSala(parts: EncargosRoomParts): Encargos {
       if (amount > 0) send(userId, MSG.pointsAwarded, { amount, reason: "QUEST", balance } satisfies PointsAwarded);
       parts.stats.max(userId, STAT_KEYS.pointsPeak, balance);
     },
+    xp: parts.xp,
   });
 }

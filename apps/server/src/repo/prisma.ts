@@ -3,6 +3,8 @@ import {
   applyStatChanges,
   claimQuest,
   loadQuests,
+  loadSkills,
+  addSkillXp,
   loadAchievementRecord,
   unlockAchievement,
   awardPoints,
@@ -43,6 +45,7 @@ import {
   type ManualStatus,
   type StatChange,
   type QuestDelta,
+  type Oficio,
 } from "@hyvento/shared";
 import { executeTip, executeTrade } from "./social";
 import type { AwardOnceInput, QuestClaimInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
@@ -415,6 +418,14 @@ export class PrismaRepository implements GameRepository {
 
   claimQuest(input: QuestClaimInput) {
     return claimQuest(prisma, input);
+  }
+
+  loadSkills(userId: string, now: number) {
+    return loadSkills(prisma, userId, now);
+  }
+
+  addSkillXp(userId: string, gains: Partial<Record<Oficio, number>>, now: number) {
+    return addSkillXp(prisma, userId, gains, now);
   }
 
   saveDoorNote(input: { fromId: string; toId: string; zoneId: string; text: string }) {
