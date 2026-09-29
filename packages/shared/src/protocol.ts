@@ -202,6 +202,8 @@ export const INTERNAL_ROUTES = {
   photosChanged: "/internal/photos-changed",
   /** El dueño leyó o borró notas de su puerta (body `{ userId }`): se recuentan los post-its. */
   doorNotesChanged: "/internal/door-notes-changed",
+  /** Aviso del sistema para el chat global (body `SystemNotice`), p. ej. un PR mezclado en GitHub. */
+  systemNotice: "/internal/system-notice",
 } as const;
 
 /** Nombres de mensajes Colyseus. */

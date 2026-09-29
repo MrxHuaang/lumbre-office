@@ -133,7 +133,7 @@ export interface RemotePlayer {
   held: string;
   /** Usos que le quedan a lo de la mano ("4"). */
   heldLeft: string;
-  /** Pesca: "", "wait", "bite", "reel" o "show:<pez>". */
+  /** Pesca: "", "wait", "nibble", "bite", "reel" o "show:<pez>". */
   fishing: string;
   /** Con qué caña pesca ("" o "bambu", "fibra", "carbono"): el color de la caña. */
   fishingRod: string;

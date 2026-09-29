@@ -1,6 +1,15 @@
 // Estado de la pesca del jugador local (para la escena y el HUD). Lo mueve lo que avisa el servidor
 // (`MSG.fishEvent`): el servidor decide; aquí solo se refleja.
-import { fishById, type FishCatchResult, type FishingChallenge, type FishingEvent, type FishOutcome, type FishRefusal } from "@hyvento/shared";
+import {
+  NIBBLES,
+  fishById,
+  type FishCatchResult,
+  type FishingChallenge,
+  type FishingEvent,
+  type FishingMastery,
+  type FishOutcome,
+  type FishRefusal,
+} from "@hyvento/shared";
 import { create } from "zustand";
 import { useOfficeStore } from "../store";
 import { playFishSound } from "./sound";
@@ -20,6 +29,10 @@ interface FishingStore {
   challenge: FishingChallenge | null;
   /** Hasta cuándo dura la picada (reloj local). */
   biteUntil: number;
+  /** Hasta cuándo tiembla la boya por un mordisqueo (responder ahí asusta al pez). */
+  nibbleUntil: number;
+  /** La maestría de la caña del lance en curso (para la ayuda de abajo). */
+  mastery: FishingMastery | null;
   /** Última captura, para la tarjeta (cambia `id` en cada una). */
   card: (FishCatchResult & { id: number }) | null;
   /** Sube con cada captura: el álbum se vuelve a pedir. */
@@ -35,6 +48,8 @@ export const useFishingStore = create<FishingStore>((set) => ({
   castId: null,
   challenge: null,
   biteUntil: 0,
+  nibbleUntil: 0,
+  mastery: null,
   card: null,
   albumVersion: 0,
   setPhase: (phase) => set(phase === "idle" ? { phase, castId: null, challenge: null } : { phase }),
@@ -45,6 +60,7 @@ const OUTCOME_TEXT: Partial<Record<FishOutcome, string>> = {
   escaped: "Se te escapó… ¡casi!",
   missed: "Picó y se fue. Hay que responder más rápido.",
   early: "Recogiste antes de tiempo: el pez se asustó.",
+  stolen: "Era un mordisqueo: el pez se llevó la carnada.",
   timeout: "El pez se cansó de esperar y se soltó.",
   invalid: "No se pudo contar esa pesca. Intenta de nuevo.",
 };
@@ -61,8 +77,13 @@ export function handleFishEvent(e: FishingEvent) {
   const office = useOfficeStore.getState();
   switch (e.type) {
     case "cast":
-      useFishingStore.setState({ phase: "waiting", castId: e.castId, challenge: null });
+      useFishingStore.setState({ phase: "waiting", castId: e.castId, challenge: null, nibbleUntil: 0, mastery: e.mastery ?? null });
       playFishSound("cast");
+      return;
+    case "nibble":
+      if (s.castId !== e.castId || s.phase !== "waiting") return;
+      useFishingStore.setState({ nibbleUntil: performance.now() + NIBBLES.showMs });
+      playFishSound("nibble");
       return;
     case "bite":
       if (s.castId !== e.castId) return;
@@ -72,6 +93,7 @@ export function handleFishEvent(e: FishingEvent) {
     case "start":
       if (s.castId !== e.castId) return;
       useFishingStore.setState({ phase: "reeling", challenge: e.challenge });
+      if (e.group) office.notify("Pescando en compañía: pican más raros.", "info");
       return;
     case "refused":
       if (s.phase === "casting") useFishingStore.setState({ phase: "idle", castId: null, challenge: null });

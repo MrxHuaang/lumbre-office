@@ -112,6 +112,31 @@ Las variables `NEXT_PUBLIC_*` se meten en el build: si las cambias, vuelve a des
 2. La primera vez, el servidor de juego puede tardar ~1 min en despertar si no usaste el paso 5.
 3. Desde el menú → **Administrar equipo**, invita al resto por correo.
 
+## 8. (Opcional) Avisos de GitHub en el chat
+
+Cuando se mezcla un PR, la cabaña lo anuncia en el chat global como aviso del sistema ("GitHub: juanjo mezcló el PR #42 «…» en lumbre a main."). Es un webhook de GitHub, gratis: no hace falta ninguna app ni servicio aparte.
+
+1. Genera un secreto para el webhook (distinto de `GAME_TOKEN_SECRET`):
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+2. En Vercel → **Settings → Environment Variables** agrega:
+
+   | Variable | Valor |
+   |---|---|
+   | `GITHUB_WEBHOOK_SECRET` | El secreto del paso anterior |
+   | `GITHUB_WEBHOOK_EVENTS` | (Opcional) `merged` (por defecto) o `opened,merged` para avisar también cuando se abre un PR (o sale de borrador) |
+
+   Vuelve a desplegar para que la web las lea. El aviso llega al servidor de juego por la ruta interna `/internal/system-notice` con `GAME_TOKEN_SECRET`, así que Render no necesita nada nuevo.
+3. En GitHub, en el repo → **Settings → Webhooks → Add webhook**:
+   - **Payload URL**: `https://lumbre.hyvento.co/api/github/webhook`
+   - **Content type**: `application/json`
+   - **Secret**: el mismo `GITHUB_WEBHOOK_SECRET`
+   - **Which events?** → *Let me select individual events* → marca solo **Pull requests**.
+4. Al guardar, GitHub manda un *ping*: en **Recent Deliveries** tiene que aparecer con respuesta `200`. Si sale `401`, el secreto no coincide; si sale `503`, falta la variable en Vercel.
+
+Los avisos no se guardan en la base: quedan en el historial del chat mientras el servidor de juego está prendido. Si el servidor está dormido (Render gratis), el aviso de ese momento se pierde.
+
 ## Cada vez que cambies algo
 
 - **Push a `main`**: Vercel y Render despliegan solos.
