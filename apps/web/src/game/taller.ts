@@ -32,7 +32,10 @@ function car(driver: boolean): Sprite {
   return s;
 }
 
-/** Un carro destapado: quién va al volante, hasta cuándo y dónde estaba parado al subirse. */
+/**
+ * Un carro destapado: quién va al volante, hasta cuándo (hora real, no el reloj de la escena: ese se
+ * detiene con la pestaña oculta y al volver saltaría el tiempo entero) y dónde estaba parado al subirse.
+ */
 interface Drive {
   f: PlacedFurniture;
   sessionId: string;
@@ -75,7 +78,7 @@ export class TallerVivo {
   label(f: PlacedFurniture): string | undefined {
     if (usableSpec(f.type)?.action !== "drive" || !this.map) return undefined;
     const d = this.drives.get(furnitureKey(this.map.id, f.type, f.x, f.y));
-    if (!d || d.until <= this.scene.time.now) return undefined;
+    if (!d || d.until <= Date.now()) return undefined;
     if (d.seated && d.sessionId === this.host.room()?.sessionId) return "Estás manejando (camina para bajarte)";
     return "Alguien acaba de manejarlo: espera un momento";
   }
@@ -122,10 +125,12 @@ export class TallerVivo {
 
   /** Cada cuadro: quien maneja y se mueve se baja; al cumplirse el tiempo vuelve la lona. */
   update() {
-    const now = this.scene.time.now;
+    const now = Date.now();
     for (const [key, d] of this.drives) {
-      const who = this.host.avatarOf(d.sessionId);
-      if (d.seated && (!who || now >= d.until || Math.hypot(who.x - d.from.x, who.y - d.from.y) > LEAVE_CAR_PX)) this.getOut(d);
+      // Se mide con la posición del servidor: el dibujo de los demás se desliza hacia ella y llegaría tarde.
+      const p = this.host.room()?.state.players.get(d.sessionId);
+      const moved = !p || p.area !== this.map?.id || Math.hypot(p.x - d.from.x, p.y - d.from.y) > LEAVE_CAR_PX;
+      if (d.seated && (!this.host.avatarOf(d.sessionId) || now >= d.until || moved)) this.getOut(d);
       if (now >= d.until) {
         d.img.destroy();
         this.drives.delete(key);
@@ -143,7 +148,7 @@ export class TallerVivo {
       old.img.destroy();
     }
     const img = this.layer(f, "taller-carro-lleno", car(true));
-    const d: Drive = { f, sessionId, until: this.scene.time.now + TALLER.driveMs, img, from: { x: who?.x ?? 0, y: who?.y ?? 0 }, seated: Boolean(who) };
+    const d: Drive = { f, sessionId, until: Date.now() + TALLER.driveMs, img, from: this.statePos(sessionId), seated: Boolean(who) };
     this.drives.set(key, d);
     if (!who) return this.getOut(d);
     // Quien maneja se ve adentro del carro, no parado al lado (yo me veo transparente, como en el baño).
@@ -152,6 +157,11 @@ export class TallerVivo {
     // Un sacudón al arrancar.
     this.scene.tweens.add({ targets: img, y: img.y - 1, duration: 70, yoyo: true, repeat: 5 });
     this.exhaust(f, d);
+  }
+
+  private statePos(sessionId: string) {
+    const p = this.host.room()?.state.players.get(sessionId);
+    return { x: p?.x ?? 0, y: p?.y ?? 0 };
   }
 
   /** Se baja: vuelve a verse parado y el carro queda vacío (destapado) hasta que se cumpla el tiempo. */
