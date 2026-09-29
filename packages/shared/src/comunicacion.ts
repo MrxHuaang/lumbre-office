@@ -150,3 +150,34 @@ export function followNeedsWalk(me: { area: string; x: number; y: number }, targ
   if (me.area !== target.area) return true;
   return Math.hypot(me.x - target.x, me.y - target.y) > nearPx;
 }
+
+/**
+ * Si quien anuncia se va (recargó la página, se le cayó la red), el anuncio lo espera este rato: si vuelve
+ * la misma persona, sigue como si nada; si no, termina.
+ */
+export const ANNOUNCE_REJOIN_GRACE_MS = 15_000;
+
+/** El anuncio por voz como lo ve el navegador (un solo chip: hay un anuncio a la vez). */
+export interface BroadcastView {
+  userId: string;
+  name: string;
+  /** Hora local en que se corta sola. */
+  endsAt: number;
+}
+
+/**
+ * Cómo queda el anuncio al llegar un evento. `fresh`: es un inicio de verdad (suena el timbre, se prende el
+ * micrófono de quien anuncia, sale el aviso); un `resumed` o un inicio repetido del mismo anuncio solo
+ * actualiza el chip, nunca lo duplica. `ended`: terminó el que se estaba viendo.
+ */
+export function reduceBroadcast(
+  cur: BroadcastView | null,
+  e: BroadcastEvent,
+  toLocal: (serverMs: number) => number = (t) => t,
+): { next: BroadcastView | null; fresh: boolean; ended: boolean } {
+  if (e.kind === "start") {
+    return { next: { userId: e.userId, name: e.name, endsAt: toLocal(e.endsAt) }, fresh: !e.resumed && cur?.userId !== e.userId, ended: false };
+  }
+  const ended = cur?.userId === e.userId;
+  return { next: ended ? null : cur, fresh: false, ended };
+}

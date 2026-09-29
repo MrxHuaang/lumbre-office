@@ -12,6 +12,7 @@ import {
   COM_MSG,
   COMUNICACION,
   followNeedsWalk,
+  reduceBroadcast,
   PODCAST,
   WAVE_RESULT_TEXT,
   type Announcement,
@@ -312,11 +313,12 @@ let micByBroadcast = false;
 
 function handleBroadcast(e: BroadcastEvent) {
   const mine = e.userId === myUserId();
+  // Un solo chip: el reductor decide si es un inicio nuevo o el mismo anuncio que sigue (reduceBroadcast).
+  const { next, fresh, ended } = reduceBroadcast(useComStore.getState().broadcast, e, localTime);
+  useComStore.setState({ broadcast: next });
   if (e.kind === "start") {
-    const was = useComStore.getState().broadcast;
-    useComStore.setState({ broadcast: { userId: e.userId, name: e.name, endsAt: localTime(e.endsAt) } });
     // Ya estaba sonando (al entrar o recargar): sin timbre y sin prender nada solo.
-    if (was?.userId === e.userId || e.resumed) {
+    if (!fresh) {
       if (mine && e.resumed && !useMediaStore.getState().mic) notify("Sigues anunciando a toda la cabaña: prende el micrófono para que te oigan.", "warning");
       return;
     }
@@ -332,7 +334,7 @@ function handleBroadcast(e: BroadcastEvent) {
     }
     return;
   }
-  if (useComStore.getState().broadcast?.userId === e.userId) useComStore.setState({ broadcast: null });
+  if (!ended && !mine) return;
   if (mine && micByBroadcast && useMediaStore.getState().mic) void media.toggleMic();
   if (mine) micByBroadcast = false;
   notify(broadcastEndText(e, mine));

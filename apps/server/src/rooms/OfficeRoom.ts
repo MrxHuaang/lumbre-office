@@ -1734,24 +1734,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /**
    * Llamar a la oficina `zoneId`: hay que estar junto a un teléfono y la oficina tiene que tener dueño; le
-   * suena a esa persona esté donde esté (ocupado, "No molestar" y desconectado los decide `Phones`).
+   * suena a esa persona esté donde esté (ocupado, "No molestar" y desconectado los decide `Phones`). Con
+   * `userId`, a una persona del directorio (las reglas y la pausa son las de comunicacion.ts).
    */
   private handlePhoneCall(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = PhoneCallMessage.safeParse(raw);
     if (!player || !parsed.success) return;
     this.markActive(client);
-    const office = this.state.offices.get(parsed.data.zoneId);
+    const office = "zoneId" in parsed.data ? this.state.offices.get(parsed.data.zoneId) : undefined;
     const fail = (error: PhoneError) =>
       client.send(MSG.phoneEvent, { kind: "failed", error, withName: office?.ownerName ?? "" } satisfies PhoneEvent);
     const map = this.mapOf(player.area);
     const phone = phoneInReach(map, player.x, player.y);
     if (!phone) return fail("far");
+    const ts = map.tileSize;
+    const zone = zoneAt(map, (phone.x + phone.w / 2) * ts, (phone.y + phone.d / 2) * ts);
+    if ("userId" in parsed.data) return this.comunicacion?.phoneCall(client.sessionId, parsed.data.userId, this.phoneOrigin(player.userId, zone, phone.type));
     if (!office?.ownerId) return fail("invalid");
     if (office.ownerId === player.userId) return fail("self");
     const owner = [...this.state.players.values()].find((p) => p.userId === office.ownerId);
-    const ts = map.tileSize;
-    const zone = zoneAt(map, (phone.x + phone.w / 2) * ts, (phone.y + phone.d / 2) * ts);
     const error = this.phones.call(
       { userId: player.userId, name: player.name, status: player.status },
       owner && { userId: owner.userId, name: owner.name, status: owner.status },
