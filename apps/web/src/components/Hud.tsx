@@ -532,7 +532,7 @@ export function PeoplePanel() {
                   onClick={() => walkToPlayer(p.sessionId)}
                   title={`Ir hasta ${p.name}`}
                   aria-label={`Ir hasta ${p.name}`}
-                  className="grid size-10 shrink-0 place-items-center hover:bg-cozy-paper-dark"
+                  className="grid size-7 shrink-0 place-items-center pointer-coarse:size-10 hover:bg-cozy-paper-dark"
                 >
                   <PixelIcon name="steps" size={14} color="var(--color-cozy-wood)" />
                 </button>

@@ -168,7 +168,7 @@ function TradeInvites() {
 export function PersonActions({ to }: { to: GiftTarget }) {
   const openGift = useSocialStore((s) => s.openGift);
   return (
-    <button type="button" onClick={() => openGift(to)} title={`Regalarle a ${to.name}`} aria-label={`Regalarle a ${to.name}`} className="grid size-10 shrink-0 place-items-center opacity-70 hover:opacity-100">
+    <button type="button" onClick={() => openGift(to)} title={`Regalarle a ${to.name}`} aria-label={`Regalarle a ${to.name}`} className="grid size-7 shrink-0 place-items-center pointer-coarse:size-10 opacity-70 hover:opacity-100">
       <PixelIcon name="gift" size={13} color="var(--color-cozy-red)" />
     </button>
   );

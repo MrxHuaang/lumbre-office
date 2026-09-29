@@ -123,7 +123,7 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
           }
         }}
         data-on={open || undefined}
-        className="grid size-10 shrink-0 place-items-center opacity-70 hover:opacity-100 focus-visible:opacity-100 data-[on]:opacity-100"
+        className="grid size-7 shrink-0 place-items-center pointer-coarse:size-10 opacity-70 hover:opacity-100 focus-visible:opacity-100 data-[on]:opacity-100"
       >
         <PixelIcon name="dots" size={13} color="var(--color-cozy-wood)" />
       </button>
