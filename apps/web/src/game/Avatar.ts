@@ -48,6 +48,7 @@ import {
 import type { Track } from "livekit-client";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily, hexToInt, STATUS_HEX } from "@/lib/cozy";
+import { lessMotion } from "@/lib/prefs";
 import { heldTexture, idleWisp, playUse } from "./consumables";
 import { armTexture, ensureEmoteTextures, gestureOffset, SHOULDER_UP, WAVE_SIDE } from "./gestures";
 import { SWAY_DEG } from "./drunk";
@@ -1217,7 +1218,7 @@ export class Avatar {
     ensureTexture(this.scene, "destello-logro", () => sparkleSprite());
     const s = worldToScreen(this.wx, this.wy);
     const depth = 5e7 + depthOf(this.wx, this.wy) + 0.3;
-    const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const reduced = lessMotion();
     const count = reduced ? 2 : 6;
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2 - Math.PI / 2;

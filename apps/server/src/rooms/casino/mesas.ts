@@ -18,6 +18,7 @@ import { ArraySchema } from "@colyseus/schema";
 import type { GameRepository } from "../../repo/types";
 import { MesaBet, type MesaState } from "../../state";
 import { payoutWithRetry, TableQueue } from "./common";
+import type { OpenRounds } from "./recovery";
 
 export interface MesaTimings {
   bettingMs: number;
@@ -39,12 +40,30 @@ interface Deps {
   timings: () => MesaTimings;
   /** De dónde sale el resultado (en los tests, fijo). */
   draw: (table: MesaId) => number[];
+  /** Rondas abiertas (para devolver lo apostado si la sala se cierra antes de pagar). */
+  rounds?: OpenRounds;
 }
 
 export class MesaTable {
   private readonly queue = new TableQueue();
+  /** El pago de la ronda en curso (al cerrar la sala se espera a que termine). */
+  private settling: Promise<void> = Promise.resolve();
+  private closed = false;
 
-  constructor(private readonly d: Deps) {}
+  constructor(private readonly d: Deps) {
+    d.rounds?.attach(this);
+  }
+
+  private ref(round: number) {
+    return this.d.rounds?.ref(this.d.id, round) ?? casinoRefId(this.d.id, round);
+  }
+
+  /** La sala se cierra: no más apuestas; se esperan las que se estaban cobrando y el pago en curso. */
+  async close() {
+    this.closed = true;
+    await this.queue.run(async () => undefined);
+    await this.settling;
+  }
 
   start() {
     this.beginBetting();
@@ -69,7 +88,9 @@ export class MesaTable {
     s.result.push(...result);
     const ms = this.d.timings().playMs(this.d.id, result);
     s.endsAt = Date.now() + ms;
-    this.d.later(ms, () => void this.settle());
+    this.d.later(ms, () => {
+      this.settling = this.settle();
+    });
   }
 
   private async settle() {
@@ -92,11 +113,12 @@ export class MesaTable {
     }
     for (const [userId, t] of byUser) {
       if (t.won > 0) {
-        const paid = await payoutWithRetry(this.d.repo, { userId, amount: t.won, refId: casinoRefId(this.d.id, round) }, "premio");
+        const paid = await payoutWithRetry(this.d.repo, { userId, amount: t.won, refId: this.ref(round) }, "premio");
         if (paid) this.d.setPoints(userId, paid.balance);
       }
       this.d.notify(userId, { table: this.d.id, round, result, won: t.won, staked: t.staked });
     }
+    this.d.rounds?.settled(this.ref(round));
   }
 
   /** Una apuesta ya validada como mensaje. `near` = está junto a la mesa. */
@@ -108,11 +130,13 @@ export class MesaTable {
     const s = this.d.state;
     if (!this.d.settings().enabled) return { ok: false, error: "disabled" };
     if (!near) return { ok: false, error: "far" };
-    if (s.phase !== "betting") return { ok: false, error: "closed" };
+    if (s.phase !== "betting" || this.closed) return { ok: false, error: "closed" };
     if (s.bets.filter((b) => b.userId === player.userId).length >= MESA.maxBetsPerRound) return { ok: false, error: "max-bets" };
 
     const round = s.round;
-    const refId = casinoRefId(this.d.id, round);
+    const refId = this.ref(round);
+    // La ronda queda anotada antes de cobrar: si el servidor se cae, la próxima corrida la devuelve.
+    if (this.d.rounds && !(await this.d.rounds.opening(refId))) return { ok: false, error: this.closed ? "closed" : "failed" };
     let outcome;
     try {
       outcome = await this.d.repo().casinoBet({ userId: player.userId, amount: msg.amount, refId });
@@ -122,8 +146,8 @@ export class MesaTable {
     }
     this.d.setPoints(player.userId, outcome.balance);
     if (!outcome.ok) return { ok: false, error: outcome.error };
-    if (s.round !== round || s.phase !== "betting") {
-      // Se cerró la ronda mientras se cobraba: se devuelve.
+    if (s.round !== round || s.phase !== "betting" || this.closed) {
+      // Se cerró la ronda (o la sala) mientras se cobraba: se devuelve.
       const paid = await payoutWithRetry(this.d.repo, { userId: player.userId, amount: msg.amount, refId }, "devolución");
       if (paid) this.d.setPoints(player.userId, paid.balance);
       return { ok: false, error: "closed" };

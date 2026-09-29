@@ -76,6 +76,11 @@ export class Arcade {
 
   constructor(private readonly deps: ArcadeDeps) {}
 
+  /** Espera las partidas que se están guardando (al cerrar la sala). */
+  flush(): Promise<unknown> {
+    return this.saving;
+  }
+
   /** Tablas de récords del día y de la semana del juego de esa máquina. */
   async board(raw: unknown, now: number): Promise<ArcadeBoard | null> {
     const parsed = ArcadeBoardMessage.safeParse(raw);

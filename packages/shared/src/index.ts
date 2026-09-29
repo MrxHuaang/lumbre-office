@@ -64,6 +64,8 @@ export * from "./npcs";
 export * from "./pesca-tienda";
 export * from "./pesca-maestria";
 export * from "./libros";
+export * from "./viaje";
+export * from "./permisos";
 export * from "./encargos";
 export * from "./github";
 export * from "./reconexion";

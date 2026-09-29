@@ -125,7 +125,7 @@ export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Pro
             <BagTab onClose={onClose} />
           )}
         </div>
-        <aside aria-label="Tu personaje" className="max-lg:hidden">
+        <aside aria-label="Tu personaje" className="sticky top-0 self-start max-lg:hidden">
           <CharacterCard profile={profile} me={me.profile} onEditCharacter={onEditCharacter} />
         </aside>
       </div>

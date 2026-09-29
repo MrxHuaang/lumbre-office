@@ -12,6 +12,7 @@ import {
   type ArcadeGame,
   type BoardGameKind,
   type CasinoSettingsDTO,
+  type Permiso,
   type ChatEvent,
   type ItemStack,
   type OfficeItemDTO,
@@ -176,6 +177,15 @@ export class MemoryRepository implements GameRepository {
     if (balance < amount) return { ok: false, balance };
     this.ledger.push({ userId, amount: -amount, reason, at: Date.now(), refId });
     return { ok: true, balance: balance - amount };
+  }
+
+  /** Permisos en memoria (los tests los cambian directo): los dados por persona y los abiertos a todos. */
+  permisos = new Map<string, Permiso[]>();
+  permisosTodos: Permiso[] = [];
+  async loadPermisos(userIds: string[]) {
+    const byUser: Record<string, Permiso[]> = {};
+    for (const id of userIds) if (this.permisos.has(id)) byUser[id] = [...this.permisos.get(id)!];
+    return { everyone: [...this.permisosTodos], byUser };
   }
 
   /** Ajustes del casino en memoria (los tests los cambian directo). */
@@ -592,5 +602,26 @@ export class MemoryRepository implements GameRepository {
     if ((await this.getPoints(fromId)) < amount) return { ok: false, error: "funds" };
     this.ledger.push({ userId: fromId, amount: -amount, reason: "GIFT", at: now, refId }, { userId: toId, amount, reason: "GIFT", at: now, refId });
     return { ok: true, balances: { [fromId]: await this.getPoints(fromId), [toId]: await this.getPoints(toId) } };
+  }
+
+  // ---------- Rondas abiertas del casino ----------
+
+  casinoOpen = new Map<string, { refIds: string[]; updatedAt: number }>();
+  async loadCasinoOpenRounds() {
+    return [...this.casinoOpen].map(([run, r]) => ({ run, refIds: [...r.refIds], updatedAt: r.updatedAt }));
+  }
+  async saveCasinoOpenRounds(run: string, refIds: string[]) {
+    if (refIds.length) this.casinoOpen.set(run, { refIds: [...refIds], updatedAt: Date.now() });
+    else this.casinoOpen.delete(run);
+  }
+  async claimCasinoOpenRounds(run: string, updatedAt: number) {
+    if (this.casinoOpen.get(run)?.updatedAt !== updatedAt) return false;
+    return this.casinoOpen.delete(run);
+  }
+  async casinoMovements(refIds: string[]) {
+    const wanted = new Set(refIds);
+    return this.ledger
+      .filter((m) => m.reason === "CASINO" && m.refId !== undefined && wanted.has(m.refId))
+      .map((m) => ({ userId: m.userId, refId: m.refId!, amount: m.amount }));
   }
 }
