@@ -1,5 +1,5 @@
 import type { ArcadeBoardEntry, ArcadeGame, BoardGameKind, BoardRankingEntry, RaceBoard, CasinoSettingsDTO, ChatEvent, Direction, HumanAvatar, Look, OfficeItemDTO, PointReason, ManualStatus, StatChange } from "@hyvento/shared";
-import type { ItemStack, PetBondRecord } from "@hyvento/shared";
+import type { ItemStack, PetBondRecord, QuestDelta, QuestRecord } from "@hyvento/shared";
 
 export interface AwardOnceInput {
   userId: string;
@@ -138,8 +138,11 @@ export interface GameRepository {
   boardRanking(input: { game: BoardGameKind; since: number; limit: number }): Promise<BoardRankingEntry[]>;
   /** Logros: los contadores y los logros que ya tiene alguien. */
   loadAchievements(userId: string): Promise<{ stats: Record<string, number>; unlocked: string[] }>;
-  /** Guarda varios cambios de contadores juntos (`inc` suma, `max` se queda con el mayor), todo o nada. */
-  saveStats(userId: string, changes: StatChange[]): Promise<void>;
+  /**
+   * Guarda varios cambios de contadores juntos (`inc` suma, `max` se queda con el mayor), todo o nada, con
+   * el avance de los encargos que salió de ellos (misma transacción).
+   */
+  saveStats(userId: string, changes: StatChange[], quests?: QuestDelta[]): Promise<void>;
   /** Desbloquea un logro; true solo la primera vez. */
   unlockAchievement(userId: string, achievementId: string): Promise<boolean>;
   /** Mochila: suma unidades de algo (crea la fila si no existía) y devuelve cuántas tiene ahora. */
@@ -245,6 +248,32 @@ export interface ShowcaseRepository {
 }
 
 export interface GameRepository extends ShowcaseRepository {}
+
+/** Entregar un encargo (ver encargos.ts de @hyvento/shared): lo que paga, ya decidido por la sala. */
+export interface QuestClaimInput {
+  userId: string;
+  questId: string;
+  period: string;
+  points: number;
+  skill: string;
+  xp: number;
+  /** Historias: el paso que se abre al entregar este. */
+  next?: { questId: string; goal: number };
+  now: number;
+}
+
+/** Lo pagado (menos que lo prometido si llegó al tope diario) o por qué no se entregó. */
+export type QuestClaimOutcome = { ok: true; awarded: number; balance: number } | { ok: false; error: "not-done" | "claimed" | "capped" };
+
+/** Encargos: su propia interfaz, sumada a GameRepository. */
+export interface QuestRepository {
+  /** Los encargos guardados de alguien en esos períodos (y los de historia); antes crea los de `assign` que falten. */
+  loadQuests(userId: string, periods: string[], assign: { questId: string; period: string; goal: number }[]): Promise<QuestRecord[]>;
+  /** Entrega un encargo cumplido en una transacción: lo marca, paga (QUEST, con tope) y suma la experiencia. */
+  claimQuest(input: QuestClaimInput): Promise<QuestClaimOutcome>;
+}
+
+export interface GameRepository extends QuestRepository {}
 
 /** Retención del chat global (rooms/chatRetention.ts). */
 export interface ChatRetentionRepository {

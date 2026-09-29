@@ -33,6 +33,27 @@ export function areaDecorSignature(map: OfficeMap): string {
   return JSON.stringify(map.def.rooms.map((r) => [r.floor, r.wallpaper]));
 }
 
+/**
+ * Salas (índices de `def.rooms`) cuyo piso o papel no es el que tenían al pre-dibujar el nivel (`decor`
+ * es la firma de entonces): las que hay que pintar encima del fondo del build. Null si las salas no se
+ * pueden comparar (el nivel cambió).
+ */
+export function changedDecorRooms(decor: string, map: OfficeMap): Set<number> | null {
+  let before: unknown;
+  try {
+    before = JSON.parse(decor);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(before) || before.length !== map.def.rooms.length) return null;
+  const out = new Set<number>();
+  map.def.rooms.forEach((r, i) => {
+    const b: unknown = before[i];
+    if (!Array.isArray(b) || b[0] !== r.floor || b[1] !== r.wallpaper) out.add(i);
+  });
+  return out;
+}
+
 /** Uno de los cuadros del atlas de muebles: [atlas, x, y, ancho, alto, origen x, origen y]. */
 export type AtlasFrame = [number, number, number, number, number, number, number];
 
