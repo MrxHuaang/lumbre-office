@@ -94,8 +94,9 @@ Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png [noche
 | **Proximidad** | Chat y video por cercanía; las salas cerradas aíslan el audio. Suscripción selectiva en el SFU: solo recibes las pistas de quien tienes cerca. |
 | **Presencia** | Disponible, ocupado, no molestar y ausente (automático por inactividad); "En reunión" lo calcula el servidor. Mascotas que te siguen entre niveles y fotos con polaroid. |
 | **Oficinas** | Una por persona, con placa, estado, puerta que se cierra y toque de puerta. Decoración en vivo que sobrevive a un rediseño del plano. |
-| **Hyvento OS** | Un PC dentro del juego con escritorio, ventanas y apps: notas estilo Notion (TipTap), papelera y calendario. |
+| **Hyvento OS** | Un PC dentro del juego con escritorio, ventanas y apps: notas estilo Notion (TipTap), papelera, calendario y pintura de cuadros que se cuelgan en la oficina; fondos de escritorio a elección. |
 | **Reuniones** | Escenario con anfiteatro (habla uno, oyen todos, mano levantada y ovación), estudio de grabación con consentimiento de todos y casa del árbol con pomodoro compartido. |
+| **Progreso** | Encargos, oficios con nivel (pesca, huerta, cocina, social y exploración), el capítulo 1 de la historia con Doña Aurora y el standup diario del tablón. |
 | **Economía** | Puntos por presencia y reuniones, buzón con racha diaria, tablón de misiones y ranking semanal. Cada movimiento queda en un libro contable. |
 | **Tienda, vestidor y mochila** | Muebles con inventario, ropa gratis y una mochila estilo Stardew con barra de acceso rápido. El personaje se arma por piezas y se dibuja en el navegador. |
 | **Sótano** | Casino, club con propinas al tubo y cine. Azar con `crypto.randomInt` y apuestas en transacciones que bloquean la fila del usuario. |
@@ -103,6 +104,7 @@ Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png [noche
 | **Megabús** | Un bus con horario que pasa por la estación, con viaje, puertas y pantalla de recorrido; se puede llegar a la cabaña en él. |
 | **Mundo vivo** | Reloj del juego (1 día = 1 hora real), clima, estaciones, noche y NPC con frases colombianas. Logros, insignias y un diario de exploración. |
 | **Juegos** | Ajedrez y damas con reloj, arcade y minijuegos de mesa. |
+| **Acciones rápidas** | Paleta Ctrl+K para llamar, saludar, seguir o anunciar, permisos por persona que da el admin y avisos de GitHub en el chat global. |
 | **Editor de la casa** | Los admins mueven, giran, quitan y agregan muebles en cualquier nivel; se guarda como diferencia sobre el plano. |
 
 ## Stack
@@ -119,7 +121,7 @@ Cada imagen sale de `pnpm --filter @hyvento/map render <nivel> salida.png [noche
 | Contratos | `packages/shared`, Zod | Protocolo, reglas de proximidad, puntos, tienda y personajes: iguales en cliente y servidor |
 | Datos | Prisma 6 + Postgres (16 en local, Neon en producción) | Usuarios, notas, inventario, decoración y libro de puntos |
 | Auth | Supabase Auth (Google), solo por invitación; usuarios en Neon | Admins por correo e invitaciones desde `/admin` |
-| Calidad | Vitest 3, Turborepo, GitHub Actions (Node 22, pnpm 10) | Typecheck y tests en cada PR |
+| Calidad | Vitest 3, Playwright, Turborepo, GitHub Actions (Node 22, pnpm 10) | Typecheck y tests en cada PR; pruebas e2e con `pnpm --filter @hyvento/web e2e` |
 | Infra | Vercel, Render, Neon, LiveKit Cloud; Docker en local | Todo en planes gratis |
 
 ## Funcionamiento
