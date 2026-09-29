@@ -14,7 +14,7 @@ import {
 import type { GameRepository } from "../repo/types";
 
 export interface ClawDeps {
-  repo: () => Pick<GameRepository, "spendPoints">;
+  repo: () => Pick<GameRepository, "spendPoints" | "awardPoints">;
   now: () => number;
   /** Entero al azar en [0, n) (crypto.randomInt en la sala; fijo en los tests). */
   random: (n: number) => number;
@@ -69,27 +69,45 @@ export class ClawMachines {
     return { kind: "started", token: attempt.token, seed, balance: paid.balance };
   }
 
-  /** Soltar la garra: el servidor decide si agarra. El intento se cierra pase lo que pase. */
-  async drop(userId: string, raw: unknown): Promise<ClawEvent | null> {
+  /**
+   * Soltar la garra: el servidor decide si agarra. Hay que seguir junto a la máquina (si no, el intento
+   * queda abierto para volver) y haber esperado lo que tarda en bajar; pasado el tiempo, cuenta igual (la
+   * garra bajó sola). Un intento pagado no se pierde: si el peluche ya no cabe, se devuelve la moneda.
+   */
+  async drop(userId: string, raw: unknown, near: boolean): Promise<ClawEvent | null> {
     const parsed = ClawDropMessage.safeParse(raw);
     if (!parsed.success) return null;
     const a = this.attempts.get(userId);
     if (!a || a.token !== parsed.data.token) return { kind: "error", error: "expired" };
-    this.attempts.delete(userId);
+    if (!near) return { kind: "error", error: "far" };
     const now = this.d.now();
+    if (now - a.startedAt < GARRA.minMs) return { kind: "error", error: "busy" };
+    // Desde acá el intento se cierra pase lo que pase: el mismo token no vale dos veces.
+    this.attempts.delete(userId);
     this.nextAt.set(userId, now + GARRA.cooldownMs);
-    const elapsed = now - a.startedAt;
-    // Soltar antes de lo que tarda en bajar no vale; después del tiempo, bajó sola (se acepta con margen).
-    if (elapsed < GARRA.minMs || elapsed > GARRA.maxMs + 2_000) return { kind: "error", error: "expired" };
     const x = parsed.data.x;
     const grip = clawGrip(a.layout, x);
+    const itemId = objItemId(grip.plush);
+    // La mochila se llenó mientras se apuntaba: se devuelve la moneda antes de soltar.
+    if (this.d.bag.fits(userId, [[itemId, 1]]) !== "ok") return this.refund(userId);
     const won = this.d.random(1000) < grip.perMil;
     if (won) {
-      const added = await this.d.bag.add(userId, objItemId(grip.plush), 1);
-      if (added !== "ok") return { kind: "error", error: "full" };
+      const added = await this.d.bag.add(userId, itemId, 1);
+      if (added !== "ok") return this.refund(userId);
       this.d.bump(userId, STAT_KEYS.clawWins);
     }
     return { kind: "result", token: a.token, slot: grip.slot, plush: grip.plush, won, x };
+  }
+
+  /** Devuelve lo que costó el intento (el mismo motivo con que se cobró). */
+  private async refund(userId: string): Promise<ClawEvent> {
+    try {
+      const r = await this.d.repo().awardPoints({ userId, amount: GARRA.price, reason: "PURCHASE" });
+      this.d.setPoints(userId, r.balance);
+    } catch (err) {
+      console.error(`GARRA DEVOLUCIÓN PENDIENTE (conciliar): ${userId} ${GARRA.price}`, err);
+    }
+    return { kind: "error", error: "refunded" };
   }
 
   /** Se fue: se olvida su intento. */

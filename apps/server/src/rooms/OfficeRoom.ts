@@ -285,11 +285,8 @@ import { Parrilla, type GrillWho } from "./parrilla";
 import { ManDelSombrero } from "./sombrero";
 import { Trips, type TripTimings } from "./trips";
 import { PresenceTracker } from "./presence";
-import { MundoVivo, nearUsable } from "./mundo";
-import { SlotMachines } from "./casino/slots";
-import { ClawMachines } from "./garra";
-import { FortuneWheel } from "./fortuna";
-import { DECOR_SCOPES, FORTUNE_MSG, GARRA_MSG, isMundoAction, MUNDO, SLOTS_MSG } from "@hyvento/shared";
+import { nearUsable, registerMundo, type MundoHandle, type MundoRoom } from "./mundo";
+import { DECOR_SCOPES, isMundoAction } from "@hyvento/shared";
 import { inRowboat } from "@hyvento/map";
 
 interface UserData {
@@ -913,7 +910,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BAG_MSG.drop, (client, raw) => void this.handleBagDrop(client, raw));
     this.onMessage(AGUA_MSG.action, (client, raw) => this.handleAgua(client, raw));
     this.startObservatorio();
-    this.startMundo();
+    this.mundo = registerMundo(this as unknown as MundoRoom);
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -3085,99 +3082,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   // ---------- Mundo lleno ----------
 
-  /** El azar y el reloj de lo nuevo del sótano (tragamonedas, garra y rueda): los tests los fijan. */
-  static mundoRandom: (n: number) => number = (n) => randomInt(n);
-  static mundoNow: () => number = () => Date.now();
-  private mundo?: MundoVivo;
-  private slots?: SlotMachines;
-  private claw?: ClawMachines;
-  private fortune?: FortuneWheel;
-
-  /** Los muebles que antes eran de adorno (ver mundo.ts, casino/slots.ts, garra.ts y fortuna.ts). */
-  private startMundo() {
-    const setPoints = (userId: string, balance: number) => {
-      for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
-    };
-    const bag = { fits: this.held.fits.bind(this.held), add: this.held.add.bind(this.held) };
-    this.mundo = new MundoVivo({
-      now: () => OfficeRoom.mundoNow(),
-      player: (sessionId) => this.state.players.get(sessionId),
-      map: (area) => this.mapOf(area),
-      toArea: (area, type, message) => this.sendToArea(area, type, message),
-      toSession: (sessionId, type, message) => this.clients.getById(sessionId)?.send(type, message),
-      later: (ms, fn) => this.clock.setTimeout(fn, ms),
-      noteTitle: (userId) => this.repo.latestNoteTitle(userId),
-      bag,
-      dry: (userId) => this.piscina?.dry(userId) ?? false,
-      restPet: (userId, house, now) => this.pets.restAt(userId, house, now, { love: MUNDO.doghouseLove, reachTiles: MUNDO.doghouseReachTiles }),
-      bump: (userId, key, by) => this.achievements.bump(userId, key, by),
-    });
-    this.slots = new SlotMachines({
-      repo: () => this.repo,
-      settings: () => this.casinoSettings,
-      random: (n) => OfficeRoom.mundoRandom(n),
-      now: () => OfficeRoom.mundoNow(),
-      setPoints,
-      settled: (userId, staked, won, jackpot) => {
-        this.casinoSettled(userId, staked, won);
-        this.achievements.bump(userId, STAT_KEYS.slotSpins);
-        if (jackpot) this.achievements.bump(userId, STAT_KEYS.slotJackpots);
-      },
-    });
-    this.claw = new ClawMachines({
-      repo: () => this.repo,
-      now: () => OfficeRoom.mundoNow(),
-      random: (n) => OfficeRoom.mundoRandom(n),
-      token: () => randomUUID(),
-      setPoints,
-      bag,
-      bump: (userId, key) => this.achievements.bump(userId, key),
-    });
-    this.fortune = new FortuneWheel({
-      now: () => OfficeRoom.mundoNow(),
-      random: (n) => OfficeRoom.mundoRandom(n),
-      stats: this.achievements,
-      award: (userId, amount) => this.awardLeisure(userId, amount),
-      give: (userId, id) => this.held.give(userId, id),
-    });
-    const near = (client: Client<UserData>, type: string) => {
-      const p = this.state.players.get(client.sessionId);
-      return Boolean(p && !this.drunk.fainted(p.userId) && nearUsable(this.mapOf(p.area), type, p.x, p.y));
-    };
-    const who = (client: Client<UserData>) => {
-      this.markActive(client);
-      return this.state.players.get(client.sessionId);
-    };
-    this.onMessage(SLOTS_MSG.spin, async (client, raw) => {
-      const p = who(client);
-      if (!p || !this.slots || !this.acceptCasino(client)) return;
-      const result = await this.slots.spin(p, raw, near(client, "slot-machine"));
-      if (result) client.send(SLOTS_MSG.result, result);
-    });
-    this.onMessage(GARRA_MSG.start, async (client) => {
-      const p = who(client);
-      if (p && this.claw) client.send(GARRA_MSG.event, await this.claw.start(p.userId, near(client, "claw-machine")));
-    });
-    this.onMessage(GARRA_MSG.drop, async (client, raw) => {
-      const p = who(client);
-      const e = p && this.claw ? await this.claw.drop(p.userId, raw) : null;
-      if (e) client.send(GARRA_MSG.event, e);
-    });
-    this.onMessage(FORTUNE_MSG.status, (client) => {
-      const p = who(client);
-      if (p && this.fortune) client.send(FORTUNE_MSG.result, this.fortune.status(p.userId));
-    });
-    this.onMessage(FORTUNE_MSG.spin, async (client) => {
-      const p = who(client);
-      if (p && this.fortune) client.send(FORTUNE_MSG.result, await this.fortune.spin(p.userId, near(client, "fortune-wheel")));
-    });
-  }
-
-  private forgetMundo(userId: string) {
-    this.mundo?.forget(userId);
-    this.slots?.forget(userId);
-    this.claw?.forget(userId);
-  }
+  /** Los muebles que antes eran de adorno: todo en mundo.ts (la sala solo le presta lo suyo). */
+  private mundo?: MundoHandle;
 
   // ---------- Pesca ----------
 
@@ -3592,7 +3498,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private removePlayer(sessionId: string) {
     const player = this.state.players.get(sessionId);
     this.observatorio?.forget(sessionId);
-    if (player) this.forgetMundo(player.userId);
+    if (player) this.mundo?.forget(player.userId);
     this.state.players.delete(sessionId);
     this.casaArbol?.sweep(Date.now());
     this.club?.forget(sessionId);

@@ -6,6 +6,7 @@ import { MSG, MUNDO_MSG, OBS_MSG, ROOM_NAME, SLOTS_MSG, stepsTo, type MundoNotic
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
+import { MUNDO_CLOCK } from "../src/rooms/mundo";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
 import { bagOf, bootServer, goToArea, tick, token, until, walkToTile, type ServerRoom } from "./helpers";
@@ -44,13 +45,13 @@ beforeEach(async () => {
   now = 1_000_000;
   OfficeRoom.gameClockNow = () => now;
   OfficeRoom.observatorioNow = () => now;
-  OfficeRoom.mundoRandom = () => 99;
+  MUNDO_CLOCK.random = () => 99;
   OfficeRoom.gameClockInitial = { anchorReal: now, anchorMinute: 1440 + 12 * 60 };
 });
 afterEach(() => {
   OfficeRoom.gameClockNow = () => Date.now();
   OfficeRoom.observatorioNow = () => Date.now();
-  OfficeRoom.mundoRandom = (n) => Math.floor(Math.random() * n);
+  MUNDO_CLOCK.random = (n: number) => Math.floor(Math.random() * n);
   OfficeRoom.gameClockInitial = null;
 });
 

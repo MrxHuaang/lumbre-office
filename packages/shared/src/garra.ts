@@ -110,7 +110,7 @@ export const GARRA_MSG = {
 export const ClawDropMessage = z.object({ token: z.string().min(1).max(64), x: z.number().min(0).max(1) });
 export type ClawDropMessage = z.infer<typeof ClawDropMessage>;
 
-export type ClawError = "far" | "funds" | "busy" | "full" | "expired" | "failed";
+export type ClawError = "far" | "funds" | "busy" | "full" | "refunded" | "expired" | "failed";
 
 export type ClawEvent =
   | { kind: "started"; token: string; seed: number; balance: number }
@@ -122,6 +122,7 @@ export const CLAW_ERROR_TEXT: Record<ClawError, string> = {
   funds: `No te alcanzan los puntos: cada intento cuesta ${GARRA.price}.`,
   busy: "La garra todavía está volviendo. Un momentico.",
   full: "No te cabe un peluche más en la mochila: haz espacio.",
+  refunded: "Se te llenó la mochila: te devolvimos la moneda.",
   expired: "Se acabó el intento. Mete otra moneda.",
   failed: "La máquina se trabó. Intenta de nuevo.",
 };

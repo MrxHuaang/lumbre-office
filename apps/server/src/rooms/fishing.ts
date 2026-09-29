@@ -7,7 +7,6 @@
 // picada puede haber mordisqueos que hay que dejar pasar.
 import {
   BAIT_TUNING,
-  BOAT_LUCK,
   FISHING,
   castLuck,
   fishingTogether,
@@ -187,8 +186,8 @@ export class Fishery {
     if (cast.phase !== "bite") return;
     cast.timer?.clear();
     cast.group = this.inGroup(cast);
-    // Desde el bote del muelle (mundo lleno) los raros pesan más, sumado a la maestría y a la pesca en grupo.
-    const luck = castLuck({ bait: cast.gear.bait ? BAIT_TUNING[cast.gear.bait].luck : 1, group: cast.group, mastery: cast.mastery }) * (cast.gear.boat ? BOAT_LUCK : 1);
+    // Desde el bote del muelle (mundo lleno) los raros pesan más; todo junto, con el tope de `castLuck`.
+    const luck = castLuck({ bait: cast.gear.bait ? BAIT_TUNING[cast.gear.bait].luck : 1, group: cast.group, mastery: cast.mastery, boat: cast.gear.boat });
     const fish = pickFish(this.deps.hour(), (n) => this.deps.random(n), this.deps.weather?.(), luck);
     cast.fish = fish;
     if (isTrash(fish)) return void this.land(cast, fish, false);

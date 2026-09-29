@@ -71,7 +71,8 @@ export function ClawPanel({ onClose }: { onClose: () => void }) {
     const r = s.current;
     if (!claw || claw.seq <= r.seq) return;
     r.seq = claw.seq;
-    if (claw.kind === "error") return go("idle");
+    // Lejos de la máquina (o antes de tiempo) el intento sigue abierto: se vuelve a apuntar.
+    if (claw.kind === "error") return go(r.phase === "dropping" && (claw.error === "far" || claw.error === "busy") ? "aiming" : "idle");
     if (claw.kind === "started") {
       r.token = claw.token;
       r.layout = clawLayout(claw.seed);

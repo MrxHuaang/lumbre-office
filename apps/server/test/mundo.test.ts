@@ -97,9 +97,10 @@ describe("mundo lleno: la impresora, la ducha y la casita (MundoVivo)", () => {
     const added: string[] = [];
     let dried = 0;
     let now = 1_000;
+    const pos = { x: c(4), y: c(1) };
     const mundo = new MundoVivo({
       now: () => now,
-      player: () => ({ userId: "u", area: map.id, x: c(2), y: c(1) }),
+      player: () => ({ userId: "u", area: map.id, ...pos }),
       map: () => map,
       toArea: (_a, type, msg) => sent.push({ type, msg, to: "area" }),
       toSession: (_s, type, msg) => sent.push({ type, msg, to: "me" }),
@@ -112,7 +113,8 @@ describe("mundo lleno: la impresora, la ducha y la casita (MundoVivo)", () => {
     });
     const notices = () => sent.filter((s) => s.type === MUNDO_MSG.notice).map((s) => s.msg as MundoNotice);
     const events = () => sent.filter((s) => s.type === MSG.furnitureEvent).map((s) => s.msg as FurnitureEvent);
-    return { mundo, sent, timers, added, notices, events, dried: () => dried, tick: (ms: number) => (now += ms) };
+    const move = (x: number, y: number) => Object.assign(pos, { x, y });
+    return { mundo, sent, timers, added, notices, events, move, dried: () => dried, tick: (ms: number) => (now += ms) };
   }
   const ev = (type: string, x: number, action: FurnitureEvent["action"]) => ({ type, x, y: 0, action, seed: 7 });
 
@@ -137,6 +139,15 @@ describe("mundo lleno: la impresora, la ducha y la casita (MundoVivo)", () => {
     const full = setup({ notes: ["Algo"], full: true });
     await full.mundo.use("s", ev("printer", 2, "print"));
     expect(full.notices()).toEqual([{ code: "full" }]);
+  });
+
+  it("la ducha: si se fue antes de terminar, no se seca", async () => {
+    const t = setup();
+    await t.mundo.use("s", ev("garden-shower", 4, "shower"));
+    t.move(c(0), c(7));
+    t.timers.forEach((fn) => fn());
+    expect(t.dried()).toBe(0);
+    expect(t.notices()).toEqual([]);
   });
 
   it("la ducha: gotas para todos y, al terminar, seco", async () => {
@@ -267,6 +278,7 @@ describe("la máquina de peluches", () => {
     const repo = new MemoryRepository();
     repo.ledger.push({ userId: "u", amount: opts.balance ?? 50, reason: "ADMIN", at: 0 });
     const bag: string[] = [];
+    const room = { full: opts.full ?? false };
     const stats: string[] = [];
     let now = 0;
     const claw = new ClawMachines({
@@ -275,10 +287,10 @@ describe("la máquina de peluches", () => {
       random: (n) => (n === 1000 ? (opts.roll ?? 0) : 12345),
       token: () => "t1",
       setPoints: () => {},
-      bag: { fits: () => (opts.full ? "full" : "ok"), add: async (_u, id) => (bag.push(id), "ok") },
+      bag: { fits: () => (room.full ? "full" : "ok"), add: async (_u, id) => (bag.push(id), "ok") },
       bump: (_u, k) => stats.push(k),
     });
-    return { repo, claw, bag, stats, tick: (ms: number) => (now += ms) };
+    return { repo, claw, bag, stats, room, tick: (ms: number) => (now += ms) };
   }
   const layout = clawLayout(12345);
   /** Justo encima del peluche del medio. */
@@ -288,29 +300,48 @@ describe("la máquina de peluches", () => {
     const t = setup({ roll: 0 });
     expect(await t.claw.start("u", true)).toEqual({ kind: "started", token: "t1", seed: 12345, balance: 50 - GARRA.price });
     t.tick(GARRA.minMs + 100);
-    const r = await t.claw.drop("u", { token: "t1", x: center });
+    const r = await t.claw.drop("u", { token: "t1", x: center }, true);
     expect(r).toEqual({ kind: "result", token: "t1", slot: 2, plush: layout[2], won: true, x: center });
     expect(t.bag).toEqual([`obj:${layout[2]}`]);
     expect(t.stats).toEqual([STAT_KEYS.clawPlays, STAT_KEYS.clawWins]);
     // El intento se cerró: el mismo token no vale dos veces.
-    expect(await t.claw.drop("u", { token: "t1", x: center })).toEqual({ kind: "error", error: "expired" });
+    expect(await t.claw.drop("u", { token: "t1", x: center }, true)).toEqual({ kind: "error", error: "expired" });
   });
 
   it("el servidor decide con su azar: con mala suerte se resbala (y en el borde casi nunca agarra)", async () => {
     const t = setup({ roll: 999 });
     await t.claw.start("u", true);
     t.tick(GARRA.minMs + 100);
-    expect(await t.claw.drop("u", { token: "t1", x: center })).toMatchObject({ won: false });
+    expect(await t.claw.drop("u", { token: "t1", x: center }, true)).toMatchObject({ won: false });
     expect(t.bag).toEqual([]);
     expect(clawGrip(layout, 0.5).perMil).toBeGreaterThan(clawGrip(layout, 0.59).perMil);
   });
 
-  it("soltar antes de que baje la garra no vale; lejos, sin puntos o sin espacio no empieza", async () => {
+  it("soltar antes de que baje la garra o lejos de la máquina no vale, pero el intento sigue abierto", async () => {
     const t = setup({ roll: 0 });
     await t.claw.start("u", true);
     t.tick(200);
-    expect(await t.claw.drop("u", { token: "t1", x: center })).toEqual({ kind: "error", error: "expired" });
+    expect(await t.claw.drop("u", { token: "t1", x: center }, true)).toEqual({ kind: "error", error: "busy" });
+    t.tick(GARRA.minMs);
+    expect(await t.claw.drop("u", { token: "t1", x: center }, false)).toEqual({ kind: "error", error: "far" });
     expect(t.bag).toEqual([]);
+    // De vuelta junto a la máquina, se juega el mismo intento (no se cobra otra vez).
+    expect(await t.claw.drop("u", { token: "t1", x: center }, true)).toMatchObject({ kind: "result", won: true });
+    expect(await t.repo.getPoints("u")).toBe(50 - GARRA.price);
+  });
+
+  it("si la mochila se llenó mientras se apuntaba, se devuelve la moneda (el intento pagado no se pierde)", async () => {
+    const t = setup({ roll: 0 });
+    await t.claw.start("u", true);
+    t.room.full = true;
+    t.tick(GARRA.minMs + 100);
+    expect(await t.claw.drop("u", { token: "t1", x: center }, true)).toEqual({ kind: "error", error: "refunded" });
+    expect(t.bag).toEqual([]);
+    expect(await t.repo.getPoints("u")).toBe(50);
+    expect(t.claw.attemptOf("u")).toBeUndefined();
+  });
+
+  it("lejos, sin puntos o sin espacio no empieza", async () => {
     expect(await setup().claw.start("u", false)).toEqual({ kind: "error", error: "far" });
     expect(await setup({ balance: 3 }).claw.start("u", true)).toEqual({ kind: "error", error: "funds" });
     const full = setup({ full: true });
@@ -324,6 +355,7 @@ describe("la rueda de la fortuna", () => {
     const stats = new Map<string, number>();
     const given: string[] = [];
     const awarded: number[] = [];
+    const order: string[] = [];
     let now = Date.UTC(2026, 8, 27, 17);
     const wheel = new FortuneWheel({
       now: () => now,
@@ -333,11 +365,12 @@ describe("la rueda de la fortuna", () => {
         stat: (_u, k) => stats.get(k),
         max: (_u, k, v) => stats.set(k, Math.max(stats.get(k) ?? -Infinity, v)),
         bump: (_u, k) => stats.set(k, (stats.get(k) ?? 0) + 1),
+        flush: async () => void order.push(`flush:${stats.get(FORTUNE.statKey)}`),
       },
-      award: async (_u, n) => (awarded.push(n), n),
+      award: async (_u, n) => (awarded.push(n), order.push("award"), n),
       give: async (_u, id) => (given.push(id), "ok"),
     });
-    return { wheel, stats, given, awarded, nextDay: () => (now += 86_400_000), today: () => bogotaDay(now) };
+    return { wheel, stats, given, awarded, order, nextDay: () => (now += 86_400_000), today: () => bogotaDay(now) };
   }
 
   it("una vuelta gratis al día (día de Bogotá, guardado en UserStat)", async () => {
@@ -347,6 +380,8 @@ describe("la rueda de la fortuna", () => {
     expect(r).toMatchObject({ kind: "spin", sector: 0, points: FORTUNE_SECTORS[0]!.points });
     expect(t.stats.get(FORTUNE.statKey)).toBe(t.today());
     expect(t.stats.get(STAT_KEYS.fortuneSpins)).toBe(1);
+    // El día se guarda en la base antes de pagar (si el servidor se cae, no se gira dos veces).
+    expect(t.order).toEqual([`flush:${t.today()}`, "award"]);
     expect(await t.wheel.spin("u", true)).toEqual({ kind: "error", error: "spun" });
     expect(t.wheel.status("u")).toEqual({ kind: "status", spun: true });
     t.nextDay();

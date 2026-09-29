@@ -21,6 +21,8 @@ export interface FortuneDeps {
     stat(userId: string, key: string): number | undefined;
     max(userId: string, key: string, value: number): void;
     bump(userId: string, key: string): void;
+    /** Guarda ya lo pendiente de esa persona (el día de la vuelta no puede esperar al próximo guardado). */
+    flush(userId: string): Promise<void>;
   };
   /** Puntos de ocio (LEISURE, con su tope diario): lo que de verdad se sumó. */
   award: (userId: string, amount: number) => Promise<number>;
@@ -49,6 +51,8 @@ export class FortuneWheel {
     if (spunToday(this.d.stats.stat(userId, FORTUNE.statKey), today)) return { kind: "error", error: "spun" };
     this.d.stats.max(userId, FORTUNE.statKey, today);
     this.d.stats.bump(userId, STAT_KEYS.fortuneSpins);
+    // Se guarda antes de pagar: si el servidor se cae después, al volver ya sabe que hoy giró.
+    await this.d.stats.flush(userId);
     const sector = fortuneSectorAt(this.d.random(fortuneTotalWeight()));
     const s = FORTUNE_SECTORS[sector]!;
     let points = 0;

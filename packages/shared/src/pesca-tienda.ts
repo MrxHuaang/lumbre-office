@@ -51,12 +51,9 @@ export const BAIT_TUNING: Record<BaitId, { biteMul: number; luck: number }> = {
 export interface FishingGear {
   rod: FishingRod;
   bait: BaitId | null;
-  /** Mundo lleno: pesca sentado en el bote del muelle (se puede sentado y con más suerte, `BOAT_LUCK`). */
+  /** Mundo lleno: pesca sentado en el bote del muelle (se puede sentado y con más suerte, `BOAT_LUCK` de pesca-maestria.ts). */
   boat?: boolean;
 }
-
-/** Desde el bote los raros pesan más (multiplica la suerte de la carnada, ver `fishPool`). */
-export const BOAT_LUCK = 1.5;
 
 /**
  * Con qué se pesca: siempre la mejor caña que se tenga (así nadie pesca con la peor por descuido). La
