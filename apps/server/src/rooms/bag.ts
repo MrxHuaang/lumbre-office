@@ -123,6 +123,11 @@ export class Bag {
     return this.bag(userId).queue;
   }
 
+  /** Espera lo pendiente de todos (al cerrar la sala). */
+  async flushAll(): Promise<void> {
+    await Promise.all([...this.byUser.values()].map((b) => b.queue));
+  }
+
   view(userId: string): BagView {
     const b = this.bag(userId);
     return { slots: b.grid.map((s) => s && { ...s }), overflow: b.overflow.map((s) => ({ ...s })), selected: b.selected };

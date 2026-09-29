@@ -1,50 +1,78 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { getSfxSettings, setSfxSettings, sfx, subscribeSfx, type SfxSettings } from "@/game/sfx";
+import { getMixer, MIXER_DEFAULTS, setMixer, SOUND_CATEGORIES, subscribeMixer, type MixerSettings, type SoundCategory } from "@/game/mixer";
+import { sfx } from "@/game/sfx";
 import { PixelIcon } from "./Cozy";
 
-/** En el servidor no hay navegador: se dibuja con lo de siempre y se corrige al hidratar. */
-const SERVER_SETTINGS: SfxSettings = { volume: 0.7, muted: false };
+/** El mezclador para React (en el servidor, lo de fábrica; se corrige al hidratar). */
+export function useMixer(): MixerSettings {
+  return useSyncExternalStore(subscribeMixer, getMixer, () => MIXER_DEFAULTS);
+}
 
 /**
- * Los efectos de sonido (van en el menú, sección Ajustes): el botón silencia y el deslizador elige el
- * volumen. Se recuerda en este navegador.
+ * El volumen general (va en el menú, sección Ajustes): el botón silencia todo y el deslizador elige el
+ * volumen. Los de cada tipo de sonido están en Ajustes (`MixerSliders`). Se recuerda en este navegador.
  */
 export function SoundSettings() {
-  const settings = useSyncExternalStore(subscribeSfx, getSfxSettings, () => SERVER_SETTINGS);
-  const silent = settings.muted || settings.volume <= 0;
-  const percent = Math.round(settings.volume * 100);
-
+  const m = useMixer();
+  const silent = m.muted || m.master <= 0;
   return (
     <div className="flex items-center gap-2 text-[13px]">
       <button
         type="button"
-        onClick={() => setSfxSettings({ muted: !settings.muted })}
-        aria-pressed={settings.muted}
-        aria-label={settings.muted ? "Activar los efectos de sonido" : "Silenciar los efectos de sonido"}
-        title={settings.muted ? "Activar sonidos" : "Silenciar"}
+        onClick={() => setMixer({ muted: !m.muted })}
+        aria-pressed={m.muted}
+        aria-label={m.muted ? "Activar el sonido" : "Silenciar todo el sonido"}
+        title={m.muted ? "Activar sonidos" : "Silenciar"}
         className="cozy-btn h-7 w-7 shrink-0 p-0"
       >
         <PixelIcon name="sound" size={14} off={silent} />
       </button>
-      <label className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="sr-only">Volumen de los efectos</span>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={percent}
-          disabled={settings.muted}
-          onChange={(e) => setSfxSettings({ volume: Number(e.target.value) / 100 })}
-          // Al soltar se oye cómo quedó.
-          onPointerUp={() => sfx.notice("info")}
-          onKeyUp={() => sfx.notice("info")}
-          className="min-w-0 flex-1 accent-[var(--color-cozy-wood)] disabled:opacity-50"
-        />
-        <span className="w-9 text-right text-cozy-ink-soft tabular-nums">{settings.muted ? "—" : `${percent}%`}</span>
-      </label>
+      <VolumeSlider label="Volumen general" value={m.master} disabled={m.muted} onChange={(v) => setMixer({ master: v })} />
     </div>
+  );
+}
+
+/** Un volumen por tipo de sonido (música, ambiente, efectos, avisos), debajo del general. */
+export function MixerSliders() {
+  const m = useMixer();
+  return (
+    <div className="flex flex-col gap-2">
+      <SoundSettings />
+      {SOUND_CATEGORIES.map((c) => (
+        <div key={c.id} className="flex flex-col gap-0.5 pl-9 text-[13px]">
+          <span className="flex items-baseline justify-between gap-2">
+            <span>{c.label}</span>
+            <span className="truncate text-[11px] text-cozy-ink-soft">{c.hint}</span>
+          </span>
+          <VolumeSlider label={`Volumen de ${c.label.toLowerCase()}`} value={m[c.id]} disabled={m.muted} onChange={(v) => setMixer({ [c.id]: v } as Partial<Record<SoundCategory, number>>)} probe={c.id} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function VolumeSlider({ label, value, disabled, onChange, probe }: { label: string; value: number; disabled: boolean; onChange: (v: number) => void; probe?: SoundCategory }) {
+  const percent = Math.round(value * 100);
+  // Al soltar se oye cómo quedó (los avisos con un aviso; lo demás, con un clic de la interfaz).
+  const hear = () => (probe === "notify" || !probe ? sfx.notice("info") : sfx.click());
+  return (
+    <label className="flex min-w-0 flex-1 items-center gap-2">
+      <span className="sr-only">{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={percent}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value) / 100)}
+        onPointerUp={hear}
+        onKeyUp={hear}
+        className="min-w-0 flex-1 accent-[var(--color-cozy-wood)] disabled:opacity-50"
+      />
+      <span className="w-9 text-right text-cozy-ink-soft tabular-nums">{disabled ? "—" : `${percent}%`}</span>
+    </label>
   );
 }

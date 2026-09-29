@@ -16,7 +16,7 @@ export const COM_MSG = {
   waved: "com:waved",
   /** Servidor → cliente: cómo le fue a mi saludo (`WaveResult`). */
   waveResult: "com:wave-result",
-  /** Cliente → servidor (admins): aviso de texto a toda la cabaña (`AnnounceMessage`). */
+  /** Cliente → servidor (permiso `anunciar`): aviso de texto a toda la cabaña (`AnnounceMessage`). */
   announce: "com:announce",
   /** Servidor → todos: el aviso grande en pantalla (`Announcement`). */
   announcement: "com:announcement",
@@ -25,7 +25,7 @@ export const COM_MSG = {
   broadcastStop: "com:broadcast-stop",
   /** Servidor → todos: empezó o terminó el anuncio por voz (`BroadcastEvent`). */
   broadcastEvent: "com:broadcast",
-  /** Servidor → admin: por qué no salió el anuncio (`AnnounceResult`). */
+  /** Servidor → quien anuncia: por qué no salió el anuncio (`AnnounceResult`). */
   announceResult: "com:announce-result",
 } as const;
 
@@ -40,8 +40,10 @@ export const COMUNICACION = {
   waveShowMs: 20_000,
   /** Largo máximo del aviso de texto. */
   announceMaxChars: 280,
-  /** Pausa entre avisos de texto del mismo admin, y entre un anuncio por voz y el siguiente. */
+  /** Pausa entre avisos de texto de la misma persona, y entre un anuncio por voz y el siguiente. */
   announceCooldownMs: 10_000,
+  /** Pausa global: entre un anuncio de cualquiera y el siguiente (texto, o que empiece una voz). */
+  announceGapMs: 20_000,
   /** Cuánto se ve el aviso grande (se puede cerrar antes). */
   announceShowMs: 15_000,
   /** Tope del anuncio por voz: pasado este tiempo se corta solo. */
@@ -109,7 +111,7 @@ export type BroadcastEvent =
 /** Terminó a mano, se venció el tope o quien anunciaba se fue. */
 export type BroadcastEndReason = "stop" | "timeout" | "left";
 
-export type AnnounceError = "admin" | "too-soon" | "empty" | "busy";
+export type AnnounceError = "admin" | "too-soon" | "recent" | "empty" | "busy";
 export interface AnnounceResult {
   error: AnnounceError;
   /** En "busy": quién está anunciando. */
@@ -117,8 +119,9 @@ export interface AnnounceResult {
 }
 
 export const ANNOUNCE_ERROR_TEXT: Record<AnnounceError, (name: string) => string> = {
-  admin: () => "Solo un admin puede hablarle a toda la cabaña.",
+  admin: () => "Necesitas el permiso para anunciar (se lo pides a un admin).",
   "too-soon": () => "Espera unos segundos antes de mandar otro anuncio.",
+  recent: () => "Hace un momento hubo otro anuncio: espera unos segundos.",
   empty: () => "Escribe algo para el aviso.",
   busy: (n) => `${n || "Otra persona"} ya le está hablando a toda la cabaña.`,
 };

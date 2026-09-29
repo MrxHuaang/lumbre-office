@@ -1141,3 +1141,45 @@ body {
     animation: none;
   }
 }
+
+/* ---------- "Menos movimiento" elegido en Ajustes (lib/prefs.ts) ----------
+   Lo mismo que hacen las media queries del sistema, pero con `<html data-motion="reduce">`: una media
+   query no se puede prender desde la app. */
+:root[data-motion="reduce"] :is(.entry-layer, .entry-stars, .entry-smoke, .entry-particle, .loader-scroll, .loader-bob, .cozy-cloud, .achievement-toast-badge, .bag-row-up, .bag-row-down, .sprite-walk, .palette-in),
+:root[data-motion="reduce"] .cozy-dots::after,
+:root[data-motion="reduce"] .achievement-toast-shiny::after {
+  animation: none;
+}
+:root[data-motion="reduce"] :is(.entry-particles, .entry-smoke),
+:root[data-motion="reduce"] .achievement-toast-shiny::after {
+  display: none;
+}
+:root[data-motion="reduce"] .achievement-toast {
+  animation-timing-function: steps(1);
+}
+:root[data-motion="reduce"] :is(.entry-cabin, .entry-door, .entry-fill, .entry-tip, .entry-scene .entry-walker) {
+  transition: none;
+}
+
+/* ---------- Paleta de comandos, joystick y botones táctiles ---------- */
+@keyframes palette-in {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+}
+.palette-in {
+  animation: palette-in 120ms steps(3) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .palette-in {
+    animation: none;
+  }
+}
+/* El joystick y los botones de E y F no dejan que el navegador haga scroll ni zoom al tocarlos. */
+.touch-pad {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
