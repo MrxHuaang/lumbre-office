@@ -4,13 +4,12 @@ import { canStandAt, getWorld, isGameSeat, nearestFreeSpot, seatAtTile, travelDe
 const areas = () => [...getWorld().areas.values()];
 
 describe("destinos del viaje rápido", () => {
-  it("cada nivel (menos el bus y el barrio) y sus salas, con ids únicos", () => {
+  it("cada nivel (menos el bus) y sus salas, con ids únicos", () => {
     const list = travelDestinations(areas());
     const ids = list.map((d) => d.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const map of areas()) {
-      // Al barrio todavía se llega solo en bus (VIR-142).
-      if (map.id === "megabus" || map.id === "barrio") expect(ids).not.toContain(`nivel:${map.id}`);
+      if (map.id === "megabus") expect(ids).not.toContain(`nivel:${map.id}`);
       else expect(ids).toContain(`nivel:${map.id}`);
     }
     expect(ids).toContain("zona:cafeteria");

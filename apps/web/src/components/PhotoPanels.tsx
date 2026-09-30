@@ -4,7 +4,7 @@
 // hace flash y aparece la polaroid para escribirle un pie y pincharla en el tablón de la cafetería. El
 // tablón (E al lado) abre la galería con las fotos grandes.
 import { getWorld } from "@hyvento/map";
-import { CASA_PROPIA, isCasaArea, PHOTO, peopleText, photoDateText, type PhotoDTO } from "@hyvento/shared";
+import { PHOTO, peopleText, photoDateText, type PhotoDTO } from "@hyvento/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { composePolaroid, encodePolaroid } from "@/game/photos/capture";
 import { photoErrorText, photoImageUrl, usePhotoStore, type PendingPhoto } from "@/game/photos/store";
@@ -13,8 +13,7 @@ import { useOfficeStore } from "@/game/store";
 import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { PanelShell } from "./PointsPanels";
 
-// Las casas de cada persona no están en el mundo (y la foto no dice de quién era la casa).
-const areaName = (id: string) => getWorld().areas.get(id)?.def.name ?? (isCasaArea(id) ? CASA_PROPIA.label : id);
+const areaName = (id: string) => getWorld().areas.get(id)?.def.name ?? id;
 
 /** ¿Se puede sacar una foto ahora? (no mientras cuenta, hay una sin subir, se escribe o está el PC). */
 function canShoot() {
