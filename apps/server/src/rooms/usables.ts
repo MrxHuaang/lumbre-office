@@ -3,6 +3,7 @@
 import { INTERACT_REACH_TILES, usablesOf, zoneAt, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import {
   CASA,
+  carTaken,
   FurnitureUseMessage,
   counterMax,
   furnitureKey,
@@ -11,6 +12,8 @@ import {
   stepsTo,
   USE_STEPS,
   usableSpec,
+  TALLER,
+  type CarSeat,
   type FurnitureEvent,
 } from "@hyvento/shared";
 
@@ -52,8 +55,8 @@ export type FurnitureUseResult =
       /** Casa viva: el cubículo del baño al que se entra. */
       stall?: string;
     }
-  /** `full`: lo gratis no le cabe en la mochila; `stall`: el baño está ocupado. */
-  | { ok: false; error: "invalid" | "far" | "busy" | "full" | "stall" };
+  /** `full`: lo gratis no le cabe en la mochila; `stall`: el baño está ocupado; `taken`: otra persona va al volante del carro. */
+  | { ok: false; error: "invalid" | "far" | "busy" | "full" | "stall" | "taken" };
 
 /** El mueble usable de ese tipo con esquina en (x, y), si existe en el nivel. */
 export function usableAt(map: OfficeMap, type: string, x: number, y: number): PlacedFurniture | undefined {
@@ -102,6 +105,8 @@ export class FurnitureUses {
   private nextAt = new Map<string, number>();
   /** Casa viva: cuándo puede volver a sacar algo gratis cada persona (nevera, cafetera, malvavisco). */
   private freebieAt = new Map<string, number>();
+  /** El taller: quién va al volante de cada carro (clave del mueble) y hasta cuándo. */
+  private carSeats = new Map<string, CarSeat>();
   private readonly counters: Counters;
 
   constructor(
@@ -130,8 +135,11 @@ export class FurnitureUses {
       const inside = this.casa.occupant?.(key);
       if (inside && inside !== who.userId) return { ok: false, error: "stall" };
     }
+    // El taller: al carro se sube una persona a la vez.
+    if (spec.action === "drive" && carTaken(this.carSeats.get(key), who.userId, now)) return { ok: false, error: "taken" };
     this.forgetExpired(now);
     this.nextAt.set(who.userId, now + spec.cooldownMs);
+    if (spec.action === "drive") this.carSeats.set(key, { userId: who.userId, until: now + TALLER.driveMs });
     if (spec.action === "toggle") {
       const on = !isSwitchedOn(this.switches, map.id, type, x, y);
       this.switches.set(key, on);
@@ -168,6 +176,7 @@ export class FurnitureUses {
       if (m.size < 64) continue;
       for (const [userId, at] of m) if (at <= now) m.delete(userId);
     }
+    for (const [key, seat] of this.carSeats) if (seat.until <= now) this.carSeats.delete(key);
   }
 
   /** Cuántas pausas se recuerdan (para los tests). */
