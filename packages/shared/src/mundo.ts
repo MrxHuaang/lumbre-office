@@ -49,6 +49,22 @@ export const WATER_CUP = "vaso-agua";
 /** La hoja que saca la impresora. */
 export const PRINTED_SHEET = "hoja";
 
+/** Id de una nota: cuid de Prisma (letras minúsculas y números), como los de los cuadros. */
+const NOTE_ID = /^[a-z0-9]{8,32}$/;
+
+/**
+ * La hoja de una nota en la mochila: `hoja:<noteId>` (el id del objeto, sin `obj:`). Lo arma solo el servidor
+ * al imprimir. El título no va en el id: se lee en vivo de la nota, y solo si la hoja es de quien la escribió.
+ */
+export const printedSheetOf = (noteId: string) => `${PRINTED_SHEET}:${noteId}`;
+
+/** El id de la nota de una hoja `hoja:<noteId>` (null si es la hoja genérica de antes o no es una hoja). */
+export function sheetNoteIdOf(id: string): string | null {
+  if (!id.startsWith(`${PRINTED_SHEET}:`)) return null;
+  const noteId = id.slice(PRINTED_SHEET.length + 1);
+  return NOTE_ID.test(noteId) ? noteId : null;
+}
+
 const panel = (label: string): UsableSpec => ({ action: "panel", label, cooldownMs: 800 });
 
 /** Qué panel abre cada mueble con `panel`. */

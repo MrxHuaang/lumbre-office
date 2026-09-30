@@ -11,6 +11,8 @@ interface BagState {
   overflow: ItemStack[];
   /** La casilla elegida (lo de la mano). La fila que muestra la barra es la suya. */
   selected: number;
+  /** Títulos de las hojas impresas de mis notas (itemId → título); ver `bagItemName`. */
+  titles: Readonly<Record<string, string>>;
   /** Ya llegó la mochila del servidor. */
   loaded: boolean;
   /** Sube con cada cambio de fila (la barra anima la fila nueva) y hacia dónde fue. */
@@ -33,6 +35,7 @@ export const useBagStore = create<BagState>()((set, get) => ({
   slots: empty(),
   overflow: [],
   selected: 0,
+  titles: {},
   loaded: false,
   rowTurn: 0,
   rowStep: 1,
@@ -42,7 +45,7 @@ export const useBagStore = create<BagState>()((set, get) => ({
     // servidor la haya elegido (al entrar, o porque llegó algo con las manos libres).
     const selected = view.pick || !s.loaded ? view.selected : s.selected;
     const step = s.loaded ? rowStep(s.selected, selected) : null;
-    set({ slots: view.slots, overflow: view.overflow, selected, loaded: true, ...(step ? { rowTurn: s.rowTurn + 1, rowStep: step } : {}) });
+    set({ slots: view.slots, overflow: view.overflow, selected, titles: view.titles ?? {}, loaded: true, ...(step ? { rowTurn: s.rowTurn + 1, rowStep: step } : {}) });
   },
 }));
 

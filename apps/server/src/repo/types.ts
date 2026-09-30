@@ -255,8 +255,13 @@ export interface GameRepository extends ShowcaseRepository {}
 
 /** Mundo lleno: la impresora de las oficinas imprime la nota más reciente de quien la usa. */
 export interface MundoRepository {
-  /** Título de la nota más reciente (sin las de la papelera) de esa persona, o null si no tiene. */
-  latestNoteTitle(userId: string): Promise<string | null>;
+  /** La nota más reciente (sin las de la papelera) de esa persona, o null si no tiene. */
+  latestNote(userId: string): Promise<{ id: string; title: string } | null>;
+  /**
+   * Títulos de las notas de `userId` entre `noteIds` (id → título), en una sola consulta. Solo las suyas
+   * (las de la papelera también): una hoja de otra persona no está y se ve genérica.
+   */
+  noteTitles(userId: string, noteIds: readonly string[]): Promise<Record<string, string>>;
 }
 
 export interface GameRepository extends MundoRepository {}

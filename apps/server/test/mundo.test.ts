@@ -95,6 +95,7 @@ describe("mundo lleno: la impresora, la ducha y la casita (MundoVivo)", () => {
     const sent: { type: string; msg: unknown; to: string }[] = [];
     const timers: (() => void)[] = [];
     const added: string[] = [];
+    const titles: (string | undefined)[] = [];
     let dried = 0;
     let now = 1_000;
     const pos = { x: c(4), y: c(1) };
@@ -105,8 +106,8 @@ describe("mundo lleno: la impresora, la ducha y la casita (MundoVivo)", () => {
       toArea: (_a, type, msg) => sent.push({ type, msg, to: "area" }),
       toSession: (_s, type, msg) => sent.push({ type, msg, to: "me" }),
       later: (_ms, fn) => (timers.push(fn), { clear() {} }),
-      noteTitle: async () => opts.notes?.at(-1) ?? null,
-      bag: { fits: () => (opts.full ? "full" : "ok"), add: async (_u, itemId) => (added.push(itemId), "ok") },
+      latestNote: async () => (opts.notes?.length ? { id: `nota${String(opts.notes.length).padStart(6, "0")}`, title: opts.notes.at(-1)! } : null),
+      bag: { fits: () => (opts.full ? "full" : "ok"), add: async (_u, itemId, _n, o) => (added.push(itemId), titles.push(o?.title), "ok") },
       dry: () => (dried++, true),
       restPet: () => (opts.pet === "ok" ? { ok: true, name: "Canela", gained: true } : { ok: false, error: opts.pet === "far" ? "far" : "noPet" }),
       bump: () => {},
@@ -114,14 +115,16 @@ describe("mundo lleno: la impresora, la ducha y la casita (MundoVivo)", () => {
     const notices = () => sent.filter((s) => s.type === MUNDO_MSG.notice).map((s) => s.msg as MundoNotice);
     const events = () => sent.filter((s) => s.type === MSG.furnitureEvent).map((s) => s.msg as FurnitureEvent);
     const move = (x: number, y: number) => Object.assign(pos, { x, y });
-    return { mundo, sent, timers, added, notices, events, move, dried: () => dried, tick: (ms: number) => (now += ms) };
+    return { mundo, sent, timers, added, titles, notices, events, move, dried: () => dried, tick: (ms: number) => (now += ms) };
   }
   const ev = (type: string, x: number, action: FurnitureEvent["action"]) => ({ type, x, y: 0, action, seed: 7 });
 
   it("la impresora saca tu nota más reciente como una hoja, y hay que esperar para imprimir otra", async () => {
     const t = setup({ notes: ["Vieja", "Plan del viernes"] });
     await t.mundo.use("s", ev("printer", 2, "print"));
-    expect(t.added).toEqual(["obj:hoja"]);
+    // La hoja lleva el id de la nota que leyó el servidor (y su título, para la mochila).
+    expect(t.added).toEqual(["obj:hoja:nota000002"]);
+    expect(t.titles).toEqual(["Plan del viernes"]);
     expect(t.notices()).toEqual([{ code: "printed", text: "Plan del viernes" }]);
     expect(t.events()).toHaveLength(1);
     await t.mundo.use("s", ev("printer", 2, "print"));

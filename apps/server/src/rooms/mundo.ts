@@ -11,7 +11,7 @@ import {
   MUNDO,
   MUNDO_MSG,
   objItemId,
-  PRINTED_SHEET,
+  printedSheetOf,
   SLOTS_MSG,
   STAT_KEYS,
   type CasinoSettingsDTO,
@@ -45,11 +45,11 @@ export interface MundoDeps {
   toArea(area: string, type: string, message: unknown): void;
   toSession(sessionId: string, type: string, message: unknown): void;
   later(ms: number, fn: () => void): { clear(): void };
-  /** El título de la nota más reciente de esa persona (null si no tiene). */
-  noteTitle(userId: string): Promise<string | null>;
+  /** La nota más reciente de esa persona (null si no tiene). */
+  latestNote(userId: string): Promise<{ id: string; title: string } | null>;
   bag: {
     fits(userId: string, items: readonly (readonly [string, number])[]): "ok" | "full" | "stack";
-    add(userId: string, itemId: string, quantity: number, opts?: { pick?: boolean }): Promise<"ok" | "full" | "stack">;
+    add(userId: string, itemId: string, quantity: number, opts?: { pick?: boolean; title?: string }): Promise<"ok" | "full" | "stack">;
   };
   /** Deja de estar mojado (devuelve si lo estaba). */
   dry(userId: string): boolean;
@@ -94,24 +94,29 @@ export class MundoVivo {
   private async print(sessionId: string, p: MundoPlayer, e: Omit<FurnitureEvent, "sessionId">) {
     const now = this.deps.now();
     if (now < (this.printAt.get(p.userId) ?? 0)) return this.notice(sessionId, { code: "printBusy" });
-    const sheet = objItemId(PRINTED_SHEET);
-    if (this.deps.bag.fits(p.userId, [[sheet, 1]]) !== "ok") return this.notice(sessionId, { code: "full" });
     this.printAt.set(p.userId, now + MUNDO.printCooldownMs);
-    const title = await this.deps.noteTitle(p.userId).catch((err) => {
-      console.error("latestNoteTitle", err);
+    const note = await this.deps.latestNote(p.userId).catch((err) => {
+      console.error("latestNote", err);
       return undefined;
     });
-    if (title === undefined) {
+    if (note === undefined) {
       this.printAt.delete(p.userId);
       return;
     }
-    if (title === null) {
+    if (note === null) {
       this.printAt.delete(p.userId);
       return this.notice(sessionId, { code: "noNote" });
     }
+    // El id de la nota lo pone solo el servidor, con la nota que acaba de leer de esa persona.
+    const sheet = objItemId(printedSheetOf(note.id));
+    const title = note.title;
+    if (this.deps.bag.fits(p.userId, [[sheet, 1]]) !== "ok") {
+      this.printAt.delete(p.userId);
+      return this.notice(sessionId, { code: "full" });
+    }
     // El papel sale para todos (el sonido de la impresora); la hoja, a la mochila de quien imprimió.
     this.broadcast(p.area, sessionId, e);
-    const added = await this.deps.bag.add(p.userId, sheet, 1);
+    const added = await this.deps.bag.add(p.userId, sheet, 1, { title });
     if (added !== "ok") return this.notice(sessionId, { code: "full" });
     this.deps.bump(p.userId, STAT_KEYS.notesPrinted);
     this.notice(sessionId, { code: "printed", text: title.slice(0, 60) });
@@ -207,7 +212,7 @@ export function registerMundo(room: MundoRoom): MundoHandle {
     toArea: (area, type, message) => room.sendToArea(area, type, message),
     toSession: (sessionId, type, message) => room.clients.getById(sessionId)?.send(type, message),
     later: (ms, fn) => room.clock.setTimeout(fn, ms),
-    noteTitle: (userId) => room.repo.latestNoteTitle(userId),
+    latestNote: (userId) => room.repo.latestNote(userId),
     bag,
     dry: (userId) => room.piscina?.dry(userId) ?? false,
     restPet: (userId, house, now) => room.pets.restAt(userId, house, now, { love: MUNDO.doghouseLove, reachTiles: MUNDO.doghouseReachTiles }),

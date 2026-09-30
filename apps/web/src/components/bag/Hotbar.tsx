@@ -5,7 +5,7 @@
 // la barra pasa a la de al lado. La casilla elegida es lo que se lleva en la mano (lo valida el servidor);
 // un clic en la elegida la usa (en el celular no hay F). I abre el menú del jugador.
 import { isPlaceable } from "@hyvento/map";
-import { BAG, BAG_KEYS, bagItemInfo, bagRow, consumeActionOf, EMPTY_CAN, parseHeldLeft, type ItemStack } from "@hyvento/shared";
+import { BAG, BAG_KEYS, bagItemInfo, bagItemName, bagRow, consumeActionOf, EMPTY_CAN, parseHeldLeft, type ItemStack } from "@hyvento/shared";
 import { useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { selectColumn, selectSlot, stepColumn, turnRow, useBagStore } from "@/game/bag";
@@ -126,10 +126,11 @@ function HotbarSlot({
   hand: { held: string; left: number } | null;
 }) {
   const info = stack ? bagItemInfo(stack.itemId) : null;
+  const name = useBagStore((s) => (stack ? bagItemName(stack.itemId, s.titles) : ""));
   // La elegida se dibuja como está en la mano (el vaso a medio tomar, la regadera vacía).
   const inHand = selected && hand?.held ? hand : null;
   const title = info
-    ? `${info.name}${stack!.quantity > 1 ? ` ×${stack!.quantity}` : ""}${selected && info.use === "consume" ? " · clic o F para usar" : ""}`
+    ? `${name}${stack!.quantity > 1 ? ` ×${stack!.quantity}` : ""}${selected && info.use === "consume" ? " · clic o F para usar" : ""}`
     : "Casilla vacía";
   return (
     <button
@@ -162,6 +163,7 @@ export function HandActions() {
     return Boolean(mine && s.zone?.id === mine.zoneId);
   });
   const info = stack ? bagItemInfo(stack.itemId) : null;
+  const name = useBagStore((s) => (stack ? bagItemName(stack.itemId, s.titles) : ""));
   let action: React.ReactNode = null;
   if (info?.furniture) {
     const placeable = isPlaceable(info.art);
@@ -182,7 +184,7 @@ export function HandActions() {
     );
   } else if (info && hand.held) {
     const tool = info.use === "tool";
-    const verb = info.use === "consume" ? VERB[consumeActionOf(hand.held)] : tool ? "Huerto" : info.name;
+    const verb = info.use === "consume" ? VERB[consumeActionOf(hand.held)] : tool ? "Huerto" : name;
     const uses = hand.held === EMPTY_CAN ? 0 : hand.left;
     action = (
       <button
@@ -191,10 +193,10 @@ export function HandActions() {
         disabled={Boolean(panel) || info.use !== "consume"}
         title={
           info.use === "consume"
-            ? `${verb}: ${info.name} (F) · le quedan ${uses}`
+            ? `${verb}: ${name} (F) · le quedan ${uses}`
             : tool
-              ? `${info.name}: úsala con E en las parcelas, el barril o el pozo`
-              : `${info.name}: lo llevas en la mano`
+              ? `${name}: úsala con E en las parcelas, el barril o el pozo`
+              : `${name}: lo llevas en la mano`
         }
         className="cozy-btn h-9 gap-1.5 px-2 text-[13px] disabled:opacity-100 max-sm:h-8"
       >
