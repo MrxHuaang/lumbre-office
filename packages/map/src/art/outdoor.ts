@@ -6,7 +6,6 @@ import { drawTreeHouse } from "./casa-arbol-exterior";
 import { drawBusStation } from "./bus";
 import { drawPool } from "./agua";
 import { SAUNA_CHIMNEY_TOP, TINA_NIGHT, TUB_CHIMNEY_TOP } from "./tina";
-import { CASA_PROPIA_NIGHT } from "./casa-propia-exterior";
 import { stageShell } from "./escenario";
 import { drawObservatory } from "./observatorio-exterior";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
@@ -558,8 +557,6 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   pool: drawPool,
   // La tina y la sauna del lago (de noche, las estufas y la ventanita prendidas).
   ...TINA_NIGHT,
-  // Las fachadas del barrio (de noche, las ventanas y el farol prendidos).
-  ...CASA_PROPIA_NIGHT,
   "stage-shell": stageShell,
   observatory: drawObservatory,
 };

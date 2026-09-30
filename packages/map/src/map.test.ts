@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CASA_PROPIA, LOG_AREAS } from "@hyvento/shared";
-import { buildCasaPropia } from "./casa-propia";
+import { LOG_AREAS } from "@hyvento/shared";
 import { CONEXIONES } from "./world/areas/conexiones";
 import {
   allZones,
@@ -37,7 +36,6 @@ const STARTS: Record<string, { x: number; y: number }> = {
   megabus: CONEXIONES.megabus.puertas.llegada,
   podcast: CONEXIONES.podcast.puerta.llegada,
   observatorio: CONEXIONES.observatorio.entrada.llegada,
-  barrio: CONEXIONES.barrio.casa.llegada,
 };
 
 const world = getWorld();
@@ -60,15 +58,14 @@ const garaje = area("garaje");
 
 describe("mundo", () => {
   it("tiene el jardín, los pisos de la casa, el sótano y el garaje, y se aparece en el jardín", () => {
-    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje", "casa-arbol", "megabus", "observatorio", "podcast", "barrio"]);
+    expect([...world.areas.keys()]).toEqual(["jardin", "planta-baja", "piso-2", "piso-3", "sotano", "garaje", "casa-arbol", "megabus", "observatorio", "podcast"]);
     expect(world.spawnArea).toBe("jardin");
     const spawn = spawnPoint(jardin);
     expect(canStandAt(jardin, spawn.x, spawn.y)).toBe(true);
   });
 
   it("el diario de exploración tiene una página por cada nivel", () => {
-    // Las casas de cada persona cuentan como un solo lugar (no están en el mundo: se arman por persona).
-    expect(LOG_AREAS.map((a) => a.id).sort()).toEqual([...world.areas.keys(), CASA_PROPIA.statArea].sort());
+    expect(LOG_AREAS.map((a) => a.id).sort()).toEqual([...world.areas.keys()].sort());
   });
 
   it("las zonas tienen ids únicos en toda la cabaña", () => {
@@ -204,8 +201,7 @@ describe("portales", () => {
     for (const map of world.areas.values())
       for (const portal of map.portals) {
         for (const t of portal.tiles) expect(isBlockedTile(map, t.x, t.y), portal.id).toBe(false);
-        // La puerta del barrio lleva a la casa de quien entra: se prueba con una casa cualquiera.
-        const target = portal.to.area === CASA_PROPIA.own ? buildCasaPropia("casa:u-prueba")! : area(portal.to.area);
+        const target = area(portal.to.area);
         expect(isBlockedTile(target, portal.to.x, portal.to.y), portal.id).toBe(false);
         expect(portalAtTile(target, portal.to.x, portal.to.y), portal.id).toBeUndefined();
       }
@@ -413,8 +409,6 @@ describe("lugares y zonas", () => {
     expect(placeLabel("", names)).toBe("Pasillo");
     expect(placeLabel("office-1", names)).toBe("Oficina 1");
     expect(placeLabel("door:office-1", names)).toBe("Entrada · Oficina 1");
-    // La casa de otra persona (el que mira no tiene su zona): sin decir de quién es.
-    expect(placeLabel("casa:u-ana", names)).toBe("Casa del barrio");
   });
 
   it("nearestFreeTile encuentra un tile libre cerca de un obstáculo", () => {

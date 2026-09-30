@@ -12,15 +12,12 @@ import { casaArbol } from "./casa-arbol";
 import { megabus } from "./megabus";
 import { podcast } from "./podcast";
 import { observatorio } from "./observatorio";
-import { barrio } from "./barrio";
 
 export { CONEXIONES, type Conexion } from "./conexiones";
 export { OFFICE_COUNT } from "./piso-2";
 export { BLACKJACK_SEATS } from "./sotano";
 export { BOARD_TABLES } from "./piso-3";
-export { casaPropiaDef } from "./casa-propia";
 
-// Las casas de cada persona (`casa:<userId>`) no van aquí: se arman por persona (ver casa-propia.ts de map).
-export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2, piso3, sotano, garaje, casaArbol, megabus, observatorio, podcast, barrio];
+export const AREAS: AreaDef[] = [jardin, plantaBaja, piso2, piso3, sotano, garaje, casaArbol, megabus, observatorio, podcast];
 /** Donde aparece todo el mundo al entrar. */
 export const SPAWN_AREA = "jardin";

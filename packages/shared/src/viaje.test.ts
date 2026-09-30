@@ -22,18 +22,15 @@ describe("viaje rápido", () => {
   });
 
   it("los niveles con cupo o cierre", () => {
-    const none = { userId: "u-beto", treeHouse: null, studio: null };
+    const none = { treeHouse: null, studio: null };
     expect(viajeAreaBlock("jardin", none)).toBeNull();
     expect(viajeAreaBlock("megabus", none)).toBe("bus");
-    expect(viajeAreaBlock("casa-arbol", { userId: "u-beto", treeHouse: "full", studio: null })).toBe("treeFull");
-    expect(viajeAreaBlock("casa-arbol", { userId: "u-beto", treeHouse: "locked", studio: null })).toBe("treeLocked");
+    expect(viajeAreaBlock("casa-arbol", { treeHouse: "full", studio: null })).toBe("treeFull");
+    expect(viajeAreaBlock("casa-arbol", { treeHouse: "locked", studio: null })).toBe("treeLocked");
     // El bloqueo del estudio no cuenta para la casa del árbol, ni al revés.
-    expect(viajeAreaBlock("casa-arbol", { userId: "u-beto", treeHouse: null, studio: "onAir" })).toBeNull();
-    expect(viajeAreaBlock("podcast", { userId: "u-beto", treeHouse: null, studio: "onAir" })).toBe("onAir");
-    expect(viajeAreaBlock("podcast", { userId: "u-beto", treeHouse: null, studio: "full" })).toBe("studioFull");
-    // La casa de otra persona no; la propia sí.
-    expect(viajeAreaBlock("casa:u-ana", none)).toBe("casaAjena");
-    expect(viajeAreaBlock("casa:u-beto", none)).toBeNull();
+    expect(viajeAreaBlock("casa-arbol", { treeHouse: null, studio: "onAir" })).toBeNull();
+    expect(viajeAreaBlock("podcast", { treeHouse: null, studio: "onAir" })).toBe("onAir");
+    expect(viajeAreaBlock("podcast", { treeHouse: null, studio: "full" })).toBe("studioFull");
   });
 
   it("cada aviso tiene texto y la pausa dice cuánto falta", () => {

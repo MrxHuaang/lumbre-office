@@ -23,9 +23,7 @@ import {
   phoneInReach,
   isPhone,
   pointsOfType,
-  levelMap,
   portalAtTile,
-  portalDestination,
   SEAT_REACH_TILES,
   seatAtPoint,
   seatAtTile,
@@ -827,13 +825,8 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private showArea(areaId: string) {
-    // Una casa (`casa:<userId>`) no está en el mundo: se arma aquí la primera vez que se entra.
-    const map = levelMap(this.world.areas, areaId);
+    const map = this.world.areas.get(areaId);
     if (!map) return;
-    // Su zona tampoco estaba en los nombres del HUD ("Tu casa" en vez de "Pasillo").
-    const { zoneNames, setZoneNames } = useOfficeStore.getState();
-    const missing = map.zones.filter((z) => !(z.id in zoneNames));
-    if (missing.length) setZoneNames({ ...zoneNames, ...Object.fromEntries(missing.map((z) => [z.id, z.name])) });
     const changed = !this.view || map.id !== this.map.id;
     this.map = map;
     setSfxArea(map);
@@ -990,8 +983,7 @@ export class OfficeScene extends Phaser.Scene {
       if (this.table.kind === "blackjack" || this.table.kind === "boardgame") useOfficeStore.getState().closePanel();
     }
     const cam = this.cameras.main;
-    // Un nivel que no se puede armar (no debería llegar) se trata como un rechazo: nada de quedar en negro.
-    if (c.area && c.area !== this.map.id && levelMap(this.world.areas, c.area)) {
+    if (c.area && c.area !== this.map.id) {
       if (this.localId) this.areaOfSession.set(this.localId, c.area);
       this.enterArea(c.area);
       this.local?.setPosition(c.x, c.y);
@@ -2134,17 +2126,13 @@ export class OfficeScene extends Phaser.Scene {
     const ts = this.map.tileSize;
     const prev = new Map<string, { from: string; portal: string } | null>([[this.map.id, null]]);
     const queue = [this.map.id];
-    // La puerta del barrio lleva a mi casa (`casa:@` → `casa:<mi id>`).
-    const me = selectMyUserId(useOfficeStore.getState()) ?? "";
     while (queue.length) {
       const id = queue.shift()!;
-      for (const portal of levelMap(this.world.areas, id)?.portals ?? []) {
-        const to = portalDestination(portal, me);
-        if (!prev.has(to)) {
-          prev.set(to, { from: id, portal: portal.id });
-          queue.push(to);
+      for (const portal of this.world.areas.get(id)!.portals)
+        if (!prev.has(portal.to.area)) {
+          prev.set(portal.to.area, { from: id, portal: portal.id });
+          queue.push(portal.to.area);
         }
-      }
     }
     let hop = prev.get(areaId);
     while (hop && hop.from !== this.map.id) hop = prev.get(hop.from);

@@ -87,17 +87,6 @@ export const CONEXIONES = {
     /** La puerta de la pared sur de la torre (se sale al jardín, al pie de los escalones). */
     entrada: { tiles: par(7, 13), llegada: { x: 7, y: 12, facing: "up" } },
   },
-  barrio: {
-    /**
-     * La puerta de "tu casa", la tercera fachada de la calle (está en (19, 6) y mide 5x4): se pisa el tile de
-     * delante de la puerta y se llega un paso más abajo, en el senderito, mirando a la calle.
-     */
-    casa: { tiles: [{ x: 21, y: 10 }], llegada: { x: 21, y: 11, facing: "down" } },
-  },
-  casaPropia: {
-    /** La puerta de la pared sur del cuarto (se sale a la calle del barrio, frente a la fachada). */
-    puerta: { tiles: par(3, 6), llegada: { x: 3, y: 5, facing: "up" } },
-  },
 } satisfies Record<string, Record<string, Conexion>>;
 
 /** Destino de un portal: la llegada de `c` en el nivel `area`. */
