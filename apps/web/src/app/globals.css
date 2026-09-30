@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* `motion-safe:` y `motion-reduce:` siguen lo elegido en Ajustes (`<html data-motion>`, lib/prefs.ts) y, si
+   no se eligió, el sistema: igual que los bloques de menos movimiento de más abajo. */
+@custom-variant motion-safe {
+  &:where(:root[data-motion="full"] *) {
+    @slot;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    &:where(:root:not([data-motion="reduce"]) *) {
+      @slot;
+    }
+  }
+}
+@custom-variant motion-reduce {
+  &:where(:root[data-motion="reduce"] *) {
+    @slot;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:where(:root:not([data-motion="full"]) *) {
+      @slot;
+    }
+  }
+}
+
 @theme {
   --color-ink: #0f111a;
   --color-panel: #171a26;
@@ -618,25 +641,27 @@ body {
   transform: translateY(3px);
 }
 @media (prefers-reduced-motion: reduce) {
-  .entry-layer,
-  .entry-stars,
-  .entry-smoke,
-  .entry-particle {
-    animation: none;
-  }
-  .entry-particles,
-  .entry-smoke {
-    display: none;
-  }
-  .entry-cabin,
-  .entry-door,
-  .entry-fill,
-  .entry-tip,
-  .entry-scene .entry-walker {
-    transition: none;
-  }
-  .entry-loader {
-    transition: opacity 200ms linear;
+  :root:not([data-motion="full"]) {
+    .entry-layer,
+    .entry-stars,
+    .entry-smoke,
+    .entry-particle {
+      animation: none;
+    }
+    .entry-particles,
+    .entry-smoke {
+      display: none;
+    }
+    .entry-cabin,
+    .entry-door,
+    .entry-fill,
+    .entry-tip,
+    .entry-scene .entry-walker {
+      transition: none;
+    }
+    .entry-loader {
+      transition: opacity 200ms linear;
+    }
   }
 }
 @keyframes cozy-dots {
@@ -738,19 +763,21 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loader-scroll,
-  .loader-bob,
-  .cozy-cloud,
-  .cozy-dots::after,
-  .achievement-toast-badge,
-  .achievement-toast-shiny::after {
-    animation: none;
-  }
-  .achievement-toast-shiny::after {
-    display: none;
-  }
-  .achievement-toast {
-    animation-timing-function: steps(1);
+  :root:not([data-motion="full"]) {
+    .loader-scroll,
+    .loader-bob,
+    .cozy-cloud,
+    .cozy-dots::after,
+    .achievement-toast-badge,
+    .achievement-toast-shiny::after {
+      animation: none;
+    }
+    .achievement-toast-shiny::after {
+      display: none;
+    }
+    .achievement-toast {
+      animation-timing-function: steps(1);
+    }
   }
 }
 
@@ -1051,27 +1078,31 @@ body {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  /* La cinta sigue corriendo (es la marquesina de la portada), pero mucho más despacio; se pausa con el
-     mouse encima o con el foco adentro. */
-  .lumbre-cinta-pista {
-    animation-duration: 240s;
-  }
-  .lumbre-cinta:focus-within .lumbre-cinta-pista {
-    animation-play-state: paused;
+  :root:not([data-motion="full"]) {
+    /* La cinta sigue corriendo (es la marquesina de la portada), pero mucho más despacio; se pausa con el
+       mouse encima o con el foco adentro. */
+    .lumbre-cinta-pista {
+      animation-duration: 240s;
+    }
+    .lumbre-cinta:focus-within .lumbre-cinta-pista {
+      animation-play-state: paused;
+    }
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  /* También los personajes de las vistas previas: con menos movimiento quedan parados. */
-  .sprite-walk,
-  .lumbre-cuadro-a,
-  .lumbre-luz,
-  .lumbre-globo,
-  .lumbre-radio {
-    animation: none;
-  }
-  .lumbre-cuadro-b,
-  .lumbre-onda {
-    display: none;
+  :root:not([data-motion="full"]) {
+    /* También los personajes de las vistas previas: con menos movimiento quedan parados. */
+    .sprite-walk,
+    .lumbre-cuadro-a,
+    .lumbre-luz,
+    .lumbre-globo,
+    .lumbre-radio {
+      animation: none;
+    }
+    .lumbre-cuadro-b,
+    .lumbre-onda {
+      display: none;
+    }
   }
 }
 
@@ -1152,9 +1183,11 @@ body {
   animation: bag-row-down 160ms steps(4) both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .bag-row-up,
-  .bag-row-down {
-    animation: none;
+  :root:not([data-motion="full"]) {
+    .bag-row-up,
+    .bag-row-down {
+      animation: none;
+    }
   }
 }
 
@@ -1206,16 +1239,20 @@ body {
   scrollbar-color: var(--color-cozy-wood) transparent;
 }
 @media (prefers-reduced-motion: reduce) {
-  .phone-buzz,
-  .phone-bob,
-  .phone-fly {
-    animation: none;
+  :root:not([data-motion="full"]) {
+    .phone-buzz,
+    .phone-bob,
+    .phone-fly {
+      animation: none;
+    }
   }
 }
-/* ---------- "Menos movimiento" elegido en Ajustes (lib/prefs.ts) ----------
-   Lo mismo que hacen las media queries del sistema, pero con `<html data-motion="reduce">`: una media
-   query no se puede prender desde la app. */
-:root[data-motion="reduce"] :is(.entry-layer, .entry-stars, .entry-smoke, .entry-particle, .loader-scroll, .loader-bob, .cozy-cloud, .achievement-toast-badge, .bag-row-up, .bag-row-down, .sprite-walk, .palette-in),
+/* ---------- Movimiento elegido en Ajustes (lib/prefs.ts) ----------
+   Lo elegido a mano manda sobre el sistema en los dos sentidos: cada `@media (prefers-reduced-motion:
+   reduce)` va dentro de `:root:not([data-motion="full"])` ("Todo el movimiento" lo apaga) y aquí se repite
+   lo mismo con `<html data-motion="reduce">` ("Menos movimiento" lo prende aunque el sistema no lo pida:
+   una media query no se puede prender desde la app). Un bloque nuevo de menos movimiento va en los dos. */
+:root[data-motion="reduce"] :is(.entry-layer, .entry-stars, .entry-smoke, .entry-particle, .loader-scroll, .loader-bob, .cozy-cloud, .achievement-toast-badge, .bag-row-up, .bag-row-down, .sprite-walk, .palette-in, .phone-buzz, .phone-bob, .phone-fly),
 :root[data-motion="reduce"] .cozy-dots::after,
 :root[data-motion="reduce"] .achievement-toast-shiny::after {
   animation: none;
@@ -1230,6 +1267,9 @@ body {
 :root[data-motion="reduce"] :is(.entry-cabin, .entry-door, .entry-fill, .entry-tip, .entry-scene .entry-walker) {
   transition: none;
 }
+:root[data-motion="reduce"] .entry-loader {
+  transition: opacity 200ms linear;
+}
 
 /* ---------- Paleta de comandos, joystick y botones táctiles ---------- */
 @keyframes palette-in {
@@ -1242,8 +1282,10 @@ body {
   animation: palette-in 120ms steps(3) both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .palette-in {
-    animation: none;
+  :root:not([data-motion="full"]) {
+    .palette-in {
+      animation: none;
+    }
   }
 }
 /* El joystick y los botones de E y F no dejan que el navegador haga scroll ni zoom al tocarlos. */
