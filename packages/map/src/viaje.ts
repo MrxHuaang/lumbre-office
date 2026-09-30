@@ -2,7 +2,7 @@
 // llegada y cada sala o zona con su tile de entrada (la puerta, si tiene; si no, el medio). Y cómo buscar
 // un lugar libre cerca de un punto sin pasar por las paredes. Los usan el servidor (valida y ubica) y el
 // cliente (la paleta de comandos y el mapa de la cabaña): así los dos hablan de los mismos lugares.
-import { spaKindOf, VIAJE, VIAJE_NO_AREAS } from "@hyvento/shared";
+import { spaKindOf, VIAJE, VIAJE_NO_AREAS, VIAJE_OCULTAS } from "@hyvento/shared";
 import { BOARD_TABLES } from "./world/areas";
 import { isBlockedTile, wallAbove, wallLeftOf, type OfficeMap, type Zone } from "./world/build";
 
@@ -56,7 +56,7 @@ export function travelDestinations(areas: Iterable<OfficeMap>): TravelDestinatio
   if (hit) return hit;
   const out: TravelDestination[] = [];
   for (const map of list) {
-    if (VIAJE_NO_AREAS.includes(map.id)) continue;
+    if (VIAJE_NO_AREAS.includes(map.id) || VIAJE_OCULTAS.includes(map.id)) continue;
     out.push({ id: `nivel:${map.id}`, kind: "area", area: map.id, zoneId: null, name: map.name, areaName: map.name, zoneType: "", tile: arrivalOf(map, list) });
     for (const zone of map.zones) {
       if (SKIP_ZONES.has(zone.id) || zone.name === map.name) continue;

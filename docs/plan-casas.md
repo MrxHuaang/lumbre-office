@@ -1,7 +1,7 @@
 # Plan: la casa de cada persona
 
-> Estado: **idea documentada, no se desarrolla todavía.** Se retoma cuando se decida; este documento es
-> la base para planearlo en detalle.
+> Estado: **en desarrollo** (VIR-80, partido en sub-issues: VIR-141 casa y barrio, VIR-142 bus, VIR-143 botones,
+> VIR-144 cama, VIR-145 decoración). Lo ya hecho está en "Hecho" al final.
 
 ## La idea en una frase
 
@@ -84,3 +84,16 @@ Ideas para versiones siguientes (priorizar cuando se retome):
 - **Portales**: la puerta de la parada del barrio resuelve el destino en el servidor según quién la cruza
   (`MSG.travel` → `casa:<userId>`).
 - **Bus**: una segunda línea o un destino alterno en `bus.ts` con `tripMs` corto.
+
+## Hecho
+
+- **Casa y barrio (VIR-141)**: el nivel `barrio` (`world/areas/barrio.ts`: cuatro fachadas, la tercera es
+  "Tu casa", con buzón, faroles y banca; el pasto del sur queda para la parada del bus) y la plantilla de
+  un cuarto `world/areas/casa-propia.ts` (cama, cocinita con mesón, estufa y lavaplatos, mesita con silla y
+  el medio libre). Las casas no están en `AREAS`: `casaPropiaDef`/`buildCasaPropia` arman
+  `casa:<userId>` con sus ids propios (nivel, zona y habitación). La puerta del barrio lleva a
+  `casa:@`, que el servidor cambia por la casa de quien entra (`portalDestination`); a la de otro no se
+  entra (`casaPropiaBlock`, aviso `casaPropia:notice`). El servidor guarda solo las casas ocupadas
+  (`rooms/casaPropia.ts`) y el cliente arma la suya al entrar (`levelMap`). Para los logros y el diario
+  todas cuentan como `casa-propia`. Al barrio todavía se llega solo con `/ir barrio` (desarrollo), y
+  `/ir casa` lleva a la propia.

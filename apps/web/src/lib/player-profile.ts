@@ -8,6 +8,7 @@ import {
   levelOf,
   neighborLevel,
   ACHIEVEMENTS,
+  CASA_PROPIA,
   FISH,
   STAT_PREFIX,
   achievementProgress,
@@ -23,6 +24,8 @@ const TRASH = FISH.filter((f) => f.rarity === "basura").map((f) => f.id);
 function placeNames() {
   const world = getWorld();
   const areas = new Map([...world.areas.values()].map((a) => [a.id, a.name]));
+  // Todas las casas de cada persona cuentan como un solo nivel (`casa-propia`).
+  areas.set(CASA_PROPIA.statArea, CASA_PROPIA.label);
   const zones = new Map(allZones(world).map((z) => [z.id, z.name]));
   return { areas, zones };
 }
