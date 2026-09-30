@@ -13,6 +13,7 @@ import {
   useDeviceStore,
 } from "@/game/devices";
 import { useMediaStore } from "@/game/media";
+import { audible, elementVolume, getMixer, type SoundCategory } from "@/game/mixer";
 import { OfficeDialog } from "./OfficeDialog";
 import { PixelIcon } from "./Cozy";
 
@@ -307,6 +308,9 @@ function CamSection({ devices, onGranted }: { devices: MediaDeviceInfo[]; onGran
   );
 }
 
+/** Por qué salida del mezclador suena la prueba de parlantes. */
+const TEST_SOUND: SoundCategory = "effects";
+
 /** Parlantes: salida (donde el navegador deja elegirla) y un sonido de prueba por esa salida. */
 function OutputSection({ devices, deviceId }: { devices: MediaDeviceInfo[]; deviceId: string }) {
   const [msg, setMsg] = useState<string | null>(null);
@@ -314,10 +318,23 @@ function OutputSection({ devices, deviceId }: { devices: MediaDeviceInfo[]; devi
   const pick = canPickOutput();
 
   const test = async () => {
+    // Sale por los efectos del mezclador, como el resto de la interfaz: obedece su volumen y el silencio.
+    if (!audible(TEST_SOUND)) {
+      const m = getMixer();
+      setMsg(
+        m.muted
+          ? "El sonido está en silencio (Ajustes → Sonido): quítalo para probar los parlantes."
+          : m.master === 0
+            ? "El volumen general está en 0 (Ajustes → Sonido): súbelo para probar los parlantes."
+            : "Los efectos están en 0 (Ajustes → Sonido): súbelos para probar los parlantes.",
+      );
+      return;
+    }
     setMsg(null);
     setPlaying(true);
     const url = URL.createObjectURL(new Blob([chimeWav()], { type: "audio/wav" }));
     const audio = new Audio(url);
+    audio.volume = elementVolume(TEST_SOUND);
     const done = () => {
       URL.revokeObjectURL(url);
       setPlaying(false);
