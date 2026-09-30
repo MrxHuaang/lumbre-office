@@ -2854,6 +2854,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       if (result.error === "full" || result.error === "stall") client.send(CASA_MSG.notice, { code: result.error } satisfies CasaNotice);
       else if (result.error === "far") this.rechazo(client, "far");
       else if (result.error === "busy") this.rechazo(client, "cooldown");
+      // El taller: el carro ya tiene a alguien al volante.
+      else if (result.error === "taken") this.rechazo(client, "carTaken");
       return;
     }
     client.userData.lastActiveAt = now;

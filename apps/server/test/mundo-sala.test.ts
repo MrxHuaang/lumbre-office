@@ -133,11 +133,12 @@ describe("mundo lleno en la sala", () => {
     use(client, printer);
     await until(() => notices.length === 1, "el aviso sin notas");
     expect(notices[0]).toEqual({ code: "noNote" });
-    repo.notes.set("ana", ["Ideas para la cabaña"]);
+    repo.notes.set("ana", [{ id: "notaideas01", title: "Ideas para la cabaña" }]);
     await tick(3_100);
     use(client, printer);
     await until(() => notices.length === 2, "la hoja");
     expect(notices[1]).toEqual({ code: "printed", text: "Ideas para la cabaña" });
-    await until(() => bagOf(room).count("ana", "obj:hoja") === 1, "la hoja en la mochila");
+    await until(() => bagOf(room).count("ana", "obj:hoja:notaideas01") === 1, "la hoja en la mochila");
+    expect(bagOf(room).view("ana").titles).toEqual({ "obj:hoja:notaideas01": "Ideas para la cabaña" });
   });
 });

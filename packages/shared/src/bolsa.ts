@@ -9,7 +9,7 @@ import { FREE_NAMES } from "./casa";
 import { RECIPES } from "./cocina";
 import { GRANJA_BAG_OBJECTS } from "./parrilla";
 import { PESCA_BAG_OBJECTS } from "./pesca-tienda";
-import { MUNDO_BLURBS } from "./mundo";
+import { MUNDO_BLURBS, PRINTED_SHEET, sheetNoteIdOf } from "./mundo";
 import { MUNDO_BAG_OBJECTS } from "./garra";
 import { CONSUMABLES } from "./consumables";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
@@ -196,18 +196,28 @@ export function bagItemInfo(itemId: string): BagItemInfo {
       durable: true,
     };
   }
-  const o = BAG_OBJECTS[id];
+  // La hoja de una nota (`hoja:<noteId>`) es la hoja impresa de siempre: mismo nombre, dibujo y tope.
+  const base = sheetNoteIdOf(id) === null ? id : PRINTED_SHEET;
+  const o = BAG_OBJECTS[base];
   return {
     itemId,
-    name: o?.name ?? nameFromId(id),
+    name: o?.name ?? nameFromId(base),
     blurb: o?.blurb ?? "",
     kind: o?.kind ?? "objeto",
     max: o?.max ?? BAG.stackMax,
     furniture: false,
-    art: id,
-    use: Object.hasOwn(HUERTO_TOOLS, id) ? "tool" : Object.hasOwn(CONSUMABLES, id) ? "consume" : null,
+    art: base,
+    use: Object.hasOwn(HUERTO_TOOLS, base) ? "tool" : Object.hasOwn(CONSUMABLES, base) ? "consume" : null,
     durable: Boolean(o?.durable),
   };
+}
+
+/**
+ * El nombre que se muestra de algo de la mochila: el título de la nota de una hoja, si el servidor lo mandó
+ * (solo llega si quien tiene la hoja la escribió), o el de siempre.
+ */
+export function bagItemName(itemId: string, titles?: Readonly<Record<string, string>>): string {
+  return titles?.[itemId] ?? bagItemInfo(itemId).name;
 }
 
 /** Lo que se ve en las manos por algo que se lleva: lo de las cartas y la casa, o el objeto mismo. */
@@ -309,6 +319,8 @@ export interface BagView {
   overflow: ItemStack[];
   /** La casilla elegida (lo que está en la mano). */
   selected: number;
+  /** Título de cada hoja impresa (itemId → título) de las notas de quien lleva la mochila; las demás no vienen. */
+  titles?: Record<string, string>;
   /**
    * La eligió el servidor (al entrar, o porque llegó algo con las manos libres): el cliente la adopta.
    * Si no, el cliente sigue con la suya (así la rueda del mouse no salta con respuestas atrasadas).

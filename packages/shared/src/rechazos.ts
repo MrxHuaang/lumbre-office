@@ -5,7 +5,7 @@ export const RECHAZO_MSG = {
   notice: "rechazo:notice",
 } as const;
 
-export type RechazoCode = "rate" | "far" | "cooldown" | "seatTaken";
+export type RechazoCode = "rate" | "far" | "cooldown" | "seatTaken" | "carTaken";
 
 export interface RechazoNotice {
   code: RechazoCode;
@@ -16,4 +16,5 @@ export const RECHAZO_TEXT: Record<RechazoCode, string> = {
   far: "Estás muy lejos: acércate un poco.",
   cooldown: "Espera un momento antes de volver a usarlo.",
   seatTaken: "Esa silla ya la ocupó otra persona.",
+  carTaken: "Alguien más va al volante: espera a que se baje.",
 };

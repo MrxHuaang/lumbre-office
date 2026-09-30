@@ -609,10 +609,18 @@ export class MemoryRepository implements GameRepository {
   }
 
   /** Notas de cada persona (la más reciente al final), para la impresora. */
-  notes = new Map<string, string[]>();
-  async latestNoteTitle(userId: string) {
-    const list = this.notes.get(userId);
-    return list?.length ? list.at(-1)!.trim() || "Sin título" : null;
+  /** Notas de cada persona, de la más vieja a la más nueva (`trashed`: en la papelera). */
+  notes = new Map<string, { id: string; title: string; trashed?: boolean }[]>();
+  async latestNote(userId: string) {
+    const last = this.notes.get(userId)?.filter((n) => !n.trashed).at(-1);
+    return last ? { id: last.id, title: last.title.trim() || "Sin título" } : null;
+  }
+  noteTitleQueries = 0;
+  async noteTitles(userId: string, noteIds: readonly string[]) {
+    if (!noteIds.length) return {};
+    this.noteTitleQueries++;
+    const mine = this.notes.get(userId) ?? [];
+    return Object.fromEntries(mine.filter((n) => noteIds.includes(n.id)).map((n) => [n.id, n.title.trim() || "Sin título"]));
   }
 
   // ---------- Rondas abiertas del casino ----------

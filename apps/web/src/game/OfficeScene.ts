@@ -154,7 +154,7 @@ import { bindViajeScene } from "./viaje";
 import { bindZoom } from "./zoomControl";
 import { joystickVector, takeTouchTaps } from "./touchInput";
 import { pointSpotUnder } from "./clickSpots";
-import { lessMotion } from "@/lib/prefs";
+import { lessMotion, usePrefsStore } from "@/lib/prefs";
 import { BusView } from "./bus";
 import { busDoorsOpenNow } from "./busStore";
 import { Aquariums } from "./aquarium";
@@ -2034,10 +2034,10 @@ export class OfficeScene extends Phaser.Scene {
     sendFurnitureUse(f.type, f.x, f.y);
   }
 
-  /** "+N" dorado que sube sobre el personaje al ganar puntos. */
+  /** "+N" dorado que sube sobre el personaje al ganar puntos (con su moneda). En el modo trabajo, nada. */
   private floatAward(amount: number) {
     const avatar = this.local;
-    if (!avatar) return;
+    if (!avatar || usePrefsStore.getState().workMode) return;
     sfx.coin();
     const s = worldToScreen(avatar.x, avatar.y);
     const text = this.add

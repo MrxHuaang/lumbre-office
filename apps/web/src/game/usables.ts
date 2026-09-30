@@ -15,6 +15,7 @@ import { MundoVivo } from "./mundoVivo";
 import { AreaView, DEPTH_OVERLAY, depthOf, ensureTexture, screenToWorld, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
 import { playGuitar, playPiano, playPurr, setRecordMusic, stopRecordMusic, volumeAt } from "./sound";
+import { TallerVivo } from "./taller";
 import { useOfficeStore } from "./store";
 
 /** Cuánto dura tocar un instrumento (igual a la pausa del servidor). */
@@ -92,6 +93,8 @@ export class Usables {
   private hearCache = new Map<PlacedFurniture, { tile: number; steps: number }>();
   /** Casa viva: fuego, radio, cortinas, contadores, baños y lo que se lleva en la mano; y las mascotas. */
   private casa: CasaViva;
+  /** El taller del garaje: el compresor, el carro, el banco y la caja de herramientas. */
+  private taller: TallerVivo;
   private pets: Mascotas;
   /** El modo privado vela a las mascotas de afuera de la sala (px de mundo). */
   setPetVeil(rect: { x: number; y: number; w: number; h: number } | null) {
@@ -101,6 +104,7 @@ export class Usables {
   private jardin: JardinVivo;
   private readonly onSceneUpdate = (time: number, delta: number) => {
     this.casa.update();
+    this.taller.update();
     this.pets.update(delta);
     this.jardin.update(time, delta);
     this.granja.update(time, delta);
@@ -124,6 +128,7 @@ export class Usables {
       isOn: (f) => this.isOn(f),
     });
     this.pets = new Mascotas(scene, local);
+    this.taller = new TallerVivo(scene, { room: () => this.room, avatarOf, local });
     this.jardin = new JardinVivo(scene, { room: () => this.room, avatarOf, local });
     this.granja = new GranjaVivo(scene, { room: () => this.room, avatarOf, local });
     this.mundo = new MundoVivo(scene, { avatarOf, mySession: () => this.room?.sessionId, tileSize: () => this.map?.tileSize ?? 32 });
@@ -139,6 +144,7 @@ export class Usables {
     this.view = view;
     // Con las cortinas de las ventanas (usablesOf), que no son muebles del catálogo.
     this.casa.setArea(map, view);
+    this.taller.setArea(map);
     this.pets.setArea(map.id);
     this.jardin.setArea(map);
     this.granja.setArea(map, view);
@@ -173,6 +179,7 @@ export class Usables {
     this.detach = [];
     this.room = undefined;
     this.casa.unbind();
+    this.taller.unbind();
     this.pets.unbind();
     this.jardin.unbind();
     this.granja.unbind();
@@ -181,6 +188,7 @@ export class Usables {
   destroy() {
     this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.onSceneUpdate);
     this.casa.destroy();
+    this.taller.destroy();
     this.pets.destroy();
     this.jardin.destroy();
     this.granja.destroy();
@@ -351,7 +359,7 @@ export class Usables {
   /** Lo que dice la ayuda para ese mueble ("Prender la tele" o "Apagar la tele"). */
   label(f: PlacedFurniture): string {
     const spec = usableSpec(f.type)!;
-    const casa = this.casa.label(f) ?? this.jardin.label(f) ?? this.granja.label(f);
+    const casa = this.taller.label(f) ?? this.casa.label(f) ?? this.jardin.label(f) ?? this.granja.label(f);
     if (casa) return casa;
     return spec.action === "toggle" && this.isOn(f) ? (spec.labelOn ?? spec.label) : spec.label;
   }
@@ -422,6 +430,7 @@ export class Usables {
     const me = this.local();
     const vol = me ? this.hearVolume(f, me.x, me.y) : 0;
     // Casa viva: leer, girar, avivar, regar, lavarse, sacar algo gratis, el baño, asar y los contadores.
+    if (this.taller.handleEvent(e, f, vol)) return;
     if (this.casa.handleEvent(e, f, vol)) return;
     if (this.jardin.handleEvent(e, f, vol)) return;
     if (this.granja.handleEvent(e, f, vol)) return;

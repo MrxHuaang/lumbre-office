@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { audible, categoryGain, categoryVolume, getMixer, MIXER_DEFAULTS, mediaScale, setMixer, subscribeMixer } from "./mixer";
+import { audible, categoryGain, categoryVolume, elementVolume, getMixer, MIXER_DEFAULTS, mediaScale, setMixer, subscribeMixer } from "./mixer";
 
 describe("mezclador", () => {
   it("cada salida es el general por la suya; la ganancia, al cuadrado", () => {
@@ -24,6 +24,21 @@ describe("mezclador", () => {
     setMixer({ muted: true });
     expect(categoryGain("notify")).toBe(0);
     expect(mediaScale("music")).toBe(0);
+    setMixer({ ...MIXER_DEFAULTS });
+  });
+
+  it("un <audio> suelto (la prueba de parlantes) sigue la misma curva y el silencio", () => {
+    setMixer({ ...MIXER_DEFAULTS });
+    expect(elementVolume("effects")).toBeCloseTo(1);
+    setMixer({ effects: 0.35 });
+    expect(elementVolume("effects")).toBeCloseTo(0.25);
+    setMixer({ effects: 0.7, master: 0.5 });
+    expect(elementVolume("effects")).toBeCloseTo(0.25);
+    setMixer({ master: 1, effects: 1 });
+    expect(elementVolume("effects")).toBe(1);
+    setMixer({ muted: true });
+    expect(elementVolume("effects")).toBe(0);
+    expect(audible("effects")).toBe(false);
     setMixer({ ...MIXER_DEFAULTS });
   });
 
