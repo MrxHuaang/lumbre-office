@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { getWorld } from "@hyvento/map";
-import { CASA_PROPIA, CASA_PROPIA_MSG, casaAreaOf, MSG, ROOM_NAME, STAT_PREFIX, type CasaPropiaNotice } from "@hyvento/shared";
+import { CASA_PROPIA, CASA_PROPIA_MSG, casaAreaOf, MSG, ROOM_NAME, STAT_PREFIX, VIAJE_MSG, type CasaPropiaNotice, type ViajeNotice } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -91,6 +91,21 @@ describe("casa de cada persona", () => {
     // A la suya sí.
     await say(ana, room, "/ir casa");
     await until(() => player(room, ana).area === "casa:u-ana", "entrar a la suya");
+  });
+
+  it("el viaje rápido junto a alguien que está en su casa no mete a nadie adentro", { timeout: 30000 }, async () => {
+    const { room, clients } = await setup(["Ana", "Beto"]);
+    const [ana, beto] = clients as [ClientRoom, ClientRoom];
+    await toBarrio(beto, room);
+    await goToArea(beto, room, casaAreaOf("u-beto"));
+
+    const before = player(room, ana).area;
+    const notices: ViajeNotice[] = [];
+    ana.onMessage(VIAJE_MSG.notice, (n: ViajeNotice) => notices.push(n));
+    ana.send(VIAJE_MSG.go, { kind: "person", userId: "u-beto" });
+    await until(() => notices.length > 0, "el aviso del viaje");
+    expect(notices[0]!.code).toBe("casaAjena");
+    expect(player(room, ana).area).toBe(before);
   });
 
   it("las casas vacías se sueltan de la memoria y todas cuentan como un solo nivel para los logros", { timeout: 30000 }, async () => {

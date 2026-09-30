@@ -91,6 +91,7 @@ function selfBlock(): ViajeBlock | null {
 function areaBlock(area: string): ViajeBlock | null {
   const myUserId = selectMyUserId(useOfficeStore.getState());
   return viajeAreaBlock(area, {
+    userId: myUserId ?? "",
     treeHouse: area === CASA_ARBOL.area ? casaArbolBlockFor(myUserId) : null,
     studio: area === PODCAST.area ? podcastBlockFor(myUserId) : null,
   });
