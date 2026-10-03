@@ -1,6 +1,8 @@
 # Plan: la casa de cada persona
 
-> Estado: **replanteado el 30-09** (VIR-80). La primera entrega (PR #100: calle del barrio con cuatro
+> Estado: **03-10, la casa completa ya está (VIR-141)**: tres niveles por persona, más grande que lo
+> planeado (sala de fiestas con barra, cuarto de juegos, cuarto de música, cuarto de los amigos), con la cocina
+> y la barra funcionando. Sigue el Megabús con la parada "Casa" (VIR-142). Replanteado el 30-09 (VIR-80). La primera entrega (PR #100: calle del barrio con cuatro
 > fachadas y una casa de un solo cuarto, a la que se llegaba con `/ir`) se retiró de `main` porque no era
 > la idea. Este documento es la versión buena: la que hay que construir. Los sub-issues de Linear están
 > reescritos con este orden.

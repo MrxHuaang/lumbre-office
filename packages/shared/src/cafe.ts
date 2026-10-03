@@ -253,7 +253,7 @@ export function cinemaMenuItem(id: string): CinemaMenuItem | undefined {
  */
 export const MENUS = {
   cafe: { point: "cafe_counter", items: CAFE_MENU, furniture: ["counter-coffee", "pastry-case", "counter"] },
-  bar: { point: "club_bar", items: BAR_MENU, furniture: ["bar-counter", "bar-shelf", "bar-taps", "cigar-case"] },
+  bar: { point: "club_bar", items: BAR_MENU, furniture: ["bar-counter", "bar-shelf", "bar-taps", "cigar-case", "barra-casa"] },
   cine: { point: "cinema_snacks", items: CINEMA_MENU, furniture: ["popcorn-machine"] },
 } as const;
 export type MenuId = keyof typeof MENUS;

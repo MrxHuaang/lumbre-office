@@ -1,5 +1,5 @@
 import { ColyseusTestServer } from "@colyseus/testing";
-import { findPath, getWorld, officeDoor } from "@hyvento/map";
+import { buildCasaPropia, findPath, getWorld, officeDoor, type OfficeMap } from "@hyvento/map";
 import { BAG_MSG, MSG, signGameToken, type GameTokenClaims } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { createGameServer } from "../src/app";
@@ -54,6 +54,8 @@ export async function until(cond: () => unknown, what = "la condición", timeout
 export type ServerRoom = Awaited<ReturnType<ColyseusTestServer["createRoom"]>> & { state: OfficeState };
 
 const me = (client: ClientRoom, room: ServerRoom) => room.state.players.get(client.sessionId)!;
+/** Un nivel por id, contando los pisos de las casas de cada persona (que no están en el mundo). */
+const levelOf = (area: string): OfficeMap => getWorld().areas.get(area) ?? buildCasaPropia(area)!;
 
 /** Envía pasos pequeños en línea recta desde (fromX, fromY) (como lo haría el cliente real). */
 function sendSteps(client: ClientRoom, from: { x: number; y: number }, x: number, y: number) {
@@ -82,7 +84,7 @@ export async function walkTo(client: ClientRoom, room: ServerRoom, x: number, y:
  */
 export async function walkToTile(client: ClientRoom, room: ServerRoom, tx: number, ty: number) {
   const p = me(client, room);
-  const map = getWorld().areas.get(p.area)!;
+  const map = levelOf(p.area);
   const start = { x: tileOf(p.x), y: tileOf(p.y) };
   const path = findPath(map, start, { x: tx, y: ty });
   if (!path) throw new Error(`Sin ruta a (${tx}, ${ty}) en ${p.area}`);
@@ -94,15 +96,14 @@ export async function walkToTile(client: ClientRoom, room: ServerRoom, tx: numbe
 
 /** Va de nivel en nivel por los portales hasta llegar a `area`. */
 export async function goToArea(client: ClientRoom, room: ServerRoom, area: string) {
-  const world = getWorld();
   for (let hops = 0; hops < 5 && me(client, room).area !== area; hops++) {
-    const current = world.areas.get(me(client, room).area)!;
+    const current = levelOf(me(client, room).area);
     // Siguiente salto por el grafo de portales (BFS).
     const prev = new Map<string, { from: string; portal: string } | null>([[current.id, null]]);
     const queue = [current.id];
     while (queue.length) {
       const id = queue.shift()!;
-      for (const portal of world.areas.get(id)!.portals)
+      for (const portal of levelOf(id).portals)
         if (!prev.has(portal.to.area)) {
           prev.set(portal.to.area, { from: id, portal: portal.id });
           queue.push(portal.to.area);

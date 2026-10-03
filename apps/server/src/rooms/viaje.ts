@@ -83,7 +83,7 @@ export class QuickTravel {
     if ("code" in target) return this.no(target.code);
     // Ya estoy en esa sala.
     if (target.zoneId && player.zoneId === target.zoneId) return this.no("here");
-    const area = viajeAreaBlock(target.area, { treeHouse: this.d.treeHouse(player.userId), studio: this.d.studio(player.userId) });
+    const area = viajeAreaBlock(target.area, { userId: player.userId, treeHouse: this.d.treeHouse(player.userId), studio: this.d.studio(player.userId) });
     if (area) return this.no(area);
     const map = this.d.map(target.area);
     // Un lugar donde pararse: que se pise, sin nadie encima, sin oficinas cerradas ajenas, fuera de la

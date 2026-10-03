@@ -97,7 +97,8 @@ async function roastFor(client: ClientRoom, room: ServerRoom, ms: number) {
 
 describe("observatorio", () => {
   it("es un nivel más para el logro Turista", () => {
-    expect(getWorld().areas.size).toBe(TOURIST_AREAS);
+    // Más la casa propia, que cuenta como un solo nivel.
+    expect(getWorld().areas.size + 1).toBe(TOURIST_AREAS);
   });
 
   it("el malvavisco sacado en su punto sale dorado: da puntos, queda en la mano y cuenta para el logro", async () => {

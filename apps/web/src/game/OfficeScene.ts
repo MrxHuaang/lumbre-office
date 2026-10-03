@@ -21,6 +21,7 @@ import {
   placeAt,
   INTERACT_REACH_TILES,
   phoneInReach,
+  levelMap,
   isPhone,
   pointsOfType,
   portalAtTile,
@@ -825,8 +826,13 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private showArea(areaId: string) {
-    const map = this.world.areas.get(areaId);
+    // Un piso de una casa (`casa:<userId>[:piso]`) no está en el mundo: se arma aquí la primera vez.
+    const map = levelMap(this.world.areas, areaId);
     if (!map) return;
+    // Sus salas tampoco estaban en los nombres del HUD ("Sala", "Cocina"… en vez de "Pasillo").
+    const { zoneNames, setZoneNames } = useOfficeStore.getState();
+    const missing = map.zones.filter((z) => !(z.id in zoneNames));
+    if (missing.length) setZoneNames({ ...zoneNames, ...Object.fromEntries(missing.map((z) => [z.id, z.name])) });
     const changed = !this.view || map.id !== this.map.id;
     this.map = map;
     setSfxArea(map);
@@ -983,7 +989,8 @@ export class OfficeScene extends Phaser.Scene {
       if (this.table.kind === "blackjack" || this.table.kind === "boardgame") useOfficeStore.getState().closePanel();
     }
     const cam = this.cameras.main;
-    if (c.area && c.area !== this.map.id) {
+    // Un nivel que no se puede armar (no debería llegar) se trata como un rechazo: nada de quedar en negro.
+    if (c.area && c.area !== this.map.id && levelMap(this.world.areas, c.area)) {
       if (this.localId) this.areaOfSession.set(this.localId, c.area);
       this.enterArea(c.area);
       this.local?.setPosition(c.x, c.y);
@@ -1104,7 +1111,7 @@ export class OfficeScene extends Phaser.Scene {
 
   /** La puerta si se entra o se sale de la casa; si no, la escalera (subiendo o bajando). */
   private portalSound(to: string) {
-    const target = this.world.areas.get(to);
+    const target = levelMap(this.world.areas, to);
     if (this.map.def.outdoor || target?.def.outdoor) return sfx.door();
     sfx.stairs(LEVEL_ORDER.indexOf(to) > LEVEL_ORDER.indexOf(this.map.id));
   }
@@ -2128,7 +2135,7 @@ export class OfficeScene extends Phaser.Scene {
     const queue = [this.map.id];
     while (queue.length) {
       const id = queue.shift()!;
-      for (const portal of this.world.areas.get(id)!.portals)
+      for (const portal of levelMap(this.world.areas, id)?.portals ?? [])
         if (!prev.has(portal.to.area)) {
           prev.set(portal.to.area, { from: id, portal: portal.id });
           queue.push(portal.to.area);

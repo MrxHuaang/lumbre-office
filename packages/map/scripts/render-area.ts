@@ -5,11 +5,14 @@ import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { composeArea } from "../src/art/compose";
 import { eventOverlays } from "../src/art/eventos";
-import { getWorld } from "../src/index";
+import { buildCasaPropia, CASA_PLANTILLAS, getWorld } from "../src/index";
 
 const [areaId = "jardin", out = `${areaId}.png`, mode = "dia", events = ""] = process.argv.slice(2);
-const map = getWorld().areas.get(areaId);
-if (!map) throw new Error(`No existe el nivel ${areaId} (hay: ${[...getWorld().areas.keys()].join(", ")})`);
+// `casa-afuera`, `casa-abajo` y `casa-arriba` son la plantilla de la casa de cada persona (no están en el
+// mundo: se arman por persona).
+const casa = CASA_PLANTILLAS[areaId as keyof typeof CASA_PLANTILLAS];
+const map = casa ? buildCasaPropia(casa === "afuera" ? "casa:plantilla" : `casa:plantilla:${casa}`) : getWorld().areas.get(areaId);
+if (!map) throw new Error(`No existe el nivel ${areaId} (hay: ${[...getWorld().areas.keys(), ...Object.keys(CASA_PLANTILLAS)].join(", ")})`);
 const on = events.split(",");
 const canvas = composeArea(map, mode !== "noche", 80, eventOverlays(areaId, { birthday: on.includes("cumple"), karaoke: on.includes("karaoke") }));
 

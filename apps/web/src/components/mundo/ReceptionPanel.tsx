@@ -4,7 +4,7 @@
 // conectados (una oficina cerrada es solo "en su oficina": no se cuenta más) con un botón para ir hasta la
 // persona. Lo que se muestra ya lo ve cualquiera en la lista de conectados.
 import { getWorld } from "@hyvento/map";
-import { lineSeed, pickLine, RECEPCION_ASK, RECEPCION_NPC, whereText } from "@hyvento/shared";
+import { isCasaArea, lineSeed, pickLine, RECEPCION_ASK, RECEPCION_NPC, whereText } from "@hyvento/shared";
 import { useMemo } from "react";
 import { useOfficeStore } from "@/game/store";
 import { CharacterSprite } from "../CharacterSprite";
@@ -23,7 +23,8 @@ export function ReceptionPanel({ onClose }: { onClose: () => void }) {
     .filter((p) => p.sessionId !== me)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((p) => {
-      const areaName = getWorld().areas.get(p.area)?.name ?? "La cabaña";
+      // En su casa no se dice más: es suya.
+      const areaName = getWorld().areas.get(p.area)?.name ?? (isCasaArea(p.area) ? "Su casa" : "La cabaña");
       const office = offices[p.zoneId];
       const door = p.place.startsWith("door:");
       return {
