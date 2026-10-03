@@ -45,6 +45,8 @@ export interface AchievementDeps {
 
 export class AchievementTracker {
   private users = new Map<string, Entry>();
+  /** Guardados en curso: `flushAll` también los espera (al cerrar la sala, el de quien se acaba de ir). */
+  private saving = new Set<Promise<unknown>>();
 
   constructor(private readonly deps: AchievementDeps) {}
 
@@ -196,8 +198,10 @@ export class AchievementTracker {
     if (e.pending.size === 0 && quests.length === 0) return;
     const changes = [...e.pending.values()];
     e.pending.clear();
+    const save = this.deps.repo().saveStats(userId, changes, quests);
+    this.saving.add(save);
     try {
-      await this.deps.repo().saveStats(userId, changes, quests);
+      await save;
     } catch (err) {
       console.error("saveStats", err);
       if (quests.length) this.deps.quests?.restore(userId, quests);
@@ -207,10 +211,19 @@ export class AchievementTracker {
         if (!p) e.pending.set(c.key, c);
         else e.pending.set(c.key, { ...p, value: p.op === "inc" ? p.value + c.value : Math.max(p.value, c.value) });
       }
+    } finally {
+      this.saving.delete(save);
     }
   }
 
+  /**
+   * Guarda lo de todos. Espera también los guardados que ya estaban en camino (el `forget` de quien se fue
+   * justo antes de cerrar la sala: ya no está en la lista) y reintenta una vez lo que falló o llegó mientras.
+   */
   async flushAll(): Promise<void> {
+    await Promise.all([...this.users.keys()].map((id) => this.flush(id)));
+    if (this.saving.size === 0) return;
+    await Promise.allSettled([...this.saving]);
     await Promise.all([...this.users.keys()].map((id) => this.flush(id)));
   }
 
