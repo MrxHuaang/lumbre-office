@@ -75,7 +75,7 @@ describe("regalos en la base", () => {
     expect(stat("beto")).toBe(0);
     expect(stat("ana")).toBe(1);
     // Si no sale (sin saldo), tampoco cuenta.
-    await aborted(db.transaction((tx) => sendGiftTx(tx, "ana", gift({ points: 9999, now: day }))), "funds");
+    await aborted(db.transaction((tx) => sendGiftTx(tx, "ana", gift({ points: 400, now: day }))), "funds");
     expect(stat("ana")).toBe(1);
   });
 
