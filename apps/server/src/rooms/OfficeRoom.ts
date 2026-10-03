@@ -1279,12 +1279,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.y = pos.y;
     player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(map, pos.x, pos.y);
-    player.status = (await this.repo.getUserStatus(auth.sub).catch(orElse("onJoin.getUserStatus", null, { userId: auth.sub }))) ?? "available";
-    // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
-    const welcome = await this.repo.grantWelcome(auth.sub).catch(orElse("onJoin.grantWelcome", null, { userId: auth.sub }));
-    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(orElse("onJoin.getPoints", 0, { userId: auth.sub })));
-    // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
-    await this.held.load(auth.sub);
+    // Lo que se lee de la base al entrar no depende entre sí: va todo a la vez (una espera, no cuatro).
+    const [status, points, permisos] = await Promise.all([
+      this.repo.getUserStatus(auth.sub).catch(orElse("onJoin.getUserStatus", null, { userId: auth.sub })),
+      // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
+      this.repo
+        .grantWelcome(auth.sub)
+        .catch(orElse("onJoin.grantWelcome", null, { userId: auth.sub }))
+        .then(async (welcome) => welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(orElse("onJoin.getPoints", 0, { userId: auth.sub })))),
+      this.repo.loadPermisos([auth.sub]).catch((err) => {
+        console.error("loadPermisos", err);
+        return { everyone: [] as Permiso[], byUser: {} as Record<string, Permiso[]> };
+      }),
+      // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
+      this.held.load(auth.sub),
+    ]);
+    player.status = status ?? "available";
+    player.points = points;
     // Cuánto ocio lleva hoy (para el celular), sin esperar a que gane algo.
     void this.sendLeisure(auth.sub);
     // El celular (el chat vive en él) lo tiene todo el mundo: al que le falta se le da gratis, en la
@@ -1310,10 +1321,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.comunicacion?.greet(client.sessionId);
 
     const admin = auth.role === "ADMIN";
-    const permisos = await this.repo.loadPermisos([auth.sub]).catch((err) => {
-      console.error("loadPermisos", err);
-      return { everyone: [] as Permiso[], byUser: {} as Record<string, Permiso[]> };
-    });
     client.userData = {
       lastMoveAt: Date.now(),
       chatTimes: [],
