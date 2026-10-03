@@ -622,8 +622,18 @@ export async function disconnect() {
   await current?.leave(true).catch(() => undefined);
 }
 
+/** Número del último paso enviado: el servidor lo devuelve al rechazarlo (ver `correctionIsStale`). */
+let moveSeq = 0;
+
 export function sendMove(m: MoveMessage) {
-  room?.send(MSG.move, m);
+  if (!room) return;
+  moveSeq += 1;
+  room.send(MSG.move, { ...m, seq: moveSeq });
+}
+
+/** El `seq` del último paso enviado (0 si todavía ninguno). */
+export function lastMoveSeq() {
+  return moveSeq;
 }
 
 /** Avisa a la sala que la web guardó el perfil: el servidor lo relee y todos ven el cambio. */

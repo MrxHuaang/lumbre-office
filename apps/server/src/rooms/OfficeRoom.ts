@@ -1919,11 +1919,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const { x, y, moving } = parsed.data;
     let { dir } = parsed.data;
     const seated = parsed.data.seated ?? false;
+    // Los rechazos de un paso llevan su `seq`: así el cliente ignora los de pasos que ya superó.
+    const seq = parsed.data.seq === undefined ? {} : { seq: parsed.data.seq };
 
     const map = this.mapOf(player.area);
     // Desmayado no se mueve (el cliente ya lo sabe; esto es por si insiste).
     if (this.drunk.fainted(player.userId)) {
-      client.send(MSG.moveCorrection, { x: player.x, y: player.y } satisfies MoveCorrection);
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y, ...seq } satisfies MoveCorrection);
       return;
     }
     const now = Date.now();
@@ -1958,7 +1960,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (seat) dir = seat.facing;
 
     if (dist > maxDist || !validSpot || !this.canAccess(player, x, y)) {
-      const correction: MoveCorrection = { x: player.x, y: player.y };
+      const correction: MoveCorrection = { x: player.x, y: player.y, ...seq };
       client.send(MSG.moveCorrection, correction);
       // Sentarse en una silla que ganó otra persona: la corrección sola dejaba de pie sin decir por qué.
       if (seated && !player.seated && seat && this.seatTaken(client.sessionId, map.id, x, y)) this.rechazo(client, "seatTaken");
