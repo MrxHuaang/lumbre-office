@@ -25,8 +25,12 @@ export function correctionIsStale(c: Pick<MoveCorrection, "seq">, lastSentSeq: n
   return typeof c.seq === "number" && c.seq < lastSentSeq;
 }
 
-/** Cómo se aplica una corrección que sí vale: deslizando (salto chico, mismo nivel) o de una. */
+/**
+ * Cómo se aplica una corrección que sí vale: deslizando (rechazo de un paso con salto chico en el mismo
+ * nivel) o de una. Las de acciones del servidor (sin `seq`) van siempre de una, como antes.
+ */
 export function correctionStyle(c: MoveCorrection, from: { x: number; y: number; area: string }, tileSize: number): "lerp" | "snap" {
+  if (typeof c.seq !== "number") return "snap";
   if (c.area && c.area !== from.area) return "snap";
   if (c.seated) return "snap";
   const dist = Math.hypot(c.x - from.x, c.y - from.y);

@@ -47,14 +47,16 @@ describe("correcciones de posición", () => {
     expect(gate.shouldIgnore({ seq: 3 }, 4, 30)).toBe(true);
   });
 
-  it("desliza saltos de menos de un tile en el mismo nivel y aplica de una el resto", () => {
+  it("desliza los rechazos de menos de un tile en el mismo nivel y aplica de una el resto", () => {
     const from = { x: 100, y: 100, area: "jardin" };
-    expect(correctionStyle({ x: 110, y: 100 }, from, 32)).toBe("lerp");
-    expect(correctionStyle({ x: 100, y: 100 }, from, 32)).toBe("snap");
-    expect(correctionStyle({ x: 140, y: 100 }, from, 32)).toBe("snap");
-    expect(correctionStyle({ x: 110, y: 100, area: "planta-baja" }, from, 32)).toBe("snap");
-    expect(correctionStyle({ x: 110, y: 100, area: "jardin" }, from, 32)).toBe("lerp");
-    expect(correctionStyle({ x: 110, y: 100, seated: true }, from, 32)).toBe("snap");
+    expect(correctionStyle({ x: 110, y: 100, seq: 1 }, from, 32)).toBe("lerp");
+    expect(correctionStyle({ x: 100, y: 100, seq: 1 }, from, 32)).toBe("snap");
+    expect(correctionStyle({ x: 140, y: 100, seq: 1 }, from, 32)).toBe("snap");
+    expect(correctionStyle({ x: 110, y: 100, seq: 1, area: "planta-baja" }, from, 32)).toBe("snap");
+    expect(correctionStyle({ x: 110, y: 100, seq: 1, area: "jardin" }, from, 32)).toBe("lerp");
+    expect(correctionStyle({ x: 110, y: 100, seq: 1, seated: true }, from, 32)).toBe("snap");
+    // Las de una acción del servidor (sin seq) se aplican de una, aunque sean chicas.
+    expect(correctionStyle({ x: 110, y: 100 }, from, 32)).toBe("snap");
   });
 
   it("el deslizamiento es lineal y termina justo en el destino", () => {

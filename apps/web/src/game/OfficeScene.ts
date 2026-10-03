@@ -989,7 +989,7 @@ export class OfficeScene extends Phaser.Scene {
     // me dejó, así que teletransportar, borrar la ruta y levantar del asiento sería un tirón de más.
     if (this.correctionGate.shouldIgnore(c, lastMoveSeq(), performance.now())) return;
     const local = this.local;
-    // Salto chico en el mismo nivel, de pie y sin viaje: deslizar ~80 ms. La ruta del clic sigue, salvo
+    // Rechazo de un paso con salto chico, de pie y sin viaje: deslizar ~80 ms. La ruta del clic sigue, salvo
     // que se repita enseguida (algo la está bloqueando y seguir insistiría contra el servidor).
     if (local && this.map && !this.seat && !this.travelling && !this.fainted && correctionStyle(c, { x: local.x, y: local.y, area: this.map.id }, this.map.tileSize) === "lerp") {
       const now = performance.now();
