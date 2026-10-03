@@ -82,3 +82,4 @@ export * from "./reconexion";
 export * from "./comunicacion";
 export * from "./oficios";
 export * from "./historia";
+export * from "./limite-mensajes";
