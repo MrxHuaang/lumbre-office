@@ -26,6 +26,8 @@ interface Entry {
   loading?: Promise<void>;
   /** Fracción de tile caminada que todavía no suma uno entero. */
   walkCarry: number;
+  /** El último guardado o relectura en curso (van de a uno, ver `serial`). */
+  queue?: Promise<void>;
 }
 
 export interface AchievementDeps {
@@ -41,6 +43,11 @@ export interface AchievementDeps {
     take(userId: string): QuestDelta[];
     restore(userId: string, deltas: QuestDelta[]): void;
   };
+  /**
+   * La web sumó a un contador (lo ve `refresh`): los oficios le dan su experiencia. Los encargos no, que
+   * ya avanzaron en la base junto con el contador (`bumpStatWithQuests`).
+   */
+  onExternal?(userId: string, key: string, by: number): void;
 }
 
 export class AchievementTracker {
@@ -67,15 +74,18 @@ export class AchievementTracker {
     return e.loading;
   }
 
-  /** Vuelve a leer de la base (la web sumó algo: la racha del buzón, una misión). */
+  /**
+   * Vuelve a leer de la base (la web sumó algo: la racha del buzón, una misión, un regalo). Lo que la web
+   * sumó a los contadores llega a `onExternal` (la experiencia del oficio; los encargos ya avanzaron allá).
+   */
   async refresh(userId: string): Promise<void> {
     const e = this.users.get(userId);
     if (!e) return;
     await this.flush(userId);
-    await this.fetch(userId, e);
+    await this.serial(e, () => this.fetch(userId, e, true));
   }
 
-  private async fetch(userId: string, e: Entry) {
+  private async fetch(userId: string, e: Entry, external = false) {
     let saved: { stats: Record<string, number>; unlocked: string[] };
     try {
       saved = await this.deps.repo().loadAchievements(userId);
@@ -89,7 +99,17 @@ export class AchievementTracker {
       const base = stats.get(c.key) ?? 0;
       stats.set(c.key, c.op === "inc" ? base + c.value : Math.max(base, c.value));
     }
+    // Lo que subió sin pasar por aquí lo sumó la web (sin saber lo de antes no se compara nada).
+    const grew: [string, number][] = [];
+    if (external && e.loaded) {
+      for (const [key, value] of stats) {
+        if (MAX_STATS.has(key) || key.startsWith(STAT_PREFIX.visit) || key.startsWith(STAT_PREFIX.lastDay)) continue;
+        const by = value - (e.stats.get(key) ?? 0);
+        if (by > 0) grew.push([key, by]);
+      }
+    }
     e.stats = stats;
+    for (const [key, by] of grew) this.deps.onExternal?.(userId, key, by);
     for (const id of saved.unlocked) e.unlocked.add(id);
     e.loaded = true;
     // Los niveles visitados se cuentan de nuevo (lo pendiente no sabía de los de antes).
@@ -189,10 +209,24 @@ export class AchievementTracker {
     if (added || (e.unlocked.size > 0 && !e.stats.has(STAT_KEYS.achievementsUnlocked))) this.max(userId, STAT_KEYS.achievementsUnlocked, e.unlocked.size);
   }
 
+  /**
+   * Guardar y releer de alguien van de a uno: así, al releer, lo que cambió en la base lo sumó la web y
+   * no un guardado propio a medio camino (ver `refresh`).
+   */
+  private serial(e: Entry, fn: () => Promise<void>): Promise<void> {
+    const run = (e.queue ?? Promise.resolve()).then(fn);
+    e.queue = run.catch(() => {});
+    return run;
+  }
+
   /** Guarda lo pendiente de alguien (si falla, queda para el próximo intento). */
   async flush(userId: string): Promise<void> {
     const e = this.users.get(userId);
     if (!e) return;
+    return this.serial(e, () => this.save(userId, e));
+  }
+
+  private async save(userId: string, e: Entry): Promise<void> {
     if (!e.loaded && !e.loading) void this.load(userId); // la carga falló antes: se reintenta
     const quests = this.deps.quests?.take(userId) ?? [];
     if (e.pending.size === 0 && quests.length === 0) return;

@@ -57,6 +57,7 @@ import type { NameTagMode } from "./store";
 import { depthOf, ensureTexture, furnitureImage, worldToScreen } from "./iso/view";
 import { ensureSwimTexture } from "./looks";
 import { poolSfx } from "./piscina/sound";
+import { SnapshotBuffer } from "./interp";
 
 /** La silla de la carrera de sillas. */
 const RIDE_CHAIR = "office-chair";
@@ -176,6 +177,14 @@ export function shortName(name: string): string {
 }
 
 /** Avatar en la cabaña: sprite chibi + sombra + nombre + estado + globo de chat. Posición en px de mundo. */
+/** Lo que acompaña a cada posición de un jugador remoto. */
+export interface RemotePose {
+  dir: Direction;
+  moving: boolean;
+  seated: boolean;
+  seat: Seat | null;
+}
+
 export class Avatar {
   readonly sprite: Phaser.GameObjects.Sprite;
   /** La cabeza, copiada del cuerpo, encima del respaldo cuando está sentado de espaldas (ver syncSeatHead). */
@@ -242,9 +251,10 @@ export class Avatar {
   /** Girando en la silla: hacia dónde mira en este momento del giro. */
   private spinning?: { tween: Phaser.Tweens.Tween; face: Direction };
 
-  /** Posición destino (jugadores remotos, interpolada en `update`). */
-  targetX: number;
-  targetY: number;
+  /** Lo que llega del servidor (jugadores remotos), dibujado ~100 ms atrás en `interpolate`. */
+  private readonly snapshots = new SnapshotBuffer<RemotePose>();
+  /** La pose remota que ya se aplicó (para no volver a sentar ni animar en cada cuadro). */
+  private appliedPose?: RemotePose;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -258,8 +268,6 @@ export class Avatar {
     ensureTexture(scene, "sombra-personaje", () => characterShadow());
     this.wx = x;
     this.wy = y;
-    this.targetX = x;
-    this.targetY = y;
     this.shadow = scene.add.image(0, 0, "sombra-personaje");
     this.sprite = scene.add.sprite(0, 0, textureKey, 0).setOrigin(0.5, FEET_Y / FRAME);
     this.fullName = name;
@@ -1107,16 +1115,31 @@ export class Avatar {
     }
   }
 
-  /** Interpola hacia (targetX, targetY). Usado por los avatares remotos. */
-  interpolate(dtMs: number) {
-    const dx = this.targetX - this.wx;
-    const dy = this.targetY - this.wy;
-    if (dx * dx + dy * dy > 96 * 96) {
-      this.setPosition(this.targetX, this.targetY); // salto grande (corrección, cambio de nivel)
-      return;
+  /**
+   * Llegó una posición del servidor (jugadores remotos). Con `snap` (cambio de nivel) o un salto grande
+   * (viaje rápido, teletransporte) se aplica ya; si no, se dibuja en `interpolate`.
+   */
+  pushSnapshot(now: number, x: number, y: number, pose: RemotePose, snap = false) {
+    if (this.snapshots.push(now, x, y, pose, snap)) this.interpolate(now);
+  }
+
+  /** Dibuja al jugador remoto donde estaba hace ~100 ms, entre las dos posiciones que llegaron (interp.ts). */
+  interpolate(now: number) {
+    const at = this.snapshots.sample(now);
+    if (!at) return;
+    if (at.x !== this.wx || at.y !== this.wy) this.setPosition(at.x, at.y);
+    this.applyPose(at.state);
+  }
+
+  /** La pose (sentado, dirección, si camina) se aplica cuando el dibujo llega a esa posición. */
+  private applyPose(pose: RemotePose) {
+    const prev = this.appliedPose;
+    if (prev === pose) return;
+    this.appliedPose = pose;
+    if (!prev || prev.seat !== pose.seat || prev.seated !== pose.seated || (pose.seated && prev.dir !== pose.dir)) {
+      this.setSeated(pose.seated ? pose.dir : null, pose.seat);
     }
-    const t = Math.min(1, (dtMs / 1000) * 14);
-    this.setPosition(this.wx + dx * t, this.wy + dy * t);
+    if (!prev || prev.dir !== pose.dir || prev.moving !== pose.moving) this.setMotion(pose.dir, pose.moving);
   }
 
   setDrunk(stage: DrunkStage) {

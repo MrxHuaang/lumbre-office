@@ -61,6 +61,11 @@ export const MoveMessage = z.object({
   moving: z.boolean(),
   /** Sentado en el asiento cuya posición es (x, y). Opcional: clientes viejos no lo envían. */
   seated: z.boolean().optional(),
+  /**
+   * Número del envío (crece con cada uno). El servidor lo devuelve en la corrección de un paso rechazado,
+   * para que el cliente ignore las de pasos ya superados (ver correcciones.ts). Opcional: clientes viejos.
+   */
+  seq: z.number().int().nonnegative().optional(),
 });
 export type MoveMessage = z.infer<typeof MoveMessage>;
 
@@ -105,6 +110,11 @@ export interface MoveCorrection {
   area?: string;
   /** El servidor te dejó sentado en (x, y) (al despertar de un desmayo). */
   seated?: boolean;
+  /**
+   * El `seq` del `MoveMessage` rechazado. Solo lo traen los rechazos de un paso; las que vienen de una
+   * acción del servidor (portales, viaje, sentarse, nadar…) no, y se aplican siempre.
+   */
+  seq?: number;
 }
 
 // ---------- Oficinas personales ----------

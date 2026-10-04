@@ -155,6 +155,29 @@ describe("rastreador de logros", () => {
     expect(unlocked).toEqual(["u:siete-de-siete"]);
   });
 
+  it("refresh avisa solo lo que sumó la web (un regalo), no lo propio aunque se esté guardando", async () => {
+    const repo = new MemoryRepository();
+    const external: string[] = [];
+    const t = new AchievementTracker({ repo: () => repo, onUnlock: () => {}, onExternal: (u, key, by) => external.push(`${u}:${key}:${by}`) });
+    await t.load("u");
+    // Lo propio, pendiente y a medio guardar mientras se relee: no es de la web.
+    t.bump("u", STAT_KEYS.toasts, 2);
+    const flushing = t.flush("u");
+    t.bump("u", STAT_KEYS.toasts);
+    // La web mandó un regalo (y sube un máximo, que no cuenta).
+    await repo.saveStats("u", [
+      { key: STAT_KEYS.giftsGiven, op: "inc", value: 1 },
+      { key: STAT_KEYS.streakBest, op: "max", value: 3 },
+    ] satisfies StatChange[]);
+    await Promise.all([flushing, t.refresh("u")]);
+    expect(external).toEqual([`u:${STAT_KEYS.giftsGiven}:1`]);
+    expect(t.snapshot("u")!.stats[STAT_KEYS.toasts]).toBe(3);
+    expect(t.snapshot("u")!.stats[STAT_KEYS.giftsGiven]).toBe(1);
+    // Releer otra vez sin cambios no repite nada.
+    await t.refresh("u");
+    expect(external).toHaveLength(1);
+  });
+
   it("al irse se guarda lo pendiente y se olvida", async () => {
     const { t, repo } = tracker();
     await t.load("u");

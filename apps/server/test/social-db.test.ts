@@ -1,7 +1,7 @@
 // Regalos e intercambios contra la base (los helpers de `@hyvento/db` que usan la web y el repositorio de
 // Prisma del servidor), con una base de mentira que deshace la transacción si algo lanza.
 import { executeTipTx, executeTradeTx, givenToday, openGiftTx, sendGiftTx, SocialAborted, tippedToday, type SocialAbortCode } from "@hyvento/db";
-import { CLUB_TIP, GIFT } from "@hyvento/shared";
+import { CLUB_TIP, GIFT, STAT_KEYS, currentQuests } from "@hyvento/shared";
 import { beforeEach, describe, expect, it } from "vitest";
 import { executeTip, executeTrade, tradeAbortResult } from "../src/repo/social";
 import { FakeDb } from "./fake-db";
@@ -59,6 +59,33 @@ describe("regalos en la base", () => {
     expect(db.points("rica")).toBe(4400);
     // Se cruzaron de verdad: la segunda esperó el bloqueo de la fila de Rica.
     expect(db.waits).toBeGreaterThan(0);
+  });
+
+  it("mandar suma un regalo dado a quien regala (no a quien recibe, ni al abrirlo) y avanza su encargo", async () => {
+    const stat = (u: string) => db.t.stats.find((s) => s.userId === u && s.key === STAT_KEYS.giftsGiven)?.value ?? 0;
+    // Un día en que a Ana le toca "Un detallito" (el encargo que sigue este contador).
+    const MON = Date.UTC(2026, 8, 28, 15, 0);
+    const day = Array.from({ length: 120 }, (_, i) => MON + i * 86_400_000).find((t) => currentQuests("ana", t).some((q) => q.def.stat === STAT_KEYS.giftsGiven))!;
+    expect(day).toBeDefined();
+    const quest = currentQuests("ana", day).find((q) => q.def.stat === STAT_KEYS.giftsGiven)!;
+    const { giftId } = await db.transaction((tx) => sendGiftTx(tx, "ana", gift({ points: 5, now: day })));
+    expect(stat("ana")).toBe(1);
+    expect(db.t.quests.find((q) => q.userId === "ana" && q.questId === quest.def.id && q.period === quest.period)).toMatchObject({ progress: 1, status: "DONE" });
+    await db.transaction((tx) => openGiftTx(tx, "beto", giftId, day));
+    expect(stat("beto")).toBe(0);
+    expect(stat("ana")).toBe(1);
+    // Si no sale (sin saldo), tampoco cuenta.
+    await aborted(db.transaction((tx) => sendGiftTx(tx, "ana", gift({ points: 400, now: day }))), "funds");
+    expect(stat("ana")).toBe(1);
+  });
+
+  it("las propinas del tubo y los intercambios no cuentan como regalos dados", async () => {
+    db.give("beto", "plant", 1);
+    await db.transaction((tx) => executeTipTx(tx, { refId: `${CLUB_TIP.refPrefix}1`, fromId: "ana", toId: "beto", amount: 5 }));
+    await db.transaction((tx) =>
+      executeTradeTx(tx, { refId: "trade:1", a: { userId: "ana", points: 10, items: [] }, b: { userId: "beto", points: 0, items: [{ itemId: "plant", quantity: 1 }] } }),
+    );
+    expect(db.t.stats.filter((s) => s.key === STAT_KEYS.giftsGiven)).toEqual([]);
   });
 
   it("tope de regalos por día (aunque sean solo objetos)", async () => {

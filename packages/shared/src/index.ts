@@ -79,6 +79,7 @@ export * from "./fortuna";
 export * from "./recepcion";
 export * from "./pinball-sim";
 export * from "./reconexion";
+export * from "./correcciones";
 export * from "./comunicacion";
 export * from "./oficios";
 export * from "./historia";

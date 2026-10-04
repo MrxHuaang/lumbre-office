@@ -660,6 +660,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
     },
     quests: { onStat: (u, key, by) => (this.encargos.onStat(u, key, by), this.oficios.onStat(u, key, by)), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
+    // Lo que sumó la web (regalos, misiones, fotos) también da experiencia de oficio.
+    onExternal: (u, key, by) => this.oficios.onStat(u, key, by),
   });
   /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
   private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t), xp: (u, o, xp) => this.oficios.credit(u, o, xp) });
@@ -1969,11 +1971,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const { x, y, moving } = parsed.data;
     let { dir } = parsed.data;
     const seated = parsed.data.seated ?? false;
+    // Los rechazos de un paso llevan su `seq`: así el cliente ignora los de pasos que ya superó.
+    const seq = parsed.data.seq === undefined ? {} : { seq: parsed.data.seq };
 
     const map = this.mapOf(player.area);
     // Desmayado no se mueve (el cliente ya lo sabe; esto es por si insiste).
     if (this.drunk.fainted(player.userId)) {
-      client.send(MSG.moveCorrection, { x: player.x, y: player.y } satisfies MoveCorrection);
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y, ...seq } satisfies MoveCorrection);
       return;
     }
     const now = Date.now();
@@ -2008,7 +2012,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (seat) dir = seat.facing;
 
     if (dist > maxDist || !validSpot || !this.canAccess(player, x, y)) {
-      const correction: MoveCorrection = { x: player.x, y: player.y };
+      const correction: MoveCorrection = { x: player.x, y: player.y, ...seq };
       client.send(MSG.moveCorrection, correction);
       // Sentarse en una silla que ganó otra persona: la corrección sola dejaba de pie sin decir por qué.
       if (seated && !player.seated && seat && this.seatTaken(client.sessionId, map.id, x, y)) this.rechazo(client, "seatTaken");
