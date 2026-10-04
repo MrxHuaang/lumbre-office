@@ -273,7 +273,22 @@ export interface OfficeStateView {
   sombrero: RemoteSombrero;
   /** El Megabús de la parada del jardín (BusState en apps/server/src/state.ts). */
   bus: { phase: string; since: number; nextAt: number; run: number };
-  casas: Map<string, { ownerId: string; ownerName: string; modo: string; guests: string[] }>;
+  casas: Map<
+    string,
+    {
+      ownerId: string;
+      ownerName: string;
+      modo: string;
+      guests: string[];
+      fiesta: boolean;
+      radioVideo: string;
+      radioTitle: string;
+      radioStartedAt: number;
+      radioPaused: boolean;
+      radioPausedAt: number;
+      radioDurationMs: number;
+    }
+  >;
 }
 
 /** La granja como viaja en el estado (espejo de `GranjaState` en apps/server/src/state.ts). */

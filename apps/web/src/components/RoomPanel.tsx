@@ -4,7 +4,7 @@
 // sala de reuniones (las paredes altas están en el menú principal); y en tu oficina, además, decorar, el
 // candado, la nota de la placa y la radio; en la casa del árbol, la escalera y el modo foco. La radio de
 // una oficina ajena se ve (y se le baja el volumen) desde aquí también.
-import { CASA_ARBOL, OFFICE_NOTE_MAX, parseYoutubeId, type OfficeRadioState } from "@hyvento/shared";
+import { CASA_ARBOL, OFFICE_NOTE_MAX, parseYoutubeId, type OfficeRadioMessage, type OfficeRadioState } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { sendOfficeLock, sendOfficeNote, sendOfficeRadio } from "@/game/network";
 import { useRadioStore } from "@/game/radio";
@@ -123,8 +123,21 @@ function DoorNote({ note }: { note: string }) {
   );
 }
 
-/** La radio: qué suena y mi volumen; al dueño, además, ponerla, pausarla y apagarla. */
-function RadioRow({ radio, mine }: { radio: OfficeRadioState | null; mine: boolean }) {
+/**
+ * La radio: qué suena y mi volumen; al dueño, además, ponerla, pausarla y apagarla. La de la casa usa la
+ * misma fila con su propio mensaje (`send`) y su nombre (`label`).
+ */
+export function RadioRow({
+  radio,
+  mine,
+  send = sendOfficeRadio,
+  label = "Radio",
+}: {
+  radio: OfficeRadioState | null;
+  mine: boolean;
+  send?: (msg: OfficeRadioMessage) => void;
+  label?: string;
+}) {
   const { volume, muted, setVolume, setMuted } = useRadioStore();
   const setTyping = useOfficeStore((s) => s.setTyping);
   const [editing, setEditing] = useState(false);
@@ -137,7 +150,7 @@ function RadioRow({ radio, mine }: { radio: OfficeRadioState | null; mine: boole
       setBad(true);
       return;
     }
-    sendOfficeRadio({ action: "set", url });
+    send({ action: "set", url });
     setUrl("");
     setEditing(false);
     setTyping(false);
@@ -146,7 +159,7 @@ function RadioRow({ radio, mine }: { radio: OfficeRadioState | null; mine: boole
   return (
     <div className="flex flex-col gap-1.5 border-t-2 border-dashed border-cozy-ink-soft/30 pt-2 text-[12px]">
       <div className="flex items-center gap-1.5">
-        <span className="shrink-0 text-cozy-ink-soft">Radio</span>
+        <span className="shrink-0 text-cozy-ink-soft">{label}</span>
         <span className="min-w-0 flex-1 truncate" title={radio?.title}>
           {radio ? `${radio.paused ? "En pausa · " : ""}${radio.title}` : "Apagada"}
         </span>
@@ -196,10 +209,10 @@ function RadioRow({ radio, mine }: { radio: OfficeRadioState | null; mine: boole
           />
           {mine && (
             <>
-              <button type="button" onClick={() => sendOfficeRadio({ action: radio.paused ? "resume" : "pause" })} className="cozy-btn px-2 py-0.5 text-[12px]">
+              <button type="button" onClick={() => send({ action: radio.paused ? "resume" : "pause" })} className="cozy-btn px-2 py-0.5 text-[12px]">
                 {radio.paused ? "Seguir" : "Pausar"}
               </button>
-              <button type="button" onClick={() => sendOfficeRadio({ action: "stop" })} className="cozy-btn px-2 py-0.5 text-[12px]" aria-label="Apagar la radio">
+              <button type="button" onClick={() => send({ action: "stop" })} className="cozy-btn px-2 py-0.5 text-[12px]" aria-label="Apagar la radio">
                 Apagar
               </button>
             </>

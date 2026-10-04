@@ -1,6 +1,6 @@
 // La radio de la oficina donde estoy: un reproductor de YouTube que no se ve (solo suena) y va al
 // segundo del servidor, en bucle. El volumen y el silencio son de cada uno (se guardan en el navegador).
-import { radioElapsed, type OfficeRadioState } from "@hyvento/shared";
+import { radioElapsed, type OfficeRadioMessage, type OfficeRadioState } from "@hyvento/shared";
 import { create } from "zustand";
 import { serverNow } from "./club/store";
 import { sendOfficeRadio } from "./network";
@@ -50,9 +50,15 @@ export const useRadioStore = create<RadioStore>((set, get) => ({
 }));
 
 let screen: YoutubeScreen | null = null;
+/** A quién se le informa la duración del video: la radio de la oficina o la música de la casa. */
+let durationSink: (msg: OfficeRadioMessage) => void = sendOfficeRadio;
 
-/** Cada frame: la radio de la oficina donde estoy (o null para apagarla). */
-export function updateRadio(parent: HTMLElement, radio: OfficeRadioState | null) {
+/**
+ * Cada frame: la radio de la oficina donde estoy, o la música de la casa (con `send`, su propio mensaje),
+ * o null para apagarla.
+ */
+export function updateRadio(parent: HTMLElement, radio: OfficeRadioState | null, send: (msg: OfficeRadioMessage) => void = sendOfficeRadio) {
+  durationSink = send;
   if (!radio) {
     disposeRadio();
     return;
@@ -60,7 +66,7 @@ export function updateRadio(parent: HTMLElement, radio: OfficeRadioState | null)
   screen ??= new YoutubeScreen(parent, {
     id: "radio",
     loop: true,
-    onDuration: (videoId, ms) => sendOfficeRadio({ action: "duration", videoId, ms }),
+    onDuration: (videoId, ms) => durationSink({ action: "duration", videoId, ms }),
     onNeedsTap: (needs) => useRadioStore.getState().setNeedsTap(needs),
   });
   const { volume, muted } = useRadioStore.getState();

@@ -438,6 +438,16 @@ export class CasaState extends Schema {
   @type("string") modo = "invitados";
   /** User.id de quienes el dueño dejó pasar (se pierde al salir de la casa). */
   @type(["string"]) guests = new ArraySchema<string>();
+  /** Modo fiesta (casa-fiesta.ts): la casa queda abierta mientras dura; `modoAntes` es al que vuelve. */
+  @type("boolean") fiesta = false;
+  @type("string") modoAntes = "";
+  /** La música del equipo de sonido (como la radio de las oficinas): suena en toda la casa. */
+  @type("string") radioVideo = "";
+  @type("string") radioTitle = "";
+  @type("number") radioStartedAt = 0;
+  @type("boolean") radioPaused = false;
+  @type("number") radioPausedAt = 0;
+  @type("number") radioDurationMs = 0;
 }
 
 /** La granja: una gallina o la cabra (las mueve el servidor; ver rooms/granja.ts). */

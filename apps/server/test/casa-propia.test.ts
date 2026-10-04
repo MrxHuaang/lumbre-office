@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { CASA_CONEXIONES } from "@hyvento/map";
-import { CASA_PROPIA, CASA_PROPIA_MSG, casaAreaOf, MSG, ROOM_NAME, STAT_PREFIX, VIAJE_MSG, type CasaPropiaNotice, type Invitation, type KnockRequest, type KnockResult, type ViajeNotice } from "@hyvento/shared";
+import { CASA_FIESTA_MSG, CASA_PROPIA, CASA_PROPIA_MSG, type ChatEvent, casaAreaOf, MSG, ROOM_NAME, STAT_PREFIX, VIAJE_MSG, type CasaPropiaNotice, type Invitation, type KnockRequest, type KnockResult, type ViajeNotice } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -180,6 +180,49 @@ describe("visitas a la casa", () => {
     await until(() => player(room, beto).area === "casa:u-ana:abajo", "entrar");
     ana.send(CASA_PROPIA_MSG.kick, { userId: "u-beto" });
     await until(() => player(room, beto).area === "jardin", "salir");
+  });
+});
+
+describe("fiestas en la casa", () => {
+  it("el modo fiesta abre la casa, avisa en el chat global y al apagarla vuelve al modo de antes", { timeout: 30000 }, async () => {
+    const { room, clients } = await setup(["Ana", "Beto"]);
+    const [ana, beto] = clients as [ClientRoom, ClientRoom];
+    await home(ana, room, "u-ana");
+    const chat: ChatEvent[] = [];
+    beto.onMessage(MSG.chatEvent, (e: ChatEvent) => chat.push(e));
+    ana.send(CASA_FIESTA_MSG.fiesta, { on: true });
+    await until(() => room.state.casas.get("u-ana")?.fiesta === true, "la fiesta");
+    expect(room.state.casas.get("u-ana")!.modo).toBe("abierta");
+    await until(() => chat.some((e) => e.scope === "global" && e.fromId === "" && e.text.includes("Ana")), "el aviso");
+    // Abierta: Beto entra sin invitación.
+    await say(beto, room, "/ir casa:u-ana:abajo");
+    await until(() => player(room, beto).area === "casa:u-ana:abajo", "entrar a la fiesta");
+    // Se acaba: vuelve a solo invitados y quien estaba queda como invitado.
+    ana.send(CASA_FIESTA_MSG.fiesta, { on: false });
+    await until(() => room.state.casas.get("u-ana")?.fiesta === false, "apagarla");
+    expect(room.state.casas.get("u-ana")!.modo).toBe("invitados");
+    expect([...room.state.casas.get("u-ana")!.guests]).toContain("u-beto");
+    // Otra fiesta enseguida no vuelve a avisar.
+    const avisos = chat.filter((e) => e.fromId === "").length;
+    ana.send(CASA_FIESTA_MSG.fiesta, { on: true });
+    await until(() => room.state.casas.get("u-ana")?.fiesta === true, "otra fiesta");
+    await tick(100);
+    expect(chat.filter((e) => e.fromId === "").length).toBe(avisos);
+  });
+
+  it("la música la pone el dueño desde su casa y nadie más", { timeout: 30000 }, async () => {
+    OfficeRoom.youtubeLookup = async () => ({ ok: true as const, title: "Cumbia de prueba" });
+    const { room, clients } = await setup(["Ana", "Beto"]);
+    const [ana, beto] = clients as [ClientRoom, ClientRoom];
+    await home(ana, room, "u-ana");
+    beto.send(CASA_FIESTA_MSG.radio, { action: "set", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" });
+    await tick(100);
+    expect(room.state.casas.get("u-ana")?.radioVideo ?? "").toBe("");
+    ana.send(CASA_FIESTA_MSG.radio, { action: "set", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" });
+    await until(() => room.state.casas.get("u-ana")?.radioVideo === "dQw4w9WgXcQ", "la música");
+    expect(room.state.casas.get("u-ana")!.radioTitle).toBe("Cumbia de prueba");
+    ana.send(CASA_FIESTA_MSG.radio, { action: "stop" });
+    await until(() => room.state.casas.get("u-ana")?.radioVideo === "", "apagarla");
   });
 });
 

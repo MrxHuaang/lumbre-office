@@ -2,7 +2,17 @@
 // (`state.casas`: el modo y a quiénes dejó pasar), los avisos y lo que manda el dueño (cambiar el modo,
 // pedirle a alguien que se vaya). Las reglas están en casa-propia.ts de @hyvento/shared y las decide el
 // servidor; aquí solo se anticipan para los botones.
-import { BUS_MSG, CASA_PROPIA_MSG, casaPropiaBlock, casaAreaOf, isCasaModo, type CasaModo } from "@hyvento/shared";
+import {
+  BUS_MSG,
+  CASA_FIESTA_MSG,
+  CASA_PROPIA_MSG,
+  casaPropiaBlock,
+  casaAreaOf,
+  isCasaModo,
+  type CasaModo,
+  type OfficeRadioMessage,
+  type OfficeRadioState,
+} from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { create } from "zustand";
 import type { OfficeRoom } from "./network";
@@ -12,6 +22,10 @@ export interface CasaView {
   ownerName: string;
   modo: CasaModo;
   guests: string[];
+  /** Modo fiesta (casa-fiesta.ts): abierta, con luces y aviso en el chat. */
+  fiesta: boolean;
+  /** La música del equipo de sonido (como la radio de una oficina), o null si está apagada. */
+  radio: OfficeRadioState | null;
 }
 
 interface CasasStore {
@@ -42,6 +56,17 @@ export function bindCasas(r: OfficeRoom) {
         ownerName: casa.ownerName,
         modo: isCasaModo(casa.modo) ? casa.modo : "invitados",
         guests: [...casa.guests],
+        fiesta: casa.fiesta,
+        radio: casa.radioVideo
+          ? {
+              videoId: casa.radioVideo,
+              title: casa.radioTitle,
+              startedAt: casa.radioStartedAt,
+              paused: casa.radioPaused,
+              pausedAt: casa.radioPausedAt,
+              durationMs: casa.radioDurationMs,
+            }
+          : null,
       };
       useCasasStore.setState((s) => ({ casas: { ...s.casas, [ownerId]: view } }));
     };
@@ -64,6 +89,16 @@ export function bindCasas(r: OfficeRoom) {
 /** El dueño cambia quién entra a su casa. */
 export function sendCasaModo(modo: CasaModo) {
   room?.send(CASA_PROPIA_MSG.modo, { modo });
+}
+
+/** El dueño prende o apaga el modo fiesta. */
+export function sendCasaFiesta(on: boolean) {
+  room?.send(CASA_FIESTA_MSG.fiesta, { on });
+}
+
+/** La música de la casa (el dueño la maneja; la duración la informa cualquiera que la oiga). */
+export function sendCasaRadio(msg: OfficeRadioMessage) {
+  room?.send(CASA_FIESTA_MSG.radio, msg);
 }
 
 /** El dueño le pide a alguien que se vaya de su casa. */

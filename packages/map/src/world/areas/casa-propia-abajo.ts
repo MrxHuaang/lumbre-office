@@ -17,7 +17,8 @@ const H = 14;
 const SALA: Rect = { x: 0, y: 0, w: 9, h: 8 };
 const COMEDOR: Rect = { x: 9, y: 0, w: 6, h: 8 };
 const COCINA: Rect = { x: 15, y: 0, w: 6, h: 8 };
-const FIESTAS: Rect = { x: 21, y: 0, w: 5, h: 8 };
+/** La sala de fiestas (exportada: las luces de la bola de discoteca se pintan sobre su piso). */
+export const FIESTAS: Rect = { x: 21, y: 0, w: 5, h: 8 };
 const RECIBIDOR: Rect = { x: 0, y: 8, w: 6, h: 6 };
 const PASILLO: Rect = { x: 6, y: 8, w: 8, h: 6 };
 const BANO: Rect = { x: 14, y: 8, w: 4, h: 6 };
