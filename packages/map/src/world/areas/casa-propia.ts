@@ -138,7 +138,8 @@ const items: Placement[] = [
   place("pine-2", M + 39, M + 12),
 ];
 
-const points: PointDef[] = [];
+// Bajo el refugio de la parada: "Esperar el bus" (vuelve a la estación).
+const points: PointDef[] = [{ type: "home_bus_stop", name: "Parada Casa", x: GATE_X + 8, y: FENCE_Y + 2 }];
 
 /** Afuera de la casa de `userId` (`casa:<userId>`). */
 function casaAfuera(userId: string): AreaDef {

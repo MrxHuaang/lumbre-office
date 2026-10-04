@@ -420,6 +420,11 @@ export class BusState extends Schema {
   @type("float64") nextAt = 0;
   /** Número de pasada (para que el cliente note una llegada nueva). */
   @type("uint32") run = 0;
+  /** De dónde a dónde va la ruta en curso (BusStop: "estacion" o "casa"; cuenta en "route"). */
+  @type("string") from = "estacion";
+  @type("string") to = "estacion";
+  /** Cuánto dura un viaje (ms), para que la pantalla del viaje no use la constante. */
+  @type("uint32") tripMs = 0;
 }
 
 /** La granja: una gallina o la cabra (las mueve el servidor; ver rooms/granja.ts). */

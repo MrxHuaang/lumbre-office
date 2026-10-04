@@ -1,9 +1,11 @@
-// El Megabús de la parada del jardín: la sala lleva solo la fase del bus y cuándo empezó (así todos lo ven
-// igual), con el reloj de la sala. Pasa según el horario (cada 3 min reales en el horario laboral del
-// juego, cada 10 de noche; ver BUS en @hyvento/shared); si al cerrar las puertas queda gente adentro (en el
-// nivel `megabus`) da una vuelta de `tripMs` y vuelve a la estación, y si no, sigue de largo. No se simula
-// nada del recorrido: el cliente dibuja el bus con `busOffset` y la hora del servidor.
-import { busHeadwayMs, doorsOpenAt, phaseMs, runMs, type BusPhase, type BusTimings } from "@hyvento/shared";
+// El Megabús de la parada del jardín: la sala lleva solo la fase del bus, cuándo empezó y de dónde a dónde
+// va (así todos lo ven igual), con el reloj de la sala. Pasa según el horario (cada 3 min reales en el
+// horario laboral del juego, cada 10 de noche; ver BUS en @hyvento/shared). Si al cerrar las puertas queda
+// gente adentro (en el nivel `megabus`) viaja `tripMs` hasta la parada "Casa", donde la sala baja a cada
+// uno en su casa (`arriveHome`); si quedan a bordo los que van a la estación, vuelve con ellos y abre en la
+// estación, y si no, se pierde hasta el próximo del horario. Si va vacío, sigue de largo. No se simula nada
+// del recorrido: el cliente dibuja el bus con `busOffset` y la hora del servidor.
+import { busHeadwayMs, doorsOpenAt, phaseMs, runMs, type BusPhase, type BusRoute, type BusTimings } from "@hyvento/shared";
 import type { HeldClock } from "./consumables";
 
 export interface BusSchedule {
@@ -20,8 +22,12 @@ export interface BusDeps {
   schedule: () => BusSchedule;
   /** Cuántos van a bordo (en el nivel del bus). */
   riders: () => number;
+  /** Cuántos de los de a bordo van a su casa (los demás van a la estación). */
+  homeRiders: () => number;
+  /** Llegó a la parada "Casa": la sala baja a cada uno en la suya y dice cuántos siguen a bordo. */
+  arriveHome: () => number;
   /** Cambió la fase: la sala la copia a su estado. */
-  onChange: (s: { phase: BusPhase; since: number; nextAt: number; run: number }) => void;
+  onChange: (s: { phase: BusPhase; since: number; nextAt: number; run: number } & BusRoute) => void;
 }
 
 /** Pausa mínima entre que un bus se pierde y llega el siguiente. */
@@ -34,6 +40,8 @@ export class BusLine {
   nextAt = 0;
   /** Número de pasada (cambia con cada llegada). */
   run = 0;
+  /** De dónde a dónde va la ruta en curso (solo cuenta en "route"). */
+  route: BusRoute = { from: "estacion", to: "estacion" };
   private timer?: { clear(): void };
 
   constructor(private readonly deps: BusDeps) {}
@@ -65,6 +73,7 @@ export class BusLine {
     if (this.phase === "leaving") {
       // Sigue igual en la pantalla (el arranque de la vuelta es el mismo), pero ahora vuelve.
       this.phase = "route";
+      this.route = { from: "estacion", to: "estacion" };
       this.emit();
       this.schedule(phaseMs("route", this.deps.timings()) - (now - this.since));
       return;
@@ -89,7 +98,8 @@ export class BusLine {
     this.set("arriving");
   }
 
-  private set(phase: BusPhase) {
+  private set(phase: BusPhase, route?: BusRoute) {
+    if (route) this.route = route;
     this.phase = phase;
     this.since = this.deps.now();
     this.emit();
@@ -114,19 +124,31 @@ export class BusLine {
       case "away":
         return this.arrive();
       case "arriving":
-      case "route":
         return this.set("open");
+      case "route":
+        return this.endRoute();
       case "open":
         return this.set("closing");
       case "closing":
-        return this.set(this.deps.riders() > 0 ? "route" : "leaving");
+        // Con alguien que va a su casa, a la parada "Casa"; con solo los que van a la estación (no se
+        // bajaron), la vuelta de siempre; vacío, sigue de largo.
+        if (this.deps.homeRiders() > 0) return this.set("route", { from: "estacion", to: "casa" });
+        return this.set(this.deps.riders() > 0 ? "route" : "leaving", { from: "estacion", to: "estacion" });
       case "leaving":
         return this.set("away");
     }
   }
 
+  /** Termina una ruta: en la estación abre; en la casa baja a cada uno y vuelve con los que siguen. */
+  private endRoute() {
+    if (this.route.to === "estacion") return this.set("open");
+    const left = this.deps.arriveHome();
+    if (left > 0) return this.set("route", { from: "casa", to: "estacion" });
+    this.set("away");
+  }
+
   private emit() {
-    this.deps.onChange({ phase: this.phase, since: this.since, nextAt: this.nextAt, run: this.run });
+    this.deps.onChange({ phase: this.phase, since: this.since, nextAt: this.nextAt, run: this.run, ...this.route });
   }
 }
 

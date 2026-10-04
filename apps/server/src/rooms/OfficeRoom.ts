@@ -16,6 +16,7 @@ import {
   storedEdit,
   BLACKJACK_SEATS,
   CONEXIONES,
+  CASA_CONEXIONES,
   BOARD_TABLES,
   getWorld,
   nearPointOfType,
@@ -171,6 +172,7 @@ import {
   BUS_MSG,
   BUS_TIMINGS,
   BusBoardMessage,
+  BusCallMessage,
   type BusNotice,
   type BusTimings,
   AGUA,
@@ -275,7 +277,7 @@ import { BAG, BAG_MSG, CELULAR_ITEM, BagDropMessage, BagMoveMessage, BagSelectMe
 import { Huerto, isHuertoAction } from "./huerto";
 import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/shared";
 import { CasaArbol } from "./casaArbol";
-import { CASA_PROPIA_MSG, statAreaOf, type CasaPropiaNotice } from "@hyvento/shared";
+import { CASA_PROPIA_MSG, casaAreaOf, statAreaOf, type CasaPropiaNotice } from "@hyvento/shared";
 import { CasasPropias } from "./casaPropia";
 import { BusLine, type BusSchedule } from "./bus";
 import { Piscina } from "./piscina";
@@ -830,6 +832,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private hockey!: HockeyTable;
   /** El Megabús de la parada del jardín (ver bus.ts): lo ven todos en `state.bus`. */
   bus!: BusLine;
+  /**
+   * Los de a bordo que van a la estación y no a su casa: quien llamó el bus desde la suya y quien "llega en
+   * bus". En la parada "Casa" no se bajan; los demás sí, cada uno en la suya.
+   */
+  private readonly toStation = new Set<string>();
+  /** "Esperar el bus" en curso, por persona (se cancela si se va de la parada o se desconecta). */
+  private readonly busCalls = new Map<string, { clear(): void }>();
   /** La piscina del jardín: nadar, el trampolín, las reposeras al sol y quedar mojado (ver piscina.ts). */
   private piscina?: Piscina;
   /** La tina caliente y la sauna del lago: los puntos del descanso y quedar mojado al salir (ver tina.ts). */
@@ -1010,6 +1019,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(CASA_ARBOL_MSG.ladder, (client, raw) => this.withTreeHouse(client, (p) => this.casaArbol.ladder(p, raw)));
     this.onMessage(CASA_ARBOL_MSG.focus, (client, raw) => this.withTreeHouse(client, (p) => this.casaArbol.focus(p, raw, Date.now())));
     this.onMessage(BUS_MSG.board, (client, raw) => this.handleBusBoard(client, raw));
+    this.onMessage(BUS_MSG.call, (client, raw) => this.handleBusCall(client, raw));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
@@ -1288,7 +1298,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     void this.encargos.load(auth.sub, { join: true, newcomer: isNewcomer(auth.onboardedAt, Date.now()), byBus });
     void this.oficios.load(auth.sub, { join: true });
-    if (byBus) this.bus.requestRide();
+    if (byBus) {
+      this.toStation.add(auth.sub);
+      this.bus.requestRide();
+    }
     void this.refreshBadge(auth.sub);
     client.send(MSG.chatHistory, this.globalHistory);
     // La mochila, con la casilla elegida (el cliente la adopta: por eso `pick`).
@@ -3815,15 +3828,99 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       minuteOfDay: () => this.gameTimeNow().minuteOfDay,
       timings: () => OfficeRoom.busTimings,
       schedule: () => OfficeRoom.busSchedule,
-      riders: () => [...this.state.players.values()].filter((p) => p.area === BUS.area).length,
+      riders: () => this.busRiders().length,
+      homeRiders: () => this.busRiders().filter((p) => !this.toStation.has(p.userId)).length,
+      arriveHome: () => this.arriveHome(),
       onChange: (s) => {
         b.phase = s.phase;
         b.since = s.since;
         b.nextAt = s.nextAt;
         b.run = s.run;
+        b.from = s.from;
+        b.to = s.to;
+        b.tripMs = OfficeRoom.busTimings.tripMs;
       },
     });
     this.bus.start();
+  }
+
+  private busRiders(): Player[] {
+    return [...this.state.players.values()].filter((p) => p.area === BUS.area);
+  }
+
+  /**
+   * El bus llegó a la parada "Casa": todos se bajan en la misma parada, pero cada uno aparece en la suya
+   * (la vereda de su casa). Los que van a la estación siguen a bordo; devuelve cuántos.
+   */
+  private arriveHome(): number {
+    let left = 0;
+    for (const [sessionId, p] of this.state.players) {
+      if (p.area !== BUS.area) continue;
+      if (this.toStation.has(p.userId)) {
+        left++;
+        continue;
+      }
+      const { x, y, facing } = CASA_CONEXIONES.afuera.parada.llegada;
+      this.moveTo(sessionId, p, casaAreaOf(p.userId), x, y, facing);
+    }
+    // Lo que quedó de alguien que ya no va en el bus no cuenta para el próximo viaje.
+    const aboard = new Set(this.busRiders().map((p) => p.userId));
+    for (const id of [...this.toStation]) if (!aboard.has(id)) this.toStation.delete(id);
+    return left;
+  }
+
+  /** Lleva a alguien a un tile de otro nivel (bajarse del bus, subirse desde la casa) y le avisa. */
+  private moveTo(sessionId: string, player: Player, area: string, tx: number, ty: number, facing: Player["dir"]) {
+    const target = this.mapOf(area);
+    const ts = target.tileSize;
+    const pos = this.freeSpotNear(target, tx * ts + ts / 2, ty * ts + ts / 2);
+    const previousZoneId = player.zoneId;
+    player.area = target.id;
+    player.x = pos.x;
+    player.y = pos.y;
+    player.dir = facing;
+    player.moving = false;
+    player.seated = false;
+    player.zoneId = zoneAt(target, pos.x, pos.y)?.id ?? "";
+    player.place = placeAt(target, pos.x, pos.y);
+    this.revokeGuestOnExit(player, previousZoneId);
+    this.whiteboards.moved(sessionId, player.zoneId);
+    this.focus.moved(player.userId, player.zoneId);
+    this.fishery.cancel(player.userId);
+    this.trades.moved(sessionId);
+    this.achievements.visit(player.userId, target.id);
+    const client = this.clients.find((c) => c.sessionId === sessionId);
+    if (client?.userData) client.userData.lastMoveAt = Date.now();
+    client?.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
+  }
+
+  /**
+   * "Esperar el bus" en la parada de la casa propia: al rato pasa a recoger (`BUS.homeWaitMs`) y quien
+   * espera queda a bordo, con destino la estación (si el próximo tarda, sale uno de refuerzo).
+   */
+  private handleBusCall(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData || !BusCallMessage.safeParse(raw ?? {}).success) return;
+    const notice = (code: BusNotice["code"]) => client.send(BUS_MSG.notice, { code } satisfies BusNotice);
+    if (player.seated || player.racing || player.swimming || this.drunk.fainted(player.userId)) return notice("busy");
+    const atStop = () => {
+      const p = this.state.players.get(client.sessionId);
+      return p && p.area === casaAreaOf(p.userId) && nearPointOfType(this.mapOf(p.area), "home_bus_stop", p.x, p.y) ? p : null;
+    };
+    if (!atStop()) return notice("home");
+    client.userData.lastActiveAt = Date.now();
+    notice("coming");
+    if (this.busCalls.has(player.userId)) return;
+    const timer = this.clock.setTimeout(() => {
+      this.busCalls.delete(player.userId);
+      const p = atStop();
+      if (!p || p.seated) return;
+      const t = CONEXIONES.megabus.puertas.llegada;
+      this.toStation.add(p.userId);
+      this.moveTo(client.sessionId, p, BUS.area, t.x, t.y, t.facing);
+      this.bus.requestRide();
+    }, BUS.homeWaitMs);
+    this.busCalls.set(player.userId, timer);
   }
 
   /** Dónde queda quien llega en bus: en el pasillo, junto a la puerta del medio. */
@@ -3845,20 +3942,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (player.seated || player.racing || this.drunk.fainted(player.userId)) return notice("busy");
     if (player.area === BUS.area || !nearPointOfType(map, "bus_stop", player.x, player.y)) return notice("far");
     if (!this.bus.doorsOpen()) return notice("noBus");
+    // Quien sube en la estación va a su casa.
+    this.toStation.delete(player.userId);
     const inside = this.mapOf(BUS.area);
     const ts = inside.tileSize;
     // Se entra por la puerta de adentro cuya bajada queda más cerca de donde está.
     const dist = (p: (typeof inside.portals)[number]) => Math.hypot((p.to.x + 0.5) * ts - player.x, (p.to.y + 0.5) * ts - player.y);
     const door = [...inside.portals].sort((a, b) => dist(a) - dist(b))[0]!;
     const t = door.tiles[0]!;
-    const pos = this.freeSpotNear(inside, t.x * ts + ts / 2, (t.y - 2) * ts + ts / 2);
+    // Dos pasos adentro de la puerta (las puertas están en la pared del norte, la de la plataforma).
+    const pos = this.freeSpotNear(inside, t.x * ts + ts / 2, (t.y + 2) * ts + ts / 2);
     this.casa.leaveStall(player.userId);
     this.fishery.cancel(player.userId);
     const previousZoneId = player.zoneId;
     player.area = inside.id;
     player.x = pos.x;
     player.y = pos.y;
-    player.dir = "up";
+    player.dir = "down";
     player.moving = false;
     player.zoneId = zoneAt(inside, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(inside, pos.x, pos.y);

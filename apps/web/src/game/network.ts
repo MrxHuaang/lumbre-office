@@ -568,6 +568,7 @@ export function activateInteractable(kind: Interactable) {
   for (const fn of interactListeners) fn(kind);
   if (kind === "pole") return togglePole();
   if (kind === "bus") return sendBusBoard();
+  if (kind === "homeBus") return void room?.send(BUS_MSG.call, {});
   // La escalerita: sube a la tarima o, si ya estoy arriba, baja (lo valida el servidor).
   if (kind === "stage") return void room?.send(ESCENARIO_MSG.stage, { on: useOfficeStore.getState().zone?.id !== ESCENARIO.stageZone });
   if (kind === "podcast") return podcastAction();

@@ -164,9 +164,9 @@ function busCabin(): Sprite {
   s.solid(8, 18, 0, 3, 3, 7, at(GREY, 3), at(GREY, 1), at(GREY, 2));
   s.solid(4, 14, 7, 11, 11, 3, at(BLACK, 3), at(BLACK, 1), at(BLACK, 2));
   s.solid(3, 14, 10, 3, 11, 14, at(BLACK, 4), at(BLACK, 2), at(BLACK, 3));
-  // Validador de tarjetas junto a la puerta de adelante (pantallita verde).
-  s.solid(10, 62, 0, 6, 6, 18, at(GREY, 4), at(GREY, 2), at(GREY, 3));
-  s.quad([10, 68, 12], [1, 0, 0], [0, 0, 1], 6, 4, () => at(LIME, 5));
+  // Validador de tarjetas junto a la puerta de adelante, del lado de la plataforma (pantallita verde).
+  s.solid(10, 8, 0, 6, 6, 18, at(GREY, 4), at(GREY, 2), at(GREY, 3));
+  s.quad([10, 14, 12], [1, 0, 0], [0, 0, 1], 6, 4, () => at(LIME, 5));
   s.shadow(2, 2, 30, 76, 0.25);
   return s.sprite();
 }

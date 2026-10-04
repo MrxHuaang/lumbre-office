@@ -6,10 +6,17 @@ const t = BUS_TIMINGS;
 const at = (phase: BusTripState["phase"], elapsed: number, nextAt = 0) => tripView({ phase, since: 1000, nextAt }, 1000 + elapsed, tripInfo({ phase, since: 1000, nextAt }));
 
 describe("tripInfo", () => {
-  it("hoy el bus vuelve a la Estación Hyvento en lo que dura la vuelta", () => {
-    const info = tripInfo({ phase: "route", since: 0, nextAt: 0 });
-    expect(info).toEqual({ stop: "estacion", durationMs: t.tripMs });
-    expect(busStopName(info.stop)).toBe("Estación Hyvento");
+  it("la ruta a la casa dice Casa, con la duración que manda el servidor", () => {
+    const info = tripInfo({ phase: "route", since: 0, nextAt: 0, to: "casa", tripMs: 15_000 });
+    expect(info).toEqual({ stop: "casa", durationMs: 15_000 });
+    expect(busStopName(info.stop)).toBe("Casa");
+  });
+
+  it("de vuelta, llegando o esperando el bus se va a la Estación Hyvento", () => {
+    expect(tripInfo({ phase: "route", since: 0, nextAt: 0, to: "estacion" }).stop).toBe("estacion");
+    expect(tripInfo({ phase: "arriving", since: 0, nextAt: 0, to: "casa" }).stop).toBe("estacion");
+    expect(tripInfo({ phase: "away", since: 0, nextAt: 0 })).toEqual({ stop: "estacion", durationMs: t.tripMs });
+    expect(busStopName("estacion")).toBe("Estación Hyvento");
   });
 });
 

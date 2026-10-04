@@ -75,7 +75,9 @@ function BusTripScreen({ leaving }: { leaving: boolean }) {
   const since = useBusStore((s) => s.since);
   const nextAt = useBusStore((s) => s.nextAt);
   const run = useBusStore((s) => s.run);
-  const bus = { phase, since, nextAt };
+  const to = useBusStore((s) => s.to);
+  const tripMs = useBusStore((s) => s.tripMs);
+  const bus = { phase, since, nextAt, to, tripMs };
   const info = tripInfo(bus);
   const view = tripView(bus, serverNow(), info);
 
@@ -96,10 +98,12 @@ function BusTripScreen({ leaving }: { leaving: boolean }) {
   const rang = useRef<number | null>(null);
   const ring = view.bell && !view.arrived && view.etaMs > 300;
   useEffect(() => {
-    if (!ring || rang.current === run) return;
-    rang.current = run;
+    // Una vez por tramo: la ida a la casa y la vuelta a la estación van en la misma pasada.
+    const leg = run * 2 + (to === "casa" ? 1 : 0);
+    if (!ring || rang.current === leg) return;
+    rang.current = leg;
     playBusStopBell(0.8);
-  }, [ring, run]);
+  }, [ring, run, to]);
 
   return <BusTripView view={view} stopName={busStopName(info.stop)} mood={mood} minuteOfDay={minute.minuteOfDay} riders={riders} leaving={leaving} />;
 }

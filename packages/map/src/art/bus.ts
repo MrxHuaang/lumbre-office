@@ -261,22 +261,15 @@ export function busCarSprite(car: BusCar, night: boolean, doors: number): Sprite
     .map((d) => (front ? len - d * L : len - (d - BUS.frontLen - BUS.jointLen) * L))
     .filter((x) => x > 8 && x < len - 4);
   const axles = front ? [len - 22, 34] : [24];
-  const inDoor = (u: number) => doorX.find((c) => Math.abs(u - c) < 9);
   const winLit = night ? at(C.gold, 4) : null;
 
-  /** Costado visible (+y): faldón negro, franja lima con "MEGABUS", ventanas casi negras de piso a techo y puertas. */
+  /**
+   * Costado visible (+y, el de la calle): faldón negro, franja lima con "MEGABUS" y ventanas casi negras de
+   * piso a techo. Las puertas van del otro lado, el de la plataforma: se abren hacia la estación, junto con
+   * las de vidrio de la estación (de este lado se ven solo sus luces del techo).
+   */
   const side: Tinte = (u, v) => {
     const z = v + Z.skirt0;
-    const d = inDoor(u);
-    if (d !== undefined) {
-      // Puerta alta de vidrio en marco negro; abierta, las hojas se corren y se ve adentro (iluminado de noche).
-      const du = u - d;
-      if (Math.abs(du) > 8 || z > Z.win1 + 1) return at(BLACK, 2);
-      const gap = doors * 7;
-      if (Math.abs(du) < gap) return night ? at(C.gold, 3) : at(BLACK, 0);
-      if (Math.abs(Math.abs(du) - gap) < 1 || z < Z.skirt1) return at(BLACK, 1);
-      return night ? mix(at(TINT, 3), at(C.gold, 3), 0.5) : at(TINT, z > 18 ? 3 : 2);
-    }
     if (z < Z.skirt1) return at(BLACK, z < Z.skirt0 + 1 ? 1 : 2);
     if (z < Z.band1) {
       if (front && letterOn("MEGABUS", u, z, 52, Z.skirt1 + 1)) return at(C.white, 4);
