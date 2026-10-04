@@ -1,6 +1,6 @@
 "use client";
 
-import type { SpaKind } from "@hyvento/shared";
+import { isCasaArea, type SpaKind } from "@hyvento/shared";
 import { useDoorNotesStore } from "@/game/doorNotes";
 import { respondInvite, respondKnock, sendKnock, sendSwivel } from "@/game/network";
 import { fishingSpotAction } from "@/game/fishing/net";
@@ -45,7 +45,7 @@ export function KnockRequests() {
       {requests.map((r) => (
         <div key={r.requestId} role="alert" className="cozy-panel px-5 py-4">
           <p className="text-[15px]">
-            <strong>{r.fromName}</strong> toca la puerta de tu oficina
+            <strong>{r.fromName}</strong> {isCasaArea(r.zoneId) ? "toca el timbre de tu casa" : "toca la puerta de tu oficina"}
           </p>
           <div className="mt-3 flex items-center gap-3">
             <button onClick={() => respondKnock(r.requestId, true)} className="cozy-btn cozy-btn-primary">
@@ -64,6 +64,7 @@ export function KnockRequests() {
 /** "a su oficina", "a Sala de reuniones" o "a donde está". */
 function invitePlaceText(inv: Invitation): string {
   if (inv.place === "office") return "a su oficina";
+  if (inv.place === "casa") return "a su casa (te lleva el Megabús)";
   if (inv.place === "zone" && inv.placeName) return `a ${inv.placeName}`;
   return "a donde está";
 }

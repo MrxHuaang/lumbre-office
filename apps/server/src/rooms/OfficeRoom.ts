@@ -17,6 +17,7 @@ import {
   BLACKJACK_SEATS,
   CONEXIONES,
   CASA_CONEXIONES,
+  pointsOfType,
   BOARD_TABLES,
   getWorld,
   nearPointOfType,
@@ -277,7 +278,20 @@ import { BAG, BAG_MSG, CELULAR_ITEM, BagDropMessage, BagMoveMessage, BagSelectMe
 import { Huerto, isHuertoAction } from "./huerto";
 import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/shared";
 import { CasaArbol } from "./casaArbol";
-import { CASA_PROPIA_MSG, casaAreaOf, statAreaOf, type CasaPropiaNotice } from "@hyvento/shared";
+import {
+  CASA_MODO_DEFAULT,
+  CASA_PROPIA_MSG,
+  casaAreaOf,
+  CasaKickMessage,
+  CasaModoMessage,
+  casaOwnerOf,
+  isCasaArea,
+  isCasaModo,
+  statAreaOf,
+  type CasaAcceso,
+  type CasaPropiaNotice,
+} from "@hyvento/shared";
+import { CasaState } from "../state";
 import { CasasPropias } from "./casaPropia";
 import { BusLine, type BusSchedule } from "./bus";
 import { Piscina } from "./piscina";
@@ -698,6 +712,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     sessionOfUser: (userId) => this.clientOfUser(userId)?.sessionId ?? null,
     placeOf: (sessionId) => {
       const p = this.state.players.get(sessionId);
+      // En su propia casa: invitar deja pasar y lleva hasta allá (las salas de la casa no cuentan aparte).
+      if (p && casaOwnerOf(p.area) === p.userId) return { place: "casa", placeName: "su casa", casaOwnerId: p.userId };
       const zone = p?.zoneId ? this.zonesById.get(p.zoneId) : undefined;
       if (!p || !zone) return { place: "here", placeName: "" };
       const office = zone.type === "office" ? this.state.offices.get(zone.id) : undefined;
@@ -709,6 +725,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const office = this.state.offices.get(zoneId);
       if (office?.ownerId === ownerUserId && office.locked && !office.guests.includes(userId)) office.guests.push(userId);
     },
+    letInCasa: (ownerUserId, userId) => this.letInCasa(ownerUserId, userId),
     setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms),
     now: () => Date.now(),
   });
@@ -827,7 +844,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private huerto!: Huerto<GardenPlotState>;
   private casaArbol!: CasaArbol;
   /** Los niveles de las casas de cada persona que tienen a alguien adentro (se arman al entrar y se sueltan al vaciarse). */
-  private readonly casas = new CasasPropias(() => [...this.state.players.values()].map((p) => p.area));
+  private readonly casas = new CasasPropias(
+    () => [...this.state.players.values()].map((p) => p.area),
+    (ownerId) => this.casaAcceso(ownerId),
+  );
+  /** A qué casa va cada uno que subió al bus en la estación (el dueño; si falta, la propia). */
+  private readonly busDest = new Map<string, string>();
   /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
   private hockey!: HockeyTable;
   /** El Megabús de la parada del jardín (ver bus.ts): lo ven todos en `state.bus`. */
@@ -1020,6 +1042,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(CASA_ARBOL_MSG.focus, (client, raw) => this.withTreeHouse(client, (p) => this.casaArbol.focus(p, raw, Date.now())));
     this.onMessage(BUS_MSG.board, (client, raw) => this.handleBusBoard(client, raw));
     this.onMessage(BUS_MSG.call, (client, raw) => this.handleBusCall(client, raw));
+    this.onMessage(CASA_PROPIA_MSG.modo, (client, raw) => this.handleCasaModo(client, raw));
+    this.onMessage(CASA_PROPIA_MSG.kick, (client, raw) => this.handleCasaKick(client, raw));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
@@ -1814,6 +1838,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     const parsed = KnockMessage.safeParse(raw);
     if (!player || !parsed.success) return;
+    // El timbre de una casa: `zoneId` es el nivel de afuera de esa casa.
+    if (isCasaArea(parsed.data.zoneId)) return this.handleCasaRing(client, player, parsed.data.zoneId);
     const office = this.state.offices.get(parsed.data.zoneId);
     if (!office || !office.ownerId || office.ownerId === player.userId) return;
 
@@ -1857,6 +1883,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const parsed = KnockRespondMessage.safeParse(raw);
     if (!player || !parsed.success) return;
     const knock = this.pendingKnocks.get(parsed.data.requestId);
+    if (knock && isCasaArea(knock.zoneId)) return this.respondCasaRing(player, knock, parsed.data.accept);
     const office = knock && this.state.offices.get(knock.zoneId);
     if (!knock || !office || office.ownerId !== player.userId) return;
 
@@ -2037,7 +2064,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       client.send(PODCAST_MSG.notice, { code: onAir } satisfies PodcastNotice);
       return;
     }
-    // La casa de otra persona: no se entra (todavía sin visitas).
+    // La casa de otra persona: según su modo y si el dueño lo dejó pasar.
     const ajena = this.casas.canEnter(portal.to.area, player.userId);
     if (ajena) {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
@@ -2072,6 +2099,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.trades.moved(client.sessionId);
     void this.raceOutcome(client.sessionId, this.races.cancel(client.sessionId, player, "lane"));
     this.casaArbol.sweep(Date.now());
+    this.sweepCasaGuests();
     // Salir del estudio (o entrar) cambia a quiénes cuenta el acuerdo para grabar: se revisa ya.
     this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
   }
@@ -2135,6 +2163,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastActiveAt = Date.now();
     this.achievements.visit(player.userId, target.id);
     client.send(MSG.moveCorrection, { x: plan.x, y: plan.y, area: target.id } satisfies MoveCorrection);
+    this.sweepCasaGuests();
     this.trades.moved(client.sessionId);
     this.escenario.sweep(this.state.players);
     this.casaArbol.sweep(Date.now());
@@ -2321,6 +2350,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData!.lastMoveAt = Date.now();
     this.achievements.visit(player.userId, target.id);
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
+    this.sweepCasaGuests();
   }
 
   /** Solo en desarrollo: "/sombrero [escondite]" lo hace salir ya y lleva ahí a quien lo pidió. */
@@ -3861,7 +3891,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         continue;
       }
       const { x, y, facing } = CASA_CONEXIONES.afuera.parada.llegada;
-      this.moveTo(sessionId, p, casaAreaOf(p.userId), x, y, facing);
+      // A la casa que eligió si todavía lo dejan entrar (pudo cerrarla en el camino); si no, a la suya.
+      const to = this.busDest.get(p.userId);
+      this.busDest.delete(p.userId);
+      const dest = to && !this.casas.canEnter(casaAreaOf(to), p.userId) ? casaAreaOf(to) : casaAreaOf(p.userId);
+      this.moveTo(sessionId, p, dest, x, y, facing);
     }
     // Lo que quedó de alguien que ya no va en el bus no cuenta para el próximo viaje.
     const aboard = new Set(this.busRiders().map((p) => p.userId));
@@ -3892,6 +3926,138 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const client = this.clients.find((c) => c.sessionId === sessionId);
     if (client?.userData) client.userData.lastMoveAt = Date.now();
     client?.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
+    this.sweepCasaGuests();
+  }
+
+  // ---------- Casa de cada persona: visitas (VIR-81/82) ----------
+
+  /** La casa de un dueño en el estado (se arma la primera vez que hace falta). */
+  private casaOf(ownerId: string): CasaState {
+    let casa = this.state.casas.get(ownerId);
+    if (!casa) {
+      casa = new CasaState();
+      casa.ownerId = ownerId;
+      casa.modo = CASA_MODO_DEFAULT;
+      this.state.casas.set(ownerId, casa);
+    }
+    const name = [...this.state.players.values()].find((p) => p.userId === ownerId)?.name;
+    if (name) casa.ownerName = name;
+    return casa;
+  }
+
+  private casaAcceso(ownerId: string): CasaAcceso | undefined {
+    const casa = this.state.casas.get(ownerId);
+    return casa && isCasaModo(casa.modo) ? { modo: casa.modo, guests: [...casa.guests] } : undefined;
+  }
+
+  /** Deja pasar a alguien a la casa de `ownerId` (invitación aceptada o timbre abierto) y lo lleva a la vereda. */
+  private letInCasa(ownerId: string, userId: string) {
+    const casa = this.casaOf(ownerId);
+    if (casa.modo === "cerrada") return;
+    if (!casa.guests.includes(userId)) casa.guests.push(userId);
+    const entry = [...this.state.players.entries()].find(([, p]) => p.userId === userId);
+    if (!entry) return;
+    const [sessionId, p] = entry;
+    // Ya está adentro de esa casa: nada que mover.
+    if (casaOwnerOf(p.area) === ownerId) return;
+    p.seated = false;
+    p.swimming = false;
+    this.toStation.delete(userId);
+    const { x, y, facing } = CASA_CONEXIONES.afuera.parada.llegada;
+    this.moveTo(sessionId, p, casaAreaOf(ownerId), x, y, facing);
+  }
+
+  /** Los que ya no están en la casa que los dejó pasar pierden el pase (como al salir de una oficina). */
+  private sweepCasaGuests() {
+    for (const casa of this.state.casas.values()) {
+      if (!casa.guests.length) continue;
+      const inside = new Set([...this.state.players.values()].filter((p) => casaOwnerOf(p.area) === casa.ownerId).map((p) => p.userId));
+      for (let i = casa.guests.length - 1; i >= 0; i--) if (!inside.has(casa.guests[i]!)) casa.guests.splice(i, 1);
+    }
+  }
+
+  /** Saca a una visita de la casa: el Megabús la deja en la estación. */
+  private sendHome(sessionId: string, p: Player, code: "echado" | "cerro", ownerName: string) {
+    const stop = pointsOfType(this.mapOf("jardin"), "bus_stop")[1] ?? pointsOfType(this.mapOf("jardin"), "bus_stop")[0];
+    if (!stop) return;
+    p.seated = false;
+    p.swimming = false;
+    this.busDest.delete(p.userId);
+    this.moveTo(sessionId, p, "jardin", stop.tileX, stop.tileY, "up");
+    this.clients.getById(sessionId)?.send(CASA_PROPIA_MSG.notice, { code, name: ownerName } satisfies CasaPropiaNotice);
+  }
+
+  /**
+   * El dueño cambia quién entra. Al pasar a "solo invitados", los que ya estaban adentro quedan como
+   * invitados; al cerrarla, las visitas se van a la estación.
+   */
+  private handleCasaModo(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = CasaModoMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const casa = this.casaOf(player.userId);
+    casa.modo = parsed.data.modo;
+    const visits = [...this.state.players.entries()].filter(([, p]) => p.userId !== player.userId && casaOwnerOf(p.area) === player.userId);
+    if (casa.modo === "cerrada") {
+      casa.guests.clear();
+      for (const [sessionId, p] of visits) this.sendHome(sessionId, p, "cerro", player.name);
+    } else if (casa.modo === "invitados") {
+      for (const [, p] of visits) if (!casa.guests.includes(p.userId)) casa.guests.push(p.userId);
+    }
+  }
+
+  /** El dueño le pide a alguien que se vaya de su casa. */
+  private handleCasaKick(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = CasaKickMessage.safeParse(raw);
+    if (!player || !parsed.success || parsed.data.userId === player.userId) return;
+    const casa = this.casaOf(player.userId);
+    const i = casa.guests.indexOf(parsed.data.userId);
+    if (i >= 0) casa.guests.splice(i, 1);
+    const entry = [...this.state.players.entries()].find(([, p]) => p.userId === parsed.data.userId && casaOwnerOf(p.area) === player.userId);
+    if (entry) this.sendHome(entry[0], entry[1], "echado", player.name);
+  }
+
+  /** Tocar el timbre de la casa de alguien: le llega como un toque de puerta; si abre, entra. */
+  private handleCasaRing(client: Client<UserData>, player: Player, area: string) {
+    const ownerId = casaOwnerOf(area);
+    if (!ownerId || ownerId === player.userId) return;
+    const zoneId = casaAreaOf(ownerId);
+    const ownerName = this.state.casas.get(ownerId)?.ownerName || [...this.state.players.values()].find((p) => p.userId === ownerId)?.name || "";
+    const reply = (outcome: KnockOutcome) => client.send(MSG.knockResult, { zoneId, outcome, ownerName } satisfies KnockResult);
+    // Abierta (o ya lo dejó pasar): no hace falta timbrar, se va directo.
+    if (!this.casas.canEnter(zoneId, player.userId)) {
+      this.letInCasa(ownerId, player.userId);
+      return reply("not-locked");
+    }
+    if (this.state.casas.get(ownerId)?.modo === "cerrada") return reply("declined");
+    const key = `${player.userId}:${zoneId}`;
+    const now = Date.now();
+    if (now - (this.lastKnockAt.get(key) ?? 0) < KNOCK_COOLDOWN_MS) return reply("too-soon");
+    this.lastKnockAt.set(key, now);
+    const owner = this.clientOfUser(ownerId);
+    if (!owner) return reply("owner-away");
+    if (this.state.players.get(owner.sessionId)?.status === "dnd") return reply("dnd");
+    const requestId = randomUUID();
+    const timer = this.clock.setTimeout(() => {
+      this.pendingKnocks.delete(requestId);
+      this.clients.getById(client.sessionId)?.send(MSG.knockResult, { zoneId, outcome: "timeout", ownerName } satisfies KnockResult);
+    }, KNOCK_TIMEOUT_MS);
+    this.pendingKnocks.set(requestId, { requestId, zoneId, requesterSessionId: client.sessionId, requesterUserId: player.userId, timer });
+    owner.send(MSG.knockRequest, { requestId, zoneId, fromName: player.name } satisfies KnockRequest);
+    this.achievements.bump(player.userId, STAT_KEYS.knocks);
+  }
+
+  private respondCasaRing(player: Player, knock: PendingKnock, accept: boolean) {
+    if (casaOwnerOf(knock.zoneId) !== player.userId) return;
+    knock.timer.clear();
+    this.pendingKnocks.delete(knock.requestId);
+    if (accept) this.letInCasa(player.userId, knock.requesterUserId);
+    this.clients.getById(knock.requesterSessionId)?.send(MSG.knockResult, {
+      zoneId: knock.zoneId,
+      outcome: accept ? "accepted" : "declined",
+      ownerName: player.name,
+    } satisfies KnockResult);
   }
 
   /**
@@ -3936,14 +4102,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
    */
   private handleBusBoard(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
-    if (!player || !client.userData || !BusBoardMessage.safeParse(raw ?? {}).success) return;
+    const parsed = BusBoardMessage.safeParse(raw ?? {});
+    if (!player || !client.userData || !parsed.success) return;
     const notice = (code: BusNotice["code"]) => client.send(BUS_MSG.notice, { code } satisfies BusNotice);
     const map = this.mapOf(player.area);
     if (player.seated || player.racing || this.drunk.fainted(player.userId)) return notice("busy");
     if (player.area === BUS.area || !nearPointOfType(map, "bus_stop", player.x, player.y)) return notice("far");
     if (!this.bus.doorsOpen()) return notice("noBus");
-    // Quien sube en la estación va a su casa.
+    // Quien sube en la estación va a una casa: la suya o la que eligió (si lo dejan entrar al llegar).
     this.toStation.delete(player.userId);
+    const to = parsed.data.to;
+    if (to && to !== player.userId) this.busDest.set(player.userId, to);
+    else this.busDest.delete(player.userId);
     const inside = this.mapOf(BUS.area);
     const ts = inside.tileSize;
     // Se entra por la puerta de adentro cuya bajada queda más cerca de donde está.

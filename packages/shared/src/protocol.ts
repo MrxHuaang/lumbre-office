@@ -158,10 +158,10 @@ export const InviteRespondMessage = z.object({ inviteId: z.string().min(1).max(6
 export type InviteRespondMessage = z.infer<typeof InviteRespondMessage>;
 
 /**
- * A dónde invita: su propia oficina, una sala con nombre (la de reuniones, la cafetería…) o simplemente
- * donde está (el jardín, un pasillo sin nombre).
+ * A dónde invita: su propia oficina, su casa (aceptar lo deja pasar y lo lleva hasta allá en el Megabús),
+ * una sala con nombre (la de reuniones, la cafetería…) o simplemente donde está (el jardín, un pasillo).
  */
-export type InvitePlace = "office" | "zone" | "here";
+export type InvitePlace = "office" | "casa" | "zone" | "here";
 
 /** Servidor → invitado (`MSG.inviteRequest`). "Ir" camina hasta `fromSessionId`, esté donde esté. */
 export interface Invitation {

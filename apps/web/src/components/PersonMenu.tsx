@@ -2,13 +2,13 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { sendInvite } from "@/game/network";
+import { sendInvite, sendKnock } from "@/game/network";
 import { usePermisosStore } from "@/game/permisos";
 import { callPerson, followPerson, stopFollowing, useComStore, wavePerson } from "@/game/comunicacion";
 import { usePhoneStore } from "@/game/phone";
 import { sendOficioGift, useMyLevels } from "@/game/oficios";
-import { hasPerk } from "@hyvento/shared";
-import { selectMyOffice, useOfficeStore } from "@/game/store";
+import { casaAreaOf, casaOwnerOf, hasPerk } from "@hyvento/shared";
+import { selectMyOffice, selectMyUserId, useOfficeStore } from "@/game/store";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 
 interface Person {
@@ -24,6 +24,8 @@ interface Person {
 function useInviteLabel(): string {
   const zone = useOfficeStore((s) => s.zone);
   const myOffice = useOfficeStore(useShallow(selectMyOffice));
+  const inMyCasa = useOfficeStore((s) => casaOwnerOf(s.area) !== null && casaOwnerOf(s.area) === selectMyUserId(s));
+  if (inMyCasa) return "Invitar a mi casa";
   if (myOffice && zone?.id === myOffice.zoneId) return "Invitar a mi oficina";
   if (zone?.name) return `Invitar a ${zone.name}`;
   return "Invitar a donde estoy";
@@ -47,6 +49,11 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
   const call = usePhoneStore((s) => s.call);
   const inMyCall = Boolean(call?.members.some((m) => m.userId === person.userId));
   const canCall = !inMyCall && person.status !== "dnd" && !person.call && (!call || call.phase === "talking");
+  // Está en su casa y yo no: se le puede tocar el timbre (si abre, entro).
+  const enSuCasa = useOfficeStore((s) => {
+    const area = s.players[person.sessionId]?.area ?? "";
+    return casaOwnerOf(area) === person.userId && casaOwnerOf(s.area) !== person.userId;
+  });
 
   const close = (focusButton = true) => {
     setOpen(false);
@@ -159,6 +166,11 @@ export function PersonMenu({ person, onProfile }: { person: Person; onProfile: (
           <Item icon="mail" onClick={run(() => sendInvite(person.userId))}>
             {inviteLabel}
           </Item>
+          {enSuCasa && (
+            <Item icon="home" disabled={person.status === "dnd"} onClick={run(() => sendKnock(casaAreaOf(person.userId)))}>
+              Tocar el timbre de su casa
+            </Item>
+          )}
           {/* Social nivel 5: un detalle gratis al día para alguien de al lado (el servidor mide la distancia). */}
           {detallista && (
             <Item icon="gift" onClick={run(() => sendOficioGift(person.sessionId))}>

@@ -27,6 +27,7 @@ import { SideDock } from "./SideDock";
 import { DecorPanel } from "./DecorPanel";
 import { WorldEditPanel } from "./WorldEditPanel";
 import { DoorPrompt, InvitationRequests, KnockRequests, Notices, SeatPrompt } from "./OfficeOverlays";
+import { BusChooser } from "./bus/BusChooser";
 import { NotifyPrompt } from "./NotifyPrompt";
 import { BoardPanel, InteractPrompt, MailboxPanel } from "./PointsPanels";
 import { BarPanel, CafePanel, SnacksPanel } from "./CafePanel";
@@ -368,6 +369,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           </ErrorBoundary>
           <ErrorBoundary name="avisos">
           <KnockRequests />
+          <BusChooser />
           <InvitationRequests />
           <PodcastConsent />
           <IncomingCall />

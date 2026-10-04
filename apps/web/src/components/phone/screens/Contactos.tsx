@@ -3,13 +3,15 @@
 // Contactos: todo el equipo (también quien no está conectado), con su estado y dónde anda en la
 // cabaña: hace las veces del panel de Conectados que había arriba a la derecha. Desde el contacto se le
 // escribe (al chat, con su nombre adelante), se le llama (o se suma a la llamada), se saluda, se sigue,
+// se le invita a donde uno está (a la propia casa, si se está en ella), se le toca el timbre de su casa,
 // se le regala algo o se abre su perfil.
 import { placeLabel } from "@hyvento/map";
-import type { PresenceStatus } from "@hyvento/shared";
+import { casaAreaOf, casaOwnerOf, type PresenceStatus } from "@hyvento/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useAchievementStore } from "@/game/achievements";
 import { callPerson, followPerson, stopFollowing, useComStore, wavePerson } from "@/game/comunicacion";
 import { usePhoneStore as useCallStore } from "@/game/phone";
+import { sendInvite, sendKnock } from "@/game/network";
 import { useSocialStore } from "@/game/social";
 import { useOfficeStore, type PlayerInfo } from "@/game/store";
 import { STATUS_HEX } from "@/lib/cozy";
@@ -79,7 +81,16 @@ export function ContactosApp() {
     });
   }, [players, sessionId, team]);
 
-  const where = (c: Contact) => (c.online ? placeLabel(c.online.place, (id) => zoneNames[id]) || "En la cabaña" : "Desconectado");
+  const myArea = useOfficeStore((s) => s.area);
+  const me = sessionId ? players[sessionId]?.userId : undefined;
+  const inMyCasa = Boolean(me && casaOwnerOf(myArea) === me);
+  const where = (c: Contact) => {
+    if (!c.online) return "Desconectado";
+    // La casa de alguien no dice dónde queda adentro: es suya.
+    const casa = casaOwnerOf(c.online.area);
+    if (casa) return casa === c.userId ? "En su casa" : "De visita en una casa";
+    return placeLabel(c.online.place, (id) => zoneNames[id]) || "En la cabaña";
+  };
   const write = (c: Contact) =>
     go({ kind: "app", id: "mensajes", params: { compose: { scope: "global", text: `@${c.name.split(" ")[0]} ` } } });
   const profile = (c: Contact) => close(() => useAchievementStore.getState().openProfile(c.userId));
@@ -95,6 +106,11 @@ export function ContactosApp() {
         following === current.userId
           ? { label: "Dejar de seguir", run: (c: Contact) => close(() => stopFollowing(`Dejaste de seguir a ${c.name}.`)) }
           : { label: "Seguir", run: (c: Contact) => close(() => followPerson(c.userId)) },
+        { label: inMyCasa ? "Invitar a mi casa" : "Invitar a donde estoy", run: (c: Contact) => close(() => sendInvite(c.userId)) },
+        // Está en su casa y yo no: el timbre (si abre, me lleva hasta allá).
+        ...(casaOwnerOf(current.online.area) === current.userId && casaOwnerOf(myArea) !== current.userId
+          ? [{ label: "Tocar el timbre de su casa", run: (c: Contact) => close(() => sendKnock(casaAreaOf(c.userId))) }]
+          : []),
       ]
     : [];
   const options = [

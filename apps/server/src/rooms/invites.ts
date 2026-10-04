@@ -2,6 +2,8 @@
 // oficina"). El servidor valida que los dos estén conectados, que no sea a uno mismo y el ritmo (una por
 // persona invitada cada 30 s); el invitado responde "Ir" o "Ahora no". Si la invitación es a la propia
 // oficina y está cerrada, aceptar lo deja pasar (como abrirle tras un toque): quien invita ya dijo que sí.
+// Si es a la propia casa, aceptar lo deja pasar y lo lleva hasta la vereda de esa casa (no se llega
+// caminando: es como tomar el Megabús).
 import { randomUUID } from "node:crypto";
 import {
   INVITE_COOLDOWN_MS,
@@ -22,11 +24,15 @@ export interface InvitePerson {
   status: PresenceStatus;
 }
 
-/** Dónde está quien invita; `officeZoneId` = está en su propia oficina (para dejar pasar al invitado). */
+/**
+ * Dónde está quien invita; `officeZoneId` = está en su propia oficina y `casaOwnerId` = en su propia casa
+ * (para dejar pasar al invitado).
+ */
 export interface InviterPlace {
   place: InvitePlace;
   placeName: string;
   officeZoneId?: string;
+  casaOwnerId?: string;
 }
 
 export interface InvitesDeps {
@@ -37,6 +43,8 @@ export interface InvitesDeps {
   send: (sessionId: string, type: string, payload: unknown) => void;
   /** Deja pasar a `userId` a la oficina cerrada `zoneId` de quien invitó. */
   letIn: (zoneId: string, ownerUserId: string, userId: string) => void;
+  /** Deja pasar a `userId` a la casa de `ownerUserId` y lo lleva hasta allá. */
+  letInCasa: (ownerUserId: string, userId: string) => void;
   setTimeout: (fn: () => void, ms: number) => { clear(): void };
   now: () => number;
 }
@@ -48,6 +56,7 @@ interface PendingInvite {
   toUserId: string;
   toName: string;
   officeZoneId?: string;
+  casaOwnerId?: string;
   timer: { clear(): void };
 }
 
@@ -94,6 +103,7 @@ export class Invites {
       toUserId,
       toName: other.name,
       officeZoneId: where.officeZoneId,
+      casaOwnerId: where.casaOwnerId,
       timer,
     });
     this.deps.send(toSession, MSG.inviteRequest, {
@@ -117,6 +127,7 @@ export class Invites {
     this.drop(inv.inviteId);
     const accept = parsed.data.accept;
     if (accept && inv.officeZoneId) this.deps.letIn(inv.officeZoneId, inv.fromUserId, me.userId);
+    if (accept && inv.casaOwnerId) this.deps.letInCasa(inv.casaOwnerId, me.userId);
     const from = this.deps.sessionOfUser(inv.fromUserId);
     if (from) this.deps.send(from, MSG.inviteResult, { toUserId: me.userId, toName: inv.toName, outcome: accept ? "accepted" : "declined" } satisfies InviteResult);
   }

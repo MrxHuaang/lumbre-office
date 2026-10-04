@@ -18,13 +18,22 @@ describe("casa de cada persona", () => {
     }
   });
 
-  it("solo el dueño entra, a cualquier piso", () => {
+  it("sin invitación nadie más que el dueño entra, a ningún piso", () => {
     for (const piso of ["afuera", "abajo", "arriba"] as const) {
       expect(casaPropiaBlock(casaAreaOf("u1", piso), "u1")).toBeNull();
       expect(casaPropiaBlock(casaAreaOf("u1", piso), "u2")).toBe("ajena");
     }
     // Lo que no es una casa no lo frena esta regla.
     expect(casaPropiaBlock("jardin", "u2")).toBeNull();
+  });
+
+  it("abierta entra cualquiera; solo invitados, los invitados; cerrada, solo el dueño", () => {
+    const area = casaAreaOf("u1", "abajo");
+    expect(casaPropiaBlock(area, "u2", { modo: "abierta", guests: [] })).toBeNull();
+    expect(casaPropiaBlock(area, "u2", { modo: "invitados", guests: ["u2"] })).toBeNull();
+    expect(casaPropiaBlock(area, "u3", { modo: "invitados", guests: ["u2"] })).toBe("ajena");
+    expect(casaPropiaBlock(area, "u2", { modo: "cerrada", guests: ["u2"] })).toBe("cerrada");
+    expect(casaPropiaBlock(area, "u1", { modo: "cerrada", guests: [] })).toBeNull();
   });
 
   it("todas las casas cuentan como un solo lugar", () => {

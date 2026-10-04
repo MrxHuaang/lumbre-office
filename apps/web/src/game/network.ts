@@ -69,7 +69,7 @@ import {
   huertoNoticeText,
   BUS_MSG,
   BUS_NOTICES,
-  CASA_PROPIA_BLOCK_TEXT,
+  casaPropiaNoticeText,
   CASA_PROPIA_MSG,
   type CasaPropiaNotice,
   type BusNotice,
@@ -114,6 +114,7 @@ import { handleFishEvent } from "./fishing/store";
 import { useAchievementStore } from "./achievements";
 import { bindBag } from "./bag";
 import { bindCasaArbol } from "./casaArbol";
+import { bindCasas, casasAbiertasPara, useCasasStore } from "./casaVisitas";
 import { bindPesca } from "./pesca";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
@@ -272,6 +273,7 @@ export interface OfficeStateView {
   sombrero: RemoteSombrero;
   /** El Megabús de la parada del jardín (BusState en apps/server/src/state.ts). */
   bus: { phase: string; since: number; nextAt: number; run: number };
+  casas: Map<string, { ownerId: string; ownerName: string; modo: string; guests: string[] }>;
 }
 
 /** La granja como viaja en el estado (espejo de `GranjaState` en apps/server/src/state.ts). */
@@ -561,6 +563,8 @@ export function onAnyInteract(fn: (kind: Interactable) => void) {
 /** Usar un objeto interactivo: casi todos abren su panel (el Man del Sombrero, su menú); el tubo del sótano hace bailar. */
 /** E en la estación: subirse al Megabús (el servidor valida que esté parado con las puertas abiertas). */
 export function sendBusBoard() {
+  // Con casas ajenas abiertas (o que me dejaron pasar), primero se elige a cuál se va.
+  if (casasAbiertasPara(selectMyUserId(useOfficeStore.getState())).length) return useCasasStore.getState().setChoosing(true);
   room?.send(BUS_MSG.board, {});
 }
 
@@ -878,10 +882,12 @@ export function sendInvite(toUserId: string) {
 }
 
 /** Responder una invitación: "Ir" camina hasta quien invitó, esté donde esté. */
-export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId">, accept: boolean) {
+export function respondInvite(inv: Pick<Invitation, "inviteId" | "fromSessionId"> & Partial<Pick<Invitation, "place">>, accept: boolean) {
   const store = useOfficeStore.getState();
   store.removeInvitation(inv.inviteId);
   room?.send(MSG.inviteRespond, { inviteId: inv.inviteId, accept });
+  // A una casa no se camina: el servidor lo lleva hasta allá.
+  if (inv.place === "casa") return;
   // Un respiro para que llegue el parche que me deja pasar a su oficina cerrada (si no, la ruta para en la puerta).
   if (accept) setTimeout(() => useOfficeStore.getState().walkToPlayer(inv.fromSessionId), 300);
 }
@@ -898,6 +904,7 @@ function attach(r: OfficeRoom) {
 
   const $ = getStateCallbacks(r);
   bindCasaArbol(r);
+  bindCasas(r);
   bindPesca(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
@@ -1193,10 +1200,7 @@ function attach(r: OfficeRoom) {
     if (text) useOfficeStore.getState().notify(text, "info");
   });
   // Quiso entrar a la casa de otra persona (todavía no hay visitas).
-  r.onMessage(CASA_PROPIA_MSG.notice, (n: CasaPropiaNotice) => {
-    const text = CASA_PROPIA_BLOCK_TEXT[n.code];
-    if (text) useOfficeStore.getState().notify(text, "warning");
-  });
+  r.onMessage(CASA_PROPIA_MSG.notice, (n: CasaPropiaNotice) => useOfficeStore.getState().notify(casaPropiaNoticeText(n), "warning"));
   r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoShot, (e: PhotoShot) => photoShotListeners.forEach((cb) => cb(e)));

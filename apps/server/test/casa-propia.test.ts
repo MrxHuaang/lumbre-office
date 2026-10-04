@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
 import { CASA_CONEXIONES } from "@hyvento/map";
-import { CASA_PROPIA, CASA_PROPIA_MSG, casaAreaOf, MSG, ROOM_NAME, STAT_PREFIX, VIAJE_MSG, type CasaPropiaNotice, type ViajeNotice } from "@hyvento/shared";
+import { CASA_PROPIA, CASA_PROPIA_MSG, casaAreaOf, MSG, ROOM_NAME, STAT_PREFIX, VIAJE_MSG, type CasaPropiaNotice, type Invitation, type KnockRequest, type KnockResult, type ViajeNotice } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
@@ -115,6 +115,71 @@ describe("casa de cada persona", () => {
     const anaStats = stats.snapshot("u-ana")!.stats;
     expect(anaStats[`${STAT_PREFIX.visit}${CASA_PROPIA.statArea}`]).toBe(1);
     expect(Object.keys(anaStats).some((k) => k.startsWith(`${STAT_PREFIX.visit}casa:`))).toBe(false);
+  });
+});
+
+describe("visitas a la casa", () => {
+  it("invitar desde la propia casa deja pasar y lleva hasta allá; al salir se pierde el pase", { timeout: 30000 }, async () => {
+    const { room, clients } = await setup(["Ana", "Beto"]);
+    const [ana, beto] = clients as [ClientRoom, ClientRoom];
+    await home(ana, room, "u-ana");
+    const invites: Invitation[] = [];
+    beto.onMessage(MSG.inviteRequest, (inv: Invitation) => invites.push(inv));
+    ana.send(MSG.invite, { toUserId: "u-beto" });
+    await until(() => invites.length > 0, "la invitación");
+    expect(invites[0]!.place).toBe("casa");
+    beto.send(MSG.inviteRespond, { inviteId: invites[0]!.inviteId, accept: true });
+    await until(() => player(room, beto).area === "casa:u-ana", "llegar a la casa de Ana");
+    // Adentro puede recorrerla como el dueño.
+    await goToArea(beto, room, casaAreaOf("u-ana", "abajo"));
+    expect(player(room, beto).area).toBe("casa:u-ana:abajo");
+    // Se va: ya no puede volver sin otra invitación.
+    await say(beto, room, "/ir jardin");
+    await until(() => player(room, beto).area === "jardin", "volver al jardín");
+    expect(room.state.casas.get("u-ana")!.guests.length).toBe(0);
+    const notices: CasaPropiaNotice[] = [];
+    beto.onMessage(CASA_PROPIA_MSG.notice, (n: CasaPropiaNotice) => notices.push(n));
+    await say(beto, room, "/ir casa:u-ana");
+    await until(() => notices.length > 0, "el rechazo");
+    expect(notices[0]!.code).toBe("ajena");
+  });
+
+  it("el timbre: si el dueño abre, entra; cerrada, ni suena", { timeout: 30000 }, async () => {
+    const { room, clients } = await setup(["Ana", "Beto"]);
+    const [ana, beto] = clients as [ClientRoom, ClientRoom];
+    await home(ana, room, "u-ana");
+    const rings: KnockRequest[] = [];
+    const results: KnockResult[] = [];
+    ana.onMessage(MSG.knockRequest, (r: KnockRequest) => rings.push(r));
+    beto.onMessage(MSG.knockResult, (r: KnockResult) => results.push(r));
+    beto.send(MSG.knock, { zoneId: casaAreaOf("u-ana") });
+    await until(() => rings.length > 0, "el timbre");
+    ana.send(MSG.knockRespond, { requestId: rings[0]!.requestId, accept: true });
+    await until(() => player(room, beto).area === "casa:u-ana", "entrar");
+    expect(results.at(-1)!.outcome).toBe("accepted");
+    // La cierra: la visita se va a la estación y el timbre ya no suena.
+    const notices: CasaPropiaNotice[] = [];
+    beto.onMessage(CASA_PROPIA_MSG.notice, (n: CasaPropiaNotice) => notices.push(n));
+    ana.send(CASA_PROPIA_MSG.modo, { modo: "cerrada" });
+    await until(() => player(room, beto).area === "jardin", "salir");
+    await until(() => notices.length > 0, "el aviso");
+    expect(notices[0]).toMatchObject({ code: "cerro", name: "Ana" });
+    beto.send(MSG.knock, { zoneId: casaAreaOf("u-ana") });
+    await until(() => results.length >= 2, "la respuesta");
+    expect(results.at(-1)!.outcome).toBe("declined");
+    expect(rings.length).toBe(1);
+  });
+
+  it("abierta entra cualquiera; el dueño puede pedirle a alguien que se vaya", { timeout: 30000 }, async () => {
+    const { room, clients } = await setup(["Ana", "Beto"]);
+    const [ana, beto] = clients as [ClientRoom, ClientRoom];
+    await home(ana, room, "u-ana");
+    ana.send(CASA_PROPIA_MSG.modo, { modo: "abierta" });
+    await until(() => room.state.casas.get("u-ana")?.modo === "abierta", "abrirla");
+    await say(beto, room, "/ir casa:u-ana:abajo");
+    await until(() => player(room, beto).area === "casa:u-ana:abajo", "entrar");
+    ana.send(CASA_PROPIA_MSG.kick, { userId: "u-beto" });
+    await until(() => player(room, beto).area === "jardin", "salir");
   });
 });
 

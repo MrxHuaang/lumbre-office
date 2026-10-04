@@ -232,7 +232,8 @@ export const BUS_MSG = {
   call: "bus:call",
 } as const;
 
-export const BusBoardMessage = z.object({}).strict();
+/** `to`: el dueño de la casa a la que se va (la propia si falta, o si ya no se puede entrar a esa). */
+export const BusBoardMessage = z.object({ to: z.string().min(1).max(64).optional() }).strict();
 export const BusCallMessage = z.object({}).strict();
 
 export const BusNoticeCode = z.enum(["far", "noBus", "route", "busy", "home", "coming"]);
