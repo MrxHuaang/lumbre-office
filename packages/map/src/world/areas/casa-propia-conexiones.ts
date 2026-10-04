@@ -9,12 +9,12 @@ const par = (x: number, y: number) => [
 
 export const CASA_CONEXIONES = {
   afuera: {
-    /** Frente a la puerta de la casona (x 6..7 de su frente; la casona está en (21, 9) y mide 14x9). */
-    puerta: { tiles: par(27, 18), llegada: { x: 27, y: 19, facing: "down" } },
+    /** Frente a la puerta de la casona (x 6..7 de su frente; la casona está en (23, 11) y mide 14x9). */
+    puerta: { tiles: par(29, 20), llegada: { x: 29, y: 21, facing: "down" } },
     /** Frente a la puerta de atrás, en el costado este de la casona: da al patio. */
-    atras: { tiles: [{ x: 35, y: 13 }], llegada: { x: 36, y: 13, facing: "right" } },
+    atras: { tiles: [{ x: 37, y: 15 }], llegada: { x: 38, y: 15, facing: "right" } },
     /** Donde se baja del bus (la vereda, frente al refugio de la parada). */
-    parada: { tiles: [], llegada: { x: 32, y: 30, facing: "up" } },
+    parada: { tiles: [], llegada: { x: 34, y: 32, facing: "up" } },
   },
   abajo: {
     /** La puerta de entrada del recibidor, en la pared sur. */
