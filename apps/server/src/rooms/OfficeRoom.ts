@@ -279,6 +279,11 @@ import { Huerto, isHuertoAction } from "./huerto";
 import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/shared";
 import { CasaArbol } from "./casaArbol";
 import {
+  CASA_FIESTA,
+  CASA_FIESTA_MSG,
+  CasaFiestaMessage,
+  CasaRadioMessage,
+  fiestaAnnouncement,
   CASA_MODO_DEFAULT,
   CASA_PROPIA_MSG,
   casaAreaOf,
@@ -1049,6 +1054,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BUS_MSG.call, (client, raw) => this.handleBusCall(client, raw));
     this.onMessage(CASA_PROPIA_MSG.modo, (client, raw) => this.handleCasaModo(client, raw));
     this.onMessage(CASA_PROPIA_MSG.kick, (client, raw) => this.handleCasaKick(client, raw));
+    this.onMessage(CASA_FIESTA_MSG.radio, (client, raw) => void this.handleCasaRadio(client, raw));
+    this.onMessage(CASA_FIESTA_MSG.fiesta, (client, raw) => this.handleCasaFiesta(client, raw));
     this.onMessage(MSG.activity, (client) => this.markActive(client));
     this.onMessage(MSG.cafeOrder, (client, raw) => void this.handleCafeOrder(client, raw));
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
@@ -4051,12 +4058,108 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !parsed.success) return;
     const casa = this.casaOf(player.userId);
     casa.modo = parsed.data.modo;
-    const visits = [...this.state.players.entries()].filter(([, p]) => p.userId !== player.userId && casaOwnerOf(p.area) === player.userId);
+    // Cambiar el modo a mano termina la fiesta (que es la que la tenía abierta).
+    casa.fiesta = false;
+    casa.modoAntes = "";
+    this.applyCasaModo(casa, player);
+  }
+
+  /** Lo que pasa con las visitas al cambiar el modo: cerrada se van; solo invitados, quedan invitadas. */
+  private applyCasaModo(casa: CasaState, owner: Player) {
+    const visits = [...this.state.players.entries()].filter(([, p]) => p.userId !== owner.userId && casaOwnerOf(p.area) === owner.userId);
     if (casa.modo === "cerrada") {
       casa.guests.clear();
-      for (const [sessionId, p] of visits) this.sendHome(sessionId, p, "cerro", player.name);
+      for (const [sessionId, p] of visits) this.sendHome(sessionId, p, "cerro", owner.name);
     } else if (casa.modo === "invitados") {
       for (const [, p] of visits) if (!casa.guests.includes(p.userId)) casa.guests.push(p.userId);
+    }
+  }
+
+  /** Cuándo avisó cada persona su última fiesta en el chat global. */
+  private readonly lastFiestaAt = new Map<string, number>();
+
+  /**
+   * El modo fiesta: la casa queda abierta mientras dura (al apagarla vuelve al modo de antes) y se avisa
+   * en el chat global de todas las salas, con pausa por persona.
+   */
+  private handleCasaFiesta(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = CasaFiestaMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const casa = this.casaOf(player.userId);
+    if (parsed.data.on === casa.fiesta) return;
+    if (parsed.data.on) {
+      casa.modoAntes = casa.modo;
+      casa.modo = "abierta";
+      casa.fiesta = true;
+      const now = Date.now();
+      if (now - (this.lastFiestaAt.get(player.userId) ?? -Infinity) >= CASA_FIESTA.announceCooldownMs) {
+        this.lastFiestaAt.set(player.userId, now);
+        OfficeRoom.systemNoticeEverywhere({ from: "Megabús", text: fiestaAnnouncement(player.name) });
+      }
+      this.achievements.bump(player.userId, "parties_hosted");
+      return;
+    }
+    casa.fiesta = false;
+    casa.modo = isCasaModo(casa.modoAntes) ? casa.modoAntes : CASA_MODO_DEFAULT;
+    casa.modoAntes = "";
+    this.applyCasaModo(casa, player);
+  }
+
+  /**
+   * La música de la casa: el dueño pone un video, lo pausa, lo sigue o lo apaga (como la radio de su
+   * oficina). La duración la informa cualquiera que esté en la casa (la primera vale): así da la vuelta.
+   */
+  private async handleCasaRadio(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const parsed = CasaRadioMessage.safeParse(raw);
+    if (!player || !parsed.success) return;
+    const msg = parsed.data;
+    const now = Date.now();
+    if (msg.action === "duration") {
+      const owner = casaOwnerOf(player.area);
+      const casa = owner ? this.state.casas.get(owner) : undefined;
+      if (casa && casa.radioVideo === msg.videoId && !casa.radioDurationMs && msg.ms > 0)
+        casa.radioDurationMs = Math.min(CLUB_VIDEO.maxDurationMs, Math.max(CLUB_VIDEO.minDurationMs, msg.ms));
+      return;
+    }
+    const fail = (error: OfficeRadioError) => client.send(MSG.officeRadioResult, { ok: false, error } satisfies OfficeRadioResult);
+    // Solo el dueño, desde su casa.
+    if (casaOwnerOf(player.area) !== player.userId) return fail("not-owner");
+    const casa = this.casaOf(player.userId);
+    switch (msg.action) {
+      case "set": {
+        const videoId = parseYoutubeId(msg.url);
+        if (!videoId) return fail("not-youtube");
+        const info = await OfficeRoom.youtubeLookup(videoId).catch(() => ({ ok: true as const, title: FALLBACK_TITLE }));
+        if (!info.ok) return fail(info.error);
+        casa.radioVideo = videoId;
+        casa.radioTitle = info.title.slice(0, CLUB_VIDEO.maxTitle);
+        casa.radioStartedAt = Date.now();
+        casa.radioPaused = false;
+        casa.radioPausedAt = 0;
+        casa.radioDurationMs = 0;
+        return;
+      }
+      case "pause":
+        if (!casa.radioVideo || casa.radioPaused) return;
+        casa.radioPausedAt = now - casa.radioStartedAt;
+        casa.radioPaused = true;
+        return;
+      case "resume":
+        if (!casa.radioVideo || !casa.radioPaused) return;
+        casa.radioStartedAt = now - casa.radioPausedAt;
+        casa.radioPaused = false;
+        casa.radioPausedAt = 0;
+        return;
+      case "stop":
+        casa.radioVideo = "";
+        casa.radioTitle = "";
+        casa.radioStartedAt = 0;
+        casa.radioPaused = false;
+        casa.radioPausedAt = 0;
+        casa.radioDurationMs = 0;
+        return;
     }
   }
 

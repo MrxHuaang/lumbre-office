@@ -10,6 +10,7 @@ import { HUERTO_HOLDS, HUERTO_NAMES } from "./huerto";
 import { PARRILLA_HOLDS, PARRILLA_NAMES } from "./parrilla";
 import { MUNDO_HOLDS, MUNDO_NAMES } from "./mundo";
 import { TALLER_USABLES, type TallerAction } from "./taller";
+import { JUEGOS_USABLES, type JuegoAction } from "./casa-fiesta";
 
 /**
  * Lo nuevo que se hace con un mueble (además de prender, tocar y acariciar):
@@ -23,7 +24,7 @@ import { TALLER_USABLES, type TallerAction } from "./taller";
  * - `stall`: entrar al cubículo del baño un rato (se ve ocupado);
  * - `roast`: asar un malvavisco en la fogata (queda en la mano, dorado).
  */
-export type CasaAction = "read" | "spin" | "stoke" | "water" | "count" | "take" | "wash" | "stall" | "roast" | TallerAction;
+export type CasaAction = "read" | "spin" | "stoke" | "water" | "count" | "take" | "wash" | "stall" | "roast" | TallerAction | JuegoAction;
 
 export const CASA = {
   /** Pausa entre dos cosas gratis (nevera, cafetera, malvavisco) de la misma persona. */
@@ -129,6 +130,8 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   "fire-pit": { action: "roast", label: "Asar un malvavisco", cooldownMs: CASA.roastMs + 400, gives: ["malvavisco"], reachTiles: CASA.roastReachTiles },
   // El taller del garaje (taller.ts): el compresor, el carro tapado, el banco y la caja de herramientas.
   ...TALLER_USABLES,
+  // El cuarto de juegos de la casa de cada persona (casa-fiesta.ts): la rana y el billar.
+  ...JUEGOS_USABLES,
 };
 
 /** Lo gratis que se lleva en la mano: cómo se usa y cuántas veces (se suma a CONSUMABLES). */

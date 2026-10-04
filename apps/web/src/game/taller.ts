@@ -5,13 +5,25 @@
 // destapado hasta que se cumpla el tiempo, igual que en el servidor, y ahí vuelve la lona).
 import { catalogItem, footprint, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import { tallerBit, tallerCar, tallerTire, type Sprite } from "@hyvento/map/art";
-import { furnitureKey, isTallerAction, TALLER, tallerLine, usableSpec, type Direction, type FurnitureEvent, type TallerAction } from "@hyvento/shared";
+import {
+  CASA_FIESTA,
+  furnitureKey,
+  isJuegoAction,
+  isTallerAction,
+  juegoLine,
+  TALLER,
+  tallerLine,
+  usableSpec,
+  type Direction,
+  type FurnitureEvent,
+  type TallerAction,
+} from "@hyvento/shared";
 import * as Phaser from "phaser";
 import { COZY, cozyFontFamily } from "@/lib/cozy";
 import type { Avatar } from "./Avatar";
 import { DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
-import { playCarDrive, playCompressor, playSanding, playToolRattle } from "./tallerSonidos";
+import { playCarDrive, playCompressor, playFrogRings, playPoolShot, playSanding, playToolRattle } from "./tallerSonidos";
 
 export interface TallerHost {
   room(): OfficeRoom | undefined;
@@ -83,9 +95,19 @@ export class TallerVivo {
     return "Alguien acaba de manejarlo: espera un momento";
   }
 
-  /** Alguien de tu nivel usó algo del taller. Devuelve si lo manejó. */
+  /** Alguien de tu nivel usó algo del taller (o un juego de la casa: la rana, el billar). Devuelve si lo manejó. */
   handleEvent(e: FurnitureEvent, f: PlacedFurniture, vol: number): boolean {
     const map = this.map;
+    if (map && isJuegoAction(e.action)) {
+      const who = this.host.avatarOf(e.sessionId);
+      const face = who ? faceToward(f, map.tileSize, who.x, who.y) : "down";
+      const ms = e.action === "frog" ? CASA_FIESTA.frogMs : CASA_FIESTA.poolMs;
+      who?.perform(face, ms);
+      if (e.action === "frog") playFrogRings(vol);
+      else playPoolShot(vol);
+      this.scene.time.delayedCall(ms - 300, () => who && this.floatText(who, juegoLine(e.action as "frog" | "pool", e.seed)));
+      return true;
+    }
     if (!map || !isTallerAction(e.action)) return false;
     const who = this.host.avatarOf(e.sessionId);
     const face = who ? faceToward(f, map.tileSize, who.x, who.y) : "down";

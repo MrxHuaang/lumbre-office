@@ -15,6 +15,7 @@ import { CinemaSection } from "./cinema/CinemaPanel";
 import { PixelIcon } from "./Cozy";
 import { inRoom, RoomSection, useRoomTitle } from "./RoomPanel";
 import { CasaSection, useCasaHere, useCasaTitle } from "./casa/CasaSection";
+import { useCasasStore } from "@/game/casaVisitas";
 
 const KEY = "hyvento:panel-lateral";
 
@@ -47,7 +48,9 @@ export function SideDock() {
   const zoneType = useOfficeStore((s) => s.zone?.type);
   const radioOn = useOfficeStore((s) => Boolean(s.zone?.type === "office" && s.offices[s.zone.id]?.radio && !s.offices[s.zone.id]!.radio!.paused));
   const roomTitle = useRoomTitle();
-  const inCasa = Boolean(useCasaHere());
+  const casaHere = useCasaHere();
+  const inCasa = Boolean(casaHere);
+  const casaMusic = useCasasStore((s) => Boolean(casaHere && s.casas[casaHere.ownerId]?.radio && !s.casas[casaHere.ownerId]!.radio!.paused));
   const casaTitle = useCasaTitle();
   const decorating = useOfficeStore((s) => s.decorating);
   const worldEditing = useOfficeStore((s) => s.worldEditing);
@@ -60,7 +63,7 @@ export function SideDock() {
   const room = inRoom(zoneType);
   if ((!inClub && !inCinema && !room && !inCasa) || decorating || worldEditing || pcOn || panel) return null;
   const title = inClub ? "Club" : inCinema ? "Cine" : inCasa ? casaTitle : roomTitle;
-  const sounding = inClub ? clubPlaying : inCinema ? showing : radioOn;
+  const sounding = inClub ? clubPlaying : inCinema ? showing : inCasa ? casaMusic : radioOn;
 
   return (
     <div className={`pointer-events-none absolute right-0 bottom-[var(--cozy-bar-top,7rem)] z-10 flex items-end ${phoneOut && open ? "max-md:hidden" : ""}`}>

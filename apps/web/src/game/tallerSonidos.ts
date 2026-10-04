@@ -77,6 +77,26 @@ export const playSanding = (vol: number, seconds: number) =>
     for (let i = 0; i < strokes; i++) noise(a, t + i * 0.3, 0.24, { freq: i % 2 ? 2600 : 1700, freqEnd: i % 2 ? 1900 : 2400, q: 1.4, vol: 0.05 * vol });
   });
 
+/** La rana: tres argollas de bronce que vuelan y caen tintineando (la última, al hueco con un "clonc"). */
+export const playFrogRings = (vol: number) =>
+  at(vol, (a, t) => {
+    for (let i = 0; i < 3; i++) {
+      const f = 2200 + Math.random() * 900;
+      tone(a, t + 0.35 + i * 0.45, 0.25, { freq: f, freqEnd: f * 0.94, type: "triangle", vol: 0.035 * vol });
+      noise(a, t + 0.36 + i * 0.45, 0.06, { freq: 700, q: 3, vol: 0.03 * vol });
+    }
+    tone(a, t + 1.4, 0.3, { freq: 180, freqEnd: 120, type: "sine", vol: 0.06 * vol });
+  });
+
+/** El billar: el taco que pega, las bolas que chocan y una que cae a la buchaca. */
+export const playPoolShot = (vol: number) =>
+  at(vol, (a, t) => {
+    noise(a, t + 0.2, 0.04, { freq: 1500, q: 4, vol: 0.08 * vol });
+    tone(a, t + 0.55, 0.08, { freq: 1300, freqEnd: 1100, type: "sine", vol: 0.06 * vol });
+    tone(a, t + 0.7, 0.07, { freq: 1500, freqEnd: 1250, type: "sine", vol: 0.04 * vol });
+    noise(a, t + 1.0, 0.18, { freq: 300, freqEnd: 160, q: 1, vol: 0.05 * vol, type: "lowpass" });
+  });
+
 /** Caja de herramientas: la tapa que se abre y el metal que tintinea al esculcar. */
 export const playToolRattle = (vol: number) =>
   at(vol, (a, t) => {

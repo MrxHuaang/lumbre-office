@@ -35,6 +35,7 @@ export type * from "./world/types";
 export { BUS_DOOR_X, BUS_ROUTE, BUS_STOP, CURB_DROP, ROAD, STATION } from "./world/areas/parada";
 export { CASA_CONEXIONES } from "./world/areas/casa-propia-conexiones";
 export { casaPropiaDefs } from "./world/areas/casa-propia";
+export { FIESTAS as CASA_SALA_FIESTAS } from "./world/areas/casa-propia-abajo";
 export { AREAS, BLACKJACK_SEATS, BOARD_TABLES, CONEXIONES, GRANJA_LAYOUT, OFFICE_COUNT, SPAWN_AREA } from "./world/areas";
 
 /** Todos los niveles de la cabaña, ya construidos. */

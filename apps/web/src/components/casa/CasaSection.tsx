@@ -1,12 +1,14 @@
 "use client";
 
-// La casa en el panel lateral (VIR-81/82): en la propia, quién entra (abierta, solo invitados o cerrada)
-// y quiénes están de visita, con "Pedir que se vaya"; de visita, de quién es. A la gente se la invita
-// desde Conectados ("Invitar") estando en la casa: aceptar la trae hasta acá.
+// La casa en el panel lateral (VIR-81/82 y VIR-149): en la propia, quién entra (abierta, solo invitados
+// o cerrada), el modo fiesta, la música del equipo de sonido y quiénes están de visita, con "Pedir que se
+// vaya"; de visita, de quién es, si hay fiesta y el volumen de la música. A la gente se la invita desde
+// los Contactos del celular ("Invitar a mi casa") estando en la casa: aceptar la trae hasta acá.
 import { CASA_MODO_DEFAULT, CASA_MODO_TEXT, CASA_MODOS, casaOwnerOf, type CasaModo } from "@hyvento/shared";
-import { sendCasaKick, sendCasaModo, useCasasStore } from "@/game/casaVisitas";
+import { sendCasaFiesta, sendCasaKick, sendCasaModo, sendCasaRadio, useCasasStore } from "@/game/casaVisitas";
 import { selectMyUserId, useOfficeStore } from "@/game/store";
 import { PixelIcon } from "../Cozy";
+import { RadioRow } from "../RoomPanel";
 
 /** ¿Estoy en una casa? El panel lateral la muestra si sí. */
 export function useCasaHere(): { ownerId: string; mine: boolean } | null {
@@ -30,15 +32,19 @@ export function useCasaTitle(): string {
 export function CasaSection() {
   const here = useCasaHere();
   const modo = useCasasStore((s) => (here ? (s.casas[here.ownerId]?.modo ?? CASA_MODO_DEFAULT) : CASA_MODO_DEFAULT));
+  const fiesta = useCasasStore((s) => Boolean(here && s.casas[here.ownerId]?.fiesta));
+  const radio = useCasasStore((s) => (here ? (s.casas[here.ownerId]?.radio ?? null) : null));
   const players = useOfficeStore((s) => s.players);
   if (!here) return null;
   const visits = Object.values(players).filter((p) => p.userId !== here.ownerId && casaOwnerOf(p.area) === here.ownerId);
 
   if (!here.mine) {
     return (
-      <p className="text-[13px] text-cozy-ink-soft">
-        Estás de visita. Para volver, espera el Megabús en el refugio de la parada.
-      </p>
+      <div className="flex flex-col gap-2">
+        {fiesta && <p className="text-[13px] font-semibold text-cozy-red">🎉 ¡Hay fiesta! La barra está en la sala de fiestas.</p>}
+        <p className="text-[13px] text-cozy-ink-soft">Estás de visita. Para volver, espera el Megabús en el refugio de la parada.</p>
+        {radio && <RadioRow radio={radio} mine={false} send={sendCasaRadio} label="Música" />}
+      </div>
     );
   }
 
@@ -61,7 +67,17 @@ export function CasaSection() {
           </button>
         ))}
       </div>
-      <p className="text-[12px] text-cozy-ink-soft">{CASA_MODO_TEXT[modo].hint} Para invitar a alguien: Conectados → Invitar.</p>
+      <p className="text-[12px] text-cozy-ink-soft">{CASA_MODO_TEXT[modo].hint} Para invitar: Contactos del celular → Invitar a mi casa.</p>
+      <button
+        type="button"
+        onClick={() => sendCasaFiesta(!fiesta)}
+        aria-pressed={fiesta}
+        className={`cozy-btn h-[32px] ${fiesta ? "cozy-btn-danger" : "cozy-btn-primary"}`}
+        title={fiesta ? "Termina la fiesta: la casa vuelve al modo de antes" : "Abre la casa, prende las luces y avisa en el chat global"}
+      >
+        {fiesta ? "Terminar la fiesta" : "🎉 Armar fiesta"}
+      </button>
+      <RadioRow radio={radio} mine send={sendCasaRadio} label="Música" />
       {visits.length > 0 && (
         <ul className="flex flex-col gap-1" aria-label="De visita">
           {visits.map((p) => (

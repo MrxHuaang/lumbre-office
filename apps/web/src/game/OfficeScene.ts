@@ -147,6 +147,9 @@ import { WeatherView } from "./weather";
 import { Critters } from "./critters";
 import { CHAIR_RACE, type PhotoShot, type PresenceStatus } from "@hyvento/shared";
 import { disposeRadio, updateRadio } from "./radio";
+import { casaOwnerOf } from "@hyvento/shared";
+import { sendCasaRadio, useCasasStore } from "./casaVisitas";
+import { FiestaLuces } from "./casaFiesta";
 import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } from "./race";
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom } from "./pixelRatio";
@@ -411,6 +414,8 @@ export class OfficeScene extends Phaser.Scene {
   private pool!: PoolView;
   /** La tina y la sauna del lago: el agua que se mueve, el vapor y los destellos del reflejo. */
   private tina!: TinaView;
+  /** Las luces de la bola de discoteca en la sala de fiestas de una casa (casaFiesta.ts). */
+  private fiestaLuces!: FiestaLuces;
   private swimming = false;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
   private aquariums!: Aquariums;
@@ -536,6 +541,7 @@ export class OfficeScene extends Phaser.Scene {
     this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.pool = new PoolView(this);
     this.tina = new TinaView(this);
+    this.fiestaLuces = new FiestaLuces(this);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
@@ -759,6 +765,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cinema.update(time);
     this.pool.update(time);
     this.tina.update(time);
+    this.fiestaLuces.update(time);
     this.escenario.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
@@ -767,12 +774,18 @@ export class OfficeScene extends Phaser.Scene {
     this.textRes.sync(this.cameras.main.zoom);
   }
 
-  /** La radio de la oficina donde estoy (si tiene): suena solo adentro, al segundo del servidor. */
+  /**
+   * La radio de la oficina donde estoy (si tiene): suena solo adentro, al segundo del servidor. En una
+   * casa, la música de su equipo de sonido, en cualquier piso.
+   */
   private updateOfficeRadio() {
     const s = useOfficeStore.getState();
-    const office = s.zone?.type === "office" ? s.offices[s.zone.id] : undefined;
     const parent = this.game.canvas.parentElement;
-    if (parent) updateRadio(parent, office?.radio ?? null);
+    if (!parent) return;
+    const casaOwner = casaOwnerOf(s.area);
+    if (casaOwner) return updateRadio(parent, useCasasStore.getState().casas[casaOwner]?.radio ?? null, sendCasaRadio);
+    const office = s.zone?.type === "office" ? s.offices[s.zone.id] : undefined;
+    updateRadio(parent, office?.radio ?? null);
   }
 
   /**
@@ -878,6 +891,7 @@ export class OfficeScene extends Phaser.Scene {
       this.questMarks.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     this.tina.setArea(map, useOfficeStore.getState().night);
+    this.fiestaLuces.setArea(map);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -957,6 +971,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cinema.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     this.tina.setArea(map, useOfficeStore.getState().night);
+    this.fiestaLuces.setArea(map);
     this.escenario.setArea(map);
     AreaView.dropStaleBases(this, map);
     this.markMapReady();

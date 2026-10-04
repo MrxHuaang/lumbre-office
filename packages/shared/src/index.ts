@@ -49,6 +49,7 @@ export * from "./bolsa";
 export * from "./rechazos";
 export * from "./casa-arbol";
 export * from "./casa-propia";
+export * from "./casa-fiesta";
 export * from "./bus";
 export * from "./agua";
 export * from "./tina";
