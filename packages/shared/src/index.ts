@@ -48,6 +48,7 @@ export * from "./achievements";
 export * from "./bolsa";
 export * from "./rechazos";
 export * from "./casa-arbol";
+export * from "./casa-propia";
 export * from "./bus";
 export * from "./agua";
 export * from "./tina";

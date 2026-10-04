@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { CASA_ARBOL, CASA_ARBOL_BLOCK_TEXT, type CasaArbolBlock } from "./casa-arbol";
 import { PODCAST, podcastNoticeText, type PodcastBlock } from "./podcast";
+import { CASA_PROPIA_BLOCK_TEXT, casaPropiaBlock, isCasaArea } from "./casa-propia";
 
 export const VIAJE = {
   /** Pausa entre dos viajes de la misma persona: es un atajo, no una forma de moverse. */
@@ -46,6 +47,8 @@ export type ViajeBlock =
   | "treeLocked"
   | "studioFull"
   | "onAir"
+  | "casaAjena"
+  | "casaBus"
   | "unknown"
   | "offline"
   | "here";
@@ -92,10 +95,17 @@ export const VIAJE_NO_AREAS: readonly string[] = ["megabus"];
 
 /**
  * ¿Qué frena la llegada a un nivel? Los cupos y cierres de la casa del árbol y del estudio (los calcula
- * quien llama con `casaArbolBlock` y `podcastBlock`, como al cruzar su portal) y el bus.
+ * quien llama con `casaArbolBlock` y `podcastBlock`, como al cruzar su portal), el bus y la casa de cada
+ * persona (también "junto a alguien" que está en la suya).
  */
-export function viajeAreaBlock(area: string, rules: { treeHouse: CasaArbolBlock | null; studio: PodcastBlock | null }): ViajeBlock | null {
+export function viajeAreaBlock(
+  area: string,
+  rules: { userId: string; treeHouse: CasaArbolBlock | null; studio: PodcastBlock | null },
+): ViajeBlock | null {
   if (VIAJE_NO_AREAS.includes(area)) return "bus";
+  // A la casa de cada persona se llega en el Megabús; a la de otro no se entra (todavía sin visitas).
+  if (casaPropiaBlock(area, rules.userId)) return "casaAjena";
+  if (isCasaArea(area)) return "casaBus";
   if (area === CASA_ARBOL.area && rules.treeHouse) return rules.treeHouse === "full" ? "treeFull" : "treeLocked";
   if (area === PODCAST.area && rules.studio) return rules.studio === "full" ? "studioFull" : "onAir";
   return null;
@@ -128,6 +138,10 @@ export function viajeNoticeText(n: ViajeNotice): string {
       return podcastNoticeText({ code: "full" });
     case "onAir":
       return podcastNoticeText({ code: "onAir" });
+    case "casaAjena":
+      return CASA_PROPIA_BLOCK_TEXT.ajena;
+    case "casaBus":
+      return "A tu casa se llega en el Megabús, desde la estación.";
     case "unknown":
       return "No encontramos ese lugar.";
     case "offline":

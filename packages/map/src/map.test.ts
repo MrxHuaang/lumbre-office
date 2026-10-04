@@ -65,7 +65,7 @@ describe("mundo", () => {
   });
 
   it("el diario de exploración tiene una página por cada nivel", () => {
-    expect(LOG_AREAS.map((a) => a.id).sort()).toEqual([...world.areas.keys()].sort());
+    expect(LOG_AREAS.map((a) => a.id).sort()).toEqual([...world.areas.keys(), "casa-propia"].sort());
   });
 
   it("las zonas tienen ids únicos en toda la cabaña", () => {

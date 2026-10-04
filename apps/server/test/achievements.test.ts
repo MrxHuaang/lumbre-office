@@ -122,8 +122,9 @@ describe("rastreador de logros", () => {
   });
 
   it("Turista pide todos los niveles de la cabaña", () => {
-    expect(getWorld().areas.size).toBe(TOURIST_AREAS);
-    expect(ACHIEVEMENTS.find((a) => a.id === "turista")!.min).toBe(getWorld().areas.size);
+    // Más la casa propia, que cuenta como un solo nivel.
+    expect(getWorld().areas.size + 1).toBe(TOURIST_AREAS);
+    expect(ACHIEVEMENTS.find((a) => a.id === "turista")!.min).toBe(TOURIST_AREAS);
   });
 
   it("madrugador y búho cuentan una vez por día de Bogotá", async () => {

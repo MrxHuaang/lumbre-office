@@ -22,19 +22,23 @@ describe("viaje rápido", () => {
   });
 
   it("los niveles con cupo o cierre", () => {
-    const none = { treeHouse: null, studio: null };
+    const none = { userId: "u1", treeHouse: null, studio: null };
     expect(viajeAreaBlock("jardin", none)).toBeNull();
     expect(viajeAreaBlock("megabus", none)).toBe("bus");
-    expect(viajeAreaBlock("casa-arbol", { treeHouse: "full", studio: null })).toBe("treeFull");
-    expect(viajeAreaBlock("casa-arbol", { treeHouse: "locked", studio: null })).toBe("treeLocked");
+    // A la casa propia se llega en bus; a la de otro (también "junto a" alguien que está en la suya), nunca.
+    expect(viajeAreaBlock("casa:u1", none)).toBe("casaBus");
+    expect(viajeAreaBlock("casa:u1:arriba", none)).toBe("casaBus");
+    expect(viajeAreaBlock("casa:u2:abajo", none)).toBe("casaAjena");
+    expect(viajeAreaBlock("casa-arbol", { userId: "u1", treeHouse: "full", studio: null })).toBe("treeFull");
+    expect(viajeAreaBlock("casa-arbol", { userId: "u1", treeHouse: "locked", studio: null })).toBe("treeLocked");
     // El bloqueo del estudio no cuenta para la casa del árbol, ni al revés.
-    expect(viajeAreaBlock("casa-arbol", { treeHouse: null, studio: "onAir" })).toBeNull();
-    expect(viajeAreaBlock("podcast", { treeHouse: null, studio: "onAir" })).toBe("onAir");
-    expect(viajeAreaBlock("podcast", { treeHouse: null, studio: "full" })).toBe("studioFull");
+    expect(viajeAreaBlock("casa-arbol", { userId: "u1", treeHouse: null, studio: "onAir" })).toBeNull();
+    expect(viajeAreaBlock("podcast", { userId: "u1", treeHouse: null, studio: "onAir" })).toBe("onAir");
+    expect(viajeAreaBlock("podcast", { userId: "u1", treeHouse: null, studio: "full" })).toBe("studioFull");
   });
 
   it("cada aviso tiene texto y la pausa dice cuánto falta", () => {
-    const codes: ViajeBlock[] = ["cooldown", "seated", "swimming", "fainted", "busy", "route", "bus", "office", "treeFull", "treeLocked", "studioFull", "onAir", "unknown", "offline", "here"];
+    const codes: ViajeBlock[] = ["cooldown", "seated", "swimming", "fainted", "busy", "route", "bus", "office", "treeFull", "treeLocked", "studioFull", "onAir", "casaAjena", "casaBus", "unknown", "offline", "here"];
     for (const code of codes) expect(viajeNoticeText({ code }).length).toBeGreaterThan(5);
     expect(viajeNoticeText({ code: "cooldown", waitMs: 2100 })).toContain("3 s");
     expect(viajeNoticeText({ code: "cooldown" })).toContain(`${VIAJE.cooldownMs / 1000} s`);

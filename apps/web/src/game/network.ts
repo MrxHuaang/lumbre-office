@@ -69,6 +69,9 @@ import {
   huertoNoticeText,
   BUS_MSG,
   BUS_NOTICES,
+  CASA_PROPIA_BLOCK_TEXT,
+  CASA_PROPIA_MSG,
+  type CasaPropiaNotice,
   type BusNotice,
   type HuertoNotice,
   isWeather,
@@ -1197,6 +1200,11 @@ function attach(r: OfficeRoom) {
   r.onMessage(BUS_MSG.notice, (n: BusNotice) => {
     const text = BUS_NOTICES[n.code];
     if (text) useOfficeStore.getState().notify(text, "info");
+  });
+  // Quiso entrar a la casa de otra persona (todavía no hay visitas).
+  r.onMessage(CASA_PROPIA_MSG.notice, (n: CasaPropiaNotice) => {
+    const text = CASA_PROPIA_BLOCK_TEXT[n.code];
+    if (text) useOfficeStore.getState().notify(text, "warning");
   });
   r.onMessage(MSG.photoCountdown, (e: PhotoCountdownEvent) => photoCountdownListeners.forEach((cb) => cb(e)));
   r.onMessage(MSG.photoFlash, (e: PhotoFlashEvent) => photoFlashListeners.forEach((cb) => cb(e)));

@@ -218,7 +218,7 @@ import { settleAll } from "./shutdown";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
-import { devToolsEnabled, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
+import { devToolsEnabled, parseCasaJump, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
 import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
@@ -275,6 +275,8 @@ import { BAG, BAG_MSG, CELULAR_ITEM, BagDropMessage, BagMoveMessage, BagSelectMe
 import { Huerto, isHuertoAction } from "./huerto";
 import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/shared";
 import { CasaArbol } from "./casaArbol";
+import { CASA_PROPIA_MSG, statAreaOf, type CasaPropiaNotice } from "@hyvento/shared";
+import { CasasPropias } from "./casaPropia";
 import { BusLine, type BusSchedule } from "./bus";
 import { Piscina } from "./piscina";
 import { Tina } from "./tina";
@@ -827,6 +829,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Jardín vivo: el huerto, el cobertizo y la miel (ver huerto.ts). */
   private huerto!: Huerto<GardenPlotState>;
   private casaArbol!: CasaArbol;
+  /** Los niveles de las casas de cada persona que tienen a alguien adentro (se arman al entrar y se sueltan al vaciarse). */
+  private readonly casas = new CasasPropias(() => [...this.state.players.values()].map((p) => p.area));
   /** El hockey de mesa del arcade (un partido a la vez; ver hockey.ts). */
   private hockey!: HockeyTable;
   /** El Megabús de la parada del jardín (ver bus.ts): lo ven todos en `state.bus`. */
@@ -2074,6 +2078,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       client.send(PODCAST_MSG.notice, { code: onAir } satisfies PodcastNotice);
       return;
     }
+    // La casa de otra persona: no se entra (todavía sin visitas).
+    const ajena = this.casas.canEnter(portal.to.area, player.userId);
+    if (ajena) {
+      client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
+      client.send(CASA_PROPIA_MSG.notice, { code: ajena } satisfies CasaPropiaNotice);
+      return;
+    }
     // Del Megabús solo se baja con el bus en la estación y las puertas abiertas (nunca en ruta).
     if (map.id === BUS.area && !this.bus.doorsOpen()) {
       client.send(BUS_MSG.notice, { code: "route" } satisfies BusNotice);
@@ -2316,6 +2327,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Solo en desarrollo: "/ir <nivel> [punto]" (ver devtools.ts). Devuelve si era el comando. */
   private devJump(client: Client<UserData>, player: Player, text: string): boolean {
+    // "/ir casa" (la tuya) o "/ir casa:<userId>[:piso]": con la misma regla que todos los caminos.
+    const casa = parseCasaJump(text, player.userId);
+    if (casa) {
+      const ajena = this.casas.canEnter(casa.area, player.userId);
+      if (ajena) client.send(CASA_PROPIA_MSG.notice, { code: ajena } satisfies CasaPropiaNotice);
+      else this.devTeleport(client, player, casa.area, casa.x, casa.y);
+      return true;
+    }
     const jump = parseDevJump(text, getWorld().areas);
     if (!jump) return false;
     if ("error" in jump) {
@@ -2506,7 +2525,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const secs = Math.max(1, Math.round(OfficeRoom.presenceTickMs / 1000));
     const { userId } = player;
     this.achievements.bump(userId, STAT_KEYS.secondsOnline, secs);
-    this.achievements.bump(userId, `${STAT_PREFIX.secArea}${player.area}`, secs);
+    // Todas las casas de cada persona cuentan como un solo nivel (no una clave por casa).
+    this.achievements.bump(userId, `${STAT_PREFIX.secArea}${statAreaOf(player.area)}`, secs);
     if (player.zoneId) this.achievements.bump(userId, `${STAT_PREFIX.secZone}${player.zoneId}`, secs);
     this.achievements.activeAt(userId, now);
   }
@@ -3993,7 +4013,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   private mapOf(area: string): OfficeMap {
-    return this.world.areas.get(area) ?? this.world.areas.get(this.world.spawnArea)!;
+    // Las casas de cada persona (`casa:<userId>[:piso]`) no están en el mundo: se arman al entrar.
+    return this.world.areas.get(area) ?? this.casas.get(area) ?? this.world.areas.get(this.world.spawnArea)!;
   }
 
   /** Busca un punto libre (sin muros ni otros avatares) cerca de (x, y) en un nivel. */

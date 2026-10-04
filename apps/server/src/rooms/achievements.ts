@@ -10,6 +10,7 @@ import {
   oddHour,
   STAT_KEYS,
   STAT_PREFIX,
+  statAreaOf,
   type Achievement,
   type QuestDelta,
   type StatChange,
@@ -153,10 +154,10 @@ export class AchievementTracker {
     this.bump(userId, STAT_KEYS.tilesWalked, whole);
   }
 
-  /** Entró a un nivel. */
+  /** Entró a un nivel (las casas de cada persona cuentan todas como una: `casa-propia`). */
   visit(userId: string, area: string) {
     const e = this.entry(userId);
-    const key = `${STAT_PREFIX.visit}${area}`;
+    const key = `${STAT_PREFIX.visit}${statAreaOf(area)}`;
     // Para los encargos cuenta cada visita ("sube a la casa del árbol"), aunque el contador ya esté en 1.
     this.deps.quests?.onStat(userId, key, 1);
     if (e.stats.has(key)) return;

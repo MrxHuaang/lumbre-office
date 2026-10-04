@@ -3,9 +3,9 @@
 // "/ir sotano roulette"). Sirve para probar el mapa grande sin cruzarlo caminando. También "/clima <tipo>"
 // fuerza un clima (despejado, nublado, lluvia, tormenta, niebla) y "/sombrero [escondite]" hace salir al
 // Man del Sombrero ya (en el escondite de hoy o en ese) y lleva ahí a quien lo escribió. En producción no
-// existe.
-import { pointsOfType, type OfficeMap } from "@hyvento/map";
-import { isWeather, SOMBRERO_HIDEOUTS, WEATHERS, type Weather } from "@hyvento/shared";
+// existe. "/ir casa" lleva a la casa propia (ver `parseCasaJump`).
+import { CASA_CONEXIONES, pointsOfType, type OfficeMap } from "@hyvento/map";
+import { casaAreaOf, isWeather, parseCasaArea, SOMBRERO_HIDEOUTS, WEATHERS, type Weather } from "@hyvento/shared";
 
 export function devToolsEnabled(): boolean {
   // Render no define NODE_ENV (y ponerlo en render.yaml dejaría a prisma fuera del install): se mira RENDER.
@@ -17,6 +17,20 @@ export interface DevJump {
   /** Tile de destino (se busca un lugar libre cerca). */
   x: number;
   y: number;
+}
+
+/**
+ * "/ir casa" (afuera de la casa de quien lo escribe, en la parada) o "/ir casa:<userId>[:piso]" (la sala
+ * decide si se puede, con la misma regla que los portales). null si no es eso.
+ */
+export function parseCasaJump(text: string, userId: string): DevJump | null {
+  const m = /^\/ir\s+(casa(?::\S+)?)\s*$/.exec(text.trim());
+  if (!m) return null;
+  const area = m[1] === "casa" ? casaAreaOf(userId) : m[1]!;
+  const ref = parseCasaArea(area);
+  if (!ref) return null;
+  const llegada = ref.piso === "afuera" ? CASA_CONEXIONES.afuera.parada.llegada : ref.piso === "abajo" ? CASA_CONEXIONES.abajo.puerta.llegada : CASA_CONEXIONES.arriba.escalera.llegada;
+  return { area, x: llegada.x, y: llegada.y };
 }
 
 /**

@@ -8,6 +8,7 @@ import { drawPool } from "./agua";
 import { SAUNA_CHIMNEY_TOP, TINA_NIGHT, TUB_CHIMNEY_TOP } from "./tina";
 import { stageShell } from "./escenario";
 import { drawObservatory } from "./observatorio-exterior";
+import { CASA_FINCA_CHIMNEY_TOP, CASA_PROPIA_NIGHT } from "./casa-propia-exterior";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -77,6 +78,8 @@ export const CHIMNEY_TOPS: Record<string, { x: number; y: number; z: number }> =
   // La tina y la sauna del lago: sus estufas de leña.
   "hot-tub": TUB_CHIMNEY_TOP,
   "sauna-shell": SAUNA_CHIMNEY_TOP,
+  // La casona de cada persona.
+  "casa-finca": CASA_FINCA_CHIMNEY_TOP,
 };
 
 /** Troncos horizontales: bandas con luz arriba y sombra abajo, y basa de piedra. */
@@ -559,6 +562,8 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   ...TINA_NIGHT,
   "stage-shell": stageShell,
   observatory: drawObservatory,
+  // La casa de cada persona por fuera y el refugio de su parada (de noche, las ventanas y el farol).
+  ...CASA_PROPIA_NIGHT,
 };
 
 export function hasOutdoor(type: string): boolean {
