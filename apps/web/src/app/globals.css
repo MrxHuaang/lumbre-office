@@ -664,6 +664,99 @@ body {
     }
   }
 }
+/* Pantalla del viaje en Megabús (components/bus/BusTrip.tsx): las capas del paisaje se deslizan a saltos de
+   un píxel de arte (solo transform: siguen aunque Phaser tenga el hilo); la velocidad se la pone el
+   componente con playbackRate (frena hasta 0 al llegar). Lluvia y nieve son mosaicos que se corren, el
+   bus tiembla un píxel mientras anda y al llegar se funde. Con "menos movimiento", quieto y solo el fundido. */
+.bus-trip {
+  transition: opacity 700ms linear;
+}
+.bus-trip[data-leaving="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes bus-trip-pan {
+  to {
+    transform: translateX(var(--shift));
+  }
+}
+.bus-trip-layer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background-repeat: repeat-x;
+  animation: bus-trip-pan 10s steps(var(--steps)) infinite;
+  will-change: transform;
+}
+@keyframes bus-trip-fall {
+  to {
+    transform: translate(var(--fx), var(--fy));
+  }
+}
+.bus-trip-fall {
+  position: absolute;
+  left: 0;
+  background-repeat: repeat;
+  animation: bus-trip-fall 1s linear infinite;
+  will-change: transform;
+}
+@keyframes bus-trip-rumble {
+  50% {
+    transform: translateY(var(--rumble));
+  }
+}
+.bus-trip[data-moving="true"] .bus-trip-rumble {
+  animation: bus-trip-rumble 0.42s steps(1) infinite;
+}
+@keyframes bus-trip-flash {
+  0%,
+  90%,
+  93%,
+  100% {
+    opacity: 0;
+  }
+  91% {
+    opacity: 0.5;
+  }
+  92% {
+    opacity: 0.15;
+  }
+  92.5% {
+    opacity: 0.4;
+  }
+}
+.bus-trip-flash {
+  background: #eef3ff;
+  opacity: 0;
+  animation: bus-trip-flash 9s steps(1) infinite;
+}
+@keyframes bus-trip-blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+.bus-trip-blink {
+  animation: bus-trip-blink 0.9s steps(1) infinite;
+}
+.bus-trip-bar {
+  transition: transform 200ms linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) {
+    .bus-trip-layer,
+    .bus-trip-fall,
+    .bus-trip-rumble,
+    .bus-trip-blink {
+      animation: none;
+    }
+    .bus-trip-flash {
+      display: none;
+    }
+    .bus-trip-bar {
+      transition: none;
+    }
+  }
+}
 @keyframes cozy-dots {
   0% {
     content: "";
@@ -1265,6 +1358,15 @@ body {
   animation-timing-function: steps(1);
 }
 :root[data-motion="reduce"] :is(.entry-cabin, .entry-door, .entry-fill, .entry-tip, .entry-scene .entry-walker) {
+  transition: none;
+}
+:root[data-motion="reduce"] :is(.bus-trip-layer, .bus-trip-fall, .bus-trip-rumble, .bus-trip-blink) {
+  animation: none;
+}
+:root[data-motion="reduce"] .bus-trip-flash {
+  display: none;
+}
+:root[data-motion="reduce"] .bus-trip-bar {
   transition: none;
 }
 :root[data-motion="reduce"] .entry-loader {

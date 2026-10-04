@@ -1,7 +1,8 @@
 // El camino de la pantalla de carga, dibujado por código con el motor pixel: tiras que se repiten de lado
 // (nubes, colinas, árboles, sendero y cerca) para el parallax, la cabaña con su puerta y lo que cae según
 // la estación. Todo con el tono del momento del día (de noche, oscuro y con los faroles y las ventanas
-// prendidos). Solo en el navegador; cada pieza se dibuja una vez al montar (unos milisegundos).
+// prendidos). Solo en el navegador; cada pieza se dibuja una vez al montar (unos milisegundos). Las piezas
+// comunes (el tono, las estrellas, el sol, los pinos) las usa también la vista del Megabús (bus/scenery.ts).
 import { at, C, fallingLeaf, fallingPetal, flowerTuft, hex, leafLitter, mix, noise, OUT, PixelCanvas, ramp, snowflake, snowPatch, type Ramp, type RGBA } from "@hyvento/map/art";
 import type { Season, SkyPhase } from "@hyvento/shared";
 import { toHtmlCanvas } from "@/game/iso/canvas";
@@ -48,7 +49,7 @@ const TONES: Record<SkyPhase, { c: RGBA; t: number } | null> = {
 };
 
 /** Tiñe todo lo opaco con el tono del momento y encima pone las luces (que no se tiñen). */
-function finish(c: PixelCanvas, phase: SkyPhase, lights?: PixelCanvas): PixelCanvas {
+export function finish(c: PixelCanvas, phase: SkyPhase, lights?: PixelCanvas): PixelCanvas {
   const tone = TONES[phase];
   if (tone) {
     const d = c.data;
@@ -63,7 +64,7 @@ function finish(c: PixelCanvas, phase: SkyPhase, lights?: PixelCanvas): PixelCan
   return c;
 }
 
-function blit(dst: PixelCanvas, src: PixelCanvas, x0: number, y0: number) {
+export function blit(dst: PixelCanvas, src: PixelCanvas, x0: number, y0: number) {
   for (let y = 0; y < src.height; y++)
     for (let x = 0; x < src.width; x++) {
       const i = (y * src.width + x) * 4;
@@ -73,20 +74,38 @@ function blit(dst: PixelCanvas, src: PixelCanvas, x0: number, y0: number) {
 }
 
 /** Dibuja algo en `x` y también corrido un ancho a cada lado: la tira empalma sin costura. */
-const wrap = (w: number, x: number, draw: (x: number) => void) => {
+export const wrap = (w: number, x: number, draw: (x: number) => void) => {
   draw(x);
   draw(x - w);
   draw(x + w);
 };
 
-const url = (c: PixelCanvas) => toHtmlCanvas(c).toDataURL();
+export const url = (c: PixelCanvas) => toHtmlCanvas(c).toDataURL();
+
+/**
+ * El cielo en franjas (como pintado a mano), para el `background` de la escena: de arriba a abajo, del color
+ * de arriba al de abajo hasta `skyEnd` (% del alto); de ahí para abajo, el de abajo.
+ */
+export function skyBands(top: string, bottom: string, skyEnd: number, n = 6): string {
+  const a = parseInt(top.slice(1), 16);
+  const b = parseInt(bottom.slice(1), 16);
+  const lerp = (sh: number, t: number) => Math.round(((a >> sh) & 255) + ((((b >> sh) & 255) - ((a >> sh) & 255)) * t));
+  const stops: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const color = `rgb(${lerp(16, t)} ${lerp(8, t)} ${lerp(0, t)})`;
+    stops.push(`${color} ${((i * skyEnd) / n).toFixed(1)}% ${(((i + 1) * skyEnd) / n).toFixed(1)}%`);
+  }
+  stops.push(`rgb(${lerp(16, 1)} ${lerp(8, 1)} ${lerp(0, 1)}) ${skyEnd.toFixed(1)}% 100%`);
+  return `linear-gradient(to bottom, ${stops.join(", ")})`;
+}
 
 // ---------- Colores de la estación ----------
 
-const AUTUMN = ramp("#4a1f14", "#7a3319", "#a8501f", "#cf7429", "#e89a3e", "#f4c060");
-const WINTER_PINE = ramp("#16302a", "#224538", "#2f5c48", "#437a5c", "#6a9a7a", "#a8c8b0");
+export const AUTUMN = ramp("#4a1f14", "#7a3319", "#a8501f", "#cf7429", "#e89a3e", "#f4c060");
+export const WINTER_PINE = ramp("#16302a", "#224538", "#2f5c48", "#437a5c", "#6a9a7a", "#a8c8b0");
 
-function grassRamp(season: Season): Ramp {
+export function grassRamp(season: Season): Ramp {
   if (season === "otono") return C.grass.map((c, i) => mix(c, at(C.mustard, i), 0.3));
   if (season === "invierno") return C.grass.map((c, i) => mix(c, at(C.white, 2 + i * 0.4), 0.45));
   if (season === "primavera") return C.grass.map((c, i) => mix(c, at(C.leaf, i + 1), 0.25));
@@ -179,7 +198,7 @@ function roundTree(c: PixelCanvas, x: number, base: number, size: number, season
     }
 }
 
-function pine(c: PixelCanvas, x: number, base: number, h: number, season: Season) {
+export function pine(c: PixelCanvas, x: number, base: number, h: number, season: Season) {
   const g = season === "invierno" ? WINTER_PINE : C.green;
   c.rect(x - 1, base - 5, 3, 5, at(C.woodDark, 3));
   const tiers = 4;
@@ -308,7 +327,7 @@ function drawFront({ phase, season }: Mood): Strip {
 
 // ---------- Cielo ----------
 
-function drawStars(): string {
+export function drawStars(): string {
   const c = new PixelCanvas(160, 60);
   for (let i = 0; i < 26; i++) {
     const x = Math.floor(noise(i, 1, 31) * 160);
@@ -325,7 +344,7 @@ function drawStars(): string {
   return url(c);
 }
 
-function drawSun(phase: SkyPhase): string {
+export function drawSun(phase: SkyPhase): string {
   const c = new PixelCanvas(14, 14);
   if (phase === "noche") {
     c.ellipse(7, 7, 5.5, 5.5, at(C.cream, 5));

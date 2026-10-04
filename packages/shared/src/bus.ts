@@ -184,8 +184,17 @@ export function nextBusText(phase: BusPhase, etaMs: number): string {
   return `${Math.min(10, Math.max(1, Math.ceil(etaMs / 60_000)))} MIN`;
 }
 
-/** Paradas de la vuelta (las de la pantalla de viaje): del Megabús de Pereira, y al final la nuestra. */
-export const BUS_ROUTE_STOPS = ["Cuba", "Dosquebradas", "El Viaducto", "Centro", "La Victoria", "Estación Hyvento"] as const;
+/**
+ * Las paradas del Megabús (docs/plan-casas.md): la "Estación Hyvento" del jardín y la de "Casa". Hoy el bus
+ * da la vuelta y vuelve a la estación; la de la casa la estrena el viaje de ida y vuelta.
+ */
+export const BUS_STOPS = ["estacion", "casa"] as const;
+export type BusStop = (typeof BUS_STOPS)[number];
+
+/** El nombre de la parada como lo dice la pantallita del bus. */
+export function busStopName(stop: BusStop): string {
+  return stop === "casa" ? "Casa" : "Estación Hyvento";
+}
 
 // ---------- Mensajes ----------
 
