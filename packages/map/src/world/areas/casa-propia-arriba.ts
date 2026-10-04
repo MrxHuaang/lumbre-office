@@ -99,6 +99,8 @@ export function casaArriba(userId: string): AreaDef {
       place("armchair", 7, 5, "left"),
       place("cat-bed", 8, 7),
       place("snake-plant", 0, 7),
+      place("blanket-basket", 1, 6),
+      place("fiddle-fig", 8, 4),
       // ----- Baño: la tina contra la pared del fondo, el lavamanos, el inodoro y el toallero.
       place("tina-bano", 11, 0),
       place("vanity", 9, 6, "right"),
@@ -130,6 +132,7 @@ export function casaArriba(userId: string): AreaDef {
       place("armario", 5, 8, "left"),
       place("rug-round", 1, 11),
       place("lamp", 0, 13),
+      place("monstera", 5, 13),
       // ----- Pasillo: la escalera que baja, una mata y la alfombra.
       place("stairwell", 7, 8),
       place("kentia", 9, 8),

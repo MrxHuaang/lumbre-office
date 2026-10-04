@@ -158,6 +158,7 @@ export function casaAbajo(userId: string): AreaDef {
       place("juego-rana", 24, 13),
       place("puzzle-table", 25, 8, "left"),
       place("tv-retro", 25, 11, "left"),
+      place("rug-stripes", 23, 10),
       place("beanbag", 23, 11),
       place("beanbag", 23, 12),
       place("game-shelf", 18, 12, "right"),

@@ -85,8 +85,13 @@ finca paisa.
 - **Jardín de un lado**: árboles frutales, una banca y un huertico (se riega más adelante, VIR-84).
 - **Patio de atrás**: asador, mesa de afuera con sillas, hamaca entre dos árboles, tendedero, fogata.
 - **Cobertizo** chico de herramientas.
+- **Jardín del oeste**: además, un estanquito con juncos y nenúfares y su banca.
 - **Sin bordes**: `playable` y `surroundings: "forest"`, como el jardín, para que alrededor siga el bosque y
   no se vea el fin del mapa.
+- **Un claro en el bosque** (VIR-148): la orilla ondula y el pasto se apaga entre los árboles
+  (`forestDistance`), el bosque entra un poco a lo que se camina (sembrado con ruido, sin tapar pasos ni
+  encerrar a nadie), el sendero de piedra se curva y se abre al huertico y al patio, y el camino del bus es
+  de tierra con dos huellas y se pierde en el bosque en las dos puntas.
 
 ### Adentro, primer piso (nivel `casa:<userId>:abajo`)
 
