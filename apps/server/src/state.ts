@@ -427,6 +427,19 @@ export class BusState extends Schema {
   @type("uint32") tripMs = 0;
 }
 
+/**
+ * La casa de alguien (docs/plan-casas.md, VIR-81/82): quién entra (`modo`) y a quiénes dejó pasar. Se arma
+ * la primera vez que el dueño entra a su casa o la abre; vive en la sala (no se guarda en la base).
+ */
+export class CasaState extends Schema {
+  @type("string") ownerId = "";
+  @type("string") ownerName = "";
+  /** CasaModo de @hyvento/shared: "abierta", "invitados" o "cerrada". */
+  @type("string") modo = "invitados";
+  /** User.id de quienes el dueño dejó pasar (se pierde al salir de la casa). */
+  @type(["string"]) guests = new ArraySchema<string>();
+}
+
 /** La granja: una gallina o la cabra (las mueve el servidor; ver rooms/granja.ts). */
 export class FarmAnimal extends Schema {
   @type("string") id = "";
@@ -501,6 +514,8 @@ export class OfficeState extends Schema {
   /** La casa del árbol del jardín (ver rooms/casaArbol.ts). */
   @type(TreeHouseState) treeHouse = new TreeHouseState();
   @type(BusState) bus = new BusState();
+  /** Las casas de cada persona (por dueño): quién entra y a quiénes dejó pasar. */
+  @type({ map: CasaState }) casas = new MapSchema<CasaState>();
   @type(EventsState) events = new EventsState();
   /** El Man del Sombrero: si anda por ahí y dónde (lo decide la sala con el reloj del juego y el clima). */
   @type(SombreroState) sombrero = new SombreroState();

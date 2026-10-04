@@ -13,6 +13,7 @@ import {
   type Positioned,
   type PresenceStatus,
   type TradeInvite,
+  isCasaArea,
 } from "@hyvento/shared";
 import type { Room } from "colyseus.js";
 import { create } from "zustand";
@@ -307,7 +308,7 @@ export function bindNotify(r: Room) {
   });
 
   r.onMessage(MSG.knockRequest, (req: KnockRequest) => {
-    browserNotify("knock", `${req.fromName} toca la puerta de tu oficina.`);
+    browserNotify("knock", `${req.fromName} ${isCasaArea(req.zoneId) ? "toca el timbre de tu casa" : "toca la puerta de tu oficina"}.`);
   });
 
   r.onMessage(MSG.chatEvent, (e: ChatEvent) => {
