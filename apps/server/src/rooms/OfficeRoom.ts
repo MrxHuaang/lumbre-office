@@ -657,6 +657,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
     },
     quests: { onStat: (u, key, by) => (this.encargos.onStat(u, key, by), this.oficios.onStat(u, key, by)), take: (u) => this.encargos.take(u), restore: (u, d) => this.encargos.restore(u, d) },
+    // Lo que sumó la web (regalos, misiones, fotos) también da experiencia de oficio.
+    onExternal: (u, key, by) => this.oficios.onStat(u, key, by),
   });
   /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
   private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t), xp: (u, o, xp) => this.oficios.credit(u, o, xp) });

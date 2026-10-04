@@ -28,6 +28,7 @@ import {
   type OficioLevels,
   type OficioStateEvent,
   type OficioNotice,
+  STAT_KEYS,
   STAT_PREFIX,
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
@@ -55,7 +56,12 @@ export interface OficiosDeps {
   /** El "nivel de vecino" que se ve junto al nombre (Player.vecino). */
   setNeighbor(userId: string, level: number): void;
   /** Los contadores de los logros (el nivel de cada oficio es uno de máximo: así salen los legendarios). */
-  stats: { max(userId: string, key: string, value: number): void; stat(userId: string, key: string): number | undefined; isLoaded(userId: string): boolean };
+  stats: {
+    bump(userId: string, key: string, by?: number): void;
+    max(userId: string, key: string, value: number): void;
+    stat(userId: string, key: string): number | undefined;
+    isLoaded(userId: string): boolean;
+  };
   held: Pick<Bag, "fits" | "add">;
   /** Las pistas del diario (exploración 5): el escondite del Man del Sombrero y los niveles que no conoce. */
   hints(userId: string): { hideout: string | null; unvisited: string[] };
@@ -277,6 +283,8 @@ export class Oficios {
     } finally {
       this.giving.delete(from.userId);
     }
+    // Es un regalo como los del buzón: cuenta para los encargos y la experiencia de Social.
+    this.deps.stats.bump(from.userId, STAT_KEYS.giftsGiven);
     this.deps.send(to.userId, OFICIO_MSG.gifted, { fromName: from.name, item: itemId } satisfies OficioGiftedEvent);
     return { ok: true, toName: to.name, item: itemId };
   }
