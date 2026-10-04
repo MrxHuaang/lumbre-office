@@ -292,6 +292,13 @@ export interface AreaDef {
    * `ground` (por tile).
    */
   groundFine?: (x: number, y: number) => FloorKind;
+  /**
+   * Afuera, con `groundFine`: distancia (en tiles, con decimales; negativa adentro) de un punto del nivel
+   * al claro, solo para el dibujo. El pasto se apaga hacia el bosque y empieza la copa siguiendo esa
+   * orilla, que puede ser orgánica. Sin esto se mide al borde de `playable` (un rectángulo). En el borde
+   * del nivel tiene que pasar de 5 (la copa empalma con el bosque de alrededor).
+   */
+  forestDistance?: (x: number, y: number) => number;
   rooms: RoomDef[];
   doors: DoorDef[];
   /** Tiles transitables fuera de las habitaciones (umbral de la puerta de entrada). */

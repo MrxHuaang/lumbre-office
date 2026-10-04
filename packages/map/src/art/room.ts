@@ -505,7 +505,8 @@ function outdoorColor(map: OfficeMap, X: number, Y: number): RGBA {
   if (flatTile && k !== "forest" && k !== "water") return outdoorFloor(k, X, Y);
   if (k === "forest") {
     const p = map.def.playable;
-    const d = p ? Math.max(p.x * L - X, X - (p.x + p.w) * L, p.y * L - Y, Y - (p.y + p.h) * L) / L : 9;
+    const edge = map.def.forestDistance;
+    const d = edge ? edge(X / L, Y / L) : p ? Math.max(p.x * L - X, X - (p.x + p.w) * L, p.y * L - Y, Y - (p.y + p.h) * L) / L : 9;
     // Más afuera de la fila de árboles, el suelo se vuelve la copa del bosque de alrededor, alineada con
     // la baldosa que el cliente repite más allá del nivel (empieza en la esquina del fondo menos el
     // relleno): así el borde del nivel no se ve.
