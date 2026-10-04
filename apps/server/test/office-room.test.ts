@@ -131,6 +131,38 @@ describe("OfficeRoom: movimiento", () => {
     await tick();
     expect(room.state.players.get(alice.sessionId)!.y).toBe(c(11));
   });
+
+  it("el rechazo de un paso devuelve su seq; las correcciones del servidor no lo llevan", async () => {
+    const { room, alice } = await setup();
+    const corrections: MoveCorrection[] = [];
+    alice.onMessage(MSG.moveCorrection, (m: MoveCorrection) => corrections.push(m));
+    const before = { ...room.state.players.get(alice.sessionId)!.toJSON() };
+
+    alice.send(MSG.move, { x: before.x + 500, y: before.y, dir: "right", moving: true, seq: 7 });
+    // Sin seq (cliente viejo): la corrección tampoco lo trae.
+    alice.send(MSG.move, { x: before.x + 500, y: before.y, dir: "right", moving: true });
+    // Un seq inválido se descarta como cualquier mensaje mal armado (sin corrección).
+    alice.send(MSG.move, { x: before.x + 500, y: before.y, dir: "right", moving: true, seq: -1 });
+    await room.waitForNextPatch();
+    await tick();
+    expect(corrections).toEqual([
+      { x: before.x, y: before.y, seq: 7 },
+      { x: before.x, y: before.y },
+    ]);
+
+    // Un paso válido con seq no genera corrección.
+    corrections.length = 0;
+    alice.send(MSG.move, { x: before.x + 4, y: before.y, dir: "right", moving: true, seq: 8 });
+    await room.waitForNextPatch();
+    await tick();
+    expect(corrections).toEqual([]);
+    expect(room.state.players.get(alice.sessionId)!.x).toBe(before.x + 4);
+
+    // Cambiar de nivel (acción del servidor) nunca trae seq: el cliente no la puede ignorar.
+    await goToArea(alice, room, "planta-baja");
+    expect(corrections.at(-1)?.area).toBe("planta-baja");
+    expect(corrections.filter((m) => m.area).every((m) => m.seq === undefined)).toBe(true);
+  });
 });
 
 describe("OfficeRoom: niveles", () => {

@@ -89,6 +89,12 @@ export const STAT_KEYS = {
   /** Propinas tiradas en el tubo (en puntos) y las recibidas bailando. */
   tipsGiven: "tips_given",
   tipsReceived: "tips_received",
+  /**
+   * Regalos dados: los del buzón (al mandarlos, no al abrirlos) y el detalle gratis de Social 5. Las
+   * propinas del tubo van aparte (`tipsGiven`, en puntos: pagan un baile, no son un regalo) y los
+   * intercambios no cuentan (los dos lados dan).
+   */
+  giftsGiven: "gifts_given",
   // Mascotas, huerto y cocina
   /** Caricias y premios a las mascotas de la casa. */
   petCares: "pet_cares",

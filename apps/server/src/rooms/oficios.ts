@@ -28,6 +28,7 @@ import {
   type OficioLevels,
   type OficioStateEvent,
   type OficioNotice,
+  STAT_KEYS,
   STAT_PREFIX,
 } from "@hyvento/shared";
 import type { GameRepository } from "../repo/types";
@@ -55,7 +56,12 @@ export interface OficiosDeps {
   /** El "nivel de vecino" que se ve junto al nombre (Player.vecino). */
   setNeighbor(userId: string, level: number): void;
   /** Los contadores de los logros (el nivel de cada oficio es uno de máximo: así salen los legendarios). */
-  stats: { max(userId: string, key: string, value: number): void; stat(userId: string, key: string): number | undefined; isLoaded(userId: string): boolean };
+  stats: {
+    bump(userId: string, key: string, by?: number): void;
+    max(userId: string, key: string, value: number): void;
+    stat(userId: string, key: string): number | undefined;
+    isLoaded(userId: string): boolean;
+  };
   held: Pick<Bag, "fits" | "add">;
   /** Las pistas del diario (exploración 5): el escondite del Man del Sombrero y los niveles que no conoce. */
   hints(userId: string): { hideout: string | null; unvisited: string[] };
@@ -82,6 +88,8 @@ interface Entry {
 
 export class Oficios {
   private users = new Map<string, Entry>();
+  /** Guardados en curso (ver `flushAll`). */
+  private saving = new Set<Promise<unknown>>();
   private giving = new Set<string>();
 
   constructor(private readonly deps: OficiosDeps) {}
@@ -196,15 +204,23 @@ export class Oficios {
     const gains = { ...e.pending };
     if (!OFICIOS.some((o) => gains[o] > 0)) return;
     e.pending = zero();
+    const save = this.deps.repo().addSkillXp(userId, gains, this.deps.now());
+    this.saving.add(save);
     try {
-      await this.deps.repo().addSkillXp(userId, gains, this.deps.now());
+      await save;
     } catch (err) {
       console.error("addSkillXp", err);
       for (const o of OFICIOS) e.pending[o] += gains[o];
+    } finally {
+      this.saving.delete(save);
     }
   }
 
+  /** Guarda lo de todos, esperando también lo que ya iba en camino (el `forget` de quien se acaba de ir). */
   async flushAll() {
+    await Promise.all([...this.users.keys()].map((id) => this.flush(id)));
+    if (this.saving.size === 0) return;
+    await Promise.allSettled([...this.saving]);
     await Promise.all([...this.users.keys()].map((id) => this.flush(id)));
   }
 
@@ -277,6 +293,8 @@ export class Oficios {
     } finally {
       this.giving.delete(from.userId);
     }
+    // Es un regalo como los del buzón: cuenta para los encargos y la experiencia de Social.
+    this.deps.stats.bump(from.userId, STAT_KEYS.giftsGiven);
     this.deps.send(to.userId, OFICIO_MSG.gifted, { fromName: from.name, item: itemId } satisfies OficioGiftedEvent);
     return { ok: true, toName: to.name, item: itemId };
   }

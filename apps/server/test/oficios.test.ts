@@ -10,6 +10,7 @@ import {
   MSG,
   OFICIO,
   OFICIO_MSG,
+  OFICIO_XP,
   ROOM_NAME,
   STAT_KEYS,
   levelOf,
@@ -207,12 +208,29 @@ describe("oficios: las ventajas del nivel 5 (validadas en el servidor)", () => {
     expect(await waitFor(() => b.gifts[0])).toEqual({ ok: false, error: "level" });
     a.client.send(OFICIO_MSG.gift, { sessionId: a.client.sessionId });
     expect(await waitFor(() => a.gifts[0])).toEqual({ ok: false, error: "self" });
+    const socialBefore = parts(room).oficios.snapshot("u-alice")!.xp.social;
     a.client.send(OFICIO_MSG.gift, { sessionId: b.client.sessionId });
     expect(await waitFor(() => a.gifts[1])).toMatchObject({ ok: true, toName: "Bob", item: "obj:bocadillo" });
     await bagOf(room).flush("u-bob");
     expect(bagOf(room).count("u-bob", "obj:bocadillo")).toBe(1);
+    // Cuenta como regalo dado (para los encargos) y da su experiencia de Social.
+    expect(parts(room).achievements.stat("u-alice", STAT_KEYS.giftsGiven)).toBe(1);
+    expect(parts(room).oficios.snapshot("u-alice")!.xp.social - socialBefore).toBe(OFICIO_XP.social[STAT_KEYS.giftsGiven]);
     a.client.send(OFICIO_MSG.gift, { sessionId: b.client.sessionId });
     expect(await waitFor(() => a.gifts[2])).toEqual({ ok: false, error: "used" });
+    expect(parts(room).achievements.stat("u-alice", STAT_KEYS.giftsGiven)).toBe(1);
+  });
+
+  it("lo que la web sumó (un regalo del buzón) da su experiencia al releer los puntos", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    await join(room, "u-alice", "Alice");
+    await waitFor(() => (parts(room).achievements.isLoaded("u-alice") ? true : undefined));
+    const before = parts(room).oficios.snapshot("u-alice")!.xp.social;
+    // Como `sendGiftTx`: el contador sube en la base y la web avisa "points-changed".
+    await repo.saveStats("u-alice", [{ key: STAT_KEYS.giftsGiven, op: "inc", value: 2 }]);
+    await parts(room).achievements.refresh("u-alice");
+    expect(parts(room).achievements.stat("u-alice", STAT_KEYS.giftsGiven)).toBe(2);
+    expect(parts(room).oficios.snapshot("u-alice")!.xp.social - before).toBe(2 * OFICIO_XP.social[STAT_KEYS.giftsGiven]!);
   });
 
   it("Exploración 5: pistas del diario (dónde anda el Man y qué niveles faltan); sin el nivel, nada", async () => {
