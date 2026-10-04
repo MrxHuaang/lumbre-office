@@ -731,8 +731,9 @@ export class OfficeScene extends Phaser.Scene {
       // Alguien pudo pararse donde iba el mueble: el fantasma se vuelve a revisar.
       if (this.decorGhost) this.updateGhost();
     }
+    const now = performance.now();
     for (const [id, avatar] of this.avatars) {
-      if (id !== this.localId) avatar.interpolate(delta);
+      if (id !== this.localId) avatar.interpolate(now);
       avatar.sway(time);
     }
     this.shakePhones(time);
@@ -1306,16 +1307,16 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     avatar.setHidden(player.area !== this.map.id);
+    // Cada cambio entra al búfer con la hora de llegada y se dibuja ~100 ms atrás (interp.ts): sin pulsos
+    // aunque los envíos lleguen desparejos. Cambiar de nivel se aplica directo.
     p$.onChange(() => {
-      if (player.area !== this.areaOfSession.get(sessionId)) {
+      const changedArea = player.area !== this.areaOfSession.get(sessionId);
+      if (changedArea) {
         this.areaOfSession.set(sessionId, player.area);
         avatar.setHidden(player.area !== this.map.id);
-        avatar.setPosition(player.x, player.y);
       }
-      avatar.targetX = player.x;
-      avatar.targetY = player.y;
-      avatar.setSeated(player.seated ? player.dir : null, player.seated ? seatAtPoint(this.map, player.x, player.y) : null);
-      avatar.setMotion(player.dir, player.moving);
+      const seat = player.seated ? (seatAtPoint(this.map, player.x, player.y) ?? null) : null;
+      avatar.pushSnapshot(performance.now(), player.x, player.y, { dir: player.dir, moving: player.moving, seated: player.seated, seat }, changedArea);
     });
   }
 
