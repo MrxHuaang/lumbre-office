@@ -309,6 +309,7 @@ import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
 import { closeForRestart } from "./reinicio";
 import { startChatRetention } from "./chatRetention";
 import { orElse } from "../log";
+import { MSG_RATE, newBucket, takeToken, type RateConfig, type TokenBucket } from "@hyvento/shared";
 
 interface UserData {
   lastMoveAt: number;
@@ -433,6 +434,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static tripTimings: TripTimings = { scale: 1, maxMs: TRIP.maxMs };
   /** Cada cuánto se guardan juntas las estadísticas de los logros (los tests lo acortan). */
   static statsFlushMs = 20_000;
+  /** Límite de mensajes por cliente (ver limite-mensajes.ts); null = sin límite (los tests lo apagan en setup.ts). */
+  static msgRate: RateConfig | null = MSG_RATE;
   /**
    * Dar el celular al entrar a quien no lo tiene. Los tests lo apagan (test/setup.ts) para que la mochila
    * tenga solo lo que cada uno pone; test/celular.test.ts lo prende.
@@ -1169,6 +1172,46 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
   }
 
+  // ---------- Límite de mensajes ----------
+
+  // Por conexión (una reconexión trae otro objeto y empieza con el balde lleno); WeakMap: se va con ella.
+  private readonly msgBuckets = new WeakMap<Client, TokenBucket>();
+  private readonly floodLoggedAt = new WeakMap<Client, number>();
+
+  /** ¿Pasa este mensaje? El exceso se descarta en silencio, sin sacar al cliente (se anota de vez en cuando). */
+  private withinRate(client: Client, type: string | number): boolean {
+    const cfg = OfficeRoom.msgRate;
+    if (!cfg) return true;
+    const now = Date.now();
+    let bucket = this.msgBuckets.get(client);
+    if (!bucket) this.msgBuckets.set(client, (bucket = newBucket(now, cfg)));
+    if (takeToken(bucket, now, cfg)) return true;
+    if (now - (this.floodLoggedAt.get(client) ?? -Infinity) >= MSG_RATE.logEveryMs) {
+      this.floodLoggedAt.set(client, now);
+      const userId = this.state.players.get(client.sessionId)?.userId ?? "?";
+      console.warn(`Límite de mensajes: ${userId} se pasó (último: "${type}"); se descarta el exceso`);
+    }
+    return false;
+  }
+
+  // Todo mensaje pasa por el límite, también los que registran los módulos de las salas (llaman a este método).
+  override onMessage<T = any>(type: "*", callback: (client: Client<UserData>, type: string | number, message: T) => void): any;
+  override onMessage<T = any>(type: string | number, callback: (client: Client<UserData>, message: T) => void, validate?: (message: unknown) => T): any;
+  override onMessage(type: string | number, callback: (...args: any[]) => void, validate?: (message: unknown) => unknown) {
+    if (type === "*") {
+      return super.onMessage("*", (client: Client<UserData>, t: string | number, message: unknown) => {
+        if (this.withinRate(client, t)) callback(client, t, message);
+      });
+    }
+    return super.onMessage(
+      type,
+      (client: Client<UserData>, message: unknown) => {
+        if (this.withinRate(client, type)) callback(client, message);
+      },
+      validate,
+    );
+  }
+
   // Apagado por deploy: avisar y cerrar con el código de reinicio (ver reinicio.ts).
   onBeforeShutdown() {
     void closeForRestart(this);
@@ -1238,12 +1281,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     player.y = pos.y;
     player.zoneId = zoneAt(map, pos.x, pos.y)?.id ?? "";
     player.place = placeAt(map, pos.x, pos.y);
-    player.status = (await this.repo.getUserStatus(auth.sub).catch(orElse("onJoin.getUserStatus", null, { userId: auth.sub }))) ?? "available";
-    // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
-    const welcome = await this.repo.grantWelcome(auth.sub).catch(orElse("onJoin.grantWelcome", null, { userId: auth.sub }));
-    player.points = welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(orElse("onJoin.getPoints", 0, { userId: auth.sub })));
-    // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
-    await this.held.load(auth.sub);
+    // Lo que se lee de la base al entrar no depende entre sí: va todo a la vez (una espera, no cuatro).
+    const [status, points, permisos] = await Promise.all([
+      this.repo.getUserStatus(auth.sub).catch(orElse("onJoin.getUserStatus", null, { userId: auth.sub })),
+      // La primera vez que entra, el bono de bienvenida (una sola vez; ver POINTS.welcomeBonus).
+      this.repo
+        .grantWelcome(auth.sub)
+        .catch(orElse("onJoin.grantWelcome", null, { userId: auth.sub }))
+        .then(async (welcome) => welcome?.balance ?? (await this.repo.getPoints(auth.sub).catch(orElse("onJoin.getPoints", 0, { userId: auth.sub })))),
+      this.repo.loadPermisos([auth.sub]).catch((err) => {
+        console.error("loadPermisos", err);
+        return { everyone: [] as Permiso[], byUser: {} as Record<string, Permiso[]> };
+      }),
+      // La mochila se lee de la base al entrar (la web pudo cambiarla mientras no estaba).
+      this.held.load(auth.sub),
+    ]);
+    player.status = status ?? "available";
+    player.points = points;
     // Cuánto ocio lleva hoy (para el celular), sin esperar a que gane algo.
     void this.sendLeisure(auth.sub);
     // El celular (el chat vive en él) lo tiene todo el mundo: al que le falta se le da gratis, en la
@@ -1269,10 +1323,6 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.comunicacion?.greet(client.sessionId);
 
     const admin = auth.role === "ADMIN";
-    const permisos = await this.repo.loadPermisos([auth.sub]).catch((err) => {
-      console.error("loadPermisos", err);
-      return { everyone: [] as Permiso[], byUser: {} as Record<string, Permiso[]> };
-    });
     client.userData = {
       lastMoveAt: Date.now(),
       chatTimes: [],

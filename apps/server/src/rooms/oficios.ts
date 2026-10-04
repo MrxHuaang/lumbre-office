@@ -88,6 +88,8 @@ interface Entry {
 
 export class Oficios {
   private users = new Map<string, Entry>();
+  /** Guardados en curso (ver `flushAll`). */
+  private saving = new Set<Promise<unknown>>();
   private giving = new Set<string>();
 
   constructor(private readonly deps: OficiosDeps) {}
@@ -202,15 +204,23 @@ export class Oficios {
     const gains = { ...e.pending };
     if (!OFICIOS.some((o) => gains[o] > 0)) return;
     e.pending = zero();
+    const save = this.deps.repo().addSkillXp(userId, gains, this.deps.now());
+    this.saving.add(save);
     try {
-      await this.deps.repo().addSkillXp(userId, gains, this.deps.now());
+      await save;
     } catch (err) {
       console.error("addSkillXp", err);
       for (const o of OFICIOS) e.pending[o] += gains[o];
+    } finally {
+      this.saving.delete(save);
     }
   }
 
+  /** Guarda lo de todos, esperando también lo que ya iba en camino (el `forget` de quien se acaba de ir). */
   async flushAll() {
+    await Promise.all([...this.users.keys()].map((id) => this.flush(id)));
+    if (this.saving.size === 0) return;
+    await Promise.allSettled([...this.saving]);
     await Promise.all([...this.users.keys()].map((id) => this.flush(id)));
   }
 

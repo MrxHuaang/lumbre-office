@@ -3,3 +3,5 @@
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 
 OfficeRoom.celularAlEntrar = false;
+// Sin límite de mensajes: los helpers caminan mandando ráfagas de pasos. test/limite-mensajes.test.ts lo prende.
+OfficeRoom.msgRate = null;

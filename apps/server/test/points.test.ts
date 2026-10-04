@@ -96,6 +96,9 @@ describe("puntos de presencia", () => {
 describe("aviso de la web: cambió un saldo", () => {
   it("con el secreto, recarga el saldo de esa persona en vivo", async () => {
     const { room, alice } = await setup();
+    // Entrar cuenta como actividad y un tic de presencia puede sumar 1: se espera a que venza (como arriba).
+    await tick(OfficeRoom.idleMs + OfficeRoom.presenceTickMs);
+    const before = await repo.getPoints("u-alice");
     repo.ledger.push({ userId: "u-alice", amount: 25, reason: "DAILY", at: Date.now() });
 
     const url = `http://localhost:${TEST_PORT}${INTERNAL_ROUTES.pointsChanged}`;
@@ -108,6 +111,6 @@ describe("aviso de la web: cambió un saldo", () => {
     });
     expect(ok.status).toBe(200);
     await room.waitForNextPatch();
-    expect(room.state.players.get(alice.sessionId)!.points).toBe(25);
+    expect(room.state.players.get(alice.sessionId)!.points).toBe(before + 25);
   });
 });

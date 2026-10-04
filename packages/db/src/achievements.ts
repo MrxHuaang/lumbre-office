@@ -32,16 +32,43 @@ export async function setStatMax(client: Client, userId: string, key: string, va
     WHERE "UserStat"."value" < EXCLUDED."value"`;
 }
 
+/** Junta los cambios repetidos de un mismo contador (un INSERT … ON CONFLICT no puede tocar dos veces la misma fila). */
+export function mergeStatChanges(changes: readonly StatChange[]): { inc: Map<string, number>; max: Map<string, number> } {
+  const inc = new Map<string, number>();
+  const max = new Map<string, number>();
+  for (const c of changes) {
+    if (!Number.isFinite(c.value)) continue;
+    const v = Math.round(c.value);
+    if (c.op === "inc") inc.set(c.key, (inc.get(c.key) ?? 0) + v);
+    else max.set(c.key, Math.max(max.get(c.key) ?? v, v));
+  }
+  for (const [k, v] of inc) if (v === 0) inc.delete(k);
+  return { inc, max };
+}
+
 /**
  * Varios cambios de una vez (lo que el servidor de juego juntó en unos segundos), en una transacción, con
- * el avance de los encargos que salió de esos mismos contadores (ver encargos.ts).
+ * el avance de los encargos que salió de esos mismos contadores (ver encargos.ts). Las sumas van en un solo
+ * INSERT y los máximos en otro (antes era una consulta por contador): menos idas y vueltas a la base.
  */
 export async function applyStatChanges(client: PrismaClient, userId: string, changes: StatChange[], quests: readonly QuestDelta[] = []): Promise<void> {
-  if (changes.length === 0 && quests.length === 0) return;
+  const { inc, max } = mergeStatChanges(changes);
+  if (inc.size === 0 && max.size === 0 && quests.length === 0) return;
   await client.$transaction(async (tx) => {
-    for (const c of changes) {
-      if (c.op === "inc") await bumpStat(tx, userId, c.key, c.value);
-      else await setStatMax(tx, userId, c.key, c.value);
+    if (inc.size) {
+      await tx.$executeRaw`
+        INSERT INTO "UserStat" ("userId", "key", "value", "updatedAt")
+        SELECT ${userId}::text, t.k, t.v, NOW() FROM UNNEST(${[...inc.keys()]}::text[], ${[...inc.values()]}::int[]) AS t(k, v)
+        ON CONFLICT ("userId", "key") DO UPDATE
+        SET "value" = "UserStat"."value" + EXCLUDED."value", "updatedAt" = NOW()`;
+    }
+    if (max.size) {
+      await tx.$executeRaw`
+        INSERT INTO "UserStat" ("userId", "key", "value", "updatedAt")
+        SELECT ${userId}::text, t.k, t.v, NOW() FROM UNNEST(${[...max.keys()]}::text[], ${[...max.values()]}::int[]) AS t(k, v)
+        ON CONFLICT ("userId", "key") DO UPDATE
+        SET "value" = GREATEST("UserStat"."value", EXCLUDED."value"), "updatedAt" = NOW()
+        WHERE "UserStat"."value" < EXCLUDED."value"`;
     }
     if (quests.length) await advanceQuestsTx(tx, userId, quests);
   });
