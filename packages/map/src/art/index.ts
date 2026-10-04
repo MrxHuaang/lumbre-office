@@ -31,6 +31,8 @@ export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 export { drawTreeLadder } from "./casa-arbol-exterior";
 // El Megabús de la parada del jardín: el bus que arma el cliente, las puertas y la pantalla de la estación.
 export { BUS_CAR_LEN, busCarSprite, busJointSprite, busScreenText, stationDoorsSprite, type BusCar } from "./bus";
+// Sus colores (verde lima, vidrios, caucho, pasamanos, LED): también los usa la pantalla del viaje.
+export * as BUS_COLORS from "./bus-colores";
 // El escenario del jardín (la tela de la pantalla) y el cartel "EN EL AIRE" prendido del estudio.
 export { STAGE_SCREEN } from "./escenario";
 export { onAirSignSprite } from "./podcast-room";

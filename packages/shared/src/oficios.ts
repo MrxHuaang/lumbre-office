@@ -88,6 +88,7 @@ export const OFICIO_XP: Record<Oficio, Readonly<Record<string, number>>> = {
     [STAT_KEYS.chatMessages]: 0.25,
     [STAT_KEYS.knocks]: 3,
     [STAT_KEYS.phoneCalls]: 5,
+    [STAT_KEYS.giftsGiven]: 15,
     [STAT_KEYS.photosTaken]: 6,
     [STAT_KEYS.missionsDone]: 30,
     [STAT_KEYS.boardWins]: 20,

@@ -45,7 +45,11 @@ import {
 } from "@hyvento/map";
 import { CHIMNEY_TOPS, SCREEN_INSET, tileCursor, WORLD_TO_ART } from "@hyvento/map/art";
 import {
+  CorrectionGate,
+  CORRECTION_IGNORE_WINDOW_MS,
+  correctionStyle,
   hearing,
+  lerpCorrection,
   MOVE_SEND_HZ,
   PLAYER_SPEED,
   type Direction,
@@ -90,6 +94,7 @@ import {
   onDrunkBlackout,
   onSwivelEvent,
   onToastEvent,
+  lastMoveSeq,
   onMoveCorrection,
   onWorldEdits,
   onRoom,
@@ -287,6 +292,12 @@ export class OfficeScene extends Phaser.Scene {
   private hoverCursor?: Phaser.GameObjects.Image;
   private lastSent: MoveMessage | null = null;
   private sendAccumulator = 0;
+  /** Ignora las correcciones de pasos ya superados (VIR-105). */
+  private correctionGate = new CorrectionGate();
+  /** Corrección chica en curso: el personaje se desliza hasta donde dice el servidor en vez de saltar. */
+  private nudge: { from: { x: number; y: number }; to: { x: number; y: number }; at: { x: number; y: number }; elapsed: number } | null = null;
+  /** Cuándo fue la última corrección deslizada (dos seguidas sí borran la ruta del clic). */
+  private lastNudgeAt = -Infinity;
   private seenMessages = 0;
   private nameplates = new Map<string, Phaser.GameObjects.Text>();
   /** Debajo de cada placa: cómo está el dueño (disponible, ocupado, en reunión…) y su nota. */
@@ -721,8 +732,9 @@ export class OfficeScene extends Phaser.Scene {
       // Alguien pudo pararse donde iba el mueble: el fantasma se vuelve a revisar.
       if (this.decorGhost) this.updateGhost();
     }
+    const now = performance.now();
     for (const [id, avatar] of this.avatars) {
-      if (id !== this.localId) avatar.interpolate(delta);
+      if (id !== this.localId) avatar.interpolate(now);
       avatar.sway(time);
     }
     this.shakePhones(time);
@@ -980,6 +992,20 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private handleCorrection(c: MoveCorrection) {
+    // Un rechazo de un paso que ya superé (llegó tarde): el servidor valida los siguientes desde donde
+    // me dejó, así que teletransportar, borrar la ruta y levantar del asiento sería un tirón de más.
+    if (this.correctionGate.shouldIgnore(c, lastMoveSeq(), performance.now())) return;
+    const local = this.local;
+    // Rechazo de un paso con salto chico, de pie y sin viaje: deslizar ~80 ms. La ruta del clic sigue, salvo
+    // que se repita enseguida (algo la está bloqueando y seguir insistiría contra el servidor).
+    if (local && this.map && !this.seat && !this.travelling && !this.fainted && correctionStyle(c, { x: local.x, y: local.y, area: this.map.id }, this.map.tileSize) === "lerp") {
+      const now = performance.now();
+      if (now - this.lastNudgeAt < CORRECTION_IGNORE_WINDOW_MS) this.clearPath();
+      this.lastNudgeAt = now;
+      this.nudge = { from: { x: local.x, y: local.y }, to: { x: c.x, y: c.y }, at: { x: local.x, y: local.y }, elapsed: 0 };
+      return;
+    }
+    this.nudge = null;
     this.clearPath();
     // El servidor no aceptó el movimiento (p. ej. el asiento ya estaba ocupado): quedar de pie.
     if (this.seat) {
@@ -1183,6 +1209,8 @@ export class OfficeScene extends Phaser.Scene {
     if (isTablePanel(useOfficeStore.getState().panel?.kind)) useOfficeStore.getState().closePanel();
     this.localId = room.sessionId;
     this.lastSent = null;
+    this.nudge = null;
+    this.correctionGate.reset();
     this.weatherKnown = false;
     this.seenMessages = useOfficeStore.getState().messages.length;
 
@@ -1286,16 +1314,16 @@ export class OfficeScene extends Phaser.Scene {
       return;
     }
     avatar.setHidden(player.area !== this.map.id);
+    // Cada cambio entra al búfer con la hora de llegada y se dibuja ~100 ms atrás (interp.ts): sin pulsos
+    // aunque los envíos lleguen desparejos. Cambiar de nivel se aplica directo.
     p$.onChange(() => {
-      if (player.area !== this.areaOfSession.get(sessionId)) {
+      const changedArea = player.area !== this.areaOfSession.get(sessionId);
+      if (changedArea) {
         this.areaOfSession.set(sessionId, player.area);
         avatar.setHidden(player.area !== this.map.id);
-        avatar.setPosition(player.x, player.y);
       }
-      avatar.targetX = player.x;
-      avatar.targetY = player.y;
-      avatar.setSeated(player.seated ? player.dir : null, player.seated ? seatAtPoint(this.map, player.x, player.y) : null);
-      avatar.setMotion(player.dir, player.moving);
+      const seat = player.seated ? (seatAtPoint(this.map, player.x, player.y) ?? null) : null;
+      avatar.pushSnapshot(performance.now(), player.x, player.y, { dir: player.dir, moving: player.moving, seated: player.seated, seat }, changedArea);
     });
   }
 
@@ -1467,6 +1495,7 @@ export class OfficeScene extends Phaser.Scene {
   private updateLocal(delta: number, taps: Taps) {
     const avatar = this.local;
     if (!avatar || this.travelling || this.fainted) return;
+    if (this.nudge && this.stepNudge(avatar, delta)) return;
     const dt = delta / 1000;
     const ts = this.map.tileSize;
     if (this.fishing.busy) return this.updateFishing(avatar, delta, taps);
@@ -1656,6 +1685,28 @@ export class OfficeScene extends Phaser.Scene {
       this.sendAccumulator = 0;
       this.sendPosition(avatar.direction, false);
     }
+  }
+
+  /**
+   * Un paso del deslizamiento de una corrección chica. Mientras dura no se mueve ni se envía nada (los
+   * puntos del medio podrían cruzar la pared que causó el rechazo). Si otra cosa movió al personaje
+   * (sentarse, otra corrección), se suelta. Devuelve si sigue en curso.
+   */
+  private stepNudge(avatar: Avatar, delta: number): boolean {
+    const n = this.nudge;
+    if (!n) return false;
+    if (avatar.x !== n.at.x || avatar.y !== n.at.y) {
+      this.nudge = null;
+      return false;
+    }
+    n.elapsed += delta;
+    const p = lerpCorrection(n.from, n.to, n.elapsed);
+    avatar.setPosition(p.x, p.y);
+    n.at = { x: p.x, y: p.y };
+    if (!p.done) return true;
+    this.nudge = null;
+    this.updateZone();
+    return false;
   }
 
   /** Envía la posición si cambió algo desde el último envío. */

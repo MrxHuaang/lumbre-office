@@ -14,7 +14,7 @@ import { currentStage, ENTRY_TIPS, entryDone, entryMood, entryPercent, nextShown
 import { SKY_COLORS } from "@/lib/sky";
 import { CharacterSprite } from "./CharacterSprite";
 import { CozyTitle } from "./Cozy";
-import { drawScenery, FEET_Y, MEADOW_Y, SCENE_H, type Scenery, type Strip } from "./entry/scenery";
+import { drawScenery, FEET_Y, MEADOW_Y, SCENE_H, skyBands, type Scenery, type Strip } from "./entry/scenery";
 import { LumbreLogo } from "./lumbre/Logo";
 import { lessMotion } from "@/lib/prefs";
 
@@ -285,7 +285,8 @@ const EntryScene = memo(function EntryScene({
   }, [mood.phase, mood.season]);
 
   const sky = SKY_COLORS[mood.phase];
-  const bands = useMemo(() => skyBands(sky.top, sky.bottom), [sky.top, sky.bottom]);
+  // El cielo llega hasta el pasto de atrás; abajo el paisaje lo tapa.
+  const bands = useMemo(() => skyBands(sky.top, sky.bottom, (MEADOW_Y / SCENE_H) * 100), [sky.top, sky.bottom]);
   const arc = skyArc(mood.minuteOfDay);
   const stopped = frozen || exit !== "loading";
   const maxW = px === 3 ? 1000 : 680;
@@ -419,21 +420,4 @@ function Cabin({ cabin, px, arrive, open, night }: { cabin: Scenery["cabin"]; px
       />
     </div>
   );
-}
-
-/** El cielo en franjas (como pintado a mano): de arriba a abajo, del color de arriba al de abajo. */
-function skyBands(top: string, bottom: string, n = 6): string {
-  const a = parseInt(top.slice(1), 16);
-  const b = parseInt(bottom.slice(1), 16);
-  const lerp = (sh: number, t: number) => Math.round(((a >> sh) & 255) + ((((b >> sh) & 255) - ((a >> sh) & 255)) * t));
-  const stops: string[] = [];
-  // El cielo llega hasta el pasto de atrás; abajo el paisaje lo tapa.
-  const skyEnd = (MEADOW_Y / SCENE_H) * 100;
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    const color = `rgb(${lerp(16, t)} ${lerp(8, t)} ${lerp(0, t)})`;
-    stops.push(`${color} ${((i * skyEnd) / n).toFixed(1)}% ${(((i + 1) * skyEnd) / n).toFixed(1)}%`);
-  }
-  stops.push(`rgb(${lerp(16, 1)} ${lerp(8, 1)} ${lerp(0, 1)}) ${skyEnd.toFixed(1)}% 100%`);
-  return `linear-gradient(to bottom, ${stops.join(", ")})`;
 }

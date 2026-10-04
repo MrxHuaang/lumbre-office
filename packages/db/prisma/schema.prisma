@@ -243,6 +243,12 @@ model PointTransaction {
 
   @@index([userId, reason, createdAt])
   @@index([createdAt])
+  /// Lo pagado una sola vez (bono de bienvenida al entrar, foco, cumpleaños, standup) se busca por refId.
+  @@index([userId, refId])
+  /// Los últimos movimientos de alguien (GET /api/points) y lo de hoy sin importar el motivo.
+  @@index([userId, createdAt])
+  /// Estadísticas del casino (y otras sumas por motivo de todo el equipo).
+  @@index([reason, createdAt])
 }
 
 enum MissionStatus {
@@ -272,6 +278,8 @@ model Mission {
   completedAt DateTime?
 
   @@index([status, createdAt])
+  /// Las últimas entregadas del tablón (status DONE, de la más reciente).
+  @@index([status, completedAt])
 }
 
 // ---------- Auth.js ----------
@@ -374,6 +382,8 @@ model Gift {
   openedAt  DateTime?
 
   @@index([toId, openedAt])
+  /// Lo que alguien dio hoy (tope de regalos e intercambios) y su lista de enviados.
+  @@index([fromId, createdAt])
 }
 
 /**
@@ -438,7 +448,8 @@ model ArcadeScore {
   createdAt DateTime @default(now())
 
   @@index([game, createdAt])
-  @@index([userId, game])
+  /// Con la fecha: las partidas de hoy de alguien (tope diario) sin recorrer toda su historia.
+  @@index([userId, game, createdAt])
 }
 
 /**

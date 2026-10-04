@@ -1,6 +1,7 @@
 // Los sonidos del Megabús, con WebAudio (sin archivos): el motor diésel que ronronea y sube de vueltas al
-// arrancar, el siseo del freno de aire al parar y el "pssh" de las puertas con su campanita. Por la salida de
-// los efectos (sfx.ts): respetan el volumen y el silencio. `vol` según la distancia (0..1).
+// arrancar, el siseo del freno de aire al parar, el "pssh" de las puertas con su campanita y el timbre de
+// parada. Por la salida de los efectos (sfx.ts → mezclador): respetan el volumen y el silencio. `vol` según
+// la distancia (0..1).
 import { sfxOut } from "./sfx";
 
 type Out = NonNullable<ReturnType<typeof sfxOut>>;
@@ -65,6 +66,22 @@ export const playBusDoors = (vol: number, opening: boolean) =>
     } else {
       tone(a, t, 0.14, 740, 740, 0.035 * vol, "square");
       tone(a, t + 0.22, 0.14, 740, 740, 0.035 * vol, "square");
+    }
+  });
+
+/**
+ * El timbre de parada de adentro del bus ("¡ding!" con su "dong"): una campana de dos notas con armónicos
+ * que se apaga despacio. Lo toca la pantalla del viaje cuando se pide la parada.
+ */
+export const playBusStopBell = (vol = 1) =>
+  start(vol, (a, t) => {
+    for (const [at, f] of [
+      [0, 1318],
+      [0.32, 1046],
+    ] as const) {
+      tone(a, t + at, 1.1, f, f, 0.05 * vol);
+      tone(a, t + at, 0.6, f * 2.76, f * 2.76, 0.012 * vol);
+      tone(a, t + at, 0.25, f * 5.4, f * 5.4, 0.006 * vol, "triangle");
     }
   });
 

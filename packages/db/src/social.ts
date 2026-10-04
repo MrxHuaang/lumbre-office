@@ -1,7 +1,8 @@
 // Regalos e intercambios (fase 5): lo que mueve puntos y objetos entre dos personas. Vive aquí (y no en la
 // web o en el servidor de juego) para que el tope diario de "dar" sea uno solo y para poder probarlo.
-import { CLUB_TIP, dayStart, giftAllowedToday, giftRefId, stackUnits, tipAllowedToday, tradeGap, type GivenToday, type ItemStack } from "@hyvento/shared";
+import { CLUB_TIP, dayStart, giftAllowedToday, giftRefId, STAT_KEYS, stackUnits, tipAllowedToday, tradeGap, type GivenToday, type ItemStack } from "@hyvento/shared";
 import type { Prisma } from "@prisma/client";
+import { bumpStatWithQuestsTx } from "./encargos";
 import { addInventoryTx, takeInventoryTx } from "./inventory";
 import { awardPointsTx, spendPointsTx } from "./points";
 
@@ -65,7 +66,8 @@ export interface SendGiftInput {
 
 /**
  * Crea el regalo y cobra lo que lleva, en la transacción `tx`. Primero bloquea a quien regala y revisa el
- * tope del día; el Gift se crea antes de cobrar para que el movimiento lleve su id (`gift:<id>`).
+ * tope del día; el Gift se crea antes de cobrar para que el movimiento lleve su id (`gift:<id>`). Suma
+ * `gifts_given` a quien regala (ver STAT_KEYS.giftsGiven: las propinas y los intercambios no cuentan).
  */
 export async function sendGiftTx(tx: Db, fromId: string, input: SendGiftInput): Promise<{ giftId: string; balance: number | null }> {
   const now = input.now ?? Date.now();
@@ -91,6 +93,9 @@ export async function sendGiftTx(tx: Db, fromId: string, input: SendGiftInput): 
     balance = spent.balance;
   }
   if (input.itemId && !(await takeInventoryTx(tx, fromId, input.itemId, input.quantity))) throw new SocialAborted("items", fromId);
+  // Cuenta al mandarlo (dar es lo que se premia; abrirlo depende del otro) y en la misma transacción: si
+  // el regalo no sale, tampoco cuenta. Avanza los encargos que lo siguen.
+  await bumpStatWithQuestsTx(tx, fromId, STAT_KEYS.giftsGiven, 1, now);
   return { giftId: gift.id, balance };
 }
 
