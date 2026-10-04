@@ -96,6 +96,7 @@ const PROMPT: Record<Interactable, string> = {
   astronomer: "Hablar con la astrónoma",
   sombrero: "Hablar con el Man del Sombrero",
   bus: "Subir al Megabús",
+  homeBus: "Esperar el bus",
   grill: "Cocinar en el horno de barro",
   coop: "Ver los nombres del gallinero",
   reception: "Preguntarle a Doña Gloria",

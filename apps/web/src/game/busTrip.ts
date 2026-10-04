@@ -8,6 +8,9 @@ export interface BusTripState {
   phase: BusPhase;
   since: number;
   nextAt: number;
+  /** A dónde va la ruta en curso y cuánto dura un viaje (0 = el de siempre); ver `state.bus`. */
+  to?: BusStop;
+  tripMs?: number;
 }
 
 /** A qué parada va el bus y cuánto dura el viaje. */
@@ -17,12 +20,12 @@ export interface TripInfo {
 }
 
 /**
- * El único lugar que dice a dónde va el viaje y cuánto dura. Hoy el bus da la vuelta y vuelve a la
- * Estación Hyvento en `tripMs`; cuando `state.bus` traiga la parada destino y la duración (VIR-142), se
- * leen de aquí y la pantalla no cambia.
+ * El único lugar que dice a dónde va el viaje y cuánto dura (lo manda el servidor en `state.bus`). Solo una
+ * ruta va a la casa; llegando o esperando el bus, se va a la estación.
  */
-export function tripInfo(_bus: BusTripState): TripInfo {
-  return { stop: "estacion", durationMs: BUS_TIMINGS.tripMs };
+export function tripInfo(bus: BusTripState): TripInfo {
+  const stop: BusStop = bus.phase === "route" && bus.to === "casa" ? "casa" : "estacion";
+  return { stop, durationMs: bus.tripMs && bus.tripMs > 0 ? bus.tripMs : BUS_TIMINGS.tripMs };
 }
 
 /** Faltando esto (ms) para llegar se pide la parada: suena el timbre y la pantallita lo avisa. */

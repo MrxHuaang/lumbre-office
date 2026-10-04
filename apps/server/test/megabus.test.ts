@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { getWorld, pointsOfType } from "@hyvento/map";
-import { BUS, BUS_MSG, BUS_TIMINGS, MSG, ROOM_NAME, type BusNotice } from "@hyvento/shared";
+import { buildCasaPropia, CASA_CONEXIONES, getWorld, pointsOfType } from "@hyvento/map";
+import { BUS, BUS_MSG, BUS_TIMINGS, casaAreaOf, MSG, ROOM_NAME, type BusNotice } from "@hyvento/shared";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
@@ -89,7 +89,7 @@ describe("Megabús", () => {
     expect(bus.phase).toBe("open");
   });
 
-  it("no se baja en ruta: el bus da la vuelta y al volver a la estación sí se baja", async () => {
+  it("no se baja en ruta: el bus va a la parada Casa y la deja en la suya", async () => {
     const { room, bus, connect, arrive } = await setup();
     const ana = await connect("Ana");
     await walkToTile(ana.client, room, stop.tileX, stop.tileY);
@@ -105,15 +105,60 @@ describe("Megabús", () => {
     await tick(60);
     expect(ana.notices).toContain("route");
     expect(ana.me().area).toBe(BUS.area);
-    // Vuelve a la estación y abre: ahora sí.
-    await until(() => bus.doorsOpen());
-    ana.client.send(MSG.travel, { portal: door.id });
+    // Llega a la parada "Casa": aparece en la vereda de la suya.
+    await until(() => ana.me().area === casaAreaOf("u-Ana"));
+    const llegada = CASA_CONEXIONES.afuera.parada.llegada;
+    const casa = buildCasaPropia(casaAreaOf("u-Ana"))!;
+    expect(Math.abs(Math.floor(ana.me().x / casa.tileSize) - llegada.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(Math.floor(ana.me().y / casa.tileSize) - llegada.y)).toBeLessThanOrEqual(1);
+    // Ya sin nadie a bordo, el bus se pierde hasta el próximo.
+    await until(() => bus.phase === "away");
+  });
+
+  it("los que suben juntos se bajan en la misma parada, cada uno en su casa", async () => {
+    const { room, bus, connect, arrive } = await setup();
+    const ana = await connect("Ana");
+    const beto = await connect("Beto");
+    await walkToTile(ana.client, room, stop.tileX, stop.tileY);
+    await walkToTile(beto.client, room, stop.tileX + 1, stop.tileY);
+    await arrive();
+    ana.client.send(BUS_MSG.board, {});
+    beto.client.send(BUS_MSG.board, {});
     await tick(60);
-    expect(ana.me().area).toBe("jardin");
-    expect(Math.floor(ana.me().x / jardin.tileSize)).toBe(door.to.x);
-    expect(Math.floor(ana.me().y / jardin.tileSize)).toBe(door.to.y);
-    // Ya sin nadie a bordo, el bus sigue de largo.
-    await until(() => bus.phase === "leaving" || bus.phase === "away");
+    expect([ana.me().area, beto.me().area]).toEqual([BUS.area, BUS.area]);
+    await until(() => bus.phase === "route");
+    expect(room.state.bus.to).toBe("casa");
+    await until(() => ana.me().area !== BUS.area && beto.me().area !== BUS.area);
+    expect(ana.me().area).toBe(casaAreaOf("u-Ana"));
+    expect(beto.me().area).toBe(casaAreaOf("u-Beto"));
+  });
+
+  it("\"Esperar el bus\" en la parada de la casa lleva de vuelta a la estación", async () => {
+    const { room, bus, connect, arrive } = await setup();
+    OfficeRoom.busSchedule = { firstInMs: 10_000_000, maxWaitMs: 0 };
+    const ana = await connect("Ana");
+    // Lejos de su parada: no.
+    ana.client.send(BUS_MSG.call, {});
+    await tick(60);
+    expect(ana.notices).toEqual(["home"]);
+    // A su casa (en el bus) y a la parada.
+    await walkToTile(ana.client, room, stop.tileX, stop.tileY);
+    await arrive();
+    ana.client.send(BUS_MSG.board, {});
+    await until(() => ana.me().area === casaAreaOf("u-Ana"));
+    await until(() => bus.phase === "away");
+    const casa = buildCasaPropia(casaAreaOf("u-Ana"))!;
+    const parada = pointsOfType(casa, "home_bus_stop")[0]!;
+    await walkToTile(ana.client, room, parada.tileX, parada.tileY);
+    ana.client.send(BUS_MSG.call, {});
+    await until(() => ana.me().area === BUS.area, BUS.homeWaitMs + 2000);
+    expect(ana.notices).toContain("coming");
+    // Sale uno de refuerzo que la trae a la estación y abre: ahí se baja.
+    await until(() => bus.doorsOpen(), 4000);
+    const door = inside.portals[1]!;
+    await walkToTile(ana.client, room, door.tiles[0]!.x, door.tiles[0]!.y);
+    ana.client.send(MSG.travel, { portal: door.id });
+    await until(() => ana.me().area === "jardin");
   });
 
   it("quien se va de la cabaña a bordo no deja al bus dando vueltas", async () => {

@@ -106,6 +106,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "sombrero"
   // La estación del Megabús (afuera del portón): E sube al bus con las puertas abiertas (sin panel).
   | "bus"
+  // La parada "Casa" de la casa propia: E llama el bus que vuelve a la estación (sin panel).
+  | "homeBus"
   // La granja del jardín: el horno y la parrilla (cocinar) y el letrero del gallinero (los nombres).
   | "grill"
   | "coop"

@@ -9,7 +9,7 @@ import { BUS, BUS_TIMINGS, busEtaMs, busLane, busOffset, doorsOpening, nextBusTe
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import { playBusBrakes, playBusDoors, setBusEngine } from "./busSonidos";
-import { readBus, useBusStore } from "./busStore";
+import { busTimingsOf, readBus, useBusStore } from "./busStore";
 import { serverNow } from "./club/store";
 import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
@@ -131,7 +131,8 @@ export class BusView {
       this.shownDoors = dkey;
       this.place(this.doors!, dkey, () => stationDoorsSprite(k / DOOR_FRAMES, night), st.x, st.y, stDepth + 0.2);
     }
-    const text = nextBusText(b.phase, busEtaMs(b.phase, b.since, b.nextAt, now, BUS_TIMINGS));
+    const t = busTimingsOf(b);
+    const text = nextBusText(b.phase, busEtaMs(b.phase, b.since, b.nextAt, now, t, b.to));
     const skey = `bus-pantalla-${text}-${night ? "noche" : "dia"}`;
     if (skey !== this.shownScreen) {
       this.shownScreen = skey;
@@ -141,7 +142,8 @@ export class BusView {
     this.screen!.setAlpha(this.stationAlpha);
 
     // El bus: dónde va el frente y cada cuerpo con su carril.
-    const s = busOffset(b.phase, elapsed, BUS_TIMINGS, BUS_STOP.stopX - BUS_ROUTE.startX, BUS_ROUTE.endX - BUS_STOP.stopX);
+    // Esta es la calle de la estación: una ruta que va a la casa se pierde y no vuelve a aparecer.
+    const s = busOffset(b.phase, elapsed, t, BUS_STOP.stopX - BUS_ROUTE.startX, BUS_ROUTE.endX - BUS_STOP.stopX, { from: b.from, to: b.to, at: "estacion" });
     this.sounds(b.phase, b.run, elapsed, s);
     const { front, joint, rear } = this.cars;
     if (s === null) {
@@ -173,7 +175,7 @@ export class BusView {
     const x = (BUS_STOP.stopX + (s ?? 0) - BUS.frontLen / 2) * ts;
     const y = (BUS_STOP.sideY + 1.3) * ts;
     const vol = s === null ? 0 : volAt(x, y, HEAR_PX) * fadeAt(x / ts);
-    const t = BUS_TIMINGS;
+    const t = busTimingsOf(useBusStore.getState());
     let rev = 0.15;
     if (phase === "arriving") rev = 1 - elapsed / t.approachMs;
     else if (phase === "leaving" || (phase === "route" && elapsed < t.departMs)) rev = Math.min(1, elapsed / t.departMs + 0.3);
@@ -181,7 +183,7 @@ export class BusView {
     setBusEngine(vol * (phase === "open" || phase === "closing" ? 0.6 : 1), rev);
     // La frenada, una vez por llegada, al final del frenado.
     const braking = (phase === "arriving" && elapsed > t.approachMs - 1600) || (phase === "route" && elapsed > t.tripMs - 1600);
-    const key = run * 2 + (phase === "route" ? 1 : 0);
+    const key = routeKey(run, phase);
     if (braking && this.brakedRun !== key) {
       this.brakedRun = key;
       playBusBrakes(vol);
@@ -200,17 +202,22 @@ export class BusView {
 
   /** Adentro: el motor mientras va de camino y las puertas al llegar y al salir. */
   private updateInside(phase: BusPhase, elapsed: number) {
-    const t = BUS_TIMINGS;
+    const t = busTimingsOf(useBusStore.getState());
     const moving = phase === "arriving" || phase === "route" || phase === "leaving";
     const rev = phase === "route" ? 0.55 + 0.4 * Math.sin((elapsed / t.tripMs) * Math.PI) : phase === "arriving" ? 1 - elapsed / t.approachMs : 0.15;
     setBusEngine(moving ? 0.55 : 0.3, rev);
-    const key = phase === "route" ? 1 : 0;
     const arrivingEnd = (phase === "arriving" && elapsed > t.approachMs - 1600) || (phase === "route" && elapsed > t.tripMs - 1600);
-    if (arrivingEnd && this.brakedRun !== useBusStore.getState().run * 2 + key) {
-      this.brakedRun = useBusStore.getState().run * 2 + key;
+    const key = routeKey(useBusStore.getState().run, phase);
+    if (arrivingEnd && this.brakedRun !== key) {
+      this.brakedRun = key;
       playBusBrakes(0.6);
     }
     this.doorSounds(phase, 0.9);
   }
 }
 
+/** Una frenada por llegada: la de la pasada, la de la casa y la de la vuelta de la casa a la estación. */
+function routeKey(run: number, phase: BusPhase): number {
+  const b = useBusStore.getState();
+  return run * 4 + (phase !== "route" ? 0 : b.to === "casa" ? 1 : b.from === "casa" ? 2 : 3);
+}

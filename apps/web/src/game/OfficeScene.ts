@@ -229,6 +229,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "kitchen", point: "kitchen_stove", furniture: ["stove", "pantry-shelf"] },
   // La estación del Megabús: solo con E (un clic en la plataforma es para caminar por ella).
   { kind: "bus", point: "bus_stop", furniture: [] },
+  // La parada "Casa" de la casa propia: E (o clic en el refugio) llama el bus de vuelta.
+  { kind: "homeBus", point: "home_bus_stop", furniture: ["parada-casa"] },
   { kind: "stage", point: "stage", furniture: ["stage-lectern", "stage-deck"] },
   { kind: "podcast", point: "podcast", furniture: ["podcast-console"] },
   // El observatorio: la fogata de malvaviscos del jardín y lo de adentro de la torre.

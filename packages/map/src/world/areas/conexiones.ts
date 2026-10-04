@@ -78,10 +78,11 @@ export const CONEXIONES = {
   },
   megabus: {
     /**
-     * Las tres puertas del bus por dentro (en la pared baja del sur: la de atrás y las dos de adelante). No
-     * se entra por un portal: se sube con E en la estación y se llega junto a la puerta más cercana.
+     * Las tres puertas del bus por dentro (en la pared del norte, la del lado de la plataforma: la de atrás
+     * y las dos de adelante). No se entra por un portal: se sube con E en la estación y se llega junto a la
+     * puerta más cercana.
      */
-    puertas: { tiles: [{ x: 4, y: 5 }, { x: 13, y: 5 }, { x: 18, y: 5 }], llegada: { x: 13, y: 2, facing: "right" } },
+    puertas: { tiles: [{ x: 4, y: 0 }, { x: 13, y: 0 }, { x: 18, y: 0 }], llegada: { x: 13, y: 3, facing: "right" } },
   },
   observatorio: {
     /** La puerta de la pared sur de la torre (se sale al jardín, al pie de los escalones). */

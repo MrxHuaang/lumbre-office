@@ -231,6 +231,8 @@ export interface PointDef {
     | "greenhouse_plot"
     // Parada del bus: uno frente a cada puerta de la estación (ahí se toma el bus y ahí se baja la gente).
     | "bus_stop"
+    // La parada "Casa" de la casa de cada persona: bajo el refugio, donde se espera el bus de vuelta.
+    | "home_bus_stop"
     // La piscina del jardín: junto a las escaleritas y detrás del trampolín.
     | "pool_steps"
     | "diving_board"

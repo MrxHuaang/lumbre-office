@@ -37,6 +37,9 @@ function setup(minuteOfDay = 10 * 60) {
   const time = fakeTime();
   let minute = minuteOfDay;
   let riders = 0;
+  /** Cuántos de los de a bordo van a su casa (el resto va a la estación). */
+  let home = 0;
+  let arrivedHome = 0;
   const phases: BusPhase[] = [];
   const bus = new BusLine({
     clock: time.clock,
@@ -45,6 +48,14 @@ function setup(minuteOfDay = 10 * 60) {
     timings: () => T,
     schedule: () => SCHEDULE,
     riders: () => riders,
+    homeRiders: () => home,
+    arriveHome: () => {
+      // Los que van a su casa se bajan; quedan los que van a la estación.
+      arrivedHome += home;
+      riders -= home;
+      home = 0;
+      return riders;
+    },
     onChange: (s) => {
       if (phases.at(-1) !== s.phase) phases.push(s.phase);
     },
@@ -56,6 +67,12 @@ function setup(minuteOfDay = 10 * 60) {
     phases,
     setMinute: (m: number) => void (minute = m),
     setRiders: (n: number) => void (riders = n),
+    /** `n` a bordo, `toHome` de ellos van a su casa. */
+    board: (n: number, toHome: number) => {
+      riders = n;
+      home = toHome;
+    },
+    arrivedHome: () => arrivedHome,
   };
 }
 
@@ -104,7 +121,7 @@ describe("horario del Megabús", () => {
     expect(bus.nextAt - bus.since).toBe(BUS.nightEveryMs);
   });
 
-  it("con gente a bordo al cerrar da la vuelta de 30 s y vuelve a abrir en la estación", () => {
+  it("con solo gente que va a la estación a bordo al cerrar, da la vuelta y vuelve a abrir en la estación", () => {
     const { time, bus, phases, setRiders } = setup();
     time.advance(SCHEDULE.firstInMs + OPEN_AT + T.doorsMs);
     expect(bus.doorsOpen()).toBe(true);
@@ -154,6 +171,32 @@ describe("horario del Megabús", () => {
     expect(bus.phase).toBe("route");
     expect(bus.since).toBe(since);
     time.advance(T.tripMs - 1000);
+    expect(bus.phase).toBe("open");
+  });
+
+  it("con gente que va a su casa: viaja a la parada Casa, los baja y se pierde hasta el próximo", () => {
+    const { time, bus, phases, board, arrivedHome } = setup();
+    time.advance(SCHEDULE.firstInMs + OPEN_AT + T.doorsMs);
+    board(2, 2);
+    time.advance(T.openMs - T.doorsMs + T.closingMs);
+    expect(bus.phase).toBe("route");
+    expect(bus.route).toEqual({ from: "estacion", to: "casa" });
+    time.advance(T.tripMs);
+    expect(arrivedHome()).toBe(2);
+    expect(bus.phase).toBe("away");
+    expect(phases).toEqual(["away", "arriving", "open", "closing", "route", "away"]);
+  });
+
+  it("los que van a la estación no se bajan en la casa: el bus vuelve con ellos y abre en la estación", () => {
+    const { time, bus, board, arrivedHome } = setup();
+    time.advance(SCHEDULE.firstInMs + OPEN_AT + T.doorsMs);
+    // Dos van a su casa y uno se subió desde la suya (o llegó en bus) y va a la estación.
+    board(3, 2);
+    time.advance(T.openMs - T.doorsMs + T.closingMs + T.tripMs);
+    expect(arrivedHome()).toBe(2);
+    expect(bus.phase).toBe("route");
+    expect(bus.route).toEqual({ from: "casa", to: "estacion" });
+    time.advance(T.tripMs);
     expect(bus.phase).toBe("open");
   });
 });

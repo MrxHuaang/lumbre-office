@@ -1,9 +1,11 @@
 // El Megabús (docs/plan-estructuras.md, estructura 8): un bus articulado como los del Megabús de Pereira
 // pasa por la calle del sur del jardín, frena en la "Estación Hyvento" y abre las puertas. Quien se sube
-// entra al nivel `megabus` (el bus por dentro). Si alguien quedó a bordo al cerrar las puertas, el bus da
-// una vuelta de `tripMs` y vuelve a la misma estación (adentro se ve una pantalla de viaje); si no, sigue
-// de largo. El servidor lleva solo la fase y cuándo empezó (`OfficeState.bus`), sin simular el recorrido:
-// el cliente dibuja el bus con estas reglas y la hora del servidor.
+// entra al nivel `megabus` (el bus por dentro). Si alguien quedó a bordo al cerrar las puertas, el bus viaja
+// `tripMs` hasta la parada "Casa" (docs/plan-casas.md), donde cada uno se baja en su casa; los que van a la
+// estación (quien lo llamó desde su casa o "llega en bus") siguen y el bus vuelve a abrir en la estación.
+// Si va vacío, sigue de largo. El servidor lleva solo la fase, cuándo empezó y de dónde a dónde va la ruta
+// (`OfficeState.bus`), sin simular el recorrido: el cliente dibuja el bus con estas reglas y la hora del
+// servidor.
 import { z } from "zod";
 import { NIGHT_FROM, NIGHT_UNTIL } from "./clock";
 
@@ -31,6 +33,8 @@ export const BUS = {
   rearLen: 6.5,
   /** Puertas de cada cuerpo, en tiles desde el frente hacia atrás. */
   doors: [2, 6.2, 10.6, 13.8],
+  /** "Esperar el bus" en la parada de la casa: lo que tarda en pasar a recoger (ms reales). */
+  homeWaitMs: 2_500,
 } as const;
 
 /** Tiempos de una pasada (ms reales); los tests los acortan. */
@@ -43,7 +47,7 @@ export interface BusTimings {
   closingMs: number;
   /** Arranca y se pierde por la otra punta (cuando se va sin nadie a bordo). */
   departMs: number;
-  /** La vuelta con gente a bordo: de que cierra las puertas hasta que vuelve a abrirlas en la estación. */
+  /** Un viaje con gente a bordo (de la estación a la casa o de la casa a la estación). */
   tripMs: number;
   /** Lo que tardan las puertas en abrirse del todo (hasta entonces no se sube ni se baja). */
   doorsMs: number;
@@ -54,7 +58,7 @@ export const BUS_TIMINGS: BusTimings = {
   openMs: 14_000,
   closingMs: 1_800,
   departMs: 9_000,
-  tripMs: 30_000,
+  tripMs: 18_000,
   doorsMs: 900,
 };
 
@@ -65,7 +69,7 @@ export const BUS_LENGTH = BUS.frontLen + BUS.jointLen + BUS.rearLen;
  * - "arriving": entra por la calle y frena en la estación;
  * - "open": parado con las puertas abiertas;
  * - "closing": cierra las puertas;
- * - "route": se fue con gente a bordo y vuelve (la vuelta dura `tripMs` y termina en "open");
+ * - "route": va de una parada a otra con gente a bordo (`tripMs`; ver `BusRoute`);
  * - "leaving": se va sin nadie a bordo.
  */
 export const BUS_PHASES = ["away", "arriving", "open", "closing", "route", "leaving"] as const;
@@ -115,10 +119,18 @@ export const busTraveling = (phase: BusPhase) => phase !== "open" && phase !== "
 /**
  * Dónde va el frente del bus respecto de la parada (tiles: negativo antes de llegar, positivo al irse), con
  * frenado y arranque parejos, o null si no está a la vista. `inDist` = de la punta oeste de la calle a la
- * parada y `outDist` = de la parada a la punta este (hasta que se pierde la cola). En la vuelta ("route")
- * primero se va como al irse y al final vuelve a entrar como al llegar.
+ * parada y `outDist` = de la parada a la punta este (hasta que se pierde la cola). En una ruta ("route"), la
+ * calle que se mira es la de la parada `at`: si la ruta sale de ahí, primero se va como al irse; si llega
+ * ahí, al final entra como al llegar (sin `route`, la vuelta de la estación a la estación).
  */
-export function busOffset(phase: BusPhase, elapsedMs: number, t: BusTimings, inDist: number, outDist: number): number | null {
+export function busOffset(
+  phase: BusPhase,
+  elapsedMs: number,
+  t: BusTimings,
+  inDist: number,
+  outDist: number,
+  route?: { from: BusStop; to: BusStop; at: BusStop },
+): number | null {
   const arrive = (ms: number) => {
     const k = 1 - Math.max(0, Math.min(1, ms / Math.max(1, t.approachMs)));
     return -inDist * k * k;
@@ -136,9 +148,11 @@ export function busOffset(phase: BusPhase, elapsedMs: number, t: BusTimings, inD
     case "leaving":
       return elapsedMs >= t.departMs ? null : depart(elapsedMs);
     case "route": {
-      if (elapsedMs < t.departMs) return depart(elapsedMs);
+      const leavesHere = !route || route.from === route.at;
+      const comesHere = !route || route.to === route.at;
+      if (leavesHere && elapsedMs < t.departMs) return depart(elapsedMs);
       const back = elapsedMs - (t.tripMs - t.approachMs);
-      return back >= 0 ? arrive(back) : null;
+      return comesHere && back >= 0 ? arrive(back) : null;
     }
     case "away":
       return null;
@@ -159,8 +173,11 @@ const smooth = (a: number, b: number, x: number) => {
  */
 export const busLane = (s: number) => (s < 0 ? 1 - smooth(-BUS_LENGTH - 16, -BUS_LENGTH + 2, s) : smooth(3, 19, s));
 
-/** Ms que faltan para que el bus abra las puertas en la estación (0 si ya está ahí). */
-export function busEtaMs(phase: BusPhase, since: number, nextAt: number, now: number, t: BusTimings): number {
+/**
+ * Ms que faltan para que el bus abra las puertas en la estación (0 si ya está ahí). Una ruta que va a la
+ * casa no vuelve a la estación: se espera el próximo del horario.
+ */
+export function busEtaMs(phase: BusPhase, since: number, nextAt: number, now: number, t: BusTimings, to: BusStop = "estacion"): number {
   const elapsed = now - since;
   switch (phase) {
     case "open":
@@ -169,6 +186,7 @@ export function busEtaMs(phase: BusPhase, since: number, nextAt: number, now: nu
     case "arriving":
       return Math.max(0, t.approachMs - elapsed);
     case "route":
+      if (to === "casa") return Math.max(0, nextAt - now) + t.approachMs;
       return Math.max(0, t.tripMs - elapsed);
     case "leaving":
     case "away":
@@ -185,11 +203,18 @@ export function nextBusText(phase: BusPhase, etaMs: number): string {
 }
 
 /**
- * Las paradas del Megabús (docs/plan-casas.md): la "Estación Hyvento" del jardín y la de "Casa". Hoy el bus
- * da la vuelta y vuelve a la estación; la de la casa la estrena el viaje de ida y vuelta.
+ * Las paradas del Megabús (docs/plan-casas.md): la "Estación Hyvento" del jardín y la de "Casa" (una sola
+ * parada para todos, pero cada uno se baja en la suya: lo resuelve el servidor por persona).
  */
 export const BUS_STOPS = ["estacion", "casa"] as const;
 export type BusStop = (typeof BUS_STOPS)[number];
+export const isBusStop = (v: string): v is BusStop => (BUS_STOPS as readonly string[]).includes(v);
+
+/** De dónde a dónde va la ruta en curso (en "route"; fuera de ruta, de la estación a la estación). */
+export interface BusRoute {
+  from: BusStop;
+  to: BusStop;
+}
 
 /** El nombre de la parada como lo dice la pantallita del bus. */
 export function busStopName(stop: BusStop): string {
@@ -203,11 +228,14 @@ export const BUS_MSG = {
   board: "bus:board",
   /** Servidor → quien lo intentó: por qué no se pudo (`BusNotice`). */
   notice: "bus:notice",
+  /** Cliente → servidor: "Esperar el bus" en la parada de la casa propia (vuelve a la estación). */
+  call: "bus:call",
 } as const;
 
 export const BusBoardMessage = z.object({}).strict();
+export const BusCallMessage = z.object({}).strict();
 
-export const BusNoticeCode = z.enum(["far", "noBus", "route", "busy"]);
+export const BusNoticeCode = z.enum(["far", "noBus", "route", "busy", "home", "coming"]);
 export type BusNoticeCode = z.infer<typeof BusNoticeCode>;
 export interface BusNotice {
   code: BusNoticeCode;
@@ -218,4 +246,6 @@ export const BUS_NOTICES: Record<BusNoticeCode, string> = {
   noBus: "El bus todavía no abre las puertas: mira la pantalla de la estación.",
   route: "El bus va en ruta: se baja cuando llegue a la estación.",
   busy: "Ahora no puedes subir al bus.",
+  home: "El bus se espera en la parada de tu casa, bajo el techito.",
+  coming: "El bus ya viene: espéralo en la parada.",
 };
