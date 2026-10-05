@@ -2,7 +2,7 @@
 // catálogo, quién recibe qué y las reglas están en @hyvento/shared (encargos.ts); acá solo se guarda. El
 // servidor de juego avanza los encargos junto con los contadores (misma transacción que `applyStatChanges`)
 // y la web, cuando suma un contador por su lado (`bumpStatWithQuests`).
-import { DAILY_CAPS, currentQuests, questDeltas, STORY_PERIOD, type QuestDelta, type QuestRecord } from "@hyvento/shared";
+import { DAILY_CAPS, dailyPeriod, questById, questDeltas, STORY_PERIOD, weeklyPeriod, type ActiveQuest, type QuestDelta, type QuestRecord } from "@hyvento/shared";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { bumpStat } from "./achievements";
 import { creditSkillXpTx } from "./oficios";
@@ -62,7 +62,9 @@ export async function advanceQuestsTx(tx: Prisma.TransactionClient, userId: stri
 
 /**
  * La web sumó un contador (una misión, una foto): lo suma y avanza los encargos de hoy que lo siguen. Lo
- * que depende de la noche o del clima no avanza desde acá (la web no lo sabe).
+ * que depende de la noche o del clima no avanza desde acá (la web no lo sabe). Se avanza lo que el
+ * servidor de juego ya le asignó (sus filas de hoy y de la semana): el reparto depende de la estación del
+ * juego, que la web tampoco sabe.
  */
 export async function bumpStatWithQuests(client: PrismaClient, userId: string, key: string, by = 1, now = Date.now()): Promise<QuestDelta[]> {
   return client.$transaction((tx) => bumpStatWithQuestsTx(tx, userId, key, by, now));
@@ -70,7 +72,16 @@ export async function bumpStatWithQuests(client: PrismaClient, userId: string, k
 
 export async function bumpStatWithQuestsTx(tx: Prisma.TransactionClient, userId: string, key: string, by = 1, now = Date.now()): Promise<QuestDelta[]> {
   await bumpStat(tx, userId, key, by);
-  return advanceQuestsTx(tx, userId, questDeltas(currentQuests(userId, now), key, by, {}), now);
+  const rows = await tx.questProgress.findMany({
+    where: { userId, period: { in: [dailyPeriod(now), weeklyPeriod(now)] }, status: "ACTIVE" },
+    select: { questId: true, period: true },
+  });
+  const active: ActiveQuest[] = [];
+  for (const r of rows) {
+    const def = questById(r.questId);
+    if (def) active.push({ def, period: r.period, shared: false });
+  }
+  return advanceQuestsTx(tx, userId, questDeltas(active, key, by, {}), now);
 }
 
 export interface ClaimQuestInput {

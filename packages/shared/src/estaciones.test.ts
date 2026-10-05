@@ -1,25 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CROPS, plantPlot, plotReadyAt, waterPlot } from "./huerto";
-import { SEASONS, bestSeasonOf, bogotaMonth, seasonGrowth, seasonOf } from "./estaciones";
+import { CROPS, plantPlot, plotGrowth, plotReadyAt, reseasonPlot, waterPlot } from "./huerto";
+import { SEASONS, bestSeasonOf, seasonGrowth, type Season } from "./estaciones";
 
-const at = (y: number, m: number, d: number, h = 15) => Date.UTC(y, m, d, h, 0);
+const T = Date.UTC(2026, 8, 27, 15, 0);
 const alice = { userId: "u-alice", name: "Alice" };
 
 describe("estaciones", () => {
-  it("el mes es el de Bogotá (UTC-5)", () => {
-    expect(bogotaMonth(at(2026, 8, 27))).toBe(8);
-    // 1 de diciembre a las 3:00 UTC todavía es 30 de noviembre en Bogotá.
-    expect(bogotaMonth(Date.UTC(2026, 11, 1, 3, 0))).toBe(10);
-    expect(bogotaMonth(Date.UTC(2026, 11, 1, 6, 0))).toBe(11);
-  });
-
-  it("cada mes cae en su estación", () => {
-    const expected = ["invierno", "invierno", "primavera", "primavera", "primavera", "verano", "verano", "verano", "otono", "otono", "otono", "invierno"];
-    for (let m = 0; m < 12; m++) expect(seasonOf(at(2026, m, 15)), `mes ${m}`).toBe(expected[m]);
-    // El cambio es a la medianoche de Bogotá.
-    expect(seasonOf(Date.UTC(2026, 11, 1, 4, 59))).toBe("otono");
-    expect(seasonOf(Date.UTC(2026, 11, 1, 5, 0))).toBe("invierno");
-  });
 
   it("cada cultivo tiene una temporada buena y el invernadero quita el castigo", () => {
     for (const c of CROPS) {
@@ -36,21 +22,38 @@ describe("estaciones", () => {
   });
 
   it("el huerto crece más rápido en temporada y más despacio fuera de ella", () => {
-    const summer = at(2026, 6, 10);
-    const winter = at(2026, 0, 10);
-    const readyIn = (t: number, greenhouse = false) => {
-      const p = waterPlot({ ...plantPlot("tomate", alice, t), greenhouse }, t);
-      return plotReadyAt(p) - t;
+    const readyIn = (season: Season, greenhouse = false) => {
+      const p = waterPlot({ ...plantPlot("tomate", alice, T, season), greenhouse }, T);
+      return plotReadyAt(p) - T;
     };
-    expect(readyIn(summer)).toBeLessThan(readyIn(winter));
-    expect(readyIn(winter, true)).toBeLessThan(readyIn(winter));
+    expect(readyIn("verano")).toBeLessThan(readyIn("invierno"));
+    expect(readyIn("invierno", true)).toBeLessThan(readyIn("invierno"));
   });
 
   it("lo del invernadero no sufre el invierno (se sabe por el cultivo) y el verano le ayuda", () => {
     const uchuva = CROPS.find((c) => c.id === "uchuva")!;
-    const inBed = (t: number) => plotReadyAt(plantPlot("uchuva", alice, t)) - t;
+    const inBed = (season: Season) => plotReadyAt(plantPlot("uchuva", alice, T, season)) - T;
     expect(seasonGrowth("uchuva", "invierno")).toBeLessThan(1);
-    expect(inBed(at(2026, 0, 10))).toBe(uchuva.growMs);
-    expect(inBed(at(2026, 6, 10))).toBeLessThan(uchuva.growMs);
+    expect(inBed("invierno")).toBe(uchuva.growMs);
+    expect(inBed("verano")).toBeLessThan(uchuva.growMs);
+  });
+
+  it("al cambiar de estación lo crecido se guarda y sigue con el ritmo nuevo (sin saltar para atrás)", () => {
+    const p = waterPlot(plantPlot("tomate", alice, T, "verano"), T);
+    const mid = T + 10 * 60_000;
+    const grown = plotGrowth(p, mid);
+    const winter = reseasonPlot(p, mid, "invierno")!;
+    expect(winter.season).toBe("invierno");
+    expect(plotGrowth(winter, mid)).toBeCloseTo(grown);
+    expect(plotGrowth(winter, mid + 60_000) - grown).toBeCloseTo(60_000 * seasonGrowth("tomate", "invierno"));
+    // La misma estación, o lo que ya está listo, no cambia.
+    expect(reseasonPlot(p, mid, "verano")).toBeNull();
+    expect(reseasonPlot(p, plotReadyAt(p), "invierno")).toBeNull();
+  });
+
+  it("sin estación (una parcela de antes) crece a ritmo 1", () => {
+    const uchuva = CROPS.find((c) => c.id === "uchuva")!;
+    expect(plotReadyAt(plantPlot("uchuva", alice, T)) - T).toBe(uchuva.growMs);
+    expect(plotReadyAt(plantPlot("uchuva", alice, T, "verano")) - T).toBeLessThan(uchuva.growMs);
   });
 });

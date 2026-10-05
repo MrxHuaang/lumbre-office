@@ -259,6 +259,7 @@ export interface OfficeStateView {
   /** Reloj del juego (GameClockState de @hyvento/shared). */
   clockAnchorReal: number;
   clockAnchorMinute: number;
+  clockPaused: boolean;
   /** Casa viva: contadores (ajedrez, puzle, pizarras), cubículos ocupados (clave → userId) y mascotas. */
   counters: Map<string, number>;
   stalls: Map<string, string>;
@@ -326,6 +327,8 @@ export interface RemoteGardenPlot {
   growthMs: number;
   growthAt: number;
   wateredUntil: number;
+  /** La estación del juego del tramo ("" = sin estación). */
+  season: string;
 }
 
 export interface RemoteEvents {
@@ -1034,10 +1037,12 @@ function attach(r: OfficeRoom) {
     $(man).onChange(sync);
     sync();
   });
-  // Las dos mitades del ancla cambian juntas (/time): se lee el par entero en cada aviso.
-  const syncClock = () => useOfficeStore.getState().setGameClock({ anchorReal: r.state.clockAnchorReal, anchorMinute: r.state.clockAnchorMinute });
+  // Las partes del ancla cambian juntas (/time, la pausa): se lee el reloj entero en cada aviso.
+  const syncClock = () =>
+    useOfficeStore.getState().setGameClock({ anchorReal: r.state.clockAnchorReal, anchorMinute: r.state.clockAnchorMinute, ...(r.state.clockPaused && { paused: true }) });
   $(r.state).listen("clockAnchorReal", syncClock);
   $(r.state).listen("clockAnchorMinute", syncClock);
+  $(r.state).listen("clockPaused", syncClock);
   // Eventos del calendario: la lista de cumpleaños de hoy y el karaoke (llega con el primer estado).
   $(r.state).listen("events", (events) => {
     if (!events) return;

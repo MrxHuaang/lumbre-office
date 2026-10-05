@@ -21,15 +21,17 @@ import {
   questViews,
   weeklyPeriod,
   type QuestDef,
+  type QuestSeasons,
 } from "./encargos";
-import { weekStart } from "./arcade";
-import { seasonOf } from "./estaciones";
+import { SEASONS } from "./estaciones";
 import { GRANJA_STATS } from "./granja";
 import { DAILY_CAPS, POINTS } from "./points";
 
 const DAY = 86_400_000;
 /** Lunes 28 de septiembre de 2026, 10:00 en Bogotá (otoño). */
 const MON = Date.UTC(2026, 8, 28, 15, 0);
+/** La estación del juego con que se reparte (la fija el servidor por período). */
+const OTONO: QuestSeasons = { daily: "otono", weekly: "otono" };
 const known = new Set<string>([...Object.values(STAT_KEYS), ...Object.values(GRANJA_STATS)]);
 
 describe("el catálogo de encargos", () => {
@@ -72,7 +74,7 @@ describe("el catálogo de encargos", () => {
     // Y en un año de días de verdad, con lo que le tocó a alguien.
     for (let i = 0; i < 365; i++) {
       const t = MON + i * DAY;
-      const sum = currentQuests("u-alice", t).reduce((s, q) => s + q.def.reward.points, 0);
+      const sum = currentQuests("u-alice", t, { daily: SEASONS[i % 4]!, weekly: SEASONS[(i >> 2) % 4]! }).reduce((s, q) => s + q.def.reward.points, 0);
       expect(sum, `día ${i}`).toBeLessThanOrEqual(POINTS.questDailyCap);
     }
   });
@@ -80,12 +82,12 @@ describe("el catálogo de encargos", () => {
 
 describe("a quién le toca qué", () => {
   it("3 diarios: el primero igual para todos ese día y dos propios, sin repetir", () => {
-    const a = pickDaily("u-alice", MON);
-    const b = pickDaily("u-bob", MON);
+    const a = pickDaily("u-alice", MON, "otono");
+    const b = pickDaily("u-bob", MON, "otono");
     expect(a.shared.id).toBe(b.shared.id);
     expect(a.own).toHaveLength(2);
     for (const who of ["u-alice", "u-bob", "u-carla", "u-dani"]) {
-      const { shared, own } = pickDaily(who, MON);
+      const { shared, own } = pickDaily(who, MON, "otono");
       const ids = [shared.id, ...own.map((q) => q.id)];
       expect(new Set(ids).size).toBe(3);
       // Ni el mismo contador dos veces (serían tres veces lo mismo).
@@ -93,26 +95,26 @@ describe("a quién le toca qué", () => {
       for (const q of [shared, ...own]) expect(q.kind).toBe("daily");
     }
     // Los propios cambian de persona en persona (con 4 personas, alguna diferencia tiene que haber).
-    const owns = ["u-alice", "u-bob", "u-carla", "u-dani"].map((u) => pickDaily(u, MON).own.map((q) => q.id).join());
+    const owns = ["u-alice", "u-bob", "u-carla", "u-dani"].map((u) => pickDaily(u, MON, "otono").own.map((q) => q.id).join());
     expect(new Set(owns).size).toBeGreaterThan(1);
   });
 
   it("es determinista: el mismo día da lo mismo a cualquier hora, y otro día, otra cosa", () => {
-    const morning = currentQuests("u-alice", MON - 4 * 3_600_000);
-    const night = currentQuests("u-alice", MON + 12 * 3_600_000);
+    const morning = currentQuests("u-alice", MON - 4 * 3_600_000, OTONO);
+    const night = currentQuests("u-alice", MON + 12 * 3_600_000, OTONO);
     expect(night.map((q) => q.def.id)).toEqual(morning.map((q) => q.def.id));
-    const days = Array.from({ length: 7 }, (_, i) => pickDaily("u-alice", MON + i * DAY).shared.id);
+    const days = Array.from({ length: 7 }, (_, i) => pickDaily("u-alice", MON + i * DAY, "otono").shared.id);
     expect(new Set(days).size).toBeGreaterThan(1);
   });
 
   it("el semanal es uno solo, más grande, igual toda la semana (de lunes a domingo)", () => {
-    const w = pickWeekly(MON);
+    const w = pickWeekly(MON, "otono");
     expect(w.kind).toBe("weekly");
-    expect(pickWeekly(MON + 6 * DAY).id).toBe(w.id);
+    expect(pickWeekly(MON + 6 * DAY, "otono").id).toBe(w.id);
     expect(weeklyPeriod(MON)).toBe("w:2026-W40");
     expect(weeklyPeriod(MON + 6 * DAY)).toBe("w:2026-W40");
     expect(weeklyPeriod(MON + 7 * DAY)).toBe("w:2026-W41");
-    const all = currentQuests("u-alice", MON);
+    const all = currentQuests("u-alice", MON, OTONO);
     expect(all).toHaveLength(4);
     expect(all.map((q) => q.period)).toEqual(["d:2026-09-28", "d:2026-09-28", "d:2026-09-28", "w:2026-W40"]);
     expect(all.map((q) => q.shared)).toEqual([true, false, false, true]);
@@ -125,18 +127,19 @@ describe("a quién le toca qué", () => {
   });
 
   it("los de temporada salen solo en su estación", () => {
-    const otono = dailyPool(MON).map((q) => q.id);
+    const otono = dailyPool("otono").map((q) => q.id);
     expect(otono).toContain("tablon-otono");
     expect(otono).not.toContain("tablon-primavera");
-    const abril = dailyPool(Date.UTC(2026, 3, 10, 15)).map((q) => q.id);
-    expect(abril).toContain("tablon-primavera");
-    expect(abril).not.toContain("tablon-otono");
-    // En un año entero de días, nunca sale uno fuera de su estación.
-    for (let i = 0; i < 365; i += 3) {
+    const primavera = dailyPool("primavera").map((q) => q.id);
+    expect(primavera).toContain("tablon-primavera");
+    expect(primavera).not.toContain("tablon-otono");
+    // En muchos días y con cada estación, nunca sale uno fuera de la suya (el semanal, con la de la semana).
+    for (let i = 0; i < 120; i++) {
       const t = MON + i * DAY;
-      for (const q of currentQuests("u-alice", t)) {
-        const seasons = q.def.when?.seasons;
-        if (seasons) expect(seasons, `${q.def.id} el día ${i}`).toContain(seasonOf(q.def.kind === "weekly" ? weekStart(t) : t));
+      const seasons: QuestSeasons = { daily: SEASONS[i % 4]!, weekly: SEASONS[(i + 1) % 4]! };
+      for (const q of currentQuests("u-alice", t, seasons)) {
+        const allowed = q.def.when?.seasons;
+        if (allowed) expect(allowed, `${q.def.id} el día ${i}`).toContain(q.def.kind === "weekly" ? seasons.weekly : seasons.daily);
       }
     }
   });
@@ -173,7 +176,7 @@ describe("avanzar y entregar", () => {
 
   it("la libreta: lo de hoy con su progreso, lo de ayer cumplido sin entregar, y no lo vencido", () => {
     const now = MON + DAY;
-    const today = currentQuests("u-alice", now);
+    const today = currentQuests("u-alice", now, OTONO);
     const first = today[0]!;
     const views = questViews(
       today,

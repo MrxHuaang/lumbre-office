@@ -10,6 +10,7 @@ import {
   FREE_NAMES,
   GREENHOUSE_PLOT_BASE,
   isGreenhousePlot,
+  isSeason,
   WATERING_CAN,
   canHarvest,
   canWater,
@@ -87,6 +88,7 @@ const toPlot = (p: RemoteGardenPlot): PlotState => ({
   growthMs: p.growthMs,
   growthAt: p.growthAt,
   wateredUntil: p.wateredUntil,
+  season: isSeason(p.season) ? p.season : "",
 });
 
 export class JardinVivo {

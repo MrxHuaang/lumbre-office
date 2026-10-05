@@ -15,7 +15,7 @@ import { playBusStopBell } from "@/game/busSonidos";
 import { useBusStore } from "@/game/busStore";
 import { tripInfo, tripView, type TripView } from "@/game/busTrip";
 import { serverNow } from "@/game/club/store";
-import { currentGameTime } from "@/game/gameClock";
+import { currentGameTime, currentSeason } from "@/game/gameClock";
 import { useOfficeStore } from "@/game/store";
 import { entryMood, skyArc } from "@/lib/entry";
 import { lessMotion } from "@/lib/prefs";
@@ -84,9 +84,9 @@ function BusTripScreen({ leaving }: { leaving: boolean }) {
   // El momento del día del reloj del juego (o la hora local mientras no llega), la estación y el clima.
   const gameClock = useOfficeStore((s) => s.gameClock);
   const weather = useOfficeStore((s) => s.weather);
-  const [minute, setMinute] = useState(() => entryMood(Date.now(), currentGameTime()?.minuteOfDay ?? null, localMinute()));
+  const [minute, setMinute] = useState(() => entryMood(currentSeason(), currentGameTime()?.minuteOfDay ?? null, localMinute()));
   useEffect(() => {
-    const next = entryMood(Date.now(), currentGameTime()?.minuteOfDay ?? null, localMinute());
+    const next = entryMood(currentSeason(), currentGameTime()?.minuteOfDay ?? null, localMinute());
     setMinute((m) => (m.phase === next.phase && m.season === next.season && m.minuteOfDay === next.minuteOfDay ? m : next));
   }, [gameClock]);
   const mood = useMemo<TripMood>(() => ({ phase: minute.phase, season: minute.season, weather }), [minute.phase, minute.season, weather]);

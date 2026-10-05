@@ -1,6 +1,6 @@
 // Regalos e intercambios contra la base (los helpers de `@hyvento/db` que usan la web y el repositorio de
 // Prisma del servidor), con una base de mentira que deshace la transacción si algo lanza.
-import { executeTipTx, executeTradeTx, givenToday, openGiftTx, sendGiftTx, SocialAborted, tippedToday, type SocialAbortCode } from "@hyvento/db";
+import { executeTipTx, executeTradeTx, givenToday, loadQuests, openGiftTx, sendGiftTx, SocialAborted, tippedToday, type SocialAbortCode } from "@hyvento/db";
 import { CLUB_TIP, GIFT, STAT_KEYS, currentQuests } from "@hyvento/shared";
 import { beforeEach, describe, expect, it } from "vitest";
 import { executeTip, executeTrade, tradeAbortResult } from "../src/repo/social";
@@ -65,9 +65,13 @@ describe("regalos en la base", () => {
     const stat = (u: string) => db.t.stats.find((s) => s.userId === u && s.key === STAT_KEYS.giftsGiven)?.value ?? 0;
     // Un día en que a Ana le toca "Un detallito" (el encargo que sigue este contador).
     const MON = Date.UTC(2026, 8, 28, 15, 0);
-    const day = Array.from({ length: 120 }, (_, i) => MON + i * 86_400_000).find((t) => currentQuests("ana", t).some((q) => q.def.stat === STAT_KEYS.giftsGiven))!;
+    const seasons = { daily: "otono", weekly: "otono" } as const;
+    const day = Array.from({ length: 120 }, (_, i) => MON + i * 86_400_000).find((t) => currentQuests("ana", t, seasons).some((q) => q.def.stat === STAT_KEYS.giftsGiven))!;
     expect(day).toBeDefined();
-    const quest = currentQuests("ana", day).find((q) => q.def.stat === STAT_KEYS.giftsGiven)!;
+    const assigned = currentQuests("ana", day, seasons);
+    const quest = assigned.find((q) => q.def.stat === STAT_KEYS.giftsGiven)!;
+    // Lo asignó el servidor de juego al entrar (la web solo avanza eso).
+    await loadQuests(db.outside, "ana", [quest.period], assigned.map((q) => ({ questId: q.def.id, period: q.period, goal: q.def.goal })));
     const { giftId } = await db.transaction((tx) => sendGiftTx(tx, "ana", gift({ points: 5, now: day })));
     expect(stat("ana")).toBe(1);
     expect(db.t.quests.find((q) => q.userId === "ana" && q.questId === quest.def.id && q.period === quest.period)).toMatchObject({ progress: 1, status: "DONE" });

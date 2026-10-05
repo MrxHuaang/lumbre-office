@@ -89,12 +89,11 @@ describe("consejos de la carga", () => {
 
 describe("la escena de la carga", () => {
   it("usa el reloj del juego si llegó y si no la hora local", () => {
-    const now = Date.UTC(2026, 9, 10, 17); // octubre: otoño
-    expect(entryMood(now, 22 * 60, 12 * 60).phase).toBe("noche");
-    expect(entryMood(now, null, 12 * 60).phase).toBe("dia");
-    expect(entryMood(now, null, 18 * 60).phase).toBe("atardecer");
-    expect(entryMood(now, null, 12 * 60).season).toBe("otono");
-    expect(entryMood(Date.UTC(2026, 0, 10, 17), null, 12 * 60).season).toBe("invierno");
+    expect(entryMood("otono", 22 * 60, 12 * 60).phase).toBe("noche");
+    expect(entryMood("otono", null, 12 * 60).phase).toBe("dia");
+    expect(entryMood("otono", null, 18 * 60).phase).toBe("atardecer");
+    expect(entryMood("otono", null, 12 * 60).season).toBe("otono");
+    expect(entryMood("invierno", null, 12 * 60).season).toBe("invierno");
   });
 
   it("el sol cruza de día y la luna de noche, de izquierda a derecha", () => {

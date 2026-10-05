@@ -1,8 +1,6 @@
-// Las estaciones del año: salen del mes de Bogotá (como el día de points.ts), así todos están en la misma
-// sin guardar nada. Diciembre a febrero es invierno (puede nevar), marzo a mayo primavera (flores), junio
-// a agosto verano y septiembre a noviembre otoño (caen hojas). También cambian cómo crece el huerto: cada
-// cultivo tiene su temporada (ver `seasonGrowth`).
-import { dayStart } from "./points";
+// Las estaciones del año: salen del calendario del juego (calendario.ts: 21 días del juego cada una), así
+// todos están en la misma. En invierno puede nevar, en primavera hay flores y en otoño caen hojas. También
+// cambian cómo crece el huerto: cada cultivo tiene su temporada (ver `seasonGrowth`).
 
 export const SEASONS = ["primavera", "verano", "otono", "invierno"] as const;
 export type Season = (typeof SEASONS)[number];
@@ -15,23 +13,6 @@ export const SEASON_TEXT: Record<Season, string> = {
 };
 
 export const isSeason = (x: unknown): x is Season => typeof x === "string" && (SEASONS as readonly string[]).includes(x);
-
-// Bogotá es UTC-5 sin horario de verano: el mes es el de la fecha corrida cinco horas.
-const OFFSET_MS = -5 * 3_600_000;
-
-/** Mes de Bogotá (0 = enero … 11 = diciembre) del instante `ts`. */
-export function bogotaMonth(ts: number): number {
-  return new Date(dayStart(ts) + OFFSET_MS + 12 * 3_600_000).getUTCMonth();
-}
-
-/** Estación del instante `ts` (según el mes de Bogotá). */
-export function seasonOf(ts: number): Season {
-  const m = bogotaMonth(ts);
-  if (m === 11 || m <= 1) return "invierno";
-  if (m <= 4) return "primavera";
-  if (m <= 7) return "verano";
-  return "otono";
-}
 
 // ---------- El huerto según la estación ----------
 

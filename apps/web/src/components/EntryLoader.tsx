@@ -8,7 +8,7 @@
 // animaciones siguen igual.
 import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useEntryStore } from "@/game/entryStore";
-import { currentGameTime } from "@/game/gameClock";
+import { currentGameTime, currentSeason } from "@/game/gameClock";
 import { useOfficeStore, type Profile } from "@/game/store";
 import { currentStage, ENTRY_TIPS, entryDone, entryMood, entryPercent, nextShown, skyArc, stageSlowMs, TIP_MS, tipOrder, type EntryMood } from "@/lib/entry";
 import { SKY_COLORS } from "@/lib/sky";
@@ -101,9 +101,9 @@ export function EntryLoader({ profile, error = null, onRetry, onExit, onGone, pr
 
   // El momento del día: la hora local mientras no llegue el reloj del juego; al llegar, la del juego.
   const gameClock = useOfficeStore((s) => s.gameClock);
-  const [mood, setMood] = useState<EntryMood>(() => previewMood ?? entryMood(Date.now(), null, 12 * 60));
+  const [mood, setMood] = useState<EntryMood>(() => previewMood ?? entryMood(currentSeason(), null, 12 * 60));
   useEffect(() => {
-    const next = previewMood ?? entryMood(Date.now(), currentGameTime()?.minuteOfDay ?? null, localMinute());
+    const next = previewMood ?? entryMood(currentSeason(), currentGameTime()?.minuteOfDay ?? null, localMinute());
     setMood((m) => (m.phase === next.phase && m.season === next.season && m.minuteOfDay === next.minuteOfDay ? m : next));
   }, [gameClock, previewMood]);
 

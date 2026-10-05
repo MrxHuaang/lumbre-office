@@ -1,5 +1,5 @@
 import { getWorld } from "@hyvento/map";
-import { GREENHOUSE_PLOT_BASE, cropById, plantPlot, plotReadyAt, waterPlot, type PlotState, type Weather } from "@hyvento/shared";
+import { GREENHOUSE_PLOT_BASE, cropById, plantPlot, plotReadyAt, waterPlot, type PlotState, type Season, type Weather } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { Huerto } from "../src/rooms/huerto";
 import { WeatherCycle } from "../src/rooms/weather";
@@ -10,7 +10,7 @@ const jardin = getWorld().areas.get("jardin")!;
 const alice = { userId: "u-alice", name: "Alice" };
 
 /** Un huerto con parcelas en un Map, sin base ni mano (solo para regar). */
-function garden() {
+function garden(season?: () => Season) {
   const plots = new Map<string, PlotState>();
   const saved: number[] = [];
   const huerto = new Huerto<PlotState>({
@@ -20,6 +20,7 @@ function garden() {
     held: { get: () => undefined, spend: () => null, fill: () => false },
     bag: { fits: () => "ok", add: async () => "ok" },
     award: async () => 0,
+    season,
   });
   return { plots, huerto, saved };
 }
@@ -60,10 +61,10 @@ function lcg(seed = 1) {
   };
 }
 
-function weatherOver(start: number, hours: number) {
-  const time = fakeTime(start);
+function weatherOver(season: Season, hours: number) {
+  const time = fakeTime(Date.UTC(2026, 8, 10, 17));
   const seen = new Set<Weather>();
-  const cycle = new WeatherCycle({ clock: time.clock, hour: () => 15, now: time.now, random: lcg(4), onChange: (w) => seen.add(w) }, "nublado");
+  const cycle = new WeatherCycle({ clock: time.clock, hour: () => 15, season: () => season, random: lcg(4), onChange: (w) => seen.add(w) }, "nublado");
   cycle.start();
   time.advance(hours * 3_600_000);
   cycle.dispose();
@@ -71,9 +72,9 @@ function weatherOver(start: number, hours: number) {
 }
 
 describe("estaciones en la sala", () => {
-  it("en diciembre puede nevar; en septiembre, nunca", () => {
-    expect(weatherOver(Date.UTC(2026, 11, 10, 17), 72).has("nieve")).toBe(true);
-    expect(weatherOver(Date.UTC(2026, 8, 10, 17), 72).has("nieve")).toBe(false);
+  it("en el invierno del juego puede nevar; en otoño, nunca", () => {
+    expect(weatherOver("invierno", 72).has("nieve")).toBe(true);
+    expect(weatherOver("otono", 72).has("nieve")).toBe(false);
   });
 
   it("la lluvia riega las parcelas que se están secando (no las del invernadero ni las listas)", async () => {
@@ -94,6 +95,22 @@ describe("estaciones en la sala", () => {
     expect(plots.get("1")!.wateredUntil).toBe(0);
     expect(plots.get("2")!.wateredUntil).toBeLessThan(t + papa.growMs);
     expect(plotReadyAt(plots.get("3")!)).toBeLessThanOrEqual(t);
+    await huerto.flush();
+    expect(saved).toEqual([0]);
+  });
+
+  it("al cambiar la estación del juego, lo que crece sigue con la nueva (lo listo no se toca)", async () => {
+    let season: Season = "verano";
+    const { plots, huerto, saved } = garden(() => season);
+    const t = Date.UTC(2026, 8, 27, 15, 0);
+    const papa = cropById("papa")!;
+    plots.set("0", waterPlot(plantPlot("tomate", alice, t - 60_000, "verano"), t - 60_000));
+    plots.set("1", { ...plantPlot("papa", alice, t - papa.growMs, "verano"), growthMs: papa.growMs });
+    expect(huerto.reseason(t)).toBe(0);
+    season = "invierno";
+    expect(huerto.reseason(t)).toBe(1);
+    expect(plots.get("0")).toMatchObject({ season: "invierno", growthAt: t });
+    expect(plots.get("1")!.season).toBe("verano");
     await huerto.flush();
     expect(saved).toEqual([0]);
   });
