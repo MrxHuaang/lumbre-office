@@ -31,6 +31,14 @@ test("entrar de prueba, caminar y chatear", async ({ page }) => {
   await expect(page.locator(".entry-loader")).toHaveCount(0, { timeout: 60_000 });
   await expect(page.getByRole("button", { name: "Menú", exact: true })).toBeVisible();
 
+  // Quien entra por primera vez ve la bienvenida de Doña Aurora como cinemática (toma la pantalla y no deja
+  // caminar): se salta con Esc, como lo haría cualquiera.
+  const cine = page.getByLabel("Cinemática");
+  if (await cine.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await page.keyboard.press("Escape");
+    await expect(cine).toHaveCount(0);
+  }
+
   // Caminar: se prueba cada dirección hasta que el personaje se mueva (alguna puede estar tapada).
   const start = (await localPosition(page))!;
   let moved = false;
