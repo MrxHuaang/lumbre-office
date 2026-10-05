@@ -103,6 +103,8 @@ const PROMPT: Record<Interactable, string> = {
   reception: "Preguntarle a Doña Gloria",
   pesebre: "Poner la figura del pesebre",
   encargo: "Hablar del encargo",
+  brujasShop: "Comprar en el puesto del caldero",
+  goldenPumpkin: "Tomar la calabaza dorada",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

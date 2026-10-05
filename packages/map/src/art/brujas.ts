@@ -190,6 +190,29 @@ function pumpkinPile(): Sprite {
   return s.sprite();
 }
 
+/** El oro de la calabaza dorada: de mostaza oscura a casi blanco, con el brillo de arriba. */
+const GOLD_SQUASH = ramp("#5a3a0e", "#9a6a1a", "#c8901e", "#f3c440", "#ffe27a", "#fffbe0");
+
+/**
+ * La calabaza dorada del laberinto (el premio del festival): sin tallar, toda de oro, con destellos
+ * alrededor para que se encuentre entre el maíz.
+ */
+function goldenPumpkin(): Sprite {
+  const s = scene(1, 1, 22, 6);
+  s.roundShadow(8, 8.5, 6.6, 0.3);
+  orb(s, 8, 8, 4.8, 5.8, 4.8, (a, e, luz, crest) => rind(GOLD_SQUASH, luz + 0.3, crest, a, e), 5);
+  stem(s, 8, 8, 9, 2);
+  // Los destellos: crucecitas blancas a los lados y arriba.
+  const spark = (x: number, y: number, z: number) => {
+    s.plot(x, y, z, at(GOLD_SQUASH, 5));
+    for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) s.plot(x + dx * 0.6, y, z + dz * 0.6, at(GOLD_SQUASH, 4));
+  };
+  spark(2.5, 9, 9);
+  spark(13, 7, 12);
+  spark(9, 3, 15);
+  return s.sprite();
+}
+
 // ---------- Espantapájaros de brujas ----------
 
 /** Sombrero de bruja: ala ancha, el cono con la punta doblada y la cinta naranja con su hebilla. */
@@ -691,6 +714,7 @@ function mazeArch(alongX: boolean): Sprite {
 /** Lo que no cambia de noche (va en DRAW de furniture.ts). */
 export const BRUJAS_DRAW: Record<string, () => Sprite> = {
   "pumpkin-pile": pumpkinPile,
+  "golden-pumpkin": goldenPumpkin,
   cobweb,
   cauldron,
   "cardboard-tombstone": cardboardTombstone,

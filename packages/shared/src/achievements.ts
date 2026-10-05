@@ -157,6 +157,10 @@ export const STAT_KEYS = {
   pesebreFiguras: "pesebre_figuras",
   novenasRezadas: "novenas_rezadas",
   aguinaldosGanados: "aguinaldos_ganados",
+  // La Noche de brujas (noche-brujas.ts): calabazas doradas encontradas en el laberinto y dulces recibidos
+  // pidiendo dulce o truco.
+  goldenPumpkins: "golden_pumpkins",
+  trickOrTreats: "trick_or_treats",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -278,6 +282,7 @@ export const BADGE_ICONS = [
   "tub",
   "telescope",
   "marshmallow",
+  "pumpkin",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
@@ -456,6 +461,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // Las novenas
     a("pesebrero", "Pesebrero", "star", "comun", STAT_KEYS.pesebreFiguras, 1, "Pon la figura del día en el pesebre de las novenas", "La mula quedó un poquito torcida, pero con amor."),
     a("novenero", "Novenero", "scroll", "epico", STAT_KEYS.novenasRezadas, 9, "Reza la novena junto al pesebre las nueve noches", "Te sabes los villancicos hasta al revés."),
+    // La Noche de brujas
+    a("calabaza-dorada", "Calabaza dorada", "pumpkin", "epico", STAT_KEYS.goldenPumpkins, 1, "Encuentra la calabaza dorada del laberinto de maíz en la Noche de brujas", "Entre tanto maíz, la única que brillaba era la tuya."),
+    a("dulce-o-truco", "Dulce o truco", "pumpkin", "raro", STAT_KEYS.trickOrTreats, 10, "Recibe 10 dulces pidiendo dulce o truco", "La canasta ya no cierra y todavía quedan puertas."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),

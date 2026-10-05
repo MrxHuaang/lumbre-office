@@ -2162,6 +2162,22 @@ ITEMS["calabaza-dorada"] = {
   colors: legend({ g: "#f3c440", G: "#c8901e", w: "#fffbe0", s: "#6a8a2a" }),
   flat: "w",
 };
+// El sombrero de bruja de recuerdo (el puesto del caldero): negro de ala ancha, la punta doblada y la
+// cinta naranja.
+ITEMS["sombrero-bruja"] = {
+  rows: [
+    "......oo..", //
+    ".....okKo.",
+    "....okko..",
+    "...okkKo..",
+    "...okkKo..",
+    "..oyyyyyo.",
+    ".okkkkkkKo",
+    "oooooooooo",
+  ],
+  colors: legend({ k: "#2a2232", K: "#4a3e5a", y: "#f08a2a" }),
+  flat: "y",
+};
 
 // ---------- Las novenas: la natilla y los buñuelos de la cocina (cocina.ts) ----------
 

@@ -74,6 +74,7 @@ const MINI: Record<BadgeIcon, readonly string[]> = {
   tub: ["x.x.x", ".x.x.", "WeeeW", "WyyyW", ".WWW."],
   telescope: ["...yy", "..yy.", ".yy..", ".nn..", "n..n."],
   marshmallow: ["xx...", "xx...", "..W..", "...W.", "....W"],
+  pumpkin: ["..g..", ".yyy.", "ykyky", "yyyyy", ".yyy."],
 };
 
 const RING: Record<AchievementRarity, Ramp> = { comun: C.wood, raro: C.blue, epico: C.violet, legendario: C.gold };

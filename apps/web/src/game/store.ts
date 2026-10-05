@@ -118,7 +118,10 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // El pesebre de las novenas (recibidor): E pone la figura del día (sin panel).
   | "pesebre"
   // Un personaje que te dio un encargo (y no tiene otro objeto al lado): E abre lo que te pidió.
-  | "encargo";
+  | "encargo"
+  // La Noche de brujas: el puesto del caldero (dulces y el sombrero) y la calabaza dorada del laberinto.
+  | "brujasShop"
+  | "goldenPumpkin";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";
