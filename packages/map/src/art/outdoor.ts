@@ -9,6 +9,7 @@ import { SAUNA_CHIMNEY_TOP, TINA_NIGHT, TUB_CHIMNEY_TOP } from "./tina";
 import { stageShell } from "./escenario";
 import { drawObservatory } from "./observatorio-exterior";
 import { CASA_FINCA_CHIMNEY_TOP, CASA_PROPIA_NIGHT } from "./casa-propia-exterior";
+import { BRUJAS_NIGHT } from "./brujas";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -564,6 +565,8 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   observatory: drawObservatory,
   // La casa de cada persona por fuera y el refugio de su parada (de noche, las ventanas y el farol).
   ...CASA_PROPIA_NIGHT,
+  // La Noche de brujas: las ahuyamas, el espantapájaros y el farol de papel, prendidos de noche.
+  ...BRUJAS_NIGHT,
 };
 
 export function hasOutdoor(type: string): boolean {
