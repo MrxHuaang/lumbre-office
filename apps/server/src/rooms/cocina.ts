@@ -9,8 +9,9 @@ import {
   canCook,
   dayStart,
   dishSpeedMul,
-  INGREDIENTS,
   isDish,
+  PANTRY_ITEMS,
+  recipeInSeason,
   objItemId,
   recipeById,
   takeIngredients,
@@ -34,6 +35,8 @@ export interface CocinaDeps {
   onBuff(userId: string, dish: string): void;
   /** Nivel de un oficio de alguien (las recetas de los oficios: ver `Recipe.requires`). */
   level?(userId: string, oficio: string): number;
+  /** El festival que corre ("" = ninguno): las recetas de temporada solo se cocinan en el suyo. */
+  festival?(): string;
 }
 
 export interface CocinaWho {
@@ -62,7 +65,7 @@ export class Cocina {
   /** Los ingredientes que tiene en la mochila (lo que no tiene no aparece). */
   pantry(userId: string): Pantry {
     const out: Record<string, number> = {};
-    for (const id of INGREDIENTS) {
+    for (const id of PANTRY_ITEMS) {
       const n = this.deps.bag.count(userId, objItemId(id));
       if (n > 0) out[id] = n;
     }
@@ -100,6 +103,8 @@ export class Cocina {
     if (!nearPointOfType(map, "kitchen_stove", who.x, who.y)) return { notice: { code: "far" } };
     // La receta de un oficio pide su nivel.
     if (recipe.requires && (this.deps.level?.(who.userId, recipe.requires.oficio) ?? 1) < recipe.requires.level) return { notice: { code: "level", item: recipe.id } };
+    // La natilla y los buñuelos, solo en las novenas.
+    if (!recipeInSeason(recipe, this.deps.festival?.() ?? "")) return { notice: { code: "season", item: recipe.id } };
     if (now - (this.lastCookAt.get(who.userId) ?? 0) < COCINA.cookCooldownMs) return { notice: { code: "busy" } };
     const pantry = this.pantry(who.userId);
     if (!canCook(recipe, pantry)) return { notice: { code: "missing" } };

@@ -1,4 +1,6 @@
 import {
+  AGUINALDO,
+  aguinaldoCabe,
   CLUB_TIP,
   DAILY_CAPS,
   DOOR_NOTES,
@@ -30,7 +32,7 @@ import {
   veteranXp,
   type Oficio,
 } from "@hyvento/shared";
-import type { AwardOnceInput, QuestClaimInput, QuestClaimOutcome, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, SavedGameClock, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
+import type { AguinaldoPayResult, AwardOnceInput, QuestClaimInput, QuestClaimOutcome, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, SavedGameClock, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -586,6 +588,21 @@ export class MemoryRepository implements GameRepository {
     this.inventory = inventory;
     this.ledger.push(...moves);
     return { ok: true, balances: { [a.userId]: await this.getPoints(a.userId), [b.userId]: await this.getPoints(b.userId) } };
+  }
+
+  // ---------- Aguinaldos de las novenas ----------
+
+  /** Como `payAguinaldoTx` de @hyvento/db: tope de aguinaldos y de dar del día, y que alcance el saldo. */
+  async payAguinaldo({ refId, fromId, toId, amount }: TipInput): Promise<AguinaldoPayResult> {
+    const now = Date.now();
+    const since = dayStart(now);
+    const paid = -this.ledger
+      .filter((m) => m.userId === fromId && m.reason === "GIFT" && m.amount < 0 && m.at >= since && m.refId?.startsWith(AGUINALDO.refPrefix))
+      .reduce((sum, m) => sum + m.amount, 0);
+    if (!aguinaldoCabe(paid, amount) || giftAllowedToday({ ...(await this.givenToday(fromId, now)), gifts: 0 }, amount) !== "ok") return { ok: false, error: "limit" };
+    if ((await this.getPoints(fromId)) < amount) return { ok: false, error: "funds" };
+    this.ledger.push({ userId: fromId, amount: -amount, reason: "GIFT", at: now, refId }, { userId: toId, amount, reason: "GIFT", at: now, refId });
+    return { ok: true, balances: { [fromId]: await this.getPoints(fromId), [toId]: await this.getPoints(toId) } };
   }
 
   // ---------- Propinas del tubo ----------
