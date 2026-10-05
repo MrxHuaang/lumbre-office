@@ -1,5 +1,6 @@
 import { bindCocina } from "./cocina";
 import { bindGranja } from "./granjaNet";
+import { bindVelitas } from "./velitas";
 import { bindRace } from "./race";
 import {
   DIRECTIONS,
@@ -263,6 +264,8 @@ export interface OfficeStateView {
   /** El festival de hoy y su fase (ver rooms/festivales.ts del servidor). */
   festival: string;
   festivalFase: string;
+  /** La Noche de velitas: las prendidas (por "x,y"), cuántas van y los deseos soltados (rooms/velitas.ts). */
+  velitas: { placed: Map<string, { x: number; y: number; by: string }>; lit: number; wishes: Map<string, { name: string; text: string }> };
   /** Casa viva: contadores (ajedrez, puzle, pizarras), cubículos ocupados (clave → userId) y mascotas. */
   counters: Map<string, number>;
   stalls: Map<string, string>;
@@ -1154,6 +1157,7 @@ function attach(r: OfficeRoom) {
   bindBag(r);
   bindMesas(r);
   bindBoardGames(r);
+  bindVelitas(r);
   r.onMessage(MSG.casinoResult, (res: CasinoResult) => {
     useCasinoStore.getState().setResult(res);
     if (!res.ok) useOfficeStore.getState().notify(CASINO_ERROR_TEXT[res.error], "warning");
