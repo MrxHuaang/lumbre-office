@@ -2053,6 +2053,116 @@ ITEMS["peluche-capibara"] = {
   flat: "en",
 };
 
+// ---------- La Noche de brujas: los dulces, la canasta y el premio ----------
+
+// La chocolatina del dulce o truco: papel naranja con un murcielaguito y la punta abierta (papel dorado y
+// el chocolate asomando). La de la casa es café con la franja dorada.
+ITEMS["chocolatina-brujas"] = {
+  crumb: hex("#b87a4a"),
+  rows: [
+    "ooooooooo", //
+    "onnnnnfco",
+    "onbnbnfCo",
+    "onnbnnfco",
+    "oNNNNNfCo",
+    "ooooooooo",
+  ],
+  colors: legend({ n: "#f08a2a", N: "#c8601a", b: "#3e2f52", f: "#f3d672", c: "#6a3a1e", C: "#4a2410" }),
+  flat: "bf",
+};
+// La chupeta: espiral naranja y crema en su palito.
+ITEMS.chupeta = {
+  crumb: hex("#ffe7a0"),
+  rows: [
+    "..ooo..", //
+    ".orrwo.",
+    "orwwrro",
+    "orwrwro",
+    "orrwwro",
+    ".owrro.",
+    "..ooo..",
+    "...s...",
+    "...s...",
+    "...s...",
+  ],
+  colors: legend({ r: "#f08a2a", w: "#ffe7a0", s: "#fbf4e6" }),
+  flat: "rws",
+};
+// El bombón: chocolate envuelto en papel morado, con las dos puntas torcidas.
+ITEMS.bombon = {
+  crumb: hex("#7a4428"),
+  rows: [
+    "oo.ooo.oo", //
+    "oyoppPoyo",
+    ".oopPPoo.",
+    "oyoPPPoyo",
+    "oo.ooo.oo",
+  ],
+  colors: legend({ y: "#f3c440", p: "#a070c8", P: "#6e3a96" }),
+};
+// Las gomitas: bolsita transparente con el cierre plateado y gomitas de colores adentro.
+ITEMS.gomitas = {
+  crumb: hex("#f8f4ea"),
+  rows: [
+    ".oooooo.", //
+    "oMMMMMMo",
+    "ohgghrro",
+    "oggyyrro",
+    "ohyyhbbo",
+    "orrhbbho",
+    ".oooooo.",
+  ],
+  colors: { ...legend({ M: "#c8c4d8", g: "#6fc24a", r: "#e8403a", y: "#f6d23a", b: "#f08a2a" }), h: alpha(hex("#f4fbff"), 0.9) },
+  flat: "grybh",
+};
+// El masmelo trenzado: rosado y blanco (el malvavisco de la fogata es dorado y va en su palito).
+ITEMS.masmelo = {
+  crumb: hex("#fff6f8"),
+  rows: [
+    ".oooo.", //
+    "owwppo",
+    "owppwo",
+    "oppwwo",
+    "opwwpo",
+    "owwppo",
+    ".oooo.",
+  ],
+  colors: legend({ w: "#fffaf6", p: "#f4a6c0" }),
+  flat: "wp",
+};
+// La canasta de dulce o truco: una ahuyama de plástico con la cara negra, el asa y dulces asomando.
+ITEMS["canasta-dulces"] = {
+  rows: [
+    "..okkkko..", //
+    ".ok....ko.",
+    "ok.rgy..ko",
+    "oooooooooo",
+    "onnnnnnnNo",
+    "onfnnnfnNo",
+    "onnnnnnnNo",
+    "onfffffnNo",
+    ".onnnnnNo.",
+    "..oooooo..",
+  ],
+  colors: legend({ k: "#3e2f52", n: "#f08a2a", N: "#c8601a", f: "#2a1c24", r: "#e8403a", g: "#6fc24a", y: "#f6d23a" }),
+  flat: "frgy",
+};
+// La calabaza dorada: el premio, con su brillito.
+ITEMS["calabaza-dorada"] = {
+  rows: [
+    "....oo..w", //
+    "..oosoo..",
+    ".ogGsGgo.",
+    "ogwgGgGgo",
+    "ogggGgGgo",
+    "ogggGgGGo",
+    ".oGGGGGo.",
+    "..ooooo..",
+  ],
+  colors: legend({ g: "#f3c440", G: "#c8901e", w: "#fffbe0", s: "#6a8a2a" }),
+  flat: "w",
+};
+
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 
 /** Brasa: apagada (0), titilando (1) o encendida al pitar (2). */

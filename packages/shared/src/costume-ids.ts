@@ -43,5 +43,10 @@ export const COSTUME_IDS = [
   "alma-fiesta",
   "explorador",
   "cartografo",
+  // Los de la Noche de brujas.
+  "bruja",
+  "vampiro",
+  "calabaza",
+  "esqueleto",
 ] as const;
 export type CostumeId = (typeof COSTUME_IDS)[number];

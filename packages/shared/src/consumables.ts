@@ -8,6 +8,7 @@ import { SOMBRERO_ALCOHOL, SOMBRERO_CONSUMABLES } from "./sombrero";
 import { GRANJA_USABLES, type GranjaAction } from "./granja";
 import { PARRILLA_CONSUMABLES } from "./parrilla";
 import { MUNDO_CONSUMABLES, MUNDO_USABLES, type MundoAction } from "./mundo";
+import { BRUJAS_CONSUMABLES } from "./brujas";
 
 /**
  * Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas), mordisco (comida en la mano),
@@ -106,6 +107,8 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   ...PARRILLA_CONSUMABLES,
   // Mundo lleno: el vaso de agua del dispensador (mundo.ts).
   ...MUNDO_CONSUMABLES,
+  // Los dulces de la Noche de brujas (brujas.ts).
+  ...BRUJAS_CONSUMABLES,
 };
 
 /** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). Las herramientas del huerto, los suyos. */

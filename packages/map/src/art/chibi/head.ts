@@ -199,6 +199,8 @@ const PINK_GEM = hex("#f28fad");
 /** Fieltro gris del sombrero del Man del Sombrero y su cinta oscura (fijos, como la paja). */
 const FELT: Three = [hex("#5f6168"), hex("#8a8c92"), hex("#b4b6ba")];
 const FELT_BAND = hex("#2e2a30");
+/** Cinta naranja del sombrero de bruja (fija: el sombrero va en el color de acento). */
+const WITCH_BAND: Three = [hex("#c8601a"), hex("#f08a2a"), hex("#f6a548")];
 
 /** Oscurece un píxel ya pintado (lo vacío no se toca): la sombra del ala sobre la cara. */
 function darken(c: PixelCanvas, x: number, cy: number, k: number) {
@@ -453,6 +455,21 @@ const MORE_HATS: Partial<Record<HeadItem, (h: Hat) => void>> = {
       c.set(7, y(1), t.white[1]);
       c.set(8, y(1), t.white[0]);
     }
+  },
+  // Sombrero de bruja: el cono torcido con la punta doblada hacia atrás, la cinta naranja con su hebilla
+  // dorada y el ala bien ancha.
+  "witch-hat"({ c, t, view, y }) {
+    const a = t.accent;
+    rows(c, y, [[-5, 7, 8], [-4, 6, 9], [-3, 6, 9], [-2, 5, 10], [-1, 5, 10], [0, 4, 11], [1, 4, 11]], a, 9);
+    // La punta se dobla hacia atrás: a la izquierda de frente, a la derecha de espaldas.
+    const tip: [number, number][] = front(view) ? [[6, -6], [5, -7], [4, -7]] : [[9, -6], [10, -7], [11, -7]];
+    tip.forEach(([x, r], i) => c.set(x, y(r), i === 2 ? a[0] : a[1]));
+    c.rect(4, y(2), 8, 1, WITCH_BAND[1]);
+    c.set(11, y(2), WITCH_BAND[0]);
+    if (front(view)) c.set(9, y(2), t.gold[2]);
+    c.rect(0, y(3), 16, 1, a[1]);
+    c.rect(1, y(3), 3, 1, a[2]);
+    c.set(15, y(3), a[0]);
   },
   // Sombrero de mago: el cono alto con la punta doblada, la cinta dorada y estrellitas.
   "wizard-hat"({ c, t, y }) {

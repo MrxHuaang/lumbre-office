@@ -15,6 +15,12 @@ const BEE_BLACK = hex("#2b1b17");
 const WING = hex("#e8f4ff", 200);
 const PAINT: RGBA[] = [hex("#c0392b"), hex("#4660a0"), hex("#f4d35e"), hex("#5ea247")];
 const CONFETTI: RGBA[] = [hex("#ff5fd2"), hex("#f4d35e"), hex("#3fd0dd"), hex("#8cc653")];
+const FANG = hex("#fffaf0");
+const LIPS = hex("#8e2a3a");
+/** Lo tallado de la cara de ahuyama del disfraz y los huesos del esqueleto (no se tiñen). */
+const CARVED = hex("#3a1a14");
+const BONE = hex("#f3f1ec");
+const BONE_DARK = hex("#cfc8d8");
 
 /** Filas de las manos en este frame (el brazo de atrás y el de adelante), para lo que va en los brazos. */
 const armLen = ({ swing }: Ctx) => [6 + swing, 6 - swing] as const;
@@ -145,6 +151,47 @@ const DETAILS: Record<CostumeDetail, Detail> = {
       for (const [x, r] of pts) {
         c.set(x, y(r), t.gold[2]);
         c.set(x, y(r - 1), t.gold[0]);
+      }
+    },
+  },
+  // Colmillos del vampiro: la boca oscura y un colmillo blanco a cada lado.
+  fangs: {
+    layer: "head",
+    draw({ c, view, y }) {
+      if (view !== "front") return;
+      c.set(9, y(10), LIPS);
+      c.set(8, y(10), FANG);
+      c.set(10, y(10), FANG);
+    },
+  },
+  // Cara de ahuyama tallada en la barriga del disfraz de calabaza; de espaldas, los gajos.
+  "pumpkin-face": {
+    layer: "body",
+    draw({ c, t, view, y }) {
+      if (view !== "front") {
+        for (const x of [6, 9]) for (let r = 14; r <= 19; r++) c.set(x, y(r), t.pants[0]);
+        return;
+      }
+      for (const [x, r] of [[6, 15], [5, 16], [6, 16], [7, 16], [9, 15], [8, 16], [9, 16], [10, 16]] as const) c.set(x, y(r), CARVED);
+      for (const x of [5, 6, 8, 9, 10]) c.set(x, y(18), CARVED);
+      for (const x of [6, 7, 8, 9]) c.set(x, y(19), CARVED);
+    },
+  },
+  // Huesos pintados sobre el mono negro: la columna, las costillas, la pelvis y los huesos de los brazos.
+  bones: {
+    layer: "body",
+    draw(ctx) {
+      const { c, view, y } = ctx;
+      const spine = view === "front" ? 8 : 7;
+      for (let r = 14; r <= 19; r++) c.set(spine, y(r), BONE_DARK);
+      if (view === "front") {
+        for (const r of [14, 16, 18]) for (let x = 5; x <= 10; x++) if (x !== spine) c.set(x, y(r), r === 18 && (x === 5 || x === 10) ? BONE_DARK : BONE);
+      } else for (const [x, r] of [[5, 15], [6, 15], [9, 15], [10, 15], [5, 16], [10, 16]] as const) c.set(x, y(r), BONE);
+      for (let x = 6; x <= 10; x++) c.set(x, y(20), x === 6 || x === 10 ? BONE_DARK : BONE);
+      const [back, front] = armLen(ctx);
+      for (let r = 15; r <= 17; r++) {
+        if (back >= r - 13) c.set(3, y(r), BONE_DARK);
+        if (front >= r - 13) c.set(12, y(r), BONE);
       }
     },
   },
