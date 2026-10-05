@@ -41,6 +41,7 @@ export * from "./chair-race";
 export * from "./weather";
 export * from "./clock";
 export * from "./estaciones";
+export * from "./calendario";
 export * from "./cocina";
 export * from "./photos";
 export * from "./photo-service";

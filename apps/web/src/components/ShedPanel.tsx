@@ -4,8 +4,9 @@
 // barril de agua o en el pozo) o una bolsa de semillas; va a la mochila, se elige en la barra y el huerto
 // la usa con E sobre cada parcela. El servidor valida que estés junto al cobertizo y que te quepa.
 import { drawHeldItem } from "@hyvento/map/art";
-import { CROPS, EMPTY_CAN, HUERTO, SEASON_TEXT, durationText, seasonGrowth, seasonGrowthText, seasonOf, seedsOf } from "@hyvento/shared";
+import { CROPS, EMPTY_CAN, HUERTO, SEASON_TEXT, durationText, seasonGrowth, seasonGrowthText, seedsOf } from "@hyvento/shared";
 import { useMemo } from "react";
+import { currentSeason } from "@/game/gameClock";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendShedTake } from "@/game/network";
 import { PanelShell } from "./PointsPanels";
@@ -16,8 +17,8 @@ function ItemArt({ id }: { id: string }) {
 }
 
 export function ShedPanel({ atObject, onClose }: { atObject: boolean; onClose: () => void }) {
-  // Cada cultivo tiene su temporada: lo que tarda y la ayuda cambian con la estación.
-  const season = useMemo(() => seasonOf(Date.now()), []);
+  // Cada cultivo tiene su temporada: lo que tarda y la ayuda cambian con la estación del juego.
+  const season = useMemo(() => currentSeason(), []);
   const take = (item: string) => {
     sendShedTake(item);
     onClose();

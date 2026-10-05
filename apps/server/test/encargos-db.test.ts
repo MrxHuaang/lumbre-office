@@ -99,7 +99,9 @@ describe("encargos en la base", () => {
   });
 
   it("la web suma el contador y avanza lo de hoy que lo sigue (lo de noche no: no sabe la hora del juego)", async () => {
-    const today = currentQuests("ana", MON);
+    // Lo asignó el servidor de juego (con la estación del juego): la web avanza esas filas.
+    const today = currentQuests("ana", MON, { daily: "otono", weekly: "otono" });
+    await loadQuests(db.outside, "ana", [DAY], today.map((q) => ({ questId: q.def.id, period: q.period, goal: q.def.goal })));
     const first = today.find((q) => !q.def.when?.night && !q.def.when?.weather)!.def;
     await db.transaction((tx) => bumpStatWithQuestsTx(tx, "ana", first.stat, 1, MON));
     expect(db.t.stats).toEqual([{ userId: "ana", key: first.stat, value: 1 }]);
@@ -107,5 +109,10 @@ describe("encargos en la base", () => {
     expect(moved).toContain(first.id);
     await db.transaction((tx) => bumpStatWithQuestsTx(tx, "ana", STAT_KEYS.missionsDone, 1, MON));
     expect(db.t.stats.find((s) => s.key === STAT_KEYS.missionsDone)?.value).toBe(1);
+  });
+
+  it("la web no crea encargos que el servidor no asignó (no sabe la estación del juego)", async () => {
+    await db.transaction((tx) => bumpStatWithQuestsTx(tx, "ana", STAT_KEYS.photosTaken, 1, MON));
+    expect(db.t.quests).toEqual([]);
   });
 });

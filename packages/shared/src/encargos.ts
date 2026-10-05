@@ -9,7 +9,7 @@
 import { z } from "zod";
 import { MAX_STATS, STAT_KEYS, STAT_PREFIX } from "./achievements";
 import { weekStart } from "./arcade";
-import { seasonOf, type Season } from "./estaciones";
+import type { Season } from "./estaciones";
 import { GRANJA_STATS } from "./granja";
 import { STORY_QUESTS } from "./historia";
 import { ALL_NPCS, type GameNpc } from "./npcs";
@@ -322,17 +322,27 @@ function shuffled<T>(list: readonly T[], rand: () => number): T[] {
 /** ¿Sale en esa estación? */
 export const questInSeason = (q: QuestDef, season: Season) => !q.when?.seasons || q.when.seasons.includes(season);
 
-/** Los diarios que pueden salir ese día (según la estación). */
-export const dailyPool = (now: number) => QUESTS.filter((q) => q.kind === "daily" && questInSeason(q, seasonOf(now)));
+/**
+ * La estación del juego con que se reparte cada período (la del día y la de la semana). La fija el
+ * servidor la primera vez que reparte en ese período, para que lo asignado no cambie si la estación del
+ * juego cambia a mitad del día o de la semana.
+ */
+export interface QuestSeasons {
+  daily: Season;
+  weekly: Season;
+}
+
+/** Los diarios que pueden salir en esa estación. */
+export const dailyPool = (season: Season) => QUESTS.filter((q) => q.kind === "daily" && questInSeason(q, season));
 
 /**
  * Los 3 diarios de alguien ese día: el primero es igual para todos (semilla del día) y los otros dos son
  * propios (semilla de la persona y el día). Nunca repite uno y, si se puede, tampoco el contador ni quién
  * lo da (para que no sean tres veces lo mismo).
  */
-export function pickDaily(userId: string, now: number): { shared: QuestDef; own: QuestDef[] } {
+export function pickDaily(userId: string, now: number, season: Season): { shared: QuestDef; own: QuestDef[] } {
   const date = questDate(now);
-  const pool = dailyPool(now);
+  const pool = dailyPool(season);
   const shared = pool[Math.floor(rng(`encargos:dia:${date}`)() * pool.length)]!;
   const rest = shuffled(
     pool.filter((q) => q.id !== shared.id),
@@ -355,8 +365,7 @@ export function pickDaily(userId: string, now: number): { shared: QuestDef; own:
 }
 
 /** El semanal: uno más grande, igual para todos esa semana. */
-export function pickWeekly(now: number): QuestDef {
-  const season = seasonOf(weekStart(now));
+export function pickWeekly(now: number, season: Season): QuestDef {
   const pool = QUESTS.filter((q) => q.kind === "weekly" && questInSeason(q, season));
   return pool[Math.floor(rng(`encargos:semana:${weeklyPeriod(now)}`)() * pool.length)]!;
 }
@@ -369,13 +378,13 @@ export interface ActiveQuest {
 }
 
 /** Lo que le toca a alguien ahora: los 3 diarios de hoy y el semanal. */
-export function currentQuests(userId: string, now: number): ActiveQuest[] {
+export function currentQuests(userId: string, now: number, seasons: QuestSeasons): ActiveQuest[] {
   const day = dailyPeriod(now);
-  const { shared, own } = pickDaily(userId, now);
+  const { shared, own } = pickDaily(userId, now, seasons.daily);
   return [
     { def: shared, period: day, shared: true },
     ...own.map((def) => ({ def, period: day, shared: false })),
-    { def: pickWeekly(now), period: weeklyPeriod(now), shared: true },
+    { def: pickWeekly(now, seasons.weekly), period: weeklyPeriod(now), shared: true },
   ];
 }
 

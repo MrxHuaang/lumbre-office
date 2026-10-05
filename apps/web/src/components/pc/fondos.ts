@@ -1,7 +1,7 @@
 // Fondos de pantalla del escritorio de Hyvento OS: la lista y la preferencia guardada en el navegador.
 // El dibujo de cada uno está en `fondos-arte.ts` (pixel en un canvas chico) y la ventana para elegir
 // en `FondosApp.tsx`. Todos son gratis por ahora (la pregunta del desbloqueo quedó en VIR-140).
-import { seasonOf, type Season } from "@hyvento/shared";
+import { estacionDelDia, type Season } from "@hyvento/shared";
 
 export const FONDO_IDS = ["cielo", "noche", "espacio", "lago", "otono", "lluvia", "madera", "liso", "estacion"] as const;
 export type FondoId = (typeof FONDO_IDS)[number];
@@ -25,7 +25,7 @@ export const FONDOS: readonly Fondo[] = [
   { id: "lluvia", nombre: "Lluvia en la ventana", descripcion: "Gotas en el vidrio y el jardín mojado afuera." },
   { id: "madera", nombre: "Madera", descripcion: "Tablas de madera, como el piso de la cabaña." },
   { id: "liso", nombre: "Salvia", descripcion: "Un verde suave, liso, con puntitos." },
-  { id: "estacion", nombre: "La estación", descripcion: "El jardín según la estación de Bogotá: cambia solo." },
+  { id: "estacion", nombre: "La estación", descripcion: "El jardín según la estación del juego: cambia solo." },
 ];
 
 export const isFondoId = (x: unknown): x is FondoId => typeof x === "string" && (FONDO_IDS as readonly string[]).includes(x);
@@ -61,5 +61,5 @@ export function guardarFondo(storage: Escritor | null | undefined, id: FondoId):
   }
 }
 
-/** La estación que dibuja el fondo "La estación" en el instante `ts`. */
-export const estacionDelFondo = (ts: number): Season => seasonOf(ts);
+/** La estación que dibuja el fondo "La estación" el día `dia` del juego (sigue el calendario del juego). */
+export const estacionDelFondo = (dia: number): Season => estacionDelDia(dia);

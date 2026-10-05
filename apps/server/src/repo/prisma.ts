@@ -50,7 +50,7 @@ import {
   type Oficio,
 } from "@hyvento/shared";
 import { executeTip, executeTrade } from "./social";
-import type { AwardOnceInput, QuestClaimInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
+import type { AwardOnceInput, QuestClaimInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, SavedGameClock, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
 /** Fila de WorldLayout donde se guarda el reloj del juego (no es un nivel). */
 const GAME_CLOCK_ROW = "__reloj__";
@@ -272,7 +272,7 @@ export class PrismaRepository implements GameRepository {
     return (await prisma.worldLayout.findUnique({ where: { area: GAME_CLOCK_ROW } }))?.edits ?? null;
   }
 
-  async saveGameClock(clock: { anchorReal: number; anchorMinute: number }, userId: string) {
+  async saveGameClock(clock: SavedGameClock, userId: string) {
     const json = { ...clock } as Prisma.InputJsonValue;
     await prisma.worldLayout.upsert({
       where: { area: GAME_CLOCK_ROW },

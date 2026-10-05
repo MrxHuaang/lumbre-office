@@ -29,18 +29,18 @@ import {
   waterPlot,
   wetMsOf,
 } from "./huerto";
-import { seasonGrowth, seasonOf } from "./estaciones";
+import { seasonGrowth } from "./estaciones";
 
 const T0 = Date.UTC(2026, 8, 27, 15, 0, 0);
 const alice = { userId: "u-alice", name: "Alice" };
-/** Ritmo de la estación de T0 (otoño) para cada cultivo: las cuentas de abajo lo llevan. */
-const k = (crop: string) => seasonGrowth(crop, seasonOf(T0), { greenhouse: Boolean(cropById(crop)?.indoor) });
+/** Las parcelas se siembran en otoño del juego: las cuentas de abajo llevan su ritmo. */
+const k = (crop: string) => seasonGrowth(crop, "otono", { greenhouse: Boolean(cropById(crop)?.indoor) });
 
 describe("huerto: cómo crece", () => {
   const tomate = cropById("tomate")!;
 
   it("seca crece despacio y húmeda a ritmo completo", () => {
-    const p = plantPlot("tomate", alice, T0);
+    const p = plantPlot("tomate", alice, T0, "otono");
     expect(plotGrowth(p, T0)).toBe(0);
     expect(plotGrowth(p, T0 + 60_000)).toBeCloseTo(60_000 * HUERTO.dryRate * k("tomate"));
     const wet = waterPlot(p, T0);
@@ -53,25 +53,25 @@ describe("huerto: cómo crece", () => {
 
   it("nunca pasa de lo que tarda el cultivo, y el momento en que queda lista es exacto", () => {
     for (const crop of CROPS) {
-      const p = waterPlot(plantPlot(crop.id, alice, T0), T0);
+      const p = waterPlot(plantPlot(crop.id, alice, T0, "otono"), T0);
       const ready = plotReadyAt(p);
       expect(plotReady(p, ready - 1), crop.id).toBe(false);
       expect(plotReady(p, ready), crop.id).toBe(true);
       expect(plotGrowth(p, ready + 10 * 60 * 60_000), crop.id).toBe(crop.growMs);
       // Regando lo más posible tarda lo de la tabla; sin regar, 1/dryRate veces más (en el invernadero, igual).
-      const dry = plantPlot(crop.id, alice, T0);
+      const dry = plantPlot(crop.id, alice, T0, "otono");
       expect(plotReadyAt(dry) - T0, crop.id).toBeCloseTo((crop.indoor ? crop.growMs : crop.growMs / HUERTO.dryRate) / k(crop.id));
     }
   });
 
   it("pasa por las cuatro etapas", () => {
-    const p = waterPlot(plantPlot("cilantro", alice, T0), T0);
+    const p = waterPlot(plantPlot("cilantro", alice, T0, "otono"), T0);
     const stages = [0, 0.3, 0.7, 1].map((k) => plotStage(p, T0 + cropById("cilantro")!.growMs * k));
     expect(stages).toEqual([0, 1, 2, 3]);
   });
 
   it("regar guarda lo que ya creció y no se riega mientras siga húmeda", () => {
-    const p = plantPlot("papa", alice, T0);
+    const p = plantPlot("papa", alice, T0, "otono");
     const later = T0 + 20 * 60_000;
     expect(canWater(p, later)).toBe(true);
     const wet = waterPlot(p, later);
@@ -84,7 +84,7 @@ describe("huerto: cómo crece", () => {
   });
 
   it("cosecha quien sembró; el resto, pasada la hora de gracia", () => {
-    const p = waterPlot(plantPlot("fresa", alice, T0), T0);
+    const p = waterPlot(plantPlot("fresa", alice, T0, "otono"), T0);
     const ready = plotReadyAt(p);
     expect(canHarvest(p, "u-alice", ready - 1)).toBe(false);
     expect(canHarvest(p, "u-alice", ready)).toBe(true);
@@ -98,7 +98,7 @@ describe("invernadero", () => {
     const indoor = CROPS.filter((c) => c.indoor);
     expect(indoor.map((c) => c.id)).toEqual(["uchuva", "pitahaya", "cacao", "cafe"]);
     for (const c of indoor) {
-      const p = plantPlot(c.id, alice, T0);
+      const p = plantPlot(c.id, alice, T0, "otono");
       expect(plotGrowth(p, T0 + 60_000), c.id).toBe(60_000);
       expect(plotReadyAt(p), c.id).toBe(T0 + c.growMs);
       expect(canWater(p, T0 + 60_000), c.id).toBe(false);

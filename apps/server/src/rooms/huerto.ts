@@ -22,10 +22,12 @@ import {
   plotReadyAt,
   plotReady,
   plotUnderRoof,
+  reseasonPlot,
   waterPlot,
   type FurnitureEvent,
   type HuertoNotice,
   type PlotState,
+  type Season,
 } from "@hyvento/shared";
 import type { GameRepository, GardenPlotRecord } from "../repo/types";
 
@@ -35,6 +37,7 @@ export interface GardenPlots<T extends PlotState> {
   set(key: string, plot: T): unknown;
   delete(key: string): unknown;
   values(): IterableIterator<T>;
+  keys(): IterableIterator<string>;
   clear(): void;
 }
 
@@ -58,6 +61,8 @@ export interface HuertoDeps<T extends PlotState> {
   };
   /** Premio de ocio (LEISURE, con el tope diario): devuelve lo sumado. */
   award(userId: string, amount: number): Promise<number>;
+  /** La estación del calendario del juego (sin ella las parcelas crecen a ritmo 1). */
+  season?(): Season;
 }
 
 export interface HuertoWho {
@@ -86,10 +91,31 @@ export class Huerto<T extends PlotState> {
   async load() {
     const rows = await this.deps.repo().loadGarden();
     this.deps.plots.clear();
+    // La estación no se guarda: es la de ahora, que es la del tramo porque el reloj del juego no corre
+    // con la sala cerrada.
+    const season = this.deps.season?.() ?? "";
     for (const r of rows) {
       if (!cropById(r.crop)) continue;
-      this.deps.plots.set(String(r.id), this.toState(r));
+      this.deps.plots.set(String(r.id), this.toState({ ...r, season }));
     }
+  }
+
+  /**
+   * Cambió la estación del juego: cada parcela que crece guarda lo de la estación anterior y sigue con la
+   * nueva (ver `reseasonPlot`). Devuelve cuántas cambió.
+   */
+  reseason(now: number): number {
+    const season = this.deps.season?.();
+    if (!season) return 0;
+    let n = 0;
+    for (const key of [...this.deps.plots.keys()]) {
+      const p = this.deps.plots.get(key);
+      const next = p && reseasonPlot(p, now, season);
+      if (!next) continue;
+      this.set(Number(key), next);
+      n++;
+    }
+    return n;
   }
 
   /**
@@ -136,7 +162,7 @@ export class Huerto<T extends PlotState> {
       const mine = [...this.deps.plots.values()].filter((p) => p.plantedBy === who.userId).length;
       if (mine >= HUERTO.maxPlotsPerPerson) return { ok: false, notice: { code: "tooMany" } };
       if (!this.deps.held.spend(who.userId, now)) return null;
-      this.set(id, plantPlot(crop.id, who, now));
+      this.set(id, plantPlot(crop.id, who, now, this.deps.season?.()));
       return event("plant", crop.id);
     }
 
@@ -159,7 +185,7 @@ export class Huerto<T extends PlotState> {
       const spent = this.deps.held.spend(who.userId, now);
       // Con el último riego queda la regadera vacía en la mano (para volver a llenarla).
       if (!spent) return null;
-      this.set(id, waterPlot(plot, now));
+      this.set(id, waterPlot(plot, now, this.deps.season?.()));
       return event("water", plot.crop);
     }
     if (held?.item === EMPTY_CAN) return { ok: false, notice: { code: "emptyCan" } };
@@ -213,7 +239,7 @@ export class Huerto<T extends PlotState> {
     for (let id = 0; id < count; id++) {
       const p = this.plot(id);
       if (!p || isGreenhousePlot(id) || plotUnderRoof(p) || !canWater(p, now)) continue;
-      this.set(id, waterPlot(p, now));
+      this.set(id, waterPlot(p, now, this.deps.season?.()));
       n++;
     }
     return n;
@@ -224,7 +250,12 @@ export class Huerto<T extends PlotState> {
     const key = String(id);
     if (plot) this.deps.plots.set(key, this.toState({ id, ...plot }));
     else this.deps.plots.delete(key);
-    const record = plot && { ...plot };
+    // La estación no va a la base (la tabla no la tiene).
+    let record: Omit<PlotState, "season"> | null = null;
+    if (plot) {
+      const { season: _season, ...rest } = plot;
+      record = rest;
+    }
     this.saving = this.saving
       .then(() => this.deps.repo().saveGardenPlot(id, record))
       .catch((err) => console.error("saveGardenPlot", err));
@@ -235,7 +266,7 @@ export class Huerto<T extends PlotState> {
     return this.saving;
   }
 
-  private toState(r: GardenPlotRecord): T {
+  private toState(r: GardenPlotRecord & { season?: Season | "" }): T {
     const s = this.deps.create();
     s.crop = r.crop;
     s.plantedBy = r.plantedBy;
@@ -244,6 +275,7 @@ export class Huerto<T extends PlotState> {
     s.growthMs = r.growthMs;
     s.growthAt = r.growthAt;
     s.wateredUntil = r.wateredUntil;
+    s.season = r.season ?? "";
     return s;
   }
 }

@@ -30,7 +30,7 @@ import {
   veteranXp,
   type Oficio,
 } from "@hyvento/shared";
-import type { AwardOnceInput, QuestClaimInput, QuestClaimOutcome, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
+import type { AwardOnceInput, QuestClaimInput, QuestClaimOutcome, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, OfficeRecord, SavedGameClock, TipInput, TipResult, TradeResult, TradeSideInput, UserProfile } from "./types";
 
 /** Repositorio en memoria para tests. */
 export class MemoryRepository implements GameRepository {
@@ -207,7 +207,7 @@ export class MemoryRepository implements GameRepository {
   async loadGameClock() {
     return this.gameClock;
   }
-  async saveGameClock(clock: { anchorReal: number; anchorMinute: number }) {
+  async saveGameClock(clock: SavedGameClock) {
     this.gameClock = { ...clock };
   }
   boards = new Map<string, unknown>();

@@ -4,7 +4,7 @@
 // solo el cobertizo tiene su panel (`HUERTO_MSG.shedTake`).
 import { z } from "zod";
 import type { ConsumeAction, UsableSpec } from "./consumables";
-import { seasonGrowth, seasonOf } from "./estaciones";
+import { seasonGrowth, type Season } from "./estaciones";
 
 // ---------- Cultivos ----------
 
@@ -90,6 +90,12 @@ export interface PlotState {
    * del cultivo: lo `indoor` solo se siembra en los bancales. Así no hace falta guardarlo ni sincronizarlo.
    */
   greenhouse?: boolean;
+  /**
+   * La estación del juego en que arrancó el tramo (`growthAt`). La pone el servidor al sembrar, al regar
+   * y al cambiar de estación (`reseasonPlot`); no se guarda en la base: al arrancar es la de ese momento,
+   * que es la misma porque el reloj del juego no corre sin gente. Sin estación (o vacía), el ritmo es 1.
+   */
+  season?: Season | "";
 }
 
 /** ¿Está bajo techo? (el campo si lo trae; si no, los cultivos del invernadero). */
@@ -97,10 +103,10 @@ export const plotUnderRoof = (p: PlotState): boolean => p.greenhouse ?? Boolean(
 
 /**
  * Ritmo de la estación para la parcela: el de la estación en que arrancó el tramo (`growthAt`). Cada
- * riego abre un tramo nuevo, así que un cambio de estación se nota desde el siguiente riego; la cuenta
- * sigue siendo exacta y la misma en el servidor y en el cliente.
+ * riego abre un tramo nuevo y el cambio de estación también (`reseasonPlot`), así que la cuenta sigue
+ * siendo exacta y la misma en el servidor y en el cliente.
  */
-export const plotSeasonRate = (p: PlotState): number => seasonGrowth(p.crop, seasonOf(p.growthAt), { greenhouse: plotUnderRoof(p) });
+export const plotSeasonRate = (p: PlotState): number => (p.season ? seasonGrowth(p.crop, p.season, { greenhouse: plotUnderRoof(p) }) : 1);
 
 /**
  * Crecimiento (ms) de la parcela en `now`: húmeda a ritmo 1 hasta `wateredUntil`, seca a `dryRate`, y
@@ -156,8 +162,8 @@ export function plotStage(p: PlotState, now: number): PlotStage {
 }
 
 /** Sembrar: la parcela arranca en cero, seca. */
-export function plantPlot(crop: string, who: { userId: string; name: string }, now: number): PlotState {
-  return { crop, plantedBy: who.userId, plantedByName: who.name, plantedAt: now, growthMs: 0, growthAt: now, wateredUntil: 0 };
+export function plantPlot(crop: string, who: { userId: string; name: string }, now: number, season?: Season): PlotState {
+  return { crop, plantedBy: who.userId, plantedByName: who.name, plantedAt: now, growthMs: 0, growthAt: now, wateredUntil: 0, ...(season && { season }) };
 }
 
 /** ¿Tiene sentido regar ahora? No si está lista o si todavía le queda buena parte de la humedad. */
@@ -168,10 +174,20 @@ export function canWater(p: PlotState, now: number): boolean {
   return p.wateredUntil - now <= wetMsOf(crop) * HUERTO.rewaterShare;
 }
 
-/** Regar: se guarda lo que creció hasta ahora y la tierra queda húmeda un rato. */
-export function waterPlot(p: PlotState, now: number): PlotState {
+/** Regar: se guarda lo que creció hasta ahora y la tierra queda húmeda un rato (con la estación de ahora). */
+export function waterPlot(p: PlotState, now: number, season: Season | "" | undefined = p.season): PlotState {
   const crop = cropById(p.crop)!;
-  return { ...p, growthMs: plotGrowth(p, now), growthAt: now, wateredUntil: now + wetMsOf(crop) };
+  return { ...p, growthMs: plotGrowth(p, now), growthAt: now, wateredUntil: now + wetMsOf(crop), ...(season && { season }) };
+}
+
+/**
+ * Cambió la estación del juego: lo que creció hasta ahora queda guardado con la de antes y desde acá
+ * crece con la nueva (sin que la planta salte para atrás). Lo que ya está listo no se toca (no le corre la
+ * hora en que quedó lista). Devuelve null si no hay nada que cambiar.
+ */
+export function reseasonPlot(p: PlotState, now: number, season: Season): PlotState | null {
+  if (p.season === season || plotReady(p, now)) return null;
+  return { ...p, growthMs: plotGrowth(p, now), growthAt: now, season };
 }
 
 /** ¿Puede cosecharla esta persona? Quien sembró, siempre; el resto, pasada la hora de gracia. */

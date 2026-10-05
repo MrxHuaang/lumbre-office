@@ -59,7 +59,7 @@ sentirse como ir en el bus:
   adelante), igual que el camino de la pantalla de carga (`components/entry/scenery.ts`, solo `transform`
   por CSS, así anda aunque Phaser ocupe el hilo).
 - **Con el momento del día, el clima y la estación del juego**: de noche las luces de las casitas y los
-  postes, con lluvia gotas en el vidrio, en invierno nieve (`seasonOf`, el reloj del juego).
+  postes, con lluvia gotas en el vidrio, en invierno nieve (`currentSeason`, el calendario del juego).
 - **El marco del bus** adelante: el borde de la ventana, las barandas verdes y la pantallita de adentro con
   "Próxima parada: Casa" (o "Estación Hyvento" de vuelta) y la barra de lo que falta.
 - **Al llegar**: el bus frena (el paisaje se detiene), suena el timbre de parada, la pantallita dice

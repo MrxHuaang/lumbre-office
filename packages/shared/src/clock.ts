@@ -14,10 +14,13 @@ const SPEED = GAME_MINUTES_PER_DAY / GAME_DAY_REAL_MS;
 /**
  * Estado del reloj: en el instante real `anchorReal` iban `anchorMinute` minutos del juego (contados desde
  * el día 0, así que también dice el día). Cambiar la hora es mover el ancla, nunca tocar el reloj real.
+ * Con `paused` el reloj está quieto en `anchorMinute`: así queda la sala sin nadie adentro, para que no
+ * pasen días (ni estaciones) sin gente.
  */
 export interface GameClockState {
   anchorReal: number;
   anchorMinute: number;
+  paused?: boolean;
 }
 
 /** La noche del juego: de 19:00 a 6:59, como la noche real de antes. */
@@ -26,7 +29,17 @@ export const NIGHT_UNTIL = 7 * 60;
 
 /** Minutos del juego transcurridos desde el día 0 (con decimales). */
 export function gameMinutes(c: GameClockState, now: number): number {
-  return c.anchorMinute + (now - c.anchorReal) * SPEED;
+  return c.paused ? c.anchorMinute : c.anchorMinute + (now - c.anchorReal) * SPEED;
+}
+
+/** Para el reloj en el minuto que va en `now` (queda ahí hasta que se reanude). */
+export function pauseClock(c: GameClockState, now: number): GameClockState {
+  return { anchorReal: now, anchorMinute: gameMinutes(c, now), paused: true };
+}
+
+/** Reanuda el reloj desde el minuto en que quedó (el ancla pasa a `now`). */
+export function resumeClock(c: GameClockState, now: number): GameClockState {
+  return { anchorReal: now, anchorMinute: gameMinutes(c, now) };
 }
 
 export interface GameTime {
@@ -76,13 +89,16 @@ export function initialClock(): GameClockState {
   return { anchorReal: GAME_EPOCH, anchorMinute: 0 };
 }
 
-/** Lee un reloj guardado (JSON crudo de la base), o null si no sirve. */
+/**
+ * Lee un reloj guardado (JSON crudo de la base), o null si no sirve. Lo que se guarda ahora va en pausa
+ * (el minuto en que quedó); una fila de antes, sin `paused`, es un ancla que corría (un /time viejo).
+ */
 export function parseGameClock(raw: unknown): GameClockState | null {
   if (!raw || typeof raw !== "object") return null;
-  const { anchorReal, anchorMinute } = raw as Record<string, unknown>;
+  const { anchorReal, anchorMinute, paused } = raw as Record<string, unknown>;
   if (typeof anchorReal !== "number" || typeof anchorMinute !== "number") return null;
   if (!Number.isFinite(anchorReal) || !Number.isFinite(anchorMinute) || anchorMinute < 0) return null;
-  return { anchorReal, anchorMinute };
+  return paused === true ? { anchorReal, anchorMinute, paused: true } : { anchorReal, anchorMinute };
 }
 
 /**

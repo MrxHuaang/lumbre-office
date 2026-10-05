@@ -1,4 +1,4 @@
-import { gameTime, isNightMinute, type GameTime } from "@hyvento/shared";
+import { estacionDelDia, gameTime, isNightMinute, isSeason, type GameTime, type Season } from "@hyvento/shared";
 import { useEffect, useState } from "react";
 import { serverNow } from "./club/store";
 import { useOfficeStore } from "./store";
@@ -10,6 +10,38 @@ import { useOfficeStore } from "./store";
 export function currentGameTime(): GameTime | null {
   const clock = useOfficeStore.getState().gameClock;
   return clock ? gameTime(clock, serverNow()) : null;
+}
+
+// La última estación vista, en este navegador: la pantalla de carga la usa antes de que llegue el reloj.
+const SEASON_KEY = "hyvento.estacion";
+let seenSeason: Season | null = null;
+
+function rememberedSeason(): Season | null {
+  try {
+    const v = localStorage.getItem(SEASON_KEY);
+    return isSeason(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * La estación del calendario del juego (21 días del juego cada una, ver calendario.ts). Sin reloj todavía,
+ * la última que se vio en este navegador (o la primavera).
+ */
+export function currentSeason(): Season {
+  const t = currentGameTime();
+  if (!t) return seenSeason ?? rememberedSeason() ?? "primavera";
+  const season = estacionDelDia(t.day);
+  if (season !== seenSeason) {
+    seenSeason = season;
+    try {
+      localStorage.setItem(SEASON_KEY, season);
+    } catch {
+      // sin almacenamiento: solo se pierde el recuerdo para la próxima carga
+    }
+  }
+  return season;
 }
 
 /** ¿Es de noche en el juego? (sin reloj todavía, no). */

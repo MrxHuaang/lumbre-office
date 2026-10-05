@@ -1,29 +1,62 @@
 "use client";
 
-import { GAME_DAY_REAL_MS, clockStep, formatGameTime, skyPhase, type SkyPhase } from "@hyvento/shared";
+import { GAME_DAY_REAL_MS, añoTexto, clockStep, fechaCorta, fechaDelJuego, fechaPlaca, formatGameTime, skyPhase, type SkyPhase } from "@hyvento/shared";
+import { useEffect, useRef, useState } from "react";
 import { useGameTime } from "@/game/gameClock";
+import { sfx } from "@/game/sfx";
 import { SKY_H, SKY_W, skyPixels } from "@/lib/sky";
+import { CalendarioPanel } from "./CalendarioPanel";
 
 const PHASE_TEXT: Record<SkyPhase, string> = { amanecer: "Amaneciendo", dia: "De día", atardecer: "Atardeciendo", noche: "De noche" };
 
 /**
- * Reloj del juego en el HUD, como el de Stardew Valley: el día, la hora de a 10 minutos y una ventanita
- * con el cielo (el sol o la luna van cruzando). En pantallas chicas queda solo la ventanita y la hora.
+ * Reloj del juego en el HUD, como el de Stardew Valley: la fecha del calendario del juego ("Lun 3 ·
+ * Otoño"), la hora de a 10 minutos y una ventanita con el cielo (el sol o la luna van cruzando). Con un
+ * clic abre el calendario de la estación. En pantallas chicas queda solo la ventanita y la hora.
  */
 export function GameClockChip() {
   const t = useGameTime();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  // Se cierra al tocar fuera o con Escape (como el menú).
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
   if (!t) return null;
   const shown = clockStep(t.minuteOfDay);
   const time = formatGameTime(shown);
+  const fecha = fechaDelJuego(t.day);
+  const toggle = () => {
+    if (open) sfx.uiClose();
+    else sfx.uiOpen();
+    setOpen(!open);
+  };
   return (
-    <div
-      className="cozy-chip flex h-[34px] items-center gap-2 pr-3 pl-1.5"
-      title={`Reloj de la cabaña: día ${t.day + 1}, ${time} (${PHASE_TEXT[skyPhase(t.minuteOfDay)].toLowerCase()}). Un día dura ${Math.round(GAME_DAY_REAL_MS / 60_000)} minutos.`}
-      aria-label={`Día ${t.day + 1}, ${time}`}
-    >
-      <SkyWindow minuteOfDay={shown} />
-      <span className="hidden text-cozy-ink-soft sm:inline">Día {t.day + 1}</span>
-      <span className="font-pixel text-[15px] leading-none tabular-nums">{time}</span>
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        className="cozy-chip flex h-[34px] items-center gap-2 pr-3 pl-1.5 hover:brightness-105"
+        title={`${fechaCorta(fecha)}, ${añoTexto(fecha)}, ${time} (${PHASE_TEXT[skyPhase(t.minuteOfDay)].toLowerCase()}). Un día dura ${Math.round(GAME_DAY_REAL_MS / 60_000)} minutos. Clic para ver el calendario.`}
+        aria-label={`${fechaCorta(fecha)}, ${añoTexto(fecha)}, ${time}. Abrir el calendario`}
+      >
+        <SkyWindow minuteOfDay={shown} />
+        <span className="hidden text-cozy-ink-soft sm:inline">{fechaPlaca(fecha)}</span>
+        <span className="font-pixel text-[15px] leading-none tabular-nums">{time}</span>
+      </button>
+      {open && <CalendarioPanel fecha={fecha} />}
     </div>
   );
 }

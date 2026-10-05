@@ -1,14 +1,15 @@
 // Las estaciones en pantalla (solo afuera, en el jardín): un tono del terreno según la estación, lo que
 // queda en el pasto (hojarasca en otoño, florcitas en primavera, manchas de nieve en invierno) y lo que
-// cae (copos cuando nieva, hojas en otoño, pétalos en primavera). La estación sale de la fecha
-// (`seasonOf`, igual para todos) y la nieve del clima del servidor (`state.weather`).
+// cae (copos cuando nieva, hojas en otoño, pétalos en primavera). La estación sale del calendario del
+// juego (`currentSeason`, igual para todos) y la nieve del clima del servidor (`state.weather`).
 //
 // Como la lluvia (weather.ts), rinde con el render Canvas 2D: un pool fijo de imágenes con tope, solo se
 // mueven las que están a la vista y con `prefers-reduced-motion` cae un tercio.
 import { isBlockedTile, type OfficeMap } from "@hyvento/map";
 import { fallingLeaf, fallingPetal, flowerTuft, leafLitter, noise, snowflake, snowPatch, SURROUND_PAD } from "@hyvento/map/art";
-import { seasonOf, type Season, type Weather } from "@hyvento/shared";
+import type { Season, Weather } from "@hyvento/shared";
 import * as Phaser from "phaser";
+import { currentSeason } from "./gameClock";
 import { DEPTH_FLAT, DEPTH_OVERLAY, ensureTexture, worldToScreen } from "./iso/view";
 import { lessMotion } from "@/lib/prefs";
 
@@ -53,7 +54,7 @@ interface Faller {
 const approach = (v: number, target: number, step: number) => (v < target ? Math.min(target, v + step) : Math.max(target, v - step));
 
 export class SeasonView {
-  private season: Season = seasonOf(Date.now());
+  private season: Season = currentSeason();
   private weather: Weather = "despejado";
   private outdoor = false;
   private get calm() {
@@ -166,9 +167,9 @@ export class SeasonView {
   update(time: number, delta: number) {
     if (!this.map) return;
     if (time >= this.nextSeasonCheck) {
-      // A la medianoche de fin de mes cambia la estación: se revisa cada minuto.
-      this.nextSeasonCheck = time + 60_000;
-      const s = seasonOf(Date.now());
+      // La estación cambia con el día del juego (un día dura una hora real): se revisa cada 10 s.
+      this.nextSeasonCheck = time + 10_000;
+      const s = currentSeason();
       if (s !== this.season) {
         this.season = s;
         this.rebuild();

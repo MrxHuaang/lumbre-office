@@ -3,6 +3,7 @@
 // Fondos del escritorio: la capa de fondo, la ventana "Fondo de pantalla" con las miniaturas y el
 // menú del clic derecho en el escritorio vacío. Todo vive en el PC (se carga al prenderlo).
 import { useEffect, useState } from "react";
+import { currentGameTime, currentSeason } from "@/game/gameClock";
 import { COZY } from "@/lib/cozy";
 import { CabinShowcase } from "../CabinShowcase";
 import { dibujarFondo, FONDO_H, FONDO_W, LISO_COLOR } from "./fondos-arte";
@@ -59,8 +60,12 @@ function useImagen(id: FondoId, season: Season, activo = true): string | null {
 
 const PUNTITOS = (color: string, tint: string) => `radial-gradient(circle, ${tint} 1px, transparent 1.4px) 0 0 / 16px 16px, ${color}`;
 
-/** La estación se toma al abrir el escritorio: cambia pocas veces al año, no hace falta un reloj. */
-const useEstacion = () => useState(() => estacionDelFondo(Date.now()))[0];
+/** La estación del juego se toma al abrir el escritorio: cambia cada 21 días del juego, no hace falta un reloj. */
+const useEstacion = () =>
+  useState(() => {
+    const t = currentGameTime();
+    return t ? estacionDelFondo(t.day) : currentSeason();
+  })[0];
 
 /** El fondo del escritorio (capa de abajo, sin eventos) con el nombre "Hyvento OS". */
 export function FondoEscritorio({ id }: { id: FondoId }) {
