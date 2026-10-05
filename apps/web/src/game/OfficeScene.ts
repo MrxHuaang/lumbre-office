@@ -177,6 +177,7 @@ import { useAchievementStore } from "./achievements";
 import { localSpeedMul, useCocinaStore } from "./cocina";
 import { PORTION_USABLE_PREFIX, sendPortion } from "./granjaNet";
 import { SeasonView } from "./seasons";
+import { WindowView } from "./ventanas";
 import { NpcCast } from "./npcs/cast";
 import { syncSeat } from "./mundo";
 import { QuestMarkers, questGiverToTalk } from "./encargosMarcas";
@@ -396,6 +397,8 @@ export class OfficeScene extends Phaser.Scene {
   private weatherView!: WeatherView;
   /** Las estaciones afuera: tono del pasto, hojas, pétalos y nieve (ver seasons.ts). */
   private seasonView!: SeasonView;
+  /** Las ventanas de la pared con el clima y la luz del juego (ver ventanas.ts). */
+  private windowView!: WindowView;
   private critters!: Critters;
   /** Ya llegó el clima de esta conexión (el primero se pone de una, sin transición). */
   private weatherKnown = false;
@@ -533,6 +536,8 @@ export class OfficeScene extends Phaser.Scene {
     this.weatherView.setWeather(useOfficeStore.getState().weather, true);
     this.seasonView = new SeasonView(this);
     this.seasonView.setWeather(useOfficeStore.getState().weather, true);
+    this.windowView = new WindowView(this);
+    this.windowView.setWeather(useOfficeStore.getState().weather);
     this.critters = new Critters(this, () => this.peopleHere());
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
@@ -652,6 +657,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.toasts.destroy(),
       () => this.weatherView.destroy(),
       () => this.seasonView.destroy(),
+      () => this.windowView.destroy(),
       () => this.critters.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
@@ -679,6 +685,7 @@ export class OfficeScene extends Phaser.Scene {
           this.pool.setWeather(s.weather);
           this.weatherView.setWeather(s.weather, !this.weatherKnown);
           this.seasonView.setWeather(s.weather, !this.weatherKnown);
+          this.windowView.setWeather(s.weather);
           this.weatherKnown = true;
         }
         if (s.weather !== prev.weather || s.night !== prev.night) this.critters.setConditions(s.night, s.weather);
@@ -753,6 +760,7 @@ export class OfficeScene extends Phaser.Scene {
     this.updateMunchies(time);
     this.weatherView.update(time, delta);
     this.seasonView.update(time, delta);
+    this.windowView.update(time);
     this.critters.update(time, delta);
     this.usables.update();
     this.busView.update(delta);
@@ -871,6 +879,7 @@ export class OfficeScene extends Phaser.Scene {
       this.markers.setArea(map, this.view, INTERACTABLES);
       this.weatherView.setArea(map, this.view.bounds);
       this.seasonView.setArea(map, this.view.bounds);
+      this.windowView.setArea(map);
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
       this.paintings.setArea(map);
@@ -957,6 +966,7 @@ export class OfficeScene extends Phaser.Scene {
     this.markers.setArea(map, this.view, INTERACTABLES);
     this.weatherView.setArea(map, this.view.bounds);
     this.seasonView.setArea(map, this.view.bounds);
+    this.windowView.setArea(map);
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
     this.paintings.setArea(map);

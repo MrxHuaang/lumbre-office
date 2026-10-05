@@ -236,6 +236,8 @@ export {
 } from "./casa-fx";
 export { drawPet, petBowl, petMenuIcon, petTreat, sleepZ, type PetMenuIcon, PET_FRAME, PET_POSE_FRAMES, type PetArtKind, type PetArtPose, type PetView } from "./mascotas";
 export { orreryArms, ORRERY_FRAMES } from "./observatorio";
+// Las ventanas con el clima y la luz del juego (capas sobre el vidrio).
+export { windowRain, windowTone, WINDOW_RAIN_FRAMES, type WindowTone, type WindowWeather } from "./ventanas";
 // Mundo lleno: los símbolos de los rodillos del tragamonedas y el espantapájaros de cada estación.
 export { SLOT_GLYPH, slotSymbol } from "./tragamonedas";
 export { scarecrow } from "./leisure";
