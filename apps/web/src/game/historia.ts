@@ -3,7 +3,19 @@
 // avisar que se leyó el tablón (paso 5; el servidor revisa que esté junto a él), la carta que llega al buzón
 // y el paso de la historia que va ahora (para la flechita y el cuadro de Doña Aurora). La bienvenida y el
 // final del capítulo se ven como cinemáticas (cinematicas/); sin cinemáticas, la bienvenida es el cuadro.
-import { BUS, CAPITULO_1, HISTORIA_MSG, STORY_PERIOD, isStoryQuest, type HistoriaPrologue, type QuestView } from "@hyvento/shared";
+import {
+  BUS,
+  CAPITULO_1,
+  CAPITULOS,
+  HISTORIA_MSG,
+  RELOJ_PASOS,
+  STORY_PERIOD,
+  isStoryQuest,
+  type HistoriaCine,
+  type HistoriaLetter,
+  type HistoriaPrologue,
+  type QuestView,
+} from "@hyvento/shared";
 import { cineWanted, onCineAction, playCinematic, whenCineReady } from "./cinematicas/puerta";
 import { create } from "zustand";
 import { questSfx } from "./encargosSonidos";
@@ -50,11 +62,15 @@ if (typeof window !== "undefined") {
   onRoom((room) => {
     useHistoria.setState({ prologue: null });
     room.onMessage(HISTORIA_MSG.prologue, (p: HistoriaPrologue) => showPrologue({ ...p, open: !onBus() }));
-    room.onMessage(HISTORIA_MSG.letter, () => {
+    room.onMessage(HISTORIA_MSG.letter, (l: HistoriaLetter) => {
       useOfficeStore.getState().notify("Te llegó una carta al buzón del jardín. Viene sin remitente… solo una inicial.", "success");
       questSfx.claim();
-      void playCinematic("capitulo", { n: 1, titulo: CAPITULO_1.title });
+      const cap = CAPITULOS.find((c) => c.id === l?.chapter) ?? CAPITULO_1;
+      void playCinematic("capitulo", { n: cap.n, titulo: cap.title });
     });
+    // Lo que manda la sala de cada capítulo: una cinemática (el reloj, una pieza) o un aviso.
+    room.onMessage(HISTORIA_MSG.cine, (c: HistoriaCine) => void playCinematic(c.id, c.vars ?? {}));
+    room.onMessage(HISTORIA_MSG.aviso, (a: { text: string }) => useOfficeStore.getState().notify(a.text, "info"));
   });
   // Quien llegó en el bus ve la bienvenida al bajarse.
   useOfficeStore.subscribe(() => {
@@ -74,4 +90,15 @@ function showPrologue(p: HistoriaPrologue & { open: boolean }) {
     return;
   }
   useHistoria.setState({ prologue: p });
+}
+
+// ---------- Capítulo 2: el reloj de pie ----------
+
+/** ¿Anda buscando el péndulo? (el Man del Sombrero se lo ofrece). */
+export function usePenduloBuscado(): boolean {
+  return useEncargos((s) => s.quests.some((q) => q.questId === RELOJ_PASOS.pendulo && q.period === STORY_PERIOD && q.status === "ACTIVE" && q.progress < q.goal));
+}
+
+export function buyPendulum() {
+  getRoom()?.send(HISTORIA_MSG.pendulo);
 }

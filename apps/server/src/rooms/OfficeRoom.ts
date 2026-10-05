@@ -228,6 +228,8 @@ import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
 import { devToolsEnabled, parseCasaJump, parseDevFestival, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
 import { Festivales } from "./festivales";
+import { Capitulo2 } from "./capitulo2";
+import { HISTORIA_MSG } from "@hyvento/shared";
 import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
@@ -1072,6 +1074,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.barOrder, (client, raw) => void this.handleOrder(client, raw, "bar"));
     this.onMessage(MSG.cinemaOrder, (client, raw) => void this.handleOrder(client, raw, "cine"));
     this.onMessage(MSG.sombreroBuy, (client, raw) => void this.handleSombreroBuy(client, raw));
+    this.onMessage(HISTORIA_MSG.pendulo, (client) => void this.handlePendulo(client));
     this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
     this.onMessage(PET_MSG.call, (client, raw) => this.handlePet(client, raw, "call"));
@@ -2529,6 +2532,20 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return this.repo.saveGameClock(clock, userId).catch((err) => console.error("saveGameClock", err));
   }
 
+  /** La historia, capítulo 2: el reloj de pie (ver capitulo2.ts). */
+  private capitulo2 = new Capitulo2({
+    step: (userId, questId) => this.encargos.storyStep(userId, questId),
+    bump: (userId, key) => this.achievements.bump(userId, key),
+    bag: {
+      count: (userId, itemId) => this.held.count(userId, itemId),
+      fits: (userId, items) => this.held.fits(userId, items),
+      add: (userId, itemId, n) => this.held.add(userId, itemId, n),
+      take: (userId, itemId, n) => this.held.take(userId, itemId, n),
+    },
+    spend: (userId, amount, refId) => this.repo.spendPoints({ userId, amount, reason: "PURCHASE", refId }),
+    send: (sessionId, type, msg) => this.clients.find((c) => c.sessionId === sessionId)?.send(type, msg),
+  });
+
   /** Los festivales del calendario del juego (ver festivales.ts). */
   private festivales = new Festivales({
     state: () => this.state,
@@ -2944,6 +2961,32 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     reply({ ok: true, item: item.id, balance: result.balance });
   }
 
+  /**
+   * La historia, capítulo 2: el péndulo se le compra al Man del Sombrero (presente y cerca, como lo demás
+   * suyo), solo con el paso abierto.
+   */
+  private async handlePendulo(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !client.userData) return;
+    const aviso = (text: string) => client.send(HISTORIA_MSG.aviso, { text });
+    const now = Date.now();
+    if (now - (client.userData.lastSombreroAt ?? 0) < SOMBRERO.buyCooldownMs) return;
+    this.sombrero.refresh();
+    if (!this.sombrero.present) return aviso("El Man del Sombrero ya se fue. Vuelve a ciertas horas, o con tormenta.");
+    if (this.drunk.fainted(player.userId) || !this.sombrero.near(player.area, player.x, player.y, this.mapOf(player.area).tileSize)) return aviso("Arrímese al Man del Sombrero.");
+    client.userData.lastSombreroAt = now;
+    const { result, balance } = await this.capitulo2.buyPendulum(client.sessionId, player.userId);
+    if (balance !== undefined) for (const p of this.state.players.values()) if (p.userId === player.userId) p.points = balance;
+    const text: Record<string, string> = {
+      notNow: "«¿Un péndulo? No sé de qué me habla.» (todavía no lo anda buscando)",
+      have: "Ya tiene el péndulo.",
+      full: "No le cabe en la mochila: haga espacio.",
+      funds: "No le alcanzan los puntos.",
+      failed: "No se pudo. Intente otra vez.",
+    };
+    if (result !== "ok") aviso(text[result] ?? "No se pudo.");
+  }
+
   /** Usar lo que se tiene en la mano (una pitada, un sorbo, un mordisco): lo ven los del mismo nivel. */
   private handleUseHeld(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
@@ -3073,9 +3116,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result.kind === "event" && isHuertoAction(result.event.action)) return void this.handleHuerto(client, player, result.event);
     // La granja: el comedero, el nido y el molino (granja.ts).
     if (result.kind === "event" && isGranjaAction(result.event.action)) return void this.handleGranja(client, player, result.event);
+    // El reloj de pie: la historia (capítulo 2) decide qué pasa.
+    if (result.kind === "event" && result.event.action === "clock") return void this.capitulo2.clock(client.sessionId, player.userId, player.area);
     // Mundo lleno: la impresora, la ducha, la casita del perro, el reloj de sol, las barandas y los paneles (mundo.ts).
     if (result.kind === "event" && isMundoAction(result.event.action)) return void this.mundo?.use(client.sessionId, result.event);
     this.countFurniture(player.userId, result);
+    // La historia: el banco del taller templa el resorte del reloj (capítulo 2).
+    if (result.kind === "event") void this.capitulo2.furniture(client.sessionId, player.userId, player.area, result.event.type);
     if (result.kind === "event") {
       const event: FurnitureEvent = { sessionId: client.sessionId, ...result.event };
       this.sendToArea(player.area, MSG.furnitureEvent, event);
@@ -3262,7 +3309,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       gameClock: () => this.gameClock(),
       gameNight: () => isGameNight(this.gameClock(), OfficeRoom.gameClockNow()),
       later: (ms, fn) => this.clock.setTimeout(fn, ms * OfficeRoom.molinoTimeScale),
-      notify: (userId, notice) => this.clientOfUser(userId)?.send(GRANJA_MSG.notice, notice satisfies GranjaNotice),
+      notify: (userId, notice) => {
+        const client = this.clientOfUser(userId);
+        client?.send(GRANJA_MSG.notice, notice satisfies GranjaNotice);
+        // La historia: moliendo con el paso abierto sale el engranaje del reloj (capítulo 2).
+        if (client && notice.code === "flour") void this.capitulo2.flour(client.sessionId, userId);
+      },
     });
     this.parrilla = new Parrilla({
       jobs: this.state.granja.grill,

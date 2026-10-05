@@ -5,6 +5,7 @@ import { QUEST_GIVERS, questById, questGiverNpc } from "./encargos";
 import {
   AURORA_WELCOME,
   CAPITULO_1,
+  CAPITULO_2,
   CAPITULOS,
   STORY_FLAGS,
   capituloOf,
@@ -27,13 +28,14 @@ import { GiftCreateBody, STORY_ITEM_GIFT_TEXT } from "./social";
 
 describe("capítulo 1: La llegada", () => {
   it("son cinco pasos encadenados, todos de Doña Aurora, con su lección y su objetivo", () => {
-    expect(STORY_QUESTS.map((q) => q.id)).toEqual(["llegada-1", "llegada-2", "llegada-3", "llegada-4", "llegada-5"]);
+    const steps = CAPITULO_1.steps;
+    expect(steps.map((q) => q.id)).toEqual(["llegada-1", "llegada-2", "llegada-3", "llegada-4", "llegada-5"]);
     expect(STORY_FIRST).toBe("llegada-1");
     expect(STORY_LAST).toBe("llegada-5");
-    for (const [i, q] of STORY_QUESTS.entries()) {
+    for (const [i, q] of steps.entries()) {
       expect(q.kind).toBe("story");
       expect(q.giver).toBe("aurora");
-      expect(q.next).toBe(STORY_QUESTS[i + 1]?.id);
+      expect(q.next).toBe(steps[i + 1]?.id);
       expect(STORY_LESSONS[q.id], q.id).toBeTruthy();
       expect(STORY_TARGET[q.id], q.id).toBeTruthy();
       // Está en el catálogo de los encargos (así la entrega es la de siempre).
@@ -41,7 +43,7 @@ describe("capítulo 1: La llegada", () => {
       // Pagan poquito (y aparte del tope de los diarios).
       expect(q.reward.points).toBeLessThanOrEqual(5);
     }
-    expect(STORY_QUESTS.map((q) => q.stat)).toEqual(["order:tinto", STAT_KEYS.ownOfficeSits, STAT_KEYS.emotes, STAT_KEYS.fishCaught, STAT_KEYS.boardReads]);
+    expect(steps.map((q) => q.stat)).toEqual(["order:tinto", STAT_KEYS.ownOfficeSits, STAT_KEYS.emotes, STAT_KEYS.fishCaught, STAT_KEYS.boardReads]);
   });
 
   it("Doña Aurora existe, vive en el recibidor lejos de la recepción y da los encargos de la historia", () => {
@@ -145,6 +147,29 @@ describe("el motor de la historia: capítulos", () => {
       expect(GiftCreateBody.safeParse({ toId: "u-bob", itemId: "obj:tinto", quantity: 1 }).success).toBe(true);
     } finally {
       delete BAG_OBJECTS["llave-prueba"];
+    }
+  });
+});
+
+describe("capítulo 2: El reloj de pie", () => {
+  it("lo abre terminar el 1, son cinco pasos de Aurora encadenados, con su lección, objetivo, carta y logro", () => {
+    expect(CAPITULO_2.opensWith).toBe(CAPITULO_1.flag);
+    expect(CAPITULO_2.flag).toBe(STAT_KEYS.storyCh2);
+    expect(CAPITULO_2.steps.map((q) => q.id)).toEqual(["reloj-1", "reloj-2", "reloj-3", "reloj-4", "reloj-5"]);
+    for (const [i, q] of CAPITULO_2.steps.entries()) {
+      expect(q.giver).toBe("aurora");
+      expect(q.next).toBe(CAPITULO_2.steps[i + 1]?.id);
+      expect(CAPITULO_2.lessons[q.id], q.id).toBeTruthy();
+      expect(CAPITULO_2.targets?.[q.id], q.id).toBeTruthy();
+      expect(questById(q.id), q.id).toBeDefined();
+    }
+    expect(achievementById(CAPITULO_2.achievement!)?.stat).toBe(STAT_KEYS.storyCh2);
+    expect(CAPITULO_2.letter?.from).toBe("E.");
+  });
+
+  it("las piezas son objetos de historia de la mochila", () => {
+    for (const id of Object.keys(CAPITULO_2.items!)) {
+      expect(BAG_OBJECTS[id]?.story, id).toBe(true);
     }
   });
 });

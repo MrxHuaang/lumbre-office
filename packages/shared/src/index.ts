@@ -90,3 +90,4 @@ export * from "./limite-mensajes";
 export * from "./brujas";
 export * from "./cinematicas";
 export * from "./festivales";
+export * from "./capitulo2";
