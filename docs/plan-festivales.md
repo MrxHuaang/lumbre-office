@@ -59,7 +59,7 @@ colombianas puestas en el calendario del juego, a nuestra manera.
 | Verano | 18 | Carnaval (VIR-160) | Máscaras, desfile de comparsa por el jardín, maicena y serpentinas, concurso de disfraces |
 | Otoño | 10 | Feria de la cosecha | Lo mejor del huerto, la granja y el lago en exhibición; premios por categoría |
 | Otoño | 21 | Noche de brujas (VIR-157) | Calabazas, niebla, disfraces, dulce o truco por las puertas, laberinto de maíz, la leyenda del sótano |
-| Invierno | 7 | Noche de velitas (VIR-158) | Velitas y faroles por todas partes, faroles de deseos en el lago, la medianoche con todos los faroles |
+| Invierno | 7 | Noche de velitas (VIR-158) | Velitas que se prenden entre todos (con metas del equipo), faroles de deseos desde el muelle y la suelta de faroles a las 21:00 (la medianoche ya es otro día: queda una hora antes del cierre) |
 | Invierno | 12–20 | Novenas (VIR-159) | Nueve noches del juego: pesebre que se arma entre todos, villancicos, natilla y buñuelos, aguinaldos |
 | Invierno | 21 | Año viejo | Quema del muñeco de año viejo, uvas y maletas a la medianoche, cinemática de año nuevo |
 
