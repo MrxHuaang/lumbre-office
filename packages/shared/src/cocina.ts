@@ -6,7 +6,9 @@
 import { z } from "zod";
 import type { ConsumeAction } from "./consumables";
 import type { Oficio } from "./oficios";
+import { CHEESE, EGG, FLOUR } from "./granja";
 import { CROPS, HONEY } from "./huerto";
+import { granjaObjectName } from "./parrilla";
 
 /** Lo que se puede guardar en la despensa: lo que se cosecha y la miel. */
 export const INGREDIENTS: readonly string[] = [...CROPS.map((c) => c.product), HONEY];
@@ -27,6 +29,8 @@ export interface Recipe {
   uses: number;
   /** Receta de un oficio: se cocina desde ese nivel (ver OFICIO_REWARDS en oficios.ts). */
   requires?: { oficio: Oficio; level: number };
+  /** Receta de temporada: solo se cocina mientras corre ese festival (id de festivales.ts). */
+  festival?: string;
 }
 
 const MIN = 60_000;
@@ -98,7 +102,37 @@ export const RECIPES: readonly Recipe[] = [
     uses: 5,
     requires: { oficio: "cocina", level: 6 },
   },
+  // Las de las novenas (novenas.ts): solo mientras corre el festival. Usan lo del molino y el gallinero.
+  {
+    id: "natilla-casera",
+    name: "Natilla de la novena",
+    blurb: "Mazorca, harina del molino y miel en vez de panela. Cuadrada y temblorosa, como debe ser.",
+    needs: { mazorca: 1, [FLOUR]: 1, [HONEY]: 1 },
+    effect: { kind: "points", amount: 10 },
+    action: "bite",
+    uses: 4,
+    festival: "novenas",
+  },
+  {
+    id: "bunuelos-novena",
+    name: "Buñuelos de la novena",
+    blurb: "Queso, harina y huevo criollo, redonditos y dorados. Se comen calientes con la natilla.",
+    needs: { [FLOUR]: 1, [CHEESE]: 2, [EGG]: 1 },
+    effect: { kind: "points", amount: 10 },
+    action: "bite",
+    uses: 4,
+    festival: "novenas",
+  },
 ];
+
+/** ¿Se puede cocinar esa receta con el festival que corre ("" = ninguno)? Las de temporada, solo en el suyo. */
+export const recipeInSeason = (recipe: Recipe, festival: string) => !recipe.festival || recipe.festival === festival;
+
+/**
+ * Lo que la cocina toma de la mochila: lo del huerto, la miel y lo que pidan las recetas (la harina, el
+ * queso y los huevos de la granja que usan las de temporada).
+ */
+export const PANTRY_ITEMS: readonly string[] = [...new Set([...INGREDIENTS, ...RECIPES.flatMap((r) => Object.keys(r.needs))])];
 
 const RECIPE_BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
 export const recipeById = (id: string): Recipe | undefined => RECIPE_BY_ID.get(id);
@@ -183,7 +217,7 @@ export interface CocinaState {
   buffLeftMs: number;
 }
 
-export const CocinaNoticeCode = z.enum(["far", "nothing", "notIngredient", "full", "stored", "missing", "hands", "busy", "cooked", "capped", "energy", "inBag", "bagFull", "level"]);
+export const CocinaNoticeCode = z.enum(["far", "nothing", "notIngredient", "full", "stored", "missing", "hands", "busy", "cooked", "capped", "energy", "inBag", "bagFull", "level", "season"]);
 export type CocinaNoticeCode = z.infer<typeof CocinaNoticeCode>;
 
 export interface CocinaNotice {
@@ -197,7 +231,7 @@ export interface CocinaNotice {
 /** Nombre corto de un ingrediente ("Tomate", "Frasco de miel"). */
 export function ingredientName(item: string): string {
   if (item === HONEY) return "Miel";
-  return CROPS.find((c) => c.product === item)?.productName ?? item;
+  return CROPS.find((c) => c.product === item)?.productName ?? granjaObjectName(item);
 }
 
 export function cocinaNoticeText(n: CocinaNotice): string {
@@ -231,5 +265,7 @@ export function cocinaNoticeText(n: CocinaNotice): string {
       return "Lo cosechado y la miel ya quedan en tu mochila: la cocina los toma de ahí.";
     case "bagFull":
       return "El plato no te cabe en la mochila: haz espacio primero.";
+    case "season":
+      return `${dish ?? "Esa receta"} es de temporada: se cocina en las novenas.`;
   }
 }
