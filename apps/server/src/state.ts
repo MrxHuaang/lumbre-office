@@ -1,4 +1,5 @@
 import { ArraySchema, MapSchema, Schema, type } from "@colyseus/schema";
+import type { Season } from "@hyvento/shared";
 
 export class Player extends Schema {
   /** User.id (Auth.js). */
@@ -356,6 +357,8 @@ export class GardenPlotState extends Schema {
   @type("number") growthMs = 0;
   @type("number") growthAt = 0;
   @type("number") wateredUntil = 0;
+  /** La estación del juego del tramo (PlotState.season; "" = sin estación). */
+  @type("string") season: Season | "" = "";
 }
 
 /** La casa del árbol (CasaArbolView de @hyvento/shared): la escalera recogida y el modo foco de adentro. */
@@ -518,9 +521,11 @@ export class OfficeState extends Schema {
   /**
    * Reloj del juego (GameClockState de @hyvento/shared): en el instante real `clockAnchorReal` iban
    * `clockAnchorMinute` minutos del juego. El cliente calcula la hora con su reloj; /time mueve el ancla.
+   * En pausa (`clockPaused`) se queda en `clockAnchorMinute`: así está con la sala vacía.
    */
   @type("float64") clockAnchorReal = 0;
   @type("float64") clockAnchorMinute = 0;
+  @type("boolean") clockPaused = false;
   /** La casa del árbol del jardín (ver rooms/casaArbol.ts). */
   @type(TreeHouseState) treeHouse = new TreeHouseState();
   @type(BusState) bus = new BusState();

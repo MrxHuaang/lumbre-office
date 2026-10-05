@@ -5,10 +5,10 @@
 // sol y la baranda (en el globo de quien lo usó, igual para todos: sale de la semilla del servidor).
 import type { OfficeMap, PlacedFurniture } from "@hyvento/map";
 import { heartSmall, scarecrow } from "@hyvento/map/art";
-import { MUNDO, MUNDO_PANEL_OF, seasonOf, sundialLine, viewLine, type Direction, type FurnitureEvent, type Season } from "@hyvento/shared";
+import { MUNDO, MUNDO_PANEL_OF, sundialLine, viewLine, type Direction, type FurnitureEvent, type Season } from "@hyvento/shared";
 import * as Phaser from "phaser";
 import type { Avatar } from "./Avatar";
-import { currentGameTime } from "./gameClock";
+import { currentGameTime, currentSeason } from "./gameClock";
 import { DEPTH_OVERLAY, ensureTexture, worldToScreen, type AreaView } from "./iso/view";
 import "./mundo";
 import { playPrinter, playShower } from "./mundoSonidos";
@@ -54,7 +54,7 @@ export class MundoVivo {
   }
 
   private dressScarecrows() {
-    const season = seasonOf(Date.now());
+    const season = currentSeason();
     if (!this.map || !this.view || season === this.season) return;
     this.season = season;
     const key = ensureTexture(this.scene, `espantapajaros-${season}`, () => scarecrow(season).canvas);
@@ -95,7 +95,7 @@ export class MundoVivo {
         const t = currentGameTime();
         const minute = t?.minuteOfDay ?? 12 * 60;
         const weather = useOfficeStore.getState().weather;
-        const text = e.action === "sundial" ? sundialLine(minute, weather, e.seed) : viewLine(minute, weather, seasonOf(Date.now()), e.seed);
+        const text = e.action === "sundial" ? sundialLine(minute, weather, e.seed) : viewLine(minute, weather, currentSeason(), e.seed);
         who?.say(text);
         return true;
       }

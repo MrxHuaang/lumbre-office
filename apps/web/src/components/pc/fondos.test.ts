@@ -43,13 +43,13 @@ describe("lista de fondos", () => {
     }
   });
 
-  it("el de la estación sigue el mes de Bogotá", () => {
-    expect(estacionDelFondo(Date.UTC(2026, 3, 15, 17))).toBe("primavera");
-    expect(estacionDelFondo(Date.UTC(2026, 6, 15, 17))).toBe("verano");
-    expect(estacionDelFondo(Date.UTC(2026, 9, 15, 17))).toBe("otono");
-    expect(estacionDelFondo(Date.UTC(2026, 0, 15, 17))).toBe("invierno");
-    // 1 de marzo a las 3 a. m. UTC todavía es febrero en Bogotá.
-    expect(estacionDelFondo(Date.UTC(2026, 2, 1, 3))).toBe("invierno");
+  it("el de la estación sigue el calendario del juego (21 días cada una)", () => {
+    expect(estacionDelFondo(0)).toBe("primavera");
+    expect(estacionDelFondo(20)).toBe("primavera");
+    expect(estacionDelFondo(21)).toBe("verano");
+    expect(estacionDelFondo(42)).toBe("otono");
+    expect(estacionDelFondo(63)).toBe("invierno");
+    expect(estacionDelFondo(84)).toBe("primavera");
   });
 });
 

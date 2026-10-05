@@ -101,9 +101,9 @@ export interface GameRepository {
   /** Cambios del editor de la casa, por nivel (JSON crudo: se valida al leer). */
   loadWorldEdits(): Promise<Record<string, unknown>>;
   saveWorldEdits(area: string, edits: unknown, userId: string): Promise<void>;
-  /** Reloj del juego guardado tras un /time (JSON crudo: se valida al leer), o null si nunca se movió. */
+  /** Reloj del juego guardado (JSON crudo: se valida al leer), o null si nunca se guardó. */
   loadGameClock(): Promise<unknown>;
-  saveGameClock(clock: { anchorReal: number; anchorMinute: number }, userId: string): Promise<void>;
+  saveGameClock(clock: SavedGameClock, userId: string): Promise<void>;
   /** Trazos de la pizarra de una sala (JSON crudo: se valida al leer), o null si nunca se dibujó. */
   loadBoard(zoneId: string): Promise<unknown>;
   saveBoard(zoneId: string, strokes: unknown): Promise<void>;
@@ -330,3 +330,11 @@ export interface OficioRepository {
 }
 
 export interface GameRepository extends ChatRetentionRepository, CasinoRecoveryRepository, OficioRepository {}
+
+/** El reloj del juego como se guarda (en pausa: el minuto en que quedó) con la estación de los encargos de cada período. */
+export interface SavedGameClock {
+  anchorReal: number;
+  anchorMinute: number;
+  paused?: boolean;
+  questSeasons?: Record<string, string>;
+}

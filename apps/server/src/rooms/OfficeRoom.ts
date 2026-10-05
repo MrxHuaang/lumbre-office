@@ -166,9 +166,14 @@ import {
   initialClock,
   parseGameClock,
   parseTimeCommand,
+  pauseClock,
+  resumeClock,
   setGameTime,
+  estacionDelDia,
+  isSeason,
   type GameClockState,
   type GameTime,
+  type Season,
   BUS,
   BUS_MSG,
   BUS_TIMINGS,
@@ -230,7 +235,7 @@ import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/sh
 import { LEISURE_MSG, type LeisureState } from "@hyvento/shared";
 import { RECHAZO_MSG, type RechazoCode, type RechazoNotice } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
-import { CAPITULOS, QUEST_MSG, currentQuests, type ActiveQuest, type Capitulo, type QuestClaimResult } from "@hyvento/shared";
+import { CAPITULOS, QUEST_MSG, currentQuests, dailyPeriod, weeklyPeriod, type ActiveQuest, type Capitulo, type QuestClaimResult, type QuestSeasons } from "@hyvento/shared";
 import { encargosDeSala, type Encargos } from "./encargos";
 import { bindHistoria } from "./historia";
 import { isNewcomer } from "@hyvento/shared";
@@ -426,7 +431,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static pescaNow: () => number = () => Date.now();
   /** Encargos: el reloj (día de Bogotá) y qué le toca a cada quien (los tests lo fijan). */
   static encargosNow: () => number = () => Date.now();
-  static encargosPick: (userId: string, now: number) => ActiveQuest[] = currentQuests;
+  static encargosPick: (userId: string, now: number, seasons: QuestSeasons) => ActiveQuest[] = currentQuests;
   /** Los capítulos de la historia (los tests ponen los suyos para probar el motor; ver historia.ts). */
   static encargosChapters: readonly Capitulo[] = CAPITULOS;
   /** Oficios: el azar de las ventajas (la cosecha doble) y el reloj (los tests lo fijan). */
@@ -447,6 +452,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Reloj real para el reloj del juego y hora con la que arranca (los tests los fijan; null = la de Bogotá). */
   static gameClockNow: () => number = () => Date.now();
   static gameClockInitial: GameClockState | null = null;
+  /** Cada cuánto se guarda el reloj mientras corre (por si un deploy reinicia sin avisar). */
+  static clockSaveMs = 5 * 60_000;
   /** Observatorio: el reloj y el azar de la fogata y de las estrellas fugaces, y sus tiempos (los tests los fijan). */
   static observatorioNow: () => number = () => Date.now();
   static observatorioRandom: (n: number) => number = (n) => randomInt(n);
@@ -567,7 +574,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     {
       clock: { setTimeout: (fn, ms) => this.clock.setTimeout(fn, ms) },
       hour: () => this.gameTimeNow().hour,
-      now: () => Date.now(),
+      season: () => this.gameSeason(),
       random: () => OfficeRoom.weatherRandom(),
       onChange: (w) => {
         this.state.weather = w;
@@ -689,7 +696,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     onExternal: (u, key, by) => this.oficios.onStat(u, key, by),
   });
   /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
-  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t), xp: (u, o, xp) => this.oficios.credit(u, o, xp), chapters: OfficeRoom.encargosChapters });
+  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t, this.questSeasons(t)), xp: (u, o, xp) => this.oficios.credit(u, o, xp), chapters: OfficeRoom.encargosChapters });
   /** Oficios con nivel (ver oficios.ts): la experiencia de las acciones y los encargos, y las ventajas. */
   private oficios: Oficios = oficiosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, now: () => OfficeRoom.oficiosNow(), random: (n) => OfficeRoom.oficiosRandom(n), hideout: () => this.sombrero?.hideout?.place ?? null, areas: () => [...this.world.areas.values()].map((a) => ({ id: a.id, name: a.name })), tileSize: 32 });
 
@@ -984,6 +991,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         add: (userId, itemId) => this.held.add(userId, itemId, 1, { pick: true }),
       },
       award: (userId, amount) => this.awardLeisure(userId, amount),
+      season: () => this.gameSeason(),
     });
     this.startHockey();
     this.startBus();
@@ -1180,7 +1188,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Cumpleaños del día y el karaoke de los viernes: se revisa seguido (cambian con la hora de Bogotá).
     this.clock.setInterval(() => void this.events.refresh(), OfficeRoom.eventsRefreshMs);
     this.clock.setInterval(() => void this.presenceTick(), OfficeRoom.presenceTickMs);
-    this.setGameClock(this.startClock);
+    // Sin nadie adentro el reloj está quieto: corre desde que entra el primero (ver resumeGameClock).
+    this.setGameClock(pauseClock(this.startClock, OfficeRoom.gameClockNow()));
+    this.clock.setInterval(() => !this.state.clockPaused && void this.saveClock(), OfficeRoom.clockSaveMs);
+    this.clock.setInterval(() => this.checkSeason(), 5_000);
     this.weather.start();
     // Mientras llueve, lo que se va secando se vuelve a regar solo.
     this.clock.setInterval(() => isWet(this.weather.weather) && this.rainOnGarden(), 60_000);
@@ -1201,6 +1212,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       await this.reloadCasinoSettings();
       await this.loadWorldEdits();
       await this.loadGameClock();
+      this.season = this.gameSeason();
       await this.huerto.load().catch((err) => console.error("loadGarden", err));
       this.startCasino();
       // Apuestas de una corrida anterior que se cayó sin pagarlas (y cada tanto, por si era reciente).
@@ -1259,8 +1271,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     );
   }
 
-  // Apagado por deploy: avisar y cerrar con el código de reinicio (ver reinicio.ts).
+  // Apagado por deploy: avisar y cerrar con el código de reinicio (ver reinicio.ts). El reloj se guarda
+  // antes, por si acaso (al vaciarse la sala y en onDispose se vuelve a guardar).
   onBeforeShutdown() {
+    void this.saveClock();
     void closeForRestart(this);
   }
 
@@ -1293,6 +1307,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       mochilas: () => this.held.flushAll(),
       arcade: () => this.arcade?.flush(),
       decoracion: () => this.decorQueue,
+      reloj: () => this.saveClock(),
     });
   }
 
@@ -1307,6 +1322,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   }
 
   async onJoin(client: Client<UserData>, options: unknown, auth: GameTokenClaims) {
+    this.resumeGameClock();
     this.removeOtherPresences(auth.sub, client.sessionId);
     this.fishery.forget(auth.sub); // un lance de la sesión anterior no sigue en la nueva
 
@@ -1544,12 +1560,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return decor;
   }
 
-  /** Si un admin movió la hora con /time, sigue desde ahí (el reloj de siempre ya cuenta sin reiniciarse). */
+  /**
+   * El reloj guardado (al vaciarse la sala, cada tanto y con /time): sigue desde el minuto en que quedó,
+   * quieto hasta que entre alguien. Sin fila, el reloj de siempre (cuenta desde el día 0). También trae la
+   * estación con que se repartieron los encargos de hoy y de la semana.
+   */
   private async loadGameClock() {
     if (OfficeRoom.gameClockInitial) return;
-    const saved = parseGameClock(await this.repo.loadGameClock().catch((err) => console.error("loadGameClock", err)));
+    const raw = await this.repo.loadGameClock().catch((err) => console.error("loadGameClock", err));
+    const saved = parseGameClock(raw);
     if (!saved) return;
-    this.setGameClock(saved);
+    const now = OfficeRoom.gameClockNow();
+    const frozen = pauseClock(saved, now);
+    this.setGameClock(this.state.clockPaused ? frozen : resumeClock(frozen, now));
+    const seasons = (raw as { questSeasons?: unknown }).questSeasons;
+    if (seasons && typeof seasons === "object")
+      for (const [period, season] of Object.entries(seasons)) if (isSeason(season)) this.questSeasonMemo[period] = season;
     this.sombrero.refresh();
   }
 
@@ -2448,7 +2474,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Reloj del juego de la sala (el mismo que ven todos en `state`). */
   gameClock(): GameClockState {
-    return { anchorReal: this.state.clockAnchorReal, anchorMinute: this.state.clockAnchorMinute };
+    return { anchorReal: this.state.clockAnchorReal, anchorMinute: this.state.clockAnchorMinute, paused: this.state.clockPaused };
   }
 
   /** Hora del juego ahora. */
@@ -2459,6 +2485,64 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private setGameClock(c: GameClockState) {
     this.state.clockAnchorReal = c.anchorReal;
     this.state.clockAnchorMinute = c.anchorMinute;
+    this.state.clockPaused = Boolean(c.paused);
+  }
+
+  /** La estación del calendario del juego ahora (ver calendario.ts). */
+  gameSeason(): Season {
+    return estacionDelDia(this.gameTimeNow().day);
+  }
+
+  /** Entra alguien a la sala vacía: el reloj sigue desde el minuto en que quedó. */
+  private resumeGameClock() {
+    if (this.state.clockPaused) this.setGameClock(resumeClock(this.gameClock(), OfficeRoom.gameClockNow()));
+  }
+
+  /**
+   * Salió el último: el reloj se queda quieto (así no pasan días ni estaciones sin nadie) y se guarda el
+   * minuto en que quedó. Quien espera para reconectarse sigue en `players`: mientras, el reloj corre.
+   */
+  private pauseGameClockIfEmpty() {
+    if (this.state.clockPaused || this.state.players.size > 0 || this.clients.length > 0) return;
+    this.setGameClock(pauseClock(this.gameClock(), OfficeRoom.gameClockNow()));
+    void this.saveClock();
+  }
+
+  /** Guarda el reloj (en pausa, con el minuto en que va) y la estación de los encargos. */
+  private saveClock(userId = ""): Promise<void> {
+    const clock = { ...pauseClock(this.gameClock(), OfficeRoom.gameClockNow()), questSeasons: { ...this.questSeasonMemo } };
+    return this.repo.saveGameClock(clock, userId).catch((err) => console.error("saveGameClock", err));
+  }
+
+  /** La estación con que se vio el mundo la última vez (para notar el cambio). */
+  private season: Season | null = null;
+
+  /** Cambió la estación del juego: el huerto sigue con la nueva. */
+  private checkSeason() {
+    const season = this.gameSeason();
+    if (season === this.season) return;
+    const first = this.season === null;
+    this.season = season;
+    if (!first) this.huerto?.reseason(OfficeRoom.huertoNow());
+  }
+
+  /**
+   * Con qué estación del juego se reparten los encargos de cada período: la de la primera vez que se
+   * reparte en ese período (así lo asignado no cambia si la estación cambia a mitad del día o de la
+   * semana). Se guarda con el reloj para que un reinicio tampoco lo cambie.
+   */
+  private questSeasonMemo: Record<string, Season> = {};
+  private questSeasons(now: number): QuestSeasons {
+    const day = dailyPeriod(now);
+    const week = weeklyPeriod(now);
+    const memo = this.questSeasonMemo;
+    const daily = memo[day];
+    const weekly = memo[week];
+    if (daily && weekly) return { daily, weekly };
+    const season = this.gameSeason();
+    this.questSeasonMemo = { [day]: daily ?? season, [week]: weekly ?? season };
+    void this.saveClock();
+    return { daily: daily ?? season, weekly: weekly ?? season };
   }
 
   /**
@@ -2479,7 +2563,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const now = OfficeRoom.gameClockNow();
       this.setGameClock(cmd.kind === "set" ? setGameTime(this.gameClock(), now, cmd.minuteOfDay) : addGameTime(this.gameClock(), now, cmd.minutes));
       // Se guarda para que un reinicio del servidor no deshaga el cambio.
-      this.repo.saveGameClock(this.gameClock(), this.state.players.get(client.sessionId)?.userId ?? "").catch((err) => console.error("saveGameClock", err));
+      void this.saveClock(this.state.players.get(client.sessionId)?.userId ?? "");
       this.sombrero.refresh();
     }
     const t = this.gameTimeNow();
@@ -3862,6 +3946,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (this.houseEditLock?.sessionId === sessionId) this.houseEditLock = null;
     this.escenario?.sweep(this.state.players);
     if (this.podcast) this.sendPodcastNotices(this.podcast.sync(this.podcastInside(), Date.now()));
+    this.pauseGameClockIfEmpty();
     if (!player) return;
     // Si ya no le queda ninguna sesión, deja de ser invitado en cualquier oficina.
     const stillHere = [...this.state.players.values()].some((p) => p.userId === player.userId);

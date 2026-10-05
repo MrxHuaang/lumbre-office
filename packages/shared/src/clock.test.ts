@@ -8,6 +8,8 @@ import {
   initialClock,
   GAME_EPOCH,
   parseGameClock,
+  pauseClock,
+  resumeClock,
   isGameNight,
   parseTimeCommand,
   setGameTime,
@@ -45,6 +47,19 @@ describe("reloj del juego", () => {
     expect(parseGameClock({ anchorReal: "5", anchorMinute: 90 })).toBeNull();
     expect(parseGameClock({ anchorReal: 5, anchorMinute: -1 })).toBeNull();
     expect(parseGameClock(null)).toBeNull();
+    expect(parseGameClock({ anchorReal: 5, anchorMinute: 90, paused: true })).toEqual({ anchorReal: 5, anchorMinute: 90, paused: true });
+  });
+
+  it("en pausa no corre, y al reanudar sigue desde el minuto en que quedó", () => {
+    const c = at(2 * 1440 + 10 * 60);
+    const hour = GAME_DAY_REAL_MS / 24;
+    const paused = pauseClock(c, hour); // 11:00
+    expect(gameTime(paused, hour)).toMatchObject({ day: 2, hour: 11 });
+    expect(gameTime(paused, 50 * hour)).toMatchObject({ day: 2, hour: 11 });
+    const again = resumeClock(paused, 50 * hour);
+    expect(again.paused).toBeUndefined();
+    expect(gameTime(again, 50 * hour)).toMatchObject({ day: 2, hour: 11 });
+    expect(gameTime(again, 51 * hour)).toMatchObject({ day: 2, hour: 12 });
   });
 
   it("/time set va hacia adelante y no retrocede el día", () => {

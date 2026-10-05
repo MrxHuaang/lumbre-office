@@ -1,7 +1,7 @@
 // La pantalla de carga al entrar a la cabaña (EntryLoader): las etapas de verdad de la carga y cuánto
 // pesa cada una en la barra, los consejos que van rotando y el momento del día y la estación de la escena.
 // Todo puro (sin DOM ni reloj propio) para probarlo; el estado vive en game/entryStore.ts.
-import { seasonOf, skyPhase, type Season, type SkyPhase } from "@hyvento/shared";
+import { skyPhase, type Season, type SkyPhase } from "@hyvento/shared";
 
 // ---------- Etapas ----------
 
@@ -130,11 +130,11 @@ export interface EntryMood {
 
 /**
  * Cómo se ve el camino: el momento del día del reloj del juego si ya llegó (si no, la hora local del
- * navegador) y la estación del mes de Bogotá.
+ * navegador) y la estación del calendario del juego (ver `currentSeason`).
  */
-export function entryMood(now: number, gameMinute: number | null, localMinute: number): EntryMood {
+export function entryMood(season: Season, gameMinute: number | null, localMinute: number): EntryMood {
   const minuteOfDay = ((Math.floor(gameMinute ?? localMinute) % 1440) + 1440) % 1440;
-  return { phase: skyPhase(minuteOfDay), season: seasonOf(now), minuteOfDay };
+  return { phase: skyPhase(minuteOfDay), season, minuteOfDay };
 }
 
 /**
