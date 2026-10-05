@@ -1721,6 +1721,52 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { c: hex("#6a3a1e"), C: hex("#4a2410"), g: hex("#e8c050") },
   },
+  // ---------- Capítulo 2: las piezas del reloj de pie ----------
+  // Engranaje de bronce con el hueco del eje y los dientes alrededor.
+  "pieza-engranaje": {
+    rows: [
+      "..o.o.o..", //
+      ".obobobo.",
+      "obBBBBBbo",
+      ".bBbobBb.",
+      "obBo.oBbo",
+      ".bBbobBb.",
+      "obBBBBBbo",
+      ".obobobo.",
+      "..o.o.o..",
+    ],
+    colors: { b: hex("#a8742c"), B: hex("#d8a24a") },
+  },
+  // Resorte de acero templado, en espiral.
+  "pieza-resorte": {
+    rows: [
+      ".ooooo.", //
+      "osSSSso",
+      ".ooooo.",
+      "oSSSSSo",
+      ".ooooo.",
+      "osSSSso",
+      ".ooooo.",
+      "oSSSSSo",
+      ".ooooo.",
+    ],
+    colors: { s: hex("#8a96a8"), S: hex("#c8d2e0") },
+  },
+  // El péndulo: la varilla dorada y el disco con el brillo al centro.
+  "pieza-pendulo": {
+    rows: [
+      "..ooo..", //
+      "..oGo..",
+      "..oGo..",
+      "..oGo..",
+      ".ooGoo.",
+      "oGGYGGo",
+      "oGYWYGo",
+      "oGGYGGo",
+      ".ooooo.",
+    ],
+    colors: { G: hex("#c9962a"), Y: hex("#f2d16a"), W: hex("#fff6d0") },
+  },
 };
 
 // ---------- La granja del jardín: ingredientes y lo de la parrilla ----------

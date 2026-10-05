@@ -459,6 +459,16 @@ export class Encargos {
     };
   }
 
+  /**
+   * En qué va un paso de historia de alguien: "open" (abierto, todavía sin cumplir), "done" (cumplido o ya
+   * entregado) o null (no lo tiene, o no se ha cargado). Lo usan las salas de cada capítulo.
+   */
+  storyStep(userId: string, questId: string): "open" | "done" | null {
+    const row = this.users.get(userId)?.rows.get(questKey(questId, STORY_PERIOD));
+    if (!row) return null;
+    return row.status === "ACTIVE" && row.progress < row.goal ? "open" : "done";
+  }
+
   /** Para los tests: lo que se sabe de alguien. */
   rowsOf(userId: string): QuestRecord[] {
     return [...(this.users.get(userId)?.rows.values() ?? [])].map((r) => ({ ...r }));

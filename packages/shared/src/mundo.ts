@@ -17,10 +17,11 @@ import type { Weather } from "./weather";
  * - `doghouse`: la casita del perro (tu mascota descansa o juega ahí);
  * - `bowl`: el comedero de la casa propia (tu mascota va a comer);
  * - `sundial`: el reloj de sol dice la hora del juego (de día);
- * - `view`: la baranda del balcón o de la terraza: mirar el paisaje.
+ * - `view`: la baranda del balcón o de la terraza: mirar el paisaje;
+ * - `clock`: el reloj de pie (la historia, capítulo 2: lo atiende la sala del capítulo).
  */
-export type MundoAction = "panel" | "print" | "shower" | "doghouse" | "bowl" | "sundial" | "view";
-export const MUNDO_ACTIONS: readonly MundoAction[] = ["panel", "print", "shower", "doghouse", "bowl", "sundial", "view"];
+export type MundoAction = "panel" | "print" | "shower" | "doghouse" | "bowl" | "sundial" | "view" | "clock";
+export const MUNDO_ACTIONS: readonly MundoAction[] = ["panel", "print", "shower", "doghouse", "bowl", "sundial", "view", "clock"];
 export const isMundoAction = (a: string): a is MundoAction => (MUNDO_ACTIONS as readonly string[]).includes(a);
 
 /** Los paneles que abre un mueble (`panel`). */
@@ -105,6 +106,8 @@ export const MUNDO_USABLES: Record<string, UsableSpec> = {
   "dog-house": { action: "doghouse", label: "Llevar a tu mascota a la casita", cooldownMs: 3_000 },
   // La casa propia: el comedero de la cocina.
   "pet-bowl": { action: "bowl", label: "Servirle a tu mascota", cooldownMs: 3_000 },
+  // El reloj de pie (el del recibidor es el de E.: capítulo 2 de la historia).
+  "grandfather-clock": { action: "clock", label: "Mirar el reloj de pie", cooldownMs: 2_000 },
 };
 
 /** Lo gratis nuevo que se lleva en la mano (se suma a CONSUMABLES). */

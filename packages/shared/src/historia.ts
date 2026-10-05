@@ -12,6 +12,7 @@ import { STAT_KEYS, STAT_PREFIX } from "./achievements";
 import type { BagObject } from "./bolsa";
 import type { QuestDef, QuestSkill } from "./encargos";
 import type { Weather } from "./weather";
+import { capitulo2 } from "./capitulo2";
 
 const step = (n: number, stat: string, skill: QuestSkill, title: string, text: string): QuestDef => ({
   id: `llegada-${n}`,
@@ -168,7 +169,10 @@ export const CAPITULO_1: Capitulo = {
  * Los capítulos, en orden. Uno nuevo va acá: sus pasos (ids que no se cambian nunca), sus consejos, la
  * bandera del anterior en `opensWith`, la suya (`STAT_KEYS.storyCh<n>`) y, si trae, la carta y el logro.
  */
-export const CAPITULOS: readonly Capitulo[] = [CAPITULO_1];
+/** Capítulo 2, "El reloj de pie" (capitulo2.ts): lo abre terminar el 1. */
+export const CAPITULO_2: Capitulo = capitulo2({ opensWith: STAT_KEYS.storyCh1, flag: STAT_KEYS.storyCh2 });
+
+export const CAPITULOS: readonly Capitulo[] = [CAPITULO_1, CAPITULO_2];
 
 /** Todos los pasos de historia (de todos los capítulos): van en el catálogo de encargos. */
 export const STORY_QUESTS: readonly QuestDef[] = CAPITULOS.flatMap((c) => c.steps);
@@ -255,6 +259,12 @@ export const HISTORIA_MSG = {
   board: "historia:board",
   /** Servidor → cliente: terminó un capítulo y llegó su carta al buzón (`HistoriaLetter`). */
   letter: "historia:letter",
+  /** Servidor → cliente: que se vea una cinemática de la historia (`HistoriaCine`). */
+  cine: "historia:cine",
+  /** Servidor → cliente: un aviso de la historia ("le faltan piezas"). */
+  aviso: "historia:aviso",
+  /** Cliente → servidor: comprarle el péndulo al Man del Sombrero (capítulo 2). */
+  pendulo: "historia:pendulo",
 } as const;
 
 export interface HistoriaLetter {
@@ -262,6 +272,11 @@ export interface HistoriaLetter {
   id: string;
   /** El capítulo que la trajo (`Capitulo.id`). */
   chapter: string;
+}
+
+export interface HistoriaCine {
+  id: string;
+  vars?: Record<string, string | number>;
 }
 
 export interface HistoriaPrologue {

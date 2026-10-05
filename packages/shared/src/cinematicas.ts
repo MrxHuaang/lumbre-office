@@ -11,6 +11,7 @@
 import type { Direction } from "./protocol";
 import { EMOTE_IDS, type EmoteGesture, type EmoteId } from "./emotes";
 import { FESTIVAL_CINEMATICAS } from "./festivales";
+import { CAPITULO2_CINEMATICAS } from "./capitulo2";
 
 /** Quién hace algo: el jugador ("yo"), un NPC fijo (por su id) o un actor que la cinemática pone (`extra`). */
 export type CineActor = string;
@@ -228,6 +229,8 @@ export const CINEMATICAS: Record<string, CineDef> = {
 
 // Las de los festivales (apertura, cierre y llegada tarde) viven con los festivales.
 for (const def of FESTIVAL_CINEMATICAS) CINEMATICAS[def.id] = def;
+// Las de los capítulos de la historia, con su contenido.
+for (const def of CAPITULO2_CINEMATICAS) CINEMATICAS[def.id] = def;
 
 export const cineById = (id: string): CineDef | undefined => CINEMATICAS[id];
 

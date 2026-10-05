@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MAX_STATS, STAT_KEYS, STAT_PREFIX } from "./achievements";
 import { BAG_OBJECTS } from "./bolsa";
+import { HISTORIA_RELOJ } from "./capitulo2";
 import { CAFE_MENU } from "./cafe";
 import {
   QUEST_GIVERS,
@@ -32,7 +33,8 @@ const DAY = 86_400_000;
 const MON = Date.UTC(2026, 8, 28, 15, 0);
 /** La estación del juego con que se reparte (la fija el servidor por período). */
 const OTONO: QuestSeasons = { daily: "otono", weekly: "otono" };
-const known = new Set<string>([...Object.values(STAT_KEYS), ...Object.values(GRANJA_STATS)]);
+// Los contadores de la historia (los suma la sala de cada capítulo) también valen.
+const known = new Set<string>([...Object.values(STAT_KEYS), ...Object.values(GRANJA_STATS), ...Object.values(HISTORIA_RELOJ)]);
 
 describe("el catálogo de encargos", () => {
   it("tiene unos 40, con ids únicos, textos cortos y quien los da existe", () => {
