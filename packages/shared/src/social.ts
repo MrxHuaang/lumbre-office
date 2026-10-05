@@ -1,7 +1,7 @@
 // Fase 5: regalos (por la web, llegan al buzón) e intercambios en vivo (por el servidor de juego, entre
 // dos personas cerca). Los topes y los mensajes están aquí para que web, servidor y cliente usen lo mismo.
 import { z } from "zod";
-import { bagItemInfo } from "./bolsa";
+import { bagItemInfo, isStoryItem } from "./bolsa";
 
 /** Id de un objeto de la mochila: un mueble de la tienda o `obj:<id>` (lo que se agarra, ver bolsa.ts). */
 export const ItemId = z.string().regex(/^[a-z0-9][a-z0-9:_-]{0,63}$/, "Objeto inválido");
@@ -44,6 +44,9 @@ export const GIFT = {
 /** `refId` de los movimientos de un regalo (lo que sale y lo que llega al abrirlo). */
 export const giftRefId = (giftId: string) => `gift:${giftId}`;
 
+/** Por qué un objeto de historia no sale de la mochila de quien lo tiene (ver historia.ts). */
+export const STORY_ITEM_GIFT_TEXT = "Los objetos de la historia no se regalan: son tuyos.";
+
 /** POST /api/gifts: puntos y/o un objeto de la mochila, con una nota. */
 export const GiftCreateBody = z
   .object({
@@ -57,6 +60,7 @@ export const GiftCreateBody = z
     if (g.itemId && g.quantity < 1) ctx.addIssue({ code: "custom", path: ["quantity"], message: "Elige cuántas unidades regalar." });
     if (!g.itemId && g.quantity > 0) ctx.addIssue({ code: "custom", path: ["itemId"], message: "Falta el objeto." });
     if (g.points === 0 && !g.itemId) ctx.addIssue({ code: "custom", path: ["points"], message: "Un regalo lleva puntos, un objeto o las dos cosas." });
+    if (g.itemId && isStoryItem(g.itemId)) ctx.addIssue({ code: "custom", path: ["itemId"], message: STORY_ITEM_GIFT_TEXT });
   });
 export type GiftCreateBody = z.infer<typeof GiftCreateBody>;
 
@@ -232,6 +236,7 @@ export type TradeError =
   | "limit-items"
   | "empty"
   | "one-sided"
+  | "story"
   | "failed";
 
 export interface TradeProblem {
@@ -254,6 +259,7 @@ export const TRADE_ERROR_TEXT: Record<TradeError, string> = {
   "limit-items": `Hoy ya se dieron muchos muebles: el tope es de ${GIFT.dailyItems} al día, entre regalos e intercambios.`,
   empty: "Pongan algo antes de confirmar.",
   "one-sided": "Los dos tienen que poner algo. Para dar sin recibir nada, manda un regalo.",
+  story: "Los objetos de la historia no se intercambian: son de quien los encontró.",
   failed: "No se pudo hacer el intercambio. Intenten de nuevo.",
 };
 

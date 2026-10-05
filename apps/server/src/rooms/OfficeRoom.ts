@@ -230,7 +230,7 @@ import { PESCA_MSG, type PescaBuyResult, type PescaSoldEvent } from "@hyvento/sh
 import { LEISURE_MSG, type LeisureState } from "@hyvento/shared";
 import { RECHAZO_MSG, type RechazoCode, type RechazoNotice } from "@hyvento/shared";
 import { PescaStand } from "./pescaTienda";
-import { QUEST_MSG, currentQuests, type ActiveQuest, type QuestClaimResult } from "@hyvento/shared";
+import { CAPITULOS, QUEST_MSG, currentQuests, type ActiveQuest, type Capitulo, type QuestClaimResult } from "@hyvento/shared";
 import { encargosDeSala, type Encargos } from "./encargos";
 import { bindHistoria } from "./historia";
 import { isNewcomer } from "@hyvento/shared";
@@ -274,7 +274,7 @@ import { FocusTimers } from "./focus";
 import { Phones } from "./phones";
 import { registerComunicacion, type Comunicacion } from "./comunicacion";
 import { HUERTO_MSG, type HuertoNotice } from "@hyvento/shared";
-import { BAG, BAG_MSG, CELULAR_ITEM, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
+import { BAG, BAG_MSG, CELULAR_ITEM, BagDropMessage, BagMoveMessage, BagSelectMessage, bagItemsOf, isStoryItem, objIdOf, objItemId, type BagNotice, type BagView } from "@hyvento/shared";
 import { Huerto, isHuertoAction } from "./huerto";
 import { CASA_ARBOL, CASA_ARBOL_MSG, type CasaArbolNotice } from "@hyvento/shared";
 import { CasaArbol } from "./casaArbol";
@@ -427,6 +427,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** Encargos: el reloj (día de Bogotá) y qué le toca a cada quien (los tests lo fijan). */
   static encargosNow: () => number = () => Date.now();
   static encargosPick: (userId: string, now: number) => ActiveQuest[] = currentQuests;
+  /** Los capítulos de la historia (los tests ponen los suyos para probar el motor; ver historia.ts). */
+  static encargosChapters: readonly Capitulo[] = CAPITULOS;
   /** Oficios: el azar de las ventajas (la cosecha doble) y el reloj (los tests lo fijan). */
   static oficiosRandom: (n: number) => number = (n) => randomInt(n);
   static oficiosNow: () => number = () => Date.now();
@@ -687,7 +689,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     onExternal: (u, key, by) => this.oficios.onStat(u, key, by),
   });
   /** Encargos del tablón y de los personajes (ver encargos.ts): avanzan con los contadores y se entregan con E. */
-  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t), xp: (u, o, xp) => this.oficios.credit(u, o, xp) });
+  private encargos: Encargos = encargosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, minuteOfDay: () => this.gameTimeNow().minuteOfDay, mapOf: (a) => this.mapOf(a), now: () => OfficeRoom.encargosNow(), pick: (u, t) => OfficeRoom.encargosPick(u, t), xp: (u, o, xp) => this.oficios.credit(u, o, xp), chapters: OfficeRoom.encargosChapters });
   /** Oficios con nivel (ver oficios.ts): la experiencia de las acciones y los encargos, y las ventajas. */
   private oficios: Oficios = oficiosDeSala({ room: this, repo: () => this.repo, held: this.held, stats: this.achievements, now: () => OfficeRoom.oficiosNow(), random: (n) => OfficeRoom.oficiosRandom(n), hideout: () => this.sombrero?.hideout?.place ?? null, areas: () => [...this.world.areas.values()].map((a) => ({ id: a.id, name: a.name })), tileSize: 32 });
 
@@ -3037,6 +3039,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const { itemId, quantity } = parsed.data;
     if (objIdOf(itemId) === null) return void client.send(BAG_MSG.notice, { code: "furniture" } satisfies BagNotice);
     if (itemId === CELULAR_ITEM) return void client.send(BAG_MSG.notice, { code: "keep" } satisfies BagNotice);
+    if (isStoryItem(itemId)) return void client.send(BAG_MSG.notice, { code: "story" } satisfies BagNotice);
     // "Tirar todo" pide de más: se tira lo que haya.
     const n = Math.min(quantity, this.held.count(player.userId, itemId));
     if (n > 0) await this.held.take(player.userId, itemId, n);
