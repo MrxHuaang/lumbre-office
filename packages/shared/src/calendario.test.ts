@@ -48,8 +48,10 @@ describe("el calendario del juego", () => {
     expect(estacionDelJuego(paused, 100 * GAME_DAY_REAL_MS)).toBe("primavera");
   });
 
-  it("los festivales todavía no están (los agrega otro cambio)", () => {
-    for (const s of SEASONS) expect(calendarMarks(s)).toEqual([]);
+  it("marca los festivales de cada estación (los de varios días, todos sus días)", () => {
+    for (const s of SEASONS) expect(calendarMarks(s).length, s).toBeGreaterThan(0);
+    expect(calendarMarks("otono")).toContainEqual({ dia: 21, tipo: "festival", texto: "Noche de brujas" });
+    expect(calendarMarks("invierno").filter((m) => m.texto.startsWith("Novenas"))).toHaveLength(9);
   });
 });
 

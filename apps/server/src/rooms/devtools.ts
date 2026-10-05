@@ -3,9 +3,9 @@
 // "/ir sotano roulette"). Sirve para probar el mapa grande sin cruzarlo caminando. También "/clima <tipo>"
 // fuerza un clima (despejado, nublado, lluvia, tormenta, niebla) y "/sombrero [escondite]" hace salir al
 // Man del Sombrero ya (en el escondite de hoy o en ese) y lleva ahí a quien lo escribió. En producción no
-// existe. "/ir casa" lleva a la casa propia (ver `parseCasaJump`).
+// existe. "/ir casa" lleva a la casa propia (ver `parseCasaJump`). "/festival <id|off>" prende un festival ya.
 import { CASA_CONEXIONES, pointsOfType, type OfficeMap } from "@hyvento/map";
-import { casaAreaOf, isWeather, parseCasaArea, SOMBRERO_HIDEOUTS, WEATHERS, type Weather } from "@hyvento/shared";
+import { casaAreaOf, FESTIVAL_IDS, isWeather, parseCasaArea, SOMBRERO_HIDEOUTS, WEATHERS, type FestivalId, type Weather } from "@hyvento/shared";
 
 export function devToolsEnabled(): boolean {
   // Render no define NODE_ENV (y ponerlo en render.yaml dejaría a prisma fuera del install): se mira RENDER.
@@ -72,4 +72,16 @@ export function parseDevWeather(text: string): Weather | { error: string } | nul
   if (!m) return null;
   const w = m[1]?.toLowerCase();
   return isWeather(w) ? w : { error: `Climas: ${WEATHERS.join(", ")}` };
+}
+
+/**
+ * Interpreta "/festival <id|off>" (prende un festival ya, sin esperar la fecha, o vuelve al calendario).
+ * Devuelve null si el texto no es el comando; `error` si el festival no existe.
+ */
+export function parseDevFestival(text: string): { id: FestivalId | null } | { error: string } | null {
+  const m = /^\/festival(?:\s+(\S+))?\s*$/.exec(text.trim());
+  if (!m) return null;
+  const id = m[1]?.toLowerCase();
+  if (id === "off") return { id: null };
+  return id && (FESTIVAL_IDS as readonly string[]).includes(id) ? { id: id as FestivalId } : { error: `Festivales: ${FESTIVAL_IDS.join(", ")} (u "off")` };
 }

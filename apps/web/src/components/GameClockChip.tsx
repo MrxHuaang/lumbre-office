@@ -1,9 +1,11 @@
 "use client";
 
-import { GAME_DAY_REAL_MS, añoTexto, clockStep, fechaCorta, fechaDelJuego, fechaPlaca, formatGameTime, skyPhase, type SkyPhase } from "@hyvento/shared";
+import { FESTIVAL_HORAS, festivalById, GAME_DAY_REAL_MS, añoTexto, clockStep, fechaCorta, fechaDelJuego, fechaPlaca, formatGameTime, skyPhase, type SkyPhase } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import { useGameTime } from "@/game/gameClock";
 import { sfx } from "@/game/sfx";
+import { useOfficeStore } from "@/game/store";
+import { PixelIcon } from "./Cozy";
 import { SKY_H, SKY_W, skyPixels } from "@/lib/sky";
 import { CalendarioPanel } from "./CalendarioPanel";
 
@@ -57,6 +59,27 @@ export function GameClockChip() {
         <span className="font-pixel text-[15px] leading-none tabular-nums">{time}</span>
       </button>
       {open && <CalendarioPanel fecha={fecha} />}
+    </div>
+  );
+}
+
+const FASE_TEXT: Record<string, string> = { previa: `abre a las ${FESTIVAL_HORAS.apertura}:00`, fiesta: "¡en fiesta!", fin: "ya cerró" };
+
+/** El letrero del festival de hoy (si hay): su nombre, con su color, y si ya abrió. */
+export function FestivalChip() {
+  const { id, fase } = useOfficeStore((s) => s.festival);
+  const f = id ? festivalById(id) : undefined;
+  if (!f) return null;
+  return (
+    <div
+      className="cozy-chip flex h-[34px] items-center gap-1.5 border-l-4 px-2.5 text-[13px]"
+      style={{ borderLeftColor: f.color }}
+      title={`${f.nombre}: ${f.resumen}`}
+      aria-label={`Hoy es ${f.nombre}, ${FASE_TEXT[fase] ?? ""}`}
+    >
+      <PixelIcon name="star" size={14} />
+      <span className="font-pixel leading-none">{f.nombre}</span>
+      <span className="hidden text-cozy-ink-soft md:inline">· {FASE_TEXT[fase] ?? ""}</span>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 // servidor (subir de nivel, un pez legendario o mítico, ver la estrella fugaz primero, el jackpot, el primer
 // huevo, un logro legendario, el cumpleaños propio). Solo si me pasó a mí. Las de la historia (el prólogo,
 // el final de un capítulo) y la de adoptar una mascota se disparan desde game/historia.ts y mascotas.ts.
-import { achievementById, fishById, GRANJA_MSG, OFICIO_INFO, rewardsOf, RARITY, type GranjaNotice } from "@hyvento/shared";
+import { achievementById, FESTIVAL_MSG, fishById, GRANJA_MSG, type FestivalCineEvent, OFICIO_INFO, rewardsOf, RARITY, type GranjaNotice } from "@hyvento/shared";
 import { useAchievementStore } from "../achievements";
 import { useFishingStore } from "../fishing/store";
 import { useMundoStore } from "../mundo";
@@ -63,6 +63,8 @@ if (typeof window !== "undefined") {
   if (process.env.NODE_ENV !== "production") Object.assign(window, { __cine: playCinematic, __cineDef: playCineDef });
 
   onRoom((room) => {
+    // Los festivales: la apertura, el cierre y la llegada tarde las manda el servidor a todos.
+    room.onMessage(FESTIVAL_MSG.cine, (e: FestivalCineEvent) => void playCinematic(e.id));
     room.onMessage(GRANJA_MSG.notice, (n: GranjaNotice) => {
       if (n.code === "eggs") void playCinematic("primer-huevo");
     });
