@@ -426,8 +426,14 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <PhotoPreview />
           <PhotoFlash />
           <BookReader />
-          {panel?.kind === "fitting" && (
-            <FittingPanel profile={profile} atObject={panel.atObject} onClose={closePanel} onSaved={onProfileChange} />
+          {(panel?.kind === "fitting" || panel?.kind === "wardrobe") && (
+            <FittingPanel
+              profile={profile}
+              atObject={panel.atObject}
+              wardrobe={panel.kind === "wardrobe"}
+              onClose={closePanel}
+              onSaved={onProfileChange}
+            />
           )}
           {panel?.kind === "dj" && <DjConsole atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "cinema" && <CinemaPanel onClose={closePanel} />}

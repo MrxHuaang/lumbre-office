@@ -56,3 +56,19 @@ describe("afuera de la casa", () => {
     for (let y = 0; y < casa.height; y++) for (const x of [0, 1, casa.width - 2, casa.width - 1]) expect(floorAt(x, y), `${x},${y}`).toBe("forest");
   });
 });
+
+describe("armarios de la casa", () => {
+  it("cada armario tiene su punto al lado, libre y al que se llega desde la escalera", () => {
+    const arriba = buildCasaPropia("casa:plantilla:arriba")!;
+    const points = pointsOfType(arriba, "wardrobe");
+    const armarios = arriba.furniture.filter((f) => f.type === "armario");
+    expect(points).toHaveLength(armarios.length);
+    const from = CASA_CONEXIONES.arriba.escalera.llegada;
+    for (const f of armarios) {
+      const p = points.find((p) => p.tileX >= f.x - 1 && p.tileX <= f.x + f.w && p.tileY >= f.y - 1 && p.tileY <= f.y + f.d);
+      expect(p, `${f.x},${f.y}`).toBeDefined();
+      expect(isBlockedTile(arriba, p!.tileX, p!.tileY)).toBe(false);
+      expect(findPath(arriba, from, { x: p!.tileX, y: p!.tileY })).not.toBeNull();
+    }
+  });
+});

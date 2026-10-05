@@ -60,7 +60,7 @@ export interface PlayerInfo {
  * Objetos con los que se interactúa (tecla E o clic): buzón y tablón del jardín, barra de la cafetería,
  * mostrador de la tienda y probador.
  */
-export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "pole" | "roulette" | "cashier" | "blackjack" | "bar" | "fishing" | "photos"
+export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "wardrobe" | "pole" | "roulette" | "cashier" | "blackjack" | "bar" | "fishing" | "photos"
   // Club y arcade del sótano: la consola de la cabina de DJ y las máquinas.
   | "dj"
   | "arcade"

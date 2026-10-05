@@ -164,6 +164,11 @@ export function casaArriba(userId: string): AreaDef {
         to: { area: casaAreaOf(userId, "abajo"), ...CASA_CONEXIONES.abajo.escalera.llegada },
       },
     ],
-    points: [],
+    // Frente a cada armario: E abre el vestidor (cambiarse de ropa como en el probador de la tienda).
+    points: [
+      { type: "wardrobe", name: "Armario", x: 3, y: 1, zone: rid("alcoba") },
+      { type: "wardrobe", name: "Armario", x: 4, y: 9, zone: rid("huespedes") },
+      { type: "wardrobe", name: "Armario", x: 15, y: 12, zone: rid("amigos") },
+    ],
   };
 }

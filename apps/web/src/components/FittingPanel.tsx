@@ -2,6 +2,7 @@
 
 // Fase 3b: el probador de la tienda (planta baja), un vestidor. Te cambias de pies a cabeza mirando la
 // vista previa y guardas el look: todos lo ven al instante. La ropa es gratis (igual que en "Mi personaje").
+// El armario de la casa propia abre el mismo panel (`wardrobe`), con su nombre.
 import { useState } from "react";
 import { sendProfileChanged } from "@/game/network";
 import { useOfficeStore, type Profile } from "@/game/store";
@@ -13,11 +14,13 @@ import { PanelShell } from "./PointsPanels";
 export function FittingPanel({
   profile,
   atObject,
+  wardrobe = false,
   onClose,
   onSaved,
 }: {
   profile: Profile;
   atObject: boolean;
+  wardrobe?: boolean;
   onClose: () => void;
   onSaved: (p: Profile) => void;
 }) {
@@ -46,17 +49,19 @@ export function FittingPanel({
     }
   };
 
+  const title = wardrobe ? "Armario" : "Probador";
+
   if (!atObject)
     return (
-      <PanelShell title="Probador" icon="star" onClose={onClose}>
+      <PanelShell title={title} icon="star" onClose={onClose}>
         <p className="text-[14px] leading-snug text-cozy-ink-soft">
-          Para cambiarte de ropa, ve al probador de la tienda (planta baja): acércate a la cabina o al perchero y toca E.
+          Para cambiarte de ropa, ve al probador de la tienda (planta baja) o a un armario de tu casa: acércate y toca E.
         </p>
       </PanelShell>
     );
 
   return (
-    <PanelShell title="Probador" icon="star" onClose={onClose} wide>
+    <PanelShell title={title} icon="star" onClose={onClose} wide>
       {/* El -1rem deja la vista previa pegada arriba del todo al desplazar (compensa el relleno del panel). */}
       <div className="flex flex-col gap-4 [--editor-sticky-top:-1rem]">
         <p className="text-[14px] leading-snug text-cozy-ink-soft">
