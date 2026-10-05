@@ -12,6 +12,7 @@ import { PESCA_BAG_OBJECTS } from "./pesca-tienda";
 import { MUNDO_BLURBS, PRINTED_SHEET, sheetNoteIdOf } from "./mundo";
 import { MUNDO_BAG_OBJECTS } from "./garra";
 import { CONSUMABLES } from "./consumables";
+import { STORY_BAG_OBJECTS } from "./historia";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
 import { paintingIdOf } from "./painting";
 import { shopItem } from "./shop";
@@ -65,6 +66,8 @@ export interface BagObject {
   max?: number;
   /** No se gasta al usarlo (la regadera: se vacía, pero sigue en la mochila). */
   durable?: true;
+  /** Objeto de historia (una llave, una carta): no se tira, no se regala ni se intercambia (ver historia.ts). */
+  story?: true;
 }
 
 const KIND_OF_MENU = { drink: "bebida", food: "comida", smoke: "fumar", combo: "comida" } as const satisfies Record<string, BagKind>;
@@ -153,6 +156,8 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   },
   // Mundo lleno: los peluches de la máquina de garra y la hoja de la impresora (garra.ts).
   ...MUNDO_BAG_OBJECTS,
+  // Los objetos de la historia, de todos los capítulos (historia.ts: `items` de cada uno).
+  ...STORY_BAG_OBJECTS,
 };
 
 /** "huevo-criollo" → "Huevo criollo": el nombre de algo que no está en el registro. */
@@ -174,6 +179,8 @@ export interface BagItemInfo {
   /** `consume`: se come, se toma o se fuma con F; `tool`: la usa el huerto (E); null: solo se lleva. */
   use: "consume" | "tool" | null;
   durable: boolean;
+  /** Objeto de historia: no se tira, no se regala ni se intercambia. */
+  story: boolean;
 }
 
 /** Cómo se muestra y se comporta cualquier cosa de la mochila (nunca falla: lo desconocido tiene nombre). */
@@ -182,7 +189,7 @@ export function bagItemInfo(itemId: string): BagItemInfo {
   if (id === null) {
     // Un cuadro de la Pintura: se cuelga en la oficina como un mueble (su título lo trae /api/paintings).
     if (paintingIdOf(itemId))
-      return { itemId, name: "Cuadro", blurb: "Lo pintaste en el PC: cuélgalo en tu oficina con Decorar.", kind: "mueble", max: Infinity, furniture: true, art: itemId, use: null, durable: true };
+      return { itemId, name: "Cuadro", blurb: "Lo pintaste en el PC: cuélgalo en tu oficina con Decorar.", kind: "mueble", max: Infinity, furniture: true, art: itemId, use: null, durable: true, story: false };
     const shop = shopItem(itemId);
     return {
       itemId,
@@ -194,6 +201,7 @@ export function bagItemInfo(itemId: string): BagItemInfo {
       art: itemId,
       use: null,
       durable: true,
+      story: false,
     };
   }
   // La hoja de una nota (`hoja:<noteId>`) es la hoja impresa de siempre: mismo nombre, dibujo y tope.
@@ -209,8 +217,12 @@ export function bagItemInfo(itemId: string): BagItemInfo {
     art: base,
     use: Object.hasOwn(HUERTO_TOOLS, base) ? "tool" : Object.hasOwn(CONSUMABLES, base) ? "consume" : null,
     durable: Boolean(o?.durable),
+    story: Boolean(o?.story),
   };
 }
+
+/** ¿Es un objeto de historia? (no se tira, no se regala ni se intercambia). */
+export const isStoryItem = (itemId: string) => bagItemInfo(itemId).story;
 
 /**
  * El nombre que se muestra de algo de la mochila: el título de la nota de una hoja, si el servidor lo mandó
@@ -328,13 +340,14 @@ export interface BagView {
   pick?: true;
 }
 
-export type BagNoticeCode = "full" | "stack" | "furniture" | "keep";
+export type BagNoticeCode = "full" | "stack" | "furniture" | "keep" | "story";
 
 export const BAG_NOTICES: Record<BagNoticeCode, string> = {
   full: "No te cabe en la mochila: haz espacio (tira algo o pon un mueble en tu oficina).",
   stack: "Ya llevas lo más que se puede de eso.",
   furniture: "Los muebles no se tiran: ponlos en tu oficina con Decorar.",
   keep: "El celular no se tira: ahí están el chat y tus contactos.",
+  story: "Eso es de la historia: no se tira, lo vas a necesitar.",
 };
 
 export interface BagNotice {

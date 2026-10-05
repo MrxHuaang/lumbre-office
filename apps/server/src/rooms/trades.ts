@@ -3,6 +3,7 @@
 // transacción del repositorio; se cancela si alguien se aleja, se desconecta o cierra.
 import {
   giftAllowedToday,
+  isStoryItem,
   stackUnits,
   MSG,
   TRADE,
@@ -175,6 +176,8 @@ export class Trades {
     const parsed = TradeOfferMessage.safeParse(raw);
     if (!trade || !parsed.success) return;
     const items = [...parsed.data.items].sort((x, y) => x.itemId.localeCompare(y.itemId));
+    // Lo de la historia no cambia de dueño (historia.ts).
+    if (items.some((i) => isStoryItem(i.itemId))) return this.problem(sessionId, "story");
     return this.serial(trade, async () => {
       if (!this.checkNear(trade)) return;
       const side = this.sideOf(trade, sessionId);

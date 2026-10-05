@@ -20,7 +20,7 @@ function make(repo: MemoryRepository, clock: { now: number }) {
     map: (a) => getWorld().areas.get(a)!,
     send: () => {},
     later: () => {},
-    held: { fits: () => "ok", add: async () => "ok", take: async () => true },
+    held: { fits: () => "ok", add: async () => "ok", take: async () => true, count: () => 0 },
     flushStats: async () => {},
     paid: () => {},
   });
