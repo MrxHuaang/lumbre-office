@@ -115,6 +115,8 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "pesca"
   // La recepción del recibidor: Doña Gloria dice dónde anda cada uno (mundo lleno).
   | "reception"
+  // El pesebre de las novenas (recibidor): E pone la figura del día (sin panel).
+  | "pesebre"
   // Un personaje que te dio un encargo (y no tiene otro objeto al lado): E abre lo que te pidió.
   | "encargo";
 

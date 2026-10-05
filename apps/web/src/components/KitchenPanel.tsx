@@ -5,7 +5,8 @@
 // rato de energía. El servidor valida que estés junto a la estufa y que alcancen los ingredientes; aquí
 // solo se muestra.
 import { drawHeldItem } from "@hyvento/map/art";
-import { COCINA, INGREDIENTS, RECIPES, canCook, ingredientName, unlockText, unlocked, type Recipe } from "@hyvento/shared";
+import { COCINA, INGREDIENTS, RECIPES, canCook, ingredientName, recipeInSeason, unlockText, unlocked, type Recipe } from "@hyvento/shared";
+import { useOfficeStore } from "@/game/store";
 import { useMyLevels } from "@/game/oficios";
 import { useEffect, useMemo } from "react";
 import { requestPantry, sendCook, useCocinaStore } from "@/game/cocina";
@@ -29,6 +30,9 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
   const levels = useMyLevels();
   const pantry = useCocinaStore((s) => s.pantry);
   const pointsToday = useCocinaStore((s) => s.pointsToday);
+  // Las de temporada (la natilla y los buñuelos de las novenas) solo se ven mientras corre su festival.
+  const festival = useOfficeStore((s) => s.festival.id);
+  const recipes = RECIPES.filter((r) => recipeInSeason(r, festival));
   useEffect(() => requestPantry(), []);
   const available = pantry ?? {};
 
@@ -65,7 +69,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
         </section>
 
         <section aria-label="Recetas" className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
-          {RECIPES.map((r) => {
+          {recipes.map((r) => {
             // La receta de un oficio se ve, pero se cocina desde su nivel (lo valida el servidor).
             const lockedBy = r.requires && !unlocked(r.requires, levels) ? unlockText(r.requires) : null;
             const ok = canCook(r, available) && !lockedBy;
@@ -75,6 +79,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
                   <ItemArt id={r.id} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{r.name}</span>
+                    {r.festival && <span className="block text-[11px] text-cozy-ink-soft">De temporada: solo en las novenas</span>}
                     <span className="flex items-center gap-1 text-[12px] text-cozy-ink-soft">
                       <PixelIcon name={r.effect.kind === "points" ? "coin" : "bolt"} size={11} color="var(--color-cozy-gold)" />
                       {effectText(r)}

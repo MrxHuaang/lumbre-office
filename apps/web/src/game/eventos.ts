@@ -1,5 +1,6 @@
 // Los eventos en la escena: el pastel de la cafetería cuando alguien cumple años, el neón KARAOKE y el
-// micrófono del escenario los viernes, y lo que va sobre el nombre de cada uno (gorrito de cumpleaños,
+// micrófono del escenario los viernes, el pesebre del recibidor en las novenas (con las figuras que lleva,
+// ver novenas.ts), y lo que va sobre el nombre de cada uno (gorrito de cumpleaños,
 // tomatito del foco, micrófono de quien canta). El arte está en packages/map/src/art/eventos.ts.
 import type { OfficeMap } from "@hyvento/map";
 import { CONFETTI_COLORS, eventOverlays, glowSprite } from "@hyvento/map/art";
@@ -9,6 +10,7 @@ import type { Avatar, AvatarBadge } from "./Avatar";
 import { useClubStore } from "./club/store";
 import { AreaView, DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "./iso/view";
 import { onCongrats } from "./network";
+import { useNovenas } from "./novenas";
 import { useOfficeStore } from "./store";
 
 /** Base del nivel (-1e7): el neón va justo encima de la pared y debajo de los muebles. */
@@ -45,8 +47,9 @@ export class EventsView {
     const map = this.map;
     if (!map) return;
     const s = useOfficeStore.getState();
-    const on = { birthday: Object.keys(s.birthdays).length > 0, karaoke: s.karaoke };
-    const key = `${map.id}:${on.birthday}:${on.karaoke}`;
+    const pesebre = useNovenas.getState().pesebre;
+    const on = { birthday: Object.keys(s.birthdays).length > 0, karaoke: s.karaoke, pesebre: pesebre.dia > 0 ? pesebre.figuras : null };
+    const key = `${map.id}:${on.birthday}:${on.karaoke}:${on.pesebre}`;
     if (key === this.drawn) return;
     this.drawn = key;
     this.clear();
@@ -63,10 +66,14 @@ export class EventsView {
         continue;
       }
       const anchor = worldToScreen(o.tile.x * ts, o.tile.y * ts);
+      const { w, d } = o.size ?? { w: 1, d: 1 };
+      // Al espejo (como un mueble mirando hacia abajo), el ancla queda del otro lado del dibujo.
+      const ox = o.flip ? o.sprite.canvas.width - o.sprite.ox : o.sprite.ox;
       const img = this.scene.add
-        .image(anchor.x - o.sprite.ox, anchor.y - o.sprite.oy, tex)
+        .image(anchor.x - ox, anchor.y - o.sprite.oy, tex)
         .setOrigin(0, 0)
-        .setDepth(depthOf((o.tile.x + 0.5) * ts, (o.tile.y + 0.5) * ts) + 0.01);
+        .setFlipX(Boolean(o.flip))
+        .setDepth(depthOf((o.tile.x + w / 2) * ts, (o.tile.y + d / 2) * ts) + 0.01);
       this.objects.push(img);
       // Con el modo privado se esconde con el mueble sobre el que está.
       const t = o.tile;
