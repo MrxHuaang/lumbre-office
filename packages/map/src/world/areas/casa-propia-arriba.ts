@@ -116,6 +116,7 @@ export function casaArriba(userId: string): AreaDef {
       place("reading-lamp", 18, 2),
       place("globe", 13, 5),
       place("filing-cabinet", 18, 7),
+      place("photo-board", 13, 1, "right"),
       // ----- Cuarto de música: el piano, la guitarra, el tocadiscos y donde sentarse a oír.
       place("piano", 20, 0, "down"),
       place("guitar", 23, 0),
@@ -139,6 +140,10 @@ export function casaArriba(userId: string): AreaDef {
       place("grandfather-clock", 11, 8),
       place("runner", 8, 12, "down"),
       place("pothos", 6, 13),
+      // La galería del dueño: el acuario con los peces que sacó y la vitrina con sus trofeos (el corcho con
+      // sus fotos está en el estudio).
+      place("acuario", 9, 13, "up"),
+      place("trophy-case", 7, 13, "up"),
       // ----- Cuarto de los amigos: dos camas sencillas, la mesita entre las dos, el armario y el tocador.
       place("cama-sencilla", 18, 8, "left"),
       place("side-table", 19, 10),
@@ -169,6 +174,10 @@ export function casaArriba(userId: string): AreaDef {
       { type: "wardrobe", name: "Armario", x: 3, y: 1, zone: rid("alcoba") },
       { type: "wardrobe", name: "Armario", x: 4, y: 9, zone: rid("huespedes") },
       { type: "wardrobe", name: "Armario", x: 15, y: 12, zone: rid("amigos") },
+      // La galería (las capas salen del dueño de la casa).
+      { type: "trophy_case", name: "Vitrina de trofeos", x: 7, y: 12, zone: rid("pasillo") },
+      { type: "aquarium", name: "Acuario", x: 10, y: 12, zone: rid("pasillo") },
+      { type: "photo_board", name: "Tablón de fotos", x: 14, y: 2, zone: rid("estudio") },
     ],
   };
 }

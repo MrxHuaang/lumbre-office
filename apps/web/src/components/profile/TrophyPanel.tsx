@@ -1,11 +1,13 @@
 "use client";
 
 // La vitrina de trofeos de una oficina (E junto a la vitrina): los logros que ya tiene el dueño, lo más
-// difícil primero. Los datos salen de su perfil público (GET /api/profile/[id]).
+// difícil primero. Los datos salen de su perfil público (GET /api/profile/[id]). En la casa propia, la
+// vitrina es del dueño de la casa.
 import { ACHIEVEMENT_RARITIES, ACHIEVEMENT_RARITY, achievementById, type Achievement, type ProfileDTO } from "@hyvento/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useAchievementStore } from "@/game/achievements";
 import { useOfficeStore } from "@/game/store";
+import { casaOwnerOf } from "@/lib/casaGaleria";
 import { api, PanelShell } from "../PointsPanels";
 import { Badge } from "./Badge";
 
@@ -17,10 +19,11 @@ export function TrophyPanel({ onClose }: { onClose: () => void }) {
     const zoneId = s.sessionId ? s.players[s.sessionId]?.zoneId : undefined;
     return zoneId ? s.offices[zoneId] : undefined;
   });
+  const casaOwner = useOfficeStore((s) => casaOwnerOf(s.area));
   const version = useAchievementStore((s) => s.version);
   const [profile, setProfile] = useState<ProfileDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const ownerId = office?.ownerId ?? "";
+  const ownerId = casaOwner ?? office?.ownerId ?? "";
 
   useEffect(() => {
     if (!ownerId) return;
@@ -45,7 +48,8 @@ export function TrophyPanel({ onClose }: { onClose: () => void }) {
       .sort((x, y) => rank(y.a) - rank(x.a) || y.at.localeCompare(x.at));
   }, [profile]);
 
-  const title = office?.ownerName ? `Vitrina de ${office.ownerName}` : "Vitrina de trofeos";
+  const ownerName = casaOwner ? profile?.name : office?.ownerName;
+  const title = ownerName ? `Vitrina de ${ownerName}` : "Vitrina de trofeos";
   return (
     <PanelShell title={title} icon="trophy" onClose={onClose} wide>
       {!ownerId ? (

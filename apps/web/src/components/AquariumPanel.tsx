@@ -1,7 +1,8 @@
 "use client";
 
 // El panel del acuario del salón (E frente a él): los peces que nadan y quién los sacó, y el resto del
-// álbum del equipo. Los datos salen de GET /api/aquarium (ver game/aquariumStore.ts).
+// álbum del equipo. Los datos salen de GET /api/aquarium (ver game/aquariumStore.ts). El de la casa propia
+// es solo de su dueño.
 import { drawFish } from "@hyvento/map/art";
 import { aquariumEntries, FISH, fishById, RARITY, type TeamFishEntry } from "@hyvento/shared";
 import { useEffect } from "react";
@@ -17,7 +18,7 @@ const catchersText = (e: TeamFishEntry) => {
 };
 
 export function AquariumPanel({ onClose }: { onClose: () => void }) {
-  const { entries, loaded, error, swimming, refresh } = useAquariumStore();
+  const { entries, loaded, error, swimming, refresh, owner } = useAquariumStore();
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -29,17 +30,21 @@ export function AquariumPanel({ onClose }: { onClose: () => void }) {
   const species = FISH.filter((f) => f.rarity !== "basura").length;
 
   return (
-    <PanelShell title="El acuario" icon="fish" onClose={onClose} wide>
+    <PanelShell title={owner ? "El acuario de la casa" : "El acuario"} icon="fish" onClose={onClose} wide>
       {!loaded ? (
         <p className="text-[14px] text-cozy-ink-soft">{error ?? "Mirando el agua…"}</p>
       ) : all.length === 0 ? (
         <p className="text-[14px] leading-snug text-cozy-ink-soft">
-          El acuario está esperando a sus primeros peces. Lo que saque el equipo del lago del jardín viene a nadar aquí.
+          {owner
+            ? "El acuario está esperando a sus primeros peces. Lo que saque el dueño de la casa en el lago del jardín viene a nadar aquí."
+            : "El acuario está esperando a sus primeros peces. Lo que saque el equipo del lago del jardín viene a nadar aquí."}
         </p>
       ) : (
         <div className="cozy-scroll flex max-h-[70vh] flex-col gap-3 overflow-y-auto pr-1">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[14px]">
-            <p className="text-cozy-ink-soft">Nadan los más raros que ha sacado el equipo del lago (y, entre iguales, los más recientes).</p>
+            <p className="text-cozy-ink-soft">
+              Nadan los más raros que ha sacado {owner ? "el dueño de la casa" : "el equipo"} del lago (y, entre iguales, los más recientes).
+            </p>
             <span className="cozy-chip shrink-0 px-2.5 py-1 tabular-nums">
               {all.length} de {species} especies
             </span>
