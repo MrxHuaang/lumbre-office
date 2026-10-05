@@ -42,6 +42,14 @@ describe("festivales", () => {
     for (const f of FESTIVALES) for (const m of ["apertura", "cierre", "llegada"] as const) expect(cineById(festivalCineId(f.id, m)), `${f.id} ${m}`).toBeDefined();
   });
 
+  it("los momentos con hora caen dentro de la fiesta y su cinemática existe", () => {
+    for (const f of FESTIVALES)
+      for (const m of f.momentos ?? []) {
+        expect(festivalFase(m.minuto), `${f.id} ${m.cine}`).toBe("fiesta");
+        expect(cineById(m.cine), m.cine).toBeDefined();
+      }
+  });
+
   it("los NPC dicen frases del festival", () => {
     const brujas = FESTIVALES.find((f) => f.id === "brujas")!;
     expect(festivalLine(brujas, "aurora", 0)).toContain("sótano");

@@ -2163,6 +2163,38 @@ ITEMS["calabaza-dorada"] = {
   flat: "w",
 };
 
+// La velita de la Noche de velitas: la vela blanca prendida en su vasito de papel rojo plisado.
+ITEMS.velita = {
+  rows: [
+    "...y...", //
+    "..yfy..",
+    "..ofo..",
+    "..owo..",
+    "orwrwro",
+    "orwwwro",
+    ".rRrRr.",
+    ".rRrRr.",
+    ".ooooo.",
+  ],
+  colors: legend({ y: "#fbb23c", f: "#fff4c8", w: "#faf4e6", r: "#d8463c", R: "#9c2a2a" }),
+  flat: "yfrR",
+};
+// El farol de deseos (sin soltar): papel de seda amarillo y naranja, más ancho arriba, con su aro de alambre.
+ITEMS["farol-deseos"] = {
+  rows: [
+    ".oooooo.", //
+    "opPpPpPo",
+    "opPpPpPo",
+    ".opPpPo.",
+    ".opPpPo.",
+    "..oaao..",
+    "..a..a..",
+    "...yy...",
+  ],
+  colors: legend({ p: "#f6d23a", P: "#f08a2a", a: "#5a4a3a", y: "#fff0a0" }),
+  flat: "pPy",
+};
+
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 
 /** Brasa: apagada (0), titilando (1) o encendida al pitar (2). */
