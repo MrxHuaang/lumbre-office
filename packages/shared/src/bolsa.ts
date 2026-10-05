@@ -11,6 +11,7 @@ import { GRANJA_BAG_OBJECTS } from "./parrilla";
 import { PESCA_BAG_OBJECTS } from "./pesca-tienda";
 import { MUNDO_BLURBS, PRINTED_SHEET, sheetNoteIdOf } from "./mundo";
 import { MUNDO_BAG_OBJECTS } from "./garra";
+import { BRUJAS_BAG_OBJECTS } from "./brujas";
 import { CONSUMABLES } from "./consumables";
 import { STORY_BAG_OBJECTS } from "./historia";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
@@ -156,6 +157,8 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   },
   // Mundo lleno: los peluches de la máquina de garra y la hoja de la impresora (garra.ts).
   ...MUNDO_BAG_OBJECTS,
+  // La Noche de brujas: los dulces, la canasta de dulce o truco y la calabaza dorada (brujas.ts).
+  ...BRUJAS_BAG_OBJECTS,
   // Los objetos de la historia, de todos los capítulos (historia.ts: `items` de cada uno).
   ...STORY_BAG_OBJECTS,
 };

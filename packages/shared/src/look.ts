@@ -154,6 +154,8 @@ export const HEAD_ITEMS = [
   "wizard-hat",
   // Sombrero de fieltro gris con cinta oscura (el del Man del Sombrero); color propio.
   "fedora",
+  // Sombrero de bruja: ala ancha y la punta doblada, con la cinta naranja (el sombrero va en `accent`).
+  "witch-hat",
 ] as const;
 export type HeadItem = (typeof HEAD_ITEMS)[number];
 export const FACE_ITEMS = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch", "3d-glasses", "hero-mask", "star-glasses", "monocle"] as const;

@@ -50,6 +50,7 @@ import { OBSERVATORIO_DRAW } from "./observatorio";
 import { PESCA_DRAW } from "./pesca";
 import { CASA_PROPIA_DRAW } from "./casa-propia";
 import { CASA_PROPIA_EXTERIOR_DRAW } from "./casa-propia-exterior";
+import { BRUJAS_DRAW } from "./brujas";
 
 export type { Variant } from "./kit";
 
@@ -783,6 +784,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...PESCA_DRAW,
   ...CASA_PROPIA_DRAW,
   ...CASA_PROPIA_EXTERIOR_DRAW,
+  ...BRUJAS_DRAW,
   "photo-board": photoBoard,
   cuadro,
   acuario,

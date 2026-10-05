@@ -148,6 +148,7 @@ export const HEAD_LABEL: Record<HeadItem, string> = {
   "pirate-hat": "Sombrero pirata",
   "wizard-hat": "Sombrero de mago",
   fedora: "Sombrero de fieltro",
+  "witch-hat": "Sombrero de bruja",
 };
 
 export const FACE_LABEL: Record<FaceItem, string> = {
@@ -224,6 +225,7 @@ const ACCENT_HEAD: Partial<Record<HeadItem, string>> = {
   headband: "la cinta",
   "pompom-beanie": "el gorro",
   "wizard-hat": "el sombrero de mago",
+  "witch-hat": "el sombrero de bruja",
 };
 const ACCENT_NECK: Partial<Record<NeckItem, string>> = {
   scarf: "la bufanda",

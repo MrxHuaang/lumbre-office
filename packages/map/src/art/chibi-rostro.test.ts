@@ -276,6 +276,7 @@ describe("cabeza", () => {
       "headband",
       "pompom-beanie",
       "wizard-hat",
+      "witch-hat",
     ];
     for (const head of ITEMS) expect(usesColor({ ...base, head }, "accent"), head).toBe(accent.includes(head));
   });
