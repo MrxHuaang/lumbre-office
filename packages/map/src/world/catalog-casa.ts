@@ -12,4 +12,6 @@ export const CASA_CATALOG = {
   // Camas de las mascotas (se pisan: la mascota duerme encima).
   "pet-bed": { name: "Cama de mascota", size: [1, 1], solid: false },
   "dog-house": { name: "Casita del perro", size: [1, 1] },
+  // El comedero de la casa propia: el tapete con los dos platos (se pisa: la mascota come encima).
+  "pet-bowl": { name: "Comedero de la mascota", size: [1, 1], solid: false },
 } satisfies Record<string, CatalogItem>;

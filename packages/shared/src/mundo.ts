@@ -15,11 +15,12 @@ import type { Weather } from "./weather";
  * - `print`: la impresora saca tu nota más reciente como una hoja para la mochila;
  * - `shower`: la ducha del jardín (se enjuaga y queda seco);
  * - `doghouse`: la casita del perro (tu mascota descansa o juega ahí);
+ * - `bowl`: el comedero de la casa propia (tu mascota va a comer);
  * - `sundial`: el reloj de sol dice la hora del juego (de día);
  * - `view`: la baranda del balcón o de la terraza: mirar el paisaje.
  */
-export type MundoAction = "panel" | "print" | "shower" | "doghouse" | "sundial" | "view";
-export const MUNDO_ACTIONS: readonly MundoAction[] = ["panel", "print", "shower", "doghouse", "sundial", "view"];
+export type MundoAction = "panel" | "print" | "shower" | "doghouse" | "bowl" | "sundial" | "view";
+export const MUNDO_ACTIONS: readonly MundoAction[] = ["panel", "print", "shower", "doghouse", "bowl", "sundial", "view"];
 export const isMundoAction = (a: string): a is MundoAction => (MUNDO_ACTIONS as readonly string[]).includes(a);
 
 /** Los paneles que abre un mueble (`panel`). */
@@ -40,6 +41,9 @@ export const MUNDO = {
   doghouseLove: 3,
   /** A cuántos tiles de la casita tiene que estar la mascota que te sigue. */
   doghouseReachTiles: 4,
+  /** Cuánto cariño suma servirle en el comedero de la casa (con el mismo tope diario) y desde qué distancia. */
+  bowlLove: 4,
+  bowlReachTiles: 6,
   /** Cuánto baja la borrachera cada sorbo de agua (en "tragos", ver DRUNK). */
   waterSoberPerSip: 0.7,
 } as const;
@@ -99,6 +103,8 @@ export const MUNDO_USABLES: Record<string, UsableSpec> = {
   sundial: { action: "sundial", label: "Mirar el reloj de sol", cooldownMs: 2_500 },
   "garden-shower": { action: "shower", label: "Darse una ducha", cooldownMs: MUNDO.showerMs + 400 },
   "dog-house": { action: "doghouse", label: "Llevar a tu mascota a la casita", cooldownMs: 3_000 },
+  // La casa propia: el comedero de la cocina.
+  "pet-bowl": { action: "bowl", label: "Servirle a tu mascota", cooldownMs: 3_000 },
 };
 
 /** Lo gratis nuevo que se lleva en la mano (se suma a CONSUMABLES). */
@@ -186,7 +192,7 @@ const VIEW_WEATHER: Record<Exclude<Weather, "despejado">, readonly string[]> = {
 /** Servidor → quien lo intentó (`MUNDO_MSG.notice`): lo que pasó (o por qué no). */
 export const MUNDO_MSG = { notice: "mundo:notice" } as const;
 
-export const MundoNoticeCode = z.enum(["printed", "noNote", "printBusy", "full", "dry", "noPet", "petFar", "petRest", "petTired"]);
+export const MundoNoticeCode = z.enum(["printed", "noNote", "printBusy", "full", "dry", "noPet", "petFar", "petRest", "petTired", "petEat", "petFull"]);
 export type MundoNoticeCode = z.infer<typeof MundoNoticeCode>;
 
 export interface MundoNotice {
@@ -201,10 +207,12 @@ export const MUNDO_NOTICES: Record<MundoNoticeCode, string> = {
   printBusy: "La impresora todavía se está calentando. Espera un momentico.",
   full: "No te cabe en la mochila: haz espacio para llevártelo.",
   dry: "Te duchaste y quedaste sequito.",
-  noPet: "La casita está vacía… Adopta una mascota y tráela a descansar.",
+  noPet: "Todavía no tienes mascota: adopta una y tráela contigo.",
   petFar: "Tu mascota se quedó lejos: tráela hasta aquí.",
   petRest: "{text} se echó en su casita, feliz.",
   petTired: "{text} ya descansó bastante hoy, pero igual se echa un ratico.",
+  petEat: "{text} vino corriendo a comer.",
+  petFull: "{text} ya comió harto hoy, pero igual se come lo que le serviste.",
 };
 
 export function mundoNoticeText(n: MundoNotice): string {

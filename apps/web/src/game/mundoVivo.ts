@@ -84,6 +84,7 @@ export class MundoVivo {
         if (who) this.drops(who, MUNDO.showerMs);
         return true;
       case "doghouse":
+      case "bowl":
         who?.perform(face, 700);
         playPurr(vol * 0.6);
         this.heart(f);

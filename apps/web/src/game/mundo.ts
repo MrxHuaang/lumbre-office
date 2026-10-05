@@ -63,7 +63,7 @@ export function sendFortuneSpin() {
 }
 
 function onNotice(n: MundoNotice) {
-  const good = n.code === "printed" || n.code === "petRest" || n.code === "dry";
+  const good = n.code === "printed" || n.code === "petRest" || n.code === "petEat" || n.code === "dry";
   notify(mundoNoticeText(n), good ? "success" : n.code === "full" ? "warning" : "info");
 }
 

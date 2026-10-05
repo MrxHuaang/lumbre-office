@@ -98,6 +98,7 @@ export function casaArriba(userId: string): AreaDef {
       place("floor-mirror", 8, 1),
       place("armchair", 7, 5, "left"),
       place("cat-bed", 8, 7),
+      place("pet-bed", 6, 6),
       place("snake-plant", 0, 7),
       place("blanket-basket", 1, 6),
       place("fiddle-fig", 8, 4),
