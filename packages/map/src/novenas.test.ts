@@ -1,9 +1,9 @@
 import { NOVENA } from "@hyvento/shared";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { eventOverlays } from "./art/eventos";
 import { drawFurniture } from "./art/furniture";
 import { pesebreSprite } from "./art/novenas";
-import { findPath, isBlockedTile, NOVENAS_DECOR, planDef } from "./index";
+import { findPath, getWorld, isBlockedTile, NOVENAS_PIEZAS, planDef, setFestivalDecor } from "./index";
 import { buildArea } from "./world/build";
 import { catalogItem } from "./world/catalog";
 import { buildEditedArea, checkWorldEdit, EMPTY_EDITS, type WorldEdits } from "./worldEdits";
@@ -30,10 +30,10 @@ describe("las novenas en el mundo", () => {
   });
 
   it("la decoración navideña tiene su dibujo y no estorba: no tapa nada ni corta el paso", () => {
-    for (const area of new Set(NOVENAS_DECOR.map((d) => d.area))) {
+    for (const area of new Set(NOVENAS_PIEZAS.map((d) => d.area))) {
       const def = planDef(area)!;
       let edits: WorldEdits = EMPTY_EDITS;
-      for (const item of NOVENAS_DECOR.filter((d) => d.area === area)) {
+      for (const item of NOVENAS_PIEZAS.filter((d) => d.area === area)) {
         expect(catalogItem(item.type)).toBeDefined();
         expect(drawFurniture(item.type).canvas.width).toBeGreaterThan(0);
         const r = checkWorldEdit(def, edits, { action: "place", type: item.type, x: item.x, y: item.y, facing: item.facing });
@@ -48,4 +48,18 @@ describe("las novenas en el mundo", () => {
       for (const t of targets) if (findPath(before, from, t)) expect(findPath(after, from, t), `${area} ${t.x},${t.y}`).not.toBeNull();
     }
   });
+
+  it("la decoración se pone con la de los festivales mientras corren las novenas, y se quita", () => {
+    expect(setFestivalDecor("novenas", 300).sort()).toEqual(["jardin", "planta-baja"]);
+    for (const p of NOVENAS_PIEZAS) {
+      const map = getWorld().areas.get(p.area)!;
+      expect(map.furniture.some((f) => f.type === p.type && f.x === p.x && f.y === p.y), `${p.type} ${p.x},${p.y}`).toBe(true);
+    }
+    setFestivalDecor(null);
+    expect(getWorld().areas.get("planta-baja")!.furniture.some((f) => f.type === "arbol-navidad")).toBe(false);
+  });
+});
+
+afterEach(() => {
+  setFestivalDecor(null);
 });

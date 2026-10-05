@@ -68,7 +68,7 @@ colombianas puestas en el calendario del juego, a nuestra manera.
 Hecho: el pesebre del recibidor (una figura por día, la pone el primero con E; capa propia, no decoración),
 la novena de las 20:00 del juego con su cinemática por noche, la natilla y los buñuelos de temporada en la
 cocina y dos aguinaldos entre dos personas (pajita en boca y sí y no). La decoración navideña (árbol, arco de
-luces y corona) quedó como datos (`NOVENAS_DECOR`) para cuando esté la decoración temporal de los festivales.
+luces y corona) la pone la decoración temporal de los festivales (`world/festivales/novenas.ts`).
 
 ## Las cinemáticas (VIR-155)
 

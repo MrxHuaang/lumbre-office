@@ -2,9 +2,8 @@
 // pone en la cabaña y el jardín del 12 al 20 del invierno. Nada de esto está puesto en un nivel.
 // - El pesebre no va en la decoración: se arma figura a figura, así que el juego lo dibuja como capa sobre
 //   el recibidor (`NOVENA.pesebre` de @hyvento/shared, ver art/eventos.ts) y no estorba el paso.
-// - La decoración (`NOVENAS_DECOR`) son muebles comunes del catálogo con su lugar en cada nivel, en la forma
-//   que usa la decoración temporal de los festivales ({ area, type, x, y, facing }).
-import type { Facing } from "./types";
+// - La decoración son muebles comunes del catálogo que pone la decoración temporal de los festivales
+//   (world/festivales/novenas.ts).
 import type { CatalogItem } from "./catalog";
 
 /** La luz cálida de los bombillos. */
@@ -19,26 +18,3 @@ export const NOVENAS_CATALOG = {
   "luces-navidad": { name: "Arco de luces", size: [1, 1], solid: false, hasNight: true, light: { at: [8, 8, 26], ...WARM, radius: 40 } },
   guirnalda: { name: "Corona navideña", size: [1, 1] },
 } satisfies Record<string, CatalogItem>;
-
-/** Un mueble de la decoración de un festival: en qué nivel, qué, en qué tile y mirando a dónde. */
-export interface FestivalDecorItem {
-  area: string;
-  type: string;
-  x: number;
-  y: number;
-  facing: Facing;
-}
-
-/**
- * La decoración navideña de las novenas: el árbol del salón y la corona del recibidor adentro, y afuera
- * dos árboles y dos arcos de luces a los lados del porche de la casa. Todo en tiles libres (un test revisa
- * que no tape muebles, portales ni puntos y que no corte el paso).
- */
-export const NOVENAS_DECOR: readonly FestivalDecorItem[] = [
-  { area: "planta-baja", type: "arbol-navidad", x: 10, y: 1, facing: "right" },
-  { area: "planta-baja", type: "guirnalda", x: 16, y: 24, facing: "right" },
-  { area: "jardin", type: "arbol-navidad", x: 59, y: 29, facing: "right" },
-  { area: "jardin", type: "arbol-navidad", x: 66, y: 29, facing: "right" },
-  { area: "jardin", type: "luces-navidad", x: 61, y: 29, facing: "down" },
-  { area: "jardin", type: "luces-navidad", x: 64, y: 29, facing: "down" },
-];
