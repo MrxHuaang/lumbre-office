@@ -1,16 +1,18 @@
 "use client";
 
 // La historia en pantalla: la bienvenida de Doña Aurora (el prólogo, solo a quien recién llegó) y, en el
-// cuadro de sus encargos, lo que enseña el paso de ahora, "Saludar a Doña Aurora" (el paso 3 se puede
-// cumplir con ella si no hay nadie) y "Saltar historia", que siempre está a la mano.
-import { AURORA_WELCOME, AURORA_WELCOME_BUS, CAPITULO_1, STORY_LESSONS, questById } from "@hyvento/shared";
+// cuadro de quien da el paso de ahora, su consejo, "Saludar a Doña Aurora" (el paso 3 se puede cumplir con
+// ella si no hay nadie) y "Saltar historia", que está a la mano mientras dura el capítulo 1.
+import { AURORA_WELCOME, AURORA_WELCOME_BUS, CAPITULO_1, QUEST_GIVERS, STORY_LESSONS, capituloOf, questById, type QuestGiverId } from "@hyvento/shared";
 import { useEncargos } from "@/game/encargos";
 import { closePrologue, currentStoryStep, skipStory, useHistoria } from "@/game/historia";
 import { sendEmote } from "@/game/network";
 import { PixelIcon } from "../Cozy";
 
-/** "Saltar historia" (con confirmación: se entregan todos sin pagar; llegan igual el logro y la carta). */
+/** "Saltar historia" (con confirmación: se entregan todos sin pagar; llegan igual el logro y la carta). Solo el capítulo 1 se salta. */
 export function SkipStoryButton({ className = "" }: { className?: string }) {
+  const step = useEncargos((s) => currentStoryStep(s.quests));
+  if (!step || capituloOf(step.questId)?.id !== CAPITULO_1.id) return null;
   return (
     <button
       type="button"
@@ -24,16 +26,19 @@ export function SkipStoryButton({ className = "" }: { className?: string }) {
   );
 }
 
-/** Lo de la historia en el cuadro de Doña Aurora (va dentro del cuadro de encargos). */
-export function AuroraStoryExtras() {
+/** Lo de la historia en el cuadro de quien da el paso de ahora (va dentro del cuadro de encargos). */
+export function StoryExtras({ giver }: { giver: QuestGiverId }) {
   const quests = useEncargos((s) => s.quests);
   const step = currentStoryStep(quests);
-  if (!step) return null;
+  if (!step || questById(step.questId)?.giver !== giver) return null;
+  const lesson = STORY_LESSONS[step.questId];
   return (
     <div className="flex flex-col gap-2 border-t-2 border-cozy-paper-dark pt-2">
-      <p className="text-[13px] leading-snug">
-        <b>Consejo de Aurora:</b> {STORY_LESSONS[step.questId]}
-      </p>
+      {lesson && (
+        <p className="text-[13px] leading-snug">
+          <b>Consejo de {giver === "aurora" ? "Aurora" : QUEST_GIVERS[giver].name}:</b> {lesson}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {step.questId === "llegada-3" && step.status === "ACTIVE" && (
           <button type="button" onClick={() => sendEmote("wave")} className="cozy-btn cozy-btn-primary px-2.5 py-1 text-[12px]">
