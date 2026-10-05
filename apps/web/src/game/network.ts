@@ -260,6 +260,9 @@ export interface OfficeStateView {
   clockAnchorReal: number;
   clockAnchorMinute: number;
   clockPaused: boolean;
+  /** El festival de hoy y su fase (ver rooms/festivales.ts del servidor). */
+  festival: string;
+  festivalFase: string;
   /** Casa viva: contadores (ajedrez, puzle, pizarras), cubículos ocupados (clave → userId) y mascotas. */
   counters: Map<string, number>;
   stalls: Map<string, string>;
@@ -1043,6 +1046,9 @@ function attach(r: OfficeRoom) {
   $(r.state).listen("clockAnchorReal", syncClock);
   $(r.state).listen("clockAnchorMinute", syncClock);
   $(r.state).listen("clockPaused", syncClock);
+  const syncFestival = () => useOfficeStore.setState({ festival: { id: r.state.festival ?? "", fase: r.state.festivalFase ?? "" } });
+  $(r.state).listen("festival", syncFestival);
+  $(r.state).listen("festivalFase", syncFestival);
   // Eventos del calendario: la lista de cumpleaños de hoy y el karaoke (llega con el primer estado).
   $(r.state).listen("events", (events) => {
     if (!events) return;

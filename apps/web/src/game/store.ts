@@ -280,6 +280,8 @@ interface OfficeStore {
   /** Reloj del juego (lo lleva el servidor: `state.clockAnchor*`); null hasta que llega. Ver game/gameClock.ts. */
   gameClock: GameClockState | null;
   setGameClock: (clock: GameClockState) => void;
+  /** El festival del día del calendario del juego (`state.festival`, "" = ninguno) y su fase. */
+  festival: { id: string; fase: string };
   /** Quienes cumplen años hoy (userId → nombre) y si el club está en modo karaoke (`state.events`). */
   birthdays: Record<string, string>;
   karaoke: boolean;
@@ -455,6 +457,7 @@ const initial = {
   indoors: false,
   weather: "despejado" as Weather,
   gameClock: null as GameClockState | null,
+  festival: { id: "", fase: "" },
   birthdays: {} as Record<string, string>,
   karaoke: false,
   congratulated: {} as Record<string, true>,

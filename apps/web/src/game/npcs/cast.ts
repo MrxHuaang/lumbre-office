@@ -11,6 +11,8 @@ import {
   ASTRONOMA,
   astronomerGreeting,
   auroraIdleLine,
+  festivalById,
+  festivalLine,
   handValue,
   lineSeed,
   NPC,
@@ -377,6 +379,14 @@ export class NpcCast {
       if (time < s.nextIdleAt) continue;
       s.nextIdleAt = time + NPC.idleEveryMs * (0.7 + Math.random() * 0.8);
       if (Math.hypot(s.avatar.x - me.x, s.avatar.y - me.y) > near) continue;
+      // En un festival, una de cada dos veces dicen algo de la fiesta (la misma frase para todos en ese rato).
+      const fest = festivalById(useOfficeStore.getState().festival.id);
+      const festSlot = Math.floor(Date.now() / NPC.idleEveryMs);
+      const festLine = fest && festSlot % 2 === 0 ? festivalLine(fest, s.npc.id, lineSeed(`${fest.id}:${s.npc.id}:${festSlot}`)) : null;
+      if (festLine) {
+        this.say(s.npc.id, festLine);
+        continue;
+      }
       if (s.npc.id === PESCA_NPC.id) {
         // El pescador comenta la hora del juego y el clima (la misma frase para todos en ese rato).
         const slot = Math.floor(Date.now() / NPC.idleEveryMs);

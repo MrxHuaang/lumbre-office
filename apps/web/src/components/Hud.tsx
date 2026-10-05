@@ -12,7 +12,7 @@ import { useAchievementStore } from "@/game/achievements";
 import { STATUS_HEX } from "@/lib/cozy";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { BirthdayChip, Confetti, FocusChip } from "./EventosHud";
-import { GameClockChip } from "./GameClockChip";
+import { FestivalChip, GameClockChip } from "./GameClockChip";
 import { Minimap } from "./Minimap";
 import { usePuedo } from "@/game/permisos";
 import { GiftChip } from "./social/SocialOverlays";
@@ -72,6 +72,7 @@ export function Hud(props: HudProps) {
       <MainMenu {...props} />
       <PhoneButton />
       <GameClockChip />
+      <FestivalChip />
       <EnergyChip />
       <GiftChip />
       <BirthdayChip />

@@ -191,6 +191,17 @@ export function festivalLine(f: FestivalDef, npc: string, seed: number): string 
   return lines?.length ? lines[Math.abs(seed) % lines.length]! : null;
 }
 
+// ---------- Mensajes ----------
+
+export const FESTIVAL_MSG = {
+  /** Servidor → clientes: que se vea la cinemática de un festival (apertura, cierre o llegada tarde). */
+  cine: "festival:cine",
+} as const;
+
+export interface FestivalCineEvent {
+  id: string;
+}
+
 // ---------- Las cinemáticas ----------
 
 /** Id de la cinemática de apertura, cierre o llegada tarde de un festival. */

@@ -4,6 +4,7 @@
 // estaciones sin nadie. Los días de puntos, las rachas y los cumpleaños siguen siendo los reales (Bogotá).
 import { gameTime, type GameClockState } from "./clock";
 import { SEASONS, SEASON_TEXT, type Season } from "./estaciones";
+import { festivalesDe } from "./festivales";
 
 export const DIAS_POR_SEMANA = 7;
 export const SEMANAS_POR_ESTACION = 3;
@@ -79,19 +80,12 @@ export interface MarcaCalendario {
   texto: string;
 }
 
-/**
- * Los festivales de cada estación. Vacío a propósito: el plan de festivales los agrega acá (un festival es
- * una marca fija por estación, igual todos los años).
- */
-export const FESTIVALES: Record<Season, readonly MarcaCalendario[]> = {
-  primavera: [],
-  verano: [],
-  otono: [],
-  invierno: [],
-};
-
-/** Las marcas fijas (festivales) de una estación. */
-export const calendarMarks = (estacion: Season): readonly MarcaCalendario[] => FESTIVALES[estacion];
+/** Las marcas fijas (festivales) de una estación: cada día que dura (las novenas, sus nueve noches). */
+export function calendarMarks(estacion: Season): MarcaCalendario[] {
+  return festivalesDe(estacion).flatMap((f) =>
+    Array.from({ length: f.dias }, (_, i) => ({ dia: f.dia + i, tipo: "festival" as const, texto: f.dias > 1 ? `${f.nombre} (${i + 1}/${f.dias})` : f.nombre })),
+  );
+}
 
 // El año real (365 días, sin el 29 de febrero) cae entero en el año del juego (84 días), corrido para que
 // las estaciones coincidan con las del hemisferio norte: el 1 de marzo es el 1 de primavera, el 1 de junio

@@ -526,6 +526,9 @@ export class OfficeState extends Schema {
   @type("float64") clockAnchorReal = 0;
   @type("float64") clockAnchorMinute = 0;
   @type("boolean") clockPaused = false;
+  /** El festival del día del calendario del juego ("" = ninguno) y su fase ("previa", "fiesta", "fin"; ver rooms/festivales.ts). */
+  @type("string") festival = "";
+  @type("string") festivalFase = "";
   /** La casa del árbol del jardín (ver rooms/casaArbol.ts). */
   @type(TreeHouseState) treeHouse = new TreeHouseState();
   @type(BusState) bus = new BusState();

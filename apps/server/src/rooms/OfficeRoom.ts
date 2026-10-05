@@ -226,7 +226,8 @@ import { settleAll } from "./shutdown";
 import { Drunkenness } from "./drunk";
 import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
-import { devToolsEnabled, parseCasaJump, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
+import { devToolsEnabled, parseCasaJump, parseDevFestival, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
+import { Festivales } from "./festivales";
 import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
@@ -1192,6 +1193,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.setGameClock(pauseClock(this.startClock, OfficeRoom.gameClockNow()));
     this.clock.setInterval(() => !this.state.clockPaused && void this.saveClock(), OfficeRoom.clockSaveMs);
     this.clock.setInterval(() => this.checkSeason(), 5_000);
+    // El festival del día del calendario (ver festivales.ts): abre a las 9:00 y cierra a las 22:00 del juego.
+    this.clock.setInterval(() => this.festivales.tick(), 2_000);
     this.weather.start();
     // Mientras llueve, lo que se va secando se vuelve a regar solo.
     this.clock.setInterval(() => isWet(this.weather.weather) && this.rainOnGarden(), 60_000);
@@ -1213,6 +1216,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       await this.loadWorldEdits();
       await this.loadGameClock();
       this.season = this.gameSeason();
+      this.festivales.start();
       await this.huerto.load().catch((err) => console.error("loadGarden", err));
       this.startCasino();
       // Apuestas de una corrida anterior que se cayó sin pagarlas (y cada tanto, por si era reciente).
@@ -1323,6 +1327,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   async onJoin(client: Client<UserData>, options: unknown, auth: GameTokenClaims) {
     this.resumeGameClock();
+    this.festivales.welcome((type, msg) => client.send(type, msg));
     this.removeOtherPresences(auth.sub, client.sessionId);
     this.fishery.forget(auth.sub); // un lance de la sesión anterior no sigue en la nueva
 
@@ -2459,6 +2464,16 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return true;
   }
 
+  /** Solo en desarrollo: "/festival <id|off>" prende un festival ya (ver devtools.ts). Devuelve si era el comando. */
+  private devFestival(client: Client<UserData>, text: string): boolean {
+    const cmd = parseDevFestival(text);
+    if (!cmd) return false;
+    const reply = "error" in cmd ? cmd.error : cmd.id ? `Festival prendido: ${cmd.id}.` : "Festivales según el calendario.";
+    if (!("error" in cmd)) this.festivales.force(cmd.id);
+    client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Dev", text: reply, scope: "proximity", zoneId: null, ts: Date.now() } satisfies ChatEvent);
+    return true;
+  }
+
   /** Solo en desarrollo: "/clima <tipo>" pone ese clima ya (ver devtools.ts). Devuelve si era el comando. */
   private devWeather(client: Client<UserData>, text: string): boolean {
     const w = parseDevWeather(text);
@@ -2513,6 +2528,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const clock = { ...pauseClock(this.gameClock(), OfficeRoom.gameClockNow()), questSeasons: { ...this.questSeasonMemo } };
     return this.repo.saveGameClock(clock, userId).catch((err) => console.error("saveGameClock", err));
   }
+
+  /** Los festivales del calendario del juego (ver festivales.ts). */
+  private festivales = new Festivales({
+    state: this.state,
+    time: () => this.gameTimeNow(),
+    broadcast: (type, msg) => this.broadcast(type, msg),
+  });
 
   /** La estación con que se vio el mundo la última vez (para notar el cambio). */
   private season: Season | null = null;
@@ -2586,7 +2608,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (times.length >= CHAT_RATE.max) return this.rechazo(client, "rate");
     times.push(now);
     client.userData.chatTimes = times;
-    if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text) || this.devSombrero(client, player, parsed.data.text))) return;
+    if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text) || this.devFestival(client, parsed.data.text) || this.devSombrero(client, player, parsed.data.text))) return;
     if (this.timeCommand(client, parsed.data.text, parsed.data.scope)) return;
     this.achievements.bump(player.userId, STAT_KEYS.chatMessages);
 
