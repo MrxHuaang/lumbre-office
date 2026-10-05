@@ -1,8 +1,9 @@
 "use client";
 
 // El menú del jugador (tecla I o la mochila del HUD), como el inventario de Stardew: la mochila entera (3
-// filas de 12; se arrastra para reordenar e intercambiar con la barra), tus estadísticas y logros, y tu
-// personaje en grande con lo que llevas en la mano. Todo lo que cambia la mochila lo valida el servidor.
+// filas de 12; se arrastra para reordenar e intercambiar con la barra), los encargos, los oficios, el diario
+// de la historia, tus estadísticas y logros, y tu personaje en grande con lo que llevas en la mano. Todo lo
+// que cambia la mochila lo valida el servidor.
 import { isPlaceable } from "@hyvento/map";
 import { BAG, BAG_KEYS, BAG_KIND_LABEL, bagItemInfo, bagItemName, bagRow, type ItemStack, type ProfileDTO } from "@hyvento/shared";
 import { useEffect, useId, useState } from "react";
@@ -20,16 +21,18 @@ import { OfficeDialog } from "../OfficeDialog";
 import { api } from "../PointsPanels";
 import { BadgeGlyph } from "../profile/Badge";
 import { QuestLog } from "../encargos/QuestLog";
+import { HistoriaDiario } from "../historia/HistoriaDiario";
 import { OficiosTab } from "../oficios/OficiosTab";
 import { ProfileAchievements, ProfileFacts } from "../profile/ProfileView";
 import { useMyHand } from "./Hotbar";
 import { ItemIcon } from "./ItemIcon";
 
-type Tab = "mochila" | "encargos" | "oficios" | "stats" | "personaje";
+type Tab = "mochila" | "encargos" | "oficios" | "historia" | "stats" | "personaje";
 const TABS: { id: Tab; label: string; wideHidden?: true }[] = [
   { id: "mochila", label: "Mochila" },
   { id: "encargos", label: "Encargos" },
   { id: "oficios", label: "Oficios" },
+  { id: "historia", label: "Historia" },
   { id: "stats", label: "Estadísticas" },
   // En pantallas anchas el personaje va siempre a la derecha: la pestaña sobra.
   { id: "personaje", label: "Personaje", wideHidden: true },
@@ -111,6 +114,8 @@ export function PlayerMenu({ profile, onClose, onEditCharacter }: { profile: Pro
             <QuestLog />
           ) : tab === "oficios" ? (
             <OficiosTab />
+          ) : tab === "historia" ? (
+            <HistoriaDiario />
           ) : tab === "personaje" ? (
             <>
               <div className="lg:hidden">
@@ -179,6 +184,7 @@ function BagTab({ onClose }: { onClose: () => void }) {
               {Array.from({ length: BAG.cols }, (_, col) => {
                 const slot = row * BAG.cols + col;
                 const stack = slots[slot] ?? null;
+                const story = stack ? bagItemInfo(stack.itemId).story : false;
                 return (
                   <button
                     key={slot}
@@ -186,7 +192,7 @@ function BagTab({ onClose }: { onClose: () => void }) {
                     draggable={Boolean(stack)}
                     data-selected={slot === picked || (picked < 0 && slot === selected)}
                     data-drop={dropOver === slot}
-                    aria-label={stack ? `${bagItemName(stack.itemId, titles)}${stack.quantity > 1 ? `, ${stack.quantity}` : ""}` : `Casilla ${slot + 1}, vacía`}
+                    aria-label={stack ? `${bagItemName(stack.itemId, titles)}${stack.quantity > 1 ? `, ${stack.quantity}` : ""}${story ? ", de la historia" : ""}` : `Casilla ${slot + 1}, vacía`}
                     onMouseEnter={() => setHover(stack)}
                     onFocus={() => setHover(stack)}
                     onClick={() => {
@@ -218,6 +224,7 @@ function BagTab({ onClose }: { onClose: () => void }) {
                     className={`bag-slot aspect-square w-full ${moving ? "cursor-copy" : stack ? "cursor-grab" : ""}`}
                   >
                     {row === barRow && <span className="bag-slot-n">{BAG_KEYS[col]}</span>}
+                    {story && <StoryMark />}
                     {stack && <ItemIcon itemId={stack.itemId} />}
                     {stack && stack.quantity > 1 && <span className="bag-slot-q">{stack.quantity}</span>}
                   </button>
@@ -243,6 +250,7 @@ function BagTab({ onClose }: { onClose: () => void }) {
                 onClick={() => setMoving(s.itemId)}
                 className="bag-slot size-11"
               >
+                {bagItemInfo(s.itemId).story && <StoryMark />}
                 <ItemIcon itemId={s.itemId} />
                 {s.quantity > 1 && <span className="bag-slot-q">{s.quantity}</span>}
               </button>
@@ -260,6 +268,15 @@ function BagTab({ onClose }: { onClose: () => void }) {
         onClose={onClose}
       />
     </div>
+  );
+}
+
+/** La marquita de un objeto de historia (arriba a la derecha de su casilla). */
+function StoryMark() {
+  return (
+    <span aria-hidden className="pointer-events-none absolute top-0.5 right-0.5 z-[1] leading-none">
+      <PixelIcon name="star" size={9} color="var(--color-cozy-gold)" />
+    </span>
   );
 }
 
@@ -304,13 +321,17 @@ function ItemDetail({
         <p className="flex flex-wrap items-baseline gap-x-2 text-[16px] leading-tight font-semibold">
           {name}
           <span className="text-[12px] font-normal text-cozy-ink-soft">
-            {BAG_KIND_LABEL[info.kind]} · {stack.quantity > 1 ? `${stack.quantity} unidades` : "1 unidad"}
+            {info.story ? "De la historia" : BAG_KIND_LABEL[info.kind]} · {stack.quantity > 1 ? `${stack.quantity} unidades` : "1 unidad"}
             {inHand && " · en la mano"}
           </span>
         </p>
         {info.blurb && <p className="mt-0.5 text-[13px] leading-snug">{info.blurb}</p>}
         <p className="mt-0.5 text-[12px] leading-snug text-cozy-ink-soft">
-          {info.furniture ? "Mueble: se pone en tu oficina con Decorar (y al quitarlo vuelve aquí)." : (use ?? "Se lleva en la mano; todos lo ven.")}
+          {info.story
+            ? "Objeto de la historia: no se tira, no se regala ni se intercambia. Alguien lo va a pedir."
+            : info.furniture
+              ? "Mueble: se pone en tu oficina con Decorar (y al quitarlo vuelve aquí)."
+              : (use ?? "Se lleva en la mano; todos lo ven.")}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -339,6 +360,7 @@ function ItemDetail({
           {moving ? "Elige la casilla…" : "Mover"}
         </button>
         {!info.furniture &&
+          !info.story &&
           (confirm ? (
             <>
               <button

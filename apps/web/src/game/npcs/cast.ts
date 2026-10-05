@@ -228,6 +228,11 @@ export class NpcCast {
     if (this.man) yield this.man;
   }
 
+  /** El dibujo de un NPC del nivel que se ve (para las cinemáticas), o null si no está aquí. */
+  avatarOf(id: string): Avatar | null {
+    return this.staff.get(id)?.avatar ?? null;
+  }
+
   // ---------- El personal del casino ----------
 
   /** Que diga algo (si no habló hace poco; `force` = cantar el número, que no espera). */

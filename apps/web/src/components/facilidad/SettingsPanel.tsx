@@ -5,7 +5,7 @@
 import { useFacilidadStore } from "@/game/facilidad";
 import { notificationsSupported, selectNotifyOn, setNotificationsEnabled, useNotifyStore } from "@/game/notify";
 import { NAME_TAG_LABEL, NAME_TAG_MODES, useOfficeStore } from "@/game/store";
-import { usePrefsStore, type MotionPref } from "@/lib/prefs";
+import { usePrefsStore, type CinePref, type MotionPref } from "@/lib/prefs";
 import { PixelIcon, type PixelIconName } from "../Cozy";
 import { OfficeDialog } from "../OfficeDialog";
 import { MixerSliders } from "../SoundControl";
@@ -16,8 +16,15 @@ const MOTION_OPTIONS: { id: MotionPref; label: string }[] = [
   { id: "full", label: "Todo el movimiento" },
 ];
 
+const CINE_OPTIONS: { id: CinePref; label: string }[] = [
+  { id: "todas", label: "Todas" },
+  { id: "historia", label: "Solo la historia" },
+  { id: "ninguna", label: "Ninguna" },
+];
+
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const motion = usePrefsStore((s) => s.motion);
+  const cine = usePrefsStore((s) => s.cine);
   const workMode = usePrefsStore((s) => s.workMode);
   const walls = useOfficeStore((s) => s.privateWalls);
   const nameTags = useOfficeStore((s) => s.nameTags);
@@ -57,6 +64,28 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                 aria-checked={motion === o.id}
                 aria-pressed={motion === o.id}
                 onClick={() => usePrefsStore.getState().setMotion(o.id)}
+                className="cozy-btn px-2 py-1.5 text-[13px]"
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </Section>
+
+        <Section icon="camera" title="Cinemáticas">
+          <p className="text-[13px] text-cozy-ink-soft">
+            Las escenas de la historia y los momentos cortos (subir de nivel, un pez legendario, el jackpot). Siempre se saltan con Esc. En modo trabajo
+            solo se ven las de la historia.
+          </p>
+          <div role="radiogroup" aria-label="Cinemáticas" className="grid grid-cols-3 gap-1">
+            {CINE_OPTIONS.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                role="radio"
+                aria-checked={cine === o.id}
+                aria-pressed={cine === o.id}
+                onClick={() => usePrefsStore.getState().setCine(o.id)}
                 className="cozy-btn px-2 py-1.5 text-[13px]"
               >
                 {o.label}

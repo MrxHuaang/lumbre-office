@@ -3,7 +3,7 @@
 // Piezas comunes de regalos e intercambios: pedir a la API, la mochila, el dibujo de un objeto y la caja
 // de regalo animada. No importa PointsPanels (que importa el buzón de regalos): así no hay ciclos.
 import { drawFurniture, giftBox, GIFT_BOX_FRAMES } from "@hyvento/map/art";
-import type { InventoryEntry } from "@hyvento/shared";
+import { isStoryItem, type InventoryEntry } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toHtmlCanvas } from "@/game/iso/canvas";
@@ -19,7 +19,7 @@ export async function socialApi<T>(url: string, init?: RequestInit): Promise<T> 
 /** Saldo del jugador local (lo lleva el servidor de juego). */
 export const useMyBalance = () => useOfficeStore(useShallow((s) => (s.sessionId ? (s.players[s.sessionId]?.points ?? 0) : 0)));
 
-/** La mochila (se lee al montar; `reload` la vuelve a pedir). */
+/** Lo de la mochila que se puede dar (se lee al montar; `reload` la vuelve a pedir). Lo de la historia no sale. */
 export function useBackpack() {
   const [inventory, setInventory] = useState<InventoryEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export function useBackpack() {
   useEffect(() => {
     let alive = true;
     socialApi<{ inventory: InventoryEntry[] }>("/api/inventory").then(
-      (r) => alive && setInventory(r.inventory),
+      (r) => alive && setInventory(r.inventory.filter((e) => !isStoryItem(e.itemId))),
       (e: Error) => alive && setError(e.message),
     );
     return () => {

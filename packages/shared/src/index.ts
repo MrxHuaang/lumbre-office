@@ -87,3 +87,4 @@ export * from "./oficios";
 export * from "./historia";
 export * from "./limite-mensajes";
 export * from "./brujas";
+export * from "./cinematicas";

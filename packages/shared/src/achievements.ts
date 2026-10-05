@@ -132,10 +132,15 @@ export const STAT_KEYS = {
   levelCocina: "oficio_nivel:cocina",
   levelSocial: "oficio_nivel:social",
   levelExploracion: "oficio_nivel:exploracion",
-  // Historia (historia.ts): sentarse en la oficina propia, leer el tablón y el capítulo 1 (máximo: 1 = terminado o saltado).
+  // Historia (historia.ts): sentarse en la oficina propia, leer el tablón y la bandera de cada capítulo
+  // (`story_ch<n>`, máximo: 1 = terminado; el 1 también si se saltó).
   ownOfficeSits: "own_office_sits",
   boardReads: "board_reads",
   storyCh1: "story_ch1",
+  storyCh2: "story_ch2",
+  storyCh3: "story_ch3",
+  storyCh4: "story_ch4",
+  storyCh5: "story_ch5",
   /** Máximo: 1 = ya vio la bienvenida de Doña Aurora (el prólogo sale una sola vez). */
   storyPrologue: "story_prologue",
   /** Máximo: último día de Bogotá en que regaló su detalle gratis (Social nivel 5). */
@@ -189,6 +194,10 @@ export const MAX_STATS: ReadonlySet<string> = new Set([
   STAT_KEYS.levelExploracion,
   STAT_KEYS.oficioGiftDay,
   STAT_KEYS.storyCh1,
+  STAT_KEYS.storyCh2,
+  STAT_KEYS.storyCh3,
+  STAT_KEYS.storyCh4,
+  STAT_KEYS.storyCh5,
   STAT_KEYS.storyPrologue,
 ]);
 

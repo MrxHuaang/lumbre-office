@@ -40,6 +40,7 @@ import { MesaStrip } from "./casino/MesaStrip";
 import { ShopPanel } from "./ShopPanel";
 import { FittingPanel } from "./FittingPanel";
 import { PhotoFlash, PhotoGallery, PhotoPreview } from "./PhotoPanels";
+import { CineOverlay } from "./cinematicas/CineOverlay";
 import { ProfileDialog } from "./ProfileDialog";
 import { ArcadePanel } from "./arcade/ArcadePanel";
 import { BoardGameStrip } from "./arcade/BoardGameStrip";
@@ -425,6 +426,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "trophies" && <TrophyPanel onClose={closePanel} />}
           <PhotoPreview />
           <PhotoFlash />
+          <CineOverlay />
           <BookReader />
           {(panel?.kind === "fitting" || panel?.kind === "wardrobe") && (
             <FittingPanel
