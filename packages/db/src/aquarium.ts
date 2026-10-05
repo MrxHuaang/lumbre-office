@@ -2,9 +2,11 @@
 import { AQUARIUM, type TeamFishEntry } from "@hyvento/shared";
 import type { PrismaClient } from "@prisma/client";
 
-export async function teamFishAlbum(client: PrismaClient): Promise<TeamFishEntry[]> {
+export async function teamFishAlbum(client: PrismaClient, userId?: string): Promise<TeamFishEntry[]> {
   const rows = await client.fishCatch.groupBy({
     by: ["species", "userId"],
+    // Con `userId`, solo lo que sacó esa persona (el acuario de su casa).
+    ...(userId ? { where: { userId } } : {}),
     _count: { _all: true },
     _max: { size: true, caughtAt: true },
   });

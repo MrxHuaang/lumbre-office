@@ -1,9 +1,11 @@
 // El corcho de la cafetería en la escena: encima del dibujo del tablón va una capa con las miniaturas de
-// las últimas fotos pinchadas. Se rearma cuando cambia la lista (alguien sacó o borró una foto).
+// las últimas fotos pinchadas. Se rearma cuando cambia la lista (alguien sacó o borró una foto). El de la
+// casa propia muestra las fotos de su dueño (las que sacó y en las que sale).
 import { catalogItem, footprint, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
 import { PHOTO_BOARD_PIC, PHOTO_BOARD_SLOTS, photoBoardPhotos, type PhotoThumb } from "@hyvento/map/art";
 import type { PhotoDTO } from "@hyvento/shared";
 import * as Phaser from "phaser";
+import { casaOwnerOf, photosOfPerson } from "@/lib/casaGaleria";
 import { depthOf, ensureTexture, worldToScreen } from "../iso/view";
 import { thumbnailOf } from "./capture";
 import { photoImageUrl, usePhotoStore } from "./store";
@@ -78,10 +80,9 @@ export class PhotoBoards {
     const map = this.map;
     const boards = map?.furniture.filter((f) => f.type === BOARD) ?? [];
     if (!map || boards.length === 0) return this.clear();
-    const pinned = usePhotoStore
-      .getState()
-      .photos.filter((p) => p.pinned)
-      .slice(0, PHOTO_BOARD_SLOTS);
+    const photos = usePhotoStore.getState().photos;
+    const owner = casaOwnerOf(map.id);
+    const pinned = (owner ? photosOfPerson(photos, owner) : photos.filter((p) => p.pinned)).slice(0, PHOTO_BOARD_SLOTS);
     const layers: { f: PlacedFurniture; thumbs: PhotoThumb[] }[] = [];
     for (const f of boards) {
       const flip = f.facing === "down" || f.facing === "up";

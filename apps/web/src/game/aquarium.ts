@@ -5,6 +5,7 @@ import { catalogItem, footprint, type OfficeMap, type PlacedFurniture } from "@h
 import { ACUARIO_SWIM, aquariumBubble, MINI_FISH_H, MINI_FISH_W, miniFish, toScreen } from "@hyvento/map/art";
 import { fishById } from "@hyvento/shared";
 import * as Phaser from "phaser";
+import { casaOwnerOf } from "@/lib/casaGaleria";
 import { useAquariumStore } from "./aquariumStore";
 import { depthOf, ensureTexture, worldToScreen, type AreaView } from "./iso/view";
 
@@ -69,8 +70,11 @@ export class Aquariums {
     this.map = map;
     this.view = view;
     const store = useAquariumStore.getState();
-    // Al entrar se vuelve a pedir: pudo sacar un pez alguien más.
-    if (Aquariums.hasTank(map)) void store.refresh();
+    // Al entrar se vuelve a pedir: pudo sacar un pez alguien más. En una casa, el de su dueño.
+    if (Aquariums.hasTank(map)) {
+      store.setOwner(casaOwnerOf(map.id));
+      void store.refresh();
+    }
     this.build();
   }
 

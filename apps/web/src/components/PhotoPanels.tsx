@@ -10,6 +10,7 @@ import { composePolaroid, encodePolaroid } from "@/game/photos/capture";
 import { photoErrorText, photoImageUrl, usePhotoStore, type PendingPhoto } from "@/game/photos/store";
 import { sendPhotoTake } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { casaOwnerOf, photosOfPerson } from "@/lib/casaGaleria";
 import { focusOwnsKey } from "@/lib/keyboardFocus";
 import { PanelShell } from "./PointsPanels";
 
@@ -161,7 +162,10 @@ async function send(url: string, init: RequestInit) {
 }
 
 export function PhotoGallery({ onClose }: { onClose: () => void }) {
-  const photos = usePhotoStore((s) => s.photos);
+  // En la casa propia, el corcho es de su dueño: solo sus fotos.
+  const casaOwner = useOfficeStore((s) => casaOwnerOf(s.area));
+  const all = usePhotoStore((s) => s.photos);
+  const photos = useMemo(() => (casaOwner ? photosOfPerson(all, casaOwner) : all), [all, casaOwner]);
   const loaded = usePhotoStore((s) => s.loaded);
   const error = usePhotoStore((s) => s.error);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -180,11 +184,14 @@ export function PhotoGallery({ onClose }: { onClose: () => void }) {
         <p className="text-[14px] text-cozy-ink-soft">Mirando el tablón…</p>
       ) : photos.length === 0 ? (
         <p className="text-[14px] text-cozy-ink-soft">
-          {error ?? (
-            <>
-              Todavía no hay fotos. Saca una con <kbd className="cozy-kbd">P</kbd> (o el botón Foto) y pínchala acá.
-            </>
-          )}
+          {error ??
+            (casaOwner ? (
+              "Todavía no hay fotos del dueño de la casa: las que saque o en las que salga aparecen aquí."
+            ) : (
+              <>
+                Todavía no hay fotos. Saca una con <kbd className="cozy-kbd">P</kbd> (o el botón Foto) y pínchala acá.
+              </>
+            ))}
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">

@@ -72,3 +72,29 @@ describe("armarios de la casa", () => {
     }
   });
 });
+
+describe("la galería del pasillo", () => {
+  it("la vitrina, el corcho y el acuario tienen su punto libre y alcanzable, y no tapan las puertas", () => {
+    const arriba = buildCasaPropia("casa:plantilla:arriba")!;
+    const from = CASA_CONEXIONES.arriba.escalera.llegada;
+    for (const [type, furniture] of [
+      ["trophy_case", "trophy-case"],
+      ["photo_board", "photo-board"],
+      ["aquarium", "acuario"],
+    ] as const) {
+      const p = pointsOfType(arriba, type)[0]!;
+      expect(p, type).toBeDefined();
+      expect(isBlockedTile(arriba, p.tileX, p.tileY), type).toBe(false);
+      expect(findPath(arriba, from, { x: p.tileX, y: p.tileY }), type).not.toBeNull();
+      const f = arriba.furniture.find((f) => f.type === furniture)!;
+      expect(p.tileX >= f.x - 1 && p.tileX <= f.x + f.w && p.tileY >= f.y - 1 && p.tileY <= f.y + f.d, type).toBe(true);
+    }
+    // Se sigue llegando a todos los cuartos del piso desde la escalera.
+    for (const z of arriba.def.zones) {
+      const r = z.rect;
+      let ok = false;
+      for (let y = r.y; y < r.y + r.h && !ok; y++) for (let x = r.x; x < r.x + r.w && !ok; x++) ok = !isBlockedTile(arriba, x, y) && findPath(arriba, from, { x, y }) !== null;
+      expect(ok, z.name).toBe(true);
+    }
+  });
+});
