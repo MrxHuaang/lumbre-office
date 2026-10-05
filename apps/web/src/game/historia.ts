@@ -1,8 +1,10 @@
 // La historia en el navegador (ver historia.ts de @hyvento/shared): la bienvenida de Doña Aurora (llega del
 // servidor solo a quien recién entró; si vino en el Megabús, se muestra al bajarse), saltar el capítulo,
 // avisar que se leyó el tablón (paso 5; el servidor revisa que esté junto a él), la carta que llega al buzón
-// y el paso de la historia que va ahora (para la flechita y el cuadro de Doña Aurora).
-import { BUS, HISTORIA_MSG, STORY_PERIOD, isStoryQuest, type HistoriaPrologue, type QuestView } from "@hyvento/shared";
+// y el paso de la historia que va ahora (para la flechita y el cuadro de Doña Aurora). La bienvenida y el
+// final del capítulo se ven como cinemáticas (cinematicas/); sin cinemáticas, la bienvenida es el cuadro.
+import { BUS, CAPITULO_1, HISTORIA_MSG, STORY_PERIOD, isStoryQuest, type HistoriaPrologue, type QuestView } from "@hyvento/shared";
+import { cineWanted, onCineAction, playCinematic, whenCineReady } from "./cinematicas/puerta";
 import { create } from "zustand";
 import { questSfx } from "./encargosSonidos";
 import { useEncargos } from "./encargos";
@@ -43,17 +45,33 @@ if (typeof window !== "undefined") {
     const step = currentStoryStep(useEncargos.getState().quests);
     if (step?.questId === "llegada-5" && step.status === "ACTIVE") getRoom()?.send(HISTORIA_MSG.board);
   });
+  // "Ya me conozco la casa" en la bienvenida: lo mismo que "Saltar historia".
+  onCineAction("saltar-historia", skipStory);
   onRoom((room) => {
     useHistoria.setState({ prologue: null });
-    room.onMessage(HISTORIA_MSG.prologue, (p: HistoriaPrologue) => useHistoria.setState({ prologue: { ...p, open: !onBus() } }));
+    room.onMessage(HISTORIA_MSG.prologue, (p: HistoriaPrologue) => showPrologue({ ...p, open: !onBus() }));
     room.onMessage(HISTORIA_MSG.letter, () => {
       useOfficeStore.getState().notify("Te llegó una carta al buzón del jardín. Viene sin remitente… solo una inicial.", "success");
       questSfx.claim();
+      void playCinematic("capitulo", { n: 1, titulo: CAPITULO_1.title });
     });
   });
   // Quien llegó en el bus ve la bienvenida al bajarse.
   useOfficeStore.subscribe(() => {
     const p = useHistoria.getState().prologue;
-    if (p && !p.open && !onBus()) useHistoria.setState({ prologue: { ...p, open: true } });
+    if (p && !p.open && !onBus()) showPrologue({ ...p, open: true });
   });
+}
+
+/**
+ * La bienvenida: la cinemática de Doña Aurora si se pueden ver (espera a que la escena esté lista: el aviso
+ * llega apenas se entra), si no el cuadro.
+ */
+function showPrologue(p: HistoriaPrologue & { open: boolean }) {
+  if (p.open && cineWanted("prologo")) {
+    useHistoria.setState({ prologue: null });
+    void whenCineReady().then(() => playCinematic("prologo"));
+    return;
+  }
+  useHistoria.setState({ prologue: p });
 }

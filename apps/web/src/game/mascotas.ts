@@ -14,6 +14,7 @@ import { DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "./iso/view
 import { onPetEvent, sendPetAction, sendPetCall, type OfficeRoom, type RemotePet } from "./network";
 import { playPurr, volumeAt } from "./sound";
 import { selectMyUserId, useOfficeStore } from "./store";
+import { playCinematic } from "./cinematicas/puerta";
 
 /** Hasta dónde se oyen (px de mundo). */
 const HEAR_PX = 10 * 32;
@@ -425,7 +426,10 @@ export class Mascotas {
       // Contenta (adoptada) o de vuelta a la casa: corazones y su sonido.
       this.heart(s, 0);
       this.heart(s, 250);
-      if (e.action === "adopt") this.heart(s, 500);
+      if (e.action === "adopt") {
+        this.heart(s, 500);
+        if (e.sessionId === useOfficeStore.getState().sessionId) void playCinematic("mascota-adoptada", { mascota: this.room?.state.pets.get(s.id)?.name ?? "Tu mascota" });
+      }
       if (cat) playMeow(vol, true);
       else playWoof(vol * 0.8, true);
     } else {
