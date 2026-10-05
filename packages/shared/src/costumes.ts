@@ -22,6 +22,9 @@ export const COSTUME_DETAILS = [
   "emblem",
   "stars",
   "confetti",
+  "fangs",
+  "pumpkin-face",
+  "bones",
 ] as const;
 export type CostumeDetail = (typeof COSTUME_DETAILS)[number];
 
@@ -33,6 +36,7 @@ export const COSTUME_CATEGORIES = [
   { id: "casa", label: "Casa y clima" },
   { id: "gala", label: "Fiesta y gala" },
   { id: "disfraz", label: "Disfraces" },
+  { id: "brujas", label: "De la Noche de brujas" },
   // Los de los oficios: se ganan subiendo de nivel (oficios.ts).
   { id: "oficios", label: "De los oficios" },
 ] as const;
@@ -425,6 +429,52 @@ export const COSTUMES: Record<CostumeId, Costume> = {
     gear: { head: "wizard-hat" },
     details: ["stars"],
     tint: { slots: ["shirt", "accent"], label: "Color de la túnica" },
+  },
+  // ---------- De la Noche de brujas ----------
+  bruja: {
+    label: "Bruja",
+    category: "brujas",
+    top: "longsleeve",
+    bottom: "long-skirt",
+    outfit: "gown",
+    shoes: "boots",
+    colors: { shirt: "#5c4878", top2: "#f08a2a", pants: BLACK, accent: "#3e2f52", shoeColor: "#2b1b12" },
+    gear: { head: "witch-hat" },
+    tint: { slots: ["shirt"], label: "Color del vestido" },
+  },
+  vampiro: {
+    label: "Vampiro",
+    category: "brujas",
+    top: "dress-shirt",
+    bottom: "pants",
+    outfit: "vest",
+    shoes: "dress-shoes",
+    colors: { shirt: WHITE, top2: WHITE, pants: BLACK, accent: "#a02a3a", shoeColor: BLACK },
+    gear: { neck: "bowtie", back: "cape" },
+    details: ["fangs"],
+    tint: { slots: ["accent"], label: "Color de la capa" },
+  },
+  calabaza: {
+    label: "Calabaza",
+    category: "brujas",
+    top: "sweater",
+    bottom: "pants",
+    outfit: "coveralls",
+    shoes: "sneakers",
+    colors: { shirt: "#e57e26", top2: "#e57e26", pants: "#e57e26", accent: "#4a7a3e", shoeColor: "#3a2418" },
+    gear: { head: "beanie" },
+    details: ["pumpkin-face"],
+  },
+  esqueleto: {
+    label: "Esqueleto",
+    category: "brujas",
+    top: "longsleeve",
+    bottom: "pants",
+    outfit: "coveralls",
+    shoes: "sneakers",
+    colors: { shirt: BLACK, top2: BLACK, pants: BLACK, accent: BLACK, shoeColor: BLACK },
+    gloves: "#f3f1ec",
+    details: ["bones"],
   },
   // ---------- De los oficios (se desbloquean con el nivel, ver oficios.ts) ----------
   "pescador-lago": {
