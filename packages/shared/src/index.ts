@@ -88,5 +88,6 @@ export * from "./oficios";
 export * from "./historia";
 export * from "./limite-mensajes";
 export * from "./brujas";
+export * from "./noche-brujas";
 export * from "./cinematicas";
 export * from "./festivales";

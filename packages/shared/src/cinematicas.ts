@@ -11,6 +11,7 @@
 import type { Direction } from "./protocol";
 import { EMOTE_IDS, type EmoteGesture, type EmoteId } from "./emotes";
 import { FESTIVAL_CINEMATICAS } from "./festivales";
+import { BRUJAS_CINEMATICAS } from "./noche-brujas";
 
 /** Quién hace algo: el jugador ("yo"), un NPC fijo (por su id) o un actor que la cinemática pone (`extra`). */
 export type CineActor = string;
@@ -226,8 +227,9 @@ export const CINEMATICAS: Record<string, CineDef> = {
   },
 };
 
-// Las de los festivales (apertura, cierre y llegada tarde) viven con los festivales.
-for (const def of FESTIVAL_CINEMATICAS) CINEMATICAS[def.id] = def;
+// Las de los festivales (apertura, cierre y llegada tarde) viven con los festivales; las de la Noche de
+// brujas (la calabaza dorada y los trucos), con sus reglas.
+for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS]) CINEMATICAS[def.id] = def;
 
 export const cineById = (id: string): CineDef | undefined => CINEMATICAS[id];
 

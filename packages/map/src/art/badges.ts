@@ -85,6 +85,7 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   // Observatorio: el telescopio de latón en su trípode y el malvavisco en el palito.
   telescope: ["......yy.", ".....yYy.", "....yYy..", "...yYy...", "..yYy....", ".nyy.....", ".n.n.....", "n...n....", "n...n...."],
   marshmallow: [".cccc....", "cCccCc...", "cccccc...", "cCcccC...", ".cccc....", "....ww...", ".....ww..", "......ww.", ".......ww"],
+  pumpkin: ["....nn...", "...ng....", ".yYyYyYy.", "yYyYyYyYy", "yYkYyYkYy", "yYyYyYyYy", "yYkkkkkYy", ".yYyYyYy."],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],
 };
 
