@@ -2531,7 +2531,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Los festivales del calendario del juego (ver festivales.ts). */
   private festivales = new Festivales({
-    state: this.state,
+    state: () => this.state,
     time: () => this.gameTimeNow(),
     broadcast: (type, msg) => this.broadcast(type, msg),
   });
