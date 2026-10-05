@@ -2,8 +2,10 @@
 // servidor (subir de nivel, un pez legendario o mítico, ver la estrella fugaz primero, el jackpot, el primer
 // huevo, un logro legendario, el cumpleaños propio). Solo si me pasó a mí. Las de la historia (el prólogo,
 // el final de un capítulo) y la de adoptar una mascota se disparan desde game/historia.ts y mascotas.ts.
-import { achievementById, FESTIVAL_MSG, fishById, GRANJA_MSG, type FestivalCineEvent, OFICIO_INFO, rewardsOf, RARITY, type GranjaNotice } from "@hyvento/shared";
+import { achievementById, RELOJ_PASOS, STORY_PERIOD, FESTIVAL_MSG, fishById, GRANJA_MSG, type FestivalCineEvent, OFICIO_INFO, rewardsOf, RARITY, type GranjaNotice } from "@hyvento/shared";
 import { useAchievementStore } from "../achievements";
+import { useEncargos } from "../encargos";
+import { currentGameTime } from "../gameClock";
 import { useFishingStore } from "../fishing/store";
 import { useMundoStore } from "../mundo";
 import { onRoom } from "../network";
@@ -11,6 +13,7 @@ import { useObservatorio } from "../observatorio";
 import { useOficios } from "../oficios";
 import { useOfficeStore } from "../store";
 import { playCineDef, playCinematic } from "./puerta";
+import { playCineSound } from "./sonidos";
 
 const me = () => useOfficeStore.getState().sessionId;
 
@@ -61,6 +64,19 @@ if (typeof window !== "undefined") {
   // En desarrollo, para probarlas a mano desde la consola: __cine("prologo"), __cine("jackpot", { puntos: 500 })
   // o una que se está escribiendo: __cineDef({ id: "x", kind: "historia", steps: [...] }).
   if (process.env.NODE_ENV !== "production") Object.assign(window, { __cine: playCinematic, __cineDef: playCineDef });
+
+  // El reloj de pie de E. (capítulo 2): ya arreglado, da una campanada a cada hora del juego para quien está
+  // en la planta baja (y a la 1 de la tarde, sus trece).
+  let lastHour = -1;
+  setInterval(() => {
+    const t = currentGameTime();
+    if (!t || t.hour === lastHour) return;
+    const first = lastHour === -1;
+    lastHour = t.hour;
+    if (first || useOfficeStore.getState().area !== "planta-baja") return;
+    const fixed = useEncargos.getState().quests.some((q) => q.questId === RELOJ_PASOS.arreglar && q.period === STORY_PERIOD && (q.status !== "ACTIVE" || q.progress >= q.goal));
+    if (fixed) playCineSound(t.hour === 13 ? "campanadas" : "campanada");
+  }, 1000);
 
   onRoom((room) => {
     // Los festivales: la apertura, el cierre y la llegada tarde las manda el servidor a todos.

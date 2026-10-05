@@ -5,7 +5,9 @@
 // rato de energía. El servidor valida que estés junto a la estufa y que alcancen los ingredientes; aquí
 // solo se muestra.
 import { drawHeldItem } from "@hyvento/map/art";
-import { COCINA, INGREDIENTS, RECIPES, canCook, ingredientName, unlockText, unlocked, type Recipe } from "@hyvento/shared";
+import { COCINA, INGREDIENTS, RECIPES, STORY_RECIPES, canCook, ingredientName, unlockText, unlocked, type Recipe } from "@hyvento/shared";
+import { useEncargos } from "@/game/encargos";
+import { storyStepOpen } from "@/game/historia";
 import { useMyLevels } from "@/game/oficios";
 import { useEffect, useMemo } from "react";
 import { requestPantry, sendCook, useCocinaStore } from "@/game/cocina";
@@ -21,6 +23,7 @@ export function ItemArt({ id, size = 8 }: { id: string; size?: 6 | 8 }) {
 
 function effectText(r: Recipe): string {
   if (r.effect.kind === "points") return `+${r.effect.amount} pts`;
+  if (r.effect.kind === "story") return "Receta de E. (historia)";
   const min = r.effect.ms / 60_000;
   return `Energía ${Math.round((r.effect.mul - 1) * 100)} % · ${min >= 1 ? `${Math.round(min * 10) / 10} min` : `${Math.round(r.effect.ms / 1000)} s`}`;
 }
@@ -31,6 +34,9 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
   const pointsToday = useCocinaStore((s) => s.pointsToday);
   useEffect(() => requestPantry(), []);
   const available = pantry ?? {};
+  // Las recetas de la historia (la carnada de E.) solo aparecen con su paso abierto (lo valida el servidor).
+  const quests = useEncargos((s) => s.quests);
+  const recipes = [...STORY_RECIPES.filter((r) => r.story?.some((q) => storyStepOpen(quests, q))), ...RECIPES];
 
   return (
     <PanelShell title="Cocina" icon="pot" onClose={onClose} wide>
@@ -65,7 +71,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
         </section>
 
         <section aria-label="Recetas" className="grid grid-cols-2 gap-2 max-sm:grid-cols-1">
-          {RECIPES.map((r) => {
+          {recipes.map((r) => {
             // La receta de un oficio se ve, pero se cocina desde su nivel (lo valida el servidor).
             const lockedBy = r.requires && !unlocked(r.requires, levels) ? unlockText(r.requires) : null;
             const ok = canCook(r, available) && !lockedBy;
@@ -76,7 +82,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{r.name}</span>
                     <span className="flex items-center gap-1 text-[12px] text-cozy-ink-soft">
-                      <PixelIcon name={r.effect.kind === "points" ? "coin" : "bolt"} size={11} color="var(--color-cozy-gold)" />
+                      <PixelIcon name={r.effect.kind === "points" ? "coin" : r.effect.kind === "story" ? "fish" : "bolt"} size={11} color="var(--color-cozy-gold)" />
                       {effectText(r)}
                     </span>
                   </span>

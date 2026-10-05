@@ -12,6 +12,8 @@ import type { Direction } from "./protocol";
 import { EMOTE_IDS, type EmoteGesture, type EmoteId } from "./emotes";
 import { FESTIVAL_CINEMATICAS } from "./festivales";
 import { BRUJAS_CINEMATICAS } from "./noche-brujas";
+import { CAPITULO2_CINEMATICAS } from "./capitulo2";
+import { CAPITULO3_CINEMATICAS } from "./capitulo3";
 
 /** Quién hace algo: el jugador ("yo"), un NPC fijo (por su id) o un actor que la cinemática pone (`extra`). */
 export type CineActor = string;
@@ -21,7 +23,7 @@ export const CINE_ME = "yo";
 export const CINE_NPCS = ["aurora", "gloria", "evelio", "astronoma", "crupier", "dealer", "cajera", "portero"] as const;
 
 /** Sonidos que puede pedir una cinemática (los resuelve el navegador con sus efectos). */
-export const CINE_SOUNDS = ["fanfarria", "campanada", "campanadas", "carta", "destello", "tambor", "aplausos", "brisa", "trueno", "magia"] as const;
+export const CINE_SOUNDS = ["fanfarria", "campanada", "campanadas", "carta", "destello", "tambor", "aplausos", "brisa", "trueno", "magia", "chapuzon"] as const;
 export type CineSound = (typeof CINE_SOUNDS)[number];
 
 /** Efectos sobre un actor (o la pantalla). */
@@ -230,6 +232,8 @@ export const CINEMATICAS: Record<string, CineDef> = {
 // Las de los festivales (apertura, cierre y llegada tarde) viven con los festivales; las de la Noche de
 // brujas (la calabaza dorada y los trucos), con sus reglas.
 for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS]) CINEMATICAS[def.id] = def;
+// Las de los capítulos de la historia, con su contenido.
+for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATICAS[def.id] = def;
 
 export const cineById = (id: string): CineDef | undefined => CINEMATICAS[id];
 

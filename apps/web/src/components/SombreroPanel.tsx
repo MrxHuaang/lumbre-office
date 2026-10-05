@@ -13,6 +13,9 @@ import {
   SOMBRERO_LOOK,
   SOMBRERO_MENU,
   SOMBRERO_NAME,
+  PENDULO_PRECIO,
+  PIEZAS_RELOJ,
+  PIEZAS_RELOJ_OBJETOS,
   usesOf,
   type SombreroItem,
   type SombreroItemId,
@@ -21,6 +24,7 @@ import { useEffect, useRef, useState } from "react";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { sendSombreroBuy } from "@/game/network";
 import { useSombreroStore } from "@/game/npcs/store";
+import { buyPendulum, usePenduloBuscado } from "@/game/historia";
 import { useOfficeStore } from "@/game/store";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon } from "./Cozy";
@@ -38,6 +42,8 @@ const usesText = (item: SombreroItem) => item.holds.map((art) => `${usesOf(art)}
 export function SombreroPanel({ atObject, onClose }: { atObject: boolean; onClose: () => void }) {
   const points = useMyPoints();
   const present = useSombreroStore((s) => s.man.present);
+  // La historia (capítulo 2): a quien anda buscando el péndulo, el Man se lo ofrece.
+  const pendulo = usePenduloBuscado();
   const lastResult = useSombreroStore((s) => s.lastResult);
   const [pending, setPending] = useState<string | null>(null);
   const [line, setLine] = useState(SOMBRERO_GREETING);
@@ -157,6 +163,25 @@ export function SombreroPanel({ atObject, onClose }: { atObject: boolean; onClos
                 </li>
               );
             })}
+            {pendulo && (
+              <li className="flex items-center gap-3 border-2 border-[#8a6a2a] bg-[#2a2216] px-3 py-2.5 shadow-[inset_0_0_0_1px_#171216] sm:col-span-2">
+                <ItemArt id={PIEZAS_RELOJ.pendulo} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] leading-tight font-semibold text-[#f4e6c8]">{PIEZAS_RELOJ_OBJETOS[PIEZAS_RELOJ.pendulo]!.name}</p>
+                  <p className="text-[12px] leading-snug text-[#b8ab98]">«Un péndulo… sí, sí, algo tengo. Me lo encontré. No pregunte dónde.»</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={buyPendulum}
+                  disabled={!atObject || points < PENDULO_PRECIO}
+                  aria-label={`Comprar el péndulo por ${PENDULO_PRECIO} puntos`}
+                  className="cozy-btn cozy-btn-primary flex shrink-0 items-center gap-1 px-2.5 py-1.5 text-[14px]"
+                >
+                  <PixelIcon name="coin" size={12} color="var(--color-cozy-gold)" />
+                  {PENDULO_PRECIO}
+                </button>
+              </li>
+            )}
           </ul>
           <p className="px-4 pb-3 text-center text-[12px] text-[#8a7e70] italic">«{SOMBRERO_FAREWELL}»</p>
         </div>
