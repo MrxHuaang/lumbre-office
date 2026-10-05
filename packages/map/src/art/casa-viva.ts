@@ -225,11 +225,65 @@ function dogHouse(): Sprite {
   );
 }
 
+/** El comedero de la casa propia: un tapete con huellitas y dos platos de metal, el de croquetas y el del agua. */
+function petBowlMat(): Sprite {
+  // Rojo como la casita del perro: los platos de metal resaltan encima.
+  const r = C.rug;
+  const bowl = (x: number, y: number): Box => ({
+    x,
+    y,
+    z: 0.8,
+    w: 4.4,
+    d: 4.4,
+    h: 1.8,
+    top: (u, v) => (Math.hypot(u - 2.2, v - 2.2) < 1.5 ? null : at(C.metal, 5)),
+    left: (_u, v) => at(C.metal, v > 1.2 ? 4 : 3),
+    right: (_u, v) => at(C.metal, v > 1.2 ? 3 : 2),
+  });
+  return renderSprite(
+    [
+      // El tapete, bajito, con el borde más oscuro y dos huellitas.
+      {
+        x: 1.5,
+        y: 2,
+        z: 0,
+        w: 13,
+        d: 12,
+        h: 0.8,
+        top: (u, v, fw, fh) => {
+          if (u < 0.8 || v < 0.8 || u >= fw - 0.8 || v >= fh - 0.8) return at(r, 2);
+          const paw = (cx: number, cy: number) => Math.hypot(u - cx, v - cy) < 0.9 || [-1.2, 0, 1.2].some((dx) => Math.hypot(u - cx - dx, v - cy + 1.5) < 0.5);
+          return paw(10, 4) || paw(4, 9.5) ? at(r, 5) : at(r, 3);
+        },
+        left: flat(at(r, 2)),
+        right: flat(at(r, 1)),
+      },
+      bowl(3, 3.5),
+      bowl(8.5, 7.5),
+    ],
+    {
+      outline: OUT,
+      under: shadowUnder(1.5, 2, 13, 12),
+      extra: (c, p) => {
+        // Las croquetas (una lomita café) y el agua (azul clara con un brillo).
+        const k = p(5.2, 5.7, 2);
+        c.ellipse(k.x, k.y, 2, 1, at(C.wood, 3));
+        c.set(k.x - 1, k.y - 1, at(C.wood, 4));
+        c.set(k.x + 1, k.y, at(C.wood, 2));
+        const w = p(10.7, 9.7, 2);
+        c.ellipse(w.x, w.y, 2, 1, at(C.sky, 2));
+        c.set(w.x - 1, w.y, at(C.sky, 4));
+      },
+    },
+  );
+}
+
 export const CASA_DRAW: Record<string, () => Sprite> = {
   "balcony-stair": balconyStair,
   radio,
   "pet-bed": petBed,
   "dog-house": dogHouse,
+  "pet-bowl": petBowlMat,
 };
 
 /** Colores sueltos que usan también los efectos del cliente (el agua de los lavamanos, las burbujas). */

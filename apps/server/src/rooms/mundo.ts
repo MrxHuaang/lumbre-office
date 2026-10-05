@@ -54,7 +54,7 @@ export interface MundoDeps {
   /** Deja de estar mojado (devuelve si lo estaba). */
   dry(userId: string): boolean;
   /** Que su mascota descanse en la casita (ver `Pets.restAt`). */
-  restPet(userId: string, house: PlacedFurniture & { area: string }, now: number): { ok: true; name: string; gained: boolean } | { ok: false; error: "noPet" | "far" };
+  restPet(userId: string, house: PlacedFurniture & { area: string }, now: number, eat?: boolean): { ok: true; name: string; gained: boolean } | { ok: false; error: "noPet" | "far" };
   bump(userId: string, key: string, by?: number): void;
 }
 
@@ -85,7 +85,7 @@ export class MundoVivo {
     if (!p) return;
     if (e.action === "print") return this.print(sessionId, p, e);
     if (e.action === "shower") return this.shower(sessionId, p, e);
-    if (e.action === "doghouse") return this.doghouse(sessionId, p, e);
+    if (e.action === "doghouse" || e.action === "bowl") return this.doghouse(sessionId, p, e);
     // El reloj de sol, las barandas y los paneles: cada navegador hace lo suyo (el panel, solo el propio).
     this.broadcast(p.area, sessionId, e);
   }
@@ -142,16 +142,18 @@ export class MundoVivo {
     );
   }
 
-  /** La casita del perro: tu mascota se echa ahí un rato (y te quiere un poquito más). */
+  /** La casita del perro (o el comedero de la casa): tu mascota se echa (o come) ahí un rato y te quiere un poquito más. */
   private doghouse(sessionId: string, p: MundoPlayer, e: Omit<FurnitureEvent, "sessionId">) {
     const map = this.deps.map(p.area);
     const house = map.furniture.find((f) => f.type === e.type && f.x === e.x && f.y === e.y);
     if (!house) return;
-    const r = this.deps.restPet(p.userId, { ...house, area: p.area }, this.deps.now());
+    const eat = e.action === "bowl";
+    const r = this.deps.restPet(p.userId, { ...house, area: p.area }, this.deps.now(), eat);
     if (!r.ok) return this.notice(sessionId, { code: r.error === "noPet" ? "noPet" : "petFar" });
     this.broadcast(p.area, sessionId, e);
     this.deps.bump(p.userId, STAT_KEYS.petCares);
-    this.notice(sessionId, { code: r.gained ? "petRest" : "petTired", text: r.name });
+    const code = eat ? (r.gained ? "petEat" : "petFull") : r.gained ? "petRest" : "petTired";
+    this.notice(sessionId, { code, text: r.name });
   }
 
   /** Se fue de la sala: se olvida la ducha a medio terminar. */
@@ -215,7 +217,8 @@ export function registerMundo(room: MundoRoom): MundoHandle {
     latestNote: (userId) => room.repo.latestNote(userId),
     bag,
     dry: (userId) => room.piscina?.dry(userId) ?? false,
-    restPet: (userId, house, now) => room.pets.restAt(userId, house, now, { love: MUNDO.doghouseLove, reachTiles: MUNDO.doghouseReachTiles }),
+    restPet: (userId, house, now, eat) =>
+      room.pets.restAt(userId, house, now, eat ? { love: MUNDO.bowlLove, reachTiles: MUNDO.bowlReachTiles, eat } : { love: MUNDO.doghouseLove, reachTiles: MUNDO.doghouseReachTiles }),
     bump: (userId, key, by) => room.achievements.bump(userId, key, by),
   });
   const slots = new SlotMachines({

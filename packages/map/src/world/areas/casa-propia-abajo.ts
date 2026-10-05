@@ -100,6 +100,8 @@ export function casaAbajo(userId: string): AreaDef {
       place("blanket-basket", 7, 6),
       place("side-table", 8, 2),
       place("lamp", 8, 6),
+      // La cama de la mascota junto a la chimenea: con el dueño quieto en casa, duerme ahí.
+      place("pet-bed", 2, 1),
       // ----- Comedor: la mesa de cuatro con la lámpara colgada encima, el aparador y una mata.
       place("sideboard", 10, 0, "down"),
       place("mesa-comedor", 11, 3),
@@ -123,6 +125,8 @@ export function casaAbajo(userId: string): AreaDef {
       place("stool", 16, 4, "right"),
       place("stool", 18, 4, "left"),
       place("coffee-station", 15, 7),
+      // El comedero de la mascota (E: va a comer).
+      place("pet-bowl", 15, 2),
       // ----- Sala de fiestas: la barra con sus banquitos, el equipo de sonido, los parlantes, la bola de
       // discoteca sobre la pista y un sofá para descansar.
       place("barra-casa", 22, 0, "down"),
