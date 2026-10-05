@@ -106,6 +106,18 @@ body {
   }
 }
 
+/* El título grande de las cinemáticas: entra creciendo un poco desde abajo. */
+@keyframes cineTitle {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* Barra de arranque del PC: tres bloques que cruzan la barra una y otra vez (como XP). */
 @keyframes pc-boot {
   from {

@@ -210,11 +210,13 @@ export function PanelShell({
 
 // ---------- Buzón ----------
 
-interface PointsState {
+export interface PointsState {
   balance: number;
   daily: { claimed: boolean; streak: number; reward: number };
-  /** Cartas del buzón (la del cuidador anterior, al terminar el capítulo 1). */
+  /** Cartas del buzón: la de cada capítulo terminado de la historia, en orden. */
   letters?: StoryLetter[];
+  /** Las banderas de los capítulos (`story_ch<n>` → 1 si lo terminó), para el diario de la mochila. */
+  storyFlags?: Record<string, number>;
   moves: { id: string; amount: number; reason: PointReason; refId: string | null; at: string }[];
 }
 
@@ -560,8 +562,8 @@ function Ranking() {
   );
 }
 
-/** Una carta del buzón: cerrada con su remitente, se abre con un clic. */
-function LetterCard({ letter }: { letter: StoryLetter }) {
+/** Una carta del buzón (o del diario de la historia): cerrada con su remitente, se abre con un clic. */
+export function LetterCard({ letter }: { letter: StoryLetter }) {
   const [open, setOpen] = useState(false);
   return (
     <section aria-label="Carta" className="flex flex-col gap-2 border-2 border-cozy-wood bg-cozy-paper-light px-3 py-2.5">

@@ -7,7 +7,7 @@ import { QUEST_GIVERS, questById, questKey } from "@hyvento/shared";
 import { useEffect } from "react";
 import { claimQuest, questGiverToTalk, questsOfGiver, stopTalking, useEncargos } from "@/game/encargos";
 import { PixelIcon } from "../Cozy";
-import { AuroraStoryExtras } from "../historia/HistoriaCard";
+import { StoryExtras } from "../historia/HistoriaCard";
 import { QuestEntry, QuestTag } from "./QuestParts";
 
 export function QuestCard() {
@@ -70,7 +70,7 @@ export function QuestCard() {
           })}
         </div>
       )}
-      {talking.giver === "aurora" && <AuroraStoryExtras />}
+      <StoryExtras giver={talking.giver} />
     </section>
   );
 }

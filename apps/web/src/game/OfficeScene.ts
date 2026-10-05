@@ -178,6 +178,9 @@ import { localSpeedMul, useCocinaStore } from "./cocina";
 import { PORTION_USABLE_PREFIX, sendPortion } from "./granjaNet";
 import { SeasonView } from "./seasons";
 import { WindowView } from "./ventanas";
+import { bindCineHost } from "./cinematicas/player";
+import { cineBlocking } from "./cinematicas/store";
+import "./cinematicas/momentos";
 import { NpcCast } from "./npcs/cast";
 import { syncSeat } from "./mundo";
 import { QuestMarkers, questGiverToTalk } from "./encargosMarcas";
@@ -538,6 +541,16 @@ export class OfficeScene extends Phaser.Scene {
     this.weatherView.setWeather(useOfficeStore.getState().weather, true);
     this.seasonView = new SeasonView(this);
     this.seasonView.setWeather(useOfficeStore.getState().weather, true);
+    // Las cinemáticas usan la cámara, mi personaje y los NPC del nivel (ver cinematicas/player.ts).
+    bindCineHost({
+      scene: this,
+      local: () => this.local ?? null,
+      npc: (id) => this.npcs?.avatarOf(id) ?? null,
+      tileSize: () => this.map.tileSize,
+      followLocal: () => {
+        if (this.local) this.cameras.main.startFollow(this.local.sprite, true, 0.15, 0.15);
+      },
+    });
     this.windowView = new WindowView(this);
     this.windowView.setWeather(useOfficeStore.getState().weather);
     this.critters = new Critters(this, () => this.peopleHere());
@@ -578,7 +591,7 @@ export class OfficeScene extends Phaser.Scene {
       const s = useOfficeStore.getState();
       // En la carrera, el clic es impulso (no caminar).
       if (this.local?.isRiding) return pumpRace();
-      if (s.pcOn) return; // con el PC prendido no se camina
+      if (s.pcOn || cineBlocking()) return; // con el PC prendido o en una escena no se camina
       if (this.fishing.pointerDown()) return; // pescando, el clic es para la caña
       if (this.table.pointerDown(p.worldX, p.worldY)) return; // en la mesa, el clic pone fichas
       // Clic sobre quien baila en el tubo (cerca de la tarima): le tira un billete.
@@ -660,6 +673,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.weatherView.destroy(),
       () => this.seasonView.destroy(),
       () => this.windowView.destroy(),
+      () => bindCineHost(null),
       () => this.critters.destroy(),
       useOfficeStore.subscribe((s) => this.showNewBubbles(s.messages)),
       useMediaStore.subscribe((m, prev) => {
@@ -1505,14 +1519,17 @@ export class OfficeScene extends Phaser.Scene {
     const fieldFocus = isEditableFocus();
     if (this.fieldFocus && !fieldFocus) this.keysFreeAt = performance.now();
     this.fieldFocus = fieldFocus;
+    // En una escena de la historia, E y Esc son del cuadro de diálogo, no del juego.
+    const scene = cineBlocking();
+    if (scene) this.keysFreeAt = performance.now();
     const tap = (key: Phaser.Input.Keyboard.Key) =>
-      Phaser.Input.Keyboard.JustDown(key) && !typing && !pcOn && !fieldFocus && key.timeDown > this.keysFreeAt;
+      Phaser.Input.Keyboard.JustDown(key) && !typing && !pcOn && !fieldFocus && !scene && key.timeDown > this.keysFreeAt;
     const k = this.keys;
     const del = tap(k.DELETE);
     const backspace = tap(k.BACKSPACE);
     // Los botones táctiles de E y F cuentan como la tecla (si el juego está libre).
     const touch = takeTouchTaps();
-    const free = !typing && !pcOn && !fieldFocus;
+    const free = !typing && !pcOn && !fieldFocus && !scene;
     return { e: tap(k.E) || (free && touch.e), r: tap(k.R), f: tap(k.F) || (free && touch.f), b: tap(k.B), esc: tap(k.ESC), del: del || backspace };
   }
 
@@ -1534,8 +1551,8 @@ export class OfficeScene extends Phaser.Scene {
     let vx = 0;
     let vy = 0;
     const { typing, pcOn } = useOfficeStore.getState();
-    // Escribiendo en la UI o usando el PC: el teclado no mueve al personaje.
-    if (!typing && !pcOn) {
+    // Escribiendo en la UI, usando el PC o en una escena de la historia: el teclado no mueve al personaje.
+    if (!typing && !pcOn && !cineBlocking()) {
       const k = this.keys;
       const { letters, arrows } = this.moveKeysFree();
       // Las teclas van alineadas a la pantalla: arriba = noroeste+noreste del mundo, etc.

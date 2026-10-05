@@ -155,6 +155,11 @@ export interface QuestDef {
   when?: QuestWhen;
   /** Historias: el paso que se abre al entregar este. */
   next?: string;
+  /**
+   * Historias: objetos que hay que entregar con el paso (itemId de la mochila, `obj:<id>`, y cuántos). Se
+   * revisan y se sacan al entregar, todo o nada (ver rooms/encargos.ts del servidor).
+   */
+  deliver?: readonly { itemId: string; n: number }[];
 }
 
 type Entry = Omit<QuestDef, "kind">;
@@ -230,7 +235,7 @@ export const QUESTS: readonly QuestDef[] = [
     { id: "semana-casino", giver: "crupier", title: "Cliente de la semana", text: "Haga 25 apuestas esta semana. Gane o pierda, la ruleta lo recuerda.", stat: STAT_KEYS.casinoBets, goal: 25, reward: r(40, "social", 80) },
     { id: "semana-foco", giver: "tablon", title: "Semana concentrada", text: "«Cinco bloques de foco esta semana. El chat sigue ahí cuando vuelvas.»", stat: STAT_KEYS.focusBlocks, goal: 5, reward: r(55, "social", 90) },
   ]),
-  // La historia (historia.ts): los pasos del capítulo 1 con Doña Aurora.
+  // La historia (historia.ts): los pasos de todos los capítulos.
   ...STORY_QUESTS,
 ];
 
@@ -505,7 +510,7 @@ export interface QuestDoneEvent {
   period: string;
 }
 
-export type QuestClaimError = "unknown" | "far" | "not-done" | "claimed" | "expired" | "full" | "stack" | "busy" | "capped" | "failed";
+export type QuestClaimError = "unknown" | "far" | "not-done" | "claimed" | "expired" | "full" | "stack" | "busy" | "capped" | "missing" | "failed";
 
 export type QuestClaimResult =
   | { ok: true; questId: string; period: string; points: number; capped: boolean; skill: QuestSkill; xp: number; item: string | null; balance: number }
@@ -520,6 +525,7 @@ export const QUEST_ERROR_TEXT: Record<QuestClaimError, string> = {
   full: "Haz espacio en la mochila: la recompensa no cabe.",
   stack: "Haz espacio en la mochila: no te cabe una más de eso.",
   capped: "Ya llenaste los puntos de encargos de hoy: entrégalo mañana.",
+  missing: "Te falta algo en la mochila para entregar este paso.",
   busy: "Un momentico…",
   failed: "No se pudo entregar. Intenta otra vez.",
 };
