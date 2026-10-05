@@ -204,6 +204,8 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "cafe", point: "cafe_counter", furniture: ["counter-coffee", "pastry-case", "counter"] },
   { kind: "shop", point: "shop_counter", furniture: ["shop-counter", "display-shelf"] },
   { kind: "fitting", point: "fitting_room", furniture: ["fitting-booth", "clothes-rack"] },
+  // El armario de la casa propia: el mismo vestidor que el probador.
+  { kind: "wardrobe", point: "wardrobe", furniture: ["armario"] },
   { kind: "pole", point: "pole_stage", furniture: ["dance-pole"] },
   { kind: "roulette", point: "roulette", furniture: ["roulette-table", "roulette-wheel"] },
   { kind: "cashier", point: "casino_cashier", furniture: ["casino-cashier"] },

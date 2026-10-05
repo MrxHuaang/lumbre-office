@@ -60,6 +60,7 @@ const PROMPT: Record<Interactable, string> = {
   cafe: "Pedir en la barra",
   shop: "Ver la tienda",
   fitting: "Entrar al probador",
+  wardrobe: "Abrir el armario",
   pole: "Bailar en el tubo",
   roulette: "Jugar a la ruleta",
   cashier: "Ver la caja",

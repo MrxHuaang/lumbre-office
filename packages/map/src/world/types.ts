@@ -195,6 +195,8 @@ export interface PointDef {
     | "cafe_counter"
     | "shop_counter"
     | "fitting_room"
+    // Frente a cada armario de la casa propia: cambiarse de ropa como en el probador.
+    | "wardrobe"
     | "roulette"
     | "casino_cashier"
     | "pole_stage"
