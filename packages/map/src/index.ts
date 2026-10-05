@@ -1,7 +1,8 @@
 import { AREAS, SPAWN_AREA } from "./world/areas";
 import { catalogItem } from "./world/catalog";
 import type { AreaDef } from "./world/types";
-import { buildEditedArea, type WorldEdits } from "./worldEdits";
+import { applyWorldEdits, type WorldEdits } from "./worldEdits";
+import { applyFestivalDecor, festivalDecorAreas, festivalDecorOf } from "./festival-decor";
 import {
   buildArea,
   FEET_BOX,
@@ -19,6 +20,8 @@ import {
 export * from "./pathfinding";
 export * from "./decor";
 export * from "./worldEdits";
+export * from "./festival-decor";
+export { LABERINTO, LABERINTO_ENTRADA, PUMPKIN_SPOTS, pumpkinSpotOf, type PumpkinSpot } from "./world/festivales/brujas";
 export * from "./casa";
 export * from "./casa-propia";
 export * from "./mundo";
@@ -55,17 +58,45 @@ export function planDef(areaId: string): AreaDef | undefined {
   return AREAS.find((a) => a.id === areaId);
 }
 
+/** Los cambios del editor de la casa de cada nivel y el festival decorado (con su día), para rearmar. */
+const editsOf = new Map<string, WorldEdits>();
+let fiesta: { id: string; day: number } | null = null;
+
+/** Rearma un nivel del mundo: el plano, los cambios del editor y la decoración del festival encima. */
+function rebuildWorldArea(areaId: string): OfficeMap | undefined {
+  const def = planDef(areaId);
+  if (!def) return undefined;
+  const edited = applyWorldEdits(def, editsOf.get(areaId));
+  const map = buildArea(applyFestivalDecor(edited, fiesta && festivalDecorOf(fiesta.id, edited, fiesta.day)));
+  getWorld().areas.set(areaId, map);
+  return map;
+}
+
 /**
  * Aplica los cambios del editor de la casa a un nivel del mundo: desde ahí `getWorld()` lo devuelve con
  * esos muebles (y la decoración de las oficinas se arma encima). Devuelve el nivel nuevo.
  */
 export function setWorldEdits(areaId: string, edits: WorldEdits): OfficeMap | undefined {
-  const def = planDef(areaId);
-  if (!def) return undefined;
-  const map = buildEditedArea(def, edits);
-  getWorld().areas.set(areaId, map);
-  return map;
+  if (!planDef(areaId)) return undefined;
+  editsOf.set(areaId, edits);
+  return rebuildWorldArea(areaId);
 }
+
+/**
+ * Prende la decoración de un festival (el de ese día del juego) o la apaga con null: rearma los niveles que
+ * cambian y devuelve cuáles son (vacío si ya estaba así), para que el servidor y la escena los rearmen.
+ */
+export function setFestivalDecor(id: string | null, day = 0): string[] {
+  const next = id && festivalDecorAreas(id).length ? { id, day } : null;
+  if (next?.id === fiesta?.id && next?.day === fiesta?.day) return [];
+  const areas = [...new Set([...festivalDecorAreas(fiesta?.id), ...festivalDecorAreas(next?.id)])];
+  fiesta = next;
+  for (const a of areas) rebuildWorldArea(a);
+  return areas;
+}
+
+/** El festival cuya decoración está puesta (y su día), o null. */
+export const festivalDecorNow = (): { id: string; day: number } | null => fiesta && { ...fiesta };
 
 /** Todas las zonas de todos los niveles (sus ids son únicos en toda la cabaña). */
 export function allZones(w: World = getWorld()): Zone[] {

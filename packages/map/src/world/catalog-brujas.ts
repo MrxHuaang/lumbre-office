@@ -10,6 +10,8 @@ export const BRUJAS_CATALOG = {
   "carved-pumpkin": { name: "Calabaza tallada", size: [1, 1], hasNight: true, light: { at: [9, 9, 5], ...CANDLE, radius: 30 } },
   "carved-pumpkin-big": { name: "Calabaza tallada grande", size: [1, 1], hasNight: true, light: { at: [9, 9, 7], ...CANDLE, radius: 40 } },
   "pumpkin-pile": { name: "Pila de calabazas", size: [1, 1] },
+  // El premio escondido en el laberinto (cambia de rincón cada día): brilla dorado de noche.
+  "golden-pumpkin": { name: "Calabaza dorada", size: [1, 1], light: { at: [8, 8, 6], color: "#ffd84a", radius: 34 } },
   // Cabeza de ahuyama tallada (prendida de noche) y sombrero de bruja.
   "witch-scarecrow": { name: "Espantapájaros de brujas", size: [1, 1], hasNight: true, light: { at: [9, 9, 28], ...CANDLE, radius: 26 } },
   // Farol de papel colgado del brazo de un poste (el farol queda hacia +x).
