@@ -552,6 +552,8 @@ export class OfficeState extends Schema {
   @type("string") festival = "";
   @type("string") festivalFase = "";
   @type(VelitasState) velitas = new VelitasState();
+  /** El día del juego del festival: lo que cambia cada día (la calabaza dorada del laberinto) sale de ahí. */
+  @type("number") festivalDia = 0;
   /** La casa del árbol del jardín (ver rooms/casaArbol.ts). */
   @type(TreeHouseState) treeHouse = new TreeHouseState();
   @type(BusState) bus = new BusState();

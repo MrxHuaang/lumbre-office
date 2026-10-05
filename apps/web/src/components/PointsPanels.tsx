@@ -102,6 +102,8 @@ const PROMPT: Record<Interactable, string> = {
   coop: "Ver los nombres del gallinero",
   reception: "Preguntarle a Doña Gloria",
   encargo: "Hablar del encargo",
+  brujasShop: "Comprar en el puesto del caldero",
+  goldenPumpkin: "Tomar la calabaza dorada",
 };
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

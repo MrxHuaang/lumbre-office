@@ -105,6 +105,8 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "brick-grill",
   "chicken-feeder",
   "farm-sign",
+  // El premio de la Noche de brujas: lo pone el festival en el laberinto (no se agrega a mano).
+  "golden-pumpkin",
 ]);
 
 /** ¿Es un mueble del plano que el editor no toca? (fijo del catálogo, funcional o banqueta del blackjack). */

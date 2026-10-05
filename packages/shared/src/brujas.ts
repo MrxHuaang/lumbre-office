@@ -27,6 +27,8 @@ export const BRUJAS_BAG_OBJECTS: Record<string, BagObject> = {
     durable: true,
   },
   [CALABAZA_DORADA]: { name: "Calabaza dorada", blurb: "El premio de la Noche de brujas. Brilla aunque sea de día.", kind: "objeto", max: 10 },
+  // El de recuerdo, del puesto del festival (el que se pone está en el vestidor, gratis).
+  "sombrero-bruja": { name: "Sombrero de bruja", blurb: "Negro, de ala ancha y con la punta doblada. Del puesto del caldero, de recuerdo.", kind: "objeto", max: 1 },
 };
 
 /** Los dulces se comen a mordiscos (se suman a CONSUMABLES). */

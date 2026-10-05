@@ -94,7 +94,7 @@ import {
   type SombreroBuyResult,
   type SombreroItemId,
 } from "@hyvento/shared";
-import { parseWorldEdits, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
+import { parseWorldEdits, setFestivalDecor, setWorldEdits, WORLD_EDIT_ERRORS } from "@hyvento/map";
 import { Client, getStateCallbacks, type Room } from "colyseus.js";
 import { useCasinoStore, type RouletteBetView } from "./casino";
 import { bindArcade } from "./arcade/net";
@@ -117,6 +117,7 @@ import { bindBag } from "./bag";
 import { bindCasaArbol } from "./casaArbol";
 import { bindCasas, casasAbiertasPara, useCasasStore } from "./casaVisitas";
 import { bindPesca } from "./pesca";
+import { bindBrujas } from "./brujas";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
@@ -266,6 +267,8 @@ export interface OfficeStateView {
   festivalFase: string;
   /** La Noche de velitas: las prendidas (por "x,y"), cuántas van y los deseos soltados (rooms/velitas.ts). */
   velitas: { placed: Map<string, { x: number; y: number; by: string }>; lit: number; wishes: Map<string, { name: string; text: string }> };
+  /** El día del juego del festival (lo que cambia cada día, como la calabaza dorada, sale de ahí). */
+  festivalDia: number;
   /** Casa viva: contadores (ajedrez, puzle, pizarras), cubículos ocupados (clave → userId) y mascotas. */
   counters: Map<string, number>;
   stalls: Map<string, string>;
@@ -940,6 +943,7 @@ function attach(r: OfficeRoom) {
   bindCasaArbol(r);
   bindCasas(r);
   bindPesca(r);
+  bindBrujas(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({
@@ -1049,9 +1053,14 @@ function attach(r: OfficeRoom) {
   $(r.state).listen("clockAnchorReal", syncClock);
   $(r.state).listen("clockAnchorMinute", syncClock);
   $(r.state).listen("clockPaused", syncClock);
-  const syncFestival = () => useOfficeStore.setState({ festival: { id: r.state.festival ?? "", fase: r.state.festivalFase ?? "" } });
+  const syncFestival = () => {
+    useOfficeStore.setState({ festival: { id: r.state.festival ?? "", fase: r.state.festivalFase ?? "" } });
+    // La decoración del festival (el laberinto, las calabazas): se suma al mundo y la escena rearma esos niveles.
+    for (const area of setFestivalDecor(r.state.festival || null, r.state.festivalDia ?? 0)) worldEditListeners.forEach((cb) => cb(area));
+  };
   $(r.state).listen("festival", syncFestival);
   $(r.state).listen("festivalFase", syncFestival);
+  $(r.state).listen("festivalDia", syncFestival);
   // Eventos del calendario: la lista de cumpleaños de hoy y el karaoke (llega con el primer estado).
   $(r.state).listen("events", (events) => {
     if (!events) return;

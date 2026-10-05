@@ -153,6 +153,10 @@ export const STAT_KEYS = {
   clawWins: "claw_wins",
   fortuneSpins: "fortune_spins",
   notesPrinted: "notes_printed",
+  // La Noche de brujas (noche-brujas.ts): calabazas doradas encontradas en el laberinto y dulces recibidos
+  // pidiendo dulce o truco.
+  goldenPumpkins: "golden_pumpkins",
+  trickOrTreats: "trick_or_treats",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -274,6 +278,7 @@ export const BADGE_ICONS = [
   "tub",
   "telescope",
   "marshmallow",
+  "pumpkin",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
@@ -448,6 +453,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("punto-exacto", "Punto exacto", "marshmallow", "comun", STAT_KEYS.goldenMarshmallows, 1, "Saca un malvavisco dorado de la fogata del observatorio", "Ni crudo ni carbón: el punto de la abuela."),
     a("maestro-malvavisquero", "Maestro malvavisquero", "marshmallow", "raro", STAT_KEYS.goldenMarshmallows, 25, "Saca 25 malvaviscos dorados", "Tu palito ya tiene nombre propio."),
     a("antorcha-humana", "Antorcha humana", "flame", "comun", STAT_KEYS.burntMarshmallows, 5, "Quema 5 malvaviscos", "Técnicamente también es cocinar.", true),
+    // La Noche de brujas
+    a("calabaza-dorada", "Calabaza dorada", "pumpkin", "epico", STAT_KEYS.goldenPumpkins, 1, "Encuentra la calabaza dorada del laberinto de maíz en la Noche de brujas", "Entre tanto maíz, la única que brillaba era la tuya."),
+    a("dulce-o-truco", "Dulce o truco", "pumpkin", "raro", STAT_KEYS.trickOrTreats, 10, "Recibe 10 dulces pidiendo dulce o truco", "La canasta ya no cierra y todavía quedan puertas."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),

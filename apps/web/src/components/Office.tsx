@@ -67,6 +67,7 @@ import { RadarPanel } from "./observatorio/RadarPanel";
 import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
+import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { PrologueCard } from "./historia/HistoriaCard";
 import { QuestTracker } from "./encargos/QuestTracker";
@@ -341,6 +342,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
             <DoorPrompt />
             <DoorNotePrompt />
+            <BrujasTrickPrompt />
             <SeatPrompt />
             <InteractPrompt />
             <MarshmallowStrip />
@@ -463,6 +465,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "logbook" && <DiarioPanel onClose={closePanel} />}
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "brujasShop" && <BrujasPanel atObject={panel.atObject} onClose={closePanel} />}
           {/* Mundo lleno: tragamonedas, garra, estante de premios, rueda y la recepción. */}
           <MundoPanels />
           {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}

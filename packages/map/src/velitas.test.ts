@@ -1,8 +1,9 @@
 import { VELITAS } from "@hyvento/shared";
-import { describe, expect, it } from "vitest";
-import { catalogItem, getWorld, pointsOfType } from "./index";
-import { farolesOrigin, onWishDock, VELITA_TYPES, velitaBlock, velitaInReach, velitaTypeAt, VELITAS_DECOR } from "./velitas";
+import { afterEach, describe, expect, it } from "vitest";
+import { applyFestivalDecor, catalogItem, festivalDecorAreas, festivalDecorOf, findPath, getWorld, planDef, pointsOfType, setFestivalDecor } from "./index";
+import { farolesOrigin, onWishDock, VELITA_TYPES, velitaBlock, velitaInReach, velitaTypeAt } from "./velitas";
 
+/** El jardín sin decoración (getWorld se rearma al prender un festival). */
 const jardin = getWorld().areas.get(VELITAS.area)!;
 const ts = jardin.tileSize;
 
@@ -45,17 +46,29 @@ describe("Noche de velitas en el mapa", () => {
     expect(farolesOrigin(jardin)).not.toBeNull();
   });
 
-  it("la decoración del festival no estorba: ni sobre caminos, ni puntos, ni muebles", () => {
-    const seen = new Set<string>();
-    for (const dec of VELITAS_DECOR) {
-      const where = `${dec.type} ${dec.x},${dec.y}`;
-      expect(dec.area).toBe(VELITAS.area);
-      expect(catalogItem(dec.type).name, where).toBeTruthy();
-      expect(velitaBlock(jardin, dec.x, dec.y), where).toBeNull();
-      // Lo que bloquea no va sobre un sendero.
-      if (catalogItem(dec.type).solid !== false) expect(jardin.floors[dec.y * jardin.width + dec.x], where).not.toBe("path");
-      expect(seen.has(`${dec.x},${dec.y}`), where).toBe(false);
-      seen.add(`${dec.x},${dec.y}`);
+  it("la decoración del festival entra entera, lo que bloquea no va sobre senderos y no tapa nada", () => {
+    expect(festivalDecorAreas("velitas")).toEqual([VELITAS.area]);
+    const def = planDef(VELITAS.area)!;
+    const decor = festivalDecorOf("velitas", def, 0)!;
+    // Ninguna pieza se salta (todas caen en piso libre).
+    expect(applyFestivalDecor(def, decor).furniture.length - def.furniture.length).toBe(decor.furniture.length);
+    for (const p of decor.furniture) {
+      const where = `${p.type} ${p.x},${p.y}`;
+      expect(velitaBlock(jardin, p.x, p.y), where).toBeNull();
+      if (catalogItem(p.type).solid !== false) expect(jardin.floors[p.y * jardin.width + p.x], where).not.toBe("path");
     }
+    // Desde la entrada se sigue llegando a todos los portales y puntos.
+    const spawn = pointsOfType(jardin, "spawn")[0]!;
+    const from = { x: spawn.tileX, y: spawn.tileY };
+    const targets = [...jardin.portals.flatMap((p) => p.tiles), ...jardin.points.map((p) => ({ x: p.tileX, y: p.tileY }))];
+    const before = targets.filter((t) => findPath(jardin, from, t));
+    setFestivalDecor("velitas", 0);
+    const decorated = getWorld().areas.get(VELITAS.area)!;
+    expect(decorated.furniture.some((f) => f.type === "farol-velitas")).toBe(true);
+    for (const t of before) expect(findPath(decorated, from, t), `${t.x},${t.y}`).not.toBeNull();
   });
+});
+
+afterEach(() => {
+  setFestivalDecor(null);
 });
