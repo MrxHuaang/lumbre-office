@@ -207,36 +207,97 @@ export interface FestivalCineEvent {
 /** Id de la cinemática de apertura, cierre o llegada tarde de un festival. */
 export const festivalCineId = (id: FestivalId, momento: "apertura" | "cierre" | "llegada") => `festival-${id}-${momento}`;
 
+/**
+ * Apertura: Aurora, Gloria y Evelio llegan corriendo desde tres lados, se arma la rumba alrededor de uno
+ * (bailan todos, confeti) y anuncian el festival; luego cada uno se va por su lado.
+ */
 const open = (f: FestivalDef, lines: readonly [string, string], extra: CineDef["steps"] = []): CineDef => ({
   id: festivalCineId(f.id, "apertura"),
   kind: "momento",
   steps: [
-    { op: "flash", color: "oro", ms: 400 },
+    { op: "spawn", id: "aurora", like: "aurora", at: { dx: 6, dy: 1 }, facing: "left" },
+    { op: "spawn", id: "gloria", like: "gloria", at: { dx: -6, dy: 1 }, facing: "right" },
+    { op: "spawn", id: "evelio", like: "evelio", at: { dx: 1, dy: 6 }, facing: "up" },
     { op: "sound", sound: "tambor" },
-    { op: "title", text: f.nombre, sub: "¡Empezó el festival!", ms: 2600 },
+    {
+      op: "together",
+      steps: [
+        { op: "walk", who: "aurora", run: true, to: { dx: 2, dy: 1 } },
+        { op: "walk", who: "gloria", run: true, to: { dx: -2, dy: 1 } },
+        { op: "walk", who: "evelio", run: true, to: { dx: 1, dy: 2 } },
+      ],
+    },
+    { op: "together", steps: [{ op: "face", who: "aurora", toward: "yo" }, { op: "face", who: "gloria", toward: "yo" }, { op: "face", who: "evelio", toward: "yo" }] },
+    { op: "flash", color: "oro", ms: 400 },
+    {
+      op: "together",
+      steps: [
+        { op: "title", text: f.nombre, sub: "¡Empezó el festival!", ms: 2600 },
+        { op: "act", who: "aurora", action: "bailar" },
+        { op: "act", who: "gloria", action: "bailar" },
+        { op: "act", who: "evelio", action: "saltar" },
+        { op: "act", who: "yo", action: "bailar" },
+        { op: "fx", fx: "confeti", who: "yo" },
+      ],
+    },
     ...extra,
     { op: "say", who: "aurora", text: lines[0], ms: 3200 },
     { op: "say", who: "gloria", text: lines[1], ms: 3200 },
+    { op: "together", steps: [{ op: "act", who: "aurora", action: "saludar" }, { op: "act", who: "gloria", action: "saludar" }, { op: "act", who: "evelio", action: "saludar" }] },
+    {
+      op: "together",
+      steps: [
+        { op: "walk", who: "aurora", to: { dx: 7, dy: -1 } },
+        { op: "walk", who: "gloria", to: { dx: -7, dy: -1 } },
+        { op: "walk", who: "evelio", to: { dx: 2, dy: 7 } },
+      ],
+    },
+    { op: "despawn", id: "aurora" },
+    { op: "despawn", id: "gloria" },
+    { op: "despawn", id: "evelio" },
   ],
 });
 
+/** Cierre: Aurora y Gloria pasan a despedirse, aplauden y se van caminando juntas. */
 const close = (f: FestivalDef, text: string): CineDef => ({
   id: festivalCineId(f.id, "cierre"),
   kind: "momento",
   steps: [
+    { op: "spawn", id: "aurora", like: "aurora", at: { dx: 5, dy: 3 }, facing: "left" },
+    { op: "spawn", id: "gloria", like: "gloria", at: { dx: 6, dy: 2 }, facing: "left" },
+    { op: "together", steps: [{ op: "walk", who: "aurora", to: { dx: 2, dy: 1 } }, { op: "walk", who: "gloria", to: { dx: 2, dy: 0 } }] },
+    { op: "together", steps: [{ op: "face", who: "aurora", toward: "yo" }, { op: "face", who: "gloria", toward: "yo" }] },
     { op: "sound", sound: "aplausos" },
-    { op: "fx", fx: "confeti" },
-    { op: "title", text: `¡Gracias por venir!`, sub: f.nombre, ms: 2400 },
+    {
+      op: "together",
+      steps: [
+        { op: "fx", fx: "confeti" },
+        { op: "title", text: `¡Gracias por venir!`, sub: f.nombre, ms: 2400 },
+        { op: "act", who: "aurora", action: "celebrar" },
+        { op: "act", who: "gloria", action: "saltar" },
+      ],
+    },
     { op: "say", who: "aurora", text, ms: 3200 },
+    { op: "together", steps: [{ op: "act", who: "aurora", action: "saludar" }, { op: "act", who: "gloria", action: "saludar" }, { op: "emote", who: "yo", emote: "wave" }] },
+    { op: "together", steps: [{ op: "walk", who: "aurora", to: { dx: -4, dy: 5 } }, { op: "walk", who: "gloria", to: { dx: -3, dy: 6 } }] },
+    { op: "despawn", id: "aurora" },
+    { op: "despawn", id: "gloria" },
   ],
 });
 
+/** Llegó con la fiesta andando: Gloria sale a recibirlo corriendo. */
 const late = (f: FestivalDef): CineDef => ({
   id: festivalCineId(f.id, "llegada"),
   kind: "momento",
   steps: [
+    { op: "spawn", id: "gloria", like: "gloria", at: { dx: -5, dy: 2 }, facing: "right" },
+    { op: "walk", who: "gloria", run: true, to: { dx: -1, dy: 1 } },
+    { op: "face", who: "gloria", toward: "yo" },
     { op: "sound", sound: "destello" },
-    { op: "title", text: f.nombre, sub: "Llegaste en plena fiesta", ms: 2600 },
+    { op: "together", steps: [{ op: "act", who: "gloria", action: "saltar" }, { op: "title", text: f.nombre, sub: "Llegaste en plena fiesta", ms: 2600 }] },
+    { op: "bubble", who: "gloria", text: "¡Venga, que esto apenas empieza!" },
+    { op: "walk", who: "gloria", to: { dx: 4, dy: -2 } },
+    { op: "despawn", id: "gloria" },
   ],
 });
 

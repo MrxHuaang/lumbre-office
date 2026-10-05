@@ -96,14 +96,21 @@ export function CineOverlay() {
   const playing = useCineStore((s) => s.playing);
   const bars = useCineStore((s) => s.bars);
 
-  // Esc salta la cinemática (en cualquier momento).
+  // Esc salta la cinemática (en cualquier momento). En una de historia, además, ninguna tecla sigue hasta
+  // los atajos del juego (el celular con Enter, los emotes, la foto): las usa solo la escena. Se corta en
+  // la captura de window, así el cuadro de diálogo (también en captura) sigue oyéndolas y los botones de las
+  // opciones se siguen apretando con Enter (no se toca lo que la tecla hace por defecto).
   useEffect(() => {
     if (!playing) return;
+    const story = playing.kind === "historia";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      e.stopPropagation();
-      skip();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        skip();
+        return;
+      }
+      if (story) e.stopPropagation();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
