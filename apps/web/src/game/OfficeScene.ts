@@ -119,6 +119,7 @@ import { clientPoint, personAt, useSocialStore } from "./social";
 import { Usables, type UsableHit } from "./usables";
 import { FishingController } from "./fishing/controller";
 import { ObservatorioVivo } from "./observatorioVivo";
+import { MaizalVivo, updateTrickTarget } from "./brujas";
 import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
 import { setSfxArea, setSfxListener, sfx } from "./sfx";
@@ -252,6 +253,9 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "astronomer", point: "astronomer", furniture: [] },
   // Doña Gloria en la recepción del recibidor (mundo lleno).
   { kind: "reception", point: "reception", furniture: ["reception-desk"] },
+  // La Noche de brujas (solo con su decoración puesta): el puesto del caldero y la calabaza dorada.
+  { kind: "brujasShop", point: "festival_shop", furniture: ["cauldron"] },
+  { kind: "goldenPumpkin", point: "golden_pumpkin", furniture: ["golden-pumpkin"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -379,6 +383,8 @@ export class OfficeScene extends Phaser.Scene {
   private rods!: FishingRods;
   /** El observatorio: el orrery que gira y el palito del malvavisco en la mano. */
   private observatorio!: ObservatorioVivo;
+  /** El laberinto de maíz de la Noche de brujas: las matas de delante se transparentan. */
+  private maizal = new MaizalVivo();
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
   /** Cumpleaños, karaoke y foco: el pastel, el neón y lo de sobre el nombre (ver eventos.ts). */
@@ -783,6 +789,7 @@ export class OfficeScene extends Phaser.Scene {
     this.fishing.update(delta);
     this.rods.update();
     this.observatorio.update(time);
+    this.maizal.update(this.local, delta);
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
     this.eventsView.update();
@@ -907,6 +914,7 @@ export class OfficeScene extends Phaser.Scene {
       this.markMapReady();
       this.rods.setArea(map);
       this.observatorio.setArea(map);
+      this.maizal.setArea(map, this.view);
       this.fishing.reset();
       this.club.setArea(map, this.view);
       this.eventsView.setArea(map, this.view);
@@ -992,6 +1000,7 @@ export class OfficeScene extends Phaser.Scene {
     this.trophyCases.setArea(map);
     this.rods.setArea(map);
     this.observatorio.setArea(map);
+    this.maizal.setArea(map, this.view);
     this.club.setArea(map, this.view);
     this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);
@@ -2822,6 +2831,8 @@ export class OfficeScene extends Phaser.Scene {
       if (!canEnterOffice(office, me)) prompt ??= zone.id;
     }
     if (prompt !== s.doorPrompt) s.setDoorPrompt(prompt);
+    // Noche de brujas con la canasta en la mano: el NPC de al lado o esta misma puerta (dulce o truco).
+    updateTrickTarget(this.map, this.local, noteDoor);
     // Adentro de la oficina no se ofrece (la puerta queda a un paso, pero ya entraste).
     useDoorNotesStore.getState().setDoor(s.zone?.id === noteDoor ? null : noteDoor);
   }
