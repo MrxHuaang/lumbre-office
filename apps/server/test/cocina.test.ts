@@ -1,5 +1,5 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { findPath, getWorld, isBlockedTile, pointsOfType } from "@hyvento/map";
+import { buildCasaPropia, findPath, getWorld, isBlockedTile, pointsOfType } from "@hyvento/map";
 import { COCINA, COCINA_MSG, HONEY, MSG, ROOM_NAME, recipeById, type CocinaNotice, type CocinaState, type MoveCorrection } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -93,6 +93,15 @@ describe("cocina (reglas del servidor)", () => {
     // El plato va a la mochila (y a la mano, si estaban libres).
     expect(bag.get("obj:sopa-verduras")).toBe(1);
     expect(picked).toEqual(["obj:sopa-verduras"]);
+  });
+
+  it("la estufa de la casa propia cocina igual que la de la cabaña", async () => {
+    const { cocina, fill, bag } = kitchen();
+    const casa = buildCasaPropia("casa:u-alice:abajo")!;
+    const own = pointsOfType(casa, "kitchen_stove")[0]!;
+    fill({ tomate: 1, papa: 1, cilantro: 1 });
+    expect((await cocina.cook(casa, { userId: "u-alice", x: own.x, y: own.y }, { recipe: "sopa-verduras" }, T0))?.notice?.code).toBe("cooked");
+    expect(bag.get("obj:sopa-verduras")).toBe(1);
   });
 
   it("si el plato no cabe no se cocina (salvo que se libere una casilla), y la estufa tiene su pausa", async () => {
