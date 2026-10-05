@@ -6,28 +6,36 @@ import { create } from "zustand";
 /** "system" = como diga el sistema operativo (prefers-reduced-motion); "reduce" y "full", elegido a mano. */
 export type MotionPref = "system" | "reduce" | "full";
 
+/** Qué cinemáticas se ven: todas, solo las de la historia (sin los momentos cortos) o ninguna. */
+export type CinePref = "todas" | "historia" | "ninguna";
+
 interface PrefsStore {
   motion: MotionPref;
   /** Modo trabajo: el HUD sin lo de juego (puntos, avisos de logros, tiras de juego). */
   workMode: boolean;
+  cine: CinePref;
   setMotion: (m: MotionPref) => void;
   setWorkMode: (on: boolean) => void;
+  setCine: (c: CinePref) => void;
 }
+
+type Saved = Pick<PrefsStore, "motion" | "workMode" | "cine">;
 
 const KEY = "hyvento:preferencias";
 
-function load(): Pick<PrefsStore, "motion" | "workMode"> {
+function load(): Saved {
   try {
     const raw = typeof localStorage !== "undefined" ? localStorage.getItem(KEY) : null;
     const v = raw ? (JSON.parse(raw) as Partial<PrefsStore>) : {};
     const motion: MotionPref = v.motion === "reduce" || v.motion === "full" ? v.motion : "system";
-    return { motion, workMode: v.workMode === true };
+    const cine: CinePref = v.cine === "historia" || v.cine === "ninguna" ? v.cine : "todas";
+    return { motion, workMode: v.workMode === true, cine };
   } catch {
-    return { motion: "system", workMode: false };
+    return { motion: "system", workMode: false, cine: "todas" };
   }
 }
 
-function save(p: Pick<PrefsStore, "motion" | "workMode">) {
+function save(p: Saved) {
   try {
     localStorage.setItem(KEY, JSON.stringify(p));
   } catch {
@@ -39,12 +47,16 @@ export const usePrefsStore = create<PrefsStore>((set, get) => ({
   ...load(),
   setMotion: (motion) => {
     set({ motion });
-    save({ motion, workMode: get().workMode });
+    save({ motion, workMode: get().workMode, cine: get().cine });
     applyMotionAttr();
   },
   setWorkMode: (workMode) => {
     set({ workMode });
-    save({ motion: get().motion, workMode });
+    save({ motion: get().motion, workMode, cine: get().cine });
+  },
+  setCine: (cine) => {
+    set({ cine });
+    save({ motion: get().motion, workMode: get().workMode, cine });
   },
 }));
 
