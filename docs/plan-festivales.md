@@ -15,6 +15,10 @@ colombianas puestas en el calendario del juego, a nuestra manera.
 - `packages/shared/src/calendario.ts`: `DIAS_POR_ESTACION = 21`, `fechaDelJuego(dia)` → año, estación, día de
   la estación (1..21) y día de la semana; sale del día del reloj del juego (`gameTime(...).day`), así que todos
   ven la misma fecha y un `/time` la mueve igual que la hora.
+- **El reloj solo corre con gente adentro**: cuando se va el último, el servidor congela la hora y la fecha del
+  juego (las guarda en la fila `__reloj__` de `WorldLayout`, como `/time`) y al entrar el primero sigue desde
+  ahí. Así una noche o un fin de semana sin nadie no se come días ni festivales. Mientras corre se guarda cada
+  tanto, por si el servidor se reinicia (un deploy) sin avisar.
 - La estación deja de salir del mes de Bogotá: el clima (solo nieva en invierno), el huerto
   (`seasonGrowth`), la decoración de `game/seasons.ts`, los encargos de temporada (`when.seasons`), el
   espantapájaros, el paisaje del bus, la pantalla de carga y el fondo "La estación" del PC usan la estación
