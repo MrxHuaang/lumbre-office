@@ -11,7 +11,7 @@ function setup(day: number, minute: number) {
   const time: GameTime = { day, minuteOfDay: minute, hour: Math.floor(minute / 60), minute: minute % 60 };
   const state = { festival: "", festivalFase: "" };
   const sent: { type: string; msg: unknown }[] = [];
-  const f = new Festivales({ state, time: () => time, broadcast: (type, msg) => sent.push({ type, msg }) });
+  const f = new Festivales({ state: () => state, time: () => time, broadcast: (type, msg) => sent.push({ type, msg }) });
   const at = (m: number) => {
     time.minuteOfDay = m;
     time.hour = Math.floor(m / 60);

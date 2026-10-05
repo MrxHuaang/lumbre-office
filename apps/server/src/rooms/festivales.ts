@@ -5,7 +5,8 @@
 import { FESTIVAL_MSG, estacionDelDia, festivalById, festivalCineId, festivalEn, festivalFase, fechaDelJuego, type FestivalCineEvent, type FestivalDef, type FestivalFase, type FestivalId, type GameTime } from "@hyvento/shared";
 
 export interface FestivalesParts {
-  state: { festival: string; festivalFase: string };
+  /** Donde se publica (el estado de la sala, que existe recién en onCreate: por eso se pide cada vez). */
+  state(): { festival: string; festivalFase: string };
   /** Hora del juego ahora (no corre con la sala vacía). */
   time(): GameTime;
   broadcast(type: string, msg: unknown): void;
@@ -36,7 +37,7 @@ export class Festivales {
     const { festival, fase } = this.current();
     const id = festival?.id ?? "";
     const shown = festival ? fase : "";
-    const st = this.parts.state;
+    const st = this.parts.state();
     if (st.festival === id && st.festivalFase === shown) return;
     const was = { id: st.festival, fase: st.festivalFase };
     st.festival = id;
