@@ -13,6 +13,7 @@ import type { BagObject } from "./bolsa";
 import type { QuestDef, QuestSkill } from "./encargos";
 import type { Weather } from "./weather";
 import { capitulo2 } from "./capitulo2";
+import { capitulo3 } from "./capitulo3";
 
 const step = (n: number, stat: string, skill: QuestSkill, title: string, text: string): QuestDef => ({
   id: `llegada-${n}`,
@@ -146,6 +147,11 @@ export interface Capitulo {
   fromStats?: boolean;
   /** Los objetos de historia del capítulo (van a BAG_OBJECTS con `story: true`: no se tiran, regalan ni intercambian). */
   items?: Readonly<Record<string, BagObject>>;
+  /**
+   * Lo que se le pregunta (o muestra) a quien da un paso: un botón en su cuadro que manda `HISTORIA_MSG.ask`
+   * con ese paso abierto; lo que pasa lo decide la sala del capítulo (ver rooms/capitulo3.ts).
+   */
+  asks?: Readonly<Record<string, string>>;
 }
 
 /** La bandera de terminado del capítulo n (`story_ch<n>`; las del 1 al 5 están en STAT_KEYS). */
@@ -172,7 +178,10 @@ export const CAPITULO_1: Capitulo = {
 /** Capítulo 2, "El reloj de pie" (capitulo2.ts): lo abre terminar el 1. */
 export const CAPITULO_2: Capitulo = capitulo2({ opensWith: STAT_KEYS.storyCh1, flag: STAT_KEYS.storyCh2 });
 
-export const CAPITULOS: readonly Capitulo[] = [CAPITULO_1, CAPITULO_2];
+/** Capítulo 3, "La llavecita del lago" (capitulo3.ts): lo abre terminar el 2. */
+export const CAPITULO_3: Capitulo = capitulo3({ opensWith: STAT_KEYS.storyCh2, flag: STAT_KEYS.storyCh3 });
+
+export const CAPITULOS: readonly Capitulo[] = [CAPITULO_1, CAPITULO_2, CAPITULO_3];
 
 /** Todos los pasos de historia (de todos los capítulos): van en el catálogo de encargos. */
 export const STORY_QUESTS: readonly QuestDef[] = CAPITULOS.flatMap((c) => c.steps);
@@ -188,6 +197,8 @@ export const STORY_LESSONS: Readonly<Record<string, string>> = Object.assign({},
 export const STORY_TARGET: Readonly<Record<string, StoryTarget>> = Object.assign({}, ...CAPITULOS.map((c) => c.targets ?? {}));
 /** Los objetos de historia de todos los capítulos (los suma BAG_OBJECTS). */
 export const STORY_BAG_OBJECTS: Readonly<Record<string, BagObject>> = Object.assign({}, ...CAPITULOS.map((c) => c.items ?? {}));
+/** Lo que se le pregunta a quien da cada paso (el botón de su cuadro), de todos los capítulos. */
+export const STORY_ASKS: Readonly<Record<string, string>> = Object.assign({}, ...CAPITULOS.map((c) => c.asks ?? {}));
 /** Las banderas de todos los capítulos (lo que la web lee de UserStat para el buzón y el diario). */
 export const STORY_FLAGS: readonly string[] = CAPITULOS.map((c) => c.flag);
 
@@ -265,7 +276,13 @@ export const HISTORIA_MSG = {
   aviso: "historia:aviso",
   /** Cliente → servidor: comprarle el péndulo al Man del Sombrero (capítulo 2). */
   pendulo: "historia:pendulo",
+  /** Cliente → servidor: preguntarle (o mostrarle algo) a quien da el paso abierto (`HistoriaAsk`, ver `Capitulo.asks`). */
+  ask: "historia:ask",
 } as const;
+
+export interface HistoriaAsk {
+  questId: string;
+}
 
 export interface HistoriaLetter {
   /** La carta (`StoryLetter.id`). */

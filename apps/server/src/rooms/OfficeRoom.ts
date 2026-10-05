@@ -229,7 +229,9 @@ import { Toasts, type Toaster } from "./toasts";
 import { devToolsEnabled, parseCasaJump, parseDevFestival, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
 import { Festivales } from "./festivales";
 import { Capitulo2 } from "./capitulo2";
-import { HISTORIA_MSG } from "@hyvento/shared";
+import { Capitulo3 } from "./capitulo3";
+import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
+import { nearQuestGiver } from "@hyvento/map";
 import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
@@ -682,6 +684,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     },
     rodCatches: (userId, rod) => this.achievements.stat(userId, rodCatchesKey(rod)) ?? 0,
     caught: (userId, fish, size, first, treasure, rod) => this.fishCaught(userId, fish, size, first, treasure, rod),
+    // La historia: la llavecita del lago (capítulo 3) pica en vez del pez.
+    storyCatch: (userId, area) => {
+      const client = this.clientOfUser(userId);
+      return Boolean(client && this.capitulo3.hookKey(client.sessionId, userId, area));
+    },
   });
   /** El puesto de pesca del lago: las compras y el equipo de cada lance (ver pescaTienda.ts). */
   private pesca = new PescaStand({ repo: () => this.repo, held: this.held, now: () => OfficeRoom.pescaNow() });
@@ -905,6 +912,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       for (const p of this.state.players.values()) if (p.userId === userId) p.buff = dish;
     },
     level: (userId, oficio) => this.oficios.level(userId, oficio),
+    // La carnada de E. (capítulo 3) se cocina solo con su paso abierto.
+    storyOpen: (userId, questId) => this.encargos.storyStep(userId, questId) === "open",
   });
 
   /** La granja: el azar de los animales, su reloj y cuánto tarda cada receta (los tests los fijan y acortan). */
@@ -1075,6 +1084,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.cinemaOrder, (client, raw) => void this.handleOrder(client, raw, "cine"));
     this.onMessage(MSG.sombreroBuy, (client, raw) => void this.handleSombreroBuy(client, raw));
     this.onMessage(HISTORIA_MSG.pendulo, (client) => void this.handlePendulo(client));
+    this.onMessage(HISTORIA_MSG.ask, (client, raw) => this.handleStoryAsk(client, raw));
     this.onMessage(MSG.useHeld, (client, raw) => this.handleUseHeld(client, raw));
     this.onMessage(MSG.furnitureUse, (client, raw) => this.handleFurnitureUse(client, raw));
     this.onMessage(PET_MSG.call, (client, raw) => this.handlePet(client, raw, "call"));
@@ -2546,6 +2556,24 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     send: (sessionId, type, msg) => this.clients.find((c) => c.sessionId === sessionId)?.send(type, msg),
   });
 
+  /** La historia, capítulo 3: la llavecita del lago (ver capitulo3.ts). */
+  private capitulo3 = new Capitulo3({
+    step: (userId, questId) => this.encargos.storyStep(userId, questId),
+    bump: (userId, key) => this.achievements.bump(userId, key),
+    bag: {
+      count: (userId, itemId) => this.held.count(userId, itemId),
+      add: (userId, itemId, n) => this.held.add(userId, itemId, n),
+      take: (userId, itemId, n) => this.held.take(userId, itemId, n),
+    },
+    near: (sessionId, giver) => {
+      const p = this.state.players.get(sessionId);
+      return Boolean(p && nearQuestGiver(this.mapOf(p.area), giver, p.x, p.y));
+    },
+    glowing: () => aguaBrilla(this.gameTimeNow().minuteOfDay, this.state.weather as Weather),
+    now: () => Date.now(),
+    send: (sessionId, type, msg) => this.clients.find((c) => c.sessionId === sessionId)?.send(type, msg),
+  });
+
   /** Los festivales del calendario del juego (ver festivales.ts). */
   private festivales = new Festivales({
     state: () => this.state,
@@ -2987,6 +3015,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result !== "ok") aviso(text[result] ?? "No se pudo.");
   }
 
+  /** La historia: preguntarle (o mostrarle algo) a quien da el paso abierto; lo decide la sala del capítulo. */
+  private handleStoryAsk(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    const questId = (raw as Partial<HistoriaAsk> | null)?.questId;
+    if (!player || !client.userData || typeof questId !== "string") return;
+    client.userData.lastActiveAt = Date.now();
+    if (Capitulo3.asks(questId)) this.capitulo3.ask(client.sessionId, player.userId, questId);
+  }
+
   /** Usar lo que se tiene en la mano (una pitada, un sorbo, un mordisco): lo ven los del mismo nivel. */
   private handleUseHeld(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
@@ -3020,7 +3057,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         return null;
       });
     if (!result) return;
-    if (result.notice?.code === "cooked" || result.notice?.code === "capped") this.achievements.bump(player.userId, STAT_KEYS.dishesCooked);
+    const cooked = result.notice?.code === "cooked" || result.notice?.code === "capped" ? result.notice.item : undefined;
+    // La carnada de E. (historia, capítulo 3) no es un plato: cumple su paso.
+    if (cooked && recipeById(cooked)?.story) this.capitulo3.cooked(client.sessionId, player.userId, cooked);
+    else if (cooked) this.achievements.bump(player.userId, STAT_KEYS.dishesCooked);
     if (result.state) client.send(COCINA_MSG.state, result.state satisfies CocinaState);
     if (result.notice) client.send(COCINA_MSG.notice, result.notice satisfies CocinaNotice);
   }
@@ -4027,6 +4067,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (stillHere) return;
     this.quickTravel?.forget(player.userId);
     this.fishery.forget(player.userId);
+    this.capitulo3.forget(player.userId);
     this.pesca.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);

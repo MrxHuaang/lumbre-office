@@ -84,6 +84,11 @@ export interface FishingDeps {
   points(userId: string, awarded: number, balance: number): void;
   /** Sacó algo del lago (para las estadísticas y los logros). `first` = primera vez de esa especie. */
   caught?(userId: string, fish: FishSpecies, size: number, first: boolean, treasure: boolean, rod: FishingRod): void;
+  /**
+   * La historia: ¿lo que picó es suyo? (la llavecita del capítulo 3). Si la sala dice que sí (y se encarga de
+   * darla), el lance termina con `story` sin pez ni minijuego: la validación del reto no se toca.
+   */
+  storyCatch?(userId: string, area: string): boolean;
 }
 
 export class Fishery {
@@ -185,6 +190,7 @@ export class Fishery {
     }
     if (cast.phase !== "bite") return;
     cast.timer?.clear();
+    if (this.deps.storyCatch?.(userId, cast.area)) return this.end(cast, "story");
     cast.group = this.inGroup(cast);
     // Desde el bote del muelle (mundo lleno) los raros pesan más; todo junto, con el tope de `castLuck`.
     const luck = castLuck({ bait: cast.gear.bait ? BAIT_TUNING[cast.gear.bait].luck : 1, group: cast.group, mastery: cast.mastery, boat: cast.gear.boat });
