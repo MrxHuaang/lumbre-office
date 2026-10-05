@@ -17,14 +17,14 @@ describe("cinemáticas", () => {
       steps: [
         { op: "bars", on: true },
         { op: "say", who: "nadie", text: "hola" },
-        { op: "walk", who: "yo", to: { x: 1, y: 1 } },
+        { op: "walk", who: "yo", to: { dx: 1, dy: 1 } },
         { op: "choice", options: [{ id: "a", label: "A" }] },
       ],
     };
     const p = cineProblems(bad);
     expect(p.some((x) => x.includes("franjas"))).toBe(true);
     expect(p.some((x) => x.includes("nadie"))).toBe(true);
-    expect(p.some((x) => x.includes("servidor"))).toBe(true);
+    expect(p.some((x) => x.includes("el jugador no camina"))).toBe(true);
     expect(p.some((x) => x.includes("opciones"))).toBe(true);
   });
 
