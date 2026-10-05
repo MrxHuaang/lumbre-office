@@ -64,13 +64,26 @@ Lo abre terminar el capítulo 1. Lo da Doña Aurora, que ya leyó la carta por e
 
 Logro "Relojero" (raro).
 
-### Capítulo 3: "La llave" (VIR-152)
+### Capítulo 3: "La llavecita del lago" (VIR-152)
 
-La carta 2 dice que la llave está "donde todo lo que se pierde termina llegando": el lago. Con el reloj
-andando, de noche del juego, en el muelle, se puede pescar la **llavecita oxidada** (una captura especial,
-solo con el paso abierto). Antes hay que conseguir la carnada que E. usaba (receta de cocina, pista de
-Don Evelio) y escuchar a la Profe Celeste, que sabe en qué noche "brilla el agua". Logro "Pescador de
-secretos".
+La carta 2 dice que la llave está "donde todo lo que se pierde termina llegando": el lago. Lo abre terminar
+el 2 y los pasos se reparten entre quienes saben algo:
+
+1. **El agua que brilla** (Profe Celeste): preguntarle en el observatorio. Escena: mira el cielo y cuenta
+   que el lago brilla con la luna alta y el cielo limpio, de 9 de la noche a 3 de la mañana del juego, sin
+   lluvia, tormenta ni niebla (`aguaBrilla`), y dice si esa noche brilla.
+2. **La carnada de E.** (Don Evelio): se hace el loco ("¿E.? ¿Cuál E.?", el pato); mostrándole la carta
+   suelta la receta: masa de mazorca, miel y fresa.
+3. **Masa, miel y fresa** (Evelio): cocinarla en la estufa (receta de historia: solo con el paso abierto,
+   una sola, no se come).
+4. **Lo que el lago guarda** (Evelio): con el agua brillando y la carnada en la mochila, lo que pica es la
+   **llavecita oxidada** (sin minijuego; se gasta la carnada). Mientras brilla, el lago titila para quien
+   tiene este paso.
+5. **La llave de E.** (Doña Aurora): mostrársela. La reconoce y no la recibe: la llave es de quien la
+   sacó (abre el capítulo 4).
+
+Llega la carta 3 (la puerta del fondo del sótano, detrás de los baños: el taller de E.) y el logro
+"Pescador de secretos".
 
 ### Capítulo 4: "El cuarto del fondo" (VIR-153)
 

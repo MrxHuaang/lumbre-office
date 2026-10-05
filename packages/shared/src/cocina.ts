@@ -7,13 +7,17 @@ import { z } from "zod";
 import type { ConsumeAction } from "./consumables";
 import type { Oficio } from "./oficios";
 import { CROPS, HONEY } from "./huerto";
+import { CARNADA_E_RECIPE } from "./capitulo3";
 
 /** Lo que se puede guardar en la despensa: lo que se cosecha y la miel. */
 export const INGREDIENTS: readonly string[] = [...CROPS.map((c) => c.product), HONEY];
 export const isIngredient = (item: string) => INGREDIENTS.includes(item);
 
-/** Lo que hace un plato: puntos al cocinarlo, o energía (velocidad × `mul` durante `ms`) al probarlo. */
-export type DishEffect = { kind: "points"; amount: number } | { kind: "speed"; mul: number; ms: number };
+/**
+ * Lo que hace un plato: puntos al cocinarlo, o energía (velocidad × `mul` durante `ms`) al probarlo. Lo de
+ * la historia (`story`) no se come ni da nada: sirve para un paso (la carnada de E., capítulo 3).
+ */
+export type DishEffect = { kind: "points"; amount: number } | { kind: "speed"; mul: number; ms: number } | { kind: "story" };
 
 export interface Recipe {
   id: string;
@@ -27,6 +31,8 @@ export interface Recipe {
   uses: number;
   /** Receta de un oficio: se cocina desde ese nivel (ver OFICIO_REWARDS en oficios.ts). */
   requires?: { oficio: Oficio; level: number };
+  /** Receta de la historia: solo se ve y se cocina con alguno de estos pasos abiertos (y una sola en la mochila). */
+  story?: readonly string[];
 }
 
 const MIN = 60_000;
@@ -100,10 +106,16 @@ export const RECIPES: readonly Recipe[] = [
   },
 ];
 
-const RECIPE_BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
+/**
+ * Las recetas de la historia (la carnada de E., capítulo 3): se cocinan en la misma estufa, pero no son
+ * platos (no se comen, no dan puntos ni cuentan como plato cocinado) y solo con su paso abierto.
+ */
+export const STORY_RECIPES: readonly Recipe[] = [CARNADA_E_RECIPE];
+
+const RECIPE_BY_ID = new Map([...RECIPES, ...STORY_RECIPES].map((r) => [r.id, r]));
 export const recipeById = (id: string): Recipe | undefined => RECIPE_BY_ID.get(id);
-export const isDish = (item: string) => RECIPE_BY_ID.has(item);
-export const RECIPE_IDS = RECIPES.map((r) => r.id) as [string, ...string[]];
+export const isDish = (item: string) => RECIPE_BY_ID.has(item) && !RECIPE_BY_ID.get(item)!.story;
+export const RECIPE_IDS = [...RECIPES, ...STORY_RECIPES].map((r) => r.id) as [string, ...string[]];
 
 export const COCINA = {
   /** Cuántos de cada ingrediente caben en la despensa de una persona. */
@@ -183,7 +195,7 @@ export interface CocinaState {
   buffLeftMs: number;
 }
 
-export const CocinaNoticeCode = z.enum(["far", "nothing", "notIngredient", "full", "stored", "missing", "hands", "busy", "cooked", "capped", "energy", "inBag", "bagFull", "level"]);
+export const CocinaNoticeCode = z.enum(["far", "nothing", "notIngredient", "full", "stored", "missing", "hands", "busy", "cooked", "capped", "energy", "inBag", "bagFull", "level", "story", "have"]);
 export type CocinaNoticeCode = z.infer<typeof CocinaNoticeCode>;
 
 export interface CocinaNotice {
@@ -222,6 +234,7 @@ export function cocinaNoticeText(n: CocinaNotice): string {
     case "busy":
       return "Un momento, que la estufa todavía está caliente.";
     case "cooked":
+      if (n.item && recipeById(n.item)?.story) return `${dish ?? "Eso"} está listo: quedó en tu mochila.`;
       return `${dish ?? "El plato"} está listo${n.points ? `: +${n.points} puntos` : ""}.`;
     case "capped":
       return `${dish ?? "El plato"} está listo (por hoy la cocina ya no da más puntos).`;
@@ -231,5 +244,9 @@ export function cocinaNoticeText(n: CocinaNotice): string {
       return "Lo cosechado y la miel ya quedan en tu mochila: la cocina los toma de ahí.";
     case "bagFull":
       return "El plato no te cabe en la mochila: haz espacio primero.";
+    case "story":
+      return "Esa receta todavía no te la han enseñado.";
+    case "have":
+      return `Ya tienes ${dish ?? "eso"} en la mochila.`;
   }
 }
