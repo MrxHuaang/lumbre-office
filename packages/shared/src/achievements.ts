@@ -172,6 +172,8 @@ export const STAT_KEYS = {
   sancochoAportes: "sancocho_aportes",
   ahuyamaOro: "ahuyama_oro",
   tombolaGanada: "tombola_ganada",
+  // Bailes de la cosecha completos (uno por feria).
+  cosechaBailes: "cosecha_bailes",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -487,6 +489,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // La Feria de la cosecha
     a("mano-de-olla", "Mano de olla", "pan", "comun", STAT_KEYS.sancochoAportes, 5, "Echa 5 ingredientes a la olla del sancocho de la Feria de la cosecha", "Doña Rubiela ya te deja revolver."),
     a("ahuyama-de-oro", "La ahuyama más grande", "pumpkin", "epico", STAT_KEYS.ahuyamaOro, 1, "Gana el concurso de la ahuyama más grande de la Feria de la cosecha", "La báscula de Don Efraín casi no aguanta."),
+    a("bambuquero", "Bambuquero", "guitar", "raro", STAT_KEYS.cosechaBailes, 1, "Baila el bambuco de la cosecha en el patio", "Tiple, guitarra, bandola y usted dándole vueltas al patio."),
     a("suerte-de-tombola", "Suerte de tómbola", "wheel", "raro", STAT_KEYS.tombolaGanada, 1, "Gana la tómbola de la junta de acción comunal", "La boleta ganadora era la tuya. La carreta también."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),

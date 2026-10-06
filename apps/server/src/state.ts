@@ -424,6 +424,8 @@ export class CosechaState extends Schema {
   @type("string") ganadorAhuyama = "";
   @type("number") ganadorDag = 0;
   @type("string") ganadorTombola = "";
+  /** Va el baile de la cosecha en el patio (por la hora o porque el director lo arrancó). */
+  @type("boolean") baile = false;
 }
 
 /** Escenario del jardín: alguien de las gradas con la mano levantada (la fila de turnos, en orden). */

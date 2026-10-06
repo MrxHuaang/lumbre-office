@@ -10,10 +10,14 @@ import {
   COSECHA_CINEMATICAS,
   COSECHA_MUEBLES,
   COSECHA_PUESTOS,
+  COSECHA_SITIOS,
   OLLA_RECETA,
   PRECIO_BASE,
   VENDER_ERROR_TEXT,
   VenderMessage,
+  baileAbierto,
+  enLaPista,
+  valorDelPaso,
   ganadorAhuyama,
   mejorPuestoPara,
   ollaFaltan,
@@ -205,5 +209,29 @@ describe("la Feria de la cosecha: el festival y sus cinemáticas", () => {
       expect(cineById(d.id)).toBe(d);
       expect(cineProblems(d), d.id).toEqual([]);
     }
+  });
+});
+
+describe("el baile de la cosecha", () => {
+  it("va de las 17:30 a las 21:30 del juego, en la pista del patio", () => {
+    expect(baileAbierto(17 * 60 + 29)).toBe(false);
+    expect(baileAbierto(COSECHA.baileMinuto)).toBe(true);
+    expect(baileAbierto(21 * 60 + 29)).toBe(true);
+    expect(baileAbierto(COSECHA.baileHasta)).toBe(false);
+    // El baile empieza después de que suena la música y termina antes del cierre.
+    expect(COSECHA.musicaDesde).toBeLessThan(COSECHA.baileMinuto);
+    expect(COSECHA.baileHasta).toBeLessThan(22 * 60);
+    const p = COSECHA_SITIOS.patio;
+    expect(enLaPista(p.x + 0.5, p.y + 0.5)).toBe(true);
+    expect(enLaPista(p.x + COSECHA.baileTiles + 1, p.y)).toBe(false);
+  });
+
+  it("cada paso cuenta con su pausa; en pareja vale doble", () => {
+    expect(valorDelPaso(10_000, null, false)).toBe(1);
+    expect(valorDelPaso(10_000, 9_000, true)).toBe(0);
+    expect(valorDelPaso(10_000, 10_000 - COSECHA.bailePasoMs, false)).toBe(1);
+    expect(valorDelPaso(10_000, 10_000 - COSECHA.bailePasoMs, true)).toBe(2);
+    // Solo, el baile completo pide varios pasos (no se gana con un clic).
+    expect(COSECHA.bailePasos).toBeGreaterThanOrEqual(4);
   });
 });

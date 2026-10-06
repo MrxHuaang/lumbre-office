@@ -981,7 +981,6 @@ export class OfficeScene extends Phaser.Scene {
       this.photoBoards.setArea(map);
       this.paintings.setArea(map);
       this.silletas.setArea(map);
-    this.cosechaViva.setArea(map);
       this.cosechaViva.setArea(map);
       this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);

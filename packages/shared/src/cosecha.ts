@@ -11,7 +11,8 @@
 //   ahuyama.ts) y al cierre se premia la más pesada.
 // - La tómbola de la junta de acción comunal: pocas boletas por persona y el sorteo al cierre de un mueble
 //   que no se consigue en otro lado.
-// - El baile de la cosecha al atardecer, con tiple, guitarra y bandola.
+// - El baile de la cosecha al atardecer, con tiple, guitarra y bandola: quien baila en el patio (el emote
+//   "Bailar") suma pasos, en pareja valen doble, y el baile completo da unos puntos una vez por feria.
 import { z } from "zod";
 import { AHUYAMA, ahuyamaDagOf } from "./ahuyama";
 import type { CineDef, CineStep } from "./cinematicas";
@@ -42,6 +43,19 @@ export const COSECHA = {
   /** El baile de la cosecha: la música suena desde las 17:00 del juego y a las 17:30 sale la cinemática. */
   musicaDesde: 17 * 60,
   baileMinuto: 17 * 60 + 30,
+  /** El baile dura hasta las 21:30 del juego (antes del cierre). */
+  baileHasta: 21 * 60 + 30,
+  /** Hasta dónde llega la pista del patio (tiles desde su medio). */
+  baileTiles: 7,
+  /** Los pasos que hay que bailar en el patio (emote "Bailar") para que cuente el baile. */
+  bailePasos: 6,
+  /** Entre dos pasos que cuentan (ms reales): el baile dura lo suyo, no se cuenta repetir el botón. */
+  bailePasoMs: 3_000,
+  /** Con alguien bailando al lado (en pareja), el paso vale doble. */
+  parejaTiles: 2.5,
+  parejaMs: 5_000,
+  /** Lo que da el baile completo (una vez por feria; ocio, con el tope del día). */
+  premioBaile: 12,
   /** Cada cuántas horas del juego cambia el puesto que más paga (desde la apertura). */
   rotaHoras: 2,
   /** Lo que paga de más el puesto que más paga. */
@@ -74,6 +88,8 @@ export const COSECHA_MSG = {
   mine: "cosecha:mio",
   /** Servidor → los que estaban cerca de la olla: el plato que les tocó (`SancochoServido`). */
   servido: "cosecha:servido",
+  /** Servidor → quien baila en el patio: cómo va su baile (`BaileProgreso`). */
+  baile: "cosecha:baile",
 } as const;
 
 // ---------- Dónde está cada cosa (tiles del jardín; la decoración y la gente usan lo mismo) ----------
@@ -441,6 +457,37 @@ export const BOLETA_ERROR_TEXT: Record<BoletaError, string> = {
   failed: "No se pudo comprar la boleta. Intente de nuevo.",
 };
 
+// ---------- El baile de la cosecha ----------
+
+/** ¿Va el baile a esa hora del juego? (de las 17:30 a las 21:30). */
+export const baileAbierto = (minuto: number) => minuto >= COSECHA.baileMinuto && minuto < COSECHA.baileHasta;
+
+/** ¿Está en la pista del patio? (tiles del jardín, con decimales). */
+export const enLaPista = (xTiles: number, yTiles: number) => Math.hypot(xTiles - (COSECHA_SITIOS.patio.x + 0.5), yTiles - (COSECHA_SITIOS.patio.y + 0.5)) <= COSECHA.baileTiles;
+
+/** Clave de `UserStat` (máximo) de que ya bailó el baile de la feria de ese año (1 = sí). */
+export const baileKey = (año: number) => `festival:${COSECHA.id}:${año}:baile`;
+/** `refId` del premio del baile (una vez por feria). */
+export const baileRef = (año: number) => `festival:${COSECHA.id}:${año}:baile`;
+
+/**
+ * Lo que vale un paso: nada si fue muy seguido del anterior (`bailePasoMs`), dos en pareja y uno si baila
+ * solo.
+ */
+export function valorDelPaso(ahora: number, anterior: number | null, enPareja: boolean): number {
+  if (anterior !== null && ahora - anterior < COSECHA.bailePasoMs) return 0;
+  return enPareja ? 2 : 1;
+}
+
+/** Servidor → quien baila: cuántos pasos lleva de cuántos, si fue en pareja y, al completarlo, el premio. */
+export interface BaileProgreso {
+  pasos: number;
+  meta: number;
+  pareja: boolean;
+  /** Recién completó el baile: los puntos que le dio (0 si ya los tenía del día o no cupieron). */
+  premio?: number;
+}
+
 /** Lo de cada quien en esta feria (se manda al entrar y después de cada cosa). */
 export interface CosechaMine {
   /** Lo que ya le pagó el mercado (puntos). */
@@ -448,6 +495,9 @@ export interface CosechaMine {
   boletas: number;
   /** El peso de su ahuyama inscrita (o 0). */
   dag: number;
+  /** Los pasos que lleva en el baile y si ya lo completó. */
+  pasos: number;
+  bailado: boolean;
 }
 
 // ---------- Las cinemáticas ----------

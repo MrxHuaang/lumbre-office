@@ -7,6 +7,9 @@ import { getWorld, pointsOfType, puestoDePunto } from "@hyvento/map";
 import {
   CANASTO,
   COSECHA,
+  COSECHA_SITIOS,
+  DIRECTOR_MSG,
+  MSG,
   COSECHA_CINE,
   COSECHA_MSG,
   DIAS_POR_ESTACION,
@@ -18,6 +21,7 @@ import {
   STAT_KEYS,
   TOMBOLA_PREMIO,
   ahuyamaId,
+  baileKey,
   boletasKey,
   cropById,
   objItemId,
@@ -27,6 +31,8 @@ import {
   seedsOf,
   ventasKey,
   type AportarResult,
+  type BaileProgreso,
+  type DirectorResult,
   type BoletaResult,
   type ComprarResult,
   type CosechaMine,
@@ -89,7 +95,7 @@ async function waitFor<T>(fn: () => T | undefined, ms = 4000): Promise<T> {
   }
 }
 
-type Inner = { festivales: { tick(): void }; cosecha: { tick(): void }; achievements: { flushAll(): Promise<void> } };
+type Inner = { festivales: { tick(): void }; syncFestival(): void; cosecha: { tick(): void }; achievements: { flushAll(): Promise<void> } };
 
 async function setup(opts: { day?: number; hour?: number } = {}) {
   OfficeRoom.gameClockInitial = { anchorReal: NOON, anchorMinute: (opts.day ?? COSECHA_DAY) * 1440 + (opts.hour ?? 12) * 60 };
@@ -97,10 +103,10 @@ async function setup(opts: { day?: number; hour?: number } = {}) {
   return { room, inner: room as unknown as Inner };
 }
 
-async function join(room: ServerRoom, userId: string, name: string, opts: { points?: number; items?: Record<string, number> } = {}) {
+async function join(room: ServerRoom, userId: string, name: string, opts: { points?: number; items?: Record<string, number>; admin?: boolean } = {}) {
   if (opts.points) await repo.awardPoints({ userId, amount: opts.points, reason: "ADMIN" });
   for (const [item, n] of Object.entries(opts.items ?? {})) await repo.addInventory(userId, item, n);
-  const client = await colyseus.connectTo(room, { token: await token(userId, name) });
+  const client = await colyseus.connectTo(room, { token: await token(userId, name, "ada", opts.admin ? "ADMIN" : "MEMBER") });
   await room.waitForNextPatch();
   return { client, userId, ...listen(client) };
 }
@@ -110,6 +116,10 @@ function listen(client: ClientRoom) {
   const mine: CosechaMine[] = [];
   const cines: FestivalCineEvent[] = [];
   const servidos: SancochoServido[] = [];
+  const bailes: BaileProgreso[] = [];
+  const director: DirectorResult[] = [];
+  client.onMessage(COSECHA_MSG.baile, (r: BaileProgreso) => bailes.push(r));
+  client.onMessage(DIRECTOR_MSG.result, (r: DirectorResult) => director.push(r));
   client.onMessage(COSECHA_MSG.venderResult, (r: VenderResult) => lists.vender.push(r));
   client.onMessage(COSECHA_MSG.comprarResult, (r: ComprarResult) => lists.comprar.push(r));
   client.onMessage(COSECHA_MSG.aportarResult, (r: AportarResult) => lists.aportar.push(r));
@@ -129,6 +139,9 @@ function listen(client: ClientRoom) {
     cines,
     mine,
     servidos,
+    bailes,
+    /** Un momento del director (con el permiso: admin). */
+    momento: (id: string) => ask(director, DIRECTOR_MSG.action, { kind: "momento", id }),
     vender: (puesto: string, item: string, n: number) => ask(lists.vender, COSECHA_MSG.vender, { puesto, item, n }),
     comprar: (puesto: string, item: string) => ask(lists.comprar, COSECHA_MSG.comprar, { puesto, item }),
     aportar: (item: string, n: number) => ask(lists.aportar, COSECHA_MSG.aportar, { item, n }),
@@ -330,5 +343,104 @@ describe("la tómbola de la junta", () => {
     const a = await repo.loadAchievements("u-alice");
     expect(a.stats[boletasKey(1)]).toBe(COSECHA.boletasMax);
     expect((await repo.loadAchievements("u-bob")).unlocked).toContain("suerte-de-tombola");
+  });
+});
+
+/** Baila (el emote "Bailar") sin la pausa de los emotes: los tests corren el reloj de la feria a mano. */
+async function bailar(room: ServerRoom, p: { client: ClientRoom }) {
+  const c = room.clients.find((x) => x.sessionId === p.client.sessionId) as unknown as { userData?: { emoteTimes?: number[] } };
+  if (c.userData) c.userData.emoteTimes = [];
+  p.client.send(MSG.emote, { emote: "dance" });
+  await tick(40);
+}
+
+describe("el baile de la cosecha", () => {
+  it("solo cuenta bailando en la pista del patio con el baile andando; en pareja vale doble y completo da el logro y el premio una vez", async () => {
+    const { room, inner } = await setup({ hour: 17 });
+    const alice = await join(room, "u-alice", "Alice");
+    const bob = await join(room, "u-bob", "Bob");
+    // A las 17:00 suena la música pero el baile no ha empezado.
+    inner.cosecha.tick();
+    expect(room.state.cosecha.baile).toBe(false);
+    await walkToTile(alice.client, room, COSECHA_SITIOS.patio.x, COSECHA_SITIOS.patio.y);
+    await bailar(room, alice);
+    expect(alice.bailes).toHaveLength(0);
+    // 17:30: arranca el baile.
+    clock = NOON + 30 * GAME_MINUTE_MS + 1;
+    inner.cosecha.tick();
+    expect(room.state.cosecha.baile).toBe(true);
+    // Bob baila lejos de la pista: no cuenta.
+    await bailar(room, bob);
+    expect(bob.bailes).toHaveLength(0);
+    await bailar(room, alice);
+    expect(await waitFor(() => alice.bailes[0])).toEqual({ pasos: 1, meta: COSECHA.bailePasos, pareja: false });
+    // Repetir el botón seguido no cuenta.
+    now += 500;
+    await bailar(room, alice);
+    expect(alice.bailes).toHaveLength(1);
+    // Bob llega al lado: los dos bailan en pareja y cada paso vale doble.
+    await walkToTile(bob.client, room, COSECHA_SITIOS.patio.x + 1, COSECHA_SITIOS.patio.y);
+    now += COSECHA.bailePasoMs;
+    await bailar(room, bob);
+    expect(await waitFor(() => bob.bailes[0])).toEqual({ pasos: 2, meta: COSECHA.bailePasos, pareja: true });
+    for (let i = 0; i < 3; i++) {
+      now += COSECHA.bailePasoMs;
+      await bailar(room, bob);
+      await bailar(room, alice);
+    }
+    const fin = await waitFor(() => alice.bailes.find((b) => b.pasos === COSECHA.bailePasos));
+    expect(fin).toMatchObject({ pareja: true, premio: COSECHA.premioBaile });
+    expect(repo.ledger.filter((m) => m.userId === "u-alice" && m.reason === "LEISURE")).toHaveLength(1);
+    // Ya bailó en esta feria: más pasos no cuentan ni pagan.
+    now += COSECHA.bailePasoMs;
+    const n = alice.bailes.length;
+    await bailar(room, alice);
+    await tick(80);
+    expect(alice.bailes).toHaveLength(n);
+    await inner.achievements.flushAll();
+    const a = await repo.loadAchievements("u-alice");
+    expect(a.unlocked).toContain("bambuquero");
+    expect(a.stats[baileKey(1)]).toBe(1);
+    // Al cierre, el baile se acaba.
+    clock = NOON + (4 * 60 + 30) * GAME_MINUTE_MS + 1;
+    inner.cosecha.tick();
+    expect(room.state.cosecha.baile).toBe(false);
+  });
+});
+
+describe("el director en la Feria de la cosecha", () => {
+  it("arranca el baile, llena la olla y hace la premiación con el sorteo ya; sin la feria, no", async () => {
+    const { room, inner } = await setup({ day: COSECHA_DAY - 1 });
+    const ana = await join(room, "u-ana", "Ana", { admin: true, points: 100, items: { [objItemId(ahuyamaId(800))]: 1 } });
+    expect(await ana.momento("cosecha-baile")).toMatchObject({ ok: false, error: "festival", festival: "cosecha" });
+    // Ya en la feria (al mediodía, sin baile todavía).
+    clock = NOON + 24 * 60 * GAME_MINUTE_MS;
+    inner.festivales.tick();
+    inner.syncFestival();
+    inner.cosecha.tick();
+    await room.waitForNextPatch();
+    expect([room.state.festival, room.state.cosecha.baile]).toEqual([COSECHA.id, false]);
+    await walkToTile(ana.client, room, COSECHA_SITIOS.patio.x, COSECHA_SITIOS.patio.y);
+    expect(await ana.momento("cosecha-baile")).toMatchObject({ ok: true });
+    expect(room.state.cosecha.baile).toBe(true);
+    await waitFor(() => ana.cines.find((c) => c.id === COSECHA_CINE.baile));
+    inner.cosecha.tick();
+    expect(room.state.cosecha.baile).toBe(true);
+    expect(await ana.momento("cosecha-baile")).toMatchObject({ ok: false, error: "ocupado" });
+    // La olla: se llena sola y sirve a los de cerca.
+    expect(await ana.momento("cosecha-olla")).toMatchObject({ ok: true });
+    expect(room.state.cosecha.ollaFase).toBe("hirviendo");
+    expect(await ana.momento("cosecha-olla")).toMatchObject({ ok: false, error: "ocupado" });
+    inner.cosecha.tick();
+    expect(await waitFor(() => ana.servidos[0])).toEqual({ olla: 1, plato: true });
+    // Sin ahuyamas ni boletas no hay nada que premiar; con una, sí (una vez).
+    expect(await ana.momento("cosecha-cierre")).toMatchObject({ ok: false, error: "nada" });
+    const b = point("cosecha_bascula");
+    await holdItem(ana.client, room, objItemId(ahuyamaId(800)));
+    await walkToTile(ana.client, room, b.tileX, b.tileY);
+    expect(await ana.pesar()).toMatchObject({ ok: true, dag: 800 });
+    expect(await ana.momento("cosecha-cierre")).toMatchObject({ ok: true });
+    expect((await waitFor(() => ana.cines.find((c) => c.id === COSECHA_CINE.premiacion))).vars).toMatchObject({ ganador: "Ana" });
+    expect(await ana.momento("cosecha-cierre")).toMatchObject({ ok: false, error: "nada" });
   });
 });

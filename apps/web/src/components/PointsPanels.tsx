@@ -112,6 +112,11 @@ const PROMPT: Record<Interactable, string> = {
   silletaStand: "Ver la silleta y votar",
   carnavalShop: "Comprar en el puesto del carnaval",
   carnavalConcurso: "Ver el concurso de disfraces",
+  cosechaPuesto: "Ver el puesto del mercado",
+  cosechaOlla: "Echarle a la olla del sancocho",
+  cosechaBascula: "Pesar la ahuyama",
+  cosechaTablero: "Ver el tablero del concurso",
+  cosechaTombola: "Comprar boletas de la tómbola",
   fiestaNpc: "Hablar",
 };
 

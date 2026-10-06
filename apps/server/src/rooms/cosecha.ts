@@ -6,7 +6,10 @@
 // - el concurso de la ahuyama: la báscula pesa la de la mano (el peso va en su id) y la inscribe; al
 //   cierre gana la más pesada (logro, premio y cinemática);
 // - la tómbola: boletas por puntos (pocas por persona; lo comprado va en `UserStat`) y, al cierre, el
-//   sorteo con `crypto.randomInt` (los tests lo fijan) de la carreta de la cosecha.
+//   sorteo con `crypto.randomInt` (los tests lo fijan) de la carreta de la cosecha;
+// - el baile del atardecer: con `state.cosecha.baile`, cada "Bailar" en la pista del patio es un paso (en
+//   pareja, doble); completo, da el logro y unos puntos una vez por feria (la marca va en `UserStat`).
+// El director puede arrancar el baile, llenar la olla y hacer la premiación y el sorteo ya (registerDirector).
 // Todo lo de la feria vive en `state.cosecha` (en memoria) y se borra al pasar el día. Este módulo no conoce
 // Colyseus: la sala le da el estado, la mochila, los contadores, la base, el reloj y cómo mandar.
 import { nearPointOfType, pointsOfType, puestoDePunto, INTERACT_REACH_TILES, type OfficeMap } from "@hyvento/map";
@@ -17,6 +20,7 @@ import {
   COSECHA_MSG,
   ComprarMessage,
   OLLA_PUNTO,
+  OLLA_RECETA,
   SANCOCHO_PLATO,
   STAT_KEYS,
   TOMBOLA_PREMIO,
@@ -24,6 +28,11 @@ import {
   ahuyamaDagOf,
   ahuyamaId,
   ahuyamaPrizeRef,
+  baileAbierto,
+  baileKey,
+  baileRef,
+  enLaPista,
+  valorDelPaso,
   boletaRefId,
   boletasKey,
   cosechaActiva,
@@ -40,6 +49,7 @@ import {
   unidadesQueCaben,
   ventasKey,
   type AportarResult,
+  type BaileProgreso,
   type BoletaResult,
   type ComprarResult,
   type CosechaMine,
@@ -106,6 +116,12 @@ export class Cosecha {
   private sorteadoDay = -1;
   /** Premios de quien no estaba al cierre: le llegan al volver. */
   private pendientes = new Map<string, { ahuyama?: true; tombola?: true }>();
+  /** El baile: los pasos de cada quien y cuándo contó el último. */
+  private pasos = new Map<string, { n: number; at: number | null }>();
+  /** El último "Bailar" de cada quien en la pista (para ver si baila en pareja). */
+  private bailando = new Map<string, { at: number; x: number; y: number }>();
+  /** El director arrancó el baile antes de su hora. */
+  private baileForzado = false;
 
   constructor(private readonly parts: CosechaParts) {}
 
@@ -135,13 +151,24 @@ export class Cosecha {
     this.boletas.clear();
     this.servidos.clear();
     this.closedAt = null;
+    st.baile = false;
+    this.pasos.clear();
+    this.bailando.clear();
+    this.baileForzado = false;
   }
 
   /** Lo de cada quien en esta feria. */
   mine(userId: string): CosechaMine {
     const año = this.parts.festival().año;
     const boletas = Math.max(this.boletas.get(userId)?.n ?? 0, this.parts.stats.stat(userId, boletasKey(año)) ?? 0);
-    return { vendido: this.parts.stats.stat(userId, ventasKey(año)) ?? 0, boletas, dag: this.parts.state().ahuyamas.get(userId)?.dag ?? 0 };
+    const bailado = (this.parts.stats.stat(userId, baileKey(año)) ?? 0) > 0;
+    return {
+      vendido: this.parts.stats.stat(userId, ventasKey(año)) ?? 0,
+      boletas,
+      dag: this.parts.state().ahuyamas.get(userId)?.dag ?? 0,
+      pasos: bailado ? COSECHA.bailePasos : Math.min(COSECHA.bailePasos, this.pasos.get(userId)?.n ?? 0),
+      bailado,
+    };
   }
 
   /**
@@ -163,6 +190,7 @@ export class Cosecha {
     }
     const st = this.parts.state();
     const now = this.parts.now();
+    st.baile = this.active() && (this.baileForzado || baileAbierto(f.minute));
     if (st.ollaFase === "hirviendo" && now - st.hierveDesde >= this.parts.timings().hervirMs) void this.servir();
     if (f.fase === "fin" && this.closedAt === null && (this.premiadoDay !== f.day || this.sorteadoDay !== f.day)) this.closedAt = now;
     if (this.closedAt === null) return;
@@ -367,6 +395,96 @@ export class Cosecha {
     return best;
   }
 
+  // ---------- El baile ----------
+
+  /**
+   * Alguien hizo un emote. Si es "Bailar", en la pista del patio y con el baile andando, es un paso (doble si
+   * alguien más bailó al lado hace poco). Al completar los pasos: el logro, la marca y el premio de la feria.
+   */
+  async emote(sessionId: string, who: CosechaWho, emote: string): Promise<BaileProgreso | null> {
+    if (emote !== "dance" || who.area !== "jardin" || !this.parts.state().baile) return null;
+    const ts = this.parts.mapOf("jardin").tileSize;
+    const x = who.x / ts;
+    const y = who.y / ts;
+    if (!enLaPista(x, y)) return null;
+    const now = this.parts.now();
+    let pareja = false;
+    for (const [sid, b] of this.bailando)
+      if (sid !== sessionId && now - b.at <= COSECHA.parejaMs && Math.hypot(b.x - x, b.y - y) <= COSECHA.parejaTiles && this.parts.player(sid)?.userId !== who.userId) pareja = true;
+    this.bailando.set(sessionId, { at: now, x, y });
+    // Sin los contadores leídos no se sabe si ya bailó en esta feria.
+    if (!this.parts.stats.isLoaded(who.userId)) return null;
+    const año = this.parts.festival().año;
+    const key = baileKey(año);
+    if ((this.parts.stats.stat(who.userId, key) ?? 0) > 0) return null;
+    const prev = this.pasos.get(who.userId) ?? { n: 0, at: null };
+    const vale = valorDelPaso(now, prev.at, pareja);
+    if (vale === 0) return null;
+    const n = Math.min(COSECHA.bailePasos, prev.n + vale);
+    this.pasos.set(who.userId, { n, at: now });
+    const out: BaileProgreso = { pasos: n, meta: COSECHA.bailePasos, pareja };
+    if (n < COSECHA.bailePasos) return out;
+    // Completo: la marca va antes de pagar (dos pasos seguidos no pagan dos veces).
+    this.parts.stats.max(who.userId, key, 1);
+    this.parts.stats.bump(who.userId, STAT_KEYS.cosechaBailes);
+    out.premio = 0;
+    const ref = baileRef(año);
+    try {
+      const r = await this.parts.repo().awardPointsOnce({ userId: who.userId, amount: COSECHA.premioBaile, reason: "LEISURE", refId: ref, refPrefix: ref, maxPerDay: 1 });
+      if (r.status === "ok") {
+        out.premio = r.awarded;
+        this.parts.paid(who.userId, r.awarded, r.balance, "LEISURE");
+      }
+    } catch (err) {
+      console.error("cosecha baile", err);
+    }
+    return out;
+  }
+
+  // ---------- El director ----------
+
+  /** Arranca ya el baile (la música y la cinemática para los del jardín). */
+  arrancarBaile(): "cerrado" | "ocupado" | null {
+    if (!this.active()) return "cerrado";
+    const st = this.parts.state();
+    if (st.baile) return "ocupado";
+    this.baileForzado = true;
+    st.baile = true;
+    const jardin = [...this.parts.players()].filter(([, p]) => p.area === "jardin").map(([sid]) => sid);
+    this.parts.cine(COSECHA_CINE.baile, undefined, jardin);
+    return null;
+  }
+
+  /** Llena la olla de ahora: hierve y sirve como si la hubieran llenado entre todos. */
+  llenarOlla(): "cerrado" | "ocupado" | "nada" | null {
+    if (!this.active()) return "cerrado";
+    const st = this.parts.state();
+    if (st.ollaFase === "acabada") return "nada";
+    if (st.ollaFase === "hirviendo") return "ocupado";
+    for (const [item, n] of Object.entries(OLLA_RECETA)) st.aportado.set(item, n);
+    st.ollaFase = "hirviendo";
+    st.hierveDesde = this.parts.now();
+    return null;
+  }
+
+  /** La premiación de la ahuyama y el sorteo de la tómbola, ya (una vez por feria cada uno). */
+  cerrarYa(): "cerrado" | "nada" | null {
+    const f = this.parts.festival();
+    if (f.id !== COSECHA.id) return "cerrado";
+    const ahuyamas = this.premiadoDay !== f.day && this.parts.state().ahuyamas.size > 0;
+    const tombola = this.sorteadoDay !== f.day && [...this.boletas.values()].some((b) => b.n > 0);
+    if (!ahuyamas && !tombola) return "nada";
+    if (ahuyamas) {
+      this.premiadoDay = f.day;
+      void this.premiarAhuyama(f.año);
+    }
+    if (tombola) {
+      this.sorteadoDay = f.day;
+      void this.sortearTombola();
+    }
+    return null;
+  }
+
   // ---------- La tómbola ----------
 
   /** Comprar una boleta (junto a la tómbola, hasta `boletasMax` por persona por feria). */
@@ -425,8 +543,9 @@ export class Cosecha {
     if (p.tombola) await this.darCarreta(userId);
   }
 
-  forget(userId: string) {
+  forget(userId: string, sessionId?: string) {
     this.lastAt.delete(userId);
+    if (sessionId) this.bailando.delete(sessionId);
   }
 }
 
@@ -455,4 +574,13 @@ export function registerCosecha(room: Room, parts: CosechaParts, markActive: (cl
     if (who) mine(client.sessionId, who.userId);
   });
   return c;
+}
+
+/** Un emote de alguien: si es un paso del baile, le cuenta cómo va (lo llama `handleEmote` de la sala). */
+export function cosechaEmote(c: Cosecha, parts: Pick<CosechaParts, "player" | "send">, sessionId: string, emote: string) {
+  const who = parts.player(sessionId);
+  if (!who) return;
+  void c.emote(sessionId, who, emote).then((r) => {
+    if (r) parts.send(sessionId, COSECHA_MSG.baile, r satisfies BaileProgreso);
+  });
 }

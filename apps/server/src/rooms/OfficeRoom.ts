@@ -250,7 +250,7 @@ import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
 import { nearQuestGiver } from "@hyvento/map";
 import { registerVelitas, type Velitas } from "./velitas";
-import { registerCosecha, type Cosecha, type CosechaTimings } from "./cosecha";
+import { cosechaEmote, registerCosecha, type Cosecha, type CosechaTimings } from "./cosecha";
 import { Novenas } from "./novenas";
 import { Aguinaldos } from "./aguinaldos";
 import { WeatherCycle } from "./weather";
@@ -3161,6 +3161,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.carnaval.empezar();
       return null;
     });
+    // La Feria de la cosecha (la lógica es de cosecha.ts): el baile, la olla y la premiación con el sorteo.
+    const cosecha = (fn: (c: Cosecha) => string | null, textos: Record<string, string>) => () => {
+      const err = this.cosecha ? fn(this.cosecha) : "cerrado";
+      return err ? { ok: false, error: err as "cerrado" | "ocupado" | "nada", texto: textos[err] ?? "No se pudo." } : null;
+    };
+    const cerrada = "La Feria de la cosecha no está abierta.";
+    this.director.registrar("cosecha-baile", cosecha((c) => c.arrancarBaile(), { cerrado: cerrada, ocupado: "El baile ya está andando en el patio." }));
+    this.director.registrar("cosecha-olla", cosecha((c) => c.llenarOlla(), { cerrado: cerrada, ocupado: "La olla ya está hirviendo.", nada: "Ya se sirvieron todas las ollas de la feria." }));
+    this.director.registrar("cosecha-cierre", cosecha((c) => c.cerrarYa(), { cerrado: cerrada, nada: "No hay ahuyamas pesadas ni boletas por sortear (o ya se hizo)." }));
     this.onMessage(DIRECTOR_MSG.action, (client, raw) => {
       const who = this.directorWho(client);
       const res = who && this.director.run(who, raw);
@@ -3486,6 +3495,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastEmoteAt = now;
     client.userData.lastActiveAt = now;
     this.aguinaldos.emote(client.sessionId);
+    // La Feria de la cosecha: bailar en el patio durante el baile cuenta pasos.
+    if (this.cosecha) cosechaEmote(this.cosecha, { player: (id) => this.state.players.get(id), send: (id, t, m) => this.clients.getById(id)?.send(t, m) }, client.sessionId, parsed.data.emote);
     const event: EmoteEvent = { sessionId: client.sessionId, emote: parsed.data.emote };
     this.achievements.bump(player.userId, STAT_KEYS.emotes);
     if (parsed.data.emote === "dance") this.achievements.bump(player.userId, STAT_KEYS.dances);
@@ -4669,7 +4680,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.brujas.forget(player.userId);
     this.gente.forget(player.userId);
     this.feria.forget(player.userId);
-    this.cosecha?.forget(player.userId);
+    this.cosecha?.forget(player.userId, sessionId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
