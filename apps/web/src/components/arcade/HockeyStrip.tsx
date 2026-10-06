@@ -111,7 +111,7 @@ export function HockeyStrip() {
     case "idle":
       if (end === null) status = <Status text="Párate en una punta de la mesa para jugar" />;
       else {
-        status = <Status text={poor ? `Te faltan monedas (cuesta ${ARCADE_PRICE.hockey})` : `Juegas con el ${SIDE_NAME[end]}`} />;
+        status = <Status text={poor ? `Te faltan puntos (cuesta ${ARCADE_PRICE.hockey})` : `Juegas con el ${SIDE_NAME[end]}`} />;
         actions = (
           <div className="flex items-center gap-1.5">
             <PayButton text="Esperar rival" disabled={poor} />

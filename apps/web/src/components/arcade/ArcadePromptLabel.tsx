@@ -14,5 +14,5 @@ export function ArcadePromptLabel() {
   }, []);
   const game = machine === null ? null : arcadeGameOf(machine);
   if (machine !== null && !game) return <>Mirar la máquina (fuera de servicio)</>;
-  return <>{game ? `Jugar ${ARCADE_GAME_INFO[game].name} (${ARCADE_PRICE.machine} monedas)` : "Jugar en la máquina"}</>;
+  return <>{game ? `Jugar ${ARCADE_GAME_INFO[game].name} (${ARCADE_PRICE.machine} puntos)` : "Jugar en la máquina"}</>;
 }

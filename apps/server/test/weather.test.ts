@@ -39,6 +39,24 @@ function setup(random: () => number, initial: Weather = "despejado", hour = () =
 }
 
 describe("clima en la sala", () => {
+  it("el director lo fija: no cambia solo hasta soltarlo, o hasta que pase el rato elegido", () => {
+    const { time, cycle } = setup(() => 0);
+    cycle.start();
+    cycle.force("tormenta", Infinity);
+    expect(cycle.held).toBe(true);
+    time.advance(10 * WEATHER.maxMs);
+    expect(cycle.weather).toBe("tormenta");
+    cycle.release();
+    expect(cycle.held).toBe(false);
+    expect(cycle.weather).not.toBe("tormenta");
+    cycle.force("niebla", 60_000);
+    time.advance(59_000);
+    expect(cycle.weather).toBe("niebla");
+    time.advance(2_000);
+    expect(cycle.held).toBe(false);
+    expect(time.pending()).toBe(1);
+  });
+
   it("avisa el clima inicial al arrancar", () => {
     const { cycle, changes } = setup(() => 0);
     cycle.start();
