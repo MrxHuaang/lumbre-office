@@ -74,6 +74,7 @@ import { BaileCosechaPrompt, CosechaPanel } from "./CosechaPanel";
 import { CometasPanel, CometaVuelo } from "./CometasPanel";
 import { AmorPanel } from "./AmorPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
+import { AmanecerFundido } from "./DormirHud";
 import { AnoViejoShopPanel, AnoViejoStrip, CartelPanel, MunecoPanel, ResumenAnoPanel } from "./AnoViejoPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { TiraDialogo } from "./dialogo/TiraDialogo";
@@ -347,6 +348,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <SideDock />
           {/* La tira de conversación (una sola en pantalla): aquí hablan todos los NPC, las cinemáticas y quien da encargos. */}
           <TiraDialogo />
+          {/* El amanecer después de dormir (VIR-144): la pantalla se funde desde negro. */}
+          <AmanecerFundido />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
             <DoorPrompt />

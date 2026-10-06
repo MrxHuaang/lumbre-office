@@ -127,6 +127,7 @@ import { CosechaViva } from "./cosechaViva";
 import { CometasCielo } from "./cometasCielo";
 import { cometaVolando, volarConF } from "./cometas";
 import { CarnavalView } from "./carnaval/desfile";
+import { sitioDeCama } from "./dormir";
 import { DecorCarnavalViva } from "./carnaval/decorViva";
 import { lanzarConF, salirseComparsa, sumarseComparsa, useCarnavalStore } from "./carnaval";
 import { FishingRods } from "./fishing/rods";
@@ -1044,6 +1045,8 @@ export class OfficeScene extends Phaser.Scene {
       this.startAmbient();
     }
     for (const [sessionId, avatar] of this.avatars) avatar.setHidden(this.areaOfSession.get(sessionId) !== map.id);
+    // Quien duerme en una cama de este nivel se ve acostado en ella (dormir.ts).
+    getRoom()?.state.players.forEach((p, sessionId) => this.avatars.get(sessionId)?.setSleeping(sitioDeCama(map, p.sleeping)));
     useOfficeStore.getState().setArea(map.id);
     this.updateNameplates(useOfficeStore.getState().offices);
     this.syncScreens();
@@ -1432,6 +1435,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setBadge(player.badge ?? "");
     avatar.setNeighborLevel(player.vecino ?? 0);
     avatar.setCall(player.call ?? "");
+    avatar.setSleeping(sitioDeCama(this.map, player.sleeping));
     this.avatars.set(sessionId, avatar);
 
     const p$ = $(player);
@@ -1448,6 +1452,8 @@ export class OfficeScene extends Phaser.Scene {
     p$.listen("fishingRod", (rod) => this.rods.setRod(sessionId, rod ?? ""));
     // Teléfono: el globo que vibra (le suenan) o el auricular en la mano (llamando o hablando).
     p$.listen("call", (phase) => avatar.setCall(phase ?? ""));
+    // Dormido en una cama (VIR-144): acostado en ella; moverse lo despierta (lo decide el servidor).
+    p$.listen("sleeping", (cama) => avatar.setSleeping(sitioDeCama(this.map, cama ?? "")));
     // Carrera de sillas: montado en la silla; si soy yo, arranca el cronómetro.
     p$.listen("racing", (racing) => {
       avatar.setRiding(Boolean(racing));

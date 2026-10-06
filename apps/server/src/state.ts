@@ -26,6 +26,8 @@ export class Player extends Schema {
   @type("boolean") moving = false;
   /** Sentado en la silla/sofá de su posición (mira hacia `dir`). */
   @type("boolean") seated = false;
+  /** Dormido en una cama (VIR-144): "nivel|tipo@x,y" de la cama; "" = despierto. Moverse lo despierta. */
+  @type("string") sleeping = "";
   /** Corriendo la carrera de sillas (se dibuja montado en una silla de oficina). */
   @type("boolean") racing = false;
   @type("string") status = "available";

@@ -8,6 +8,7 @@ import { SOMBRERO_ALCOHOL, SOMBRERO_CONSUMABLES } from "./sombrero";
 import { GRANJA_USABLES, type GranjaAction } from "./granja";
 import { PARRILLA_CONSUMABLES } from "./parrilla";
 import { MUNDO_CONSUMABLES, MUNDO_USABLES, type MundoAction } from "./mundo";
+import { DORMIR_USABLES, type DormirAction } from "./dormir";
 import { BRUJAS_CONSUMABLES } from "./brujas";
 import { CARNAVAL_CONSUMABLES } from "./carnaval-objetos";
 import { AMOR_CONSUMABLES } from "./amor-amistad";
@@ -229,7 +230,7 @@ export interface HeldUsedEvent {
  * `toggle`: se prende y apaga, y lo ven todos (el estado lo guarda el servidor). `play` (instrumentos) y
  * `pet` (el gato) son un evento: una animación y un sonido para los del mismo nivel.
  */
-export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction | JardinAction | GranjaAction | MundoAction;
+export type FurnitureAction = "toggle" | "play" | "pet" | CasaAction | JardinAction | GranjaAction | MundoAction | DormirAction;
 
 export interface UsableSpec {
   action: FurnitureAction;
@@ -276,6 +277,7 @@ export const USABLE_FURNITURE: Record<string, UsableSpec> = {
   // Mundo lleno (mundo.ts): dispensador, impresora, pizarras de pared, barandas, lo del sótano, telescopios,
   // reloj de sol, ducha y casita del perro.
   ...MUNDO_USABLES,
+  ...DORMIR_USABLES,
 };
 
 export const usableSpec = (type: string): UsableSpec | undefined => USABLE_FURNITURE[type];

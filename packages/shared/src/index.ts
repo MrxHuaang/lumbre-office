@@ -76,6 +76,7 @@ export * from "./permisos";
 export * from "./encargos";
 export * from "./github";
 export * from "./mundo";
+export * from "./dormir";
 export * from "./garra";
 export * from "./tragamonedas";
 export * from "./fortuna";
