@@ -66,8 +66,8 @@ describe("el Carnaval de Negros y Blancos", () => {
     expect(quienes("b9", 4)).toEqual([]);
   });
 
-  it("salen las diez carrozas del plan, en su orden, cada una con su color de acento", () => {
-    expect(CARROZA_IDS).toEqual(["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"]);
+  it("salen primero las diez carrozas del plan, en su orden (las nuevas van detrás), cada una con su color de acento", () => {
+    expect(CARROZA_IDS.slice(0, 10)).toEqual(["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"]);
     expect(COMPARSAS.map((c) => c.id)).toEqual([...CARROZA_IDS]);
     expect(new Set(COMPARSAS.map((c) => c.acento)).size).toBe(COMPARSAS.length);
     for (const c of COMPARSAS) expect(EVELIO_CARROZAS[c.id], c.id).toBeTruthy();
