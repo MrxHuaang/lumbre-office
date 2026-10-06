@@ -1607,7 +1607,7 @@ export class OfficeScene extends Phaser.Scene {
     const fieldFocus = isEditableFocus();
     if (this.fieldFocus && !fieldFocus) this.keysFreeAt = performance.now();
     this.fieldFocus = fieldFocus;
-    // En una escena de la historia, E y Esc son del cuadro de diálogo, no del juego.
+    // En una escena de la historia, E y Esc son de la tira de conversación, no del juego.
     const scene = cineBlocking();
     if (scene) this.keysFreeAt = performance.now();
     const tap = (key: Phaser.Input.Keyboard.Key) =>

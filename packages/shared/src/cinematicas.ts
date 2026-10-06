@@ -58,9 +58,9 @@ export type CineStep =
   | { op: "camera"; to: CineActor | CinePos; zoom?: number; ms?: number; follow?: boolean }
   /** Sacudida de la cámara. */
   | { op: "shake"; ms?: number; strength?: number }
-  /** Un cuadro de diálogo con retrato. En `historia` espera a que se lea; en `momento` dura `ms`. */
+  /** Una línea en la tira de conversación, con retrato y voz. En `historia` espera a que se lea; en `momento` dura `ms`. */
   | { op: "say"; who: CineActor; text: string; name?: string; ms?: number }
-  /** Una burbuja sobre la cabeza (no espera). */
+  /** Un murmullo sobre la cabeza, sin caja (no espera). */
   | { op: "bubble"; who: CineActor; text: string }
   /** Un título grande al centro (y un subtítulo). */
   | { op: "title"; text: string; sub?: string; ms?: number }
