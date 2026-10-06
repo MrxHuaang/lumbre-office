@@ -372,6 +372,27 @@ export class TreeHouseState extends Schema {
   @type("float64") focusEndsAt = 0;
 }
 
+/** Una silleta exhibida en la Feria de las flores (SilletaExhibitView de @hyvento/shared), por exhibidor. */
+export class SilletaExhibitState extends Schema {
+  /** El exhibidor: el tile del mueble ("x,y"). */
+  @type("string") stand = "";
+  @type("string") ownerId = "";
+  @type("string") ownerName = "";
+  /** El código de la silleta (silleta.ts): de ahí sale su dibujo. */
+  @type("string") code = "";
+  @type("number") votes = 0;
+  /** Cuándo se exhibió (desempata la votación: gana la primera). */
+  @type("float64") at = 0;
+}
+
+/** La Feria de las flores (ver rooms/feriaFlores.ts): las silletas exhibidas y la ganadora al cierre. */
+export class FeriaState extends Schema {
+  @type({ map: SilletaExhibitState }) exhibits = new MapSchema<SilletaExhibitState>();
+  @type("string") winnerId = "";
+  @type("string") winnerName = "";
+  @type("number") winnerVotes = 0;
+}
+
 /** Escenario del jardín: alguien de las gradas con la mano levantada (la fila de turnos, en orden). */
 export class StageHand extends Schema {
   @type("string") sessionId = "";
@@ -541,4 +562,6 @@ export class OfficeState extends Schema {
   @type(SombreroState) sombrero = new SombreroState();
   /** La granja del jardín: el gallinero, la parrilla y lo que queda en el nido. */
   @type(GranjaState) granja = new GranjaState();
+  /** La Feria de las flores: las silletas exhibidas en el patio de la feria y la ganadora. */
+  @type(FeriaState) feria = new FeriaState();
 }
