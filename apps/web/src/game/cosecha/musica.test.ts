@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { freq } from "../carnaval/musica";
-import { PIEZAS_COSECHA, programaCuerdas } from "./musica";
+import { freq, PIEZAS_COSECHA, programaCuerdas } from "./musica";
 
 const beats = (notas: readonly (readonly [string, number])[]) => notas.reduce((s, [, b]) => s + b, 0);
 

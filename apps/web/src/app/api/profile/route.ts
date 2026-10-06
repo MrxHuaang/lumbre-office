@@ -7,10 +7,10 @@ import { assignOffice, firstFreeOffice } from "@/lib/offices";
 
 export async function PATCH(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
 
   const parsed = ProfileUpdate.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Algo no cuadra en lo que se mandó. Intenta de nuevo." }, { status: 400 });
 
   const firstTime = !user.onboardedAt;
   const { look, ...profile } = parsed.data;

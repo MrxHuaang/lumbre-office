@@ -24,6 +24,7 @@ import { useFacilidadStore } from "@/game/facilidad";
 import { usePrefsStore } from "@/lib/prefs";
 import { ComunicacionChips } from "./comunicacion/ComunicacionChips";
 import { openAnnounce } from "@/game/comunicacion";
+import { openDirector } from "@/game/director";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -112,7 +113,7 @@ function QuickTools() {
           onClick={() => useOfficeStore.getState().setPrivateWalls(!walls)}
           aria-pressed={walls}
           className="cozy-btn h-[34px] w-[34px] p-0"
-          title={walls ? "Paredes altas: solo ves la sala donde estás. Clic para verla toda" : "Paredes bajas: ves toda la casa. Clic para subirlas"}
+          title={walls ? "Paredes altas: solo ves la sala donde estás. Clic para ver toda la casa" : "Paredes bajas: ves toda la casa. Clic para subirlas"}
           aria-label={walls ? "Bajar las paredes" : "Subir las paredes"}
         >
           <PixelIcon name="walls" size={16} color={walls ? "var(--color-cozy-wood)" : "var(--color-cozy-ink-soft)"} />
@@ -133,6 +134,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
   // Editar la casa: admins y quien tenga el permiso (lo manda el servidor, que además lo valida).
   const houseEditor = usePuedo("editar-casa");
   const announcer = usePuedo("anunciar");
+  const director = usePuedo("director");
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -263,7 +265,7 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
             </MenuItem>
           </MenuGroup>
 
-          {(isAdmin || houseEditor || announcer) && (
+          {(isAdmin || houseEditor || announcer || director) && (
             <MenuGroup label="Administración">
               {isAdmin && (
                 <MenuItem icon="board" onClick={act(onAdmin)}>
@@ -278,6 +280,11 @@ function MainMenu({ isAdmin, onEditProfile, onEditCharacter, onMyProfile, onAdmi
               {announcer && (
                 <MenuItem icon="megaphone" onClick={act(() => openAnnounce())}>
                   Anuncio a toda la cabaña
+                </MenuItem>
+              )}
+              {director && (
+                <MenuItem icon="clapper" onClick={act(() => openDirector())}>
+                  Panel del director
                 </MenuItem>
               )}
             </MenuGroup>

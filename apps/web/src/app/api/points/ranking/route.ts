@@ -6,7 +6,7 @@ import { asAvatar, asLook, getCurrentUser } from "@/lib/current-user";
 /** Ranking semanal: quién ganó más puntos en los últimos días (lo gastado no resta, lo regalado no suma). */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const since = new Date(Date.now() - POINTS.rankingDays * 86_400_000);
   const sums = await prisma.pointTransaction.groupBy({
     by: ["userId"],

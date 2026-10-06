@@ -7,7 +7,7 @@ import { publishPointsChanged } from "@/lib/events";
 /** Reclamar la recompensa diaria del buzón: una vez por día (de Bogotá), más puntos con la racha. */
 export async function POST() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   if (claimedToday(user.lastDailyAt)) return NextResponse.json({ error: "Ya reclamaste la recompensa de hoy" }, { status: 409 });
 
   const now = Date.now();

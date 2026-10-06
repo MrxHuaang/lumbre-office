@@ -108,10 +108,10 @@ describe("la gente de la fiesta en los niveles", () => {
     }
   });
 
-  it.each(FESTIVALES)("%s: entre 8 y 15 en el jardín, y los vendedores junto a su puesto", (id) => {
+  it.each(FESTIVALES)("%s: entre 8 y 15 en el jardín (el Carnaval, con el público del desfile, hasta 36), y los vendedores junto a su puesto", (id) => {
     const nivel = niveles(id).find((n) => n.map.id === "jardin")!;
     expect(nivel.npcs.length).toBeGreaterThanOrEqual(8);
-    expect(nivel.npcs.length).toBeLessThanOrEqual(15);
+    expect(nivel.npcs.length).toBeLessThanOrEqual(id === "carnaval" ? 36 : 15);
     const puestos = [...pointsOfType(nivel.map, "festival_shop"), ...pointsOfType(nivel.map, "feria_shop"), ...pointsOfType(nivel.map, "cosecha_puesto")];
     for (const npc of nivel.npcs.filter((n) => n.accion?.tipo === "puesto" && n.comportamiento.tipo === "quieto")) {
       const p = nivel.pose(npc.id, 600);

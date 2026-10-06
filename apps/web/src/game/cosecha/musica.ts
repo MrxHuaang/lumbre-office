@@ -7,8 +7,17 @@
 //   - "Torbellino del maizal": en Sol mayor, en 3 y más ligero, con el rasgueo parejo del torbellino.
 // `CuerdasCosecha` toca en bucle con el volumen que le pidan cada cuadro (sube y baja con la distancia al
 // patio, como la radio); `playBambuco` toca una vuelta (para la cinemática del baile).
-import { freq } from "../carnaval/musica";
+import { hz, midi } from "../carnaval/musica-programa";
 import { sfxOut } from "../sfx";
+
+/** La frecuencia de una nota ("D4", "F#4"); 0 si no es una nota. */
+export function freq(name: string): number {
+  try {
+    return hz(midi(name));
+  } catch {
+    return 0;
+  }
+}
 
 type Out = NonNullable<ReturnType<typeof sfxOut>>;
 type Nota = [string, number];

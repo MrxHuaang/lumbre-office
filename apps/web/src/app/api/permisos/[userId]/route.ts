@@ -10,7 +10,7 @@ type Params = { params: Promise<{ userId: string }> };
 
 async function adminOrError() {
   const me = await getCurrentUser();
-  if (!me) return { error: NextResponse.json({ error: "No autenticado" }, { status: 401 }) };
+  if (!me) return { error: NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 }) };
   if (me.role !== "ADMIN") return { error: NextResponse.json({ error: "Solo un admin da permisos" }, { status: 403 }) };
   return { me };
 }

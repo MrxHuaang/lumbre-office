@@ -5,7 +5,7 @@ import type { CatalogItem } from "./catalog";
 
 export const INTERIOR_CATALOG = {
   // Biblioteca y salas.
-  "bookcase-tall": { name: "Estantería alta", size: [1, 2] },
+  "bookcase-tall": { name: "Biblioteca alta", size: [1, 2] },
   "curio-cabinet": { name: "Vitrina", size: [1, 2] },
   // La vitrina de trofeos de cada oficina (los trofeos del dueño se pintan encima, en el cliente).
   "trophy-case": { name: "Vitrina de trofeos", size: [1, 2] },
@@ -22,7 +22,7 @@ export const INTERIOR_CATALOG = {
   hammock: { name: "Hamaca", size: [1, 2], seats: [[0, 0], [0, 1]] },
   "chess-table": { name: "Mesa de ajedrez", size: [1, 1] },
   "checkers-table": { name: "Mesa de damas", size: [1, 1] },
-  "puzzle-table": { name: "Mesa con puzle", size: [1, 2] },
+  "puzzle-table": { name: "Mesa con rompecabezas", size: [1, 2] },
   "game-shelf": { name: "Estante de juegos", size: [1, 2] },
   sideboard: { name: "Aparador", size: [1, 2] },
   "rug-persian": { name: "Alfombra persa", size: [4, 6], solid: false, flat: true },
@@ -63,7 +63,7 @@ export const INTERIOR_CATALOG = {
   railing: { name: "Baranda", size: [1, 1], hasBack: true },
   // Esquina del balcón y la terraza: los dos lados en un mueble (de frente la sureste, de espaldas la suroeste).
   "railing-corner": { name: "Baranda de esquina", size: [1, 1], hasBack: true },
-  "deck-chair": { name: "Tumbona", size: [2, 1], seats: [[0, 0]], hasBack: true },
+  "deck-chair": { name: "Perezosa", size: [2, 1], seats: [[0, 0]], hasBack: true },
   telescope: { name: "Telescopio", size: [1, 1] },
   "balcony-planter": { name: "Jardinera del balcón", size: [1, 2] },
 } satisfies Record<string, CatalogItem>;
