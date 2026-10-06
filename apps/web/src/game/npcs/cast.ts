@@ -1,7 +1,9 @@
 // Los personajes del juego que no son personas: el personal del casino (crupier, dealer, cajera y
 // portero, fijos en su puesto), la astrónoma del observatorio, Don Evelio en el puesto de pesca del lago
 // y el Man del Sombrero (cuando el servidor dice que anda por ahí). Se dibujan como chibis con el mismo
-// Avatar de los jugadores y hablan con burbujas. Las frases y los looks están en @hyvento/shared (npcs.ts,
+// Avatar de los jugadores y lo que dicen solos va en el murmullo, sin cajas (game/murmullo.ts: el ícono de
+// habla y, de cerca y con cupo, el texto; dos a la vez en toda la pantalla, contando la gente de la fiesta).
+// Las frases y los looks están en @hyvento/shared (npcs.ts,
 // pesca-tienda.ts y sombrero.ts); lo que los hace hablar llega de las mesas del casino (useCasinoStore),
 // de lo que contesta la astrónoma (useObservatorio, la frase la elige el servidor), de las ventas del
 // puesto de pesca y de quién está dónde.
@@ -38,6 +40,7 @@ import { spawnWisp } from "../consumables";
 import { currentGameTime } from "../gameClock";
 import { worldToScreen } from "../iso/view";
 import { ensureCharacterTextures } from "../looks";
+import { murmurar } from "../murmullo";
 import { usePescaStore } from "../pesca";
 import { sfx, volAt } from "../sfx";
 import { useOfficeStore } from "../store";
@@ -122,7 +125,7 @@ export class NpcCast {
       }),
       useSombreroStore.subscribe((s, prev) => {
         if (s.man !== prev.man) this.syncMan(s.man, prev.man);
-        if (s.speech && s.speech !== prev.speech) this.man?.say(s.speech.text);
+        if (s.speech && s.speech !== prev.speech && this.man) this.murmur("sombrero", this.man, s.speech.text, true);
       }),
       // Alguien le compró a Don Evelio: lo agradece (la frase llega igual a todos).
       usePescaStore.subscribe((s, prev) => {
@@ -237,7 +240,10 @@ export class NpcCast {
 
   // ---------- El personal del casino ----------
 
-  /** Que diga algo (si no habló hace poco; `force` = cantar el número, que no espera). */
+  /**
+   * Que diga algo (si no habló hace poco; `force` = cantar el número o contestar, que no espera). Sin cajas:
+   * el murmullo, con el cupo de toda la pantalla (lo que contesta a alguien pasa delante).
+   */
   private say(id: string, text: string, force = false) {
     const s = this.staff.get(id);
     if (!s) return;
@@ -245,7 +251,21 @@ export class NpcCast {
     if (!force && now < s.quietUntil) return;
     s.quietUntil = now + NPC.quietMs;
     s.nextIdleAt = Math.max(s.nextIdleAt, now + NPC.idleEveryMs / 2);
-    s.avatar.say(text);
+    this.murmur(id, s.avatar, text, force);
+  }
+
+  /** El murmullo de un personaje (sigue al dibujo mientras esté en el nivel y a la vista). */
+  private murmur(id: string, avatar: Avatar, text: string, prioridad: boolean) {
+    const me = this.deps.local();
+    const ts = this.map?.tileSize ?? 32;
+    murmurar({
+      scene: this.scene,
+      quien: `npc:${id}`,
+      donde: () => (avatar.sprite.active && avatar.sprite.visible ? { x: avatar.x, y: avatar.y } : null),
+      texto: text,
+      dist: me ? Math.hypot(avatar.x - me.x, avatar.y - me.y) / ts : Infinity,
+      prioridad,
+    });
   }
 
   /** ¿Hay alguien a menos de `tiles` de ese personaje? (la ruleta gira sola aunque no juegue nadie). */
@@ -462,7 +482,7 @@ export class NpcCast {
       man.face(facingTo(me.x - man.x, me.y - man.y));
       if (!this.whispered) {
         this.whispered = true;
-        man.say(SOMBRERO_WHISPERS[Math.floor(Math.random() * SOMBRERO_WHISPERS.length)]!);
+        this.murmur("sombrero", man, SOMBRERO_WHISPERS[Math.floor(Math.random() * SOMBRERO_WHISPERS.length)]!, true);
       }
     } else if (d > WHISPER_RESET_TILES * ts) this.whispered = false;
   }

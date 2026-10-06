@@ -7,13 +7,20 @@ import { PixelCanvas, toScreen, WORLD_TO_ART, type Sprite } from "./pixel";
 import type { EventOverlay } from "./eventos";
 import { drawAreaBase, drawLowWall } from "./room";
 
-/** `extras`: lo que ponen los eventos encima (ver `eventOverlays`), para verlo en la vista previa. */
-export function composeArea(map: OfficeMap, day = true, pad = 80, extras: EventOverlay[] = []): PixelCanvas {
+/**
+ * `extras`: lo que ponen los eventos encima (ver `eventOverlays`), para verlo en la vista previa. Si viene
+ * `origen`, se le escribe dónde quedó el (0, 0, 0) del nivel en el lienzo (para pintar encima, como la noche).
+ */
+export function composeArea(map: OfficeMap, day = true, pad = 80, extras: EventOverlay[] = [], origen?: { x: number; y: number }): PixelCanvas {
   const ts = map.tileSize;
   const base = drawAreaBase(map, day).base;
   const canvas = new PixelCanvas(base.canvas.width + pad * 2, base.canvas.height + pad * 2);
   const ox = base.ox + pad;
   const oy = base.oy + pad;
+  if (origen) {
+    origen.x = ox;
+    origen.y = oy;
+  }
 
   const blit = (s: Sprite, ax: number, ay: number, flip: boolean) => {
     const src = s.canvas;

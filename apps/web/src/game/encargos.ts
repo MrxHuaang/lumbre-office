@@ -1,8 +1,10 @@
 // Los encargos en el navegador: la libreta (lo que manda el servidor), el encargo fijado en el rastreador
 // (guardado en el navegador), con quién estoy hablando y los avisos. Aquí no hay reglas: el servidor lleva
 // el progreso, valida que estés junto a quien lo dio y paga; esto solo guarda lo que llega para la libreta,
-// el cuadro de diálogo y las marcas "!" y "?" sobre los personajes (encargosMarcas.ts).
+// la tira de conversación de quien los da (VIR-171: lo que dice y las opciones salen de lib/encargosCharla.ts)
+// y las marcas "!" y "?" sobre los personajes (encargosMarcas.ts).
 import {
+  HISTORIA_MSG,
   QUEST_ERROR_TEXT,
   QUEST_GIVERS,
   QUEST_MSG,
@@ -11,7 +13,9 @@ import {
   giverLine,
   questById,
   questGiver,
+  questGiverNpc,
   questKey,
+  type HistoriaAsk,
   type QuestClaimResult,
   type QuestDoneEvent,
   type QuestGiverId,
@@ -19,8 +23,10 @@ import {
   type QuestView,
 } from "@hyvento/shared";
 import { create } from "zustand";
+import { accionDeOpcion, charlaDeEncargos } from "@/lib/encargosCharla";
+import { abrirDialogo, cerrarDialogo, decirEnDialogo, retratoDe, useDialogo } from "./dialogo";
 import { questSfx } from "./encargosSonidos";
-import { getRoom, onAnyInteract, onInteract, onRoom } from "./network";
+import { getRoom, onAnyInteract, onInteract, onRoom, sendEmote } from "./network";
 import { useOfficeStore, type Interactable } from "./store";
 
 const PIN_KEY = "hyvento:encargo-fijo";
@@ -80,15 +86,75 @@ export function pinQuest(key: string | null) {
   }
 }
 
-/** Abre el cuadro de lo que me pidió alguien. */
+/** La tira de quien da encargos (una por persona). */
+const tiraDe = (giver: QuestGiverId) => `encargo:${giver}`;
+
+/**
+ * Hablar con quien da encargos: la tira con lo que dice (el saludo, cómo voy y el consejo de la historia) y
+ * sus opciones (entregar, preguntar, saludar, "Ver encargos", despedirse). La libreta de esa persona (el
+ * panel de antes) se abre desde "Ver encargos".
+ */
 export function talkTo(giver: QuestGiverId) {
   const g = QUEST_GIVERS[giver];
   const day = new Date().toDateString();
-  useEncargos.setState({ talking: { giver, line: giverLine(g.hello, `${giver}:${day}:${seq}`), seq: ++seq } });
+  const saludo = giverLine(g.hello, `${giver}:${day}:${seq++}`);
   questSfx.open();
+  charlar(giver, saludo);
 }
 
+/** Abre la tira (o, si ya está abierta, cambia lo que dice: las gracias después de entregar). */
+function charlar(giver: QuestGiverId, saludo: string, o: { entregado?: string; gracias?: boolean } = {}) {
+  const { lineas, opciones } = charlaDeEncargos(giver, useEncargos.getState().quests, saludo, o);
+  const quien = tiraDe(giver);
+  if (useDialogo.getState().actual?.quien === quien && (o.entregado || o.gracias)) return decirEnDialogo(quien, lineas, opciones);
+  const npc = questGiverNpc(giver);
+  abrirDialogo({
+    quien,
+    nombre: QUEST_GIVERS[giver].name,
+    rol: "Encargos",
+    retrato: npc ? retratoDe(npc.id) : null,
+    // El tablón es una nota pegada: habla como narrador.
+    narrador: giver === "tablon",
+    voz: npc?.voz,
+    lineas,
+    opciones,
+    alcance: () => useEncargos.getState().near.includes(giver),
+    alElegir: (id) => elegir(giver, saludo, id),
+  });
+}
+
+/** Lo que pasa al elegir una opción de la tira (true = la tira sigue abierta). */
+function elegir(giver: QuestGiverId, saludo: string, id: string): boolean {
+  const a = accionDeOpcion(id);
+  const s = useEncargos.getState();
+  switch (a.tipo) {
+    case "entregar": {
+      if (s.claiming) return true;
+      const q = s.quests.find((x) => questKey(x.questId, x.period) === a.key);
+      if (!q) return false;
+      claimQuest(q);
+      decirEnDialogo(tiraDe(giver), ["…"]);
+      return true;
+    }
+    case "preguntar":
+      // Lo que pasa lo decide la sala (casi siempre, una cinemática).
+      getRoom()?.send(HISTORIA_MSG.ask, { questId: a.questId } satisfies HistoriaAsk);
+      return false;
+    case "saludar":
+      sendEmote("wave");
+      return false;
+    case "ver":
+      useEncargos.setState({ talking: { giver, line: saludo, seq: ++seq } });
+      return false;
+    default:
+      return false;
+  }
+}
+
+/** Cierra la libreta de quien da encargos (y su tira, si sigue abierta). */
 export function stopTalking() {
+  const t = useEncargos.getState().talking;
+  if (t) cerrarDialogo(tiraDe(t.giver));
   useEncargos.setState({ talking: null });
 }
 
@@ -151,14 +217,22 @@ function onDone(e: QuestDoneEvent) {
 function onResult(r: QuestClaimResult) {
   useEncargos.setState({ claiming: null });
   const store = useOfficeStore.getState();
-  if (!r.ok) return store.notify(QUEST_ERROR_TEXT[r.error], r.error === "busy" ? "info" : "warning");
   const def = questById(r.questId);
+  if (!r.ok) {
+    // Por qué no se pudo, en la tira (con las opciones otra vez) si sigue abierta; si no, el aviso.
+    if (def && useDialogo.getState().actual?.quien === tiraDe(def.giver)) return charlar(def.giver, QUEST_ERROR_TEXT[r.error], { gracias: true });
+    return store.notify(QUEST_ERROR_TEXT[r.error], r.error === "busy" ? "info" : "warning");
+  }
   const extra = [r.points > 0 ? `+${r.points} puntos` : null, `+${r.xp} de ${QUEST_SKILL_TEXT[r.skill].toLowerCase()}`, r.item ? bagItemInfo(r.item).name.toLowerCase() : null].filter(Boolean).join(" · ");
   store.notify(`Entregaste «${def?.title ?? "el encargo"}»: ${extra}${r.capped ? " (ya llegaste al tope de puntos de hoy)" : ""}.`, "success");
   questSfx.claim();
   const giver = def ? QUEST_GIVERS[def.giver] : undefined;
+  if (!giver || !def) return;
+  const thanks = giverLine(giver.thanks, `${r.questId}:${r.period}`);
+  // Las gracias en la tira (con lo que queda), y en la libreta si está abierta.
+  if (useDialogo.getState().actual?.quien === tiraDe(def.giver)) charlar(def.giver, thanks, { entregado: questKey(r.questId, r.period), gracias: true });
   const talking = useEncargos.getState().talking;
-  if (giver && talking?.giver === def!.giver) useEncargos.setState({ talking: { ...talking, line: giverLine(giver.thanks, `${r.questId}:${r.period}`), seq: ++seq } });
+  if (talking?.giver === def.giver) useEncargos.setState({ talking: { ...talking, line: thanks, seq: ++seq } });
 }
 
 if (typeof window !== "undefined") {

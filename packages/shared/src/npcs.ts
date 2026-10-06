@@ -17,6 +17,8 @@ export interface GameNpc {
   id: string;
   role: NpcRole;
   name: string;
+  /** Tono de la voz en la tira de conversación (0 grave .. 1 agudo): el "blip" de cada letra. */
+  voz?: number;
   look: Look;
   area: string;
   /** Tile donde se para. `offset`: corrido dentro del tile (en tiles), para quedar detrás de un mueble. */
@@ -48,6 +50,7 @@ export const CASINO_NPCS: readonly GameNpc[] = [
     id: "crupier",
     role: "crupier",
     name: "Don Chucho Ruletas",
+    voz: 0.32,
     // En la cabecera del paño, al lado de la rueda (desde ahí la hace girar).
     area: "sotano",
     tile: { x: 7, y: 8 },
@@ -75,6 +78,7 @@ export const CASINO_NPCS: readonly GameNpc[] = [
     id: "dealer",
     role: "dealer",
     name: "Yurani Blackjack",
+    voz: 0.62,
     // Del lado de la banca, frente a los cinco puestos.
     area: "sotano",
     tile: { x: 11, y: 10 },
@@ -95,6 +99,7 @@ export const CASINO_NPCS: readonly GameNpc[] = [
     id: "cajera",
     role: "cajera",
     name: "Doña Marleny",
+    voz: 0.7,
     // Junto a la ventanilla de la caja, contra la pared (entre la caja y la rueda de la fortuna).
     area: "sotano",
     tile: { x: 14, y: 4 },
@@ -115,6 +120,7 @@ export const CASINO_NPCS: readonly GameNpc[] = [
     id: "portero",
     role: "portero",
     name: "Toño Tres Puertas",
+    voz: 0.12,
     // En el vestíbulo, junto al cordón de la entrada del casino.
     area: "sotano",
     tile: { x: 18, y: 9 },
@@ -145,6 +151,7 @@ export const OBSERVATORIO_NPCS: readonly GameNpc[] = [
     id: "astronoma",
     role: "astronoma",
     name: "Profe Celeste",
+    voz: 0.66,
     // Bajo el mural del cielo, junto a la estantería baja (delante está su punto `astronomer`).
     area: "observatorio",
     tile: { x: 8, y: 1 },
@@ -188,6 +195,7 @@ export const HISTORIA_NPCS: readonly GameNpc[] = [
     id: "aurora",
     role: "casera",
     name: "Doña Aurora",
+    voz: 0.52,
     area: "planta-baja",
     tile: { x: 16, y: 16 },
     facing: "down",

@@ -1,8 +1,14 @@
 // El reproductor de cinemáticas (VIR-155): corre los pasos de una cinemática de @hyvento/shared en orden
-// sobre la escena de Phaser (cámara, actores, efectos y sonidos) y en React (franjas, títulos, el cuadro de
-// diálogo y las opciones, ver store.ts). Una a la vez: una de historia corta lo que haya; un momento que
-// llega mientras se ve otra cosa se pierde (son cortos y no cambian nada). Al terminar o al saltarla, la
-// cámara vuelve al jugador y los NPC a su puesto. Se pide por puerta.ts (sin Phaser), donde se registra.
+// sobre la escena de Phaser (cámara, actores, efectos y sonidos) y en React (franjas y títulos, ver
+// store.ts). Lo que se dice va por la tira de conversación (VIR-171, game/dialogo.ts): cada `say` es una tira
+// con el retrato en el medallón y la voz de quien habla (el narrador, sin medallón y en cursiva), que en las
+// de historia espera a E/Enter y en los momentos avanza sola; una `choice` son las etiquetas al borde de la
+// tira (si viene justo después de un `say`, en la misma tira). Los `bubble` son murmullos (game/murmullo.ts).
+// Una a la vez: una de historia corta lo que haya, cierra la tira que estuviera abierta y la retiene hasta
+// terminar (lo que llega mientras tanto espera en la cola); un momento que llega mientras se ve otra cosa se
+// pierde (son cortos y no cambian nada) y sus líneas pasan delante de una conversación abierta, que vuelve
+// después. Al terminar o al saltarla, la cámara vuelve al jugador y los NPC a su puesto. Se pide por
+// puerta.ts (sin Phaser), donde se registra.
 import { FRAME } from "@hyvento/map/art";
 import {
   ALL_NPCS,
@@ -21,12 +27,14 @@ import {
 import * as Phaser from "phaser";
 import { lessMotion } from "@/lib/prefs";
 import { Avatar } from "../Avatar";
+import { abrirDialogo, cerrarDialogo, registrarRetratista, retenerDialogos, vaciarDialogos } from "../dialogo";
 import { worldToScreen } from "../iso/view";
 import { ensureCharacterTextures } from "../looks";
+import { murmurar } from "../murmullo";
 import { useOfficeStore } from "../store";
 import { playCineSound } from "./sonidos";
 import { cinePrefAllows, firstChoiceOf, runCineAction, setCineRunner } from "./puerta";
-import { advance, choose, nextKey, setSkipHandler, useCineStore, waitAdvance, waitChoice } from "./store";
+import { nextKey, setSkipHandler, skip, useCineStore } from "./store";
 
 /** Lo que la escena le presta al reproductor. */
 export interface CineHost {
@@ -47,9 +55,20 @@ let host: CineHost | null = null;
 export function bindCineHost(h: CineHost | null) {
   host = h;
   setCineRunner(h ? reproducir : null);
+  // El retrato de los NPC fijos para la tira (los encargos, la bienvenida de Doña Aurora).
+  registrarRetratista(
+    h
+      ? (id) => {
+          const npc = NPC_BY_ID.get(id);
+          return npc ? portraitFromSheet(h.scene, ensureCharacterTextures(h.scene, "ada", npc.look)) : null;
+        }
+      : null,
+  );
 }
 
 const NPC_BY_ID = new Map<string, GameNpc>([...ALL_NPCS, PESCA_NPC, RECEPCION_NPC].map((n) => [n.id, n]));
+/** La voz de quien habla sin ficha de NPC (yo; el narrador no tiene). */
+const VOZ_MIA = 0.5;
 
 const FLASH: Record<string, [number, number, number]> = { oro: [255, 214, 120], blanco: [255, 255, 255], rosa: [255, 170, 200] };
 const CONFETTI = [
@@ -118,6 +137,12 @@ interface Run {
   stand: Avatar | null;
   /** NPC de verdad escondidos mientras su doble actúa. */
   hidden: Avatar[];
+  /** La voz de los actores puestos (la del NPC al que se parecen). */
+  voces: Map<string, number>;
+  /** Quién habló último (las opciones sin pregunta propia salen en su tira). */
+  last: { who: string; name?: string } | null;
+  /** Cuántas tiras abrió (cada una con su id). */
+  tiras: number;
 }
 
 let current: Run | null = null;
@@ -136,13 +161,42 @@ async function reproducir(def: CineDef, vars: Readonly<Record<string, string | n
   const me = host.local();
   const ts = host.tileSize();
   const origin = me ? { x: Math.floor(me.x / ts), y: Math.floor(me.y / ts) } : { x: 0, y: 0 };
-  const run: Run = { def, vars, skipping: false, wakers: new Set(), extras: new Map(), moved: new Map(), baseZoom: cam.zoom, choice: null, origin, stand: null, hidden: [] };
+  const run: Run = {
+    def,
+    vars,
+    skipping: false,
+    wakers: new Set(),
+    extras: new Map(),
+    moved: new Map(),
+    baseZoom: cam.zoom,
+    choice: null,
+    origin,
+    stand: null,
+    hidden: [],
+    voces: new Map(),
+    last: null,
+    tiras: 0,
+  };
   current = run;
-  useCineStore.setState({ playing: { id: def.id, kind: def.kind }, bars: false, title: null, line: null, choice: null, lastSaid: "" });
+  // Una de historia toma la pantalla: la tira que estuviera abierta se cierra y lo que llegue espera.
+  if (def.kind === "historia") {
+    vaciarDialogos();
+    retenerDialogos(true);
+  }
+  useCineStore.setState({ playing: { id: def.id, kind: def.kind }, bars: false, title: null, lastSaid: "" });
   setSkipHandler(skipCurrent);
   try {
-    for (const step of def.steps) {
+    const steps = def.steps;
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i]!;
       if (run.skipping && step.op !== "choice") continue;
+      // Lo que se dice justo antes de las opciones va en la misma tira, con las opciones al borde.
+      const next = steps[i + 1];
+      if (step.op === "say" && next?.op === "choice" && !next.prompt && !run.skipping) {
+        await sayAndChoose(run, step, next);
+        i++;
+        continue;
+      }
       await runStep(run, step);
     }
   } finally {
@@ -155,18 +209,16 @@ function skipCurrent() {
   const run = current;
   if (!run || run.skipping) return;
   run.skipping = true;
-  for (const wake of run.wakers) wake();
+  for (const wake of [...run.wakers]) wake();
   run.wakers.clear();
-  advance();
-  const opts = useCineStore.getState().choice?.options;
-  if (opts?.[0]) choose(opts[0].id);
 }
 
 function finish(run: Run) {
   if (current !== run) return;
   current = null;
   setSkipHandler(null);
-  useCineStore.setState({ playing: null, bars: false, title: null, line: null, choice: null });
+  if (run.def.kind === "historia") retenerDialogos(false);
+  useCineStore.setState({ playing: null, bars: false, title: null });
   const h = host;
   if (!h) return;
   for (const a of run.extras.values()) a.destroy();
@@ -248,6 +300,78 @@ function nameOf(run: Run, who: string, explicit?: string): string {
   if (who === "narrador") return "";
   if (who === CINE_ME) return "Tú";
   return NPC_BY_ID.get(who)?.name ?? "";
+}
+
+function vozOf(run: Run, who: string): number | undefined {
+  if (who === CINE_ME) return VOZ_MIA;
+  return run.voces.get(who) ?? NPC_BY_ID.get(who)?.voz;
+}
+
+/**
+ * Una tira de la cinemática: quien habla con su retrato y su voz (el narrador, sin medallón). En las de
+ * historia espera a que se lea (o a que se elija, con opciones); en los momentos avanza sola en `ms`. Pasa
+ * delante de una conversación abierta. Devuelve la opción elegida (o null: se leyó, se cerró o se saltó).
+ */
+function hablar(
+  run: Run,
+  who: string,
+  explicitName: string | undefined,
+  lineas: string[],
+  o: { opciones?: readonly { id: string; label: string }[]; escrita?: boolean; ms?: number } = {},
+): Promise<string | null> {
+  const quien = `cine:${run.def.id}:${++run.tiras}`;
+  const narrador = who === "narrador";
+  const story = run.def.kind === "historia";
+  return new Promise((resolve) => {
+    let done = false;
+    const fin = (id: string | null) => {
+      if (done) return;
+      done = true;
+      run.wakers.delete(wake);
+      resolve(id);
+    };
+    function wake() {
+      fin(null);
+      cerrarDialogo(quien);
+    }
+    run.wakers.add(wake);
+    abrirDialogo({
+      quien,
+      nombre: narrador ? "" : nameOf(run, who, explicitName),
+      retrato: narrador ? null : portraitOf(run, who),
+      narrador,
+      voz: narrador ? undefined : vozOf(run, who),
+      lineas,
+      opciones: o.opciones?.map((x) => ({ id: x.id, label: x.label })),
+      escrita: o.escrita,
+      prioridad: true,
+      modo: story || o.opciones?.length ? "charla" : "momento",
+      ms: story ? undefined : o.ms,
+      alElegir: (id) => {
+        fin(id);
+        return false;
+      },
+      alCerrar: () => fin(null),
+      alEscapar: skip,
+    });
+  });
+}
+
+/** Lo que dice alguien y, en la misma tira, las opciones (cuando la elección viene justo después). */
+async function sayAndChoose(run: Run, say: Extract<CineStep, { op: "say" }>, choice: Extract<CineStep, { op: "choice" }>) {
+  const said = fillCine(say.text, run.vars);
+  run.last = { who: say.who, name: say.name };
+  useCineStore.setState({ lastSaid: said });
+  const id = await hablar(run, say.who, say.name, [said], { opciones: choice.options });
+  pick(run, choice, id);
+}
+
+/** Lo elegido (o la primera, si se saltó o se cerró) y lo que hace esa opción. */
+function pick(run: Run, step: Extract<CineStep, { op: "choice" }>, id: string | null) {
+  const chosen = id ?? step.options[0]?.id ?? null;
+  run.choice = chosen;
+  const action = step.options.find((o) => o.id === chosen)?.action;
+  if (action) runCineAction(action);
 }
 
 function screenOf(run: Run, to: CineActor | CinePos): { x: number; y: number } | null {
@@ -351,21 +475,26 @@ async function runStep(run: Run, step: CineStep) {
       if (!calm) cam.shake(step.ms ?? CINE_MS.shake, step.strength ?? 0.003);
       return;
     case "say": {
-      const wait = run.def.kind === "historia";
       const said = text(step.text);
-      useCineStore.setState({
-        line: { name: nameOf(run, step.who, step.name), text: said, portrait: portraitOf(run, step.who), wait, key: nextKey() },
-        lastSaid: said,
-      });
-      if (wait) {
-        await Promise.race([waitAdvance(), new Promise<void>((r) => run.wakers.add(r))]);
-      } else await sleep(step.ms ?? CINE_MS.sayMoment, run);
-      useCineStore.setState({ line: null });
+      run.last = { who: step.who, name: step.name };
+      useCineStore.setState({ lastSaid: said });
+      await hablar(run, step.who, step.name, [said], { ms: step.ms ?? CINE_MS.sayMoment });
       return;
     }
-    case "bubble":
-      actor(run, step.who)?.say(text(step.text));
+    case "bubble": {
+      // Sin cajas: el murmullo encima del actor (lo pide la cinemática: sin mirar la distancia).
+      const a = actor(run, step.who);
+      if (!a) return;
+      murmurar({
+        scene: h.scene,
+        quien: `cine:${step.who}`,
+        donde: () => (a.sprite.active ? { x: a.x, y: a.y } : null),
+        texto: text(step.text),
+        dist: 0,
+        forzar: true,
+      });
       return;
+    }
     case "title":
       useCineStore.setState({ title: { text: text(step.text), sub: step.sub ? text(step.sub) : undefined, key: nextKey() } });
       await sleep(step.ms ?? CINE_MS.title, run);
@@ -424,7 +553,8 @@ async function runStep(run: Run, step: CineStep) {
     case "spawn": {
       const npc = NPC_BY_ID.get(step.like);
       if (!npc) return;
-      const key = ensureCharacterTextures(h.scene, "ada", npc.look);
+      // Con `look`, otra pinta (la gente de la fiesta: Cupido, el trío de la serenata).
+      const key = ensureCharacterTextures(h.scene, "ada", step.look ?? npc.look);
       const at = worldOf(run, step.at);
       const a = new Avatar(h.scene, key, step.name ?? npc.name, at.x, at.y, false);
       a.asNpc();
@@ -440,6 +570,7 @@ async function runStep(run: Run, step: CineStep) {
         run.hidden.push(real);
       }
       run.extras.set(step.id, a);
+      if (npc.voz !== undefined) run.voces.set(step.id, npc.voz);
       return;
     }
     case "despawn":
@@ -469,12 +600,14 @@ async function runStep(run: Run, step: CineStep) {
         run.choice = step.options[0]?.id ?? null;
         return;
       }
-      useCineStore.setState({ choice: { prompt: step.prompt ? text(step.prompt) : undefined, options: step.options } });
-      const id = await waitChoice();
-      useCineStore.setState({ choice: null });
-      run.choice = id;
-      const action = step.options.find((o) => o.id === id)?.action;
-      if (action) runCineAction(action);
+      // La pregunta propia, o lo último que se dijo (ya leído: sale escrito) en la tira de quien lo dijo.
+      const own = step.prompt ? text(step.prompt) : null;
+      const who = own ? "narrador" : (run.last?.who ?? "narrador");
+      const id = await hablar(run, who, own ? undefined : run.last?.name, [own ?? useCineStore.getState().lastSaid], {
+        opciones: step.options,
+        escrita: !own,
+      });
+      pick(run, step, id);
       return;
     }
   }
