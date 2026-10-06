@@ -66,6 +66,7 @@ export {
 export { bedCropSprite, cropSprite, wetSoil, type CropStage } from "./huerto";
 export { silletaOnStand } from "./feria-flores";
 export { arbolCometa, cometaCielo, COMETA_FRAMES, COMETAS_DECOR_FRAMES, cometasDecorSprite, escaleraGaraje, mangaViento } from "./cometas";
+export { MARCO_ENAMORADOS } from "./amor-amistad";
 // La granja: los animales, la rueda del molino que gira, los huevos del nido y las nubecitas.
 export { coopEggs, cornGrain, drawGoat, drawHen, FARM_POSE_FRAMES, GOAT_FRAME, HEN_FRAME, MILL_WHEEL_FRAMES, millWheel, puffBall, type FarmArtPose } from "./granja";
 // Logros: las insignias del perfil y el destello al desbloquear uno.

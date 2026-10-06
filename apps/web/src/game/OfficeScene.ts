@@ -69,6 +69,7 @@ import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
 import { EventsView } from "./eventos";
 import { pesebreInReach } from "./novenas";
+import { marcoDeFoto } from "./amorAmistad";
 import { CinemaMode } from "./cinema";
 import { EscenarioMode } from "./escenario";
 import { podcastBlockFor } from "./escenario/net";
@@ -280,9 +281,13 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "cometasShop", point: "festival_shop", furniture: ["puesto-cometas", "carrito-raspao"] },
   { kind: "cometasConcurso", point: "cometas_concurso", furniture: ["tablero-cometas"] },
   { kind: "cometaTecho", point: "cometas_techo", furniture: ["escalera-garaje"] },
+  // Amor y amistad: el cofre del amigo secreto, el puesto de chocolates y flores y el trío de la serenata.
+  { kind: "amorCofre", point: "amigo_secreto", furniture: ["amigo-cofre"] },
+  { kind: "amorShop", point: "festival_shop", furniture: ["puesto-amor"] },
+  { kind: "amorSerenata", point: "amor_serenata", furniture: [] },
 ];
 /** El puesto de cada festival (todos usan el punto `festival_shop`): qué panel abre según el que corre. */
-const FESTIVAL_SHOP: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", cometas: "cometasShop" };
+const FESTIVAL_SHOP: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "amor-amistad": "amorShop", cometas: "cometasShop" };
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
 const ARRIVAL_CLEAR_TILES = 1.5;
@@ -592,7 +597,7 @@ export class OfficeScene extends Phaser.Scene {
     bindCineHost({
       scene: this,
       local: () => this.local ?? null,
-      npc: (id) => this.npcs?.avatarOf(id) ?? null,
+      npc: (id) => this.npcs?.avatarOf(id) ?? this.gente?.avatarOf(id) ?? null,
       tileSize: () => this.map.tileSize,
       free: (tx, ty) => !isBlockedTile(this.map, tx, ty),
       followLocal: () => {
@@ -941,7 +946,9 @@ export class OfficeScene extends Phaser.Scene {
       const canvas = captureShot(this.game.canvas, { zoom: cam.zoom, x: cam.x, y: cam.y, worldView: cam.worldView }, worldToScreen(me.x, me.y));
       sfx.shutter();
       usePhotoStore.getState().flash();
-      usePhotoStore.getState().setPending({ shot: canvas, ticket: shot.ticket, area: shot.area, people: shot.people, takenAt: shot.takenAt });
+      // Junto a la banca de los enamorados (en Amor y amistad), la polaroid sale con marco de corazones.
+      const marco = marcoDeFoto(shot.area, me.x, me.y, this.map.tileSize);
+      usePhotoStore.getState().setPending({ shot: canvas, ticket: shot.ticket, area: shot.area, people: shot.people, takenAt: shot.takenAt, marco });
     });
   }
 
@@ -1620,7 +1627,7 @@ export class OfficeScene extends Phaser.Scene {
     const fieldFocus = isEditableFocus();
     if (this.fieldFocus && !fieldFocus) this.keysFreeAt = performance.now();
     this.fieldFocus = fieldFocus;
-    // En una escena de la historia, E y Esc son del cuadro de diálogo, no del juego.
+    // En una escena de la historia, E y Esc son de la tira de conversación, no del juego.
     const scene = cineBlocking();
     if (scene) this.keysFreeAt = performance.now();
     const tap = (key: Phaser.Input.Keyboard.Key) =>

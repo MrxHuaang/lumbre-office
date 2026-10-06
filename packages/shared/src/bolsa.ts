@@ -16,6 +16,7 @@ import { CARNAVAL_BAG_OBJECTS } from "./carnaval-objetos";
 import { VELITAS_BAG_OBJECTS } from "./velitas";
 import { COMETAS_BAG_OBJECTS } from "./cometas";
 import { COMETA, cometaCodeOf, cometaName } from "./cometa";
+import { AMOR_BAG_OBJECTS } from "./amor-amistad";
 import { CONSUMABLES } from "./consumables";
 import { STORY_BAG_OBJECTS } from "./historia";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
@@ -170,6 +171,8 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   ...VELITAS_BAG_OBJECTS,
   // El Festival de cometas: los materiales, el gancho, el raspao y la cometa del techo (cometas.ts).
   ...COMETAS_BAG_OBJECTS,
+  // Amor y amistad: lo del puesto de chocolates y flores (amor-amistad.ts).
+  ...AMOR_BAG_OBJECTS,
   // Los objetos de la historia, de todos los capítulos (historia.ts: `items` de cada uno).
   ...STORY_BAG_OBJECTS,
 };

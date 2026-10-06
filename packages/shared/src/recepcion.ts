@@ -18,6 +18,7 @@ export const RECEPCION_NPC: GameNpc = {
   id: "gloria",
   role: "recepcionista",
   name: "Doña Gloria",
+  voz: 0.58,
   area: "planta-baja",
   // Detrás del mostrador de la recepción, mirando a la puerta.
   tile: { x: 14, y: 20 },

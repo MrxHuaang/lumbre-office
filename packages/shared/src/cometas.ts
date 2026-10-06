@@ -284,7 +284,7 @@ export const LOMA_CENTRO = { x: 123, y: 62 } as const;
 export const MATEO = "cometas:mateo";
 export const SOFI = "cometas:sofi";
 
-/** Pintas de los niños de las cinemáticas (no son NPC fijos: van con `pinta`). */
+/** Pintas de los niños de las cinemáticas (no son NPC fijos: van con `look`). */
 const NINO_MATEO: Look = {
   accessories: [],
   skin: "#c68642",
@@ -378,8 +378,8 @@ export const COMETAS_CINEMATICAS: readonly CineDef[] = [
       { op: "camera", to: { x: LOMA_CENTRO.x, y: LOMA_CENTRO.y - 2 }, zoom: 0.9, ms: 1200 },
       { op: "sound", sound: "brisa" },
       { op: "title", text: "¡La primera cometa del día!", sub: "{nombre} la puso a volar", ms: 2800 },
-      { op: "spawn", id: MATEO, like: "evelio", pinta: NINO_MATEO, name: "Mateo", at: { x: LOMA_CENTRO.x - 6, y: LOMA_CENTRO.y + 4 }, facing: "right" },
-      { op: "spawn", id: SOFI, like: "gloria", pinta: NINA_SOFI, name: "Sofi", at: { x: LOMA_CENTRO.x + 6, y: LOMA_CENTRO.y + 4 }, facing: "left" },
+      { op: "spawn", id: MATEO, like: "evelio", look: NINO_MATEO, name: "Mateo", at: { x: LOMA_CENTRO.x - 6, y: LOMA_CENTRO.y + 4 }, facing: "right" },
+      { op: "spawn", id: SOFI, like: "gloria", look: NINA_SOFI, name: "Sofi", at: { x: LOMA_CENTRO.x + 6, y: LOMA_CENTRO.y + 4 }, facing: "left" },
       { op: "spawn", id: "aurora", like: "aurora", at: { x: LOMA_CENTRO.x - 1, y: LOMA_CENTRO.y + 6 }, facing: "up" },
       {
         op: "together",
@@ -423,7 +423,7 @@ export const COMETAS_CINEMATICAS: readonly CineDef[] = [
     id: COMETAS_CINE.rescate,
     kind: "momento",
     steps: [
-      { op: "spawn", id: MATEO, like: "evelio", pinta: NINO_MATEO, name: "Mateo", at: { dx: 1, dy: 1 }, facing: "up", holds: "cometa:{codigo}" },
+      { op: "spawn", id: MATEO, like: "evelio", look: NINO_MATEO, name: "Mateo", at: { dx: 1, dy: 1 }, facing: "up", holds: "cometa:{codigo}" },
       { op: "sound", sound: "destello" },
       { op: "together", steps: [{ op: "act", who: MATEO, action: "saltar" }, { op: "fx", fx: "chispas", who: MATEO }, { op: "title", text: "¡Cometa rescatada!", ms: 2200 }] },
       { op: "face", who: MATEO, toward: "yo" },

@@ -46,7 +46,7 @@ export const FESTIVALES: readonly FestivalDef[] = [
   {
     id: "amor-amistad",
     nombre: "Amor y amistad",
-    resumen: "Amigo secreto toda la semana: dulces anónimos al buzón y la revelación al final.",
+    resumen: "Amigo secreto con detalles anónimos, cartas que lleva Cupido, serenatas y la revelación al cierre.",
     estacion: "primavera",
     dia: 7,
     dias: 1,
@@ -337,7 +337,7 @@ const byId = (id: FestivalId) => festivalById(id)!;
 
 /** Las cinemáticas de los festivales (se suman al catálogo de cinemáticas). */
 export const FESTIVAL_CINEMATICAS: readonly CineDef[] = [
-  open(byId("amor-amistad"), ["¡Feliz amor y amistad! Hoy se sortea el amigo secreto.", "Los dulces van al buzón sin firma. Que nadie se delate."], [
+  open(byId("amor-amistad"), ["¡Feliz amor y amistad! Anótese al amigo secreto en el cofre de la plaza: a las 10 es el sorteo.", "Las cartas se escriben en el buzón y Cupido las lleva sin firma. Que nadie se delate."], [
     { op: "fx", fx: "corazones" },
   ]),
   close(byId("amor-amistad"), "Qué bonito ver tanto cariño en esta casa. Hasta el reloj parece contento."),

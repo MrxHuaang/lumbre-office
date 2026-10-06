@@ -53,7 +53,7 @@ colombianas puestas en el calendario del juego, a nuestra manera.
 
 | Estación | Día | Festival | Lo central |
 | --- | --- | --- | --- |
-| Primavera | 7 | Amor y amistad (VIR-162) | Amigo secreto de la semana: dulces anónimos al buzón; la revelación el día 14 |
+| Primavera | 7 | Amor y amistad (VIR-162) | Amigo secreto del día (sorteo a las 10:00, detalles anónimos en el cofre, revelación al cierre), cartas que lleva Cupido, serenata del trío y el puesto de chocolates y flores |
 | Primavera | 15 | Feria de las flores (VIR-161) | Silletas con flores del huerto, votación y desfile de silleteros |
 | Verano | 9 | Festival de cometas | Cometas que se arman y se elevan en el jardín; concurso de la que más sube con el viento |
 | Verano | 18 | Carnaval (VIR-160) | Máscaras, desfile de comparsa por el jardín, maicena y serpentinas, concurso de disfraces |
@@ -85,7 +85,7 @@ en corrillos, venden en el puesto y piden cosas de la mochila a cambio de algo. 
 vereda** (ficticios y recurrentes: la profe jubilada, el de las empanadas, la niña con su perro, los abuelos
 que bailan, el del tiple…) con otro papel y otra pinta en cada fiesta, más algún suelto (niños disfrazados,
 turistas). Hablan en la tira de conversación y murmuran solos sin cajas. Hecho para brujas, velitas,
-novenas, la feria, el carnaval y las cometas; los que faltan (amor y amistad, cosecha, año viejo) solo
+novenas, la feria, el carnaval, amor y amistad y las cometas; los que faltan (cosecha, año viejo) solo
 agregan su función en `GENTE_FIESTA` (ver "La gente de la fiesta" en `CLAUDE.md`).
 
 ## Las cinemáticas (VIR-155)

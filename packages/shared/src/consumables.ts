@@ -9,6 +9,7 @@ import { GRANJA_USABLES, type GranjaAction } from "./granja";
 import { PARRILLA_CONSUMABLES } from "./parrilla";
 import { MUNDO_CONSUMABLES, MUNDO_USABLES, type MundoAction } from "./mundo";
 import { BRUJAS_CONSUMABLES } from "./brujas";
+import { AMOR_CONSUMABLES } from "./amor-amistad";
 
 /**
  * Cómo se consume cada cosa: pitada (cigarro, habano), sorbo (bebidas), mordisco (comida en la mano),
@@ -111,6 +112,7 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   ...BRUJAS_CONSUMABLES,
   // El raspao del carrito de la loma (Festival de cometas): a cucharadas.
   raspao: { action: "bite", uses: 3 },
+  ...AMOR_CONSUMABLES,
 };
 
 /** Usos de algo en la mano (1 si no está en la tabla: se usa una vez y se va). Las herramientas del huerto, los suyos. */

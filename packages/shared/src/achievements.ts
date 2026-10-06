@@ -172,6 +172,9 @@ export const STAT_KEYS = {
   cometasArmadas: "cometas_armadas",
   cometaAltura: "cometa_altura",
   cometaPremios: "cometa_premios",
+  // Amor y amistad (amor-amistad.ts): detalles dejados al amigo secreto y serenatas pedidas.
+  amigoSecretoRegalos: "amigo_secreto_regalos",
+  serenatasDadas: "serenatas_dadas",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -489,6 +492,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // El Festival de cometas
     a("cometero", "Cometero", "cometa", "comun", STAT_KEYS.cometasArmadas, 1, "Arma una cometa en el taller de la loma en el Festival de cometas", "Papel de seda, palitos de guadua y engrudo hasta en las cejas."),
     a("dueno-del-cielo", "Dueño del cielo", "cometa", "epico", STAT_KEYS.cometaPremios, 1, "Gana un premio del Festival de cometas: la más alta del día o la más bonita", "Toda la loma levantó la cabeza para ver su cometa."),
+    // Amor y amistad
+    a("amigo-secreto", "Amigo secreto", "chest", "comun", STAT_KEYS.amigoSecretoRegalos, 1, "Déjele un detalle a su amigo secreto en el cofre de Amor y amistad", "Nadie sabe que fue usted. Bueno, hasta la revelación."),
+    a("serenatero", "Serenatero", "guitar", "raro", STAT_KEYS.serenatasDadas, 1, "Pídale una serenata al trío de Amor y amistad para alguien", "Tiple, guitarra y requinto, todo por un detalle."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),
