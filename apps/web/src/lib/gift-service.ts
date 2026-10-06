@@ -127,7 +127,7 @@ export async function postGift(db: GiftDb, user: { id: string; name: string | nu
   const parsed = GiftCreateBody.safeParse(raw ?? {});
   if (!parsed.success) return failure(parsed.error.issues[0]?.message ?? "Regalo inválido");
   const body = parsed.data;
-  if (body.toId === user.id) return failure("No puedes regalarte a ti.");
+  if (body.toId === user.id) return failure("No te puedes mandar un regalo a ti.");
   // Solo a quien ya entró alguna vez (como la lista de /recipients).
   const to = await db.user.findFirst({ where: { id: body.toId, onboardedAt: { not: null } }, select: { id: true } });
   if (!to) return failure("Esa persona no está en el equipo.", 404);

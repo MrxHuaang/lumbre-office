@@ -14,7 +14,7 @@ const bundleOf = (g: GiftDTO) => describeBundle(g.points, g.itemId ? [{ itemId: 
 
 const ago = (iso: string) => {
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (min < 1) return "recién";
+  if (min < 1) return "hace un momento";
   if (min < 60) return `hace ${min} min`;
   const h = Math.round(min / 60);
   return h < 24 ? `hace ${h} h` : `hace ${Math.round(h / 24)} d`;
