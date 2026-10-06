@@ -100,3 +100,4 @@ export * from "./capitulo2";
 export * from "./novenas";
 export * from "./aguinaldos";
 export * from "./capitulo3";
+export * from "./gente-fiesta";
