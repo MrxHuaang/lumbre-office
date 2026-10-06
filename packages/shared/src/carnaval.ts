@@ -429,7 +429,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     grupo: "Comparsa Garra de Tigrillo",
     acento: "#7a3cd0",
     largo: 8,
-    pieza: "albazo",
+    pieza: "bambuco",
     // Morado, dorado y verde como la carroza; las del tocado (pares) con antifaz, como la reina.
     bailarines: CUADRILLA.map((i) => comparsero(i, "#7a3cd0", { head: i % 2 ? "headband" : "tiara", face: i % 2 ? "none" : "carnival-mask", neck: "necklace" })),
     // Se agachan como el jaguar al acecho, saltan en ola y rugen todos juntos.
@@ -447,7 +447,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     grupo: "Comparsa Los Payasos de la Melena",
     acento: "#d8287a",
     largo: 8,
-    pieza: "pasacalle",
+    pieza: "son-cuy",
     // Payasos de magenta, naranja y verde agua, con corbatín y sombrero de copa o gorro de pompón.
     bailarines: CUADRILLA.map((i) => comparsero(i, "#d8287a", { head: i % 3 ? "pompom-beanie" : "top-hat", neck: "bowtie", face: "none", top: "jersey", pattern: i % 2 ? "dots" : "stripes" })),
     // Giran como en la pista, saludan con la mano y la fila se va agachando en ola.
