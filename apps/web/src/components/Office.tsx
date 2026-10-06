@@ -71,6 +71,7 @@ import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
 import { FeriaPanel } from "./FeriaPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
 import { QuestCard } from "./encargos/QuestCard";
+import { TiraDialogo } from "./dialogo/TiraDialogo";
 import { PrologueCard } from "./historia/HistoriaCard";
 import { QuestTracker } from "./encargos/QuestTracker";
 import { FishAlbum } from "./fishing/FishAlbum";
@@ -340,6 +341,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             </div>
           </div>
           <SideDock />
+          {/* La tira de conversación (una sola en pantalla): la gente de la fiesta habla aquí. */}
+          <TiraDialogo />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
             <DoorPrompt />

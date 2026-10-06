@@ -7,6 +7,8 @@ import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
 import { useClubStore } from "@/game/club/store";
 import { useEscenarioStore } from "@/game/escenario/store";
+import { useDialogo } from "@/game/dialogo";
+import { useGenteFiesta } from "@/game/genteFiestaStore";
 import { ArcadePromptLabel } from "./arcade/ArcadePromptLabel";
 import { BusPromptLabel } from "./bus/BusPromptLabel";
 import { MarshmallowPromptLabel } from "./observatorio/MarshmallowStrip";
@@ -110,7 +112,14 @@ const PROMPT: Record<Interactable, string> = {
   silletaStand: "Ver la silleta y votar",
   carnavalShop: "Comprar en el puesto del carnaval",
   carnavalConcurso: "Ver el concurso de disfraces",
+  fiestaNpc: "Hablar",
 };
+
+/** La "E" junto a alguien de la fiesta: "Hablar con Don Efraín". */
+function GentePromptLabel() {
+  const cerca = useGenteFiesta((s) => s.cerca);
+  return <>{cerca ? `Hablar con ${cerca.nombre}` : PROMPT.fiestaNpc}</>;
+}
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { cache: "no-store", ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
@@ -140,7 +149,9 @@ export function InteractPrompt() {
   const onPole = useClubStore((s) => s.here.dancing === "pole");
   // Con alguien en el tubo, junto a la tarima va el botón de tirar billetes (ClubHud).
   const canTip = useClubStore((s) => s.here.tipTarget !== null);
-  if (!near || panel) return null;
+  // Con la tira de conversación abierta, la "E" es de la tira.
+  const talking = useDialogo((s) => s.actual !== null);
+  if (!near || panel || talking) return null;
   if (near === "pole" && (onPole || canTip)) return null;
   return (
     <button
@@ -159,6 +170,8 @@ export function InteractPrompt() {
         <MarshmallowPromptLabel />
       ) : near === "encargo" ? (
         <QuestPromptLabel />
+      ) : near === "fiestaNpc" ? (
+        <GentePromptLabel />
       ) : (
         PROMPT[near]
       )}

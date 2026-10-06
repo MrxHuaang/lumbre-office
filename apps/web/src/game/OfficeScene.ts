@@ -190,6 +190,7 @@ import { bindCineHost } from "./cinematicas/player";
 import { cineBlocking } from "./cinematicas/store";
 import "./cinematicas/momentos";
 import { NpcCast } from "./npcs/cast";
+import { genteAlAlcance, genteBajo, GenteFiestaView } from "./genteFiesta";
 import { syncSeat } from "./mundo";
 import { QuestMarkers, questGiverToTalk } from "./encargosMarcas";
 import { useOficios } from "./oficios";
@@ -461,6 +462,8 @@ export class OfficeScene extends Phaser.Scene {
   private trophyCases!: TrophyCases;
   /** El personal del casino y el Man del Sombrero (ver npcs/cast.ts). */
   private npcs!: NpcCast;
+  /** La gente de la fiesta del festival que corre (ver genteFiesta.ts). */
+  private gente!: GenteFiestaView;
   /** Las marcas "!" y "?" de mis encargos sobre quien los da (ver encargosMarcas.ts). */
   private questMarks!: QuestMarkers;
   /** Lo que ve quien tomó algo del Man del Sombrero (ver trip.ts). */
@@ -616,6 +619,14 @@ export class OfficeScene extends Phaser.Scene {
         return out;
       },
     });
+    this.gente = new GenteFiestaView(this, {
+      local: () => (this.local ? { x: this.local.x, y: this.local.y } : null),
+      people: () => {
+        const out: { sessionId: string; x: number; y: number }[] = [];
+        for (const [id, a] of this.avatars) if (this.areaOfSession.get(id) === this.map.id) out.push({ sessionId: id, x: a.x, y: a.y });
+        return out;
+      },
+    });
     // Carrera de sillas: Espacio da impulso (sin contar la repetición de la tecla apretada).
     this.input.keyboard!.on("keydown-SPACE", (e: KeyboardEvent) => {
       if (!e.repeat && this.local?.isRiding && !useOfficeStore.getState().typing && !focusOwnsKey(" ")) pumpRace();
@@ -706,6 +717,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.drunkVision.destroy(),
       () => this.tripVision.destroy(),
       () => this.npcs.destroy(),
+      () => this.gente.destroy(),
       bindUiSounds(),
       bindWeatherSounds(),
       () => this.toasts.destroy(),
@@ -786,6 +798,7 @@ export class OfficeScene extends Phaser.Scene {
     covering.length = 0;
     for (const a of this.avatars.values()) covering.push(a.sprite);
     this.npcs.collectSprites(covering);
+    this.gente.collectSprites(covering);
     if (this.table.kind && this.view) for (const img of this.view.furnitureSprites()) covering.push(img);
     this.table.fadeAvatars(covering);
     // En la mesa (casino, hockey) los nombres se esconden: con tanto zoom taparían la mesa. En el ajedrez
@@ -794,6 +807,7 @@ export class OfficeScene extends Phaser.Scene {
     for (const a of this.avatars.values()) a.setNameHidden(hideNames);
     // Los NPC (crupier, dealer, cajera, portero) también: su nombre tapaba la mesa igual que el de los jugadores.
     this.npcs.setNameHidden(hideNames);
+    this.gente.setNameHidden(hideNames);
     this.updateNameTags();
     this.hearingElapsed += delta;
     if (this.hearingElapsed >= HEARING_INTERVAL_MS) {
@@ -810,6 +824,7 @@ export class OfficeScene extends Phaser.Scene {
     this.shakePhones(time);
     this.drunkVision.update(time, delta, this.tripVision.update(time, delta));
     this.npcs.update(time);
+    this.gente.update(time);
     this.questMarks.update(time);
     this.publishMinimap(time);
     this.updateMunchies(time);
@@ -885,6 +900,7 @@ export class OfficeScene extends Phaser.Scene {
       a.setOverShade(Boolean(rect) && inside);
     }
     this.npcs.setOverShade(rect, ts);
+    this.gente.setOverShade(rect, ts);
   }
 
   // ---------- Fotos ----------
@@ -959,6 +975,7 @@ export class OfficeScene extends Phaser.Scene {
       this.cinema.setArea(map);
       this.escenario.setArea(map);
       this.npcs.setArea(map);
+      this.gente.setArea(map);
       this.questMarks.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     this.tina.setArea(map, useOfficeStore.getState().night);
@@ -1052,6 +1069,7 @@ export class OfficeScene extends Phaser.Scene {
     this.fiestaLuces.setArea(map);
     this.velitas.setArea(map, this.view);
     this.escenario.setArea(map);
+    this.gente.setArea(map);
     AreaView.dropStaleBases(this, map);
     this.markMapReady();
     // La ruta en curso se recalcula: pudo aparecer un mueble en el camino.
@@ -2080,6 +2098,15 @@ export class OfficeScene extends Phaser.Scene {
       useAchievementStore.getState().openProfile(person);
       return;
     }
+    // Clic sobre alguien de la fiesta: hablarle si está al lado, o caminar hasta él y hablarle al llegar.
+    const vecino = this.local && !this.seat && !this.swimming ? genteBajo(sx, sy) : null;
+    if (vecino) {
+      if (this.interactableInReach() === "fiestaNpc") return activateInteractable("fiestaNpc");
+      noteManualMove();
+      this.walkTo(vecino.x, vecino.y);
+      this.pendingInteract = "fiestaNpc";
+      return;
+    }
     const ts = this.map.tileSize;
     // Nadando, el clic solo lleva a otro lugar de la pileta.
     if (this.swimming) {
@@ -2178,6 +2205,8 @@ export class OfficeScene extends Phaser.Scene {
     if (pesebreInReach({ area: this.map.id, x: avatar.x, y: avatar.y }, this.map.tileSize)) return "pesebre";
     // El teléfono es un mueble fijo (no un punto del mapa): se alcanza igual que lo valida el servidor.
     if (phoneInReach(this.map, avatar.x, avatar.y)) return "phone";
+    // Alguien de la gente de la fiesta (ver genteFiesta.ts): E abre la tira de conversación.
+    if (genteAlAlcance()) return "fiestaNpc";
     // Un personaje que me dio un encargo y no tiene otro objeto al lado (el portero, la dealer).
     if (questGiverToTalk()) return "encargo";
     return null;

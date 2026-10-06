@@ -129,7 +129,9 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "silletaStand"
   // El Carnaval: el puesto de máscaras, maicena y serpentinas, y el palco del concurso de disfraces.
   | "carnavalShop"
-  | "carnavalConcurso";
+  | "carnavalConcurso"
+  // La gente de la fiesta (genteFiesta.ts): E habla con quien está al lado en la tira de conversación.
+  | "fiestaNpc";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";

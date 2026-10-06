@@ -248,3 +248,4 @@ export { SLOT_GLYPH, slotSymbol } from "./tragamonedas";
 export { scarecrow } from "./leisure";
 export { questMark, storyArrow, type QuestMarkKind } from "./encargos";
 export { levelSpark, neighborPlate } from "./oficios";
+export { fiestaMark, FIESTA_MARK_FRAMES, type FiestaMarkKind } from "./gente-fiesta";
