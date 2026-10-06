@@ -97,7 +97,7 @@ export const CARNAVAL_MSG = {
 // ---------- Las carrozas y sus comparsas ----------
 
 /** Las carrozas, en el orden del desfile: las diez del plan con las nuevas antes del Megabús de la alegría, que cierra. */
-export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "jaguar", "leon", "amaru", "oso", "mariposa", "rana", "diablo", "trucha", "inti", "megabus"] as const;
+export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "jaguar", "leon", "amaru", "oso", "mariposa", "rana", "diablo", "trucha", "inti", "juglar", "megabus"] as const;
 export type CarrozaId = (typeof CARROZA_IDS)[number];
 
 /** Quién hace un paso de la coreografía: un bailarín (`b0`…), todos, o los pares o impares. */
@@ -149,7 +149,7 @@ const PIELES = ["#f1c27d", "#e0ac69", "#c68642", "#8d5524", "#ffdbac", "#d9a066"
  * de colores que combinan con su carroza.
  */
 const PALETAS: Record<string, readonly [string, string, string]> = {
-  "#9a6a40": ["#93203f", "#e0a428", "#1f7a5a"],
+  "#9a6a40": ["#7a3ca8", "#1fa8a0", "#e0a428"],
   "#dcae3f": ["#24212e", "#f3f1ec", "#2f6fd6"],
   "#ee7a22": ["#c8323a", "#f4ece0", "#6a4a2e"],
   "#c8343a": ["#c8243a", "#1f8a4a", "#f2c21c"],
@@ -157,7 +157,7 @@ const PALETAS: Record<string, readonly [string, string, string]> = {
   "#3a5aa8": ["#2a5ac8", "#d0287a", "#e0a526"],
   "#6f8a3a": ["#22a07a", "#8a3cc8", "#f0702a"],
   "#7a4a2a": ["#f4ead6", "#7a2ab8", "#1fa8c0"],
-  "#a6d23a": ["#a6d23a", "#e0283c", "#2f6fd6"],
+  "#a6d23a": ["#a6d23a", "#c8287a", "#f2711c"],
   "#1f9a9a": ["#1f9a9a", "#8a3cc8", "#f2861c"],
   "#5a3a26": ["#c8323a", "#2f8f6a", "#e8a317"],
   "#8a3cc8": ["#8a3cc8", "#1fb8b0", "#ef6ba0"],
@@ -167,6 +167,7 @@ const PALETAS: Record<string, readonly [string, string, string]> = {
   "#d8262c": ["#d8262c", "#f4c21c", "#8a3cc8"],
   "#2a6ad0": ["#2a6ad0", "#f2711c", "#1fb8b0"],
   "#f2b21c": ["#f2b21c", "#c8287a", "#1fa8a0"],
+  "#2a52d0": ["#d8283a", "#2a52d0", "#e0a526"],
 };
 
 /** Los colores de las alas de la comparsa del Cóndor (los de sus plumas). */
@@ -584,6 +585,19 @@ export const COMPARSAS: readonly Comparsa[] = [
     frase: [ola(6, "girar", CARNAVAL.beatMs / 2), todos("asentir"), todos("asentir"), todos("bailar"), ola(6, "girar", CARNAVAL.beatMs / 2, true), todos("celebrar")],
   },
   {
+    id: "juglar",
+    nombre: "El Juglar del acordeón",
+    grupo: "Banda Juglares de la Vereda",
+    acento: "#2a52d0",
+    largo: 7,
+    pieza: "guanena-murga",
+    // La banda del juglar: chaquetas rojas y azules de botones dorados; los pares de quepis y los impares
+    // de gorro de juglar (el de fiesta), todos con antifaz.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#2a52d0", { outfit: "vest", head: i % 2 ? "party-hat" : "sailor-hat", ...(i % 3 === 0 ? { pattern: "stripes" as const } : {}) })),
+    // Marchan como banda: saludan, la ola de saltos de la carroza hacia atrás, giran por parejas y aplauden.
+    frase: [todos("saludar"), ola(12, "saltar", 140), { op: "together", steps: [{ op: "act", who: "pares", action: "girar" }, { op: "act", who: "impares", action: "bailar" }] }, todos("bailar"), todos("celebrar")],
+  },
+  {
     id: "megabus",
     nombre: "El Megabús de la alegría",
     grupo: "Comparsa de la cabaña",
@@ -701,6 +715,7 @@ export const DESFILE_ORDEN: readonly DesfileItem[] = [
   { tipo: "carroza", id: "diablo" },
   { tipo: "carroza", id: "trucha" },
   { tipo: "carroza", id: "inti" },
+  { tipo: "carroza", id: "juglar" },
   { tipo: "disfraces", id: "tradicion" },
   // El Megabús de la alegría cierra siempre ("¡Y cierra el Megabús…!"): detrás va la gente de la casa.
   { tipo: "carroza", id: "megabus" },
@@ -740,6 +755,7 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   diablo: "¡El Diablo bailarín! Aquí hasta el diablo se ríe, y los angelitos le bailan.",
   trucha: "¡Una trucha arcoíris de La Cocha! Esa no cabe en ninguna olla.",
   inti: "¡El Inti! Cuando suenan las zampoñas hasta el sol sale a bailar.",
+  juglar: "¡El Juglar del acordeón! Ese perro sabe más de música que yo.",
 };
 
 // ---------- La coreografía en el tiempo ----------

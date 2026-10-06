@@ -7,6 +7,7 @@ import { calavera } from "./calavera";
 import { castaneda } from "./castaneda";
 import { condor } from "./condor";
 import { galeras } from "./galeras";
+import { juglar } from "./juglar";
 import { luna } from "./luna";
 import { megabus } from "./megabus";
 import { minga } from "./minga";
@@ -45,6 +46,7 @@ export const CARROZAS_ARTE: Record<CarrozaId, () => CarrozaArte> = {
   diablo,
   trucha,
   inti,
+  juglar,
 };
 
 const cache = new Map<string, CarrozaArte>();
