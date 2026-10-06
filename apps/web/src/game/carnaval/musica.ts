@@ -1,8 +1,8 @@
-// La música del Carnaval (VIR-174), toda sintetizada con WebAudio y por la salida de la música del
-// mezclador. Dos conjuntos, como en Pasto: la murga (bronces, acordeón y la percusión al frente, con
-// cortes) y el colectivo andino (quena, zampoña, rondador, bombo y shekere). El repertorio está en
-// musica-piezas.ts, la parte pura (cómo se escribe y el programa de cada tramo) en musica-programa.ts y los
-// instrumentos en musica-instrumentos.ts.
+// La música del Carnaval (VIR-174, VIR-179), toda sintetizada con WebAudio y por la salida de la música del
+// mezclador. Dos conjuntos, como en Pasto: la murga (bronces, maderas, tuba, acordeón y la percusión al
+// frente, con cortes) y el colectivo andino (quena, zampoña, rondador, cuerdas andinas, violín y percusión).
+// El repertorio está en musica-piezas.ts, la parte pura (cómo se escribe y el programa de cada tramo) en
+// musica-programa.ts y los instrumentos y la mesa (estéreo y reverberación) en musica-instrumentos.ts.
 //
 // En el desfile cada grupo (la comparsa de una carroza o una murga) rota su repertorio desde que sale el
 // desfile (`sonandoEn`): todos oyen lo mismo en el mismo punto. `BandasDelDesfile` toca el grupo de cada
@@ -10,9 +10,9 @@
 // y `escucharPieza` una pieza entera (para la página de escucha).
 import { CONJUNTO_DE, type Conjunto, type PiezaId } from "@hyvento/shared";
 import { sfxOut } from "../sfx";
-import { tocar } from "./musica-instrumentos";
+import { Mesa, tocar } from "./musica-instrumentos";
 import { duracionDe, PIEZAS_MUSICA, sonandoEn } from "./musica-piezas";
-import { corcheaS, programaTramo, tramosDe, type Evento, type TramoListo } from "./musica-programa";
+import { corcheaS, humano, programaTramo, tramosDe, type Evento, type TramoListo } from "./musica-programa";
 
 export { duracionDe, PAUSA_S, PIEZAS_MUSICA, sonandoEn } from "./musica-piezas";
 
@@ -66,7 +66,7 @@ class Reproductor {
     this.ei = 0;
   }
 
-  tick(ctx: AudioContext, out: AudioNode) {
+  tick(ctx: AudioContext, mesa: Mesa) {
     for (let guard = 0; guard < 400 && !this.done; guard++) {
       if (this.ei >= this.eventos.length) {
         this.ti++;
@@ -82,7 +82,10 @@ class Reproductor {
         return;
       }
       if (t >= ctx.currentTime - 0.05 && t >= this.minT) {
-        tocar(ctx, out, e, t, this.corchea);
+        // Como toca una persona: un pelito antes o después y un pelito más o menos fuerte (el bombo, firme).
+        const { dt, dv } = humano(this.ti * 4096 + this.ei);
+        const firme = e.inst === "bombo" ? 0.3 : 1;
+        tocar(ctx, mesa, { ...e, vol: e.vol * (1 + (dv - 1) * firme) }, Math.max(ctx.currentTime, t + dt * firme), this.corchea);
         this.hastaT = t;
       }
       this.ei++;
@@ -103,6 +106,7 @@ class Reproductor {
 export class BandaAndina {
   private out: Out | null = null;
   private gain: GainNode | null = null;
+  private mesa: Mesa | null = null;
   private rep: Reproductor | null = null;
   private sonando = "";
   private silentSince = 0;
@@ -123,6 +127,7 @@ export class BandaAndina {
       this.gain = a.ctx.createGain();
       this.gain.gain.value = 0;
       this.gain.connect(a.out);
+      this.mesa = new Mesa(a.ctx, this.gain);
     }
     const { ctx } = this.out;
     this.gain!.gain.setTargetAtTime(vol, ctx.currentTime, 0.15);
@@ -139,10 +144,12 @@ export class BandaAndina {
         this.rep.saltarA(ahora.enS);
       }
     }
-    this.rep?.tick(ctx, this.gain!);
+    if (this.mesa) this.rep?.tick(ctx, this.mesa);
   }
 
   stop() {
+    this.mesa?.cerrar();
+    this.mesa = null;
     this.gain?.disconnect();
     this.gain = null;
     this.out = null;
@@ -195,6 +202,11 @@ function tocarSola(id: PiezaId, vol: number, desdeTramo: number, hastaS: number)
   const g = ctx.createGain();
   g.gain.value = vol;
   g.connect(a.out);
+  const mesa = new Mesa(ctx, g);
+  const cerrar = () => {
+    mesa.cerrar();
+    g.disconnect();
+  };
   const probe = new Reproductor(id, 0, Infinity, desdeTramo);
   const desdeS = probe.inicioS(desdeTramo);
   const rep = new Reproductor(id, ctx.currentTime + 0.05 - desdeS, desdeS + hastaS, desdeTramo);
@@ -203,16 +215,16 @@ function tocarSola(id: PiezaId, vol: number, desdeTramo: number, hastaS: number)
     if (timer) clearInterval(timer);
     timer = null;
     g.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
-    setTimeout(() => g.disconnect(), 2500);
+    setTimeout(cerrar, 2500);
   };
   const tick = () => {
-    rep.tick(ctx, g);
+    rep.tick(ctx, mesa);
     if (rep.done) {
       if (timer) clearInterval(timer);
       timer = null;
       // Un trozo se apaga de a poco; la pieza entera ya trae su final.
       if (Number.isFinite(hastaS)) g.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
-      setTimeout(() => g.disconnect(), 4000);
+      setTimeout(cerrar, 4000);
     }
   };
   tick();
@@ -230,9 +242,17 @@ export function escucharPieza(id: PiezaId, vol = 0.8): () => void {
   return tocarSola(id, vol, 0, Infinity);
 }
 
-/** Todas las piezas, para la página de escucha: id, nombre, conjunto, si es original, cuánto dura y cómo suena. */
-export const listaParaEscuchar = (): { id: PiezaId; nombre: string; conjunto: Conjunto; original: boolean; duracionS: number; nota: string }[] =>
+/** Todas las piezas, para la página de escucha: id, nombre, conjunto, si es original, cuánto dura, cómo suena y de dónde sale. */
+export const listaParaEscuchar = (): {
+  id: PiezaId;
+  nombre: string;
+  conjunto: Conjunto;
+  original: boolean;
+  duracionS: number;
+  nota: string;
+  fuentes: readonly { titulo: string; url: string; dice: string }[];
+}[] =>
   (Object.keys(PIEZAS_MUSICA) as PiezaId[]).map((id) => {
     const p = PIEZAS_MUSICA[id];
-    return { id, nombre: p.nombre, conjunto: p.conjunto, original: p.original, duracionS: Math.round(duracionDe(id)), nota: p.nota };
+    return { id, nombre: p.nombre, conjunto: p.conjunto, original: p.original, duracionS: Math.round(duracionDe(id)), nota: p.nota, fuentes: p.fuentes ?? [] };
   });
