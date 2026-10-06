@@ -7,6 +7,7 @@ import { BOARD, BOARD_BACKGROUND, BOARD_COLORS, BOARD_ERASER, BOARD_WIDTHS, type
 import { useCallback, useEffect, useRef, useState } from "react";
 import { onBoardEvent, sendBoard, sendBoardStroke } from "@/game/network";
 import { useOfficeStore } from "@/game/store";
+import { PixelIcon } from "./Cozy";
 
 type Tool = BoardStrokeInput["color"];
 type Width = BoardStrokeInput["width"];
@@ -155,7 +156,9 @@ export function WhiteboardPanel({ onClose }: { onClose: () => void }) {
         <header className="flex items-center gap-3">
           <h2 className="flex-1 text-[18px] font-semibold">Pizarra · {zone?.name ?? ""}</h2>
           <button type="button" onClick={onClose} className="cozy-btn px-2 py-1 text-[13px]" aria-label="Cerrar la pizarra">
-            Esc ✕
+            <span className="inline-flex items-center gap-1">
+              Esc <PixelIcon name="close" size={10} />
+            </span>
           </button>
         </header>
 

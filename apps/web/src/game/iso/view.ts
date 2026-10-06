@@ -348,6 +348,31 @@ export class AreaView {
     }
   }
 
+  /** Luces que pone otro módulo (las velitas de un festival), aparte de las de los muebles del plano. */
+  private extraGlows: Phaser.GameObjects.Image[] = [];
+
+  /**
+   * Cambia las luces de otro módulo (px de mundo y altura en unidades de arte): se suman a la penumbra de
+   * la noche como las de los muebles. `[]` las quita. La noche se vuelve a dibujar una sola vez.
+   */
+  setExtraLights(lights: readonly { x: number; y: number; z: number; color: string; radius: number }[]) {
+    const old = new Set(this.extraGlows);
+    if (old.size) {
+      this.glows = this.glows.filter((g) => !old.has(g));
+      this.objects = this.objects.filter((o) => !old.has(o as Phaser.GameObjects.Image));
+      for (const g of old) g.destroy();
+    }
+    this.extraGlows = lights.map((l) => {
+      const p = worldToScreen(l.x, l.y, l.z);
+      const gkey = ensureTexture(this.scene, `luz-${l.color}-${l.radius}`, () => glowSprite(l.radius, Math.round(l.radius * 0.6), l.color, 0.55));
+      const glow = this.scene.add.image(p.x, p.y + 6, gkey).setBlendMode(Phaser.BlendModes.ADD).setDepth(DEPTH_OVERLAY + 1).setVisible(this.night);
+      this.glows.push(glow);
+      this.objects.push(glow);
+      return glow;
+    });
+    if (this.night && (old.size || lights.length)) this.drawNightMask();
+  }
+
   /** La imagen de un mueble (la granja le cambia la textura a la rueda del molino para que gire). */
   imageOf(f: PlacedFurniture): Phaser.GameObjects.Image | undefined {
     return this.furnitureImages.find((e) => e.f === f)?.img;
@@ -640,6 +665,7 @@ export class AreaView {
     this.nightTex = undefined;
     this.objects = [];
     this.glows = [];
+    this.extraGlows = [];
     this.lightOf.clear();
     this.lightsOff.clear();
     this.nightly = [];

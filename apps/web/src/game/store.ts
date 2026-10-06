@@ -160,7 +160,9 @@ export type PanelKind =
   | "slots"
   | "claw"
   | "prizes"
-  | "fortune";
+  | "fortune"
+  // La Noche de velitas: escribir el deseo del farol (en el muelle).
+  | "deseo";
 
 export interface OfficeView {
   zoneId: string;

@@ -11,6 +11,7 @@ import { clubElapsed, useClubStore } from "@/game/club/store";
 import { useOfficeStore } from "@/game/store";
 import { ArtImage } from "../casino/PixelArt";
 import { NEON } from "./neon";
+import { PixelIcon } from "../Cozy";
 
 /** Miniatura de YouTube (la chiquita, 120x90, recortada a 16:9). */
 const thumb = (videoId: string) => `https://i.ytimg.com/vi/${videoId}/default.jpg`;
@@ -299,7 +300,7 @@ function QueueList({ queue, inClub }: { queue: ClubVideoView[]; inClub: boolean 
                 ▼
               </SmallButton>
               <SmallButton disabled={!inClub} onClick={() => sendClubQueue({ action: "remove", id: v.id })} label={`Quitar ${v.title}`}>
-                ✕
+                <PixelIcon name="close" size={10} />
               </SmallButton>
             </span>
           </li>
