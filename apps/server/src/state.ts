@@ -1,5 +1,14 @@
-import { ArraySchema, MapSchema, Schema, type } from "@colyseus/schema";
+import { ArraySchema, Encoder, MapSchema, Schema, type } from "@colyseus/schema";
 import type { Season } from "@hyvento/shared";
+
+/**
+ * El búfer donde Colyseus codifica el estado. Con un festival prendido el estado completo pasa de los 8 KB
+ * de fábrica, y la librería (3.0.x) agranda uno temporal sin guardarlo: cada `encodeAll` (cada vez que
+ * alguien entra) codificaba dos veces y avisaba "buffer overflow". Con margen, se codifica una sola vez.
+ * Va aquí porque cada sala importa el estado antes de crearse (y cada sala arma su `Encoder` al crearse).
+ */
+export const STATE_BUFFER_BYTES = 128 * 1024;
+if (Encoder.BUFFER_SIZE < STATE_BUFFER_BYTES) Encoder.BUFFER_SIZE = STATE_BUFFER_BYTES;
 
 export class Player extends Schema {
   /** User.id (Auth.js). */
