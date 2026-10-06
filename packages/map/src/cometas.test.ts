@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { COMETA_FORMAS, cometaCode, type CometaFormaLetra } from "@hyvento/shared";
-import { arbolCometa, cometaCielo, COMETA_FRAMES, escaleraGaraje, mangaViento } from "./art/cometas";
+import { arbolCometa, cometaCielo, COMETA_FRAMES, COMETAS_DECOR_FRAMES, cometasDecorSprite, escaleraGaraje, mangaViento } from "./art/cometas";
 import { drawHeldItem } from "./art/items";
 import { enVoladero, festivalDecorAreas, festivalDecorOf, findPath, getWorld, isBlockedTile, planDef, pointsOfType, setFestivalDecor, VOLADERO, type OfficeMap } from "./index";
 
@@ -88,5 +88,21 @@ describe("el dibujo de las cometas", () => {
     expect(same(mangaViento(0, 2, 0).canvas, mangaViento(0, 2, 1).canvas)).toBe(false);
     expect(opaque(arbolCometa(true).canvas)).toBeGreaterThan(opaque(arbolCometa(false).canvas));
     expect(opaque(escaleraGaraje(true).canvas)).toBeGreaterThan(opaque(escaleraGaraje(false).canvas));
+  });
+
+  it("lo que ondea pasa sus cuadros sobre el mismo lienzo, y las variantes de la manga, el árbol y la escalera también", () => {
+    const mismo = (a: { canvas: { width: number; height: number }; ox: number; oy: number }, b: typeof a) =>
+      a.canvas.width === b.canvas.width && a.canvas.height === b.canvas.height && a.ox === b.ox && a.oy === b.oy;
+    for (const [type, n] of Object.entries(COMETAS_DECOR_FRAMES))
+      for (let f = 0; f < n; f++) {
+        const a = cometasDecorSprite(type, f);
+        const b = cometasDecorSprite(type, (f + 1) % n);
+        expect(mismo(a, b), `${type}: el lienzo cambia`).toBe(true);
+        expect(same(a.canvas, b.canvas), `${type}: el cuadro ${f} es igual al siguiente`).toBe(false);
+      }
+    const base = mangaViento(0, 0, 0);
+    for (const dir of [0, 1, 2, 3]) for (const nivel of [0, 1, 2]) for (const f of [0, 1]) expect(mismo(base, mangaViento(dir, nivel, f))).toBe(true);
+    expect(mismo(arbolCometa(true), arbolCometa(false))).toBe(true);
+    expect(mismo(escaleraGaraje(true), escaleraGaraje(false))).toBe(true);
   });
 });

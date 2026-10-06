@@ -12,7 +12,7 @@ export const COMETAS_CATALOG = {
   // El carrito del raspao de Don Efraín, con su sombrilla.
   "carrito-raspao": { name: "Carrito del raspao", size: [1, 1], fixed: true },
   // El tablero del concurso de la cometa más bonita.
-  "tablero-cometas": { name: "Tablero del concurso", size: [1, 1], fixed: true },
+  "tablero-cometas": { name: "Tablero del concurso", size: [2, 1], fixed: true },
   // La manga de viento en su poste (la escena le cambia la manga según hacia dónde y qué tan fuerte sopla).
   "manga-viento": { name: "Manga de viento", size: [1, 1], fixed: true },
   // Un poste con banderines de papel que caen hacia los lados.
