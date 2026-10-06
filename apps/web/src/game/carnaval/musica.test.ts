@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 import { duracionDe, PAUSA_S, PIEZAS_MUSICA, sonandoEn } from "./musica-piezas";
 import {
   CORCHEAS,
+  INSTRUMENTOS_DE,
   RANGO,
+  acento,
   acorde,
   duracionS,
+  humano,
   leerNotas,
   midi,
   programaTramo,
+  segundaDe,
   tramosDe,
   ventanaCorte,
   type Evento,
@@ -36,12 +40,12 @@ describe("la música del Carnaval", () => {
     }
   });
 
-  it("cada pieza dura de 2 a 3 minutos y cierra con su final", () => {
+  it("cada pieza dura de 2 a 4 minutos y cierra con su final", () => {
     for (const id of PIEZAS) {
       const d = duracionS(PIEZAS_MUSICA[id]);
       console.log(`${id}: ${Math.floor(d / 60)}:${String(Math.round(d % 60)).padStart(2, "0")}`);
       expect(d, id).toBeGreaterThanOrEqual(120);
-      expect(d, id).toBeLessThanOrEqual(185);
+      expect(d, id).toBeLessThanOrEqual(240);
       expect(PIEZAS_MUSICA[id].forma.at(-1)?.final, id).toBe(true);
     }
   });
@@ -65,14 +69,25 @@ describe("la música del Carnaval", () => {
     }
   });
 
-  it("hay murga y colectivo: un son sureño, un sanjuanito y La Guaneña de murga, y el sanjuanito y el bambuco del colectivo", () => {
-    expect(REPERTORIO.murga).toEqual(expect.arrayContaining(["son-vereda", "sanjuanito-plaza", "guanena-murga"]));
-    expect(REPERTORIO.colectivo).toEqual(expect.arrayContaining(["sanjuanito", "bambuco", "guanena"]));
+  it("hay murga y colectivo, y La Guaneña (tradicional, con sus fuentes) en bambuco y en son sureño para cada uno", () => {
+    expect(REPERTORIO.murga).toEqual(expect.arrayContaining(["son-vereda", "sanjuanito-plaza", "guanena-murga", "guanena-carnaval"]));
+    expect(REPERTORIO.colectivo).toEqual(expect.arrayContaining(["sanjuanito", "bambuco", "guanena", "guanena-son"]));
     expect(PIEZAS_MUSICA["sanjuanito-plaza"].metrica).toBe("2/4");
     expect(PIEZAS_MUSICA.sanjuanito.metrica).toBe("2/4");
     expect(PIEZAS_MUSICA.bambuco.metrica).toBe("3/4");
-    // Todo original salvo La Guaneña.
-    for (const id of PIEZAS) expect(PIEZAS_MUSICA[id].original, id).toBe(!id.startsWith("guanena"));
+    expect(PIEZAS_MUSICA["guanena-murga"].metrica).toBe("3/4");
+    expect(PIEZAS_MUSICA.guanena.metrica).toBe("3/4");
+    expect(PIEZAS_MUSICA["guanena-carnaval"].metrica).toBe("6/8");
+    expect(PIEZAS_MUSICA["guanena-son"].metrica).toBe("6/8");
+    // Todo original salvo La Guaneña, y lo tradicional dice de dónde sale (con enlace).
+    for (const id of PIEZAS) {
+      const p = PIEZAS_MUSICA[id];
+      expect(p.original, id).toBe(!id.startsWith("guanena"));
+      if (!p.original) {
+        expect(p.fuentes?.length ?? 0, id).toBeGreaterThanOrEqual(2);
+        for (const f of p.fuentes ?? []) expect(f.url, id).toMatch(/^https:\/\//);
+      }
+    }
   });
 
   it("cada instrumento toca en su registro", () => {
@@ -99,19 +114,77 @@ describe("la música del Carnaval", () => {
     }
   });
 
-  it("los instrumentos de cada conjunto: bronces y acordeón en la murga; quena, zampoña y rondador en el colectivo", () => {
+  it("los instrumentos de cada conjunto: bronces, maderas, tuba y acordeón en la murga; vientos andinos y cuerdas en el colectivo", () => {
     for (const id of PIEZAS) {
       const usados = new Set(todos(id).map((e) => e.inst));
       const quiere =
         CONJUNTO_DE[id] === "murga"
-          ? ["trompeta", "saxo", "trombon", "acordeon", "bombo", "redoblante", "platillo", "timbal"]
-          : ["quena", "zampona", "rondador", "bombo", "shekere"];
+          ? ["trompeta", "saxo", "trombon", "tuba", "acordeon", "bombo", "tambora", "redoblante", "platillo", "timbal"]
+          : ["quena", "zampona", "rondador", "tiple", "guitarra", "bombo", "shekere", "maracas"];
       for (const inst of quiere) expect(usados.has(inst as Evento["inst"]), `${id} ${inst}`).toBe(true);
-      const ajenos = CONJUNTO_DE[id] === "murga" ? ["quena", "zampona", "rondador", "shekere"] : ["trompeta", "saxo", "trombon", "acordeon", "redoblante"];
-      for (const inst of ajenos) expect(usados.has(inst as Evento["inst"]), `${id} ${inst}`).toBe(false);
+      // Nadie se cuela en el conjunto ajeno.
+      for (const inst of usados) expect(INSTRUMENTOS_DE[CONJUNTO_DE[id]], `${id} ${inst}`).toContain(inst);
       // La murga lleva también algo que raspa o sacude (güiro o guasá).
       if (CONJUNTO_DE[id] === "murga") expect(usados.has("guasa") || usados.has("guiro") || usados.has("guiroLargo"), id).toBe(true);
     }
+    // Entre todo el repertorio suenan todos los instrumentos de los dos conjuntos.
+    const usados = new Set(PIEZAS.flatMap((id) => todos(id).map((e) => e.inst)));
+    for (const inst of [...INSTRUMENTOS_DE.murga, ...INSTRUMENTOS_DE.colectivo]) expect(usados.has(inst), inst).toBe(true);
+  });
+
+  it("las cuerdas rasguean el acorde (el tiple con sus cuatro órdenes) y los bordones de la guitarra van abajo", () => {
+    for (const id of PIEZAS.filter((x) => CONJUNTO_DE[x] === "colectivo")) {
+      const ev = todos(id);
+      const tiple = ev.filter((e) => e.inst === "tiple");
+      expect(tiple.length, id).toBeGreaterThan(0);
+      for (const e of tiple) {
+        expect(e.rasgo === 1 || e.rasgo === -1, id).toBe(true);
+        expect(e.ms, id).toHaveLength(4);
+      }
+      // Los bordones: una nota grave, en las cuerdas de abajo de la guitarra.
+      const bordones = ev.filter((e) => e.inst === "guitarra" && !e.rasgo && e.ms!.length === 1 && e.ms![0]! < 52);
+      expect(bordones.length, id).toBeGreaterThan(0);
+    }
+  });
+
+  it("el contracanto se mueve por debajo de la melodía y el colchón sostiene el acorde", () => {
+    const p = PIEZAS_MUSICA["guanena-murga"];
+    const i = p.forma.findIndex((t) => t.contra === "trombon" && t.lleva === "saxo");
+    const ev = programaTramo(p, i);
+    // El trombón del contracanto (una nota; el del acompañamiento va de a dos).
+    const contra = ev.filter((e) => e.inst === "trombon" && e.ms!.length === 1);
+    expect(contra.length).toBeGreaterThan(10);
+    expect(new Set(contra.map((e) => e.ms![0])).size).toBeGreaterThan(2);
+    const j = p.forma.findIndex((t) => t.colchon === "acordeon");
+    const colchon = programaTramo(p, j).filter((e) => e.inst === "acordeon" && e.dur >= CORCHEAS[p.metrica] / 2);
+    expect(colchon.length).toBeGreaterThan(0);
+    for (const e of colchon) expect(e.ms).toHaveLength(2);
+  });
+
+  it("la segunda voz va en terceras, sextas o cuartas; la dinámica crece donde dice y los acentos caen donde deben", () => {
+    const em = acorde("Em");
+    expect(segundaDe(midi("G5"), em)).toBe(midi("E5")); // una tercera abajo
+    expect(segundaDe(midi("E5"), em, "sextas")).toBe(midi("G4")); // una sexta abajo
+    expect(segundaDe(midi("E5"), em, "cuartas")).toBe(midi("B4")); // una cuarta abajo
+    // El crescendo: el bombo del final del tramo suena más fuerte que el del comienzo.
+    const p = PIEZAS_MUSICA["guanena-murga"];
+    const i = p.forma.findIndex((t) => t.din && t.din[1] > t.din[0]);
+    const bombos = programaTramo(p, i).filter((e) => e.inst === "bombo" && e.at % CORCHEAS[p.metrica] === 0);
+    expect(bombos.at(-2)!.vol).toBeGreaterThan(bombos[1]!.vol);
+    // El 1 manda, y en 6/8 también el 4.
+    expect(acento("6/8", 0)).toBeGreaterThan(acento("6/8", 3));
+    expect(acento("6/8", 3)).toBeGreaterThan(acento("6/8", 1));
+    expect(acento("2/4", 0)).toBeGreaterThan(acento("2/4", 1));
+  });
+
+  it("la humanización es chiquita y siempre la misma para la misma nota", () => {
+    for (let k = 0; k < 500; k++) {
+      const h = humano(k);
+      expect(Math.abs(h.dt)).toBeLessThanOrEqual(0.01);
+      expect(Math.abs(h.dv - 1)).toBeLessThanOrEqual(0.08);
+      expect(humano(k)).toEqual(h);
+    }
+    expect(new Set(Array.from({ length: 50 }, (_, k) => humano(k).dt.toFixed(4))).size).toBeGreaterThan(30);
   });
 
   it("toda pieza tiene percusión, y cada tramo que no es 'nada' también", () => {
@@ -149,16 +222,33 @@ describe("la música del Carnaval", () => {
     }
   });
 
-  it("La Guaneña sigue la melodía de siempre, en Mi menor, con la dominante antes de volver", () => {
+  it("La Guaneña sigue la melodía tradicional (las tres frases del cancionero), en Mi menor, con la dominante antes de volver", () => {
     const g = PIEZAS_MUSICA.guanena.temas.G!;
     const notas = leerNotas(g.notas, 6).notas.flatMap((n) => n.ms);
-    // "do mi la la la la do' la sol sol sol sol, la sol mi la sol mi re do" (en Mi menor: la = Mi), tras el golpe del 1.
-    const nombres = ["G4", "B4", "E5", "E5", "E5", "E5", "G5", "E5", "D5", "D5", "D5", "D5", "E5", "D5", "B4", "E5", "D5", "B4", "A4", "G4"];
-    expect(notas.slice(1, 21)).toEqual(nombres.map(midi));
+    // En solfeo, con "la" como tónica: la = Mi5, do = Sol4, do' = Sol5, re = La4, mi = Si4 y sol = Re5.
+    const SOLFEO: Record<string, string> = { do: "G4", re: "A4", mi: "B4", sol: "D5", la: "E5", "do'": "G5" };
+    const frase = (s: string) => s.split(" ").map((x) => midi(SOLFEO[x]!));
+    const frases = [
+      "do mi la la la la do' la sol sol sol sol la sol mi la sol mi re do",
+      "do mi mi re do mi la sol la sol mi la sol mi re do",
+      "do mi la do' la sol la sol mi la sol mi re do",
+    ].map(frase);
+    // Tras el golpe del 1, las tres frases seguidas.
+    expect(notas.slice(1)).toEqual(frases.flat());
     expect(notas.at(-1)).toBe(midi("G4"));
     expect(g.acordes.split(" ").at(-1)).toBe("B7/Em");
-    // La de la murga es la misma melodía.
-    expect(PIEZAS_MUSICA["guanena-murga"].temas.G).toBe(g);
+    // Todos los arreglos tocan la misma melodía (el mismo tema).
+    for (const id of ["guanena-murga", "guanena-carnaval", "guanena-son"] as const) expect(PIEZAS_MUSICA[id].temas.G, id).toBe(g);
+    // La variación conserva el esqueleto: la misma armonía y cada compás empieza en la misma nota que el tema.
+    const v = PIEZAS_MUSICA.guanena.temas.V!;
+    expect(v.acordes).toBe(g.acordes);
+    const primeras = (t: string) => t.split("|").map((b) => b.trim().split(/\s+/)[0]!.split(":")[0]);
+    expect(primeras(v.notas).slice(1)).toEqual(primeras(g.notas).slice(1));
+    // La lenta es la primera frase al doble de lento; dos notas largas que cruzan la barra se parten en dos
+    // (un "sol" y el "do" del final).
+    const lenta = leerNotas(PIEZAS_MUSICA.guanena.temas.L!.notas, 6).notas.flatMap((n) => n.ms);
+    const f1 = frases[0]!;
+    expect(lenta).toEqual([...f1.slice(0, 9), midi("D5"), ...f1.slice(9), midi("G4")]);
   });
 
   it("los acordes salen bien armados", () => {
@@ -178,11 +268,23 @@ describe("la música del Carnaval", () => {
     for (const [sonido, pieza] of Object.entries(CINE_MUSICA)) {
       expect(CINE_SOUNDS as readonly string[], sonido).toContain(sonido);
       expect(PIEZAS_MUSICA[pieza]).toBeDefined();
+      // El trozo de la cinemática sale de un tramo que existe.
+      expect(PIEZAS_MUSICA[pieza].forma[PIEZAS_MUSICA[pieza].extracto ?? 0], pieza).toBeDefined();
     }
     // Las cinemáticas no piden sonidos que ya no existen (el albazo y el pasacalle se fueron).
     for (const c of Object.values(CINEMATICAS))
       for (const s of JSON.stringify(c.steps).matchAll(/"sound":"([^"]+)"/g)) expect(CINE_SOUNDS as readonly string[], c.id).toContain(s[1]);
     expect(CINE_SOUNDS as readonly string[]).not.toContain("albazo");
+  });
+
+  it("La Guaneña es la protagonista: en cada conjunto vuelve a sonar cada dos piezas como mucho", () => {
+    for (const lista of Object.values(REPERTORIO)) {
+      for (let k = 0; k < lista.length; k++) {
+        const rot = repertorioDe(lista[0]!, k);
+        // En cualquier punto del ciclo, entre esa pieza y las dos siguientes hay una Guaneña.
+        for (let i = 0; i < rot.length; i++) expect([0, 1, 2].some((d) => rot[(i + d) % rot.length]!.startsWith("guanena")), rot.join()).toBe(true);
+      }
+    }
   });
 
   it("el repertorio de cada grupo rota y dos carrozas seguidas no empiezan con la misma pieza", () => {

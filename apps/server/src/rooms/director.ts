@@ -20,6 +20,7 @@ import {
   SEASON_TEXT,
   setGameTime,
   WEATHER_TEXT,
+  type DirectorMusica,
   type DirectorResult,
   type FestivalId,
   type GameClockState,
@@ -53,6 +54,8 @@ export interface DirectorDeps {
   releaseWeather(): void;
   /** Aviso del sistema en el chat global. */
   notice(text: string): void;
+  /** Pone a sonar una pieza para todos (o la para con null). */
+  musica(pieza: DirectorMusica["pieza"]): void;
 }
 
 const fallo = (error: NonNullable<DirectorResult["error"]>, texto: string, festival?: FestivalId): DirectorResult =>
@@ -135,6 +138,9 @@ export class Director {
       }
       case "momento":
         return this.momento(who, a.id);
+      case "musica":
+        this.d.musica(a.pieza);
+        return { ok: true, texto: a.pieza ? `Suena para todos: ${a.nombre ?? a.pieza}.` : "La música paró." };
     }
   }
 

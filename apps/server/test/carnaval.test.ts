@@ -2,7 +2,7 @@
 // (y el bus que espera), sumarse a la comparsa desde la vereda y que la sala lo lleve, la maicena y las
 // serpentinas con su validación, el concurso de disfraces (un voto por persona y el ganador) y el puesto.
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { bajadaMs, desfileDuracionMs, desfileEstado, getWorld, pointsOfType, ROAD, type DesfileTiming } from "@hyvento/map";
+import { desfileDuracionMs, desfileEstado, getWorld, pointsOfType, ROAD, type DesfileTiming } from "@hyvento/map";
 import {
   CARNAVAL,
   CARNAVAL_CINE,
@@ -147,8 +147,8 @@ async function give(room: ServerRoom, client: ClientRoom, userId: string, id: st
 }
 
 describe("el desfile por la calle del Megabús", () => {
-  it("sale solo a la hora del desfile y el bus no sale mientras pasa", async () => {
-    const { room } = await setup({ minute: 15 * 60 + 2 });
+  it("el Desfile Magno sale solo a su hora (una vez) y el bus no sale mientras pasa", async () => {
+    const { room } = await setup({ minute: 10 * 60 + 2 });
     await waitFor(() => (room.state.carnaval.fase === "desfile" ? true : undefined));
     expect(inner(room).streetHeld).toBe(true);
     // El de refuerzo también espera.
@@ -160,22 +160,24 @@ describe("el desfile por la calle del Megabús", () => {
   });
 
   it("fuera del Carnaval no sale (ni a la hora)", async () => {
-    const { room } = await setup({ day: CARNAVAL_DAY - 1, minute: 11 * 60 + 1 });
+    const { room } = await setup({ day: CARNAVAL_DAY - 1, minute: 10 * 60 + 1 });
     await tick(300);
     expect(room.state.carnaval.fase).toBe("");
   });
 
-  it("quien se suma desde la vereda baila detrás del Megabús: la sala lo mueve y al final lo baja con puntos", async () => {
+  it("quien se suma desde la vereda baila en la fila donde pasa: la sala lo mueve y al final lo baja con puntos", async () => {
     const { room, alice, me, sumarse, cines } = await setup();
     expect(await sumarse()).toEqual({ ok: false, error: "noDesfile" });
     inner(room).carnaval.empezar();
     // Los del jardín ven la cinemática de la salida.
     await waitFor(() => (cines.some((e) => e.id === CARNAVAL_CINE.salida) ? true : undefined));
-    await irA(room, msDeParada(0));
-    // Lejos (en el oeste de la vereda) no; frente al portón, donde para la comparsa de la cabaña, sí.
-    await walkToTile(alice, room, 20, 131);
-    expect(await sumarse()).toEqual({ ok: false, error: "far" });
+    // Donde la fila todavía no llega, no; donde va pasando, sí (en cualquier momento del desfile).
+    let llega = 0;
+    while (desfileEstado(llega, T).cabeza < 30) llega += 20;
+    await irA(room, llega);
     await walkToTile(alice, room, 59, 131);
+    expect(await sumarse()).toEqual({ ok: false, error: "far" });
+    await irA(room, msDeParada(0));
     expect(await sumarse()).toEqual({ ok: true, joined: true });
     await room.waitForNextPatch();
     expect(me().comparsa).toBe(true);
@@ -192,7 +194,7 @@ describe("el desfile por la calle del Megabús", () => {
     expect(me().x).toBeGreaterThan(before.x + 20 * 32);
     expect(me().comparsa).toBe(true);
     // Al llegar a la bajada, a la vereda, con los puntos de ocio y la cinemática del final.
-    await irA(room, bajadaMs(T) + 50);
+    await irA(room, desfileDuracionMs(T) - 200);
     expect(me().comparsa).toBe(false);
     expect(Math.floor(me().y / 32)).toBeLessThanOrEqual(131);
     await waitFor(() => (repo.ledger.some((m) => m.userId === "u-alice" && m.reason === "LEISURE" && m.amount === CARNAVAL.puntosDesfile) ? true : undefined));
@@ -275,7 +277,7 @@ describe("la maicena y las serpentinas", () => {
 });
 
 describe("el concurso de disfraces", () => {
-  it("se postula la pinta, se vota una vez (no por uno mismo) y a las 21:00 gana el más votado", async () => {
+  it("se postula la pinta, se vota una vez (no por uno mismo) y a las 18:00 gana el más votado", async () => {
     const { room, alice, postular, votar, cines } = await setup();
     const bob = await join(room, "u-bob", "Bob");
     const caro = await join(room, "u-caro", "Caro");
@@ -290,8 +292,8 @@ describe("el concurso de disfraces", () => {
     expect(await votar("u-bob")).toMatchObject({ ok: true });
     expect(await caro.votar("u-nadie")).toEqual({ ok: false, error: "unknown" });
     expect(room.state.carnaval.candidatos.get("u-alice")!.votos).toBe(2);
-    // Las 21:00 del juego: se cierra y se premia, para todos.
-    OfficeRoom.gameClockNow = () => NOON + 9 * 60 * GAME_MIN_MS;
+    // Las 18:00 del juego (de día): se cierra y se premia, para todos.
+    OfficeRoom.gameClockNow = () => NOON + 6 * 60 * GAME_MIN_MS;
     await waitFor(() => (room.state.carnaval.concursoCerrado ? true : undefined));
     expect(room.state.carnaval.ganador).toBe("u-alice");
     for (const list of [cines, bob.cines, caro.cines]) {

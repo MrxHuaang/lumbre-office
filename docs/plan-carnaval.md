@@ -1,32 +1,38 @@
 # Carnaval de Negros y Blancos en la cabaña (VIR-160)
 
-Concepto del Carnaval del día 18 del verano, inspirado en el de Pasto (patrimonio de la UNESCO desde 2009). Don Evelio es pastuso, así que él es el abanderado. El desfile va por **la calle del Megabús**, frente a la Estación Hyvento, con música andina hecha por código.
+Concepto del Carnaval del día 18 del verano, inspirado en el de Pasto (patrimonio de la UNESCO desde 2009). Don Evelio es pastuso, así que él es el abanderado. El **Desfile Magno** va por **la calle del Megabús**, frente a la Estación Hyvento, con música andina hecha por código.
+
+**"Negros y Blancos" es el nombre de los días del carnaval** (el 5 y el 6 de enero en Pasto), no el color de las carrozas. Las carrozas y las comparsas de Pasto son explosiones de color. **El Carnaval es de día, siempre**: el Desfile Magno sale a las 10:00 del juego, el concurso se premia a las 18:00 y el festival cierra a las 18:30, antes de que oscurezca.
 
 ## Respeto cultural (decisiones)
 
-- El contraste blanco y negro se ve en **trajes, máscaras, banderines, confeti y carrozas**. **Nunca se oscurece la piel de un avatar.** En Pasto, el Día de Negros recuerda la petición de un día de libertad para las personas esclavizadas. Pintar caras en un juego se presta a malas lecturas, así que se nombra con respeto en la cinemática de apertura, sin imitarlo.
+- **Nunca se oscurece la piel de un avatar.** Las figuras de papel maché sí pueden tener piel de colores de fantasía (turquesa, verde, dorado), como en Pasto; lo que no se hace es pintar personas reales ni avatares. En Pasto, el Día de Negros recuerda la petición de un día de libertad para las personas esclavizadas. Pintar caras en un juego se presta a malas lecturas, así que se nombra con respeto en la cinemática de apertura, sin imitarlo.
 - El "talco" (Día de Blancos) es el juego de la maicena: deja la cara empolvada de blanco un rato. Va solo entre quienes lo aceptan: no se le echa a nadie en "No molestar" y hay una opción para no recibir.
-- Las carrozas cuentan historias de la cabaña y del sur andino (paisaje, oficios, mitos). No hay caricaturas de pueblos ni personas reales.
+- Las carrozas cuentan historias de la cabaña y del sur andino (paisaje, oficios, mitos), como homenaje y nunca como caricatura. No hay rostros que imiten a personas reales. Lo afro y lo indígena van con dignidad, como en las carrozas ganadoras de 2026 ("Indomable, mujer guerrera", "Nariño en alas de vida", "Herencia mágica").
 - Los grupos son ficticios, inspirados en las modalidades reales del carnaval: carrozas, comparsas, murgas, colectivos coreográficos y disfraz individual.
 
-## 1. Carrozas (10)
+## 1. Carrozas
 
-Cada carroza es papel maché blanco y negro con **un solo color de acento**. Son muebles grandes que mueve el servidor por el carril, como el bus, y se dibujan por código con piezas que se mueven: alas, péndulo, humo.
+Como en el Desfile Magno de Pasto: **criaturas fantásticas integradas al camión** (animales, monstruos, calaveras, personas con máscara). La figura es el vehículo: su cuerpo, manto o melena tapan la plataforma, el frente es su cara o su boca, y alrededor van muchas figuras chicas en capas. Son enormes frente a la gente de la calle (varias veces la altura de un avatar), de colores saturados, con terminaciones cuidadas (planos de luz y sombra, brillos, patrones andinos, plumas por capas).
 
-| # | Carroza | Qué se ve | Acento | Guiño |
-|---|---|---|---|---|
-| 1 | **La Familia Castañeda llega** | Una carreta vieja con baúles, una abuela con sombrilla y un loro de papel | Sepia | La tradición del 4 de enero: la familia viajera que llega a la fiesta |
-| 2 | **El Cóndor de los Andes** | Un cóndor de 3 tiles con collar blanco y alas que suben y bajan | Oro | El cóndor ya es negro y blanco |
-| 3 | **El Galeras que fuma** | Un volcán con nieve en la punta y humo blanco en espiral; cuyes de papel en la falda | Naranja brasa | El volcán de Pasto |
-| 4 | **El Tablero vivo** | Un piso de ajedrez con piezas gigantes que se mueven en cada parada | Rojo | La sala de juegos del piso 3 |
-| 5 | **El Reloj de E.** | Un reloj de pie enorme con péndulo y engranajes que giran; suenan trece campanadas al pasar | Bronce | Capítulo 2 de la historia |
-| 6 | **La Luna en el lago** | Una media luna sobre olas, con peces de escamas brillantes y una llavecita colgando | Azul noche | Capítulo 3 |
-| 7 | **El Páramo** | Frailejones, colibríes en resortes y una laguna de vidrio | Verde musgo | El agua nace en el páramo |
-| 8 | **La Minga de la cosecha** | Papa, maíz, quinua y guaguas de pan gigantes sobre un tejido de colores | Multicolor (tejido andino) | Lo que se cosecha en el huerto |
-| 9 | **El tinto de Doña Aurora** | Un pocillo gigante que echa vapor y una cafetera que sirve sola | Café | La casera de la cabaña |
-| 10 | **El Megabús de la alegría** | El bus de la parada pintado a cuadros, con cachivaches encima | Verde lima | Cierra el desfile; detrás va la comparsa de los jugadores |
+**Movimiento de verdad**: en Pasto las figuras son articuladas (el movimiento lo incorporó en los años 60 el maestro José Eduardo Ordóñez; el ingenio mecánico se le debe a Rogerio Argote y al maestro Alfonso Zambrano), con resortes, piolas y bandas de caucho: cabezas que giran, ojos y párpados, bocas, brazos y manos que suben y bajan, alas que aletean, piezas que dan vueltas, cuerpos que se mecen. Aquí cada carroza se arma **por partes** (VIR-173, `packages/map/src/art/carrozas`): cada parte es un dibujo con su pivote y su movimiento (`gira`, `rueda`, `vaiven`, `escala`, `parpadeo`, `sube`), y el navegador las mueve con curvas suaves (`posesCarroza`, la misma pose para todos). Con "menos movimiento" quedan casi quietas.
 
-**Estado**: las diez están hechas (VIR-160 y VIR-166), en este orden dentro del desfile (`CARROZA_IDS`). Lo que se mueve en las cuatro últimas: en el Tablero, el caballo salta en L, la reina negra se desliza en diagonal y un peón avanza; en la Luna, las olas corren, los peces saltan con las escamas brillando por turnos y la llavecita oxidada se mece (de noche la luna se prende con su halo); en el Páramo, los colibríes se mecen en sus resortes con las alas borrosas, los frailejones se mecen y la laguna de vidrio destella; en la Minga, la quinua se mece, la mazorca de colores gira y las guaguas de pan se arrullan. Para que la fila más larga siga cabiendo en unos 2 minutos, el desfile va un poco más rápido (2,6 tiles por segundo).
+**Técnica**: pixel art pintado en 2D, en la vista 3/4 del juego (luz de arriba a la izquierda), con la plataforma del camión en 3D. Cómo se dibuja y se suma una: `docs/carrozas.md`.
+
+| # | Carroza | Qué se ve | Guiño |
+|---|---|---|---|
+| 1 | **La Familia Castañeda llega** | La abuela viajera con sombrilla, el loro y los baúles, colores de época | La tradición del 4 de enero |
+| 2 | **El Cóndor de los Andes** | El cóndor con las alas de colores que aletean, sobre montañas de franjas y el sol que gira | El cóndor de los Andes |
+| 3 | **El Galeras que fuma** | El volcán con rostro y faldas de retazos de cultivos, humo de colores, cuyes | El volcán de Pasto |
+| 4 | **El Tablero del Diablo** | La calavera turquesa sonriente con dientes de oro, diablitos enroscados como cuernos, túnica que tapa el camión, garras levantadas y, a sus pies, el fraile y el diablo jugando ajedrez | La sala de juegos del piso 3 |
+| 5 | **El Reloj de E.** | El monstruo mecánico de pelaje azul, cara rosada que ruge, cresta de fuego, engranajes y tubos que echan humo, manos moradas con la máscara de dientes de oro | Capítulo 2 de la historia |
+| 6 | **La Luna en el lago** | La luna como un rostro de mujer dormida que abre un ojo, peces de escamas de colores, la llavecita | Capítulo 3 |
+| 7 | **El Páramo** | El espíritu del páramo con antifaz de pavo real, alas de mariposa, la mano de uñas pintadas, frailejones y colibríes | El agua nace en el páramo |
+| 8 | **La Minga de la cosecha** | La Pachamama de tocado de plumas arcoíris que ofrece una totuma de la que cae agua; la cosecha y las guaguas | El agua y la tierra |
+| 9 | **El tinto de Doña Aurora** | Aurora sirviendo de una cafetera de peltre enorme, el pocillo que echa vapor, los bultos de café | La casera de la cabaña |
+| 10 | **El Megabús de la alegría** | El bus con ojos y sonrisa, flores pintadas, muñecos que bailan encima, banderas y rehilete | Cierra el desfile |
+
+**Estado**: las diez se rehicieron por partes (VIR-173). El Tablero y el Reloj ya van en pixel art pintado como criaturas integradas; las demás están en una primera versión en 3D y se rehacen con la misma técnica, apuntando a unas 20 carrozas.
 
 ## 2. Coreografías (en 8 tiempos, con las acciones del juego)
 
@@ -43,39 +49,42 @@ Cada comparsa camina con su carroza. Al llegar a una parada del recorrido repite
 9. **Aurora**: Doña Aurora *saludar* desde arriba; las meseras reparten "tinto" (burbujas) y hacen *asentir*.
 10. **Comparsa de la cabaña**: la de los jugadores. Se suman con E junto al Megabús y repiten *bailar* · *girar* · *saltar* · *celebrar* en bucle. Si son 3 o más, la cámara de quien baila se acerca un paso (y vuelve al salirse).
 
-## 3. Música (toda sintetizada por código, sin grabaciones; VIR-174)
+## 3. Música (toda sintetizada por código, sin grabaciones; VIR-174 y VIR-179)
 
-El sonido del carnaval son **las murgas** y **los colectivos andinos**, y el ritmo más propio de Nariño es el **son sureño** (en 6/8). Va por la salida de la música del mezclador (`sfxOut("music")`). Código: `apps/web/src/game/carnaval/musica.ts` (bandas y reproducción), `musica-piezas.ts` (el repertorio), `musica-programa.ts` (la parte pura: notación, rangos, cortes, programa por tramos) y `musica-instrumentos.ts` (los sintetizadores). Ids, conjuntos, repertorios y murgas: `packages/shared/src/carnaval-musica.ts`.
+El sonido del carnaval son **las murgas** y **los colectivos andinos**, y el ritmo más propio de Nariño es el **son sureño** (en 6/8). Va por la salida de la música del mezclador (`sfxOut("music")`). Código: `apps/web/src/game/carnaval/musica.ts` (bandas y reproducción), `musica-piezas.ts` (el repertorio), `musica-programa.ts` (la parte pura: notación, rangos, cortes, voces, programa por tramos) y `musica-instrumentos.ts` (los sintetizadores y la mesa). Ids, conjuntos, repertorios y murgas: `packages/shared/src/carnaval-musica.ts`.
 
 **Los dos conjuntos**
 
-- **La murga**: trompeta, saxo y trombón (diente de sierra con un filtro que se abre al soplar, el labio que entra un pelito abajo y vibrato tardío), acordeón (tres lengüetas de pulso desafinadas: el trémolo) y la percusión al frente: bombo, redoblante, platillos, timbales, güiro, guasá y campana. Sus **cortes**: golpe de toda la banda con platillo, silencio y el repique de timbales y redoblante que la vuelve a meter.
-- **El colectivo andino**: quena, zampoña (segunda voz), **rondador** (dos cañas vecinas a la vez, en terceras o cuartas, como suena de verdad), bombo y shekere. Sin charango (es más del altiplano).
+- **La murga**: trompeta, saxo y trombón (diente de sierra con un filtro que se abre al soplar, el labio que entra un pelito abajo y vibrato tardío), tuba en el bajo, clarinete (armónicos impares) y flauta traversa, acordeón (lengüetas de pulso desafinadas: el trémolo) y la percusión al frente: bombo, tambora, redoblante, caja vallenata, platillos, timbales, güiro, guasá, campana y cencerro. Sus **cortes**: golpe de toda la banda con platillo, silencio y el repique de timbales y redoblante que la vuelve a meter.
+- **El colectivo andino**: quena (sola o dos quenas a dos voces), zampoña, **rondador** (dos cañas vecinas a la vez, en terceras o cuartas, como suena de verdad), las cuerdas (requinto punteado, bandola con trémolo de plumilla, el tiple que rasguea con sus órdenes en octava y la guitarra con sus bordones y arpegios), el violín y la percusión: bombo, shekere, maracas y chajchas. Sin charango (es más del altiplano).
 
-**El repertorio** (todo original salvo La Guaneña; cada pieza dura de 2 a 3 minutos, con introducción, temas que pasan de un instrumento a otro, la percusión sola, cortes y final):
+**El detalle**: cada banda pasa por una mesa con un lugar en el estéreo para cada instrumento y una reverberación liviana (la sala se arma una vez por contexto). La forma de cada pieza dice, tramo por tramo, quién lleva la melodía, la segunda voz (en terceras, sextas o cuartas), un contracanto, el colchón de acordes, lo que se calla (las cuerdas entran de a una) y la dinámica (crescendos); las notas llevan acentos según la métrica y el reproductor las humaniza (un pelito de tiempo y de volumen, igual para todos). Las cuerdas punteadas son Karplus-Strong: cada cuerda se calcula una vez y se afina con la velocidad de lectura. Cada nota suelta sus nodos al terminar.
 
-- Murga: **"Son de la vereda"** (son sureño, Re menor), **"Son del cuy alegre"** (son sureño, La menor, con hemiolas y pregunta y respuesta), **"Sanjuanito de la plaza"** (sanjuanito, Mi menor) y **"La Guaneña"** arreglada para murga (los bronces llevan la melodía, cada vuelta arranca con un corte y la anacrusa).
-- Colectivo: **"Sanjuanito del lago"** (La menor), **"Bambuco del Galeras"** (Sol mayor con un tema en Mi menor) y **"La Guaneña"** (tradicional nariñense, bambuco de dominio público e himno del carnaval: la melodía de la versión para flauta de las escuelas, en Mi menor y en 3, con la dominante antes de volver; la zampoña y el rondador se la pasan, con un puente y un interludio originales).
-- El pasacalle y el albazo (más ecuatorianos) se quitaron. Nada con derechos de autor.
+**El repertorio** (cada pieza dura de 2 a 4 minutos, con introducción, temas que pasan de un instrumento a otro, variaciones, la percusión sola, cortes y final). La protagonista es **La Guaneña**, la melodía tradicional de Nariño (anónima, de dominio público), que vuelve cada dos piezas en cada repertorio:
+
+- Murga: **"La Guaneña" de bambuco** (en 3, la trompeta con el saxo en terceras, variación para las maderas, contracantos del trombón), **"La Guaneña" de son sureño** (en 6/8, como suena por la calle, con el interludio largo de doce compases y cortes al final de cada frase), y los originales **"Son de la vereda"** (son sureño, Re menor), **"Son del cuy alegre"** (son sureño, La menor, con hemiolas) y **"Sanjuanito de la plaza"** (Mi menor).
+- Colectivo: **"La Guaneña" de bambuco** (dos quenas en cuartas, la primera frase lenta con el violín, luego la melodía completa por quena, bandola y requinto, zampoña y violín) y **"La Guaneña" de son sureño** (como la arreglan los grupos de Pasto: quenas a la cuarta, las cuerdas que van entrando, la segunda por terceras y el interludio largo), y los originales **"Sanjuanito del lago"** (La menor) y **"Bambuco del Galeras"** (Sol mayor con un tema en Mi menor).
+- La melodía de La Guaneña son sus tres frases como las trae el cancionero escolar para flauta (en Mi menor, con la dominante antes de volver); las variaciones, interludios, puentes y finales de los arreglos son originales.
+- **Solo música instrumental**: nunca letras. **Nada con autor y derechos vigentes**: el "Trompo sarandengue" (de Hugo Ortega, canción del carnaval de 1996), "Son sureño"/"Mi Nariño" (Tomás Burbano, 1967), "Pedro Bombo" (Víctor Domínguez), "Chambú" (Guillermo Chávez), "Cachirí" y los sanjuanitos ecuatorianos con autor (como "Carabuela", de Guillermo Garzón) se quedaron por fuera; tampoco "El cóndor pasa". No se encontró un sanjuanito ni un son sureño anónimo con su melodía escrita en una fuente confiable, así que esos ritmos van con piezas originales.
 
 **En el desfile**: cada grupo rota el repertorio de su conjunto desde que sale el desfile (`sonandoEn`, con una pausa entre piezas), y cada carroza empieza en otro punto (`repertorioDe(pieza, puesto)`), así todos oyen lo mismo y dos grupos seguidos no tocan lo mismo. Las comparsas de las carrozas suenan con su colectivo; la de la cabaña (el Megabús) y las tres murgas ficticias que van detrás de algunas carrozas (`MURGAS`: por ahora se oyen, no se dibujan) con la murga. `BandasDelDesfile` toca el grupo de cada conjunto que más se oye; si se oyen los dos, el más lejano baja. Las notas se programan tramo por tramo mientras suenan.
 
 **En las cinemáticas**: el sonido `guanena` (la apertura) toca un trozo de La Guaneña del colectivo y `murga` (la premiación) uno del "Son de la vereda" (`CINE_MUSICA`).
 
-**Para escucharlas**: `listaParaEscuchar()` y `escucharPieza(id)` de `musica.ts` (devuelve cómo pararla).
+**Para escucharlas**: `listaParaEscuchar()` (con las fuentes de lo tradicional) y `escucharPieza(id)` de `musica.ts` (devuelve cómo pararla).
 
-**Fuentes**: Wikipedia, "Murgas en Carnaval de Negros y Blancos de Pasto"; Radio Nacional, "Carnaval de Negros y Blancos: música y danza que exaltan la identidad nariñense"; Vanguardia, "Carnaval de Negros y Blancos entona ritmos andinos para cantarle a la tierra".
+**Fuentes**: Wikipedia, "Murgas en Carnaval de Negros y Blancos de Pasto"; Radio Nacional, "Carnaval de Negros y Blancos: música y danza que exaltan la identidad nariñense"; Vanguardia, "Carnaval de Negros y Blancos entona ritmos andinos para cantarle a la tierra". La Guaneña: el cancionero escolar "Música en la escuela, ¡una fiesta! 2: Folklore de Latinoamérica" (anónimo, siglo XVIII, con la melodía en solfeo), Wikipedia "La Guaneña" (su origen se pierde en la tradición oral) y el "Recital de música tradicional nariñense para quena y zampoña" de la Universidad de Nariño (la Guaneña, anónimo, en Mi menor y 6/8). Los autores de las que se dejaron por fuera: Steemit "Trompo Sarandengue" (Hugo Ortega, 1996), TuBarco "¿Quién escribió Mi Nariño o Son sureño?", y los recitales de la Universidad de Nariño.
 
 ## 4. Recorrido (la calle del Megabús)
 
 El desfile va por el carril exclusivo, del oeste al este. Mientras pasa, **el bus no sale**: la sala suspende `BusLine` y el bus de refuerzo espera. Se ve desde la vereda y la plataforma.
 
-1. **Salida (borde oeste, entre el bosque)**: las carrozas aparecen desde el bosque de `surroundings`, una cada ~6 s.
-2. **Palco del jurado (frente a la Estación Hyvento)**: es la parada principal. Cada comparsa hace su coreografía completa y el techo de la estación sirve de palco. Ahí está la tarima con Don Evelio de abanderado.
-3. **Frente al portón del jardín**: segunda parada. Quien está en la vereda se suma a la comparsa de la cabaña (E).
+1. **Salida (borde oeste, entre el bosque)**: la fila aparece desde el bosque de `surroundings`.
+2. **Palco del jurado (frente a la Estación Hyvento)**: dos paradas, cuando el primer tercio y luego el último de la fila pasan por el palco. Toda la fila para y cada comparsa repite su coreografía donde va; las murgas y los disfraces bailan.
+3. **La vereda entera**: quien está en la vereda se suma a la comparsa de la cabaña (E) donde vaya pasando la fila.
 4. **Llegada (borde este)**: las carrozas se pierden en el bosque, lluvia final de confeti y cinemática de cierre para quienes bailaron.
 
-Sale a las 11:00, 15:00 y 19:00 del juego (de noche las carrozas se prenden con faroles). Dura unos 2 minutos reales.
+Es un solo **Desfile Magno** por Carnaval: sale a las 10:00 del juego y no vuelve a salir hasta el Carnaval del año siguiente del calendario. Va despacio (0,34 tiles por segundo) y dura unos 17 minutos reales (de 10:00 a ~17:00 del juego): la fila (las carrozas con sus comparsas de 12 bailarines, tres murgas con bombo, bronces y acordeón, y tres grupos de disfraces individuales) es más larga que la calle y va pasando, así que siempre hay algo en la calle. Para dos veces frente al palco. Quien está en la vereda se suma a la comparsa de la cabaña en cualquier momento, donde va pasando la fila (baila en el hueco detrás de la carroza más cercana), y se baja cuando quiere.
 
 ## 5. Grupos participantes (ficticios)
 

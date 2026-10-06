@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "render": "tsx scripts/render-area.ts",
-    "hoja": "tsx scripts/hoja-arte.ts"
+    "hoja": "tsx scripts/hoja-arte.ts",
+    "carrozas": "tsx scripts/render-carrozas.ts"
   },
   "devDependencies": {
     "typescript": "^5.8.0",
