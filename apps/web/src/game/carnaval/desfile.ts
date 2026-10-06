@@ -3,13 +3,15 @@
 // bailarines de cada comparsa con su coreografía en las paradas y la música andina que suena más fuerte
 // cerca de cada carroza. Todo sale de `state.carnaval` (cuándo empezó y su paso) y de la hora del servidor:
 // todos ven lo mismo, aunque lleguen a la mitad. A la gente de la cabaña que baila la mueve la sala.
-import { bailarinPuesto, DESFILE_UNIDADES, DESFILE_Y, desfileEstado, ROAD, unidadX, type OfficeMap } from "@hyvento/map";
+import { bailarinPuesto, DESFILE_UNIDADES, DESFILE_Y, desfileEstado, ROAD, unidadDe, unidadX, type OfficeMap } from "@hyvento/map";
 import { banderaSprite, CARROZA_FRAMES, CARROZA_LARGO, carrozaSprite, type Sprite } from "@hyvento/map/art";
 import {
   COMPARSAS,
   EVELIO_CARROZAS,
   EVELIO_PARADAS,
+  MURGAS,
   PESCA_NPC,
+  repertorioDe,
   fraseAcciones,
   frasePose,
   programarFrase,
@@ -30,7 +32,7 @@ import { getRoom } from "../network";
 import { volAt } from "../sfx";
 import { useOfficeStore } from "../store";
 import { CamaraComparsa } from "./camara";
-import { BandaAndina } from "./musica";
+import { BandasDelDesfile, type FuenteMusica } from "./musica";
 import { desfileMs, onLanzado, syncCarnaval, useCarnavalStore } from "./index";
 
 /** Hasta dónde se oye la banda de una carroza (px de mundo: unos 16 tiles). */
@@ -74,7 +76,7 @@ export class CarnavalView {
   private unidades: Unidad[] = [];
   private evelio?: Avatar;
   private bandera?: Phaser.GameObjects.Image;
-  private banda = new BandaAndina();
+  private banda = new BandasDelDesfile();
   /** Con 3 o más de la cabaña bailando, la cámara de quien baila se acerca un paso. */
   private camara: CamaraComparsa;
   private corrida = -1;
@@ -171,7 +173,7 @@ export class CarnavalView {
     const ms = desfileMs();
     if (!map || map.id !== "jardin" || ms === null) {
       if (this.unidades.length) this.clear();
-      this.banda.update(null, 0);
+      this.banda.update([], 0);
       return;
     }
     const st = useCarnavalStore.getState();
@@ -188,7 +190,7 @@ export class CarnavalView {
       this.fraseT = -1;
       if (e.parada !== null) this.evelioSay(EVELIO_PARADAS[e.parada] ?? "", `parada:${st.corrida}:${e.parada}`);
     }
-    let musica: { pieza: PiezaId; vol: number } = { pieza: "sanjuanito", vol: 0 };
+    const musica: FuenteMusica[] = [];
     for (const u of this.unidades) {
       const front = unidadX(u.k, e.cabeza);
       const largo = CARROZA_LARGO[u.id];
@@ -224,12 +226,19 @@ export class CarnavalView {
           if (b && visibleAt(bailarinPuesto(u.k, b.i, e.cabeza).x)) act(b.avatar, a.action);
         }
       }
-      // La música de la carroza más cercana (la de la comparsa de la cabaña, el pasacalle).
+      // La música de la comparsa de cada carroza: rota su repertorio (cada una empieza en otro punto).
       const vol = volAt((front - largo / 2) * ts, (DESFILE_Y.carroza + 1.3) * ts, HEAR_PX) * fadeAt(front - largo / 2);
-      if (vol > musica.vol) musica = { pieza: PIEZA[u.id], vol };
+      musica.push({ clave: u.id, repertorio: repertorioDe(PIEZA[u.id], u.k), vol });
     }
     if (enParada) this.fraseT = fraseMs;
-    this.banda.update(musica.vol > 0 ? musica.pieza : null, Math.min(1, musica.vol * 1.1));
+    // Las murgas van detrás de su carroza (por ahora se oyen, no se dibujan).
+    for (const m of MURGAS) {
+      const k = unidadDe(m.tras);
+      if (k < 0) continue;
+      const x = unidadX(k, e.cabeza) - CARROZA_LARGO[m.tras];
+      musica.push({ clave: m.id, repertorio: m.repertorio, vol: volAt(x * ts, DESFILE_Y.bailarines[0]! * ts, HEAR_PX) * fadeAt(x) });
+    }
+    this.banda.update(musica, ms);
     this.updateEvelio(e.cabeza, enParada, frame, ts, st.corrida);
   }
 

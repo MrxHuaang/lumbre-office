@@ -26,7 +26,7 @@ export const CINE_ME = "yo";
 export const CINE_NPCS = ["aurora", "gloria", "evelio", "astronoma", "crupier", "dealer", "cajera", "portero"] as const;
 
 /** Sonidos que puede pedir una cinemática (los resuelve el navegador con sus efectos). */
-export const CINE_SOUNDS = ["fanfarria", "campanada", "campanadas", "carta", "destello", "tambor", "aplausos", "brisa", "trueno", "magia", "chapuzon", "guanena", "albazo"] as const;
+export const CINE_SOUNDS = ["fanfarria", "campanada", "campanadas", "carta", "destello", "tambor", "aplausos", "brisa", "trueno", "magia", "chapuzon", "guanena", "murga"] as const;
 export type CineSound = (typeof CINE_SOUNDS)[number];
 
 /** Efectos sobre un actor (o la pantalla). */

@@ -7,6 +7,7 @@ import { z } from "zod";
 export const PERMISOS = [
   { id: "anunciar", nombre: "Anunciar", descripcion: "Anuncio de texto y de voz a toda la cabaña." },
   { id: "editar-casa", nombre: "Editar la casa", descripcion: "Mover, girar, agregar y quitar muebles en cualquier nivel." },
+  { id: "director", nombre: "Panel del director", descripcion: "Prender festivales, cambiar el clima, la hora y el día, y disparar momentos." },
 ] as const;
 
 export type Permiso = (typeof PERMISOS)[number]["id"];

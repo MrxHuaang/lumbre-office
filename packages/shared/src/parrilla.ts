@@ -73,7 +73,7 @@ export const GRILL_RECIPES: readonly GrillRecipe[] = [
   },
   {
     id: "pan-bono-horno",
-    name: "Pan de bono de horno",
+    name: "Pandebono de horno",
     blurb: "Harina, queso y huevo criollo: salen doraditos del horno de barro.",
     station: "horno",
     needs: { [FLOUR]: 1, [CHEESE]: 1, [EGG]: 1 },
@@ -105,7 +105,7 @@ export const dishOfPortion = (item: string): string | undefined =>
 
 /** Lo que se trae de la cafetería (se paga con puntos y va a la mochila). */
 export const PANTRY_SHOP: readonly { id: string; name: string; price: number; blurb: string }[] = [
-  { id: CHEESE, name: "Queso campesino", price: 3, blurb: "Para las arepas, el pan de bono y la pizza." },
+  { id: CHEESE, name: "Queso campesino", price: 3, blurb: "Para las arepas, el pandebono y la pizza." },
   { id: CHORIZO, name: "Chorizo santarrosano", price: 4, blurb: "Para la parrilla, con papa criolla." },
 ];
 export const pantryItem = (id: string) => PANTRY_SHOP.find((p) => p.id === id);
@@ -187,9 +187,9 @@ export const GRANJA_OBJECTS: readonly { id: string; name: string; kind: GranjaOb
 ];
 
 const INGREDIENT_BLURB: Record<string, string> = {
-  [EGG]: "Del nido del gallinero. Para el pan de bono y la pizza.",
-  [FLOUR]: "Molida en el molino del arroyo. Para arepas, pan de bono y pizza.",
-  [CHEESE]: "Traído de la cafetería. Para arepas, pan de bono y pizza.",
+  [EGG]: "Del nido del gallinero. Para el pandebono y la pizza.",
+  [FLOUR]: "Molida en el molino del arroyo. Para arepas, pandebono y pizza.",
+  [CHEESE]: "Traído de la cafetería. Para arepas, pandebono y pizza.",
   [CHORIZO]: "Traído de la cafetería. Para la parrilla.",
 };
 
@@ -289,17 +289,17 @@ export function grillNoticeText(n: GrillNotice): string {
     case "missing":
       return "Te faltan ingredientes en la mochila para esa receta.";
     case "cooking":
-      return `${dish} va al fuego. Si alguien más cocina contigo, sale más rápido.`;
+      return `Al fuego: ${low}. Si alguien más cocina al lado, sale más rápido.`;
     case "done":
-      return `${dish} está listo${n.points ? `: +${n.points} puntos` : ""}. Con él en la mano, quien esté cerca te puede pedir una porción con E.`;
+      return `¡Listo! Salió del fuego: ${low}${n.points ? ` (+${n.points} puntos)` : ""}. Mientras lo tengas en la mano, quien esté cerca te puede pedir una porción con E.`;
     case "doneBag":
-      return `${dish} salió mientras no estabas: quedó en tu mochila${n.points ? ` (+${n.points} puntos)` : ""}.`;
+      return `Salió del fuego mientras no estabas: ${low}. Quedó en tu mochila${n.points ? ` (+${n.points} puntos)` : ""}.`;
     case "bought":
-      return `Trajiste ${n.count ?? 1} de ${low} de la cafetería.`;
+      return `Compraste en la cafetería: ${low} (${n.count ?? 1}).`;
     case "funds":
       return "No te alcanzan los puntos para eso.";
     case "noPortion":
-      return "Ya no le quedan porciones para compartir.";
+      return "Ese plato ya no tiene porciones para compartir.";
     case "gotPortion":
       return `${n.name ?? "Alguien"} te dio una porción de ${low}.`;
     case "gavePortion":
