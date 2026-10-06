@@ -4,8 +4,7 @@
 // (personas, lugares, abrir, estado, emotes, ajustes). Flechas para elegir, Enter para usar, Esc para
 // cerrar. Los comandos vienen del registro (lib/commands.ts): cada parte suma los suyos.
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { commandSearchText, listCommands, subscribeCommands, type Command } from "@/lib/commands";
-import { fuzzyRank } from "@/lib/fuzzy";
+import { listCommands, rankCommands, subscribeCommands, type Command } from "@/lib/commands";
 import { paletteKey } from "@/lib/shortcuts";
 import { sfx } from "@/game/sfx";
 import { useOfficeStore } from "@/game/store";
@@ -36,12 +35,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
   const all = useMemo(() => listCommands(), [regVersion, players, offices]);
   const results = useMemo(() => {
-    if (query.trim()) {
-      // Por puntaje, pero juntos por grupo: primero el grupo del mejor resultado, y así.
-      const ranked = fuzzyRank(query, all, commandSearchText).slice(0, MAX_RESULTS);
-      const order = [...new Set(ranked.map((c) => c.group))];
-      return order.flatMap((g) => ranked.filter((c) => c.group === g));
-    }
+    if (query.trim()) return rankCommands(query, all, MAX_RESULTS);
     const count = new Map<string, number>();
     return all.filter((c) => {
       const n = (count.get(c.group) ?? 0) + 1;

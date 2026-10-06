@@ -53,13 +53,19 @@ function wordScore(w: string, hay: string): number | null {
 
 const isStart = (hay: string, i: number) => i === 0 || /[\s\-·:(/]/.test(hay[i - 1]!);
 
-/** Ordena `items` por puntaje (los que no coinciden quedan afuera); con la búsqueda vacía, igual que venían. */
-export function fuzzyRank<T>(query: string, items: readonly T[], textOf: (item: T) => string): T[] {
+/**
+ * Ordena `items` por puntaje (los que no coinciden quedan afuera); con la búsqueda vacía, igual que venían.
+ * Con `titleOf`, lo que coincide en el título le gana a lo que solo coincide por las palabras clave: así
+ * "director" da el "Panel del director" y no un comando más corto que solo lleva "director" de palabra clave.
+ */
+export function fuzzyRank<T>(query: string, items: readonly T[], textOf: (item: T) => string, titleOf?: (item: T) => string): T[] {
   if (!query.trim()) return [...items];
   const scored: { item: T; score: number; i: number }[] = [];
   items.forEach((item, i) => {
     const score = fuzzyScore(query, textOf(item));
-    if (score !== null) scored.push({ item, score, i });
+    if (score === null) return;
+    const title = titleOf ? fuzzyScore(query, titleOf(item)) : null;
+    scored.push({ item, score: score + (title ?? 0), i });
   });
   return scored.sort((a, b) => b.score - a.score || a.i - b.i).map((x) => x.item);
 }

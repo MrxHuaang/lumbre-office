@@ -22,6 +22,7 @@
 //   );
 import { useEffect, useRef } from "react";
 import type { PixelIconName } from "@/components/Cozy";
+import { fuzzyRank } from "./fuzzy";
 
 /** Grupos en el orden en que se muestran (uno nuevo va al final). */
 export const COMMAND_GROUPS = ["Personas", "Lugares", "Abrir", "Estado", "Emotes", "Ajustes"] as const;
@@ -115,6 +116,16 @@ export function listCommands(): Command[] {
 
 /** Texto donde busca la paleta: el título manda, después las palabras clave, el grupo y la línea chica. */
 export const commandSearchText = (c: Command) => [c.title, ...(c.keywords ?? []), c.group, c.subtitle ?? ""].join(" · ");
+
+/**
+ * Lo que muestra la paleta al buscar: por puntaje (el título manda sobre las palabras clave), pero juntos por
+ * grupo: primero el grupo del mejor resultado, y así. El primero es el que corre con Enter.
+ */
+export function rankCommands(query: string, all: readonly Command[], max = Infinity): Command[] {
+  const ranked = fuzzyRank(query, all, commandSearchText, (c) => c.title).slice(0, max);
+  const order = [...new Set(ranked.map((c) => c.group))];
+  return order.flatMap((g) => ranked.filter((c) => c.group === g));
+}
 
 /** Registra comandos mientras el componente está montado; `build` se llama cada vez que se abre la paleta. */
 export function useCommands(build: () => readonly Command[]) {
