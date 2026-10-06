@@ -174,6 +174,9 @@ export const STAT_KEYS = {
   tombolaGanada: "tombola_ganada",
   // Bailes de la cosecha completos (uno por feria).
   cosechaBailes: "cosecha_bailes",
+  // Amor y amistad (amor-amistad.ts): detalles dejados al amigo secreto y serenatas pedidas.
+  amigoSecretoRegalos: "amigo_secreto_regalos",
+  serenatasDadas: "serenatas_dadas",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -489,8 +492,11 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // La Feria de la cosecha
     a("mano-de-olla", "Mano de olla", "pan", "comun", STAT_KEYS.sancochoAportes, 5, "Echa 5 ingredientes a la olla del sancocho de la Feria de la cosecha", "Doña Rubiela ya te deja revolver."),
     a("ahuyama-de-oro", "La ahuyama más grande", "pumpkin", "epico", STAT_KEYS.ahuyamaOro, 1, "Gana el concurso de la ahuyama más grande de la Feria de la cosecha", "La báscula de Don Efraín casi no aguanta."),
-    a("bambuquero", "Bambuquero", "guitar", "raro", STAT_KEYS.cosechaBailes, 1, "Baila el bambuco de la cosecha en el patio", "Tiple, guitarra, bandola y usted dándole vueltas al patio."),
+    a("bambuquero", "Bambuquero", "guitar", "raro", STAT_KEYS.cosechaBailes, 1, "Baila el bambuco de la cosecha en el patio", "Tiple, guitarra, bandola y tú dándole vueltas al patio."),
     a("suerte-de-tombola", "Suerte de tómbola", "wheel", "raro", STAT_KEYS.tombolaGanada, 1, "Gana la tómbola de la junta de acción comunal", "La boleta ganadora era la tuya. La carreta también."),
+    // Amor y amistad
+    a("amigo-secreto", "Amigo secreto", "chest", "comun", STAT_KEYS.amigoSecretoRegalos, 1, "Déjele un detalle a su amigo secreto en el cofre de Amor y amistad", "Nadie sabe que fue usted. Bueno, hasta la revelación."),
+    a("serenatero", "Serenatero", "guitar", "raro", STAT_KEYS.serenatasDadas, 1, "Pídale una serenata al trío de Amor y amistad para alguien", "Tiple, guitarra y requinto, todo por un detalle."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),

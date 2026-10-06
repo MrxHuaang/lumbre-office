@@ -94,6 +94,7 @@ export * from "./silleta";
 export * from "./feria-flores";
 export * from "./cosecha";
 export * from "./ahuyama";
+export * from "./amor-amistad";
 export * from "./carnaval-objetos";
 export * from "./carnaval";
 export * from "./carnaval-musica";

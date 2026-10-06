@@ -37,14 +37,15 @@ import {
   type Weather,
 } from "@hyvento/shared";
 import type * as Phaser from "phaser";
-import { COZY, cozyFontFamily } from "@/lib/cozy";
+import { COZY } from "@/lib/cozy";
 import { conTexto, MURMULLO, respuestaA, slotMurmullo, tocaMurmullo, turnoDeCorrillo } from "@/lib/murmullos";
 import { lessMotion } from "@/lib/prefs";
 import { Avatar } from "./Avatar";
 import { useBagStore } from "./bag";
 import { portraitFromSheet } from "./cinematicas/player";
 import { serverNow } from "./club/store";
-import { abrirDialogo, decirEnDialogo, dialogoAbierto, useDialogo } from "./dialogo";
+import { abrirDialogo, decirEnDialogo, useDialogo } from "./dialogo";
+import { murmullosCallados, murmullosVisibles, murmurar } from "./murmullo";
 import { depthOf, ensureTexture, toHtmlCanvas, worldToScreen } from "./iso/view";
 import { genteAlAlcance, useGenteFiesta } from "./genteFiestaStore";
 import { ensureCharacterTextures } from "./looks";
@@ -65,7 +66,7 @@ export interface GenteDeps {
 }
 
 /** El panel del puesto de cada festival (la `accion` del vendedor lo abre). */
-const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", cosecha: "cosechaPuesto" };
+const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", "amor-amistad": "amorShop", cosecha: "cosechaPuesto" };
 
 /** Cada cuánto se mira quién está cerca (y quién murmura). */
 const SCAN_MS = 250;
@@ -121,7 +122,6 @@ export class GenteFiestaView {
   private pending: FiestaNpc[] = [];
   private scanAt = 0;
   private hideNames = false;
-  private textos = 0;
   private unsubs: (() => void)[] = [];
 
   constructor(
@@ -273,6 +273,12 @@ export class GenteFiestaView {
       a.key = key;
     }
     return a;
+  }
+
+  /** El chibi de alguien de la fiesta que se ve ahora (las cinemáticas lo esconden mientras actúa su doble). */
+  avatarOf(id: string): Avatar | null {
+    const a = this.actors.get(id);
+    return a?.visible ? (a.avatar ?? null) : null;
   }
 
   /** Pone a cada uno donde le toca en este cuadro. */
@@ -455,7 +461,7 @@ export class GenteFiestaView {
         icon.img.setTexture(ensureTexture(this.scene, `fiesta-marca-habla-${icon.frame}`, () => fiestaMark("habla", icon.frame)));
       }
     }
-    if (!me || dialogoAbierto() || !this.nivel) return;
+    if (!me || murmullosCallados() || !this.nivel) return;
     const now = serverNow();
     const slot = slotMurmullo(now);
     const candidatos: { id: string; dist: number; line: string }[] = [];
@@ -480,11 +486,11 @@ export class GenteFiestaView {
       if (line) candidatos.push({ id: a.npc.id, dist, line });
     }
     if (!candidatos.length) return;
-    const conLetra = conTexto(candidatos, this.textos);
+    const conLetra = conTexto(candidatos, murmullosVisibles());
     for (const c of candidatos) {
       const a = this.actors.get(c.id)!;
       this.showIcon(a, time);
-      if (conLetra.has(c.id)) this.showText(a, c.line);
+      if (conLetra.has(c.id)) this.showText(a, c.line, c.dist);
     }
   }
 
@@ -502,34 +508,17 @@ export class GenteFiestaView {
     a.icon = undefined;
   }
 
-  /** El texto del murmullo: letra pixel blanca con contorno oscuro, sin fondo; sube y se desvanece. */
-  private showText(a: Actor, line: string) {
-    const p = a.pose;
-    const s = worldToScreen(p.x, p.y);
-    const lift = (a.animal ? OVER_ANIMAL : OVER_HEAD) + 12;
-    const text = this.scene.add
-      .text(Math.round(s.x), Math.round(s.y - lift), line, {
-        fontFamily: cozyFontFamily(),
-        fontSize: "8px",
-        color: "#fffaf0",
-        stroke: COZY.frame,
-        strokeThickness: 3,
-        resolution: 6,
-      })
-      .setOrigin(0.5, 1)
-      .setDepth(6e7 + depthOf(p.x, p.y));
-    this.textos++;
-    // Sube parejo todo el rato (con menos movimiento, quieto) y se desvanece al final.
-    if (!lessMotion()) this.scene.tweens.add({ targets: text, y: text.y - 10, duration: MURMULLO.duraMs });
-    this.scene.tweens.add({
-      targets: text,
-      alpha: 0,
-      delay: MURMULLO.duraMs * 0.6,
-      duration: MURMULLO.duraMs * 0.4,
-      onComplete: () => {
-        text.destroy();
-        this.textos = Math.max(0, this.textos - 1);
-      },
+  /** El texto del murmullo (game/murmullo.ts, con el cupo de toda la pantalla): sigue a quien lo dice. */
+  private showText(a: Actor, line: string, dist: number) {
+    murmurar({
+      scene: this.scene,
+      quien: a.npc.id,
+      donde: () => (a.visible ? { x: a.pose.x, y: a.pose.y } : null),
+      alto: a.animal ? OVER_ANIMAL : OVER_HEAD,
+      texto: line,
+      dist,
+      // El ícono de habla lo pone esta vista (esconde la marquita mientras tanto).
+      icono: false,
     });
   }
 

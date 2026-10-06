@@ -19,6 +19,8 @@ import { FERIA_CINEMATICAS } from "./feria-flores";
 import { COSECHA_CINEMATICAS } from "./cosecha";
 import { NOVENA_CINEMATICAS } from "./novenas";
 import { VECINO_IDS } from "./gente-fiesta/vecinos";
+import { AMOR_CINEMATICAS } from "./amor-amistad";
+import type { Look } from "./look";
 
 /** Quién hace algo: el jugador ("yo"), un NPC fijo (por su id) o un actor que la cinemática pone (`extra`). */
 export type CineActor = string;
@@ -60,9 +62,9 @@ export type CineStep =
   | { op: "camera"; to: CineActor | CinePos; zoom?: number; ms?: number; follow?: boolean }
   /** Sacudida de la cámara. */
   | { op: "shake"; ms?: number; strength?: number }
-  /** Un cuadro de diálogo con retrato. En `historia` espera a que se lea; en `momento` dura `ms`. */
+  /** Una línea en la tira de conversación, con retrato y voz. En `historia` espera a que se lea; en `momento` dura `ms`. */
   | { op: "say"; who: CineActor; text: string; name?: string; ms?: number }
-  /** Una burbuja sobre la cabeza (no espera). */
+  /** Un murmullo sobre la cabeza, sin caja (no espera). */
   | { op: "bubble"; who: CineActor; text: string }
   /** Un título grande al centro (y un subtítulo). */
   | { op: "title"; text: string; sub?: string; ms?: number }
@@ -80,9 +82,10 @@ export type CineStep =
   /**
    * Pone un actor (con la pinta de un NPC) en un lugar, y lo quita. `holds`: lo que lleva en la mano (un
    * id de los dibujos de la mano, como la silleta de los silleteros; acepta `{variables}`). `vecino`: con la
-   * pinta y el nombre de un vecino de la vereda (gente-fiesta/vecinos.ts) en vez de los del NPC de `like`.
+   * pinta y el nombre de un vecino de la vereda (gente-fiesta/vecinos.ts); `look`: otra pinta (la gente de la
+   * fiesta, como Cupido o el trío de la serenata); sin esto, la del NPC de `like`.
    */
-  | { op: "spawn"; id: string; like: (typeof CINE_NPCS)[number]; vecino?: string; name?: string; at: CinePos; facing?: Direction; holds?: string }
+  | { op: "spawn"; id: string; like: (typeof CINE_NPCS)[number]; vecino?: string; name?: string; at: CinePos; facing?: Direction; holds?: string; look?: Look }
   | { op: "despawn"; id: string }
   | { op: "sound"; sound: CineSound }
   | { op: "fx"; fx: CineFx; who?: CineActor }
@@ -325,6 +328,8 @@ for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATI
 for (const def of NOVENA_CINEMATICAS) CINEMATICAS[def.id] = def;
 // Las de la Feria de la cosecha (el sancocho, la ahuyama más grande, la tómbola y el baile).
 for (const def of COSECHA_CINEMATICAS) CINEMATICAS[def.id] = def;
+// Las de Amor y amistad (Cupido con la carta; la revelación y la serenata se arman con sus datos).
+for (const def of AMOR_CINEMATICAS) CINEMATICAS[def.id] = def;
 
 export const cineById = (id: string): CineDef | undefined => CINEMATICAS[id];
 

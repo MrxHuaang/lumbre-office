@@ -189,8 +189,12 @@ describe("el desfile por la calle del Megabús", () => {
     alice.send(MSG.move, { x: c(59), y: c(131), dir: "down", moving: true });
     await tick(60);
     expect({ x: me().x, y: me().y }).toEqual(before);
-    // Avanza con la fila.
-    await irA(room, msDeParada(1));
+    // Avanza con la fila (un buen trecho después de la parada, antes de llegar a la bajada: con más
+    // carrozas la fila es más larga y en la parada de adelante ya iría bajándose).
+    const cabeza0 = desfileEstado(msDeParada(0), T).cabeza;
+    let luego = msDeParada(0);
+    while (desfileEstado(luego, T).cabeza < cabeza0 + 25) luego += 20;
+    await irA(room, luego);
     expect(me().x).toBeGreaterThan(before.x + 20 * 32);
     expect(me().comparsa).toBe(true);
     // Al llegar a la bajada, a la vereda, con los puntos de ocio y la cinemática del final.

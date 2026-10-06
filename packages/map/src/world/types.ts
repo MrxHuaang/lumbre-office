@@ -280,7 +280,10 @@ export interface PointDef {
     | "cosecha_olla"
     | "cosecha_bascula"
     | "cosecha_tablero"
-    | "cosecha_tombola";
+    | "cosecha_tombola"
+    // Amor y amistad: delante del cofre del amigo secreto y delante del trío de la serenata.
+    | "amigo_secreto"
+    | "amor_serenata";
   name: string;
   x: number;
   y: number;

@@ -13,6 +13,7 @@ import { GENTE_COSECHA } from "./gente-fiesta/cosecha";
 import { GENTE_FERIA } from "./gente-fiesta/feria-flores";
 import { GENTE_NOVENAS } from "./gente-fiesta/novenas";
 import { GENTE_VELITAS } from "./gente-fiesta/velitas";
+import { GENTE_AMOR } from "./gente-fiesta/amor-amistad";
 import type { Look } from "./look";
 import { lineSeed, pickLine } from "./npcs";
 import type { Weather } from "./weather";
@@ -146,6 +147,7 @@ export const GENTE_FIESTA: Partial<Record<FestivalId, GenteDeFestival>> = {
   "feria-flores": GENTE_FERIA,
   carnaval: GENTE_CARNAVAL,
   cosecha: GENTE_COSECHA,
+  "amor-amistad": GENTE_AMOR,
 };
 
 export const GENTE_REGLAS = {

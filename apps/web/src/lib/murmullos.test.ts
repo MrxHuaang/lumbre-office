@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { conTexto, MURMULLO, respuestaA, slotMurmullo, tocaMurmullo, turnoDeCorrillo } from "./murmullos";
+import { conTexto, cupoMurmullo, MURMULLO, respuestaA, slotMurmullo, tocaMurmullo, turnoDeCorrillo } from "./murmullos";
+
+describe("el cupo de murmullos de todo el juego", () => {
+  const cerca = { dist: 1, visibles: 0, tira: false };
+  it("dos a la vez como mucho: el tercero solo se ve si contesta a algo mío (y se va el más viejo)", () => {
+    expect(MURMULLO.maxTextos).toBe(2);
+    expect(cupoMurmullo(cerca)).toBe("si");
+    expect(cupoMurmullo({ ...cerca, visibles: 1 })).toBe("si");
+    expect(cupoMurmullo({ ...cerca, visibles: 2 })).toBe("no");
+    expect(cupoMurmullo({ ...cerca, visibles: 2, prioridad: true })).toBe("reemplaza");
+  });
+
+  it("de lejos o con la tira abierta, nada (ni lo que contesta); lo de una cinemática sí, sin pasar de dos", () => {
+    expect(cupoMurmullo({ ...cerca, dist: MURMULLO.leeTiles + 0.5 })).toBe("no");
+    expect(cupoMurmullo({ ...cerca, dist: MURMULLO.leeTiles + 0.5, prioridad: true })).toBe("no");
+    expect(cupoMurmullo({ ...cerca, tira: true, prioridad: true })).toBe("no");
+    expect(cupoMurmullo({ dist: 40, visibles: 0, tira: true, forzar: true })).toBe("si");
+    expect(cupoMurmullo({ dist: 40, visibles: 2, tira: true, forzar: true })).toBe("reemplaza");
+  });
+});
 
 describe("los murmullos de la gente de la fiesta", () => {
   it("como mucho dos textos en pantalla, los más cercanos y solo a 3 tiles o menos", () => {

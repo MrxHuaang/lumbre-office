@@ -1,6 +1,8 @@
-// Los murmullos de la gente de la fiesta (VIR-167), lo puro: quién dice algo en este rato (la misma cuenta en
-// todos los navegadores), a quiénes se les ve el texto (como mucho dos en toda la pantalla, primero los más
-// cercanos y solo a 3 tiles o menos; los demás, solo el ícono de habla) y cómo contestan a los emotes.
+// Los murmullos (VIR-167, VIR-171), lo puro: lo que dicen solos los NPC de todo el juego, sin cajas. Quién de la
+// gente de la fiesta dice algo en este rato (la misma cuenta en todos los navegadores), a quiénes se les ve el
+// texto (como mucho dos en toda la pantalla, sumando la gente de la fiesta, el personal fijo y las
+// cinemáticas; primero los más cercanos y solo a 3 tiles o menos; los demás, solo el ícono de habla) y cómo
+// contestan a los emotes. Lo dibuja game/murmullo.ts.
 import type { EmoteId } from "@hyvento/shared";
 
 export const MURMULLO = {
@@ -42,6 +44,31 @@ export function conTexto(candidatos: readonly { id: string; dist: number }[], ya
       .slice(0, libres)
       .map((c) => c.id),
   );
+}
+
+export interface PedidoDeMurmullo {
+  /** Distancia al jugador (tiles). */
+  dist: number;
+  /** Textos que ya se ven en toda la pantalla. */
+  visibles: number;
+  /** ¿Hay una tira abierta (o una cinemática de historia en pantalla)? */
+  tira: boolean;
+  /** Contesta a algo mío (la astrónoma, el crupier cantando el número): si no hay cupo, reemplaza al más viejo. */
+  prioridad?: boolean;
+  /** De una cinemática: sin mirar la distancia ni la tira (pero sin pasar del máximo). */
+  forzar?: boolean;
+}
+
+/**
+ * ¿Se ve el texto de un murmullo? `si` (hay cupo), `reemplaza` (se va el más viejo para que no pasen de dos) o
+ * `no` (solo el ícono de habla, o nada con la tira abierta).
+ */
+export function cupoMurmullo(p: PedidoDeMurmullo): "si" | "reemplaza" | "no" {
+  const lleno = p.visibles >= MURMULLO.maxTextos;
+  if (p.forzar) return lleno ? "reemplaza" : "si";
+  if (p.tira || p.dist > MURMULLO.leeTiles) return "no";
+  if (!lleno) return "si";
+  return p.prioridad ? "reemplaza" : "no";
 }
 
 /** Cómo contesta alguien de la fiesta a un emote de al lado (o null si no contesta). Al baile, aplausos. */

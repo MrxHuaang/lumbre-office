@@ -2640,6 +2640,118 @@ ITEMS["bunuelos-novena"] = {
   flat: "H",
 };
 
+// ---------- Amor y amistad: lo del puesto y los instrumentos del trío ----------
+
+// La chocolatina de corazón: papel rojo brillante con la punta abierta (el chocolate asomando).
+ITEMS["chocolatina-corazon"] = {
+  crumb: hex("#b87a4a"),
+  rows: [
+    ".oo..oo.", //
+    "orHroRro",
+    "orrrrrro",
+    "orrrrRro",
+    ".orrrro.",
+    "..occo..",
+    "...oo...",
+  ],
+  colors: legend({ r: "#d0304a", R: "#8a1428", H: "#ffa0b0", c: "#6a3a1e" }),
+  flat: "H",
+};
+// La rosa roja de tallo largo, con sus dos hojas y el lacito blanco.
+ITEMS["rosa-roja"] = {
+  rows: [
+    "..ooo...", //
+    ".orRro..",
+    "orRrRro.",
+    ".orrro..",
+    "..ogo...",
+    ".oLgo...",
+    "..owwo..",
+    "...goLo.",
+    "...go...",
+    "...go...",
+  ],
+  colors: legend({ r: "#d0304a", R: "#8a1428", g: "#3c7a3f", L: "#7fc04e", w: "#fffaf0" }),
+  flat: "R",
+};
+// La tarjeta de amor y amistad: blanca, doblada, con el corazón rojo en la portada.
+ITEMS["tarjeta-amistad"] = {
+  rows: [
+    "oooooooo", //
+    "owwwwwPo",
+    "owrwrwPo",
+    "owrrrwPo",
+    "owwrwwPo",
+    "owwwwwPo",
+    "oooooooo",
+  ],
+  colors: legend({ w: "#fffaf0", P: "#f4a8c0", r: "#d0304a" }),
+  flat: "rP",
+};
+// La caja de bombones: roja, en forma de corazón, con la cinta dorada.
+ITEMS["caja-bombones"] = {
+  crumb: hex("#7a4428"),
+  rows: [
+    ".oo..oo..", //
+    "orryyrro.",
+    "orryyrrro",
+    "oyyyyyyyo",
+    ".orryyro.",
+    "..oryro..",
+    "...ooo...",
+  ],
+  colors: legend({ r: "#d0304a", y: "#f3c440" }),
+  flat: "y",
+};
+// El tiple: guitarrita de doce cuerdas, de madera clara (lo lleva Tomás en el trío).
+ITEMS.tiple = {
+  rows: [
+    "......oo", //
+    ".....obo",
+    "....obo.",
+    "...obo..",
+    ".oowoo..",
+    "owwdwwo.",
+    "owdkdwo.",
+    "owwdwwo.",
+    ".owwwo..",
+    "..ooo...",
+  ],
+  colors: legend({ w: "#e0aa5a", d: "#a0682a", k: "#3a2010", b: "#5a3418" }),
+  flat: "k",
+};
+// La guitarra: más grande y de madera oscura.
+ITEMS.guitarra = {
+  rows: [
+    ".......o", //
+    "......ob",
+    ".....obo",
+    "....obo.",
+    ".ooowo..",
+    "owwwwwo.",
+    "owwkwwo.",
+    "owwwwwwo",
+    "owwwwwwo",
+    ".oooooo.",
+  ],
+  colors: legend({ w: "#a0582a", k: "#2a1408", b: "#3a2010" }),
+  flat: "k",
+};
+// El requinto: el más chiquito, rojizo y con la boca redonda.
+ITEMS.requinto = {
+  rows: [
+    ".....oo", //
+    "....obo",
+    "...obo.",
+    ".oowo..",
+    "owwkwo.",
+    "owwwwo.",
+    ".oooo..",
+  ],
+  colors: legend({ w: "#c8603a", k: "#2a1408", b: "#5a3418" }),
+  flat: "k",
+};
+
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 
 /** Brasa: apagada (0), titilando (1) o encendida al pitar (2). */
