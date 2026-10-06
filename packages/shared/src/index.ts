@@ -95,6 +95,7 @@ export * from "./feria-flores";
 export * from "./amor-amistad";
 export * from "./carnaval-objetos";
 export * from "./carnaval";
+export * from "./ano-viejo";
 export * from "./cometa";
 export * from "./cometa-vuelo";
 export * from "./cometas";

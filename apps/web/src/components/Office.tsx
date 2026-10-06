@@ -73,6 +73,7 @@ import { FeriaPanel } from "./FeriaPanel";
 import { CometasPanel, CometaVuelo } from "./CometasPanel";
 import { AmorPanel } from "./AmorPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
+import { AnoViejoShopPanel, AnoViejoStrip, CartelPanel, MunecoPanel, ResumenAnoPanel } from "./AnoViejoPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { TiraDialogo } from "./dialogo/TiraDialogo";
 import { QuestTracker } from "./encargos/QuestTracker";
@@ -351,6 +352,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotePrompt />
             <BrujasTrickPrompt />
             <ComparsaPrompt />
+            <AnoViejoStrip />
             <SeatPrompt />
             <InteractPrompt />
             <MarshmallowStrip />
@@ -476,6 +478,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "carnavalShop" && <CarnavalShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {(panel?.kind === "amorCofre" || panel?.kind === "amorShop" || panel?.kind === "amorSerenata") && <AmorPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalConcurso" && <ConcursoPanel onClose={closePanel} />}
+          {panel?.kind === "anoViejoShop" && <AnoViejoShopPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoMuneco" && <MunecoPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoCartel" && <CartelPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoResumen" && <ResumenAnoPanel onClose={closePanel} />}
           {(panel?.kind === "cometasTaller" || panel?.kind === "cometasShop" || panel?.kind === "cometasConcurso") && <CometasPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {/* El Festival de cometas: el minijuego mientras mi cometa vuela. */}
           <CometaVuelo />

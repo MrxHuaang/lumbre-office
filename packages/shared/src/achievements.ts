@@ -167,6 +167,9 @@ export const STAT_KEYS = {
   // El Carnaval (carnaval.ts): desfiles bailados en la comparsa y concursos de disfraces ganados.
   comparsaParades: "comparsa_parades",
   carnavalCrowns: "carnaval_crowns",
+  // El Año viejo (ano-viejo.ts): cosas que le dio al muñeco y los agüeros cumplidos en un mismo año (máximo).
+  munecoAportes: "muneco_aportes",
+  anoViejoAgueros: "ano_viejo_agueros",
   // El Festival de cometas (cometas.ts): cometas armadas, la mejor altura (máximo, en metros) y los
   // premios ganados (la más alta o la más bonita).
   cometasArmadas: "cometas_armadas",
@@ -221,6 +224,7 @@ export const MAX_STATS: ReadonlySet<string> = new Set([
   STAT_KEYS.storyCh4,
   STAT_KEYS.storyCh5,
   STAT_KEYS.storyPrologue,
+  STAT_KEYS.anoViejoAgueros,
   STAT_KEYS.cometaAltura,
 ]);
 
@@ -489,6 +493,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // El Carnaval de Negros y Blancos
     a("comparsero", "Comparsero", "mask", "raro", STAT_KEYS.comparsaParades, 3, "Baila 3 desfiles del Carnaval en la comparsa de la cabaña", "Detrás del Megabús de la alegría ya te conocen el paso."),
     a("rey-del-carnaval", "Rey o reina del Carnaval", "mask", "epico", STAT_KEYS.carnavalCrowns, 1, "Gana el concurso de disfraces del Carnaval", "Toda la cabaña votó por tu pinta."),
+    // El Año viejo
+    a("munequero", "Muñequero", "flame", "comun", STAT_KEYS.munecoAportes, 3, "Dele 3 cosas al muñeco de año viejo (prendas viejas o relleno)", "Ese pantalón remendado era suyo, ¿cierto?"),
+    a("aguerero", "Agüerero", "clock", "epico", STAT_KEYS.anoViejoAgueros, 4, "Cumpla los cuatro agüeros en un Año viejo: las uvas, la maleta, las lentejas y la ropa amarilla", "Con tanto agüero, este año no hay mala suerte que le entre."),
     // El Festival de cometas
     a("cometero", "Cometero", "cometa", "comun", STAT_KEYS.cometasArmadas, 1, "Arma una cometa en el taller de la loma en el Festival de cometas", "Papel de seda, palitos de guadua y engrudo hasta en las cejas."),
     a("dueno-del-cielo", "Dueño del cielo", "cometa", "epico", STAT_KEYS.cometaPremios, 1, "Gana un premio del Festival de cometas: la más alta del día o la más bonita", "Toda la loma levantó la cabeza para ver su cometa."),

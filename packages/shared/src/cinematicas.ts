@@ -17,6 +17,7 @@ import { CAPITULO2_CINEMATICAS } from "./capitulo2";
 import { CAPITULO3_CINEMATICAS } from "./capitulo3";
 import { FERIA_CINEMATICAS } from "./feria-flores";
 import { NOVENA_CINEMATICAS } from "./novenas";
+import { ANO_VIEJO_CINEMATICAS } from "./ano-viejo";
 import { COMETAS_CINEMATICAS } from "./cometas";
 import { AMOR_CINEMATICAS } from "./amor-amistad";
 import type { Look } from "./look";
@@ -326,6 +327,8 @@ for (const def of COMETAS_CINEMATICAS) CINEMATICAS[def.id] = def;
 for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATICAS[def.id] = def;
 // Las de las novenas (la figura del pesebre y cada noche de la novena).
 for (const def of NOVENA_CINEMATICAS) CINEMATICAS[def.id] = def;
+// Las del Año viejo (la quema del muñeco, la cuenta regresiva y los agüeros).
+for (const def of ANO_VIEJO_CINEMATICAS) CINEMATICAS[def.id] = def;
 // Las de Amor y amistad (Cupido con la carta; la revelación y la serenata se arman con sus datos).
 for (const def of AMOR_CINEMATICAS) CINEMATICAS[def.id] = def;
 

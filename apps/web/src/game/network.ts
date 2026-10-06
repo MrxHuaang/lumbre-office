@@ -119,6 +119,7 @@ import { bindCasas, casasAbiertasPara, useCasasStore } from "./casaVisitas";
 import { bindPesca } from "./pesca";
 import { bindBrujas } from "./brujas";
 import { bindFeria } from "./feriaFlores";
+import { bindAnoViejo } from "./anoViejo";
 import { bindCometas } from "./cometas";
 import { bindAmor } from "./amorAmistad";
 import { bindCarnaval } from "./carnaval";
@@ -957,6 +958,7 @@ function attach(r: OfficeRoom) {
   bindCometas(r);
   bindAmor(r);
   bindCarnaval(r);
+  bindAnoViejo(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({

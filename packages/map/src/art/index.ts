@@ -65,6 +65,7 @@ export {
 // Jardín vivo: lo que crece en las parcelas del huerto y la tierra mojada.
 export { bedCropSprite, cropSprite, wetSoil, type CropStage } from "./huerto";
 export { silletaOnStand } from "./feria-flores";
+export { FUEGO_CUADROS, fuegoBrasero, LUCES_COLORES, luzDeColor, marcaMaleta, munecoEnSilla, MUNECO_ETAPAS } from "./ano-viejo";
 export { arbolCometa, cometaCielo, COMETA_FRAMES, COMETAS_DECOR_FRAMES, cometasDecorSprite, escaleraGaraje, mangaViento } from "./cometas";
 export { MARCO_ENAMORADOS } from "./amor-amistad";
 // La granja: los animales, la rueda del molino que gira, los huevos del nido y las nubecitas.

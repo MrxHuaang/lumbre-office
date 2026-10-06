@@ -1129,7 +1129,7 @@ function mascarita(L: Lienzo, sx: number, sy: number, base: Ramp, franja: Ramp, 
 }
 
 /** Pone una grilla con la base (abajo al centro) en el punto (x, y, z) del mundo. */
-function apoya(L: Lienzo, x: number, y: number, z: number, rows: readonly string[], ley: Ley, luz = true) {
+export function apoya(L: Lienzo, x: number, y: number, z: number, rows: readonly string[], ley: Ley, luz = true) {
   const q = L.p(x, y, z);
   const w = Math.max(...rows.map((r) => r.length));
   L.estampa(q.x - Math.floor(w / 2), q.y - rows.length + 1, rows, ley, { luz });

@@ -14,6 +14,7 @@ import { MUNDO_BAG_OBJECTS } from "./garra";
 import { BRUJAS_BAG_OBJECTS } from "./brujas";
 import { CARNAVAL_BAG_OBJECTS } from "./carnaval-objetos";
 import { VELITAS_BAG_OBJECTS } from "./velitas";
+import { ANO_VIEJO_BAG_OBJECTS } from "./ano-viejo";
 import { COMETAS_BAG_OBJECTS } from "./cometas";
 import { COMETA, cometaCodeOf, cometaName } from "./cometa";
 import { AMOR_BAG_OBJECTS } from "./amor-amistad";
@@ -169,6 +170,8 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   ...CARNAVAL_BAG_OBJECTS,
   // La Noche de velitas: las velitas y el farol de deseos (velitas.ts).
   ...VELITAS_BAG_OBJECTS,
+  // El Año viejo: las uvas, la maleta, las lentejas, lo del muñeco y la varita de luz (ano-viejo.ts).
+  ...ANO_VIEJO_BAG_OBJECTS,
   // El Festival de cometas: los materiales, el gancho, el raspao y la cometa del techo (cometas.ts).
   ...COMETAS_BAG_OBJECTS,
   // Amor y amistad: lo del puesto de chocolates y flores (amor-amistad.ts).

@@ -66,7 +66,7 @@ export interface GenteDeps {
 }
 
 /** El panel del puesto de cada festival (la `accion` del vendedor lo abre). */
-const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", "amor-amistad": "amorShop", cometas: "cometasShop" };
+const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", "amor-amistad": "amorShop", "ano-viejo": "anoViejoShop", cometas: "cometasShop" };
 
 /** Cada cuánto se mira quién está cerca (y quién murmura). */
 const SCAN_MS = 250;

@@ -18,6 +18,7 @@ import { FESTIVAL_DECOR } from "../src/festival-decor";
 import { buildCasaPropia, CASA_PLANTILLAS, festivalDecorAreas, getWorld, setFestivalDecor } from "../src/index";
 import { CATALOG, catalogItem, type CatalogItem } from "../src/world/catalog";
 import { AGUA_CATALOG } from "../src/world/catalog-agua";
+import { ANO_VIEJO_CATALOG } from "../src/world/catalog-ano-viejo";
 import { BRUJAS_CATALOG } from "../src/world/catalog-brujas";
 import { BUS_CATALOG } from "../src/world/catalog-bus";
 import { CARNAVAL_CATALOG } from "../src/world/catalog-carnaval";
@@ -74,6 +75,7 @@ const SUBCATALOGS: Record<string, object> = {
   cometas: COMETAS_CATALOG,
   feria: FERIA_CATALOG,
   novenas: NOVENAS_CATALOG,
+  "ano-viejo": ANO_VIEJO_CATALOG,
 };
 const groupOf = new Map<string, string>();
 for (const [g, cat] of Object.entries(SUBCATALOGS)) for (const t of Object.keys(cat)) groupOf.set(t, g);
