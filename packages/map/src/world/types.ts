@@ -262,7 +262,11 @@ export interface PointDef {
     // Delante de la astrónoma del observatorio: E le pregunta por el cielo (el servidor contesta a todos).
     | "astronomer"
     // Delante del mostrador de la recepción (planta baja): Doña Gloria dice dónde está cada uno.
-    | "reception";
+    | "reception"
+    // Los festivales (festival-decor.ts): el puesto del festival y, en la Noche de brujas, junto a la
+    // calabaza dorada del laberinto (cambia de rincón cada día).
+    | "festival_shop"
+    | "golden_pumpkin";
   name: string;
   x: number;
   y: number;

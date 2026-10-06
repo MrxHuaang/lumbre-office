@@ -228,6 +228,9 @@ import { DEFAULT_SWIVEL_TIMINGS, Swivels, type SwivelTimings } from "./swivels";
 import { Toasts, type Toaster } from "./toasts";
 import { devToolsEnabled, parseCasaJump, parseDevFestival, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
 import { Festivales } from "./festivales";
+import { NocheBrujas } from "./nocheBrujas";
+import { festivalDecorAreas, setFestivalDecor } from "@hyvento/map";
+import { BRUJAS_CINE, BRUJAS_MSG, FESTIVAL_MSG, brujasActiva, fechaDelJuego, type BrujasBuyResult, type FestivalCineEvent, type PumpkinResult, type TrickResult } from "@hyvento/shared";
 import { Capitulo2 } from "./capitulo2";
 import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
@@ -434,6 +437,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static fishingTimings: FishingTimings = { ...FISHING };
   /** Reloj de las compras del puesto de pesca (los tests lo corren para saltarse la pausa). */
   static pescaNow: () => number = () => Date.now();
+  /** La Noche de brujas: el azar del dulce o truco y el reloj de la pausa (los tests los fijan). */
+  static brujasRandom: (n: number) => number = (n) => randomInt(n);
+  static brujasNow: () => number = () => Date.now();
+  /**
+   * Dar la canasta de dulce o truco al entrar y al abrir la Noche de brujas. Los tests lo apagan
+   * (test/setup.ts: el reloj real puede caer en el festival y cambiarles la mano); noche-brujas.test.ts lo prende.
+   */
+  static brujasCanasta = true;
   /** Encargos: el reloj (día de Bogotá) y qué le toca a cada quien (los tests lo fijan). */
   static encargosNow: () => number = () => Date.now();
   static encargosPick: (userId: string, now: number, seasons: QuestSeasons) => ActiveQuest[] = currentQuests;
@@ -692,6 +703,22 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   });
   /** El puesto de pesca del lago: las compras y el equipo de cada lance (ver pescaTienda.ts). */
   private pesca = new PescaStand({ repo: () => this.repo, held: this.held, now: () => OfficeRoom.pescaNow() });
+  /** La Noche de brujas: la canasta, el dulce o truco, la calabaza dorada y el puesto (ver nocheBrujas.ts). */
+  private brujas = new NocheBrujas({
+    festival: () => ({ id: this.state.festival, fase: this.state.festivalFase, day: this.gameTimeNow().day, año: fechaDelJuego(this.gameTimeNow().day).año }),
+    mapOf: (area) => this.mapOf(area),
+    held: this.held,
+    // Los contadores se crean más abajo: se piden al usarlos.
+    stats: {
+      stat: (u, k) => this.achievements.stat(u, k),
+      max: (u, k, v) => this.achievements.max(u, k, v),
+      bump: (u, k, by) => this.achievements.bump(u, k, by),
+      isLoaded: (u) => this.achievements.isLoaded(u),
+    },
+    repo: () => this.repo,
+    now: () => OfficeRoom.brujasNow(),
+    random: (n) => OfficeRoom.brujasRandom(n),
+  });
   /** Estadísticas y logros (ver achievements.ts): se suman en memoria y se guardan juntas. */
   private achievements: AchievementTracker = new AchievementTracker({
     repo: () => this.repo,
@@ -1055,7 +1082,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(MSG.boardStroke, (client, raw) => this.withBoard(client, (who) => this.whiteboards.stroke(who, raw, Date.now())));
     this.onMessage(MSG.boardUndo, (client, raw) => this.withBoard(client, (who) => this.whiteboards.undo(who, raw)));
     this.onMessage(MSG.boardClear, (client, raw) => this.withBoard(client, (who) => this.whiteboards.clear(who, raw)));
-    this.onMessage(MSG.knock, (client, raw) => this.handleKnock(client, raw));
+    this.onMessage(MSG.knock, (client, raw) => void this.handleKnock(client, raw));
+    this.onMessage(BRUJAS_MSG.trick, (client, raw) => void this.handleBrujasTrick(client, raw));
+    this.onMessage(BRUJAS_MSG.pumpkin, (client) => void this.handleBrujasPumpkin(client));
+    this.onMessage(BRUJAS_MSG.buy, (client, raw) => void this.handleBrujasBuy(client, raw));
     this.onMessage(MSG.invite, (client, raw) => this.invites.invite(client.sessionId, raw));
     this.onMessage(MSG.inviteRespond, (client, raw) => this.invites.respond(client.sessionId, raw));
     this.onMessage(MSG.phoneCall, (client, raw) => this.handlePhoneCall(client, raw));
@@ -1207,7 +1237,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.clock.setInterval(() => !this.state.clockPaused && void this.saveClock(), OfficeRoom.clockSaveMs);
     this.clock.setInterval(() => this.checkSeason(), 5_000);
     // El festival del día del calendario (ver festivales.ts): abre a las 9:00 y cierra a las 22:00 del juego.
-    this.clock.setInterval(() => this.festivales.tick(), 2_000);
+    this.clock.setInterval(() => {
+      this.festivales.tick();
+      this.syncFestival();
+    }, 2_000);
     this.weather.start();
     // Mientras llueve, lo que se va secando se vuelve a regar solo.
     this.clock.setInterval(() => isWet(this.weather.weather) && this.rainOnGarden(), 60_000);
@@ -1230,6 +1263,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       await this.loadGameClock();
       this.season = this.gameSeason();
       this.festivales.start();
+      this.syncFestival();
       await this.huerto.load().catch((err) => console.error("loadGarden", err));
       this.startCasino();
       // Apuestas de una corrida anterior que se cayó sin pagarlas (y cada tanto, por si era reciente).
@@ -1297,6 +1331,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   async onDispose() {
     OfficeRoom.instances.delete(this);
+    // La decoración del festival es del mundo compartido: la última sala la quita.
+    if (OfficeRoom.instances.size === 0) setFestivalDecor(null);
     this.piscina?.dispose();
     this.drunk.dispose();
     this.trips.dispose();
@@ -1387,6 +1423,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       const given = await this.held.add(auth.sub, CELULAR_ITEM).catch(() => "full" as const);
       if (given === "ok") this.held.move(auth.sub, CELULAR_ITEM, BAG.slots - 1);
     }
+    // En plena Noche de brujas, la canasta de dulce o truco a quien no la tiene.
+    if (OfficeRoom.brujasCanasta) await this.brujas.giveBasket(auth.sub).catch(() => false);
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
@@ -1939,19 +1977,33 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     office.note = cleanOfficeNote(parsed.data.note);
   }
 
-  private handleKnock(client: Client<UserData>, raw: unknown) {
+  private async handleKnock(client: Client<UserData>, raw: unknown) {
     const player = this.state.players.get(client.sessionId);
     const parsed = KnockMessage.safeParse(raw);
     if (!player || !parsed.success) return;
     // El timbre de una casa: `zoneId` es el nivel de afuera de esa casa.
-    if (isCasaArea(parsed.data.zoneId)) return this.handleCasaRing(client, player, parsed.data.zoneId);
+    if (isCasaArea(parsed.data.zoneId)) {
+      const ownerId = casaOwnerOf(parsed.data.zoneId);
+      if (ownerId && ownerId !== player.userId) {
+        const ownerName = this.state.casas.get(ownerId)?.ownerName || [...this.state.players.values()].find((p) => p.userId === ownerId)?.name || "La casa";
+        this.sendTrick(client, await this.brujas.trickDoor(player, "casa", ownerId, ownerName, null));
+      }
+      return this.handleCasaRing(client, player, parsed.data.zoneId);
+    }
     const office = this.state.offices.get(parsed.data.zoneId);
     if (!office || !office.ownerId || office.ownerId === player.userId) return;
 
     const reply = (outcome: KnockOutcome) =>
       client.send(MSG.knockResult, { zoneId: office.zoneId, outcome, ownerName: office.ownerName } satisfies KnockResult);
 
-    if (!office.locked || office.guests.includes(player.userId)) return reply("not-locked");
+    // Noche de brujas con la canasta en la mano y frente a la puerta: además de tocar, dulce o truco.
+    const zone = this.zonesById.get(office.zoneId);
+    const area = this.areaOfZone.get(office.zoneId);
+    const door = zone?.door && area ? { area, ...officeDoor(zone) } : null;
+    const trick = door ? await this.brujas.trickDoor(player, "puerta", office.zoneId, office.ownerName, door) : null;
+    this.sendTrick(client, trick);
+    // Con la puerta abierta, pedir dulce no es tocar para entrar.
+    if (!office.locked || office.guests.includes(player.userId)) return trick ? undefined : reply("not-locked");
 
     const key = `${player.userId}:${office.zoneId}`;
     const now = Date.now();
@@ -1981,6 +2033,46 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     owner.send(MSG.knockRequest, { requestId, zoneId: office.zoneId, fromName: player.name } satisfies KnockRequest);
     this.achievements.bump(player.userId, STAT_KEYS.knocks);
+  }
+
+  /** La respuesta del dulce o truco: a quien pidió, y si fue truco, su cinemática corta. */
+  private sendTrick(client: Client<UserData>, result: TrickResult | null) {
+    if (!result) return;
+    client.send(BRUJAS_MSG.trickResult, result satisfies TrickResult);
+    if (result.ok && result.outcome.kind === "truco") client.send(FESTIVAL_MSG.cine, { id: BRUJAS_CINE.truco(result.outcome.truco) } satisfies FestivalCineEvent);
+  }
+
+  /** Dulce o truco a un NPC (ver nocheBrujas.ts). */
+  private async handleBrujasTrick(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.drunk.fainted(player.userId)) return;
+    this.markActive(client);
+    this.sendTrick(client, await this.brujas.trickNpc(player, raw));
+  }
+
+  /** La calabaza dorada del laberinto: a la mochila y su cinemática. */
+  private async handleBrujasPumpkin(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.drunk.fainted(player.userId)) return;
+    this.markActive(client);
+    const result = await this.brujas.pumpkin(player);
+    client.send(BRUJAS_MSG.pumpkinResult, result satisfies PumpkinResult);
+    if (result.ok) client.send(FESTIVAL_MSG.cine, { id: BRUJAS_CINE.calabaza } satisfies FestivalCineEvent);
+  }
+
+  /** El puesto del caldero (junto a su punto). */
+  private async handleBrujasBuy(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    this.markActive(client);
+    const near = nearPointOfType(this.mapOf(player.area), "festival_shop", player.x, player.y) && !this.drunk.fainted(player.userId);
+    const result = await this.brujas.buy(player.userId, raw, near);
+    if (!result) return;
+    if (result.ok) {
+      for (const p of this.state.players.values()) if (p.userId === player.userId) p.points = result.balance;
+      this.achievements.bump(player.userId, `${STAT_PREFIX.order}${result.item}`);
+    }
+    client.send(BRUJAS_MSG.buyResult, result satisfies BrujasBuyResult);
   }
 
   private handleKnockRespond(client: Client<UserData>, raw: unknown) {
@@ -2580,6 +2672,28 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     time: () => this.gameTimeNow(),
     broadcast: (type, msg) => this.broadcast(type, msg),
   });
+  /** El festival (y su día) cuya decoración tiene puesta esta sala, y para cuál ya repartió las canastas. */
+  private festivalShown = { id: "", day: 0 };
+  private basketsFor = "";
+
+  /**
+   * Sigue al festival de hoy: pone o quita su decoración (como los cambios del editor de la casa, sin tocar
+   * el plano) y, al abrir la Noche de brujas, le da la canasta a todos los que están.
+   */
+  private syncFestival() {
+    const id = this.state.festival;
+    const day = this.gameTimeNow().day;
+    this.state.festivalDia = id ? day : 0;
+    const was = this.festivalShown;
+    if (was.id !== id || (id && was.day !== day)) {
+      this.festivalShown = { id, day };
+      setFestivalDecor(id || null, day);
+      for (const area of new Set([...festivalDecorAreas(was.id), ...festivalDecorAreas(id)])) this.rebuildArea(area);
+    }
+    const open = brujasActiva(id, this.state.festivalFase) ? `${id}:${day}` : "";
+    if (open && this.basketsFor !== open && OfficeRoom.brujasCanasta) for (const p of this.state.players.values()) void this.brujas.giveBasket(p.userId);
+    this.basketsFor = open;
+  }
 
   /** La estación con que se vio el mundo la última vez (para notar el cambio). */
   private season: Season | null = null;
@@ -4069,6 +4183,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.fishery.forget(player.userId);
     this.capitulo3.forget(player.userId);
     this.pesca.forget(player.userId);
+    this.brujas.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);

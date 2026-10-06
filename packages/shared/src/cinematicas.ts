@@ -11,6 +11,7 @@
 import type { Direction } from "./protocol";
 import { EMOTE_IDS, type EmoteGesture, type EmoteId } from "./emotes";
 import { FESTIVAL_CINEMATICAS } from "./festivales";
+import { BRUJAS_CINEMATICAS } from "./noche-brujas";
 import { CAPITULO2_CINEMATICAS } from "./capitulo2";
 import { CAPITULO3_CINEMATICAS } from "./capitulo3";
 
@@ -305,8 +306,9 @@ export const CINEMATICAS: Record<string, CineDef> = {
   },
 };
 
-// Las de los festivales (apertura, cierre y llegada tarde) viven con los festivales.
-for (const def of FESTIVAL_CINEMATICAS) CINEMATICAS[def.id] = def;
+// Las de los festivales (apertura, cierre y llegada tarde) viven con los festivales; las de la Noche de
+// brujas (la calabaza dorada y los trucos), con sus reglas.
+for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS]) CINEMATICAS[def.id] = def;
 // Las de los capítulos de la historia, con su contenido.
 for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATICAS[def.id] = def;
 

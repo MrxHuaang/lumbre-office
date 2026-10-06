@@ -1,19 +1,21 @@
 // Dibuja un nivel completo a un PNG para revisar el arte sin abrir el juego.
-// Uso: pnpm --filter @hyvento/map render <nivel> [salida.png] [noche] [cumple,karaoke]
-// (el último, para ver lo que ponen los eventos: el pastel de cumpleaños o el club en modo karaoke).
+// Uso: pnpm --filter @hyvento/map render <nivel> [salida.png] [noche] [cumple,karaoke,brujas]
+// (el último, para ver lo que ponen los eventos: el pastel de cumpleaños, el club en modo karaoke o la
+// decoración de un festival, por su id, como `brujas`).
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { composeArea } from "../src/art/compose";
 import { eventOverlays } from "../src/art/eventos";
-import { buildCasaPropia, CASA_PLANTILLAS, getWorld } from "../src/index";
+import { buildCasaPropia, CASA_PLANTILLAS, festivalDecorAreas, getWorld, setFestivalDecor } from "../src/index";
 
 const [areaId = "jardin", out = `${areaId}.png`, mode = "dia", events = ""] = process.argv.slice(2);
+const on = events.split(",");
+for (const e of on) if (festivalDecorAreas(e).length) setFestivalDecor(e, 0);
 // `casa-afuera`, `casa-abajo` y `casa-arriba` son la plantilla de la casa de cada persona (no están en el
 // mundo: se arman por persona).
 const casa = CASA_PLANTILLAS[areaId as keyof typeof CASA_PLANTILLAS];
 const map = casa ? buildCasaPropia(casa === "afuera" ? "casa:plantilla" : `casa:plantilla:${casa}`) : getWorld().areas.get(areaId);
 if (!map) throw new Error(`No existe el nivel ${areaId} (hay: ${[...getWorld().areas.keys(), ...Object.keys(CASA_PLANTILLAS)].join(", ")})`);
-const on = events.split(",");
 const canvas = composeArea(map, mode !== "noche", 80, eventOverlays(areaId, { birthday: on.includes("cumple"), karaoke: on.includes("karaoke") }));
 
 // Escala x2 sobre el fondo de la noche de afuera.
