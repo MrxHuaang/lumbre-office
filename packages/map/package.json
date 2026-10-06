@@ -12,7 +12,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "render": "tsx scripts/render-area.ts"
+    "render": "tsx scripts/render-area.ts",
+    "carrozas": "tsx scripts/render-carrozas.ts"
   },
   "devDependencies": {
     "typescript": "^5.8.0",

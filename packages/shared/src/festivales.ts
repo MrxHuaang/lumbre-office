@@ -31,6 +31,8 @@ export interface FestivalDef {
    * apertura y el cierre) la sala manda la cinemática a todos (la suelta de faroles de velitas).
    */
   momentos?: readonly FestivalMomento[];
+  /** Hora en que cierra si no es la de siempre (el Carnaval cierra de día, antes de que oscurezca). */
+  cierre?: number;
 }
 
 export interface FestivalMomento {
@@ -91,6 +93,8 @@ export const FESTIVALES: readonly FestivalDef[] = [
     estacion: "verano",
     dia: 18,
     dias: 1,
+    // De día, siempre: cierra a las 18:30 (CARNAVAL.cierre), antes de que oscurezca.
+    cierre: 18.5,
     color: "#8a3ad0",
     frases: {
       aurora: ["¡Quien lo vive es quien lo goza! Pero no me eche maicena en el pelo.", "Saque el disfraz, que hoy nadie es quien parece."],
@@ -199,10 +203,10 @@ export function festivalEn(estacion: Season, diaDeEstacion: number): FestivalDef
  * (`fin`). Los de varios días abren y cierran cada día.
  */
 export type FestivalFase = "previa" | "fiesta" | "fin";
-export function festivalFase(minuteOfDay: number): FestivalFase {
+export function festivalFase(minuteOfDay: number, f?: Pick<FestivalDef, "cierre"> | null): FestivalFase {
   const h = minuteOfDay / 60;
   if (h < FESTIVAL_HORAS.apertura) return "previa";
-  if (h < FESTIVAL_HORAS.cierre) return "fiesta";
+  if (h < (f?.cierre ?? FESTIVAL_HORAS.cierre)) return "fiesta";
   return "fin";
 }
 
