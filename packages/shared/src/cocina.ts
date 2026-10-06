@@ -284,6 +284,6 @@ export function cocinaNoticeText(n: CocinaNotice): string {
     case "story":
       return "Esa receta todavía no te la han enseñado.";
     case "have":
-      return `Ya tienes ${low ?? "eso"} en la mochila.`;
+      return `Ya tienes ${dish ?? "eso"} en la mochila.`;
   }
 }
