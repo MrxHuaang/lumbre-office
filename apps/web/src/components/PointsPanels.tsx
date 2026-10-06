@@ -5,6 +5,7 @@ import { type StoryLetter, barItem, cafeItem, CASINO_GAME_NAMES, POINTS, questBy
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { activateInteractable } from "@/game/network";
+import { useCarnavalStore } from "@/game/carnaval";
 import { useClubStore } from "@/game/club/store";
 import { useEscenarioStore } from "@/game/escenario/store";
 import { useDialogo } from "@/game/dialogo";
@@ -168,7 +169,9 @@ export function InteractPrompt() {
   const canTip = useClubStore((s) => s.here.tipTarget !== null);
   // Con la tira de conversación abierta, la "E" es de la tira.
   const talking = useDialogo((s) => s.actual !== null);
-  if (!near || panel || talking) return null;
+  // Con el desfile pasando al lado, la "E" suma a la comparsa (OfficeScene): no se apilan dos "E".
+  const sumarse = useCarnavalStore((s) => s.puedoSumarme && !s.enComparsa);
+  if (!near || panel || talking || sumarse) return null;
   if (near === "pole" && (onPole || canTip)) return null;
   return (
     <button
