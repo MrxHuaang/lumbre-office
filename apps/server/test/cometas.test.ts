@@ -10,6 +10,7 @@ import {
   COMETAS_CINE,
   COMETAS_MSG,
   COMETA_PERDIDA,
+  DIRECTOR_MSG,
   cometaId,
   cometasShopItem,
   cometasTechoKey,
@@ -27,6 +28,7 @@ import {
   type CometaConcursoResult,
   type CometasBuyResult,
   type CometasMine,
+  type DirectorResult,
   type FestivalCineEvent,
   type TechoResult,
   type VolarResult,
@@ -361,5 +363,34 @@ describe("la cometa del techo del garaje", () => {
     expect(alice.mines.at(-1)).toEqual({ voto: null, techo: true });
     await inner.achievements.flushAll();
     expect((await repo.loadAchievements("u-alice")).stats[cometasTechoKey(1)]).toBe(1);
+  });
+});
+
+describe("los momentos del panel del director", () => {
+  it("la primera cometa y la premiación con lo de ahora, sin pagar premios antes del cierre", async () => {
+    const { room } = await setup();
+    const alice = await conCometa(room, "u-alice", "Alice");
+    const dir = await colyseus.connectTo(room, { token: await token("u-dir", "Dirección", "ada", "ADMIN") });
+    const res: DirectorResult[] = [];
+    const cines: FestivalCineEvent[] = [];
+    dir.onMessage(DIRECTOR_MSG.result, (r: DirectorResult) => res.push(r));
+    dir.onMessage(FESTIVAL_MSG.cine, (e: FestivalCineEvent) => cines.push(e));
+    const momento = async (id: string) => {
+      const before = res.length;
+      dir.send(DIRECTOR_MSG.action, { kind: "momento", id });
+      return waitFor(() => res[before]);
+    };
+    // Sin cometas en el aire ni inscritas no hay a quién premiar.
+    expect(await momento("cometas-premiacion")).toMatchObject({ ok: false, error: "nada" });
+    expect(await momento("cometas-primera")).toMatchObject({ ok: true });
+    await waitFor(() => alice.cineList.find((c) => c.id === COMETAS_CINE.primera && c.vars?.nombre === "Dirección"));
+    const start = (await alice.volar()) as VueloStart;
+    await volarHasta(alice, start, 900);
+    const fin = await waitFor(() => alice.fines[0]);
+    expect(await momento("cometas-premiacion")).toMatchObject({ ok: true });
+    const cine = await waitFor(() => cines.find((c) => c.id === COMETAS_CINE.premiacionAlta));
+    expect(cine.vars).toMatchObject({ alta: "Alice", altura: fin.altura });
+    await tick(60);
+    expect(repo.ledger.some((m) => m.refId?.startsWith("festival:cometas:1:"))).toBe(false);
   });
 });

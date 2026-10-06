@@ -116,6 +116,20 @@ export const DIRECTOR_ACCIONES: readonly DirectorAccionDef[] = [
     festival: "carnaval",
     aviso: "{nombre} sacó el desfile del Carnaval a la calle.",
   },
+  {
+    id: "cometas-primera",
+    nombre: "La primera cometa del día",
+    descripcion: "Los niños llegan corriendo a la loma a celebrar la primera cometa en el aire (para los del jardín).",
+    festival: "cometas",
+    aviso: "{nombre} repitió la celebración de la primera cometa.",
+  },
+  {
+    id: "cometas-premiacion",
+    nombre: "La premiación de las cometas ya",
+    descripcion: "La premiación con la más alta y la más bonita de ahora, para todos. Los premios se pagan al cierre.",
+    festival: "cometas",
+    aviso: "{nombre} adelantó la premiación de las cometas.",
+  },
 ];
 
 export const directorAccion = (id: string) => DIRECTOR_ACCIONES.find((a) => a.id === id);

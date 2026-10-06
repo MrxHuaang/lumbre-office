@@ -178,15 +178,10 @@ export class Cometas {
 
   /** La premiación: la más alta del día y la más bonita, con su cinemática para todos y su premio. */
   async award(año: number): Promise<void> {
-    const st = this.parts.state();
-    const alta = st.recordAltura > 0 && st.recordId ? { id: st.recordId, name: st.recordName, altura: st.recordAltura } : null;
-    const bonita = cometaGanadora([...st.inscritas.values()]);
-    if (!alta && !bonita) return;
-    const id = alta && bonita ? COMETAS_CINE.premiacion : alta ? COMETAS_CINE.premiacionAlta : COMETAS_CINE.premiacionBonita;
-    this.parts.cine(id, {
-      ...(alta ? { alta: alta.name, altura: alta.altura } : {}),
-      ...(bonita ? { bonita: bonita.ownerName, votos: bonita.votes, codigo: bonita.code } : {}),
-    });
+    const g = this.ganadores();
+    if (!g) return;
+    this.cinePremiacion(g);
+    const { alta, bonita } = g;
     const premios: [string, "alta" | "bonita", number][] = [];
     if (alta) premios.push([alta.id, "alta", COMETAS.premioAlta]);
     if (bonita) premios.push([bonita.ownerId, "bonita", COMETAS.premioBonita]);
@@ -201,6 +196,35 @@ export class Cometas {
         console.error("cometas awardPointsOnce", err);
       }
     }
+  }
+
+  /** La más alta del día y la más bonita de ahora (null si todavía no hay ninguna). */
+  private ganadores() {
+    const st = this.parts.state();
+    const alta = st.recordAltura > 0 && st.recordId ? { id: st.recordId, name: st.recordName, altura: st.recordAltura } : null;
+    const bonita = cometaGanadora([...st.inscritas.values()]);
+    return alta || bonita ? { alta, bonita } : null;
+  }
+
+  /** La cinemática de la premiación para todos, con los dos premios o con el que haya. */
+  private cinePremiacion({ alta, bonita }: NonNullable<ReturnType<Cometas["ganadores"]>>) {
+    const id = alta && bonita ? COMETAS_CINE.premiacion : alta ? COMETAS_CINE.premiacionAlta : COMETAS_CINE.premiacionBonita;
+    this.parts.cine(id, {
+      ...(alta ? { alta: alta.name, altura: alta.altura } : {}),
+      ...(bonita ? { bonita: bonita.ownerName, votos: bonita.votes, codigo: bonita.code } : {}),
+    });
+  }
+
+  /** El panel del director: la premiación con lo de ahora, sin premios (esos se pagan al cierre). False si no hay nada. */
+  premiacionYa(): boolean {
+    const g = this.ganadores();
+    if (g) this.cinePremiacion(g);
+    return Boolean(g);
+  }
+
+  /** El panel del director: la celebración de la primera cometa, para los del jardín. */
+  primeraYa(nombre: string) {
+    this.parts.cine(COMETAS_CINE.primera, { nombre }, "jardin");
   }
 
   private online(userId: string): boolean {

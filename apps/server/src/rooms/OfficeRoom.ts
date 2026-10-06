@@ -3170,6 +3170,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.carnaval.empezar();
       return null;
     });
+    // El Festival de cometas (la lógica es de cometas.ts): la primera cometa y la premiación sin esperar el cierre.
+    this.director.registrar("cometas-primera", (who) => {
+      this.cometas?.primeraYa(who.name);
+      return null;
+    });
+    this.director.registrar("cometas-premiacion", () =>
+      this.cometas?.premiacionYa() ? null : { ok: false, error: "nada", texto: "Todavía nadie ha subido una cometa ni hay votos en el concurso." },
+    );
     this.onMessage(DIRECTOR_MSG.action, (client, raw) => {
       const who = this.directorWho(client);
       const res = who && this.director.run(who, raw);
