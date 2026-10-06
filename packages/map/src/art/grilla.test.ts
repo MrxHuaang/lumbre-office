@@ -47,11 +47,17 @@ const A_MANO = [
   "bar-counter",
   "speaker",
   "projector",
+  // Tanda 3: las mesitas y las lámparas de las salas.
+  "side-table",
+  "coffee-table",
+  "cafe-table",
+  "lamp",
+  "lamp-mushroom",
 ];
 
 describe("grillas a mano", () => {
   it("la luz de noche de los faroles cae sobre su vidrio", () => {
-    for (const t of ["lamp-post", "garden-lantern", "dock-lamp"]) {
+    for (const t of ["lamp-post", "garden-lantern", "dock-lamp", "lamp", "lamp-mushroom"]) {
       const s = drawFurniture(t);
       const [x, y, z] = catalogItem(t).light!.at;
       const px = Math.round(s.ox + x - y);

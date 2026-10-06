@@ -12,8 +12,8 @@
 // Cuál está prendida sale de una semilla por ventana y de la hora del juego (`luzPrendida`): todos ven lo
 // mismo, unas se prenden al anochecer y otras más tarde, alguna se apaga pasada la medianoche y otra se
 // vuelve a prender antes del amanecer. Unas pocas titilan como vela o fogón (`titileo`).
-import { STATION } from "../world/areas/parada";
 import { textMask } from "./digits";
+import { FOCOS_ALERO, LETRERO, PX, PY, SCREEN, SD, VIGA } from "./estacion-bus";
 import type { V3 } from "./exterior-escena";
 import { PixelCanvas, bayer, hex, toScreen, type RGBA, type Sprite } from "./pixel";
 
@@ -207,25 +207,19 @@ const OBSERVATORIO: VentanaLuz[] = [
   luz({ tipo: "cupula", cx: OBS.cx, cy: OBS.cy, cz: OBS.domeZ, r: OBS.domeR, az0: 0.3 - 0.24, el0: 0.05 }, 0.48 * OBS.domeR, 1.25 * OBS.domeR, { cruz: false, tono: "vela", horario: "siempre" }),
 ];
 
-// --- La estación del Megabús (bus.ts): la pantalla, el letrero del alero y los focos de abajo. ---
+// --- La estación del Megabús (estacion-bus.ts): la pantalla, el letrero de la cenefa y los focos de la viga. ---
 
-const EST = { px: 48, py: 32, sw: STATION.w * 16, sd: STATION.d * 16 };
-const LETRERO_ESTACION = textMask("ESTACION HYVENTO", 1);
-/** Los focos bajo el alero, como en el dibujo: cada 40 desde x = 20. */
-function focosDelAlero(): number[] {
-  const out: number[] = [];
-  for (let x = 20; x < EST.sw - 10; x += 40) out.push(x);
-  return out;
-}
+const LETRERO_ESTACION = textMask(LETRERO.text, 1);
 const ESTACION: VentanaLuz[] = [
-  enPared([EST.px + 113, EST.py + 50, 18], ESTE, 1, 49, 1, 17, { cruz: false, tono: "pantalla", horario: "siempre" }),
-  enPared([EST.px - 6, EST.py + EST.sd + 6, 42], ESTE, 15, 17 + LETRERO_ESTACION.w, 0.8, 1 + LETRERO_ESTACION.h, { cruz: false, tono: "letrero", horario: "siempre" }),
-  ...focosDelAlero().map((x) =>
-    enPared([EST.px + x, EST.py + EST.sd + 5.9, 41], ESTE, 0, 10, 0, 1, {
+  enPared([PX + SCREEN.x0, PY + SCREEN.y, SCREEN.z0], ESTE, 1, 49, 1, 17, { cruz: false, tono: "pantalla", horario: "siempre" }),
+  enPared([PX + LETRERO.x0 - 1, PY + SD + 6, LETRERO.z0 - 1], ESTE, 0, LETRERO_ESTACION.w + 2, 0.8, LETRERO_ESTACION.h + 1, { cruz: false, tono: "letrero", horario: "siempre" }),
+  // El vidrio de cada foco es la fila de abajo de su caja de bronce, en la cara de la viga.
+  ...FOCOS_ALERO.map((x) =>
+    enPared([PX + x, PY + VIGA.y, VIGA.z0 + 1], ESTE, 1, 9, 0, 1, {
       cruz: false,
       tono: "foco",
       horario: "siempre",
-      piso: { tipo: "charco", x: EST.px + x + 5, y: EST.py + EST.sd - 6, z: 0, rx: 15, ry: 11 },
+      piso: { tipo: "charco", x: PX + x + 5, y: PY + SD - 6, z: 0, rx: 15, ry: 11 },
     }),
   ),
 ];

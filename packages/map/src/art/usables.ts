@@ -5,6 +5,7 @@
 import { drawFurniture } from "./furniture";
 import { C, OUT, mix } from "./palette";
 import { PixelCanvas, alpha, at, hex, type RGBA, type Sprite } from "./pixel";
+import { lampShadeOff, lampShadeOn } from "./salas-tanda3";
 
 /** Lienzo vacío del mismo tamaño y origen que el dibujo del mueble. */
 function layerOf(type: string): { base: Sprite; out: Sprite } {
@@ -79,52 +80,11 @@ export function tvScreenOn(frame: number): Sprite {
 
 // ---------- Lámpara de pie ----------
 
-/**
- * La pantalla de la lámpara encendida (caja de la pantalla en furniture.ts: x 3..13, y 3..13, z 30..39):
- * cálida y más clara abajo, donde sale la luz, con el borde de abajo casi blanco.
- */
-export function lampLit(): Sprite {
-  const warm = hex("#ffc85a");
-  const hot = hex("#fff6d8");
-  // Abajo, por donde sale la luz, casi blanca; hacia arriba se entibia.
-  return lampShade((own, v) => (v < 1.2 ? hot : mix(own, warm, 0.75 - v * 0.05)));
-}
+/** La pantalla de la lámpara encendida: el lino dorado y más claro abajo, por donde sale la luz (salas-tanda3.ts). */
+export const lampLit = (): Sprite => lampShadeOn();
 
-/**
- * La pantalla apagada: más oscura y apagada (sin la tibieza del dibujo base), así de día también se nota
- * que está apagada. Más oscura arriba, donde no le llega la luz del cuarto.
- */
-export function lampOff(): Sprite {
-  const dusk = hex("#5c4a4e");
-  return lampShade((own, v) => mix(own, dusk, 0.38 + v * 0.02));
-}
-
-/** Pinta las dos caras visibles de la pantalla de la lámpara con `shade(color propio, altura en la pantalla)`. */
-function lampShade(shade: (own: RGBA, v: number) => RGBA): Sprite {
-  const { base, out } = layerOf("lamp");
-  const tint = (px: number, py: number, v: number) => {
-    const i = (py * base.canvas.width + px) * 4;
-    const d = base.canvas.data;
-    const own: RGBA = [d[i]!, d[i + 1]!, d[i + 2]!, 255];
-    if (own[0] === OUT[0] && own[1] === OUT[1] && own[2] === OUT[2]) return null;
-    return shade(own, v);
-  };
-  // Las dos caras que se ven (+x y +y) de la pantalla.
-  paintRightFace(base, out, { x1: 13, y0: 3, y1: 13, z0: 30, z1: 39 }, (_u, v, px, py) => tint(px, py, v));
-  for (let py = 0; py < out.canvas.height; py++)
-    for (let px = 0; px < out.canvas.width; px++) {
-      if (!base.canvas.alphaAt(px, py) || out.canvas.alphaAt(px, py)) continue;
-      // Cara +y: X = sx + y1, Z = (X + y1) / 2 - sy.
-      const sx = px + 0.5 - out.ox;
-      const sy = py + 0.5 - out.oy;
-      const X = sx + 13;
-      const Z = (X + 13) / 2 - sy;
-      if (X < 3 || X >= 13 || Z < 30 || Z >= 39) continue;
-      const col = tint(px, py, Z - 30);
-      if (col) out.canvas.set(px, py, col);
-    }
-  return out;
-}
+/** La pantalla apagada: más opaca y con la boca oscura, así de día también se nota que está apagada. */
+export const lampOff = (): Sprite => lampShadeOff();
 
 // ---------- Tocadiscos ----------
 
