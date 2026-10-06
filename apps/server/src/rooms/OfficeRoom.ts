@@ -363,7 +363,7 @@ import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
 import { closeForRestart } from "./reinicio";
 import { startChatRetention } from "./chatRetention";
 import { Director, type DirectorWho } from "./director";
-import { DIRECTOR_MSG, festivalCineId as directorCineId, type DirectorMusica, type FestivalId as DirectorFestivalId } from "@hyvento/shared";
+import { DIRECTOR_MSG, festivalCineId as directorCineId, type DirectorMusica, type DirectorResult, type FestivalId as DirectorFestivalId } from "@hyvento/shared";
 import { orElse } from "../log";
 import { MSG_RATE, newBucket, takeToken, type RateConfig, type TokenBucket } from "@hyvento/shared";
 
@@ -3122,6 +3122,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.carnaval.empezar();
       return null;
     });
+    // Amor y amistad: el sorteo y la revelación del amigo secreto sin esperar su hora (amorAmistad.ts).
+    const amorNo = (r: string | undefined, nadie: string, hecho: string): DirectorResult | null =>
+      r === "ok" ? null
+      : r === "hecho" ? { ok: false, error: "nada", texto: hecho }
+      : r === "nadie" ? { ok: false, error: "nada", texto: nadie }
+      : { ok: false, error: "cerrado", texto: "Amor y amistad no está abierto." };
+    this.director.registrar("amor-sorteo", () => amorNo(this.amor?.sortearYa(), "Nadie se ha anotado en el cofre todavía.", "El sorteo ya se hizo."));
+    this.director.registrar("amor-revelacion", () => amorNo(this.amor?.revelarYa(), "Todavía no hay parejas: primero el sorteo.", "El amigo secreto ya se reveló."));
     this.onMessage(DIRECTOR_MSG.action, (client, raw) => {
       const who = this.directorWho(client);
       const res = who && this.director.run(who, raw);

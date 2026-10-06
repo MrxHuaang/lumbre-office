@@ -246,6 +246,31 @@ export class AmorAmistad {
     return r;
   }
 
+  // ---------- El panel del director ----------
+
+  /** El sorteo ya, sin esperar las 10:00 del juego (para mostrar el festival). */
+  sortearYa(): "ok" | "cerrado" | "hecho" | "nadie" {
+    if (!this.open()) return "cerrado";
+    if (this.sorteado) return "hecho";
+    if (!this.anotados.size) return "nadie";
+    this.sorteado = true;
+    for (const u of this.anotados.keys()) this.enviarEstado(u);
+    // Los tardíos los sigue sorteando `tick`, como después de las 10:00.
+    this.sortear(AMOR.sorteoMinuto);
+    return "ok";
+  }
+
+  /** La revelación ya, sin esperar el cierre (una sola vez por festival, como la del cierre). */
+  revelarYa(): "ok" | "cerrado" | "hecho" | "nadie" {
+    const f = this.parts.festival();
+    if (f.id !== AMOR.id) return "cerrado";
+    if (this.revelado) return "hecho";
+    if (!this.parejas.length) return "nadie";
+    this.revelado = true;
+    void this.revelar(f.año);
+    return "ok";
+  }
+
   /** Entró (con los contadores ya leídos): si se había anotado este año y la sala lo olvidó, vuelve a entrar. */
   joined(userId: string, name: string) {
     const f = this.parts.festival();

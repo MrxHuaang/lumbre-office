@@ -8,6 +8,7 @@ import {
   AMOR,
   AMOR_MSG,
   DIAS_POR_ESTACION,
+  DIRECTOR_MSG,
   ROOM_NAME,
   SEASONS,
   SERENATA,
@@ -18,6 +19,7 @@ import {
   type AmorEstado,
   type AmorResultado,
   type CartaLlega,
+  type DirectorResult,
   type RegaloLlego,
   type Revelacion,
   type SerenataEvento,
@@ -396,5 +398,40 @@ describe("la revelación al cierre", () => {
     inner.amor.tick();
     await tick(60);
     expect(mirona.revelaciones).toHaveLength(1);
+  });
+});
+
+describe("el panel del director", () => {
+  it("sortea y revela el amigo secreto sin esperar la hora, una vez cada cosa", async () => {
+    const { room, inner } = await setup();
+    const admin = await colyseus.connectTo(room, { token: await token("u-dir", "Directora", "ada", "ADMIN") });
+    const res: DirectorResult[] = [];
+    admin.onMessage(DIRECTOR_MSG.result, (r: DirectorResult) => res.push(r));
+    await room.waitForNextPatch();
+    const momento = async (id: string) => {
+      const n = res.length;
+      admin.send(DIRECTOR_MSG.action, { kind: "momento", id });
+      return waitFor(() => res[n]);
+    };
+    expect(await momento("amor-sorteo")).toMatchObject({ ok: false, error: "nada" });
+    const [ana, beto] = await anotados(room, [
+      ["u-a", "Ana"],
+      ["u-b", "Beto"],
+    ]);
+    expect(await momento("amor-revelacion")).toMatchObject({ ok: false, error: "nada" });
+    expect(await momento("amor-sorteo")).toMatchObject({ ok: true });
+    expect(parejasDe(inner)).toHaveLength(2);
+    await waitFor(() => (ana!.estado()?.amigos.length ? true : undefined));
+    expect(beto!.estado()).toMatchObject({ sorteado: true });
+    expect(await momento("amor-sorteo")).toMatchObject({ ok: false, error: "nada" });
+    expect(await momento("amor-revelacion")).toMatchObject({ ok: true });
+    const r = await waitFor(() => ana!.revelaciones[0]);
+    expect(r.pares).toHaveLength(2);
+    expect(await momento("amor-revelacion")).toMatchObject({ ok: false, error: "nada" });
+    // Al cierre ya no se repite.
+    hora(inner, 22.1);
+    inner.amor.tick();
+    await tick(60);
+    expect(ana!.revelaciones).toHaveLength(1);
   });
 });
