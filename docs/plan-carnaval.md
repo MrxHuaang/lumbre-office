@@ -26,6 +26,8 @@ Cada carroza es papel maché blanco y negro con **un solo color de acento**. Son
 | 9 | **El tinto de Doña Aurora** | Un pocillo gigante que echa vapor y una cafetera que sirve sola | Café | La casera de la cabaña |
 | 10 | **El Megabús de la alegría** | El bus de la parada pintado a cuadros, con cachivaches encima | Verde lima | Cierra el desfile; detrás va la comparsa de los jugadores |
 
+**Estado**: las diez están hechas (VIR-160 y VIR-166), en este orden dentro del desfile (`CARROZA_IDS`). Lo que se mueve en las cuatro últimas: en el Tablero, el caballo salta en L, la reina negra se desliza en diagonal y un peón avanza; en la Luna, las olas corren, los peces saltan con las escamas brillando por turnos y la llavecita oxidada se mece (de noche la luna se prende con su halo); en el Páramo, los colibríes se mecen en sus resortes con las alas borrosas, los frailejones se mecen y la laguna de vidrio destella; en la Minga, la quinua se mece, la mazorca de colores gira y las guaguas de pan se arrullan. Para que la fila más larga siga cabiendo en unos 2 minutos, el desfile va un poco más rápido (2,6 tiles por segundo).
+
 ## 2. Coreografías (en 8 tiempos, con las acciones del juego)
 
 Cada comparsa camina con su carroza. Al llegar a una parada del recorrido repite su frase:
@@ -33,19 +35,19 @@ Cada comparsa camina con su carroza. Al llegar a una parada del recorrido repite
 1. **Castañeda**: paso de paseo (caminar despacio en pareja), *saludar* a los dos lados, *girar* juntos y seguir. Es teatro: la abuela se desmaya con un *temblar* y la levantan.
 2. **Cóndor**: dos filas abren los brazos (*bailar*) al ritmo de las alas. En el tiempo 8, todos *saltar*.
 3. **Galeras**: un círculo alrededor del volcán, *temblar* cuando "erupciona" (sale humo) y lluvia de confeti blanco.
-4. **Tablero**: los bailarines son peones en cuadrícula; avanzan 1 tile, 2 *girar*, y la reina cruza en diagonal (*correr*).
+4. **Tablero**: los bailarines son peones en cuadrícula; avanzan 1 tile, 2 *girar*, y la reina cruza en diagonal (*correr*). Al final vuelven a su casilla y hacen la venia (*asentir*).
 5. **Reloj**: fila de "engranajes" que *girar* en sentidos alternos; al sonar la campanada, quietos y *asentir*.
-6. **Luna**: ola en cadena: cada bailarín hace *saltar* medio tiempo después del de al lado.
-7. **Páramo**: los colibríes corren en zigzag delante de la carroza (*walk* con `run` y `path`).
-8. **Minga**: ronda tomada de la mano, *bailar* y *celebrar* al ofrecer la cosecha al público.
+6. **Luna**: ola en cadena: cada bailarín hace *saltar* medio tiempo después del de al lado (ida y vuelta), se mecen (*bailar*) y una ola de *girar*.
+7. **Páramo**: los colibríes corren en zigzag delante de la carroza (*walk* con `run` y `path`), una fila a contratiempo de la otra; *girar* allá y vuelven en zigzag.
+8. **Minga**: ronda tomada de la mano (cada uno pasa por el puesto de los demás), *bailar* y *celebrar* al ofrecer la cosecha al público (se arriman hacia la vereda y *saludar*).
 9. **Aurora**: Doña Aurora *saludar* desde arriba; las meseras reparten "tinto" (burbujas) y hacen *asentir*.
-10. **Comparsa de la cabaña**: la de los jugadores. Se suman con E junto al Megabús y repiten *bailar* · *girar* · *saltar* · *celebrar* en bucle. Si son 3 o más, la cámara se acerca.
+10. **Comparsa de la cabaña**: la de los jugadores. Se suman con E junto al Megabús y repiten *bailar* · *girar* · *saltar* · *celebrar* en bucle. Si son 3 o más, la cámara de quien baila se acerca un paso (y vuelve al salirse).
 
 ## 3. Música (toda sintetizada por código, sin grabaciones)
 
 La paleta de sonido es **quena** (seno con soplo), **zampoña** (dos voces), **charango** (pulsado brillante), **bombo** y **cascabeles**, por el mezclador (`sfxOut("musica")`).
 
-- **"La Guaneña"**: tradicional nariñense, bambuco del siglo XIX (de dominio público). Es el himno del carnaval: suena en la apertura y cuando pasa la carroza del Galeras. Basta un arreglo corto de la melodía.
+- **"La Guaneña"**: tradicional nariñense, bambuco del siglo XIX (de dominio público). Es el himno del carnaval: suena en la apertura y cuando pasa la carroza del Galeras. Basta un arreglo corto de la melodía: el del juego sigue la versión para flauta de las escuelas ("do mi la la la la, do' la sol sol sol sol, la sol mi la sol mi re do" y el cierre "do mi la do' la sol..."), en Mi menor y en 3, de Sol4 a Sol5 (lo que da una quena en Sol), con las frases que entran a contratiempo y la dominante antes de volver a empezar; dura unos 12 segundos por vuelta.
 - **"Sanjuanito del lago"**: original, en ritmo de sanjuanito (2/4, alegre). Es la marcha del desfile.
 - **"Pasacalle del Megabús"**: original, un pasacalle de banda. Acompaña a la comparsa de los jugadores.
 - **"Albazo de la madrugada"**: original. Suena en la premiación del concurso de disfraces.
