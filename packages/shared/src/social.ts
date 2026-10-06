@@ -167,7 +167,7 @@ export const TradeOfferMessage = z
     items: z.array(TradeItem).max(TRADE.maxSlots),
   })
   .refine((o) => new Set(o.items.map((i) => i.itemId)).size === o.items.length, "Un objeto repetido")
-  .refine((o) => stackUnits(o.items) <= TRADE.maxUnits, `Hasta ${TRADE.maxUnits} muebles por intercambio`);
+  .refine((o) => stackUnits(o.items) <= TRADE.maxUnits, `Hasta ${TRADE.maxUnits} cosas por intercambio`);
 export type TradeOfferMessage = z.infer<typeof TradeOfferMessage>;
 
 /** Cliente → servidor: marcar o desmarcar "Listo". */
@@ -250,13 +250,13 @@ export const TRADE_ERROR_TEXT: Record<TradeError, string> = {
   unknown: "Esa persona ya no está.",
   busy: "Esa persona ya está en otro intercambio.",
   far: "Tienen que estar cerca y en el mismo piso.",
-  dnd: "Esa persona está en No molestar.",
+  dnd: "Esa persona está en \"No molestar\": mejor más tarde.",
   "too-soon": "Espera un momento antes de volver a invitar.",
   expired: "Esa invitación ya venció.",
   funds: "No alcanzan los puntos.",
   items: "Falta un objeto en la mochila.",
-  limit: `Hoy ya se dieron muchos puntos: el tope es de ${GIFT.dailyPoints} al día, entre regalos e intercambios.`,
-  "limit-items": `Hoy ya se dieron muchos muebles: el tope es de ${GIFT.dailyItems} al día, entre regalos e intercambios.`,
+  limit: `Eso pasa el tope de puntos que se pueden dar al día (${GIFT.dailyPoints}, entre regalos e intercambios).`,
+  "limit-items": `Eso pasa el tope de cosas que se pueden dar al día (${GIFT.dailyItems}, entre regalos e intercambios).`,
   empty: "Pongan algo antes de confirmar.",
   "one-sided": "Los dos tienen que poner algo. Para dar sin recibir nada, manda un regalo.",
   story: "Los objetos de la historia no se intercambian: son de quien los encontró.",

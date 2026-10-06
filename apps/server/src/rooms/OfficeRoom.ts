@@ -3453,18 +3453,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (now - (client.userData.lastSombreroAt ?? 0) < SOMBRERO.buyCooldownMs) return;
     this.sombrero.refresh();
     if (!this.sombrero.present) return aviso("El Man del Sombrero ya se fue. Vuelve a ciertas horas, o con tormenta.");
-    if (this.drunk.fainted(player.userId) || !this.sombrero.near(player.area, player.x, player.y, this.mapOf(player.area).tileSize)) return aviso("Arrímese al Man del Sombrero.");
+    if (this.drunk.fainted(player.userId) || !this.sombrero.near(player.area, player.x, player.y, this.mapOf(player.area).tileSize)) return aviso("Arrímese más, que esto no se grita.");
     client.userData.lastSombreroAt = now;
     const { result, balance } = await this.capitulo2.buyPendulum(client.sessionId, player.userId);
     if (balance !== undefined) for (const p of this.state.players.values()) if (p.userId === player.userId) p.points = balance;
     const text: Record<string, string> = {
-      notNow: "«¿Un péndulo? No sé de qué me habla.» (todavía no lo anda buscando)",
-      have: "Ya tiene el péndulo.",
-      full: "No le cabe en la mochila: haga espacio.",
-      funds: "No le alcanzan los puntos.",
-      failed: "No se pudo. Intente otra vez.",
+      notNow: "«¿Un péndulo? No sé de qué me habla.» (todavía no lo estás buscando)",
+      have: "Ya tiene el péndulo, parcero. Uno solo alcanza.",
+      full: "No le cabe en la mochila, parcero. Haga espacio primero.",
+      funds: "No le alcanza, parcero. Sin puntos no hay péndulo.",
+      failed: "Algo salió mal. Vuelva a intentar (pero disimule).",
     };
-    if (result !== "ok") aviso(text[result] ?? "No se pudo.");
+    if (result !== "ok") aviso(text[result] ?? "No se pudo comprar el péndulo. Intenta otra vez.");
   }
 
   /** La historia: preguntarle (o mostrarle algo) a quien da el paso abierto; lo decide la sala del capítulo. */

@@ -165,7 +165,7 @@ function facts(p: ProfileDTO): Fact[] {
       icon: "chip",
       value: `${p.casinoNet > 0 ? "+" : ""}${n(p.casinoNet)}`,
       label: "neto en el casino",
-      note: p.casinoNet < 0 ? "La casa te manda saludos." : p.casinoNet > 0 ? "La casa te tiene en la mira." : "Ni fu ni fa.",
+      note: p.casinoNet < 0 ? "La casa te manda saludos." : p.casinoNet > 0 ? "La casa te tiene en la mira." : "Ni pierdes ni ganas.",
       tone: p.casinoNet < 0 ? "bad" : p.casinoNet > 0 ? "good" : undefined,
     },
     {

@@ -149,7 +149,7 @@ function Mesa({ atObject, open }: { atObject: boolean; open: boolean }) {
           className="cozy-btn cozy-btn-primary flex items-center gap-1.5 px-3 py-1.5 text-[14px]"
         >
           <PixelIcon name="flower" size={12} />
-          {pending ? "Armando..." : "Armar la silleta"}
+          {pending ? "Armando…" : "Armar la silleta"}
         </button>
       </div>
     </div>

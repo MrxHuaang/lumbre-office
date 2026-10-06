@@ -294,7 +294,7 @@ export const ENTREGAR_ERROR_TEXT: Record<EntregarError, string> = {
   faltan: "Todavía no tienes todo lo que te pidió.",
   hecho: "Eso ya se lo entregaste en esta fiesta.",
   full: "No te cabe lo que te da: haz espacio en la mochila.",
-  busy: "Un momento…",
+  busy: "Un momentico…",
 };
 
 /** Los pedidos que ya entregó cada quien en el festival de ahora. */

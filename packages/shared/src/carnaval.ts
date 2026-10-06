@@ -399,8 +399,8 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   condor: "Miren ese cóndor: ya nació blanco y negro, no hubo que pintarlo.",
   galeras: "¡El Galeras fumando! Tranquilos, que es humo de algodón.",
   tablero: "¡El Tablero vivo! La Cuadrilla del piso 3 se toma muy en serio lo de ser peones.",
-  reloj: "El reloj de E. … trece campanadas, ¿sí las oyen?",
-  luna: "La Luna en el lago... ¿vieron la llavecita que le cuelga? Dicen que es de la casa.",
+  reloj: "¡El reloj de E.! Trece campanadas… ¿sí las oyen?",
+  luna: "La Luna en el lago… ¿vieron la llavecita que le cuelga? Dicen que es de la casa.",
   paramo: "El Páramo, de donde nace el agua. ¡Cuidadito con pisar los frailejones!",
   minga: "¡La Minga! Papa, maíz, quinua y guaguas de pan: lo que da la tierra se comparte.",
   tinto: "Un tinto de Doña Aurora pa'l frío. ¡Achichay!",
@@ -510,7 +510,7 @@ export const JOIN_ERROR_TEXT: Record<JoinError, string> = {
   noDesfile: "Ahora no pasa el desfile. Sale a las 11:00, 15:00 y 19:00 del reloj de la cabaña.",
   far: "Arrímate al Megabús de la alegría, en la vereda, para sumarte.",
   already: "Ya vas en la comparsa.",
-  busy: "Ahora no puedes sumarte (suéltate de lo que estás haciendo).",
+  busy: "Ahora no puedes sumarte: termina primero lo que estás haciendo.",
 };
 
 // ---------- Maicena y serpentinas ----------
@@ -672,7 +672,7 @@ export const CARNAVAL_CINEMATICAS: readonly CineDef[] = [
         ],
       },
       { op: "together", steps: [{ op: "act", who: "gloria", action: "girar" }, { op: "act", who: "yo", action: "girar" }] },
-      { op: "bubble", who: "gloria", text: "¡Eso, mijo! Quien lo vive es quien lo goza." },
+      { op: "bubble", who: "gloria", text: "¡Eso es! Así se goza el carnaval." },
       { op: "walk", who: "gloria", to: { near: "yo", dx: -5, dy: -3 } },
       { op: "despawn", id: "gloria" },
     ],

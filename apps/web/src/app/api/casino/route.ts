@@ -10,7 +10,7 @@ import { asAvatar, asLook, getCurrentUser } from "@/lib/current-user";
  */
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const period: CasinoPeriod = req.nextUrl.searchParams.get("periodo") === "siempre" ? "siempre" : "semana";
   const since = period === "siempre" ? null : new Date(Date.now() - CASINO.rankingDays * 86_400_000);
   const [settings, todayNet, stats] = await Promise.all([

@@ -80,11 +80,11 @@ export const nextShown = (prev: number, target: number) => Math.max(prev, Math.m
 
 /** Consejos cortos de lo que hay en la cabaña (van rotando mientras carga). */
 export const ENTRY_TIPS: readonly string[] = [
-  "Acércate a algo con un rombito dorado y aprieta E.",
+  "Acércate a algo con un rombito dorado y oprime E.",
   "Tab cambia la fila de la mochila y los números eligen lo que llevas en la mano.",
   "I abre la mochila: ahí se reordena, se tira y están tus logros.",
   "Con F usas lo de la mano: un tinto, un trago, la regadera…",
-  "Escribe /time en el chat para saber la hora del juego. Un día dura una hora.",
+  "Escribe /hora en el chat para saber la hora del juego: un día dura una hora real.",
   "Dicen que el Man del Sombrero sale solo a ciertas horas, o con tormenta. Cada día se esconde en otro lado.",
   "El Megabús para afuera del portón cada ratico. Súbete y da una vuelta.",
   "La piscina está al este del patio. Con lluvia la tapan con la lona.",
