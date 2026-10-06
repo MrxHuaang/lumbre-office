@@ -271,6 +271,8 @@ export const COLOR_LETRAS = Object.keys(COMETA_COLORES) as CometaColorLetra[];
 export const COMETAS_CINE = {
   primera: "cometas-primera",
   premiacion: "cometas-premiacion",
+  premiacionAlta: "cometas-premiacion-alta",
+  premiacionBonita: "cometas-premiacion-bonita",
   rescate: "cometas-rescate",
   armada: "cometas-armada",
 } as const;
@@ -299,6 +301,72 @@ const NINO_MATEO: Look = {
   shoeColor: "#e8e4dc",
 };
 const NINA_SOFI: Look = { ...NINO_MATEO, skin: "#ffdbac", hair: "#7a4a1a", shirt: "#ee7aa8", hairStyle: "ponytail", head: undefined };
+
+/**
+ * La premiación al cierre: Aurora (con la cometa más bonita en la mano, si hay), Gloria con el récord del
+ * día y Evelio que llega corriendo. Sale con los dos premios, o con el que haya (`alta` o `bonita`).
+ */
+function premiacion(cuales: "ambas" | "alta" | "bonita"): CineDef {
+  const alta = cuales !== "bonita";
+  const bonita = cuales !== "alta";
+  const id = cuales === "ambas" ? COMETAS_CINE.premiacion : cuales === "alta" ? COMETAS_CINE.premiacionAlta : COMETAS_CINE.premiacionBonita;
+  const steps: CineStep[] = [
+    { op: "spawn", id: "aurora", like: "aurora", at: { dx: 5, dy: 2 }, facing: "left", ...(bonita ? { holds: "cometa:{codigo}" } : {}) },
+    { op: "spawn", id: "gloria", like: "gloria", at: { dx: 6, dy: 3 }, facing: "left" },
+    { op: "spawn", id: "evelio", like: "evelio", at: { dx: -5, dy: 3 }, facing: "right" },
+    {
+      op: "together",
+      steps: [
+        { op: "walk", who: "aurora", to: { dx: 2, dy: 1 } },
+        { op: "walk", who: "gloria", to: { dx: 2, dy: 2 } },
+        { op: "walk", who: "evelio", run: true, to: { dx: -2, dy: 1 } },
+      ],
+    },
+    { op: "together", steps: [{ op: "face", who: "aurora", toward: "yo" }, { op: "face", who: "gloria", toward: "yo" }, { op: "face", who: "evelio", toward: "yo" }] },
+    { op: "sound", sound: "fanfarria" },
+  ];
+  if (alta)
+    steps.push(
+      {
+        op: "together",
+        steps: [
+          { op: "flash", color: "oro", ms: 400 },
+          { op: "title", text: "La cometa más alta", sub: "{alta} · {altura} metros", ms: 3000 },
+          { op: "fx", fx: "confeti" },
+          { op: "act", who: "gloria", action: "celebrar" },
+        ],
+      },
+      { op: "say", who: "gloria", text: "La de {alta} llegó a {altura} metros. ¡Casi toca las nubes!", ms: 3200 },
+    );
+  if (bonita)
+    steps.push(
+      {
+        op: "together",
+        steps: [
+          { op: "title", text: "La cometa más bonita", sub: "{bonita} · {votos} votos", ms: 3000 },
+          { op: "act", who: "aurora", action: "girar" },
+          { op: "fx", fx: "chispas", who: "aurora" },
+        ],
+      },
+      { op: "say", who: "aurora", text: "Y la más bonita, por votación de todos, es la de {bonita}. Qué colores tan bien escogidos.", ms: 3400 },
+    );
+  steps.push(
+    { op: "together", steps: [{ op: "sound", sound: "aplausos" }, { op: "emote", who: "yo", emote: "clap" }, { op: "act", who: "evelio", action: "saltar" }] },
+    { op: "bubble", who: "evelio", text: "¡El año que viene gano yo con la de bagre!" },
+    {
+      op: "together",
+      steps: [
+        { op: "walk", who: "aurora", to: { dx: -3, dy: 5 } },
+        { op: "walk", who: "gloria", to: { dx: -2, dy: 6 } },
+        { op: "walk", who: "evelio", to: { dx: -6, dy: 4 } },
+      ],
+    },
+    { op: "despawn", id: "aurora" },
+    { op: "despawn", id: "gloria" },
+    { op: "despawn", id: "evelio" },
+  );
+  return { id, kind: "momento", steps };
+}
 
 /** Las cinemáticas del Festival de cometas (se suman al catálogo). */
 export const COMETAS_CINEMATICAS: readonly CineDef[] = [
@@ -347,58 +415,9 @@ export const COMETAS_CINEMATICAS: readonly CineDef[] = [
       { op: "despawn", id: "aurora" },
     ],
   },
-  {
-    // La premiación: Aurora con la cometa más bonita en la mano y Gloria con el récord del día.
-    id: COMETAS_CINE.premiacion,
-    kind: "momento",
-    steps: [
-      { op: "spawn", id: "aurora", like: "aurora", at: { dx: 5, dy: 2 }, facing: "left", holds: "cometa:{codigo}" },
-      { op: "spawn", id: "gloria", like: "gloria", at: { dx: 6, dy: 3 }, facing: "left" },
-      { op: "spawn", id: "evelio", like: "evelio", at: { dx: -5, dy: 3 }, facing: "right" },
-      {
-        op: "together",
-        steps: [
-          { op: "walk", who: "aurora", to: { dx: 2, dy: 1 } },
-          { op: "walk", who: "gloria", to: { dx: 2, dy: 2 } },
-          { op: "walk", who: "evelio", run: true, to: { dx: -2, dy: 1 } },
-        ],
-      },
-      { op: "together", steps: [{ op: "face", who: "aurora", toward: "yo" }, { op: "face", who: "gloria", toward: "yo" }, { op: "face", who: "evelio", toward: "yo" }] },
-      { op: "sound", sound: "fanfarria" },
-      {
-        op: "together",
-        steps: [
-          { op: "flash", color: "oro", ms: 400 },
-          { op: "title", text: "La cometa más alta", sub: "{alta} · {altura} metros", ms: 3000 },
-          { op: "fx", fx: "confeti" },
-          { op: "act", who: "gloria", action: "celebrar" },
-        ],
-      },
-      { op: "say", who: "gloria", text: "La de {alta} llegó a {altura} metros. ¡Casi toca las nubes!", ms: 3200 },
-      {
-        op: "together",
-        steps: [
-          { op: "title", text: "La cometa más bonita", sub: "{bonita} · {votos} votos", ms: 3000 },
-          { op: "act", who: "aurora", action: "girar" },
-          { op: "fx", fx: "chispas", who: "aurora" },
-        ],
-      },
-      { op: "say", who: "aurora", text: "Y la más bonita, por votación de todos, es la de {bonita}. Qué colores tan bien escogidos.", ms: 3400 },
-      { op: "together", steps: [{ op: "sound", sound: "aplausos" }, { op: "emote", who: "yo", emote: "clap" }, { op: "act", who: "evelio", action: "saltar" }] },
-      { op: "bubble", who: "evelio", text: "¡El año que viene gano yo con la de bagre!" },
-      {
-        op: "together",
-        steps: [
-          { op: "walk", who: "aurora", to: { dx: -3, dy: 5 } },
-          { op: "walk", who: "gloria", to: { dx: -2, dy: 6 } },
-          { op: "walk", who: "evelio", to: { dx: -6, dy: 4 } },
-        ],
-      },
-      { op: "despawn", id: "aurora" },
-      { op: "despawn", id: "gloria" },
-      { op: "despawn", id: "evelio" },
-    ],
-  },
+  premiacion("ambas"),
+  premiacion("alta"),
+  premiacion("bonita"),
   {
     // Mateo, cuando le bajan la cometa del árbol: sale corriendo con ella, la suelta y celebra.
     id: COMETAS_CINE.rescate,

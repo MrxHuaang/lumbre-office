@@ -397,6 +397,37 @@ export class FeriaState extends Schema {
   @type("number") winnerVotes = 0;
 }
 
+/** Una cometa que vuela en el Festival de cometas (CometaVueloView de @hyvento/shared), por sessionId de quien la sostiene. */
+export class CometaVueloState extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** El código de la cometa (cometa.ts): de ahí sale su dibujo. */
+  @type("string") code = "";
+  /** La altura en metros (la que la sala ya validó con los botones del vuelo). */
+  @type("number") altura = 0;
+  /** El hilo cruje: la tensión está en peligro. */
+  @type("boolean") tenso = false;
+}
+
+/** Una cometa inscrita en el concurso de la más bonita (por dueño). */
+export class CometaInscritaState extends Schema {
+  @type("string") ownerId = "";
+  @type("string") ownerName = "";
+  @type("string") code = "";
+  @type("number") votes = 0;
+  /** Cuándo se inscribió (desempata: gana la primera). */
+  @type("float64") at = 0;
+}
+
+/** El Festival de cometas (ver rooms/cometas.ts): las que vuelan, el récord del día y el concurso. */
+export class CometasState extends Schema {
+  @type({ map: CometaVueloState }) vuelos = new MapSchema<CometaVueloState>();
+  @type({ map: CometaInscritaState }) inscritas = new MapSchema<CometaInscritaState>();
+  @type("number") recordAltura = 0;
+  @type("string") recordId = "";
+  @type("string") recordName = "";
+}
+
 /** Escenario del jardín: alguien de las gradas con la mano levantada (la fila de turnos, en orden). */
 export class StageHand extends Schema {
   @type("string") sessionId = "";
@@ -620,4 +651,6 @@ export class OfficeState extends Schema {
   @type(FeriaState) feria = new FeriaState();
   /** El Carnaval de Negros y Blancos: el desfile y el concurso de disfraces. */
   @type(CarnavalState) carnaval = new CarnavalState();
+  /** El Festival de cometas: las que vuelan, el récord del día y el concurso de la más bonita. */
+  @type(CometasState) cometas = new CometasState();
 }

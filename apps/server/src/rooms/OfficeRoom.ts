@@ -250,6 +250,8 @@ import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
 import { nearQuestGiver } from "@hyvento/map";
 import { registerVelitas, type Velitas } from "./velitas";
+import { registerCometas, type Cometas } from "./cometas";
+import { COMETAS } from "@hyvento/shared";
 import { Novenas } from "./novenas";
 import { Aguinaldos } from "./aguinaldos";
 import { WeatherCycle } from "./weather";
@@ -467,6 +469,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** La Feria de las flores: el reloj de la pausa y cuánto espera la premiación tras el cierre (los tests los fijan). */
   static feriaNow: () => number = () => Date.now();
   static feriaPremiacionMs: number = FERIA.premiacionDelayMs;
+  /** El Festival de cometas: el reloj (pausas y vuelos), el azar de las ráfagas y la espera de la premiación (los tests los fijan). */
+  static cometasNow: () => number = () => Date.now();
+  static cometasRandom: (n: number) => number = (n) => randomInt(n);
+  static cometasPremiacionMs: number = COMETAS.premiacionDelayMs;
   /** El Carnaval: el reloj (pausas, el talco y el desfile) y el paso del desfile (los tests los acortan). */
   static carnavalNow: () => number = () => Date.now();
   static carnavalTiming: DesfileTiming = { ...DESFILE_TIMING };
@@ -1161,6 +1167,45 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.mundo = registerMundo(this as unknown as MundoRoom);
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.velitas = registerVelitas(this, { state: () => this.state.velitas, festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }), player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), now: () => Date.now() }, (c) => this.markActive(c as Client<UserData>));
+    // El Festival de cometas: el puesto, el taller, el vuelo, el concurso y el techo del garaje (ver cometas.ts).
+    this.cometas = registerCometas(
+      this,
+      {
+        state: () => this.state.cometas,
+        festival: () => {
+          const t = this.gameTimeNow();
+          return { id: this.state.festival, fase: this.state.festivalFase, day: t.day, año: fechaDelJuego(t.day).año };
+        },
+        weather: () => this.state.weather as Weather,
+        player: (id) => this.state.players.get(id),
+        players: () => this.state.players.entries(),
+        mapOf: (a) => this.mapOf(a),
+        nearShop: (id) => {
+          const p = this.state.players.get(id);
+          return Boolean(p && this.nearFestivalShop(p, "festival_shop"));
+        },
+        held: this.held,
+        stats: {
+          stat: (u, k) => this.achievements.stat(u, k),
+          max: (u, k, v) => this.achievements.max(u, k, v),
+          bump: (u, k, by) => this.achievements.bump(u, k, by),
+          isLoaded: (u) => this.achievements.isLoaded(u),
+        },
+        repo: () => this.repo,
+        send: (id, t, m) => this.clients.getById(id)?.send(t, m),
+        cine: (id, vars, area) => {
+          for (const c of this.clients) if (!area || this.state.players.get(c.sessionId)?.area === area) c.send(FESTIVAL_MSG.cine, { id, vars } satisfies FestivalCineEvent);
+        },
+        points: (userId, balance, awarded) => {
+          for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+          if (awarded) this.clientOfUser(userId)?.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded);
+        },
+        now: () => OfficeRoom.cometasNow(),
+        random: (n) => OfficeRoom.cometasRandom(n),
+        premiacionDelayMs: () => OfficeRoom.cometasPremiacionMs,
+      },
+      (c) => this.markActive(c as Client<UserData>),
+    );
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1368,6 +1413,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.novenas.tick();
       this.syncFestival();
       this.feria.tick();
+      this.cometas?.tick();
     }, 2_000);
     // El Carnaval: la hora del desfile y la comparsa que va por la calle (seguido, para que se mueva suave).
     this.clock.setInterval(() => this.carnaval.tick(), 100);
@@ -1587,6 +1633,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       permisos: permisosEfectivos({ admin, granted: permisos.byUser[auth.sub] ?? [], everyone: permisos.everyone }),
     };
     void this.achievements.load(auth.sub).then(() => {
+      this.cometas?.joined(client.sessionId, auth.sub);
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
     });
@@ -1635,6 +1682,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   async onLeave(client: Client<UserData>, consented: boolean) {
     // Un intercambio no espera a que vuelva: se cancela en cuanto se corta la conexión.
     this.trades.left(client.sessionId);
+    this.cometas?.left(client.sessionId);
     const player = this.state.players.get(client.sessionId);
     if (!consented && player) {
       player.moving = false;
@@ -2397,6 +2445,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private comunicacion?: Comunicacion;
   /** La Noche de velitas (ver velitas.ts). */
   private velitas?: Velitas;
+  /** El Festival de cometas (ver cometas.ts). */
+  private cometas?: Cometas;
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
@@ -2500,6 +2550,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.whiteboards.moved(client.sessionId, player.zoneId);
     this.focus.moved(player.userId, player.zoneId);
     this.fishery.moved(player.userId, x, y, seated);
+    if (seated) this.cometas?.left(client.sessionId);
+    else this.cometas?.moved(client.sessionId, x, y);
     this.trades.moved(client.sessionId);
     this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
     if (player.racing) void this.raceOutcome(client.sessionId, this.races.moved(map, client.sessionId, player, now));
@@ -2562,6 +2614,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.focus.moved(player.userId, player.zoneId);
     client.userData.lastMoveAt = Date.now();
     this.fishery.cancel(player.userId);
+    this.cometas?.left(client.sessionId);
     this.achievements.visit(player.userId, target.id);
     client.send(MSG.moveCorrection, { x: pos.x, y: pos.y, area: target.id } satisfies MoveCorrection);
     this.trades.moved(client.sessionId);
@@ -2614,6 +2667,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const previousZoneId = player.zoneId;
     this.casa.leaveStall(player.userId);
     this.fishery.cancel(player.userId);
+    this.cometas?.left(client.sessionId);
     player.area = target.id;
     player.x = plan.x;
     player.y = plan.y;
@@ -4526,6 +4580,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.brujas.forget(player.userId);
     this.gente.forget(player.userId);
     this.feria.forget(player.userId);
+    this.cometas?.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
