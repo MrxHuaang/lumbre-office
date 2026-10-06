@@ -91,7 +91,7 @@ const PROMPT: Record<Interactable, string> = {
   podcast: "Grabar en el estudio",
   telescope: "Mirar por el telescopio",
   marshmallow: "Asar un malvavisco",
-  orrery: "Ver el orrery",
+  orrery: "Ver el orrery (el clima en planetas)",
   radar: "Usar el radar de señales",
   logbook: "Leer el diario de exploración",
   astronomer: "Hablar con la astrónoma",
