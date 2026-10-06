@@ -21,3 +21,4 @@ export * from "./paintings";
 export * from "./permisos";
 export * from "./encargos";
 export * from "./oficios";
+export * from "./aguinaldos";

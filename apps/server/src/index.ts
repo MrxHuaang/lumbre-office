@@ -10,7 +10,7 @@ try {
 
 for (const key of ["GAME_TOKEN_SECRET", "DATABASE_URL"]) {
   if (!process.env[key]) {
-    console.error(`❌ Falta ${key}. Copia .env.example a .env y complétalo.`);
+    console.error(`Falta ${key}. Copia .env.example a .env y complétalo.`);
     process.exit(1);
   }
 }
@@ -24,7 +24,7 @@ process.on("unhandledRejection", (reason) => {
 // qué pasa después). Colyseus apaga ordenado (cierra las salas, que devuelven y guardan) y sale con error;
 // antes de que exista el servidor, Node sale como siempre.
 process.on("uncaughtExceptionMonitor", (err, origin) => {
-  console.error(`❌ Excepción sin atrapar (${origin}): el servidor se apaga`, err);
+  console.error(`Excepción sin atrapar (${origin}): el servidor se apaga`, err);
 });
 
 const { createGameServer } = await import("./app");
@@ -47,4 +47,4 @@ try {
 const port = Number(process.env.PORT ?? process.env.GAME_SERVER_PORT ?? 2567);
 const server = createGameServer({ repo });
 await server.listen(port);
-console.log(`🏢 Servidor de juego escuchando en el puerto ${port}`);
+console.log(`Servidor de juego escuchando en el puerto ${port}`);

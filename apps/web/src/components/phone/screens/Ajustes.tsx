@@ -14,6 +14,7 @@ import type { Profile } from "@/game/store";
 import { STATUS_HEX } from "@/lib/cozy";
 import { Flash, ScreenTitle, SelectList, useHearingText, usePhone, usePhoneKeys, usePlaceText, WeatherIcon } from "../kit";
 import { useBattery, useSignal } from "../StatusBar";
+import { PixelIcon } from "../../Cozy";
 
 const TONES = [{ id: CLASSIC_TONE, name: "Bip de la cabaña" }, ...RINGTONES.map((r) => ({ id: r.id, name: r.name }))];
 
@@ -97,7 +98,7 @@ export function TonosApp() {
         render={(t) => (
           <span className="flex justify-between gap-1">
             <span className="truncate">{t.name}</span>
-            {t.id === tone && <span>✓</span>}
+            {t.id === tone && <PixelIcon name="check" size={10} />}
           </span>
         )}
       />
@@ -216,7 +217,7 @@ export function EstadoApp({ profile }: { profile: Profile }) {
         </span>
       ),
       run: () => cycle(1),
-      hint: "OK o ◀ ▶ cambian el estado",
+      hint: "OK o las flechas cambian el estado",
     },
     { k: "Puntos", v: me ? String(me.points) : "—", run: movements, hint: "OK: ver tus movimientos" },
     { k: "Ocio hoy", v: leisure ? `${leisure.today}/${leisure.cap}` : "—", hint: "Tope diario de puntos por ocio" },

@@ -28,7 +28,7 @@ export const CasaFiestaMessage = z.object({ on: z.boolean() }).strict();
 
 /** El aviso del chat global cuando alguien prende la fiesta. */
 export function fiestaAnnouncement(name: string): string {
-  return `🎉 ${name} armó fiesta en su casa: toma el Megabús en la estación y elige su casa.`;
+  return `¡${name} armó fiesta en su casa! Toma el Megabús en la estación y elige su casa.`;
 }
 
 // ---------- Los juegos del cuarto de juegos ----------

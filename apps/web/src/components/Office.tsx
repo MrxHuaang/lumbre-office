@@ -54,6 +54,7 @@ import { RacePanel, RaceTimer } from "./RacePanel";
 import { AquariumPanel } from "./AquariumPanel";
 import { BookReader } from "./BookReader";
 import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } from "./DoorNotesPanels";
+import { DeseoPanel } from "./velitas/DeseoPanel";
 import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ComunicacionOverlays } from "./comunicacion/ComunicacionOverlays";
 import { ShedPanel } from "./ShedPanel";
@@ -454,6 +455,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "aquarium" && <AquariumPanel onClose={closePanel} />}
           {panel?.kind === "doorNote" && <DoorNoteWritePanel onClose={closePanel} />}
           {panel?.kind === "doorNotes" && <DoorNotesPanel onClose={closePanel} />}
+          {panel?.kind === "deseo" && <DeseoPanel onClose={closePanel} />}
           {panel?.kind === "phone" && <PhonePanel onClose={closePanel} />}
           {panel?.kind === "shed" && <ShedPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "grill" && <GrillPanel atObject={panel.atObject} onClose={closePanel} />}

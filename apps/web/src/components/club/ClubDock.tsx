@@ -9,6 +9,7 @@ import { useOfficeStore } from "@/game/store";
 import { LocalVolume } from "./DjConsole";
 import { NEON } from "./neon";
 import { Reactions } from "./YoutubeQueue";
+import { PixelIcon } from "../Cozy";
 
 export function ClubSection() {
   const music = useClubStore(useShallow((s) => ({ track: s.track, video: s.video, paused: s.paused, startedAt: s.startedAt, pausedAt: s.pausedAt })));
@@ -25,7 +26,7 @@ export function ClubSection() {
     <div className="flex flex-col gap-2 border-2 p-2 text-[12px]" style={{ background: NEON.ink, borderColor: NEON.edge, color: NEON.paper }}>
       <div className="flex items-start gap-2">
         <span className="pt-0.5" style={{ color: NEON.pink }} aria-hidden>
-          {title ? (playing ? "♪" : "❚❚") : "·"}
+          {title ? <PixelIcon name={playing ? "note" : "pause"} size={10} /> : "·"}
         </span>
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-[13px] leading-tight" style={{ color: NEON.cyan }} title={title}>

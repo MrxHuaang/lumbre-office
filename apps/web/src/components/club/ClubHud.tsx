@@ -14,6 +14,7 @@ import { useClubStore } from "@/game/club/store";
 import { useOfficeStore } from "@/game/store";
 import { ArtImage } from "../casino/PixelArt";
 import { useMyPoints } from "../PointsPanels";
+import { PixelIcon } from "../Cozy";
 
 export function ClubHud() {
   const here = useClubStore((s) => s.here);
@@ -67,7 +68,9 @@ export function ClubHud() {
       {here.onFloor && !playing && <p className="cozy-chip px-3 py-1 text-[12px]">Para bailar, pon música en la cabina del DJ.</p>}
       {needsTap && (
         <button type="button" onClick={() => tapVideos()} className="cozy-btn cozy-btn-primary px-3 py-1.5 text-[13px]">
-          ▶ Activar el sonido del video
+          <span className="inline-flex items-center gap-1">
+            <PixelIcon name="play" size={11} /> Activar el sonido del video
+          </span>
         </button>
       )}
     </div>

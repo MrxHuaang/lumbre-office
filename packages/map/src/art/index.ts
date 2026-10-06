@@ -31,6 +31,7 @@ export { heartSmall, lampLit, lampOff, musicNote, NOTE_COLORS, tvScreenOff, tvSc
 export { drawSurroundings, SURROUND_PAD } from "./surroundings";
 // La casa del árbol: la escalera de cuerda recogida con el cartel "OCUPADO" (la cambia el cliente).
 export { drawTreeLadder } from "./casa-arbol-exterior";
+export { drawFarolVolador, VELITA_COLORES, type VelitaColor } from "./velitas";
 // El Megabús de la parada del jardín: el bus que arma el cliente, las puertas y la pantalla de la estación.
 export { BUS_CAR_LEN, busCarSprite, busJointSprite, busScreenText, stationDoorsSprite, type BusCar } from "./bus";
 export { CARROZA_FRAMES, CARROZA_LARGO, banderaSprite, carrozaSprite, talcoCara, talcoPolvo } from "./carnaval";

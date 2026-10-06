@@ -2,6 +2,8 @@
 // va sobre la cabeza (gorrito de cumpleaños, tomatito del foco, micrófono de quien canta), el pastel de la
 // cafetería, el micrófono del escenario y el neón KARAOKE del club. No son muebles del plano: el juego los
 // pone encima del nivel solo mientras dura el evento.
+import { NOVENA } from "@hyvento/shared";
+import { pesebreSprite } from "./novenas";
 import { C, OUT } from "./palette";
 import { at, flat, L, PixelCanvas, renderSprite, solidBox, type Box, type RGBA, type Shader, type Sprite } from "./pixel";
 import { neonAt, WALL_H } from "./room";
@@ -106,11 +108,20 @@ export interface EventOverlay {
   key: string;
   sprite: Sprite;
   tile: { x: number; y: number } | null;
+  /** Tiles que ocupa (por defecto 1x1): se ordena con el centro de todo eso, como un mueble. */
+  size?: { w: number; d: number };
+  /** Se dibuja al espejo (como un mueble mirando hacia abajo o arriba). */
+  flip?: boolean;
 }
 
 /** Lo que se ve en un nivel según los eventos de hoy (lo usan el juego y la vista previa del arte). */
-export function eventOverlays(areaId: string, on: { birthday: boolean; karaoke: boolean }): EventOverlay[] {
+export function eventOverlays(areaId: string, on: { birthday: boolean; karaoke: boolean; pesebre?: number | null }): EventOverlay[] {
   const out: EventOverlay[] = [];
+  // Las novenas: el pesebre del recibidor con las figuras que lleva (null = no hay novena).
+  if (on.pesebre != null && areaId === NOVENA.area) {
+    const { x, y, w, d, facing } = NOVENA.pesebre;
+    out.push({ key: `novena-pesebre-${on.pesebre}`, sprite: pesebreSprite(on.pesebre), tile: { x, y }, size: { w, d }, flip: facing === "down" });
+  }
   if (on.birthday && areaId === EVENT_SPOTS.cake.area) out.push({ key: "evento-pastel", sprite: birthdayCake(), tile: EVENT_SPOTS.cake });
   if (on.karaoke && areaId === EVENT_SPOTS.mic.area) {
     out.push({ key: "evento-neon-karaoke", sprite: karaokeSign(), tile: null });

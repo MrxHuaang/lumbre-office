@@ -5,6 +5,7 @@
 // Aquí solo los datos y las reglas puras: qué festival cae en una fecha, en qué fase va y cuáles vienen.
 import type { CineDef } from "./cinematicas";
 import type { Season } from "./estaciones";
+import { SUELTA_MINUTO, VELITAS_CINE, VELITAS_CINEMATICAS } from "./velitas";
 
 export const FESTIVAL_IDS = ["amor-amistad", "feria-flores", "cometas", "carnaval", "cosecha", "brujas", "velitas", "novenas", "ano-viejo"] as const;
 export type FestivalId = (typeof FESTIVAL_IDS)[number];
@@ -25,6 +26,18 @@ export interface FestivalDef {
   frases: Partial<Record<string, readonly string[]>>;
   /** Color del letrero del festival en el HUD. */
   color: string;
+  /**
+   * Momentos con hora durante la fiesta: al llegar el reloj del juego a ese minuto del día (entre la
+   * apertura y el cierre) la sala manda la cinemática a todos (la suelta de faroles de velitas).
+   */
+  momentos?: readonly FestivalMomento[];
+}
+
+export interface FestivalMomento {
+  /** Minuto del día del juego (0..1439), dentro de la fiesta. */
+  minuto: number;
+  /** Id de la cinemática (del catálogo de cinemáticas). */
+  cine: string;
 }
 
 export const FESTIVALES: readonly FestivalDef[] = [
@@ -126,10 +139,22 @@ export const FESTIVALES: readonly FestivalDef[] = [
     dia: 7,
     dias: 1,
     color: "#e8c34a",
+    // La medianoche de las velitas no cabe en la fiesta (a las 00:00 ya es otro día y el festival
+    // terminó): la suelta de faroles es a las 21:00, ya de noche y una hora antes del cierre.
+    momentos: [{ minuto: SUELTA_MINUTO, cine: VELITAS_CINE.faroles }],
     frases: {
-      aurora: ["Prenda su velita y pida un deseo, pero bajito, que si no no se cumple.", "Esta noche la cabaña parece un pesebre gigante."],
-      gloria: ["Los faroles de papel se sueltan en el muelle. Uno por persona.", "Cuente las velitas del jardín: yo voy en ciento y pico."],
+      aurora: [
+        "Prenda su velita y pida un deseo, pero bajito, que si no no se cumple.",
+        "Esta noche la cabaña parece un pesebre gigante.",
+        "A las nueve soltamos los faroles. Vaya pensando el deseo, que no se vale repetir.",
+      ],
+      gloria: [
+        "Los faroles de papel se sueltan en el muelle. Uno por persona.",
+        "Cuente las velitas del jardín: yo voy en ciento y pico.",
+        "¿Ya le llegaron sus velitas? Están en la mochila: póngalas donde no estorben.",
+      ],
       astronoma: ["Con tanta velita casi no se ven las estrellas. Casi.", "Un deseo con farol sube más alto que uno sin farol."],
+      evelio: ["Desde el muelle se ven los faroles mejor que desde cualquier parte. Y no cobro.", "Una velita en la proa del bote y se pesca de noche como un señor."],
     },
   },
   {
@@ -356,4 +381,6 @@ export const FESTIVAL_CINEMATICAS: readonly CineDef[] = [
   ]),
   close(byId("ano-viejo"), "¡Feliz año nuevo, mijo! Que este año la cabaña nos dé muchas sorpresas."),
   ...FESTIVALES.map(late),
+  // Las de la Noche de velitas: las metas del equipo y la suelta de faroles (velitas.ts).
+  ...VELITAS_CINEMATICAS,
 ];

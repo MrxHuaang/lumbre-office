@@ -2285,6 +2285,71 @@ ITEMS["mascara-sol"] = {
   colors: legend({ y: "#f3c440", k: "#24212e", w: "#f6f4ef", r: "#c05a4a" }),
   flat: "kwr",
 };
+// La velita de la Noche de velitas: la vela blanca prendida en su vasito de papel rojo plisado.
+ITEMS.velita = {
+  rows: [
+    "...y...", //
+    "..yfy..",
+    "..ofo..",
+    "..owo..",
+    "orwrwro",
+    "orwwwro",
+    ".rRrRr.",
+    ".rRrRr.",
+    ".ooooo.",
+  ],
+  colors: legend({ y: "#fbb23c", f: "#fff4c8", w: "#faf4e6", r: "#d8463c", R: "#9c2a2a" }),
+  flat: "yfrR",
+};
+// El farol de deseos (sin soltar): papel de seda amarillo y naranja, más ancho arriba, con su aro de alambre.
+ITEMS["farol-deseos"] = {
+  rows: [
+    ".oooooo.", //
+    "opPpPpPo",
+    "opPpPpPo",
+    ".opPpPo.",
+    ".opPpPo.",
+    "..oaao..",
+    "..a..a..",
+    "...yy...",
+  ],
+  colors: legend({ p: "#f6d23a", P: "#f08a2a", a: "#5a4a3a", y: "#fff0a0" }),
+  flat: "pPy",
+};
+// ---------- Las novenas: la natilla y los buñuelos de la cocina (cocina.ts) ----------
+
+// La natilla casera: dos cuadritos temblorosos con canela en un platico de loza (la de la cafetería es un
+// solo bloque en su molde).
+ITEMS["natilla-casera"] = {
+  crumb: hex("#e8c088"),
+  rows: [
+    ".ooo..ooo.", //
+    "oTdToodTTo",
+    "onnNoonnNo",
+    "onnNoonnNo",
+    "oppppppppo",
+    ".oPPPPPPo.",
+    "..oooooo..",
+  ],
+  colors: legend({ T: "#f0cc92", d: "#8a4a22", n: "#d29a56", N: "#a87034", p: "#f4ecdc", P: "#cbbba2" }),
+  flat: "d",
+};
+// Los buñuelos de la novena: tres bolitas doradas, dos abajo y una encima (el de la panadería va solo).
+ITEMS["bunuelos-novena"] = {
+  crumb: hex("#f8dc9a"),
+  rows: [
+    "...ooo....", //
+    "..oHbbo...",
+    "..obbdo...",
+    ".oooooooo.",
+    "oHbbooHbbo",
+    "obbdoobbdo",
+    "obddoobddo",
+    ".ooo..ooo.",
+  ],
+  colors: legend({ b: "#d08c38", H: "#fff2cc", d: "#a4622a" }),
+  flat: "H",
+};
 
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 

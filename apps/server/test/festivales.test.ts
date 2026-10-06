@@ -1,6 +1,6 @@
 // Los festivales en la sala: cuál corre según el calendario del juego, y las cinemáticas al abrir, al cerrar
 // y para quien llega tarde (ver rooms/festivales.ts).
-import { DIAS_POR_ESTACION, FESTIVAL_MSG, SEASONS, festivalCineId, type GameTime } from "@hyvento/shared";
+import { DIAS_POR_ESTACION, FESTIVAL_MSG, SEASONS, SUELTA_MINUTO, VELITAS_CINE, festivalCineId, type GameTime } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
 import { Festivales } from "../src/rooms/festivales";
 
@@ -11,12 +11,18 @@ function setup(day: number, minute: number) {
   const time: GameTime = { day, minuteOfDay: minute, hour: Math.floor(minute / 60), minute: minute % 60 };
   const state = { festival: "", festivalFase: "" };
   const sent: { type: string; msg: unknown }[] = [];
-  const f = new Festivales({ state: () => state, time: () => time, broadcast: (type, msg) => sent.push({ type, msg }) });
+  const changes: string[] = [];
+  const f = new Festivales({
+    state: () => state,
+    time: () => time,
+    broadcast: (type, msg) => sent.push({ type, msg }),
+    changed: (x, fase) => changes.push(`${x?.id ?? ""}:${fase}`),
+  });
   const at = (m: number) => {
     time.minuteOfDay = m;
     time.hour = Math.floor(m / 60);
   };
-  return { f, state, sent, at, time };
+  return { f, state, sent, at, time, changes };
 }
 
 describe("festivales en la sala", () => {
@@ -73,6 +79,39 @@ describe("festivales en la sala", () => {
     at(9 * 60);
     f.tick();
     expect(sent.filter((s) => (s.msg as { id: string }).id === festivalCineId("novenas", "apertura"))).toHaveLength(2);
+  });
+
+  it("los momentos con hora salen una vez al llegar su minuto (la suelta de faroles a las 21:00)", () => {
+    const { f, sent, at, time } = setup(dayOf("invierno", 7), 20 * 60);
+    f.start();
+    const faroles = () => sent.filter((s) => (s.msg as { id: string }).id === VELITAS_CINE.faroles);
+    at(SUELTA_MINUTO - 1);
+    f.tick();
+    expect(faroles()).toEqual([]);
+    at(SUELTA_MINUTO + 1);
+    f.tick();
+    expect(faroles()).toHaveLength(1);
+    at(SUELTA_MINUTO + 30);
+    f.tick();
+    expect(faroles()).toHaveLength(1);
+    // Otro día que no es de velitas: nada.
+    time.day += 1;
+    at(SUELTA_MINUTO - 1);
+    f.tick();
+    at(SUELTA_MINUTO + 1);
+    f.tick();
+    expect(faroles()).toHaveLength(1);
+  });
+
+  it("si la sala arranca después del momento no lo manda, y avisa cada cambio de festival o fase", () => {
+    const { f, sent, at, changes } = setup(dayOf("invierno", 7), SUELTA_MINUTO + 5);
+    f.start();
+    at(SUELTA_MINUTO + 10);
+    f.tick();
+    expect(sent).toEqual([]);
+    at(22 * 60);
+    f.tick();
+    expect(changes).toEqual(["velitas:fiesta", "velitas:fin"]);
   });
 
   it("en desarrollo se prende uno a mano (con su apertura) y se vuelve al calendario", () => {

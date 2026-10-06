@@ -53,7 +53,9 @@ export function RadioTapPrompt() {
   if (!needsTap || !hasRadio) return null;
   return (
     <button type="button" onClick={() => tapVideos()} className="cozy-btn cozy-btn-primary pointer-events-auto px-3 py-1.5 text-[13px]">
-      ▶ Activar el sonido de la radio
+      <span className="inline-flex items-center gap-1">
+        <PixelIcon name="play" size={11} /> Activar el sonido de la radio
+      </span>
     </button>
   );
 }

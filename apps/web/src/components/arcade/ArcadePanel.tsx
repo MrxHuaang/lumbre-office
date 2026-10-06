@@ -216,7 +216,9 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
             {title}
           </h2>
           <button type="button" onClick={onClose} className="absolute top-1 right-1 px-2 text-[14px] text-[#fdf0c8]" aria-label="Salir de la máquina">
-            Esc ✕
+            <span className="inline-flex items-center gap-1">
+              Esc <PixelIcon name="close" size={10} />
+            </span>
           </button>
         </header>
         {/* La pantalla con su bisel. */}
