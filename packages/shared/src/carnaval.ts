@@ -10,6 +10,7 @@
 // rato, y nunca a quien está en "No molestar" o pidió no recibirla. Los grupos son ficticios.
 import { z } from "zod";
 import { CARNAVAL_LANZABLES, type Lanzable } from "./carnaval-objetos";
+import type { PiezaId } from "./carnaval-musica";
 import type { CineAction, CineDef } from "./cinematicas";
 import type { Look } from "./look";
 
@@ -122,13 +123,10 @@ export interface Comparsa {
   bailarines: readonly Look[];
   /** Lo que repite en cada parada (en bucle). */
   frase: readonly FrasePaso[];
-  /** La pieza que suena a su paso (ver `PIEZAS`). */
+  /** La pieza con que empieza a sonar a su paso (ver `PIEZAS` en carnaval-musica.ts; luego rota). */
   pieza: PiezaId;
 }
 
-/** Las piezas de la música andina (sintetizadas en el navegador; ninguna grabación). */
-export const PIEZAS = ["guanena", "sanjuanito", "pasacalle", "albazo"] as const;
-export type PiezaId = (typeof PIEZAS)[number];
 
 const BLANCO = "#f3f1ec";
 const NEGRO = "#24212e";
@@ -377,7 +375,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     grupo: "Comparsa de la cabaña",
     acento: "#a6d23a",
     largo: 9,
-    pieza: "pasacalle",
+    pieza: "son-vereda",
     // Dos de la murga van delante de la gente de la cabaña, marcando el paso.
     bailarines: [0, 1].map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
     frase: [todos("bailar"), todos("girar"), todos("saltar"), todos("celebrar")],
@@ -713,7 +711,7 @@ export const CARNAVAL_CINEMATICAS: readonly CineDef[] = [
       { op: "spawn", id: "gloria", like: "gloria", at: { dx: -2, dy: -2 }, facing: "down" },
       { op: "spawn", id: "aurora", like: "aurora", at: { dx: 2, dy: -2 }, facing: "down" },
       { op: "spawn", id: "evelio", like: "evelio", at: { dx: 0, dy: -3 }, facing: "down" },
-      { op: "sound", sound: "albazo" },
+      { op: "sound", sound: "murga" },
       { op: "together", steps: [{ op: "act", who: "gloria", action: "saludar" }, { op: "act", who: "aurora", action: "saludar" }, { op: "act", who: "evelio", action: "asentir" }] },
       { op: "flash", color: "oro", ms: 400 },
       {
