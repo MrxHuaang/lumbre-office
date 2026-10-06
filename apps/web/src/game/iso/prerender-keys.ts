@@ -1,6 +1,7 @@
 // Nombres compartidos entre el script que pre-dibuja el arte en el build (scripts/prerender.ts) y el
 // juego que lo carga (prerender.ts): si no coinciden, el juego no encuentra la imagen y la dibuja.
 import { CATALOG, catalogItem, type OfficeMap } from "@hyvento/map";
+import type { ParteMovil } from "@hyvento/map/art";
 import { PAINTING_BASE_TYPE, paintingIdOf } from "@hyvento/shared";
 
 export { GAME_MANIFEST, PRERENDER_DIR } from "./prerender-paths";
@@ -66,4 +67,15 @@ export interface GameManifest {
   frames: Record<string, AtlasFrame>;
   /** Baldosa del bosque de alrededor, por tipo. */
   surroundings: Record<string, string>;
+  /** Las carrozas del Carnaval: cómo se mueve cada parte (el dibujo va en el atlas, con `carrozaKey`). */
+  carrozas?: Record<string, CarrozaMeta>;
 }
+
+/** Una carroza sin sus dibujos: lo largo y cada parte con su pivote y su movimiento. */
+export interface CarrozaMeta {
+  largo: number;
+  partes: (ParteMovil & { px: number; py: number; w: number; h: number })[];
+}
+
+/** Cuadro del atlas de una parte de una carroza. */
+export const carrozaKey = (id: string, parte: string) => `carroza-${id}-${parte}`;

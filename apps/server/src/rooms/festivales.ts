@@ -45,7 +45,7 @@ export class Festivales {
     const t = this.parts.time();
     const f = fechaDelJuego(t.day);
     const festival = this.override ? festivalById(this.override)! : festivalEn(estacionDelDia(t.day), f.diaDeEstacion);
-    return { festival, fase: festivalFase(t.minuteOfDay) };
+    return { festival, fase: festivalFase(t.minuteOfDay, festival) };
   }
 
   /** Ya pasó el primer tick: lo que ya estaba andando al arrancar la sala no se anuncia como "empezó". */

@@ -5,9 +5,11 @@
 // Dónde va cada carroza en la calle lo calcula packages/map (carnaval.ts); lo decide la sala
 // (apps/server/src/rooms/carnaval.ts).
 //
-// Respeto cultural (decisión del plan): el blanco y negro va en trajes, máscaras, banderines, confeti y
-// carrozas; nunca se oscurece la piel de nadie. La maicena es el talco del Día de Blancos: cara empolvada un
-// rato, y nunca a quien está en "No molestar" o pidió no recibirla. Los grupos son ficticios.
+// "Negros y Blancos" es el nombre de los días del carnaval (el 5 y el 6 de enero), no el color de las
+// carrozas: en Pasto las carrozas y las comparsas son explosiones de color. Respeto cultural (decisión del
+// plan): nunca se oscurece la piel de nadie. La maicena es el talco del Día de Blancos: cara empolvada un
+// rato, y nunca a quien está en "No molestar" o pidió no recibirla. Los grupos son ficticios. El carnaval
+// es de día: el Desfile Magno sale a las 10:00 y el concurso se premia antes de que oscurezca.
 import { z } from "zod";
 import { CARNAVAL_LANZABLES, type Lanzable } from "./carnaval-objetos";
 import type { PiezaId } from "./carnaval-musica";
@@ -16,17 +18,21 @@ import type { Look } from "./look";
 
 export const CARNAVAL = {
   id: "carnaval",
-  /** Horas del juego en que sale el desfile. */
-  desfileHoras: [11, 15, 19],
+  /**
+   * Hora del juego en que sale el Desfile Magno: una sola vez por Carnaval (el festival dura un día del
+   * juego), de día. No vuelve a salir hasta el Carnaval del año siguiente del calendario.
+   */
+  desfileHoras: [10],
   /** Minutos del juego después de la hora en que todavía puede salir (si el bus estaba en la calle, se espera). */
   ventanaMin: 30,
   /**
-   * Velocidad del desfile (tiles por segundo real). Con las diez carrozas la fila es más larga: a este paso
-   * el desfile entero sigue durando unos 2 minutos (ver `desfileDuracionMs` en packages/map).
+   * Velocidad del desfile (tiles por segundo real): despacio, como el Desfile Magno. La fila es larga (las
+   * carrozas con sus comparsas grandes, las murgas y los disfraces) y va pasando por la calle: el desfile
+   * entero dura unos 17 minutos reales (ver `desfileDuracionMs` en packages/map).
    */
-  velocidad: 2.6,
+  velocidad: 0.34,
   /** Lo que dura cada parada (ms reales): las comparsas repiten su frase. */
-  paradaMs: 16_000,
+  paradaMs: 45_000,
   /** Un tiempo de la música (ms): una frase son 8. */
   beatMs: 500,
   /** Distancia (tiles, a lo largo de la calle) a la comparsa de la cabaña para sumarse desde la vereda. */
@@ -38,11 +44,15 @@ export const CARNAVAL = {
   lanzarPausaMs: 2000,
   /** Lo que dura la cara empolvada. */
   talcoMs: 45_000,
-  /** Puntos (LEISURE) por bailar un desfile entero, y en cuántos desfiles por festival se pagan. */
+  /** Cuánto hay que bailar (tiles de calle) para los puntos al bajarse. */
+  tramoConPuntos: 30,
+  /** Puntos (LEISURE) por bailar un buen trecho del desfile, y en cuántos desfiles por festival se pagan. */
   puntosDesfile: 15,
   desfilesConPuntos: 2,
-  /** Hora del juego en que cierra el concurso de disfraces (antes del cierre del festival, a las 22). */
-  concursoCierre: 21,
+  /** Hora del juego en que cierra y se premia el concurso de disfraces: de día, antes del cierre del festival. */
+  concursoCierre: 18,
+  /** Hora del juego en que cierra el Carnaval (con su cinemática): antes de que oscurezca. */
+  cierre: 18.5,
   /** El premio chico de quien gana el concurso (LEISURE). */
   premioPuntos: 25,
   maxCandidatos: 40,
@@ -115,11 +125,11 @@ export interface Comparsa {
   nombre: string;
   /** El grupo (ficticio) que baila con ella. */
   grupo: string;
-  /** El color de acento de la carroza (todo lo demás es blanco y negro). */
+  /** El color que distingue a la carroza (de ahí salen los colores de los trajes de su comparsa). */
   acento: string;
   /** Lo que ocupa en la calle (tiles a lo largo, la carroza y su comparsa detrás). */
   largo: number;
-  /** La pinta de cada bailarín (blanco y negro en la ropa; la piel, la de cada quien). */
+  /** La pinta de cada bailarín (los colores de su carroza en la ropa; la piel, la de cada quien). */
   bailarines: readonly Look[];
   /** Lo que repite en cada parada (en bucle). */
   frase: readonly FrasePaso[];
@@ -133,23 +143,49 @@ const NEGRO = "#24212e";
 /** Pieles de la gente de la cabaña: la que es, sin pintar. */
 const PIELES = ["#f1c27d", "#e0ac69", "#c68642", "#8d5524", "#ffdbac", "#d9a066"] as const;
 
-/** Un bailarín de comparsa: ropa blanca y negra con el color de acento de su carroza. */
-const comparsero = (i: number, acento: string, o: Partial<Look> = {}): Look => ({
-  skin: PIELES[i % PIELES.length]!,
-  hair: ["#2b1b12", "#4a2a1a", "#1d1622", "#6e4a2a"][i % 4]!,
-  shirt: i % 2 ? NEGRO : BLANCO,
-  pants: i % 2 ? BLANCO : NEGRO,
-  accent: acento,
-  top2: acento,
-  hairStyle: (["bun", "short", "braids", "curly"] as const)[i % 4]!,
-  accessories: [],
-  top: "longsleeve",
-  bottom: i % 2 ? "pants" : "long-skirt",
-  shoes: "boots",
-  shoeColor: NEGRO,
-  face: "carnival-mask",
-  ...o,
-});
+/**
+ * Los colores de cada carroza (por su acento) para los trajes de su comparsa: las comparsas de Pasto van
+ * de colores que combinan con su carroza.
+ */
+const PALETAS: Record<string, readonly [string, string, string]> = {
+  "#9a6a40": ["#93203f", "#e0a428", "#1f7a5a"],
+  "#dcae3f": ["#2f6fd6", "#f2711c", "#3db842"],
+  "#ee7a22": ["#3f9a3a", "#f7c518", "#e0283c"],
+  "#c8343a": ["#c8243a", "#1f8a4a", "#f2c21c"],
+  "#b98424": ["#1f8a8a", "#c8287a", "#e6aa2a"],
+  "#3a5aa8": ["#2a5ac8", "#1fb8c8", "#d8d2ee"],
+  "#6f8a3a": ["#0f8a8a", "#d0287a", "#e8b81c"],
+  "#7a4a2a": ["#c8323a", "#f4ead6", "#6a3a1e"],
+  "#a6d23a": ["#a6d23a", "#e0283c", "#2f6fd6"],
+};
+
+/** Una comparsa grande: doce bailarines. */
+const CUADRILLA = Array.from({ length: 12 }, (_, i) => i);
+
+/** Un bailarín de comparsa: el traje de los colores de su carroza (la piel, la de cada quien). */
+const comparsero = (i: number, acento: string, o: Partial<Look> = {}): Look => {
+  const p = PALETAS[acento] ?? [acento, TEJIDO[(i + 1) % TEJIDO.length]!, TEJIDO[(i + 3) % TEJIDO.length]!];
+  return {
+    skin: PIELES[i % PIELES.length]!,
+    hair: ["#2b1b12", "#4a2a1a", "#1d1622", "#6e4a2a"][i % 4]!,
+    shirt: p[i % 3]!,
+    pants: p[(i + 1) % 3]!,
+    accent: acento,
+    top2: p[(i + 2) % 3]!,
+    hairStyle: (["bun", "short", "braids", "curly"] as const)[i % 4]!,
+    accessories: [],
+    top: "longsleeve",
+    bottom: i % 2 ? "pants" : "long-skirt",
+    shoes: "boots",
+    shoeColor: NEGRO,
+    face: "carnival-mask",
+    ...o,
+  };
+};
+
+/** Completa una comparsa hasta doce: los que faltan repiten los trajes con otra piel y otro pelo. */
+const grande = (base: readonly Look[]): Look[] =>
+  CUADRILLA.map((i) => (i < base.length ? base[i]! : { ...base[i % base.length]!, skin: PIELES[(i * 5) % PIELES.length]!, hair: ["#2b1b12", "#4a2a1a", "#1d1622", "#6e4a2a"][(i * 3) % 4]! }));
 
 const todos = (action: CineAction): FrasePaso => ({ op: "act", who: "todos", action });
 const juntos = (...steps: FrasePaso[]): FrasePaso => ({ op: "together", steps });
@@ -178,12 +214,12 @@ export const COMPARSAS: readonly Comparsa[] = [
     largo: 7,
     pieza: "sanjuanito",
     // La abuela (b0) con sombrilla y los nietos, con ropa "de 1928".
-    bailarines: [
+    bailarines: grande([
       comparsero(0, "#9a6a40", { hairStyle: "bun", hair: "#d8d8de", outfit: "gown", head: "straw-hat", face: "round-glasses" }),
       comparsero(1, "#9a6a40", { head: "top-hat", neck: "bowtie", face: "none" }),
       comparsero(2, "#9a6a40", { outfit: "vest", face: "none" }),
       comparsero(3, "#9a6a40", { head: "straw-hat", face: "none" }),
-    ],
+    ]),
     // Paso de paseo: saludan a los dos lados, giran juntos; la abuela se desmaya y la levantan.
     frase: [
       todos("saludar"),
@@ -202,7 +238,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#dcae3f",
     largo: 8,
     pieza: "sanjuanito",
-    bailarines: [0, 1, 2, 3].map((i) => comparsero(i, "#dcae3f", { back: "wings" })),
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#dcae3f", { back: "wings" })),
     // Dos filas abren los brazos al ritmo de las alas; en el tiempo 8, todos saltan.
     frase: [
       { op: "together", steps: [{ op: "act", who: "pares", action: "bailar" }, { op: "walk", who: "impares", path: [{ dx: 0, dy: 0.5 }] }] },
@@ -219,7 +255,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#ee7a22",
     largo: 7,
     pieza: "guanena",
-    bailarines: [0, 1, 2, 3].map((i) => comparsero(i, "#ee7a22", { head: i % 2 ? "bucket-hat" : "beanie" })),
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#ee7a22", { head: i % 2 ? "bucket-hat" : "beanie" })),
     // Un círculo alrededor del volcán; tiemblan cuando "erupciona" y celebran.
     frase: [
       {
@@ -245,10 +281,10 @@ export const COMPARSAS: readonly Comparsa[] = [
     largo: 7,
     pieza: "sanjuanito",
     // Cuatro peones (blancos y negros, con el gorro de bolita) y la reina (b4) con su corona.
-    bailarines: [
-      ...[0, 1, 2, 3].map((i) => comparsero(i, "#c8343a", { head: "pompom-beanie", face: "none", outfit: "vest" })),
+    bailarines: grande([
+      ...CUADRILLA.slice(0, 4).map((i) => comparsero(i, "#c8343a", { head: "pompom-beanie", face: "none", outfit: "vest" })),
       comparsero(4, "#c8343a", { head: "crown", outfit: "gown", neck: "pearls", shirt: BLANCO, pants: BLANCO }),
-    ],
+    ]),
     // Los peones avanzan una casilla (primero la fila de adelante), giran dos veces, la reina cruza en
     // diagonal corriendo y vuelve, y todos regresan a su casilla y le hacen la venia al público.
     frase: [
@@ -270,7 +306,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#b98424",
     largo: 7,
     pieza: "sanjuanito",
-    bailarines: [0, 1, 2, 3].map((i) => comparsero(i, "#b98424", { head: "top-hat", neck: "bowtie" })),
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#b98424", { head: "top-hat", neck: "bowtie" })),
     // Engranajes que giran en sentidos alternos; con la campanada, quietos y asienten.
     frase: [
       { op: "act", who: "pares", action: "girar" },
@@ -290,7 +326,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#3a5aa8",
     largo: 7,
     pieza: "sanjuanito",
-    bailarines: [0, 1, 2, 3, 4, 5].map((i) => comparsero(i, "#3a5aa8", { head: "sailor-hat", back: "cape", face: i % 3 ? "carnival-mask" : "none" })),
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#3a5aa8", { head: "sailor-hat", back: "cape", face: i % 3 ? "carnival-mask" : "none" })),
     // La ola en cadena: cada uno salta medio tiempo después del de al lado, ida y vuelta; luego se mecen.
     frase: [
       ola(6, "saltar", CARNAVAL.beatMs / 2),
@@ -307,8 +343,8 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#6f8a3a",
     largo: 7,
     pieza: "sanjuanito",
-    // Los colibríes: alas, cintillo y la ropa blanca y negra con el verde musgo.
-    bailarines: [0, 1, 2, 3].map((i) => comparsero(i, "#6f8a3a", { back: "wings", head: "headband", face: "none", ...(i % 2 ? {} : { outfit: "ruana" as const }) })),
+    // Los colibríes: alas, cintillo y la ropa de los colores del páramo.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#6f8a3a", { back: "wings", head: "headband", face: "none", ...(i % 2 ? {} : { outfit: "ruana" as const }) })),
     // Los colibríes corren en zigzag delante de la carroza (una fila a contratiempo de la otra), giran allá,
     // vuelven en zigzag y bailan.
     frase: [
@@ -333,15 +369,15 @@ export const COMPARSAS: readonly Comparsa[] = [
     largo: 7,
     pieza: "sanjuanito",
     // La gente del huerto: ruana o delantal, sombrero de paja o flor, y cada uno con la faja de otro color del tejido.
-    bailarines: [0, 1, 2, 3].map((i) => comparsero(i, TEJIDO[i % TEJIDO.length]!, { outfit: i % 2 ? "apron" : "ruana", head: i % 2 ? "flower" : "straw-hat", face: "none" })),
-    // La ronda de la mano: cada uno pasa al puesto del siguiente hasta dar la vuelta entera (b0 → b1 → b3 →
-    // b2 → b0); bailan, se arriman a la vereda a ofrecer la cosecha, celebran y vuelven.
+    bailarines: CUADRILLA.map((i) => comparsero(i, TEJIDO[i % TEJIDO.length]!, { outfit: i % 2 ? "apron" : "ruana", head: i % 2 ? "flower" : "straw-hat", face: "none" })),
+    // La ronda de la mano: los cuatro de adelante (dos columnas de la comparsa) pasan cada uno al puesto del
+    // siguiente hasta dar la vuelta entera (b0 → b1 → b4 → b3 → b0); bailan, se arriman a la vereda a ofrecer la cosecha, celebran y vuelven.
     frase: [
       juntos(
-        camina("b0", [{ dx: 0, dy: 1.3 }, { dx: -1.5, dy: 1.3 }, { dx: -1.5, dy: 0 }, { dx: 0, dy: 0 }]),
-        camina("b1", [{ dx: -1.5, dy: 0 }, { dx: -1.5, dy: -1.3 }, { dx: 0, dy: -1.3 }, { dx: 0, dy: 0 }]),
-        camina("b3", [{ dx: 0, dy: -1.3 }, { dx: 1.5, dy: -1.3 }, { dx: 1.5, dy: 0 }, { dx: 0, dy: 0 }]),
-        camina("b2", [{ dx: 1.5, dy: 0 }, { dx: 1.5, dy: 1.3 }, { dx: 0, dy: 1.3 }, { dx: 0, dy: 0 }]),
+        camina("b0", [{ dx: 0, dy: 0.9 }, { dx: -1.4, dy: 0.9 }, { dx: -1.4, dy: 0 }, { dx: 0, dy: 0 }]),
+        camina("b1", [{ dx: -1.4, dy: 0 }, { dx: -1.4, dy: -0.9 }, { dx: 0, dy: -0.9 }, { dx: 0, dy: 0 }]),
+        camina("b4", [{ dx: 0, dy: -0.9 }, { dx: 1.4, dy: -0.9 }, { dx: 1.4, dy: 0 }, { dx: 0, dy: 0 }]),
+        camina("b3", [{ dx: 1.4, dy: 0 }, { dx: 1.4, dy: 0.9 }, { dx: 0, dy: 0.9 }, { dx: 0, dy: 0 }]),
       ),
       todos("bailar"),
       camina("todos", [{ dx: 0.3, dy: -0.6 }]),
@@ -358,7 +394,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#7a4a2a",
     largo: 7,
     pieza: "sanjuanito",
-    bailarines: [0, 1, 2, 3].map((i) => comparsero(i, "#7a4a2a", { outfit: "apron", face: "none", head: "bandana" })),
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#7a4a2a", { outfit: "apron", face: "none", head: "bandana" })),
     // Saludan desde la calle, reparten "tinto" y asienten (las burbujas las pone el navegador).
     frase: [
       todos("saludar"),
@@ -377,12 +413,114 @@ export const COMPARSAS: readonly Comparsa[] = [
     largo: 9,
     pieza: "son-vereda",
     // Dos de la murga van delante de la gente de la cabaña, marcando el paso.
-    bailarines: [0, 1].map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
+    bailarines: CUADRILLA.slice(0, 8).map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
     frase: [todos("bailar"), todos("girar"), todos("saltar"), todos("celebrar")],
   },
 ];
 
 export const comparsaById = (id: string) => COMPARSAS.find((c) => c.id === id);
+
+// ---------- Lo que va entre carroza y carroza ----------
+
+/** Lo que toca cada músico de una murga (el dibujo lo pone el navegador sobre el chibi). */
+export const INSTRUMENTOS = ["bombo", "trompeta", "acordeon", "redoblante", "tuba"] as const;
+export type Instrumento = (typeof INSTRUMENTOS)[number];
+
+/** Los músicos de una murga, que caminan con sus instrumentos (la música y el nombre, en `MURGAS` de carnaval-musica.ts). */
+export interface MusicoMurga {
+  look: Look;
+  instrumento: Instrumento;
+}
+
+/** Un grupo de disfraces individuales: personajes sueltos con trajes enormes (se dibujan más grandes). */
+export interface GrupoDisfraces {
+  id: string;
+  nombre: string;
+  personajes: readonly { nombre: string; look: Look }[];
+}
+
+const murguista = (i: number, colores: readonly [string, string, string], o: Partial<Look> = {}): Look => ({
+  ...comparsero(i, colores[0]),
+  shirt: colores[i % 3]!,
+  pants: colores[(i + 1) % 3]!,
+  top2: colores[(i + 2) % 3]!,
+  outfit: "vest",
+  head: "straw-hat",
+  face: "none",
+  ...o,
+});
+
+/**
+ * Los músicos de cada murga (por el id de `MURGAS` en carnaval-musica.ts), en uniforme azul y morado con
+ * ribetes dorados, como las murgas de Pasto.
+ */
+export const MUSICOS_MURGA: Record<string, readonly MusicoMurga[]> = {
+  "murga-ruana": (["bombo", "trompeta", "redoblante", "acordeon", "trompeta", "bombo"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#2a4ad0", "#7a2ac8", "#e6aa2a"]) })),
+  "murga-cuyes": (["tuba", "trompeta", "acordeon", "bombo", "redoblante", "trompeta"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#7a2ac8", "#2a4ad0", "#e6aa2a"], { head: "sailor-hat" }) })),
+  "murga-tambores": (["acordeon", "bombo", "trompeta", "tuba", "redoblante", "bombo"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#2a4ad0", "#e6aa2a", "#7a2ac8"], { head: "vueltiao" }) })),
+};
+
+const disfraz = (i: number, o: Partial<Look>): Look => ({ ...comparsero(i, "#c8287a"), face: "none", ...o });
+
+export const DISFRACES: readonly GrupoDisfraces[] = [
+  {
+    id: "reyes-del-sol",
+    nombre: "Disfraces: los reyes del sol",
+    personajes: [
+      { nombre: "El rey del sol", look: disfraz(0, { shirt: "#f2c21c", pants: "#e0283c", top2: "#f2711c", accent: "#f2c21c", outfit: "gown", head: "crown", back: "cape", neck: "chain" }) },
+      { nombre: "La luna de plata", look: disfraz(1, { shirt: "#d8d2ee", pants: "#2a5ac8", top2: "#1fb8c8", accent: "#d8d2ee", outfit: "gown", head: "tiara", back: "cape" }) },
+      { nombre: "El colibrí", look: disfraz(2, { shirt: "#0f8a8a", pants: "#2fa84a", top2: "#d0287a", accent: "#e8b81c", back: "wings", head: "headband", face: "carnival-mask" }) },
+    ],
+  },
+  {
+    id: "mascaras",
+    nombre: "Disfraces: las máscaras de colores",
+    personajes: [
+      { nombre: "El arlequín", look: disfraz(3, { shirt: "#e0283c", pants: "#2f6fd6", top2: "#f2c21c", accent: "#3db842", pattern: "stripes", head: "party-hat", face: "carnival-mask" }) },
+      { nombre: "La mariposa", look: disfraz(4, { shirt: "#f2711c", pants: "#8a3cc8", top2: "#f2c21c", accent: "#c8287a", back: "wings", head: "flower", face: "carnival-mask" }) },
+      { nombre: "El mago del páramo", look: disfraz(5, { shirt: "#5a8a3a", pants: "#2a2a5a", top2: "#e8b81c", accent: "#0f8a8a", outfit: "robe", head: "wizard-hat" }) },
+    ],
+  },
+  {
+    id: "tradicion",
+    nombre: "Disfraces: la tradición",
+    personajes: [
+      { nombre: "La cuyera", look: disfraz(6, { shirt: "#c8336e", pants: "#e8a317", top2: "#2f8f6a", accent: "#3a62b8", outfit: "ruana", head: "straw-hat" }) },
+      { nombre: "El pirata del lago", look: disfraz(7, { shirt: "#2a5ac8", pants: "#f4ead6", top2: "#e0283c", accent: "#f2c21c", head: "pirate-hat", back: "cape" }) },
+      { nombre: "La reina de las flores", look: disfraz(8, { shirt: "#ef6ba0", pants: "#3db842", top2: "#f7c518", accent: "#f7c518", outfit: "dress", head: "flower", neck: "pearls" }) },
+    ],
+  },
+];
+
+/** Lo que pasa por la calle, en orden: las carrozas con su comparsa, las murgas y los disfraces. */
+export type DesfileItem = { tipo: "carroza"; id: CarrozaId } | { tipo: "murga"; id: string } | { tipo: "disfraces"; id: string };
+
+/**
+ * El orden del Desfile Magno. Para sumar una carroza basta con su comparsa en `COMPARSAS`, su dibujo en
+ * packages/map (art/carrozas) y su lugar aquí.
+ */
+export const DESFILE_ORDEN: readonly DesfileItem[] = [
+  { tipo: "carroza", id: "castaneda" },
+  { tipo: "carroza", id: "condor" },
+  { tipo: "murga", id: "murga-ruana" },
+  { tipo: "carroza", id: "galeras" },
+  { tipo: "disfraces", id: "reyes-del-sol" },
+  { tipo: "carroza", id: "tablero" },
+  { tipo: "carroza", id: "reloj" },
+  { tipo: "murga", id: "murga-cuyes" },
+  { tipo: "carroza", id: "luna" },
+  { tipo: "carroza", id: "paramo" },
+  { tipo: "disfraces", id: "mascaras" },
+  { tipo: "carroza", id: "minga" },
+  { tipo: "murga", id: "murga-tambores" },
+  { tipo: "carroza", id: "tinto" },
+  { tipo: "disfraces", id: "tradicion" },
+  { tipo: "carroza", id: "megabus" },
+];
+
+/** Los músicos de una murga del desfile (o ninguno). */
+export const musicosDe = (id: string): readonly MusicoMurga[] => MUSICOS_MURGA[id] ?? [];
+export const disfracesById = (id: string) => DISFRACES.find((d) => d.id === id);
 
 /** Lo que la gente de la cabaña repite en las paradas (los emotes que la sala manda, en bucle). */
 export const COMPARSA_CABANA_EMOTES = ["dance", "party", "star", "clap"] as const;
@@ -396,7 +534,7 @@ export const EVELIO_PARADAS = [
 /** Lo que va diciendo de cada carroza al pasar (burbujas). */
 export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   castaneda: "¡Ahí llega la Familia Castañeda, con baúles y todo, como cada año!",
-  condor: "Miren ese cóndor: ya nació blanco y negro, no hubo que pintarlo.",
+  condor: "¡Miren ese cóndor! Con las alas de todos los colores, como el de Pasto.",
   galeras: "¡El Galeras fumando! Tranquilos, que es humo de algodón.",
   tablero: "¡El Tablero vivo! La Cuadrilla del piso 3 se toma muy en serio lo de ser peones.",
   reloj: "¡El reloj de E.! Trece campanadas… ¿sí las oyen?",
@@ -507,8 +645,8 @@ export type JoinResult = { ok: true; joined: boolean } | { ok: false; error: Joi
 
 export const JOIN_ERROR_TEXT: Record<JoinError, string> = {
   off: "La comparsa sale solo en el Carnaval.",
-  noDesfile: "Ahora no pasa el desfile. Sale a las 11:00, 15:00 y 19:00 del reloj de la cabaña.",
-  far: "Arrímate al Megabús de la alegría, en la vereda, para sumarte.",
+  noDesfile: "Ahora no pasa el desfile. El Desfile Magno sale una vez por Carnaval, a las 10:00 del reloj de la cabaña.",
+  far: "Arrímate a la vereda, donde va pasando el desfile, para sumarte.",
   already: "Ya vas en la comparsa.",
   busy: "Ahora no puedes sumarte: termina primero lo que estás haciendo.",
 };
@@ -549,7 +687,7 @@ export type ConcursoResult = { ok: true; kind: "postulado" | "votado"; name?: st
 
 export const CONCURSO_ERROR_TEXT: Record<ConcursoError, string> = {
   off: "El concurso es solo en el Carnaval.",
-  closed: "El concurso ya cerró: a las 21:00 se premia.",
+  closed: "El concurso ya cerró: a las 18:00 se premia.",
   full: "Ya no caben más postulados.",
   self: "No puedes votar por ti.",
   voted: "Ya votaste en este carnaval.",
