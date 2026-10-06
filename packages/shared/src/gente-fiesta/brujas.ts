@@ -134,7 +134,7 @@ export function GENTE_BRUJAS(): FiestaNpc[] {
       rol: "Cuenta la leyenda del cementerio de cartón",
       area: "jardin",
       tile: { x: 38, y: 130 },
-      comportamiento: { tipo: "quieto", mira: "up" },
+      comportamiento: { tipo: "quieto", mira: "down" },
       pinta: { head: "witch-hat", accent: "#3a2a4a" },
       frases: {
         hola: ["Ese cementerio es de cartón, mijo. Pero la leyenda es de verdad.", "La lápida dice «Q.E.P.D. el lunes». Una broma de Chepe, no le haga caso.", "Antes la noche de brujas no se celebraba aquí. Ahora hasta yo me pongo sombrero."],
@@ -155,7 +155,7 @@ export function GENTE_BRUJAS(): FiestaNpc[] {
       rol: "Vende empanadas de noche de brujas",
       area: "jardin",
       tile: { x: 56, y: 121 },
-      comportamiento: { tipo: "quieto", mira: "left" },
+      comportamiento: { tipo: "quieto", mira: "down" },
       pinta: { head: "witch-hat", accent: "#e0752a" },
       frases: {
         hola: ["¡Empanadas de calabaza! Mentiras, son de papa. Pero con ají naranja.", "Las de esta noche salen con forma de murciélago. Más o menos."],
@@ -174,7 +174,7 @@ export function GENTE_BRUJAS(): FiestaNpc[] {
       rol: "Cuida la entrada del laberinto",
       area: "jardin",
       tile: { x: 49, y: 121 },
-      comportamiento: { tipo: "quieto", mira: "left" },
+      comportamiento: { tipo: "quieto", mira: "right" },
       pinta: { head: "witch-hat", accent: "#4a3a2a" },
       frases: {
         hola: ["El maíz de ese laberinto lo sembré yo. Adentro hay una calabaza dorada, dicen.", "La tierra no tiene afán, y el laberinto tampoco. Entre con calma.", "Paloma, mi mula, se quedó en la casa. Le da miedo el disfraz."],

@@ -70,6 +70,16 @@ la novena de las 20:00 del juego con su cinemática por noche, la natilla y los 
 cocina y dos aguinaldos entre dos personas (pajita en boca y sí y no). La decoración navideña (árbol, arco de
 luces y corona) la pone la decoración temporal de los festivales (`world/festivales/novenas.ts`).
 
+## La gente de la fiesta (VIR-167)
+
+Cada festival trae su gente: entre 8 y 15 NPC en el jardín (y alguno adentro) que pasean, bailan, conversan
+en corrillos, venden en el puesto y piden cosas de la mochila a cambio de algo. Son los **vecinos de la
+vereda** (ficticios y recurrentes: la profe jubilada, el de las empanadas, la niña con su perro, los abuelos
+que bailan, el del tiple…) con otro papel y otra pinta en cada fiesta, más algún suelto (niños disfrazados,
+turistas). Hablan en la tira de conversación y murmuran solos sin cajas. Hecho para brujas, velitas,
+novenas, la feria y el carnaval; los que faltan (amor y amistad, cometas, cosecha, año viejo) solo
+agregan su función en `GENTE_FIESTA` (ver "La gente de la fiesta" en `CLAUDE.md`).
+
 ## Las cinemáticas (VIR-155)
 
 Los festivales las usan para abrir y cerrar (la luna de brujas, los faroles de velitas, el desfile). Es el mismo

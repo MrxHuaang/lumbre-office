@@ -20,7 +20,7 @@ export function GENTE_NOVENAS(): FiestaNpc[] {
       rol: "Reparte buñuelos",
       area: "planta-baja",
       tile: { x: 17, y: 21 },
-      comportamiento: { tipo: "quieto", mira: "left" },
+      comportamiento: { tipo: "quieto", mira: "down" },
       pinta: { outfit: "apron", shirt: "#a83a3a", head: "bandana", accent: "#3a8a4a" },
       lluvia: "sigue",
       frases: {
@@ -196,7 +196,7 @@ export function GENTE_NOVENAS(): FiestaNpc[] {
       rol: "Comenta la decoración",
       area: "jardin",
       tile: { x: 68, y: 31 },
-      comportamiento: { tipo: "quieto", mira: "left" },
+      comportamiento: { tipo: "quieto", mira: "down" },
       pinta: ABRIGO("#5a5a6a"),
       frases: { hola: ["¿Ya vio las luces del porche? Las conectó Fredy. Por eso titilan raro.", "Le cuento algo: la figura de anoche la puso alguien que no rezó. Ahí lo dejo."] },
       murmullos: ["Ahí lo dejo", "Esas luces titilan raro", "¿Ya supo?"],
