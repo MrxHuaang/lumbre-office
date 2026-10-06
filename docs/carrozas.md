@@ -37,7 +37,6 @@ Los ejemplos a seguir son `art/carrozas/calavera.ts` (el Tablero del Diablo) y `
   - `escena(LARGO)` y `plataforma(s, LARGO, { faldon, cubierta, flecos }, false)`, de `plataforma.ts`. Es el camión en 3D: faldón, flecos, ribete y ruedas.
   - `parteBase(s)` es la primera parte.
   - Patrones del faldón: `rombosAndinos`, `zigzag` y `floresBarniz`.
-- **No usar** el escultor 3D (`escultura.ts`, `piezas.ts`, `gigante.ts`): se va a quitar cuando todas estén en pixel art.
 
 ## Las partes y el movimiento
 
