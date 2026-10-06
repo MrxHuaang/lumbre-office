@@ -57,6 +57,7 @@ import { DoorNotePrompt, DoorNotesChip, DoorNotesPanel, DoorNoteWritePanel } fro
 import { DeseoPanel } from "./velitas/DeseoPanel";
 import { IncomingCall, PhonePanel } from "./PhonePanels";
 import { ComunicacionOverlays } from "./comunicacion/ComunicacionOverlays";
+import { DirectorOverlay } from "./director/DirectorPanel";
 import { ShedPanel } from "./ShedPanel";
 import { CoopPanel, GrillPanel } from "./GranjaPanels";
 import { KitchenPanel } from "./KitchenPanel";
@@ -384,6 +385,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           <PodcastConsent />
           <IncomingCall />
           <ComunicacionOverlays />
+          <DirectorOverlay />
           <SocialOverlays />
           <PermisosPanel />
           {/* Abajo al centro: los botones y la fila de la mochila (lo elegido va en la mano). */}

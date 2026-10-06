@@ -101,3 +101,4 @@ export * from "./novenas";
 export * from "./aguinaldos";
 export * from "./capitulo3";
 export * from "./gente-fiesta";
+export * from "./director";

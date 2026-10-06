@@ -37,9 +37,35 @@ export class WeatherCycle {
     this.schedule();
   }
 
-  /** Pone un clima ya (comando de desarrollo) y vuelve a contar su duración desde ahora. */
-  force(weather: Weather) {
-    this.set(weather);
+  /** Fijado por el panel del director: no se sortea hasta que se suelte. */
+  private holding = false;
+
+  /**
+   * Pone un clima ya y vuelve a contar su duración desde ahora. Con `holdMs` (panel del director) se queda
+   * fijo ese rato, o hasta `release` si es `Infinity`.
+   */
+  force(weather: Weather, holdMs?: number) {
+    if (holdMs === undefined) {
+      this.holding = false;
+      return this.set(weather);
+    }
+    this.holding = true;
+    const changed = weather !== this.current;
+    this.current = weather;
+    if (changed) this.deps.onChange(weather);
+    this.timer?.clear();
+    this.timer = Number.isFinite(holdMs) ? this.deps.clock.setTimeout(() => this.release(), holdMs) : undefined;
+  }
+
+  /** ¿Lo fijó el director? */
+  get held() {
+    return this.holding;
+  }
+
+  /** Vuelve al clima natural: se sortea el siguiente ya. */
+  release() {
+    this.holding = false;
+    this.roll();
   }
 
   dispose() {
