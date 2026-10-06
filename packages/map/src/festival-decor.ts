@@ -8,6 +8,7 @@ import { furnitureTiles } from "./decor";
 import { catalogItem } from "./world/catalog";
 import { BRUJAS_DECOR } from "./world/festivales/brujas";
 import { VELITAS_DECOR } from "./world/festivales/velitas";
+import { FERIA_DECOR } from "./world/festivales/feria-flores";
 import { NOVENAS_DECOR } from "./world/festivales/novenas";
 import type { AreaDef, Placement, PointDef } from "./world/types";
 
@@ -32,6 +33,7 @@ export interface FestivalDecorDef {
 export const FESTIVAL_DECOR: Partial<Record<FestivalId, FestivalDecorDef>> = {
   brujas: BRUJAS_DECOR,
   velitas: VELITAS_DECOR,
+  "feria-flores": FERIA_DECOR,
   novenas: NOVENAS_DECOR,
 };
 

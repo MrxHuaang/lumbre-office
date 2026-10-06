@@ -96,9 +96,86 @@ function cornStalk(s: Escena, x: number, y: number, h: number, ready: boolean, s
   for (let k = 0; k < 6; k++) s.plot(x + (noise(k, 4, seed) - 0.5) * 2, y + (noise(k, 5, seed) - 0.5) * 2, SOIL_Z + h + 1 + noise(k, 6, seed) * 2, at(C.gold, 4));
 }
 
+// ---------- Las flores de la Feria de las flores ----------
+
+const CARNATION = { c: hex("#e0303c"), d: hex("#a01828"), s: hex("#ff8a9a") };
+const ALSTRO = { c: hex("#f08a2a"), d: hex("#c05a1a"), s: hex("#ffc070") };
+const HYDRANGEA = [hex("#7a8ae8"), hex("#5a4ab8"), hex("#b48ae0"), hex("#d8ccf8")] as const;
+const SUN = { c: hex("#f7c830"), d: hex("#d89a1a"), s: hex("#fff0a0") };
+const SEEDS = { c: hex("#7a4a1a"), d: hex("#4a2a10") };
+
+/** Tallito delgado de `h` (las flores de vara: clavel, astromelia). */
+function stem(s: Escena, x: number, y: number, h: number) {
+  for (let z = 0; z < h; z += 0.5) s.plot(x, y, SOIL_Z + z, at(C.leaf, z > h * 0.6 ? 3 : 2));
+}
+
+/**
+ * La cabeza del girasol: un disco de pétalos con el centro de semillas, de frente a la cámara (en el
+ * plano que mira hacia +x+y), un poco inclinado hacia arriba.
+ */
+function sunflowerHead(s: Escena, x: number, y: number, z: number, r: number) {
+  for (let a = 0; a < Math.PI * 2; a += 0.12)
+    for (let k = 0; k <= r; k += 0.35) {
+      const u = Math.cos(a) * k;
+      const v = Math.sin(a) * k;
+      // Los pétalos ondulan en el borde; el centro es de semillas (más oscuro abajo).
+      const petal = k > r * 0.55;
+      if (petal && k > r * (0.82 + 0.18 * Math.abs(Math.cos(a * 6)))) continue;
+      const c = petal ? (v > r * 0.3 ? SUN.s : v < -r * 0.3 ? SUN.d : SUN.c) : v < 0 ? SEEDS.d : SEEDS.c;
+      s.plot(x + u * 0.7 + 0.4, y - u * 0.7 + 0.4, z + v + k * 0.08, c);
+    }
+}
+
+/** Las flores del huerto, ya creciendo (`ready`: abiertas). */
+function flowerCrop(s: Escena, crop: string, x: number, y: number, i: number, ready: boolean, k: number): boolean {
+  switch (crop) {
+    case "clavel":
+      // Matita baja de hojas finas y varas con el clavel rojo arriba (cerrado, un botón verde).
+      bush(s, x, y, 2, 2.6, C.leaf, k);
+      for (const [dx, dy, h] of [[-1, 0.5, 6.5], [1, -0.5, 7.5], [0.5, 1.5, 5.5]] as const) {
+        stem(s, x + dx, y + dy, h);
+        if (ready) fruit(s, x + dx, y + dy, SOIL_Z + h + 0.6, 1.1, CARNATION.c, CARNATION.d, CARNATION.s);
+        else s.plot(x + dx, y + dy, SOIL_Z + h + 0.4, at(C.leaf, 4));
+      }
+      return true;
+    case "astromelia":
+      // Más alta, con racimos de flores naranjas abiertas hacia los lados.
+      bush(s, x, y, 2.2, 4, C.leaf, k);
+      for (const [dx, dy, h] of [[-1.2, 0, 8], [1, 1, 9], [0.4, -1.2, 7]] as const) {
+        stem(s, x + dx, y + dy, h);
+        if (!ready) {
+          s.plot(x + dx, y + dy, SOIL_Z + h + 0.4, at(C.leaf, 4));
+          continue;
+        }
+        for (const [ox, oy] of [[0.8, 0], [-0.6, 0.6], [0, -0.8]] as const) fruit(s, x + dx + ox, y + dy + oy, SOIL_Z + h + 0.5, 0.75, ALSTRO.c, ALSTRO.d, ALSTRO.s);
+      }
+      return true;
+    case "girasol":
+      // Dos matas altas (como el maíz) con hojas anchas y, abierta, la cabeza grande mirando a la cámara.
+      if (i === 0 || i === 3) return true;
+      for (let z = 0; z < (ready ? 22 : 15); z += 0.5) s.plot(x, y, SOIL_Z + z, at(C.leaf, z > 10 ? 3 : 2));
+      for (const [zb, t] of [[5, 0.6], [9, 2.4], [13, 4.2]] as const) bush(s, x + Math.cos(t) * 1.8, y + Math.sin(t) * 1.8, 1.6, 1.2, C.leaf, k + zb, SOIL_Z + zb);
+      if (ready) sunflowerHead(s, x, y, SOIL_Z + 23, 4.2);
+      else fruit(s, x, y, SOIL_Z + 16, 1.4, at(C.leaf, 3), at(C.leaf, 2), at(C.leaf, 4));
+      return true;
+    case "hortensia":
+      // Arbusto redondo; abierta, cubierta de bolas de florecitas azules y lilas.
+      bush(s, x, y, ready ? 3.4 : 2.8, ready ? 6 : 4.5, C.leaf, k);
+      if (ready)
+        for (const [dx, dy, dz] of [[1.5, 1.2, 5.5], [-1.4, 1, 4.8], [0.6, -1.4, 6.2], [2, -0.4, 3.6]] as const)
+          for (let j = 0; j < 26; j++) {
+            const t = noise(j, 7, k) * Math.PI * 2;
+            const e = noise(j, 8, k) * Math.PI - Math.PI / 2;
+            s.plot(x + dx + Math.cos(t) * Math.cos(e) * 1.4, y + dy + Math.sin(t) * Math.cos(e) * 1.4, SOIL_Z + dz + Math.sin(e) * 1.2, HYDRANGEA[(j + Math.floor(dx * 3)) % 4]!);
+          }
+      return true;
+  }
+  return false;
+}
+
 /** Lo que crece en una parcela: `stage` 0 recién sembrado, 1 brotes, 2 creciendo, 3 listo. */
 export function cropSprite(crop: string, stage: CropStage): Sprite {
-  const tall = crop === "maiz" ? 34 : crop === "tomate" || crop === "lulo" ? 22 : 16;
+  const tall = crop === "maiz" ? 34 : crop === "girasol" ? 30 : crop === "tomate" || crop === "lulo" ? 22 : 16;
   const s = scene(tall + 6);
   const seed = crop.length * 7 + stage;
   if (stage === 0) {
@@ -118,6 +195,7 @@ export function cropSprite(crop: string, stage: CropStage): Sprite {
   const ready = stage === 3;
   SPOTS.forEach(([x, y], i) => {
     const k = seed + i * 13;
+    if (flowerCrop(s, crop, x, y, i, ready, k)) return;
     switch (crop) {
       case "cilantro":
         // Plumoso y verde claro; listo, más alto y tupido.

@@ -121,6 +121,7 @@ import { Usables, type UsableHit } from "./usables";
 import { FishingController } from "./fishing/controller";
 import { ObservatorioVivo } from "./observatorioVivo";
 import { MaizalVivo, updateTrickTarget } from "./brujas";
+import { SilletasVivas } from "./feriaSilletas";
 import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
 import { setSfxArea, setSfxListener, sfx } from "./sfx";
@@ -260,6 +261,10 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   // La Noche de brujas (solo con su decoración puesta): el puesto del caldero y la calabaza dorada.
   { kind: "brujasShop", point: "festival_shop", furniture: ["cauldron"] },
   { kind: "goldenPumpkin", point: "golden_pumpkin", furniture: ["golden-pumpkin"] },
+  // La Feria de las flores (con su decoración): la mesa del silletero, el puesto de semillas y los exhibidores.
+  { kind: "feriaTable", point: "silletero_table", furniture: ["silletero-table"] },
+  { kind: "feriaShop", point: "feria_shop", furniture: ["flower-stall"] },
+  { kind: "silletaStand", point: "silleta_stand", furniture: ["silleta-stand"] },
 ];
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
@@ -389,6 +394,8 @@ export class OfficeScene extends Phaser.Scene {
   private observatorio!: ObservatorioVivo;
   /** El laberinto de maíz de la Noche de brujas: las matas de delante se transparentan. */
   private maizal = new MaizalVivo();
+  /** La Feria de las flores: la silleta exhibida encima de cada exhibidor. */
+  private silletas!: SilletasVivas;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
   /** Cumpleaños, karaoke y foco: el pastel, el neón y lo de sobre el nombre (ver eventos.ts). */
@@ -572,6 +579,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters.setConditions(useOfficeStore.getState().night, useOfficeStore.getState().weather);
     this.photoBoards = new PhotoBoards(this);
     this.paintings = new PaintingLayers(this);
+    this.silletas = new SilletasVivas(this);
     this.treeLadder = new TreeLadderLayer(this);
     this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.pool = new PoolView(this);
@@ -667,6 +675,7 @@ export class OfficeScene extends Phaser.Scene {
       }),
       () => this.photoBoards.destroy(),
       () => this.paintings.destroy(),
+      () => this.silletas.destroy(),
       () => this.treeLadder.destroy(),
       this.bindVoiceDemand(),
       () => this.busView.destroy(),
@@ -921,6 +930,7 @@ export class OfficeScene extends Phaser.Scene {
       this.critters.setArea(map);
       this.photoBoards.setArea(map);
       this.paintings.setArea(map);
+      this.silletas.setArea(map);
       this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
       this.aquariums.setArea(map, this.view);
@@ -1011,6 +1021,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters.setArea(map);
     this.photoBoards.setArea(map);
     this.paintings.setArea(map);
+    this.silletas.setArea(map);
     this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
     this.aquariums.setArea(map, this.view);

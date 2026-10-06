@@ -17,6 +17,7 @@ import { CONSUMABLES } from "./consumables";
 import { STORY_BAG_OBJECTS } from "./historia";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
 import { paintingIdOf } from "./painting";
+import { SILLETA, silletaCodeOf, silletaFlowerCount, silletaName } from "./silleta";
 import { shopItem } from "./shop";
 import { SOMBRERO_MENU, sombreroItem } from "./sombrero";
 import type { ItemStack } from "./social";
@@ -112,7 +113,7 @@ function fromHouseAndGarden(): Record<string, BagObject> {
   for (const c of CROPS) {
     out[c.product] = {
       name: c.productName,
-      blurb: `Cosechado en ${c.indoor ? "el invernadero" : "el huerto"}.`,
+      blurb: c.flower ? "Recién cortada del huerto: con flores se arma una silleta en la Feria de las flores." : `Cosechado en ${c.indoor ? "el invernadero" : "el huerto"}.`,
       kind: c.product === "cafe-casa" ? "bebida" : "cosecha",
     };
     out[seedsOf(c.id)] = {
@@ -210,6 +211,21 @@ export function bagItemInfo(itemId: string): BagItemInfo {
       story: false,
     };
   }
+  // Una silleta de la Feria de las flores: lo que lleva va en el id, y su dibujo sale de ahí.
+  const silleta = silletaCodeOf(id);
+  if (silleta)
+    return {
+      itemId,
+      name: silletaName(silleta),
+      blurb: `Armada a mano con ${silletaFlowerCount(silleta)} flores. En la feria se exhibe en el patio y se vota.`,
+      kind: "objeto",
+      max: SILLETA.stackMax,
+      furniture: false,
+      art: id,
+      use: null,
+      durable: false,
+      story: false,
+    };
   // La hoja de una nota (`hoja:<noteId>`) es la hoja impresa de siempre: mismo nombre, dibujo y tope.
   const base = sheetNoteIdOf(id) === null ? id : PRINTED_SHEET;
   const o = BAG_OBJECTS[base];

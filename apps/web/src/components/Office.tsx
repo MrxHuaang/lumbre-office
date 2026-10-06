@@ -68,6 +68,7 @@ import { TelescopePanel } from "./observatorio/TelescopePanel";
 import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
 import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
+import { FeriaPanel } from "./FeriaPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { PrologueCard } from "./historia/HistoriaCard";
 import { QuestTracker } from "./encargos/QuestTracker";
@@ -466,6 +467,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "sombrero" && <SombreroPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "brujasShop" && <BrujasPanel atObject={panel.atObject} onClose={closePanel} />}
+          {(panel?.kind === "feriaTable" || panel?.kind === "feriaShop" || panel?.kind === "silletaStand") && <FeriaPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {/* Mundo lleno: tragamonedas, garra, estante de premios, rueda y la recepción. */}
           <MundoPanels />
           {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}

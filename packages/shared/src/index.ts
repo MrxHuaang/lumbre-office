@@ -90,6 +90,8 @@ export * from "./limite-mensajes";
 export * from "./brujas";
 export * from "./velitas";
 export * from "./noche-brujas";
+export * from "./silleta";
+export * from "./feria-flores";
 export * from "./cinematicas";
 export * from "./festivales";
 export * from "./capitulo2";

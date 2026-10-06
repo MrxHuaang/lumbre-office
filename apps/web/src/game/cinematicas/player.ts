@@ -431,6 +431,8 @@ async function runStep(run: Run, step: CineStep) {
       // Sin placa: varios juntos se tapan los nombres, y el que habla ya sale en el cuadro.
       a.setNameHidden(true);
       if (step.facing) a.face(step.facing);
+      // Lo que lleva en la mano (la silleta de los silleteros).
+      if (step.holds) a.setHeld(fillCine(step.holds, run.vars));
       // Si el NPC de verdad está en el nivel, se esconde mientras su doble actúa (no sale dos veces).
       const real = h.npc(step.id);
       if (real && !run.hidden.includes(real)) {

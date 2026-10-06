@@ -86,6 +86,8 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   telescope: ["......yy.", ".....yYy.", "....yYy..", "...yYy...", "..yYy....", ".nyy.....", ".n.n.....", "n...n....", "n...n...."],
   marshmallow: [".cccc....", "cCccCc...", "cccccc...", "cCcccC...", ".cccc....", "....ww...", ".....ww..", "......ww.", ".......ww"],
   pumpkin: ["....nn...", "...ng....", ".yYyYyYy.", "yYyYyYyYy", "yYkYyYkYy", "yYyYyYyYy", "yYkkkkkYy", ".yYyYyYy."],
+  // Feria de las flores: la silleta, el marco de madera cuajado de flores con su copete.
+  silleta: [".g.r.y.v.", "nnnnnnnnn", "nrryyvvbn", "nrryyvvbn", "nopprrygn", "nopprrygn", "nnnnnnnnn", ".n.....n.", ".n.....n."],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],
 };
 

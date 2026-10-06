@@ -266,7 +266,12 @@ export interface PointDef {
     // Los festivales (festival-decor.ts): el puesto del festival y, en la Noche de brujas, junto a la
     // calabaza dorada del laberinto (cambia de rincón cada día).
     | "festival_shop"
-    | "golden_pumpkin";
+    | "golden_pumpkin"
+    // La Feria de las flores: la mesa del silletero (armar la silleta), el puesto de las semillas y,
+    // delante de cada exhibidor, donde se exhibe y se vota.
+    | "silletero_table"
+    | "feria_shop"
+    | "silleta_stand";
   name: string;
   x: number;
   y: number;

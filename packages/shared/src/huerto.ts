@@ -23,6 +23,13 @@ export interface Crop {
    * está húmeda, así que crece a ritmo completo sin regar.
    */
   indoor?: true;
+  /**
+   * Flor (la Feria de las flores, feria-flores.ts): no se come; se usa para armar silletas. Sus semillas no
+   * salen del cobertizo: se compran en la feria.
+   */
+  flower?: true;
+  /** Cuántas unidades da cada cosecha (si no, una): las flores salen de a ramito. */
+  yield?: number;
 }
 
 const MIN = 60_000;
@@ -35,6 +42,11 @@ export const CROPS: readonly Crop[] = [
   { id: "papa", name: "Papa criolla", growMs: 60 * MIN, points: 6, product: "papa", productName: "Papas criollas" },
   { id: "maiz", name: "Maíz", growMs: 90 * MIN, points: 8, product: "mazorca", productName: "Mazorca" },
   { id: "lulo", name: "Lulo", growMs: 150 * MIN, points: 10, product: "lulo", productName: "Lulo" },
+  // Flores de la Feria de las flores: rápidas (caben en una feria) y de a ramito, para las silletas.
+  { id: "clavel", name: "Clavel", growMs: 9 * MIN, points: 2, product: "clavel", productName: "Clavel", flower: true, yield: 3 },
+  { id: "astromelia", name: "Astromelia", growMs: 12 * MIN, points: 3, product: "astromelia", productName: "Astromelia", flower: true, yield: 3 },
+  { id: "girasol", name: "Girasol", growMs: 15 * MIN, points: 3, product: "girasol", productName: "Girasol", flower: true, yield: 3 },
+  { id: "hortensia", name: "Hortensia", growMs: 20 * MIN, points: 4, product: "hortensia", productName: "Hortensia", flower: true, yield: 3 },
   // Invernadero: lo de tierra caliente, que en el frío del jardín no se da.
   { id: "uchuva", name: "Uchuva", growMs: 15 * MIN, points: 3, product: "uchuva", productName: "Uchuvas", indoor: true },
   { id: "pitahaya", name: "Pitahaya", growMs: 40 * MIN, points: 6, product: "pitahaya", productName: "Pitahaya", indoor: true },
@@ -44,6 +56,11 @@ export const CROPS: readonly Crop[] = [
 
 const CROP_BY_ID = new Map(CROPS.map((c) => [c.id, c]));
 export const cropById = (id: string): Crop | undefined => CROP_BY_ID.get(id);
+
+/** Las flores del huerto (para las silletas de la Feria de las flores). */
+export const FLOWER_CROPS: readonly Crop[] = CROPS.filter((c) => c.flower);
+/** ¿Lo cosechado es una flor? */
+export const isFlowerProduct = (item: string) => FLOWER_CROPS.some((c) => c.product === item);
 
 export const HUERTO = {
   /** Con la tierra seca crece a este ritmo (regar la deja al 100 %). */
@@ -255,8 +272,8 @@ export const HUERTO_HOLDS: Record<string, readonly string[]> = Object.fromEntrie
 
 // ---------- Cobertizo ----------
 
-/** Lo que se saca del cobertizo: la regadera (vacía) y una bolsa de semillas de cada cultivo. */
-export const SHED_ITEMS: readonly string[] = [EMPTY_CAN, ...CROPS.map((c) => seedsOf(c.id))];
+/** Lo que se saca del cobertizo: la regadera (vacía) y una bolsa de semillas de cada cultivo (las flores, no: son de la feria). */
+export const SHED_ITEMS: readonly string[] = [EMPTY_CAN, ...CROPS.filter((c) => !c.flower).map((c) => seedsOf(c.id))];
 
 /** Cliente → servidor (`HUERTO_MSG.shedTake`): sacar algo del cobertizo (hay que estar junto a él). */
 export const ShedTakeMessage = z.object({ item: z.string().min(1).max(40).refine((v) => SHED_ITEMS.includes(v)) });

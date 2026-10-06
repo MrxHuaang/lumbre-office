@@ -109,10 +109,11 @@ describe("invernadero", () => {
 });
 
 describe("huerto: lo que se lleva en la mano", () => {
-  it("las semillas dicen su cultivo y el cobertizo tiene la regadera y una bolsa de cada uno", () => {
+  it("las semillas dicen su cultivo y el cobertizo tiene la regadera y una bolsa de cada uno (las flores no: son de la feria)", () => {
     for (const c of CROPS) {
       expect(cropOfSeeds(seedsOf(c.id))?.id).toBe(c.id);
-      expect(SHED_ITEMS).toContain(seedsOf(c.id));
+      if (c.flower) expect(SHED_ITEMS).not.toContain(seedsOf(c.id));
+      else expect(SHED_ITEMS).toContain(seedsOf(c.id));
     }
     expect(SHED_ITEMS).toContain(EMPTY_CAN);
     expect(cropOfSeeds("tinto")).toBeUndefined();
@@ -135,7 +136,7 @@ describe("huerto: lo que se lleva en la mano", () => {
     expect(CONSUMABLES[WATERING_CAN]).toBeUndefined();
     expect(usesOf(WATERING_CAN)).toBe(HUERTO.canUses);
     expect(usesOf(seedsOf("maiz"))).toBe(HUERTO.seedUses);
-    for (const c of CROPS) expect(CONSUMABLES[c.product]?.action, c.product).toBe(c.id === "cafe" ? "sip" : "bite");
+    for (const c of CROPS) expect(CONSUMABLES[c.product]?.action, c.product).toBe(c.flower ? undefined : c.id === "cafe" ? "sip" : "bite");
     expect(CONSUMABLES.miel?.action).toBe("spoon");
   });
 

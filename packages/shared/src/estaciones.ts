@@ -19,7 +19,7 @@ export const isSeason = (x: unknown): x is Season => typeof x === "string" && (S
 /**
  * Ritmo de crecimiento de cada cultivo en cada estación (1 = el de la tabla de CROPS). Más de 1 crece
  * más rápido; menos, más despacio. El cilantro no se queja nunca; el tomate y el maíz son de verano, la
- * papa y el lulo de otoño, la fresa de primavera. Un cultivo sin fila crece igual todo el año.
+ * papa y el lulo de otoño, la fresa y las flores de primavera. Un cultivo sin fila crece igual todo el año.
  */
 export const SEASON_GROWTH: Record<string, Record<Season, number>> = {
   cilantro: { primavera: 1.2, verano: 1, otono: 1, invierno: 1 },
@@ -28,6 +28,11 @@ export const SEASON_GROWTH: Record<string, Record<Season, number>> = {
   papa: { primavera: 1, verano: 0.9, otono: 1.3, invierno: 0.8 },
   maiz: { primavera: 1.1, verano: 1.3, otono: 0.9, invierno: 0.5 },
   lulo: { primavera: 0.9, verano: 1, otono: 1.4, invierno: 0.7 },
+  // Las flores de la Feria de las flores: lo suyo es la primavera (la feria cae el 15).
+  clavel: { primavera: 1.5, verano: 1.1, otono: 0.8, invierno: 0.6 },
+  astromelia: { primavera: 1.5, verano: 1.2, otono: 0.9, invierno: 0.6 },
+  girasol: { primavera: 1.4, verano: 1.3, otono: 0.8, invierno: 0.5 },
+  hortensia: { primavera: 1.6, verano: 1, otono: 0.9, invierno: 0.7 },
   // Los del invernadero (van siempre bajo techo: el frío no los castiga, el calor del verano sí ayuda).
   uchuva: { primavera: 1.1, verano: 1.2, otono: 1, invierno: 0.8 },
   pitahaya: { primavera: 1, verano: 1.3, otono: 1, invierno: 0.7 },

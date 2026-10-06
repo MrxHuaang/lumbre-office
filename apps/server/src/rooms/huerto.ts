@@ -56,8 +56,8 @@ export interface HuertoDeps<T extends PlotState> {
   };
   /** La mochila: si cabe algo y sumarlo (queda en la mano si estaban libres). */
   bag: {
-    fits(userId: string, itemId: string): "ok" | "full" | "stack";
-    add(userId: string, itemId: string): Promise<unknown>;
+    fits(userId: string, itemId: string, quantity?: number): "ok" | "full" | "stack";
+    add(userId: string, itemId: string, quantity?: number): Promise<unknown>;
   };
   /** Premio de ocio (LEISURE, con el tope diario): devuelve lo sumado. */
   award(userId: string, amount: number): Promise<number>;
@@ -170,10 +170,12 @@ export class Huerto<T extends PlotState> {
       if (!canHarvest(plot, who.userId, now))
         return { ok: false, notice: { code: "notYours", name: plot.plantedByName, waitMs: plotReadyAt(plot) + HUERTO.ownerHarvestMs - now } };
       // Lo cosechado va a la mochila (si cabe: si no, la mata espera).
+      // Las flores salen de a ramito (`yield`).
       const crop = cropById(plot.crop)!;
-      if (this.deps.bag.fits(who.userId, objItemId(crop.product)) !== "ok") return { ok: false, notice: { code: "full" } };
+      const n = crop.yield ?? 1;
+      if (this.deps.bag.fits(who.userId, objItemId(crop.product), n) !== "ok") return { ok: false, notice: { code: "full" } };
       this.set(id, null);
-      await this.deps.bag.add(who.userId, objItemId(crop.product));
+      await this.deps.bag.add(who.userId, objItemId(crop.product), n);
       // Los puntos llegan aparte (el "+N" lo manda la sala al sumarlos).
       await this.deps.award(who.userId, crop.points);
       return event("harvest", crop.product);
