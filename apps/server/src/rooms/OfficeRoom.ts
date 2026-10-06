@@ -362,7 +362,7 @@ import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
 import { closeForRestart } from "./reinicio";
 import { startChatRetention } from "./chatRetention";
 import { Director, type DirectorWho } from "./director";
-import { DIRECTOR_MSG, festivalCineId as directorCineId, type FestivalId as DirectorFestivalId } from "@hyvento/shared";
+import { DIRECTOR_MSG, festivalCineId as directorCineId, type DirectorMusica, type FestivalId as DirectorFestivalId } from "@hyvento/shared";
 import { orElse } from "../log";
 import { MSG_RATE, newBucket, takeToken, type RateConfig, type TokenBucket } from "@hyvento/shared";
 
@@ -3080,6 +3080,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     setWeather: (w, holdMs) => this.weather.force(w, holdMs),
     releaseWeather: () => this.weather.release(),
     notice: (text) => OfficeRoom.systemNoticeEverywhere({ from: "Director", text }),
+    musica: (pieza) => this.broadcast(DIRECTOR_MSG.musica, { pieza } satisfies DirectorMusica),
   });
 
   /** Lo que sigue al festival de hoy (decoración, pesebre, feria) apenas cambia, sin esperar el intervalo. */

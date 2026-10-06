@@ -108,6 +108,21 @@ describe("panel del director", () => {
     expect(room.state.festival).toBe("");
   });
 
+  it("la música del Carnaval suena para todos y para (sin permiso, nada)", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    const ana = await join(room, "u-ana", "Ana", "ADMIN");
+    const bob = await join(room, "u-bob", "Bob");
+    const oidas: (string | null)[] = [];
+    bob.client.onMessage(DIRECTOR_MSG.musica, (m: { pieza: string | null }) => oidas.push(m.pieza));
+    expect((await act(bob, room, { kind: "musica", pieza: "son-vereda" })).error).toBe("permiso");
+    expect((await act(ana, room, { kind: "musica", pieza: "son-vereda", nombre: "Son de la vereda" })).ok).toBe(true);
+    await until(() => oidas.includes("son-vereda"), "la pieza para todos");
+    await until(() => avisos(bob).includes("Ana puso a sonar Son de la vereda para todos."), "el aviso de la música");
+    expect((await act(ana, room, { kind: "musica", pieza: null })).ok).toBe(true);
+    await until(() => oidas.at(-1) === null, "que pare");
+    expect(oidas).toEqual(["son-vereda", null]);
+  });
+
   it("el clima se fija, la nieve solo en invierno y vuelve al natural", async () => {
     const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
     const ana = await join(room, "u-ana", "Ana", "ADMIN");
