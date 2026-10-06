@@ -8,6 +8,7 @@ import { furnitureTiles } from "./decor";
 import { catalogItem } from "./world/catalog";
 import { BRUJAS_DECOR } from "./world/festivales/brujas";
 import { VELITAS_DECOR } from "./world/festivales/velitas";
+import { NOVENAS_DECOR } from "./world/festivales/novenas";
 import type { AreaDef, Placement, PointDef } from "./world/types";
 
 /** Lo que un festival agrega a un nivel. */
@@ -31,6 +32,7 @@ export interface FestivalDecorDef {
 export const FESTIVAL_DECOR: Partial<Record<FestivalId, FestivalDecorDef>> = {
   brujas: BRUJAS_DECOR,
   velitas: VELITAS_DECOR,
+  novenas: NOVENAS_DECOR,
 };
 
 /** Los niveles que decora un festival (ninguno si no tiene decoración). */

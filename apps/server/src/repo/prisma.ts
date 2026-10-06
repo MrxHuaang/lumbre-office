@@ -49,7 +49,7 @@ import {
   type QuestDelta,
   type Oficio,
 } from "@hyvento/shared";
-import { executeTip, executeTrade } from "./social";
+import { executeAguinaldo, executeTip, executeTrade } from "./social";
 import type { AwardOnceInput, QuestClaimInput, GameRepository, GardenPlotRecord, OfficeItemsInput, OfficeItemsResult, SavedGameClock, TipInput, TipResult, TradeResult, TradeSideInput } from "./types";
 
 /** Fila de WorldLayout donde se guarda el reloj del juego (no es un nivel). */
@@ -342,6 +342,10 @@ export class PrismaRepository implements GameRepository {
 
   tip(input: TipInput): Promise<TipResult> {
     return executeTip(prisma, input);
+  }
+
+  payAguinaldo(input: TipInput) {
+    return executeAguinaldo(prisma, input);
   }
 
   saveArcadeScore({ userId, game, score, dayStart, weekStart }: { userId: string; game: ArcadeGame; score: number; dayStart: number; weekStart: number }) {

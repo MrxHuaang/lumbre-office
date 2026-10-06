@@ -5,7 +5,8 @@
 // rato de energía. El servidor valida que estés junto a la estufa y que alcancen los ingredientes; aquí
 // solo se muestra.
 import { drawHeldItem } from "@hyvento/map/art";
-import { COCINA, INGREDIENTS, RECIPES, STORY_RECIPES, canCook, ingredientName, unlockText, unlocked, type Recipe } from "@hyvento/shared";
+import { COCINA, INGREDIENTS, RECIPES, STORY_RECIPES, canCook, ingredientName, recipeInSeason, unlockText, unlocked, type Recipe } from "@hyvento/shared";
+import { useOfficeStore } from "@/game/store";
 import { useEncargos } from "@/game/encargos";
 import { storyStepOpen } from "@/game/historia";
 import { useMyLevels } from "@/game/oficios";
@@ -32,11 +33,16 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
   const levels = useMyLevels();
   const pantry = useCocinaStore((s) => s.pantry);
   const pointsToday = useCocinaStore((s) => s.pointsToday);
+  // Las de temporada (la natilla y los buñuelos de las novenas) solo se ven mientras corre su festival.
+  const festival = useOfficeStore((s) => s.festival.id);
   useEffect(() => requestPantry(), []);
   const available = pantry ?? {};
   // Las recetas de la historia (la carnada de E.) solo aparecen con su paso abierto (lo valida el servidor).
   const quests = useEncargos((s) => s.quests);
-  const recipes = [...STORY_RECIPES.filter((r) => r.story?.some((q) => storyStepOpen(quests, q))), ...RECIPES];
+  const recipes = [
+    ...STORY_RECIPES.filter((r) => r.story?.some((q) => storyStepOpen(quests, q))),
+    ...RECIPES.filter((r) => recipeInSeason(r, festival)),
+  ];
 
   return (
     <PanelShell title="Cocina" icon="pot" onClose={onClose} wide>
@@ -81,6 +87,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
                   <ItemArt id={r.id} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold">{r.name}</span>
+                    {r.festival && <span className="block text-[11px] text-cozy-ink-soft">De temporada: solo en las novenas</span>}
                     <span className="flex items-center gap-1 text-[12px] text-cozy-ink-soft">
                       <PixelIcon name={r.effect.kind === "points" ? "coin" : r.effect.kind === "story" ? "fish" : "bolt"} size={11} color="var(--color-cozy-gold)" />
                       {effectText(r)}

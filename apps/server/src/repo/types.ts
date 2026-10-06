@@ -228,6 +228,17 @@ export type TipResult = { ok: true; balances: Record<string, number> } | { ok: f
 // Se funde con la declaración de arriba: el repositorio del juego también hace regalos e intercambios.
 export interface GameRepository extends SocialRepository {}
 
+/** Los saldos nuevos, o por qué no se pagó el aguinaldo (`limit`: tope de aguinaldos o de dar del día). */
+export type AguinaldoPayResult = { ok: true; balances: Record<string, number> } | { ok: false; error: "funds" | "limit" };
+
+/** Los aguinaldos de las novenas (aguinaldos.ts de @hyvento/shared): quien pierde le paga a quien gana. */
+export interface AguinaldoRepository {
+  /** Paga en una transacción: GIFT con refId "aguinaldo:…", dentro del tope de aguinaldos y del de dar. */
+  payAguinaldo(input: TipInput): Promise<AguinaldoPayResult>;
+}
+
+export interface GameRepository extends AguinaldoRepository {}
+
 /** Resultado de dejar una nota en una puerta: cuántas le quedan hoy a quien la dejó y cuántas sin leer tiene el dueño. */
 export type DoorNoteSaveResult = { ok: true; left: number; unread: number } | { ok: false; error: "limit" };
 
