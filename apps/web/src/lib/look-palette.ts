@@ -187,10 +187,10 @@ export const OUTFIT_LABEL: Record<Outfit, string> = {
   jacket: "Chaqueta",
   apron: "Delantal",
   // Van juntos bajo "Traje de baño" (ver LookPanel).
-  trunks: "Bañador",
+  trunks: "Pantaloneta",
   swimsuit: "Entero",
   bikini: "Bikini",
-  coveralls: "Mono",
+  coveralls: "Enterizo",
   gown: "Vestido largo",
   blazer: "Saco",
   vest: "Chaleco",
@@ -238,7 +238,7 @@ const ACCENT_NECK: Partial<Record<NeckItem, string>> = {
   medal: "la cinta de la medalla",
   whistle: "el cordón del silbato",
 };
-const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta", trunks: "los detalles del bañador", trenchcoat: "el gabán" };
+const ACCENT_OUTFIT: Partial<Record<Outfit, string>> = { jacket: "la chaqueta", trunks: "los detalles de la pantaloneta", trenchcoat: "el gabán" };
 const ACCENT_BACK: Partial<Record<BackItem, string>> = { backpack: "el morral", cape: "la capa", "air-tank": "el tanque" };
 
 /** Lo que lleva puesto y usa el color de acento, en el orden de la cabeza a la espalda. */
