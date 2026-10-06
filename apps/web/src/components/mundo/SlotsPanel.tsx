@@ -171,7 +171,9 @@ export function SlotsPanel({ onClose }: { onClose: () => void }) {
     <PanelShell title="Tragamonedas" icon="star" onClose={onClose}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-full border-4 border-[#7a1f2b] bg-[#3a1820] p-2 shadow-[4px_4px_0_#2a2033]">
-          <p className="mb-1.5 text-center text-[13px] tracking-widest text-[#f3d672]">★ JACKPOT ★</p>
+          <p className="mb-1.5 flex items-center justify-center gap-1.5 text-[13px] tracking-widest text-[#f3d672]">
+            <PixelIcon name="star" size={10} /> JACKPOT <PixelIcon name="star" size={10} />
+          </p>
           <canvas ref={canvas} width={W} height={H} className="block w-full [image-rendering:pixelated]" aria-label="Los rodillos" />
         </div>
         <p aria-live="polite" className={`min-h-6 text-center text-[15px] ${message?.tone === "win" ? "font-semibold text-cozy-green" : "text-cozy-ink-soft"}`}>

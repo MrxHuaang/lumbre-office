@@ -13,6 +13,7 @@ import { useOfficeStore } from "@/game/store";
 import { tapVideos } from "@/game/youtube";
 import { clock } from "../club/YoutubeQueue";
 import { PanelShell } from "../PointsPanels";
+import { PixelIcon } from "../Cozy";
 
 /** Miniatura de YouTube (la chiquita, 120x90): es la tapa de cada video, no arte del juego. */
 const thumb = (videoId: string) => `https://i.ytimg.com/vi/${videoId}/default.jpg`;
@@ -131,7 +132,7 @@ export function CinemaPanel({ onClose }: { onClose: () => void }) {
                       ▼
                     </Small>
                     <Small disabled={!here.inCinema} onClick={() => sendCinema({ action: "remove", id: v.id })} label={`Quitar ${v.title}`}>
-                      ✕
+                      <PixelIcon name="close" size={10} />
                     </Small>
                   </span>
                 </li>
@@ -216,7 +217,9 @@ function NowShowing({ now }: { now: ClubVideoView | null }) {
           className="cozy-btn px-2.5 py-1 text-[13px]"
           title={here.atBooth ? undefined : "Se pausa desde la cabina, junto al proyector"}
         >
-          {paused ? "▶ Seguir" : "❚❚ Pausar"}
+          <span className="inline-flex items-center gap-1">
+            <PixelIcon name={paused ? "play" : "pause"} size={11} /> {paused ? "Seguir" : "Pausar"}
+          </span>
         </button>
         <button type="button" disabled={!here.inCinema} onClick={() => sendCinema({ action: "skip", id: now.id })} className="cozy-btn px-2.5 py-1 text-[13px]">
           Saltar ⏭
@@ -265,7 +268,7 @@ export function CinemaSection() {
     <div className="flex flex-col gap-2 text-[12px]">
       <div className="flex items-start gap-2">
         <span className="pt-0.5 text-cozy-red" aria-hidden>
-          {now ? (isShowing(show) ? "▶" : "❚❚") : "·"}
+          {now ? <PixelIcon name={isShowing(show) ? "play" : "pause"} size={10} /> : "·"}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] tracking-wider text-cozy-ink-soft">{now ? (isShowing(show) ? "Función en curso" : "Función en pausa") : "Sala libre"}</p>
@@ -298,7 +301,9 @@ export function CinemaHud() {
   if (!inCinema || !needsTap || panel) return null;
   return (
     <button type="button" onClick={() => tapVideos()} className="cozy-btn cozy-btn-primary pointer-events-auto px-3 py-1.5 text-[13px]">
-      ▶ Activar el sonido de la función
+      <span className="inline-flex items-center gap-1">
+        <PixelIcon name="play" size={11} /> Activar el sonido de la función
+      </span>
     </button>
   );
 }

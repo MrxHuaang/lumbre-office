@@ -10,6 +10,7 @@ import { clubElapsed, useClubStore } from "@/game/club/store";
 import { useOfficeStore } from "@/game/store";
 import { NEON } from "./neon";
 import { YoutubeQueue } from "./YoutubeQueue";
+import { PixelIcon } from "../Cozy";
 
 type Tab = "youtube" | "tracks";
 const TAB_KEY = "hyvento:club-tab";
@@ -77,7 +78,9 @@ export function DjConsole({ atObject, onClose }: { atObject: boolean; onClose: (
             CABINA DJ
           </h2>
           <button type="button" onClick={onClose} className="px-1 text-[13px]" aria-label="Cerrar la consola">
-            Esc ✕
+            <span className="inline-flex items-center gap-1">
+              Esc <PixelIcon name="close" size={10} />
+            </span>
           </button>
         </header>
 
@@ -148,7 +151,7 @@ export function DjConsole({ atObject, onClose }: { atObject: boolean; onClose: (
                       }}
                     >
                       <span className="w-4 text-center" style={{ color: on ? NEON.pink : NEON.cyan }}>
-                        {on && !paused ? "♪" : "▶"}
+                        <PixelIcon name={on && !paused ? "note" : "play"} size={10} />
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-[15px]">{t.name}</span>

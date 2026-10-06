@@ -8,6 +8,7 @@ import { NOTE_BODY_MAX, NOTE_TITLE_MAX, type NoteDTO } from "@/lib/notes";
 import { NoteEditor, textToDoc } from "./editor/NoteEditor";
 import { NotesIcon, TrashIcon } from "./icons";
 import { subtree, type NotesStore } from "./useNotes";
+import { PixelIcon } from "../Cozy";
 
 /** Pregunta de confirmación del sistema (la muestra el escritorio). */
 export type Confirm = (opts: { title: string; message: string; confirmLabel: string }) => Promise<boolean>;
@@ -236,7 +237,7 @@ export function NotesApp({ notes }: { notes: NotesStore }) {
                 onClick={() => void notes.setFavorite(selected.id, !selected.favorite)}
                 className={`grid h-6 w-6 place-items-center text-base ${selected.favorite ? "text-cozy-red-deep" : "text-cozy-ink-soft hover:text-cozy-ink"}`}
               >
-                {selected.favorite ? "★" : "☆"}
+                <PixelIcon name={selected.favorite ? "star" : "starEmpty"} size={14} />
               </button>
               <ToolButton onClick={() => void notes.trash(selected.id)} label="Mandar a la papelera">
                 <TrashIcon size={18} full={false} />
