@@ -156,6 +156,10 @@ export const HEAD_ITEMS = [
   "fedora",
   // Sombrero de bruja: ala ancha y la punta doblada, con la cinta naranja (el sombrero va en `accent`).
   "witch-hat",
+  // Del Carnaval de Pasto: el sombrero negro de fieltro con flores en la cinta y cintas de colores atrás,
+  // y la máscara de papel maché levantada sobre la frente (mitad blanca, mitad negra). Colores propios.
+  "flower-hat",
+  "raised-mask",
 ] as const;
 export type HeadItem = (typeof HEAD_ITEMS)[number];
 export const FACE_ITEMS = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch", "3d-glasses", "hero-mask", "star-glasses", "monocle", "carnival-mask"] as const;

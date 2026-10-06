@@ -78,6 +78,7 @@ export const HAT_HIDES: Partial<Record<HeadItem, number>> = {
   "wizard-hat": 3,
   fedora: 3,
   "witch-hat": 3,
+  "flower-hat": 3,
 };
 
 function maskHair(c: PixelCanvas, head: HeadItem, style: HairStyle, y: Row): PixelCanvas {

@@ -142,7 +142,7 @@ describe("el Carnaval de Negros y Blancos", () => {
     const pieles = new Set(COMPARSAS.flatMap((c) => c.bailarines.map((b) => b.skin)));
     expect(pieles.has("#24212e")).toBe(false);
     for (const c of COMPARSAS) for (const b of c.bailarines) expect([b.shirt, b.pants]).not.toEqual([b.skin, b.skin]);
-    for (const id of ["comparsa-blanca", "arlequin-pastuso", "talco-ceniza"] as const) expect(COSTUMES[id].category).toBe("carnaval");
+    for (const id of ["comparsa-blanca", "arlequin-pastuso", "talco-ceniza", "sombrero-flores", "mascara-levantada"] as const) expect(COSTUMES[id].category).toBe("carnaval");
   });
 
   it("gana el más votado y, si empatan, quien se postuló primero; sin votos no gana nadie", () => {

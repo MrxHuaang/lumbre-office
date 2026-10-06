@@ -52,5 +52,7 @@ export const COSTUME_IDS = [
   "comparsa-blanca",
   "arlequin-pastuso",
   "talco-ceniza",
+  "sombrero-flores",
+  "mascara-levantada",
 ] as const;
 export type CostumeId = (typeof COSTUME_IDS)[number];

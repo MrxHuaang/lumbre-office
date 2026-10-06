@@ -270,6 +270,41 @@ describe("la maicena y las serpentinas", () => {
     expect(bob.me().talco).toBe(false);
   });
 
+  it("la espuma: con las mismas reglas (alcance, pausa, «No molestar» y quien no quiere), gasta una y no empolva", async () => {
+    const { room, alice, lanzar } = await setup();
+    const bob = await join(room, "u-bob", "Bob");
+    const lanzados: { kind: string }[] = [];
+    bob.client.onMessage(CARNAVAL_MSG.lanzado, (e: { kind: string }) => lanzados.push(e));
+    await walkToTile(alice, room, 59, 131);
+    await walkToTile(bob.client, room, 60, 131);
+    await give(room, alice, "u-alice", "espuma", 3);
+    expect(await lanzar(alice.sessionId)).toEqual({ ok: false, error: "self" });
+    bob.me().status = "dnd";
+    expect(await lanzar(bob.client.sessionId)).toMatchObject({ ok: false, error: "dnd" });
+    bob.me().status = "available";
+    bob.client.send(CARNAVAL_MSG.talcoPref, { off: true });
+    await tick(60);
+    expect(await lanzar(bob.client.sessionId)).toMatchObject({ ok: false, error: "noTalco" });
+    bob.client.send(CARNAVAL_MSG.talcoPref, { off: false });
+    await tick(60);
+    expect(await lanzar(bob.client.sessionId)).toMatchObject({ ok: true, kind: "espuma", name: "Bob" });
+    await waitFor(() => (lanzados.some((e) => e.kind === "espuma") ? true : undefined));
+    await room.waitForNextPatch();
+    expect(bob.me().talco).toBe(false);
+    await bagOf(room).flush("u-alice");
+    expect(bagOf(room).count("u-alice", objItemId("espuma"))).toBe(2);
+    // La pausa: otra en seguida no sale (el ayudante ya había corrido el reloj; se devuelve).
+    const throwsBefore = lanzados.length;
+    now -= 2400;
+    expect(await lanzar(bob.client.sessionId)).toMatchObject({ ok: false, error: "busy" });
+    await tick(80);
+    expect(lanzados).toHaveLength(throwsBefore);
+    // Lejos no.
+    await walkToTile(bob.client, room, 70, 131);
+    now += 5000;
+    expect(await lanzar(bob.client.sessionId)).toMatchObject({ ok: false, error: "far" });
+  });
+
   it("fuera del Carnaval no se echa nada", async () => {
     const { room, alice, lanzar } = await setup({ day: CARNAVAL_DAY - 1 });
     const bob = await join(room, "u-bob", "Bob");
@@ -327,6 +362,10 @@ describe("el puesto del carnaval", () => {
     expect(me().points).toBe(300 - maicena.price);
     expect(await buy("antifaz-carnaval")).toMatchObject({ ok: true });
     expect(await buy("antifaz-carnaval")).toEqual({ ok: false, item: "antifaz-carnaval", error: "owned" });
+    // La espuma y el algodón de azúcar no son de recuerdo: se compran otra vez.
+    expect(await buy("espuma")).toMatchObject({ ok: true });
+    expect(await buy("algodon-azucar")).toMatchObject({ ok: true });
+    expect(await buy("algodon-azucar")).toMatchObject({ ok: true });
     await bagOf(room).flush("u-alice");
     expect(bagOf(room).count("u-alice", objItemId("maicena"))).toBe(maicena.gives);
   });

@@ -1,6 +1,6 @@
 "use client";
 
-// El Carnaval de Negros y Blancos en el HUD: el puesto (maicena, serpentinas y máscaras de recuerdo, por
+// El Carnaval de Negros y Blancos en el HUD: el puesto (maicena, espuma, serpentinas, algodón de azúcar y máscaras de recuerdo, por
 // puntos, solo con el festival abierto), el concurso de disfraces del palco (los postulados con su chibi,
 // postular la pinta de ahora y votar una vez) y el botón de sumarse o salirse de la comparsa cuando pasa
 // el desfile. El servidor valida todo; aquí solo se pide y se muestra.
@@ -20,13 +20,13 @@ const PENDING_MS = 3000;
 
 const useCarnavalAbierto = () => useOfficeStore((s) => s.festival.id === CARNAVAL.id && s.festival.fase === "fiesta");
 
-/** "No quiero que me echen maicena ni serpentinas" (se guarda en este navegador y lo respeta la sala). */
+/** "No quiero que me echen maicena, espuma ni serpentinas" (se guarda en este navegador y lo respeta la sala). */
 function TalcoToggle() {
   const off = useCarnavalStore((s) => s.noTalco);
   return (
     <label className="mt-3 flex cursor-pointer items-center gap-2 text-[14px] text-cozy-ink">
       <input type="checkbox" checked={off} onChange={(e) => setNoTalco(e.target.checked)} className="h-4 w-4 accent-cozy-red" />
-      Prefiero que no me echen maicena ni serpentinas.
+      Prefiero que no me echen maicena, espuma ni serpentinas.
     </label>
   );
 }
@@ -68,14 +68,14 @@ export function CarnavalShopPanel({ atObject, onClose }: { atObject: boolean; on
     <PanelShell title="Puesto del carnaval" icon="shop" onClose={onClose} wide>
       <div className="flex items-center gap-3 border-2 border-cozy-paper-dark bg-cozy-paper-light px-3 py-2">
         <p className="flex-1 text-[15px] leading-snug text-cozy-ink">
-          «Maicena para el talco, serpentinas y máscaras de papel maché. Con F se le echa a quien esté al lado, pero pregunte primero: no a todos les gusta quedar blanquitos.»
+          «Maicena para el talco, espuma, serpentinas, algodón de azúcar y máscaras de papel maché. Con F se le echa a quien esté al lado, pero pregunte primero: no a todos les gusta quedar blanquitos.»
         </p>
         <span className="cozy-chip flex shrink-0 items-center gap-1 text-[13px]">
           <PixelIcon name="coin" size={12} color="var(--color-cozy-gold)" />
           {points} pts
         </span>
       </div>
-      {!open && <p className="mt-3 text-[14px] text-cozy-ink-soft">El puesto abre en el Carnaval, de las 9:00 a las 22:00 del reloj de la cabaña.</p>}
+      {!open && <p className="mt-3 text-[14px] text-cozy-ink-soft">El puesto abre en el Carnaval, de las 9:00 a las 18:30 del reloj de la cabaña.</p>}
       {open && !atObject && <p className="mt-3 text-[14px] text-cozy-ink-soft">Para comprar, arrímate al puesto, en la vereda junto al sendero del portón.</p>}
       {error && (
         <p role="alert" className="mt-2 border-2 border-cozy-red bg-cozy-paper-light px-3 py-1.5 text-[14px] text-cozy-red">

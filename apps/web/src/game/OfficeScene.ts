@@ -1687,7 +1687,7 @@ export class OfficeScene extends Phaser.Scene {
         else this.toggleSeat();
       }
       // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
-      // Con la maicena o las serpentinas, F se las echa a quien está al lado (Carnaval).
+      // Con la maicena, la espuma o las serpentinas, F se las echa a quien está al lado (Carnaval).
       if (taps.f && this.local?.holding && !useOfficeStore.getState().decorating && !this.table.kind && !lanzarConF(this.local)) sendUseHeld();
       const editing = useOfficeStore.getState().decorating || useOfficeStore.getState().worldEditing;
       // B: brindar (invitar o sumarse; el servidor valida la bebida, la distancia y la pausa).

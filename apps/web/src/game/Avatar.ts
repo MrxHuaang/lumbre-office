@@ -21,6 +21,8 @@ import {
   sparkleSprite,
   steamPuff,
   SWIM_DROP,
+  espumaCopo,
+  espumaRastro,
   talcoCara,
   talcoPolvo,
   waterDroplet,
@@ -69,6 +71,8 @@ const BUBBLE_MS = 4500;
 const VIDEO_SIZE = 30;
 /** Altura del nombre sobre los pies (un poco más arriba de la coronilla). */
 const HEAD = BODY_UP.crown + 7;
+/** Cuánto deja rastro de espuma al caminar después de que se la echan (ms). */
+const FOAM_TRAIL_MS = 10_000;
 /** Tile del mundo (px): para saber si los pies van por la calle del Megabús. */
 const ROAD_TILE = 32;
 const SPEAKING_COLOR = "#5ea247";
@@ -1203,6 +1207,7 @@ export class Avatar {
     this.syncSeatHead();
     this.waterFx(time);
     this.talcoFx(time);
+    this.foamFx(time);
     if (this.drunk === 4) return this.faintPose(time);
     this.tripFx(time);
     if (!this.drunk) return;
@@ -1757,6 +1762,71 @@ export class Avatar {
         onComplete: () => p.destroy(),
       });
     }
+  }
+
+  /** Hasta cuándo deja rastro de espuma (hora de la escena) y cuándo cae el próximo charquito. */
+  private foamUntil = 0;
+  private nextFoamAt = 0;
+
+  /**
+   * Le echaron espuma (lo ven todos los del nivel): el chorro sale de quien la echó (`from`, en píxeles del
+   * mundo), le quedan copos en la cabeza que se escurren y, un rato, deja un rastro blanco donde pisa.
+   */
+  foamHit(from: { x: number; y: number } | null, time: number) {
+    if (this.hidden) return;
+    const key = ensureTexture(this.scene, "espuma-copo", () => espumaCopo());
+    const s = worldToScreen(this.wx, this.wy);
+    const head = Math.round(s.y) - BODY_UP.mouth - 2;
+    const depth = depthOf(this.wx, this.wy) + 0.64;
+    if (from) {
+      const f = worldToScreen(from.x, from.y);
+      for (let i = 0; i < 9; i++) {
+        const p = this.scene.add.image(Math.round(f.x), Math.round(f.y) - BODY_UP.mouth + 6, key).setDepth(depth).setScale(0.5);
+        this.scene.tweens.add({
+          targets: p,
+          x: Math.round(s.x) + Phaser.Math.Between(-5, 5),
+          y: head + Phaser.Math.Between(-3, 4),
+          scale: 1,
+          delay: i * 35,
+          duration: 240,
+          ease: "Quad.out",
+          onComplete: () =>
+            this.scene.tweens.add({ targets: p, y: p.y + Phaser.Math.Between(6, 12), alpha: 0, delay: 300 + i * 40, duration: 900, ease: "Quad.in", onComplete: () => p.destroy() }),
+        });
+      }
+    }
+    this.foamUntil = time + FOAM_TRAIL_MS;
+    this.nextFoamAt = 0;
+    this.dropFoam();
+  }
+
+  /** Un charquito de espuma a los pies, que se va secando. */
+  private dropFoam() {
+    const key = ensureTexture(this.scene, "espuma-rastro", () => espumaRastro());
+    const s = worldToScreen(this.wx, this.wy);
+    const puddle = this.scene.add
+      .image(Math.round(s.x) + Phaser.Math.Between(-3, 3), Math.round(s.y) + 1, key)
+      .setDepth(depthOf(this.wx, this.wy) + 0.35)
+      .setAlpha(this.veiled ? 0 : 0.95);
+    this.scene.tweens.add({ targets: puddle, alpha: 0, scaleX: 0.7, delay: 2500, duration: 2500, ease: "Sine.in", onComplete: () => puddle.destroy() });
+  }
+
+  /** Con espuma encima: al caminar deja el rastro; quieto, cada tanto se le escurre un copo. */
+  private foamFx(time: number) {
+    if (time >= this.foamUntil || this.hidden || time < this.nextFoamAt) return;
+    if (this.moving) {
+      this.nextFoamAt = time + 260;
+      this.dropFoam();
+      return;
+    }
+    this.nextFoamAt = time + 700 + Math.random() * 600;
+    const key = ensureTexture(this.scene, "espuma-copo", () => espumaCopo());
+    const s = worldToScreen(this.wx, this.wy);
+    const dot = this.scene.add
+      .image(Math.round(s.x) + Phaser.Math.Between(-4, 4), Math.round(s.y) - BODY_UP.mouth, key)
+      .setDepth(depthOf(this.wx, this.wy) + 0.64)
+      .setScale(0.6);
+    this.scene.tweens.add({ targets: dot, y: dot.y + 12, alpha: 0, duration: 800, ease: "Quad.in", onComplete: () => dot.destroy() });
   }
 
   /** Con la cara empolvada, cada tanto se le cae una motita. */

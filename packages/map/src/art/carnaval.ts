@@ -72,3 +72,38 @@ export function talcoPolvo(): PixelCanvas {
   c.set(0, 1, alpha(at(BLANCO, 4), 0.7));
   return c;
 }
+
+// ---------- La espuma ----------
+
+/** Pinta una grilla de letras con su leyenda (el punto es vacío; una letra sin color es un error). */
+function grillaEspuma(rows: readonly string[], leyenda: Readonly<Record<string, RGBA>>): PixelCanvas {
+  const c = new PixelCanvas(rows[0]!.length, rows.length);
+  rows.forEach((line, y) => {
+    for (let x = 0; x < line.length; x++) {
+      const ch = line[x]!;
+      if (ch === ".") continue;
+      const col = leyenda[ch];
+      if (!col) throw new Error(`Letra sin color en la espuma: ${ch}`);
+      c.set(x, y, col);
+    }
+  });
+  return c;
+}
+
+/** La espuma: luz arriba a la izquierda (3), base (2), sombra (1) y la burbuja que brilla (b). */
+const ESPUMA_LEYENDA: Readonly<Record<string, RGBA>> = {
+  "3": at(BLANCO, 5),
+  "2": at(BLANCO, 4),
+  "1": at(BLANCO, 2),
+  b: alpha(at(BLANCO, 5), 0.75),
+};
+
+/** Un copo de espuma (el chorro que sale del tarrito y lo que queda pegado en la ropa). */
+export function espumaCopo(): PixelCanvas {
+  return grillaEspuma([".33b.", "33221", "32211", ".211."], ESPUMA_LEYENDA);
+}
+
+/** El rastro de espuma en el piso: un charquito aplastado con burbujas, que se va secando. */
+export function espumaRastro(): PixelCanvas {
+  return grillaEspuma(["..b33.b.", ".332221.", "3322b211", ".122211."], ESPUMA_LEYENDA);
+}

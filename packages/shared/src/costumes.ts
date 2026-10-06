@@ -513,6 +513,32 @@ export const COSTUMES: Record<CostumeId, Costume> = {
     gear: { face: "carnival-mask", neck: "scarf" },
     tint: { slots: ["shirt"], label: "Color del vestido" },
   },
+  // El sombrero negro con flores de los que van al desfile en Pasto, con la ruana y el pañuelo.
+  "sombrero-flores": {
+    label: "Sombrero negro con flores",
+    category: "carnaval",
+    top: "longsleeve",
+    bottom: "pants",
+    outfit: "ruana",
+    shoes: "boots",
+    colors: { shirt: BLACK, top2: WHITE, pants: BLACK, accent: "#c8402a", shoeColor: BLACK },
+    gear: { head: "flower-hat", neck: "neckerchief" },
+    tint: { slots: ["shirt"], label: "Color de la ruana" },
+  },
+  // La máscara de papel maché subida a la frente para descansar entre una comparsa y otra.
+  "mascara-levantada": {
+    label: "Máscara levantada",
+    category: "carnaval",
+    top: "dress-shirt",
+    bottom: "pants",
+    outfit: "vest",
+    shoes: "dress-shoes",
+    pattern: "stripes",
+    colors: { shirt: WHITE, top2: BLACK, pants: BLACK, accent: "#c05a4a", shoeColor: BLACK },
+    gear: { head: "raised-mask", neck: "bowtie" },
+    details: ["confetti"],
+    tint: { slots: ["accent"], label: "Color del corbatín" },
+  },
   // ---------- De los oficios (se desbloquean con el nivel, ver oficios.ts) ----------
   "pescador-lago": {
     label: "Pescador del lago",

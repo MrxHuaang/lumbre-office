@@ -116,6 +116,8 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
         ],
       },
       horario: DE_DIA,
+      accion: { tipo: "puesto" },
+      lleva: "espuma",
       frases: {
         hola: [
           "¡Espuma de carnaval, a la orden! Pero a usted no le echo sin preguntarle, tranquilo.",
@@ -124,6 +126,31 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
         tarde: ["Ya vendí media caja. El desfile de las once dejó a todo el mundo blanquito."],
       },
       murmullos: ["¡Espuma, espuma!", "¡A la orden la espuma!", "Lleve su tarrito"],
+    }),
+    suelto(F, "marleny", "Doña Marleny", adulto("#d9a066", "#5a3a22", { shirt: "#f59ab8", top2: BLANCO, pants: NEGRO, accent: "#f59ab8", hairStyle: "bun", outfit: "apron", head: "bandana", bottom: "long-skirt", shoes: "sandals", shoeColor: "#6a4a2a" }), {
+      rol: "Vende algodón de azúcar",
+      area: "jardin",
+      tile: { x: 88, y: 128 },
+      comportamiento: {
+        tipo: "ronda",
+        paradas: [
+          { x: 88, y: 128, mira: "down", pausa: 2 },
+          { x: 98, y: 128, mira: "down", pausa: 1.5 },
+          { x: 88, y: 128, mira: "down", pausa: 1.5 },
+          { x: 76, y: 128, mira: "down", pausa: 2 },
+        ],
+      },
+      horario: DE_DIA,
+      accion: { tipo: "puesto" },
+      lleva: "algodon-azucar",
+      frases: {
+        hola: [
+          "¡Algodón de azúcar, rosadito y recién hecho! Pa' los niños y pa' los grandes también.",
+          "Con la brisa de la tarde se pega en el pelo. Cómaselo rapidito, mijo.",
+        ],
+        tarde: ["Ya me quedan poquitos. Este desfile da hambre de dulce."],
+      },
+      murmullos: ["¡Algodón, algodón!", "Rosadito y dulce", "Pa' la nena, pa'l nene"],
     }),
     suelto(F, "yolanda", "Doña Yolanda", adulto("#e0ac69", "#3a2418", { shirt: "#6a3a9a", top2: "#e8c03a", pants: "#6a3a9a", accent: BLANCO, hairStyle: "bun", outfit: "ruana", head: "bandana", bottom: "long-skirt", shoes: "sandals", shoeColor: "#6a4a2a" }), {
       rol: "Vende talco por la vereda",

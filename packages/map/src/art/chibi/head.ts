@@ -211,7 +211,122 @@ function darken(c: PixelCanvas, x: number, cy: number, k: number) {
   c.data[i + 2] = Math.round(c.data[i + 2]! * (1 - k * 0.8));
 }
 
+/**
+ * Pinta una grilla de letras (16 columnas, una fila por string) desde la fila `r0` de la cabeza; el punto es
+ * vacío y una letra sin color en la leyenda es un error, así un dedazo no pasa callado.
+ */
+function grid(c: PixelCanvas, y: Row, r0: number, rowsOf: readonly string[], legend: Readonly<Record<string, RGBA>>) {
+  rowsOf.forEach((line, i) => {
+    for (let x = 0; x < line.length; x++) {
+      const ch = line[x]!;
+      if (ch === ".") continue;
+      const col = legend[ch];
+      if (!col) throw new Error(`Letra sin color en la grilla: ${ch}`);
+      c.set(x, y(r0 + i), col);
+    }
+  });
+}
+
+/**
+ * El sombrero negro con flores del Carnaval de Pasto: fieltro negro (0 oscuro a 3 luz), una rosa roja, una
+ * margarita, un girasol y una flor rosada con sus hojas en la cinta, y de espaldas las cintas de colores
+ * que cuelgan sobre el pelo.
+ */
+const FLOWER_HAT: Readonly<Record<string, RGBA>> = {
+  "0": hex("#17131c"),
+  "1": hex("#2a2433"),
+  "2": hex("#3d3647"),
+  "3": hex("#5c5468"),
+  S: hex("#ff7a6a"),
+  R: hex("#e0413a"),
+  r: hex("#a8262c"),
+  X: hex("#6e1420"),
+  W: hex("#fffaf0"),
+  w: hex("#d8d0c4"),
+  Z: hex("#ffe58a"),
+  Y: hex("#f6c63a"),
+  y: hex("#cf8e1c"),
+  q: hex("#8a4a1a"),
+  P: hex("#f59ab8"),
+  p: hex("#cf5f80"),
+  g: hex("#6db352"),
+  G: hex("#3a7a34"),
+  b: hex("#e0413a"),
+  B: hex("#9c2430"),
+};
+const FLOWER_HAT_FRONT = [
+  ".....32221......", // -3: la copa, con el pellizco
+  "....3322221.....",
+  "....32222210....",
+  "....SRRWwZYY....", // 0: las flores en la cinta
+  "...gRXrwqYqYPp..",
+  "332Grrr2gyyypp21", // 2: el ala asoma entre las flores
+  "3332222222222221",
+  ".11111111111110.",
+] as const;
+const FLOWER_HAT_BACK = [
+  ".....32221......",
+  "....3322221.....",
+  "....32222210....",
+  "....bBbbbbZYw...", // 0: la cinta roja y las flores que asoman por el lado
+  "...gbbbbbbYqP...",
+  "3322b2Y222yyp221",
+  "3332b2Y222222221",
+  ".111B1y1111111..",
+  "....B.y.........", // las cintas de colores caen sobre el pelo
+  "....b.Y.........",
+  ".....b.y........",
+] as const;
+
+/** La máscara de carnaval levantada sobre la frente: papel maché mitad blanco y mitad negro, ribete dorado y pluma. */
+const RAISED_MASK: Readonly<Record<string, RGBA>> = {
+  W: hex("#fffaf0"),
+  w: hex("#e8e2d6"),
+  v: hex("#b8b0a4"),
+  K: hex("#4a4458"),
+  k: hex("#2a2433"),
+  j: hex("#17131c"),
+  G: hex("#f6d27a"),
+  g: hex("#e0ac3a"),
+  d: hex("#9c6a1c"),
+  h: hex("#3a2418"),
+  r: hex("#e05a5a"),
+  m: hex("#c0302e"),
+  n: hex("#e0ac3a"),
+  e: hex("#5a331d"),
+  f: hex("#e0413a"),
+  F: hex("#ff8a6a"),
+  C: hex("#f3e0b8"),
+  c: hex("#d8bc8a"),
+  x: hex("#a8885a"),
+};
+const RAISED_MASK_FRONT = [
+  "...........Ff...", // la pluma
+  ".....dGGGGgd....", // el ribete dorado
+  "....gWWwwkkKg...",
+  "....gWhhwKhhg...", // los huecos de los ojos
+  "....gWrwnkrkg...", // la nariz dorada y los cachetes rojos
+  ".....vvmmjjd....",
+  "...e..dggd......", // y el elástico que se va para atrás
+] as const;
+const RAISED_MASK_BACK = [
+  "...........Ff...",
+  ".....dGGGGgd....",
+  "....gCCcccccg...", // el revés del papel maché
+  "....gCcccccxg...",
+  "....gccccxxxg...",
+  ".....dccxxxd....",
+  "...eeeeeeeeee...", // el elástico rodea la cabeza
+] as const;
+
 const MORE_HATS: Partial<Record<HeadItem, (h: Hat) => void>> = {
+  "flower-hat"({ c, view, y }) {
+    grid(c, y, -3, front(view) ? FLOWER_HAT_FRONT : FLOWER_HAT_BACK, FLOWER_HAT);
+  },
+  // Levantada sobre la frente: se apoya en el pelo (la fila `rest`), así en una cabeza rapada no flota.
+  "raised-mask"({ c, view, y, rest }) {
+    grid(c, y, rest - 4, front(view) ? RAISED_MASK_FRONT : RAISED_MASK_BACK, RAISED_MASK);
+  },
   // Sombrero de fieltro: copa con el pellizco arriba, cinta oscura y un ala corta que baja hacia donde
   // mira. El ala deja la frente y los ojos en sombra (se oscurece lo que ya estaba dibujado debajo).
   fedora({ c, view, y }) {
