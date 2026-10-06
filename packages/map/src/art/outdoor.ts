@@ -17,6 +17,7 @@ import { AMOR_NIGHT } from "./amor-amistad";
 import { NOVENAS_NIGHT } from "./novenas";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import { edgeOf, gridSprite, groundShadow, rampLegend } from "./grilla";
+import { lampPostSprite } from "./jardin-detalles";
 import {
   alpha,
   at,
@@ -513,29 +514,6 @@ function noticeBoard(): Sprite {
   );
 }
 
-function lampPost(): Sprite {
-  return renderSprite(
-    [
-      solidBox({ x: 5, y: 5, z: 0, w: 6, d: 6, h: 3 }, C.metal, 2),
-      solidBox({ x: 7, y: 7, z: 3, w: 2, d: 2, h: 34 }, C.metal, 2),
-      {
-        x: 4,
-        y: 4,
-        z: 36,
-        w: 8,
-        d: 8,
-        h: 8,
-        top: flat(at(C.metal, 2)),
-        left: (u, v, fw) => (u < 1 || u >= fw - 1 ? at(C.metal, 1) : at(C.gold, 4 + (v > 4 ? 1 : 0))),
-        right: (u, v, fw) => (u < 1 || u >= fw - 1 ? at(C.metal, 0) : at(C.gold, 3 + (v > 4 ? 1 : 0))),
-      },
-      solidBox({ x: 3, y: 3, z: 44, w: 10, d: 10, h: 2 }, C.metal, 3),
-      solidBox({ x: 7, y: 7, z: 46, w: 2, d: 2, h: 2 }, C.metal, 3),
-    ],
-    { outline: OUT, under: shadowUnder(4, 4, 8, 8) },
-  );
-}
-
 /**
  * Tramo de cerca rústica (dibujado a mano), con los travesaños a lo largo de y: el poste de madera curtida
  * con la cabeza en rombo, su grieta y algo de musgo; dos travesaños partidos con la cara de arriba clara,
@@ -582,7 +560,7 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   flowerbed,
   mailbox,
   "notice-board": noticeBoard,
-  "lamp-post": lampPost,
+  "lamp-post": lampPostSprite,
   fence,
   "gazebo-roof": gazeboRoof,
   garage: drawGarage,

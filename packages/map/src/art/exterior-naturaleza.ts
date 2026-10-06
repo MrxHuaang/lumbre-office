@@ -5,6 +5,7 @@
 // se va pasando a grillas en las tandas de docs/auditoria-arte.md. `canopy` lo usan todavía el bosque de
 // alrededor y la casa del árbol.
 import { Escena } from "./exterior-escena";
+import { flatRockSprite, lilyPadsSprite, mediumRockSprite, mossyRockSprite, mushroomsSprite, smallRockSprite, stumpSprite } from "./jardin-detalles";
 import { berryBushSprite, bushSprite, fernSprite, hydrangeaSprite, roseBushSprite, tallGrassSprite, wildflowersSprite } from "./jardin-matas";
 import { bigOakSprite, birchSprite, birchSpriteB, blossomTreeSprite, fruitTreeSprite, oakSprite, pineSprite, shortPineSprite, tallOakSprite, tallPineSprite, wideOakSprite } from "./jardin-arboles";
 import { blob } from "./kit";
@@ -85,40 +86,7 @@ export function canopy(c: PixelCanvas, o: CanopyOpts): [number, number, number][
   return clumps;
 }
 
-/** Tronco cónico con corteza, raíces que se abren en la base y alguna rama asomando. */
-function trunk(s: Escena, x: number, y: number, r: number, h: number, bark: Ramp, seed: number, birch = false) {
-  s.cylinder(x, y, 0, r, h, (ang, v, luz) => {
-    if (birch) {
-      // Corteza blanca con marcas negras horizontales.
-      const mark = noise(Math.floor(ang * 3), Math.floor(v / 2), seed) < 0.18;
-      if (mark) return at(C.stone, luz > 0 ? 1 : 0);
-      return at(C.white, luz > 0.2 ? 4 : luz > -0.4 ? 3 : 1);
-    }
-    const groove = Math.floor(ang * r * 1.2 + noise(Math.floor(v / 3), 1, seed) * 2) % 3 === 0;
-    const t = (luz > 0.3 ? 3 : luz > -0.3 ? 2 : 1) - (groove ? 1 : 0);
-    return at(bark, t);
-  });
-  // Raíces.
-  for (const a of [0.3, 1.6, 2.6, -0.6]) {
-    const len = r + 2 + noise(Math.floor(a * 10), 1, seed) * 2;
-    for (let k = r - 0.5; k < len; k += 0.4) {
-      const hh = Math.max(0.5, 2.5 * (1 - (k - r) / (len - r)));
-      for (let z = 0; z < hh; z += 0.5) s.plot(x + Math.cos(a) * k, y + Math.sin(a) * k, z, at(bark, birch ? 1 : z > hh - 0.6 ? 3 : 2));
-    }
-  }
-}
-
 // ---------- Arbustos, flores y hongos ----------
-
-/**
- * Lienzo 2D para las cosas chicas de un tile (se dibujan píxel a píxel, sin contorno grueso): el centro
- * del tile queda en (20, 14) y la esquina del fondo del tile (el origen del mueble) en (20, 6).
- */
-function small2d(draw: (c: PixelCanvas, cx: number, cy: number) => void): Sprite {
-  const c = new PixelCanvas(40, 30);
-  draw(c, 20, 14);
-  return { canvas: c, ox: 20, oy: 6 };
-}
 
 const PATCH_COLS: RGBA[] = [at(C.rug, 4), at(C.gold, 5), at(C.rose, 5), at(C.white, 4), at(C.blue, 4), at(C.violet, 4), at(C.fire, 3)];
 
@@ -142,31 +110,6 @@ function flowerPatch(seed: number): Sprite {
     s.canvas.set(x + 1, y, dark);
     s.canvas.set(x, y + 1, dark);
     s.canvas.set(x, y, at(C.gold, 5));
-  }
-  return s.sprite();
-}
-
-/** Grupo de hongos: sombreros rojos con pintas blancas y unos cafés más chicos, en el pasto. */
-function mushrooms(seed: number): Sprite {
-  const s = scene(1, 1, 14, 4);
-  const shrooms: [number, number, number, boolean][] = [
-    [6, 7, 3.2, true],
-    [10, 9, 2.4, true],
-    [8, 11, 1.8, false],
-    [4, 10, 1.6, false],
-    [11, 5, 1.5, false],
-  ];
-  shrooms.sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
-  for (const [x, y, r, red] of shrooms) {
-    const stem = r * 1.6;
-    s.cylinder(x, y, 0, r * 0.38, stem, (_a, _v, luz) => at(C.cream, luz > 0 ? 5 : 3));
-    const q = s.p(x, y, stem);
-    const cap = red ? C.rug : C.dirt;
-    blob(s.canvas, q.x, q.y - r * 0.4, r * 1.45, r * 0.95, (nx, ny, px, py) => {
-      if (red && noise(px, py, seed) < 0.12 && ny < 0.4) return at(C.white, 4);
-      if (ny > 0.55) return at(cap, 1);
-      return at(cap, 3 + Math.round(-(nx * 0.5 + ny * 0.8) * 1.2));
-    });
   }
   return s.sprite();
 }
@@ -204,18 +147,6 @@ function rockShape(c: PixelCanvas, cx: number, cy: number, rx: number, ry: numbe
   });
 }
 
-function rock(seed: number, rx: number, ry: number, moss = 0, extra = 0): Sprite {
-  const s = scene(1, 1, 20, 6);
-  s.roundShadow(8.5, 8.5, rx * 0.55, 0.3);
-  const q = s.p(8, 8, 0);
-  rockShape(s.canvas, q.x, q.y - ry * 0.55, rx, ry, seed, moss);
-  for (let i = 0; i < extra; i++) {
-    const p = s.p(3 + noise(i, 1, seed) * 10, 11 + noise(i, 2, seed) * 4, 0);
-    rockShape(s.canvas, p.x, p.y - 1, 2.2, 1.6, seed + i + 20);
-  }
-  return s.sprite();
-}
-
 function boulder(seed: number): Sprite {
   const s = scene(2, 2, 40, 6);
   s.roundShadow(17, 17, 14, 0.3);
@@ -223,19 +154,6 @@ function boulder(seed: number): Sprite {
   rockShape(s.canvas, q.x - 5, q.y - 14, 17, 14, seed, 0.25);
   rockShape(s.canvas, q.x + 12, q.y - 6, 10, 8, seed + 3, 0.1);
   rockShape(s.canvas, q.x - 16, q.y - 2, 5, 3.5, seed + 5);
-  return s.sprite();
-}
-
-/** Piedra plana en la orilla (se pisa: desde aquí se pesca). */
-function flatRock(): Sprite {
-  const s = scene(1, 1, 6, 3);
-  s.roundShadow(8.5, 8.8, 7, 0.25);
-  s.box(2, 2.5, 0, 12, 11, 2.2, (u, v) => {
-    const e = Math.min(u, v, 12 - u, 11 - v);
-    if (e < 1.2 && noise(Math.floor(u), Math.floor(v), 3) < 0.6) return null;
-    if (noise(Math.floor(u / 2), Math.floor(v / 2), 5) < 0.12) return at(C.sage, 3);
-    return at(C.stone, u + v < 8 ? 5 : noise(Math.floor(u), Math.floor(v), 7) < 0.2 ? 3 : 4);
-  }, (u) => at(C.stone, Math.floor(u) % 5 === 0 ? 1 : 2), (u) => at(C.stone, Math.floor(u) % 4 === 0 ? 0 : 1));
   return s.sprite();
 }
 
@@ -270,20 +188,6 @@ function fallenLog(seed: number): Sprite {
   s.solid(12, 18, 7, 6, 1.5, 1.5, at(C.logs, 3), at(C.logs, 2), at(C.logs, 1));
   s.cylinder(9, 30, cz + r - 1, 0.6, 2, () => at(C.cream, 4));
   s.disc(9, 30, cz + r + 1, 1.8, (dx, dy) => at(C.mustard, dx + dy < 0 ? 4 : 3));
-  return s.sprite();
-}
-
-function stump(seed: number): Sprite {
-  const s = scene(1, 1, 14, 4);
-  s.roundShadow(9, 9, 6, 0.28);
-  trunk(s, 8, 8, 4.5, 7, C.logs, seed);
-  s.disc(8, 8, 7, 4.5, (dx, dy) => {
-    const d = Math.hypot(dx, dy);
-    if (d > 3.9) return at(C.logs, 2);
-    return at(C.logs, Math.floor(d * 1.4) % 2 ? 4 : 5);
-  });
-  // Un brote verde que sale del tocón.
-  s.solid(4, 11, 0, 1, 1, 4, at(C.leaf, 4), at(C.leaf, 3), at(C.leaf, 2));
   return s.sprite();
 }
 
@@ -336,49 +240,6 @@ function reeds(seed: number): Sprite {
   return s.sprite();
 }
 
-/** Nenúfares planos sobre el agua (hojas con su muesca y nervaduras) y una flor rosada o blanca. */
-function lilyPads(seed: number): Sprite {
-  return small2d((c, cx, cy) => {
-    const pads: [number, number, number][] = [
-      [-7, 0, 6],
-      [6, -2, 5],
-      [1, 4.5, 4.2],
-    ];
-    pads.forEach(([dx, dy, r], i) => {
-      const x0 = cx + dx;
-      const y0 = cy + dy;
-      const notch = noise(i, 1, seed) * Math.PI * 2;
-      blob(c, x0, y0, r, r * 0.5, (nx, ny) => {
-        const a = Math.atan2(ny, nx);
-        const da = Math.abs(((a - notch + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        const d = Math.hypot(nx, ny);
-        if (da < 0.3 && d > 0.15) return null;
-        if (d > 0.8) return at(LEAF_DEEP, ny > 0 ? 0 : 1);
-        if (Math.abs(Math.sin((a - notch) * 2.5)) < 0.15 && d > 0.25) return at(LEAF_DEEP, 2);
-        return at(LEAF_DEEP, nx + ny < -0.3 ? 4 : 3);
-      });
-      // Brillo de agua bajo el borde.
-      c.set(Math.round(x0 - r * 0.6), Math.round(y0 + r * 0.5), alpha(at(C.sky, 4), 0.8));
-    });
-    const col = noise(1, 3, seed) < 0.6 ? at(C.rose, 5) : at(C.white, 4);
-    const fx = cx - 6;
-    const fy = cy - 1;
-    for (const [dx, dy] of [
-      [0, -2],
-      [-1, -1],
-      [1, -1],
-      [-2, 0],
-      [2, 0],
-      [-1, 0],
-      [1, 0],
-    ] as const)
-      c.set(fx + dx, fy + dy, dy === -2 ? mix(col, at(C.white, 4), 0.5) : col);
-    c.set(fx, fy - 1, at(C.gold, 5));
-    c.set(fx, fy, at(C.gold, 4));
-  });
-}
-
-
 // ---------- Registro ----------
 
 
@@ -403,14 +264,14 @@ export const NATURE_DRAW: Record<string, () => Sprite> = {
   wildflowers: wildflowersSprite,
   fern: () => fernSprite(LEAF),
   "tall-grass": tallGrassSprite,
-  mushrooms: () => mushrooms(94),
-  "rock-small": () => rock(121, 6, 4.5, 0, 2),
-  "rock-medium": () => rock(122, 10, 7.5),
-  "rock-mossy": () => rock(123, 9, 7, 0.35, 1),
+  mushrooms: mushroomsSprite,
+  "rock-small": smallRockSprite,
+  "rock-medium": mediumRockSprite,
+  "rock-mossy": mossyRockSprite,
   boulder: () => boulder(124),
-  "flat-rock": flatRock,
+  "flat-rock": flatRockSprite,
   "fallen-log": () => fallenLog(131),
-  stump: () => stump(132),
+  stump: stumpSprite,
   reeds: () => reeds(141),
-  "lily-pad": () => lilyPads(142),
+  "lily-pad": lilyPadsSprite,
 };
