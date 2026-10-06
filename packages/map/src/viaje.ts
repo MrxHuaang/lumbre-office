@@ -6,8 +6,11 @@ import { spaKindOf, VIAJE, VIAJE_NO_AREAS } from "@hyvento/shared";
 import { BOARD_TABLES } from "./world/areas";
 import { isBlockedTile, wallAbove, wallLeftOf, type OfficeMap, type Zone } from "./world/build";
 
+/** La plataforma de la Estación Hyvento (VIR-143): el destino de "Ir a la estación" y de "Ir a la cabaña". */
+export const ESTACION_DESTINO = "lugar:estacion";
+
 export interface TravelDestination {
-  /** "nivel:<area>" o "zona:<zoneId>". */
+  /** "nivel:<area>", "zona:<zoneId>" o `ESTACION_DESTINO`. */
   id: string;
   kind: "area" | "zone";
   area: string;
@@ -58,6 +61,9 @@ export function travelDestinations(areas: Iterable<OfficeMap>): TravelDestinatio
   for (const map of list) {
     if (VIAJE_NO_AREAS.includes(map.id)) continue;
     out.push({ id: `nivel:${map.id}`, kind: "area", area: map.id, zoneId: null, name: map.name, areaName: map.name, zoneType: "", tile: arrivalOf(map, list) });
+    // La plataforma de la estación, junto a donde se sube al bus (el punto `bus_stop`).
+    const parada = map.points.find((p) => p.type === "bus_stop");
+    if (parada) out.push({ id: ESTACION_DESTINO, kind: "zone", area: map.id, zoneId: null, name: "Estación Hyvento", areaName: map.name, zoneType: "estacion", tile: { x: parada.tileX, y: parada.tileY } });
     for (const zone of map.zones) {
       if (SKIP_ZONES.has(zone.id) || zone.name === map.name) continue;
       if (zone.type === "table" && !tableIsPlace(map)) continue;
