@@ -247,7 +247,7 @@ export function rouletteCall(n: number): string {
 export const NPC_LINES = {
   /** El crupier, cuando abre la ronda y cuando cierra las apuestas. */
   rouletteOpen: ["¡Hagan sus apuestas!", "Apuesten, que la rueda no espera.", "¡Hagan juego, señores!"],
-  rouletteClose: ["¡No va más!", "Nada más, que ya gira.", "¡Ya no va más, mijo!"],
+  rouletteClose: ["¡No va más!", "Nada más, que ya gira.", "¡Ya no va más, señores!"],
   /** Lo que agrega después del número, a veces. */
   rouletteAfter: ["Uy, casi.", "Qué pena con los del negro.", "Pa' la próxima, parcero.", "¡Eso, eso!"],
   /** El dealer: abre la ronda, reparte y termina. */

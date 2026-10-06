@@ -167,7 +167,7 @@ export const FESTIVALES: readonly FestivalDef[] = [
     color: "#3a9a5a",
     frases: {
       aurora: ["La novena es a las ocho, y el que llegue tarde reza el doble.", "Natilla con buñuelos: lo único que me tiene en pie en diciembre."],
-      gloria: ["Esta noche le toca la figura del burrito al pesebre.", "Pajita en boca: el que hable, pierde. Empezamos… ya."],
+      gloria: ["Cada noche llega una figura nueva al pesebre. ¿Cuál será la de hoy?", "Pajita en boca: el que hable, pierde. Empezamos… ya."],
       evelio: ["Yo pongo la trucha pa' la cena de Navidad. De la laguna de la Cocha, ve.", "Tutaina tuturumá… ¿cómo era que seguía?"],
     },
   },

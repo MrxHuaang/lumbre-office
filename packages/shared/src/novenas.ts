@@ -154,7 +154,7 @@ const NOCHES: readonly { aurora: string; estrofa: string }[] = [
   { aurora: "El buey calienta el establo con su aliento. En el páramo eso vale oro.", estrofa: "Sopla el buey un vientico tibio,\npa' que el frío no le dé martirio." },
   { aurora: "Bajan los pastores del páramo, con ruana y quesito. Siempre traen algo.", estrofa: "Bajan pastores con su ruana,\ntraen quesito y una campana." },
   { aurora: "Se cuelga la estrella del techo. Si la ve titilar, pida algo bajito.", estrofa: "Una estrella se quedó quieta\nencima de la casita inquieta." },
-  { aurora: "Los Reyes vienen de muy lejos, por la loma. Ya casi llegan, mijo.", estrofa: "Tres reyes bajan por la loma,\nuno trae oro y otro trae aroma." },
+  { aurora: "Los Reyes vienen de muy lejos, por la loma. Ya casi llegan.", estrofa: "Tres reyes bajan por la loma,\nuno trae oro y otro trae aroma." },
   { aurora: "Esta noche llega el Niño Dios. Que la cabaña esté bonita, que hoy termina la novena.", estrofa: "Duérmete, Niño, en tu cunita,\nque la cabaña quedó bonita." },
 ];
 

@@ -194,7 +194,7 @@ export const BRUJAS_CINEMATICAS: readonly CineDef[] = [
       { op: "sound", sound: "brisa" },
       { op: "fade", to: "clear", ms: 250 },
       { op: "emote", who: "yo", emote: "surprise" },
-      { op: "title", text: "¡Buuuu!", sub: "Truco: un fantasma te pasó por al lado", ms: 2200 },
+      { op: "title", text: "¡Buuuu!", sub: "Truco: un fantasma te pasó por el lado", ms: 2200 },
     ],
   },
   {
