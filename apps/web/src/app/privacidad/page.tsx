@@ -30,7 +30,7 @@ export default function PrivacidadPage() {
           <h2 className="text-[18px] font-semibold">Audio y video</h2>
           <p>La voz y la cámara van en vivo entre las personas cercanas y no se graban.</p>
           <h2 className="text-[18px] font-semibold">Borrar tu cuenta</h2>
-          <p>Pídele a un administrador del equipo que te elimine y se borran tus datos.</p>
+          <p>Pídele a un administrador del equipo que borre tu cuenta: con ella se borran tus datos.</p>
         </section>
       </div>
     </main>

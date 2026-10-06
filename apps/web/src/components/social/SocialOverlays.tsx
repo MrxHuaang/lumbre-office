@@ -109,12 +109,12 @@ function PersonMenu() {
       </button>
       {novena && (
         <>
-          <button type="button" role="menuitem" disabled={!near} title={near ? undefined : "Acércate para retarle"} onClick={act(() => retarAguinaldo(menu.sessionId, "pajita"))} className={item}>
+          <button type="button" role="menuitem" disabled={!near} title={near ? undefined : "Acércate para retar"} onClick={act(() => retarAguinaldo(menu.sessionId, "pajita"))} className={item}>
             <PixelIcon name="gift" size={13} color="var(--color-cozy-red)" />
             Pajita en boca
             {!near && <span className="ml-auto text-[11px] text-cozy-ink-soft">lejos</span>}
           </button>
-          <button type="button" role="menuitem" disabled={!near} title={near ? undefined : "Acércate para retarle"} onClick={act(() => retarAguinaldo(menu.sessionId, "si-no"))} className={item}>
+          <button type="button" role="menuitem" disabled={!near} title={near ? undefined : "Acércate para retar"} onClick={act(() => retarAguinaldo(menu.sessionId, "si-no"))} className={item}>
             <PixelIcon name="gift" size={13} color="var(--color-cozy-red)" />
             Sí y no
             {!near && <span className="ml-auto text-[11px] text-cozy-ink-soft">lejos</span>}

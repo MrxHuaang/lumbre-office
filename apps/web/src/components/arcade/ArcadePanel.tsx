@@ -301,7 +301,7 @@ function Boards({ today, week }: { today: ArcadeBoardEntry[] | null; week: Arcad
   return (
     <div className="grid w-[min(300px,95%)] grid-cols-2 gap-3 text-left">
       <BoardColumn title="HOY" color={NEON.gold} board={today} empty="Nadie jugó hoy." />
-      <BoardColumn title="SEMANA" color={NEON.cyan} board={week} empty="¡Sé la primera persona!" />
+      <BoardColumn title="SEMANA" color={NEON.cyan} board={week} empty="¡Estrena la máquina!" />
     </div>
   );
 }

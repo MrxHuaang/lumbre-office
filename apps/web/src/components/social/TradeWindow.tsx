@@ -162,7 +162,7 @@ export function TradeWindow({ trade }: { trade: TradeView }) {
                   Listo <PixelIcon name="check" size={12} />
                 </span>
               ) : (
-                "Estoy listo"
+                "Marcar listo"
               )}
             </button>
           )}
@@ -177,12 +177,12 @@ export function TradeWindow({ trade }: { trade: TradeView }) {
               ? TRADE_ERROR_TEXT[gap]
               : confirmStage
                 ? you.confirmed
-                  ? `Esperando que ${them.name} confirme.`
+                  ? `Esperando a que ${them.name} confirme.`
                   : them.confirmed
                     ? `${them.name} ya confirmó. Revisa y confirma.`
                     : "Los dos están listos: revisen y confirmen."
                 : you.ready
-                  ? `Esperando que ${them.name} esté listo.`
+                  ? `Esperando a que ${them.name} marque listo.`
                   : "Cualquier cambio desmarca el Listo de los dos. Si se alejan, se cancela."}
         </p>
       </PanelShell>

@@ -59,7 +59,7 @@ export function StandupPanel() {
       {editing ? (
         <form onSubmit={save} className="flex flex-col gap-2 border-2 border-cozy-wood bg-cozy-paper-light p-3.5">
           <label className="flex flex-col gap-1 text-[14px] font-semibold">
-            ¿Qué harás hoy?
+            ¿Qué vas a hacer hoy?
             <textarea
               autoFocus
               value={text}

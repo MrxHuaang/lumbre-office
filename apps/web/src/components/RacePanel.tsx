@@ -59,7 +59,7 @@ export function RacePanel({ atObject, onClose }: { atObject: boolean; onClose: (
         >
           {last ? "¡Otra vez!" : "¡A correr!"}
         </button>
-        {!atObject && <p className="text-center text-[12px] text-cozy-ink-soft">Se larga junto a la bandera del pasillo (piso 2, al oeste).</p>}
+        {!atObject && <p className="text-center text-[12px] text-cozy-ink-soft">La salida es junto a la bandera del pasillo (piso 2, al oeste).</p>}
       </div>
     </PanelShell>
   );
