@@ -112,7 +112,7 @@ describe("la gente de la fiesta en los niveles", () => {
     const nivel = niveles(id).find((n) => n.map.id === "jardin")!;
     expect(nivel.npcs.length).toBeGreaterThanOrEqual(8);
     expect(nivel.npcs.length).toBeLessThanOrEqual(id === "carnaval" ? 36 : 15);
-    const puestos = [...pointsOfType(nivel.map, "festival_shop"), ...pointsOfType(nivel.map, "feria_shop")];
+    const puestos = [...pointsOfType(nivel.map, "festival_shop"), ...pointsOfType(nivel.map, "feria_shop"), ...pointsOfType(nivel.map, "cosecha_puesto")];
     for (const npc of nivel.npcs.filter((n) => n.accion?.tipo === "puesto" && n.comportamiento.tipo === "quieto")) {
       const p = nivel.pose(npc.id, 600);
       expect(puestos.some((q) => Math.hypot(q.x - p.x, q.y - p.y) <= 3 * nivel.map.tileSize), `${npc.id} lejos del puesto`).toBe(true);

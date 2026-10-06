@@ -38,6 +38,7 @@ export const COSTUME_CATEGORIES = [
   { id: "disfraz", label: "Disfraces" },
   { id: "brujas", label: "De la Noche de brujas" },
   { id: "carnaval", label: "Del Carnaval" },
+  { id: "ano-viejo", label: "De año viejo" },
   // Los de los oficios: se ganan subiendo de nivel (oficios.ts).
   { id: "oficios", label: "De los oficios" },
 ] as const;
@@ -538,6 +539,18 @@ export const COSTUMES: Record<CostumeId, Costume> = {
     gear: { head: "raised-mask", neck: "bowtie" },
     details: ["confetti"],
     tint: { slots: ["accent"], label: "Color del corbatín" },
+  },
+  // ---------- De año viejo (la ropa amarilla del agüero: solo la ropa, el cuerpo es el de cada quien) ----------
+  "ano-nuevo-amarillo": {
+    label: "Pinta amarilla de año nuevo",
+    category: "ano-viejo",
+    top: "dress-shirt",
+    bottom: "pants",
+    shoes: "sneakers",
+    colors: { shirt: "#f2c230", top2: "#f8dc6a", pants: "#d8a020", accent: "#e8e4dc", shoeColor: "#f3f1ec" },
+    gear: { head: "party-hat" },
+    details: ["confetti"],
+    tint: { slots: ["pants"], label: "Color del pantalón" },
   },
   // ---------- De los oficios (se desbloquean con el nivel, ver oficios.ts) ----------
   "pescador-lago": {

@@ -20,6 +20,7 @@ import {
 import { PAINTING_BASE_TYPE, paintingIdOf } from "@hyvento/shared";
 import { catalogItem } from "../world/catalog";
 import { DECOR } from "./decor";
+import { armchairSprite, chairSprite, counterCoffeeSprite, counterSprite, stoolSprite } from "./salas-muebles";
 import { cushion, leg, shadowSpace, shadowUnder, volume, type Variant } from "./kit";
 import { drawOutdoor, hasOutdoor } from "./outdoor";
 import { SHOP } from "./shop";
@@ -52,6 +53,9 @@ import { CASA_PROPIA_DRAW } from "./casa-propia";
 import { CASA_PROPIA_EXTERIOR_DRAW } from "./casa-propia-exterior";
 import { BRUJAS_DRAW } from "./brujas";
 import { FERIA_DRAW } from "./feria-flores";
+import { COSECHA_DRAW } from "./cosecha";
+import { ANO_VIEJO_DRAW } from "./ano-viejo";
+import { COMETAS_DRAW } from "./cometas";
 import { AMOR_DRAW } from "./amor-amistad";
 import { CARNAVAL_DRAW } from "./carnaval-decor";
 import { NOVENAS_DRAW } from "./novenas";
@@ -176,28 +180,6 @@ function bookshelf(): Sprite {
   );
 }
 
-/** Silla de madera con cojín; el respaldo queda del lado contrario a donde mira quien se sienta. */
-function chair(variant: Variant): Sprite {
-  const back = variant === "back";
-  const bx = back ? 12 : 2;
-  const post = (y: number): Box => solidBox({ x: bx, y, z: 10, w: 2, d: 2, h: 14 }, C.wood, 3);
-  const rest: Box[] = [
-    post(2),
-    post(12),
-    { x: bx, y: 2, z: 20, w: 2, d: 12, h: 4, top: flat(at(C.wood, 5)), left: flat(at(C.wood, 3)), right: flat(at(C.wood, 4)) },
-    { x: bx, y: 4, z: 14, w: 2, d: 8, h: 2, top: flat(at(C.wood, 4)), left: flat(at(C.wood, 2)), right: flat(at(C.wood, 3)) },
-  ];
-  const seat: Box[] = [
-    { x: 2, y: 2, z: 8, w: 12, d: 12, h: 2, top: flat(at(C.wood, 4)), left: flat(at(C.wood, 2)), right: flat(at(C.wood, 3)) },
-    cushion(back ? 3 : 4, 4, 10, 9, 8, 1, C.sage),
-  ];
-  const legs = [leg(3, 3, 8, C.wood), leg(11, 3, 8, C.wood), leg(3, 11, 8, C.wood), leg(11, 11, 8, C.wood)];
-  return renderSprite(back ? [...legs, ...seat, ...rest] : [...legs, ...rest, ...seat], {
-    outline: OUT,
-    under: shadowUnder(2, 2, 12, 12),
-  });
-}
-
 /**
  * Silla de oficina con ruedas (la única que gira): cruz de patas con ruedas, pistón, asiento y
  * respaldo acolchados del color de la oficina. Como la silla, el respaldo va del lado contrario a
@@ -232,42 +214,6 @@ function officeChair(variant: Variant, tapiz: Ramp = C.rug): Sprite {
   ];
   const parts = back ? [...base, ...arm(2), ...seat, ...arm(13), ...rest] : [...base, ...rest, ...arm(2), ...seat, ...arm(13)];
   return renderSprite(parts, { outline: OUT, under: shadowUnder(2, 2, 12, 12) });
-}
-
-function stool(): Sprite {
-  return renderSprite(
-    [
-      leg(4, 4, 11),
-      leg(10, 4, 11),
-      solidBox({ x: 5, y: 5, z: 5, w: 6, d: 6, h: 1 }, C.woodDark, 3),
-      leg(4, 10, 11),
-      leg(10, 10, 11),
-      cushion(3, 3, 11, 10, 10, 3, C.rug),
-    ],
-    { outline: OUT, under: shadowUnder(3, 3, 10, 10) },
-  );
-}
-
-function armchair(variant: Variant): Sprite {
-  const back = variant === "back";
-  const r = C.green;
-  const rest: Box = {
-    x: back ? 11 : 1,
-    y: 1,
-    z: 8,
-    w: 4,
-    d: 14,
-    h: 13,
-    top: flat(at(r, 3)),
-    left: flat(at(r, 1)),
-    right: (_u, v, _fw, fh) => at(r, v >= fh - 2 ? 3 : 2),
-  };
-  const arm = (y: number) => cushion(1, y, 8, 14, 3, 6, r);
-  const body: Box = { x: 1, y: 1, z: 2, w: 14, d: 14, h: 6, top: flat(at(r, 2)), left: flat(at(r, 1)), right: flat(at(r, 2)) };
-  const seat = cushion(back ? 2 : 5, 4, 8, 9, 8, 2, r);
-  const legs = [leg(2, 2, 2), leg(12, 2, 2), leg(2, 12, 2), leg(12, 12, 2)];
-  const parts = back ? [...legs, arm(1), body, seat, rest, arm(12)] : [...legs, arm(1), rest, body, seat, arm(12)];
-  return renderSprite(parts, { outline: OUT, under: shadowUnder(1, 1, 14, 14) });
 }
 
 /** Brazo de sofá: tapa acolchada más clara y costura a media altura. */
@@ -525,34 +471,6 @@ const counterBody = (): Box[] => [
   },
 ];
 
-function counter(): Sprite {
-  return renderSprite(counterBody(), { outline: OUT });
-}
-
-function counterCoffee(): Sprite {
-  return renderSprite(
-    [
-      ...counterBody(),
-      // Cafetera espresso.
-      solidBox({ x: 2, y: 3, z: 18, w: 7, d: 10, h: 12 }, C.metal, 4),
-      { x: 2, y: 3, z: 30, w: 7, d: 10, h: 2, top: flat(at(C.metal, 3)), left: flat(at(C.metal, 2)), right: flat(at(C.metal, 3)) },
-      solidBox({ x: 9, y: 6, z: 22, w: 2, d: 2, h: 3 }, C.metal, 2),
-      solidBox({ x: 9, y: 9, z: 18, w: 3, d: 3, h: 3 }, C.cream, 3),
-      volume(2, 3, 32, 7, 10, 6),
-    ],
-    {
-      outline: OUT,
-      extra: (c, p) => {
-        const g = p(9, 6, 28);
-        c.set(g.x, g.y, at(C.gold, 4));
-        const s = p(10, 10, 22);
-        c.set(s.x, s.y - 1, alpha(at(C.cream, 5), 0.7));
-        c.set(s.x - 1, s.y - 3, alpha(at(C.cream, 5), 0.5));
-      },
-    },
-  );
-}
-
 function pastryCase(): Sprite {
   const glass: Shader = (u, v, fw, fh) => {
     if (u < 1 || u >= fw - 1 || v >= fh - 1) return at(C.metal, 3);
@@ -740,14 +658,14 @@ function stairwell(): Sprite {
 
 const DRAW: Record<string, (v: Variant) => Sprite> = {
   "desk-pc": deskPc,
-  chair,
+  chair: chairSprite,
   "office-chair": (v) => officeChair(v),
   "office-chair-mustard": (v) => officeChair(v, C.mustard),
   "office-chair-blue": (v) => officeChair(v, C.blue),
   "office-chair-rose": (v) => officeChair(v, C.rose),
   "office-chair-sage": (v) => officeChair(v, C.sage),
-  stool,
-  armchair,
+  stool: stoolSprite,
+  armchair: armchairSprite,
   sofa: (v) => sofa(v),
   "lounge-sofa": (v) => sofa(v, C.violet, C.gold, C.gold),
   bench,
@@ -757,8 +675,8 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   "coffee-table": coffeeTable,
   "cafe-table": cafeTable,
   "meeting-table": meetingTable,
-  counter,
-  "counter-coffee": counterCoffee,
+  counter: counterSprite,
+  "counter-coffee": counterCoffeeSprite,
   "pastry-case": pastryCase,
   fireplace,
   "rug-3x3": () => rug(3, 3, C.rug, C.cream),
@@ -790,6 +708,9 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...CASA_PROPIA_EXTERIOR_DRAW,
   ...BRUJAS_DRAW,
   ...FERIA_DRAW,
+  ...COSECHA_DRAW,
+  ...ANO_VIEJO_DRAW,
+  ...COMETAS_DRAW,
   ...AMOR_DRAW,
   ...CARNAVAL_DRAW,
   ...NOVENAS_DRAW,

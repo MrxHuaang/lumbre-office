@@ -30,6 +30,11 @@ export interface Crop {
   flower?: true;
   /** Cuántas unidades da cada cosecha (si no, una): las flores salen de a ramito. */
   yield?: number;
+  /**
+   * Semilla rara (la Feria de la cosecha, cosecha.ts): no sale del cobertizo; la vende el mercado
+   * campesino de la feria.
+   */
+  rare?: true;
 }
 
 const MIN = 60_000;
@@ -42,6 +47,13 @@ export const CROPS: readonly Crop[] = [
   { id: "papa", name: "Papa criolla", growMs: 60 * MIN, points: 6, product: "papa", productName: "Papas criollas" },
   { id: "maiz", name: "Maíz", growMs: 90 * MIN, points: 8, product: "mazorca", productName: "Mazorca" },
   { id: "lulo", name: "Lulo", growMs: 150 * MIN, points: 10, product: "lulo", productName: "Lulo" },
+  // Los de la Feria de la cosecha (cosecha.ts): lo del sancocho, la ahuyama del concurso de la más grande
+  // (su peso sale de cómo se cuidó: ahuyama.ts) y las semillas raras que vende el mercado campesino.
+  { id: "cebolla", name: "Cebolla larga", growMs: 14 * MIN, points: 3, product: "cebolla", productName: "Cebolla larga" },
+  { id: "yuca", name: "Yuca", growMs: 45 * MIN, points: 5, product: "yuca", productName: "Yuca" },
+  { id: "ahuyama", name: "Ahuyama", growMs: 50 * MIN, points: 6, product: "ahuyama", productName: "Ahuyama" },
+  { id: "frijol", name: "Fríjol cargamanto", growMs: 30 * MIN, points: 5, product: "frijol", productName: "Fríjoles cargamanto", rare: true },
+  { id: "arracacha", name: "Arracacha", growMs: 40 * MIN, points: 6, product: "arracacha", productName: "Arracacha", rare: true },
   // Flores de la Feria de las flores: rápidas (caben en una feria) y de a ramito, para las silletas.
   { id: "clavel", name: "Clavel", growMs: 9 * MIN, points: 2, product: "clavel", productName: "Clavel", flower: true, yield: 3 },
   { id: "astromelia", name: "Astromelia", growMs: 12 * MIN, points: 3, product: "astromelia", productName: "Astromelia", flower: true, yield: 3 },
@@ -52,6 +64,7 @@ export const CROPS: readonly Crop[] = [
   { id: "pitahaya", name: "Pitahaya", growMs: 40 * MIN, points: 6, product: "pitahaya", productName: "Pitahaya", indoor: true },
   { id: "cacao", name: "Cacao", growMs: 70 * MIN, points: 9, product: "chocolatina", productName: "Chocolatina de la casa", indoor: true },
   { id: "cafe", name: "Café", growMs: 100 * MIN, points: 12, product: "cafe-casa", productName: "Tinto de la cosecha", indoor: true },
+  { id: "platano", name: "Plátano", growMs: 35 * MIN, points: 5, product: "platano", productName: "Plátano", indoor: true },
 ];
 
 const CROP_BY_ID = new Map(CROPS.map((c) => [c.id, c]));
@@ -251,6 +264,12 @@ export const HUERTO_CONSUMABLES: Record<string, { action: ConsumeAction; uses: n
   papa: { action: "bite", uses: 3 },
   mazorca: { action: "bite", uses: 4 },
   lulo: { action: "bite", uses: 3 },
+  cebolla: { action: "bite", uses: 2 },
+  yuca: { action: "bite", uses: 3 },
+  ahuyama: { action: "bite", uses: 4 },
+  frijol: { action: "bite", uses: 3 },
+  arracacha: { action: "bite", uses: 3 },
+  platano: { action: "bite", uses: 3 },
   uchuva: { action: "bite", uses: 3 },
   pitahaya: { action: "bite", uses: 4 },
   chocolatina: { action: "bite", uses: 3 },
@@ -272,8 +291,11 @@ export const HUERTO_HOLDS: Record<string, readonly string[]> = Object.fromEntrie
 
 // ---------- Cobertizo ----------
 
-/** Lo que se saca del cobertizo: la regadera (vacía) y una bolsa de semillas de cada cultivo (las flores, no: son de la feria). */
-export const SHED_ITEMS: readonly string[] = [EMPTY_CAN, ...CROPS.filter((c) => !c.flower).map((c) => seedsOf(c.id))];
+/**
+ * Lo que se saca del cobertizo: la regadera (vacía) y una bolsa de semillas de cada cultivo (las flores
+ * no: son de la Feria de las flores; las raras tampoco: las vende el mercado de la Feria de la cosecha).
+ */
+export const SHED_ITEMS: readonly string[] = [EMPTY_CAN, ...CROPS.filter((c) => !c.flower && !c.rare).map((c) => seedsOf(c.id))];
 
 /** Cliente → servidor (`HUERTO_MSG.shedTake`): sacar algo del cobertizo (hay que estar junto a él). */
 export const ShedTakeMessage = z.object({ item: z.string().min(1).max(40).refine((v) => SHED_ITEMS.includes(v)) });
@@ -349,7 +371,7 @@ export function huertoNoticeText(n: HuertoNotice): string {
     case "indoor":
       return `${(n.crop && cropById(n.crop)?.name) || "Eso"} no se da afuera: va en los bancales del invernadero.`;
     case "outdoor":
-      return "En los bancales del invernadero va lo de tierra caliente (uchuva, pitahaya, cacao, café).";
+      return "En los bancales del invernadero va lo de tierra caliente (uchuva, pitahaya, cacao, café, plátano).";
     case "noWater":
       return "En el invernadero la tierra siempre está húmeda: no hace falta regar.";
     case "full":

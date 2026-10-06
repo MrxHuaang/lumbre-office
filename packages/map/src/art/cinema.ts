@@ -1,6 +1,7 @@
 // Muebles del cine del sótano: butacas de terciopelo, máquina de crispetas, proyector y afiche de
 // cartelera. La pantalla con el telón cuelga de la pared (ver room.ts).
 import { C, OUT } from "./palette";
+import { projectorSprite } from "./salas-muebles";
 import { PixelCanvas, alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type Shader, type Sprite } from "./pixel";
 import { glyphOn } from "./room";
 import { cushion, shadowUnder, volume, type Variant } from "./kit";
@@ -60,36 +61,6 @@ function popcornMachine(): Sprite {
   );
 }
 
-/**
- * Proyector de cine sobre un pedestal: cuerpo metálico, lente al frente y dos rollos de película arriba.
- * De espaldas no se ve el lente (queda del otro lado, apuntando a la pantalla).
- */
-function projector(variant: Variant): Sprite {
-  const lensFace: Shader = (u, v, fw, fh) => {
-    const r = Math.hypot(u + 0.5 - fw / 2, v + 0.5 - fh / 2);
-    if (r < 1.3) return at(C.sky, 4);
-    if (r < 2.4) return at(C.gold, 3);
-    return at(C.metal, 2);
-  };
-  const reel: Shader = (u, v, fw, fh) => {
-    const r = Math.hypot(u + 0.5 - fw / 2, v + 0.5 - fh / 2);
-    if (r > fw / 2) return null;
-    if (r < 0.8) return at(C.metal, 4);
-    if (r > fw / 2 - 1) return at(C.metal, 3);
-    return Math.floor(Math.atan2(v - fh / 2, u - fw / 2) * 1.9) % 2 ? at(C.metal, 1) : at(C.metal, 2);
-  };
-  return renderSprite(
-    [
-      solidBox({ x: 4, y: 4, z: 0, w: 8, d: 8, h: 12 }, C.woodDark, 3),
-      { x: 3, y: 4, z: 12, w: 10, d: 8, h: 6, top: flat(at(C.metal, 3)), left: flat(at(C.metal, 1)), right: (u, v) => at(C.metal, bayer(Math.floor(u), Math.floor(v)) < 0.2 ? 1 : 2) },
-      ...(variant === "back" ? [] : [{ x: 13, y: 6, z: 13, w: 2, d: 4, h: 4, top: flat(at(C.metal, 3)), left: flat(at(C.metal, 1)), right: lensFace }]),
-      { x: 4, y: 7.5, z: 18, w: 5, d: 1, h: 5, left: reel },
-      { x: 8, y: 7.5, z: 18, w: 5, d: 1, h: 5, left: reel },
-    ],
-    { outline: OUT, under: shadowUnder(3, 4, 12, 8) },
-  );
-}
-
 /** Afiche de cartelera en un atril: marco dorado y un afiche de estreno (estrella, título y bombillos). */
 function posterStand(): Sprite {
   const poster: Shader = (u, v, fw, fh) => {
@@ -126,7 +97,7 @@ export const CINEMA_DRAW: Record<string, (v: Variant) => Sprite> = {
   "cinema-seat-2": (v) => cinemaSeat(v, SOTANO_CATALOG["cinema-seat-2"].lift),
   "cinema-seat-3": (v) => cinemaSeat(v, SOTANO_CATALOG["cinema-seat-3"].lift),
   "popcorn-machine": popcornMachine,
-  projector,
+  projector: projectorSprite,
   "poster-stand": posterStand,
 };
 

@@ -62,7 +62,7 @@ describe("la gente de la fiesta: los datos", () => {
   });
 
   it("cada festival con gente tiene vendedores que abren el puesto (salvo las novenas, que no tienen puesto)", () => {
-    for (const id of ["brujas", "carnaval", "feria-flores"] as const) expect(todos(id).some((n) => n.accion?.tipo === "puesto"), id).toBe(true);
+    for (const id of ["brujas", "carnaval", "feria-flores", "ano-viejo"] as const) expect(todos(id).some((n) => n.accion?.tipo === "puesto"), id).toBe(true);
   });
 
   it("con lluvia: los que se van, se van; los demás buscan techo; los que siguen corren la suerte de su guía", () => {
@@ -78,7 +78,7 @@ describe("la gente de la fiesta: los datos", () => {
     const mariana = mojado.some((n) => n.id === "brujas:mariana");
     expect(mojado.some((n) => n.id === "brujas:canelo")).toBe(mariana);
     expect(genteDelFestival("brujas", 1, "tormenta").length).toBe(conClima(npcs, "tormenta").length);
-    expect(genteDelFestival("ano-viejo", 1, "despejado")).toEqual([]);
+    expect(genteDelFestival("festival-que-no-existe", 1, "despejado")).toEqual([]);
   });
 
   it("lo que dicen cambia con la hora, el clima y el día, y todos ven lo mismo con la misma semilla", () => {

@@ -97,7 +97,7 @@ export const CARNAVAL_MSG = {
 // ---------- Las carrozas y sus comparsas ----------
 
 /** Las carrozas, en el orden del desfile: las diez del plan con las nuevas antes del Megabús de la alegría, que cierra. */
-export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "jaguar", "leon", "amaru", "oso", "mariposa", "rana", "megabus"] as const;
+export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "jaguar", "leon", "amaru", "oso", "mariposa", "rana", "diablo", "trucha", "inti", "juglar", "megabus"] as const;
 export type CarrozaId = (typeof CARROZA_IDS)[number];
 
 /** Quién hace un paso de la coreografía: un bailarín (`b0`…), todos, o los pares o impares. */
@@ -149,7 +149,7 @@ const PIELES = ["#f1c27d", "#e0ac69", "#c68642", "#8d5524", "#ffdbac", "#d9a066"
  * de colores que combinan con su carroza.
  */
 const PALETAS: Record<string, readonly [string, string, string]> = {
-  "#9a6a40": ["#93203f", "#e0a428", "#1f7a5a"],
+  "#9a6a40": ["#7a3ca8", "#1fa8a0", "#e0a428"],
   "#dcae3f": ["#24212e", "#f3f1ec", "#2f6fd6"],
   "#ee7a22": ["#c8323a", "#f4ece0", "#6a4a2e"],
   "#c8343a": ["#c8243a", "#1f8a4a", "#f2c21c"],
@@ -157,13 +157,17 @@ const PALETAS: Record<string, readonly [string, string, string]> = {
   "#3a5aa8": ["#2a5ac8", "#d0287a", "#e0a526"],
   "#6f8a3a": ["#22a07a", "#8a3cc8", "#f0702a"],
   "#7a4a2a": ["#f4ead6", "#7a2ab8", "#1fa8c0"],
-  "#a6d23a": ["#a6d23a", "#e0283c", "#2f6fd6"],
+  "#a6d23a": ["#a6d23a", "#c8287a", "#f2711c"],
   "#1f9a9a": ["#1f9a9a", "#8a3cc8", "#f2861c"],
   "#5a3a26": ["#c8323a", "#2f8f6a", "#e8a317"],
   "#8a3cc8": ["#8a3cc8", "#1fb8b0", "#ef6ba0"],
   "#e8b81c": ["#e8b81c", "#2f9a3a", "#d8283a"],
   "#7a3cd0": ["#7a3cd0", "#e8a317", "#1f9a6a"],
   "#d8287a": ["#d8287a", "#f2a51c", "#2fae8a"],
+  "#d8262c": ["#d8262c", "#f4c21c", "#8a3cc8"],
+  "#2a6ad0": ["#2a6ad0", "#f2711c", "#1fb8b0"],
+  "#f2b21c": ["#f2b21c", "#c8287a", "#1fa8a0"],
+  "#2a52d0": ["#d8283a", "#2a52d0", "#e0a526"],
 };
 
 /** Los colores de las alas de la comparsa del Cóndor (los de sus plumas). */
@@ -528,6 +532,72 @@ export const COMPARSAS: readonly Comparsa[] = [
     ],
   },
   {
+    id: "diablo",
+    nombre: "El Diablo bailarín",
+    grupo: "Los Diablitos de la loma",
+    acento: "#d8262c",
+    largo: 7,
+    pieza: "sanjuanito",
+    // Diablitos de capa roja y antifaz, y angelitos de alas blancas, vestido claro y corona de flores.
+    bailarines: CUADRILLA.map((i) =>
+      i % 2
+        ? comparsero(i, "#d8262c", { outfit: "dress", shirt: ["#c8a0ec", "#f0a8cc", "#a8c8f0"][i % 3]!, top2: BLANCO, back: "wings", head: "flower", face: "none", shoes: "sandals", shoeColor: "#e0a526" })
+        : comparsero(i, "#d8262c", { shirt: "#d8262c", pants: NEGRO, top2: "#f4c21c", back: "cape", head: "crown", neck: "chain" }),
+    ),
+    // Los diablitos saltan mientras los angelitos giran; después se cambian y todos celebran.
+    frase: [
+      juntos(hace("pares", "saltar"), hace("impares", "girar")),
+      juntos(hace("pares", "girar"), hace("impares", "saltar")),
+      todos("bailar"),
+      ola(6, "saltar", CARNAVAL.beatMs / 2),
+      todos("celebrar"),
+    ],
+  },
+  {
+    id: "trucha",
+    nombre: "La trucha de la laguna",
+    grupo: "Los Pescadores de La Cocha",
+    acento: "#2a6ad0",
+    largo: 7,
+    pieza: "bambuco",
+    // Los pescadores de las barcas: ruana de colores y sombrero de paja o de lona.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#2a6ad0", { outfit: "ruana", head: i % 3 === 2 ? "bucket-hat" : "straw-hat", face: "none" })),
+    // La ola: saltan en cadena como la trucha y se mecen como las barcas; al final reman y saludan.
+    frase: [
+      ola(6, "saltar", CARNAVAL.beatMs / 2),
+      ola(6, "saltar", CARNAVAL.beatMs / 2, true),
+      todos("bailar"),
+      juntos(camina("pares", [{ dx: 0, dy: -0.5 }]), camina("impares", [{ dx: 0, dy: 0.5 }])),
+      juntos(camina("pares", [{ dx: 0, dy: 0 }]), camina("impares", [{ dx: 0, dy: 0 }])),
+      todos("saludar"),
+    ],
+  },
+  {
+    id: "inti",
+    nombre: "El Inti que canta",
+    grupo: "Colectivo Hijos del Sol",
+    acento: "#f2b21c",
+    largo: 7,
+    pieza: "sanjuanito",
+    // Los zampoñeros: ruana tejida y cintillo, de los colores del sol.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#f2b21c", { outfit: "ruana", head: "headband", face: "none" })),
+    // Giran como los rayos del sol, asienten al compás de la zampoña y celebran.
+    frase: [ola(6, "girar", CARNAVAL.beatMs / 2), todos("asentir"), todos("asentir"), todos("bailar"), ola(6, "girar", CARNAVAL.beatMs / 2, true), todos("celebrar")],
+  },
+  {
+    id: "juglar",
+    nombre: "El Juglar del acordeón",
+    grupo: "Banda Juglares de la Vereda",
+    acento: "#2a52d0",
+    largo: 7,
+    pieza: "guanena-murga",
+    // La banda del juglar: chaquetas rojas y azules de botones dorados; los pares de quepis y los impares
+    // de gorro de juglar (el de fiesta), todos con antifaz.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#2a52d0", { outfit: "vest", head: i % 2 ? "party-hat" : "sailor-hat", ...(i % 3 === 0 ? { pattern: "stripes" as const } : {}) })),
+    // Marchan como banda: saludan, la ola de saltos de la carroza hacia atrás, giran por parejas y aplauden.
+    frase: [todos("saludar"), ola(12, "saltar", 140), { op: "together", steps: [{ op: "act", who: "pares", action: "girar" }, { op: "act", who: "impares", action: "bailar" }] }, todos("bailar"), todos("celebrar")],
+  },
+  {
     id: "megabus",
     nombre: "El Megabús de la alegría",
     grupo: "Comparsa de la cabaña",
@@ -642,6 +712,10 @@ export const DESFILE_ORDEN: readonly DesfileItem[] = [
   { tipo: "carroza", id: "oso" },
   { tipo: "carroza", id: "mariposa" },
   { tipo: "carroza", id: "rana" },
+  { tipo: "carroza", id: "diablo" },
+  { tipo: "carroza", id: "trucha" },
+  { tipo: "carroza", id: "inti" },
+  { tipo: "carroza", id: "juglar" },
   { tipo: "disfraces", id: "tradicion" },
   // El Megabús de la alegría cierra siempre ("¡Y cierra el Megabús…!"): detrás va la gente de la casa.
   { tipo: "carroza", id: "megabus" },
@@ -678,6 +752,10 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   rana: "¡La rana dorada del Pacífico, con corona y todo! Miren cómo infla el buche.",
   jaguar: "¡Uy, el jaguar! Con esa boca abierta, mejor no le pongan la mano.",
   leon: "¡El león con sombrero de copa! Y los payasitos encima, sin miedo.",
+  diablo: "¡El Diablo bailarín! Aquí hasta el diablo se ríe, y los angelitos le bailan.",
+  trucha: "¡Una trucha arcoíris de La Cocha! Esa no cabe en ninguna olla.",
+  inti: "¡El Inti! Cuando suenan las zampoñas hasta el sol sale a bailar.",
+  juglar: "¡El Juglar del acordeón! Ese perro sabe más de música que yo.",
 };
 
 // ---------- La coreografía en el tiempo ----------

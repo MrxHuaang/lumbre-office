@@ -70,8 +70,11 @@ import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
 import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
 import { FeriaPanel } from "./FeriaPanel";
+import { BaileCosechaPrompt, CosechaPanel } from "./CosechaPanel";
+import { CometasPanel, CometaVuelo } from "./CometasPanel";
 import { AmorPanel } from "./AmorPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
+import { AnoViejoShopPanel, AnoViejoStrip, CartelPanel, MunecoPanel, ResumenAnoPanel } from "./AnoViejoPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { TiraDialogo } from "./dialogo/TiraDialogo";
 import { QuestTracker } from "./encargos/QuestTracker";
@@ -350,6 +353,8 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotePrompt />
             <BrujasTrickPrompt />
             <ComparsaPrompt />
+            <BaileCosechaPrompt />
+            <AnoViejoStrip />
             <SeatPrompt />
             <InteractPrompt />
             <MarshmallowStrip />
@@ -472,9 +477,19 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "brujasShop" && <BrujasPanel atObject={panel.atObject} onClose={closePanel} />}
           {(panel?.kind === "feriaTable" || panel?.kind === "feriaShop" || panel?.kind === "silletaStand") && <FeriaPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
+          {(panel?.kind === "cosechaPuesto" || panel?.kind === "cosechaOlla" || panel?.kind === "cosechaBascula" || panel?.kind === "cosechaTablero" || panel?.kind === "cosechaTombola") && (
+            <CosechaPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />
+          )}
           {panel?.kind === "carnavalShop" && <CarnavalShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {(panel?.kind === "amorCofre" || panel?.kind === "amorShop" || panel?.kind === "amorSerenata") && <AmorPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalConcurso" && <ConcursoPanel onClose={closePanel} />}
+          {panel?.kind === "anoViejoShop" && <AnoViejoShopPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoMuneco" && <MunecoPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoCartel" && <CartelPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoResumen" && <ResumenAnoPanel onClose={closePanel} />}
+          {(panel?.kind === "cometasTaller" || panel?.kind === "cometasShop" || panel?.kind === "cometasConcurso") && <CometasPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
+          {/* El Festival de cometas: el minijuego mientras mi cometa vuela. */}
+          <CometaVuelo />
           {/* Mundo lleno: tragamonedas, garra, estante de premios, rueda y la recepción. */}
           <MundoPanels />
           {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}

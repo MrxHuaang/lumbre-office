@@ -3,7 +3,7 @@
 // que el dibujo de la parcela (1x1, tile = 16, la tierra arriba en z = 3).
 import { Escena } from "./exterior-escena";
 import { C } from "./palette";
-import { alpha, at, hex, noise, type RGBA, type Sprite } from "./pixel";
+import { alpha, at, hex, noise, ramp, type RGBA, type Sprite } from "./pixel";
 
 export type CropStage = 0 | 1 | 2 | 3;
 
@@ -73,6 +73,11 @@ const STRAW = { c: hex("#e8323c"), d: hex("#a8202a"), s: hex("#ffb0b0") };
 const ORANGE = { c: hex("#f09a2a"), d: hex("#c06a18"), s: hex("#ffd08a") };
 const YELLOW = { c: hex("#f2c83a"), d: hex("#c09422"), s: hex("#fff0a0") };
 const POTATO = { c: hex("#e8c24a"), d: hex("#b8902a"), s: hex("#f7e08a") };
+const ONION = { c: hex("#f4f0e0"), d: hex("#c8bca0"), s: hex("#ffffff") };
+const PUMPKIN = { c: hex("#e8862a"), d: hex("#a8501a"), s: hex("#ffc070") };
+const ARRACACHA = { c: hex("#ecd06a"), d: hex("#b89a3a"), s: hex("#fff0a8") };
+/** Las vainas del fríjol. */
+const BEAN = ramp("#2a3a14", "#3f5a1e", "#5f8a2e", "#7fa83e", "#a8c86a");
 
 /** Estaca de madera (tomates): donde se amarra la mata. */
 function stake(s: Escena, x: number, y: number, h: number) {
@@ -175,7 +180,7 @@ function flowerCrop(s: Escena, crop: string, x: number, y: number, i: number, re
 
 /** Lo que crece en una parcela: `stage` 0 recién sembrado, 1 brotes, 2 creciendo, 3 listo. */
 export function cropSprite(crop: string, stage: CropStage): Sprite {
-  const tall = crop === "maiz" ? 34 : crop === "girasol" ? 30 : crop === "tomate" || crop === "lulo" ? 22 : 16;
+  const tall = crop === "maiz" ? 34 : crop === "girasol" ? 30 : crop === "tomate" || crop === "lulo" || crop === "yuca" || crop === "frijol" ? 22 : 16;
   const s = scene(tall + 6);
   const seed = crop.length * 7 + stage;
   if (stage === 0) {
@@ -230,6 +235,43 @@ export function cropSprite(crop: string, stage: CropStage): Sprite {
         bush(s, x, y, ready ? 4 : 3.2, ready ? 15 : 10, C.leaf, k);
         if (ready) for (const [dx, dy, dz] of [[2.5, 1, 6], [-1, 3, 8], [2, 2.5, 12], [3, -1.5, 9]] as const) fruit(s, x + dx, y + dy, SOIL_Z + dz, 1.5, ORANGE.c, ORANGE.d, ORANGE.s);
         break;
+      // Los de la Feria de la cosecha.
+      case "cebolla":
+        // Matojos de hojas largas paradas y, lista, el bulbo blanco que asoma.
+        for (let j = 0; j < 6; j++) {
+          const t = (j / 6) * Math.PI * 2;
+          for (let z = 0; z < (ready ? 8 : 5); z += 0.5) s.plot(x + Math.cos(t) * (0.6 + z * 0.08), y + Math.sin(t) * (0.6 + z * 0.08), SOIL_Z + z, at(C.leaf, z > 4 ? 4 : 3));
+        }
+        if (ready) fruit(s, x, y, SOIL_Z + 0.6, 1.1, ONION.c, ONION.d, ONION.s);
+        break;
+      case "yuca":
+        // Varas leñosas con las hojas de dedos arriba; lista, la raíz que asoma en la tierra.
+        if (i === 0 || i === 3) break;
+        for (let z = 0; z < (ready ? 18 : 12); z += 0.5) s.plot(x, y, SOIL_Z + z, at(C.woodDark, 3));
+        for (let j = 0; j < 7; j++) {
+          const t = (j / 7) * Math.PI * 2;
+          for (let l = 0; l < 3.4; l += 0.4) s.plot(x + Math.cos(t) * l, y + Math.sin(t) * l, SOIL_Z + (ready ? 18 : 12) - l * 0.4, at(C.leaf, l > 2 ? 4 : 3));
+        }
+        if (ready) for (const d of [-1.5, 1.6]) for (let l = 0; l < 3; l += 0.4) s.plot(x + d + l * 0.4, y + 1.8 + l * 0.3, SOIL_Z + 0.4, at(C.wood, 3));
+        break;
+      case "ahuyama":
+        // Rastrera: hojas grandes por el piso y, lista, una ahuyama naranja en el medio de la parcela.
+        bush(s, x, y, ready ? 3.2 : 2.6, 2.6, C.leaf, k);
+        if (ready && i === 1) fruit(s, 8, 8.5, SOIL_Z + 2.4, 2.8, PUMPKIN.c, PUMPKIN.d, PUMPKIN.s);
+        else if (ready) s.plot(x + 1, y + 1, SOIL_Z + 2.8, at(C.gold, 4));
+        break;
+      case "frijol":
+        // Enredado en su tutor, con vainas colgando y las florcitas.
+        stake(s, x - 0.5, y - 0.5, ready ? 16 : 10);
+        bush(s, x, y, 2, ready ? 14 : 8, C.leaf, k);
+        if (ready) for (const [dx, dy, dz] of [[1.5, 1.2, 6], [-1.2, 1.5, 9], [1.2, -0.8, 11]] as const) for (let l = 0; l < 2.6; l += 0.4) s.plot(x + dx, y + dy, SOIL_Z + dz - l, at(BEAN, l > 2 ? 2 : 4));
+        break;
+      case "arracacha":
+        // Mata de hojas tipo apio, de tallos morados; lista, el cuello amarillo de la raíz.
+        bush(s, x, y, ready ? 3 : 2.4, ready ? 7 : 5, C.leaf, k);
+        for (let j = 0; j < 4; j++) s.plot(x + (noise(j, 1, k) - 0.5) * 3, y + (noise(j, 2, k) - 0.5) * 3, SOIL_Z + 2, at(C.violet, 3));
+        if (ready) fruit(s, x + 1.6, y + 1.6, SOIL_Z + 0.6, 1, ARRACACHA.c, ARRACACHA.d, ARRACACHA.s);
+        break;
       default:
         bush(s, x, y, 2.5, 5, C.leaf, k);
     }
@@ -256,6 +298,7 @@ const PINK = { c: hex("#e8457a"), d: hex("#a8205a"), s: hex("#ffb0c8") };
 const POD = { c: hex("#e0a030"), d: hex("#9a5a1a"), s: hex("#f7d070") };
 const CHERRY = { c: hex("#c8302a"), d: hex("#7a1a18"), s: hex("#ff8a70") };
 const BERRY = { c: hex("#f7b733"), d: hex("#c8861a"), s: hex("#fff0a0") };
+const PLANTAIN = { c: hex("#a8c040"), d: hex("#6a8a20"), s: hex("#d8e070") };
 
 /**
  * Lo que crece en un bancal del invernadero: una sola mata al centro de la bandeja (uchuva, pitahaya,
@@ -308,6 +351,15 @@ export function bedCropSprite(crop: string, stage: CropStage): Sprite {
             const t = noise(k, 1, seed) * Math.PI * 2;
             fruit(s, x + Math.cos(t) * 2.5, y + Math.sin(t) * 2.5, SOIL_Z + 4 + noise(k, 2, seed) * 9, 0.8, CHERRY.c, CHERRY.d, CHERRY.s);
           }
+        break;
+      case "platano":
+        // Matica de plátano: el tallo grueso y las hojas anchas que se doblan; lista, el racimo verde.
+        for (let z = 0; z < (ready ? 14 : 9); z += 0.5) for (const d of [-0.6, 0, 0.6]) s.plot(x + d, y, SOIL_Z + z, at(C.leaf, 2 + d));
+        for (let j = 0; j < 5; j++) {
+          const t = (j / 5) * Math.PI * 2 + 0.3;
+          for (let l = 0; l < 6; l += 0.3) for (const w of [-0.6, 0, 0.6]) s.plot(x + Math.cos(t) * l - Math.sin(t) * w, y + Math.sin(t) * l + Math.cos(t) * w, SOIL_Z + (ready ? 14 : 9) + l * 0.5 - l * l * 0.14, at(C.leaf, l > 3 ? 4 : 3));
+        }
+        if (ready) for (let j = 0; j < 6; j++) fruit(s, x + 1.4 + (j % 2) * 0.8, y + 1.2, SOIL_Z + 7 + j * 0.9, 0.7, PLANTAIN.c, PLANTAIN.d, PLANTAIN.s);
         break;
       default:
         bush(s, x, y, 3, 6, C.leaf, seed);

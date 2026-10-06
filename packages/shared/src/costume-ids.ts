@@ -54,5 +54,7 @@ export const COSTUME_IDS = [
   "talco-ceniza",
   "sombrero-flores",
   "mascara-levantada",
+  // El del Año viejo (la ropa amarilla del agüero).
+  "ano-nuevo-amarillo",
 ] as const;
 export type CostumeId = (typeof COSTUME_IDS)[number];

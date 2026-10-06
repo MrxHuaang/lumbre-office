@@ -274,6 +274,22 @@ export interface PointDef {
     | "silleta_stand"
     // El Carnaval: el palco de la tarima (el concurso de disfraces).
     | "carnaval_contest"
+    // La Feria de la cosecha: delante de cada puesto del mercado (vender y comprar), de la olla del
+    // sancocho (aportar), de la báscula (pesar la ahuyama), del tablero del concurso y de la tómbola.
+    | "cosecha_puesto"
+    | "cosecha_olla"
+    | "cosecha_bascula"
+    | "cosecha_tablero"
+    | "cosecha_tombola"
+    // El Año viejo: delante del muñeco (darle prendas y relleno), del cartel de los testamentos y de donde
+    // se saca relleno (el costal de aserrín del taller y la paca de paja del gallinero).
+    | "ano_viejo_muneco"
+    | "ano_viejo_cartel"
+    | "ano_viejo_relleno"
+    // El Festival de cometas: la mesa del taller, el tablero del concurso y la escalera del garaje.
+    | "cometas_taller"
+    | "cometas_concurso"
+    | "cometas_techo"
     // Amor y amistad: delante del cofre del amigo secreto y delante del trío de la serenata.
     | "amigo_secreto"
     | "amor_serenata";

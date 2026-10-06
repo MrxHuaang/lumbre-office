@@ -6,6 +6,9 @@
 // en la barra (la mochila); lo cosechado, la miel y lo del cobertizo van a la mochila.
 import { nearPointOfType, pointsOfType, type OfficeMap } from "@hyvento/map";
 import {
+  AHUYAMA,
+  ahuyamaId,
+  pesoAhuyama,
   EMPTY_CAN,
   HONEY,
   objItemId,
@@ -173,9 +176,11 @@ export class Huerto<T extends PlotState> {
       // Las flores salen de a ramito (`yield`).
       const crop = cropById(plot.crop)!;
       const n = crop.yield ?? 1;
-      if (this.deps.bag.fits(who.userId, objItemId(crop.product), n) !== "ok") return { ok: false, notice: { code: "full" } };
+      // La ahuyama sale pesada (la Feria de la cosecha): su peso, del cuidado que tuvo, va en el id.
+      const product = crop.id === AHUYAMA.crop ? ahuyamaId(pesoAhuyama({ growMs: crop.growMs, plantedAt: plot.plantedAt, readyAt: plotReadyAt(plot), plantedBy: plot.plantedBy })) : crop.product;
+      if (this.deps.bag.fits(who.userId, objItemId(product), n) !== "ok") return { ok: false, notice: { code: "full" } };
       this.set(id, null);
-      await this.deps.bag.add(who.userId, objItemId(crop.product), n);
+      await this.deps.bag.add(who.userId, objItemId(product), n);
       // Los puntos llegan aparte (el "+N" lo manda la sala al sumarlos).
       await this.deps.award(who.userId, crop.points);
       return event("harvest", crop.product);

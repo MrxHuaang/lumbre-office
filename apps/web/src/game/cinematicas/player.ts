@@ -16,7 +16,9 @@ import {
   CINE_ME,
   PESCA_NPC,
   RECEPCION_NPC,
+  VECINOS,
   fillCine,
+  type VecinoId,
   type CineActor,
   type CineDef,
   type CinePos,
@@ -553,10 +555,12 @@ async function runStep(run: Run, step: CineStep) {
     case "spawn": {
       const npc = NPC_BY_ID.get(step.like);
       if (!npc) return;
-      // Con `look`, otra pinta (la gente de la fiesta: Cupido, el trío de la serenata).
-      const key = ensureCharacterTextures(h.scene, "ada", step.look ?? npc.look);
+      // Con `vecino`, la pinta y el nombre de un vecino de la vereda; con `look`, otra pinta (la gente de la
+      // fiesta: Cupido, el trío de la serenata).
+      const vecino = step.vecino ? VECINOS[step.vecino as VecinoId] : undefined;
+      const key = ensureCharacterTextures(h.scene, "ada", step.look ?? vecino?.look ?? npc.look);
       const at = worldOf(run, step.at);
-      const a = new Avatar(h.scene, key, step.name ?? npc.name, at.x, at.y, false);
+      const a = new Avatar(h.scene, key, step.name ?? vecino?.nombre ?? npc.name, at.x, at.y, false);
       a.asNpc();
       // Sin placa: varios juntos se tapan los nombres, y el que habla ya sale en el cuadro.
       a.setNameHidden(true);

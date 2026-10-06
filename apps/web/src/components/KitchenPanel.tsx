@@ -41,7 +41,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
   const quests = useEncargos((s) => s.quests);
   const recipes = [
     ...STORY_RECIPES.filter((r) => r.story?.some((q) => storyStepOpen(quests, q))),
-    ...RECIPES.filter((r) => recipeInSeason(r, festival)),
+    ...RECIPES.filter((r) => recipeInSeason(r, festival) && !r.olla),
   ];
 
   return (

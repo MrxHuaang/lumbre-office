@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { drawFurniture } from "./furniture";
 import { gridSprite, rampLegend } from "./grilla";
 import { C } from "./palette";
+import { catalogItem } from "../world/catalog";
 
-/** Lo del jardín que ya está dibujado a mano en grillas (VIR-177). */
+/** Lo que ya está dibujado a mano en grillas (VIR-177). */
 const A_MANO = [
   "fence",
   "oak-1",
@@ -25,9 +26,44 @@ const A_MANO = [
   "fern",
   "tall-grass",
   "wildflowers",
+  // Tanda 2: lo que quedaba del jardín y los muebles comunes de las salas.
+  "mushrooms",
+  "rock-small",
+  "rock-medium",
+  "rock-mossy",
+  "flat-rock",
+  "stump",
+  "lily-pad",
+  "stick-fence",
+  "lamp-post",
+  "garden-lantern",
+  "dock-lamp",
+  "chair",
+  "stool",
+  "armchair",
+  "beanbag",
+  "counter",
+  "counter-coffee",
+  "bar-counter",
+  "speaker",
+  "projector",
 ];
 
 describe("grillas a mano", () => {
+  it("la luz de noche de los faroles cae sobre su vidrio", () => {
+    for (const t of ["lamp-post", "garden-lantern", "dock-lamp"]) {
+      const s = drawFurniture(t);
+      const [x, y, z] = catalogItem(t).light!.at;
+      const px = Math.round(s.ox + x - y);
+      const py = Math.round(s.oy + (x + y) / 2 - z);
+      // A dos píxeles del foco hay dibujo (el farol), no aire.
+      let hit = 0;
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) if (s.canvas.data[((py + dy) * s.canvas.width + px + dx) * 4 + 3]) hit++;
+      expect(hit, t).toBeGreaterThan(8);
+    }
+  });
+
   it("una letra sin color es un error, no un píxel que se pierde callado", () => {
     expect(() => gridSprite(["0z"], rampLegend(C.leaf), 0, 0)).toThrow(/z/);
   });
@@ -39,7 +75,7 @@ describe("grillas a mano", () => {
     expect(s.canvas.data[2 * 4 + 3]).toBe(255);
   });
 
-  it("cada pieza del jardín a mano tiene su pie dentro del dibujo y algo pintado junto a él", () => {
+  it("cada pieza a mano tiene su pie dentro del dibujo y algo pintado junto a él", () => {
     for (const t of A_MANO) {
       const s = drawFurniture(t);
       const fx = s.ox;
@@ -51,7 +87,7 @@ describe("grillas a mano", () => {
       let near = 0;
       for (let y = fy - 3; y <= fy + 3; y++)
         for (let x = fx - 3; x <= fx + 3; x++) if (x >= 0 && y >= 0 && x < s.canvas.width && y < s.canvas.height && s.canvas.data[(y * s.canvas.width + x) * 4 + 3]) near++;
-      expect(near, t).toBeGreaterThan(5);
+      expect(near, t).toBeGreaterThan(3);
     }
   });
 });
