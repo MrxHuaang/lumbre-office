@@ -1,5 +1,5 @@
-// Las carrozas del Carnaval (VIR-173): esculturas de papel maché armadas por partes (ver escultura.ts y
-// partes.ts). Para sumar una carroza basta con su función aquí (y su comparsa en @hyvento/shared). El
+// Las carrozas del Carnaval (VIR-173): figuras de papel maché en pixel art pintado, armadas por partes (ver
+// pintura.ts y partes.ts). Para sumar una carroza basta con su función aquí (y su comparsa en @hyvento/shared). El
 // navegador pide cada una una vez y mueve sus partes con `posesCarroza`.
 import type { CarrozaId } from "@hyvento/shared";
 import { amaru } from "./amaru";
