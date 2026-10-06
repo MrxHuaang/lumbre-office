@@ -1,32 +1,38 @@
 # Carnaval de Negros y Blancos en la cabaña (VIR-160)
 
-Concepto del Carnaval del día 18 del verano, inspirado en el de Pasto (patrimonio de la UNESCO desde 2009). Don Evelio es pastuso, así que él es el abanderado. El desfile va por **la calle del Megabús**, frente a la Estación Hyvento, con música andina hecha por código.
+Concepto del Carnaval del día 18 del verano, inspirado en el de Pasto (patrimonio de la UNESCO desde 2009). Don Evelio es pastuso, así que él es el abanderado. El **Desfile Magno** va por **la calle del Megabús**, frente a la Estación Hyvento, con música andina hecha por código.
+
+**"Negros y Blancos" es el nombre de los días del carnaval** (el 5 y el 6 de enero en Pasto), no el color de las carrozas. Las carrozas y las comparsas de Pasto son explosiones de color. **El Carnaval es de día, siempre**: el Desfile Magno sale a las 10:00 del juego, el concurso se premia a las 18:00 y el festival cierra a las 18:30, antes de que oscurezca.
 
 ## Respeto cultural (decisiones)
 
-- El contraste blanco y negro se ve en **trajes, máscaras, banderines, confeti y carrozas**. **Nunca se oscurece la piel de un avatar.** En Pasto, el Día de Negros recuerda la petición de un día de libertad para las personas esclavizadas. Pintar caras en un juego se presta a malas lecturas, así que se nombra con respeto en la cinemática de apertura, sin imitarlo.
+- **Nunca se oscurece la piel de un avatar.** Las figuras de papel maché sí pueden tener piel de colores de fantasía (turquesa, verde, dorado), como en Pasto; lo que no se hace es pintar personas reales ni avatares. En Pasto, el Día de Negros recuerda la petición de un día de libertad para las personas esclavizadas. Pintar caras en un juego se presta a malas lecturas, así que se nombra con respeto en la cinemática de apertura, sin imitarlo.
 - El "talco" (Día de Blancos) es el juego de la maicena: deja la cara empolvada de blanco un rato. Va solo entre quienes lo aceptan: no se le echa a nadie en "No molestar" y hay una opción para no recibir.
-- Las carrozas cuentan historias de la cabaña y del sur andino (paisaje, oficios, mitos). No hay caricaturas de pueblos ni personas reales.
+- Las carrozas cuentan historias de la cabaña y del sur andino (paisaje, oficios, mitos), como homenaje y nunca como caricatura. No hay rostros que imiten a personas reales. Lo afro y lo indígena van con dignidad, como en las carrozas ganadoras de 2026 ("Indomable, mujer guerrera", "Nariño en alas de vida", "Herencia mágica").
 - Los grupos son ficticios, inspirados en las modalidades reales del carnaval: carrozas, comparsas, murgas, colectivos coreográficos y disfraz individual.
 
-## 1. Carrozas (10)
+## 1. Carrozas
 
-Cada carroza es papel maché blanco y negro con **un solo color de acento**. Son muebles grandes que mueve el servidor por el carril, como el bus, y se dibujan por código con piezas que se mueven: alas, péndulo, humo.
+Como en el Desfile Magno de Pasto: **criaturas fantásticas integradas al camión** (animales, monstruos, calaveras, personas con máscara). La figura es el vehículo: su cuerpo, manto o melena tapan la plataforma, el frente es su cara o su boca, y alrededor van muchas figuras chicas en capas. Son enormes frente a la gente de la calle (varias veces la altura de un avatar), de colores saturados, con terminaciones cuidadas (planos de luz y sombra, brillos, patrones andinos, plumas por capas).
 
-| # | Carroza | Qué se ve | Acento | Guiño |
-|---|---|---|---|---|
-| 1 | **La Familia Castañeda llega** | Una carreta vieja con baúles, una abuela con sombrilla y un loro de papel | Sepia | La tradición del 4 de enero: la familia viajera que llega a la fiesta |
-| 2 | **El Cóndor de los Andes** | Un cóndor de 3 tiles con collar blanco y alas que suben y bajan | Oro | El cóndor ya es negro y blanco |
-| 3 | **El Galeras que fuma** | Un volcán con nieve en la punta y humo blanco en espiral; cuyes de papel en la falda | Naranja brasa | El volcán de Pasto |
-| 4 | **El Tablero vivo** | Un piso de ajedrez con piezas gigantes que se mueven en cada parada | Rojo | La sala de juegos del piso 3 |
-| 5 | **El Reloj de E.** | Un reloj de pie enorme con péndulo y engranajes que giran; suenan trece campanadas al pasar | Bronce | Capítulo 2 de la historia |
-| 6 | **La Luna en el lago** | Una media luna sobre olas, con peces de escamas brillantes y una llavecita colgando | Azul noche | Capítulo 3 |
-| 7 | **El Páramo** | Frailejones, colibríes en resortes y una laguna de vidrio | Verde musgo | El agua nace en el páramo |
-| 8 | **La Minga de la cosecha** | Papa, maíz, quinua y guaguas de pan gigantes sobre un tejido de colores | Multicolor (tejido andino) | Lo que se cosecha en el huerto |
-| 9 | **El tinto de Doña Aurora** | Un pocillo gigante que echa vapor y una cafetera que sirve sola | Café | La casera de la cabaña |
-| 10 | **El Megabús de la alegría** | El bus de la parada pintado a cuadros, con cachivaches encima | Verde lima | Cierra el desfile; detrás va la comparsa de los jugadores |
+**Movimiento de verdad**: en Pasto las figuras son articuladas (el movimiento lo incorporó en los años 60 el maestro José Eduardo Ordóñez; el ingenio mecánico se le debe a Rogerio Argote y al maestro Alfonso Zambrano), con resortes, piolas y bandas de caucho: cabezas que giran, ojos y párpados, bocas, brazos y manos que suben y bajan, alas que aletean, piezas que dan vueltas, cuerpos que se mecen. Aquí cada carroza se arma **por partes** (VIR-173, `packages/map/src/art/carrozas`): cada parte es un dibujo con su pivote y su movimiento (`gira`, `rueda`, `vaiven`, `escala`, `parpadeo`, `sube`), y el navegador las mueve con curvas suaves (`posesCarroza`, la misma pose para todos). Con "menos movimiento" quedan casi quietas.
 
-**Estado**: las diez están hechas (VIR-160 y VIR-166), en este orden dentro del desfile (`CARROZA_IDS`). Lo que se mueve en las cuatro últimas: en el Tablero, el caballo salta en L, la reina negra se desliza en diagonal y un peón avanza; en la Luna, las olas corren, los peces saltan con las escamas brillando por turnos y la llavecita oxidada se mece (de noche la luna se prende con su halo); en el Páramo, los colibríes se mecen en sus resortes con las alas borrosas, los frailejones se mecen y la laguna de vidrio destella; en la Minga, la quinua se mece, la mazorca de colores gira y las guaguas de pan se arrullan. Para que la fila más larga siga cabiendo en unos 2 minutos, el desfile va un poco más rápido (2,6 tiles por segundo).
+**Técnica**: pixel art pintado en 2D, en la vista 3/4 del juego (luz de arriba a la izquierda), con la plataforma del camión en 3D. Cómo se dibuja y se suma una: `docs/carrozas.md`.
+
+| # | Carroza | Qué se ve | Guiño |
+|---|---|---|---|
+| 1 | **La Familia Castañeda llega** | La abuela viajera con sombrilla, el loro y los baúles, colores de época | La tradición del 4 de enero |
+| 2 | **El Cóndor de los Andes** | El cóndor con las alas de colores que aletean, sobre montañas de franjas y el sol que gira | El cóndor de los Andes |
+| 3 | **El Galeras que fuma** | El volcán con rostro y faldas de retazos de cultivos, humo de colores, cuyes | El volcán de Pasto |
+| 4 | **El Tablero del Diablo** | La calavera turquesa sonriente con dientes de oro, diablitos enroscados como cuernos, túnica que tapa el camión, garras levantadas y, a sus pies, el fraile y el diablo jugando ajedrez | La sala de juegos del piso 3 |
+| 5 | **El Reloj de E.** | El monstruo mecánico de pelaje azul, cara rosada que ruge, cresta de fuego, engranajes y tubos que echan humo, manos moradas con la máscara de dientes de oro | Capítulo 2 de la historia |
+| 6 | **La Luna en el lago** | La luna como un rostro de mujer dormida que abre un ojo, peces de escamas de colores, la llavecita | Capítulo 3 |
+| 7 | **El Páramo** | El espíritu del páramo con antifaz de pavo real, alas de mariposa, la mano de uñas pintadas, frailejones y colibríes | El agua nace en el páramo |
+| 8 | **La Minga de la cosecha** | La Pachamama de tocado de plumas arcoíris que ofrece una totuma de la que cae agua; la cosecha y las guaguas | El agua y la tierra |
+| 9 | **El tinto de Doña Aurora** | Aurora sirviendo de una cafetera de peltre enorme, el pocillo que echa vapor, los bultos de café | La casera de la cabaña |
+| 10 | **El Megabús de la alegría** | El bus con ojos y sonrisa, flores pintadas, muñecos que bailan encima, banderas y rehilete | Cierra el desfile |
+
+**Estado**: las diez se rehicieron por partes (VIR-173). El Tablero y el Reloj ya van en pixel art pintado como criaturas integradas; las demás están en una primera versión en 3D y se rehacen con la misma técnica, apuntando a unas 20 carrozas.
 
 ## 2. Coreografías (en 8 tiempos, con las acciones del juego)
 
@@ -70,12 +76,12 @@ El sonido del carnaval son **las murgas** y **los colectivos andinos**, y el rit
 
 El desfile va por el carril exclusivo, del oeste al este. Mientras pasa, **el bus no sale**: la sala suspende `BusLine` y el bus de refuerzo espera. Se ve desde la vereda y la plataforma.
 
-1. **Salida (borde oeste, entre el bosque)**: las carrozas aparecen desde el bosque de `surroundings`, una cada ~6 s.
-2. **Palco del jurado (frente a la Estación Hyvento)**: es la parada principal. Cada comparsa hace su coreografía completa y el techo de la estación sirve de palco. Ahí está la tarima con Don Evelio de abanderado.
-3. **Frente al portón del jardín**: segunda parada. Quien está en la vereda se suma a la comparsa de la cabaña (E).
+1. **Salida (borde oeste, entre el bosque)**: la fila aparece desde el bosque de `surroundings`.
+2. **Palco del jurado (frente a la Estación Hyvento)**: dos paradas, cuando el primer tercio y luego el último de la fila pasan por el palco. Toda la fila para y cada comparsa repite su coreografía donde va; las murgas y los disfraces bailan.
+3. **La vereda entera**: quien está en la vereda se suma a la comparsa de la cabaña (E) donde vaya pasando la fila.
 4. **Llegada (borde este)**: las carrozas se pierden en el bosque, lluvia final de confeti y cinemática de cierre para quienes bailaron.
 
-Sale a las 11:00, 15:00 y 19:00 del juego (de noche las carrozas se prenden con faroles). Dura unos 2 minutos reales.
+Es un solo **Desfile Magno** por Carnaval: sale a las 10:00 del juego y no vuelve a salir hasta el Carnaval del año siguiente del calendario. Va despacio (0,34 tiles por segundo) y dura unos 17 minutos reales (de 10:00 a ~17:00 del juego): la fila (las carrozas con sus comparsas de 12 bailarines, tres murgas con bombo, bronces y acordeón, y tres grupos de disfraces individuales) es más larga que la calle y va pasando, así que siempre hay algo en la calle. Para dos veces frente al palco. Quien está en la vereda se suma a la comparsa de la cabaña en cualquier momento, donde va pasando la fila (baila en el hueco detrás de la carroza más cercana), y se baja cuando quiere.
 
 ## 5. La decoración (VIR-176)
 

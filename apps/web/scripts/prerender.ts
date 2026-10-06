@@ -16,11 +16,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateSync } from "node:zlib";
 import { getWorld } from "@hyvento/map";
-import { drawAreaBase, drawCharacter, drawFurniture, drawSurroundings, FEET_Y, FRAME, PixelCanvas, styleFor } from "@hyvento/map/art";
-import { HUMAN_AVATARS, randomLook, seededRandom } from "@hyvento/shared";
+import { carrozaArte, drawAreaBase, drawCharacter, drawFurniture, drawSurroundings, FEET_Y, FRAME, PixelCanvas, styleFor } from "@hyvento/map/art";
+import { CARROZA_IDS, HUMAN_AVATARS, randomLook, seededRandom } from "@hyvento/shared";
 import { OBJETOS, SEMILLAS_PORTADA } from "../src/components/lumbre/escena";
 import { DIBUJO_DE_OBJETO, SALAS, dibujarEscena, dibujarSala, lucesDeEscena, recorte } from "../src/components/lumbre/escena-arte";
-import { allFurnitureVariants, areaDecorSignature, furnitureKey, type AtlasFrame, type GameManifest } from "../src/game/iso/prerender-keys";
+import { allFurnitureVariants, areaDecorSignature, carrozaKey, furnitureKey, type AtlasFrame, type GameManifest } from "../src/game/iso/prerender-keys";
 import { GAME_MANIFEST, LANDING_MANIFEST, type LandingImage, type LandingManifest } from "../src/game/iso/prerender-paths";
 import { characterKey } from "../src/game/lookKey";
 
@@ -172,6 +172,8 @@ function furnitureAtlases(dir: string): Pick<GameManifest, "atlases" | "frames">
       console.warn(`[prerender] ${key}: ${(e as Error).message}`);
     }
   }
+  // Las partes de las carrozas del Carnaval (VIR-173): en el navegador tardarían en pintarse.
+  for (const id of CARROZA_IDS) for (const p of carrozaArte(id).partes) sprites.push({ key: carrozaKey(id, p.id), s: { canvas: p.canvas, ox: p.px, oy: p.py } });
   sprites.sort((a, b) => b.s.canvas.height - a.s.canvas.height || b.s.canvas.width - a.s.canvas.width);
   const pages: { key: string; s: (typeof sprites)[number]["s"]; x: number; y: number }[][] = [[]];
   let x = 0;
@@ -225,7 +227,12 @@ function gameManifest(dir: string, version: string): GameManifest {
     };
   }
   const surroundings: GameManifest["surroundings"] = { forest: write(dir, "alrededores-forest.png", drawSurroundings("forest")) };
-  return { version, areas, surroundings, ...furnitureAtlases(dir) };
+  const carrozas: NonNullable<GameManifest["carrozas"]> = {};
+  for (const id of CARROZA_IDS) {
+    const a = carrozaArte(id);
+    carrozas[id] = { largo: a.largo, partes: a.partes.map((p) => ({ id: p.id, x: p.x, y: p.y, px: p.px, py: p.py, w: p.canvas.width, h: p.canvas.height, ...(p.padre ? { padre: p.padre } : {}), ...(p.mov ? { mov: p.mov } : {}) })) };
+  }
+  return { version, areas, surroundings, carrozas, ...furnitureAtlases(dir) };
 }
 
 function landingManifest(dir: string, version: string): LandingManifest {
