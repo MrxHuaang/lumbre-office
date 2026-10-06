@@ -122,6 +122,7 @@ import { FishingController } from "./fishing/controller";
 import { ObservatorioVivo } from "./observatorioVivo";
 import { MaizalVivo, updateTrickTarget } from "./brujas";
 import { SilletasVivas } from "./feriaSilletas";
+import { CosechaViva } from "./cosechaViva";
 import { CarnavalView } from "./carnaval/desfile";
 import { lanzarConF, salirseComparsa, sumarseComparsa, useCarnavalStore } from "./carnaval";
 import { FishingRods } from "./fishing/rods";
@@ -271,6 +272,12 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   // El Carnaval: el puesto (el mismo punto de festival que el del caldero) y el palco del concurso.
   { kind: "carnavalShop", point: "festival_shop", furniture: ["puesto-carnaval"] },
   { kind: "carnavalConcurso", point: "carnaval_contest", furniture: ["tarima-comparsa"] },
+  // La Feria de la cosecha (con su decoración): los puestos del mercado, la olla, la báscula, el tablero y la tómbola.
+  { kind: "cosechaPuesto", point: "cosecha_puesto", furniture: ["puesto-cosecha-rojo", "puesto-cosecha-amarillo", "puesto-cosecha-verde", "puesto-cosecha-naranja", "puesto-cosecha-azul"] },
+  { kind: "cosechaOlla", point: "cosecha_olla", furniture: ["olla-sancocho"] },
+  { kind: "cosechaBascula", point: "cosecha_bascula", furniture: ["bascula"] },
+  { kind: "cosechaTablero", point: "cosecha_tablero", furniture: ["tablero-cosecha"] },
+  { kind: "cosechaTombola", point: "cosecha_tombola", furniture: ["tombola"] },
 ];
 /** El puesto de cada festival (todos usan el punto `festival_shop`): qué panel abre según el que corre. */
 const FESTIVAL_SHOP: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop" };
@@ -404,6 +411,8 @@ export class OfficeScene extends Phaser.Scene {
   private maizal = new MaizalVivo();
   /** La Feria de las flores: la silleta exhibida encima de cada exhibidor. */
   private silletas!: SilletasVivas;
+  /** La Feria de la cosecha: la barra de la olla del sancocho y la música del baile. */
+  private cosechaViva!: CosechaViva;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
   /** Cumpleaños, karaoke y foco: el pastel, el neón y lo de sobre el nombre (ver eventos.ts). */
@@ -592,6 +601,7 @@ export class OfficeScene extends Phaser.Scene {
     this.photoBoards = new PhotoBoards(this);
     this.paintings = new PaintingLayers(this);
     this.silletas = new SilletasVivas(this);
+    this.cosechaViva = new CosechaViva(this);
     this.treeLadder = new TreeLadderLayer(this);
     this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.carnavalView = new CarnavalView(this, (sessionId) => this.avatars.get(sessionId));
@@ -697,6 +707,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.photoBoards.destroy(),
       () => this.paintings.destroy(),
       () => this.silletas.destroy(),
+      () => this.cosechaViva.destroy(),
       () => this.treeLadder.destroy(),
       this.bindVoiceDemand(),
       () => this.busView.destroy(),
@@ -839,6 +850,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.update();
     this.observatorio.update(time);
     this.maizal.update(this.local, delta);
+    this.cosechaViva.update(this.local);
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
     this.eventsView.update();
@@ -959,6 +971,8 @@ export class OfficeScene extends Phaser.Scene {
       this.photoBoards.setArea(map);
       this.paintings.setArea(map);
       this.silletas.setArea(map);
+    this.cosechaViva.setArea(map);
+      this.cosechaViva.setArea(map);
       this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
       this.aquariums.setArea(map, this.view);

@@ -130,6 +130,13 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // El Carnaval: el puesto de máscaras, maicena y serpentinas, y el palco del concurso de disfraces.
   | "carnavalShop"
   | "carnavalConcurso"
+  // La Feria de la cosecha: los puestos del mercado (vender y comprar), la olla del sancocho, la báscula y
+  // el tablero del concurso de la ahuyama y la tómbola de la junta.
+  | "cosechaPuesto"
+  | "cosechaOlla"
+  | "cosechaBascula"
+  | "cosechaTablero"
+  | "cosechaTombola"
   // La gente de la fiesta (genteFiesta.ts): E habla con quien está al lado en la tira de conversación.
   | "fiestaNpc";
 
