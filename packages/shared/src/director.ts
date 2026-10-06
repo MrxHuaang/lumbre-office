@@ -138,6 +138,20 @@ export const DIRECTOR_ACCIONES: readonly DirectorAccionDef[] = [
     festival: "ano-viejo",
     aviso: "{nombre} arrancó la cuenta regresiva del año nuevo.",
   },
+  {
+    id: "amor-sorteo",
+    nombre: "El sorteo del amigo secreto ya",
+    descripcion: "Sortea ya a los anotados en el cofre, sin esperar las 10:00 del juego.",
+    festival: "amor-amistad",
+    aviso: "{nombre} hizo ya el sorteo del amigo secreto.",
+  },
+  {
+    id: "amor-revelacion",
+    nombre: "Revelar el amigo secreto",
+    descripcion: "Cupido dice quién le dio a quién, sin esperar el cierre (una vez por festival).",
+    festival: "amor-amistad",
+    aviso: "{nombre} reveló el amigo secreto antes del cierre.",
+  },
 ];
 
 export const directorAccion = (id: string) => DIRECTOR_ACCIONES.find((a) => a.id === id);

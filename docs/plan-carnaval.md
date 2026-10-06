@@ -84,7 +84,7 @@ El desfile va por el carril exclusivo, del oeste al este. Mientras pasa, **el bu
 3. **La vereda entera**: quien está en la vereda se suma a la comparsa de la cabaña (E) donde vaya pasando la fila.
 4. **Llegada (borde este)**: las carrozas se pierden en el bosque, lluvia final de confeti y cinemática de cierre para quienes bailaron.
 
-Es un solo **Desfile Magno** por Carnaval: sale a las 10:00 del juego y no vuelve a salir hasta el Carnaval del año siguiente del calendario. Va despacio (0,34 tiles por segundo) y dura unos 17 minutos reales (de 10:00 a ~17:00 del juego): la fila (las carrozas con sus comparsas de 12 bailarines, tres murgas con bombo, bronces y acordeón, y tres grupos de disfraces individuales) es más larga que la calle y va pasando, así que siempre hay algo en la calle. Para dos veces frente al palco. Quien está en la vereda se suma a la comparsa de la cabaña en cualquier momento, donde va pasando la fila (baila en el hueco detrás de la carroza más cercana), y se baja cuando quiere.
+Es un solo **Desfile Magno** por Carnaval: sale a las 10:00 del juego y no vuelve a salir hasta el Carnaval del año siguiente del calendario. Va despacio (0,41 tiles por segundo) y dura unos 17 a 18 minutos reales (de 10:00 a ~17:00 del juego): la fila (las carrozas con sus comparsas de 12 bailarines, tres murgas con bombo, bronces y acordeón, y tres grupos de disfraces individuales) es más larga que la calle y va pasando, así que siempre hay algo en la calle. Para dos veces frente al palco. Quien está en la vereda se suma a la comparsa de la cabaña en cualquier momento, donde va pasando la fila (baila en el hueco detrás de la carroza más cercana), y se baja cuando quiere.
 
 ## 5. La decoración (VIR-176)
 

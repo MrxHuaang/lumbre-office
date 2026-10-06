@@ -170,6 +170,9 @@ export const STAT_KEYS = {
   // El Año viejo (ano-viejo.ts): cosas que le dio al muñeco y los agüeros cumplidos en un mismo año (máximo).
   munecoAportes: "muneco_aportes",
   anoViejoAgueros: "ano_viejo_agueros",
+  // Amor y amistad (amor-amistad.ts): detalles dejados al amigo secreto y serenatas pedidas.
+  amigoSecretoRegalos: "amigo_secreto_regalos",
+  serenatasDadas: "serenatas_dadas",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -486,6 +489,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // El Año viejo
     a("munequero", "Muñequero", "flame", "comun", STAT_KEYS.munecoAportes, 3, "Dele 3 cosas al muñeco de año viejo (prendas viejas o relleno)", "Ese pantalón remendado era suyo, ¿cierto?"),
     a("aguerero", "Agüerero", "clock", "epico", STAT_KEYS.anoViejoAgueros, 4, "Cumpla los cuatro agüeros en un Año viejo: las uvas, la maleta, las lentejas y la ropa amarilla", "Con tanto agüero, este año no hay mala suerte que le entre."),
+    // Amor y amistad
+    a("amigo-secreto", "Amigo secreto", "chest", "comun", STAT_KEYS.amigoSecretoRegalos, 1, "Déjele un detalle a su amigo secreto en el cofre de Amor y amistad", "Nadie sabe que fue usted. Bueno, hasta la revelación."),
+    a("serenatero", "Serenatero", "guitar", "raro", STAT_KEYS.serenatasDadas, 1, "Pídale una serenata al trío de Amor y amistad para alguien", "Tiple, guitarra y requinto, todo por un detalle."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),

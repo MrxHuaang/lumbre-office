@@ -1,85 +1,11 @@
 "use client";
 
-// Lo que se ve de una cinemática encima del juego (VIR-155): las franjas de cine, el título grande, el
-// cuadro de diálogo con el retrato y el texto que se va escribiendo, y las opciones. Clic, Enter, Espacio o
-// E siguen (si el texto se estaba escribiendo, primero lo completa); Esc salta la cinemática. Lo que pasa en
-// la escena (cámara, actores, efectos) lo hace game/cinematicas/player.ts.
-import { CINE_MS } from "@hyvento/shared";
-import { useEffect, useState } from "react";
-import { advance, choose, skip, useCineStore } from "@/game/cinematicas/store";
-import { lessMotion } from "@/lib/prefs";
-
-/** El texto que se escribe letra a letra (con menos movimiento, de una). */
-function useTyped(text: string, key: number): [string, boolean, () => void] {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    if (lessMotion()) return setN(text.length);
-    setN(0);
-    const step = 1000 / CINE_MS.typeCps;
-    const id = setInterval(() => setN((v) => (v >= text.length ? (clearInterval(id), v) : v + 1)), step);
-    return () => clearInterval(id);
-  }, [text, key]);
-  return [text.slice(0, n), n >= text.length, () => setN(text.length)];
-}
-
-function DialogBox() {
-  const line = useCineStore((s) => s.line);
-  const [shown, done, complete] = useTyped(line?.text ?? "", line?.key ?? 0);
-  const choice = useCineStore((s) => s.choice);
-
-  useEffect(() => {
-    if (!line?.wait) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" && e.key !== " " && e.key.toLowerCase() !== "e") return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (!done) complete();
-      else advance();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [line, done, complete]);
-
-  if (!line || choice) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => (done ? advance() : complete())}
-      className="cozy-panel pointer-events-auto mx-auto flex w-[min(640px,calc(100vw-32px))] items-start gap-3 p-3 text-left"
-      aria-live="polite"
-    >
-      {line.portrait && (
-        <img
-          src={line.portrait}
-          alt=""
-          className="size-20 shrink-0 border-2 border-cozy-wood bg-cozy-paper-dark object-cover object-top [image-rendering:pixelated]"
-        />
-      )}
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        {line.name && <span className="font-pixel text-[15px] text-cozy-wood">{line.name}</span>}
-        <span className="min-h-[3.2em] text-[15px] leading-snug text-cozy-ink">{shown}</span>
-        {line.wait && done && <span className="self-end text-[12px] text-cozy-ink-soft motion-safe:animate-pulse">▼ seguir</span>}
-      </span>
-    </button>
-  );
-}
-
-function Choices() {
-  const choice = useCineStore((s) => s.choice);
-  const lastSaid = useCineStore((s) => s.lastSaid);
-  if (!choice) return null;
-  const prompt = choice.prompt ?? lastSaid;
-  return (
-    <div className="cozy-panel pointer-events-auto mx-auto flex w-[min(520px,calc(100vw-32px))] flex-col gap-2 p-3">
-      {prompt && <p className="text-[14px] leading-snug">{prompt}</p>}
-      {choice.options.map((o, i) => (
-        <button key={o.id} type="button" autoFocus={i === 0} onClick={() => choose(o.id)} className="cozy-btn justify-start px-3 py-2 text-left text-[14px]">
-          ▸ {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+// Lo que se ve de una cinemática encima del juego (VIR-155): las franjas de cine, el título grande y el botón
+// "Saltar". Lo que se dice y las opciones van por la tira de conversación (VIR-171, components/dialogo/
+// TiraDialogo.tsx, que se para encima de la franja de abajo): E, Enter o Espacio siguen y Esc salta la
+// cinemática. Lo que pasa en la escena (cámara, actores, efectos) lo hace game/cinematicas/player.ts.
+import { useEffect } from "react";
+import { skip, useCineStore } from "@/game/cinematicas/store";
 
 function Title() {
   const title = useCineStore((s) => s.title);
@@ -98,8 +24,7 @@ export function CineOverlay() {
 
   // Esc salta la cinemática (en cualquier momento). En una de historia, además, ninguna tecla sigue hasta
   // los atajos del juego (el celular con Enter, los emotes, la foto): las usa solo la escena. Se corta en
-  // la captura de window, así el cuadro de diálogo (también en captura) sigue oyéndolas y los botones de las
-  // opciones se siguen apretando con Enter (no se toca lo que la tecla hace por defecto).
+  // la captura de window, así la tira (también en captura sobre window) sigue oyéndolas.
   useEffect(() => {
     if (!playing) return;
     const story = playing.kind === "historia";
@@ -127,10 +52,6 @@ export function CineOverlay() {
         className={`absolute inset-x-0 bottom-0 h-[11vh] bg-black transition-transform duration-300 motion-reduce:transition-none ${bars ? "translate-y-0" : "translate-y-full"}`}
       />
       <Title />
-      <div className="absolute inset-x-0 bottom-[calc(11vh+12px)] flex flex-col gap-2 px-4">
-        <Choices />
-        <DialogBox />
-      </div>
       {story && (
         <button
           type="button"

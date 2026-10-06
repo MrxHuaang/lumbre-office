@@ -252,6 +252,7 @@ import { nearQuestGiver } from "@hyvento/map";
 import { registerVelitas, type Velitas } from "./velitas";
 import { registerAnoViejo, type AnoViejo } from "./anoViejo";
 import { TestamentoState } from "../state";
+import { registerAmorAmistad, type AmorAmistad } from "./amorAmistad";
 import { Novenas } from "./novenas";
 import { Aguinaldos } from "./aguinaldos";
 import { WeatherCycle } from "./weather";
@@ -364,7 +365,7 @@ import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
 import { closeForRestart } from "./reinicio";
 import { startChatRetention } from "./chatRetention";
 import { Director, type DirectorWho } from "./director";
-import { DIRECTOR_MSG, festivalCineId as directorCineId, type DirectorMusica, type FestivalId as DirectorFestivalId } from "@hyvento/shared";
+import { DIRECTOR_MSG, festivalCineId as directorCineId, type DirectorMusica, type DirectorResult, type FestivalId as DirectorFestivalId } from "@hyvento/shared";
 import { orElse } from "../log";
 import { MSG_RATE, newBucket, takeToken, type RateConfig, type TokenBucket } from "@hyvento/shared";
 
@@ -1169,6 +1170,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.velitas = registerVelitas(this, { state: () => this.state.velitas, festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }), player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), now: () => Date.now() }, (c) => this.markActive(c as Client<UserData>));
     this.anoViejo = registerAnoViejo(this, { state: () => this.state.anoViejo, testamento: () => new TestamentoState(), festival: () => { const t = this.gameTimeNow(); return { id: this.state.festival, fase: this.state.festivalFase, day: t.day, año: fechaDelJuego(t.day).año, minute: t.minuteOfDay }; }, player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), nearShop: (p) => this.nearFestivalShop(p as Player, "festival_shop"), held: this.held, stats: { stat: (u, k) => this.achievements.stat(u, k), max: (u, k, v) => this.achievements.max(u, k, v), bump: (u, k, by) => this.achievements.bump(u, k, by), isLoaded: (u) => this.achievements.isLoaded(u) }, repo: () => this.repo, balance: (u, b) => { for (const p of this.state.players.values()) if (p.userId === u) p.points = b; }, send: (id, t, m) => this.clients.getById(id)?.send(t, m), now: () => OfficeRoom.anoViejoNow(), later: (ms, fn) => this.clock.setTimeout(fn, ms) }, (c) => this.markActive(c as Client<UserData>));
+    this.amor = registerAmorAmistad(this, { festival: () => { const t = this.gameTimeNow(); return { id: this.state.festival, fase: this.state.festivalFase, año: fechaDelJuego(t.day).año, day: t.day, minute: t.minuteOfDay }; }, player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, stats: { stat: (u, k) => this.achievements.stat(u, k), max: (u, k, v) => this.achievements.max(u, k, v), bump: (u, k, by) => this.achievements.bump(u, k, by), isLoaded: (u) => this.achievements.isLoaded(u) }, repo: () => this.repo, nearShop: (p) => this.nearFestivalShop(p as Player, "festival_shop"), send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), balance: (userId, balance, awarded) => { for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance; if (awarded) this.clientOfUser(userId)?.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded); } }, (c) => this.markActive(c as Client<UserData>));
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1377,6 +1379,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.syncFestival();
       this.feria.tick();
       this.anoViejo?.tick();
+      this.amor?.tick();
     }, 2_000);
     // El Carnaval: la hora del desfile y la comparsa que va por la calle (seguido, para que se mueva suave).
     this.clock.setInterval(() => this.carnaval.tick(), 100);
@@ -1598,6 +1601,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     void this.achievements.load(auth.sub).then(() => {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
+      this.amor?.joined(auth.sub, player.name);
     });
     void this.encargos.load(auth.sub, { join: true, newcomer: isNewcomer(auth.onboardedAt, Date.now()), byBus });
     void this.oficios.load(auth.sub, { join: true });
@@ -2409,6 +2413,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private velitas?: Velitas;
   /** El Año viejo (ver anoViejo.ts). */
   private anoViejo?: AnoViejo<TestamentoState>;
+  /** Amor y amistad: el amigo secreto, las cartas de Cupido, la serenata y el puesto (ver amorAmistad.ts). */
+  private amor?: AmorAmistad;
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
@@ -3145,6 +3151,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.anoViejo.cuenta();
       return null;
     });
+    // Amor y amistad: el sorteo y la revelación del amigo secreto sin esperar su hora (amorAmistad.ts).
+    const amorNo = (r: string | undefined, nadie: string, hecho: string): DirectorResult | null =>
+      r === "ok" ? null
+      : r === "hecho" ? { ok: false, error: "nada", texto: hecho }
+      : r === "nadie" ? { ok: false, error: "nada", texto: nadie }
+      : { ok: false, error: "cerrado", texto: "Amor y amistad no está abierto." };
+    this.director.registrar("amor-sorteo", () => amorNo(this.amor?.sortearYa(), "Nadie se ha anotado en el cofre todavía.", "El sorteo ya se hizo."));
+    this.director.registrar("amor-revelacion", () => amorNo(this.amor?.revelarYa(), "Todavía no hay parejas: primero el sorteo.", "El amigo secreto ya se reveló."));
     this.onMessage(DIRECTOR_MSG.action, (client, raw) => {
       const who = this.directorWho(client);
       const res = who && this.director.run(who, raw);
@@ -4654,6 +4668,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.gente.forget(player.userId);
     this.feria.forget(player.userId);
     this.anoViejo?.forget(player.userId);
+    this.amor?.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);

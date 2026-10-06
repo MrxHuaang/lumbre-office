@@ -1,8 +1,8 @@
 "use client";
 
-// El cuadro de quien da encargos: se abre con E junto a él (además de lo suyo: el tablón sigue mostrando
-// las misiones y Don Evelio su mostrador) y dice lo que te pidió, cuánto llevas y, si ya está, "Entregar".
-// Se cierra al alejarse (lo mide la escena) o con Esc.
+// La libreta de quien da encargos: hablarle con E abre su tira de conversación (game/encargos.ts) y desde
+// ahí "Ver encargos" abre esto, con todo lo que te pidió, cuánto llevas, la recompensa y "Entregar". Se
+// cierra al alejarse (lo mide la escena) o con Esc.
 import { QUEST_GIVERS, questById, questKey } from "@hyvento/shared";
 import { useEffect } from "react";
 import { claimQuest, questGiverToTalk, questsOfGiver, stopTalking, useEncargos } from "@/game/encargos";

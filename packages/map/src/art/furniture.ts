@@ -53,6 +53,7 @@ import { CASA_PROPIA_EXTERIOR_DRAW } from "./casa-propia-exterior";
 import { BRUJAS_DRAW } from "./brujas";
 import { FERIA_DRAW } from "./feria-flores";
 import { ANO_VIEJO_DRAW } from "./ano-viejo";
+import { AMOR_DRAW } from "./amor-amistad";
 import { CARNAVAL_DRAW } from "./carnaval-decor";
 import { NOVENAS_DRAW } from "./novenas";
 
@@ -791,6 +792,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...BRUJAS_DRAW,
   ...FERIA_DRAW,
   ...ANO_VIEJO_DRAW,
+  ...AMOR_DRAW,
   ...CARNAVAL_DRAW,
   ...NOVENAS_DRAW,
   "photo-board": photoBoard,

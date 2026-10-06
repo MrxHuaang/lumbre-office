@@ -39,6 +39,7 @@ import { prerenderedCarroza, prerenderedFurniture } from "../iso/prerender";
 import { carrozaKey } from "../iso/prerender-keys";
 import { depthOf, worldToScreen } from "../iso/view";
 import { ensureCharacterTextures } from "../looks";
+import { murmurar } from "../murmullo";
 import { cameraZoom } from "../pixelRatio";
 import { getRoom } from "../network";
 import { volAt } from "../sfx";
@@ -393,7 +394,18 @@ export class CarnavalView {
   private evelioSay(text: string, key: string) {
     if (!text || key === this.evelioDijo || !this.evelio) return;
     this.evelioDijo = key;
-    this.evelio.say(text);
+    // Sin cajas: el murmullo, con el cupo de toda la pantalla.
+    const ev = this.evelio;
+    const sid = useOfficeStore.getState().sessionId;
+    const me = sid ? this.avatarOf(sid) : undefined;
+    const ts = this.map?.tileSize ?? 32;
+    murmurar({
+      scene: this.scene,
+      quien: "desfile:evelio",
+      donde: () => (ev.sprite.active && ev.sprite.visible ? { x: ev.x, y: ev.y } : null),
+      texto: text,
+      dist: me ? Math.hypot(ev.x - me.x, ev.y - me.y) / ts : Infinity,
+    });
   }
 
   /** A alguien le echaron maicena (la nubecita blanca) o serpentinas (confeti de colores). */
