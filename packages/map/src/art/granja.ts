@@ -5,6 +5,7 @@
 // También los animales (gallinas y cabra, cuadros sueltos como las mascotas) y las capas que anima el
 // cliente: la rueda que gira y los huevos en el nido.
 import { Escena, type Tinte } from "./exterior-escena";
+import { stickFenceSprite } from "./jardin-detalles";
 import { lantern, planks, stones, tejas } from "./exterior-patio";
 import { C, OUT, SHADOW, mix } from "./palette";
 import { PixelCanvas, alpha, at, hex, noise, type RGBA, type Sprite } from "./pixel";
@@ -289,20 +290,6 @@ function hayBale(): Sprite {
   return s.sprite();
 }
 
-/** Cerca de palos (a lo largo de y): dos estacas y ramas cruzadas, rústica. */
-function stickFence(): Sprite {
-  const s = scene(1, 1, 18, 4);
-  for (const y of [0.5, 14.5]) s.box(7, y, 0, 2, 1.6, 13 + noise(Math.floor(y), 1, 3) * 2, flatT(at(C.logs, 4)), flatT(at(C.logs, 3)), flatT(at(C.logs, 2)));
-  for (const [z0, z1] of [
-    [4, 5],
-    [9, 8],
-  ] as const)
-    for (let t = 0; t <= 16; t += 0.35) s.plot(8, t, z0 + ((z1 - z0) * t) / 16, at(C.logs, 3 + (Math.floor(t * 1.3) % 3 === 0 ? 1 : 0)));
-  // Una rama en diagonal (sin simetría perfecta: se nota hecha a mano).
-  for (let t = 1; t <= 15; t += 0.35) s.plot(8.4, t, 2 + (t / 16) * 9, at(C.logs, 2));
-  return s.sprite();
-}
-
 /** Establo chico de la cabra: tres paredes de tablas, techo a un agua de tejas y paja en el piso. */
 function goatShed(): Sprite {
   const s = scene(2, 2, 44, 6);
@@ -555,7 +542,7 @@ export const GRANJA_DRAW: Record<string, () => Sprite> = {
   "water-trough": waterTrough,
   "feed-sack": feedSack,
   "hay-bale": hayBale,
-  "stick-fence": stickFence,
+  "stick-fence": stickFenceSprite,
   "goat-shed": goatShed,
   "hay-rack": hayRack,
   "farm-sign": farmSign,

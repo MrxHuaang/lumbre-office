@@ -2,6 +2,7 @@
 // con shaders por cara, contorno café, mirando hacia +x ("front") y, si el catálogo dice hasBack,
 // de espaldas ("back").
 import { BOOKS, C, OUT, mix } from "./palette";
+import { beanbagSprite } from "./salas-muebles";
 import {
   alpha,
   at,
@@ -22,7 +23,6 @@ import {
 import { blob, leg, roundShadow, roundTone, shadowSpace, shadowUnder, slant, volume, type Variant } from "./kit";
 
 /** Rampas propias de estos muebles (lo demás sale de la paleta común). */
-const LILAC = ramp("#2e2140", "#4a3466", "#6a4d8c", "#8c6fb0", "#b597d0", "#dcc4ea");
 const GINGER = ramp("#5a2c1a", "#8a4424", "#b8612e", "#dd8a45", "#f0b26a", "#fbd9a0");
 const MOSS = ramp("#22331f", "#34502c", "#4c6e38", "#6a8f45", "#8fb05a");
 
@@ -541,45 +541,6 @@ function globe(): Sprite {
       },
     },
   );
-}
-
-function beanbag(variant: Variant): Sprite {
-  const back = variant === "back";
-  const r = LILAC;
-  // El respaldo va del lado contrario a donde mira quien se sienta.
-  const bx = back ? 10.5 : 5;
-  const sx = back ? 6 : 10;
-  return renderSprite([volume(0, 0, 0, 16, 16, 18)], {
-    outline: OUT,
-    under: roundShadow(8, 8, 7.5, 0.35),
-    extra: (c, p) => {
-      const body = p(8, 8, 3.5);
-      blob(c, body.x, body.y, 10.5, 6.5, (nx, ny, x, y) => roundTone(r, nx, ny, x, y, 3, 1.3));
-      // El respaldo sale del mismo saco: sin sombra abajo, para que no parezca otra bola.
-      const rest = () => {
-        const q = p(bx, 8, 8.5);
-        blob(c, q.x, q.y, 7.5, 6.5, (nx, ny, x, y) => roundTone(r, nx, Math.min(ny, 0.15), x, y, 3, 1.4));
-        for (let t = -0.9; t <= 0.9; t += 0.06) c.set(q.x + Math.sin(t) * 6, q.y - 2.5 + (1 - Math.cos(t)) * 3, at(r, 2));
-      };
-      // Hundido del asiento: sombra arriba y borde con luz abajo.
-      const seat = () => {
-        const s = p(sx, 8, 7);
-        blob(c, s.x, s.y, 5.5, 2.8, (_nx, ny) => (ny < -0.2 ? at(r, 2) : ny > 0.55 ? at(r, 4) : at(r, 3)));
-      };
-      if (back) {
-        seat();
-        rest();
-      } else {
-        rest();
-        seat();
-      }
-      // Brillo de la tela.
-      const hl = p(back ? 3 : 12, 5, 5);
-      c.set(hl.x, hl.y, at(r, 5));
-      c.set(hl.x + 1, hl.y, at(r, 5));
-      c.set(hl.x - 1, hl.y + 1, at(r, 4));
-    },
-  });
 }
 
 function lampMushroom(): Sprite {
@@ -1279,7 +1240,7 @@ export const DECOR: Record<string, (v: Variant) => Sprite> = {
   "rug-stripes": rugStripes,
   "bookshelf-low": bookshelfLow,
   globe,
-  beanbag,
+  beanbag: beanbagSprite,
   "lamp-mushroom": lampMushroom,
   easel,
   bonsai,
