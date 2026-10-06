@@ -77,7 +77,7 @@ export type RaceResult =
 export const RACE_PROBLEM_TEXT: Record<RaceProblem, string> = {
   far: "La salida es junto a la bandera del pasillo (piso 2, al oeste).",
   seated: "Primero levántate.",
-  busy: "Un momento…",
+  busy: "Espera un momentico y vuelve a intentarlo.",
   lane: "Te saliste del pasillo: carrera anulada.",
   timeout: "Se acabó el tiempo: carrera anulada.",
   fast: "Eso fue demasiado rápido para una silla: carrera anulada.",
