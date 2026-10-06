@@ -12,6 +12,8 @@ import {
   directorAviso,
   DIRECTOR_HORA_FIESTA,
   festivalById,
+  FESTIVAL_HORAS,
+  formatGameTime,
   irAEstacion,
   irAlDia,
   irAlFestival,
@@ -151,7 +153,10 @@ export class Director {
     const f = this.d.festival();
     if (def.festival && f.id !== def.festival) return fallo("festival", `Primero prende ${festivalById(def.festival)!.nombre}.`, def.festival);
     if (def.conFestival && !f.id) return fallo("festival", "Primero prende un festival.");
-    if ((def.festival || def.conFestival) && f.fase !== "fiesta") return fallo("cerrado", "La fiesta abre de 9:00 a 22:00: pon la hora primero.");
+    if ((def.festival || def.conFestival) && f.fase !== "fiesta") {
+      const cierre = (festivalById(f.id)?.cierre ?? FESTIVAL_HORAS.cierre) * 60;
+      return fallo("cerrado", `La fiesta abre de ${formatGameTime(FESTIVAL_HORAS.apertura * 60)} a ${formatGameTime(cierre)}: pon la hora primero.`);
+    }
     return fn(who) ?? { ok: true, texto: `${def.nombre}: listo.` };
   }
 }

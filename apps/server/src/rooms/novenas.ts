@@ -95,17 +95,40 @@ export class Novenas {
     }
     const t = this.deps.time();
     if (!estado.dia || !horaDeNovena(t.minuteOfDay)) return;
-    if (this.rezoDay !== t.day) {
-      this.rezoDay = t.day;
-      this.rezaron.clear();
-      this.deps.broadcast(NOVENA_MSG.aviso, { code: "rezo" } satisfies NovenaAviso);
-    }
+    if (this.rezoDay !== t.day) this.empezarRezo(t.day);
+    this.rezarJunto(estado.dia, t.day);
+  }
+
+  /** Empieza la novena del día: el aviso para todos (una vez por día del juego). */
+  private empezarRezo(day: number) {
+    this.rezoDay = day;
+    this.rezaron.clear();
+    this.deps.broadcast(NOVENA_MSG.aviso, { code: "rezo" } satisfies NovenaAviso);
+  }
+
+  /** A los que están junto al pesebre y no han rezado hoy: la cinemática de la noche y sus puntos. */
+  private rezarJunto(dia: number, day: number) {
     for (const [sessionId, p] of this.deps.players()) {
       if (this.rezaron.has(p.userId) || !atNovena(p, this.deps.tileSize)) continue;
       this.rezaron.add(p.userId);
-      this.deps.send(sessionId, NOVENA_MSG.cine, { id: novenaCineId(estado.dia) } satisfies NovenaCineEvent);
-      void this.rezar(p.userId, t.day);
+      this.deps.send(sessionId, NOVENA_MSG.cine, { id: novenaCineId(dia) } satisfies NovenaCineEvent);
+      void this.rezar(p.userId, day);
     }
+  }
+
+  /**
+   * El panel del director: la novena de esta noche ya, para los que están junto al pesebre. Es la misma del
+   * día (los puntos van una vez por día del juego, con el mismo `refId`): de noche no se repite para quien
+   * ya rezó, y quien llegue a las 20:00 reza como siempre. "off" sin novena; "hecha" si hoy ya empezó.
+   */
+  rezarYa(): "ok" | "off" | "hecha" {
+    const dia = this.deps.dia();
+    if (!dia) return "off";
+    const day = this.deps.time().day;
+    if (this.rezoDay === day) return "hecha";
+    this.empezarRezo(day);
+    this.rezarJunto(dia, day);
+    return "ok";
   }
 
   /** Reza la novena: puntos una vez por día del juego (aunque se reinicie la sala) y el contador del logro. */

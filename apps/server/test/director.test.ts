@@ -2,7 +2,9 @@
 // clima, mueve el reloj (y el huerto sigue con la estación nueva) y dispara momentos, y todo sale en el chat.
 import type { ColyseusTestServer } from "@colyseus/testing";
 import {
+  DIRECTOR_ACCIONES,
   DIRECTOR_MSG,
+  FERIA_CINE,
   FESTIVAL_MSG,
   MSG,
   ROOM_NAME,
@@ -13,10 +15,12 @@ import {
   type DirectorAction,
   type DirectorResult,
   type FestivalCineEvent,
+  VELITAS_CINE,
 } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory";
+import type { Director } from "../src/rooms/director";
 import { OfficeRoom } from "../src/rooms/OfficeRoom";
 import type { OfficeState } from "../src/state";
 import { bootServer, tick, token, until, type ServerRoom } from "./helpers";
@@ -192,5 +196,69 @@ describe("panel del director", () => {
     const eva = await join(room, "u-eva", "Eva");
     eva.client.send(MSG.chatSend, { text: "/time set noche", scope: "proximity" });
     await until(() => clockOf(room).hour === 20, "la hora nueva");
+  });
+
+  it("cada momento del registro tiene su manejador en la sala", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    const registrados = (room as unknown as { director: Director }).director.registrados();
+    for (const a of DIRECTOR_ACCIONES) expect(registrados, a.id).toContain(a.id);
+  });
+
+  it("los momentos sin festival: el Man del Sombrero, el bus y la estrella fugaz (sin pagar nada)", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    const ana = await join(room, "u-ana", "Ana", "ADMIN");
+    const bob = await join(room, "u-bob", "Bob");
+    const puntos = () => [...room.state.players.values()].map((p) => p.points);
+    const antes = puntos();
+    // El Man del Sombrero a las 8:00 no anda; sale ya y se queda (otra vez: ya está).
+    expect(room.state.sombrero.present).toBe(false);
+    expect((await act(ana, room, { kind: "momento", id: "sombrero" })).ok).toBe(true);
+    expect(room.state.sombrero.present).toBe(true);
+    expect((await act(ana, room, { kind: "momento", id: "sombrero" })).error).toBe("nada");
+    await until(() => avisos(bob).includes("Ana hizo salir al Man del Sombrero. Búsquenlo."), "el aviso del Man");
+    // El bus llega ya; mientras viene, no se llama otro.
+    expect(room.state.bus.phase).toBe("away");
+    expect((await act(ana, room, { kind: "momento", id: "bus" })).ok).toBe(true);
+    expect(room.state.bus.phase).toBe("arriving");
+    expect((await act(ana, room, { kind: "momento", id: "bus" })).error).toBe("ocupado");
+    // La estrella fugaz: de día no; de noche sí, y no dos a la vez.
+    expect(await act(ana, room, { kind: "momento", id: "estrella" })).toMatchObject({ ok: false, error: "cerrado" });
+    expect((await act(ana, room, { kind: "hora", minuteOfDay: 22 * 60 })).ok).toBe(true);
+    expect((await act(ana, room, { kind: "momento", id: "estrella" })).ok).toBe(true);
+    expect((await act(ana, room, { kind: "momento", id: "estrella" })).error).toBe("ocupado");
+    // Nadie ganó ni perdió puntos con eso.
+    expect(puntos()).toEqual(antes);
+  });
+
+  it("la suelta de faroles y el desfile de silleteros: solo con su festival y sin pagar nada", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    const ana = await join(room, "u-ana", "Ana", "ADMIN");
+    const bob = await join(room, "u-bob", "Bob");
+    const puntos = () => [...room.state.players.values()].map((p) => p.points);
+    const antes = puntos();
+    expect(await act(ana, room, { kind: "momento", id: "velitas-faroles" })).toMatchObject({ ok: false, error: "festival", festival: "velitas" });
+    await act(ana, room, { kind: "festival", id: "velitas" });
+    expect((await act(ana, room, { kind: "momento", id: "velitas-faroles" })).ok).toBe(true);
+    await until(() => bob.cines.includes(VELITAS_CINE.faroles), "la suelta de faroles");
+    expect(await act(ana, room, { kind: "momento", id: "feria-desfile" })).toMatchObject({ ok: false, error: "festival", festival: "feria-flores" });
+    await act(ana, room, { kind: "festival", id: "feria-flores" });
+    expect((await act(ana, room, { kind: "momento", id: "feria-desfile" })).ok).toBe(true);
+    await until(() => bob.cines.includes(FERIA_CINE.desfile), "el desfile de silleteros");
+    // Sin silletas votadas no hay a quién premiar.
+    expect(await act(ana, room, { kind: "momento", id: "feria-premiacion" })).toMatchObject({ ok: false, error: "nada" });
+    // Sin novena prendida, la novena pide su festival.
+    expect(await act(ana, room, { kind: "momento", id: "novena" })).toMatchObject({ ok: false, error: "festival", festival: "novenas" });
+    expect(puntos()).toEqual(antes);
+  });
+
+  it("el Carnaval cerrado (después de las 18:30) dice su hora de cierre", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    const ana = await join(room, "u-ana", "Ana", "ADMIN");
+    await act(ana, room, { kind: "festival", id: "carnaval" });
+    await act(ana, room, { kind: "hora", minuteOfDay: 19 * 60 });
+    expect(room.state.festivalFase).toBe("fin");
+    const r = await act(ana, room, { kind: "momento", id: "carnaval-desfile" });
+    expect(r).toMatchObject({ ok: false, error: "cerrado" });
+    expect(r.texto).toContain("18:30");
   });
 });

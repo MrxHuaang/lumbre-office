@@ -160,6 +160,37 @@ export class FeriaFlores<T extends FeriaExhibit> {
     }
   }
 
+  /**
+   * El panel del director: el desfile de silleteros ya (solo la cinemática; no paga nada). Cuenta como el del
+   * día: a las 16:00 ya no sale otra vez.
+   */
+  desfileYa(): "ok" | "off" {
+    if (!this.active()) return "off";
+    this.desfileDay = this.deps.festival().day;
+    this.deps.cine(FERIA_CINE.desfile, {}, "jardin");
+    this.deps.desfileAviso("jardin");
+    return "ok";
+  }
+
+  /**
+   * El panel del director: premiar ya, sin esperar el cierre. Es la premiación del día (después ya no se
+   * exhibe ni se vota, y al cierre no se repite) y el premio es el mismo, una vez por feria.
+   */
+  premiarYa(): "ok" | "off" | "hecha" | "nadie" {
+    if (!this.active()) return "off";
+    const f = this.deps.festival();
+    if (this.awardedDay === f.day) return "hecha";
+    if (!feriaGanadora([...this.deps.exhibits().values()])) return "nadie";
+    this.awardedDay = f.day;
+    void this.award(f.año);
+    return "ok";
+  }
+
+  /** ¿Ya se premió la feria de hoy? (adelantada por el director: ya no se exhibe ni se vota). */
+  private premiada(): boolean {
+    return this.awardedDay === this.deps.festival().day;
+  }
+
   /** La premiación: la más votada gana el logro, el premio (una vez por feria) y su cinemática para todos. */
   async award(año: number) {
     const best = feriaGanadora([...this.deps.exhibits().values()]);
@@ -228,6 +259,7 @@ export class FeriaFlores<T extends FeriaExhibit> {
     if (!parsed.success) return null;
     const stand = parsed.data.stand;
     if (!this.active()) return { ok: false, error: "off" };
+    if (this.premiada()) return { ok: false, error: "premiada" };
     if (!this.nearStand(who, stand)) return { ok: false, error: "far" };
     if (this.deps.exhibits().get(stand)) return { ok: false, error: "taken" };
     const code = silletaCodeOf(this.deps.held.hand(who.userId)?.id ?? "");
@@ -246,6 +278,7 @@ export class FeriaFlores<T extends FeriaExhibit> {
     if (!parsed.success) return null;
     const stand = parsed.data.stand;
     if (!this.active()) return { ok: false, error: "off" };
+    if (this.premiada()) return { ok: false, error: "premiada" };
     if (!this.nearStand(who, stand)) return { ok: false, error: "far" };
     const e = this.deps.exhibits().get(stand);
     if (!e) return { ok: false, error: "empty" };

@@ -91,7 +91,7 @@ export const canBuildSilleta = (code: string) => validSilletaCode(code);
 
 // ---------- Exhibir y votar ----------
 
-export type ExhibitError = "off" | "far" | "none" | "taken" | "already" | "busy";
+export type ExhibitError = "off" | "far" | "none" | "taken" | "already" | "premiada" | "busy";
 export type ExhibitResult = { ok: true; stand: string } | { ok: false; error: ExhibitError };
 
 export const EXHIBIT_ERROR_TEXT: Record<ExhibitError, string> = {
@@ -100,10 +100,11 @@ export const EXHIBIT_ERROR_TEXT: Record<ExhibitError, string> = {
   none: "Lleva tu silleta en la mano para exhibirla.",
   taken: "Ese exhibidor ya tiene silleta: busca uno libre.",
   already: "Tu silleta ya está exhibida en esta feria.",
+  premiada: "Las silletas de esta feria ya se premiaron: guarda la tuya para la próxima.",
   busy: "Un momentico…",
 };
 
-export type VoteError = "off" | "far" | "empty" | "own" | "voted" | "busy";
+export type VoteError = "off" | "far" | "empty" | "own" | "voted" | "premiada" | "busy";
 export type VoteResult = { ok: true; stand: string } | { ok: false; error: VoteError };
 
 export const VOTE_ERROR_TEXT: Record<VoteError, string> = {
@@ -112,6 +113,7 @@ export const VOTE_ERROR_TEXT: Record<VoteError, string> = {
   empty: "Ese exhibidor está vacío.",
   own: "Por la tuya no se vale votar.",
   voted: "Ya votaste en esta feria. ¡Un voto por persona!",
+  premiada: "Las silletas de esta feria ya se premiaron: la votación cerró.",
   busy: "Un momentico…",
 };
 

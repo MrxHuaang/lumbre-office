@@ -80,7 +80,7 @@ async function waitFor<T>(fn: () => T | undefined, ms = 4000): Promise<T> {
   }
 }
 
-type Inner = { festivales: { tick(): void }; syncFestival(): void; feria: { tick(): void }; achievements: { flushAll(): Promise<void> } };
+type Inner = { festivales: { tick(): void }; syncFestival(): void; feria: { tick(): void; premiarYa(): string; desfileYa(): string }; achievements: { flushAll(): Promise<void> } };
 
 /** Una sala del día `day` (por defecto, la feria) a la hora `hour` del juego. */
 async function setup(opts: { day?: number; hour?: number } = {}) {
@@ -273,6 +273,33 @@ describe("exhibir y votar", () => {
     expect(bob.cines.filter((c) => c.id === FERIA_CINE.premiacion)).toHaveLength(1);
     // Ya cerrada, no se vota ni se exhibe.
     expect(await bob.vote(s0.key)).toEqual({ ok: false, error: "off" });
+  });
+
+  it("el director premia antes del cierre: el mismo premio una sola vez, ya no se vota y al cierre no se repite", async () => {
+    const { room, inner } = await setup();
+    const alice = await conSilleta(room, "u-alice", "Alice", "gggggaaa----");
+    const s0 = stand(0);
+    await walkToTile(alice.client, room, s0.x, s0.y);
+    expect(await alice.exhibit(s0.key)).toMatchObject({ ok: true });
+    const bob = await join(room, "u-bob", "Bob");
+    await walkToTile(bob.client, room, s0.x, s0.y);
+    expect(await bob.vote(s0.key)).toMatchObject({ ok: true });
+    expect(inner.feria.premiarYa()).toBe("ok");
+    await waitFor(() => bob.cines.find((c) => c.id === FERIA_CINE.premiacion));
+    await waitFor(() => (repo.ledger.some((m) => m.userId === "u-alice" && m.reason === "LEISURE") ? true : undefined));
+    expect(inner.feria.premiarYa()).toBe("hecha");
+    // Premiada, ya no se vota ni se exhibe.
+    const carol = await join(room, "u-carol", "Carol");
+    await walkToTile(carol.client, room, s0.x, s0.y);
+    expect(await carol.vote(s0.key)).toEqual({ ok: false, error: "premiada" });
+    // Al cierre no hay otra premiación ni otro premio.
+    clock = NOON + 10 * 60 * GAME_MINUTE_MS + 1;
+    inner.festivales.tick();
+    inner.feria.tick();
+    inner.feria.tick();
+    await tick(80);
+    expect(bob.cines.filter((c) => c.id === FERIA_CINE.premiacion)).toHaveLength(1);
+    expect(repo.ledger.filter((m) => m.userId === "u-alice" && m.reason === "LEISURE")).toHaveLength(1);
   });
 
   it("sin votos no hay premiación", async () => {

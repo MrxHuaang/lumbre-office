@@ -161,6 +161,28 @@ describe("la novena de las 20:00", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(b.bumps.filter((x) => x.key === STAT_KEYS.novenasRezadas)).toEqual([]);
   });
+
+  it("el director la adelanta: es la misma del día, así que de noche no se reza ni se paga otra vez", async () => {
+    const { n, players, sent, bumps, awardedOnce, setMinute } = setup({ dia: 4, minute: 15 * 60 });
+    players.set("s-ana", at("u-ana", PX + 1, PY));
+    expect(n.rezarYa()).toBe("ok");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ofType<NovenaAviso>(sent, NOVENA_MSG.aviso)).toEqual([{ code: "rezo" }]);
+    expect(sent.filter((s) => s.type === NOVENA_MSG.cine).map((s) => s.to)).toEqual(["s-ana"]);
+    expect([...awardedOnce]).toEqual([`u-ana:${NOVENA.refPrefix}300`]);
+    // Otra vez el mismo día: no.
+    expect(n.rezarYa()).toBe("hecha");
+    // A las 20:00 no se avisa de nuevo ni reza quien ya rezó; quien llega, sí (con los puntos del día).
+    players.set("s-beto", at("u-beto", PX + 2, PY));
+    setMinute(20 * 60 + 5);
+    n.tick();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(ofType(sent, NOVENA_MSG.aviso)).toHaveLength(1);
+    expect(sent.filter((s) => s.type === NOVENA_MSG.cine).map((s) => s.to)).toEqual(["s-ana", "s-beto"]);
+    expect(bumps.filter((b) => b.key === STAT_KEYS.novenasRezadas).map((b) => b.userId)).toEqual(["u-ana", "u-beto"]);
+    // Sin novena, nada.
+    expect(setup({ dia: 0 }).n.rezarYa()).toBe("off");
+  });
 });
 
 describe("la natilla y los buñuelos", () => {
