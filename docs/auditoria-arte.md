@@ -6,15 +6,16 @@ Cada pieza del juego medida contra `docs/estandar-arte.md`. Se hizo mirando las 
 
 - **Muebles, edificios y plantas auditados:** 388 (sin contar 4 versiones viejas que ya no salen y 6 del Carnaval, que hacen otros).
 - **Cumplen antes de la tanda 1:** 274 de 388 (71 %); 102 mejorables y 12 para rehacer. Contando lo que se ve (cada vez que una pieza sale en el mundo), cumplía el **22 %**: lo que más se repite (la cerca, las matas, los árboles, el helecho, el pasto) era lo más flojo.
+- **Después de la tanda 2:** cumplen 314 de 388 (81 %) y el **91 % de lo que se ve**; lo dibujado a mano en grillas ya es el 69 % de lo que se ve.
 - **Después de la tanda 1:** cumplen 294 de 388 (76 %) y el **80 % de lo que se ve**.
 - **Objetos de mano:** 177; cumplen 167 (94 %). Ya son grillas dibujadas a mano de 10x10 como mucho, con luz, sombra y contorno del material; abajo, los que piden otra mirada.
 - **Técnica (pixel art a mano, sin primitivas):** antes de la tanda 1, solo los objetos de mano y algunos detalles; todos los muebles y edificios se armaban con cajas, cilindros, elipses o el escultor 3D (`renderSprite`, `Escena`, `blob`, `canopy`). La tanda 1 pasa a grillas a mano 20 piezas, que son el 58 % de lo que se ve. Que una pieza "cumpla" en esta tabla es por cómo se ve; igual se pasa a grilla cuando se la toque.
 
 ## Tandas
 
-1. **Jardín: árboles, matas, hierbas y la cerca** (esta). Los robles (tres siluetas y el grande), los pinos (tres alturas), los abedules, los frutales, las cuatro matas, el helecho, el pasto alto, las flores silvestres y la cerca, en grillas a mano (`art/jardin-arboles.ts`, `art/jardin-matas.ts`, `art/outdoor.ts`). Mismo tamaño en el catálogo y misma colisión; el pie de cada uno quedó en el centro de su tile.
-2. **Lo que sigue más visto en el jardín:** hongos, piedras, nenúfares, el macizo de flores, los faroles (`lamp-post` y `garden-lantern`, hoy azul frío), la cerca de palos de la granja, el tocón, el tronco banca y el poste de cerca.
-3. **Muebles comunes de las salas:** silla, taburete, sillón, puf, banca, mesitas, lámparas, barra, parlante, proyector, el bus por dentro y lo plano del baño y la cocina.
+1. **Jardín: árboles, matas, hierbas y la cerca** (hecha). Los robles (tres siluetas y el grande), los pinos (tres alturas), los abedules, los frutales, las cuatro matas, el helecho, el pasto alto, las flores silvestres y la cerca, en grillas a mano (`art/jardin-arboles.ts`, `art/jardin-matas.ts`, `art/outdoor.ts`). Mismo tamaño en el catálogo y misma colisión; el pie de cada uno quedó en el centro de su tile.
+2. **Lo que quedaba del jardín y los muebles comunes de las salas** (hecha). En `art/jardin-detalles.ts`: los hongos, las cuatro piedras, los nenúfares, el tocón, la cerca de palos de la granja y los faroles (el del camino, el farolito y el del muelle), ahora de hierro café cálido con vidrio ámbar en vez de azul frío. En `art/salas-muebles.ts`: la silla, el taburete, el sillón, el puf, la barra de la cafetería (también con la cafetera), la barra del club, el parlante y el proyector. Las luces de noche y el golpe del parlante (`speakerPulse`) siguen calzando donde estaban.
+3. **Lo que sigue:** el macizo de flores, el tronco banca, el poste de cerca, la banca, las mesitas, las lámparas (`lamp`, `lamp-mushroom`), el bus por dentro y lo plano del baño y la cocina.
 4. **Fachadas y edificios:** la estación del bus (fría al lado de lo demás) y pasar a grilla la cabaña, el garaje, el observatorio y la casa del árbol sin mover las ventanas (las luces de noche de VIR-178 van encima).
 5. **Objetos de mano** de la lista de abajo y el bosque de alrededor (`surroundings.ts`, que todavía usa `canopy`).
 
@@ -38,30 +39,30 @@ Ordenados por cuánto se ven (veces en el mundo) por cuánto les falta (rehacer 
 | `oak-big` | exterior | 99 | mejorable | copa grande pero en motas; sin masas | tanda 1: a mano, cumple |
 | `pine-3` | exterior | 99 | mejorable | como el pino 1 | tanda 1: a mano, cumple |
 | `oak-3` | exterior | 97 | mejorable | como el roble 1 | tanda 1: a mano, cumple |
-| `mushrooms` | exterior | 86 | mejorable | grupito que se entiende, pero los sombreros se funden entre sí |  |
-| `stick-fence` | granja | 35 | rehacer | palos de un tono sin corteza; 4 colores |  |
+| `mushrooms` | exterior | 86 | mejorable | grupito que se entiende, pero los sombreros se funden entre sí | tanda 2: a mano, cumple |
+| `stick-fence` | granja | 35 | rehacer | palos de un tono sin corteza; 4 colores | tanda 2: a mano, cumple |
 | `oak-2` | exterior | 65 | mejorable | como el roble 1 | tanda 1: a mano, cumple |
 | `bush-hydrangea` | exterior | 62 | mejorable | las bolas de flor se pierden en la mata | tanda 1: a mano, cumple |
-| `rock-small` | exterior | 55 | mejorable | piedrita gris de 5 tonos sin facetas claras |  |
-| `lamp-post` | base | 24 | rehacer | poste azul marino frío en un jardín cálido; farol de caja sin vidrio ni brillo |  |
+| `rock-small` | exterior | 55 | mejorable | piedrita gris de 5 tonos sin facetas claras | tanda 2: a mano, cumple |
+| `lamp-post` | base | 24 | rehacer | poste azul marino frío en un jardín cálido; farol de caja sin vidrio ni brillo | tanda 2: a mano, cumple |
 | `bush-rose` | exterior | 47 | mejorable | las rosas son puntitos rojos | tanda 1: a mano, cumple |
-| `chair` | base | 47 | mejorable | se entiende, pero la madera es plana (sin veta) y el cojín de un tono |  |
+| `chair` | base | 47 | mejorable | se entiende, pero la madera es plana (sin veta) y el cojín de un tono | tanda 2: a mano, cumple |
 | `flower-patch` | exterior | 47 | mejorable | macizo de flores en cruz repetida; sin forma de cantero |  |
 | `lamp` | base | 22 | rehacer | pantalla amarilla plana de un solo tono, pie de palo: no parece una lámpara de pie bonita |  |
-| `lily-pad` | exterior | 43 | mejorable | nenúfares chicos; la flor apenas se ve |  |
-| `rock-mossy` | exterior | 42 | mejorable | el musgo es una mancha; faltan facetas |  |
-| `beanbag` | base | 14 | rehacer | mancha morada de 5 colores sin pliegues ni costura: no se entiende que es un puf |  |
-| `garden-lantern` | exterior | 26 | mejorable | faro de jardín frío (gris azulado) para la estética cálida |  |
-| `stool` | base | 26 | mejorable | chico y sin volumen en el asiento; la madera sin veta |  |
-| `armchair` | base | 21 | mejorable | verde plano con mucha área de un tono; le faltan costuras y pliegues |  |
+| `lily-pad` | exterior | 43 | mejorable | nenúfares chicos; la flor apenas se ve | tanda 2: a mano, cumple |
+| `rock-mossy` | exterior | 42 | mejorable | el musgo es una mancha; faltan facetas | tanda 2: a mano, cumple |
+| `beanbag` | base | 14 | rehacer | mancha morada de 5 colores sin pliegues ni costura: no se entiende que es un puf | tanda 2: a mano, cumple |
+| `garden-lantern` | exterior | 26 | mejorable | faro de jardín frío (gris azulado) para la estética cálida | tanda 2: a mano, cumple |
+| `stool` | base | 26 | mejorable | chico y sin volumen en el asiento; la madera sin veta | tanda 2: a mano, cumple |
+| `armchair` | base | 21 | mejorable | verde plano con mucha área de un tono; le faltan costuras y pliegues | tanda 2: a mano, cumple |
 | `garden-plot` | base | 20 | mejorable | la tierra en surcos se lee, pero el marco de madera es plano |  |
 | `reading-lamp` | interior | 17 | mejorable | lámpara de banquero chica, pantalla verde plana |  |
 | `side-table` | base | 16 | mejorable | se lee, pero chica en su tile y con pocos tonos por material |  |
-| `speaker` | base | 8 | rehacer | caja negra con dos círculos: plana y sin detalle |  |
+| `speaker` | base | 8 | rehacer | caja negra con dos círculos: plana y sin detalle | tanda 2: a mano, cumple |
 | `bench` | base | 14 | mejorable | tablones planos de un tono; sin veta ni clavos |  |
-| `counter` | base | 7 | rehacer | caja con tapa crema: no se lee como barra (sin zócalo, sin veta, sin nada encima) |  |
-| `rock-medium` | exterior | 13 | mejorable | piedra gris sin facetas |  |
-| `stump` | exterior | 13 | mejorable | tocón chico con anillos; el brote es un palito |  |
+| `counter` | base | 7 | rehacer | caja con tapa crema: no se lee como barra (sin zócalo, sin veta, sin nada encima) | tanda 2: a mano, cumple |
+| `rock-medium` | exterior | 13 | mejorable | piedra gris sin facetas | tanda 2: a mano, cumple |
+| `stump` | exterior | 13 | mejorable | tocón chico con anillos; el brote es un palito | tanda 2: a mano, cumple |
 | `arcade-cabinet` | base | 12 | mejorable | la pantalla y el gabinete planos; le falta el arte lateral y los botones |  |
 | `cafe-table` | base | 12 | mejorable | tapa crema plana, pie de metal sin brillo |  |
 | `pothos` | plantas | 12 | mejorable | mata cilíndrica de bolitas |  |
@@ -80,10 +81,10 @@ Ordenados por cuánto se ven (veces en el mundo) por cuánto les falta (rehacer 
 | `bath-stall` | sotano | 6 | mejorable | cubículo blanco liso |  |
 | `bus-pole` | bus | 6 | mejorable | tubo amarillo plano |  |
 | `cherry-tree` | exterior | 6 | mejorable | copa rosada en motas | tanda 1: a mano, cumple |
-| `flat-rock` | exterior | 6 | mejorable | losa gris plana |  |
+| `flat-rock` | exterior | 6 | mejorable | losa gris plana | tanda 2: a mano, cumple |
 | `velvet-rope` | base | 6 | mejorable | postes dorados finos; el cordón casi no se ve |  |
 | `water-barrel` | base | 6 | mejorable | barril de duelas sin aros con brillo; el agua de arriba plana |  |
-| `bar-counter` | base | 5 | mejorable | caja negra con borde rosado; le faltan las botellas o la madera |  |
+| `bar-counter` | base | 5 | mejorable | caja negra con borde rosado; le faltan las botellas o la madera | tanda 2: a mano, cumple |
 | `hay-bale` | granja | 5 | mejorable | paca amarilla con poca paja suelta |  |
 | `peach-tree` | exterior | 5 | mejorable | copa en motas con frutas de un píxel | tanda 1: a mano, cumple |
 | `pet-bed` | casa | 5 | mejorable | cama rosada plana |  |
@@ -112,7 +113,7 @@ Ordenados por cuánto se ven (veces en el mundo) por cuánto les falta (rehacer 
 | `treehouse-cushion` | casa-arbol | 2 | mejorable | cojín de un tono |  |
 | `water-trough` | granja | 2 | mejorable | bebedero chico |  |
 | `wheelbarrow` | exterior | 2 | mejorable | carretilla chica de pocos tonos |  |
-| `projector` | base | 1 | rehacer | dos cajas oscuras: no se lee como proyector (sin lente ni carretes) |  |
+| `projector` | base | 1 | rehacer | dos cajas oscuras: no se lee como proyector (sin lente ni carretes) | tanda 2: a mano, cumple |
 | `bus-cabin` | bus | 1 | mejorable | cabina de cajas negras |  |
 | `bus-platform` | bus | 1 | mejorable | losas naranjas lisas |  |
 | `bus-station` | bus | 1 | mejorable | techo gris liso y vidrios oscuros; lejos de la calidez del resto |  |
@@ -120,10 +121,10 @@ Ordenados por cuánto se ven (veces en el mundo) por cuánto les falta (rehacer 
 | `cactus` | base | 1 | mejorable | cactus de columnas lisas en maceta amarilla |  |
 | `chicken-feeder` | granja | 1 | mejorable | comedero chico |  |
 | `cinema-stage` | sotano | 1 | mejorable | tarima de tablones planos |  |
-| `counter-coffee` | base | 1 | mejorable | cafetera de caja gris sobre barra plana |  |
+| `counter-coffee` | base | 1 | mejorable | cafetera de caja gris sobre barra plana | tanda 2: a mano, cumple |
 | `dance-pole` | base | 1 | mejorable | tubo blanco plano, sin brillo cromado |  |
 | `diving-board` | agua | 1 | mejorable | trampolín de tabla lisa |  |
-| `dock-lamp` | exterior | 1 | mejorable | farol del muelle en poste liso |  |
+| `dock-lamp` | exterior | 1 | mejorable | farol del muelle en poste liso | tanda 2: a mano, cumple |
 | `farm-sign` | granja | 1 | mejorable | letrero chico sin letras |  |
 | `feed-sack` | granja | 1 | mejorable | costal liso |  |
 | `flour-sacks` | granja | 1 | mejorable | costales blancos planos |  |

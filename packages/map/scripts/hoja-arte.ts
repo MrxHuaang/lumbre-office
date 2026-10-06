@@ -5,7 +5,7 @@
 //
 // Uso: pnpm --filter @hyvento/map hoja <carpeta> [filtro] [escala]
 //   El filtro deja solo los grupos o los tipos que contienen algo de la lista (`exterior`, `oak,pine`;
-//   `objetos` son los de mano; "" para todo). La escala, 2 por defecto, sirve para mirar de cerca unas
+//   `@chair` es solo ese tipo; `objetos` son los de mano; "" para todo). La escala, 2 por defecto, sirve para mirar de cerca unas
 //   pocas piezas.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -292,7 +292,7 @@ const all: Metrics[] = [];
 const byGroup = new Map<string, string[]>();
 for (const t of Object.keys(CATALOG)) {
   const g = groupOf.get(t)!;
-  if (filtros.length && !filtros.some((f) => g === f || t.includes(f))) continue;
+  if (filtros.length && !filtros.some((f) => g === f || (f.startsWith("@") ? t === f.slice(1) : t.includes(f)))) continue;
   byGroup.set(g, [...(byGroup.get(g) ?? []), t]);
 }
 const written: string[] = [];
