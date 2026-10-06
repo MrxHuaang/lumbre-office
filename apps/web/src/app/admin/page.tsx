@@ -7,12 +7,12 @@ export const metadata = { title: "Administración" };
 
 /** `?embed=1`: dentro de la ventana "Administrar equipo" de la oficina (sin cabecera ni enlace de vuelta). */
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ embed?: string }> }) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const { embed } = await searchParams;
   const [users, invites, offices, casino, everyone, byUser] = await Promise.all([
     prisma.user.findMany({
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, role: true, avatar: true, look: true, onboardedAt: true },
+      select: { id: true, name: true, email: true, role: true, avatar: true, look: true, onboardedAt: true, points: true },
     }),
     prisma.invite.findMany({ where: { acceptedAt: null }, orderBy: { createdAt: "desc" } }),
     prisma.office.findMany({ orderBy: { zoneId: "asc" }, select: { zoneId: true, name: true, ownerId: true, isLocked: true } }),
@@ -29,6 +29,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       casino={casino}
       permisos={{ everyone, byUser }}
       embedded={embed === "1"}
+      meId={admin.id}
     />
   );
 }

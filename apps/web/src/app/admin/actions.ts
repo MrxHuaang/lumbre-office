@@ -1,11 +1,11 @@
 "use server";
 
-import { prisma, saveCasinoSettings, setPermiso, setPermisoTodos } from "@hyvento/db";
-import { CasinoSettingsBody, SetPermisoBody, SetPermisoTodosBody } from "@hyvento/shared";
+import { awardPoints, prisma, saveCasinoSettings, setPermiso, setPermisoTodos } from "@hyvento/db";
+import { CasinoSettingsBody, DarPuntosBody, darPuntosRef, SetPermisoBody, SetPermisoTodosBody } from "@hyvento/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/current-user";
-import { publishCasinoSettingsChanged, publishOfficesChanged, publishPermissionsChanged } from "@/lib/events";
+import { publishCasinoSettingsChanged, publishOfficesChanged, publishPermissionsChanged, publishPointsChanged } from "@/lib/events";
 import { assignOffice } from "@/lib/offices";
 
 const InviteInput = z.object({
@@ -96,4 +96,31 @@ export async function setPermisoTodosAction(permiso: string, on: boolean): Promi
   await publishPermissionsChanged();
   revalidatePath("/admin");
   return {};
+}
+
+/**
+ * Dar puntos a alguien (VIR-185): motivo ADMIN (sin tope diario), queda en el libro con quién lo dio, y el
+ * contador de la cabaña se refresca sin recargar.
+ */
+export async function darPuntosAction(userId: string, amount: number): Promise<{ error?: string; ok?: string }> {
+  const admin = await requireAdmin();
+  const parsed = DarPuntosBody.safeParse({ userId, amount });
+  if (!parsed.success) return { error: "La cantidad tiene que ser un número entero entre 1 y 100.000." };
+  const user = await prisma.user.findUnique({ where: { id: parsed.data.userId }, select: { id: true, name: true, email: true } });
+  if (!user) return { error: "No encontramos a esa persona." };
+  try {
+    const { awarded, balance } = await awardPoints(prisma, {
+      userId: user.id,
+      amount: parsed.data.amount,
+      reason: "ADMIN",
+      refId: darPuntosRef(admin.id, Date.now()),
+    });
+    await publishPointsChanged(user.id);
+    revalidatePath("/admin");
+    const quien = user.name || user.email;
+    return { ok: `Listo: ${awarded.toLocaleString("es-CO")} puntos para ${quien}. Saldo: ${balance.toLocaleString("es-CO")}.` };
+  } catch (err) {
+    console.error("darPuntos", err);
+    return { error: "No se pudieron dar los puntos" };
+  }
 }
