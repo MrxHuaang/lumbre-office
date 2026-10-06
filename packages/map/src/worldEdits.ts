@@ -111,6 +111,11 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "silleta-stand",
   "silletero-table",
   "flower-stall",
+  // Los de la Feria de la cosecha que se usan desde sus puntos (los pone el festival).
+  "olla-sancocho",
+  "bascula",
+  "tablero-cosecha",
+  "tombola",
   // Los de Amor y amistad con su punto delante (el cofre del amigo secreto y el puesto).
   "amigo-cofre",
   "puesto-amor",

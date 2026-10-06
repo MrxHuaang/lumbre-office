@@ -4,7 +4,7 @@
 // barril de agua o en el pozo) o una bolsa de semillas; va a la mochila, se elige en la barra y el huerto
 // la usa con E sobre cada parcela. El servidor valida que estés junto al cobertizo y que te quepa.
 import { drawHeldItem } from "@hyvento/map/art";
-import { CROPS, EMPTY_CAN, HUERTO, SEASON_TEXT, durationText, seasonGrowth, seasonGrowthText, seedsOf } from "@hyvento/shared";
+import { CROPS, EMPTY_CAN, HUERTO, SEASON_TEXT, SHED_ITEMS, durationText, seasonGrowth, seasonGrowthText, seedsOf } from "@hyvento/shared";
 import { useMemo } from "react";
 import { currentSeason } from "@/game/gameClock";
 import { toHtmlCanvas } from "@/game/iso/canvas";
@@ -40,8 +40,9 @@ export function ShedPanel({ atObject, onClose }: { atObject: boolean; onClose: (
         </button>
         {(
           [
-            ["Semillas para el huerto", CROPS.filter((c) => !c.indoor), ""],
-            ["Para el invernadero", CROPS.filter((c) => c.indoor), "Tierra caliente: van en los bancales de adentro y crecen sin regar."],
+            // Solo lo que da el cobertizo (las flores y las semillas raras se compran en las ferias).
+            ["Semillas para el huerto", CROPS.filter((c) => !c.indoor && SHED_ITEMS.includes(seedsOf(c.id))), ""],
+            ["Para el invernadero", CROPS.filter((c) => c.indoor && SHED_ITEMS.includes(seedsOf(c.id))), "Tierra caliente: van en los bancales de adentro y crecen sin regar."],
           ] as const
         ).map(([title, crops, hint]) => (
           <section key={title} aria-label={title} className="flex flex-col gap-1.5">

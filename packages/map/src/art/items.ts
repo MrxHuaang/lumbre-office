@@ -1,7 +1,7 @@
 // Productos de la cafetería y del bar del club en pixel-art: se llevan en la mano, salen en la carta y
 // se consumen con F. Son chiquitos (caben en la mano del chibi); la carta los muestra ampliados.
 // Cada uno cambia con el uso: los vasos se vacían, la comida pierde un mordisco y el cigarro se acorta.
-import { SILLETA, heldParts, silletaCodeOf, usesOf } from "@hyvento/shared";
+import { COMETA_COLORES, COMETAS_GENTE, SILLETA, ahuyamaDagOf, ahuyamaTalla, cometaCodeOf, cometaPartes, heldParts, silletaCodeOf, usesOf, type CometaForma } from "@hyvento/shared";
 import { C, OUT } from "./palette";
 import { PixelCanvas, alpha, at, hex, type RGBA } from "./pixel";
 
@@ -1648,6 +1648,214 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { s: hex("#e8c880"), S: hex("#c8a060"), g: hex("#4f9a3a"), p: hex("#f0e0a0"), m: hex("#f2c230"), a: hex("#a8acb0"), A: hex("#787c80") },
   },
+  // El sancocho de la olla de la Feria de la cosecha: plato hondo de barro con papa, yuca, mazorca y cilantro.
+  "sancocho-olla": {
+    fx: "steam",
+    surface: { chars: "sSgpymk", inner: hex("#c89a6a") },
+    rows: [
+      ".oooooooo.", //
+      "ospgsymsko",
+      "osymgpsSko",
+      "oPccccccPo",
+      ".oPccccPo.",
+      "..oooooo..",
+    ],
+    colors: { s: hex("#e8c070"), S: hex("#c8a050"), g: hex("#4f9a3a"), p: hex("#f0e0a0"), y: hex("#f4f0e0"), m: hex("#f2c230"), k: hex("#e8c070"), c: hex("#b86a3a"), P: hex("#8a4a2a") },
+  },
+  // ---------- La Feria de la cosecha: lo nuevo del huerto ----------
+  // Cebolla larga: el bulbo blanco y las hojas verdes paradas.
+  cebolla: {
+    crumb: hex("#f4f8e8"),
+    rows: [
+      "..lo.ol.", //
+      "..olool.",
+      "...oLo..",
+      "...oLo..",
+      "..owWo..",
+      ".owwwWo.",
+      ".owwwWo.",
+      "..oRRo..",
+      "...oo...",
+    ],
+    colors: { l: hex("#7fc04e"), L: hex("#4f9a3a"), w: hex("#f4f0e0"), W: hex("#cfc8b0"), R: hex("#c8b88a") },
+  },
+  // Yuca: la raíz larga de cáscara café con la punta cortada blanca.
+  yuca: {
+    crumb: hex("#fffaf0"),
+    rows: [
+      "......ooo.", //
+      ".....owwWo",
+      "....obbwWo",
+      "...obbbBo.",
+      "..obbbBo..",
+      ".obbbBo...",
+      "obbBBo....",
+      "oBBoo.....",
+      ".oo.......",
+    ],
+    colors: { b: hex("#9a6a3a"), B: hex("#6a4424"), w: hex("#fff8e8"), W: hex("#e8dcc0") },
+  },
+  // Ahuyama: redonda y achatada, con los gajos marcados y el tallito.
+  ahuyama: {
+    crumb: hex("#ffd090"),
+    rows: [
+      "....oLo...", //
+      "..oooLooo.",
+      ".oaAaaAaAo",
+      "oaHaAaaAaA",
+      "oaaaAaaAaA",
+      "oaaaAaaAAA",
+      ".oAAAAAAAo",
+      "..ooooooo.",
+    ],
+    colors: { a: hex("#e8862a"), A: hex("#b8601a"), H: hex("#ffc070"), L: hex("#5a8a2a") },
+    flat: "A",
+  },
+  // Fríjoles cargamanto: un puñado de granos cremas con pintas rojas.
+  frijol: {
+    crumb: hex("#f4e0c0"),
+    rows: [
+      "...oo.oo..", //
+      "..ocroocro",
+      ".ocrcocrco",
+      "ocrcorcrco",
+      "orccocrcco",
+      "occrocrcro",
+      ".oooooooo.",
+    ],
+    colors: { c: hex("#f0dcb8"), r: hex("#b83a3a") },
+    flat: "r",
+  },
+  // Arracacha: la raíz amarilla y gordita con su cuello de hojas.
+  arracacha: {
+    crumb: hex("#fff4c0"),
+    rows: [
+      "....lol...", //
+      "...olLlo..",
+      "..oyyyyo..",
+      ".oyHyyyYo.",
+      ".oyyyyyYo.",
+      "..oyyyYo..",
+      "..oyyYo...",
+      "...oYo....",
+      "....o.....",
+    ],
+    colors: { y: hex("#ecd06a"), Y: hex("#b89a3a"), H: hex("#fff0a8"), l: hex("#7fc04e"), L: hex("#4f9a3a") },
+  },
+  // Plátano verde-amarillo, curvo, con la puntica oscura.
+  platano: {
+    crumb: hex("#fff4d0"),
+    rows: [
+      "........oo", //
+      ".......oko",
+      "......oyYo",
+      ".....oyyYo",
+      "...ooyyYo.",
+      ".ooyyyYYo.",
+      "oyyyyYYo..",
+      "okYYYoo...",
+      ".ooo......",
+    ],
+    colors: { y: hex("#d8d84a"), Y: hex("#9aa02a"), k: hex("#4a3a1a") },
+  },
+  // ---------- La Feria de la cosecha: lo que llevan en la mano ----------
+  // El cucharón de palo de Doña Rubiela.
+  cucharon: {
+    rows: [
+      "........oo", //
+      ".......owo",
+      "......owo.",
+      ".....owo..",
+      "....owo...",
+      "..oowo....",
+      ".owwWo....",
+      "owwWWo....",
+      ".oWWo.....",
+      "..oo......",
+    ],
+    colors: { w: hex("#c8884a"), W: hex("#8a5a2a") },
+  },
+  // El megáfono de la junta: rojo y blanco, con la manija.
+  megafono: {
+    rows: [
+      ".......oo.", //
+      ".....oorro",
+      "...oorrrro",
+      "ooorrrrwro",
+      "owwrrrrwro",
+      "ooorrrrwro",
+      "...ookrrro",
+      "....oko.oo",
+      "....oo....",
+    ],
+    colors: { r: hex("#d8402a"), w: hex("#f4ecdc"), k: hex("#3a2a2a") },
+    flat: "w",
+  },
+  // El globo rojo de Mariana con su cuerdita.
+  globo: {
+    rows: [
+      "..oooo..", //
+      ".orrrro.",
+      "orHrrrRo",
+      "orrrrrRo",
+      "orrrrRRo",
+      ".oRRRRo.",
+      "..oRRo..",
+      "...oo...",
+      "....c...",
+      "...c....",
+    ],
+    colors: { r: hex("#e8323c"), R: hex("#a8202a"), H: hex("#ff9aa0"), c: hex("#f4ecdc") },
+    flat: "c",
+  },
+  // El tiple: guitarrita de cuerpo claro con la boca y el clavijero.
+  tiple: {
+    rows: [
+      ".......oo.", //
+      "......okko",
+      ".....onoo.",
+      "....ono...",
+      "..ooono...",
+      ".owwwwo...",
+      "owwkwwWo..",
+      "owwwwWWo..",
+      ".oWWWWo...",
+      "..oooo....",
+    ],
+    colors: { w: hex("#e8b870"), W: hex("#b8823a"), k: hex("#3a2414"), n: hex("#6a4028") },
+  },
+  // La guitarra: más grande y de madera oscura.
+  "guitarra-mano": {
+    rows: [
+      "........oo", //
+      ".......oko",
+      "......ono.",
+      ".....ono..",
+      "..oooono..",
+      ".owwwwwo..",
+      "owwwkwwWo.",
+      "owwwwwWWo.",
+      "owwwwWWWo.",
+      ".ooooooo..",
+    ],
+    colors: { w: hex("#a8642a"), W: hex("#764018"), k: hex("#2a1a0e"), n: hex("#4a2a14") },
+  },
+  // La bandola: cuerpo en forma de pera, con el puente oscuro.
+  bandola: {
+    rows: [
+      "........o.", //
+      ".......oko",
+      "......ono.",
+      ".....ono..",
+      "...ooono..",
+      "..owwwwo..",
+      ".owwkkwWo.",
+      ".owwwwWWo.",
+      "..oWWWWo..",
+      "...oooo...",
+    ],
+    colors: { w: hex("#d89a52"), W: hex("#a06a2a"), k: hex("#3a2414"), n: hex("#5a3418") },
+  },
   // Tarta redonda de lulo y fresa con brillo de miel sobre la masa dorada.
   "tarta-lulo": {
     crumb: hex("#f7d898"),
@@ -1682,6 +1890,13 @@ const ITEMS: Record<string, ItemArt> = {
         ["astromelia", "#f08a2a", "#b8501a", ["cg.c", "C..C", ".gg."]],
         ["girasol", "#f7c830", "#7a4a1a", [".cc.", "cCCc", "..g."]],
         ["hortensia", "#7a8ae8", "#5a4ab8", ["cCc.", "CcCc", ".cg."]],
+        // Los de la Feria de la cosecha (las dos últimas, raras: las vende el mercado).
+        ["cebolla", "#7fc04e", "#e8e4d0", ["g.g.", "g.g.", "CCCC"]],
+        ["yuca", "#9a6a3a", "#f4ecdc", ["c...", ".c..", "..cC"]],
+        ["ahuyama", "#e8862a", "#a8501a", [".g..", "cCcC", "CcCc"]],
+        ["frijol", "#b83a3a", "#f0dcb8", ["CcC.", "cCcC", ".CcC"]],
+        ["arracacha", "#ecd06a", "#4f9a3a", [".CC.", ".cc.", "..c."]],
+        ["platano", "#d8d84a", "#6a6a1a", ["...C", "..c.", "cc.."]],
       ] as const
     ).map(([crop, c, C, motif]) => [`semillas-${crop}`, seedPacket(c, C, motif)]),
   ),
@@ -2425,6 +2640,212 @@ ITEMS["bunuelos-novena"] = {
   flat: "H",
 };
 
+// ---------- El Año viejo (ano-viejo.ts de @hyvento/shared) ----------
+
+// La uva del agüero: un racimito morado con su tallito y una hoja.
+ITEMS.uva = {
+  crumb: hex("#c8a0d8"),
+  rows: [
+    "....gl...", //
+    "...oglo..",
+    "..ouuuo..",
+    ".ouUuUuo.",
+    ".ouuuuuo.",
+    "..ouUuo..",
+    "..ouuuo..",
+    "...ouo...",
+    "....o....",
+  ],
+  colors: legend({ g: "#6a4a2a", l: "#5ea247", u: "#6a2a7a", U: "#b07ac8" }),
+  flat: "U",
+};
+// La maleta de viaje: cuero café con correas y la manija arriba.
+ITEMS.maleta = {
+  rows: [
+    "...ooo...", //
+    "...o.o...",
+    "ooooooooo",
+    "obbybbybo",
+    "obbybbybo",
+    "oBBBBBBBo",
+    "obbybbybo",
+    "ooooooooo",
+  ],
+  colors: legend({ b: "#a8642e", B: "#7a4220", y: "#e0b84a" }),
+  flat: "y",
+};
+// El puñado de lentejas: una bolsita de tela abierta con las lentejas asomando.
+ITEMS.lentejas = {
+  rows: [
+    "..lLlLl..", //
+    ".oLlLlLo.",
+    ".ottttto.",
+    "otttyttto",
+    "otTtttTto",
+    "otttttTto",
+    ".ottttto.",
+    "..ooooo..",
+  ],
+  colors: legend({ l: "#b8743a", L: "#8a5226", t: "#e8dcc0", T: "#cbbb98", y: "#c0392b" }),
+  flat: "lLy",
+};
+// La ropa vieja: una camisa a cuadros doblada con un parche en el codo.
+ITEMS["ropa-vieja"] = {
+  rows: [
+    "..oo.oo..", //
+    ".orrorro.",
+    "orRrRrRro",
+    "orrrrrrro",
+    "oRrRpRrRo",
+    "orrrpprro",
+    "oRrRrRrRo",
+    ".ooooooo.",
+  ],
+  colors: legend({ r: "#b8402e", R: "#5a3a2a", p: "#5a7a9a" }),
+  flat: "Rp",
+};
+// La careta del muñeco: cara de cartón pintada, con bigote y cachetes.
+ITEMS["careta-muneco"] = {
+  rows: [
+    "..ooooo..", //
+    ".occccco.",
+    "ocKcccKco",
+    "occcnccco",
+    "orcmmmcro",
+    "occccccco",
+    ".occccco.",
+    "..ooooo..",
+  ],
+  colors: legend({ c: "#f2d6b0", K: "#2a2232", n: "#d08a5a", m: "#3a2418", r: "#e0807a" }),
+  flat: "Kmr",
+};
+// El costal de aserrín: costal amarrado arriba, con el aserrín que se sale.
+ITEMS.aserrin = {
+  rows: [
+    "...ooo...", //
+    "...oyo...",
+    "..okkko..",
+    ".okkKkko.",
+    "okkkkkKko",
+    "okKkkkkko",
+    "okkkkKkko",
+    ".ooooooo.",
+    "a.a.a..a.",
+  ],
+  colors: legend({ k: "#c8a46a", K: "#9a7a48", y: "#7a5a32", a: "#e8c890" }),
+  flat: "Ka",
+};
+// El manojo de paja: amarrado por la mitad con cabuya.
+ITEMS.paja = {
+  rows: [
+    "p.P.p.P..", //
+    ".pPpPpP..",
+    ".oppPppo.",
+    "..oPpPo..",
+    "..oyyyo..",
+    "..opPpo..",
+    ".oPppPpo.",
+    "oPpPpPpPo",
+  ],
+  colors: legend({ p: "#e8c858", P: "#c09a3a", y: "#7a5a32" }),
+  flat: "y",
+};
+// La varita de luz (juguete, nada de pólvora): un palito con la punta que brilla de colores.
+ITEMS["varita-luz"] = {
+  rows: [
+    "..r.y....", //
+    ".rWWy....",
+    "..WWWb...",
+    "..gWb....",
+    "...hh....",
+    "...hh....",
+    "...hh....",
+    "...ho....",
+  ],
+  colors: legend({ W: "#fffaf0", r: "#ff7aa8", y: "#ffe070", b: "#8ad0ff", g: "#9af07a", h: "#6a4a8a" }),
+  flat: "Wrybg",
+};
+// El acordeón de Don Aurelio: el fuelle de pliegues entre las dos tapas, con sus botoncitos.
+ITEMS.acordeon = {
+  rows: [
+    "ooooooooo", //
+    "orwkwkwro",
+    "orKwKwKro",
+    "orwkwkwro",
+    "orKwKwKro",
+    "orwkwkwro",
+    "ooooooooo",
+  ],
+  colors: legend({ r: "#c0392b", w: "#f2ead8", k: "#3a2a2a", K: "#d8c8a8" }),
+  flat: "wkK",
+};
+// La guacharaca de Tomás: la caña rayada y el trinche.
+ITEMS.guacharaca = {
+  rows: [
+    "........o", //
+    ".......oy",
+    "......oyo",
+    ".....oyo.",
+    "..o.oyo..",
+    ".oto.o...",
+    ".otoo....",
+    ".oto.....",
+    "..o......",
+  ],
+  colors: legend({ t: "#c89a5a", y: "#d8d8de" }),
+  flat: "y",
+};
+
+/** La cometa en la mano, por forma: `A` el papel del color 1, `B` el del 2, `g` la guadua, `t` la cabuya de la cola. */
+const COMETA_ROWS: Record<CometaForma, string[]> = {
+  rombo: ["....o....", "...oAo...", "..oAgBo..", ".oAAgBBo.", "ogggggggo", ".oBBgAAo.", "..oBgAo..", "...oBo...", "....ot...", ".....tB.."],
+  hexagonal: ["...ooo...", "..oAgAo..", ".oABgBAo.", "oAABgBAAo", "ogggggggo", "oBBAgABBo", ".oBAgABo.", "..oBgBo..", "...ooo...", "....tA..."],
+  pajaro: ["o........o", "oAo....oAo", "oAAoggoAAo", ".oAABBAAo.", "..ooBBoo..", "...oBBo...", "...oBBo...", "....oo....", "....t.....", ".....tA..."],
+  pez: ["...ooo...", "..oAAAo..", ".oAkAAAo.", ".oBBBBBo.", ".oAAgAAo.", ".oBBgBBo.", "..oAgAo..", "...oAo...", "..oBoBo..", "..oo.oo.."],
+};
+
+/**
+ * La cometa en la mano (`cometa:<código>`, ver cometa.ts de @hyvento/shared): la forma con sus dos colores
+ * de papel, la cruz de guadua y el arranque de la cola. Sale del código, así cada cometa se ve como la armaron.
+ */
+function cometaItem(code: string): ItemArt | undefined {
+  const p = cometaPartes(code);
+  if (!p) return undefined;
+  return {
+    rows: COMETA_ROWS[p.forma],
+    colors: legend({ A: COMETA_COLORES[p.color1].hex, B: COMETA_COLORES[p.color2].hex, g: "#b8933a", t: "#a8875a", k: "#2b1b17" }),
+    flat: "gtk",
+  };
+}
+
+// Lo del Festival de cometas: el papel de seda, los palitos, el carrete, el gancho, el raspao y la cometa
+// que quedó en el techo del garaje.
+ITEMS["papel-seda"] = {
+  rows: [".........", "..ooooo..", ".orrrrro.", "oaaaaaaao", "ozzzzzzzo", "ossssssso", ".ooooooo."],
+  colors: legend({ r: "#d8383a", a: "#f2cc3a", z: "#3a7ad8", s: "#ee7aa8" }),
+  flat: "razs",
+};
+ITEMS["palitos-guadua"] = {
+  rows: ["........o", ".......og", "......ogo", "..o..ogo.", ".ogoogo..", "..ocgo...", ".ogcgo...", "ogo.oo...", "oo......."],
+  colors: legend({ g: "#c8a24a", c: "#e8d6a8" }),
+};
+ITEMS["carrete-cabuya"] = {
+  rows: ["..ooooo..", ".oWWWWWo.", "..otTtto..", "..oTtTto..", "..otTtTo..", "..oTtTto..", ".oWWWWWo.", "..ooooo.."],
+  colors: legend({ W: "#95552c", t: "#e8d6a8", T: "#a8875a" }),
+  flat: "tT",
+};
+ITEMS["gancho-alambre"] = {
+  rows: ["..oooo...", ".om..mo..", ".om...o..", ".om......", ".oWo.....", ".oWo.....", ".oWo.....", ".oWo.....", ".oWo.....", ".ooo....."],
+  colors: legend({ m: "#c07a3a", W: "#b8733a" }),
+};
+ITEMS.raspao = {
+  rows: ["...ooo...", "..oxxxo..", ".oxmmxxo.", ".ommmmmo.", "ooooooooo", ".oCcCcCo.", ".ocCcCco.", "..oCcCo..", "...ooo..."],
+  colors: legend({ x: "#f4f6fa", m: "#8a1f4a", C: "#f2cc3a", c: "#f4f0e4" }),
+  crumb: hex("#f4f6fa"),
+  flat: "Cc",
+};
+ITEMS["cometa-perdida"] = cometaItem(COMETAS_GENTE.santiago)!;
+
 // ---------- Amor y amistad: lo del puesto y los instrumentos del trío ----------
 
 // La chocolatina de corazón: papel rojo brillante con la punta abierta (el chocolate asomando).
@@ -2795,10 +3216,58 @@ function silletaItem(code: string): ItemArt {
   };
 }
 
-/** Lo que se dibuja de un id que no está en la tabla (la silleta, que sale de su código), o undefined. */
+/** Las ahuyamas pesadas de la Feria de la cosecha (`ahuyama:<decagramos>`): chica, mediana o grande. */
+const AHUYAMA_TALLAS: readonly ItemArt[] = [
+  {
+    rows: [
+      "...oLo..", //
+      ".ooaLAo.",
+      "oaHaAaAo",
+      "oaaaAaAo",
+      ".oAAAAo.",
+      "..oooo..",
+    ],
+    colors: legend({ a: "#e8862a", A: "#b8601a", H: "#ffc070", L: "#5a8a2a" }),
+    flat: "A",
+  },
+  {
+    rows: [
+      "....oLo..", //
+      "..ooaLAoo",
+      ".oaHaAaaAo",
+      "oaaaaAaaAo",
+      "oaaaaAaAAo",
+      ".oAAAAAAo.",
+      "..oooooo..",
+    ],
+    colors: legend({ a: "#e8862a", A: "#b8601a", H: "#ffc070", L: "#5a8a2a" }),
+    flat: "A",
+  },
+  {
+    rows: [
+      "....oLLo..", //
+      "..oooLooo.",
+      ".oaaAaaAao",
+      "oaHaaAaaAo",
+      "oaaaaAaaAo",
+      "oaaaaAaaAo",
+      "oaaaaAaAAo",
+      ".oAAAAAAAo",
+      "..ooooooo.",
+    ],
+    colors: legend({ a: "#f08a2a", A: "#c0601a", H: "#ffc878", L: "#4a7a22" }),
+    flat: "A",
+  },
+];
+
+/** Lo que se dibuja de un id que no está en la tabla (la silleta y la cometa, que salen de su código; la ahuyama pesada), o undefined. */
 function dynamicItem(id: string): ItemArt | undefined {
   const code = silletaCodeOf(id);
-  return code ? silletaItem(code) : undefined;
+  if (code) return silletaItem(code);
+  const cometa = cometaCodeOf(id);
+  if (cometa) return cometaItem(cometa);
+  const dag = ahuyamaDagOf(id);
+  return dag !== null ? AHUYAMA_TALLAS[ahuyamaTalla(dag)] : undefined;
 }
 
 /** Algo que se lleva en la mano, según cómo está (ver `HeldArtState`). Un id desconocido da un lienzo de 1x1. */

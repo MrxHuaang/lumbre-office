@@ -14,12 +14,17 @@ import { MUNDO_BAG_OBJECTS } from "./garra";
 import { BRUJAS_BAG_OBJECTS } from "./brujas";
 import { CARNAVAL_BAG_OBJECTS } from "./carnaval-objetos";
 import { VELITAS_BAG_OBJECTS } from "./velitas";
+import { ANO_VIEJO_BAG_OBJECTS } from "./ano-viejo";
+import { COMETAS_BAG_OBJECTS } from "./cometas";
+import { COMETA, cometaCodeOf, cometaName } from "./cometa";
 import { AMOR_BAG_OBJECTS } from "./amor-amistad";
 import { CONSUMABLES } from "./consumables";
 import { STORY_BAG_OBJECTS } from "./historia";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
 import { paintingIdOf } from "./painting";
 import { SILLETA, silletaCodeOf, silletaFlowerCount, silletaName } from "./silleta";
+import { AHUYAMA, ahuyamaDagOf, ahuyamaName } from "./ahuyama";
+import { COSECHA_MUEBLES } from "./cosecha";
 import { shopItem } from "./shop";
 import { SOMBRERO_MENU, sombreroItem } from "./sombrero";
 import type { ItemStack } from "./social";
@@ -167,6 +172,10 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   ...CARNAVAL_BAG_OBJECTS,
   // La Noche de velitas: las velitas y el farol de deseos (velitas.ts).
   ...VELITAS_BAG_OBJECTS,
+  // El Año viejo: las uvas, la maleta, las lentejas, lo del muñeco y la varita de luz (ano-viejo.ts).
+  ...ANO_VIEJO_BAG_OBJECTS,
+  // El Festival de cometas: los materiales, el gancho, el raspao y la cometa del techo (cometas.ts).
+  ...COMETAS_BAG_OBJECTS,
   // Amor y amistad: lo del puesto de chocolates y flores (amor-amistad.ts).
   ...AMOR_BAG_OBJECTS,
   // Los objetos de la historia, de todos los capítulos (historia.ts: `items` de cada uno).
@@ -203,7 +212,7 @@ export function bagItemInfo(itemId: string): BagItemInfo {
     // Un cuadro de la Pintura: se cuelga en la oficina como un mueble (su título lo trae /api/paintings).
     if (paintingIdOf(itemId))
       return { itemId, name: "Cuadro", blurb: "Lo pintaste en el PC: cuélgalo en tu oficina con Decorar.", kind: "mueble", max: Infinity, furniture: true, art: itemId, use: null, durable: true, story: false };
-    const shop = shopItem(itemId);
+    const shop = shopItem(itemId) ?? COSECHA_MUEBLES[itemId];
     return {
       itemId,
       name: shop?.name ?? nameFromId(itemId),
@@ -226,6 +235,36 @@ export function bagItemInfo(itemId: string): BagItemInfo {
       blurb: `Armada a mano con ${silletaFlowerCount(silleta)} flores. En la feria se exhibe en el patio y se vota.`,
       kind: "objeto",
       max: SILLETA.stackMax,
+      furniture: false,
+      art: id,
+      use: null,
+      durable: false,
+      story: false,
+    };
+  // Una ahuyama pesada (la Feria de la cosecha): el peso va en el id y la báscula lo lee de ahí.
+  const dag = ahuyamaDagOf(id);
+  if (dag !== null)
+    return {
+      itemId,
+      name: ahuyamaName(dag),
+      blurb: "Cosechada del huerto y pesada al cosecharla: llévala a la báscula del concurso de la Feria de la cosecha.",
+      kind: "cosecha",
+      max: AHUYAMA.stackMax,
+      furniture: false,
+      art: id,
+      use: null,
+      durable: false,
+      story: false,
+    };
+  // Una cometa del Festival de cometas: como la silleta, lo que lleva va en el id.
+  const cometa = cometaCodeOf(id);
+  if (cometa)
+    return {
+      itemId,
+      name: cometaName(cometa),
+      blurb: "Armada a mano en el taller de la loma. Con F se vuela en el voladero; en el festival también se inscribe en el concurso.",
+      kind: "objeto",
+      max: COMETA.stackMax,
       furniture: false,
       art: id,
       use: null,

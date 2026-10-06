@@ -167,6 +167,21 @@ export const STAT_KEYS = {
   // El Carnaval (carnaval.ts): desfiles bailados en la comparsa y concursos de disfraces ganados.
   comparsaParades: "comparsa_parades",
   carnavalCrowns: "carnaval_crowns",
+  // La Feria de la cosecha (cosecha.ts): ingredientes echados a la olla del sancocho, ferias ganadas con la
+  // ahuyama más pesada y tómbolas ganadas.
+  sancochoAportes: "sancocho_aportes",
+  ahuyamaOro: "ahuyama_oro",
+  tombolaGanada: "tombola_ganada",
+  // Bailes de la cosecha completos (uno por feria).
+  cosechaBailes: "cosecha_bailes",
+  // El Año viejo (ano-viejo.ts): cosas que le dio al muñeco y los agüeros cumplidos en un mismo año (máximo).
+  munecoAportes: "muneco_aportes",
+  anoViejoAgueros: "ano_viejo_agueros",
+  // El Festival de cometas (cometas.ts): cometas armadas, la mejor altura (máximo, en metros) y los
+  // premios ganados (la más alta o la más bonita).
+  cometasArmadas: "cometas_armadas",
+  cometaAltura: "cometa_altura",
+  cometaPremios: "cometa_premios",
   // Amor y amistad (amor-amistad.ts): detalles dejados al amigo secreto y serenatas pedidas.
   amigoSecretoRegalos: "amigo_secreto_regalos",
   serenatasDadas: "serenatas_dadas",
@@ -216,6 +231,8 @@ export const MAX_STATS: ReadonlySet<string> = new Set([
   STAT_KEYS.storyCh4,
   STAT_KEYS.storyCh5,
   STAT_KEYS.storyPrologue,
+  STAT_KEYS.anoViejoAgueros,
+  STAT_KEYS.cometaAltura,
 ]);
 
 export const ACHIEVEMENT_RARITIES = ["comun", "raro", "epico", "legendario"] as const;
@@ -294,6 +311,7 @@ export const BADGE_ICONS = [
   "pumpkin",
   "silleta",
   "mask",
+  "cometa",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
@@ -482,6 +500,17 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // El Carnaval de Negros y Blancos
     a("comparsero", "Comparsero", "mask", "raro", STAT_KEYS.comparsaParades, 3, "Baila 3 desfiles del Carnaval en la comparsa de la cabaña", "Detrás del Megabús de la alegría ya te conocen el paso."),
     a("rey-del-carnaval", "Rey o reina del Carnaval", "mask", "epico", STAT_KEYS.carnavalCrowns, 1, "Gana el concurso de disfraces del Carnaval", "Toda la cabaña votó por tu pinta."),
+    // La Feria de la cosecha
+    a("mano-de-olla", "Mano de olla", "pan", "comun", STAT_KEYS.sancochoAportes, 5, "Echa 5 ingredientes a la olla del sancocho de la Feria de la cosecha", "Doña Rubiela ya te deja revolver."),
+    a("ahuyama-de-oro", "La ahuyama más grande", "pumpkin", "epico", STAT_KEYS.ahuyamaOro, 1, "Gana el concurso de la ahuyama más grande de la Feria de la cosecha", "La báscula de Don Efraín casi no aguanta."),
+    a("bambuquero", "Bambuquero", "guitar", "raro", STAT_KEYS.cosechaBailes, 1, "Baila el bambuco de la cosecha en el patio", "Tiple, guitarra, bandola y tú dándole vueltas al patio."),
+    a("suerte-de-tombola", "Suerte de tómbola", "wheel", "raro", STAT_KEYS.tombolaGanada, 1, "Gana la tómbola de la junta de acción comunal", "La boleta ganadora era la tuya. La carreta también."),
+    // El Año viejo
+    a("munequero", "Muñequero", "flame", "comun", STAT_KEYS.munecoAportes, 3, "Dele 3 cosas al muñeco de año viejo (prendas viejas o relleno)", "Ese pantalón remendado era suyo, ¿cierto?"),
+    a("aguerero", "Agüerero", "clock", "epico", STAT_KEYS.anoViejoAgueros, 4, "Cumpla los cuatro agüeros en un Año viejo: las uvas, la maleta, las lentejas y la ropa amarilla", "Con tanto agüero, este año no hay mala suerte que le entre."),
+    // El Festival de cometas
+    a("cometero", "Cometero", "cometa", "comun", STAT_KEYS.cometasArmadas, 1, "Arma una cometa en el taller de la loma en el Festival de cometas", "Papel de seda, palitos de guadua y engrudo hasta en las cejas."),
+    a("dueno-del-cielo", "Dueño del cielo", "cometa", "epico", STAT_KEYS.cometaPremios, 1, "Gana un premio del Festival de cometas: la más alta del día o la más bonita", "Toda la loma levantó la cabeza para ver su cometa."),
     // Amor y amistad
     a("amigo-secreto", "Amigo secreto", "chest", "comun", STAT_KEYS.amigoSecretoRegalos, 1, "Déjele un detalle a su amigo secreto en el cofre de Amor y amistad", "Nadie sabe que fue usted. Bueno, hasta la revelación."),
     a("serenatero", "Serenatero", "guitar", "raro", STAT_KEYS.serenatasDadas, 1, "Pídale una serenata al trío de Amor y amistad para alguien", "Tiple, guitarra y requinto, todo por un detalle."),

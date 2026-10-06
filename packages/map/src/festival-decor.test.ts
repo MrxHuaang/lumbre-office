@@ -57,8 +57,9 @@ describe("la decoración de la Noche de brujas", () => {
     expect(festivalDecorNow()).toBeNull();
     expect(getWorld().areas.get("jardin")!.furniture.length).toBe(before);
     expect(pointsOfType(getWorld().areas.get("jardin")!, "golden_pumpkin")).toHaveLength(0);
-    // Un festival sin decoración no cambia nada.
-    expect(setFestivalDecor("cometas", 3)).toEqual([]);
+    // Otro festival cambia solo los niveles que decora.
+    expect(setFestivalDecor("cometas", 3)).toEqual(["jardin"]);
+    setFestivalDecor(null);
   });
 
   it("no tapa ningún portal ni punto: desde la entrada se llega a todo lo que se llegaba", () => {
