@@ -2,10 +2,11 @@
 
 // La historia en pantalla: la bienvenida de Doña Aurora (el prólogo, solo a quien recién llegó) y, en el
 // cuadro de quien da el paso de ahora, su consejo, "Saludar a Doña Aurora" (el paso 3 se puede cumplir con
-// ella si no hay nadie) y "Saltar historia", que está a la mano mientras dura el capítulo 1.
-import { AURORA_WELCOME, AURORA_WELCOME_BUS, CAPITULO_1, QUEST_GIVERS, STORY_LESSONS, capituloOf, questById, type QuestGiverId } from "@hyvento/shared";
+// ella si no hay nadie), lo que se le pregunta en los pasos que lo piden (`STORY_ASKS`) y "Saltar
+// historia", que está a la mano mientras dura el capítulo 1.
+import { AURORA_WELCOME, AURORA_WELCOME_BUS, CAPITULO_1, QUEST_GIVERS, STORY_ASKS, STORY_LESSONS, capituloOf, questById, type QuestGiverId } from "@hyvento/shared";
 import { useEncargos } from "@/game/encargos";
-import { closePrologue, currentStoryStep, skipStory, useHistoria } from "@/game/historia";
+import { askStory, closePrologue, currentStoryStep, skipStory, useHistoria } from "@/game/historia";
 import { sendEmote } from "@/game/network";
 import { PixelIcon } from "../Cozy";
 
@@ -43,6 +44,12 @@ export function StoryExtras({ giver }: { giver: QuestGiverId }) {
         {step.questId === "llegada-3" && step.status === "ACTIVE" && (
           <button type="button" onClick={() => sendEmote("wave")} className="cozy-btn cozy-btn-primary px-2.5 py-1 text-[12px]">
             Saludar a Doña Aurora
+          </button>
+        )}
+        {/* Lo que se le pregunta a quien da el paso (capítulo 3 en adelante): la sala decide qué pasa. */}
+        {STORY_ASKS[step.questId] && step.status === "ACTIVE" && (
+          <button type="button" onClick={() => askStory(step.questId)} className="cozy-btn cozy-btn-primary px-2.5 py-1 text-[12px]">
+            {STORY_ASKS[step.questId]}
           </button>
         )}
         <SkipStoryButton className="ml-auto" />

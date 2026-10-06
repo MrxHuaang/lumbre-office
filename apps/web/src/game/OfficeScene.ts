@@ -129,6 +129,7 @@ import { ALCOHOL_PER_SIP, DRUNK, isSwivelSeat, spinMs, type DrunkStage, type Swi
 import { AGUA, isSunSeat, spaKindOf, type DiveEvent } from "@hyvento/shared";
 import { PoolView } from "./piscina";
 import { TinaView } from "./tina";
+import { AguaBrillaView } from "./aguaBrilla";
 import { onDive } from "./piscina/net";
 import { poolSfx } from "./piscina/sound";
 import { playAnticSound } from "./antics-sound";
@@ -430,6 +431,8 @@ export class OfficeScene extends Phaser.Scene {
   private pool!: PoolView;
   /** La tina y la sauna del lago: el agua que se mueve, el vapor y los destellos del reflejo. */
   private tina!: TinaView;
+  /** El agua que brilla del lago (historia, capítulo 3): solo con el paso de pescar la llave abierto. */
+  private aguaBrilla!: AguaBrillaView;
   /** Las luces de la bola de discoteca en la sala de fiestas de una casa (casaFiesta.ts). */
   private fiestaLuces!: FiestaLuces;
   /** La Noche de velitas: las velitas del jardín y los faroles de deseos que suben (velitasLayer.ts). */
@@ -557,6 +560,7 @@ export class OfficeScene extends Phaser.Scene {
       local: () => this.local ?? null,
       npc: (id) => this.npcs?.avatarOf(id) ?? null,
       tileSize: () => this.map.tileSize,
+      free: (tx, ty) => !isBlockedTile(this.map, tx, ty),
       followLocal: () => {
         if (this.local) this.cameras.main.startFollow(this.local.sprite, true, 0.15, 0.15);
       },
@@ -571,6 +575,7 @@ export class OfficeScene extends Phaser.Scene {
     this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.pool = new PoolView(this);
     this.tina = new TinaView(this);
+    this.aguaBrilla = new AguaBrillaView(this);
     this.fiestaLuces = new FiestaLuces(this);
     this.velitas = new VelitasLayer(this);
     this.aquariums = new Aquariums(this);
@@ -654,6 +659,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.pool.destroy(),
       () => this.tina.destroy(),
       () => this.velitas.destroy(),
+      () => this.aguaBrilla.destroy(),
       onPhotosChanged(() => {
         const watching = PhotoBoards.hasBoard(this.map) || useOfficeStore.getState().panel?.kind === "photos";
         usePhotoStore.getState().markStale(watching);
@@ -802,6 +808,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cinema.update(time);
     this.pool.update(time);
     this.tina.update(time);
+    this.aguaBrilla.update(time);
     this.fiestaLuces.update(time);
     this.velitas.update(time);
     this.escenario.update(time);
@@ -931,6 +938,7 @@ export class OfficeScene extends Phaser.Scene {
       this.questMarks.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     this.tina.setArea(map, useOfficeStore.getState().night);
+    this.aguaBrilla.setArea(map);
     this.fiestaLuces.setArea(map);
     this.velitas.setArea(map, this.view);
       this.createNameplates();
@@ -1014,6 +1022,7 @@ export class OfficeScene extends Phaser.Scene {
     this.cinema.setArea(map);
     this.pool.setArea(map, this.view, useOfficeStore.getState().weather, useOfficeStore.getState().night);
     this.tina.setArea(map, useOfficeStore.getState().night);
+    this.aguaBrilla.setArea(map);
     this.fiestaLuces.setArea(map);
     this.velitas.setArea(map, this.view);
     this.escenario.setArea(map);

@@ -110,6 +110,8 @@ export function handleFishEvent(e: FishingEvent) {
         if (e.catch.treasure) setTimeout(() => playFishSound("treasure"), 450);
         return;
       }
+      // Lo de la historia (la llavecita del capítulo 3) lo cuenta su cinemática.
+      if (e.outcome === "story") return;
       if (e.outcome === "escaped") playFishSound("escape");
       const text = OUTCOME_TEXT[e.outcome];
       if (text) office.notify(text, e.outcome === "invalid" ? "warning" : "info");

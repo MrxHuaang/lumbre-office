@@ -318,8 +318,11 @@ export interface FishCatchResult {
   masteryUp?: number;
 }
 
-/** `stolen`: respondió a un mordisqueo y el pez se llevó la carnada (sin carnada es `early`). */
-export type FishOutcome = "caught" | "escaped" | "missed" | "early" | "stolen" | "cancelled" | "invalid" | "timeout";
+/**
+ * `stolen`: respondió a un mordisqueo y el pez se llevó la carnada (sin carnada es `early`). `story`: lo que
+ * picó era de la historia (la llavecita del capítulo 3): sale sin minijuego y lo cuenta su cinemática.
+ */
+export type FishOutcome = "caught" | "escaped" | "missed" | "early" | "stolen" | "cancelled" | "invalid" | "timeout" | "story";
 export type FishRefusal = "far" | "busy" | "seated";
 
 /** La maestría de la caña con que se lanzó: nivel y cuántos peces faltan para el siguiente (null = el máximo). */
