@@ -122,6 +122,11 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // La Noche de brujas: el puesto del caldero (dulces y el sombrero) y la calabaza dorada del laberinto.
   | "brujasShop"
   | "goldenPumpkin"
+  // La Feria de las flores: la mesa del silletero (armar la silleta), el puesto de las semillas y los
+  // exhibidores del patio (exhibir la silleta y votar).
+  | "feriaTable"
+  | "feriaShop"
+  | "silletaStand"
   // El Carnaval: el puesto de máscaras, maicena y serpentinas, y el palco del concurso de disfraces.
   | "carnavalShop"
   | "carnavalConcurso";

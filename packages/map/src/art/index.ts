@@ -60,6 +60,7 @@ export {
 } from "./fauna";
 // Jardín vivo: lo que crece en las parcelas del huerto y la tierra mojada.
 export { bedCropSprite, cropSprite, wetSoil, type CropStage } from "./huerto";
+export { silletaOnStand } from "./feria-flores";
 // La granja: los animales, la rueda del molino que gira, los huevos del nido y las nubecitas.
 export { coopEggs, cornGrain, drawGoat, drawHen, FARM_POSE_FRAMES, GOAT_FRAME, HEN_FRAME, MILL_WHEEL_FRAMES, millWheel, puffBall, type FarmArtPose } from "./granja";
 // Logros: las insignias del perfil y el destello al desbloquear uno.

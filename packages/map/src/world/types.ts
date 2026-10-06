@@ -267,6 +267,11 @@ export interface PointDef {
     // calabaza dorada del laberinto (cambia de rincón cada día).
     | "festival_shop"
     | "golden_pumpkin"
+    // La Feria de las flores: la mesa del silletero (armar la silleta), el puesto de las semillas y,
+    // delante de cada exhibidor, donde se exhibe y se vota.
+    | "silletero_table"
+    | "feria_shop"
+    | "silleta_stand"
     // El Carnaval: el palco de la tarima (el concurso de disfraces).
     | "carnaval_contest";
   name: string;

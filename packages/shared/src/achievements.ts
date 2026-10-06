@@ -161,6 +161,9 @@ export const STAT_KEYS = {
   // pidiendo dulce o truco.
   goldenPumpkins: "golden_pumpkins",
   trickOrTreats: "trick_or_treats",
+  // La Feria de las flores (feria-flores.ts): silletas armadas y ferias ganadas con la más votada.
+  silletasBuilt: "silletas_built",
+  silleteroOro: "silletero_oro",
   // El Carnaval (carnaval.ts): desfiles bailados en la comparsa y concursos de disfraces ganados.
   comparsaParades: "comparsa_parades",
   carnavalCrowns: "carnaval_crowns",
@@ -286,6 +289,7 @@ export const BADGE_ICONS = [
   "telescope",
   "marshmallow",
   "pumpkin",
+  "silleta",
   "mask",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
@@ -469,6 +473,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // La Noche de brujas
     a("calabaza-dorada", "Calabaza dorada", "pumpkin", "epico", STAT_KEYS.goldenPumpkins, 1, "Encuentra la calabaza dorada del laberinto de maíz en la Noche de brujas", "Entre tanto maíz, la única que brillaba era la tuya."),
     a("dulce-o-truco", "Dulce o truco", "pumpkin", "raro", STAT_KEYS.trickOrTreats, 10, "Recibe 10 dulces pidiendo dulce o truco", "La canasta ya no cierra y todavía quedan puertas."),
+    // La Feria de las flores
+    a("silletero", "Silletero", "silleta", "comun", STAT_KEYS.silletasBuilt, 1, "Arma una silleta en la mesa del silletero de la Feria de las flores", "Flor por flor, como en Santa Elena."),
+    a("silletero-de-oro", "Silletero de oro", "silleta", "epico", STAT_KEYS.silleteroOro, 1, "Gana la votación de silletas de la Feria de las flores", "Todo el equipo votó por tu silleta. Hasta Doña Aurora aplaudió."),
     // El Carnaval de Negros y Blancos
     a("comparsero", "Comparsero", "mask", "raro", STAT_KEYS.comparsaParades, 3, "Baila 3 desfiles del Carnaval en la comparsa de la cabaña", "Detrás del Megabús de la alegría ya te conocen el paso."),
     a("rey-del-carnaval", "Rey o reina del Carnaval", "mask", "epico", STAT_KEYS.carnavalCrowns, 1, "Gana el concurso de disfraces del Carnaval", "Toda la cabaña votó por tu pinta."),

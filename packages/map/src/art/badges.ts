@@ -88,6 +88,8 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   // El antifaz del Carnaval: mitad blanco, mitad negro, con ribete dorado y la pluma.
   mask: [".......rr", "......rr.", "yyyyyyyy.", "yxxxyddy.", "yxkxydky.", "yxxxyddy.", ".yxxydy..", "..yyyy..."],
   pumpkin: ["....nn...", "...ng....", ".yYyYyYy.", "yYyYyYyYy", "yYkYyYkYy", "yYyYyYyYy", "yYkkkkkYy", ".yYyYyYy."],
+  // Feria de las flores: la silleta, el marco de madera cuajado de flores con su copete.
+  silleta: [".g.r.y.v.", "nnnnnnnnn", "nrryyvvbn", "nrryyvvbn", "nopprrygn", "nopprrygn", "nnnnnnnnn", ".n.....n.", ".n.....n."],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],
 };
 

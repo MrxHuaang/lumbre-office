@@ -105,6 +105,9 @@ const PROMPT: Record<Interactable, string> = {
   encargo: "Hablar del encargo",
   brujasShop: "Comprar en el puesto del caldero",
   goldenPumpkin: "Tomar la calabaza dorada",
+  feriaTable: "Armar una silleta",
+  feriaShop: "Comprar semillas de flores",
+  silletaStand: "Ver la silleta y votar",
   carnavalShop: "Comprar en el puesto del carnaval",
   carnavalConcurso: "Ver el concurso de disfraces",
 };

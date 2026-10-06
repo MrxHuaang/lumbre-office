@@ -226,7 +226,7 @@ export const FESTIVAL_MSG = {
 
 export interface FestivalCineEvent {
   id: string;
-  /** Lo que llena las `{variables}` de la cinemática (el nombre de quien ganó el concurso, los puntos…). */
+  /** Lo que llena las `{variables}` de los textos (quién ganó la feria o el concurso, con cuántos votos…). */
   vars?: Record<string, string | number>;
 }
 

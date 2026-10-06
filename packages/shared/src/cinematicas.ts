@@ -15,6 +15,7 @@ import { BRUJAS_CINEMATICAS } from "./noche-brujas";
 import { CARNAVAL_CINEMATICAS } from "./carnaval";
 import { CAPITULO2_CINEMATICAS } from "./capitulo2";
 import { CAPITULO3_CINEMATICAS } from "./capitulo3";
+import { FERIA_CINEMATICAS } from "./feria-flores";
 import { NOVENA_CINEMATICAS } from "./novenas";
 
 /** Quién hace algo: el jugador ("yo"), un NPC fijo (por su id) o un actor que la cinemática pone (`extra`). */
@@ -74,8 +75,11 @@ export type CineStep =
   | { op: "gesture"; who: CineActor; kind: EmoteGesture }
   /** Algo que el actor hace en el sitio: girar, saltar, bailar, celebrar… */
   | { op: "act"; who: CineActor; action: CineAction }
-  /** Pone un actor (con la pinta de un NPC) en un lugar, y lo quita. */
-  | { op: "spawn"; id: string; like: (typeof CINE_NPCS)[number]; name?: string; at: CinePos; facing?: Direction }
+  /**
+   * Pone un actor (con la pinta de un NPC) en un lugar, y lo quita. `holds`: lo que lleva en la mano (un
+   * id de los dibujos de la mano, como la silleta de los silleteros; acepta `{variables}`).
+   */
+  | { op: "spawn"; id: string; like: (typeof CINE_NPCS)[number]; name?: string; at: CinePos; facing?: Direction; holds?: string }
   | { op: "despawn"; id: string }
   | { op: "sound"; sound: CineSound }
   | { op: "fx"; fx: CineFx; who?: CineActor }
@@ -309,8 +313,9 @@ export const CINEMATICAS: Record<string, CineDef> = {
 };
 
 // Las de los festivales (apertura, cierre y llegada tarde) viven con los festivales; las de la Noche de
-// brujas (la calabaza dorada y los trucos), con sus reglas.
-for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS, ...CARNAVAL_CINEMATICAS]) CINEMATICAS[def.id] = def;
+// brujas (la calabaza dorada y los trucos), las de la Feria de las flores (el desfile, la premiación) y
+// las del Carnaval, con sus reglas.
+for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS, ...FERIA_CINEMATICAS, ...CARNAVAL_CINEMATICAS]) CINEMATICAS[def.id] = def;
 // Las de los capítulos de la historia, con su contenido.
 for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATICAS[def.id] = def;
 // Las de las novenas (la figura del pesebre y cada noche de la novena).

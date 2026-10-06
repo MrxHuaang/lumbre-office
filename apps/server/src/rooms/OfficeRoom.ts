@@ -235,6 +235,9 @@ import { Toasts, type Toaster } from "./toasts";
 import { devToolsEnabled, parseCasaJump, parseDevFestival, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
 import { Festivales } from "./festivales";
 import { NocheBrujas } from "./nocheBrujas";
+import { FeriaFlores } from "./feriaFlores";
+import { SilletaExhibitState } from "../state";
+import { FERIA, FERIA_CINE, FERIA_MSG, silletaName, type BuildResult, type ExhibitResult, type FeriaBuyResult, type FeriaMine, type VoteResult } from "@hyvento/shared";
 import { Carnaval } from "./carnaval";
 import { DESFILE_TIMING, type DesfileTiming } from "@hyvento/map";
 import { CARNAVAL_MSG, type CarnavalBuyResult, type ConcursoResult, type JoinResult, type LanzarResult } from "@hyvento/shared";
@@ -457,6 +460,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
    * (test/setup.ts: el reloj real puede caer en el festival y cambiarles la mano); noche-brujas.test.ts lo prende.
    */
   static brujasCanasta = true;
+  /** La Feria de las flores: el reloj de la pausa y cuánto espera la premiación tras el cierre (los tests los fijan). */
+  static feriaNow: () => number = () => Date.now();
+  static feriaPremiacionMs: number = FERIA.premiacionDelayMs;
   /** El Carnaval: el reloj (pausas, el talco y el desfile) y el paso del desfile (los tests los acortan). */
   static carnavalNow: () => number = () => Date.now();
   static carnavalTiming: DesfileTiming = { ...DESFILE_TIMING };
@@ -735,6 +741,38 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     repo: () => this.repo,
     now: () => OfficeRoom.brujasNow(),
     random: (n) => OfficeRoom.brujasRandom(n),
+  });
+  /** La Feria de las flores: armar, exhibir y votar silletas, el puesto, el desfile y la premiación (ver feriaFlores.ts). */
+  private feria = new FeriaFlores<SilletaExhibitState>({
+    festival: () => {
+      const t = this.gameTimeNow();
+      return { id: this.state.festival, fase: this.state.festivalFase, day: t.day, año: fechaDelJuego(t.day).año, minute: t.minuteOfDay };
+    },
+    mapOf: (area) => this.mapOf(area),
+    exhibits: () => this.state.feria.exhibits,
+    winner: () => this.state.feria,
+    create: () => new SilletaExhibitState(),
+    held: this.held,
+    stats: {
+      stat: (u, k) => this.achievements.stat(u, k),
+      max: (u, k, v) => this.achievements.max(u, k, v),
+      bump: (u, k, by) => this.achievements.bump(u, k, by),
+      isLoaded: (u) => this.achievements.isLoaded(u),
+    },
+    repo: () => this.repo,
+    online: (userId) => Boolean(this.clientOfUser(userId)),
+    cine: (id, vars, area) => {
+      for (const c of this.clients) if (!area || this.state.players.get(c.sessionId)?.area === area) c.send(FESTIVAL_MSG.cine, { id, vars } satisfies FestivalCineEvent);
+    },
+    desfileAviso: (exceptArea) => {
+      for (const c of this.clients) if (this.state.players.get(c.sessionId)?.area !== exceptArea) c.send(FERIA_MSG.desfile, {});
+    },
+    paid: (userId, awarded, balance) => {
+      for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+      if (awarded > 0) this.clientOfUser(userId)?.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded);
+    },
+    now: () => OfficeRoom.feriaNow(),
+    premiacionDelayMs: () => OfficeRoom.feriaPremiacionMs,
   });
   /** El Carnaval: el desfile por la calle del Megabús, la comparsa, el talco, el concurso y el puesto (ver carnaval.ts). */
   private carnaval = new Carnaval({
@@ -1077,8 +1115,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
         fill: (userId) => this.held.fill(userId),
       },
       bag: {
-        fits: (userId, itemId) => this.held.fits(userId, [[itemId, 1]]),
-        add: (userId, itemId) => this.held.add(userId, itemId, 1, { pick: true }),
+        fits: (userId, itemId, n = 1) => this.held.fits(userId, [[itemId, n]]),
+        add: (userId, itemId, n = 1) => this.held.add(userId, itemId, n, { pick: true }),
       },
       award: (userId, amount) => this.awardLeisure(userId, amount),
       season: () => this.gameSeason(),
@@ -1144,6 +1182,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BRUJAS_MSG.trick, (client, raw) => void this.handleBrujasTrick(client, raw));
     this.onMessage(BRUJAS_MSG.pumpkin, (client) => void this.handleBrujasPumpkin(client));
     this.onMessage(BRUJAS_MSG.buy, (client, raw) => void this.handleBrujasBuy(client, raw));
+    this.bindFeria();
     this.onMessage(CARNAVAL_MSG.join, (client) => this.carnavalReply(client, CARNAVAL_MSG.joinResult, this.carnaval.join(client.sessionId)));
     this.onMessage(CARNAVAL_MSG.leave, (client) => this.carnavalReply(client, CARNAVAL_MSG.joinResult, this.carnaval.leave(client.sessionId)));
     this.onMessage(CARNAVAL_MSG.lanzar, (client, raw) => void this.handleCarnavalLanzar(client, raw));
@@ -1306,6 +1345,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.festivales.tick();
       this.novenas.tick();
       this.syncFestival();
+      this.feria.tick();
     }, 2_000);
     // El Carnaval: la hora del desfile y la comparsa que va por la calle (seguido, para que se mueva suave).
     this.clock.setInterval(() => this.carnaval.tick(), 100);
@@ -1497,6 +1537,9 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }
     // En plena Noche de brujas, la canasta de dulce o truco a quien no la tiene.
     if (OfficeRoom.brujasCanasta) await this.brujas.giveBasket(auth.sub).catch(() => false);
+    // La Feria de las flores: si ganó estando afuera, su logro; y si ya votó.
+    this.feria.joined(auth.sub);
+    client.send(FERIA_MSG.mine, this.feria.mine(auth.sub) satisfies FeriaMine);
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
     player.heldLeft = held ? formatHeldLeft(held.left) : "";
@@ -2215,6 +2258,44 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.bump(player.userId, `${STAT_PREFIX.order}${result.item}`);
     }
     client.send(BRUJAS_MSG.buyResult, result satisfies BrujasBuyResult);
+  }
+
+  /** La Feria de las flores (ver feriaFlores.ts): armar, exhibir, votar y el puesto de las semillas. */
+  private bindFeria() {
+    const who = (client: Client<UserData>) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || this.drunk.fainted(player.userId)) return null;
+      this.markActive(client);
+      return player;
+    };
+    this.onMessage(FERIA_MSG.build, async (client, raw) => {
+      const player = who(client);
+      const result = player && (await this.feria.build(player, raw));
+      if (!result) return;
+      client.send(FERIA_MSG.buildResult, result satisfies BuildResult);
+      if (result.ok) client.send(FESTIVAL_MSG.cine, { id: FERIA_CINE.armada, vars: { nombre: silletaName(result.code) } } satisfies FestivalCineEvent);
+    });
+    this.onMessage(FERIA_MSG.exhibit, (client, raw) => {
+      const player = who(client);
+      const result = player && this.feria.exhibit(player, raw);
+      if (result) client.send(FERIA_MSG.exhibitResult, result satisfies ExhibitResult);
+    });
+    this.onMessage(FERIA_MSG.vote, (client, raw) => {
+      const player = who(client);
+      const result = player && this.feria.vote(player, raw);
+      if (!result || !player) return;
+      client.send(FERIA_MSG.voteResult, result satisfies VoteResult);
+      client.send(FERIA_MSG.mine, this.feria.mine(player.userId) satisfies FeriaMine);
+    });
+    this.onMessage(FERIA_MSG.buy, async (client, raw) => {
+      const player = who(client);
+      if (!player) return;
+      const near = nearPointOfType(this.mapOf(player.area), "feria_shop", player.x, player.y);
+      const result = await this.feria.buy(player.userId, raw, near);
+      if (!result) return;
+      if (result.ok) for (const p of this.state.players.values()) if (p.userId === player.userId) p.points = result.balance;
+      client.send(FERIA_MSG.buyResult, result satisfies FeriaBuyResult);
+    });
   }
 
   private handleKnockRespond(client: Client<UserData>, raw: unknown) {
@@ -4401,6 +4482,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.capitulo3.forget(player.userId);
     this.pesca.forget(player.userId);
     this.brujas.forget(player.userId);
+    this.feria.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);

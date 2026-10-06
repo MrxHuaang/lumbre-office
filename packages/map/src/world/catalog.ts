@@ -20,6 +20,7 @@ import { CASA_PROPIA_CATALOG } from "./catalog-casa-propia";
 import { BRUJAS_CATALOG } from "./catalog-brujas";
 import { CARNAVAL_CATALOG } from "./catalog-carnaval";
 import { VELITAS_CATALOG } from "./catalog-velitas";
+import { FERIA_CATALOG } from "./catalog-feria-flores";
 import { NOVENAS_CATALOG } from "./catalog-novenas";
 import type { Facing } from "./types";
 
@@ -213,6 +214,7 @@ export const CATALOG = {
   ...BRUJAS_CATALOG,
   ...CARNAVAL_CATALOG,
   ...VELITAS_CATALOG,
+  ...FERIA_CATALOG,
   ...NOVENAS_CATALOG,
 } satisfies Record<string, CatalogItem>;
 
