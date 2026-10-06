@@ -27,8 +27,8 @@ export const CARROZAS_ARTE: Record<CarrozaId, () => CarrozaArte> = {
   paramo,
   minga,
   tinto,
-  juglar,
   megabus,
+  juglar,
 };
 
 const cache = new Map<string, CarrozaArte>();

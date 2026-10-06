@@ -95,8 +95,8 @@ export const CARNAVAL_MSG = {
 
 // ---------- Las carrozas y sus comparsas ----------
 
-/** Las carrozas, en el orden del desfile (el Megabús siempre al final). */
-export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "juglar", "megabus"] as const;
+/** Las diez carrozas, en el orden del desfile (el del plan). */
+export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus", "juglar"] as const;
 export type CarrozaId = (typeof CARROZA_IDS)[number];
 
 /** Quién hace un paso de la coreografía: un bailarín (`b0`…), todos, o los pares o impares. */
@@ -407,6 +407,17 @@ export const COMPARSAS: readonly Comparsa[] = [
     ],
   },
   {
+    id: "megabus",
+    nombre: "El Megabús de la alegría",
+    grupo: "Comparsa de la cabaña",
+    acento: "#a6d23a",
+    largo: 9,
+    pieza: "son-vereda",
+    // Dos de la murga van delante de la gente de la cabaña, marcando el paso.
+    bailarines: CUADRILLA.slice(0, 8).map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
+    frase: [todos("bailar"), todos("girar"), todos("saltar"), todos("celebrar")],
+  },
+  {
     id: "juglar",
     nombre: "El Juglar del acordeón",
     grupo: "Banda Juglares de la Vereda",
@@ -418,17 +429,6 @@ export const COMPARSAS: readonly Comparsa[] = [
     bailarines: CUADRILLA.map((i) => comparsero(i, "#2a52d0", { outfit: "vest", head: i % 2 ? "party-hat" : "sailor-hat", ...(i % 3 === 0 ? { pattern: "stripes" as const } : {}) })),
     // Marchan como banda: saludan, la ola de saltos de la carroza hacia atrás, giran por parejas y aplauden.
     frase: [todos("saludar"), ola(12, "saltar", 140), { op: "together", steps: [{ op: "act", who: "pares", action: "girar" }, { op: "act", who: "impares", action: "bailar" }] }, todos("bailar"), todos("celebrar")],
-  },
-  {
-    id: "megabus",
-    nombre: "El Megabús de la alegría",
-    grupo: "Comparsa de la cabaña",
-    acento: "#a6d23a",
-    largo: 9,
-    pieza: "son-vereda",
-    // Dos de la murga van delante de la gente de la cabaña, marcando el paso.
-    bailarines: CUADRILLA.slice(0, 8).map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
-    frase: [todos("bailar"), todos("girar"), todos("saltar"), todos("celebrar")],
   },
 ];
 
@@ -529,8 +529,8 @@ export const DESFILE_ORDEN: readonly DesfileItem[] = [
   { tipo: "murga", id: "murga-tambores" },
   { tipo: "carroza", id: "tinto" },
   { tipo: "disfraces", id: "tradicion" },
-  { tipo: "carroza", id: "juglar" },
   { tipo: "carroza", id: "megabus" },
+  { tipo: "carroza", id: "juglar" },
 ];
 
 /** Los músicos de una murga del desfile (o ninguno). */
@@ -557,8 +557,8 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   paramo: "El Páramo, de donde nace el agua. ¡Cuidadito con pisar los frailejones!",
   minga: "¡La Minga! Papa, maíz, quinua y guaguas de pan: lo que da la tierra se comparte.",
   tinto: "Un tinto de Doña Aurora pa'l frío. ¡Achichay!",
-  juglar: "¡El Juglar del acordeón! Ese perro sabe más de música que yo.",
   megabus: "¡Y cierra el Megabús de la alegría! Detrás va la gente de la casa.",
+  juglar: "¡El Juglar del acordeón! Ese perro sabe más de música que yo.",
 };
 
 // ---------- La coreografía en el tiempo ----------
