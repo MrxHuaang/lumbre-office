@@ -1,4 +1,4 @@
-// La Feria de las flores jugable (VIR-161, docs/plan-festivales.md): el festival del día 15 de la primavera.
+// La Feria de las flores jugable (VIR-161, docs/planes/plan-festivales.md): el festival del día 15 de la primavera.
 // Las flores se siembran en el huerto (clavel, astromelia, girasol y hortensia en `CROPS`, con semillas que
 // solo vende el puesto de la feria), se arma la silleta en la mesa del silletero (el código va en el id del
 // objeto: silleta.ts), se exhibe en el patio de la feria y se vota; al cierre gana la más votada. A las

@@ -5,7 +5,7 @@ import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Planta baja: lo social y lo comercial ----------
-// Ver docs/plan-rediseno.md. Se entra por la puerta del recibidor, en la fachada sur (detrás del porche).
+// Ver docs/planes/plan-rediseno.md. Se entra por la puerta del recibidor, en la fachada sur (detrás del porche).
 // Del recibidor salen el pasillo principal (y 11..13, de oeste a este) y las escaleras, que quedan contra
 // su pared norte (una sobre otra en todos los pisos). El recibidor es angosto (lo justo para las escaleras,
 // la puerta y un respiro) para que la tienda, los probadores y la cafetería tengan espacio. Cada sala se

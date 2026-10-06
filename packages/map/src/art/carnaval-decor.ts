@@ -6,7 +6,7 @@
 // de la murga, muñecos de papel maché, globos, guirnaldas y confeti. Las carrozas no están aquí
 // (art/carnaval.ts).
 //
-// Pixel art pintado a mano (docs/estandar-arte.md): las piezas chicas (máscaras, banderines, faroles,
+// Pixel art pintado a mano (docs/arte/estandar-arte.md): las piezas chicas (máscaras, banderines, faroles,
 // globos, comida, el muñeco y el cuy) son grillas de letras que reciben la luz de arriba a la izquierda y un
 // contorno cálido del material de al lado; lo grande (mostradores, tarimas, arcos, toldos) son caras
 // isométricas pintadas píxel a píxel (tablas con veta, telas plisadas, franjas, festones), con la luz arriba,

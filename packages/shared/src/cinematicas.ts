@@ -1,7 +1,7 @@
 // Las cinemáticas: secuencias de pasos que el navegador reproduce encima de la escena (franjas de cine,
 // fundidos, la cámara que se mueve, actores que caminan, miran, hacen emotes y hablan en un cuadro con su
 // retrato, títulos grandes, sonidos y destellos, y opciones al final). Son datos, como los encargos: aquí
-// solo se describen y se validan; las reproduce `game/cinematicas` (docs/plan-historia.md, VIR-155).
+// solo se describen y se validan; las reproduce `game/cinematicas` (docs/planes/plan-historia.md, VIR-155).
 //
 // Hay dos tipos:
 // - `historia`: toman la pantalla (franjas, no se camina) y esperan a que se lea cada línea;

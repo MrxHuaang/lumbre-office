@@ -12,7 +12,7 @@ import { PUESTO_PESCA, PUESTO_PESCA_MUEBLES, PUESTO_PESCA_PUNTO } from "./puesto
 
 // ---------- Jardín ----------
 // Una zona jugable de 132x122 con un margen de bosque de 10 tiles alrededor que se dibuja pero no se
-// pisa (ver docs/plan-rediseno.md). Todo lo de abajo está en coordenadas de la zona jugable (0..131,
+// pisa (ver docs/planes/plan-rediseno.md). Todo lo de abajo está en coordenadas de la zona jugable (0..131,
 // 0..121) y se corre en M al ubicarlo en el nivel. Se lee de adentro hacia afuera: lo de la casa junto
 // (la cabaña, el garaje, el huerto, el gallinero, el patio, la parrilla y la piscina), el ocio al aire
 // libre más allá (la fogata, la glorieta, la casa del árbol, el lago grande con su muelle) y lo de
@@ -91,7 +91,7 @@ const POOL_BOX = { x0: POOL.x, y0: POOL.y, x1: POOL.x + POOL_SIZE[0], y1: POOL.y
 /** El trampolín, en el borde oeste de la pileta mirando hacia el agua. */
 const BOARD = { x: POOL.x + POOL_BASIN.x - 1, y: POOL.y + POOL_BASIN.y + Math.floor(POOL_BASIN.d / 2) };
 /**
- * La granja (docs/plan-estructuras.md, 4, 5 y 9). La parrilla con el horno de barro va en el rincón de
+ * La granja (docs/planes/plan-estructuras.md, 4, 5 y 9). La parrilla con el horno de barro va en el rincón de
  * rocas al sur del patio (con su propio sendero), sobre un piso de piedra; el gallinero, al oeste, contra
  * la cerca (detrás no queda nadie), con su patio de tierra y el corral de la cabra al lado, y el molino,
  * lejos, sobre un arroyo angosto que entra del bosque por el este y baja al lago.

@@ -1,4 +1,4 @@
-// El Megabús por dentro dibujado a mano (docs/estandar-arte.md): la barra con timbre, la cabina del
+// El Megabús por dentro dibujado a mano (docs/arte/estandar-arte.md): la barra con timbre, la cabina del
 // conductor y el plato del fuelle, en grillas de letras. Leyenda común: los dígitos 0..6 son el verde lima
 // de la carrocería; a..e el caucho negro; g..l el gris del metal y del fuelle; V..Z el amarillo de las
 // barras; P..T el vidrio polarizado (p, q, r, t, el mismo vidrio dejando ver detrás); A..F el rojo del

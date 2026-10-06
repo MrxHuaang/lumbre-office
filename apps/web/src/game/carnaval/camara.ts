@@ -1,4 +1,4 @@
-// La cámara de quien baila en la comparsa de la cabaña (docs/plan-carnaval.md): con 3 o más de la cabaña
+// La cámara de quien baila en la comparsa de la cabaña (docs/planes/plan-carnaval.md): con 3 o más de la cabaña
 // bailando, se acerca un paso para que se vea la fiesta de cerca; al salirse (o si quedan menos) vuelve
 // a donde estaba. No pelea con la rueda: si alguien cambia el zoom mientras tanto, se respeta.
 import type * as Phaser from "phaser";

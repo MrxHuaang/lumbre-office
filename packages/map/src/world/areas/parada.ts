@@ -1,4 +1,4 @@
-// La parada del bus del jardín (docs/plan-estructuras.md, estructura 8), en tiles del NIVEL (la zona
+// La parada del bus del jardín (docs/planes/plan-estructuras.md, estructura 8), en tiles del NIVEL (la zona
 // jugable del jardín empieza en el margen M = 10). Afuera del portón de la cerca baja el sendero largo de
 // la entrada hasta la vereda y sigue por ella hacia el este hasta la "Estación Hyvento" (una plataforma de
 // vidrio estilo Megabús), lejos del portón. Detrás pasa la calle de este a oeste,

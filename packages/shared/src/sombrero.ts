@@ -54,7 +54,7 @@ export interface Hideout {
 
 /**
  * Sus escondites: rincones poco transitados pero alcanzables. Cada día del juego elige uno distinto al del
- * día anterior. En el jardín solo donde no van las estructuras nuevas (ver docs/plan-estructuras.md).
+ * día anterior. En el jardín solo donde no van las estructuras nuevas (ver docs/planes/plan-estructuras.md).
  */
 export const SOMBRERO_HIDEOUTS: readonly Hideout[] = [
   // Jardín (zona jugable + 10): detrás del huerto contra el bosque del noroeste.

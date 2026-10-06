@@ -1,4 +1,4 @@
-// Los detalles del jardín dibujados a mano (docs/estandar-arte.md): hongos, piedras, nenúfares, el tocón,
+// Los detalles del jardín dibujados a mano (docs/arte/estandar-arte.md): hongos, piedras, nenúfares, el tocón,
 // la cerca de palos de la granja y los faroles, en grillas de letras. Leyenda común: a..f la piedra (de
 // oscura a clara), los dígitos la madera y la corteza, g..j y G el musgo y las hojas, M..q el hierro
 // cálido de los faroles (Q su brillo), y..Y..z el vidrio ámbar, `o` el contorno y `s` la sombra en el

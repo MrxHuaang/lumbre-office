@@ -1,6 +1,6 @@
 # Auditoría del arte (VIR-177)
 
-Cada pieza del juego medida contra `docs/estandar-arte.md`. Se hizo mirando las **hojas de contacto** (`pnpm --filter @hyvento/map hoja <carpeta> [filtro] [escala]`: cada mueble de frente, de espaldas y de noche si tiene, sobre el rombo de su lugar y con un chibi al lado; los objetos de mano aumentados y a tamaño real) y los niveles enteros (`render`). La hoja deja también `metricas.json` con cuántas veces sale cada pieza en el mundo (contando la decoración de los festivales), cuántos colores tiene y cuánto llena su lugar.
+Cada pieza del juego medida contra `docs/arte/estandar-arte.md`. Se hizo mirando las **hojas de contacto** (`pnpm --filter @hyvento/map hoja <carpeta> [filtro] [escala]`: cada mueble de frente, de espaldas y de noche si tiene, sobre el rombo de su lugar y con un chibi al lado; los objetos de mano aumentados y a tamaño real) y los niveles enteros (`render`). La hoja deja también `metricas.json` con cuántas veces sale cada pieza en el mundo (contando la decoración de los festivales), cuántos colores tiene y cuánto llena su lugar.
 
 ## Resumen
 

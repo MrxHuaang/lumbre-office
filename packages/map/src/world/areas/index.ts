@@ -1,4 +1,4 @@
-// Los niveles de la cabaña, uno por archivo. Ver docs/plan-rediseno.md para qué hace cada sala.
+// Los niveles de la cabaña, uno por archivo. Ver docs/planes/plan-rediseno.md para qué hace cada sala.
 import type { AreaDef } from "../types";
 import { jardin } from "./jardin";
 

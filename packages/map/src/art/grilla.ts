@@ -1,4 +1,4 @@
-// Pixel art dibujado a mano (docs/estandar-arte.md): cada pieza es una grilla de letras, una por píxel, con
+// Pixel art dibujado a mano (docs/arte/estandar-arte.md): cada pieza es una grilla de letras, una por píxel, con
 // su leyenda de colores. Nada de primitivas: la silueta, cada tono, cada brillo y el contorno se eligen a
 // propósito. Los tonos de un material van con dígitos (0 el más oscuro, 5 el más claro), así una misma
 // grilla sirve con otra rampa (un roble verde y uno oliva).

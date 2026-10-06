@@ -8,7 +8,7 @@ import { casaArriba } from "./casa-propia-arriba";
 import { CASA_CONEXIONES } from "./casa-propia-conexiones";
 
 // ---------- La casa de cada persona: afuera ----------
-// Ver docs/plan-casas.md. Una sola plantilla para todos y una instancia por persona: servidor y cliente la
+// Ver docs/planes/plan-casas.md. Una sola plantilla para todos y una instancia por persona: servidor y cliente la
 // arman con `casaPropiaDefs(userId)` (no va en AREAS). Afuera, de sur a norte: el camino de tierra por
 // donde llega el Megabús (sale del bosque y se pierde en él, fuera de lo que se camina), la vereda con el
 // refugio de la parada "Casa" y el buzón, la cerca con el portón, el antejardín con el sendero de piedra

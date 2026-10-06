@@ -529,7 +529,7 @@ export class BusState extends Schema {
 }
 
 /**
- * La casa de alguien (docs/plan-casas.md, VIR-81/82): quién entra (`modo`) y a quiénes dejó pasar. Se arma
+ * La casa de alguien (docs/planes/plan-casas.md, VIR-81/82): quién entra (`modo`) y a quiénes dejó pasar. Se arma
  * la primera vez que el dueño entra a su casa o la abre; vive en la sala (no se guarda en la base).
  */
 export class CasaState extends Schema {

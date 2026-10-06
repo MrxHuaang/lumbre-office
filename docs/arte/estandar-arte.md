@@ -17,7 +17,7 @@ Todo lo que se dibuja en el juego (muebles, decoración, objetos, personajes, ca
 
 Indicación del dueño para todo el arte: **pixel art dibujado a mano y detallado**.
 
-- **Nada de componer con primitivas.** No se arma un dibujo juntando círculos, elipses, esferas, cajas, conos ni cilindros, ni con un "escultor 3D" que salpica superficies (`renderSprite` con cajas, `Escena`, `blob`, `canopy`). Eso da formas genéricas, bordes de compás y luz de calculadora. Lo que ya está hecho así se va cambiando a mano en las tandas de mejora (ver `docs/auditoria-arte.md`).
+- **Nada de componer con primitivas.** No se arma un dibujo juntando círculos, elipses, esferas, cajas, conos ni cilindros, ni con un "escultor 3D" que salpica superficies (`renderSprite` con cajas, `Escena`, `blob`, `canopy`). Eso da formas genéricas, bordes de compás y luz de calculadora. Lo que ya está hecho así se va cambiando a mano en las tandas de mejora (ver `docs/arte/auditoria-arte.md`).
 - **Grillas de letras.** Cada pieza se dibuja como filas de letras, píxel por píxel, con una leyenda de colores (como los objetos de `art/items.ts` o `art/grilla.ts`): la silueta, cada tono y cada brillo se eligen a propósito.
 - **Trazos con intención.** Si algo se dibuja con código (una veta, una cuerda, un borde que se repite), cada trazo se pone donde va, no sale de un ruido al azar ni de una fórmula que nadie mira.
 - **El volumen se pinta.** Luz de arriba a la izquierda: el lado iluminado con su tono claro y un brillo, el lado en sombra con el oscuro, la sombra en el piso, y un contorno cálido del color del material (su tono más oscuro tirado al café `OUT`), nunca negro.
@@ -28,7 +28,7 @@ Indicación del dueño para todo el arte: **pixel art dibujado a mano y detallad
 
 ## Cómo se revisa
 
-- Antes de abrir un PR con arte, se dibuja una **hoja PNG** con cada pieza a escala del juego, junto a un chibi para comparar, de día (y de noche si aplica), y se mira con calma: `pnpm --filter @hyvento/map hoja <carpeta> [filtro] [escala]` (por ejemplo `hoja /tmp/hojas oak,pine 4`; `objetos` son los de mano). Pone cada mueble sobre el rombo de su lugar, con un chibi al lado, y deja `metricas.json` con cuántas veces sale en el mundo, sus colores y cuánto llena su lugar. La auditoría de todo, por impacto, está en `docs/auditoria-arte.md`.
+- Antes de abrir un PR con arte, se dibuja una **hoja PNG** con cada pieza a escala del juego, junto a un chibi para comparar, de día (y de noche si aplica), y se mira con calma: `pnpm --filter @hyvento/map hoja <carpeta> [filtro] [escala]` (por ejemplo `hoja /tmp/hojas oak,pine 4`; `objetos` son los de mano). Pone cada mueble sobre el rombo de su lugar, con un chibi al lado, y deja `metricas.json` con cuántas veces sale en el mundo, sus colores y cuánto llena su lugar. La auditoría de todo, por impacto, está en `docs/arte/auditoria-arte.md`.
 - Para ver la pieza en su sitio, el nivel entero: `pnpm --filter @hyvento/map render <nivel> salida.png`.
 - Se compara con lo mejor que ya tiene el juego (la casa, el observatorio, la tina, el garaje): lo nuevo no puede verse peor.
 - Si una pieza se ve plana, chica, con pocos colores o no se entiende, se rehace antes del PR.

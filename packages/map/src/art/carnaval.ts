@@ -1,4 +1,4 @@
-// El Carnaval de Negros y Blancos por código (docs/plan-carnaval.md): la bandera del abanderado y el talco.
+// El Carnaval de Negros y Blancos por código (docs/planes/plan-carnaval.md): la bandera del abanderado y el talco.
 // La decoración de la vereda está en carnaval-decor.ts y las carrozas del desfile en ./carrozas (VIR-173).
 // Coordenadas locales de arte (tile = 16).
 import { Escena } from "./exterior-escena";

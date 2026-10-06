@@ -1,4 +1,4 @@
-// El Carnaval de Negros y Blancos jugable (VIR-160, docs/plan-carnaval.md): el festival del día 18 del
+// El Carnaval de Negros y Blancos jugable (VIR-160, docs/planes/plan-carnaval.md): el festival del día 18 del
 // verano, a la manera del de Pasto. Aquí las reglas puras: cuándo sale el desfile por la calle del Megabús,
 // las carrozas y sus comparsas (con la coreografía que repiten en cada parada), la maicena y las
 // serpentinas (con F sobre alguien de al lado), el concurso de disfraces, la tienda y las cinemáticas.

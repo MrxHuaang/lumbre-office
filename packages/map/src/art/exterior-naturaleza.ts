@@ -1,8 +1,8 @@
 // Naturaleza del jardín: robles, pinos, abedules, frutales, arbustos, flores, helechos, hongos, rocas,
 // troncos y lo del lago (juncos, nenúfares, la piedra plana). Coordenadas locales de arte (tile = 16).
 // Los árboles, las matas, el helecho, el pasto alto y las flores silvestres ya están dibujados a mano
-// (jardin-arboles.ts y jardin-matas.ts, docs/estandar-arte.md); lo demás sigue armado con primitivas y
-// se va pasando a grillas en las tandas de docs/auditoria-arte.md. `canopy` lo usan todavía el bosque de
+// (jardin-arboles.ts y jardin-matas.ts, docs/arte/estandar-arte.md); lo demás sigue armado con primitivas y
+// se va pasando a grillas en las tandas de docs/arte/auditoria-arte.md. `canopy` lo usan todavía el bosque de
 // alrededor y la casa del árbol.
 import { Escena } from "./exterior-escena";
 import { flatRockSprite, lilyPadsSprite, mediumRockSprite, mossyRockSprite, mushroomsSprite, smallRockSprite, stumpSprite } from "./jardin-detalles";

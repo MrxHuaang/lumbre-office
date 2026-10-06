@@ -1,4 +1,4 @@
-// La Noche de brujas jugable (VIR-157, docs/plan-festivales.md): el festival del día 21 del otoño. Aquí las
+// La Noche de brujas jugable (VIR-157, docs/planes/plan-festivales.md): el festival del día 21 del otoño. Aquí las
 // reglas puras: el dulce o truco (a los NPC y tocando puertas con la canasta en la mano), la calabaza dorada
 // del laberinto de maíz (una por persona por festival), el puesto del festival y sus cinemáticas. Los
 // objetos están en brujas.ts; la decoración y el laberinto, en packages/map (festivales/brujas.ts); lo

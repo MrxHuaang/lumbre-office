@@ -1,4 +1,4 @@
-// La casa de cada persona (docs/plan-casas.md): cada casa son tres niveles (`casa:<userId>`, `…:abajo` y
+// La casa de cada persona (docs/planes/plan-casas.md): cada casa son tres niveles (`casa:<userId>`, `…:abajo` y
 // `…:arriba`) que no están en el mundo. La sala los arma cuando alguien entra y los suelta cuando se vacían,
 // así la memoria no crece con cada persona que alguna vez pasó por su casa. Quién puede entrar lo
 // dice `casaPropiaBlock` de @hyvento/shared (por ahora solo el dueño; las visitas son VIR-81/82).

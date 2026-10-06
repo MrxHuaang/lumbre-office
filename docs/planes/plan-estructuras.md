@@ -11,7 +11,7 @@ Cuando el dueño diga **"crea las estructuras"**, se construyen **todas** las de
 - **Puntos**: siempre con `awardPoints` y motivo `LEISURE`, que ya tiene tope diario (40). No agregar motivos nuevos al enum `PointReason`, porque eso sí sería una migración.
 - **Salas de conversación**: una zona `isolated: true` (como la fogata y la glorieta del jardín) hace que solo se oigan quienes están adentro. Una sala para pocas personas o que se cierra con llave es una zona `office`/`meeting` o un nivel aparte con portal (como el garaje).
 - **Sonidos y ambiente**: por código, como el resto (pasos por piso, clima, sonido de portal).
-- **Al terminar cada una**: `pnpm typecheck`, `pnpm test` y `pnpm --filter @hyvento/web build` (el pre-render tiene que incluir todo lo nuevo). Actualizar `CLAUDE.md` y `docs/plan-rediseno.md`, y si corresponde el logro "Turista" (`TOURIST_AREAS`) y la portada.
+- **Al terminar cada una**: `pnpm typecheck`, `pnpm test` y `pnpm --filter @hyvento/web build` (el pre-render tiene que incluir todo lo nuevo). Actualizar `CLAUDE.md` y `docs/planes/plan-rediseno.md`, y si corresponde el logro "Turista" (`TOURIST_AREAS`) y la portada.
 
 ---
 
@@ -107,7 +107,7 @@ Cuando el dueño diga **"crea las estructuras"**, se construyen **todas** las de
   - "E · Grabar" empieza a grabar el audio de los de adentro en el navegador (MediaRecorder sobre las pistas de LiveKit, **solo con el permiso de todos los de adentro**, que tienen que aceptar) y al terminar baja un archivo.
   - Mientras graba, el cartel de afuera se prende para todos y la puerta no deja entrar.
 - **Servidor**: el estado "grabando" y el consentimiento de cada persona los lleva el servidor. No se guarda audio en el servidor.
-- **Cambio**: la cabañita del jardín se quitó. Ahora es el **estudio de grabación** del piso 3: la puerta del final del pasillo lleva al nivel `podcast` (mesa grande para ocho, cupo de 8). Ver `docs/plan-rediseno.md` (piso 3) y `CLAUDE.md`.
+- **Cambio**: la cabañita del jardín se quitó. Ahora es el **estudio de grabación** del piso 3: la puerta del final del pasillo lleva al nivel `podcast` (mesa grande para ocho, cupo de 8). Ver `docs/planes/plan-rediseno.md` (piso 3) y `CLAUDE.md`.
 
 ## 8. Parada del bus (basada en el Megabús de Pereira)
 

@@ -1,4 +1,4 @@
-// La música del Carnaval de Negros y Blancos (VIR-174, VIR-179, docs/plan-carnaval.md): qué piezas hay, qué
+// La música del Carnaval de Negros y Blancos (VIR-174, VIR-179, docs/planes/plan-carnaval.md): qué piezas hay, qué
 // conjunto las toca y qué repertorio rota cada grupo del desfile. Lo que suena (las notas y los instrumentos
 // sintetizados) vive en el navegador (apps/web/src/game/carnaval/musica*.ts); aquí, solo los nombres.
 //

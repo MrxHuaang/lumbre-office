@@ -4,7 +4,7 @@
 // amarillo, el letrerito de las paradas de la maleta, el costal de aserrín, las luces de colores del cielo
 // y la marquita de la parada que sigue. Cálido y de fin de año: madera, piedra, paja, amarillo y dorado.
 //
-// Pixel art pintado a mano (docs/estandar-arte.md): las piezas son grillas de letras (cada piedra del
+// Pixel art pintado a mano (docs/arte/estandar-arte.md): las piezas son grillas de letras (cada piedra del
 // brasero, cada lengua de fuego, cada prenda del muñeco) que reciben la luz de arriba a la izquierda y el
 // contorno cálido del material de al lado; lo grande (el tablero del cartel, el mostrador y el toldo del
 // puesto) son caras isométricas pintadas píxel a píxel con el lienzo de la decoración del Carnaval. El fuego

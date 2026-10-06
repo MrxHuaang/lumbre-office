@@ -1,4 +1,4 @@
-// El Desfile Magno del Carnaval por la calle del Megabús (docs/plan-carnaval.md): dónde va cada carroza,
+// El Desfile Magno del Carnaval por la calle del Megabús (docs/planes/plan-carnaval.md): dónde va cada carroza,
 // cada bailarín de su comparsa grande, cada músico de las murgas, cada disfraz y la gente de la cabaña que
 // se sumó, a tantos ms de empezado. Sale una sola vez por Carnaval y va despacio (unos 17 minutos reales):
 // la fila es más larga que la calle y va pasando, de oeste a este por el carril exclusivo

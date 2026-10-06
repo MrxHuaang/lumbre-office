@@ -4,7 +4,7 @@ import { place } from "./place";
 import { CASA_CONEXIONES } from "./casa-propia-conexiones";
 
 // ---------- La casa de cada persona: segundo piso ----------
-// Ver docs/plan-casas.md. Arriba (contra la pared alta del norte) la alcoba con la cama doble, el baño con
+// Ver docs/planes/plan-casas.md. Arriba (contra la pared alta del norte) la alcoba con la cama doble, el baño con
 // la tina (también se entra desde la alcoba), el estudio con el PC de Hyvento OS y el cuarto de música.
 // Abajo, el cuarto de huéspedes (contra la pared alta del oeste), el pasillo con la escalera, el cuarto de
 // los amigos (para quedarse después de la fiesta) y el balcón, que se abre desde el cuarto de música.

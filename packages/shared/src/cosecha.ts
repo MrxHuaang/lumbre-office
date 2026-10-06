@@ -1,4 +1,4 @@
-// La Feria de la cosecha jugable (VIR-169, docs/plan-festivales.md): el festival del día 10 del otoño, un
+// La Feria de la cosecha jugable (VIR-169, docs/planes/plan-festivales.md): el festival del día 10 del otoño, un
 // mercado campesino en la pradera del jardín y el patio de la casa. Aquí las reglas puras; la decoración
 // está en packages/map (festivales/cosecha.ts), la gente en gente-fiesta/cosecha.ts y lo decide la sala
 // (apps/server/src/rooms/cosecha.ts).

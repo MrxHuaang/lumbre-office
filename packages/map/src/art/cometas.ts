@@ -4,7 +4,7 @@
 // escena elige según el viento), los banderines, las cometas amarradas, el mantel del picnic, el árbol con
 // la cometa enredada y la escalera del garaje. Cálido y de verano: papel de seda, guadua y cabuya; nada gris.
 //
-// Pixel art pintado a mano (docs/estandar-arte.md): cada cometa es una grilla de letras (las de la cara con
+// Pixel art pintado a mano (docs/arte/estandar-arte.md): cada cometa es una grilla de letras (las de la cara con
 // la luz de arriba a la izquierda, las de la sombra abajo a la derecha, los palitos de guadua y el nudo del
 // frenillo), pintada con los dos colores del código; las piezas chicas (carretes, el tarro del engrudo, la
 // canasta, la sombrilla, la manga de viento) también son grillas, y lo grande (mesas, mostradores, el

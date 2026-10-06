@@ -107,4 +107,4 @@ entre todos (las salas que E. dejó a medias) y festivales de temporada.
 ## Orden
 
 VIR-155 (cinemáticas) y VIR-150 (motor) → VIR-151 (capítulo 2) → VIR-152 → VIR-153 → VIR-154. Cada uno en su
-PR, sin migraciones. Los festivales van en `docs/plan-festivales.md`.
+PR, sin migraciones. Los festivales van en `docs/planes/plan-festivales.md`.
