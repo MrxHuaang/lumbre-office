@@ -96,7 +96,7 @@ export const CARNAVAL_MSG = {
 // ---------- Las carrozas y sus comparsas ----------
 
 /** Las diez carrozas, en el orden del desfile (el del plan). */
-export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"] as const;
+export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus", "jaguar", "leon"] as const;
 export type CarrozaId = (typeof CARROZA_IDS)[number];
 
 /** Quién hace un paso de la coreografía: un bailarín (`b0`…), todos, o los pares o impares. */
@@ -149,15 +149,20 @@ const PIELES = ["#f1c27d", "#e0ac69", "#c68642", "#8d5524", "#ffdbac", "#d9a066"
  */
 const PALETAS: Record<string, readonly [string, string, string]> = {
   "#9a6a40": ["#93203f", "#e0a428", "#1f7a5a"],
-  "#dcae3f": ["#2f6fd6", "#f2711c", "#3db842"],
-  "#ee7a22": ["#3f9a3a", "#f7c518", "#e0283c"],
+  "#dcae3f": ["#24212e", "#f3f1ec", "#2f6fd6"],
+  "#ee7a22": ["#c8323a", "#f4ece0", "#6a4a2e"],
   "#c8343a": ["#c8243a", "#1f8a4a", "#f2c21c"],
   "#b98424": ["#1f8a8a", "#c8287a", "#e6aa2a"],
   "#3a5aa8": ["#2a5ac8", "#d0287a", "#e0a526"],
   "#6f8a3a": ["#22a07a", "#8a3cc8", "#f0702a"],
   "#7a4a2a": ["#f4ead6", "#7a2ab8", "#1fa8c0"],
   "#a6d23a": ["#a6d23a", "#e0283c", "#2f6fd6"],
+  "#7a3cd0": ["#7a3cd0", "#e8a317", "#1f9a6a"],
+  "#d8287a": ["#d8287a", "#f2a51c", "#2fae8a"],
 };
+
+/** Los colores de las alas de la comparsa del Cóndor (los de sus plumas). */
+const ARCO_CONDOR = ["#e0283c", "#f2711c", "#f7c518", "#3db842", "#1fb8b0", "#2f6fd6", "#8a3cc8"] as const;
 
 /** Una comparsa grande: doce bailarines. */
 const CUADRILLA = Array.from({ length: 12 }, (_, i) => i);
@@ -238,7 +243,8 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#dcae3f",
     largo: 8,
     pieza: "sanjuanito",
-    bailarines: CUADRILLA.map((i) => comparsero(i, "#dcae3f", { back: "wings" })),
+    // De negro y blanco como el cóndor (cuerpo y collar), con las alas de un color del arcoíris cada uno.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#dcae3f", { back: "wings", shirt: NEGRO, top2: BLANCO, pants: BLANCO, neck: "scarf", accent: ARCO_CONDOR[i % ARCO_CONDOR.length]! })),
     // Dos filas abren los brazos al ritmo de las alas; en el tiempo 8, todos saltan.
     frase: [
       { op: "together", steps: [{ op: "act", who: "pares", action: "bailar" }, { op: "walk", who: "impares", path: [{ dx: 0, dy: 0.5 }] }] },
@@ -255,7 +261,8 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#ee7a22",
     largo: 7,
     pieza: "guanena",
-    bailarines: CUADRILLA.map((i) => comparsero(i, "#ee7a22", { head: i % 2 ? "bucket-hat" : "beanie" })),
+    // Como los campesinos de las faldas del volcán: ruana roja, sombrero blanco y pantalón café.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#ee7a22", { outfit: "ruana", head: "straw-hat", face: "none", shirt: i % 4 === 3 ? "#d4572a" : "#c8323a", top2: "#f4ece0", pants: i % 2 ? "#6a4a2e" : "#2f8f6a" })),
     // Un círculo alrededor del volcán; tiemblan cuando "erupciona" y celebran.
     frase: [
       {
@@ -416,6 +423,36 @@ export const COMPARSAS: readonly Comparsa[] = [
     bailarines: CUADRILLA.slice(0, 8).map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
     frase: [todos("bailar"), todos("girar"), todos("saltar"), todos("celebrar")],
   },
+  {
+    id: "jaguar",
+    nombre: "El Jaguar de la selva",
+    grupo: "Comparsa Garra de Tigrillo",
+    acento: "#7a3cd0",
+    largo: 8,
+    pieza: "bambuco",
+    // Morado, dorado y verde como la carroza; las del tocado (pares) con antifaz, como la reina.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#7a3cd0", { head: i % 2 ? "headband" : "tiara", face: i % 2 ? "none" : "carnival-mask", neck: "necklace" })),
+    // Se agachan como el jaguar al acecho, saltan en ola y rugen todos juntos.
+    frase: [
+      todos("temblar"),
+      ola(12, "saltar", 120),
+      { op: "together", steps: [{ op: "walk", who: "pares", run: true, path: [{ dx: 0.6, dy: 0 }] }, { op: "act", who: "impares", action: "bailar" }] },
+      { op: "walk", who: "pares", path: [{ dx: 0, dy: 0 }] },
+      todos("celebrar"),
+    ],
+  },
+  {
+    id: "leon",
+    nombre: "El León del circo",
+    grupo: "Comparsa Los Payasos de la Melena",
+    acento: "#d8287a",
+    largo: 8,
+    pieza: "son-cuy",
+    // Payasos de magenta, naranja y verde agua, con corbatín y sombrero de copa o gorro de pompón.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#d8287a", { head: i % 3 ? "pompom-beanie" : "top-hat", neck: "bowtie", face: "none", top: "jersey", pattern: i % 2 ? "dots" : "stripes" })),
+    // Giran como en la pista, saludan con la mano y la fila se va agachando en ola.
+    frase: [todos("girar"), todos("saludar"), ola(12, "asentir", 100, true), todos("saltar"), todos("celebrar")],
+  },
 ];
 
 export const comparsaById = (id: string) => COMPARSAS.find((c) => c.id === id);
@@ -516,6 +553,8 @@ export const DESFILE_ORDEN: readonly DesfileItem[] = [
   { tipo: "carroza", id: "tinto" },
   { tipo: "disfraces", id: "tradicion" },
   { tipo: "carroza", id: "megabus" },
+  { tipo: "carroza", id: "jaguar" },
+  { tipo: "carroza", id: "leon" },
 ];
 
 /** Los músicos de una murga del desfile (o ninguno). */
@@ -543,6 +582,8 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   minga: "¡La Minga! Papa, maíz, quinua y guaguas de pan: lo que da la tierra se comparte.",
   tinto: "Un tinto de Doña Aurora pa'l frío. ¡Achichay!",
   megabus: "¡Y cierra el Megabús de la alegría! Detrás va la gente de la casa.",
+  jaguar: "¡Uy, el jaguar! Con esa boca abierta, mejor no le pongan la mano.",
+  leon: "¡El león con sombrero de copa! Y los payasitos encima, sin miedo.",
 };
 
 // ---------- La coreografía en el tiempo ----------
