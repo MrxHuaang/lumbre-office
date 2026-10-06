@@ -105,7 +105,7 @@ function TipPicker({ target }: { target: string }) {
           onClick={() => tip(amount)}
           disabled={points < amount}
           aria-pressed={chosen === amount}
-          title={points < amount ? "No te alcanzan las monedas" : `Tirar ${amount} a ${name}`}
+          title={points < amount ? "No te alcanzan los puntos" : `Tirar ${amount} a ${name}`}
           className="cozy-btn flex items-center gap-1.5 px-2 py-1 text-[13px] disabled:opacity-50"
         >
           <ArtImage id={`billete-${amount}-0`} make={() => drawBill(amount)} scale={2} alt="" />

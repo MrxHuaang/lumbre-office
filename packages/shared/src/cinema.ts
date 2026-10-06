@@ -25,7 +25,7 @@ export const CINEMA_BILLBOARD = [
   { videoId: "TLkA0RELQ1g", title: "Elephants Dream", minutes: 11, blurb: "Dos hombres perdidos en una máquina que no termina." },
   { videoId: "eRsGyueVLvQ", title: "Sintel", minutes: 15, blurb: "Una joven busca al dragón que crió de pequeño." },
   { videoId: "R6MlUcmOul8", title: "Tears of Steel", minutes: 12, blurb: "Ciencia ficción en Ámsterdam, con robots gigantes." },
-  { videoId: "Y-rmzh0PI3c", title: "Cosmos Laundromat", minutes: 12, blurb: "Una oveja que quiere morir recibe una oferta rara." },
+  { videoId: "Y-rmzh0PI3c", title: "Cosmos Laundromat", minutes: 12, blurb: "Una oveja aburrida de su vida recibe una oferta muy rara." },
   { videoId: "WhWc3b3KhnY", title: "Spring", minutes: 8, blurb: "Una pastora y su perro frente a los espíritus del bosque." },
   { videoId: "_cMxraX_5RE", title: "Sprite Fright", minutes: 10, blurb: "Excursionistas contra los duendes del musgo. Terror cómico." },
   { videoId: "mN0zPOpADL4", title: "Agent 327", minutes: 4, blurb: "Un agente secreto holandés en una barbería sospechosa." },

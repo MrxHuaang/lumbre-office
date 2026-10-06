@@ -87,8 +87,8 @@ const PANTS_TITLE = {
 /** Título del color de abajo cuando lo lleva un conjunto. */
 const PANTS_OUTFIT_TITLE: Partial<Record<Outfit, string>> = {
   overalls: "Color del overol",
-  trunks: "Color del bañador",
-  coveralls: "Color del mono",
+  trunks: "Color de la pantaloneta",
+  coveralls: "Color del enterizo",
   blazer: "Color del traje",
   vest: "Color del chaleco y el pantalón",
 };
@@ -195,7 +195,7 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
             </Section>
           </Group>
           <Group>
-            <Section title="Vello facial" hint="Del color del pelo.">
+            <Section title="Barba y bigote" hint="Del color del pelo.">
               <OptionGrid
                 crop="head"
                 options={options(FACIAL_HAIR, FACIAL_HAIR_LABEL, (facialHair) => ({ facialHair, face: "none" }))}
@@ -290,7 +290,7 @@ export const LookPanel = memo(function LookPanel({ tab, full, act }: { tab: TabI
                 onPick={(t) => act.set("top", t)}
               />
             </Section>
-            <Section title="Estampado" hint={trunks ? "El bañador no lleva." : undefined}>
+            <Section title="Estampado" hint={trunks ? "La pantaloneta no lleva." : undefined}>
               <OptionGrid
                 crop="torso"
                 disabled={trunks}

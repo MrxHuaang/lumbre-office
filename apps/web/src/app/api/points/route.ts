@@ -9,7 +9,7 @@ import { getCurrentUser } from "@/lib/current-user";
  */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const moves = await prisma.pointTransaction.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },

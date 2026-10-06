@@ -21,10 +21,10 @@ export function gameControls(): [string, string][] {
     ["Enter", "chatear (abre Mensajes)"],
     ["Tab", "cambiar la fila de la barra"],
     ["1-9 0 - =", "elegir la casilla (la mano)"],
-    ["I", "mochila, stats y personaje"],
+    ["I", "mochila, estadísticas y personaje"],
     ["Rueda", "acercar o alejar"],
     ["?", "esta ayuda"],
-    ["/time", "la hora del juego (/ muestra los comandos)"],
+    ["/hora", "la hora del juego (/ muestra los comandos)"],
   ];
 }
 

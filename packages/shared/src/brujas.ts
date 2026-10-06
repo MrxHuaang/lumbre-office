@@ -14,9 +14,9 @@ export const CANASTA_DULCES = "canasta-dulces";
 export const CALABAZA_DORADA = "calabaza-dorada";
 
 export const BRUJAS_BAG_OBJECTS: Record<string, BagObject> = {
-  "chocolatina-brujas": { name: "Chocolatina de brujas", blurb: "Envuelta en papel naranja con su murcielaguito. Se derrite en la mano si te demoras.", kind: "comida", max: 30 },
-  chupeta: { name: "Chupeta", blurb: "Redondita y de espiral, naranja y crema. Dura más que la Noche de brujas.", kind: "comida", max: 30 },
-  bombon: { name: "Bombón", blurb: "De chocolate, envuelto en papel morado con las puntas torcidas.", kind: "comida", max: 30 },
+  "chocolatina-brujas": { name: "Chocolatina de brujas", blurb: "Envuelta en papel naranja con su murcielaguito. Si te demoras, se derrite en la mano.", kind: "comida", max: 30 },
+  chupeta: { name: "Colombina", blurb: "Dulce de palito, redondito y en espiral, naranja y crema. Dura más que la Noche de brujas.", kind: "comida", max: 30 },
+  bombon: { name: "Bombón de chocolate", blurb: "Envuelto en papel morado con las puntas torcidas.", kind: "comida", max: 30 },
   gomitas: { name: "Gomitas", blurb: "Una bolsita de gomitas de colores. Nadie se come solo una.", kind: "comida", max: 30 },
   masmelo: { name: "Masmelo", blurb: "Rosadito y blanco, trenzado y bien suavecito.", kind: "comida", max: 30 },
   [CANASTA_DULCES]: {

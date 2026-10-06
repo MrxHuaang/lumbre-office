@@ -401,7 +401,7 @@ const KNOCK_TEXT: Record<KnockOutcome, (owner: string) => { text: string; tone: 
   "owner-away": (o) => ({ text: `${o} no está conectado ahora.`, tone: "info" }),
   "not-locked": () => ({ text: "La puerta está abierta, puedes entrar.", tone: "info" }),
   "too-soon": () => ({ text: "Espera un momento antes de volver a tocar.", tone: "info" }),
-  dnd: (o) => ({ text: `${o} está en "No molestar". Prueba más tarde.`, tone: "warning" }),
+  dnd: (o) => ({ text: `${o} está en No molestar. Intenta más tarde.`, tone: "warning" }),
 };
 
 const INVITE_TEXT: Record<InviteOutcome, (name: string) => { text: string; tone: Notice["tone"] }> = {

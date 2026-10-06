@@ -245,7 +245,7 @@ export interface BusNotice {
 export const BUS_NOTICES: Record<BusNoticeCode, string> = {
   far: "Hay que estar en la estación, junto a las puertas del bus.",
   noBus: "El bus todavía no abre las puertas: mira la pantalla de la estación.",
-  route: "El bus va en ruta: se baja cuando llegue a la estación.",
+  route: "El bus va en ruta: te bajas cuando llegue a la estación.",
   busy: "Ahora no puedes subir al bus.",
   home: "El bus se espera en la parada de tu casa, bajo el techito.",
   coming: "El bus ya viene: espéralo en la parada.",

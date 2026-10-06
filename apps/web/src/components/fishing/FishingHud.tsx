@@ -20,7 +20,7 @@ export function FishingHint() {
   if (phase === "waiting")
     return (
       <Hint>
-        <span className="text-cozy-ink-soft">Esperando que pique…</span>
+        <span className="text-cozy-ink-soft">Esperando a que pique…</span>
         {mastery && <MasteryChip mastery={mastery} />}
         <button type="button" onClick={cancelFishing} className="flex items-center gap-1.5">
           <kbd className="cozy-kbd">E</kbd>

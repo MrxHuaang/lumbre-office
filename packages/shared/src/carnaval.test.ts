@@ -26,12 +26,15 @@ describe("el Carnaval de Negros y Blancos", () => {
     expect(festivalById(CARNAVAL.id)).toMatchObject({ estacion: "verano", dia: 18 });
   });
 
-  it("el desfile sale a las 11, a las 15 y a las 19 del reloj del juego, con un rato de margen", () => {
-    expect(desfileDeLaHora(11 * 60)).toBe(11);
-    expect(desfileDeLaHora(15 * 60 + CARNAVAL.ventanaMin - 1)).toBe(15);
-    expect(desfileDeLaHora(15 * 60 + CARNAVAL.ventanaMin)).toBeNull();
-    expect(desfileDeLaHora(19 * 60 + 5)).toBe(19);
-    expect(desfileDeLaHora(12 * 60)).toBeNull();
+  it("el Desfile Magno sale una sola vez, a las 10 del reloj del juego (de día), con un rato de margen", () => {
+    expect(desfileDeLaHora(10 * 60)).toBe(10);
+    expect(desfileDeLaHora(10 * 60 + CARNAVAL.ventanaMin - 1)).toBe(10);
+    expect(desfileDeLaHora(10 * 60 + CARNAVAL.ventanaMin)).toBeNull();
+    for (let m = 0; m < 24 * 60; m += 5) if (desfileDeLaHora(m) !== null) expect(m).toBeLessThan(11 * 60);
+    expect(desfileDeLaHora(19 * 60 + 5)).toBeNull();
+    // El concurso se premia y el Carnaval cierra antes de que oscurezca (19:00).
+    expect(CARNAVAL.concursoCierre).toBeLessThan(CARNAVAL.cierre);
+    expect(CARNAVAL.cierre).toBeLessThan(19);
   });
 
   it("cada coreografía vuelve al puesto al terminar (así se repite en bucle sin saltos)", () => {
@@ -64,7 +67,7 @@ describe("el Carnaval de Negros y Blancos", () => {
   });
 
   it("salen las diez carrozas del plan, en su orden, cada una con su color de acento", () => {
-    expect(CARROZA_IDS).toEqual(["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"]);
+    expect(CARROZA_IDS).toEqual(["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus", "jaguar", "leon"]);
     expect(COMPARSAS.map((c) => c.id)).toEqual([...CARROZA_IDS]);
     expect(new Set(COMPARSAS.map((c) => c.acento)).size).toBe(COMPARSAS.length);
     for (const c of COMPARSAS) expect(EVELIO_CARROZAS[c.id], c.id).toBeTruthy();
@@ -116,11 +119,12 @@ describe("el Carnaval de Negros y Blancos", () => {
   it("la Minga: la ronda pasa cada uno por el puesto de los demás y ofrecen la cosecha hacia la vereda", () => {
     const c = COMPARSAS.find((x) => x.id === "minga")!;
     const p = prog("minga");
-    // Los puestos en la calle (relativos al de b0): columna cada 1.5 tiles y fila cada 1.3.
-    const puesto = (i: number) => ({ x: -Math.floor(i / 2) * 1.5, y: (i % 2) * 1.3 });
-    for (let who = 0; who < c.bailarines.length; who++) {
+    // Los puestos en la calle (relativos al de b0): columnas de a tres, cada 1.4 tiles, y fila cada 0.9.
+    const puesto = (i: number) => ({ x: -Math.floor(i / 3) * 1.4, y: (i % 3) * 0.9 });
+    const ronda = [0, 1, 3, 4];
+    for (const who of ronda) {
       const pasa = p.eventos.filter((e) => e.kind === "walk" && e.who === who).map((e) => (e.kind === "walk" ? { x: puesto(who).x + e.to.dx, y: puesto(who).y + e.to.dy } : null));
-      for (let otro = 0; otro < c.bailarines.length; otro++)
+      for (const otro of ronda)
         expect(pasa.some((q) => q && Math.abs(q.x - puesto(otro).x) < 1e-9 && Math.abs(q.y - puesto(otro).y) < 1e-9), `b${who} por el puesto de b${otro}`).toBe(true);
     }
     expect(p.eventos.some((e) => e.kind === "walk" && e.to.dy < 0)).toBe(true);

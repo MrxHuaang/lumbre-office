@@ -69,6 +69,8 @@ const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop",
 
 /** Cada cuánto se mira quién está cerca (y quién murmura). */
 const SCAN_MS = 250;
+/** Cuántos personajes se arman por cuadro (cada uno dibuja su hoja: unos 3 ms). */
+const CREATE_PER_FRAME = 3;
 /** Sobre la cabeza: el nombre va en la coronilla + 7; la marca, encima del nombre. */
 const OVER_HEAD = BODY_UP.crown + 7 + 14;
 const OVER_ANIMAL = 20;
@@ -113,6 +115,8 @@ export class GenteFiestaView {
   private map?: OfficeMap;
   private nivel: GenteNivel | null = null;
   private actors = new Map<string, Actor>();
+  /** Los que faltan por armar: de a pocos por cuadro, así una fiesta llena no traba el cuadro en que empieza. */
+  private pending: FiestaNpc[] = [];
   private scanAt = 0;
   private hideNames = false;
   private textos = 0;
@@ -179,6 +183,7 @@ export class GenteFiestaView {
   private clear() {
     for (const a of this.actors.values()) this.destroyActor(a);
     this.actors.clear();
+    this.pending = [];
     this.nivel = null;
     useGenteFiesta.setState({ cerca: null });
   }
@@ -206,6 +211,10 @@ export class GenteFiestaView {
     const nivel = map && clock && s.festival.fase === "fiesta" ? genteDelNivel(map, s.festival.id, clock.day, s.weather as Weather) : null;
     if (nivel !== this.nivel) this.rebuild(nivel);
     if (!nivel || !clock) return;
+    for (let i = 0; i < CREATE_PER_FRAME && this.pending.length; i++) {
+      const npc = this.pending.shift()!;
+      this.actors.set(npc.id, this.create(npc));
+    }
     const me = this.deps.local();
     const ts = nivel.map.tileSize;
     const night = isNightMinute(clock.minuto);
@@ -228,13 +237,11 @@ export class GenteFiestaView {
         this.destroyActor(a);
         this.actors.delete(id);
       }
+    this.pending = [];
     for (const npc of nivel?.npcs ?? []) {
       const old = this.actors.get(npc.id);
-      if (old) {
-        old.npc = npc;
-        continue;
-      }
-      this.actors.set(npc.id, this.create(npc));
+      if (old) old.npc = npc;
+      else this.pending.push(npc);
     }
     if (!nivel) useGenteFiesta.setState({ cerca: null });
   }
@@ -278,6 +285,7 @@ export class GenteFiestaView {
       if (a.visible) {
         a.visible = false;
         a.avatar?.setHidden(true);
+        a.avatar?.setPowdered(false);
         a.animal?.img.setVisible(false);
         a.mark?.setVisible(false);
         a.markKind = null;
@@ -290,7 +298,11 @@ export class GenteFiestaView {
     const dist = me ? Math.hypot(p.x - me.x, p.y - me.y) / ts : Infinity;
     if (a.animal) return this.placeAnimal(a, time, first);
     const av = a.avatar!;
-    if (first) av.setHidden(false);
+    if (first) {
+      av.setHidden(false);
+      // La cara empolvada del Carnaval (un polvito encima: la piel no cambia).
+      av.setPowdered(Boolean(a.npc.talco));
+    }
     // Sentado en su asiento (el de la novena, los troncos de la fogata) o de pie.
     if (p.asiento) {
       if (!a.seated || first) {
@@ -611,8 +623,8 @@ export class GenteFiestaView {
       return;
     }
     useGenteFiesta.setState((s) => ({ hechos: new Set([...s.hechos, r.pedido]) }));
-    const premio = [r.item ? `${r.n ?? 1} de ${bagItemInfo(r.item).name.toLowerCase()}` : null, r.puntos > 0 ? `${r.puntos} puntos` : null].filter(Boolean).join(" y ");
-    decirEnDialogo(r.npc, [pedido?.gracias ?? "¡Gracias!", ...(premio ? [`Te dio ${premio}.`] : [])]);
+    const premio = [r.item ? `${bagItemInfo(r.item).name} x${r.n ?? 1}` : null, r.puntos > 0 ? `${r.puntos} puntos` : null].filter(Boolean).join(" y ");
+    decirEnDialogo(r.npc, [pedido?.gracias ?? "¡Gracias!", ...(premio ? [`Te dio: ${premio}.`] : [])]);
     a?.avatar?.emote("heart");
     // Algunos pedidos tienen su cinemática (el niño cuando le bajan la cometa del árbol).
     if (pedido?.cine) void playCinematic(pedido.cine, a?.npc.cometa ? { codigo: a.npc.cometa } : {});
@@ -624,12 +636,12 @@ function miraA(dx: number, dy: number): Direction {
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
 }
 
-/** "Necesita: mazorca, 2 (tienes 1)." y si ya se tiene todo. */
+/** "Pide: Mazorca x2 (tienes 1)." y si ya se tiene todo. */
 function pideTexto(pide: readonly { item: string; n: number }[]): { texto: string; completo: boolean } {
   const slots = useBagStore.getState().slots;
   const tengo = (item: string) => slots.reduce((n, s) => n + (s?.itemId === objItemId(item) ? s.quantity : 0), 0);
-  const partes = pide.map((p) => `${bagItemInfo(objItemId(p.item)).name.toLowerCase()}, ${p.n} (tienes ${tengo(p.item)})`);
-  return { texto: `Necesita: ${partes.join("; ")}.`, completo: pide.every((p) => tengo(p.item) >= p.n) };
+  const partes = pide.map((p) => `${bagItemInfo(objItemId(p.item)).name} x${p.n} (tienes ${tengo(p.item)})`);
+  return { texto: `Pide: ${partes.join("; ")}.`, completo: pide.every((p) => tengo(p.item) >= p.n) };
 }
 
 export { genteAlAlcance, useGenteFiesta };

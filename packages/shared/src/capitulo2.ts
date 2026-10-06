@@ -130,7 +130,7 @@ export const CAPITULO2_CINEMATICAS: readonly CineDef[] = [
       { op: "say", who: "narrador", text: "Adentro falta el péndulo. Y se ven dos huecos: uno donde iba un engranaje y otro donde iba un resorte." },
       { op: "walk", who: "aurora", path: [{ near: "yo", dx: 2, dy: 2 }, { near: "yo", dx: 1, dy: 1 }] },
       { op: "together", steps: [{ op: "face", who: "aurora", toward: "yo" }, { op: "face", who: "yo", toward: "aurora" }] },
-      { op: "say", who: "aurora", text: "Él lo tenía siempre andando. Decía que el reloj sabe cosas. Si le consigue las tres piezas, mijo… yo le hago una aguapanela." },
+      { op: "say", who: "aurora", text: "Él lo tenía siempre andando. Decía que el reloj sabe cosas. Si le consigue las tres piezas, yo le hago una aguapanela." },
       { op: "act", who: "aurora", action: "asentir" },
       { op: "camera", to: "yo" },
       { op: "bars", on: false },

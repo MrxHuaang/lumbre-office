@@ -122,6 +122,8 @@ export interface FiestaNpc {
   cometa?: string;
   /** Toma fotos cuando se detiene (los turistas): el destello de la cámara. */
   fotos?: boolean;
+  /** Con la cara empolvada de talco (el Carnaval): un polvito encima, la piel no cambia. */
+  talco?: boolean;
   /** Conversan por turnos los que tienen la misma `charla` (los de un `grupo` ya la tienen: su grupo). */
   charla?: string;
   /** Con lluvia: sigue en lo suyo (bajo techo o adentro), busca techo (lo de siempre) o se va a la casa. */
@@ -304,7 +306,7 @@ export const ENTREGAR_ERROR_TEXT: Record<EntregarError, string> = {
   faltan: "Todavía no tienes todo lo que te pidió.",
   hecho: "Eso ya se lo entregaste en esta fiesta.",
   full: "No te cabe lo que te da: haz espacio en la mochila.",
-  busy: "Un momento…",
+  busy: "Un momentico…",
 };
 
 /** Los pedidos que ya entregó cada quien en el festival de ahora. */

@@ -72,6 +72,32 @@ function furnitureTexture(scene: Phaser.Scene, type: string, variant: "front" | 
   return texOf(key, spriteTexture(scene, key, () => drawFurniture(type, variant, night)));
 }
 
+/**
+ * Los píxeles del dibujo de frente de un mueble (de día o de noche), leídos de su textura (el atlas del build
+ * o el dibujo de aquí): las luces de las ventanas comparan el de noche con el de día (lucesVentanas.ts).
+ */
+export function furniturePixels(scene: Phaser.Scene, type: string, night: boolean): Sprite {
+  const t = furnitureTexture(scene, type, "front", night);
+  const tex = scene.textures.get(t.texture);
+  const frame = t.frame ? tex.get(t.frame) : tex.get();
+  const el = document.createElement("canvas");
+  el.width = t.w;
+  el.height = t.h;
+  const ctx = el.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(frame.source.image as CanvasImageSource, frame.cutX, frame.cutY, t.w, t.h, 0, 0, t.w, t.h);
+  const px = new PixelCanvas(t.w, t.h);
+  px.data.set(ctx.getImageData(0, 0, t.w, t.h).data);
+  return { canvas: px, ox: t.ox, oy: t.oy };
+}
+
+/** Una forma que cambia la penumbra de la noche (px de pantalla del nivel): quita penumbra o suma más. */
+export interface NightShape {
+  canvas: HTMLCanvasElement;
+  x: number;
+  y: number;
+  mode: "hueco" | "oscuro";
+}
+
 /** Mueble ubicado en (x, y) (su esquina, en tiles) mirando hacia `facing`. */
 export interface FurniturePose {
   type: string;
@@ -373,6 +399,34 @@ export class AreaView {
     if (this.night && (old.size || lights.length)) this.drawNightMask();
   }
 
+  /** Las ventanas de los edificios (lucesVentanas.ts): huecos en la penumbra y vidrios apagados más oscuros. */
+  private nightShapes: readonly NightShape[] = [];
+  /** Cada forma "oscuro" teñida del color de la noche (se tiñe una vez). */
+  private tintedShapes = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+
+  /** Cambia las formas de las ventanas; la noche se vuelve a dibujar una sola vez. */
+  setNightShapes(shapes: readonly NightShape[]) {
+    if (!shapes.length && !this.nightShapes.length) return;
+    this.nightShapes = shapes;
+    if (this.night) this.drawNightMask();
+  }
+
+  private tintedShape(c: HTMLCanvasElement, color: number) {
+    let t = this.tintedShapes.get(c);
+    if (!t) {
+      t = document.createElement("canvas");
+      t.width = c.width;
+      t.height = c.height;
+      const ctx = t.getContext("2d")!;
+      ctx.drawImage(c, 0, 0);
+      ctx.globalCompositeOperation = "source-in";
+      ctx.fillStyle = `rgb(${(color >> 16) & 255}, ${(color >> 8) & 255}, ${color & 255})`;
+      ctx.fillRect(0, 0, t.width, t.height);
+      this.tintedShapes.set(c, t);
+    }
+    return t;
+  }
+
   /** La imagen de un mueble (la granja le cambia la textura a la rueda del molino para que gire). */
   imageOf(f: PlacedFurniture): Phaser.GameObjects.Image | undefined {
     return this.furnitureImages.find((e) => e.f === f)?.img;
@@ -489,6 +543,9 @@ export class AreaView {
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = `rgba(${(n.color >> 16) & 255}, ${(n.color >> 8) & 255}, ${n.color & 255}, ${n.alpha})`;
     ctx.fillRect(0, 0, w, h);
+    // Los vidrios de las ventanas apagadas, un poco más oscuros que la noche.
+    for (const sh of this.nightShapes)
+      if (sh.mode === "oscuro") ctx.drawImage(this.tintedShape(sh.canvas, n.color), (sh.x - b.x) / NIGHT_SCALE, (sh.y - b.y) / NIGHT_SCALE, sh.canvas.width / NIGHT_SCALE, sh.canvas.height / NIGHT_SCALE);
     if (!this.map.outdoor && this.base) {
       // Adentro, solo sobre la casa: el lienzo es transparente alrededor y el velo quedaría como un
       // rectángulo marrón sobre el fondo de la página.
@@ -524,6 +581,9 @@ export class AreaView {
       ctx.fill();
       ctx.restore();
     }
+    // Las ventanas prendidas: el vidrio y la luz que cae al piso.
+    for (const sh of this.nightShapes)
+      if (sh.mode === "hueco") ctx.drawImage(sh.canvas, (sh.x - b.x) / NIGHT_SCALE, (sh.y - b.y) / NIGHT_SCALE, sh.canvas.width / NIGHT_SCALE, sh.canvas.height / NIGHT_SCALE);
     this.nightTex.refresh();
     if (!this.nightMask) {
       this.nightMask = this.scene.add
@@ -666,6 +726,7 @@ export class AreaView {
     this.objects = [];
     this.glows = [];
     this.extraGlows = [];
+    this.nightShapes = [];
     this.lightOf.clear();
     this.lightsOff.clear();
     this.nightly = [];

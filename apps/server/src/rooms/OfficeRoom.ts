@@ -363,6 +363,8 @@ import { QuickTravel } from "./viaje";
 import { RECONNECT_WINDOW_SECONDS } from "@hyvento/shared";
 import { closeForRestart } from "./reinicio";
 import { startChatRetention } from "./chatRetention";
+import { Director, type DirectorWho } from "./director";
+import { DIRECTOR_MSG, festivalCineId as directorCineId, type DirectorMusica, type FestivalId as DirectorFestivalId } from "@hyvento/shared";
 import { orElse } from "../log";
 import { MSG_RATE, newBucket, takeToken, type RateConfig, type TokenBucket } from "@hyvento/shared";
 
@@ -1165,6 +1167,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     bindOficios(this, this.oficios, (id) => this.state.players.get(id)?.userId ?? null);
     bindHistoria(this, { encargos: this.encargos, who: (id) => this.state.players.get(id), mapOf: (a) => this.mapOf(a), bump: (u, k) => this.achievements.bump(u, k) });
     this.mundo = registerMundo(this as unknown as MundoRoom);
+    this.registerDirector();
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.velitas = registerVelitas(this, { state: () => this.state.velitas, festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }), player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), now: () => Date.now() }, (c) => this.markActive(c as Client<UserData>));
     // El Festival de cometas: el puesto, el taller, el vuelo, el concurso y el techo del garaje (ver cometas.ts).
@@ -3115,6 +3118,100 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     return { daily: daily ?? season, weekly: weekly ?? season };
   }
 
+  // ---------- El panel del director (ver director.ts) ----------
+
+  /** El panel del director: festival, clima, reloj y momentos (permiso `director`). */
+  private director = new Director({
+    festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }),
+    forceFestival: (id) => {
+      this.festivales.force(id);
+      this.afterFestivalChange();
+    },
+    clock: () => this.gameClock(),
+    now: () => OfficeRoom.gameClockNow(),
+    setClock: (c, userId) => this.directorSetClock(c, userId),
+    season: () => this.gameSeason(),
+    setWeather: (w, holdMs) => this.weather.force(w, holdMs),
+    releaseWeather: () => this.weather.release(),
+    notice: (text) => OfficeRoom.systemNoticeEverywhere({ from: "Director", text }),
+    musica: (pieza) => this.broadcast(DIRECTOR_MSG.musica, { pieza } satisfies DirectorMusica),
+  });
+
+  /** Lo que sigue al festival de hoy (decoración, pesebre, feria) apenas cambia, sin esperar el intervalo. */
+  private afterFestivalChange() {
+    this.novenas.tick();
+    this.syncFestival();
+    this.feria.tick();
+  }
+
+  /** El director movió el reloj: se guarda y lo que depende del día y la hora se pone al día ya. */
+  private directorSetClock(c: GameClockState, userId: string) {
+    this.setGameClock(c);
+    void this.saveClock(userId);
+    this.sombrero.refresh();
+    // El huerto sigue con la estación nueva (Huerto.reseason) y la nieve fijada se va fuera del invierno.
+    this.checkSeason();
+    if (this.weather.held && this.state.weather === "nieve" && this.gameSeason() !== "invierno") this.weather.release();
+    this.festivales.tick();
+    this.afterFestivalChange();
+  }
+
+  /** Los momentos que vienen con la cabaña (cada festival nuevo registra los suyos igual). */
+  private registerDirector() {
+    this.director.registrar("apertura", () => {
+      const id = this.state.festival as DirectorFestivalId;
+      this.broadcast(FESTIVAL_MSG.cine, { id: directorCineId(id, "apertura") } satisfies FestivalCineEvent);
+      return null;
+    });
+    // Lo mismo que "/desfile": sale ya el desfile del Carnaval (la lógica es de carnaval.ts).
+    this.director.registrar("carnaval-desfile", () => {
+      if (!this.carnaval.active()) return { ok: false, error: "cerrado", texto: "El Carnaval no está abierto." };
+      if (this.state.carnaval.fase === "desfile") return { ok: false, error: "ocupado", texto: "El desfile ya va por la calle." };
+      this.carnaval.empezar();
+      return null;
+    });
+    this.onMessage(DIRECTOR_MSG.action, (client, raw) => {
+      const who = this.directorWho(client);
+      const res = who && this.director.run(who, raw);
+      if (res) client.send(DIRECTOR_MSG.result, res);
+    });
+  }
+
+  private directorWho(client: Client<UserData>): DirectorWho | null {
+    const p = this.state.players.get(client.sessionId);
+    if (!p || !client.userData) return null;
+    return { userId: p.userId, name: p.name, admin: client.userData.admin, permisos: client.userData.permisos };
+  }
+
+  /**
+   * Los comandos del chat para quien tiene el permiso `director` (también en producción): "/festival <id|off>",
+   * "/desfile", "/clima <tipo>" (pasan por el panel, con su aviso) y "/sombrero [escondite]". Sin el permiso,
+   * en desarrollo siguen andando con HYVENTO_DEV_TOOLS (ver devtools.ts). Devuelve si era uno de esos.
+   */
+  private directorCommand(client: Client<UserData>, player: Player, text: string, scope: ChatScope): boolean {
+    if (!puede(client.userData, "director")) return false;
+    const who = this.directorWho(client);
+    if (!who) return false;
+    const note = (msg: string) =>
+      client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Director", text: msg, scope, zoneId: null, ts: Date.now() } satisfies ChatEvent);
+    const run = (action: unknown) => {
+      const res = this.director.run(who, action);
+      if (res && !res.ok) note(res.texto);
+      return true;
+    };
+    const t = text.trim();
+    if (t === "/desfile") return run({ kind: "momento", id: "carnaval-desfile" });
+    const fest = parseDevFestival(t);
+    if (fest) return "error" in fest ? (note(fest.error), true) : run({ kind: "festival", id: fest.id });
+    const clima = parseDevWeather(t);
+    if (clima) return typeof clima === "object" ? (note(clima.error), true) : run({ kind: "clima", weather: clima });
+    const sombrero = parseDevSombrero(t);
+    if (sombrero === false) return false;
+    this.devSombrero(client, player, text);
+    if (!("error" in sombrero)) OfficeRoom.systemNoticeEverywhere({ from: "Director", text: `${player.name} hizo salir al Man del Sombrero.` });
+    return true;
+  }
+
   /**
    * "/time" (o "/hora"): cualquiera pregunta la hora; solo los admins la cambian (set/add, como en
    * Minecraft). La respuesta le llega solo a quien escribió. Devuelve si era el comando.
@@ -3126,8 +3223,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const note = (msg: string) =>
       client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Reloj", text: msg, scope, zoneId: null, ts: Date.now() } satisfies ChatEvent);
     if (cmd.kind !== "query") {
-      if (!client.userData?.admin) {
-        note("Solo un admin puede cambiar la hora.");
+      if (!puede(client.userData, "director")) {
+        note("Solo un admin o el director pueden cambiar la hora.");
         return true;
       }
       const now = OfficeRoom.gameClockNow();
@@ -3158,6 +3255,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.chatTimes = times;
     // En la pajita en boca, escribir en el chat pierde (aguinaldos.ts).
     this.aguinaldos.chat(client.sessionId);
+    if (this.directorCommand(client, player, parsed.data.text, parsed.data.scope)) return;
     if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text) || this.devFestival(client, parsed.data.text) || this.devSombrero(client, player, parsed.data.text))) return;
     if (this.timeCommand(client, parsed.data.text, parsed.data.scope)) return;
     this.achievements.bump(player.userId, STAT_KEYS.chatMessages);
@@ -3507,18 +3605,18 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (now - (client.userData.lastSombreroAt ?? 0) < SOMBRERO.buyCooldownMs) return;
     this.sombrero.refresh();
     if (!this.sombrero.present) return aviso("El Man del Sombrero ya se fue. Vuelve a ciertas horas, o con tormenta.");
-    if (this.drunk.fainted(player.userId) || !this.sombrero.near(player.area, player.x, player.y, this.mapOf(player.area).tileSize)) return aviso("Arrímese al Man del Sombrero.");
+    if (this.drunk.fainted(player.userId) || !this.sombrero.near(player.area, player.x, player.y, this.mapOf(player.area).tileSize)) return aviso("Arrímese más, que esto no se grita.");
     client.userData.lastSombreroAt = now;
     const { result, balance } = await this.capitulo2.buyPendulum(client.sessionId, player.userId);
     if (balance !== undefined) for (const p of this.state.players.values()) if (p.userId === player.userId) p.points = balance;
     const text: Record<string, string> = {
-      notNow: "«¿Un péndulo? No sé de qué me habla.» (todavía no lo anda buscando)",
-      have: "Ya tiene el péndulo.",
-      full: "No le cabe en la mochila: haga espacio.",
-      funds: "No le alcanzan los puntos.",
-      failed: "No se pudo. Intente otra vez.",
+      notNow: "«¿Un péndulo? No sé de qué me habla.» (todavía no lo estás buscando)",
+      have: "Ya tiene el péndulo, parcero. Uno solo alcanza.",
+      full: "No le cabe en la mochila, parcero. Haga espacio primero.",
+      funds: "No le alcanza, parcero. Sin puntos no hay péndulo.",
+      failed: "Algo salió mal. Vuelva a intentar (pero disimule).",
     };
-    if (result !== "ok") aviso(text[result] ?? "No se pudo.");
+    if (result !== "ok") aviso(text[result] ?? "No se pudo comprar el péndulo. Intenta otra vez.");
   }
 
   /** La historia: preguntarle (o mostrarle algo) a quien da el paso abierto; lo decide la sala del capítulo. */

@@ -89,7 +89,7 @@ export const CASINO_NPCS: readonly GameNpc[] = [
       eyes: "happy",
       shoeColor: "#1a1418",
     }),
-    idle: ["Siéntese, que hay puesto.", "¿Una manito, sumercé?", "Aquí se juega limpio, parcero.", "Veintiuno o nada, ¿cierto?"],
+    idle: ["Siéntese, que hay puesto.", "¿Una manito, sumercé?", "Aquí se juega limpio, ¿sí o qué?", "Veintiuno o nada, ¿cierto?"],
   },
   {
     id: "cajera",
@@ -247,15 +247,15 @@ export function rouletteCall(n: number): string {
 export const NPC_LINES = {
   /** El crupier, cuando abre la ronda y cuando cierra las apuestas. */
   rouletteOpen: ["¡Hagan sus apuestas!", "Apuesten, que la rueda no espera.", "¡Hagan juego, señores!"],
-  rouletteClose: ["¡No va más!", "Nada más, que ya gira.", "¡Ya no va más, mijo!"],
+  rouletteClose: ["¡No va más!", "Nada más, que ya gira.", "¡Ya no va más, señores!"],
   /** Lo que agrega después del número, a veces. */
   rouletteAfter: ["Uy, casi.", "Qué pena con los del negro.", "Pa' la próxima, parcero.", "¡Eso, eso!"],
   /** El dealer: abre la ronda, reparte y termina. */
   blackjackOpen: ["Hagan juego, señores.", "¿Quién se anima?", "Siéntense, que ya reparto."],
   blackjackDeal: ["Cartas van.", "Ahí le van.", "Suerte, pues."],
   bankWins: ["La casa gana, qué pena con usted.", "Otra vez será, mijo.", "Hoy la banca está de buenas."],
-  bankLoses: ["Uy, casi… me ganaron.", "Bien jugado, parcero.", "¡Qué suerte la suya, sumercé!"],
-  dealerBust: ["¡Me pasé! Qué oso.", "Ay, no. Me volé.", "Me reventé, ¡a cobrar!"],
+  bankLoses: ["Uy, casi… me ganaron.", "Bien jugado, sumercé.", "¡Qué suerte la suya!"],
+  dealerBust: ["¡Me pasé! Qué oso.", "Ay, no. Me fui de largo.", "Me reventé, ¡a cobrar!"],
   playerBlackjack: ["¡Blackjack! Qué suerte la de usted.", "¡Veintiuno de una! Hágale."],
   /** La cajera, a quien se arrima a la caja. */
   cashier: ["¿Le cambio, mi amor?", "¿Fichas? A la orden.", "¿Cuántas le doy, sumercé?", "Bien pueda, ¿qué le cambio?"],
@@ -312,7 +312,7 @@ export function spokenHour(minuteOfDay: number): string {
 
 /** Saludos a quien se arrima (`{name}` = el nombre corto). */
 export const ASTRONOMA_GREET = [
-  "¡Quiubo, {name}! Bienvenido al observatorio.",
+  "¡Quiubo, {name}! Qué bueno que vino al observatorio.",
   "Siga, {name}, que el cielo es de todos.",
   "¡Ay, qué bueno verlo, {name}! ¿Viene a mirar estrellas?",
   "Buenas, {name}. Hable pasito, que las estrellas se asustan… mentiras.",
@@ -331,7 +331,7 @@ export const ASTRONOMA_LINES = {
     "El atardecer es el mejor momento pa' limpiar las lentes. Quédese pa' la noche.",
   ],
   dia: [
-    "Son {hora}: de día el telescopio descansa. Vuelva de noche, mijo.",
+    "Son {hora}: de día el telescopio descansa. Vuelva de noche.",
     "El sol también es una estrella, la más cercana… pero no la mire de frente, ¿oyó?",
     "De día no se ve ni una estrella. Vuelva después de las siete y le muestro Orión.",
     "Ahorita el cielo está muy azul pa' mirar estrellas. ¡Vuelva de noche, que vale la pena!",
@@ -340,7 +340,7 @@ export const ASTRONOMA_LINES = {
     "Son {hora} y ya salieron las Tres Marías: el cinturón de Orión, mírelas en fila.",
     "¿Ve esa estrella bien brillante? Es Sirio, la más brillante de la noche.",
     "Orión viene subiendo por el oriente, con su espada y todo. ¡Qué belleza!",
-    "Desde Colombia se ven los dos hemisferios: somos unos privilegiados, parce.",
+    "Desde Colombia se ven las estrellas de los dos hemisferios: somos unos privilegiados.",
   ],
   noche: [
     "Son {hora}: ya se ve la Cruz del Sur, bajita, hacia el sur.",

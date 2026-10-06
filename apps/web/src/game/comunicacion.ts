@@ -127,7 +127,7 @@ export function followPerson(userId: string) {
   useComStore.setState({ following: { userId, name: who.player.name } });
   resetFollowProgress();
   if (!followTimer) followTimer = setInterval(followTick, FOLLOW_TICK_MS);
-  notify(`Sigues a ${who.player.name}. Muévete o pulsa "Dejar de seguir" para soltarle.`);
+  notify(`Sigues a ${who.player.name}. Para soltarte, camina o toca «Dejar de seguir».`);
   followTick();
 }
 
@@ -250,12 +250,12 @@ function followTick() {
   const me = room.state.players.get(room.sessionId);
   const target = findUser(f.userId);
   if (!me) return;
-  if (!target) return stopFollowing(`${f.name} se fue de la cabaña: dejas de seguirle.`);
+  if (!target) return stopFollowing(`Dejaste de seguir a ${f.name}: se fue de la cabaña.`);
   const t = target.player;
   // Una oficina cerrada donde no puedo entrar: no me quedo pegado a la puerta.
   const office = t.zoneId ? useOfficeStore.getState().offices[t.zoneId] : undefined;
   if (office?.locked && office.ownerId !== me.userId && !office.guests.includes(me.userId))
-    return stopFollowing(`${f.name} entró a una oficina cerrada: dejas de seguirle.`);
+    return stopFollowing(`Dejaste de seguir a ${f.name}: entró a una oficina cerrada.`);
 
   const now = Date.now();
   const pos = `${me.area}:${Math.round(me.x)}:${Math.round(me.y)}`;
@@ -275,7 +275,7 @@ function followTick() {
   if (stuck) {
     // En otro nivel sin camino, "Ir hasta" ya avisó que no encuentra cómo llegar: se suelta sin repetirlo.
     if (me.area !== t.area && stuckTries > 0) return stopFollowing();
-    if (++stuckTries > FOLLOW_MAX_STUCK) return stopFollowing(`No encuentro cómo llegar hasta ${f.name}: dejas de seguirle.`);
+    if (++stuckTries > FOLLOW_MAX_STUCK) return stopFollowing(`Dejaste de seguir a ${f.name}: no encuentro cómo llegar hasta allá.`);
   }
   lastGoal = { area: t.area, x: t.x, y: t.y };
   lastTriggerAt = now;
