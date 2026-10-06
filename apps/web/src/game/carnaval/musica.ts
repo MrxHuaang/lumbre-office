@@ -1,8 +1,11 @@
 // La música andina del Carnaval, toda sintetizada con WebAudio (sin grabaciones): quena (seno con soplo y
 // vibrato), zampoña (dos voces con aire), charango (rasgueo pulsado y brillante), bombo y cascabeles. Va
 // por la salida de la música del mezclador. Las piezas (docs/plan-carnaval.md):
-//   - "La Guaneña": bambuco tradicional de Nariño, de dominio público; aquí un arreglo corto y libre de la
-//     melodía (suena en la apertura y al paso del Galeras);
+//   - "La Guaneña": bambuco tradicional de Nariño, de dominio público (suena en la apertura y al paso del
+//     Galeras). El arreglo sigue la melodía de la versión para flauta de las escuelas ("do mi la la la la,
+//     do' la sol sol sol sol, la sol mi la sol mi re do" y el cierre "do mi la do' la sol..."), en Mi menor
+//     para que quepa en la quena en Sol (de Sol4 a Sol5), en 3 con el ritmo del bambuco: las frases entran a
+//     contratiempo y terminan en la tercera del acorde; la armonía es la de siempre (i, III, VII, VI, V, i);
 //   - "Sanjuanito del lago": original, en ritmo de sanjuanito (2/4): la marcha del desfile;
 //   - "Pasacalle del Megabús": original, pasacalle de banda: la comparsa de la cabaña;
 //   - "Albazo de la madrugada": original, para la premiación del concurso.
@@ -23,8 +26,11 @@ export function freq(name: string): number {
 
 /** Una nota de la melodía: nombre (o "-" silencio) y cuántos tiempos dura. */
 type Nota = [string, number];
-/** Un acorde del charango por compás (notas de abajo hacia arriba). */
+/** Un acorde del charango (notas de abajo hacia arriba). */
 type Acorde = readonly string[];
+/** La armonía de un compás: un acorde, o dos (el segundo entra a la mitad del compás). */
+type Armonia = Acorde | readonly [Acorde, Acorde];
+const partido = (a: Armonia): a is readonly [Acorde, Acorde] => typeof a[0] !== "string";
 
 interface Pieza {
   bpm: number;
@@ -33,7 +39,7 @@ interface Pieza {
   melodia: readonly Nota[];
   /** Una segunda voz (la zampoña), en paralelo a la melodía; null para que no suene. */
   segunda: readonly Nota[] | null;
-  acordes: readonly Acorde[];
+  acordes: readonly Armonia[];
   /** El patrón del bombo dentro del compás (en tiempos). */
   bombo: readonly number[];
 }
@@ -49,23 +55,37 @@ const Em = ["E3", "G3", "B3", "E4"];
 const B7 = ["B3", "D#4", "F#4", "A4"];
 
 export const PIEZAS_MUSICA: Record<PiezaId, Pieza> = {
-  // Arreglo corto y libre de La Guaneña (bambuco en 3, en Mi menor).
+  // La Guaneña (tradicional): bambuco en 3, en Mi menor. Nueve compases: la primera frase ("do mi la la la
+  // la, do' la sol sol sol sol, la sol mi la sol mi re do") y la del cierre ("do mi la do' la sol, la sol mi
+  // la sol mi re do"), que acaba en la tercera del acorde de Mi menor, como se canta. Cada frase entra a
+  // contratiempo (en el tercer tiempo) y la segunda voz va una tercera o una cuarta abajo, en la zampoña.
   guanena: {
-    bpm: 132,
+    bpm: 138,
     compas: 3,
     melodia: [
-      ["B4", 1], ["E5", 1], ["E5", 1], ["D5", 0.5], ["E5", 0.5], ["F#5", 1], ["E5", 1],
-      ["D5", 1], ["B4", 1], ["G4", 1], ["A4", 2], ["B4", 1],
-      ["G4", 1], ["F#4", 1], ["E4", 1], ["F#4", 1], ["G4", 1], ["A4", 1],
-      ["B4", 2], ["-", 1], ["E4", 3],
+      ["-", 2], ["G4", 0.5], ["B4", 0.5],
+      ["E5", 1], ["E5", 0.5], ["E5", 0.5], ["E5", 1],
+      ["G5", 1.5], ["E5", 0.5], ["D5", 1],
+      ["D5", 0.5], ["D5", 0.5], ["D5", 1], ["E5", 0.5], ["D5", 0.5],
+      ["B4", 1], ["E5", 0.5], ["D5", 0.5], ["B4", 1],
+      ["A4", 0.5], ["G4", 1.5], ["G4", 0.5], ["B4", 0.5],
+      ["E5", 0.5], ["G5", 0.5], ["E5", 1], ["D5", 1],
+      ["E5", 0.5], ["D5", 0.5], ["B4", 1], ["E5", 0.5], ["D5", 0.5],
+      ["B4", 1], ["A4", 0.5], ["G4", 1.5],
     ],
     segunda: [
-      ["G4", 1], ["B4", 1], ["B4", 1], ["A4", 0.5], ["B4", 0.5], ["D5", 1], ["B4", 1],
-      ["A4", 1], ["G4", 1], ["E4", 1], ["F#4", 2], ["G4", 1],
-      ["E4", 1], ["D#4", 1], ["B3", 1], ["D#4", 1], ["E4", 1], ["F#4", 1],
-      ["G4", 2], ["-", 1], ["B3", 3],
+      ["-", 3],
+      ["B4", 2], ["B4", 1],
+      ["E5", 1.5], ["C5", 0.5], ["B4", 1],
+      ["A4", 2], ["B4", 0.5], ["A4", 0.5],
+      ["G4", 1], ["B4", 1], ["G4", 1],
+      ["F#4", 0.5], ["E4", 1.5], ["-", 1],
+      ["C5", 0.5], ["E5", 0.5], ["C5", 1], ["B4", 1],
+      ["B4", 1], ["G4", 1], ["B4", 0.5], ["B4", 0.5],
+      ["F#4", 1], ["D#4", 0.5], ["E4", 1.5],
     ],
-    acordes: [Em, Em, G, D, Em, B7, B7, Em],
+    // Un acorde por compás; en el último, la dominante y la vuelta a Mi menor a la mitad.
+    acordes: [Em, Em, G, D, Em, Em, C, G, [B7, Em]],
     bombo: [0, 2],
   },
   // Sanjuanito del lago (original): La menor, alegre, en 2.
@@ -138,7 +158,11 @@ function noiseBuffer(ctx: AudioContext, len: number): AudioBuffer {
 function quena(ctx: AudioContext, out: AudioNode, t: number, f: number, len: number, vol: number) {
   const osc = ctx.createOscillator();
   osc.type = "sine";
-  osc.frequency.setValueAtTime(f, t);
+  // Las notas largas entran un pelito abajo y suben (como sopla un quenista); las cortas, derechas.
+  if (len > 0.35) {
+    osc.frequency.setValueAtTime(f * 0.982, t);
+    osc.frequency.linearRampToValueAtTime(f, t + 0.07);
+  } else osc.frequency.setValueAtTime(f, t);
   const lfo = ctx.createOscillator();
   lfo.frequency.value = 5.4;
   const depth = ctx.createGain();
@@ -259,11 +283,14 @@ function programa(p: Pieza): { golpes: Golpe[]; largo: number } {
   const largo = Math.max(voz(p.melodia, 0.16), p.segunda ? voz(p.segunda, 0.07) : 0);
   const compases = Math.ceil(largo / p.compas);
   for (let k = 0; k < compases; k++) {
-    const acorde = p.acordes[k % p.acordes.length]!;
+    const armonia = p.acordes[k % p.acordes.length]!;
     const t0 = k * p.compas;
     for (const b of p.bombo) golpes.push({ at: t0 + b, play: (ctx, out, t) => bombo(ctx, out, t, b === 0 ? 0.5 : 0.32) });
     // El charango rasguea en cada medio tiempo (abajo en el tiempo, arriba en el contratiempo).
-    for (let h = 0; h < p.compas * 2; h++) golpes.push({ at: t0 + h / 2, play: (ctx, out, t) => charango(ctx, out, t, acorde, h % 2 ? 0.035 : 0.05, h % 2 === 1) });
+    for (let h = 0; h < p.compas * 2; h++) {
+      const acorde = partido(armonia) ? armonia[h < p.compas ? 0 : 1] : armonia;
+      golpes.push({ at: t0 + h / 2, play: (ctx, out, t) => charango(ctx, out, t, acorde, h % 2 ? 0.035 : 0.05, h % 2 === 1) });
+    }
     for (let h = 0; h < p.compas * 2; h++) if (h % 2 === 1) golpes.push({ at: t0 + h / 2, play: (ctx, out, t) => cascabel(ctx, out, t, 0.05) });
   }
   golpes.sort((a, b) => a.at - b.at);

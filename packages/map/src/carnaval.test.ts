@@ -1,4 +1,4 @@
-import { CARROZA_IDS } from "@hyvento/shared";
+import { CARNAVAL, CARROZA_IDS, GAME_DAY_REAL_MS, GAME_MINUTES_PER_DAY } from "@hyvento/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CARNAVAL_PUESTO,
@@ -9,6 +9,7 @@ import {
   DESFILE_PORTON_X,
   DESFILE_UNIDADES,
   DESFILE_Y,
+  unidadX,
   ROAD,
   bailarinPuesto,
   bajadaMs,
@@ -23,7 +24,7 @@ import {
   setFestivalDecor,
   type OfficeMap,
 } from "./index";
-import { carrozaSprite, CARROZA_FRAMES } from "./art/carnaval";
+import { carrozaSprite, CARROZA_FRAMES, CARROZA_LARGO } from "./art/carnaval";
 
 afterEach(() => {
   setFestivalDecor(null);
@@ -117,12 +118,51 @@ describe("el desfile por la calle del Megabús", () => {
     expect(DESFILE_Y.carroza).toBeGreaterThan(ROAD.y0);
   });
 
-  it("cada carroza tiene sus cuadros dibujados, de día y de noche", () => {
-    for (const id of CARROZA_IDS)
-      for (let f = 0; f < CARROZA_FRAMES; f++)
-        for (const night of [false, true]) {
-          const s = carrozaSprite(id, f, night);
-          expect(s.canvas.width, id).toBeGreaterThan(40);
-        }
+  it("cada carroza tiene sus cuadros dibujados, de día y de noche, y sus piezas se mueven", () => {
+    const firma = (id: (typeof CARROZA_IDS)[number], f: number, night: boolean) => {
+      const c = carrozaSprite(id, f, night).canvas;
+      return `${c.width}x${c.height}:${Buffer.from(c.data).toString("base64")}`;
+    };
+    for (const id of CARROZA_IDS) {
+      const dia = Array.from({ length: CARROZA_FRAMES }, (_, f) => firma(id, f, false));
+      for (let f = 0; f < CARROZA_FRAMES; f++) expect(carrozaSprite(id, f, true).canvas.width, id).toBeGreaterThan(40);
+      // Las piezas se mueven: cada cuadro es distinto del siguiente (también al dar la vuelta).
+      for (let f = 0; f < CARROZA_FRAMES; f++) expect(dia[f], `${id} cuadro ${f}`).not.toBe(dia[(f + 1) % CARROZA_FRAMES]);
+      // De noche se prenden los faroles.
+      expect(firma(id, 0, true), id).not.toBe(dia[0]);
+    }
+  });
+
+  it("cada carroza cabe en su puesto de la fila (no se monta sobre la de adelante)", () => {
+    for (const id of CARROZA_IDS) {
+      const u = DESFILE_UNIDADES.find((x) => x.id === id)!;
+      expect(CARROZA_LARGO[id], id).toBeLessThan(u.largo);
+    }
+  });
+
+  it("el desfile con las diez carrozas sigue durando unos 2 minutos y termina antes del concurso", () => {
+    const dur = desfileDuracionMs();
+    expect(dur).toBeGreaterThan(105_000);
+    expect(dur).toBeLessThan(135_000);
+    // Aunque el de las 19:00 salga al final de su ventana (porque el bus estaba en la calle), la cola ya
+    // se perdió en el bosque antes de que cierre el concurso.
+    const realMsPorMinuto = GAME_DAY_REAL_MS / GAME_MINUTES_PER_DAY;
+    const ultimo = Math.max(...CARNAVAL.desfileHoras);
+    expect(CARNAVAL.ventanaMin * realMsPorMinuto + dur).toBeLessThan((CARNAVAL.concursoCierre - ultimo) * 60 * realMsPorMinuto);
+    // Al terminar, la cola (la comparsa de la cabaña) ya pasó el final de la calle.
+    const fin = desfileEstado(dur);
+    expect(fin.fin).toBe(true);
+    const k = DESFILE_UNIDADES.length - 1;
+    expect(unidadX(k, fin.cabeza) - DESFILE_UNIDADES[k]!.largo).toBeGreaterThan(ROAD.x1);
+    // Y todas las carrozas pasan por delante del palco caminando (se ven desde la estación).
+    for (const id of CARROZA_IDS) {
+      const k2 = DESFILE_UNIDADES.findIndex((x) => x.id === id);
+      let vista = false;
+      for (let ms = 0; ms < dur && !vista; ms += 250) {
+        const x = unidadX(k2, desfileEstado(ms).cabeza);
+        vista = Math.abs(x - DESFILE_PALCO_X) < 2;
+      }
+      expect(vista, id).toBe(true);
+    }
   });
 });
