@@ -80,6 +80,7 @@ describe("lo que se lleva en la mano", () => {
       ["aguardiente", "tequila", "ron-viejo", "whisky", "cerveza", "pola-dorada", "refajo", "michelada", "mojito", "cuba-libre", "lulada-ron"],
       ["perico-bolsa", "tusi", "keta", "popper"],
       ["chocolatina", "chocolatina-brujas", "chupeta", "bombon", "gomitas", "masmelo", "malvavisco", "calabaza-dorada"],
+      ["natilla", "natilla-casera", "bunuelo", "bunuelos-novena", "pan-bono-horno"],
       CAFE_ITEM_ART.filter((a) => a.startsWith("semillas-")),
       ["clavel", "astromelia", "girasol", "hortensia", "fresa"],
     ];

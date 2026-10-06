@@ -153,6 +153,10 @@ export const STAT_KEYS = {
   clawWins: "claw_wins",
   fortuneSpins: "fortune_spins",
   notesPrinted: "notes_printed",
+  // Las novenas (novenas.ts y aguinaldos.ts): figuras puestas en el pesebre, novenas rezadas y aguinaldos ganados.
+  pesebreFiguras: "pesebre_figuras",
+  novenasRezadas: "novenas_rezadas",
+  aguinaldosGanados: "aguinaldos_ganados",
   // La Noche de brujas (noche-brujas.ts): calabazas doradas encontradas en el laberinto y dulces recibidos
   // pidiendo dulce o truco.
   goldenPumpkins: "golden_pumpkins",
@@ -394,6 +398,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("sazon-de-la-casa", "Sazón de la casa", "pan", "legendario", STAT_KEYS.levelCocina, 10, "Llega al nivel 10 de Cocina", "La abuela aprobaría. Y la abuela no aprueba nada."),
   ]),
   ...section("juegos", [
+    a("aguinaldo", "Me debe un aguinaldo", "coin", "comun", STAT_KEYS.aguinaldosGanados, 1, "Gana un aguinaldo en las novenas (pajita en boca o sí y no)", "Ni un sí, ni un no, ni una sílaba de más."),
     a("ficha-uno", "Ficha uno", "joystick", "comun", STAT_KEYS.arcadeGames, 1, "Juega una partida en el arcade", "Soplaste el cartucho por si acaso."),
     a("arcadero", "Rata de arcade", "joystick", "raro", STAT_KEYS.arcadeGames, 100, "Juega 100 partidas en el arcade", "Tienes los pulgares más fuertes del equipo."),
     a("record-semanal", "Récord de la semana", "trophy", "epico", STAT_KEYS.arcadeRecords, 1, "Supera el récord de la semana de un juego del arcade", "Tres letras en la pantalla. Las tuyas."),
@@ -458,6 +463,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     a("punto-exacto", "Punto exacto", "marshmallow", "comun", STAT_KEYS.goldenMarshmallows, 1, "Saca un malvavisco dorado de la fogata del observatorio", "Ni crudo ni carbón: el punto de la abuela."),
     a("maestro-malvavisquero", "Maestro malvavisquero", "marshmallow", "raro", STAT_KEYS.goldenMarshmallows, 25, "Saca 25 malvaviscos dorados", "Tu palito ya tiene nombre propio."),
     a("antorcha-humana", "Antorcha humana", "flame", "comun", STAT_KEYS.burntMarshmallows, 5, "Quema 5 malvaviscos", "Técnicamente también es cocinar.", true),
+    // Las novenas
+    a("pesebrero", "Pesebrero", "star", "comun", STAT_KEYS.pesebreFiguras, 1, "Pon la figura del día en el pesebre de las novenas", "La mula quedó un poquito torcida, pero con amor."),
+    a("novenero", "Novenero", "scroll", "epico", STAT_KEYS.novenasRezadas, 9, "Reza la novena junto al pesebre las nueve noches", "Te sabes los villancicos hasta al revés."),
     // La Noche de brujas
     a("calabaza-dorada", "Calabaza dorada", "pumpkin", "epico", STAT_KEYS.goldenPumpkins, 1, "Encuentra la calabaza dorada del laberinto de maíz en la Noche de brujas", "Entre tanto maíz, la única que brillaba era la tuya."),
     a("dulce-o-truco", "Dulce o truco", "pumpkin", "raro", STAT_KEYS.trickOrTreats, 10, "Recibe 10 dulces pidiendo dulce o truco", "La canasta ya no cierra y todavía quedan puertas."),
