@@ -4,14 +4,14 @@
 // del viaje. Todo sale de `state.bus` (la fase y cuándo empezó) y de la hora del servidor: no hay reglas
 // acá (las valida apps/server/src/rooms/bus.ts).
 import { BUS_ROUTE, BUS_STOP, ROAD, type OfficeMap, type PlacedFurniture } from "@hyvento/map";
-import { busCarSprite, busJointSprite, busScreenText, stationDoorsSprite, type BusCar, type Sprite } from "@hyvento/map/art";
+import { busCarSprite, busHeadlightBeam, busJointSprite, busNightWindows, busScreenText, busTailGlow, stationDoorsSprite, type BusCar, type Sprite } from "@hyvento/map/art";
 import { BUS, BUS_TIMINGS, busEtaMs, busLane, busOffset, doorsOpening, nextBusText, type BusPhase } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import * as Phaser from "phaser";
 import { playBusBrakes, playBusDoors, setBusEngine } from "./busSonidos";
 import { busTimingsOf, readBus, useBusStore } from "./busStore";
 import { serverNow } from "./club/store";
-import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
+import { DEPTH_OVERLAY, depthOf, ensureTexture, worldToScreen } from "./iso/view";
 import type { OfficeRoom } from "./network";
 import { volAt } from "./sfx";
 import { useOfficeStore } from "./store";
@@ -36,6 +36,11 @@ export class BusView {
   private map?: OfficeMap;
   private station?: PlacedFurniture;
   private cars?: { front: Phaser.GameObjects.Image; joint: Phaser.GameObjects.Image; rear: Phaser.GameObjects.Image };
+  /**
+   * De noche (VIR-178): las ventanas prendidas de cada cuerpo (encima de la penumbra, ya con su luz: el bus se
+   * mueve y no puede ser un hueco de la noche), el haz de los faros y el rojo de atrás (ADD).
+   */
+  private lights?: { front: Phaser.GameObjects.Image; rear: Phaser.GameObjects.Image; beam: Phaser.GameObjects.Image; tail: Phaser.GameObjects.Image };
   private doors?: Phaser.GameObjects.Image;
   private screen?: Phaser.GameObjects.Image;
   private shownScreen = "";
@@ -57,6 +62,7 @@ export class BusView {
     if (!this.station) return;
     const img = () => this.scene.add.image(0, 0, "__DEFAULT").setOrigin(0, 0).setVisible(false);
     this.cars = { front: img(), joint: img(), rear: img() };
+    this.lights = { front: img(), rear: img(), beam: img().setBlendMode(Phaser.BlendModes.ADD), tail: img().setBlendMode(Phaser.BlendModes.ADD) };
     this.doors = img();
     this.screen = img();
   }
@@ -86,8 +92,8 @@ export class BusView {
   }
 
   private clear() {
-    for (const o of [this.cars?.front, this.cars?.joint, this.cars?.rear, this.doors, this.screen]) o?.destroy();
-    this.cars = this.doors = this.screen = undefined;
+    for (const o of [this.cars?.front, this.cars?.joint, this.cars?.rear, this.doors, this.screen, ...Object.values(this.lights ?? {})]) o?.destroy();
+    this.cars = this.doors = this.screen = this.lights = undefined;
     this.shownScreen = this.shownDoors = "";
     this.station = undefined;
   }
@@ -146,8 +152,9 @@ export class BusView {
     const s = busOffset(b.phase, elapsed, t, BUS_STOP.stopX - BUS_ROUTE.startX, BUS_ROUTE.endX - BUS_STOP.stopX, { from: b.from, to: b.to, at: "estacion" });
     this.sounds(b.phase, b.run, elapsed, s);
     const { front, joint, rear } = this.cars;
+    const lights = this.lights!;
     if (s === null) {
-      for (const o of [front, joint, rear]) o.setVisible(false);
+      for (const o of [front, joint, rear, ...Object.values(lights)]) o.setVisible(false);
       return;
     }
     const frontX = BUS_STOP.stopX + s;
@@ -167,6 +174,18 @@ export class BusView {
     this.place(joint, `bus-fuelle-${dy}`, () => busJointSprite(dy), jointX, BUS_STOP.sideY + latF, depth(jointX + BUS.jointLen) + 0.1);
     joint.setAlpha(fadeAt(jointX));
     car(front, "front", frontX - BUS.frontLen, latF, BUS.frontLen);
+    // De noche, las luces de cada cuerpo con el mismo origen (y el mismo desvanecido en las puntas).
+    for (const o of Object.values(lights)) o.setVisible(night);
+    if (night) {
+      const lit = (o: Phaser.GameObjects.Image, key: string, make: () => Sprite, x: number, lat: number, depth: number, a: number) => {
+        this.place(o, key, make, x, BUS_STOP.sideY + lat, depth);
+        o.setAlpha(a);
+      };
+      lit(lights.rear, "bus-luces-rear", () => busNightWindows("rear"), rearX, latR, DEPTH_OVERLAY + 0.5, rear.alpha);
+      lit(lights.front, "bus-luces-front", () => busNightWindows("front"), frontX - BUS.frontLen, latF, DEPTH_OVERLAY + 0.5, front.alpha);
+      lit(lights.beam, "bus-faros", busHeadlightBeam, frontX - BUS.frontLen, latF, DEPTH_OVERLAY + 1, front.alpha);
+      lit(lights.tail, "bus-cocuyos", busTailGlow, rearX, latR, DEPTH_OVERLAY + 1, rear.alpha);
+    }
   }
 
   /** El motor, los frenos y las puertas en el jardín, según dónde va el bus y quién lo oye. */

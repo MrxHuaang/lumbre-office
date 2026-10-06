@@ -17,6 +17,8 @@ import { oso } from "./oso";
 import { rana } from "./rana";
 import type { CarrozaArte } from "./partes";
 import { tinto } from "./tinto";
+import { jaguar } from "./jaguar";
+import { leon } from "./leon";
 
 export { cajaDeParte, posesCarroza, type CarrozaArte, type LuzCarroza, type Movimiento, type Parte, type ParteMovil, type Pose } from "./partes";
 
@@ -35,6 +37,8 @@ export const CARROZAS_ARTE: Record<CarrozaId, () => CarrozaArte> = {
   oso,
   mariposa,
   rana,
+  jaguar,
+  leon,
 };
 
 const cache = new Map<string, CarrozaArte>();
