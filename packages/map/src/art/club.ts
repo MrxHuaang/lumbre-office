@@ -1,6 +1,7 @@
 // Muebles del club del sótano (la sala del pole dance): barra con estante de botellas, cabina de DJ,
 // parlantes y mesas de cóctel. Madera oscura, bronce y neón rosado y turquesa.
 import { C, OUT } from "./palette";
+import { barCounterSprite, speakerSprite } from "./salas-muebles";
 import { alpha, at, flat, noise, renderSprite, solidBox, type Box, type Ramp, type Shader, type Sprite } from "./pixel";
 import { roundShadow, shadowUnder, volume } from "./kit";
 
@@ -25,17 +26,6 @@ function cocktail(x: number, y: number, z: number, drink: Ramp): Box[] {
     solidBox({ x, y, z: z + 0.5, w: 1, d: 1, h: 2.5 }, C.white, 3),
     { x: x - 1, y: y - 1, z: z + 3, w: 3, d: 3, h: 2, top: flat(at(drink, 4)), left: flat(alpha(at(drink, 3), 0.85)), right: flat(alpha(at(drink, 2), 0.85)) },
   ];
-}
-
-function barCounter(): Sprite {
-  return renderSprite(
-    [
-      { x: 1, y: 0, z: 0, w: 14, d: 16, h: 16, top: flat(at(C.woodDark, 3)), left: flat(at(C.woodDark, 2)), right: barFront },
-      { x: 0, y: 0, z: 16, w: 16, d: 16, h: 2, top: blackMarble, left: flat(at(C.gold, 2)), right: flat(at(C.gold, 3)) },
-      ...cocktail(9, 6, 18, C.neon),
-    ],
-    { outline: OUT },
-  );
 }
 
 /**
@@ -146,26 +136,6 @@ function djBooth(): Sprite {
   );
 }
 
-/** Parlante alto: caja negra con un woofer grande abajo y un tweeter arriba. */
-function speaker(): Sprite {
-  const front: Shader = (u, v, fw, fh) => {
-    const cx = fw / 2;
-    const w = Math.hypot(u + 0.5 - cx, v - 8);
-    if (w < 4.2) return w < 1.2 ? at(C.metal, 3) : w > 3.4 ? at(C.metal, 2) : at(C.metal, Math.floor(w * 2) % 2 ? 0 : 1);
-    const t = Math.hypot(u + 0.5 - cx, v - 19);
-    if (t < 2.2) return t < 0.9 ? at(C.cyan, 4) : at(C.metal, 2);
-    if (v < 1 || v >= fh - 1) return at(C.metal, 2);
-    return at(C.metal, 0);
-  };
-  return renderSprite(
-    [
-      { x: 3, y: 3, z: 0, w: 10, d: 10, h: 26, top: flat(at(C.metal, 2)), left: flat(at(C.metal, 1)), right: front },
-      solidBox({ x: 2.5, y: 2.5, z: 0, w: 11, d: 11, h: 1 }, C.metal, 1),
-    ],
-    { outline: OUT, under: shadowUnder(3, 3, 10, 10) },
-  );
-}
-
 /** Mesa alta de cóctel: base y pie dorados, cubierta redonda de mármol negro con una vela y un trago. */
 function cocktailTable(): Sprite {
   const round: Shader = (u, v, fw, fh) => {
@@ -198,10 +168,10 @@ function cocktailTable(): Sprite {
 
 /** Dibujos del club, para registrar en DRAW de furniture.ts. */
 export const CLUB_DRAW: Record<string, () => Sprite> = {
-  "bar-counter": barCounter,
+  "bar-counter": barCounterSprite,
   "bar-taps": barTaps,
   "bar-shelf": barShelf,
   "dj-booth": djBooth,
-  speaker,
+  speaker: speakerSprite,
   "cocktail-table": cocktailTable,
 };
