@@ -29,7 +29,7 @@ export const OBSERVATORIO_CATALOG = {
   sundial: { name: "Reloj de sol", size: [1, 1] },
   "stargazer-scope": { name: "Telescopio de trípode", size: [1, 1] },
   // Adentro.
-  orrery: { name: "Orrery", size: [2, 2], light: { at: [16, 16, 22], ...WARM, radius: 34 } },
+  orrery: { name: "Planetario de mesa", size: [2, 2], light: { at: [16, 16, 22], ...WARM, radius: 34 } },
   "brass-telescope": { name: "Telescopio de latón", size: [2, 2] },
   "spiral-stairs": { name: "Escalera de caracol", size: [2, 2], fixed: true },
   "rock-case": { name: "Vitrina de piedras", size: [1, 2], light: { at: [8, 16, 24], color: "#ffe2a0", radius: 26 } },

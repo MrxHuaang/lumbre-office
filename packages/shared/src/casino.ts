@@ -33,7 +33,7 @@ export const CASINO_ERROR_TEXT: Record<CasinoError, string> = {
   "max-bets": "Ya hiciste todas las apuestas que se permiten en esta ronda.",
   disabled: "El casino está cerrado por ahora.",
   failed: "No se pudo hacer la apuesta. Intenta de nuevo.",
-  seat: "Siéntate en una banqueta de la mesa de blackjack para jugar.",
+  seat: "Siéntate en una silla de la mesa de blackjack para jugar.",
   turn: "Todavía no es tu turno.",
 };
 
