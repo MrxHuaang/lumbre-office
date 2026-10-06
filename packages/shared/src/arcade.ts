@@ -14,7 +14,7 @@ export const ARCADE_GAME_INFO: Record<ArcadeGame, { name: string; controls: stri
   breakout: { name: "Rompeladrillos", controls: "Flechas para mover · Espacio para lanzar" },
   flappy: { name: "Aleteo", controls: "Espacio o flecha arriba para aletear" },
   bloques: { name: "Bloques", controls: "Flechas para mover · Arriba gira · Espacio la suelta" },
-  pinball: { name: "Pinball", controls: "Espacio lanza · Flechas izquierda y derecha mueven los flippers" },
+  pinball: { name: "Pinball", controls: "Espacio lanza · Flechas izquierda y derecha mueven las paletas" },
 };
 
 /**
@@ -207,7 +207,7 @@ export type ArcadeResult =
 export const ARCADE_ERROR_TEXT: Record<ArcadeError, string> = {
   far: "Párate delante de la máquina para jugar.",
   invalid: "Esa máquina está fuera de servicio.",
-  funds: `No te alcanzan las monedas: cada partida cuesta ${ARCADE_PRICE.machine}.`,
+  funds: `No te alcanzan los puntos: cada partida cuesta ${ARCADE_PRICE.machine}.`,
   short: "La partida fue muy corta: no cuenta.",
   implausible: "Ese puntaje no cuadra con la partida: no se guardó.",
   expired: "La partida se venció. Empieza otra.",

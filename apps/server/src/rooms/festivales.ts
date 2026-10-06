@@ -1,5 +1,5 @@
 // Los festivales en la sala (ver festivales.ts de @hyvento/shared): cuál corre según el calendario del juego
-// (o el que se prendió con /festival en desarrollo) y en qué fase va. Lo publica en el estado (`festival`,
+// (o el que se prendió a mano: el panel del director o /festival) y en qué fase va. Lo publica en el estado (`festival`,
 // `festivalFase`) para que el navegador lo dibuje, y al abrir y al cerrar cada día manda a todos la
 // cinemática del festival; quien entra con la fiesta andando ve la de "llegaste en plena fiesta". Los
 // momentos con hora de un festival (`momentos`, como la suelta de faroles de velitas) salen al llegar el
@@ -33,7 +33,7 @@ export interface FestivalesParts {
 }
 
 export class Festivales {
-  /** El que se prendió a mano (solo desarrollo): manda sobre el calendario. */
+  /** El que se prendió a mano (panel del director o /festival): manda sobre el calendario. */
   private override: FestivalId | null = null;
   /** Hasta qué minuto de qué día del juego se revisaron los momentos (no se repiten en el mismo día). */
   private seen: { day: number; minute: number } | null = null;
@@ -99,7 +99,7 @@ export class Festivales {
     if (festival && fase === "fiesta") send(FESTIVAL_MSG.cine, { id: festivalCineId(festival.id, "llegada") } satisfies FestivalCineEvent);
   }
 
-  /** Solo desarrollo: prende un festival ya (o vuelve al calendario con null). */
+  /** Prende un festival ya (o vuelve al calendario con null): panel del director o /festival. */
   force(id: FestivalId | null) {
     this.override = id;
     this.tick();

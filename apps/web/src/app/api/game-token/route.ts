@@ -5,7 +5,7 @@ import { asAvatar, asLook, getCurrentUser } from "@/lib/current-user";
 /** Emite el token corto con el que el cliente entra al servidor de juego. */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   if (!user.onboardedAt) return NextResponse.json({ error: "Completa tu perfil primero" }, { status: 409 });
 
   const secret = process.env.GAME_TOKEN_SECRET;

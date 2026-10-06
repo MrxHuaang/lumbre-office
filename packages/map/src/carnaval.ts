@@ -6,7 +6,7 @@
 // pierde en el bosque del este. La cabeza (Don Evelio de abanderado) marca el paso y el resto va detrás a
 // su distancia; en las paradas para toda la fila. Puro (en tiles del nivel `jardin`): lo usan la sala (para
 // mover a quien baila) y el navegador (para dibujarlo con la hora del servidor), así todos lo ven igual.
-import { CARNAVAL, COMPARSAS, DESFILE_ORDEN, disfracesById, murgaById, type CarrozaId } from "@hyvento/shared";
+import { CARNAVAL, COMPARSAS, DESFILE_ORDEN, disfracesById, musicosDe, type CarrozaId } from "@hyvento/shared";
 import { ROAD } from "./world/areas/parada";
 
 /** Lo largo de cada carroza en la calle (tiles; el dibujo cabe ahí, un test lo revisa). */
@@ -36,7 +36,7 @@ export const DESFILE_UNIDADES: readonly DesfileUnidad[] = [
   ...DESFILE_ORDEN.map((it): DesfileUnidad => {
     if (it.tipo === "carroza") return { id: it.id, tipo: "carroza", largo: largoCarroza(it.id) };
     if (it.tipo === "murga") {
-      const n = murgaById(it.id)?.musicos.length ?? 0;
+      const n = musicosDe(it.id).length;
       return { id: it.id, tipo: "murga", largo: 1.2 + Math.ceil(n / 2) * 1.6, cuantos: n };
     }
     const n = disfracesById(it.id)?.personajes.length ?? 0;

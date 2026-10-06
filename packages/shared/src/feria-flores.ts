@@ -76,7 +76,7 @@ export const BUILD_ERROR_TEXT: Record<BuildError, string> = {
   code: `Una silleta lleva por lo menos ${SILLETA.minFlores} flores.`,
   flowers: "No te alcanzan las flores: siembra y cosecha más en el huerto.",
   full: "No te cabe la silleta en la mochila.",
-  busy: "Un momentico...",
+  busy: "Un momentico…",
 };
 
 /** Lo que le falta para armar una silleta con lo que lleva en la mochila (vacío = alcanza). */
@@ -100,7 +100,7 @@ export const EXHIBIT_ERROR_TEXT: Record<ExhibitError, string> = {
   none: "Lleva tu silleta en la mano para exhibirla.",
   taken: "Ese exhibidor ya tiene silleta: busca uno libre.",
   already: "Tu silleta ya está exhibida en esta feria.",
-  busy: "Un momentico...",
+  busy: "Un momentico…",
 };
 
 export type VoteError = "off" | "far" | "empty" | "own" | "voted" | "busy";
@@ -112,7 +112,7 @@ export const VOTE_ERROR_TEXT: Record<VoteError, string> = {
   empty: "Ese exhibidor está vacío.",
   own: "Por la tuya no se vale votar.",
   voted: "Ya votaste en esta feria. ¡Un voto por persona!",
-  busy: "Un momentico...",
+  busy: "Un momentico…",
 };
 
 /** Clave de `UserStat` (máximo 1) del voto de un año del juego: un voto por persona por feria. */
@@ -161,7 +161,7 @@ export const FERIA_BUY_ERROR_TEXT: Record<FeriaBuyError, string> = {
   funds: "No te alcanzan los puntos.",
   full: "La mochila está llena.",
   stack: "Ya llevas muchas bolsas de esas.",
-  busy: "Un momentico...",
+  busy: "Un momentico…",
   failed: "No se pudo comprar. Intenta de nuevo.",
 };
 

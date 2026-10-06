@@ -15,7 +15,9 @@ import {
   disfracesById,
   EVELIO_CARROZAS,
   EVELIO_PARADAS,
-  murgaById,
+  musicosDe,
+  MURGAS,
+  repertorioDe,
   PESCA_NPC,
   fraseAcciones,
   frasePose,
@@ -42,7 +44,7 @@ import { getRoom } from "../network";
 import { volAt } from "../sfx";
 import { useOfficeStore } from "../store";
 import { CamaraComparsa } from "./camara";
-import { BandaAndina } from "./musica";
+import { BandasDelDesfile, type FuenteMusica } from "./musica";
 import { desfileMs, onLanzado, syncCarnaval, useCarnavalStore } from "./index";
 
 /** Hasta dónde se oye la banda de una carroza (px de mundo: unos 16 tiles). */
@@ -156,7 +158,7 @@ export class CarnavalView {
   private unidades: Unidad[] = [];
   private evelio?: Avatar;
   private bandera?: Phaser.GameObjects.Image;
-  private banda = new BandaAndina();
+  private banda = new BandasDelDesfile();
   /** Con 3 o más de la cabaña bailando, la cámara de quien baila se acerca un paso. */
   private camara: CamaraComparsa;
   private corrida = -1;
@@ -249,7 +251,7 @@ export class CarnavalView {
         un.prog = programarFrase(c.frase, c.bailarines.length);
       }
     } else if (u.tipo === "murga") {
-      un.bailarines = (murgaById(u.id)?.musicos ?? []).map((m) => new Bailarin(scene, m.look, 1, m.instrumento));
+      un.bailarines = musicosDe(u.id).map((m) => new Bailarin(scene, m.look, 1, m.instrumento));
     } else if (u.tipo === "disfraces") {
       un.bailarines = (disfracesById(u.id)?.personajes ?? []).map((p) => new Bailarin(scene, p.look, 1.6));
     }
@@ -268,7 +270,7 @@ export class CarnavalView {
     const ms = desfileMs();
     if (!map || map.id !== "jardin" || ms === null) {
       if (this.unidades.length) this.clear();
-      this.banda.update(null, 0);
+      this.banda.update([], 0);
       return;
     }
     const st = useCarnavalStore.getState();
@@ -284,7 +286,7 @@ export class CarnavalView {
       this.fraseT = -1;
       if (e.parada !== null) this.evelioSay(EVELIO_PARADAS[e.parada] ?? "", `parada:${st.corrida}:${e.parada}`);
     }
-    let musica: { pieza: PiezaId; vol: number } = { pieza: "sanjuanito", vol: 0 };
+    const musica: FuenteMusica[] = [];
     let armadas = 0;
     for (const un of this.unidades) {
       const front = unidadX(un.k, e.cabeza);
@@ -317,9 +319,15 @@ export class CarnavalView {
             .setDepth(base + i * 0.001)
             .setVisible(shown && q.visible);
         });
-        // La música de la carroza más cercana.
+        // La música de la comparsa de cada carroza: rota su repertorio (cada una empieza en otro punto).
         const vol = volAt((front - largo / 2) * ts, (DESFILE_Y.carroza + 1.3) * ts, HEAR_PX) * fadeAt(front - largo / 2);
-        if (vol > musica.vol) musica = { pieza: PIEZA[id], vol };
+        musica.push({ clave: id, repertorio: repertorioDe(PIEZA[id], un.k), vol });
+      }
+      // Cada murga toca su repertorio donde va caminando.
+      if (un.u.tipo === "murga") {
+        const m = MURGAS.find((x) => x.id === un.u.id);
+        const x = front - un.u.largo / 2;
+        if (m) musica.push({ clave: m.id, repertorio: m.repertorio, vol: volAt(x * ts, DESFILE_Y.murga[0] * ts, HEAR_PX) * fadeAt(x) });
       }
       // Los bailarines: en su puesto caminando, o con la coreografía en la parada.
       const vuelta = enParada && un.prog ? fraseMs % un.prog.ms : -1;
@@ -341,7 +349,7 @@ export class CarnavalView {
       }
     }
     if (enParada) this.fraseT = fraseMs;
-    this.banda.update(musica.vol > 0 ? musica.pieza : null, Math.min(1, musica.vol * 1.1));
+    this.banda.update(musica, ms);
     this.updateEvelio(e.cabeza, enParada, Math.floor(ahora / FRAME_MS) % 4, ts, st.corrida);
   }
 

@@ -10,7 +10,7 @@ describe("catálogo de permisos", () => {
       expect(p.descripcion.length).toBeGreaterThan(0);
     }
     // Se guardan en la base: cambiar uno deja huérfanos los permisos ya dados.
-    expect(PERMISO_IDS).toEqual(expect.arrayContaining(["anunciar", "editar-casa"]));
+    expect(PERMISO_IDS).toEqual(expect.arrayContaining(["anunciar", "editar-casa", "director"]));
   });
 
   it("isPermiso y el esquema solo aceptan ids del catálogo", () => {

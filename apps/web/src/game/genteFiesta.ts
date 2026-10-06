@@ -605,8 +605,8 @@ export class GenteFiestaView {
       return;
     }
     useGenteFiesta.setState((s) => ({ hechos: new Set([...s.hechos, r.pedido]) }));
-    const premio = [r.item ? `${r.n ?? 1} de ${bagItemInfo(r.item).name.toLowerCase()}` : null, r.puntos > 0 ? `${r.puntos} puntos` : null].filter(Boolean).join(" y ");
-    decirEnDialogo(r.npc, [pedido?.gracias ?? "¡Gracias!", ...(premio ? [`Te dio ${premio}.`] : [])]);
+    const premio = [r.item ? `${bagItemInfo(r.item).name} x${r.n ?? 1}` : null, r.puntos > 0 ? `${r.puntos} puntos` : null].filter(Boolean).join(" y ");
+    decirEnDialogo(r.npc, [pedido?.gracias ?? "¡Gracias!", ...(premio ? [`Te dio: ${premio}.`] : [])]);
     a?.avatar?.emote("heart");
   }
 }
@@ -616,12 +616,12 @@ function miraA(dx: number, dy: number): Direction {
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
 }
 
-/** "Necesita: mazorca, 2 (tienes 1)." y si ya se tiene todo. */
+/** "Pide: Mazorca x2 (tienes 1)." y si ya se tiene todo. */
 function pideTexto(pide: readonly { item: string; n: number }[]): { texto: string; completo: boolean } {
   const slots = useBagStore.getState().slots;
   const tengo = (item: string) => slots.reduce((n, s) => n + (s?.itemId === objItemId(item) ? s.quantity : 0), 0);
-  const partes = pide.map((p) => `${bagItemInfo(objItemId(p.item)).name.toLowerCase()}, ${p.n} (tienes ${tengo(p.item)})`);
-  return { texto: `Necesita: ${partes.join("; ")}.`, completo: pide.every((p) => tengo(p.item) >= p.n) };
+  const partes = pide.map((p) => `${bagItemInfo(objItemId(p.item)).name} x${p.n} (tienes ${tengo(p.item)})`);
+  return { texto: `Pide: ${partes.join("; ")}.`, completo: pide.every((p) => tengo(p.item) >= p.n) };
 }
 
 export { genteAlAlcance, useGenteFiesta };

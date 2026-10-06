@@ -66,9 +66,9 @@ export interface AguaNotice {
 
 export const AGUA_NOTICES: Record<AguaNoticeCode, string> = {
   covered: "La piscina está tapada con la lona mientras llueve o nieva.",
-  far: "Acércate un poco más.",
+  far: "Acércate a la escalera o al trampolín de la piscina.",
   busy: "Primero levántate o sal del agua.",
-  edge: "Nada hasta el borde para salir.",
+  edge: "Para salir, acércate nadando al borde.",
   wait: "Toma aire un segundo antes de volver a saltar.",
   rain: "Se dañó el tiempo: todos fuera de la piscina. La taparon con la lona.",
 };

@@ -93,7 +93,7 @@ const PROMPT: Record<Interactable, string> = {
   podcast: "Grabar en el estudio",
   telescope: "Mirar por el telescopio",
   marshmallow: "Asar un malvavisco",
-  orrery: "Ver el orrery",
+  orrery: "Ver el orrery (el clima en planetas)",
   radar: "Usar el radar de señales",
   logbook: "Leer el diario de exploración",
   astronomer: "Hablar con la astrónoma",
@@ -130,7 +130,7 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 const ago = (iso: string) => {
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (min < 1) return "recién";
+  if (min < 1) return "hace un momento";
   if (min < 60) return `hace ${min} min`;
   const h = Math.round(min / 60);
   return h < 24 ? `hace ${h} h` : `hace ${Math.round(h / 24)} d`;

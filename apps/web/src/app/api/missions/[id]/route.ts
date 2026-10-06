@@ -19,7 +19,7 @@ const fail = (error: string, status = 409) => NextResponse.json({ error }, { sta
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
-  if (!user) return fail("No autenticado", 401);
+  if (!user) return fail("Tu sesión se cerró. Vuelve a entrar.", 401);
   const parsed = Body.safeParse((await req.json().catch(() => null)) ?? {});
   if (!parsed.success) return fail("Acción inválida", 400);
   const { id } = await params;
@@ -65,7 +65,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     return true;
   });
-  if (!paid) return fail("Alguien cambió la misión recién. Actualiza el tablón.");
+  if (!paid) return fail("Alguien acaba de cambiar esta misión. Vuelve a abrir el tablón para verla al día.");
   if (action === "approve" && mission.assigneeId) await publishPointsChanged(mission.assigneeId);
   if (action === "cancel") await publishPointsChanged(mission.createdById);
 

@@ -90,7 +90,7 @@ describe("permisos por persona", () => {
   it("el admin siempre puede, aunque no tenga filas", async () => {
     const room = await colyseus.createRoom<OfficeState>(ROOM_NAME, {});
     const ana = await join(room, "u-ana", "Ana", "ADMIN");
-    expect(ana.seen.last).toEqual({ admin: true, permisos: ["anunciar", "editar-casa"] });
+    expect(ana.seen.last).toEqual({ admin: true, permisos: ["anunciar", "editar-casa", "director"] });
     expect(await edit(ana.client)).toEqual({ ok: true });
   });
 

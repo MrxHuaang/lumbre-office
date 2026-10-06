@@ -49,17 +49,28 @@ Cada comparsa camina con su carroza. Al llegar a una parada del recorrido repite
 9. **Aurora**: Doña Aurora *saludar* desde arriba; las meseras reparten "tinto" (burbujas) y hacen *asentir*.
 10. **Comparsa de la cabaña**: la de los jugadores. Se suman con E junto al Megabús y repiten *bailar* · *girar* · *saltar* · *celebrar* en bucle. Si son 3 o más, la cámara de quien baila se acerca un paso (y vuelve al salirse).
 
-## 3. Música (toda sintetizada por código, sin grabaciones)
+## 3. Música (toda sintetizada por código, sin grabaciones; VIR-174)
 
-La paleta de sonido es **quena** (seno con soplo), **zampoña** (dos voces), **charango** (pulsado brillante), **bombo** y **cascabeles**, por el mezclador (`sfxOut("musica")`).
+El sonido del carnaval son **las murgas** y **los colectivos andinos**, y el ritmo más propio de Nariño es el **son sureño** (en 6/8). Va por la salida de la música del mezclador (`sfxOut("music")`). Código: `apps/web/src/game/carnaval/musica.ts` (bandas y reproducción), `musica-piezas.ts` (el repertorio), `musica-programa.ts` (la parte pura: notación, rangos, cortes, programa por tramos) y `musica-instrumentos.ts` (los sintetizadores). Ids, conjuntos, repertorios y murgas: `packages/shared/src/carnaval-musica.ts`.
 
-- **"La Guaneña"**: tradicional nariñense, bambuco del siglo XIX (de dominio público). Es el himno del carnaval: suena en la apertura y cuando pasa la carroza del Galeras. Basta un arreglo corto de la melodía: el del juego sigue la versión para flauta de las escuelas ("do mi la la la la, do' la sol sol sol sol, la sol mi la sol mi re do" y el cierre "do mi la do' la sol..."), en Mi menor y en 3, de Sol4 a Sol5 (lo que da una quena en Sol), con las frases que entran a contratiempo y la dominante antes de volver a empezar; dura unos 12 segundos por vuelta.
-- **"Sanjuanito del lago"**: original, en ritmo de sanjuanito (2/4, alegre). Es la marcha del desfile.
-- **"Pasacalle del Megabús"**: original, un pasacalle de banda. Acompaña a la comparsa de los jugadores.
-- **"Albazo de la madrugada"**: original. Suena en la premiación del concurso de disfraces.
-- *Para escuchar, sin reproducir en el juego*: "El cóndor pasa" (Daniel Alomía Robles, 1913) y "Llorando se fue" (Los Kjarkas, 1981), como referencia del timbre de quena y charango.
+**Los dos conjuntos**
 
-Cada carroza lleva la melodía a su paso: el volumen baja con la distancia, como la radio. Solo suena con alguien en el nivel.
+- **La murga**: trompeta, saxo y trombón (diente de sierra con un filtro que se abre al soplar, el labio que entra un pelito abajo y vibrato tardío), acordeón (tres lengüetas de pulso desafinadas: el trémolo) y la percusión al frente: bombo, redoblante, platillos, timbales, güiro, guasá y campana. Sus **cortes**: golpe de toda la banda con platillo, silencio y el repique de timbales y redoblante que la vuelve a meter.
+- **El colectivo andino**: quena, zampoña (segunda voz), **rondador** (dos cañas vecinas a la vez, en terceras o cuartas, como suena de verdad), bombo y shekere. Sin charango (es más del altiplano).
+
+**El repertorio** (todo original salvo La Guaneña; cada pieza dura de 2 a 3 minutos, con introducción, temas que pasan de un instrumento a otro, la percusión sola, cortes y final):
+
+- Murga: **"Son de la vereda"** (son sureño, Re menor), **"Son del cuy alegre"** (son sureño, La menor, con hemiolas y pregunta y respuesta), **"Sanjuanito de la plaza"** (sanjuanito, Mi menor) y **"La Guaneña"** arreglada para murga (los bronces llevan la melodía, cada vuelta arranca con un corte y la anacrusa).
+- Colectivo: **"Sanjuanito del lago"** (La menor), **"Bambuco del Galeras"** (Sol mayor con un tema en Mi menor) y **"La Guaneña"** (tradicional nariñense, bambuco de dominio público e himno del carnaval: la melodía de la versión para flauta de las escuelas, en Mi menor y en 3, con la dominante antes de volver; la zampoña y el rondador se la pasan, con un puente y un interludio originales).
+- El pasacalle y el albazo (más ecuatorianos) se quitaron. Nada con derechos de autor.
+
+**En el desfile**: cada grupo rota el repertorio de su conjunto desde que sale el desfile (`sonandoEn`, con una pausa entre piezas), y cada carroza empieza en otro punto (`repertorioDe(pieza, puesto)`), así todos oyen lo mismo y dos grupos seguidos no tocan lo mismo. Las comparsas de las carrozas suenan con su colectivo; la de la cabaña (el Megabús) y las tres murgas ficticias que van detrás de algunas carrozas (`MURGAS`: por ahora se oyen, no se dibujan) con la murga. `BandasDelDesfile` toca el grupo de cada conjunto que más se oye; si se oyen los dos, el más lejano baja. Las notas se programan tramo por tramo mientras suenan.
+
+**En las cinemáticas**: el sonido `guanena` (la apertura) toca un trozo de La Guaneña del colectivo y `murga` (la premiación) uno del "Son de la vereda" (`CINE_MUSICA`).
+
+**Para escucharlas**: `listaParaEscuchar()` y `escucharPieza(id)` de `musica.ts` (devuelve cómo pararla).
+
+**Fuentes**: Wikipedia, "Murgas en Carnaval de Negros y Blancos de Pasto"; Radio Nacional, "Carnaval de Negros y Blancos: música y danza que exaltan la identidad nariñense"; Vanguardia, "Carnaval de Negros y Blancos entona ritmos andinos para cantarle a la tierra".
 
 ## 4. Recorrido (la calle del Megabús)
 

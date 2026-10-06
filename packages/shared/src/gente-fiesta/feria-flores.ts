@@ -30,7 +30,7 @@ export function GENTE_FERIA(): FiestaNpc[] {
         hola: ["¡Semillas de flores pa' la silleta! Claveles, astromelias, girasoles…", "Una silleta buena lleva flores de tres colores, por lo menos.", "Estas semillas son de Santa Elena, de la tierrita de los silleteros."],
         tarde: ["Ya se me acabaron los girasoles. ¿Usted no tiene en el huerto?"],
       },
-      murmullos: ["¡Semillas de flores!", "Claveles, astromelias…", "Pa' la silleta, mijo"],
+      murmullos: ["¡Semillas de flores!", "Claveles, astromelias…", "Pa' la silleta, a la orden"],
       pedido: {
         id: "girasoles-rubiela",
         pide: [{ item: "girasol", n: 3 }],
@@ -46,14 +46,14 @@ export function GENTE_FERIA(): FiestaNpc[] {
       comportamiento: { tipo: "ronda", paradas: EXHIBIDORES },
       pinta: SILLETERO,
       frases: {
-        hola: ["Cargo silleta desde los doce años. La espalda se acostumbra; las flores, no se cansan.", "Una silleta tradicional lleva las flores en círculos. Las modernas, lo que uno sueñe."],
+        hola: ["Cargo silleta desde los doce años. La espalda se acostumbra y las flores lo valen.", "Una silleta tradicional lleva las flores en círculos. Las modernas, lo que uno sueñe."],
       },
       murmullos: ["Qué silleta tan buena", "Esa lleva hortensias", "Derechito, la espalda"],
       pedido: {
         id: "hortensias-ramiro",
         pide: [{ item: "hortensia", n: 2 }],
         da: { puntos: 8 },
-        texto: "A mi silleta le faltan dos hortensias pa' el centro. ¿Me las trae del huerto?",
+        texto: "A mi silleta le faltan dos hortensias pa'l centro. ¿Me las trae del huerto?",
         gracias: "Ahora sí quedó completa. Dios le pague, que esta silleta va al desfile.",
       },
     }),
@@ -63,7 +63,7 @@ export function GENTE_FERIA(): FiestaNpc[] {
       tile: { x: 93, y: 56 },
       comportamiento: { tipo: "ronda", paradas: [...EXHIBIDORES].reverse() },
       voz: 0.28,
-      frases: { hola: ["Vengo de Santa Elena, de cinco generaciones de silleteros.", "La silleta nació pa' cargar flores al mercado. Ahora es un orgullo.", "Mire bien las silletas: cada flor tiene su lugar."] },
+      frases: { hola: ["Vengo de Santa Elena, de cinco generaciones de silleteros.", "Con la silleta mis abuelos bajaban las flores a vender a Medellín. Ahora es un orgullo.", "Mire bien las silletas: cada flor tiene su lugar."] },
       murmullos: ["Cinco generaciones…", "¡Qué colores!", "Esa es emblemática"],
     }),
     suelto(F, "camila", "Camila", { skin: "#ffdbac", hair: "#d8a050", shirt: "#3aa0d0", pants: "#e8e4dc", accent: "#2a2a3a", hairStyle: "ponytail", top: "tshirt", bottom: "shorts", head: "bucket-hat", face: "sunglasses", shoes: "sandals", shoeColor: "#8a5a3a" }, {
@@ -102,7 +102,7 @@ export function GENTE_FERIA(): FiestaNpc[] {
       tile: { x: 87, y: 57 },
       comportamiento: { tipo: "grupo", grupo: "admiran", centro: { x: 88, y: 57 } },
       pinta: { head: "flower", accent: "#e0a23a" },
-      frases: { hola: ["La Feria de las flores empezó en 1957, mijo. Eso no se lo enseñan en ningún lado.", "Las silletas emblemáticas llevan mensajes. Las tradicionales, puro color."] },
+      frases: { hola: ["La Feria de las flores empezó en 1957. El primer desfile de silleteros fue ese mismo año.", "Las silletas emblemáticas llevan mensajes. Las tradicionales, puro color."] },
       murmullos: ["En 1957…", "Eso no es así", "Qué arreglo tan fino"],
     }),
     papel(F, "carmenza", {
@@ -110,7 +110,7 @@ export function GENTE_FERIA(): FiestaNpc[] {
       area: "jardin",
       tile: { x: 89, y: 57 },
       comportamiento: { tipo: "grupo", grupo: "admiran", centro: { x: 88, y: 57 } },
-      frases: { hola: ["Yo cargué silleta de joven. Una chiquita, pero pesaba como una grande.", "Ese clavel está mal puesto. No diga que yo dije."] },
+      frases: { hola: ["Yo cargué silleta de joven. Una chiquita, pero pesaba como una grande.", "Ese clavel está mal puesto. No diga que yo le dije."] },
       murmullos: ["Ese clavel…", "¡Ay, qué lindo!", "Yo cargué una"],
     }),
     papel(F, "aurelio", {
@@ -127,7 +127,7 @@ export function GENTE_FERIA(): FiestaNpc[] {
       area: "jardin",
       tile: { x: 73, y: 51 },
       comportamiento: { tipo: "quieto", mira: "right" },
-      frases: { hola: ["Pa' la feria, bambucos y pasillos. Esta la compuse anoche.", "La silleta y el tiple: lo más paisa que hay."] },
+      frases: { hola: ["Pa' la feria, bambucos y pasillos. Esta la compuse anoche.", "Silletas, pasillos y tiple: más colombiano no se puede."] },
       murmullos: ["Tlin, tlan…", "Un pasillo", "¡Que viva la feria!"],
     }),
     papel(F, "mariana", {
