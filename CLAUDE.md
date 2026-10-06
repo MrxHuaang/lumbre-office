@@ -9,6 +9,7 @@ La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, mu
 - **Nunca** agregar `Co-Authored-By` ni atribución a Claude/IA en commits o PRs.
 - No agregar funciones que dependan de APIs de IA de pago: se retiraron a propósito (el código viejo está en la rama `archivo/agentes-ia`).
 - Todo el arte se genera **por código** (no se compran ni se agregan assets de imagen).
+- **Nunca emojis** en nada que se vea: textos, diálogos, cinemáticas, avisos, botones, reacciones, chat del sistema ni logs. Tampoco símbolos de la fuente que cada sistema dibuja a su manera (★ ♪ ✓ ✕ ▶ ❚…). En su lugar, siempre **emojis pixel art propios**: `PixelIcon` (`components/Cozy.tsx`, íconos de 8x8; uno nuevo se agrega a `ICONS`), los emotes con su arte (`art/emotes.ts`) o un dibujo nuevo por código. El test `components/sin-emojis.test.ts` lo revisa en todo el código (los comentarios no cuentan).
 
 ## Flujo de trabajo
 

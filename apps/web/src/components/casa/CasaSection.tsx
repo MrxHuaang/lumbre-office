@@ -41,7 +41,9 @@ export function CasaSection() {
   if (!here.mine) {
     return (
       <div className="flex flex-col gap-2">
-        {fiesta && <p className="text-[13px] font-semibold text-cozy-red">🎉 ¡Hay fiesta! La barra está en la sala de fiestas.</p>}
+        {fiesta && <p className="flex items-center gap-1 text-[13px] font-semibold text-cozy-red">
+            <PixelIcon name="party" size={12} /> ¡Hay fiesta! La barra está en la sala de fiestas.
+          </p>}
         <p className="text-[13px] text-cozy-ink-soft">Estás de visita. Para volver, espera el Megabús en el refugio de la parada.</p>
         {radio && <RadioRow radio={radio} mine={false} send={sendCasaRadio} label="Música" />}
       </div>
@@ -75,7 +77,13 @@ export function CasaSection() {
         className={`cozy-btn h-[32px] ${fiesta ? "cozy-btn-danger" : "cozy-btn-primary"}`}
         title={fiesta ? "Termina la fiesta: la casa vuelve al modo de antes" : "Abre la casa, prende las luces y avisa en el chat global"}
       >
-        {fiesta ? "Terminar la fiesta" : "🎉 Armar fiesta"}
+        {fiesta ? (
+          "Terminar la fiesta"
+        ) : (
+          <span className="inline-flex items-center gap-1">
+            <PixelIcon name="party" size={12} /> Armar fiesta
+          </span>
+        )}
       </button>
       <RadioRow radio={radio} mine send={sendCasaRadio} label="Música" />
       {visits.length > 0 && (

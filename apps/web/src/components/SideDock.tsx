@@ -75,13 +75,13 @@ export function SideDock() {
         title={open ? "Esconder el panel" : `Mostrar: ${title}`}
         className="cozy-btn pointer-events-auto mb-2 flex h-auto flex-col items-center gap-1 rounded-none border-r-0 px-1.5 py-2 text-[12px]"
       >
-        <span aria-hidden>{open ? "▶" : "◀"}</span>
+        <PixelIcon name={open ? "play" : "back"} size={10} />
         {!open && (
           <>
             <PixelIcon name={inClub ? "sound" : inCinema ? "screen" : "home"} size={14} />
             {sounding && (
               <span className="text-cozy-red" aria-label="suena algo">
-                ♪
+                <PixelIcon name="note" size={12} />
               </span>
             )}
           </>

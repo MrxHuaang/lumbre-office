@@ -157,7 +157,13 @@ export function TradeWindow({ trade }: { trade: TradeView }) {
             </>
           ) : (
             <button type="button" onClick={() => sendTradeReady(!you.ready)} disabled={editing} aria-pressed={you.ready} className="cozy-btn px-4 py-2">
-              {you.ready ? "Listo ✓" : "Estoy listo"}
+              {you.ready ? (
+                <span className="inline-flex items-center gap-1">
+                  Listo <PixelIcon name="check" size={12} />
+                </span>
+              ) : (
+                "Estoy listo"
+              )}
             </button>
           )}
           <button type="button" onClick={sendTradeCancel} className="cozy-btn cozy-btn-danger ml-auto">

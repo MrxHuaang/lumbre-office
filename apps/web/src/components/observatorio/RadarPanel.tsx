@@ -13,6 +13,7 @@ import { useObservatorio } from "@/game/observatorio";
 import { audioOut } from "@/game/sound";
 import { useOfficeStore } from "@/game/store";
 import { PanelShell } from "../PointsPanels";
+import { PixelIcon } from "../Cozy";
 
 const KIND_TEXT: Record<SignalKind, string> = { radio: "Radio", club: "Música del club", piano: "Instrumento", persona: "Persona" };
 const KIND_COLOR: Record<SignalKind, string> = { radio: "#e9c65a", club: "#ff5fd2", piano: "#8ef0f0", persona: "#8cc653" };
@@ -233,11 +234,11 @@ export function RadarPanel({ onClose }: { onClose: () => void }) {
           />
           <div className="flex items-center gap-2">
             <button type="button" className="cozy-btn px-2 py-1" onClick={() => setAim((v) => (v + 345) % 360)} aria-label="Girar a la izquierda">
-              ◀
+              <PixelIcon name="back" size={11} />
             </button>
             <input type="range" min={0} max={359} value={aim} onChange={(e) => setAim(Number(e.target.value))} aria-label="Hacia dónde apunta el plato" />
             <button type="button" className="cozy-btn px-2 py-1" onClick={() => setAim((v) => (v + 15) % 360)} aria-label="Girar a la derecha">
-              ▶
+              <PixelIcon name="play" size={11} />
             </button>
           </div>
         </div>
