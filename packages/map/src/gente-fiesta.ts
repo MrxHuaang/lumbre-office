@@ -408,13 +408,19 @@ export class GenteNivel {
     return { x: now.x, y: now.y, mira, camina: moved, corre: moved && a.follow!.run, asiento: null, visible: true };
   }
 
-  /** ¿Está (x, y) a menos de `tiles` de ese NPC a ese minuto? (con la demora de la red, mira un poco antes y después). */
-  near(id: string, minuto: number, x: number, y: number, tiles: number): boolean {
+  /**
+   * ¿Está (x, y) a menos de `tiles` de ese NPC a ese minuto? (con la demora de la red, mira un poco antes y
+   * después). Con `atras`, también donde estuvo hasta esos minutos antes: mientras se habla con alguien, en
+   * ese navegador se queda quieto y va atrasado.
+   */
+  near(id: string, minuto: number, x: number, y: number, tiles: number, atras = 0): boolean {
     const reach = tiles * this.map.tileSize;
-    for (const dm of [0, -0.25, -0.5, 0.25]) {
-      const p = this.pose(id, minuto + dm);
-      if (p.visible && Math.hypot(p.x - x, p.y - y) <= reach) return true;
-    }
+    const cerca = (m: number) => {
+      const p = this.pose(id, m);
+      return p.visible && Math.hypot(p.x - x, p.y - y) <= reach;
+    };
+    for (const dm of [0, -0.25, -0.5, 0.25]) if (cerca(minuto + dm)) return true;
+    for (let dm = 1; dm <= atras; dm += 0.5) if (cerca(minuto - dm)) return true;
     return false;
   }
 

@@ -39,6 +39,7 @@ import {
 import type * as Phaser from "phaser";
 import { COZY } from "@/lib/cozy";
 import { conTexto, MURMULLO, respuestaA, slotMurmullo, tocaMurmullo, turnoDeCorrillo } from "@/lib/murmullos";
+import { RelojNpc } from "@/lib/pausaNpc";
 import { anchoPlaca, elegirNombres, NOMBRES, NOMBRES_DESFILE } from "@/lib/nombresGente";
 import { lessMotion } from "@/lib/prefs";
 import { Avatar } from "./Avatar";
@@ -113,6 +114,8 @@ interface Actor {
   cheerAt: number;
   slot: number;
   turn: number;
+  /** Su minuto en este navegador: se queda quieto mientras se le habla (`lib/pausaNpc.ts`). */
+  reloj: RelojNpc;
 }
 
 /** La vista que está activa (la E y los mensajes la buscan aquí). */
@@ -227,7 +230,13 @@ export class GenteFiestaView {
     const me = this.deps.local();
     const ts = nivel.map.tileSize;
     const night = isNightMinute(clock.minuto);
-    for (const a of this.actors.values()) a.pose = nivel.pose(a.npc.id, clock.minuto);
+    // Con quien se habla se queda quieto en su sitio (solo en este navegador; luego se pone al día).
+    const hablando = useDialogo.getState().actual?.quien ?? null;
+    for (const a of this.actors.values()) {
+      const quieto = hablando === a.npc.id;
+      const pose = nivel.pose(a.npc.id, a.reloj.minuto(clock.minuto, quieto));
+      a.pose = quieto && pose.camina ? { ...pose, camina: false, corre: false } : pose;
+    }
     // Los nombres: de los más cercanos y sin que dos placas se monten (en la vereda del Carnaval hay muchos juntos).
     const placas = [];
     if (me && !this.hideNames)
@@ -282,6 +291,7 @@ export class GenteFiestaView {
       cheerAt: 0,
       slot: -1,
       turn: -1,
+      reloj: new RelojNpc(),
     };
     if (npc.animal) {
       const img = this.scene.add.image(0, 0, "__DEFAULT").setOrigin(PET_FRAME.feetX / PET_FRAME.w, PET_FRAME.feetY / PET_FRAME.h).setVisible(false);
@@ -341,7 +351,9 @@ export class GenteFiestaView {
         a.seated = false;
       }
       if (av.x !== p.x || av.y !== p.y) av.setPosition(p.x, p.y);
-      const dancing = !p.camina && (a.npc.comportamiento.tipo === "baila" || estaDeFiesta(a.npc, minuto));
+      // Mientras le hablan no baila: se queda mirando a quien le habla.
+      const hablando = useDialogo.getState().actual?.quien === a.npc.id;
+      const dancing = !p.camina && !hablando && (a.npc.comportamiento.tipo === "baila" || estaDeFiesta(a.npc, minuto));
       if (dancing) {
         if (time >= a.danceAt && !lessMotion()) {
           a.danceAt = time + 4200;
@@ -592,6 +604,9 @@ export class GenteFiestaView {
       opciones.unshift({ id: "puesto", label: "Ver el puesto" });
       if (!pedido) opciones.push({ id: "no", label: "Nada, gracias" });
     }
+    // Se detiene y mira a quien le habla de una vez (sin esperar la próxima mirada de `scan`).
+    const yo = this.deps.local();
+    if (yo && !a.pose.asiento) a.lookAt = miraA(yo.x - a.pose.x, yo.y - a.pose.y);
     a.avatar?.playGesture("nod");
     useGenteFiesta.setState((st) => ({ hablados: new Set([...st.hablados, npc.id]) }));
     this.setMark(a, null);
