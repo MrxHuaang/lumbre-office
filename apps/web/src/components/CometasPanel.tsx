@@ -4,7 +4,7 @@
 // la vista previa de la cometa y lo que gasta), el puesto de Chepe y el carrito del raspao (dos pestañas) y
 // el tablero del concurso (inscribir la de la mano, votar por la más bonita y el récord del día). Y el
 // minijuego del vuelo (`CometaVuelo`): la tensión del hilo, la altura y el viento. El servidor valida todo.
-import { drawHeldItem } from "@hyvento/map/art";
+import { cometaCielo, drawHeldItem } from "@hyvento/map/art";
 import {
   COLOR_LETRAS,
   COMETA_COLORES,
@@ -108,7 +108,7 @@ function Taller({ atObject, open }: { atObject: boolean; open: boolean }) {
           </Opciones>
         </div>
         <div className="flex flex-col items-center gap-1">
-          <ItemArt id={`cometa:${code}`} big />
+          <CometaGrande code={code} />
           <span className="text-center text-[13px] text-cozy-ink-soft">{cometaName(code)}</span>
         </div>
       </div>
@@ -247,7 +247,7 @@ function Concurso({ atObject, open }: { atObject: boolean; open: boolean }) {
       </p>
       <div className="flex flex-wrap items-center gap-3 border-2 border-cozy-paper-dark bg-cozy-paper-light px-3 py-2">
         {code && <ItemArt id={`cometa:${code}`} />}
-        <p className="min-w-0 flex-1 text-[14px] text-cozy-ink">{code ? `Llevas en la mano: ${cometaName(code)}.` : "Inscriba la cometa que lleva en la mano: una por persona."}</p>
+        <p className="min-w-0 flex-1 text-[14px] text-cozy-ink">{code ? `Llevas en la mano: ${cometaName(code)}.` : "Inscribe la cometa que llevas en la mano: una por persona."}</p>
         <button
           type="button"
           disabled={Boolean(whyInscribir) || pending !== null}
@@ -268,7 +268,7 @@ function Concurso({ atObject, open }: { atObject: boolean; open: boolean }) {
         <ul className="grid gap-2 sm:grid-cols-2">
           {todas.map((e) => {
             const own = e.ownerId === me;
-            const why = !open ? "Cerrado" : own ? "Es la suya" : mine.voto ? (mine.voto === e.ownerId ? "Su voto" : "Ya votó") : !atObject ? "Arrímate al tablero" : "";
+            const why = !open ? "Cerrado" : own ? "Es la tuya" : mine.voto ? (mine.voto === e.ownerId ? "Tu voto" : "Ya votaste") : !atObject ? "Arrímate al tablero" : "";
             return (
               <li key={e.ownerId} className="flex items-center gap-2 border-2 border-cozy-paper-dark bg-cozy-paper-light px-2 py-1.5">
                 <ItemArt id={`cometa:${e.code}`} />
@@ -326,7 +326,7 @@ export function CometaVuelo() {
         <div className="absolute inset-y-0 bg-cozy-red/40" style={{ left: pct(VUELO.alta), right: 0 }} />
         <div className={`absolute inset-y-0 w-1.5 -translate-x-1/2 ${peligro ? "bg-cozy-red" : flojo ? "bg-cozy-ink-soft" : "bg-cozy-ink"}`} style={{ left: pct(vuelo.tension) }} />
       </div>
-      <p className="mt-1 text-[12px] text-cozy-ink-soft">{peligro ? "¡La cabuya cruje! Dele hilo." : flojo ? "Se está cayendo: jale un poquito." : "Así, en su punto: va subiendo."}</p>
+      <p className="mt-1 text-[12px] text-cozy-ink-soft">{peligro ? "¡La cabuya cruje! Dale hilo." : flojo ? "Se está cayendo: jala un poquito." : "Así, en su punto: va subiendo."}</p>
       <div className="mt-2 flex gap-2">
         <button
           type="button"
@@ -354,6 +354,20 @@ export function CometaVuelo() {
 }
 
 const artCache = new Map<string, string>();
+
+/** La cometa como se verá en el cielo, con su cola (la vista previa del taller). */
+function CometaGrande({ code }: { code: string }) {
+  const [src, setSrc] = useState<{ url: string; w: number; h: number } | null>(null);
+  useEffect(() => {
+    const s = cometaCielo(code, 0);
+    setSrc({ url: toHtmlCanvas(s.canvas).toDataURL(), w: s.canvas.width, h: s.canvas.height });
+  }, [code]);
+  return (
+    <span className="grid h-44 w-36 shrink-0 place-items-center border-2 border-cozy-paper-dark bg-cozy-sky/25">
+      {src && <img src={src.url} alt={cometaName(code)} width={src.w * 3} height={src.h * 3} className="max-h-40 max-w-32 object-contain [image-rendering:pixelated]" />}
+    </span>
+  );
+}
 
 function ItemArt({ id, small = false, big = false }: { id: string; small?: boolean; big?: boolean }) {
   const [src, setSrc] = useState(() => artCache.get(id) ?? null);

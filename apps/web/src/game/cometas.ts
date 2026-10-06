@@ -18,6 +18,7 @@ import {
   VUELO_FRAME_MS,
   bagItemInfo,
   cometaCodeOf,
+  cometaId,
   cometaName,
   cometasActiva,
   cometasShopItem,
@@ -35,6 +36,7 @@ import {
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { create } from "zustand";
+import { selectSlot, useBagStore } from "./bag";
 import { getRoom, onInteract, type OfficeRoom } from "./network";
 import { useOfficeStore } from "./store";
 
@@ -221,11 +223,30 @@ function stopFlight() {
 
 // ---------- El estado y las respuestas ----------
 
+/**
+ * La cometa recién armada queda en la mano aunque la mano llevara otra cosa (la sala solo la elige con las
+ * manos libres): se elige su casilla apenas llega a la mochila.
+ */
+function tomarEnLaMano(itemId: string) {
+  const go = () => {
+    const i = useBagStore.getState().slots.findIndex((s) => s?.itemId === itemId);
+    if (i >= 0) selectSlot(i);
+    return i >= 0;
+  };
+  if (go()) return;
+  const off = useBagStore.subscribe(() => {
+    if (go()) off();
+  });
+  setTimeout(off, 4000);
+}
+
 const done = (kind: NonNullable<CometasStore["last"]>["kind"], ok: boolean) => useCometasStore.setState({ last: { kind, ok, seq: ++seq } });
 
 /** Engancha el estado del festival y las respuestas (en cada conexión), y la E del techo del garaje. */
 export function bindCometas(r: OfficeRoom) {
   stopFlight();
+  // E junto a la escalera del garaje: bajar la cometa de Santiago (sin panel).
+  onInteract("cometaTecho", () => void getRoom()?.send(COMETAS_MSG.techo, {}));
   const $ = getStateCallbacks(r);
   type Remote = {
     vuelos: Map<string, CometaVueloView>;
@@ -262,7 +283,10 @@ export function bindCometas(r: OfficeRoom) {
   r.onMessage(COMETAS_MSG.mine, (m: CometasMine) => useCometasStore.setState({ mine: m }));
   r.onMessage(COMETAS_MSG.armarResult, (res: ArmarResult) => {
     done("armar", res.ok);
-    if (res.ok) notify(`${cometaName(res.code)}: quedó en tu mano. Vuélala con F en el voladero de la loma.`, "success");
+    if (res.ok) {
+      tomarEnLaMano(objItemId(cometaId(res.code)));
+      notify(`${cometaName(res.code)}: quedó en tu mano. Vuélala con F en el voladero de la loma.`, "success");
+    }
     else notify(ARMAR_ERROR_TEXT[res.error], "warning");
   });
   r.onMessage(COMETAS_MSG.comprarResult, (res: CometasBuyResult) => {
@@ -293,8 +317,6 @@ export function bindCometas(r: OfficeRoom) {
 }
 
 if (typeof window !== "undefined") {
-  // E junto a la escalera del garaje: bajar la cometa de Santiago (sin panel).
-  onInteract("cometaTecho", () => void getRoom()?.send(COMETAS_MSG.techo, {}));
   // Si se va el festival con la cometa en el aire, se recoge.
   useOfficeStore.subscribe((s, prev) => {
     if (s.festival.id !== prev.festival.id && flight) recogerCometa();
