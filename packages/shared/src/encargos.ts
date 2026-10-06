@@ -57,14 +57,14 @@ export const QUEST_GIVERS = {
     npc: PESCA_NPC.id,
     point: "fishing_shop",
     hello: ["¡Ve, mijo! Le tengo un favorcito, pues.", "Venga le cuento lo que necesito, sin afán.", "Usted tiene cara de buen pescador, ¿oyó?"],
-    thanks: ["¡A la final sí era de paciencia! Gracias, mijo.", "Ve, qué belleza. Tome su parte.", "Esto se lo cuento a mi compadre en Pasto."],
+    thanks: ["¡A la final sí era cuestión de paciencia! Gracias, mijo.", "¡Ananay, qué belleza! Tome su parte.", "Esto se lo cuento a mi compadre en Pasto."],
   },
   celeste: {
     id: "celeste",
     name: "Profe Celeste",
     npc: "astronoma",
     point: "astronomer",
-    hello: ["Uy, justo lo estaba esperando. ¿Me ayuda con algo?", "Anote esto en su diario, que es importante:", "El cielo anda raro hoy. Necesito un par de ojos más."],
+    hello: ["Uy, justo lo estaba esperando. ¿Me ayuda con algo?", "Anote esto en su diario, que es importante:", "El cielo anda raro hoy. Me sirve otro par de ojos."],
     thanks: ["Lo voy a apuntar con tinta dorada.", "¡Eso! Las estrellas le deben una.", "Gracias. El cielo también se lo agradece, a su manera."],
   },
   crupier: {
@@ -72,7 +72,7 @@ export const QUEST_GIVERS = {
     name: "Don Chucho Ruletas",
     npc: "crupier",
     point: "roulette",
-    hello: ["Hagan juego, señores... y usted, venga un momentico.", "Entre ronda y ronda, le tengo una propuesta:"],
+    hello: ["Hagan juego, señores… y usted, venga un momentico.", "Entre ronda y ronda, le tengo una propuesta:"],
     thanks: ["La casa agradece. Y la casa casi nunca agradece.", "¡No va más! Tome, que se lo ganó."],
   },
   dealer: {
@@ -80,7 +80,7 @@ export const QUEST_GIVERS = {
     name: "Yurani Blackjack",
     npc: "dealer",
     hello: ["Mientras barajo, le cuento una cosita:", "Psst. ¿Tiene un ratico?"],
-    thanks: ["Veintiuno, como se dice. Gracias, parce.", "Uy, sí cumplió. Eso no lo hace cualquiera."],
+    thanks: ["¡Veintiuno! Gracias, parce.", "Uy, sí cumplió. Eso no lo hace cualquiera."],
   },
   cajera: {
     id: "cajera",
@@ -101,7 +101,7 @@ export const QUEST_GIVERS = {
     id: "portero",
     name: "Toño Tres Puertas",
     npc: "portero",
-    hello: ["Quieto ahí. Nah, mentiras. Le tengo un encargo.", "Usted, el de la cara conocida: venga."],
+    hello: ["Quieto ahí. Mentiras, mentiras: le tengo un encargo.", "Usted, el de la cara conocida: venga."],
     thanks: ["Bien hecho. Queda en la lista buena.", "Eso. Pase, pase, que usted es de la casa."],
   },
 } as const satisfies Record<string, QuestGiver>;
@@ -180,7 +180,7 @@ export const QUESTS: readonly QuestDef[] = [
     { id: "tablon-tinto", giver: "tablon", title: "Tinto de media mañana", text: "«Se necesita quien pruebe el tinto de hoy. Dicen que quedó cargadito.» Pide dos cafés en la cafetería.", stat: STAT_KEYS.coffees, goal: 2, reward: r(9, "social", 15) },
     { id: "tablon-sembrar", giver: "tablon", title: "Manos a la tierra", text: "El huerto tiene tres huequitos vacíos que dan tristeza. Siembra 3 veces.", stat: STAT_KEYS.plantings, goal: 3, reward: r(11, "huerta", 20) },
     { id: "tablon-cosecha", giver: "tablon", title: "Canasta llena", text: "Alguien dejó una canasta vacía con una nota: «¿me la llenan?». Cosecha 3 veces.", stat: STAT_KEYS.harvests, goal: 3, reward: r(12, "huerta", 25) },
-    { id: "tablon-gallinas", giver: "tablon", title: "Maíz pa' las gallinas", text: "Las gallinas miran feo desde el alba. Dales de comer en el comedero del gallinero.", stat: GRANJA_STATS.feeds, goal: 1, reward: r(7, "huerta", 15) },
+    { id: "tablon-gallinas", giver: "tablon", title: "Maíz pa' las gallinas", text: "Las gallinas miran feo desde que amaneció. Dales de comer en el comedero del gallinero.", stat: GRANJA_STATS.feeds, goal: 1, reward: r(7, "huerta", 15) },
     { id: "tablon-huevos", giver: "tablon", title: "Huevos del día", text: "Para el desayuno de mañana faltan huevos. Recoge 2 en el gallinero.", stat: GRANJA_STATS.eggs, goal: 2, reward: r(9, "huerta", 20) },
     { id: "tablon-molino", giver: "tablon", title: "Harina fresca", text: "El molino del arroyo lleva días quieto. Muele una mazorca.", stat: GRANJA_STATS.grinds, goal: 1, reward: r(9, "cocina", 20) },
     { id: "tablon-parrilla", giver: "tablon", title: "Olor a leña", text: "Nadie sabe quién escribió «hoy hay asado», pero ya todos lo esperan. Saca un plato de la parrilla o del horno.", stat: GRANJA_STATS.dishes, goal: 1, reward: r(12, "cocina", 25) },
@@ -188,17 +188,17 @@ export const QUESTS: readonly QuestDef[] = [
     { id: "tablon-caminar", giver: "tablon", title: "Estirar las piernas", text: "El médico de la casa (nadie lo ha visto) recomienda caminar. Camina 300 baldosas.", stat: STAT_KEYS.tilesWalked, goal: 300, reward: r(7, "exploracion", 15) },
     { id: "tablon-mascotas", giver: "tablon", title: "Cariño de la casa", text: "Las mascotas firmaron una queja: poca atención. Consiéntelas 3 veces.", stat: STAT_KEYS.petCares, goal: 3, reward: r(7, "social", 15) },
     { id: "tablon-foto", giver: "tablon", title: "Recuerdo del día", text: "Al tablón le faltan fotos nuevas. Toma una con la cámara (tecla P).", stat: STAT_KEYS.photosTaken, goal: 1, reward: r(7, "social", 15) },
-    { id: "tablon-foco", giver: "tablon", title: "Veinticinco minuticos", text: "«Un bloque de foco, sin mirar el chat. Usted puede.» Completa un bloque de foco.", stat: STAT_KEYS.focusBlocks, goal: 1, reward: r(12, "social", 20) },
+    { id: "tablon-foco", giver: "tablon", title: "Veinticinco minuticos", text: "«Un bloque de foco, sin mirar el chat. Tú puedes.» Completa un bloque de foco.", stat: STAT_KEYS.focusBlocks, goal: 1, reward: r(12, "social", 20) },
     { id: "tablon-biblioteca", giver: "tablon", title: "Silencio de biblioteca", text: "Un libro de la biblioteca quedó abierto en una página marcada. Pasa 10 minutos allá.", stat: `${STAT_PREFIX.secZone}biblioteca`, goal: 10 * MIN, reward: r(9, "exploracion", 20) },
     { id: "tablon-brindis", giver: "tablon", title: "¡Salud por el equipo!", text: "Hoy se celebra algo (nadie sabe qué). Brinda 2 veces con alguien.", stat: STAT_KEYS.toasts, goal: 2, reward: r(9, "social", 20) },
-    { id: "tablon-tina", giver: "tablon", title: "Hombros abajo", text: "La tina del lago está calientita y sola. Descansa un rato en la tina o en la sauna.", stat: STAT_KEYS.spaRests, goal: 1, reward: r(7, "social", 15) },
+    { id: "tablon-tina", giver: "tablon", title: "A soltar los hombros", text: "La tina del lago está calientita y sola. Descansa un rato en la tina o en la sauna.", stat: STAT_KEYS.spaRests, goal: 1, reward: r(7, "social", 15) },
     // Don Evelio, el del puesto de pesca.
     { id: "evelio-olla", giver: "evelio", title: "Pa' la olla", text: "Hoy hay caldo en la casa y faltan pescados. Saque 3 del lago.", stat: STAT_KEYS.fishCaught, goal: 3, reward: r(11, "pesca", 25, { id: "carnada", qty: 3 }) },
-    { id: "evelio-basura", giver: "evelio", title: "El lago no es caneca", text: "Alguien anda botando cosas al agua. Saque 2 de basura, que el lago se lo agradece.", stat: STAT_KEYS.fishTrash, goal: 2, reward: r(9, "pesca", 20) },
+    { id: "evelio-basura", giver: "evelio", title: "El lago no es caneca", text: "Alguien anda botando cosas al agua. Saque 2 cosas de basura, que el lago se lo agradece.", stat: STAT_KEYS.fishTrash, goal: 2, reward: r(9, "pesca", 20) },
     { id: "evelio-luna", giver: "evelio", title: "Pesca de luna", text: "De noche pican los raros, dicen. Saque 2 pescados cuando ya esté oscuro.", stat: STAT_KEYS.fishCaught, goal: 2, when: { night: true }, reward: r(13, "pesca", 30) },
-    { id: "evelio-paciencia", giver: "evelio", title: "Cuestión de paciencia", text: "El que tiene paciencia saca el pescado, pues. Saque 5.", stat: STAT_KEYS.fishCaught, goal: 5, reward: r(15, "pesca", 35) },
+    { id: "evelio-paciencia", giver: "evelio", title: "Cuestión de paciencia", text: "El que tiene paciencia saca el pescado, pues. Saque 5 del lago.", stat: STAT_KEYS.fishCaught, goal: 5, reward: r(15, "pesca", 35) },
     // Profe Celeste, la astrónoma del observatorio.
-    { id: "celeste-cielo", giver: "celeste", title: "Una miradita al cielo", text: "Las constelaciones se mueven aunque uno no las mire. Mire por el telescopio una noche.", stat: STAT_KEYS.stargazing, goal: 1, reward: r(9, "exploracion", 20) },
+    { id: "celeste-cielo", giver: "celeste", title: "Una miradita al cielo", text: "Las constelaciones se mueven aunque nadie las mire. Mire por el telescopio una noche.", stat: STAT_KEYS.stargazing, goal: 1, reward: r(9, "exploracion", 20) },
     { id: "celeste-fugaz", giver: "celeste", title: "Deseo pendiente", text: "Me debo un deseo desde hace años. Vea una estrella fugaz por el telescopio y guárdemelo.", stat: STAT_KEYS.shootingStars, goal: 1, reward: r(13, "exploracion", 30) },
     { id: "celeste-malvavisco", giver: "celeste", title: "El punto de la abuela", text: "Ni crudo ni carbón. Saque un malvavisco dorado de la fogata del observatorio.", stat: STAT_KEYS.goldenMarshmallows, goal: 1, reward: r(9, "cocina", 20) },
     { id: "celeste-arbol", giver: "celeste", title: "Vista desde las ramas", text: "Dicen que desde la casa del árbol se ve un lucero que no sale en mis mapas. Suba a mirar.", stat: `${STAT_PREFIX.visit}casa-arbol`, goal: 1, reward: r(7, "exploracion", 20) },
@@ -209,15 +209,15 @@ export const QUESTS: readonly QuestDef[] = [
     { id: "dealer-arcade", giver: "dealer", title: "Pulgares calientes", text: "Pa' tener buenas manos hay que entrenar. Juegue 2 partidas en el arcade.", stat: STAT_KEYS.arcadeGames, goal: 2, reward: r(9, "social", 15) },
     { id: "dealer-carrera", giver: "dealer", title: "Ruedas y pasillo", text: "Apuesto a que no termina una carrera de sillas. ¿O sí?", stat: STAT_KEYS.racesFinished, goal: 1, reward: r(11, "exploracion", 20) },
     { id: "dealer-giro", giver: "dealer", title: "Mareo de práctica", text: "Pa' repartir rápido hay que girar rápido. Dé 10 vueltas en una silla giratoria.", stat: STAT_KEYS.chairSpins, goal: 10, reward: r(6, "social", 10) },
-    { id: "cajera-onces", giver: "cajera", title: "Las onces", text: "Tráigase algo de la cafetería, mijito, que con hambre no se cuadra caja. Pida 2 cosas.", stat: STAT_KEYS.cafeOrders, goal: 2, reward: r(9, "cocina", 15, { id: "bocadillo", qty: 1 }) },
-    { id: "cajera-pandebono", giver: "cajera", title: "Pandebono calientico", text: "Se me antojó un pandebono y no puedo dejar la caja. Pídase uno, aunque sea pa' usted.", stat: `${STAT_PREFIX.order}pandebono`, goal: 1, reward: r(7, "cocina", 15) },
+    { id: "cajera-onces", giver: "cajera", title: "Las onces", text: "Tráigase algo de la cafetería, mijito, que con hambre no se cuadra caja. Pida 2 cosas allá.", stat: STAT_KEYS.cafeOrders, goal: 2, reward: r(9, "cocina", 15, { id: "bocadillo", qty: 1 }) },
+    { id: "cajera-pandebono", giver: "cajera", title: "Pandebono calientico", text: "Se me antojó un pandebono y no puedo dejar la caja. Pídase uno en la cafetería, aunque sea pa' usted.", stat: `${STAT_PREFIX.order}pandebono`, goal: 1, reward: r(7, "cocina", 15) },
     { id: "cajera-detalle", giver: "cajera", title: "Un detallito", text: "A la gente hay que consentirla, mijito. Mándele un regalo a alguien del equipo (clic en la persona → Regalar).", stat: STAT_KEYS.giftsGiven, goal: 1, reward: r(9, "social", 20) },
-    { id: "cajera-polita", giver: "cajera", title: "Una polita", text: "El bartender del club está aburrido. Pídale algo en la barra.", stat: STAT_KEYS.barOrders, goal: 1, reward: r(7, "social", 15) },
+    { id: "cajera-polita", giver: "cajera", title: "Una polita", text: "El bartender del club está aburrido. Pídale algo en la barra del club.", stat: STAT_KEYS.barOrders, goal: 1, reward: r(7, "social", 15) },
     { id: "portero-puertas", giver: "portero", title: "Toc, toc", text: "Revise que las oficinas estén vivas: toque 2 puertas.", stat: STAT_KEYS.knocks, goal: 2, reward: r(7, "social", 15) },
     { id: "portero-pista", giver: "portero", title: "Pa' la pista", text: "La pista del club no se baila sola. Baile 3 veces.", stat: STAT_KEYS.dances, goal: 3, reward: r(7, "social", 15) },
     { id: "portero-garaje", giver: "portero", title: "¿Y el garaje qué?", text: "Hay un ruido raro en el garaje. Vaya a ver y me cuenta.", stat: `${STAT_PREFIX.visit}garaje`, goal: 1, reward: r(7, "exploracion", 20) },
-    { id: "portero-bus", giver: "portero", title: "Una vuelta en el Megabús", text: "El bus pasa y pasa y nadie se sube. Súbase una vez, por el conductor.", stat: `${STAT_PREFIX.visit}megabus`, goal: 1, reward: r(9, "exploracion", 20) },
-    { id: "portero-chisme", giver: "portero", title: "Chisme de pasillo", text: "Uno aquí se aburre. Mande 5 mensajes en el chat, que algo se entera uno.", stat: STAT_KEYS.chatMessages, goal: 5, reward: r(6, "social", 10) },
+    { id: "portero-bus", giver: "portero", title: "Una vuelta en el Megabús", text: "El bus pasa y pasa y nadie se sube. Súbase una vez, aunque sea por el conductor.", stat: `${STAT_PREFIX.visit}megabus`, goal: 1, reward: r(9, "exploracion", 20) },
+    { id: "portero-chisme", giver: "portero", title: "Chisme de pasillo", text: "Uno aquí se aburre. Mande 5 mensajes en el chat, a ver si me entero de algo.", stat: STAT_KEYS.chatMessages, goal: 5, reward: r(6, "social", 10) },
     // De temporada (solo salen en su estación).
     { id: "tablon-otono", giver: "tablon", title: "Cosecha de otoño", text: "Las hojas caen y el huerto pide manos. Cosecha 5 veces antes de que llegue el frío.", stat: STAT_KEYS.harvests, goal: 5, when: { seasons: ["otono"] }, reward: r(15, "huerta", 35) },
     { id: "tablon-primavera", giver: "tablon", title: "Siembra de primavera", text: "Todo quiere nacer. Siembra 5 veces mientras dura la primavera.", stat: STAT_KEYS.plantings, goal: 5, when: { seasons: ["primavera"] }, reward: r(15, "huerta", 35) },
@@ -232,7 +232,7 @@ export const QUESTS: readonly QuestDef[] = [
     { id: "semana-estrellas", giver: "celeste", title: "Cazadora de fugaces", text: "Necesito datos para mi tesis (llevo 30 años escribiéndola). Vea 3 estrellas fugaces esta semana.", stat: STAT_KEYS.shootingStars, goal: 3, reward: r(55, "exploracion", 100) },
     { id: "semana-caminante", giver: "portero", title: "Ronda de vigilancia", text: "Alguien tiene que conocerse cada rincón. Camine 5.000 baldosas esta semana.", stat: STAT_KEYS.tilesWalked, goal: 5000, reward: r(40, "exploracion", 90) },
     { id: "semana-parche", giver: "portero", title: "El alma del parche", text: "Esta semana quiero ver ambiente. Brinde 10 veces con la gente.", stat: STAT_KEYS.toasts, goal: 10, reward: r(47, "social", 90) },
-    { id: "semana-casino", giver: "crupier", title: "Cliente de la semana", text: "Haga 25 apuestas esta semana. Gane o pierda, la ruleta lo recuerda.", stat: STAT_KEYS.casinoBets, goal: 25, reward: r(40, "social", 80) },
+    { id: "semana-casino", giver: "crupier", title: "Cliente de la semana", text: "Haga 25 apuestas esta semana. Gane o pierda, la ruleta no olvida.", stat: STAT_KEYS.casinoBets, goal: 25, reward: r(40, "social", 80) },
     { id: "semana-foco", giver: "tablon", title: "Semana concentrada", text: "«Cinco bloques de foco esta semana. El chat sigue ahí cuando vuelvas.»", stat: STAT_KEYS.focusBlocks, goal: 5, reward: r(55, "social", 90) },
   ]),
   // La historia (historia.ts): los pasos de todos los capítulos.
@@ -517,7 +517,7 @@ export type QuestClaimResult =
   | { ok: false; questId: string; period: string; error: QuestClaimError };
 
 export const QUEST_ERROR_TEXT: Record<QuestClaimError, string> = {
-  unknown: "Ese encargo no existe (¿se lo soñó?).",
+  unknown: "Ese encargo ya no existe. Abre la libreta otra vez.",
   far: "Acércate a quien te dio el encargo para entregarlo.",
   "not-done": "Todavía no lo has cumplido.",
   claimed: "Ese encargo ya lo entregaste.",
@@ -526,7 +526,7 @@ export const QUEST_ERROR_TEXT: Record<QuestClaimError, string> = {
   stack: "Haz espacio en la mochila: no te cabe una más de eso.",
   capped: "Ya llenaste los puntos de encargos de hoy: entrégalo mañana.",
   missing: "Te falta algo en la mochila para entregar este paso.",
-  busy: "Un momentico…",
+  busy: "Espera un momentico y vuelve a intentarlo.",
   failed: "No se pudo entregar. Intenta otra vez.",
 };
 

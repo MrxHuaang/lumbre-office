@@ -57,7 +57,7 @@ export const CAFE_MENU = [
   // ---------- Panadería ----------
   { id: "pandebono", name: "Pandebono", price: 5, kind: "food", category: "panaderia", holds: ["pandebono"], blurb: "Recién salido del horno." },
   { id: "pan-yuca", name: "Pan de yuca", price: 4, kind: "food", category: "panaderia", holds: ["pan-yuca"], blurb: "En herradura, suavecito y con queso." },
-  { id: "almojabana", name: "Almojábana", price: 5, kind: "food", category: "panaderia", holds: ["almojabana"], blurb: "Esponjosa, de cuajada. Pide chocolate." },
+  { id: "almojabana", name: "Almojábana", price: 5, kind: "food", category: "panaderia", holds: ["almojabana"], blurb: "Esponjosa, de cuajada. Pide a gritos un chocolate." },
   { id: "bunuelo", name: "Buñuelo", price: 5, kind: "food", category: "panaderia", holds: ["bunuelo"], blurb: "Redondo, dorado y crocante." },
   { id: "roscon", name: "Roscón de arequipe", price: 6, kind: "food", category: "panaderia", holds: ["roscon"], blurb: "Con azúcar por encima y relleno de arequipe." },
   { id: "croissant", name: "Croissant de jamón y queso", price: 7, kind: "food", category: "panaderia", holds: ["croissant"], blurb: "Hojaldrado y calentito." },
@@ -66,7 +66,7 @@ export const CAFE_MENU = [
   { id: "empanada", name: "Empanada", price: 4, kind: "food", category: "fritos", holds: ["empanada"], blurb: "De maíz, con papa y carne. Con ají." },
   { id: "dedito", name: "Dedito de queso", price: 4, kind: "food", category: "fritos", holds: ["dedito"], blurb: "Crocante por fuera y el queso estirado." },
   { id: "papa-rellena", name: "Papa rellena", price: 6, kind: "food", category: "fritos", holds: ["papa-rellena"], blurb: "Con carne, arroz y huevo adentro." },
-  { id: "carimanola", name: "Carimañola", price: 6, kind: "food", category: "fritos", holds: ["carimanola"], blurb: "De yuca, rellena de carne, costeña." },
+  { id: "carimanola", name: "Carimañola", price: 6, kind: "food", category: "fritos", holds: ["carimanola"], blurb: "Costeña, de yuca y rellena de carne." },
   { id: "aborrajado", name: "Aborrajado", price: 7, kind: "food", category: "fritos", holds: ["aborrajado"], blurb: "Maduro con queso, apanado y frito." },
   { id: "arepa-huevo", name: "Arepa de huevo", price: 7, kind: "food", category: "fritos", holds: ["arepa-huevo"], blurb: "Frita, con el huevo adentro, como en la Costa." },
   { id: "arepa-queso", name: "Arepa con queso", price: 5, kind: "food", category: "fritos", holds: ["arepa-queso"], blurb: "Asada, con mantequilla y quesito." },
@@ -85,7 +85,7 @@ export const CAFE_MENU = [
   { id: "arroz-con-leche", name: "Arroz con leche", price: 6, kind: "food", category: "postres", holds: ["arroz-con-leche"], blurb: "Cremoso, con uvas pasas y canela." },
   { id: "brevas", name: "Brevas con arequipe", price: 7, kind: "food", category: "postres", holds: ["brevas"], blurb: "Brevas caladas, con arequipe encima." },
   { id: "cholado", name: "Cholado", price: 9, kind: "food", category: "postres", holds: ["cholado"], blurb: "Hielo raspado, frutas, leche condensada y barquillo." },
-  { id: "merengon", name: "Merengón", price: 10, kind: "food", category: "postres", holds: ["merengon"], blurb: "Merengue, crema y fresas. Se desmorona." },
+  { id: "merengon", name: "Merengón", price: 10, kind: "food", category: "postres", holds: ["merengon"], blurb: "Merengue, crema y fresas. Se desmorona al primer mordisco." },
   { id: "torta", name: "Torta de tres leches", price: 12, kind: "food", category: "postres", holds: ["torta"], blurb: "Para celebrar algo (o nada)." },
   // ---------- Combos (más baratos que por separado) ----------
   { id: "onces", name: "Las onces: tinto y pandebono", price: 7, kind: "combo", category: "combos", holds: ["tinto", "pandebono"], blurb: "El clásico de media tarde." },
@@ -116,7 +116,7 @@ export const CAFE_MENU = [
     kind: "combo",
     category: "combos",
     holds: ["tinto", "cigarro"],
-    blurb: "El desayuno de campeones (sale más barato).",
+    blurb: "El desayuno de campeones (y sale más barato).",
   },
   {
     id: "desayuno-coca",
@@ -125,7 +125,7 @@ export const CAFE_MENU = [
     kind: "combo",
     category: "combos",
     holds: ["coca-cola", "cigarro"],
-    blurb: "La versión fría del desayuno (sale más barato).",
+    blurb: "El mismo desayuno, pero frío (y sale más barato).",
   },
   // ---------- Otros ----------
   { id: "cigarro", name: "Cigarro", price: 4, kind: "smoke", category: "otros", holds: ["cigarro"], blurb: "Para la pausa en el porche." },
@@ -165,8 +165,8 @@ export const BAR_MENU = [
   { id: "michelada", name: "Michelada", price: 9, kind: "drink", category: "polas", holds: ["michelada"], blurb: "Con limón, sal y ají en el borde. Pica rico." },
   { id: "chicha", name: "Chicha", price: 5, kind: "drink", category: "polas", holds: ["chicha"], blurb: "De maíz, en totuma, como en el Chorro de Quevedo." },
   // ---------- Guaro y copas ----------
-  { id: "aguardiente", name: "Copa de guaro", price: 5, kind: "drink", category: "copas", holds: ["aguardiente"], blurb: "Anisado, en copita. \"Una y ya\", dijo nadie nunca." },
-  { id: "ron-viejo", name: "Media de ron viejo", price: 28, kind: "drink", category: "copas", holds: ["ron-viejo"], blurb: "Ron de Caldas en botella chata, pa' la mesa (o pa' usted solo)." },
+  { id: "aguardiente", name: "Copa de guaro", price: 5, kind: "drink", category: "copas", holds: ["aguardiente"], blurb: "Anisado, en copita. Nadie se toma solo una." },
+  { id: "ron-viejo", name: "Media de ron viejo", price: 28, kind: "drink", category: "copas", holds: ["ron-viejo"], blurb: "Ron de Caldas en botella chata, pa' la mesa (o pa' uno solito)." },
   { id: "tequila", name: "Shot de tequila", price: 8, kind: "drink", category: "copas", holds: ["tequila"], blurb: "Sal, trago y limón. En ese orden, sin hacer caras." },
   { id: "vino", name: "Copa de vino", price: 9, kind: "drink", category: "copas", holds: ["vino"], blurb: "Tinto de la casa, en copa." },
   { id: "whisky", name: "Whisky en las rocas", price: 14, kind: "drink", category: "copas", holds: ["whisky"], blurb: "Dos hielos, sin prisa." },
@@ -176,7 +176,7 @@ export const BAR_MENU = [
   { id: "cuba-libre", name: "Cuba libre", price: 11, kind: "drink", category: "cocteles", holds: ["cuba-libre"], blurb: "Ron con cola y limón: el de las fiestas de quince." },
   { id: "lulada-ron", name: "Lulada con ron", price: 11, kind: "drink", category: "cocteles", holds: ["lulada-ron"], blurb: "La lulada de Cali, con su chorrito de ron. Con pepitas." },
   { id: "coco-loco", name: "Coco loco", price: 15, kind: "drink", category: "cocteles", holds: ["coco-loco"], blurb: "En el coco, como en San Andrés. Con sombrillita." },
-  { id: "canelazo", name: "Canelazo", price: 8, kind: "drink", category: "cocteles", holds: ["canelazo"], blurb: "Calientito, con aguapanela, canela y guaro. Pa' la sabana fría." },
+  { id: "canelazo", name: "Canelazo", price: 8, kind: "drink", category: "cocteles", holds: ["canelazo"], blurb: "Calientito, con aguapanela, canela y guaro. Pa' las noches de frío." },
   // ---------- Para fumar ----------
   { id: "cigarro-club", name: "Cigarro", price: 4, kind: "smoke", category: "humo", holds: ["cigarro"], blurb: "Para acompañar el trago." },
   { id: "habano", name: "Habano", price: 20, kind: "smoke", category: "humo", holds: ["habano"], blurb: "Grande, de hoja oscura. Dura bastante." },

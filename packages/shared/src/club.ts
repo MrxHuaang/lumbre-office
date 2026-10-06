@@ -240,7 +240,7 @@ export interface ClubResult {
 
 export const CLUB_ERROR_TEXT: Record<ClubError, string> = {
   far: "Acércate un poco más.",
-  busy: "Un momento…",
+  busy: "Espera un momentico y vuelve a intentarlo.",
   taken: "Alguien ya está bailando en el tubo.",
   silence: "Para bailar en la pista tiene que sonar música: pon algo en la cabina del DJ.",
   seated: "Primero levántate.",
@@ -305,12 +305,12 @@ export interface ClubTipResult {
 
 export const CLUB_TIP_ERROR_TEXT: Record<ClubTipError, string> = {
   invalid: "Eso no se puede tirar.",
-  self: "No te puedes tirar billetes a ti.",
+  self: "Las propinas son para quien baila, no para ti.",
   "not-dancing": "Esa persona ya no está bailando en el tubo.",
-  far: "Acércate al escenario para tirar billetes.",
-  busy: "Un momento…",
-  funds: "No te alcanzan las monedas.",
-  "limit-tips": `Por hoy ya tiraste ${CLUB_TIP.dailyMax} monedas en propinas.`,
+  far: "Acércate a la tarima del tubo para tirar billetes.",
+  busy: "Espera un momentico y vuelve a intentarlo.",
+  funds: "No te alcanzan los puntos.",
+  "limit-tips": `Por hoy ya tiraste ${CLUB_TIP.dailyMax} puntos en propinas: mañana puedes tirar más.`,
   limit: "Llegaste al tope de puntos que se pueden dar por día.",
   failed: "No se pudo tirar la propina. Prueba otra vez.",
 };

@@ -2,7 +2,7 @@
 // (sfx.ts): campanadas del reloj, la carta que llega, el destello, la magia, la brisa, el tambor y el
 // trueno lejano. La fanfarria y los aplausos son los de siempre.
 import { playPieza } from "../carnaval/musica";
-import type { CineSound } from "@hyvento/shared";
+import { CINE_MUSICA, type CineSound } from "@hyvento/shared";
 import { oficioSfx } from "../oficiosSonidos";
 import { sfx, sfxOut } from "../sfx";
 
@@ -50,8 +50,9 @@ function bell(a: Out, t: number, base = 392) {
 
 export function playCineSound(sound: CineSound) {
   if (sound === "fanfarria") return oficioSfx.fanfare(8);
-  // La música andina del Carnaval (sintetizada): La Guaneña en la apertura y el albazo en la premiación.
-  if (sound === "guanena" || sound === "albazo") return playPieza(sound);
+  // La música del Carnaval (sintetizada): La Guaneña del colectivo en la apertura y la murga (un son
+  // sureño) en la premiación.
+  if (sound === "guanena" || sound === "murga") return playPieza(CINE_MUSICA[sound]);
   if (sound === "aplausos") return sfx.applause(1, 5);
   if (sound === "trueno") return sfx.thunder(0.5, true);
   const a = sfxOut();
