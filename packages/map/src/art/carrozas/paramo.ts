@@ -137,9 +137,9 @@ function frailejon(p: Pintura, x: number, y: number, h: number) {
 /** Los frailejones de atrás (una parte que se mece con el viento). */
 function frailejones(p: Pintura) {
   frailejon(p, -20, 2, 60);
-  frailejon(p, 98, -8, 92);
+  frailejon(p, 92, -8, 88);
   frailejon(p, 40, 14, 50);
-  frailejon(p, 100, 34, 58);
+  frailejon(p, 98, 34, 54);
   frailejon(p, -32, 30, 42);
 }
 
@@ -445,7 +445,7 @@ export function paramo(): CarrozaArte {
   partes.push(f.parte("musgo", su, ...P(30, 40)));
   const fr = f.lienzo();
   frailejones(fr);
-  partes.push(f.parte("frailejones", fr, ...P(40, 10), { mov: { gira: { amp: 0.01, periodo: 4200 } } }));
+  partes.push(f.parte("frailejones", fr, ...P(40, 10)));
 
   const al = f.lienzo();
   ala(al);

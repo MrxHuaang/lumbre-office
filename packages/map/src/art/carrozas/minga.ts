@@ -429,13 +429,6 @@ function ninoMaiz(f: Figura): Parte {
   const y = 44;
   const [cx, cy] = P(x, y);
   figurita(p, cx, cy, 0.86, { piel: PIELES[1]!, ropa: rampa("#2f6fd6"), sombrero: PAJA, pelo: PELO, mazorca: true });
-  // Un atado de mazorcas en el brazo de abajo.
-  for (const [dx, a, c] of [
-    [-12, -0.5, AMARILLO],
-    [-9, -0.2, rampa("#f2a21c")],
-    [-6, 0.1, AMARILLO],
-  ] as const)
-    mazorca(p, cx + dx, cy - 14, 14, c, a);
   for (const [dx, dy, r] of [
     [6, 12, 3.4],
     [12, 10, 3.6],
