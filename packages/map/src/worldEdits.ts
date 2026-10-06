@@ -111,6 +111,9 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "silleta-stand",
   "silletero-table",
   "flower-stall",
+  // Los de Amor y amistad con su punto delante (el cofre del amigo secreto y el puesto).
+  "amigo-cofre",
+  "puesto-amor",
 ]);
 
 /** ¿Es un mueble del plano que el editor no toca? (fijo del catálogo, funcional o banqueta del blackjack). */

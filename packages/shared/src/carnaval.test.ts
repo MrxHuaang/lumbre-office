@@ -4,6 +4,7 @@ import {
   CARNAVAL_CINEMATICAS,
   CARNAVAL_SHOP,
   CARROZA_IDS,
+  DESFILE_ORDEN,
   EVELIO_CARROZAS,
   TEJIDO,
   ola,
@@ -66,8 +67,12 @@ describe("el Carnaval de Negros y Blancos", () => {
     expect(quienes("b9", 4)).toEqual([]);
   });
 
-  it("salen las diez carrozas del plan, en su orden, cada una con su color de acento", () => {
-    expect(CARROZA_IDS).toEqual(["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"]);
+  it("salen las diez carrozas del plan en su orden (las nuevas antes del Megabús, que cierra), cada una con su color de acento", () => {
+    const plan = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"];
+    expect(CARROZA_IDS.filter((id) => plan.includes(id))).toEqual(plan);
+    expect(CARROZA_IDS.slice(0, 9)).toEqual(plan.slice(0, 9));
+    expect(CARROZA_IDS.at(-1)).toBe("megabus");
+    expect(DESFILE_ORDEN.at(-1)).toEqual({ tipo: "carroza", id: "megabus" });
     expect(COMPARSAS.map((c) => c.id)).toEqual([...CARROZA_IDS]);
     expect(new Set(COMPARSAS.map((c) => c.acento)).size).toBe(COMPARSAS.length);
     for (const c of COMPARSAS) expect(EVELIO_CARROZAS[c.id], c.id).toBeTruthy();

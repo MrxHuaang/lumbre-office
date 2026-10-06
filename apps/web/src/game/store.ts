@@ -130,6 +130,10 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // El Carnaval: el puesto de máscaras, maicena y serpentinas, y el palco del concurso de disfraces.
   | "carnavalShop"
   | "carnavalConcurso"
+  // Amor y amistad: el cofre del amigo secreto, el puesto de chocolates y flores y el trío de la serenata.
+  | "amorCofre"
+  | "amorShop"
+  | "amorSerenata"
   // La gente de la fiesta (genteFiesta.ts): E habla con quien está al lado en la tira de conversación.
   | "fiestaNpc";
 

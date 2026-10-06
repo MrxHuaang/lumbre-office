@@ -80,7 +80,7 @@ export function PhotoFlash() {
 /** Polaroid como imagen (data URL) para la vista previa, con el pie que se está escribiendo. */
 function usePolaroidUrl(p: PendingPhoto, caption: string) {
   return useMemo(
-    () => composePolaroid(p.shot, { takenAt: p.takenAt, areaName: areaName(p.area), people: p.people, caption }, 2).toDataURL("image/png"),
+    () => composePolaroid(p.shot, { takenAt: p.takenAt, areaName: areaName(p.area), people: p.people, caption, marco: p.marco }, 2).toDataURL("image/png"),
     [p, caption],
   );
 }
@@ -103,7 +103,7 @@ function PreviewDialog({ pending }: { pending: PendingPhoto }) {
     setSaving(true);
     setError(null);
     try {
-      const info = { takenAt: pending.takenAt, areaName: areaName(pending.area), people: pending.people, caption: caption.trim() };
+      const info = { takenAt: pending.takenAt, areaName: areaName(pending.area), people: pending.people, caption: caption.trim(), marco: pending.marco };
       const blob = await encodePolaroid((scale) => composePolaroid(pending.shot, info, scale));
       if (!blob) throw new Error("La foto pesa demasiado.");
       const form = new FormData();

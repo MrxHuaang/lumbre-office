@@ -2,8 +2,10 @@
 // servidor solo a quien recién entró; si vino en el Megabús, se muestra al bajarse), saltar el capítulo,
 // avisar que se leyó el tablón (paso 5; el servidor revisa que esté junto a él), la carta que llega al buzón
 // y el paso de la historia que va ahora (para la flechita y el cuadro de Doña Aurora). La bienvenida y el
-// final del capítulo se ven como cinemáticas (cinematicas/); sin cinemáticas, la bienvenida es el cuadro.
+// final del capítulo se ven como cinemáticas (cinematicas/); sin cinemáticas, la bienvenida va en la tira.
 import {
+  AURORA_WELCOME,
+  AURORA_WELCOME_BUS,
   BUS,
   CAPITULO_1,
   CAPITULOS,
@@ -11,40 +13,38 @@ import {
   HISTORIA_MSG,
   LAGO_CINE,
   LAGO_PASOS,
+  QUEST_GIVERS,
   RELOJ_PASOS,
-  STORY_PERIOD,
-  isStoryQuest,
+  questById,
+  questGiverNpc,
   type HistoriaAsk,
   type HistoriaCine,
   type HistoriaLetter,
   type HistoriaPrologue,
   type QuestView,
+  STORY_PERIOD,
 } from "@hyvento/shared";
-import { cineWanted, onCineAction, playCinematic, whenCineReady } from "./cinematicas/puerta";
 import { create } from "zustand";
+import { pasoDeHistoria } from "@/lib/encargosCharla";
+import { cineWanted, onCineAction, playCinematic, whenCineReady } from "./cinematicas/puerta";
+import { abrirDialogo, retratoDe } from "./dialogo";
 import { questSfx } from "./encargosSonidos";
 import { useEncargos } from "./encargos";
 import { getRoom, onAnyInteract, onRoom } from "./network";
 import { useOfficeStore } from "./store";
 
 interface HistoriaStore {
-  /** La bienvenida pendiente (se muestra fuera del bus) y si ya se está mostrando. */
+  /** La bienvenida que espera a que se baje del bus (al bajarse sale como cinemática o en la tira). */
   prologue: (HistoriaPrologue & { open: boolean }) | null;
 }
 
 export const useHistoria = create<HistoriaStore>(() => ({ prologue: null }));
 
 /** El paso de la historia que va ahora (el abierto o el cumplido por entregar), o null si terminó. */
-export function currentStoryStep(quests: readonly QuestView[]): QuestView | null {
-  return quests.find((q) => q.period === STORY_PERIOD && isStoryQuest(q.questId) && q.status !== "CLAIMED") ?? null;
-}
+export const currentStoryStep = (quests: readonly QuestView[]): QuestView | null => pasoDeHistoria(quests);
 
 export function skipStory() {
   getRoom()?.send(HISTORIA_MSG.skip);
-  useHistoria.setState({ prologue: null });
-}
-
-export function closePrologue() {
   useHistoria.setState({ prologue: null });
 }
 
@@ -80,20 +80,49 @@ if (typeof window !== "undefined") {
   useOfficeStore.subscribe(() => {
     const p = useHistoria.getState().prologue;
     if (p && !p.open && !onBus()) showPrologue({ ...p, open: true });
-  });
-}
+  });}
 
 /**
- * La bienvenida: la cinemática de Doña Aurora si se pueden ver (espera a que la escena esté lista: el aviso
- * llega apenas se entra), si no el cuadro.
+ * La bienvenida: la cinemática de Doña Aurora si se pueden ver, si no su tira (las dos esperan a que la
+ * escena esté lista: el aviso llega apenas se entra). En el bus, espera a que se baje.
  */
 function showPrologue(p: HistoriaPrologue & { open: boolean }) {
-  if (p.open && cineWanted("prologo")) {
-    useHistoria.setState({ prologue: null });
+  if (!p.open) return useHistoria.setState({ prologue: p });
+  useHistoria.setState({ prologue: null });
+  if (cineWanted("prologo")) {
     void whenCineReady().then(() => playCinematic("prologo"));
     return;
   }
-  useHistoria.setState({ prologue: p });
+  void whenCineReady().then(() => bienvenidaEnTira(p.byBus));
+}
+
+/** La bienvenida sin cinemáticas: Doña Aurora en la tira, con el primer paso, "¡Vamos!" y "Saltar historia". */
+function bienvenidaEnTira(byBus: boolean | undefined) {
+  const aurora = questGiverNpc("aurora");
+  const step = currentStoryStep(useEncargos.getState().quests);
+  const def = step ? questById(step.questId) : undefined;
+  const lineas = [
+    ...(byBus ? [AURORA_WELCOME_BUS] : []),
+    ...AURORA_WELCOME,
+    ...(def ? [`El primer paso: ${def.title}. ${def.text}`] : []),
+    "Me encuentra en el recibidor de la planta baja, junto a la escalera. La flechita le muestra a dónde ir.",
+  ];
+  abrirDialogo({
+    quien: "historia:bienvenida",
+    nombre: QUEST_GIVERS.aurora.name,
+    rol: `Capítulo 1 · ${CAPITULO_1.title}`,
+    retrato: aurora ? retratoDe(aurora.id) : null,
+    voz: aurora?.voz,
+    lineas,
+    opciones: [
+      { id: "vamos", label: "¡Vamos!" },
+      { id: "saltar", label: "Saltar historia" },
+    ],
+    alElegir: (id) => {
+      if (id === "saltar" && window.confirm("¿Saltar la historia? Los pasos quedan entregados sin puntos, pero te llegan el logro y la carta igual.")) skipStory();
+      return false;
+    },
+  });
 }
 
 // ---------- Capítulo 2: el reloj de pie ----------

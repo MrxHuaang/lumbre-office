@@ -11,6 +11,8 @@ export interface PendingPhoto {
   area: string;
   people: PhotoPerson[];
   takenAt: number;
+  /** Un marco especial (la banca de los enamorados en Amor y amistad). */
+  marco?: "enamorados";
 }
 
 interface PhotoStore {

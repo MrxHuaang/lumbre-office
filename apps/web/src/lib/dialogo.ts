@@ -1,6 +1,8 @@
-// La tira de conversación (VIR-167), lo puro: una sola conversación a la vez y una cola, línea por línea, y
-// al final las opciones. Lo usan la tira (components/dialogo/TiraDialogo.tsx) y su store (game/dialogo.ts).
-// También el tono de la voz de cada personaje y cuándo suena el "blip" de cada letra.
+// La tira de conversación (VIR-167, VIR-171), lo puro: una sola conversación a la vez y una cola, línea por
+// línea, y al final las opciones. Lo usan la tira (components/dialogo/TiraDialogo.tsx) y su store
+// (game/dialogo.ts). Las cinemáticas hablan por aquí con `prioridad` (la que estaba abierta vuelve a la cola,
+// adelante) y, mientras una de historia toma la pantalla, la tira queda `retenida`: lo que no es de la
+// cinemática espera en la cola hasta que termine. También el tono de la voz y cuándo suena el "blip".
 
 export interface DialogoOpcion {
   id: string;
@@ -23,6 +25,16 @@ export interface DialogoDef {
   voz?: number;
   /** `momento`: avanza sola y se cierra al terminar (para las cinemáticas cortas). */
   modo?: "charla" | "momento";
+  /** En el modo `momento`, cuánto se queda cada línea (ms); sin esto, lo que tarda en leerse. */
+  ms?: number;
+  /** El narrador: sin medallón, sin nombre y sin blip, en cursiva. */
+  narrador?: boolean;
+  /** Sin retrato, el dibujito del medallón (un nombre de `PixelIcon`; por defecto, el globito). */
+  icono?: string;
+  /** La primera línea sale ya escrita (lo que se acaba de decir, repetido como pregunta de las opciones). */
+  escrita?: boolean;
+  /** De una cinemática: pasa delante de la que estaba abierta (que vuelve a la cola, adelante). */
+  prioridad?: boolean;
 }
 
 export interface DialogoAbierto extends DialogoDef {
@@ -37,6 +49,8 @@ export interface DialogoAbierto extends DialogoDef {
 export interface DialogoEstado {
   actual: DialogoAbierto | null;
   cola: DialogoDef[];
+  /** Una cinemática de historia toma la pantalla: solo se abre lo que trae `prioridad`; lo demás espera. */
+  retenida?: boolean;
 }
 
 export const DIALOGO_VACIO: DialogoEstado = { actual: null, cola: [] };
@@ -44,16 +58,49 @@ export const DIALOGO_VACIO: DialogoEstado = { actual: null, cola: [] };
 let keys = 0;
 const abrirYa = (d: DialogoDef): DialogoAbierto => ({ ...d, lineas: d.lineas.length ? d.lineas : [""], linea: 0, elegida: 0, key: ++keys });
 
-/** Abre una conversación: si no hay otra, ya; si es de quien ya habla, la reemplaza; si no, a la cola. */
+/** Lo abierto, otra vez como pedido (para devolverlo a la cola: vuelve desde su primera línea). */
+const comoPedido = ({ linea: _l, elegida: _e, key: _k, ...d }: DialogoAbierto): DialogoDef => d;
+
+/**
+ * Abre una conversación: si no hay otra, ya; si es de quien ya habla, la reemplaza; si no, a la cola. Con
+ * `prioridad` (una cinemática) pasa delante de la de ahora, que vuelve a la cola adelante. Con la tira
+ * retenida, lo que no trae `prioridad` espera en la cola.
+ */
 export function abrir(e: DialogoEstado, d: DialogoDef): DialogoEstado {
-  if (!e.actual || e.actual.quien === d.quien) return { ...e, actual: abrirYa(d) };
-  return { ...e, cola: [...e.cola.filter((c) => c.quien !== d.quien), d] };
+  const cola = e.cola.filter((c) => c.quien !== d.quien);
+  if (e.retenida && !d.prioridad && e.actual?.quien !== d.quien) return { ...e, cola: [...cola, d] };
+  if (!e.actual || e.actual.quien === d.quien) return { ...e, actual: abrirYa(d), cola };
+  if (d.prioridad && !e.actual.prioridad) return { ...e, actual: abrirYa(d), cola: [comoPedido(e.actual), ...cola] };
+  // Otra cinemática hablando: va primera en la cola.
+  if (d.prioridad) return { ...e, cola: [d, ...cola] };
+  return { ...e, cola: [...cola, d] };
 }
 
-/** Cierra la de ahora y abre la siguiente de la cola (si hay). */
+/** La siguiente de la cola que se puede abrir ya (con la tira retenida, solo una con `prioridad`). */
+function siguiente(cola: DialogoDef[], retenida: boolean | undefined): { actual: DialogoAbierto | null; cola: DialogoDef[] } {
+  const i = cola.findIndex((c) => !retenida || c.prioridad);
+  if (i < 0) return { actual: null, cola };
+  return { actual: abrirYa(cola[i]!), cola: cola.filter((_, j) => j !== i) };
+}
+
+/** Cierra la de ahora y abre la siguiente de la cola (si hay y se puede). */
 export function cerrar(e: DialogoEstado): DialogoEstado {
-  const [next, ...rest] = e.cola;
-  return { actual: next ? abrirYa(next) : null, cola: rest };
+  return { ...e, ...siguiente(e.cola, e.retenida) };
+}
+
+/** Retiene la tira (empieza una cinemática de historia) o la suelta (al soltarla, sale lo que esperaba). */
+export function retener(e: DialogoEstado, on: boolean): DialogoEstado {
+  if (Boolean(e.retenida) === on) return e;
+  if (on || e.actual) return { ...e, retenida: on };
+  return { ...siguiente(e.cola, false), retenida: false };
+}
+
+/** Quita de la tira lo que no es de una cinemática (la de ahora y la cola): lo que se cierra, para avisarle. */
+export function vaciar(e: DialogoEstado): { estado: DialogoEstado; cerradas: string[] } {
+  const quedan = e.cola.filter((c) => c.prioridad);
+  const cerradas = [...(e.actual && !e.actual.prioridad ? [e.actual.quien] : []), ...e.cola.filter((c) => !c.prioridad).map((c) => c.quien)];
+  if (e.actual?.prioridad) return { estado: { ...e, cola: quedan }, cerradas };
+  return { estado: { ...e, ...siguiente(quedan, e.retenida) }, cerradas };
 }
 
 /** ¿Quedan líneas después de la de ahora? */
@@ -93,3 +140,10 @@ export const blipEn = (i: number, ch: string) => i % 2 === 0 && /[\p{L}\p{N}]/u.
 
 /** Cuánto se queda una línea en el modo `momento` (ms): lo que tarda en escribirse más un rato para leerla. */
 export const msMomento = (linea: string, cps: number) => Math.round((linea.length / cps) * 1000 + 1600);
+
+/**
+ * Cuánto se queda la línea de ahora en el modo `momento`: la que pidió quien habla (pero nunca menos de lo
+ * que tarda en escribirse, más un respiro) o lo que tarda en leerse.
+ */
+export const msDeLinea = (d: Pick<DialogoDef, "ms">, linea: string, cps: number) =>
+  d.ms === undefined ? msMomento(linea, cps) : Math.max(d.ms, Math.round((linea.length / cps) * 1000) + 500);
