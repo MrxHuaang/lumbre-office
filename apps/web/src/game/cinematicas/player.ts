@@ -553,7 +553,8 @@ async function runStep(run: Run, step: CineStep) {
     case "spawn": {
       const npc = NPC_BY_ID.get(step.like);
       if (!npc) return;
-      const key = ensureCharacterTextures(h.scene, "ada", npc.look);
+      // Con `look`, otra pinta (la gente de la fiesta: Cupido, el trío de la serenata).
+      const key = ensureCharacterTextures(h.scene, "ada", step.look ?? npc.look);
       const at = worldOf(run, step.at);
       const a = new Avatar(h.scene, key, step.name ?? npc.name, at.x, at.y, false);
       a.asNpc();
