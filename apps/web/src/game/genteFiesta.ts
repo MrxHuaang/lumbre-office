@@ -540,8 +540,11 @@ export class GenteFiestaView {
     const opciones: { id: string; label: string }[] = [];
     const pedido = npc.pedido && !useGenteFiesta.getState().hechos.has(npc.pedido.id) ? npc.pedido : null;
     if (pedido) {
-      lines.push(pedido.texto, pideTexto(pedido.pide));
-      opciones.push({ id: "entregar", label: "Entregar" }, { id: "no", label: "Ahora no" });
+      const { texto, completo } = pideTexto(pedido.pide);
+      lines.push(pedido.texto, texto);
+      // Sin lo que pide no se ofrece "Entregar": solo la promesa de volver.
+      if (completo) opciones.push({ id: "entregar", label: "Entregar" }, { id: "no", label: "Ahora no" });
+      else opciones.push({ id: "no", label: "Ya se lo traigo" });
     }
     const puesto = npc.accion?.tipo === "puesto" ? PUESTO_DE[fest.id] : undefined;
     if (puesto) {
@@ -613,11 +616,12 @@ function miraA(dx: number, dy: number): Direction {
   return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
 }
 
-/** "Pide: 2 de mazorca (tienes 1)". */
-function pideTexto(pide: readonly { item: string; n: number }[]): string {
+/** "Necesita: mazorca, 2 (tienes 1)." y si ya se tiene todo. */
+function pideTexto(pide: readonly { item: string; n: number }[]): { texto: string; completo: boolean } {
   const slots = useBagStore.getState().slots;
   const tengo = (item: string) => slots.reduce((n, s) => n + (s?.itemId === objItemId(item) ? s.quantity : 0), 0);
-  return `Pide: ${pide.map((p) => `${p.n} de ${bagItemInfo(objItemId(p.item)).name.toLowerCase()} (tienes ${tengo(p.item)})`).join(", ")}.`;
+  const partes = pide.map((p) => `${bagItemInfo(objItemId(p.item)).name.toLowerCase()}, ${p.n} (tienes ${tengo(p.item)})`);
+  return { texto: `Necesita: ${partes.join("; ")}.`, completo: pide.every((p) => tengo(p.item) >= p.n) };
 }
 
 export { genteAlAlcance, useGenteFiesta };
