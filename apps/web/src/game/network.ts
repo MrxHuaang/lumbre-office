@@ -119,6 +119,7 @@ import { bindCasas, casasAbiertasPara, useCasasStore } from "./casaVisitas";
 import { bindPesca } from "./pesca";
 import { bindBrujas } from "./brujas";
 import { bindFeria } from "./feriaFlores";
+import { bindCosecha } from "./cosecha";
 import { bindAnoViejo } from "./anoViejo";
 import { bindCometas } from "./cometas";
 import { bindAmor } from "./amorAmistad";
@@ -955,6 +956,7 @@ function attach(r: OfficeRoom) {
   bindPesca(r);
   bindBrujas(r);
   bindFeria(r);
+  bindCosecha(r);
   bindCometas(r);
   bindAmor(r);
   bindCarnaval(r);

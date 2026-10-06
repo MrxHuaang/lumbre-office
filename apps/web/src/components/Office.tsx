@@ -70,6 +70,7 @@ import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
 import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
 import { FeriaPanel } from "./FeriaPanel";
+import { BaileCosechaPrompt, CosechaPanel } from "./CosechaPanel";
 import { CometasPanel, CometaVuelo } from "./CometasPanel";
 import { AmorPanel } from "./AmorPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
@@ -352,6 +353,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotePrompt />
             <BrujasTrickPrompt />
             <ComparsaPrompt />
+            <BaileCosechaPrompt />
             <AnoViejoStrip />
             <SeatPrompt />
             <InteractPrompt />
@@ -475,6 +477,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "pesca" && <PescaPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "brujasShop" && <BrujasPanel atObject={panel.atObject} onClose={closePanel} />}
           {(panel?.kind === "feriaTable" || panel?.kind === "feriaShop" || panel?.kind === "silletaStand") && <FeriaPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
+          {(panel?.kind === "cosechaPuesto" || panel?.kind === "cosechaOlla" || panel?.kind === "cosechaBascula" || panel?.kind === "cosechaTablero" || panel?.kind === "cosechaTombola") && (
+            <CosechaPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />
+          )}
           {panel?.kind === "carnavalShop" && <CarnavalShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {(panel?.kind === "amorCofre" || panel?.kind === "amorShop" || panel?.kind === "amorSerenata") && <AmorPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalConcurso" && <ConcursoPanel onClose={closePanel} />}

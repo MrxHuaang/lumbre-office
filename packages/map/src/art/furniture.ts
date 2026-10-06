@@ -52,6 +52,7 @@ import { CASA_PROPIA_DRAW } from "./casa-propia";
 import { CASA_PROPIA_EXTERIOR_DRAW } from "./casa-propia-exterior";
 import { BRUJAS_DRAW } from "./brujas";
 import { FERIA_DRAW } from "./feria-flores";
+import { COSECHA_DRAW } from "./cosecha";
 import { ANO_VIEJO_DRAW } from "./ano-viejo";
 import { COMETAS_DRAW } from "./cometas";
 import { AMOR_DRAW } from "./amor-amistad";
@@ -792,6 +793,7 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   ...CASA_PROPIA_EXTERIOR_DRAW,
   ...BRUJAS_DRAW,
   ...FERIA_DRAW,
+  ...COSECHA_DRAW,
   ...ANO_VIEJO_DRAW,
   ...COMETAS_DRAW,
   ...AMOR_DRAW,

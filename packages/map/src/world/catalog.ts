@@ -21,6 +21,7 @@ import { BRUJAS_CATALOG } from "./catalog-brujas";
 import { CARNAVAL_CATALOG } from "./catalog-carnaval";
 import { VELITAS_CATALOG } from "./catalog-velitas";
 import { FERIA_CATALOG } from "./catalog-feria-flores";
+import { COSECHA_CATALOG } from "./catalog-cosecha";
 import { ANO_VIEJO_CATALOG } from "./catalog-ano-viejo";
 import { COMETAS_CATALOG } from "./catalog-cometas";
 import { AMOR_CATALOG } from "./catalog-amor-amistad";
@@ -218,6 +219,7 @@ export const CATALOG = {
   ...CARNAVAL_CATALOG,
   ...VELITAS_CATALOG,
   ...FERIA_CATALOG,
+  ...COSECHA_CATALOG,
   ...ANO_VIEJO_CATALOG,
   ...COMETAS_CATALOG,
   ...AMOR_CATALOG,

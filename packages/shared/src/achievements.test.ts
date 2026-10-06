@@ -26,10 +26,10 @@ const KEYS = new Set<string>(Object.values(STAT_KEYS));
 const PREFIXES = Object.values(STAT_PREFIX);
 
 describe("catálogo de logros", () => {
-  it("ids únicos, textos en su lugar y entre 60 y 140 logros (los festivales suman los suyos)", () => {
+  it("ids únicos, textos en su lugar y entre 60 y 160 logros", () => {
     expect(new Set(ACHIEVEMENTS.map((x) => x.id)).size).toBe(ACHIEVEMENTS.length);
     expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(60);
-    expect(ACHIEVEMENTS.length).toBeLessThanOrEqual(140);
+    expect(ACHIEVEMENTS.length).toBeLessThanOrEqual(160);
     for (const x of ACHIEVEMENTS) {
       expect(x.id, x.id).toMatch(/^[a-z0-9-]+$/);
       expect(x.name.length, x.id).toBeGreaterThan(2);

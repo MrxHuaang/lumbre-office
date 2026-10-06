@@ -167,6 +167,13 @@ export const STAT_KEYS = {
   // El Carnaval (carnaval.ts): desfiles bailados en la comparsa y concursos de disfraces ganados.
   comparsaParades: "comparsa_parades",
   carnavalCrowns: "carnaval_crowns",
+  // La Feria de la cosecha (cosecha.ts): ingredientes echados a la olla del sancocho, ferias ganadas con la
+  // ahuyama más pesada y tómbolas ganadas.
+  sancochoAportes: "sancocho_aportes",
+  ahuyamaOro: "ahuyama_oro",
+  tombolaGanada: "tombola_ganada",
+  // Bailes de la cosecha completos (uno por feria).
+  cosechaBailes: "cosecha_bailes",
   // El Año viejo (ano-viejo.ts): cosas que le dio al muñeco y los agüeros cumplidos en un mismo año (máximo).
   munecoAportes: "muneco_aportes",
   anoViejoAgueros: "ano_viejo_agueros",
@@ -493,6 +500,11 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // El Carnaval de Negros y Blancos
     a("comparsero", "Comparsero", "mask", "raro", STAT_KEYS.comparsaParades, 3, "Baila 3 desfiles del Carnaval en la comparsa de la cabaña", "Detrás del Megabús de la alegría ya te conocen el paso."),
     a("rey-del-carnaval", "Rey o reina del Carnaval", "mask", "epico", STAT_KEYS.carnavalCrowns, 1, "Gana el concurso de disfraces del Carnaval", "Toda la cabaña votó por tu pinta."),
+    // La Feria de la cosecha
+    a("mano-de-olla", "Mano de olla", "pan", "comun", STAT_KEYS.sancochoAportes, 5, "Echa 5 ingredientes a la olla del sancocho de la Feria de la cosecha", "Doña Rubiela ya te deja revolver."),
+    a("ahuyama-de-oro", "La ahuyama más grande", "pumpkin", "epico", STAT_KEYS.ahuyamaOro, 1, "Gana el concurso de la ahuyama más grande de la Feria de la cosecha", "La báscula de Don Efraín casi no aguanta."),
+    a("bambuquero", "Bambuquero", "guitar", "raro", STAT_KEYS.cosechaBailes, 1, "Baila el bambuco de la cosecha en el patio", "Tiple, guitarra, bandola y tú dándole vueltas al patio."),
+    a("suerte-de-tombola", "Suerte de tómbola", "wheel", "raro", STAT_KEYS.tombolaGanada, 1, "Gana la tómbola de la junta de acción comunal", "La boleta ganadora era la tuya. La carreta también."),
     // El Año viejo
     a("munequero", "Muñequero", "flame", "comun", STAT_KEYS.munecoAportes, 3, "Dele 3 cosas al muñeco de año viejo (prendas viejas o relleno)", "Ese pantalón remendado era suyo, ¿cierto?"),
     a("aguerero", "Agüerero", "clock", "epico", STAT_KEYS.anoViejoAgueros, 4, "Cumpla los cuatro agüeros en un Año viejo: las uvas, la maleta, las lentejas y la ropa amarilla", "Con tanto agüero, este año no hay mala suerte que le entre."),

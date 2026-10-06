@@ -23,6 +23,8 @@ import { STORY_BAG_OBJECTS } from "./historia";
 import { CROPS, EMPTY_CAN, HONEY, HUERTO, HUERTO_TOOLS, WATERING_CAN, seedsOf } from "./huerto";
 import { paintingIdOf } from "./painting";
 import { SILLETA, silletaCodeOf, silletaFlowerCount, silletaName } from "./silleta";
+import { AHUYAMA, ahuyamaDagOf, ahuyamaName } from "./ahuyama";
+import { COSECHA_MUEBLES } from "./cosecha";
 import { shopItem } from "./shop";
 import { SOMBRERO_MENU, sombreroItem } from "./sombrero";
 import type { ItemStack } from "./social";
@@ -210,7 +212,7 @@ export function bagItemInfo(itemId: string): BagItemInfo {
     // Un cuadro de la Pintura: se cuelga en la oficina como un mueble (su título lo trae /api/paintings).
     if (paintingIdOf(itemId))
       return { itemId, name: "Cuadro", blurb: "Lo pintaste en el PC: cuélgalo en tu oficina con Decorar.", kind: "mueble", max: Infinity, furniture: true, art: itemId, use: null, durable: true, story: false };
-    const shop = shopItem(itemId);
+    const shop = shopItem(itemId) ?? COSECHA_MUEBLES[itemId];
     return {
       itemId,
       name: shop?.name ?? nameFromId(itemId),
@@ -233,6 +235,21 @@ export function bagItemInfo(itemId: string): BagItemInfo {
       blurb: `Armada a mano con ${silletaFlowerCount(silleta)} flores. En la feria se exhibe en el patio y se vota.`,
       kind: "objeto",
       max: SILLETA.stackMax,
+      furniture: false,
+      art: id,
+      use: null,
+      durable: false,
+      story: false,
+    };
+  // Una ahuyama pesada (la Feria de la cosecha): el peso va en el id y la báscula lo lee de ahí.
+  const dag = ahuyamaDagOf(id);
+  if (dag !== null)
+    return {
+      itemId,
+      name: ahuyamaName(dag),
+      blurb: "Cosechada del huerto y pesada al cosecharla: llévala a la báscula del concurso de la Feria de la cosecha.",
+      kind: "cosecha",
+      max: AHUYAMA.stackMax,
       furniture: false,
       art: id,
       use: null,

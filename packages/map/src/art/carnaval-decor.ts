@@ -489,13 +489,13 @@ const TROFEO = ["ooooooo", "o55443o", "oo5442o", ".o4432o", "..o32o.", "..o3o.."
 /** Un cono de parlante (sin marca): el borde, el cono y la tapa del centro. */
 const CONO = ["..ooo..", ".o343o.", "o31113o", "o41512o", "o31112o", ".o322o.", "..ooo.."];
 /** Llamitas del fogón (cuatro cuadros). */
-const LLAMAS = [
+export const LLAMAS = [
   ["..y...", ".yay.y", "yaRayR", "RRRRRR"],
   ["...y..", "y.yay.", "yRayay", "RRRRRR"],
   [".y....", ".yay..", "yaRyay", "RRRRRR"],
   ["....y.", "y..yay", "yayaRy", "RRRRRR"],
 ];
-const LLAMA_LEY: Ley = { y: at(C.fire, 4), a: at(C.fire, 3), R: at(C.fire, 1) };
+export const LLAMA_LEY: Ley = { y: at(C.fire, 4), a: at(C.fire, 3), R: at(C.fire, 1) };
 /** Humo y vapor: nubecitas pintadas que suben y se abren. */
 const NUBES = [
   [".oo.", "o54o", ".oo."],
@@ -566,7 +566,7 @@ function cinta(L: Lienzo, sx: number, sy: number, largo: number, R: Ramp, f: num
 }
 
 /** Humo o vapor que sube desde (sx, sy) en pantalla: tres nubecitas que crecen y se aclaran con el cuadro. */
-function humoPx(L: Lienzo, sx: number, sy: number, f: number, gris = false) {
+export function humoPx(L: Lienzo, sx: number, sy: number, f: number, gris = false) {
   const R = gris ? C.stone : BLANCO;
   for (let i = 0; i < 3; i++) {
     const t = (i + f / 4) / 3;
@@ -952,7 +952,7 @@ function tarimaComparsa(f = 0): Sprite {
 // ---------- 7. Los puestos ----------
 
 /** Borla de lana de colores con su nudo dorado (cuelga de cada pico del festón). */
-const BORLA = [".o.", "oYo", "o4o", "o3o", "o2o", ".o."];
+export const BORLA = [".o.", "oYo", "o4o", "o3o", "o2o", ".o."];
 /** La paila grande vista desde arriba (borde de metal y el aceite o el dulce adentro). */
 const PAILA_G = [
   "....ooooooooo....",
@@ -1117,7 +1117,7 @@ function puesto(o: PuestoOpts, f: number): Sprite {
 }
 
 /** Ancho en píxeles de un texto de 5x7. */
-function anchoTexto(text: string): number {
+export function anchoTexto(text: string): number {
   let w = 0;
   for (const ch of text) w += (glyph(ch)?.[0]?.length ?? 3) + 1;
   return w - 1;

@@ -60,10 +60,13 @@ export class GenteFiesta {
     return nivel.near(npcId, this.deps.festival().minuto, who.x, who.y, GENTE_REGLAS.alcanceTiles + GENTE_REGLAS.holguraTiles);
   }
 
-  /** ¿Está junto a alguien de la fiesta que atiende el puesto del festival? (comprar desde él). */
-  nearVendor(who: GenteWho): boolean {
+  /**
+   * ¿Está junto a alguien de la fiesta que atiende el puesto del festival? (comprar desde él). Con `puesto`,
+   * solo quien atiende ese (el mercado de la cosecha tiene varios).
+   */
+  nearVendor(who: GenteWho, puesto?: string): boolean {
     const nivel = this.nivel(who.area);
-    return Boolean(nivel?.npcs.some((n) => n.accion?.tipo === "puesto" && this.near(who, n.id)));
+    return Boolean(nivel?.npcs.some((n) => n.accion?.tipo === "puesto" && (puesto === undefined || n.accion.puesto === puesto) && this.near(who, n.id)));
   }
 
   /** Pausa entre dos entregas de la misma persona. */

@@ -11,7 +11,7 @@
 //   "Entregar" y, los vendedores, "Ver el puesto".
 // Solo el nivel que se ve; las imágenes sueltas las saca de la lista de dibujo `iso/culling.ts`.
 import { genteDelNivel, type GenteNivel, type OfficeMap, type PoseFiesta } from "@hyvento/map";
-import { BODY_UP, drawPet, fiestaMark, FIESTA_MARK_FRAMES, PET_FRAME, type FiestaMarkKind } from "@hyvento/map/art";
+import { BODY_UP, drawMula, drawPet, fiestaMark, FIESTA_MARK_FRAMES, PET_FRAME, type FiestaMarkKind } from "@hyvento/map/art";
 import {
   bagItemInfo,
   charlaDe,
@@ -50,6 +50,7 @@ import { murmullosCallados, murmullosVisibles, murmurar } from "./murmullo";
 import { depthOf, ensureTexture, toHtmlCanvas, worldToScreen } from "./iso/view";
 import { genteAlAlcance, useGenteFiesta } from "./genteFiestaStore";
 import { ensureCharacterTextures } from "./looks";
+import { abrirPuesto } from "./cosecha";
 import { getRoom, onEmote, onInteract, onRoom } from "./network";
 import { useOfficeStore, type Interactable } from "./store";
 
@@ -66,7 +67,7 @@ export interface GenteDeps {
 }
 
 /** El panel del puesto de cada festival (la `accion` del vendedor lo abre). */
-const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", "amor-amistad": "amorShop", "ano-viejo": "anoViejoShop", cometas: "cometasShop" };
+const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", "amor-amistad": "amorShop", "ano-viejo": "anoViejoShop", cometas: "cometasShop", cosecha: "cosechaPuesto" };
 
 /** Cada cuánto se mira quién está cerca (y quién murmura). */
 const SCAN_MS = 250;
@@ -75,6 +76,8 @@ const CREATE_PER_FRAME = 3;
 /** Sobre la cabeza: el nombre va en la coronilla + 7; la marca, encima del nombre. */
 const OVER_HEAD = BODY_UP.crown + 7 + 14;
 const OVER_ANIMAL = 20;
+/** Sobre las orejas de la mula de la Feria de la cosecha. */
+const OVER_MULA = 34;
 /** A qué distancia (tiles) miran a quien se arrima, saludan, y cuándo olvidan que ya saludaron. */
 const LOOK_TILES = 2.2;
 const GREET_TILES = 2.6;
@@ -346,7 +349,7 @@ export class GenteFiestaView {
     this.placeOverHead(a);
   }
 
-  /** El perro: la hoja de las mascotas (camina o se queda parado), mirando a donde va. */
+  /** El perro (la hoja de las mascotas, camina o se queda parado) o la mula, mirando a donde va. */
   private placeAnimal(a: Actor, time: number, first: boolean) {
     const p = a.pose;
     const an = a.animal!;
@@ -356,6 +359,20 @@ export class GenteFiestaView {
     if (p.camina && time >= an.frameAt) {
       an.frameAt = time + (p.corre ? 120 : 180);
       an.frame = (an.frame + 1) % 2;
+    }
+    // La mula de Don Ramiro: siempre de lado, con los pies abajo al centro (la cabeza hacia donde va).
+    if (kind === "mula") {
+      const key = ensureTexture(this.scene, `fiesta-mula-${p.camina ? an.frame : 0}`, () => drawMula("side", p.camina ? an.frame : 0));
+      const s = worldToScreen(p.x, p.y);
+      an.img
+        .setTexture(key)
+        .setOrigin(0.5, 1)
+        .setPosition(Math.round(s.x), Math.round(s.y))
+        .setFlipX(p.mira === "left" || p.mira === "down")
+        .setDepth(depthOf(p.x, p.y) + 0.5);
+      if (first) an.img.setVisible(true);
+      this.placeOverHead(a);
+      return;
     }
     const view = p.mira === "left" || p.mira === "up" ? "back" : "front";
     const frame = pose === "walk" ? an.frame : 0;
@@ -374,7 +391,8 @@ export class GenteFiestaView {
   private placeOverHead(a: Actor) {
     const p = a.pose;
     const s = worldToScreen(p.x, p.y);
-    const lift = a.animal ? OVER_ANIMAL : OVER_HEAD - (p.asiento ? 8 : 0);
+    // La mula es alta (sus orejas llegan a la cabeza de un chibi): la marca va sobre ellas.
+    const lift = a.npc.animal?.especie === "mula" ? OVER_MULA : a.animal ? OVER_ANIMAL : OVER_HEAD - (p.asiento ? 8 : 0);
     const depth = 5e7 + depthOf(p.x, p.y) + 0.4;
     a.mark?.setPosition(Math.round(s.x), Math.round(s.y - lift)).setDepth(depth);
     a.icon?.img.setPosition(Math.round(s.x + 2), Math.round(s.y - lift)).setDepth(depth + 0.01);
@@ -578,7 +596,9 @@ export class GenteFiestaView {
       },
       alElegir: (opcion) => {
         if (opcion === "puesto" && puesto) {
-          useOfficeStore.getState().openPanel(puesto, true);
+          // El mercado de la cosecha tiene varios puestos: abre el de quien atiende.
+          if (npc.accion?.puesto) abrirPuesto(npc.accion.puesto);
+          else useOfficeStore.getState().openPanel(puesto, true);
           return false;
         }
         if (opcion === "entregar" && pedido) {
@@ -598,6 +618,7 @@ export class GenteFiestaView {
     if (a.key) return portraitFromSheet(this.scene, a.key);
     const an = a.npc.animal;
     if (!an) return null;
+    if (an.especie === "mula") return toHtmlCanvas(drawMula("front")).toDataURL();
     return toHtmlCanvas(drawPet(an.especie, an.pelaje, "sit", "front", 0)).toDataURL();
   }
 

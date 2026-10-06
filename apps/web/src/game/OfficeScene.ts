@@ -123,6 +123,7 @@ import { FishingController } from "./fishing/controller";
 import { ObservatorioVivo } from "./observatorioVivo";
 import { MaizalVivo, updateTrickTarget } from "./brujas";
 import { SilletasVivas } from "./feriaSilletas";
+import { CosechaViva } from "./cosechaViva";
 import { CometasCielo } from "./cometasCielo";
 import { cometaVolando, volarConF } from "./cometas";
 import { CarnavalView } from "./carnaval/desfile";
@@ -278,6 +279,12 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   // El Carnaval: el puesto (el mismo punto de festival que el del caldero) y el palco del concurso.
   { kind: "carnavalShop", point: "festival_shop", furniture: ["puesto-carnaval"] },
   { kind: "carnavalConcurso", point: "carnaval_contest", furniture: ["tarima-comparsa"] },
+  // La Feria de la cosecha (con su decoración): los puestos del mercado, la olla, la báscula, el tablero y la tómbola.
+  { kind: "cosechaPuesto", point: "cosecha_puesto", furniture: ["puesto-cosecha-rojo", "puesto-cosecha-amarillo", "puesto-cosecha-verde", "puesto-cosecha-naranja", "puesto-cosecha-azul"] },
+  { kind: "cosechaOlla", point: "cosecha_olla", furniture: ["olla-sancocho"] },
+  { kind: "cosechaBascula", point: "cosecha_bascula", furniture: ["bascula"] },
+  { kind: "cosechaTablero", point: "cosecha_tablero", furniture: ["tablero-cosecha"] },
+  { kind: "cosechaTombola", point: "cosecha_tombola", furniture: ["tombola"] },
   // El Año viejo: el puesto de uvas y maletas, el muñeco en su silla, el cartel de los testamentos y el relleno.
   { kind: "anoViejoShop", point: "festival_shop", furniture: ["puesto-uvas"] },
   { kind: "anoViejoMuneco", point: "ano_viejo_muneco", furniture: ["silla-muneco", "brasero-piedra"] },
@@ -427,6 +434,8 @@ export class OfficeScene extends Phaser.Scene {
   private decorCarnaval = new DecorCarnavalViva(this);
   /** La Feria de las flores: la silleta exhibida encima de cada exhibidor. */
   private silletas!: SilletasVivas;
+  /** La Feria de la cosecha: la barra de la olla del sancocho y la música del baile. */
+  private cosechaViva!: CosechaViva;
   private cometasCielo!: CometasCielo;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
@@ -620,6 +629,7 @@ export class OfficeScene extends Phaser.Scene {
     this.photoBoards = new PhotoBoards(this);
     this.paintings = new PaintingLayers(this);
     this.silletas = new SilletasVivas(this);
+    this.cosechaViva = new CosechaViva(this);
     this.cometasCielo = new CometasCielo(this, (id) => this.avatars.get(id));
     this.treeLadder = new TreeLadderLayer(this);
     this.busView = new BusView(this, () => getRoom() ?? undefined);
@@ -730,6 +740,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.photoBoards.destroy(),
       () => this.paintings.destroy(),
       () => this.silletas.destroy(),
+      () => this.cosechaViva.destroy(),
       () => this.cometasCielo.destroy(),
       () => this.treeLadder.destroy(),
       this.bindVoiceDemand(),
@@ -874,6 +885,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.update();
     this.observatorio.update(time);
     this.maizal.update(this.local, delta);
+    this.cosechaViva.update(this.local, delta);
     this.decorCarnaval.update(delta);
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
@@ -999,6 +1011,7 @@ export class OfficeScene extends Phaser.Scene {
       this.photoBoards.setArea(map);
       this.paintings.setArea(map);
       this.silletas.setArea(map);
+      this.cosechaViva.setArea(map, this.view);
       this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
       this.aquariums.setArea(map, this.view);
@@ -1096,6 +1109,7 @@ export class OfficeScene extends Phaser.Scene {
     this.photoBoards.setArea(map);
     this.paintings.setArea(map);
     this.silletas.setArea(map);
+    this.cosechaViva.setArea(map, this.view);
     this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
     this.aquariums.setArea(map, this.view);

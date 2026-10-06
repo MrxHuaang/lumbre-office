@@ -397,6 +397,37 @@ export class FeriaState extends Schema {
   @type("number") winnerVotes = 0;
 }
 
+/** Una ahuyama inscrita en el concurso de la Feria de la cosecha (por persona). */
+export class AhuyamaEntryState extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** El peso en decagramos (ahuyama.ts). */
+  @type("number") dag = 0;
+  /** Cuándo se pesó (en un empate gana la primera). */
+  @type("float64") at = 0;
+}
+
+/**
+ * La Feria de la cosecha (ver rooms/cosecha.ts): la olla del sancocho (en qué olla va, qué tiene y si
+ * hierve), las ahuyamas del concurso, cuántas boletas lleva la tómbola y los ganadores al cierre.
+ */
+export class CosechaState extends Schema {
+  /** La olla de ahora (1..`COSECHA.ollasMax`) y en qué va (`OllaFase`). */
+  @type("number") olla = 1;
+  @type("string") ollaFase = "llenando";
+  /** Cuándo empezó a hervir (hora del servidor). */
+  @type("float64") hierveDesde = 0;
+  /** Lo que lleva la olla: ingrediente → unidades. */
+  @type({ map: "number" }) aportado = new MapSchema<number>();
+  @type({ map: AhuyamaEntryState }) ahuyamas = new MapSchema<AhuyamaEntryState>();
+  @type("number") boletas = 0;
+  @type("string") ganadorAhuyama = "";
+  @type("number") ganadorDag = 0;
+  @type("string") ganadorTombola = "";
+  /** Va el baile de la cosecha en el patio (por la hora o porque el director lo arrancó). */
+  @type("boolean") baile = false;
+}
+
 /** Una cometa que vuela en el Festival de cometas (CometaVueloView de @hyvento/shared), por sessionId de quien la sostiene. */
 export class CometaVueloState extends Schema {
   @type("string") userId = "";
@@ -673,6 +704,8 @@ export class OfficeState extends Schema {
   @type(FeriaState) feria = new FeriaState();
   /** El Carnaval de Negros y Blancos: el desfile y el concurso de disfraces. */
   @type(CarnavalState) carnaval = new CarnavalState();
+  /** La Feria de la cosecha: la olla del sancocho, el concurso de la ahuyama y la tómbola. */
+  @type(CosechaState) cosecha = new CosechaState();
   /** El Año viejo: el muñeco, la quema, las campanadas de las uvas y los testamentos. */
   @type(AnoViejoState) anoViejo = new AnoViejoState();
   /** El Festival de cometas: las que vuelan, el récord del día y el concurso de la más bonita. */

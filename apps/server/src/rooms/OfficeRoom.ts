@@ -239,7 +239,7 @@ import { GenteFiesta } from "./genteFiesta";
 import { gameMinutes, GENTE_MSG, type EntregarResult, type GenteHechos } from "@hyvento/shared";
 import { FeriaFlores } from "./feriaFlores";
 import { SilletaExhibitState } from "../state";
-import { FERIA, FERIA_CINE, FERIA_MSG, silletaName, type BuildResult, type ExhibitResult, type FeriaBuyResult, type FeriaMine, type VoteResult } from "@hyvento/shared";
+import { COSECHA, FERIA, FERIA_CINE, FERIA_MSG, silletaName, type BuildResult, type ExhibitResult, type FeriaBuyResult, type FeriaMine, type VoteResult } from "@hyvento/shared";
 import { Carnaval } from "./carnaval";
 import { DESFILE_TIMING, type DesfileTiming } from "@hyvento/map";
 import { CARNAVAL_MSG, type CarnavalBuyResult, type ConcursoResult, type JoinResult, type LanzarResult } from "@hyvento/shared";
@@ -250,6 +250,7 @@ import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
 import { nearQuestGiver } from "@hyvento/map";
 import { registerVelitas, type Velitas } from "./velitas";
+import { cosechaEmote, registerCosecha, type Cosecha, type CosechaTimings } from "./cosecha";
 import { registerAnoViejo, type AnoViejo } from "./anoViejo";
 import { TestamentoState } from "../state";
 import { registerCometas, type Cometas } from "./cometas";
@@ -476,6 +477,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** La Feria de las flores: el reloj de la pausa y cuánto espera la premiación tras el cierre (los tests los fijan). */
   static feriaNow: () => number = () => Date.now();
   static feriaPremiacionMs: number = FERIA.premiacionDelayMs;
+  /** La Feria de la cosecha: el reloj de la pausa, el sorteo de la tómbola y las esperas (los tests los fijan). */
+  static cosechaNow: () => number = () => Date.now();
+  static cosechaRandom: (max: number) => number = (max) => randomInt(max);
+  static cosechaTimings: CosechaTimings = { hervirMs: COSECHA.hervirMs, premiacionDelayMs: COSECHA.premiacionDelayMs, tombolaDelayMs: COSECHA.tombolaDelayMs };
   /** El Festival de cometas: el reloj (pausas y vuelos), el azar de las ráfagas y la espera de la premiación (los tests los fijan). */
   static cometasNow: () => number = () => Date.now();
   static cometasRandom: (n: number) => number = (n) => randomInt(n);
@@ -1174,6 +1179,41 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.mundo = registerMundo(this as unknown as MundoRoom);
     this.registerDirector();
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
+    this.cosecha = registerCosecha(
+      this,
+      {
+        state: () => this.state.cosecha,
+        festival: () => {
+          const t = this.gameTimeNow();
+          return { id: this.state.festival, fase: this.state.festivalFase, day: t.day, año: fechaDelJuego(t.day).año, minute: t.minuteOfDay };
+        },
+        player: (id) => this.state.players.get(id),
+        players: () => this.state.players.entries(),
+        mapOf: (a) => this.mapOf(a),
+        held: this.held,
+        stats: {
+          stat: (u, k) => this.achievements.stat(u, k),
+          max: (u, k, v) => this.achievements.max(u, k, v),
+          bump: (u, k, by) => this.achievements.bump(u, k, by),
+          isLoaded: (u) => this.achievements.isLoaded(u),
+        },
+        repo: () => this.repo,
+        nearVendor: (who, puesto) => this.gente.nearVendor(who, puesto),
+        online: (userId) => Boolean(this.clientOfUser(userId)),
+        send: (id, t, m) => this.clients.getById(id)?.send(t, m),
+        cine: (id, vars, sessions) => {
+          for (const c of this.clients) if (!sessions || sessions.includes(c.sessionId)) c.send(FESTIVAL_MSG.cine, { id, vars } satisfies FestivalCineEvent);
+        },
+        paid: (userId, awarded, balance, reason) => {
+          for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+          if (awarded > 0) this.clientOfUser(userId)?.send(MSG.pointsAwarded, { amount: awarded, reason, balance } satisfies PointsAwarded);
+        },
+        now: () => OfficeRoom.cosechaNow(),
+        random: (max) => OfficeRoom.cosechaRandom(max),
+        timings: () => OfficeRoom.cosechaTimings,
+      },
+      (c) => this.markActive(c as Client<UserData>),
+    );
     this.velitas = registerVelitas(this, { state: () => this.state.velitas, festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }), player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), now: () => Date.now() }, (c) => this.markActive(c as Client<UserData>));
     this.anoViejo = registerAnoViejo(this, { state: () => this.state.anoViejo, testamento: () => new TestamentoState(), festival: () => { const t = this.gameTimeNow(); return { id: this.state.festival, fase: this.state.festivalFase, day: t.day, año: fechaDelJuego(t.day).año, minute: t.minuteOfDay }; }, player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), nearShop: (p) => this.nearFestivalShop(p as Player, "festival_shop"), held: this.held, stats: { stat: (u, k) => this.achievements.stat(u, k), max: (u, k, v) => this.achievements.max(u, k, v), bump: (u, k, by) => this.achievements.bump(u, k, by), isLoaded: (u) => this.achievements.isLoaded(u) }, repo: () => this.repo, balance: (u, b) => { for (const p of this.state.players.values()) if (p.userId === u) p.points = b; }, send: (id, t, m) => this.clients.getById(id)?.send(t, m), now: () => OfficeRoom.anoViejoNow(), later: (ms, fn) => this.clock.setTimeout(fn, ms) }, (c) => this.markActive(c as Client<UserData>));
     // El Festival de cometas: el puesto, el taller, el vuelo, el concurso y el techo del garaje (ver cometas.ts).
@@ -1423,6 +1463,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.novenas.tick();
       this.syncFestival();
       this.feria.tick();
+      this.cosecha?.tick();
       this.anoViejo?.tick();
       this.cometas?.tick();
       this.amor?.tick();
@@ -1619,6 +1660,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (OfficeRoom.brujasCanasta) await this.brujas.giveBasket(auth.sub).catch(() => false);
     // La Feria de las flores: si ganó estando afuera, su logro; y si ya votó.
     this.feria.joined(auth.sub);
+    // La Feria de la cosecha: si ganó estando afuera, su premio.
+    void this.cosecha?.joined(auth.sub);
     client.send(FERIA_MSG.mine, this.feria.mine(auth.sub) satisfies FeriaMine);
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
@@ -2459,6 +2502,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private comunicacion?: Comunicacion;
   /** La Noche de velitas (ver velitas.ts). */
   private velitas?: Velitas;
+  /** La Feria de la cosecha (ver cosecha.ts). */
+  private cosecha?: Cosecha;
   /** El Año viejo (ver anoViejo.ts). */
   private anoViejo?: AnoViejo<TestamentoState>;
   /** El Festival de cometas (ver cometas.ts). */
@@ -3186,6 +3231,15 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.carnaval.empezar();
       return null;
     });
+    // La Feria de la cosecha (la lógica es de cosecha.ts): el baile, la olla y la premiación con el sorteo.
+    const cosecha = (fn: (c: Cosecha) => string | null, textos: Record<string, string>) => () => {
+      const err = this.cosecha ? fn(this.cosecha) : "cerrado";
+      return err ? { ok: false, error: err as "cerrado" | "ocupado" | "nada", texto: textos[err] ?? "No se pudo." } : null;
+    };
+    const cerrada = "La Feria de la cosecha no está abierta.";
+    this.director.registrar("cosecha-baile", cosecha((c) => c.arrancarBaile(), { cerrado: cerrada, ocupado: "El baile ya está andando en el patio." }));
+    this.director.registrar("cosecha-olla", cosecha((c) => c.llenarOlla(), { cerrado: cerrada, ocupado: "La olla ya está hirviendo.", nada: "Ya se sirvieron todas las ollas de la feria." }));
+    this.director.registrar("cosecha-cierre", cosecha((c) => c.cerrarYa(), { cerrado: cerrada, nada: "No hay ahuyamas pesadas ni boletas por sortear (o ya se hizo)." }));
     // El Año viejo (la lógica es de anoViejo.ts): las campanadas, la quema y la cuenta regresiva, sin esperar su hora.
     this.director.registrar("ano-viejo-uvas", () => {
       if (!this.anoViejo?.activo()) return { ok: false, error: "cerrado", texto: "El Año viejo no está abierto." };
@@ -3546,6 +3600,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     client.userData.lastEmoteAt = now;
     client.userData.lastActiveAt = now;
     this.aguinaldos.emote(client.sessionId);
+    // La Feria de la cosecha: bailar en el patio durante el baile cuenta pasos.
+    if (this.cosecha) cosechaEmote(this.cosecha, { player: (id) => this.state.players.get(id), send: (id, t, m) => this.clients.getById(id)?.send(t, m) }, client.sessionId, parsed.data.emote);
     const event: EmoteEvent = { sessionId: client.sessionId, emote: parsed.data.emote };
     this.achievements.bump(player.userId, STAT_KEYS.emotes);
     if (parsed.data.emote === "dance") this.achievements.bump(player.userId, STAT_KEYS.dances);
@@ -4729,6 +4785,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.brujas.forget(player.userId);
     this.gente.forget(player.userId);
     this.feria.forget(player.userId);
+    this.cosecha?.forget(player.userId, sessionId);
     this.anoViejo?.forget(player.userId);
     this.cometas?.forget(player.userId);
     this.amor?.forget(player.userId);

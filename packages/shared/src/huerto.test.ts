@@ -96,7 +96,7 @@ describe("huerto: cómo crece", () => {
 describe("invernadero", () => {
   it("lo de tierra caliente crece a ritmo completo sin regar, y no se riega", () => {
     const indoor = CROPS.filter((c) => c.indoor);
-    expect(indoor.map((c) => c.id)).toEqual(["uchuva", "pitahaya", "cacao", "cafe"]);
+    expect(indoor.map((c) => c.id)).toEqual(["uchuva", "pitahaya", "cacao", "cafe", "platano"]);
     for (const c of indoor) {
       const p = plantPlot(c.id, alice, T0, "otono");
       expect(plotGrowth(p, T0 + 60_000), c.id).toBe(60_000);
@@ -109,10 +109,10 @@ describe("invernadero", () => {
 });
 
 describe("huerto: lo que se lleva en la mano", () => {
-  it("las semillas dicen su cultivo y el cobertizo tiene la regadera y una bolsa de cada uno (las flores no: son de la feria)", () => {
+  it("las semillas dicen su cultivo y el cobertizo tiene la regadera y una bolsa de cada uno (las flores y las raras no: son de las ferias)", () => {
     for (const c of CROPS) {
       expect(cropOfSeeds(seedsOf(c.id))?.id).toBe(c.id);
-      if (c.flower) expect(SHED_ITEMS).not.toContain(seedsOf(c.id));
+      if (c.flower || c.rare) expect(SHED_ITEMS).not.toContain(seedsOf(c.id));
       else expect(SHED_ITEMS).toContain(seedsOf(c.id));
     }
     expect(SHED_ITEMS).toContain(EMPTY_CAN);

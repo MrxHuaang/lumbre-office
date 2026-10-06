@@ -153,6 +153,27 @@ export const DIRECTOR_ACCIONES: readonly DirectorAccionDef[] = [
     aviso: "{nombre} adelantó la premiación de las cometas.",
   },
   {
+    id: "cosecha-baile",
+    nombre: "El baile de la cosecha ya",
+    descripcion: "Arranca ya el bambuco en el patio (la música y la cinemática), sin esperar el atardecer.",
+    festival: "cosecha",
+    aviso: "{nombre} arrancó el baile de la cosecha en el patio.",
+  },
+  {
+    id: "cosecha-olla",
+    nombre: "Llenar la olla del sancocho",
+    descripcion: "La olla de ahora se llena sola, hierve y le sirve un plato a los que estén cerca.",
+    festival: "cosecha",
+    aviso: "{nombre} llenó la olla del sancocho de la feria.",
+  },
+  {
+    id: "cosecha-cierre",
+    nombre: "Premiar la ahuyama y sortear la tómbola",
+    descripcion: "La premiación de la ahuyama más grande y el sorteo de la tómbola, ya, sin esperar el cierre.",
+    festival: "cosecha",
+    aviso: "{nombre} hizo la premiación y el sorteo de la Feria de la cosecha.",
+  },
+  {
     id: "amor-sorteo",
     nombre: "El sorteo del amigo secreto ya",
     descripcion: "Sortea ya a los anotados en el cofre, sin esperar las 10:00 del juego.",

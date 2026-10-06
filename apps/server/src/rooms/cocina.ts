@@ -102,6 +102,8 @@ export class Cocina {
     const parsed = CookMessage.safeParse(raw);
     if (!parsed.success) return null;
     const recipe = recipeById(parsed.data.recipe)!;
+    // El sancocho de la feria sale de la olla comunitaria, no de la estufa.
+    if (recipe.olla) return null;
     if (!nearPointOfType(map, "kitchen_stove", who.x, who.y)) return { notice: { code: "far" } };
     // La receta de un oficio pide su nivel.
     if (recipe.requires && (this.deps.level?.(who.userId, recipe.requires.oficio) ?? 1) < recipe.requires.level) return { notice: { code: "level", item: recipe.id } };

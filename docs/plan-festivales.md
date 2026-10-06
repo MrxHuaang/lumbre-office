@@ -57,7 +57,7 @@ colombianas puestas en el calendario del juego, a nuestra manera.
 | Primavera | 15 | Feria de las flores (VIR-161) | Silletas con flores del huerto, votación y desfile de silleteros |
 | Verano | 9 | Festival de cometas | Cometas que se arman y se elevan en el jardín; concurso de la que más sube con el viento |
 | Verano | 18 | Carnaval (VIR-160) | Máscaras, desfile de comparsa por el jardín, maicena y serpentinas, concurso de disfraces |
-| Otoño | 10 | Feria de la cosecha | Lo mejor del huerto, la granja y el lago en exhibición; premios por categoría |
+| Otoño | 10 | Feria de la cosecha | Mercado campesino con precios del día, sancocho en olla comunitaria, el concurso de la ahuyama más grande, la tómbola de la junta y el baile de la cosecha al atardecer (VIR-169) |
 | Otoño | 21 | Noche de brujas (VIR-157) | Calabazas, niebla, disfraces, dulce o truco por las puertas, laberinto de maíz, la leyenda del sótano |
 | Invierno | 7 | Noche de velitas (VIR-158) | Velitas que se prenden entre todos (con metas del equipo), faroles de deseos desde el muelle y la suelta de faroles a las 21:00 (la medianoche ya es otro día: queda una hora antes del cierre) |
 | Invierno | 12–20 | Novenas (VIR-159) | Nueve noches del juego: pesebre que se arma entre todos, villancicos, natilla y buñuelos, aguinaldos |
@@ -93,8 +93,8 @@ Cada festival trae su gente: entre 8 y 15 NPC en el jardín (y alguno adentro) q
 en corrillos, venden en el puesto y piden cosas de la mochila a cambio de algo. Son los **vecinos de la
 vereda** (ficticios y recurrentes: la profe jubilada, el de las empanadas, la niña con su perro, los abuelos
 que bailan, el del tiple…) con otro papel y otra pinta en cada fiesta, más algún suelto (niños disfrazados,
-turistas). Hablan en la tira de conversación y murmuran solos sin cajas. Hecho para brujas, velitas,
-novenas, la feria, el carnaval, amor y amistad, las cometas y el año viejo; falta la cosecha, que solo
+turistas). Hablan en la tira de conversación y murmuran solos sin cajas. Hecho para todos: brujas, velitas,
+novenas, la feria, el carnaval, amor y amistad, las cometas, el año viejo y la cosecha; un festival nuevo solo
 agrega su función en `GENTE_FIESTA` (ver "La gente de la fiesta" en `CLAUDE.md`).
 
 ## Las cinemáticas (VIR-155)
