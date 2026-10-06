@@ -200,6 +200,8 @@ export const FESTIVAL_MSG = {
 
 export interface FestivalCineEvent {
   id: string;
+  /** Lo que llena las `{variables}` de los textos (quién ganó la feria, con cuántos votos). */
+  vars?: Record<string, string | number>;
 }
 
 // ---------- Las cinemáticas ----------

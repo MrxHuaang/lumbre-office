@@ -81,8 +81,22 @@ describe("lo que se lleva en la mano", () => {
       ["perico-bolsa", "tusi", "keta", "popper"],
       ["chocolatina", "chocolatina-brujas", "chupeta", "bombon", "gomitas", "masmelo", "malvavisco", "calabaza-dorada"],
       CAFE_ITEM_ART.filter((a) => a.startsWith("semillas-")),
+      ["clavel", "astromelia", "girasol", "hortensia", "fresa"],
     ];
     for (const g of groups) expect(new Set(g.map(key)).size, g.join(", ")).toBe(g.length);
+  });
+
+  it("la silleta se dibuja de su código: cabe en la mano y dos silletas distintas no se ven iguales", () => {
+    const a = drawHeldItem("silleta:cccccccccccc");
+    const b = drawHeldItem("silleta:cgcgcgcgcgcg");
+    for (const c of [a, b]) {
+      expect(c.width).toBeLessThanOrEqual(10);
+      expect(c.height).toBeLessThanOrEqual(10);
+      expect(opaque(c)).toBeGreaterThan(40);
+    }
+    expect(a.data.some((v, i) => v !== b.data[i])).toBe(true);
+    // Un código que no sirve no es una silleta.
+    expect(drawHeldItem("silleta:zz").width).toBe(1);
   });
 
   it("el contorno toma el tono del material (no es el mismo café para todo)", () => {

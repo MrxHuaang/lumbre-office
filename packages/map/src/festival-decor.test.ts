@@ -13,8 +13,12 @@ import {
   PUMPKIN_SPOTS,
   pumpkinSpotOf,
   setFestivalDecor,
+  SILLETA_STANDS,
+  standOfPoint,
   type OfficeMap,
 } from "./index";
+import { silletaOnStand } from "./art/feria-flores";
+import { drawFurniture } from "./art/furniture";
 
 afterEach(() => {
   setFestivalDecor(null);
@@ -109,5 +113,68 @@ describe("la decoración de la Noche de brujas", () => {
       ],
     });
     expect(out.furniture.length).toBe(def.furniture.length);
+  });
+});
+
+describe("la decoración de la Feria de las flores", () => {
+  it("pone la plaza en el jardín (exhibidores, mesa del silletero, puesto) y flores en el recibidor; se apaga sin dejar nada", () => {
+    const before = getWorld().areas.get("jardin")!.furniture.length;
+    expect(setFestivalDecor("feria-flores", 5).sort()).toEqual(["jardin", "planta-baja"]);
+    const jardin = getWorld().areas.get("jardin")!;
+    // Todo lo de la decoración entra (nada se salta por caer encima de otra cosa).
+    expect(jardin.furniture.length - before).toBe(festivalDecorOf("feria-flores", planDef("jardin")!, 5)!.furniture.length);
+    expect(pointsOfType(jardin, "silleta_stand")).toHaveLength(SILLETA_STANDS.length);
+    expect(pointsOfType(jardin, "silletero_table")).toHaveLength(1);
+    expect(pointsOfType(jardin, "feria_shop")).toHaveLength(1);
+    // Cada punto de exhibidor tiene su exhibidor justo al norte.
+    for (const p of pointsOfType(jardin, "silleta_stand")) {
+      const s = standOfPoint(p);
+      expect(jardin.furniture.some((f) => f.type === "silleta-stand" && f.x === s.x && f.y === s.y), `${s.x},${s.y}`).toBe(true);
+    }
+    expect(getWorld().areas.get("planta-baja")!.furniture.some((f) => f.type === "flower-bucket")).toBe(true);
+    setFestivalDecor(null);
+    expect(getWorld().areas.get("jardin")!.furniture.length).toBe(before);
+    expect(pointsOfType(getWorld().areas.get("jardin")!, "silleta_stand")).toHaveLength(0);
+  });
+
+  it("no tapa ningún portal ni punto: desde la entrada se llega a todo y a lo nuevo de la feria", () => {
+    const plain = new Map(festivalDecorAreas("feria-flores").map((a) => [a, reachable(getWorld().areas.get(a)!)]));
+    setFestivalDecor("feria-flores", 0);
+    for (const [area, before] of plain) {
+      const map = getWorld().areas.get(area)!;
+      const from = startOf(map);
+      for (const t of before) expect(findPath(map, from, t), `${area}: ${t.what} (${t.x}, ${t.y})`).not.toBeNull();
+      for (const p of [...pointsOfType(map, "silleta_stand"), ...pointsOfType(map, "silletero_table"), ...pointsOfType(map, "feria_shop")])
+        expect(findPath(map, from, { x: p.tileX, y: p.tileY }), `${area}: ${p.type} ${p.name}`).not.toBeNull();
+    }
+  });
+
+  it("por debajo de los arcos de flores se sigue caminando el camino de piedra", () => {
+    setFestivalDecor("feria-flores", 0);
+    const map = getWorld().areas.get("jardin")!;
+    for (const f of map.furniture.filter((f) => f.type === "flower-arch")) {
+      for (const x of [f.x + 1, f.x + 2, f.x + 3]) expect(isBlockedTile(map, x, f.y), `${x},${f.y}`).toBe(false);
+      expect(isBlockedTile(map, f.x, f.y)).toBe(true);
+      expect(isBlockedTile(map, f.x + 4, f.y)).toBe(true);
+    }
+  });
+
+  it("la silleta del exhibidor calza encima del exhibidor (mismo origen) y cambia con su código", () => {
+    const base = drawFurniture("silleta-stand", "front");
+    const a = silletaOnStand("cccccccccccc");
+    const b = silletaOnStand("hhhhhhhhhhhh");
+    // Puesta con el mismo ancla que el mueble, tapa todo el exhibidor vacío (la tarima y los parales).
+    let covered = 0;
+    let total = 0;
+    for (let y = 0; y < base.canvas.height; y++)
+      for (let x = 0; x < base.canvas.width; x++) {
+        if (base.canvas.data[(y * base.canvas.width + x) * 4 + 3] !== 255) continue;
+        total++;
+        const lx = x - base.ox + a.ox;
+        const ly = y - base.oy + a.oy;
+        if (lx >= 0 && ly >= 0 && lx < a.canvas.width && ly < a.canvas.height && a.canvas.data[(ly * a.canvas.width + lx) * 4 + 3]) covered++;
+      }
+    expect(covered / total).toBeGreaterThan(0.97);
+    expect(a.canvas.data.some((v, i) => v !== b.canvas.data[i])).toBe(true);
   });
 });

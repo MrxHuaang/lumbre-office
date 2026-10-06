@@ -7,6 +7,7 @@ import type { FestivalId } from "@hyvento/shared";
 import { furnitureTiles } from "./decor";
 import { catalogItem } from "./world/catalog";
 import { BRUJAS_DECOR } from "./world/festivales/brujas";
+import { FERIA_DECOR } from "./world/festivales/feria-flores";
 import type { AreaDef, Placement, PointDef } from "./world/types";
 
 /** Lo que un festival agrega a un nivel. */
@@ -29,6 +30,7 @@ export interface FestivalDecorDef {
 /** La decoración de cada festival que tiene. */
 export const FESTIVAL_DECOR: Partial<Record<FestivalId, FestivalDecorDef>> = {
   brujas: BRUJAS_DECOR,
+  "feria-flores": FERIA_DECOR,
 };
 
 /** Los niveles que decora un festival (ninguno si no tiene decoración). */

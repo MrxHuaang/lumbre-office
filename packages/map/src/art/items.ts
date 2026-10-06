@@ -1,7 +1,7 @@
 // Productos de la cafetería y del bar del club en pixel-art: se llevan en la mano, salen en la carta y
 // se consumen con F. Son chiquitos (caben en la mano del chibi); la carta los muestra ampliados.
 // Cada uno cambia con el uso: los vasos se vacían, la comida pierde un mordisco y el cigarro se acorta.
-import { heldParts, usesOf } from "@hyvento/shared";
+import { SILLETA, heldParts, silletaCodeOf, usesOf } from "@hyvento/shared";
 import { C, OUT } from "./palette";
 import { PixelCanvas, alpha, at, hex, type RGBA } from "./pixel";
 
@@ -1677,6 +1677,11 @@ const ITEMS: Record<string, ItemArt> = {
         ["pitahaya", "#e8457a", "#a8205a", ["g.cg", "cCcC", "gCCg"]],
         ["cacao", "#8a4a26", "#5a2a14", [".cc.", "cCCc", ".cc."]],
         ["cafe", "#c8302a", "#6a3a1e", ["g...", "c.c.", ".C.C"]],
+        // Las flores de la Feria de las flores.
+        ["clavel", "#e0303c", "#a01828", ["c.c.", "cCcC", ".g.."]],
+        ["astromelia", "#f08a2a", "#b8501a", ["cg.c", "C..C", ".gg."]],
+        ["girasol", "#f7c830", "#7a4a1a", [".cc.", "cCCc", "..g."]],
+        ["hortensia", "#7a8ae8", "#5a4ab8", ["cCc.", "CcCc", ".cg."]],
       ] as const
     ).map(([crop, c, C, motif]) => [`semillas-${crop}`, seedPacket(c, C, motif)]),
   ),
@@ -1707,6 +1712,75 @@ const ITEMS: Record<string, ItemArt> = {
       "..oooo..",
     ],
     colors: { p: hex("#e8457a"), P: hex("#a8205a"), w: hex("#fff4f0"), l: hex("#7fbf4a") },
+  },
+  // ---------- Las flores del huerto (Feria de las flores): una vara con su flor ----------
+  // Clavel rojo de borde rizado.
+  clavel: {
+    rows: [
+      "..o.o.o..", //
+      ".oRoRoRo.",
+      "oRrsrsrRo",
+      "oRrrrrrRo",
+      ".oRrrrRo.",
+      "..ooGoo..",
+      "...oGo...",
+      "..oLGo...",
+      "...oGo...",
+      "....o....",
+    ],
+    colors: { r: hex("#e0303c"), R: hex("#a01828"), s: hex("#ff8a9a"), G: hex("#4f9a3a"), L: hex("#7fc04e") },
+    flat: "s",
+  },
+  // Dos astromelias naranjas con sus pintas, en un mismo tallo.
+  astromelia: {
+    rows: [
+      ".oo..oo..", //
+      "onNooanNo",
+      "onpNonpNo",
+      ".onNoonNo",
+      "..oGo.oGo",
+      "...oGoGo.",
+      "....oGo..",
+      "...oLGo..",
+      "....oGo..",
+      "....oo...",
+    ],
+    colors: { n: hex("#f08a2a"), N: hex("#c05a1a"), a: hex("#f7b04a"), p: hex("#6a2a14"), G: hex("#4f9a3a"), L: hex("#7fc04e") },
+    flat: "p",
+  },
+  // Girasol: pétalos amarillos alrededor del centro café.
+  girasol: {
+    rows: [
+      "..oyoyo..", //
+      ".oyYyYyo.",
+      "oyYbbbYyo",
+      "oyybBbyyo",
+      "oyYbbbYyo",
+      ".oyYyYyo.",
+      "..oyoGo..",
+      "....oGo..",
+      "...oLGo..",
+      "....oo...",
+    ],
+    colors: { y: hex("#f7c830"), Y: hex("#d89a1a"), b: hex("#7a4a1a"), B: hex("#4a2a10"), G: hex("#4f9a3a"), L: hex("#7fc04e") },
+    flat: "bB",
+  },
+  // Hortensia: una bola de florecitas azules y lilas.
+  hortensia: {
+    rows: [
+      "..oooo...", //
+      ".obBvbo..",
+      "obvbBvbo.",
+      "oBbvbBvo.",
+      "obvBbvbo.",
+      ".ovbvBo..",
+      "..oooGo..",
+      "....oGo..",
+      "...oLGo..",
+      "....oo...",
+    ],
+    colors: { b: hex("#7a8ae8"), B: hex("#5a4ab8"), v: hex("#b48ae0"), G: hex("#4f9a3a"), L: hex("#7fc04e") },
+    flat: "bBv",
   },
   // La chocolatina hecha con el cacao de la casa: una barra con su papel dorado.
   chocolatina: {
@@ -2437,9 +2511,43 @@ function trim(c: PixelCanvas): PixelCanvas {
   return out;
 }
 
+/** Cada flor de la silleta en una casilla de 2x2: la letra de arriba a la izquierda y la de al lado. */
+const SILLETA_CELL: Record<string, [string, string]> = { c: ["r", "R"], a: ["n", "N"], g: ["y", "b"], h: ["v", "V"], "-": ["e", "E"] };
+
+/**
+ * La silleta en la mano (`silleta:<código>`, ver silleta.ts de @hyvento/shared): el marco de madera con la
+ * grilla de flores (las casillas vacías llevan follaje) y las dos patas de cargarla. Sale del código, así
+ * cada silleta se ve como la armaron.
+ */
+function silletaItem(code: string): ItemArt {
+  const bar = `o${"W".repeat(SILLETA.cols * 2)}o`;
+  const rows = [`.${"o".repeat(SILLETA.cols * 2)}.`, bar];
+  for (let r = 0; r < SILLETA.rows; r++)
+    for (const half of [0, 1]) {
+      let row = "o";
+      for (let c = 0; c < SILLETA.cols; c++) {
+        const [a, b] = SILLETA_CELL[code[r * SILLETA.cols + c]!] ?? SILLETA_CELL["-"]!;
+        row += half ? b + a : a + b;
+      }
+      rows.push(`${row}o`);
+    }
+  rows.push(bar, `.oWo${".".repeat(SILLETA.cols * 2 - 6)}oWo.`);
+  return {
+    rows,
+    colors: legend({ W: "#a8682a", r: "#e0303c", R: "#a01828", n: "#f08a2a", N: "#c05a1a", y: "#f7c830", b: "#7a4a1a", v: "#9a8ae8", V: "#5a4ab8", e: "#5fa83e", E: "#3f7a2e" }),
+    flat: "rRnNybvVeE",
+  };
+}
+
+/** Lo que se dibuja de un id que no está en la tabla (la silleta, que sale de su código), o undefined. */
+function dynamicItem(id: string): ItemArt | undefined {
+  const code = silletaCodeOf(id);
+  return code ? silletaItem(code) : undefined;
+}
+
 /** Algo que se lleva en la mano, según cómo está (ver `HeldArtState`). Un id desconocido da un lienzo de 1x1. */
 export function drawHeldItem(id: string, state: HeldArtState = {}): PixelCanvas {
-  const item = ITEMS[id];
+  const item = ITEMS[id] ?? dynamicItem(id);
   if (!item) return new PixelCanvas(1, 1);
   const uses = usesOf(id);
   const left = Math.max(1, Math.min(uses, state.left ?? uses));

@@ -9,8 +9,8 @@ import type { Oficio } from "./oficios";
 import { CROPS, HONEY } from "./huerto";
 import { CARNADA_E_RECIPE } from "./capitulo3";
 
-/** Lo que se puede guardar en la despensa: lo que se cosecha y la miel. */
-export const INGREDIENTS: readonly string[] = [...CROPS.map((c) => c.product), HONEY];
+/** Lo que se puede guardar en la despensa: lo que se cosecha (menos las flores, que son para las silletas) y la miel. */
+export const INGREDIENTS: readonly string[] = [...CROPS.filter((c) => !c.flower).map((c) => c.product), HONEY];
 export const isIngredient = (item: string) => INGREDIENTS.includes(item);
 
 /**
