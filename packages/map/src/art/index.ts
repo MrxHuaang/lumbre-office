@@ -37,6 +37,8 @@ export { BUS_CAR_LEN, busCarSprite, busJointSprite, busScreenText, stationDoorsS
 export { banderaSprite, talcoCara, talcoPolvo } from "./carnaval";
 export { carrozaArte, CARROZAS_ARTE, cajaDeParte, posesCarroza, type CarrozaArte, type Movimiento, type Parte, type ParteMovil, type Pose } from "./carrozas";
 export { instrumentoSprite } from "./carrozas/instrumentos";
+// La decoración del Carnaval: los cuadros de lo que se mueve (banderines, faroles, humo de las ollas).
+export { CARNAVAL_DECOR_FRAMES, carnavalDecorSprite } from "./carnaval-decor";
 // Sus colores (verde lima, vidrios, caucho, pasamanos, LED): también los usa la pantalla del viaje.
 export * as BUS_COLORS from "./bus-colores";
 // El escenario del jardín (la tela de la pantalla) y el cartel "EN EL AIRE" prendido del estudio.
