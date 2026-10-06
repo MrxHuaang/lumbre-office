@@ -3,6 +3,7 @@
 // de espaldas ("back").
 import { BOOKS, C, OUT, mix } from "./palette";
 import { beanbagSprite } from "./salas-muebles";
+import { lampMushroomSprite, sideTableSprite } from "./salas-tanda3";
 import {
   alpha,
   at,
@@ -268,74 +269,6 @@ function bonsai(): Sprite {
 
 // ---------- Mesas, estantes y percheros ----------
 
-function sideTable(): Sprite {
-  const paint = C.sage;
-  // Dos cajones con tirador dorado en el frente.
-  const drawers: Shader = (u, v, fw, fh) => {
-    if (u < 1 || u >= fw - 1 || v < 0.8 || v >= fh - 0.8) return at(paint, 2);
-    if (Math.floor(v) === 4) return at(paint, 1);
-    if (Math.abs(u - fw / 2) < 1 && (Math.floor(v) === 2 || Math.floor(v) === 6)) return at(C.gold, 4);
-    return at(paint, 3);
-  };
-  return renderSprite(
-    [
-      leg(3.5, 3.5, 3),
-      leg(10.5, 3.5, 3),
-      leg(3.5, 10.5, 3),
-      leg(10.5, 10.5, 3),
-      {
-        x: 3,
-        y: 3,
-        z: 3,
-        w: 10,
-        d: 10,
-        h: 9,
-        top: flat(at(paint, 4)),
-        left: (u, v, fw, fh) => at(paint, u < 1 || u >= fw - 1 || v < 0.8 || v >= fh - 0.8 ? 3 : 4),
-        right: drawers,
-      },
-      {
-        x: 2,
-        y: 2,
-        z: 12,
-        w: 12,
-        d: 12,
-        h: 1.5,
-        top: (u, v, fw, fh) => (u < 0.8 || v < 0.8 || u >= fw - 0.8 || v >= fh - 0.8 ? at(C.wood, 3) : at(C.wood, noise(Math.floor(u / 4), 1, 2) < 0.5 ? 4 : 5)),
-        left: flat(at(C.wood, 2)),
-        right: flat(at(C.wood, 3)),
-      },
-      // Un libro y la taza de tinto.
-      { x: 3.5, y: 3.5, z: 13.5, w: 5, d: 6.5, h: 1.5, top: flat(at(C.fabric, 3)), left: flat(at(C.cream, 4)), right: flat(at(C.fabric, 2)) },
-      {
-        x: 8.5,
-        y: 9,
-        z: 13.5,
-        w: 3,
-        d: 3,
-        h: 3,
-        top: (u, v) => (u > 0.6 && u < 2.4 && v > 0.6 && v < 2.4 ? at(C.woodDark, 1) : at(C.cream, 5)),
-        left: flat(at(C.cream, 4)),
-        right: flat(at(C.cream, 3)),
-      },
-      volume(8.5, 9, 16.5, 3, 3, 6),
-    ],
-    {
-      outline: OUT,
-      under: shadowUnder(2, 2, 12, 12),
-      extra: (c, p) => {
-        const h = p(11.5, 10.5, 15);
-        c.set(h.x + 1, h.y, at(C.cream, 3));
-        c.set(h.x + 1, h.y - 1, at(C.cream, 3));
-        const s = p(10, 10.5, 17);
-        c.set(s.x, s.y - 1, alpha(at(C.cream, 5), 0.8));
-        c.set(s.x + 1, s.y - 3, alpha(at(C.cream, 5), 0.6));
-        c.set(s.x, s.y - 5, alpha(at(C.cream, 5), 0.4));
-      },
-    },
-  );
-}
-
 function coatRack(): Sprite {
   const wd = C.woodDark;
   const jacket = C.mustard;
@@ -538,82 +471,6 @@ function globe(): Sprite {
         const s = ring(Math.PI, R + 1.6);
         const f = p(8, 8, 11.5);
         c.line(s.x, s.y, f.x, f.y, at(C.gold, 3));
-      },
-    },
-  );
-}
-
-function lampMushroom(): Sprite {
-  return renderSprite(
-    [
-      // Rodaja de tronco como base.
-      {
-        x: 4,
-        y: 4,
-        z: 0,
-        w: 8,
-        d: 8,
-        h: 2,
-        top: (u, v) => {
-          const d = Math.hypot(u - 4, v - 4);
-          return at(C.wood, d > 3.4 ? 2 : Math.floor(d) % 2 ? 4 : 5);
-        },
-        left: flat(at(C.logs, 2)),
-        right: flat(at(C.logs, 1)),
-      },
-      {
-        x: 6.5,
-        y: 6.5,
-        z: 2,
-        w: 3,
-        d: 3,
-        h: 9,
-        top: flat(at(C.cream, 5)),
-        left: (_u, v) => at(C.cream, v > 7 ? 5 : 4),
-        right: (_u, v) => at(C.cream, v > 7 ? 4 : 3),
-      },
-      volume(-2, -2, 9, 20, 20, 12),
-    ],
-    {
-      outline: OUT,
-      under: shadowUnder(4, 4, 8, 8),
-      extra: (c, p) => {
-        // Musgo y un hongo chiquito en la base.
-        for (let k = 0; k < 7; k++) {
-          const q = p(4.5 + noise(k, 1, 3) * 7, 4.5 + noise(k, 2, 3) * 7, 2);
-          c.set(q.x, q.y, at(MOSS, 3 + (k % 2)));
-        }
-        const m = p(10.5, 11.5, 2);
-        c.set(m.x, m.y - 1, at(C.cream, 4));
-        c.set(m.x, m.y - 2, at(C.cream, 4));
-        c.rect(m.x - 1, m.y - 3, 3, 1, at(C.rose, 3));
-        c.set(m.x, m.y - 4, at(C.rose, 4));
-        // Laminillas bajo el sombrero, encendidas.
-        const g = p(8, 8, 11);
-        c.ellipse(g.x, g.y, 8.5, 4, at(C.cream, 4));
-        c.ellipse(g.x, g.y - 0.5, 6.5, 2.8, at(C.gold, 5));
-        // Sombrero: domo arriba y el borde elíptico abajo.
-        const o = p(8, 8, 12.5);
-        const rx = 9;
-        for (let y = Math.floor(o.y - 8); y <= Math.ceil(o.y + 4); y++)
-          for (let x = Math.floor(o.x - rx); x <= Math.ceil(o.x + rx); x++) {
-            const nx = (x + 0.5 - o.x) / rx;
-            const dy = y + 0.5 - o.y;
-            const ny = dy < 0 ? dy / 8 : dy / 4;
-            if (nx * nx + ny * ny > 1) continue;
-            const lit = -(nx * 0.5 + ny * 0.7) + (bayer(x, y) - 0.5) * 0.5;
-            c.set(x, y, at(C.rose, lit > 0.45 ? 5 : lit > -0.1 ? 4 : 3));
-          }
-        // Pintas crema.
-        for (const [dx, dy, s] of [
-          [-4, -4, 1.4],
-          [2, -6, 1.2],
-          [5, -2, 1.3],
-          [-1, -1, 1],
-          [-6, 0, 0.9],
-        ] as const)
-          c.ellipse(o.x + dx, o.y + dy, s + 0.4, s, at(C.cream, 5));
-        c.set(o.x - 3, o.y - 6, at(C.white, 4));
       },
     },
   );
@@ -1233,7 +1090,7 @@ function rugStripes(): Sprite {
 /** Dibujos de los muebles de decoración, por tipo del catálogo. */
 export const DECOR: Record<string, (v: Variant) => Sprite> = {
   cactus,
-  "side-table": sideTable,
+  "side-table": sideTableSprite,
   "coat-rack": coatRack,
   monstera,
   "rug-round": rugRound,
@@ -1241,7 +1098,7 @@ export const DECOR: Record<string, (v: Variant) => Sprite> = {
   "bookshelf-low": bookshelfLow,
   globe,
   beanbag: beanbagSprite,
-  "lamp-mushroom": lampMushroom,
+  "lamp-mushroom": lampMushroomSprite,
   easel,
   bonsai,
   "record-player": recordPlayer,

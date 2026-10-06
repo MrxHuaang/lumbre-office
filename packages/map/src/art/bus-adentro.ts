@@ -5,10 +5,10 @@
 import type { WallFeature, WallpaperKind } from "../world/types";
 import { BLACK, GREY, HANDRAIL, LED, LIME, TINT } from "./bus-colores";
 import { textMask } from "./digits";
-import { shadowUnder, type Variant } from "./kit";
-import { C, OUT, mix } from "./palette";
-import { alpha, at, bayer, flat, noise, renderSprite, solidBox, type Box, type RGBA, type Sprite } from "./pixel";
-import { Escena } from "./exterior-escena";
+import { busCabinSprite, busPoleSprite, busSeatSprite, busTurntableSprite } from "./bus-adentro-tanda3";
+import type { Variant } from "./kit";
+import { C, mix } from "./palette";
+import { at, bayer, noise, type RGBA, type Sprite } from "./pixel";
 
 // ---------- Piso y paredes ----------
 
@@ -33,11 +33,19 @@ function rail(u: number, hv: number, z0: number): RGBA | null {
 /** Papel de los muros del bus: paneles, la franja lima, el pasamanos y los avisos del techo; o el fuelle. */
 export function busWallpaper(kind: WallpaperKind, u: number, hv: number): RGBA {
   if (kind === "fuelle") {
-    // Pliegues del acordeón: nervios verticales claros y hondos, con los aros de caucho arriba y abajo.
-    if (hv < 3 || hv > 52) return at(BLACK, hv < 1 || hv > 54 ? 1 : 3);
-    const k = ((u % 4) + 4) % 4;
-    const c = at(GREY, k < 1 ? 1 : k < 2 ? 2 : k < 3 ? 4 : 3);
-    return hv > 24 && hv < 27 ? mix(c, at(GREY, 0), 0.4) : c;
+    // Pliegues del acordeón, cada uno de 6: el fondo hondo, la cara que mira a la luz (de la izquierda) con
+    // el filo brillante y la cara en sombra; los marcos de caucho arriba y abajo con su borde claro, y la
+    // faja del medio que aprieta los pliegues.
+    if (hv < 3 || hv > 52) {
+      if (hv < 1 || hv > 54) return at(BLACK, 1);
+      return at(BLACK, hv > 52 && hv < 53 ? 4 : hv < 3 && hv >= 2 ? 4 : 2);
+    }
+    const k = Math.floor(((u % 6) + 6) % 6);
+    let c = at(GREY, [0, 3, 4, 5, 2, 1][k]!);
+    // Junto a los marcos y a la faja, los pliegues se apagan (quedan metidos).
+    if (hv < 5 || hv > 50 || (hv > 22.5 && hv < 24) || (hv > 28 && hv < 29.5)) c = mix(c, at(GREY, 0), 0.45);
+    if (hv >= 24 && hv <= 28) return at(BLACK, hv < 25 ? 4 : hv > 27 ? 1 : k === 0 ? 2 : 3);
+    return c;
   }
   const seam = ((u % 32) + 32) % 32 < 0.8;
   if (hv < 3) return at(BLACK, 2);
@@ -92,89 +100,12 @@ export function busWallFeature(f: WallFeature, u: number, hv: number, day: boole
 }
 
 // ---------- Muebles ----------
-
-/**
- * Asiento de pasajero mirando hacia +x: base de caucho, concha de plástico (verde lima o el azul de los
- * preferenciales), cojín oscuro y el agarradero amarillo arriba del respaldo.
- */
-function busSeat(variant: Variant, blue: boolean): Sprite {
-  const back = variant === "back";
-  const shell = blue ? C.blue : LIME;
-  const pad = blue ? C.fabric : BLACK;
-  const bx = back ? 12 : 2;
-  const boxes: Box[] = [
-    // Pedestal.
-    solidBox({ x: 6, y: 6, z: 0, w: 4, d: 4, h: 7 }, GREY, 2),
-    { x: 2, y: 2, z: 7, w: 12, d: 12, h: 2, top: flat(at(shell, 3)), left: flat(at(shell, 1)), right: flat(at(shell, 2)) },
-    { x: back ? 3 : 4, y: 3, z: 9, w: 9, d: 10, h: 1.5, top: flat(at(pad, 3)), left: flat(at(pad, 1)), right: flat(at(pad, 2)) },
-  ];
-  const rest: Box[] = [
-    { x: bx, y: 2, z: 9, w: 2, d: 12, h: 14, top: flat(at(shell, 4)), left: flat(at(shell, 2)), right: (_u, v) => at(shell, v > 11 ? 3 : 2) },
-    // Agarradero amarillo sobre el respaldo.
-    solidBox({ x: bx, y: 3, z: 23, w: 2, d: 1, h: 3 }, HANDRAIL, 2),
-    solidBox({ x: bx, y: 12, z: 23, w: 2, d: 1, h: 3 }, HANDRAIL, 2),
-    { x: bx, y: 3, z: 25, w: 2, d: 10, h: 1.5, top: flat(at(HANDRAIL, 4)), left: flat(at(HANDRAIL, 2)), right: flat(at(HANDRAIL, 3)) },
-  ];
-  return renderSprite(back ? [...boxes, ...rest] : [...rest, ...boxes], { outline: OUT, under: shadowUnder(2, 2, 12, 12) });
-}
-
-/** Barra vertical amarilla de piso a techo, con el timbre rojo y su letrero de "PARE". */
-function busPole(): Sprite {
-  return renderSprite(
-    [
-      solidBox({ x: 6, y: 6, z: 0, w: 4, d: 4, h: 1 }, GREY, 3),
-      solidBox({ x: 7, y: 7, z: 0, w: 2, d: 2, h: 52 }, HANDRAIL, 2),
-      // Timbre: cajita roja con el botón.
-      solidBox({ x: 9, y: 6.5, z: 24, w: 2, d: 3, h: 4 }, C.rug, 3),
-      solidBox({ x: 11, y: 7.5, z: 25.5, w: 0.8, d: 1, h: 1 }, C.cream, 4),
-    ],
-    { outline: OUT, under: shadowUnder(6, 6, 4, 4) },
-  );
-}
-
-/** El plato giratorio del fuelle: un disco gris con estrías y el aro de caucho, a ras del piso. */
-function busTurntable(): Sprite {
-  const s = new Escena({ x0: -2, y0: -2, z0: -1, x1: 34, y1: 82, z1: 2 }, 2);
-  s.borde = false;
-  s.quad([0, 0, 0.2], [1, 0, 0], [0, 1, 0], 32, 80, (u, v) => {
-    const d = Math.hypot(u - 16, (v - 40) * 0.42);
-    if (d < 14) return at(GREY, (Math.floor(u / 2) + Math.floor(v / 2)) % 2 ? 2 : 3);
-    if (d < 15.5) return at(BLACK, 2);
-    return u < 1 || u > 31 ? at(BLACK, 1) : null;
-  });
-  return s.sprite();
-}
-
-/**
- * La cabina del conductor (2x5, al frente): el tablero con el volante, la silla del conductor, el
- * torniquete de la puerta de adelante y la mampara baja. Todo bajo, para no tapar el pasillo.
- */
-function busCabin(): Sprite {
-  const s = new Escena({ x0: -2, y0: -2, z0: -1, x1: 34, y1: 82, z1: 34 }, 3);
-  // Mampara baja de vidrio con marco lima (del lado del pasillo).
-  s.box(0, 0, 0, 2, 80, 18, () => at(LIME, 4), () => at(LIME, 2), (u, v) => (v < 3 ? at(LIME, 3) : u % 16 < 1.5 ? at(LIME, 3) : alpha(at(TINT, 4), 0.55)));
-  // Tablero: caja negra con los relojes verdes y el volante.
-  s.box(20, 4, 0, 12, 40, 16, () => at(BLACK, 3), () => at(BLACK, 1), (u, v) => {
-    if (v > 11 && v < 14 && u > 6 && u < 34) return (Math.floor(u) % 5) < 2 ? at(LIME, 5) : at(BLACK, 0);
-    return at(BLACK, 2);
-  });
-  for (let a = 0; a < Math.PI * 2; a += 0.06) s.plot(18 + Math.cos(a) * 0.8, 24 + Math.cos(a) * 5, 20 + Math.sin(a) * 5, at(BLACK, 0));
-  s.solid(19, 23, 14, 2, 2, 6, at(GREY, 3), at(GREY, 1), at(GREY, 2));
-  // Silla del conductor (de espaldas a la cámara: el respaldo del lado del pasillo).
-  s.solid(8, 18, 0, 3, 3, 7, at(GREY, 3), at(GREY, 1), at(GREY, 2));
-  s.solid(4, 14, 7, 11, 11, 3, at(BLACK, 3), at(BLACK, 1), at(BLACK, 2));
-  s.solid(3, 14, 10, 3, 11, 14, at(BLACK, 4), at(BLACK, 2), at(BLACK, 3));
-  // Validador de tarjetas junto a la puerta de adelante, del lado de la plataforma (pantallita verde).
-  s.solid(10, 8, 0, 6, 6, 18, at(GREY, 4), at(GREY, 2), at(GREY, 3));
-  s.quad([10, 14, 12], [1, 0, 0], [0, 0, 1], 6, 4, () => at(LIME, 5));
-  s.shadow(2, 2, 30, 76, 0.25);
-  return s.sprite();
-}
+// Dibujados a mano en grillas (art/bus-adentro-tanda3.ts).
 
 export const BUS_INSIDE_DRAW: Record<string, (v: Variant) => Sprite> = {
-  "bus-seat": (v) => busSeat(v, false),
-  "bus-seat-blue": (v) => busSeat(v, true),
-  "bus-pole": busPole,
-  "bus-turntable": busTurntable,
-  "bus-cabin": busCabin,
+  "bus-seat": (v) => busSeatSprite(v === "back", false),
+  "bus-seat-blue": (v) => busSeatSprite(v === "back", true),
+  "bus-pole": busPoleSprite,
+  "bus-turntable": busTurntableSprite,
+  "bus-cabin": busCabinSprite,
 };

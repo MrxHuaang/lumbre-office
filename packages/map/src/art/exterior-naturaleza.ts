@@ -7,10 +7,11 @@
 import { Escena } from "./exterior-escena";
 import { flatRockSprite, lilyPadsSprite, mediumRockSprite, mossyRockSprite, mushroomsSprite, smallRockSprite, stumpSprite } from "./jardin-detalles";
 import { berryBushSprite, bushSprite, fernSprite, hydrangeaSprite, roseBushSprite, tallGrassSprite, wildflowersSprite } from "./jardin-matas";
+import { flowerPatchSprite } from "./jardin-tanda3";
 import { bigOakSprite, birchSprite, birchSpriteB, blossomTreeSprite, fruitTreeSprite, oakSprite, pineSprite, shortPineSprite, tallOakSprite, tallPineSprite, wideOakSprite } from "./jardin-arboles";
 import { blob } from "./kit";
 import { C, mix } from "./palette";
-import { PixelCanvas, alpha, at, bayer, noise, smoothNoise, type Ramp, type RGBA, type Sprite } from "./pixel";
+import { PixelCanvas, alpha, at, bayer, noise, smoothNoise, type Ramp, type Sprite } from "./pixel";
 
 /** Rampa mezclada entre dos de la paleta (variantes de follaje sin inventar colores nuevos). */
 export const blend = (a: Ramp, b: Ramp, t: number): Ramp => a.map((c, i) => mix(c, b[Math.min(i, b.length - 1)]!, t));
@@ -87,32 +88,6 @@ export function canopy(c: PixelCanvas, o: CanopyOpts): [number, number, number][
 }
 
 // ---------- Arbustos, flores y hongos ----------
-
-const PATCH_COLS: RGBA[] = [at(C.rug, 4), at(C.gold, 5), at(C.rose, 5), at(C.white, 4), at(C.blue, 4), at(C.violet, 4), at(C.fire, 3)];
-
-/** Macizo de flores: un montículo de hojas cubierto de flores de colores. */
-function flowerPatch(seed: number): Sprite {
-  const s = scene(1, 1, 18, 4);
-  s.roundShadow(8.5, 8.5, 7, 0.28);
-  const b = s.p(8, 8, 1);
-  canopy(s.canvas, { cx: b.x, cy: b.y - 4, rx: 11.5, ry: 6.5, ramp: LEAF_DEEP, seed, size: [2.4, 3.8], base: 2.6 });
-  // Dos o tres colores por macizo, en grupitos (como plantado a propósito).
-  const cols = [0, 1, 2].map((k) => PATCH_COLS[Math.floor(noise(k, 7, seed) * PATCH_COLS.length)]!);
-  for (let i = 0; i < 22; i++) {
-    const a = noise(i, 1, seed + 2) * Math.PI * 2;
-    const d = Math.sqrt(noise(i, 2, seed + 2));
-    const x = Math.round(b.x + Math.cos(a) * d * 9.5);
-    const y = Math.round(b.y - 5 + Math.sin(a) * d * 5);
-    const col = cols[Math.floor(noise(Math.floor(x / 5), Math.floor(y / 4), seed) * cols.length)]!;
-    const dark = mix(col, at(C.rug, 0), 0.3);
-    s.canvas.set(x, y - 1, col);
-    s.canvas.set(x - 1, y, col);
-    s.canvas.set(x + 1, y, dark);
-    s.canvas.set(x, y + 1, dark);
-    s.canvas.set(x, y, at(C.gold, 5));
-  }
-  return s.sprite();
-}
 
 // ---------- Rocas ----------
 
@@ -260,7 +235,7 @@ export const NATURE_DRAW: Record<string, () => Sprite> = {
   "bush-hydrangea": () => hydrangeaSprite(LEAF, at(C.blue, 3)),
   "bush-berry": () => berryBushSprite(LEAF_DEEP, at(C.violet, 3)),
   "bush-round": () => bushSprite(LEAF),
-  "flower-patch": () => flowerPatch(91),
+  "flower-patch": flowerPatchSprite,
   wildflowers: wildflowersSprite,
   fern: () => fernSprite(LEAF),
   "tall-grass": tallGrassSprite,
