@@ -139,6 +139,20 @@ export const DIRECTOR_ACCIONES: readonly DirectorAccionDef[] = [
     aviso: "{nombre} arrancó la cuenta regresiva del año nuevo.",
   },
   {
+    id: "cometas-primera",
+    nombre: "La primera cometa del día",
+    descripcion: "Los niños llegan corriendo a la loma a celebrar la primera cometa en el aire (para los del jardín).",
+    festival: "cometas",
+    aviso: "{nombre} repitió la celebración de la primera cometa.",
+  },
+  {
+    id: "cometas-premiacion",
+    nombre: "La premiación de las cometas ya",
+    descripcion: "La premiación con la más alta y la más bonita de ahora, para todos. Los premios se pagan al cierre.",
+    festival: "cometas",
+    aviso: "{nombre} adelantó la premiación de las cometas.",
+  },
+  {
     id: "amor-sorteo",
     nombre: "El sorteo del amigo secreto ya",
     descripcion: "Sortea ya a los anotados en el cofre, sin esperar las 10:00 del juego.",

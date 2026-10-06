@@ -75,7 +75,7 @@ export const FESTIVALES: readonly FestivalDef[] = [
   {
     id: "cometas",
     nombre: "Festival de cometas",
-    resumen: "Cometas que se arman y se elevan con el viento del jardín; gana la que más sube.",
+    resumen: "Cometas que se arman en el taller y se elevan en la loma del observatorio; gana la que más sube y la más bonita.",
     estacion: "verano",
     dia: 9,
     dias: 1,
@@ -349,7 +349,7 @@ export const FESTIVAL_CINEMATICAS: readonly CineDef[] = [
     { op: "fx", fx: "chispas" },
   ]),
   close(byId("feria-flores"), "Las silletas quedan en el patio unos días, pa' que las vean los que no vinieron."),
-  open(byId("cometas"), ["¡Sopla el viento del verano! A elevar cometas en el jardín.", "Gana la que suba más alto. Cuidado con los faroles."], [
+  open(byId("cometas"), ["¡Sopla el viento del verano! A elevar cometas en la loma del observatorio.", "Arme la suya en el taller de la loma. Gana la que suba más alto y la más bonita."], [
     { op: "sound", sound: "brisa" },
   ]),
   close(byId("cometas"), "Recojan las cometas, que la última se fue pal lago con todo y cola."),

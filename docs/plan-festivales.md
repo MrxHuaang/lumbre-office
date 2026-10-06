@@ -63,6 +63,14 @@ colombianas puestas en el calendario del juego, a nuestra manera.
 | Invierno | 12–20 | Novenas (VIR-159) | Nueve noches del juego: pesebre que se arma entre todos, villancicos, natilla y buñuelos, aguinaldos |
 | Invierno | 21 | Año viejo (VIR-170) | El muñeco que se arma entre todos y su quema a las 21:30 (sin pólvora), los testamentos, los agüeros (doce uvas, maleta, lentejas y ropa amarilla), la cuenta regresiva a las 21:59 y el resumen del año |
 
+## Festival de cometas (VIR-168)
+
+Hecho: el voladero en la loma del observatorio con el taller (forma, dos colores y la cola; la cometa va en el id
+del objeto, como la silleta), el puesto de Chepe y el carrito del raspao, el vuelo (un minijuego de tensión con
+el viento del clima del servidor, que la sala repite para validar la altura), las cometas de todos en el cielo,
+el récord del día, el concurso de la más bonita con premiación al cierre, los pedidos de Mateo (el gancho) y
+Santiago (la cometa del techo del garaje) y los momentos en el panel del director.
+
 ## Novenas (VIR-159)
 
 Hecho: el pesebre del recibidor (una figura por día, la pone el primero con E; capa propia, no decoración),
@@ -86,8 +94,8 @@ en corrillos, venden en el puesto y piden cosas de la mochila a cambio de algo. 
 vereda** (ficticios y recurrentes: la profe jubilada, el de las empanadas, la niña con su perro, los abuelos
 que bailan, el del tiple…) con otro papel y otra pinta en cada fiesta, más algún suelto (niños disfrazados,
 turistas). Hablan en la tira de conversación y murmuran solos sin cajas. Hecho para brujas, velitas,
-novenas, la feria, el carnaval, amor y amistad y el año viejo; los que faltan (cometas, cosecha) solo
-agregan su función en `GENTE_FIESTA` (ver "La gente de la fiesta" en `CLAUDE.md`).
+novenas, la feria, el carnaval, amor y amistad, las cometas y el año viejo; falta la cosecha, que solo
+agrega su función en `GENTE_FIESTA` (ver "La gente de la fiesta" en `CLAUDE.md`).
 
 ## Las cinemáticas (VIR-155)
 

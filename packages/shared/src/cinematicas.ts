@@ -18,6 +18,7 @@ import { CAPITULO3_CINEMATICAS } from "./capitulo3";
 import { FERIA_CINEMATICAS } from "./feria-flores";
 import { NOVENA_CINEMATICAS } from "./novenas";
 import { ANO_VIEJO_CINEMATICAS } from "./ano-viejo";
+import { COMETAS_CINEMATICAS } from "./cometas";
 import { AMOR_CINEMATICAS } from "./amor-amistad";
 import type { Look } from "./look";
 
@@ -320,6 +321,8 @@ export const CINEMATICAS: Record<string, CineDef> = {
 // brujas (la calabaza dorada y los trucos), las de la Feria de las flores (el desfile, la premiación) y
 // las del Carnaval, con sus reglas.
 for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS, ...FERIA_CINEMATICAS, ...CARNAVAL_CINEMATICAS]) CINEMATICAS[def.id] = def;
+// El Festival de cometas (cometas.ts).
+for (const def of COMETAS_CINEMATICAS) CINEMATICAS[def.id] = def;
 // Las de los capítulos de la historia, con su contenido.
 for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATICAS[def.id] = def;
 // Las de las novenas (la figura del pesebre y cada noche de la novena).

@@ -110,6 +110,8 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   ...MUNDO_CONSUMABLES,
   // Los dulces de la Noche de brujas (brujas.ts).
   ...BRUJAS_CONSUMABLES,
+  // El raspao del carrito de la loma (Festival de cometas): a cucharadas.
+  raspao: { action: "bite", uses: 3 },
   ...AMOR_CONSUMABLES,
 };
 

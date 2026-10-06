@@ -170,6 +170,11 @@ export const STAT_KEYS = {
   // El Año viejo (ano-viejo.ts): cosas que le dio al muñeco y los agüeros cumplidos en un mismo año (máximo).
   munecoAportes: "muneco_aportes",
   anoViejoAgueros: "ano_viejo_agueros",
+  // El Festival de cometas (cometas.ts): cometas armadas, la mejor altura (máximo, en metros) y los
+  // premios ganados (la más alta o la más bonita).
+  cometasArmadas: "cometas_armadas",
+  cometaAltura: "cometa_altura",
+  cometaPremios: "cometa_premios",
   // Amor y amistad (amor-amistad.ts): detalles dejados al amigo secreto y serenatas pedidas.
   amigoSecretoRegalos: "amigo_secreto_regalos",
   serenatasDadas: "serenatas_dadas",
@@ -220,6 +225,7 @@ export const MAX_STATS: ReadonlySet<string> = new Set([
   STAT_KEYS.storyCh5,
   STAT_KEYS.storyPrologue,
   STAT_KEYS.anoViejoAgueros,
+  STAT_KEYS.cometaAltura,
 ]);
 
 export const ACHIEVEMENT_RARITIES = ["comun", "raro", "epico", "legendario"] as const;
@@ -298,6 +304,7 @@ export const BADGE_ICONS = [
   "pumpkin",
   "silleta",
   "mask",
+  "cometa",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
@@ -489,6 +496,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // El Año viejo
     a("munequero", "Muñequero", "flame", "comun", STAT_KEYS.munecoAportes, 3, "Dele 3 cosas al muñeco de año viejo (prendas viejas o relleno)", "Ese pantalón remendado era suyo, ¿cierto?"),
     a("aguerero", "Agüerero", "clock", "epico", STAT_KEYS.anoViejoAgueros, 4, "Cumpla los cuatro agüeros en un Año viejo: las uvas, la maleta, las lentejas y la ropa amarilla", "Con tanto agüero, este año no hay mala suerte que le entre."),
+    // El Festival de cometas
+    a("cometero", "Cometero", "cometa", "comun", STAT_KEYS.cometasArmadas, 1, "Arma una cometa en el taller de la loma en el Festival de cometas", "Papel de seda, palitos de guadua y engrudo hasta en las cejas."),
+    a("dueno-del-cielo", "Dueño del cielo", "cometa", "epico", STAT_KEYS.cometaPremios, 1, "Gana un premio del Festival de cometas: la más alta del día o la más bonita", "Toda la loma levantó la cabeza para ver su cometa."),
     // Amor y amistad
     a("amigo-secreto", "Amigo secreto", "chest", "comun", STAT_KEYS.amigoSecretoRegalos, 1, "Déjele un detalle a su amigo secreto en el cofre de Amor y amistad", "Nadie sabe que fue usted. Bueno, hasta la revelación."),
     a("serenatero", "Serenatero", "guitar", "raro", STAT_KEYS.serenatasDadas, 1, "Pídale una serenata al trío de Amor y amistad para alguien", "Tiple, guitarra y requinto, todo por un detalle."),

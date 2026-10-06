@@ -123,6 +123,8 @@ import { FishingController } from "./fishing/controller";
 import { ObservatorioVivo } from "./observatorioVivo";
 import { MaizalVivo, updateTrickTarget } from "./brujas";
 import { SilletasVivas } from "./feriaSilletas";
+import { CometasCielo } from "./cometasCielo";
+import { cometaVolando, volarConF } from "./cometas";
 import { CarnavalView } from "./carnaval/desfile";
 import { DecorCarnavalViva } from "./carnaval/decorViva";
 import { lanzarConF, salirseComparsa, sumarseComparsa, useCarnavalStore } from "./carnaval";
@@ -281,13 +283,18 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   { kind: "anoViejoMuneco", point: "ano_viejo_muneco", furniture: ["silla-muneco", "brasero-piedra"] },
   { kind: "anoViejoCartel", point: "ano_viejo_cartel", furniture: ["cartel-testamentos"] },
   { kind: "anoViejoRelleno", point: "ano_viejo_relleno", furniture: ["costal-aserrin"] },
+  // El Festival de cometas: el taller, el puesto (y el carrito), el tablero del concurso y la escalera del garaje.
+  { kind: "cometasTaller", point: "cometas_taller", furniture: ["taller-cometas"] },
+  { kind: "cometasShop", point: "festival_shop", furniture: ["puesto-cometas", "carrito-raspao"] },
+  { kind: "cometasConcurso", point: "cometas_concurso", furniture: ["tablero-cometas"] },
+  { kind: "cometaTecho", point: "cometas_techo", furniture: ["escalera-garaje"] },
   // Amor y amistad: el cofre del amigo secreto, el puesto de chocolates y flores y el trío de la serenata.
   { kind: "amorCofre", point: "amigo_secreto", furniture: ["amigo-cofre"] },
   { kind: "amorShop", point: "festival_shop", furniture: ["puesto-amor"] },
   { kind: "amorSerenata", point: "amor_serenata", furniture: [] },
 ];
 /** El puesto de cada festival (todos usan el punto `festival_shop`): qué panel abre según el que corre. */
-const FESTIVAL_SHOP: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "amor-amistad": "amorShop", "ano-viejo": "anoViejoShop" };
+const FESTIVAL_SHOP: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "amor-amistad": "amorShop", "ano-viejo": "anoViejoShop", cometas: "cometasShop" };
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
 const ARRIVAL_CLEAR_TILES = 1.5;
@@ -420,6 +427,7 @@ export class OfficeScene extends Phaser.Scene {
   private decorCarnaval = new DecorCarnavalViva(this);
   /** La Feria de las flores: la silleta exhibida encima de cada exhibidor. */
   private silletas!: SilletasVivas;
+  private cometasCielo!: CometasCielo;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
   private club!: ClubMode;
   /** Cumpleaños, karaoke y foco: el pastel, el neón y lo de sobre el nombre (ver eventos.ts). */
@@ -612,6 +620,7 @@ export class OfficeScene extends Phaser.Scene {
     this.photoBoards = new PhotoBoards(this);
     this.paintings = new PaintingLayers(this);
     this.silletas = new SilletasVivas(this);
+    this.cometasCielo = new CometasCielo(this, (id) => this.avatars.get(id));
     this.treeLadder = new TreeLadderLayer(this);
     this.busView = new BusView(this, () => getRoom() ?? undefined);
     this.carnavalView = new CarnavalView(this, (sessionId) => this.avatars.get(sessionId));
@@ -721,6 +730,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.photoBoards.destroy(),
       () => this.paintings.destroy(),
       () => this.silletas.destroy(),
+      () => this.cometasCielo.destroy(),
       () => this.treeLadder.destroy(),
       this.bindVoiceDemand(),
       () => this.busView.destroy(),
@@ -849,6 +859,7 @@ export class OfficeScene extends Phaser.Scene {
     this.drunkVision.update(time, delta, this.tripVision.update(time, delta));
     this.npcs.update(time);
     this.gente.update(time);
+    this.cometasCielo.update(time);
     this.questMarks.update(time);
     this.publishMinimap(time);
     this.updateMunchies(time);
@@ -997,6 +1008,7 @@ export class OfficeScene extends Phaser.Scene {
       this.rods.setArea(map);
       this.observatorio.setArea(map);
       this.maizal.setArea(map, this.view);
+      this.cometasCielo.setArea(map, this.view);
       this.decorCarnaval.setArea(map, this.view);
       this.carnavalView.setArea(map);
       this.fishing.reset();
@@ -1091,6 +1103,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.setArea(map);
     this.observatorio.setArea(map);
     this.maizal.setArea(map, this.view);
+    this.cometasCielo.setArea(map, this.view);
     this.decorCarnaval.setArea(map, this.view);
     this.carnavalView.setArea(map);
     this.club.setArea(map, this.view);
@@ -1654,6 +1667,8 @@ export class OfficeScene extends Phaser.Scene {
     const dt = delta / 1000;
     const ts = this.map.tileSize;
     if (this.fishing.busy) return this.updateFishing(avatar, delta, taps);
+    // Con la cometa en el aire no se camina: el teclado es del minijuego (cometas.ts).
+    if (cometaVolando()) return;
     // Bailando en la comparsa del Carnaval me lleva la sala por la calle.
     if (this.followComparsa(avatar, delta, taps)) return;
     // Saltando del trampolín no se maneja nada hasta caer al agua.
@@ -1704,7 +1719,7 @@ export class OfficeScene extends Phaser.Scene {
       }
       // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
       // Con la maicena o las serpentinas, F se las echa a quien está al lado (Carnaval).
-      if (taps.f && this.local?.holding && !useOfficeStore.getState().decorating && !this.table.kind && !lanzarConF(this.local)) sendUseHeld();
+      if (taps.f && this.local?.holding && !useOfficeStore.getState().decorating && !this.table.kind && !volarConF() && !lanzarConF(this.local)) sendUseHeld();
       const editing = useOfficeStore.getState().decorating || useOfficeStore.getState().worldEditing;
       // B: brindar (invitar o sumarse; el servidor valida la bebida, la distancia y la pausa).
       if (taps.b && !editing && !this.table.kind) sendToast();

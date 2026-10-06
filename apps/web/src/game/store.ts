@@ -136,6 +136,12 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "anoViejoMuneco"
   | "anoViejoCartel"
   | "anoViejoRelleno"
+  // El Festival de cometas: el taller, el puesto (y el carrito del raspao), el tablero del concurso y la
+  // escalera del garaje (E baja la cometa de Santiago, sin panel).
+  | "cometasTaller"
+  | "cometasShop"
+  | "cometasConcurso"
+  | "cometaTecho"
   // Amor y amistad: el cofre del amigo secreto, el puesto de chocolates y flores y el trío de la serenata.
   | "amorCofre"
   | "amorShop"
