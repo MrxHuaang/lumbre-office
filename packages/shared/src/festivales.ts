@@ -1,4 +1,4 @@
-// Los festivales del calendario del juego (docs/plan-festivales.md, VIR-156): fiestas colombianas puestas en
+// Los festivales del calendario del juego (docs/planes/plan-festivales.md, VIR-156): fiestas colombianas puestas en
 // el año de la cabaña (cuatro estaciones de 21 días del juego; un día del juego dura una hora real). Un
 // festival dura uno o varios días del juego: abre a las 9:00 con su cinemática para todos, se vive todo el
 // día (decoración, NPC que dicen otras cosas, tienda, minijuego, encargos) y cierra a las 22:00 con otra.
@@ -356,7 +356,7 @@ export const FESTIVAL_CINEMATICAS: readonly CineDef[] = [
     { op: "sound", sound: "brisa" },
   ]),
   close(byId("cometas"), "Recojan las cometas, que la última se fue pal lago con todo y cola."),
-  // El de Negros y Blancos se nombra con respeto (docs/plan-carnaval.md): el Día de Negros recuerda el día de
+  // El de Negros y Blancos se nombra con respeto (docs/planes/plan-carnaval.md): el Día de Negros recuerda el día de
   // libertad que pidieron las personas esclavizadas; aquí se celebra con trajes, máscaras y carrozas.
   open(byId("carnaval"), ["¡Que viva el carnaval! Arrancó el Carnaval de Negros y Blancos.", "El desfile pasa por la calle del Megabús a las 11, a las 3 y a las 7. ¡Saquen las máscaras!"], [
     { op: "sound", sound: "guanena" },

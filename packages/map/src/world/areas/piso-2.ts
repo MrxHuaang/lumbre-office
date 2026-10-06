@@ -3,7 +3,7 @@ import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Piso 2: el trabajo ----------
-// Ver docs/plan-rediseno.md. El pasillo de oficinas cruza el piso de oeste a este (y 11..13) y todas
+// Ver docs/planes/plan-rediseno.md. El pasillo de oficinas cruza el piso de oeste a este (y 11..13) y todas
 // las salas se abren a él. Arriba: las cabinas de llamada, la oficina 1, la sala de reuniones y la
 // oficina 2 (con ventanas en la pared norte). Abajo: la oficina 3 (con ventana en la pared oeste), el
 // rellano de las escaleras (el mismo lugar que en los otros pisos), la zona de descanso (con su balcón)

@@ -1,4 +1,4 @@
-// Hojas de contacto del arte (docs/estandar-arte.md): dibuja a PNG, por grupos, cada mueble del catálogo
+// Hojas de contacto del arte (docs/arte/estandar-arte.md): dibuja a PNG, por grupos, cada mueble del catálogo
 // (de frente, de espaldas si tiene y de noche si tiene) sobre el rombo de su lugar y con un chibi al lado
 // para la escala, y todos los objetos de mano. Además deja `metricas.json` con números que ayudan a
 // auditar (cuántas veces se usa cada pieza en el mundo, cuántos colores tiene, cuánto es plano).

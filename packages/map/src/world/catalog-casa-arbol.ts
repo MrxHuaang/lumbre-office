@@ -1,4 +1,4 @@
-// La casa del árbol del jardín (docs/plan-estructuras.md, estructura 2): el árbol con la cabañita, la
+// La casa del árbol del jardín (docs/planes/plan-estructuras.md, estructura 2): el árbol con la cabañita, la
 // escalera de cuerda y lo de adentro (el nivel `casa-arbol`). Dibujos en art/casa-arbol.ts (el árbol, que
 // tiene versión de noche, y la escalera en art/casa-arbol-exterior.ts).
 import type { CatalogItem } from "./catalog";

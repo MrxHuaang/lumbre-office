@@ -6,7 +6,7 @@
 // gira, bultos de papa, canastos, el poste y el arco de mazorcas, el canasto de mimbre, la carreta del
 // premio y la Pinta, la mula de Don Ramiro. Cálido y de otoño: madera, fique, mimbre, maíz y ahuyamas.
 //
-// Pixel art pintado a mano (docs/estandar-arte.md): lo chico (papas, yucas, mazorcas, ahuyamas, frutas,
+// Pixel art pintado a mano (docs/arte/estandar-arte.md): lo chico (papas, yucas, mazorcas, ahuyamas, frutas,
 // arepas, costales, canastos, las piedras, la olla, el tambor, la mula) son grillas de letras con su leyenda
 // de materiales, que reciben la luz de arriba a la izquierda y el contorno cálido del material de al lado
 // (o van sombreadas a mano con dígitos, de 0 oscuro a 5 claro); lo grande (mostradores, toldos, la

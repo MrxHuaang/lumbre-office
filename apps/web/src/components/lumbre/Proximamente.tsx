@@ -1,6 +1,6 @@
 "use client";
 
-// "Crea el mundo de tu equipo" todavía no existe (ver docs/plan-equipos.md). Los botones abren este
+// "Crea el mundo de tu equipo" todavía no existe (ver docs/planes/plan-equipos.md). Los botones abren este
 // aviso: cuenta qué viene y ofrece una "lista de espera" que solo muestra un mensaje. No pide correo,
 // no guarda nada y no llama a ningún servicio.
 import { useEffect, useRef, useState, type ReactNode } from "react";

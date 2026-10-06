@@ -1,4 +1,4 @@
-// Los muebles comunes de las salas dibujados a mano (docs/estandar-arte.md): silla, taburete, sillón, puf,
+// Los muebles comunes de las salas dibujados a mano (docs/arte/estandar-arte.md): silla, taburete, sillón, puf,
 // barra, parlante y proyector, en grillas de letras. Los dígitos son los tonos de la madera (0 el más
 // oscuro, 5 el más claro); las minúsculas a..f, los de la tela; m..r, los del metal; `o` es el contorno
 // cálido y `s` la sombra en el piso. Cada grilla trae dónde queda el origen del mueble.

@@ -1,4 +1,4 @@
-// La "Estación Hyvento" del Megabús (world/areas/parada.ts), dibujada a mano (docs/estandar-arte.md, VIR-177
+// La "Estación Hyvento" del Megabús (world/areas/parada.ts), dibujada a mano (docs/arte/estandar-arte.md, VIR-177
 // tanda 3): la plataforma de losas de arenisca con la franja podotáctil y el cordón pintado, los torniquetes
 // de acero, y la estación de vidrio casi negro con postes verde lima, bancas de madera, materas, el mapa de
 // la ruta, la pantalla de "Próximo", la viga de madera del alero con sus focos, la cenefa lima con el letrero

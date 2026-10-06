@@ -1,4 +1,4 @@
-// Muebles del jardín dibujados a mano en la tanda 3 (docs/estandar-arte.md, VIR-177): el macizo de flores,
+// Muebles del jardín dibujados a mano en la tanda 3 (docs/arte/estandar-arte.md, VIR-177): el macizo de flores,
 // el poste de la cerca, el tronco para sentarse, la banca y la mesa de terraza, en grillas de letras. En
 // cada leyenda los dígitos son los tonos del material principal (0 el más oscuro, 5 el más claro), `o` su
 // contorno cálido y `s` la sombra en el piso; las demás letras van explicadas en cada pieza. Cada grilla

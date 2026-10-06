@@ -1,4 +1,4 @@
-// Capítulo 3 de la historia, "La llavecita del lago" (docs/plan-historia.md, VIR-152). La carta 2 dijo que la
+// Capítulo 3 de la historia, "La llavecita del lago" (docs/planes/plan-historia.md, VIR-152). La carta 2 dijo que la
 // llave estaba "donde todo lo que se pierde termina llegando" (el lago), que le preguntaran a Celeste por "el
 // agua que brilla" y a Evelio por "la carnada que yo usaba". Los pasos se reparten entre los tres: la Profe
 // Celeste cuenta cuándo brilla el agua, Don Evelio se hace el loco y al final da la receta de la carnada,

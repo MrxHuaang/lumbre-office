@@ -1,6 +1,6 @@
 # Cómo se dibuja y se suma una carroza del Carnaval
 
-Guía corta para dibujar carrozas del Desfile Magno (VIR-173). El concepto está en `docs/plan-carnaval.md`.
+Guía corta para dibujar carrozas del Desfile Magno (VIR-173). El concepto está en `docs/planes/plan-carnaval.md`.
 Una carroza de Pasto es una criatura fantástica (animal, monstruo, calavera, persona con máscara) **integrada al camión**:
 - su cuerpo, su manto o su melena tapan la plataforma;
 - su cara o su boca son el frente;
@@ -83,7 +83,7 @@ SOLO=1 COLS=5 pnpm --filter @hyvento/map carrozas salida.png "" 2   # todas, una
 pnpm --filter @hyvento/map exec vitest run src/art/carrozas src/carnaval.test.ts
 ```
 
-Mirar la hoja con zoom antes del PR (`docs/estandar-arte.md`). Revisar que:
+Mirar la hoja con zoom antes del PR (`docs/arte/estandar-arte.md`). Revisar que:
 - se lea qué es cada cosa;
 - la figura llene el camión;
 - las caras tengan expresión;

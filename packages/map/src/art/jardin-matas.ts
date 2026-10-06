@@ -1,4 +1,4 @@
-// Matas, helechos, pasto y flores del jardín dibujados a mano (docs/estandar-arte.md), en grillas de letras.
+// Matas, helechos, pasto y flores del jardín dibujados a mano (docs/arte/estandar-arte.md), en grillas de letras.
 // Los dígitos son los tonos de la rampa del follaje (0 el más oscuro, 5 el más claro) y `o` su contorno
 // cálido; `s` es la sombra en el piso. Las flores y las bayas llevan sus letras: la mayúscula es el lado
 // con luz y la minúscula el de sombra.

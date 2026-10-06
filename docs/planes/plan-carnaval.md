@@ -17,7 +17,7 @@ Como en el Desfile Magno de Pasto: **criaturas fantásticas integradas al camió
 
 **Movimiento de verdad**: en Pasto las figuras son articuladas (el movimiento lo incorporó en los años 60 el maestro José Eduardo Ordóñez; el ingenio mecánico se le debe a Rogerio Argote y al maestro Alfonso Zambrano), con resortes, piolas y bandas de caucho: cabezas que giran, ojos y párpados, bocas, brazos y manos que suben y bajan, alas que aletean, piezas que dan vueltas, cuerpos que se mecen. Aquí cada carroza se arma **por partes** (VIR-173, `packages/map/src/art/carrozas`): cada parte es un dibujo con su pivote y su movimiento (`gira`, `rueda`, `vaiven`, `escala`, `parpadeo`, `sube`), y el navegador las mueve con curvas suaves (`posesCarroza`, la misma pose para todos). Con "menos movimiento" quedan casi quietas.
 
-**Técnica**: pixel art pintado en 2D, en la vista 3/4 del juego (luz de arriba a la izquierda), con la plataforma del camión en 3D. Cómo se dibuja y se suma una: `docs/carrozas.md`.
+**Técnica**: pixel art pintado en 2D, en la vista 3/4 del juego (luz de arriba a la izquierda), con la plataforma del camión en 3D. Cómo se dibuja y se suma una: `docs/arte/carrozas.md`.
 
 | # | Carroza | Qué se ve | Guiño |
 |---|---|---|---|

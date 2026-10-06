@@ -1,4 +1,4 @@
-// La decoración temporal de los festivales (docs/plan-festivales.md): mientras corre un festival, algunos
+// La decoración temporal de los festivales (docs/planes/plan-festivales.md): mientras corre un festival, algunos
 // niveles llevan muebles y puntos de más (las calabazas y el laberinto de la Noche de brujas, los faroles
 // de las velitas…). No toca el plano: se suma encima, después de los cambios del editor de la casa, igual
 // en el servidor y en el navegador. Lo que caería encima de otro mueble, de un portal, de un punto o fuera

@@ -3,7 +3,7 @@ import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Casa del árbol ----------
-// La cabañita de arriba del roble del huerto de frutales (docs/plan-estructuras.md, estructura 2): un
+// La cabañita de arriba del roble del huerto de frutales (docs/planes/plan-estructuras.md, estructura 2): un
 // cuarto de tablones para tres personas, que es una sala aislada (como la de reuniones, con su pizarra).
 // El tronco lo atraviesa en el rincón del fondo; hay cojines alrededor de la mesita de tocón, la hamaca
 // bajo la ventana a la copa, cajones con libros, la radio vieja, el globo y el farol de frasco. Se baja por la trampilla del piso.

@@ -1,4 +1,4 @@
-// El Festival de cometas jugable (VIR-168, docs/plan-festivales.md): la tarde de agosto en la loma del
+// El Festival de cometas jugable (VIR-168, docs/planes/plan-festivales.md): la tarde de agosto en la loma del
 // observatorio, el día 9 del verano. En el taller de la loma se arma la cometa (forma, dos colores de papel
 // y la cola de trapitos; el código va en el id del objeto: cometa.ts) con materiales del puesto, se vuela
 // con F en el voladero (el minijuego de cometa-vuelo.ts, que la sala repite para validar) y todas las que

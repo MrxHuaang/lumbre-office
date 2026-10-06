@@ -37,7 +37,7 @@ Las videollamadas de agenda no se parecen a trabajar juntos: para hablar con alg
 - **Vida más allá del trabajo.** Cafetería, casino, club, piscina, huerto, pesca o un pomodoro en la casa del árbol dan motivos para pasar por ahí y conocerse.
 - **Gratis de operar.** Cabe en planes gratuitos y no depende de APIs de IA de pago.
 
-Hoy es la cabaña del equipo de [Hyvento](https://hyvento.co); la idea de abrirla a cualquier equipo está en [`docs/plan-equipos.md`](docs/plan-equipos.md).
+Hoy es la cabaña del equipo de [Hyvento](https://hyvento.co); la idea de abrirla a cualquier equipo está en [`docs/planes/plan-equipos.md`](docs/planes/plan-equipos.md).
 
 ## Recorrido
 
@@ -204,10 +204,10 @@ Todo cabe en planes gratis: **Vercel** (web), **Render** (servidor de juego, `re
 
 ## Documentación
 
-- [Plan de la cabaña](docs/plan-cabana.md): salas y fases.
-- [Plan del rediseño](docs/plan-rediseno.md): el plano actual.
-- [Plan de estructuras](docs/plan-estructuras.md): las construcciones del jardín.
-- [La casa de cada persona](docs/plan-casas.md) y [Lumbre para cualquier equipo](docs/plan-equipos.md): ideas documentadas, aún sin desarrollar.
+- [Plan de la cabaña](docs/planes/plan-cabana.md): salas y fases.
+- [Plan del rediseño](docs/planes/plan-rediseno.md): el plano actual.
+- [Plan de estructuras](docs/planes/plan-estructuras.md): las construcciones del jardín.
+- [La casa de cada persona](docs/planes/plan-casas.md) y [Lumbre para cualquier equipo](docs/planes/plan-equipos.md): ideas documentadas, aún sin desarrollar.
 - [Despliegue gratis](docs/despliegue.md).
 - [Onboarding](ONBOARDING.md) y [convenciones](CLAUDE.md).
 

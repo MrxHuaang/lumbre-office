@@ -1,4 +1,4 @@
-// Capítulo 2 de la historia, "El reloj de pie" (docs/plan-historia.md, VIR-151). La carta de E. dijo: "Cuide
+// Capítulo 2 de la historia, "El reloj de pie" (docs/planes/plan-historia.md, VIR-151). La carta de E. dijo: "Cuide
 // el reloj de pie del recibidor. Cuando vuelva a dar la hora, sabrá que va por buen camino". El reloj está
 // parado y le faltan tres piezas, repartidas por la cabaña: un engranaje trabado en el molino del arroyo, un
 // resorte que se templa en el banco del taller del garaje y un péndulo que tiene (cómo no) el Man del

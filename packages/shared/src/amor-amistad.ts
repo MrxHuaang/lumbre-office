@@ -1,4 +1,4 @@
-// Amor y amistad jugable (VIR-162, docs/plan-festivales.md): el festival del día 7 de la primavera.
+// Amor y amistad jugable (VIR-162, docs/planes/plan-festivales.md): el festival del día 7 de la primavera.
 // - El amigo secreto: quien quiera se anota en el cofre del jardín; a las 10:00 del juego la sala sortea a
 //   los anotados (una ronda: nadie se saca a sí mismo) y a los que llegan tarde los vuelve a sortear entre
 //   ellos, o los mete sin deshacer ninguna pareja ya hecha (`sortearAmigos`). Durante el día se le dejan

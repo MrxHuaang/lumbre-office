@@ -100,7 +100,7 @@ agrega su función en `GENTE_FIESTA` (ver "La gente de la fiesta" en `CLAUDE.md`
 ## Las cinemáticas (VIR-155)
 
 Los festivales las usan para abrir y cerrar (la luna de brujas, los faroles de velitas, el desfile). Es el mismo
-motor que la historia (`docs/plan-historia.md`).
+motor que la historia (`docs/planes/plan-historia.md`).
 
 ## Orden
 

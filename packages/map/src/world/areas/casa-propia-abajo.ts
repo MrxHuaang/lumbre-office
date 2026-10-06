@@ -4,7 +4,7 @@ import { place } from "./place";
 import { CASA_CONEXIONES } from "./casa-propia-conexiones";
 
 // ---------- La casa de cada persona: primer piso ----------
-// Ver docs/plan-casas.md. Habitaciones separadas con paredes y puertas, como la planta baja de la cabaña.
+// Ver docs/planes/plan-casas.md. Habitaciones separadas con paredes y puertas, como la planta baja de la cabaña.
 // Arriba (contra la pared alta del norte, donde va lo colgado) la sala con la chimenea, el comedor, la
 // cocina y la sala de fiestas con la barra y la bola de discoteca, que sale al patio por la puerta de
 // atrás. Abajo, el recibidor con la puerta de entrada (contra la pared alta del oeste), el pasillo con la

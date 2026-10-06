@@ -469,7 +469,7 @@ describe("tienda", () => {
   });
 });
 
-describe("circulación (docs/plan-rediseno.md)", () => {
+describe("circulación (docs/planes/plan-rediseno.md)", () => {
   /** Salas de paso de cada nivel: pasillos, recibidor y rellanos. */
   const CIRCULATION: Record<string, string[]> = {
     "planta-baja": ["pasillo", "recibidor"],

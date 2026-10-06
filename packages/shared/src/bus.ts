@@ -1,7 +1,7 @@
-// El Megabús (docs/plan-estructuras.md, estructura 8): un bus articulado como los del Megabús de Pereira
+// El Megabús (docs/planes/plan-estructuras.md, estructura 8): un bus articulado como los del Megabús de Pereira
 // pasa por la calle del sur del jardín, frena en la "Estación Hyvento" y abre las puertas. Quien se sube
 // entra al nivel `megabus` (el bus por dentro). Si alguien quedó a bordo al cerrar las puertas, el bus viaja
-// `tripMs` hasta la parada "Casa" (docs/plan-casas.md), donde cada uno se baja en su casa; los que van a la
+// `tripMs` hasta la parada "Casa" (docs/planes/plan-casas.md), donde cada uno se baja en su casa; los que van a la
 // estación (quien lo llamó desde su casa o "llega en bus") siguen y el bus vuelve a abrir en la estación.
 // Si va vacío, sigue de largo. El servidor lleva solo la fase, cuándo empezó y de dónde a dónde va la ruta
 // (`OfficeState.bus`), sin simular el recorrido: el cliente dibuja el bus con estas reglas y la hora del
@@ -203,7 +203,7 @@ export function nextBusText(phase: BusPhase, etaMs: number): string {
 }
 
 /**
- * Las paradas del Megabús (docs/plan-casas.md): la "Estación Hyvento" del jardín y la de "Casa" (una sola
+ * Las paradas del Megabús (docs/planes/plan-casas.md): la "Estación Hyvento" del jardín y la de "Casa" (una sola
  * parada para todos, pero cada uno se baja en la suya: lo resuelve el servidor por persona).
  */
 export const BUS_STOPS = ["estacion", "casa"] as const;

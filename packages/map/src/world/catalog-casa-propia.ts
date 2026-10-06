@@ -1,4 +1,4 @@
-// La casa de cada persona (docs/plan-casas.md): lo que no había en la cabaña. Afuera, la casa de finca
+// La casa de cada persona (docs/planes/plan-casas.md): lo que no había en la cabaña. Afuera, la casa de finca
 // por fuera, el refugio de la parada "Casa", las mecedoras del corredor y el tendedero; adentro, las
 // camas, el armario, el tocador, la tina, la mesa del comedor, la lámpara colgada y el baúl. Dibujos en
 // art/casa-propia-exterior.ts (lo de afuera; la casa y el refugio con versión de noche) y

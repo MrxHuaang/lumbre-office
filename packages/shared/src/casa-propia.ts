@@ -1,4 +1,4 @@
-// La casa de cada persona (docs/plan-casas.md): no es la cabaña ("Casa viva" en casa.ts), sino tres
+// La casa de cada persona (docs/planes/plan-casas.md): no es la cabaña ("Casa viva" en casa.ts), sino tres
 // niveles por persona que salen de la misma plantilla (world/areas/casa-propia*.ts de @hyvento/map):
 // afuera (`casa:<userId>`: la parada, el antejardín, el jardín y el patio), el primer piso
 // (`casa:<userId>:abajo`) y el segundo (`casa:<userId>:arriba`). Como la proximidad solo cuenta dentro

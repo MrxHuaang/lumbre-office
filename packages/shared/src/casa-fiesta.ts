@@ -1,4 +1,4 @@
-// Las fiestas en la casa de cada persona (VIR-149, docs/plan-casas.md): el equipo de sonido de la sala de
+// Las fiestas en la casa de cada persona (VIR-149, docs/planes/plan-casas.md): el equipo de sonido de la sala de
 // fiestas pone música para todos los de la casa (un video de YouTube, como la radio de las oficinas: suena
 // en cualquier piso, al mismo segundo, y lo maneja el dueño), el modo fiesta abre la casa mientras dura,
 // prende las luces de la bola de discoteca y avisa en el chat global, y la rana y el billar del cuarto de

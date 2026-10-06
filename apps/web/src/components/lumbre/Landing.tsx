@@ -1,5 +1,5 @@
 // La portada pública de Lumbre ("/" sin sesión). Presenta Lumbre como la base para cualquier equipo
-// (docs/plan-equipos.md), aunque eso todavía no funciona: "Crea tu mundo" abre un aviso de
+// (docs/planes/plan-equipos.md), aunque eso todavía no funciona: "Crea tu mundo" abre un aviso de
 // "Próximamente". El acceso de Hyvento (Entrar) sigue igual. Es del servidor; lo interactivo son islas
 // del cliente. Todo el arte sale del juego: la escena y las viñetas del build (scripts/prerender.ts) y
 // las capturas de los niveles en public/landing (pnpm --filter @hyvento/map render, recortadas).

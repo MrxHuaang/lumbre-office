@@ -1,4 +1,4 @@
-// Más muebles de las salas dibujados a mano (docs/estandar-arte.md, VIR-177 tanda 3): la lámpara de pie
+// Más muebles de las salas dibujados a mano (docs/arte/estandar-arte.md, VIR-177 tanda 3): la lámpara de pie
 // (con su pantalla prendida y apagada), la lámpara hongo, la mesita, la mesa de centro y la mesa de café,
 // en grillas de letras. Cada grilla trae dónde queda el origen del mueble y su leyenda; `o` es el contorno
 // cálido y `s` la sombra en el piso.

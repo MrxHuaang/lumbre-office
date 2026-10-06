@@ -1,4 +1,4 @@
-// Los árboles del jardín dibujados a mano (docs/estandar-arte.md): robles, pinos y abedules en grillas de
+// Los árboles del jardín dibujados a mano (docs/arte/estandar-arte.md): robles, pinos y abedules en grillas de
 // letras. Los dígitos son los tonos de la rampa del follaje (0 el más oscuro, 5 el más claro), `o` su
 // contorno cálido; la corteza va con letras (x contorno, k oscuro, b medio, B claro, h brillo) y `s` es la
 // sombra en el piso. Una misma grilla sirve con otra rampa y en espejo: así los robles no son copias.

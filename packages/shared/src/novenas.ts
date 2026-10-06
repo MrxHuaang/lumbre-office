@@ -1,4 +1,4 @@
-// Las Novenas de aguinaldo (VIR-159, docs/plan-festivales.md): nueve días del juego (del 12 al 20 del
+// Las Novenas de aguinaldo (VIR-159, docs/planes/plan-festivales.md): nueve días del juego (del 12 al 20 del
 // invierno) con el pesebre del recibidor que se arma entre todos (una figura por día, la pone el primero
 // que llega con E), la novena que se reza a las 20:00 del juego junto al pesebre (con su cinemática y sus
 // villancicos, escritos para la cabaña) y la natilla y los buñuelos de temporada en la cocina (cocina.ts).

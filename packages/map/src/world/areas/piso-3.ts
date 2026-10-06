@@ -3,7 +3,7 @@ import { place } from "./place";
 import { CONEXIONES, hacia } from "./conexiones";
 
 // ---------- Piso 3: biblioteca y descanso ----------
-// Ver docs/plan-rediseno.md. Bajo el techo y más chico que los de abajo. El pasillo (y 11..13) cruza el
+// Ver docs/planes/plan-rediseno.md. Bajo el techo y más chico que los de abajo. El pasillo (y 11..13) cruza el
 // piso y todas las salas se abren a él: arriba la biblioteca (con las estanterías altas contra las
 // paredes del fondo) y la sala de estar; abajo el rincón de lectura (con el ventanal en la pared oeste),
 // el rellano de la escalera (el mismo lugar que en los otros pisos), la sala de juegos de mesa y la
