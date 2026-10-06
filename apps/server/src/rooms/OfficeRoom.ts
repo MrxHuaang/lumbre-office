@@ -235,6 +235,8 @@ import { Toasts, type Toaster } from "./toasts";
 import { devToolsEnabled, parseCasaJump, parseDevFestival, parseDevJump, parseDevSombrero, parseDevWeather } from "./devtools";
 import { Festivales } from "./festivales";
 import { NocheBrujas } from "./nocheBrujas";
+import { GenteFiesta } from "./genteFiesta";
+import { gameMinutes, GENTE_MSG, type EntregarResult, type GenteHechos } from "@hyvento/shared";
 import { FeriaFlores } from "./feriaFlores";
 import { SilletaExhibitState } from "../state";
 import { FERIA, FERIA_CINE, FERIA_MSG, silletaName, type BuildResult, type ExhibitResult, type FeriaBuyResult, type FeriaMine, type VoteResult } from "@hyvento/shared";
@@ -455,6 +457,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** La Noche de brujas: el azar del dulce o truco y el reloj de la pausa (los tests los fijan). */
   static brujasRandom: (n: number) => number = (n) => randomInt(n);
   static brujasNow: () => number = () => Date.now();
+  /** La gente de la fiesta: el reloj de la pausa entre entregas (los tests lo fijan). */
+  static genteNow: () => number = () => Date.now();
   /**
    * Dar la canasta de dulce o truco al entrar y al abrir la Noche de brujas. Los tests lo apagan
    * (test/setup.ts: el reloj real puede caer en el festival y cambiarles la mano); noche-brujas.test.ts lo prende.
@@ -741,6 +745,23 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     repo: () => this.repo,
     now: () => OfficeRoom.brujasNow(),
     random: (n) => OfficeRoom.brujasRandom(n),
+  });
+  /** La gente de la fiesta: los pedidos y los vendedores que abren el puesto (ver genteFiesta.ts). */
+  private gente = new GenteFiesta({
+    festival: () => {
+      const total = gameMinutes(this.gameClock(), OfficeRoom.gameClockNow());
+      const day = Math.floor(total / 1440);
+      return { id: this.state.festival, fase: this.state.festivalFase, day, año: fechaDelJuego(day).año, minuto: total - day * 1440, clima: this.state.weather as Weather };
+    },
+    mapOf: (area) => this.mapOf(area),
+    held: this.held,
+    stats: {
+      stat: (u, k) => this.achievements.stat(u, k),
+      max: (u, k, v) => this.achievements.max(u, k, v),
+      isLoaded: (u) => this.achievements.isLoaded(u),
+    },
+    award: (userId, amount) => this.awardLeisure(userId, amount),
+    now: () => OfficeRoom.genteNow(),
   });
   /** La Feria de las flores: armar, exhibir y votar silletas, el puesto, el desfile y la premiación (ver feriaFlores.ts). */
   private feria = new FeriaFlores<SilletaExhibitState>({
@@ -1183,6 +1204,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BRUJAS_MSG.pumpkin, (client) => void this.handleBrujasPumpkin(client));
     this.onMessage(BRUJAS_MSG.buy, (client, raw) => void this.handleBrujasBuy(client, raw));
     this.bindFeria();
+    this.bindGente();
     this.onMessage(CARNAVAL_MSG.join, (client) => this.carnavalReply(client, CARNAVAL_MSG.joinResult, this.carnaval.join(client.sessionId)));
     this.onMessage(CARNAVAL_MSG.leave, (client) => this.carnavalReply(client, CARNAVAL_MSG.joinResult, this.carnaval.leave(client.sessionId)));
     this.onMessage(CARNAVAL_MSG.lanzar, (client, raw) => void this.handleCarnavalLanzar(client, raw));
@@ -2173,7 +2195,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     this.markActive(client);
-    const near = nearPointOfType(this.mapOf(player.area), "festival_shop", player.x, player.y) && !this.drunk.fainted(player.userId);
+    const near = this.nearFestivalShop(player, "festival_shop") && !this.drunk.fainted(player.userId);
     const result = await this.carnaval.buy(player.userId, raw, near);
     if (!result) return;
     if (result.ok) {
@@ -2250,7 +2272,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     this.markActive(client);
-    const near = nearPointOfType(this.mapOf(player.area), "festival_shop", player.x, player.y) && !this.drunk.fainted(player.userId);
+    const near = this.nearFestivalShop(player, "festival_shop") && !this.drunk.fainted(player.userId);
     const result = await this.brujas.buy(player.userId, raw, near);
     if (!result) return;
     if (result.ok) {
@@ -2258,6 +2280,26 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.achievements.bump(player.userId, `${STAT_PREFIX.order}${result.item}`);
     }
     client.send(BRUJAS_MSG.buyResult, result satisfies BrujasBuyResult);
+  }
+
+  /** ¿Junto al puesto del festival: su punto o alguien de la fiesta que lo atiende (la `accion` del puesto)? */
+  private nearFestivalShop(player: Player, point: "festival_shop" | "feria_shop"): boolean {
+    return nearPointOfType(this.mapOf(player.area), point, player.x, player.y) || this.gente.nearVendor(player);
+  }
+
+  /** La gente de la fiesta (ver genteFiesta.ts): entregar un pedido y saber cuáles ya se entregaron. */
+  private bindGente() {
+    this.onMessage(GENTE_MSG.entregar, async (client, raw) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || this.drunk.fainted(player.userId)) return;
+      this.markActive(client);
+      const result = await this.gente.entregar(player, raw);
+      if (result) client.send(GENTE_MSG.resultado, result satisfies EntregarResult);
+    });
+    this.onMessage(GENTE_MSG.hechos, (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) client.send(GENTE_MSG.hechos, this.gente.hechos(player.userId) satisfies GenteHechos);
+    });
   }
 
   /** La Feria de las flores (ver feriaFlores.ts): armar, exhibir, votar y el puesto de las semillas. */
@@ -2290,7 +2332,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(FERIA_MSG.buy, async (client, raw) => {
       const player = who(client);
       if (!player) return;
-      const near = nearPointOfType(this.mapOf(player.area), "feria_shop", player.x, player.y);
+      const near = this.nearFestivalShop(player, "feria_shop");
       const result = await this.feria.buy(player.userId, raw, near);
       if (!result) return;
       if (result.ok) for (const p of this.state.players.values()) if (p.userId === player.userId) p.points = result.balance;
@@ -4482,6 +4524,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.capitulo3.forget(player.userId);
     this.pesca.forget(player.userId);
     this.brujas.forget(player.userId);
+    this.gente.forget(player.userId);
     this.feria.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);

@@ -68,7 +68,7 @@ const portraits = new Map<string, string>();
 const PORTRAIT = { x: Math.round(FRAME * 0.2), y: Math.round(FRAME * 0.22), size: Math.round(FRAME * 0.6) };
 
 /** La cabeza y los hombros del personaje (cuadro de frente de su hoja), como data URL. */
-function portraitFromSheet(scene: Phaser.Scene, key: string): string | null {
+export function portraitFromSheet(scene: Phaser.Scene, key: string): string | null {
   const cached = portraits.get(key);
   if (cached) return cached;
   if (!scene.textures.exists(key)) return null;

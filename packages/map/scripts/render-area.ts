@@ -1,12 +1,16 @@
 // Dibuja un nivel completo a un PNG para revisar el arte sin abrir el juego.
-// Uso: pnpm --filter @hyvento/map render <nivel> [salida.png] [noche] [cumple,karaoke,brujas]
-// (el último, para ver lo que ponen los eventos: el pastel de cumpleaños, el club en modo karaoke o la
-// decoración de un festival, por su id, como `brujas`).
+// Uso: pnpm --filter @hyvento/map render <nivel> [salida.png] [noche] [cumple,karaoke,brujas] [hh:mm]
+// (el cuarto, para ver lo que ponen los eventos: el pastel de cumpleaños, el club en modo karaoke o la
+// decoración de un festival, por su id, como `brujas`; con la hora del juego al final, también la gente de
+// la fiesta parada donde está a esa hora).
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
+import { DIAS_POR_ESTACION, festivalById, GENTE_FIESTA, SEASONS } from "@hyvento/shared";
+import { drawCharacter, FEET_Y, FRAME, SHEET_DIRECTIONS, styleFor } from "../src/art/chibi";
 import { composeArea } from "../src/art/compose";
-import { eventOverlays } from "../src/art/eventos";
-import { buildCasaPropia, CASA_PLANTILLAS, festivalDecorAreas, getWorld, setFestivalDecor } from "../src/index";
+import { eventOverlays, type EventOverlay } from "../src/art/eventos";
+import { PixelCanvas } from "../src/art/pixel";
+import { buildCasaPropia, CASA_PLANTILLAS, festivalDecorAreas, genteDelNivel, getWorld, setFestivalDecor } from "../src/index";
 
 const [areaId = "jardin", out = `${areaId}.png`, mode = "dia", events = ""] = process.argv.slice(2);
 const on = events.split(",");
@@ -16,7 +20,35 @@ for (const e of on) if (festivalDecorAreas(e).length) setFestivalDecor(e, 0);
 const casa = CASA_PLANTILLAS[areaId as keyof typeof CASA_PLANTILLAS];
 const map = casa ? buildCasaPropia(casa === "afuera" ? "casa:plantilla" : `casa:plantilla:${casa}`) : getWorld().areas.get(areaId);
 if (!map) throw new Error(`No existe el nivel ${areaId} (hay: ${[...getWorld().areas.keys(), ...Object.keys(CASA_PLANTILLAS)].join(", ")})`);
-const canvas = composeArea(map, mode !== "noche", 80, eventOverlays(areaId, { birthday: on.includes("cumple"), karaoke: on.includes("karaoke") }));
+const canvas = composeArea(map, mode !== "noche", 80, [...eventOverlays(areaId, { birthday: on.includes("cumple"), karaoke: on.includes("karaoke") }), ...genteOverlays()]);
+
+/**
+ * La gente de la fiesta (VIR-167) parada donde está a esa hora del juego: el quinto argumento es la hora
+ * ("12:30"), con un festival que tenga gente en el cuarto (`render jardin out.png dia brujas 12:30`).
+ */
+function genteOverlays(): EventOverlay[] {
+  const [h = "", m = "0"] = (process.argv[6] ?? "").split(":");
+  const fest = on.map((e) => festivalById(e)).find((f) => f && GENTE_FIESTA[f.id]);
+  if (!fest || !h || !map) return [];
+  const day = SEASONS.indexOf(fest.estacion) * DIAS_POR_ESTACION + (fest.dia - 1);
+  const nivel = genteDelNivel(map, fest.id, day, "despejado");
+  const minuto = Number(h) * 60 + Number(m);
+  const out: EventOverlay[] = [];
+  for (const npc of nivel?.npcs ?? []) {
+    const p = nivel!.pose(npc.id, minuto);
+    if (!p.visible || npc.animal) continue;
+    const sheet = drawCharacter(styleFor("ada", npc.look));
+    const row = SHEET_DIRECTIONS.indexOf(p.mira);
+    const frame = new PixelCanvas(FRAME, FRAME);
+    for (let y = 0; y < FRAME; y++)
+      for (let x = 0; x < FRAME; x++) {
+        const i = ((row * FRAME + y) * sheet.width + x) * 4;
+        if (sheet.data[i + 3]) frame.set(x, y, [sheet.data[i]!, sheet.data[i + 1]!, sheet.data[i + 2]!, sheet.data[i + 3]!]);
+      }
+    out.push({ key: npc.id, sprite: { canvas: frame, ox: FRAME / 2, oy: FEET_Y }, tile: { x: p.x / map.tileSize - 0.5, y: p.y / map.tileSize - 0.5 } });
+  }
+  return out;
+}
 
 // Escala x2 sobre el fondo de la noche de afuera.
 const scale = 2;

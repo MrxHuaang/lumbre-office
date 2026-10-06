@@ -1603,6 +1603,11 @@ export class Avatar {
     this.scene.tweens.add({ targets: glow, alpha: 0, scale: 1.8, duration: 260, ease: "Quad.out", onComplete: () => glow.destroy() });
   }
 
+  /** Bailar sin el globo del emote (la gente de la fiesta que baila en su sitio). */
+  bailar() {
+    if (!this.dance) this.startDance();
+  }
+
   /** Baile: gira mirando a cada lado y da saltitos (solo de pie y quieto). */
   private startDance() {
     if (this.seated || this.moving) return;
