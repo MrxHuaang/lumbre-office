@@ -1,10 +1,11 @@
 "use client";
 
-import { FESTIVAL_HORAS, festivalById, GAME_DAY_REAL_MS, añoTexto, clockStep, fechaCorta, fechaDelJuego, fechaPlaca, formatGameTime, skyPhase, type SkyPhase } from "@hyvento/shared";
+import { FESTIVAL_HORAS, festivalById, GAME_DAY_REAL_MS, añoTexto, clockStep, fechaCorta, fechaDelJuego, fechaPlaca, formatGameTime, skyPhase, velitasTexto, type SkyPhase } from "@hyvento/shared";
 import { useEffect, useRef, useState } from "react";
 import { useGameTime } from "@/game/gameClock";
 import { sfx } from "@/game/sfx";
 import { useOfficeStore } from "@/game/store";
+import { useVelitasStore } from "@/game/velitas";
 import { PixelIcon } from "./Cozy";
 import { SKY_H, SKY_W, skyPixels } from "@/lib/sky";
 import { CalendarioPanel } from "./CalendarioPanel";
@@ -69,6 +70,9 @@ const FASE_TEXT: Record<string, string> = { previa: `abre a las ${FESTIVAL_HORAS
 export function FestivalChip() {
   const { id, fase } = useOfficeStore((s) => s.festival);
   const f = id ? festivalById(id) : undefined;
+  // La Noche de velitas lleva el contador del equipo en el letrero.
+  const lit = useVelitasStore((s) => s.lit);
+  const velitas = id === "velitas" && fase !== "previa" ? velitasTexto(lit) : null;
   if (!f) return null;
   return (
     <div
@@ -80,6 +84,11 @@ export function FestivalChip() {
       <PixelIcon name="star" size={14} />
       <span className="font-pixel leading-none">{f.nombre}</span>
       <span className="hidden text-cozy-ink-soft md:inline">· {FASE_TEXT[fase] ?? ""}</span>
+      {velitas && (
+        <span className="tabular-nums text-cozy-ink-soft" aria-live="polite">
+          · {velitas}
+        </span>
+      )}
     </div>
   );
 }

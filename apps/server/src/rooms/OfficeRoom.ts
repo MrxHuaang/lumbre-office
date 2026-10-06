@@ -241,6 +241,7 @@ import { Capitulo2 } from "./capitulo2";
 import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
 import { nearQuestGiver } from "@hyvento/map";
+import { registerVelitas, type Velitas } from "./velitas";
 import { Novenas } from "./novenas";
 import { Aguinaldos } from "./aguinaldos";
 import { WeatherCycle } from "./weather";
@@ -1059,6 +1060,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     bindHistoria(this, { encargos: this.encargos, who: (id) => this.state.players.get(id), mapOf: (a) => this.mapOf(a), bump: (u, k) => this.achievements.bump(u, k) });
     this.mundo = registerMundo(this as unknown as MundoRoom);
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
+    this.velitas = registerVelitas(this, { state: () => this.state.velitas, festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }), player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), now: () => Date.now() }, (c) => this.markActive(c as Client<UserData>));
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1474,6 +1476,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     });
     void this.encargos.load(auth.sub, { join: true, newcomer: isNewcomer(auth.onboardedAt, Date.now()), byBus });
     void this.oficios.load(auth.sub, { join: true });
+    this.velitas?.joined(auth.sub);
     if (byBus) {
       this.toStation.add(auth.sub);
       this.bus.requestRide();
@@ -2149,6 +2152,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Llamar sin teléfono, llamadas grupales, saludar y el anuncio del admin (ver rooms/comunicacion.ts). */
   private comunicacion?: Comunicacion;
+  /** La Noche de velitas (ver velitas.ts). */
+  private velitas?: Velitas;
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
@@ -2690,6 +2695,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     state: () => this.state,
     time: () => this.gameTimeNow(),
     broadcast: (type, msg) => this.broadcast(type, msg),
+    changed: (f, fase) => this.velitas?.festivalChanged(f?.id ?? "", fase),
   });
   /** El festival (y su día) cuya decoración tiene puesta esta sala, y para cuál ya repartió las canastas. */
   private festivalShown = { id: "", day: 0 };

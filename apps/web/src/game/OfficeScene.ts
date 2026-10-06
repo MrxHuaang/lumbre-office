@@ -153,6 +153,8 @@ import { disposeRadio, updateRadio } from "./radio";
 import { casaOwnerOf } from "@hyvento/shared";
 import { sendCasaRadio, useCasasStore } from "./casaVisitas";
 import { FiestaLuces } from "./casaFiesta";
+import { velitasClick, velitasKey } from "./velitas";
+import { VelitasLayer } from "./velitasLayer";
 import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } from "./race";
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom } from "./pixelRatio";
@@ -434,6 +436,8 @@ export class OfficeScene extends Phaser.Scene {
   private aguaBrilla!: AguaBrillaView;
   /** Las luces de la bola de discoteca en la sala de fiestas de una casa (casaFiesta.ts). */
   private fiestaLuces!: FiestaLuces;
+  /** La Noche de velitas: las velitas del jardín y los faroles de deseos que suben (velitasLayer.ts). */
+  private velitas!: VelitasLayer;
   private swimming = false;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
   private aquariums!: Aquariums;
@@ -574,6 +578,7 @@ export class OfficeScene extends Phaser.Scene {
     this.tina = new TinaView(this);
     this.aguaBrilla = new AguaBrillaView(this);
     this.fiestaLuces = new FiestaLuces(this);
+    this.velitas = new VelitasLayer(this);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
@@ -614,7 +619,7 @@ export class OfficeScene extends Phaser.Scene {
       useSocialStore.getState().closePersonMenu();
       if (s.worldEditing) this.worldEditor.click(p.worldX, p.worldY); // editor de la casa (admins)
       else if (s.decorating) this.decorClick(p.worldX, p.worldY); // decorando, el clic pone o elige muebles
-      else this.clickAt(p.worldX, p.worldY);
+      else if (!this.velitaClick(p.worldX, p.worldY)) this.clickAt(p.worldX, p.worldY);
     });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
       if (this.table.pointerMove(p.worldX, p.worldY)) this.hoverCursor?.setVisible(false);
@@ -654,6 +659,7 @@ export class OfficeScene extends Phaser.Scene {
       onDive((e) => this.handleDive(e)),
       () => this.pool.destroy(),
       () => this.tina.destroy(),
+      () => this.velitas.destroy(),
       () => this.aguaBrilla.destroy(),
       onPhotosChanged(() => {
         const watching = PhotoBoards.hasBoard(this.map) || useOfficeStore.getState().panel?.kind === "photos";
@@ -805,6 +811,7 @@ export class OfficeScene extends Phaser.Scene {
     this.tina.update(time);
     this.aguaBrilla.update(time);
     this.fiestaLuces.update(time);
+    this.velitas.update(time);
     this.escenario.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
@@ -934,6 +941,7 @@ export class OfficeScene extends Phaser.Scene {
     this.tina.setArea(map, useOfficeStore.getState().night);
     this.aguaBrilla.setArea(map);
     this.fiestaLuces.setArea(map);
+    this.velitas.setArea(map, this.view);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -1017,6 +1025,7 @@ export class OfficeScene extends Phaser.Scene {
     this.tina.setArea(map, useOfficeStore.getState().night);
     this.aguaBrilla.setArea(map);
     this.fiestaLuces.setArea(map);
+    this.velitas.setArea(map, this.view);
     this.escenario.setArea(map);
     AreaView.dropStaleBases(this, map);
     this.markMapReady();
@@ -1588,6 +1597,11 @@ export class OfficeScene extends Phaser.Scene {
       if (this.table.kind === "hockey") vx = vy = 0;
       // En el club, E sobre la pista baila o deja de bailar (si no hay otro objeto al lado).
       if (taps.e && !this.seat && !this.table.kind && this.club.tapE(useOfficeStore.getState().interact)) taps.e = false;
+      // Noche de velitas: con una velita o el farol de deseos en la mano, E y F los usan (velitas.ts).
+      if ((taps.e || taps.f) && !this.seat && !this.table.kind && this.local) {
+        const near = useOfficeStore.getState().interact !== null;
+        if (velitasKey(this.map, this.local, this.local.direction, taps.f ? "f" : "e", near)) taps.e = taps.f = false;
+      }
       if (taps.e) {
         // Junto al buzón, el tablón o la barra, E los abre; junto a un mueble que se usa (si le gana al
         // asiento), lo usa; si no, sienta o levanta.
@@ -1972,6 +1986,13 @@ export class OfficeScene extends Phaser.Scene {
     const ts = this.map.tileSize;
     const s = worldToScreen((hit.tile.x + 0.5) * ts, (hit.tile.y + 0.5) * ts);
     cursor.setPosition(s.x, s.y).setVisible(true);
+  }
+
+  /** Noche de velitas: clic con una velita en la mano sobre un tile libre cerquita la prende ahí. */
+  private velitaClick(sx: number, sy: number): boolean {
+    if (!this.local || this.seat || this.swimming) return false;
+    const w = screenToWorld(sx, sy);
+    return velitasClick(this.map, this.local, w.x, w.y);
   }
 
   private clickAt(sx: number, sy: number) {

@@ -30,6 +30,7 @@ export * from "./agua";
 export * from "./lago";
 export * from "./radar";
 export * from "./viaje";
+export * from "./velitas";
 export * from "./world/build";
 export * from "./world/catalog";
 export { GRADAS, GRADAS_ROWS } from "./world/catalog-escenario";

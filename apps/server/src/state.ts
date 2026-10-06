@@ -489,6 +489,28 @@ export class GranjaState extends Schema {
   @type("uint8") eggs = 0;
 }
 
+/** Una velita prendida en el jardín en la Noche de velitas (la clave es "x,y" del tile). */
+export class VelitaState extends Schema {
+  @type("uint16") x = 0;
+  @type("uint16") y = 0;
+  /** User.id de quien la prendió (para el tope por persona). */
+  @type("string") by = "";
+}
+
+/** Un farol de deseos ya soltado (la clave es el userId: uno por persona por festival). */
+export class DeseoState extends Schema {
+  @type("string") name = "";
+  @type("string") text = "";
+}
+
+/** La Noche de velitas (ver rooms/velitas.ts): lo prendido entre todos y los deseos; se borra al terminar. */
+export class VelitasState extends Schema {
+  @type({ map: VelitaState }) placed = new MapSchema<VelitaState>();
+  /** Cuántas van (el contador del equipo; es `placed.size`, aparte para no recorrer el mapa). */
+  @type("uint16") lit = 0;
+  @type({ map: DeseoState }) wishes = new MapSchema<DeseoState>();
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -529,6 +551,7 @@ export class OfficeState extends Schema {
   /** El festival del día del calendario del juego ("" = ninguno) y su fase ("previa", "fiesta", "fin"; ver rooms/festivales.ts). */
   @type("string") festival = "";
   @type("string") festivalFase = "";
+  @type(VelitasState) velitas = new VelitasState();
   /** El día del juego del festival: lo que cambia cada día (la calabaza dorada del laberinto) sale de ahí. */
   @type("number") festivalDia = 0;
   /** La casa del árbol del jardín (ver rooms/casaArbol.ts). */
