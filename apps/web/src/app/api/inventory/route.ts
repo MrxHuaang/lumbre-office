@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/current-user";
 /** La mochila: muebles guardados (sin poner). La ropa es gratis y no pasa por aquí. */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const inventory = await listInventory(prisma, user.id);
   return NextResponse.json({ inventory }, { headers: { "Cache-Control": "no-store" } });
 }

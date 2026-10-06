@@ -8,7 +8,7 @@ import { getCurrentUser } from "@/lib/current-user";
  */
 export async function GET(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const only = new URL(req.url).searchParams.get("user")?.slice(0, 64) || undefined;
   const entries = await teamFishAlbum(prisma, only);
   return NextResponse.json({ entries }, { headers: { "Cache-Control": "no-store" } });

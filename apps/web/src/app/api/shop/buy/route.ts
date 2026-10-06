@@ -12,7 +12,7 @@ import { buyTx, furnitureForSale, NotEnoughPoints } from "@/lib/shop-buy";
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const parsed = ShopBuyBody.safeParse((await req.json().catch(() => null)) ?? {});
   if (!parsed.success) {
     return NextResponse.json({ error: `Pedido inválido: elige un mueble y de 1 a ${SHOP_MAX_QUANTITY} unidades.` }, { status: 400 });
