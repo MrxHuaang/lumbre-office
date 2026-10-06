@@ -44,10 +44,10 @@ export const STORY_REF_SUFFIX = ":historia";
 
 /** Lo que enseña cada paso, dicho por Doña Aurora al hablarle. */
 const LLEGADA_LESSONS: Readonly<Record<string, string>> = {
-  "llegada-1": "La mochila es su despensa: se abre con la I. Lo que elige en la barra de abajo es lo de la mano, y con F se lo toma.",
-  "llegada-2": "Donde vea una silla, E y se sienta. En su oficina, el PC guarda sus notas y la puerta se cierra con candado.",
-  "llegada-3": "Aquí la gente se oye de cerquita, como en una casa de verdad: arrímese para conversar y aléjese para la intimidad.",
-  "llegada-4": "E junto al agua pa' lanzar; cuando pique, dele y mantenga el pez en la barra verde. En el puesto venden cañas y carnada.",
+  "llegada-1": "La mochila es su despensa: se abre con la I. Lo que escoja en la barra de abajo queda en la mano, y con la F se lo toma.",
+  "llegada-2": "Donde vea una silla, oprima la E y se sienta. En su oficina, el PC le guarda las notas y la puerta se cierra con candado.",
+  "llegada-3": "Aquí la gente se oye de cerquita, como en una casa de verdad: arrímese para conversar y aléjese si quiere hablar en privado.",
+  "llegada-4": "Junto al agua, con la E lanza; cuando pique, dele y mantenga el pez dentro de la barra verde. En el puesto de Don Evelio venden cañas y carnada.",
   "llegada-5": "En el tablón hay misiones que ponen los compañeros y encargos de la casa. Cumpla y me cuenta.",
 };
 
@@ -79,7 +79,7 @@ export function isNewcomer(onboardedAt: number | undefined, now: number): boolea
 // ---------- Lo que dice Doña Aurora ----------
 
 export const AURORA_WELCOME = [
-  "¡Ay, bienvenido, mijo! Yo soy Aurora, la que cuida esta casa desde que el cuidador de antes se fue… sin decir ni adiós.",
+  "¡Ay, qué bueno que llegó! Yo soy Aurora, la que cuida esta casa desde que el cuidador de antes se fue… sin decir ni adiós.",
   "Le enseño lo básico en cinco pasitos, sin afán. Cuando termine cada uno, venga y me cuenta.",
 ];
 
@@ -91,7 +91,7 @@ export function auroraIdleLine(hour: number, weather: Weather, seed: number): st
   if (weather === "tormenta") return pick(["Con estos truenos, mejor quedarse adentro con un chocolatico.", "¡Jesús! Ese rayo cayó cerquita. Cierre esa ventana, mijo."]);
   if (weather === "lluvia") return pick(["Lluvia buena pa' las matas. Y pa' dormir la siesta.", "Se me mojó la ropa en el patio. Otra vez."]);
   if (weather === "nieve") return pick(["¿Nieve? En mis tiempos esto no pasaba. Póngase ruana.", "Qué frío tan berraco. Ya pongo agua pa' la aguapanela."]);
-  if (hour < 6) return pick(["¿Todavía despierto? Yo tampoco duermo: esta casa hace ruiditos.", "A esta hora solo andamos los búhos y yo."]);
+  if (hour < 6) return pick(["¿Usted tampoco duerme? Yo no puedo: esta casa hace ruiditos.", "A esta hora solo andamos los búhos y yo."]);
   if (hour < 12) return pick(["Buenos días, mijo. ¿Ya se tomó el tinto?", "Madrugar es bueno. Lo digo yo, que madrugo por dos."]);
   if (hour < 18) return pick(["A esta hora me provoca un pandebono. ¿Y a usted?", "El cuidador de antes a esta hora arreglaba el reloj. Nunca supe pa' qué."]);
   return pick(["Ya prendieron los faroles del jardín. Qué bonito.", "De noche la casa se pone pensativa. Como yo.", "Si oye pasos en el piso 3, no es nadie. Creo."]);
