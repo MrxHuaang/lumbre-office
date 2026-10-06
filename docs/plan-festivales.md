@@ -63,6 +63,13 @@ colombianas puestas en el calendario del juego, a nuestra manera.
 | Invierno | 12–20 | Novenas (VIR-159) | Nueve noches del juego: pesebre que se arma entre todos, villancicos, natilla y buñuelos, aguinaldos |
 | Invierno | 21 | Año viejo | Quema del muñeco de año viejo, uvas y maletas a la medianoche, cinemática de año nuevo |
 
+## Novenas (VIR-159)
+
+Hecho: el pesebre del recibidor (una figura por día, la pone el primero con E; capa propia, no decoración),
+la novena de las 20:00 del juego con su cinemática por noche, la natilla y los buñuelos de temporada en la
+cocina y dos aguinaldos entre dos personas (pajita en boca y sí y no). La decoración navideña (árbol, arco de
+luces y corona) la pone la decoración temporal de los festivales (`world/festivales/novenas.ts`).
+
 ## Las cinemáticas (VIR-155)
 
 Los festivales las usan para abrir y cerrar (la luna de brujas, los faroles de velitas, el desfile). Es el mismo

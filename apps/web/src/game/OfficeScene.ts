@@ -68,6 +68,7 @@ import { COZY, cozyFontFamily, STATUS_HEX } from "@/lib/cozy";
 import { Avatar } from "./Avatar";
 import { ClubMode } from "./club";
 import { EventsView } from "./eventos";
+import { pesebreInReach } from "./novenas";
 import { CinemaMode } from "./cinema";
 import { EscenarioMode } from "./escenario";
 import { podcastBlockFor } from "./escenario/net";
@@ -2091,6 +2092,8 @@ export class OfficeScene extends Phaser.Scene {
         if (Math.hypot(p.x - avatar.x, p.y - avatar.y) <= reach) return spec.kind;
       }
     }
+    // El pesebre de las novenas es una capa (no un mueble ni un punto): se alcanza como lo valida el servidor.
+    if (pesebreInReach({ area: this.map.id, x: avatar.x, y: avatar.y }, this.map.tileSize)) return "pesebre";
     // El teléfono es un mueble fijo (no un punto del mapa): se alcanza igual que lo valida el servidor.
     if (phoneInReach(this.map, avatar.x, avatar.y)) return "phone";
     // Un personaje que me dio un encargo y no tiene otro objeto al lado (el portero, la dealer).

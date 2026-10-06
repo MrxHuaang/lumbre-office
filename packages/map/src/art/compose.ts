@@ -45,7 +45,8 @@ export function composeArea(map: OfficeMap, day = true, pad = 80, extras: EventO
       continue;
     }
     const a = toScreen(e.tile.x * ts * WORLD_TO_ART, e.tile.y * ts * WORLD_TO_ART);
-    items.push({ depth: (e.tile.x + 0.5) * ts + (e.tile.y + 0.5) * ts + 0.01, draw: () => blit(s, Math.round(ox + a.x - s.ox), Math.round(oy + a.y - s.oy), false) });
+    const { w, d } = e.size ?? { w: 1, d: 1 };
+    items.push({ depth: (e.tile.x + w / 2) * ts + (e.tile.y + d / 2) * ts + 0.01, draw: () => blit(s, Math.round(ox + a.x - (e.flip ? s.canvas.width - s.ox : s.ox)), Math.round(oy + a.y - s.oy), Boolean(e.flip)) });
   }
   const low = { h: drawLowWall("h"), v: drawLowWall("v") };
   for (let ty = 0; ty <= map.height; ty++)
