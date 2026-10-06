@@ -2,6 +2,7 @@
 // colmenas, barriles, leñera, fogata, troncos para sentarse, picnic, muebles de terraza, faroles,
 // letrero y el bote. Coordenadas locales de arte (tile = 16), mirando hacia +x.
 import { Escena, type Tinte } from "./exterior-escena";
+import { dockLampSprite, gardenLanternSprite } from "./jardin-detalles";
 import { blob } from "./kit";
 import { C, OUT, mix } from "./palette";
 import { alpha, at, noise, type Ramp, type RGBA, type Sprite } from "./pixel";
@@ -729,31 +730,6 @@ function patioChair(v: "front" | "back"): Sprite {
   return s.sprite();
 }
 
-function gardenLantern(): Sprite {
-  const s = scene(1, 1, 36);
-  s.roundShadow(8.5, 8.5, 4, 0.28);
-  s.box(5, 5, 0, 6, 6, 4, flatT(at(C.stone, 4)), (u, v) => stones(u, v, 2), (u, v) => stones(u, v, 2, 1));
-  s.solid(7, 7, 4, 2, 2, 18, at(C.woodDark, 4), at(C.woodDark, 3), at(C.woodDark, 2));
-  lantern(s, 8, 8, 22, 5);
-  // Enredadera en el poste.
-  for (let z = 4; z < 18; z += 0.5) s.plot(8 + Math.cos(z) * 1.4, 8 + Math.sin(z) * 1.4, z, at(C.leaf, 3));
-  return s.sprite();
-}
-
-/** Farol del muelle: pilote de madera que sale del agua, soga enrollada y farol arriba. */
-function dockLamp(): Sprite {
-  const s = scene(1, 1, 50, 8);
-  const b = s.p(8, 8, 0);
-  s.suelo.ellipse(b.x, b.y, 8, 3.5, alpha(at(C.sky, 4), 0.4));
-  s.cylinder(8, 8, -2, 2.4, 36, (a, v, luz) => (v > 2 && v < 4 ? at(C.sage, 2) : at(C.logs, (luz > 0.3 ? 3 : 2) - (Math.floor(a * 6) % 3 === 0 ? 1 : 0))));
-  s.disc(8, 8, 34, 2.4, () => at(C.logs, 4));
-  s.cylinder(8, 8, 18, 3, 3, (a, v) => at(C.cork, Math.floor(v * 2 + a * 3) % 2 ? 3 : 4));
-  for (let k = 0; k < 6; k += 0.4) s.plot(8 + k, 8, 30 - k * 0.2, at(C.metal, 1));
-  for (let z = 22; z < 29; z += 0.5) s.plot(13.5, 8, z, at(C.metal, 1));
-  lantern(s, 13.5, 8, 17, 4);
-  return s.sprite();
-}
-
 /** Letrero de camino: poste con tablas en flecha (con rayitas de texto). */
 function signpost(): Sprite {
   const s = scene(1, 1, 36, 10);
@@ -859,8 +835,8 @@ export const YARD_DRAW: Record<string, (v: "front" | "back") => Sprite> = {
   "picnic-bench": picnicBench,
   "patio-table": patioTable,
   "patio-chair": patioChair,
-  "garden-lantern": gardenLantern,
-  "dock-lamp": dockLamp,
+  "garden-lantern": gardenLanternSprite,
+  "dock-lamp": dockLampSprite,
   signpost,
   rowboat,
   planter,
