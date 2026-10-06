@@ -3,6 +3,7 @@
 // letrero y el bote. Coordenadas locales de arte (tile = 16), mirando hacia +x.
 import { Escena, type Tinte } from "./exterior-escena";
 import { dockLampSprite, gardenLanternSprite } from "./jardin-detalles";
+import { fencePostSprite, logSeatSprite, patioTableSprite } from "./jardin-tanda3";
 import { blob } from "./kit";
 import { C, OUT, mix } from "./palette";
 import { alpha, at, noise, type Ramp, type RGBA, type Sprite } from "./pixel";
@@ -424,14 +425,6 @@ function gardenGate(): Sprite {
   return s.sprite();
 }
 
-function fencePost(): Sprite {
-  const s = scene(1, 1, 24);
-  s.solid(5.5, 5.5, 0, 5, 5, 18, at(C.wood, 5), at(C.wood, 4), at(C.wood, 3));
-  s.solid(5, 5, 18, 6, 6, 2, at(C.wood, 5), at(C.wood, 3), at(C.wood, 2));
-  s.solid(7, 7, 20, 2, 2, 2, at(C.wood, 5), at(C.wood, 4), at(C.wood, 3));
-  return s.sprite();
-}
-
 // ---------- Huerto ----------
 
 function well(): Sprite {
@@ -650,31 +643,6 @@ function firePit(): Sprite {
   return s.sprite();
 }
 
-/** Tronco para sentarse: a lo largo de y, con la cara de arriba aplanada y las puntas cortadas. */
-function logSeat(): Sprite {
-  const s = scene(1, 2, 16);
-  s.shadow(3, 1, 11, 31, 0.28);
-  const r = 4.5;
-  const cx = 8;
-  for (let y = 1.5; y < 30.5; y += 0.4)
-    for (let a = -Math.PI / 4 - 0.2; a <= (3 * Math.PI) / 4 + 0.2; a += 0.08) {
-      const nx = Math.cos(a);
-      const nz = Math.sin(a);
-      if (nz > 0.75) continue;
-      const luz = nz * 0.7 - nx * 0.3;
-      const groove = Math.floor(y / 2.2 + noise(Math.floor(a * 5), 1, 7) * 3) % 4 === 0;
-      s.plot(cx + nx * r, y, r + nz * r, at(C.logs, (luz > 0.4 ? 3 : luz > -0.2 ? 2 : 1) - (groove ? 1 : 0)));
-    }
-  // Asiento aplanado (madera clara) y la punta con anillos.
-  s.quad([cx - r * 0.66, 1.5, r + r * 0.75], [1, 0, 0], [0, 1, 0], r * 1.32, 29, (u, v) => at(C.cork, Math.floor(v / 3) % 2 && u > 1 ? 4 : 3));
-  s.quad([cx - r, 30.5, 0], [1, 0, 0], [0, 0, 1], r * 2, r * 1.75, (u, v) => {
-    const d = Math.hypot(u - r, v - r);
-    if (d > r) return null;
-    return d > r - 0.9 ? at(C.logs, 1) : at(C.cork, Math.floor(d * 1.4) % 2 ? 3 : 4);
-  });
-  return s.sprite();
-}
-
 function picnicTable(): Sprite {
   const s = scene(1, 2, 24);
   s.shadow(1, 1, 15, 31, 0.28);
@@ -695,19 +663,6 @@ function picnicBench(): Sprite {
   s.shadow(3, 1, 11, 31, 0.25);
   for (const y of [4, 26]) s.solid(7, y, 0, 2, 2, 7, at(C.wood, 3), at(C.wood, 2), at(C.wood, 1));
   s.box(4, 1.5, 7, 8, 29, 1.8, (u) => at(C.wood, u % 4 < 0.7 ? 2 : 4), flatT(at(C.wood, 3)), flatT(at(C.wood, 2)));
-  return s.sprite();
-}
-
-function patioTable(): Sprite {
-  const s = scene(1, 1, 22);
-  s.roundShadow(8.5, 8.5, 6, 0.28);
-  s.solid(7, 7, 0, 2, 2, 12, at(C.metal, 3), at(C.metal, 2), at(C.metal, 1));
-  s.solid(5, 5, 0, 6, 6, 1, at(C.metal, 3), at(C.metal, 2), at(C.metal, 1));
-  s.cylinder(8, 8, 11, 6.5, 1.5, (_a, _v, luz) => at(C.wood, luz > 0 ? 3 : 2));
-  s.disc(8, 8, 12.5, 6.5, (dx) => at(C.wood, Math.floor(dx + 10) % 3 === 0 ? 3 : 5));
-  // Velita en un frasco y una taza.
-  s.cylinder(8, 8, 12.5, 1.5, 3, () => alpha(at(C.gold, 5), 0.9));
-  s.cylinder(11, 6, 12.5, 1.2, 2, (_a, _v, luz) => at(C.white, luz > 0 ? 4 : 3));
   return s.sprite();
 }
 
@@ -821,7 +776,7 @@ export const YARD_DRAW: Record<string, (v: "front" | "back") => Sprite> = {
   gazebo,
   pergola,
   "garden-gate": gardenGate,
-  "fence-post": fencePost,
+  "fence-post": fencePostSprite,
   well,
   beehive,
   compost,
@@ -830,10 +785,10 @@ export const YARD_DRAW: Record<string, (v: "front" | "back") => Sprite> = {
   wheelbarrow,
   woodpile,
   "fire-pit": firePit,
-  "log-seat": logSeat,
+  "log-seat": logSeatSprite,
   "picnic-table": picnicTable,
   "picnic-bench": picnicBench,
-  "patio-table": patioTable,
+  "patio-table": patioTableSprite,
   "patio-chair": patioChair,
   "garden-lantern": gardenLanternSprite,
   "dock-lamp": dockLampSprite,

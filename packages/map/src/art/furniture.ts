@@ -21,6 +21,8 @@ import { PAINTING_BASE_TYPE, paintingIdOf } from "@hyvento/shared";
 import { catalogItem } from "../world/catalog";
 import { DECOR } from "./decor";
 import { armchairSprite, chairSprite, counterCoffeeSprite, counterSprite, stoolSprite } from "./salas-muebles";
+import { cafeTableSprite, coffeeTableSprite, lampSprite } from "./salas-tanda3";
+import { benchSprite } from "./jardin-tanda3";
 import { cushion, leg, shadowSpace, shadowUnder, volume, type Variant } from "./kit";
 import { drawOutdoor, hasOutdoor } from "./outdoor";
 import { SHOP } from "./shop";
@@ -262,25 +264,6 @@ function sofa(variant: Variant, f: Ramp = C.fabric, pillowR: Ramp = C.mustard, l
   });
 }
 
-/** Banca de jardín de listones. */
-function bench(variant: Variant): Sprite {
-  const back = variant === "back";
-  const slat = (x: number): Box => ({ x, y: 1, z: 8, w: 3, d: 30, h: 2, top: flat(at(C.wood, 4)), left: flat(at(C.wood, 2)), right: flat(at(C.wood, 3)) });
-  const seat = back ? [slat(1), slat(5), slat(9)] : [slat(4), slat(8), slat(12)];
-  const bx = back ? 13 : 1;
-  const rest: Box[] = [
-    solidBox({ x: bx, y: 2, z: 10, w: 2, d: 2, h: 12 }, C.woodDark, 3),
-    solidBox({ x: bx, y: 28, z: 10, w: 2, d: 2, h: 12 }, C.woodDark, 3),
-    { x: bx, y: 1, z: 15, w: 2, d: 30, h: 2, top: flat(at(C.wood, 4)), left: flat(at(C.wood, 2)), right: flat(at(C.wood, 3)) },
-    { x: bx, y: 1, z: 19, w: 2, d: 30, h: 2, top: flat(at(C.wood, 5)), left: flat(at(C.wood, 2)), right: flat(at(C.wood, 3)) },
-  ];
-  const legs = [leg(3, 2, 8), leg(12, 2, 8), leg(3, 28, 8), leg(12, 28, 8)];
-  return renderSprite(back ? [...legs, ...seat, ...rest] : [...legs, ...rest, ...seat], {
-    outline: OUT,
-    under: shadowUnder(1, 1, 14, 30),
-  });
-}
-
 function plant(): Sprite {
   return renderSprite(
     [
@@ -329,79 +312,6 @@ function plant(): Sprite {
           c.line(x - rx + 1.5, y + ry - 1.5, x + rx - 1.5, y - ry + 1.5, at(C.leaf, 1));
           c.set(x - 2, y - 1, at(C.leaf, 5));
         }
-      },
-    },
-  );
-}
-
-function lamp(): Sprite {
-  return renderSprite(
-    [
-      solidBox({ x: 5, y: 5, z: 0, w: 6, d: 6, h: 2 }, C.metal, 3),
-      solidBox({ x: 7, y: 7, z: 2, w: 2, d: 2, h: 30 }, C.gold, 3),
-      {
-        x: 3,
-        y: 3,
-        z: 30,
-        w: 10,
-        d: 10,
-        h: 9,
-        top: flat(at(C.gold, 5)),
-        left: (_u, v) => at(C.cream, v < 1 ? 2 : 4),
-        right: (_u, v) => at(C.cream, v < 1 ? 1 : 3),
-      },
-    ],
-    { outline: OUT, under: shadowUnder(4, 4, 8, 8) },
-  );
-}
-
-function coffeeTable(): Sprite {
-  return renderSprite(
-    [
-      leg(2, 2, 7),
-      leg(12, 2, 7),
-      leg(2, 12, 7),
-      leg(12, 12, 7),
-      {
-        x: 1,
-        y: 1,
-        z: 7,
-        w: 14,
-        d: 14,
-        h: 2,
-        top: (_u, v) => at(C.woodDark, noise(0, Math.floor(v / 5), 3) < 0.5 ? 4 : 5),
-        left: flat(at(C.woodDark, 2)),
-        right: flat(at(C.woodDark, 3)),
-      },
-      solidBox({ x: 3, y: 3, z: 9, w: 6, d: 7, h: 2 }, C.rug, 3),
-      { x: 10, y: 10, z: 9, w: 3, d: 3, h: 4, top: flat(at(C.woodDark, 1)), left: flat(at(C.cream, 4)), right: flat(at(C.cream, 3)) },
-    ],
-    { outline: OUT, under: shadowUnder(1, 1, 14, 14) },
-  );
-}
-
-function cafeTable(): Sprite {
-  const topShade = (u: number, v: number) => at(C.cream, (Math.floor(u) + Math.floor(v)) % 6 === 0 ? 3 : 4);
-  return renderSprite(
-    [
-      solidBox({ x: 4, y: 4, z: 0, w: 8, d: 8, h: 1 }, C.metal, 2),
-      solidBox({ x: 7, y: 7, z: 1, w: 2, d: 2, h: 10 }, C.metal, 3),
-      { x: 1, y: 4, z: 11, w: 14, d: 8, h: 2, top: topShade, left: flat(at(C.cream, 2)), right: flat(at(C.cream, 3)) },
-      { x: 4, y: 1, z: 11, w: 8, d: 14, h: 2, top: topShade, left: flat(at(C.cream, 2)), right: flat(at(C.cream, 3)) },
-      solidBox({ x: 7, y: 7, z: 13, w: 2, d: 2, h: 4 }, C.sky, 3),
-      shadowSpace(1, 1, 14, 14),
-    ],
-    {
-      outline: OUT,
-      under: shadowUnder(1, 1, 14, 14),
-      extra: (c, p) => {
-        // Florcita en el florero.
-        const f = p(8, 8, 18);
-        c.set(f.x, f.y, at(C.leaf, 3));
-        c.set(f.x, f.y - 1, at(C.rug, 4));
-        c.set(f.x - 1, f.y - 2, at(C.rug, 4));
-        c.set(f.x + 1, f.y - 2, at(C.rug, 4));
-        c.set(f.x, f.y - 2, at(C.gold, 5));
       },
     },
   );
@@ -668,12 +578,12 @@ const DRAW: Record<string, (v: Variant) => Sprite> = {
   armchair: armchairSprite,
   sofa: (v) => sofa(v),
   "lounge-sofa": (v) => sofa(v, C.violet, C.gold, C.gold),
-  bench,
+  bench: benchSprite,
   bookshelf,
   plant,
-  lamp,
-  "coffee-table": coffeeTable,
-  "cafe-table": cafeTable,
+  lamp: lampSprite,
+  "coffee-table": coffeeTableSprite,
+  "cafe-table": cafeTableSprite,
   "meeting-table": meetingTable,
   counter: counterSprite,
   "counter-coffee": counterCoffeeSprite,
