@@ -1,6 +1,6 @@
 import type { ColyseusTestServer } from "@colyseus/testing";
-import { getWorld, travelDestinations, zoneAt } from "@hyvento/map";
-import { CASA_ARBOL, PODCAST, ROOM_NAME, VIAJE, VIAJE_MSG, type MoveCorrection, type ViajeGoMessage, type ViajeNotice } from "@hyvento/shared";
+import { ESTACION_DESTINO, getWorld, travelDestinations, zoneAt } from "@hyvento/map";
+import { CASA_ARBOL, casaAreaOf, PODCAST, ROOM_NAME, VIAJE, VIAJE_MSG, type MoveCorrection, type ViajeGoMessage, type ViajeNotice } from "@hyvento/shared";
 import { MSG } from "@hyvento/shared";
 import type { Room as ClientRoom } from "colyseus.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -247,5 +247,48 @@ describe("viaje rápido", () => {
     expect(res.notice).toBeNull();
     expect(p.seated).toBe(false);
     expect(p.area).toBe("planta-baja");
+  });
+});
+
+describe("ir a la estación y volver a la cabaña (VIR-143)", () => {
+  const parada = () => getWorld().areas.get("jardin")!.points.find((p) => p.type === "bus_stop")!;
+  const cerca = (p: Player) => Math.hypot(p.x / TILE - (parada().tileX + 0.5), p.y / TILE - (parada().tileY + 0.5));
+
+  it("desde cualquier sala de la cabaña deja en la plataforma de la estación", { timeout: 20000 }, async () => {
+    const { room, clients } = await setup(["Alice"]);
+    const [alice] = clients as [ClientRoom];
+    place(me(room, alice), "planta-baja", dest("zona:cafeteria").tile.x, dest("zona:cafeteria").tile.y);
+    await room.waitForNextPatch();
+    const res = await go(alice, room, { kind: "place", id: ESTACION_DESTINO });
+    expect(res.notice).toBeNull();
+    expect(me(room, alice).area).toBe("jardin");
+    expect(cerca(me(room, alice))).toBeLessThanOrEqual(VIAJE.searchTiles + 1);
+  });
+
+  it("desde la casa propia vuelve a la estación (y la pausa vale igual)", { timeout: 30000 }, async () => {
+    process.env.HYVENTO_DEV_TOOLS = "1";
+    try {
+      const { room, clients } = await setup(["Ana"]);
+      const [ana] = clients as [ClientRoom];
+      ana.send(MSG.chatSend, { text: "/ir casa", scope: "proximity" });
+      const end = Date.now() + 3000;
+      while (me(room, ana).area !== casaAreaOf("u-Ana") && Date.now() < end) await tick(20);
+      expect(me(room, ana).area).toBe(casaAreaOf("u-Ana"));
+      const res = await go(ana, room, { kind: "place", id: ESTACION_DESTINO });
+      expect(res.notice).toBeNull();
+      expect(me(room, ana).area).toBe("jardin");
+      expect(cerca(me(room, ana))).toBeLessThanOrEqual(VIAJE.searchTiles + 1);
+      // Enseguida otra vez: la misma pausa del viaje rápido.
+      expect((await go(ana, room, { kind: "place", id: "nivel:planta-baja" })).notice?.code).toBe("cooldown");
+    } finally {
+      delete process.env.HYVENTO_DEV_TOOLS;
+    }
+  });
+
+  it("nadando no sale", { timeout: 20000 }, async () => {
+    const { room, clients } = await setup(["Alice"]);
+    const [alice] = clients as [ClientRoom];
+    me(room, alice).swimming = true;
+    expect((await go(alice, room, { kind: "place", id: ESTACION_DESTINO })).notice?.code).toBe("swimming");
   });
 });

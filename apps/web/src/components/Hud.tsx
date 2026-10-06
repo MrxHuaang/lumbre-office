@@ -25,6 +25,7 @@ import { usePrefsStore } from "@/lib/prefs";
 import { ComunicacionChips } from "./comunicacion/ComunicacionChips";
 import { openAnnounce } from "@/game/comunicacion";
 import { openDirector } from "@/game/director";
+import { IrEstacionButton } from "./IrEstacionButton";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -107,6 +108,7 @@ function QuickTools() {
           <span className="max-lg:sr-only">Mi oficina</span>
         </button>
       )}
+      <IrEstacionButton />
       <FocusChip />
       {indoors && (
         <button
