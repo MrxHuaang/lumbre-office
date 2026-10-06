@@ -125,7 +125,7 @@ export const MUNDO_NAMES: Record<string, string> = {
 };
 
 export const MUNDO_BLURBS: Record<string, string> = {
-  [WATER_CUP]: "Del dispensador de la oficina. Fresquita, y baja un poco el guayabo.",
+  [WATER_CUP]: "Del dispensador de la oficina. Fresquita, y baja un poco la borrachera.",
 };
 
 /** Cuánto baja la borrachera cada sorbo (lo que no está acá no la baja). */
@@ -209,7 +209,7 @@ export const MUNDO_NOTICES: Record<MundoNoticeCode, string> = {
   noNote: "No tienes notas para imprimir: escribe una en el PC.",
   printBusy: "La impresora todavía se está calentando. Espera un momentico.",
   full: "No te cabe en la mochila: haz espacio para llevártelo.",
-  dry: "Te duchaste y quedaste sequito.",
+  dry: "Te diste una ducha y te secaste con la toalla.",
   noPet: "Todavía no tienes mascota: adopta una y tráela contigo.",
   petFar: "Tu mascota se quedó lejos: tráela hasta aquí.",
   petRest: "{text} se echó en su casita, feliz.",

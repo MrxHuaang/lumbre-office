@@ -139,13 +139,13 @@ function facts(p: ProfileDTO): Fact[] {
       icon: "glass",
       value: n(s(STAT_KEYS.sips)),
       label: "sorbos",
-      note: `y ${plural(s(STAT_KEYS.bites), "mordisco", "mordiscos")}, ${plural(s(STAT_KEYS.puffs), "pitada", "pitadas")}`,
+      note: `y ${plural(s(STAT_KEYS.bites), "mordisco", "mordiscos")}, ${plural(s(STAT_KEYS.puffs), "fumada", "fumadas")}`,
     },
     {
       icon: "smoke",
       value: n(s(STAT_KEYS.smoked)),
       label: s(STAT_KEYS.smoked) === 1 ? "fumado entero" : "fumados enteros",
-      note: s(STAT_KEYS.smoked) ? `${plural(s(STAT_KEYS.puffs), "pitada", "pitadas")} en total. Los pulmones piden tregua.` : "Pulmones de bebé.",
+      note: s(STAT_KEYS.smoked) ? `${plural(s(STAT_KEYS.puffs), "fumada", "fumadas")} en total. Los pulmones piden tregua.` : "Pulmones de bebé.",
       tone: s(STAT_KEYS.smoked) >= 50 ? "bad" : undefined,
     },
     {
@@ -165,7 +165,7 @@ function facts(p: ProfileDTO): Fact[] {
       icon: "chip",
       value: `${p.casinoNet > 0 ? "+" : ""}${n(p.casinoNet)}`,
       label: "neto en el casino",
-      note: p.casinoNet < 0 ? "La casa te manda saludos." : p.casinoNet > 0 ? "La casa te tiene en la mira." : "Ni fu ni fa.",
+      note: p.casinoNet < 0 ? "La casa te manda saludos." : p.casinoNet > 0 ? "La casa te tiene en la mira." : "Ni pierdes ni ganas.",
       tone: p.casinoNet < 0 ? "bad" : p.casinoNet > 0 ? "good" : undefined,
     },
     {

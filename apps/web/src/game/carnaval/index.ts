@@ -2,7 +2,7 @@
 // HUD (el desfile, el concurso, el puesto), los pedidos al servidor (sumarse a la comparsa, echar maicena
 // o serpentinas, postularse, votar, comprar) y sus respuestas. Todo lo decide la sala; aquí solo se pide y
 // se muestra. El desfile en la calle lo dibuja `desfile.ts`.
-import { cabanaX, desfileEstado, DESFILE_BAJADA_X, DESFILE_TIMING, type DesfileTiming } from "@hyvento/map";
+import { desfileEstado, DESFILE_TIMING, filaEn, type DesfileTiming } from "@hyvento/map";
 import {
   CARNAVAL,
   CARNAVAL_BUY_ERROR_TEXT,
@@ -121,9 +121,9 @@ export function syncCarnaval(room: OfficeRoom | undefined, me: { x: number; y: n
   const ms = desfileMs();
   let puede = false;
   if (me && ms !== null && !me.comparsa && me.area === "jardin" && carnavalAhora()) {
-    const x = cabanaX(desfileEstado(ms, useCarnavalStore.getState().timing).cabeza);
-    // Un poquito antes del límite del servidor, para que el botón no aparezca donde ya no alcanza.
-    puede = me.y >= CARNAVAL.veredaDesdeY * 32 && Math.abs(me.x / 32 - x) <= CARNAVAL.joinReachTiles - 0.4 && x < DESFILE_BAJADA_X - 2;
+    // Durante todo el desfile, desde la vereda, donde vaya pasando la fila (un pelito más estricto que la sala).
+    const cabeza = desfileEstado(ms, useCarnavalStore.getState().timing).cabeza;
+    puede = me.y >= CARNAVAL.veredaDesdeY * 32 && filaEn(me.x / 32 + 0.4, cabeza) && filaEn(me.x / 32 - 0.4, cabeza);
   }
   if (puede !== store.puedoSumarme || Boolean(me?.comparsa) !== store.enComparsa) useCarnavalStore.setState({ puedoSumarme: puede, enComparsa: Boolean(me?.comparsa) });
 }

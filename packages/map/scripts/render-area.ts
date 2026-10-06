@@ -2,13 +2,15 @@
 // Uso: pnpm --filter @hyvento/map render <nivel> [salida.png] [noche] [cumple,karaoke,brujas] [hh:mm]
 // (el cuarto, para ver lo que ponen los eventos: el pastel de cumpleaños, el club en modo karaoke o la
 // decoración de un festival, por su id, como `brujas`; con la hora del juego al final, también la gente de
-// la fiesta parada donde está a esa hora).
+// la fiesta parada donde está a esa hora). De noche se ve como en el juego: la penumbra con la luz de los
+// faroles y de las ventanas prendidas a esa hora (sin hora, las 21:30; ver art/luces-ventanas.ts).
 import { writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { DIAS_POR_ESTACION, festivalById, GENTE_FIESTA, SEASONS } from "@hyvento/shared";
 import { drawCharacter, FEET_Y, FRAME, SHEET_DIRECTIONS, styleFor } from "../src/art/chibi";
 import { composeArea } from "../src/art/compose";
 import { eventOverlays, type EventOverlay } from "../src/art/eventos";
+import { pintarNoche } from "../src/art/noche-vista";
 import { PixelCanvas } from "../src/art/pixel";
 import { buildCasaPropia, CASA_PLANTILLAS, festivalDecorAreas, genteDelNivel, getWorld, setFestivalDecor } from "../src/index";
 
@@ -20,7 +22,12 @@ for (const e of on) if (festivalDecorAreas(e).length) setFestivalDecor(e, 0);
 const casa = CASA_PLANTILLAS[areaId as keyof typeof CASA_PLANTILLAS];
 const map = casa ? buildCasaPropia(casa === "afuera" ? "casa:plantilla" : `casa:plantilla:${casa}`) : getWorld().areas.get(areaId);
 if (!map) throw new Error(`No existe el nivel ${areaId} (hay: ${[...getWorld().areas.keys(), ...Object.keys(CASA_PLANTILLAS)].join(", ")})`);
-const canvas = composeArea(map, mode !== "noche", 80, [...eventOverlays(areaId, { birthday: on.includes("cumple"), karaoke: on.includes("karaoke") }), ...genteOverlays()]);
+const origen = { x: 0, y: 0 };
+const canvas = composeArea(map, mode !== "noche", 80, [...eventOverlays(areaId, { birthday: on.includes("cumple"), karaoke: on.includes("karaoke") }), ...genteOverlays()], origen);
+if (mode === "noche") {
+  const [h = "21", m = "30"] = (process.argv[6] || "21:30").split(":");
+  pintarNoche(canvas, map, origen, { dia: 0, minuto: Number(h) * 60 + Number(m) });
+}
 
 /**
  * La gente de la fiesta (VIR-167) parada donde está a esa hora del juego: el quinto argumento es la hora

@@ -35,7 +35,7 @@ const PENDING_MS = 3000;
 /** Cada cuánto cambia lo que dice mientras uno mira la carta. */
 const LINE_MS = 6000;
 
-const USE_WORD = { smoke: "pitadas", sip: "tragos", bite: "mordiscos", spoon: "cucharadas", sniff: "esnifadas" } as const;
+const USE_WORD = { smoke: "fumadas", sip: "tragos", bite: "mordiscos", spoon: "cucharadas", sniff: "esnifadas" } as const;
 
 const usesText = (item: SombreroItem) => item.holds.map((art) => `${usesOf(art)} ${USE_WORD[consumeActionOf(art)]}`).join(" y ");
 

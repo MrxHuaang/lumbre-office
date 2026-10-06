@@ -10,12 +10,12 @@ import { stageShell } from "./escenario";
 import { drawObservatory } from "./observatorio-exterior";
 import { CASA_FINCA_CHIMNEY_TOP, CASA_PROPIA_NIGHT } from "./casa-propia-exterior";
 import { BRUJAS_NIGHT } from "./brujas";
-import { CARNAVAL_NIGHT } from "./carnaval";
 import { VELITAS_NIGHT } from "./velitas";
 import { FERIA_NIGHT } from "./feria-flores";
 import { ANO_VIEJO_NIGHT } from "./ano-viejo";
 import { NOVENAS_NIGHT } from "./novenas";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
+import { edgeOf, gridSprite, groundShadow, rampLegend } from "./grilla";
 import {
   alpha,
   at,
@@ -535,16 +535,41 @@ function lampPost(): Sprite {
   );
 }
 
-/** Tramo de cerca con los listones a lo largo de y (los tramos vecinos se juntan). */
+/**
+ * Tramo de cerca rústica (dibujado a mano), con los travesaños a lo largo de y: el poste de madera curtida
+ * con la cabeza en rombo, su grieta y algo de musgo; dos travesaños partidos con la cara de arriba clara,
+ * la de abajo en sombra, vetas y los clavos en el poste. Las puntas de los travesaños empalman con las del
+ * tramo vecino (las cintas bajan una fila cada dos columnas y se repiten cada 16).
+ */
+const FENCE = [
+  "........................",
+  "................ooo.....",
+  "..............oo554oo...",
+  ".............o554344oo..",
+  ".............o4543oo5o..",
+  ".............o44ooN54o..",
+  ".............ooo55n42o..",
+  "............ooM54322oo..",
+  "..........oo554422oo1o..",
+  "........oo554422oo221o..",
+  "......oo554322oo3422oo..",
+  "....oo5M4422oo44m4oo5o..",
+  "...o553422oo.o4mooN54o..",
+  "...54422oo...ooo55n32o..",
+  "...422oo....ooM54422oo..",
+  "...2oo....oo553422oo1o..",
+  "...o....oo554422oo221o..",
+  "......oo554422oo24221o..",
+  "....oo5M4322oo4434211o..",
+  "...o554422oo.o3333211o..",
+  "...54322oo....o33221os..",
+  "...422oo.......oooooss..",
+  "...2oo..........sssss...",
+  "...o....................",
+];
+
 function fence(): Sprite {
-  return renderSprite(
-    [
-      solidBox({ x: 6, y: 0, z: 0, w: 4, d: 3, h: 15 }, C.wood, 4),
-      { x: 7, y: 0, z: 5, w: 2, d: 16, h: 2, top: flat(at(C.wood, 5)), left: flat(at(C.wood, 3)), right: flat(at(C.wood, 3)) },
-      { x: 7, y: 0, z: 10, w: 2, d: 16, h: 2, top: flat(at(C.wood, 5)), left: flat(at(C.wood, 3)), right: flat(at(C.wood, 3)) },
-    ],
-    { outline: OUT },
-  );
+  return gridSprite(FENCE, { ...rampLegend(C.logs), o: edgeOf(C.logs, 0.55), m: at(C.sage, 3), M: at(C.sage, 4), n: at(C.metal, 1), N: at(C.metal, 4), s: groundShadow(0.25) }, 11, 14);
 }
 
 const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
@@ -572,8 +597,6 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   ...CASA_PROPIA_NIGHT,
   // La Noche de brujas: las ahuyamas, el espantapájaros y el farol de papel, prendidos de noche.
   ...BRUJAS_NIGHT,
-  // El Carnaval: el farol de papel de la vereda, prendido de noche.
-  ...CARNAVAL_NIGHT,
   // La Noche de velitas: las velitas y los faroles de papel (de noche, el papel prendido).
   ...VELITAS_NIGHT,
   // La Feria de las flores: el farol de papel de colores, prendido de noche.

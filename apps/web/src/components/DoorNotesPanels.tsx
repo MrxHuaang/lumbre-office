@@ -15,7 +15,7 @@ const plural = (n: number) => (n === 1 ? "1 nota" : `${n} notas`);
 
 function when(iso: string) {
   const min = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (min < 1) return "recién";
+  if (min < 1) return "hace un momento";
   if (min < 60) return `hace ${min} min`;
   const h = Math.round(min / 60);
   if (h < 24) return `hace ${h} h`;
@@ -171,7 +171,7 @@ export function DoorNotesPanel({ onClose }: { onClose: () => void }) {
       {!notes ? (
         <p className="text-[14px] text-cozy-ink-soft">{error ?? "Despegando las notas…"}</p>
       ) : notes.length === 0 ? (
-        <p className="text-[14px] leading-snug text-cozy-ink-soft">No tienes notas. Cuando alguien pase por tu oficina y no estés, te la deja pegada en la puerta.</p>
+        <p className="text-[14px] leading-snug text-cozy-ink-soft">No tienes notas. Si alguien pasa por tu oficina y no estás, te puede dejar una pegada en la puerta.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {error && (
