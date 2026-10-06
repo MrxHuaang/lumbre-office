@@ -1,5 +1,5 @@
-// La gente del Carnaval de Negros y Blancos (VIR-167): el público en la vereda de la calle del Megabús, que
-// baila y aplaude cuando pasa el desfile (a las 11, a las 3 y a las 7 del juego, `CARNAVAL.desfileHoras`),
+// La gente del Carnaval de Negros y Blancos (VIR-167): el público en la vereda de la calle del Megabús
+// (algunos sentados en las graderías, VIR-176), que baila y aplaude cuando pasa el desfile (a las 11, a las 3 y a las 7 del juego, `CARNAVAL.desfileHoras`),
 // los vendedores de maicena (en el puesto) y de serpentinas (por la vereda; los dos abren el puesto), la niña
 // con su máscara y los muchachos que graban. El blanco y negro va solo en la ropa y las máscaras: la piel de
 // cada vecino es siempre la suya (`vestirVecino`).
@@ -90,6 +90,7 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       tile: { x: 110, y: 128 },
       ...publico({ hola: ["Vine a ver las carrozas. Y a cuidar que nadie le eche maicena a los perros.", "Qué bonito el cóndor de la carroza. Bien hecho, con plumas de papel."] }, ["¡Qué belleza!", "¡Ahí viene el cóndor!", "Sin maicena al perro"]),
       pinta: { ...DE(BLANCO, NEGRO, "#4ab0a0"), face: "carnival-mask" },
+      comportamiento: { tipo: "sentado", asiento: { x: 110, y: 128 } },
     }),
     papel(F, "fredy", {
       rol: "Espera el desfile en la vereda",
@@ -97,6 +98,7 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       tile: { x: 112, y: 128 },
       ...publico({ hola: ["Vine en bici desde el alto pa' ver el desfile. Diecisiete kilómetros.", "Las carrozas van a dos kilómetros por hora. Yo las paso caminando."] }, ["¡Eso, eso!", "¡Que viva!", "¡Más rápido, cóndor!"]),
       pinta: DE(NEGRO, BLANCO, "#e8c03a"),
+      comportamiento: { tipo: "sentado", asiento: { x: 112, y: 126 } },
     }),
     papel(F, "ramiro", {
       rol: "Espera el desfile en la vereda",
@@ -104,6 +106,7 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       tile: { x: 115, y: 128 },
       ...publico({ hola: ["Paloma, mi mula, se quedó amarrada. Le dan susto la pólvora y las carrozas.", "La tierra no tiene afán. El desfile tampoco: ahí viene despacito."] }, ["¡Viva!", "Despacito viene", "¡Bravo!"]),
       pinta: { shirt: BLANCO, top2: NEGRO },
+      comportamiento: { tipo: "sentado", asiento: { x: 117, y: 128 } },
     }),
     papel(F, "tomas", {
       rol: "Toca la guaneña en la vereda",
@@ -111,6 +114,7 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       tile: { x: 120, y: 128 },
       ...publico({ hola: ["La guaneña es el himno del carnaval. La toco hasta dormido.", "Esta la compuse anoche, al estilo de la guaneña, con tiple. Escuche."] }, ["Guaneña, guaneñita…", "¡Que suene!", "Tlin, tlan, tlin"]),
       pinta: { shirt: BLANCO, top2: NEGRO, head: "party-hat", accent: NEGRO },
+      comportamiento: { tipo: "sentado", asiento: { x: 119, y: 126 } },
       pedido: {
         id: "tinto-tomas",
         pide: [{ item: "tinto", n: 1 }],
