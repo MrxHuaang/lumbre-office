@@ -52,7 +52,7 @@ import { CASA_PROPIA_DRAW } from "./casa-propia";
 import { CASA_PROPIA_EXTERIOR_DRAW } from "./casa-propia-exterior";
 import { BRUJAS_DRAW } from "./brujas";
 import { FERIA_DRAW } from "./feria-flores";
-import { CARNAVAL_DRAW } from "./carnaval";
+import { CARNAVAL_DRAW } from "./carnaval-decor";
 import { NOVENAS_DRAW } from "./novenas";
 
 export type { Variant } from "./kit";
