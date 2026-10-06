@@ -424,7 +424,8 @@ async function runStep(run: Run, step: CineStep) {
     case "spawn": {
       const npc = NPC_BY_ID.get(step.like);
       if (!npc) return;
-      const key = ensureCharacterTextures(h.scene, "ada", npc.look);
+      // Con `pinta`, otra ropa que la del NPC (los niños de la loma de las cometas).
+      const key = ensureCharacterTextures(h.scene, "ada", step.pinta ?? npc.look);
       const at = worldOf(run, step.at);
       const a = new Avatar(h.scene, key, step.name ?? npc.name, at.x, at.y, false);
       a.asNpc();

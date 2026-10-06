@@ -69,6 +69,7 @@ import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
 import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
 import { FeriaPanel } from "./FeriaPanel";
+import { CometasPanel, CometaVuelo } from "./CometasPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { TiraDialogo } from "./dialogo/TiraDialogo";
@@ -475,6 +476,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {(panel?.kind === "feriaTable" || panel?.kind === "feriaShop" || panel?.kind === "silletaStand") && <FeriaPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalShop" && <CarnavalShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalConcurso" && <ConcursoPanel onClose={closePanel} />}
+          {(panel?.kind === "cometasTaller" || panel?.kind === "cometasShop" || panel?.kind === "cometasConcurso") && <CometasPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
+          {/* El Festival de cometas: el minijuego mientras mi cometa vuela. */}
+          <CometaVuelo />
           {/* Mundo lleno: tragamonedas, garra, estante de premios, rueda y la recepción. */}
           <MundoPanels />
           {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}

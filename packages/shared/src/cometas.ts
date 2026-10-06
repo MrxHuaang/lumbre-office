@@ -427,7 +427,7 @@ export const COMETAS_CINEMATICAS: readonly CineDef[] = [
       { op: "sound", sound: "destello" },
       { op: "together", steps: [{ op: "act", who: MATEO, action: "saltar" }, { op: "fx", fx: "chispas", who: MATEO }, { op: "title", text: "¡Cometa rescatada!", ms: 2200 }] },
       { op: "face", who: MATEO, toward: "yo" },
-      { op: "say", who: MATEO, text: "¡Gracias, gracias! Ya creía que se iba a quedar a vivir en ese árbol.", ms: 3000 },
+      { op: "say", who: MATEO, name: "Mateo", text: "¡Gracias, gracias! Ya creía que se iba a quedar a vivir en ese árbol.", ms: 3000 },
       { op: "walk", who: MATEO, run: true, path: [{ dx: 3, dy: 2 }, { dx: 5, dy: 0 }, { dx: 3, dy: -2 }] },
       { op: "together", steps: [{ op: "act", who: MATEO, action: "girar" }, { op: "bubble", who: MATEO, text: "¡Vuela, vuela!" }, { op: "emote", who: "yo", emote: "clap" }] },
       { op: "act", who: MATEO, action: "celebrar" },

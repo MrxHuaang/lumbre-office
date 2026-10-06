@@ -130,6 +130,12 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // El Carnaval: el puesto de máscaras, maicena y serpentinas, y el palco del concurso de disfraces.
   | "carnavalShop"
   | "carnavalConcurso"
+  // El Festival de cometas: el taller, el puesto (y el carrito del raspao), el tablero del concurso y la
+  // escalera del garaje (E baja la cometa de Santiago, sin panel).
+  | "cometasTaller"
+  | "cometasShop"
+  | "cometasConcurso"
+  | "cometaTecho"
   // La gente de la fiesta (genteFiesta.ts): E habla con quien está al lado en la tira de conversación.
   | "fiestaNpc";
 
