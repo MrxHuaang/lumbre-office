@@ -204,7 +204,7 @@ export const SOMBRERO_MENU = [
     name: "Yagé del Putumayo",
     price: 45,
     holds: ["yage"],
-    blurb: "En totumita, con la bendición del taita incluida.",
+    blurb: "En totumita. Pide ceremonia y respeto; el Man se lo vende con prisa.",
     effect: "Visiones de patrones y un mareo berraco.",
   },
   {
@@ -236,7 +236,7 @@ export const SOMBRERO_MENU = [
     name: "Tusi rosadito",
     price: 38,
     holds: ["tusi"],
-    blurb: "El polvito rosado de las discotecas de Medellín. Todo queda color chicle.",
+    blurb: "El polvito rosado de las discotecas. Todo queda color chicle.",
     effect: "Todo rosado y le da por bailar solo.",
   },
   {
@@ -244,7 +244,7 @@ export const SOMBRERO_MENU = [
     name: "Keta del veterinario",
     price: 32,
     holds: ["keta"],
-    blurb: "Dizque es pa' los caballos de una finca en Rionegro. Suavecito, mijo.",
+    blurb: "Dizque es pa' los caballos de una finca. Suavecito, mijo.",
     effect: "Cámara lenta: todo se aleja y camina como en la Luna.",
   },
   {
@@ -252,7 +252,7 @@ export const SOMBRERO_MENU = [
     name: "Chicle de mambe",
     price: 12,
     holds: ["chicle-mambe"],
-    blurb: "Mambe del Amazonas en chicle, pa' mascar y hablar de la vida con el taita.",
+    blurb: "Mambe del Amazonas en chicle, pa' mascar despacio y echar cuento largo.",
     effect: "Un acelere suavecito, pa' aguantar la jornada.",
   },
   {
@@ -321,7 +321,7 @@ export const SOMBRERO_ERROR_TEXT: Record<Extract<SombreroBuyResult, { ok: false 
   gone: "El Man del Sombrero ya se fue… como si nunca hubiera estado.",
   far: "Arrímese más, que esto no se grita.",
   funds: "No le alcanza, parcero. Sin plata no hay mercancía.",
-  busy: "Calmado, calmado. De a uno.",
+  busy: "Calmado, calmado. De a una cosa.",
   failed: "Algo salió mal. Vuelva a intentar (pero disimule).",
   full: "No le cabe en la mochila, parcero. Haga espacio primero.",
 };
@@ -333,7 +333,7 @@ export const SOMBRERO_GREETING = "Psst… ¿qué necesita, parcero?";
 /** Van rotando mientras se mira la carta. */
 export const SOMBRERO_LINES = [
   "Hable pasito, que las paredes oyen.",
-  "Todo es de la mejor, calidad de exportación.",
+  "Todo es del bueno, calidad de exportación.",
   "Aquí no hay factura, mijo.",
   "Si pregunta alguien, usted vino por un tinto.",
   "Mire bien, que después no hay devoluciones.",
@@ -341,7 +341,7 @@ export const SOMBRERO_LINES = [
   "Esto lo traje por la trocha, pa' usted.",
 ];
 /** Al comprar. */
-export const SOMBRERO_THANKS = ["Eso es lo suyo. Pilas pues.", "Guárdelo bien, que se lo quitan.", "Hágale, disfrute. Y disimule."];
+export const SOMBRERO_THANKS = ["Eso es lo suyo. Pilas, pues.", "Guárdelo bien, que se lo quitan.", "Hágale, disfrute. Y disimule."];
 /** Al cerrar el menú. */
 export const SOMBRERO_FAREWELL = "Yo no lo vi, usted no me vio.";
 /** Lo que susurra cuando alguien pasa cerca (en la burbuja, sobre la cabeza). */

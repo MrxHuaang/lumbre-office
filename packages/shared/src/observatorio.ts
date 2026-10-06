@@ -467,7 +467,7 @@ export function explorationLog(stats: Readonly<Record<string, number>>): LogEntr
       id: "cielo-deseo",
       title: "El primer deseo",
       note: "La viste antes que nadie: el deseo es tuyo.",
-      hint: "Sé el primero en ver pasar una estrella fugaz.",
+      hint: "Mira una estrella fugaz antes que nadie.",
       found: has(STAT_KEYS.shootingStarsFirst),
       achievementId: "pide-un-deseo",
       group: "cielo",

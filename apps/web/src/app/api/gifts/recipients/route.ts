@@ -10,7 +10,7 @@ function publicName(email: string | null) {
 /** A quién se le puede regalar: todo el equipo menos tú (también quien no está conectado). */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const people = await prisma.user.findMany({
     where: { id: { not: user.id }, onboardedAt: { not: null } },
     select: { id: true, name: true, email: true, avatar: true, look: true },

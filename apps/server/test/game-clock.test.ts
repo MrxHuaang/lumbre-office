@@ -161,7 +161,7 @@ describe("reloj del juego en la sala", () => {
     client.send(MSG.chatSend, { text: "/time set noche", scope: "proximity" });
     await tick(80);
     expect(clock()).toMatchObject({ hour: 10 });
-    expect(notes).toContain("Solo un admin puede cambiar la hora.");
+    expect(notes).toContain("Solo un admin o el director pueden cambiar la hora.");
     client.send(MSG.chatSend, { text: "/hora", scope: "proximity" });
     await tick(80);
     expect(notes.at(-1)).toBe("Día 3, 10:00.");
