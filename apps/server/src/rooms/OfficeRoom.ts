@@ -250,6 +250,7 @@ import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
 import { nearQuestGiver } from "@hyvento/map";
 import { registerVelitas, type Velitas } from "./velitas";
+import { registerAmorAmistad, type AmorAmistad } from "./amorAmistad";
 import { Novenas } from "./novenas";
 import { Aguinaldos } from "./aguinaldos";
 import { WeatherCycle } from "./weather";
@@ -1161,6 +1162,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.mundo = registerMundo(this as unknown as MundoRoom);
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.velitas = registerVelitas(this, { state: () => this.state.velitas, festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }), player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), now: () => Date.now() }, (c) => this.markActive(c as Client<UserData>));
+    this.amor = registerAmorAmistad(this, { festival: () => { const t = this.gameTimeNow(); return { id: this.state.festival, fase: this.state.festivalFase, año: fechaDelJuego(t.day).año, day: t.day, minute: t.minuteOfDay }; }, player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, stats: { stat: (u, k) => this.achievements.stat(u, k), max: (u, k, v) => this.achievements.max(u, k, v), bump: (u, k, by) => this.achievements.bump(u, k, by), isLoaded: (u) => this.achievements.isLoaded(u) }, repo: () => this.repo, nearShop: (p) => this.nearFestivalShop(p as Player, "festival_shop"), send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), balance: (userId, balance, awarded) => { for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance; if (awarded) this.clientOfUser(userId)?.send(MSG.pointsAwarded, { amount: awarded, reason: "LEISURE", balance } satisfies PointsAwarded); } }, (c) => this.markActive(c as Client<UserData>));
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1368,6 +1370,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.novenas.tick();
       this.syncFestival();
       this.feria.tick();
+      this.amor?.tick();
     }, 2_000);
     // El Carnaval: la hora del desfile y la comparsa que va por la calle (seguido, para que se mueva suave).
     this.clock.setInterval(() => this.carnaval.tick(), 100);
@@ -1589,6 +1592,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     void this.achievements.load(auth.sub).then(() => {
       this.achievements.visit(auth.sub, area);
       this.achievements.max(auth.sub, STAT_KEYS.pointsPeak, player.points);
+      this.amor?.joined(auth.sub, player.name);
     });
     void this.encargos.load(auth.sub, { join: true, newcomer: isNewcomer(auth.onboardedAt, Date.now()), byBus });
     void this.oficios.load(auth.sub, { join: true });
@@ -2397,6 +2401,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private comunicacion?: Comunicacion;
   /** La Noche de velitas (ver velitas.ts). */
   private velitas?: Velitas;
+  /** Amor y amistad: el amigo secreto, las cartas de Cupido, la serenata y el puesto (ver amorAmistad.ts). */
+  private amor?: AmorAmistad;
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
@@ -4526,6 +4532,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.brujas.forget(player.userId);
     this.gente.forget(player.userId);
     this.feria.forget(player.userId);
+    this.amor?.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);
