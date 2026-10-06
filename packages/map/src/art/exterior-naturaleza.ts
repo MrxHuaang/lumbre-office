@@ -1,8 +1,12 @@
 // Naturaleza del jardín: robles, pinos, abedules, frutales, arbustos, flores, helechos, hongos, rocas,
-// troncos y lo del lago (juncos, nenúfares, la piedra plana). Cada tipo tiene su semilla: dos robles
-// distintos no comparten copa. Coordenadas locales de arte (tile = 16); las copas se pintan en 2D sobre
-// el lienzo, en montoncitos de hojas con luz desde arriba a la izquierda (como en Stardew).
+// troncos y lo del lago (juncos, nenúfares, la piedra plana). Coordenadas locales de arte (tile = 16).
+// Los árboles, las matas, el helecho, el pasto alto y las flores silvestres ya están dibujados a mano
+// (jardin-arboles.ts y jardin-matas.ts, docs/estandar-arte.md); lo demás sigue armado con primitivas y
+// se va pasando a grillas en las tandas de docs/auditoria-arte.md. `canopy` lo usan todavía el bosque de
+// alrededor y la casa del árbol.
 import { Escena } from "./exterior-escena";
+import { berryBushSprite, bushSprite, fernSprite, hydrangeaSprite, roseBushSprite, tallGrassSprite, wildflowersSprite } from "./jardin-matas";
+import { bigOakSprite, birchSprite, birchSpriteB, blossomTreeSprite, fruitTreeSprite, oakSprite, pineSprite, shortPineSprite, tallOakSprite, tallPineSprite, wideOakSprite } from "./jardin-arboles";
 import { blob } from "./kit";
 import { C, mix } from "./palette";
 import { PixelCanvas, alpha, at, bayer, noise, smoothNoise, type Ramp, type RGBA, type Sprite } from "./pixel";
@@ -14,6 +18,7 @@ export const LEAF = C.leaf;
 export const LEAF_OLIVE = blend(C.leaf, C.mustard, 0.28);
 export const LEAF_DEEP = blend(C.leaf, C.green, 0.45);
 export const LEAF_BIRCH = blend(C.leaf, C.gold, 0.22);
+/** Rampa del cerezo en flor. */
 const BLOSSOM = blend(C.rose, C.white, 0.35);
 
 /** Escena para un objeto de w x d tiles con margen alrededor y alto `h`. */
@@ -103,117 +108,6 @@ function trunk(s: Escena, x: number, y: number, r: number, h: number, bark: Ramp
   }
 }
 
-/** Sombra redonda bajo la copa. */
-const treeShadow = (s: Escena, x: number, y: number, r: number) => s.roundShadow(x, y, r, 0.28);
-
-// ---------- Árboles ----------
-
-interface OakOpts {
-  seed: number;
-  ramp: Ramp;
-  /** Radio de la copa en pantalla. */
-  r: number;
-  trunkH: number;
-  fruit?: RGBA[];
-  blossom?: boolean;
-}
-
-function broadleaf(o: OakOpts, size = 1): Sprite {
-  const mid = size * 8;
-  const s = scene(size, size, o.trunkH + o.r * 2.4, o.r + 6);
-  treeShadow(s, mid + 1, mid + 1, o.r * 0.62);
-  trunk(s, mid, mid, size > 1 ? 3.6 : 2.4, o.trunkH + 6, C.logs, o.seed);
-  const top = s.p(mid, mid, o.trunkH);
-  // Ramas que asoman bajo la copa.
-  for (const dir of [-1, 1]) {
-    const len = o.r * 0.45;
-    for (let k = 0; k < len; k += 0.5) s.canvas.set(top.x + dir * k, top.y - k * 0.8 - 1, at(C.logs, 2));
-  }
-  const clumps = canopy(s.canvas, {
-    cx: top.x + (noise(1, 1, o.seed) - 0.5) * 3,
-    cy: top.y - o.r * 0.72,
-    rx: o.r,
-    ry: o.r * 0.86,
-    ramp: o.ramp,
-    seed: o.seed,
-    size: size > 1 ? [5, 8] : [3.5, 6],
-  });
-  // Frutas o flores sobre los montoncitos que dan a la luz.
-  if (o.fruit)
-    clumps.forEach(([x, y, r], i) => {
-      if (noise(i, 9, o.seed) > 0.55) return;
-      const fx = Math.round(x - r * 0.2 + (noise(i, 10, o.seed) - 0.5) * r);
-      const fy = Math.round(y + r * 0.1);
-      const col = o.fruit![i % o.fruit!.length]!;
-      s.canvas.set(fx, fy, col);
-      s.canvas.set(fx + 1, fy, col);
-      s.canvas.set(fx, fy + 1, mix(col, at(C.rug, 0), 0.35));
-      s.canvas.set(fx + 1, fy + 1, mix(col, at(C.rug, 0), 0.35));
-      s.canvas.set(fx, fy - 1, at(C.white, 4));
-    });
-  if (o.blossom)
-    clumps.forEach(([x, y, r], i) => {
-      for (let k = 0; k < 4; k++) {
-        const fx = Math.round(x + (noise(i, k, o.seed + 3) - 0.5) * r * 1.4);
-        const fy = Math.round(y + (noise(i, k + 7, o.seed + 3) - 0.5) * r * 1.2);
-        if (s.canvas.alphaAt(fx, fy)) s.canvas.set(fx, fy, noise(i, k, 5) < 0.5 ? at(C.white, 4) : at(C.rose, 5));
-      }
-    });
-  return s.sprite();
-}
-
-function conifer(seed: number, h: number, w: number, ramp: Ramp): Sprite {
-  const s = scene(1, 1, h + 20, w + 4);
-  treeShadow(s, 9, 9, w * 0.5);
-  trunk(s, 8, 8, 1.8, 10, C.logs, seed);
-  const b = s.p(8, 8, 6);
-  const tiers = Math.max(4, Math.round(h / 11));
-  // Pisos de ramas de abajo hacia arriba: cada uno con el borde de abajo dentado y caído.
-  for (let t = 0; t < tiers; t++) {
-    const k = t / tiers;
-    const half = w * (1 - k * 0.78) + (noise(t, 1, seed) - 0.5) * 2;
-    const yBase = b.y - k * h;
-    const tierH = h / tiers + 7;
-    for (let dy = 0; dy < tierH; dy++) {
-      const f = dy / tierH;
-      const hw = half * (1 - f) ** 0.9;
-      for (let dx = -hw; dx <= hw; dx++) {
-        const x = Math.round(b.x + dx);
-        const y = Math.round(yBase - dy);
-        // Dientes en el borde inferior del piso.
-        if (dy < 2 && Math.floor((dx + half + noise(t, 3, seed) * 3) / 2.5) % 2 === 0 && Math.abs(dx) > 1) continue;
-        const side = dx / Math.max(1, hw);
-        let tone = side < -0.35 ? 4 : side > 0.45 ? 1 : 2;
-        if (dy < 3) tone -= 1;
-        if (dy > tierH - 4 && side < 0.2) tone += 1;
-        if ((bayer(x, y) < 0.12 && tone > 1) || noise(x, y, seed) < 0.05) tone -= 1;
-        s.canvas.set(x, y, at(ramp, tone));
-      }
-    }
-  }
-  // Punta.
-  const tip = b.y - h - 4;
-  s.canvas.set(b.x, tip, at(ramp, 4));
-  s.canvas.set(b.x, tip + 1, at(ramp, 3));
-  return s.sprite();
-}
-
-/** Abedul: tronco blanco y fino con marcas negras, ramas finas y una copa liviana en tres masas. */
-function birch(seed: number): Sprite {
-  const s = scene(1, 1, 80, 18);
-  treeShadow(s, 9, 9, 7);
-  trunk(s, 8, 8, 1.1, 44, C.white, seed, true);
-  const top = s.p(8, 8, 20);
-  const side = noise(1, 1, seed) < 0.5 ? -1 : 1;
-  // Ramas oscuras que salen del tronco hacia cada masa de hojas.
-  s.canvas.line(top.x, top.y - 2, top.x - 7 * side, top.y - 9, at(C.stone, 1));
-  s.canvas.line(top.x, top.y - 8, top.x + 6 * side, top.y - 15, at(C.stone, 1));
-  canopy(s.canvas, { cx: top.x - 6 * side, cy: top.y - 11, rx: 8, ry: 7, ramp: LEAF_BIRCH, seed, size: [2.4, 3.6], base: 2.9 });
-  canopy(s.canvas, { cx: top.x + 5 * side, cy: top.y - 18, rx: 8, ry: 7.5, ramp: LEAF_BIRCH, seed: seed + 5, size: [2.4, 3.6], base: 3.1 });
-  canopy(s.canvas, { cx: top.x - side, cy: top.y - 27, rx: 7, ry: 6.5, ramp: LEAF_BIRCH, seed: seed + 9, size: [2.4, 3.4], base: 3.3 });
-  return s.sprite();
-}
-
 // ---------- Arbustos, flores y hongos ----------
 
 /**
@@ -224,37 +118,6 @@ function small2d(draw: (c: PixelCanvas, cx: number, cy: number) => void): Sprite
   const c = new PixelCanvas(40, 30);
   draw(c, 20, 14);
   return { canvas: c, ox: 20, oy: 6 };
-}
-
-function bush(seed: number, ramp: Ramp, flowers?: { cols: RGBA[]; big?: boolean }, berries?: RGBA): Sprite {
-  const s = scene(1, 1, 30, 6);
-  s.roundShadow(9, 9, 7, 0.28);
-  const b = s.p(8, 8, 0);
-  const clumps = canopy(s.canvas, { cx: b.x, cy: b.y - 7, rx: 11, ry: 8, ramp, seed, size: [3, 5], base: 2.6 });
-  if (flowers)
-    clumps.forEach(([x, y, r], i) => {
-      if (noise(i, 4, seed) > 0.75) return;
-      const col = flowers.cols[i % flowers.cols.length]!;
-      const fx = Math.round(x - r * 0.25);
-      const fy = Math.round(y - r * 0.3);
-      if (flowers.big) {
-        // Bola de hortensia: racimo de florcitas.
-        blob(s.canvas, fx, fy, 2.6, 2.2, (nx, ny, px, py) => (bayer(px, py) < 0.2 ? mix(col, at(C.white, 4), 0.3) : ny + nx > 0.6 ? mix(col, at(C.navy, 1), 0.3) : col));
-      } else {
-        s.canvas.set(fx, fy, col);
-        s.canvas.set(fx + 1, fy, col);
-        s.canvas.set(fx, fy + 1, mix(col, at(C.rug, 0), 0.3));
-        s.canvas.set(fx + 1, fy + 1, col);
-        s.canvas.set(fx, fy - 1, mix(col, at(C.white, 4), 0.5));
-      }
-    });
-  if (berries)
-    clumps.forEach(([x, y], i) => {
-      if (noise(i, 8, seed) > 0.6) return;
-      s.canvas.set(Math.round(x), Math.round(y), berries);
-      s.canvas.set(Math.round(x) + 1, Math.round(y) - 1, mix(berries, at(C.white, 4), 0.5));
-    });
-  return s.sprite();
 }
 
 const PATCH_COLS: RGBA[] = [at(C.rug, 4), at(C.gold, 5), at(C.rose, 5), at(C.white, 4), at(C.blue, 4), at(C.violet, 4), at(C.fire, 3)];
@@ -282,91 +145,6 @@ function flowerPatch(seed: number): Sprite {
   }
   return s.sprite();
 }
-
-/** Flores silvestres: matitas bajas de pasto con flores de colores (no bloquea el paso). */
-function wildflowers(seed: number): Sprite {
-  return small2d((c, cx, cy) => {
-    const spots: [number, number][] = [];
-    for (let i = 0; i < 10; i++) spots.push([cx + (noise(i, 1, seed) - 0.5) * 26, cy + (noise(i, 2, seed) - 0.5) * 10]);
-    spots.sort((a, b) => a[1] - b[1]);
-    spots.forEach(([x, y], i) => {
-      const X = Math.round(x);
-      const Y = Math.round(y);
-      c.set(X - 1, Y + 1, at(C.grass, 1));
-      c.set(X, Y + 1, at(C.grass, 1));
-      c.set(X + 1, Y + 1, at(C.grass, 1));
-      for (const [dx, h] of [
-        [-1, 2],
-        [0, 3],
-        [1, 2],
-      ] as const)
-        for (let k = 0; k < h; k++) c.set(X + dx + (k === h - 1 ? dx : 0), Y - k, at(C.grass, k === h - 1 ? 5 : 3));
-      if (noise(i, 3, seed) < 0.75) {
-        const col = PATCH_COLS[Math.floor(noise(i, 4, seed) * PATCH_COLS.length)]!;
-        c.set(X, Y - 4, at(C.gold, 5));
-        c.set(X - 1, Y - 4, col);
-        c.set(X + 1, Y - 4, col);
-        c.set(X, Y - 5, mix(col, at(C.white, 4), 0.35));
-        c.set(X, Y - 3, mix(col, at(C.rug, 0), 0.25));
-      }
-    });
-  });
-}
-
-
-/** Pasto alto: matas de hojas largas que se mecen (no bloquea el paso). */
-function tallGrass(seed: number): Sprite {
-  const s = scene(1, 1, 16, 4);
-  const tufts: [number, number][] = [];
-  for (let i = 0; i < 5; i++) tufts.push([3 + noise(i, 1, seed) * 10, 3 + noise(i, 2, seed) * 10]);
-  tufts.sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
-  tufts.forEach(([x, y], i) => {
-    const q = s.p(x, y, 0);
-    const blades = 7;
-    for (let b = 0; b < blades; b++) {
-      const lean = (b - (blades - 1) / 2) * 0.9 + (noise(i, b, seed) - 0.5);
-      const h = 7 + noise(b, i, seed + 1) * 6 - Math.abs(lean);
-      for (let k = 0; k < h; k += 0.5) {
-        const t = k / h;
-        const col = at(C.grass, t > 0.75 ? 5 : lean < 0 ? 4 : t < 0.3 ? 2 : 3);
-        s.canvas.set(q.x + lean * t * 2.2, q.y - k, col);
-      }
-    }
-    // Espiguitas claras en la punta de algunas matas.
-    if (noise(i, 9, seed) < 0.5) s.canvas.set(q.x + 1, q.y - 12, at(C.mustard, 4));
-  });
-  return s.sprite();
-}
-
-/** Helecho: frondas en pluma que salen del centro en todas direcciones y se arquean (no bloquea). */
-function fern(seed: number): Sprite {
-  return small2d((c, cx, cy) => {
-    const fronds: number[] = [];
-    for (let f = 0; f < 11; f++) fronds.push((f / 11) * Math.PI * 2 + noise(f, 1, seed) * 0.5);
-    // De atrás (arriba en pantalla) hacia adelante.
-    fronds.sort((a, b) => Math.sin(a) - Math.sin(b));
-    const base = cy - 2;
-    for (const a of fronds) {
-      const len = 9 + noise(Math.floor(a * 10), 2, seed) * 4;
-      const back = Math.sin(a) < 0;
-      for (let k = 0; k <= len; k += 0.5) {
-        const t = k / len;
-        const x = cx + Math.cos(a) * k * 1.1;
-        const y = base + Math.sin(a) * k * 0.5 - Math.sin(t * Math.PI) * 5 * (1 - t * 0.3);
-        const w = Math.max(0.5, (1 - t * 0.8) * 3);
-        for (let j = -w; j <= w; j += 0.5) {
-          const px = Math.round(x - Math.sin(a) * j * 0.5);
-          const py = Math.round(y + Math.abs(j) * 0.35 - (j < 0 ? 0.5 : 0));
-          c.set(px, py, at(LEAF, (j < 0 ? 4 : 3) - (back ? 1 : 0) - (t > 0.8 ? 1 : 0)));
-        }
-        c.set(Math.round(x), Math.round(y), at(LEAF, back ? 1 : 2));
-      }
-    }
-    c.set(cx, base, at(LEAF, 1));
-    c.set(cx, base + 1, at(C.dirt, 1));
-  });
-}
-
 
 /** Grupo de hongos: sombreros rojos con pintas blancas y unos cafés más chicos, en el pasto. */
 function mushrooms(seed: number): Sprite {
@@ -603,30 +381,28 @@ function lilyPads(seed: number): Sprite {
 
 // ---------- Registro ----------
 
-const FRUIT_APPLE = [at(C.rug, 3), at(C.rug, 4)];
-const FRUIT_PEACH = [at(C.fire, 3), at(C.mustard, 4)];
 
 export const NATURE_DRAW: Record<string, () => Sprite> = {
-  "oak-1": () => broadleaf({ seed: 101, ramp: LEAF, r: 19, trunkH: 16 }),
-  "oak-2": () => broadleaf({ seed: 202, ramp: LEAF_DEEP, r: 21, trunkH: 18 }),
-  "oak-3": () => broadleaf({ seed: 303, ramp: LEAF_OLIVE, r: 18, trunkH: 15 }),
-  "oak-big": () => broadleaf({ seed: 404, ramp: LEAF_DEEP, r: 32, trunkH: 22 }, 2),
-  "pine-1": () => conifer(11, 48, 12, C.green),
-  "pine-2": () => conifer(22, 38, 10, blend(C.green, C.leaf, 0.3)),
-  "pine-3": () => conifer(33, 58, 13, blend(C.green, C.navy, 0.15)),
-  "birch-1": () => birch(51),
-  "birch-2": () => birch(62),
-  "apple-tree": () => broadleaf({ seed: 505, ramp: LEAF, r: 15, trunkH: 12, fruit: FRUIT_APPLE }),
-  "peach-tree": () => broadleaf({ seed: 606, ramp: LEAF_OLIVE, r: 14, trunkH: 12, fruit: FRUIT_PEACH }),
-  "cherry-tree": () => broadleaf({ seed: 707, ramp: BLOSSOM, r: 15, trunkH: 12, blossom: true }),
-  "bush-rose": () => bush(81, LEAF_DEEP, { cols: [at(C.rug, 3), at(C.rug, 4), at(C.curtain, 4)] }),
-  "bush-hydrangea": () => bush(82, LEAF, { cols: [at(C.blue, 4), at(C.violet, 4), at(C.blue, 3)], big: true }),
-  "bush-berry": () => bush(83, LEAF_DEEP, undefined, at(C.violet, 2)),
-  "bush-round": () => bush(84, LEAF),
+  "oak-1": () => oakSprite(LEAF),
+  "oak-2": () => wideOakSprite(LEAF_DEEP),
+  "oak-3": () => tallOakSprite(LEAF_OLIVE),
+  "oak-big": () => bigOakSprite(LEAF_DEEP),
+  "pine-1": () => pineSprite(C.green),
+  "pine-2": () => shortPineSprite(blend(C.green, C.leaf, 0.3)),
+  "pine-3": () => tallPineSprite(blend(C.green, C.navy, 0.15)),
+  "birch-1": () => birchSprite(LEAF_BIRCH),
+  "birch-2": () => birchSpriteB(LEAF_BIRCH),
+  "apple-tree": () => fruitTreeSprite(LEAF, at(C.rug, 3)),
+  "peach-tree": () => fruitTreeSprite(LEAF_OLIVE, at(C.fire, 3)),
+  "cherry-tree": () => blossomTreeSprite(BLOSSOM),
+  "bush-rose": () => roseBushSprite(LEAF_DEEP, at(C.rug, 4)),
+  "bush-hydrangea": () => hydrangeaSprite(LEAF, at(C.blue, 3)),
+  "bush-berry": () => berryBushSprite(LEAF_DEEP, at(C.violet, 3)),
+  "bush-round": () => bushSprite(LEAF),
   "flower-patch": () => flowerPatch(91),
-  wildflowers: () => wildflowers(92),
-  fern: () => fern(93),
-  "tall-grass": () => tallGrass(95),
+  wildflowers: wildflowersSprite,
+  fern: () => fernSprite(LEAF),
+  "tall-grass": tallGrassSprite,
   mushrooms: () => mushrooms(94),
   "rock-small": () => rock(121, 6, 4.5, 0, 2),
   "rock-medium": () => rock(122, 10, 7.5),

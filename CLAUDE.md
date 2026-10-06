@@ -18,6 +18,7 @@ La cabaña virtual del equipo Hyvento: isométrica, pixel-art estilo Stardew, mu
 - `main` se despliega solo a producción (Vercel y Render). El dueño del repo (Juan José, `poethy`) hace push directo a `main`; **las demás personas trabajan en una rama y abren un PR**.
 - Antes de subir: `pnpm typecheck` y `pnpm test` (el CI corre lo mismo en cada PR).
 - Si el cambio se ve en el navegador, probarlo con el servidor de desarrollo (`.claude/launch.json` → `hyvento-dev`). Las pantallas de la cabaña piden sesión: para revisar solo la UI sirve una página temporal en `apps/web/src/app/zz-*` con datos falsos, que **se borra antes del commit** (y también `apps/web/.next/types`).
+- El arte es pixel art **dibujado a mano** en grillas de letras (`docs/estandar-arte.md`, piezas comunes en `art/grilla.ts`), nunca armado con primitivas. Para revisar piezas sueltas: `pnpm --filter @hyvento/map hoja <carpeta> [filtro] [escala]` (hojas de contacto con un chibi al lado; la auditoría está en `docs/auditoria-arte.md`).
 - Para revisar el arte de un nivel sin abrir el juego: `pnpm --filter @hyvento/map render <nivel> salida.png [noche]` (niveles: `jardin`, `planta-baja`, `piso-2`, `piso-3`, `sotano`, `garaje`, `casa-arbol`, `megabus`, `observatorio`, `podcast`, y la plantilla de la casa: `casa-afuera`, `casa-abajo`, `casa-arriba`).
 
 ## Migraciones de base de datos (importante)
