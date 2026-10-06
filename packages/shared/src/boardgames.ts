@@ -185,10 +185,10 @@ export type BoardError = "seat" | "busy" | "self" | "turn" | "illegal" | "state"
 export const BOARD_ERROR_TEXT: Record<BoardError, string> = {
   seat: "Siéntate en una de las sillas de la mesa para jugar.",
   busy: "Esa silla ya tiene su partida.",
-  self: "No puedes jugar contra ti mismo.",
+  self: "Para jugar necesitas a otra persona en la otra silla.",
   turn: "Todavía no es tu turno.",
   illegal: "Esa jugada no vale.",
-  state: "Ahora no se puede.",
+  state: "Eso no se puede hacer en este momento de la partida.",
 };
 
 /** Servidor → cliente (`MSG.boardResult`): un pedido que no se pudo hacer. */
