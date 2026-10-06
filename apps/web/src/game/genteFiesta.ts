@@ -274,6 +274,7 @@ export class GenteFiestaView {
         a.avatar?.setHidden(true);
         a.animal?.img.setVisible(false);
         a.mark?.setVisible(false);
+        a.markKind = null;
         this.dropIcon(a);
       }
       return;

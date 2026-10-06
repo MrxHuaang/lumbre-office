@@ -59,7 +59,9 @@ export function TiraDialogo() {
       const k = e.key.toLowerCase();
       let handled = true;
       if (k === "e" || k === "enter") {
-        if (!done) complete();
+        // La tecla sostenida no pasa las líneas de corrido.
+        if (e.repeat) handled = true;
+        else if (!done) complete();
         else if (opciones) elegirOpcion();
         else avanzarDialogo();
       } else if (opciones && (k === "arrowup" || k === "arrowleft")) moverOpcion(-1);
@@ -132,7 +134,7 @@ export function TiraDialogo() {
         </button>
         {/* Las opciones: etiquetas de papel pegadas al borde derecho (encima, si no caben). */}
         {opciones && (
-          <ul className="pointer-events-auto absolute flex flex-col gap-1 max-sm:right-0 max-sm:bottom-full max-sm:mb-8 max-sm:items-end sm:top-0 sm:left-full sm:-ml-0.5" role="listbox" aria-label="Opciones">
+          <ul className="pointer-events-auto absolute flex flex-col gap-1 max-lg:right-0 max-lg:bottom-full max-lg:mb-8 max-lg:items-end lg:top-0 lg:left-full lg:-ml-0.5" role="listbox" aria-label="Opciones">
             {opciones.map((o, i) => (
               <li key={o.id}>
                 <button
@@ -142,7 +144,7 @@ export function TiraDialogo() {
                   data-on={i === d.elegida || undefined}
                   onClick={() => elegirOpcion(o.id)}
                   onMouseEnter={() => i !== d.elegida && moverOpcion(i - d.elegida)}
-                  className={`flex items-center gap-1 border-2 border-l-0 border-cozy-wood py-1 pr-2.5 pl-2 text-[13px] whitespace-nowrap text-cozy-ink shadow-[2px_2px_0_var(--color-cozy-frame)] max-sm:border-l-2 ${
+                  className={`flex items-center gap-1 border-2 border-l-0 border-cozy-wood py-1 pr-2.5 pl-2 text-[13px] whitespace-nowrap text-cozy-ink shadow-[2px_2px_0_var(--color-cozy-frame)] max-lg:border-l-2 ${
                     i === d.elegida ? "bg-cozy-paper-dark outline-2 outline-cozy-red" : "bg-cozy-paper"
                   }`}
                 >
