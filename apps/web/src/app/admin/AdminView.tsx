@@ -6,10 +6,11 @@ import { asAvatar, asLook } from "@/lib/current-user";
 import { revokeInvite, saveCasinoSettingsAction } from "./actions";
 import { InviteForm } from "./InviteForm";
 import { OfficeAssign } from "./OfficeAssign";
+import { DarPuntos } from "./DarPuntos";
 import { PermisosAdmin } from "./PermisosAdmin";
 
 export interface AdminData {
-  users: { id: string; name: string; email: string; role: string; avatar: string; look: unknown; onboardedAt: Date | null }[];
+  users: { id: string; name: string; email: string; role: string; avatar: string; look: unknown; onboardedAt: Date | null; points: number }[];
   invites: { id: string; email: string; role: string }[];
   offices: { zoneId: string; name: string; ownerId: string | null; isLocked: boolean }[];
   casino: CasinoSettingsDTO;
@@ -17,7 +18,7 @@ export interface AdminData {
 }
 
 /** Vista de administración del equipo (los datos los carga la página). */
-export function AdminView({ users, invites, offices, casino, permisos, embedded = false }: AdminData & { embedded?: boolean }) {
+export function AdminView({ users, invites, offices, casino, permisos, embedded = false, meId }: AdminData & { embedded?: boolean; meId: string }) {
   return (
     <main className={`cozy-void min-h-full font-pixel text-cozy-ink ${embedded ? "px-5 py-6 sm:px-8" : "px-6 py-8 sm:px-10 md:px-14 md:py-10"}`}>
       <div className="mx-auto flex max-w-3xl flex-col gap-8">
@@ -79,6 +80,10 @@ export function AdminView({ users, invites, offices, casino, permisos, embedded 
           </p>
         </Section>
 
+        <Section title="Dar puntos">
+          <DarPuntos users={users} meId={meId} />
+        </Section>
+
         <Section title="Oficinas" count={offices.length}>
           <p className="text-[13px] text-cozy-ink-soft">
             Se asignan solas al primer ingreso (la primera libre). Los cambios se ven en la cabaña al instante.
@@ -113,6 +118,7 @@ export function AdminView({ users, invites, offices, casino, permisos, embedded 
                 <span className="min-w-0 flex-1 truncate">
                   <span className="font-semibold">{u.name || "—"}</span> <span className="text-cozy-ink-soft">· {u.email}</span>
                 </span>
+                <span className="text-[13px] tabular-nums text-cozy-ink-soft">{u.points.toLocaleString("es-CO")} puntos</span>
                 {!u.onboardedAt && <span className="text-[13px] text-cozy-ink-soft">sin perfil</span>}
                 <RoleBadge role={u.role} />
               </Row>

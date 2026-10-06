@@ -141,3 +141,19 @@ export interface MissionDTO {
   createdAt: string;
   completedAt: string | null;
 }
+
+/** Dar puntos desde /admin (VIR-185): motivo ADMIN, con un tope por vez para que un cero de más no se cuele. */
+export const DAR_PUNTOS = {
+  max: 100_000,
+  /** Los atajos del formulario. */
+  atajos: [1_000, 5_000, 10_000, 50_000],
+} as const;
+
+export const DarPuntosBody = z.object({
+  userId: z.string().min(1),
+  amount: z.number().int().min(1).max(DAR_PUNTOS.max),
+});
+export type DarPuntosBody = z.infer<typeof DarPuntosBody>;
+
+/** `refId` del movimiento: quién lo dio y cuándo (cada vez es un movimiento nuevo, nunca se repite). */
+export const darPuntosRef = (adminId: string, now: number) => `admin:dar:${adminId}:${now}`;
