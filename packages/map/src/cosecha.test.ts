@@ -3,7 +3,7 @@
 // ahuyamas pesadas en la mano).
 import { COSECHA_PUESTOS, COSECHA_SITIOS, ahuyamaId, puestoPunto } from "@hyvento/shared";
 import { afterEach, describe, expect, it } from "vitest";
-import { drawMula } from "./art/cosecha";
+import { COSECHA_FRAMES, cosechaSprite, drawMula } from "./art/cosecha";
 import { drawFurniture, hasDrawing } from "./art/furniture";
 import { cropSprite, bedCropSprite } from "./art/huerto";
 import { drawHeldItem } from "./art/items";
@@ -77,14 +77,20 @@ describe("la decoración de la Feria de la cosecha", () => {
 });
 
 describe("el arte de la Feria de la cosecha", () => {
-  it("cada mueble tiene su dibujo; la olla cambia de noche", () => {
+  it("cada mueble tiene su dibujo y lo que se mueve tiene cuadros distintos con el mismo lienzo", () => {
     for (const type of Object.keys(COSECHA_CATALOG)) {
       expect(hasDrawing(type), type).toBe(true);
       expect(opaque(drawFurniture(type, "front").canvas), type).toBeGreaterThan(80);
     }
-    const dia = drawFurniture("olla-sancocho", "front", false).canvas;
-    const noche = drawFurniture("olla-sancocho", "front", true).canvas;
-    expect(dia.data.some((v, i) => v !== noche.data[i])).toBe(true);
+    for (const [type, n] of Object.entries(COSECHA_FRAMES)) {
+      const a = cosechaSprite(type, 0);
+      for (let k = 1; k < n; k++) {
+        const b = cosechaSprite(type, k);
+        expect([b.canvas.width, b.canvas.height, b.ox, b.oy], `${type} ${k}`).toEqual([a.canvas.width, a.canvas.height, a.ox, a.oy]);
+      }
+      const siguiente = cosechaSprite(type, 1).canvas.data;
+      expect(a.canvas.data.some((v, i) => v !== siguiente[i]), type).toBe(true);
+    }
     // Los cinco toldos son distintos.
     const toldos = Object.keys(COSECHA_CATALOG).filter((t) => t.startsWith("puesto-cosecha-")).map((t) => Array.from(drawFurniture(t, "front").canvas.data).join(","));
     expect(new Set(toldos).size).toBe(5);

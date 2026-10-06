@@ -20,6 +20,7 @@ import { AGUA_CATALOG } from "../src/world/catalog-agua";
 import { BRUJAS_CATALOG } from "../src/world/catalog-brujas";
 import { BUS_CATALOG } from "../src/world/catalog-bus";
 import { CARNAVAL_CATALOG } from "../src/world/catalog-carnaval";
+import { COSECHA_CATALOG } from "../src/world/catalog-cosecha";
 import { CASA_ARBOL_CATALOG } from "../src/world/catalog-casa-arbol";
 import { CASA_PROPIA_CATALOG } from "../src/world/catalog-casa-propia";
 import { CASA_CATALOG } from "../src/world/catalog-casa";
@@ -68,6 +69,7 @@ const SUBCATALOGS: Record<string, object> = {
   "casa-propia": CASA_PROPIA_CATALOG,
   brujas: BRUJAS_CATALOG,
   carnaval: CARNAVAL_CATALOG,
+  cosecha: COSECHA_CATALOG,
   velitas: VELITAS_CATALOG,
   feria: FERIA_CATALOG,
   novenas: NOVENAS_CATALOG,

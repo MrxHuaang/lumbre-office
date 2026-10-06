@@ -1,15 +1,20 @@
 // La Feria de la cosecha en la escena: sobre la olla del sancocho, la barra pixel de lo que lleva y lo que
 // falta (cada ingrediente con su dibujito y su rayita de avance, las ollas de la feria como puntos; dorada
-// mientras hierve), y la música del baile del atardecer, que suena más fuerte cerca del patio. Lo de la olla
-// sale de `useCosechaStore` (cosecha.ts); la hora, del reloj del juego.
-import { type OfficeMap } from "@hyvento/map";
-import { drawHeldItem, PixelCanvas } from "@hyvento/map/art";
-import { COSECHA, COSECHA_SITIOS, OLLA_RECETA, cosechaActiva } from "@hyvento/shared";
+// mientras hierve), y la música del baile del atardecer, que suena más fuerte cerca del patio (desde las
+// 17:00 del juego, o desde que el director arrancó el baile). También avisa si estoy en la pista del patio
+// (el chip de "Bailar"). Lo de la olla sale de `useCosechaStore` (cosecha.ts); la hora, del reloj del juego.
+// Y lo que se mueve de la decoración (lo colgado de los puestos y del arco, la candela y el vapor de la olla,
+// el tambor de la tómbola): cada mueble tiene sus cuadros (`COSECHA_FRAMES`) y aquí solo se le cambia la
+// textura, con su desfase; con "menos movimiento", quietos.
+import { type OfficeMap, type PlacedFurniture } from "@hyvento/map";
+import { COSECHA_FRAMES, cosechaSprite, drawHeldItem, PixelCanvas } from "@hyvento/map/art";
+import { COSECHA, COSECHA_SITIOS, OLLA_RECETA, cosechaActiva, enLaPista } from "@hyvento/shared";
 import type * as Phaser from "phaser";
 import { CuerdasCosecha } from "./cosecha/musica";
 import { setCosechaMap, useCosechaStore } from "./cosecha";
 import { currentGameTime } from "./gameClock";
-import { depthOf, ensureTexture, worldToScreen } from "./iso/view";
+import { depthOf, ensureTexture, worldToScreen, type AreaView } from "./iso/view";
+import { lessMotion } from "@/lib/prefs";
 import { useOfficeStore } from "./store";
 
 type RGBA = [number, number, number, number];
@@ -20,6 +25,10 @@ const PAPEL: RGBA = [247, 235, 200, 255];
 const VERDE: RGBA = [95, 168, 62, 255];
 const ORO: RGBA = [243, 214, 114, 255];
 const VACIO: RGBA = [90, 60, 40, 255];
+
+/** Cuánto dura cada cuadro de lo que se mueve (ms). */
+const CUADRO_MS = 200;
+const texturaDe = (type: string, k: number) => `cosecha-decor-${type}-${k}`;
 
 /** Cuánto se ve la barra (tiles) y hasta dónde llega la música del patio. */
 const BARRA_TILES = 13;
@@ -71,11 +80,21 @@ export class CosechaViva {
   private img?: Phaser.GameObjects.Image;
   private key = "";
   private musica = new CuerdasCosecha();
+  private view?: AreaView;
+  private piezas: { f: PlacedFurniture; n: number; desfase: number; img?: Phaser.GameObjects.Image; cuadro: number }[] = [];
+  private reloj = 0;
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  setArea(map: OfficeMap) {
+  setArea(map: OfficeMap, view: AreaView) {
     this.map = map;
+    this.view = view;
+    this.piezas = map.furniture
+      .filter((f) => (COSECHA_FRAMES[f.type] ?? 0) > 1)
+      .map((f) => ({ f, n: COSECHA_FRAMES[f.type]!, desfase: (f.x * 7 + f.y * 3) % 4, cuadro: 0 }));
+    // Las texturas de los cuadros se arman una vez por tipo (el cuadro 0 es el del catálogo).
+    for (const type of new Set(this.piezas.map((p) => p.f.type)))
+      for (let k = 0; k < COSECHA_FRAMES[type]!; k++) ensureTexture(this.scene, texturaDe(type, k), () => cosechaSprite(type, k).canvas);
     setCosechaMap(map);
     const f = map.furniture.find((p) => p.type === "olla-sancocho");
     this.olla = f ? { x: f.x, y: f.y } : undefined;
@@ -86,22 +105,41 @@ export class CosechaViva {
     this.img?.setVisible(false);
   }
 
-  update(me: { x: number; y: number } | undefined) {
+  /** Pasa los cuadros de lo que se mueve. */
+  private animar(delta: number) {
+    if (!this.piezas.length || !this.view || lessMotion()) return;
+    this.reloj += delta;
+    const paso = Math.floor(this.reloj / CUADRO_MS);
+    for (const p of this.piezas) {
+      const cuadro = (paso + p.desfase) % p.n;
+      if (cuadro === p.cuadro) continue;
+      p.img ??= this.view.imageOf(p.f);
+      if (!p.img) continue;
+      p.cuadro = cuadro;
+      p.img.setTexture(texturaDe(p.f.type, cuadro));
+    }
+  }
+
+  update(me: { x: number; y: number } | undefined, delta: number) {
+    this.animar(delta);
     const map = this.map;
     const fest = useOfficeStore.getState().festival;
     const abierta = cosechaActiva(fest.id, fest.fase);
     const ts = map?.tileSize ?? 32;
     // La música del baile: desde el atardecer, en el jardín, más fuerte cerca del patio.
     const t = currentGameTime();
+    const st = useCosechaStore.getState();
     let vol = 0;
-    if (abierta && map?.id === "jardin" && me && t && t.minuteOfDay >= COSECHA.musicaDesde) {
+    const enJardin = abierta && map?.id === "jardin" && Boolean(me);
+    const pista = enJardin && st.baile && enLaPista(me!.x / ts, me!.y / ts);
+    if (pista !== st.enPista) useCosechaStore.setState({ enPista: pista });
+    if (enJardin && me && ((t && t.minuteOfDay >= COSECHA.musicaDesde) || st.baile)) {
       const p = COSECHA_SITIOS.patio;
       const d = Math.hypot(me.x / ts - p.x, me.y / ts - p.y);
       vol = Math.max(0, 1 - d / MUSICA_TILES) * 0.55;
     }
     this.musica.update(vol);
     // La barra de la olla: solo cerca y con la olla todavía andando.
-    const st = useCosechaStore.getState();
     const o = this.olla;
     if (!abierta || !o || !me || st.ollaFase === "acabada" || Math.hypot(me.x / ts - (o.x + 1), me.y / ts - (o.y + 1)) > BARRA_TILES) return this.hide();
     const hirviendo = st.ollaFase === "hirviendo";

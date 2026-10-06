@@ -70,7 +70,7 @@ import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
 import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
 import { FeriaPanel } from "./FeriaPanel";
-import { CosechaPanel } from "./CosechaPanel";
+import { BaileCosechaPrompt, CosechaPanel } from "./CosechaPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { TiraDialogo } from "./dialogo/TiraDialogo";
@@ -351,6 +351,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotePrompt />
             <BrujasTrickPrompt />
             <ComparsaPrompt />
+            <BaileCosechaPrompt />
             <SeatPrompt />
             <InteractPrompt />
             <MarshmallowStrip />

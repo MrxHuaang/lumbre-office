@@ -1,7 +1,8 @@
 // La Feria de la cosecha en el navegador (ver cosecha.ts de @hyvento/shared y rooms/cosecha.ts del
 // servidor): lo que publica la sala en `state.cosecha` (la olla, las ahuyamas del concurso, las boletas y los
 // ganadores), lo mío de esta feria, los pedidos (vender, comprar, aportar, pesar, boleta) con sus respuestas
-// y la E de los puestos del mercado (cada puesto abre su panel). Todo lo decide el servidor.
+// y la E de los puestos del mercado (cada puesto abre su panel), y el baile del patio (si va, si estoy en la
+// pista y cómo voy). Todo lo decide el servidor.
 import { INTERACT_REACH_TILES, pointsOfType, puestoDePunto, type OfficeMap } from "@hyvento/map";
 import {
   APORTAR_ERROR_TEXT,
@@ -18,6 +19,7 @@ import {
   pesoTexto,
   puestoById,
   type AportarResult,
+  type BaileProgreso,
   type BoletaResult,
   type ComprarResult,
   type CosechaMine,
@@ -28,7 +30,7 @@ import {
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { create } from "zustand";
-import { getRoom, onInteract, type OfficeRoom } from "./network";
+import { getRoom, onInteract, sendEmote, type OfficeRoom } from "./network";
 import { useOfficeStore } from "./store";
 
 export interface AhuyamaView {
@@ -49,6 +51,11 @@ interface CosechaStore {
   ganadorAhuyama: string;
   ganadorDag: number;
   ganadorTombola: string;
+  /** Va el baile del patio (lo dice el servidor) y si estoy en la pista (lo mira la escena). */
+  baile: boolean;
+  enPista: boolean;
+  /** El último paso que contó (para el chip: "en pareja"). */
+  pareja: boolean;
   mine: CosechaMine;
   /** El puesto que se abrió con E (el panel muestra ese). */
   puesto: string;
@@ -68,7 +75,10 @@ export const useCosechaStore = create<CosechaStore>(() => ({
   ganadorAhuyama: "",
   ganadorDag: 0,
   ganadorTombola: "",
-  mine: { vendido: 0, boletas: 0, dag: 0 },
+  baile: false,
+  enPista: false,
+  pareja: false,
+  mine: { vendido: 0, boletas: 0, dag: 0, pasos: 0, bailado: false },
   puesto: COSECHA_PUESTOS[0]!.id,
   last: null,
 }));
@@ -84,6 +94,8 @@ export const sendComprar = (puesto: string, item: string) => getRoom()?.send(COS
 export const sendAportar = (item: string, n: number) => getRoom()?.send(COSECHA_MSG.aportar, { item, n });
 export const sendPesar = () => getRoom()?.send(COSECHA_MSG.pesar, {});
 export const sendBoleta = () => getRoom()?.send(COSECHA_MSG.boleta, {});
+/** Un paso del baile: el emote "Bailar" (el servidor cuenta los de la pista del patio). */
+export const bailarBambuco = () => sendEmote("dance");
 
 /** El nivel que se ve (lo pone la escena con la capa de la olla, cosechaOlla.ts). */
 let currentMap: OfficeMap | null = null;
@@ -131,6 +143,7 @@ export function bindCosecha(r: OfficeRoom) {
     ganadorAhuyama: string;
     ganadorDag: number;
     ganadorTombola: string;
+    baile: boolean;
   };
   const push = () => {
     const c = (r.state as unknown as { cosecha?: Remote }).cosecha;
@@ -149,6 +162,7 @@ export function bindCosecha(r: OfficeRoom) {
       ganadorAhuyama: c.ganadorAhuyama,
       ganadorDag: c.ganadorDag,
       ganadorTombola: c.ganadorTombola,
+      baile: Boolean(c.baile),
     });
   };
   ($(r.state) as unknown as { listen(field: string, cb: (v: Remote | undefined) => void): () => void }).listen("cosecha", (c) => {
@@ -199,6 +213,15 @@ export function bindCosecha(r: OfficeRoom) {
     done("boleta", res.ok);
     if (res.ok) notify(`Boleta ${res.n} de la tómbola. ¡Suerte en el sorteo del cierre!`, "success");
     else notify(BOLETA_ERROR_TEXT[res.error], res.error === "max" ? "info" : "warning");
+  });
+  r.onMessage(COSECHA_MSG.baile, (b: BaileProgreso) => {
+    const { mine } = useCosechaStore.getState();
+    useCosechaStore.setState({ pareja: b.pareja, mine: { ...mine, pasos: b.pasos, bailado: b.pasos >= b.meta } });
+    if (b.pasos >= b.meta)
+      notify(
+        b.premio ? `¡Bailó el bambuco de la cosecha! Doña Rubiela aplaude: +${b.premio} puntos.` : "¡Bailó el bambuco de la cosecha! Doña Rubiela aplaude desde la olla.",
+        "success",
+      );
   });
   r.onMessage(COSECHA_MSG.servido, (s: SancochoServido) =>
     notify(s.plato ? "Doña Rubiela le sirvió un plato de sancocho: está en la mochila. Cómaselo con F y le da energía para un buen rato." : "Le iban a servir sancocho, pero la mochila está llena.", s.plato ? "success" : "warning"),

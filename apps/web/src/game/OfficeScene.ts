@@ -858,7 +858,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.update();
     this.observatorio.update(time);
     this.maizal.update(this.local, delta);
-    this.cosechaViva.update(this.local);
+    this.cosechaViva.update(this.local, delta);
     this.decorCarnaval.update(delta);
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
@@ -981,7 +981,7 @@ export class OfficeScene extends Phaser.Scene {
       this.photoBoards.setArea(map);
       this.paintings.setArea(map);
       this.silletas.setArea(map);
-      this.cosechaViva.setArea(map);
+      this.cosechaViva.setArea(map, this.view);
       this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
       this.aquariums.setArea(map, this.view);
@@ -1077,6 +1077,7 @@ export class OfficeScene extends Phaser.Scene {
     this.photoBoards.setArea(map);
     this.paintings.setArea(map);
     this.silletas.setArea(map);
+    this.cosechaViva.setArea(map, this.view);
     this.treeLadder.setArea(map, this.view);
       this.busView.setArea(map);
     this.aquariums.setArea(map, this.view);

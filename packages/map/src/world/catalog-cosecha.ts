@@ -13,8 +13,9 @@ export const COSECHA_CATALOG = {
   "puesto-cosecha-verde": { name: "Puesto de granos y semillas", size: [2, 1], fixed: true, seeThrough: true },
   "puesto-cosecha-naranja": { name: "Puesto de las arepas de choclo", size: [2, 1], fixed: true, seeThrough: true },
   "puesto-cosecha-azul": { name: "Puesto de ahuyamas y canastos", size: [2, 1], fixed: true, seeThrough: true },
-  // La olla grande del sancocho sobre su fogón de piedras (de noche el fuego alumbra).
-  "olla-sancocho": { name: "Olla del sancocho", size: [2, 2], fixed: true, hasNight: true, light: { at: [16, 16, 4], ...FOGON } },
+  // La olla grande del sancocho sobre su fogón de piedras: la candela está prendida todo el día (se mueve
+  // con sus cuadros) y de noche alumbra el patio.
+  "olla-sancocho": { name: "Olla del sancocho", size: [2, 2], fixed: true, light: { at: [16, 16, 4], ...FOGON } },
   // La báscula de plataforma del concurso y el tablero con las más pesadas.
   bascula: { name: "Báscula del concurso", size: [2, 1], fixed: true },
   "tablero-cosecha": { name: "Tablero del concurso", size: [1, 1], fixed: true },

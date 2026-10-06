@@ -1,426 +1,969 @@
-// La Feria de la cosecha por código (VIR-169): los puestos del mercado campesino con su toldo de color, la
-// olla del sancocho sobre el fogón de piedras (de noche el fuego prendido), la báscula y el tablero del
-// concurso de la ahuyama, la tómbola de la junta con su ruleta, bultos de papa, canastos, el poste y el arco
-// de mazorcas, el canasto de mimbre, la carreta del premio y la Pinta, la mula de Don Ramiro. Coordenadas
-// locales de arte (tile = 16). Lo de enfrente mira a +y. Cálido y de otoño: madera, fique, mimbre, maíz y
-// ahuyamas; nada gris.
-import { Escena, type Tinte } from "./exterior-escena";
-import { C, OUT } from "./palette";
-import { PixelCanvas, alpha, at, hex, noise, ramp, type Ramp, type RGBA, type Sprite } from "./pixel";
+// La Feria de la cosecha (VIR-169, catálogo en world/catalog-cosecha.ts): el mercado campesino que el
+// festival pone en el jardín el 10 del otoño. Los cinco puestos (parales de rollizo, mostrador de tablas
+// ásperas, el toldo de lona a rayas con su festón de ondas, el letrero pintado a mano y lo de cada uno
+// encima y colgado), la olla del sancocho sobre el fogón de piedras con su leña, la candela y el vapor, la
+// báscula de plataforma con su reloj, el tablero del concurso, la tómbola de la junta con el tambor que
+// gira, bultos de papa, canastos, el poste y el arco de mazorcas, el canasto de mimbre, la carreta del
+// premio y la Pinta, la mula de Don Ramiro. Cálido y de otoño: madera, fique, mimbre, maíz y ahuyamas.
+//
+// Pixel art pintado a mano (docs/estandar-arte.md): lo chico (papas, yucas, mazorcas, ahuyamas, frutas,
+// arepas, costales, canastos, las piedras, la olla, el tambor, la mula) son grillas de letras con su leyenda
+// de materiales, que reciben la luz de arriba a la izquierda y el contorno cálido del material de al lado
+// (o van sombreadas a mano con dígitos, de 0 oscuro a 5 claro); lo grande (mostradores, toldos, la
+// plataforma de la báscula, el tablero, la mesa, la carreta, el arco) son caras isométricas pintadas píxel a
+// píxel con el lienzo de la decoración del Carnaval (carnaval-decor.ts). Lo que se mueve (lo colgado, la
+// candela, el vapor, el tambor) tiene cuadros (`COSECHA_FRAMES`) que el navegador pasa en bucle con
+// `cosechaSprite`. Coordenadas locales de arte (tile = 16).
+import { anchoTexto, apoya, humoPx, Lienzo, LLAMA_LEY, LLAMAS, mismoLienzo, tablas, tonos, type Ley, type Pinta } from "./carnaval-decor";
+import { C, mix } from "./palette";
+import { PixelCanvas, alpha, at, ramp, type Ramp, type RGBA, type Sprite } from "./pixel";
 
-const scene = (w: number, d: number, h: number, pad = 6) => new Escena({ x0: -pad, y0: -pad, z0: -4, x1: w * 16 + pad, y1: d * 16 + pad, z1: h }, 2);
-const flatT = (c: RGBA): Tinte => () => c;
+// ---------- Colores ----------
 
-const WOOD = C.wood;
-const DARK = C.woodDark;
-/** La ahuyama: de la sombra al brillo. */
-const AHUYAMA = ramp("#5a2a0a", "#9a4a12", "#c8661a", "#e8862a", "#f5a84a", "#ffd090");
-/** El maíz y su capacho. */
-const MAIZ = ramp("#6b4a12", "#a0741f", "#cfa033", "#e9c65a", "#f6de8c", "#fff2c0");
-const CAPACHO = ramp("#4a4a1a", "#6a6a2a", "#8a8a3a", "#b0a85a", "#d4c88a", "#ece4b0");
-/** La papa criolla y el fique de los bultos. */
-const PAPA = ramp("#5a3a12", "#8a5a1a", "#b8862a", "#d8aa42", "#ecc868", "#f7e08a");
+const MADERA = C.wood;
+const OSCURA = C.woodDark;
+const TRONCO = C.logs;
+const CREMA = C.cream;
+const HOJA = C.leaf;
+const BARRO = C.terracotta;
+/** El fique de los costales y la cabuya. */
 const FIQUE = ramp("#5a4428", "#7d6440", "#a8895a", "#c8aa78", "#e0c898", "#f2e2bc");
 /** El mimbre de los canastos. */
-const MIMBRE = C.cork;
-/** El toldo de cada puesto: de la sombra al brillo, con su raya clara. */
-const TOLDOS: Record<string, Ramp> = {
-  rojo: ramp("#5a1414", "#8a2020", "#b83a2a", "#d8503a", "#ef7a5a", "#ffb09a"),
+const MIMBRE = ramp("#5a3a1a", "#8a5a2a", "#b07a3a", "#cf9a52", "#e6bc78", "#f6dca6");
+/** La ahuyama: de la sombra al brillo. */
+const AHUYAMA = ramp("#5a2a0a", "#9a4a12", "#c8661a", "#e8862a", "#f5a84a", "#ffd090");
+/** El maíz amarillo, el blanco (el de las arepas) y el capacho. */
+const MAIZ = ramp("#6b4a12", "#a0741f", "#cfa033", "#e9c65a", "#f6de8c", "#fff2c0");
+const MAIZ_MORADO = ramp("#2a1430", "#4a2050", "#6a3070", "#8a4a8e", "#a86aa8", "#caa0c8");
+const CAPACHO = ramp("#4a4a1a", "#6a6a2a", "#8a8a3a", "#b0a85a", "#d4c88a", "#ece4b0");
+/** La papa criolla (amarilla) y la pastusa (rosada). */
+const PAPA = ramp("#5a3a12", "#8a5a1a", "#b8862a", "#d8aa42", "#ecc868", "#f7e08a");
+const PASTUSA = ramp("#4a2a1c", "#7a4a30", "#a06a48", "#c08a62", "#d8aa82", "#ecc8a2");
+/** La cáscara de la yuca. */
+const YUCA = ramp("#3a2414", "#5a3a22", "#7a5232", "#9a6c44", "#b88a5c", "#d4aa7c");
+const FRESA = ramp("#4a0e14", "#7a1820", "#b02a30", "#d8403e", "#f07060", "#ffb0a0");
+const LULO = ramp("#6a2a06", "#a0480e", "#d06a14", "#f08a1a", "#ffb04a", "#ffd890");
+const TOMATE = ramp("#4a1010", "#7a1c18", "#a82e22", "#d04a30", "#ec7a52", "#ffb08a");
+const PLATANO = ramp("#2a3a10", "#3e5a18", "#5a7e22", "#7aa032", "#a0c04a", "#cce07a");
+const FRIJOL = ramp("#3a0e10", "#5a1618", "#7e2420", "#a03a2c", "#c05a44", "#e08a6e");
+const ARVEJA = ramp("#1e3a14", "#2e5a1e", "#447a2a", "#5f9a3a", "#86bc56", "#b8de88");
+const AREPA = ramp("#6a4a12", "#a07a2a", "#d0a64a", "#ecc870", "#f6e09a", "#fff4cc");
+/** La olla tiznada del sancocho y el caldo amarillo. */
+const OLLA = ramp("#1e1614", "#2e221e", "#43332b", "#5a463b", "#7a6352", "#a08a74");
+const CALDO = ramp("#7a5a1a", "#a8842a", "#cfa840", "#e8c860", "#f6e08e", "#fff4c4");
+/** Las piedras del fogón (cálidas, de río). */
+const PIEDRA = ramp("#4a3426", "#6a4c38", "#8a6a50", "#a88a6a", "#c4a888", "#dcc8a8");
+/** El hierro pintado de verde de la báscula y de la tómbola, y el bronce de los herrajes. */
+const HIERRO = ramp("#142a1e", "#1e4030", "#2e5a44", "#42785a", "#66a07a", "#9ccaa6");
+const BRONCE = C.gold;
+const ROJO = ramp("#4a1010", "#7a1a1a", "#a82a24", "#d0402e", "#ec6a4a", "#ffa684");
+const AZUL = ramp("#14244a", "#1e3a73", "#2e58a0", "#4a7ac4", "#7aa4e0", "#c0d8f4");
+
+/** El toldo de cada puesto. */
+const TOLDO: Record<string, Ramp> = {
+  rojo: ramp("#4a1010", "#7a1c18", "#a82e24", "#cf4532", "#ec7458", "#ffac92"),
   amarillo: ramp("#6a4a0a", "#a0741a", "#d8a62a", "#f2c83a", "#ffe070", "#fff4c0"),
-  verde: ramp("#1f3a1c", "#2e5a2a", "#437a3a", "#5f9a4a", "#8abd6a", "#bfe0a0"),
+  verde: ramp("#1a3a1c", "#2a5a2a", "#3e7a36", "#58984a", "#84bc6a", "#bfe0a0"),
   naranja: ramp("#6a2a0a", "#a04a12", "#d06a1a", "#ec8a2a", "#ffb060", "#ffe0b0"),
-  azul: ramp("#14284a", "#1f3f73", "#2f5aa0", "#4a7ac4", "#7aa4e0", "#c0d8f4"),
+  azul: AZUL,
 };
-const RAYA = C.cream;
 
-/** Bolita con luz arriba a la izquierda (fruta, papa, piedra del fogón). */
-function ball(s: Escena, x: number, y: number, z: number, r: number, col: Ramp, rz = r, base = 2.4) {
-  for (let dz = -rz; dz <= rz; dz += 0.45)
-    for (let dy = -r; dy <= r; dy += 0.45)
-      for (let dx = -r; dx <= r; dx += 0.45) {
-        if ((dx * dx + dy * dy) / (r * r) + (dz * dz) / (rz * rz) > 1) continue;
-        const luz = (-dx - dy * 0.4 + dz * 1.2) / Math.max(r, rz);
-        s.plot(x + dx, y + dy, z + dz, at(col, base + luz * 1.4));
-      }
-}
+/** Cuántos cuadros tiene lo que se mueve. */
+const CUADROS = 4;
+/** El vaivén de lo colgado (píxeles hacia los lados, cuadro a cuadro). */
+const VAIVEN = [0, 1, 0, -1];
 
-/** Ahuyama: gajos marcados (los surcos más oscuros), achatada, con su tallito verde. */
-function ahuyama(s: Escena, x: number, y: number, z: number, r: number) {
-  const rz = r * 0.72;
-  for (let dz = -rz; dz <= rz; dz += 0.4)
-    for (let dy = -r; dy <= r; dy += 0.4)
-      for (let dx = -r; dx <= r; dx += 0.4) {
-        if ((dx * dx + dy * dy) / (r * r) + (dz * dz) / (rz * rz) > 1) continue;
-        const a = Math.atan2(dy, dx);
-        const surco = Math.abs(Math.sin(a * 4)) < 0.22 && dx * dx + dy * dy > r * r * 0.25;
-        const luz = (-dx - dy * 0.4 + dz * 1.3) / r;
-        s.plot(x + dx, y + dy, z + rz + dz, at(AHUYAMA, 2.5 + luz * 1.3 - (surco ? 1 : 0)));
-      }
-  for (let k = 0; k < 2; k += 0.4) s.plot(x + k * 0.3, y, z + rz * 2 + k, at(C.leaf, 2));
-}
+// ---------- Las grillas chicas ----------
 
-/** Mazorca acostada a lo largo de `ang` (radianes en el piso): granos amarillos y el capacho abierto atrás. */
-function mazorca(s: Escena, x: number, y: number, z: number, ang: number, len = 5) {
-  const ux = Math.cos(ang);
-  const uy = Math.sin(ang);
-  for (let t = 0; t < len; t += 0.35) {
-    const r = 1.05 - Math.abs(t / len - 0.45) * 0.6;
-    for (let a = 0; a < Math.PI * 2; a += 0.5) {
-      const ox = -uy * Math.cos(a) * r;
-      const oy = ux * Math.cos(a) * r;
-      const oz = Math.sin(a) * r;
-      const grano = Math.round(t * 2 + a * 2) % 2;
-      s.plot(x + ux * t + ox, y + uy * t + oy, z + r + oz, at(MAIZ, 2.4 + Math.sin(a) * 1.1 + grano * 0.4));
+/** Papas amontonadas (`P` la papa, `p` los ojitos). */
+const PAPAS = ["...oo.oo...", "..oPPoPPo..", ".oPPpPPPPo.", "oPPPPoPpPPo", "oPpPPPPPPPo", ".ooooooooo."];
+/** Una yuca acostada: la cáscara café y la punta cortada blanca. */
+const YUCA_G = ["..ooooooooo.", ".oYyYYYyYYwo", "oYYYYyYYYYwo", ".oooooooooo."];
+/** Una mazorca acostada con el capacho abierto a la derecha. */
+const MAZORCA_H = ["..ooooooo..", ".oMmMmMmMoH", "oMMMMMMMMHH", ".oMmMmMmMoH", "..ooooooo.."];
+/** Una mazorca colgada de su capacho (para las ristras). */
+const MAZORCA_V = [".HHH.", "oHHHo", ".oMo.", "oMmMo", "oMMMo", "oMmMo", "oMMMo", "oMmMo", ".ooo."];
+/** La ahuyama grande, sombreada a mano (gajos y su tallo). */
+const AHUYAMA_G = [
+  "......oGo......",
+  "...ooo3g3ooo...",
+  "..o5541443321o.",
+  ".o554413443211o",
+  "o5544314433211o",
+  "o4443213332210o",
+  ".o33321222110o.",
+  "..oo2211110oo..",
+  "....ooooooo....",
+];
+/** La ahuyama chiquita. */
+const AHUYAMA_CH = ["...oGo...", ".oo434oo.", "o5443432o", "o4432321o", ".o32221o.", "..ooooo.."];
+const ahuyamaLey: Ley = { ...tonos(AHUYAMA), G: [HOJA, 1.6], g: [HOJA, 3.2] };
+/** Fresas, lulos y tomates amontonados (`F` la fruta, `f` las pintas, `g` las hojitas). */
+const FRESAS = [".g.g..g..", "oFgFoFgFo", "oFfFFfFFo", ".ooo.ooo."];
+const BOLITAS = ["..o..o..", ".oFoFFo.", "oFfFFFfo", ".oooooo."];
+/** El racimo de plátano verde colgado de su tallo. */
+const RACIMO = ["....o....", "...oTo...", "..oTTTo..", ".oPoPoPo.", "oPPoPPoPo", "oPPoPPoPo", "oPpoPpoPo", ".oPooPoo.", "..o..o..."];
+/** La cebolla larga en atado: las hojas verdes y las cabezas blancas. */
+const CEBOLLAS = ["...o...", "..oGo..", ".oGGGo.", "oGgGgGo", "oGGgGGo", "oWGWGWo", "oWWWWWo", "oWwWwWo", ".o.o.o."];
+/** Una arepa de choclo, dorada y con las marcas del budare. */
+const AREPA_G = ["..oooo..", ".oAaAAo.", "oAAAAaAo", ".oooooo."];
+/** El budare de barro. */
+const BUDARE = ["...oooooooo...", ".oBBBBBBBBBBo.", "oBbBBBBBBBBbBo", ".oBBBBBBBBBBo.", "...oooooooo..."];
+/** El costal abierto con los granos (`X`) y el borde enrollado. */
+const COSTAL = [
+  "..ooooooo..",
+  ".oXxXXxXXo.",
+  "oSoXXxXXoSo",
+  "oSSoooooSSo",
+  "oSsSSSSSsSo",
+  "oSSSSsSSSSo",
+  "oSsSSSSSSSo",
+  "oSSSSSSSsSo",
+  ".oSSSSSSSo.",
+  "..ooooooo..",
+];
+/** El bulto de papa cerrado, amarrado con cabuya y con la raya roja del costal. */
+const BULTO = [
+  "......oo......",
+  ".....oCCo.....",
+  "....oCooCo....",
+  "....ooSSoo....",
+  "...oSSSSsSo...",
+  "..oSSsSSSSSo..",
+  ".oSSSSSSSsSSo.",
+  "oSSSsSSSSSSSSo",
+  "oRRRRRRRRRRRRo",
+  "oSSSSSSsSSSSSo",
+  "oSsSSSSSSSsSSo",
+  "oSSSSSSSSSSSSo",
+  "oSSsSSSSSSSsSo",
+  "oSSSSSSsSSSSSo",
+  ".oSSSSSSSSsSo.",
+  "..oooooooooo..",
+];
+/** El canasto de mimbre lleno (lo de arriba, `X`) con el tejido en rombos. */
+const CANASTO = [
+  "..ooooooooo..",
+  ".oXXoXXXoXXo.",
+  "oXXxXXXxXXXXo",
+  "oBbBbBbBbBbBo",
+  "obBbBbBbBbBbo",
+  "oBbBbBbBbBbBo",
+  ".obBbBbBbBbo.",
+  "..ooooooooo..",
+];
+/** El cajón de madera lleno. */
+const CAJON = [".oooooooooo.", "oXXxXXXxXXXo", "oXxXXXXXxXXo", "oMMMMMMMMMMo", "oMmMMmMMmMMo", "oMMMMMMMMMMo", "oMmMMmMMmMMo", ".oooooooooo."];
+/** Una piedra del fogón. */
+const PIEDRA_G = [".oooo.", "o5544o", "o4433o", "o3322o", ".oooo."];
+/** Una cinta azul de premio con sus colas. */
+const CINTA = [".ooo.", "oAaAo", "oaWao", "oAaAo", ".ooo.", "oA.Ao", "oA.Ao", ".o.o."];
+
+const papasLey = (R: Ramp): Ley => ({ P: [R, 3.6], p: [R, 1.6] });
+const yucaLey: Ley = { Y: [YUCA, 3.2], y: [YUCA, 2], w: [CREMA, 4.6] };
+const mazorcaLey = (R: Ramp = MAIZ): Ley => ({ M: [R, 3.6], m: [R, 2.4], H: [CAPACHO, 3.4] });
+const frutaLey = (R: Ramp): Ley => ({ F: [R, 3.4], f: [MAIZ, 4.6], g: [HOJA, 3.6] });
+const racimoLey: Ley = { P: [PLATANO, 3.4], p: [PLATANO, 2.2], T: [TRONCO, 3] };
+const cebollaLey: Ley = { G: [HOJA, 3.6], g: [HOJA, 2.4], W: [CREMA, 4.4], w: [ROJO, 4.4] };
+const arepaLey: Ley = { A: [AREPA, 3.8], a: [AREPA, 2.2] };
+const costalLey = (X: Ramp): Ley => ({ S: [FIQUE, 3.4], s: [FIQUE, 2.2], X: [X, 3.6], x: [X, 2.2] });
+const bultoLey: Ley = { S: [FIQUE, 3.4], s: [FIQUE, 2.2], C: [FIQUE, 1.6], R: [ROJO, 3.2] };
+const canastoLey = (X: Ramp): Ley => ({ B: [MIMBRE, 3.8], b: [MIMBRE, 2.4], X: [X, 3.6], x: [X, 2.2] });
+const cajonLey = (X: Ramp): Ley => ({ M: [MADERA, 3.8], m: [MADERA, 2.4], X: [X, 3.6], x: [X, 2.2] });
+const cintaLey: Ley = { A: [AZUL, 3.4], a: [AZUL, 2.2], W: [BRONCE, 4.4] };
+
+// ---------- Piezas pintadas comunes ----------
+
+/** Tablas ásperas paradas (el frente de un mostrador): juntas cada `ancho`, veta a lo largo y el filo de arriba. */
+const tablasParadas =
+  (R: Ramp, ancho: number, alto: number, base = 3.4): Pinta =>
+  (u, v) => {
+    const k = Math.floor(u / ancho);
+    const uu = u - k * ancho;
+    if (v > alto - 1) return at(R, base + 1.2);
+    if (uu < 0.8) return at(R, base - 1.8);
+    // Cada tabla con su tono, una veta y algún nudo, siempre en el mismo sitio.
+    const t = base + ((k * 7) % 3 === 0 ? 0.4 : (k * 7) % 3 === 1 ? -0.3 : 0);
+    if (Math.floor(uu) === 2 + (k % 2) && Math.floor(v) % 5 !== 0) return at(R, t - 0.7);
+    if ((k * 5 + 3) % 4 === 0 && Math.abs(v - (3 + (k % 3) * 2)) < 0.8 && uu > 2 && uu < 4) return at(R, t - 1.4);
+    return at(R, t);
+  };
+
+/**
+ * Un rollizo (un palo redondo con su corteza) parado desde (x, y, z0): tres píxeles con el lado claro a la
+ * izquierda y el oscuro a la derecha, nudos donde van y la punta cortada clara.
+ */
+function rollizo(L: Lienzo, x: number, y: number, z0: number, h: number) {
+  const b = L.p(x, y, z0);
+  const x0 = Math.round(b.x) - 1;
+  const y0 = Math.round(b.y);
+  const lado = [4.2, 3.1, 2];
+  for (let k = 0; k < h; k++)
+    for (let i = 0; i < 3; i++) {
+      const nudo = (k * 5 + i * 3) % 13 === 4;
+      L.set(x0 + i, y0 - 1 - k, at(TRONCO, lado[i]! - (nudo ? 1.3 : 0)));
     }
-  }
-  // El capacho: dos hojas que se abren desde la base.
-  for (const side of [-1, 1])
-    for (let t = 0; t < 3.2; t += 0.3) s.plot(x - ux * t * 0.6 - uy * side * t * 0.45, y - uy * t * 0.6 + ux * side * t * 0.45, z + 1 + t * 0.15, at(CAPACHO, 3 - t * 0.3));
+  L.set(x0, y0 - h - 1, at(MADERA, 4.6));
+  L.set(x0 + 1, y0 - h - 1, at(MADERA, 4));
+  L.set(x0 + 2, y0 - h - 1, at(MADERA, 3));
+  return { x: x0, top: y0 - h - 1 };
 }
 
-/** Mazorca colgada (para las guirnaldas): vertical, con el capacho hacia arriba. */
-function mazorcaColgada(s: Escena, x: number, y: number, z: number) {
-  for (let t = 0; t < 3.6; t += 0.4)
-    for (let a = 0; a < Math.PI * 2; a += 0.6) {
-      const r = 0.85 - Math.abs(t / 3.6 - 0.4) * 0.45;
-      s.plot(x + Math.cos(a) * r, y + Math.sin(a) * r, z - t, at(MAIZ, 2.4 + Math.sin(a + 0.8) * 1.2));
+/** Un palo acostado a lo largo de x (la leña, la vara de la carreta): caja delgada con la punta cortada. */
+function palo(L: Lienzo, x: number, y: number, z: number, largo: number, grueso = 2.4) {
+  L.caja(
+    x,
+    y,
+    z,
+    largo,
+    grueso,
+    grueso,
+    (u, v) => at(TRONCO, v > grueso - 0.9 ? 4.4 : (Math.floor(u) * 3) % 7 === 2 ? 2.6 : 3.6),
+    (u, v) => at(TRONCO, v > grueso - 0.9 ? 3.4 : (Math.floor(u) * 5) % 9 === 1 ? 1.6 : 2.6),
+    (_u, v) => at(MADERA, v > grueso - 0.9 ? 4.6 : 3.8),
+  );
+}
+
+/** El mismo palo a lo largo de y. */
+function paloY(L: Lienzo, x: number, y: number, z: number, largo: number, grueso = 2.4) {
+  L.caja(
+    x,
+    y,
+    z,
+    grueso,
+    largo,
+    grueso,
+    (u, v) => at(TRONCO, u < 0.9 ? 4.4 : (Math.floor(v) * 3) % 7 === 2 ? 2.6 : 3.6),
+    (_u, v) => at(MADERA, v > grueso - 0.9 ? 4.6 : 3.8),
+    (u, v) => at(TRONCO, v > grueso - 0.9 ? 2.8 : (Math.floor(u) * 5) % 9 === 1 ? 1.2 : 2),
+  );
+}
+
+/** Una ristra colgada desde un punto de pantalla: la cuerda de fique y las piezas que se mecen con el cuadro. */
+function ristra(L: Lienzo, sx: number, sy: number, n: number, f: number, fase: number, pieza: "mazorca" | "cebolla" | "racimo") {
+  const d = VAIVEN[(f + fase) % CUADROS]!;
+  L.linea(Math.round(sx), Math.round(sy), Math.round(sx) + d, Math.round(sy) + 3, at(FIQUE, 2));
+  if (pieza === "mazorca") {
+    for (let i = 0; i < n; i++) {
+      const R = i % 3 === 1 ? MAIZ_MORADO : MAIZ;
+      L.estampa(sx - 2 + d + (i % 2 ? 2 : -2), sy + 2 + i * 5, MAZORCA_V, mazorcaLey(R));
     }
-  for (const d of [-0.8, 0.8]) for (let t = 0; t < 1.6; t += 0.3) s.plot(x + d * t * 0.7, y, z + t * 0.5, at(CAPACHO, 3));
+  } else if (pieza === "cebolla") L.estampa(sx - 3 + d, sy + 2, CEBOLLAS, cebollaLey);
+  else L.estampa(sx - 4 + d, sy + 1, RACIMO, racimoLey);
 }
 
-/** Papas criollas regadas sobre una superficie (z). */
-function papitas(s: Escena, x: number, y: number, z: number, w: number, d: number, n: number, seed: number) {
-  for (let i = 0; i < n; i++) ball(s, x + noise(i, 1, seed) * w, y + noise(i, 2, seed) * d, z + 0.8 + noise(i, 3, seed) * 0.6, 0.9 + noise(i, 4, seed) * 0.35, PAPA, 0.8);
+/** Letras pintadas a mano sobre una tabla crema con su marco: el letrero de un puesto o del arco. */
+function letrero(L: Lienzo, xc: number, y: number, z: number, text: string, cols: Ramp[], alongX = true) {
+  const tw = anchoTexto(text);
+  const bw = tw + 6;
+  const hb = 11;
+  const x0 = xc - bw / 2;
+  // El canto de la tabla y la cara pintada.
+  L.plano([x0 + bw, y - 1.2, z], [0, 1, 0], [0, 0, 1], 1.2, hb, () => at(OSCURA, 2));
+  L.plano([x0, y, z], [1, 0, 0], [0, 0, 1], bw, hb, (u, v) => {
+    if (v < 1 || v > hb - 1 || u < 1 || u > bw - 1) return at(MADERA, v > hb - 1 ? 3.8 : u < 1 ? 3.4 : 2.4);
+    // La pintura crema, gastada en algunos sitios (asoma la madera).
+    if ((Math.floor(u) * 7 + Math.floor(v) * 3) % 23 === 0) return at(MADERA, 3.6);
+    return at(CREMA, v > hb - 2.2 ? 4.8 : 4.2);
+  });
+  const q = L.p(x0 + 3, y, z + hb - 2);
+  L.letras(q.x, q.y, text, cols.map((R) => at(R, 2.2)), alpha(at(OSCURA, 0), 0.5), alongX ? 0.5 : -0.5);
 }
 
-/** Canasto de mimbre (el tejido en rombos) lleno de `contenido`. */
-function canasto(s: Escena, x: number, y: number, r: number, h: number, contenido: "mazorcas" | "papas" | "ahuyamas" | "frutas", seed: number) {
-  s.roundShadow(x, y + 0.5, r + 0.6, 0.24);
-  s.cylinder(x, y, 0, r, h, (a, v, luz) => at(MIMBRE, 2.2 + luz + ((Math.round(a * 6 + v) + Math.round(a * 6 - v)) % 2 ? 0.5 : -0.3)));
-  s.disc(x, y, h, r, (dx, dy) => (dx * dx + dy * dy > (r - 0.7) * (r - 0.7) ? at(MIMBRE, 4) : at(MIMBRE, 0)));
-  if (contenido === "mazorcas") for (let k = 0; k < 4; k++) mazorca(s, x - r * 0.6 + k * 0.4, y - r * 0.5 + k * 0.5, h - 0.8 + k * 0.5, 0.6 + k * 0.5, r * 1.3);
-  else if (contenido === "papas") papitas(s, x - r * 0.7, y - r * 0.7, h - 1, r * 1.4, r * 1.4, 9, seed);
-  else if (contenido === "ahuyamas") {
-    ahuyama(s, x - 0.8, y - 0.4, h - 1.2, r * 0.55);
-    ahuyama(s, x + 1, y + 0.8, h - 1.2, r * 0.45);
-  } else
-    for (let i = 0; i < 9; i++) {
-      const col = [C.rug, AHUYAMA, TOLDOS.amarillo!, C.curtain][i % 4]!;
-      ball(s, x + (noise(i, 1, seed) - 0.5) * r * 1.3, y + (noise(i, 2, seed) - 0.5) * r * 1.3, h + 0.5 + noise(i, 3, seed), 0.9, col);
-    }
-}
+/** Pone una grilla con la base (abajo al centro) en el punto del mundo, con la luz automática. */
+const pon = (L: Lienzo, x: number, y: number, z: number, rows: readonly string[], ley: Ley, luz = true) => apoya(L, x, y, z, rows, ley, luz);
 
-// ---------- Los puestos del mercado ----------
+// ---------- 1. Los puestos del mercado ----------
 
-/** Lo que cada puesto tiene en el mostrador. */
-type Mercancia = "tuberculos" | "frutas" | "granos" | "arepas" | "ahuyamas";
-const PUESTO_DE: Record<string, Mercancia> = { rojo: "tuberculos", amarillo: "frutas", verde: "granos", naranja: "arepas", azul: "ahuyamas" };
-
-/** El puesto: cuatro parales, mostrador de tablas, lo que se vende encima y el toldo a rayas de su color. */
-function puesto(color: string): Sprite {
-  const toldo = TOLDOS[color]!;
-  const lo = PUESTO_DE[color]!;
-  const s = scene(2, 1, 50);
-  s.shadow(1, 1, 30, 15, 0.22);
-  for (const [x, y, h] of [[2, 2, 36], [29, 2, 36], [2, 14, 31], [29, 14, 31]] as const) s.solid(x, y, 0, 1.4, 1.4, h, at(DARK, 4), at(DARK, 3), at(DARK, 2));
-  // El mostrador de tablas (con un costal colgando del frente).
-  s.box(3, 8, 0, 26, 6, 12, flatT(at(WOOD, 4)), (u, v) => at(WOOD, 3 - (Math.floor(u / 2.6) % 2) * 0.7 - (v > 10.5 ? -1 : 0)), flatT(at(WOOD, 1)));
-  s.box(5, 14.1, 4, 7, 0.3, 6, null, (u, v) => at(FIQUE, 3 - ((Math.round(u * 2) + Math.round(v * 2)) % 2) * 0.4), null);
-  // La mercancía.
-  if (lo === "tuberculos") {
-    papitas(s, 5, 9, 12, 9, 4, 14, 3);
-    for (let k = 0; k < 3; k++) ball(s, 18 + k * 3, 10.5 + (k % 2), 13, 1.1, FIQUE, 0.9, 3);
-    // Cebollas largas: el tallo verde parado.
-    for (let k = 0; k < 4; k++) {
-      ball(s, 26 + (k % 2), 9.5 + k * 0.9, 12.8, 0.8, C.cream, 0.7, 3);
-      for (let z = 13.4; z < 19; z += 0.4) s.plot(26 + (k % 2) + (z - 13) * 0.08, 9.5 + k * 0.9, z, at(C.leaf, 3));
-    }
-  } else if (lo === "frutas") {
-    const cols = [C.rug, TOLDOS.amarillo!, AHUYAMA, C.curtain];
-    cols.forEach((col, i) => {
-      const x = 6.5 + i * 6.2;
-      s.box(x - 2.6, 9, 12, 5.2, 4, 1.4, flatT(at(MIMBRE, 4)), flatT(at(MIMBRE, 2)), flatT(at(MIMBRE, 1)));
-      for (let k = 0; k < 5; k++) ball(s, x - 1.5 + (k % 3) * 1.5, 10 + Math.floor(k / 3) * 1.6, 14.3, 0.85, col);
-    });
-  } else if (lo === "granos") {
-    // Costales abiertos de fríjol, maíz y semillas, y mazorcas arrumadas.
-    [PAPA, MAIZ, C.rug].forEach((col, i) => {
-      const x = 7 + i * 6.5;
-      s.cylinder(x, 11, 12, 2.4, 3.4, (_a, _v, luz) => at(FIQUE, 2.6 + luz));
-      s.disc(x, 11, 15.4, 2.2, (dx, dy) => at(col, 2.6 + noise(Math.round(dx * 3), Math.round(dy * 3), i) * 1.4));
-    });
-    for (let k = 0; k < 3; k++) mazorca(s, 23, 9 + k * 1.6, 12.2 + (k % 2) * 0.6, 0.15, 5);
-    // Los sobres de semillas colgados del travesaño.
-    s.box(2, 14.2, 26, 28.4, 1, 1.2, flatT(at(DARK, 4)), flatT(at(DARK, 3)), null);
-    for (let i = 0; i < 4; i++) s.box(6 + i * 6, 14.6, 21.6, 3, 0.4, 4, null, (u, v) => (v > 1.2 && v < 2.8 && u > 0.8 && u < 2.2 ? at(i % 2 ? PAPA : C.leaf, 3) : at(C.cream, v > 3.4 ? 2 : 4)), null);
-  } else if (lo === "arepas") {
-    // El budare negro con las arepas de choclo doraditas y un platón con más.
-    s.cylinder(10, 11, 12, 4.4, 1.2, (_a, _v, luz) => at(C.navy, 1.5 + luz));
-    s.disc(10, 11, 13.2, 4.4, () => at(C.navy, 1));
-    for (const [dx, dy] of [[-2, -1], [1.6, -1.4], [0, 1.6], [-2.4, 1.8]] as const) s.disc(10 + dx, 11 + dy, 13.6, 1.5, (x, y) => at(MAIZ, 3.4 - (x + y) * 0.3 + (x * x + y * y < 0.5 ? 0.8 : 0)));
-    s.cylinder(22, 11, 12, 3.6, 1, (_a, _v, luz) => at(C.cream, 3 + luz));
-    for (let k = 0; k < 4; k++) s.disc(22, 11, 13.2 + k * 0.6, 2.4, (x, y) => at(MAIZ, 3 - (x + y) * 0.25));
-    // El humito del budare.
-    for (let z = 15; z < 22; z += 0.8) s.plot(10 + Math.sin(z) * 0.6, 11, z, at(C.white, 4));
-  } else {
-    ahuyama(s, 7, 10.5, 12, 2.6);
-    ahuyama(s, 12.5, 11, 12, 2);
-    canasto(s, 20, 11, 2.6, 3, "papas", 7);
-    canasto(s, 26, 11, 2.2, 2.6, "mazorcas", 8);
-  }
-  // El toldo a rayas, de atrás (alto) hacia adelante (más bajo), con el borde de ondas.
-  const banda = (u: number) => (Math.floor(u / 3.8) % 2 ? RAYA : toldo);
-  s.quad([1, 1, 37.4], [1, 0, 0], [0, 1, -0.38], 30.4, 15.4, (u) => at(banda(u), 3));
-  for (let x = 1; x < 31.4; x += 0.4) {
-    const drop = 1.2 + Math.abs(Math.sin((x / 3.8) * Math.PI)) * 1.4;
-    for (let z = 0; z < drop; z += 0.4) s.plot(x, 16.4, 31.6 - z, at(banda(x - 1), 2));
-  }
-  return s.sprite();
-}
-
-// ---------- La olla del sancocho ----------
-
-/** El fuego del fogón: lenguas que suben entre los leños (de noche más vivas). */
-function fuego(s: Escena, cx: number, cy: number, z: number, night: boolean) {
-  for (let i = 0; i < (night ? 70 : 40); i++) {
-    const a = noise(i, 1, 4) * Math.PI * 2;
-    const r = noise(i, 2, 4) * 5;
-    const h = (1 - r / 5) * (night ? 5 : 3.4) * noise(i, 3, 4);
-    s.plot(cx + Math.cos(a) * r, cy + Math.sin(a) * r, z + h, at(C.fire, 1 + (h / 5) * 3 + (night ? 0.6 : 0)));
-  }
+interface PuestoOpts {
+  toldo: Ramp;
+  /** El letrero de encima del toldo y los colores de sus letras. */
+  texto: string;
+  letras: Ramp[];
+  /** Lo de encima del mostrador. */
+  mercancia: (L: Lienzo, zm: number) => void;
+  /** Lo que cuelga del palo de adelante del toldo (se mece). */
+  colgado: (L: Lienzo, xs: (x: number) => { x: number; y: number }, f: number) => void;
+  /** Lo del piso, en la punta del puesto. */
+  piso: (L: Lienzo, x: number) => void;
+  /** Lo que sale del puesto (el humo del budare). */
+  humo?: (L: Lienzo, zm: number, f: number) => void;
 }
 
 /**
- * La olla grande de aluminio tiznado sobre tres piedras y los leños, con el cucharón de palo y el vapor;
- * el sancocho se ve adentro (papa, mazorca, yuca, cilantro). De noche el fuego alumbra.
+ * Un puesto de mercado campesino: cuatro parales de rollizo, el mostrador de tablas ásperas, el toldo de lona
+ * a rayas de su color con el festón de ondas y la costura, el letrero pintado encima, lo de cada uno en el
+ * mostrador, lo colgado del palo de adelante y lo del piso en la punta. Quien lo atiende se para detrás (es
+ * gente de la fiesta). Mira a +y.
  */
-function olla(night: boolean): Sprite {
-  const s = scene(2, 2, 46, 8);
-  const cx = 16;
-  const cy = 16;
-  s.roundShadow(cx, cy + 1, 13, 0.28);
-  // Las piedras del fogón (de tierra quemada) y los leños que salen hacia afuera, con el fuego en la boca.
-  for (let k = 0; k < 9; k++) {
-    const a = (k / 9) * Math.PI * 2 + 0.2;
-    ball(s, cx + Math.cos(a) * 10.5, cy + Math.sin(a) * 10.5, 2.2, 2.6, C.terracotta, 2.2, 1.8);
-  }
-  for (const ang of [0.6, 1.5, 2.4]) for (let t = 5; t < 15; t += 0.4) for (const w of [-0.6, 0, 0.6]) s.plot(cx + Math.cos(ang) * t - Math.sin(ang) * w, cy + Math.sin(ang) * t + Math.cos(ang) * w, 1.2 + w * 0.3, at(C.logs, 2.4 + (t > 13 ? 1.2 : 0) + w));
-  fuego(s, cx + 3, cy + 6, 1.5, night);
-  fuego(s, cx + 6, cy + 2, 1.5, night);
-  // La olla: negra de hollín abajo, aluminio arriba, con el borde y las dos asas.
-  const r = 7.6;
-  s.cylinder(cx, cy, 5, r, 14, (_a, v, luz) => (v < 4 ? at(C.navy, 1 + luz * 0.6) : at(C.metal, 3 + luz * 1.2 + (v > 13 ? 1 : 0))));
-  s.disc(cx, cy, 19, r, (dx, dy) => {
-    const d = Math.hypot(dx, dy);
-    if (d > r - 0.8) return at(C.metal, 5);
-    // El caldo dorado con lo que flota.
-    const k = noise(Math.round(dx * 1.5), Math.round(dy * 1.5), 11);
-    return k < 0.12 ? at(C.leaf, 3) : k < 0.24 ? at(MAIZ, 4) : k < 0.34 ? at(C.cream, 4) : k < 0.42 ? at(PAPA, 4) : at(MAIZ, 2.4 + (dx + dy) * -0.05);
+function puesto(o: PuestoOpts, f: number): Sprite {
+  const len = 32;
+  const L = new Lienzo(2, 1, 96);
+  L.sombra(0, 0, len + 1, 18, 0.26);
+  const zm = 12;
+  const zA = 56;
+  const zF = 46;
+  const yF = 16.5;
+  const hasta = len - 8;
+  for (const x of [1.6, len - 1.6]) rollizo(L, x, 1.6, 0, zA - 1);
+  // El mostrador: el frente de tablas paradas, el costado y la tabla de encima con su filo.
+  L.caja(1.5, 7, 0, hasta - 1.5, 8, zm, null, tablasParadas(MADERA, 5, zm), (u, v) => at(OSCURA, v > zm - 1.2 ? 3.4 : Math.floor(u / 2.6) % 2 ? 2.6 : 2.2));
+  L.caja(0.8, 6.4, zm, hasta - 0.3, 9.2, 1.6, tablas(MADERA, 3, 4.1, 9, 9.2), (_u, v) => at(MADERA, v > 0.8 ? 4 : 3), () => at(MADERA, 2.2));
+  o.mercancia(L, zm + 1.6);
+  o.humo?.(L, zm + 1.6, f);
+  o.piso(L, hasta + 0.5);
+  for (const x of [1.6, len - 1.6]) rollizo(L, x, 15.4, 0, zF - 1);
+  // El toldo: franjas de lona que corren de atrás hacia adelante, con su costura y sus arrugas.
+  const ancho = 4;
+  const franja = (u: number) => (Math.floor(u / ancho) % 2 ? CREMA : o.toldo);
+  const pend = (zF - zA) / (yF + 0.5);
+  L.plano([-0.5, -0.5, zA], [1, 0, 0], [0, 1, pend], len + 1, yF + 0.5, (u, v) => {
+    const uu = u % ancho;
+    if (uu < 0.6) return at(franja(u), 2.4);
+    const arruga = Math.floor(v) % 7 === 4 && uu > 1.2 && uu < 3.2;
+    return at(franja(u), (v < 3 ? 4.6 : v < 10 ? 4.1 : 3.7) - (arruga ? 0.7 : 0) + (uu < 1.4 ? 0.3 : 0));
   });
-  for (const side of [-1, 1]) for (let t = -1.5; t <= 1.5; t += 0.3) s.plot(cx + side * (r + 0.8), cy + t, 17 + Math.cos(t) * 1.2, at(C.metal, 2));
-  // El cucharón de palo recostado.
-  for (let t = 0; t < 16; t += 0.4) s.plot(cx + 3 + t * 0.35, cy - 2 - t * 0.15, 18.5 + t * 0.9, at(WOOD, 3));
-  // El vapor: tres volutas que suben y se abren.
-  for (let k = 0; k < 3; k++)
-    for (let z = 0; z < 12; z += 0.5) {
-      const w = 0.6 + z * 0.12;
-      for (let d = -w; d <= w; d += 0.5) s.plot(cx - 3 + k * 3 + Math.sin(z * 0.6 + k) * 1.2 + d, cy - 1, 21 + z + k, alpha(at(C.white, 4), 0.55 - z * 0.035));
-    }
-  return s.sprite();
+  // El festón de ondas, al costado y al frente, con la costura de su color.
+  const alto = 6;
+  const onda = (u: number) => {
+    const t = ((u % ancho) / ancho) * 2 - 1;
+    return 2.2 + 2.6 * Math.sqrt(Math.max(0, 1 - t * t));
+  };
+  const feston = (u: number, v: number, luz: number): RGBA | null => {
+    const bajo = alto - v;
+    if (bajo > onda(u)) return null;
+    if (bajo < 0.9) return at(o.toldo, 2 + luz);
+    if (Math.abs(bajo - 1.7) < 0.4 && Math.floor(u) % 2 === 0) return at(CREMA, 4.6 + luz);
+    return at(franja(u), 3.4 + luz - (bajo > onda(u) - 0.9 ? 1.1 : 0));
+  };
+  L.plano([len + 0.5, -0.5, zA - alto], [0, 1, pend], [0, 0, 1], yF + 0.5, alto, (u, v) => feston(u, v, -1));
+  L.plano([-0.5, yF, zF - alto], [1, 0, 0], [0, 0, 1], len + 1, alto, (u, v) => feston(u, v, 0.3));
+  // Lo colgado del palo de adelante, por debajo del festón.
+  o.colgado(L, (x) => L.p(x, yF, zF - alto), f);
+  letrero(L, len / 2, 1.2, zA - 2, o.texto, o.letras);
+  return L.sprite();
 }
 
-// ---------- El concurso de la ahuyama ----------
+/** Los tubérculos de Chepe: papa criolla y pastusa, yucas, arracacha; cebolla larga colgada y un bulto. */
+function puestoTuberculos(f: number): Sprite {
+  return puesto(
+    {
+      toldo: TOLDO.rojo!,
+      texto: "PAPA",
+      letras: [ROJO, HIERRO],
+      mercancia: (L, zm) => {
+        pon(L, 5, 11, zm, CANASTO, canastoLey(PAPA));
+        pon(L, 5.5, 10.5, zm + 6, PAPAS, papasLey(PAPA));
+        pon(L, 12.5, 12, zm, YUCA_G, yucaLey);
+        pon(L, 13.5, 11, zm + 3, YUCA_G, yucaLey);
+        pon(L, 20, 11.5, zm, PAPAS, papasLey(PASTUSA));
+        pon(L, 19, 12.5, zm + 3, PAPAS, papasLey(PASTUSA));
+      },
+      colgado: (L, xs, f) => {
+        const a = xs(4);
+        const b = xs(14);
+        ristra(L, a.x, a.y, 1, f, 0, "cebolla");
+        ristra(L, b.x, b.y, 1, f, 2, "cebolla");
+      },
+      piso: (L, x) => {
+        pon(L, x + 3.5, 8, 0, BULTO, bultoLey);
+        pon(L, x + 5, 13.5, 0, PAPAS, papasLey(PAPA));
+      },
+    },
+    f,
+  );
+}
 
-/** La báscula de plataforma: el plato de tablas, la columna y el reloj del peso; encima, una ahuyama. */
+/** Las frutas de Luz Dary: fresas, lulos y tomates; el racimo de plátano colgado y un cajón en el piso. */
+function puestoFrutas(f: number): Sprite {
+  return puesto(
+    {
+      toldo: TOLDO.amarillo!,
+      texto: "FRUTAS",
+      letras: [ROJO, HIERRO, LULO],
+      mercancia: (L, zm) => {
+        pon(L, 5.5, 11, zm, CAJON, cajonLey(FRESA));
+        pon(L, 5.5, 10.5, zm + 8, FRESAS, frutaLey(FRESA));
+        pon(L, 13, 11.5, zm, CANASTO, canastoLey(LULO));
+        pon(L, 13, 11, zm + 6, BOLITAS, frutaLey(LULO));
+        pon(L, 20, 12, zm, BOLITAS, frutaLey(TOMATE));
+        pon(L, 19.5, 11, zm + 3, BOLITAS, frutaLey(TOMATE));
+      },
+      colgado: (L, xs, f) => {
+        const a = xs(6);
+        const b = xs(18);
+        ristra(L, a.x, a.y, 1, f, 1, "racimo");
+        ristra(L, b.x, b.y, 1, f, 3, "racimo");
+      },
+      piso: (L, x) => {
+        pon(L, x + 3.5, 8, 0, CAJON, cajonLey(LULO));
+        pon(L, x + 4.5, 13, 0, CAJON, cajonLey(FRESA));
+      },
+    },
+    f,
+  );
+}
+
+/** Granos y semillas de Doña Carmenza: costales abiertos de fríjol, maíz y arveja; mazorcas colgadas. */
+function puestoGranos(f: number): Sprite {
+  return puesto(
+    {
+      toldo: TOLDO.verde!,
+      texto: "GRANOS",
+      letras: [HIERRO, FRIJOL, MAIZ],
+      mercancia: (L, zm) => {
+        pon(L, 5, 11, zm, COSTAL, costalLey(FRIJOL));
+        pon(L, 12.5, 11.5, zm, COSTAL, costalLey(MAIZ));
+        pon(L, 20, 12, zm, COSTAL, costalLey(ARVEJA));
+        // La totuma con la que se mide, sobre el fríjol.
+        pon(L, 6, 12, zm + 9, [".ooo.", "o554o", "o433o", ".ooo."], tonos(MIMBRE), false);
+      },
+      colgado: (L, xs, f) => {
+        for (const [x, fase] of [
+          [3, 0],
+          [29, 2],
+        ] as const) {
+          const p = xs(x);
+          ristra(L, p.x, p.y, 3, f, fase, "mazorca");
+        }
+      },
+      piso: (L, x) => {
+        pon(L, x + 3.5, 8, 0, BULTO, { ...bultoLey, R: [HIERRO, 3.4] });
+        pon(L, x + 5, 13.5, 0, MAZORCA_H, mazorcaLey());
+      },
+    },
+    f,
+  );
+}
+
+/** Las arepas de choclo de la Profe Marina: el budare sobre el fogoncito, la pila de arepas y su humo. */
+function puestoArepas(f: number): Sprite {
+  return puesto(
+    {
+      toldo: TOLDO.naranja!,
+      texto: "AREPAS",
+      letras: [ROJO, HIERRO, MAIZ],
+      mercancia: (L, zm) => {
+        // El fogoncito de barro con la candela adelante y el budare encima, con tres arepas.
+        L.caja(13, 8, zm, 10, 7, 4, (u, v) => at(BARRO, u < 1 || v < 1 ? 3.4 : 4), (u, v) => at(BARRO, (Math.floor(u / 2.5) + Math.floor(v / 2)) % 2 ? 3 : 2.4), () => at(BARRO, 1.8));
+        pon(L, 18, 11.5, zm + 4, BUDARE, { B: [BARRO, 2.4], b: [BARRO, 1.4] });
+        pon(L, 16, 11, zm + 5, AREPA_G, arepaLey);
+        pon(L, 20, 12, zm + 5, AREPA_G, arepaLey);
+        // La pila de arepas en su plato y el quesito al lado.
+        pon(L, 6, 12, zm, [".oooooooo.", "oCCCCCCCCo", ".oooooooo."], { C: [CREMA, 4] });
+        for (let i = 0; i < 3; i++) pon(L, 6, 12, zm + 2 + i * 2, AREPA_G, arepaLey);
+        pon(L, 9.5, 10, zm, ["oooo", "oWWo", "oWwo", "oooo"], { W: [CREMA, 4.6], w: [CREMA, 3.4] });
+      },
+      humo: (L, zm, f) => {
+        const q = L.p(18, 11.5, zm + 6);
+        humoPx(L, q.x - 1, q.y - 2, f);
+        const r = L.p(15, 15, zm);
+        L.estampa(r.x - 2, r.y - 4, LLAMAS[f % 4]!, LLAMA_LEY, { luz: false });
+      },
+      colgado: (L, xs, f) => {
+        const p = xs(4);
+        ristra(L, p.x, p.y, 2, f, 1, "mazorca");
+      },
+      piso: (L, x) => {
+        pon(L, x + 3.5, 8, 0, CANASTO, canastoLey(MAIZ));
+        pon(L, x + 3.5, 7.5, 6, MAZORCA_H, mazorcaLey());
+        pon(L, x + 4.5, 13.5, 0, MAZORCA_H, mazorcaLey());
+      },
+    },
+    f,
+  );
+}
+
+/** Ahuyamas y canastos de Valentina: ahuyamas grandes en el mostrador y canastos de mimbre colgados. */
+function puestoAhuyamas(f: number): Sprite {
+  return puesto(
+    {
+      toldo: TOLDO.azul!,
+      texto: "CANASTOS",
+      letras: [AZUL, ROJO, HIERRO],
+      mercancia: (L, zm) => {
+        pon(L, 7, 11.5, zm, AHUYAMA_G, ahuyamaLey, false);
+        pon(L, 15, 12, zm, AHUYAMA_CH, ahuyamaLey, false);
+        pon(L, 19.5, 11, zm, AHUYAMA_G, ahuyamaLey, false);
+        pon(L, 13, 10, zm, AHUYAMA_CH, ahuyamaLey, false);
+      },
+      colgado: (L, xs, f) => {
+        // Los canastos que teje la abuela, vacíos y colgados de su asa.
+        for (const [x, fase] of [
+          [6, 0],
+          [20, 2],
+        ] as const) {
+          const p = xs(x);
+          const d = VAIVEN[(f + fase) % CUADROS]!;
+          L.linea(Math.round(p.x), Math.round(p.y), Math.round(p.x) + d, Math.round(p.y) + 3, at(FIQUE, 2));
+          L.estampa(p.x - 5 + d, p.y + 2, ["....ooo....", "...o...o...", "..o.....o..", ...CANASTO.slice(2).map((r) => r.slice(1, 12))], canastoLey(MIMBRE));
+        }
+      },
+      piso: (L, x) => {
+        pon(L, x + 4, 9, 0, AHUYAMA_G, ahuyamaLey, false);
+        pon(L, x + 4, 14, 0, AHUYAMA_CH, ahuyamaLey, false);
+      },
+    },
+    f,
+  );
+}
+
+// ---------- 2. La olla del sancocho ----------
+
+/** La olla tiznada vista desde arriba en 3/4: la boca con el caldo y lo que tiene, el aro, las orejas y el tizne. */
+const OLLA_G = [
+  "...........44444433333...........",
+  ".......4444111111111113333.......",
+  "....4441111111CCCCC1111111333....",
+  "...44111CCCcCCCCCCcCCCCCC11133...",
+  "..4411CCCCcCwwCCCcMMCCCCVCC1133..",
+  "..41CCCCCPPCCCCVcCmmCCCcCCCCC13..",
+  ".45CCCVCcPpCCCCcVCCCCCPPCCMCCc31.",
+  ".455CCCcCCCCCCcCCCCCCcPpCCmCc331.",
+  ".4455CcMmCCCCYYCCpCCcCCCCPCc3311.",
+  ".444555CCCCVcCCCPPCcVCCCCC333111.",
+  ".4444555555cCCCCCCcCCC3333211111.",
+  "a4444554444554444444332222211111a",
+  "a4444554444333333333222222211111a",
+  ".5555555555444444444333333322222.",
+  ".3333443333222222222111111100000.",
+  ".4444554444333333333222222211111.",
+  ".4444554444333333333222222211111.",
+  "..kkkkKkkkkKkkkkKkkkkKkkkkKkkkk..",
+  "..kkKkkkkKkkkkKkkkkKkkkkKkkkkKk..",
+  "...kkkkKkkkkKkkkkKkkkkKkkkkKkk...",
+  "....kKkkkkKkkkkKkkkkKkkkkKkkk....",
+  ".......kKkkkkKkkkkKkkkkKkk.......",
+  "...........KkkkkKkkkkK...........",
+];
+const OLLA_LEY: Ley = {
+  ...tonos(OLLA),
+  a: [OLLA, 1],
+  k: at(OLLA, 0),
+  K: mix(at(OLLA, 0), at(BARRO, 1), 0.4),
+  C: at(CALDO, 3),
+  c: at(CALDO, 2),
+  w: at(CALDO, 5),
+  P: at(PAPA, 4),
+  p: at(PAPA, 2),
+  Y: at(CREMA, 4),
+  M: at(MAIZ, 4),
+  m: at(MAIZ, 2),
+  V: at(HOJA, 3),
+};
+/** El cucharón de palo que sale de la olla. */
+const CUCHARON = ["....oo", "...oMo", "..oMo.", ".oMo..", "oMo...", "oo...."];
+/** La candela del fogón, grande (cuatro cuadros). */
+const CANDELA = [
+  ["...y......y...", "..yay..y.yay..", ".yaRay.yaRRy..", "yaRRRayaRRRay.", "RRRRRRRRRRRRRR"],
+  ["......y.......", ".y..yay...y...", "yay.yaRy.yay..", "yaRyaRRayaRay.", "RRRRRRRRRRRRRR"],
+  ["..y.......y...", ".yay...y.yay..", ".yaRy.yay.aRy.", "yaRRayaRRaRRy.", "RRRRRRRRRRRRRR"],
+  [".....y.....y..", "..y.yay...yay.", ".yayaRy..yaRy.", "yaRRaRRyyaRRay", "RRRRRRRRRRRRRR"],
+];
+
+/**
+ * La olla del sancocho: el fogón de piedras de río en redondo, la leña cruzada con la candela, la olla
+ * tiznada con el caldo, el cucharón de palo y el vapor; al lado, la leña arrumada. Ocupa 2x2.
+ */
+function ollaSancocho(f: number): Sprite {
+  const L = new Lienzo(2, 2, 70);
+  L.sombra(1, 1, 31, 31, 0.24);
+  // La leña arrumada en el rincón de atrás.
+  for (let i = 0; i < 3; i++) palo(L, 18 + (i % 2) * 2, 1 + i * 2.6, 0, 11, 2.6);
+  palo(L, 19, 2.3, 2.6, 10, 2.6);
+  // Las piedras de atrás del fogón, la leña cruzada y la candela.
+  const piedras = Array.from({ length: 10 }, (_, k) => {
+    const a = (k / 10) * Math.PI * 2 + 0.3;
+    return { x: 16 + Math.cos(a) * 9, y: 17 + Math.sin(a) * 9 };
+  }).sort((a, b) => a.x + a.y - (b.x + b.y));
+  const atras = piedras.filter((p) => p.x + p.y < 33);
+  const adelante = piedras.filter((p) => p.x + p.y >= 33);
+  for (const p of atras) pon(L, p.x, p.y, 0, PIEDRA_G, tonos(PIEDRA), false);
+  palo(L, 7, 15.5, 0.4, 17, 2.4);
+  paloY(L, 15, 7, 1.2, 17, 2.4);
+  // Las brasas rojas debajo y la candela que lame la olla.
+  const q = L.p(16, 17, 2);
+  for (let i = -6; i <= 6; i++) L.set(q.x + i, q.y + (Math.abs(i) > 4 ? 0 : 1), at(C.fire, 1 + ((i + f) % 3 === 0 ? 2 : 0)));
+  L.estampa(q.x - 7, q.y - 4, CANDELA[f % 4]!, LLAMA_LEY, { luz: false });
+  // La olla, sentada sobre las piedras.
+  const o = L.p(16, 17, 7);
+  L.estampa(o.x - 16, o.y - 22, OLLA_G, OLLA_LEY, { luz: false });
+  // El cucharón de palo y el vapor.
+  L.estampa(o.x + 5, o.y - 29, CUCHARON, { M: [MADERA, 3.8] });
+  humoPx(L, o.x - 6, o.y - 24, f);
+  humoPx(L, o.x + 3, o.y - 26, (f + 2) % 4);
+  for (const p of adelante) pon(L, p.x, p.y, 0, PIEDRA_G, tonos(PIEDRA), false);
+  return L.sprite();
+}
+
+// ---------- 3. La báscula y el tablero del concurso ----------
+
+/** El reloj de la báscula: la cara crema, las rayitas de los kilos, la aguja roja y el aro de bronce. */
+const RELOJ = [
+  "...ooooo...",
+  "..oBBBBBo..",
+  ".oBWWkWWBo.",
+  "oBWkWWWkWBo",
+  "oBWWWWWrWBo",
+  "oBkWWWrWkBo",
+  "oBWWWnWWWBo",
+  "oBWkWWWkWBo",
+  ".oBWWkWWBo.",
+  "..oBBBBBo..",
+  "...ooooo...",
+];
+const RELOJ_LEY: Ley = { B: [BRONCE, 3.6], W: at(CREMA, 4.6), k: at(OSCURA, 1), r: at(ROJO, 3), n: at(OSCURA, 0) };
+
+/**
+ * La báscula de plataforma del concurso: la plataforma de tablas con su marco de hierro verde, la columna con
+ * el reloj de cara al público y una ahuyama encima; la cinta azul colgada de un clavo.
+ */
 function bascula(): Sprite {
-  const s = scene(2, 1, 44);
-  s.shadow(2, 3, 28, 11, 0.24);
-  s.box(3, 3, 0, 20, 10, 3, (u, v) => at(WOOD, 4 - (Math.floor(u / 3) % 2) * 0.6 - (noise(Math.floor(u), Math.floor(v), 2) < 0.12 ? 1 : 0)), flatT(at(WOOD, 2)), flatT(at(WOOD, 1)));
-  ahuyama(s, 12, 8, 3, 4.2);
-  // La columna con el reloj (la aguja marca harto peso).
-  s.solid(25, 6, 0, 2.4, 2.4, 26, at(C.terracotta, 4), at(C.terracotta, 3), at(C.terracotta, 2));
-  s.box(23.6, 8.5, 26, 5.2, 0.6, 5.2, null, (u, v) => {
-    const dx = u - 2.6;
-    const dz = v - 2.6;
-    const d = Math.hypot(dx, dz);
-    if (d > 2.6) return null;
-    if (d > 2.1) return at(C.gold, 3);
-    // La aguja: del centro hacia arriba a la derecha.
-    if (Math.abs(dx * 0.8 - dz * 0.6) < 0.35 && dx > 0) return at(C.rug, 2);
-    return at(C.cream, 5);
-  }, null);
-  // La cinta azul del concurso amarrada a la columna.
-  for (let z = 16; z < 20; z += 0.4) s.plot(25 + (z - 16) * 0.2, 8.6, z, at(C.blue, 3));
-  for (let t = 0; t < 3; t += 0.4) {
-    s.plot(25.5 - t * 0.3, 8.7, 16 - t, at(C.blue, 2));
-    s.plot(26.2 + t * 0.2, 8.7, 16 - t, at(C.blue, 2));
+  const L = new Lienzo(2, 1, 60);
+  L.sombra(0.5, 1, 31, 15, 0.26);
+  // La columna de atrás (a la derecha), de hierro verde, con el reloj arriba.
+  L.caja(25, 3, 0, 4, 4, 34, (u, v) => at(HIERRO, u < 1 || v > 3 ? 4.6 : 4), (u, v) => at(HIERRO, v > 33 ? 4.4 : u < 1 ? 3.6 : 3), (_u, v) => at(HIERRO, v > 33 ? 3 : 2));
+  const r = L.p(27, 7, 32);
+  L.estampa(r.x - 6, r.y - 9, RELOJ, RELOJ_LEY, { luz: false });
+  L.estampa(r.x + 4, r.y + 4, CINTA, cintaLey, { luz: false });
+  // La plataforma: el marco de hierro y las tablas de encima.
+  L.caja(2, 4, 0, 22, 11, 3, null, (u, v) => at(HIERRO, v > 2 ? 4 : Math.floor(u) % 6 === 0 ? 2 : 3), (_u, v) => at(HIERRO, v > 2 ? 3 : 2));
+  L.caja(2.6, 4.6, 3, 20.8, 9.8, 0.8, tablas(MADERA, 2.4, 4, 3, 9.8), (_u, v) => at(MADERA, v > 0.4 ? 3.8 : 3), () => at(MADERA, 2.4));
+  // Los remaches de bronce en las esquinas del marco.
+  for (const x of [3, 22.8]) {
+    const p = L.p(x, 15, 2);
+    L.set(p.x, p.y, at(BRONCE, 4.6));
   }
-  return s.sprite();
+  pon(L, 13, 10, 3.8, AHUYAMA_G, ahuyamaLey, false);
+  pon(L, 19, 12.5, 3.8, AHUYAMA_CH, ahuyamaLey, false);
+  return L.sprite();
 }
 
-/** El tablero del concurso: la pizarra de madera en su caballete, con tres renglones de colores y la cinta. */
+/**
+ * El tablero del concurso: una pizarra verde enmarcada en madera sobre dos patas, con una ahuyama pintada
+ * arriba, las filas de los primeros puestos escritas con tiza y la cinta azul clavada.
+ */
 function tablero(): Sprite {
-  const s = scene(1, 1, 40);
-  s.roundShadow(8, 9, 5, 0.24);
-  for (const x of [3, 12]) s.solid(x, 9, 0, 1.2, 1.2, 30, at(DARK, 4), at(DARK, 3), at(DARK, 2));
-  s.box(1.5, 10.2, 12, 13, 1, 17, flatT(at(WOOD, 4)), (u, v) => {
-    if (u < 1 || u > 12 || v < 1 || v > 16) return at(WOOD, 2);
-    // Tres renglones: el oro, la plata y el bronce, cada uno con su ahuyamita y su peso de tiza.
-    const fila = Math.floor((16 - v) / 4.6);
-    const yv = (16 - v) % 4.6;
-    if (fila > 2 || yv < 1 || yv > 3.6) return at(C.green, 1);
-    if (u < 3.6) return at([C.gold, C.white, C.terracotta][fila]!, 3);
-    if (u > 5 && u < 7) return at(AHUYAMA, 3);
-    return u > 8 && Math.round(u * 2) % 2 ? at(C.cream, 4) : at(C.green, 1);
-  }, null);
-  // El copete de la cinta azul.
-  for (let a = 0; a < Math.PI * 2; a += 0.3) s.plot(8 + Math.cos(a) * 1.6, 11.4, 31 + Math.sin(a) * 1.6, at(C.blue, 3 + Math.sin(a)));
-  return s.sprite();
+  const L = new Lienzo(1, 1, 50);
+  L.sombra(1, 6, 14, 6, 0.24);
+  for (const x of [2.4, 13.6]) rollizo(L, x, 9, 0, 40);
+  const z0 = 12;
+  const alto = 26;
+  L.caja(1, 8, z0, 14, 1.4, alto, (_u, v) => at(MADERA, v > 0.7 ? 4.4 : 3.8), (u, v) => {
+    if (v < 1.4 || v > alto - 1.4 || u < 1.2 || u > 12.8) return at(MADERA, v > alto - 0.7 ? 4.4 : u < 0.6 ? 3.8 : 3);
+    const fila = Math.floor((alto - v - 8) / 4.2);
+    const vv = (alto - v - 8) - fila * 4.2;
+    // Las filas de tiza: el número y el nombre (rayitas), cada vez más cortas.
+    if (fila >= 0 && fila < 3 && vv > 1.4 && vv < 2.4) {
+      if (u > 2 && u < 3.2) return at(CREMA, 4.8);
+      if (u > 4.2 && u < 11.6 - fila * 1.8 && Math.floor(u * 1.4) % 4 !== 3) return at(CREMA, 4.2);
+    }
+    if (alto - v < 8) return at(MADERA, 4);
+    return at(HIERRO, 1.6 + ((Math.floor(u) + Math.floor(v)) % 5 === 0 ? 0.4 : 0));
+  }, (_u, v) => at(MADERA, v > alto - 0.7 ? 3.4 : 2.4));
+  // La ahuyama pintada en el encabezado y la cinta azul de la esquina.
+  const q = L.p(8, 9.4, z0 + alto - 1);
+  L.estampa(q.x - 4, q.y, AHUYAMA_CH, ahuyamaLey, { luz: false });
+  L.estampa(q.x + 2, q.y + 3, CINTA, cintaLey, { luz: false });
+  return L.sprite();
 }
 
-// ---------- La tómbola de la junta ----------
+// ---------- 4. La tómbola de la junta ----------
 
-/** La mesa con el mantel, la ruleta de colores parada en su soporte y la urna de boletas. */
-function tombola(): Sprite {
-  const s = scene(2, 1, 46);
-  s.shadow(1, 2, 30, 12, 0.24);
-  for (const [x, y] of [[3, 4], [28, 4], [3, 12], [28, 12]] as const) s.solid(x, y, 0, 1.4, 1.4, 11, at(WOOD, 3), at(WOOD, 2), at(WOOD, 1));
-  // El mantel verde de la junta con el fleco.
-  s.box(2, 3, 11, 28, 11, 1.4, flatT(at(C.green, 3)), (u, v) => at(C.green, v < 0.8 && Math.round(u * 2) % 2 ? 1 : 2), flatT(at(C.green, 1)));
-  // La ruleta: el disco de gajos de colores mirando a +y, con el clavito y la flecha arriba.
-  const cx = 10;
-  const cz = 23;
-  const R = 7;
-  s.solid(cx - 0.6, 8, 12.4, 1.2, 1.2, 4, at(DARK, 4), at(DARK, 3), at(DARK, 2));
-  const gajos = [TOLDOS.rojo!, TOLDOS.amarillo!, TOLDOS.verde!, TOLDOS.azul!, TOLDOS.naranja!, C.cream];
-  s.quad([cx - R, 8.6, cz - R], [1, 0, 0], [0, 0, 1], R * 2, R * 2, (u, v) => {
-    const dx = u - R;
-    const dz = v - R;
-    const d = Math.hypot(dx, dz);
-    if (d > R) return null;
-    if (d > R - 0.8) return at(C.gold, 3);
-    if (d < 0.9) return at(C.gold, 4);
-    const k = Math.floor(((Math.atan2(dz, dx) + Math.PI) / (Math.PI * 2)) * 12) % gajos.length;
-    return at(gajos[k]!, 3 + (dz > 0 ? 0.4 : -0.2));
+/** El tambor de la tómbola de lado, con las tablillas que corren al girar (cuadro `f`) y los aros de bronce. */
+function tambor(f: number): string[] {
+  const forma = [
+    "......oooooooo......",
+    "...oooRRRRRRRRooo...",
+    "..oRRRRRRRRRRRRRRo..",
+    ".oRRRRRRRRRRRRRRRRo.",
+    "oYYYYYYYYYYYYYYYYYYo",
+    "oRRRRRRRRRRRRRRRRRRo",
+    "oRRRRRRRRRRRRRRRRRRo",
+    "oRRRRRRRRRRRRRRRRRRo",
+    "oRRRRRRRRRRRRRRRRRRo",
+    "oRRRRRRRRRRRRRRRRRRo",
+    "oYYYYYYYYYYYYYYYYYYo",
+    ".oRRRRRRRRRRRRRRRRo.",
+    "..oRRRRRRRRRRRRRRo..",
+    "...oooRRRRRRRRooo...",
+    "......oooooooo......",
+  ];
+  // Las juntas de las tablillas bajan una fila por cuadro (el tambor gira hacia adelante); la puertica
+  // con su cerrojo sube y baja con ellas.
+  return forma.map((row, y) =>
+    [...row]
+      .map((ch, x) => {
+        if (ch !== "R") return ch;
+        if ((y + f) % 4 === 0) return "r";
+        if ((y + f) % 4 === 2 && x > 7 && x < 12) return x === 9 ? "Y" : "d";
+        return ch;
+      })
+      .join(""),
+  );
+}
+const TAMBOR_LEY: Ley = { R: [ROJO, 3.4], r: [ROJO, 1.8], d: [ROJO, 4.4], Y: [BRONCE, 4] };
+/** Las balotas de colores en su platón. */
+const BALOTAS = ["..o.o.o..", ".oRoYoBo.", "oWWWWWWWo", ".ooooooo."];
+
+/**
+ * La tómbola de la junta: la mesa con mantel de cuadros, el tambor rojo con aros de bronce sobre su
+ * caballete y la manivela que gira, el platón de balotas, la caja de las boletas y el letrero encima.
+ */
+function tombola(f = 0): Sprite {
+  const L = new Lienzo(2, 1, 76);
+  L.sombra(0.5, 1, 31, 15, 0.26);
+  // El letrero de la junta, bajito sobre dos palos detrás (no tapa los puestos de atrás).
+  for (const x of [5, 27]) rollizo(L, x, 1.5, 0, 38);
+  letrero(L, 16, 1.6, 34, "TOMBOLA", [ROJO, AZUL, HIERRO]);
+  // Las patas de la mesa.
+  for (const [x, y] of [
+    [2, 3],
+    [28.5, 3],
+    [2, 13],
+    [28.5, 13],
+  ] as const)
+    L.bloque(x, y, 0, 1.6, 1.6, 12, MADERA, -0.4);
+  // El mantel de cuadros rojos y crema que cae por el frente.
+  const cuadros: Pinta = (u, v) => ((Math.floor(u / 3) + Math.floor(v / 3)) % 2 ? at(CREMA, 4.4) : at(ROJO, 3.4));
+  L.caja(1, 2, 12, 30, 13, 1, cuadros, (u, v) => (v > 0.5 ? cuadros(u, 4) : at(ROJO, 2.4)), () => at(ROJO, 2));
+  L.plano([1, 15, 7], [1, 0, 0], [0, 0, 1], 30, 5, (u, v) => {
+    if (v < 0.8 && Math.floor(u) % 2) return null;
+    return (Math.floor(u / 3) + Math.floor(v / 3)) % 2 ? at(CREMA, 3.8) : at(ROJO, 3);
   });
-  for (let t = 0; t < 2.4; t += 0.3) s.plot(cx, 8.8, cz + R + 1.6 - t, at(C.rug, 2));
-  // La urna de vidrio con las boletas.
-  s.box(19, 6, 12.4, 7, 6, 7, (u, v) => at(C.sky, 4), (u, v) => (noise(Math.round(u * 2), Math.round(v * 2), 3) < 0.35 ? at(C.cream, 4) : at(C.sky, 3)), (u, v) => (noise(Math.round(u * 2), Math.round(v * 2), 4) < 0.3 ? at(TOLDOS.rojo!, 4) : at(C.sky, 2)));
-  return s.sprite();
+  // El tambor sobre su caballete: dos patas en A de madera a los lados, con el eje de bronce.
+  const zm = 13;
+  const c = L.p(14, 8, zm + 15);
+  L.estampa(c.x - 10, c.y - 7, tambor(f), TAMBOR_LEY);
+  for (const dx of [-12, 11]) {
+    L.linea(c.x + dx - 3, c.y + 13, c.x + dx, c.y, at(MADERA, 3.8));
+    L.linea(c.x + dx - 2, c.y + 13, c.x + dx + 1, c.y, at(MADERA, 2.8));
+    L.linea(c.x + dx + 4, c.y + 13, c.x + dx + 1, c.y, at(MADERA, 2.4));
+    L.set(c.x + dx, c.y, at(BRONCE, 4.6));
+    L.set(c.x + dx + 1, c.y, at(BRONCE, 3.4));
+  }
+  const ang = (f / CUADROS) * Math.PI * 2;
+  const ex = c.x + 14;
+  const ey = c.y;
+  const hx = Math.round(ex + Math.cos(ang) * 3);
+  const hy = Math.round(ey + Math.sin(ang) * 3);
+  L.linea(c.x + 12, c.y, ex, ey, at(BRONCE, 3));
+  L.linea(ex, ey, hx, hy, at(BRONCE, 4));
+  L.estampa(hx - 1, hy - 1, ["oo", "MM", "oo"], { M: [MADERA, 3.6] });
+  // El platón de balotas y la caja de las boletas.
+  pon(L, 25, 10, zm, BALOTAS, { R: [ROJO, 3.6], Y: [MAIZ, 4], B: [AZUL, 3.6], W: [CREMA, 4.2] });
+  L.caja(23, 4, zm, 6, 4, 4, (u, v) => (u > 1 && u < 5 && v > 1.6 && v < 2.4 ? at(OSCURA, 0) : at(MADERA, 4.2)), (_u, v) => at(MADERA, v > 3 ? 3.8 : 3.2), () => at(MADERA, 2.2));
+  return L.sprite();
 }
 
-// ---------- Adornos ----------
+// ---------- 5. Bultos, canastos y el poste de mazorcas ----------
 
-/** Bulto de fique lleno de papa, con la boca abierta y unas papitas encima. */
+/** El bulto de papa: el costal de fique amarrado, con su raya roja, y unas papas que se salieron. */
 function bultoPapa(): Sprite {
-  const s = scene(1, 1, 22);
-  s.roundShadow(8, 9, 5, 0.26);
-  for (let z = 0; z < 12; z += 0.4) {
-    const r = 4.6 - Math.abs(z - 5) * 0.15 - (z > 10 ? (z - 10) * 0.8 : 0);
-    for (let a = -Math.PI / 4 - 0.3; a < (3 * Math.PI) / 4 + 0.3; a += 0.12) {
-      const luz = Math.sin(a) * 0.85 - Math.cos(a) * 0.35;
-      s.plot(8 + Math.cos(a) * r, 8 + Math.sin(a) * r, z, at(FIQUE, 2.5 + luz + ((Math.round(a * 8) + Math.round(z * 2)) % 2 ? 0.3 : -0.2)));
-    }
-  }
-  papitas(s, 5.5, 5.5, 10.6, 5, 5, 7, 5);
-  return s.sprite();
+  const L = new Lienzo(1, 1, 30);
+  L.sombra(1, 2, 14, 13, 0.24);
+  pon(L, 7.5, 9, 0, BULTO, bultoLey);
+  pon(L, 12.5, 14, 0, PAPAS.slice(1), papasLey(PAPA));
+  return L.sprite();
 }
 
-/** Canasto de la cosecha: mimbre con mazorcas y ahuyamas. */
+/** El canasto de la cosecha: ancho y bajo, rebosado de mazorcas, ahuyamas y papas. */
 function canastoLleno(): Sprite {
-  const s = scene(1, 1, 22);
-  canasto(s, 8, 8, 5, 6, "ahuyamas", 2);
-  mazorca(s, 4, 9, 6, 0.4, 4);
-  return s.sprite();
+  const L = new Lienzo(1, 1, 30);
+  L.sombra(1, 2, 14, 12, 0.24);
+  const ancho = [
+    "....ooooooooooooooo....",
+    "..ooBBBBBBBBBBBBBBBoo..",
+    ".oBBbBbBbBbBbBbBbBbBBo.",
+    "oBbBbBbBbBbBbBbBbBbBbBo",
+    "oCCCCCCCCCCCCCCCCCCCCCo",
+    "obBbBbBbBbBbBbBbBbBbBbo",
+    "oBbBbBbBbBbBbBbBbBbBbBo",
+    "obBbBbBbBbBbBbBbBbBbBbo",
+    ".oBbBbBbBbBbBbBbBbBbBo.",
+    "..ooBbBbBbBbBbBbBbBoo..",
+    "....ooooooooooooooo....",
+  ];
+  pon(L, 8, 10, 0, ancho, { ...canastoLey(MIMBRE), C: [MIMBRE, 4.4] });
+  pon(L, 4.5, 8, 9, MAZORCA_H, mazorcaLey());
+  pon(L, 10.5, 7, 9, AHUYAMA_G, ahuyamaLey, false);
+  pon(L, 5, 11.5, 9, PAPAS, papasLey(PASTUSA));
+  pon(L, 9.5, 12, 9, MAZORCA_H, mazorcaLey(MAIZ_MORADO));
+  pon(L, 12, 11, 10, AHUYAMA_CH, ahuyamaLey, false);
+  return L.sprite();
 }
 
-/** El canasto de mimbre que se lleva a la oficina (con su asa) lleno de papas y mazorcas. */
+/** El canasto de mimbre (para la oficina): alto, con su asa trenzada y mazorcas y papas adentro. */
 function canastoMimbre(): Sprite {
-  const s = scene(1, 1, 24);
-  canasto(s, 8, 8, 4.6, 5.4, "papas", 9);
-  mazorca(s, 6, 8, 5.4, 0.9, 4);
-  for (let a = 0; a <= Math.PI; a += 0.06) s.plot(8 + Math.cos(a) * 4.4, 8, 6 + Math.sin(a) * 6, at(MIMBRE, 3 + Math.sin(a)));
-  return s.sprite();
+  const L = new Lienzo(1, 1, 40);
+  L.sombra(1, 2, 14, 13, 0.24);
+  const alto = [
+    "....ooooooooooooo....",
+    "..ooXXoXXXXoXXXXXoo..",
+    ".oXXxXXXoXXxXXXoXXxo.",
+    "oBBBBBBBBBBBBBBBBBBBo",
+    "oBbBbBbBbBbBbBbBbBbBo",
+    "obBbBbBbBbBbBbBbBbBbo",
+    "oCCCCCCCCCCCCCCCCCCCo",
+    "oBbBbBbBbBbBbBbBbBbBo",
+    "obBbBbBbBbBbBbBbBbBbo",
+    "oBbBbBbBbBbBbBbBbBbBo",
+    "obBbBbBbBbBbBbBbBbBbo",
+    ".oBbBbBbBbBbBbBbBbBo.",
+    "..ooBbBbBbBbBbBbBoo..",
+    "....ooooooooooooo....",
+  ];
+  // El asa trenzada por detrás del canasto: dos hilos de mimbre que se cruzan.
+  const asa = ["......AAAAAAAAA......", "....AAaAaAaAaAaAA....", "..AAa...........aAA..", ".Aa...............aA.", "Aa.................aA", "aA.................Aa", "Aa.................aA"];
+  const q = L.p(8, 9, 0);
+  L.estampa(q.x - 10, q.y - 24, asa, { A: [MIMBRE, 4], a: [MIMBRE, 2.6] });
+  pon(L, 8, 9, 0, alto, { ...canastoLey(PAPA), C: [ROJO, 3.4] });
+  pon(L, 5.5, 8, 12, MAZORCA_V.slice(0, 6), mazorcaLey());
+  pon(L, 9, 7.5, 12, MAZORCA_V.slice(0, 5), mazorcaLey(MAIZ_MORADO));
+  pon(L, 11.5, 9, 12, PAPAS.slice(0, 4), papasLey(PAPA));
+  return L.sprite();
 }
 
-/** Poste alto con guirnaldas de mazorcas que caen en arcos hacia los lados. */
-function posteMazorcas(): Sprite {
-  const s = scene(1, 1, 56, 10);
-  s.roundShadow(8, 8.5, 3, 0.26);
-  s.solid(7.2, 7.2, 0, 1.6, 1.6, 50, at(DARK, 4), at(DARK, 3), at(DARK, 2));
-  ahuyama(s, 8, 8, 50, 1.8);
-  for (let k = 0; k < 5; k++) {
-    const a = (k / 5) * Math.PI * 2 + 0.3;
-    for (let t = 0; t <= 1; t += 0.025) {
-      const x = 8 + Math.cos(a) * 9 * t;
-      const y = 8 + Math.sin(a) * 9 * t;
-      const z = 48 - t * 15 - Math.sin(t * Math.PI) * 3;
-      s.plot(x, y, z, at(FIQUE, 2));
-      if (t > 0.2 && Math.round(t * 40) % 10 === 5) mazorcaColgada(s, x, y, z - 0.3);
-    }
-  }
-  return s.sprite();
+/** El poste de mazorcas: un rollizo alto con la cruceta, ristras colgadas a cada lado y ahuyamas al pie. */
+function posteMazorcas(f = 0): Sprite {
+  const L = new Lienzo(1, 1, 64);
+  L.sombra(3, 3, 10, 10, 0.24);
+  const top = rollizo(L, 8, 8, 0, 54);
+  // La cruceta, con un moño de fique.
+  const a = L.p(2, 8, 50);
+  const b = L.p(14, 8, 50);
+  L.linea(a.x, a.y, b.x, b.y, at(TRONCO, 3.6));
+  L.linea(a.x, a.y + 1, b.x, b.y + 1, at(TRONCO, 2));
+  L.estampa(top.x - 2, top.top + 3, [".o.o.", "oSoSo", ".oSo.", "oS.So"], { S: [FIQUE, 3.8] });
+  ristra(L, a.x + 1, a.y + 1, 4, f, 0, "mazorca");
+  ristra(L, b.x - 1, b.y + 1, 4, f, 2, "mazorca");
+  pon(L, 5, 12, 0, AHUYAMA_CH, ahuyamaLey, false);
+  pon(L, 11, 12.5, 0, AHUYAMA_G, ahuyamaLey, false);
+  return L.sprite();
 }
 
-/** Arco de mazorcas sobre el camino (5 tiles a lo largo de x; se pasa por los tres del medio). */
-function arcoMazorcas(): Sprite {
-  const s = scene(5, 1, 70, 8);
-  const yc = 8;
-  for (const xc of [8, 72]) {
-    s.roundShadow(xc, yc + 1, 4, 0.26);
-    s.solid(xc - 1.6, yc - 1.6, 0, 3.2, 3.2, 40, at(DARK, 4), at(DARK, 3), at(DARK, 2));
-    // Al pie, ahuyamas y un bulto.
-    ahuyama(s, xc + (xc < 40 ? 3 : -3), yc + 3, 0, 2.4);
-    // Las mazorcas amarradas por el paral.
-    for (let z = 4; z < 38; z += 4.5) mazorcaColgada(s, xc + 1.8, yc + 1.8, z + 3);
-  }
-  for (let t = 0; t <= 1; t += 0.008) {
-    const x = 8 + t * 64;
-    const z = 39 + Math.sin(t * Math.PI) * 16;
-    for (let k = 0; k < 4; k++) {
-      const a = noise(Math.round(t * 999), k, 3) * Math.PI * 2;
-      const r = 2.2 * Math.sqrt(noise(Math.round(t * 999), k, 4));
-      s.plot(x, yc + Math.cos(a) * r, z + Math.sin(a) * r, at(CAPACHO, 2 + (Math.sin(a) > 0 ? 2 : 1)));
-    }
-  }
-  for (let t = 0.04; t <= 0.96; t += 0.055) {
-    const x = 8 + t * 64;
-    const z = 39 + Math.sin(t * Math.PI) * 16;
-    mazorcaColgada(s, x, yc + 2.2, z - 0.5);
-  }
-  return s.sprite();
-}
+// ---------- 6. El arco de mazorcas ----------
 
-/** La carreta del premio: cajón de tablas sobre dos ruedas de radios, cargada de ahuyamas y mazorcas. */
-function carreta(): Sprite {
-  const s = scene(2, 1, 30);
-  s.shadow(1, 2, 30, 12, 0.24);
-  // Las varas de tiro hacia +x y el cajón.
-  for (const y of [4, 11]) s.solid(26, y, 5, 6, 1, 1, at(WOOD, 4), at(WOOD, 3), at(WOOD, 2));
-  s.box(3, 3, 5, 23, 10, 6, flatT(at(WOOD, 2)), (u, v) => at(WOOD, 3.4 - (Math.floor(v / 2) % 2) * 0.6), (u, v) => at(WOOD, 2.6 - (Math.floor(v / 2) % 2) * 0.5));
-  // Las ruedas (al frente, una sola se ve entera).
-  s.quad([10, 13.4, 0], [1, 0, 0], [0, 0, 1], 9, 9, (u, v) => {
-    const d = Math.hypot(u - 4.5, v - 4.5);
-    if (d > 4.5) return null;
-    if (d > 3.7) return at(DARK, 2);
-    const a = Math.atan2(v - 4.5, u - 4.5);
-    return Math.abs(Math.sin(a * 3)) < 0.18 || d < 1 ? at(DARK, 3) : null;
+/**
+ * El arco de mazorcas sobre el camino (5 tiles a lo largo de x; se pasa por los tres del medio): dos
+ * rollizos gruesos, la viga de guadua curva con la guirnalda de mazorcas amarillas, blancas y moradas que se
+ * mece, el letrero "COSECHA" pintado encima y ahuyamas y un canasto al pie de cada palo.
+ */
+function arcoMazorcas(f = 0): Sprite {
+  const largo = 80;
+  const L = new Lienzo(5, 1, 110);
+  L.sombra(0, 2, 16, 13, 0.26);
+  L.sombra(64, 2, 16, 13, 0.26);
+  const colH = 58;
+  for (const x of [7, largo - 7]) {
+    // Cada palo es un rollizo doble (más grueso) sobre una piedra.
+    pon(L, x, 9, 0, [".ooooooo.", "o5544332o", "o4433221o", ".ooooooo."], tonos(PIEDRA), false);
+    rollizo(L, x - 1, 8, 2, colH);
+    rollizo(L, x + 1.5, 8, 2, colH);
+  }
+  // La viga de guadua curva, con sus nudos.
+  const a0 = 5;
+  const a1 = largo - 5;
+  const curva = (a: number) => colH + 2 + Math.sin((Math.PI * (a - a0)) / (a1 - a0)) * 10;
+  const grueso = 4;
+  L.plano([a0, 8, colH], [1, 0, 0], [0, 0, 1], a1 - a0, 20, (u, v) => {
+    const z = colH + v;
+    const base = curva(a0 + u);
+    if (z < base || z > base + grueso) return null;
+    const t = z - base;
+    if (Math.floor(u) % 14 === 0) return at(MAIZ, 1.6);
+    return at(MAIZ, t > grueso - 1 ? 4.6 : t > 1 ? 3.6 : 2.4);
   });
-  ahuyama(s, 8, 8, 11, 3.2);
-  ahuyama(s, 15, 7, 11, 2.6);
-  ahuyama(s, 20.5, 9, 11, 2.2);
-  mazorca(s, 11, 10, 11.5, 0.2, 5);
-  mazorca(s, 17, 11, 11.2, -0.3, 5);
-  return s.sprite();
+  // La guirnalda de mazorcas colgada de la viga, que se mece.
+  for (let a = a0 + 6, i = 0; a < a1 - 5; a += 4.6, i++) {
+    const q = L.p(a, 8, curva(a) - 0.5);
+    const d = VAIVEN[(f + i) % CUADROS]!;
+    const R = [MAIZ, CREMA, MAIZ_MORADO][i % 3]!;
+    L.linea(q.x, q.y, q.x + d, q.y + 2 + (i % 2) * 2, at(FIQUE, 2));
+    L.estampa(q.x - 2 + d, q.y + 2 + (i % 2) * 2, MAZORCA_V, mazorcaLey(R));
+  }
+  letrero(L, largo / 2, 8, curva(largo / 2) + 3, "COSECHA", [ROJO, HIERRO, AHUYAMA, AZUL]);
+  // Al pie de cada palo: ahuyamas y un canasto de papas.
+  pon(L, 13, 12, 0, AHUYAMA_G, ahuyamaLey, false);
+  pon(L, 3, 13, 0, AHUYAMA_CH, ahuyamaLey, false);
+  pon(L, largo - 13, 12, 0, CANASTO, canastoLey(PAPA));
+  pon(L, largo - 3, 13, 0, AHUYAMA_CH, ahuyamaLey, false);
+  return L.sprite();
 }
 
-/** Lo que no cambia de noche (va en DRAW de furniture.ts). */
-export const COSECHA_DRAW: Record<string, () => Sprite> = {
-  "puesto-cosecha-rojo": () => puesto("rojo"),
-  "puesto-cosecha-amarillo": () => puesto("amarillo"),
-  "puesto-cosecha-verde": () => puesto("verde"),
-  "puesto-cosecha-naranja": () => puesto("naranja"),
-  "puesto-cosecha-azul": () => puesto("azul"),
+// ---------- 7. La carreta de la cosecha (el premio de la tómbola) ----------
+
+/** La rueda de madera de la carreta, con sus rayos y el aro de hierro. */
+const RUEDA = [
+  ".....AAAAA.....",
+  "...AAaaaaaAA...",
+  "..AaM..M..MaA..",
+  ".Aa.M..M..M.aA.",
+  ".A...M.M.M...A.",
+  "Aa....MMM....aA",
+  "AaMMMMMHMMMMMaA",
+  "Aa....MMM....aA",
+  ".A...M.M.M...A.",
+  ".Aa.M..M..M.aA.",
+  "..AaM..M..MaA..",
+  "...AAaaaaaAA...",
+  ".....AAAAA.....",
+];
+
+/**
+ * La carreta de la cosecha: la caja de tablas con sus barandas, las dos ruedas de rayos, las varas para
+ * jalarla y la carga de ahuyamas, mazorcas y papas, con el moño rojo del premio.
+ */
+function carreta(): Sprite {
+  const L = new Lienzo(2, 1, 48);
+  L.sombra(1, 2, 30, 13, 0.24);
+  // La rueda de atrás asoma por debajo.
+  const r1 = L.p(14, 3, 7);
+  L.estampa(r1.x - 7, r1.y - 6, RUEDA, { A: [OSCURA, 2.2], a: [MADERA, 2], M: [MADERA, 2.6], H: [OSCURA, 1] });
+  // Las varas, hacia adelante (+x).
+  palo(L, 24, 4, 7, 9, 1.6);
+  palo(L, 24, 11, 7, 9, 1.6);
+  // La caja de tablas y las barandas.
+  L.caja(2, 3, 8, 22, 10, 5, tablas(MADERA, 2.5, 3.6, 5, 10), tablas(MADERA, 2.4, 3.4, 6, 5), (_u, v) => at(MADERA, v > 4 ? 3.4 : 2.4));
+  // La carga.
+  pon(L, 7, 7, 13, AHUYAMA_G, ahuyamaLey, false);
+  pon(L, 17, 7.5, 13, AHUYAMA_G, ahuyamaLey, false);
+  pon(L, 12, 10, 13, AHUYAMA_CH, ahuyamaLey, false);
+  pon(L, 6, 11, 13, MAZORCA_H, mazorcaLey());
+  pon(L, 19, 11.5, 13, PAPAS, papasLey(PAPA));
+  pon(L, 12, 12, 17, MAZORCA_H, mazorcaLey(MAIZ_MORADO));
+  // La baranda de adelante tapa un poco la carga.
+  L.caja(2, 12.6, 13, 22, 0.6, 2, () => at(MADERA, 4.4), (u) => at(MADERA, Math.floor(u) % 5 === 0 ? 2.4 : 3.8), () => at(MADERA, 2.6));
+  // La rueda de adelante y el moño rojo del premio.
+  const r2 = L.p(14, 13.4, 7);
+  L.estampa(r2.x - 7, r2.y - 6, RUEDA, { A: [OSCURA, 2.8], a: [MADERA, 3.4], M: [MADERA, 3.8], H: [BRONCE, 4] });
+  const m = L.p(23, 13, 13);
+  L.estampa(m.x - 4, m.y - 4, ["oo...oo", "oRo.oRo", "oRRoRRo", ".oRRRo.", "oRRoRRo", "oRo.oRo", ".o...o."], { R: [ROJO, 3.6] });
+  return L.sprite();
+}
+
+// ---------- Registro ----------
+
+/** Cuántos cuadros tiene cada mueble que se mueve (el navegador los pasa en bucle). */
+export const COSECHA_FRAMES: Record<string, number> = {
+  "puesto-cosecha-rojo": CUADROS,
+  "puesto-cosecha-amarillo": CUADROS,
+  "puesto-cosecha-verde": CUADROS,
+  "puesto-cosecha-naranja": CUADROS,
+  "puesto-cosecha-azul": CUADROS,
+  "olla-sancocho": CUADROS,
+  tombola: CUADROS,
+  "poste-mazorcas": CUADROS,
+  "arco-mazorcas": CUADROS,
+};
+
+const DIBUJO: Record<string, (f: number) => Sprite> = {
+  "puesto-cosecha-rojo": puestoTuberculos,
+  "puesto-cosecha-amarillo": puestoFrutas,
+  "puesto-cosecha-verde": puestoGranos,
+  "puesto-cosecha-naranja": puestoArepas,
+  "puesto-cosecha-azul": puestoAhuyamas,
+  "olla-sancocho": ollaSancocho,
   bascula,
   "tablero-cosecha": tablero,
   tombola,
@@ -432,103 +975,192 @@ export const COSECHA_DRAW: Record<string, () => Sprite> = {
   "carreta-cosecha": carreta,
 };
 
-/** Lo que se prende de noche (va en OUTDOOR de outdoor.ts): el fogón de la olla. */
-export const COSECHA_NIGHT: Record<string, (night: boolean) => Sprite> = {
-  "olla-sancocho": olla,
-};
+/** Los tipos con dibujo (para el catálogo y los tests). */
+export const COSECHA_TYPES = Object.keys(DIBUJO);
+
+const cuadros = new Map<string, Sprite[]>();
+
+/**
+ * El cuadro `f` de un mueble de la feria. Todos los cuadros tienen el mismo lienzo y el mismo origen que el
+ * dibujo del catálogo (el cuadro 0): el navegador solo le cambia la textura.
+ */
+export function cosechaSprite(type: string, f = 0): Sprite {
+  let list = cuadros.get(type);
+  if (!list) {
+    const draw = DIBUJO[type];
+    if (!draw) throw new Error(`Sin dibujo de la cosecha: ${type}`);
+    const n = COSECHA_FRAMES[type] ?? 1;
+    list = n > 1 ? mismoLienzo(Array.from({ length: n }, (_, k) => draw(k))) : [draw(0)];
+    cuadros.set(type, list);
+  }
+  return list[((f % list.length) + list.length) % list.length]!;
+}
+
+/** Los dibujos del catálogo (van en DRAW de furniture.ts): el cuadro 0 de cada uno. */
+export const COSECHA_DRAW: Record<string, () => Sprite> = Object.fromEntries(COSECHA_TYPES.map((t) => [t, () => cosechaSprite(t, 0)]));
 
 // ---------- La Pinta, la mula de Don Ramiro ----------
 
 /** Vista de la mula: de lado (mirando a la derecha; a la izquierda se voltea), de frente o de espaldas. */
 export type MulaView = "side" | "front" | "back";
 
-const MULA: Record<string, RGBA> = {
-  p: hex("#8a5a3a"),
-  P: hex("#6a4028"),
-  q: hex("#a87a52"),
-  m: hex("#3a2414"),
-  h: hex("#2a1a10"),
-  c: hex("#c8a060"),
-  C: hex("#8a6a38"),
-  n: hex("#e8c24a"),
-  a: hex("#e8862a"),
-  r: hex("#c03a3a"),
-  w: hex("#f7ebc8"),
+/** El pelo pardo de la Pinta, la barriga y el hocico claros, la crin y la cola oscuras. */
+const MULA = ramp("#2e1a10", "#4e2e1c", "#6e4428", "#8a5a3a", "#a87a52", "#c89a6e");
+const MULA_CLARO = ramp("#5a3e2a", "#7e5c42", "#a07c5c", "#bc9a78", "#d6b896", "#ecd6b8");
+const MULA_LEY: Ley = {
+  p: [MULA, 3.2],
+  P: [MULA, 2.2],
+  q: [MULA_CLARO, 3.4],
+  h: [OSCURA, 1.8],
+  k: [OSCURA, 1],
+  e: at(OSCURA, 0),
+  N: at(OSCURA, 1),
+  r: [ROJO, 3.2],
+  R: [MAIZ, 3.6],
+  c: [MIMBRE, 3.8],
+  b: [MIMBRE, 2.6],
+  n: [PAPA, 3.6],
+  a: [AHUYAMA, 3.4],
+  G: [HOJA, 2.6],
 };
 
+/** De lado, mirando a la derecha: dos cuadros del paso (las patas se cruzan). */
+const MULA_LADO = [
+  [
+    "..........................oppooo....",
+    "..........................oppoPPo...",
+    "..........................oppoPo....",
+    "..........................oppoPo....",
+    "..........................oppoPoo...",
+    ".........................ohhpppppo..",
+    ".........................ohppppppo..",
+    ".................ooo....ohhppppeppo.",
+    "..........oooooooaGaoooohhppppppqqo.",
+    ".........orrnnnnaaaaarrohhpppppqqqqo",
+    ".....o..oorrnnnnaaaaarrhhpppppoqqqNo",
+    "....ohoopprrnnnnaaaaarrppppppo.oqqqo",
+    "....ohhpppRrbcbcbcbcbrRppppppo..ooo.",
+    "...ohhppppppcbcbcbcbcppppppppo......",
+    "...ohhppppppbcbcbcbcbppppppppo......",
+    "...ohhppppppcbcbcbcbcppppppppo......",
+    "...ohhppppppbcbcbcbcbppppppoo.......",
+    "...ohhoppqqqcbcbcbcbcqqqppo.........",
+    "..ohhhoopqqqbcbcbcbcbqqqpppo........",
+    "..ohho.oPPppbbbbbbbbbppPoppo........",
+    "..ohho.oPPoppopppppoooPPoppo........",
+    "..ohho.oPPoppoooooo..oPPoppo........",
+    "..ohho.oPPoppo.......oPPoppo........",
+    "..ohho.oPPoppo.......oPPoppo........",
+    "..oho..oPPoppo.......oPPoppo........",
+    "...o...oPPoppo.......oPPoppo........",
+    ".......oPPoppo.......oPPoppo........",
+    ".......oPPoppo.......oPPoppo........",
+    ".......okkokko.......okkokko........",
+    "........oo.oo.........oo.oo.........",
+  ],
+  [
+    "..........................oppooo....",
+    "..........................oppoPPo...",
+    "..........................oppoPo....",
+    "..........................oppoPo....",
+    "..........................oppoPoo...",
+    ".........................ohhpppppo..",
+    ".........................ohppppppo..",
+    ".................ooo....ohhppppeppo.",
+    "..........oooooooaGaoooohhppppppqqo.",
+    ".........orrnnnnaaaaarrohhpppppqqqqo",
+    ".....o..oorrnnnnaaaaarrhhpppppoqqqNo",
+    "....ohoopprrnnnnaaaaarrppppppo.oqqqo",
+    "....ohhpppRrbcbcbcbcbrRppppppo..ooo.",
+    "...ohhppppppcbcbcbcbcppppppppo......",
+    "...ohhppppppbcbcbcbcbppppppppo......",
+    "...ohhppppppcbcbcbcbcppppppppo......",
+    "...ohhppppppbcbcbcbcbppppppoo.......",
+    "...ohhoppqqqcbcbcbcbcqqqppo.........",
+    "..ohhhoPpqqqbcbcbcbcbqqqppo.........",
+    "..ohhooPPoppbbbbbbbbbppPppo.........",
+    "..ohhooPPooopppppppooooPppo.........",
+    "..ohhooPPo.oppooooo...oPppo.........",
+    "..ohhooPPo.oppo.......oPppo.........",
+    "..ohhooPPo.oppo.......oPppo.........",
+    "..oho.oPPo.oppo.......oPppo.........",
+    "...o..oPPo.oppo.......oPppo.........",
+    "......oPPo.oppo.......oPppo.........",
+    "......oPPo.oppo.......oPppo.........",
+    "......okko.okko.......okkko.........",
+    ".......oo...oo.........ooo..........",
+  ],
+];
+
+/** De frente: la cara larga con las orejas, los canastos a los dos lados y la enjalma. */
+const MULA_FRENTE = [
+  "......oo........oo......",
+  ".....oppo......oppo.....",
+  ".....oPpo......oPpo.....",
+  ".....oPpo......oPpo.....",
+  "......oPpoohhoopPo......",
+  ".......oppphhpppo.......",
+  "......opppphhppppo......",
+  "......opepppppepo.......",
+  "......oppppppppppo......",
+  "......opppppppppo.......",
+  "...oo..oppqqqqppo..oo...",
+  "..onao.opqqqqqqpo.onao..",
+  ".oaaaaoopqNqqNqpooaaaao.",
+  "ocbcbcborqqqqqqrobcbcbco",
+  "obcbcbcbrrrrrrrrcbcbcbco",
+  "ocbcbcborpppppprocbcbcbo",
+  "obcbcbcborpppprobcbcbcbo",
+  ".obcbcbo.oppppo.obcbcbo.",
+  "..ooooo..oPppPo..ooooo..",
+  ".........oPo.Po.........",
+  ".........oPo.Po.........",
+  ".........oPo.Po.........",
+  ".........oPo.Po.........",
+  ".........oko.ko.........",
+  "..........o...o.........",
+];
+
+/** De espaldas: el anca, la cola y los canastos. */
+const MULA_ESPALDA = [
+  "......oo........oo......",
+  ".....oppo......oppo.....",
+  ".....opPo......opPo.....",
+  "......opPohhhhoPpo......",
+  ".......ophhhhhhpo.......",
+  "...oo...ophhhhpo...oo...",
+  "..onao.orrrrrrrro.onao..",
+  ".oaaaaorrRrRrRrrroaaaao.",
+  "ocbcbcbopppppppppbcbcbco",
+  "obcbcbcopppphpppocbcbcbo",
+  "ocbcbcbopppphhpppcbcbcbo",
+  "obcbcbcoppphhhpppocbcbco",
+  ".obcbcbopppphhpppobcbco.",
+  "..ooooo.opPPhhPPpo.ooo..",
+  "........oPPohhoPPo......",
+  "........oPPohhoPPo......",
+  "........oPPo.hoPPo......",
+  "........oPPo...oPPo.....",
+  "........oPPo...oPPo.....",
+  "........okko...okko.....",
+  ".........oo.....oo......",
+];
+
+/** Una grilla de la mula sobre un lienzo de su tamaño, con la luz de arriba a la izquierda. */
+function grillaMula(rows: readonly string[]): PixelCanvas {
+  const w = Math.max(...rows.map((r) => r.length));
+  const L = new Lienzo(Math.ceil(w / 16), 1, rows.length, 0);
+  L.estampa(0, 0, rows, MULA_LEY);
+  const out = new PixelCanvas(w, rows.length);
+  for (let y = 0; y < rows.length; y++) out.data.set(L.c.data.subarray(y * L.c.width * 4, (y * L.c.width + w) * 4), y * w * 4);
+  return out;
+}
+
 /**
- * La Pinta con sus dos canastos (uno a cada lado, con papas y una ahuyama), de 24x20. `frame` 0 o 1: el
- * paso (las patas se cruzan). Pixel a mano: no es una mascota de la casa.
+ * La Pinta con sus dos canastos de papas y una ahuyama sobre la enjalma roja. `frame` 0 o 1: el paso (las
+ * patas se cruzan). Mira a la derecha (a la izquierda se voltea); de frente sale en el retrato.
  */
 export function drawMula(view: MulaView, frame = 0): PixelCanvas {
-  const rows =
-    view === "side"
-      ? [
-          "..................hh....",
-          ".................hpph...",
-          "................hpppph..",
-          ".....n.a.......mpppqwph.",
-          "....cnnaac.....mpppppph.",
-          "...cCnnaaCc...mppppppmh.",
-          "...cCccccCc.mmpppppm....",
-          "..mmcCccCcmmpppppppm....",
-          ".mpppcccccppppppppm.....",
-          "mpqppprrrpppppppppm.....",
-          "mpppppprppppppppppm.....",
-          "mppppppppppppppPPm......",
-          ".mpPPpppppppPPPPm.......",
-          "..mPPmmmmmmmmPPm........",
-          "..mPm.......mPm.........",
-          "..mPm.......mPm.........",
-          "..mPm.......mPm.........",
-          "..mhm.......mhm.........",
-        ]
-      : view === "front"
-        ? [
-            "......hh....hh..........",
-            ".....hpph..hpph.........",
-            "......hppmmpph..........",
-            "......mppppppm..........",
-            ".cc..mpwppppwpm..cc.....",
-            "cnaccmppppppppmccnac....",
-            "cCnaCcmppqqppmcCnaCc....",
-            "cCccCc.mpqqpm.cCccCc....",
-            ".cCCc.mppppppm.cCCc.....",
-            "......mprrrrpm..........",
-            "......mppppppm..........",
-            "......mPpppPPm..........",
-            "......mPm..mPm..........",
-            "......mPm..mPm..........",
-            "......mhm..mhm..........",
-          ]
-        : [
-            "......hh....hh..........",
-            ".....hpph..hpph.........",
-            "......hppppph...........",
-            ".cc...mppppppm...cc.....",
-            "cnaccmppppppppmccnac....",
-            "cCnaCcmprrrrpmcCnaCc....",
-            "cCccCc.mppppm.cCccCc....",
-            ".cCCc.mppppppm.cCCc.....",
-            "......mppppppm..........",
-            "......mpphhppm..........",
-            "......mPpppPPm..........",
-            "......mPm..mPm..........",
-            "......mPm..mPm..........",
-            "......mhm..mhm..........",
-          ];
-  const w = 24;
-  const h = rows.length;
-  const c = new PixelCanvas(w, h + 1);
-  rows.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) {
-      const ch = row[x]!;
-      if (ch === ".") continue;
-      // El paso: en el cuadro 1 las patas de atrás y de adelante se corren un píxel.
-      const legs = view === "side" && y >= 14 && frame === 1;
-      const xx = legs ? x + (x < 8 ? 1 : -1) : x;
-      c.set(xx, y, ch === "m" || ch === "h" ? OUT : MULA[ch]!);
-    }
-  });
-  return c;
+  if (view === "side") return grillaMula(MULA_LADO[frame % 2]!);
+  return grillaMula(view === "front" ? MULA_FRENTE : MULA_ESPALDA);
 }

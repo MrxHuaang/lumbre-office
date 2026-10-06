@@ -23,7 +23,7 @@ import {
 } from "@hyvento/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useBagStore } from "@/game/bag";
-import { cosechaNow, heldAhuyama, sendAportar, sendBoleta, sendComprar, sendPesar, sendVender, useCosechaStore } from "@/game/cosecha";
+import { bailarBambuco, cosechaNow, heldAhuyama, sendAportar, sendBoleta, sendComprar, sendPesar, sendVender, useCosechaStore } from "@/game/cosecha";
 import { useGameTime } from "@/game/gameClock";
 import { toHtmlCanvas } from "@/game/iso/canvas";
 import { selectMyUserId, useOfficeStore } from "@/game/store";
@@ -376,6 +376,28 @@ function Tombola({ atObject, open }: { atObject: boolean; open: boolean }) {
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------- El baile ----------
+
+/**
+ * El chip del baile: con el bambuco andando y yo en la pista del patio, un botón para bailar (el emote
+ * "Bailar") y cuántos pasos llevo. Solo se monta cuando se ve.
+ */
+export function BaileCosechaPrompt() {
+  const baile = useCosechaStore((s) => s.baile);
+  const enPista = useCosechaStore((s) => s.enPista);
+  const pasos = useCosechaStore((s) => s.mine.pasos);
+  const bailado = useCosechaStore((s) => s.mine.bailado);
+  const pareja = useCosechaStore((s) => s.pareja);
+  const panel = useOfficeStore((s) => s.panel);
+  if (!baile || !enPista || panel || !cosechaNow()) return null;
+  return (
+    <button type="button" onClick={bailarBambuco} className="cozy-chip pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[14px]">
+      <PixelIcon name="note" size={12} color="var(--color-cozy-gold)" />
+      {bailado ? "Seguir bailando el bambuco" : `Bailar el bambuco · ${pasos} de ${COSECHA.bailePasos} pasos${pareja ? " (en pareja, doble)" : ""}`}
+    </button>
   );
 }
 

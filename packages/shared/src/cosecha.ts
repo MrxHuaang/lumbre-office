@@ -104,7 +104,7 @@ export const COSECHA_SITIOS = {
   olla: { x: 86, y: 21 },
   bascula: { x: 98, y: 50 },
   tablero: { x: 101, y: 50 },
-  tombola: { x: 80, y: 54 },
+  tombola: { x: 83, y: 55 },
   /** El medio del patio, donde se baila. */
   patio: { x: 84, y: 23 },
 } as const;
