@@ -96,7 +96,7 @@ export const CARNAVAL_MSG = {
 // ---------- Las carrozas y sus comparsas ----------
 
 /** Las diez carrozas, en el orden del desfile (el del plan). */
-export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"] as const;
+export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus", "amaru", "oso", "mariposa", "rana"] as const;
 export type CarrozaId = (typeof CARROZA_IDS)[number];
 
 /** Quién hace un paso de la coreografía: un bailarín (`b0`…), todos, o los pares o impares. */
@@ -157,6 +157,10 @@ const PALETAS: Record<string, readonly [string, string, string]> = {
   "#6f8a3a": ["#0f8a8a", "#d0287a", "#e8b81c"],
   "#7a4a2a": ["#c8323a", "#f4ead6", "#6a3a1e"],
   "#a6d23a": ["#a6d23a", "#e0283c", "#2f6fd6"],
+  "#1f9a9a": ["#1f9a9a", "#8a3cc8", "#f2861c"],
+  "#5a3a26": ["#c8323a", "#2f8f6a", "#e8a317"],
+  "#8a3cc8": ["#8a3cc8", "#1fb8b0", "#ef6ba0"],
+  "#e8b81c": ["#e8b81c", "#2f9a3a", "#d8283a"],
 };
 
 /** Una comparsa grande: doce bailarines. */
@@ -416,6 +420,86 @@ export const COMPARSAS: readonly Comparsa[] = [
     bailarines: CUADRILLA.slice(0, 8).map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
     frase: [todos("bailar"), todos("girar"), todos("saltar"), todos("celebrar")],
   },
+  {
+    id: "amaru",
+    nombre: "El Amaru del arcoíris",
+    grupo: "Los Hijos del Amaru",
+    acento: "#1f9a9a",
+    largo: 7,
+    pieza: "guanena",
+    // Las escamas de la serpiente en la ropa (turquesa, morado y naranja) y el tocado de plumas.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#1f9a9a", { head: i % 3 ? "headband" : "crown", face: "none", ...(i % 2 ? { outfit: "ruana" as const } : {}) })),
+    // La serpiente: la fila entera se mece en zigzag (una ola de ida y otra de vuelta) y cierra girando.
+    frase: [
+      juntos(
+        camina("pares", [{ dx: 0.6, dy: 0.5 }, { dx: 1.2, dy: -0.5 }, { dx: 0, dy: 0 }]),
+        camina("impares", [{ dx: 0.6, dy: -0.5 }, { dx: 1.2, dy: 0.5 }, { dx: 0, dy: 0 }]),
+      ),
+      ola(12, "saltar", CARNAVAL.beatMs / 3),
+      todos("bailar"),
+      ola(12, "girar", CARNAVAL.beatMs / 3, true),
+      todos("celebrar"),
+    ],
+  },
+  {
+    id: "oso",
+    nombre: "El Oso de anteojos músico",
+    grupo: "La Estudiantina del monte",
+    acento: "#5a3a26",
+    largo: 7,
+    pieza: "bambuco",
+    // Los músicos del monte: ruana y sombrero, como la ruana del oso, y unos con la guitarra a la espalda.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#5a3a26", { outfit: i % 2 ? "vest" : "ruana", head: i % 3 === 0 ? "vueltiao" : i % 3 === 1 ? "straw-hat" : "flower", face: "none", ...(i % 4 === 0 ? { back: "guitar" as const } : {}) })),
+    // Al son de la guitarra del oso: asienten al compás, bailan en pareja (cambian de puesto) y aplauden.
+    frase: [
+      todos("asentir"),
+      todos("asentir"),
+      juntos(camina("pares", [{ dx: 0, dy: -0.9 }]), camina("impares", [{ dx: 0, dy: 0.9 }])),
+      todos("bailar"),
+      juntos(camina("pares", [{ dx: 0, dy: 0 }]), camina("impares", [{ dx: 0, dy: 0 }])),
+      todos("girar"),
+      todos("celebrar"),
+    ],
+  },
+  {
+    id: "mariposa",
+    nombre: "La Mariposa de la máscara",
+    grupo: "Las Alas de la vereda",
+    acento: "#8a3cc8",
+    largo: 7,
+    pieza: "sanjuanito-plaza",
+    // Alas de mariposa, la máscara del Carnaval y vestido largo o capa, en morado, turquesa y rosado.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#8a3cc8", { back: "wings", head: i % 2 ? "tiara" : "flower", ...(i % 3 === 0 ? { outfit: "gown" as const, neck: "pearls" as const } : {}) })),
+    // Las mariposas: abren las alas (giran), revolotean hacia la vereda y vuelven, y saludan como la de la carroza.
+    frase: [
+      ola(12, "girar", CARNAVAL.beatMs / 2),
+      juntos(camina("pares", [{ dx: 0.8, dy: -0.6 }, { dx: 1.6, dy: 0 }], true), camina("impares", [{ dx: 0.8, dy: 0.6 }, { dx: 1.6, dy: 0 }], true)),
+      todos("saludar"),
+      juntos(camina("pares", [{ dx: 0.8, dy: 0.6 }, { dx: 0, dy: 0 }], true), camina("impares", [{ dx: 0.8, dy: -0.6 }, { dx: 0, dy: 0 }], true)),
+      todos("bailar"),
+      todos("saludar"),
+    ],
+  },
+  {
+    id: "rana",
+    nombre: "La Rana dorada",
+    grupo: "Los Tamboreros del Pacífico",
+    acento: "#e8b81c",
+    largo: 7,
+    pieza: "son-cuy",
+    // Dorado como la rana, verde de las hojas y rojo de las flores; corona o flor en la cabeza.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#e8b81c", { head: i % 4 === 0 ? "crown" : i % 2 ? "flower" : "bandana", face: "none", ...(i % 2 ? { outfit: "apron" as const } : {}) })),
+    // Las ranitas: brincan en cadena, se agachan a tocar el tambor (asienten) y brincan todas juntas.
+    frase: [
+      ola(12, "saltar", CARNAVAL.beatMs / 2),
+      todos("asentir"),
+      todos("asentir"),
+      todos("saltar"),
+      todos("saltar"),
+      todos("bailar"),
+      todos("celebrar"),
+    ],
+  },
 ];
 
 export const comparsaById = (id: string) => COMPARSAS.find((c) => c.id === id);
@@ -516,6 +600,10 @@ export const DESFILE_ORDEN: readonly DesfileItem[] = [
   { tipo: "carroza", id: "tinto" },
   { tipo: "disfraces", id: "tradicion" },
   { tipo: "carroza", id: "megabus" },
+  { tipo: "carroza", id: "amaru" },
+  { tipo: "carroza", id: "oso" },
+  { tipo: "carroza", id: "mariposa" },
+  { tipo: "carroza", id: "rana" },
 ];
 
 /** Los músicos de una murga del desfile (o ninguno). */
@@ -543,6 +631,10 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   minga: "¡La Minga! Papa, maíz, quinua y guaguas de pan: lo que da la tierra se comparte.",
   tinto: "Un tinto de Doña Aurora pa'l frío. ¡Achichay!",
   megabus: "¡Y cierra el Megabús de la alegría! Detrás va la gente de la casa.",
+  amaru: "¡El Amaru, la serpiente del arcoíris! Dicen los mayores que trae la lluvia buena.",
+  oso: "¡El oso de anteojos con su guitarra! Ese sí se sabe todos los bambucos.",
+  mariposa: "¡La mariposa de la máscara! Salúdenla, que ella sí les devuelve el saludo.",
+  rana: "¡La rana dorada del Pacífico, con corona y todo! Miren cómo infla el buche.",
 };
 
 // ---------- La coreografía en el tiempo ----------

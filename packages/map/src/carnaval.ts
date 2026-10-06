@@ -10,7 +10,7 @@ import { CARNAVAL, COMPARSAS, DESFILE_ORDEN, disfracesById, musicosDe, type Carr
 import { ROAD } from "./world/areas/parada";
 
 /** Lo largo de cada carroza en la calle (tiles; el dibujo cabe ahí, un test lo revisa). */
-export const CARROZA_TILES: Record<CarrozaId, number> = { castaneda: 6.6, condor: 7.2, galeras: 6.6, tablero: 6.6, reloj: 8.2, luna: 6.6, paramo: 6.6, minga: 6.6, tinto: 6.6, megabus: 8.4 };
+export const CARROZA_TILES: Record<CarrozaId, number> = { castaneda: 6.6, condor: 7.2, galeras: 6.6, tablero: 6.6, reloj: 8.2, luna: 6.6, paramo: 6.6, minga: 6.6, tinto: 6.6, megabus: 8.4, amaru: 7.0, oso: 7.0, mariposa: 7.0, rana: 7.0 };
 
 /** Los bailarines de una comparsa grande van en columnas de a tres por el carril mixto. */
 const COMPARSA_FILAS = 3;
@@ -123,7 +123,9 @@ export interface DesfileEstado {
 export function desfileEstado(ms: number, t: DesfileTiming = DESFILE_TIMING): DesfileEstado {
   let left = Math.max(0, ms);
   for (const tr of tramos(t)) {
-    if (left < tr.ms) {
+    // Con un margen de un microsegundo: restar los tramos uno a uno no da exacto lo que suma
+    // `desfileDuracionMs`, y al final del recorrido la fila tiene que quedar terminada.
+    if (left < tr.ms - 1e-3) {
       const k = tr.ms > 0 ? left / tr.ms : 1;
       return { cabeza: tr.desde + (tr.hasta - tr.desde) * k, parada: tr.parada, paradaMs: tr.parada === null ? 0 : left, fin: false };
     }
