@@ -66,7 +66,8 @@ export function TiraDialogo() {
       if (escribiendo(e)) return;
       const k = e.key.toLowerCase();
       let handled = true;
-      if (k === "e" || k === "enter" || k === " ") {
+      // Espacio también sigue, como siempre en las cinemáticas (en el juego es el impulso de la carrera).
+      if (k === "e" || k === "enter" || (k === " " && d.prioridad)) {
         // La tecla sostenida no pasa las líneas de corrido.
         if (e.repeat) handled = true;
         else if (!done) complete();
