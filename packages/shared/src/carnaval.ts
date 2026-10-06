@@ -96,7 +96,7 @@ export const CARNAVAL_MSG = {
 // ---------- Las carrozas y sus comparsas ----------
 
 /** Las diez carrozas, en el orden del desfile (el del plan). */
-export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"] as const;
+export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus", "diablo", "trucha", "inti"] as const;
 export type CarrozaId = (typeof CARROZA_IDS)[number];
 
 /** Quién hace un paso de la coreografía: un bailarín (`b0`…), todos, o los pares o impares. */
@@ -157,6 +157,9 @@ const PALETAS: Record<string, readonly [string, string, string]> = {
   "#6f8a3a": ["#0f8a8a", "#d0287a", "#e8b81c"],
   "#7a4a2a": ["#c8323a", "#f4ead6", "#6a3a1e"],
   "#a6d23a": ["#a6d23a", "#e0283c", "#2f6fd6"],
+  "#d8262c": ["#d8262c", "#f4c21c", "#8a3cc8"],
+  "#2a6ad0": ["#2a6ad0", "#f2711c", "#1fb8b0"],
+  "#f2b21c": ["#f2b21c", "#c8287a", "#1fa8a0"],
 };
 
 /** Una comparsa grande: doce bailarines. */
@@ -416,6 +419,59 @@ export const COMPARSAS: readonly Comparsa[] = [
     bailarines: CUADRILLA.slice(0, 8).map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
     frase: [todos("bailar"), todos("girar"), todos("saltar"), todos("celebrar")],
   },
+  {
+    id: "diablo",
+    nombre: "El Diablo bailarín",
+    grupo: "Los Diablitos de la loma",
+    acento: "#d8262c",
+    largo: 7,
+    pieza: "sanjuanito",
+    // Diablitos de capa roja y antifaz, y angelitos de alas blancas, vestido claro y corona de flores.
+    bailarines: CUADRILLA.map((i) =>
+      i % 2
+        ? comparsero(i, "#d8262c", { outfit: "dress", shirt: ["#c8a0ec", "#f0a8cc", "#a8c8f0"][i % 3]!, top2: BLANCO, back: "wings", head: "flower", face: "none", shoes: "sandals", shoeColor: "#e0a526" })
+        : comparsero(i, "#d8262c", { shirt: "#d8262c", pants: NEGRO, top2: "#f4c21c", back: "cape", head: "crown", neck: "chain" }),
+    ),
+    // Los diablitos saltan mientras los angelitos giran; después se cambian y todos celebran.
+    frase: [
+      juntos(hace("pares", "saltar"), hace("impares", "girar")),
+      juntos(hace("pares", "girar"), hace("impares", "saltar")),
+      todos("bailar"),
+      ola(6, "saltar", CARNAVAL.beatMs / 2),
+      todos("celebrar"),
+    ],
+  },
+  {
+    id: "trucha",
+    nombre: "La trucha de la laguna",
+    grupo: "Los Pescadores de La Cocha",
+    acento: "#2a6ad0",
+    largo: 7,
+    pieza: "bambuco",
+    // Los pescadores de las barcas: ruana de colores y sombrero de paja o de lona.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#2a6ad0", { outfit: "ruana", head: i % 3 === 2 ? "bucket-hat" : "straw-hat", face: "none" })),
+    // La ola: saltan en cadena como la trucha y se mecen como las barcas; al final reman y saludan.
+    frase: [
+      ola(6, "saltar", CARNAVAL.beatMs / 2),
+      ola(6, "saltar", CARNAVAL.beatMs / 2, true),
+      todos("bailar"),
+      juntos(camina("pares", [{ dx: 0, dy: -0.5 }]), camina("impares", [{ dx: 0, dy: 0.5 }])),
+      juntos(camina("pares", [{ dx: 0, dy: 0 }]), camina("impares", [{ dx: 0, dy: 0 }])),
+      todos("saludar"),
+    ],
+  },
+  {
+    id: "inti",
+    nombre: "El Inti que canta",
+    grupo: "Colectivo Hijos del Sol",
+    acento: "#f2b21c",
+    largo: 7,
+    pieza: "sanjuanito",
+    // Los zampoñeros: ruana tejida y cintillo, de los colores del sol.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#f2b21c", { outfit: "ruana", head: "headband", face: "none" })),
+    // Giran como los rayos del sol, asienten al compás de la zampoña y celebran.
+    frase: [ola(6, "girar", CARNAVAL.beatMs / 2), todos("asentir"), todos("asentir"), todos("bailar"), ola(6, "girar", CARNAVAL.beatMs / 2, true), todos("celebrar")],
+  },
 ];
 
 export const comparsaById = (id: string) => COMPARSAS.find((c) => c.id === id);
@@ -516,6 +572,9 @@ export const DESFILE_ORDEN: readonly DesfileItem[] = [
   { tipo: "carroza", id: "tinto" },
   { tipo: "disfraces", id: "tradicion" },
   { tipo: "carroza", id: "megabus" },
+  { tipo: "carroza", id: "diablo" },
+  { tipo: "carroza", id: "trucha" },
+  { tipo: "carroza", id: "inti" },
 ];
 
 /** Los músicos de una murga del desfile (o ninguno). */
@@ -543,6 +602,9 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   minga: "¡La Minga! Papa, maíz, quinua y guaguas de pan: lo que da la tierra se comparte.",
   tinto: "Un tinto de Doña Aurora pa'l frío. ¡Achichay!",
   megabus: "¡Y cierra el Megabús de la alegría! Detrás va la gente de la casa.",
+  diablo: "¡El Diablo bailarín! Aquí hasta el diablo se ríe, y los angelitos le bailan.",
+  trucha: "¡Una trucha arcoíris de La Cocha! Esa no cabe en ninguna olla.",
+  inti: "¡El Inti! Cuando suenan las zampoñas hasta el sol sale a bailar.",
 };
 
 // ---------- La coreografía en el tiempo ----------
