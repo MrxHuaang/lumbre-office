@@ -158,6 +158,7 @@ import { sendCasaRadio, useCasasStore } from "./casaVisitas";
 import { FiestaLuces } from "./casaFiesta";
 import { velitasClick, velitasKey } from "./velitas";
 import { VelitasLayer } from "./velitasLayer";
+import { LucesVentanas } from "./lucesVentanas";
 import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } from "./race";
 import { WallMount, wallQuad } from "./wallMount";
 import { cameraZoom } from "./pixelRatio";
@@ -455,6 +456,8 @@ export class OfficeScene extends Phaser.Scene {
   private fiestaLuces!: FiestaLuces;
   /** La Noche de velitas: las velitas del jardín y los faroles de deseos que suben (velitasLayer.ts). */
   private velitas!: VelitasLayer;
+  /** Las ventanas de los edificios prendidas de noche (lucesVentanas.ts). */
+  private lucesVentanas!: LucesVentanas;
   private swimming = false;
   /** Los peces del acuario del salón y los post-its de las puertas de las oficinas. */
   private aquariums!: Aquariums;
@@ -600,6 +603,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aguaBrilla = new AguaBrillaView(this);
     this.fiestaLuces = new FiestaLuces(this);
     this.velitas = new VelitasLayer(this);
+    this.lucesVentanas = new LucesVentanas(this);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
     this.trophyCases = new TrophyCases(this);
@@ -689,6 +693,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.pool.destroy(),
       () => this.tina.destroy(),
       () => this.velitas.destroy(),
+      () => this.lucesVentanas.destroy(),
       () => this.aguaBrilla.destroy(),
       onPhotosChanged(() => {
         const watching = PhotoBoards.hasBoard(this.map) || useOfficeStore.getState().panel?.kind === "photos";
@@ -848,6 +853,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aguaBrilla.update(time);
     this.fiestaLuces.update(time);
     this.velitas.update(time);
+    this.lucesVentanas.update(time);
     this.escenario.update(time);
     this.updateToastPrompt(time);
     this.updatePrivateRoom();
@@ -982,6 +988,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aguaBrilla.setArea(map);
     this.fiestaLuces.setArea(map);
     this.velitas.setArea(map, this.view);
+    this.lucesVentanas.setArea(map, this.view);
       this.createNameplates();
       this.clearScreens();
       this.startAmbient();
@@ -1068,6 +1075,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aguaBrilla.setArea(map);
     this.fiestaLuces.setArea(map);
     this.velitas.setArea(map, this.view);
+    this.lucesVentanas.setArea(map, this.view);
     this.escenario.setArea(map);
     this.gente.setArea(map);
     AreaView.dropStaleBases(this, map);
