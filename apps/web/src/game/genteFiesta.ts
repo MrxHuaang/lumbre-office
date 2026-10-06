@@ -39,6 +39,7 @@ import {
 import type * as Phaser from "phaser";
 import { COZY } from "@/lib/cozy";
 import { conTexto, MURMULLO, respuestaA, slotMurmullo, tocaMurmullo, turnoDeCorrillo } from "@/lib/murmullos";
+import { anchoPlaca, elegirNombres, NOMBRES, NOMBRES_DESFILE } from "@/lib/nombresGente";
 import { lessMotion } from "@/lib/prefs";
 import { Avatar } from "./Avatar";
 import { useBagStore } from "./bag";
@@ -50,6 +51,7 @@ import { murmullosCallados, murmullosVisibles, murmurar } from "./murmullo";
 import { depthOf, ensureTexture, toHtmlCanvas, worldToScreen } from "./iso/view";
 import { genteAlAlcance, useGenteFiesta } from "./genteFiestaStore";
 import { ensureCharacterTextures } from "./looks";
+import { desfileMs } from "./carnaval";
 import { abrirPuesto } from "./cosecha";
 import { getRoom, onEmote, onInteract, onRoom } from "./network";
 import { useOfficeStore, type Interactable } from "./store";
@@ -86,7 +88,8 @@ const GREET_RESET_TILES = 6;
 const EMOTE_TILES = 4;
 /** Las marcas y los nombres solo de cerca (tiles): de lejos, el jardín no se llena de cosas. */
 const MARK_TILES = 10;
-const NAME_TILES = 9;
+/** Lo ancho que se reserva para mi placa (el nombre con "(tú)"): los de la fiesta no se montan encima. */
+const PLACA_PROPIA = 100;
 
 interface Actor {
   npc: FiestaNpc;
@@ -143,6 +146,9 @@ export class GenteFiestaView {
     this.map = map;
     this.clear();
   }
+
+  /** Los de la fiesta que muestran su nombre en este cuadro. */
+  private nombres = new Set<string>();
 
   setNameHidden(hidden: boolean) {
     this.hideNames = hidden;
@@ -221,10 +227,20 @@ export class GenteFiestaView {
     const me = this.deps.local();
     const ts = nivel.map.tileSize;
     const night = isNightMinute(clock.minuto);
-    for (const a of this.actors.values()) {
-      a.pose = nivel.pose(a.npc.id, clock.minuto);
-      this.place(a, time, night, me, ts, clock.minuto);
-    }
+    for (const a of this.actors.values()) a.pose = nivel.pose(a.npc.id, clock.minuto);
+    // Los nombres: de los más cercanos y sin que dos placas se monten (en la vereda del Carnaval hay muchos juntos).
+    const placas = [];
+    if (me && !this.hideNames)
+      for (const a of this.actors.values()) {
+        if (!a.avatar || !a.pose.visible) continue;
+        const o = worldToScreen(a.pose.x, a.pose.y);
+        placas.push({ id: a.npc.id, sx: o.x, sy: o.y, d: Math.hypot(a.pose.x - me.x, a.pose.y - me.y) / ts, ancho: anchoPlaca(a.npc.nombre) });
+      }
+    // Con el desfile en la calle, las carrozas pasan delante de la vereda: solo el nombre de quien está al lado.
+    const mia = me ? worldToScreen(me.x, me.y) : null;
+    const yo = mia ? [{ id: "", sx: mia.x, sy: mia.y, d: 0, ancho: PLACA_PROPIA }] : [];
+    this.nombres = elegirNombres(placas, desfileMs() === null ? NOMBRES : NOMBRES_DESFILE, yo);
+    for (const a of this.actors.values()) this.place(a, time, night, me, ts, clock.minuto);
     if (time >= this.scanAt) {
       this.scanAt = time + SCAN_MS;
       this.scan(time, me, ts);
@@ -344,7 +360,7 @@ export class GenteFiestaView {
       a.held = held;
       av.setHeld(held);
     }
-    av.setNameHidden(this.hideNames || dist > NAME_TILES);
+    av.setNameHidden(this.hideNames || !this.nombres.has(a.npc.id));
     av.sway(time);
     this.placeOverHead(a);
   }
