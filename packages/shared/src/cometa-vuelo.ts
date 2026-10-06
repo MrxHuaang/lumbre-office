@@ -27,10 +27,10 @@ export const VUELO = {
   /** La tensión en su punto: ahí es donde más sube. */
   punto: 0.62,
   /** Lo que cambia la tensión por segundo jalando y dando hilo. */
-  jalar: 0.9,
-  soltar: 1,
+  jalar: 0.6,
+  soltar: 0.66,
   /** Cuánto le pegan las ráfagas al hilo. */
-  rafaga: 0.6,
+  rafaga: 0.4,
   /** Lo que baja por segundo sin tensión. */
   caida: 7,
   /** Hasta dónde se puede subir (la subida se va frenando antes). */

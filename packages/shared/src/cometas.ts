@@ -276,7 +276,7 @@ export const COMETAS_CINE = {
 } as const;
 
 /** Donde se para la cámara en la loma (tiles del jardín: el medio del voladero). */
-export const LOMA_CENTRO = { x: 121, y: 60 } as const;
+export const LOMA_CENTRO = { x: 123, y: 62 } as const;
 
 /** Los niños de la loma (sus ids son los de la gente de la fiesta: el doble de la cinemática esconde al de verdad). */
 export const MATEO = "cometas:mateo";

@@ -10,6 +10,7 @@ import { festivalById, FESTIVAL_HORAS, type FestivalDef, type FestivalId } from 
 import { GENTE_BRUJAS } from "./gente-fiesta/brujas";
 import { GENTE_CARNAVAL } from "./gente-fiesta/carnaval";
 import { GENTE_COMETAS } from "./gente-fiesta/cometas";
+export { COMETAS_GENTE } from "./gente-fiesta/cometas";
 import { GENTE_FERIA } from "./gente-fiesta/feria-flores";
 import { GENTE_NOVENAS } from "./gente-fiesta/novenas";
 import { GENTE_VELITAS } from "./gente-fiesta/velitas";

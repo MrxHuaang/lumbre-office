@@ -1,7 +1,7 @@
 // Productos de la cafetería y del bar del club en pixel-art: se llevan en la mano, salen en la carta y
 // se consumen con F. Son chiquitos (caben en la mano del chibi); la carta los muestra ampliados.
 // Cada uno cambia con el uso: los vasos se vacían, la comida pierde un mordisco y el cigarro se acorta.
-import { SILLETA, heldParts, silletaCodeOf, usesOf } from "@hyvento/shared";
+import { COMETA_COLORES, COMETAS_GENTE, SILLETA, cometaCodeOf, cometaPartes, heldParts, silletaCodeOf, usesOf, type CometaForma } from "@hyvento/shared";
 import { C, OUT } from "./palette";
 import { PixelCanvas, alpha, at, hex, type RGBA } from "./pixel";
 
@@ -2425,6 +2425,56 @@ ITEMS["bunuelos-novena"] = {
   flat: "H",
 };
 
+/** La cometa en la mano, por forma: `A` el papel del color 1, `B` el del 2, `g` la guadua, `t` la cabuya de la cola. */
+const COMETA_ROWS: Record<CometaForma, string[]> = {
+  rombo: ["....o....", "...oAo...", "..oAgBo..", ".oAAgBBo.", "ogggggggo", ".oBBgAAo.", "..oBgAo..", "...oBo...", "....ot...", ".....tB.."],
+  hexagonal: ["...ooo...", "..oAgAo..", ".oABgBAo.", "oAABgBAAo", "ogggggggo", "oBBAgABBo", ".oBAgABo.", "..oBgBo..", "...ooo...", "....tA..."],
+  pajaro: ["o........o", "oAo....oAo", "oAAoggoAAo", ".oAABBAAo.", "..ooBBoo..", "...oBBo...", "...oBBo...", "....oo....", "....t.....", ".....tA..."],
+  pez: ["...ooo...", "..oAAAo..", ".oAkAAAo.", ".oBBBBBo.", ".oAAgAAo.", ".oBBgBBo.", "..oAgAo..", "...oAo...", "..oBoBo..", "..oo.oo.."],
+};
+
+/**
+ * La cometa en la mano (`cometa:<código>`, ver cometa.ts de @hyvento/shared): la forma con sus dos colores
+ * de papel, la cruz de guadua y el arranque de la cola. Sale del código, así cada cometa se ve como la armaron.
+ */
+function cometaItem(code: string): ItemArt | undefined {
+  const p = cometaPartes(code);
+  if (!p) return undefined;
+  return {
+    rows: COMETA_ROWS[p.forma],
+    colors: legend({ A: COMETA_COLORES[p.color1].hex, B: COMETA_COLORES[p.color2].hex, g: "#b8933a", t: "#a8875a", k: "#2b1b17" }),
+    flat: "gtk",
+  };
+}
+
+// Lo del Festival de cometas: el papel de seda, los palitos, el carrete, el gancho, el raspao y la cometa
+// que quedó en el techo del garaje.
+ITEMS["papel-seda"] = {
+  rows: [".........", "..ooooo..", ".orrrrro.", "oaaaaaaao", "ozzzzzzzo", "ossssssso", ".ooooooo."],
+  colors: legend({ r: "#d8383a", a: "#f2cc3a", z: "#3a7ad8", s: "#ee7aa8" }),
+  flat: "razs",
+};
+ITEMS["palitos-guadua"] = {
+  rows: ["........o", ".......og", "......ogo", "..o..ogo.", ".ogoogo..", "..ocgo...", ".ogcgo...", "ogo.oo...", "oo......."],
+  colors: legend({ g: "#c8a24a", c: "#e8d6a8" }),
+};
+ITEMS["carrete-cabuya"] = {
+  rows: ["..ooooo..", ".oWWWWWo.", "..otTtto..", "..oTtTto..", "..otTtTo..", "..oTtTto..", ".oWWWWWo.", "..ooooo.."],
+  colors: legend({ W: "#95552c", t: "#e8d6a8", T: "#a8875a" }),
+  flat: "tT",
+};
+ITEMS["gancho-alambre"] = {
+  rows: ["..oooo...", ".om..mo..", ".om...o..", ".om......", ".oWo.....", ".oWo.....", ".oWo.....", ".oWo.....", ".oWo.....", ".ooo....."],
+  colors: legend({ m: "#c07a3a", W: "#b8733a" }),
+};
+ITEMS.raspao = {
+  rows: ["...ooo...", "..oxxxo..", ".oxmmxxo.", ".ommmmmo.", "ooooooooo", ".oCcCcCo.", ".ocCcCco.", "..oCcCo..", "...ooo..."],
+  colors: legend({ x: "#f4f6fa", m: "#8a1f4a", C: "#f2cc3a", c: "#f4f0e4" }),
+  crumb: hex("#f4f6fa"),
+  flat: "Cc",
+};
+ITEMS["cometa-perdida"] = cometaItem(COMETAS_GENTE.santiago)!;
+
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 
 /** Brasa: apagada (0), titilando (1) o encendida al pitar (2). */
@@ -2683,10 +2733,13 @@ function silletaItem(code: string): ItemArt {
   };
 }
 
-/** Lo que se dibuja de un id que no está en la tabla (la silleta, que sale de su código), o undefined. */
+
+/** Lo que se dibuja de un id que no está en la tabla (la silleta y la cometa, que salen de su código), o undefined. */
 function dynamicItem(id: string): ItemArt | undefined {
   const code = silletaCodeOf(id);
-  return code ? silletaItem(code) : undefined;
+  if (code) return silletaItem(code);
+  const cometa = cometaCodeOf(id);
+  return cometa ? cometaItem(cometa) : undefined;
 }
 
 /** Algo que se lleva en la mano, según cómo está (ver `HeldArtState`). Un id desconocido da un lienzo de 1x1. */

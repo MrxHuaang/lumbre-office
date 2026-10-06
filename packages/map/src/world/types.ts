@@ -273,7 +273,11 @@ export interface PointDef {
     | "feria_shop"
     | "silleta_stand"
     // El Carnaval: el palco de la tarima (el concurso de disfraces).
-    | "carnaval_contest";
+    | "carnaval_contest"
+    // El Festival de cometas: la mesa del taller, el tablero del concurso y la escalera del garaje.
+    | "cometas_taller"
+    | "cometas_concurso"
+    | "cometas_techo";
   name: string;
   x: number;
   y: number;

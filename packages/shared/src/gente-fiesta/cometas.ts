@@ -6,7 +6,7 @@
 // árbol (con un gancho), y la de Santiago, que quedó en el techo del garaje. Todo en tiles del jardín.
 import type { FiestaNpc } from "../gente-fiesta";
 import { COMETA_PERDIDA, COMETAS_CINE, GANCHO } from "../cometas";
-import { canelo, hora, nino, papel, suelto } from "./comun";
+import { canelo, nino, papel, suelto } from "./comun";
 
 const C = "cometas";
 
@@ -26,7 +26,7 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "chepe", {
       rol: "Vende cometas y carretes",
       area: "jardin",
-      tile: { x: 117, y: 52 },
+      tile: { x: 118, y: 52 },
       comportamiento: { tipo: "quieto", mira: "down" },
       pinta: { head: "straw-hat", top: "flannel", shirt: "#c0392b" },
       accion: { tipo: "puesto" },
@@ -45,7 +45,7 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "efrain", {
       rol: "Vende raspao y salpicón",
       area: "jardin",
-      tile: { x: 124, y: 54 },
+      tile: { x: 127, y: 56 },
       comportamiento: { tipo: "quieto", mira: "left" },
       pinta: { head: "cap", outfit: "apron", shirt: "#f4f0e6" },
       accion: { tipo: "puesto" },
@@ -59,7 +59,7 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "ramiro", {
       rol: "Jurado del concurso de cometas",
       area: "jardin",
-      tile: { x: 121, y: 53 },
+      tile: { x: 122, y: 54 },
       comportamiento: { tipo: "quieto", mira: "down" },
       pinta: { head: "straw-hat", neck: "neckerchief", accent: "#3a8ad0" },
       frases: {
@@ -80,7 +80,7 @@ export function GENTE_COMETAS(): FiestaNpc[] {
         corre: true,
         paradas: [
           { x: 115, y: 57, pausa: 1.5 },
-          { x: 125, y: 58, pausa: 1 },
+          { x: 124, y: 58, pausa: 1 },
           { x: 127, y: 65, pausa: 1.5 },
           { x: 116, y: 66, pausa: 1 },
         ],
@@ -102,15 +102,15 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     suelto(C, "sofi", "Sofi", nino("#ffdbac", "#7a4a1a", { shirt: "#ee7aa8", hairStyle: "ponytail", pants: "#5a4a8a" }), {
       rol: "Corre con su cometa",
       area: "jardin",
-      tile: { x: 114, y: 64 },
+      tile: { x: 113, y: 63 },
       comportamiento: {
         tipo: "ronda",
         corre: true,
         paradas: [
-          { x: 114, y: 64, pausa: 1 },
+          { x: 113, y: 63, pausa: 1 },
           { x: 118, y: 67, pausa: 1.5 },
           { x: 126, y: 68, pausa: 1 },
-          { x: 127, y: 56, pausa: 2 },
+          { x: 129, y: 57, pausa: 2 },
         ],
       },
       cometa: COMETAS_GENTE.sofi,
@@ -122,7 +122,7 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     suelto(C, "mateo", "Mateo", nino("#c68642", "#2a1a10", { shirt: "#3a8ad0", head: "cap", accent: "#f2c84a" }), {
       rol: "Se le enredó la cometa",
       area: "jardin",
-      tile: { x: 129, y: 61 },
+      tile: { x: 130, y: 64 },
       comportamiento: { tipo: "quieto", mira: "up" },
       cometa: COMETAS_GENTE.mateo,
       lleva: "carrete-cabuya",
@@ -167,8 +167,8 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "luzdary", {
       rol: "De picnic en la loma",
       area: "jardin",
-      tile: { x: 120, y: 60 },
-      comportamiento: { tipo: "sentado", asiento: { x: 120, y: 60 } },
+      tile: { x: 118, y: 60 },
+      comportamiento: { tipo: "sentado", asiento: { x: 118, y: 60 } },
       pinta: { head: "straw-hat", accent: "#e0a23a" },
       charla: "picnic",
       frases: { hola: ["Trajimos pandeyuca, pollo sudado y limonada. ¿Gusta un poquito?", "Desde aquí se ven todas las cometas. Es el mejor puesto de la loma."] },
@@ -177,8 +177,8 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "carmenza", {
       rol: "De picnic en la loma",
       area: "jardin",
-      tile: { x: 122, y: 60 },
-      comportamiento: { tipo: "sentado", asiento: { x: 122, y: 60 } },
+      tile: { x: 120, y: 60 },
+      comportamiento: { tipo: "sentado", asiento: { x: 120, y: 60 } },
       charla: "picnic",
       frases: { hola: ["El mantel lo bordé yo. Si se le cae limonada, me avisa.", "Las cometas de antes llevaban colas de trapitos de vestidos viejos. Las mías eran de tela fina."] },
       murmullos: ["Cuidado con el mantel", "En mis tiempos…", "¡Qué colores!"],
@@ -186,8 +186,8 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "aurelio", {
       rol: "De picnic en la loma",
       area: "jardin",
-      tile: { x: 121, y: 61 },
-      comportamiento: { tipo: "sentado", asiento: { x: 121, y: 61 } },
+      tile: { x: 119, y: 61 },
+      comportamiento: { tipo: "sentado", asiento: { x: 119, y: 61 } },
       charla: "picnic",
       frases: { hola: ["Yo elevé cometas desde la estación del tren. El maquinista me pitaba cuando pasaba.", "Si suena un bambuco, me paro a bailar. Aviso."] },
       murmullos: ["¡Eso, Carmenza!", "Qué brisa tan rica", "Yo bailo después"],
@@ -195,7 +195,7 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "tomas", {
       rol: "Toca el tiple junto al picnic",
       area: "jardin",
-      tile: { x: 118, y: 61 },
+      tile: { x: 117, y: 62 },
       comportamiento: { tipo: "quieto", mira: "right" },
       frases: { hola: ["Le estoy componiendo un bambuco a las cometas. Se llama 'Cabuya al viento'.", "Con el viento de la loma, el tiple suena distinto. Más alegre."] },
       murmullos: ["Tlin, tlan…", "Cabuya al viento…", "Esta va pa' las cometas"],
@@ -203,8 +203,8 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "marina", {
       rol: "Conversa junto al carrito",
       area: "jardin",
-      tile: { x: 123, y: 57 },
-      comportamiento: { tipo: "grupo", grupo: "raspao", centro: { x: 124, y: 57 } },
+      tile: { x: 126, y: 58 },
+      comportamiento: { tipo: "grupo", grupo: "raspao", centro: { x: 127, y: 58 } },
       pinta: { head: "straw-hat", accent: "#3a9a5a" },
       frases: { hola: ["La cometa la trajeron los chinos hace siglos, y aquí la adoptamos en agosto, con los vientos.", "Agosto es el mes de las cometas en Colombia. Eso sí se lo enseñaba a mis alumnos."] },
       murmullos: ["En agosto, cometas", "Eso no es así", "Qué raspao tan rico"],
@@ -212,8 +212,8 @@ export function GENTE_COMETAS(): FiestaNpc[] {
     papel(C, "rubiela", {
       rol: "Conversa junto al carrito",
       area: "jardin",
-      tile: { x: 125, y: 57 },
-      comportamiento: { tipo: "grupo", grupo: "raspao", centro: { x: 124, y: 57 } },
+      tile: { x: 128, y: 58 },
+      comportamiento: { tipo: "grupo", grupo: "raspao", centro: { x: 127, y: 58 } },
       frases: { hola: ["Yo vine por el raspao, no por las cometas. Bueno, por las dos.", "Mañana madrugo a hacer tamales, pero hoy me quedo hasta que se esconda el sol."] },
       murmullos: ["Uno de mora, Efraín", "¡Qué frío!", "Hasta que se esconda el sol"],
     }),
@@ -225,17 +225,6 @@ export function GENTE_COMETAS(): FiestaNpc[] {
       fotos: true,
       frases: { hola: ["Estoy grabando un video de las cometas en cámara lenta. Va a quedar épico.", "Santiago perdió la cometa y yo lo grabé. Ya tiene más vistas que todo lo mío."] },
       murmullos: ["¡Grabando!", "Cámara lenta…", "Denle like"],
-    }),
-    papel(C, "fredy", {
-      rol: "Mide el viento",
-      area: "jardin",
-      tile: { x: 126, y: 66 },
-      comportamiento: { tipo: "deambula", zona: LOMA, paradas: 5, pausa: 2 },
-      horario: { desde: hora(10), hasta: hora(19) },
-      frases: {
-        hola: ["El viento va a unos quince kilómetros por hora. Perfecto pa' cometa, pésimo pa' bicicleta.", "Mire la manga de viento: si está estirada, suelte la cometa sin miedo."],
-      },
-      murmullos: ["Quince kilómetros…", "Viento del oriente", "Ráfaga, ráfaga"],
     }),
   ];
 }
