@@ -142,9 +142,9 @@ function cabeza(p: Pintura) {
 
 /** La quijada de abajo (se abre): la barbilla blanca, el labio rojo, la lengua y los dientes de oro de abajo. */
 function quijada(p: Pintura) {
-  p.volumen(el(X(24), Y(47), R(18), R(8), -0.15), LENGUA, { alto: 4, brillo: 0.6, planos: true, borde: "oscuro" });
-  p.trazo(...P(X(16), Y(45)), ...P(X(34), Y(43)), tono(LENGUA, 1), 1);
-  const barbilla = pol([X(-2), Y(46)], [X(14), Y(56)], [X(30), Y(56)], [X(46), Y(46)], [X(54), Y(34)], [X(56), Y(40)], [X(46), Y(60)], [X(28), Y(72)], [X(8), Y(68)], [X(-6), Y(56)]);
+  p.volumen(el(X(24), Y(44), R(17), R(7), -0.15), LENGUA, { alto: 4, brillo: 0.6, planos: true, borde: "oscuro" });
+  p.trazo(...P(X(16), Y(43)), ...P(X(33), Y(41)), tono(LENGUA, 1), 1);
+  const barbilla = pol([X(-2), Y(46)], [X(14), Y(51)], [X(30), Y(50)], [X(46), Y(43)], [X(54), Y(34)], [X(56), Y(40)], [X(46), Y(60)], [X(28), Y(72)], [X(8), Y(68)], [X(-6), Y(56)]);
   p.volumen(barbilla, BLANCO, { alto: 7, planos: true, borde: "oscuro", patron: (q) => (q.x - OX < X(2) || q.y - OY > Y(66) ? AZUL : BLANCO), sombra: 0.35 });
   curvaP(p, X(-2), Y(46), X(22), Y(62), X(54), Y(34), tono(LENGUA, 2), 2);
   for (let k = 0; k < 8; k++) {
