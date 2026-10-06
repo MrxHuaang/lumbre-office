@@ -10,6 +10,7 @@ import {
   CONCURSO_ERROR_TEXT,
   JOIN_ERROR_TEXT,
   LANZAR_ERROR_TEXT,
+  ESPUMA,
   MAICENA,
   bagItemName,
   carnavalActivo,
@@ -51,7 +52,7 @@ interface CarnavalStore {
   /** ¿Puedo sumarme ahora (desde la vereda, junto a la comparsa de la cabaña)? ¿Voy en ella? */
   puedoSumarme: boolean;
   enComparsa: boolean;
-  /** No quiero recibir maicena ni serpentinas (se guarda en este navegador). */
+  /** No quiero recibir maicena, espuma ni serpentinas (se guarda en este navegador). */
   noTalco: boolean;
   lastBuy: (CarnavalBuyResult & { seq: number }) | null;
 }
@@ -151,7 +152,7 @@ export function setNoTalco(off: boolean) {
 }
 
 /**
- * F con la maicena o las serpentinas en la mano: se le echa a la persona más cercana del nivel (a quien se
+ * F con la maicena, la espuma o las serpentinas en la mano: se le echa a la persona más cercana del nivel (a quien se
  * tenga al lado). Devuelve si era eso (así la escena no manda el "usar" de siempre).
  */
 export function lanzarConF(me: { x: number; y: number } | undefined): boolean {
@@ -184,7 +185,7 @@ export function onLanzado(fn: (e: LanzadoEvent) => void) {
 }
 
 const nameOf = (sessionId: string) => useOfficeStore.getState().players[sessionId]?.name ?? "Alguien";
-const kindText = (kind: string) => (kind === MAICENA ? "maicena" : "serpentinas");
+const kindText = (kind: string) => (kind === MAICENA ? "maicena" : kind === ESPUMA ? "espuma" : "serpentinas");
 
 /** Engancha las respuestas (en cada conexión) y la E del palco y del puesto. */
 export function bindCarnaval(r: OfficeRoom) {
@@ -199,7 +200,7 @@ export function bindCarnaval(r: OfficeRoom) {
   r.onMessage(CARNAVAL_MSG.lanzarResult, (res: LanzarResult) => {
     const store = useOfficeStore.getState();
     if (!res.ok) return store.notify(res.name && res.error !== "busy" ? `${res.name}: ${LANZAR_ERROR_TEXT[res.error]}` : LANZAR_ERROR_TEXT[res.error], "info");
-    store.notify(res.kind === MAICENA ? `Le echaste maicena a ${res.name}.` : `Le tiraste serpentinas a ${res.name}.`, "success");
+    store.notify(res.kind === MAICENA ? `Le echaste maicena a ${res.name}.` : res.kind === ESPUMA ? `Le echaste espuma a ${res.name}.` : `Le tiraste serpentinas a ${res.name}.`, "success");
   });
   r.onMessage(CARNAVAL_MSG.lanzado, (e: LanzadoEvent) => {
     for (const fn of lanzadoListeners) fn(e);

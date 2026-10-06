@@ -11,7 +11,7 @@
 // rato, y nunca a quien está en "No molestar" o pidió no recibirla. Los grupos son ficticios. El carnaval
 // es de día: el Desfile Magno sale a las 10:00 y el concurso se premia antes de que oscurezca.
 import { z } from "zod";
-import { CARNAVAL_LANZABLES, type Lanzable } from "./carnaval-objetos";
+import { CARNAVAL_BAG_OBJECTS, CARNAVAL_LANZABLES, type Lanzable } from "./carnaval-objetos";
 import type { PiezaId } from "./carnaval-musica";
 import type { CineAction, CineDef } from "./cinematicas";
 import type { Look } from "./look";
@@ -40,7 +40,7 @@ export const CARNAVAL = {
   joinReachTiles: 5,
   /** Desde qué fila (tile y del jardín) se está en la vereda o la plataforma, a la orilla de la calle. */
   veredaDesdeY: 126,
-  /** Distancia (tiles) para echarle maicena o serpentinas a alguien, y la pausa entre dos. */
+  /** Distancia (tiles) para echarle maicena, espuma o serpentinas a alguien, y la pausa entre dos. */
   lanzarReachTiles: 3,
   lanzarPausaMs: 2000,
   /** Lo que dura la cara empolvada. */
@@ -77,12 +77,12 @@ export const CARNAVAL_MSG = {
   leave: "carnaval:salirse",
   /** Servidor → quien pidió: si se pudo (`JoinResult`). */
   joinResult: "carnaval:sumarse:resultado",
-  /** Cliente → servidor: echarle lo de la mano (maicena o serpentinas) a alguien (`{ to: sessionId }`). */
+  /** Cliente → servidor: echarle lo de la mano (maicena, espuma o serpentinas) a alguien (`{ to: sessionId }`). */
   lanzar: "carnaval:lanzar",
   lanzarResult: "carnaval:lanzar:resultado",
   /** Servidor → los del nivel: alguien le echó algo a otro (para el polvo o el confeti). */
   lanzado: "carnaval:lanzado",
-  /** Cliente → servidor: no quiero recibir maicena ni serpentinas (`{ off: boolean }`). */
+  /** Cliente → servidor: no quiero recibir maicena, espuma ni serpentinas (`{ off: boolean }`). */
   talcoPref: "carnaval:talco:pref",
   /** Cliente → servidor: postular mi pinta de ahora al concurso de disfraces. */
   postular: "carnaval:postular",
@@ -873,12 +873,12 @@ export type LanzarError = "off" | "nothing" | "far" | "self" | "dnd" | "noTalco"
 export type LanzarResult = { ok: true; kind: Lanzable; to: string; name: string } | { ok: false; error: LanzarError; name?: string };
 
 export const LANZAR_ERROR_TEXT: Record<LanzarError, string> = {
-  off: "La maicena y las serpentinas son del Carnaval.",
-  nothing: "Lleva la maicena o las serpentinas en la mano.",
+  off: "La maicena, la espuma y las serpentinas son del Carnaval.",
+  nothing: "Lleva la maicena, la espuma o las serpentinas en la mano.",
   far: "Arrímate a alguien para echarle.",
   self: "A ti mismo no.",
   dnd: "Está en «No molestar»: a esa persona no se le echa nada.",
-  noTalco: "Esa persona prefiere no recibir maicena ni serpentinas.",
+  noTalco: "Esa persona prefiere no recibir maicena, espuma ni serpentinas.",
   busy: "Un momentico…",
 };
 
@@ -939,7 +939,9 @@ export interface CarnavalShopItem {
 
 export const CARNAVAL_SHOP = [
   { id: "maicena", name: "Bolsita de maicena", price: 6, gives: 3 },
+  { id: "espuma", name: "Tarrito de espuma", price: 6, gives: 3 },
   { id: "serpentinas", name: "Serpentinas", price: 6, gives: 3 },
+  { id: "algodon-azucar", name: "Algodón de azúcar", price: 8, gives: 1 },
   { id: "antifaz-carnaval", name: "Antifaz de carnaval", price: 30, gives: 1 },
   { id: "mascara-condor", name: "Máscara de cóndor", price: 45, gives: 1 },
   { id: "mascara-sol", name: "Máscara del sol", price: 45, gives: 1 },
@@ -947,8 +949,8 @@ export const CARNAVAL_SHOP = [
 
 export type CarnavalShopId = (typeof CARNAVAL_SHOP)[number]["id"];
 export const carnavalShopItem = (id: string): CarnavalShopItem | undefined => CARNAVAL_SHOP.find((i) => i.id === id);
-/** Las máscaras son de a una (de recuerdo). */
-export const isCarnavalSouvenir = (id: string) => !(CARNAVAL_LANZABLES as readonly string[]).includes(id);
+/** Las máscaras son de a una (de recuerdo); lo que se lanza y lo que se come, no. */
+export const isCarnavalSouvenir = (id: string) => CARNAVAL_BAG_OBJECTS[id]?.max === 1;
 export const carnavalRefId = (id: string) => `festival:${CARNAVAL.id}:${id}`;
 
 export const CarnavalBuyMessage = z.object({ item: z.enum(CARNAVAL_SHOP.map((i) => i.id) as [CarnavalShopId, ...CarnavalShopId[]]) });

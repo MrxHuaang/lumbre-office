@@ -121,6 +121,7 @@ export const HATS: readonly HeadItem[] = [
   "pompom-beanie",
   "pirate-hat",
   "wizard-hat",
+  "flower-hat",
 ];
 /** Lo que se prende en el pelo: sin pelo no tiene dónde ir. */
 export const HAIR_CLIPS: readonly HeadItem[] = ["bow", "flower"];

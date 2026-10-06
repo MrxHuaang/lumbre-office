@@ -187,6 +187,52 @@ export const DIRECTOR_ACCIONES: readonly DirectorAccionDef[] = [
     festival: "amor-amistad",
     aviso: "{nombre} reveló el amigo secreto antes del cierre.",
   },
+  {
+    id: "novena",
+    nombre: "La novena de esta noche ya",
+    descripcion: "Se reza ya la novena de hoy junto al pesebre, sin esperar las 20:00. Paga lo mismo que de noche: una vez por día.",
+    festival: "novenas",
+    aviso: "{nombre} adelantó la novena de esta noche: al pesebre del recibidor.",
+  },
+  {
+    id: "velitas-faroles",
+    nombre: "La suelta de faroles ya",
+    descripcion: "Todos los deseos de la noche suben juntos sobre el lago, sin esperar las 21:00.",
+    festival: "velitas",
+    aviso: "{nombre} adelantó la suelta de faroles: miren al lago.",
+  },
+  {
+    id: "feria-desfile",
+    nombre: "El desfile de silleteros ya",
+    descripcion: "Los silleteros bajan ya por el camino de piedra del jardín, sin esperar las 16:00.",
+    festival: "feria-flores",
+    aviso: "{nombre} sacó ya el desfile de silleteros por el jardín.",
+  },
+  {
+    id: "feria-premiacion",
+    nombre: "Premiar las silletas ya",
+    descripcion: "Gana ya la silleta más votada, sin esperar el cierre. Después ya no se vota (una vez por feria).",
+    festival: "feria-flores",
+    aviso: "{nombre} adelantó la premiación de las silletas.",
+  },
+  {
+    id: "sombrero",
+    nombre: "El Man del Sombrero aparece ya",
+    descripcion: "Sale ya en el escondite de hoy y se queda hasta que empiece otro día del juego.",
+    aviso: "{nombre} hizo salir al Man del Sombrero. Búsquenlo.",
+  },
+  {
+    id: "bus",
+    nombre: "Que llegue el bus ya",
+    descripcion: "Sale un Megabús de refuerzo a la estación, sin esperar el horario.",
+    aviso: "{nombre} llamó el Megabús: ya viene llegando a la estación.",
+  },
+  {
+    id: "estrella",
+    nombre: "Una estrella fugaz ya",
+    descripcion: "Pasa ya una estrella fugaz para los que miran por un telescopio. Solo de noche.",
+    aviso: "{nombre} soltó una estrella fugaz: miren por el telescopio.",
+  },
 ];
 
 export const directorAccion = (id: string) => DIRECTOR_ACCIONES.find((a) => a.id === id);

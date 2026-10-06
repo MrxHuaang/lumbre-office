@@ -149,6 +149,8 @@ export const HEAD_LABEL: Record<HeadItem, string> = {
   "wizard-hat": "Sombrero de mago",
   fedora: "Sombrero de fieltro",
   "witch-hat": "Sombrero de bruja",
+  "flower-hat": "Sombrero con flores",
+  "raised-mask": "Máscara en la cabeza",
 };
 
 export const FACE_LABEL: Record<FaceItem, string> = {

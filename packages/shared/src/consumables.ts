@@ -9,6 +9,7 @@ import { GRANJA_USABLES, type GranjaAction } from "./granja";
 import { PARRILLA_CONSUMABLES } from "./parrilla";
 import { MUNDO_CONSUMABLES, MUNDO_USABLES, type MundoAction } from "./mundo";
 import { BRUJAS_CONSUMABLES } from "./brujas";
+import { CARNAVAL_CONSUMABLES } from "./carnaval-objetos";
 import { AMOR_CONSUMABLES } from "./amor-amistad";
 
 /**
@@ -110,6 +111,7 @@ export const CONSUMABLES: Record<string, { action: ConsumeAction; uses: number }
   ...MUNDO_CONSUMABLES,
   // Los dulces de la Noche de brujas (brujas.ts).
   ...BRUJAS_CONSUMABLES,
+  ...CARNAVAL_CONSUMABLES,
   // El raspao del carrito de la loma (Festival de cometas): a cucharadas.
   raspao: { action: "bite", uses: 3 },
   ...AMOR_CONSUMABLES,

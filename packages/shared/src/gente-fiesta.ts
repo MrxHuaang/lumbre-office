@@ -233,14 +233,27 @@ export function diaDelFestival(f: FestivalDef, diaDeEstacion: number): number {
   return d >= 1 && d <= f.dias ? d : 1;
 }
 
-/** La gente de un festival ese día (del festival) con ese clima, ya con lo que hace la lluvia. */
+/**
+ * La gente de un festival ese día (del festival) con ese clima, ya con lo que hace la lluvia. Nadie se queda
+ * después del cierre del festival: quien no trae horario va de la apertura a su `cierre` (el Carnaval cierra
+ * a las 18:30) y un horario que pase del cierre se corta ahí.
+ */
 export function genteDelFestival(festivalId: string | null | undefined, dia: number, clima: Weather): FiestaNpc[] {
   const gente = festivalId ? GENTE_FIESTA[festivalId as FestivalId] : undefined;
-  return gente ? conClima(gente(dia, clima), clima) : [];
+  if (!gente) return [];
+  const f = festivalById(festivalId!);
+  return conClima(gente(dia, clima), clima).map((n) => ({ ...n, horario: horarioDe(n, f) }));
 }
 
-/** El horario de un NPC (minutos del día del juego). */
-export const horarioDe = (n: FiestaNpc) => n.horario ?? { desde: FESTIVAL_HORAS.apertura * 60, hasta: FESTIVAL_HORAS.cierre * 60 };
+/** Hasta qué minuto del día del juego dura la fiesta (su `cierre`, o las 22:00 de siempre). */
+export const cierreDeFiesta = (f?: Pick<FestivalDef, "cierre"> | null) => Math.round((f?.cierre ?? FESTIVAL_HORAS.cierre) * 60);
+
+/** El horario de un NPC (minutos del día del juego): sin el suyo, de la apertura al cierre del festival, y nunca después del cierre. */
+export function horarioDe(n: FiestaNpc, f?: Pick<FestivalDef, "cierre"> | null): { desde: number; hasta: number } {
+  const cierre = cierreDeFiesta(f);
+  const h = n.horario ?? { desde: FESTIVAL_HORAS.apertura * 60, hasta: cierre };
+  return h.hasta > cierre ? { desde: Math.min(h.desde, cierre), hasta: cierre } : h;
+}
 
 /** Con quiénes conversa por turnos (o null). */
 export const corrilloDe = (n: FiestaNpc): string | null => n.charla ?? (n.comportamiento.tipo === "grupo" ? n.comportamiento.grupo : null);

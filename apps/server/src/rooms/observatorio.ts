@@ -204,6 +204,22 @@ export class Observatorio {
     for (const id of this.watchers) this.sky(id, { kind: "star", star });
   }
 
+  /**
+   * El panel del director: una estrella fugaz ya (para los que miran por un telescopio). Solo de noche y si
+   * no va otra por el cielo; después el sorteo sigue como siempre. Ver la estrella no paga puntos.
+   */
+  starYa(): "ok" | "dia" | "ocupado" {
+    if (!this.deps.isNight()) return "dia";
+    const now = this.deps.now();
+    const t = this.deps.skyTimings();
+    if (this.star && now <= this.star.at + this.star.flightMs + t.starGraceMs) return "ocupado";
+    this.nextStarAt = now + this.gap(t);
+    const star = rollStar(`e${++this.starSeq}`, now, (n) => this.deps.random(n), t.starFlightMs);
+    this.star = { ...star, spotted: new Set(), watchers: new Set(this.watchers) };
+    for (const id of this.watchers) this.sky(id, { kind: "star", star });
+    return "ok";
+  }
+
   private gap(t: SkyTimings) {
     return t.starMinGapMs + this.deps.random(Math.max(1, t.starMaxGapMs - t.starMinGapMs + 1));
   }

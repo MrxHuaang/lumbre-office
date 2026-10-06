@@ -245,6 +245,7 @@ import { DESFILE_TIMING, type DesfileTiming } from "@hyvento/map";
 import { CARNAVAL_MSG, type CarnavalBuyResult, type ConcursoResult, type JoinResult, type LanzarResult } from "@hyvento/shared";
 import { festivalDecorAreas, setFestivalDecor } from "@hyvento/map";
 import { BRUJAS_CINE, BRUJAS_MSG, FESTIVAL_MSG, brujasActiva, fechaDelJuego, type BrujasBuyResult, type FestivalCineEvent, type PumpkinResult, type TrickResult } from "@hyvento/shared";
+import { VELITAS_CINE } from "@hyvento/shared";
 import { Capitulo2 } from "./capitulo2";
 import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
@@ -3275,6 +3276,47 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       : { ok: false, error: "cerrado", texto: "Amor y amistad no está abierto." };
     this.director.registrar("amor-sorteo", () => amorNo(this.amor?.sortearYa(), "Nadie se ha anotado en el cofre todavía.", "El sorteo ya se hizo."));
     this.director.registrar("amor-revelacion", () => amorNo(this.amor?.revelarYa(), "Todavía no hay parejas: primero el sorteo.", "El amigo secreto ya se reveló."));
+    // Las novenas: la de esta noche ya, junto al pesebre (los puntos, como de noche, una vez por día).
+    this.director.registrar("novena", () => {
+      const r = this.novenas.rezarYa();
+      if (r === "off") return { ok: false, error: "cerrado", texto: "Hoy no hay novena." };
+      if (r === "hecha") return { ok: false, error: "nada", texto: "La novena de hoy ya se rezó." };
+      return { ok: true, texto: "Novena: se reza ya junto al pesebre del recibidor." };
+    });
+    // La Noche de velitas: la suelta de faroles de las 21:00, ya (solo la cinemática; los deseos los suelta cada uno).
+    this.director.registrar("velitas-faroles", () => {
+      this.broadcast(FESTIVAL_MSG.cine, { id: VELITAS_CINE.faroles } satisfies FestivalCineEvent);
+      return null;
+    });
+    // La Feria de las flores: el desfile de silleteros y la premiación sin esperar su hora (feriaFlores.ts).
+    this.director.registrar("feria-desfile", () => (this.feria.desfileYa() === "ok" ? null : { ok: false, error: "cerrado", texto: "La Feria de las flores no está abierta." }));
+    this.director.registrar("feria-premiacion", () => {
+      const r = this.feria.premiarYa();
+      if (r === "hecha") return { ok: false, error: "nada", texto: "Las silletas de esta feria ya se premiaron." };
+      if (r === "nadie") return { ok: false, error: "nada", texto: "Ninguna silleta exhibida tiene votos todavía." };
+      if (r === "off") return { ok: false, error: "cerrado", texto: "La Feria de las flores no está abierta." };
+      return null;
+    });
+    // El Man del Sombrero sale ya en el escondite de hoy (como "/sombrero", pero sin llevar a nadie).
+    this.director.registrar("sombrero", () => {
+      if (this.sombrero.present) return { ok: false, error: "nada", texto: `El Man del Sombrero ya anda por ahí: ${this.sombrero.hideout?.place ?? "en su escondite"}.` };
+      const h = this.sombrero.summon(null);
+      return { ok: true, texto: `El Man del Sombrero salió ${h.place}. Se queda hasta el próximo día del juego.` };
+    });
+    // Un Megabús de refuerzo ya (bus.ts): no si ya viene o si el desfile ocupa la calle.
+    this.director.registrar("bus", () => {
+      const r = this.bus.callNow();
+      if (r === "ocupado") return { ok: false, error: "ocupado", texto: "El bus ya viene, está en la parada o va en ruta." };
+      if (r === "calle") return { ok: false, error: "ocupado", texto: "El desfile ocupa la calle: el bus sale apenas pase." };
+      return null;
+    });
+    // Una estrella fugaz ya, para los que miran por un telescopio (observatorio.ts): solo de noche.
+    this.director.registrar("estrella", () => {
+      const r = this.observatorio?.starYa();
+      if (r === "dia") return { ok: false, error: "cerrado", texto: "Es de día: las estrellas fugaces se ven de noche. Pon la hora primero." };
+      if (r === "ocupado") return { ok: false, error: "ocupado", texto: "Ya va una estrella fugaz por el cielo." };
+      return r ? null : { ok: false, error: "nada", texto: "El observatorio no está listo." };
+    });
     this.onMessage(DIRECTOR_MSG.action, (client, raw) => {
       const who = this.directorWho(client);
       const res = who && this.director.run(who, raw);

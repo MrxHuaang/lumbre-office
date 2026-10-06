@@ -2513,6 +2513,42 @@ ITEMS.maicena = {
   colors: legend({ w: "#f6f4ef", W: "#d8d4cc", y: "#b8945a" }),
   flat: "y",
 };
+// El tarrito de espuma de carnaval: lata fucsia con la franja blanca y negra, tapa amarilla, la boquilla y
+// el copo de espuma que se escapa.
+ITEMS.espuma = {
+  rows: [
+    "..wWw...", //
+    ".wWwww..",
+    "...wn...",
+    "..oCCo..",
+    ".oRRRro.",
+    ".oRLLro.",
+    ".oRkkro.",
+    ".oRRRro.",
+    ".oRRrro.",
+    "..oooo..",
+  ],
+  colors: legend({ w: "#fbf8f2", W: "#dcd6cc", n: "#8a8c92", C: "#f6c63a", R: "#d0287a", r: "#9c1a5a", L: "#fbf6ec", k: "#24212e" }),
+  flat: "Lk",
+};
+// El algodón de azúcar: la nube rosada (luz, base y sombra a mano) en su palito.
+ITEMS["algodon-azucar"] = {
+  crumb: hex("#ffc0d8"),
+  rows: [
+    "...ooo...", //
+    "..oPHPoo.",
+    ".oPHHPPpo",
+    "oPHPpPPpo",
+    "oPPPPPppo",
+    ".oPPpppo.",
+    "..opppo..",
+    "...oso...",
+    "....s....",
+    "....s....",
+  ],
+  colors: legend({ P: "#f7a8c8", H: "#ffd6e6", p: "#d8709a", s: "#f3e6c4" }),
+  flat: "PHp",
+};
 // Las serpentinas: un rollito blanco y negro con la cinta que se desenrolla.
 ITEMS.serpentinas = {
   rows: [

@@ -1,5 +1,6 @@
 import { DIAS_POR_ESTACION, FESTIVALES, festivalById } from "@hyvento/shared";
 import { describe, expect, it } from "vitest";
+import { rankCommands, type Command } from "./commands";
 import { calendarioDelAño, directorCommands, fechaDelFestival } from "./director";
 
 describe("panel del director", () => {
@@ -29,5 +30,22 @@ describe("panel del director", () => {
     cmds.find((c) => c.id === "director:festival:brujas")!.run();
     cmds.find((c) => c.id === "director:calendario")!.run();
     expect(calls).toEqual(["abrir", "festival:brujas", "festival:null"]);
+  });
+
+  it("en la paleta, \"director\" o \"panel\" con Enter abre el panel (no prende un festival)", () => {
+    const a = { open: () => {}, festival: () => {} };
+    const nada = () => {};
+    // Algunos de los de siempre, para que compitan como en la paleta de verdad.
+    const otros: Command[] = [
+      { id: "abrir:mochila", group: "Abrir", title: "Mochila y estadísticas", keywords: ["inventario"], run: nada },
+      { id: "abrir:ajustes", group: "Ajustes", title: "Ajustes", keywords: ["panel", "opciones"], run: nada },
+      { id: "abrir:mapa", group: "Abrir", title: "Mapa de la cabaña", run: nada },
+    ];
+    for (const festivalNow of ["", "carnaval", "ano-viejo"]) {
+      const all = [...otros, ...directorCommands(true, festivalNow, a)];
+      for (const q of ["director", "Director", "panel", "panel del", "direc", "panel director"]) expect(rankCommands(q, all)[0]?.id, `${q} (${festivalNow})`).toBe("director:abrir");
+      // Prender un festival sigue saliendo con su nombre.
+      expect(rankCommands("ano viejo", all)[0]?.id).toBe(festivalNow === "ano-viejo" ? undefined : "director:festival:ano-viejo");
+    }
   });
 });

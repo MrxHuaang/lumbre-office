@@ -88,6 +88,17 @@ export class BusLine {
     if (this.phase === "away" && this.nextAt - now > this.deps.schedule().maxWaitMs) this.dispatch();
   }
 
+  /**
+   * El panel del director: que llegue un bus ya (de refuerzo). "ocupado" si ya viene, está en la parada o
+   * va en ruta; "calle" si el desfile ocupa la calle (ahí no se le hace esperar a nadie).
+   */
+  callNow(): "ok" | "ocupado" | "calle" {
+    if (this.phase !== "away") return "ocupado";
+    if (this.deps.held?.()) return "calle";
+    this.dispatch();
+    return "ok";
+  }
+
   /** Sale un bus ya (de refuerzo): el horario sigue igual después de él si alcanza. */
   dispatch() {
     if (this.phase !== "away") return;

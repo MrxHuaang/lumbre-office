@@ -408,12 +408,15 @@ export class CarnavalView {
     });
   }
 
-  /** A alguien le echaron maicena (la nubecita blanca) o serpentinas (confeti de colores). */
+  /** A alguien le echaron maicena (la nubecita blanca), espuma (el chorro y el rastro) o serpentinas (confeti). */
   private lanzado(e: LanzadoEvent) {
     const a = this.avatarOf(e.to);
     if (!a || lessMotion()) return;
     if (e.kind === "maicena") a.powderPuff();
-    else a.confetti(CONFETI);
+    else if (e.kind === "espuma") {
+      const from = this.avatarOf(e.from);
+      a.foamHit(from ? { x: from.x, y: from.y } : null, this.scene.time.now);
+    } else a.confetti(CONFETI);
   }
 }
 
