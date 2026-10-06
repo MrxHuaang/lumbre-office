@@ -25,6 +25,7 @@ export * from "./gente-fiesta";
 export { LABERINTO, LABERINTO_ENTRADA, PUMPKIN_SPOTS, pumpkinSpotOf, type PumpkinSpot } from "./world/festivales/brujas";
 export { FLOWER_STALL, SILLETA_STANDS, SILLETERO_TABLE, standOfPoint } from "./world/festivales/feria-flores";
 export { CARNAVAL_PUESTO, CARNAVAL_TARIMA } from "./world/festivales/carnaval";
+export { COSTAL_ASERRIN, PAJA_PUNTO } from "./world/festivales/ano-viejo";
 export * from "./carnaval";
 export * from "./casa";
 export * from "./casa-propia";

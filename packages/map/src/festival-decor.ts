@@ -11,6 +11,7 @@ import { CARNAVAL_DECOR } from "./world/festivales/carnaval";
 import { VELITAS_DECOR } from "./world/festivales/velitas";
 import { FERIA_DECOR } from "./world/festivales/feria-flores";
 import { NOVENAS_DECOR } from "./world/festivales/novenas";
+import { ANO_VIEJO_DECOR } from "./world/festivales/ano-viejo";
 import type { AreaDef, Placement, PointDef } from "./world/types";
 
 /** Lo que un festival agrega a un nivel. */
@@ -37,6 +38,7 @@ export const FESTIVAL_DECOR: Partial<Record<FestivalId, FestivalDecorDef>> = {
   velitas: VELITAS_DECOR,
   "feria-flores": FERIA_DECOR,
   novenas: NOVENAS_DECOR,
+  "ano-viejo": ANO_VIEJO_DECOR,
 };
 
 /** Los niveles que decora un festival (ninguno si no tiene decoración). */

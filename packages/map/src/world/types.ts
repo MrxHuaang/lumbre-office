@@ -273,7 +273,12 @@ export interface PointDef {
     | "feria_shop"
     | "silleta_stand"
     // El Carnaval: el palco de la tarima (el concurso de disfraces).
-    | "carnaval_contest";
+    | "carnaval_contest"
+    // El Año viejo: delante del muñeco (darle prendas y relleno), del cartel de los testamentos y de donde
+    // se saca relleno (el costal de aserrín del taller y la paca de paja del gallinero).
+    | "ano_viejo_muneco"
+    | "ano_viejo_cartel"
+    | "ano_viejo_relleno";
   name: string;
   x: number;
   y: number;
