@@ -42,7 +42,7 @@ import { ensureCharacterTextures } from "../looks";
 import { murmurar } from "../murmullo";
 import { cameraZoom } from "../pixelRatio";
 import { getRoom } from "../network";
-import { volAt } from "../sfx";
+import { sfx, volAt } from "../sfx";
 import { useOfficeStore } from "../store";
 import { CamaraComparsa } from "./camara";
 import { BandasDelDesfile, type FuenteMusica } from "./musica";
@@ -50,6 +50,20 @@ import { desfileMs, onLanzado, syncCarnaval, useCarnavalStore } from "./index";
 
 /** Hasta dónde se oye la banda de una carroza (px de mundo: unos 16 tiles). */
 const HEAR_PX = 32 * 16;
+/** Cuánto se transparenta una carroza que tapa a quien mira desde la vereda. */
+const VELO_CARROZA = 0.4;
+
+/** ¿Un píxel de verdad (no el aire del recuadro) de la imagen cae sobre la cabeza o el pecho de `yo`? */
+function tapaPunto(scene: Phaser.Scene, img: Phaser.GameObjects.Image, yo: { x: number; y: number }): boolean {
+  if (!img.getBounds().contains(yo.x, yo.y)) return false;
+  for (const dy of [-8, 0, 8]) {
+    const lp = img.getLocalPoint(yo.x, yo.y + dy);
+    // `getLocalPoint` ya cuenta desde la esquina de arriba a la izquierda del cuadro.
+    const a = scene.textures.getPixelAlpha(Math.floor(lp.x), Math.floor(lp.y), img.texture.key, img.frame.name);
+    if ((a ?? 0) > 128) return true;
+  }
+  return false;
+}
 /** La bandera cambia de cuadro cada tanto. */
 const FRAME_MS = 260;
 /** El zoom más cercano de la cámara (el mismo tope de la rueda, MAX_ZOOM de la escena). */
@@ -152,6 +166,8 @@ interface Unidad {
   movil: ParteMovil[];
   bailarines: Bailarin[];
   prog?: FraseProgramada;
+  /** Cuánto se transparenta la carroza (0 = nada) cuando tapa a quien mira desde la vereda. */
+  velo?: number;
 }
 
 export class CarnavalView {
@@ -167,6 +183,8 @@ export class CarnavalView {
   private fraseT = -1;
   private paradaVista: number | null = null;
   private evelioDijo = "";
+  /** Las carrozas que ya aplaudió el público de la vereda en esta corrida (una vez cada una). */
+  private aplaudidas = new Set<number>();
   private detach: (() => void)[] = [];
 
   constructor(
@@ -220,6 +238,7 @@ export class CarnavalView {
     this.corrida = useCarnavalStore.getState().corrida;
     this.fraseT = -1;
     this.paradaVista = null;
+    this.aplaudidas.clear();
   }
 
   /** Arma una unidad: las partes de la carroza (del atlas, o pintadas aquí) y sus bailarines. */
@@ -285,9 +304,16 @@ export class CarnavalView {
     if (e.parada !== this.paradaVista) {
       this.paradaVista = e.parada;
       this.fraseT = -1;
-      if (e.parada !== null) this.evelioSay(EVELIO_PARADAS[e.parada] ?? "", `parada:${st.corrida}:${e.parada}`);
+      if (e.parada !== null) {
+        this.evelioSay(EVELIO_PARADAS[e.parada] ?? "", `parada:${st.corrida}:${e.parada}`);
+        // Frente al palco, la vereda celebra la parada.
+        sfx.applause(0.7, 8);
+      }
     }
     const musica: FuenteMusica[] = [];
+    // Dónde se me ve el cuerpo (en la pantalla), si estoy detrás de las carrozas (en la vereda).
+    const yoS = me && me.y < (DESFILE_Y.carroza + 0.5) * ts ? worldToScreen(me.x, me.y) : null;
+    const yo = yoS ? { x: yoS.x, y: yoS.y - 14 } : null;
     let armadas = 0;
     for (const un of this.unidades) {
       const front = unidadX(un.k, e.cabeza);
@@ -316,13 +342,21 @@ export class CarnavalView {
             .setPosition(Math.round(o.x + q.x), Math.round(o.y + q.y))
             .setRotation(q.rot)
             .setScale(q.sx, q.sy)
-            .setAlpha(alpha * q.alpha)
             .setDepth(base + i * 0.001)
             .setVisible(shown && q.visible);
         });
+        // Si la carroza me tapa (estoy en la vereda, detrás), se vuelve medio transparente para no perderme.
+        const tapa = Boolean(yo) && shown && un.partes.some((p) => p.img.visible && tapaPunto(this.scene, p.img, yo!));
+        un.velo = (un.velo ?? 0) + ((tapa ? VELO_CARROZA : 0) - (un.velo ?? 0)) * 0.15;
+        un.partes.forEach((p, i) => p.img.setAlpha(alpha * poses[i]!.alpha * (1 - un.velo!)));
         // La música de la comparsa de cada carroza: rota su repertorio (cada una empieza en otro punto).
         const vol = volAt((front - largo / 2) * ts, (DESFILE_Y.carroza + 1.3) * ts, HEAR_PX) * fadeAt(front - largo / 2);
         musica.push({ clave: id, repertorio: repertorioDe(PIEZA[id], un.k), vol });
+        // La gente de la vereda aplaude cuando la carroza pasa frente a uno.
+        if (vol > 0.72 && !this.aplaudidas.has(un.k)) {
+          this.aplaudidas.add(un.k);
+          sfx.applause(0.55, 6);
+        }
       }
       // Cada murga toca su repertorio donde va caminando.
       if (un.u.tipo === "murga") {

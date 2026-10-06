@@ -11,6 +11,7 @@
 import { CONJUNTO_DE, type Conjunto, type PiezaId } from "@hyvento/shared";
 import { sfxOut } from "../sfx";
 import { Mesa, tocar } from "./musica-instrumentos";
+import { MEZCLA, realce, Selector } from "./musica-mezcla";
 import { duracionDe, PIEZAS_MUSICA, sonandoEn } from "./musica-piezas";
 import { corcheaS, humano, programaTramo, tramosDe, type Evento, type TramoListo } from "./musica-programa";
 
@@ -99,24 +100,39 @@ class Reproductor {
   }
 }
 
+/** Un grupo sonando dentro de una banda: su pieza, su volumen propio (para el fundido) y su mesa. */
+interface Voz {
+  grupo: string;
+  /** La pieza y cuántas lleva el grupo (`grupo:n`). */
+  sonando: string;
+  rep: Reproductor | null;
+  gain: GainNode;
+  mesa: Mesa;
+  /** Si se está yendo (fundido de salida): se suelta a esta hora del contexto. */
+  soltarEn?: number;
+}
+
 /**
  * Una banda que toca un repertorio. Cada cuadro se le dice qué grupo (`clave`), su repertorio, cuánto va del
- * desfile y a qué volumen (0 = no se oye). Si cambia de grupo, entra en el punto donde va el nuevo.
+ * desfile y a qué volumen (0 = no se oye). Si cambia de grupo, el de antes se va apagando mientras el nuevo
+ * entra (fundido cruzado) en el punto donde va; dentro del mismo grupo, la pieza siguiente entra después de
+ * la pausa, entera.
  */
 export class BandaAndina {
   private out: Out | null = null;
   private gain: GainNode | null = null;
-  private mesa: Mesa | null = null;
-  private rep: Reproductor | null = null;
-  private sonando = "";
+  private voces: Voz[] = [];
+  /** El compresor y la ganancia de vuelta (se sueltan con la banda). */
+  private salida: AudioNode[] = [];
   private silentSince = 0;
 
   update(fuente: { clave: string; repertorio: readonly PiezaId[]; ms: number } | null, vol: number) {
     if (!fuente || vol <= 0.01) {
-      if (this.gain && this.out) this.gain.gain.setTargetAtTime(0, this.out.ctx.currentTime, 0.2);
+      if (this.gain && this.out) this.gain.gain.setTargetAtTime(0, this.out.ctx.currentTime, 0.6);
       if (!this.silentSince) this.silentSince = performance.now();
       // Un rato callada: se suelta.
-      if (performance.now() - this.silentSince > 2500) this.stop();
+      if (performance.now() - this.silentSince > 4000) this.stop();
+      else this.tick();
       return;
     }
     this.silentSince = 0;
@@ -126,35 +142,82 @@ export class BandaAndina {
       this.out = a;
       this.gain = a.ctx.createGain();
       this.gain.gain.value = 0;
-      this.gain.connect(a.out);
-      this.mesa = new Mesa(a.ctx, this.gain);
+      // Un compresor suave y su ganancia de vuelta: la banda se oye presente (lo bajito sube) sin saturar
+      // cuando entran los bronces y la percusión a la vez.
+      const comp = a.ctx.createDynamicsCompressor();
+      comp.threshold.value = -20;
+      comp.knee.value = 12;
+      comp.ratio.value = 3;
+      comp.attack.value = 0.01;
+      comp.release.value = 0.25;
+      const vuelta = a.ctx.createGain();
+      vuelta.gain.value = MEZCLA.ganancia;
+      this.gain.connect(comp).connect(vuelta).connect(a.out);
+      this.salida = [comp, vuelta];
     }
     const { ctx } = this.out;
-    this.gain!.gain.setTargetAtTime(vol, ctx.currentTime, 0.15);
+    // La distancia cambia suave: así la banda se acerca y se aleja sin saltos.
+    this.gain!.gain.setTargetAtTime(vol, ctx.currentTime, 0.35);
     const ahora = sonandoEn(fuente.repertorio, fuente.ms);
-    const clave = ahora ? `${fuente.clave}:${ahora.n}` : "";
-    if (clave !== this.sonando) {
-      this.sonando = clave;
-      // Al pasar de un grupo a otro no se repite lo que el anterior ya dejó programado.
-      const hasta = this.rep?.hastaT ?? 0;
-      this.rep = null;
+    const sonando = ahora ? `${fuente.clave}:${ahora.n}` : "";
+    let voz = this.voces.find((v) => v.grupo === fuente.clave && v.soltarEn === undefined);
+    if (!voz) {
+      // Otro grupo: los que sonaban se van apagando y este entra de a poco.
+      for (const v of this.voces) this.soltar(v, ctx);
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      g.gain.setTargetAtTime(1, ctx.currentTime, MEZCLA.fundidoS);
+      g.connect(this.gain!);
+      voz = { grupo: fuente.clave, sonando: "", rep: null, gain: g, mesa: new Mesa(ctx, g) };
+      this.voces.push(voz);
+    }
+    if (sonando !== voz.sonando) {
+      voz.sonando = sonando;
+      // La pieza siguiente del mismo grupo: no se repite lo que la de antes dejó programado.
+      const hasta = voz.rep?.hastaT ?? 0;
+      voz.rep = null;
       if (ahora) {
-        this.rep = new Reproductor(ahora.pieza, ctx.currentTime + 0.05 - ahora.enS);
-        this.rep.minT = hasta + 1e-3;
-        this.rep.saltarA(ahora.enS);
+        voz.rep = new Reproductor(ahora.pieza, ctx.currentTime + 0.05 - ahora.enS);
+        voz.rep.minT = hasta + 1e-3;
+        voz.rep.saltarA(ahora.enS);
       }
     }
-    if (this.mesa) this.rep?.tick(ctx, this.mesa);
+    this.tick();
+  }
+
+  private soltar(v: Voz, ctx: AudioContext) {
+    if (v.soltarEn !== undefined) return;
+    v.gain.gain.cancelScheduledValues(ctx.currentTime);
+    v.gain.gain.setTargetAtTime(0, ctx.currentTime, MEZCLA.fundidoS);
+    v.soltarEn = ctx.currentTime + MEZCLA.fundidoS * 5;
+  }
+
+  /** Los que se van siguen tocando mientras se apagan (así el cruce no deja un hueco) y luego se sueltan. */
+  private tick() {
+    if (!this.out) return;
+    const { ctx } = this.out;
+    this.voces = this.voces.filter((v) => {
+      if (v.soltarEn !== undefined && ctx.currentTime > v.soltarEn) {
+        v.mesa.cerrar();
+        v.gain.disconnect();
+        return false;
+      }
+      v.rep?.tick(ctx, v.mesa);
+      return true;
+    });
   }
 
   stop() {
-    this.mesa?.cerrar();
-    this.mesa = null;
+    for (const v of this.voces) {
+      v.mesa.cerrar();
+      v.gain.disconnect();
+    }
+    this.voces = [];
     this.gain?.disconnect();
     this.gain = null;
+    for (const n of this.salida) n.disconnect();
+    this.salida = [];
     this.out = null;
-    this.rep = null;
-    this.sonando = "";
     this.silentSince = 0;
   }
 }
@@ -166,25 +229,39 @@ export interface FuenteMusica {
   vol: number;
 }
 
+/** Cuántas piezas sueltas (cinemáticas, el panel del director) están sonando: el desfile se corre para atrás. */
+let solos = 0;
+
 /**
- * La música del desfile: una banda para la murga y otra para el colectivo, cada una con el grupo de su
- * conjunto que más se oye. Si se oyen las dos, la más lejana baja (no se tapan del todo: así suena una calle
- * con dos bandas).
+ * La música del desfile: una banda para la murga y otra para el colectivo, cada una con un grupo de su
+ * conjunto (el `Selector` no la deja saltar de grupo a cada rato). Si se oyen las dos, la que menos baja
+ * (no se tapan del todo: así suena una calle con dos bandas), y mientras suena una cinemática con música,
+ * el desfile queda de fondo.
  */
 export class BandasDelDesfile {
   private bandas: Record<Conjunto, BandaAndina> = { murga: new BandaAndina(), colectivo: new BandaAndina() };
+  private selectores: Record<Conjunto, Selector> = { murga: new Selector(), colectivo: new Selector() };
+  private bajo = 1;
 
   update(fuentes: readonly FuenteMusica[], ms: number) {
-    const mejor: Partial<Record<Conjunto, FuenteMusica>> = {};
-    for (const f of fuentes) {
-      const c = f.repertorio[0] ? CONJUNTO_DE[f.repertorio[0]] : null;
-      if (c && f.vol > (mejor[c]?.vol ?? 0.01)) mejor[c] = f;
-    }
-    const total = (mejor.murga?.vol ?? 0) + (mejor.colectivo?.vol ?? 0);
+    const now = performance.now();
+    const elegida: Partial<Record<Conjunto, FuenteMusica>> = {};
     for (const c of ["murga", "colectivo"] as const) {
-      const f = mejor[c];
-      const vol = f ? f.vol * Math.sqrt(f.vol / total) : 0;
-      this.bandas[c].update(f ? { clave: f.clave, repertorio: f.repertorio, ms } : null, Math.min(1, vol * 1.1));
+      const mias = fuentes.filter((f) => f.repertorio[0] && CONJUNTO_DE[f.repertorio[0]] === c);
+      const clave = this.selectores[c].elegir(
+        mias.map((f) => ({ clave: f.clave, vol: f.vol, enPausa: !sonandoEn(f.repertorio, ms) })),
+        now,
+      );
+      const f = mias.find((x) => x.clave === clave);
+      if (f) elegida[c] = f;
+    }
+    // La cinemática manda: el desfile baja suave mientras suena su música y vuelve igual.
+    this.bajo += ((solos > 0 ? MEZCLA.bajoCine : 1) - this.bajo) * 0.05;
+    const fuerte = (elegida.murga?.vol ?? 0) >= (elegida.colectivo?.vol ?? 0) ? "murga" : "colectivo";
+    for (const c of ["murga", "colectivo"] as const) {
+      const f = elegida[c];
+      const vol = f ? realce(f.vol) * (c === fuerte ? 1 : MEZCLA.segunda) * this.bajo : 0;
+      this.bandas[c].update(f ? { clave: f.clave, repertorio: f.repertorio, ms } : null, vol);
     }
   }
 
@@ -203,7 +280,16 @@ function tocarSola(id: PiezaId, vol: number, desdeTramo: number, hastaS: number)
   g.gain.value = vol;
   g.connect(a.out);
   const mesa = new Mesa(ctx, g);
+  // Mientras suena, el desfile queda de fondo (una sola vez por pieza, aunque se pare dos veces).
+  let suelta = false;
+  solos++;
+  const soltar = () => {
+    if (suelta) return;
+    suelta = true;
+    solos = Math.max(0, solos - 1);
+  };
   const cerrar = () => {
+    soltar();
     mesa.cerrar();
     g.disconnect();
   };
@@ -215,6 +301,7 @@ function tocarSola(id: PiezaId, vol: number, desdeTramo: number, hastaS: number)
     if (timer) clearInterval(timer);
     timer = null;
     g.gain.setTargetAtTime(0, ctx.currentTime, 0.4);
+    soltar();
     setTimeout(cerrar, 2500);
   };
   const tick = () => {
@@ -222,6 +309,7 @@ function tocarSola(id: PiezaId, vol: number, desdeTramo: number, hastaS: number)
     if (rep.done) {
       if (timer) clearInterval(timer);
       timer = null;
+      soltar();
       // Un trozo se apaga de a poco; la pieza entera ya trae su final.
       if (Number.isFinite(hastaS)) g.gain.setTargetAtTime(0, ctx.currentTime, 0.5);
       setTimeout(cerrar, 4000);
@@ -233,8 +321,12 @@ function tocarSola(id: PiezaId, vol: number, desdeTramo: number, hastaS: number)
 }
 
 /** Toca un trozo de la pieza (unos 16 s, desde su `extracto`), para las cinemáticas. */
+let cineSonando: (() => void) | null = null;
+
 export function playPieza(id: PiezaId, vol = 0.8) {
-  tocarSola(id, vol, PIEZAS_MUSICA[id].extracto ?? 0, 16);
+  // Dos cinemáticas seguidas no se montan: la de antes se apaga.
+  cineSonando?.();
+  cineSonando = tocarSola(id, vol, PIEZAS_MUSICA[id].extracto ?? 0, 16);
 }
 
 /** Toca la pieza entera, de principio a fin (para escucharla); devuelve cómo pararla. */
