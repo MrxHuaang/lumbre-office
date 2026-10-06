@@ -19,8 +19,11 @@ export const CARNAVAL = {
   desfileHoras: [11, 15, 19],
   /** Minutos del juego después de la hora en que todavía puede salir (si el bus estaba en la calle, se espera). */
   ventanaMin: 30,
-  /** Velocidad del desfile (tiles por segundo real). */
-  velocidad: 2.2,
+  /**
+   * Velocidad del desfile (tiles por segundo real). Con las diez carrozas la fila es más larga: a este paso
+   * el desfile entero sigue durando unos 2 minutos (ver `desfileDuracionMs` en packages/map).
+   */
+  velocidad: 2.6,
   /** Lo que dura cada parada (ms reales): las comparsas repiten su frase. */
   paradaMs: 16_000,
   /** Un tiempo de la música (ms): una frase son 8. */
@@ -81,11 +84,9 @@ export const CARNAVAL_MSG = {
 
 // ---------- Las carrozas y sus comparsas ----------
 
-export const CARROZA_IDS = ["castaneda", "condor", "galeras", "reloj", "tinto", "megabus"] as const;
+/** Las diez carrozas, en el orden del desfile (el del plan). */
+export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"] as const;
 export type CarrozaId = (typeof CARROZA_IDS)[number];
-
-/** Lo que dice el plan y todavía no está dibujado (queda anotado para otra entrega). */
-export const CARROZAS_PENDIENTES = ["El Tablero vivo", "La Luna en el lago", "El Páramo", "La Minga de la cosecha"] as const;
 
 /** Quién hace un paso de la coreografía: un bailarín (`b0`…), todos, o los pares o impares. */
 export type FraseQuien = "todos" | "pares" | "impares" | `b${number}`;
@@ -103,7 +104,9 @@ export type FrasePaso =
   | { op: "act"; who: FraseQuien; action: CineAction }
   | { op: "walk"; who: FraseQuien; path: readonly FraseLugar[]; run?: boolean }
   | { op: "wait"; ms: number }
-  | { op: "together"; steps: readonly FrasePaso[] };
+  | { op: "together"; steps: readonly FrasePaso[] }
+  /** Uno tras otro (sirve dentro de `together` para correr a alguien en el tiempo, como en la ola). */
+  | { op: "seq"; steps: readonly FrasePaso[] };
 
 export interface Comparsa {
   id: CarrozaId;
@@ -151,6 +154,22 @@ const comparsero = (i: number, acento: string, o: Partial<Look> = {}): Look => (
 });
 
 const todos = (action: CineAction): FrasePaso => ({ op: "act", who: "todos", action });
+const juntos = (...steps: FrasePaso[]): FrasePaso => ({ op: "together", steps });
+const camina = (who: FraseQuien, path: FraseLugar[], run = false): FrasePaso => ({ op: "walk", who, path, ...(run ? { run } : {}) });
+const hace = (who: FraseQuien, action: CineAction): FrasePaso => ({ op: "act", who, action });
+/** Los primeros `n` bailarines (`b0`…). */
+const cada = (n: number): FraseQuien[] => Array.from({ length: n }, (_, i) => `b${i}` as const);
+
+/**
+ * La ola en cadena: cada bailarín hace `action` `gapMs` después del de al lado (por orden de puesto, de la
+ * carroza hacia atrás, o al revés), todo dentro de un `together`.
+ */
+export function ola(n: number, action: CineAction, gapMs: number, reves = false): FrasePaso {
+  return juntos(...cada(n).map((who, i): FrasePaso => ({ op: "seq", steps: [{ op: "wait", ms: (reves ? n - 1 - i : i) * gapMs }, hace(who, action)] })));
+}
+
+/** Los colores del tejido andino de la Minga (la carroza y las fajas de su comparsa). */
+export const TEJIDO = ["#c8336e", "#e8a317", "#2f8f6a", "#3a62b8", "#d4572a"] as const;
 
 export const COMPARSAS: readonly Comparsa[] = [
   {
@@ -221,6 +240,32 @@ export const COMPARSAS: readonly Comparsa[] = [
     ],
   },
   {
+    id: "tablero",
+    nombre: "El Tablero vivo",
+    grupo: "Cuadrilla del Tablero",
+    acento: "#c8343a",
+    largo: 7,
+    pieza: "sanjuanito",
+    // Cuatro peones (blancos y negros, con el gorro de bolita) y la reina (b4) con su corona.
+    bailarines: [
+      ...[0, 1, 2, 3].map((i) => comparsero(i, "#c8343a", { head: "pompom-beanie", face: "none", outfit: "vest" })),
+      comparsero(4, "#c8343a", { head: "crown", outfit: "gown", neck: "pearls", shirt: BLANCO, pants: BLANCO }),
+    ],
+    // Los peones avanzan una casilla (primero la fila de adelante), giran dos veces, la reina cruza en
+    // diagonal corriendo y vuelve, y todos regresan a su casilla y le hacen la venia al público.
+    frase: [
+      juntos(camina("b0", [{ dx: 1, dy: 0 }]), camina("b1", [{ dx: 1, dy: 0 }])),
+      juntos(camina("b2", [{ dx: 1, dy: 0 }]), camina("b3", [{ dx: 1, dy: 0 }])),
+      juntos(...cada(4).map((who) => hace(who, "girar")), hace("b4", "asentir")),
+      juntos(...cada(4).map((who) => hace(who, "girar"))),
+      camina("b4", [{ dx: 1.3, dy: 1.3 }, { dx: 2.6, dy: 0 }], true),
+      hace("b4", "celebrar"),
+      camina("b4", [{ dx: 1.3, dy: 1.3 }, { dx: 0, dy: 0 }], true),
+      juntos(...cada(4).map((who) => camina(who, [{ dx: 0, dy: 0 }]))),
+      todos("asentir"),
+    ],
+  },
+  {
     id: "reloj",
     nombre: "El Reloj de E.",
     grupo: "Los Engranajes de la vereda",
@@ -238,6 +283,74 @@ export const COMPARSAS: readonly Comparsa[] = [
       todos("asentir"),
       { op: "wait", ms: 500 },
       todos("asentir"),
+    ],
+  },
+  {
+    id: "luna",
+    nombre: "La Luna en el lago",
+    grupo: "Los del muelle",
+    acento: "#3a5aa8",
+    largo: 7,
+    pieza: "sanjuanito",
+    bailarines: [0, 1, 2, 3, 4, 5].map((i) => comparsero(i, "#3a5aa8", { head: "sailor-hat", back: "cape", face: i % 3 ? "carnival-mask" : "none" })),
+    // La ola en cadena: cada uno salta medio tiempo después del de al lado, ida y vuelta; luego se mecen.
+    frase: [
+      ola(6, "saltar", CARNAVAL.beatMs / 2),
+      ola(6, "saltar", CARNAVAL.beatMs / 2, true),
+      todos("bailar"),
+      ola(6, "girar", CARNAVAL.beatMs / 2),
+      todos("saludar"),
+    ],
+  },
+  {
+    id: "paramo",
+    nombre: "El Páramo",
+    grupo: "Los del Páramo",
+    acento: "#6f8a3a",
+    largo: 7,
+    pieza: "sanjuanito",
+    // Los colibríes: alas, cintillo y la ropa blanca y negra con el verde musgo.
+    bailarines: [0, 1, 2, 3].map((i) => comparsero(i, "#6f8a3a", { back: "wings", head: "headband", face: "none", ...(i % 2 ? {} : { outfit: "ruana" as const }) })),
+    // Los colibríes corren en zigzag delante de la carroza (una fila a contratiempo de la otra), giran allá,
+    // vuelven en zigzag y bailan.
+    frase: [
+      juntos(
+        camina("pares", [{ dx: 1, dy: 0.55 }, { dx: 2, dy: 0 }, { dx: 3, dy: 0.55 }, { dx: 4, dy: 0 }], true),
+        camina("impares", [{ dx: 1, dy: -0.55 }, { dx: 2, dy: 0 }, { dx: 3, dy: -0.55 }, { dx: 4, dy: 0 }], true),
+      ),
+      todos("girar"),
+      juntos(
+        camina("pares", [{ dx: 3, dy: 0.55 }, { dx: 2, dy: 0 }, { dx: 1, dy: 0.55 }, { dx: 0, dy: 0 }], true),
+        camina("impares", [{ dx: 3, dy: -0.55 }, { dx: 2, dy: 0 }, { dx: 1, dy: -0.55 }, { dx: 0, dy: 0 }], true),
+      ),
+      todos("bailar"),
+      todos("saltar"),
+    ],
+  },
+  {
+    id: "minga",
+    nombre: "La Minga de la cosecha",
+    grupo: "La Minga",
+    acento: TEJIDO[0],
+    largo: 7,
+    pieza: "sanjuanito",
+    // La gente del huerto: ruana o delantal, sombrero de paja o flor, y cada uno con la faja de otro color del tejido.
+    bailarines: [0, 1, 2, 3].map((i) => comparsero(i, TEJIDO[i % TEJIDO.length]!, { outfit: i % 2 ? "apron" : "ruana", head: i % 2 ? "flower" : "straw-hat", face: "none" })),
+    // La ronda de la mano: cada uno pasa al puesto del siguiente hasta dar la vuelta entera (b0 → b1 → b3 →
+    // b2 → b0); bailan, se arriman a la vereda a ofrecer la cosecha, celebran y vuelven.
+    frase: [
+      juntos(
+        camina("b0", [{ dx: 0, dy: 1.3 }, { dx: -1.5, dy: 1.3 }, { dx: -1.5, dy: 0 }, { dx: 0, dy: 0 }]),
+        camina("b1", [{ dx: -1.5, dy: 0 }, { dx: -1.5, dy: -1.3 }, { dx: 0, dy: -1.3 }, { dx: 0, dy: 0 }]),
+        camina("b3", [{ dx: 0, dy: -1.3 }, { dx: 1.5, dy: -1.3 }, { dx: 1.5, dy: 0 }, { dx: 0, dy: 0 }]),
+        camina("b2", [{ dx: 1.5, dy: 0 }, { dx: 1.5, dy: 1.3 }, { dx: 0, dy: 1.3 }, { dx: 0, dy: 0 }]),
+      ),
+      todos("bailar"),
+      camina("todos", [{ dx: 0.3, dy: -0.6 }]),
+      todos("saludar"),
+      todos("celebrar"),
+      camina("todos", [{ dx: 0, dy: 0 }]),
+      todos("bailar"),
     ],
   },
   {
@@ -287,7 +400,11 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   castaneda: "¡Ahí llega la Familia Castañeda, con baúles y todo, como cada año!",
   condor: "Miren ese cóndor: ya nació blanco y negro, no hubo que pintarlo.",
   galeras: "¡El Galeras fumando! Tranquilos, que es humo de algodón.",
+  tablero: "¡El Tablero vivo! La Cuadrilla del piso 3 se toma muy en serio lo de ser peones.",
   reloj: "El reloj de E. … trece campanadas, ¿sí las oyen?",
+  luna: "La Luna en el lago... ¿vieron la llavecita que le cuelga? Dicen que es de la casa.",
+  paramo: "El Páramo, de donde nace el agua. ¡Cuidadito con pisar los frailejones!",
+  minga: "¡La Minga! Papa, maíz, quinua y guaguas de pan: lo que da la tierra se comparte.",
   tinto: "Un tinto de Doña Aurora pa'l frío. ¡Achichay!",
   megabus: "¡Y cierra el Megabús de la alegría! Detrás va la gente de la casa.",
 };
@@ -354,6 +471,11 @@ export function programarFrase(pasos: readonly FrasePaso[], n: number): FrasePro
       }
       case "together":
         return Math.max(0, ...p.steps.map((s) => run(s, t0)));
+      case "seq": {
+        let t = t0;
+        for (const s of p.steps) t += run(s, t);
+        return t - t0;
+      }
     }
   };
   let t = 0;
