@@ -273,7 +273,10 @@ export interface PointDef {
     | "feria_shop"
     | "silleta_stand"
     // El Carnaval: el palco de la tarima (el concurso de disfraces).
-    | "carnaval_contest";
+    | "carnaval_contest"
+    // Amor y amistad: delante del cofre del amigo secreto y delante del trío de la serenata.
+    | "amigo_secreto"
+    | "amor_serenata";
   name: string;
   x: number;
   y: number;
