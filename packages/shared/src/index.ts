@@ -94,3 +94,4 @@ export * from "./festivales";
 export * from "./capitulo2";
 export * from "./novenas";
 export * from "./aguinaldos";
+export * from "./capitulo3";

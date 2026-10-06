@@ -1767,6 +1767,34 @@ const ITEMS: Record<string, ItemArt> = {
     ],
     colors: { G: hex("#c9962a"), Y: hex("#f2d16a"), W: hex("#fff6d0") },
   },
+  // ---------- Capítulo 3: la llavecita del lago ----------
+  // La llavecita oxidada: argolla con su hueco, la caña con un parche verde de agua y dos dientes.
+  "llave-oxidada": {
+    rows: [
+      ".ooo......", //
+      "oRrRo.....",
+      "or.rooooo.",
+      "oRrRRgRrRo",
+      ".oooooRoRo",
+      "......o.o.",
+    ],
+    colors: { R: hex("#8a5a2c"), r: hex("#c0763a"), g: hex("#6f8a6a") },
+    flat: "g",
+  },
+  // La carnada de E.: ollita de barro con la masa de mazorca, pintas de fresa y una etiquetica.
+  "carnada-e": {
+    rows: [
+      "..oooo..", //
+      ".oYyrYo.",
+      "oyYrYyYo",
+      "oCCCCCCo",
+      "ocwwcCco",
+      "occccCCo",
+      ".oooooo.",
+    ],
+    colors: { Y: hex("#f2d16a"), y: hex("#d9a83a"), r: hex("#d0404a"), C: hex("#b0603a"), c: hex("#8a4428"), w: hex("#f4ead0") },
+    flat: "rw",
+  },
 };
 
 // ---------- La granja del jardín: ingredientes y lo de la parrilla ----------

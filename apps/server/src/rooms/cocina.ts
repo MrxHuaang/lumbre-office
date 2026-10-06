@@ -37,6 +37,8 @@ export interface CocinaDeps {
   level?(userId: string, oficio: string): number;
   /** El festival que corre ("" = ninguno): las recetas de temporada solo se cocinan en el suyo. */
   festival?(): string;
+  /** ¿Tiene abierto ese paso de historia? (las recetas de la historia: ver `Recipe.story`). */
+  storyOpen?(userId: string, questId: string): boolean;
 }
 
 export interface CocinaWho {
@@ -105,6 +107,11 @@ export class Cocina {
     if (recipe.requires && (this.deps.level?.(who.userId, recipe.requires.oficio) ?? 1) < recipe.requires.level) return { notice: { code: "level", item: recipe.id } };
     // La natilla y los buñuelos, solo en las novenas.
     if (!recipeInSeason(recipe, this.deps.festival?.() ?? "")) return { notice: { code: "season", item: recipe.id } };
+    // La de la historia, solo con su paso abierto y una a la vez (la que sobra se perdería: tope de 1).
+    if (recipe.story) {
+      if (!recipe.story.some((q) => this.deps.storyOpen?.(who.userId, q))) return { notice: { code: "story", item: recipe.id } };
+      if (this.deps.bag.count(who.userId, objItemId(recipe.id)) > 0) return { notice: { code: "have", item: recipe.id } };
+    }
     if (now - (this.lastCookAt.get(who.userId) ?? 0) < COCINA.cookCooldownMs) return { notice: { code: "busy" } };
     const pantry = this.pantry(who.userId);
     if (!canCook(recipe, pantry)) return { notice: { code: "missing" } };

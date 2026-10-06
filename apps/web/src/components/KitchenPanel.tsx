@@ -5,8 +5,10 @@
 // rato de energía. El servidor valida que estés junto a la estufa y que alcancen los ingredientes; aquí
 // solo se muestra.
 import { drawHeldItem } from "@hyvento/map/art";
-import { COCINA, INGREDIENTS, RECIPES, canCook, ingredientName, recipeInSeason, unlockText, unlocked, type Recipe } from "@hyvento/shared";
+import { COCINA, INGREDIENTS, RECIPES, STORY_RECIPES, canCook, ingredientName, recipeInSeason, unlockText, unlocked, type Recipe } from "@hyvento/shared";
 import { useOfficeStore } from "@/game/store";
+import { useEncargos } from "@/game/encargos";
+import { storyStepOpen } from "@/game/historia";
 import { useMyLevels } from "@/game/oficios";
 import { useEffect, useMemo } from "react";
 import { requestPantry, sendCook, useCocinaStore } from "@/game/cocina";
@@ -22,6 +24,7 @@ export function ItemArt({ id, size = 8 }: { id: string; size?: 6 | 8 }) {
 
 function effectText(r: Recipe): string {
   if (r.effect.kind === "points") return `+${r.effect.amount} pts`;
+  if (r.effect.kind === "story") return "Receta de E. (historia)";
   const min = r.effect.ms / 60_000;
   return `Energía ${Math.round((r.effect.mul - 1) * 100)} % · ${min >= 1 ? `${Math.round(min * 10) / 10} min` : `${Math.round(r.effect.ms / 1000)} s`}`;
 }
@@ -32,9 +35,14 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
   const pointsToday = useCocinaStore((s) => s.pointsToday);
   // Las de temporada (la natilla y los buñuelos de las novenas) solo se ven mientras corre su festival.
   const festival = useOfficeStore((s) => s.festival.id);
-  const recipes = RECIPES.filter((r) => recipeInSeason(r, festival));
   useEffect(() => requestPantry(), []);
   const available = pantry ?? {};
+  // Las recetas de la historia (la carnada de E.) solo aparecen con su paso abierto (lo valida el servidor).
+  const quests = useEncargos((s) => s.quests);
+  const recipes = [
+    ...STORY_RECIPES.filter((r) => r.story?.some((q) => storyStepOpen(quests, q))),
+    ...RECIPES.filter((r) => recipeInSeason(r, festival)),
+  ];
 
   return (
     <PanelShell title="Cocina" icon="pot" onClose={onClose} wide>
@@ -81,7 +89,7 @@ export function KitchenPanel({ atObject, onClose }: { atObject: boolean; onClose
                     <span className="block truncate font-semibold">{r.name}</span>
                     {r.festival && <span className="block text-[11px] text-cozy-ink-soft">De temporada: solo en las novenas</span>}
                     <span className="flex items-center gap-1 text-[12px] text-cozy-ink-soft">
-                      <PixelIcon name={r.effect.kind === "points" ? "coin" : "bolt"} size={11} color="var(--color-cozy-gold)" />
+                      <PixelIcon name={r.effect.kind === "points" ? "coin" : r.effect.kind === "story" ? "fish" : "bolt"} size={11} color="var(--color-cozy-gold)" />
                       {effectText(r)}
                     </span>
                   </span>

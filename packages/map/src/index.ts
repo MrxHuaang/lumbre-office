@@ -27,6 +27,7 @@ export * from "./casa-propia";
 export * from "./mundo";
 export * from "./footsteps";
 export * from "./agua";
+export * from "./lago";
 export * from "./radar";
 export * from "./viaje";
 export * from "./world/build";

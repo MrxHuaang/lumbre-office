@@ -75,6 +75,11 @@ export function playCineSound(sound: CineSound) {
     case "brisa":
       noise(a, t, 2.2, 500, 0.025, 1400);
       return;
+    case "chapuzon":
+      // Algo que sale del agua: el chapoteo y las gotas que caen después.
+      noise(a, t, 0.45, 900, 0.05, 300);
+      [1760, 1397, 2093, 1568].forEach((f, i) => tone(a, t + 0.35 + i * 0.11, 0.09, f, 0.014, "sine", f * 0.7));
+      return;
     case "tambor":
       for (let i = 0; i < 6; i++) tone(a, t + i * 0.09, 0.12, 110, 0.06, "triangle", 60);
       tone(a, t + 0.6, 0.4, 90, 0.08, "triangle", 45);

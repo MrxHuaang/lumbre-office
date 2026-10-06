@@ -428,6 +428,7 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   ...section("cabana", [
     a("recien-llegado", "Recién llegado a la cabaña", "scroll", "comun", STAT_KEYS.storyCh1, 1, "Termina (o salta) el capítulo 1 con Doña Aurora", "Ya sabes dónde queda el tinto. Y hay una carta esperándote."),
     a("relojero", "Relojero", "clock", "raro", STAT_KEYS.storyCh2, 1, "Haz que el reloj de pie vuelva a dar la hora (capítulo 2)", "Trece campanadas. Nadie sabe por qué trece."),
+    a("pescador-de-secretos", "Pescador de secretos", "fish", "raro", STAT_KEYS.storyCh3, 1, "Saca del lago la llavecita de E. (capítulo 3)", "No todo lo que pica es pescado."),
     a("primer-dia", "Primer día", "clock", "comun", STAT_KEYS.secondsOnline, HOUR, "Pasa una hora activa en la cabaña", "Ya sabes dónde queda el baño."),
     a("veterano", "Veterano de la cabaña", "clock", "epico", STAT_KEYS.secondsOnline, 100 * HOUR, "Pasa 100 horas activas en la cabaña", "Conoces cada tabla que cruje."),
     a("parte-del-mobiliario", "Parte del mobiliario", "clock", "legendario", STAT_KEYS.secondsOnline, 500 * HOUR, "Pasa 500 horas activas en la cabaña", "Te iban a inventariar con los muebles."),
