@@ -250,6 +250,8 @@ import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
 import { nearQuestGiver } from "@hyvento/map";
 import { registerVelitas, type Velitas } from "./velitas";
+import { registerAnoViejo, type AnoViejo } from "./anoViejo";
+import { TestamentoState } from "../state";
 import { Novenas } from "./novenas";
 import { Aguinaldos } from "./aguinaldos";
 import { WeatherCycle } from "./weather";
@@ -459,6 +461,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   static brujasNow: () => number = () => Date.now();
   /** La gente de la fiesta: el reloj de la pausa entre entregas (los tests lo fijan). */
   static genteNow: () => number = () => Date.now();
+  /** El Año viejo: el reloj de las campanadas, la maleta y las pausas (los tests lo fijan). */
+  static anoViejoNow: () => number = () => Date.now();
   /**
    * Dar la canasta de dulce o truco al entrar y al abrir la Noche de brujas. Los tests lo apagan
    * (test/setup.ts: el reloj real puede caer en el festival y cambiarles la mano); noche-brujas.test.ts lo prende.
@@ -1161,6 +1165,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.mundo = registerMundo(this as unknown as MundoRoom);
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
     this.velitas = registerVelitas(this, { state: () => this.state.velitas, festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }), player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), now: () => Date.now() }, (c) => this.markActive(c as Client<UserData>));
+    this.anoViejo = registerAnoViejo(this, { state: () => this.state.anoViejo, testamento: () => new TestamentoState(), festival: () => { const t = this.gameTimeNow(); return { id: this.state.festival, fase: this.state.festivalFase, day: t.day, año: fechaDelJuego(t.day).año, minute: t.minuteOfDay }; }, player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), nearShop: (p) => this.nearFestivalShop(p as Player, "festival_shop"), held: this.held, stats: { stat: (u, k) => this.achievements.stat(u, k), max: (u, k, v) => this.achievements.max(u, k, v), bump: (u, k, by) => this.achievements.bump(u, k, by), isLoaded: (u) => this.achievements.isLoaded(u) }, repo: () => this.repo, balance: (u, b) => { for (const p of this.state.players.values()) if (p.userId === u) p.points = b; }, send: (id, t, m) => this.clients.getById(id)?.send(t, m), now: () => OfficeRoom.anoViejoNow(), later: (ms, fn) => this.clock.setTimeout(fn, ms) }, (c) => this.markActive(c as Client<UserData>));
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
     this.onMessage(GRANJA_MSG.coopOpen, (client) => void this.handleCoop(client));
@@ -1368,6 +1373,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.novenas.tick();
       this.syncFestival();
       this.feria.tick();
+      this.anoViejo?.tick();
     }, 2_000);
     // El Carnaval: la hora del desfile y la comparsa que va por la calle (seguido, para que se mueva suave).
     this.clock.setInterval(() => this.carnaval.tick(), 100);
@@ -1593,6 +1599,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     void this.encargos.load(auth.sub, { join: true, newcomer: isNewcomer(auth.onboardedAt, Date.now()), byBus });
     void this.oficios.load(auth.sub, { join: true });
     this.velitas?.joined(auth.sub);
+    this.anoViejo?.joined(client.sessionId, auth.sub);
     if (byBus) {
       this.toStation.add(auth.sub);
       this.bus.requestRide();
@@ -2397,6 +2404,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private comunicacion?: Comunicacion;
   /** La Noche de velitas (ver velitas.ts). */
   private velitas?: Velitas;
+  /** El Año viejo (ver anoViejo.ts). */
+  private anoViejo?: AnoViejo<TestamentoState>;
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
@@ -2502,6 +2511,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.fishery.moved(player.userId, x, y, seated);
     this.trades.moved(client.sessionId);
     this.club.moved({ sessionId: client.sessionId, area: player.area, x, y, seated });
+    this.anoViejo?.moved(client.sessionId);
     if (player.racing) void this.raceOutcome(client.sessionId, this.races.moved(map, client.sessionId, player, now));
     if (!seated && !fromSeat && dist > 0) this.achievements.walk(player.userId, dist / map.tileSize);
     if (leftSeat && leftSeat !== seat?.type) this.tina?.stoodUp(player.userId, leftSeat);
@@ -4526,6 +4536,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.brujas.forget(player.userId);
     this.gente.forget(player.userId);
     this.feria.forget(player.userId);
+    this.anoViejo?.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);

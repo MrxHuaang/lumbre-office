@@ -563,6 +563,28 @@ export class VelitasState extends Schema {
   @type({ map: DeseoState }) wishes = new MapSchema<DeseoState>();
 }
 
+/** Un testamento del cartel del Año viejo (la clave es el userId: uno por persona). */
+export class TestamentoState extends Schema {
+  @type("string") name = "";
+  @type("string") text = "";
+  @type("float64") at = 0;
+}
+
+/** El Año viejo (ver rooms/anoViejo.ts): el muñeco que se arma entre todos, la quema, las campanadas y los testamentos. */
+export class AnoViejoState extends Schema {
+  @type("uint16") prendas = 0;
+  @type("uint16") rellenos = 0;
+  /** La etapa del muñeco (0..4), con `etapaMuneco`. */
+  @type("uint8") etapa = 0;
+  /** Cuándo empezó la quema (ms del servidor; 0 = todavía no). */
+  @type("float64") quemadoAt = 0;
+  /** Las doce campanadas de las uvas: la primera en `campanadasInicio` (ms del servidor); sin `campanadasN`, no suenan. */
+  @type("float64") campanadasInicio = 0;
+  @type("uint16") campanadasIntervalo = 0;
+  @type("uint8") campanadasN = 0;
+  @type({ map: TestamentoState }) testamentos = new MapSchema<TestamentoState>();
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -620,4 +642,6 @@ export class OfficeState extends Schema {
   @type(FeriaState) feria = new FeriaState();
   /** El Carnaval de Negros y Blancos: el desfile y el concurso de disfraces. */
   @type(CarnavalState) carnaval = new CarnavalState();
+  /** El Año viejo: el muñeco, la quema, las campanadas de las uvas y los testamentos. */
+  @type(AnoViejoState) anoViejo = new AnoViejoState();
 }
