@@ -112,7 +112,7 @@ function QuickTools() {
           onClick={() => useOfficeStore.getState().setPrivateWalls(!walls)}
           aria-pressed={walls}
           className="cozy-btn h-[34px] w-[34px] p-0"
-          title={walls ? "Paredes altas: solo ves la sala donde estás. Clic para verla toda" : "Paredes bajas: ves toda la casa. Clic para subirlas"}
+          title={walls ? "Paredes altas: solo ves la sala donde estás. Clic para ver toda la casa" : "Paredes bajas: ves toda la casa. Clic para subirlas"}
           aria-label={walls ? "Bajar las paredes" : "Subir las paredes"}
         >
           <PixelIcon name="walls" size={16} color={walls ? "var(--color-cozy-wood)" : "var(--color-cozy-ink-soft)"} />
