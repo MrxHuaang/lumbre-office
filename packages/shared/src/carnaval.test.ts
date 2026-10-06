@@ -3,6 +3,10 @@ import {
   CARNAVAL,
   CARNAVAL_CINEMATICAS,
   CARNAVAL_SHOP,
+  CARROZA_IDS,
+  EVELIO_CARROZAS,
+  TEJIDO,
+  ola,
   COMPARSAS,
   concursoAbierto,
   desfileDeLaHora,
@@ -57,6 +61,72 @@ describe("el Carnaval de Negros y Blancos", () => {
     expect(fraseAcciones(prog, prog.ms, prog.ms + 1000)).toHaveLength(0);
     expect(quienes("pares", 4)).toEqual([0, 2]);
     expect(quienes("b9", 4)).toEqual([]);
+  });
+
+  it("salen las diez carrozas del plan, en su orden, cada una con su color de acento", () => {
+    expect(CARROZA_IDS).toEqual(["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"]);
+    expect(COMPARSAS.map((c) => c.id)).toEqual([...CARROZA_IDS]);
+    expect(new Set(COMPARSAS.map((c) => c.acento)).size).toBe(COMPARSAS.length);
+    for (const c of COMPARSAS) expect(EVELIO_CARROZAS[c.id], c.id).toBeTruthy();
+  });
+
+  const prog = (id: string) => {
+    const c = COMPARSAS.find((x) => x.id === id)!;
+    return programarFrase(c.frase, c.bailarines.length);
+  };
+
+  it("el Tablero: los peones avanzan una casilla, giran dos veces y la reina cruza en diagonal corriendo", () => {
+    const p = prog("tablero");
+    for (const who of [0, 1, 2, 3]) {
+      expect(p.eventos.some((e) => e.kind === "walk" && e.who === who && e.to.dx === 1 && e.to.dy === 0), `peón ${who}`).toBe(true);
+      expect(p.eventos.filter((e) => e.kind === "act" && e.who === who && e.action === "girar"), `peón ${who}`).toHaveLength(2);
+    }
+    const reina = p.eventos.filter((e) => e.kind === "walk" && e.who === 4);
+    expect(reina.every((e) => e.kind === "walk" && e.run)).toBe(true);
+    expect(reina.some((e) => e.kind === "walk" && e.to.dx - e.from.dx !== 0 && Math.abs(e.to.dx - e.from.dx) === Math.abs(e.to.dy - e.from.dy))).toBe(true);
+    // La reina cruza cuando los peones ya avanzaron.
+    const avanzaron = Math.max(...p.eventos.filter((e) => e.kind === "walk" && e.who < 4 && e.to.dx === 1).map((e) => e.at + e.dur));
+    expect(Math.min(...reina.map((e) => e.at))).toBeGreaterThanOrEqual(avanzaron);
+  });
+
+  it("la Luna: la ola en cadena, cada uno salta medio tiempo después del de al lado", () => {
+    const p = prog("luna");
+    const saltos = p.eventos.filter((e) => e.kind === "act" && e.action === "saltar");
+    // La ida: el primer salto de cada uno, en orden, a medio tiempo.
+    const ida = [0, 1, 2, 3, 4, 5].map((who) => saltos.find((e) => e.who === who)!.at);
+    for (let i = 1; i < ida.length; i++) expect(ida[i]! - ida[i - 1]!).toBe(CARNAVAL.beatMs / 2);
+    // La vuelta, al revés.
+    const vuelta = [0, 1, 2, 3, 4, 5].map((who) => saltos.filter((e) => e.who === who)[1]!.at);
+    for (let i = 1; i < vuelta.length; i++) expect(vuelta[i - 1]! - vuelta[i]!).toBe(CARNAVAL.beatMs / 2);
+    expect(ola(3, "saltar", 250)).toMatchObject({ op: "together" });
+  });
+
+  it("el Páramo: los colibríes corren en zigzag delante de la carroza", () => {
+    const p = prog("paramo");
+    for (const who of [0, 1, 2, 3]) {
+      const tramos = p.eventos.filter((e) => e.kind === "walk" && e.who === who);
+      expect(tramos.every((e) => e.kind === "walk" && e.run), `colibrí ${who}`).toBe(true);
+      // Van adelante (hacia +x, por delante de su puesto) y cambian de lado a cada tramo.
+      expect(Math.max(...tramos.map((e) => (e.kind === "walk" ? e.to.dx : 0)))).toBeGreaterThanOrEqual(3);
+      const dys = tramos.map((e) => (e.kind === "walk" ? Math.sign(e.to.dy - e.from.dy) : 0));
+      for (let i = 1; i < dys.length; i++) if (dys[i] && dys[i - 1]) expect(dys[i]).not.toBe(dys[i - 1]);
+    }
+  });
+
+  it("la Minga: la ronda pasa cada uno por el puesto de los demás y ofrecen la cosecha hacia la vereda", () => {
+    const c = COMPARSAS.find((x) => x.id === "minga")!;
+    const p = prog("minga");
+    // Los puestos en la calle (relativos al de b0): columna cada 1.5 tiles y fila cada 1.3.
+    const puesto = (i: number) => ({ x: -Math.floor(i / 2) * 1.5, y: (i % 2) * 1.3 });
+    for (let who = 0; who < c.bailarines.length; who++) {
+      const pasa = p.eventos.filter((e) => e.kind === "walk" && e.who === who).map((e) => (e.kind === "walk" ? { x: puesto(who).x + e.to.dx, y: puesto(who).y + e.to.dy } : null));
+      for (let otro = 0; otro < c.bailarines.length; otro++)
+        expect(pasa.some((q) => q && Math.abs(q.x - puesto(otro).x) < 1e-9 && Math.abs(q.y - puesto(otro).y) < 1e-9), `b${who} por el puesto de b${otro}`).toBe(true);
+    }
+    expect(p.eventos.some((e) => e.kind === "walk" && e.to.dy < 0)).toBe(true);
+    expect(p.eventos.some((e) => e.kind === "act" && e.action === "celebrar")).toBe(true);
+    // La faja de cada uno es de un color del tejido.
+    for (const b of c.bailarines) expect(TEJIDO as readonly string[]).toContain(b.accent);
   });
 
   it("nadie tiene la piel oscurecida: el blanco y negro va en la ropa", () => {

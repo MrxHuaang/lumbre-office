@@ -6,9 +6,9 @@
 // humo, vapor). Coordenadas locales de arte (tile = 16), mirando hacia +x (el sentido del desfile).
 // Las carrozas se dibujan con el origen en la esquina de atrás del lado de la vereda, a ras de la vereda:
 // las ruedas bajan `CURB_DROP` hasta la calzada, como el bus.
-import { COMPARSAS, type CarrozaId } from "@hyvento/shared";
+import { COMPARSAS, TEJIDO, type CarrozaId } from "@hyvento/shared";
 import { CURB_DROP } from "../world/areas/parada";
-import { textMask } from "./digits";
+import { glyph, textMask } from "./digits";
 import { Escena, type Tinte } from "./exterior-escena";
 import { C, mix } from "./palette";
 import { PixelCanvas, alpha, at, hex, noise, ramp, type Ramp, type RGBA, type Sprite } from "./pixel";
@@ -93,10 +93,25 @@ function plataforma(s: Escena, len: number, acento: Ramp, night: boolean) {
   }
 }
 
-/** Letras de 5x7 sobre la cara +y (de cara a la vereda), con la base en z0 desde u0. */
+/**
+ * Letras de 5x7 sobre la cara +y (de cara a la vereda), con la base en z0 desde u0. El cartel va sesgado
+ * con la cara, pero cada letra va derecha y la siguiente baja en escalera: sesgadas, las letras se
+ * deshacían (la L perdía el palo). Se pinta al final, encima de lo demás.
+ */
 function letrero(s: Escena, text: string, u0: number, y: number, z0: number, col: RGBA, bg: RGBA) {
   const m = textMask(text, 1);
-  s.quad([u0 - 2, y + 0.4, z0 - 2], [1, 0, 0], [0, 0, 1], m.w + 4, m.h + 4, (u, v) => (m.on(Math.floor(u - 2), Math.floor(m.h + 1 - v)) ? col : bg));
+  s.quad([u0 - 2, y + 0.4, z0 - 2], [1, 0, 0], [0, 0, 1], m.w + 4, m.h + 4, () => bg);
+  let x = 0;
+  for (const ch of text) {
+    const g = glyph(ch);
+    if (!g) continue;
+    const w = g[0]!.length;
+    const q = s.p(u0 + x + w / 2, y + 0.4, z0 + m.h);
+    const left = Math.round(q.x - w / 2);
+    const top = Math.round(q.y);
+    for (let gy = 0; gy < g.length; gy++) for (let gx = 0; gx < w; gx++) if (g[gy]![gx] === "#") s.canvas.set(left + gx, top + gy, col);
+    x += w + 1;
+  }
 }
 
 // ---------- Las carrozas ----------
@@ -380,10 +395,532 @@ function megabus(f: number, night: boolean): Sprite {
   return s.sprite();
 }
 
-const CARROZAS: Record<CarrozaId, (f: number, night: boolean) => Sprite> = { castaneda, condor, galeras, reloj, tinto, megabus };
+/** Ida y vuelta en cuatro cuadros: 0 → 0.5 → 1 → 0.5 (así el bucle no salta). */
+const vaiven = (f: number) => [0, 0.5, 1, 0.5][f % 4]!;
+
+/** ¿El punto (u, v) cae adentro del polígono? */
+function dentro(poly: readonly (readonly [number, number])[], u: number, v: number): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i]!;
+    const [xj, yj] = poly[j]!;
+    if (yi > v !== yj > v && u < ((xj - xi) * (v - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Una figura plana de perfil (en el plano x-z, mirando a +x) con grosor en y: varias capas del mismo
+ * contorno; la de adelante con su tinte y las de atrás más oscuras, así se lee el canto.
+ */
+function perfil(s: Escena, x0: number, y0: number, z0: number, w: number, h: number, grosor: number, poly: readonly (readonly [number, number])[], tinte: (u: number, v: number, canto: boolean) => RGBA | null) {
+  for (let t = 0; t <= grosor; t += 0.5) {
+    const canto = t < grosor;
+    s.quad([x0, y0 + t, z0], [1, 0, 0], [0, 0, 1], w, h, (u, v) => (dentro(poly, u, v) ? tinte(u, v, canto) : null));
+  }
+}
+
+// ----- 4. El Tablero vivo -----
+
+type Pieza = "peon" | "torre" | "caballo" | "reina" | "rey";
+
+/** Una pieza de ajedrez gigante de papel maché (blanca o negra), con su anillo rojo en la base. */
+function piezaAjedrez(s: Escena, tipo: Pieza, cx: number, cy: number, z0: number, color: Ramp, A: Ramp, e = 1.4) {
+  const claro = color === BLANCO;
+  const tono = (luz: number) => at(color, (claro ? 3.6 : 2.5) + luz * (claro ? 1.1 : 1.2));
+  const hueco = at(color, claro ? 2.6 : 1.4);
+  // La base: un disco ancho con el anillo del acento.
+  const rb = (tipo === "peon" ? 2.8 : 3.4) * e;
+  s.cylinder(cx, cy, z0, rb, 1.8 * e, (_a, v, luz) => (v > 1.1 * e ? at(A, 3.4 + luz) : tono(luz)));
+  s.disc(cx, cy, z0 + 1.8 * e, rb, () => tono(0.6));
+  const z = z0 + 1.8 * e;
+  if (tipo === "peon") {
+    s.cone(cx, cy, z, 2.2 * e, 7 * e, (_a, _s, luz) => tono(luz));
+    s.disc(cx, cy, z + 4.6 * e, 1.9 * e, () => tono(0.4));
+    orb(s, cx, cy, z + 7.2 * e, 2.2 * e, 2.2 * e, 2.2 * e, (luz) => tono(luz));
+    return;
+  }
+  if (tipo === "torre") {
+    s.cylinder(cx, cy, z, 2.5 * e, 11 * e, (a, v, luz) => (Math.floor(v / e) % 5 === 4 && Math.sin(a * 4) > -0.2 ? hueco : tono(luz)));
+    s.cylinder(cx, cy, z + 11 * e, 3.2 * e, 2.4 * e, (_a, _v, luz) => tono(luz));
+    s.disc(cx, cy, z + 13.4 * e, 3.2 * e, (dx, dy) => (Math.hypot(dx, dy) < 2.1 * e ? hueco : tono(0.6)));
+    // Las almenas.
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      s.solid(cx + Math.cos(a) * 2.5 * e - 0.6 * e, cy + Math.sin(a) * 2.5 * e - 0.6 * e, z + 13.4 * e, 1.2 * e, 1.2 * e, 1.8 * e, tono(0.8), tono(0.1), tono(-0.4));
+    }
+    return;
+  }
+  if (tipo === "caballo") {
+    // La cabeza del caballo de perfil (mira hacia adelante, +x), con su crin del otro color.
+    const poly = [
+      [1.2, 0], [8.4, 0], [8.2, 3], [7.4, 5.2], [9.6, 7.4], [10.6, 9.4], [9.8, 10.8], [7.2, 12.6], [6.6, 14.6], [5.4, 13.2],
+      [3.6, 13.6], [1.8, 11], [1.2, 7], [1.6, 3],
+    ].map(([u, v]) => [u! * e, v! * e] as const);
+    perfil(s, cx - 5.4 * e, cy - 1.8 * e, z, 12 * e, 15 * e, 3.6 * e, poly, (u, v, canto) => {
+      if (canto) return hueco;
+      const U = u / e;
+      const V = v / e;
+      if (Math.hypot(U - 7.2, V - 10.6) < 0.7) return at(claro ? NEGRO : BLANCO, claro ? 1 : 5);
+      if (Math.hypot(U - 10, V - 8.4) < 0.5) return at(claro ? NEGRO : BLANCO, claro ? 1 : 4);
+      // La crin, por la nuca y el cuello.
+      if (U < 3.4 + (V - 3) * 0.12 && V > 4) return at(claro ? NEGRO : BLANCO, claro ? 2 : 4);
+      return tono(0.5 - U * 0.06);
+    });
+    return;
+  }
+  // Reina y rey: el cuerpo en campana, el cuello con su collar y la cabeza.
+  s.cone(cx, cy, z, 2.9 * e, 15 * e, (_a, _s, luz) => tono(luz));
+  s.disc(cx, cy, z + 9.6 * e, 2.4 * e, () => tono(0.5));
+  s.cylinder(cx, cy, z + 9 * e, 2.4 * e, 0.8 * e, (_a, _v, luz) => at(A, 3.4 + luz));
+  orb(s, cx, cy, z + 12.4 * e, 2.2 * e, 2.2 * e, 2.4 * e, (luz) => tono(luz));
+  if (tipo === "reina") {
+    // La corona de puntas, con la joya roja arriba.
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * Math.PI * 2;
+      orb(s, cx + Math.cos(a) * 1.9 * e, cy + Math.sin(a) * 1.9 * e, z + 14.8 * e, 0.7 * e, 0.7 * e, 0.9 * e, (luz) => tono(luz + 0.4));
+    }
+    orb(s, cx, cy, z + 15.8 * e, 0.9 * e, 0.9 * e, 0.9 * e, (luz) => at(A, 3.6 + luz));
+    return;
+  }
+  // El rey: la cruz roja.
+  s.solid(cx - 0.5 * e, cy - 0.5 * e, z + 14.2 * e, e, e, 5 * e, at(A, 4.4), at(A, 3.4), at(A, 2.4));
+  s.solid(cx - 0.5 * e, cy - 1.8 * e, z + 16.6 * e, e, 3.6 * e, e, at(A, 4.4), at(A, 3.4), at(A, 2.4));
+}
+
+/**
+ * 4. El Tablero vivo: un piso de ajedrez blanco y negro con borde rojo y piezas gigantes. En cada cuadro
+ * se mueven: el caballo salta en L (y vuelve), la reina negra se desliza en diagonal y un peón avanza.
+ */
+function tableroVivo(f: number, night: boolean): Sprite {
+  const len = 64;
+  const A = ACENTO.tablero;
+  const s = new Escena({ x0: -4, y0: -4, z0: Z.wheel - 2, x1: len + 6, y1: W + 6, z1: 80 }, 3);
+  plataforma(s, len, A, night);
+  // El tablero: 8 x 5 casillas sobre una tarima baja con el borde rojo.
+  const SQ = 6.4;
+  const bx = 5.5;
+  const by = 3.5;
+  const cols = 8;
+  const rows = 5;
+  const bz = 3;
+  const borde = 1.6;
+  s.box(
+    bx - borde,
+    by - borde,
+    0,
+    cols * SQ + borde * 2,
+    rows * SQ + borde * 2,
+    bz,
+    (u, v) => {
+      const uu = u - borde;
+      const vv = v - borde;
+      if (uu < 0 || vv < 0 || uu > cols * SQ || vv > rows * SQ) return at(A, 3.6);
+      return checker(uu, vv, SQ) ? at(BLANCO, 4.4) : at(NEGRO, 2.4);
+    },
+    (_u, v) => at(A, v > bz - 1 ? 4 : 3),
+    (_u, v) => at(A, v > bz - 1 ? 3.4 : 2.4),
+  );
+  const sq = (c: number, r: number) => ({ x: bx + (c + 0.5) * SQ, y: by + (r + 0.5) * SQ });
+  const lerp = (a: { x: number; y: number }, b: { x: number; y: number }, k: number) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k });
+  const k = vaiven(f);
+  // Las quietas: la torre negra y el rey blanco al fondo, peones en la fila de adelante.
+  const quietas: [Pieza, number, number, Ramp][] = [
+    ["torre", 0, 0, NEGRO],
+    ["rey", 3, 0, BLANCO],
+    ["peon", 0, 4, BLANCO],
+    ["peon", 2, 4, NEGRO],
+    ["peon", 6, 4, BLANCO],
+    ["torre", 7, 4, BLANCO],
+  ];
+  for (const [tipo, c, r, col] of quietas) {
+    const p = sq(c, r);
+    piezaAjedrez(s, tipo, p.x, p.y, bz, col, A);
+  }
+  // La reina negra se desliza en diagonal (de la 5,0 a la 7,2 y vuelve).
+  const reina = lerp(sq(5, 0), sq(7, 2), k);
+  piezaAjedrez(s, "reina", reina.x, reina.y, bz, NEGRO, A);
+  // El caballo blanco salta en L (de la 1,3 a la 2,1): arriba a mitad del salto.
+  const cab = lerp(sq(1, 3), sq(2, 1), k);
+  piezaAjedrez(s, "caballo", cab.x, cab.y, bz + (k === 0.5 ? 9 : 0), BLANCO, A);
+  if (k === 0.5) s.disc(cab.x, cab.y, bz + 0.1, 2.6, () => alpha(at(NEGRO, 0), 0.35));
+  // Un peón negro avanza una casilla.
+  const peon = lerp(sq(4, 3), sq(5, 3), k);
+  piezaAjedrez(s, "peon", peon.x, peon.y, bz, NEGRO, A);
+  letrero(s, "TABLERO", 6, W, 2.5, at(BLANCO, 5), at(A, 3));
+  return s.sprite();
+}
+
+// ----- 6. La Luna en el lago -----
+
+/** Un pez de papel maché saltando: cuerpo blanco con escamas negras que brillan en azul por turnos. */
+function pez(s: Escena, cx: number, cy: number, cz: number, ang: number, f: number, A: Ramp, night: boolean) {
+  const ca = Math.cos(ang);
+  const sa = Math.sin(ang);
+  const P = (lx: number, ly: number, lz: number, c: RGBA | null) => s.plot(cx + lx * ca - lz * sa, cy + ly, cz + lx * sa + lz * ca, c);
+  const rx = 6.2;
+  const ry = 2;
+  const rz = 3;
+  const da = 0.16;
+  for (let e = -Math.PI / 2; e <= Math.PI / 2; e += da)
+    for (let a = -Math.PI; a < Math.PI; a += da) {
+      const nx = Math.cos(a) * Math.cos(e);
+      const ny = Math.sin(a) * Math.cos(e);
+      const nz = Math.sin(e);
+      const lx = nx * rx;
+      const luz = ny * 0.5 + nz * 0.7 - nx * 0.2;
+      // El ojo y la boca, adelante.
+      if (lx > rx * 0.6 && lx < rx * 0.78 && Math.abs(nz - 0.25) < 0.2 && ny > 0.3) {
+        P(lx, ny * ry, nz * rz, at(NEGRO, 1));
+        continue;
+      }
+      // Las escamas: medialunas en filas; unas brillan (cambian con el cuadro).
+      const col = Math.floor((lx + rx) / 1.6);
+      const fila = Math.floor((nz * rz + 3 + (col % 2) * 0.6) / 1.2);
+      const borde = (lx + rx) % 1.6 < 0.4;
+      const brilla = (col + fila + f) % 4 === 0;
+      const c = lx > rx * 0.64 ? at(BLANCO, 4 + luz) : borde ? at(NEGRO, 2.2) : brilla ? at(A, night ? 5 : 4.6) : at(BLANCO, 3.6 + luz * 1.2);
+      P(lx, ny * ry, nz * rz, c);
+    }
+  // La cola en abanico, negra con rayas blancas.
+  for (let t = 0; t < 1; t += 0.06)
+    for (let w = -1; w <= 1; w += 0.1) P(-rx + 0.4 - t * 4.2, 0, w * (0.6 + t * 3), Math.abs(w) > 0.8 || Math.floor(t * 5) % 2 ? at(NEGRO, 2.6) : at(BLANCO, 4));
+  // La aleta de arriba.
+  for (let t = 0; t < 1; t += 0.08) for (let h = 0; h < 1.6 * (1 - t); h += 0.3) P(-1 + t * 2.4, 0, rz - 0.2 + h, at(A, 3));
+}
+
+/**
+ * 6. La Luna en el lago: una media luna de papel maché dormida sobre olas blancas, negras y azules, peces
+ * que saltan con escamas que brillan y la llavecita oxidada colgando de la punta (guiño al capítulo 3).
+ * De noche la luna se prende y los faroles alumbran.
+ */
+function lunaEnElLago(f: number, night: boolean): Sprite {
+  const len = 64;
+  const A = ACENTO.luna;
+  const s = new Escena({ x0: -4, y0: -4, z0: Z.wheel - 2, x1: len + 6, y1: W + 6, z1: 96 }, 3);
+  plataforma(s, len, A, night);
+  // La luna: un disco menos otro corrido, con grosor; los cuernos miran hacia adelante.
+  const R = 19;
+  const mx = 30;
+  const mz = 30;
+  const luna: [number, number][] = [];
+  for (let a = 0; a < Math.PI * 2; a += 0.08) luna.push([R + Math.cos(a) * R, R + Math.sin(a) * R]);
+  const hueco = (u: number, v: number) => Math.hypot(u - R - R * 0.5, v - R - R * 0.12) < R * 0.86;
+  perfil(s, mx - R, 15, mz - R, R * 2, R * 2, 5, luna, (u, v, canto) => {
+    if (hueco(u, v)) return null;
+    if (canto) return night ? at(C.cream, 3) : at(BLANCO, 2.6);
+    // La cara de perfil por el lado de adentro: el ojo dormido, la nariz y la sonrisa.
+    const ojo = Math.abs(Math.hypot(u - R * 0.5, v - R * 1.3) - 1.8) < 0.5 && v < R * 1.3;
+    const boca = Math.abs(Math.hypot(u - R * 0.56, v - R * 0.84) - 2.2) < 0.5 && v < R * 0.84;
+    if (ojo || boca) return at(NEGRO, 1);
+    if (Math.hypot(u - R * 0.42, v - R * 1.04) < 1.9) return night ? at(C.gold, 3) : at(A, 4.4);
+    const luz = (R * 2 - u) / (R * 2) + v / (R * 4) - 0.4;
+    return night ? at(C.cream, 4.4 + luz) : at(BLANCO, 3.8 + luz * 1.6);
+  });
+  if (night)
+    // El halo de la luna prendida.
+    s.quad([mx - R - 4, 14.6, mz - R - 4], [1, 0, 0], [0, 0, 1], R * 2 + 8, R * 2 + 8, (u, v) => {
+      const d = Math.hypot(u - R - 4, v - R - 4);
+      return d > R && d < R + 3.5 && !hueco(u - 4, v - 4) ? alpha(at(C.gold, 5), 0.32) : null;
+    });
+  // La llavecita oxidada colgando de la punta de arriba, que se mece con el cuadro.
+  const punta = { x: mx + R * 0.34, z: mz + R * 0.9 };
+  const sw = [-0.3, 0, 0.3, 0][f % 4]!;
+  const cuerda = 15;
+  for (let t = 0; t < cuerda; t += 0.4) s.plot(punta.x + Math.sin(sw) * t, 21, punta.z - Math.cos(sw) * t, at(NEGRO, 2));
+  const kx = punta.x + Math.sin(sw) * cuerda;
+  const kz = punta.z - Math.cos(sw) * cuerda;
+  const OX = ramp("#5a3418", "#8a5a2c", "#c0763a", "#e09a58", "#f4c48a");
+  s.quad([kx - 2, 21.2, kz - 9], [1, 0, 0], [0, 0, 1], 4, 9.4, (u, v) => {
+    const anillo = Math.hypot(u - 2, v - 7.4);
+    if (anillo < 1.9) return anillo < 0.8 ? null : at(OX, anillo < 1.3 ? 3 : 2);
+    if (Math.abs(u - 2) < 0.6 && v < 6) return at(OX, 2.6);
+    if (v < 2.6 && u > 2 && u < 3.6 && Math.floor(v) % 2 === 0) return at(OX, 2);
+    return null;
+  });
+  if (f % 2 === 0) s.plot(kx - 1, 21.4, kz - 1.6, at(BLANCO, 5));
+  // Las olas: tres filas de crestas (de atrás hacia adelante) que corren con los cuadros.
+  const olas: [number, number, (u: number, v: number, top: number) => RGBA][] = [
+    [6, 10, (u, v, top) => (v > top - 1.6 ? at(BLANCO, 5) : Math.floor((v + u * 0.2) / 2.4) % 2 ? at(A, 3) : at(A, 2.2))],
+    [21, 9, (u, v, top) => (v > top - 1.6 ? at(BLANCO, 5) : Math.abs(v - top + 4.2 + Math.sin(u * 0.5) * 0.8) < 0.6 ? at(BLANCO, 4.2) : v < 2.4 ? at(NEGRO, 2.4) : at(A, 2.6))],
+    [31, 7, (u, v, top) => (v > top - 1.4 ? at(BLANCO, 5) : Math.floor((v - u * 0.15) / 2.4) % 2 ? at(A, 3.6) : at(BLANCO, 4.2))],
+  ];
+  olas.forEach(([y, h, tinte], i) => {
+    const fase = (f / CARROZA_FRAMES) * Math.PI * 2 + i * 1.7;
+    const top = (u: number) => h + Math.sin(u * 0.42 - fase) * 2.2 + Math.sin(u * 0.17 + i) * 1.2;
+    for (let t = 0; t <= 5; t += 0.5)
+      s.quad([3, y + t, 0], [1, 0, 0], [0, 0, 1], len - 6, h + 4, (u, v) => (v > top(u) ? null : t < 5 ? (v > top(u) - 0.6 ? at(BLANCO, 4.4) : at(A, 1.4)) : tinte(u, v, top(u))));
+  });
+  // Los peces: saltan en arco por encima de las olas, cada uno a su tiempo.
+  [
+    { x0: 2, y: 19, fase: 0 },
+    { x0: 38, y: 34, fase: 0.5 },
+  ].forEach((p) => {
+    const t = (f / CARROZA_FRAMES + p.fase) % 1;
+    const ang = (0.5 - t) * 1.8;
+    pez(s, p.x0 + t * 18, p.y, 6 + Math.sin(t * Math.PI) * 15, ang, f, A, night);
+  });
+  letrero(s, "LUNA", 46, W, 2.5, at(BLANCO, 5), at(A, 2));
+  return s.sprite();
+}
+
+// ----- 7. El Páramo -----
+
+/** Un frailejón: el tronco lanudo de hojas secas (negro con hebras blancas) y la roseta verde plateada. */
+function frailejon(s: Escena, cx: number, cy: number, z0: number, h: number, A: Ramp, f: number) {
+  s.cylinder(cx, cy, z0, 2.4, h, (a, v, luz) => {
+    const hebra = Math.sin(a * 11 + Math.floor(v / 2.6) * 1.7) > 0.55;
+    return hebra ? at(BLANCO, 3 + luz) : at(NEGRO, 2.4 + luz * 1.1 + (Math.floor(v) % 3 === 0 ? -0.6 : 0));
+  });
+  const top = z0 + h;
+  // La roseta: hojas que salen hacia arriba y se abren, peludas (puntas blancas), y se mecen un poquito.
+  const mece = [0, 0.4, 0, -0.4][f % 4]!;
+  for (let k = 0; k < 14; k++) {
+    const a = (k / 14) * Math.PI * 2 + (k % 2) * 0.2;
+    const largo = 6 + (k % 3);
+    for (let t = 0; t < 1; t += 0.05) {
+      const x = cx + Math.cos(a) * t * largo + mece * t;
+      const y = cy + Math.sin(a) * t * largo * 0.9;
+      const z = top + t * 7.5 - t * t * 3;
+      const w = 1.1 * (1 - t * 0.6);
+      const luz = Math.sin(a) * 0.5 - Math.cos(a) * 0.3 + 0.2;
+      const c = t > 0.9 ? at(BLANCO, 4.4) : at(A, 3.4 + luz + (t > 0.55 ? 0.9 : 0));
+      for (const [dx, dy] of [
+        [0, 0],
+        [w, 0],
+        [-w, 0],
+        [0, w],
+        [0, -w],
+      ] as const)
+        s.plot(x + dx, y + dy, z, c);
+    }
+  }
+  // El cogollo del centro con sus botoncitos blancos.
+  orb(s, cx, cy, top + 2, 2, 2, 2.2, (luz) => at(A, 4 + luz));
+  for (let k = 0; k < 4; k++) orb(s, cx + Math.cos(k * 1.6) * 1.2, cy + Math.sin(k * 1.6) * 1.2, top + 4.6 + (k % 2), 0.8, 0.8, 0.8, (luz) => at(BLANCO, 4 + luz));
+}
+
+/** Un colibrí de papel maché en su resorte: el resorte se mece y las alas se borronean cuadro a cuadro. */
+function colibri(s: Escena, cx: number, cy: number, z0: number, h: number, A: Ramp, f: number, fase: number) {
+  const g = (f + fase) % 4;
+  const mece = [0, 1, 0, -1][g]! * 2.6;
+  const at3 = (z: number) => ({ x: cx + mece * ((z - z0) / h) ** 2, y: cy });
+  // El resorte: una hélice blanca y negra (cada vuelta de un color).
+  for (let z = z0; z < z0 + h; z += 0.12) {
+    const th = (z - z0) * 1.6;
+    const p = at3(z);
+    s.plot(p.x + Math.cos(th) * 1.4, p.y + Math.sin(th) * 1.4, z, Math.floor((z - z0) / (Math.PI * 2 / 1.6)) % 2 ? at(NEGRO, 2.4) : at(BLANCO, 4.2));
+  }
+  const top = at3(z0 + h);
+  const K = 1.6;
+  const bz = z0 + h + 2.4 * K;
+  const x = top.x;
+  const y = top.y;
+  // El cuerpo verde tornasol, la panza blanca, la cabeza y el pico largo (mira hacia adelante).
+  orb(s, x, y, bz, 3 * K, 1.8 * K, 2 * K, (luz, e) => (e < -0.3 ? at(BLANCO, 4 + luz) : at(A, 3.4 + luz * 1.4)));
+  orb(s, x + 3 * K, y, bz + 1.6 * K, 1.6 * K, 1.5 * K, 1.5 * K, (luz, e) => (e < -0.4 ? at(BLANCO, 4.4) : at(A, 3.8 + luz)));
+  orb(s, x + 3.6 * K, y + 1.2 * K, bz + 2 * K, 0.5, 0.5, 0.5, () => at(NEGRO, 1));
+  for (let t = 0; t < 5 * K; t += 0.25) s.plot(x + 4.4 * K + t, y, bz + 1.4 * K - t * 0.28, at(NEGRO, 1.5));
+  // La cola negra en tijera.
+  for (let t = 0; t < 3.4 * K; t += 0.25) for (const side of [-1, 1]) s.plot(x - 3 * K - t, y + side * t * 0.35, bz - 0.4 - t * 0.3, at(NEGRO, 2.4));
+  // Las alas: arriba, en medio o abajo (casi translúcidas: van muy rápido).
+  const alaZ = [3.4, 0.6, -2, 0.6][g]! * K;
+  const AW = 3.6 * K;
+  const AL = 5.4 * K;
+  for (const side of [-1, 1])
+    s.quad([x - 1.4 * K, y + side * 1.2 * K, bz + 0.6 * K], [1, 0, 0], [0, (side * 0.85 * AL) / AL, alaZ / AL], AW, AL, (u, v) =>
+      u < AW - v * 0.45 ? alpha(v > AL * 0.66 ? at(BLANCO, 5) : Math.floor(u) % 2 ? at(A, 4.6) : at(A, 3.8), 0.85) : null,
+    );
+}
+
+/**
+ * 7. El Páramo: la loma de musgo con frailejones, colibríes de papel en resortes que se mecen y una
+ * laguna de vidrio que brilla (de ahí nace el agua).
+ */
+function paramo(f: number, night: boolean): Sprite {
+  const len = 64;
+  const A = ACENTO.paramo;
+  const s = new Escena({ x0: -4, y0: -4, z0: Z.wheel - 2, x1: len + 6, y1: W + 6, z1: 80 }, 3);
+  plataforma(s, len, A, night);
+  // La loma: papel blanco con parches de musgo verde y piedritas negras.
+  orb(s, 32, 20, 0, 28, 17, 7, (luz, e, a) => {
+    if (e < 0) return null;
+    const n = noise(Math.floor(Math.cos(a) * 9 + 20), Math.floor(Math.sin(a) * 6 + e * 8 + 20), 11);
+    if (n < 0.07) return at(NEGRO, 2.6 + luz);
+    return n < 0.78 ? at(A, 3 + luz * 1.3) : at(BLANCO, 3.6 + luz);
+  });
+  // La laguna de vidrio: el fondo verde oscuro y encima el vidrio translúcido con destellos que corren.
+  const lx = 31;
+  const ly = 22;
+  const lz = 7.4;
+  s.disc(lx, ly, lz - 0.4, 8.5, (dx, dy) => (Math.hypot(dx / 1.2, dy) > 6.6 ? null : at(A, 1.2)));
+  s.disc(lx, ly, lz, 8.5, (dx, dy) => {
+    const d = Math.hypot(dx / 1.2, dy);
+    if (d > 6.8) return null;
+    if (d > 5.9) return at(NEGRO, 2.4);
+    if (d > 5.2) return at(A, 2);
+    // El vidrio: claro, con destellos que corren en diagonal (de noche, con el brillo de los faroles).
+    const brillo = (((dx + dy * 0.6 + f * 3) % 7) + 7) % 7 < 1.2;
+    if (brillo) return at(BLANCO, 5);
+    return night ? mix(at(A, 3), at(C.gold, 4), 0.35) : mix(at(A, 4.6), at(BLANCO, 5), 0.6 + dy * 0.03);
+  });
+  // Piedritas en la orilla.
+  for (let k = 0; k < 7; k++) {
+    const a = (k / 7) * Math.PI * 2 + 0.3;
+    orb(s, lx + Math.cos(a) * 8.2, ly + Math.sin(a) * 6.8, lz + 0.3, 1.2, 1, 0.9, (luz) => (k % 2 ? at(NEGRO, 2.6 + luz) : at(BLANCO, 3.4 + luz)));
+  }
+  // Los frailejones (de distinta altura) y los colibríes en sus resortes.
+  frailejon(s, 10, 10, 3, 22, A, f);
+  frailejon(s, 14, 29, 3, 13, A, f + 1);
+  frailejon(s, 55, 11, 2, 18, A, f + 2);
+  colibri(s, 24, 7, 5, 20, A, f, 0);
+  colibri(s, 58, 29, 2, 12, A, f, 2);
+  colibri(s, 4, 22, 1, 12, A, f, 1);
+  letrero(s, "PARAMO", 40, W, 2.5, at(BLANCO, 5), at(A, 2));
+  return s.sprite();
+}
+
+// ----- 8. La Minga de la cosecha -----
+
+const TEJIDO_R = TEJIDO.map(hexRamp);
+
+/**
+ * El tejido andino: franjas de colores con rombos y escalones (como una chakana) en blanco y negro,
+ * separadas por hilos negros. `u` corre a lo largo y `v` a lo ancho.
+ */
+function tejido(u: number, v: number): RGBA {
+  const banda = Math.floor(v / 5);
+  const vv = v - banda * 5;
+  if (vv < 0.7) return at(NEGRO, 2);
+  const base = TEJIDO_R[banda % TEJIDO_R.length]!;
+  const uu = ((u % 8) + 8) % 8;
+  // Rombos en las franjas pares y escalones en las impares.
+  const rombo = Math.abs(uu - 4) + Math.abs(vv - 2.85) * 1.6 < 2.6;
+  const escalon = Math.floor(uu / 2) === Math.floor((vv - 0.7) / 1.1) % 4;
+  if (banda % 2 === 0 && rombo) return Math.abs(uu - 4) + Math.abs(vv - 2.85) * 1.6 < 1.2 ? at(NEGRO, 2.4) : at(BLANCO, 4.6);
+  if (banda % 2 === 1 && escalon) return at(BLANCO, 4.4);
+  return at(base, 3 + (Math.floor(u * 2) % 2 ? 0 : -0.4));
+}
+
+/** Un cuerpo redondo que se inclina (se le corre x con la altura sobre `base`): para las guaguas que se mecen. */
+function orbInclinado(s: Escena, cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, base: number, inclina: number, tinte: (luz: number, e: number, a: number) => RGBA | null) {
+  const da = 0.42 / Math.max(1, Math.max(rx, ry, rz) * 1.2);
+  for (let e = -Math.PI / 2; e <= Math.PI / 2; e += da)
+    for (let a = -Math.PI; a < Math.PI; a += da) {
+      const nx = Math.cos(a) * Math.cos(e);
+      const ny = Math.sin(a) * Math.cos(e);
+      const z = cz + Math.sin(e) * rz;
+      s.plot(cx + nx * rx + (z - base) * inclina, cy + ny * ry, z, tinte(ny * 0.5 - nx * 0.3 + Math.sin(e) * 0.7, e, a));
+    }
+}
+
+/** Una guagua de pan gigante: el pan envuelto con la faja del tejido, la cara pintada y la gorrita. */
+function guagua(s: Escena, cx: number, cy: number, z0: number, escala: number, inclina: number, colorFaja: number) {
+  const faja = TEJIDO_R[colorFaja % TEJIDO_R.length]!;
+  const pan = ramp("#8a5a2c", "#b98752", "#d9a866", "#ecc584", "#f7dca8", "#fff0cc");
+  const h = 9 * escala;
+  orbInclinado(s, cx, cy, z0 + h, 3.6 * escala, 3.2 * escala, h, z0, inclina, (luz, e, a) => {
+    const zz = Math.sin(e);
+    // La faja de colores cruzada (rayas en diagonal) por la mitad del cuerpo.
+    if (zz > -0.55 && zz < 0.35) return Math.floor((a * 3 + zz * 6 + 20) % 2) ? at(faja, 3 + luz) : at(BLANCO, 4 + luz);
+    return at(pan, 3 + luz * 1.3);
+  });
+  const hz = z0 + h * 2 + 2.4 * escala;
+  const hx = cx + (hz - z0) * inclina;
+  orb(s, hx, cy, hz, 2.8 * escala, 2.6 * escala, 2.6 * escala, (luz, e, a) => {
+    // La cara pintada mira a la vereda de enfrente (+y): ojos negros, cachetes y la boquita.
+    const fy = Math.sin(a) * Math.cos(e);
+    if (fy > 0.75 && Math.abs(Math.sin(e) - 0.2) < 0.14 && Math.abs(Math.cos(a)) > 0.18 && Math.abs(Math.cos(a)) < 0.5) return at(NEGRO, 1);
+    if (fy > 0.8 && Math.abs(Math.sin(e) + 0.25) < 0.1 && Math.abs(Math.cos(a)) < 0.2) return at(TEJIDO_R[0]!, 2.6);
+    if (fy > 0.7 && Math.abs(Math.sin(e) + 0.05) < 0.14 && Math.abs(Math.cos(a)) > 0.4 && Math.abs(Math.cos(a)) < 0.62) return at(TEJIDO_R[0]!, 4.6);
+    return at(pan, 3.3 + luz * 1.2);
+  });
+  // La gorrita del tejido.
+  orbInclinado(s, hx, cy, hz + 1.4 * escala, 2.9 * escala, 2.7 * escala, 1.8 * escala, hz, 0, (luz, e) => (e < 0.1 ? null : at(faja, 3.4 + luz)));
+}
+
+/**
+ * 8. La Minga de la cosecha: sobre un tejido andino de colores (que cuelga por el costado con flecos), la
+ * papa, la mazorca de maíz de colores, la quinua y dos guaguas de pan gigantes. La quinua se mece, la
+ * mazorca gira despacio y las guaguas se arrullan.
+ */
+function minga(f: number, night: boolean): Sprite {
+  const len = 64;
+  const A = ACENTO.minga;
+  const s = new Escena({ x0: -4, y0: -4, z0: Z.wheel - 2, x1: len + 6, y1: W + 6, z1: 80 }, 3);
+  plataforma(s, len, A, night);
+  // El tejido encima y colgando por el costado de la vereda de enfrente (+y), con los flecos.
+  s.quad([3, 3, 0.3], [1, 0, 0], [0, 1, 0], len - 6, W - 3, (u, v) => tejido(u, v));
+  s.quad([3, W + 0.2, -7], [1, 0, 0], [0, 0, 1], len - 6, 7.3, (u, v) => {
+    if (v < 1.6) return Math.floor(u * 1.5) % 2 ? at(TEJIDO_R[Math.floor(u / 6) % TEJIDO_R.length]!, 3) : null;
+    return tejido(u, 37 - (v - 1.6));
+  });
+  // La papa grande (blanca, con sus ojos negros) y una papa negra al lado.
+  const papa = (cx: number, cy: number, r: number, col: Ramp, base: number) =>
+    orb(s, cx, cy, r * 0.75 + 0.3, r * 1.15, r, r * 0.78, (luz, e, a) => {
+      const ojo = Math.abs(Math.sin(a * 3 + e * 2)) < 0.12 && Math.abs(Math.cos(e * 3 + a)) < 0.2;
+      return ojo ? at(col === BLANCO ? NEGRO : BLANCO, col === BLANCO ? 1.6 : 3.4) : at(col, base + luz * 1.2 + Math.sin(a * 5 + e * 4) * 0.25);
+    });
+  papa(12, 13, 6.4, BLANCO, 3.6);
+  papa(8, 27, 4, NEGRO, 2.6);
+  // La mazorca de colores, parada entre sus hojas de papel, que gira despacio (los granos corren).
+  const mx = 28;
+  const my = 13;
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + 0.4;
+    s.quad([mx + Math.cos(a) * 2.4, my + Math.sin(a) * 2.4, 1], [-Math.sin(a), Math.cos(a), 0], [Math.cos(a) * 0.45, Math.sin(a) * 0.45, 0.9], 4, 12, (u, v) =>
+      Math.abs(u - 2) < 2 * (1 - v / 13) + 0.3 ? (Math.abs(u - 2) < 0.3 ? at(NEGRO, 2.6) : at(BLANCO, 3.6 + (k % 2 ? -0.6 : 0))) : null,
+    );
+  }
+  orb(s, mx, my, 15, 3.8, 3.8, 12, (luz, e, a) => {
+    const fila = Math.floor((e + Math.PI / 2) * 9);
+    const col = Math.floor(((a + Math.PI) / (Math.PI * 2)) * 14 + f * 0.5);
+    const entre = ((e + Math.PI / 2) * 9) % 1 < 0.18;
+    if (entre) return at(NEGRO, 2);
+    const k = (fila * 3 + col * 7) % 7;
+    const c = k < TEJIDO_R.length ? at(TEJIDO_R[k]!, 3.4 + luz) : k === 5 ? at(BLANCO, 4 + luz) : at(NEGRO, 2.8 + luz);
+    return c;
+  });
+  // La quinua: tres matas con su penacho de granitos, que se mecen.
+  for (const [qx, qy, qh, ph] of [
+    [46, 8, 22, 0],
+    [52, 12, 18, 1],
+    [57, 7, 20, 2],
+  ] as const) {
+    const mece = [0, 1, 0, -1][(f + ph) % 4]! * 1.4;
+    for (let z = 0; z < qh; z += 0.4) s.plot(qx + mece * (z / qh) ** 2, qy, z + 0.4, at(NEGRO, 2.4));
+    for (let k = 0; k < 70; k++) {
+      const t = noise(k, ph, 3);
+      const z = qh - 2 + t * 10;
+      const r = (1 - t) * 3.2;
+      const a = noise(k, ph, 9) * Math.PI * 2;
+      const c = TEJIDO_R[(k + ph) % 3 === 0 ? 1 : k % 2 ? 0 : 4]!;
+      s.plot(qx + mece * ((z / qh) ** 2) + Math.cos(a) * r, qy + Math.sin(a) * r, z, at(c, 3 + (k % 3) * 0.6));
+    }
+  }
+  // Las guaguas de pan, que se arrullan (cada una para un lado).
+  const arrullo = [0, 0.08, 0, -0.08][f % 4]!;
+  guagua(s, 40, 27, 0.3, 1, arrullo, 1);
+  guagua(s, 24, 30, 0.3, 0.75, -arrullo, 3);
+  letrero(s, "MINGA", 46, W, -5, at(NEGRO, 1), at(BLANCO, 5));
+  return s.sprite();
+}
+
+const CARROZAS: Record<CarrozaId, (f: number, night: boolean) => Sprite> = {
+  castaneda,
+  condor,
+  galeras,
+  tablero: tableroVivo,
+  reloj,
+  luna: lunaEnElLago,
+  paramo,
+  minga,
+  tinto,
+  megabus,
+};
 
 /** Largo de cada carroza en la calle (tiles): de ahí para atrás va su comparsa. */
-export const CARROZA_LARGO: Record<CarrozaId, number> = { castaneda: 4, condor: 5, galeras: 4, reloj: 4, tinto: 4, megabus: 6 };
+export const CARROZA_LARGO: Record<CarrozaId, number> = { castaneda: 4, condor: 5, galeras: 4, tablero: 4, reloj: 4, luna: 4, paramo: 4, minga: 4, tinto: 4, megabus: 6 };
 
 /** Una carroza en el cuadro `f` (0..CARROZA_FRAMES-1), de día o de noche (los faroles prendidos). */
 export function carrozaSprite(id: CarrozaId, f: number, night: boolean): Sprite {
