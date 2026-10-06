@@ -4,12 +4,16 @@
 // campanadas que suenan a su hora y el resumen del año que sale después de la cuenta regresiva. El dibujo
 // está en anoViejoLayer.ts y los paneles en components/AnoViejoPanel.tsx.
 import {
+  ANO_VIEJO,
   ANO_VIEJO_BUY_ERROR_TEXT,
   ANO_VIEJO_ID,
   ANO_VIEJO_MSG,
   UVA,
+  UVAS,
   anoViejoNoticeText,
   anoViejoShopItem,
+  finCampanadas,
+  objItemId,
   type AnoViejoBuyResult,
   type AnoViejoMine,
   type AnoViejoNotice,
@@ -18,10 +22,11 @@ import {
 } from "@hyvento/shared";
 import { getStateCallbacks } from "colyseus.js";
 import { create } from "zustand";
+import { selectSlot, useBagStore } from "./bag";
 import { useCineStore } from "./cinematicas/store";
 import { playCineSound } from "./cinematicas/sonidos";
 import { serverNow } from "./club/store";
-import { getRoom, onInteract, onRoom, type OfficeRoom } from "./network";
+import { getRoom, onInteract, type OfficeRoom } from "./network";
 import { useOfficeStore } from "./store";
 
 export interface TestamentoItem {
@@ -38,12 +43,18 @@ interface AnoViejoStore {
   /** Cuándo empezó la quema (ms del servidor; 0 = todavía no). */
   quemadoAt: number;
   campanadas: Campanadas | null;
+  /** La campanada que acaba de sonar (1..12; 0 antes de la primera). */
+  campanada: number;
+  /** En esta tanda se me pasó una campanada (las uvas ya no salen hasta la próxima). */
+  uvasFallo: boolean;
   testamentos: TestamentoItem[];
   mine: AnoViejoMine;
   /** La última respuesta del puesto (suelta el botón del panel). */
   lastBuy: (AnoViejoBuyResult & { seq: number }) | null;
   /** El resumen del año que llegó (se muestra al terminar la cuenta regresiva). */
   resumen: ResumenAno | null;
+  /** Cuándo llegó el año nuevo (ms locales; las luces de colores del cielo). */
+  anoNuevoAt: number;
 }
 
 const MINE_VACIO: AnoViejoMine = { aportes: 0, agueros: [], testamento: null, maleta: null, uvas: 0 };
@@ -54,10 +65,13 @@ export const useAnoViejoStore = create<AnoViejoStore>(() => ({
   etapa: 0,
   quemadoAt: 0,
   campanadas: null,
+  campanada: 0,
+  uvasFallo: false,
   testamentos: [],
   mine: MINE_VACIO,
   lastBuy: null,
   resumen: null,
+  anoNuevoAt: 0,
 }));
 
 /** ¿Está abierto el Año viejo? */
@@ -86,6 +100,17 @@ export function anoViejoKey(key: "e" | "f"): boolean {
   return true;
 }
 
+/** Pone en la mano algo de la mochila (las uvas, la maleta), si está en la barra. Devuelve si lo encontró. */
+export function ponerEnLaMano(id: string): boolean {
+  const slot = useBagStore.getState().slots.findIndex((x) => x?.itemId === objItemId(id));
+  if (slot < 0) return false;
+  selectSlot(slot);
+  return true;
+}
+
+/** ¿Lo llevo en la mano? */
+export const enLaMano = (id: string) => myHeld() === id;
+
 // ---------- Las campanadas ----------
 
 let bellTimers: ReturnType<typeof setTimeout>[] = [];
@@ -97,6 +122,7 @@ function scheduleBells(c: Campanadas | null) {
   bellTimers.forEach(clearTimeout);
   bellTimers = [];
   bellsFor = c?.inicio ?? 0;
+  useAnoViejoStore.setState({ campanada: 0, uvasFallo: false, mine: { ...useAnoViejoStore.getState().mine, uvas: 0 } });
   if (!c) return;
   const offset = serverNow() - Date.now();
   for (let k = 0; k < c.n; k++) {
@@ -104,20 +130,14 @@ function scheduleBells(c: Campanadas | null) {
     if (wait < -200) continue;
     bellTimers.push(
       setTimeout(() => {
-        // Solo suenan en el jardín (donde está el puesto y la gente).
-        if (useOfficeStore.getState().area !== "jardin") return;
-        playCineSound("campanada");
-        useAnoViejoStore.setState({ campanadas: { ...c } });
+        useAnoViejoStore.setState({ campanada: k + 1 });
+        // Solo suenan en el jardín (donde está la plaza y la gente).
+        if (useOfficeStore.getState().area === ANO_VIEJO.area) playCineSound("campanada");
       }, Math.max(0, wait)),
     );
   }
-}
-
-/** La campanada que va (1..12) o 0 si todavía no suena la primera; null si no hay campanadas. */
-export function campanadaActual(c: Campanadas | null, now = serverNow()): number | null {
-  if (!c) return null;
-  if (now < c.inicio - 200) return 0;
-  return Math.min(c.n, Math.floor((now - c.inicio) / c.intervalo) + 1);
+  // Pasada la última, se apagan (el servidor las quita un rato después).
+  bellTimers.push(setTimeout(() => useAnoViejoStore.setState({ campanada: c.n + 1 }), Math.max(0, finCampanadas(c) - offset - Date.now())));
 }
 
 // ---------- El estado y los mensajes ----------
@@ -135,8 +155,10 @@ interface AnoViejoStateView {
 
 const GOOD = new Set<AnoViejoNotice["code"]>(["aporte", "listo", "testamento", "relleno", "uva", "uvasListas", "maletaSalida", "maletaParada", "maletaLlegada", "aguero"]);
 let seq = 0;
+let festivalWatch = false;
 
-function bindAnoViejo(r: OfficeRoom) {
+/** Engancha el estado del Año viejo y sus mensajes (en cada conexión), y la E del relleno. */
+export function bindAnoViejo(r: OfficeRoom) {
   const $ = getStateCallbacks(r);
   let queued = false;
   const sync = () => {
@@ -154,20 +176,30 @@ function bindAnoViejo(r: OfficeRoom) {
       scheduleBells(campanadas);
     });
   };
-  $(r.state as never).listen("anoViejo" as never, ((a: AnoViejoStateView | undefined) => {
+  ($(r.state) as unknown as { listen(field: string, cb: (v: AnoViejoStateView | undefined) => void): () => void }).listen("anoViejo", (a) => {
     if (!a) return;
     const a$ = $(a as never) as unknown as {
-      listen(k: string, cb: () => void): void;
-      testamentos: { onAdd(cb: () => void): void; onRemove(cb: () => void): void };
+      onChange(cb: () => void): () => void;
+      testamentos: { onAdd(cb: (t: unknown) => void): () => void; onRemove(cb: () => void): () => void };
     };
-    for (const k of ["prendas", "rellenos", "etapa", "quemadoAt", "campanadasInicio", "campanadasN"]) a$.listen(k, sync);
-    a$.testamentos.onAdd(sync);
+    a$.onChange(sync);
+    a$.testamentos.onAdd((t) => {
+      ($(t as never) as unknown as { onChange(cb: () => void): () => void }).onChange(sync);
+      sync();
+    });
     a$.testamentos.onRemove(sync);
     sync();
-  }) as never);
+  });
+
+  // Junto a la paja del gallinero o al costal de aserrín del taller: E saca relleno (sin panel).
+  onInteract("anoViejoRelleno", () => void getRoom()?.send(ANO_VIEJO_MSG.recoger, {}));
+
   r.onMessage(ANO_VIEJO_MSG.notice, (n: AnoViejoNotice) => {
-    // Las uvas una por una no llenan la pantalla de avisos: el contador lo dice.
-    if (n.code === "uva" || n.code === "uvaEspera") return;
+    // Las uvas una por una no llenan la pantalla de avisos: el contador de la tira lo dice.
+    if (n.code === "uva") return useAnoViejoStore.setState((s) => ({ mine: { ...s.mine, uvas: n.n ?? s.mine.uvas } }));
+    if (n.code === "uvaEspera") return;
+    if (n.code === "uvaTarde") useAnoViejoStore.setState({ uvasFallo: true });
+    if (n.code === "uvasListas") useAnoViejoStore.setState((s) => ({ mine: { ...s.mine, uvas: UVAS.n } }));
     useOfficeStore.getState().notify(anoViejoNoticeText(n), GOOD.has(n.code) ? "success" : "info");
   });
   r.onMessage(ANO_VIEJO_MSG.mine, (m: AnoViejoMine) => useAnoViejoStore.setState({ mine: m }));
@@ -179,7 +211,7 @@ function bindAnoViejo(r: OfficeRoom) {
   });
   // El resumen llega con el año nuevo: se abre cuando termina lo que se está viendo (la cuenta regresiva).
   r.onMessage(ANO_VIEJO_MSG.resumen, (res: ResumenAno) => {
-    useAnoViejoStore.setState({ resumen: res });
+    useAnoViejoStore.setState({ resumen: res, anoNuevoAt: performance.now() });
     const open = () => useOfficeStore.getState().openPanel("anoViejoResumen", false);
     if (!useCineStore.getState().playing) return open();
     const unsub = useCineStore.subscribe((s) => {
@@ -189,16 +221,14 @@ function bindAnoViejo(r: OfficeRoom) {
     });
   });
   r.send(ANO_VIEJO_MSG.mine, {});
-}
 
-if (typeof window !== "undefined") {
-  onRoom((r) => bindAnoViejo(r));
-  // Junto a la paja del gallinero o al costal de aserrín del taller: E saca relleno (sin panel).
-  onInteract("anoViejoRelleno", () => void getRoom()?.send(ANO_VIEJO_MSG.recoger, {}));
-  // Al cambiar de festival, lo mío se pide de nuevo.
-  useOfficeStore.subscribe((s, prev) => {
-    if (s.festival.id === prev.festival.id) return;
-    useAnoViejoStore.setState({ mine: MINE_VACIO });
-    if (s.festival.id === ANO_VIEJO_ID) getRoom()?.send(ANO_VIEJO_MSG.mine, {});
-  });
+  // Al cambiar de festival, lo mío se pide de nuevo (una sola suscripción para todas las conexiones).
+  if (!festivalWatch) {
+    festivalWatch = true;
+    useOfficeStore.subscribe((s, prev) => {
+      if (s.festival.id === prev.festival.id) return;
+      useAnoViejoStore.setState({ mine: MINE_VACIO });
+      if (s.festival.id === ANO_VIEJO_ID) getRoom()?.send(ANO_VIEJO_MSG.mine, {});
+    });
+  }
 }

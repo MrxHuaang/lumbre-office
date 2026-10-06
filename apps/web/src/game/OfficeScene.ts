@@ -159,6 +159,8 @@ import { sendCasaRadio, useCasasStore } from "./casaVisitas";
 import { FiestaLuces } from "./casaFiesta";
 import { velitasClick, velitasKey } from "./velitas";
 import { VelitasLayer } from "./velitasLayer";
+import { anoViejoKey } from "./anoViejo";
+import { AnoViejoLayer } from "./anoViejoLayer";
 import { LucesVentanas } from "./lucesVentanas";
 import { decayRace, pumpRace, raceForwardMul, sendRaceCancel, useRaceStore } from "./race";
 import { WallMount, wallQuad } from "./wallMount";
@@ -464,6 +466,8 @@ export class OfficeScene extends Phaser.Scene {
   private fiestaLuces!: FiestaLuces;
   /** La Noche de velitas: las velitas del jardín y los faroles de deseos que suben (velitasLayer.ts). */
   private velitas!: VelitasLayer;
+  /** El Año viejo: el muñeco en su silla, la quema, las luces del cielo y la marquita de la maleta (anoViejoLayer.ts). */
+  private anoViejo!: AnoViejoLayer;
   /** Las ventanas de los edificios prendidas de noche (lucesVentanas.ts). */
   private lucesVentanas!: LucesVentanas;
   private swimming = false;
@@ -611,6 +615,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aguaBrilla = new AguaBrillaView(this);
     this.fiestaLuces = new FiestaLuces(this);
     this.velitas = new VelitasLayer(this);
+    this.anoViejo = new AnoViejoLayer(this);
     this.lucesVentanas = new LucesVentanas(this);
     this.aquariums = new Aquariums(this);
     this.postIts = new DoorPostIts(this);
@@ -701,6 +706,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.pool.destroy(),
       () => this.tina.destroy(),
       () => this.velitas.destroy(),
+      () => this.anoViejo.destroy(),
       () => this.lucesVentanas.destroy(),
       () => this.aguaBrilla.destroy(),
       onPhotosChanged(() => {
@@ -862,6 +868,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aguaBrilla.update(time);
     this.fiestaLuces.update(time);
     this.velitas.update(time);
+    this.anoViejo.update(time);
     this.lucesVentanas.update(time);
     this.escenario.update(time);
     this.updateToastPrompt(time);
@@ -998,6 +1005,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aguaBrilla.setArea(map);
     this.fiestaLuces.setArea(map);
     this.velitas.setArea(map, this.view);
+    this.anoViejo.setArea(map);
     this.lucesVentanas.setArea(map, this.view);
       this.createNameplates();
       this.clearScreens();
@@ -1086,6 +1094,7 @@ export class OfficeScene extends Phaser.Scene {
     this.aguaBrilla.setArea(map);
     this.fiestaLuces.setArea(map);
     this.velitas.setArea(map, this.view);
+    this.anoViejo.setArea(map);
     this.lucesVentanas.setArea(map, this.view);
     this.escenario.setArea(map);
     this.gente.setArea(map);
@@ -1674,6 +1683,8 @@ export class OfficeScene extends Phaser.Scene {
         const near = useOfficeStore.getState().interact !== null;
         if (velitasKey(this.map, this.local, this.local.direction, taps.f ? "f" : "e", near)) taps.e = taps.f = false;
       }
+      // Año viejo: con una uva en la mano, F se la come con la campanada (anoViejo.ts).
+      if (taps.f && !this.seat && !this.table.kind && anoViejoKey("f")) taps.f = false;
       if (taps.e) {
         // Junto al buzón, el tablón o la barra, E los abre; junto a un mueble que se usa (si le gana al
         // asiento), lo usa; si no, sienta o levanta.

@@ -71,6 +71,7 @@ import { PescaPanel } from "./PescaPanel";
 import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
 import { FeriaPanel } from "./FeriaPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
+import { AnoViejoShopPanel, AnoViejoStrip, CartelPanel, MunecoPanel, ResumenAnoPanel } from "./AnoViejoPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { TiraDialogo } from "./dialogo/TiraDialogo";
 import { PrologueCard } from "./historia/HistoriaCard";
@@ -350,6 +351,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             <DoorNotePrompt />
             <BrujasTrickPrompt />
             <ComparsaPrompt />
+            <AnoViejoStrip />
             <SeatPrompt />
             <InteractPrompt />
             <MarshmallowStrip />
@@ -477,6 +479,10 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {(panel?.kind === "feriaTable" || panel?.kind === "feriaShop" || panel?.kind === "silletaStand") && <FeriaPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalShop" && <CarnavalShopPanel atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalConcurso" && <ConcursoPanel onClose={closePanel} />}
+          {panel?.kind === "anoViejoShop" && <AnoViejoShopPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoMuneco" && <MunecoPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoCartel" && <CartelPanel atObject={panel.atObject} onClose={closePanel} />}
+          {panel?.kind === "anoViejoResumen" && <ResumenAnoPanel onClose={closePanel} />}
           {/* Mundo lleno: tragamonedas, garra, estante de premios, rueda y la recepción. */}
           <MundoPanels />
           {/* Paleta de comandos, ajustes, atajos, mapa de la cabaña y controles táctiles. */}
