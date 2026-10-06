@@ -80,7 +80,7 @@ if (typeof window !== "undefined") {
 
   onRoom((room) => {
     // Los festivales: la apertura, el cierre y la llegada tarde las manda el servidor a todos.
-    room.onMessage(FESTIVAL_MSG.cine, (e: FestivalCineEvent) => void playCinematic(e.id));
+    room.onMessage(FESTIVAL_MSG.cine, (e: FestivalCineEvent) => void playCinematic(e.id, e.vars));
     room.onMessage(GRANJA_MSG.notice, (n: GranjaNotice) => {
       if (n.code === "eggs") void playCinematic("primer-huevo");
     });
