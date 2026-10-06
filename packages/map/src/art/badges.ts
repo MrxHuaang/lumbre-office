@@ -90,6 +90,8 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   pumpkin: ["....nn...", "...ng....", ".yYyYyYy.", "yYyYyYyYy", "yYkYyYkYy", "yYyYyYyYy", "yYkkkkkYy", ".yYyYyYy."],
   // Feria de las flores: la silleta, el marco de madera cuajado de flores con su copete.
   silleta: [".g.r.y.v.", "nnnnnnnnn", "nrryyvvbn", "nrryyvvbn", "nopprrygn", "nopprrygn", "nnnnnnnnn", ".n.....n.", ".n.....n."],
+  // Festival de cometas: la cometa de rombo con su cruz de guadua y la cola de trapitos.
+  cometa: ["....r....", "...ryr...", "..rryrr..", ".nnnnnnn.", "..bbybb..", "...byb...", "....n....", ".....r...", "....y....", ".....b..."],
   secret: [".xxxx.", "xx..xx", "....xx", "...xx.", "..xx..", "..xx..", "......", "..xx.."],
 };
 
