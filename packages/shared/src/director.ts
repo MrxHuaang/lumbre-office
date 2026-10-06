@@ -9,12 +9,15 @@ import { formatGameTime, gameMinutes, gameTime, GAME_MINUTES_PER_DAY, type GameC
 import { SEASONS, SEASON_TEXT, type Season } from "./estaciones";
 import { FESTIVAL_HORAS, FESTIVAL_IDS, festivalById, type FestivalId } from "./festivales";
 import { WEATHERS, WEATHER_TEXT, type Weather } from "./weather";
+import { PIEZAS, type PiezaId } from "./carnaval-musica";
 
 export const DIRECTOR_MSG = {
   /** Cliente → servidor: `DirectorAction`. */
   action: "director:action",
   /** Servidor → quien lo pidió: `DirectorResult`. */
   result: "director:result",
+  /** Servidor → todos: `DirectorMusica` (la pieza que puso el director para todos, o null para pararla). */
+  musica: "director:musica",
 } as const;
 
 /** Cuánto puede durar un clima fijado (minutos reales); sin duración, hasta "Volver al clima natural". */
@@ -50,8 +53,15 @@ export const DirectorAction = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("irFestival"), id: z.enum(FESTIVAL_IDS) }),
   /** Disparar un momento del registro (`DIRECTOR_ACCIONES`). */
   z.object({ kind: z.literal("momento"), id: z.string().min(1).max(64) }),
+  /** Poner a sonar una pieza de la música del Carnaval para todos (`null` la para). */
+  z.object({ kind: z.literal("musica"), pieza: z.enum(PIEZAS).nullable(), nombre: z.string().max(60).optional() }),
 ]);
 export type DirectorAction = z.infer<typeof DirectorAction>;
+
+/** La música que puso el director para todos (null = que pare). */
+export interface DirectorMusica {
+  pieza: PiezaId | null;
+}
 
 /** Por qué no se hizo. */
 export type DirectorError =
@@ -184,6 +194,8 @@ export function directorAviso(nombre: string, a: DirectorAction, extra: { reloj?
       return `${nombre} adelantó el calendario hasta ${SEASON_TEXT[a.estacion].toLowerCase()}: ${extra.reloj ?? ""}.`;
     case "irFestival":
       return `${nombre} adelantó el calendario hasta ${festivalById(a.id)!.nombre}: ${extra.reloj ?? ""}.`;
+    case "musica":
+      return a.pieza ? `${nombre} puso a sonar ${a.nombre ?? "música del Carnaval"} para todos.` : `${nombre} paró la música.`;
     case "momento": {
       const def = directorAccion(a.id);
       return def ? llenar(def.aviso, { nombre, festival: extra.festival ?? "el festival" }) : `${nombre} hizo algo en la cabaña.`;
