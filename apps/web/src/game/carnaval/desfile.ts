@@ -25,9 +25,11 @@ import { Avatar } from "../Avatar";
 import { serverNow } from "../club/store";
 import { depthOf, ensureTexture, worldToScreen } from "../iso/view";
 import { ensureCharacterTextures } from "../looks";
+import { cameraZoom } from "../pixelRatio";
 import { getRoom } from "../network";
 import { volAt } from "../sfx";
 import { useOfficeStore } from "../store";
+import { CamaraComparsa } from "./camara";
 import { BandaAndina } from "./musica";
 import { desfileMs, onLanzado, syncCarnaval, useCarnavalStore } from "./index";
 
@@ -35,6 +37,8 @@ import { desfileMs, onLanzado, syncCarnaval, useCarnavalStore } from "./index";
 const HEAR_PX = 32 * 16;
 /** Un cuadro de las piezas que se mueven (alas, péndulo, humo) cada tanto. */
 const FRAME_MS = 260;
+/** El zoom más cercano de la cámara (el mismo tope de la rueda, MAX_ZOOM de la escena). */
+const CAMARA_MAX_ZOOM = 5;
 const ORIGINS = new Map<string, { ox: number; oy: number }>();
 const CONFETI_BN = [
   [246, 244, 239],
@@ -71,6 +75,8 @@ export class CarnavalView {
   private evelio?: Avatar;
   private bandera?: Phaser.GameObjects.Image;
   private banda = new BandaAndina();
+  /** Con 3 o más de la cabaña bailando, la cámara de quien baila se acerca un paso. */
+  private camara: CamaraComparsa;
   private corrida = -1;
   /** Lo último que se vio de la frase en la parada (para disparar cada acción una sola vez). */
   private fraseT = -1;
@@ -84,6 +90,7 @@ export class CarnavalView {
     private readonly avatarOf: (sessionId: string) => Avatar | undefined,
   ) {
     this.detach.push(onLanzado((e) => this.lanzado(e)));
+    this.camara = new CamaraComparsa(scene, cameraZoom(CAMARA_MAX_ZOOM));
   }
 
   setArea(map: OfficeMap) {
@@ -155,7 +162,11 @@ export class CarnavalView {
     const room = getRoom();
     const s = useOfficeStore.getState();
     const mine = s.sessionId ? room?.state.players.get(s.sessionId) : undefined;
-    syncCarnaval(room ?? undefined, me && mine ? { x: me.x, y: me.y, area: mine.area, comparsa: Boolean((mine as { comparsa?: boolean }).comparsa) } : null);
+    const enComparsa = Boolean((mine as { comparsa?: boolean } | undefined)?.comparsa);
+    syncCarnaval(room ?? undefined, me && mine ? { x: me.x, y: me.y, area: mine.area, comparsa: enComparsa } : null);
+    let bailando = 0;
+    if (enComparsa) for (const p of room?.state.players.values() ?? []) if ((p as { comparsa?: boolean }).comparsa) bailando++;
+    this.camara.update(enComparsa, bailando);
     const map = this.map;
     const ms = desfileMs();
     if (!map || map.id !== "jardin" || ms === null) {
