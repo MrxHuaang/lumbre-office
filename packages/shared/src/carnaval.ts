@@ -95,8 +95,8 @@ export const CARNAVAL_MSG = {
 
 // ---------- Las carrozas y sus comparsas ----------
 
-/** Las diez carrozas, en el orden del desfile (el del plan). */
-export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "megabus"] as const;
+/** Las carrozas, en el orden del desfile (el Megabús siempre al final). */
+export const CARROZA_IDS = ["castaneda", "condor", "galeras", "tablero", "reloj", "luna", "paramo", "minga", "tinto", "juglar", "megabus"] as const;
 export type CarrozaId = (typeof CARROZA_IDS)[number];
 
 /** Quién hace un paso de la coreografía: un bailarín (`b0`…), todos, o los pares o impares. */
@@ -148,7 +148,7 @@ const PIELES = ["#f1c27d", "#e0ac69", "#c68642", "#8d5524", "#ffdbac", "#d9a066"
  * de colores que combinan con su carroza.
  */
 const PALETAS: Record<string, readonly [string, string, string]> = {
-  "#9a6a40": ["#93203f", "#e0a428", "#1f7a5a"],
+  "#9a6a40": ["#7a3ca8", "#1fa8a0", "#e0a428"],
   "#dcae3f": ["#2f6fd6", "#f2711c", "#3db842"],
   "#ee7a22": ["#3f9a3a", "#f7c518", "#e0283c"],
   "#c8343a": ["#c8243a", "#1f8a4a", "#f2c21c"],
@@ -156,7 +156,8 @@ const PALETAS: Record<string, readonly [string, string, string]> = {
   "#3a5aa8": ["#2a5ac8", "#1fb8c8", "#d8d2ee"],
   "#6f8a3a": ["#0f8a8a", "#d0287a", "#e8b81c"],
   "#7a4a2a": ["#c8323a", "#f4ead6", "#6a3a1e"],
-  "#a6d23a": ["#a6d23a", "#e0283c", "#2f6fd6"],
+  "#a6d23a": ["#a6d23a", "#c8287a", "#f2711c"],
+  "#2a52d0": ["#d8283a", "#2a52d0", "#e0a526"],
 };
 
 /** Una comparsa grande: doce bailarines. */
@@ -406,6 +407,19 @@ export const COMPARSAS: readonly Comparsa[] = [
     ],
   },
   {
+    id: "juglar",
+    nombre: "El Juglar del acordeón",
+    grupo: "Banda Juglares de la Vereda",
+    acento: "#2a52d0",
+    largo: 7,
+    pieza: "guanena-murga",
+    // La banda del juglar: chaquetas rojas y azules de botones dorados; los pares de quepis y los impares
+    // de gorro de juglar (el de fiesta), todos con antifaz.
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#2a52d0", { outfit: "vest", head: i % 2 ? "party-hat" : "sailor-hat", ...(i % 3 === 0 ? { pattern: "stripes" as const } : {}) })),
+    // Marchan como banda: saludan, la ola de saltos de la carroza hacia atrás, giran por parejas y aplauden.
+    frase: [todos("saludar"), ola(12, "saltar", 140), { op: "together", steps: [{ op: "act", who: "pares", action: "girar" }, { op: "act", who: "impares", action: "bailar" }] }, todos("bailar"), todos("celebrar")],
+  },
+  {
     id: "megabus",
     nombre: "El Megabús de la alegría",
     grupo: "Comparsa de la cabaña",
@@ -515,6 +529,7 @@ export const DESFILE_ORDEN: readonly DesfileItem[] = [
   { tipo: "murga", id: "murga-tambores" },
   { tipo: "carroza", id: "tinto" },
   { tipo: "disfraces", id: "tradicion" },
+  { tipo: "carroza", id: "juglar" },
   { tipo: "carroza", id: "megabus" },
 ];
 
@@ -542,6 +557,7 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   paramo: "El Páramo, de donde nace el agua. ¡Cuidadito con pisar los frailejones!",
   minga: "¡La Minga! Papa, maíz, quinua y guaguas de pan: lo que da la tierra se comparte.",
   tinto: "Un tinto de Doña Aurora pa'l frío. ¡Achichay!",
+  juglar: "¡El Juglar del acordeón! Ese perro sabe más de música que yo.",
   megabus: "¡Y cierra el Megabús de la alegría! Detrás va la gente de la casa.",
 };
 
