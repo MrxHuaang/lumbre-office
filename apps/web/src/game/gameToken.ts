@@ -9,6 +9,6 @@ export async function fetchGameToken(): Promise<string> {
     throw new SessionExpiredError("Sesión expirada");
   }
   const body = (await res.json().catch(() => null)) as { token?: string; error?: string } | null;
-  if (!res.ok || !body?.token) throw new Error(body?.error ?? "No se pudo obtener el acceso a la cabaña");
+  if (!res.ok || !body?.token) throw new Error(body?.error ?? "No se pudo abrir la puerta de la cabaña. Intenta de nuevo.");
   return body.token;
 }

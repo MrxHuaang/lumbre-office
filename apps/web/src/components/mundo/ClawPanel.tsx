@@ -215,7 +215,7 @@ export function ClawPanel({ onClose }: { onClose: () => void }) {
             </button>
           )}
         </div>
-        <p className="text-[13px] text-cozy-ink-soft">Mientras más centrada caiga sobre un peluche, mejor agarra. Los raros se resbalan más.</p>
+        <p className="text-[13px] text-cozy-ink-soft">Entre más centrada caiga sobre un peluche, mejor agarra. Los raros se resbalan más.</p>
       </div>
     </PanelShell>
   );

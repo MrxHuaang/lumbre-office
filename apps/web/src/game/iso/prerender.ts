@@ -81,6 +81,9 @@ export function prerenderedFurniture(scene: Phaser.Scene, key: string): { textur
   return { texture, frame: key, w, h, ox, oy };
 }
 
+/** Lo que el build dejó de una carroza del Carnaval (sus partes van en el atlas), o null. */
+export const prerenderedCarroza = (id: string) => manifest?.carrozas?.[id] ?? null;
+
 /** Baldosa pre-dibujada del bosque de alrededor. */
 export function prerenderedSurroundings(scene: Phaser.Scene, kind: string): string | null {
   const key = surroundTexture(kind);

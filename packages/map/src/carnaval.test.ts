@@ -1,30 +1,33 @@
-import { CARNAVAL, CARROZA_IDS, GAME_DAY_REAL_MS, GAME_MINUTES_PER_DAY } from "@hyvento/shared";
+import { CARNAVAL, CARROZA_IDS, COMPARSAS, DESFILE_ORDEN, festivalById, GAME_DAY_REAL_MS, GAME_MINUTES_PER_DAY } from "@hyvento/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  atrasParaSumarse,
+  CARNAVAL_COMIDA,
+  CARNAVAL_GRADERIAS,
   CARNAVAL_PUESTO,
   CARNAVAL_TARIMA,
+  CARROZA_TILES,
+  DESFILE_ATRAS,
   DESFILE_BAJADA_X,
+  DESFILE_LARGO,
   DESFILE_PALCO_X,
   DESFILE_PARADAS_X,
-  DESFILE_PORTON_X,
   DESFILE_UNIDADES,
   DESFILE_Y,
-  unidadX,
   ROAD,
   bailarinPuesto,
-  bajadaMs,
-  cabanaPuesto,
-  cabanaX,
   canStandAt,
   desfileDuracionMs,
   desfileEstado,
+  filaEn,
   findPath,
   getWorld,
   pointsOfType,
   setFestivalDecor,
+  sumadoPuesto,
+  unidadX,
   type OfficeMap,
 } from "./index";
-import { carrozaSprite, CARROZA_FRAMES, CARROZA_LARGO } from "./art/carnaval";
 
 afterEach(() => {
   setFestivalDecor(null);
@@ -47,7 +50,37 @@ describe("la decoración del Carnaval", () => {
     expect(jardin.furniture.length).toBeGreaterThan(before + 60);
     expect(pointsOfType(jardin, "festival_shop")[0]).toMatchObject({ tileX: CARNAVAL_PUESTO.punto.x, tileY: CARNAVAL_PUESTO.punto.y });
     expect(pointsOfType(jardin, "carnaval_contest")[0]).toMatchObject({ tileX: CARNAVAL_TARIMA.punto.x, tileY: CARNAVAL_TARIMA.punto.y });
-    for (const t of ["tarima-comparsa", "puesto-carnaval", "banderines-carnaval", "farol-carnaval", "mascaron"]) expect(jardin.furniture.some((f) => f.type === t), t).toBe(true);
+    for (const t of [
+      "tarima-comparsa",
+      "tarima-musica",
+      "puesto-carnaval",
+      "puesto-mascaras",
+      "puesto-frito",
+      "puesto-empanadas",
+      "puesto-hervido",
+      "puesto-helado",
+      "tribuna-carnaval",
+      "tribuna-carnaval-alta",
+      "arco-carnaval",
+      "arco-carnaval-y",
+      "valla-carnaval",
+      "poste-banderines",
+      "banderines-carnaval",
+      "guirnalda-carnaval",
+      "farol-carnaval",
+      "mascaron",
+      "muneco-carnaval",
+      "cuy-carnaval",
+      "globos-carnaval",
+      "confeti-calle",
+    ])
+      expect(jardin.furniture.some((f) => f.type === t), t).toBe(true);
+    // Los puestos de comida y las graderías quedan todos (nada los tapó).
+    for (const p of CARNAVAL_COMIDA) expect(jardin.furniture.some((f) => f.type === p.type && f.x === p.x && f.y === p.y), p.type).toBe(true);
+    for (const g of CARNAVAL_GRADERIAS) {
+      expect(jardin.furniture.some((f) => f.type === "tribuna-carnaval-alta" && f.x === g.x && f.y === g.y), `gradería ${g.x}`).toBe(true);
+      expect(jardin.furniture.some((f) => f.type === "tribuna-carnaval" && f.x === g.x && f.y === g.y + 2), `gradería ${g.x}`).toBe(true);
+    }
     setFestivalDecor(null);
     expect(getWorld().areas.get("jardin")!.furniture.length).toBe(before);
   });
@@ -62,18 +95,37 @@ describe("la decoración del Carnaval", () => {
     for (const p of [...pointsOfType(map, "festival_shop"), ...pointsOfType(map, "carnaval_contest")]) expect(findPath(map, from, { x: p.tileX, y: p.tileY }), p.type).not.toBeNull();
     // La vereda sigue caminable de punta a punta (por ahí se mira el desfile y se suma uno a la comparsa).
     expect(findPath(map, { x: 14, y: 131 }, { x: 138, y: 131 })).not.toBeNull();
+    // Y el portón y el camino de piedra a la estación siguen abiertos por debajo de los arcos.
+    expect(findPath(map, from, { x: 62, y: 109 })).not.toBeNull();
+    expect(findPath(map, from, { x: 70, y: 128 })).not.toBeNull();
+  });
+
+  it("en las graderías se sienta la gente: cada banca se alcanza desde un tile caminable", () => {
+    setFestivalDecor("carnaval", 0);
+    const map = getWorld().areas.get("jardin")!;
+    const from = spawnOf(map);
+    for (const g of CARNAVAL_GRADERIAS)
+      for (let x = g.x; x < g.x + 6; x++)
+        for (const y of [g.y, g.y + 2]) {
+          expect(map.seats.has(y * map.width + x), `asiento ${x},${y}`).toBe(true);
+          // Desde el pasillo (y + 1, que se camina) se llega a las dos bancas.
+          expect(canStandAt(map, (x + 0.5) * map.tileSize, (g.y + 1.5) * map.tileSize), `pasillo ${x}`).toBe(true);
+        }
+    for (const g of CARNAVAL_GRADERIAS) expect(findPath(map, from, { x: g.x + 2, y: g.y + 1 }), `pasillo de la gradería ${g.x}`).not.toBeNull();
   });
 });
 
-describe("el desfile por la calle del Megabús", () => {
-  it("lleva el abanderado adelante, las carrozas en orden y la comparsa de la cabaña al final", () => {
-    expect(DESFILE_UNIDADES.map((u) => u.id)).toEqual(["abanderado", ...CARROZA_IDS, "cabana"]);
+describe("el Desfile Magno por la calle del Megabús", () => {
+  it("lleva el abanderado adelante, las carrozas, murgas y disfraces en su orden y la comparsa de la cabaña al final", () => {
+    expect(DESFILE_UNIDADES.map((u) => u.id)).toEqual(["abanderado", ...DESFILE_ORDEN.map((d) => d.id), "cabana"]);
+    expect(DESFILE_UNIDADES.filter((u) => u.tipo === "carroza").map((u) => u.id)).toEqual([...CARROZA_IDS]);
+    expect(DESFILE_UNIDADES.filter((u) => u.tipo === "murga").length).toBeGreaterThanOrEqual(3);
+    expect(DESFILE_UNIDADES.filter((u) => u.tipo === "disfraces").length).toBeGreaterThanOrEqual(3);
   });
 
-  it("para frente al portón y frente al palco, y la comparsa de la cabaña queda enfrente en cada parada", () => {
+  it("la fila es más larga que la calle y para dos veces frente al palco", () => {
+    expect(DESFILE_LARGO).toBeGreaterThan(ROAD.x1 - ROAD.x0);
     const dur = desfileDuracionMs();
-    expect(dur).toBeGreaterThan(100_000);
-    expect(dur).toBeLessThan(160_000);
     const stops: number[] = [];
     let last: number | null = null;
     for (let ms = 0; ms < dur; ms += 250) {
@@ -83,85 +135,94 @@ describe("el desfile por la calle del Megabús", () => {
       if (e.parada !== null) expect(e.cabeza).toBe(DESFILE_PARADAS_X[e.parada]);
     }
     expect(stops).toEqual([0, 1]);
-    expect(cabanaX(DESFILE_PARADAS_X[0]!)).toBe(DESFILE_PORTON_X);
-    expect(cabanaX(DESFILE_PARADAS_X[1]!)).toBe(DESFILE_PALCO_X);
+    // En cada parada hay algo de la fila frente al palco.
+    for (const px of DESFILE_PARADAS_X) expect(filaEn(DESFILE_PALCO_X, px)).toBe(true);
     expect(desfileEstado(dur + 1).fin).toBe(true);
   });
 
-  it("la cabeza siempre avanza (nunca retrocede) y la gente de la cabaña se baja antes del bosque", () => {
+  it("la cabeza siempre avanza (nunca retrocede) y siempre hay algo en la calle mientras dura", () => {
     let prev = -Infinity;
-    for (let ms = 0; ms < desfileDuracionMs(); ms += 500) {
-      const x = desfileEstado(ms).cabeza;
-      expect(x).toBeGreaterThanOrEqual(prev);
-      prev = x;
+    const dur = desfileDuracionMs();
+    for (let ms = 0; ms < dur; ms += 1000) {
+      const e = desfileEstado(ms);
+      expect(e.cabeza).toBeGreaterThanOrEqual(prev);
+      prev = e.cabeza;
+      // Pasados los primeros segundos (la cabeza sale del bosque), hasta que la cola entra al bosque del este.
+      if (e.cabeza > ROAD.x0 + 2 && e.cabeza - DESFILE_LARGO < ROAD.x1 - 2) {
+        const algo = DESFILE_UNIDADES.some((_, k) => {
+          const x = unidadX(k, e.cabeza);
+          return x > ROAD.x0 && x - DESFILE_UNIDADES[k]!.largo < ROAD.x1;
+        });
+        expect(algo, `${ms}`).toBe(true);
+      }
     }
-    const at = bajadaMs();
-    expect(cabanaX(desfileEstado(at).cabeza)).toBeCloseTo(DESFILE_BAJADA_X, 3);
-    expect(at).toBeLessThan(desfileDuracionMs());
   });
 
-  it("todos van por la calle: las carrozas y la gente en el carril exclusivo, los bailarines en el mixto", () => {
+  it("todos van por la calle: carrozas, murgas y la gente en el carril exclusivo, las comparsas en el mixto", () => {
     const map = getWorld().areas.get("jardin")!;
-    for (let i = 0; i < 12; i++) {
-      const p = cabanaPuesto(i, 120);
+    DESFILE_UNIDADES.forEach((u, k) => {
+      const n = u.tipo === "carroza" ? COMPARSAS.find((c) => c.id === u.id)!.bailarines.length : u.tipo === "murga" || u.tipo === "disfraces" ? u.cuantos : 0;
+      for (let i = 0; i < n; i++) {
+        const b = bailarinPuesto(k, i, 100);
+        expect(b.y, `${u.id} ${i}`).toBeGreaterThan(ROAD.y0);
+        expect(b.y, `${u.id} ${i}`).toBeLessThan(ROAD.y1);
+        // Cada uno va dentro de su unidad (no se monta en la de atrás).
+        expect(b.x, `${u.id} ${i}`).toBeGreaterThan(unidadX(k, 100) - u.largo);
+        if (u.tipo === "carroza") expect(b.y).toBeGreaterThan(ROAD.laneY);
+      }
+    });
+    for (let f = 0; f < 3; f++) {
+      const p = sumadoPuesto(50, f, 120);
       expect(p.y).toBeGreaterThan(ROAD.y0);
       expect(p.y).toBeLessThan(ROAD.laneY);
       // La calle no se camina: solo se está ahí bailando (lo lleva la sala).
       expect(canStandAt(map, p.x * map.tileSize, p.y * map.tileSize)).toBe(false);
     }
-    for (let k = 1; k < DESFILE_UNIDADES.length - 1; k++)
-      for (let i = 0; i < 4; i++) {
-        const b = bailarinPuesto(k, i, 100);
-        expect(b.y).toBeGreaterThan(ROAD.laneY);
-        expect(b.y).toBeLessThan(ROAD.y1);
-      }
     expect(DESFILE_Y.carroza).toBeGreaterThan(ROAD.y0);
   });
 
-  it("cada carroza tiene sus cuadros dibujados, de día y de noche, y sus piezas se mueven", () => {
-    const firma = (id: (typeof CARROZA_IDS)[number], f: number, night: boolean) => {
-      const c = carrozaSprite(id, f, night).canvas;
-      return `${c.width}x${c.height}:${Buffer.from(c.data).toString("base64")}`;
-    };
-    for (const id of CARROZA_IDS) {
-      const dia = Array.from({ length: CARROZA_FRAMES }, (_, f) => firma(id, f, false));
-      for (let f = 0; f < CARROZA_FRAMES; f++) expect(carrozaSprite(id, f, true).canvas.width, id).toBeGreaterThan(40);
-      // Las piezas se mueven: cada cuadro es distinto del siguiente (también al dar la vuelta).
-      for (let f = 0; f < CARROZA_FRAMES; f++) expect(dia[f], `${id} cuadro ${f}`).not.toBe(dia[(f + 1) % CARROZA_FRAMES]);
-      // De noche se prenden los faroles.
-      expect(firma(id, 0, true), id).not.toBe(dia[0]);
+  it("quien se suma baila en el hueco detrás de una carroza, nunca encima de ella", () => {
+    const cabeza = 200;
+    for (let x = ROAD.x0; x < DESFILE_BAJADA_X - 2; x += 0.7) {
+      if (!filaEn(x, cabeza)) continue;
+      const a = atrasParaSumarse(x, cabeza);
+      expect(a).toBeGreaterThanOrEqual(0);
+      expect(a).toBeLessThanOrEqual(DESFILE_LARGO);
+      DESFILE_UNIDADES.forEach((u, k) => {
+        if (u.tipo !== "carroza") return;
+        const at = DESFILE_ATRAS[k]!;
+        expect(a > at && a < at + CARROZA_TILES[u.id], `${x} sobre ${u.id}`).toBe(false);
+      });
     }
   });
 
   it("cada carroza cabe en su puesto de la fila (no se monta sobre la de adelante)", () => {
     for (const id of CARROZA_IDS) {
       const u = DESFILE_UNIDADES.find((x) => x.id === id)!;
-      expect(CARROZA_LARGO[id], id).toBeLessThan(u.largo);
+      expect(CARROZA_TILES[id], id).toBeLessThan(u.largo);
     }
   });
 
-  it("el desfile con las diez carrozas sigue durando unos 2 minutos y termina antes del concurso", () => {
+  it("el Desfile Magno dura unos 17 minutos y la cola pasa entera antes del concurso y del cierre", () => {
     const dur = desfileDuracionMs();
-    expect(dur).toBeGreaterThan(105_000);
-    expect(dur).toBeLessThan(135_000);
-    // Aunque el de las 19:00 salga al final de su ventana (porque el bus estaba en la calle), la cola ya
-    // se perdió en el bosque antes de que cierre el concurso.
+    expect(dur).toBeGreaterThan(15 * 60_000);
+    expect(dur).toBeLessThan(20 * 60_000);
+    // Aunque salga al final de su ventana (porque el bus estaba en la calle), la cola ya se perdió en el
+    // bosque antes de que cierre el concurso (y todo es de día).
     const realMsPorMinuto = GAME_DAY_REAL_MS / GAME_MINUTES_PER_DAY;
-    const ultimo = Math.max(...CARNAVAL.desfileHoras);
-    expect(CARNAVAL.ventanaMin * realMsPorMinuto + dur).toBeLessThan((CARNAVAL.concursoCierre - ultimo) * 60 * realMsPorMinuto);
-    // Al terminar, la cola (la comparsa de la cabaña) ya pasó el final de la calle.
+    const hora = CARNAVAL.desfileHoras[0]!;
+    expect(CARNAVAL.desfileHoras).toHaveLength(1);
+    expect(CARNAVAL.ventanaMin * realMsPorMinuto + dur).toBeLessThan((CARNAVAL.concursoCierre - hora) * 60 * realMsPorMinuto);
+    expect(CARNAVAL.concursoCierre).toBeLessThan(festivalById("carnaval")!.cierre!);
+    expect(festivalById("carnaval")!.cierre!).toBeLessThan(19);
     const fin = desfileEstado(dur);
     expect(fin.fin).toBe(true);
-    const k = DESFILE_UNIDADES.length - 1;
-    expect(unidadX(k, fin.cabeza) - DESFILE_UNIDADES[k]!.largo).toBeGreaterThan(ROAD.x1);
-    // Y todas las carrozas pasan por delante del palco caminando (se ven desde la estación).
+    expect(fin.cabeza - DESFILE_LARGO).toBeGreaterThan(ROAD.x1);
+    // Y todas las carrozas pasan por delante del palco (se ven desde la estación).
     for (const id of CARROZA_IDS) {
       const k2 = DESFILE_UNIDADES.findIndex((x) => x.id === id);
       let vista = false;
-      for (let ms = 0; ms < dur && !vista; ms += 250) {
-        const x = unidadX(k2, desfileEstado(ms).cabeza);
-        vista = Math.abs(x - DESFILE_PALCO_X) < 2;
-      }
+      for (let ms = 0; ms < dur && !vista; ms += 500) vista = Math.abs(unidadX(k2, desfileEstado(ms).cabeza) - DESFILE_PALCO_X) < 2;
       expect(vista, id).toBe(true);
     }
   });

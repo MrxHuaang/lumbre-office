@@ -83,8 +83,8 @@ export const observatorio: AreaDef = {
   ],
   points: [
     { type: "telescope", name: "Telescopio", x: 12, y: 3 },
-    { type: "orrery", name: "Orrery", x: 8, y: 6 },
-    { type: "orrery", name: "Orrery", x: 6, y: 8 },
+    { type: "orrery", name: "Planetario de mesa", x: 8, y: 6 },
+    { type: "orrery", name: "Planetario de mesa", x: 6, y: 8 },
     { type: "signal_radar", name: "Radar de señales", x: 14, y: 7 },
     { type: "logbook", name: "Diario de exploración", x: 2, y: 1 },
     // Delante de la astrónoma: con E le pregunta por el cielo.

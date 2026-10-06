@@ -154,7 +154,7 @@ export function aguinaldoProblemaText(p: AguinaldoProblema): string {
     case "noNovena":
       return "Los aguinaldos se juegan en las novenas, del 12 al 20 del invierno.";
     case "lejos":
-      return `Acércate a ${w} para retarle.`;
+      return `Acércate más a ${w} para jugar.`;
     case "ocupado":
       return `${w === "esa persona" ? "Alguien" : w} ya está en otro juego.`;
     case "pronto":
@@ -184,8 +184,11 @@ export function aguinaldoFinText(f: AguinaldoFin, yo: string): string {
     rindio: gane ? `${otro} se rindió` : "te rendiste",
     seFue: gane ? `${otro} se fue` : "te fuiste",
   };
-  const pago = f.pagado > 0 ? ` (${f.pagado} puntos)` : " (no alcanzó para pagarlo hoy)";
-  return gane
-    ? `${juego}: ¡ganaste! ${porque[f.motivo as Exclude<AguinaldoFinMotivo, "empate">]}. ${otro} te dio tu aguinaldo${pago}.`
-    : `${juego}: perdiste, ${porque[f.motivo as Exclude<AguinaldoFinMotivo, "empate">]}. Le debías un aguinaldo a ${otro}${pago}.`;
+  const motivo = porque[f.motivo as Exclude<AguinaldoFinMotivo, "empate">];
+  if (gane) {
+    const premio = f.pagado > 0 ? `${otro} te dio tu aguinaldo: ${f.pagado} puntos.` : `${otro} te debe el aguinaldo: hoy ya no le alcanzó para pagarlo.`;
+    return `${juego}: ¡ganaste! ${motivo}. ${premio}`;
+  }
+  const deuda = f.pagado > 0 ? `Le pagaste el aguinaldo a ${otro}: ${f.pagado} puntos.` : `Le debes el aguinaldo a ${otro}, pero hoy ya no alcanzó para pagarlo.`;
+  return `${juego}: perdiste, ${motivo}. ${deuda}`;
 }

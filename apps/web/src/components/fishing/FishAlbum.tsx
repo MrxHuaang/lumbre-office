@@ -98,7 +98,7 @@ function AlbumCell({ fish, entry, selected, onSelect }: { fish: FishSpecies; ent
         onClick={onSelect}
         aria-pressed={selected}
         className="flex w-full flex-col items-center gap-1 border-2 border-cozy-paper-dark bg-cozy-paper-light px-1.5 py-2 text-center hover:border-cozy-wood aria-pressed:border-cozy-red"
-        title={known ? fish.name : "Todavía no lo sacas"}
+        title={known ? fish.name : "Todavía no lo has sacado"}
       >
         <span className="grid h-[54px] w-full place-items-center" style={{ background: known ? `${RARITY[fish.rarity].color}22` : undefined }}>
           <ArtImage
@@ -129,7 +129,7 @@ function Detail({ fish, entry }: { fish: FishSpecies; entry?: FishAlbumEntry }) 
           {entry ? fish.name : "???"}
           <RarityChip rarity={fish.rarity} />
         </p>
-        <p className="mt-1 leading-snug text-cozy-ink-soft">{entry ? fish.description : "Todavía no lo sacas. Sigue intentando."}</p>
+        <p className="mt-1 leading-snug text-cozy-ink-soft">{entry ? fish.description : "Todavía no lo has sacado. Sigue intentando."}</p>
         <p className="mt-1 text-cozy-ink-soft">
           {whenLabel(fish)} · de {fish.size[0]} a {fish.size[1]} cm
           {entry && ` · sacado ${entry.count} ${entry.count === 1 ? "vez" : "veces"}, el más grande de ${entry.best} cm`}

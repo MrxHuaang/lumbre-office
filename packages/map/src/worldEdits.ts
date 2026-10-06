@@ -48,7 +48,7 @@ export const WORLD_EDIT_ERRORS: Record<WorldEditProblem, string> = {
   unknown: "Ese mueble ya no está.",
   fixed: "Ese mueble no se mueve con el editor: el juego lo usa desde ahí (escaleras, mesas del casino, barras, mostradores…).",
   outside: "Tiene que quedar sobre el piso del nivel.",
-  blocked: "Se encima con otro mueble o cruza una pared.",
+  blocked: "Queda encima de otro mueble o cruza una pared.",
   portal: "No puede tapar una puerta ni una escalera.",
   point: "No puede tapar el lugar desde donde se usa algo (una barra, una mesa, un buzón…).",
   occupied: "Hay alguien parado ahí.",

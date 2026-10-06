@@ -158,7 +158,7 @@ function Board({ t, me }: { t: BoardTableView; me: BoardSide | null }) {
       />
       {promo && (
         <div role="dialog" aria-label="Coronar" className="cozy-panel absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5 px-3 py-2">
-          <span className="text-[13px]">¿A qué corona el peón?</span>
+          <span className="text-[13px]">¿En qué corona el peón?</span>
           <div className="flex gap-1">
             {(["q", "r", "b", "n"] as ChessPromo[]).map((p) => {
               const letter = me === 1 ? p : p.toUpperCase();
@@ -268,7 +268,7 @@ export function BoardGameStrip() {
   if (t.phase === "idle") {
     if (spot.seat === null) status = t.seats.some((s) => s.userId) ? "Esperando a que se sienten los dos" : "Siéntate en una silla de la mesa para jugar";
     else if (!t.seats[spot.seat === 0 ? 1 : 0].userId) status = "Esperando rival en la otra silla";
-    else status = t.seats[spot.seat].ready ? "Esperando a que el otro diga listo" : "Cuando estés listo, empieza la partida";
+    else status = t.seats[spot.seat].ready ? "Esperando a que tu rival diga listo" : "Cuando los dos digan listo, empieza la partida";
   } else if (t.phase === "playing") {
     const turnName = me === t.turn ? "Te toca" : `Juegan las ${BOARD_SIDE_NAME[t.turn]}`;
     status = `${turnName}${t.check ? " · ¡Jaque!" : ""}`;
@@ -317,7 +317,7 @@ export function BoardGameStrip() {
         </button>
         {confirmResign ? (
           <button type="button" onClick={() => sendBoardResign(t.id)} className="cozy-btn cozy-btn-danger px-2 py-1 text-[13px]">
-            ¿Seguro? Rendirse
+            Sí, me rindo
           </button>
         ) : (
           <button type="button" onClick={() => setConfirmResign(true)} className="cozy-btn px-2 py-1 text-[13px]">

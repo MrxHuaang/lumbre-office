@@ -10,7 +10,7 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function GET(_req: Request, { params }: Params) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const { id } = await params;
   const profile = await loadPlayerProfile(id === "me" ? user.id : id, user.id);
   if (!profile) return NextResponse.json({ error: "No encontramos a esa persona" }, { status: 404 });

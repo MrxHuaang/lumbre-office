@@ -64,7 +64,7 @@ export const CASA_MODO_DEFAULT: CasaModo = "invitados";
 
 export const CASA_MODO_TEXT: Record<CasaModo, { label: string; hint: string }> = {
   abierta: { label: "Abierta", hint: "Entra quien quiera (en el Megabús)." },
-  invitados: { label: "Solo invitados", hint: "Entran los que invitas o a los que les abres al tocar el timbre." },
+  invitados: { label: "Solo invitados", hint: "Entran los que invitas y a quienes les abres cuando tocan el timbre." },
   cerrada: { label: "Cerrada", hint: "Solo tú. Los que estaban se van." },
 };
 

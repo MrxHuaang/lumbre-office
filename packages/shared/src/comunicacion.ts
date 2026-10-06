@@ -89,7 +89,7 @@ export const WAVE_RESULT_TEXT: Record<WaveOutcome, (name: string) => string> = {
   offline: (n) => `${n || "Esa persona"} ya no está conectada.`,
   dnd: (n) => `${n || "Esa persona"} está en "No molestar": mejor más tarde.`,
   "too-soon": (n) => `Ya saludaste a ${n || "esa persona"} hace un ratico.`,
-  self: () => "Te saludaste a ti mismo. Hola, ¿cómo vas?",
+  self: () => "Saludarse a uno mismo también vale. Hola, ¿cómo vas?",
 };
 
 /** El aviso de texto de un admin (lo reciben todos los conectados, en todos los niveles). */
@@ -119,7 +119,7 @@ export interface AnnounceResult {
 }
 
 export const ANNOUNCE_ERROR_TEXT: Record<AnnounceError, (name: string) => string> = {
-  admin: () => "Necesitas el permiso para anunciar (se lo pides a un admin).",
+  admin: () => "Para anunciar necesitas el permiso: pídeselo a un admin.",
   "too-soon": () => "Espera unos segundos antes de mandar otro anuncio.",
   recent: () => "Hace un momento hubo otro anuncio: espera unos segundos.",
   empty: () => "Escribe algo para el aviso.",

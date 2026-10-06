@@ -90,7 +90,7 @@ export const RECIPES: readonly Recipe[] = [
   },
   {
     id: "tarta-lulo",
-    name: "Tarta de lulo y fresa",
+    name: "Torta de lulo y fresa",
     blurb: "Horneada, con miel por encima. Se desmorona un poco.",
     needs: { lulo: 1, fresa: 1, [HONEY]: 1 },
     effect: { kind: "points", amount: 10 },
@@ -248,6 +248,7 @@ export function ingredientName(item: string): string {
 
 export function cocinaNoticeText(n: CocinaNotice): string {
   const dish = n.item ? recipeById(n.item)?.name : undefined;
+  const low = dish ? dish.charAt(0).toLowerCase() + dish.slice(1) : undefined;
   switch (n.code) {
     case "far":
       return "Acércate a la estufa (o al cobertizo, para guardar lo cosechado).";
@@ -264,14 +265,14 @@ export function cocinaNoticeText(n: CocinaNotice): string {
     case "level":
       return `${dish ?? "Esa receta"} se aprende con Cocina nivel ${(n.item && recipeById(n.item)?.requires?.level) || 6}.`;
     case "hands":
-      return "Tienes las manos ocupadas con algo pagado: termínalo primero.";
+      return "Tienes las manos ocupadas con algo que pagaste: termínalo primero.";
     case "busy":
-      return "Un momento, que la estufa todavía está caliente.";
+      return "Espera un momentico antes de cocinar otra vez.";
     case "cooked":
-      if (n.item && recipeById(n.item)?.story) return `${dish ?? "Eso"} está listo: quedó en tu mochila.`;
-      return `${dish ?? "El plato"} está listo${n.points ? `: +${n.points} puntos` : ""}.`;
+      if (n.item && recipeById(n.item)?.story) return `¡Listo! Salió de la estufa: ${low ?? "tu plato"}. Quedó en tu mochila.`;
+      return `¡Listo! Salió de la estufa: ${low ?? "tu plato"}${n.points ? ` (+${n.points} puntos)` : ""}.`;
     case "capped":
-      return `${dish ?? "El plato"} está listo (por hoy la cocina ya no da más puntos).`;
+      return `¡Listo! Salió de la estufa: ${low ?? "tu plato"}. Por hoy la cocina ya no da más puntos.`;
     case "energy":
       return `${dish ?? "Eso"} te dio energía: caminas más rápido un rato.`;
     case "inBag":

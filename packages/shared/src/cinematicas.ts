@@ -28,7 +28,7 @@ export const CINE_ME = "yo";
 export const CINE_NPCS = ["aurora", "gloria", "evelio", "astronoma", "crupier", "dealer", "cajera", "portero"] as const;
 
 /** Sonidos que puede pedir una cinemática (los resuelve el navegador con sus efectos). */
-export const CINE_SOUNDS = ["fanfarria", "campanada", "campanadas", "carta", "destello", "tambor", "aplausos", "brisa", "trueno", "magia", "chapuzon", "guanena", "albazo"] as const;
+export const CINE_SOUNDS = ["fanfarria", "campanada", "campanadas", "carta", "destello", "tambor", "aplausos", "brisa", "trueno", "magia", "chapuzon", "guanena", "murga"] as const;
 export type CineSound = (typeof CINE_SOUNDS)[number];
 
 /** Efectos sobre un actor (o la pantalla). */
@@ -145,7 +145,7 @@ export const CINEMATICAS: Record<string, CineDef> = {
       { op: "walk", who: "aurora", path: [{ dx: 4, dy: 2 }, { dx: 2, dy: 1 }, { dx: 1, dy: 0 }] },
       { op: "together", steps: [{ op: "face", who: "aurora", toward: "yo" }, { op: "face", who: "yo", toward: "aurora" }] },
       { op: "act", who: "aurora", action: "saludar" },
-      say("aurora", "¡Ay, bienvenido, mijo! Yo soy Aurora, la que cuida esta casa desde que el cuidador de antes se fue… sin decir ni adiós."),
+      say("aurora", "¡Ay, qué bueno que llegó! Yo soy Aurora, la que cuida esta casa desde que el cuidador de antes se fue… sin decir ni adiós."),
       { op: "emote", who: "yo", emote: "wave" },
       { op: "emote", who: "aurora", emote: "heart" },
       { op: "walk", who: "aurora", path: [{ dx: 1, dy: -2 }, { dx: 3, dy: -2 }] },
