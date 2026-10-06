@@ -2207,6 +2207,85 @@ ITEMS["sombrero-bruja"] = {
   flat: "y",
 };
 
+// ---------- El Carnaval de Negros y Blancos ----------
+// La bolsita de maicena (el talco): papel blanco amarrado con cabuya y un poco de polvo que se escapa.
+ITEMS.maicena = {
+  rows: [
+    "..w...w..", //
+    "...ww....",
+    "..oyyo...",
+    ".owwwwo..",
+    "owwWwwwo.",
+    "owwwwWwo.",
+    "owWwwwwo.",
+    ".owwwwo..",
+    "..oooo...",
+  ],
+  colors: legend({ w: "#f6f4ef", W: "#d8d4cc", y: "#b8945a" }),
+  flat: "y",
+};
+// Las serpentinas: un rollito blanco y negro con la cinta que se desenrolla.
+ITEMS.serpentinas = {
+  rows: [
+    "......n.w", //
+    ".....w.n.",
+    "..oooo.w.",
+    ".owknwo..",
+    "owkwwnwo.",
+    "onwkkwko.",
+    "owknwkwo.",
+    ".owwnwo..",
+    "..oooo...",
+  ],
+  colors: legend({ w: "#f6f4ef", k: "#24212e", n: "#3a3646" }),
+  flat: "kn",
+};
+// El antifaz de carnaval: mitad blanco, mitad negro, ribete dorado y una pluma.
+ITEMS["antifaz-carnaval"] = {
+  rows: [
+    ".......p.", //
+    "......pP.",
+    "oooooooPo",
+    "owwwykkko",
+    "ow.wyk.ko",
+    "owwwykkko",
+    ".owwyko..",
+    "..oooo...",
+  ],
+  colors: legend({ w: "#f6f4ef", k: "#24212e", y: "#dcae3f", p: "#c05a4a", P: "#e0835e" }),
+  flat: "y",
+};
+// La máscara de cóndor: cabeza negra, el collar blanco y el pico de hueso.
+ITEMS["mascara-condor"] = {
+  rows: [
+    "..oooo...", //
+    ".okkkko..",
+    "okkwkkko.",
+    "okkkkkcco",
+    ".okkkkcco",
+    ".owwwwwo.",
+    "owwwwwwwo",
+    ".ooooooo.",
+  ],
+  colors: legend({ k: "#24212e", w: "#f6f4ef", c: "#e8d8a8" }),
+};
+// La máscara del sol: la cara dorada con rayos blancos y negros alrededor.
+ITEMS["mascara-sol"] = {
+  rows: [
+    "..k.w.k..", //
+    "...ooo...",
+    "w.oyyyo.w",
+    ".oykyyko.",
+    "koyyyyyok",
+    ".oyyryyo.",
+    "w.oyyyo.w",
+    "...ooo...",
+    "..k.w.k..",
+  ],
+  colors: legend({ y: "#f3c440", k: "#24212e", w: "#f6f4ef", r: "#c05a4a" }),
+  flat: "kwr",
+};
+
 export const CAFE_ITEM_ART = Object.keys(ITEMS);
 
 /** Brasa: apagada (0), titilando (1) o encendida al pitar (2). */

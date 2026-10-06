@@ -266,7 +266,9 @@ export interface PointDef {
     // Los festivales (festival-decor.ts): el puesto del festival y, en la Noche de brujas, junto a la
     // calabaza dorada del laberinto (cambia de rincón cada día).
     | "festival_shop"
-    | "golden_pumpkin";
+    | "golden_pumpkin"
+    // El Carnaval: el palco de la tarima (el concurso de disfraces).
+    | "carnaval_contest";
   name: string;
   x: number;
   y: number;

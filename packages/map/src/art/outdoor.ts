@@ -10,6 +10,7 @@ import { stageShell } from "./escenario";
 import { drawObservatory } from "./observatorio-exterior";
 import { CASA_FINCA_CHIMNEY_TOP, CASA_PROPIA_NIGHT } from "./casa-propia-exterior";
 import { BRUJAS_NIGHT } from "./brujas";
+import { CARNAVAL_NIGHT } from "./carnaval";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
   alpha,
@@ -567,6 +568,8 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   ...CASA_PROPIA_NIGHT,
   // La Noche de brujas: las ahuyamas, el espantapájaros y el farol de papel, prendidos de noche.
   ...BRUJAS_NIGHT,
+  // El Carnaval: el farol de papel de la vereda, prendido de noche.
+  ...CARNAVAL_NIGHT,
 };
 
 export function hasOutdoor(type: string): boolean {

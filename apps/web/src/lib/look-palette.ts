@@ -161,6 +161,7 @@ export const FACE_LABEL: Record<FaceItem, string> = {
   "hero-mask": "Antifaz",
   "star-glasses": "Gafas de fiesta",
   monocle: "Monóculo",
+  "carnival-mask": "Antifaz de carnaval",
 };
 
 export const NECK_LABEL: Record<NeckItem, string> = {

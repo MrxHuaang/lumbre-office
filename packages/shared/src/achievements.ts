@@ -157,6 +157,9 @@ export const STAT_KEYS = {
   // pidiendo dulce o truco.
   goldenPumpkins: "golden_pumpkins",
   trickOrTreats: "trick_or_treats",
+  // El Carnaval (carnaval.ts): desfiles bailados en la comparsa y concursos de disfraces ganados.
+  comparsaParades: "comparsa_parades",
+  carnavalCrowns: "carnaval_crowns",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -279,6 +282,7 @@ export const BADGE_ICONS = [
   "telescope",
   "marshmallow",
   "pumpkin",
+  "mask",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
@@ -457,6 +461,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // La Noche de brujas
     a("calabaza-dorada", "Calabaza dorada", "pumpkin", "epico", STAT_KEYS.goldenPumpkins, 1, "Encuentra la calabaza dorada del laberinto de maíz en la Noche de brujas", "Entre tanto maíz, la única que brillaba era la tuya."),
     a("dulce-o-truco", "Dulce o truco", "pumpkin", "raro", STAT_KEYS.trickOrTreats, 10, "Recibe 10 dulces pidiendo dulce o truco", "La canasta ya no cierra y todavía quedan puertas."),
+    // El Carnaval de Negros y Blancos
+    a("comparsero", "Comparsero", "mask", "raro", STAT_KEYS.comparsaParades, 3, "Baila 3 desfiles del Carnaval en la comparsa de la cabaña", "Detrás del Megabús de la alegría ya te conocen el paso."),
+    a("rey-del-carnaval", "Rey o reina del Carnaval", "mask", "epico", STAT_KEYS.carnavalCrowns, 1, "Gana el concurso de disfraces del Carnaval", "Toda la cabaña votó por tu pinta."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),

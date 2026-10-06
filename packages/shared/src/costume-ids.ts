@@ -48,5 +48,9 @@ export const COSTUME_IDS = [
   "vampiro",
   "calabaza",
   "esqueleto",
+  // Los del Carnaval de Negros y Blancos.
+  "comparsa-blanca",
+  "arlequin-pastuso",
+  "talco-ceniza",
 ] as const;
 export type CostumeId = (typeof COSTUME_IDS)[number];

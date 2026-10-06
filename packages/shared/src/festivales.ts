@@ -73,15 +73,16 @@ export const FESTIVALES: readonly FestivalDef[] = [
   },
   {
     id: "carnaval",
-    nombre: "Carnaval",
-    resumen: "Máscaras, desfile de comparsa por el jardín, maicena y serpentinas, y concurso de disfraces.",
+    nombre: "Carnaval de Negros y Blancos",
+    resumen: "Desfile de carrozas por la calle del Megabús, comparsa, talco y serpentinas, y concurso de disfraces.",
     estacion: "verano",
     dia: 18,
     dias: 1,
     color: "#8a3ad0",
     frases: {
       aurora: ["¡Quien lo vive es quien lo goza! Pero no me eche maicena en el pelo.", "Saque el disfraz, que hoy nadie es quien parece."],
-      gloria: ["Hoy la recepción atiende disfrazada. Diga la contraseña: ¡carnaval!", "La comparsa sale del portón. ¡Súmese!"],
+      gloria: ["Hoy la recepción atiende disfrazada. Diga la contraseña: ¡carnaval!", "El desfile pasa por la calle del Megabús. ¡Súmese a la comparsa!"],
+      evelio: ["Hoy yo cargo la bandera, mijo. En Pasto el carnaval se respeta.", "¿Talco? Pregunte primero, que no a todos les gusta quedar blanquitos."],
       portero: ["Con máscara o sin máscara, aquí se entra bailando.", "Hoy el casino es comparsa."],
     },
   },
@@ -200,6 +201,8 @@ export const FESTIVAL_MSG = {
 
 export interface FestivalCineEvent {
   id: string;
+  /** Lo que llena las `{variables}` de la cinemática (el nombre de quien ganó el concurso, los puntos…). */
+  vars?: Record<string, string | number>;
 }
 
 // ---------- Las cinemáticas ----------
@@ -317,9 +320,18 @@ export const FESTIVAL_CINEMATICAS: readonly CineDef[] = [
     { op: "sound", sound: "brisa" },
   ]),
   close(byId("cometas"), "Recojan las cometas, que la última se fue pal lago con todo y cola."),
-  open(byId("carnaval"), ["¡Quien lo vive es quien lo goza! Arrancó el carnaval.", "La comparsa sale del portón. Saquen las máscaras y la maicena."], [
+  // El de Negros y Blancos se nombra con respeto (docs/plan-carnaval.md): el Día de Negros recuerda el día de
+  // libertad que pidieron las personas esclavizadas; aquí se celebra con trajes, máscaras y carrozas.
+  open(byId("carnaval"), ["¡Quien lo vive es quien lo goza! Arrancó el Carnaval de Negros y Blancos.", "El desfile pasa por la calle del Megabús a las 11, a las 3 y a las 7. ¡Saquen las máscaras!"], [
+    { op: "sound", sound: "guanena" },
     { op: "fx", fx: "confeti" },
     { op: "emote", who: "yo", emote: "dance" },
+    {
+      op: "say",
+      who: "evelio",
+      text: "En Pasto el Día de Negros recuerda un día de libertad que pidieron los esclavizados, y el de Blancos es el del talco. Aquí lo celebramos con trajes, máscaras y carrozas.",
+      ms: 5200,
+    },
   ]),
   close(byId("carnaval"), "Se acabó el carnaval… hasta el año que viene. Lávense la maicena."),
   open(byId("cosecha"), ["¡Feria de la cosecha! Traigan lo mejor del huerto, la granja y el lago.", "Los jueces pasan a mediodía: que todo brille."], [

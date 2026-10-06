@@ -158,7 +158,7 @@ export const HEAD_ITEMS = [
   "witch-hat",
 ] as const;
 export type HeadItem = (typeof HEAD_ITEMS)[number];
-export const FACE_ITEMS = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch", "3d-glasses", "hero-mask", "star-glasses", "monocle"] as const;
+export const FACE_ITEMS = ["none", "glasses", "round-glasses", "sunglasses", "eyepatch", "3d-glasses", "hero-mask", "star-glasses", "monocle", "carnival-mask"] as const;
 export type FaceItem = (typeof FACE_ITEMS)[number];
 export const NECK_ITEMS = ["none", "scarf", "tie", "bowtie", "necklace", "lanyard", "neckerchief", "pearls", "chain", "stethoscope", "medal", "whistle"] as const;
 export type NeckItem = (typeof NECK_ITEMS)[number];
