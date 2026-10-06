@@ -5,5 +5,7 @@ import { OfficeRoom } from "../src/rooms/OfficeRoom";
 OfficeRoom.celularAlEntrar = false;
 // Ni la canasta de la Noche de brujas (el reloj real puede caer en el festival). test/noche-brujas.test.ts la prende.
 OfficeRoom.brujasCanasta = false;
+// Ni el desfile del Carnaval (detiene el bus mientras pasa). test/carnaval.test.ts lo prende.
+OfficeRoom.carnavalDesfile = false;
 // Sin límite de mensajes: los helpers caminan mandando ráfagas de pasos. test/limite-mensajes.test.ts lo prende.
 OfficeRoom.msgRate = null;

@@ -26,12 +26,19 @@ export interface BusDeps {
   homeRiders: () => number;
   /** Llegó a la parada "Casa": la sala baja a cada uno en la suya y dice cuántos siguen a bordo. */
   arriveHome: () => number;
+  /**
+   * La calle ocupada (el desfile del Carnaval): mientras tanto no llega ningún bus, ni el del horario ni el
+   * de refuerzo; esperan y salen apenas se libere.
+   */
+  held?: () => boolean;
   /** Cambió la fase: la sala la copia a su estado. */
   onChange: (s: { phase: BusPhase; since: number; nextAt: number; run: number } & BusRoute) => void;
 }
 
 /** Pausa mínima entre que un bus se pierde y llega el siguiente. */
 const AFTER_LOOP_MS = 20_000;
+/** Con la calle ocupada, cada cuánto se vuelve a mirar si ya se puede salir. */
+const HELD_RETRY_MS = 2_000;
 
 export class BusLine {
   phase: BusPhase = "away";
@@ -84,6 +91,12 @@ export class BusLine {
   /** Sale un bus ya (de refuerzo): el horario sigue igual después de él si alcanza. */
   dispatch() {
     if (this.phase !== "away") return;
+    // Con la calle ocupada, el refuerzo espera: sale apenas se libere.
+    if (this.deps.held?.()) {
+      this.nextAt = Math.min(this.nextAt, this.deps.now());
+      this.schedule(HELD_RETRY_MS);
+      return;
+    }
     const keep = this.nextAt;
     this.arrive();
     const now = this.deps.now();
@@ -122,6 +135,7 @@ export class BusLine {
   private next() {
     switch (this.phase) {
       case "away":
+        if (this.deps.held?.()) return this.schedule(HELD_RETRY_MS);
         return this.arrive();
       case "arriving":
         return this.set("open");
