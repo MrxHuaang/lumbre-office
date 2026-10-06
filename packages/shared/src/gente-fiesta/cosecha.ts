@@ -189,7 +189,7 @@ export function GENTE_COSECHA(): FiestaNpc[] {
     papel(F, "efrain", {
       rol: "El de la báscula del concurso",
       area: "jardin",
-      tile: { x: b.x + 1, y: b.y },
+      tile: { x: b.x + 1, y: b.y - 1 },
       comportamiento: { tipo: "quieto", mira: "down" },
       pinta: { outfit: "vest", head: "straw-hat", accent: "#3a6a9a" },
       lluvia: "sigue",

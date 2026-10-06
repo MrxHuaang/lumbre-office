@@ -92,6 +92,8 @@ export * from "./velitas";
 export * from "./noche-brujas";
 export * from "./silleta";
 export * from "./feria-flores";
+export * from "./cosecha";
+export * from "./ahuyama";
 export * from "./carnaval-objetos";
 export * from "./carnaval";
 export * from "./cinematicas";

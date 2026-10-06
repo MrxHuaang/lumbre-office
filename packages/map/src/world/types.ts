@@ -273,7 +273,14 @@ export interface PointDef {
     | "feria_shop"
     | "silleta_stand"
     // El Carnaval: el palco de la tarima (el concurso de disfraces).
-    | "carnaval_contest";
+    | "carnaval_contest"
+    // La Feria de la cosecha: delante de cada puesto del mercado (vender y comprar), de la olla del
+    // sancocho (aportar), de la báscula (pesar la ahuyama), del tablero del concurso y de la tómbola.
+    | "cosecha_puesto"
+    | "cosecha_olla"
+    | "cosecha_bascula"
+    | "cosecha_tablero"
+    | "cosecha_tombola";
   name: string;
   x: number;
   y: number;

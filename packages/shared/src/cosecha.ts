@@ -78,22 +78,19 @@ export const COSECHA_MSG = {
 
 // ---------- Dónde está cada cosa (tiles del jardín; la decoración y la gente usan lo mismo) ----------
 
-export interface TileXY {
-  x: number;
-  y: number;
-}
+type TileXY = { x: number; y: number };
 
 /**
  * Lo fijo de la feria en el jardín: la olla en el patio (2x2), la báscula y el tablero del concurso, y la
  * tómbola (2x1). El punto de cada cosa va un tile al sur (delante, donde se para la gente).
  */
 export const COSECHA_SITIOS = {
-  olla: { x: 88, y: 22 },
+  olla: { x: 86, y: 21 },
   bascula: { x: 98, y: 50 },
   tablero: { x: 101, y: 50 },
   tombola: { x: 80, y: 54 },
   /** El medio del patio, donde se baila. */
-  patio: { x: 86, y: 23 },
+  patio: { x: 84, y: 23 },
 } as const;
 
 /** Delante de una cosa (su punto). */

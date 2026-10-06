@@ -96,7 +96,7 @@ describe("huerto: cómo crece", () => {
 describe("invernadero", () => {
   it("lo de tierra caliente crece a ritmo completo sin regar, y no se riega", () => {
     const indoor = CROPS.filter((c) => c.indoor);
-    expect(indoor.map((c) => c.id)).toEqual(["uchuva", "pitahaya", "cacao", "cafe"]);
+    expect(indoor.map((c) => c.id)).toEqual(["uchuva", "pitahaya", "cacao", "cafe", "platano"]);
     for (const c of indoor) {
       const p = plantPlot(c.id, alice, T0, "otono");
       expect(plotGrowth(p, T0 + 60_000), c.id).toBe(60_000);

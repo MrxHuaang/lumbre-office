@@ -13,6 +13,7 @@ import { BRUJAS_NIGHT } from "./brujas";
 import { CARNAVAL_NIGHT } from "./carnaval";
 import { VELITAS_NIGHT } from "./velitas";
 import { FERIA_NIGHT } from "./feria-flores";
+import { COSECHA_NIGHT } from "./cosecha";
 import { NOVENAS_NIGHT } from "./novenas";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
 import {
@@ -577,6 +578,8 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   ...VELITAS_NIGHT,
   // La Feria de las flores: el farol de papel de colores, prendido de noche.
   ...FERIA_NIGHT,
+  // La Feria de la cosecha: el fogón de la olla del sancocho, prendido de noche.
+  ...COSECHA_NIGHT,
   // Las novenas: el árbol de Navidad y el arco de luces, prendidos de noche.
   ...NOVENAS_NIGHT,
 };

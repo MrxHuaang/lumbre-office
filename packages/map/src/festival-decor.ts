@@ -10,6 +10,7 @@ import { BRUJAS_DECOR } from "./world/festivales/brujas";
 import { CARNAVAL_DECOR } from "./world/festivales/carnaval";
 import { VELITAS_DECOR } from "./world/festivales/velitas";
 import { FERIA_DECOR } from "./world/festivales/feria-flores";
+import { COSECHA_DECOR } from "./world/festivales/cosecha";
 import { NOVENAS_DECOR } from "./world/festivales/novenas";
 import type { AreaDef, Placement, PointDef } from "./world/types";
 
@@ -36,6 +37,7 @@ export const FESTIVAL_DECOR: Partial<Record<FestivalId, FestivalDecorDef>> = {
   carnaval: CARNAVAL_DECOR,
   velitas: VELITAS_DECOR,
   "feria-flores": FERIA_DECOR,
+  cosecha: COSECHA_DECOR,
   novenas: NOVENAS_DECOR,
 };
 

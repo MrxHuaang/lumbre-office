@@ -239,7 +239,7 @@ import { GenteFiesta } from "./genteFiesta";
 import { gameMinutes, GENTE_MSG, type EntregarResult, type GenteHechos } from "@hyvento/shared";
 import { FeriaFlores } from "./feriaFlores";
 import { SilletaExhibitState } from "../state";
-import { FERIA, FERIA_CINE, FERIA_MSG, silletaName, type BuildResult, type ExhibitResult, type FeriaBuyResult, type FeriaMine, type VoteResult } from "@hyvento/shared";
+import { COSECHA, FERIA, FERIA_CINE, FERIA_MSG, silletaName, type BuildResult, type ExhibitResult, type FeriaBuyResult, type FeriaMine, type VoteResult } from "@hyvento/shared";
 import { Carnaval } from "./carnaval";
 import { DESFILE_TIMING, type DesfileTiming } from "@hyvento/map";
 import { CARNAVAL_MSG, type CarnavalBuyResult, type ConcursoResult, type JoinResult, type LanzarResult } from "@hyvento/shared";
@@ -250,6 +250,7 @@ import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
 import { nearQuestGiver } from "@hyvento/map";
 import { registerVelitas, type Velitas } from "./velitas";
+import { registerCosecha, type Cosecha, type CosechaTimings } from "./cosecha";
 import { Novenas } from "./novenas";
 import { Aguinaldos } from "./aguinaldos";
 import { WeatherCycle } from "./weather";
@@ -467,6 +468,10 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** La Feria de las flores: el reloj de la pausa y cuánto espera la premiación tras el cierre (los tests los fijan). */
   static feriaNow: () => number = () => Date.now();
   static feriaPremiacionMs: number = FERIA.premiacionDelayMs;
+  /** La Feria de la cosecha: el reloj de la pausa, el sorteo de la tómbola y las esperas (los tests los fijan). */
+  static cosechaNow: () => number = () => Date.now();
+  static cosechaRandom: (max: number) => number = (max) => randomInt(max);
+  static cosechaTimings: CosechaTimings = { hervirMs: COSECHA.hervirMs, premiacionDelayMs: COSECHA.premiacionDelayMs, tombolaDelayMs: COSECHA.tombolaDelayMs };
   /** El Carnaval: el reloj (pausas, el talco y el desfile) y el paso del desfile (los tests los acortan). */
   static carnavalNow: () => number = () => Date.now();
   static carnavalTiming: DesfileTiming = { ...DESFILE_TIMING };
@@ -1160,6 +1165,41 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     bindHistoria(this, { encargos: this.encargos, who: (id) => this.state.players.get(id), mapOf: (a) => this.mapOf(a), bump: (u, k) => this.achievements.bump(u, k) });
     this.mundo = registerMundo(this as unknown as MundoRoom);
     this.comunicacion = registerComunicacion(this, { phones: this.phones, bump: (u, k) => this.achievements.bump(u, k), markActive: (c) => this.markActive(c) });
+    this.cosecha = registerCosecha(
+      this,
+      {
+        state: () => this.state.cosecha,
+        festival: () => {
+          const t = this.gameTimeNow();
+          return { id: this.state.festival, fase: this.state.festivalFase, day: t.day, año: fechaDelJuego(t.day).año, minute: t.minuteOfDay };
+        },
+        player: (id) => this.state.players.get(id),
+        players: () => this.state.players.entries(),
+        mapOf: (a) => this.mapOf(a),
+        held: this.held,
+        stats: {
+          stat: (u, k) => this.achievements.stat(u, k),
+          max: (u, k, v) => this.achievements.max(u, k, v),
+          bump: (u, k, by) => this.achievements.bump(u, k, by),
+          isLoaded: (u) => this.achievements.isLoaded(u),
+        },
+        repo: () => this.repo,
+        nearVendor: (who, puesto) => this.gente.nearVendor(who, puesto),
+        online: (userId) => Boolean(this.clientOfUser(userId)),
+        send: (id, t, m) => this.clients.getById(id)?.send(t, m),
+        cine: (id, vars, sessions) => {
+          for (const c of this.clients) if (!sessions || sessions.includes(c.sessionId)) c.send(FESTIVAL_MSG.cine, { id, vars } satisfies FestivalCineEvent);
+        },
+        paid: (userId, awarded, balance, reason) => {
+          for (const p of this.state.players.values()) if (p.userId === userId) p.points = balance;
+          if (awarded > 0) this.clientOfUser(userId)?.send(MSG.pointsAwarded, { amount: awarded, reason, balance } satisfies PointsAwarded);
+        },
+        now: () => OfficeRoom.cosechaNow(),
+        random: (max) => OfficeRoom.cosechaRandom(max),
+        timings: () => OfficeRoom.cosechaTimings,
+      },
+      (c) => this.markActive(c as Client<UserData>),
+    );
     this.velitas = registerVelitas(this, { state: () => this.state.velitas, festival: () => ({ id: this.state.festival, fase: this.state.festivalFase }), player: (id) => this.state.players.get(id), players: () => this.state.players.entries(), mapOf: (a) => this.mapOf(a), held: this.held, send: (id, t, m) => this.clients.getById(id)?.send(t, m), broadcast: (t, m) => this.broadcast(t, m), now: () => Date.now() }, (c) => this.markActive(c as Client<UserData>));
     this.onMessage(COCINA_MSG.open, (client) => void this.withCook(client, (p, now) => ({ state: this.cocina.state(p.userId, now) })));
     this.onMessage(COCINA_MSG.store, (client) => void this.withCook(client, (p, now) => this.cocina.store(this.mapOf(p.area), p, now)));
@@ -1368,6 +1408,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.novenas.tick();
       this.syncFestival();
       this.feria.tick();
+      this.cosecha?.tick();
     }, 2_000);
     // El Carnaval: la hora del desfile y la comparsa que va por la calle (seguido, para que se mueva suave).
     this.clock.setInterval(() => this.carnaval.tick(), 100);
@@ -1561,6 +1602,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (OfficeRoom.brujasCanasta) await this.brujas.giveBasket(auth.sub).catch(() => false);
     // La Feria de las flores: si ganó estando afuera, su logro; y si ya votó.
     this.feria.joined(auth.sub);
+    // La Feria de la cosecha: si ganó estando afuera, su premio.
+    void this.cosecha?.joined(auth.sub);
     client.send(FERIA_MSG.mine, this.feria.mine(auth.sub) satisfies FeriaMine);
     const held = this.held.get(auth.sub);
     player.held = held?.item ?? "";
@@ -2397,6 +2440,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   private comunicacion?: Comunicacion;
   /** La Noche de velitas (ver velitas.ts). */
   private velitas?: Velitas;
+  /** La Feria de la cosecha (ver cosecha.ts). */
+  private cosecha?: Cosecha;
 
   /** Cómo se completa "te llama desde …" según dónde está el teléfono. */
   private phoneOrigin(callerId: string, zone: Zone | undefined, type: string): string {
@@ -4526,6 +4571,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.brujas.forget(player.userId);
     this.gente.forget(player.userId);
     this.feria.forget(player.userId);
+    this.cosecha?.forget(player.userId);
     this.granja.forget(player.userId);
     this.parrilla.forget(player.userId);
     this.focus.forget(player.userId);

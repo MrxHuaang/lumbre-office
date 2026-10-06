@@ -44,7 +44,7 @@ export const SEASON_GROWTH: Record<string, Record<Season, number>> = {
   pitahaya: { primavera: 1, verano: 1.3, otono: 1, invierno: 0.7 },
   cacao: { primavera: 1.1, verano: 1.2, otono: 1, invierno: 0.8 },
   cafe: { primavera: 1.2, verano: 1, otono: 1, invierno: 0.9 },
-  platano: { primavera: 1, verano: 1.3, otono: 1.1, invierno: 0.8 },
+  platano: { primavera: 1.1, verano: 1.3, otono: 1, invierno: 0.8 },
 };
 
 export interface SeasonGrowthOptions {

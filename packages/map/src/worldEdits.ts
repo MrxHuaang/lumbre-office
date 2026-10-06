@@ -111,6 +111,11 @@ export const LOCKED_TYPES: ReadonlySet<string> = new Set([
   "silleta-stand",
   "silletero-table",
   "flower-stall",
+  // Los de la Feria de la cosecha que se usan desde sus puntos (los pone el festival).
+  "olla-sancocho",
+  "bascula",
+  "tablero-cosecha",
+  "tombola",
 ]);
 
 /** ¿Es un mueble del plano que el editor no toca? (fijo del catálogo, funcional o banqueta del blackjack). */
