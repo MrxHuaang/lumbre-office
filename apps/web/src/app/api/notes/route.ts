@@ -6,7 +6,7 @@ import { NOTE_SELECT, NoteCreate, toNoteDTO } from "@/lib/notes";
 /** Todas las notas del usuario actual, incluidas las de la papelera. */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const notes = await prisma.note.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "asc" },
@@ -18,9 +18,9 @@ export async function GET() {
 /** Crear una nota, en la raíz o como subpágina de otra (propia y fuera de la papelera). */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const parsed = NoteCreate.safeParse((await req.json().catch(() => null)) ?? {});
-  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Algo no cuadra en lo que se mandó. Intenta de nuevo." }, { status: 400 });
 
   const { parentId, ...data } = parsed.data;
   if (parentId) {

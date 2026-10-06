@@ -148,7 +148,7 @@ export function TelescopePanel({ onClose }: { onClose: () => void }) {
               Ver los nombres
             </label>
             <span className="min-h-5 text-cozy-ink-soft" aria-live="polite">
-              {note?.text ?? (star ? "¡Algo cruza el cielo!" : "Paciencia: cada tanto pasa una estrella fugaz.")}
+              {note?.text ?? (star ? "¡Algo cruza el cielo!" : "Paciencia: de vez en cuando pasa una estrella fugaz.")}
             </span>
             <button type="button" onClick={spot} disabled={!star} className="cozy-btn cozy-btn-primary px-3 py-1.5">
               ¡La vi!

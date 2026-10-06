@@ -133,7 +133,7 @@ export function novenaAvisoText(a: NovenaAviso): string {
     case "yaPuesta":
       return `${a.por || "Alguien"} ya puso la figura de hoy. Mañana llega otra.`;
     case "rezo":
-      return "¡Empezó la novena en el recibidor! Vaya al pesebre a rezar y cantar.";
+      return "¡Empezó la novena en el recibidor! Ve al pesebre a rezar y cantar.";
   }
 }
 
@@ -149,13 +149,13 @@ const CORO = "Prende la vela, que llega el Niño;\ntrae la natilla con mucho car
 const NOCHES: readonly { aurora: string; estrofa: string }[] = [
   { aurora: "Con tablas viejas y paja nueva se arma el establo. Lo demás llega solito, noche a noche.", estrofa: "Tablita a tablita, clavo a clavito,\nya tiene techo el ranchito bendito." },
   { aurora: "Llega la Virgen con su manto azul. Despacito, que el camino es largo.", estrofa: "Por la vereda baja María,\ntrae en los ojos la luz del día." },
-  { aurora: "San José carga el farol y la paciencia. Busca posada y todo está lleno.", estrofa: "José camina con su farol,\ntoca la puerta y le abre el sol." },
+  { aurora: "San José carga el farol y la paciencia. Busca posada y en todas partes está lleno.", estrofa: "José camina con su farol,\ntoca la puerta y le abre el sol." },
   { aurora: "La mula llega rezongando, como todos los diciembres. Pero se queda.", estrofa: "La mulita dice que no está cansada,\npero se echa en la paja dorada." },
   { aurora: "El buey calienta el establo con su aliento. En el páramo eso vale oro.", estrofa: "Sopla el buey un vientico tibio,\npa' que el frío no le dé martirio." },
   { aurora: "Bajan los pastores del páramo, con ruana y quesito. Siempre traen algo.", estrofa: "Bajan pastores con su ruana,\ntraen quesito y una campana." },
   { aurora: "Se cuelga la estrella del techo. Si la ve titilar, pida algo bajito.", estrofa: "Una estrella se quedó quieta\nencima de la casita inquieta." },
-  { aurora: "Los Reyes vienen de muy lejos, por la loma. Ya casi llegan, mijo.", estrofa: "Tres reyes bajan por la loma,\nuno trae oro y otro trae aroma." },
-  { aurora: "Esta noche llega el Niño. Que la cabaña esté bonita, que la novena se acabó.", estrofa: "Duérmete, Niño, en tu cunita,\nque la cabaña quedó bonita." },
+  { aurora: "Los Reyes vienen de muy lejos, por la loma. Ya casi llegan.", estrofa: "Tres reyes bajan por la loma,\nuno trae oro y otro trae aroma." },
+  { aurora: "Esta noche llega el Niño Dios. Que la cabaña esté bonita, que hoy termina la novena.", estrofa: "Duérmete, Niño, en tu cunita,\nque la cabaña quedó bonita." },
 ];
 
 const say = (who: string, text: string, name?: string): CineStep => ({ op: "say", who, text, ...(name !== undefined ? { name } : {}) });

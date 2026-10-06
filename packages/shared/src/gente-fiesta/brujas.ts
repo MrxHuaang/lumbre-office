@@ -41,11 +41,11 @@ export function GENTE_BRUJAS(): FiestaNpc[] {
       pinta: { costume: "calabaza", costumeGear: true },
       farol: "farol-deseos",
       frases: {
-        hola: ["¡Dulce o truco! ¿Usted no tiene dulces? Entonces truco.", "Soy una calabaza. Canelo es un fantasma, pero no se deja poner la sábana.", "En la puerta del garaje me dieron una chupeta. ¡Vaya!"],
+        hola: ["¡Dulce o truco! ¿Usted no tiene dulces? Entonces truco.", "Soy una calabaza. Canelo es un fantasma, pero no se deja poner la sábana.", "En la puerta del garaje me dieron una colombina. ¡Qué chévere!"],
         tarde: ["Ya llevo siete dulces. Juanpis lleva cinco, pero se comió dos."],
         noche: ["De noche da más miedo tocar las puertas. Pero dan más dulces."],
       },
-      murmullos: ["¡Dulce o truco!", "¡Canelo, vuelva acá!", "Esa puerta da bombones"],
+      murmullos: ["¡Dulce o truco!", "¡Triqui triqui, Halloween!", "¡Canelo, vuelva acá!", "Esa puerta da bombones"],
     }),
     canelo(F, MARIANA, { x: 54, y: 40 }),
     suelto(F, "juanpis", "Juanpis", nino("#f1c27d", "#3a2418", { costume: "esqueleto", costumeGear: true }), {
@@ -118,7 +118,7 @@ export function GENTE_BRUJAS(): FiestaNpc[] {
       tile: { x: 57, y: 45 },
       comportamiento: { tipo: "baila", mira: "right" },
       pinta: { costume: "vampiro", costumeGear: true },
-      frases: { hola: ["Esta pieza es mía, Carmenza. Y la que sigue también.", "En mis tiempos la Noche de brujas se bailaba con capa.", "Vampiro, sí, pero bailador."] },
+      frases: { hola: ["Esta pieza es mía, Carmenza. Y la que sigue también.", "En mis tiempos, el 31 de octubre se bailaba con capa y sombrero.", "Vampiro, sí, pero bailador."] },
       murmullos: ["¡Eso, Carmenza!", "Un, dos, tres…", "¡Qué sabor!"],
     }),
     papel(F, "carmenza", {
@@ -137,10 +137,10 @@ export function GENTE_BRUJAS(): FiestaNpc[] {
       comportamiento: { tipo: "quieto", mira: "down" },
       pinta: { head: "witch-hat", accent: "#3a2a4a" },
       frases: {
-        hola: ["Ese cementerio es de cartón, mijo. Pero la leyenda es de verdad.", "La lápida dice «Q.E.P.D. el lunes». Una broma de Chepe, no le haga caso.", "Antes la noche de brujas no se celebraba aquí. Ahora hasta yo me pongo sombrero."],
-        noche: ["Dicen que a medianoche las calabazas se apagan solas. Yo nunca he visto la medianoche."],
+        hola: ["Ese cementerio es de cartón, pero la leyenda es de verdad.", "La lápida dice «Q.E.P.D. el lunes». Es una broma de Chepe, no le haga caso.", "Antes la Noche de brujas no se celebraba aquí. Ahora hasta yo me pongo sombrero."],
+        noche: ["Dicen que a medianoche las calabazas se apagan solas. Yo no sé: a esa hora ya estoy dormida."],
       },
-      murmullos: ["Eso no es así, mijo", "Cartón, pero respeto", "Qué juicio de lápidas"],
+      murmullos: ["Eso no es así, mijo", "Cartón, pero con respeto", "Qué lápidas tan bien hechas"],
     }),
     papel(F, "fredy", {
       rol: "Cuida el camino disfrazado de superhéroe",
@@ -158,7 +158,7 @@ export function GENTE_BRUJAS(): FiestaNpc[] {
       comportamiento: { tipo: "quieto", mira: "down" },
       pinta: { head: "witch-hat", accent: "#e0752a" },
       frases: {
-        hola: ["¡Empanadas de calabaza! Mentiras, son de papa. Pero con ají naranja.", "Las de esta noche salen con forma de murciélago. Más o menos."],
+        hola: ["¡Empanadas de ahuyama! Mentiras, son de papa. Pero con ají naranja.", "Las de esta noche salen con forma de murciélago. Bueno, más o menos."],
         tarde: ["Se me acabó el maíz para la masa. ¿Usted no tendrá unas mazorcas?"],
       },
       murmullos: ["¡Empanadas calienticas!", "Con ají de la casa", "¡Hay de murciélago!"],
@@ -184,8 +184,8 @@ export function GENTE_BRUJAS(): FiestaNpc[] {
         id: "fresas-ramiro",
         pide: [{ item: "fresa", n: 3 }],
         da: { item: "chupeta", n: 2 },
-        texto: "Mi nieta quiere fresas para el disfraz de fresa. ¿Me trae tres del huerto? Le doy unas chupetas.",
-        gracias: "Dios le pague. Tenga, que los dulces son pa' los que ayudan.",
+        texto: "Mi nieta está antojada de fresas y en la loma no hay. ¿Me trae tres del huerto? Le doy unas colombinas.",
+        gracias: "Dios le pague. Tenga sus colombinas, que los dulces son pa' los que ayudan.",
       },
     }),
     // Adentro: Luz Dary ronda el recibidor esperando oír el reloj dar trece.

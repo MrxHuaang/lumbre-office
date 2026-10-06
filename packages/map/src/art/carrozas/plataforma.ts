@@ -162,6 +162,32 @@ export function zigzag(colores: readonly Ramp[]) {
   };
 }
 
+/**
+ * Cortinas recogidas (como el faldón de las carrozas de Pasto): paños de colores que cuelgan en arco, con
+ * el pliegue en sombra, el ribete dorado y un ramillete de flores donde se juntan dos.
+ */
+export function cortinas(panos: readonly Ramp[], fondo: Ramp, flores: readonly Ramp[]) {
+  const cell = 14;
+  return (u: number, v: number, alto: number): RGBA => {
+    const k = Math.floor(u / cell);
+    const f = (u % cell) / cell;
+    const r = panos[((k % panos.length) + panos.length) % panos.length]!;
+    // La orilla de abajo del paño: un arco que cuelga en el medio.
+    const orilla = alto - 2 - (1 - (2 * f - 1) ** 2) * (alto - 4.5);
+    // El ramillete donde se juntan dos paños.
+    const dj = Math.hypot(Math.min(f, 1 - f) * cell, (alto - 2.5 - v) * 1.2);
+    if (dj < 2.4) return tono(flores[(k + (f > 0.5 ? 1 : 0)) % flores.length]!, dj < 1 ? 5 : 3);
+    if (Math.abs(v - orilla) < 0.7) return tono(ORO, 4);
+    if (v > orilla) {
+      // El paño: pliegues que bajan al centro.
+      const pl = Math.abs(Math.sin(f * Math.PI * 3));
+      return tono(r, pl > 0.8 ? 4 : pl < 0.25 ? 1.5 : 3);
+    }
+    // Debajo, el fondo con su cenefa.
+    return tono(fondo, (Math.floor(u / 2) + Math.floor(v / 2)) % 2 ? 2 : 3);
+  };
+}
+
 /** Flores pintadas al estilo del barniz de Pasto: fondo de un color y flores de pétalos redondos. */
 export function floresBarniz(fondo: Ramp, petalos: readonly Ramp[], centro: Ramp) {
   return (u: number, v: number, alto: number): RGBA => {

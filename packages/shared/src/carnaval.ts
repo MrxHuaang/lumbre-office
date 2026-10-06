@@ -12,6 +12,7 @@
 // es de día: el Desfile Magno sale a las 10:00 y el concurso se premia antes de que oscurezca.
 import { z } from "zod";
 import { CARNAVAL_LANZABLES, type Lanzable } from "./carnaval-objetos";
+import type { PiezaId } from "./carnaval-musica";
 import type { CineAction, CineDef } from "./cinematicas";
 import type { Look } from "./look";
 
@@ -132,13 +133,10 @@ export interface Comparsa {
   bailarines: readonly Look[];
   /** Lo que repite en cada parada (en bucle). */
   frase: readonly FrasePaso[];
-  /** La pieza que suena a su paso (ver `PIEZAS`). */
+  /** La pieza con que empieza a sonar a su paso (ver `PIEZAS` en carnaval-musica.ts; luego rota). */
   pieza: PiezaId;
 }
 
-/** Las piezas de la música andina (sintetizadas en el navegador; ninguna grabación). */
-export const PIEZAS = ["guanena", "sanjuanito", "pasacalle", "albazo"] as const;
-export type PiezaId = (typeof PIEZAS)[number];
 
 const BLANCO = "#f3f1ec";
 const NEGRO = "#24212e";
@@ -413,7 +411,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     grupo: "Comparsa de la cabaña",
     acento: "#a6d23a",
     largo: 9,
-    pieza: "pasacalle",
+    pieza: "son-vereda",
     // Dos de la murga van delante de la gente de la cabaña, marcando el paso.
     bailarines: CUADRILLA.slice(0, 8).map((i) => comparsero(i + 2, "#a6d23a", { head: "party-hat" })),
     frase: [todos("bailar"), todos("girar"), todos("saltar"), todos("celebrar")],
@@ -428,11 +426,10 @@ export const comparsaById = (id: string) => COMPARSAS.find((c) => c.id === id);
 export const INSTRUMENTOS = ["bombo", "trompeta", "acordeon", "redoblante", "tuba"] as const;
 export type Instrumento = (typeof INSTRUMENTOS)[number];
 
-/** Una murga: músicos caminando con bombo, bronces y acordeón (ficticia). */
-export interface Murga {
-  id: string;
-  nombre: string;
-  musicos: readonly { look: Look; instrumento: Instrumento }[];
+/** Los músicos de una murga, que caminan con sus instrumentos (la música y el nombre, en `MURGAS` de carnaval-musica.ts). */
+export interface MusicoMurga {
+  look: Look;
+  instrumento: Instrumento;
 }
 
 /** Un grupo de disfraces individuales: personajes sueltos con trajes enormes (se dibujan más grandes). */
@@ -453,23 +450,15 @@ const murguista = (i: number, colores: readonly [string, string, string], o: Par
   ...o,
 });
 
-export const MURGAS: readonly Murga[] = [
-  {
-    id: "tamborileros",
-    nombre: "Murga Los Tamborileros del Galeras",
-    musicos: (["bombo", "trompeta", "redoblante", "acordeon", "trompeta", "bombo"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#e0283c", "#f2c21c", "#2f6fd6"]) })),
-  },
-  {
-    id: "banda-del-lago",
-    nombre: "Banda del Lago",
-    musicos: (["tuba", "trompeta", "acordeon", "bombo", "redoblante", "trompeta"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#1fb8c8", "#c8287a", "#f2711c"], { head: "sailor-hat" }) })),
-  },
-  {
-    id: "murga-vereda",
-    nombre: "Murga de la Vereda",
-    musicos: (["acordeon", "bombo", "trompeta", "tuba", "redoblante", "bombo"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#3db842", "#8a3cc8", "#f7c518"], { head: "vueltiao" }) })),
-  },
-];
+/**
+ * Los músicos de cada murga (por el id de `MURGAS` en carnaval-musica.ts), en uniforme azul y morado con
+ * ribetes dorados, como las murgas de Pasto.
+ */
+export const MUSICOS_MURGA: Record<string, readonly MusicoMurga[]> = {
+  "murga-ruana": (["bombo", "trompeta", "redoblante", "acordeon", "trompeta", "bombo"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#2a4ad0", "#7a2ac8", "#e6aa2a"]) })),
+  "murga-cuyes": (["tuba", "trompeta", "acordeon", "bombo", "redoblante", "trompeta"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#7a2ac8", "#2a4ad0", "#e6aa2a"], { head: "sailor-hat" }) })),
+  "murga-tambores": (["acordeon", "bombo", "trompeta", "tuba", "redoblante", "bombo"] as const).map((instrumento, i) => ({ instrumento, look: murguista(i, ["#2a4ad0", "#e6aa2a", "#7a2ac8"], { head: "vueltiao" }) })),
+};
 
 const disfraz = (i: number, o: Partial<Look>): Look => ({ ...comparsero(i, "#c8287a"), face: "none", ...o });
 
@@ -512,24 +501,25 @@ export type DesfileItem = { tipo: "carroza"; id: CarrozaId } | { tipo: "murga"; 
  */
 export const DESFILE_ORDEN: readonly DesfileItem[] = [
   { tipo: "carroza", id: "castaneda" },
-  { tipo: "murga", id: "tamborileros" },
   { tipo: "carroza", id: "condor" },
+  { tipo: "murga", id: "murga-ruana" },
   { tipo: "carroza", id: "galeras" },
   { tipo: "disfraces", id: "reyes-del-sol" },
   { tipo: "carroza", id: "tablero" },
   { tipo: "carroza", id: "reloj" },
-  { tipo: "murga", id: "banda-del-lago" },
+  { tipo: "murga", id: "murga-cuyes" },
   { tipo: "carroza", id: "luna" },
   { tipo: "carroza", id: "paramo" },
   { tipo: "disfraces", id: "mascaras" },
   { tipo: "carroza", id: "minga" },
+  { tipo: "murga", id: "murga-tambores" },
   { tipo: "carroza", id: "tinto" },
-  { tipo: "murga", id: "murga-vereda" },
   { tipo: "disfraces", id: "tradicion" },
   { tipo: "carroza", id: "megabus" },
 ];
 
-export const murgaById = (id: string) => MURGAS.find((m) => m.id === id);
+/** Los músicos de una murga del desfile (o ninguno). */
+export const musicosDe = (id: string): readonly MusicoMurga[] => MUSICOS_MURGA[id] ?? [];
 export const disfracesById = (id: string) => DISFRACES.find((d) => d.id === id);
 
 /** Lo que la gente de la cabaña repite en las paradas (los emotes que la sala manda, en bucle). */
@@ -547,8 +537,8 @@ export const EVELIO_CARROZAS: Record<CarrozaId, string> = {
   condor: "¡Miren ese cóndor! Con las alas de todos los colores, como el de Pasto.",
   galeras: "¡El Galeras fumando! Tranquilos, que es humo de algodón.",
   tablero: "¡El Tablero vivo! La Cuadrilla del piso 3 se toma muy en serio lo de ser peones.",
-  reloj: "El reloj de E. … trece campanadas, ¿sí las oyen?",
-  luna: "La Luna en el lago... ¿vieron la llavecita que le cuelga? Dicen que es de la casa.",
+  reloj: "¡El reloj de E.! Trece campanadas… ¿sí las oyen?",
+  luna: "La Luna en el lago… ¿vieron la llavecita que le cuelga? Dicen que es de la casa.",
   paramo: "El Páramo, de donde nace el agua. ¡Cuidadito con pisar los frailejones!",
   minga: "¡La Minga! Papa, maíz, quinua y guaguas de pan: lo que da la tierra se comparte.",
   tinto: "Un tinto de Doña Aurora pa'l frío. ¡Achichay!",
@@ -658,7 +648,7 @@ export const JOIN_ERROR_TEXT: Record<JoinError, string> = {
   noDesfile: "Ahora no pasa el desfile. El Desfile Magno sale una vez por Carnaval, a las 10:00 del reloj de la cabaña.",
   far: "Arrímate a la vereda, donde va pasando el desfile, para sumarte.",
   already: "Ya vas en la comparsa.",
-  busy: "Ahora no puedes sumarte (suéltate de lo que estás haciendo).",
+  busy: "Ahora no puedes sumarte: termina primero lo que estás haciendo.",
 };
 
 // ---------- Maicena y serpentinas ----------
@@ -820,7 +810,7 @@ export const CARNAVAL_CINEMATICAS: readonly CineDef[] = [
         ],
       },
       { op: "together", steps: [{ op: "act", who: "gloria", action: "girar" }, { op: "act", who: "yo", action: "girar" }] },
-      { op: "bubble", who: "gloria", text: "¡Eso, mijo! Quien lo vive es quien lo goza." },
+      { op: "bubble", who: "gloria", text: "¡Eso es! Así se goza el carnaval." },
       { op: "walk", who: "gloria", to: { near: "yo", dx: -5, dy: -3 } },
       { op: "despawn", id: "gloria" },
     ],
@@ -859,7 +849,7 @@ export const CARNAVAL_CINEMATICAS: readonly CineDef[] = [
       { op: "spawn", id: "gloria", like: "gloria", at: { dx: -2, dy: -2 }, facing: "down" },
       { op: "spawn", id: "aurora", like: "aurora", at: { dx: 2, dy: -2 }, facing: "down" },
       { op: "spawn", id: "evelio", like: "evelio", at: { dx: 0, dy: -3 }, facing: "down" },
-      { op: "sound", sound: "albazo" },
+      { op: "sound", sound: "murga" },
       { op: "together", steps: [{ op: "act", who: "gloria", action: "saludar" }, { op: "act", who: "aurora", action: "saludar" }, { op: "act", who: "evelio", action: "asentir" }] },
       { op: "flash", color: "oro", ms: 400 },
       {

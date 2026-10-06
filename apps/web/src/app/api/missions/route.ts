@@ -8,7 +8,7 @@ import { MISSION_INCLUDE, toMissionDTO } from "@/lib/points";
 /** El tablón: misiones abiertas, tomadas y por revisar, más las últimas terminadas. */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const [active, done] = await Promise.all([
     prisma.mission.findMany({
       where: { status: { in: ["OPEN", "TAKEN", "REVIEW"] } },
@@ -29,7 +29,7 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const parsed = MissionCreate.safeParse((await req.json().catch(() => null)) ?? {});
   if (!parsed.success) return NextResponse.json({ error: "Revisa el título (3 a 80 letras) y la recompensa" }, { status: 400 });
   const max = POINTS.missionMaxReward[user.role];

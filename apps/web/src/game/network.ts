@@ -125,6 +125,7 @@ import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
 import { bindPermisos } from "./permisos";
 import { bindComunicacion, resetComunicacion } from "./comunicacion";
+import { bindDirector, resetDirector } from "./director";
 import { useSombreroStore } from "./npcs/store";
 import { RESTART_MSG } from "@hyvento/shared";
 import { isDeadReconnection, isServerUnavailable, leaveAction, RECONNECT_BUDGET_MS, reconnectDelays, RESTART_BUDGET_MS, unreachableText, withJitter } from "@/lib/reconnect";
@@ -659,6 +660,7 @@ export async function disconnect() {
   useOfficeStore.getState().reset();
   resetPhone();
   resetComunicacion();
+  resetDirector();
   await current?.leave(true).catch(() => undefined);
 }
 
@@ -1166,6 +1168,7 @@ function attach(r: OfficeRoom) {
   bindArcade(r);
   bindPhone(r);
   bindComunicacion(r);
+  bindDirector(r);
   // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).
   bindNotify(r);
   bindHockey(r);
