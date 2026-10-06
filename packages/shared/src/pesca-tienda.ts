@@ -235,6 +235,7 @@ export const PESCA_NPC: CasinoNpc = {
   id: "evelio",
   role: "pescador",
   name: "Don Evelio",
+  voz: 0.22,
   area: "jardin",
   tile: EVELIO_TILE,
   // Mira al lago (y a quien se arrima al mostrador).

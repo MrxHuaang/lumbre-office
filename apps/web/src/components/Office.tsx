@@ -72,7 +72,6 @@ import { FeriaPanel } from "./FeriaPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { TiraDialogo } from "./dialogo/TiraDialogo";
-import { PrologueCard } from "./historia/HistoriaCard";
 import { QuestTracker } from "./encargos/QuestTracker";
 import { FishAlbum } from "./fishing/FishAlbum";
 import { CatchCard, FishingHint } from "./fishing/FishingHud";
@@ -341,7 +340,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
             </div>
           </div>
           <SideDock />
-          {/* La tira de conversación (una sola en pantalla): la gente de la fiesta habla aquí. */}
+          {/* La tira de conversación (una sola en pantalla): aquí hablan todos los NPC, las cinemáticas y quien da encargos. */}
           <TiraDialogo />
           {/* Abajo al centro, sobre la barra: los avisos del momento apilados (nunca uno encima de otro). */}
           <div className="pointer-events-none absolute bottom-[var(--cozy-bar-top,7rem)] left-1/2 z-10 flex w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-col-reverse items-center gap-2">
@@ -369,12 +368,9 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
               <CatchCard />
             </GameOnly>
           </div>
-          {/* Arriba a la izquierda y sobre los paneles (el tablón, el mostrador): lo que te pidió quien te habla. */}
+          {/* Arriba a la izquierda y sobre los paneles (el tablón, el mostrador): la libreta de quien te habla ("Ver encargos" en su tira). */}
           <div className="pointer-events-none absolute top-[calc(var(--cozy-hud-bottom,3.5rem)_+_0.5rem)] left-3 z-[45]">
-            <div className="flex flex-col gap-2">
-              <PrologueCard />
-              <QuestCard />
-            </div>
+            <QuestCard />
           </div>
           </ErrorBoundary>
           <ErrorBoundary name="avisos">
