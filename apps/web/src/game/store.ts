@@ -130,6 +130,12 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   // El Carnaval: el puesto de máscaras, maicena y serpentinas, y el palco del concurso de disfraces.
   | "carnavalShop"
   | "carnavalConcurso"
+  // El Año viejo: el puesto de uvas y maletas, el muñeco (darle prendas y relleno), el cartel de los
+  // testamentos y el relleno (la paja del gallinero y el aserrín del taller: sin panel).
+  | "anoViejoShop"
+  | "anoViejoMuneco"
+  | "anoViejoCartel"
+  | "anoViejoRelleno"
   // La gente de la fiesta (genteFiesta.ts): E habla con quien está al lado en la tira de conversación.
   | "fiestaNpc";
 
@@ -167,7 +173,9 @@ export type PanelKind =
   | "prizes"
   | "fortune"
   // La Noche de velitas: escribir el deseo del farol (en el muelle).
-  | "deseo";
+  | "deseo"
+  // El Año viejo: el resumen del año que sale después de la cuenta regresiva.
+  | "anoViejoResumen";
 
 export interface OfficeView {
   zoneId: string;

@@ -271,9 +271,14 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   // El Carnaval: el puesto (el mismo punto de festival que el del caldero) y el palco del concurso.
   { kind: "carnavalShop", point: "festival_shop", furniture: ["puesto-carnaval"] },
   { kind: "carnavalConcurso", point: "carnaval_contest", furniture: ["tarima-comparsa"] },
+  // El Año viejo: el puesto de uvas y maletas, el muñeco en su silla, el cartel de los testamentos y el relleno.
+  { kind: "anoViejoShop", point: "festival_shop", furniture: ["puesto-uvas"] },
+  { kind: "anoViejoMuneco", point: "ano_viejo_muneco", furniture: ["silla-muneco", "brasero-piedra"] },
+  { kind: "anoViejoCartel", point: "ano_viejo_cartel", furniture: ["cartel-testamentos"] },
+  { kind: "anoViejoRelleno", point: "ano_viejo_relleno", furniture: ["costal-aserrin"] },
 ];
 /** El puesto de cada festival (todos usan el punto `festival_shop`): qué panel abre según el que corre. */
-const FESTIVAL_SHOP: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop" };
+const FESTIVAL_SHOP: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "ano-viejo": "anoViejoShop" };
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
 const ARRIVAL_CLEAR_TILES = 1.5;
