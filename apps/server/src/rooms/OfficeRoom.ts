@@ -170,6 +170,8 @@ import {
   pauseClock,
   resumeClock,
   setGameTime,
+  DORMIR,
+  DORMIR_MSG,
   estacionDelDia,
   NOVENA,
   NOVENA_MSG,
@@ -219,6 +221,7 @@ import {
   type SombreroBuyResult,
 } from "@hyvento/shared";
 import { Room, ServerError, type Client, type Deferred } from "colyseus";
+import { Dormir } from "./dormir";
 import { randomInt, randomUUID } from "node:crypto";
 import type { GameRepository, OfficeItemsResult, OfficeRecord } from "../repo/types";
 import { FarmAnimal, GardenPlotState, GrillJob, MesaState, OfficeInfo, OfficeItem, OfficeState, Pet, Player } from "../state";
@@ -815,6 +818,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     premiacionDelayMs: () => OfficeRoom.feriaPremiacionMs,
   });
   /** El Carnaval: el desfile por la calle del Megabús, la comparsa, el talco, el concurso y el puesto (ver carnaval.ts). */
+  /** Dormir en una cama hace amanecer (VIR-144, dormir.ts). */
+  private dormir = new Dormir({
+    players: () => this.state.players,
+    minuto: () => this.gameTimeNow().minuteOfDay,
+    amanecer: () => this.directorSetClock(setGameTime(this.gameClock(), OfficeRoom.gameClockNow(), DORMIR.amanecer), ""),
+    broadcast: (type, msg) => this.broadcast(type, msg),
+    aviso: (sessionId, code) => this.clients.find((c) => c.sessionId === sessionId)?.send(DORMIR_MSG.aviso, { code }),
+  });
   private carnaval = new Carnaval({
     festival: () => {
       const t = this.gameTimeNow();
@@ -1471,6 +1482,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     }, 2_000);
     // El Carnaval: la hora del desfile y la comparsa que va por la calle (seguido, para que se mueva suave).
     this.clock.setInterval(() => this.carnaval.tick(), 100);
+    this.clock.setInterval(() => this.dormir.tick(), 2_000);
     this.weather.start();
     // Mientras llueve, lo que se va secando se vuelve a regar solo.
     this.clock.setInterval(() => isWet(this.weather.weather) && this.rainOnGarden(), 60_000);
@@ -1756,6 +1768,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       }
     }
     this.removePlayer(client.sessionId);
+    this.dormir.revisar();
   }
 
   // ---------- Oficinas ----------
@@ -2598,6 +2611,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       client.userData.lastActiveAt = now;
       // Casa viva: moverse te saca del cubículo del baño.
       this.casa.leaveStall(player.userId);
+      // Moverse despierta a quien dormía.
+      this.dormir.despertar(player);
     }
     player.x = x;
     player.y = y;
@@ -3909,6 +3924,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (result.kind === "event" && isHuertoAction(result.event.action)) return void this.handleHuerto(client, player, result.event);
     // La granja: el comedero, el nido y el molino (granja.ts).
     if (result.kind === "event" && isGranjaAction(result.event.action)) return void this.handleGranja(client, player, result.event);
+    // La cama: de noche, a dormir (dormir.ts).
+    if (result.kind === "event" && result.event.action === "sleep") return void this.dormir.acostarse(client.sessionId, player, result.event);
     // El reloj de pie: la historia (capítulo 2) decide qué pasa.
     if (result.kind === "event" && result.event.action === "clock") return void this.capitulo2.clock(client.sessionId, player.userId, player.area);
     // Mundo lleno: la impresora, la ducha, la casita del perro, el reloj de sol, las barandas y los paneles (mundo.ts).

@@ -25,6 +25,7 @@ import { usePrefsStore } from "@/lib/prefs";
 import { ComunicacionChips } from "./comunicacion/ComunicacionChips";
 import { openAnnounce } from "@/game/comunicacion";
 import { openDirector } from "@/game/director";
+import { DormirChip } from "./DormirHud";
 
 const STATUS_LABEL: Record<PresenceStatus, string> = {
   available: "Disponible",
@@ -78,6 +79,7 @@ export function Hud(props: HudProps) {
       <GiftChip />
       <BirthdayChip />
       <CallChip />
+      <DormirChip />
       <ComunicacionChips />
       <QuickTools />
       <PaletteButton />

@@ -193,6 +193,9 @@ export interface RemotePose {
   seat: Seat | null;
 }
 
+/** Acostado en la cama: el cuerpo va a la altura del colchón (px). */
+const SLEEP_LIFT = 7;
+
 export class Avatar {
   readonly sprite: Phaser.GameObjects.Sprite;
   /** La cabeza, copiada del cuerpo, encima del respaldo cuando está sentado de espaldas (ver syncSeatHead). */
@@ -240,6 +243,8 @@ export class Avatar {
   private nextHicAt = 0;
   /** Cuándo empezó el desmayo (0 = no lo vimos empezar: aparece ya tendido). */
   private faintAt = 0;
+  /** Dormido en una cama (VIR-144): dónde va el cuerpo acostado (px de mundo) y hacia qué lado cae. */
+  private sleep: { x: number; y: number; side: 1 | -1; zAt: number } | null = null;
   /** Al aparecer (conectarse, cambiar de nivel) se aplica el estado sin sonidos. */
   private readonly bornAt = performance.now();
   /** Tipo del asiento en el que está (para saber si el respaldo lo tapa mientras gira). */
@@ -336,7 +341,7 @@ export class Avatar {
     if (hidden === this.hidden) return;
     this.hidden = hidden;
     for (const o of [this.sprite, this.shadow, this.label, this.statusDot]) o.setVisible(!hidden);
-    if (this.swimming) this.shadow.setVisible(false);
+    if (this.swimming || this.sleep) this.shadow.setVisible(false);
     this.badge?.img.setVisible(!hidden);
     this.plate?.img.setVisible(!hidden);
     this.ride?.img.setVisible(!hidden);
@@ -1201,9 +1206,27 @@ export class Avatar {
     }
   }
 
+  /**
+   * Dormido en una cama (VIR-144): el cuerpo se acuesta sobre ella (la pose del desmayo, sin la caída) y
+   * le salen "z". `null` lo despierta.
+   */
+  setSleeping(spot: { x: number; y: number; side: 1 | -1 } | null) {
+    if (this.destroyed) return;
+    if (!spot && !this.sleep) return;
+    this.sleep = spot ? { ...spot, zAt: this.sleep?.zAt ?? 0 } : null;
+    if (!spot) this.sprite.setAngle(0);
+    this.shadow.setVisible(!spot && !this.hidden && !this.swimming);
+    this.layout();
+  }
+
+  get sleeping() {
+    return this.sleep !== null;
+  }
+
   /** Cada frame: el tambaleo (desde los pies) y, mareado o más, algún "¡hic!". */
   sway(time: number) {
     if (this.destroyed) return;
+    if (this.sleep) return this.sleepPose(time);
     this.syncSeatHead();
     this.waterFx(time);
     this.talcoFx(time);
@@ -1238,6 +1261,15 @@ export class Avatar {
     if (time < this.nextHicAt) return;
     this.nextHicAt = time + 1400;
     this.floatText("z", side * 10, 6);
+  }
+
+  /** Acostado en la cama: tendido de lado y una "z" cada tanto (quieta con "menos movimiento"). */
+  private sleepPose(time: number) {
+    const sl = this.sleep!;
+    this.sprite.setAngle(sl.side * 80);
+    if (this.hidden || time - sl.zAt < 1500) return;
+    sl.zAt = time;
+    this.floatText("z", sl.side * 10, 6);
   }
 
   private hic() {
@@ -2012,7 +2044,8 @@ export class Avatar {
   private layout() {
     // En pleno chapuzón del trampolín el cuerpo va por el aire, del tablón al agua.
     const arc = this.diveArc();
-    const s = arc ?? worldToScreen(this.wx, this.wy);
+    // Dormido, el cuerpo va sobre la cama (su posición de verdad sigue al pie).
+    const s = arc ?? (this.sleep ? worldToScreen(this.sleep.x, this.sleep.y) : worldToScreen(this.wx, this.wy));
     const pose = this.seated ? this.seatPose : null;
     // Sentado, el cuerpo se corre hacia el cojín del asiento (seatShift) y sube o baja a su altura.
     // Nadando, la línea del agua queda un poco más abajo que el deck (la pileta está hundida).
@@ -2020,7 +2053,7 @@ export class Avatar {
     // En la calle del Megabús (bailando en la comparsa del Carnaval) se va a la altura de la calzada, que va
     // un escalón más abajo que la vereda.
     const road = this.wy >= ROAD.y0 * ROAD_TILE ? CURB_DROP : 0;
-    const y = Math.round(s.y) + road + (pose?.dy ?? 0) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0) + (this.swimming && !arc ? 2 : 0);
+    const y = Math.round(s.y) + road + (pose?.dy ?? 0) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0) + (this.swimming && !arc ? 2 : 0) - (this.sleep ? SLEEP_LIFT : 0);
     if (this.ride) {
       // La silla va debajo (o delante, de espaldas: el respaldo tapa) y rueda con el personaje.
       const a = worldToScreen(this.wx - 16, this.wy - 16);
@@ -2031,7 +2064,7 @@ export class Avatar {
     // tras un respaldo, el cuerpo va debajo del mueble y la cabeza encima (syncSeatHead). Saltando del
     // trampolín, por encima del agua y del tablón.
     const behind = this.behindBack();
-    const base = pose ? pose.depth : arc ? depthOf(this.wx, this.wy) + 64 : depthOf(this.wx, this.wy);
+    const base = pose ? pose.depth : arc ? depthOf(this.wx, this.wy) + 64 : this.sleep ? depthOf(this.sleep.x, this.sleep.y) + 1 : depthOf(this.wx, this.wy);
     const depth = pose && behind ? base - 1 : base;
     // Bailando da saltitos de 2 px; tocando un instrumento, de 1 px.
     // Un gesto de emote corre al personaje unos píxeles (lo de las manos lo sigue).

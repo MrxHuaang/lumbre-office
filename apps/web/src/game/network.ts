@@ -129,6 +129,7 @@ import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
 import { bindPermisos } from "./permisos";
 import { bindComunicacion, resetComunicacion } from "./comunicacion";
+import { bindDormir } from "./dormir";
 import { bindDirector, resetDirector } from "./director";
 import { useSombreroStore } from "./npcs/store";
 import { RESTART_MSG } from "@hyvento/shared";
@@ -151,6 +152,8 @@ export interface RemotePlayer {
   dir: MoveMessage["dir"];
   moving: boolean;
   seated: boolean;
+  /** Dormido en una cama (VIR-144): "nivel|tipo@x,y"; "" o sin campo = despierto. */
+  sleeping?: string;
   status: PresenceStatus;
   zoneId: string;
   place: string;
@@ -1177,6 +1180,7 @@ function attach(r: OfficeRoom) {
   bindPhone(r);
   bindComunicacion(r);
   bindDirector(r);
+  bindDormir(r);
   // Avisos del navegador con Lumbre en segundo plano (teléfono, puerta, menciones, invitaciones…).
   bindNotify(r);
   bindHockey(r);
