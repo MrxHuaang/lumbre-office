@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BAG_OBJECTS } from "./bolsa";
-import { festivalById, type FestivalId } from "./festivales";
+import { festivalById, FESTIVAL_HORAS, type FestivalId } from "./festivales";
 import {
   charlaDe,
   conClima,
@@ -12,6 +12,7 @@ import {
   genteDelFestival,
   GENTE_FIESTA,
   GENTE_REGLAS,
+  horarioDe,
   murmulloDe,
   pedidosDe,
   pedidoStatKey,
@@ -101,5 +102,25 @@ describe("la gente de la fiesta: los datos", () => {
     expect(EntregarMessage.safeParse({ npc: "" }).success).toBe(false);
     expect(pedidoStatKey("brujas", 2, "x")).toBe("festival:brujas:2:pedido:x");
     expect(Object.keys(ENTREGAR_ERROR_TEXT).length).toBeGreaterThan(5);
+  });
+
+  it.each(FESTIVALES)("%s: nadie se queda después del cierre del festival", (id) => {
+    const cierre = (festivalById(id)!.cierre ?? FESTIVAL_HORAS.cierre) * 60;
+    for (const clima of ["despejado", "lluvia"] as const)
+      for (const n of genteDelFestival(id, 1, clima)) {
+        expect(n.horario, n.id).toBeDefined();
+        expect(n.horario!.hasta, n.id).toBeLessThanOrEqual(cierre);
+        expect(n.horario!.desde, n.id).toBeLessThanOrEqual(n.horario!.hasta);
+      }
+  });
+
+  it("el Carnaval cierra a las 18:30 y su gente se va con él; sin horario, va de la apertura al cierre", () => {
+    const carnaval = festivalById("carnaval")!;
+    expect(carnaval.cierre).toBe(18.5);
+    const sinHorario = { ...todos("carnaval")[0]!, horario: undefined };
+    expect(horarioDe(sinHorario, carnaval)).toEqual({ desde: 9 * 60, hasta: 18 * 60 + 30 });
+    expect(horarioDe(sinHorario)).toEqual({ desde: 9 * 60, hasta: 22 * 60 });
+    expect(horarioDe({ ...sinHorario, horario: { desde: 600, hasta: 1300 } }, carnaval)).toEqual({ desde: 600, hasta: 18 * 60 + 30 });
+    expect(Math.max(...genteDelFestival("carnaval", 1, "despejado").map((n) => n.horario!.hasta))).toBe(18 * 60 + 30);
   });
 });
