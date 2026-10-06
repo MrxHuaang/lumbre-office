@@ -158,7 +158,7 @@ export function HockeyStrip() {
       <span>
         A la máquina: si le ganas, te devuelve la moneda y +{ARCADE_PRICE.hockeyBotBonus}
       </span>
-      {side !== null && table.phase !== "over" && <span>Salir en pleno partido es abandono</span>}
+      {side !== null && table.phase !== "over" && <span>Si te vas en pleno partido, lo pierdes</span>}
     </>
   );
   return (

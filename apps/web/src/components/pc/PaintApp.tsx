@@ -259,7 +259,7 @@ export function PaintApp() {
         {!gallery ? (
           <p className="text-[12px] text-cozy-ink-soft">Cargando…</p>
         ) : gallery.length === 0 ? (
-          <p className="text-[12px] leading-snug text-cozy-ink-soft">Todavía no guardas ninguno. Pinta algo y guárdalo para colgarlo en tu oficina.</p>
+          <p className="text-[12px] leading-snug text-cozy-ink-soft">Todavía no has guardado ninguno. Pinta algo y guárdalo para colgarlo en tu oficina.</p>
         ) : (
           <ul className="cozy-scroll flex min-h-0 flex-col gap-2 overflow-y-auto pr-1">
             {gallery.map((p) => (

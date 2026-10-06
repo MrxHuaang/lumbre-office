@@ -24,8 +24,8 @@ const PLAYING_TEXT: Record<MesaId, string> = {
 
 const RULES: Record<MesaId, string> = {
   baccarat: "Gana la mano más cerca de 9 · la banca que gana con 6 paga la mitad · PJ y PB: pareja en las dos primeras cartas",
-  dados: "Chico, grande, par e impar pierden con trío · un número paga por cada dado que lo muestre · sumas de 6 a 60 a 1",
-  caballos: "Apuesta en la botonera al caballito que crees que llega primero: cuanto más difícil, más paga",
+  dados: "Chico, grande, par e impar pierden si salen tres iguales · un número paga por cada dado que lo muestre · las sumas pagan de 6 a 60 por 1",
+  caballos: "Apuesta en la botonera al caballito que crees que llega primero: entre más difícil, más paga",
 };
 
 function Tile({ text, bg, big = false, latest = false, title }: { text: string; bg: string; big?: boolean; latest?: boolean; title?: string }) {
