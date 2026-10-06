@@ -10,6 +10,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { drawCharacter, FEET_Y, FRAME, HUMANS } from "../src/art/chibi";
+import { COMETA_FRAMES, cometaCielo, mangaViento } from "../src/art/cometas";
 import { drawFurniture } from "../src/art/furniture";
 import { CAFE_ITEM_ART, drawHeldItem } from "../src/art/items";
 import { alpha, floorDiamond, hex, L, PixelCanvas, toScreen, type RGBA, type Sprite } from "../src/art/pixel";
@@ -23,6 +24,7 @@ import { CARNAVAL_CATALOG } from "../src/world/catalog-carnaval";
 import { CASA_ARBOL_CATALOG } from "../src/world/catalog-casa-arbol";
 import { CASA_PROPIA_CATALOG } from "../src/world/catalog-casa-propia";
 import { CASA_CATALOG } from "../src/world/catalog-casa";
+import { COMETAS_CATALOG } from "../src/world/catalog-cometas";
 import { ESCENARIO_CATALOG } from "../src/world/catalog-escenario";
 import { EXTERIOR_CATALOG } from "../src/world/catalog-exterior";
 import { FERIA_CATALOG } from "../src/world/catalog-feria-flores";
@@ -69,6 +71,7 @@ const SUBCATALOGS: Record<string, object> = {
   brujas: BRUJAS_CATALOG,
   carnaval: CARNAVAL_CATALOG,
   velitas: VELITAS_CATALOG,
+  cometas: COMETAS_CATALOG,
   feria: FERIA_CATALOG,
   novenas: NOVENAS_CATALOG,
 };
@@ -329,6 +332,28 @@ if (!filtros.length || filtros.includes("objetos")) {
   // Un chibi al principio de cada hoja para la escala.
   const withChibi = [chibi, ...cells];
   written.push(...pages("objetos", withChibi, 1440 / ESCALA, 1000 / ESCALA, ESCALA, 3));
+}
+
+// ---------- Las cometas en el cielo (Festival de cometas) ----------
+
+if (filtros.includes("cometas")) {
+  // Cada forma con varios colores y los tres largos de cola, y los cuadros de la cola que se mece; al final
+  // las variantes de la manga de viento. Con un chibi al principio para la escala.
+  const cells: PixelCanvas[] = [chibi];
+  const pinta = (c: PixelCanvas, label: string) => {
+    const out = new PixelCanvas(Math.max(c.width, textW(label)) + 2, c.height + 8);
+    blit(out, c, 1, 0);
+    text(out, 1, c.height + 2, label, hex("#f7ebc8"));
+    return out;
+  };
+  for (const forma of ["r", "h", "p", "z"])
+    for (const [c1, c2, cola] of [["r", "a", 1], ["z", "b", 2], ["v", "n", 3], ["m", "s", 2]] as const) {
+      const code = `${forma}${c1}${c2}${cola}`;
+      cells.push(pinta(cometaCielo(code, 0).canvas, code));
+    }
+  for (let f = 0; f < COMETA_FRAMES; f++) cells.push(pinta(cometaCielo("pzn3", f).canvas, `pzn3 ${f}`));
+  for (const dir of [0, 1]) for (const nivel of [0, 1, 2]) for (const f of [0, 1]) cells.push(pinta(mangaViento(dir, nivel, f).canvas, `manga ${dir}${nivel}${f}`));
+  written.push(...pages("cometas-cielo", cells, 1440 / ESCALA, 1000 / ESCALA, ESCALA, 4));
 }
 
 writeFileSync(join(OUT, "metricas.json"), JSON.stringify(all, null, 1));

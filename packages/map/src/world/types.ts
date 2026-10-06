@@ -274,6 +274,10 @@ export interface PointDef {
     | "silleta_stand"
     // El Carnaval: el palco de la tarima (el concurso de disfraces).
     | "carnaval_contest"
+    // El Festival de cometas: la mesa del taller, el tablero del concurso y la escalera del garaje.
+    | "cometas_taller"
+    | "cometas_concurso"
+    | "cometas_techo"
     // Amor y amistad: delante del cofre del amigo secreto y delante del trío de la serenata.
     | "amigo_secreto"
     | "amor_serenata";

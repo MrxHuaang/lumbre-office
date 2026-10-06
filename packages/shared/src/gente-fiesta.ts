@@ -9,6 +9,8 @@ import { NIGHT_FROM } from "./clock";
 import { festivalById, FESTIVAL_HORAS, type FestivalDef, type FestivalId } from "./festivales";
 import { GENTE_BRUJAS } from "./gente-fiesta/brujas";
 import { GENTE_CARNAVAL } from "./gente-fiesta/carnaval";
+import { GENTE_COMETAS } from "./gente-fiesta/cometas";
+export { COMETAS_GENTE } from "./gente-fiesta/cometas";
 import { GENTE_FERIA } from "./gente-fiesta/feria-flores";
 import { GENTE_NOVENAS } from "./gente-fiesta/novenas";
 import { GENTE_VELITAS } from "./gente-fiesta/velitas";
@@ -83,6 +85,8 @@ export interface PedidoFiesta {
   /** Lo que dice al pedirlo y al recibirlo. */
   texto: string;
   gracias: string;
+  /** La cinemática que ve quien lo entrega (el niño cuando le bajan la cometa del árbol). */
+  cine?: string;
 }
 
 /** Lo que hace además de hablar: `puesto` abre el puesto del festival (`festival_shop`). */
@@ -112,6 +116,11 @@ export interface FiestaNpc {
   farol?: string;
   /** Lo que lleva en la mano siempre (la velita de las familias). */
   lleva?: string;
+  /**
+   * La cometa que vuela sobre él (su código, ver cometa.ts): los niños de la loma. Si tiene un pedido, la
+   * suya vuela recién cuando se lo entregan.
+   */
+  cometa?: string;
   /** Toma fotos cuando se detiene (los turistas): el destello de la cámara. */
   fotos?: boolean;
   /** Con la cara empolvada de talco (el Carnaval): un polvito encima, la piel no cambia. */
@@ -142,6 +151,7 @@ export const GENTE_FIESTA: Partial<Record<FestivalId, GenteDeFestival>> = {
   novenas: GENTE_NOVENAS,
   "feria-flores": GENTE_FERIA,
   carnaval: GENTE_CARNAVAL,
+  cometas: GENTE_COMETAS,
   "amor-amistad": GENTE_AMOR,
 };
 

@@ -22,7 +22,7 @@ import { PixelCanvas, alpha, at, hex, noise, type Ramp, type RGBA, type Sprite }
 // ---------- Colores ----------
 
 /** Rampa de seis tonos alrededor de un color (0 = contorno, 1 = sombra honda, 3 = base, 5 = brillo). */
-const hexRamp = (h: string): Ramp => {
+export const hexRamp = (h: string): Ramp => {
   const c = hex(h);
   const k = (t: number): RGBA => (t < 0 ? mix(c, [46, 18, 34, 255], -t) : mix(c, [255, 250, 222, 255], t));
   return [k(-0.66), k(-0.42), k(-0.2), c, k(0.3), k(0.6)];
@@ -51,11 +51,11 @@ const OSCURA = C.woodDark;
 const FIESTA: Ramp[] = [ROJO, AMARILLO, VERDE, AZUL, MAGENTA, NARANJA, CIAN, MORADO];
 const TEJ = TEJIDO.map(hexRamp);
 
-type Pinta = (u: number, v: number) => RGBA | null;
+export type Pinta = (u: number, v: number) => RGBA | null;
 type V3 = [number, number, number];
 /** Un material de grilla: su rampa y el tono (con luz automática), o un color fijo. */
-type Mat = [Ramp, number] | RGBA;
-type Ley = Record<string, Mat>;
+export type Mat = [Ramp, number] | RGBA;
+export type Ley = Record<string, Mat>;
 const esRampa = (m: Mat): m is [Ramp, number] => Array.isArray(m[0]);
 
 /** Cuadros de lo que se mueve. */
@@ -68,7 +68,7 @@ const CUADROS = 4;
  * pantalla, `plano` pinta una cara píxel a píxel (cada píxel sabe dónde cae en la cara), `estampa` pinta
  * una grilla de letras y `poste` una columna redonda de pocos píxeles. Se pinta de atrás hacia adelante.
  */
-class Lienzo {
+export class Lienzo {
   readonly c: PixelCanvas;
   readonly ox: number;
   readonly oy: number;
@@ -287,12 +287,12 @@ class Lienzo {
 const hojas = new Map<string, PixelCanvas>();
 
 /** Una grilla en tonos (dígitos 0..5) de una rampa, sin la luz automática: ya va pintada a mano. */
-const tonos = (R: Ramp, extra: Ley = {}): Ley => ({ ...Object.fromEntries([0, 1, 2, 3, 4, 5].map((t) => [String(t), [R, t] as Mat])), ...extra });
+export const tonos = (R: Ramp, extra: Ley = {}): Ley => ({ ...Object.fromEntries([0, 1, 2, 3, 4, 5].map((t) => [String(t), [R, t] as Mat])), ...extra });
 
 // ---------- Texturas pintadas ----------
 
 /** Tablas de madera con veta a lo largo de `u`, juntas cada `ancho` en `v` y el filo claro del frente. */
-const tablas =
+export const tablas =
   (R: Ramp, ancho: number, base = 3.8, seed = 1, filo = -1): Pinta =>
   (u, v) => {
     if (filo > 0 && v > filo - 0.9) return at(R, base + 1);
@@ -506,7 +506,7 @@ const NUBES = [
 // ---------- Piezas pintadas comunes ----------
 
 /** Cuerda entre dos puntos de pantalla, con la caída que diga `caida` (0..1 → píxeles hacia abajo). */
-function cuerdaPx(L: Lienzo, a: { x: number; y: number }, b: { x: number; y: number }, caida: (t: number) => number, col: RGBA) {
+export function cuerdaPx(L: Lienzo, a: { x: number; y: number }, b: { x: number; y: number }, caida: (t: number) => number, col: RGBA) {
   const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 2);
   let prev: [number, number] | null = null;
   for (let k = 0; k <= n; k++) {
@@ -1696,7 +1696,7 @@ const DIBUJO: Record<string, (f: number) => Sprite> = {
 export const CARNAVAL_DECOR_TYPES = Object.keys(DIBUJO);
 
 /** Pone varios cuadros en un lienzo común (la unión de todos), con el mismo origen: el navegador solo cambia la textura. */
-function mismoLienzo(list: Sprite[]): Sprite[] {
+export function mismoLienzo(list: Sprite[]): Sprite[] {
   const x0 = Math.min(...list.map((s) => -s.ox));
   const y0 = Math.min(...list.map((s) => -s.oy));
   const x1 = Math.max(...list.map((s) => s.canvas.width - s.ox));
