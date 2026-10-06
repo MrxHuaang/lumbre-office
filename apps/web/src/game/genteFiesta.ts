@@ -64,7 +64,7 @@ export interface GenteDeps {
 }
 
 /** El panel del puesto de cada festival (la `accion` del vendedor lo abre). */
-const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop" };
+const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", "amor-amistad": "amorShop" };
 
 /** Cada cuánto se mira quién está cerca (y quién murmura). */
 const SCAN_MS = 250;
@@ -263,6 +263,12 @@ export class GenteFiestaView {
       a.key = key;
     }
     return a;
+  }
+
+  /** El chibi de alguien de la fiesta que se ve ahora (las cinemáticas lo esconden mientras actúa su doble). */
+  avatarOf(id: string): Avatar | null {
+    const a = this.actors.get(id);
+    return a?.visible ? (a.avatar ?? null) : null;
   }
 
   /** Pone a cada uno donde le toca en este cuadro. */

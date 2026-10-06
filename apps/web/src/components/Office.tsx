@@ -69,6 +69,7 @@ import { SombreroPanel } from "./SombreroPanel";
 import { PescaPanel } from "./PescaPanel";
 import { BrujasPanel, BrujasTrickPrompt } from "./BrujasPanel";
 import { FeriaPanel } from "./FeriaPanel";
+import { AmorPanel } from "./AmorPanel";
 import { CarnavalShopPanel, ComparsaPrompt, ConcursoPanel } from "./CarnavalPanel";
 import { QuestCard } from "./encargos/QuestCard";
 import { TiraDialogo } from "./dialogo/TiraDialogo";
@@ -474,6 +475,7 @@ export function Office({ isAdmin, profile, onProfileChange }: OfficeProps) {
           {panel?.kind === "brujasShop" && <BrujasPanel atObject={panel.atObject} onClose={closePanel} />}
           {(panel?.kind === "feriaTable" || panel?.kind === "feriaShop" || panel?.kind === "silletaStand") && <FeriaPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalShop" && <CarnavalShopPanel atObject={panel.atObject} onClose={closePanel} />}
+          {(panel?.kind === "amorCofre" || panel?.kind === "amorShop" || panel?.kind === "amorSerenata") && <AmorPanel kind={panel.kind} atObject={panel.atObject} onClose={closePanel} />}
           {panel?.kind === "carnavalConcurso" && <ConcursoPanel onClose={closePanel} />}
           {/* Mundo lleno: tragamonedas, garra, estante de premios, rueda y la recepción. */}
           <MundoPanels />

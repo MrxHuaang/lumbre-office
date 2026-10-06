@@ -1,6 +1,7 @@
 // La foto en el navegador de quien la saca: recortar el canvas del juego alrededor suyo (el HUD es DOM,
 // no sale), armar la polaroid con su pie y comprimirla bajo el tope de la API. Todo por código.
 import { PHOTO, POLAROID, peopleText, photoDateText, type PhotoPerson } from "@hyvento/shared";
+import { MARCO_ENAMORADOS } from "@hyvento/map/art";
 import { COZY, cozyFontFamily } from "@/lib/cozy";
 
 /** Lo visible de la cámara de Phaser que hace falta para ubicar el recorte en el canvas. */
@@ -57,6 +58,33 @@ export interface PolaroidInfo {
   areaName: string;
   people: PhotoPerson[];
   caption: string;
+  /** Marco especial: la banca de los enamorados (papel rosado con corazones en el borde). */
+  marco?: "enamorados";
+}
+
+/** Un corazón de pixel (7x6) en (x, y) del lienzo, de `s` px por punto. */
+const CORAZON = [".xx.xx.", "xxxxxxx", "xxxxxxx", ".xxxxx.", "..xxx..", "...x..."];
+function corazonPixel(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string, brillo?: string) {
+  CORAZON.forEach((row, j) =>
+    [...row].forEach((c, i) => {
+      if (c !== "x") return;
+      ctx.fillStyle = brillo && j === 1 && i === 1 ? brillo : color;
+      ctx.fillRect(x + i * s, y + j * s, s, s);
+    }),
+  );
+}
+
+/** El marco de la banca de los enamorados: corazones repartidos por el borde de papel. */
+function marcoEnamorados(ctx: CanvasRenderingContext2D, w: number, h: number, s: number, top: number, side: number, bottom: number) {
+  const { borde, corazon, brillo } = MARCO_ENAMORADOS;
+  const css = (c: readonly number[]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+  // Por arriba y por los lados, en el papel que rodea la foto.
+  const paso = 16 * s;
+  for (let x = side * s; x < w - 8 * s; x += paso) corazonPixel(ctx, x + 2 * s, Math.max(s, (top * s - 6 * s) / 2), s, css(corazon), css(brillo));
+  for (let y = top * s + paso / 2; y < h - bottom * s; y += paso)
+    for (const x of [Math.max(s, (side * s - 7 * s) / 2), w - Math.max(s, (side * s - 7 * s) / 2) - 7 * s]) corazonPixel(ctx, x, y, s, css(borde));
+  // Y uno en la esquina de abajo a la derecha, junto al pie.
+  corazonPixel(ctx, w - 10 * s, h - 9 * s, s, css(corazon), css(brillo));
 }
 
 /** Corta un texto para que quepa en `max` px (con "…"). */
@@ -76,9 +104,11 @@ export function composePolaroid(shot: HTMLCanvasElement, info: PolaroidInfo, sca
   out.height = POLAROID.h * s;
   const ctx = out.getContext("2d")!;
   // Papel crema con un borde apenas más oscuro (se ve bien sobre el corcho y sobre el panel).
-  ctx.fillStyle = "#f7efdc";
+  const enamorados = info.marco === "enamorados";
+  ctx.fillStyle = enamorados ? "#fde4ec" : "#f7efdc";
   ctx.fillRect(0, 0, out.width, out.height);
-  ctx.fillStyle = "#e3d5b5";
+  if (enamorados) marcoEnamorados(ctx, out.width, out.height, s, top, side, bottom);
+  ctx.fillStyle = enamorados ? "#e87a9a" : "#e3d5b5";
   ctx.fillRect(0, 0, out.width, s);
   ctx.fillRect(0, out.height - s, out.width, s);
   ctx.fillRect(0, 0, s, out.height);

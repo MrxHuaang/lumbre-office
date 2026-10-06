@@ -18,6 +18,7 @@ import { useFocusTrap } from "@/lib/focusTrap";
 import { CharacterSprite } from "./CharacterSprite";
 import { PixelIcon, type PixelIconName } from "./Cozy";
 import { GiftsSection } from "./social/GiftsSection";
+import { AmorCartaSection } from "./AmorCarta";
 import { StandupPanel } from "./StandupPanel";
 
 const REASON_LABEL: Record<PointReason, string> = {
@@ -112,6 +113,9 @@ const PROMPT: Record<Interactable, string> = {
   silletaStand: "Ver la silleta y votar",
   carnavalShop: "Comprar en el puesto del carnaval",
   carnavalConcurso: "Ver el concurso de disfraces",
+  amorCofre: "Abrir el cofre del amigo secreto",
+  amorShop: "Comprar chocolatinas y flores",
+  amorSerenata: "Pedir una serenata",
   fiestaNpc: "Hablar",
 };
 
@@ -289,6 +293,7 @@ export function MailboxPanel({ atObject, onClose }: { atObject: boolean; onClose
           </section>
 
           {data?.letters?.map((l) => <LetterCard key={l.id} letter={l} />)}
+          <AmorCartaSection atObject={atObject} />
           <GiftsSection />
 
           <section className="flex flex-col gap-2">
