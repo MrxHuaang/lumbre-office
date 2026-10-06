@@ -251,7 +251,7 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
               )}
               <Boards today={boards?.today ?? null} week={boards?.board ?? null} />
               <p className="mt-1 animate-pulse text-[15px] text-[#f3d672]">
-                {phase === "starting" ? "Insertando moneda…" : !canStart ? "Espera un momento…" : poor ? `Te faltan monedas (cuesta ${ARCADE_PRICE.machine})` : `Espacio: insertar moneda (${ARCADE_PRICE.machine})`}
+                {phase === "starting" ? "Insertando moneda…" : !canStart ? "Espera un momento…" : poor ? `Te faltan puntos (cuesta ${ARCADE_PRICE.machine})` : `Espacio: insertar moneda (${ARCADE_PRICE.machine})`}
               </p>
               <p className="text-[12px] text-[#c0e377]">{info?.controls}</p>
             </div>
