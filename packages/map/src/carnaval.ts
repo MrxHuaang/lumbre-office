@@ -10,7 +10,7 @@ import { CARNAVAL, COMPARSAS, DESFILE_ORDEN, disfracesById, murgaById, type Carr
 import { ROAD } from "./world/areas/parada";
 
 /** Lo largo de cada carroza en la calle (tiles; el dibujo cabe ahí, un test lo revisa). */
-export const CARROZA_TILES: Record<CarrozaId, number> = { castaneda: 6.6, condor: 7.2, galeras: 6.6, tablero: 6.6, reloj: 8.2, luna: 6.6, paramo: 6.6, minga: 6.6, tinto: 6.6, megabus: 8.4 };
+export const CARROZA_TILES: Record<CarrozaId, number> = { castaneda: 6.6, condor: 7.2, galeras: 6.6, tablero: 6.6, reloj: 8.2, luna: 6.6, paramo: 6.6, minga: 6.6, tinto: 6.6, megabus: 8.4, jaguar: 7, leon: 7 };
 
 /** Los bailarines de una comparsa grande van en columnas de a tres por el carril mixto. */
 const COMPARSA_FILAS = 3;

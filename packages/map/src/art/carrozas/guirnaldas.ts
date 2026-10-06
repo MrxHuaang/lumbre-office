@@ -1,0 +1,168 @@
+// Adornos comunes del jaguar, el león, el cóndor y el Galeras (VIR-173): el faldón de festones (la tela
+// recogida en guirnaldas con el ribete dorado y las borlas), flores de pétalos redondos, hojas, el
+// danzante chico con su tocado de plumas y los brazos arriba, y el tambor. Todo en coordenadas del lienzo.
+import type { Ramp, RGBA } from "../pixel";
+import { BRILLO, LINEA, mejilla, pluma } from "./figuras";
+import { capsula, caja, circulo, elipse, Pintura, poligono, rampa, tono, union } from "./pintura";
+
+/** Un número de 0 a 1 que sale siempre igual para cada (a, b): manchas, flores y pliegues sin azar. */
+export const hash = (a: number, b: number) => {
+  const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+};
+
+/**
+ * El faldón de festones: arriba la tela recogida en guirnaldas (cada una cuelga en arco, con sus pliegues
+ * y el ribete dorado), entre una y otra la borla, y abajo el fondo de pliegues con una florecita dorada.
+ * `telas` se turnan de guirnalda en guirnalda.
+ */
+export function festones(telas: readonly Ramp[], fondo: Ramp, oro: Ramp, celda = 12) {
+  return (u: number, v: number, alto: number): RGBA => {
+    const k = Math.floor(u / celda);
+    const t = (((u % celda) + celda) % celda) / celda;
+    const tela = telas[((k % telas.length) + telas.length) % telas.length]!;
+    const arriba = alto - 1.6;
+    const borde = arriba - 5.6 * Math.sin(Math.PI * t);
+    // La borla que cuelga entre dos guirnaldas.
+    const dt = Math.min(t, 1 - t) * celda;
+    if (dt < 0.7 && v > 2.4) return tono(oro, v > arriba - 1 ? 4 : 3);
+    if (dt < 1.3 && v > 1.4 && v < 3.4) return tono(oro, v > 2.6 ? 4 : 2);
+    if (Math.abs(v - borde) < 0.75) return tono(oro, v > borde ? 4 : 2);
+    if (v > borde) {
+      // Los pliegues de la guirnalda: arcos que siguen el borde, con luz arriba.
+      const f = (arriba - v) / Math.max(0.5, arriba - borde);
+      const banda = Math.floor(f * 3);
+      return tono(tela, banda % 2 ? 2.4 : f < 0.2 ? 4 : 3);
+    }
+    // El fondo: pliegues derechos y una florecita dorada en el medio de cada guirnalda.
+    const fu = (t - 0.5) * celda;
+    const fv = v - 2.6;
+    if (Math.hypot(fu, fv * 1.3) < 1.1) return tono(oro, 4);
+    return tono(fondo, Math.floor(u * 1.4) % 3 === 0 ? 2 : 3);
+  };
+}
+
+/** Una flor de cinco pétalos redondos con su centro. */
+export function flor(p: Pintura, x: number, y: number, r: number, petalo: Ramp, centro: Ramp, giro = 0) {
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2 - Math.PI / 2 + giro;
+    p.volumen(elipse(x + Math.cos(a) * r * 0.75, y + Math.sin(a) * r * 0.75, r * 0.6, r * 0.45, a), petalo, { alto: 1.4, brillo: 0.3, borde: "propio" });
+  }
+  p.volumen(circulo(x, y, r * 0.4), centro, { alto: 1.2, brillo: 0.8, borde: "propio" });
+}
+
+/** Una hoja larga (de la base hacia `ang`), con su nervio claro. */
+export function hoja(p: Pintura, x: number, y: number, ang: number, largo: number, ancho: number, verde: Ramp) {
+  const cx = x + (Math.cos(ang) * largo) / 2;
+  const cy = y + (Math.sin(ang) * largo) / 2;
+  p.volumen(elipse(cx, cy, largo / 2, ancho / 2, ang), verde, { alto: ancho * 0.4, brillo: 0.4, borde: "propio", sombra: 0.25 });
+  p.trazo(x + Math.cos(ang) * 1.5, y + Math.sin(ang) * 1.5, x + Math.cos(ang) * largo * 0.8, y + Math.sin(ang) * largo * 0.8, tono(verde, 4), 1);
+}
+
+export const VERDES = ["#2f9a4a", "#3fb85a", "#1f7a5a"].map(rampa);
+
+/**
+ * Un macizo de hojas y flores que llena una franja (de x0 a x1, con la orilla de abajo en `y(x)`), como
+ * la cama de flores que cubre la plataforma.
+ */
+export function macizo(p: Pintura, x0: number, x1: number, y: (x: number) => number, alto: number, flores: readonly Ramp[], semilla = 0) {
+  const n = Math.max(3, Math.round((x1 - x0) / 5));
+  for (let i = 0; i < n * 2; i++) {
+    const x = x0 + ((i + hash(i, semilla) * 0.8) / (n * 2)) * (x1 - x0);
+    const yb = y(x);
+    const a = -Math.PI / 2 + (hash(i, semilla + 3) - 0.5) * 2.2;
+    hoja(p, x, yb - 1, a, alto * (0.6 + hash(i, semilla + 5) * 0.5), 4 + hash(i, semilla + 7) * 2, VERDES[i % VERDES.length]!);
+  }
+  for (let i = 0; i < n; i++) {
+    const x = x0 + ((i + 0.3 + hash(i, semilla + 11) * 0.5) / n) * (x1 - x0);
+    const yb = y(x) - alto * (0.25 + hash(i, semilla + 13) * 0.55);
+    const r = 2.6 + hash(i, semilla + 17) * 1.8;
+    flor(p, x, yb, r, flores[(i + semilla) % flores.length]!, AMARILLO_FLOR, hash(i, semilla) * 2);
+  }
+}
+
+const AMARILLO_FLOR = rampa("#f7c518");
+
+export interface DanzanteOpts {
+  piel: Ramp;
+  traje: Ramp;
+  traje2: Ramp;
+  /** Las plumas del tocado (de atrás hacia adelante). */
+  plumas: readonly Ramp[];
+  pelo?: Ramp;
+  /** Falda (si no, pantalón). */
+  falda?: boolean;
+  /** Antifaz de este color. */
+  antifaz?: Ramp;
+  /** Sombrerito en vez de tocado de plumas. */
+  sombrero?: Ramp;
+  /** Brazos: arriba (`v`) o uno arriba y otro en jarra. */
+  brazos?: "v" | "uno";
+}
+
+const ORO = rampa("#e6b02a");
+
+/**
+ * Un danzante chico de papel maché (unos 48 px a escala 1), de pie con los pies en (cx, by): el tocado de
+ * plumas en abanico, la cara con ojitos y cachetes, el traje de dos colores con el pectoral dorado y los
+ * brazos arriba bailando.
+ */
+export function danzante(p: Pintura, cx: number, by: number, s: number, o: DanzanteOpts) {
+  const S = (v: number) => v * s;
+  const hy = by - S(38);
+  // El tocado: plumas en abanico detrás de la cabeza.
+  if (!o.sombrero) {
+    const n = o.plumas.length;
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (i - (n - 1) / 2) * 0.32;
+      pluma(p, cx + Math.cos(a) * S(4), hy - S(5) + Math.sin(a) * S(2), a, S(17 - Math.abs(i - (n - 1) / 2) * 2.2), S(6), o.plumas[i]!, { brillo: 0.3 });
+    }
+  }
+  // Las piernas o la falda.
+  const oscuro = rampa("#3a2a3e");
+  if (o.falda) p.volumen(poligono([[cx - S(5.5), by - S(20)], [cx + S(5.5), by - S(20)], [cx + S(10), by - S(3)], [cx - S(10), by - S(3)]]), o.traje2, { alto: S(4), borde: "oscuro", patron: (q) => (Math.floor((q.y - by) / S(3)) % 2 ? o.traje : o.traje2) });
+  else for (const d of [-1, 1]) p.volumen(capsula(cx + d * S(3.2), by - S(18), cx + d * S(3.6), by - S(2), S(2.6)), o.traje2, { alto: S(2), borde: "oscuro" });
+  for (const d of [-1, 1]) p.volumen(elipse(cx + d * S(4), by - S(1.5), S(3), S(1.6)), oscuro, { alto: 1, borde: "oscuro" });
+  // Los brazos.
+  const brazos: [number, number][] = o.brazos === "uno" ? [[S(14), -S(46)], [-S(12), -S(18)]] : [[S(13), -S(47)], [-S(13), -S(47)]];
+  for (const [bx, byy] of brazos) {
+    const d = Math.sign(bx);
+    p.volumen(capsula(cx + d * S(6), by - S(29), cx + bx * 0.62, by + (byy + S(29)) * 0.45 - S(29), S(2.4)), o.traje, { alto: S(2), borde: "oscuro" });
+    p.volumen(capsula(cx + bx * 0.62, by + (byy + S(29)) * 0.45 - S(29), cx + bx, by + byy, S(2.2)), o.piel, { alto: S(2), borde: "oscuro" });
+    p.volumen(circulo(cx + bx, by + byy - S(1), S(2.4)), o.piel, { alto: S(2), borde: "oscuro" });
+  }
+  // El torso: chaleco de dos colores y el pectoral dorado.
+  p.volumen(caja(cx - S(7), by - S(32), cx + S(7), by - S(17), S(3)), o.traje, { alto: S(4), borde: "oscuro", patron: (q) => (q.x < cx ? o.traje : o.traje2) });
+  p.volumen(elipse(cx, by - S(29), S(6), S(2.6)), ORO, { alto: S(1.5), brillo: 0.9, borde: "oscuro" });
+  p.volumen(elipse(cx, by - S(18), S(7.4), S(1.6)), ORO, { alto: S(1), brillo: 0.8, borde: "oscuro" });
+  // La cabeza.
+  if (o.pelo) p.volumen(elipse(cx, hy - S(1), S(8.6), S(8)), o.pelo, { alto: S(4), borde: "oscuro" });
+  p.volumen(circulo(cx, hy, S(7.4)), o.piel, { alto: S(5), brillo: 0.5, borde: "oscuro" });
+  if (o.antifaz) {
+    p.volumen(union(elipse(cx - S(3.2), hy - S(0.5), S(3.6), S(2.4)), elipse(cx + S(3.2), hy - S(0.5), S(3.6), S(2.4))), o.antifaz, { alto: 1.5, brillo: 0.8, borde: "oscuro" });
+  }
+  for (const d of [-1, 1]) {
+    p.plano(elipse(cx + d * S(2.9), hy, S(1.1), S(1.5)), LINEA);
+    p.punto(Math.round(cx + d * S(2.9) - 0.5), Math.round(hy - S(0.7)), BRILLO);
+    if (!o.antifaz) mejilla(p, cx + d * S(4.6), hy + S(2.8), S(1.8), S(1.1), tono(rampa("#ef6ba0"), 3));
+  }
+  p.curva(cx - S(2.4), hy + S(3.2), cx, hy + S(5.6), cx + S(2.4), hy + S(3.2), LINEA, 1);
+  // La diadema dorada o el sombrerito.
+  if (o.sombrero) {
+    p.volumen(elipse(cx, hy - S(5.5), S(11), S(2.6)), o.sombrero, { alto: S(2), sombra: 0.3, borde: "oscuro" });
+    p.volumen(caja(cx - S(5.5), hy - S(12), cx + S(5.5), hy - S(5), S(2)), o.sombrero, { alto: S(3), borde: "oscuro" });
+    p.plano(caja(cx - S(5.5), hy - S(7.5), cx + S(5.5), hy - S(6)), tono(rampa("#e0283c"), 3));
+  } else p.volumen(caja(cx - S(7), hy - S(7.5), cx + S(7), hy - S(4.5), S(1)), ORO, { alto: S(1.2), brillo: 0.9, borde: "oscuro", planos: true });
+}
+
+/** Un tambor (bombo andino): el aro, el cuero de arriba y las cuerdas en zigzag. */
+export function tambor(p: Pintura, cx: number, by: number, r: number, h: number, cuerpo: Ramp, aro: Ramp) {
+  p.volumen(union(caja(cx - r, by - h, cx + r, by - r * 0.3), elipse(cx, by - r * 0.3, r, r * 0.38)), cuerpo, { alto: r * 0.5, borde: "oscuro", planos: true, sombra: 0.3 });
+  for (let k = 0; k < 4; k++) {
+    const x0 = cx - r + (k * 2 * r) / 4;
+    p.trazo(x0, by - h + 2, x0 + r / 2, by - r * 0.5, tono(rampa("#f4ead8"), 4), 1);
+    p.trazo(x0 + r / 2, by - r * 0.5, x0 + r, by - h + 2, tono(rampa("#f4ead8"), 3), 1);
+  }
+  p.volumen(elipse(cx, by - h, r, r * 0.38), rampa("#f0dcb8"), { alto: 1.5, borde: "oscuro", brillo: 0.4 });
+  p.volumen(union(elipse(cx, by - h, r + 0.6, r * 0.38 + 0.6)), aro, { alto: 1, borde: "oscuro", planos: true, pinta: (q) => (Math.hypot((q.x + 0.5 - cx) / r, (q.y + 0.5 - by + h) / (r * 0.38)) < 0.8 ? tono(rampa("#f0dcb8"), 4) : null) });
+}
