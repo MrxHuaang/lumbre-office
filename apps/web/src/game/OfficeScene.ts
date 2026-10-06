@@ -556,6 +556,7 @@ export class OfficeScene extends Phaser.Scene {
       local: () => this.local ?? null,
       npc: (id) => this.npcs?.avatarOf(id) ?? null,
       tileSize: () => this.map.tileSize,
+      free: (tx, ty) => !isBlockedTile(this.map, tx, ty),
       followLocal: () => {
         if (this.local) this.cameras.main.startFollow(this.local.sprite, true, 0.15, 0.15);
       },
