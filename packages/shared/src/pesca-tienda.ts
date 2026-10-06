@@ -188,7 +188,7 @@ export type PescaBuyResult = { ok: true; item: PescaItemId; balance: number } | 
 /** Los motivos, en boca de Don Evelio (pastuso). */
 export const PESCA_ERROR_TEXT: Record<PescaBuyError, string> = {
   far: "Arrímese al mostradorcito, mijo, que desde allá no le oigo, pues.",
-  funds: "No le alcanza, longo. Pesque un ratico y vuelve, pues.",
+  funds: "No le alcanza, longo. Pesque un ratico y vuelva, pues.",
   full: "No le cabe en la mochila, mijo: haga campito primero, pues.",
   stack: "Ya lleva toda la carnadita que cabe. Gástela primero, pues.",
   owned: "Esa cañita ya es suya, mijo. Una basta, ¿ve?",

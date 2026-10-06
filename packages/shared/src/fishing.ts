@@ -118,7 +118,7 @@ export const FISH: readonly FishSpecies[] = [
   fish("pez-linterna", "Pez linterna", "raro", [8, 20], "noche", "mixed", 71, "Lleva una lucecita colgando para alumbrar el fondo."),
   fish("disco", "Pez disco", "raro", [12, 20], "dia", "floater", 70, "Redondo como un plato y pintado con mil rayitas."),
   fish("payara", "Payara", "raro", [40, 90], "noche", "dart", 79, "El pez vampiro: dos colmillos que le atraviesan la cara."),
-  fish("bagre-amarillo", "Bagre amarillo", "raro", [70, 140], "siempre", "sinker", 76, "Un bagre enorme y color mostaza. Tira como un burro."),
+  fish("bagre-amarillo", "Bagre amarillo", "raro", [70, 140], "siempre", "sinker", 76, "Un bagre enorme y color mostaza. Tira como una mula."),
   fish("pez-mariposa", "Pez mariposa", "raro", [8, 18], "dia", "floater", 66, "Con las aletas abiertas planea sobre el agua."),
   fish("arcoiris", "Pez arcoíris", "raro", [6, 14], "siempre", "mixed", 74, "Solo sale cuando llueve. Trae todos los colores encima.", "lluvia"),
   fish("temblon", "Temblón", "raro", [60, 150], "siempre", "smooth", 80, "Una anguila eléctrica. Con los truenos se pone contenta.", "tormenta"),
@@ -146,7 +146,7 @@ export const FISH: readonly FishSpecies[] = [
   fish("bota", "Bota vieja", "basura", [25, 30], "siempre", "sinker", 0, "Llena de agua y de un poco de lodo. ¿De quién será?"),
   fish("alga", "Alga", "basura", [10, 60], "siempre", "floater", 0, "Verde, viscosa y enredada en el anzuelo."),
   fish("botella", "Botella con mensaje", "basura", [20, 30], "siempre", "floater", 0, "Adentro dice: \"Buen trabajo, equipo\". Nadie firmó."),
-  fish("calcetin", "Calcetín", "basura", [15, 25], "siempre", "sinker", 0, "El que se perdió en la lavadora. Ahora vive aquí."),
+  fish("calcetin", "Media perdida", "basura", [15, 25], "siempre", "sinker", 0, "La que se perdió en la lavadora. Ahora vive aquí."),
   fish("patito", "Patito de hule", "basura", [6, 10], "siempre", "floater", 0, "Amarillo, sonriente y sin idea de cómo llegó al lago."),
   fish("lata", "Lata oxidada", "basura", [8, 12], "siempre", "sinker", 0, "Alguien no reciclaba. Ahora el lago está un poco más limpio."),
 ];

@@ -22,7 +22,7 @@ export const AGUA_CATALOG = {
   // El trampolín va en el borde, con el tablón sobre el agua hacia +x.
   "diving-board": { name: "Trampolín", size: [1, 1] },
   // Reposera: el respaldo en el tile del asiento y las piernas hacia +x.
-  "sun-lounger": { name: "Reposera", size: [2, 1], seats: [[0, 0]], hasBack: true },
+  "sun-lounger": { name: "Asoleadora", size: [2, 1], seats: [[0, 0]], hasBack: true },
   parasol: { name: "Sombrilla", size: [1, 1] },
   "garden-shower": { name: "Ducha de jardín", size: [1, 1] },
   "towel-rack": { name: "Toallero", size: [1, 1] },

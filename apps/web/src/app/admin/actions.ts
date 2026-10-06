@@ -37,7 +37,7 @@ export async function createInvite(_prev: InviteState, form: FormData): Promise<
 export async function assignOfficeAction(zoneId: string, userId: string | null): Promise<{ error?: string }> {
   await requireAdmin();
   const parsed = z.object({ zoneId: z.string().min(1), userId: z.string().min(1).nullable() }).safeParse({ zoneId, userId });
-  if (!parsed.success) return { error: "Datos inválidos" };
+  if (!parsed.success) return { error: "Algo no cuadra en lo que se mandó. Intenta de nuevo." };
   try {
     await assignOffice(parsed.data.zoneId, parsed.data.userId);
   } catch (err) {
@@ -70,7 +70,7 @@ export async function saveCasinoSettingsAction(form: FormData) {
 export async function setPermisoAction(userId: string, permiso: string, on: boolean): Promise<{ error?: string }> {
   const admin = await requireAdmin();
   const parsed = SetPermisoBody.safeParse({ userId, permiso, on });
-  if (!parsed.success) return { error: "Datos inválidos" };
+  if (!parsed.success) return { error: "Algo no cuadra en lo que se mandó. Intenta de nuevo." };
   try {
     await setPermiso(prisma, { ...parsed.data, grantedById: admin.id });
   } catch (err) {
@@ -86,7 +86,7 @@ export async function setPermisoAction(userId: string, permiso: string, on: bool
 export async function setPermisoTodosAction(permiso: string, on: boolean): Promise<{ error?: string }> {
   await requireAdmin();
   const parsed = SetPermisoTodosBody.safeParse({ permiso, on });
-  if (!parsed.success) return { error: "Datos inválidos" };
+  if (!parsed.success) return { error: "Algo no cuadra en lo que se mandó. Intenta de nuevo." };
   try {
     await setPermisoTodos(prisma, parsed.data);
   } catch (err) {

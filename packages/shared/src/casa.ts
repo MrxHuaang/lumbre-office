@@ -75,7 +75,7 @@ export const CASA_USABLES: Record<string, UsableSpec> = {
   "lamp-post": lamp("el farol"),
   "garden-lantern": lamp("el farolito"),
   "dock-lamp": lamp("el farol"),
-  "wall-sconce": lamp("el aplique"),
+  "wall-sconce": lamp("la lámpara de pared"),
   // Libros de las estanterías y la biblioteca.
   "bookcase-tall": read,
   "bookshelf-low": read,
@@ -172,7 +172,7 @@ export const BOOK_TITLES = [
   "Recetas de la abuela Inés",
   "Astronomía para días nublados",
   "El gato que quería ser faro",
-  "Historia secreta de los calcetines",
+  "Historia secreta de las medias perdidas",
   "Poemas para leer en pantuflas",
   "Guía de aves del jardín",
   "El último tren a Villa Musgo",
@@ -235,6 +235,6 @@ export const CASA_NOTICES: Record<CasaNoticeCode, string> = {
   hands: "Tienes las manos ocupadas: termina primero lo que llevas.",
   stall: "Ese baño está ocupado.",
   fed: "Ya comió: espera un rato para darle otro premio.",
-  petFar: "Acércate un poco más.",
+  petFar: "Acércate un poco más a la mascota.",
   full: "No te cabe en la mochila: haz espacio para llevártelo.",
 };

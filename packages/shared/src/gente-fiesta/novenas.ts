@@ -24,14 +24,14 @@ export function GENTE_NOVENAS(): FiestaNpc[] {
       pinta: { outfit: "apron", shirt: "#a83a3a", head: "bandana", accent: "#3a8a4a" },
       lluvia: "sigue",
       frases: {
-        hola: ["¡Buñuelos calienticos pa' la novena! Coja uno, que hay pa' todos.", "El secreto del buñuelo es el queso costeño. Y la paciencia.", "Mis nietos me ayudan a amasar. Bueno, a comerse la masa."],
+        hola: ["¡Buñuelos calienticos pa' la novena! Coja uno sin pena.", "El secreto del buñuelo es el queso costeño. Y la paciencia.", "Mis nietos me ayudan a amasar. Bueno, a comerse la masa."],
         dias: {
           1: ["Primer día de novena: hoy se pone la primera figura. Que no se le olvide."],
           5: ["Ya vamos en la mitad de la novena. Y yo en la mitad de la harina."],
-          9: ["Último día de novena: esta noche llega el Niño. Los buñuelos van con todo."],
+          9: ["Último día de novena: esta noche llega el Niño Dios. Los buñuelos van con todo."],
         },
       },
-      murmullos: ["¡Buñuelos calienticos!", "Coja uno, mijo", "Con queso costeño"],
+      murmullos: ["¡Buñuelos calienticos!", "Coja uno, que hay pa' todos", "Con queso costeño"],
       pedido: {
         id: "harina-rubiela",
         pide: [{ item: "harina", n: 2 }],
@@ -60,7 +60,7 @@ export function GENTE_NOVENAS(): FiestaNpc[] {
       pinta: ABRIGO("#4a5a7a"),
       lluvia: "sigue",
       frases: {
-        hola: ["La novena es a las ocho, y el que llegue tarde reza el doble.", "Hoy leemos la consideración del día. Con buena entonación, ¿oyó?"],
+        hola: ["La novena es a las ocho en punto. Y aquí se reza completica, ¿oyó?", "Hoy leemos la consideración del día. Con buena entonación, ¿oyó?"],
         dias: { 9: ["Hoy es el último día: los gozos se cantan con más ganas."] },
       },
       murmullos: ["Benignísimo Dios…", "Ven, no tardes", "Más despacio"],
@@ -74,7 +74,7 @@ export function GENTE_NOVENAS(): FiestaNpc[] {
       comportamiento: { tipo: "sentado", asiento: { x: 11, y: 25 } },
       pinta: ABRIGO("#7a2a46"),
       lluvia: "sigue",
-      frases: { hola: ["Siéntese donde pueda, mijo. Las sillas buenas ya se las cogimos.", "Le cosí a la Virgen del pesebre un mantico nuevo. ¿Se nota?"] },
+      frases: { hola: ["Siéntese donde pueda, que las sillas buenas ya las cogimos.", "Le cosí a la Virgen del pesebre un mantico nuevo. ¿Se nota?"] },
       murmullos: ["Amén", "Ven, ven, ven…", "Qué pesebre tan lindo"],
     }),
     papel(F, "aurelio", {
@@ -161,7 +161,7 @@ export function GENTE_NOVENAS(): FiestaNpc[] {
       comportamiento: { tipo: "sigue", a: MARIANA, distancia: 2.4, corre: true },
       farol: "farol-deseos",
       voz: 0.95,
-      frases: { hola: ["Jugamos a pajita en boca. Usted ya perdió porque habló.", "Este año pedí una bicicleta. Como la de Fredy, pero rosada."] },
+      frases: { hola: ["Jugamos a pajita en boca. Usted ya perdió porque habló.", "Este año le pedí al Niño Dios una bicicleta. Como la de Fredy, pero rosada."] },
       murmullos: ["¡Perdió!", "¡Mariana, espere!", "Sí y no…"],
     }),
     papel(F, "efrain", {
@@ -179,8 +179,8 @@ export function GENTE_NOVENAS(): FiestaNpc[] {
         id: "queso-efrain",
         pide: [{ item: "queso", n: 1 }],
         da: { puntos: 6 },
-        texto: "Pa' los buñuelos de la vecina me falta un queso. ¿Me lo consigue en la cafetería? Le quedo debiendo.",
-        gracias: "¡Ese es el queso! Ya se lo llevo a doña Rubiela. Gracias, mijo.",
+        texto: "A doña Rubiela le falta un queso pa' los buñuelos. ¿Me hace el favor y lo trae de la cafetería?",
+        gracias: "¡Ese es el queso! Ya se lo llevo a doña Rubiela. Muy amable.",
       },
     }),
     papel(F, "fredy", {
@@ -189,7 +189,7 @@ export function GENTE_NOVENAS(): FiestaNpc[] {
       tile: { x: 62, y: 104 },
       comportamiento: { tipo: "ronda", paradas: [{ x: 62, y: 104, pausa: 1.5 }, { x: 62, y: 40, pausa: 1.5 }] },
       pinta: ABRIGO("#e8c03a"),
-      frases: { hola: ["Diciembre es el mes de las cicloviadas largas. Y de los buñuelos, para reponer.", "Del portón al porche, ida y vuelta: dos kilómetros diarios de novena."] },
+      frases: { hola: ["Diciembre es el mes de las rodadas largas. Y de los buñuelos, pa' reponer.", "Del portón al porche, ida y vuelta: dos kilómetros diarios de novena."] },
       murmullos: ["Ida y vuelta", "Dos kilómetros", "¡Buenas!"],
     }),
     papel(F, "chepe", {

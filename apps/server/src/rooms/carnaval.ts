@@ -1,11 +1,11 @@
 // El Carnaval de Negros y Blancos en la sala (ver carnaval.ts de @hyvento/shared y de @hyvento/map): el
-// desfile que sale a las 11, 15 y 19 del juego por la calle del Megabús (mientras pasa, el bus no sale),
+// Desfile Magno que sale una vez por Carnaval, a las 10:00 del juego, por la calle del Megabús (mientras pasa, el bus no sale),
 // la comparsa de la cabaña (quien se suma desde la vereda baila detrás del Megabús de la alegría y lo
 // mueve la sala, como el viaje del bus: la calle no se camina), la maicena y las serpentinas (con F sobre
 // alguien de al lado, nunca a quien está en "No molestar" o no quiere), el concurso de disfraces (se
-// postula la pinta de ahora y se vota una vez; a las 21:00 se premia) y el puesto del carnaval. La sala le
+// postula la pinta de ahora y se vota una vez; a las 18:00 se premia) y el puesto del carnaval. La sala le
 // da la mochila, los contadores, los puntos, el reloj y cómo mover a alguien; este módulo no conoce Colyseus.
-import { bajadaMs, cabanaPuesto, cabanaX, desfileEstado, DESFILE_BAJADA_X, type DesfileTiming } from "@hyvento/map";
+import { atrasParaSumarse, desfileEstado, DESFILE_BAJADA_X, filaEn, sumadoPuesto, type DesfileTiming } from "@hyvento/map";
 import {
   CARNAVAL,
   CARNAVAL_CINE,
@@ -77,8 +77,10 @@ export interface CarnavalDeps {
 }
 
 export class Carnaval {
-  /** La comparsa de la cabaña, en orden de llegada (sessionIds): de ahí sale el puesto de cada uno. */
+  /** La gente de la cabaña que va bailando (sessionIds), en orden de llegada. */
   private miembros: string[] = [];
+  /** Dónde va cada uno: cuánto detrás de la cabeza, en qué fila y desde dónde se sumó (tiles). */
+  private puestos = new Map<string, { atras: number; fila: number; desde: number }>();
   /** La hora del desfile que ya salió (`día:hora`) y el último emote mandado en una parada. */
   private salio = "";
   private emoteTick = "";
@@ -153,12 +155,15 @@ export class Carnaval {
       for (const id of [...this.miembros]) this.bajar(id, false);
       return this.terminar();
     }
-    if (ms >= bajadaMs(t)) for (const id of [...this.miembros]) this.bajar(id, true);
     const ts = this.d.tileSize();
-    this.miembros.forEach((id, i) => {
-      const p = cabanaPuesto(i, e.cabeza);
-      this.d.place(id, p.x * ts, p.y * ts, e.parada === null);
-    });
+    for (const id of [...this.miembros]) {
+      const q = this.puestos.get(id);
+      if (!q) continue;
+      const p = sumadoPuesto(q.atras, q.fila, e.cabeza);
+      // Al llegar a la bajada, cada uno a la vereda (con los puntos si bailó un buen trecho).
+      if (p.x >= DESFILE_BAJADA_X) this.bajar(id, p.x - q.desde >= CARNAVAL.tramoConPuntos);
+      else this.d.place(id, p.x * ts, p.y * ts, e.parada === null);
+    }
     // En las paradas, la comparsa de la cabaña repite su frase (los emotes, para que todos la vean).
     if (e.parada !== null && this.miembros.length) {
       const beat = Math.floor(e.paradaMs / (CARNAVAL.beatMs * 3));
@@ -189,15 +194,19 @@ export class Carnaval {
     const st = this.d.state();
     const t = this.d.timing();
     const ms = this.d.now() - st.inicio;
-    if (st.fase !== "desfile" || ms >= bajadaMs(t) - 3000) return { ok: false, error: "noDesfile" };
+    if (st.fase !== "desfile") return { ok: false, error: "noDesfile" };
     if (this.d.busy(sessionId, p)) return { ok: false, error: "busy" };
     const ts = this.d.tileSize();
-    const x = cabanaX(desfileEstado(ms, t).cabeza);
-    const near = p.area === AREA && p.y >= CARNAVAL.veredaDesdeY * ts && Math.abs(p.x / ts - x) <= CARNAVAL.joinReachTiles && x < DESFILE_BAJADA_X;
+    const cabeza = desfileEstado(ms, t).cabeza;
+    // Se suma en cualquier momento del desfile, desde la vereda, donde vaya pasando la fila.
+    const x = p.x / ts;
+    const near = p.area === AREA && p.y >= CARNAVAL.veredaDesdeY * ts && filaEn(x, cabeza);
     if (!near) return { ok: false, error: "far" };
     this.miembros.push(sessionId);
+    const q = { atras: atrasParaSumarse(x, cabeza), fila: this.miembros.length % 3, desde: x };
+    this.puestos.set(sessionId, q);
     p.comparsa = true;
-    const slot = cabanaPuesto(this.miembros.length - 1, desfileEstado(ms, t).cabeza);
+    const slot = sumadoPuesto(q.atras, q.fila, cabeza);
     this.d.place(sessionId, slot.x * ts, slot.y * ts, false);
     this.d.send(sessionId, FESTIVAL_MSG.cine, { id: CARNAVAL_CINE.sumarse } satisfies FestivalCineEvent);
     return { ok: true, joined: true };
@@ -215,6 +224,7 @@ export class Carnaval {
     const i = this.miembros.indexOf(sessionId);
     if (i < 0) return;
     this.miembros.splice(i, 1);
+    this.puestos.delete(sessionId);
     const p = this.d.player(sessionId);
     if (!p) return;
     const ts = this.d.tileSize();
@@ -378,6 +388,7 @@ export class Carnaval {
   forget(sessionId: string, userId: string) {
     const i = this.miembros.indexOf(sessionId);
     if (i >= 0) this.miembros.splice(i, 1);
+    this.puestos.delete(sessionId);
     this.lastAt.delete(userId);
     this.lastBuyAt.delete(userId);
   }

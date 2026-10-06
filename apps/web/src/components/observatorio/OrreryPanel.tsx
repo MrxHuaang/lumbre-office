@@ -90,7 +90,7 @@ export function OrreryPanel({ onClose }: { onClose: () => void }) {
     return () => cancelAnimationFrame(id);
   }, [minute, night, weather]);
   return (
-    <PanelShell title="Orrery" icon="sun" onClose={onClose}>
+    <PanelShell title="Planetario de mesa: el clima en planetas" icon="sun" onClose={onClose}>
       <div className="flex flex-col items-center gap-3 text-center">
         <canvas ref={ref} width={S} height={S} className="h-60 w-60 border-4 border-cozy-wood [image-rendering:pixelated]" aria-hidden />
         <p className="text-[18px] font-semibold">

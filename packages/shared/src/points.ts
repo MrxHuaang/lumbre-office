@@ -110,7 +110,7 @@ export interface LeisureState {
 }
 
 /** Mismo texto para todas las actividades de ocio cuando el tope del día se llena. */
-export const LEISURE_FULL_TEXT = `Llegaste al tope de ocio de hoy (${POINTS.leisureDailyCap} puntos). Mañana vuelve a sumar.`;
+export const LEISURE_FULL_TEXT = `Llegaste al tope de ocio de hoy (${POINTS.leisureDailyCap} puntos). Mañana puedes volver a sumar.`;
 
 // ---------- Misiones ----------
 

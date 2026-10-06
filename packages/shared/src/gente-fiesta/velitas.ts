@@ -53,7 +53,7 @@ export function GENTE_VELITAS(): FiestaNpc[] {
       comportamiento: { tipo: "grupo", grupo: "rezo", centro: { x: 70, y: 36 } },
       pinta: RUANA("#4a5a7a", "#d8d4ce"),
       farol: "velita",
-      frases: { hola: ["Rezamos por las velitas de toda la vereda. Si quiere, únase.", "La noche de velitas se celebra desde que yo era niña. Y desde antes.", "Cada velita es una luz para alguien. Piense en a quién."] },
+      frases: { hola: ["Le rezamos a la Virgen por toda la vereda. Si quiere, únase.", "La noche de velitas se celebra desde que yo era niña. Y desde antes.", "Cada velita es una luz para alguien. Piense en a quién."] },
       murmullos: ["Dios te salve…", "Amén", "Bajito, por favor"],
     }),
     papel(F, "carmenza", {
@@ -73,7 +73,7 @@ export function GENTE_VELITAS(): FiestaNpc[] {
       comportamiento: { tipo: "grupo", grupo: "rezo", centro: { x: 70, y: 36 } },
       pinta: RUANA("#5a4a3a", "#c2a070"),
       farol: "velita",
-      frases: { hola: ["Yo rezo, pero me rinde más rezando bailando.", "¿Ya le dieron natilla? A mí me la quitaron.", "En los ferrocarriles prendíamos velitas en la estación. Llegaban hasta Girardot."] },
+      frases: { hola: ["Yo rezo, pero rezo mejor bailando.", "¿Ya le dieron natilla? A mí me la quitaron.", "En los ferrocarriles prendíamos velitas a lo largo de la carrilera. Llegaban hasta Girardot."] },
       murmullos: ["Amén…", "¿Ya acabamos?", "Zzz… ¡amén!"],
     }),
     suelto(F, "juanpis", "Juanpis", nino("#f1c27d", "#3a2418", { outfit: "coat", shirt: "#3a6ab0", head: "beanie" }), {
@@ -83,7 +83,7 @@ export function GENTE_VELITAS(): FiestaNpc[] {
       comportamiento: { tipo: "deambula", zona: { x: 52, y: 40, w: 20, h: 16 }, paradas: 6, pausa: 0.6 },
       lleva: "farol-deseos",
       voz: 0.86,
-      frases: { hola: ["¡Mire mi farol! Lo hice con papel de seda.", "A las nueve los soltamos todos en el lago. ¡El mío va a subir más!", "No corra con farol, dice mi mamá. Pero es que es más divertido."] },
+      frases: { hola: ["¡Mire mi farol! Lo hice con papel de seda.", "A las nueve los soltamos todos en el lago. ¡El mío va a subir más!", "«No corra con el farol», dice mi mamá. Pero corriendo es más divertido."] },
       murmullos: ["¡Mire mi farol!", "¡Más rápido!", "¡Sofi, espéreme!"],
     }),
     suelto(F, "sofi", "Sofi", nino("#c68642", "#1b1b1b", { hairStyle: "braids", outfit: "coat", shirt: "#e8c03a", head: "pompom-beanie" }), {
@@ -103,10 +103,10 @@ export function GENTE_VELITAS(): FiestaNpc[] {
       comportamiento: { tipo: "quieto", mira: "right" },
       pinta: RUANA("#6a4a2a", "#e8d8b0"),
       frases: {
-        hola: ["¡Natilla con canela y buñuelos calienticos! Es la noche, mijo.", "La natilla de mi mamá era mejor. La mía es la segunda mejor.", "Un buñuelo bien hecho flota. Si se hunde, se lo come uno mismo."],
+        hola: ["¡Natilla con canela y buñuelos calienticos! Hoy es noche de velitas.", "La natilla de mi mamá era mejor. La mía es la segunda mejor.", "Un buñuelo bien hecho se voltea solo en el aceite. Si no, se lo come uno mismo."],
         noche: ["A esta hora la natilla se acaba volando. Aproveche."],
       },
-      murmullos: ["¡Natilla con canela!", "¡Buñuelos calienticos!", "Pruebe, que no cobro"],
+      murmullos: ["¡Natilla con canela!", "¡Buñuelos calienticos!", "Pruebe, que probar es gratis"],
       pedido: {
         id: "huevos-efrain",
         pide: [{ item: "huevo", n: 2 }],
@@ -140,7 +140,7 @@ export function GENTE_VELITAS(): FiestaNpc[] {
       tile: { x: 75, y: 72 },
       comportamiento: { tipo: "grupo", grupo: "muelle", centro: { x: 74, y: 72 } },
       pinta: { outfit: "coat", shirt: "#3a3a4a", head: "beanie" },
-      frases: { hola: ["Valen me tiene de trípode humano.", "¿Hay wifi en el muelle? Aquí no carga nada.", "Los faroles de deseos se piden en el muelle. Yo pedí wifi."] },
+      frases: { hola: ["Valen me tiene de trípode humano.", "¿Hay wifi en el muelle? Aquí no carga nada.", "Los faroles de deseos se sueltan en el muelle. Yo pedí wifi."] },
       murmullos: ["No carga…", "¿Así está bien?", "Valen, me cansé"],
     }),
     papel(F, "luzdary", {

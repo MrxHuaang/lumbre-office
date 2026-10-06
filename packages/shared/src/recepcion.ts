@@ -50,7 +50,7 @@ export const RECEPCION_NPC: GameNpc = {
 
 /** Saludos a quien entra al recibidor (`{name}` = su nombre corto). */
 export const RECEPCION_GREET = [
-  "¡Buenas, {name}! Bienvenido a la casa.",
+  "¡Buenas, {name}! Siga, que la casa es suya.",
   "Siga, {name}, siga, que está en su casa.",
   "¡Ay, {name}! ¿Cómo me le va? ¿A quién busca?",
   "Buenos días, {name}. Límpiese los pies, mi amor.",

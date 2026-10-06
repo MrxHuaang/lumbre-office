@@ -37,10 +37,10 @@ describe("la gente de la fiesta: los datos", () => {
     }
   });
 
-  it.each(FESTIVALES)("%s: uno o dos pedidos, con objetos que existen", (id) => {
+  it.each(FESTIVALES)("%s: uno o dos pedidos (el Carnaval, tres), con objetos que existen", (id) => {
     const pedidos = pedidosDe(todos(id));
     expect(pedidos.length).toBeGreaterThanOrEqual(1);
-    expect(pedidos.length).toBeLessThanOrEqual(2);
+    expect(pedidos.length).toBeLessThanOrEqual(id === "carnaval" ? 3 : 2);
     expect(new Set(pedidos.map((p) => p.pedido.id)).size).toBe(pedidos.length);
     let puntos = 0;
     for (const { pedido } of pedidos) {

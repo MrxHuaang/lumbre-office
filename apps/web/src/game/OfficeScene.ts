@@ -123,6 +123,7 @@ import { ObservatorioVivo } from "./observatorioVivo";
 import { MaizalVivo, updateTrickTarget } from "./brujas";
 import { SilletasVivas } from "./feriaSilletas";
 import { CarnavalView } from "./carnaval/desfile";
+import { DecorCarnavalViva } from "./carnaval/decorViva";
 import { lanzarConF, salirseComparsa, sumarseComparsa, useCarnavalStore } from "./carnaval";
 import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
@@ -402,6 +403,8 @@ export class OfficeScene extends Phaser.Scene {
   private observatorio!: ObservatorioVivo;
   /** El laberinto de maíz de la Noche de brujas: las matas de delante se transparentan. */
   private maizal = new MaizalVivo();
+  /** La decoración del Carnaval que se mueve (banderines, faroles, humo de las ollas). */
+  private decorCarnaval = new DecorCarnavalViva(this);
   /** La Feria de las flores: la silleta exhibida encima de cada exhibidor. */
   private silletas!: SilletasVivas;
   /** El club del sótano (música, luces al ritmo, bailes) y las pantallas del arcade. */
@@ -839,6 +842,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.update();
     this.observatorio.update(time);
     this.maizal.update(this.local, delta);
+    this.decorCarnaval.update(delta);
     // Al final: el club tapa el cuerpo de quien baila después de que el avatar se acomodó.
     this.club.update();
     this.eventsView.update();
@@ -968,6 +972,7 @@ export class OfficeScene extends Phaser.Scene {
       this.rods.setArea(map);
       this.observatorio.setArea(map);
       this.maizal.setArea(map, this.view);
+      this.decorCarnaval.setArea(map, this.view);
       this.carnavalView.setArea(map);
       this.fishing.reset();
       this.club.setArea(map, this.view);
@@ -1059,6 +1064,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.setArea(map);
     this.observatorio.setArea(map);
     this.maizal.setArea(map, this.view);
+    this.decorCarnaval.setArea(map, this.view);
     this.carnavalView.setArea(map);
     this.club.setArea(map, this.view);
     this.eventsView.setArea(map, this.view);

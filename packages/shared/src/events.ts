@@ -85,7 +85,7 @@ export type CongratsResult = { ok: true; toName: string } | { ok: false; error: 
 
 export const CONGRATS_ERROR_TEXT: Record<CongratsError, string> = {
   "not-birthday": "Hoy no es su cumpleaños.",
-  self: "No puedes felicitarte a ti mismo (aunque te lo mereces).",
+  self: "Felicitarse uno mismo no vale (aunque te lo mereces).",
   already: "Ya le deseaste feliz cumpleaños hoy.",
   failed: "No se pudo mandar la felicitación. Intenta de nuevo.",
 };

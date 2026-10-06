@@ -113,7 +113,7 @@ function PreviewDialog({ pending }: { pending: PendingPhoto }) {
       const res = await fetch("/api/photos", { method: "POST", body: form });
       const body = (await res.json().catch(() => null)) as { error?: string; code?: string } | null;
       if (!res.ok) throw new Error(photoErrorText(body));
-      useOfficeStore.getState().notify("Tu foto quedó pinchada en el tablón de la cafetería.", "success");
+      useOfficeStore.getState().notify("Tu foto quedó colgada en el tablón de la cafetería.", "success");
       void usePhotoStore.getState().refresh();
       close();
     } catch (err) {
@@ -144,7 +144,7 @@ function PreviewDialog({ pending }: { pending: PendingPhoto }) {
             Descartar
           </button>
           <button type="button" onClick={() => void pin()} disabled={saving} className="cozy-btn cozy-btn-primary">
-            {saving ? "Pinchando…" : "Pinchar en el tablón"}
+            {saving ? "Colgando…" : "Colgar en el tablón"}
           </button>
         </div>
       </div>
@@ -285,7 +285,7 @@ function PhotoDetail({ photo, onBack }: { photo: PhotoDTO; onBack: () => void })
         )}
         {photo.canManage && (
           <button type="button" onClick={() => void togglePin()} disabled={busy} className="cozy-btn">
-            {photo.pinned ? "Sacar del corcho" : "Pinchar en el corcho"}
+            {photo.pinned ? "Quitar del corcho" : "Poner en el corcho"}
           </button>
         )}
         {photo.canManage && (

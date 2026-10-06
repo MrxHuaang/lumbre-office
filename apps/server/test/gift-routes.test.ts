@@ -39,7 +39,7 @@ describe("POST /api/gifts", () => {
   });
 
   it("no a uno mismo, ni a quien no entró nunca, ni a quien no existe; y el pedido tiene que ser válido", async () => {
-    expect(await postGift(base, ana, { toId: "ana", points: 10 }, notify)).toEqual({ status: 400, body: { error: "No puedes regalarte a ti." } });
+    expect(await postGift(base, ana, { toId: "ana", points: 10 }, notify)).toEqual({ status: 400, body: { error: "No te puedes mandar un regalo a ti." } });
     expect((await postGift(base, ana, { toId: "nuevo", points: 10 }, notify)).status).toBe(404);
     expect((await postGift(base, ana, { toId: "nadie", points: 10 }, notify)).status).toBe(404);
     expect((await postGift(base, ana, { toId: "beto" }, notify)).status).toBe(400);

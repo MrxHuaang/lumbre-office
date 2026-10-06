@@ -303,7 +303,7 @@ function MundoVivo() {
         <div className="flex flex-col gap-6">
           <h2 className="lumbre-h2 text-[clamp(32px,3.8vw,52px)]">Un mundo que vive aunque no estés mirando</h2>
           <p className="max-w-[46ch] text-[18px] leading-relaxed text-cozy-paper-dark">
-            Un día del juego dura una hora real: amanece, cae la tarde y de noche se prenden las ventanas. El clima cambia solo y la estación sale del mes, así que el huerto crece distinto en invierno.
+            Un día del juego dura una hora real: amanece, cae la tarde y de noche se prenden las ventanas. El clima cambia solo y las estaciones pasan con el calendario del juego, así que el huerto crece distinto en invierno.
           </p>
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {CLIMA.map(([icono, texto]) => (

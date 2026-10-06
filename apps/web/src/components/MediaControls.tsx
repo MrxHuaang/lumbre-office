@@ -107,7 +107,7 @@ export function MediaControls({ children, actions, tail }: { children?: ReactNod
             icon="cam"
             off={!cam}
             live={cam}
-            label={mediaDown ?? (cam ? "Cámara prendida: clic para apagar" : "Cámara apagada: clic para encender")}
+            label={mediaDown ?? (cam ? "Cámara prendida: clic para apagar" : "Cámara apagada: clic para prender")}
             active={cam}
             disabled={!ready}
             onClick={() => void media.toggleCam()}

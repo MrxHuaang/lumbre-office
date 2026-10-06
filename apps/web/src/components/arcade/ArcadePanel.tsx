@@ -251,7 +251,7 @@ export function ArcadePanel({ onClose }: { onClose: () => void }) {
               )}
               <Boards today={boards?.today ?? null} week={boards?.board ?? null} />
               <p className="mt-1 animate-pulse text-[15px] text-[#f3d672]">
-                {phase === "starting" ? "Insertando moneda…" : !canStart ? "Espera un momento…" : poor ? `Te faltan monedas (cuesta ${ARCADE_PRICE.machine})` : `Espacio: insertar moneda (${ARCADE_PRICE.machine})`}
+                {phase === "starting" ? "Insertando moneda…" : !canStart ? "Espera un momento…" : poor ? `Te faltan puntos (cuesta ${ARCADE_PRICE.machine})` : `Espacio: insertar moneda (${ARCADE_PRICE.machine})`}
               </p>
               <p className="text-[12px] text-[#c0e377]">{info?.controls}</p>
             </div>
@@ -301,7 +301,7 @@ function Boards({ today, week }: { today: ArcadeBoardEntry[] | null; week: Arcad
   return (
     <div className="grid w-[min(300px,95%)] grid-cols-2 gap-3 text-left">
       <BoardColumn title="HOY" color={NEON.gold} board={today} empty="Nadie jugó hoy." />
-      <BoardColumn title="SEMANA" color={NEON.cyan} board={week} empty="¡Sé la primera persona!" />
+      <BoardColumn title="SEMANA" color={NEON.cyan} board={week} empty="¡Estrena la máquina!" />
     </div>
   );
 }

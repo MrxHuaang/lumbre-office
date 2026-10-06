@@ -11,10 +11,10 @@ type Params = { params: Promise<{ id: string }> };
  */
 export async function PATCH(req: Request, { params }: Params) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const { id } = await params;
   const parsed = NoteUpdate.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Algo no cuadra en lo que se mandó. Intenta de nuevo." }, { status: 400 });
 
   // Siempre filtrando por userId: nadie puede tocar notas ajenas aunque adivine el id.
   const note = await prisma.note.findFirst({ where: { id, userId: user.id } });
@@ -57,7 +57,7 @@ export async function PATCH(req: Request, { params }: Params) {
 /** Borrar para siempre (solo notas que ya están en la papelera; sus subpáginas se borran con ella). */
 export async function DELETE(_req: Request, { params }: Params) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const { id } = await params;
   const { count } = await prisma.note.deleteMany({ where: { id, userId: user.id, deletedAt: { not: null } } });
   if (count === 0) return NextResponse.json({ error: "No está en la papelera" }, { status: 404 });

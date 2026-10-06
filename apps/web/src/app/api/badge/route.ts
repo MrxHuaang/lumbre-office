@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/current-user";
 /** La insignia destacada propia (id de un logro, o null). */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const row = await prisma.featuredBadge.findUnique({ where: { userId: user.id }, select: { achievementId: true } }).catch(() => null);
   return NextResponse.json({ achievementId: row?.achievementId ?? null }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -17,9 +17,9 @@ export async function GET() {
  */
 export async function PUT(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Tu sesión se cerró. Vuelve a entrar." }, { status: 401 });
   const parsed = FeaturedBadgeUpdate.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Algo no cuadra en lo que se mandó. Intenta de nuevo." }, { status: 400 });
   const { achievementId } = parsed.data;
   if (!achievementId) {
     await prisma.featuredBadge.deleteMany({ where: { userId: user.id } });

@@ -274,7 +274,7 @@ export type HockeyResult = { ok: true; balance: number } | { ok: false; error: H
 export const HOCKEY_ERROR_TEXT: Record<HockeyError, string> = {
   far: "Párate en una punta de la mesa de hockey para jugar.",
   busy: "La mesa está ocupada: espera a que termine el partido.",
-  funds: "No te alcanzan las monedas para jugar.",
+  funds: "No te alcanzan los puntos para jugar.",
   failed: "No se pudo cobrar la partida. Intenta de nuevo.",
   closed: "Ya no se puede sumar a ese partido.",
 };
