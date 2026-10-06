@@ -95,7 +95,7 @@ function jardin(def: AreaDef): FestivalDecor {
     [66, 113],
   ].forEach(([x, y]) => ponSiLibre("globos-carnaval", x!, y!));
   // Faroles de papel a los dos lados del sendero que baja del portón.
-  for (let y = 113; y <= 125; y += 3) {
+  for (let y = 114; y <= 123; y += 3) {
     let x0 = -1;
     let x1 = -1;
     for (let x = 50; x <= 70; x++)
