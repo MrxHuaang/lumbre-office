@@ -2,6 +2,8 @@ import { CARNAVAL, CARROZA_IDS, COMPARSAS, DESFILE_ORDEN, festivalById, GAME_DAY
 import { afterEach, describe, expect, it } from "vitest";
 import {
   atrasParaSumarse,
+  CARNAVAL_COMIDA,
+  CARNAVAL_GRADERIAS,
   CARNAVAL_PUESTO,
   CARNAVAL_TARIMA,
   CARROZA_TILES,
@@ -48,7 +50,37 @@ describe("la decoración del Carnaval", () => {
     expect(jardin.furniture.length).toBeGreaterThan(before + 60);
     expect(pointsOfType(jardin, "festival_shop")[0]).toMatchObject({ tileX: CARNAVAL_PUESTO.punto.x, tileY: CARNAVAL_PUESTO.punto.y });
     expect(pointsOfType(jardin, "carnaval_contest")[0]).toMatchObject({ tileX: CARNAVAL_TARIMA.punto.x, tileY: CARNAVAL_TARIMA.punto.y });
-    for (const t of ["tarima-comparsa", "puesto-carnaval", "banderines-carnaval", "farol-carnaval", "mascaron"]) expect(jardin.furniture.some((f) => f.type === t), t).toBe(true);
+    for (const t of [
+      "tarima-comparsa",
+      "tarima-musica",
+      "puesto-carnaval",
+      "puesto-mascaras",
+      "puesto-frito",
+      "puesto-empanadas",
+      "puesto-hervido",
+      "puesto-helado",
+      "tribuna-carnaval",
+      "tribuna-carnaval-alta",
+      "arco-carnaval",
+      "arco-carnaval-y",
+      "valla-carnaval",
+      "poste-banderines",
+      "banderines-carnaval",
+      "guirnalda-carnaval",
+      "farol-carnaval",
+      "mascaron",
+      "muneco-carnaval",
+      "cuy-carnaval",
+      "globos-carnaval",
+      "confeti-calle",
+    ])
+      expect(jardin.furniture.some((f) => f.type === t), t).toBe(true);
+    // Los puestos de comida y las graderías quedan todos (nada los tapó).
+    for (const p of CARNAVAL_COMIDA) expect(jardin.furniture.some((f) => f.type === p.type && f.x === p.x && f.y === p.y), p.type).toBe(true);
+    for (const g of CARNAVAL_GRADERIAS) {
+      expect(jardin.furniture.some((f) => f.type === "tribuna-carnaval-alta" && f.x === g.x && f.y === g.y), `gradería ${g.x}`).toBe(true);
+      expect(jardin.furniture.some((f) => f.type === "tribuna-carnaval" && f.x === g.x && f.y === g.y + 2), `gradería ${g.x}`).toBe(true);
+    }
     setFestivalDecor(null);
     expect(getWorld().areas.get("jardin")!.furniture.length).toBe(before);
   });
@@ -63,6 +95,23 @@ describe("la decoración del Carnaval", () => {
     for (const p of [...pointsOfType(map, "festival_shop"), ...pointsOfType(map, "carnaval_contest")]) expect(findPath(map, from, { x: p.tileX, y: p.tileY }), p.type).not.toBeNull();
     // La vereda sigue caminable de punta a punta (por ahí se mira el desfile y se suma uno a la comparsa).
     expect(findPath(map, { x: 14, y: 131 }, { x: 138, y: 131 })).not.toBeNull();
+    // Y el portón y el camino de piedra a la estación siguen abiertos por debajo de los arcos.
+    expect(findPath(map, from, { x: 62, y: 109 })).not.toBeNull();
+    expect(findPath(map, from, { x: 70, y: 128 })).not.toBeNull();
+  });
+
+  it("en las graderías se sienta la gente: cada banca se alcanza desde un tile caminable", () => {
+    setFestivalDecor("carnaval", 0);
+    const map = getWorld().areas.get("jardin")!;
+    const from = spawnOf(map);
+    for (const g of CARNAVAL_GRADERIAS)
+      for (let x = g.x; x < g.x + 6; x++)
+        for (const y of [g.y, g.y + 2]) {
+          expect(map.seats.has(y * map.width + x), `asiento ${x},${y}`).toBe(true);
+          // Desde el pasillo (y + 1, que se camina) se llega a las dos bancas.
+          expect(canStandAt(map, (x + 0.5) * map.tileSize, (g.y + 1.5) * map.tileSize), `pasillo ${x}`).toBe(true);
+        }
+    for (const g of CARNAVAL_GRADERIAS) expect(findPath(map, from, { x: g.x + 2, y: g.y + 1 }), `pasillo de la gradería ${g.x}`).not.toBeNull();
   });
 });
 

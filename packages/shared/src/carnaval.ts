@@ -153,9 +153,9 @@ const PALETAS: Record<string, readonly [string, string, string]> = {
   "#ee7a22": ["#3f9a3a", "#f7c518", "#e0283c"],
   "#c8343a": ["#c8243a", "#1f8a4a", "#f2c21c"],
   "#b98424": ["#1f8a8a", "#c8287a", "#e6aa2a"],
-  "#3a5aa8": ["#2a5ac8", "#1fb8c8", "#d8d2ee"],
-  "#6f8a3a": ["#0f8a8a", "#d0287a", "#e8b81c"],
-  "#7a4a2a": ["#c8323a", "#f4ead6", "#6a3a1e"],
+  "#3a5aa8": ["#2a5ac8", "#d0287a", "#e0a526"],
+  "#6f8a3a": ["#22a07a", "#8a3cc8", "#f0702a"],
+  "#7a4a2a": ["#f4ead6", "#7a2ab8", "#1fa8c0"],
   "#a6d23a": ["#a6d23a", "#c8287a", "#f2711c"],
   "#2a52d0": ["#d8283a", "#2a52d0", "#e0a526"],
 };
@@ -327,7 +327,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#3a5aa8",
     largo: 7,
     pieza: "sanjuanito",
-    bailarines: CUADRILLA.map((i) => comparsero(i, "#3a5aa8", { head: "sailor-hat", back: "cape", face: i % 3 ? "carnival-mask" : "none" })),
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#3a5aa8", { head: i % 2 ? "tiara" : "flower", back: "cape", face: i % 3 ? "carnival-mask" : "none", ...(i % 2 ? {} : { outfit: "gown" as const }) })),
     // La ola en cadena: cada uno salta medio tiempo después del de al lado, ida y vuelta; luego se mecen.
     frase: [
       ola(6, "saltar", CARNAVAL.beatMs / 2),
@@ -395,7 +395,7 @@ export const COMPARSAS: readonly Comparsa[] = [
     acento: "#7a4a2a",
     largo: 7,
     pieza: "sanjuanito",
-    bailarines: CUADRILLA.map((i) => comparsero(i, "#7a4a2a", { outfit: "apron", face: "none", head: "bandana" })),
+    bailarines: CUADRILLA.map((i) => comparsero(i, "#7a4a2a", { face: "none", neck: "neckerchief", head: i % 2 ? "straw-hat" : "flower", ...(i % 2 ? {} : { outfit: "apron" as const }) })),
     // Saludan desde la calle, reparten "tinto" y asienten (las burbujas las pone el navegador).
     frase: [
       todos("saludar"),

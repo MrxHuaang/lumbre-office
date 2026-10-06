@@ -86,7 +86,19 @@ El desfile va por el carril exclusivo, del oeste al este. Mientras pasa, **el bu
 
 Es un solo **Desfile Magno** por Carnaval: sale a las 10:00 del juego y no vuelve a salir hasta el Carnaval del año siguiente del calendario. Va despacio (0,34 tiles por segundo) y dura unos 17 minutos reales (de 10:00 a ~17:00 del juego): la fila (las carrozas con sus comparsas de 12 bailarines, tres murgas con bombo, bronces y acordeón, y tres grupos de disfraces individuales) es más larga que la calle y va pasando, así que siempre hay algo en la calle. Para dos veces frente al palco. Quien está en la vereda se suma a la comparsa de la cabaña en cualquier momento, donde va pasando la fila (baila en el hueco detrás de la carroza más cercana), y se baja cuando quiere.
 
-## 5. Grupos participantes (ficticios)
+## 5. La decoración (VIR-176)
+
+El carnaval de Pasto es de colores intensos y de día ("Negros y Blancos" son los nombres de los días, no la paleta de la fiesta), así que la vereda se llena de color y nada lleva dibujo de noche. Todo lo pone el festival (`world/festivales/carnaval.ts`) sin tapar caminos, portales, puntos ni la vereda:
+
+- **Sobre la vereda**: la guirnalda de punta a punta, tramos de banderines en dos cuerdas que se cruzan y de papel crepé torcido con pompones, colgada de postes pintados en espiral con cintas que vuelan; confeti en la orilla y serpentinas en la pradera.
+- **La plazoleta de la comida pastusa** (al oeste del sendero): el frito pastuso, las empanadas de añejo, el hervido y el helado de paila, cada uno con su toldo de franjas, festón con borlas, letrero pintado, mostrador de tableros con flores, su vendedora, su paila u olla con humo y cajones y canastos en el piso. Entre puesto y puesto, muñecos de papel maché en poste: el danzante con ruana y el cuy. Al lado, el puesto de máscaras y sombreros y una gradería.
+- **Los arcos**: uno sobre el portón y otro sobre el camino de piedra que lleva a la estación, con columnas de azulejos morados y rombos dorados, franjas de cuadros, el letrero "CARNAVAL" pintado a mano, el sol de los Pastos con un penacho de plumas y una sarta de pompones. Se pasa por debajo.
+- **Frente a la calle** (al este de la estación): la tarima del concurso (el palco del jurado, con el telón del Galeras), dos graderías de madera con armazón morado y banderines, con su valla de colores, y la tarima de la murga con sus parlantes y el bombo. En las graderías se sienta cualquiera (y parte del público de la gente de la fiesta).
+- **Por el sendero y el portón**: faroles de papel de acordeón, mascarones con plumas a los lados del portón y globos.
+
+Referencias: las calles del Desfile Magno con graderías y vallas, los puestos de comida típica (frito pastuso, empanadas de añejo, hervido de lulo o maracuyá, helado de paila) y el barniz de Pasto en las máscaras. Lo que se mueve (banderines, faroles, cintas, globos, humo) tiene cuadros que el navegador pasa en bucle.
+
+## 6. Grupos participantes (ficticios)
 
 - **Comparsa Familia Castañeda**: vecinos de la vereda que cada año "llegan de viaje" con ropa de 1928. La más antigua del desfile.
 - **Murga Los Tamborileros del Galeras**: banda de bombo, redoblante y trompetas que va entre carrozas y marca el paso de todos.
