@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { getRoom } from "@/game/network";
 import { usePermisosStore } from "@/game/permisos";
 import { callPerson, followPerson, wavePerson } from "@/game/comunicacion";
+import { retarAguinaldo, useEnNovena } from "@/game/novenas";
+import { AguinaldoOverlays } from "../novenas/Aguinaldos";
 import { respondTrade, sendTradeRequest, useSocialStore, type GiftTarget } from "@/game/social";
 import { useOfficeStore } from "@/game/store";
 import { PixelIcon } from "../Cozy";
@@ -24,6 +26,7 @@ export function SocialOverlays() {
     <>
       <PersonMenu />
       <TradeInvites />
+      <AguinaldoOverlays />
       {giftTo && (
         <PanelShell title="Regalar" icon="gift" onClose={() => openGift(null)}>
           <GiftForm to={giftTo} onSent={() => openGift(null)} onCancel={() => openGift(null)} />
@@ -34,7 +37,7 @@ export function SocialOverlays() {
   );
 }
 
-/** Menú junto a la persona en la que se hizo clic: su nombre, Regalar, Intercambiar, Llamar, Saludar y Seguir. */
+/** Menú junto a la persona en la que se hizo clic: su nombre, Regalar, Intercambiar, Llamar, Saludar, Seguir y, en las novenas, los aguinaldos. */
 function PersonMenu() {
   const menu = useSocialStore((s) => s.personMenu);
   const close = useSocialStore((s) => s.closePersonMenu);
@@ -42,6 +45,8 @@ function PersonMenu() {
   const person = useOfficeStore((s) => (menu ? s.players[menu.sessionId] : undefined));
   const near = useNearMe(menu?.sessionId ?? null);
   const admin = usePermisosStore((s) => s.admin);
+  // En las novenas se reta a un aguinaldo (de cerca, como intercambiar).
+  const novena = useEnNovena();
 
   useEffect(() => {
     if (!menu) return;
@@ -102,6 +107,20 @@ function PersonMenu() {
         <PixelIcon name="steps" size={13} color="var(--color-cozy-wood)" />
         Seguir
       </button>
+      {novena && (
+        <>
+          <button type="button" role="menuitem" disabled={!near} title={near ? undefined : "Acércate para retarle"} onClick={act(() => retarAguinaldo(menu.sessionId, "pajita"))} className={item}>
+            <PixelIcon name="gift" size={13} color="var(--color-cozy-red)" />
+            Pajita en boca
+            {!near && <span className="ml-auto text-[11px] text-cozy-ink-soft">lejos</span>}
+          </button>
+          <button type="button" role="menuitem" disabled={!near} title={near ? undefined : "Acércate para retarle"} onClick={act(() => retarAguinaldo(menu.sessionId, "si-no"))} className={item}>
+            <PixelIcon name="gift" size={13} color="var(--color-cozy-red)" />
+            Sí y no
+            {!near && <span className="ml-auto text-[11px] text-cozy-ink-soft">lejos</span>}
+          </button>
+        </>
+      )}
       {admin && (
         <button type="button" role="menuitem" onClick={act(() => usePermisosStore.getState().openEditor({ userId: person.userId, name: person.name }))} className={item}>
           <PixelIcon name="unlock" size={13} color="var(--color-cozy-wood)" />

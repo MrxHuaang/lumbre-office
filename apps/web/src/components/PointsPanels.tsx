@@ -101,6 +101,7 @@ const PROMPT: Record<Interactable, string> = {
   grill: "Cocinar en el horno de barro",
   coop: "Ver los nombres del gallinero",
   reception: "Preguntarle a Doña Gloria",
+  pesebre: "Poner la figura del pesebre",
   encargo: "Hablar del encargo",
   brujasShop: "Comprar en el puesto del caldero",
   goldenPumpkin: "Tomar la calabaza dorada",

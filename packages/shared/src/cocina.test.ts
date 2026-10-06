@@ -12,7 +12,10 @@ import {
   dishSpeedMul,
   isDish,
   isIngredient,
+  ingredientName,
   missingFor,
+  PANTRY_ITEMS,
+  recipeInSeason,
   recipeById,
   takeIngredients,
 } from "./cocina";
@@ -21,7 +24,8 @@ import { CONSUMABLES, PLAYER_SPEED, usesOf } from "./index";
 describe("cocina", () => {
   it("las recetas usan solo lo del huerto y la miel, y cada plato se lleva en la mano", () => {
     for (const r of RECIPES) {
-      for (const item of Object.keys(r.needs)) expect(isIngredient(item), `${r.id}: ${item}`).toBe(true);
+      // Las de temporada también usan lo de la granja (harina, queso, huevos), que la despensa cuenta.
+      for (const item of Object.keys(r.needs)) expect(r.festival ? PANTRY_ITEMS.includes(item) : isIngredient(item), `${r.id}: ${item}`).toBe(true);
       expect(isDish(r.id)).toBe(true);
       expect(isFreeHold(r.id), r.id).toBe(true);
       expect(heldParts(r.id)).toEqual([r.id]);
@@ -55,8 +59,23 @@ describe("cocina", () => {
 
   it("valida los mensajes y tiene texto para cada aviso", () => {
     expect(CookMessage.safeParse({ recipe: "ajiaco" }).success).toBe(true);
+    expect(CookMessage.safeParse({ recipe: "natilla-casera" }).success).toBe(true);
     expect(CookMessage.safeParse({ recipe: "whisky" }).success).toBe(false);
     for (const code of CocinaNoticeCode.options) expect(cocinaNoticeText({ code, item: "ajiaco", points: 3 }).length).toBeGreaterThan(5);
     expect(new Set(Object.values(COCINA_MSG)).size).toBe(Object.keys(COCINA_MSG).length);
+  });
+
+  it("la natilla y los buñuelos son de las novenas: fuera del festival no se cocinan", () => {
+    const natilla = recipeById("natilla-casera")!;
+    const bunuelos = recipeById("bunuelos-novena")!;
+    for (const r of [natilla, bunuelos]) {
+      expect(r.festival).toBe("novenas");
+      expect(recipeInSeason(r, "novenas")).toBe(true);
+      expect(recipeInSeason(r, "")).toBe(false);
+      expect(recipeInSeason(r, "brujas")).toBe(false);
+    }
+    expect(recipeInSeason(recipeById("ajiaco")!, "")).toBe(true);
+    for (const item of ["harina", "queso", "huevo"]) expect(PANTRY_ITEMS).toContain(item);
+    expect(ingredientName("harina")).toBe("Harina de maíz");
   });
 });

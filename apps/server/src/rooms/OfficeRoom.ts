@@ -1,4 +1,5 @@
 import {
+  TILE_SIZE,
   allZones,
   applyDecorEdit,
   buildArea,
@@ -170,6 +171,11 @@ import {
   resumeClock,
   setGameTime,
   estacionDelDia,
+  NOVENA,
+  NOVENA_MSG,
+  NOVENAS_FESTIVAL,
+  novenaDia,
+  AGUINALDO_MSG,
   isSeason,
   type GameClockState,
   type GameTime,
@@ -235,6 +241,8 @@ import { Capitulo2 } from "./capitulo2";
 import { Capitulo3 } from "./capitulo3";
 import { HISTORIA_MSG, aguaBrilla, recipeById, type HistoriaAsk } from "@hyvento/shared";
 import { nearQuestGiver } from "@hyvento/map";
+import { Novenas } from "./novenas";
+import { Aguinaldos } from "./aguinaldos";
 import { WeatherCycle } from "./weather";
 import { FurnitureUses } from "./usables";
 import { FISHING, initialWeather, type FishingTimings, type Weather } from "@hyvento/shared";
@@ -939,6 +947,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       for (const p of this.state.players.values()) if (p.userId === userId) p.buff = dish;
     },
     level: (userId, oficio) => this.oficios.level(userId, oficio),
+    festival: () => this.festivales.current().festival?.id ?? "",
     // La carnada de E. (capítulo 3) se cocina solo con su paso abierto.
     storyOpen: (userId, questId) => this.encargos.storyStep(userId, questId) === "open",
   });
@@ -1061,6 +1070,12 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(COCINA_MSG.cook, (client, raw) => void this.withCook(client, (p, now) => this.cocina.cook(this.mapOf(p.area), p, raw, now)));
     this.onMessage(MSG.move, (client, raw) => this.handleMove(client, raw));
     this.onMessage(MSG.chatSend, (client, raw) => this.handleChat(client, raw));
+    // Las novenas: el pesebre y los aguinaldos.
+    this.onMessage(NOVENA_MSG.figura, (client) => void this.handlePesebre(client));
+    this.onMessage(AGUINALDO_MSG.reto, (client, raw) => this.aguinaldos.reto(client.sessionId, raw));
+    this.onMessage(AGUINALDO_MSG.responder, (client, raw) => this.aguinaldos.responder(client.sessionId, raw));
+    this.onMessage(AGUINALDO_MSG.respuesta, (client, raw) => this.aguinaldos.respuesta(client.sessionId, raw));
+    this.onMessage(AGUINALDO_MSG.rendirse, (client) => this.aguinaldos.rendirse(client.sessionId));
     this.onMessage(MSG.status, (client, raw) => this.handleStatus(client, raw));
     this.onMessage(MSG.idle, (client, raw) => {
       const parsed = IdleMessage.safeParse(raw);
@@ -1239,6 +1254,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // El festival del día del calendario (ver festivales.ts): abre a las 9:00 y cierra a las 22:00 del juego.
     this.clock.setInterval(() => {
       this.festivales.tick();
+      this.novenas.tick();
       this.syncFestival();
     }, 2_000);
     this.weather.start();
@@ -1263,6 +1279,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       await this.loadGameClock();
       this.season = this.gameSeason();
       this.festivales.start();
+      await this.novenas.load();
       this.syncFestival();
       await this.huerto.load().catch((err) => console.error("loadGarden", err));
       this.startCasino();
@@ -1340,6 +1357,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.weather.dispose();
     this.bus?.dispose();
     this.cocina.dispose();
+    this.aguinaldos.dispose();
     this.phones.dispose();
     this.comunicacion?.dispose();
     // Primero se devuelve lo cobrado o sacado de la mochila que no alcanzó a terminar (Colyseus espera
@@ -1377,6 +1395,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   async onJoin(client: Client<UserData>, options: unknown, auth: GameTokenClaims) {
     this.resumeGameClock();
     this.festivales.welcome((type, msg) => client.send(type, msg));
+    this.novenas.welcome(client.sessionId);
     this.removeOtherPresences(auth.sub, client.sessionId);
     this.fishery.forget(auth.sub); // un lance de la sesión anterior no sigue en la nueva
 
@@ -2695,6 +2714,63 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.basketsFor = open;
   }
 
+  /** Día de la novena que corre hoy (1..9; prendida a mano en desarrollo fuera de fecha, el 1), o 0. */
+  novenaHoy(): number {
+    if (this.festivales.current().festival?.id !== NOVENAS_FESTIVAL) return 0;
+    return novenaDia(fechaDelJuego(this.gameTimeNow().day).diaDeEstacion) || 1;
+  }
+
+  /** Las novenas: el pesebre del recibidor y la novena de las 20:00 del juego (ver novenas.ts). */
+  private novenas = new Novenas({
+    dia: () => this.novenaHoy(),
+    time: () => this.gameTimeNow(),
+    players: () => this.state.players.entries(),
+    tileSize: TILE_SIZE,
+    broadcast: (type, msg) => this.broadcast(type, msg),
+    send: (sessionId, type, msg) => this.clients.getById(sessionId)?.send(type, msg),
+    awardOnce: async (userId, amount, refId) => {
+      const r = await this.repo.awardPointsOnce({ userId, amount, reason: "LEISURE", refId, refPrefix: NOVENA.refPrefix, maxPerDay: NOVENA.dias });
+      for (const p of this.state.players.values()) if (p.userId === userId) p.points = r.balance;
+      if (r.awarded > 0) this.sendToUser(userId, MSG.pointsAwarded, { amount: r.awarded, reason: "LEISURE", balance: r.balance } satisfies PointsAwarded);
+      return r.status === "ok";
+    },
+    award: (userId, amount) => this.awardLeisure(userId, amount),
+    bump: (userId, key) => this.achievements.bump(userId, key),
+    load: async () => (await this.repo.loadWorldEdits())[NOVENA.fila] ?? null,
+    save: (data, userId) => this.repo.saveWorldEdits(NOVENA.fila, data, userId),
+  });
+
+  /** El azar de las preguntas del sí y no y los tiempos de los aguinaldos (los tests los fijan y acortan). */
+  static aguinaldosRandom: (n: number) => number = (n) => randomInt(n);
+  static aguinaldoTimings: Partial<{ inviteMs: number; pajitaMs: number; turnoMs: number }> = {};
+  /** Los aguinaldos de las novenas: pajita en boca y sí y no entre dos (ver aguinaldos.ts). */
+  private aguinaldos = new Aguinaldos({
+    player: (sessionId) => this.state.players.get(sessionId),
+    send: (sessionId, type, msg) => this.clients.getById(sessionId)?.send(type, msg),
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    now: () => Date.now(),
+    enNovena: () => this.novenaHoy() > 0,
+    pay: async (fromId, toId, amount, refId) => {
+      const r = await this.repo.payAguinaldo({ refId, fromId, toId, amount });
+      if (!r.ok) return 0;
+      for (const p of this.state.players.values()) if (r.balances[p.userId] !== undefined) p.points = r.balances[p.userId]!;
+      return amount;
+    },
+    bump: (userId, key) => this.achievements.bump(userId, key),
+    random: (n) => OfficeRoom.aguinaldosRandom(n),
+    newId: () => randomUUID(),
+    timings: () => OfficeRoom.aguinaldoTimings,
+  });
+
+  /** E junto al pesebre: poner la figura del día (ver novenas.ts). */
+  private async handlePesebre(client: Client<UserData>) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    this.markActive(client);
+    const aviso = await this.novenas.figura(player);
+    if (aviso) client.send(NOVENA_MSG.aviso, aviso);
+  }
+
   /** La estación con que se vio el mundo la última vez (para notar el cambio). */
   private season: Season | null = null;
 
@@ -2767,6 +2843,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (times.length >= CHAT_RATE.max) return this.rechazo(client, "rate");
     times.push(now);
     client.userData.chatTimes = times;
+    // En la pajita en boca, escribir en el chat pierde (aguinaldos.ts).
+    this.aguinaldos.chat(client.sessionId);
     if (devToolsEnabled() && (this.devJump(client, player, parsed.data.text) || this.devWeather(client, parsed.data.text) || this.devFestival(client, parsed.data.text) || this.devSombrero(client, player, parsed.data.text))) return;
     if (this.timeCommand(client, parsed.data.text, parsed.data.scope)) return;
     this.achievements.bump(player.userId, STAT_KEYS.chatMessages);
@@ -3005,6 +3083,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!acceptEmote((client.userData.emoteTimes ??= []), now)) return;
     client.userData.lastEmoteAt = now;
     client.userData.lastActiveAt = now;
+    this.aguinaldos.emote(client.sessionId);
     const event: EmoteEvent = { sessionId: client.sessionId, emote: parsed.data.emote };
     this.achievements.bump(player.userId, STAT_KEYS.emotes);
     if (parsed.data.emote === "dance") this.achievements.bump(player.userId, STAT_KEYS.dances);
@@ -4167,6 +4246,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.observatorio?.forget(sessionId);
     if (player) this.mundo?.forget(player.userId);
     this.state.players.delete(sessionId);
+    this.aguinaldos.leave(sessionId);
     this.casaArbol?.sweep(Date.now());
     this.club?.forget(sessionId);
     this.whiteboards.forget(sessionId);
