@@ -76,7 +76,7 @@ export const FESTIVALES: readonly FestivalDef[] = [
   {
     id: "cometas",
     nombre: "Festival de cometas",
-    resumen: "Cometas que se arman y se elevan con el viento del jardín; gana la que más sube.",
+    resumen: "Cometas que se arman en el taller y se elevan en la loma del observatorio; gana la que más sube y la más bonita.",
     estacion: "verano",
     dia: 9,
     dias: 1,
@@ -181,14 +181,18 @@ export const FESTIVALES: readonly FestivalDef[] = [
   {
     id: "ano-viejo",
     nombre: "Año viejo",
-    resumen: "Quema del muñeco de año viejo, uvas y maletas a la medianoche y el año nuevo de la cabaña.",
+    resumen: "El muñeco de año viejo entre todos, testamentos, agüeros, la quema a las 9:30 y la cuenta regresiva.",
     estacion: "invierno",
     dia: 21,
     dias: 1,
     color: "#c0392b",
     frases: {
-      aurora: ["Tenga listas las doce uvas. Y la maleta, que este año sí viajamos.", "Al muñeco de año viejo le pusimos la corbata del cuidador de antes. Ojalá no le importe."],
-      gloria: ["A la medianoche, todos al jardín a quemar el año viejo.", "Calzones amarillos, ¿sí o qué?"],
+      aurora: [
+        "Tenga listas las doce uvas y la maleta a la mano, que este año sí viajamos.",
+        "Al muñeco de año viejo le pusimos la corbata del cuidador de antes. Ojalá no le importe.",
+        "Escriba su testamento en el cartel antes de la quema. Lo malo se va con el humo.",
+      ],
+      gloria: ["A las nueve y media se quema el muñeco en el brasero del patio. Sin pólvora, como debe ser.", "¿Y la ropa amarilla? Es para la buena suerte."],
       evelio: ["Año nuevo, caña nueva. O la misma, pero con ilusión.", "Yo le pido al año nuevo un pez dorado. Siempre se lo pido."],
     },
   },
@@ -348,7 +352,7 @@ export const FESTIVAL_CINEMATICAS: readonly CineDef[] = [
     { op: "fx", fx: "chispas" },
   ]),
   close(byId("feria-flores"), "Las silletas quedan en el patio unos días, pa' que las vean los que no vinieron."),
-  open(byId("cometas"), ["¡Sopla el viento del verano! A elevar cometas en el jardín.", "Gana la que suba más alto. Cuidado con los faroles."], [
+  open(byId("cometas"), ["¡Sopla el viento del verano! A elevar cometas en la loma del observatorio.", "Arme la suya en el taller de la loma. Gana la que suba más alto y la más bonita."], [
     { op: "sound", sound: "brisa" },
   ]),
   close(byId("cometas"), "Recojan las cometas, que la última se fue pal lago con todo y cola."),
@@ -383,10 +387,10 @@ export const FESTIVAL_CINEMATICAS: readonly CineDef[] = [
     { op: "sound", sound: "campanada" },
   ]),
   close(byId("novenas"), "Mañana seguimos con la novena. Que no se le olvide la natilla."),
-  open(byId("ano-viejo"), ["¡Último día del año de la cabaña! Esta noche se quema el año viejo.", "Tenga las doce uvas listas y la maleta a la mano."], [
+  open(byId("ano-viejo"), ["¡Último día del año de la cabaña! Entre todos armamos el muñeco de año viejo.", "Pásele por el puesto del patio: uvas, maleta y lentejas para los agüeros."], [
     { op: "fx", fx: "confeti" },
   ]),
-  close(byId("ano-viejo"), "¡Feliz año nuevo, mijo! Que este año la cabaña nos dé muchas sorpresas."),
+  close(byId("ano-viejo"), "¡Feliz año nuevo! Que este año la cabaña nos dé muchas sorpresas."),
   ...FESTIVALES.map(late),
   // Las de la Noche de velitas: las metas del equipo y la suelta de faroles (velitas.ts).
   ...VELITAS_CINEMATICAS,

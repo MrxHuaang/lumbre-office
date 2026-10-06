@@ -12,6 +12,7 @@ import { CASA_FINCA_CHIMNEY_TOP, CASA_PROPIA_NIGHT } from "./casa-propia-exterio
 import { BRUJAS_NIGHT } from "./brujas";
 import { VELITAS_NIGHT } from "./velitas";
 import { FERIA_NIGHT } from "./feria-flores";
+import { ANO_VIEJO_NIGHT } from "./ano-viejo";
 import { AMOR_NIGHT } from "./amor-amistad";
 import { NOVENAS_NIGHT } from "./novenas";
 import { C, OUT, SHADOW, inRect, mix } from "./palette";
@@ -601,6 +602,8 @@ const OUTDOOR: Record<string, (night: boolean) => Sprite> = {
   ...VELITAS_NIGHT,
   // La Feria de las flores: el farol de papel de colores, prendido de noche.
   ...FERIA_NIGHT,
+  // El Año viejo: el brasero (las brasas) y el farol de papel amarillo, prendidos de noche.
+  ...ANO_VIEJO_NIGHT,
   ...AMOR_NIGHT,
   // Las novenas: el árbol de Navidad y el arco de luces, prendidos de noche.
   ...NOVENAS_NIGHT,

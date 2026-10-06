@@ -428,6 +428,37 @@ export class CosechaState extends Schema {
   @type("boolean") baile = false;
 }
 
+/** Una cometa que vuela en el Festival de cometas (CometaVueloView de @hyvento/shared), por sessionId de quien la sostiene. */
+export class CometaVueloState extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** El código de la cometa (cometa.ts): de ahí sale su dibujo. */
+  @type("string") code = "";
+  /** La altura en metros (la que la sala ya validó con los botones del vuelo). */
+  @type("number") altura = 0;
+  /** El hilo cruje: la tensión está en peligro. */
+  @type("boolean") tenso = false;
+}
+
+/** Una cometa inscrita en el concurso de la más bonita (por dueño). */
+export class CometaInscritaState extends Schema {
+  @type("string") ownerId = "";
+  @type("string") ownerName = "";
+  @type("string") code = "";
+  @type("number") votes = 0;
+  /** Cuándo se inscribió (desempata: gana la primera). */
+  @type("float64") at = 0;
+}
+
+/** El Festival de cometas (ver rooms/cometas.ts): las que vuelan, el récord del día y el concurso. */
+export class CometasState extends Schema {
+  @type({ map: CometaVueloState }) vuelos = new MapSchema<CometaVueloState>();
+  @type({ map: CometaInscritaState }) inscritas = new MapSchema<CometaInscritaState>();
+  @type("number") recordAltura = 0;
+  @type("string") recordId = "";
+  @type("string") recordName = "";
+}
+
 /** Escenario del jardín: alguien de las gradas con la mano levantada (la fila de turnos, en orden). */
 export class StageHand extends Schema {
   @type("string") sessionId = "";
@@ -594,6 +625,28 @@ export class VelitasState extends Schema {
   @type({ map: DeseoState }) wishes = new MapSchema<DeseoState>();
 }
 
+/** Un testamento del cartel del Año viejo (la clave es el userId: uno por persona). */
+export class TestamentoState extends Schema {
+  @type("string") name = "";
+  @type("string") text = "";
+  @type("float64") at = 0;
+}
+
+/** El Año viejo (ver rooms/anoViejo.ts): el muñeco que se arma entre todos, la quema, las campanadas y los testamentos. */
+export class AnoViejoState extends Schema {
+  @type("uint16") prendas = 0;
+  @type("uint16") rellenos = 0;
+  /** La etapa del muñeco (0..4), con `etapaMuneco`. */
+  @type("uint8") etapa = 0;
+  /** Cuándo empezó la quema (ms del servidor; 0 = todavía no). */
+  @type("float64") quemadoAt = 0;
+  /** Las doce campanadas de las uvas: la primera en `campanadasInicio` (ms del servidor); sin `campanadasN`, no suenan. */
+  @type("float64") campanadasInicio = 0;
+  @type("uint16") campanadasIntervalo = 0;
+  @type("uint8") campanadasN = 0;
+  @type({ map: TestamentoState }) testamentos = new MapSchema<TestamentoState>();
+}
+
 export class OfficeState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: OfficeInfo }) offices = new MapSchema<OfficeInfo>();
@@ -653,4 +706,8 @@ export class OfficeState extends Schema {
   @type(CarnavalState) carnaval = new CarnavalState();
   /** La Feria de la cosecha: la olla del sancocho, el concurso de la ahuyama y la tómbola. */
   @type(CosechaState) cosecha = new CosechaState();
+  /** El Año viejo: el muñeco, la quema, las campanadas de las uvas y los testamentos. */
+  @type(AnoViejoState) anoViejo = new AnoViejoState();
+  /** El Festival de cometas: las que vuelan, el récord del día y el concurso de la más bonita. */
+  @type(CometasState) cometas = new CometasState();
 }

@@ -116,6 +116,42 @@ export const DIRECTOR_ACCIONES: readonly DirectorAccionDef[] = [
     festival: "carnaval",
     aviso: "{nombre} sacó el desfile del Carnaval a la calle.",
   },
+  // El Año viejo (rooms/anoViejo.ts): lo que tiene hora, sin esperarla.
+  {
+    id: "ano-viejo-uvas",
+    nombre: "Las campanadas de las uvas ya",
+    descripcion: "Suenan ya las doce campanadas del Año viejo, para comerse las uvas.",
+    festival: "ano-viejo",
+    aviso: "{nombre} puso a sonar las campanadas de las uvas.",
+  },
+  {
+    id: "ano-viejo-quema",
+    nombre: "La quema del muñeco ya",
+    descripcion: "Se quema ya el muñeco de año viejo en el brasero, con su cinemática y las luces de colores.",
+    festival: "ano-viejo",
+    aviso: "{nombre} prendió el muñeco de año viejo.",
+  },
+  {
+    id: "ano-viejo-cuenta",
+    nombre: "La cuenta regresiva ya",
+    descripcion: "La cuenta regresiva del año nuevo: cuentan las lentejas y la ropa amarilla, el abrazo y el resumen del año.",
+    festival: "ano-viejo",
+    aviso: "{nombre} arrancó la cuenta regresiva del año nuevo.",
+  },
+  {
+    id: "cometas-primera",
+    nombre: "La primera cometa del día",
+    descripcion: "Los niños llegan corriendo a la loma a celebrar la primera cometa en el aire (para los del jardín).",
+    festival: "cometas",
+    aviso: "{nombre} repitió la celebración de la primera cometa.",
+  },
+  {
+    id: "cometas-premiacion",
+    nombre: "La premiación de las cometas ya",
+    descripcion: "La premiación con la más alta y la más bonita de ahora, para todos. Los premios se pagan al cierre.",
+    festival: "cometas",
+    aviso: "{nombre} adelantó la premiación de las cometas.",
+  },
   {
     id: "cosecha-baile",
     nombre: "El baile de la cosecha ya",

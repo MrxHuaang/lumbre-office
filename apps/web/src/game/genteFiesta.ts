@@ -43,6 +43,7 @@ import { lessMotion } from "@/lib/prefs";
 import { Avatar } from "./Avatar";
 import { useBagStore } from "./bag";
 import { portraitFromSheet } from "./cinematicas/player";
+import { playCinematic } from "./cinematicas/puerta";
 import { serverNow } from "./club/store";
 import { abrirDialogo, decirEnDialogo, useDialogo } from "./dialogo";
 import { murmullosCallados, murmullosVisibles, murmurar } from "./murmullo";
@@ -66,7 +67,7 @@ export interface GenteDeps {
 }
 
 /** El panel del puesto de cada festival (la `accion` del vendedor lo abre). */
-const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", "amor-amistad": "amorShop", cosecha: "cosechaPuesto" };
+const PUESTO_DE: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop", "feria-flores": "feriaShop", "amor-amistad": "amorShop", "ano-viejo": "anoViejoShop", cometas: "cometasShop", cosecha: "cosechaPuesto" };
 
 /** Cada cuánto se mira quién está cerca (y quién murmura). */
 const SCAN_MS = 250;
@@ -158,6 +159,11 @@ export class GenteFiestaView {
   /** Los cuerpos (para atenuar al que tape la mesa en el modo mesa). */
   collectSprites(out: { push(s: Phaser.GameObjects.Sprite): unknown }) {
     for (const a of this.actors.values()) if (a.avatar && a.visible) out.push(a.avatar.sprite);
+  }
+
+  /** Los que se ven ahora (para la capa de las cometas). */
+  actorsVisibles(): Actor[] {
+    return [...this.actors.values()].filter((a) => a.visible);
   }
 
   /** Id del NPC de la fiesta dibujado bajo el puntero (clic para ir a hablarle), o null. */
@@ -630,6 +636,8 @@ export class GenteFiestaView {
     const premio = [r.item ? `${bagItemInfo(r.item).name} x${r.n ?? 1}` : null, r.puntos > 0 ? `${r.puntos} puntos` : null].filter(Boolean).join(" y ");
     decirEnDialogo(r.npc, [pedido?.gracias ?? "¡Gracias!", ...(premio ? [`Te dio: ${premio}.`] : [])]);
     a?.avatar?.emote("heart");
+    // Algunos pedidos tienen su cinemática (el niño cuando le bajan la cometa del árbol).
+    if (pedido?.cine) void playCinematic(pedido.cine, a?.npc.cometa ? { codigo: a.npc.cometa } : {});
   }
 }
 
@@ -647,6 +655,13 @@ function pideTexto(pide: readonly { item: string; n: number }[]): { texto: strin
 }
 
 export { genteAlAlcance, useGenteFiesta };
+
+/** Los de la fiesta que tienen cometa (los niños de la loma): dónde están, cuál y su pedido. */
+export function genteCometas(): { id: string; x: number; y: number; code: string; pedido?: string }[] {
+  const out: { id: string; x: number; y: number; code: string; pedido?: string }[] = [];
+  for (const a of current?.actorsVisibles() ?? []) if (a.npc.cometa) out.push({ id: a.npc.id, x: a.pose.x, y: a.pose.y, code: a.npc.cometa, pedido: a.npc.pedido?.id });
+  return out;
+}
 
 /** Clic sobre alguien de la fiesta: dónde está para caminar hasta él. */
 export const genteBajo = (sx: number, sy: number) => current?.under(sx, sy) ?? null;

@@ -61,7 +61,15 @@ colombianas puestas en el calendario del juego, a nuestra manera.
 | Otoño | 21 | Noche de brujas (VIR-157) | Calabazas, niebla, disfraces, dulce o truco por las puertas, laberinto de maíz, la leyenda del sótano |
 | Invierno | 7 | Noche de velitas (VIR-158) | Velitas que se prenden entre todos (con metas del equipo), faroles de deseos desde el muelle y la suelta de faroles a las 21:00 (la medianoche ya es otro día: queda una hora antes del cierre) |
 | Invierno | 12–20 | Novenas (VIR-159) | Nueve noches del juego: pesebre que se arma entre todos, villancicos, natilla y buñuelos, aguinaldos |
-| Invierno | 21 | Año viejo | Quema del muñeco de año viejo, uvas y maletas a la medianoche, cinemática de año nuevo |
+| Invierno | 21 | Año viejo (VIR-170) | El muñeco que se arma entre todos y su quema a las 21:30 (sin pólvora), los testamentos, los agüeros (doce uvas, maleta, lentejas y ropa amarilla), la cuenta regresiva a las 21:59 y el resumen del año |
+
+## Festival de cometas (VIR-168)
+
+Hecho: el voladero en la loma del observatorio con el taller (forma, dos colores y la cola; la cometa va en el id
+del objeto, como la silleta), el puesto de Chepe y el carrito del raspao, el vuelo (un minijuego de tensión con
+el viento del clima del servidor, que la sala repite para validar la altura), las cometas de todos en el cielo,
+el récord del día, el concurso de la más bonita con premiación al cierre, los pedidos de Mateo (el gancho) y
+Santiago (la cometa del techo del garaje) y los momentos en el panel del director.
 
 ## Novenas (VIR-159)
 
@@ -70,15 +78,24 @@ la novena de las 20:00 del juego con su cinemática por noche, la natilla y los 
 cocina y dos aguinaldos entre dos personas (pajita en boca y sí y no). La decoración navideña (árbol, arco de
 luces y corona) la pone la decoración temporal de los festivales (`world/festivales/novenas.ts`).
 
+## Año viejo (VIR-170)
+
+Hecho: la plaza del año viejo entre el porche y el patio, con el muñeco que crece por etapas con las prendas y el
+relleno que le da cada quien, el cartel de los testamentos (moderados), el puesto que regala lo de los agüeros y
+vende lo del muñeco, la quema de las 21:30 en el brasero (fuego por cuadros y luces de colores, nada de
+pólvora), las doce uvas con las campanadas (18:00, 20:00 y 21:45), la vuelta de la maleta por las paradas, las
+lentejas y la ropa amarilla, la cuenta regresiva de las 21:59 con el abrazo y el resumen del año de cada quien.
+Los momentos con hora se pueden disparar desde el panel del director.
+
 ## La gente de la fiesta (VIR-167)
 
 Cada festival trae su gente: entre 8 y 15 NPC en el jardín (y alguno adentro) que pasean, bailan, conversan
 en corrillos, venden en el puesto y piden cosas de la mochila a cambio de algo. Son los **vecinos de la
 vereda** (ficticios y recurrentes: la profe jubilada, el de las empanadas, la niña con su perro, los abuelos
 que bailan, el del tiple…) con otro papel y otra pinta en cada fiesta, más algún suelto (niños disfrazados,
-turistas). Hablan en la tira de conversación y murmuran solos sin cajas. Hecho para brujas, velitas,
-novenas, la feria, el carnaval, amor y amistad y la cosecha; los que faltan (cometas, año viejo) solo
-agregan su función en `GENTE_FIESTA` (ver "La gente de la fiesta" en `CLAUDE.md`).
+turistas). Hablan en la tira de conversación y murmuran solos sin cajas. Hecho para todos: brujas, velitas,
+novenas, la feria, el carnaval, amor y amistad, las cometas, el año viejo y la cosecha; un festival nuevo solo
+agrega su función en `GENTE_FIESTA` (ver "La gente de la fiesta" en `CLAUDE.md`).
 
 ## Las cinemáticas (VIR-155)
 

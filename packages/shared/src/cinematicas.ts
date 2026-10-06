@@ -19,6 +19,8 @@ import { FERIA_CINEMATICAS } from "./feria-flores";
 import { COSECHA_CINEMATICAS } from "./cosecha";
 import { NOVENA_CINEMATICAS } from "./novenas";
 import { VECINO_IDS } from "./gente-fiesta/vecinos";
+import { ANO_VIEJO_CINEMATICAS } from "./ano-viejo";
+import { COMETAS_CINEMATICAS } from "./cometas";
 import { AMOR_CINEMATICAS } from "./amor-amistad";
 import type { Look } from "./look";
 
@@ -322,12 +324,16 @@ export const CINEMATICAS: Record<string, CineDef> = {
 // brujas (la calabaza dorada y los trucos), las de la Feria de las flores (el desfile, la premiación) y
 // las del Carnaval, con sus reglas.
 for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS, ...FERIA_CINEMATICAS, ...CARNAVAL_CINEMATICAS]) CINEMATICAS[def.id] = def;
+// El Festival de cometas (cometas.ts).
+for (const def of COMETAS_CINEMATICAS) CINEMATICAS[def.id] = def;
 // Las de los capítulos de la historia, con su contenido.
 for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATICAS[def.id] = def;
 // Las de las novenas (la figura del pesebre y cada noche de la novena).
 for (const def of NOVENA_CINEMATICAS) CINEMATICAS[def.id] = def;
 // Las de la Feria de la cosecha (el sancocho, la ahuyama más grande, la tómbola y el baile).
 for (const def of COSECHA_CINEMATICAS) CINEMATICAS[def.id] = def;
+// Las del Año viejo (la quema del muñeco, la cuenta regresiva y los agüeros).
+for (const def of ANO_VIEJO_CINEMATICAS) CINEMATICAS[def.id] = def;
 // Las de Amor y amistad (Cupido con la carta; la revelación y la serenata se arman con sus datos).
 for (const def of AMOR_CINEMATICAS) CINEMATICAS[def.id] = def;
 

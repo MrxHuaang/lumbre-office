@@ -137,6 +137,18 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "cosechaBascula"
   | "cosechaTablero"
   | "cosechaTombola"
+  // El Año viejo: el puesto de uvas y maletas, el muñeco (darle prendas y relleno), el cartel de los
+  // testamentos y el relleno (la paja del gallinero y el aserrín del taller: sin panel).
+  | "anoViejoShop"
+  | "anoViejoMuneco"
+  | "anoViejoCartel"
+  | "anoViejoRelleno"
+  // El Festival de cometas: el taller, el puesto (y el carrito del raspao), el tablero del concurso y la
+  // escalera del garaje (E baja la cometa de Santiago, sin panel).
+  | "cometasTaller"
+  | "cometasShop"
+  | "cometasConcurso"
+  | "cometaTecho"
   // Amor y amistad: el cofre del amigo secreto, el puesto de chocolates y flores y el trío de la serenata.
   | "amorCofre"
   | "amorShop"
@@ -178,7 +190,9 @@ export type PanelKind =
   | "prizes"
   | "fortune"
   // La Noche de velitas: escribir el deseo del farol (en el muelle).
-  | "deseo";
+  | "deseo"
+  // El Año viejo: el resumen del año que sale después de la cuenta regresiva.
+  | "anoViejoResumen";
 
 export interface OfficeView {
   zoneId: string;

@@ -2,10 +2,12 @@
 // clima, mueve el reloj (y el huerto sigue con la estación nueva) y dispara momentos, y todo sale en el chat.
 import type { ColyseusTestServer } from "@colyseus/testing";
 import {
+  ANO_VIEJO_CINE,
   DIRECTOR_MSG,
   FESTIVAL_MSG,
   MSG,
   ROOM_NAME,
+  UVAS,
   estacionDelDia,
   festivalCineId,
   gameTime,
@@ -169,6 +171,24 @@ describe("panel del director", () => {
     const antes = ana.cines.filter((c) => c === festivalCineId("carnaval", "apertura")).length;
     expect((await act(ana, room, { kind: "momento", id: "apertura" })).ok).toBe(true);
     await until(() => ana.cines.filter((c) => c === festivalCineId("carnaval", "apertura")).length > antes, "la apertura otra vez");
+  });
+
+  it("los momentos del Año viejo: las campanadas, la quema y la cuenta regresiva, sin repetir", async () => {
+    const room = (await colyseus.createRoom<OfficeState>(ROOM_NAME, {})) as ServerRoom;
+    const ana = await join(room, "u-ana", "Ana", "ADMIN");
+    expect(await act(ana, room, { kind: "momento", id: "ano-viejo-quema" })).toMatchObject({ ok: false, error: "festival", festival: "ano-viejo" });
+    await act(ana, room, { kind: "festival", id: "ano-viejo" });
+    expect(room.state.festivalFase).toBe("fiesta");
+    expect((await act(ana, room, { kind: "momento", id: "ano-viejo-uvas" })).ok).toBe(true);
+    expect(room.state.anoViejo.campanadasN).toBe(UVAS.n);
+    expect((await act(ana, room, { kind: "momento", id: "ano-viejo-uvas" })).error).toBe("ocupado");
+    expect((await act(ana, room, { kind: "momento", id: "ano-viejo-quema" })).ok).toBe(true);
+    expect(room.state.anoViejo.quemadoAt).toBeGreaterThan(0);
+    await until(() => ana.cines.includes(ANO_VIEJO_CINE.quema), "la quema");
+    expect((await act(ana, room, { kind: "momento", id: "ano-viejo-quema" })).error).toBe("nada");
+    expect((await act(ana, room, { kind: "momento", id: "ano-viejo-cuenta" })).ok).toBe(true);
+    await until(() => ana.cines.includes(ANO_VIEJO_CINE.cuenta), "la cuenta regresiva");
+    expect((await act(ana, room, { kind: "momento", id: "ano-viejo-cuenta" })).error).toBe("ocupado");
   });
 
   it("los comandos del chat andan con el permiso (y sin él, son un mensaje cualquiera)", async () => {

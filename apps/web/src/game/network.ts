@@ -120,6 +120,8 @@ import { bindPesca } from "./pesca";
 import { bindBrujas } from "./brujas";
 import { bindFeria } from "./feriaFlores";
 import { bindCosecha } from "./cosecha";
+import { bindAnoViejo } from "./anoViejo";
+import { bindCometas } from "./cometas";
 import { bindAmor } from "./amorAmistad";
 import { bindCarnaval } from "./carnaval";
 import { sfx } from "./sfx";
@@ -955,8 +957,10 @@ function attach(r: OfficeRoom) {
   bindBrujas(r);
   bindFeria(r);
   bindCosecha(r);
+  bindCometas(r);
   bindAmor(r);
   bindCarnaval(r);
+  bindAnoViejo(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({
