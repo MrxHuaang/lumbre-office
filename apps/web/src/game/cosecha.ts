@@ -190,23 +190,23 @@ export function bindCosecha(r: OfficeRoom) {
   r.onMessage(COSECHA_MSG.mine, (m: CosechaMine) => useCosechaStore.setState({ mine: m }));
   r.onMessage(COSECHA_MSG.venderResult, (res: VenderResult) => {
     done("vender", res.ok);
-    if (res.ok) notify(`Vendió ${res.n} de ${nombre(res.item).toLowerCase()}: +${res.puntos} puntos.`, "success");
+    if (res.ok) notify(`Vendiste ${res.n} de ${nombre(res.item).toLowerCase()}: +${res.puntos} puntos.`, "success");
     else notify(VENDER_ERROR_TEXT[res.error], "warning");
   });
   r.onMessage(COSECHA_MSG.comprarResult, (res: ComprarResult) => {
     done("comprar", res.ok);
     const v = puestoById(res.puesto)?.vende.find((x) => x.id === res.item);
-    if (res.ok) notify(`${v?.name ?? "Lo que compró"} a la mochila.`, "success");
+    if (res.ok) notify(`${v?.name ?? "Lo que compraste"} a la mochila.`, "success");
     else notify(COMPRAR_ERROR_TEXT[res.error], "warning");
   });
   r.onMessage(COSECHA_MSG.aportarResult, (res: AportarResult) => {
     done("aportar", res.ok);
-    if (res.ok) notify(res.llena ? "¡La olla está llena! Ya hierve: quédese cerca para el plato." : `Echó ${res.n} de ${nombre(res.item).toLowerCase()} a la olla.`, "success");
+    if (res.ok) notify(res.llena ? "¡La olla está llena! Ya hierve: quédate cerca para el plato." : `Echaste ${res.n} de ${nombre(res.item).toLowerCase()} a la olla.`, "success");
     else notify(APORTAR_ERROR_TEXT[res.error], "warning");
   });
   r.onMessage(COSECHA_MSG.pesarResult, (res: PesarResult) => {
     done("pesar", res.ok);
-    if (res.ok) notify(`La báscula marca ${pesoTexto(res.dag)}: va de ${res.puesto} en el concurso.${res.devuelta ? " La de antes volvió a la mochila." : ""}`, "success");
+    if (res.ok) notify(`La báscula marca ${pesoTexto(res.dag)}: vas de ${res.puesto} en el concurso.${res.devuelta ? " La de antes volvió a la mochila." : ""}`, "success");
     else notify(PESAR_ERROR_TEXT[res.error], res.error === "menos" ? "info" : "warning");
   });
   r.onMessage(COSECHA_MSG.boletaResult, (res: BoletaResult) => {
@@ -219,12 +219,12 @@ export function bindCosecha(r: OfficeRoom) {
     useCosechaStore.setState({ pareja: b.pareja, mine: { ...mine, pasos: b.pasos, bailado: b.pasos >= b.meta } });
     if (b.pasos >= b.meta)
       notify(
-        b.premio ? `¡Bailó el bambuco de la cosecha! Doña Rubiela aplaude: +${b.premio} puntos.` : "¡Bailó el bambuco de la cosecha! Doña Rubiela aplaude desde la olla.",
+        b.premio ? `¡Bailaste el bambuco de la cosecha! Doña Rubiela aplaude: +${b.premio} puntos.` : "¡Bailaste el bambuco de la cosecha! Doña Rubiela aplaude desde la olla.",
         "success",
       );
   });
   r.onMessage(COSECHA_MSG.servido, (s: SancochoServido) =>
-    notify(s.plato ? "Doña Rubiela le sirvió un plato de sancocho: está en la mochila. Cómaselo con F y le da energía para un buen rato." : "Le iban a servir sancocho, pero la mochila está llena.", s.plato ? "success" : "warning"),
+    notify(s.plato ? "Doña Rubiela te sirvió un plato de sancocho: está en la mochila. Cómetelo con F y te da energía para un buen rato." : "Te iban a servir sancocho, pero la mochila está llena.", s.plato ? "success" : "warning"),
   );
   r.send(COSECHA_MSG.mine, {});
 }

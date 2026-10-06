@@ -74,6 +74,8 @@ const CREATE_PER_FRAME = 3;
 /** Sobre la cabeza: el nombre va en la coronilla + 7; la marca, encima del nombre. */
 const OVER_HEAD = BODY_UP.crown + 7 + 14;
 const OVER_ANIMAL = 20;
+/** Sobre las orejas de la mula de la Feria de la cosecha. */
+const OVER_MULA = 34;
 /** A qué distancia (tiles) miran a quien se arrima, saludan, y cuándo olvidan que ya saludaron. */
 const LOOK_TILES = 2.2;
 const GREET_TILES = 2.6;
@@ -335,7 +337,7 @@ export class GenteFiestaView {
     this.placeOverHead(a);
   }
 
-  /** El perro: la hoja de las mascotas (camina o se queda parado), mirando a donde va. */
+  /** El perro (la hoja de las mascotas, camina o se queda parado) o la mula, mirando a donde va. */
   private placeAnimal(a: Actor, time: number, first: boolean) {
     const p = a.pose;
     const an = a.animal!;
@@ -357,6 +359,7 @@ export class GenteFiestaView {
         .setFlipX(p.mira === "left" || p.mira === "down")
         .setDepth(depthOf(p.x, p.y) + 0.5);
       if (first) an.img.setVisible(true);
+      this.placeOverHead(a);
       return;
     }
     const view = p.mira === "left" || p.mira === "up" ? "back" : "front";
@@ -376,7 +379,8 @@ export class GenteFiestaView {
   private placeOverHead(a: Actor) {
     const p = a.pose;
     const s = worldToScreen(p.x, p.y);
-    const lift = a.animal ? OVER_ANIMAL : OVER_HEAD - (p.asiento ? 8 : 0);
+    // La mula es alta (sus orejas llegan a la cabeza de un chibi): la marca va sobre ellas.
+    const lift = a.npc.animal?.especie === "mula" ? OVER_MULA : a.animal ? OVER_ANIMAL : OVER_HEAD - (p.asiento ? 8 : 0);
     const depth = 5e7 + depthOf(p.x, p.y) + 0.4;
     a.mark?.setPosition(Math.round(s.x), Math.round(s.y - lift)).setDepth(depth);
     a.icon?.img.setPosition(Math.round(s.x + 2), Math.round(s.y - lift)).setDepth(depth + 0.01);

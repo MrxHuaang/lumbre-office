@@ -108,13 +108,13 @@ function Puesto({ atObject, open }: { atObject: boolean; open: boolean }) {
     .map(([itemId, n]) => ({ item: objIdOf(itemId) ?? "", n }))
     .filter(({ item }) => item && p.compra.includes(baseDeVenta(item)));
   const queda = Math.max(0, COSECHA.topeVentas - mine.vendido);
-  const why = !open ? "Cerrado" : !atObject ? "Arrímese al puesto" : queda <= 0 ? "Ya vendió lo de esta feria" : "";
+  const why = !open ? "Cerrado" : !atObject ? "Arrímate al puesto" : queda <= 0 ? "Ya vendiste lo de esta feria" : "";
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2 border-2 border-cozy-paper-dark bg-cozy-paper-light px-3 py-2">
         <p className="flex-1 text-[15px] leading-snug text-cozy-ink">
-          Compra {p.compra.map((c) => bagItemInfo(objItemId(c)).name.toLowerCase()).join(", ")}. Cada puesto paga distinto y cada dos horas cambia el que paga mejor: recorra el mercado.
+          Compra {p.compra.map((c) => bagItemInfo(objItemId(c)).name.toLowerCase()).join(", ")}. Cada puesto paga distinto y cada dos horas cambia el que paga mejor: recorre el mercado.
         </p>
         {top && (
           <span className="cozy-chip flex items-center gap-1 text-[13px]">
@@ -124,11 +124,11 @@ function Puesto({ atObject, open }: { atObject: boolean; open: boolean }) {
         )}
       </div>
       <p className="text-[13px] text-cozy-ink-soft">
-        En esta feria ha vendido {mine.vendido} de {COSECHA.topeVentas} puntos.
+        En esta feria has vendido {mine.vendido} de {COSECHA.topeVentas} puntos.
       </p>
       <section>
         <h3 className="mb-1 text-[15px] font-semibold text-cozy-ink">Le compro</h3>
-        {vendibles.length === 0 && <p className="text-[14px] text-cozy-ink-soft">No lleva nada de lo que compra este puesto. Coseche en el huerto y vuelva.</p>}
+        {vendibles.length === 0 && <p className="text-[14px] text-cozy-ink-soft">No llevas nada de lo que compra este puesto. Cosecha en el huerto y vuelve.</p>}
         <ul className="grid gap-2 sm:grid-cols-2">
           {vendibles.map(({ item, n }) => {
             const precio = precioDeCompra(p.id, item, day, minuto) ?? 0;
@@ -139,7 +139,7 @@ function Puesto({ atObject, open }: { atObject: boolean; open: boolean }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] leading-tight font-semibold text-cozy-ink">{bagItemInfo(objItemId(item)).name}</p>
                   <p className="text-[12px] text-cozy-ink-soft">
-                    {precio} pts cada uno · tiene {n}
+                    {precio} pts cada uno · tienes {n}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col gap-1">
@@ -175,14 +175,14 @@ function Puesto({ atObject, open }: { atObject: boolean; open: boolean }) {
           </h3>
           <ul className="grid gap-2 sm:grid-cols-2">
             {p.vende.map((v) => {
-              const w = !open ? "Cerrado" : !atObject ? "Arrímese al puesto" : points < v.price ? "No le alcanzan los puntos" : "";
+              const w = !open ? "Cerrado" : !atObject ? "Arrímate al puesto" : points < v.price ? "No te alcanzan los puntos" : "";
               const have = bag.get(v.mueble ? v.id : objItemId(v.id)) ?? 0;
               return (
                 <Fila key={v.id}>
                   <ItemArt id={v.id} furniture={v.mueble} />
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] leading-tight font-semibold text-cozy-ink">{v.name}</p>
-                    <p className="text-[12px] text-cozy-ink-soft">{have > 0 ? `Tiene ${have}.` : v.mueble ? "Para la oficina." : "No tiene."}</p>
+                    <p className="text-[12px] text-cozy-ink-soft">{have > 0 ? `Tienes ${have}.` : v.mueble ? "Para la oficina." : "No tienes."}</p>
                   </div>
                   <button
                     type="button"
@@ -221,12 +221,12 @@ function Olla({ atObject, open }: { atObject: boolean; open: boolean }) {
     fase === "acabada"
       ? "Ya se sirvieron todas las ollas de la feria."
       : fase === "hirviendo"
-        ? "¡La olla está llena y hierve! Quédese cerca: Doña Rubiela le sirve un plato a cada quien."
+        ? "¡La olla está llena y hierve! Quédate cerca: Doña Rubiela le sirve un plato a cada quien."
         : `Olla ${olla} de ${COSECHA.ollasMax}: va en ${avance} %. Cuando se llene, hierve un ratico y se sirve.`;
   return (
     <div className="flex flex-col gap-3">
       <p className="border-2 border-cozy-paper-dark bg-cozy-paper-light px-3 py-2 text-[15px] leading-snug text-cozy-ink">
-        El sancocho es de todos: échele a la olla lo que traiga de la huerta y de la granja. La gallina se cambia por huevo criollo. El plato da energía para caminar más rápido.
+        El sancocho es de todos: échale a la olla lo que traigas de la huerta y de la granja. La gallina se cambia por huevo criollo. El plato da energía para caminar más rápido.
       </p>
       <div className="h-3 w-full border-2 border-cozy-wood bg-cozy-paper-dark" role="progressbar" aria-valuenow={avance} aria-valuemin={0} aria-valuemax={100} aria-label="Lo que lleva la olla">
         <div className={`h-full ${fase === "hirviendo" ? "bg-cozy-gold" : "bg-cozy-green"}`} style={{ width: `${fase === "llenando" ? avance : 100}%` }} />
@@ -238,14 +238,14 @@ function Olla({ atObject, open }: { atObject: boolean; open: boolean }) {
           const lleva = Math.min(need, aportado[item] ?? 0);
           const falta = need - lleva;
           const n = Math.min(falta, tiene);
-          const why = !open ? "Cerrado" : !atObject ? "Arrímese a la olla" : fase !== "llenando" ? "Ahora no" : falta <= 0 ? "Ya está completo" : tiene <= 0 ? "No lleva de eso" : "";
+          const why = !open ? "Cerrado" : !atObject ? "Arrímate a la olla" : fase !== "llenando" ? "Ahora no" : falta <= 0 ? "Ya está completo" : tiene <= 0 ? "No llevas de eso" : "";
           return (
             <Fila key={item}>
               <ItemArt id={item} />
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] leading-tight font-semibold text-cozy-ink">{bagItemInfo(objItemId(item)).name}</p>
                 <p className="text-[12px] text-cozy-ink-soft">
-                  {lleva} de {need} en la olla · tiene {tiene}
+                  {lleva} de {need} en la olla · tienes {tiene}
                 </p>
               </div>
               <button
@@ -280,7 +280,7 @@ function Concurso({ pesa, atObject, open }: { pesa: boolean; atObject: boolean; 
   const [pending, setPending] = usePending("pesar");
   const dag = holding ? heldAhuyama() : null;
   const ranking = rankingAhuyamas(ahuyamas);
-  const why = !open ? "La báscula pesa solo en la feria" : !atObject ? "Arrímese a la báscula" : dag === null ? "Lleve una ahuyama en la mano" : mine.dag >= dag ? "La suya inscrita pesa más" : "";
+  const why = !open ? "La báscula pesa solo en la feria" : !atObject ? "Arrímate a la báscula" : dag === null ? "Lleva una ahuyama en la mano" : mine.dag >= dag ? "La tuya inscrita pesa más" : "";
   return (
     <div className="flex flex-col gap-3">
       {ganador && (
@@ -296,7 +296,7 @@ function Concurso({ pesa, atObject, open }: { pesa: boolean; atObject: boolean; 
             <p className="text-[15px] leading-snug text-cozy-ink">
               Las ahuyamas salen del huerto con su peso: regadas y en otoño crecen más grandes. Al cierre se premia la más pesada.
             </p>
-            {mine.dag > 0 && <p className="text-[13px] text-cozy-ink-soft">La suya inscrita: {pesoTexto(mine.dag)}.</p>}
+            {mine.dag > 0 && <p className="text-[13px] text-cozy-ink-soft">La tuya inscrita: {pesoTexto(mine.dag)}.</p>}
             <button
               type="button"
               disabled={Boolean(why) || pending !== null}
@@ -323,7 +323,7 @@ function Concurso({ pesa, atObject, open }: { pesa: boolean; atObject: boolean; 
               <ItemArt id={`${AHUYAMA.prefix}${e.dag}`} small />
               <span className="flex-1 truncate">
                 {e.name}
-                {e.userId === me ? " (usted)" : ""}
+                {e.userId === me ? " (tú)" : ""}
               </span>
               <span className="font-semibold">{pesoTexto(e.dag)}</span>
             </li>
@@ -342,7 +342,7 @@ function Tombola({ atObject, open }: { atObject: boolean; open: boolean }) {
   const mine = useCosechaStore((s) => s.mine);
   const points = useMyPoints();
   const [pending, setPending] = usePending("boleta");
-  const why = !open ? "La tómbola juega solo en la feria" : !atObject ? "Arrímese a la tómbola" : mine.boletas >= COSECHA.boletasMax ? "Ya tiene sus boletas" : points < COSECHA.boletaPrecio ? "No le alcanzan los puntos" : "";
+  const why = !open ? "La tómbola juega solo en la feria" : !atObject ? "Arrímate a la tómbola" : mine.boletas >= COSECHA.boletasMax ? "Ya tienes tus boletas" : points < COSECHA.boletaPrecio ? "No te alcanzan los puntos" : "";
   return (
     <div className="flex flex-col gap-3">
       {ganador && (
@@ -358,7 +358,7 @@ function Tombola({ atObject, open }: { atObject: boolean; open: boolean }) {
             El premio de la junta es la carreta de la cosecha, cargada de ahuyamas: un mueble que no se consigue en otro lado. El sorteo es al cierre (22:00).
           </p>
           <p className="text-[13px] text-cozy-ink-soft">
-            Tiene {mine.boletas} de {COSECHA.boletasMax} boletas · van {total} vendidas en la feria.
+            Tienes {mine.boletas} de {COSECHA.boletasMax} boletas · van {total} vendidas en la feria.
           </p>
           <button
             type="button"

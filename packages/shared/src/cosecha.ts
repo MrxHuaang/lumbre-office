@@ -302,12 +302,12 @@ export type VenderResult =
 
 export const VENDER_ERROR_TEXT: Record<VenderError, string> = {
   off: "El mercado campesino abre solo en la Feria de la cosecha.",
-  far: "Arrímese al puesto para venderle.",
-  nocompra: "En este puesto no compran eso: mire en los otros.",
-  faltan: "No lleva tantos en la mochila.",
-  tope: `Ya vendió lo que el mercado paga en esta feria (${COSECHA.topeVentas} puntos).`,
+  far: "Arrímate al puesto para venderle.",
+  nocompra: "En este puesto no compran eso: mira en los otros.",
+  faltan: "No llevas tantos en la mochila.",
+  tope: `Ya vendiste lo que el mercado paga en esta feria (${COSECHA.topeVentas} puntos).`,
   busy: "Un momentico…",
-  failed: "No se pudo vender. Intente de nuevo.",
+  failed: "No se pudo vender. Intenta de nuevo.",
 };
 
 export type ComprarError = "off" | "far" | "nada" | "funds" | "full" | "stack" | "busy" | "failed";
@@ -315,13 +315,13 @@ export type ComprarResult = { ok: true; puesto: string; item: string; balance: n
 
 export const COMPRAR_ERROR_TEXT: Record<ComprarError, string> = {
   off: "El mercado campesino abre solo en la Feria de la cosecha.",
-  far: "Arrímese al puesto para comprar.",
+  far: "Arrímate al puesto para comprar.",
   nada: "Eso no lo venden en este puesto.",
-  funds: "No le alcanzan los puntos.",
+  funds: "No te alcanzan los puntos.",
   full: "La mochila está llena.",
-  stack: "Ya lleva muchos de esos.",
+  stack: "Ya llevas muchos de esos.",
   busy: "Un momentico…",
-  failed: "No se pudo comprar. Intente de nuevo.",
+  failed: "No se pudo comprar. Intenta de nuevo.",
 };
 
 // ---------- El sancocho comunitario ----------
@@ -371,10 +371,10 @@ export type AportarResult = { ok: true; item: string; n: number; llena: boolean 
 
 export const APORTAR_ERROR_TEXT: Record<AportarError, string> = {
   off: "La olla del sancocho se prende solo en la Feria de la cosecha.",
-  far: "Arrímese a la olla.",
-  nofalta: "De eso ya hay suficiente en la olla: mire lo que falta.",
-  faltan: "No lleva de eso en la mochila.",
-  hirviendo: "La olla ya está hirviendo: espere el plato.",
+  far: "Arrímate a la olla.",
+  nofalta: "De eso ya hay suficiente en la olla: mira lo que falta.",
+  faltan: "No llevas de eso en la mochila.",
+  hirviendo: "La olla ya está hirviendo: espera el plato.",
   acabada: "Ya se sirvieron todas las ollas de la feria. ¡Hasta el otro año!",
   busy: "Un momentico…",
 };
@@ -407,10 +407,10 @@ export type PesarResult = { ok: true; dag: number; puesto: number; devuelta: num
 
 export const PESAR_ERROR_TEXT: Record<PesarError, string> = {
   off: "La báscula del concurso pesa solo en la Feria de la cosecha.",
-  far: "Arrímese a la báscula.",
-  none: "Lleve en la mano una ahuyama cosechada del huerto.",
-  menos: "La que ya inscribió pesa más: esta no la mejora.",
-  full: "No le cabe en la mochila la ahuyama que tenía inscrita.",
+  far: "Arrímate a la báscula.",
+  none: "Lleva en la mano una ahuyama cosechada del huerto.",
+  menos: "La que ya inscribiste pesa más: esta no la mejora.",
+  full: "No te cabe en la mochila la ahuyama que tenías inscrita.",
   busy: "Un momentico…",
 };
 
@@ -450,11 +450,11 @@ export type BoletaResult = { ok: true; n: number; balance: number } | { ok: fals
 
 export const BOLETA_ERROR_TEXT: Record<BoletaError, string> = {
   off: "La tómbola de la junta juega solo en la Feria de la cosecha.",
-  far: "Arrímese a la tómbola.",
-  max: `Ya tiene sus ${COSECHA.boletasMax} boletas: ¡suerte en el sorteo!`,
-  funds: "No le alcanzan los puntos para la boleta.",
+  far: "Arrímate a la tómbola.",
+  max: `Ya tienes tus ${COSECHA.boletasMax} boletas: ¡suerte en el sorteo!`,
+  funds: "No te alcanzan los puntos para la boleta.",
   busy: "Un momentico…",
-  failed: "No se pudo comprar la boleta. Intente de nuevo.",
+  failed: "No se pudo comprar la boleta. Intenta de nuevo.",
 };
 
 // ---------- El baile de la cosecha ----------

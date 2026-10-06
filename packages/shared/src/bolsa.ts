@@ -237,7 +237,7 @@ export function bagItemInfo(itemId: string): BagItemInfo {
     return {
       itemId,
       name: ahuyamaName(dag),
-      blurb: "Cosechada del huerto y pesada al cosecharla: llévela a la báscula del concurso de la Feria de la cosecha.",
+      blurb: "Cosechada del huerto y pesada al cosecharla: llévala a la báscula del concurso de la Feria de la cosecha.",
       kind: "cosecha",
       max: AHUYAMA.stackMax,
       furniture: false,
