@@ -30,7 +30,8 @@ import {
   type Weather,
 } from "@hyvento/shared";
 import { useState } from "react";
-import { openDirector, sendDirector, useDirectorStore } from "@/game/director";
+import { listaParaEscuchar } from "@/game/carnaval/musica";
+import { openDirector, sendDirector, sonarPieza, useDirectorStore } from "@/game/director";
 import { useGameTime } from "@/game/gameClock";
 import { usePermisosStore, usePuedo } from "@/game/permisos";
 import { useOfficeStore } from "@/game/store";
@@ -42,13 +43,14 @@ import { PanelShell } from "../PointsPanels";
 const SEASON_ICON: Record<Season, PixelIconName> = { primavera: "flower", verano: "sun", otono: "leaf", invierno: "snow" };
 const WEATHER_ICON: Record<Weather, PixelIconName> = { despejado: "sun", nublado: "cloud", lluvia: "rain", tormenta: "storm", niebla: "fog", nieve: "snow" };
 
-type Tab = "festival" | "clima" | "dia" | "hora" | "momentos";
+type Tab = "festival" | "clima" | "dia" | "hora" | "momentos" | "musica";
 const TABS: { id: Tab; nombre: string; icon: PixelIconName }[] = [
   { id: "festival", nombre: "Festival", icon: "party" },
   { id: "clima", nombre: "Clima", icon: "cloud" },
   { id: "dia", nombre: "Día y estación", icon: "leaf" },
   { id: "hora", nombre: "Hora", icon: "sun" },
   { id: "momentos", nombre: "Momentos", icon: "star" },
+  { id: "musica", nombre: "Música", icon: "note" },
 ];
 
 /** Monta el panel (si está abierto y hay permiso) y sus comandos de la paleta. */
@@ -84,6 +86,7 @@ function DirectorPanel({ onClose }: { onClose: () => void }) {
         {tab === "dia" && <DiaTab />}
         {tab === "hora" && <HoraTab />}
         {tab === "momentos" && <MomentosTab />}
+        {tab === "musica" && <MusicaTab />}
       </div>
       <Respuesta />
       <p className="mt-3 text-[12px] leading-snug text-cozy-ink-soft">Todo lo que cambies aquí lo ven todos y sale como aviso en el chat global.</p>
@@ -386,5 +389,53 @@ function MomentoBoton({ accion, festival, pending }: { accion: DirectorAccionDef
     >
       Ahora
     </button>
+  );
+}
+
+const CONJUNTO_TEXT = { murga: "Murga", colectivo: "Colectivo andino" } as const;
+const minSeg = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+/** La música del Carnaval: escucharla aquí solo o ponerla a sonar para todos. */
+function MusicaTab() {
+  const pending = useDirectorStore((s) => s.pending);
+  const sonando = useDirectorStore((s) => s.sonando);
+  const piezas = listaParaEscuchar();
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="min-w-0 flex-1 text-[13px] text-cozy-ink-soft">"Escuchar" la toca solo para ti; "Para todos" la oyen todos los que están conectados.</p>
+        <button type="button" disabled={pending || !sonando} className="cozy-btn py-0.5 text-[13px]" onClick={() => (sonando?.paraTodos ? sendDirector({ kind: "musica", pieza: null }) : sonarPieza(null))}>
+          <PixelIcon name="pause" size={11} />
+          Parar
+        </button>
+      </div>
+      <ul className="flex flex-col gap-1.5">
+        {piezas.map((p) => {
+          const suena = sonando?.pieza === p.id;
+          return (
+            <li key={p.id} className={`flex flex-wrap items-center gap-2 border-2 px-2.5 py-1.5 ${suena ? "border-cozy-red bg-cozy-paper-light" : "border-cozy-paper-dark"}`}>
+              <PixelIcon name="note" size={14} color={suena ? "var(--color-cozy-red)" : "var(--color-cozy-wood)"} />
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold">
+                  {p.nombre}
+                  {suena && <span className="ml-1.5 text-[12px] font-normal text-cozy-red">{sonando?.paraTodos ? "sonando para todos" : "sonando"}</span>}
+                </p>
+                <p className="text-[12px] text-cozy-ink-soft">
+                  {CONJUNTO_TEXT[p.conjunto]} · {minSeg(p.duracionS)}
+                  {p.original ? "" : " · tradicional"}
+                </p>
+              </div>
+              <button type="button" className="cozy-btn py-0.5 text-[13px]" onClick={() => sonarPieza(suena && !sonando?.paraTodos ? null : p.id)}>
+                <PixelIcon name={suena && !sonando?.paraTodos ? "pause" : "play"} size={11} />
+                {suena && !sonando?.paraTodos ? "Parar" : "Escuchar"}
+              </button>
+              <button type="button" disabled={pending} className="cozy-btn cozy-btn-primary py-0.5 text-[13px]" onClick={() => sendDirector({ kind: "musica", pieza: p.id, nombre: p.nombre })}>
+                Para todos
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
