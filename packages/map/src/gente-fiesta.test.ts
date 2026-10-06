@@ -7,6 +7,7 @@ import {
   festivalById,
   genteDelFestival,
   GENTE_FIESTA,
+  GENTE_REGLAS,
   SEASONS,
   type FestivalId,
   type Weather,
@@ -156,5 +157,28 @@ describe("la gente de la fiesta en los niveles", () => {
     expect(nivel.pose("novenas:marina", 20 * 60).asiento).not.toBeNull();
     const llegando = nivel.pose("novenas:aurelio", 19 * 60 + 36);
     expect(llegando.visible && llegando.camina).toBe(true);
+  });
+});
+
+describe("hablar con alguien de la fiesta que camina", () => {
+  it("el servidor acepta donde estuvo hasta `pausaMaxMin` antes (en el navegador se quedó quieto al hablarle)", () => {
+    let probado = 0;
+    for (const nivel of niveles("carnaval")) {
+      for (const npc of nivel.npcs) {
+        // Un minuto en que ya se movió harto desde hace 20 minutos (va caminando).
+        for (const m of MINUTOS) {
+          const antes = nivel.pose(npc.id, m - 20);
+          const ahora = nivel.pose(npc.id, m);
+          if (!antes.visible || !ahora.visible) continue;
+          if (Math.hypot(antes.x - ahora.x, antes.y - ahora.y) < 8 * nivel.map.tileSize) continue;
+          expect(nivel.near(npc.id, m, antes.x, antes.y, GENTE_REGLAS.alcanceTiles), npc.id).toBe(false);
+          expect(nivel.near(npc.id, m, antes.x, antes.y, GENTE_REGLAS.alcanceTiles, GENTE_REGLAS.pausaMaxMin), npc.id).toBe(true);
+          probado++;
+          break;
+        }
+        if (probado >= 5) return;
+      }
+    }
+    expect(probado).toBeGreaterThan(0);
   });
 });

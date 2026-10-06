@@ -57,7 +57,8 @@ export class GenteFiesta {
   near(who: GenteWho, npcId: string): boolean {
     const nivel = this.nivel(who.area);
     if (!nivel?.npc(npcId)) return false;
-    return nivel.near(npcId, this.deps.festival().minuto, who.x, who.y, GENTE_REGLAS.alcanceTiles + GENTE_REGLAS.holguraTiles);
+    // Mientras le hablan, en el navegador se queda quieto (va atrasado): vale donde estuvo hasta ese rato antes.
+    return nivel.near(npcId, this.deps.festival().minuto, who.x, who.y, GENTE_REGLAS.alcanceTiles + GENTE_REGLAS.holguraTiles, GENTE_REGLAS.pausaMaxMin);
   }
 
   /**

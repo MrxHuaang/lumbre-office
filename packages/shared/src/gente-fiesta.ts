@@ -167,6 +167,11 @@ export const GENTE_REGLAS = {
   alcanceTiles: 1.8,
   /** Lo que el servidor perdona por la demora de la red (tiles de más). */
   holguraTiles: 1.2,
+  /**
+   * Mientras se habla con alguien de la fiesta, en ese navegador se queda quieto (y después se pone al día):
+   * va atrasado como mucho esto (minutos del juego), y el servidor acepta su pose de hasta ese rato atrás.
+   */
+  pausaMaxMin: 30,
   /** Puntos LEISURE que dan los pedidos, como mucho, por persona por festival. */
   topePuntos: 20,
   /** Pausa entre dos entregas de la misma persona. */
