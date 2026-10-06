@@ -28,6 +28,12 @@ export const SEASON_GROWTH: Record<string, Record<Season, number>> = {
   papa: { primavera: 1, verano: 0.9, otono: 1.3, invierno: 0.8 },
   maiz: { primavera: 1.1, verano: 1.3, otono: 0.9, invierno: 0.5 },
   lulo: { primavera: 0.9, verano: 1, otono: 1.4, invierno: 0.7 },
+  // Los de la Feria de la cosecha (día 10 del otoño): lo suyo es el otoño.
+  cebolla: { primavera: 1.1, verano: 1, otono: 1.2, invierno: 0.8 },
+  yuca: { primavera: 0.9, verano: 1.2, otono: 1.3, invierno: 0.6 },
+  ahuyama: { primavera: 0.8, verano: 1, otono: 1.4, invierno: 0.5 },
+  frijol: { primavera: 0.9, verano: 1, otono: 1.4, invierno: 0.6 },
+  arracacha: { primavera: 1, verano: 0.8, otono: 1.3, invierno: 0.9 },
   // Las flores de la Feria de las flores: lo suyo es la primavera (la feria cae el 15).
   clavel: { primavera: 1.5, verano: 1.1, otono: 0.8, invierno: 0.6 },
   astromelia: { primavera: 1.5, verano: 1.2, otono: 0.9, invierno: 0.6 },
@@ -38,6 +44,7 @@ export const SEASON_GROWTH: Record<string, Record<Season, number>> = {
   pitahaya: { primavera: 1, verano: 1.3, otono: 1, invierno: 0.7 },
   cacao: { primavera: 1.1, verano: 1.2, otono: 1, invierno: 0.8 },
   cafe: { primavera: 1.2, verano: 1, otono: 1, invierno: 0.9 },
+  platano: { primavera: 1, verano: 1.3, otono: 1.1, invierno: 0.8 },
 };
 
 export interface SeasonGrowthOptions {

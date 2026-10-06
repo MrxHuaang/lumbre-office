@@ -37,6 +37,11 @@ export interface Recipe {
   festival?: string;
   /** Receta de la historia: solo se ve y se cocina con alguno de estos pasos abiertos (y una sola en la mochila). */
   story?: readonly string[];
+  /**
+   * Sale de la olla comunitaria de la Feria de la cosecha (cosecha.ts), no de la estufa: la estufa no la
+   * muestra ni la cocina. Es un plato como los demás (se come con F y da energía).
+   */
+  olla?: true;
 }
 
 const MIN = 60_000;
@@ -128,6 +133,19 @@ export const RECIPES: readonly Recipe[] = [
     action: "bite",
     uses: 4,
     festival: "novenas",
+  },
+  // El sancocho de la olla comunitaria de la Feria de la cosecha: lo sirve Doña Rubiela a los que están
+  // cuando la olla se llena (cosecha.ts). Lo que lleva lo pone entre todos.
+  {
+    id: "sancocho-olla",
+    name: "Plato de sancocho de la feria",
+    blurb: "De la olla grande de Doña Rubiela: papa, yuca, mazorca, plátano y cilantro. Da energía para un buen rato.",
+    needs: {},
+    effect: { kind: "speed", mul: 1.3, ms: 4 * MIN },
+    action: "spoon",
+    uses: 4,
+    festival: "cosecha",
+    olla: true,
   },
 ];
 

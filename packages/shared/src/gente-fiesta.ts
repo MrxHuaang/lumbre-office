@@ -9,6 +9,7 @@ import { NIGHT_FROM } from "./clock";
 import { festivalById, FESTIVAL_HORAS, type FestivalDef, type FestivalId } from "./festivales";
 import { GENTE_BRUJAS } from "./gente-fiesta/brujas";
 import { GENTE_CARNAVAL } from "./gente-fiesta/carnaval";
+import { GENTE_COSECHA } from "./gente-fiesta/cosecha";
 import { GENTE_FERIA } from "./gente-fiesta/feria-flores";
 import { GENTE_NOVENAS } from "./gente-fiesta/novenas";
 import { GENTE_VELITAS } from "./gente-fiesta/velitas";
@@ -84,8 +85,11 @@ export interface PedidoFiesta {
   gracias: string;
 }
 
-/** Lo que hace además de hablar: `puesto` abre el puesto del festival (`festival_shop`). */
-export type AccionFiesta = { tipo: "puesto" };
+/**
+ * Lo que hace además de hablar: `puesto` abre el puesto del festival (`festival_shop`). Si el festival tiene
+ * varios puestos (el mercado de la Feria de la cosecha), `puesto` dice cuál atiende.
+ */
+export type AccionFiesta = { tipo: "puesto"; puesto?: string };
 
 export interface FiestaNpc {
   /** Único dentro del festival (y no choca con los NPC fijos: van con el prefijo de la fiesta). */
@@ -121,8 +125,8 @@ export interface FiestaNpc {
   fiestero?: readonly { desde: number; hasta: number }[];
   /** Tono de la voz en el diálogo (0 grave .. 1 agudo). */
   voz?: number;
-  /** Si es un animal (el perro de Mariana): se dibuja como las mascotas. */
-  animal?: { especie: "perro" | "gato"; pelaje: string };
+  /** Si es un animal (el perro de Mariana, la mula de Don Ramiro): el perro y el gato se dibujan como las mascotas. */
+  animal?: { especie: "perro" | "gato" | "mula"; pelaje: string };
   /** De qué vecino de la vereda es este papel. */
   vecino?: VecinoId;
   /** Puesto por la lluvia bajo un techo (lo pone `conClima`; el mapa le busca el sitio). */
@@ -139,6 +143,7 @@ export const GENTE_FIESTA: Partial<Record<FestivalId, GenteDeFestival>> = {
   novenas: GENTE_NOVENAS,
   "feria-flores": GENTE_FERIA,
   carnaval: GENTE_CARNAVAL,
+  cosecha: GENTE_COSECHA,
 };
 
 export const GENTE_REGLAS = {

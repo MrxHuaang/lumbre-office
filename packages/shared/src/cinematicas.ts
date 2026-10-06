@@ -16,7 +16,9 @@ import { CARNAVAL_CINEMATICAS } from "./carnaval";
 import { CAPITULO2_CINEMATICAS } from "./capitulo2";
 import { CAPITULO3_CINEMATICAS } from "./capitulo3";
 import { FERIA_CINEMATICAS } from "./feria-flores";
+import { COSECHA_CINEMATICAS } from "./cosecha";
 import { NOVENA_CINEMATICAS } from "./novenas";
+import { VECINO_IDS } from "./gente-fiesta/vecinos";
 
 /** Quién hace algo: el jugador ("yo"), un NPC fijo (por su id) o un actor que la cinemática pone (`extra`). */
 export type CineActor = string;
@@ -26,7 +28,7 @@ export const CINE_ME = "yo";
 export const CINE_NPCS = ["aurora", "gloria", "evelio", "astronoma", "crupier", "dealer", "cajera", "portero"] as const;
 
 /** Sonidos que puede pedir una cinemática (los resuelve el navegador con sus efectos). */
-export const CINE_SOUNDS = ["fanfarria", "campanada", "campanadas", "carta", "destello", "tambor", "aplausos", "brisa", "trueno", "magia", "chapuzon", "guanena", "albazo"] as const;
+export const CINE_SOUNDS = ["fanfarria", "campanada", "campanadas", "carta", "destello", "tambor", "aplausos", "brisa", "trueno", "magia", "chapuzon", "guanena", "albazo", "bambuco"] as const;
 export type CineSound = (typeof CINE_SOUNDS)[number];
 
 /** Efectos sobre un actor (o la pantalla). */
@@ -77,9 +79,10 @@ export type CineStep =
   | { op: "act"; who: CineActor; action: CineAction }
   /**
    * Pone un actor (con la pinta de un NPC) en un lugar, y lo quita. `holds`: lo que lleva en la mano (un
-   * id de los dibujos de la mano, como la silleta de los silleteros; acepta `{variables}`).
+   * id de los dibujos de la mano, como la silleta de los silleteros; acepta `{variables}`). `vecino`: con la
+   * pinta y el nombre de un vecino de la vereda (gente-fiesta/vecinos.ts) en vez de los del NPC de `like`.
    */
-  | { op: "spawn"; id: string; like: (typeof CINE_NPCS)[number]; name?: string; at: CinePos; facing?: Direction; holds?: string }
+  | { op: "spawn"; id: string; like: (typeof CINE_NPCS)[number]; vecino?: string; name?: string; at: CinePos; facing?: Direction; holds?: string }
   | { op: "despawn"; id: string }
   | { op: "sound"; sound: CineSound }
   | { op: "fx"; fx: CineFx; who?: CineActor }
@@ -320,6 +323,8 @@ for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS, ...FERIA_CINE
 for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATICAS[def.id] = def;
 // Las de las novenas (la figura del pesebre y cada noche de la novena).
 for (const def of NOVENA_CINEMATICAS) CINEMATICAS[def.id] = def;
+// Las de la Feria de la cosecha (el sancocho, la ahuyama más grande, la tómbola y el baile).
+for (const def of COSECHA_CINEMATICAS) CINEMATICAS[def.id] = def;
 
 export const cineById = (id: string): CineDef | undefined => CINEMATICAS[id];
 
@@ -369,6 +374,7 @@ export function cineProblems(def: CineDef): string[] {
         break;
       case "spawn":
         known.add(s.id);
+        if (s.vecino !== undefined && !(VECINO_IDS as readonly string[]).includes(s.vecino)) out.push(`${at}: vecino desconocido "${s.vecino}"`);
         break;
       case "despawn":
         known.delete(s.id);

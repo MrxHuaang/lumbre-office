@@ -167,6 +167,11 @@ export const STAT_KEYS = {
   // El Carnaval (carnaval.ts): desfiles bailados en la comparsa y concursos de disfraces ganados.
   comparsaParades: "comparsa_parades",
   carnavalCrowns: "carnaval_crowns",
+  // La Feria de la cosecha (cosecha.ts): ingredientes echados a la olla del sancocho, ferias ganadas con la
+  // ahuyama más pesada y tómbolas ganadas.
+  sancochoAportes: "sancocho_aportes",
+  ahuyamaOro: "ahuyama_oro",
+  tombolaGanada: "tombola_ganada",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -479,6 +484,10 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // El Carnaval de Negros y Blancos
     a("comparsero", "Comparsero", "mask", "raro", STAT_KEYS.comparsaParades, 3, "Baila 3 desfiles del Carnaval en la comparsa de la cabaña", "Detrás del Megabús de la alegría ya te conocen el paso."),
     a("rey-del-carnaval", "Rey o reina del Carnaval", "mask", "epico", STAT_KEYS.carnavalCrowns, 1, "Gana el concurso de disfraces del Carnaval", "Toda la cabaña votó por tu pinta."),
+    // La Feria de la cosecha
+    a("mano-de-olla", "Mano de olla", "pan", "comun", STAT_KEYS.sancochoAportes, 5, "Echa 5 ingredientes a la olla del sancocho de la Feria de la cosecha", "Doña Rubiela ya te deja revolver."),
+    a("ahuyama-de-oro", "La ahuyama más grande", "pumpkin", "epico", STAT_KEYS.ahuyamaOro, 1, "Gana el concurso de la ahuyama más grande de la Feria de la cosecha", "La báscula de Don Efraín casi no aguanta."),
+    a("suerte-de-tombola", "Suerte de tómbola", "wheel", "raro", STAT_KEYS.tombolaGanada, 1, "Gana la tómbola de la junta de acción comunal", "La boleta ganadora era la tuya. La carreta también."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),

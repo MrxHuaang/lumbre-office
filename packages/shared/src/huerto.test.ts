@@ -109,10 +109,10 @@ describe("invernadero", () => {
 });
 
 describe("huerto: lo que se lleva en la mano", () => {
-  it("las semillas dicen su cultivo y el cobertizo tiene la regadera y una bolsa de cada uno (las flores no: son de la feria)", () => {
+  it("las semillas dicen su cultivo y el cobertizo tiene la regadera y una bolsa de cada uno (las flores y las raras no: son de las ferias)", () => {
     for (const c of CROPS) {
       expect(cropOfSeeds(seedsOf(c.id))?.id).toBe(c.id);
-      if (c.flower) expect(SHED_ITEMS).not.toContain(seedsOf(c.id));
+      if (c.flower || c.rare) expect(SHED_ITEMS).not.toContain(seedsOf(c.id));
       else expect(SHED_ITEMS).toContain(seedsOf(c.id));
     }
     expect(SHED_ITEMS).toContain(EMPTY_CAN);

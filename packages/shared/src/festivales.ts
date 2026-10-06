@@ -6,6 +6,7 @@
 import type { CineDef } from "./cinematicas";
 import type { Season } from "./estaciones";
 import { SUELTA_MINUTO, VELITAS_CINE, VELITAS_CINEMATICAS } from "./velitas";
+import { COSECHA, COSECHA_CINE } from "./cosecha";
 
 export const FESTIVAL_IDS = ["amor-amistad", "feria-flores", "cometas", "carnaval", "cosecha", "brujas", "velitas", "novenas", "ano-viejo"] as const;
 export type FestivalId = (typeof FESTIVAL_IDS)[number];
@@ -102,15 +103,17 @@ export const FESTIVALES: readonly FestivalDef[] = [
   {
     id: "cosecha",
     nombre: "Feria de la cosecha",
-    resumen: "Lo mejor del huerto, la granja y el lago en exhibición, con premios por categoría.",
+    resumen: "Mercado campesino, sancocho en olla comunitaria, el concurso de la ahuyama más grande, la tómbola de la junta y el baile al atardecer.",
     estacion: "otono",
     dia: 10,
     dias: 1,
     color: "#b5652a",
+    // El baile de la cosecha arranca al atardecer en el patio (la música suena desde las 17:00).
+    momentos: [{ minuto: COSECHA.baileMinuto, cine: COSECHA_CINE.baile }],
     frases: {
-      aurora: ["La mazorca más grande se lleva la cinta azul. Y mis respetos.", "Esto es lo que se gana uno sembrando con paciencia."],
-      evelio: ["Categoría pez más grande: ya saben quién gana.", "El lago también cosecha, que no se les olvide."],
-      gloria: ["Los jueces pasan a mediodía. Que todo brille.", "Hay queso, chorizo, arepas… esto es una feria de verdad."],
+      aurora: ["La ahuyama más grande se lleva la cinta azul. Y mis respetos.", "Esto es lo que se gana uno sembrando con paciencia.", "Eche algo a la olla de Doña Rubiela, que el sancocho es de todos."],
+      evelio: ["Yo traje bagre pa' la olla, pero Rubiela dice que el sancocho de aquí es de gallina.", "El lago también cosecha, que no se les olvide."],
+      gloria: ["Recorra los puestos: cada rato hay uno que paga mejor.", "Hay arepas de choclo, canastos, semillas raras… esto es una feria de verdad."],
     },
   },
   {
