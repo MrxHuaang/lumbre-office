@@ -257,7 +257,8 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
         },
         ["Así era en mis tiempos", "¡Bravo, muchachos!", "¡Achichay, qué frío!"],
       ),
-      llega: SENDERO,
+      // Le duelen las piernas: ve el desfile sentado en la gradería del oeste (VIR-176).
+      comportamiento: { tipo: "sentado", asiento: { x: 36, y: 128 } },
     }),
     suelto(F, "rosario", "Doña Rosario", adulto("#e0ac69", "#b8b2ac", { shirt: NEGRO, top2: "#7a4ab0", pants: NEGRO, hairStyle: "bun", outfit: "ruana", head: "pompom-beanie", accent: "#7a4ab0", bottom: "long-skirt" }), {
       rol: "Espera el desfile en la vereda",
@@ -430,6 +431,8 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       tile: { x: 108, y: ADELANTE },
       ...publico({ hola: ["La guaneña es el himno del carnaval. La toco hasta dormido.", "Esta la compuse anoche, al estilo de la guaneña, con tiple. Escuche."] }, ["Guaneña, guaneñita…", "¡Que suene!", "Tlin, tlan, tlin"]),
       pinta: { shirt: BLANCO, top2: NEGRO, head: "party-hat", accent: NEGRO },
+      // Toca sentado en la primera banca de la gradería, junto al palco (VIR-176).
+      comportamiento: { tipo: "sentado", asiento: { x: 109, y: 128 } },
       pedido: {
         id: "tinto-tomas",
         pide: [{ item: "tinto", n: 1 }],
@@ -476,6 +479,8 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       tile: { x: 120, y: ADELANTE },
       ...publico({ hola: ["Vine en bici desde el alto pa' ver el desfile. Diecisiete kilómetros.", "Las carrozas van a dos kilómetros por hora. Yo las paso caminando."] }, ["¡Eso, eso!", "¡Que viva!", "¡Más rápido, cóndor!"]),
       pinta: { ...DE(NEGRO, BLANCO, "#e8c03a"), head: "beanie" },
+      // Llegó cansado de pedalear: en la banca alta de la segunda gradería (VIR-176).
+      comportamiento: { tipo: "sentado", asiento: { x: 118, y: 126 } },
     }),
     suelto(F, "pipe", "Pipe", nino("#f1c27d", "#3a2418", { shirt: "#e05a3a", pants: NEGRO, accent: BLANCO, head: "cap", top: "graphic-tee" }), {
       rol: "Corre por la vereda",
