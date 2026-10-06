@@ -271,7 +271,9 @@ export interface PointDef {
     // delante de cada exhibidor, donde se exhibe y se vota.
     | "silletero_table"
     | "feria_shop"
-    | "silleta_stand";
+    | "silleta_stand"
+    // El Carnaval: el palco de la tarima (el concurso de disfraces).
+    | "carnaval_contest";
   name: string;
   x: number;
   y: number;

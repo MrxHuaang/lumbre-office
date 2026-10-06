@@ -74,6 +74,7 @@ const MINI: Record<BadgeIcon, readonly string[]> = {
   tub: ["x.x.x", ".x.x.", "WeeeW", "WyyyW", ".WWW."],
   telescope: ["...yy", "..yy.", ".yy..", ".nn..", "n..n."],
   marshmallow: ["xx...", "xx...", "..W..", "...W.", "....W"],
+  mask: ["....r", "yyyyy", "yxkky", "yxyky", ".yyy."],
   pumpkin: ["..g..", ".yyy.", "ykyky", "yyyyy", ".yyy."],
   silleta: ["nnnnn", "nrypn", "nvoyn", "nnnnn", "n...n"],
 };

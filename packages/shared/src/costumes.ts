@@ -37,6 +37,7 @@ export const COSTUME_CATEGORIES = [
   { id: "gala", label: "Fiesta y gala" },
   { id: "disfraz", label: "Disfraces" },
   { id: "brujas", label: "De la Noche de brujas" },
+  { id: "carnaval", label: "Del Carnaval" },
   // Los de los oficios: se ganan subiendo de nivel (oficios.ts).
   { id: "oficios", label: "De los oficios" },
 ] as const;
@@ -475,6 +476,42 @@ export const COSTUMES: Record<CostumeId, Costume> = {
     colors: { shirt: BLACK, top2: BLACK, pants: BLACK, accent: BLACK, shoeColor: BLACK },
     gloves: "#f3f1ec",
     details: ["bones"],
+  },
+  // ---------- Del Carnaval de Negros y Blancos (el blanco y negro va en la ropa y el antifaz) ----------
+  "comparsa-blanca": {
+    label: "Comparsa blanca y negra",
+    category: "carnaval",
+    top: "dress-shirt",
+    bottom: "pants",
+    outfit: "vest",
+    shoes: "boots",
+    colors: { shirt: WHITE, top2: WHITE, pants: BLACK, accent: "#dcae3f", shoeColor: BLACK },
+    gear: { face: "carnival-mask", neck: "bowtie" },
+    tint: { slots: ["accent"], label: "Color del ribete" },
+  },
+  "arlequin-pastuso": {
+    label: "Arlequín pastuso",
+    category: "carnaval",
+    top: "longsleeve",
+    bottom: "pants",
+    shoes: "sneakers",
+    pattern: "stripes",
+    colors: { shirt: WHITE, top2: BLACK, pants: BLACK, accent: "#c05a4a", shoeColor: WHITE },
+    gear: { head: "party-hat", face: "carnival-mask" },
+    details: ["confetti"],
+    tint: { slots: ["accent"], label: "Color del gorro" },
+  },
+  "talco-ceniza": {
+    label: "Talco y ceniza",
+    category: "carnaval",
+    top: "longsleeve",
+    bottom: "long-skirt",
+    outfit: "gown",
+    shoes: "boots",
+    pattern: "dots",
+    colors: { shirt: BLACK, top2: WHITE, pants: WHITE, accent: "#f3f1ec", shoeColor: BLACK },
+    gear: { face: "carnival-mask", neck: "scarf" },
+    tint: { slots: ["shirt"], label: "Color del vestido" },
   },
   // ---------- De los oficios (se desbloquean con el nivel, ver oficios.ts) ----------
   "pescador-lago": {

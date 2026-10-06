@@ -164,6 +164,9 @@ export const STAT_KEYS = {
   // La Feria de las flores (feria-flores.ts): silletas armadas y ferias ganadas con la más votada.
   silletasBuilt: "silletas_built",
   silleteroOro: "silletero_oro",
+  // El Carnaval (carnaval.ts): desfiles bailados en la comparsa y concursos de disfraces ganados.
+  comparsaParades: "comparsa_parades",
+  carnavalCrowns: "carnaval_crowns",
 } as const;
 
 export type StatKey = (typeof STAT_KEYS)[keyof typeof STAT_KEYS];
@@ -287,6 +290,7 @@ export const BADGE_ICONS = [
   "marshmallow",
   "pumpkin",
   "silleta",
+  "mask",
 ] as const;
 export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
@@ -472,6 +476,9 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
     // La Feria de las flores
     a("silletero", "Silletero", "silleta", "comun", STAT_KEYS.silletasBuilt, 1, "Arma una silleta en la mesa del silletero de la Feria de las flores", "Flor por flor, como en Santa Elena."),
     a("silletero-de-oro", "Silletero de oro", "silleta", "epico", STAT_KEYS.silleteroOro, 1, "Gana la votación de silletas de la Feria de las flores", "Todo el equipo votó por tu silleta. Hasta Doña Aurora aplaudió."),
+    // El Carnaval de Negros y Blancos
+    a("comparsero", "Comparsero", "mask", "raro", STAT_KEYS.comparsaParades, 3, "Baila 3 desfiles del Carnaval en la comparsa de la cabaña", "Detrás del Megabús de la alegría ya te conocen el paso."),
+    a("rey-del-carnaval", "Rey o reina del Carnaval", "mask", "epico", STAT_KEYS.carnavalCrowns, 1, "Gana el concurso de disfraces del Carnaval", "Toda la cabaña votó por tu pinta."),
     a("trotamundos", "Trotamundos de la cabaña", "map", "legendario", STAT_KEYS.levelExploracion, 10, "Llega al nivel 10 de Exploración", "Conoces rincones que ni el plano tiene."),
     a("leyenda-de-la-cabana", "Leyenda de la cabaña", "crown", "legendario", STAT_KEYS.achievementsUnlocked, COLLECTOR_TIERS[2], `Consigue ${COLLECTOR_TIERS[2]} logros`, "Cuentan historias de ti junto a la chimenea."),
   ]),

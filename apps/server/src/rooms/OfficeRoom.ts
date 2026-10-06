@@ -238,6 +238,9 @@ import { NocheBrujas } from "./nocheBrujas";
 import { FeriaFlores } from "./feriaFlores";
 import { SilletaExhibitState } from "../state";
 import { FERIA, FERIA_CINE, FERIA_MSG, silletaName, type BuildResult, type ExhibitResult, type FeriaBuyResult, type FeriaMine, type VoteResult } from "@hyvento/shared";
+import { Carnaval } from "./carnaval";
+import { DESFILE_TIMING, type DesfileTiming } from "@hyvento/map";
+import { CARNAVAL_MSG, type CarnavalBuyResult, type ConcursoResult, type JoinResult, type LanzarResult } from "@hyvento/shared";
 import { festivalDecorAreas, setFestivalDecor } from "@hyvento/map";
 import { BRUJAS_CINE, BRUJAS_MSG, FESTIVAL_MSG, brujasActiva, fechaDelJuego, type BrujasBuyResult, type FestivalCineEvent, type PumpkinResult, type TrickResult } from "@hyvento/shared";
 import { Capitulo2 } from "./capitulo2";
@@ -460,6 +463,11 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
   /** La Feria de las flores: el reloj de la pausa y cuánto espera la premiación tras el cierre (los tests los fijan). */
   static feriaNow: () => number = () => Date.now();
   static feriaPremiacionMs: number = FERIA.premiacionDelayMs;
+  /** El Carnaval: el reloj (pausas, el talco y el desfile) y el paso del desfile (los tests los acortan). */
+  static carnavalNow: () => number = () => Date.now();
+  static carnavalTiming: DesfileTiming = { ...DESFILE_TIMING };
+  /** El desfile sale solo a su hora (test/setup.ts lo apaga; carnaval.test.ts lo prende). */
+  static carnavalDesfile = true;
   /** Encargos: el reloj (día de Bogotá) y qué le toca a cada quien (los tests lo fijan). */
   static encargosNow: () => number = () => Date.now();
   static encargosPick: (userId: string, now: number, seasons: QuestSeasons) => ActiveQuest[] = currentQuests;
@@ -766,6 +774,39 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     now: () => OfficeRoom.feriaNow(),
     premiacionDelayMs: () => OfficeRoom.feriaPremiacionMs,
   });
+  /** El Carnaval: el desfile por la calle del Megabús, la comparsa, el talco, el concurso y el puesto (ver carnaval.ts). */
+  private carnaval = new Carnaval({
+    festival: () => {
+      const t = this.gameTimeNow();
+      return { id: this.state.festival, fase: this.state.festivalFase, day: t.day, año: fechaDelJuego(t.day).año, minuteOfDay: t.minuteOfDay };
+    },
+    state: () => this.state.carnaval,
+    player: (sessionId) => this.state.players.get(sessionId),
+    players: () => this.state.players.entries(),
+    tileSize: () => this.mapOf("jardin").tileSize,
+    held: this.held,
+    // Los contadores se crean más abajo: se piden al usarlos.
+    stats: { stat: (u, k) => this.achievements.stat(u, k), bump: (u, k, by) => this.achievements.bump(u, k, by) },
+    repo: () => this.repo,
+    award: (userId, amount) => this.awardLeisure(userId, amount),
+    now: () => OfficeRoom.carnavalNow(),
+    timing: () => OfficeRoom.carnavalTiming,
+    autoDesfile: () => OfficeRoom.carnavalDesfile,
+    later: (ms, fn) => this.clock.setTimeout(fn, ms),
+    send: (sessionId, type, msg) => this.clients.getById(sessionId)?.send(type, msg),
+    toArea: (area, type, msg) => this.sendToArea(area, type, msg),
+    broadcast: (type, msg) => this.broadcast(type, msg),
+    busAway: () => !this.bus || this.bus.phase === "away",
+    holdBus: (on) => {
+      this.streetHeld = on;
+    },
+    busy: (sessionId, p) =>
+      p.seated || p.swimming || p.racing || Boolean(p.fishing) || this.drunk.fainted(p.userId) || this.hockey?.sideOf(p.userId) != null || !this.state.players.has(sessionId),
+    place: (sessionId, x, y, moving) => this.placeInParade(sessionId, x, y, moving),
+    drop: (sessionId, xTiles) => this.dropFromParade(sessionId, xTiles),
+  });
+  /** La calle del Megabús ocupada por el desfile: el bus espera. */
+  private streetHeld = false;
   /** Estadísticas y logros (ver achievements.ts): se suman en memoria y se guardan juntas. */
   private achievements: AchievementTracker = new AchievementTracker({
     repo: () => this.repo,
@@ -1142,6 +1183,13 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.onMessage(BRUJAS_MSG.pumpkin, (client) => void this.handleBrujasPumpkin(client));
     this.onMessage(BRUJAS_MSG.buy, (client, raw) => void this.handleBrujasBuy(client, raw));
     this.bindFeria();
+    this.onMessage(CARNAVAL_MSG.join, (client) => this.carnavalReply(client, CARNAVAL_MSG.joinResult, this.carnaval.join(client.sessionId)));
+    this.onMessage(CARNAVAL_MSG.leave, (client) => this.carnavalReply(client, CARNAVAL_MSG.joinResult, this.carnaval.leave(client.sessionId)));
+    this.onMessage(CARNAVAL_MSG.lanzar, (client, raw) => void this.handleCarnavalLanzar(client, raw));
+    this.onMessage(CARNAVAL_MSG.talcoPref, (client, raw) => { const p = this.state.players.get(client.sessionId); if (p) this.carnaval.talcoPref(p.userId, raw); });
+    this.onMessage(CARNAVAL_MSG.postular, (client) => this.carnavalReply(client, CARNAVAL_MSG.concursoResult, this.carnaval.postular(client.sessionId)));
+    this.onMessage(CARNAVAL_MSG.votar, (client, raw) => { const p = this.state.players.get(client.sessionId); if (p) this.carnavalReply(client, CARNAVAL_MSG.concursoResult, this.carnaval.votar(p.userId, raw)); });
+    this.onMessage(CARNAVAL_MSG.buy, (client, raw) => void this.handleCarnavalBuy(client, raw));
     this.onMessage(MSG.invite, (client, raw) => this.invites.invite(client.sessionId, raw));
     this.onMessage(MSG.inviteRespond, (client, raw) => this.invites.respond(client.sessionId, raw));
     this.onMessage(MSG.phoneCall, (client, raw) => this.handlePhoneCall(client, raw));
@@ -1299,6 +1347,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.syncFestival();
       this.feria.tick();
     }, 2_000);
+    // El Carnaval: la hora del desfile y la comparsa que va por la calle (seguido, para que se mueva suave).
+    this.clock.setInterval(() => this.carnaval.tick(), 100);
     this.weather.start();
     // Mientras llueve, lo que se va secando se vuelve a regar solo.
     this.clock.setInterval(() => isWet(this.weather.weather) && this.rainOnGarden(), 60_000);
@@ -1393,6 +1443,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // La decoración del festival es del mundo compartido: la última sala la quita.
     if (OfficeRoom.instances.size === 0) setFestivalDecor(null);
     this.piscina?.dispose();
+    this.carnaval.dispose();
     this.drunk.dispose();
     this.trips.dispose();
     this.toasts.dispose();
@@ -1783,7 +1834,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const map = this.mapOf(areaId);
     const ts = map.tileSize;
     for (const [sessionId, p] of this.state.players) {
-      if (p.area !== areaId) continue;
+      if (p.area !== areaId || p.comparsa) continue;
       if (p.swimming ? canSwimAt(map, p.x, p.y) : p.seated ? seatAtPoint(map, p.x, p.y) : canStandAt(map, p.x, p.y)) continue;
       p.swimming = false;
       const tile = this.freeTileFor(map, p);
@@ -2100,6 +2151,75 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     this.achievements.bump(player.userId, STAT_KEYS.knocks);
   }
 
+  // ---------- El Carnaval ----------
+
+  private carnavalReply(client: Client<UserData>, type: string, result: JoinResult | ConcursoResult | null) {
+    if (!result) return;
+    this.markActive(client);
+    client.send(type, result);
+  }
+
+  /** Maicena o serpentinas a alguien de al lado (ver carnaval.ts). */
+  private async handleCarnavalLanzar(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || this.drunk.fainted(player.userId)) return;
+    this.markActive(client);
+    const result = await this.carnaval.lanzar(client.sessionId, raw);
+    if (result) client.send(CARNAVAL_MSG.lanzarResult, result satisfies LanzarResult);
+  }
+
+  /** El puesto del carnaval (junto a su punto). */
+  private async handleCarnavalBuy(client: Client<UserData>, raw: unknown) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    this.markActive(client);
+    const near = nearPointOfType(this.mapOf(player.area), "festival_shop", player.x, player.y) && !this.drunk.fainted(player.userId);
+    const result = await this.carnaval.buy(player.userId, raw, near);
+    if (!result) return;
+    if (result.ok) {
+      for (const p of this.state.players.values()) if (p.userId === player.userId) p.points = result.balance;
+      this.achievements.bump(player.userId, `${STAT_PREFIX.order}${result.item}`);
+    }
+    client.send(CARNAVAL_MSG.buyResult, result satisfies CarnavalBuyResult);
+  }
+
+  /**
+   * El desfile pone a alguien en la calle: no se valida el paso (la calle no se camina; lo lleva la sala,
+   * como el viaje del bus). Cuenta como actividad: bailar no es estar ausente.
+   */
+  private placeInParade(sessionId: string, x: number, y: number, moving: boolean) {
+    const p = this.state.players.get(sessionId);
+    if (!p) return;
+    p.x = x;
+    p.y = y;
+    p.dir = "right";
+    p.moving = moving;
+    p.seated = false;
+    p.zoneId = "";
+    p.place = placeAt(this.mapOf(p.area), x, y);
+    const client = this.clients.getById(sessionId);
+    if (client?.userData) {
+      client.userData.lastMoveAt = Date.now();
+      client.userData.lastActiveAt = Date.now();
+    }
+  }
+
+  /** Baja a alguien de la comparsa a la vereda (el tile caminable más cercano a x), con su corrección. */
+  private dropFromParade(sessionId: string, xTiles: number) {
+    const p = this.state.players.get(sessionId);
+    if (!p) return;
+    const map = this.mapOf(p.area);
+    const ts = map.tileSize;
+    const x0 = Math.round(xTiles);
+    for (let d = 0; d < 40; d++)
+      for (const tx of d ? [x0 + d, x0 - d] : [x0])
+        for (const ty of [131, 130, 129]) {
+          const x = tx * ts + ts / 2;
+          const y = ty * ts + ts / 2;
+          if (canStandAt(map, x, y)) return this.placeBather(sessionId, x, y, false);
+        }
+  }
+
   /** La respuesta del dulce o truco: a quien pidió, y si fue truco, su cinemática corta. */
   private sendTrick(client: Client<UserData>, result: TrickResult | null) {
     if (!result) return;
@@ -2268,6 +2388,8 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     // Los rechazos de un paso llevan su `seq`: así el cliente ignora los de pasos que ya superó.
     const seq = parsed.data.seq === undefined ? {} : { seq: parsed.data.seq };
 
+    // Bailando en la comparsa del Carnaval lo lleva la sala por la calle: lo que mande el cliente no cuenta.
+    if (player.comparsa) return;
     const map = this.mapOf(player.area);
     // Desmayado no se mueve (el cliente ya lo sabe; esto es por si insiste).
     if (this.drunk.fainted(player.userId)) {
@@ -2350,7 +2472,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     if (!player || !parsed.success || !client.userData) return;
     const map = this.mapOf(player.area);
     const portal = map.portals.find((p) => p.id === parsed.data.portal);
-    if (!portal || player.seated || player.swimming || this.drunk.fainted(player.userId) || !nearPortal(map, portal, player.x, player.y)) {
+    if (!portal || player.seated || player.swimming || player.comparsa || this.drunk.fainted(player.userId) || !nearPortal(map, portal, player.x, player.y)) {
       client.send(MSG.moveCorrection, { x: player.x, y: player.y, area: player.area } satisfies MoveCorrection);
       return;
     }
@@ -2431,7 +2553,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       now: () => OfficeRoom.viajeNow(),
       cooldownMs: () => OfficeRoom.viajeCooldownMs,
       fainted: (userId) => this.drunk.fainted(userId),
-      playing: (_sessionId, p) => this.hockey.sideOf(p.userId) !== null,
+      playing: (_sessionId, p) => this.hockey.sideOf(p.userId) !== null || p.comparsa,
       busDoorsOpen: () => this.bus.doorsOpen(),
       treeHouse: (userId) => this.casaArbol.canEnter(userId),
       studio: (userId) => this.podcast.canEnter(userId, this.podcastInside()),
@@ -2676,6 +2798,14 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
 
   /** Solo en desarrollo: "/festival <id|off>" prende un festival ya (ver devtools.ts). Devuelve si era el comando. */
   private devFestival(client: Client<UserData>, text: string): boolean {
+    // "/desfile": con el Carnaval prendido, sale el desfile ya (sin esperar las 11, las 15 o las 19).
+    if (text.trim() === "/desfile") {
+      const ok = this.carnaval.active() && this.state.carnaval.fase !== "desfile";
+      if (ok) this.carnaval.empezar();
+      const reply = ok ? "Sale el desfile por la calle del Megabús." : "El desfile sale solo con el Carnaval prendido (/festival carnaval) y sin otro en la calle.";
+      client.send(MSG.chatEvent, { id: randomUUID(), fromId: "", fromName: "Dev", text: reply, scope: "proximity", zoneId: null, ts: Date.now() } satisfies ChatEvent);
+      return true;
+    }
     const cmd = parseDevFestival(text);
     if (!cmd) return false;
     const reply = "error" in cmd ? cmd.error : cmd.id ? `Festival prendido: ${cmd.id}.` : "Festivales según el calendario.";
@@ -4332,6 +4462,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
     const player = this.state.players.get(sessionId);
     this.observatorio?.forget(sessionId);
     if (player) this.mundo?.forget(player.userId);
+    if (player) this.carnaval.forget(sessionId, player.userId);
     this.state.players.delete(sessionId);
     this.aguinaldos.leave(sessionId);
     this.casaArbol?.sweep(Date.now());
@@ -4408,6 +4539,7 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       riders: () => this.busRiders().length,
       homeRiders: () => this.busRiders().filter((p) => !this.toStation.has(p.userId)).length,
       arriveHome: () => this.arriveHome(),
+      held: () => this.streetHeld,
       onChange: (s) => {
         b.phase = s.phase;
         b.since = s.since;

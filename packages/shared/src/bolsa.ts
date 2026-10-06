@@ -12,6 +12,7 @@ import { PESCA_BAG_OBJECTS } from "./pesca-tienda";
 import { MUNDO_BLURBS, PRINTED_SHEET, sheetNoteIdOf } from "./mundo";
 import { MUNDO_BAG_OBJECTS } from "./garra";
 import { BRUJAS_BAG_OBJECTS } from "./brujas";
+import { CARNAVAL_BAG_OBJECTS } from "./carnaval-objetos";
 import { VELITAS_BAG_OBJECTS } from "./velitas";
 import { CONSUMABLES } from "./consumables";
 import { STORY_BAG_OBJECTS } from "./historia";
@@ -161,6 +162,8 @@ export const BAG_OBJECTS: Record<string, BagObject> = {
   ...MUNDO_BAG_OBJECTS,
   // La Noche de brujas: los dulces, la canasta de dulce o truco y la calabaza dorada (brujas.ts).
   ...BRUJAS_BAG_OBJECTS,
+  // El Carnaval: la maicena, las serpentinas y las máscaras de recuerdo (carnaval-objetos.ts).
+  ...CARNAVAL_BAG_OBJECTS,
   // La Noche de velitas: las velitas y el farol de deseos (velitas.ts).
   ...VELITAS_BAG_OBJECTS,
   // Los objetos de la historia, de todos los capítulos (historia.ts: `items` de cada uno).

@@ -1,4 +1,4 @@
-import { catalogItem, seatBehind, seatBodyRows, seatLift, seatShift, SIT_BACK_ROWS, TUB_WATER_Z, type Seat } from "@hyvento/map";
+import { catalogItem, CURB_DROP, ROAD, seatBehind, seatBodyRows, seatLift, seatShift, SIT_BACK_ROWS, TUB_WATER_Z, type Seat } from "@hyvento/map";
 import {
   BODY_UP,
   bubble,
@@ -21,6 +21,8 @@ import {
   sparkleSprite,
   steamPuff,
   SWIM_DROP,
+  talcoCara,
+  talcoPolvo,
   waterDroplet,
   waterRing,
 } from "@hyvento/map/art";
@@ -67,6 +69,8 @@ const BUBBLE_MS = 4500;
 const VIDEO_SIZE = 30;
 /** Altura del nombre sobre los pies (un poco más arriba de la coronilla). */
 const HEAD = BODY_UP.crown + 7;
+/** Tile del mundo (px): para saber si los pies van por la calle del Megabús. */
+const ROAD_TILE = 32;
 const SPEAKING_COLOR = "#5ea247";
 /**
  * Dónde va lo que lleva en cada mano, según hacia dónde mira: desplazamiento horizontal desde el centro
@@ -1198,6 +1202,7 @@ export class Avatar {
     if (this.destroyed) return;
     this.syncSeatHead();
     this.waterFx(time);
+    this.talcoFx(time);
     if (this.drunk === 4) return this.faintPose(time);
     this.tripFx(time);
     if (!this.drunk) return;
@@ -1712,6 +1717,52 @@ export class Avatar {
     this.sprite.anims.timeScale = this.moving ? 1.3 : 0.5;
   }
 
+  /** La cara empolvada con maicena (el talco del Carnaval): el polvo encima y motitas que caen. */
+  private talco?: Phaser.GameObjects.Image;
+  private nextDustAt = 0;
+
+  setPowdered(on: boolean) {
+    if (on === Boolean(this.talco)) return;
+    if (!on) {
+      this.talco?.destroy();
+      this.talco = undefined;
+      return;
+    }
+    const key = ensureTexture(this.scene, "talco-cara", () => talcoCara());
+    this.talco = this.scene.add.image(0, 0, key).setOrigin(0.5, 0.5);
+    this.layout();
+  }
+
+  /** Un puñado de maicena que le cae encima (lo ven todos): una nubecita blanca alrededor de la cabeza. */
+  powderPuff() {
+    if (this.hidden) return;
+    const s = worldToScreen(this.wx, this.wy);
+    const key = ensureTexture(this.scene, "talco-polvo", () => talcoPolvo());
+    const head = Math.round(s.y) - BODY_UP.mouth - 2;
+    for (let i = 0; i < 14; i++) {
+      const p = this.scene.add.image(Math.round(s.x), head, key).setDepth(depthOf(this.wx, this.wy) + 0.64);
+      const ang = (i / 14) * Math.PI * 2;
+      this.scene.tweens.add({
+        targets: p,
+        x: p.x + Math.cos(ang) * (8 + Math.random() * 6),
+        y: p.y + Math.sin(ang) * (5 + Math.random() * 4) - 3,
+        alpha: 0,
+        duration: 500 + Math.random() * 300,
+        ease: "Quad.out",
+        onComplete: () => p.destroy(),
+      });
+    }
+  }
+
+  /** Con la cara empolvada, cada tanto se le cae una motita. */
+  private talcoFx(time: number) {
+    if (!this.talco || this.hidden || time < this.nextDustAt) return;
+    this.nextDustAt = time + 500 + Math.random() * 700;
+    const key = ensureTexture(this.scene, "talco-polvo", () => talcoPolvo());
+    const dot = this.scene.add.image(this.talco.x + Math.round((Math.random() - 0.5) * 8), this.talco.y + 2, key).setDepth(this.talco.depth + 0.01);
+    this.scene.tweens.add({ targets: dot, y: dot.y + 10, alpha: 0, duration: 700, ease: "Quad.in", onComplete: () => dot.destroy() });
+  }
+
   /** Recién salido del agua: gotea un rato. */
   setWet(on: boolean) {
     this.wet = on;
@@ -1872,6 +1923,7 @@ export class Avatar {
     this.bubbleTimer?.remove();
     this.bubble?.destroy();
     this.ride?.img.destroy();
+    this.talco?.destroy();
     this.sprite.destroy();
     this.seatHead.destroy();
     this.shadow.destroy();
@@ -1890,7 +1942,10 @@ export class Avatar {
     // Sentado, el cuerpo se corre hacia el cojín del asiento (seatShift) y sube o baja a su altura.
     // Nadando, la línea del agua queda un poco más abajo que el deck (la pileta está hundida).
     const x = Math.round(s.x) + (pose?.dx ?? 0);
-    const y = Math.round(s.y) + (pose?.dy ?? 0) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0) + (this.swimming && !arc ? 2 : 0);
+    // En la calle del Megabús (bailando en la comparsa del Carnaval) se va a la altura de la calzada, que va
+    // un escalón más abajo que la vereda.
+    const road = this.wy >= ROAD.y0 * ROAD_TILE ? CURB_DROP : 0;
+    const y = Math.round(s.y) + road + (pose?.dy ?? 0) + (pose?.lift ?? 0) + (this.ride ? seatLift(RIDE_CHAIR) : 0) + (this.swimming && !arc ? 2 : 0);
     if (this.ride) {
       // La silla va debajo (o delante, de espaldas: el respaldo tapa) y rueda con el personaje.
       const a = worldToScreen(this.wx - 16, this.wy - 16);
@@ -1912,6 +1967,13 @@ export class Avatar {
     this.syncSeatHead();
     this.layoutArm(x + g.x, y - hop, depth);
     this.shadow.setPosition(x, y).setDepth(depth + 0.4);
+    // El talco: sobre la cara (de espaldas no se ve), a la altura de la boca y los ojos.
+    if (this.talco) {
+      const face = this.seated ?? this.dir;
+      const sit = this.seated && !this.soaking;
+      const mouthY = y + 1 - hop - (sit ? MOUTH_SEATED : MOUTH_STANDING);
+      this.talco.setPosition(x + g.x + Math.round(MOUTH[face].dx / 2), mouthY - 3).setDepth(depth + 0.53).setVisible(!this.hidden && face !== "up");
+    }
     this.speakingRing.setPosition(x, y).setDepth(depth + 0.45);
     if (this.held) {
       const face = this.spinning?.face ?? this.seated ?? this.dir;

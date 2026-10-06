@@ -7,6 +7,7 @@ import type { FestivalId } from "@hyvento/shared";
 import { furnitureTiles } from "./decor";
 import { catalogItem } from "./world/catalog";
 import { BRUJAS_DECOR } from "./world/festivales/brujas";
+import { CARNAVAL_DECOR } from "./world/festivales/carnaval";
 import { VELITAS_DECOR } from "./world/festivales/velitas";
 import { FERIA_DECOR } from "./world/festivales/feria-flores";
 import { NOVENAS_DECOR } from "./world/festivales/novenas";
@@ -32,6 +33,7 @@ export interface FestivalDecorDef {
 /** La decoración de cada festival que tiene. */
 export const FESTIVAL_DECOR: Partial<Record<FestivalId, FestivalDecorDef>> = {
   brujas: BRUJAS_DECOR,
+  carnaval: CARNAVAL_DECOR,
   velitas: VELITAS_DECOR,
   "feria-flores": FERIA_DECOR,
   novenas: NOVENAS_DECOR,

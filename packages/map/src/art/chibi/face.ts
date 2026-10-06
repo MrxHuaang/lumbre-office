@@ -194,6 +194,22 @@ export function drawFaceGear({ c, look, view, y }: Ctx) {
       c.set(2, y(9), MASK[1]);
       return;
     }
+    case "carnival-mask": {
+      // Antifaz del Carnaval de Negros y Blancos: mitad blanco y mitad negro (es la máscara, no la piel),
+      // ribete dorado arriba y una plumita roja que sale del lado de adelante. Los ojos quedan a la vista.
+      const eye = new Set(EYES[look.eyes].map(([x, r]) => `${x},${r}`));
+      for (let r = 6; r <= 8; r++)
+        for (let x = 4; x <= 12; x++) {
+          if (eye.has(`${x},${r}`)) continue;
+          if (r === 6) c.set(x, y(r), GOLD[x % 2 ? 1 : 2]);
+          else c.set(x, y(r), x <= 8 ? CARNIVAL_WHITE : CARNIVAL_BLACK);
+        }
+      c.set(12, y(5), FEATHER[0]);
+      c.set(13, y(4), FEATHER[1]);
+      c.set(13, y(3), FEATHER[0]);
+      c.set(3, y(7), CARNIVAL_BLACK);
+      return;
+    }
     case "star-glasses":
       // Gafas de fiesta: dos estrellas doradas alrededor de los ojos, con lentes rosados.
       for (const x0 of [6, 10]) {
@@ -247,6 +263,9 @@ const LENS_RED = alpha(hex("#e0413a"), 0.8);
 const LENS_CYAN = alpha(hex("#3fc6dd"), 0.8);
 const MASK: [RGBA, RGBA] = [hex("#15121c"), hex("#2a2536")];
 const STAR_LENS = alpha(hex("#ff8fc8"), 0.6);
+const CARNIVAL_WHITE = hex("#f6f4ef");
+const CARNIVAL_BLACK = hex("#24212e");
+const FEATHER: [RGBA, RGBA] = [hex("#c05a4a"), hex("#e0835e")];
 const GOLD: Three = [hex("#b98424"), hex("#dcae3f"), hex("#f3d672")];
 
 /**
@@ -294,6 +313,14 @@ function drawGlasses(c: PixelCanvas, face: "glasses" | "round-glasses", style: E
 }
 
 function drawFaceGearBack(c: PixelCanvas, face: Exclude<FaceItem, "none">, y: Row) {
+  if (face === "carnival-mask") {
+    // La cinta negra rodea la cabeza y la plumita asoma por arriba.
+    c.rect(3, y(6), 10, 1, GOLD[1]);
+    c.rect(3, y(7), 10, 1, CARNIVAL_BLACK);
+    c.set(3, y(4), FEATHER[0]);
+    c.set(3, y(5), FEATHER[1]);
+    return;
+  }
   if (face === "hero-mask") {
     // La banda rodea la cabeza y el nudo queda en la nuca con sus dos puntas.
     c.rect(3, y(6), 10, 2, MASK[1]);

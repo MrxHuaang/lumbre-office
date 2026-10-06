@@ -65,6 +65,10 @@ export class Player extends Schema {
   @type("float64") broadcastUntil = 0;
   /** Nivel de vecino (la suma de los niveles de los oficios, ver oficios.ts): se ve chiquito junto al nombre. */
   @type("uint8") vecino = 0;
+  /** Va bailando en la comparsa del Carnaval: lo mueve la sala por la calle (ver rooms/carnaval.ts). */
+  @type("boolean") comparsa = false;
+  /** Le echaron maicena: la cara empolvada un rato (el talco del Carnaval). */
+  @type("boolean") talco = false;
 }
 
 /** Mueble puesto en una oficina decorada (tiles del nivel). */
@@ -510,6 +514,33 @@ export class GranjaState extends Schema {
   @type("uint8") eggs = 0;
 }
 
+/** Quien se postuló al concurso de disfraces del Carnaval, con su pinta de ese momento. */
+export class CandidatoState extends Schema {
+  @type("string") userId = "";
+  @type("string") name = "";
+  /** El `look` (JSON) y el `avatar` con que se postuló, para dibujar su chibi en el panel. */
+  @type("string") look = "";
+  @type("string") avatar = "ada";
+  @type("uint16") votos = 0;
+  @type("float64") at = 0;
+}
+
+/** El Carnaval (ver rooms/carnaval.ts): el desfile por la calle del Megabús y el concurso de disfraces. */
+export class CarnavalState extends Schema {
+  /** "" (no pasa), "espera" (toca, pero el bus está en la calle) o "desfile". */
+  @type("string") fase = "";
+  /** Cuándo empezó el desfile (hora del servidor) y su número (para notar uno nuevo). */
+  @type("float64") inicio = 0;
+  @type("uint32") corrida = 0;
+  /** El paso y lo que dura cada parada (los tests los acortan; el navegador dibuja con los mismos). */
+  @type("float32") velocidad = 0;
+  @type("uint32") paradaMs = 0;
+  @type({ map: CandidatoState }) candidatos = new MapSchema<CandidatoState>();
+  /** Quién ganó el concurso de hoy ("" mientras sigue abierto o si no votó nadie). */
+  @type("string") ganador = "";
+  @type("boolean") concursoCerrado = false;
+}
+
 /** Una velita prendida en el jardín en la Noche de velitas (la clave es "x,y" del tile). */
 export class VelitaState extends Schema {
   @type("uint16") x = 0;
@@ -587,4 +618,6 @@ export class OfficeState extends Schema {
   @type(GranjaState) granja = new GranjaState();
   /** La Feria de las flores: las silletas exhibidas en el patio de la feria y la ganadora. */
   @type(FeriaState) feria = new FeriaState();
+  /** El Carnaval de Negros y Blancos: el desfile y el concurso de disfraces. */
+  @type(CarnavalState) carnaval = new CarnavalState();
 }

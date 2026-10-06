@@ -85,6 +85,8 @@ const GLYPHS: Record<BadgeIcon | "secret", readonly string[]> = {
   // Observatorio: el telescopio de latón en su trípode y el malvavisco en el palito.
   telescope: ["......yy.", ".....yYy.", "....yYy..", "...yYy...", "..yYy....", ".nyy.....", ".n.n.....", "n...n....", "n...n...."],
   marshmallow: [".cccc....", "cCccCc...", "cccccc...", "cCcccC...", ".cccc....", "....ww...", ".....ww..", "......ww.", ".......ww"],
+  // El antifaz del Carnaval: mitad blanco, mitad negro, con ribete dorado y la pluma.
+  mask: [".......rr", "......rr.", "yyyyyyyy.", "yxxxyddy.", "yxkxydky.", "yxxxyddy.", ".yxxydy..", "..yyyy..."],
   pumpkin: ["....nn...", "...ng....", ".yYyYyYy.", "yYyYyYyYy", "yYkYyYkYy", "yYyYyYyYy", "yYkkkkkYy", ".yYyYyYy."],
   // Feria de las flores: la silleta, el marco de madera cuajado de flores con su copete.
   silleta: [".g.r.y.v.", "nnnnnnnnn", "nrryyvvbn", "nrryyvvbn", "nopprrygn", "nopprrygn", "nnnnnnnnn", ".n.....n.", ".n.....n."],
