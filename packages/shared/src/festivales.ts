@@ -93,9 +93,9 @@ export const FESTIVALES: readonly FestivalDef[] = [
     dias: 1,
     color: "#8a3ad0",
     frases: {
-      aurora: ["¡Quien lo vive es quien lo goza! Pero no me eche maicena en el pelo.", "Saque el disfraz, que hoy nadie es quien parece."],
+      aurora: ["¡Que viva el carnaval! Pero no me eche maicena en el pelo.", "Saque el disfraz, que hoy nadie es quien parece."],
       gloria: ["Hoy la recepción atiende disfrazada. Diga la contraseña: ¡carnaval!", "El desfile pasa por la calle del Megabús. ¡Súmese a la comparsa!"],
-      evelio: ["Hoy yo cargo la bandera, mijo. En Pasto el carnaval se respeta.", "¿Talco? Pregunte primero, que no a todos les gusta quedar blanquitos."],
+      evelio: ["Ve, hoy yo cargo la bandera. En Pasto el carnaval se respeta.", "¿Talco? Pregunte primero, que no a todos les gusta quedar blanquitos."],
       portero: ["Con máscara o sin máscara, aquí se entra bailando.", "Hoy el casino es comparsa."],
     },
   },
@@ -123,10 +123,10 @@ export const FESTIVALES: readonly FestivalDef[] = [
     color: "#e0752a",
     frases: {
       aurora: [
-        "¿Sabe la leyenda del sótano? Dicen que en noche de brujas se oye un reloj… detrás de una puerta que no abre nadie.",
+        "¿Conoce la leyenda del sótano? Dicen que en Noche de brujas se oye un reloj… detrás de una puerta que nadie abre.",
         "Dulce o truco, pero que el truco no sea en mi cocina.",
       ],
-      gloria: ["Hoy toque las puertas de las oficinas: algunos dan dulces, otros dan sustos.", "Si ve un fantasma en el pasillo, es Toño con una sábana."],
+      gloria: ["Hoy vaya tocando las puertas de las oficinas: unos dan dulces y otros, sustos.", "Si ve un fantasma en el pasillo, es Toño, el portero, con una sábana."],
       evelio: ["Esta noche pican peces raros. O eso cuenta la gente asustada.", "En el lago flota una calabaza. No sé de quién es."],
       portero: ["Hoy no se entra al casino sin disfraz. Bueno, sí. Pero da pena.", "¿Dulce o truco? Yo doy truco."],
     },
@@ -134,7 +134,7 @@ export const FESTIVALES: readonly FestivalDef[] = [
   {
     id: "velitas",
     nombre: "Noche de velitas",
-    resumen: "Velitas y faroles por toda la cabaña, faroles de deseos en el lago y la medianoche iluminada.",
+    resumen: "Velitas y faroles por toda la cabaña y, a las nueve de la noche, los faroles de deseos sobre el lago.",
     estacion: "invierno",
     dia: 7,
     dias: 1,
@@ -144,7 +144,7 @@ export const FESTIVALES: readonly FestivalDef[] = [
     momentos: [{ minuto: SUELTA_MINUTO, cine: VELITAS_CINE.faroles }],
     frases: {
       aurora: [
-        "Prenda su velita y pida un deseo, pero bajito, que si no no se cumple.",
+        "Prenda su velita y pida un deseo, pero bajito, que si no, no se cumple.",
         "Esta noche la cabaña parece un pesebre gigante.",
         "A las nueve soltamos los faroles. Vaya pensando el deseo, que no se vale repetir.",
       ],
@@ -160,7 +160,7 @@ export const FESTIVALES: readonly FestivalDef[] = [
   {
     id: "novenas",
     nombre: "Novenas de aguinaldo",
-    resumen: "Nueve noches del juego: pesebre que se arma entre todos, villancicos, natilla y buñuelos y aguinaldos.",
+    resumen: "Nueve noches del juego: el pesebre que se arma entre todos, villancicos, natilla con buñuelos y aguinaldos.",
     estacion: "invierno",
     dia: 12,
     dias: 9,
@@ -168,7 +168,7 @@ export const FESTIVALES: readonly FestivalDef[] = [
     frases: {
       aurora: ["La novena es a las ocho, y el que llegue tarde reza el doble.", "Natilla con buñuelos: lo único que me tiene en pie en diciembre."],
       gloria: ["Esta noche le toca la figura del burrito al pesebre.", "Pajita en boca: el que hable, pierde. Empezamos… ya."],
-      evelio: ["Yo pongo el pescado pa' la cena de Navidad. Pregunten antes.", "Tutaina tuturumá… ¿cómo era que seguía?"],
+      evelio: ["Yo pongo la trucha pa' la cena de Navidad. De la laguna de la Cocha, ve.", "Tutaina tuturumá… ¿cómo era que seguía?"],
     },
   },
   {
@@ -347,28 +347,28 @@ export const FESTIVAL_CINEMATICAS: readonly CineDef[] = [
   close(byId("cometas"), "Recojan las cometas, que la última se fue pal lago con todo y cola."),
   // El de Negros y Blancos se nombra con respeto (docs/plan-carnaval.md): el Día de Negros recuerda el día de
   // libertad que pidieron las personas esclavizadas; aquí se celebra con trajes, máscaras y carrozas.
-  open(byId("carnaval"), ["¡Quien lo vive es quien lo goza! Arrancó el Carnaval de Negros y Blancos.", "El desfile pasa por la calle del Megabús a las 11, a las 3 y a las 7. ¡Saquen las máscaras!"], [
+  open(byId("carnaval"), ["¡Que viva el carnaval! Arrancó el Carnaval de Negros y Blancos.", "El desfile pasa por la calle del Megabús a las 11, a las 3 y a las 7. ¡Saquen las máscaras!"], [
     { op: "sound", sound: "guanena" },
     { op: "fx", fx: "confeti" },
     { op: "emote", who: "yo", emote: "dance" },
     {
       op: "say",
       who: "evelio",
-      text: "En Pasto el Día de Negros recuerda un día de libertad que pidieron los esclavizados, y el de Blancos es el del talco. Aquí lo celebramos con trajes, máscaras y carrozas.",
+      text: "Ve, en Pasto el Día de Negros recuerda el día de libertad que pidieron las personas esclavizadas, y el Día de Blancos es el del talco. Aquí lo celebramos con trajes, máscaras y carrozas.",
       ms: 5200,
     },
   ]),
-  close(byId("carnaval"), "Se acabó el carnaval… hasta el año que viene. Lávense la maicena."),
+  close(byId("carnaval"), "Se acabó el carnaval… hasta el año que viene. Y a sacudirse la maicena del pelo."),
   open(byId("cosecha"), ["¡Feria de la cosecha! Traigan lo mejor del huerto, la granja y el lago.", "Los jueces pasan a mediodía: que todo brille."], [
     { op: "fx", fx: "estrellas" },
   ]),
   close(byId("cosecha"), "Las cintas ya están repartidas. El año que viene, a sembrar con más ganas."),
-  open(byId("brujas"), ["Esta noche la cabaña se pone rara… dulce o truco por todas las puertas.", "El laberinto de maíz está abierto. Dicen que adentro hay una calabaza dorada."], [
+  open(byId("brujas"), ["Esta noche la cabaña se pone rara… Hay dulce o truco en todas las puertas.", "El laberinto de maíz está abierto. Dicen que adentro hay una calabaza dorada."], [
     { op: "sound", sound: "trueno" },
     { op: "flash", color: "blanco", ms: 250 },
   ]),
   close(byId("brujas"), "¿Oyeron eso? Juraría que el reloj del recibidor sonó trece veces…"),
-  open(byId("velitas"), ["Noche de velitas: prenda la suya y pida un deseo.", "A medianoche soltamos los faroles en el lago, todos juntos."], [
+  open(byId("velitas"), ["Noche de velitas: prenda la suya y pida un deseo.", "A las nueve soltamos los faroles en el lago, todos juntos."], [
     { op: "fx", fx: "estrellas" },
   ]),
   close(byId("velitas"), "Que se cumplan todos los deseos que subieron con los faroles."),

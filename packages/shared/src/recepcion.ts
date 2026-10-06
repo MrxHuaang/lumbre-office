@@ -41,7 +41,7 @@ export const RECEPCION_NPC: GameNpc = {
   },
   idle: [
     "¿Le provoca un tintico? En la cafetería lo hacen bien bueno.",
-    "Qué alegría ver la casa llena, mijo.",
+    "Qué alegría ver la casa llena.",
     "Si se pierde, venga y yo le digo dónde anda cada uno.",
     "Abríguese, que afuera está haciendo frío.",
   ],
@@ -49,10 +49,10 @@ export const RECEPCION_NPC: GameNpc = {
 
 /** Saludos a quien entra al recibidor (`{name}` = su nombre corto). */
 export const RECEPCION_GREET = [
-  "¡Buenas, {name}! Bienvenido a la casa.",
+  "¡Buenas, {name}! Qué alegría que vino.",
   "Siga, {name}, siga, que está en su casa.",
   "¡Ay, {name}! ¿Cómo me le va? ¿A quién busca?",
-  "Buenos días, {name}. Límpiese los pies, mi amor.",
+  "Hola, {name}. Límpiese los pies, mi amor.",
   "¡Quiubo, {name}! Pase, que ya casi está el tinto.",
 ] as const;
 

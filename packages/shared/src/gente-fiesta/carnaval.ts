@@ -32,7 +32,7 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       accion: { tipo: "puesto" },
       lluvia: "sigue",
       frases: {
-        hola: ["¡Maicena pa'l Día de Blancos! Pregunte antes de echarla, que no a todos les gusta.", "Bolsita de maicena, serpentinas y máscaras. ¿Qué se lleva?", "En Pasto el talco se echa con cariño. Aquí también."],
+        hola: ["¡Maicena pa'l Día de Blancos! Pregunte antes de echarla, que no a todos les gusta.", "Bolsita de maicena, serpentinas y máscaras. ¿Qué se lleva?", "En Pasto el talco se echa con cariño y preguntando primero. Aquí también."],
       },
       murmullos: ["¡Maicena, maicena!", "¡Serpentinas!", "Pregunte antes de echar"],
     }),
@@ -43,7 +43,7 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       comportamiento: { tipo: "ronda", paradas: [{ x: 40, y: 127, mira: "down", pausa: 2 }, { x: 80, y: 127, mira: "down", pausa: 2 }] },
       pinta: { ...DE(NEGRO, BLANCO, "#e05a7a"), outfit: "apron" },
       accion: { tipo: "puesto" },
-      frases: { hola: ["¡Serpentinas de colores! Pa' tirarle a los de la comparsa.", "Vendo por la vereda pa' que nadie se quede sin su serpentina."] },
+      frases: { hola: ["¡Serpentinas de colores! Pa' tirárselas a la comparsa.", "Vendo por la vereda pa' que nadie se quede sin su serpentina."] },
       murmullos: ["¡Serpentinas!", "¡De colores!", "Lleve, lleve"],
     }),
     papel(F, "aurelio", {
@@ -64,7 +64,7 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
         pide: [{ item: "clavel", n: 1 }],
         da: { puntos: 8 },
         texto: "A mi sombrero de carnaval le falta una flor. ¿Me trae un clavel del huerto?",
-        gracias: "¡Ahora sí estoy completa! Gracias, mijo, quedé de concurso.",
+        gracias: "¡Ahora sí estoy completa! Quedé de concurso. Mil gracias.",
       },
     }),
     papel(F, "marina", {
@@ -72,8 +72,8 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       area: "jardin",
       tile: { x: 72, y: 128 },
       ...publico(
-        { hola: ["El Carnaval de Negros y Blancos es patrimonio de la humanidad, mijo. Desde 2009.", "El Día de Negros recuerda un día de libertad. Por eso se celebra con respeto y con alegría."] },
-        ["Patrimonio, mijo", "Con respeto y alegría", "¡Bravo, bravo!"],
+        { hola: ["El Carnaval de Negros y Blancos es patrimonio de la humanidad desde 2009. Eso se lo pregunto en el examen.", "El Día de Negros recuerda un día de libertad. Por eso se celebra con respeto y con alegría."] },
+        ["Patrimonio de la humanidad", "Con respeto y alegría", "¡Bravo, bravo!"],
       ),
       pinta: { ...DE(NEGRO, BLANCO, "#e0c03a"), head: "party-hat" },
     }),
@@ -102,14 +102,14 @@ export function GENTE_CARNAVAL(): FiestaNpc[] {
       rol: "Espera el desfile en la vereda",
       area: "jardin",
       tile: { x: 115, y: 128 },
-      ...publico({ hola: ["Paloma, mi mula, se quedó amarrada. Le da susto la pólvora y las carrozas.", "La tierra no tiene afán. El desfile tampoco: ahí viene despacito."] }, ["¡Viva!", "Despacito viene", "¡Bravo!"]),
+      ...publico({ hola: ["Paloma, mi mula, se quedó amarrada. Le dan susto la pólvora y las carrozas.", "La tierra no tiene afán. El desfile tampoco: ahí viene despacito."] }, ["¡Viva!", "Despacito viene", "¡Bravo!"]),
       pinta: { shirt: BLANCO, top2: NEGRO },
     }),
     papel(F, "tomas", {
       rol: "Toca la guaneña en la vereda",
       area: "jardin",
       tile: { x: 120, y: 128 },
-      ...publico({ hola: ["La guaneña es el himno del carnaval. La toco hasta dormido.", "Esta la compuse anoche: una guaneña con tiple. Escuche."] }, ["Guaneña, guaneñita…", "¡Que suene!", "Tlin, tlan, tlin"]),
+      ...publico({ hola: ["La guaneña es el himno del carnaval. La toco hasta dormido.", "Esta la compuse anoche, al estilo de la guaneña, con tiple. Escuche."] }, ["Guaneña, guaneñita…", "¡Que suene!", "Tlin, tlan, tlin"]),
       pinta: { shirt: BLANCO, top2: NEGRO, head: "party-hat", accent: NEGRO },
       pedido: {
         id: "tinto-tomas",

@@ -80,7 +80,7 @@ export type TrickResult =
 export const TRICK_ERROR_TEXT: Record<TrickError, string> = {
   off: "El dulce o truco es solo en la Noche de brujas.",
   basket: "Lleva la canasta de dulce o truco en la mano.",
-  far: "Arrímate más.",
+  far: "Arrímate un poco más.",
   done: "Aquí ya pediste hoy. ¡Prueba en otra puerta!",
   full: "No te cabe el dulce en la mochila.",
   busy: "Un momentico…",
@@ -90,7 +90,7 @@ export const TRICK_ERROR_TEXT: Record<TrickError, string> = {
 const GENERIC_LINES = [
   "¡Uy, qué disfraz tan bueno! Tenga, mijo.",
   "¿Dulce o truco? Dulce, dulce, que el truco me da miedo.",
-  "Coja uno, pero no le diga a nadie que yo doy de los buenos.",
+  "Coja uno, pero no le cuente a nadie que yo doy de los buenos.",
   "Esta noche hasta las escobas andan volando.",
 ] as const;
 
@@ -138,8 +138,8 @@ export interface BrujasShopItem {
 
 export const BRUJAS_SHOP = [
   { id: "chocolatina-brujas", name: "Chocolatina de brujas", price: 8, gives: 1 },
-  { id: "chupeta", name: "Chupeta", price: 6, gives: 1 },
-  { id: "bombon", name: "Bombón", price: 8, gives: 1 },
+  { id: "chupeta", name: "Colombina", price: 6, gives: 1 },
+  { id: "bombon", name: "Bombón de chocolate", price: 8, gives: 1 },
   { id: "gomitas", name: "Gomitas", price: 10, gives: 1 },
   { id: "masmelo", name: "Masmelo", price: 6, gives: 1 },
   { id: SOMBRERO_BRUJA, name: "Sombrero de bruja", price: 80, gives: 1 },
@@ -224,7 +224,7 @@ export const BRUJAS_CINEMATICAS: readonly CineDef[] = [
       { op: "flash", color: "rosa", ms: 300 },
       { op: "sound", sound: "magia" },
       { op: "emote", who: "yo", emote: "question" },
-      { op: "title", text: "¡Jejejeje!", sub: "Truco: una carcajada de bruja y ni un dulce", ms: 2200 },
+      { op: "title", text: "¡Jijijiji!", sub: "Truco: una carcajada de bruja y ni un dulce", ms: 2200 },
     ],
   },
 ];
