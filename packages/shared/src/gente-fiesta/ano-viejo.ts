@@ -212,31 +212,20 @@ export function GENTE_ANO_VIEJO(): FiestaNpc[] {
       },
       murmullos: ["La tierra no tiene afán", "Qué frío", "Ya casi"],
     }),
-    // Valentina y Santiago graban todo para despedir el año.
+    // Valentina graba todo para despedir el año (de cara al brasero).
     papel(F, "valentina", {
       rol: "Graba la despedida del año",
       area: "jardin",
       tile: { x: 78, y: 37 },
-      comportamiento: { tipo: "grupo", grupo: "video", centro: { x: 79, y: 37 } },
+      comportamiento: { tipo: "quieto", mira: "up" },
       pinta: { outfit: "coat", shirt: AMARILLO },
       frases: {
         hola: [
-          "Voy a hacer el resumen del año en un video de quince segundos. Usted sale en el segundo nueve.",
+          "Voy a hacer el resumen del año en un video de quince segundos. Tú sales en el segundo nueve.",
           "La quema la grabo desde aquí: buena luz, buena distancia y nada de humo en la cara.",
         ],
       },
       murmullos: ["¡Qué toma!", "Salude a cámara", "Otra vez, otra vez"],
-    }),
-    papel(F, "santiago", {
-      rol: "Le sostiene el celular a Valentina",
-      area: "jardin",
-      tile: { x: 80, y: 37 },
-      comportamiento: { tipo: "grupo", grupo: "video", centro: { x: 79, y: 37 } },
-      pinta: { outfit: "coat", shirt: AMARILLO, head: "beanie" },
-      frases: {
-        hola: ["Mi propósito de año nuevo es que haya wifi en el jardín.", "Valen me tiene de trípode otra vez. Es mi destino."],
-      },
-      murmullos: ["No carga…", "¿Así está bien?", "Feliz año, wifi"],
     }),
     // Los niños con varitas de luz (de noche brillan; de día las tienen guardadas).
     suelto(F, "juanpis", "Juanpis", nino("#f1c27d", "#3a2418", { outfit: "coat", shirt: AMARILLO, head: "party-hat" }), {
