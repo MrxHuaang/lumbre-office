@@ -116,6 +116,28 @@ export const DIRECTOR_ACCIONES: readonly DirectorAccionDef[] = [
     festival: "carnaval",
     aviso: "{nombre} sacó el desfile del Carnaval a la calle.",
   },
+  // El Año viejo (rooms/anoViejo.ts): lo que tiene hora, sin esperarla.
+  {
+    id: "ano-viejo-uvas",
+    nombre: "Las campanadas de las uvas ya",
+    descripcion: "Suenan ya las doce campanadas del Año viejo, para comerse las uvas.",
+    festival: "ano-viejo",
+    aviso: "{nombre} puso a sonar las campanadas de las uvas.",
+  },
+  {
+    id: "ano-viejo-quema",
+    nombre: "La quema del muñeco ya",
+    descripcion: "Se quema ya el muñeco de año viejo en el brasero, con su cinemática y las luces de colores.",
+    festival: "ano-viejo",
+    aviso: "{nombre} prendió el muñeco de año viejo.",
+  },
+  {
+    id: "ano-viejo-cuenta",
+    nombre: "La cuenta regresiva ya",
+    descripcion: "La cuenta regresiva del año nuevo: cuentan las lentejas y la ropa amarilla, el abrazo y el resumen del año.",
+    festival: "ano-viejo",
+    aviso: "{nombre} arrancó la cuenta regresiva del año nuevo.",
+  },
 ];
 
 export const directorAccion = (id: string) => DIRECTOR_ACCIONES.find((a) => a.id === id);

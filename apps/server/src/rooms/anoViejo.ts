@@ -136,6 +136,8 @@ export class AnoViejo<T extends TestamentoView> {
   private fue = new Set<string>();
   private day = -1;
   private lastMinute: number | null = null;
+  /** Hasta cuándo corre la cuenta regresiva (para no largar dos). */
+  private cuentaHasta = 0;
 
   constructor(private readonly d: AnoViejoDeps<T>) {}
 
@@ -248,12 +250,30 @@ export class AnoViejo<T extends TestamentoView> {
    * y, al llegar el año nuevo, el abrazo (los del jardín se miran y hacen el corazón) y el resumen de cada uno.
    */
   cuenta() {
+    if (this.enCuenta()) return;
+    this.cuentaHasta = this.d.now() + ANO_VIEJO.abrazoMs;
     for (const [sid, p] of this.d.players()) {
       if (this.d.held.count(p.userId, objItemId(LENTEJAS)) > 0) this.aguero(sid, p.userId, "lentejas");
       if (costumeOf(p.look) === TRAJE_AMARILLO) this.aguero(sid, p.userId, "amarillo");
     }
     this.cineAlJardin(ANO_VIEJO_CINE.cuenta);
     this.d.later(ANO_VIEJO.abrazoMs, () => this.anoNuevo());
+  }
+
+  /** ¿Está corriendo la cuenta regresiva? */
+  enCuenta(): boolean {
+    return this.d.now() < this.cuentaHasta;
+  }
+
+  /** ¿Están sonando (o por sonar) las campanadas? */
+  sonando(): boolean {
+    const c = this.campanadas();
+    return Boolean(c && this.d.now() <= finCampanadas(c));
+  }
+
+  /** ¿Ya se quemó el muñeco? */
+  quemado(): boolean {
+    return Boolean(this.d.state().quemadoAt);
   }
 
   /** El año nuevo: el abrazo de los del jardín y el resumen del año de cada quien. */

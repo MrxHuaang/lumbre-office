@@ -3126,6 +3126,25 @@ export class OfficeRoom extends Room<OfficeState, unknown, UserData> {
       this.carnaval.empezar();
       return null;
     });
+    // El Año viejo (la lógica es de anoViejo.ts): las campanadas, la quema y la cuenta regresiva, sin esperar su hora.
+    this.director.registrar("ano-viejo-uvas", () => {
+      if (!this.anoViejo?.activo()) return { ok: false, error: "cerrado", texto: "El Año viejo no está abierto." };
+      if (this.anoViejo.sonando()) return { ok: false, error: "ocupado", texto: "Las campanadas ya están sonando." };
+      this.anoViejo.sonarCampanadas();
+      return null;
+    });
+    this.director.registrar("ano-viejo-quema", () => {
+      if (!this.anoViejo?.activo()) return { ok: false, error: "cerrado", texto: "El Año viejo no está abierto." };
+      if (this.anoViejo.quemado()) return { ok: false, error: "nada", texto: "El muñeco ya se quemó." };
+      this.anoViejo.quema();
+      return null;
+    });
+    this.director.registrar("ano-viejo-cuenta", () => {
+      if (!this.anoViejo?.activo()) return { ok: false, error: "cerrado", texto: "El Año viejo no está abierto." };
+      if (this.anoViejo.enCuenta()) return { ok: false, error: "ocupado", texto: "La cuenta regresiva ya va." };
+      this.anoViejo.cuenta();
+      return null;
+    });
     this.onMessage(DIRECTOR_MSG.action, (client, raw) => {
       const who = this.directorWho(client);
       const res = who && this.director.run(who, raw);

@@ -282,10 +282,10 @@ export const AGUEROS = ["uvas", "maleta", "lentejas", "amarillo"] as const;
 export type AgueroId = (typeof AGUEROS)[number];
 
 export const AGUERO_INFO: Record<AgueroId, { nombre: string; deseo: string; como: string }> = {
-  uvas: { nombre: "Las doce uvas", deseo: "Doce meses dulces, uno por cada uva.", como: "Coma una uva con F en cada una de las doce campanadas (suenan a las 18:00, a las 20:00 y a las 21:45)." },
-  maleta: { nombre: "La maleta", deseo: "Un año de viajes y caminos nuevos.", como: "Con la maleta en la mano, dele la vuelta al jardín por las paradas marcadas, en orden." },
-  lentejas: { nombre: "Las lentejas", deseo: "Que no falte la plata en el bolsillo.", como: "Tenga un puñado de lentejas en la mochila a la hora de la cuenta regresiva." },
-  amarillo: { nombre: "La ropa amarilla", deseo: "Buena suerte y alegría todo el año.", como: "Póngase la pinta amarilla de año nuevo (en Mi personaje) para la cuenta regresiva." },
+  uvas: { nombre: "Las doce uvas", deseo: "Doce meses dulces, uno por cada uva.", como: "Come una uva con F en cada una de las doce campanadas (suenan a las 18:00, a las 20:00 y a las 21:45)." },
+  maleta: { nombre: "La maleta", deseo: "Un año de viajes y caminos nuevos.", como: "Con la maleta en la mano, dale la vuelta al jardín por las paradas marcadas, en orden." },
+  lentejas: { nombre: "Las lentejas", deseo: "Que no falte la plata en el bolsillo.", como: "Ten un puñado de lentejas en la mochila a la hora de la cuenta regresiva." },
+  amarillo: { nombre: "La ropa amarilla", deseo: "Buena suerte y alegría todo el año.", como: "Ponte la pinta amarilla de año nuevo (en Mi personaje) para la cuenta regresiva." },
 };
 
 /** La marca de un agüero cumplido ese año (contador de máximo en `UserStat`, sin migración). */
@@ -406,13 +406,13 @@ export type AnoViejoBuyResult = { ok: true; item: string; balance: number | null
 
 export const ANO_VIEJO_BUY_ERROR_TEXT: Record<AnoViejoBuyError, string> = {
   off: "El puesto abre solo el día del Año viejo, de 9:00 a 22:00.",
-  far: "Arrímese al puesto de uvas y maletas.",
-  funds: "No le alcanzan los puntos.",
+  far: "Arrímate al puesto de uvas y maletas.",
+  funds: "No te alcanzan los puntos.",
   full: "La mochila está llena.",
-  stack: "Ya lleva muchos de esos.",
-  tiene: "Eso ya lo tiene en la mochila.",
+  stack: "Ya llevas muchos de esos.",
+  tiene: "Eso ya lo tienes en la mochila.",
   busy: "Un momentico...",
-  failed: "No se pudo. Intente otra vez.",
+  failed: "No se pudo. Intenta otra vez.",
 };
 
 export type AnoViejoNoticeCode =
@@ -459,13 +459,13 @@ export function anoViejoNoticeText(n: AnoViejoNotice): string {
     case "cerrado":
       return "Eso es solo el día del Año viejo, de 9:00 a 22:00.";
     case "lejos":
-      return "Arrímese un poquito más.";
+      return "Arrímate un poquito más.";
     case "noSirve":
       return "Eso no le sirve al muñeco: necesita prendas viejas o relleno.";
     case "noTiene":
-      return "No tiene eso en la mochila.";
+      return "No tienes eso en la mochila.";
     case "tope":
-      return `Ya le dio ${MUNECO.porPersona} cosas al muñeco. Deje que los demás también le pongan.`;
+      return `Ya le diste ${MUNECO.porPersona} cosas al muñeco. Deja que los demás también le pongan.`;
     case "quemado":
       return "El muñeco ya se quemó. Feliz año nuevo.";
     case "aporte":
@@ -473,39 +473,39 @@ export function anoViejoNoticeText(n: AnoViejoNotice): string {
     case "listo":
       return `El muñeco creció: ${MUNECO.nombres[n.n ?? 0] ?? ""}.`;
     case "testamento":
-      return "Su testamento quedó en el cartel, junto al muñeco.";
+      return "Tu testamento quedó en el cartel, junto al muñeco.";
     case "vacio":
-      return "Escriba algo cortico: lo que deja de este año.";
+      return "Escribe algo cortico: lo que dejas de este año.";
     case "largo":
       return `El testamento es de ${TESTAMENTO.max} letras como mucho.`;
     case "enlace":
       return "Nada de enlaces en el testamento: solo palabras.";
     case "grosero":
-      return "El cartel lo lee todo el equipo: escríbalo sin groserías.";
+      return "El cartel lo lee todo el equipo: escríbelo sin groserías.";
     case "relleno":
       return `${n.item === PAJA ? "Un manojo de paja" : "Un costal de aserrín"} a la mochila, para el muñeco.`;
     case "rellenoTope":
-      return "De aquí ya sacó suficiente relleno.";
+      return "De aquí ya sacaste suficiente relleno.";
     case "llena":
       return "La mochila está llena.";
     case "uvasNo":
       return "Las uvas se comen con las campanadas: suenan a las 18:00, a las 20:00 y a las 21:45.";
     case "uvaEspera":
-      return "Espere la campanada.";
+      return "Espera la campanada.";
     case "uvaTarde":
-      return "Se le pasó una campanada. En la próxima tanda vuelve a intentarlo.";
+      return "Se te pasó una campanada. En la próxima tanda vuelves a intentarlo.";
     case "uva":
       return `Uva ${n.n ?? 0} de ${UVAS.n}.`;
     case "uvasListas":
       return "¡Las doce uvas, una por campanada! Doce meses dulces.";
     case "maletaSalida":
-      return `Salió con la maleta: ${MALETA_RUTA.length - 1} paradas por el jardín y de vuelta a la plaza.`;
+      return `Saliste con la maleta: ${MALETA_RUTA.length - 1} paradas por el jardín y de vuelta a la plaza.`;
     case "maletaParada":
-      return `Parada ${n.n ?? 0} de ${MALETA_RUTA.length - 1}. Siga a la que viene.`;
+      return `Parada ${n.n ?? 0} de ${MALETA_RUTA.length - 1}. Sigue a la que viene.`;
     case "maletaLlegada":
-      return "¡Le dio la vuelta al jardín con la maleta! El año trae viajes.";
+      return "¡Le diste la vuelta al jardín con la maleta! El año trae viajes.";
     case "maletaTarde":
-      return "La vuelta con la maleta se demoró mucho: empiece otra vez en la plaza.";
+      return "La vuelta con la maleta se demoró mucho: empieza otra vez en la plaza.";
     case "maletaRapido":
       return "Muy rápido: la vuelta se da caminando por todas las paradas.";
     case "aguero":
