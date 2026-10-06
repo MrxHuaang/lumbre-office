@@ -12,6 +12,7 @@ import { GENTE_CARNAVAL } from "./gente-fiesta/carnaval";
 import { GENTE_FERIA } from "./gente-fiesta/feria-flores";
 import { GENTE_NOVENAS } from "./gente-fiesta/novenas";
 import { GENTE_VELITAS } from "./gente-fiesta/velitas";
+import { GENTE_ANO_VIEJO } from "./gente-fiesta/ano-viejo";
 import type { Look } from "./look";
 import { lineSeed, pickLine } from "./npcs";
 import type { Weather } from "./weather";
@@ -139,6 +140,7 @@ export const GENTE_FIESTA: Partial<Record<FestivalId, GenteDeFestival>> = {
   novenas: GENTE_NOVENAS,
   "feria-flores": GENTE_FERIA,
   carnaval: GENTE_CARNAVAL,
+  "ano-viejo": GENTE_ANO_VIEJO,
 };
 
 export const GENTE_REGLAS = {

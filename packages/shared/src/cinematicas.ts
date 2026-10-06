@@ -17,6 +17,7 @@ import { CAPITULO2_CINEMATICAS } from "./capitulo2";
 import { CAPITULO3_CINEMATICAS } from "./capitulo3";
 import { FERIA_CINEMATICAS } from "./feria-flores";
 import { NOVENA_CINEMATICAS } from "./novenas";
+import { ANO_VIEJO_CINEMATICAS } from "./ano-viejo";
 
 /** Quién hace algo: el jugador ("yo"), un NPC fijo (por su id) o un actor que la cinemática pone (`extra`). */
 export type CineActor = string;
@@ -320,6 +321,8 @@ for (const def of [...FESTIVAL_CINEMATICAS, ...BRUJAS_CINEMATICAS, ...FERIA_CINE
 for (const def of [...CAPITULO2_CINEMATICAS, ...CAPITULO3_CINEMATICAS]) CINEMATICAS[def.id] = def;
 // Las de las novenas (la figura del pesebre y cada noche de la novena).
 for (const def of NOVENA_CINEMATICAS) CINEMATICAS[def.id] = def;
+// Las del Año viejo (la quema del muñeco, la cuenta regresiva y los agüeros).
+for (const def of ANO_VIEJO_CINEMATICAS) CINEMATICAS[def.id] = def;
 
 export const cineById = (id: string): CineDef | undefined => CINEMATICAS[id];
 
