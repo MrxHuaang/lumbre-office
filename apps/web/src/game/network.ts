@@ -117,6 +117,7 @@ import { bindCasaArbol } from "./casaArbol";
 import { bindCasas, casasAbiertasPara, useCasasStore } from "./casaVisitas";
 import { bindPesca } from "./pesca";
 import { bindBrujas } from "./brujas";
+import { bindCarnaval } from "./carnaval";
 import { sfx } from "./sfx";
 import { bindNotify } from "./notify";
 import { bindPhone, resetPhone } from "./phone";
@@ -162,6 +163,9 @@ export interface RemotePlayer {
   /** Nadando en la piscina del jardín y recién salido del agua (gotea). */
   swimming: boolean;
   wet: boolean;
+  /** Bailando en la comparsa del Carnaval (lo mueve la sala) y con la cara empolvada de maicena. */
+  comparsa?: boolean;
+  talco?: boolean;
   /** Insignia destacada (id de un logro; "" = ninguna). */
   badge: string;
   /** Nivel de vecino (la suma de los niveles de los oficios; 0 = todavía no llegó). */
@@ -941,6 +945,7 @@ function attach(r: OfficeRoom) {
   bindCasas(r);
   bindPesca(r);
   bindBrujas(r);
+  bindCarnaval(r);
   $(r.state).players.onAdd((player, sessionId) => {
     const sync = () =>
       useOfficeStore.getState().upsertPlayer({

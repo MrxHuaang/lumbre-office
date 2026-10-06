@@ -119,7 +119,10 @@ export type Interactable = "mailbox" | "board" | "cafe" | "shop" | "fitting" | "
   | "encargo"
   // La Noche de brujas: el puesto del caldero (dulces y el sombrero) y la calabaza dorada del laberinto.
   | "brujasShop"
-  | "goldenPumpkin";
+  | "goldenPumpkin"
+  // El Carnaval: el puesto de máscaras, maicena y serpentinas, y el palco del concurso de disfraces.
+  | "carnavalShop"
+  | "carnavalConcurso";
 
 /** `type` de la ayuda "E" cuando lo de al lado es una mascota (acariciarla): "mascota:<id>". */
 export const PET_USABLE_PREFIX = "mascota:";

@@ -120,6 +120,8 @@ import { Usables, type UsableHit } from "./usables";
 import { FishingController } from "./fishing/controller";
 import { ObservatorioVivo } from "./observatorioVivo";
 import { MaizalVivo, updateTrickTarget } from "./brujas";
+import { CarnavalView } from "./carnaval/desfile";
+import { lanzarConF, salirseComparsa, sumarseComparsa, useCarnavalStore } from "./carnaval";
 import { FishingRods } from "./fishing/rods";
 import { DRUNK_NOTICE, DrunkVision, WAKE_NOTICE } from "./drunk";
 import { setSfxArea, setSfxListener, sfx } from "./sfx";
@@ -257,7 +259,12 @@ const INTERACTABLES: { kind: Interactable; point: string; furniture: string[] }[
   // La Noche de brujas (solo con su decoración puesta): el puesto del caldero y la calabaza dorada.
   { kind: "brujasShop", point: "festival_shop", furniture: ["cauldron"] },
   { kind: "goldenPumpkin", point: "golden_pumpkin", furniture: ["golden-pumpkin"] },
+  // El Carnaval: el puesto (el mismo punto de festival que el del caldero) y el palco del concurso.
+  { kind: "carnavalShop", point: "festival_shop", furniture: ["puesto-carnaval"] },
+  { kind: "carnavalConcurso", point: "carnaval_contest", furniture: ["tarima-comparsa"] },
 ];
+/** El puesto de cada festival (todos usan el punto `festival_shop`): qué panel abre según el que corre. */
+const FESTIVAL_SHOP: Partial<Record<string, Interactable>> = { brujas: "brujasShop", carnaval: "carnavalShop" };
 const TRAVEL_TIMEOUT_MS = 3000;
 /** Cuánto hay que alejarse de donde se llegó para que los portales vuelvan a funcionar (tiles). */
 const ARRIVAL_CLEAR_TILES = 1.5;
@@ -424,6 +431,8 @@ export class OfficeScene extends Phaser.Scene {
   private treeLadder!: TreeLadderLayer;
   /** El Megabús de la parada del jardín (el bus de la calle y los sonidos de adentro). */
   private busView!: BusView;
+  /** El desfile del Carnaval por la calle del Megabús (carrozas, comparsas, abanderado y su música). */
+  private carnavalView!: CarnavalView;
   private busNoticeAt = -1e9;
   /** La piscina del jardín (reflejos, flotadores, la lona y las salpicaduras) y si estoy nadando. */
   private pool!: PoolView;
@@ -569,6 +578,7 @@ export class OfficeScene extends Phaser.Scene {
     this.paintings = new PaintingLayers(this);
     this.treeLadder = new TreeLadderLayer(this);
     this.busView = new BusView(this, () => getRoom() ?? undefined);
+    this.carnavalView = new CarnavalView(this, (sessionId) => this.avatars.get(sessionId));
     this.pool = new PoolView(this);
     this.tina = new TinaView(this);
     this.aguaBrilla = new AguaBrillaView(this);
@@ -663,6 +673,7 @@ export class OfficeScene extends Phaser.Scene {
       () => this.treeLadder.destroy(),
       this.bindVoiceDemand(),
       () => this.busView.destroy(),
+      () => this.carnavalView.destroy(),
       () => this.aquariums.destroy(),
       () => this.postIts.destroy(),
       () => this.trophyCases.destroy(),
@@ -792,6 +803,7 @@ export class OfficeScene extends Phaser.Scene {
     this.critters.update(time, delta);
     this.usables.update();
     this.busView.update(delta);
+    this.carnavalView.update(this.local);
     this.fishing.update(delta);
     this.rods.update();
     this.observatorio.update(time);
@@ -922,6 +934,7 @@ export class OfficeScene extends Phaser.Scene {
       this.rods.setArea(map);
       this.observatorio.setArea(map);
       this.maizal.setArea(map, this.view);
+      this.carnavalView.setArea(map);
       this.fishing.reset();
       this.club.setArea(map, this.view);
       this.eventsView.setArea(map, this.view);
@@ -1009,6 +1022,7 @@ export class OfficeScene extends Phaser.Scene {
     this.rods.setArea(map);
     this.observatorio.setArea(map);
     this.maizal.setArea(map, this.view);
+    this.carnavalView.setArea(map);
     this.club.setArea(map, this.view);
     this.eventsView.setArea(map, this.view);
     this.cinema.setArea(map);
@@ -1313,6 +1327,7 @@ export class OfficeScene extends Phaser.Scene {
     avatar.setRiding(Boolean(player.racing));
     avatar.setSwimming(Boolean(player.swimming));
     avatar.setWet(Boolean(player.wet));
+    avatar.setPowdered(Boolean(player.talco));
     avatar.setBadge(player.badge ?? "");
     avatar.setNeighborLevel(player.vecino ?? 0);
     avatar.setCall(player.call ?? "");
@@ -1351,6 +1366,8 @@ export class OfficeScene extends Phaser.Scene {
       if (isLocal) this.setSwimming(Boolean(value));
     });
     p$.listen("wet", (value) => avatar.setWet(Boolean(value)));
+    // El talco del Carnaval: la cara empolvada un rato.
+    p$.listen("talco", (value) => avatar.setPowdered(Boolean(value)));
     p$.listen("drunk", (value) => {
       const stage = (value ?? 0) as DrunkStage;
       avatar.setDrunk(stage);
@@ -1563,6 +1580,8 @@ export class OfficeScene extends Phaser.Scene {
     const dt = delta / 1000;
     const ts = this.map.tileSize;
     if (this.fishing.busy) return this.updateFishing(avatar, delta, taps);
+    // Bailando en la comparsa del Carnaval me lleva la sala por la calle.
+    if (this.followComparsa(avatar, delta, taps)) return;
     // Saltando del trampolín no se maneja nada hasta caer al agua.
     if (avatar.isDiving) return;
 
@@ -1587,6 +1606,11 @@ export class OfficeScene extends Phaser.Scene {
       if (this.table.kind === "hockey") vx = vy = 0;
       // En el club, E sobre la pista baila o deja de bailar (si no hay otro objeto al lado).
       if (taps.e && !this.seat && !this.table.kind && this.club.tapE(useOfficeStore.getState().interact)) taps.e = false;
+      // En la vereda, junto a la comparsa de la cabaña que pasa: E me suma al desfile.
+      if (taps.e && !this.seat && !this.table.kind && useCarnavalStore.getState().puedoSumarme) {
+        sumarseComparsa();
+        taps.e = false;
+      }
       if (taps.e) {
         // Junto al buzón, el tablón o la barra, E los abre; junto a un mueble que se usa (si le gana al
         // asiento), lo usa; si no, sienta o levanta.
@@ -1598,7 +1622,8 @@ export class OfficeScene extends Phaser.Scene {
         else this.toggleSeat();
       }
       // F: usar lo que se tiene en la mano (el servidor valida que haya algo y la pausa); no en la mesa.
-      if (taps.f && this.local?.holding && !useOfficeStore.getState().decorating && !this.table.kind) sendUseHeld();
+      // Con la maicena o las serpentinas, F se las echa a quien está al lado (Carnaval).
+      if (taps.f && this.local?.holding && !useOfficeStore.getState().decorating && !this.table.kind && !lanzarConF(this.local)) sendUseHeld();
       const editing = useOfficeStore.getState().decorating || useOfficeStore.getState().worldEditing;
       // B: brindar (invitar o sumarse; el servidor valida la bebida, la distancia y la pausa).
       if (taps.b && !editing && !this.table.kind) sendToast();
@@ -1721,6 +1746,30 @@ export class OfficeScene extends Phaser.Scene {
       this.sendAccumulator = 0;
       this.sendPosition(dir, moving);
     }
+  }
+
+  /**
+   * En la comparsa del Carnaval: la sala me lleva por la calle (no se manda posición ni se camina). Mi
+   * personaje sigue a donde dice el servidor, suave; Esc me saca a la vereda.
+   */
+  private followComparsa(avatar: Avatar, delta: number, taps: Taps): boolean {
+    const me = this.localId ? getRoom()?.state.players.get(this.localId) : undefined;
+    if (!me?.comparsa) return false;
+    if (this.path.length || this.pendingInteract || this.pendingUse || this.pendingZone) {
+      this.clearPath();
+      this.pendingInteract = null;
+      this.pendingUse = null;
+      this.pendingZone = null;
+    }
+    if (taps.esc) salirseComparsa();
+    const dx = me.x - avatar.x;
+    const dy = me.y - avatar.y;
+    const k = Math.min(1, delta / 110);
+    if (Math.hypot(dx, dy) > 4 * this.map.tileSize) avatar.setPosition(me.x, me.y);
+    else avatar.setPosition(avatar.x + dx * k, avatar.y + dy * k);
+    avatar.setMotion(me.dir as Direction, me.moving);
+    if (useOfficeStore.getState().interact) useOfficeStore.getState().setInteract(null);
+    return true;
   }
 
   /** Pescando: el personaje queda quieto mirando al agua; E, espacio, clic y Esc manejan la caña. */
@@ -2088,7 +2137,8 @@ export class OfficeScene extends Phaser.Scene {
     const reach = INTERACT_REACH_TILES * this.map.tileSize;
     for (const spec of INTERACTABLES) {
       for (const p of pointsOfType(this.map, spec.point)) {
-        if (Math.hypot(p.x - avatar.x, p.y - avatar.y) <= reach) return spec.kind;
+        if (Math.hypot(p.x - avatar.x, p.y - avatar.y) > reach) continue;
+        return spec.point === "festival_shop" ? (FESTIVAL_SHOP[useOfficeStore.getState().festival.id] ?? spec.kind) : spec.kind;
       }
     }
     // El teléfono es un mueble fijo (no un punto del mapa): se alcanza igual que lo valida el servidor.

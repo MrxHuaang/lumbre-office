@@ -11,7 +11,7 @@ import { CURB_DROP } from "../world/areas/parada";
 import { textMask } from "./digits";
 import { Escena, type Tinte } from "./exterior-escena";
 import { C, mix } from "./palette";
-import { alpha, at, hex, noise, ramp, type Ramp, type RGBA, type Sprite } from "./pixel";
+import { PixelCanvas, alpha, at, hex, noise, ramp, type Ramp, type RGBA, type Sprite } from "./pixel";
 
 /** Cuadros de las piezas que se mueven (el cliente los pasa en bucle). */
 export const CARROZA_FRAMES = 4;
@@ -541,3 +541,32 @@ export const CARNAVAL_DRAW: Record<string, () => Sprite> = {
 export const CARNAVAL_NIGHT: Record<string, (night: boolean) => Sprite> = {
   "farol-carnaval": farolCarnaval,
 };
+
+// ---------- El talco (la maicena) sobre la cara ----------
+
+/**
+ * El polvo de maicena sobre la cara (el talco del Día de Blancos): una capa blanca tramada y translúcida,
+ * más tupida al centro, que se pone encima de la cara del personaje un rato. Nunca oscurece nada.
+ */
+export function talcoCara(): PixelCanvas {
+  const w = 10;
+  const h = 6;
+  const c = new PixelCanvas(w, h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const d = Math.hypot((x - (w - 1) / 2) / (w / 2), (y - (h - 1) / 2) / (h / 2));
+      if (d > 1) continue;
+      if (d > 0.75 && (x + y) % 2) continue;
+      c.set(x, y, alpha(at(BLANCO, 5), d < 0.55 ? 0.62 : 0.4));
+    }
+  return c;
+}
+
+/** Una motita de polvo que cae (o la nubecita del puñado al echarlo). */
+export function talcoPolvo(): PixelCanvas {
+  const c = new PixelCanvas(2, 2);
+  c.set(0, 0, alpha(at(BLANCO, 5), 0.9));
+  c.set(1, 0, alpha(at(BLANCO, 4), 0.7));
+  c.set(0, 1, alpha(at(BLANCO, 4), 0.7));
+  return c;
+}
